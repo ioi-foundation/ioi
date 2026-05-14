@@ -687,6 +687,119 @@ test("workflow run history model projects TUI control state for run inspector", 
   );
 });
 
+test("workflow run history model exposes source-filtered TUI coding-tool budget evidence", () => {
+  const target = {
+    ...runResult("run-a", "blocked", { answer: "budget blocked" }),
+    tuiControlState: {
+      schema_version: "ioi.agent-cli.tui-control-state.v1",
+      surface: "tui",
+      thread_id: "thread-budget",
+      workflow_graph_id: "workflow",
+      current_turn_id: "turn-budget",
+      last_cursor: "events_thread:12",
+      last_event_id: "event-budget",
+      coding_tool_rows: [
+        {
+          id: "budget-row",
+          status: "blocked",
+          command: "events",
+          raw_input: "/events",
+          event_id: "event-budget",
+          cursor: "events_thread:12",
+          thread_id: "thread-budget",
+          turn_id: "turn-budget",
+          workflow_graph_id: "workflow",
+          workflow_node_id: "workflow.coding.file.apply_patch",
+          tool_name: "file.apply_patch",
+          tool_call_id: "tool-call-budget",
+          reason: "coding_tool_budget_exceeded",
+          budget_status: "exceeded",
+          context_budget_status: "blocked",
+          budget_usage_telemetry: {
+            total_tokens: 720,
+            estimated_cost_usd: 0.0042,
+            context_pressure: 0.72,
+          },
+          context_budget: {
+            mode: "block",
+            policy_decision_id: "policy-budget",
+            checks: [{ field: "total_tokens" }],
+            violations: [{ field: "total_tokens" }],
+          },
+          mutation_blocked: true,
+          receipt_refs: ["receipt-budget"],
+          policy_decision_refs: ["policy-budget"],
+        },
+      ],
+      command_history: [
+        {
+          id: "command-events",
+          command: "events",
+          raw_input: "/events 0",
+          status: "applied",
+          sequence: 1,
+        },
+      ],
+    },
+  } as unknown as WorkflowRunResult;
+
+  const model = workflowRunHistoryModel({
+    workflow,
+    runs,
+    lastRunResult: target,
+    compareRunResult: null,
+    selectedRunId: "run-a",
+    compareRunId: null,
+    runEvents: [],
+    searchQuery: "",
+    statusFilter: "all",
+    sourceFilter: "tui_coding_tool_rows",
+  });
+
+  assert.equal(model.runtimeTelemetrySummary.status, "blocked");
+  assert.equal(model.runtimeTelemetrySummary.codingToolBudgetRowCount, 1);
+  assert.ok(
+    model.runtimeTelemetrySummary.sourceKinds.includes("tui_coding_tool_rows"),
+  );
+  assert.equal(model.runtimeTelemetrySourceFilter, "tui_coding_tool_rows");
+  assert.deepEqual(
+    model.runtimeTelemetrySourceFilters.map((source) => [
+      source.sourceKind,
+      source.count,
+      source.active,
+      source.blocksMutation,
+    ]),
+    [["tui_coding_tool_rows", 1, true, true]],
+  );
+  assert.deepEqual(
+    model.visibleTuiControlStateRows.map((row) => [row.rowKind, row.eventId]),
+    [["coding_tool_budget", "event-budget"]],
+  );
+  assert.equal(model.runtimeCodingToolBudgetEvidence?.rowCount, 1);
+  assert.equal(model.runtimeCodingToolBudgetEvidence?.mutationBlocked, true);
+  assert.deepEqual(model.runtimeCodingToolBudgetEvidence?.eventIds, [
+    "event-budget",
+  ]);
+  assert.deepEqual(model.runtimeCodingToolBudgetEvidence?.toolNames, [
+    "file.apply_patch",
+  ]);
+  assert.deepEqual(model.runtimeCodingToolBudgetEvidence?.toolCallIds, [
+    "tool-call-budget",
+  ]);
+  assert.deepEqual(model.runtimeCodingToolBudgetEvidence?.budgetStatuses, [
+    "exceeded",
+  ]);
+  assert.deepEqual(
+    model.runtimeCodingToolBudgetEvidence?.contextBudgetStatuses,
+    ["blocked"],
+  );
+  assert.equal(model.runtimeCodingToolBudgetEvidence?.totalTokens, 720);
+  assert.equal(model.runtimeCodingToolBudgetEvidence?.contextPressure, 0.72);
+  assert.deepEqual(model.runtimeCodingToolBudgetEvidence?.policyDecisionRefs, [
+    "policy-budget",
+  ]);
+});
+
 test("workflow run history model falls back to ambient events without selected run", () => {
   const fallbackEvents = [event("fallback")];
   const model = workflowRunHistoryModel({

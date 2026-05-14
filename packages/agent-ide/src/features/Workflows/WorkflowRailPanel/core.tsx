@@ -477,6 +477,7 @@ export function WorkflowRailPanel({
   const [unitTestSearchQuery, setUnitTestSearchQuery] = useState("");
   const [runSearchQuery, setRunSearchQuery] = useState("");
   const [runStatusFilter, setRunStatusFilter] = useState<string>("all");
+  const [runSourceFilter, setRunSourceFilter] = useState<string>("all");
   const [bindingCheckResults, setBindingCheckResults] = useState<
     Record<string, WorkflowBindingCheckResult>
   >({});
@@ -515,6 +516,7 @@ export function WorkflowRailPanel({
     runtimeThreadEvents,
     searchQuery: runSearchQuery,
     statusFilter: runStatusFilter,
+    sourceFilter: runSourceFilter,
   });
   const productionProfile = workflow.global_config.production ?? {};
   const globalWorkflowChromeLocale = normalizeWorkflowRuntimeLocale(
@@ -3313,11 +3315,13 @@ export function WorkflowRailPanel({
         model={runHistoryModel}
         runSearchQuery={runSearchQuery}
         runStatusFilter={runStatusFilter}
+        runSourceFilter={runSourceFilter}
         checkpoints={checkpoints}
         dogfoodRun={dogfoodRun}
         accessibleStatusLabel={accessibleStatusLabel}
         onRunSearchQueryChange={setRunSearchQuery}
         onRunStatusFilterChange={setRunStatusFilter}
+        onRunSourceFilterChange={setRunSourceFilter}
         onOpenExecutions={onOpenExecutions}
         onSelectRun={onSelectRun}
         onCompareRun={onCompareRun}

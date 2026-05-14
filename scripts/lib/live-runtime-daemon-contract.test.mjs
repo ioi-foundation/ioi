@@ -12551,9 +12551,14 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRunsPanel, /workflow-run-policy-stack/);
   assert.match(workflowRunsPanel, /data-policy-stack-status/);
   assert.match(workflowRunsPanel, /workflow-run-telemetry-summary/);
+  assert.match(workflowRunsPanel, /workflow-run-source-filter/);
+  assert.match(workflowRunsPanel, /workflow-run-coding-tool-budget-evidence/);
+  assert.match(workflowRunsPanel, /workflow-run-telemetry-source-kinds/);
   assert.match(workflowRunsPanel, /data-telemetry-status/);
   assert.match(workflowRunsPanel, /data-context-pressure-event-count/);
   assert.match(workflowRunsPanel, /data-subagent-count/);
+  assert.match(workflowRunsPanel, /data-coding-tool-budget-row-count/);
+  assert.match(workflowRunsPanel, /data-visible-row-count/);
   assert.match(workflowRunsPanel, /onExecuteRuntimeWorkspaceTrustAction/);
   assert.match(workflowRunsPanel, /workflow-run-subagent-subflows/);
   assert.match(workflowRunsPanel, /data-subagent-child-subflow-count/);
@@ -12588,6 +12593,9 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRunHistoryModel, /workflowRuntimeEditProposalPolicyStackFromEvents/);
   assert.match(workflowRunHistoryModel, /runtimeEditProposalPolicyStack/);
   assert.match(workflowRunHistoryModel, /runtimeTelemetrySummary/);
+  assert.match(workflowRunHistoryModel, /runtimeTelemetrySourceFilters/);
+  assert.match(workflowRunHistoryModel, /runtimeCodingToolBudgetEvidence/);
+  assert.match(workflowRunHistoryModel, /visibleTuiControlStateRows/);
   assert.match(workflowRunsPanel, /workflow-run-edit-proposal-policy-stack/);
   assert.match(runtimeDaemon, /proposeWorkflowEdit/);
   assert.match(runtimeDaemon, /applyWorkflowEditProposal/);
