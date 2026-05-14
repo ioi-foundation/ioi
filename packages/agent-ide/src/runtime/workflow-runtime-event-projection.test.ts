@@ -582,6 +582,7 @@ test("projects workflow-run coding budget preflight blocks as coding-tool policy
       payload: {
         eventKind: "WorkflowRunCodingToolBudgetPreflightBlocked",
         reason: "coding_tool_budget_preflight_blocked",
+        runId: "run-budget-preflight",
         status: "blocked",
         summary: "Workflow run blocked by coding-tool budget preflight.",
         budgetStatus: "warning",
@@ -640,6 +641,10 @@ test("projects workflow-run coding budget preflight blocks as coding-tool policy
   assert.equal(
     node?.codingToolBudgetRecoveryActions[1]?.eventId,
     "event-workflow-run-preflight-blocked",
+  );
+  assert.equal(
+    node?.codingToolBudgetRecoveryActions[1]?.runId,
+    "run-budget-preflight",
   );
   assert.equal(
     node?.codingToolBudgetRecoveryActions[1]?.recoveryPolicy?.approvalScope,

@@ -194,8 +194,43 @@ workstream was narrower.
 | 192 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget recovery approval/retry path | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery/2026-05-14T04-45-12-309Z/result.json |
 | 193 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget recovery policy authoring | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-policy/2026-05-14T05-03-31-611Z/result.json |
 | 194 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | React Flow coding-tool budget recovery control node | scripts/lib/live-runtime-daemon-contract.test.mjs |
+| 195 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget recovery subflow materialization | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-subflow/2026-05-14T12-37-46-850Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 195. 2026-05-14 - Coding-tool budget recovery subflow materialization
+
+Implementation slice completed 2026-05-14, P1-D/P0-B React Flow run-inspector
+subflow materialization:
+
+- Added a typed recovery-subflow factory that expands a blocked
+  `coding_tool_budget` row into request approval, approve override, reject
+  override, and approved retry `runtime_coding_tool_budget_recovery` nodes.
+- Preserved run id, thread id, source/blocked event ids, workflow graph id,
+  source workflow node id, approval id, target node ids, recovery policy, and
+  generated workflow node ids in each inserted recovery control node.
+- Added semantic graph edges for the approval path, rejection path, and approved
+  retry path so the workflow creator gets an editable subflow rather than a
+  flat button-only recovery action.
+- Wired React Flow run-inspector rows with a `Create recovery subflow`
+  affordance that inserts the generated nodes near the blocked target node,
+  switches back to the graph, opens the request node config, and marks the
+  workflow dirty.
+- Extended source-contract coverage and package exports so the subflow helper,
+  run-inspector button, controller callback, and view/rail wiring remain
+  workflow-addressable.
+- Updated the master guide so the next slice is proving the generated subflow
+  as an executable workflow template against the daemon recovery route.
+
+Validation evidence:
+
+- `node --import tsx --test --test-reporter=spec packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-subflow.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `npm run build -w packages/agent-ide`
+- `node --test --test-reporter=spec --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `git diff --check`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-subflow`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-subflow/2026-05-14T12-37-46-850Z/result.json`.
 
 ### Slice 194. 2026-05-14 - React Flow coding-tool budget recovery control node
 

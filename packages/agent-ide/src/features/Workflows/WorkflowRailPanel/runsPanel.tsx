@@ -49,7 +49,21 @@ type WorkflowRunsPanelProps = {
   onExecuteRuntimeCodingToolBudgetRecovery?: (
     action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   ) => void | Promise<void>;
+  onCreateRuntimeCodingToolBudgetRecoverySubflow?: (
+    action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
+  ) => void;
 };
+
+function codingToolBudgetRecoverySubflowSeed(
+  actions: readonly WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor[],
+): WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor | null {
+  return (
+    actions.find((action) => action.action === "request_approval") ??
+    actions.find((action) => action.action === "approve_override") ??
+    actions[0] ??
+    null
+  );
+}
 
 export function WorkflowRunsPanel({
   workflow,
@@ -71,6 +85,7 @@ export function WorkflowRunsPanel({
   onExecuteRuntimeContextPressureAction,
   onExecuteRuntimeWorkspaceTrustAction,
   onExecuteRuntimeCodingToolBudgetRecovery,
+  onCreateRuntimeCodingToolBudgetRecoverySubflow,
 }: WorkflowRunsPanelProps) {
   const {
     totalRuns,
@@ -889,6 +904,46 @@ export function WorkflowRunsPanel({
                             node.data.codingToolBudgetRecoveryActions.length
                           }
                         >
+                          {(() => {
+                            const subflowSeed =
+                              codingToolBudgetRecoverySubflowSeed(
+                                node.data.codingToolBudgetRecoveryActions,
+                              );
+                            return subflowSeed ? (
+                              <button
+                                type="button"
+                                className="workflow-secondary-action"
+                                data-testid={`workflow-run-coding-tool-budget-recovery-subflow-${node.id}`}
+                                data-source-event-id={
+                                  subflowSeed.sourceEventId ?? ""
+                                }
+                                data-event-id={subflowSeed.eventId}
+                                data-run-id={subflowSeed.runId ?? ""}
+                                data-thread-id={subflowSeed.threadId}
+                                data-workflow-graph-id={
+                                  subflowSeed.workflowGraphId ?? ""
+                                }
+                                data-workflow-node-id={
+                                  subflowSeed.workflowNodeId
+                                }
+                                data-target-node-ids={
+                                  subflowSeed.targetNodeIds.join("|")
+                                }
+                                disabled={
+                                  !onCreateRuntimeCodingToolBudgetRecoverySubflow
+                                }
+                                title="Create a prewired React Flow recovery sequence from this blocked budget row."
+                                aria-label="Create coding-tool budget recovery subflow"
+                                onClick={() => {
+                                  onCreateRuntimeCodingToolBudgetRecoverySubflow?.(
+                                    subflowSeed,
+                                  );
+                                }}
+                              >
+                                Create recovery subflow
+                              </button>
+                            ) : null;
+                          })()}
                           {node.data.codingToolBudgetRecoveryActions.map((action) => (
                             <button
                               key={action.id}
@@ -899,6 +954,7 @@ export function WorkflowRunsPanel({
                               data-action={action.action}
                               data-action-status={action.status}
                               data-thread-id={action.threadId}
+                              data-run-id={action.runId ?? ""}
                               data-workflow-graph-id={
                                 action.workflowGraphId ?? ""
                               }

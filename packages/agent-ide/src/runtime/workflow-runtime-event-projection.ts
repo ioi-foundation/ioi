@@ -160,6 +160,7 @@ export interface WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor {
   summary: string | null;
   status: string;
   executable: boolean;
+  runId: string | null;
   threadId: string;
   workflowGraphId: string | null;
   workflowNodeId: string;
@@ -2511,6 +2512,11 @@ function codingToolBudgetRecoveryActionsForEvents(
   const sourceEventId =
     stringField(blockedEvent.payload, "sourceEventId", "source_event_id") ??
     blockedEvent.id;
+  const runId =
+    stringField(blockedEvent.payload, "runId", "run_id") ??
+    stringField(blockedEvent.payload, "requestId", "request_id") ??
+    stringField(latestEvent.payload, "runId", "run_id") ??
+    stringField(latestEvent.payload, "requestId", "request_id");
   const targetNodeIds = uniqueStrings([
     ...stringArrayField(blockedEvent.payload, "targetNodeIds", "target_node_ids"),
     ...stringArrayField(
@@ -2585,6 +2591,7 @@ function codingToolBudgetRecoveryActionsForEvents(
   ]);
   const base = {
     schemaVersion: WORKFLOW_RUNTIME_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
+    runId,
     threadId: blockedEvent.threadId,
     workflowGraphId: blockedEvent.workflowGraphId ?? latestEvent.workflowGraphId,
     workflowNodeId: blockedEvent.workflowNodeId ?? "runtime.coding-tool-budget-preflight",

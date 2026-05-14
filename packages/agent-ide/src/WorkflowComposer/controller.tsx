@@ -127,6 +127,7 @@ import {
   createRuntimeWorkspaceTrustAcknowledgementControlRequest,
 } from "../runtime/workflow-runtime-control-nodes";
 import { createRuntimeSubagentControlRequest } from "../runtime/workflow-runtime-subagent-control-nodes";
+import { createWorkflowRuntimeCodingToolBudgetRecoverySubflow } from "../runtime/workflow-runtime-coding-tool-budget-recovery-subflow";
 import type {
   WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   WorkflowRuntimeContextPressureActionDescriptor,
@@ -9766,6 +9767,7 @@ export function useWorkflowComposerController({
       const codingToolBudgetRecovery = {
         schemaVersion: WORKFLOW_RUNTIME_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
         action: action.action,
+        runId: action.runId,
         sourceEventId: action.sourceEventId ?? action.eventId,
         blockedEventId: action.eventId,
         approvalId: action.approvalId,
@@ -9906,6 +9908,90 @@ export function useWorkflowComposerController({
       metadata: { ...current.metadata, dirty: true },
     }));
   }, [isReadOnlyWorkflow]);
+
+  const handleCreateRuntimeCodingToolBudgetRecoverySubflow = useCallback(
+    (action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor) => {
+      if (isReadOnlyWorkflow) {
+        setStatusMessage(
+          "Read-only harness graph cannot be edited. Fork it first.",
+        );
+        return;
+      }
+      const targetNodeId = action.targetNodeIds[0] ?? action.workflowNodeId;
+      const targetFlowNode = nodes.find(
+        (flowNode) =>
+          flowNode.id === targetNodeId ||
+          (flowNode.data as Node | undefined)?.id === targetNodeId,
+      );
+      const fallbackColumn = nodes.length % 4;
+      const fallbackRow = Math.floor(nodes.length / 4);
+      const origin = targetFlowNode
+        ? {
+            x: targetFlowNode.position.x + 340,
+            y: targetFlowNode.position.y,
+          }
+        : {
+            x: 160 + fallbackColumn * 300,
+            y: 180 + fallbackRow * 180,
+          };
+      const subflow = createWorkflowRuntimeCodingToolBudgetRecoverySubflow(
+        action,
+        {
+          idPrefix: `coding-budget-recovery-${slugify(action.eventId)}-${Date.now()}`,
+          origin,
+        },
+      );
+      setNodes((currentNodes) => [
+        ...currentNodes,
+        ...subflow.nodes.map(
+          (node): ReactFlowNode => ({
+            id: node.id,
+            type: node.type,
+            position: { x: node.x, y: node.y },
+            data: { ...node },
+          }),
+        ),
+      ]);
+      setEdges((currentEdges) => [
+        ...currentEdges,
+        ...subflow.edges.map(
+          (edge): ReactFlowEdge => ({
+            id: edge.id,
+            source: edge.from,
+            target: edge.to,
+            sourceHandle: edge.fromPort,
+            targetHandle: edge.toPort,
+            type: "semantic",
+            animated: false,
+            data: {
+              ...(edge.data ?? {}),
+              connectionClass: edge.connectionClass ?? edge.type,
+            },
+          }),
+        ),
+      ]);
+      markWorkflowDirty();
+      setActiveTab("graph");
+      setBottomPanel("selection");
+      handleNodeSelect(subflow.requestNodeId);
+      setNodeConfigInitialSection(
+        workflowConfigSectionForNodeKind("runtime_coding_tool_budget_recovery"),
+      );
+      setNodeConfigOpen(true);
+      setStatusMessage(
+        `Coding budget recovery subflow added for ${action.runId ?? action.eventId}`,
+      );
+    },
+    [
+      handleNodeSelect,
+      isReadOnlyWorkflow,
+      markWorkflowDirty,
+      nodes,
+      setEdges,
+      setNodes,
+      slugify,
+    ],
+  );
 
   const guardedOnNodesChange = useCallback(
     (...args: Parameters<typeof onNodesChange>) => {
@@ -14017,6 +14103,7 @@ export function useWorkflowComposerController({
     handleExecuteRuntimeContextPressureAction,
     handleExecuteRuntimeWorkspaceTrustAction,
     handleExecuteRuntimeCodingToolBudgetRecovery,
+    handleCreateRuntimeCodingToolBudgetRecoverySubflow,
     handleExecuteHarnessRollback,
     handleExpandHarnessGroups,
     handleExportPortablePackage,
