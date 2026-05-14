@@ -186,8 +186,41 @@ workstream was narrower.
 | 184 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool summary-budget enforcement | /tmp/ioi-autopilot-gui-harness-coding-tool-summary-budget/2026-05-14T02-47-09-164Z/result.json |
 | 185 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget-block inspector projection | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-projection/2026-05-14T03-03-00-641Z/result.json |
 | 186 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack | CLI/TUI coding-tool budget-row producer | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-tui-producer/2026-05-14T03-19-32-015Z/result.json |
+| 187 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget telemetry-summary aggregation | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-telemetry-summary/2026-05-14T03-27-24-067Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 187. 2026-05-14 - Coding-tool budget telemetry-summary aggregation
+
+Implementation slice completed 2026-05-14, P1-D/P0-B coding-tool budget
+telemetry-summary aggregation:
+
+- Added `codingToolBudgetRowCount` and the `tui_coding_tool_rows` source kind
+  to `workflowRuntimeTelemetrySummaryFromProjection`.
+- Summarized token, cost, context-pressure, source refs, policy refs, workflow
+  node ids, and event ids from `coding_tool_budget` TUI rows, and treated
+  blocked/exceeded coding-tool budget rows as blocked telemetry-summary status.
+- Exposed the telemetry summary coding-tool budget row count on the Runs rail
+  summary surface so workflow UI proofs can assert the aggregation path.
+- Added focused telemetry-summary coverage proving a TUI `coding_tool_budget`
+  row becomes a downstream React Flow coding-tool budget usage source.
+- Extended the live daemon coding-tool summary-budget proof so an actual
+  CLI/TUI budget row feeds a telemetry summary and blocks a follow-up
+  coding-tool invocation before mutation.
+- Updated source-contract guards and the master guide queue so the next P1-D
+  slice narrows to operator-visible run-history/readiness evidence for
+  `tui_coding_tool_rows`.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow coding-tool budget gates consume runtime telemetry summary before mutation" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-budget-telemetry-summary`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-coding-tool-budget-telemetry-summary/2026-05-14T03-27-24-067Z/result.json`.
 
 ### Slice 186. 2026-05-14 - CLI/TUI coding-tool budget-row producer
 

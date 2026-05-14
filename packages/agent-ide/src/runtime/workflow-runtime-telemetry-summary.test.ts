@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createRuntimeCodingToolControlRequestFromWorkflowNode } from "./workflow-runtime-coding-tool-control-nodes";
 import { projectRuntimeTuiControlStateToWorkflowProjection } from "./workflow-runtime-event-projection";
 import type { WorkflowRuntimeThreadEventLike } from "./workflow-runtime-event-projection";
 import {
@@ -139,10 +140,135 @@ test("workflow runtime telemetry summary merges usage, context, TUI, and subagen
   assert.equal(summary.costRowCount, 1);
   assert.equal(summary.contextRowCount, 1);
   assert.equal(summary.subagentRowCount, 1);
+  assert.equal(summary.codingToolBudgetRowCount, 0);
   assert.ok(summary.sourceKinds.includes("runtime_usage_events"));
   assert.ok(summary.sourceKinds.includes("tui_subagent_rows"));
   assert.ok(summary.workflowNodeIds.includes("runtime.usage-meter"));
   assert.ok(summary.workflowNodeIds.includes("runtime.context-budget"));
+});
+
+test("workflow runtime telemetry summary folds TUI coding-tool budget rows into downstream budget controls", () => {
+  const tuiProjection = projectRuntimeTuiControlStateToWorkflowProjection({
+    thread_id: "thread-coding-budget-tui",
+    workflow_graph_id: "workflow.react-flow.coding-tool-summary-budget",
+    current_turn_id: "turn-coding-budget-tui",
+    last_cursor: "events_thread_budget:14",
+    last_event_id: "event-coding-budget-blocked",
+    coding_tool_rows: [
+      {
+        id: "coding-tool-budget-row",
+        row_kind: "coding_tool_budget",
+        status: "blocked",
+        tool_name: "file.apply_patch",
+        tool_call_id: "coding_tool_summary_budget_blocked",
+        workflow_graph_id: "workflow.react-flow.coding-tool-summary-budget",
+        workflow_node_id: "workflow.coding.file.apply_patch.summary-budget",
+        event_id: "event-coding-budget-blocked",
+        cursor: "events_thread_budget:14",
+        receipt_refs: [
+          "receipt_coding_tool_file_apply_patch_budget",
+          "receipt_context_budget_thread_budget",
+        ],
+        policy_decision_refs: ["policy_context_budget_thread_budget_blocked"],
+        budget_status: "exceeded",
+        context_budget_status: "blocked",
+        mutation_blocked: true,
+        result_summary: {
+          status: "blocked",
+          reason: "coding_tool_budget_exceeded",
+        },
+        context_budget: {
+          status: "blocked",
+          mode: "block",
+          policy_decision_id: "policy_context_budget_thread_budget_blocked",
+          checks: [
+            { id: "total_tokens", severity: "violation", actual: 720, limit: 100 },
+          ],
+          violations: [
+            { id: "total_tokens", severity: "violation", actual: 720, limit: 100 },
+          ],
+          usage_summary: {
+            total_tokens: 720,
+            estimated_cost_usd: 0.0042,
+            context_pressure: 0.72,
+          },
+        },
+      },
+    ],
+  });
+
+  const summary = workflowRuntimeTelemetrySummaryFromProjection({
+    tuiControlStateProjection: tuiProjection,
+  });
+
+  assert.equal(summary.status, "blocked");
+  assert.equal(summary.totalTokens, 720);
+  assert.equal(summary.costEstimateUsd, 0.0042);
+  assert.equal(summary.contextPressure, 0.72);
+  assert.equal(summary.contextPressureStatus, "blocked");
+  assert.equal(summary.codingToolBudgetRowCount, 1);
+  assert.ok(summary.sourceKinds.includes("tui_coding_tool_rows"));
+  assert.ok(
+    summary.workflowNodeIds.includes(
+      "workflow.coding.file.apply_patch.summary-budget",
+    ),
+  );
+  assert.ok(summary.eventIds.includes("event-coding-budget-blocked"));
+  assert.deepEqual(summary.receiptRefs, [
+    "receipt_coding_tool_file_apply_patch_budget",
+    "receipt_context_budget_thread_budget",
+  ]);
+  assert.deepEqual(summary.policyDecisionRefs, [
+    "policy_context_budget_thread_budget_blocked",
+  ]);
+
+  const control = createRuntimeCodingToolControlRequestFromWorkflowNode(
+    {
+      id: "node-budgeted-file-patch-from-tui-summary",
+      type: "plugin_tool",
+      config: {
+        logic: {
+          toolBinding: {
+            toolRef: "file.apply_patch",
+            bindingKind: "coding_tool_pack",
+            arguments: {
+              path: "README.md",
+              oldText: "before",
+              newText: "after",
+            },
+            toolPack: {
+              pack: "coding",
+              writeEnabled: true,
+              budgetMode: "block",
+              budgetUsageField: "runtimeTelemetrySummary",
+              maxTotalTokens: 100,
+            },
+          },
+        },
+      },
+    } as any,
+    {
+      threadId: "thread-coding-budget-tui",
+      runtimeTelemetrySummary: summary,
+    },
+    { workflowGraphId: "workflow.react-flow.coding-tool-summary-budget" },
+  );
+  const budgetUsageTelemetry = control.body.budgetUsageTelemetry as Record<
+    string,
+    unknown
+  >;
+
+  assert.equal(control.body.budgetMode, "block");
+  assert.equal(budgetUsageTelemetry.total_tokens, 720);
+  assert.equal(budgetUsageTelemetry.estimated_cost_usd, 0.0042);
+  assert.equal(budgetUsageTelemetry.context_pressure, 0.72);
+  assert.equal(budgetUsageTelemetry.context_pressure_status, "blocked");
+  assert.deepEqual(budgetUsageTelemetry.source_refs, [
+    "event-coding-budget-blocked",
+  ]);
+  assert.deepEqual(budgetUsageTelemetry.policy_decision_refs, [
+    "policy_context_budget_thread_budget_blocked",
+  ]);
 });
 
 test("workflow runtime telemetry summary marks blocked context pressure", () => {
