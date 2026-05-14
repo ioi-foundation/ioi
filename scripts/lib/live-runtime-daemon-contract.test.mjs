@@ -2414,6 +2414,131 @@ test("React Flow coding-tool approval manifests survive approval and retry execu
   }
 });
 
+test("React Flow coding-tool budget gates consume runtime telemetry summary before mutation", async () => {
+  const { createRuntimeCodingToolControlRequestFromWorkflowNode } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-coding-budget-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-coding-budget-state-"));
+  const targetPath = path.join(cwd, "README.md");
+  fs.writeFileSync(targetPath, "Budget gate keeps this line.\n");
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const workflowGraphId = "workflow.react-flow.coding-tool-summary-budget";
+    const workflowNodeId = "workflow.coding.file.apply_patch.summary-budget";
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        goal: "Prove runtime telemetry summary blocks coding tool mutation before execution.",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const telemetrySummary = {
+      schemaVersion: "ioi.workflow.runtime-telemetry-summary.v1",
+      status: "elevated",
+      sourceKinds: ["runtime_usage_events"],
+      threadIds: [thread.thread_id],
+      turnIds: ["turn_coding_tool_budget"],
+      workflowGraphIds: [workflowGraphId],
+      eventIds: ["evt_coding_tool_budget_usage"],
+      inputTokens: 420,
+      outputTokens: 300,
+      totalTokens: 720,
+      costEstimateUsd: 0.0042,
+      contextPressure: 0.72,
+      contextPressureStatus: "elevated",
+      runCount: 1,
+      subagentCount: 0,
+      receiptRefs: ["receipt_coding_tool_budget_usage"],
+      policyDecisionRefs: ["policy_context_budget_coding_tool_usage"],
+    };
+    const control = createRuntimeCodingToolControlRequestFromWorkflowNode(
+      {
+        id: "react-flow-coding-tool-summary-budget",
+        type: "plugin_tool",
+        config: {
+          logic: {
+            workflowNodeId,
+            toolBinding: {
+              toolRef: "file.apply_patch",
+              bindingKind: "coding_tool_pack",
+              mockBinding: false,
+              credentialReady: true,
+              capabilityScope: ["file.apply_patch"],
+              sideEffectClass: "write",
+              requiresApproval: false,
+              arguments: {
+                path: "README.md",
+                oldText: "Budget gate keeps this line.",
+                newText: "Budget gate should not allow mutation.",
+              },
+              toolPack: {
+                pack: "coding",
+                writeEnabled: true,
+                dryRun: false,
+                approvalMode: "suggest",
+                trustProfile: "local_private",
+                nodeApprovalOverride: "inherit",
+                requiresApproval: false,
+                budgetMode: "block",
+                budgetUsageField: "runtimeTelemetrySummary",
+                maxTotalTokens: 100,
+                maxCostUsd: 1,
+                maxContextPressure: 1,
+              },
+            },
+          },
+        },
+      },
+      { threadId: thread.thread_id, runtimeTelemetrySummary: telemetrySummary },
+      { workflowGraphId, actor: "workflow-author" },
+    );
+    assert.equal(control.body.budgetMode, "block");
+    assert.equal(control.body.budgetUsageTelemetry.total_tokens, 720);
+    assert.equal(control.body.thresholds.maxTotalTokens, 100);
+
+    const blocked = await fetchJsonStatus(`${daemon.endpoint}${control.endpoint}`, {
+      method: control.method,
+      body: JSON.stringify({
+        ...control.body,
+        tool_call_id: "coding_tool_summary_budget_blocked",
+        toolCallId: "coding_tool_summary_budget_blocked",
+      }),
+    });
+    assert.equal(blocked.status, 403);
+    assert.equal(blocked.body.error.code, "policy");
+    assert.equal(blocked.body.error.details.reason, "coding_tool_budget_exceeded");
+    assert.equal(blocked.body.error.details.budget_status, "exceeded");
+    assert.equal(blocked.body.error.details.context_budget_status, "blocked");
+    assert.equal(
+      blocked.body.error.details.budget_usage_telemetry.total_tokens,
+      telemetrySummary.totalTokens,
+    );
+    assert.ok(
+      blocked.body.error.details.policy_decision_refs.some((ref) =>
+        ref.startsWith("policy_context_budget_thread_"),
+      ),
+    );
+    assert.equal(fs.readFileSync(targetPath, "utf8"), "Budget gate keeps this line.\n");
+
+    const events = await fetchSseEvents(`${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`);
+    const budgetEvent = events.find(
+      (event) =>
+        event.event_kind === "policy.blocked" &&
+        event.component_kind === "coding_tool" &&
+        event.workflow_node_id === workflowNodeId,
+    );
+    assert.ok(budgetEvent);
+    assert.equal(budgetEvent.status, "blocked");
+    assert.equal(budgetEvent.source_event_kind, "CodingTool.FileApplyPatch");
+    assert.equal(budgetEvent.workflow_graph_id, workflowGraphId);
+    assert.equal(budgetEvent.payload_summary.error.code, "coding_tool_budget_exceeded");
+    assert.equal(budgetEvent.payload_summary.budget_usage_telemetry.total_tokens, 720);
+    assert.ok(budgetEvent.policy_decision_refs[0].startsWith("policy_context_budget_thread_"));
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("React Flow policy stack replays workspace trust and coding approval gates in order", async () => {
   const { Thread, createRuntimeSubstrateClient } = await importSdk();
   const {
@@ -11376,6 +11501,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     path.join(root, "packages/runtime-daemon/src/index.mjs"),
     "utf8",
   );
+  const runtimeCodingTools = fs.readFileSync(
+    path.join(root, "packages/runtime-daemon/src/coding-tools.mjs"),
+    "utf8",
+  );
   const runtimeUsageTelemetry = fs.readFileSync(
     path.join(root, "packages/runtime-daemon/src/usage-telemetry.mjs"),
     "utf8",
@@ -11993,6 +12122,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeCodingToolControlNodes, /\/v1\/threads\/\$\{encodeSegment\(threadId\)\}\/tools\/\$\{encodeSegment\(toolId\)\}\/invoke/);
   assert.match(workflowRuntimeCodingToolControlNodes, /nodeApprovalOverride/);
   assert.match(workflowRuntimeCodingToolControlNodes, /trustProfile/);
+  assert.match(workflowRuntimeCodingToolControlNodes, /runtimeTelemetrySummary/);
+  assert.match(workflowRuntimeCodingToolControlNodes, /budgetUsageTelemetry/);
+  assert.match(workflowRuntimeCodingToolControlNodes, /workflowRuntimeTelemetrySummaryToUsageTelemetry/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-coding-tool-pack-budget-mode/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-coding-tool-pack-budget-usage-field/);
+  assert.match(runtimeCodingTools, /toolPack\.coding\.budgetUsageField/);
+  assert.match(runtimeCodingTools, /toolPack\.coding\.maxTotalTokens/);
   assert.match(workflowRuntimeEditProposalControlNodes, /createRuntimeWorkflowEditProposalControlRequestFromWorkflowNode/);
   assert.match(workflowRuntimeEditProposalControlNodes, /workflow-edit-proposals/);
   assert.match(workflowRuntimeEditProposalControlNodes, /proposal_only/);
@@ -12307,6 +12443,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(runtimeDaemon, /codingToolApprovalManifestForThread/);
   assert.match(runtimeDaemon, /codingToolApprovalSatisfaction/);
   assert.match(runtimeDaemon, /codingToolApprovalManifestsMatch/);
+  assert.match(runtimeDaemon, /codingToolBudgetPolicyForRequest/);
+  assert.match(runtimeDaemon, /coding_tool_budget_exceeded/);
   assert.match(runtimeDaemon, /workflow_node_requires_approval/);
   assert.match(runtimeDaemon, /workflow_trust_profile_requires_approval/);
   assert.match(runtimeDaemon, /approval_decision_event_id/);

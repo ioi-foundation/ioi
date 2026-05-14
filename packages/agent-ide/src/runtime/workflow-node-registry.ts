@@ -4764,6 +4764,14 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
       },
     },
   });
+  const codingToolBudgetToolPackDefaults = {
+    budgetMode: "simulate",
+    budgetUsageField: "runtimeTelemetrySummary",
+    maxTotalTokens: null,
+    maxCostUsd: null,
+    maxContextPressure: null,
+    warnAtRatio: 0.8,
+  };
   const codingToolPack = creatorDefinition("plugin_tool", {
     creatorId: "plugin_tool.coding_pack",
     label: "Coding tool pack",
@@ -4790,6 +4798,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
         arguments: {},
         toolPack: {
           pack: "coding",
+          ...codingToolBudgetToolPackDefaults,
           workspaceStatusEnabled: true,
           gitEnabled: true,
           filesystemEnabled: true,
@@ -4834,6 +4843,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
         arguments: {},
         toolPack: {
           pack: "coding",
+          ...codingToolBudgetToolPackDefaults,
           gitEnabled: true,
           allowedPaths: [],
         },
@@ -4857,6 +4867,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
         arguments: {},
         toolPack: {
           pack: "coding",
+          ...codingToolBudgetToolPackDefaults,
           filesystemEnabled: true,
           allowedPaths: [],
         },
@@ -4880,6 +4891,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
         arguments: {},
         toolPack: {
           pack: "coding",
+          ...codingToolBudgetToolPackDefaults,
           filesystemEnabled: true,
           writeEnabled: true,
           dryRun: true,
@@ -4913,6 +4925,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
         arguments: { commandId: "node.test" },
         toolPack: {
           pack: "coding",
+          ...codingToolBudgetToolPackDefaults,
           testEnabled: true,
           allowedTestCommandIds: ["node.test", "npm.test", "cargo.test", "cargo.check"],
           timeoutMs: 60000,
@@ -4938,6 +4951,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
         arguments: { commandId: "auto" },
         toolPack: {
           pack: "coding",
+          ...codingToolBudgetToolPackDefaults,
           diagnosticsEnabled: true,
           allowedDiagnosticCommandIds: ["auto", "node.check", "typescript.check"],
           diagnosticsMode: "advisory",
@@ -4969,6 +4983,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
         arguments: {},
         toolPack: {
           pack: "coding",
+          ...codingToolBudgetToolPackDefaults,
           artifactEnabled: true,
           resultRetrievalEnabled: true,
         },
@@ -4992,6 +5007,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
         arguments: {},
         toolPack: {
           pack: "coding",
+          ...codingToolBudgetToolPackDefaults,
           artifactEnabled: true,
           resultRetrievalEnabled: true,
         },

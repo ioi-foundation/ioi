@@ -56,6 +56,12 @@ export function WorkflowNodeBindingSections({
     allowedDiagnosticCommandIds: ["auto", "node.check", "typescript.check"],
     diagnosticsMode: "advisory" as const,
     defaultDiagnosticCommandId: "auto",
+    budgetMode: "simulate" as "simulate" | "warn" | "block",
+    budgetUsageField: "runtimeTelemetrySummary",
+    maxTotalTokens: null as number | null,
+    maxCostUsd: null as number | null,
+    maxContextPressure: null as number | null,
+    warnAtRatio: 0.8,
     restorePolicy: "apply_with_approval" as const,
     restoreConflictPolicy: "block" as const,
     diagnosticsRepairDefault: "repair_retry" as const,
@@ -3256,6 +3262,113 @@ export function WorkflowNodeBindingSections({
                     updateCodingToolPack({
                       ...codingToolPack,
                       defaultDiagnosticCommandId: event.target.value.trim(),
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Budget mode
+                <select
+                  data-testid="workflow-coding-tool-pack-budget-mode"
+                  value={String(codingToolPack.budgetMode ?? "simulate")}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      budgetMode: event.target.value as
+                        | "simulate"
+                        | "warn"
+                        | "block",
+                    })
+                  }
+                >
+                  <option value="simulate">Simulate</option>
+                  <option value="warn">Warn</option>
+                  <option value="block">Block</option>
+                </select>
+              </label>
+              <label>
+                Budget usage field
+                <input
+                  data-testid="workflow-coding-tool-pack-budget-usage-field"
+                  value={String(
+                    codingToolPack.budgetUsageField ?? "runtimeTelemetrySummary",
+                  )}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      budgetUsageField:
+                        event.target.value.trim() || "runtimeTelemetrySummary",
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Max total tokens
+                <input
+                  data-testid="workflow-coding-tool-pack-max-total-tokens"
+                  type="number"
+                  min={1}
+                  value={codingToolPack.maxTotalTokens ?? ""}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      maxTotalTokens: event.target.value
+                        ? Number(event.target.value)
+                        : null,
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Max cost USD
+                <input
+                  data-testid="workflow-coding-tool-pack-max-cost-usd"
+                  type="number"
+                  min={0}
+                  step={0.000001}
+                  value={codingToolPack.maxCostUsd ?? ""}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      maxCostUsd: event.target.value
+                        ? Number(event.target.value)
+                        : null,
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Max context pressure
+                <input
+                  data-testid="workflow-coding-tool-pack-max-context-pressure"
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={codingToolPack.maxContextPressure ?? ""}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      maxContextPressure: event.target.value
+                        ? Number(event.target.value)
+                        : null,
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Warn at ratio
+                <input
+                  data-testid="workflow-coding-tool-pack-warn-at-ratio"
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={Number(codingToolPack.warnAtRatio ?? 0.8)}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      warnAtRatio: Number(event.target.value || 0.8),
                     })
                   }
                 />

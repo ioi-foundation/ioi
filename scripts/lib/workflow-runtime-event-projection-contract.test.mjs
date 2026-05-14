@@ -27,6 +27,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const contextBudgetControlNodes = read(
     "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.ts",
   );
+  const codingToolControlNodes = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
+  );
   const compactionPolicyControlNodes = read(
     "packages/agent-ide/src/runtime/workflow-runtime-compaction-policy-control-nodes.ts",
   );
@@ -38,6 +41,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   const contextBudgetControlNodesTest = read(
     "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts",
+  );
+  const codingToolControlNodesTest = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts",
   );
   const compactionPolicyControlNodesTest = read(
     "packages/agent-ide/src/runtime/workflow-runtime-compaction-policy-control-nodes.test.ts",
@@ -166,6 +172,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(contextBudgetControlNodes, /runtime_context_budget/);
   assert.match(contextBudgetControlNodes, /\/v1\/threads\/\{threadId\}\/context-budget/);
   assert.match(contextBudgetControlNodes, /RuntimeContextBudget\.Evaluate/);
+  assert.match(codingToolControlNodes, /createRuntimeCodingToolControlRequestFromWorkflowNode/);
+  assert.match(codingToolControlNodes, /runtimeTelemetrySummary/);
+  assert.match(codingToolControlNodes, /budgetUsageTelemetry/);
+  assert.match(codingToolControlNodes, /workflowRuntimeTelemetrySummaryToUsageTelemetry/);
   assert.match(compactionPolicyControlNodes, /createRuntimeCompactionPolicyControlRequestFromWorkflowNode/);
   assert.match(compactionPolicyControlNodes, /runtime_compaction_policy/);
   assert.match(compactionPolicyControlNodes, /\/v1\/threads\/\{threadId\}\/compaction-policy/);
@@ -176,6 +186,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(controlNodesTest, /React Flow daemon request/);
   assert.match(usageControlNodesTest, /workflow\.react-flow\.usage-meter-proof/);
   assert.match(contextBudgetControlNodesTest, /workflow\.react-flow\.context-budget-proof/);
+  assert.match(codingToolControlNodesTest, /runtime telemetry summary budget gates/);
   assert.match(compactionPolicyControlNodesTest, /workflow\.react-flow\.compaction-policy-proof/);
   assert.match(controlNodesTest, /workflow\.react-flow\.thread-fork-proof/);
   assert.match(controlNodesTest, /workflow\.react-flow\.operator-interrupt-proof/);

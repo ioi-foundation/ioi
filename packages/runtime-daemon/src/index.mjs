@@ -6813,6 +6813,52 @@ export class AgentgresRuntimeStateStore {
       diagnosticsRepairContextForRequest(request) ??
       diagnosticsRepairContextForToolPack(request, input, normalizedToolId);
     const toolContract = codingToolContracts().find((tool) => tool.stableToolId === normalizedToolId);
+    const budgetPolicy = codingToolBudgetPolicyForRequest({
+      request,
+      threadId,
+      toolId: normalizedToolId,
+      toolCallId,
+      workflowGraphId,
+      workflowNodeId,
+    });
+    if (budgetPolicy?.status === "blocked") {
+      const blocked = this.blockCodingToolForBudget({
+        agent,
+        threadId,
+        turnId,
+        toolId: normalizedToolId,
+        toolCallId,
+        receiptId,
+        input,
+        request,
+        workflowGraphId,
+        workflowNodeId,
+        requestRollbackRefs,
+        diagnosticsRepairContext,
+        budgetPolicy,
+        toolContract,
+        codingToolIdempotencyKey,
+      });
+      throw policyError("Coding tool budget limit exceeded.", {
+        threadId,
+        toolId: normalizedToolId,
+        tool_call_id: toolCallId,
+        reason: "coding_tool_budget_exceeded",
+        budget_status: "exceeded",
+        context_budget_status: budgetPolicy.status,
+        contextBudgetStatus: budgetPolicy.status,
+        context_budget: budgetPolicy,
+        contextBudget: budgetPolicy,
+        budget_usage_telemetry: budgetPolicy.usage_telemetry,
+        budgetUsageTelemetry: budgetPolicy.usageTelemetry,
+        eventId: blocked.event?.event_id ?? null,
+        event_id: blocked.event?.event_id ?? null,
+        receiptRefs: blocked.receipt_refs,
+        receipt_refs: blocked.receipt_refs,
+        policyDecisionRefs: blocked.policy_decision_refs,
+        policy_decision_refs: blocked.policy_decision_refs,
+      });
+    }
     const approvalManifest = codingToolApprovalManifestForThread({
       agent,
       threadId,
@@ -7156,6 +7202,162 @@ export class AgentgresRuntimeStateStore {
       event: null,
       approval,
       approval_event_id: approval.event_id,
+      workspace_snapshot: null,
+      workspaceSnapshot: null,
+      workspace_snapshot_event: null,
+      workspaceSnapshotEvent: null,
+      auto_diagnostics: null,
+      autoDiagnostics: null,
+      diagnostics_repair_context: diagnosticsRepairContext,
+      diagnosticsRepairContext,
+      tool_contract: toolContract ?? null,
+      toolContract: toolContract ?? null,
+      result,
+      error,
+    };
+  }
+
+  blockCodingToolForBudget({
+    agent,
+    threadId,
+    turnId,
+    toolId,
+    toolCallId,
+    receiptId,
+    input,
+    request,
+    workflowGraphId,
+    workflowNodeId,
+    requestRollbackRefs,
+    diagnosticsRepairContext,
+    budgetPolicy,
+    toolContract,
+    codingToolIdempotencyKey,
+  }) {
+    const receiptRefs = uniqueStrings([
+      receiptId,
+      ...normalizeArray(budgetPolicy.receipt_refs ?? budgetPolicy.receiptRefs),
+    ]);
+    const policyDecisionRefs = uniqueStrings(
+      budgetPolicy.policy_decision_refs ?? budgetPolicy.policyDecisionRefs,
+    );
+    const error = {
+      code: "coding_tool_budget_exceeded",
+      message: `${toolId} blocked because the workflow coding-tool budget was exceeded.`,
+      details: {
+        toolId,
+        tool_call_id: toolCallId,
+        reason: "coding_tool_budget_exceeded",
+        budget_status: "exceeded",
+        context_budget_status: budgetPolicy.status,
+        contextBudgetStatus: budgetPolicy.status,
+        context_budget: budgetPolicy,
+        contextBudget: budgetPolicy,
+        budget_usage_telemetry: budgetPolicy.usage_telemetry,
+        budgetUsageTelemetry: budgetPolicy.usageTelemetry,
+      },
+    };
+    const result = {
+      schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
+      toolName: toolId,
+      status: "blocked",
+      budgetStatus: "exceeded",
+      budget_status: "exceeded",
+      contextBudgetStatus: budgetPolicy.status,
+      context_budget_status: budgetPolicy.status,
+      contextBudget: budgetPolicy,
+      context_budget: budgetPolicy,
+      inputSummary: codingToolInputSummary(toolId, input),
+      input_summary: codingToolInputSummary(toolId, input),
+      error,
+    };
+    const rollbackRefs = uniqueStrings(requestRollbackRefs);
+    const payloadSummary = {
+      schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
+      event_kind: "CodingToolBudgetBlocked",
+      tool_pack: CODING_TOOL_PACK_ID,
+      tool_name: toolId,
+      tool_call_id: toolCallId,
+      thread_id: threadId,
+      turn_id: turnId || null,
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      status: "blocked",
+      summary: error.message,
+      shell_fallback_used: false,
+      input_summary: codingToolInputSummary(toolId, input),
+      result_summary: { status: "blocked", reason: "coding_tool_budget_exceeded" },
+      result,
+      error,
+      rollback_refs: rollbackRefs,
+      diagnostics_repair_context: diagnosticsRepairContext,
+      diagnosticsRepairContext,
+      approval_required: false,
+      approvalRequired: false,
+      budget_status: "exceeded",
+      budgetStatus: "exceeded",
+      context_budget_status: budgetPolicy.status,
+      contextBudgetStatus: budgetPolicy.status,
+      context_budget: budgetPolicy,
+      contextBudget: budgetPolicy,
+      budget_usage_telemetry: budgetPolicy.usage_telemetry,
+      budgetUsageTelemetry: budgetPolicy.usageTelemetry,
+      policy_decision_refs: policyDecisionRefs,
+      policyDecisionRefs,
+      receipt_id: receiptId,
+      receipt_count: receiptRefs.length,
+      artifact_count: 0,
+    };
+    const event = this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turnId,
+      item_id: `${turnId || threadId}:item:coding-tool:${safeId(toolId)}:${doctorHash(toolCallId).slice(0, 12)}`,
+      idempotency_key:
+        codingToolIdempotencyKey ??
+        `thread:${threadId}:coding-tool:${toolCallId}:budget-blocked`,
+      source: operatorControlSource(request.source),
+      source_event_kind: codingToolSourceEventKind(toolId),
+      event_kind: "policy.blocked",
+      status: "blocked",
+      actor: "runtime",
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      component_kind: "coding_tool",
+      tool_call_id: toolCallId,
+      artifact_refs: [],
+      receipt_refs: receiptRefs,
+      policy_decision_refs: policyDecisionRefs,
+      rollback_refs: rollbackRefs,
+      payload_schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
+      payload_summary: payloadSummary,
+    });
+    return {
+      schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
+      object: "ioi.runtime_coding_tool_result",
+      tool_pack: CODING_TOOL_PACK_ID,
+      tool_name: toolId,
+      tool_call_id: toolCallId,
+      thread_id: threadId,
+      turn_id: turnId || null,
+      status: "blocked",
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      shell_fallback_used: false,
+      budget_status: "exceeded",
+      budgetStatus: "exceeded",
+      context_budget: budgetPolicy,
+      contextBudget: budgetPolicy,
+      receipt_refs: event.receipt_refs,
+      receiptRefs: event.receipt_refs,
+      policy_decision_refs: event.policy_decision_refs,
+      policyDecisionRefs: event.policy_decision_refs,
+      artifact_refs: [],
+      rollback_refs: rollbackRefs,
+      event,
       workspace_snapshot: null,
       workspaceSnapshot: null,
       workspace_snapshot_event: null,
@@ -11601,6 +11803,125 @@ function contextBudgetUsageTelemetryFromRequest(request = {}) {
     request.runtime_usage_meter,
     request.usage,
   );
+}
+
+function codingToolBudgetPolicyForRequest({
+  request = {},
+  threadId = null,
+  toolId = null,
+  toolCallId = null,
+  workflowGraphId = null,
+  workflowNodeId = null,
+} = {}) {
+  const codingPack = codingToolBudgetConfigForRequest(request);
+  const usageTelemetry = contextBudgetFirstObject(
+    request.budget_usage_telemetry,
+    request.budgetUsageTelemetry,
+    request.usage_telemetry,
+    request.usageTelemetry,
+    request.runtime_telemetry_summary,
+    request.runtimeTelemetrySummary,
+    codingPack.budget_usage_telemetry,
+    codingPack.budgetUsageTelemetry,
+  );
+  if (!usageTelemetry) return null;
+
+  const requestThresholds = contextBudgetThresholds(request);
+  const codingPackThresholds = contextBudgetThresholds(codingPack);
+  const thresholds = {
+    max_total_tokens: contextBudgetNumber(
+      requestThresholds.max_total_tokens,
+      codingPackThresholds.max_total_tokens,
+    ),
+    maxTotalTokens: contextBudgetNumber(
+      requestThresholds.maxTotalTokens,
+      codingPackThresholds.maxTotalTokens,
+    ),
+    max_cost_usd: contextBudgetNumber(
+      requestThresholds.max_cost_usd,
+      codingPackThresholds.max_cost_usd,
+    ),
+    maxCostUsd: contextBudgetNumber(
+      requestThresholds.maxCostUsd,
+      codingPackThresholds.maxCostUsd,
+    ),
+    max_context_pressure: contextBudgetNumber(
+      requestThresholds.max_context_pressure,
+      codingPackThresholds.max_context_pressure,
+    ),
+    maxContextPressure: contextBudgetNumber(
+      requestThresholds.maxContextPressure,
+      codingPackThresholds.maxContextPressure,
+    ),
+    warn_at_ratio:
+      contextBudgetNumber(requestThresholds.warn_at_ratio, codingPackThresholds.warn_at_ratio) ??
+      0.8,
+    warnAtRatio:
+      contextBudgetNumber(requestThresholds.warnAtRatio, codingPackThresholds.warnAtRatio) ??
+      0.8,
+  };
+  const hasBudgetLimit = [
+    thresholds.max_total_tokens,
+    thresholds.max_cost_usd,
+    thresholds.max_context_pressure,
+  ].some((value) => contextBudgetNumber(value) !== null);
+  if (!hasBudgetLimit) return null;
+
+  const mode = contextBudgetMode(
+    optionalString(
+      request.budget_mode ??
+        request.budgetMode ??
+        request.mode ??
+        codingPack.budget_mode ??
+        codingPack.budgetMode,
+    ) ?? "simulate",
+  );
+  return evaluateContextBudgetPolicy({
+    usageTelemetry,
+    request: {
+      ...request,
+      mode,
+      thresholds,
+      scope: "thread",
+      threadId,
+      thread_id: threadId,
+      toolId,
+      tool_id: toolId,
+      toolCallId,
+      tool_call_id: toolCallId,
+      workflowGraphId,
+      workflow_graph_id: workflowGraphId,
+      workflowNodeId,
+      workflow_node_id: workflowNodeId,
+      source: operatorControlSource(request.source),
+      eventKind: "RuntimeCodingToolBudget.Evaluate",
+      event_kind: "RuntimeCodingToolBudget.Evaluate",
+      componentKind: "coding_tool",
+      component_kind: "coding_tool",
+    },
+  });
+}
+
+function codingToolBudgetConfigForRequest(request = {}) {
+  const toolPack =
+    contextBudgetFirstObject(
+      request.toolPack,
+      request.tool_pack,
+      request.options?.toolPack,
+      request.options?.tool_pack,
+    ) ?? {};
+  const codingPack =
+    contextBudgetFirstObject(
+      toolPack.coding,
+      toolPack.CODING,
+      request.coding,
+      request.coding_tool,
+      request.codingTool,
+    ) ?? {};
+  return {
+    ...toolPack,
+    ...codingPack,
+  };
 }
 
 function evaluateContextBudgetPolicy({ usageTelemetry, request = {} } = {}) {
