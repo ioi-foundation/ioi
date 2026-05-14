@@ -587,6 +587,14 @@ test("projects workflow-run coding budget preflight blocks as coding-tool policy
         budgetStatus: "warning",
         contextBudgetStatus: "blocked",
         mutationBlocked: true,
+        recoveryPolicy: {
+          schemaVersion: "ioi.workflow.coding-tool-budget-recovery-policy.v1",
+          approvalScope: "target_nodes",
+          operatorRole: "operator",
+          retryLimit: 1,
+          ttlMs: 900000,
+          targetNodeIds: ["runtime.coding-tool-budget-preflight"],
+        },
         result: {
           status: "blocked",
           mutationBlocked: true,
@@ -633,6 +641,10 @@ test("projects workflow-run coding budget preflight blocks as coding-tool policy
     node?.codingToolBudgetRecoveryActions[1]?.eventId,
     "event-workflow-run-preflight-blocked",
   );
+  assert.equal(
+    node?.codingToolBudgetRecoveryActions[1]?.recoveryPolicy?.approvalScope,
+    "target_nodes",
+  );
 });
 
 test("projects coding budget recovery approval and retry actions", () => {
@@ -653,6 +665,18 @@ test("projects coding budget recovery approval and retry actions", () => {
         status: "blocked",
         contextBudgetStatus: "blocked",
         mutationBlocked: true,
+        recoveryPolicy: {
+          schemaVersion: "ioi.workflow.coding-tool-budget-recovery-policy.v1",
+          source: "react_flow_coding_tool_pack",
+          approvalScope: "target_nodes",
+          operatorRole: "budget_operator",
+          retryLimit: 2,
+          ttlMs: 300000,
+          requiresApproval: true,
+          allowOverride: true,
+          targetNodeIds: ["node-write"],
+          sourceNodeIds: ["node-write"],
+        },
         targetNodeIds: ["node-write"],
       },
     }),
@@ -736,8 +760,15 @@ test("projects coding budget recovery approval and retry actions", () => {
   );
   assert.deepEqual(node?.codingToolBudgetRecoveryActions[4]?.targetNodeIds, [
     "node-write",
-    "runtime.coding-tool-budget-preflight",
   ]);
+  assert.equal(
+    node?.codingToolBudgetRecoveryActions[4]?.recoveryPolicy?.operatorRole,
+    "budget_operator",
+  );
+  assert.equal(
+    node?.codingToolBudgetRecoveryActions[4]?.recoveryPolicy?.retryLimit,
+    2,
+  );
   assert.deepEqual(node?.codingToolBudgetRecoveryActions[4]?.receiptRefs, [
     "receipt-preflight",
     "receipt-approval-request",

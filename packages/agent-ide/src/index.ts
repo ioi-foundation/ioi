@@ -64,6 +64,12 @@ export {
   workflowRuntimeTelemetrySummaryToUsageTelemetry,
 } from "./runtime/workflow-runtime-telemetry-summary";
 export {
+  WORKFLOW_RUNTIME_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION,
+  normalizeWorkflowCodingToolBudgetRecoveryPolicy,
+  workflowCodingToolBudgetRecoveryPolicyFromUnknown,
+  workflowCodingToolBudgetRecoveryPolicyFromWorkflow,
+} from "./runtime/workflow-runtime-coding-tool-budget-recovery-policy";
+export {
   RUNTIME_WORKFLOW_EDIT_PROPOSAL_APPLY_PAYLOAD_SCHEMA_VERSION,
   RUNTIME_WORKFLOW_EDIT_PROPOSAL_APPLY_SOURCE_EVENT_KIND,
   RUNTIME_WORKFLOW_EDIT_PROPOSAL_COMPONENT_KIND,

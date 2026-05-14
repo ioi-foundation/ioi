@@ -62,6 +62,13 @@ export function WorkflowNodeBindingSections({
     maxCostUsd: null as number | null,
     maxContextPressure: null as number | null,
     warnAtRatio: 0.8,
+    budgetRecoveryApprovalScope: "target_nodes" as const,
+    budgetRecoveryTargetNodeIds: [] as string[],
+    budgetRecoveryRetryLimit: 1,
+    budgetRecoveryTtlMs: 900000,
+    budgetRecoveryOperatorRole: "operator",
+    budgetRecoveryRequiresApproval: true,
+    budgetRecoveryAllowOverride: true,
     restorePolicy: "apply_with_approval" as const,
     restoreConflictPolicy: "block" as const,
     diagnosticsRepairDefault: "repair_retry" as const,
@@ -3372,6 +3379,120 @@ export function WorkflowNodeBindingSections({
                     })
                   }
                 />
+              </label>
+              <label>
+                Recovery approval scope
+                <select
+                  data-testid="workflow-coding-tool-pack-recovery-approval-scope"
+                  value={String(
+                    codingToolPack.budgetRecoveryApprovalScope ?? "target_nodes",
+                  )}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      budgetRecoveryApprovalScope: event.target.value as
+                        | "workflow"
+                        | "target_nodes"
+                        | "evidence_nodes",
+                    })
+                  }
+                >
+                  <option value="target_nodes">Target nodes</option>
+                  <option value="workflow">Workflow</option>
+                  <option value="evidence_nodes">Evidence nodes</option>
+                </select>
+              </label>
+              <label>
+                Recovery target nodes
+                <input
+                  data-testid="workflow-coding-tool-pack-recovery-target-node-ids"
+                  value={(codingToolPack.budgetRecoveryTargetNodeIds ?? []).join(
+                    ", ",
+                  )}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      budgetRecoveryTargetNodeIds: event.target.value
+                        .split(",")
+                        .map((item) => item.trim())
+                        .filter(Boolean),
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Recovery retry limit
+                <input
+                  data-testid="workflow-coding-tool-pack-recovery-retry-limit"
+                  type="number"
+                  min={0}
+                  value={Number(codingToolPack.budgetRecoveryRetryLimit ?? 1)}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      budgetRecoveryRetryLimit: Number(event.target.value || 0),
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Recovery TTL ms
+                <input
+                  data-testid="workflow-coding-tool-pack-recovery-ttl-ms"
+                  type="number"
+                  min={0}
+                  value={Number(codingToolPack.budgetRecoveryTtlMs ?? 900000)}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      budgetRecoveryTtlMs: Number(event.target.value || 0),
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Recovery operator role
+                <input
+                  data-testid="workflow-coding-tool-pack-recovery-operator-role"
+                  value={String(
+                    codingToolPack.budgetRecoveryOperatorRole ?? "operator",
+                  )}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      budgetRecoveryOperatorRole:
+                        event.target.value.trim() || "operator",
+                    })
+                  }
+                />
+              </label>
+              <label className="workflow-config-checkbox-row">
+                <input
+                  data-testid="workflow-coding-tool-pack-recovery-allow-override"
+                  type="checkbox"
+                  checked={codingToolPack.budgetRecoveryAllowOverride !== false}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      budgetRecoveryAllowOverride: event.target.checked,
+                    })
+                  }
+                />
+                Recovery allows override
+              </label>
+              <label className="workflow-config-checkbox-row">
+                <input
+                  data-testid="workflow-coding-tool-pack-recovery-requires-approval"
+                  type="checkbox"
+                  checked={codingToolPack.budgetRecoveryRequiresApproval !== false}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      budgetRecoveryRequiresApproval: event.target.checked,
+                    })
+                  }
+                />
+                Recovery requires approval
               </label>
               <label>
                 Restore policy

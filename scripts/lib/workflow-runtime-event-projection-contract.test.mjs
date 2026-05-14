@@ -30,6 +30,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const codingToolControlNodes = read(
     "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
   );
+  const codingToolBudgetRecoveryPolicy = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-policy.ts",
+  );
   const compactionPolicyControlNodes = read(
     "packages/agent-ide/src/runtime/workflow-runtime-compaction-policy-control-nodes.ts",
   );
@@ -147,8 +150,20 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(projection, /codingToolBudgetViolationCount/);
   assert.match(projection, /codingToolMutationBlocked/);
   assert.match(projection, /codingToolBudgetRecoveryActions/);
+  assert.match(projection, /recoveryPolicy/);
   assert.match(projection, /WorkflowRunCodingToolBudgetApprovedRetry/);
   assert.match(projection, /ioi\.workflow\.coding-tool-budget-recovery\.v1/);
+  assert.match(
+    codingToolBudgetRecoveryPolicy,
+    /ioi\.workflow\.coding-tool-budget-recovery-policy\.v1/,
+  );
+  assert.match(
+    codingToolBudgetRecoveryPolicy,
+    /workflowCodingToolBudgetRecoveryPolicyFromWorkflow/,
+  );
+  assert.match(codingToolBudgetRecoveryPolicy, /budgetRecoveryApprovalScope/);
+  assert.match(codingToolBudgetRecoveryPolicy, /budgetRecoveryRetryLimit/);
+  assert.match(codingToolBudgetRecoveryPolicy, /budgetRecoveryOperatorRole/);
   assert.match(projection, /workflow\.run\.retry_completed/);
   assert.match(projection, /coding_tool_budget_preflight_blocked/);
   assert.match(projection, /Coding tool budget/);
@@ -252,6 +267,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(readinessModel, /WorkflowCodingToolBudgetRunLaunchAnnotation/);
   assert.match(readinessModel, /runtimeCodingToolBudgetEvidence/);
   assert.match(readinessModel, /prior_coding_tool_budget_evidence/);
+  assert.match(readinessModel, /workflowCodingToolBudgetRecoveryPolicyFromWorkflow/);
   assert.match(readinessModel, /workflowCodingToolBudgetRunLaunchAnnotation/);
   assert.match(readinessModel, /Coding budget preflight/);
   assert.match(readinessModelTest, /prior TUI budget evidence/);
@@ -305,6 +321,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(runsPanel, /workflow-run-coding-tool-budget-evidence/);
   assert.match(runsPanel, /workflow-run-coding-tool-budget-recovery-action/);
   assert.match(runsPanel, /data-coding-tool-budget-recovery-action-count/);
+  assert.match(runsPanel, /data-recovery-policy-operator-role/);
   assert.match(runsPanel, /workflow-run-telemetry-source-kinds/);
   assert.match(runsPanel, /data-telemetry-status/);
   assert.match(runsPanel, /data-context-pressure-event-count/);

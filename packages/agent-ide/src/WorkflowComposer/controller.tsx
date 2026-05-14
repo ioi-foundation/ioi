@@ -9775,6 +9775,7 @@ export function useWorkflowComposerController({
         workflowNodeId: action.workflowNodeId,
         receiptRefs: action.receiptRefs,
         policyDecisionRefs: action.policyDecisionRefs,
+        recoveryPolicy: action.recoveryPolicy,
         recoveryEvents,
       };
       try {

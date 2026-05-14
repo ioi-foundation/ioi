@@ -12,6 +12,10 @@ import type {
 } from "../types/graph";
 import { workflowSchedulerLaneReadiness } from "./workflow-scheduler-lane-readiness";
 import type { WorkflowRunCodingToolBudgetEvidence } from "./workflow-run-history-model";
+import {
+  workflowCodingToolBudgetRecoveryPolicyFromWorkflow,
+  type WorkflowRuntimeCodingToolBudgetRecoveryPolicyDescriptor,
+} from "./workflow-runtime-coding-tool-budget-recovery-policy";
 
 export type WorkflowReadinessChecklistItem = {
   label: string;
@@ -42,6 +46,7 @@ export type WorkflowCodingToolBudgetPreflight = {
   mutationBlocked: boolean;
   receiptRefs: string[];
   policyDecisionRefs: string[];
+  recoveryPolicy: WorkflowRuntimeCodingToolBudgetRecoveryPolicyDescriptor;
 };
 
 export type WorkflowCodingToolBudgetRunLaunchAnnotation = {
@@ -63,6 +68,7 @@ export type WorkflowCodingToolBudgetRunLaunchAnnotation = {
   mutationBlocked: boolean;
   receiptRefs: string[];
   policyDecisionRefs: string[];
+  recoveryPolicy: WorkflowRuntimeCodingToolBudgetRecoveryPolicyDescriptor;
   issueCode: string;
   issueMessage: string;
 };
@@ -319,6 +325,10 @@ export function workflowCodingToolBudgetPreflight({
   const policyRef = evidence.policyDecisionRefs[0] ?? "policy pending";
   const toolLabel = evidence.toolNames[0] ?? "coding tool";
   const evidenceVerb = blocked ? "blocked" : "reported";
+  const recoveryPolicy = workflowCodingToolBudgetRecoveryPolicyFromWorkflow(
+    workflow,
+    targetNodeIds,
+  );
   return {
     sourceKind: "tui_coding_tool_rows",
     status,
@@ -347,6 +357,7 @@ export function workflowCodingToolBudgetPreflight({
     mutationBlocked: evidence.mutationBlocked,
     receiptRefs: evidence.receiptRefs,
     policyDecisionRefs: evidence.policyDecisionRefs,
+    recoveryPolicy,
   };
 }
 
@@ -373,6 +384,7 @@ export function workflowCodingToolBudgetRunLaunchAnnotation(
     mutationBlocked: preflight.mutationBlocked,
     receiptRefs: preflight.receiptRefs,
     policyDecisionRefs: preflight.policyDecisionRefs,
+    recoveryPolicy: preflight.recoveryPolicy,
     issueCode: preflight.issue.code,
     issueMessage: preflight.issue.message,
   };
