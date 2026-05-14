@@ -1,5 +1,6 @@
 import type {
   Node,
+  NodeLogic,
   WorkflowConnectionClass,
   WorkflowHarnessActivationCandidateGateResult,
   WorkflowHarnessForkActivationCandidate,
@@ -320,6 +321,26 @@ const WORKFLOW_REPAIR_BY_CODE: Record<
     fieldPath: "runtimeCodingToolBudgetRecoveryThreadIdField",
     repairActionId: "bind-coding-tool-budget-recovery-evidence",
     repairLabel: "Bind recovery input",
+  },
+  missing_runtime_telemetry_source_budget_usage_binding: {
+    configSection: "mapping",
+    repairActionId: "bind-runtime-telemetry-source",
+    repairLabel: "Bind telemetry source",
+  },
+  missing_runtime_telemetry_source_context_budget_binding: {
+    configSection: "mapping",
+    repairActionId: "bind-runtime-telemetry-source",
+    repairLabel: "Bind telemetry source",
+  },
+  missing_runtime_telemetry_source_thread_binding: {
+    configSection: "mapping",
+    repairActionId: "bind-runtime-telemetry-source",
+    repairLabel: "Bind telemetry source",
+  },
+  missing_runtime_telemetry_source_usage_binding: {
+    configSection: "mapping",
+    repairActionId: "bind-runtime-telemetry-source",
+    repairLabel: "Bind telemetry source",
   },
   missing_edge_endpoint: {
     configSection: "connections",
@@ -1025,6 +1046,193 @@ function workflowRuntimeCodingToolBudgetRecoveryBindingIssues(
       },
     ];
   });
+}
+
+function workflowRuntimeTelemetrySourceBindingIssues(
+  node: Node,
+): WorkflowValidationIssue[] {
+  const logic = node.config?.logic ?? {};
+  if (node.type === "runtime_usage_meter") {
+    const scope = workflowStringValue(logic.runtimeUsageMeterScope) ?? "thread";
+    if (scope === "workflow") return [];
+    return workflowTelemetrySourceFixedOrMapped(
+      logic,
+      scope === "run" ? logic.runtimeUsageMeterRunId : logic.runtimeUsageMeterThreadId,
+      scope === "run"
+        ? logic.runtimeUsageMeterRunIdField ?? "runId"
+        : logic.runtimeUsageMeterThreadIdField ?? "threadId",
+      scope === "run" ? ["runId", "run_id"] : ["threadId", "thread_id"],
+    )
+      ? []
+      : [
+          workflowTelemetrySourceBindingIssue(
+            node,
+            "missing_runtime_telemetry_source_thread_binding",
+            scope === "run" ? "runtimeUsageMeterRunIdField" : "runtimeUsageMeterThreadIdField",
+            "Runtime usage meter nodes need selected telemetry evidence for their run/thread input before activation.",
+          ),
+        ];
+  }
+  if (node.type === "runtime_context_budget") {
+    const scope = workflowStringValue(logic.runtimeContextBudgetScope) ?? "thread";
+    const issues: WorkflowValidationIssue[] = [];
+    if (
+      scope !== "workflow" &&
+      !workflowTelemetrySourceFixedOrMapped(
+        logic,
+        scope === "run"
+          ? logic.runtimeContextBudgetRunId
+          : logic.runtimeContextBudgetThreadId,
+        scope === "run"
+          ? logic.runtimeContextBudgetRunIdField ?? "runId"
+          : logic.runtimeContextBudgetThreadIdField ?? "threadId",
+        scope === "run" ? ["runId", "run_id"] : ["threadId", "thread_id"],
+      )
+    ) {
+      issues.push(
+        workflowTelemetrySourceBindingIssue(
+          node,
+          "missing_runtime_telemetry_source_thread_binding",
+          scope === "run"
+            ? "runtimeContextBudgetRunIdField"
+            : "runtimeContextBudgetThreadIdField",
+          "Runtime context budget nodes need selected telemetry evidence for their run/thread input before activation.",
+        ),
+      );
+    }
+    if (
+      !workflowTelemetrySourceFixedOrMapped(
+        logic,
+        logic.runtimeContextBudget ?? logic.runtimeTelemetrySummary,
+        logic.runtimeContextBudgetUsageField ?? "runtimeUsageMeter",
+        ["runtimeUsageMeter", "runtimeTelemetrySummary", "usageTelemetry", "usage_telemetry"],
+      )
+    ) {
+      issues.push(
+        workflowTelemetrySourceBindingIssue(
+          node,
+          "missing_runtime_telemetry_source_usage_binding",
+          "runtimeContextBudgetUsageField",
+          "Runtime context budget nodes need selected usage/context telemetry evidence before activation.",
+        ),
+      );
+    }
+    return issues;
+  }
+  if (node.type === "runtime_compaction_policy") {
+    const issues: WorkflowValidationIssue[] = [];
+    if (
+      !workflowTelemetrySourceFixedOrMapped(
+        logic,
+        logic.runtimeCompactionPolicyThreadId,
+        logic.runtimeCompactionPolicyThreadIdField ?? "threadId",
+        ["threadId", "thread_id"],
+      )
+    ) {
+      issues.push(
+        workflowTelemetrySourceBindingIssue(
+          node,
+          "missing_runtime_telemetry_source_thread_binding",
+          "runtimeCompactionPolicyThreadIdField",
+          "Runtime compaction policy nodes need selected telemetry evidence for their thread input before activation.",
+        ),
+      );
+    }
+    if (
+      !workflowTelemetrySourceFixedOrMapped(
+        logic,
+        logic.runtimeCompactionPolicyContextBudget ??
+          logic.runtimeTelemetrySummary,
+        logic.runtimeCompactionPolicyContextBudgetField ?? "runtimeContextBudget",
+        ["runtimeContextBudget", "runtimeTelemetrySummary", "contextBudget", "context_budget"],
+      )
+    ) {
+      issues.push(
+        workflowTelemetrySourceBindingIssue(
+          node,
+          "missing_runtime_telemetry_source_context_budget_binding",
+          "runtimeCompactionPolicyContextBudgetField",
+          "Runtime compaction policy nodes need selected context-budget telemetry evidence before activation.",
+        ),
+      );
+    }
+    return issues;
+  }
+  if (node.type === "plugin_tool" && workflowNodeUsesCodingToolBudgetGate(node)) {
+    const budgetUsageField =
+      workflowStringValue(logic.toolBinding?.toolPack?.budgetUsageField) ??
+      "runtimeTelemetrySummary";
+    const hasBudgetUsage =
+      workflowRuntimeTelemetryValueIsPresent(logic.runtimeTelemetrySummary) ||
+      workflowRuntimeTelemetryValueIsPresent(
+        logic.toolBinding?.toolPack?.budgetUsageTelemetry,
+      ) ||
+      workflowRuntimeTelemetryValueIsPresent(
+        workflowValueAtPath(logic.testInput, budgetUsageField),
+      ) ||
+      workflowMappedInputFieldIsPresent(logic, [
+        budgetUsageField,
+        "runtimeTelemetrySummary",
+        "budgetUsageTelemetry",
+      ]);
+    return hasBudgetUsage
+      ? []
+      : [
+          workflowTelemetrySourceBindingIssue(
+            node,
+            "missing_runtime_telemetry_source_budget_usage_binding",
+            "toolBinding.toolPack.budgetUsageField",
+            "Coding-tool budget gates in warn/block mode need selected telemetry evidence before activation.",
+          ),
+        ];
+  }
+  return [];
+}
+
+function workflowTelemetrySourceFixedOrMapped(
+  logic: NodeLogic,
+  fixedValue: unknown,
+  configuredField: string,
+  aliases: string[],
+): boolean {
+  if (workflowRuntimeTelemetryValueIsPresent(fixedValue)) return true;
+  return workflowMappedInputFieldIsPresent(logic, [
+    configuredField,
+    ...aliases,
+  ]);
+}
+
+function workflowTelemetrySourceBindingIssue(
+  node: Node,
+  code: string,
+  fieldPath: string,
+  message: string,
+): WorkflowValidationIssue {
+  return {
+    nodeId: node.id,
+    code,
+    message,
+    configSection: "mapping",
+    fieldPath,
+    repairActionId: "bind-runtime-telemetry-source",
+    repairLabel: "Bind telemetry source",
+  };
+}
+
+function workflowNodeUsesCodingToolBudgetGate(node: Node): boolean {
+  const binding = node.config?.logic?.toolBinding;
+  const toolPack = binding?.toolPack;
+  const mode = workflowStringValue(toolPack?.budgetMode) ?? "simulate";
+  return (
+    (binding?.bindingKind === "coding_tool_pack" || toolPack?.pack === "coding") &&
+    (mode === "warn" || mode === "block")
+  );
+}
+
+function workflowRuntimeTelemetryValueIsPresent(value: unknown): boolean {
+  if (workflowStringIsPresent(value)) return true;
+  if (Array.isArray(value)) return value.length > 0;
+  return Boolean(value && typeof value === "object");
 }
 
 function workflowCriticalAiNodeIds(workflow: WorkflowProject): string[] {
@@ -1766,6 +1974,7 @@ export function evaluateWorkflowActivationReadiness(
     workflowRuntimeCodingToolBudgetRecoveryBindingIssues(node).forEach(
       addReadinessIssue,
     );
+    workflowRuntimeTelemetrySourceBindingIssues(node).forEach(addReadinessIssue);
     if (workflowNodeIsHookPolicy(node)) {
       const plan = workflowHookDryRunPlanForNode(node);
       if (logic.hookDryRunOnly !== true) {

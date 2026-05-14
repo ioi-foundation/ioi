@@ -5,6 +5,7 @@ import type {
   WorkflowRunSummary,
 } from "../../../types/graph";
 import type { WorkflowRunHistoryModel } from "../../../runtime/workflow-run-history-model";
+import type { WorkflowRuntimeTelemetrySummary } from "../../../runtime/workflow-runtime-telemetry-summary";
 import type {
   WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   WorkflowRuntimeContextPressureActionDescriptor,
@@ -55,6 +56,9 @@ type WorkflowRunsPanelProps = {
   onBindRuntimeCodingToolBudgetRecoveryTemplate?: (
     action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   ) => void;
+  onBindRuntimeTelemetrySource?: (
+    summary: WorkflowRuntimeTelemetrySummary,
+  ) => void;
 };
 
 function codingToolBudgetRecoverySubflowSeed(
@@ -90,6 +94,7 @@ export function WorkflowRunsPanel({
   onExecuteRuntimeCodingToolBudgetRecovery,
   onCreateRuntimeCodingToolBudgetRecoverySubflow,
   onBindRuntimeCodingToolBudgetRecoveryTemplate,
+  onBindRuntimeTelemetrySource,
 }: WorkflowRunsPanelProps) {
   const {
     totalRuns,
@@ -469,6 +474,26 @@ export function WorkflowRunsPanel({
                   budgets
                 </span>
               </div>
+              <button
+                type="button"
+                className="workflow-secondary-action"
+                data-testid="workflow-run-telemetry-bind-source"
+                data-schema-version={runtimeTelemetrySummary.schemaVersion}
+                data-telemetry-status={runtimeTelemetrySummary.status}
+                data-thread-ids={runtimeTelemetrySummary.threadIds.join("|")}
+                data-turn-ids={runtimeTelemetrySummary.turnIds.join("|")}
+                data-source-kinds={runtimeTelemetrySummary.sourceKinds.join("|")}
+                data-latest-event-id={runtimeTelemetrySummary.latestEventId ?? ""}
+                data-latest-cursor={runtimeTelemetrySummary.latestCursor ?? ""}
+                disabled={!onBindRuntimeTelemetrySource}
+                title="Bind this usage/context telemetry summary into runtime budget nodes."
+                aria-label="Bind runtime telemetry source"
+                onClick={() => {
+                  onBindRuntimeTelemetrySource?.(runtimeTelemetrySummary);
+                }}
+              >
+                Bind telemetry source
+              </button>
               {runtimeTelemetrySourceFilters.length > 0 ? (
                 <div
                   className="workflow-run-telemetry-source-kinds"

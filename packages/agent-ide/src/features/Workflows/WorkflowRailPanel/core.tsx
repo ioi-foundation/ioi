@@ -51,6 +51,7 @@ import {
 import { workflowValuePreview } from "../../../runtime/workflow-value-preview";
 import { workflowTestReadinessModel } from "../../../runtime/workflow-test-readiness-model";
 import { workflowRunHistoryModel } from "../../../runtime/workflow-run-history-model";
+import type { WorkflowRuntimeTelemetrySummary } from "../../../runtime/workflow-runtime-telemetry-summary";
 import { workflowRailSearchModel } from "../../../runtime/workflow-rail-search-model";
 import { workflowEntrypointsModel } from "../../../runtime/workflow-entrypoints-model";
 import { workflowFileBundleModel } from "../../../runtime/workflow-file-bundle-model";
@@ -349,6 +350,7 @@ export function WorkflowRailPanel({
   onExecuteRuntimeCodingToolBudgetRecovery,
   onCreateRuntimeCodingToolBudgetRecoverySubflow,
   onBindRuntimeCodingToolBudgetRecoveryTemplate,
+  onBindRuntimeTelemetrySource,
   onInspectHarnessGroupNode,
   onSelectHarnessReceiptRef,
   onSelectHarnessReplayFixtureRef,
@@ -443,6 +445,9 @@ export function WorkflowRailPanel({
   ) => void;
   onBindRuntimeCodingToolBudgetRecoveryTemplate?: (
     action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
+  ) => void;
+  onBindRuntimeTelemetrySource?: (
+    summary: WorkflowRuntimeTelemetrySummary,
   ) => void;
   onInspectHarnessGroupNode?: (groupId: string, nodeId: string) => void;
   onSelectHarnessReceiptRef?: (receiptRef: string) => void;
@@ -3355,6 +3360,7 @@ export function WorkflowRailPanel({
         onBindRuntimeCodingToolBudgetRecoveryTemplate={
           onBindRuntimeCodingToolBudgetRecoveryTemplate
         }
+        onBindRuntimeTelemetrySource={onBindRuntimeTelemetrySource}
       />
     );
   }

@@ -138,6 +138,11 @@ import {
   workflowRuntimeCodingToolBudgetRecoveryEvidenceAction,
   workflowRuntimeCodingToolBudgetRecoveryEvidenceActionsFromProjection,
 } from "../runtime/workflow-runtime-coding-tool-budget-recovery-binding";
+import {
+  bindWorkflowRuntimeTelemetrySourceToWorkflow,
+  workflowRuntimeTelemetrySourceBindingIssue,
+} from "../runtime/workflow-runtime-telemetry-source-binding";
+import type { WorkflowRuntimeTelemetrySummary } from "../runtime/workflow-runtime-telemetry-summary";
 import type {
   WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   WorkflowRuntimeContextPressureActionDescriptor,
@@ -10109,6 +10114,97 @@ export function useWorkflowComposerController({
     ],
   );
 
+  const handleBindRuntimeTelemetrySource = useCallback(
+    (
+      summary?: WorkflowRuntimeTelemetrySummary | null,
+      issue?: WorkflowValidationIssue | null,
+    ) => {
+      if (isReadOnlyWorkflow) {
+        setStatusMessage(
+          "Read-only harness graph cannot be edited. Fork it first.",
+        );
+        return;
+      }
+      const selectedSummary = summary ?? runLaunchHistoryModel.runtimeTelemetrySummary;
+      if (!selectedSummary || selectedSummary.sourceKinds.length === 0) {
+        setRightPanel("runs");
+        setBottomPanel("run_output");
+        setStatusMessage(
+          "Select a run with usage or context telemetry before binding runtime telemetry inputs.",
+        );
+        return;
+      }
+      const binding = bindWorkflowRuntimeTelemetrySourceToWorkflow(
+        currentProjectFile,
+        selectedSummary,
+        { issue },
+      );
+      if (binding.status !== "bound") {
+        setRightPanel("readiness");
+        setStatusMessage(
+          binding.blockers.includes("runtime_telemetry_source_target_node_missing")
+            ? "Select a usage, context, compaction, or coding budget node before binding telemetry."
+            : "Selected run has no usage or context telemetry to bind.",
+        );
+        return;
+      }
+      const boundById = new Map(
+        binding.workflow.nodes
+          .filter((node) => binding.boundNodeIds.includes(node.id))
+          .map((node) => [node.id, node] as const),
+      );
+      setNodes((currentNodes) =>
+        currentNodes.map((flowNode) => {
+          const data = flowNode.data as Node;
+          const bound = boundById.get(data.id) ?? boundById.get(flowNode.id);
+          if (!bound) return flowNode;
+          return {
+            ...flowNode,
+            position: { x: bound.x, y: bound.y },
+            data: {
+              ...data,
+              ...bound,
+            },
+          };
+        }),
+      );
+      setWorkflow(binding.workflow);
+      const validation = validateWorkflowProject(binding.workflow, tests);
+      const readiness = evaluateWorkflowActivationReadiness(
+        binding.workflow,
+        tests,
+        validation,
+        proposals,
+        Object.values(nodeFixturesById).flat(),
+      );
+      setValidationResult(validation);
+      setReadinessResult(readiness);
+      setActiveTab("graph");
+      setRightPanel("readiness");
+      setBottomPanel("selection");
+      handleNodeSelect(binding.boundNodeIds[0] ?? null);
+      setNodeConfigInitialSection(
+        issue
+          ? workflowConfigSectionForIssue(issue)
+          : workflowConfigSectionForNodeKind("runtime_context_budget"),
+      );
+      setNodeConfigOpen(true);
+      setStatusMessage(
+        `Bound ${binding.boundNodeIds.length} runtime telemetry source nodes to ${selectedSummary.latestEventId ?? selectedSummary.latestCursor ?? selectedSummary.status}`,
+      );
+    },
+    [
+      currentProjectFile,
+      handleNodeSelect,
+      isReadOnlyWorkflow,
+      nodeFixturesById,
+      proposals,
+      runLaunchHistoryModel.runtimeTelemetrySummary,
+      setNodes,
+      tests,
+    ],
+  );
+
   const handleInsertRuntimeCodingToolBudgetRecoveryTemplate = useCallback(() => {
     if (isReadOnlyWorkflow) {
       setStatusMessage(
@@ -11197,6 +11293,10 @@ export function useWorkflowComposerController({
         handleBindRuntimeCodingToolBudgetRecoveryTemplate(null, issue);
         return;
       }
+      if (workflowRuntimeTelemetrySourceBindingIssue(issue)) {
+        handleBindRuntimeTelemetrySource(null, issue);
+        return;
+      }
 
       if (issue.nodeId) {
         handleWorkflowNodeSelect(issue.nodeId);
@@ -11276,6 +11376,7 @@ export function useWorkflowComposerController({
     },
     [
       handleBindRuntimeCodingToolBudgetRecoveryTemplate,
+      handleBindRuntimeTelemetrySource,
       handleWorkflowNodeSelect,
       nodes,
       openLeftDrawer,
@@ -14270,6 +14371,7 @@ export function useWorkflowComposerController({
     handleExecuteRuntimeCodingToolBudgetRecovery,
     handleCreateRuntimeCodingToolBudgetRecoverySubflow,
     handleBindRuntimeCodingToolBudgetRecoveryTemplate,
+    handleBindRuntimeTelemetrySource,
     handleExecuteHarnessRollback,
     handleExpandHarnessGroups,
     handleExportPortablePackage,
