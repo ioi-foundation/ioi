@@ -57,11 +57,17 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const terminalCodingLoopMaterialization = read(
     "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-materialization.ts",
   );
+  const terminalCodingLoopExecution = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-execution.ts",
+  );
   const terminalCodingLoopSubflowTest = read(
     "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.test.ts",
   );
   const terminalCodingLoopMaterializationTest = read(
     "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-materialization.test.ts",
+  );
+  const terminalCodingLoopExecutionTest = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-execution.test.ts",
   );
   const terminalCodingLoopCreatorGuiProbe = read(
     "scripts/lib/workflow-terminal-coding-loop-creator-gui-probe.mjs",
@@ -419,12 +425,36 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
     /hydrates an existing terminal loop/,
   );
   assert.match(
+    terminalCodingLoopExecution,
+    /ioi\.workflow\.runtime-terminal-coding-loop-execution\.v1/,
+  );
+  assert.match(
+    terminalCodingLoopExecution,
+    /createRuntimeTerminalCodingLoopStepRequest/,
+  );
+  assert.match(
+    terminalCodingLoopExecution,
+    /updateRuntimeTerminalCodingLoopExecutionContextFromToolResult/,
+  );
+  assert.match(
+    terminalCodingLoopExecution,
+    /workflowRuntimeTerminalCodingLoopNodesInExecutionOrder/,
+  );
+  assert.match(
+    terminalCodingLoopExecutionTest,
+    /resolves upstream artifact and tool result placeholders/,
+  );
+  assert.match(
     exports,
     /createWorkflowRuntimeTerminalCodingLoopTemplateSubflow/,
   );
   assert.match(
     exports,
     /materializeWorkflowRuntimeTerminalCodingLoopFromTuiRow/,
+  );
+  assert.match(
+    exports,
+    /createRuntimeTerminalCodingLoopStepRequest/,
   );
   assert.match(
     composerController,
@@ -487,6 +517,18 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(
     liveRuntimeDaemonContract,
     /run_inspector_created_telemetry_chain_budget_blocked/,
+  );
+  assert.match(
+    liveRuntimeDaemonContract,
+    /React Flow terminal coding-loop template executes against daemon with TUI row parity/,
+  );
+  assert.match(
+    liveRuntimeDaemonContract,
+    /createRuntimeTerminalCodingLoopStepRequest/,
+  );
+  assert.match(
+    liveRuntimeDaemonContract,
+    /terminal_loop_\$\{stepId\}/,
   );
   assert.match(
     guiHarnessContract,

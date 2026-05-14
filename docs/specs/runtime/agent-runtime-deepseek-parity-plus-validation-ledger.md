@@ -207,6 +207,53 @@ the practical workstream when the source heading is broad.
 | 206 | 2026-05-14 | Cross-cutting GUI Harness Evidence / Workflow Development Environment | live GUI package/activation evidence recovery | docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-05-08-862Z/result.json | node --check scripts/lib/autopilot-gui-harness-validation/core.mjs<br>node --input-type=module -e "import { collectRollbackRestoreCanaryUiProof } from './scripts/lib/autopilot-gui-harness-validation/core.mjs'; const r=collectRollbackRestoreCanaryUiProof('/tmp/ioi-rollback-proof'); console.log(JSON.stringify({passed:r.proof.passed, failed:Object.fromEntries(Object.entries(r.proof.checks).filter(([,v])=>!v))}, null, 2));"<br>npm run validate:autopilot-gui-harness<br>npm run validate:autopilot-gui-harness:run<br>git diff --check -- scripts/lib/autopilot-gui-harness-validation/core.mjs docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md |
 | 207 | 2026-05-14 | P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack | terminal-first coding-agent parity proof | docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-29-53-857Z/result.json | cargo test -p ioi-cli --bin cli tui_coding_tool_rows_project_successful_terminal_commands -- --nocapture<br>cargo test -p ioi-cli --bin cli tui_coding_tool_budget_rows_project_policy_blocks -- --nocapture<br>node --import tsx --test --test-reporter=spec packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-reporter=spec scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-reporter=spec --test-name-pattern "coding tool pack invokes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness<br>npm run validate:autopilot-gui-harness:run |
 | 208 | 2026-05-14 | P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack / Workflow Development Environment | terminal coding-loop workflow template | docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-05-13-646Z/result.json | node --test --import tsx packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.test.ts packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-materialization.test.ts<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>node --test scripts/lib/autopilot-gui-harness-contract.test.mjs<br>node --import tsx scripts/lib/workflow-terminal-coding-loop-creator-gui-probe.mjs /tmp/workflow-terminal-coding-loop-creator-proof.json<br>node --import tsx scripts/lib/workflow-terminal-coding-loop-run-inspector-probe.mjs /tmp/workflow-terminal-coding-loop-run-inspector-proof.json<br>npm run build --workspace=@ioi/agent-ide<br>npm run validate:autopilot-gui-harness<br>npm run validate:autopilot-gui-harness:run |
+| 209 | 2026-05-14 | P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack / Workflow Development Environment | terminal coding-loop live execution | docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-30-24-219Z/result.json | node --test --import tsx packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.test.ts packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-materialization.test.ts packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-execution.test.ts<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-reporter=spec --test-name-pattern "React Flow terminal coding-loop template executes" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>npm run validate:autopilot-gui-harness<br>npm run validate:autopilot-gui-harness:run<br>git diff --check -- packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-execution.ts packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-execution.test.ts packages/agent-ide/src/index.ts scripts/lib/live-runtime-daemon-contract.test.mjs scripts/lib/workflow-runtime-event-projection-contract.test.mjs docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md |
+
+## Slice 209. 2026-05-14 - Terminal coding-loop live execution
+
+Guide section: P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack /
+Workflow Development Environment
+
+Evidence bundles:
+
+- docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-30-20-742Z/result.json
+- docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-30-24-219Z/result.json
+- docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-30-24-219Z/workflow-terminal-coding-loop-creator-proof.json
+- docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-30-24-219Z/workflow-terminal-coding-loop-run-inspector-proof.json
+- packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-execution.test.ts
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- scripts/lib/workflow-runtime-event-projection-contract.test.mjs
+
+Validation commands:
+
+- `node --test --import tsx packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.test.ts packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-materialization.test.ts packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-execution.test.ts`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-reporter=spec --test-name-pattern "React Flow terminal coding-loop template executes" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `npm run validate:autopilot-gui-harness`
+  - preflight passed and wrote
+    `docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-30-20-742Z/result.json`.
+- `npm run validate:autopilot-gui-harness:run`
+  - passed and wrote
+    `docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-30-24-219Z/result.json`
+    with validation `ok: true`, blocked `false`, all runtime-consistency checks
+    passing, and both terminal coding-loop GUI proof artifacts present.
+- `git diff --check -- packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-execution.ts packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-execution.test.ts packages/agent-ide/src/index.ts scripts/lib/live-runtime-daemon-contract.test.mjs scripts/lib/workflow-runtime-event-projection-contract.test.mjs docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md`
+
+Validation result:
+
+- The execution helper tests passed for node ordering, placeholder resolution,
+  context update, artifact preservation, and result retrieval targeting the
+  original test tool-call id.
+- The live daemon contract passed for the complete React Flow-authored
+  terminal loop: status, diff, inspect, patch dry-run, approval-gated patch
+  apply, test artifact spillover, diagnostics, artifact read, and result
+  retrieval.
+- The workflow runtime source contract passed and now guards the execution
+  helper, index export, and live daemon proof.
+- The full live Autopilot GUI harness passed with the terminal-loop creator and
+  run-inspector GUI proof artifacts present in the evidence bundle.
 
 ## Slice 208. 2026-05-14 - Terminal coding-loop workflow template
 
