@@ -245,6 +245,7 @@ import {
   workflowCanvasSearchResults,
   workflowNodeCreatorBadge,
 } from "../runtime/workflow-composer-model";
+import { workflowRunLaunchGuard } from "../runtime/workflow-run-launch-guard";
 import { workflowNodeDeclaredOutputSchema } from "../runtime/workflow-schema";
 import {
   createWorkflowHarnessActivationCandidate,
@@ -12815,14 +12816,41 @@ export function useWorkflowComposerController({
         ? await runtime.validateWorkflowBundle(workflowPath)
         : validateWorkflowProject(currentProjectFile, tests);
     } catch (error) {
-      validation = createWorkflowActionFailure(
-        "workflow_bundle_unavailable",
-        `Saved workflow bundle is unavailable. ${errorMessage(error)}`,
+      const localValidation = validateWorkflowProject(currentProjectFile, tests);
+      const localRunLaunchGuard = workflowRunLaunchGuard(
+        currentProjectFile,
+        localValidation,
       );
+      validation =
+        localRunLaunchGuard.status === "blocked"
+          ? localRunLaunchGuard.validation
+          : createWorkflowActionFailure(
+              "workflow_bundle_unavailable",
+              `Saved workflow bundle is unavailable. ${errorMessage(error)}`,
+            );
     }
     setValidationResult(validation);
     setRightPanel("runs");
     setBottomPanel("run_output");
+    const runLaunchGuard = workflowRunLaunchGuard(
+      currentProjectFile,
+      validation,
+    );
+    if (runLaunchGuard.status === "blocked") {
+      setValidationResult(runLaunchGuard.validation);
+      setReadinessResult(runLaunchGuard.validation);
+      const blockedSummary = createSubstrateProjectionRunSummary(
+        currentProjectFile,
+        runLaunchGuard.validation,
+      );
+      setSelectedRunId(blockedSummary.id);
+      setRuns((current) => [
+        blockedSummary,
+        ...current.filter((run) => run.id !== blockedSummary.id),
+      ]);
+      setStatusMessage(runLaunchGuard.message);
+      return;
+    }
     if (runtime.runWorkflowProject) {
       let liveTelemetryHydration:
         | { threadId: string; stop: () => void }

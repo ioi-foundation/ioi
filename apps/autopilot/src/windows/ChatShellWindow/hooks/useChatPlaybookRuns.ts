@@ -235,6 +235,11 @@ export function useChatPlaybookRuns(sessionId: string | null) {
 
   useEffect(() => {
     let active = true;
+    if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window)) {
+      return () => {
+        active = false;
+      };
+    }
     const unlistenPromise = listen("local-engine-updated", () => {
       if (!active) {
         return;
