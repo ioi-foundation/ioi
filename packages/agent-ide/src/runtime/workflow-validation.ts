@@ -857,6 +857,145 @@ function workflowHookPolicyRoutesConfigured(node: Node): boolean {
   );
 }
 
+type RuntimeCodingToolBudgetRecoveryBindingRequirement = {
+  code: string;
+  label: string;
+  fixedKey: string;
+  fieldKey: string;
+  defaultField: string;
+  aliases: string[];
+  fieldPath: string;
+  fixed: (value: unknown) => boolean;
+};
+
+const RUNTIME_CODING_TOOL_BUDGET_RECOVERY_BINDINGS: RuntimeCodingToolBudgetRecoveryBindingRequirement[] = [
+  {
+    code: "missing_runtime_coding_tool_budget_recovery_run_binding",
+    label: "run id",
+    fixedKey: "runtimeCodingToolBudgetRecoveryRunId",
+    fieldKey: "runtimeCodingToolBudgetRecoveryRunIdField",
+    defaultField: "runId",
+    aliases: ["runId", "run_id"],
+    fieldPath: "runtimeCodingToolBudgetRecoveryRunIdField",
+    fixed: workflowStringIsPresent,
+  },
+  {
+    code: "missing_runtime_coding_tool_budget_recovery_thread_binding",
+    label: "thread id",
+    fixedKey: "runtimeCodingToolBudgetRecoveryThreadId",
+    fieldKey: "runtimeCodingToolBudgetRecoveryThreadIdField",
+    defaultField: "threadId",
+    aliases: ["threadId", "thread_id"],
+    fieldPath: "runtimeCodingToolBudgetRecoveryThreadIdField",
+    fixed: workflowStringIsPresent,
+  },
+  {
+    code: "missing_runtime_coding_tool_budget_recovery_approval_binding",
+    label: "approval id",
+    fixedKey: "runtimeCodingToolBudgetRecoveryApprovalId",
+    fieldKey: "runtimeCodingToolBudgetRecoveryApprovalIdField",
+    defaultField: "approvalId",
+    aliases: ["approvalId", "approval_id"],
+    fieldPath: "runtimeCodingToolBudgetRecoveryApprovalIdField",
+    fixed: workflowStringIsPresent,
+  },
+  {
+    code: "missing_runtime_coding_tool_budget_recovery_target_binding",
+    label: "target node ids",
+    fixedKey: "runtimeCodingToolBudgetRecoveryTargetNodeIds",
+    fieldKey: "runtimeCodingToolBudgetRecoveryTargetNodeIdsField",
+    defaultField: "targetNodeIds",
+    aliases: ["targetNodeIds", "target_node_ids"],
+    fieldPath: "runtimeCodingToolBudgetRecoveryTargetNodeIdsField",
+    fixed: workflowStringListIsPresent,
+  },
+  {
+    code: "missing_runtime_coding_tool_budget_recovery_policy_binding",
+    label: "recovery policy",
+    fixedKey: "runtimeCodingToolBudgetRecoveryPolicy",
+    fieldKey: "runtimeCodingToolBudgetRecoveryPolicyInputField",
+    defaultField: "recoveryPolicy",
+    aliases: ["recoveryPolicy", "recovery_policy"],
+    fieldPath: "runtimeCodingToolBudgetRecoveryPolicyInputField",
+    fixed: workflowRecoveryPolicyIsFixed,
+  },
+];
+
+function workflowStringIsPresent(value: unknown): boolean {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function workflowStringListIsPresent(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.some((item) => workflowStringIsPresent(item));
+  }
+  return workflowStringIsPresent(value);
+}
+
+function workflowRecoveryPolicyIsFixed(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  if (workflowStringListIsPresent(record.targetNodeIds)) return true;
+  if (workflowStringListIsPresent(record.sourceNodeIds)) return true;
+  const source = workflowStringValue(record.source);
+  return Boolean(source && source !== "react_flow_template");
+}
+
+function workflowMappedInputFieldIsPresent(
+  logicValue: unknown,
+  aliases: string[],
+): boolean {
+  const logic =
+    logicValue && typeof logicValue === "object" && !Array.isArray(logicValue)
+      ? (logicValue as Record<string, unknown>)
+      : {};
+  const inputMapping =
+    logic.inputMapping &&
+    typeof logic.inputMapping === "object" &&
+    !Array.isArray(logic.inputMapping)
+      ? (logic.inputMapping as Record<string, unknown>)
+      : {};
+  const inputMapped = aliases.some((alias) =>
+    workflowStringIsPresent(inputMapping[alias]),
+  );
+  if (inputMapped) return true;
+  return workflowFieldMappingEntries(logic.fieldMappings).some(
+    (mapping) => aliases.includes(mapping.key),
+  );
+}
+
+function workflowRuntimeCodingToolBudgetRecoveryBindingIssues(
+  node: Node,
+): WorkflowValidationIssue[] {
+  if (node.type !== "runtime_coding_tool_budget_recovery") return [];
+  const logic = node.config?.logic ?? {};
+  return RUNTIME_CODING_TOOL_BUDGET_RECOVERY_BINDINGS.flatMap((requirement) => {
+    const fixedValue = (logic as Record<string, unknown>)[requirement.fixedKey];
+    if (requirement.fixed(fixedValue)) return [];
+    const configuredField =
+      workflowStringValue((logic as Record<string, unknown>)[requirement.fieldKey]) ??
+      requirement.defaultField;
+    const aliases = Array.from(
+      new Set([configuredField, requirement.defaultField, ...requirement.aliases]),
+    );
+    if (workflowMappedInputFieldIsPresent(logic, aliases)) return [];
+    return [
+      {
+        nodeId: node.id,
+        code: requirement.code,
+        message:
+          `Runtime coding-tool budget recovery template node '${node.name}' needs a ` +
+          `${requirement.label} input mapping or fixed value before execution.`,
+        configSection: "mapping",
+        fieldPath: requirement.fieldPath,
+        repairLabel: "Bind recovery input",
+      },
+    ];
+  });
+}
+
 function workflowCriticalAiNodeIds(workflow: WorkflowProject): string[] {
   return workflow.nodes
     .filter((node) => node.type === "model_call")
@@ -1593,6 +1732,9 @@ export function evaluateWorkflowActivationReadiness(
         addAdvisoryWarning(issue);
       }
     }
+    workflowRuntimeCodingToolBudgetRecoveryBindingIssues(node).forEach(
+      addReadinessIssue,
+    );
     if (workflowNodeIsHookPolicy(node)) {
       const plan = workflowHookDryRunPlanForNode(node);
       if (logic.hookDryRunOnly !== true) {

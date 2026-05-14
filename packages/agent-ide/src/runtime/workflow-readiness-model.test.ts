@@ -13,6 +13,8 @@ import {
   workflowReadinessModel,
 } from "./workflow-readiness-model";
 import { workflowSchedulerLaneReadiness } from "./workflow-scheduler-lane-readiness";
+import { createWorkflowRuntimeCodingToolBudgetRecoveryTemplateSubflow } from "./workflow-runtime-coding-tool-budget-recovery-subflow";
+import { evaluateWorkflowActivationReadiness } from "./workflow-validation";
 
 const issue = (code: string, message = code): WorkflowValidationIssue => ({
   code,
@@ -399,4 +401,119 @@ test("workflow coding budget preflight creates run launch annotations", () => {
   assert.deepEqual(annotation?.policyDecisionRefs, ["policy-budget"]);
   assert.equal(annotation?.issueCode, "prior_coding_tool_budget_evidence");
   assert.match(annotation?.issueMessage ?? "", /reported tool-call-budget/);
+});
+
+test("workflow activation readiness blocks unbound coding-tool budget recovery templates", () => {
+  const subflow = createWorkflowRuntimeCodingToolBudgetRecoveryTemplateSubflow({
+    idPrefix: "budget-recovery-template",
+    workflowGraphId: "workflow",
+  });
+  const baseWorkflow = workflow();
+  const templateWorkflow = workflow({
+    nodes: [
+      baseWorkflow.nodes.find((node) => node.id === "trigger")!,
+      baseWorkflow.nodes.find((node) => node.id === "output")!,
+      ...subflow.nodes,
+    ],
+  });
+  const readiness = evaluateWorkflowActivationReadiness(
+    templateWorkflow,
+    [testCase],
+    validationResult(),
+  );
+  const bindingIssues = (readiness.executionReadinessIssues ?? []).filter((issue) =>
+    issue.code.startsWith(
+      "missing_runtime_coding_tool_budget_recovery_",
+    ),
+  );
+
+  assert.equal(readiness.status, "blocked");
+  assert.equal(bindingIssues.length, subflow.nodes.length * 5);
+  assert.deepEqual(
+    new Set(bindingIssues.map((issue) => issue.code)),
+    new Set([
+      "missing_runtime_coding_tool_budget_recovery_run_binding",
+      "missing_runtime_coding_tool_budget_recovery_thread_binding",
+      "missing_runtime_coding_tool_budget_recovery_approval_binding",
+      "missing_runtime_coding_tool_budget_recovery_target_binding",
+      "missing_runtime_coding_tool_budget_recovery_policy_binding",
+    ]),
+  );
+  assert(
+    bindingIssues.every((issue) => issue.nodeId?.startsWith("budget-recovery-template-")),
+  );
+  assert(
+    bindingIssues.some(
+      (issue) =>
+        issue.nodeId === subflow.requestNodeId &&
+        issue.code === "missing_runtime_coding_tool_budget_recovery_run_binding" &&
+        issue.fieldPath === "runtimeCodingToolBudgetRecoveryRunIdField" &&
+        issue.repairLabel === "Bind recovery input",
+    ),
+  );
+});
+
+test("workflow activation readiness accepts mapped coding-tool budget recovery template inputs", () => {
+  const subflow = createWorkflowRuntimeCodingToolBudgetRecoveryTemplateSubflow({
+    idPrefix: "budget-recovery-template-bound",
+    workflowGraphId: "workflow",
+  });
+  const bindRecoveryInputs = (node: Node): Node => ({
+    ...node,
+    config: {
+      ...(node.config as NonNullable<Node["config"]>),
+      logic: {
+        ...node.config?.logic,
+        fieldMappings: {
+          runId: {
+            source: "{{nodes.recovery-runtime-input.output}}",
+            path: "runId",
+            type: "string",
+          },
+          threadId: {
+            source: "{{nodes.recovery-runtime-input.output}}",
+            path: "threadId",
+            type: "string",
+          },
+          approvalId: {
+            source: "{{nodes.recovery-runtime-input.output}}",
+            path: "approvalId",
+            type: "string",
+          },
+          targetNodeIds: {
+            source: "{{nodes.recovery-runtime-input.output}}",
+            path: "targetNodeIds",
+            type: "array",
+          },
+          recoveryPolicy: {
+            source: "{{nodes.recovery-runtime-input.output}}",
+            path: "recoveryPolicy",
+            type: "object",
+          },
+        },
+      },
+    } as NonNullable<Node["config"]>,
+  });
+  const baseWorkflow = workflow();
+  const templateWorkflow = workflow({
+    nodes: [
+      baseWorkflow.nodes.find((node) => node.id === "trigger")!,
+      baseWorkflow.nodes.find((node) => node.id === "output")!,
+      ...subflow.nodes.map(bindRecoveryInputs),
+    ],
+  });
+  const readiness = evaluateWorkflowActivationReadiness(
+    templateWorkflow,
+    [testCase],
+    validationResult(),
+  );
+
+  assert.equal(
+    (readiness.executionReadinessIssues ?? []).some((issue) =>
+      issue.code.startsWith(
+        "missing_runtime_coding_tool_budget_recovery_",
+      ),
+    ),
+    false,
+  );
 });

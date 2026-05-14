@@ -238,6 +238,200 @@ fn workflow_activation_readiness_blocks_operational_gaps() {
 }
 
 #[test]
+fn workflow_activation_readiness_blocks_unbound_coding_budget_recovery_templates() {
+    let root = temp_root("activation-coding-budget-recovery-template");
+    let bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "Coding Budget Recovery Template".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "local".to_string(),
+        template_id: None,
+    })
+    .expect("workflow bundle should create");
+
+    let trigger = workflow_node(
+        "recovery-trigger",
+        "trigger",
+        "Trigger",
+        80,
+        160,
+        "Trigger",
+        "manual",
+    );
+    let output = workflow_node(
+        "recovery-output",
+        "output",
+        "Output",
+        640,
+        160,
+        "Output",
+        "markdown",
+    );
+    let mut recovery = workflow_node(
+        "budget-recovery-template",
+        "runtime_coding_tool_budget_recovery",
+        "Budget recovery template",
+        320,
+        160,
+        "Recovery",
+        "budget",
+    );
+    logic_mut(&mut recovery).insert(
+        "runtimeCodingToolBudgetRecoveryEndpoint".to_string(),
+        json!("/v1/runs/{runId}/coding-tool-budget-recovery"),
+    );
+    logic_mut(&mut recovery).insert(
+        "runtimeCodingToolBudgetRecoveryRunIdField".to_string(),
+        json!("runId"),
+    );
+    logic_mut(&mut recovery).insert(
+        "runtimeCodingToolBudgetRecoveryThreadIdField".to_string(),
+        json!("threadId"),
+    );
+    logic_mut(&mut recovery).insert(
+        "runtimeCodingToolBudgetRecoveryApprovalIdField".to_string(),
+        json!("approvalId"),
+    );
+    logic_mut(&mut recovery).insert(
+        "runtimeCodingToolBudgetRecoveryTargetNodeIdsField".to_string(),
+        json!("targetNodeIds"),
+    );
+    logic_mut(&mut recovery).insert(
+        "runtimeCodingToolBudgetRecoveryPolicyInputField".to_string(),
+        json!("recoveryPolicy"),
+    );
+    logic_mut(&mut recovery).insert(
+        "runtimeCodingToolBudgetRecoveryAction".to_string(),
+        json!("retry_approved"),
+    );
+    logic_mut(&mut recovery).insert(
+        "runtimeCodingToolBudgetRecoveryPolicy".to_string(),
+        json!({
+            "schemaVersion": "ioi.workflow.coding-tool-budget-recovery-policy.v1",
+            "source": "react_flow_template",
+            "approvalScope": "target_nodes",
+            "operatorRole": "operator",
+            "retryLimit": 1,
+            "ttlMs": 900000,
+            "requiresApproval": true,
+            "allowOverride": true,
+            "targetNodeIds": [],
+            "sourceNodeIds": []
+        }),
+    );
+
+    let mut workflow = bundle.workflow.clone();
+    workflow.nodes = vec![trigger, recovery, output];
+    workflow.edges = vec![
+        workflow_edge(
+            "edge-trigger-recovery",
+            "recovery-trigger",
+            "budget-recovery-template",
+        ),
+        workflow_edge(
+            "edge-recovery-output",
+            "budget-recovery-template",
+            "recovery-output",
+        ),
+    ];
+    save_workflow_project(bundle.workflow_path.clone(), workflow.clone())
+        .expect("workflow should save");
+    save_workflow_tests(
+        bundle.workflow_path.clone(),
+        vec![WorkflowTestCase {
+            id: "test-recovery-output".to_string(),
+            name: "Recovery output exists".to_string(),
+            target_node_ids: vec!["recovery-output".to_string()],
+            target_subgraph_id: None,
+            assertion: WorkflowTestAssertion {
+                kind: "node_exists".to_string(),
+                expected: None,
+                expression: None,
+            },
+            status: Some("idle".to_string()),
+            last_message: None,
+        }],
+    )
+    .expect("tests should save");
+
+    let blocked = validate_workflow_execution_readiness(bundle.workflow_path.clone())
+        .expect("readiness should run");
+    let binding_issue_codes = blocked
+        .execution_readiness_issues
+        .iter()
+        .filter(|issue| issue.node_id.as_deref() == Some("budget-recovery-template"))
+        .filter(|issue| {
+            issue
+                .code
+                .starts_with("missing_runtime_coding_tool_budget_recovery_")
+        })
+        .map(|issue| issue.code.as_str())
+        .collect::<Vec<_>>();
+    assert!(binding_issue_codes.contains(
+        &"missing_runtime_coding_tool_budget_recovery_run_binding"
+    ));
+    assert!(binding_issue_codes.contains(
+        &"missing_runtime_coding_tool_budget_recovery_thread_binding"
+    ));
+    assert!(binding_issue_codes.contains(
+        &"missing_runtime_coding_tool_budget_recovery_approval_binding"
+    ));
+    assert!(binding_issue_codes.contains(
+        &"missing_runtime_coding_tool_budget_recovery_target_binding"
+    ));
+    assert!(binding_issue_codes.contains(
+        &"missing_runtime_coding_tool_budget_recovery_policy_binding"
+    ));
+
+    let recovery_node = workflow
+        .nodes
+        .iter_mut()
+        .find(|node| workflow_node_id(node).as_deref() == Some("budget-recovery-template"))
+        .expect("recovery node should exist");
+    logic_mut(recovery_node).insert(
+        "runtimeCodingToolBudgetRecoveryRunId".to_string(),
+        json!("run-template"),
+    );
+    logic_mut(recovery_node).insert(
+        "runtimeCodingToolBudgetRecoveryThreadId".to_string(),
+        json!("thread-template"),
+    );
+    logic_mut(recovery_node).insert(
+        "runtimeCodingToolBudgetRecoveryApprovalId".to_string(),
+        json!("approval-template"),
+    );
+    logic_mut(recovery_node).insert(
+        "runtimeCodingToolBudgetRecoveryTargetNodeIds".to_string(),
+        json!(["node.apply_patch"]),
+    );
+    logic_mut(recovery_node).insert(
+        "runtimeCodingToolBudgetRecoveryPolicy".to_string(),
+        json!({
+            "schemaVersion": "ioi.workflow.coding-tool-budget-recovery-policy.v1",
+            "source": "react_flow_fixed",
+            "approvalScope": "target_nodes",
+            "operatorRole": "operator",
+            "retryLimit": 1,
+            "ttlMs": 900000,
+            "requiresApproval": true,
+            "allowOverride": true,
+            "targetNodeIds": ["node.apply_patch"],
+            "sourceNodeIds": ["node.apply_patch"]
+        }),
+    );
+    save_workflow_project(bundle.workflow_path.clone(), workflow)
+        .expect("bound workflow should save");
+    let bound = validate_workflow_execution_readiness(bundle.workflow_path)
+        .expect("readiness should rerun");
+    assert!(!bound.execution_readiness_issues.iter().any(|issue| {
+        issue.node_id.as_deref() == Some("budget-recovery-template")
+            && issue
+                .code
+                .starts_with("missing_runtime_coding_tool_budget_recovery_")
+    }));
+}
+
+#[test]
 fn restore_workflow_revision_restores_single_workflow_file_from_git() {
     let root = temp_root("git-workflow-restore");
     run_git(&root, &["init"]).expect("git init");

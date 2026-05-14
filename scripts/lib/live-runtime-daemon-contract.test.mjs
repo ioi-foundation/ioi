@@ -13292,6 +13292,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(runtimeDaemon, /action === "workflow-edit-proposals"/);
   assert.match(workflowValidation, /workflowWorkspaceTrustGateIssues/);
   assert.match(workflowValidation, /missing_workspace_trust_gate/);
+  assert.match(workflowValidation, /workflowRuntimeCodingToolBudgetRecoveryBindingIssues/);
+  assert.match(workflowValidation, /missing_runtime_coding_tool_budget_recovery_policy_binding/);
+  assert.match(tauriProjectValidation, /workflow_runtime_coding_tool_budget_recovery_binding_issues/);
+  assert.match(tauriProjectValidation, /missing_runtime_coding_tool_budget_recovery_policy_binding/);
   assert.match(workflowComposerController, /workflowWorkspaceTrustGateReadiness/);
   assert.match(workflowComposerController, /createRuntimeThreadModeControlRequestFromWorkflowNode/);
   assert.match(workflowComposerController, /workspace_trust_warning_not_emitted/);
