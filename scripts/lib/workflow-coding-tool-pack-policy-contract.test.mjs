@@ -22,8 +22,15 @@ test("React Flow coding tool pack exposes restore and diagnostics repair policy 
   const runtimeDaemon = read("packages/runtime-daemon/src/index.mjs");
   const agentSdk = read("packages/agent-sdk/src/substrate-client.ts");
   const runtimeProjection = read("packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts");
+  const codingToolControlNodes = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
+  );
 
   for (const field of [
+    "approvalMode",
+    "trustProfile",
+    "nodeApprovalOverride",
+    "requiresApproval",
     "restorePolicy",
     "restoreConflictPolicy",
     "diagnosticsRepairDefault",
@@ -37,6 +44,10 @@ test("React Flow coding tool pack exposes restore and diagnostics repair policy 
   }
 
   for (const testId of [
+    "workflow-coding-tool-pack-requires-approval",
+    "workflow-coding-tool-pack-approval-mode",
+    "workflow-coding-tool-pack-trust-profile",
+    "workflow-coding-tool-pack-node-approval-override",
     "workflow-coding-tool-pack-restore-policy",
     "workflow-coding-tool-pack-restore-conflict-policy",
     "workflow-coding-tool-pack-diagnostics-repair-default",
@@ -46,6 +57,13 @@ test("React Flow coding tool pack exposes restore and diagnostics repair policy 
   }
 
   assert.match(runtimeDaemon, /diagnosticsRepairPolicyConfig/);
+  assert.match(runtimeDaemon, /codingToolWorkflowApprovalPolicy/);
+  assert.match(runtimeDaemon, /codingToolApprovalSatisfaction/);
+  assert.match(runtimeDaemon, /workflow_node_requires_approval/);
+  assert.match(runtimeDaemon, /workflow_trust_profile_requires_approval/);
+  assert.match(codingToolControlNodes, /createRuntimeCodingToolControlRequestFromWorkflowNode/);
+  assert.match(codingToolControlNodes, /nodeApprovalOverride/);
+  assert.match(codingToolControlNodes, /trustProfile/);
   assert.match(runtimeDaemon, /diagnosticsRepairContextForToolPack/);
   assert.match(runtimeDaemon, /diagnosticsRepairDefaultForDecisions/);
   assert.match(runtimeDaemon, /DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION/);

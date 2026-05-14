@@ -62,7 +62,7 @@ export const RUNTIME_TTI_SCHEMA_VERSION_LITERALS = [
   RUNTIME_TTI_SCHEMA_VERSIONS.event,
 ] as const;
 
-export const RUNTIME_THREAD_MODES = ["plan", "agent", "yolo", "custom"] as const;
+export const RUNTIME_THREAD_MODES = ["plan", "review", "agent", "yolo", "custom"] as const;
 export const RUNTIME_APPROVAL_MODES = [
   "suggest",
   "auto_local",

@@ -1202,6 +1202,15 @@ export interface WorkflowToolBinding {
       | "restore_apply"
       | "operator_override";
     operatorOverrideRequiresApproval?: boolean;
+    approvalMode?:
+      | "suggest"
+      | "auto_local"
+      | "never_prompt"
+      | "human_required"
+      | "policy_required";
+    trustProfile?: "local_private" | "untrusted" | "restricted" | "review_required" | string;
+    nodeApprovalOverride?: "inherit" | "require_approval" | "never_prompt" | string;
+    requiresApproval?: boolean;
     timeoutMs?: number;
     dryRun?: boolean;
     allowedPaths?: string[];

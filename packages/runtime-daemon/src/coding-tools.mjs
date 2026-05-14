@@ -191,6 +191,10 @@ export function codingToolContracts() {
         "toolPack.coding.restoreConflictPolicy",
         "toolPack.coding.diagnosticsRepairDefault",
         "toolPack.coding.operatorOverrideRequiresApproval",
+        "toolPack.coding.approvalMode",
+        "toolPack.coding.trustProfile",
+        "toolPack.coding.nodeApprovalOverride",
+        "toolPack.coding.requiresApproval",
       ],
     },
     {
@@ -237,6 +241,10 @@ export function codingToolContracts() {
         "toolPack.coding.allowedTestCommandIds",
         "toolPack.coding.allowedPaths",
         "toolPack.coding.timeoutMs",
+        "toolPack.coding.approvalMode",
+        "toolPack.coding.trustProfile",
+        "toolPack.coding.nodeApprovalOverride",
+        "toolPack.coding.requiresApproval",
       ],
     },
     {
