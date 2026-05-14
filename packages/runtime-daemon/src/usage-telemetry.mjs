@@ -218,7 +218,13 @@ export function runtimeUsageTelemetryList({ runs = [], subagents = [], groupBy =
 
 export function runtimeUsageTelemetrySummary(record = {}) {
   const totalTokens = positiveInteger(record.total_tokens ?? record.totalTokens) ?? 0;
-  const costUsd = numberValue(record.estimated_cost_usd ?? record.estimatedCostUsd) ?? 0;
+  const costUsd =
+    numberValue(
+      record.estimated_cost_usd ??
+        record.estimatedCostUsd ??
+        record.cost_estimate_usd ??
+        record.costEstimateUsd,
+    ) ?? 0;
   const contextPressure = numberValue(record.context_pressure ?? record.contextPressure) ?? 0;
   const status =
     stringValue(record.context_pressure_status ?? record.contextPressureStatus) ??

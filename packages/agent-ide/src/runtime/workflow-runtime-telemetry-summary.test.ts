@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { projectRuntimeTuiControlStateToWorkflowProjection } from "./workflow-runtime-event-projection";
 import type { WorkflowRuntimeThreadEventLike } from "./workflow-runtime-event-projection";
-import { workflowRuntimeTelemetrySummaryFromProjection } from "./workflow-runtime-telemetry-summary";
+import {
+  workflowRuntimeTelemetrySummaryFromProjection,
+  workflowRuntimeTelemetrySummaryToUsageTelemetry,
+} from "./workflow-runtime-telemetry-summary";
 
 function runtimeThreadEvent(
   id: string,
@@ -169,4 +172,50 @@ test("workflow runtime telemetry summary marks blocked context pressure", () => 
   assert.equal(summary.contextPressureStatus, "high");
   assert.deepEqual(summary.receiptRefs, ["receipt_context_pressure_high"]);
   assert.deepEqual(summary.policyDecisionRefs, ["policy_context_pressure_compact"]);
+});
+
+test("workflow runtime telemetry summary converts to daemon budget usage telemetry", () => {
+  const summary = workflowRuntimeTelemetrySummaryFromProjection({
+    runtimeThreadEvents: [
+      runtimeThreadEvent("usage-1", 1, {
+        type: "usage_delta",
+        eventKind: "usage.delta",
+        sourceEventKind: "RuntimeUsageTelemetry.Delta",
+        componentKind: "usage_telemetry",
+        payload: {
+          total_tokens: 500,
+          input_tokens: 300,
+          output_tokens: 200,
+          estimated_cost_usd: 0.0042,
+          context_pressure: 0.66,
+          context_pressure_status: "elevated",
+          usage_run_count: 1,
+          usage_subagent_count: 1,
+        },
+        receiptRefs: ["receipt_usage"],
+        policyDecisionRefs: ["policy_usage"],
+      }),
+    ],
+  });
+
+  const usageTelemetry = workflowRuntimeTelemetrySummaryToUsageTelemetry(summary);
+
+  assert.ok(usageTelemetry);
+  assert.equal(usageTelemetry.object, "ioi.workflow_runtime_telemetry_summary_usage");
+  assert.equal(usageTelemetry.scope, "thread");
+  assert.equal(usageTelemetry.thread_id, "thread");
+  assert.equal(usageTelemetry.total_tokens, 500);
+  assert.equal(usageTelemetry.totalTokens, 500);
+  assert.equal(usageTelemetry.input_tokens, 300);
+  assert.equal(usageTelemetry.output_tokens, 200);
+  assert.equal(usageTelemetry.estimated_cost_usd, 0.0042);
+  assert.equal(usageTelemetry.estimatedCostUsd, 0.0042);
+  assert.equal(usageTelemetry.costEstimateUsd, 0.0042);
+  assert.equal(usageTelemetry.context_pressure, 0.66);
+  assert.equal(usageTelemetry.contextPressureStatus, "elevated");
+  assert.deepEqual(usageTelemetry.source_counts, { runs: 1, subagents: 1 });
+  assert.deepEqual(usageTelemetry.source_refs, ["usage-1"]);
+  assert.deepEqual(usageTelemetry.receipt_refs, ["receipt_usage"]);
+  assert.deepEqual(usageTelemetry.policy_decision_refs, ["policy_usage"]);
+  assert.equal(workflowRuntimeTelemetrySummaryToUsageTelemetry({}), null);
 });

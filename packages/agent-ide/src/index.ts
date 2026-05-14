@@ -60,6 +60,7 @@ export {
 export {
   WORKFLOW_RUNTIME_TELEMETRY_SUMMARY_SCHEMA_VERSION,
   workflowRuntimeTelemetrySummaryFromProjection,
+  workflowRuntimeTelemetrySummaryToUsageTelemetry,
 } from "./runtime/workflow-runtime-telemetry-summary";
 export {
   RUNTIME_WORKFLOW_EDIT_PROPOSAL_APPLY_PAYLOAD_SCHEMA_VERSION,
@@ -520,6 +521,12 @@ export type {
   RuntimeMcpToolOperation,
   RuntimeMcpToolWorkflowNodeOptions,
 } from "./runtime/workflow-runtime-mcp-control-nodes";
+export type {
+  WorkflowRuntimeTelemetrySummary,
+  WorkflowRuntimeTelemetrySummaryInput,
+  WorkflowRuntimeTelemetrySummaryStatus,
+  WorkflowRuntimeTelemetrySummaryUsageTelemetry,
+} from "./runtime/workflow-runtime-telemetry-summary";
 export type {
   RuntimeSubagentControlRequest,
   RuntimeSubagentControlRequestBody,

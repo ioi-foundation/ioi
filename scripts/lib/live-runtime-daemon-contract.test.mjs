@@ -6837,6 +6837,7 @@ test("React Flow subagent budget and cost caps block delegated child runs with p
 
 test("daemon aggregates usage, cost, and context telemetry across turns and delegated subagents", async () => {
   const {
+    createRuntimeContextBudgetControlRequestFromWorkflowNode,
     projectRuntimeTuiControlStateToWorkflowProjection,
     projectRuntimeThreadEventsToWorkflowProjection,
     workflowRuntimeTelemetrySummaryFromProjection,
@@ -7008,6 +7009,82 @@ test("daemon aggregates usage, cost, and context telemetry across turns and dele
     assert.ok(telemetrySummary.sourceKinds.includes("tui_usage_rows"));
     assert.ok(telemetrySummary.workflowNodeIds.includes("runtime.usage-telemetry"));
     assert.ok(telemetrySummary.workflowNodeIds.includes("runtime.context-budget"));
+
+    const summaryGateRequest = createRuntimeContextBudgetControlRequestFromWorkflowNode(
+      {
+        id: "react-flow-summary-budget-gate",
+        type: "runtime_context_budget",
+        config: {
+          logic: {
+            runtimeContextBudgetScope: "thread",
+            runtimeContextBudgetThreadIdField: "threadId",
+            runtimeContextBudgetUsageField: "runtimeTelemetrySummary",
+            runtimeContextBudgetMode: "block",
+            runtimeContextBudgetMaxTotalTokens: Math.max(
+              1,
+              telemetrySummary.totalTokens - 1,
+            ),
+            runtimeContextBudgetMaxCostUsd: Math.max(
+              0.000001,
+              telemetrySummary.costEstimateUsd / 2,
+            ),
+            runtimeContextBudgetWorkflowNodeId:
+              "runtime.context-budget.summary-gate",
+            runtimeContextBudgetActor: "workflow-author",
+          },
+        },
+      },
+      {
+        threadId: thread.thread_id,
+        runtimeTelemetrySummary: telemetrySummary,
+      },
+      {
+        workflowGraphId: "workflow.runtime.usage-telemetry",
+        actor: "workflow-author",
+      },
+    );
+    assert.equal(
+      summaryGateRequest.body.usageTelemetry.total_tokens,
+      telemetrySummary.totalTokens,
+    );
+    assert.equal(
+      summaryGateRequest.body.usageTelemetry.estimated_cost_usd,
+      telemetrySummary.costEstimateUsd,
+    );
+    assert.equal(
+      summaryGateRequest.body.usageTelemetry.context_pressure,
+      telemetrySummary.contextPressure,
+    );
+    assert.equal(
+      summaryGateRequest.body.usageTelemetry.source_counts.subagents,
+      telemetrySummary.subagentCount,
+    );
+    const summaryGate = await fetchJson(
+      `${daemon.endpoint}${summaryGateRequest.endpoint}`,
+      {
+        method: summaryGateRequest.method,
+        body: JSON.stringify(summaryGateRequest.body),
+      },
+    );
+    assert.equal(summaryGate.status, "blocked");
+    assert.equal(
+      summaryGate.workflow_node_id,
+      "runtime.context-budget.summary-gate",
+    );
+    assert.equal(summaryGate.usage_summary.total_tokens, telemetrySummary.totalTokens);
+    assert.equal(
+      summaryGate.usage_summary.estimated_cost_usd,
+      telemetrySummary.costEstimateUsd,
+    );
+    assert.equal(
+      summaryGate.usage_summary.context_pressure,
+      telemetrySummary.contextPressure,
+    );
+    assert.ok(
+      summaryGate.policy_decision_refs.some((ref) =>
+        ref.startsWith("policy_context_budget_thread_"),
+      ),
+    );
   } finally {
     await daemon.close();
   }
@@ -11817,6 +11894,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeContextBudgetControlNodes, /runtime_context_budget/);
   assert.match(workflowRuntimeContextBudgetControlNodes, /RuntimeContextBudget\.Evaluate/);
   assert.match(workflowRuntimeContextBudgetControlNodes, /\/v1\/threads\/\{threadId\}\/context-budget/);
+  assert.match(workflowRuntimeContextBudgetControlNodes, /runtimeTelemetrySummary/);
+  assert.match(workflowRuntimeContextBudgetControlNodes, /workflowRuntimeTelemetrySummaryToUsageTelemetry/);
   assert.match(workflowRuntimeCompactionPolicyControlNodes, /createRuntimeCompactionPolicyControlRequestFromWorkflowNode/);
   assert.match(workflowRuntimeCompactionPolicyControlNodes, /runtime_compaction_policy/);
   assert.match(workflowRuntimeCompactionPolicyControlNodes, /RuntimeCompactionPolicy\.Evaluate/);
@@ -11850,6 +11929,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(runtimeUsageTelemetry, /RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION/);
   assert.match(runtimeUsageTelemetry, /runtimeUsageTelemetryForRun/);
   assert.match(runtimeUsageTelemetry, /runtimeUsageTelemetryForThread/);
+  assert.match(runtimeUsageTelemetry, /costEstimateUsd/);
   assert.match(workflowRuntimeEventProjection, /usage_status/);
   assert.match(workflowRuntimeEventProjection, /usageTotalTokens/);
   assert.match(workflowRuntimeEventProjection, /usage_delta/);
@@ -12052,6 +12132,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeEditProposalPolicy, /proposal_apply/);
   assert.match(workflowRuntimeTelemetrySummary, /WORKFLOW_RUNTIME_TELEMETRY_SUMMARY_SCHEMA_VERSION/);
   assert.match(workflowRuntimeTelemetrySummary, /workflowRuntimeTelemetrySummaryFromProjection/);
+  assert.match(workflowRuntimeTelemetrySummary, /workflowRuntimeTelemetrySummaryToUsageTelemetry/);
+  assert.match(workflowRuntimeTelemetrySummary, /ioi\.workflow_runtime_telemetry_summary_usage/);
   assert.match(workflowRuntimeTelemetrySummary, /runtime_usage_events/);
   assert.match(workflowRuntimeTelemetrySummary, /tui_subagent_rows/);
   assert.match(workflowRunHistoryModel, /workflowRuntimePolicyStackFromEvents/);
