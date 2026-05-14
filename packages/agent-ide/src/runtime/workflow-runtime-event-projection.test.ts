@@ -93,6 +93,39 @@ test("projects Thread.events runtime events into stable React Flow nodes and edg
   assert.equal(projection.latestCursor, "events_thread:test:3");
 });
 
+test("projects workspace trust warnings as hook-policy React Flow rows", () => {
+  const projection = projectRuntimeThreadEventsToWorkflowProjection([
+    event("event-workspace-trust", 1, {
+      type: "workspace_trust_warning",
+      eventKind: "workspace.trust_warning",
+      sourceEventKind: "WorkspaceTrust.Warning",
+      status: "warning",
+      workflowNodeId: "runtime.thread-mode.yolo.workspace-trust",
+      componentKind: "workspace_trust",
+      payloadSchemaVersion: "ioi.runtime.workspace-trust-warning.v1",
+      receiptRefs: ["receipt-workspace-trust"],
+      policyDecisionRefs: ["policy-workspace-trust-yolo"],
+      payload: {
+        warning_id: "workspace_trust_test",
+        mode: "yolo",
+        approval_mode: "never_prompt",
+        severity: "high",
+        message: "YOLO mode can run without further prompts.",
+      },
+    }),
+  ]);
+
+  assert.equal(projection.nodes[0]?.nodeKind, "hook_policy");
+  assert.equal(projection.nodes[0]?.componentKind, "workspace_trust");
+  assert.equal(projection.nodes[0]?.label, "Workspace trust warning");
+  assert.equal(projection.nodes[0]?.status, "warning");
+  assert.equal(
+    projection.nodes[0]?.workflowNodeId,
+    "runtime.thread-mode.yolo.workspace-trust",
+  );
+  assert.deepEqual(projection.nodes[0]?.receiptRefs, ["receipt-workspace-trust"]);
+});
+
 test("projects coding tool events as receipt-backed React Flow rows", () => {
   const projection = projectRuntimeThreadEventsToWorkflowProjection([
     event("event-coding-status", 1, {
@@ -917,6 +950,29 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
         sequence: 6,
       },
     ],
+    workspace_trust_rows: [
+      {
+        id: "workspace-trust-row",
+        warning_id: "workspace-trust-123",
+        status: "warning",
+        severity: "high",
+        message: "YOLO mode can run without further prompts.",
+        mode: "yolo",
+        approval_mode: "never_prompt",
+        trust_profile: "local_private",
+        dirty: true,
+        warning_reasons: [
+          "thread_yolo_mode_never_prompts",
+          "dirty_worktree",
+        ],
+        workflow_graph_id: "workflow-subagent-fanout",
+        workflow_node_id: "runtime.thread-mode.yolo.workspace-trust",
+        event_id: "event-workspace-trust",
+        receipt_refs: ["receipt-workspace-trust"],
+        policy_decision_refs: ["policy-workspace-trust-yolo"],
+        sequence: 7,
+      },
+    ],
     job_rows: [
       {
         id: "job-row",
@@ -1149,6 +1205,7 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   assert.equal(projection.validationErrorCount, 1);
   assert.equal(projection.approvalCount, 1);
   assert.equal(projection.approvalDecisionCount, 1);
+  assert.equal(projection.workspaceTrustWarningCount, 1);
   assert.equal(projection.jobCount, 1);
   assert.equal(projection.runLifecycleCount, 1);
   assert.equal(projection.mcpRowCount, 5);
@@ -1156,7 +1213,7 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   assert.equal(projection.usageRowCount, 1);
   assert.equal(projection.subagentRowCount, 1);
   assert.equal(projection.subagentChildSubflowCount, 1);
-  assert.equal(projection.rowCount, 22);
+  assert.equal(projection.rowCount, 23);
   assert.deepEqual(
     projection.rows.map((row) => [row.rowKind, row.command, row.status]),
     [
@@ -1164,6 +1221,7 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
       ["mode_status", null, "current"],
       ["model_route", "model", "current"],
       ["thinking", "thinking", "current"],
+      ["workspace_trust_warning", "mode", "warning"],
       ["mcp_server", "mcp", "completed"],
       ["mcp_tool", "mcp", "completed"],
       ["mcp_resource", "mcp", "completed"],
@@ -1185,40 +1243,47 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
     ],
   );
   assert.equal(
-    projection.rows[15]?.receiptRefs[0],
+    projection.rows[16]?.receiptRefs[0],
     "receipt-approval-approved",
   );
   assert.equal(
-    projection.rows[20]?.reactFlowNodeId,
+    projection.rows[21]?.reactFlowNodeId,
     "runtime.tui-control-state.command.steer",
   );
   assert.equal(projection.rows[2]?.modelId, "auto");
   assert.equal(projection.rows[3]?.reasoningEffort, "high");
-  assert.equal(projection.rows[4]?.mcpServerId, "search");
-  assert.equal(projection.rows[5]?.mcpToolName, "query");
-  assert.equal(projection.rows[5]?.reactFlowNodeId, "runtime.mcp-tool.search.query");
-  assert.equal(projection.rows[6]?.mcpResourceUri, "ioi://fixture/search-context");
-  assert.equal(projection.rows[7]?.mcpPromptName, "search-brief");
-  assert.equal(projection.rows[8]?.mcpOperation, "invoke");
-  assert.equal(projection.rows[8]?.mcpToolCallId, "mcp-call-search-query");
-  assert.equal(projection.rows[9]?.memoryOperation, "status");
-  assert.equal(projection.rows[11]?.memoryRecordId, "memory-123");
-  assert.equal(projection.rows[11]?.memoryKey, "conversation");
-  assert.equal(projection.rows[12]?.memoryOperation, "write");
-  assert.equal(projection.rows[12]?.reactFlowNodeId, "runtime.memory.write");
-  assert.equal(projection.rows[13]?.subagentId, "agent-subagent-1");
-  assert.equal(projection.rows[13]?.subagentRole, "explore");
-  assert.equal(projection.rows[13]?.subagentOutputContractStatus, "passed");
-  assert.equal(projection.rows[13]?.subagentBudgetStatus, "within_budget");
-  assert.equal(projection.rows[13]?.subagentTokenEstimate, 324);
-  assert.equal(projection.rows[13]?.subagentCostEstimateUsd, 0.000324);
-  assert.equal(projection.rows[13]?.subagentRestartCount, 1);
-  assert.equal(projection.rows[13]?.workflowGraphId, "workflow-subagent-fanout");
-  assert.equal(projection.rows[13]?.reactFlowNodeId, "runtime.subagent.spawn.explore");
-  assert.equal(projection.rows[18]?.usageTotalTokens, 4321);
-  assert.equal(projection.rows[18]?.usageCostEstimateUsd, 0.004321);
-  assert.equal(projection.rows[18]?.usageSubagentCount, 1);
-  assert.equal(projection.rows[18]?.reactFlowNodeId, "runtime.usage-telemetry");
+  assert.equal(projection.rows[4]?.workspaceTrustWarningId, "workspace-trust-123");
+  assert.equal(projection.rows[4]?.workspaceTrustSeverity, "high");
+  assert.equal(projection.rows[4]?.workspaceTrustDirty, true);
+  assert.equal(
+    projection.rows[4]?.reactFlowNodeId,
+    "runtime.thread-mode.yolo.workspace-trust",
+  );
+  assert.equal(projection.rows[5]?.mcpServerId, "search");
+  assert.equal(projection.rows[6]?.mcpToolName, "query");
+  assert.equal(projection.rows[6]?.reactFlowNodeId, "runtime.mcp-tool.search.query");
+  assert.equal(projection.rows[7]?.mcpResourceUri, "ioi://fixture/search-context");
+  assert.equal(projection.rows[8]?.mcpPromptName, "search-brief");
+  assert.equal(projection.rows[9]?.mcpOperation, "invoke");
+  assert.equal(projection.rows[9]?.mcpToolCallId, "mcp-call-search-query");
+  assert.equal(projection.rows[10]?.memoryOperation, "status");
+  assert.equal(projection.rows[12]?.memoryRecordId, "memory-123");
+  assert.equal(projection.rows[12]?.memoryKey, "conversation");
+  assert.equal(projection.rows[13]?.memoryOperation, "write");
+  assert.equal(projection.rows[13]?.reactFlowNodeId, "runtime.memory.write");
+  assert.equal(projection.rows[14]?.subagentId, "agent-subagent-1");
+  assert.equal(projection.rows[14]?.subagentRole, "explore");
+  assert.equal(projection.rows[14]?.subagentOutputContractStatus, "passed");
+  assert.equal(projection.rows[14]?.subagentBudgetStatus, "within_budget");
+  assert.equal(projection.rows[14]?.subagentTokenEstimate, 324);
+  assert.equal(projection.rows[14]?.subagentCostEstimateUsd, 0.000324);
+  assert.equal(projection.rows[14]?.subagentRestartCount, 1);
+  assert.equal(projection.rows[14]?.workflowGraphId, "workflow-subagent-fanout");
+  assert.equal(projection.rows[14]?.reactFlowNodeId, "runtime.subagent.spawn.explore");
+  assert.equal(projection.rows[19]?.usageTotalTokens, 4321);
+  assert.equal(projection.rows[19]?.usageCostEstimateUsd, 0.004321);
+  assert.equal(projection.rows[19]?.usageSubagentCount, 1);
+  assert.equal(projection.rows[19]?.reactFlowNodeId, "runtime.usage-telemetry");
   assert.equal(projection.subagentChildSubflows[0]?.workflowGraphId, "workflow-subagent-fanout");
   assert.equal(projection.subagentChildSubflows[0]?.parentReactFlowNodeId, "runtime.subagent.spawn.explore");
   assert.equal(projection.subagentChildSubflows[0]?.childThreadId, "thread-child-1");
@@ -1243,9 +1308,9 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
     projection.subagentChildSubflowReactFlowNodes[1]?.parentId,
     "runtime.subagent-subflow.agent-subagent-1",
   );
-  assert.equal(projection.rows[16]?.jobId, "job-run-test");
-  assert.equal(projection.rows[17]?.runId, "run-test");
-  assert.equal(projection.rows[21]?.message, "/steer requires guidance text");
+  assert.equal(projection.rows[17]?.jobId, "job-run-test");
+  assert.equal(projection.rows[18]?.runId, "run-test");
+  assert.equal(projection.rows[22]?.message, "/steer requires guidance text");
 });
 
 test("projects TUI cost and context controls to usage, budget, and compaction nodes", () => {

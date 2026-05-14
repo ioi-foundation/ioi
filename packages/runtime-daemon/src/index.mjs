@@ -106,6 +106,7 @@ const RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION = "ioi.runtime.event.v1";
 const RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION = "ioi.runtime.thread-controls.v1";
 const RUNTIME_THREAD_MODE_CONTROL_SCHEMA_VERSION = "ioi.runtime.thread-mode-control.v1";
 const RUNTIME_MODEL_ROUTE_CONTROL_SCHEMA_VERSION = "ioi.runtime.model-route-control.v1";
+const WORKSPACE_TRUST_WARNING_SCHEMA_VERSION = "ioi.runtime.workspace-trust-warning.v1";
 const CODING_TOOL_ARTIFACT_SCHEMA_VERSION = "ioi.runtime.coding-tool-artifact.v1";
 const RUNTIME_MCP_SERVE_SCHEMA_VERSION = "ioi.runtime.mcp-serve.v1";
 const RUNTIME_MCP_SERVE_PROTOCOL_VERSION = "2024-11-05";
@@ -1246,16 +1247,33 @@ export class AgentgresRuntimeStateStore {
       modelRoute,
       now,
     });
+    const workspaceTrustWarningEvent =
+      controlKind === "mode"
+        ? this.appendWorkspaceTrustWarningEvent({
+            agent: updatedAgent,
+            threadId,
+            controls: nextControls,
+            request,
+            source,
+            requestedBy,
+            workflowGraphId,
+            modeEvent: event,
+            now,
+          })
+        : null;
     updatedAgent = {
       ...updatedAgent,
       runtimeControls: nextControls,
-      updatedAt: event.created_at,
+      updatedAt: workspaceTrustWarningEvent?.created_at ?? event.created_at,
     };
     this.agents.set(agent.id, updatedAgent);
     this.writeAgent(updatedAgent, `thread.${controlKind}`);
     const thread = this.threadForAgent(updatedAgent);
+    const workspaceTrustWarning = workspaceTrustWarningEvent?.payload_summary ?? null;
     return {
       ...thread,
+      workspace_trust_warning: workspaceTrustWarning,
+      workspaceTrustWarning,
       control: {
         schemaVersion: RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION,
         schema_version: RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION,
@@ -1268,8 +1286,14 @@ export class AgentgresRuntimeStateStore {
         seq: event.seq,
         receipt_refs: event.receipt_refs,
         policy_decision_refs: event.policy_decision_refs,
+        workspace_trust_warning: workspaceTrustWarning,
+        workspaceTrustWarning,
+        workspace_trust_warning_event_id: workspaceTrustWarningEvent?.event_id ?? null,
+        workspaceTrustWarningEventId: workspaceTrustWarningEvent?.event_id ?? null,
       },
       event,
+      workspace_trust_warning_event: workspaceTrustWarningEvent,
+      workspaceTrustWarningEvent: workspaceTrustWarningEvent,
     };
   }
 
@@ -1361,6 +1385,86 @@ export class AgentgresRuntimeStateStore {
           ? [`receipt_${agent.id}_mode_${safeId(controls.mode)}_${controlHash}`]
           : [modelRoute?.receiptId].filter(Boolean),
       policy_decision_refs: [`policy_${agent.id}_${controlKind}_allow`],
+      artifact_refs: [],
+      rollback_refs: [],
+      redaction_profile: "internal",
+      fixture_profile: fixtureProfileForAgent(agent),
+    });
+  }
+
+  appendWorkspaceTrustWarningEvent({
+    agent,
+    threadId,
+    controls,
+    request,
+    source,
+    requestedBy,
+    workflowGraphId,
+    modeEvent,
+    now,
+  }) {
+    const mode = controls.mode;
+    if (mode !== "review" && mode !== "yolo") return null;
+    const modeWorkflowNodeId =
+      request.workflow_node_id ??
+      request.workflowNodeId ??
+      modeEvent?.workflow_node_id ??
+      "runtime.thread-mode";
+    const workflowNodeId =
+      request.workspace_trust_workflow_node_id ??
+      request.workspaceTrustWorkflowNodeId ??
+      request.trust_warning_workflow_node_id ??
+      request.trustWarningWorkflowNodeId ??
+      `${modeWorkflowNodeId}.workspace-trust`;
+    const payload = workspaceTrustWarningRecordForMode({
+      agent,
+      threadId,
+      controls,
+      request,
+      source,
+      requestedBy,
+      workflowGraphId,
+      workflowNodeId,
+      modeWorkflowNodeId,
+      modeEvent,
+      now,
+    });
+    const warningHash = crypto
+      .createHash("sha256")
+      .update(JSON.stringify({
+        threadId,
+        mode: controls.mode,
+        approvalMode: controls.approvalMode,
+        workspaceRootHash: payload.workspace_root_hash,
+        branchPolicyStatus: payload.branch_policy_status,
+        warningReasons: payload.warning_reasons,
+        workflowGraphId,
+        workflowNodeId,
+      }))
+      .digest("hex")
+      .slice(0, 16);
+    return this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: "",
+      item_id: `${threadId}:item:workspace-trust:${warningHash}`,
+      idempotency_key: `thread:${threadId}:workspace-trust-warning:${warningHash}`,
+      source,
+      source_event_kind: "WorkspaceTrust.Warning",
+      event_kind: "workspace.trust_warning",
+      status: "warning",
+      actor: "policy",
+      created_at: now,
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      component_kind: "workspace_trust",
+      payload_schema_version: WORKSPACE_TRUST_WARNING_SCHEMA_VERSION,
+      payload_summary: payload,
+      receipt_refs: [`receipt_${agent.id}_workspace_trust_${safeId(mode)}_${warningHash}`],
+      policy_decision_refs: [
+        `policy_${agent.id}_workspace_trust_${safeId(mode)}_${safeId(payload.severity)}`,
+      ],
       artifact_refs: [],
       rollback_refs: [],
       redaction_profile: "internal",
@@ -13213,6 +13317,214 @@ function branchPolicyRecommendedNextAction({ status, blockers, warnings }) {
     return "Configure an upstream branch or accept a review gate before PR creation.";
   }
   return "Review branch policy warnings before requesting mutation.";
+}
+
+function workspaceTrustWarningRecordForMode({
+  agent,
+  threadId,
+  controls,
+  request,
+  source,
+  requestedBy,
+  workflowGraphId,
+  workflowNodeId,
+  modeWorkflowNodeId,
+  modeEvent,
+  now,
+} = {}) {
+  const generatedAt = now ?? new Date().toISOString();
+  const workspaceRoot = path.resolve(agent?.cwd ?? process.cwd());
+  const repositoryContext = repositoryContextForWorkspace({
+    cwd: workspaceRoot,
+    contextId: `repoctx_${doctorHash(workspaceRoot).slice(0, 12)}`,
+    generatedAt,
+  });
+  const branchPolicy = branchPolicyForRepositoryContext({
+    repositoryContext,
+    policyId: `branch_policy_${doctorHash(`${threadId ?? "thread"}:${repositoryContext.contextId}`).slice(0, 12)}`,
+    generatedAt,
+  });
+  const mode = controls?.mode ?? "agent";
+  const approvalMode = controls?.approvalMode ?? approvalModeForThreadMode(mode);
+  const ignoredUiFields = workspaceTrustIgnoredUiFields(request);
+  const modeReasons =
+    mode === "yolo"
+      ? ["thread_yolo_mode_never_prompts"]
+      : ["thread_review_mode_requires_visible_review"];
+  const branchReasons = [
+    ...normalizeArray(branchPolicy.blockers),
+    ...normalizeArray(branchPolicy.warnings),
+  ];
+  const warningReasons = uniqueStrings([
+    ...modeReasons,
+    ...branchReasons,
+    ...(ignoredUiFields.length ? ["canvas_local_trust_override_ignored"] : []),
+  ]);
+  const severity =
+    mode === "yolo" || branchPolicy.status === "blocked"
+      ? "high"
+      : branchPolicy.status === "warning"
+        ? "medium"
+        : "notice";
+  const warningId = `workspace_trust_${doctorHash([
+    threadId ?? "thread",
+    mode,
+    approvalMode,
+    repositoryContext.workspaceRootHash,
+    branchPolicy.status,
+    workflowGraphId ?? "",
+    workflowNodeId ?? "",
+  ].join(":")).slice(0, 16)}`;
+  const summary = workspaceTrustWarningSummary({
+    mode,
+    approvalMode,
+    severity,
+    branchPolicy,
+    ignoredUiFields,
+  });
+  return {
+    schemaVersion: WORKSPACE_TRUST_WARNING_SCHEMA_VERSION,
+    schema_version: WORKSPACE_TRUST_WARNING_SCHEMA_VERSION,
+    object: "ioi.workspace_trust_warning",
+    warningId,
+    warning_id: warningId,
+    generatedAt,
+    generated_at: generatedAt,
+    status: "warning",
+    severity,
+    summary,
+    message: summary,
+    mode,
+    thread_mode: mode,
+    approvalMode,
+    approval_mode: approvalMode,
+    trustProfile: "local_private",
+    trust_profile: "local_private",
+    daemonTrustSource: "thread_mode_and_read_only_repository_context",
+    daemon_trust_source: "thread_mode_and_read_only_repository_context",
+    canvasLocalTrustStateAccepted: false,
+    canvas_local_trust_state_accepted: false,
+    uiOverrideIgnored: ignoredUiFields.length > 0,
+    ui_override_ignored: ignoredUiFields.length > 0,
+    ignoredUiFields,
+    ignored_ui_fields: ignoredUiFields,
+    requestedBy,
+    requested_by: requestedBy,
+    controlSurface: source,
+    control_surface: source,
+    agentId: agent?.id ?? null,
+    agent_id: agent?.id ?? null,
+    threadId: threadId ?? null,
+    thread_id: threadId ?? null,
+    sessionId: agent ? runtimeSessionIdForAgent(agent) : null,
+    session_id: agent ? runtimeSessionIdForAgent(agent) : null,
+    workflowGraphId: workflowGraphId ?? null,
+    workflow_graph_id: workflowGraphId ?? null,
+    workflowNodeId: workflowNodeId ?? null,
+    workflow_node_id: workflowNodeId ?? null,
+    modeWorkflowNodeId: modeWorkflowNodeId ?? null,
+    mode_workflow_node_id: modeWorkflowNodeId ?? null,
+    sourceModeEventId: modeEvent?.event_id ?? null,
+    source_mode_event_id: modeEvent?.event_id ?? null,
+    sourceModeSeq: modeEvent?.seq ?? null,
+    source_mode_seq: modeEvent?.seq ?? null,
+    workspaceRoot,
+    workspace_root: workspaceRoot,
+    workspaceRootHash: repositoryContext.workspaceRootHash,
+    workspace_root_hash: repositoryContext.workspaceRootHash,
+    repositoryContextId: repositoryContext.contextId ?? null,
+    repository_context_id: repositoryContext.contextId ?? null,
+    branchPolicyId: branchPolicy.policyId ?? null,
+    branch_policy_id: branchPolicy.policyId ?? null,
+    branchPolicyStatus: branchPolicy.status ?? null,
+    branch_policy_status: branchPolicy.status ?? null,
+    isGitRepository: Boolean(repositoryContext.isGitRepository),
+    is_git_repository: Boolean(repositoryContext.isGitRepository),
+    branch: repositoryContext.branch ?? null,
+    defaultBranch: repositoryContext.defaultBranch ?? null,
+    default_branch: repositoryContext.defaultBranch ?? null,
+    upstream: repositoryContext.upstream ?? null,
+    dirty: Boolean(branchPolicy.dirty),
+    counts: branchPolicy.counts ?? {},
+    ahead: branchPolicy.ahead ?? 0,
+    behind: branchPolicy.behind ?? 0,
+    protectedBranch: Boolean(branchPolicy.protectedBranch),
+    protected_branch: Boolean(branchPolicy.protectedBranch),
+    detachedHead: Boolean(branchPolicy.detachedHead),
+    detached_head: Boolean(branchPolicy.detachedHead),
+    warningReasons,
+    warning_reasons: warningReasons,
+    branchPolicyWarnings: normalizeArray(branchPolicy.warnings),
+    branch_policy_warnings: normalizeArray(branchPolicy.warnings),
+    branchPolicyBlockers: normalizeArray(branchPolicy.blockers),
+    branch_policy_blockers: normalizeArray(branchPolicy.blockers),
+    recommendedNextAction: branchPolicy.recommendedNextAction,
+    recommended_next_action: branchPolicy.recommendedNextAction,
+    readOnly: true,
+    read_only: true,
+    mutationExecuted: false,
+    mutation_executed: false,
+    evidenceRefs: uniqueStrings([
+      "workspace_trust_warning",
+      "daemon_owned_workspace_trust",
+      "thread_mode_review_yolo_warning",
+      "repository_context",
+      repositoryContext.contextId,
+      branchPolicy.policyId,
+    ]),
+    evidence_refs: uniqueStrings([
+      "workspace_trust_warning",
+      "daemon_owned_workspace_trust",
+      "thread_mode_review_yolo_warning",
+      "repository_context",
+      repositoryContext.contextId,
+      branchPolicy.policyId,
+    ]),
+  };
+}
+
+function workspaceTrustIgnoredUiFields(request = {}) {
+  const aliases = [
+    ["trust_profile", "trustProfile"],
+    ["workspace_trust", "workspaceTrust"],
+    ["workspace_trust_profile", "workspaceTrustProfile"],
+    ["workspace_trust_status", "workspaceTrustStatus"],
+    ["workspace_trust_warning", "workspaceTrustWarning"],
+    ["workspace_trust_idempotency_key", "workspaceTrustIdempotencyKey"],
+    ["workspace_trust_suppressed", "workspaceTrustSuppressed"],
+    ["suppress_workspace_trust_warning", "suppressWorkspaceTrustWarning"],
+    ["hide_workspace_trust_warning", "hideWorkspaceTrustWarning"],
+    ["suppressWarnings", "suppress_warnings"],
+    ["hideWarnings", "hide_warnings"],
+    ["trusted", "isTrusted"],
+  ];
+  return aliases
+    .filter(([left, right]) => Object.hasOwn(request, left) || Object.hasOwn(request, right))
+    .map(([left, right]) => (Object.hasOwn(request, left) ? left : right));
+}
+
+function workspaceTrustWarningSummary({
+  mode,
+  approvalMode,
+  severity,
+  branchPolicy,
+  ignoredUiFields,
+} = {}) {
+  const modeText =
+    mode === "yolo"
+      ? "YOLO mode can run without further prompts"
+      : "Review mode requires visible operator review";
+  const branchText =
+    branchPolicy?.status === "passed"
+      ? "repository context is clean"
+      : `branch policy is ${branchPolicy?.status ?? "unknown"} (${[
+          ...normalizeArray(branchPolicy?.blockers),
+          ...normalizeArray(branchPolicy?.warnings),
+        ].join(", ")})`;
+  const overrideText = ignoredUiFields?.length
+    ? "; canvas-local trust override fields were ignored"
+    : "";
+  return `${modeText}; approval=${approvalMode ?? "suggest"}; severity=${severity}; ${branchText}${overrideText}.`;
 }
 
 function githubContextForRepository({

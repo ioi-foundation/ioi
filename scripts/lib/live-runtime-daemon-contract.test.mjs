@@ -1739,6 +1739,177 @@ test("daemon owns thread mode, model, and thinking controls for TUI and React Fl
   }
 });
 
+test("daemon emits workspace trust warnings for review and yolo mode controls", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const {
+    projectRuntimeTuiControlStateToWorkflowProjection,
+    projectRuntimeThreadEventsToWorkflowProjection,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-workspace-trust-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-workspace-trust-state-"));
+  execFileSync("git", ["init"], { cwd, stdio: "ignore" });
+  execFileSync("git", ["config", "user.email", "runtime-trust@example.com"], { cwd });
+  execFileSync("git", ["config", "user.name", "Runtime Trust"], { cwd });
+  fs.writeFileSync(path.join(cwd, "tracked.txt"), "clean\n");
+  execFileSync("git", ["add", "tracked.txt"], { cwd });
+  execFileSync("git", ["-c", "commit.gpgsign=false", "commit", "-m", "seed tracked file"], {
+    cwd,
+    stdio: "ignore",
+  });
+  execFileSync("git", ["checkout", "-b", "feature/workspace-trust"], { cwd, stdio: "ignore" });
+  fs.writeFileSync(path.join(cwd, "tracked.txt"), "dirty\n");
+  fs.writeFileSync(path.join(cwd, "untracked.txt"), "untracked\n");
+
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const workflowGraphId = "workflow.react-flow.workspace-trust-proof";
+    const modeNodeId = "runtime.thread-mode.yolo";
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        goal: "Prove workspace trust warnings are daemon-owned.",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const yoloMode = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/mode`, {
+      method: "POST",
+      body: JSON.stringify({
+        mode: "yolo",
+        source: "react_flow",
+        workflowGraphId,
+        workflowNodeId: modeNodeId,
+        trustProfile: "canvas_claims_trusted",
+        workspaceTrustStatus: "trusted",
+        workspaceTrustSuppressed: true,
+        workspaceTrustIdempotencyKey: "canvas-controlled-warning-key",
+      }),
+    });
+    assert.equal(yoloMode.mode, "yolo");
+    assert.equal(yoloMode.approval_mode, "never_prompt");
+    assert.equal(yoloMode.workspace_trust_warning?.mode, "yolo");
+    assert.equal(yoloMode.workspace_trust_warning?.severity, "high");
+    assert.equal(yoloMode.workspace_trust_warning?.trust_profile, "local_private");
+    assert.equal(yoloMode.workspace_trust_warning?.ui_override_ignored, true);
+    assert.equal(yoloMode.workspace_trust_warning?.canvas_local_trust_state_accepted, false);
+    assert.equal(yoloMode.workspace_trust_warning?.dirty, true);
+    assert.equal(yoloMode.workspace_trust_warning?.counts?.unstaged, 1);
+    assert.equal(yoloMode.workspace_trust_warning?.counts?.untracked, 1);
+    assert.ok(
+      yoloMode.workspace_trust_warning?.warning_reasons.includes(
+        "thread_yolo_mode_never_prompts",
+      ),
+    );
+    assert.ok(
+      yoloMode.workspace_trust_warning?.warning_reasons.includes(
+        "canvas_local_trust_override_ignored",
+      ),
+    );
+    assert.ok(
+      yoloMode.workspace_trust_warning?.ignored_ui_fields.includes(
+        "workspaceTrustIdempotencyKey",
+      ),
+    );
+    assert.equal(yoloMode.workspace_trust_warning_event?.event_kind, "workspace.trust_warning");
+    assert.equal(yoloMode.workspace_trust_warning_event?.component_kind, "workspace_trust");
+    assert.equal(yoloMode.workspace_trust_warning_event?.workflow_graph_id, workflowGraphId);
+    assert.equal(
+      yoloMode.workspace_trust_warning_event?.workflow_node_id,
+      `${modeNodeId}.workspace-trust`,
+    );
+
+    const reviewMode = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/mode`, {
+      method: "POST",
+      body: JSON.stringify({
+        mode: "review",
+        source: "react_flow",
+        workflowGraphId,
+        workflowNodeId: "runtime.thread-mode.review",
+      }),
+    });
+    assert.equal(reviewMode.workspace_trust_warning?.mode, "review");
+    assert.equal(reviewMode.workspace_trust_warning?.approval_mode, "human_required");
+    assert.ok(
+      reviewMode.workspace_trust_warning?.warning_reasons.includes(
+        "thread_review_mode_requires_visible_review",
+      ),
+    );
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const warningEvents = daemonEvents.filter(
+      (event) => event.event_kind === "workspace.trust_warning",
+    );
+    assert.equal(warningEvents.length, 2);
+    const yoloWarningEvent = warningEvents.find((event) => event.payload_summary?.mode === "yolo");
+    assert.ok(yoloWarningEvent);
+    assert.equal(yoloWarningEvent.source, "react_flow");
+    assert.equal(yoloWarningEvent.actor, "policy");
+    assert.equal(yoloWarningEvent.payload_summary?.source_mode_event_id, yoloMode.event.event_id);
+    assert.deepEqual(yoloWarningEvent.receipt_refs, yoloMode.workspace_trust_warning_event.receipt_refs);
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const sdkWarning = sdkEvents.find((event) => event.id === yoloWarningEvent.event_id);
+    assert.ok(sdkWarning);
+    assert.equal(sdkWarning.type, "workspace_trust_warning");
+    assert.equal(sdkWarning.componentKind, "workspace_trust");
+    assert.equal(sdkWarning.workflowGraphId, workflowGraphId);
+    assert.equal(sdkWarning.payload.ui_override_ignored, true);
+
+    const reactFlowProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
+    const trustNode = reactFlowProjection.nodes.find((node) =>
+      node.eventIds.includes(yoloWarningEvent.event_id),
+    );
+    assert.ok(trustNode);
+    assert.equal(trustNode.nodeKind, "hook_policy");
+    assert.equal(trustNode.componentKind, "workspace_trust");
+    assert.equal(trustNode.label, "Workspace trust warning");
+    assert.equal(trustNode.status, "warning");
+    assert.equal(trustNode.workflowNodeId, `${modeNodeId}.workspace-trust`);
+
+    const tuiProjection = projectRuntimeTuiControlStateToWorkflowProjection({
+      schema_version: "ioi.agent-cli.tui-control-state.v1",
+      surface: "tui",
+      thread_id: thread.thread_id,
+      workflow_graph_id: workflowGraphId,
+      last_cursor: `${yoloWarningEvent.event_stream_id}:${yoloWarningEvent.seq}`,
+      last_event_id: yoloWarningEvent.event_id,
+      mode_status: {
+        mode: yoloMode.mode,
+        approval_mode: yoloMode.approval_mode,
+        trust_profile: "local_private",
+        workflow_node_id: modeNodeId,
+      },
+      workspace_trust_rows: [
+        {
+          ...yoloWarningEvent.payload_summary,
+          event_id: yoloWarningEvent.event_id,
+          sequence: yoloWarningEvent.seq,
+          cursor: `${yoloWarningEvent.event_stream_id}:${yoloWarningEvent.seq}`,
+          workflow_graph_id: yoloWarningEvent.workflow_graph_id,
+          workflow_node_id: yoloWarningEvent.workflow_node_id,
+          receipt_refs: yoloWarningEvent.receipt_refs,
+          policy_decision_refs: yoloWarningEvent.policy_decision_refs,
+        },
+      ],
+    });
+    const tuiTrustRow = tuiProjection.rows.find(
+      (row) => row.rowKind === "workspace_trust_warning",
+    );
+    assert.ok(tuiTrustRow);
+    assert.equal(tuiProjection.workspaceTrustWarningCount, 1);
+    assert.equal(tuiTrustRow.workspaceTrustWarningId, yoloWarningEvent.payload_summary.warning_id);
+    assert.equal(tuiTrustRow.workspaceTrustSeverity, "high");
+    assert.equal(tuiTrustRow.workspaceTrustDirty, true);
+    assert.equal(tuiTrustRow.reactFlowNodeId, `${modeNodeId}.workspace-trust`);
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("daemon requires approval before review-mode mutating coding tools from React Flow", async () => {
   const { Thread, createRuntimeSubstrateClient } = await importSdk();
   const {
@@ -11123,6 +11294,11 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(runtimeDaemon, /approval_decision_event_id/);
   assert.match(runtimeDaemon, /coding_tool_approval_required/);
   assert.match(runtimeDaemon, /thread_review_mode_requires_approval/);
+  assert.match(runtimeDaemon, /WORKSPACE_TRUST_WARNING_SCHEMA_VERSION/);
+  assert.match(runtimeDaemon, /workspace\.trust_warning/);
+  assert.match(runtimeDaemon, /canvas_local_trust_state_accepted/);
+  assert.match(workflowRuntimeEventProjection, /workspace_trust_warning/);
+  assert.match(workflowRuntimeEventProjection, /workspaceTrustRows/);
   assert.match(graphRuntimeTypes, /executeWorkflowRuntimeControlRequest\?/);
   assert.match(graphRuntimeTypes, /WorkflowRuntimeControlRequest/);
   assert.match(graphRuntimeTypes, /RuntimeApprovalRequestControlRequest/);

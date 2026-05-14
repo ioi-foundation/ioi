@@ -28,6 +28,7 @@ export type WorkflowRuntimeThreadEventType =
   | "usage_delta"
   | "context_pressure_delta"
   | "context_pressure_alert"
+  | "workspace_trust_warning"
   | "reasoning_delta"
   | "tool_completed"
   | "tool_failed"
@@ -231,6 +232,7 @@ export type WorkflowRuntimeTuiControlRowKind =
   | "cost_status"
   | "context_budget"
   | "compaction_policy"
+  | "workspace_trust_warning"
   | "subagent"
   | "approval"
   | "approval_decision"
@@ -244,6 +246,7 @@ export type WorkflowRuntimeTuiControlRowStatus =
   | "queued"
   | "running"
   | "waiting"
+  | "warning"
   | "completed"
   | "canceled"
   | "interrupted"
@@ -275,6 +278,8 @@ export interface WorkflowRuntimeTuiControlStateInput {
   mode_status?: unknown;
   approvalRows?: unknown[];
   approval_rows?: unknown[];
+  workspaceTrustRows?: unknown[];
+  workspace_trust_rows?: unknown[];
   approvalDecisions?: unknown[];
   approval_decisions?: unknown[];
   jobRows?: unknown[];
@@ -337,6 +342,14 @@ export interface WorkflowRuntimeTuiControlStateRow {
   compactionPolicyAction?: string | null;
   compactionPolicyDecisionId?: string | null;
   compactionExecuted?: boolean | null;
+  workspaceTrustWarningId?: string | null;
+  workspaceTrustStatus?: string | null;
+  workspaceTrustSeverity?: string | null;
+  workspaceTrustProfile?: string | null;
+  workspaceTrustMode?: string | null;
+  workspaceTrustApprovalMode?: string | null;
+  workspaceTrustDirty?: boolean | null;
+  workspaceTrustWarningReasons?: string[];
   subagentId?: string | null;
   subagentRole?: string | null;
   subagentOperation?: string | null;
@@ -480,6 +493,7 @@ export interface WorkflowRuntimeTuiControlStateProjection {
   runLifecycleCount: number;
   costRowCount: number;
   contextRowCount: number;
+  workspaceTrustWarningCount: number;
   mcpRowCount: number;
   memoryRowCount: number;
   usageRowCount: number;
@@ -570,6 +584,11 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
   );
   const modeStatus = recordField(state, "modeStatus", "mode_status");
   const approvalRows = arrayField(state, "approvalRows", "approval_rows");
+  const workspaceTrustRows = arrayField(
+    state,
+    "workspaceTrustRows",
+    "workspace_trust_rows",
+  );
   const approvalDecisions = arrayField(
     state,
     "approvalDecisions",
@@ -703,6 +722,65 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       });
     }
   }
+
+  workspaceTrustRows.forEach((entry, index) => {
+    const warningId = stringField(entry, "warningId", "warning_id");
+    const mode = stringField(entry, "mode", "thread_mode");
+    const approvalMode = stringField(entry, "approvalMode", "approval_mode");
+    const severity = stringField(entry, "severity") ?? "warning";
+    const sequence = numberField(entry, "sequence", "seq") ?? index + 1;
+    const status = tuiControlRowStatus(stringField(entry, "status") ?? severity);
+    const rowThreadId = stringField(entry, "threadId", "thread_id") ?? threadId;
+    const warningReasons = stringArrayField(
+      entry,
+      "warningReasons",
+      "warning_reasons",
+    );
+    rows.push({
+      id:
+        stringField(entry, "id") ??
+        `tui-workspace-trust:${slug(warningId ?? `${rowThreadId ?? "detached"}-${sequence}`)}`,
+      rowKind: "workspace_trust_warning",
+      status,
+      label: "Workspace trust warning",
+      command: "mode",
+      rawInput: mode ? `/mode ${mode}` : "/mode",
+      message:
+        stringField(entry, "message", "summary") ??
+        [mode, approvalMode, severity, ...warningReasons].filter(Boolean).join(" · "),
+      approvalId: null,
+      jobId: null,
+      runId: null,
+      modelId: null,
+      routeId: null,
+      reasoningEffort: null,
+      workspaceTrustWarningId: warningId,
+      workspaceTrustStatus: stringField(entry, "status"),
+      workspaceTrustSeverity: severity,
+      workspaceTrustProfile: stringField(entry, "trustProfile", "trust_profile"),
+      workspaceTrustMode: mode,
+      workspaceTrustApprovalMode: approvalMode,
+      workspaceTrustDirty: booleanField(entry, "dirty", "isDirty", "is_dirty"),
+      workspaceTrustWarningReasons: warningReasons,
+      threadId: rowThreadId,
+      turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
+      workflowGraphId:
+        stringField(entry, "workflowGraphId", "workflow_graph_id") ??
+        workflowGraphId,
+      cursor: stringField(entry, "cursor") ?? lastCursor,
+      eventId: stringField(entry, "eventId", "event_id") ?? lastEventId,
+      sequence,
+      receiptRefs: stringArrayField(entry, "receiptRefs", "receipt_refs"),
+      policyDecisionRefs: stringArrayField(
+        entry,
+        "policyDecisionRefs",
+        "policy_decision_refs",
+      ),
+      reactFlowNodeId:
+        stringField(entry, "workflowNodeId", "workflow_node_id") ??
+        "runtime.workspace-trust",
+    });
+  });
 
   mcpRows.forEach((entry, index) => {
     const declaredKind = stringField(entry, "rowKind", "row_kind");
@@ -1409,6 +1487,7 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     runLifecycleCount: runLifecycleRows.length,
     costRowCount: costRows.length,
     contextRowCount: contextRows.length,
+    workspaceTrustWarningCount: workspaceTrustRows.length,
     mcpRowCount: mcpRows.length,
     memoryRowCount: memoryRows.length,
     usageRowCount: usageStatus ? 1 : 0,
@@ -1772,6 +1851,8 @@ export function workflowNodeIdForRuntimeThreadEvent(
       return "runtime.context-budget";
     case "context_pressure_alert":
       return "runtime.context-pressure-alert";
+    case "workspace_trust_warning":
+      return "runtime.workspace-trust";
     case "reasoning_delta":
       return "runtime.reasoning";
     case "tool_completed":
@@ -1800,6 +1881,7 @@ export function workflowNodeKindForRuntimeThreadEvent(
   if (event.componentKind === "usage_telemetry") return "runtime_usage_meter";
   if (event.componentKind === "context_pressure") return "runtime_context_budget";
   if (event.componentKind === "context_pressure_alert") return "hook_policy";
+  if (event.componentKind === "workspace_trust") return "hook_policy";
   if (event.componentKind === "context_budget") return "runtime_context_budget";
   if (event.componentKind === "compaction_policy") return "runtime_compaction_policy";
   if (event.componentKind === "lsp_diagnostics_repair") return "hook_policy";
@@ -1830,6 +1912,8 @@ export function workflowNodeKindForRuntimeThreadEvent(
     case "context_pressure_delta":
       return "runtime_context_budget";
     case "context_pressure_alert":
+      return "hook_policy";
+    case "workspace_trust_warning":
       return "hook_policy";
     case "reasoning_delta":
       return "task_state";
@@ -2125,6 +2209,8 @@ function componentKindForRuntimeThreadEvent(
       return "context_pressure";
     case "context_pressure_alert":
       return "context_pressure_alert";
+    case "workspace_trust_warning":
+      return "workspace_trust";
     case "reasoning_delta":
       return "reasoning_delta";
     case "tool_completed":
@@ -2156,6 +2242,7 @@ function labelForRuntimeThreadEvent(event: WorkflowRuntimeThreadEventLike): stri
   if (event.componentKind === "usage_telemetry") return "Usage telemetry";
   if (event.componentKind === "context_pressure") return "Context pressure";
   if (event.componentKind === "context_pressure_alert") return "Context pressure alert";
+  if (event.componentKind === "workspace_trust") return "Workspace trust warning";
   if (event.componentKind === "context_budget") return "Context budget";
   if (event.componentKind === "compaction_policy") return "Compaction policy";
   if (event.componentKind === "lsp_diagnostics") return "Diagnostics injected";
@@ -2193,6 +2280,8 @@ function labelForRuntimeThreadEvent(event: WorkflowRuntimeThreadEventLike): stri
       return "Context pressure";
     case "context_pressure_alert":
       return "Context pressure alert";
+    case "workspace_trust_warning":
+      return "Workspace trust warning";
     case "reasoning_delta":
       return "Reasoning";
     case "tool_completed":
@@ -2439,6 +2528,7 @@ function tuiControlRowStatus(
     case "queued":
     case "running":
     case "waiting":
+    case "warning":
     case "completed":
     case "canceled":
     case "interrupted":
