@@ -80,6 +80,7 @@ export function WorkflowRunsPanel({
     runtimeEventProjection,
     runtimePolicyStack,
     runtimeEditProposalPolicyStack,
+    runtimeTelemetrySummary,
     tuiControlStateProjection,
   } = model;
 
@@ -318,6 +319,83 @@ export function WorkflowRunsPanel({
               </button>
             );
           })}
+          {runtimeTelemetrySummary.sourceKinds.length > 0 ? (
+            <section
+              className="workflow-run-telemetry-summary"
+              data-testid="workflow-run-telemetry-summary"
+              data-schema-version={runtimeTelemetrySummary.schemaVersion}
+              data-telemetry-status={runtimeTelemetrySummary.status}
+              data-source-kinds={runtimeTelemetrySummary.sourceKinds.join("|")}
+              data-thread-ids={runtimeTelemetrySummary.threadIds.join("|")}
+              data-turn-ids={runtimeTelemetrySummary.turnIds.join("|")}
+              data-workflow-graph-ids={
+                runtimeTelemetrySummary.workflowGraphIds.join("|")
+              }
+              data-workflow-node-ids={
+                runtimeTelemetrySummary.workflowNodeIds.join("|")
+              }
+              data-event-ids={runtimeTelemetrySummary.eventIds.join("|")}
+              data-latest-seq={runtimeTelemetrySummary.latestSeq ?? ""}
+              data-latest-cursor={runtimeTelemetrySummary.latestCursor ?? ""}
+              data-latest-event-id={runtimeTelemetrySummary.latestEventId ?? ""}
+              data-runtime-event-count={
+                runtimeTelemetrySummary.runtimeEventCount
+              }
+              data-usage-event-count={runtimeTelemetrySummary.usageEventCount}
+              data-context-pressure-event-count={
+                runtimeTelemetrySummary.contextPressureEventCount
+              }
+              data-context-pressure-alert-count={
+                runtimeTelemetrySummary.contextPressureAlertCount
+              }
+              data-tui-row-count={runtimeTelemetrySummary.tuiRowCount}
+              data-usage-row-count={runtimeTelemetrySummary.usageRowCount}
+              data-cost-row-count={runtimeTelemetrySummary.costRowCount}
+              data-context-row-count={runtimeTelemetrySummary.contextRowCount}
+              data-subagent-row-count={runtimeTelemetrySummary.subagentRowCount}
+              data-total-tokens={runtimeTelemetrySummary.totalTokens ?? ""}
+              data-input-tokens={runtimeTelemetrySummary.inputTokens ?? ""}
+              data-output-tokens={runtimeTelemetrySummary.outputTokens ?? ""}
+              data-cost-estimate-usd={
+                runtimeTelemetrySummary.costEstimateUsd ?? ""
+              }
+              data-context-pressure={
+                runtimeTelemetrySummary.contextPressure ?? ""
+              }
+              data-context-pressure-status={
+                runtimeTelemetrySummary.contextPressureStatus ?? ""
+              }
+              data-run-count={runtimeTelemetrySummary.runCount ?? ""}
+              data-subagent-count={runtimeTelemetrySummary.subagentCount ?? ""}
+              data-receipt-refs={runtimeTelemetrySummary.receiptRefs.join("|")}
+              data-policy-decision-refs={
+                runtimeTelemetrySummary.policyDecisionRefs.join("|")
+              }
+            >
+              <h4>Usage and context</h4>
+              <div
+                className="workflow-run-runtime-event-summary"
+                data-testid="workflow-run-telemetry-summary-metrics"
+              >
+                <span>
+                  {runtimeTelemetrySummary.totalTokens ?? 0} tokens
+                </span>
+                <span>
+                  {formatTelemetryCost(runtimeTelemetrySummary.costEstimateUsd)}
+                </span>
+                <span>
+                  context{" "}
+                  {runtimeTelemetrySummary.contextPressure === null
+                    ? "pending"
+                    : runtimeTelemetrySummary.contextPressure}
+                </span>
+                <span>{accessibleStatusLabel(runtimeTelemetrySummary.status)}</span>
+                <span>
+                  {runtimeTelemetrySummary.subagentCount ?? 0} subagents
+                </span>
+              </div>
+            </section>
+          ) : null}
           {runtimeEventProjection.eventCount > 0 ? (
             <section
               className="workflow-run-runtime-event-graph"
@@ -1087,4 +1165,9 @@ export function WorkflowRunsPanel({
       ) : null}
     </>
   );
+}
+
+function formatTelemetryCost(costEstimateUsd: number | null): string {
+  if (costEstimateUsd === null) return "cost pending";
+  return `$${costEstimateUsd.toFixed(6)}`;
 }

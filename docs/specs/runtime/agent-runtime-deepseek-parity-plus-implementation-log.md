@@ -180,8 +180,50 @@ workstream was narrower.
 | 178 | 2026-05-14 | P1-C. Modes, Trust, Approvals | WorkspaceTrustGateNode activation/run gate | /tmp/ioi-autopilot-gui-harness-workspace-trust-gate/2026-05-14T01-22-22-906Z/result.json |
 | 179 | 2026-05-14 | P1-C. Modes, Trust, Approvals | React Flow policy-stack replay for trust plus coding approval | /tmp/ioi-autopilot-gui-harness-policy-stack-replay/2026-05-14T01-35-21-567Z/result.json |
 | 180 | 2026-05-14 | P1-C. Modes, Trust, Approvals | daemon-gated workflow edit proposals | /tmp/ioi-autopilot-gui-harness-workflow-edit-proposals/2026-05-14T01-59-10-348Z/result.json |
+| 181 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry | runtime telemetry summary unification | /tmp/ioi-autopilot-gui-harness-runtime-telemetry-summary/2026-05-14T02-11-13-757Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 181. 2026-05-14 - Runtime telemetry summary unification
+
+Implementation slice completed 2026-05-14, P1-D unified usage/context summary:
+
+- Added `workflowRuntimeTelemetrySummaryFromProjection` as a shared run-history
+  model for canonical runtime events plus TUI usage, cost, context, and subagent
+  rows.
+- The summary normalizes total/input/output tokens, cost estimates, context
+  pressure/status, run/subagent counts, source kinds, event ids, workflow graph
+  and node ids, receipt refs, and policy decision refs.
+- React Flow run history now computes the summary beside runtime event
+  projection and policy stacks so inspector consumers no longer need to
+  recompute usage/context totals from multiple row/event shapes.
+- React Flow run inspector renders a `workflow-run-telemetry-summary` section
+  with stable data attributes for status, source kinds, token/cost/context
+  metrics, row/event counts, graph/node ids, receipts, and policy refs.
+- Live daemon usage aggregation proof now verifies the same summary over real
+  usage/context events and the TUI projection for a parent run plus delegated
+  subagent.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+  - telemetry-summary unit tests and run-history regression tests passed.
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  - React Flow source-contract guard passed with telemetry-summary coverage.
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon contract syntax check passed.
+- `npm run build --workspace=@ioi/agent-ide`
+  - agent-ide TypeScript/Vite build passed.
+- `node --test --test-name-pattern "daemon aggregates usage" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon proof passed for parent run usage, subagent usage, SDK events,
+    runtime projection, TUI projection, and unified telemetry summary.
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - broad React Flow/runtime source-contract regression passed.
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-runtime-telemetry-summary`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-runtime-telemetry-summary/2026-05-14T02-11-13-757Z/result.json`.
+- `git diff --check`
+  - whitespace guard passed.
 
 ### Slice 180. 2026-05-14 - Daemon-gated workflow edit proposals
 

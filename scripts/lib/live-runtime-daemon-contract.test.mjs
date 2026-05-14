@@ -269,6 +269,7 @@ async function importAgentIde() {
     "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-policy-stack.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-policy.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.ts",
@@ -6838,6 +6839,7 @@ test("daemon aggregates usage, cost, and context telemetry across turns and dele
   const {
     projectRuntimeTuiControlStateToWorkflowProjection,
     projectRuntimeThreadEventsToWorkflowProjection,
+    workflowRuntimeTelemetrySummaryFromProjection,
   } = await importAgentIde();
   const { Thread, createRuntimeSubstrateClient } = await importSdk();
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-usage-telemetry-workspace-"));
@@ -6985,6 +6987,27 @@ test("daemon aggregates usage, cost, and context telemetry across turns and dele
           node.nodeKind === "runtime_context_budget",
       ),
     );
+    const telemetrySummary = workflowRuntimeTelemetrySummaryFromProjection({
+      runtimeThreadEvents: sdkEvents,
+      runtimeEventProjection: runtimeProjection,
+      tuiControlStateProjection: projection,
+    });
+    assert.equal(
+      telemetrySummary.schemaVersion,
+      "ioi.workflow.runtime-telemetry-summary.v1",
+    );
+    assert.match(telemetrySummary.status, /nominal|elevated|high|blocked/);
+    assert.ok(telemetrySummary.totalTokens >= threadUsage.total_tokens);
+    assert.ok(telemetrySummary.costEstimateUsd >= threadUsage.estimated_cost_usd);
+    assert.equal(telemetrySummary.runCount, 1);
+    assert.equal(telemetrySummary.subagentCount, 1);
+    assert.equal(telemetrySummary.usageRowCount, 1);
+    assert.ok(telemetrySummary.usageEventCount >= 1);
+    assert.ok(telemetrySummary.contextPressureEventCount >= 1);
+    assert.ok(telemetrySummary.sourceKinds.includes("runtime_usage_events"));
+    assert.ok(telemetrySummary.sourceKinds.includes("tui_usage_rows"));
+    assert.ok(telemetrySummary.workflowNodeIds.includes("runtime.usage-telemetry"));
+    assert.ok(telemetrySummary.workflowNodeIds.includes("runtime.context-budget"));
   } finally {
     await daemon.close();
   }
@@ -11417,6 +11440,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const workflowRuntimeTelemetrySummary = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.ts",
+    ),
+    "utf8",
+  );
   const workflowRuntimeDiagnosticsRepairActions = fs.readFileSync(
     path.join(
       root,
@@ -11993,6 +12023,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRunsPanel, /data-workspace-trust-action-count/);
   assert.match(workflowRunsPanel, /workflow-run-policy-stack/);
   assert.match(workflowRunsPanel, /data-policy-stack-status/);
+  assert.match(workflowRunsPanel, /workflow-run-telemetry-summary/);
+  assert.match(workflowRunsPanel, /data-telemetry-status/);
+  assert.match(workflowRunsPanel, /data-context-pressure-event-count/);
+  assert.match(workflowRunsPanel, /data-subagent-count/);
   assert.match(workflowRunsPanel, /onExecuteRuntimeWorkspaceTrustAction/);
   assert.match(workflowRunsPanel, /workflow-run-subagent-subflows/);
   assert.match(workflowRunsPanel, /data-subagent-child-subflow-count/);
@@ -12016,10 +12050,15 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimePolicyStack, /approved_retry/);
   assert.match(workflowRuntimeEditProposalPolicy, /WORKFLOW_RUNTIME_EDIT_PROPOSAL_POLICY_SCHEMA_VERSION/);
   assert.match(workflowRuntimeEditProposalPolicy, /proposal_apply/);
+  assert.match(workflowRuntimeTelemetrySummary, /WORKFLOW_RUNTIME_TELEMETRY_SUMMARY_SCHEMA_VERSION/);
+  assert.match(workflowRuntimeTelemetrySummary, /workflowRuntimeTelemetrySummaryFromProjection/);
+  assert.match(workflowRuntimeTelemetrySummary, /runtime_usage_events/);
+  assert.match(workflowRuntimeTelemetrySummary, /tui_subagent_rows/);
   assert.match(workflowRunHistoryModel, /workflowRuntimePolicyStackFromEvents/);
   assert.match(workflowRunHistoryModel, /runtimePolicyStack/);
   assert.match(workflowRunHistoryModel, /workflowRuntimeEditProposalPolicyStackFromEvents/);
   assert.match(workflowRunHistoryModel, /runtimeEditProposalPolicyStack/);
+  assert.match(workflowRunHistoryModel, /runtimeTelemetrySummary/);
   assert.match(workflowRunsPanel, /workflow-run-edit-proposal-policy-stack/);
   assert.match(runtimeDaemon, /proposeWorkflowEdit/);
   assert.match(runtimeDaemon, /applyWorkflowEditProposal/);
