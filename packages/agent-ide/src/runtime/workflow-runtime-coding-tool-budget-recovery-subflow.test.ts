@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createRuntimeCodingToolBudgetRecoveryControlRequestFromWorkflowNode } from "./workflow-runtime-coding-tool-budget-recovery-control-nodes";
-import { createWorkflowRuntimeCodingToolBudgetRecoverySubflow } from "./workflow-runtime-coding-tool-budget-recovery-subflow";
+import {
+  createWorkflowRuntimeCodingToolBudgetRecoverySubflow,
+  createWorkflowRuntimeCodingToolBudgetRecoveryTemplateSubflow,
+} from "./workflow-runtime-coding-tool-budget-recovery-subflow";
 import type { WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor } from "./workflow-runtime-event-projection";
 
 function codingToolBudgetRecoverySeed(): WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor {
@@ -137,4 +140,79 @@ test("generated coding-tool budget recovery subflow nodes compile into daemon re
   assert.equal(requests[1]?.body.approvalId, requests[3]?.body.approvalId);
   assert.equal(requests[3]?.body.recoveryPolicy.operatorRole, "budget_operator");
   assert.deepEqual(requests[3]?.body.targetNodeIds, ["node.apply_patch"]);
+});
+
+test("template coding-tool budget recovery subflow keeps run, approval, target, and policy configurable", () => {
+  const subflow = createWorkflowRuntimeCodingToolBudgetRecoveryTemplateSubflow({
+    idPrefix: "budget-recovery-template",
+    workflowGraphId: "workflow.template",
+    sourceWorkflowNodeId: "node.template-target",
+    origin: { x: 120, y: 160 },
+  });
+
+  assert.equal(subflow.runId, null);
+  assert.equal(subflow.threadId, "");
+  assert.equal(subflow.workflowGraphId, "workflow.template");
+  assert.deepEqual(
+    subflow.nodes.map((node) => node.config?.logic.runtimeCodingToolBudgetRecoveryRunId),
+    [undefined, undefined, undefined, undefined],
+  );
+  assert.deepEqual(
+    subflow.nodes.map(
+      (node) => node.config?.logic.runtimeCodingToolBudgetRecoveryApprovalId,
+    ),
+    [undefined, undefined, undefined, undefined],
+  );
+  assert.deepEqual(
+    subflow.nodes.map(
+      (node) => node.config?.logic.runtimeCodingToolBudgetRecoveryTargetNodeIds,
+    ),
+    [[], [], [], []],
+  );
+  assert.throws(
+    () =>
+      createRuntimeCodingToolBudgetRecoveryControlRequestFromWorkflowNode(
+        subflow.nodes[0]!,
+        {},
+        { workflowGraphId: subflow.workflowGraphId },
+      ),
+    /runId input/,
+  );
+
+  const request = createRuntimeCodingToolBudgetRecoveryControlRequestFromWorkflowNode(
+    subflow.nodes[3]!,
+    {
+      runId: "run-template",
+      threadId: "thread-template",
+      approvalId: "approval-template",
+      sourceEventId: "event-template-blocked",
+      blockedEventId: "event-template-blocked",
+      targetNodeIds: ["node.apply_patch"],
+      recoveryPolicy: {
+        source: "react_flow_template_input",
+        approvalScope: "target_nodes",
+        operatorRole: "template_operator",
+        retryLimit: 2,
+        ttlMs: 300000,
+        requiresApproval: true,
+        allowOverride: true,
+        targetNodeIds: ["node.apply_patch"],
+        sourceNodeIds: ["node.apply_patch"],
+      },
+    },
+    { workflowGraphId: subflow.workflowGraphId },
+  );
+
+  assert.equal(request.action, "retry_approved");
+  assert.equal(
+    request.endpoint,
+    "/v1/runs/run-template/coding-tool-budget-recovery",
+  );
+  assert.equal(request.threadId, "thread-template");
+  assert.equal(request.body.approvalId, "approval-template");
+  assert.equal(request.body.workflowGraphId, "workflow.template");
+  assert.equal(request.body.workflowNodeId, subflow.retryNodeId);
+  assert.deepEqual(request.body.targetNodeIds, ["node.apply_patch"]);
+  assert.equal(request.body.recoveryPolicy.operatorRole, "template_operator");
+  assert.equal(request.body.recoveryPolicy.retryLimit, 2);
 });

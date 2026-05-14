@@ -12953,6 +12953,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeCodingToolBudgetRecoveryControlNodes, /WorkflowRunCodingToolBudgetRecoveryControl/);
   assert.match(workflowRuntimeCodingToolBudgetRecoveryControlNodes, /normalizeWorkflowCodingToolBudgetRecoveryPolicy/);
   assert.match(workflowRuntimeCodingToolBudgetRecoverySubflow, /createWorkflowRuntimeCodingToolBudgetRecoverySubflow/);
+  assert.match(workflowRuntimeCodingToolBudgetRecoverySubflow, /createWorkflowRuntimeCodingToolBudgetRecoveryTemplateSubflow/);
+  assert.match(workflowRuntimeCodingToolBudgetRecoverySubflow, /bindRuntimeInputs/);
   assert.match(workflowRuntimeCodingToolBudgetRecoverySubflow, /runtime_coding_tool_budget_recovery/);
   assert.match(workflowRuntimeCodingToolBudgetRecoverySubflow, /request_approval/);
   assert.match(workflowRuntimeCodingToolBudgetRecoverySubflow, /approve_override/);
@@ -13301,6 +13303,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowComposerController, /handleExecuteRuntimeCodingToolBudgetRecovery/);
   assert.match(workflowComposerController, /handleCreateRuntimeCodingToolBudgetRecoverySubflow/);
   assert.match(workflowComposerController, /createWorkflowRuntimeCodingToolBudgetRecoverySubflow/);
+  assert.match(workflowComposerController, /handleInsertRuntimeCodingToolBudgetRecoveryTemplate/);
+  assert.match(workflowComposerController, /createWorkflowRuntimeCodingToolBudgetRecoveryTemplateSubflow/);
   assert.match(workflowComposerController, /coding-tool-budget-approved-retry/);
   assert.match(workflowComposerController, /coding-tool-budget-preflight/);
   assert.match(workflowComposerController, /inspector-coding-tool-budget-preflight/);
@@ -13332,6 +13336,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowComposerView, /onExecuteRuntimeWorkspaceTrustAction/);
   assert.match(workflowComposerView, /onExecuteRuntimeCodingToolBudgetRecovery/);
   assert.match(workflowComposerView, /onCreateRuntimeCodingToolBudgetRecoverySubflow/);
+  assert.match(workflowComposerView, /workflow-add-coding-budget-recovery-template/);
+  assert.match(workflowComposerView, /handleInsertRuntimeCodingToolBudgetRecoveryTemplate/);
   assert.match(runtimeDaemon, /context_pressure_alert/);
   assert.match(runtimeDaemon, /context\.pressure_alert/);
   assert.match(runtimeDaemon, /requestThreadApproval/);

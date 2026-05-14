@@ -543,8 +543,12 @@ export type {
 export type {
   WorkflowRuntimeCodingToolBudgetRecoverySubflow,
   WorkflowRuntimeCodingToolBudgetRecoverySubflowOptions,
+  WorkflowRuntimeCodingToolBudgetRecoveryTemplateSubflowOptions,
 } from "./runtime/workflow-runtime-coding-tool-budget-recovery-subflow";
-export { createWorkflowRuntimeCodingToolBudgetRecoverySubflow } from "./runtime/workflow-runtime-coding-tool-budget-recovery-subflow";
+export {
+  createWorkflowRuntimeCodingToolBudgetRecoverySubflow,
+  createWorkflowRuntimeCodingToolBudgetRecoveryTemplateSubflow,
+} from "./runtime/workflow-runtime-coding-tool-budget-recovery-subflow";
 export type {
   RuntimeMcpToolControlRequest,
   RuntimeMcpToolControlRequestBody,
