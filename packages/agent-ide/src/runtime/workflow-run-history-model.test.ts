@@ -800,6 +800,80 @@ test("workflow run history model exposes source-filtered TUI coding-tool budget 
   ]);
 });
 
+test("workflow run history model replays daemon-owned coding budget preflight blocks", () => {
+  const target = {
+    ...runResult("run-a", "blocked", { answer: "budget blocked" }),
+    runtimeThreadEvents: [
+      runtimeThreadEvent("event-workflow-run-preflight-blocked", 1, {
+        type: "policy_blocked",
+        eventKind: "policy.blocked",
+        sourceEventKind: "WorkflowRunCodingToolBudgetPreflightBlocked",
+        status: "blocked",
+        componentKind: "coding_tool",
+        workflowNodeId: "runtime.coding-tool-budget-preflight",
+        payloadSchemaVersion: "ioi.workflow.coding-tool-budget-preflight.v1",
+        receiptRefs: ["receipt-workflow-run-budget"],
+        policyDecisionRefs: ["policy-workflow-run-budget"],
+        payload: {
+          reason: "coding_tool_budget_preflight_blocked",
+          status: "blocked",
+          contextBudgetStatus: "blocked",
+          mutationBlocked: true,
+        },
+      }),
+    ],
+    tuiControlState: {
+      schemaVersion: "ioi.workflow.runtime-tui-control-state.v1",
+      surface: "workflow_run",
+      threadId: "thread",
+      workflowGraphId: "workflow",
+      lastCursor: "workflow_run_policy:run-a:1",
+      lastEventId: "event-workflow-run-preflight-blocked",
+      codingToolRows: [
+        {
+          id: "workflow-run-coding-tool-budget-preflight-run-a",
+          status: "blocked",
+          eventId: "event-workflow-run-preflight-blocked",
+          workflowNodeId: "runtime.coding-tool-budget-preflight",
+          reason: "coding_tool_budget_preflight_blocked",
+          budgetStatus: "exceeded",
+          contextBudgetStatus: "blocked",
+          mutationBlocked: true,
+          receiptRefs: ["receipt-workflow-run-budget"],
+          policyDecisionRefs: ["policy-workflow-run-budget"],
+        },
+      ],
+    },
+  } as unknown as WorkflowRunResult;
+
+  const model = workflowRunHistoryModel({
+    workflow,
+    runs,
+    lastRunResult: target,
+    compareRunResult: null,
+    selectedRunId: "run-a",
+    compareRunId: null,
+    runEvents: [],
+    searchQuery: "",
+    statusFilter: "all",
+    sourceFilter: "all",
+  });
+
+  assert.equal(model.runtimeEventProjection.nodes[0]?.nodeKind, "plugin_tool");
+  assert.equal(
+    model.runtimeEventProjection.nodes[0]?.codingToolBudgetReason,
+    "coding_tool_budget_preflight_blocked",
+  );
+  assert.equal(model.runtimeTelemetrySummary.status, "blocked");
+  assert.equal(model.runtimeCodingToolBudgetEvidence?.mutationBlocked, true);
+  assert.deepEqual(model.runtimeCodingToolBudgetEvidence?.eventIds, [
+    "event-workflow-run-preflight-blocked",
+  ]);
+  assert.deepEqual(model.runtimeCodingToolBudgetEvidence?.receiptRefs, [
+    "receipt-workflow-run-budget",
+  ]);
+});
+
 test("workflow run history model falls back to ambient events without selected run", () => {
   const fallbackEvents = [event("fallback")];
   const model = workflowRunHistoryModel({

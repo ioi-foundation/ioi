@@ -564,6 +564,55 @@ test("projects coding tool budget blocks as policy-addressable React Flow rows",
   );
 });
 
+test("projects workflow-run coding budget preflight blocks as coding-tool policy events", () => {
+  const projection = projectRuntimeThreadEventsToWorkflowProjection([
+    event("event-workflow-run-preflight-blocked", 1, {
+      type: "policy_blocked",
+      eventKind: "policy.blocked",
+      sourceEventKind: "WorkflowRunCodingToolBudgetPreflightBlocked",
+      status: "blocked",
+      componentKind: "coding_tool",
+      workflowNodeId: "runtime.coding-tool-budget-preflight",
+      workflowGraphId: "workflow.react-flow.coding-tool-preflight",
+      payloadSchemaVersion: "ioi.workflow.coding-tool-budget-preflight.v1",
+      receiptRefs: ["receipt_workflow_run_coding_tool_budget_preflight"],
+      policyDecisionRefs: [
+        "policy_workflow_run_coding_tool_budget_preflight_blocked",
+      ],
+      payload: {
+        eventKind: "WorkflowRunCodingToolBudgetPreflightBlocked",
+        reason: "coding_tool_budget_preflight_blocked",
+        status: "blocked",
+        summary: "Workflow run blocked by coding-tool budget preflight.",
+        budgetStatus: "warning",
+        contextBudgetStatus: "blocked",
+        mutationBlocked: true,
+        result: {
+          status: "blocked",
+          mutationBlocked: true,
+        },
+      },
+    }),
+  ]);
+
+  const node = projection.nodes[0];
+  assert.equal(node?.workflowNodeId, "runtime.coding-tool-budget-preflight");
+  assert.equal(node?.nodeKind, "plugin_tool");
+  assert.equal(node?.componentKind, "coding_tool");
+  assert.equal(node?.label, "Coding tool budget: blocked");
+  assert.equal(node?.status, "blocked");
+  assert.equal(
+    node?.codingToolBudgetReason,
+    "coding_tool_budget_preflight_blocked",
+  );
+  assert.equal(node?.codingToolBudgetStatus, "warning");
+  assert.equal(node?.codingToolContextBudgetStatus, "blocked");
+  assert.equal(node?.codingToolMutationBlocked, true);
+  assert.deepEqual(node?.receiptRefs, [
+    "receipt_workflow_run_coding_tool_budget_preflight",
+  ]);
+});
+
 test("projects approval and policy events without workflow node ids", () => {
   const approval = event("event-approval", 1, {
     type: "approval_required",

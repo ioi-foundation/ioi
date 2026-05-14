@@ -5162,6 +5162,7 @@ export interface WorkflowStreamEvent {
     | "node_failed"
     | "node_blocked"
     | "node_interrupted"
+    | "policy_blocked"
     | "state_updated"
     | "output_created"
     | "asset_materialized"
@@ -5182,6 +5183,8 @@ export interface WorkflowRunResult {
   nodeRuns: WorkflowNodeRun[];
   checkpoints: WorkflowCheckpoint[];
   events: WorkflowStreamEvent[];
+  runtimeThreadEvents?: unknown[];
+  tuiControlState?: unknown;
   harnessAttempts?: WorkflowHarnessNodeAttemptRecord[];
   harnessShadowComparisons?: WorkflowHarnessShadowComparison[];
   harnessGatedClusterRuns?: WorkflowHarnessGatedClusterRun[];

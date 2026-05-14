@@ -2548,6 +2548,7 @@ function codingToolBudgetEvidenceFromRecord(
     stringField(contextBudget, "status");
   const isBudgetBlock =
     reason === "coding_tool_budget_exceeded" ||
+    reason === "coding_tool_budget_preflight_blocked" ||
     budgetStatus === "exceeded" ||
     contextBudgetStatus === "blocked";
   const resultStatus = stringField(result, "status") ?? stringField(payload, "status");

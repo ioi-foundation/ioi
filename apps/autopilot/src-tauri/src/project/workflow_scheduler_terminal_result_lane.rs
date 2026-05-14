@@ -83,6 +83,8 @@ pub(super) fn workflow_scheduler_terminal_result(
             node_runs: parts.node_runs,
             checkpoints: parts.checkpoints,
             events: parts.events,
+            runtime_thread_events: Vec::new(),
+            tui_control_state: None,
             harness_attempts,
             harness_shadow_comparisons,
             harness_gated_cluster_runs,

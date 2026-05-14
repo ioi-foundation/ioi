@@ -146,6 +146,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(projection, /codingToolBudgetStatus/);
   assert.match(projection, /codingToolBudgetViolationCount/);
   assert.match(projection, /codingToolMutationBlocked/);
+  assert.match(projection, /coding_tool_budget_preflight_blocked/);
   assert.match(projection, /Coding tool budget/);
   assert.match(projection, /runtimeSubagentSubflow/);
   assert.match(projection, /runtimeSubagentRun/);
@@ -281,12 +282,15 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(composerController, /setRuntimeThreadEvents/);
   assert.match(composerView, /runtimeThreadEvents=\{runtimeThreadEvents\}/);
   assert.match(composerView, /workflowRunLaunchBlocked/);
+  assert.match(composerView, /data-workflow-run-launch-blocked/);
   assert.match(composerView, /data-coding-tool-budget-preflight-status/);
   assert.match(composerSupport, /data-disabled-reason/);
   assert.match(graphRuntimeTypes, /WorkflowRunRequestOptions/);
   assert.match(graphRuntimeTypes, /codingToolBudgetPreflight/);
   assert.match(graphRuntimeTypes, /loadWorkflowRuntimeThreadEvents/);
   assert.match(tauriRuntime, /loadWorkflowRuntimeThreadEvents/);
+  assert.match(typeTest, /WorkflowRunCodingToolBudgetPreflightBlocked/);
+  assert.match(runHistoryModelTest, /daemon-owned coding budget preflight/);
   assert.match(runsPanel, /workflow-run-runtime-event-graph/);
   assert.match(runsPanel, /workflow-run-telemetry-summary/);
   assert.match(runsPanel, /workflow-run-source-filter/);

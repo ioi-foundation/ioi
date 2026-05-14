@@ -246,6 +246,8 @@ pub(super) fn workflow_single_node_result(
             node_runs,
             checkpoints,
             events,
+            runtime_thread_events: Vec::new(),
+            tui_control_state: None,
             harness_attempts,
             harness_shadow_comparisons,
             harness_gated_cluster_runs,

@@ -11973,6 +11973,22 @@ export function useWorkflowComposerController({
       setReadinessResult(blockedValidation);
       setRightPanel("runs");
       setBottomPanel("run_output");
+      if (runtime.runWorkflowProject && workflowRunCodingBudgetPreflightAnnotation) {
+        try {
+          const result = await runtime.runWorkflowProject(workflowPath, {
+            source: "coding-tool-budget-preflight",
+            codingToolBudgetPreflight:
+              workflowRunCodingBudgetPreflightAnnotation,
+          });
+          await applyRunResult(result);
+          setStatusMessage(result.summary.summary);
+          return;
+        } catch (error) {
+          setStatusMessage(
+            `Coding budget preflight record unavailable. ${errorMessage(error)}`,
+          );
+        }
+      }
       const blockedSummary = createSubstrateProjectionRunSummary(
         currentProjectFile,
         blockedValidation,
@@ -12407,6 +12423,27 @@ export function useWorkflowComposerController({
         workflowRunCodingBudgetPreflight?.status === "blocked" &&
         nodeHasCodingBudgetPreflight
       ) {
+        if (runtime.runWorkflowNode && workflowRunCodingBudgetPreflightAnnotation) {
+          try {
+            const result = await runtime.runWorkflowNode(
+              workflowPath,
+              node.id,
+              input,
+              {
+                source: "inspector-coding-tool-budget-preflight",
+                codingToolBudgetPreflight:
+                  workflowRunCodingBudgetPreflightAnnotation,
+              },
+            );
+            await applyRunResult(result);
+            setStatusMessage(result.summary.summary);
+            return;
+          } catch (error) {
+            setStatusMessage(
+              `Coding budget preflight record unavailable. ${errorMessage(error)}`,
+            );
+          }
+        }
         const blocked = createSubstrateProjectionRunSummary(
           currentProjectFile,
           createWorkflowActionFailure(
@@ -12469,6 +12506,23 @@ export function useWorkflowComposerController({
       setRightPanel("runs");
       setBottomPanel("run_output");
       if (workflowRunLaunchBlocked && workflowRunCodingBudgetPreflight) {
+        if (runtime.runWorkflowProject && workflowRunCodingBudgetPreflightAnnotation) {
+          try {
+            const result = await runtime.runWorkflowProject(workflowPath, {
+              stopAtNodeId: node.id,
+              source: "inspector-upstream-coding-tool-budget-preflight",
+              codingToolBudgetPreflight:
+                workflowRunCodingBudgetPreflightAnnotation,
+            });
+            await applyRunResult(result);
+            setStatusMessage(result.summary.summary);
+            return;
+          } catch (error) {
+            setStatusMessage(
+              `Coding budget preflight record unavailable. ${errorMessage(error)}`,
+            );
+          }
+        }
         const blocked = createSubstrateProjectionRunSummary(
           currentProjectFile,
           createWorkflowActionFailure(

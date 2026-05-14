@@ -190,8 +190,46 @@ workstream was narrower.
 | 188 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget run-history evidence | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-run-history/2026-05-14T03-39-35-777Z/result.json |
 | 189 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget readiness preflight | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-readiness-preflight/2026-05-14T03-48-02-824Z/result.json |
 | 190 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget run-launch preflight | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-run-launch-preflight/2026-05-14T03-58-36-539Z/result.json |
+| 191 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget daemon launch policy | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-daemon-launch-policy/2026-05-14T04-18-52-794Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 191. 2026-05-14 - Coding-tool budget daemon launch policy
+
+Implementation slice completed 2026-05-14, P1-D/P0-B coding-tool budget
+daemon launch policy:
+
+- Added a Tauri workflow-run policy lane that short-circuits blocked
+  `codingToolBudgetPreflight` annotations into durable `blocked` run results
+  before graph execution.
+- Persisted `policy_blocked` timeline events, canonical `policy.blocked`
+  runtime thread events, `coding_tool_budget` TUI control-state rows, blocked
+  node ids, receipt refs, policy-decision refs, and policy payloads on saved
+  workflow run sidecars.
+- Extended workflow run result typing so run history can replay daemon-owned
+  `runtimeThreadEvents` and `tuiControlState` from persisted Tauri results.
+- Updated React Flow projection/history handling so
+  `coding_tool_budget_preflight_blocked` is treated as coding-tool budget
+  evidence and appears as blocked plugin-tool policy rows.
+- Changed blocked workflow, upstream, and direct target-node run buttons to
+  call the daemon-backed run path where available, falling back to synthetic
+  summaries only when the runtime bridge cannot record the policy result.
+- Updated source-contract guards and the master guide so the next P1-D slice is
+  explicit operator recovery for daemon-owned coding-budget launch blocks.
+
+Validation evidence:
+
+- `cargo test workflow_project_run_records_coding_tool_budget_preflight_policy_block --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts packages/agent-ide/src/runtime/workflow-readiness-model.test.ts`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow coding-tool budget gates consume runtime telemetry summary before mutation" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `cargo fmt --manifest-path apps/autopilot/src-tauri/Cargo.toml -- --check`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-budget-daemon-launch-policy`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-coding-tool-budget-daemon-launch-policy/2026-05-14T04-18-52-794Z/result.json`.
+- `git diff --check`
 
 ### Slice 190. 2026-05-14 - Coding-tool budget run-launch preflight
 

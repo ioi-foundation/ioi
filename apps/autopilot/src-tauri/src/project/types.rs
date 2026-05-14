@@ -1002,6 +1002,10 @@ pub struct WorkflowRunResult {
     pub node_runs: Vec<WorkflowNodeRun>,
     pub checkpoints: Vec<WorkflowCheckpoint>,
     pub events: Vec<WorkflowStreamEvent>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub runtime_thread_events: Vec<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tui_control_state: Option<Value>,
     #[serde(default)]
     pub harness_attempts: Vec<Value>,
     #[serde(default)]
