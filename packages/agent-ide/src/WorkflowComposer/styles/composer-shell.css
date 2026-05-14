@@ -360,6 +360,7 @@
   padding: 0 10px;
 }
 
+.workflow-node-palette-tabs,
 .workflow-node-group-filter {
   display: flex;
   gap: 5px;
@@ -368,6 +369,12 @@
   padding-bottom: 2px;
 }
 
+.workflow-node-palette-tabs {
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 7px;
+}
+
+.workflow-node-palette-tabs button,
 .workflow-node-group-filter button {
   display: inline-flex;
   align-items: center;
@@ -377,20 +384,24 @@
   padding: 3px 8px;
 }
 
+.workflow-node-palette-tabs button.is-active,
 .workflow-node-group-filter button.is-active {
   border-color: color-mix(in srgb, var(--accent-blue) 54%, var(--border-subtle));
   color: var(--accent-blue);
 }
 
+.workflow-node-palette-tabs button:focus-visible,
 .workflow-node-group-filter button:focus-visible {
   outline: 2px solid var(--accent-blue);
   outline-offset: 2px;
 }
 
+.workflow-node-palette-tabs button:disabled,
 .workflow-node-group-filter button:disabled {
   opacity: 0.45;
 }
 
+.workflow-node-palette-tabs small,
 .workflow-node-group-filter small {
   color: var(--text-tertiary);
   font-size: 10px;
