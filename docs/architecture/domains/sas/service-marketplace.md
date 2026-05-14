@@ -4,13 +4,16 @@ Status: canonical architecture authority.
 Canonical owner: this file for sas.xyz service marketplace doctrine; low-level service endpoints live in [`sas-xyz-service-endpoints.md`](./service-endpoints.md).
 Supersedes: overlapping service-marketplace plan prose when outcome/service boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-14.
 
 ## Canonical Definition
 
-**sas.xyz is the canonical Web4 marketplace application for autonomous service outcomes.**
+**sas.xyz is the canonical Web4 marketplace application for autonomous service outcomes, including Worker Training as Service-as-Software.**
 
-It lets users order outcomes produced by workers, workflows, providers, and runtime nodes under escrow, SLA, receipts, and delivery acceptance.
+It lets users order outcomes produced by workers, workflows, providers, and
+runtime nodes under escrow, SLA, receipts, and delivery acceptance. Its first
+MoW-native wedge is training a specialized worker for a defined business
+outcome.
 
 ## What sas.xyz Is
 
@@ -21,6 +24,7 @@ sas.xyz is:
 - an IOI L1 smart-contract user;
 - an outcome-ordering and delivery system;
 - a workflow/worker composition surface;
+- a Worker Training contract surface;
 - a service escrow and SLA layer.
 
 It is not a separate chain by default.
@@ -32,7 +36,10 @@ aiagent.xyz = marketplace for workers/capabilities
 sas.xyz     = marketplace for delivered outcomes/services
 ```
 
-aiagent.xyz sells reusable digital workers. sas.xyz sells packaged services such as weekly audits, report generation, support resolution, research deliverables, CAD artifacts, or workflow automation outcomes.
+aiagent.xyz publishes, benchmarks, ranks, installs, and routes reusable digital
+workers. sas.xyz sells packaged services such as Worker Training engagements,
+weekly audits, report generation, support resolution, research deliverables,
+CAD artifacts, or workflow automation outcomes.
 
 ## What sas.xyz Owns
 
@@ -41,7 +48,10 @@ sas.xyz owns:
 - service listings;
 - provider profiles;
 - service manifests;
+- Worker Training contracts;
 - order lifecycle;
+- outcome workspaces;
+- runtime assignments and compute-session refs;
 - SLA terms;
 - delivery bundles;
 - acceptance/dispute state;
@@ -49,7 +59,8 @@ sas.xyz owns:
 - service quality ledgers;
 - service reputation;
 - outcome packaging;
-- workflow composition references.
+- workflow composition references;
+- worker-training template refs.
 
 ## What sas.xyz Does Not Own
 
@@ -60,21 +71,65 @@ sas.xyz does not own:
 - local Autopilot execution;
 - IOI L1 itself;
 - Filecoin/CAS payload bytes;
-- aiagent.xyz worker marketplace state except through refs/integrations.
+- aiagent.xyz worker marketplace state except through refs/integrations;
+- training datasets, traces, or artifacts as raw payload bytes.
 
 ## Service Order Lifecycle
 
 ```text
 User orders service
 → sas.xyz Agentgres creates ServiceOrder operational state
+→ OutcomeWorkspace is initialized for task/run/delivery state
 → IOI L1 contract locks escrow / records order commitment
-→ runtime router selects execution venue
-→ worker/workflow executes through IOI daemon
+→ runtime router creates RuntimeAssignment and ComputeSession
+→ isolated runtime node boots an IOI daemon profile
+→ worker/workflow executes through the daemon using task capsules and authority leases
 → artifacts and receipts are produced
 → delivery bundle recorded in sas.xyz Agentgres
 → user accepts, rejects, or disputes
 → IOI L1 contract releases payout / refund / slashing
 ```
+
+## Worker Training Contract
+
+Worker Training is a Service-as-Software outcome. The buyer does not purchase a
+raw model checkpoint; the buyer purchases a trained, benchmarked, policy-bound
+worker capable of performing a scoped task under receipt obligations.
+
+A Worker Training order should define:
+
+- target workflow or recurring task;
+- DomainOntology and CanonicalObjectModel refs, when the task requires domain
+  semantics;
+- DataRecipe, ConnectorMapping, and PolicyBoundDataView refs for source
+  material used in training or evaluation;
+- input and output contract;
+- source documents, examples, corrections, or prior traces;
+- privacy and training-data handling policy;
+- allowed training/configuration methods;
+- evaluation rubric;
+- benchmark profile or Sparse Worker Category;
+- deployment target;
+- ownership, license, and contribution terms;
+- acceptance criteria and dispute path.
+
+Deliverables may include:
+
+- WorkerManifest;
+- policy envelope;
+- ontology, recipe, mapping, and evaluation dataset refs;
+- TransformationReceipt set;
+- TrainingReceipt set;
+- BenchmarkReceipt set;
+- evaluation report;
+- deployment package;
+- optional aiagent.xyz listing;
+- optional sas.xyz outcome wrapper.
+
+Settlement releases only when the trained worker satisfies the acceptance rubric
+and emits the required evaluation receipts. If the worker fails benchmark,
+policy, privacy, or delivery requirements, the order follows the same
+deterministic arbitration path as other service outcomes.
 
 ## IOI L1 Contract Interactions
 
@@ -96,6 +151,10 @@ sas.xyz should use IOI L1 contracts for:
 sas.xyz Agentgres tracks:
 
 - rich service metadata;
+- Worker Training specs and contracts;
+- training lineage refs;
+- dataset commitments;
+- benchmark and evaluation receipt refs;
 - service search/ranking projections;
 - order state;
 - run state;
@@ -134,6 +193,18 @@ A provider/hosted IOI runtime executes and delivers the outcome.
 
 Both modes should emit receipts and delivery bundles.
 
+## MoW Service Composition
+
+sas.xyz composes workers into outcomes. A service may route through one worker,
+a planner/executor/verifier graph, or a larger MoW composition. Routing choices
+should be receipt-backed when they affect cost, quality, settlement,
+reputation, or disputes.
+
+For worker-powered services, the delivery bundle should include contribution
+refs that let payouts, royalties, and reputation updates flow by verified
+contribution instead of raw token usage, attention, popularity, or hidden
+platform preference.
+
 ## Delivery Bundle
 
 A service delivery should include:
@@ -150,21 +221,24 @@ acceptance/dispute metadata
 
 ## One-Line Doctrine
 
-> **sas.xyz does not sell software tools. It sells verifiable autonomous outcomes.**
+> **sas.xyz does not sell software tools or raw model checkpoints. It sells verifiable autonomous outcomes, including trained workers delivered under acceptance rubrics.**
 
-## Preserved Product Context Module
+## Product Context Module
 
-The following module preserves product-positioning and provider-OS context from the former `docs/specs/sas_xyz.md`. It is retained for design and market memory. If it conflicts with the canonical doctrine above, the canonical doctrine above wins.
+The following module carries product-positioning and provider-OS context from
+the former `docs/specs/sas_xyz.md`. It is supporting context, not a parallel
+architecture variant. If it conflicts with the canonical doctrine above, update
+this module to follow the canonical doctrine above.
 
 ---
 
 # `sas.xyz` v1.4 Product Spec
 
-Status: preserved product-context reference; current service-marketplace architecture remains weighted to [`sas-xyz-service-marketplace.md`](./service-marketplace.md) when product positioning or mechanics disagree.
+Status: product-context reference; current service-marketplace architecture remains owned by the canonical doctrine above when product positioning or mechanics disagree.
 Context owner: this file for sas.xyz product positioning, provider OS UX, service-packaging context, and market context.
 Supersedes: `docs/specs/sas_xyz.md`.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-13.
 
 ## Provider Operating System for Service-as-Software on IOI
 
@@ -261,7 +335,7 @@ It is where service candidates become real provider products.
 It is not:
 
 * the end-user intent ingress,
-* the private local runtime,
+* the private local workbench/runtime-control shell,
 * the L0 domain instantiation surface,
 * the demand-side marketplace,
 * the freelance procurement board,
@@ -269,10 +343,10 @@ It is not:
 
 Those roles belong to:
 
-* `ioi.ai` for intent ingress and hosted demand UX,
+* `ioi.ai` for account, device, restore, publishing, and remote-runtime entitlement coordination,
 * `Autopilot` for private/local operator execution,
 * `IOI CLI` for sovereign domain and intelligent blockchain instantiation,
-* `aiagent.xyz` for discovery and procurement.
+* `aiagent.xyz` for discovery, managed worker instances, install, and procurement.
 
 ---
 
@@ -284,7 +358,9 @@ The ecosystem works only if each surface has a crisp job.
 
 **Operate workers**
 
-Autopilot is the private/local operator shell and worker runtime, software-first today and capable of extending to broader bounded autonomous action over time. It is where people:
+Autopilot is the private/local operator shell and workbench over a local IOI
+daemon/runtime profile, software-first today and capable of extending to broader
+bounded autonomous action over time. It is where people:
 
 * run workers inside their own trust boundary,
 * use local GPU, desktop, browser, apps, files, and terminals,
@@ -1141,7 +1217,11 @@ Handles:
 * receipt emission
 
 Horizontally scalable with queues and idempotent scheduling.
-Workers are provisioned dynamically based on the service's Readiness Posture (ephemeral cold-starts vs. pre-warmed resident workers).
+Workers are provisioned dynamically based on the service's Readiness Posture
+(ephemeral cold-starts vs. pre-warmed resident workers). The architectural unit
+is a `ComputeSession` running an IOI daemon/runtime-node profile; a VM,
+container, browser sandbox, GPU job, DePIN node, TEE, or customer process is
+only the underlying substrate.
 
 ### Plane D — Kernel / coordinator / settlement plane
 
@@ -1169,7 +1249,10 @@ The **Coordinator** is the always-on runtime control role. It holds:
 * SCS strategy selection
 * worker dispatch state
 
-It is the **execution control role**, not the SaaS UI.
+It is the **execution control role**, not the SaaS UI. In canonical terms it is
+a domain-kernel/runtime-router responsibility that writes operational truth to
+Agentgres and assigns work to IOI daemon/runtime nodes. It is not the SDK and it
+is not a TUI/client loop.
 
 ## 13.3 Coordinator ownership modes
 

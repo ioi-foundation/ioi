@@ -1,0 +1,17 @@
+# Architecture Decision Records
+
+This directory contains accepted architecture decisions that should survive
+implementation churn, documentation refactors, and context compaction.
+
+ADRs record durable product/protocol/runtime decisions and their consequences.
+Canonical architecture prose still lives under `docs/architecture/`; ADRs
+explain the accepted decision when that history remains useful.
+
+## Accepted ADRs
+
+- [ADR 0001: Remove SCS And Adopt `ioi-memory` For Product Memory](./0001-scs-deprecation-and-memory-runtime-successor.md)
+- [ADR 0002: Make The IOI Daemon The Canonical Execution Endpoint](./0002-execution-authority-and-client-boundaries.md)
+- [ADR 0003: Define Agentgres As Operation-Backed Domain Truth](./0003-agentgres-operation-backed-domain-truth.md)
+- [ADR 0004: Define Worker, MoW, And Worker Training As Labor Architecture](./0004-worker-mow-and-training-doctrine.md)
+- [ADR 0005: Make Domain Ontologies And Data Recipes The Semantic Data Plane](./0005-domain-ontologies-and-data-recipes.md)
+- [ADR 0006: Define Capability, Authority, And Work-Graph Vocabulary](./0006-capability-authority-and-work-graph-vocabulary.md)

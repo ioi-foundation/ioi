@@ -4,13 +4,13 @@ Status: canonical architecture authority.
 Canonical owner: this file for wallet.network authority doctrine; low-level scope APIs live in [`wallet-network-api-and-authority-scopes.md`](./api-authority-scopes.md).
 Supersedes: older generic capability-grant wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-13.
 
 ## Canonical Definition
 
 **wallet.network is the canonical Web4 authority layer: the identity, secret,
-authority-scope, approval, payment, and revocation control plane for
-autonomous software.**
+authority-scope, approval, payment, training-data permission, decryption-lease,
+and revocation control plane for autonomous software.**
 
 It owns identity, secrets, authority scope grants, session authority, approvals, payments, revocation, and audit lineage. It is not merely a crypto wallet.
 
@@ -55,6 +55,11 @@ wallet.network owns:
 - OAuth refresh tokens;
 - connector credentials;
 - BYOK model provider keys;
+- sealed archive decryption authority;
+- restore key leases;
+- training-data access approvals;
+- training artifact decryption leases;
+- model-provider and GPU spend authority for training/evaluation jobs;
 - authority scope leases;
 - approval tokens;
 - session grants;
@@ -75,8 +80,34 @@ wallet.network does not own:
 - full run traces;
 - Agentgres projections;
 - artifact payload bytes;
-- model inference execution.
-- IOI L1 registry, settlement, or dispute state.
+- model inference execution;
+- training, benchmark, or evaluation execution;
+- IOI L1 registry, settlement, or dispute state;
+- sealed state archive bytes.
+
+## Worker Training Authority
+
+Worker Training improves capability; it does not grant power. wallet.network
+owns the authority path for training inputs and training side effects:
+
+- access to private source documents, traces, examples, and corrections;
+- permission to use data for training, evaluation, benchmark, or publication;
+- permission to run DataRecipes over PolicyBoundDataViews;
+- permission to use connector mappings against source systems and accounts;
+- permission to publish or reuse DomainOntologies, ontology packs, canonical
+  object models, and evaluation datasets when they contain governed material;
+- decryption leases for sealed training datasets and artifacts;
+- BYOK model-provider keys used by planner, generator, verifier, or trainer
+  jobs;
+- approval for remote GPU, hosted, DePIN, TEE, or customer-VPC training
+  execution;
+- payment approval for benchmark submissions, training compute, and service
+  settlement.
+
+Training archives should contain wallet.network secret refs and data-use refs,
+not raw long-lived secrets. Reuse of training material must request the
+appropriate authority scope again unless the original grant explicitly permits
+reuse.
 
 ## Availability Profiles
 
@@ -90,6 +121,24 @@ Examples:
   grants.
 - High-risk actions may require mobile/passkey/security-key step-up before
   sealed secret release, payment authorization, or policy widening.
+
+## Sealed Archive Restore Authority
+
+When Agentgres exports dormant or idle runtime state to a sealed archive,
+wallet.network owns the restore authority path:
+
+```text
+restore requested
+→ wallet.network verifies account/org/device/policy authority
+→ scoped decryption key lease or sealed key release is granted
+→ daemon/domain kernel decrypts archive in the approved environment
+→ Agentgres records restore/import receipts
+→ lease expires or is revoked
+```
+
+Archives should contain secret refs such as
+`wallet.network://secret/openai-key`, not raw long-lived secrets, unless a
+separately sealed exceptional policy explicitly permits it.
 
 ## Account Abstraction
 
@@ -298,9 +347,14 @@ Appropriate claims:
 
 > **Do not make users create a wallet. Let them create an account that can grow into a vault.**
 
-## Preserved wallet.network Product Spec Module
+## wallet.network Product Context Module
 
-The following module preserves the detailed wallet.network v3.2 product-spec context from the former `docs/specs/wallet_network.md`. It is mostly aligned with the current architecture. The canonical doctrine above still wins where deployment availability, IOI daemon / Guardian-profile naming, Agentgres receipt sinks, IOI L1 commitments, runtime privacy modes, marketplace settlement, or hybrid-cryptography claims differ.
+The following module carries detailed wallet.network v3.2 product-spec context
+from the former `docs/specs/wallet_network.md`. It is supporting context, not a
+parallel architecture variant. Where deployment availability, IOI daemon /
+Guardian-profile naming, Agentgres receipt sinks, IOI L1 commitments, runtime
+privacy modes, marketplace settlement, or hybrid-cryptography claims differ,
+update this module to follow the canonical doctrine above.
 
 ---
 

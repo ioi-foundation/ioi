@@ -4,7 +4,7 @@ Status: canonical product/surface architecture reference.
 Canonical owner: this file for Autopilot product definition, UX surface intent, and long-range operator-shell direction.
 Supersedes: `docs/specs/autopilot/internal_product_spec.md`.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-14.
 
 **Version:** 1.3
 **Status:** Proposed revision
@@ -12,32 +12,56 @@ Last alignment pass: 2026-05-01.
 
 ## 1. Vision-State Product Definition
 
-**Category:** Autonomous action runtime and operator shell
+**Category:** Autonomous action workbench and operator shell over a local IOI daemon/runtime profile
 **Differentiator:** Private, sovereign, and verifiable by design
 
-Autopilot is the private and sovereign operator shell for autonomous, local-first, and verifiable software workers.
+Autopilot is the private and sovereign operator shell for autonomous,
+local-first, and verifiable software workers. In architecture terms, the
+portable execution substrate is the IOI daemon/runtime-node profile; Autopilot
+Desktop is the user-facing local shell that manages and projects it.
 
 Today the dominant domain is bounded software action. Over time, the same runtime model should be able to extend to broader autonomous systems, including devices or embodied workers, wherever the same guarantees can be preserved.
 
-At its end state, Autopilot is not just a private desktop assistant, a workflow builder, or a copilot. It is a zero-trust hypervisor for generative AI that lets an individual or organization run bounded digital workers across the desktop, browser, APIs, and external software systems while preserving operator control, policy enforcement, provenance, and replayable evidence.
+At its end state, Autopilot is not just a private desktop assistant, a workflow builder, or a copilot. It is a zero-trust operator shell for generative AI that lets an individual or organization run bounded digital workers across the desktop, browser, APIs, and external software systems through governed daemon/runtime contracts while preserving operator control, policy enforcement, provenance, and replayable evidence.
 
 The long-term progression is:
-gen-AI hypervisor -> software worker runtime -> adaptive work graph coordinator -> embodied action runtime
+gen-AI operator shell -> software worker workbench -> adaptive work graph coordinator -> embodied action control surface
 
-Autopilot should not be marketed as a robot runtime first. It should be described as the runtime and operator shell for bounded autonomous action, starting with software and extending outward only when the same policy, approval, evidence, and authority guarantees can be maintained.
+Autopilot should not be marketed as a robot runtime first. It should be
+described as the local operator shell and workbench for bounded autonomous
+action, starting with software and extending outward only when the same policy,
+approval, evidence, and authority guarantees can be maintained.
 
-Within the broader IOI surface map, Autopilot is where workers are operated privately and locally. When stable local work should become a provider-facing product with deployment presets, billing, tenants, and marketplace publication, the promotion path continues into `sas.xyz`. When it should become a sovereign domain or intelligent blockchain with durable policy, publication, and delegation semantics, the heavier promotion path continues through `IOI CLI`.
+Within the broader IOI surface map, Autopilot is where workers are trained,
+operated, inspected, and improved privately and locally. Autopilot Foundry is
+the product surface for turning repeated workflows, examples, corrections,
+documents, verifier gates, and benchmarks into deployable workers. When a
+worker should be published, benchmarked, installed, or routed in the wider MoW
+market, the promotion path continues into `aiagent.xyz`. When worker-powered
+work should become a managed outcome with deployment presets, billing, tenants,
+and service obligations, the promotion path continues into `sas.xyz`. When it
+should become a sovereign domain or intelligent blockchain with durable policy,
+publication roots, and delegation semantics, the heavier promotion path
+continues through `IOI CLI`.
 
 **Doctrine:** Autopilot stabilizes work; `sas.xyz` productizes it.
 **Doctrine:** Autopilot can feed both `sas.xyz` and `IOI CLI`, but it is not the primary surface for provider commercialization or L0 domain instantiation.
 
-Autopilot overlaps with `sas.xyz` in the shared authoring layer, but that overlap is the private/local lens: operate, refine, stabilize, and promote. Formal packaging, deployment presets, serving posture, tenancy, billing, and distribution live in `sas.xyz`. Sovereign domain instantiation, policy roots, publication roots, and intelligent blockchain lifecycle live in `IOI CLI`.
+Autopilot overlaps with `aiagent.xyz` and `sas.xyz` in the shared authoring
+layer, but that overlap is the private/local lens: capture, train, operate,
+refine, evaluate, stabilize, and promote. Benchmark categories, marketplace
+ranking, installs, and routing eligibility live in `aiagent.xyz`. Formal
+provider packaging, deployment presets, serving posture, tenancy, billing, and
+service distribution live in `sas.xyz`. Sovereign domain instantiation, policy
+roots, publication roots, and intelligent blockchain lifecycle live in `IOI
+CLI`.
 
 Autopilot should unify six things that are usually split apart:
 
 * computer use
 * connector-based automation
 * worker orchestration
+* worker training and evaluation
 * bounded recursive improvement
 * local-to-service promotion
 * verifiable execution under sovereign control
@@ -50,11 +74,22 @@ The product should start from the user’s machine and trust boundary, but grow 
 
 ### One sentence
 
-Autopilot is the private/local operator shell and execution runtime for running sovereign, verifiable software workers across your desktop, apps, and connected systems with governed capabilities.
+Autopilot is the private/local operator shell for running sovereign, verifiable
+software workers across your desktop, apps, and connected systems with governed
+capabilities through the IOI daemon/runtime substrate.
 
 ### One paragraph
 
-Autopilot is the operating layer for software workers: a zero-trust hypervisor and execution runtime that can understand goals, decompose work, spawn and supervise adaptive work graphs, act through a unified capability surface spanning computer use, connected systems, tools, and reusable skills, and promote stable workflows into durable service candidates. It is private by default, sovereign in control, and verifiable in execution, so every meaningful action can be gated, audited, simulated, replayed, and improved without surrendering authority to a black-box cloud agent. Today that action is mostly software; over time the same governance model can extend to broader autonomous and embodied systems where the same guarantees can still be preserved.
+Autopilot is the operating and training layer for software workers: a zero-trust local
+workbench that can understand goals, decompose work, spawn and supervise
+adaptive work graphs, act through a unified capability surface spanning
+computer use, connected systems, tools, and reusable skills, turn repeated work
+into trained workers, and promote stable workflows into durable service candidates. It is private by default, sovereign
+in control, and verifiable in execution because effectful work resolves through
+daemon, Agentgres, and wallet.network contracts rather than an app-private
+runtime truth path. Today that action is mostly software; over time the same
+governance model can extend to broader autonomous and embodied systems where
+the same guarantees can still be preserved.
 
 ---
 
@@ -75,9 +110,11 @@ A private desktop assistant that can:
 A worker orchestration studio that can:
 
 * define workers, workflows, capabilities, triggers, policy posture, memory, and models
+* train specialist workers from workflows, examples, corrections, and verifier gates
+* evaluate workers against rubrics, benchmarks, and production feedback
 * route work across specialist workers
 * monitor runs, failures, artifacts, receipts, and approvals
-* convert successful ad hoc tasks into durable service candidates
+* convert successful ad hoc tasks into durable workers and service candidates
 * preview service-candidate characteristics before promotion without owning live provider presets
 * evolve and improve workflows under bounded controls
 
@@ -189,6 +226,62 @@ Autopilot should:
 * resume long-lived execution
 * supervise multi-step outcomes over time
 
+### 5.3.1 Autopilot Foundry
+
+Autopilot should make Worker Training a first-class local product workflow.
+The goal is not a generic fine-tuning dashboard; it is a governed foundry for
+creating deployable workers from repeated work.
+
+The default user-facing action is:
+
+> Train a Specialist
+
+The guided pipeline is:
+
+```text
+Define Task
+→ Select Base Model, Cognition Backend, or Training Profile
+→ Bind Domain Ontology and Data Recipes
+→ Plan Dataset Scope
+→ Ingest / Generate Examples
+→ Quality Gates
+→ Human Review
+→ Train or Configure
+→ Evaluate
+→ Deploy as Worker
+→ Monitor & Improve
+```
+
+The canvas version should expose this as an editable graph with nodes for task
+definition, domain ontology, canonical object model, connector mapping, data
+recipe, policy-bound data view, source loading, example generation, quality
+gates, context graph editing, route-policy training, dedupe/cleaning,
+PII/secrets filtering, human review, dataset export, evaluation dataset
+building, ontology projection, training, evaluation, promotion gates, rollback
+gates, model mounting, worker mounting, deployment gates, and feedback
+collection.
+
+Autopilot Foundry should expose training profiles rather than a single model
+architecture. Supported profiles may include dense transformer workers,
+MoE-backed workers, nonquadratic or subquadratic workers, hybrid
+attention/state workers, retrieval-augmented/context-graph workers,
+mutable-context workers, adapter-trained workers, distillation-trained workers,
+perpetually post-trained workers, and deterministic verifier/toolchain workers.
+These profiles are options, not IOI primitives.
+
+Autopilot owns the product experience. The IOI daemon runs recipe,
+transformation, training, evaluation, benchmark, routing, and deployment jobs.
+Agentgres records ontologies, object models, data recipes, policy-bound data
+views, transformation runs, specs, dataset commitments, lineage, receipts,
+quality records, and benchmark state. wallet.network grants data, tool, model,
+secret, connector, training, evaluation, and decryption authority. Filecoin/CAS
+stores large ontology packs, recipe payloads, training payloads, artifacts,
+traces, checkpoints, and sealed archives.
+
+Worker Training improves capability; it does not grant authority. A trained
+worker still requires an explicit policy envelope and authority grants before
+acting.
+
 ### 5.4 Verifiable execution
 
 Every meaningful action should be inspectable and attributable.
@@ -242,17 +335,27 @@ A successful workflow should be promotable into a durable service candidate.
 
 Operators should be able to:
 
-* turn repeatable workflows into named workers and service candidates
+* turn repeatable workflows into trained workers and service candidates
 * version them
 * assign inputs, outputs, and SLAs
 * monitor them
 * approve them
 * prepare them for internal use or downstream provider exposure
+* submit trained workers to aiagent.xyz benchmark categories
 * prepare promotion metadata and preview deployment characteristics when needed
 
-Autopilot should own the local promotion path and pre-product validation. Provider packaging, tenant operations, billing, and publication should continue in `sas.xyz`.
-**Doctrine:** Autopilot stabilizes work; `sas.xyz` productizes it.
-Autopilot may preview service shape or deployment implications, but `sas.xyz` is the source of truth for provider manifests, deployment presets, readiness posture, tenant setup, billing, and publication. `IOI CLI` is the source of truth when a stabilized system must become a sovereign domain or intelligent blockchain with durable policy, delegation, and publication semantics.
+Autopilot should own the local training, promotion, and pre-product validation
+path. Worker publication, installs, benchmark categories, and routing
+eligibility continue in `aiagent.xyz`. Provider packaging, tenant operations,
+billing, and service publication continue in `sas.xyz`.
+**Doctrine:** Autopilot trains and stabilizes workers; `aiagent.xyz`
+publishes and benchmarks them; `sas.xyz` productizes worker-powered outcomes.
+Autopilot may preview service shape or deployment implications, but `sas.xyz`
+is the source of truth for provider manifests, deployment presets, readiness
+posture, tenant setup, billing, and service publication. `IOI CLI` is the
+source of truth when a stabilized system must become a sovereign domain or
+intelligent blockchain with durable policy, delegation, and publication
+semantics.
 
 ---
 
@@ -262,6 +365,7 @@ Autopilot should be all of the following at once:
 
 * a private desktop assistant
 * a workflow and worker studio
+* a worker training workbench
 * a worker supervision surface
 * a human decision surface
 * a zero-trust hypervisor for generative AI
@@ -295,6 +399,38 @@ A reusable software worker with:
 * budget
 * model configuration
 * specialization profile
+
+### Training spec
+
+A local Worker Training plan with:
+
+* worker objective
+* input and output schema
+* source documents and traces
+* example generation strategy
+* quality gates
+* training profile and active-context strategy
+* human review policy
+* training or configuration method
+* context mutation or route-policy update policy
+* evaluation rubric
+* benchmark profile
+* promotion and rollback gates
+* deployment target
+
+### Training lineage
+
+The auditable record of how a worker was produced:
+
+* source refs
+* dataset commitments
+* rejected/accepted example counts
+* verifier gates
+* training/configuration runs
+* evaluation receipts
+* benchmark receipts
+* output manifest refs
+* contribution policy
 
 ### Capability
 
@@ -443,7 +579,7 @@ A human-facing decision object:
 
 ### Service
 
-A promoted worker or workflow exposed as a durable unit of work with:
+A promoted worker, training template, or workflow exposed as a durable unit of work with:
 
 * interface
 * policy
@@ -451,6 +587,7 @@ A promoted worker or workflow exposed as a durable unit of work with:
 * SLA
 * monitoring
 * ownership
+* training/evaluation obligations when the service creates or improves workers
 
 ### Kernel
 
@@ -494,10 +631,19 @@ Autopilot’s product loop should be:
    The operator reviews outcomes, approves actions, or resolves blockers.
 
 8. **Improve**
-   The system proposes workflow extraction, refinement, new tests, or serviceization.
+   The system proposes workflow extraction, training examples, verifier gates,
+   refinements, new tests, benchmark cases, or serviceization.
 
-9. **Productize**
-   Repeated successful work becomes a durable service candidate that can be promoted into `sas.xyz` for provider packaging and serving, or exported through `IOI CLI` when it must become a sovereign domain or intelligent blockchain.
+9. **Train**
+   Repeated successful work can become a trained worker through Autopilot
+   Foundry: capture, specify, generate, curate, train/configure, evaluate,
+   bind, and deploy.
+
+10. **Productize**
+   Repeated successful work becomes a durable worker or service candidate that
+   can be published to `aiagent.xyz`, wrapped into `sas.xyz` for provider
+   packaging and serving, or exported through `IOI CLI` when it must become a
+   sovereign domain or intelligent blockchain.
 
 That loop is the core of the product.
 
@@ -829,7 +975,9 @@ The right framing is bounded operational self-improvement under sovereign contro
 
 ## 15. Trust, Security, and Hypervisor Model
 
-Autopilot should be fundamentally designed as a zero-trust hypervisor and governed execution runtime for bounded autonomous action, starting with software systems first.
+Autopilot should be fundamentally designed as a zero-trust operator shell and
+governed local workbench for bounded autonomous action, starting with software
+systems first and resolving execution through IOI daemon/runtime contracts.
 
 This should scale conceptually from:
 
@@ -919,7 +1067,8 @@ Autopilot should follow these doctrines.
    A great system knows when to escalate.
 
 6. Durable work should become durable software.
-   Repeated work should promote into service candidates locally and into provider services through `sas.xyz`.
+   Repeated work should train into workers, publish into `aiagent.xyz` when
+   appropriate, and promote into provider services through `sas.xyz`.
 
 7. Improvement must be governed.
    Optimization without bounds becomes loss of sovereignty.
@@ -933,6 +1082,10 @@ Autopilot should follow these doctrines.
 10. Lenses change emphasis, not ontology.
    Personal, builder, operator, runtime, and embodied views should remain native lenses over one shell and one control plane.
 
+11. Training improves capability, not authority.
+   A trained worker still needs manifest binding, policy envelope, receipts,
+   and wallet/network authority before it can act.
+
 ---
 
 ## 17. What Autopilot Is Not
@@ -944,7 +1097,8 @@ Autopilot should explicitly not become:
 * just an RPA tool
 * just an API wrapper
 * an opaque cloud agent
-* a generic agent marketplace shell
+* a worker marketplace, category leaderboard, or marketplace ranking authority
+* a fine-tuning dashboard that treats model checkpoints as the product
 * the primary provider monetization or tenant-ops console
 * assistant suggestions as the main UX
 
@@ -960,7 +1114,11 @@ Chat is a surface, not the product. The core UX is control, outcomes, and decisi
 
 ### Builder
 
-“Take something I did in chat, extract it into a skill or workflow, attach approvals and policy, test it, and promote it into a durable worker.”
+“Take something I did in chat, extract it into a skill or workflow, generate examples and gates, evaluate it, and promote it into a trained worker.”
+
+### Worker trainer
+
+“Turn our recurring workflow, examples, documents, corrections, and acceptance criteria into a benchmarked worker we can run locally, publish, or wrap as a service.”
 
 ### Team operator
 
@@ -980,7 +1138,7 @@ Chat is a surface, not the product. The core UX is control, outcomes, and decisi
 
 ### Service creator
 
-“Package a reliable workflow into a service candidate locally, then promote it into a provider service with an interface, budget, monitoring, and verifiable execution.”
+“Package a trained worker or reliable workflow into a service candidate locally, then promote it into a provider service with an interface, budget, monitoring, and verifiable execution.”
 
 ---
 
@@ -1015,6 +1173,11 @@ Today the dominant action surface is software. Over time, the architecture shoul
 
 ## 21. Final Product Statement
 
-Autopilot should strive to become the runtime and operator shell for sovereign autonomous action: private, sovereign, and verifiable by design, starting with software workers across desktop, browser, files, APIs, and connected systems, then extending over time to broader autonomous and embodied systems wherever the same capability, policy, approval, evidence, and authority guarantees can be preserved.
+Autopilot should strive to become the local operator shell for sovereign
+autonomous action: private, sovereign, and verifiable by design, starting with
+software workers across desktop, browser, files, APIs, and connected systems,
+then extending over time to broader autonomous and embodied systems wherever the
+same capability, policy, approval, evidence, and authority guarantees can be
+preserved through IOI daemon/runtime contracts.
 
 That is the product.

@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for public security/privacy/policy invariants; hidden conformance details live in [`../../conformance/agentic-runtime/`](../../conformance/agentic-runtime/).
 Supersedes: overlapping plan prose when invariants conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-02.
+Last alignment pass: 2026-05-14.
 
 ## Canonical Definition
 
@@ -12,13 +12,13 @@ This document defines the non-negotiable authority, security, privacy, and execu
 
 ## Authority Invariants
 
-1. Agents do not directly mutate canonical truth.
-2. Agents propose scoped changes; the fabric validates, merges, receipts, and settles them.
+1. Workers/agents do not directly mutate canonical truth.
+2. Workers/agents propose scoped changes; the fabric validates, merges, receipts, and settles them.
 3. No effectful action without a tool contract and risk class.
 4. No sensitive action without a persisted policy decision.
 5. No policy-required approval without exact request hash, policy hash, scope, expiry, and revocation epoch.
 6. No raw root secrets to agents, apps, marketplace workers, or untrusted runtimes.
-7. wallet.network is the authority plane for secrets, capabilities, approvals, and payments.
+7. wallet.network is the authority plane for secrets, authority scopes, approvals, and payments.
 8. Agentgres records authority artifacts but does not own root secrets.
 
 ## Runtime Invariants
@@ -29,6 +29,13 @@ This document defines the non-negotiable authority, security, privacy, and execu
 4. Untrusted DePIN nodes cannot execute final effects directly.
 5. Enterprise-private plaintext requires local, customer VPC, trusted hosted, or TEE execution.
 6. Long-running operations require deadline, cancellation, and progress.
+7. Compute/runtime nodes run IOI daemon-compatible profiles; SDKs, GUIs, and
+   TUI clients do not replace the execution substrate.
+8. TUI, GUI, SDK, and harness controls must resolve to daemon/domain APIs for
+   consequential work.
+9. Training, evaluation, benchmark, routing, and delivery jobs run through
+   IOI daemon-compatible runtime paths; product surfaces may initiate or
+   inspect them but must not create private execution semantics.
 
 ## State Invariants
 
@@ -38,6 +45,8 @@ This document defines the non-negotiable authority, security, privacy, and execu
 4. Local speculative state must be labeled speculative.
 5. Projection state must expose freshness and source watermark.
 6. Receipts are bundled; only sparse roots may reach IOI L1.
+7. Sealed state archives are cold encrypted payloads; Agentgres owns archive
+   refs and restore receipts, while wallet.network owns restore authority.
 
 ## File and Artifact Invariants
 
@@ -54,6 +63,47 @@ This document defines the non-negotiable authority, security, privacy, and execu
 3. Private tasks must not route to disallowed external providers.
 4. Fallbacks must be policy-aware.
 5. Model invocation receipts should be available for consequential runs.
+6. Model routing selects cognition backends; worker routing selects accountable
+   actors. A model must not be treated as the protocol-visible economic actor
+   when a worker manifest, policy envelope, and receipts are required.
+
+## Worker Training Invariants
+
+1. Worker Training improves capability; it does not grant authority.
+2. A trained worker remains inert until wallet.network or equivalent policy
+   authority grants bounded execution authority.
+3. Training data, traces, examples, corrections, and evaluation artifacts must
+   bind to policy, privacy class, source refs, and dataset commitments.
+4. Fine-tuning is optional and cannot stand in for manifest, policy, benchmark,
+   receipt, and authority requirements.
+5. Training lineage, benchmark results, and evaluation receipts must not be used
+   to claim universal intelligence or permanent routing superiority.
+6. No model architecture or training profile is canonical by default.
+   Subquadratic, hybrid, mutable-context, adapter-trained, and perpetually
+   post-trained workers are supported classes only when bounded by policy,
+   evaluation, receipts, rollback, and marketplace neutrality.
+7. Raw online weight mutation from user input is not canonical truth. A deployed
+   worker may propose context, adapter, route-policy, evaluation, or package
+   updates, but promotion requires authority, regression gates, and receipts.
+8. Worker Training must not treat raw blobs or connector payloads as domain
+   truth when an ontology, object model, or data recipe exists.
+
+## Data and Ontology Invariants
+
+1. Domain Ontologies define domain meaning; raw source schemas do not.
+2. Connector payloads used for training, evaluation, projection, routing, or
+   service delivery must pass through ConnectorMapping and DataRecipe
+   boundaries.
+3. PolicyBoundDataViews must gate read, transform, train, evaluate, export,
+   publish, and route use of governed data.
+4. DataRecipe and TransformationRun outputs must emit receipts for
+   consequential training, evaluation, projection, or service outcomes.
+5. EvaluationDatasets must bind ontology refs, rubric refs, benchmark refs,
+   source commitments, privacy policy, and receipt roots.
+6. OntologyProjections are serving views over Agentgres truth and must expose
+   freshness, recipe version, policy, and source watermarks.
+7. OntologyToWorkerPlan may propose workers, tools, evals, manifests, and
+   training specs, but it cannot grant authority or bypass wallet.network.
 
 ## Connector Invariants
 
@@ -70,6 +120,11 @@ This document defines the non-negotiable authority, security, privacy, and execu
 3. Contributions receive attribution.
 4. Service redirection is opt-in unless the service is explicitly ordered.
 5. Quality/reputation roots should be based on receipts and outcomes.
+6. MoW routing must be explainable and receipt-backed when it affects payment,
+   reputation, user trust, or marketplace ranking.
+7. Subscription-credit and outcome payouts should be based on verified
+   ContributionReceipts, not raw token usage, attention, popularity, or hidden
+   platform preference.
 
 ## Mainnet Invariants
 

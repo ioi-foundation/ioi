@@ -4,11 +4,11 @@ Status: canonical low-level reference.
 Canonical owner: this file for wallet.network account, authority scope, grant, approval, secret brokerage, payment, and revocation APIs.
 Supersedes: older wallet authority API wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-14.
 
 ## Purpose
 
-wallet.network is the canonical Web4 authority layer. It owns identity, secrets, BYOK keys, connector credentials, authority scope grants, approvals, payments, revocation, and emergency stops. Agents, workers, apps, and runtimes are authority clients, not raw secret custodians.
+wallet.network is the canonical Web4 authority layer. It owns identity, secrets, BYOK keys, connector credentials, authority scope grants, training-data permissions, decryption leases, approvals, payments, sealed archive restore authority, revocation, and emergency stops. Agents, workers, apps, and runtimes are authority clients, not raw secret custodians.
 
 ## Account and Session API
 
@@ -67,6 +67,33 @@ POST /v1/authority/grants/{grant_id}/revoke
 }
 ```
 
+Worker Training scope requests use the same envelope. Typical scopes include:
+
+```text
+scope:training.data.use
+scope:training.trace.use
+scope:training.dataset.decrypt
+scope:training.remote_compute.request
+scope:data.source.read
+scope:data.recipe.run
+scope:data.transform
+scope:data.view.use
+scope:data.train.use
+scope:data.eval.use
+scope:data.export
+scope:data.publish
+scope:ontology.publish
+scope:connector.mapping.use
+scope:benchmark.submit
+scope:worker.publish
+scope:mow.route
+```
+
+Training-data grants should bind purpose, reuse rights, retention policy,
+privacy class, dataset commitment, domain ontology refs, data recipe refs,
+policy-bound data view refs, allowed transformation methods, allowed runtime
+environment, and expiry.
+
 ### Authority Grant
 
 ```json
@@ -107,7 +134,7 @@ POST /v1/secret-execution/request
 GET  /v1/secret-execution/{execution_id}
 ```
 
-Example:
+Secret brokerage example:
 
 ```json
 {
@@ -119,6 +146,37 @@ Example:
   "mode": "brokered_execution | sealed_to_tee | local_only"
 }
 ```
+
+## Archive Restore Authority API
+
+```http
+POST /v1/archive-restore/request
+GET  /v1/archive-restore/{restore_authority_id}
+POST /v1/archive-restore/{restore_authority_id}/approve
+POST /v1/archive-restore/{restore_authority_id}/deny
+POST /v1/archive-restore/{restore_authority_id}/lease-key
+POST /v1/archive-restore/{restore_authority_id}/revoke
+```
+
+Restore authority grants should bind:
+
+```json
+{
+  "restore_authority_id": "restore_auth_123",
+  "archive_cid": "cid://bafy...",
+  "archive_sha256": "sha256:...",
+  "agentgres_domain": "agentgres://domain/local-autopilot-user",
+  "state_root": "sha256:...",
+  "requesting_runtime": "runtime://node_abc",
+  "allowed_environment": "local | tee_enterprise | customer_vpc",
+  "recipient": "wallet://user_or_org",
+  "policy_hash": "sha256:...",
+  "expires_at": "2026-05-01T12:00:00Z"
+}
+```
+
+The archive may contain secret refs. It should not contain raw long-lived
+secrets unless separately sealed under explicit policy.
 
 ## Approval API
 

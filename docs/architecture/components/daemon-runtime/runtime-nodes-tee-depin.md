@@ -4,13 +4,18 @@ Status: canonical architecture authority.
 Canonical owner: this file for runtime-node and execution-privacy doctrine; low-level task capsule protocol lives in [`runtime-node-and-task-capsule-protocol.md`](./task-capsule-protocol.md).
 Supersedes: overlapping hosted/DePIN/TEE prose when execution-venue boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-13.
 
 ## Canonical Definition
 
 **Runtime nodes are execution venues that run IOI daemon profiles.**
 
 They may be local, hosted, provider-operated, DePIN, TEE-verified, or customer-controlled. They are not Web4 applications by default.
+
+A runtime node may contain a lower-level runtime service bridge or worker SDK
+helpers, but the node's architectural boot target is the IOI daemon/runtime-node
+profile. SDKs submit and control work as clients; they do not own node
+execution.
 
 ## Taxonomy
 
@@ -22,17 +27,28 @@ Web4 Worker:
   executable agent/workflow/service unit that performs work
 
 Runtime Node:
-  machine or environment running IOI daemon to execute workers
+  machine or environment running an IOI daemon/runtime-node profile to execute workers
+
+Managed Worker Instance:
+  user-, org-, or project-bound worker initialization that may expose chat,
+  API, scheduler, form, or workflow-node surfaces over the runtime node
 
 Resource Provider:
   DePIN/cloud/enterprise/local provider offering compute/storage/model resources
+
+Compute Session:
+  bounded allocation on a runtime node for one run, task capsule, service order,
+  workflow execution, managed worker instance, training job, evaluation job,
+  benchmark job, or routing job
 ```
 
-DePIN nodes are Web4 worker infrastructure, not the apps themselves.
+DePIN nodes are Web4 worker infrastructure, not the apps themselves. Training,
+evaluation, benchmark, and MoW routing jobs use the same daemon/runtime-node
+profile boundary as worker execution.
 
 ## Execution Venues
 
-1. **Local Autopilot** — user machine/private runtime.
+1. **Local IOI daemon under Autopilot Desktop** — user machine/private runtime.
 2. **Hosted IOI Runtime** — first-party managed runtime.
 3. **Provider Runtime** — worker/service seller runtime.
 4. **DePIN Runtime** — Akash-like decentralized compute node.
@@ -124,6 +140,7 @@ TaskCapsule:
 ```text
 marketplace/app creates RunRequest
 → domain kernel/router selects venue
+→ RuntimeAssignment binds daemon profile, compute session, package refs, policy, and payment quote
 → runtime node fetches package/capsule from Filecoin/CAS
 → wallet.network grants scoped authority if allowed
 → node executes
@@ -132,6 +149,24 @@ marketplace/app creates RunRequest
 → trusted verifier/settlement path accepts or rejects
 → IOI L1 contract updates only if economic boundary requires it
 ```
+
+Managed instances use the same boundary, but the assignment may be durable:
+
+```text
+aiagent.xyz creates install + WorkerInstance
+→ runtime router selects hosted/provider/DePIN/TEE/customer/local daemon
+→ subscription or zero-to-idle policy is attached
+→ browser/API/workflow clients control the instance through daemon APIs
+→ idle state checkpoints to Agentgres refs and sealed Filecoin/CAS archives
+→ runtime resumes or rehydrates when the user returns or a schedule fires
+```
+
+Persistent does not always mean always-on. A worker instance may be:
+
+- **ephemeral** — one run, no durable instance;
+- **session** — conversational/session continuity while active;
+- **zero-to-idle** — archived when idle, rehydrated by policy;
+- **persistent** — warm runtime maintained by subscription or provider contract.
 
 ## TEE Flow
 
@@ -152,6 +187,8 @@ runtime node produces attestation
 4. Runtime nodes emit receipts and artifact hashes.
 5. Marketplace payouts depend on delivery/settlement, not node claims alone.
 6. TEE attestation is a policy requirement for enterprise secure placement.
+7. Runtime nodes run daemon-compatible profiles; SDK presence inside a worker or
+   client does not make the SDK the runtime substrate.
 
 ## One-Line Doctrine
 

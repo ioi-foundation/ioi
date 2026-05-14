@@ -4,11 +4,11 @@ Status: canonical architecture authority.
 Canonical owner: this file for Autopilot, workflow canvas, harness-as-workflow, and local GUI boundaries.
 Supersedes: overlapping plan prose when Autopilot ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-14.
 
 ## Canonical Definition
 
-**Autopilot is the local canonical Web4 application and user-facing runtime for building, running, inspecting, and governing autonomous workflows and workers.**
+**Autopilot Desktop is the local canonical Web4 application and workbench for building, training, running, inspecting, and governing autonomous workflows and workers through a local IOI daemon/runtime profile.**
 
 It is the default local execution environment for users who want private/local control, local files, local models, local connectors, and editable workflows.
 
@@ -17,11 +17,14 @@ It is the default local execution environment for users who want private/local c
 Autopilot provides:
 
 - workflow canvas;
+- Autopilot Foundry / Worker Training Workbench;
 - agent harness;
-- local IOI runtime bridge;
+- local IOI daemon/runtime bridge management;
 - local-first UX;
 - connector/tool management;
+- domain ontology, data recipe, and connector mapping authoring;
 - model mounting and routing UI;
+- training, evaluation, benchmark, and deployment UI;
 - worker install/run interface;
 - run rooms and task coordination;
 - agent office/project coordination;
@@ -29,27 +32,43 @@ Autopilot provides:
 - wallet.network approval surface;
 - Agentgres client/runtime integration.
 
+Autopilot may launch, configure, observe, and project the local daemon. It does
+not define a second runtime substrate separate from the IOI daemon/domain
+contracts.
+
 ## What Autopilot Owns
 
 Autopilot owns the user-facing local product experience:
 
 - workflow authoring;
+- worker-training authoring;
 - default harness inspection and fork path;
-- local runtime configuration;
-- local execution and debugging;
+- local daemon/runtime configuration;
+- local execution UX and debugging;
 - local stores and projections;
 - local/private files;
 - local model endpoints;
 - connector setup surfaces;
+- domain ontology and canonical object model editors;
+- data recipe and policy-bound data view builders;
+- evaluation dataset builders;
+- training profile selection;
+- context graph and supersession editing;
+- adapter, route-policy, and package promotion review;
 - human approvals and interruption UX;
 - run timeline;
 - artifact viewer;
 - diagnostics.
 
+Autopilot owns the local user experience for Worker Training. It does not own
+the canonical training state, receipt model, marketplace ranking, or runtime
+execution substrate.
+
 ## What Autopilot Does Not Own
 
 Autopilot does not own:
 
+- the IOI daemon API contract;
 - IOI L1 settlement contracts;
 - global marketplace state;
 - root user secrets except through wallet.network;
@@ -94,6 +113,84 @@ Phases:
 
 The default harness remains neutral infrastructure. It must not silently cannibalize marketplace workers.
 
+## Autopilot Foundry
+
+Autopilot Foundry is the local product surface for the Worker Training
+lifecycle. It turns repeated work, examples, corrections, source documents,
+quality gates, and verifier feedback into deployable workers.
+
+The default guided flow is:
+
+```text
+Define Task
+→ Select Base Model, Cognition Backend, or Training Profile
+→ Bind Domain Ontology and Data Recipes
+→ Plan Dataset Scope
+→ Ingest / Generate Examples
+→ Quality Gates
+→ Human Review
+→ Train or Configure
+→ Evaluate
+→ Deploy as Worker
+→ Monitor & Improve
+```
+
+The same flow should also exist as an editable workflow-canvas graph. Canonical
+training nodes include:
+
+- task definition;
+- domain schema;
+- domain ontology builder;
+- canonical object model editor;
+- connector mapping;
+- data recipe;
+- policy-bound data view;
+- source loader;
+- example generator;
+- context graph editor;
+- route-policy trainer;
+- quality gate or judge;
+- deduper or cleaner;
+- PII / secrets filter;
+- human review queue;
+- dataset exporter;
+- evaluation dataset builder;
+- ontology projection;
+- trainer;
+- evaluator;
+- promotion gate;
+- rollback gate;
+- model registry or model mount;
+- worker mount;
+- deployment gate;
+- feedback collector.
+
+Autopilot Foundry should expose training profiles rather than a single
+fine-tuning path. Valid profiles include dense transformer workers,
+MoE-backed workers, nonquadratic or subquadratic workers, hybrid
+attention/state workers, retrieval-augmented/context-graph workers,
+mutable-context workers, adapter-trained workers, distillation-trained workers,
+perpetually post-trained workers, and deterministic verifier/toolchain workers.
+Subquadratic or perpetually post-trained workers are supported classes, not the
+Autopilot default or the protocol actor.
+
+Autopilot can initiate training, evaluation, benchmark, and deployment jobs, but
+those jobs run through daemon/domain contracts. Agentgres records training
+specs, dataset commitments, lineage, receipts, benchmark state, and quality
+records. wallet.network authorizes data, tool, model, and decryption access.
+Filecoin/CAS stores large datasets, trace bundles, artifacts, checkpoints, and
+sealed archives by hash/CID.
+
+Autopilot Foundry should make the semantic data plane visible. Users should be
+able to see which ontology, object model, connector mapping, data recipe,
+policy-bound data view, evaluation dataset, and transformation receipts support
+a worker. The product should not present raw uploads as if they were sufficient
+domain truth.
+
+CLI/TUI controls must be able to inspect and operate the same training runs,
+quality gates, benchmark jobs, receipts, and routing decisions without creating
+a separate terminal-only runtime truth path.
+
 ## Local vs Hosted Execution
 
 Autopilot can execute locally or request external execution.
@@ -103,13 +200,13 @@ Local:
   user machine, local files, local models, local connectors
 
 Hosted:
-  hosted IOI daemon
+  hosted IOI daemon/runtime node
 
 DePIN:
-  Akash-like or other compute node
+  Akash-like or other compute node running an IOI daemon profile
 
 Enterprise Secure:
-  TEE-verified or customer VPC runtime
+  TEE-verified or customer VPC runtime node
 ```
 
 Autopilot should choose placement according to policy, privacy, cost, latency, and user preference.
@@ -123,12 +220,16 @@ Users may use Autopilot to:
 - order sas.xyz services;
 - download packages from Filecoin/CAS/CDN;
 - run workers locally;
+- train workers locally or through runtime-node jobs;
+- submit trained workers to aiagent.xyz categories;
+- wrap worker-training templates as sas.xyz outcomes;
 - monitor hosted runs;
 - review delivery bundles;
 - approve authority grants;
 - inspect receipts.
 
-Autopilot is not required for all marketplace users, but it is the best local/private/power-user runtime.
+Autopilot is not required for all marketplace users, but it is the best
+local/private/power-user workbench over a local IOI daemon runtime.
 
 ## Local State
 
@@ -154,9 +255,24 @@ Autopilot should split state into:
 - local caches;
 - mutation queues;
 - worker installs;
+- training specs;
+- domain ontologies;
+- canonical object models;
+- data recipes;
+- connector mappings;
+- policy-bound data views;
+- evaluation datasets;
+- ontology projections;
+- dataset commitments;
+- training lineage;
+- benchmark submissions;
 - standing orders;
 - project rooms;
 - subscription cursors.
+
+Autopilot may cache and render these records locally, but durable run, receipt,
+artifact, patch, archive, and restore truth must flow through daemon and
+Agentgres-compatible APIs.
 
 ## Invariants
 
@@ -166,7 +282,17 @@ Autopilot should split state into:
 4. Local execution should preserve user privacy by default.
 5. wallet.network must authorize sensitive capabilities.
 6. Agentgres must record durable run/receipt/artifact state where relevant.
+7. Remote execution should be described as IOI daemon/runtime-node execution,
+   not as an Autopilot-owned runtime.
+8. Worker Training improves capability but does not grant authority.
+9. Autopilot Foundry must not collapse MoW into a fine-tuning-only product.
+10. Autopilot Foundry must not crown any single model architecture as the IOI
+    default. Training profile claims must be evaluated, receipted, and
+    rollback-capable before they affect deployment or routing.
+11. Autopilot Foundry must bind training and evaluation to Domain Ontologies,
+    DataRecipes, PolicyBoundDataViews, and transformation receipts whenever
+    the work depends on governed domain data.
 
 ## One-Line Doctrine
 
-> **Autopilot is where users build and run Web4 locally: workflows become workers, workers act under authority, and outcomes remain inspectable.**
+> **Autopilot is where users operate Web4 locally: workflows become trained workers, local daemon execution stays inspectable, and sensitive authority remains governed.**

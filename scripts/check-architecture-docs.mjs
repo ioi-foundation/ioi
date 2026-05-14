@@ -114,10 +114,7 @@ const staleLinePatterns = [
 
 function lineIsAllowedLegacyNote(file, line) {
   const rel = relative(file);
-  if (
-    rel.endsWith("_meta/contradiction-log.md") ||
-    rel.includes("_meta/changelog/")
-  ) {
+  if (rel.includes("_meta/changelog/")) {
     return true;
   }
   return /older|legacy|historical|supersedes|pre-split|watchlist/i.test(line);
@@ -139,7 +136,7 @@ for (const file of markdownFiles) {
 const index = fs.readFileSync(path.join(architectureRoot, "README.md"), "utf8");
 for (const required of [
   "_meta/source-of-truth-map.md",
-  "_meta/contradiction-log.md",
+  "../decisions/README.md",
   "_meta/doc-classes.md",
   "components/daemon-runtime/api.md",
   "components/agentgres/api-object-model.md",
@@ -159,25 +156,23 @@ for (const required of [
   "`scope:*`",
   "SDK, CLI, GUI, harness, benchmark, compositor boundaries",
   "Smarter-agent runtime loop",
-  "Legacy Context Policy",
+  "Decision History Policy",
 ]) {
   if (!sourceMap.includes(required)) {
     fail(`_meta/source-of-truth-map.md missing ${required}.`);
   }
 }
 
-const contradictionLog = fs.readFileSync(
-  path.join(architectureRoot, "_meta/contradiction-log.md"),
-  "utf8",
-);
+const decisionsIndex = fs.readFileSync(path.join(root, "docs/decisions/README.md"), "utf8");
 for (const required of [
-  "Split into primitive execution capabilities (`prim:*`) and authority scopes (`scope:*`)",
-  "CLI vs daemon",
-  "Agentgres role",
-  "Swarm naming",
+  "ADR 0002",
+  "ADR 0003",
+  "ADR 0004",
+  "ADR 0005",
+  "ADR 0006",
 ]) {
-  if (!contradictionLog.includes(required)) {
-    fail(`_meta/contradiction-log.md missing ${required}.`);
+  if (!decisionsIndex.includes(required)) {
+    fail(`docs/decisions/README.md missing ${required}.`);
   }
 }
 

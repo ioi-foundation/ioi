@@ -1,10 +1,10 @@
 # Connectors, Tools, and Authority-Aware Registry Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for connector/tool registry doctrine; low-level tool contracts live in [`connector-and-tool-contracts.md`](./contracts.md).
+Canonical owner: this file for connector/tool registry doctrine; low-level tool contracts and connector mappings live in [`connector-and-tool-contracts.md`](./contracts.md).
 Supersedes: older flattened capability-registry wording when it conflicts with primitive capability and authority scope tiers.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-14.
 
 ## Canonical Definition
 
@@ -55,6 +55,11 @@ RuntimeToolContract:
     - prim:net.request
   authority_scope_required:
     - scope:gmail.send
+  semantic_data:
+    ontology_refs: []
+    connector_mapping_refs: []
+    input_object_model_refs: []
+    output_object_model_refs: []
   approval_scope_fields:
     - recipient
     - subject
@@ -92,6 +97,30 @@ The runtime receives:
 - internal execution by wallet/guardian when possible.
 
 It should not receive raw refresh tokens or long-lived secrets.
+
+## Connector Mappings and Data Recipes
+
+Connectors expose provider data. They do not define the domain by themselves.
+
+For training, evaluation, ontology-aware projections, MoW routing, or service
+delivery, connector outputs should flow through:
+
+```text
+RuntimeToolContract
+→ ConnectorMapping
+→ DataRecipe
+→ TransformationReceipt
+→ ontology-bound Agentgres objects / datasets / projections
+```
+
+ConnectorMapping declares how provider fields, files, events, and actions map
+to canonical object models and authority scopes. DataRecipe declares how mapped
+source material is extracted, redacted, normalized, deduped, validated, linked,
+and exported.
+
+This prevents the platform from treating a Gmail thread, CRM row, Drive file,
+GitHub issue, or spreadsheet as domain truth merely because a connector could
+read it.
 
 ## Capability Tiering
 
@@ -161,6 +190,9 @@ They should still emit artifacts and receipts.
 4. No tool result trusted without output schema validation.
 5. No marketplace worker may bypass tool policy.
 6. Tool quality should be measured and fed back into routing over time.
+7. No connector payload may become training, evaluation, projection, routing,
+   or service truth without the applicable ConnectorMapping, DataRecipe,
+   policy-bound data view, and receipts.
 
 ## One-Line Doctrine
 

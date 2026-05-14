@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for daemon/CLI ownership boundaries and IOI CLI operator-surface positioning; low-level daemon endpoints live in [`ioi-daemon-runtime-api.md`](./api.md).
 Supersedes: older CLI/daemon wording that implies the CLI owns runtime semantics or is primarily a chain/domain generator.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-14.
 
 ## Canonical Definition
 
@@ -17,11 +17,18 @@ interactions.**
 The IOI CLI is a terminal/TUI client over daemon/public runtime APIs and the
 broader canonical Web4 stack. It may mirror daemon commands, render operator
 workflows, resolve natural-language intent into inspectable plans, and
-administer domain/settlement/authority surfaces. The CLI must not own a separate agent runtime or execution loop.
+administer domain/settlement/authority surfaces. The CLI must not own a
+separate agent runtime or execution loop.
 
 Through daemon APIs, it launches workflows, agents, workers, tools, models,
-connectors, and artifact-producing jobs across local, hosted, provider, DePIN,
+connectors, worker-training jobs, benchmark jobs, evaluation jobs, MoW routing
+decisions, and artifact-producing jobs across local, hosted, provider, DePIN,
 TEE, and enterprise environments.
+
+Compute-node rule:
+
+> **Runtime and compute nodes initialize IOI daemon/runtime-node profiles. The
+> SDK is a client over that substrate, not the substrate booted on the node.**
 
 ## CLI Operator Surface
 
@@ -38,6 +45,12 @@ One-line positioning:
 The CLI can be natural-language capable, but structured plans, canonical
 commands, manifests, receipts, and replayable execution remain durable truth.
 
+The TUI is the interactive form of the same operator client. It may provide
+rich thread, turn, approval, memory, MCP, subagent, snapshot, restore,
+diagnostics, usage, and context-budget controls, but every control must resolve
+to daemon/public runtime APIs or domain-kernel APIs. It must not carry a private
+execution loop.
+
 ### Core Command Families
 
 ```text
@@ -45,7 +58,10 @@ ioi runtime
   local/hosted/depin/tee node operations
 
 ioi agent
-  worker install/run/status/inspect
+  product-facing agent aliases for worker install/run/status/inspect
+
+ioi worker
+  install/run/status/inspect/publish
 
 ioi service
   sas.xyz service order/delivery/acceptance/dispute
@@ -74,6 +90,15 @@ ioi receipt
 ioi model
   mount/list/route/benchmark
 
+ioi train
+  spec/create/run/evaluate/benchmark/publish
+
+ioi data
+  ontology/recipe/mapping/view/dataset/projection inspect/run/verify
+
+ioi mow
+  route/candidates/decision/inspect/receipt
+
 ioi connector
   bind/list/test/revoke
 
@@ -83,6 +108,11 @@ ioi forge
 
 `forge` remains an advanced namespace for domain/kernel scaffolding. It is not
 the primary identity of the CLI.
+
+When CLI prose says "Web4 L0," it refers to the IOI kernel/L0 substrate:
+domain scaffolding, manifests, policy roots, receipts, runtime profiles, and
+upgrade objects. The CLI is an operator client over that substrate. It is not
+the L0 substrate itself, and it is not the execution runtime.
 
 ### Intent Resolution Contract
 
@@ -110,6 +140,11 @@ CLI-compatible workflow/domain packages. The CLI may inspect, validate,
 materialize, promote, publish, route, or verify them through daemon and
 Agentgres APIs. The CLI does not become the Autopilot runtime.
 
+Autopilot Desktop may manage a local IOI daemon and render local runtime
+projections. Remote, hosted, provider, DePIN, TEE, and customer runtime nodes
+should still be described as IOI daemon/runtime-node profiles, even when they
+run Autopilot-compatible workflow packages.
+
 ## Runtime Role
 
 The daemon executes work. It does not own root authority or global marketplace state.
@@ -131,7 +166,7 @@ It is responsible for:
 
 ## Deployment Targets
 
-1. **Local Autopilot daemon** — desktop/private execution.
+1. **Local IOI daemon under Autopilot Desktop** — desktop/private execution.
 2. **Hosted IOI daemon** — always-on hosted workers/services.
 3. **Provider daemon** — service provider infrastructure.
 4. **DePIN daemon** — Akash-like public compute.
@@ -157,6 +192,36 @@ POST /v1/runs/{id}/resume
 POST /v1/runs/{id}/cancel
 GET  /v1/deliveries/{id}
 ```
+
+Interactive clients such as the TUI, SDK, agent-ide, and Autopilot Desktop also
+use the thread/turn control substrate:
+
+```http
+POST /v1/threads
+GET  /v1/threads
+GET  /v1/threads/{thread_id}
+POST /v1/threads/{thread_id}/resume
+POST /v1/threads/{thread_id}/fork
+POST /v1/threads/{thread_id}/turns
+GET  /v1/threads/{thread_id}/turns
+GET  /v1/threads/{thread_id}/events
+GET  /v1/threads/{thread_id}/events/stream
+POST /v1/threads/{thread_id}/turns/{turn_id}/interrupt
+POST /v1/threads/{thread_id}/turns/{turn_id}/steer
+POST /v1/threads/{thread_id}/mode
+POST /v1/threads/{thread_id}/model
+POST /v1/threads/{thread_id}/thinking
+GET  /v1/threads/{thread_id}/usage
+POST /v1/threads/{thread_id}/context-budget
+POST /v1/threads/{thread_id}/compaction-policy
+POST /v1/threads/{thread_id}/compact
+GET  /v1/threads/{thread_id}/snapshots
+POST /v1/threads/{thread_id}/snapshots/{snapshot_id}/restore-preview
+POST /v1/threads/{thread_id}/snapshots/{snapshot_id}/restore-apply
+```
+
+These endpoints are operator/runtime controls over the same substrate, not a
+second chat runtime.
 
 CLI surface should mirror the API:
 
@@ -198,6 +263,12 @@ QualityRecord
 ```
 
 These envelopes must be stable across local, hosted, marketplace, CLI, UI, workflow, and benchmark surfaces.
+
+The implementation may bridge the daemon API into a lower-level
+`RuntimeAgentService` or other runtime service loop. That bridge is behind the
+daemon/runtime-node profile. It does not change client ownership: SDK, CLI/TUI,
+agent-ide, Autopilot Desktop, harnesses, and benchmarks remain clients or
+projections.
 
 ## Event Model
 
@@ -269,27 +340,36 @@ Sensitive actions require:
 5. No final effect from untrusted DePIN nodes without trusted verification/settlement.
 6. No split runtime path for workflow vs agent vs benchmark vs CLI execution.
 7. No long-running job without deadline, cancellation, and progress events.
+8. No compute-node architecture where the SDK replaces the IOI daemon/runtime
+   profile as execution owner.
+9. No TUI-only runtime controls; TUI controls must map to daemon/domain APIs.
 
 ## One-Line Doctrine
 
 > **The IOI daemon is where Web4 work executes; Agentgres remembers it, wallet.network authorizes it, and IOI L1 settles what matters.**
 
-## Preserved Partially Superseded CLI Spec Module
+## CLI Product Context Module
 
-The following module preserves the detailed `IOI CLI` v1.1 product-spec context from the former `docs/specs/ioi-cli.md`. It is retained for command-family, natural-language-to-plan, artifact, evidence, receipt, policy, publish, and execution-path details. Its old chain/domain-generator framing is partially superseded: the canonical doctrine above wins wherever this preserved module implies that the CLI is primarily an intelligent-blockchain or sovereign-domain creation surface.
+The following module carries detailed `IOI CLI` v1.1 product-spec context from
+the former `docs/specs/ioi-cli.md`. It is supporting context for command
+families, natural-language-to-plan, artifact, evidence, receipt, policy,
+publish, and execution-path details. Where it disagrees with the canonical
+doctrine above, update this module to follow the canonical doctrine above.
 
 ---
 
 # `IOI CLI` v1.1 Product Spec
 
-## Canonical Command Line for the Web4 L0
+## Command Line for the Web4 L0 Substrate
 
 **Status:** Proposed revision
 **Audience:** Kernel, protocol, developer tooling, publication, identity, settlement, and ecosystem teams
 
 ## 1. Executive Summary
 
-`IOI CLI` is the canonical command line for authoring, instantiating, publishing, upgrading, and inspecting intelligent blockchains and other sovereign execution domains on IOI.
+`IOI CLI` is the canonical command line for authoring, instantiating,
+publishing, upgrading, and inspecting intelligent blockchains and other
+sovereign execution domains on IOI's L0/kernel substrate.
 
 It should not feel like a narrow chain-deployment tool.
 
@@ -322,7 +402,7 @@ The right shape is:
 * explicit plans for inspection and confirmation
 * canonical commands, manifests, and receipts as the durable truth
 
-> **`IOI CLI` is the canonical command line for the Web4 L0. It should make it natural to express intent in plain language or structured commands, resolve that intent into inspectable plans and manifests, instantiate a sovereign execution network, prove what happened, and settle verified machine labor under explicit policy.**
+> **`IOI CLI` is the canonical command line for operating the Web4 L0 substrate. It should make it natural to express intent in plain language or structured commands, resolve that intent into inspectable plans and manifests, instantiate a sovereign execution network, prove what happened, and settle verified machine labor under explicit policy.**
 
 ---
 
@@ -375,7 +455,8 @@ This naming is stronger because it is:
 * extensible as the command surface grows
 * less ambiguous than spending the top-level product name on a single metaphor
 
-`IOI CLI` should read like the canonical interface to the underlying Web4 L0 system, not like a separate semi-mythical developer brand.
+`IOI CLI` should read like the canonical interface to the underlying Web4
+L0/kernel substrate, not like a separate semi-mythical developer brand.
 
 That gives room for strong command families such as:
 
@@ -394,7 +475,9 @@ That gives room for strong command families such as:
 
 ### Category
 
-Canonical command-line surface for Web4 L0 domain authoring, intelligent blockchain instantiation, and sovereign execution-network operations.
+Canonical command-line surface for Web4 L0/kernel domain authoring,
+intelligent blockchain instantiation, and sovereign execution-network
+operations.
 
 ### One sentence
 
@@ -437,7 +520,10 @@ Private/local operator shell for workers, workflows, approvals, receipts, eviden
 
 **Author at the kernel boundary**
 
-Kernel-adjacent L0 surface for intelligent blockchains, sovereign execution networks, labor-market primitives, identity roots, policy bundles, evidence thresholds, publication, upgrades, and natural-language intent resolution over canonical command families.
+Kernel-adjacent client surface for the L0 substrate: intelligent blockchains,
+sovereign execution networks, labor-market primitives, identity roots, policy
+bundles, evidence thresholds, publication, upgrades, and natural-language intent
+resolution over canonical command families.
 
 `forge` is one of its major command families, not a separate product.
 
@@ -455,9 +541,11 @@ Discovery and procurement surface for productized worker services and bespoke de
 
 ## 5.5 `ioi.ai`
 
-**Use through hosted demand UX**
+**Coordinate account, restore, and runtime access**
 
-Intent ingress and hosted execution UX.
+Lightweight account/control plane for devices, archive refs, restore routing,
+publishing flows, remote-runtime entitlement, and demand ingress. It may route
+to hosted execution, but it is not the hosted runtime itself.
 
 ## 5.6 Boundary rules
 
@@ -465,6 +553,7 @@ Intent ingress and hosted execution UX.
 * `IOI CLI` is where sovereign domains and intelligent blockchains are formally instantiated as execution economies.
 * `forge` is a major namespace within `IOI CLI`, not the name of a separate top-level surface.
 * `sas.xyz` is where services, including intelligent-blockchain-backed services, are packaged, deployed, served, and commercialized.
+* `ioi.ai` coordinates account/runtime access, restore, publishing, and entitlement without becoming the credential vault, Agentgres store, or compute cloud.
 * Not every stabilized worker system should become an intelligent blockchain.
 * Not every intelligent blockchain should be commercialized through `sas.xyz`.
 
@@ -515,7 +604,7 @@ In practice, the ladder is not a strict one-way chain. A stable worker system ma
 
 `Autopilot` workflows may absolutely compile toward `IOI CLI`-compatible artifacts.
 
-That does **not** mean `Autopilot` should be the primary product for creating intelligent blockchains. `IOI CLI` is the heavier L0-native surface for that act.
+That does **not** mean `Autopilot` should be the primary product for creating intelligent blockchains. `IOI CLI` is the heavier L0/kernel-adjacent surface for that act.
 
 ---
 
@@ -888,7 +977,7 @@ Illustrative presets include:
 
 * private enterprise chain
 * public service network
-* agent marketplace chain
+* worker marketplace / Sparse Worker Category domain
 * regulated evidence-heavy chain
 * edge or local-first chain
 

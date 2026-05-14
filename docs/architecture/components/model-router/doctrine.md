@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for model routing doctrine; low-level model-router API lives in [`model-router-api-byok-and-mounting.md`](./api-byok-mounting.md).
 Supersedes: overlapping model/provider prose when routing or BYOK boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-14.
 
 ## Canonical Definition
 
@@ -12,9 +12,35 @@ Last alignment pass: 2026-05-01.
 
 It should support foundational model APIs, local model mounting, BYOK, open-model serving, run-to-idle infrastructure, and decentralized/hosted compute providers.
 
+Model routing is not Worker routing. Model routing selects a cognition backend:
+OpenAI, Anthropic, Gemini, local open-weights, fine-tuned models, MoE systems,
+or provider-routed inference. Worker routing selects an accountable actor with
+a manifest, policy envelope, tools, runtime requirements, receipt obligations,
+license terms, and settlement identity. Mixture of Experts is model/provider
+routing. Mixture of Workers is labor routing.
+
+Model serving compute follows the same runtime-node rule as worker execution:
+remote, hosted, DePIN, TEE, and customer-boundary model jobs should be
+represented as compute sessions behind IOI daemon/runtime-node profiles or
+explicit model-provider endpoints. The SDK may call the router; it does not own
+model execution.
+
 ## Core Doctrine
 
 > **Autopilot should not care whether a model is OpenAI, local LM Studio, tenant BYOK, vLLM on a sleeping GPU, or a decentralized cloud worker. It should call a model route through policy.**
+
+Workers may internally use model routes, including fine-tuned or MoE-backed
+routes, but benchmarks, authority scopes, receipts, ContributionReceipts,
+disputes, royalties, reputation, and MoW routing eligibility attach to the
+worker identity and manifest rather than merely to the model that powered one
+reasoning step.
+
+The model router may record model architecture and training-profile metadata,
+but that metadata is descriptive. It does not make a model the protocol actor.
+Dense transformers, MoE systems, subquadratic or nonquadratic backends, hybrid
+attention/state models, mutable-context systems, retrieval-augmented systems,
+adapters, and deterministic verifier models are cognition choices mounted
+behind workers or workflows.
 
 ## Model Surfaces
 
@@ -33,7 +59,12 @@ Supported surfaces should include:
 - vision models;
 - code models;
 - verifier models;
-- local/private enterprise models.
+- local/private enterprise models;
+- subquadratic or nonquadratic long-context models;
+- hybrid attention/state models;
+- retrieval-augmented or context-graph models;
+- adapter-backed or distillation-trained models;
+- mutable-context and perpetually post-trained model packages.
 
 ## Model Registry
 
@@ -52,6 +83,14 @@ ModelEndpoint:
     - code
     - chat
   context_length: 128000
+  architecture_profile: dense_transformer | moe | subquadratic | hybrid_attention_state | retrieval_augmented | mutable_context | deterministic_verifier | custom
+  active_context_strategy: full_attention | local_window | state_scan | sparse_attention | retrieval_packets | external_context_graph | hybrid
+  context_mutability: none | external_context_only | adapter_promoted | package_revision
+  post_training_support:
+    - context_update
+    - adapter_training
+    - route_policy_training
+    - eval_generation
   tool_calling: false
   cost_profile: local
   latency_profile: interactive
@@ -86,6 +125,9 @@ summarizer
 redaction_safety
 embedding
 rerank
+intake_routing
+long_context_memory
+adapter_candidate
 ```
 
 ## Routing Inputs
@@ -97,6 +139,9 @@ The router should consider:
 - privacy class;
 - tool needs;
 - context size;
+- active-context strategy;
+- context mutability;
+- declared training profile;
 - modality;
 - cost budget;
 - latency budget;

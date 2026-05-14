@@ -4,7 +4,7 @@ Status: canonical architecture roadmap.
 Canonical owner: this file for high-level implementation sequencing; low-level proof gates live in [`low-level-implementation-milestones.md`](./low-level-implementation-milestones.md).
 Supersedes: overlapping roadmap prose when phase ordering conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-14.
 
 ## Purpose
 
@@ -20,14 +20,19 @@ Workflow Canvas V1 Hardening
 → Connector Tool Registry
 → Model Router / BYOK / Local Mounting
 → wallet-core-lite
-→ Minimal Persistent Agent State
+→ Autopilot Foundry / Worker Training Workbench
+→ Minimal Persistent Worker/Agent State
+→ Daemon-backed CLI/TUI Operator Controls
 → My Agents GUI
-→ Agent Office / Project Rooms
-→ Agent API
+→ Worker Office / Project Rooms
+→ Worker/Agent API
 → Agentgres v0
 → aiagent.xyz Worker Marketplace
+→ Sparse Worker Categories / MoW Router
 → sas.xyz Service Marketplace
+→ Worker Training as Service-as-Software
 → Marketplace Neutrality / Contribution Accounting hardening
+→ Receipt-Weighted Credit Settlement
 → Resource/DePIN/TEE scaling
 ```
 
@@ -148,12 +153,42 @@ Build:
 - BYOK brokerage;
 - connector credential vault.
 
-## Phase 7 — Minimal Persistent Agent State
+## Phase 6.5 — Autopilot Foundry / Worker Training Workbench
 
-Goal: agents become digital workers, not personas.
+Goal: turn repeated workflows, examples, corrections, source material, and
+verifier gates into deployable workers without creating a private training
+runtime.
+
+Build:
+
+- Train a Specialist wizard;
+- editable training workflow graph;
+- domain ontology and canonical object model authoring;
+- data recipe and connector mapping builders;
+- policy-bound data view selection;
+- transformation run and receipt inspection;
+- evaluation dataset builder;
+- ontology-aware Agentgres projection previews;
+- training spec and dataset commitment projections;
+- quality gate and human review queues;
+- train/configure/evaluate controls over daemon APIs;
+- TrainingReceipt, EvaluationReceipt, and BenchmarkReceipt inspection;
+- CLI/TUI controls for training runs, benchmark jobs, and receipt review.
+
+Exit:
+
+- users can turn a recurring local workflow into a policy-bound WorkerManifest
+  with training lineage and an evaluation report.
+
+## Phase 7 — Minimal Persistent Worker/Agent State
+
+Goal: product-facing agents become protocol workers, not personas.
 
 Objects:
 
+- `WorkerDefinition`;
+- `WorkerInstall`;
+- `WorkerRun`;
 - `AgentDefinition`;
 - `AgentInstall`;
 - `AgentRun`;
@@ -163,6 +198,26 @@ Objects:
 - `AgentInboxItem`;
 - `AgentArtifact`;
 - `AgentReceipt`.
+
+## Phase 7.5 — Daemon-backed CLI/TUI Operator Controls
+
+Goal: the terminal/TUI operator surface can control the same daemon substrate as
+SDK, agent-ide, Autopilot, harnesses, and benchmarks.
+
+Surfaces:
+
+- thread and turn lifecycle;
+- interrupt and steering controls;
+- approvals and policy decisions;
+- model, thinking, usage, context budget, and compaction controls;
+- memory and MCP manager controls;
+- subagent lifecycle controls;
+- snapshots, restore preview/apply, diagnostics repair, and jobs;
+- event streaming and receipt inspection.
+
+Exit:
+
+- no TUI-only runtime state transition exists without a daemon/domain API route.
 
 ## Phase 8 — My Agents GUI
 
@@ -181,9 +236,9 @@ Surfaces:
 - artifacts;
 - receipts.
 
-## Phase 9 — Agent Office / Project Rooms
+## Phase 9 — Worker Office / Project Rooms
 
-Goal: long-duration planner-agent coordination.
+Goal: long-duration planner/worker coordination.
 
 Objects:
 
@@ -199,7 +254,7 @@ Objects:
 - `RunSpawn`;
 - `Digest`.
 
-## Phase 10 — Agent API
+## Phase 10 — Worker/Agent API
 
 Expose:
 
@@ -238,11 +293,26 @@ Ship worker marketplace with:
 
 - manifests;
 - packages;
+- Sparse Worker Categories;
+- benchmark profiles;
+- routing eligibility;
+- training lineage refs;
 - license/install rights;
 - quality ledgers;
 - install/run flow;
 - worker receipts;
 - contribution accounting.
+
+## Phase 12.5 — Sparse Worker Categories / MoW Router
+
+Ship worker category and routing infrastructure with:
+
+- category profiles and evaluation rubrics;
+- benchmark submissions and receipts;
+- candidate-set commitments;
+- routing decision receipts;
+- worker ranking by benchmark, policy, cost, trust, and contribution evidence;
+- no hidden first-party substitution.
 
 ## Phase 13 — sas.xyz
 
@@ -255,7 +325,30 @@ Ship outcome marketplace with:
 - provider/customer state;
 - payout/dispute flow.
 
-## Phase 14 — Runtime Node Scaling
+## Phase 13.5 — Worker Training as Service-as-Software
+
+Ship the first MoW-native service wedge:
+
+- Worker Training listing type;
+- training contract and acceptance rubric;
+- training-data handling policy;
+- evaluation and benchmark deliverables;
+- trained worker package delivery;
+- optional aiagent.xyz publication;
+- deterministic dispute path for failed training outcomes.
+
+## Phase 14 — Marketplace Neutrality / Receipt-Weighted Settlement
+
+Harden the MoW economy with:
+
+- contribution roots;
+- reward roots;
+- routing decision roots;
+- receipt-weighted subscription credit distribution;
+- royalties for worker authors and upstream contributors;
+- dispute penalties and no-fault statuses.
+
+## Phase 15 — Runtime Node Scaling
 
 Add:
 
@@ -268,12 +361,14 @@ Add:
 ## Dependency Rules
 
 1. Persistent workers require wallet-core-lite.
-2. My Agents requires minimal persistent agent state.
+2. My Agents requires minimal persistent worker/agent state.
 3. Marketplace workers require manifests, package refs, install/run flow, and receipts.
-4. sas.xyz requires delivery bundles, escrow contracts, and provider runtime routing.
-5. Agentgres v0 should be dogfooded before marketplace scale.
-6. Marketplace neutrality/contribution accounting must exist before the default harness becomes too powerful.
+4. Autopilot Foundry requires workflow runtime parity, model routing, wallet authority, Domain Ontology/DataRecipe objects, daemon training endpoints, and Agentgres receipt state.
+5. Sparse Worker Categories require WorkerManifest MoW fields, benchmark receipts, quality records, and routing decision receipts.
+6. sas.xyz requires delivery bundles, escrow contracts, Worker Training contract objects, and provider runtime routing.
+7. Agentgres v0 should be dogfooded before marketplace scale.
+8. Marketplace neutrality/contribution accounting must exist before the default harness becomes too powerful.
 
 ## One-Line Doctrine
 
-> **Build execution first, authority before autonomy, state before persistence, contribution accounting before marketplace scale.**
+> **Build execution first, authority before autonomy, worker training before marketplace liquidity, state before persistence, and contribution accounting before marketplace scale.**

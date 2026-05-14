@@ -1,10 +1,10 @@
 # Connector and Tool Contracts
 
 Status: canonical low-level reference.
-Canonical owner: this file for RuntimeToolContract, tool API, connector API, risk classes, and approval rules.
+Canonical owner: this file for RuntimeToolContract, ConnectorMapping references, tool API, connector API, risk classes, and approval rules.
 Supersedes: older flattened tool capability examples in plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-14.
 
 ## Purpose
 
@@ -29,10 +29,49 @@ Connectors expose typed, permissioned, receipted tools into workflows, workers, 
   },
   "primitive_capabilities_required": ["prim:net.request"],
   "authority_scopes_required": ["scope:gmail.send"],
+  "semantic_data": {
+    "ontology_refs": [],
+    "connector_mapping_refs": [],
+    "input_object_model_refs": [],
+    "output_object_model_refs": []
+  },
   "approval_required": true,
   "evidence_required": ["request_preview", "provider_response"],
   "redaction_policy": "redact_body | hash_only | full_private",
   "owner": "connector://gmail"
+}
+```
+
+## ConnectorMapping
+
+Connector mappings bind provider payloads and actions to IOI canonical domain
+objects. A connector payload is source material; it is not domain truth until a
+ConnectorMapping and, where consequential, a DataRecipe map it into an
+ontology-bound object, dataset, or projection.
+
+```json
+{
+  "connector_mapping_id": "mapping://gmail-quote-thread",
+  "connector_id": "connector://gmail",
+  "ontology_ref": "ontology://construction-estimating/v1",
+  "source_schema_ref": "provider_schema:gmail.thread",
+  "target_object_model_refs": ["object-model://Quote", "object-model://Approval"],
+  "field_mappings": [
+    {
+      "source": "thread.messages[].body",
+      "target": "Quote.source_text",
+      "redaction": "pii_filter"
+    }
+  ],
+  "action_mappings": [
+    {
+      "tool_id": "tool://gmail.create_draft",
+      "canonical_action": "Approval.request_clarification",
+      "authority_scope_required": "scope:gmail.create_draft"
+    }
+  ],
+  "evidence_required": ["source_message_hash", "mapping_version", "redaction_receipt"],
+  "redaction_policy_ref": "policy://redact-customer-contact"
 }
 ```
 
@@ -128,3 +167,6 @@ policy_widening: step-up + explicit approval required
 3. High-risk tools require wallet.network approval.
 4. Tools cannot inherit ambient connector secrets.
 5. Tool output must include receipt-ready evidence.
+6. Connector output used for training, evaluation, projection, routing, or
+   service delivery must pass through a ConnectorMapping and, when transformed,
+   a receipted DataRecipe.

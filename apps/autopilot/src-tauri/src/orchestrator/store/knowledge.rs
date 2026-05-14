@@ -1,5 +1,6 @@
 use super::shared::{
-    load_global_checkpoint_json, persist_global_checkpoint_json, KNOWLEDGE_COLLECTIONS_CHECKPOINT_NAME,
+    load_global_checkpoint_json, persist_global_checkpoint_json,
+    KNOWLEDGE_COLLECTIONS_CHECKPOINT_NAME,
 };
 use crate::models::KnowledgeCollectionRecord;
 use ioi_memory::MemoryRuntime;

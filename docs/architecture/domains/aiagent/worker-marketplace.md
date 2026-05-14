@@ -1,16 +1,30 @@
 # aiagent.xyz Worker Marketplace Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for aiagent.xyz marketplace doctrine; low-level worker endpoints live in [`aiagent-xyz-agent-and-worker-endpoints.md`](./worker-endpoints.md).
+Canonical owner: this file for aiagent.xyz marketplace doctrine; low-level worker endpoints live in [`aiagent-xyz-worker-and-inter-agent-endpoints.md`](./worker-endpoints.md).
 Supersedes: overlapping worker-marketplace plan prose when marketplace boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-14.
 
 ## Canonical Definition
 
-**aiagent.xyz is the canonical Web4 marketplace application for portable digital workers.**
+**aiagent.xyz is the canonical Web4 marketplace application for portable digital workers, managed worker/agent instances, benchmark profiles, Sparse Worker Categories, installs, and MoW routing eligibility.**
 
-It discovers, compares, installs, invokes, meters, licenses, and settles worker packages. It is an application domain with its own kernel + Agentgres backend and IOI L1 smart-contract settlement rails.
+It discovers, compares, benchmarks, ranks, installs, invokes, meters, licenses,
+settles, and initializes worker packages. It is an application domain with its
+own kernel + Agentgres backend and IOI L1 smart-contract settlement rails. A
+user may consume a worker as an API/workflow primitive, install it into
+Autopilot, or initialize a managed web-accessible instance backed by hosted,
+provider, DePIN, TEE, customer, or local IOI daemon/runtime-node profiles.
+
+aiagent.xyz is not only a catalog. It is the opt-in invocation and
+managed-instance market for workers: users may run a worker directly, route a
+task through MoW, initialize a persistent web-accessible instance, call a worker
+by API, install it locally, or compose it into workflows. MoW is IOI's
+receipt-backed labor-routing architecture, not an `ioi.ai` private router.
+`ioi.ai` may coordinate account, entitlement, restore, and runtime discovery
+for a marketplace invocation, but aiagent.xyz owns the worker-market records and
+runtime nodes execute the work.
 
 ## What aiagent.xyz Is
 
@@ -20,8 +34,15 @@ aiagent.xyz is:
 - an Agentgres-backed application domain;
 - an IOI L1 contract user;
 - a worker discovery and procurement surface;
+- a managed worker/agent instance initialization surface;
+- a Sparse Worker Category and benchmark profile surface;
 - a package/license/quality/reputation system;
+- a trained-worker publication and routing-eligibility surface;
+- a web-native console surface for installed instances, including chat,
+  threads, approvals, receipts, usage, pause/resume, and runtime status;
 - a gateway to local, hosted, DePIN, and TEE worker execution.
+  Execution is carried by IOI daemon/runtime-node profiles, not by the
+  marketplace or SDK itself.
 
 It is not a separate chain by default.
 
@@ -35,9 +56,17 @@ aiagent.xyz owns:
 - worker versions;
 - responsibility and requirement descriptions;
 - pricing/licensing metadata;
+- Sparse Worker Categories;
+- benchmark profiles;
+- training lineage refs;
+- routing eligibility status;
 - quality ledgers;
 - contribution records;
 - install records;
+- managed worker/agent instance records;
+- runtime assignment and lifecycle records;
+- runtime subscription and usage metadata;
+- browser console projections over daemon thread/run APIs;
 - usage records;
 - reputation projections;
 - search/ranking;
@@ -52,6 +81,8 @@ aiagent.xyz does not own:
 - IOI L1 itself;
 - Filecoin/CAS payload bytes;
 - local Autopilot state;
+- the IOI daemon/runtime nodes that execute managed instances;
+- raw long-running instance memory outside Agentgres refs and policy;
 - every service outcome delivery;
 - wallet authority.
 
@@ -63,6 +94,9 @@ A worker package should include:
 manifest
 worker definition
 harness workflow
+training lineage ref, when available
+benchmark profile refs
+sparse worker category, when submitted
 primitive capability requirements
 authority scope requirements
 model policy
@@ -72,10 +106,39 @@ memory schema
 artifact schema
 receipt policy
 pricing/license terms
-deployment profile
+interaction surfaces: chat | form | api | workflow_node | scheduler | background_service
+runtime profiles: local | hosted | provider | depin | tee | customer_vpc
+persistence profiles: ephemeral | session | zero_to_idle | persistent
+subscription profiles, when warm or ongoing runtime is supported
+deployment profile and compatibility constraints
 ```
 
 Package payloads may live on Filecoin/CAS/CDN and be referenced by signed manifests.
+
+## Package vs Instance
+
+A worker package is a portable executable template. A managed instance is a
+user-, org-, or project-bound initialization of that package.
+
+The protocol actor remains the `Worker`. Product UX may call a persistent,
+user-facing instance an "agent," but canonical state should model it as a
+`WorkerInstance` or `ManagedWorkerInstance` bound to:
+
+- worker manifest and package version;
+- install/license right;
+- owner or tenant;
+- runtime assignment;
+- persistence profile;
+- interaction surfaces;
+- memory and archive policy;
+- authority grants and approval rules;
+- runtime subscription or compute entitlement;
+- receipts, usage, and contribution policy.
+
+This distinction lets the same marketplace listing support both primitive MoW
+invocation and direct user-facing operation. A code-review worker may be used as
+a workflow node by Autopilot, called through an API by another worker, or
+initialized as a persistent cloud agent with a browser chat console.
 
 ## Marketplace Contracts on IOI L1
 
@@ -84,6 +147,7 @@ aiagent.xyz should use IOI L1 contracts for:
 - publisher registration;
 - worker publication;
 - manifest/version commitment;
+- benchmark profile and category root commitments;
 - license/install right;
 - usage settlement;
 - contribution root commitment;
@@ -98,7 +162,14 @@ aiagent.xyz Agentgres tracks:
 - listing metadata;
 - search indexes;
 - worker versions;
+- Sparse Worker Categories;
+- benchmark profiles and submissions;
+- routing eligibility;
+- training lineage refs;
 - install history;
+- managed instance lifecycle;
+- runtime assignments;
+- runtime subscription/usage state;
 - run/invocation summaries;
 - quality and reputation records;
 - contribution accounting;
@@ -108,13 +179,43 @@ aiagent.xyz Agentgres tracks:
 
 ## Execution Modes
 
-When a user invokes a worker:
+When a user invokes or initializes a worker:
 
-1. **Local Autopilot** — package is downloaded and run locally.
-2. **Hosted worker** — provider/IOI runtime runs it.
-3. **DePIN mutual blind** — minimized capsule runs on compute node.
-4. **Enterprise secure** — TEE/customer VPC/local runtime required.
-5. **API/inter-agent call** — external app or worker invokes a governed worker endpoint.
+1. **Ephemeral invocation** — one task/run, no durable agent instance.
+2. **Local Autopilot install** — package is downloaded and run through a local IOI daemon managed by Autopilot Desktop.
+3. **Managed hosted/provider instance** — aiagent.xyz initializes a worker instance on a hosted or provider IOI daemon and mounts a web console over daemon thread/run APIs.
+4. **DePIN zero-to-idle or persistent instance** — minimized or encrypted state runs on decentralized compute, then checkpoints and rehydrates through Agentgres/Filecoin/CAS/wallet.network.
+5. **Enterprise secure instance** — TEE, customer VPC, or local IOI daemon runtime required by policy.
+6. **API/inter-agent call** — external app, worker, or workflow invokes a governed worker endpoint.
+
+The SDK may be used by clients or workers to call these surfaces. The runtime
+node itself is still an IOI daemon-compatible execution venue.
+
+## Opt-In Invocation Modes
+
+Publisher opt-ins should be explicit. A worker listing may support any
+combination of:
+
+- direct one-shot invocation;
+- MoW routing eligibility;
+- managed web-accessible worker instance;
+- API or workflow-node invocation;
+- local Autopilot install;
+- persistent, warm, zero-to-idle, or scheduled runtime;
+- enterprise, TEE, DePIN, or customer runtime placement.
+
+User opt-ins should be equally explicit. A user may choose to:
+
+- run a worker once;
+- route a task through MoW;
+- initialize a managed instance;
+- install the worker locally;
+- expose the worker as an API, scheduler, or workflow node;
+- subscribe to a warm or managed runtime profile.
+
+Opt-in does not grant authority by itself. Effectful invocation still requires
+policy admission, wallet.network authority, approval where required, runtime
+assignment, receipts, and Agentgres state updates.
 
 ## User Without Autopilot
 
@@ -122,12 +223,81 @@ A user can still use aiagent.xyz directly:
 
 ```text
 browser UI
-→ marketplace order/install/run request
-→ runtime router selects hosted/provider/DePIN/TEE node
-→ result artifacts and receipts delivered through browser
+→ marketplace install or initialize request
+→ aiagent.xyz domain kernel records install/instance intent
+→ runtime router selects hosted/provider/DePIN/TEE/customer/local IOI daemon node
+→ wallet.network grants scoped authority and payment/subscription approvals
+→ runtime node initializes worker package as ephemeral, zero-to-idle, or persistent instance
+→ browser console mounts chat/thread/form/API controls over daemon APIs
+→ Agentgres records events, receipts, usage, memory refs, and archive refs
+→ Filecoin/CAS stores large artifacts, traces, checkpoints, and sealed archives
 ```
 
 Autopilot is optional local execution, not required for all marketplace use.
+The web console is a client surface, not a private runtime. It can expose chat,
+forms, approvals, receipts, spend controls, pause/resume/archive, API keys, and
+webhooks over the same daemon/domain contracts used by Autopilot, CLI/TUI, SDK,
+and agent-ide.
+
+## Sparse Worker Categories
+
+Sparse Worker Categories are aiagent.xyz's category-level market structure for
+MoW. They are narrow labor markets with explicit benchmark profiles, evaluation
+rubrics, runtime requirements, policy posture, receipt obligations, and routing
+eligibility criteria.
+
+A category record should define:
+
+- task class;
+- input/output schemas;
+- benchmark suite;
+- evaluation rubric;
+- runtime requirements;
+- policy requirements;
+- trust posture;
+- receipt obligations;
+- submission fee or stake;
+- routing eligibility criteria.
+
+Submitting a worker to a category pays for benchmark execution and leaderboard
+admission. It does not guarantee routing. Routing eligibility is earned through
+benchmark performance, receipt completeness, cost, policy compatibility,
+runtime posture, reputation, and downstream ContributionReceipts.
+
+Benchmark and routing claims are relative to declared profiles. They do not
+claim universal intelligence, permanent superiority, or global optimality.
+
+## Worker Training Supply Loop
+
+aiagent.xyz receives supply from Autopilot Foundry, sas.xyz Worker Training
+contracts, enterprise builders, and independent publishers.
+
+The canonical supply path is:
+
+```text
+train a worker
+→ bind ontology, data recipes, evaluation datasets, and transformation receipts
+→ bind manifest, policy, lineage, and receipt obligations
+→ benchmark against a Sparse Worker Category
+→ publish or update listing
+→ earn routing eligibility
+→ receive worker invocations and ContributionReceipts
+```
+
+Worker Training may include model fine-tuning, but aiagent.xyz ranks and
+licenses workers, not standalone model checkpoints. A listing may declare a
+worker's training profile or cognition architecture, such as dense transformer,
+MoE-backed, subquadratic, hybrid attention/state, retrieval-augmented,
+mutable-context, adapter-trained, or perpetually post-trained. Those fields are
+routing and benchmark metadata, not economic identity; aiagent.xyz ranks the
+bounded worker package or managed worker instance.
+
+Listings and Sparse Worker Categories may also declare DomainOntology,
+CanonicalObjectModel, DataRecipe, ConnectorMapping, EvaluationDataset, and
+OntologyProjection refs. These refs make category claims comparable: the
+marketplace should know not only that a worker was trained, but which domain
+objects, recipe lineage, evaluation data, policy-bound views, and
+transformation receipts support its capability claim.
 
 ## Marketplace Neutrality
 
@@ -141,6 +311,8 @@ Required rules:
 4. Routing decisions are explainable and user-controllable.
 5. Users may run default/local execution when external authority or hosted specialization is not required.
 6. Marketplace ranking should be quality/cost/policy based, not platform fiat.
+7. Category ranking and MoW routing must not silently privilege first-party
+   workers when third-party workers are materially better under declared policy.
 
 ## Quality and Reputation
 
@@ -154,25 +326,30 @@ Workers should accumulate measurable records:
 - human override rate;
 - refund/dispute rate;
 - domain-specific benchmark results;
+- sparse category eligibility;
+- training lineage completeness;
 - contribution value.
 
 ## One-Line Doctrine
 
-> **aiagent.xyz sells portable workers, not prompts: workers expose responsibilities, receipts, requirements, and measurable outcomes.**
+> **aiagent.xyz sells portable workers and managed worker instances, not prompts or raw model checkpoints: workers expose responsibilities, receipts, requirements, benchmarks, runtime options, routing eligibility, and measurable outcomes.**
 
-## Preserved Product Context Module
+## Product Context Module
 
-The following module preserves product-positioning and demand-side marketplace context from the former `docs/specs/aiagent_xyz.md`. It is retained for design and market memory. If it conflicts with the canonical doctrine above, the canonical doctrine above wins.
+The following module carries product-positioning and demand-side marketplace
+context from the former `docs/specs/aiagent_xyz.md`. It is supporting context,
+not a parallel architecture variant. If it conflicts with the canonical doctrine
+above, update this module to follow the canonical doctrine above.
 
 ---
 
 # `aiagent.xyz` v1.0 Product Spec
 
-Status: preserved product-context reference; current marketplace architecture remains weighted to [`aiagent-xyz-worker-marketplace.md`](./worker-marketplace.md) when product positioning or mechanics disagree.
+Status: product-context reference; current marketplace architecture remains owned by the canonical doctrine above when product positioning or mechanics disagree.
 Context owner: this file for aiagent.xyz product positioning, demand-side UX, procurement loops, and market context.
 Supersedes: `docs/specs/aiagent_xyz.md`.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-13.
 
 ## Discovery and Procurement Layer for Workers on IOI
 
@@ -183,23 +360,28 @@ Last alignment pass: 2026-05-01.
 
 `aiagent.xyz` is the discovery and procurement layer for workers on IOI.
 
-It is where demand finds supply across two distinct loops:
+It is where demand finds supply across three distinct shapes:
 
-* **productized worker services**
+* **portable worker packages**
+* **managed worker/agent instances**
 * **bespoke or freelance procurement**
 
 Publicly, `aiagent.xyz` should lead with one simple truth:
 
-> **Discover, compare, buy, install, or procure worker services.**
+> **Discover, compare, buy, install, initialize, or procure workers.**
 
-It should not try to be the provider operating system, the private runtime, or the hosted intent UX.
+It should not try to be the provider operating system, the private runtime, or
+the account/control plane. Its managed-instance console is a client over
+daemon/domain APIs, not a separate hosted runtime.
 
 That means:
 
-* providers package and operate services in `sas.xyz`
+* providers package and operate outcome services in `sas.xyz`
 * operators run workers privately in `Autopilot`
+* users can initialize managed worker instances directly from `aiagent.xyz`
+  when they want browser-native access without local Autopilot
 * domain authors instantiate sovereign domains through `IOI CLI`
-* end users express intent in `ioi.ai`
+* `ioi.ai` coordinates account, restore, publishing, and runtime entitlement
 * buyers discover or procure in `aiagent.xyz`
 
 The product succeeds when users can confidently answer:
@@ -207,7 +389,9 @@ The product succeeds when users can confidently answer:
 1. What can this worker or service do?
 2. Why should I trust it?
 3. How do I get it into my workflow?
-4. If nothing fits, how do I procure bespoke delivery?
+4. Can I run it directly from the web, install it locally, call it by API, or
+   route it into a workflow?
+5. If nothing fits, how do I procure bespoke delivery?
 
 ---
 
@@ -215,21 +399,29 @@ The product succeeds when users can confidently answer:
 
 ### Category
 
-Marketplace and procurement layer for Service-as-Software and worker delivery.
+Marketplace, install, managed-instance, and procurement layer for Web4 workers.
 
 ### One sentence
 
-`aiagent.xyz` is the demand-side surface for discovering published worker services and procuring bespoke worker delivery.
+`aiagent.xyz` is the demand-side surface for discovering published workers,
+installing or initializing managed instances, invoking workers by API/workflow,
+and procuring bespoke worker delivery.
 
 ### One paragraph
 
-`aiagent.xyz` is the demand-facing market on IOI where buyers compare published worker services, inspect trust and pricing signals, route into the right run or install surface, and procure providers for custom work when no packaged service fits. It should make productized services easy to evaluate and bespoke engagements easy to initiate without collapsing those two objects into one confusing marketplace type.
+`aiagent.xyz` is the demand-facing market on IOI where buyers compare published
+workers, inspect trust and pricing signals, initialize a managed instance when
+they want browser-native use, route the worker into Autopilot/workflows/APIs,
+and procure providers for custom work when no packaged worker fits. It should
+make packaged workers, managed instances, and bespoke engagements easy to
+evaluate without collapsing those objects into one confusing marketplace type.
 
 ### Primary jobs
 
 * help buyers discover relevant worker services
 * help buyers compare trust, pricing, and execution options
-* route buyers to run, install, or contact surfaces
+* route buyers to run, install, initialize, API, or contact surfaces
+* expose web-native consoles for managed instances without owning execution
 * let buyers procure bespoke delivery from providers
 * help providers gain distribution without turning the marketplace into a provider console
 
@@ -254,7 +446,7 @@ The ecosystem is coherent only if each surface has a crisp role.
 
 **Operate workers**
 
-Private/local operator shell and worker runtime.
+Private/local operator shell over a local IOI daemon/runtime profile.
 
 ## 3.2 `sas.xyz`
 
@@ -270,33 +462,36 @@ Kernel-adjacent command surface for intelligent blockchains and sovereign autono
 
 ## 3.4 `aiagent.xyz`
 
-**Discover or procure workers**
+**Discover, install, initialize, or procure workers**
 
-Marketplace, comparison, and procurement layer.
+Marketplace, comparison, managed-instance, and procurement layer.
 
 ## 3.5 `ioi.ai`
 
-**Use workers**
+**Coordinate account, restore, and runtime access**
 
-Intent ingress and hosted demand UX.
+Thin account/control plane for devices, archive refs, restore routing,
+publishing flows, and remote-runtime entitlement.
 
 ## 3.6 Boundary rules
 
 * `aiagent.xyz` should not become the provider deployment dashboard.
 * `aiagent.xyz` should not become the private/local runtime.
 * `aiagent.xyz` should not become the L0 domain instantiation surface.
-* `aiagent.xyz` should not become the main hosted execution UX.
+* `aiagent.xyz` may mount managed-instance web consoles, but execution still
+  belongs to IOI daemon/runtime-node profiles.
 * `aiagent.xyz` should route demand, not absorb every downstream responsibility.
 
 ---
 
-## 4. Two Market Loops
+## 4. Three Market Loops
 
-`aiagent.xyz` has two valid loops, but they must stay semantically distinct.
+`aiagent.xyz` has three valid loops, but they must stay semantically distinct.
 
 ## 4.1 Productized service loop
 
-This loop is for published worker services that already exist as durable products.
+This loop is for published workers or worker-powered services that already
+exist as durable products.
 
 ### Core objects
 
@@ -309,16 +504,42 @@ This loop is for published worker services that already exist as durable product
 
 ### Buyer flow
 
-Browse -> compare -> inspect trust and pricing -> choose route -> buy, install, or run
+Browse -> compare -> inspect trust and pricing -> choose route -> buy, install, initialize, or run
 
 ### Typical routes
 
-* run through `ioi.ai`
+* run through a managed web instance with ioi.ai entitlement/restore support
+* initialize a managed web instance on hosted/provider/DePIN/TEE runtime
 * install into `Autopilot`
 * call provider API
 * contact provider for enterprise deployment
 
-## 4.2 Bespoke procurement loop
+## 4.2 Managed instance loop
+
+This loop is for a user who wants to use a worker directly from the browser
+without local Autopilot.
+
+### Core objects
+
+* Worker listing
+* Install/license right
+* Managed worker instance
+* Runtime assignment
+* Runtime subscription or zero-to-idle policy
+* Browser console projection
+
+### Buyer flow
+
+Browse -> compare -> install -> initialize instance -> grant authority -> chat/run/automate -> monitor usage -> pause, archive, or upgrade
+
+### Runtime routes
+
+* hosted IOI runtime
+* provider runtime
+* DePIN runtime with minimized capsule or zero-to-idle restore
+* TEE or customer VPC runtime for sensitive work
+
+## 4.3 Bespoke procurement loop
 
 This loop is for demand that does not yet fit an existing service.
 
@@ -335,9 +556,10 @@ This loop is for demand that does not yet fit an existing service.
 
 Post need -> compare providers -> select provider -> deliver outcome -> optionally convert repeatable work into a productized service later
 
-## 4.3 Rule
+## 4.4 Rule
 
-* published listings are **service objects**
+* published listings are **worker or service objects**
+* initialized agents are **managed worker instance objects**
 * freelance or bespoke requests are **procurement objects**
 
 Do not collapse them into one schema or one website story.
@@ -346,15 +568,15 @@ Do not collapse them into one schema or one website story.
 
 ## 5. Website Story and IA
 
-The website should explain discovery and procurement before it explains internal systems.
+The website should explain discovery, managed use, and procurement before it explains internal systems.
 
 ## 5.1 Hero framing
 
 Recommended message stack:
 
-* **Headline:** Discover and procure worker services
-* **One-liner:** Compare published services, inspect trust and pricing, and route into install, API, or bespoke delivery.
-* **Primary CTAs:** Browse services, Post a request
+* **Headline:** Discover, install, and run workers
+* **One-liner:** Compare published workers, inspect trust and pricing, and route into web instance, local install, API, workflow, or bespoke delivery.
+* **Primary CTAs:** Browse workers, Post a request
 * **Secondary CTA:** Compare surfaces: `Autopilot` vs `sas.xyz` vs `aiagent.xyz`
 
 ## 5.2 Narrative sequence
@@ -365,7 +587,7 @@ The homepage should generally move in this order:
 2. Productized services vs bespoke procurement
 3. Featured categories and concrete examples
 4. Trust, receipts, pricing, and execution options
-5. Route targets: `ioi.ai`, `Autopilot`, provider API, enterprise contact
+5. Route targets: managed web instance, `Autopilot`, API/workflow, enterprise contact
 6. Provider discovery and procurement tools
 7. Ecosystem map
 
@@ -409,6 +631,7 @@ The summary of verification, receipt posture, privacy posture, support posture, 
 The action a buyer can take next:
 
 * run now
+* initialize web instance
 * install
 * call API
 * contact provider

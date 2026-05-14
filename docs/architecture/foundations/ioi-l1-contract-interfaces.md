@@ -4,11 +4,14 @@ Status: canonical low-level reference.
 Canonical owner: this file for IOI L1 contract interfaces and sparse root commitments.
 Supersedes: overlapping smart-contract interface examples in plans/specs when contract responsibility conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-13.
 
 ## Purpose
 
-IOI L1 is the canonical Web4 registry, rights, settlement, and governance layer. It does not run Agentgres and does not store rich application state. aiagent.xyz and sas.xyz interact with IOI L1 through smart contracts for economically meaningful commitments.
+IOI L1 is the canonical Web4 registry, rights, settlement, sparse-commitment,
+and governance layer. It does not run the L0/kernel substrate, Agentgres, or
+rich application state. aiagent.xyz and sas.xyz interact with IOI L1 through
+smart contracts for economically meaningful commitments.
 
 ## Contract Set
 
@@ -25,6 +28,10 @@ SLABondRegistry
 DisputeRegistry
 ReputationRootRegistry
 ContributionRootRegistry
+SparseWorkerCategoryRegistry
+BenchmarkProfileRegistry
+TrainingLineageRootRegistry
+RoutingDecisionRootRegistry
 RuntimeProviderRegistry
 AttestationProfileRegistry
 ProtocolGovernance
@@ -123,6 +130,33 @@ function commitContributionRoot(bytes32 domainId, bytes32 contributionRoot, uint
 function claimReward(bytes32 contributionId, bytes32 proofRoot) external;
 ```
 
+## SparseWorkerCategoryRegistry
+
+```solidity
+function registerCategory(bytes32 categoryId, bytes32 profileRoot, string metadataURI) external payable;
+function updateCategory(bytes32 categoryId, bytes32 profileRoot, string metadataURI) external;
+function suspendCategory(bytes32 categoryId, string reason) external;
+```
+
+## BenchmarkProfileRegistry
+
+```solidity
+function commitBenchmarkProfile(bytes32 profileId, bytes32 profileRoot, string uri, uint256 version) external;
+function commitBenchmarkResultRoot(bytes32 profileId, bytes32 resultRoot, uint256 epoch) external;
+```
+
+## TrainingLineageRootRegistry
+
+```solidity
+function commitTrainingLineageRoot(bytes32 workerId, bytes32 lineageRoot, uint256 version) external;
+```
+
+## RoutingDecisionRootRegistry
+
+```solidity
+function commitRoutingDecisionRoot(bytes32 domainId, bytes32 routingRoot, uint256 epoch) external;
+```
+
 ## RuntimeProviderRegistry
 
 ```solidity
@@ -136,6 +170,20 @@ function updateProviderStatus(bytes32 providerId, ProviderStatus status) externa
 ```solidity
 function registerAttestationProfile(bytes32 profileId, bytes32 verifierRoot, string profileURI) external;
 function updateAttestationProfile(bytes32 profileId, bytes32 verifierRoot, string profileURI) external;
+```
+
+## ProtocolGovernance
+
+Protocol governance records public commitments for canonical specs, contracts,
+reference implementations, and L0/kernel release roots. It should not manage
+ordinary commits, pull requests, private deployments, or application-domain
+state.
+
+```solidity
+function proposeProtocolUpgrade(bytes32 proposalRoot, string metadataURI) external payable;
+function recordReferenceImplementationRelease(bytes32 releaseRoot, string uri, uint256 version) external;
+function deprecateReferenceImplementationRelease(bytes32 releaseRoot, string reason) external;
+function recordEmergencySecurityAction(bytes32 actionRoot, string reason) external;
 ```
 
 ## Gas Boundary
@@ -153,6 +201,7 @@ payouts/refunds
 disputes
 reputation/contribution root commitments
 runtime provider registration/bonding
+reference implementation release commitments
 ```
 
 IOI gas is not consumed for:
@@ -168,7 +217,7 @@ every local projection update
 
 ## Non-Negotiables
 
-1. Contracts hold rights and economic commitments, not rich operational state.
+1. Contracts hold rights, release roots, and economic commitments, not rich operational state.
 2. Every contract root must be resolvable to Agentgres/Filecoin/CAS evidence when required.
 3. Contracts should accept roots and commitments, not bulky payloads.
 4. L2/rollup is optional scaling, not base architecture.

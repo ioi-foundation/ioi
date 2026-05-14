@@ -4,16 +4,14 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::sync::Arc;
 
 pub(crate) const LOCAL_TASK_CHECKPOINT_NAME: &str = "autopilot.local_task.v1";
-pub(crate) const SESSION_FILE_CONTEXT_CHECKPOINT_NAME: &str =
-    "autopilot.session_file_context.v1";
+pub(crate) const SESSION_FILE_CONTEXT_CHECKPOINT_NAME: &str = "autopilot.session_file_context.v1";
 pub(crate) const SESSION_COMPACTION_CHECKPOINT_NAME: &str = "autopilot.session_compaction.v1";
 pub(crate) const TEAM_MEMORY_SYNC_CHECKPOINT_NAME: &str = "autopilot.team_memory_sync.v1";
 pub(crate) const LOCAL_SESSION_INDEX_CHECKPOINT_NAME: &str = "autopilot.local_sessions.v1";
 pub(crate) const INTERVENTION_INDEX_CHECKPOINT_NAME: &str = "autopilot.interventions.v1";
 pub(crate) const ASSISTANT_NOTIFICATION_INDEX_CHECKPOINT_NAME: &str =
     "autopilot.assistant_notifications.v1";
-pub(crate) const ATTENTION_POLICY_CHECKPOINT_NAME: &str =
-    "autopilot.assistant_attention_policy.v1";
+pub(crate) const ATTENTION_POLICY_CHECKPOINT_NAME: &str = "autopilot.assistant_attention_policy.v1";
 pub(crate) const ATTENTION_PROFILE_CHECKPOINT_NAME: &str =
     "autopilot.assistant_attention_profile.v1";
 pub(crate) const ASSISTANT_USER_PROFILE_CHECKPOINT_NAME: &str =
@@ -31,8 +29,7 @@ pub(crate) const LOCAL_ENGINE_REGISTRY_STATE_CHECKPOINT_NAME: &str =
     "autopilot.local_engine_registry_state.v1";
 pub(crate) const LOCAL_ENGINE_PARENT_PLAYBOOK_DISMISSALS_CHECKPOINT_NAME: &str =
     "autopilot.local_engine_parent_playbook_dismissals.v1";
-pub(crate) const KNOWLEDGE_COLLECTIONS_CHECKPOINT_NAME: &str =
-    "ioi.knowledge.collections.v1";
+pub(crate) const KNOWLEDGE_COLLECTIONS_CHECKPOINT_NAME: &str = "ioi.knowledge.collections.v1";
 pub(crate) const SKILL_SOURCES_CHECKPOINT_NAME: &str = "ioi.skills.sources.v1";
 pub(crate) const WORKER_TEMPLATES_CHECKPOINT_NAME: &str = "ioi.workers.templates.v1";
 

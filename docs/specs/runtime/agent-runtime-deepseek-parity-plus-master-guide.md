@@ -192,99 +192,42 @@ Strategic snapshot as of 2026-05-14:
   continue only when they unblock a named parity-plus capability or prevent an
   active workflow-development surface from becoming unmaintainable.
 
-Most recent completed implementation slice:
+Completion dashboard:
 
-- 2026-05-14: terminal coding-loop composer run activation
-- Evidence:
-  WorkflowComposer now detects pure saved terminal coding-loop workflows in the
+| Area | Status | Next action |
+| --- | --- | --- |
+| P0 live runtime bridge | Regression guard | Keep daemon SSE, SDK, CLI/TUI, and React Flow event-sequence contracts green. |
+| P0 terminal coding-agent TUI | Active final proof | Add the GUI Run-button probe for terminal coding-loop workflows. |
+| P0 coding tool pack | Regression guard | Keep coding-pack daemon/SDK/CLI/TUI/React Flow checks green while terminal-loop proof work continues. |
+| P0 diagnostics and rollback | Regression guard | Keep diagnostics repair and restore contracts green. |
+| P1 subagents | Regression guard | Keep child-subflow and budget enforcement checks green. |
+| P1 MCP | Regression guard | Keep discovery, transport, auth, catalog, and React Flow authoring checks green. |
+| P1 memory | Regression guard | Keep status/validation/write-side checks green. |
+| P1 modes/trust/approvals | Regression guard | Keep approval manifest, trust acknowledgement, and workflow-edit proposal checks green. |
+| P1 usage/cost/context | Regression guard | Keep telemetry-source chain and coding-budget recovery checks green. |
+| P1 model routing | Future plus | Add richer provider priority, privacy tier, fallback, cost estimate, and failover policy when terminal parity is sealed. |
+| P1 doctor/config | Future plus | Consolidate health checks into one canonical runtime doctor report. |
+| P1 skills/hooks | Future plus | Productize import and marketplace-grade UX over existing governed discovery/invocation. |
+| P2 repo/PR/jobs/a11y | Future plus | Harden hosted/team coding surfaces after core local runtime parity is sealed. |
+
+Most recent completed slice:
+
+- 2026-05-14, slice 211: terminal coding-loop composer run activation
+  (`0e1ad17af`).
+- WorkflowComposer now detects pure saved terminal coding-loop workflows in the
   real Run action and dispatches them through a composer activation wrapper
   backed by `runRuntimeTerminalCodingLoopWorkflowLaunch` and
-  `executeWorkflowRuntimeControlRequest`. The live daemon proof now calls the
-  same activation wrapper, records the patch approval decision through the
-  daemon approval endpoint, preserves artifact/result context, and verifies run
-  history plus TUI row projection. The live Autopilot GUI harness is green at
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-14T18-13-32-648Z/result.json`
-  with validation `ok: true`, blocked `false`, runtime-consistency checks
-  passing, and both terminal coding-loop GUI proof artifacts present.
+  `executeWorkflowRuntimeControlRequest`.
+- The remaining P0-A proof is GUI-level: create or load the terminal loop in
+  React Flow, click the actual Run button, and assert run history shows daemon
+  coding-tool/TUI rows plus approval-decision evidence.
 
-Previous focused slice:
+Evidence policy:
 
-- 2026-05-14: terminal coding-loop saved workflow run launch
-- Evidence:
-  A persisted React Flow terminal coding-loop workflow now launches through a
-  reusable runtime helper instead of bespoke daemon-contract sequencing. The
-  helper builds a run-launch plan, executes each saved coding-tool node through
-  daemon control requests, handles approval retry, carries artifact/result
-  context, emits a `WorkflowRunResult`, and proves the run-history model can
-  inspect daemon thread events plus TUI coding-tool rows. The live Autopilot GUI
-  harness is green at
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-53-33-194Z/result.json`
-  with validation `ok: true`, blocked `false`, runtime-consistency checks
-  passing, and both terminal coding-loop GUI proof artifacts present.
-
-Earlier focused slice:
-
-- 2026-05-14: terminal coding-loop live execution
-- Evidence:
-  The React Flow-authored nine-node terminal coding loop now executes against a
-  daemon thread through generated coding-tool requests, including approval
-  retry for patch apply, workspace snapshot rollback refs, test output artifact
-  read, result retrieval, daemon event projection, TUI `coding_tool` row parity,
-  and React Flow graph/node identity preservation. The live Autopilot GUI
-  harness is green at
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-30-24-219Z/result.json`
-  with validation `ok: true`, blocked `false`, runtime-consistency checks
-  passing, and both terminal coding-loop GUI proof artifacts present.
-
-Earlier focused slice:
-
-- 2026-05-14: terminal coding-loop workflow template
-- Evidence:
-  React Flow can insert a daemon-backed terminal coding loop from the workflow
-  creator and materialize/hydrate the same loop from a run-inspector
-  `coding_tool` row. Targeted tests prove the generated nodes compile into
-  daemon coding-tool requests for status, diff, inspect, patch dry-run, patch,
-  test, diagnostics, artifact read, and result retrieval. The live Autopilot GUI
-  harness is green at
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-05-13-646Z/result.json`
-  with validation `ok: true`, blocked `false`, and both terminal coding-loop
-  proof artifacts present and passing.
-
-Earlier focused slice:
-
-- 2026-05-14: terminal-first coding-agent parity proof
-- Evidence:
-  A live daemon contract drives the coding pack from daemon API, SDK, CLI, and
-  line-mode TUI, then parses TUI `coding_tool_rows` and reprojects them through
-  React Flow as successful coding-tool inspector rows. Targeted Rust and
-  TypeScript tests cover the row producer/projection split between successful
-  coding tools and budget rows. The live Autopilot GUI harness remains green at
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-29-53-857Z/result.json`
-  with validation `ok: true`, blocked `false`, and zero false runtime,
-  artifact, or UI checks.
-
-Earlier focused slice:
-
-- 2026-05-14: live GUI package/activation evidence recovery
-- Evidence:
-  The live Autopilot GUI harness validates the package evidence manifest and
-  gate, activation gate evidence inspector/actions, reviewed import activation
-  handoff/apply/replay, and worker invariant GUI/deep-link enforcement across
-  the componentized React Flow workflow-development environment.
-
-Earlier P1-D slice:
-
-- 2026-05-14: P1-D run-inspector-created telemetry budget-chain execution
-- Evidence:
-  A live daemon contract creates a telemetry budget chain from selected
-  run-inspector evidence, re-applies the action to prove hydration/no duplicate
-  chain drift, executes the hydrated usage/context/compaction/coding-budget path,
-  and verifies daemon events plus React Flow run-inspector projections retain the
-  generated graph/node identities.
-- Trace detail:
-  `docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md`
-  and
-  `docs/specs/runtime/agent-runtime-deepseek-parity-plus-validation-ledger.md`
+- `docs/evidence/` is generated output, not source. It was emptied and ignored
+  on 2026-05-14.
+- Companion ledgers now retain compact slice/validation summaries. Full
+  historical transcripts remain available through git history.
 
 ### Active Parity Gap Ledger
 
@@ -305,21 +248,19 @@ Completed-slice history belongs in the companion ledgers.
 
 ### Immediate Tactical Queue
 
-1. Use the recovered full live GUI harness as the regression baseline for the
-   next parity slice: preflight and live runs should keep package evidence,
-   activation gate, reviewed import activation apply/replay, and worker
-   invariant runtime-consistency checks green.
-2. Next primary parity slice: promote terminal-loop execution from
-   daemon-contract sequencing into workflow run-launch/composer activation,
-   proving a saved React Flow workflow dispatches the same coding-tool loop
-   through scheduler/run-history state without bespoke harness sequencing.
-3. Keep P1-D telemetry chain execution as a regression guard for
-   run-inspector-created workflow controls.
-4. Keep P1-C proposal policy as a regression guard: rejected workflow edits
-   must never mutate, approved apply must be idempotent, and React Flow should
-   only apply workflow patches after daemon approval evidence exists.
-5. Keep MCP regression green; add visual MCP server/tool/resource/prompt nodes
-   only when a concrete workflow composition needs them.
+1. Add a dedicated React Flow GUI harness probe that creates or loads the
+   terminal coding-loop template, clicks the real WorkflowComposer Run button,
+   and asserts the composer activation run appears in run history with daemon
+   coding-tool/TUI rows and approval-decision evidence.
+2. Keep the recovered full live GUI package/activation path green as the
+   regression baseline for workflow-development environment changes.
+3. Keep P1-D telemetry chain execution locked as regression coverage while the
+   terminal coding-loop GUI-click activation proof is the primary parity gap.
+4. Keep P1-C proposal policy locked as a regression guard: rejected workflow
+   edits must never mutate, approved apply must be idempotent, and React Flow
+   should only apply workflow patches after daemon approval evidence exists.
+5. Keep MCP, diagnostics repair, memory, subagent, and usage/context controls
+   regression-green while terminal UX proof work resumes.
 6. When adding the next recovery or diagnostics affordance, keep it
    daemon-owned and event-backed like the approval/mode-status panel.
 7. Continue settings harness cleanup only as maintenance, gated by a concrete
@@ -2050,7 +1991,9 @@ should treat graph nodes as configured runtime components and projections.
 
 ## Evidence Bundle Requirements
 
-Every phase must produce an evidence bundle under `docs/evidence/` with:
+Every phase must produce a generated evidence bundle outside tracked source
+control, for example under `/tmp`, CI artifact storage, or release attachments.
+The bundle should include:
 
 - `result.json`;
 - event replay file;
@@ -2106,19 +2049,16 @@ adding more infrastructure by default.
 
 Recent focused validation, 2026-05-14:
 
-- Latest full command/evidence detail lives in the validation ledger.
+- Latest full command summaries live in the validation ledger. Generated
+  evidence bundles are intentionally excluded from git.
 - Current slice proof: WorkflowComposer Run activation for pure saved terminal
   coding-loop workflows. The real run action detects the terminal-loop graph,
   starts the normal live telemetry thread, dispatches saved coding-tool nodes
   through the shared run-launch helper and Tauri runtime-control executor,
   records daemon approval decisions, emits a normal `WorkflowRunResult`, and
   validates run-history projection over daemon events plus TUI rows.
-- Latest GUI/workflow preflight:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-14T18-13-28-967Z/result.json`.
-- Latest live GUI run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-14T18-13-32-648Z/result.json`;
-  the desktop run was not blocked, validation is `ok: true`, all artifacts are
-  present, and every runtime-consistency check is true.
+- Latest GUI/workflow preflight and live run were green at slice 211 before the
+  evidence tree cleanup; new runs should publish artifacts outside git.
 
 Next runtime implementation sequence:
 

@@ -4,11 +4,11 @@ Status: canonical architecture authority.
 Canonical owner: this file for artifact/payload availability doctrine; low-level artifact APIs live in [`filecoin-cas-api-and-artifact-refs.md`](./api-artifact-refs.md).
 Supersedes: overlapping artifact-storage prose when payload authority conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-02.
+Last alignment pass: 2026-05-14.
 
 ## Canonical Definition
 
-**The Filecoin/CAS/CDN plane provides immutable payload availability for canonical Web4 packages, artifacts, evidence, receipts, checkpoints, and delivery bundles.**
+**The Filecoin/CAS/CDN plane provides immutable payload availability for canonical Web4 packages, artifacts, evidence, receipts, ontology packs, data recipes, transformation outputs, checkpoints, delivery bundles, training payloads, benchmark payloads, and sealed state archive bytes.**
 
 It stores bytes. It does not define truth by itself.
 
@@ -50,6 +50,17 @@ Agentgres:
 Filecoin / CAS / CDN:
   worker packages
   model artifacts
+  ontology packs
+  data recipes
+  canonical object model payloads
+  connector mapping payloads
+  transformation outputs
+  training datasets
+  evaluation datasets
+  curated example corpora
+  benchmark suites
+  evaluation artifacts
+  model checkpoints
   large files
   reports
   screenshots/videos
@@ -57,7 +68,7 @@ Filecoin / CAS / CDN:
   trace bundles
   projection checkpoints
   historical snapshots
-  encrypted archives
+  sealed encrypted state archives
 ```
 
 Snapshots and projection checkpoints stored here are immutable evidence/export
@@ -74,6 +85,17 @@ The artifact plane may store:
 - encrypted capsules;
 - workflow packages;
 - model artifacts;
+- ontology packs;
+- data recipes;
+- canonical object model payloads;
+- connector mapping payloads;
+- transformation outputs;
+- training datasets;
+- evaluation datasets;
+- curated example corpora;
+- benchmark suites;
+- evaluation reports;
+- model checkpoints;
 - reports;
 - screenshots;
 - generated files;
@@ -84,6 +106,8 @@ The artifact plane may store:
 - trace bundles;
 - projection checkpoints;
 - receipt bundles;
+- sealed state archive bytes;
+- dormant run archives;
 - manifests;
 - static app bundles.
 
@@ -165,7 +189,7 @@ Autopilot or browser clients must verify:
 ```text
 publisher uploads signed/encrypted package to Filecoin/CAS
 → manifest root committed via aiagent.xyz / IOI L1 contract
-→ Autopilot/daemon downloads through CDN/gateway
+→ Autopilot Desktop or an IOI daemon downloads through CDN/gateway
 → runtime verifies hash/signature
 → wallet.network approves authority grants
 → package executes if policy permits
@@ -182,6 +206,21 @@ worker/service produces artifact
 → user verifies/downloads artifact
 ```
 
+## Sealed State Archive Flow
+
+```text
+Agentgres identifies idle/inactive/terminal runtime state
+→ daemon/domain kernel requests sealed export
+→ dcrypt or equivalent sealing layer encrypts archive to authorized recipients
+→ archive bytes are stored in Filecoin/CAS/CDN/blob storage by CID/hash
+→ Agentgres records archive ref, state root, policy hash, object heads, and receipts
+→ wallet.network controls restore/decryption authority
+→ daemon rehydrates through Agentgres restore/import operations
+```
+
+The archive bytes are cold durable payloads. The Agentgres archive record and
+restore receipts remain canonical state.
+
 ## Invariants
 
 1. No artifact is trusted by URL alone.
@@ -189,6 +228,7 @@ worker/service produces artifact
 3. No private plaintext without policy-controlled key release.
 4. No deletion assumption for public/shared storage; design privacy accordingly.
 5. Bulky evidence belongs here, not on IOI L1.
+6. Sealed state archives stored here are not live Agentgres state authority.
 
 ## One-Line Doctrine
 
