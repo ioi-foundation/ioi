@@ -834,6 +834,45 @@ export interface NodeLogic {
   runtimeDiagnosticsRepairWorkflowNodeId?: string;
   runtimeDiagnosticsRepairSource?: "react_flow" | "sdk_client" | "cli_tui" | string;
   runtimeDiagnosticsRepairActor?: string;
+  runtimeCodingToolBudgetRecoveryEndpoint?: string;
+  runtimeCodingToolBudgetRecovery?: unknown;
+  runtimeCodingToolBudgetRecoveryField?: string;
+  runtimeCodingToolBudgetRecoveryEventField?: string;
+  runtimeCodingToolBudgetRecoveryStatusField?: string;
+  runtimeCodingToolBudgetRecoveryReceiptField?: string;
+  runtimeCodingToolBudgetRecoveryPolicyField?: string;
+  runtimeCodingToolBudgetRecoveryPolicy?: unknown;
+  runtimeCodingToolBudgetRecoveryPolicyInputField?: string;
+  runtimeCodingToolBudgetRecoveryRunId?: string;
+  runtimeCodingToolBudgetRecoveryRunIdField?: string;
+  runtimeCodingToolBudgetRecoveryThreadId?: string;
+  runtimeCodingToolBudgetRecoveryThreadIdField?: string;
+  runtimeCodingToolBudgetRecoveryAction?:
+    | "request_approval"
+    | "approve_override"
+    | "reject_override"
+    | "retry_approved"
+    | string;
+  runtimeCodingToolBudgetRecoveryActionField?: string;
+  runtimeCodingToolBudgetRecoveryApprovalId?: string;
+  runtimeCodingToolBudgetRecoveryApprovalIdField?: string;
+  runtimeCodingToolBudgetRecoverySourceEventId?: string;
+  runtimeCodingToolBudgetRecoverySourceEventIdField?: string;
+  runtimeCodingToolBudgetRecoveryBlockedEventId?: string;
+  runtimeCodingToolBudgetRecoveryBlockedEventIdField?: string;
+  runtimeCodingToolBudgetRecoveryApprovalRequestEventId?: string;
+  runtimeCodingToolBudgetRecoveryApprovalRequestEventIdField?: string;
+  runtimeCodingToolBudgetRecoveryApprovalDecisionEventId?: string;
+  runtimeCodingToolBudgetRecoveryApprovalDecisionEventIdField?: string;
+  runtimeCodingToolBudgetRecoveryTargetNodeIds?: string[] | string;
+  runtimeCodingToolBudgetRecoveryTargetNodeIdsField?: string;
+  runtimeCodingToolBudgetRecoveryReason?: string;
+  runtimeCodingToolBudgetRecoveryReasonField?: string;
+  runtimeCodingToolBudgetRecoveryReceiptRefsField?: string;
+  runtimeCodingToolBudgetRecoveryPolicyDecisionRefsField?: string;
+  runtimeCodingToolBudgetRecoveryWorkflowNodeId?: string;
+  runtimeCodingToolBudgetRecoverySource?: "react_flow" | "sdk_client" | "cli_tui" | string;
+  runtimeCodingToolBudgetRecoveryActor?: string;
   runtimeUsageMeterEndpoint?: string;
   runtimeUsageMeter?: unknown;
   runtimeUsageMeterField?: string;
@@ -1070,11 +1109,14 @@ export interface NodeLogic {
     runtimeCompactionPolicyStatusField?: string;
     runtimeRollbackSnapshotField?: string;
     runtimeRollbackSnapshotStatusField?: string;
-    runtimeRestoreGateField?: string;
-    runtimeRestoreGateStatusField?: string;
-    runtimeDiagnosticsRepairField?: string;
-    runtimeDiagnosticsRepairStatusField?: string;
-    workflowPackageExportField?: string;
+  runtimeRestoreGateField?: string;
+  runtimeRestoreGateStatusField?: string;
+  runtimeDiagnosticsRepairField?: string;
+  runtimeDiagnosticsRepairStatusField?: string;
+  consumesRuntimeCodingToolBudgetRecovery?: boolean;
+  runtimeCodingToolBudgetRecoveryField?: string;
+  runtimeCodingToolBudgetRecoveryStatusField?: string;
+  workflowPackageExportField?: string;
     workflowPackageReadinessStatusField?: string;
     workflowPackagePortableField?: string;
     workflowPackageImportReviewField?: string;
@@ -1626,6 +1668,7 @@ export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"runtime_rollback_snapshot">
   | WorkflowNodeConfigBase<"runtime_restore_gate">
   | WorkflowNodeConfigBase<"runtime_diagnostics_repair">
+  | WorkflowNodeConfigBase<"runtime_coding_tool_budget_recovery">
   | WorkflowNodeConfigBase<"workflow_package_export">
   | WorkflowNodeConfigBase<"workflow_package_import">
   | WorkflowNodeConfigBase<"repository_context">
@@ -4330,6 +4373,7 @@ export type WorkflowHarnessComponentKind =
   | "runtime_rollback_snapshot"
   | "runtime_restore_gate"
   | "runtime_diagnostics_repair"
+  | "runtime_coding_tool_budget_recovery"
   | "workflow_package_export"
   | "workflow_package_import"
   | "repository_context"
@@ -4897,6 +4941,7 @@ export type WorkflowNodeKind =
   | "runtime_rollback_snapshot"
   | "runtime_restore_gate"
   | "runtime_diagnostics_repair"
+  | "runtime_coding_tool_budget_recovery"
   | "workflow_package_export"
   | "workflow_package_import"
   | "repository_context"

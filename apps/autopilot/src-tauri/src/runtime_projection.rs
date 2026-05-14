@@ -41,6 +41,7 @@ pub enum ActionKind {
     RuntimeRollbackSnapshot,
     RuntimeRestoreGate,
     RuntimeDiagnosticsRepair,
+    RuntimeCodingToolBudgetRecovery,
     Function,
     ModelBinding,
     ModelCall,
@@ -97,6 +98,7 @@ impl ActionKind {
             "runtime_rollback_snapshot" => Self::RuntimeRollbackSnapshot,
             "runtime_restore_gate" => Self::RuntimeRestoreGate,
             "runtime_diagnostics_repair" => Self::RuntimeDiagnosticsRepair,
+            "runtime_coding_tool_budget_recovery" => Self::RuntimeCodingToolBudgetRecovery,
             "function" => Self::Function,
             "model_binding" => Self::ModelBinding,
             "model_call" => Self::ModelCall,
@@ -153,6 +155,7 @@ impl ActionKind {
             Self::RuntimeRollbackSnapshot => "runtime_rollback_snapshot",
             Self::RuntimeRestoreGate => "runtime_restore_gate",
             Self::RuntimeDiagnosticsRepair => "runtime_diagnostics_repair",
+            Self::RuntimeCodingToolBudgetRecovery => "runtime_coding_tool_budget_recovery",
             Self::Function => "function",
             Self::ModelBinding => "model_binding",
             Self::ModelCall => "model_call",
@@ -209,6 +212,7 @@ impl ActionKind {
             Self::RuntimeRollbackSnapshot => "runtime_rollback_snapshot",
             Self::RuntimeRestoreGate => "runtime_restore_gate",
             Self::RuntimeDiagnosticsRepair => "runtime_diagnostics_repair",
+            Self::RuntimeCodingToolBudgetRecovery => "runtime_coding_tool_budget_recovery",
             Self::Function => "function",
             Self::ModelBinding => "model_binding",
             Self::ModelCall => "model",
@@ -282,6 +286,7 @@ impl ActionKind {
                 | Self::RuntimeRollbackSnapshot
                 | Self::RuntimeRestoreGate
                 | Self::RuntimeDiagnosticsRepair
+                | Self::RuntimeCodingToolBudgetRecovery
                 | Self::SemanticImpact
                 | Self::PostconditionSynthesis
                 | Self::Verifier
@@ -534,6 +539,10 @@ mod tests {
         assert_eq!(
             ActionKind::from_node_type("runtime_diagnostics_repair"),
             ActionKind::RuntimeDiagnosticsRepair
+        );
+        assert_eq!(
+            ActionKind::from_node_type("runtime_coding_tool_budget_recovery"),
+            ActionKind::RuntimeCodingToolBudgetRecovery
         );
         assert_eq!(
             ActionKind::from_node_type("repository_context"),

@@ -88,6 +88,8 @@ export function actionKindForWorkflowNodeType(nodeType: string): AgentActionKind
       return "runtime_restore_gate";
     case "runtime_diagnostics_repair":
       return "runtime_diagnostics_repair";
+    case "runtime_coding_tool_budget_recovery":
+      return "runtime_coding_tool_budget_recovery";
     case "workflow_package_export":
       return "workflow_package_export";
     case "workflow_package_import":

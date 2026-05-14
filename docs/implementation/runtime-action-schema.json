@@ -23,6 +23,7 @@
     "runtime_rollback_snapshot",
     "runtime_restore_gate",
     "runtime_diagnostics_repair",
+    "runtime_coding_tool_budget_recovery",
     "function",
     "model_binding",
     "model_call",
@@ -85,6 +86,7 @@
     "runtime_compaction_policy",
     "runtime_rollback_snapshot",
     "runtime_restore_gate",
-    "runtime_diagnostics_repair"
+    "runtime_diagnostics_repair",
+    "runtime_coding_tool_budget_recovery"
   ]
 }

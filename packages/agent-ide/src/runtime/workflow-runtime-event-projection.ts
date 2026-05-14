@@ -2111,6 +2111,9 @@ export function workflowNodeKindForRuntimeThreadEvent(
   if (event.componentKind === "approval_gate") return "human_gate";
   if (event.componentKind === "context_budget") return "runtime_context_budget";
   if (event.componentKind === "compaction_policy") return "runtime_compaction_policy";
+  if (event.componentKind === "coding_tool_budget_recovery") {
+    return "runtime_coding_tool_budget_recovery";
+  }
   if (event.componentKind === "coding_tool") return "plugin_tool";
   if (event.componentKind === "lsp_diagnostics_repair") return "hook_policy";
   if (event.componentKind === "lsp_diagnostics_repair_retry") return "hook_policy";
