@@ -33,6 +33,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const codingToolBudgetRecoveryPolicy = read(
     "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-policy.ts",
   );
+  const codingToolBudgetRecoveryBinding = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-binding.ts",
+  );
   const compactionPolicyControlNodes = read(
     "packages/agent-ide/src/runtime/workflow-runtime-compaction-policy-control-nodes.ts",
   );
@@ -68,6 +71,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   const readinessModelTest = read(
     "packages/agent-ide/src/runtime/workflow-readiness-model.test.ts",
+  );
+  const codingToolBudgetRecoveryBindingTest = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-binding.test.ts",
   );
   const workflowValidation = read(
     "packages/agent-ide/src/runtime/workflow-validation.ts",
@@ -275,6 +281,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(readinessModel, /Coding budget preflight/);
   assert.match(workflowValidation, /workflowRuntimeCodingToolBudgetRecoveryBindingIssues/);
   assert.match(workflowValidation, /missing_runtime_coding_tool_budget_recovery_policy_binding/);
+  assert.match(codingToolBudgetRecoveryBinding, /bindWorkflowRuntimeCodingToolBudgetRecoveryTemplateToEvidence/);
+  assert.match(codingToolBudgetRecoveryBinding, /workflowRuntimeCodingToolBudgetRecoveryEvidenceAction/);
+  assert.match(codingToolBudgetRecoveryBinding, /react_flow_quick_fix/);
+  assert.match(codingToolBudgetRecoveryBindingTest, /wires selected evidence into template nodes/);
   assert.match(readinessModelTest, /prior TUI budget evidence/);
   assert.match(readinessModelTest, /unbound coding-tool budget recovery templates/);
   assert.match(readinessModelTest, /run launch annotations/);
@@ -306,6 +316,8 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(composerController, /codingToolBudgetPreflight/);
   assert.match(composerController, /codingToolBudgetRecovery/);
   assert.match(composerController, /handleExecuteRuntimeCodingToolBudgetRecovery/);
+  assert.match(composerController, /handleBindRuntimeCodingToolBudgetRecoveryTemplate/);
+  assert.match(composerController, /bindWorkflowRuntimeCodingToolBudgetRecoveryTemplateToEvidence/);
   assert.match(composerController, /coding-tool-budget-approved-retry/);
   assert.match(composerController, /loadWorkflowRuntimeThreadEvents/);
   assert.match(composerController, /setRuntimeThreadEvents/);
@@ -326,6 +338,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(runsPanel, /workflow-run-source-filter/);
   assert.match(runsPanel, /workflow-run-coding-tool-budget-evidence/);
   assert.match(runsPanel, /workflow-run-coding-tool-budget-recovery-action/);
+  assert.match(runsPanel, /workflow-run-coding-tool-budget-recovery-bind-template-/);
   assert.match(runsPanel, /data-coding-tool-budget-recovery-action-count/);
   assert.match(runsPanel, /data-recovery-policy-operator-role/);
   assert.match(runsPanel, /workflow-run-telemetry-source-kinds/);

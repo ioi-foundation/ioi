@@ -348,6 +348,7 @@ export function WorkflowRailPanel({
   onExecuteRuntimeWorkspaceTrustAction,
   onExecuteRuntimeCodingToolBudgetRecovery,
   onCreateRuntimeCodingToolBudgetRecoverySubflow,
+  onBindRuntimeCodingToolBudgetRecoveryTemplate,
   onInspectHarnessGroupNode,
   onSelectHarnessReceiptRef,
   onSelectHarnessReplayFixtureRef,
@@ -438,6 +439,9 @@ export function WorkflowRailPanel({
     action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   ) => void | Promise<void>;
   onCreateRuntimeCodingToolBudgetRecoverySubflow?: (
+    action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
+  ) => void;
+  onBindRuntimeCodingToolBudgetRecoveryTemplate?: (
     action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   ) => void;
   onInspectHarnessGroupNode?: (groupId: string, nodeId: string) => void;
@@ -3347,6 +3351,9 @@ export function WorkflowRailPanel({
         }
         onCreateRuntimeCodingToolBudgetRecoverySubflow={
           onCreateRuntimeCodingToolBudgetRecoverySubflow
+        }
+        onBindRuntimeCodingToolBudgetRecoveryTemplate={
+          onBindRuntimeCodingToolBudgetRecoveryTemplate
         }
       />
     );

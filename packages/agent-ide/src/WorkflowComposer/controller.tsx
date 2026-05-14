@@ -132,6 +132,12 @@ import {
   createWorkflowRuntimeCodingToolBudgetRecoveryTemplateSubflow,
   type WorkflowRuntimeCodingToolBudgetRecoverySubflow,
 } from "../runtime/workflow-runtime-coding-tool-budget-recovery-subflow";
+import {
+  bindWorkflowRuntimeCodingToolBudgetRecoveryTemplateToEvidence,
+  workflowRuntimeCodingToolBudgetRecoveryBindingIssue,
+  workflowRuntimeCodingToolBudgetRecoveryEvidenceAction,
+  workflowRuntimeCodingToolBudgetRecoveryEvidenceActionsFromProjection,
+} from "../runtime/workflow-runtime-coding-tool-budget-recovery-binding";
 import type {
   WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   WorkflowRuntimeContextPressureActionDescriptor,
@@ -10005,6 +10011,104 @@ export function useWorkflowComposerController({
     ],
   );
 
+  const handleBindRuntimeCodingToolBudgetRecoveryTemplate = useCallback(
+    (
+      action?: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor | null,
+      issue?: WorkflowValidationIssue | null,
+    ) => {
+      if (isReadOnlyWorkflow) {
+        setStatusMessage(
+          "Read-only harness graph cannot be edited. Fork it first.",
+        );
+        return;
+      }
+      const selectedAction =
+        action ??
+        workflowRuntimeCodingToolBudgetRecoveryEvidenceAction(
+          workflowRuntimeCodingToolBudgetRecoveryEvidenceActionsFromProjection(
+            runLaunchHistoryModel.runtimeEventProjection,
+          ),
+        );
+      if (!selectedAction) {
+        setRightPanel("runs");
+        setBottomPanel("run_output");
+        setStatusMessage(
+          "Select a blocked coding-budget run before binding recovery template inputs.",
+        );
+        return;
+      }
+      const binding =
+        bindWorkflowRuntimeCodingToolBudgetRecoveryTemplateToEvidence(
+          currentProjectFile,
+          selectedAction,
+          { issue },
+        );
+      if (binding.status !== "bound") {
+        setRightPanel("readiness");
+        setStatusMessage(
+          binding.blockers.includes("coding_tool_budget_recovery_template_node_missing")
+            ? "Select a coding budget recovery template node before binding evidence."
+            : "Selected coding-budget evidence is missing a run id.",
+        );
+        return;
+      }
+      const boundById = new Map(
+        binding.workflow.nodes
+          .filter((node) => binding.boundNodeIds.includes(node.id))
+          .map((node) => [node.id, node] as const),
+      );
+      setNodes((currentNodes) =>
+        currentNodes.map((flowNode) => {
+          const data = flowNode.data as Node;
+          const bound = boundById.get(data.id) ?? boundById.get(flowNode.id);
+          if (!bound) return flowNode;
+          return {
+            ...flowNode,
+            position: { x: bound.x, y: bound.y },
+            data: {
+              ...data,
+              ...bound,
+            },
+          };
+        }),
+      );
+      setWorkflow(binding.workflow);
+      const validation = validateWorkflowProject(binding.workflow, tests);
+      const readiness = evaluateWorkflowActivationReadiness(
+        binding.workflow,
+        tests,
+        validation,
+        proposals,
+        Object.values(nodeFixturesById).flat(),
+      );
+      setValidationResult(validation);
+      setReadinessResult(readiness);
+      setActiveTab("graph");
+      setRightPanel("readiness");
+      setBottomPanel("selection");
+      handleNodeSelect(binding.boundNodeIds[0] ?? null);
+      setNodeConfigInitialSection(
+        issue
+          ? workflowConfigSectionForIssue(issue)
+          : workflowConfigSectionForNodeKind("runtime_coding_tool_budget_recovery"),
+      );
+      setNodeConfigOpen(true);
+      setStatusMessage(
+        `Bound ${binding.boundNodeIds.length} coding budget recovery template nodes to ${selectedAction.runId ?? selectedAction.eventId}`,
+      );
+    },
+    [
+      currentProjectFile,
+      handleNodeSelect,
+      isReadOnlyWorkflow,
+      nodeFixturesById,
+      proposals,
+      runLaunchHistoryModel.runtimeEventProjection,
+      setNodes,
+      tests,
+    ],
+  );
+
   const handleInsertRuntimeCodingToolBudgetRecoveryTemplate = useCallback(() => {
     if (isReadOnlyWorkflow) {
       setStatusMessage(
@@ -11089,6 +11193,11 @@ export function useWorkflowComposerController({
 
   const handleResolveWorkflowIssue = useCallback(
     (issue: WorkflowValidationIssue) => {
+      if (workflowRuntimeCodingToolBudgetRecoveryBindingIssue(issue)) {
+        handleBindRuntimeCodingToolBudgetRecoveryTemplate(null, issue);
+        return;
+      }
+
       if (issue.nodeId) {
         handleWorkflowNodeSelect(issue.nodeId);
         setNodeConfigInitialSection(workflowConfigSectionForIssue(issue));
@@ -11165,7 +11274,13 @@ export function useWorkflowComposerController({
       setRightPanel("settings");
       setStatusMessage(workflowIssueActionLabel(issue));
     },
-    [handleWorkflowNodeSelect, nodes, openLeftDrawer, selectedNode],
+    [
+      handleBindRuntimeCodingToolBudgetRecoveryTemplate,
+      handleWorkflowNodeSelect,
+      nodes,
+      openLeftDrawer,
+      selectedNode,
+    ],
   );
   const displayNodes = useMemo(() => {
     const componentNodes = nodes
@@ -14154,6 +14269,7 @@ export function useWorkflowComposerController({
     handleExecuteRuntimeWorkspaceTrustAction,
     handleExecuteRuntimeCodingToolBudgetRecovery,
     handleCreateRuntimeCodingToolBudgetRecoverySubflow,
+    handleBindRuntimeCodingToolBudgetRecoveryTemplate,
     handleExecuteHarnessRollback,
     handleExpandHarnessGroups,
     handleExportPortablePackage,

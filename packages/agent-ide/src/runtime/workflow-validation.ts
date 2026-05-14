@@ -291,6 +291,36 @@ const WORKFLOW_REPAIR_BY_CODE: Record<
     repairActionId: "open-connector-binding",
     repairLabel: "Choose connector",
   },
+  missing_runtime_coding_tool_budget_recovery_approval_binding: {
+    configSection: "mapping",
+    fieldPath: "runtimeCodingToolBudgetRecoveryApprovalIdField",
+    repairActionId: "bind-coding-tool-budget-recovery-evidence",
+    repairLabel: "Bind recovery input",
+  },
+  missing_runtime_coding_tool_budget_recovery_policy_binding: {
+    configSection: "mapping",
+    fieldPath: "runtimeCodingToolBudgetRecoveryPolicyInputField",
+    repairActionId: "bind-coding-tool-budget-recovery-evidence",
+    repairLabel: "Bind recovery input",
+  },
+  missing_runtime_coding_tool_budget_recovery_run_binding: {
+    configSection: "mapping",
+    fieldPath: "runtimeCodingToolBudgetRecoveryRunIdField",
+    repairActionId: "bind-coding-tool-budget-recovery-evidence",
+    repairLabel: "Bind recovery input",
+  },
+  missing_runtime_coding_tool_budget_recovery_target_binding: {
+    configSection: "mapping",
+    fieldPath: "runtimeCodingToolBudgetRecoveryTargetNodeIdsField",
+    repairActionId: "bind-coding-tool-budget-recovery-evidence",
+    repairLabel: "Bind recovery input",
+  },
+  missing_runtime_coding_tool_budget_recovery_thread_binding: {
+    configSection: "mapping",
+    fieldPath: "runtimeCodingToolBudgetRecoveryThreadIdField",
+    repairActionId: "bind-coding-tool-budget-recovery-evidence",
+    repairLabel: "Bind recovery input",
+  },
   missing_edge_endpoint: {
     configSection: "connections",
     repairActionId: "repair-connection",
@@ -990,6 +1020,7 @@ function workflowRuntimeCodingToolBudgetRecoveryBindingIssues(
           `${requirement.label} input mapping or fixed value before execution.`,
         configSection: "mapping",
         fieldPath: requirement.fieldPath,
+        repairActionId: "bind-coding-tool-budget-recovery-evidence",
         repairLabel: "Bind recovery input",
       },
     ];

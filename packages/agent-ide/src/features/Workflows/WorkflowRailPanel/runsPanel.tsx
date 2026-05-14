@@ -52,6 +52,9 @@ type WorkflowRunsPanelProps = {
   onCreateRuntimeCodingToolBudgetRecoverySubflow?: (
     action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   ) => void;
+  onBindRuntimeCodingToolBudgetRecoveryTemplate?: (
+    action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
+  ) => void;
 };
 
 function codingToolBudgetRecoverySubflowSeed(
@@ -86,6 +89,7 @@ export function WorkflowRunsPanel({
   onExecuteRuntimeWorkspaceTrustAction,
   onExecuteRuntimeCodingToolBudgetRecovery,
   onCreateRuntimeCodingToolBudgetRecoverySubflow,
+  onBindRuntimeCodingToolBudgetRecoveryTemplate,
 }: WorkflowRunsPanelProps) {
   const {
     totalRuns,
@@ -941,6 +945,46 @@ export function WorkflowRunsPanel({
                                 }}
                               >
                                 Create recovery subflow
+                              </button>
+                            ) : null;
+                          })()}
+                          {(() => {
+                            const bindingSeed =
+                              codingToolBudgetRecoverySubflowSeed(
+                                node.data.codingToolBudgetRecoveryActions,
+                              );
+                            return bindingSeed ? (
+                              <button
+                                type="button"
+                                className="workflow-secondary-action"
+                                data-testid={`workflow-run-coding-tool-budget-recovery-bind-template-${node.id}`}
+                                data-source-event-id={
+                                  bindingSeed.sourceEventId ?? ""
+                                }
+                                data-event-id={bindingSeed.eventId}
+                                data-run-id={bindingSeed.runId ?? ""}
+                                data-thread-id={bindingSeed.threadId}
+                                data-workflow-graph-id={
+                                  bindingSeed.workflowGraphId ?? ""
+                                }
+                                data-workflow-node-id={
+                                  bindingSeed.workflowNodeId
+                                }
+                                data-target-node-ids={
+                                  bindingSeed.targetNodeIds.join("|")
+                                }
+                                disabled={
+                                  !onBindRuntimeCodingToolBudgetRecoveryTemplate
+                                }
+                                title="Bind an existing reusable recovery template to this blocked budget evidence."
+                                aria-label="Bind coding-tool budget recovery template"
+                                onClick={() => {
+                                  onBindRuntimeCodingToolBudgetRecoveryTemplate?.(
+                                    bindingSeed,
+                                  );
+                                }}
+                              >
+                                Bind recovery template
                               </button>
                             ) : null;
                           })()}
