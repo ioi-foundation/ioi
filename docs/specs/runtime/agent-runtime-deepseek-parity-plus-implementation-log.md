@@ -193,8 +193,38 @@ workstream was narrower.
 | 191 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget daemon launch policy | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-daemon-launch-policy/2026-05-14T04-18-52-794Z/result.json |
 | 192 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget recovery approval/retry path | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery/2026-05-14T04-45-12-309Z/result.json |
 | 193 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget recovery policy authoring | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-recovery-policy/2026-05-14T05-03-31-611Z/result.json |
+| 194 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | React Flow coding-tool budget recovery control node | scripts/lib/live-runtime-daemon-contract.test.mjs |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 194. 2026-05-14 - React Flow coding-tool budget recovery control node
+
+Implementation slice completed 2026-05-14, P1-D/P0-B React Flow coding-tool
+budget recovery control node:
+
+- Added a typed `runtime_coding_tool_budget_recovery` React Flow control-node
+  builder for request approval, approve/reject override, and approved retry
+  actions over `/v1/runs/{run_id}/coding-tool-budget-recovery`.
+- Registered the node in the workflow creator palette, graph/schema/action
+  metadata, runtime projection mapping, UI strings, and package exports.
+- Added Tauri scaffold, validation, action-kind classification, and local
+  workflow execution output so the node is workflow-development configurable
+  instead of only available from run-inspector buttons or TUI slash commands.
+- Extended the source-contract and live daemon workflow-route proofs so
+  React Flow-authored recovery controls preserve graph/node identity through
+  request, approval, and retry events.
+- Updated the master guide queue so the next slice is the workflow-creator
+  insertion/run-inspector affordance that can materialize a prewired recovery
+  subflow from a live blocked-budget row.
+
+Validation evidence:
+
+- `node --import tsx --test --test-reporter=spec packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-control-nodes.test.ts`
+- `cargo test runtime_coding_tool_budget_recovery_node_builds_react_flow_control_request --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo test substrate_classifies_workflow_node_kinds --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `node --test --test-reporter=spec --test-name-pattern "React Flow coding-tool budget recovery control node drives daemon recovery route" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-reporter=spec --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build -w packages/agent-ide`
 
 ### Slice 193. 2026-05-14 - Coding-tool budget recovery policy authoring
 

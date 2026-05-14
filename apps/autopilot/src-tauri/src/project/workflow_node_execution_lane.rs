@@ -365,6 +365,33 @@ fn workflow_runtime_control_input_number(input: &Value, path: &str) -> Option<f6
     workflow_runtime_control_value_at_path(input, path).and_then(Value::as_f64)
 }
 
+fn workflow_runtime_control_input_string_array(input: &Value, path: &str) -> Vec<String> {
+    workflow_runtime_control_string_array(workflow_runtime_control_value_at_path(input, path))
+}
+
+fn workflow_runtime_control_logic_string_array(logic: &Value, key: &str) -> Vec<String> {
+    workflow_runtime_control_string_array(logic.get(key))
+}
+
+fn workflow_runtime_control_string_array(value: Option<&Value>) -> Vec<String> {
+    match value {
+        Some(Value::Array(items)) => items
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+            .collect(),
+        Some(Value::String(value)) => value
+            .split(',')
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
 struct WorkflowRuntimeControlEnvelopeConfig<'a> {
     thread_id_logic_key: &'a str,
     thread_id_field_key: &'a str,
@@ -448,6 +475,19 @@ fn workflow_runtime_diagnostics_repair_action(value: String) -> String {
         "restore_apply" | "apply" | "apply_restore" => "restore_apply".to_string(),
         "operator_override" | "override" => "operator_override".to_string(),
         _ => "repair_retry".to_string(),
+    }
+}
+
+fn workflow_runtime_coding_tool_budget_recovery_action(value: String) -> String {
+    match value.to_lowercase().replace(['-', '.'], "_").as_str() {
+        "approve" | "approved" | "approve_override" | "allow" | "allowed" => {
+            "approve_override".to_string()
+        }
+        "reject" | "rejected" | "reject_override" | "deny" | "denied" => {
+            "reject_override".to_string()
+        }
+        "retry" | "retry_approved" | "approved_retry" => "retry_approved".to_string(),
+        _ => "request_approval".to_string(),
     }
 }
 
@@ -1467,6 +1507,297 @@ fn workflow_runtime_diagnostics_repair_output(
     output
 }
 
+fn workflow_runtime_coding_tool_budget_recovery_policy(
+    logic: &Value,
+    input: &Value,
+    target_node_ids: &[String],
+) -> Value {
+    let policy_field = workflow_runtime_control_logic_string(
+        logic,
+        "runtimeCodingToolBudgetRecoveryPolicyInputField",
+    )
+    .unwrap_or_else(|| "recoveryPolicy".to_string());
+    let mut policy = workflow_runtime_control_value_at_path(input, &policy_field)
+        .or_else(|| workflow_runtime_control_value_at_path(input, "recovery_policy"))
+        .or_else(|| logic.get("runtimeCodingToolBudgetRecoveryPolicy"))
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    if !policy.is_object() {
+        policy = json!({});
+    }
+    if let Value::Object(object) = &mut policy {
+        object
+            .entry("schemaVersion")
+            .or_insert_with(|| json!("ioi.workflow.coding-tool-budget-recovery-policy.v1"));
+        object
+            .entry("schema_version")
+            .or_insert_with(|| json!("ioi.workflow.coding-tool-budget-recovery-policy.v1"));
+        object
+            .entry("source")
+            .or_insert_with(|| json!("react_flow"));
+        object
+            .entry("approvalScope")
+            .or_insert_with(|| json!("target_nodes"));
+        object
+            .entry("approval_scope")
+            .or_insert_with(|| json!("target_nodes"));
+        object
+            .entry("operatorRole")
+            .or_insert_with(|| json!("budget_operator"));
+        object
+            .entry("operator_role")
+            .or_insert_with(|| json!("budget_operator"));
+        object.entry("retryLimit").or_insert_with(|| json!(1));
+        object.entry("retry_limit").or_insert_with(|| json!(1));
+        object.entry("ttlMs").or_insert_with(|| json!(900000));
+        object.entry("ttl_ms").or_insert_with(|| json!(900000));
+        object
+            .entry("requiresApproval")
+            .or_insert_with(|| json!(true));
+        object
+            .entry("requires_approval")
+            .or_insert_with(|| json!(true));
+        object.entry("allowOverride").or_insert_with(|| json!(true));
+        object
+            .entry("allow_override")
+            .or_insert_with(|| json!(true));
+        if !object.contains_key("targetNodeIds") && !object.contains_key("target_node_ids") {
+            object.insert("targetNodeIds".to_string(), json!(target_node_ids));
+            object.insert("target_node_ids".to_string(), json!(target_node_ids));
+        }
+        object.entry("sourceNodeIds").or_insert_with(|| json!([]));
+        object.entry("source_node_ids").or_insert_with(|| json!([]));
+    }
+    policy
+}
+
+fn workflow_runtime_coding_tool_budget_recovery_output(
+    workflow: Option<&WorkflowProject>,
+    node_id: &str,
+    logic: &Value,
+    input: &Value,
+    evidence_kind: &str,
+) -> Value {
+    let run_id_field =
+        workflow_runtime_control_logic_string(logic, "runtimeCodingToolBudgetRecoveryRunIdField")
+            .unwrap_or_else(|| "runId".to_string());
+    let run_id =
+        workflow_runtime_control_logic_string(logic, "runtimeCodingToolBudgetRecoveryRunId")
+            .or_else(|| workflow_runtime_control_input_string(input, &run_id_field))
+            .or_else(|| workflow_runtime_control_input_string(input, "run_id"))
+            .unwrap_or_else(|| "{{runtime.run_id}}".to_string());
+    let thread_id_field = workflow_runtime_control_logic_string(
+        logic,
+        "runtimeCodingToolBudgetRecoveryThreadIdField",
+    )
+    .unwrap_or_else(|| "threadId".to_string());
+    let thread_id =
+        workflow_runtime_control_logic_string(logic, "runtimeCodingToolBudgetRecoveryThreadId")
+            .or_else(|| workflow_runtime_control_input_string(input, &thread_id_field))
+            .or_else(|| workflow_runtime_control_input_string(input, "thread_id"))
+            .unwrap_or_else(|| "{{runtime.thread_id}}".to_string());
+    let workflow_graph_id = workflow
+        .map(|project| project.metadata.id.clone())
+        .filter(|value| !value.trim().is_empty())
+        .map(Value::String)
+        .unwrap_or(Value::Null);
+    let workflow_node_id = workflow_runtime_control_logic_string(
+        logic,
+        "runtimeCodingToolBudgetRecoveryWorkflowNodeId",
+    )
+    .unwrap_or_else(|| "runtime.coding-tool-budget-recovery".to_string());
+    let actor =
+        workflow_runtime_control_logic_string(logic, "runtimeCodingToolBudgetRecoveryActor")
+            .unwrap_or_else(|| "operator".to_string());
+    let endpoint_template =
+        workflow_runtime_control_logic_string(logic, "runtimeCodingToolBudgetRecoveryEndpoint")
+            .unwrap_or_else(|| "/v1/runs/{runId}/coding-tool-budget-recovery".to_string());
+    let action = workflow_runtime_coding_tool_budget_recovery_action(
+        workflow_runtime_control_input_field_or_logic(
+            logic,
+            input,
+            "runtimeCodingToolBudgetRecoveryActionField",
+            "action",
+            "runtimeCodingToolBudgetRecoveryAction",
+            "request_approval",
+        ),
+    );
+    let approval_id = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeCodingToolBudgetRecoveryApprovalIdField",
+        "approvalId",
+        "runtimeCodingToolBudgetRecoveryApprovalId",
+        &format!("approval_workflow_run_coding_tool_budget_{}", run_id),
+    );
+    let source_event_id = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeCodingToolBudgetRecoverySourceEventIdField",
+        "sourceEventId",
+        "runtimeCodingToolBudgetRecoverySourceEventId",
+        "",
+    );
+    let blocked_event_id = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeCodingToolBudgetRecoveryBlockedEventIdField",
+        "blockedEventId",
+        "runtimeCodingToolBudgetRecoveryBlockedEventId",
+        "",
+    );
+    let approval_request_event_id = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeCodingToolBudgetRecoveryApprovalRequestEventIdField",
+        "approvalRequestEventId",
+        "runtimeCodingToolBudgetRecoveryApprovalRequestEventId",
+        "",
+    );
+    let approval_decision_event_id = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeCodingToolBudgetRecoveryApprovalDecisionEventIdField",
+        "approvalDecisionEventId",
+        "runtimeCodingToolBudgetRecoveryApprovalDecisionEventId",
+        "",
+    );
+    let target_node_ids_field = workflow_runtime_control_logic_string(
+        logic,
+        "runtimeCodingToolBudgetRecoveryTargetNodeIdsField",
+    )
+    .unwrap_or_else(|| "targetNodeIds".to_string());
+    let mut target_node_ids =
+        workflow_runtime_control_input_string_array(input, &target_node_ids_field);
+    if target_node_ids.is_empty() {
+        target_node_ids = workflow_runtime_control_input_string_array(input, "target_node_ids");
+    }
+    if target_node_ids.is_empty() {
+        target_node_ids = workflow_runtime_control_logic_string_array(
+            logic,
+            "runtimeCodingToolBudgetRecoveryTargetNodeIds",
+        );
+    }
+    let recovery_policy =
+        workflow_runtime_coding_tool_budget_recovery_policy(logic, input, &target_node_ids);
+    let reason = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeCodingToolBudgetRecoveryReasonField",
+        "reason",
+        "runtimeCodingToolBudgetRecoveryReason",
+        "coding_tool_budget_preflight_blocked",
+    );
+    let source_event_id_value = if source_event_id.trim().is_empty() {
+        Value::Null
+    } else {
+        json!(source_event_id)
+    };
+    let blocked_event_id_value = if blocked_event_id.trim().is_empty() {
+        Value::Null
+    } else {
+        json!(blocked_event_id)
+    };
+    let approval_request_event_id_value = if approval_request_event_id.trim().is_empty() {
+        Value::Null
+    } else {
+        json!(approval_request_event_id)
+    };
+    let approval_decision_event_id_value = if approval_decision_event_id.trim().is_empty() {
+        Value::Null
+    } else {
+        json!(approval_decision_event_id)
+    };
+    let endpoint = endpoint_template
+        .replace("{runId}", &run_id)
+        .replace("{threadId}", &thread_id)
+        .replace("{approvalId}", &approval_id)
+        .replace(
+            "{sourceEventId}",
+            source_event_id_value.as_str().unwrap_or(""),
+        );
+    let request = json!({
+        "source": "react_flow",
+        "actor": actor,
+        "eventKind": "WorkflowRunCodingToolBudgetRecoveryControl",
+        "event_kind": "WorkflowRunCodingToolBudgetRecoveryControl",
+        "componentKind": "coding_tool_budget_recovery",
+        "component_kind": "coding_tool_budget_recovery",
+        "payloadSchemaVersion": "ioi.workflow.coding-tool-budget-recovery.v1",
+        "payload_schema_version": "ioi.workflow.coding-tool-budget-recovery.v1",
+        "action": action,
+        "recoveryAction": action,
+        "recovery_action": action,
+        "reason": reason,
+        "runId": run_id,
+        "run_id": run_id,
+        "threadId": thread_id,
+        "thread_id": thread_id,
+        "approvalId": approval_id,
+        "approval_id": approval_id,
+        "sourceEventId": source_event_id_value,
+        "source_event_id": source_event_id_value,
+        "blockedEventId": blocked_event_id_value,
+        "blocked_event_id": blocked_event_id_value,
+        "approvalRequestEventId": approval_request_event_id_value,
+        "approval_request_event_id": approval_request_event_id_value,
+        "approvalDecisionEventId": approval_decision_event_id_value,
+        "approval_decision_event_id": approval_decision_event_id_value,
+        "targetNodeIds": target_node_ids,
+        "target_node_ids": target_node_ids,
+        "workflowGraphId": workflow_graph_id,
+        "workflow_graph_id": workflow_graph_id,
+        "workflowNodeId": workflow_node_id,
+        "workflow_node_id": workflow_node_id,
+        "recoveryPolicy": recovery_policy,
+        "recovery_policy": recovery_policy,
+        "receiptRefs": [],
+        "receipt_refs": [],
+        "policyDecisionRefs": [],
+        "policy_decision_refs": []
+    });
+    let runtime_control = json!({
+        "schemaVersion": "ioi.workflow.runtime-coding-tool-budget-recovery-control.v1",
+        "status": "ready",
+        "source": "react_flow",
+        "componentKind": "coding_tool_budget_recovery",
+        "workflowGraphId": request.get("workflowGraphId").cloned().unwrap_or(Value::Null),
+        "workflowNodeId": request.get("workflowNodeId").cloned().unwrap_or(Value::Null),
+        "runId": request.get("runId").cloned().unwrap_or(Value::Null),
+        "threadId": request.get("threadId").cloned().unwrap_or(Value::Null),
+        "action": request.get("action").cloned().unwrap_or(Value::Null),
+        "approvalId": request.get("approvalId").cloned().unwrap_or(Value::Null),
+        "sourceEventId": request.get("sourceEventId").cloned().unwrap_or(Value::Null),
+        "targetNodeIds": request.get("targetNodeIds").cloned().unwrap_or(Value::Null),
+        "recoveryPolicy": request.get("recoveryPolicy").cloned().unwrap_or(Value::Null),
+        "endpoint": endpoint,
+        "request": request,
+        "mutationExecuted": true
+    });
+    json!({
+        "nodeId": node_id,
+        "kind": evidence_kind,
+        "schemaVersion": "ioi.workflow.runtime-coding-tool-budget-recovery-control.v1",
+        "status": "ready",
+        "source": "react_flow",
+        "componentKind": "coding_tool_budget_recovery",
+        "workflowGraphId": runtime_control.get("workflowGraphId").cloned().unwrap_or(Value::Null),
+        "workflowNodeId": runtime_control.get("workflowNodeId").cloned().unwrap_or(Value::Null),
+        "runId": runtime_control.get("runId").cloned().unwrap_or(Value::Null),
+        "threadId": runtime_control.get("threadId").cloned().unwrap_or(Value::Null),
+        "action": runtime_control.get("action").cloned().unwrap_or(Value::Null),
+        "approvalId": runtime_control.get("approvalId").cloned().unwrap_or(Value::Null),
+        "sourceEventId": runtime_control.get("sourceEventId").cloned().unwrap_or(Value::Null),
+        "targetNodeIds": runtime_control.get("targetNodeIds").cloned().unwrap_or(Value::Null),
+        "recoveryPolicy": runtime_control.get("recoveryPolicy").cloned().unwrap_or(Value::Null),
+        "endpoint": runtime_control.get("endpoint").cloned().unwrap_or(Value::Null),
+        "request": runtime_control.get("request").cloned().unwrap_or(Value::Null),
+        "mutationExecuted": true,
+        "runtimeCodingToolBudgetRecovery": runtime_control,
+        "input": input
+    })
+}
+
 pub(super) fn execute_workflow_node(
     workflow_path: &Path,
     workflow: Option<&WorkflowProject>,
@@ -1672,6 +2003,15 @@ pub(super) fn execute_workflow_node(
             &input,
             evidence_kind,
         ),
+        ActionKind::RuntimeCodingToolBudgetRecovery => {
+            workflow_runtime_coding_tool_budget_recovery_output(
+                workflow,
+                &node_id,
+                &logic,
+                &input,
+                evidence_kind,
+            )
+        }
         ActionKind::DryRun => {
             json!({
                 "nodeId": node_id,

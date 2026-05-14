@@ -87,6 +87,7 @@ export function workflowNodeHasDeclaredOutputSchema(node: Node): boolean {
       node.type === "runtime_rollback_snapshot" ||
       node.type === "runtime_restore_gate" ||
       node.type === "runtime_diagnostics_repair" ||
+      node.type === "runtime_coding_tool_budget_recovery" ||
       node.type === "model_call" ||
       node.type === "model_binding" ||
       node.type === "skill_context" ||
@@ -395,6 +396,30 @@ export function workflowNodeDeclaredOutputSchema(node: Node, latestOutput?: unkn
       },
     };
   }
+  if (node.type === "runtime_coding_tool_budget_recovery") {
+    return {
+      type: "object",
+      required: ["schemaVersion", "status", "source", "componentKind", "workflowNodeId", "runId", "action", "request"],
+      properties: {
+        schemaVersion: { type: "string" },
+        status: { type: "string" },
+        source: { type: "string" },
+        componentKind: { type: "string" },
+        workflowGraphId: { type: ["string", "null"] },
+        workflowNodeId: { type: "string" },
+        runId: { type: "string" },
+        threadId: { type: ["string", "null"] },
+        action: { type: "string" },
+        approvalId: { type: "string" },
+        sourceEventId: { type: ["string", "null"] },
+        targetNodeIds: { type: "array", items: { type: "string" } },
+        endpoint: { type: "string" },
+        request: { type: "object" },
+        recoveryPolicy: { type: "object" },
+        runtimeCodingToolBudgetRecovery: { type: "object" },
+      },
+    };
+  }
   if (node.type === "model_call") return { type: "object", properties: { message: { type: "string" } } };
   if (node.type === "model_binding") return { type: "object", properties: { modelRef: { type: "string" } } };
   if (node.type === "skill_context") return WORKFLOW_SKILL_CONTEXT_OUTPUT_SCHEMA;
@@ -581,6 +606,24 @@ export function workflowNodeDeclaredInputSchema(node: Node): unknown {
         message: { type: "string" },
         approvalGranted: { type: "boolean" },
         allowConflicts: { type: "boolean" },
+        workflowGraphId: { type: "string" },
+      },
+    };
+  }
+  if (node.type === "runtime_coding_tool_budget_recovery") {
+    return {
+      type: "object",
+      properties: {
+        runId: { type: "string" },
+        threadId: { type: "string" },
+        action: { type: "string" },
+        approvalId: { type: "string" },
+        sourceEventId: { type: "string" },
+        blockedEventId: { type: "string" },
+        approvalRequestEventId: { type: "string" },
+        approvalDecisionEventId: { type: "string" },
+        targetNodeIds: { type: "array", items: { type: "string" } },
+        recoveryPolicy: { type: "object" },
         workflowGraphId: { type: "string" },
       },
     };

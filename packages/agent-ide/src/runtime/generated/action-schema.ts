@@ -21,6 +21,7 @@ export const AGENT_ACTION_KINDS = [
   "runtime_rollback_snapshot",
   "runtime_restore_gate",
   "runtime_diagnostics_repair",
+  "runtime_coding_tool_budget_recovery",
   "function",
   "model_binding",
   "model_call",
@@ -90,4 +91,5 @@ export const AGENT_ACTION_COMPLETION_VERIFICATION_KINDS = [
   "runtime_rollback_snapshot",
   "runtime_restore_gate",
   "runtime_diagnostics_repair",
+  "runtime_coding_tool_budget_recovery",
 ] as const;

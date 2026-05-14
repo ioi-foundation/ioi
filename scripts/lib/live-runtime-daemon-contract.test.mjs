@@ -4809,7 +4809,6 @@ test("React Flow operator interrupt control preserves graph identity across daem
         prompt: "Prepare a React Flow-originated interrupt control validation.",
       }),
     });
-
     const workflowNode = {
       id: "react-flow-operator-interrupt-control",
       type: "runtime_operator_interrupt",
@@ -11166,6 +11165,189 @@ test("agent TUI coding-tool budget recovery slash commands use workflow recovery
   }
 });
 
+test("React Flow coding-tool budget recovery control node drives daemon recovery route", async () => {
+  const {
+    createRuntimeCodingToolBudgetRecoveryControlRequestFromWorkflowNode,
+    projectRuntimeThreadEventsToWorkflowProjection,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-react-flow-budget-recovery-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-react-flow-budget-recovery-state-"));
+  const workflowGraphId = "workflow.react-flow.coding-budget-recovery-proof";
+  const workflowNodeId = "runtime.coding-tool-budget-recovery";
+  const targetNodeId = "workflow.coding.file.apply_patch";
+  const approvalId = "approval-react-flow-budget-recovery-live";
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        goal: "Recover a coding-tool budget block from a React Flow authored control node.",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "Wait for a React Flow coding-tool budget recovery control proof.",
+      }),
+    });
+    const blockedEvent = daemon.store.appendRuntimeEvent({
+      event_stream_id: thread.event_stream_id,
+      thread_id: thread.thread_id,
+      turn_id: turn.turn_id,
+      item_id: `${turn.turn_id}:item:react-flow-budget-preflight-blocked`,
+      idempotency_key: `${turn.turn_id}:react-flow-budget-preflight-blocked`,
+      source: "daemon_bridge",
+      source_event_kind: "WorkflowRunCodingToolBudgetPreflightBlocked",
+      event_kind: "policy.blocked",
+      status: "blocked",
+      actor: "runtime",
+      workspace_root: cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: targetNodeId,
+      component_kind: "coding_tool",
+      payload_schema_version: "ioi.workflow.coding-tool-budget-preflight.v1",
+      payload: {
+        eventKind: "WorkflowRunCodingToolBudgetPreflightBlocked",
+        reason: "coding_tool_budget_preflight_blocked",
+        runId: turn.request_id,
+        threadId: thread.thread_id,
+        targetNodeIds: [targetNodeId],
+        recoveryPolicy: {
+          schemaVersion: "ioi.workflow.coding-tool-budget-recovery-policy.v1",
+          source: "react_flow_live",
+          approvalScope: "target_nodes",
+          operatorRole: "budget_operator",
+          retryLimit: 1,
+          ttlMs: 300000,
+          requiresApproval: true,
+          allowOverride: true,
+          targetNodeIds: [targetNodeId],
+          sourceNodeIds: [targetNodeId],
+        },
+      },
+      receipt_refs: ["receipt_budget_preflight_react_flow_live"],
+      policy_decision_refs: ["policy_budget_preflight_react_flow_live"],
+      artifact_refs: [],
+      rollback_refs: [],
+    });
+    const workflowNode = {
+      id: "react-flow-budget-recovery-control",
+      type: "runtime_coding_tool_budget_recovery",
+      config: {
+        logic: {
+          runtimeCodingToolBudgetRecoveryEndpoint:
+            "/v1/runs/{runId}/coding-tool-budget-recovery",
+          runtimeCodingToolBudgetRecoveryRunIdField: "runId",
+          runtimeCodingToolBudgetRecoveryThreadIdField: "threadId",
+          runtimeCodingToolBudgetRecoveryActionField: "action",
+          runtimeCodingToolBudgetRecoveryApprovalIdField: "approvalId",
+          runtimeCodingToolBudgetRecoverySourceEventIdField: "sourceEventId",
+          runtimeCodingToolBudgetRecoveryTargetNodeIdsField: "targetNodeIds",
+          runtimeCodingToolBudgetRecoveryPolicyInputField: "recoveryPolicy",
+          runtimeCodingToolBudgetRecoveryWorkflowNodeId: workflowNodeId,
+          runtimeCodingToolBudgetRecoveryActor: "operator",
+        },
+        law: { privilegedActions: ["runtime.coding-tool-budget.recover"] },
+      },
+    };
+    const blockedPayload = blockedEvent.payload_summary ?? blockedEvent.payload ?? {};
+    const baseInput = {
+      runId: turn.request_id,
+      threadId: thread.thread_id,
+      approvalId,
+      sourceEventId: blockedEvent.event_id,
+      targetNodeIds: [targetNodeId],
+      recoveryPolicy: blockedPayload.recoveryPolicy,
+    };
+    const requestApproval =
+      createRuntimeCodingToolBudgetRecoveryControlRequestFromWorkflowNode(
+        workflowNode,
+        { ...baseInput, action: "request_approval" },
+        { workflowGraphId },
+      );
+    assert.equal(requestApproval.nodeType, "runtime_coding_tool_budget_recovery");
+    assert.equal(requestApproval.body.workflowNodeId, workflowNodeId);
+    const approvalResult = await fetchJson(`${daemon.endpoint}${requestApproval.endpoint}`, {
+      method: "POST",
+      body: JSON.stringify(requestApproval.body),
+    });
+    assert.equal(approvalResult.status, "waiting_for_approval");
+
+    const approve = createRuntimeCodingToolBudgetRecoveryControlRequestFromWorkflowNode(
+      workflowNode,
+      { ...baseInput, action: "approve_override" },
+      { workflowGraphId },
+    );
+    const approveResult = await fetchJson(`${daemon.endpoint}${approve.endpoint}`, {
+      method: "POST",
+      body: JSON.stringify(approve.body),
+    });
+    assert.equal(approveResult.status, "approved");
+
+    const retry = createRuntimeCodingToolBudgetRecoveryControlRequestFromWorkflowNode(
+      workflowNode,
+      { ...baseInput, action: "retry_approved" },
+      { workflowGraphId },
+    );
+    const retryResult = await fetchJson(`${daemon.endpoint}${retry.endpoint}`, {
+      method: "POST",
+      body: JSON.stringify(retry.body),
+    });
+    assert.equal(retryResult.status, "completed");
+    assert.equal(retryResult.recoveryPolicy.operatorRole, "budget_operator");
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const retryEvent = daemonEvents.find(
+      (event) =>
+        event.event_kind === "workflow.run.retry_completed" &&
+        event.approval_id === approvalId,
+    );
+    assert.ok(retryEvent);
+    assert.equal(retryEvent.source, "react_flow");
+    assert.equal(retryEvent.workflow_graph_id, workflowGraphId);
+    assert.equal(retryEvent.workflow_node_id, workflowNodeId);
+    const projection = projectRuntimeThreadEventsToWorkflowProjection(
+      daemonEvents.map((event) => ({
+        id: event.event_id,
+        seq: event.seq,
+        type: event.event_kind === "approval.required"
+          ? "approval_required"
+          : event.event_kind === "approval.approved"
+            ? "approval_decision"
+            : event.event_kind === "workflow.run.retry_completed"
+              ? "tool_completed"
+              : event.event_kind === "policy.blocked"
+                ? "policy_blocked"
+                : event.event_kind,
+        eventKind: event.event_kind,
+        sourceEventKind: event.source_event_kind,
+        status: event.status,
+        componentKind: event.component_kind,
+        workflowNodeId: event.workflow_node_id,
+        workflowGraphId: event.workflow_graph_id,
+        threadId: event.thread_id,
+        turnId: event.turn_id,
+        approvalId: event.approval_id,
+        payloadSchemaVersion: event.payload_schema_version,
+        payload: event.payload_summary ?? event.payload ?? {},
+        receiptRefs: event.receipt_refs ?? [],
+        policyDecisionRefs: event.policy_decision_refs ?? [],
+      })),
+    );
+    const node = projection.nodes.find((candidate) =>
+      candidate.eventIds.includes(retryEvent.event_id),
+    );
+    assert.ok(node);
+    assert.equal(node.workflowNodeId, workflowNodeId);
+  } finally {
+    if (daemon) await daemon.close();
+  }
+});
+
 test("React Flow approval request control creates a daemon-owned approval gate", async () => {
   const { Thread, createRuntimeSubstrateClient } = await importSdk();
   const {
@@ -11837,6 +12019,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     path.join(
       root,
       "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
+    ),
+    "utf8",
+  );
+  const workflowRuntimeCodingToolBudgetRecoveryControlNodes = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-control-nodes.ts",
     ),
     "utf8",
   );
@@ -12521,6 +12710,11 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeCodingToolControlNodes, /runtimeTelemetrySummary/);
   assert.match(workflowRuntimeCodingToolControlNodes, /budgetUsageTelemetry/);
   assert.match(workflowRuntimeCodingToolControlNodes, /workflowRuntimeTelemetrySummaryToUsageTelemetry/);
+  assert.match(workflowRuntimeCodingToolBudgetRecoveryControlNodes, /createRuntimeCodingToolBudgetRecoveryControlRequestFromWorkflowNode/);
+  assert.match(workflowRuntimeCodingToolBudgetRecoveryControlNodes, /runtime_coding_tool_budget_recovery/);
+  assert.match(workflowRuntimeCodingToolBudgetRecoveryControlNodes, /\/v1\/runs\/\{runId\}\/coding-tool-budget-recovery/);
+  assert.match(workflowRuntimeCodingToolBudgetRecoveryControlNodes, /WorkflowRunCodingToolBudgetRecoveryControl/);
+  assert.match(workflowRuntimeCodingToolBudgetRecoveryControlNodes, /normalizeWorkflowCodingToolBudgetRecoveryPolicy/);
   assert.match(workflowRuntimeTelemetrySummary, /tui_coding_tool_rows/);
   assert.match(workflowRuntimeTelemetrySummary, /codingToolBudgetRowCount/);
   assert.match(workflowRuntimeTelemetrySummary, /usageSnapshotFromCodingToolBudgetRow/);
@@ -12571,18 +12765,28 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(nodeRegistry, /creatorId: "usage\.meter"/);
   assert.match(nodeRegistry, /creatorId: "context\.budget"/);
   assert.match(nodeRegistry, /creatorId: "compaction\.policy"/);
+  assert.match(nodeRegistry, /creatorId: "coding_budget\.recovery"/);
   assert.match(nodeRegistry, /RuntimeUsageMeterNode/);
   assert.match(nodeRegistry, /RuntimeContextBudgetNode/);
   assert.match(nodeRegistry, /RuntimeCompactionPolicyNode/);
+  assert.match(nodeRegistry, /RuntimeCodingToolBudgetRecoveryNode/);
   assert.match(nodeRegistry, /runtimeUsageMeterSimulationMode/);
   assert.match(nodeRegistry, /runtimeContextBudgetMaxContextPressure/);
   assert.match(nodeRegistry, /runtimeCompactionPolicyBlockedAction/);
   assert.match(graphTypes, /runtime_usage_meter/);
   assert.match(graphTypes, /runtime_context_budget/);
   assert.match(graphTypes, /runtime_compaction_policy/);
+  assert.match(graphTypes, /runtime_coding_tool_budget_recovery/);
+  assert.match(graphTypes, /runtimeCodingToolBudgetRecoveryAction/);
   assert.match(workflowRuntimeUiStrings, /runtime_usage_meter/);
   assert.match(workflowRuntimeUiStrings, /runtime_context_budget/);
   assert.match(workflowRuntimeUiStrings, /runtime_compaction_policy/);
+  assert.match(workflowRuntimeUiStrings, /runtime_coding_tool_budget_recovery/);
+  assert.match(generatedActionSchema, /runtime_coding_tool_budget_recovery/);
+  assert.match(generatedRustActionSchema, /runtime_coding_tool_budget_recovery/);
+  assert.match(runtimeActionSchema, /runtime_coding_tool_budget_recovery/);
+  assert.match(tauriRuntimeProjection, /RuntimeCodingToolBudgetRecovery/);
+  assert.match(tauriProjectTemplates, /workflow\.runtime\.coding_tool_budget_recovery/);
   assert.match(runtimeDaemon, /subagentBudgetStatusForRun/);
   assert.match(runtimeDaemon, /subagentBudgetUsageTelemetryForRequest/);
   assert.match(runtimeDaemon, /Subagent budget limit exceeded/);
@@ -13687,6 +13891,9 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(graphTypes, /runtimeDiagnosticsRepairEndpoint\?: string/);
   assert.match(graphTypes, /runtimeDiagnosticsRepairDecisionIdField\?: string/);
   assert.match(graphTypes, /consumesRuntimeDiagnosticsRepair\?: boolean/);
+  assert.match(graphTypes, /runtimeCodingToolBudgetRecoveryEndpoint\?: string/);
+  assert.match(graphTypes, /runtimeCodingToolBudgetRecoveryRunIdField\?: string/);
+  assert.match(graphTypes, /consumesRuntimeCodingToolBudgetRecovery\?: boolean/);
   assert.match(graphTypes, /consumesWorkflowPackageExport\?: boolean/);
   assert.match(graphTypes, /consumesWorkflowPackageImportReview\?: boolean/);
   assert.match(graphTypes, /\| "workflow_package_export"/);
@@ -13741,8 +13948,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(tauriProjectWorkflowNodeExecutionLane, /ActionKind::RuntimeWorkspaceTrustGate/);
   assert.match(tauriProjectWorkflowNodeExecutionLane, /ActionKind::RuntimeRollbackSnapshot/);
   assert.match(tauriProjectWorkflowNodeExecutionLane, /ActionKind::RuntimeRestoreGate/);
+  assert.match(tauriProjectWorkflowNodeExecutionLane, /ActionKind::RuntimeCodingToolBudgetRecovery/);
   assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_runtime_rollback_snapshot_output/);
   assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_runtime_restore_gate_output/);
+  assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_runtime_coding_tool_budget_recovery_output/);
   assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_runtime_thread_mode_output/);
   assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_runtime_workspace_trust_gate_output/);
   assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_package_lane/);
@@ -13772,6 +13981,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(tauriProjectTemplates, /workflow_runtime_context_compact_output_schema/);
   assert.match(tauriProjectTemplates, /workflow_runtime_rollback_snapshot_output_schema/);
   assert.match(tauriProjectTemplates, /workflow_runtime_restore_gate_output_schema/);
+  assert.match(tauriProjectTemplates, /workflow_runtime_coding_tool_budget_recovery_output_schema/);
   assert.match(tauriProjectTemplates, /workflow_github_pr_create_output_schema/);
   assert.match(tauriRuntimeProjection, /WorkflowPackageExport/);
   assert.match(tauriRuntimeProjection, /WorkflowPackageImport/);
@@ -13783,6 +13993,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(tauriRuntimeProjection, /RuntimeContextCompact/);
   assert.match(tauriRuntimeProjection, /RuntimeRollbackSnapshot/);
   assert.match(tauriRuntimeProjection, /RuntimeRestoreGate/);
+  assert.match(tauriRuntimeProjection, /RuntimeCodingToolBudgetRecovery/);
   assert.match(tauriRuntimeProjection, /GithubPrCreate/);
   assert.match(tauriRuntimeProjection, /output_bundle/);
   assert.match(workflowContracts, /repository\.context/);
@@ -13845,6 +14056,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(nodeRegistry, /RuntimeDiagnosticsRepairNode/);
   assert.match(nodeRegistry, /runtimeDiagnosticsRepairDecisionIdField/);
   assert.match(nodeRegistry, /\/v1\/threads\/\{threadId\}\/diagnostics\/repair-decisions\/\{decisionId\}\/execute/);
+  assert.match(nodeRegistry, /runtime_coding_tool_budget_recovery/);
+  assert.match(nodeRegistry, /RuntimeCodingToolBudgetRecoveryNode/);
+  assert.match(nodeRegistry, /runtimeCodingToolBudgetRecoveryRunIdField/);
+  assert.match(nodeRegistry, /\/v1\/runs\/\{runId\}\/coding-tool-budget-recovery/);
   assert.match(nodeRegistry, /runtime_thread_mode/);
   assert.match(nodeRegistry, /RuntimeThreadModeNode/);
   assert.match(nodeRegistry, /runtimeThreadModeWorkspaceTrustWorkflowNodeId/);
@@ -13865,6 +14080,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeControlNodes, /RUNTIME_DIAGNOSTICS_REPAIR_SOURCE_EVENT_KIND/);
   assert.match(workflowRuntimeControlNodes, /operatorOverrideApproved/);
   assert.match(workflowRuntimeControlNodes, /allowConflicts/);
+  assert.match(workflowRuntimeCodingToolBudgetRecoveryControlNodes, /createRuntimeCodingToolBudgetRecoveryControlRequestFromWorkflowNode/);
+  assert.match(workflowRuntimeCodingToolBudgetRecoveryControlNodes, /RUNTIME_CODING_TOOL_BUDGET_RECOVERY_SOURCE_EVENT_KIND/);
   assert.match(nodeRegistry, /workflow_package_export/);
   assert.match(nodeRegistry, /WorkflowPackageExportNode/);
   assert.match(nodeRegistry, /workflow\.package\.export/);
@@ -14158,6 +14375,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_rollback_snapshot\.label/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_restore_gate\.label/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_diagnostics_repair\.label/);
+  assert.match(workflowRuntimeUiStrings, /runtime\.node\.runtime_coding_tool_budget_recovery\.label/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.workflow_package_export\.label/);
   assert.match(workflowRuntimeUiStrings, /runtime\.node\.workflow_package_import\.status/);
   assert.match(workflowRuntimeUiStrings, /runtime\.status\.blocked/);
@@ -14182,6 +14400,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(runtimeProjectionAdapter, /return "runtime_restore_gate"/);
   assert.match(runtimeProjectionAdapter, /case "runtime_diagnostics_repair"/);
   assert.match(runtimeProjectionAdapter, /return "runtime_diagnostics_repair"/);
+  assert.match(runtimeProjectionAdapter, /case "runtime_coding_tool_budget_recovery"/);
+  assert.match(runtimeProjectionAdapter, /return "runtime_coding_tool_budget_recovery"/);
   assert.match(runtimeProjectionAdapter, /case "workflow_package_import"/);
   assert.match(runtimeProjectionAdapter, /return "workflow_package_import"/);
   assert.match(runtimeActionSchema, /"skill_context"/);
@@ -14192,6 +14412,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(runtimeActionSchema, /"runtime_rollback_snapshot"/);
   assert.match(runtimeActionSchema, /"runtime_restore_gate"/);
   assert.match(runtimeActionSchema, /"runtime_diagnostics_repair"/);
+  assert.match(runtimeActionSchema, /"runtime_coding_tool_budget_recovery"/);
   assert.match(generatedActionSchema, /"skill_context"/);
   assert.match(generatedActionSchema, /"workflow_package_export"/);
   assert.match(generatedActionSchema, /"workflow_package_import"/);
@@ -14200,6 +14421,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(generatedActionSchema, /"runtime_rollback_snapshot"/);
   assert.match(generatedActionSchema, /"runtime_restore_gate"/);
   assert.match(generatedActionSchema, /"runtime_diagnostics_repair"/);
+  assert.match(generatedActionSchema, /"runtime_coding_tool_budget_recovery"/);
   assert.match(generatedRustActionSchema, /"skill_context"/);
   assert.match(generatedRustActionSchema, /"workflow_package_export"/);
   assert.match(generatedRustActionSchema, /"workflow_package_import"/);
@@ -14208,6 +14430,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(generatedRustActionSchema, /"runtime_rollback_snapshot"/);
   assert.match(generatedRustActionSchema, /"runtime_restore_gate"/);
   assert.match(generatedRustActionSchema, /"runtime_diagnostics_repair"/);
+  assert.match(generatedRustActionSchema, /"runtime_coding_tool_budget_recovery"/);
 });
 
 test("local daemon hosted and self-hosted modes fail closed without provider endpoints", async () => {

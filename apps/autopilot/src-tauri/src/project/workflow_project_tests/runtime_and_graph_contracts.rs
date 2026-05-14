@@ -1151,6 +1151,184 @@ fn runtime_context_compact_node_builds_react_flow_control_request() {
 }
 
 #[test]
+fn runtime_coding_tool_budget_recovery_node_builds_react_flow_control_request() {
+    let root = temp_root("runtime-coding-budget-recovery");
+    let bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "Runtime Coding Budget Recovery".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "local".to_string(),
+        template_id: None,
+    })
+    .expect("workflow bundle should create");
+
+    let mut recovery = workflow_node(
+        "budget-recovery-control",
+        "runtime_coding_tool_budget_recovery",
+        "Budget recovery control",
+        120,
+        180,
+        "Recovery",
+        "budget",
+    );
+    logic_mut(&mut recovery).insert(
+        "runtimeCodingToolBudgetRecoveryEndpoint".to_string(),
+        json!("/v1/runs/{runId}/coding-tool-budget-recovery"),
+    );
+    logic_mut(&mut recovery).insert(
+        "runtimeCodingToolBudgetRecoveryRunIdField".to_string(),
+        json!("runId"),
+    );
+    logic_mut(&mut recovery).insert(
+        "runtimeCodingToolBudgetRecoveryThreadIdField".to_string(),
+        json!("threadId"),
+    );
+    logic_mut(&mut recovery).insert(
+        "runtimeCodingToolBudgetRecoveryActionField".to_string(),
+        json!("action"),
+    );
+    logic_mut(&mut recovery).insert(
+        "runtimeCodingToolBudgetRecoveryApprovalIdField".to_string(),
+        json!("approvalId"),
+    );
+    logic_mut(&mut recovery).insert(
+        "runtimeCodingToolBudgetRecoverySourceEventIdField".to_string(),
+        json!("sourceEventId"),
+    );
+    logic_mut(&mut recovery).insert(
+        "runtimeCodingToolBudgetRecoveryTargetNodeIdsField".to_string(),
+        json!("targetNodeIds"),
+    );
+    logic_mut(&mut recovery).insert(
+        "runtimeCodingToolBudgetRecoveryPolicyField".to_string(),
+        json!("recoveryPolicy"),
+    );
+    logic_mut(&mut recovery).insert(
+        "runtimeCodingToolBudgetRecoveryWorkflowNodeId".to_string(),
+        json!("runtime.coding-tool-budget-recovery"),
+    );
+    logic_mut(&mut recovery).insert(
+        "runtimeCodingToolBudgetRecoveryActor".to_string(),
+        json!("operator"),
+    );
+    logic_mut(&mut recovery).insert(
+        "outputSchema".to_string(),
+        workflow_runtime_coding_tool_budget_recovery_output_schema(),
+    );
+
+    let mut workflow = bundle.workflow.clone();
+    let workflow_graph_id = workflow.metadata.id.clone();
+    workflow.nodes = vec![recovery];
+    save_workflow_project(bundle.workflow_path.clone(), workflow).expect("workflow should save");
+
+    let validation =
+        validate_workflow_bundle(bundle.workflow_path.clone()).expect("validation should run");
+    assert_eq!(validation.status, "passed");
+
+    let run = run_workflow_node(
+        bundle.workflow_path,
+        "budget-recovery-control".to_string(),
+        Some(json!({
+            "runId": "run_react_flow",
+            "threadId": "thread_react_flow",
+            "action": "retry-approved",
+            "approvalId": "approval-budget-recovery",
+            "sourceEventId": "event-budget-blocked",
+            "targetNodeIds": ["node-write"],
+            "recoveryPolicy": {
+                "schemaVersion": "ioi.workflow.coding-tool-budget-recovery-policy.v1",
+                "source": "react_flow_test",
+                "approvalScope": "target_nodes",
+                "operatorRole": "budget_operator",
+                "retryLimit": 2,
+                "ttlMs": 300000,
+                "requiresApproval": true,
+                "allowOverride": true,
+                "targetNodeIds": ["node-write"],
+                "sourceNodeIds": ["node-write"]
+            }
+        })),
+        None,
+    )
+    .expect("runtime coding-tool budget recovery node should run");
+    assert_eq!(run.summary.status, "passed");
+    let node_run = run
+        .node_runs
+        .iter()
+        .find(|node_run| node_run.node_id == "budget-recovery-control")
+        .expect("recovery node should run");
+    let output = node_run
+        .output
+        .as_ref()
+        .expect("recovery output should exist");
+    assert_eq!(
+        output.get("kind").and_then(Value::as_str),
+        Some("runtime_coding_tool_budget_recovery")
+    );
+    assert_eq!(
+        output.get("source").and_then(Value::as_str),
+        Some("react_flow")
+    );
+    assert_eq!(
+        output.get("componentKind").and_then(Value::as_str),
+        Some("coding_tool_budget_recovery")
+    );
+    assert_eq!(
+        output.get("workflowGraphId").and_then(Value::as_str),
+        Some(workflow_graph_id.as_str())
+    );
+    assert_eq!(
+        output.get("workflowNodeId").and_then(Value::as_str),
+        Some("runtime.coding-tool-budget-recovery")
+    );
+    assert_eq!(
+        output.get("runId").and_then(Value::as_str),
+        Some("run_react_flow")
+    );
+    assert_eq!(
+        output.get("threadId").and_then(Value::as_str),
+        Some("thread_react_flow")
+    );
+    assert_eq!(
+        output.get("action").and_then(Value::as_str),
+        Some("retry_approved")
+    );
+    assert_eq!(
+        output.get("endpoint").and_then(Value::as_str),
+        Some("/v1/runs/run_react_flow/coding-tool-budget-recovery")
+    );
+    let request = output
+        .get("request")
+        .expect("budget recovery request should exist");
+    assert_eq!(
+        request.get("eventKind").and_then(Value::as_str),
+        Some("WorkflowRunCodingToolBudgetRecoveryControl")
+    );
+    assert_eq!(
+        request.get("recoveryAction").and_then(Value::as_str),
+        Some("retry_approved")
+    );
+    assert_eq!(
+        request.get("approvalId").and_then(Value::as_str),
+        Some("approval-budget-recovery")
+    );
+    assert_eq!(
+        request
+            .get("recoveryPolicy")
+            .and_then(|policy| policy.get("operatorRole"))
+            .and_then(Value::as_str),
+        Some("budget_operator")
+    );
+    assert_eq!(
+        request
+            .get("recoveryPolicy")
+            .and_then(|policy| policy.get("retryLimit"))
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+}
+
+#[test]
 fn github_pr_create_dry_run_node_executes_through_runtime() {
     let root = temp_root("github-pr-create-runtime");
     let bundle = create_workflow_project(CreateWorkflowProjectRequest {

@@ -604,6 +604,11 @@ pub(super) fn canonical_workflow_node_types() -> Vec<(&'static str, &'static str
         ("runtime_approval_request", "Runtime", "Approval Request"),
         ("runtime_rollback_snapshot", "Runtime", "Rollback Snapshot"),
         ("runtime_restore_gate", "Runtime", "Restore Gate"),
+        (
+            "runtime_coding_tool_budget_recovery",
+            "Runtime",
+            "Coding Tool Budget Recovery",
+        ),
         ("repository_context", "Context", "Repository Context"),
         ("branch_policy", "Policy", "Branch Policy"),
         ("github_context", "Context", "GitHub Context"),
@@ -948,6 +953,40 @@ pub(super) fn workflow_runtime_restore_gate_output_schema() -> Value {
             "endpoint": { "type": "string" },
             "request": { "type": "object" },
             "runtimeRestoreGate": { "type": "object" }
+        }
+    })
+}
+
+pub(super) fn workflow_runtime_coding_tool_budget_recovery_output_schema() -> Value {
+    json!({
+        "type": "object",
+        "required": [
+            "schemaVersion",
+            "status",
+            "source",
+            "componentKind",
+            "workflowNodeId",
+            "runId",
+            "action",
+            "request"
+        ],
+        "properties": {
+            "schemaVersion": { "type": "string" },
+            "status": { "type": "string" },
+            "source": { "type": "string" },
+            "componentKind": { "type": "string" },
+            "workflowGraphId": { "type": ["string", "null"] },
+            "workflowNodeId": { "type": "string" },
+            "runId": { "type": "string" },
+            "threadId": { "type": ["string", "null"] },
+            "action": { "type": "string" },
+            "approvalId": { "type": "string" },
+            "sourceEventId": { "type": ["string", "null"] },
+            "targetNodeIds": { "type": "array", "items": { "type": "string" } },
+            "recoveryPolicy": { "type": "object" },
+            "endpoint": { "type": "string" },
+            "request": { "type": "object" },
+            "runtimeCodingToolBudgetRecovery": { "type": "object" }
         }
     })
 }
@@ -1608,6 +1647,51 @@ pub(super) fn workflow_scaffold_definitions() -> Vec<Value> {
                 "connectionClasses": ["state", "data", "control", "approval"]
             })),
         ),
+        workflow_scaffold(
+            "workflow.runtime.coding_tool_budget_recovery",
+            "runtime_coding_tool_budget_recovery",
+            "Runtime",
+            "Coding tool budget recovery",
+            "Request, approve, reject, or retry a daemon-owned coding-tool budget recovery from a React Flow workflow control.",
+            "Recovery",
+            "budget",
+            json!({
+                "runtimeCodingToolBudgetRecoveryEndpoint": "/v1/runs/{runId}/coding-tool-budget-recovery",
+                "runtimeCodingToolBudgetRecoveryField": "runtimeCodingToolBudgetRecovery",
+                "runtimeCodingToolBudgetRecoveryEventField": "runtimeCodingToolBudgetRecovery.event",
+                "runtimeCodingToolBudgetRecoveryStatusField": "runtimeCodingToolBudgetRecovery.status",
+                "runtimeCodingToolBudgetRecoveryReceiptField": "runtimeCodingToolBudgetRecovery.receiptRefs",
+                "runtimeCodingToolBudgetRecoveryPolicyField": "runtimeCodingToolBudgetRecovery.recoveryPolicy",
+                "runtimeCodingToolBudgetRecoveryPolicyInputField": "recoveryPolicy",
+                "runtimeCodingToolBudgetRecoveryRunIdField": "runId",
+                "runtimeCodingToolBudgetRecoveryThreadIdField": "threadId",
+                "runtimeCodingToolBudgetRecoveryAction": "request_approval",
+                "runtimeCodingToolBudgetRecoveryActionField": "action",
+                "runtimeCodingToolBudgetRecoveryApprovalIdField": "approvalId",
+                "runtimeCodingToolBudgetRecoverySourceEventIdField": "sourceEventId",
+                "runtimeCodingToolBudgetRecoveryBlockedEventIdField": "blockedEventId",
+                "runtimeCodingToolBudgetRecoveryApprovalRequestEventIdField": "approvalRequestEventId",
+                "runtimeCodingToolBudgetRecoveryApprovalDecisionEventIdField": "approvalDecisionEventId",
+                "runtimeCodingToolBudgetRecoveryTargetNodeIdsField": "targetNodeIds",
+                "runtimeCodingToolBudgetRecoveryReason": "coding_tool_budget_preflight_blocked",
+                "runtimeCodingToolBudgetRecoveryReasonField": "reason",
+                "runtimeCodingToolBudgetRecoveryWorkflowNodeId": "runtime.coding-tool-budget-recovery",
+                "runtimeCodingToolBudgetRecoverySource": "react_flow",
+                "runtimeCodingToolBudgetRecoveryActor": "operator",
+                "dryRun": false,
+                "mutationExecuted": true,
+                "redactionProfile": "runtime_coding_tool_budget_recovery_safe",
+                "outputSchema": workflow_runtime_coding_tool_budget_recovery_output_schema()
+            }),
+            json!({ "privilegedActions": ["runtime.coding-tool-budget.recover"] }),
+            Some(json!({
+                "sideEffectClass": "write",
+                "requiresApproval": true,
+                "supportsDryRun": true,
+                "schemaRequired": true,
+                "connectionClasses": ["state", "data", "control", "approval"]
+            })),
+        ),
     ];
     for (node_type, group, label) in canonical_workflow_node_types() {
         if matches!(
@@ -1626,6 +1710,7 @@ pub(super) fn workflow_scaffold_definitions() -> Vec<Value> {
                 | "runtime_approval_request"
                 | "runtime_rollback_snapshot"
                 | "runtime_restore_gate"
+                | "runtime_coding_tool_budget_recovery"
                 | "workflow_package_export"
                 | "workflow_package_import"
                 | "output"
@@ -1671,6 +1756,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
         | "runtime_context_compact"
         | "runtime_approval_request"
         | "runtime_restore_gate"
+        | "runtime_coding_tool_budget_recovery"
         | "workflow_package_export"
         | "workflow_package_import" => "write",
         _ => "none",
@@ -1685,6 +1771,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
             | "runtime_workspace_trust_gate"
             | "runtime_approval_request"
             | "runtime_restore_gate"
+            | "runtime_coding_tool_budget_recovery"
     );
     let sandboxed = node_type == "function";
     let supports_dry_run = matches!(
@@ -1704,6 +1791,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
             | "runtime_approval_request"
             | "runtime_rollback_snapshot"
             | "runtime_restore_gate"
+            | "runtime_coding_tool_budget_recovery"
             | "workflow_package_export"
             | "workflow_package_import"
     );
@@ -1735,6 +1823,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
             | "runtime_approval_request"
             | "runtime_rollback_snapshot"
             | "runtime_restore_gate"
+            | "runtime_coding_tool_budget_recovery"
             | "workflow_package_export"
             | "workflow_package_import"
             | "subgraph"
@@ -1761,6 +1850,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
         "runtime_approval_request" => vec!["state", "data", "control", "approval"],
         "runtime_rollback_snapshot" => vec!["state", "data", "control"],
         "runtime_restore_gate" => vec!["state", "data", "control", "approval"],
+        "runtime_coding_tool_budget_recovery" => vec!["state", "data", "control", "approval"],
         "workflow_package_export" => vec!["data", "output_bundle"],
         "workflow_package_import" => vec!["data", "output_bundle", "approval"],
         "parser" => vec!["data", "parser"],

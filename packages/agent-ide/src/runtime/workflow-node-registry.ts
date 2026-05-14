@@ -2253,6 +2253,189 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
     defaultLaw: { privilegedActions: ["runtime.diagnostics.repair"] },
   },
   {
+    type: "runtime_coding_tool_budget_recovery",
+    label: "Coding Tool Budget Recovery",
+    group: "Flow",
+    family: "flow_control",
+    token: "BR",
+    familyLabel: "Runtime",
+    metricLabel: "Budget",
+    metricValue: "recovery",
+    ioTypes: { in: "state", out: "state" },
+    inputs: ["blocked_run"],
+    outputs: ["recovery", "event", "status"],
+    portDefinitions: [
+      port("blocked_run", "Blocked run state", "input", "state", "state", false, "state"),
+      port("recovery", "Recovery request", "output", "state", "output", false, "state"),
+      port("event", "Recovery event", "output", "state", "output", false, "state"),
+      port("status", "Recovery status", "output", "state", "output", false, "state"),
+    ],
+    ports: [
+      port("blocked_run", "Blocked run state", "input", "state", "state", false, "state"),
+      port("recovery", "Recovery request", "output", "state", "output", false, "state"),
+      port("event", "Recovery event", "output", "state", "output", false, "state"),
+      port("status", "Recovery status", "output", "state", "output", false, "state"),
+    ],
+    configSchema: {
+      type: "object",
+      required: [
+        "runtimeCodingToolBudgetRecoveryEndpoint",
+        "runtimeCodingToolBudgetRecoveryRunIdField",
+        "runtimeCodingToolBudgetRecoveryWorkflowNodeId",
+      ],
+      properties: {
+        runtimeCodingToolBudgetRecoveryEndpoint: { type: "string" },
+        runtimeCodingToolBudgetRecoveryField: { type: "string" },
+        runtimeCodingToolBudgetRecoveryEventField: { type: "string" },
+        runtimeCodingToolBudgetRecoveryStatusField: { type: "string" },
+        runtimeCodingToolBudgetRecoveryReceiptField: { type: "string" },
+        runtimeCodingToolBudgetRecoveryPolicyField: { type: "string" },
+        runtimeCodingToolBudgetRecoveryRunId: { type: "string" },
+        runtimeCodingToolBudgetRecoveryRunIdField: { type: "string" },
+        runtimeCodingToolBudgetRecoveryThreadId: { type: "string" },
+        runtimeCodingToolBudgetRecoveryThreadIdField: { type: "string" },
+        runtimeCodingToolBudgetRecoveryAction: {
+          type: "string",
+          enum: [
+            "request_approval",
+            "approve_override",
+            "reject_override",
+            "retry_approved",
+          ],
+        },
+        runtimeCodingToolBudgetRecoveryActionField: { type: "string" },
+        runtimeCodingToolBudgetRecoveryApprovalId: { type: "string" },
+        runtimeCodingToolBudgetRecoveryApprovalIdField: { type: "string" },
+        runtimeCodingToolBudgetRecoverySourceEventId: { type: "string" },
+        runtimeCodingToolBudgetRecoverySourceEventIdField: { type: "string" },
+        runtimeCodingToolBudgetRecoveryBlockedEventId: { type: "string" },
+        runtimeCodingToolBudgetRecoveryBlockedEventIdField: { type: "string" },
+        runtimeCodingToolBudgetRecoveryApprovalRequestEventId: { type: "string" },
+        runtimeCodingToolBudgetRecoveryApprovalRequestEventIdField: { type: "string" },
+        runtimeCodingToolBudgetRecoveryApprovalDecisionEventId: { type: "string" },
+        runtimeCodingToolBudgetRecoveryApprovalDecisionEventIdField: { type: "string" },
+        runtimeCodingToolBudgetRecoveryTargetNodeIds: {
+          type: "array",
+          items: { type: "string" },
+        },
+        runtimeCodingToolBudgetRecoveryTargetNodeIdsField: { type: "string" },
+        runtimeCodingToolBudgetRecoveryPolicy: { type: "object" },
+        runtimeCodingToolBudgetRecoveryPolicyInputField: { type: "string" },
+        runtimeCodingToolBudgetRecoveryReason: { type: "string" },
+        runtimeCodingToolBudgetRecoveryReasonField: { type: "string" },
+        runtimeCodingToolBudgetRecoveryReceiptRefsField: { type: "string" },
+        runtimeCodingToolBudgetRecoveryPolicyDecisionRefsField: { type: "string" },
+        runtimeCodingToolBudgetRecoveryWorkflowNodeId: { type: "string" },
+        runtimeCodingToolBudgetRecoverySource: { type: "string" },
+        runtimeCodingToolBudgetRecoveryActor: { type: "string" },
+        redactionProfile: { type: "string" },
+        ...RUNTIME_CHROME_CONFIG_SCHEMA_PROPERTIES,
+      },
+    },
+    localization: runtimeNodeLocalization("runtime_coding_tool_budget_recovery"),
+    accessibility: runtimeNodeAccessibility(
+      "runtime_coding_tool_budget_recovery",
+      "runtimeCodingToolBudgetRecovery.status",
+    ),
+    policyProfile: policyProfile("write", true),
+    evidenceProfile: evidenceProfile(
+      ["execution", "approval", "verification"],
+      ["execution", "approval", "schema_validation"],
+    ),
+    executor: {
+      nodeType: "runtime_coding_tool_budget_recovery",
+      executorId: "workflow.runtime_coding_tool_budget_recovery",
+      sandboxed: false,
+      supportsDryRun: true,
+    },
+    defaultLogic: {
+      ...runtimeNodeChromeLogic(
+        "runtime_coding_tool_budget_recovery",
+        "runtimeCodingToolBudgetRecovery.status",
+      ),
+      runtimeCodingToolBudgetRecoveryEndpoint:
+        "/v1/runs/{runId}/coding-tool-budget-recovery",
+      runtimeCodingToolBudgetRecoveryField: "runtimeCodingToolBudgetRecovery",
+      runtimeCodingToolBudgetRecoveryEventField:
+        "runtimeCodingToolBudgetRecovery.event",
+      runtimeCodingToolBudgetRecoveryStatusField:
+        "runtimeCodingToolBudgetRecovery.status",
+      runtimeCodingToolBudgetRecoveryReceiptField:
+        "runtimeCodingToolBudgetRecovery.receiptRefs",
+      runtimeCodingToolBudgetRecoveryPolicyField:
+        "runtimeCodingToolBudgetRecovery.recoveryPolicy",
+      runtimeCodingToolBudgetRecoveryPolicyInputField: "recoveryPolicy",
+      runtimeCodingToolBudgetRecoveryRunIdField: "runId",
+      runtimeCodingToolBudgetRecoveryThreadIdField: "threadId",
+      runtimeCodingToolBudgetRecoveryAction: "request_approval",
+      runtimeCodingToolBudgetRecoveryActionField: "action",
+      runtimeCodingToolBudgetRecoveryApprovalIdField: "approvalId",
+      runtimeCodingToolBudgetRecoverySourceEventIdField: "sourceEventId",
+      runtimeCodingToolBudgetRecoveryBlockedEventIdField: "blockedEventId",
+      runtimeCodingToolBudgetRecoveryApprovalRequestEventIdField:
+        "approvalRequestEventId",
+      runtimeCodingToolBudgetRecoveryApprovalDecisionEventIdField:
+        "approvalDecisionEventId",
+      runtimeCodingToolBudgetRecoveryTargetNodeIdsField: "targetNodeIds",
+      runtimeCodingToolBudgetRecoveryReason:
+        "coding_tool_budget_preflight_blocked",
+      runtimeCodingToolBudgetRecoveryReasonField: "reason",
+      runtimeCodingToolBudgetRecoveryReceiptRefsField: "receiptRefs",
+      runtimeCodingToolBudgetRecoveryPolicyDecisionRefsField:
+        "policyDecisionRefs",
+      runtimeCodingToolBudgetRecoveryPolicy: {
+        schemaVersion: "ioi.workflow.coding-tool-budget-recovery-policy.v1",
+        source: "react_flow",
+        approvalScope: "target_nodes",
+        operatorRole: "budget_operator",
+        retryLimit: 1,
+        ttlMs: 900000,
+        requiresApproval: true,
+        allowOverride: true,
+        targetNodeIds: [],
+        sourceNodeIds: [],
+      },
+      runtimeCodingToolBudgetRecoveryWorkflowNodeId:
+        "runtime.coding-tool-budget-recovery",
+      runtimeCodingToolBudgetRecoverySource: "react_flow",
+      runtimeCodingToolBudgetRecoveryActor: "operator",
+      readOnly: false,
+      dryRun: false,
+      mutationExecuted: true,
+      redactionProfile: "runtime_coding_tool_budget_recovery_safe",
+      outputSchema: {
+        type: "object",
+        required: ["schemaVersion", "status", "source", "componentKind", "workflowNodeId", "runId", "action", "request"],
+        properties: {
+          runtimeCodingToolBudgetRecovery: { type: "object" },
+          status: { type: "string" },
+          source: { type: "string" },
+          componentKind: { type: "string" },
+          workflowGraphId: { type: ["string", "null"] },
+          workflowNodeId: { type: "string" },
+          runId: { type: "string" },
+          threadId: { type: ["string", "null"] },
+          action: { type: "string" },
+          approvalId: { type: "string" },
+          sourceEventId: { type: ["string", "null"] },
+          targetNodeIds: { type: "array", items: { type: "string" } },
+          recoveryPolicy: { type: "object" },
+          request: { type: "object" },
+        },
+      },
+      activationGate: {
+        consumesRuntimeCodingToolBudgetRecovery: true,
+        runtimeCodingToolBudgetRecoveryField: "runtimeCodingToolBudgetRecovery",
+        runtimeCodingToolBudgetRecoveryStatusField:
+          "runtimeCodingToolBudgetRecovery.status",
+      },
+      nodeTypeLabel: "RuntimeCodingToolBudgetRecoveryNode",
+    },
+    defaultLaw: {
+      privilegedActions: ["runtime.coding-tool-budget.recover"],
+    },
+  },
+  {
     type: "workflow_package_export",
     label: "Workflow Package Export",
     group: "Tools",
@@ -5207,6 +5390,28 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
       runtimeCompactionPolicyActor: "operator",
     },
   });
+  const codingBudgetRecovery = creatorDefinition("runtime_coding_tool_budget_recovery", {
+    creatorId: "coding_budget.recovery",
+    label: "Coding budget recovery",
+    description:
+      "Request, approve, reject, or retry a daemon-owned coding-tool budget recovery flow.",
+    metricValue: "recovery",
+    defaultLogic: {
+      runtimeCodingToolBudgetRecoveryEndpoint:
+        "/v1/runs/{runId}/coding-tool-budget-recovery",
+      runtimeCodingToolBudgetRecoveryRunIdField: "runId",
+      runtimeCodingToolBudgetRecoveryThreadIdField: "threadId",
+      runtimeCodingToolBudgetRecoveryAction: "request_approval",
+      runtimeCodingToolBudgetRecoveryActionField: "action",
+      runtimeCodingToolBudgetRecoveryApprovalIdField: "approvalId",
+      runtimeCodingToolBudgetRecoverySourceEventIdField: "sourceEventId",
+      runtimeCodingToolBudgetRecoveryTargetNodeIdsField: "targetNodeIds",
+      runtimeCodingToolBudgetRecoveryPolicyInputField: "recoveryPolicy",
+      runtimeCodingToolBudgetRecoveryWorkflowNodeId:
+        "runtime.coding-tool-budget-recovery",
+      runtimeCodingToolBudgetRecoveryActor: "operator",
+    },
+  });
   const mcpStatus = creatorDefinition("state", {
     creatorId: "mcp.status",
     label: "MCP status",
@@ -5701,6 +5906,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
     usageMeter,
     contextBudget,
     compactionPolicy,
+    codingBudgetRecovery,
     stateRead,
     mcpStatus,
     mcpToolSearch,
@@ -5748,6 +5954,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
           "runtime_usage_meter",
           "runtime_context_budget",
           "runtime_compaction_policy",
+          "runtime_coding_tool_budget_recovery",
         ].includes(definition.type),
     ).map((definition) =>
       creatorDefinition(definition.type, {
@@ -5881,6 +6088,8 @@ function relatedNodeTypesFor(type: WorkflowNodeKind): WorkflowNodeKind[] {
       return ["runtime_rollback_snapshot", "human_gate", "decision", "output"];
     case "runtime_diagnostics_repair":
       return ["runtime_restore_gate", "human_gate", "decision", "output"];
+    case "runtime_coding_tool_budget_recovery":
+      return ["runtime_approval_request", "runtime_usage_meter", "runtime_context_budget", "human_gate", "decision", "output"];
     case "workflow_package_export":
       return ["workflow_package_import", "verifier", "output"];
     case "workflow_package_import":
@@ -5993,6 +6202,7 @@ function schemaRequiredFor(type: WorkflowNodeKind): boolean {
     type === "runtime_rollback_snapshot" ||
     type === "runtime_restore_gate" ||
     type === "runtime_diagnostics_repair" ||
+    type === "runtime_coding_tool_budget_recovery" ||
     type === "model_call" ||
     type === "parser" ||
     type === "plugin_tool" ||

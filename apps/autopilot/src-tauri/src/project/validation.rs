@@ -429,6 +429,28 @@ pub(super) fn validate_workflow_project_bundle(
                 });
             }
         }
+        if action_kind == ActionKind::RuntimeCodingToolBudgetRecovery {
+            if workflow_json_string(&logic, "runtimeCodingToolBudgetRecoveryEndpoint").is_none() {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_coding_tool_budget_recovery_endpoint".to_string(),
+                    message:
+                        "Runtime coding-tool budget recovery nodes need a recovery endpoint template."
+                            .to_string(),
+                });
+            }
+            if workflow_json_string(&logic, "runtimeCodingToolBudgetRecoveryRunIdField").is_none()
+                && workflow_json_string(&logic, "runtimeCodingToolBudgetRecoveryRunId").is_none()
+            {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_coding_tool_budget_recovery_run".to_string(),
+                    message:
+                        "Runtime coding-tool budget recovery nodes need a run id field or fixed run id."
+                            .to_string(),
+                });
+            }
+        }
         if action_kind == ActionKind::Subgraph
             && logic
                 .get("subgraphRef")
