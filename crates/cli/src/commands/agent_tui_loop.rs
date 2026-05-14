@@ -5,23 +5,23 @@ use super::agent_tui::{
     add_tui_mcp_server, apply_tui_workspace_restore, assign_tui_subagent, cancel_tui_job,
     cancel_tui_run, cancel_tui_subagent, decide_tui_approval, delete_tui_memory, edit_tui_memory,
     evaluate_tui_compaction_policy, evaluate_tui_context_budget,
-    execute_tui_diagnostics_repair_decision, fetch_tui_event_batch, fetch_tui_job,
-    fetch_tui_mcp_tool, fetch_tui_run, fetch_tui_run_trace, fetch_tui_subagent_result,
-    fetch_tui_thread, fetch_tui_thread_usage, import_tui_mcp, inspect_tui_mcp_status,
-    inspect_tui_memory_path, inspect_tui_memory_policy, inspect_tui_memory_status, inspect_tui_run,
-    interrupt_tui_turn, invoke_tui_coding_tool, invoke_tui_mcp_tool, latest_event_seq,
-    latest_usage_delta_status, list_tui_jobs_for_thread, list_tui_memory_records,
-    list_tui_subagents, list_tui_workspace_snapshots, preview_tui_workspace_restore,
-    propagate_tui_subagent_cancellation, remember_tui_memory, remove_tui_mcp_server,
-    replay_tui_run_events, resume_tui_subagent, resume_tui_thread, search_tui_mcp_tools,
-    selected_run_id_from_thread, selected_turn_id_from_values, send_tui_subagent_input,
-    set_tui_mcp_server_enabled, spawn_tui_subagent, steer_tui_turn, thread_id_from_value,
-    tui_approval_decisions, tui_approval_rows, tui_coding_tool_rows, tui_context_pressure_rows,
-    tui_context_rows, tui_cost_rows, tui_job_rows, tui_mcp_rows, tui_memory_rows, tui_mode_status,
-    tui_run_lifecycle_rows, tui_subagent_rows, tui_usage_delta_rows, tui_usage_status,
-    tui_workspace_trust_rows, update_tui_memory_policy, update_tui_thread_mode,
-    update_tui_thread_model, update_tui_thread_thinking, validate_tui_mcp, validate_tui_memory,
-    wait_tui_subagent,
+    execute_tui_diagnostics_repair_decision, execute_tui_run_coding_tool_budget_recovery,
+    fetch_tui_event_batch, fetch_tui_job, fetch_tui_mcp_tool, fetch_tui_run, fetch_tui_run_trace,
+    fetch_tui_subagent_result, fetch_tui_thread, fetch_tui_thread_usage, import_tui_mcp,
+    inspect_tui_mcp_status, inspect_tui_memory_path, inspect_tui_memory_policy,
+    inspect_tui_memory_status, inspect_tui_run, interrupt_tui_turn, invoke_tui_coding_tool,
+    invoke_tui_mcp_tool, latest_event_seq, latest_usage_delta_status, list_tui_jobs_for_thread,
+    list_tui_memory_records, list_tui_subagents, list_tui_workspace_snapshots,
+    preview_tui_workspace_restore, propagate_tui_subagent_cancellation, remember_tui_memory,
+    remove_tui_mcp_server, replay_tui_run_events, resume_tui_subagent, resume_tui_thread,
+    search_tui_mcp_tools, selected_run_id_from_thread, selected_turn_id_from_values,
+    send_tui_subagent_input, set_tui_mcp_server_enabled, spawn_tui_subagent, steer_tui_turn,
+    thread_id_from_value, tui_approval_decisions, tui_approval_rows, tui_coding_tool_rows,
+    tui_context_pressure_rows, tui_context_rows, tui_cost_rows, tui_job_rows, tui_mcp_rows,
+    tui_memory_rows, tui_mode_status, tui_run_lifecycle_rows, tui_subagent_rows,
+    tui_usage_delta_rows, tui_usage_status, tui_workspace_trust_rows, update_tui_memory_policy,
+    update_tui_thread_mode, update_tui_thread_model, update_tui_thread_thinking, validate_tui_mcp,
+    validate_tui_memory, wait_tui_subagent,
 };
 use anyhow::{anyhow, Result};
 use serde_json::{Map, Value};
@@ -135,6 +135,11 @@ pub(crate) enum TuiLineCommand {
     },
     RunCancel {
         run_id: String,
+    },
+    RunRecovery {
+        action: String,
+        run_id: Option<String>,
+        approval_id: Option<String>,
     },
     RestoreList,
     RestorePreview {
@@ -685,6 +690,29 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                     Some(status.as_str()),
                     &session,
                     &[],
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::RunRecovery {
+                action,
+                run_id,
+                approval_id,
+            }) => {
+                let events = handle_run_recovery_command(
+                    &mut session,
+                    &control_state,
+                    &action,
+                    run_id,
+                    approval_id,
+                )
+                .await?;
+                control_state.record_command(
+                    "run",
+                    line.trim(),
+                    "applied",
+                    Some("coding-tool budget recovery applied"),
+                    &session,
+                    &events,
                 );
                 print_tui_control_state(&control_state)?;
             }
@@ -2747,6 +2775,51 @@ async fn handle_run_cancel_command(
     Ok(run)
 }
 
+async fn handle_run_recovery_command(
+    session: &mut TuiInteractiveSession,
+    control_state: &TuiControlState,
+    action: &str,
+    run_id: Option<String>,
+    approval_id: Option<String>,
+) -> Result<Vec<Value>> {
+    let run_id = select_run_id(session, control_state, run_id).await?;
+    let approval_id = if action == "request_approval" {
+        approval_id
+    } else {
+        approval_id.or_else(|| control_state.default_pending_approval_id())
+    };
+    let thread_id = thread_id_from_value(&session.thread).ok();
+    let result = execute_tui_run_coding_tool_budget_recovery(
+        &run_id,
+        action,
+        thread_id.as_deref(),
+        approval_id.as_deref(),
+        &session.endpoint,
+        session.token.as_deref(),
+    )
+    .await?;
+    println!(
+        "line_mode_command=run action=recovery recovery_action={} run={} status={} approval={} event={}",
+        json_path_string(&result, "/recovery_action")
+            .or_else(|| json_path_string(&result, "/recoveryAction"))
+            .unwrap_or_else(|| action.to_string()),
+        json_path_string(&result, "/run_id")
+            .or_else(|| json_path_string(&result, "/runId"))
+            .unwrap_or_else(|| run_id.clone()),
+        json_path_string(&result, "/status").unwrap_or_else(|| "unknown".to_string()),
+        json_path_string(&result, "/approval_id")
+            .or_else(|| json_path_string(&result, "/approvalId"))
+            .unwrap_or_else(|| approval_id.unwrap_or_else(|| "none".to_string())),
+        json_path_string(&result, "/event_id")
+            .or_else(|| json_path_string(&result, "/eventId"))
+            .unwrap_or_else(|| "none".to_string())
+    );
+    let batch =
+        replay_tui_run_events(&run_id, &session.endpoint, session.token.as_deref(), None).await?;
+    print_events(&batch.events);
+    Ok(batch.events)
+}
+
 async fn select_job_id(
     session: &mut TuiInteractiveSession,
     control_state: &TuiControlState,
@@ -2815,7 +2888,7 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel] [run_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -3141,16 +3214,65 @@ fn parse_run_args(rest: &str) -> Result<TuiLineCommand> {
                 run_id: run_id.to_string(),
             })
         }
+        "recovery" | "recover" => parse_run_recovery_args(parts.collect()),
         _ => {
             if parts.next().is_some() {
                 return Err(anyhow!(
-                    "/run accepts [run_id], trace, inspect, replay, or cancel"
+                    "/run accepts [run_id], trace, inspect, replay, cancel, or recovery"
                 ));
             }
             Ok(TuiLineCommand::Run {
                 run_id: Some(first.to_string()),
             })
         }
+    }
+}
+
+fn parse_run_recovery_args(args: Vec<&str>) -> Result<TuiLineCommand> {
+    let mut tokens = args.into_iter();
+    let first = tokens.next();
+    let (action, first_value) = match first {
+        None => ("request_approval".to_string(), None),
+        Some(value) => match normalize_run_recovery_action(value) {
+            Some(action) => (action, None),
+            None => ("request_approval".to_string(), Some(value.to_string())),
+        },
+    };
+    let remaining = tokens.map(ToOwned::to_owned).collect::<Vec<_>>();
+    let mut values = Vec::new();
+    if let Some(value) = first_value {
+        values.push(value);
+    }
+    values.extend(remaining);
+    if values.len() > 2 {
+        return Err(anyhow!(
+            "/run recovery accepts [request|approve|reject|retry-approved] [run_id] [approval_id]"
+        ));
+    }
+    let (run_id, approval_id) = match values.as_slice() {
+        [] => (None, None),
+        [only] if action == "request_approval" => (Some(only.clone()), None),
+        [only] if only.starts_with("run_") => (Some(only.clone()), None),
+        [only] => (None, Some(only.clone())),
+        [run_id, approval_id] => (Some(run_id.clone()), Some(approval_id.clone())),
+        _ => unreachable!(),
+    };
+    Ok(TuiLineCommand::RunRecovery {
+        action,
+        run_id,
+        approval_id,
+    })
+}
+
+fn normalize_run_recovery_action(value: &str) -> Option<String> {
+    match value.to_ascii_lowercase().replace('-', "_").as_str() {
+        "request" | "request_approval" | "approval_request" => Some("request_approval".to_string()),
+        "approve" | "approved" | "approve_override" | "allow" => {
+            Some("approve_override".to_string())
+        }
+        "reject" | "rejected" | "reject_override" | "deny" => Some("reject_override".to_string()),
+        "retry" | "retry_approved" | "approved_retry" => Some("retry_approved".to_string()),
+        _ => None,
     }
 }
 
@@ -3927,6 +4049,31 @@ mod tests {
             parse_tui_line_command("/run cancel run_live").unwrap(),
             TuiLineCommand::RunCancel {
                 run_id: "run_live".to_string()
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/run recovery request run_live approval_budget_live").unwrap(),
+            TuiLineCommand::RunRecovery {
+                action: "request_approval".to_string(),
+                run_id: Some("run_live".to_string()),
+                approval_id: Some("approval_budget_live".to_string()),
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/run recovery approve approval_budget_live").unwrap(),
+            TuiLineCommand::RunRecovery {
+                action: "approve_override".to_string(),
+                run_id: None,
+                approval_id: Some("approval_budget_live".to_string()),
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/run recovery retry-approved run_live approval_budget_live")
+                .unwrap(),
+            TuiLineCommand::RunRecovery {
+                action: "retry_approved".to_string(),
+                run_id: Some("run_live".to_string()),
+                approval_id: Some("approval_budget_live".to_string()),
             }
         );
         assert_eq!(

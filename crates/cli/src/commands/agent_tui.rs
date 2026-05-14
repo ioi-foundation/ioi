@@ -93,6 +93,8 @@ const TUI_RUN_EVENTS_ROUTE_TEMPLATE: &str = "/v1/runs/{run_id}/events";
 const TUI_RUN_REPLAY_ROUTE_TEMPLATE: &str = "/v1/runs/{run_id}/replay";
 const TUI_RUN_TRACE_ROUTE_TEMPLATE: &str = "/v1/runs/{run_id}/trace";
 const TUI_RUN_INSPECT_ROUTE_TEMPLATE: &str = "/v1/runs/{run_id}/inspect";
+const TUI_RUN_CODING_TOOL_BUDGET_RECOVERY_ROUTE_TEMPLATE: &str =
+    "/v1/runs/{run_id}/coding-tool-budget-recovery";
 
 #[derive(Parser, Debug)]
 pub struct AgentTuiArgs {
@@ -316,6 +318,7 @@ fn print_tui_json(render: &TuiRender) -> Result<()> {
         "run_replay": TUI_RUN_REPLAY_ROUTE_TEMPLATE,
         "run_trace": TUI_RUN_TRACE_ROUTE_TEMPLATE,
         "run_inspect": TUI_RUN_INSPECT_ROUTE_TEMPLATE,
+        "run_coding_tool_budget_recovery": TUI_RUN_CODING_TOOL_BUDGET_RECOVERY_ROUTE_TEMPLATE,
     });
     let mut routes = routes;
     if let Some(routes_object) = routes.as_object_mut() {
@@ -1911,6 +1914,49 @@ pub(crate) async fn inspect_tui_run(
     .await
 }
 
+pub(crate) async fn execute_tui_run_coding_tool_budget_recovery(
+    run_id: &str,
+    action: &str,
+    thread_id: Option<&str>,
+    approval_id: Option<&str>,
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    let mut body = serde_json::Map::new();
+    body.insert("source".to_string(), Value::String("cli_tui".to_string()));
+    body.insert("actor".to_string(), Value::String("operator".to_string()));
+    body.insert("action".to_string(), Value::String(action.to_string()));
+    body.insert(
+        "reason".to_string(),
+        Value::String("coding_tool_budget_preflight_blocked".to_string()),
+    );
+    if let Some(thread_id) = thread_id.filter(|value| !value.trim().is_empty()) {
+        body.insert("threadId".to_string(), Value::String(thread_id.to_string()));
+        body.insert(
+            "thread_id".to_string(),
+            Value::String(thread_id.to_string()),
+        );
+    }
+    if let Some(approval_id) = approval_id.filter(|value| !value.trim().is_empty()) {
+        body.insert(
+            "approvalId".to_string(),
+            Value::String(approval_id.to_string()),
+        );
+        body.insert(
+            "approval_id".to_string(),
+            Value::String(approval_id.to_string()),
+        );
+    }
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_run(TUI_RUN_CODING_TOOL_BUDGET_RECOVERY_ROUTE_TEMPLATE, run_id),
+        Some(Value::Object(body)),
+    )
+    .await
+}
+
 pub(crate) async fn replay_tui_run_events(
     run_id: &str,
     endpoint: &str,
@@ -2466,6 +2512,17 @@ fn tui_coding_tool_budget_row(event: &Value, fallback_thread_id: Option<&str>) -
     let turn_id = json_path_string(payload, "/turn_id")
         .or_else(|| json_path_string(payload, "/turnId"))
         .or_else(|| json_path_string(event, "/turn_id"));
+    let run_id = json_path_string(payload, "/run_id")
+        .or_else(|| json_path_string(payload, "/runId"))
+        .or_else(|| {
+            turn_id.as_deref().map(|turn_id| {
+                if let Some(suffix) = turn_id.strip_prefix("turn_") {
+                    format!("run_{suffix}")
+                } else {
+                    format!("run_{turn_id}")
+                }
+            })
+        });
     let workflow_graph_id = json_path_string(event, "/workflow_graph_id")
         .or_else(|| json_path_string(payload, "/workflow_graph_id"))
         .or_else(|| json_path_string(payload, "/workflowGraphId"));
@@ -2559,10 +2616,13 @@ fn tui_coding_tool_budget_row(event: &Value, fallback_thread_id: Option<&str>) -
         "status".to_string(),
         Value::String(json_path_string(event, "/status").unwrap_or_else(|| "blocked".to_string())),
     );
-    row.insert("command".to_string(), Value::String("events".to_string()));
+    row.insert("command".to_string(), Value::String("run".to_string()));
     row.insert(
         "raw_input".to_string(),
-        Value::String("/events".to_string()),
+        Value::String(match run_id.as_deref() {
+            Some(run_id) => format!("/run recovery request {run_id}"),
+            None => "/run recovery request".to_string(),
+        }),
     );
     row.insert(
         "label".to_string(),
@@ -2593,6 +2653,10 @@ fn tui_coding_tool_budget_row(event: &Value, fallback_thread_id: Option<&str>) -
     row.insert(
         "turn_id".to_string(),
         turn_id.map(Value::String).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "run_id".to_string(),
+        run_id.clone().map(Value::String).unwrap_or(Value::Null),
     );
     row.insert(
         "workflow_graph_id".to_string(),
@@ -2706,6 +2770,14 @@ fn tui_coding_tool_budget_row(event: &Value, fallback_thread_id: Option<&str>) -
             "thread_id": thread_id,
             "since_seq": seq,
             "last_event_id": event_id,
+        }),
+    );
+    row.insert(
+        "routes".to_string(),
+        serde_json::json!({
+            "recovery": run_id
+                .as_deref()
+                .map(|run_id| route_with_run(TUI_RUN_CODING_TOOL_BUDGET_RECOVERY_ROUTE_TEMPLATE, run_id)),
         }),
     );
     row.insert(
