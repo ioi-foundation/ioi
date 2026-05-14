@@ -207,8 +207,49 @@ workstream was narrower.
 | 205 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | run-inspector-created telemetry budget-chain execution | docs/evidence/autopilot-gui-harness-validation/2026-05-14T15-49-25-806Z/result.json |
 | 206 | 2026-05-14 | Cross-cutting GUI Harness Evidence / Workflow Development Environment | live GUI package/activation evidence recovery | docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-05-08-862Z/result.json |
 | 207 | 2026-05-14 | P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack | terminal-first coding-agent parity proof | docs/evidence/autopilot-gui-harness-validation/2026-05-14T16-29-53-857Z/result.json |
+| 208 | 2026-05-14 | P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack / Workflow Development Environment | terminal coding-loop workflow template | docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-05-13-646Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 208. 2026-05-14 - Terminal coding-loop workflow template
+
+Implementation slice completed 2026-05-14, turning the proven terminal-first
+coding loop into a reusable React Flow workflow-authoring and run-inspector
+materialization surface:
+
+- Added `createWorkflowRuntimeTerminalCodingLoopTemplateSubflow`, a nine-node
+  daemon coding-pack template for `workspace.status`, `git.diff`,
+  `file.inspect`, patch dry-run, patch apply, `test.run`, `lsp.diagnostics`,
+  `artifact.read`, and `tool.retrieve_result`.
+- Preserved the modular workflow-development boundary: the template emits
+  regular `plugin_tool` nodes with `coding_tool_pack` bindings, policy defaults,
+  allowed path/command controls, diagnostics/restore settings, artifact/result
+  retrieval controls, budget usage fields, and TUI reopen metadata instead of
+  introducing canvas-local runtime state.
+- Added run-inspector materialization/hydration from selected TUI
+  `coding_tool` rows, binding thread, turn, cursor, event, tool-call, receipt,
+  artifact, policy, rollback, and reopen metadata into every generated node.
+- Wired a workflow creator button and a per-row run-inspector action through
+  `WorkflowComposer`, `WorkflowRailPanel`, and `WorkflowRunsPanel`.
+- Added targeted creator/run-inspector GUI probes and folded them into the
+  Autopilot GUI harness evidence assessment and contract requirements.
+
+Evidence:
+
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-05-13-646Z/result.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-05-13-646Z/workflow-terminal-coding-loop-creator-proof.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-05-13-646Z/workflow-terminal-coding-loop-run-inspector-proof.json`
+- `packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.ts`
+- `packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-materialization.ts`
+- `scripts/lib/workflow-terminal-coding-loop-creator-gui-probe.mjs`
+- `scripts/lib/workflow-terminal-coding-loop-run-inspector-probe.mjs`
+
+Next tactical recommendation:
+
+- Live-execute the React Flow-authored terminal coding-loop template against a
+  daemon thread and prove generated workflow nodes emit the same `coding_tool`
+  rows, receipts, artifacts, rollback refs, and TUI reopen descriptors as the
+  terminal slash-loop proof.
 
 ### Slice 207. 2026-05-14 - Terminal-first coding-agent parity proof
 

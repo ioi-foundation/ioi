@@ -135,6 +135,10 @@ import {
   type WorkflowRuntimeTelemetryBudgetChainSubflow,
 } from "../runtime/workflow-runtime-telemetry-budget-chain-subflow";
 import {
+  createWorkflowRuntimeTerminalCodingLoopTemplateSubflow,
+  type WorkflowRuntimeTerminalCodingLoopSubflow,
+} from "../runtime/workflow-runtime-terminal-coding-loop-subflow";
+import {
   bindWorkflowRuntimeCodingToolBudgetRecoveryTemplateToEvidence,
   workflowRuntimeCodingToolBudgetRecoveryBindingIssue,
   workflowRuntimeCodingToolBudgetRecoveryEvidenceAction,
@@ -146,11 +150,13 @@ import {
 } from "../runtime/workflow-runtime-telemetry-source-binding";
 import type { WorkflowRuntimeTelemetrySummary } from "../runtime/workflow-runtime-telemetry-summary";
 import { materializeWorkflowRuntimeTelemetryBudgetChainFromTelemetry } from "../runtime/workflow-runtime-telemetry-budget-chain-materialization";
+import { materializeWorkflowRuntimeTerminalCodingLoopFromTuiRow } from "../runtime/workflow-runtime-terminal-coding-loop-materialization";
 import { workflowRuntimeSubflowReactFlowElements } from "./runtimeSubflowInsertion";
 import type {
   WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   WorkflowRuntimeContextPressureActionDescriptor,
   WorkflowRuntimeDiagnosticsRepairActionDescriptor,
+  WorkflowRuntimeTuiControlStateRow,
   WorkflowRuntimeThreadEventLike,
   WorkflowRuntimeWorkspaceTrustActionDescriptor,
 } from "../runtime/workflow-runtime-event-projection";
@@ -9987,6 +9993,20 @@ export function useWorkflowComposerController({
     [insertWorkflowRuntimeSubflow],
   );
 
+  const insertWorkflowRuntimeTerminalCodingLoopSubflow = useCallback(
+    (
+      subflow: WorkflowRuntimeTerminalCodingLoopSubflow,
+      statusMessage: string,
+    ) => {
+      insertWorkflowRuntimeSubflow(subflow, {
+        selectedNodeId: subflow.nodeIds[0] ?? null,
+        configSection: workflowConfigSectionForNodeKind("plugin_tool"),
+        statusMessage,
+      });
+    },
+    [insertWorkflowRuntimeSubflow],
+  );
+
   const handleCreateRuntimeCodingToolBudgetRecoverySubflow = useCallback(
     (action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor) => {
       if (isReadOnlyWorkflow) {
@@ -10350,6 +10370,131 @@ export function useWorkflowComposerController({
     ],
   );
 
+  const handleMaterializeRuntimeTerminalCodingLoop = useCallback(
+    (row?: WorkflowRuntimeTuiControlStateRow | null) => {
+      if (isReadOnlyWorkflow) {
+        setStatusMessage(
+          "Read-only harness graph cannot be edited. Fork it first.",
+        );
+        return;
+      }
+      if (!row || row.rowKind !== "coding_tool" || !row.threadId) {
+        setRightPanel("runs");
+        setBottomPanel("run_output");
+        setStatusMessage(
+          "Select a TUI coding-tool row before creating a terminal coding loop.",
+        );
+        return;
+      }
+      const fallbackColumn = nodes.length % 4;
+      const fallbackRow = Math.floor(nodes.length / 4);
+      const origin = selectedNode
+        ? { x: selectedNode.x + 340, y: selectedNode.y }
+        : {
+            x: 160 + fallbackColumn * 300,
+            y: 180 + fallbackRow * 180,
+          };
+      const result = materializeWorkflowRuntimeTerminalCodingLoopFromTuiRow(
+        currentProjectFile,
+        row,
+        {
+          idPrefix: `runtime-terminal-coding-loop-${Date.now()}`,
+          origin,
+        },
+      );
+      if (result.status !== "bound") {
+        setRightPanel("runs");
+        setBottomPanel("run_output");
+        setStatusMessage(
+          "Terminal coding loop could not be materialized from the selected coding-tool row.",
+        );
+        return;
+      }
+
+      const workflowNodesById = new Map(
+        result.workflow.nodes.map((node) => [node.id, node] as const),
+      );
+      const insertedElements = workflowRuntimeSubflowReactFlowElements({
+        nodes: result.insertedNodes,
+        edges: result.insertedEdges,
+      });
+      const insertedNodeIds = new Set(result.insertedNodeIds);
+      const boundNodeIds = new Set(result.boundNodeIds);
+      setNodes((currentNodes) => {
+        const existingIds = new Set(
+          currentNodes.map((flowNode) => {
+            const data = flowNode.data as Node | undefined;
+            return data?.id ?? flowNode.id;
+          }),
+        );
+        const updatedNodes = currentNodes.map((flowNode) => {
+          const data = flowNode.data as Node;
+          const nodeId = data.id ?? flowNode.id;
+          if (!boundNodeIds.has(nodeId)) return flowNode;
+          const bound = workflowNodesById.get(nodeId);
+          if (!bound) return flowNode;
+          return {
+            ...flowNode,
+            position: { x: bound.x, y: bound.y },
+            data: {
+              ...data,
+              ...bound,
+            },
+          };
+        });
+        const newNodes = insertedElements.nodes.filter(
+          (flowNode) =>
+            insertedNodeIds.has(flowNode.id) && !existingIds.has(flowNode.id),
+        );
+        return [...updatedNodes, ...newNodes];
+      });
+      setEdges((currentEdges) => {
+        const existingEdgeIds = new Set(currentEdges.map((edge) => edge.id));
+        return [
+          ...currentEdges,
+          ...insertedElements.edges.filter(
+            (edge) => !existingEdgeIds.has(edge.id),
+          ),
+        ];
+      });
+      setWorkflow(result.workflow);
+      const validation = validateWorkflowProject(result.workflow, tests);
+      const readiness = evaluateWorkflowActivationReadiness(
+        result.workflow,
+        tests,
+        validation,
+        proposals,
+        Object.values(nodeFixturesById).flat(),
+      );
+      setValidationResult(validation);
+      setReadinessResult(readiness);
+      setActiveTab("graph");
+      setRightPanel("readiness");
+      setBottomPanel("selection");
+      handleNodeSelect(result.boundNodeIds[0] ?? null);
+      setNodeConfigInitialSection(workflowConfigSectionForNodeKind("plugin_tool"));
+      setNodeConfigOpen(true);
+      setStatusMessage(
+        result.mode === "hydrated"
+          ? `Hydrated terminal coding loop from ${row.toolName ?? row.command ?? row.id}`
+          : `Created terminal coding loop from ${row.toolName ?? row.command ?? row.id}`,
+      );
+    },
+    [
+      currentProjectFile,
+      handleNodeSelect,
+      isReadOnlyWorkflow,
+      nodeFixturesById,
+      nodes.length,
+      proposals,
+      selectedNode,
+      setEdges,
+      setNodes,
+      tests,
+      workflowConfigSectionForNodeKind,
+    ],
+  );
+
   const handleInsertRuntimeCodingToolBudgetRecoveryTemplate = useCallback(() => {
     if (isReadOnlyWorkflow) {
       setStatusMessage(
@@ -10419,6 +10564,42 @@ export function useWorkflowComposerController({
     closeLeftDrawer,
     currentProjectFile.metadata.id,
     insertWorkflowRuntimeTelemetryBudgetChainSubflow,
+    isReadOnlyWorkflow,
+    nodes.length,
+    selectedNode,
+  ]);
+
+  const handleInsertRuntimeTerminalCodingLoopTemplate = useCallback(() => {
+    if (isReadOnlyWorkflow) {
+      setStatusMessage(
+        "Read-only harness graph cannot be edited. Fork it first.",
+      );
+      return;
+    }
+    const fallbackColumn = nodes.length % 4;
+    const fallbackRow = Math.floor(nodes.length / 4);
+    const origin = selectedNode
+      ? { x: selectedNode.x + 340, y: selectedNode.y }
+      : {
+          x: 160 + fallbackColumn * 300,
+          y: 180 + fallbackRow * 180,
+        };
+    const subflow = createWorkflowRuntimeTerminalCodingLoopTemplateSubflow({
+      idPrefix: `runtime-terminal-coding-loop-${Date.now()}`,
+      workflowGraphId: currentProjectFile.metadata.id,
+      origin,
+    });
+    insertWorkflowRuntimeTerminalCodingLoopSubflow(
+      subflow,
+      "Terminal coding loop added. Configure threadId, paths, patch text, test command, diagnostics, artifact, and retrieval inputs before activation.",
+    );
+    closeCanvasSearch();
+    closeLeftDrawer();
+  }, [
+    closeCanvasSearch,
+    closeLeftDrawer,
+    currentProjectFile.metadata.id,
+    insertWorkflowRuntimeTerminalCodingLoopSubflow,
     isReadOnlyWorkflow,
     nodes.length,
     selectedNode,
@@ -14554,6 +14735,7 @@ export function useWorkflowComposerController({
     handleBindRuntimeCodingToolBudgetRecoveryTemplate,
     handleBindRuntimeTelemetrySource,
     handleMaterializeRuntimeTelemetryBudgetChain,
+    handleMaterializeRuntimeTerminalCodingLoop,
     handleExecuteHarnessRollback,
     handleExpandHarnessGroups,
     handleExportPortablePackage,
@@ -14564,6 +14746,7 @@ export function useWorkflowComposerController({
     handleInsertAgentLoopMacro,
     handleInsertRuntimeCodingToolBudgetRecoveryTemplate,
     handleInsertRuntimeTelemetryBudgetChainTemplate,
+    handleInsertRuntimeTerminalCodingLoopTemplate,
     handleInspectExecutionNode,
     handleInspectHarnessGroupNode,
     handleOpenDefaultHarness,

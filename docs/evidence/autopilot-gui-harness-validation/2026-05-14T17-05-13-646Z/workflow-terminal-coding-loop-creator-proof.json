@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "workflow.terminal-coding-loop.creator-gui-proof.v1",
+  "scenario": "workflow_terminal_coding_loop_creator_click",
+  "passed": true,
+  "clickedControlTestId": "workflow-add-runtime-terminal-coding-loop-template",
+  "insertedNodeIds": [
+    "terminal-coding-loop-gui-click-workspace-status",
+    "terminal-coding-loop-gui-click-git-diff",
+    "terminal-coding-loop-gui-click-file-inspect",
+    "terminal-coding-loop-gui-click-patch-dry-run",
+    "terminal-coding-loop-gui-click-apply-patch",
+    "terminal-coding-loop-gui-click-test-run",
+    "terminal-coding-loop-gui-click-lsp-diagnostics",
+    "terminal-coding-loop-gui-click-artifact-read",
+    "terminal-coding-loop-gui-click-retrieve-result"
+  ],
+  "insertedEdgeIds": [
+    "terminal-coding-loop-gui-click-edge-1",
+    "terminal-coding-loop-gui-click-edge-2",
+    "terminal-coding-loop-gui-click-edge-3",
+    "terminal-coding-loop-gui-click-edge-4",
+    "terminal-coding-loop-gui-click-edge-5",
+    "terminal-coding-loop-gui-click-edge-6",
+    "terminal-coding-loop-gui-click-edge-7",
+    "terminal-coding-loop-gui-click-edge-8"
+  ],
+  "requestChecks": {
+    "allRequestsCompile": true,
+    "daemonThreadEndpoints": true,
+    "expectedToolOrder": true,
+    "dryRunDoesNotRequireApproval": true,
+    "applyRequiresApproval": true,
+    "budgetsGovernEveryNode": true
+  },
+  "checks": {
+    "workflowCreatorButtonRendered": true,
+    "workflowCreatorButtonClickWired": true,
+    "controllerCreatesTemplate": true,
+    "controllerUsesSharedReactFlowInsertion": true,
+    "insertionMapperCoversNodesAndEdges": true,
+    "clickedTemplateNodeCount": true,
+    "clickedTemplateEdgeCount": true,
+    "clickedTemplateCommands": true,
+    "reactFlowNodesMaterialized": true,
+    "reactFlowEdgesMaterialized": true,
+    "daemonRequestsCompile": true,
+    "workflowValidatesWithoutTemplateErrors": true
+  },
+  "sourceRefs": [
+    "packages/agent-ide/src/WorkflowComposer/view.tsx",
+    "packages/agent-ide/src/WorkflowComposer/controller.tsx",
+    "packages/agent-ide/src/WorkflowComposer/runtimeSubflowInsertion.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.test.ts"
+  ]
+}

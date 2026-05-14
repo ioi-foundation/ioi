@@ -1,0 +1,6 @@
+{
+  "schemaVersion": "ioi.autopilot.gui-harness-validation.v1",
+  "launchCommand": "AUTOPILOT_LOCAL_GPU_DEV=1 AUTOPILOT_HARNESS_DEFAULT_PROMOTION=1 AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT=1 npm run dev:desktop",
+  "preflightPassed": true,
+  "retainedQueryCount": 8
+}

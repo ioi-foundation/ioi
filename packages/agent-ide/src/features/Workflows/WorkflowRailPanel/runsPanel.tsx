@@ -10,6 +10,7 @@ import type {
   WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   WorkflowRuntimeContextPressureActionDescriptor,
   WorkflowRuntimeDiagnosticsRepairActionDescriptor,
+  WorkflowRuntimeTuiControlStateRow,
   WorkflowRuntimeWorkspaceTrustActionDescriptor,
 } from "../../../runtime/workflow-runtime-event-projection";
 import {
@@ -62,6 +63,9 @@ type WorkflowRunsPanelProps = {
   onMaterializeRuntimeTelemetryBudgetChain?: (
     summary: WorkflowRuntimeTelemetrySummary,
   ) => void;
+  onMaterializeRuntimeTerminalCodingLoop?: (
+    row: WorkflowRuntimeTuiControlStateRow,
+  ) => void;
 };
 
 function codingToolBudgetRecoverySubflowSeed(
@@ -99,6 +103,7 @@ export function WorkflowRunsPanel({
   onBindRuntimeCodingToolBudgetRecoveryTemplate,
   onBindRuntimeTelemetrySource,
   onMaterializeRuntimeTelemetryBudgetChain,
+  onMaterializeRuntimeTerminalCodingLoop,
 }: WorkflowRunsPanelProps) {
   const {
     totalRuns,
@@ -1170,6 +1175,9 @@ export function WorkflowRunsPanel({
               data-mcp-row-count={tuiControlStateProjection.mcpRowCount}
               data-memory-row-count={tuiControlStateProjection.memoryRowCount}
               data-usage-row-count={tuiControlStateProjection.usageRowCount}
+              data-coding-tool-row-count={
+                tuiControlStateProjection.codingToolRowCount
+              }
               data-coding-tool-budget-row-count={
                 tuiControlStateProjection.codingToolBudgetRowCount
               }
@@ -1203,6 +1211,9 @@ export function WorkflowRunsPanel({
                 <span>{tuiControlStateProjection.mcpRowCount} MCP</span>
                 <span>{tuiControlStateProjection.memoryRowCount} memory</span>
                 <span>{tuiControlStateProjection.usageRowCount} usage</span>
+                <span>
+                  {tuiControlStateProjection.codingToolRowCount} coding tools
+                </span>
                 <span>
                   {tuiControlStateProjection.codingToolBudgetRowCount} coding
                   budgets
@@ -1344,6 +1355,28 @@ export function WorkflowRunsPanel({
                       {row.cursor ?? "cursor pending"}
                       {row.turnId ? ` · ${row.turnId}` : ""}
                     </small>
+                    {row.rowKind === "coding_tool" ? (
+                      <button
+                        type="button"
+                        className="workflow-secondary-action"
+                        data-testid={`workflow-run-terminal-coding-loop-materialize-${row.id}`}
+                        data-row-id={row.id}
+                        data-thread-id={row.threadId ?? ""}
+                        data-turn-id={row.turnId ?? ""}
+                        data-tool-name={row.toolName ?? ""}
+                        data-tool-call-id={row.toolCallId ?? ""}
+                        data-event-id={row.eventId ?? ""}
+                        data-cursor={row.cursor ?? ""}
+                        disabled={!onMaterializeRuntimeTerminalCodingLoop}
+                        title="Create or hydrate a React Flow terminal coding loop from this daemon-owned TUI coding-tool row."
+                        aria-label="Create terminal coding loop"
+                        onClick={() => {
+                          onMaterializeRuntimeTerminalCodingLoop?.(row);
+                        }}
+                      >
+                        Use terminal loop
+                      </button>
+                    ) : null}
                   </li>
                 ))}
               </ol>

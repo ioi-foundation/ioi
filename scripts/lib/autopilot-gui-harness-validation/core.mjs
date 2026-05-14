@@ -6105,6 +6105,140 @@ export function collectWorkflowTelemetryBudgetChainRunInspectorProof(outputRoot)
   }
 }
 
+export function collectWorkflowTerminalCodingLoopCreatorProof(outputRoot) {
+  const path = join(
+    outputRoot,
+    "workflow-terminal-coding-loop-creator-proof.json",
+  );
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--import",
+      "tsx",
+      "scripts/lib/workflow-terminal-coding-loop-creator-gui-probe.mjs",
+      path,
+    ],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        TSX_TSCONFIG_PATH: resolve(
+          repoRoot,
+          "packages/agent-ide/tsconfig.json",
+        ),
+      },
+      timeout: 60_000,
+      maxBuffer: 8 * 1024 * 1024,
+    },
+  );
+  if (result.status !== 0 || !existsSync(path)) {
+    const proof = {
+      schemaVersion: "workflow.terminal-coding-loop.creator-gui-proof.v1",
+      scenario: "workflow_terminal_coding_loop_creator_click",
+      passed: false,
+      checks: {
+        probeExecuted: false,
+      },
+      error:
+        result.error?.message ??
+        (result.signal
+          ? `terminal coding loop GUI probe terminated by ${result.signal}`
+          : `terminal coding loop GUI probe exited with ${result.status ?? "unknown"}`),
+      stdout: result.stdout?.slice(-8_000) ?? "",
+      stderr: result.stderr?.slice(-8_000) ?? "",
+    };
+    writeFileSync(path, `${JSON.stringify(proof, null, 2)}\n`, "utf8");
+    return { path, proof };
+  }
+  try {
+    return {
+      path,
+      proof: JSON.parse(readFileSync(path, "utf8")),
+    };
+  } catch (error) {
+    const proof = {
+      schemaVersion: "workflow.terminal-coding-loop.creator-gui-proof.v1",
+      scenario: "workflow_terminal_coding_loop_creator_click",
+      passed: false,
+      checks: {
+        proofParsed: false,
+      },
+      error: String(error?.message || error),
+    };
+    writeFileSync(path, `${JSON.stringify(proof, null, 2)}\n`, "utf8");
+    return { path, proof };
+  }
+}
+
+export function collectWorkflowTerminalCodingLoopRunInspectorProof(outputRoot) {
+  const path = join(
+    outputRoot,
+    "workflow-terminal-coding-loop-run-inspector-proof.json",
+  );
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--import",
+      "tsx",
+      "scripts/lib/workflow-terminal-coding-loop-run-inspector-probe.mjs",
+      path,
+    ],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        TSX_TSCONFIG_PATH: resolve(
+          repoRoot,
+          "packages/agent-ide/tsconfig.json",
+        ),
+      },
+      timeout: 60_000,
+      maxBuffer: 8 * 1024 * 1024,
+    },
+  );
+  if (result.status !== 0 || !existsSync(path)) {
+    const proof = {
+      schemaVersion:
+        "workflow.terminal-coding-loop.run-inspector-proof.v1",
+      scenario: "workflow_terminal_coding_loop_run_inspector_materialize",
+      passed: false,
+      checks: {
+        probeExecuted: false,
+      },
+      error:
+        result.error?.message ??
+        (result.signal
+          ? `terminal coding loop run-inspector probe terminated by ${result.signal}`
+          : `terminal coding loop run-inspector probe exited with ${result.status ?? "unknown"}`),
+      stdout: result.stdout?.slice(-8_000) ?? "",
+      stderr: result.stderr?.slice(-8_000) ?? "",
+    };
+    writeFileSync(path, `${JSON.stringify(proof, null, 2)}\n`, "utf8");
+    return { path, proof };
+  }
+  try {
+    return {
+      path,
+      proof: JSON.parse(readFileSync(path, "utf8")),
+    };
+  } catch (error) {
+    const proof = {
+      schemaVersion:
+        "workflow.terminal-coding-loop.run-inspector-proof.v1",
+      scenario: "workflow_terminal_coding_loop_run_inspector_materialize",
+      passed: false,
+      checks: {
+        proofParsed: false,
+      },
+      error: String(error?.message || error),
+    };
+    writeFileSync(path, `${JSON.stringify(proof, null, 2)}\n`, "utf8");
+    return { path, proof };
+  }
+}
+
 export function collectWorkflowSkillContextProof(outputRoot) {
   const files = {
     graphTypes: "packages/agent-ide/src/types/graph.ts",
@@ -6416,6 +6550,8 @@ export function buildGuiEvidenceAssessment({
   promotionTransitionLiveGuiInteractionProof,
   workflowTelemetryBudgetChainCreatorProof,
   workflowTelemetryBudgetChainRunInspectorProof,
+  workflowTerminalCodingLoopCreatorProof,
+  workflowTerminalCodingLoopRunInspectorProof,
   workflowSkillContextProof,
   workflowCodingRouteProof,
   workflowCodingRoutePromotionLoopProof,
@@ -7448,6 +7584,10 @@ export function buildGuiEvidenceAssessment({
     workflowTelemetryBudgetChainCreatorProof?.proof?.passed === true;
   const hasWorkflowTelemetryBudgetChainRunInspectorProof =
     workflowTelemetryBudgetChainRunInspectorProof?.proof?.passed === true;
+  const hasWorkflowTerminalCodingLoopCreatorProof =
+    workflowTerminalCodingLoopCreatorProof?.proof?.passed === true;
+  const hasWorkflowTerminalCodingLoopRunInspectorProof =
+    workflowTerminalCodingLoopRunInspectorProof?.proof?.passed === true;
   const hasWorkflowCodingRouteCreateRunProof =
     workflowCodingRouteProof?.proof?.passed === true;
   const hasWorkflowCodingRoutePromotionLoopProof =
@@ -7642,6 +7782,10 @@ export function buildGuiEvidenceAssessment({
         hasWorkflowTelemetryBudgetChainCreatorProof,
       workflow_telemetry_budget_chain_run_inspector_proof_present:
         hasWorkflowTelemetryBudgetChainRunInspectorProof,
+      workflow_terminal_coding_loop_creator_proof_present:
+        hasWorkflowTerminalCodingLoopCreatorProof,
+      workflow_terminal_coding_loop_run_inspector_proof_present:
+        hasWorkflowTerminalCodingLoopRunInspectorProof,
       workflow_coding_route_create_run_proof_present:
         hasWorkflowCodingRouteCreateRunProof,
       workflow_coding_route_promotion_loop_proof_present:
@@ -7733,6 +7877,8 @@ export function buildGuiEvidenceAssessment({
       hasWorkflowSkillContextCreateRunProof,
       hasWorkflowTelemetryBudgetChainCreatorProof,
       hasWorkflowTelemetryBudgetChainRunInspectorProof,
+      hasWorkflowTerminalCodingLoopCreatorProof,
+      hasWorkflowTerminalCodingLoopRunInspectorProof,
       providerGatedVisibleOutputRequiredScenarios: [
         ...AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
       ],
@@ -11520,6 +11666,10 @@ async function runGuiValidation(args, outputRoot) {
       collectWorkflowTelemetryBudgetChainCreatorProof(outputRoot);
     const workflowTelemetryBudgetChainRunInspectorProof =
       collectWorkflowTelemetryBudgetChainRunInspectorProof(outputRoot);
+    const workflowTerminalCodingLoopCreatorProof =
+      collectWorkflowTerminalCodingLoopCreatorProof(outputRoot);
+    const workflowTerminalCodingLoopRunInspectorProof =
+      collectWorkflowTerminalCodingLoopRunInspectorProof(outputRoot);
     const workflowSkillContextProof =
       collectWorkflowSkillContextProof(outputRoot);
     const workflowCodingRouteProof =
@@ -11534,6 +11684,8 @@ async function runGuiValidation(args, outputRoot) {
       promotionTransitionLiveGuiInteractionProof,
       workflowTelemetryBudgetChainCreatorProof,
       workflowTelemetryBudgetChainRunInspectorProof,
+      workflowTerminalCodingLoopCreatorProof,
+      workflowTerminalCodingLoopRunInspectorProof,
       workflowSkillContextProof,
       workflowCodingRouteProof,
       workflowCodingRoutePromotionLoopProof,
@@ -12028,6 +12180,14 @@ async function runGuiValidation(args, outputRoot) {
           workflowTelemetryBudgetChainRunInspectorProof.proof.passed === true
             ? workflowTelemetryBudgetChainRunInspectorProof.path
             : false,
+        workflow_terminal_coding_loop_creator:
+          workflowTerminalCodingLoopCreatorProof.proof.passed === true
+            ? workflowTerminalCodingLoopCreatorProof.path
+            : false,
+        workflow_terminal_coding_loop_run_inspector:
+          workflowTerminalCodingLoopRunInspectorProof.proof.passed === true
+            ? workflowTerminalCodingLoopRunInspectorProof.path
+            : false,
         workflow_coding_route_create_run:
           workflowCodingRouteProof.proof.passed === true
             ? workflowCodingRouteProof.path
@@ -12050,6 +12210,10 @@ async function runGuiValidation(args, outputRoot) {
           workflowTelemetryBudgetChainCreatorProof.proof,
         workflowTelemetryBudgetChainRunInspector:
           workflowTelemetryBudgetChainRunInspectorProof.proof,
+        workflowTerminalCodingLoopCreator:
+          workflowTerminalCodingLoopCreatorProof.proof,
+        workflowTerminalCodingLoopRunInspector:
+          workflowTerminalCodingLoopRunInspectorProof.proof,
         workflowCodingRoute: workflowCodingRouteProof.proof,
         workflowCodingRoutePromotionLoop:
           workflowCodingRoutePromotionLoopProof.proof,
