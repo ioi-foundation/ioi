@@ -127,7 +127,11 @@ import {
   createRuntimeWorkspaceTrustAcknowledgementControlRequest,
 } from "../runtime/workflow-runtime-control-nodes";
 import { createRuntimeSubagentControlRequest } from "../runtime/workflow-runtime-subagent-control-nodes";
-import { createWorkflowRuntimeCodingToolBudgetRecoverySubflow } from "../runtime/workflow-runtime-coding-tool-budget-recovery-subflow";
+import {
+  createWorkflowRuntimeCodingToolBudgetRecoverySubflow,
+  createWorkflowRuntimeCodingToolBudgetRecoveryTemplateSubflow,
+  type WorkflowRuntimeCodingToolBudgetRecoverySubflow,
+} from "../runtime/workflow-runtime-coding-tool-budget-recovery-subflow";
 import type {
   WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   WorkflowRuntimeContextPressureActionDescriptor,
@@ -9909,38 +9913,11 @@ export function useWorkflowComposerController({
     }));
   }, [isReadOnlyWorkflow]);
 
-  const handleCreateRuntimeCodingToolBudgetRecoverySubflow = useCallback(
-    (action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor) => {
-      if (isReadOnlyWorkflow) {
-        setStatusMessage(
-          "Read-only harness graph cannot be edited. Fork it first.",
-        );
-        return;
-      }
-      const targetNodeId = action.targetNodeIds[0] ?? action.workflowNodeId;
-      const targetFlowNode = nodes.find(
-        (flowNode) =>
-          flowNode.id === targetNodeId ||
-          (flowNode.data as Node | undefined)?.id === targetNodeId,
-      );
-      const fallbackColumn = nodes.length % 4;
-      const fallbackRow = Math.floor(nodes.length / 4);
-      const origin = targetFlowNode
-        ? {
-            x: targetFlowNode.position.x + 340,
-            y: targetFlowNode.position.y,
-          }
-        : {
-            x: 160 + fallbackColumn * 300,
-            y: 180 + fallbackRow * 180,
-          };
-      const subflow = createWorkflowRuntimeCodingToolBudgetRecoverySubflow(
-        action,
-        {
-          idPrefix: `coding-budget-recovery-${slugify(action.eventId)}-${Date.now()}`,
-          origin,
-        },
-      );
+  const insertWorkflowRuntimeCodingToolBudgetRecoverySubflow = useCallback(
+    (
+      subflow: WorkflowRuntimeCodingToolBudgetRecoverySubflow,
+      statusMessage: string,
+    ) => {
       setNodes((currentNodes) => [
         ...currentNodes,
         ...subflow.nodes.map(
@@ -9978,20 +9955,93 @@ export function useWorkflowComposerController({
         workflowConfigSectionForNodeKind("runtime_coding_tool_budget_recovery"),
       );
       setNodeConfigOpen(true);
-      setStatusMessage(
+      setStatusMessage(statusMessage);
+    },
+    [handleNodeSelect, markWorkflowDirty, setEdges, setNodes],
+  );
+
+  const handleCreateRuntimeCodingToolBudgetRecoverySubflow = useCallback(
+    (action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor) => {
+      if (isReadOnlyWorkflow) {
+        setStatusMessage(
+          "Read-only harness graph cannot be edited. Fork it first.",
+        );
+        return;
+      }
+      const targetNodeId = action.targetNodeIds[0] ?? action.workflowNodeId;
+      const targetFlowNode = nodes.find(
+        (flowNode) =>
+          flowNode.id === targetNodeId ||
+          (flowNode.data as Node | undefined)?.id === targetNodeId,
+      );
+      const fallbackColumn = nodes.length % 4;
+      const fallbackRow = Math.floor(nodes.length / 4);
+      const origin = targetFlowNode
+        ? {
+            x: targetFlowNode.position.x + 340,
+            y: targetFlowNode.position.y,
+          }
+        : {
+            x: 160 + fallbackColumn * 300,
+            y: 180 + fallbackRow * 180,
+          };
+      const subflow = createWorkflowRuntimeCodingToolBudgetRecoverySubflow(
+        action,
+        {
+          idPrefix: `coding-budget-recovery-${slugify(action.eventId)}-${Date.now()}`,
+          origin,
+        },
+      );
+      insertWorkflowRuntimeCodingToolBudgetRecoverySubflow(
+        subflow,
         `Coding budget recovery subflow added for ${action.runId ?? action.eventId}`,
       );
     },
     [
-      handleNodeSelect,
+      insertWorkflowRuntimeCodingToolBudgetRecoverySubflow,
       isReadOnlyWorkflow,
-      markWorkflowDirty,
       nodes,
-      setEdges,
-      setNodes,
       slugify,
     ],
   );
+
+  const handleInsertRuntimeCodingToolBudgetRecoveryTemplate = useCallback(() => {
+    if (isReadOnlyWorkflow) {
+      setStatusMessage(
+        "Read-only harness graph cannot be edited. Fork it first.",
+      );
+      return;
+    }
+    const fallbackColumn = nodes.length % 4;
+    const fallbackRow = Math.floor(nodes.length / 4);
+    const origin = selectedNode
+      ? { x: selectedNode.x + 340, y: selectedNode.y }
+      : {
+          x: 160 + fallbackColumn * 300,
+          y: 180 + fallbackRow * 180,
+        };
+    const subflow = createWorkflowRuntimeCodingToolBudgetRecoveryTemplateSubflow({
+      idPrefix: `coding-budget-recovery-template-${Date.now()}`,
+      workflowGraphId: currentProjectFile.metadata.id,
+      sourceWorkflowNodeId:
+        selectedNode?.id ?? "workflow.coding-tool-budget.target",
+      origin,
+    });
+    insertWorkflowRuntimeCodingToolBudgetRecoverySubflow(
+      subflow,
+      "Coding budget recovery template added. Configure runId, threadId, approvalId, targetNodeIds, and recoveryPolicy inputs.",
+    );
+    closeCanvasSearch();
+    closeLeftDrawer();
+  }, [
+    closeCanvasSearch,
+    closeLeftDrawer,
+    currentProjectFile.metadata.id,
+    insertWorkflowRuntimeCodingToolBudgetRecoverySubflow,
+    isReadOnlyWorkflow,
+    nodes.length,
+    selectedNode,
+  ]);
 
   const guardedOnNodesChange = useCallback(
     (...args: Parameters<typeof onNodesChange>) => {
@@ -14112,6 +14162,7 @@ export function useWorkflowComposerController({
     handleImportNodeFixture,
     handleImportPortablePackage,
     handleInsertAgentLoopMacro,
+    handleInsertRuntimeCodingToolBudgetRecoveryTemplate,
     handleInspectExecutionNode,
     handleInspectHarnessGroupNode,
     handleOpenDefaultHarness,

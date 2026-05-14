@@ -88,6 +88,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleImportNodeFixture,
     handleImportPortablePackage,
     handleInsertAgentLoopMacro,
+    handleInsertRuntimeCodingToolBudgetRecoveryTemplate,
     handleInspectExecutionNode,
     handleInspectHarnessGroupNode,
     handleOpenDefaultHarness,
@@ -814,6 +815,18 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                       <span>
                         Expands into typed primitives with visible tool and
                         memory attachments.
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="workflow-add-coding-budget-recovery-template"
+                      onClick={handleInsertRuntimeCodingToolBudgetRecoveryTemplate}
+                      title="Insert a reusable daemon-backed coding-tool budget recovery bundle"
+                    >
+                      <strong>Coding budget recovery</strong>
+                      <span>
+                        Prewires request, approve, reject, and retry nodes with
+                        configurable runtime inputs.
                       </span>
                     </button>
                   </section>

@@ -3,6 +3,7 @@ import {
   workflowNodeDefaultLaw,
   workflowNodeDefaults,
 } from "./workflow-node-registry";
+import { WORKFLOW_RUNTIME_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION } from "./workflow-runtime-coding-tool-budget-recovery-policy";
 import type { WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor } from "./workflow-runtime-event-projection";
 
 export const WORKFLOW_RUNTIME_CODING_TOOL_BUDGET_RECOVERY_SUBFLOW_SCHEMA_VERSION =
@@ -22,6 +23,19 @@ export interface WorkflowRuntimeCodingToolBudgetRecoverySubflowOptions {
   origin?: { x: number; y: number };
   horizontalSpacing?: number;
   verticalSpacing?: number;
+  bindRuntimeInputs?: boolean;
+}
+
+export interface WorkflowRuntimeCodingToolBudgetRecoveryTemplateSubflowOptions
+  extends Omit<
+    WorkflowRuntimeCodingToolBudgetRecoverySubflowOptions,
+    "bindRuntimeInputs"
+  > {
+  workflowGraphId?: string | null;
+  sourceWorkflowNodeId?: string;
+  operatorRole?: string;
+  retryLimit?: number;
+  ttlMs?: number;
 }
 
 export interface WorkflowRuntimeCodingToolBudgetRecoverySubflow {
@@ -54,10 +68,12 @@ export function createWorkflowRuntimeCodingToolBudgetRecoverySubflow(
   const horizontalSpacing = options.horizontalSpacing ?? 300;
   const verticalSpacing = options.verticalSpacing ?? 130;
   const approvalId =
-    action.approvalId ??
-    `approval_workflow_run_coding_tool_budget_${safeId(
-      action.runId ?? action.eventId,
-    )}_${safeId(sourceEventId)}`;
+    options.bindRuntimeInputs
+      ? null
+      : action.approvalId ??
+        `approval_workflow_run_coding_tool_budget_${safeId(
+          action.runId ?? action.eventId,
+        )}_${safeId(sourceEventId)}`;
 
   const requestNodeId = `${idPrefix}-request`;
   const approveNodeId = `${idPrefix}-approve`;
@@ -70,6 +86,7 @@ export function createWorkflowRuntimeCodingToolBudgetRecoverySubflow(
       label: "Request budget approval",
       recoveryAction: "request_approval",
       approvalId,
+      bindRuntimeInputs: options.bindRuntimeInputs ?? false,
       x: origin.x,
       y: origin.y,
     }),
@@ -78,6 +95,7 @@ export function createWorkflowRuntimeCodingToolBudgetRecoverySubflow(
       label: "Approve budget override",
       recoveryAction: "approve_override",
       approvalId,
+      bindRuntimeInputs: options.bindRuntimeInputs ?? false,
       x: origin.x + horizontalSpacing,
       y: origin.y - verticalSpacing / 2,
     }),
@@ -86,6 +104,7 @@ export function createWorkflowRuntimeCodingToolBudgetRecoverySubflow(
       label: "Reject budget override",
       recoveryAction: "reject_override",
       approvalId,
+      bindRuntimeInputs: options.bindRuntimeInputs ?? false,
       x: origin.x + horizontalSpacing,
       y: origin.y + verticalSpacing / 2,
     }),
@@ -94,6 +113,7 @@ export function createWorkflowRuntimeCodingToolBudgetRecoverySubflow(
       label: "Retry approved budget run",
       recoveryAction: "retry_approved",
       approvalId,
+      bindRuntimeInputs: options.bindRuntimeInputs ?? false,
       x: origin.x + horizontalSpacing * 2,
       y: origin.y - verticalSpacing / 2,
     }),
@@ -121,42 +141,105 @@ export function createWorkflowRuntimeCodingToolBudgetRecoverySubflow(
   };
 }
 
+export function createWorkflowRuntimeCodingToolBudgetRecoveryTemplateSubflow(
+  options: WorkflowRuntimeCodingToolBudgetRecoveryTemplateSubflowOptions = {},
+): WorkflowRuntimeCodingToolBudgetRecoverySubflow {
+  const sourceWorkflowNodeId =
+    cleanId(options.sourceWorkflowNodeId) ??
+    "workflow.coding-tool-budget.target";
+  const operatorRole = cleanId(options.operatorRole) ?? "operator";
+  const retryLimit = Math.max(0, Math.trunc(options.retryLimit ?? 1));
+  const ttlMs = Math.max(0, Math.trunc(options.ttlMs ?? 900_000));
+  const seed: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor = {
+    id: "coding-tool-budget-recovery-template:request_approval",
+    schemaVersion: "ioi.workflow.coding-tool-budget-recovery.v1",
+    action: "request_approval",
+    label: "Request approval",
+    summary: "Template recovery request before retry.",
+    status: "available",
+    executable: true,
+    runId: null,
+    threadId: "",
+    workflowGraphId: options.workflowGraphId ?? null,
+    workflowNodeId: sourceWorkflowNodeId,
+    eventId: "template-coding-tool-budget-blocked",
+    sourceEventId: null,
+    approvalId: null,
+    approvalRequestEventId: null,
+    approvalDecisionEventId: null,
+    targetNodeIds: [],
+    receiptRefs: [],
+    policyDecisionRefs: [],
+    recoveryPolicy: {
+      schemaVersion:
+        WORKFLOW_RUNTIME_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION,
+      source: "react_flow_template",
+      approvalScope: "target_nodes",
+      operatorRole,
+      retryLimit,
+      ttlMs,
+      requiresApproval: true,
+      allowOverride: true,
+      targetNodeIds: [],
+      sourceNodeIds: [],
+    },
+  };
+  return createWorkflowRuntimeCodingToolBudgetRecoverySubflow(seed, {
+    ...options,
+    bindRuntimeInputs: true,
+  });
+}
+
 function recoveryNode(
   action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   params: {
     id: string;
     label: string;
     recoveryAction: RecoverySubflowAction;
-    approvalId: string;
+    approvalId: string | null;
+    bindRuntimeInputs: boolean;
     x: number;
     y: number;
   },
 ): Node {
-  const targetNodeIds =
+  const evidenceTargetNodeIds =
     action.recoveryPolicy?.targetNodeIds.length
       ? action.recoveryPolicy.targetNodeIds
       : action.targetNodeIds;
+  const targetNodeIds = params.bindRuntimeInputs ? [] : evidenceTargetNodeIds;
   const logic: NodeLogic = {
     runtimeCodingToolBudgetRecoveryEndpoint: RECOVERY_ENDPOINT,
-    runtimeCodingToolBudgetRecoveryRunId: action.runId ?? undefined,
+    runtimeCodingToolBudgetRecoveryRunId: params.bindRuntimeInputs
+      ? undefined
+      : (action.runId ?? undefined),
     runtimeCodingToolBudgetRecoveryRunIdField: "runId",
-    runtimeCodingToolBudgetRecoveryThreadId: action.threadId,
+    runtimeCodingToolBudgetRecoveryThreadId: params.bindRuntimeInputs
+      ? undefined
+      : action.threadId,
     runtimeCodingToolBudgetRecoveryThreadIdField: "threadId",
     runtimeCodingToolBudgetRecoveryAction: params.recoveryAction,
     runtimeCodingToolBudgetRecoveryActionField: "action",
-    runtimeCodingToolBudgetRecoveryApprovalId: params.approvalId,
+    runtimeCodingToolBudgetRecoveryApprovalId:
+      params.approvalId ?? undefined,
     runtimeCodingToolBudgetRecoveryApprovalIdField: "approvalId",
-    runtimeCodingToolBudgetRecoverySourceEventId:
-      action.sourceEventId ?? action.eventId,
+    runtimeCodingToolBudgetRecoverySourceEventId: params.bindRuntimeInputs
+      ? undefined
+      : action.sourceEventId ?? action.eventId,
     runtimeCodingToolBudgetRecoverySourceEventIdField: "sourceEventId",
-    runtimeCodingToolBudgetRecoveryBlockedEventId: action.eventId,
+    runtimeCodingToolBudgetRecoveryBlockedEventId: params.bindRuntimeInputs
+      ? undefined
+      : action.eventId,
     runtimeCodingToolBudgetRecoveryBlockedEventIdField: "blockedEventId",
     runtimeCodingToolBudgetRecoveryApprovalRequestEventId:
-      action.approvalRequestEventId ?? undefined,
+      params.bindRuntimeInputs
+        ? undefined
+        : action.approvalRequestEventId ?? undefined,
     runtimeCodingToolBudgetRecoveryApprovalRequestEventIdField:
       "approvalRequestEventId",
     runtimeCodingToolBudgetRecoveryApprovalDecisionEventId:
-      action.approvalDecisionEventId ?? undefined,
+      params.bindRuntimeInputs
+        ? undefined
+        : action.approvalDecisionEventId ?? undefined,
     runtimeCodingToolBudgetRecoveryApprovalDecisionEventIdField:
       "approvalDecisionEventId",
     runtimeCodingToolBudgetRecoveryTargetNodeIds: targetNodeIds,
