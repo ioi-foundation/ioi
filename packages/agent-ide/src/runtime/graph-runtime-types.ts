@@ -45,10 +45,12 @@ import type {
   RuntimeDiagnosticsRepairControlRequest,
   RuntimeOperatorInterruptControlRequest,
 } from "./workflow-runtime-control-nodes";
+import type { RuntimeCodingToolControlRequest } from "./workflow-runtime-coding-tool-control-nodes";
 import type { RuntimeSubagentControlRequest } from "./workflow-runtime-subagent-control-nodes";
 
 export type WorkflowRuntimeControlRequest =
   | RuntimeApprovalRequestControlRequest
+  | RuntimeCodingToolControlRequest
   | RuntimeContextCompactControlRequest
   | RuntimeDiagnosticsRepairControlRequest
   | RuntimeOperatorInterruptControlRequest

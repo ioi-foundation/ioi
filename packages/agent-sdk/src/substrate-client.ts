@@ -2975,6 +2975,14 @@ function mockCodingToolContracts(): RuntimeToolCatalogEntry[] {
         "toolPack.coding.dryRun",
         "toolPack.coding.diagnosticsMode",
         "toolPack.coding.defaultDiagnosticCommandId",
+        "toolPack.coding.restorePolicy",
+        "toolPack.coding.restoreConflictPolicy",
+        "toolPack.coding.diagnosticsRepairDefault",
+        "toolPack.coding.operatorOverrideRequiresApproval",
+        "toolPack.coding.approvalMode",
+        "toolPack.coding.trustProfile",
+        "toolPack.coding.nodeApprovalOverride",
+        "toolPack.coding.requiresApproval",
       ],
     },
     {
@@ -2995,6 +3003,10 @@ function mockCodingToolContracts(): RuntimeToolCatalogEntry[] {
         "toolPack.coding.allowedTestCommandIds",
         "toolPack.coding.allowedPaths",
         "toolPack.coding.timeoutMs",
+        "toolPack.coding.approvalMode",
+        "toolPack.coding.trustProfile",
+        "toolPack.coding.nodeApprovalOverride",
+        "toolPack.coding.requiresApproval",
       ],
     },
     {
@@ -3468,7 +3480,10 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
   ): Promise<RuntimeThreadRecord> {
     const agent = await this.agentForThread(threadId);
     const mode = String(input.mode ?? "agent").trim() || "agent";
-    const approvalMode = String(input.approvalMode ?? (mode === "yolo" ? "never_prompt" : mode === "plan" ? "human_required" : "suggest"));
+    const approvalMode = String(
+      input.approvalMode ??
+        (mode === "yolo" ? "never_prompt" : mode === "plan" || mode === "review" ? "human_required" : "suggest"),
+    );
     const updated = {
       ...agent,
       updatedAt: new Date().toISOString(),

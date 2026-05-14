@@ -266,6 +266,7 @@ async function importAgentIde() {
     "packages/agent-ide/src/index.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-diagnostics-repair-actions.ts",
@@ -1887,6 +1888,204 @@ test("daemon requires approval before review-mode mutating coding tools from Rea
           row.reactFlowNodeId === workflowNodeId,
       ),
     );
+  } finally {
+    await daemon.close();
+  }
+});
+
+test("React Flow coding-tool approval manifests survive approval and retry execution", async () => {
+  const { Thread, createRuntimeSubstrateClient } = await importSdk();
+  const {
+    createRuntimeCodingToolControlRequestFromWorkflowNode,
+    projectRuntimeThreadEventsToWorkflowProjection,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-coding-approval-retry-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-coding-approval-retry-state-"));
+  const targetPath = path.join(cwd, "README.md");
+  fs.writeFileSync(targetPath, "React Flow policy starts here.\n");
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const workflowGraphId = "workflow.react-flow.coding-approval-retry-proof";
+    const workflowNodeId = "workflow.coding.file.apply_patch.node-policy";
+    const toolCallId = "coding_tool_react_flow_policy_retry";
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        goal: "Prove React Flow approval policy cannot bypass daemon approval and retry execution.",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const mode = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/mode`, {
+      method: "POST",
+      body: JSON.stringify({
+        mode: "yolo",
+        approvalMode: "never_prompt",
+        source: "react_flow",
+        workflowGraphId,
+        workflowNodeId: "runtime.thread-mode.yolo",
+      }),
+    });
+    assert.equal(mode.mode, "yolo");
+    assert.equal(mode.approval_mode, "never_prompt");
+
+    const control = createRuntimeCodingToolControlRequestFromWorkflowNode(
+      {
+        id: "react-flow-coding-node-policy",
+        type: "plugin_tool",
+        config: {
+          logic: {
+            workflowNodeId,
+            toolBinding: {
+              toolRef: "file.apply_patch",
+              bindingKind: "coding_tool_pack",
+              mockBinding: false,
+              credentialReady: true,
+              capabilityScope: ["file.apply_patch"],
+              sideEffectClass: "write",
+              requiresApproval: true,
+              arguments: {
+                path: "README.md",
+                oldText: "React Flow policy starts here.",
+                newText: "React Flow policy applied after approval.",
+              },
+              toolPack: {
+                pack: "coding",
+                writeEnabled: true,
+                dryRun: false,
+                approvalMode: "human_required",
+                trustProfile: "review_required",
+                nodeApprovalOverride: "require_approval",
+                requiresApproval: true,
+              },
+            },
+          },
+        },
+      },
+      { threadId: thread.thread_id },
+      { workflowGraphId, actor: "workflow-author" },
+    );
+    assert.equal(control.endpoint, `/v1/threads/${thread.thread_id}/tools/file.apply_patch/invoke`);
+    assert.equal(control.body.source, "react_flow");
+    assert.equal(control.body.workflowGraphId, workflowGraphId);
+    assert.equal(control.body.workflowNodeId, workflowNodeId);
+    assert.equal(control.body.requiresApproval, true);
+    assert.equal(control.body.approvalMode, "human_required");
+    assert.equal(control.body.trustProfile, "review_required");
+    assert.equal(control.body.nodeApprovalOverride, "require_approval");
+
+    const attemptBody = {
+      ...control.body,
+      toolCallId,
+      approved: true,
+      approvalGranted: true,
+      approvalMode: "never_prompt",
+      approval_mode: "never_prompt",
+      requiresApproval: false,
+      requires_approval: false,
+      toolPack: {
+        coding: {
+          ...control.body.toolPack.coding,
+          requiresApproval: false,
+          requires_approval: false,
+          approvalMode: "suggest",
+          approval_mode: "suggest",
+        },
+      },
+    };
+    const blocked = await fetchJson(`${daemon.endpoint}${control.endpoint}`, {
+      method: control.method,
+      body: JSON.stringify(attemptBody),
+    });
+    assert.equal(blocked.status, "blocked");
+    assert.equal(blocked.approval_required, true);
+    assert.equal(blocked.approval_manifest?.thread_mode, "yolo");
+    assert.equal(blocked.approval_manifest?.approval_mode, "never_prompt");
+    assert.equal(blocked.approval_manifest?.policy_reason, "workflow_node_requires_approval");
+    assert.equal(blocked.approval_manifest?.workflow_policy?.source, "react_flow");
+    assert.equal(blocked.approval_manifest?.workflow_policy?.requiresApproval, true);
+    assert.equal(blocked.approval_manifest?.workflow_trust_profile, "review_required");
+    assert.equal(blocked.approval_manifest?.node_requires_approval, true);
+    assert.equal(blocked.approval_manifest?.node_approval_override, "require_approval");
+    assert.match(blocked.approval_manifest?.input_hash, /^[a-f0-9]{64}$/);
+    assert.equal(blocked.approval_manifest?.ui_override_ignored, true);
+    assert.equal(fs.readFileSync(targetPath, "utf8"), "React Flow policy starts here.\n");
+
+    const decision = await fetchJson(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/approvals/${blocked.approval_id}/decision`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "react_flow",
+          workflowGraphId,
+          workflowNodeId,
+          decision: "approve",
+          reason: "Approve the policy-gated React Flow coding tool retry.",
+        }),
+      },
+    );
+    assert.equal(decision.decision, "approve");
+
+    const approved = await fetchJson(`${daemon.endpoint}${control.endpoint}`, {
+      method: control.method,
+      body: JSON.stringify({
+        ...attemptBody,
+        approvalId: blocked.approval_id,
+      }),
+    });
+    assert.equal(approved.status, "completed");
+    assert.equal(approved.tool_call_id, toolCallId);
+    assert.equal(approved.event.payload_summary.approval_required, true);
+    assert.equal(approved.event.payload_summary.approval_satisfied, true);
+    assert.equal(approved.event.payload_summary.approval_id, blocked.approval_id);
+    assert.equal(approved.event.payload_summary.approval_manifest.policy_reason, "workflow_node_requires_approval");
+    assert.equal(approved.event.payload_summary.approval_manifest.workflow_policy.requiresApproval, true);
+    assert.equal(approved.event.payload_summary.approval_manifest.workflow_trust_profile, "review_required");
+    assert.equal(fs.readFileSync(targetPath, "utf8"), "React Flow policy applied after approval.\n");
+
+    const replay = await fetchJson(`${daemon.endpoint}${control.endpoint}`, {
+      method: control.method,
+      body: JSON.stringify({
+        ...attemptBody,
+        approvalId: blocked.approval_id,
+      }),
+    });
+    assert.equal(replay.status, "completed");
+    assert.equal(replay.idempotent_replay, true);
+    assert.equal(replay.event.event_id, approved.event.event_id);
+    assert.equal(fs.readFileSync(targetPath, "utf8"), "React Flow policy applied after approval.\n");
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const approvalEvent = daemonEvents.find((event) => event.event_id === blocked.approval_event_id);
+    assert.ok(approvalEvent);
+    assert.equal(approvalEvent.payload_summary.approval_manifest.workflow_policy.source, "react_flow");
+    assert.equal(approvalEvent.payload_summary.approval_manifest.input_hash, blocked.approval_manifest.input_hash);
+    const decisionEvent = daemonEvents.find((event) => event.event_id === decision.event_id);
+    assert.ok(decisionEvent);
+    assert.equal(decisionEvent.event_kind, "approval.approved");
+    assert.equal(decisionEvent.payload_summary.approval_request_event_id, approvalEvent.event_id);
+    assert.equal(
+      decisionEvent.payload_summary.approval_manifest.input_hash,
+      blocked.approval_manifest.input_hash,
+    );
+    const toolEvent = daemonEvents.find((event) => event.event_id === approved.event.event_id);
+    assert.ok(toolEvent);
+    assert.equal(toolEvent.payload_summary.approval_decision_event_id, decision.event_id);
+
+    const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
+    const sdkEvents = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const pendingApprovalEvents = sdkEvents.filter((event) => event.seq <= approvalEvent.seq);
+    const projection = projectRuntimeThreadEventsToWorkflowProjection(pendingApprovalEvents);
+    const approvalNode = projection.nodes.find((node) =>
+      node.eventIds.includes(approvalEvent.event_id),
+    );
+    assert.ok(approvalNode);
+    assert.equal(approvalNode.nodeKind, "human_gate");
+    assert.equal(approvalNode.componentKind, "approval_gate");
+    assert.equal(approvalNode.workflowNodeId, workflowNodeId);
   } finally {
     await daemon.close();
   }
@@ -10017,6 +10216,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     path.join(root, "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts"),
     "utf8",
   );
+  const workflowRuntimeCodingToolControlNodes = fs.readFileSync(
+    path.join(
+      root,
+      "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
+    ),
+    "utf8",
+  );
   const workflowRuntimeMcpControlNodes = fs.readFileSync(
     path.join(root, "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts"),
     "utf8",
@@ -10648,6 +10854,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeMcpControlNodes, /createRuntimeMcpToolControlRequestFromWorkflowNode/);
   assert.match(workflowRuntimeMcpControlNodes, /\/v1\/threads\/\$\{encodeSegment\(threadId\)\}\/mcp\/tools\/search/);
   assert.match(workflowRuntimeMcpControlNodes, /OperatorControl\.McpInvoke/);
+  assert.match(workflowRuntimeCodingToolControlNodes, /createRuntimeCodingToolControlRequestFromWorkflowNode/);
+  assert.match(workflowRuntimeCodingToolControlNodes, /\/v1\/threads\/\$\{encodeSegment\(threadId\)\}\/tools\/\$\{encodeSegment\(toolId\)\}\/invoke/);
+  assert.match(workflowRuntimeCodingToolControlNodes, /nodeApprovalOverride/);
+  assert.match(workflowRuntimeCodingToolControlNodes, /trustProfile/);
   assert.match(workflowRuntimeSubagentControlNodes, /createRuntimeSubagentControlRequestFromWorkflowNode/);
   assert.match(workflowRuntimeSubagentControlNodes, /contextPressureAction/);
   assert.match(workflowRuntimeSubagentControlNodes, /policyDecisionRefs/);
@@ -10906,11 +11116,17 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(runtimeDaemon, /OperatorApproval\.Request/);
   assert.match(runtimeDaemon, /approval\.required/);
   assert.match(runtimeDaemon, /codingToolApprovalManifestForThread/);
+  assert.match(runtimeDaemon, /codingToolApprovalSatisfaction/);
+  assert.match(runtimeDaemon, /codingToolApprovalManifestsMatch/);
+  assert.match(runtimeDaemon, /workflow_node_requires_approval/);
+  assert.match(runtimeDaemon, /workflow_trust_profile_requires_approval/);
+  assert.match(runtimeDaemon, /approval_decision_event_id/);
   assert.match(runtimeDaemon, /coding_tool_approval_required/);
   assert.match(runtimeDaemon, /thread_review_mode_requires_approval/);
   assert.match(graphRuntimeTypes, /executeWorkflowRuntimeControlRequest\?/);
   assert.match(graphRuntimeTypes, /WorkflowRuntimeControlRequest/);
   assert.match(graphRuntimeTypes, /RuntimeApprovalRequestControlRequest/);
+  assert.match(graphRuntimeTypes, /RuntimeCodingToolControlRequest/);
   assert.match(graphRuntimeTypes, /RuntimeContextCompactControlRequest/);
   assert.match(graphRuntimeTypes, /RuntimeOperatorInterruptControlRequest/);
   assert.match(tauriRuntime, /execute_workflow_runtime_control_request/);

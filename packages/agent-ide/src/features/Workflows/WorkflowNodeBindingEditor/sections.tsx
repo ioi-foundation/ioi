@@ -60,6 +60,10 @@ export function WorkflowNodeBindingSections({
     restoreConflictPolicy: "block" as const,
     diagnosticsRepairDefault: "repair_retry" as const,
     operatorOverrideRequiresApproval: true,
+    approvalMode: "human_required" as const,
+    trustProfile: "local_private" as const,
+    nodeApprovalOverride: "require_approval" as const,
+    requiresApproval: true,
     timeoutMs: 60000,
     dryRun: false,
     allowedPaths: [] as string[],
@@ -116,7 +120,12 @@ export function WorkflowNodeBindingSections({
         credentialReady: true,
         capabilityScope,
         sideEffectClass: nextPack.writeEnabled ? "write" : "read",
-        requiresApproval: Boolean(nextPack.writeEnabled && !nextPack.dryRun),
+        requiresApproval: Boolean(
+          nextPack.requiresApproval ??
+            (nextPack.nodeApprovalOverride === "require_approval"
+              ? true
+              : nextPack.writeEnabled && !nextPack.dryRun),
+        ),
         arguments: logic.toolBinding?.arguments ?? {},
         toolPack: nextPack,
       },
@@ -3330,6 +3339,91 @@ export function WorkflowNodeBindingSections({
                   }
                 />
                 Operator override requires approval
+              </label>
+              <label className="workflow-config-checkbox-row">
+                <input
+                  data-testid="workflow-coding-tool-pack-requires-approval"
+                  type="checkbox"
+                  checked={codingToolPack.requiresApproval !== false}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      requiresApproval: event.target.checked,
+                      nodeApprovalOverride: event.target.checked
+                        ? "require_approval"
+                        : "inherit",
+                    })
+                  }
+                />
+                Tool requires approval
+              </label>
+              <label>
+                Approval mode
+                <select
+                  data-testid="workflow-coding-tool-pack-approval-mode"
+                  value={String(codingToolPack.approvalMode ?? "human_required")}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      approvalMode: event.target.value as
+                        | "suggest"
+                        | "auto_local"
+                        | "never_prompt"
+                        | "human_required"
+                        | "policy_required",
+                    })
+                  }
+                >
+                  <option value="human_required">Human required</option>
+                  <option value="policy_required">Policy required</option>
+                  <option value="suggest">Suggest</option>
+                  <option value="auto_local">Auto local</option>
+                  <option value="never_prompt">Never prompt</option>
+                </select>
+              </label>
+              <label>
+                Trust profile
+                <select
+                  data-testid="workflow-coding-tool-pack-trust-profile"
+                  value={String(codingToolPack.trustProfile ?? "local_private")}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      trustProfile: event.target.value,
+                    })
+                  }
+                >
+                  <option value="local_private">Local private</option>
+                  <option value="review_required">Review required</option>
+                  <option value="restricted">Restricted</option>
+                  <option value="untrusted">Untrusted</option>
+                </select>
+              </label>
+              <label>
+                Node approval override
+                <select
+                  data-testid="workflow-coding-tool-pack-node-approval-override"
+                  value={String(
+                    codingToolPack.nodeApprovalOverride ?? "require_approval",
+                  )}
+                  onChange={(event) =>
+                    updateCodingToolPack({
+                      ...codingToolPack,
+                      nodeApprovalOverride: event.target.value as
+                        | "inherit"
+                        | "require_approval"
+                        | "never_prompt",
+                      requiresApproval:
+                        event.target.value === "require_approval"
+                          ? true
+                          : codingToolPack.requiresApproval,
+                    })
+                  }
+                >
+                  <option value="require_approval">Require approval</option>
+                  <option value="inherit">Inherit</option>
+                  <option value="never_prompt">Never prompt</option>
+                </select>
               </label>
               <label>
                 Timeout ms

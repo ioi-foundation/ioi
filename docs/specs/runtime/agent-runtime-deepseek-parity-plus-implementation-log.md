@@ -174,8 +174,49 @@ workstream was narrower.
 | 172 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry | context-pressure approval request execution | docs/evidence/autopilot-gui-harness-validation/2026-05-13T23-07-49-226Z/result.json |
 | 173 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry / P1-A. Subagent Runtime Parity | context-pressure delegate-summary subagent execution | docs/evidence/autopilot-gui-harness-validation/2026-05-13T23-23-49-757Z/result.json |
 | 174 | 2026-05-13 | P1-C. Modes, Trust, Approvals | review-mode coding-tool approval manifest gate | /tmp/ioi-autopilot-gui-harness-runtime-coding-approval/2026-05-13T23-38-57-653Z/result.json |
+| 175 | 2026-05-13 | P1-C. Modes, Trust, Approvals | React Flow approval policy manifest and retry gate | /tmp/ioi-autopilot-gui-harness-runtime-coding-approval-retry/2026-05-14T00-01-23-557Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 175. 2026-05-13 - React Flow approval policy manifest and retry gate
+
+Implementation slice completed 2026-05-13, P1-C workflow-authored approval
+policy enforcement:
+
+- Added React Flow coding-tool control request compilation so
+  `coding_tool_pack` bindings can send `requiresApproval`, `approvalMode`,
+  `trustProfile`, and `nodeApprovalOverride` to the daemon with graph/node
+  provenance.
+- Extended daemon coding-tool approval manifests with workflow policy,
+  trust-profile, node-override, and input-hash provenance while keeping the
+  daemon as the approval source of truth.
+- Added approval-satisfaction checks for coding-tool retries: the daemon now
+  matches the retry manifest to the original `approval.required` event, requires
+  a later approval decision, and records the approving event id on the completed
+  tool result.
+- Added idempotent approved retry replay by tool-call key so a repeated
+  approved invocation returns the prior tool event instead of reapplying a patch.
+- Extended React Flow coding-pack controls, node registry defaults, SDK static
+  catalog fields, source-contract guards, and focused live tests to prove a
+  permissive canvas request cannot bypass daemon approval policy.
+- Updated the master guide so the next P1-C slice is workspace trust records
+  and visible review/YOLO warnings.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check packages/runtime-daemon/src/coding-tools.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test scripts/lib/workflow-coding-tool-pack-policy-contract.test.mjs`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts`
+- `node --test --test-name-pattern "React Flow coding-tool approval manifests survive approval and retry execution" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "daemon requires approval before review-mode mutating coding tools from React Flow" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-runtime-coding-approval-retry`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-runtime-coding-approval-retry/2026-05-14T00-01-23-557Z/result.json`.
 
 ### Slice 174. 2026-05-13 - Review-mode coding-tool approval manifest gate
 
