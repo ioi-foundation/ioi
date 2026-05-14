@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "workflow.terminal-coding-loop.run-inspector-proof.v1",
+  "scenario": "workflow_terminal_coding_loop_run_inspector_materialize",
+  "passed": true,
+  "clickedControlTestId": "workflow-run-terminal-coding-loop-materialize-*",
+  "materialized": {
+    "mode": "materialized",
+    "insertedNodeIds": [
+      "run-inspector-terminal-loop-proof-workspace-status",
+      "run-inspector-terminal-loop-proof-git-diff",
+      "run-inspector-terminal-loop-proof-file-inspect",
+      "run-inspector-terminal-loop-proof-patch-dry-run",
+      "run-inspector-terminal-loop-proof-apply-patch",
+      "run-inspector-terminal-loop-proof-test-run",
+      "run-inspector-terminal-loop-proof-lsp-diagnostics",
+      "run-inspector-terminal-loop-proof-artifact-read",
+      "run-inspector-terminal-loop-proof-retrieve-result"
+    ],
+    "insertedEdgeIds": [
+      "run-inspector-terminal-loop-proof-edge-1",
+      "run-inspector-terminal-loop-proof-edge-2",
+      "run-inspector-terminal-loop-proof-edge-3",
+      "run-inspector-terminal-loop-proof-edge-4",
+      "run-inspector-terminal-loop-proof-edge-5",
+      "run-inspector-terminal-loop-proof-edge-6",
+      "run-inspector-terminal-loop-proof-edge-7",
+      "run-inspector-terminal-loop-proof-edge-8"
+    ],
+    "boundNodeIds": [
+      "run-inspector-terminal-loop-proof-workspace-status",
+      "run-inspector-terminal-loop-proof-git-diff",
+      "run-inspector-terminal-loop-proof-file-inspect",
+      "run-inspector-terminal-loop-proof-patch-dry-run",
+      "run-inspector-terminal-loop-proof-apply-patch",
+      "run-inspector-terminal-loop-proof-test-run",
+      "run-inspector-terminal-loop-proof-lsp-diagnostics",
+      "run-inspector-terminal-loop-proof-artifact-read",
+      "run-inspector-terminal-loop-proof-retrieve-result"
+    ],
+    "evidenceToolCallId": "coding_tool_test_run_proof"
+  },
+  "hydrated": {
+    "mode": "hydrated",
+    "insertedNodeIds": [],
+    "boundNodeIds": [
+      "existing-terminal-loop-proof-workspace-status",
+      "existing-terminal-loop-proof-git-diff",
+      "existing-terminal-loop-proof-file-inspect",
+      "existing-terminal-loop-proof-patch-dry-run",
+      "existing-terminal-loop-proof-apply-patch",
+      "existing-terminal-loop-proof-test-run",
+      "existing-terminal-loop-proof-lsp-diagnostics",
+      "existing-terminal-loop-proof-artifact-read",
+      "existing-terminal-loop-proof-retrieve-result"
+    ]
+  },
+  "checks": {
+    "runInspectorButtonRendered": true,
+    "runInspectorButtonCallsHandler": true,
+    "railPanelPropWired": true,
+    "viewPassesHandler": true,
+    "controllerUsesMaterializationHelper": true,
+    "materializationHelperDetectsExistingLoop": true,
+    "materializesNineNodes": true,
+    "materializesEightEdges": true,
+    "materializedLoopDetected": true,
+    "bindsTuiReopen": true,
+    "boundNodeCompilesToDaemonRequest": true,
+    "hydratesExistingLoop": true,
+    "blocksMissingCodingToolRow": true
+  },
+  "sourceRefs": [
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx",
+    "packages/agent-ide/src/WorkflowComposer/view.tsx",
+    "packages/agent-ide/src/WorkflowComposer/controller.tsx",
+    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-materialization.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-materialization.test.ts"
+  ]
+}

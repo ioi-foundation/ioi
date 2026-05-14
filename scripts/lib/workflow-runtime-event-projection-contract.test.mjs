@@ -51,6 +51,24 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const telemetryBudgetChainRunInspectorProbe = read(
     "scripts/lib/workflow-telemetry-budget-chain-run-inspector-probe.mjs",
   );
+  const terminalCodingLoopSubflow = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.ts",
+  );
+  const terminalCodingLoopMaterialization = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-materialization.ts",
+  );
+  const terminalCodingLoopSubflowTest = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.test.ts",
+  );
+  const terminalCodingLoopMaterializationTest = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-materialization.test.ts",
+  );
+  const terminalCodingLoopCreatorGuiProbe = read(
+    "scripts/lib/workflow-terminal-coding-loop-creator-gui-probe.mjs",
+  );
+  const terminalCodingLoopRunInspectorProbe = read(
+    "scripts/lib/workflow-terminal-coding-loop-run-inspector-probe.mjs",
+  );
   const telemetryBudgetChainRuntimeSubflowInsertion = read(
     "packages/agent-ide/src/WorkflowComposer/runtimeSubflowInsertion.ts",
   );
@@ -348,6 +366,116 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
     /readinessFailsWhenUpstreamBindingRemoved/,
   );
   assert.match(
+    terminalCodingLoopSubflow,
+    /ioi\.workflow\.runtime-terminal-coding-loop-subflow\.v1/,
+  );
+  assert.match(
+    terminalCodingLoopSubflow,
+    /createWorkflowRuntimeTerminalCodingLoopTemplateSubflow/,
+  );
+  for (const toolId of [
+    "workspace.status",
+    "git.diff",
+    "file.inspect",
+    "file.apply_patch",
+    "test.run",
+    "lsp.diagnostics",
+    "artifact.read",
+    "tool.retrieve_result",
+  ]) {
+    assert.match(terminalCodingLoopSubflow, new RegExp(toolId.replace(".", "\\.")));
+  }
+  assert.match(terminalCodingLoopSubflow, /runtimeTerminalCodingLoopTuiReopen/);
+  assert.match(terminalCodingLoopSubflow, /bindingKind: "coding_tool_pack"/);
+  assert.match(terminalCodingLoopSubflow, /diagnosticsRepairDefault/);
+  assert.match(
+    terminalCodingLoopSubflowTest,
+    /generated terminal coding loop nodes compile into daemon coding-tool requests/,
+  );
+  assert.match(
+    terminalCodingLoopSubflowTest,
+    /terminal coding loop template materializes to React Flow elements/,
+  );
+  assert.match(
+    terminalCodingLoopMaterialization,
+    /ioi\.workflow\.runtime-terminal-coding-loop-materialization\.v1/,
+  );
+  assert.match(
+    terminalCodingLoopMaterialization,
+    /materializeWorkflowRuntimeTerminalCodingLoopFromTuiRow/,
+  );
+  assert.match(
+    terminalCodingLoopMaterialization,
+    /workflowRuntimeTerminalCodingLoopIdsFromWorkflow/,
+  );
+  assert.match(terminalCodingLoopMaterialization, /mode: "materialized"/);
+  assert.match(terminalCodingLoopMaterialization, /mode: "hydrated"/);
+  assert.match(
+    terminalCodingLoopMaterializationTest,
+    /run-inspector coding-tool evidence materializes a terminal coding loop/,
+  );
+  assert.match(
+    terminalCodingLoopMaterializationTest,
+    /hydrates an existing terminal loop/,
+  );
+  assert.match(
+    exports,
+    /createWorkflowRuntimeTerminalCodingLoopTemplateSubflow/,
+  );
+  assert.match(
+    exports,
+    /materializeWorkflowRuntimeTerminalCodingLoopFromTuiRow/,
+  );
+  assert.match(
+    composerController,
+    /handleInsertRuntimeTerminalCodingLoopTemplate/,
+  );
+  assert.match(
+    composerController,
+    /handleMaterializeRuntimeTerminalCodingLoop/,
+  );
+  assert.match(
+    composerController,
+    /materializeWorkflowRuntimeTerminalCodingLoopFromTuiRow/,
+  );
+  assert.match(
+    composerView,
+    /workflow-add-runtime-terminal-coding-loop-template/,
+  );
+  assert.match(runsPanel, /workflow-run-terminal-coding-loop-materialize-/);
+  assert.match(runsPanel, /onMaterializeRuntimeTerminalCodingLoop/);
+  assert.match(runsPanel, /data-coding-tool-row-count/);
+  assert.match(railPanel, /onMaterializeRuntimeTerminalCodingLoop/);
+  assert.match(composerView, /handleMaterializeRuntimeTerminalCodingLoop/);
+  assert.match(
+    terminalCodingLoopCreatorGuiProbe,
+    /workflow_terminal_coding_loop_creator_click/,
+  );
+  assert.match(
+    terminalCodingLoopCreatorGuiProbe,
+    /workflow-add-runtime-terminal-coding-loop-template/,
+  );
+  assert.match(
+    terminalCodingLoopCreatorGuiProbe,
+    /workflowRuntimeSubflowReactFlowElements/,
+  );
+  assert.match(
+    terminalCodingLoopRunInspectorProbe,
+    /workflow_terminal_coding_loop_run_inspector_materialize/,
+  );
+  assert.match(
+    terminalCodingLoopRunInspectorProbe,
+    /workflow-run-terminal-coding-loop-materialize-/,
+  );
+  assert.match(
+    terminalCodingLoopRunInspectorProbe,
+    /materializeWorkflowRuntimeTerminalCodingLoopFromTuiRow/,
+  );
+  assert.match(
+    terminalCodingLoopRunInspectorProbe,
+    /hydratesExistingLoop/,
+  );
+  assert.match(
     liveRuntimeDaemonContract,
     /React Flow run-inspector-created telemetry budget chain executes/,
   );
@@ -377,12 +505,36 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
     /workflow_telemetry_budget_chain_run_inspector_proof_present/,
   );
   assert.match(
+    guiHarnessContract,
+    /workflow_terminal_coding_loop_creator/,
+  );
+  assert.match(
+    guiHarnessContract,
+    /workflow_terminal_coding_loop_run_inspector/,
+  );
+  assert.match(
+    guiHarnessContract,
+    /workflow_terminal_coding_loop_creator_proof_present/,
+  );
+  assert.match(
+    guiHarnessContract,
+    /workflow_terminal_coding_loop_run_inspector_proof_present/,
+  );
+  assert.match(
     guiHarnessValidation,
     /collectWorkflowTelemetryBudgetChainCreatorProof/,
   );
   assert.match(
     guiHarnessValidation,
     /collectWorkflowTelemetryBudgetChainRunInspectorProof/,
+  );
+  assert.match(
+    guiHarnessValidation,
+    /collectWorkflowTerminalCodingLoopCreatorProof/,
+  );
+  assert.match(
+    guiHarnessValidation,
+    /collectWorkflowTerminalCodingLoopRunInspectorProof/,
   );
   assert.match(
     guiHarnessValidation,
@@ -394,6 +546,14 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(
     guiHarnessValidation,
+    /workflowTerminalCodingLoopCreatorProof/,
+  );
+  assert.match(
+    guiHarnessValidation,
+    /workflowTerminalCodingLoopRunInspectorProof/,
+  );
+  assert.match(
+    guiHarnessValidation,
     /workflow_telemetry_budget_chain_creator/,
   );
   assert.match(
@@ -402,11 +562,27 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(
     guiHarnessValidation,
+    /workflow_terminal_coding_loop_creator/,
+  );
+  assert.match(
+    guiHarnessValidation,
+    /workflow_terminal_coding_loop_run_inspector/,
+  );
+  assert.match(
+    guiHarnessValidation,
     /workflow_telemetry_budget_chain_creator_proof_present/,
   );
   assert.match(
     guiHarnessValidation,
     /workflow_telemetry_budget_chain_run_inspector_proof_present/,
+  );
+  assert.match(
+    guiHarnessValidation,
+    /workflow_terminal_coding_loop_creator_proof_present/,
+  );
+  assert.match(
+    guiHarnessValidation,
+    /workflow_terminal_coding_loop_run_inspector_proof_present/,
   );
   assert.match(projection, /Coding tool budget/);
   assert.match(projection, /runtimeSubagentSubflow/);

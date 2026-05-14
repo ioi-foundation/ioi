@@ -568,6 +568,28 @@ export {
   workflowRuntimeTelemetryBudgetChainIdsFromWorkflow,
 } from "./runtime/workflow-runtime-telemetry-budget-chain-materialization";
 export type {
+  WorkflowRuntimeTerminalCodingLoopStepId,
+  WorkflowRuntimeTerminalCodingLoopSubflow,
+  WorkflowRuntimeTerminalCodingLoopSubflowOptions,
+} from "./runtime/workflow-runtime-terminal-coding-loop-subflow";
+export {
+  WORKFLOW_RUNTIME_TERMINAL_CODING_LOOP_STEPS,
+  WORKFLOW_RUNTIME_TERMINAL_CODING_LOOP_SUBFLOW_SCHEMA_VERSION,
+  createWorkflowRuntimeTerminalCodingLoopTemplateSubflow,
+} from "./runtime/workflow-runtime-terminal-coding-loop-subflow";
+export type {
+  WorkflowRuntimeTerminalCodingLoopEvidenceBinding,
+  WorkflowRuntimeTerminalCodingLoopMaterializationMode,
+  WorkflowRuntimeTerminalCodingLoopMaterializationOptions,
+  WorkflowRuntimeTerminalCodingLoopMaterializationResult,
+} from "./runtime/workflow-runtime-terminal-coding-loop-materialization";
+export {
+  WORKFLOW_RUNTIME_TERMINAL_CODING_LOOP_MATERIALIZATION_SCHEMA_VERSION,
+  materializeWorkflowRuntimeTerminalCodingLoopFromTuiRow,
+  workflowRuntimeTerminalCodingLoopEvidenceBinding,
+  workflowRuntimeTerminalCodingLoopIdsFromWorkflow,
+} from "./runtime/workflow-runtime-terminal-coding-loop-materialization";
+export type {
   WorkflowRuntimeCodingToolBudgetRecoveryEvidenceBinding,
   WorkflowRuntimeCodingToolBudgetRecoveryNodeBindingResult,
   WorkflowRuntimeCodingToolBudgetRecoveryTemplateBindingResult,

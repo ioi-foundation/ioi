@@ -61,6 +61,7 @@ import type {
   WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   WorkflowRuntimeContextPressureActionDescriptor,
   WorkflowRuntimeDiagnosticsRepairActionDescriptor,
+  WorkflowRuntimeTuiControlStateRow,
   WorkflowRuntimeThreadEventLike,
   WorkflowRuntimeWorkspaceTrustActionDescriptor,
 } from "../../../runtime/workflow-runtime-event-projection";
@@ -352,6 +353,7 @@ export function WorkflowRailPanel({
   onBindRuntimeCodingToolBudgetRecoveryTemplate,
   onBindRuntimeTelemetrySource,
   onMaterializeRuntimeTelemetryBudgetChain,
+  onMaterializeRuntimeTerminalCodingLoop,
   onInspectHarnessGroupNode,
   onSelectHarnessReceiptRef,
   onSelectHarnessReplayFixtureRef,
@@ -452,6 +454,9 @@ export function WorkflowRailPanel({
   ) => void;
   onMaterializeRuntimeTelemetryBudgetChain?: (
     summary: WorkflowRuntimeTelemetrySummary,
+  ) => void;
+  onMaterializeRuntimeTerminalCodingLoop?: (
+    row: WorkflowRuntimeTuiControlStateRow,
   ) => void;
   onInspectHarnessGroupNode?: (groupId: string, nodeId: string) => void;
   onSelectHarnessReceiptRef?: (receiptRef: string) => void;
@@ -3367,6 +3372,9 @@ export function WorkflowRailPanel({
         onBindRuntimeTelemetrySource={onBindRuntimeTelemetrySource}
         onMaterializeRuntimeTelemetryBudgetChain={
           onMaterializeRuntimeTelemetryBudgetChain
+        }
+        onMaterializeRuntimeTerminalCodingLoop={
+          onMaterializeRuntimeTerminalCodingLoop
         }
       />
     );

@@ -82,6 +82,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleBindRuntimeCodingToolBudgetRecoveryTemplate,
     handleBindRuntimeTelemetrySource,
     handleMaterializeRuntimeTelemetryBudgetChain,
+    handleMaterializeRuntimeTerminalCodingLoop,
     handleExecuteHarnessRollback,
     handleExpandHarnessGroups,
     handleExportPortablePackage,
@@ -93,6 +94,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleInsertAgentLoopMacro,
     handleInsertRuntimeCodingToolBudgetRecoveryTemplate,
     handleInsertRuntimeTelemetryBudgetChainTemplate,
+    handleInsertRuntimeTerminalCodingLoopTemplate,
     handleInspectExecutionNode,
     handleInspectHarnessGroupNode,
     handleOpenDefaultHarness,
@@ -846,6 +848,18 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                         mappings.
                       </span>
                     </button>
+                    <button
+                      type="button"
+                      data-testid="workflow-add-runtime-terminal-coding-loop-template"
+                      onClick={handleInsertRuntimeTerminalCodingLoopTemplate}
+                      title="Insert a daemon-backed terminal coding loop for status, diff, inspect, patch, test, diagnostics, artifacts, and result retrieval"
+                    >
+                      <strong>Terminal coding loop</strong>
+                      <span>
+                        Prewires coding-tool pack nodes that mirror the TUI
+                        slash loop and reopen from run-inspector evidence.
+                      </span>
+                    </button>
                   </section>
                 ) : null}
                 <section
@@ -1417,6 +1431,9 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     }}
                     onMaterializeRuntimeTelemetryBudgetChain={(summary) => {
                       handleMaterializeRuntimeTelemetryBudgetChain(summary);
+                    }}
+                    onMaterializeRuntimeTerminalCodingLoop={(row) => {
+                      handleMaterializeRuntimeTerminalCodingLoop(row);
                     }}
                     onInspectHarnessGroupNode={handleInspectHarnessGroupNode}
                     onSelectHarnessReceiptRef={handleSelectHarnessReceiptRef}
