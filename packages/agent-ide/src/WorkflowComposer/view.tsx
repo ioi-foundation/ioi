@@ -47,6 +47,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     executionCompareRun,
     executionStatusCounts,
     filteredNodeLibrary,
+    filteredCompositionHelpers,
     fitView,
     FlaskConical,
     functionDryRunResult,
@@ -275,6 +276,13 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     zoomIn,
     zoomOut
   } = model;
+
+  const compositionHelperHandlers = {
+    agent_loop: handleInsertAgentLoopMacro,
+    coding_budget_recovery: handleInsertRuntimeCodingToolBudgetRecoveryTemplate,
+    telemetry_budget_chain: handleInsertRuntimeTelemetryBudgetChainTemplate,
+    terminal_coding_loop: handleInsertRuntimeTerminalCodingLoopTemplate,
+  } as const;
 
   const workflowRunDisabled = isReadOnlyWorkflow;
   const workflowRunDisabledReason =
@@ -665,6 +673,11 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                 >
                   {filteredNodeLibrary.length} primitive
                   {filteredNodeLibrary.length === 1 ? "" : "s"}
+                  {filteredCompositionHelpers.length > 0
+                    ? ` · ${filteredCompositionHelpers.length} helper${
+                        filteredCompositionHelpers.length === 1 ? "" : "s"
+                      }`
+                    : ""}
                   {nodeGroupFilter === "Compatible" && selectedNode
                     ? ` compatible with ${compatiblePortFocusLabel ?? selectedNode.name}`
                     : ""}
@@ -805,61 +818,36 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     )}
                   </p>
                 ) : null}
-                {!isSearchingNodeLibrary ? (
+                {filteredCompositionHelpers.length > 0 ? (
                   <section
                     className="workflow-macro-library"
                     data-testid="workflow-macro-library"
                   >
                     <h5>Composition helpers</h5>
-                    <button
-                      type="button"
-                      data-testid="workflow-add-agent-loop-macro"
-                      onClick={handleInsertAgentLoopMacro}
-                      title="Expand a generic agent loop into explicit source, model, memory, tool, decision, and output nodes"
-                    >
-                      <strong>Agent loop</strong>
-                      <span>
-                        Expands into typed primitives with visible tool and
-                        memory attachments.
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      data-testid="workflow-add-coding-budget-recovery-template"
-                      onClick={handleInsertRuntimeCodingToolBudgetRecoveryTemplate}
-                      title="Insert a reusable daemon-backed coding-tool budget recovery bundle"
-                    >
-                      <strong>Coding budget recovery</strong>
-                      <span>
-                        Prewires request, approve, reject, and retry nodes with
-                        configurable runtime inputs.
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      data-testid="workflow-add-runtime-telemetry-budget-chain-template"
-                      onClick={handleInsertRuntimeTelemetryBudgetChainTemplate}
-                      title="Insert a telemetry-governed runtime usage, context budget, compaction, and coding budget gate chain"
-                    >
-                      <strong>Telemetry budget chain</strong>
-                      <span>
-                        Prewires usage, context budget, compaction policy, and
-                        coding-tool budget gate nodes with live runtime
-                        mappings.
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      data-testid="workflow-add-runtime-terminal-coding-loop-template"
-                      onClick={handleInsertRuntimeTerminalCodingLoopTemplate}
-                      title="Insert a daemon-backed terminal coding loop for status, diff, inspect, patch, test, diagnostics, artifacts, and result retrieval"
-                    >
-                      <strong>Terminal coding loop</strong>
-                      <span>
-                        Prewires coding-tool pack nodes that mirror the TUI
-                        slash loop and reopen from run-inspector evidence.
-                      </span>
-                    </button>
+                    {filteredCompositionHelpers.map((helper) => {
+                      const helperTestIds = {
+                        agent_loop: "workflow-add-agent-loop-macro",
+                        coding_budget_recovery:
+                          "workflow-add-coding-budget-recovery-template",
+                        telemetry_budget_chain:
+                          "workflow-add-runtime-telemetry-budget-chain-template",
+                        terminal_coding_loop:
+                          "workflow-add-runtime-terminal-coding-loop-template",
+                      } as const;
+                      return (
+                        <button
+                          key={helper.helperId}
+                          type="button"
+                          data-testid={helperTestIds[helper.helperId]}
+                          data-helper-id={helper.helperId}
+                          onClick={compositionHelperHandlers[helper.helperId]}
+                          title={helper.description}
+                        >
+                          <strong>{helper.label}</strong>
+                          <span>{helper.description}</span>
+                        </button>
+                      );
+                    })}
                   </section>
                 ) : null}
                 <section
@@ -874,10 +862,15 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                       No primitives match the current search and group filter.
                     </p>
                   ) : null}
-                  {SCAFFOLD_GROUPS.map((group) => {
-                    const groupItems = filteredNodeLibrary.filter(
-                      (item) => item.group === group,
-                    );
+                  {(isSearchingNodeLibrary
+                    ? ["Best matches"]
+                    : SCAFFOLD_GROUPS
+                  ).map((group) => {
+                    const groupItems = isSearchingNodeLibrary
+                      ? filteredNodeLibrary
+                      : filteredNodeLibrary.filter(
+                          (item) => item.group === group,
+                        );
                     if (groupItems.length === 0) return null;
                     return (
                       <div
