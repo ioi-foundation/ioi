@@ -2,6 +2,18 @@
 
 export { AgentEditor } from "./AgentEditor";
 export { WorkflowComposer } from "./WorkflowComposer";
+export {
+  WORKFLOW_COMPOSER_TERMINAL_CODING_LOOP_RUN_ACTIVATION_SCHEMA_VERSION,
+  createTerminalCodingLoopApprovalDecisionRequest,
+  runWorkflowComposerTerminalCodingLoopActivation,
+  workflowComposerTerminalCodingLoopControlRequestForRuntime,
+  workflowComposerTerminalCodingLoopRunLaunchEligible,
+} from "./WorkflowComposer/terminalCodingLoopRunActivation";
+export type {
+  WorkflowComposerTerminalCodingLoopApprovalDecisionRequest,
+  WorkflowComposerTerminalCodingLoopControlRequest,
+  WorkflowComposerTerminalCodingLoopRunActivationOptions,
+} from "./WorkflowComposer/terminalCodingLoopRunActivation";
 export { createWorkflowHarnessTools } from "./runtime/workflow-harness-tools";
 export {
   WORKFLOW_CODING_ROUTE_CONTRACTS,

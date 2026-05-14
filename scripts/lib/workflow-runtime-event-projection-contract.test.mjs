@@ -75,6 +75,12 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const terminalCodingLoopRunLaunchTest = read(
     "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.test.ts",
   );
+  const terminalCodingLoopRunActivation = read(
+    "packages/agent-ide/src/WorkflowComposer/terminalCodingLoopRunActivation.ts",
+  );
+  const terminalCodingLoopRunActivationTest = read(
+    "packages/agent-ide/src/WorkflowComposer/terminalCodingLoopRunActivation.test.ts",
+  );
   const terminalCodingLoopCreatorGuiProbe = read(
     "scripts/lib/workflow-terminal-coding-loop-creator-gui-probe.mjs",
   );
@@ -475,6 +481,26 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
     /dispatches saved workflow nodes in run-history order/,
   );
   assert.match(
+    terminalCodingLoopRunActivation,
+    /ioi\.workflow\.composer-terminal-coding-loop-run-activation\.v1/,
+  );
+  assert.match(
+    terminalCodingLoopRunActivation,
+    /workflowComposerTerminalCodingLoopRunLaunchEligible/,
+  );
+  assert.match(
+    terminalCodingLoopRunActivation,
+    /runWorkflowComposerTerminalCodingLoopActivation/,
+  );
+  assert.match(
+    terminalCodingLoopRunActivation,
+    /runtime_approval_decision/,
+  );
+  assert.match(
+    terminalCodingLoopRunActivationTest,
+    /launches pure saved workflow/,
+  );
+  assert.match(
     exports,
     /createWorkflowRuntimeTerminalCodingLoopTemplateSubflow/,
   );
@@ -492,11 +518,27 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(
     exports,
+    /runWorkflowComposerTerminalCodingLoopActivation/,
+  );
+  assert.match(
+    exports,
     /workflowRunHistoryModel/,
   );
   assert.match(
     composerController,
     /handleInsertRuntimeTerminalCodingLoopTemplate/,
+  );
+  assert.match(
+    composerController,
+    /workflowComposerTerminalCodingLoopRunLaunchEligible/,
+  );
+  assert.match(
+    composerController,
+    /runWorkflowComposerTerminalCodingLoopActivation/,
+  );
+  assert.match(
+    composerController,
+    /workflowComposerTerminalCodingLoopControlRequestForRuntime/,
   );
   assert.match(
     composerController,
@@ -562,7 +604,11 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(
     liveRuntimeDaemonContract,
-    /runRuntimeTerminalCodingLoopWorkflowLaunch/,
+    /runWorkflowComposerTerminalCodingLoopActivation/,
+  );
+  assert.match(
+    liveRuntimeDaemonContract,
+    /workflowComposerTerminalCodingLoopRunLaunchEligible/,
   );
   assert.match(
     liveRuntimeDaemonContract,
@@ -574,7 +620,11 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(
     liveRuntimeDaemonContract,
-    /terminal_loop_\$\{invokeContext\.stepId\}/,
+    /composerThreadToolCallPrefix/,
+  );
+  assert.match(
+    liveRuntimeDaemonContract,
+    /runtime_approval_decision/,
   );
   assert.match(
     liveRuntimeDaemonContract,

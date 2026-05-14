@@ -210,8 +210,50 @@ workstream was narrower.
 | 208 | 2026-05-14 | P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack / Workflow Development Environment | terminal coding-loop workflow template | docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-05-13-646Z/result.json |
 | 209 | 2026-05-14 | P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack / Workflow Development Environment | terminal coding-loop live execution | docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-30-24-219Z/result.json |
 | 210 | 2026-05-14 | P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack / Workflow Development Environment | terminal coding-loop saved workflow run launch | docs/evidence/autopilot-gui-harness-validation/2026-05-14T17-53-33-194Z/result.json |
+| 211 | 2026-05-14 | P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack / Workflow Development Environment | terminal coding-loop composer run activation | docs/evidence/autopilot-gui-harness-validation/2026-05-14T18-13-32-648Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 211. 2026-05-14 - Terminal coding-loop composer run activation
+
+Implementation slice completed 2026-05-14, wiring the saved terminal
+coding-loop launcher into the real WorkflowComposer run action while keeping
+the runtime implementation componentized:
+
+- Added a composer terminal-loop activation wrapper that recognizes pure saved
+  terminal coding-loop workflows, dispatches the saved nodes through
+  `runRuntimeTerminalCodingLoopWorkflowLaunch`, and forwards every coding-tool
+  request through the Tauri `executeWorkflowRuntimeControlRequest` bridge.
+- Recorded protected patch approval through a daemon approval-decision request
+  before retrying the mutating step, preserving approval evidence rather than
+  bypassing the workflow policy.
+- Updated `handleRun` so eligible pure terminal-loop workflows use the shared
+  activation path after normal validation, trust preflight, live telemetry
+  thread creation, and run-state setup; mixed workflows continue to use the
+  existing project runner.
+- Updated run-result application to merge `runtimeThreadEvents` already present
+  on the run result with daemon-loaded thread events, so composer-launched
+  terminal loops remain inspectable even if the result already carries canonical
+  events.
+- Switched the live daemon terminal-loop proof to call the composer activation
+  wrapper directly, proving the same path used by the Run button against real
+  daemon coding-tool and approval endpoints.
+
+Evidence:
+
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-14T18-13-32-648Z/result.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-14T18-13-32-648Z/workflow-terminal-coding-loop-creator-proof.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-14T18-13-32-648Z/workflow-terminal-coding-loop-run-inspector-proof.json`
+- `packages/agent-ide/src/WorkflowComposer/terminalCodingLoopRunActivation.ts`
+- `packages/agent-ide/src/WorkflowComposer/terminalCodingLoopRunActivation.test.ts`
+- `packages/agent-ide/src/WorkflowComposer/controller.tsx`
+
+Next tactical recommendation:
+
+- Add a dedicated React Flow GUI harness probe that creates or loads the
+  terminal coding-loop template, clicks the real Run button, and asserts the
+  composer activation run appears in run history with daemon coding-tool/TUI
+  rows and approval-decision evidence.
 
 ### Slice 210. 2026-05-14 - Terminal coding-loop saved workflow run launch
 
