@@ -13,14 +13,16 @@ bundles should be treated as generated artifacts, not source files.
 
 ## Current Baseline
 
-The latest completed implementation slice is slice 211,
-`terminal coding-loop composer run activation`, committed as `0e1ad17af`.
+The latest completed implementation slice is slice 212,
+`terminal coding-loop GUI Run-button harness proof`.
 
 Recommended baseline before the next runtime slice:
 
 ```bash
 node --test --import tsx packages/agent-ide/src/WorkflowComposer/terminalCodingLoopRunActivation.test.ts packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.test.ts packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-execution.test.ts
+node --import tsx scripts/lib/workflow-terminal-coding-loop-run-button-gui-probe.mjs /tmp/workflow-terminal-coding-loop-run-button-proof.json
 node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs
+node --test scripts/lib/autopilot-gui-harness-contract.test.mjs
 node --check scripts/lib/live-runtime-daemon-contract.test.mjs
 npm run build --workspace=@ioi/agent-ide
 node --test --test-reporter=spec --test-name-pattern "React Flow terminal coding-loop template executes" scripts/lib/live-runtime-daemon-contract.test.mjs
@@ -28,10 +30,9 @@ npm run validate:autopilot-gui-harness
 npm run validate:autopilot-gui-harness:run
 ```
 
-The next primary validation target is not another daemon sequencing test. It is
-a dedicated React Flow GUI harness probe that clicks the real WorkflowComposer
-Run button for a terminal coding-loop workflow and asserts run-history evidence
-for daemon coding-tool/TUI rows plus approval decisions.
+The primary P0 validation posture is now regression guard: keep the terminal
+coding-loop Run-button proof green alongside the live daemon terminal-loop
+contract and the full GUI harness run.
 
 ## Regression Guard Matrix
 
@@ -58,6 +59,7 @@ for daemon coding-tool/TUI rows plus approval decisions.
 | 209 | `ae97df2d8` | Live terminal coding-loop daemon execution, projection, and GUI harness checks passed. |
 | 210 | `1ff517599` | Saved workflow run-launch for terminal coding-loop workflows passed unit, live daemon, build, and GUI checks. |
 | 211 | `0e1ad17af` | WorkflowComposer terminal-loop activation passed unit, source-contract, build, live daemon, and full GUI harness checks. |
+| 212 | this slice | Terminal coding-loop Run-button GUI probe passed standalone, source-contract, GUI harness contract, focused live daemon, build, preflight GUI harness, and full live GUI harness checks. |
 
 ## Evidence Policy
 
