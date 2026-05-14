@@ -39,6 +39,18 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const telemetryBudgetChainSubflow = read(
     "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts",
   );
+  const telemetryBudgetChainCreatorGuiProbe = read(
+    "scripts/lib/workflow-telemetry-budget-chain-creator-gui-probe.mjs",
+  );
+  const telemetryBudgetChainRuntimeSubflowInsertion = read(
+    "packages/agent-ide/src/WorkflowComposer/runtimeSubflowInsertion.ts",
+  );
+  const guiHarnessContract = read(
+    "scripts/lib/autopilot-gui-harness-contract.mjs",
+  );
+  const guiHarnessValidation = read(
+    "scripts/lib/autopilot-gui-harness-validation/core.mjs",
+  );
   const compactionPolicyControlNodes = read(
     "packages/agent-ide/src/runtime/workflow-runtime-compaction-policy-control-nodes.ts",
   );
@@ -223,6 +235,62 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(
     composerView,
     /workflow-add-runtime-telemetry-budget-chain-template/,
+  );
+  assert.match(
+    telemetryBudgetChainRuntimeSubflowInsertion,
+    /workflowRuntimeSubflowReactFlowElements/,
+  );
+  assert.match(
+    telemetryBudgetChainRuntimeSubflowInsertion,
+    /sourceHandle: edge\.fromPort/,
+  );
+  assert.match(
+    telemetryBudgetChainRuntimeSubflowInsertion,
+    /targetHandle: edge\.toPort/,
+  );
+  assert.match(
+    telemetryBudgetChainCreatorGuiProbe,
+    /workflow_telemetry_budget_chain_creator_click/,
+  );
+  assert.match(
+    telemetryBudgetChainCreatorGuiProbe,
+    /workflow-add-runtime-telemetry-budget-chain-template/,
+  );
+  assert.match(
+    telemetryBudgetChainCreatorGuiProbe,
+    /workflowRuntimeSubflowReactFlowElements/,
+  );
+  assert.match(
+    telemetryBudgetChainCreatorGuiProbe,
+    /readinessFailsWhenUpstreamBindingRemoved/,
+  );
+  assert.match(
+    telemetryBudgetChainCreatorGuiProbe,
+    /missing_runtime_telemetry_source_usage_binding/,
+  );
+  assert.match(
+    guiHarnessContract,
+    /workflow_telemetry_budget_chain_creator/,
+  );
+  assert.match(
+    guiHarnessContract,
+    /workflow_telemetry_budget_chain_creator_proof_present/,
+  );
+  assert.match(
+    guiHarnessValidation,
+    /collectWorkflowTelemetryBudgetChainCreatorProof/,
+  );
+  assert.match(
+    guiHarnessValidation,
+    /workflowTelemetryBudgetChainCreatorProof/,
+  );
+  assert.match(
+    guiHarnessValidation,
+    /workflow_telemetry_budget_chain_creator/,
+  );
+  assert.match(
+    guiHarnessValidation,
+    /workflow_telemetry_budget_chain_creator_proof_present/,
   );
   assert.match(projection, /Coding tool budget/);
   assert.match(projection, /runtimeSubagentSubflow/);

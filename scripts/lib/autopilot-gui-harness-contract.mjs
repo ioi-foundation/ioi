@@ -190,6 +190,7 @@ export const REQUIRED_GUI_ARTIFACTS = Object.freeze([
   "harness_model_provider_gated_visible_output_rollback_drill",
   "harness_read_only_capability_routing",
   "workflow_skill_context_create_run",
+  "workflow_telemetry_budget_chain_creator",
   "workflow_coding_route_create_run",
   "workflow_coding_route_promotion_loop",
 ]);
@@ -290,6 +291,7 @@ export const RUNTIME_CONSISTENCY_REQUIREMENTS = Object.freeze([
   "harness_model_provider_gated_visible_output_rollback_drill_present",
   "harness_read_only_capability_routing_present",
   "workflow_skill_context_create_run_proof_present",
+  "workflow_telemetry_budget_chain_creator_proof_present",
   "workflow_coding_route_create_run_proof_present",
   "workflow_coding_route_promotion_loop_proof_present",
 ]);

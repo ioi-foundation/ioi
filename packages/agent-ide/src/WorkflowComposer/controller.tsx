@@ -7,6 +7,7 @@ import {
   useState,
   type DragEvent,
 } from "react";
+import type { Edge as ReactFlowEdge, Node as ReactFlowNode } from "@xyflow/react";
 import {
   Brain,
   Cable,
@@ -27,10 +28,6 @@ import {
   Search,
   Settings,
 } from "lucide-react";
-import type {
-  Edge as ReactFlowEdge,
-  Node as ReactFlowNode,
-} from "@xyflow/react";
 import { Canvas } from "../features/Editor/Canvas/Canvas";
 import { WorkflowBottomShelf } from "../features/Workflows/WorkflowBottomShelf";
 import { WorkflowRailPanel } from "../features/Workflows/WorkflowRailPanel";
@@ -148,6 +145,7 @@ import {
   workflowRuntimeTelemetrySourceBindingIssue,
 } from "../runtime/workflow-runtime-telemetry-source-binding";
 import type { WorkflowRuntimeTelemetrySummary } from "../runtime/workflow-runtime-telemetry-summary";
+import { workflowRuntimeSubflowReactFlowElements } from "./runtimeSubflowInsertion";
 import type {
   WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   WorkflowRuntimeContextPressureActionDescriptor,
@@ -9938,34 +9936,14 @@ export function useWorkflowComposerController({
         statusMessage: string;
       },
     ) => {
+      const elements = workflowRuntimeSubflowReactFlowElements(subflow);
       setNodes((currentNodes) => [
         ...currentNodes,
-        ...subflow.nodes.map(
-          (node): ReactFlowNode => ({
-            id: node.id,
-            type: node.type,
-            position: { x: node.x, y: node.y },
-            data: { ...node },
-          }),
-        ),
+        ...elements.nodes,
       ]);
       setEdges((currentEdges) => [
         ...currentEdges,
-        ...subflow.edges.map(
-          (edge): ReactFlowEdge => ({
-            id: edge.id,
-            source: edge.from,
-            target: edge.to,
-            sourceHandle: edge.fromPort,
-            targetHandle: edge.toPort,
-            type: "semantic",
-            animated: false,
-            data: {
-              ...(edge.data ?? {}),
-              connectionClass: edge.connectionClass ?? edge.type,
-            },
-          }),
-        ),
+        ...elements.edges,
       ]);
       markWorkflowDirty();
       setActiveTab("graph");
