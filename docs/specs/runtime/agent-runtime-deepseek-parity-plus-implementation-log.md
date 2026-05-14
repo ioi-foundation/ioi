@@ -175,8 +175,56 @@ workstream was narrower.
 | 173 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry / P1-A. Subagent Runtime Parity | context-pressure delegate-summary subagent execution | docs/evidence/autopilot-gui-harness-validation/2026-05-13T23-23-49-757Z/result.json |
 | 174 | 2026-05-13 | P1-C. Modes, Trust, Approvals | review-mode coding-tool approval manifest gate | /tmp/ioi-autopilot-gui-harness-runtime-coding-approval/2026-05-13T23-38-57-653Z/result.json |
 | 175 | 2026-05-13 | P1-C. Modes, Trust, Approvals | React Flow approval policy manifest and retry gate | /tmp/ioi-autopilot-gui-harness-runtime-coding-approval-retry/2026-05-14T00-01-23-557Z/result.json |
+| 176 | 2026-05-14 | P1-C. Modes, Trust, Approvals | daemon-owned workspace trust warning records | /tmp/ioi-autopilot-gui-harness-runtime-workspace-trust-warning/2026-05-14T00-17-53-763Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 176. 2026-05-14 - Daemon-owned workspace trust warning records
+
+Implementation slice completed 2026-05-14, P1-C workspace trust warning
+projection:
+
+- Added daemon-owned `workspace.trust_warning` events emitted on `review` and
+  `yolo` mode changes, with read-only repository context, branch-policy
+  warnings/blockers, graph/node provenance, receipts, policy refs, and
+  source-mode event linkage.
+- Recorded canvas-local trust/suppression fields as ignored evidence via
+  `ui_override_ignored`, `ignored_ui_fields`, and
+  `canvas_local_trust_state_accepted: false` instead of accepting canvas trust
+  as runtime truth.
+- Extended SDK event typing and envelope mapping with
+  `workspace_trust_warning`.
+- Added TUI `workspace_trust_rows` and React Flow `hook_policy` projection for
+  workspace trust warnings, including warning id, severity, dirty state,
+  warning reasons, receipts, and policy refs.
+- Added focused live coverage proving review and YOLO mode warning records
+  survive daemon SSE replay, SDK streaming, TUI control-state projection, and
+  React Flow projection even when React Flow attempts to suppress or fake trust
+  state.
+- Updated the master guide so the next P1-C slice is first-class React Flow
+  mode/trust authoring and warning acknowledgement.
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+- `node --test --test-name-pattern "daemon emits workspace trust warnings" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-ide`
+- `cargo test -p ioi-cli --bin cli tui_control_state_projects_mode_status_and_approval_rows -- --nocapture`
+- `cargo fmt -p ioi-cli -- --check`
+- `git diff --check`
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-runtime-workspace-trust-warning`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-runtime-workspace-trust-warning/2026-05-14T00-17-53-763Z/result.json`.
+
+Known validation note:
+
+- Broad `cargo test -p ioi-cli ...` still fails before this slice's tests run
+  because unrelated integration tests are missing
+  `StartAgentParams.runtime_route_frame` initializers.
 
 ### Slice 175. 2026-05-13 - React Flow approval policy manifest and retry gate
 

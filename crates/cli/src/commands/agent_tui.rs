@@ -2002,6 +2002,7 @@ fn tui_control_state_for_render(render: &TuiRender, fallback_thread_id: Option<&
     let mut command_history = Vec::new();
     let approval_rows = tui_approval_rows(&render.events, thread_id.as_deref());
     let approval_decisions = tui_approval_decisions(&render.events, thread_id.as_deref());
+    let workspace_trust_rows = tui_workspace_trust_rows(&render.events, thread_id.as_deref());
     let job_rows = tui_job_rows(&render.jobs, thread_id.as_deref());
     let run_lifecycle_rows = tui_run_lifecycle_rows(&render.jobs, thread_id.as_deref());
     let cost_rows = tui_usage_delta_rows(&render.events, thread_id.as_deref());
@@ -2057,6 +2058,7 @@ fn tui_control_state_for_render(render: &TuiRender, fallback_thread_id: Option<&
         "usage_status": usage_status,
         "approval_rows": approval_rows,
         "approval_decisions": approval_decisions,
+        "workspace_trust_rows": workspace_trust_rows,
         "job_rows": job_rows,
         "run_lifecycle_rows": run_lifecycle_rows,
         "cost_rows": cost_rows,
@@ -3198,6 +3200,17 @@ pub(crate) fn tui_approval_rows(events: &[Value], fallback_thread_id: Option<&st
         .collect()
 }
 
+pub(crate) fn tui_workspace_trust_rows(
+    events: &[Value],
+    fallback_thread_id: Option<&str>,
+) -> Vec<Value> {
+    events
+        .iter()
+        .filter(|event| is_tui_workspace_trust_warning_event(event))
+        .map(|event| tui_workspace_trust_row(event, fallback_thread_id))
+        .collect()
+}
+
 pub(crate) fn tui_approval_decisions(
     events: &[Value],
     fallback_thread_id: Option<&str>,
@@ -3237,6 +3250,68 @@ fn tui_approval_row(event: &Value, fallback_thread_id: Option<&str>) -> Value {
         "policy_decision_refs": event.pointer("/policy_decision_refs").cloned().unwrap_or_else(|| Value::Array(Vec::new())),
         "decision": json_path_string(event, "/payload/decision")
             .or_else(|| json_path_string(event, "/payload_summary/decision")),
+    })
+}
+
+fn tui_workspace_trust_row(event: &Value, fallback_thread_id: Option<&str>) -> Value {
+    let payload = event_payload_summary(event);
+    let seq = event.pointer("/seq").and_then(Value::as_u64);
+    let warning_id = json_path_string(payload, "/warning_id")
+        .or_else(|| json_path_string(payload, "/warningId"))
+        .or_else(|| json_path_string(event, "/event_id"))
+        .unwrap_or_else(|| "workspace_trust".to_string());
+    let workflow_node_id = json_path_string(event, "/workflow_node_id")
+        .or_else(|| json_path_string(payload, "/workflow_node_id"))
+        .or_else(|| json_path_string(payload, "/workflowNodeId"))
+        .unwrap_or_else(|| "runtime.workspace-trust".to_string());
+    let mode = json_path_string(payload, "/mode")
+        .or_else(|| json_path_string(payload, "/thread_mode"))
+        .unwrap_or_else(|| "review".to_string());
+    let severity = json_path_string(payload, "/severity").unwrap_or_else(|| "warning".to_string());
+    serde_json::json!({
+        "id": format!("tui-workspace-trust-{}-{}", safe_id(&warning_id), seq.unwrap_or(0)),
+        "row_kind": "workspace_trust_warning",
+        "warning_id": warning_id,
+        "status": json_path_string(payload, "/status")
+            .or_else(|| json_path_string(event, "/status"))
+            .unwrap_or_else(|| "warning".to_string()),
+        "severity": severity,
+        "label": "Workspace trust warning",
+        "command": "mode",
+        "raw_input": format!("/mode {mode}"),
+        "message": json_path_string(payload, "/message")
+            .or_else(|| json_path_string(payload, "/summary"))
+            .unwrap_or_else(|| "Daemon recorded a workspace trust warning.".to_string()),
+        "thread_id": json_path_string(payload, "/thread_id")
+            .or_else(|| json_path_string(payload, "/threadId"))
+            .or_else(|| json_path_string(event, "/thread_id"))
+            .or_else(|| fallback_thread_id.map(ToOwned::to_owned)),
+        "turn_id": json_path_string(payload, "/turn_id")
+            .or_else(|| json_path_string(payload, "/turnId"))
+            .or_else(|| json_path_string(event, "/turn_id")),
+        "cursor": tui_event_cursor(event, seq),
+        "event_id": json_path_string(event, "/event_id"),
+        "sequence": seq,
+        "workflow_graph_id": json_path_string(event, "/workflow_graph_id")
+            .or_else(|| json_path_string(payload, "/workflow_graph_id"))
+            .or_else(|| json_path_string(payload, "/workflowGraphId")),
+        "workflow_node_id": workflow_node_id,
+        "mode": mode,
+        "approval_mode": json_path_string(payload, "/approval_mode")
+            .or_else(|| json_path_string(payload, "/approvalMode")),
+        "trust_profile": json_path_string(payload, "/trust_profile")
+            .or_else(|| json_path_string(payload, "/trustProfile")),
+        "dirty": payload.pointer("/dirty").cloned().unwrap_or(Value::Null),
+        "warning_reasons": payload.pointer("/warning_reasons")
+            .or_else(|| payload.pointer("/warningReasons"))
+            .cloned()
+            .unwrap_or_else(|| Value::Array(Vec::new())),
+        "ignored_ui_fields": payload.pointer("/ignored_ui_fields")
+            .or_else(|| payload.pointer("/ignoredUiFields"))
+            .cloned()
+            .unwrap_or_else(|| Value::Array(Vec::new())),
+        "receipt_refs": event.pointer("/receipt_refs").cloned().unwrap_or_else(|| Value::Array(Vec::new())),
+        "policy_decision_refs": event.pointer("/policy_decision_refs").cloned().unwrap_or_else(|| Value::Array(Vec::new())),
     })
 }
 
@@ -3599,6 +3674,29 @@ fn is_tui_context_pressure_event(event: &Value) -> bool {
     haystack.contains("context.pressure_delta")
         || haystack.contains("runtimecontextpressure.delta")
         || haystack.contains("context_pressure")
+}
+
+fn is_tui_workspace_trust_warning_event(event: &Value) -> bool {
+    let haystack = [
+        json_path_string(event, "/event_kind"),
+        json_path_string(event, "/source_event_kind"),
+        json_path_string(event, "/component_kind"),
+        json_path_string(event, "/payload_summary/event_kind"),
+        json_path_string(event, "/payload_summary/eventKind"),
+        json_path_string(event, "/payload_summary/object"),
+        json_path_string(event, "/payload/event_kind"),
+        json_path_string(event, "/payload/eventKind"),
+        json_path_string(event, "/payload/object"),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>()
+    .join(" ")
+    .to_ascii_lowercase();
+    haystack.contains("workspace.trust_warning")
+        || haystack.contains("workspacetrust.warning")
+        || haystack.contains("workspace_trust")
+        || haystack.contains("ioi.workspace_trust_warning")
 }
 
 fn event_payload_summary(event: &Value) -> &Value {
@@ -4098,6 +4196,30 @@ mod tests {
                         "decision": "approve"
                     }
                 }),
+                serde_json::json!({
+                    "event_id": "event_workspace_trust",
+                    "event_stream_id": "events_thread_live",
+                    "seq": 12,
+                    "thread_id": "thread_live",
+                    "event_kind": "workspace.trust_warning",
+                    "source_event_kind": "WorkspaceTrust.Warning",
+                    "status": "warning",
+                    "component_kind": "workspace_trust",
+                    "workflow_graph_id": "graph_live",
+                    "workflow_node_id": "runtime.thread-mode.yolo.workspace-trust",
+                    "receipt_refs": ["receipt_workspace_trust"],
+                    "policy_decision_refs": ["policy_workspace_trust_yolo"],
+                    "payload_summary": {
+                        "warning_id": "workspace_trust_live",
+                        "mode": "yolo",
+                        "approval_mode": "never_prompt",
+                        "trust_profile": "local_private",
+                        "severity": "high",
+                        "dirty": true,
+                        "warning_reasons": ["thread_yolo_mode_never_prompts"],
+                        "message": "YOLO mode can run without further prompts."
+                    }
+                }),
             ],
             jobs: Vec::new(),
             since_seq: Some(0),
@@ -4123,6 +4245,18 @@ mod tests {
         assert_eq!(
             state["approval_decisions"][0]["receipt_refs"],
             serde_json::json!(["receipt_approval"])
+        );
+        assert_eq!(
+            state["workspace_trust_rows"][0]["warning_id"],
+            "workspace_trust_live"
+        );
+        assert_eq!(
+            state["workspace_trust_rows"][0]["workflow_node_id"],
+            "runtime.thread-mode.yolo.workspace-trust"
+        );
+        assert_eq!(
+            state["workspace_trust_rows"][0]["receipt_refs"],
+            serde_json::json!(["receipt_workspace_trust"])
         );
     }
 

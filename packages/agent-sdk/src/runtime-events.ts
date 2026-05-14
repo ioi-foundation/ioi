@@ -232,6 +232,8 @@ function runtimeThreadEventTypeFromKind(kind: string): RuntimeThreadEvent["type"
       return "context_pressure_delta";
     case "context.pressure_alert":
       return "context_pressure_alert";
+    case "workspace.trust_warning":
+      return "workspace_trust_warning";
     case "reasoning.delta":
     case "item.delta":
       return "reasoning_delta";
@@ -295,6 +297,8 @@ function runtimeEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
       return "context.pressure_delta";
     case "context_pressure_alert":
       return "context.pressure_alert";
+    case "workspace_trust_warning":
+      return "workspace.trust_warning";
     case "error":
       return "turn.failed";
     default:
@@ -310,6 +314,7 @@ function runtimeEventStatusForSdkMessage(type: IOISDKMessage["type"]): string {
     type === "context_pressure_delta" ||
     type === "context_pressure_alert"
   ) return "running";
+  if (type === "workspace_trust_warning") return "warning";
   if (type === "canceled") return "canceled";
   if (type === "interrupted") return "interrupted";
   if (type === "error") return "failed";
@@ -325,6 +330,7 @@ function componentKindForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "usage_delta") return "usage_telemetry";
   if (type === "context_pressure_delta") return "context_pressure";
   if (type === "context_pressure_alert") return "context_pressure_alert";
+  if (type === "workspace_trust_warning") return "workspace_trust";
   if (type === "model_route_decision") return "model_router";
   if (type === "tool_result") return "tool_result";
   if (type === "delta") return "reasoning_delta";
@@ -341,6 +347,7 @@ function workflowNodeIdForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "usage_delta") return "runtime.usage-telemetry";
   if (type === "context_pressure_delta") return "runtime.context-budget";
   if (type === "context_pressure_alert") return "runtime.context-pressure-alert";
+  if (type === "workspace_trust_warning") return "runtime.workspace-trust";
   if (type === "model_route_decision") return "runtime.model-router";
   if (type === "tool_result") return "runtime.tool-result";
   if (type === "delta") return "runtime.reasoning";
@@ -357,6 +364,7 @@ function sourceEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "usage_delta") return "RuntimeUsageTelemetry.Delta";
   if (type === "context_pressure_delta") return "RuntimeContextPressure.Delta";
   if (type === "context_pressure_alert") return "RuntimeContextPressure.Alert";
+  if (type === "workspace_trust_warning") return "WorkspaceTrust.Warning";
   return `run.${type}`;
 }
 
@@ -369,6 +377,7 @@ function payloadSchemaVersionForSdkMessage(type: IOISDKMessage["type"]): string 
   if (type === "usage_delta") return "ioi.runtime.usage-delta.v1";
   if (type === "context_pressure_delta") return "ioi.runtime.context-pressure-delta.v1";
   if (type === "context_pressure_alert") return "ioi.runtime.context-pressure-alert.v1";
+  if (type === "workspace_trust_warning") return "ioi.runtime.workspace-trust-warning.v1";
   return "ioi.agent-sdk.event.v1";
 }
 

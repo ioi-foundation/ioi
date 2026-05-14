@@ -174,6 +174,59 @@ the practical workstream when the source heading is broad.
 | 173 | 2026-05-13 | P1-D. Usage, Cost, Context Telemetry / P1-A. Subagent Runtime Parity | context-pressure delegate-summary subagent execution | docs/evidence/autopilot-gui-harness-validation/2026-05-13T23-23-49-757Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check packages/runtime-daemon/src/subagent-manager.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts<br>npm run build --workspace=@ioi/agent-ide<br>node --import tsx --test --test-name-pattern "React Flow delegate-summary context-pressure action spawns a daemon-owned subagent" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness<br>git diff --check |
 | 174 | 2026-05-13 | P1-C. Modes, Trust, Approvals | review-mode coding-tool approval manifest gate | /tmp/ioi-autopilot-gui-harness-runtime-coding-approval/2026-05-13T23-38-57-653Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "daemon owns thread mode, model, and thinking controls for TUI and React Flow" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "daemon requires approval before review-mode mutating coding tools from React Flow" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "coding tool pack invokes status, diff, inspect, apply patch, diagnostics, test run, and artifact retrieval across daemon, SDK, CLI, TUI, and React Flow" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-runtime-coding-approval<br>git diff --check |
 | 175 | 2026-05-13 | P1-C. Modes, Trust, Approvals | React Flow approval policy manifest and retry gate | /tmp/ioi-autopilot-gui-harness-runtime-coding-approval-retry/2026-05-14T00-01-23-557Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check packages/runtime-daemon/src/coding-tools.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test scripts/lib/workflow-coding-tool-pack-policy-contract.test.mjs<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts<br>node --test --test-name-pattern "React Flow coding-tool approval manifests survive approval and retry execution" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "daemon requires approval before review-mode mutating coding tools from React Flow" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-runtime-coding-approval-retry |
+| 176 | 2026-05-14 | P1-C. Modes, Trust, Approvals | daemon-owned workspace trust warning records | /tmp/ioi-autopilot-gui-harness-runtime-workspace-trust-warning/2026-05-14T00-17-53-763Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts<br>node --test --test-name-pattern "daemon emits workspace trust warnings" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>cargo test -p ioi-cli --bin cli tui_control_state_projects_mode_status_and_approval_rows -- --nocapture<br>cargo fmt -p ioi-cli -- --check<br>git diff --check<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-runtime-workspace-trust-warning |
+
+## Slice 176. 2026-05-14 - Daemon-owned workspace trust warning records
+
+Guide section: P1-C. Modes, Trust, Approvals
+
+Evidence bundles:
+
+- packages/runtime-daemon/src/index.mjs
+- packages/agent-sdk/src/messages.ts
+- packages/agent-sdk/src/runtime-events.ts
+- crates/cli/src/commands/agent_tui.rs
+- crates/cli/src/commands/agent_tui_loop.rs
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- /tmp/ioi-autopilot-gui-harness-runtime-workspace-trust-warning/2026-05-14T00-17-53-763Z/result.json
+
+Validation evidence:
+
+- `node --check packages/runtime-daemon/src/index.mjs`
+  - daemon syntax check passed.
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live contract syntax check passed.
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+  - React Flow projection and TUI control-state projection tests passed,
+    including `workspace_trust_warning` event rows and
+    `workspace_trust_rows`.
+- `node --test --test-name-pattern "daemon emits workspace trust warnings" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon proof passed for review and YOLO mode warning records across
+    daemon SSE, SDK, TUI, and React Flow while ignoring canvas-local trust
+    suppression/fake-trust fields.
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - source-contract guard passed.
+- `npm run build --workspace=@ioi/agent-sdk`
+  - SDK build passed.
+- `npm run build --workspace=@ioi/agent-ide`
+  - agent-ide TypeScript/Vite build passed.
+- `cargo test -p ioi-cli --bin cli tui_control_state_projects_mode_status_and_approval_rows -- --nocapture`
+  - targeted TUI control-state row proof passed.
+- `cargo fmt -p ioi-cli -- --check`
+  - Rust formatting check passed.
+- `git diff --check`
+  - whitespace check passed.
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-runtime-workspace-trust-warning`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-runtime-workspace-trust-warning/2026-05-14T00-17-53-763Z/result.json`.
+
+Known validation note:
+
+- Broad `cargo test -p ioi-cli ...` remains blocked by unrelated CLI
+  integration tests that need `StartAgentParams.runtime_route_frame`
+  initializers.
 
 ## Slice 175. 2026-05-13 - React Flow approval policy manifest and retry gate
 

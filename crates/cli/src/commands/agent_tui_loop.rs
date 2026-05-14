@@ -19,8 +19,9 @@ use super::agent_tui::{
     tui_approval_decisions, tui_approval_rows, tui_context_pressure_rows, tui_context_rows,
     tui_cost_rows, tui_job_rows, tui_mcp_rows, tui_memory_rows, tui_mode_status,
     tui_run_lifecycle_rows, tui_subagent_rows, tui_usage_delta_rows, tui_usage_status,
-    update_tui_memory_policy, update_tui_thread_mode, update_tui_thread_model,
-    update_tui_thread_thinking, validate_tui_mcp, validate_tui_memory, wait_tui_subagent,
+    tui_workspace_trust_rows, update_tui_memory_policy, update_tui_thread_mode,
+    update_tui_thread_model, update_tui_thread_thinking, validate_tui_mcp, validate_tui_memory,
+    wait_tui_subagent,
 };
 use anyhow::{anyhow, Result};
 use serde_json::{Map, Value};
@@ -3180,6 +3181,7 @@ struct TuiControlState {
     usage_status: Value,
     approval_rows: Vec<Value>,
     approval_decisions: Vec<Value>,
+    workspace_trust_rows: Vec<Value>,
     job_rows: Vec<Value>,
     run_lifecycle_rows: Vec<Value>,
     cost_rows: Vec<Value>,
@@ -3207,6 +3209,7 @@ impl TuiControlState {
             ),
             approval_rows: Vec::new(),
             approval_decisions: Vec::new(),
+            workspace_trust_rows: Vec::new(),
             job_rows: Vec::new(),
             run_lifecycle_rows: Vec::new(),
             cost_rows: Vec::new(),
@@ -3293,6 +3296,10 @@ impl TuiControlState {
         }
         self.merge_approval_rows(tui_approval_rows(events, self.thread_id.as_deref()));
         self.merge_approval_decisions(tui_approval_decisions(events, self.thread_id.as_deref()));
+        self.merge_workspace_trust_rows(tui_workspace_trust_rows(
+            events,
+            self.thread_id.as_deref(),
+        ));
         if let Some(usage_status) = latest_usage_delta_status(events, self.thread_id.as_deref()) {
             self.usage_status = tui_usage_status(&usage_status, self.thread_id.as_deref());
         }
@@ -3336,6 +3343,30 @@ impl TuiControlState {
                 })
             {
                 self.approval_decisions.push(row);
+            }
+        }
+    }
+
+    fn merge_workspace_trust_rows(&mut self, rows: Vec<Value>) {
+        for row in rows {
+            let key = json_path_string(&row, "/warning_id")
+                .or_else(|| json_path_string(&row, "/event_id"))
+                .or_else(|| json_path_string(&row, "/id"))
+                .unwrap_or_default();
+            if key.is_empty() {
+                self.workspace_trust_rows.push(row);
+                continue;
+            }
+            if let Some(existing) = self.workspace_trust_rows.iter_mut().find(|existing| {
+                json_path_string(existing, "/warning_id")
+                    .or_else(|| json_path_string(existing, "/event_id"))
+                    .or_else(|| json_path_string(existing, "/id"))
+                    .as_deref()
+                    == Some(key.as_str())
+            }) {
+                *existing = row;
+            } else {
+                self.workspace_trust_rows.push(row);
             }
         }
     }
@@ -3546,6 +3577,7 @@ impl TuiControlState {
             "usage_status": self.usage_status.clone(),
             "approval_rows": self.approval_rows.clone(),
             "approval_decisions": self.approval_decisions.clone(),
+            "workspace_trust_rows": self.workspace_trust_rows.clone(),
             "job_rows": self.job_rows.clone(),
             "run_lifecycle_rows": self.run_lifecycle_rows.clone(),
             "cost_rows": self.cost_rows.clone(),

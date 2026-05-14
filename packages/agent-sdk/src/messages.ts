@@ -17,6 +17,7 @@ export type IOISDKMessageType =
   | "usage_delta"
   | "context_pressure_delta"
   | "context_pressure_alert"
+  | "workspace_trust_warning"
   | "usage_final"
   | "stop_condition"
   | "quality_ledger"
@@ -158,6 +159,7 @@ export const RUNTIME_THREAD_EVENT_TYPES = [
   "usage_delta",
   "context_pressure_delta",
   "context_pressure_alert",
+  "workspace_trust_warning",
   "reasoning_delta",
   "tool_completed",
   "tool_failed",
