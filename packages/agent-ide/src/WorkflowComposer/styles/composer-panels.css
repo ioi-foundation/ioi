@@ -267,6 +267,34 @@
   white-space: nowrap;
 }
 
+.workflow-run-telemetry-source-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.workflow-run-telemetry-source-kinds span,
+.workflow-run-telemetry-budget-evidence {
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--workflow-panel-strong) 72%, transparent);
+  padding: 6px 8px;
+}
+
+.workflow-run-telemetry-source-kinds span {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.workflow-run-telemetry-budget-evidence {
+  display: grid;
+  gap: 4px;
+}
+
+.workflow-run-telemetry-budget-evidence.is-blocked {
+  border-color: color-mix(in srgb, var(--status-warning) 62%, var(--border-default));
+}
+
 .workflow-run-runtime-event-nodes,
 .workflow-run-runtime-event-edges,
 .workflow-run-tui-control-state-rows,

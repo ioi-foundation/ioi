@@ -187,8 +187,41 @@ workstream was narrower.
 | 185 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget-block inspector projection | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-projection/2026-05-14T03-03-00-641Z/result.json |
 | 186 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0. Terminal Coding-Agent TUI / P0-B. Coding Tool Pack | CLI/TUI coding-tool budget-row producer | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-tui-producer/2026-05-14T03-19-32-015Z/result.json |
 | 187 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget telemetry-summary aggregation | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-telemetry-summary/2026-05-14T03-27-24-067Z/result.json |
+| 188 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget run-history evidence | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-run-history/2026-05-14T03-39-35-777Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 188. 2026-05-14 - Coding-tool budget run-history evidence
+
+Implementation slice completed 2026-05-14, P1-D/P0-B coding-tool budget
+run-history evidence:
+
+- Added run-history telemetry source filters derived from
+  `WorkflowRuntimeTelemetrySummary.sourceKinds`, including an active
+  `tui_coding_tool_rows` filter that narrows visible TUI control-state rows to
+  prior coding-tool budget evidence.
+- Added a first-class run-history `runtimeCodingToolBudgetEvidence` model with
+  row counts, event ids, workflow node ids, tool names, tool-call ids, budget
+  statuses, context-budget statuses, token/cost/context usage, receipt refs,
+  policy refs, and blocked-mutation state.
+- Updated the Runs rail to render source-filter chips, visible telemetry source
+  labels, a coding-tool budget evidence card, coding budget counts in the
+  usage/context summary, and filtered TUI row counts.
+- Added focused run-history coverage proving `tui_coding_tool_rows` exposes the
+  prior budget block before a follow-up coding-tool budget control executes.
+- Updated source-contract guards and the master guide queue so the next P1-D
+  slice moves the same evidence into workflow readiness/run preflight.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-run-history-model.test.ts packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts`
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+- `npm run build --workspace=@ioi/agent-ide`
+- `node --test --test-name-pattern "React Flow coding-tool budget gates consume runtime telemetry summary before mutation" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-budget-run-history`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-coding-tool-budget-run-history/2026-05-14T03-39-35-777Z/result.json`.
 
 ### Slice 187. 2026-05-14 - Coding-tool budget telemetry-summary aggregation
 

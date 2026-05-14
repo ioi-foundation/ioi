@@ -224,9 +224,13 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(runHistoryModel, /runtimeThreadEvents\?: WorkflowRuntimeThreadEventLike\[\]/);
   assert.match(runHistoryModel, /runtimeEventProjection: WorkflowRuntimeEventProjection/);
   assert.match(runHistoryModel, /runtimeTelemetrySummary: WorkflowRuntimeTelemetrySummary/);
+  assert.match(runHistoryModel, /runtimeTelemetrySourceFilters/);
+  assert.match(runHistoryModel, /runtimeCodingToolBudgetEvidence/);
+  assert.match(runHistoryModel, /visibleTuiControlStateRows/);
   assert.match(runHistoryModel, /workflowRuntimeTelemetrySummaryFromProjection/);
   assert.match(runHistoryModel, /runtimeThreadEventsForRunResult/);
   assert.match(runHistoryModelTest, /projects canonical runtime thread events/);
+  assert.match(runHistoryModelTest, /source-filtered TUI coding-tool budget evidence/);
   assert.match(telemetrySummary, /ioi\.workflow\.runtime-telemetry-summary\.v1/);
   assert.match(telemetrySummary, /workflowRuntimeTelemetrySummaryToUsageTelemetry/);
   assert.match(telemetrySummary, /estimated_cost_usd/);
@@ -252,8 +256,12 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(tauriRuntime, /loadWorkflowRuntimeThreadEvents/);
   assert.match(runsPanel, /workflow-run-runtime-event-graph/);
   assert.match(runsPanel, /workflow-run-telemetry-summary/);
+  assert.match(runsPanel, /workflow-run-source-filter/);
+  assert.match(runsPanel, /workflow-run-coding-tool-budget-evidence/);
+  assert.match(runsPanel, /workflow-run-telemetry-source-kinds/);
   assert.match(runsPanel, /data-telemetry-status/);
   assert.match(runsPanel, /data-context-pressure-event-count/);
+  assert.match(runsPanel, /data-visible-row-count/);
   assert.match(runsPanel, /workflow-run-runtime-event-node-/);
   assert.match(runsPanel, /workflow-run-runtime-event-edge-/);
   assert.match(runsPanel, /data-event-id/);

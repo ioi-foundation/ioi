@@ -25,11 +25,13 @@ type WorkflowRunsPanelProps = {
   model: WorkflowRunHistoryModel;
   runSearchQuery: string;
   runStatusFilter: string;
+  runSourceFilter: string;
   checkpoints: WorkflowCheckpoint[];
   dogfoodRun: WorkflowDogfoodRun | null;
   accessibleStatusLabel: (status: unknown) => string;
   onRunSearchQueryChange: (query: string) => void;
   onRunStatusFilterChange: (status: string) => void;
+  onRunSourceFilterChange: (sourceKind: string) => void;
   onOpenExecutions?: () => void;
   onSelectRun: (run: WorkflowRunSummary) => void;
   onCompareRun: (run: WorkflowRunSummary) => void;
@@ -50,11 +52,13 @@ export function WorkflowRunsPanel({
   model,
   runSearchQuery,
   runStatusFilter,
+  runSourceFilter,
   checkpoints,
   dogfoodRun,
   accessibleStatusLabel,
   onRunSearchQueryChange,
   onRunStatusFilterChange,
+  onRunSourceFilterChange,
   onOpenExecutions,
   onSelectRun,
   onCompareRun,
@@ -81,7 +85,11 @@ export function WorkflowRunsPanel({
     runtimePolicyStack,
     runtimeEditProposalPolicyStack,
     runtimeTelemetrySummary,
+    runtimeTelemetrySourceFilter,
+    runtimeTelemetrySourceFilters,
+    runtimeCodingToolBudgetEvidence,
     tuiControlStateProjection,
+    visibleTuiControlStateRows,
   } = model;
 
   return (
@@ -138,6 +146,42 @@ export function WorkflowRunsPanel({
               </button>
             ))}
           </div>
+          {runtimeTelemetrySourceFilters.length > 0 ? (
+            <div
+              className="workflow-node-group-filter workflow-run-source-filter"
+              data-testid="workflow-run-source-filter"
+              data-active-source-filter={runtimeTelemetrySourceFilter}
+              data-run-source-filter={runSourceFilter}
+            >
+              <button
+                type="button"
+                className={runtimeTelemetrySourceFilter === "all" ? "is-active" : ""}
+                data-testid="workflow-run-source-all"
+                data-source-kind="all"
+                aria-label="Filter run telemetry by all sources"
+                onClick={() => onRunSourceFilterChange("all")}
+              >
+                all sources
+                <small>{runtimeTelemetrySourceFilters.length}</small>
+              </button>
+              {runtimeTelemetrySourceFilters.map((source) => (
+                <button
+                  key={source.sourceKind}
+                  type="button"
+                  className={source.active ? "is-active" : ""}
+                  data-testid={`workflow-run-source-${source.sourceKind}`}
+                  data-source-kind={source.sourceKind}
+                  data-source-count={source.count}
+                  data-blocks-mutation={source.blocksMutation}
+                  aria-label={`Filter run telemetry by ${source.label}`}
+                  onClick={() => onRunSourceFilterChange(source.sourceKind)}
+                >
+                  {source.label}
+                  <small>{source.count}</small>
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
       <div className="workflow-run-list" data-testid="workflow-runs-list">
@@ -396,7 +440,93 @@ export function WorkflowRunsPanel({
                 <span>
                   {runtimeTelemetrySummary.subagentCount ?? 0} subagents
                 </span>
+                <span>
+                  {runtimeTelemetrySummary.codingToolBudgetRowCount} coding
+                  budgets
+                </span>
               </div>
+              {runtimeTelemetrySourceFilters.length > 0 ? (
+                <div
+                  className="workflow-run-telemetry-source-kinds"
+                  data-testid="workflow-run-telemetry-source-kinds"
+                  data-active-source-filter={runtimeTelemetrySourceFilter}
+                >
+                  {runtimeTelemetrySourceFilters.map((source) => (
+                    <span
+                      key={source.sourceKind}
+                      data-source-kind={source.sourceKind}
+                      data-source-count={source.count}
+                      data-source-active={source.active}
+                      data-blocks-mutation={source.blocksMutation}
+                    >
+                      {source.label} · {source.count}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              {runtimeCodingToolBudgetEvidence ? (
+                <article
+                  className={`workflow-run-telemetry-budget-evidence is-${runtimeCodingToolBudgetEvidence.status}`}
+                  data-testid="workflow-run-coding-tool-budget-evidence"
+                  data-source-kind={runtimeCodingToolBudgetEvidence.sourceKind}
+                  data-budget-row-count={
+                    runtimeCodingToolBudgetEvidence.rowCount
+                  }
+                  data-event-ids={
+                    runtimeCodingToolBudgetEvidence.eventIds.join("|")
+                  }
+                  data-workflow-node-ids={
+                    runtimeCodingToolBudgetEvidence.workflowNodeIds.join("|")
+                  }
+                  data-tool-names={
+                    runtimeCodingToolBudgetEvidence.toolNames.join("|")
+                  }
+                  data-tool-call-ids={
+                    runtimeCodingToolBudgetEvidence.toolCallIds.join("|")
+                  }
+                  data-budget-statuses={
+                    runtimeCodingToolBudgetEvidence.budgetStatuses.join("|")
+                  }
+                  data-context-budget-statuses={
+                    runtimeCodingToolBudgetEvidence.contextBudgetStatuses.join("|")
+                  }
+                  data-total-tokens={
+                    runtimeCodingToolBudgetEvidence.totalTokens ?? ""
+                  }
+                  data-cost-estimate-usd={
+                    runtimeCodingToolBudgetEvidence.costEstimateUsd ?? ""
+                  }
+                  data-context-pressure={
+                    runtimeCodingToolBudgetEvidence.contextPressure ?? ""
+                  }
+                  data-context-pressure-status={
+                    runtimeCodingToolBudgetEvidence.contextPressureStatus ?? ""
+                  }
+                  data-mutation-blocked={
+                    runtimeCodingToolBudgetEvidence.mutationBlocked
+                  }
+                  data-receipt-refs={
+                    runtimeCodingToolBudgetEvidence.receiptRefs.join("|")
+                  }
+                  data-policy-decision-refs={
+                    runtimeCodingToolBudgetEvidence.policyDecisionRefs.join("|")
+                  }
+                >
+                  <strong>{runtimeCodingToolBudgetEvidence.label}</strong>
+                  <span>
+                    {runtimeCodingToolBudgetEvidence.rowCount} rows ·{" "}
+                    {accessibleStatusLabel(runtimeCodingToolBudgetEvidence.status)}
+                    {runtimeCodingToolBudgetEvidence.mutationBlocked
+                      ? " · mutation blocked"
+                      : ""}
+                  </span>
+                  <small>
+                    {runtimeCodingToolBudgetEvidence.toolNames.join(", ") ||
+                      "coding tool"}{" "}
+                    · {runtimeCodingToolBudgetEvidence.eventIds[0] ?? "event pending"}
+                  </small>
+                </article>
+              ) : null}
             </section>
           ) : null}
           {runtimeEventProjection.eventCount > 0 ? (
@@ -819,6 +949,8 @@ export function WorkflowRunsPanel({
               data-subagent-child-subflow-edge-count={
                 tuiControlStateProjection.subagentChildSubflowReactFlowEdges.length
               }
+              data-source-filter={runtimeTelemetrySourceFilter}
+              data-visible-row-count={visibleTuiControlStateRows.length}
             >
               <h4>TUI control state</h4>
               <div
@@ -854,7 +986,7 @@ export function WorkflowRunsPanel({
                 className="workflow-run-tui-control-state-rows"
                 data-testid="workflow-run-tui-control-state-rows"
               >
-                {tuiControlStateProjection.rows.slice(-8).map((row) => (
+                {visibleTuiControlStateRows.slice(-8).map((row) => (
                   <li
                     key={row.id}
                     className={`workflow-run-tui-control-state-row is-${row.status}`}

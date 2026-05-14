@@ -20,6 +20,7 @@ import {
   projectRuntimeThreadEventsToWorkflowProjection,
   type WorkflowRuntimeTuiControlStateInput,
   type WorkflowRuntimeTuiControlStateProjection,
+  type WorkflowRuntimeTuiControlStateRow,
   type WorkflowRuntimeEventProjection,
   type WorkflowRuntimeThreadEventLike,
 } from "./workflow-runtime-event-projection";
@@ -58,6 +59,35 @@ export type WorkflowRunHistoryModelInput = {
   tuiControlState?: WorkflowRuntimeTuiControlStateInput;
   searchQuery: string;
   statusFilter: string;
+  sourceFilter?: string;
+};
+
+export type WorkflowRunTelemetrySourceFilter = {
+  sourceKind: string;
+  label: string;
+  count: number;
+  active: boolean;
+  blocksMutation: boolean;
+};
+
+export type WorkflowRunCodingToolBudgetEvidence = {
+  sourceKind: "tui_coding_tool_rows";
+  label: string;
+  status: WorkflowRuntimeTelemetrySummary["status"];
+  rowCount: number;
+  eventIds: string[];
+  workflowNodeIds: string[];
+  toolNames: string[];
+  toolCallIds: string[];
+  budgetStatuses: string[];
+  contextBudgetStatuses: string[];
+  totalTokens: number | null;
+  costEstimateUsd: number | null;
+  contextPressure: number | null;
+  contextPressureStatus: string | null;
+  mutationBlocked: boolean;
+  receiptRefs: string[];
+  policyDecisionRefs: string[];
 };
 
 export type WorkflowRunHistoryModel = {
@@ -73,7 +103,11 @@ export type WorkflowRunHistoryModel = {
   runtimePolicyStack: WorkflowRuntimePolicyStack;
   runtimeEditProposalPolicyStack: WorkflowRuntimeEditProposalPolicyStack;
   runtimeTelemetrySummary: WorkflowRuntimeTelemetrySummary;
+  runtimeTelemetrySourceFilter: string;
+  runtimeTelemetrySourceFilters: WorkflowRunTelemetrySourceFilter[];
+  runtimeCodingToolBudgetEvidence: WorkflowRunCodingToolBudgetEvidence | null;
   tuiControlStateProjection: WorkflowRuntimeTuiControlStateProjection;
+  visibleTuiControlStateRows: WorkflowRuntimeTuiControlStateRow[];
   defaultCompareRun: WorkflowRunSummary | null;
   timelineEvents: WorkflowStreamEvent[];
   interruptPreview: WorkflowInterruptPreview | undefined;
@@ -105,6 +139,7 @@ export function workflowRunHistoryModel({
   tuiControlState,
   searchQuery,
   statusFilter,
+  sourceFilter = "all",
 }: WorkflowRunHistoryModelInput): WorkflowRunHistoryModel {
   const normalizedSearch = searchQuery.trim().toLowerCase();
   const selectedRun =
@@ -141,6 +176,22 @@ export function workflowRunHistoryModel({
     runtimeEventProjection,
     tuiControlStateProjection,
   });
+  const telemetrySourceKinds = new Set(runtimeTelemetrySummary.sourceKinds);
+  const runtimeTelemetrySourceFilter =
+    sourceFilter === "all" || telemetrySourceKinds.has(sourceFilter)
+      ? sourceFilter
+      : "all";
+  const runtimeTelemetrySourceFilters = workflowRunTelemetrySourceFilters(
+    runtimeTelemetrySummary,
+    runtimeTelemetrySourceFilter,
+  );
+  const runtimeCodingToolBudgetEvidence = workflowRunCodingToolBudgetEvidence(
+    runtimeTelemetrySummary,
+    tuiControlStateProjection.rows,
+  );
+  const visibleTuiControlStateRows = tuiControlStateProjection.rows.filter((row) =>
+    tuiRowMatchesTelemetrySourceFilter(row, runtimeTelemetrySourceFilter),
+  );
   const runStatuses = Array.from(new Set(runs.map((run) => run.status))).sort();
   const statusCounts = runs.reduce<WorkflowRunHistoryStatusCounts>(
     (counts, run) => {
@@ -174,7 +225,11 @@ export function workflowRunHistoryModel({
     runtimePolicyStack,
     runtimeEditProposalPolicyStack,
     runtimeTelemetrySummary,
+    runtimeTelemetrySourceFilter,
+    runtimeTelemetrySourceFilters,
+    runtimeCodingToolBudgetEvidence,
     tuiControlStateProjection,
+    visibleTuiControlStateRows,
     defaultCompareRun,
     timelineEvents,
     interruptPreview: workflowInterruptPreview(lastRunResult),
@@ -182,6 +237,137 @@ export function workflowRunHistoryModel({
     harnessAttempts: selectedRun?.harnessAttempts ?? [],
     harnessComparisons: selectedRun?.harnessShadowComparisons ?? [],
   };
+}
+
+function workflowRunTelemetrySourceFilters(
+  summary: WorkflowRuntimeTelemetrySummary,
+  activeSourceKind: string,
+): WorkflowRunTelemetrySourceFilter[] {
+  return summary.sourceKinds.map((sourceKind) => ({
+    sourceKind,
+    label: telemetrySourceLabel(sourceKind),
+    count: telemetrySourceCount(summary, sourceKind),
+    active: activeSourceKind === sourceKind,
+    blocksMutation:
+      sourceKind === "tui_coding_tool_rows" && summary.status === "blocked",
+  }));
+}
+
+function workflowRunCodingToolBudgetEvidence(
+  summary: WorkflowRuntimeTelemetrySummary,
+  rows: readonly WorkflowRuntimeTuiControlStateRow[],
+): WorkflowRunCodingToolBudgetEvidence | null {
+  const budgetRows = rows.filter((row) => row.rowKind === "coding_tool_budget");
+  if (budgetRows.length === 0 && summary.codingToolBudgetRowCount === 0) {
+    return null;
+  }
+  return {
+    sourceKind: "tui_coding_tool_rows",
+    label: "TUI coding budget evidence",
+    status: summary.status,
+    rowCount: summary.codingToolBudgetRowCount || budgetRows.length,
+    eventIds: uniqueStrings([
+      ...budgetRows.map((row) => row.eventId),
+      ...summary.eventIds,
+    ]),
+    workflowNodeIds: uniqueStrings([
+      ...budgetRows.map((row) => row.reactFlowNodeId),
+      ...summary.workflowNodeIds,
+    ]),
+    toolNames: uniqueStrings(budgetRows.map((row) => row.toolName)),
+    toolCallIds: uniqueStrings(budgetRows.map((row) => row.toolCallId)),
+    budgetStatuses: uniqueStrings(
+      budgetRows.map((row) => row.codingToolBudgetStatus),
+    ),
+    contextBudgetStatuses: uniqueStrings(
+      budgetRows.map((row) => row.codingToolContextBudgetStatus),
+    ),
+    totalTokens: summary.totalTokens,
+    costEstimateUsd: summary.costEstimateUsd,
+    contextPressure: summary.contextPressure,
+    contextPressureStatus: summary.contextPressureStatus,
+    mutationBlocked: budgetRows.some(
+      (row) => row.codingToolMutationBlocked === true,
+    ),
+    receiptRefs: uniqueStrings([
+      ...budgetRows.flatMap((row) => row.receiptRefs),
+      ...summary.receiptRefs,
+    ]),
+    policyDecisionRefs: uniqueStrings([
+      ...budgetRows.flatMap((row) => row.policyDecisionRefs),
+      ...summary.policyDecisionRefs,
+    ]),
+  };
+}
+
+function tuiRowMatchesTelemetrySourceFilter(
+  row: WorkflowRuntimeTuiControlStateRow,
+  sourceFilter: string,
+): boolean {
+  if (sourceFilter === "all") return true;
+  switch (sourceFilter) {
+    case "tui_usage_rows":
+      return row.rowKind === "usage_status";
+    case "tui_cost_rows":
+      return row.rowKind === "cost_status";
+    case "tui_context_rows":
+      return row.rowKind === "context_budget" || row.rowKind === "compaction_policy";
+    case "tui_subagent_rows":
+      return row.rowKind === "subagent";
+    case "tui_coding_tool_rows":
+      return row.rowKind === "coding_tool_budget";
+    default:
+      return false;
+  }
+}
+
+function telemetrySourceLabel(sourceKind: string): string {
+  switch (sourceKind) {
+    case "runtime_usage_events":
+      return "runtime usage";
+    case "runtime_context_pressure_events":
+      return "context pressure";
+    case "runtime_context_pressure_alerts":
+      return "context alerts";
+    case "tui_usage_rows":
+      return "TUI usage";
+    case "tui_cost_rows":
+      return "TUI cost";
+    case "tui_context_rows":
+      return "TUI context";
+    case "tui_subagent_rows":
+      return "TUI subagents";
+    case "tui_coding_tool_rows":
+      return "TUI coding budgets";
+    default:
+      return sourceKind.replace(/_/g, " ");
+  }
+}
+
+function telemetrySourceCount(
+  summary: WorkflowRuntimeTelemetrySummary,
+  sourceKind: string,
+): number {
+  switch (sourceKind) {
+    case "runtime_usage_events":
+      return summary.usageEventCount;
+    case "runtime_context_pressure_events":
+      return summary.contextPressureEventCount;
+    case "runtime_context_pressure_alerts":
+      return summary.contextPressureAlertCount;
+    case "tui_usage_rows":
+      return summary.usageRowCount;
+    case "tui_cost_rows":
+      return summary.costRowCount;
+    case "tui_context_rows":
+      return summary.contextRowCount;
+    case "tui_subagent_rows":
+      return summary.subagentRowCount;
+    case "tui_coding_tool_rows":
+      return summary.codingToolBudgetRowCount;
+    default:
+      return 0;
+  }
 }
 
 function tuiControlStateForRunResult(
@@ -221,4 +407,14 @@ function isWorkflowRuntimeThreadEventLike(
     Array.isArray(candidate.policyDecisionRefs) &&
     Array.isArray(candidate.rollbackRefs)
   );
+}
+
+function uniqueStrings(values: readonly unknown[]): string[] {
+  const strings: string[] = [];
+  for (const value of values.flat()) {
+    if (value === undefined || value === null) continue;
+    const text = String(value).trim();
+    if (text) strings.push(text);
+  }
+  return [...new Set(strings)];
 }
