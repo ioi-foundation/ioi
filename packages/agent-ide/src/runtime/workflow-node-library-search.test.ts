@@ -100,6 +100,24 @@ test("advanced debug nodes rank below default authoring primitives", () => {
   );
 });
 
+test("palette visibility separates default authoring from advanced runtime contracts", () => {
+  const defaultAuthoring = NODE_LIBRARY.filter(
+    (item) =>
+      item.paletteVisibility === "default" ||
+      item.paletteVisibility === "template",
+  ).map((item) => item.creatorId);
+  const advanced = NODE_LIBRARY.filter(
+    (item) => item.paletteVisibility === "advanced",
+  ).map((item) => item.creatorId);
+
+  assert.ok(defaultAuthoring.includes("model_call"));
+  assert.ok(defaultAuthoring.includes("plugin_tool.coding_pack"));
+  assert.ok(defaultAuthoring.includes("skill_context.discover"));
+  assert.ok(!defaultAuthoring.includes("runtime_task"));
+  assert.ok(advanced.includes("runtime_task"));
+  assert.ok(advanced.includes("workflow_package_import"));
+});
+
 test("composition helpers are searchable by authoring vocabulary", () => {
   const terminal = rankWorkflowCompositionHelpers(
     WORKFLOW_COMPOSITION_HELPERS,

@@ -156,6 +156,30 @@ export const NODE_GROUP_FILTERS: WorkflowNodeGroupFilter[] = [
   ...SCAFFOLD_GROUPS,
 ];
 
+export type WorkflowNodePaletteMode = "recommended" | "all" | "advanced";
+
+export const NODE_PALETTE_MODES: Array<{
+  id: WorkflowNodePaletteMode;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "recommended",
+    label: "Recommended",
+    description: "Curated canonical primitives and composition helpers.",
+  },
+  {
+    id: "all",
+    label: "All",
+    description: "All default authoring primitives and templates.",
+  },
+  {
+    id: "advanced",
+    label: "Advanced",
+    description: "Runtime, protocol, replay, and debug contracts.",
+  },
+];
+
 export const WORKFLOW_SCAFFOLDS = workflowScaffoldDefinitions();
 export const EMPTY_CANVAS_START_CREATOR_IDS = [
   "trigger.manual",
@@ -168,6 +192,28 @@ export const EMPTY_CANVAS_START_CREATOR_IDS = [
   "source.media",
   "source.dataset",
 ];
+
+export const RECOMMENDED_NODE_CREATOR_IDS = new Set([
+  ...EMPTY_CANVAS_START_CREATOR_IDS,
+  "model_call",
+  "model_call.vision",
+  "plugin_tool.coding_pack",
+  "plugin_tool.mcp",
+  "plugin_tool.browser",
+  "memory.search",
+  "memory.remember",
+  "skill_context.discover",
+  "subagent.spawn",
+  "human_gate",
+  "review_gate",
+  "verifier",
+  "runtime_doctor",
+  "github_context",
+  "github_pr_create",
+  "output.inline",
+  "output.file",
+  "output.patch",
+]);
 
 export const WORKFLOW_ISSUE_SECTION_BY_CODE: Record<
   string,

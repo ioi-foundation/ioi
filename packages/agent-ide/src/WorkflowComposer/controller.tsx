@@ -285,6 +285,8 @@ import {
   EMPTY_CANVAS_START_CREATOR_IDS,
   NODE_GROUP_FILTERS,
   NODE_LIBRARY,
+  NODE_PALETTE_MODES,
+  RECOMMENDED_NODE_CREATOR_IDS,
   RIGHT_PANELS,
   SCAFFOLD_GROUPS,
   HARNESS_PROMOTION_LIVE_GUI_SCRIPT,
@@ -305,6 +307,7 @@ import {
   workflowValidationBlockingIssueCount,
   workflowValidationStatusMessage,
   type WorkflowNodeGroupFilter,
+  type WorkflowNodePaletteMode,
 } from "./support";
 import type { WorkflowComposerProps } from "./types";
 
@@ -2587,6 +2590,8 @@ export function useWorkflowComposerController({
   const [createOpen, setCreateOpen] = useState(false);
   const [nodeGroupFilter, setNodeGroupFilter] =
     useState<WorkflowNodeGroupFilter>("All");
+  const [nodePaletteMode, setNodePaletteMode] =
+    useState<WorkflowNodePaletteMode>("recommended");
   const [recentNodeTypes, setRecentNodeTypes] = useState<string[]>([]);
   const [createName, setCreateName] = useState("New blank workflow");
   const [createKind, setCreateKind] = useState<WorkflowKind>("agent_workflow");
@@ -2652,6 +2657,7 @@ export function useWorkflowComposerController({
     setLeftDrawerOpen(false);
     setNodeSearch("");
     setNodeGroupFilter("All");
+    setNodePaletteMode("recommended");
     setCompatiblePortFocus(null);
   }, []);
   const toggleLeftDrawer = useCallback(() => {
@@ -2830,19 +2836,61 @@ export function useWorkflowComposerController({
       ),
     [compatibleNodeHints],
   );
+  const paletteNodeLibrary = useMemo(() => {
+    const defaultAuthoringItems = searchedNodeLibrary.filter(
+      (item) =>
+        item.paletteVisibility === "default" ||
+        item.paletteVisibility === "template",
+    );
+    if (nodePaletteMode === "advanced") {
+      return searchedNodeLibrary.filter(
+        (item) => item.paletteVisibility === "advanced",
+      );
+    }
+    if (nodePaletteMode === "all" || isSearchingNodeLibrary) {
+      return defaultAuthoringItems;
+    }
+    return defaultAuthoringItems.filter((item) =>
+      RECOMMENDED_NODE_CREATOR_IDS.has(workflowCreatorItemId(item)),
+    );
+  }, [isSearchingNodeLibrary, nodePaletteMode, searchedNodeLibrary]);
+  const filteredCompositionHelpers = useMemo(
+    () => (nodePaletteMode === "advanced" ? [] : searchedCompositionHelpers),
+    [nodePaletteMode, searchedCompositionHelpers],
+  );
+  const nodePaletteModeCounts = useMemo(() => {
+    const defaultAuthoringCount = searchedNodeLibrary.filter(
+      (item) =>
+        item.paletteVisibility === "default" ||
+        item.paletteVisibility === "template",
+    ).length;
+    const recommendedCount = isSearchingNodeLibrary
+      ? defaultAuthoringCount
+      : searchedNodeLibrary.filter((item) =>
+          RECOMMENDED_NODE_CREATOR_IDS.has(workflowCreatorItemId(item)),
+        ).length;
+    const advancedCount = searchedNodeLibrary.filter(
+      (item) => item.paletteVisibility === "advanced",
+    ).length;
+    return new Map<WorkflowNodePaletteMode, number>([
+      ["recommended", recommendedCount],
+      ["all", defaultAuthoringCount],
+      ["advanced", advancedCount],
+    ]);
+  }, [isSearchingNodeLibrary, searchedNodeLibrary]);
   const searchedCreatorIds = useMemo(
-    () => new Set(searchedNodeLibrary.map(workflowCreatorItemId)),
-    [searchedNodeLibrary],
+    () => new Set(paletteNodeLibrary.map(workflowCreatorItemId)),
+    [paletteNodeLibrary],
   );
   const filteredNodeLibrary = useMemo(
     () =>
-      searchedNodeLibrary.filter((item) => {
+      paletteNodeLibrary.filter((item) => {
         if (nodeGroupFilter === "All") return true;
         if (nodeGroupFilter === "Compatible")
           return compatibleCreatorIds.has(workflowCreatorItemId(item));
         return item.group === nodeGroupFilter;
       }),
-    [compatibleCreatorIds, nodeGroupFilter, searchedNodeLibrary],
+    [compatibleCreatorIds, nodeGroupFilter, paletteNodeLibrary],
   );
   const visibleCompatibleNodeHints = useMemo(
     () =>
@@ -2868,21 +2916,21 @@ export function useWorkflowComposerController({
   );
   const nodeGroupCounts = useMemo(() => {
     const counts = new Map<WorkflowNodeGroupFilter, number>();
-    counts.set("All", searchedNodeLibrary.length);
+    counts.set("All", paletteNodeLibrary.length);
     counts.set(
       "Compatible",
-      searchedNodeLibrary.filter((item) =>
+      paletteNodeLibrary.filter((item) =>
         compatibleCreatorIds.has(workflowCreatorItemId(item)),
       ).length,
     );
     for (const group of SCAFFOLD_GROUPS) {
       counts.set(
         group,
-        searchedNodeLibrary.filter((item) => item.group === group).length,
+        paletteNodeLibrary.filter((item) => item.group === group).length,
       );
     }
     return counts;
-  }, [compatibleCreatorIds, searchedNodeLibrary]);
+  }, [compatibleCreatorIds, paletteNodeLibrary]);
   const emptyCanvasStartItems = useMemo(
     () =>
       EMPTY_CANVAS_START_CREATOR_IDS.map((creatorId) =>
@@ -3026,6 +3074,7 @@ export function useWorkflowComposerController({
       );
       handleNodeSelect(request.nodeId);
       setCompatiblePortFocus(request);
+      setNodePaletteMode("all");
       setNodeGroupFilter("Compatible");
       setNodeSearch("");
       openLeftDrawer();
@@ -11690,6 +11739,7 @@ export function useWorkflowComposerController({
       setActiveTab("graph");
 
       if (issue.code === "missing_output_node") {
+        setNodePaletteMode("all");
         setNodeGroupFilter("Outputs");
         setNodeSearch("");
         openLeftDrawer();
@@ -11702,6 +11752,7 @@ export function useWorkflowComposerController({
         issue.code === "missing_scheduled_trigger" ||
         issue.code === "missing_event_trigger"
       ) {
+        setNodePaletteMode("all");
         setNodeGroupFilter("Start");
         setNodeSearch(
           issue.code === "missing_scheduled_trigger"
@@ -11734,6 +11785,7 @@ export function useWorkflowComposerController({
       }
 
       if (issue.code === "missing_error_handling_path") {
+        setNodePaletteMode("all");
         setNodeGroupFilter("Flow");
         setNodeSearch("error");
         openLeftDrawer();
@@ -14764,7 +14816,7 @@ export function useWorkflowComposerController({
     executionCompareRun,
     executionStatusCounts,
     filteredNodeLibrary,
-    filteredCompositionHelpers: searchedCompositionHelpers,
+    filteredCompositionHelpers,
     fitView,
     FlaskConical,
     functionDryRunResult,
@@ -14866,10 +14918,13 @@ export function useWorkflowComposerController({
     newTestName,
     newTestTargets,
     NODE_GROUP_FILTERS,
+    NODE_PALETTE_MODES,
     nodeConfigInitialSection,
     nodeConfigOpen,
     nodeGroupCounts,
     nodeGroupFilter,
+    nodePaletteMode,
+    nodePaletteModeCounts,
     nodeRunStatusById,
     nodes,
     nodeSearch,
@@ -14953,6 +15008,7 @@ export function useWorkflowComposerController({
     setNodeConfigInitialSection,
     setNodeConfigOpen,
     setNodeGroupFilter,
+    setNodePaletteMode,
     setNodeSearch,
     setProposalToReview,
     setRightPanel,

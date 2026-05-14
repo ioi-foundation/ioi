@@ -148,10 +148,13 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     newTestName,
     newTestTargets,
     NODE_GROUP_FILTERS,
+    NODE_PALETTE_MODES,
     nodeConfigInitialSection,
     nodeConfigOpen,
     nodeGroupCounts,
     nodeGroupFilter,
+    nodePaletteMode,
+    nodePaletteModeCounts,
     nodeRunStatusById,
     nodes,
     nodeSearch,
@@ -235,6 +238,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     setNodeConfigInitialSection,
     setNodeConfigOpen,
     setNodeGroupFilter,
+    setNodePaletteMode,
     setNodeSearch,
     setProposalToReview,
     setRightPanel,
@@ -632,6 +636,34 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     placeholder="Search sources, models, tools..."
                   />
                 </label>
+                <nav
+                  className="workflow-node-palette-tabs"
+                  data-testid="workflow-node-palette-tabs"
+                  aria-label="Palette mode"
+                >
+                  {NODE_PALETTE_MODES.map((mode) => {
+                    const count = nodePaletteModeCounts.get(mode.id) ?? 0;
+                    return (
+                      <button
+                        key={mode.id}
+                        type="button"
+                        className={
+                          nodePaletteMode === mode.id ? "is-active" : ""
+                        }
+                        data-testid={`workflow-node-palette-${mode.id}`}
+                        title={mode.description}
+                        onClick={() => {
+                          setNodePaletteMode(mode.id);
+                          setNodeGroupFilter("All");
+                          setCompatiblePortFocus(null);
+                        }}
+                      >
+                        <span>{mode.label}</span>
+                        <small>{count}</small>
+                      </button>
+                    );
+                  })}
+                </nav>
                 <nav
                   className="workflow-node-group-filter"
                   data-testid="workflow-node-group-filter"
@@ -1057,6 +1089,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                                   handleWorkflowNodeSelect(nodeItem.id);
                                   setCompatiblePortFocus(null);
                                   openLeftDrawer();
+                                  setNodePaletteMode("all");
                                   setNodeGroupFilter("Compatible");
                                   setNodeSearch("");
                                   setBottomPanel("selection");
@@ -1143,6 +1176,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                       type="button"
                       data-testid="workflow-empty-browse-primitives"
                       onClick={() => {
+                        setNodePaletteMode("all");
                         setNodeGroupFilter("All");
                         setNodeSearch("");
                         openLeftDrawer();
@@ -1239,6 +1273,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     onClick={() => {
                       setCompatiblePortFocus(null);
                       openLeftDrawer();
+                      setNodePaletteMode("all");
                       setNodeGroupFilter("Compatible");
                       setNodeSearch("");
                       setStatusMessage(
