@@ -279,6 +279,7 @@ async function importAgentIde() {
     "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-materialization.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-execution.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.ts",
@@ -8875,11 +8876,11 @@ function terminalLoopNodeWithArguments(node, argumentsOverride) {
 test("React Flow terminal coding-loop template executes against daemon with TUI row parity", async () => {
   const { Thread, createRuntimeSubstrateClient } = await importSdk();
   const {
-    createRuntimeTerminalCodingLoopStepRequest,
     createWorkflowRuntimeTerminalCodingLoopTemplateSubflow,
     projectRuntimeThreadEventsToWorkflowProjection,
     projectRuntimeTuiControlStateToWorkflowProjection,
-    updateRuntimeTerminalCodingLoopExecutionContextFromToolResult,
+    runRuntimeTerminalCodingLoopWorkflowLaunch,
+    workflowRunHistoryModel,
     workflowRuntimeTerminalCodingLoopNodesInExecutionOrder,
   } = await importAgentIde();
   const cli = cliBinary();
@@ -8953,86 +8954,109 @@ test("React Flow terminal coding-loop template executes against daemon with TUI 
     );
     assert.deepEqual(nodes.map((node) => node.id), subflow.nodeIds);
 
-    let context = { threadId: thread.thread_id };
-    const results = new Map();
-    for (const node of nodes) {
-      const stepId = node.config?.logic.runtimeTerminalCodingLoopStepId;
-      const request = createRuntimeTerminalCodingLoopStepRequest(
-        node,
-        context,
-        { workflowGraphId, actor: "workflow-author" },
-      );
-      assert.equal(request.threadId, thread.thread_id);
-      assert.equal(request.body.workflowGraphId, workflowGraphId);
-      assert.equal(request.body.workflowNodeId, node.id);
-      if (stepId === "artifact_read") {
-        assert.notEqual(request.body.arguments.artifactId, "{artifactId}");
-        assert.equal(request.body.arguments.artifactId, context.artifactId);
-      }
-      if (stepId === "tool_retrieve_result") {
-        assert.notEqual(request.body.arguments.toolCallId, "{toolCallId}");
-        assert.equal(request.body.arguments.toolCallId, context.resultToolCallId);
-      }
+    const workflowPath = path.join(
+      cwd,
+      ".agents/workflows/terminal-coding-loop-live.workflow.json",
+    );
+    const savedWorkflow = {
+      version: "workflow.v1",
+      metadata: {
+        id: workflowGraphId,
+        name: "Terminal coding loop live",
+        slug: "terminal-coding-loop-live",
+        workflowKind: "agent_workflow",
+        executionMode: "local",
+        gitLocation: ".agents/workflows/terminal-coding-loop-live.workflow.json",
+        readOnly: false,
+        dirty: false,
+        createdAtMs: Date.now(),
+        updatedAtMs: Date.now(),
+      },
+      nodes,
+      edges: subflow.edges,
+      global_config: {},
+    };
+    fs.mkdirSync(path.dirname(workflowPath), { recursive: true });
+    fs.writeFileSync(workflowPath, `${JSON.stringify(savedWorkflow, null, 2)}\n`);
+    const loadedWorkflow = JSON.parse(fs.readFileSync(workflowPath, "utf8"));
+    const launch = await runRuntimeTerminalCodingLoopWorkflowLaunch(
+      loadedWorkflow,
+      { threadId: thread.thread_id },
+      {
+        workflowPath,
+        runId: "run-terminal-loop-live",
+        actor: "workflow-author",
+        toolCallIdForStep: (stepId) => `terminal_loop_${stepId}`,
+        invoke: async (request, body, invokeContext) => {
+          assert.equal(request.threadId, thread.thread_id);
+          assert.equal(body.workflowGraphId, workflowGraphId);
+          assert.equal(body.workflowNodeId, invokeContext.node.id);
+          if (invokeContext.stepId === "artifact_read") {
+            assert.notEqual(body.arguments.artifactId, "{artifactId}");
+            assert.equal(body.arguments.artifactId, invokeContext.context.artifactId);
+          }
+          if (invokeContext.stepId === "tool_retrieve_result") {
+            assert.notEqual(body.arguments.toolCallId, "{toolCallId}");
+            assert.equal(body.arguments.toolCallId, invokeContext.context.resultToolCallId);
+          }
+          const result = await fetchJson(`${daemon.endpoint}${request.endpoint}`, {
+            method: request.method,
+            body: JSON.stringify(body),
+          });
+          assert.equal(
+            result.status,
+            invokeContext.stepId === "file_apply_patch" && !invokeContext.approvedRetry
+              ? "blocked"
+              : "completed",
+            `${invokeContext.stepId} failed: ${JSON.stringify(result.error ?? result.result ?? result).slice(0, 600)}`,
+          );
+          if (result.status === "completed") {
+            assert.equal(result.workflow_graph_id, workflowGraphId);
+            assert.equal(result.workflow_node_id, invokeContext.node.id);
+            assert.equal(result.tool_call_id, `terminal_loop_${invokeContext.stepId}`);
+          }
+          if (invokeContext.stepId === "file_apply_patch" && invokeContext.approvedRetry) {
+            assert.equal(result.event.payload_summary.approval_satisfied, true);
+          }
+          return result;
+        },
+        approve: async ({ blockedResult, node, stepId, approvalId }) => {
+          assert.equal(stepId, "file_apply_patch");
+          assert.equal(blockedResult.status, "blocked");
+          assert.equal(blockedResult.approval_required, true);
+          assert.equal(blockedResult.approval_manifest?.workflow_policy?.requiresApproval, true);
+          assert.equal(blockedResult.approval_manifest?.workflow_trust_profile, "local_private");
+          assert.equal(blockedResult.approval_manifest?.node_approval_override, "require_approval");
+          const decision = await fetchJson(
+            `${daemon.endpoint}/v1/threads/${thread.thread_id}/approvals/${approvalId}/decision`,
+            {
+              method: "POST",
+              body: JSON.stringify({
+                source: "react_flow",
+                workflowGraphId,
+                workflowNodeId: node.id,
+                decision: "approve",
+                reason: "Approve terminal coding-loop apply step.",
+              }),
+            },
+          );
+          assert.equal(decision.decision, "approve");
+          return { approvalId };
+        },
+      },
+    );
 
-      const body = {
-        ...request.body,
-        toolCallId: `terminal_loop_${stepId}`,
-        tool_call_id: `terminal_loop_${stepId}`,
-      };
-      let result;
-      if (stepId === "file_apply_patch") {
-        assert.equal(body.requiresApproval, true);
-        const blocked = await fetchJson(`${daemon.endpoint}${request.endpoint}`, {
-          method: request.method,
-          body: JSON.stringify(body),
-        });
-        assert.equal(blocked.status, "blocked");
-        assert.equal(blocked.approval_required, true);
-        assert.equal(blocked.approval_manifest?.workflow_policy?.requiresApproval, true);
-        assert.equal(blocked.approval_manifest?.workflow_trust_profile, "local_private");
-        assert.equal(blocked.approval_manifest?.node_approval_override, "require_approval");
-        const decision = await fetchJson(
-          `${daemon.endpoint}/v1/threads/${thread.thread_id}/approvals/${blocked.approval_id}/decision`,
-          {
-            method: "POST",
-            body: JSON.stringify({
-              source: "react_flow",
-              workflowGraphId,
-              workflowNodeId: node.id,
-              decision: "approve",
-              reason: "Approve terminal coding-loop apply step.",
-            }),
-          },
-        );
-        assert.equal(decision.decision, "approve");
-        result = await fetchJson(`${daemon.endpoint}${request.endpoint}`, {
-          method: request.method,
-          body: JSON.stringify({
-            ...body,
-            approvalId: blocked.approval_id,
-          }),
-        });
-        assert.equal(result.event.payload_summary.approval_satisfied, true);
-      } else {
-        result = await fetchJson(`${daemon.endpoint}${request.endpoint}`, {
-          method: request.method,
-          body: JSON.stringify(body),
-        });
-      }
-      assert.equal(
-        result.status,
-        "completed",
-        `${stepId} failed: ${JSON.stringify(result.error ?? result.result ?? result).slice(0, 600)}`,
-      );
-      assert.equal(result.workflow_graph_id, workflowGraphId);
-      assert.equal(result.workflow_node_id, node.id);
-      assert.equal(result.tool_call_id, `terminal_loop_${stepId}`);
-      results.set(stepId, result);
-      context = updateRuntimeTerminalCodingLoopExecutionContextFromToolResult(
-        context,
-        result,
-      );
-    }
+    const context = launch.context;
+    const results = new Map(Object.entries(launch.resultsByStepId));
+    const runResult = launch.runResult;
+    assert.equal(runResult.summary.status, "passed");
+    assert.equal(runResult.summary.threadId, thread.thread_id);
+    assert.equal(runResult.summary.id, "run-terminal-loop-live");
+    assert.deepEqual(runResult.finalState.completedNodeIds, subflow.nodeIds);
+    assert.equal(runResult.nodeRuns.length, 9);
+    assert.equal(runResult.runtimeThreadEvents?.length, 9);
+    assert.deepEqual(launch.plan.nodeIds, subflow.nodeIds);
+    assert.equal(launch.requests.length, 9);
 
     assert.match(results.get("git_diff").result.diff, /Pending diff line/);
     assert.match(results.get("file_inspect").result.preview, /Terminal loop/);
@@ -9189,6 +9213,39 @@ test("React Flow terminal coding-loop template executes against daemon with TUI 
         `missing TUI projected row for ${nodeId}`,
       );
     }
+    const runHistory = workflowRunHistoryModel({
+      workflow: loadedWorkflow,
+      runs: [runResult.summary],
+      lastRunResult: {
+        ...runResult,
+        tuiControlState: {
+          ...finalControlState,
+          workflow_graph_id: workflowGraphId,
+        },
+      },
+      compareRunResult: null,
+      selectedRunId: runResult.summary.id,
+      compareRunId: null,
+      runEvents: [],
+      searchQuery: "",
+      statusFilter: "all",
+      sourceFilter: "all",
+    });
+    assert.equal(runHistory.selectedRun?.summary.id, runResult.summary.id);
+    assert.ok(
+      runHistory.runtimeEventProjection.nodes.some(
+        (node) => node.workflowNodeId === subflow.stepNodeIds.tool_retrieve_result,
+      ),
+    );
+    assert.equal(
+      runHistory.visibleTuiControlStateRows.filter(
+        (row) =>
+          row.rowKind === "coding_tool" &&
+          row.workflowGraphId === workflowGraphId &&
+          subflow.nodeIds.includes(row.reactFlowNodeId),
+      ).length,
+      9,
+    );
   } finally {
     if (daemon) await daemon.close();
   }
