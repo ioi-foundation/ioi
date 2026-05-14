@@ -8,6 +8,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css'; 
 
+import { WORKFLOW_CANVAS_NODE_TYPE_IDS } from '../../../runtime/workflow-canvas-node-types';
 import { CanvasNode } from './Nodes/CanvasNode';
 import { CanvasEdge } from './Edges/CanvasEdge';
 
@@ -23,6 +24,10 @@ interface CanvasProps {
   readOnly?: boolean;
   workflowChromeLocale?: string | null;
 }
+
+export const WORKFLOW_CANVAS_NODE_TYPES = Object.fromEntries(
+  WORKFLOW_CANVAS_NODE_TYPE_IDS.map((type) => [type, CanvasNode]),
+) as Record<string, typeof CanvasNode>;
 
 export function Canvas({
   nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeSelect, onNodeActivate, onDrop, readOnly = false, workflowChromeLocale = null
@@ -41,43 +46,7 @@ export function Canvas({
     [nodes, onNodeSelect, workflowChromeLocale],
   );
 
-  const nodeTypes = useMemo(() => ({
-    action: CanvasNode,
-    trigger: CanvasNode,
-    responses: CanvasNode,
-    embeddings: CanvasNode,
-    rerank: CanvasNode,
-    transcribe_audio: CanvasNode,
-    synthesize_speech: CanvasNode,
-    vision_read: CanvasNode,
-    generate_image: CanvasNode,
-    edit_image: CanvasNode,
-    generate_video: CanvasNode,
-    gate: CanvasNode,
-    tool: CanvasNode,
-    receipt: CanvasNode,
-    code: CanvasNode,
-    router: CanvasNode,
-    wait: CanvasNode,
-    context: CanvasNode,
-    retrieval: CanvasNode,
-    web_search: CanvasNode,
-    web_read: CanvasNode,
-    source: CanvasNode,
-    state: CanvasNode,
-    function: CanvasNode,
-    model_call: CanvasNode,
-    adapter: CanvasNode,
-    plugin_tool: CanvasNode,
-    decision: CanvasNode,
-    loop: CanvasNode,
-    barrier: CanvasNode,
-    subgraph: CanvasNode,
-    human_gate: CanvasNode,
-    output: CanvasNode,
-    test_assertion: CanvasNode,
-    proposal: CanvasNode,
-  }), []);
+  const nodeTypes = useMemo(() => WORKFLOW_CANVAS_NODE_TYPES, []);
 
   const edgeTypes = useMemo(() => ({
     semantic: CanvasEdge
