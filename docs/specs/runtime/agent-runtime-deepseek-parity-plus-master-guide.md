@@ -86,7 +86,7 @@ roadmap decisions, and the immediate tactical queue. New completed-slice detail
 should go into the implementation log, with proof paths summarized in the
 validation ledger.
 
-Strategic snapshot as of 2026-05-13:
+Strategic snapshot as of 2026-05-14:
 
 - The live bridge foundation is now usable for parity work: TTI schemas,
   daemon event-store replay, Rust `RuntimeAgentService` bridge execution,
@@ -103,7 +103,9 @@ Strategic snapshot as of 2026-05-13:
   cross-surface proofs.
 - React Flow workflow-authoring can now create those same runtime-control
   requests with preserved graph/node identity through daemon SSE, SDK events,
-  CLI stream output, and the read-only React Flow projection.
+  CLI stream output, and the read-only React Flow projection. P1-C mode/trust
+  authoring now includes a first-class `runtime_thread_mode` node plus
+  daemon-backed workspace trust acknowledgement actions in the run inspector.
 - Model routing, memory, doctor/config, skills, hooks, GitHub/PR, task/job
   records, package/import execution, localization/accessibility, promotion, and
   default dispatch have validated foundation slices in the companion ledgers.
@@ -113,11 +115,13 @@ Strategic snapshot as of 2026-05-13:
 
 Most recent completed implementation slice:
 
-- 2026-05-14: P1-C daemon-owned workspace trust warning records
+- 2026-05-14: P1-C React Flow mode/trust authoring and workspace trust
+  acknowledgement controls
 - Evidence:
-  daemon syntax, focused live review/YOLO trust-warning proof, SDK/TUI/React
-  Flow projection tests, targeted TUI row test, source-contract guard, and live
-  GUI preflight validation in the validation ledger
+  runtime-layout guard, agent-ide/agent-sdk builds, Tauri workflow contract
+  tests, focused live daemon workspace trust proof, React Flow projection
+  source-contract guard, and live GUI/workflow preflight validation in the
+  validation ledger
 - Trace detail:
   `docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md`
   and
@@ -137,16 +141,17 @@ Completed-slice history belongs in the companion ledgers.
 | P1-A | Subagent runtime parity | React Flow has typed state-node authoring for pool/list, role/assign, spawn, join/wait, result, send-input, cancel, parent cancellation propagation, resume, and cancellation inheritance fields, including `isolate` inheritance, `manual_review` merge policy, and budget JSON. The daemon exposes the full `SubagentManager` route surface for list, spawn, wait, result, send input, cancel, resume, assign, and parent cancellation propagation with persisted lifecycle records, output-contract status, restart/cancellation/input/assignment metadata, usage telemetry, budget status, budget policy decisions, and parent-thread events. SDK clients, `Thread` handles, and TUI `/subagent` slash commands wrap the same routes, including propagation and budget rows. Live daemon proofs now validate SDK/client calls, Thread wrappers, line-mode TUI calls, and React Flow-authored workflows with role pool filtering, max-concurrency policy blocking, output-contract merge readiness, parent cancellation propagation, isolated descendants, graph/node identity, projected `subagent_rows`, collapsible React Flow child-subflow descriptors/rendering for delegated child thread/run ids, and daemon-owned budget/cost caps that persist over-budget child runs as blocked records with policy evidence. | Carry P1-A as a regression guard while P1-D unifies workflow/session usage, cost, and context telemetry. | Subagent pool/role/join nodes enforce concurrency, budget, merge policy, and cancellation inheritance by compiling to daemon requests rather than canvas-local state, with child runs visible as collapsible graph subflows and budget state visible in React Flow run-inspector rows. |
 | P1-B | MCP manager parity | MCP manager discovery/status/validation plus governed import/add/remove, enable/disable, invocation receipts, self-hosted HTTP JSON-RPC serve mode, vault-backed remote auth headers, large-catalog deferred tool exposure, global IOI MCP config discovery, keyboard-first TUI search/fetch, and React Flow-authored search/fetch/invoke request compilation are now daemon-owned for `$HOME/.ioi/mcp.json`, `.cursor/mcp.json`, `.agents/mcp.json`, inline options, active thread registries, and model-mounting MCP registry entries. `/v1/mcp`, `/v1/mcp/servers`, `/v1/mcp/tools`, `/v1/mcp/tools/search`, `/v1/mcp/tools/{tool_id}`, `/v1/mcp/resources`, `/v1/mcp/prompts`, `/v1/mcp/validate`, `/v1/mcp/import`, `/v1/mcp/serve`, `/v1/mcp/servers`, `/v1/mcp/servers/{server_id}`, `/v1/mcp/servers/{server_id}/enable`, `/v1/mcp/servers/{server_id}/disable`, `/v1/mcp/tools/{tool_id}/invoke`, and matching thread-scoped controls expose governed catalog, validation, mutable registry writes, availability, invocation records, served IOI tool calls, source scope/compatibility provenance, redacted secret-ref provenance, request-time vault resolution evidence, catalog summaries, preview limits, stable catalog hashes, namespace summaries, and on-demand tool search/fetch without publishing header material or bloating status payloads. Command-backed stdio MCP tools launch through newline-delimited JSON-RPC, streamable HTTP servers launch through POST JSON-RPC, and SSE servers launch through endpoint-announced event streams; live discovery calls `tools/list`, `resources/list`, and `prompts/list` across supported transports. Remote HTTP/SSE auth-looking headers fail closed unless configured as `vault://` refs, and resolved material is injected only inside live transport requests. TUI `/mcp [status|tools|servers|search|fetch|validate|import|add|remove|enable|disable|invoke]` emits MCP control-state rows and source-mode-filtered search/fetch output; SDK clients and `Thread` handles can import/add/remove servers, search/fetch MCP tools, and call `mcpServeRpc`; React Flow exposes MCP import/add/remove/serve/search/fetch/invoke state-node operations with transport, URL, vault header refs, server config JSON, serve endpoint, allowed-tool JSON, catalog mode, config source mode, search query, tool input JSON, containment, egress intent, and preview-limit fields. | Keep MCP regression green; add visual MCP server/tool/resource/prompt nodes only when a concrete workflow composition needs them. | MCP tool/resource/prompt rows and MCP state nodes carry server/tool/resource/prompt/containment/vault-boundary/catalog-summary/source-scope metadata; MCP import/add/remove/serve/search/fetch/invoke state nodes compile transport/url/vault-header/served-tool/catalog-query/source-mode/tool-input/containment config into daemon controls rather than a canvas-local registry. |
 | P1-M | Memory UX parity | Memory status/validation and write-side mutations are now daemon-owned through `/v1/memory`, `/v1/memory/validate`, `/v1/threads/{thread_id}/memory`, `/v1/threads/{thread_id}/memory/{memory_id}`, `/v1/threads/{thread_id}/memory/status`, and `/v1/threads/{thread_id}/memory/validate`. The daemon validates effective policy, storage paths, record shape, redaction, retention, scope, and subagent-inheritance mode; SDK clients and `Thread` handles expose memory status/validation plus remember/update/delete helpers; TUI `/memory [status|show|policy|path|validate|enable|disable|remember|edit|delete]` emits memory control-state rows; React Flow projects memory status/policy/record/mutation rows and exposes memory status/policy/search/list/remember/edit/delete state nodes. Existing remember/list/edit/delete/path/policy and subagent-inheritance runtime behavior remains intact. | Add redaction review and explicit memory injection/scope aliases only where they improve workflow readability; do not fork memory truth into canvas-local state. | Memory status, policy, search, list, write, delete, and injection controls must compile into daemon memory policy/projection requests rather than canvas-local state. |
-| P1-C | Modes, trust, approvals | Thread-level `plan`, `review`, `agent`, and `yolo` controls are daemon-owned through `/v1/threads/{thread_id}/mode`, persisted on the thread, inherited by subsequent turns, emitted as `OperatorControl.Mode`, exposed through SDK `Thread.mode`, and mirrored by TUI `/mode` plus React Flow mode-status rows. Mutating coding tools now evaluate their coding-tool contract effect class before execution; in `plan`/`review` or human/policy approval modes the daemon returns a blocked coding-tool result, leaves the workspace unchanged, emits a receipt-backed `approval.required` / `OperatorApproval.Request` event with `ioi.runtime.coding-tool-approval-manifest.v1`, preserves workflow graph/node identity, records authority scopes/effect class/risk domain, and ignores permissive UI approval overrides. React Flow coding-tool control builders and coding-pack binding controls now compile `requiresApproval`, `approvalMode`, `trustProfile`, and `nodeApprovalOverride` into daemon invocation requests. The daemon folds those graph/node policy fields into `workflow_policy`, `workflow_trust_profile`, `node_requires_approval`, `node_approval_override`, `input_hash`, and policy-reason fields on the same approval manifest, blocks mutating tools even from `yolo`/`never_prompt` when workflow policy requires approval, records approval decisions with the original manifest, and executes approved retries idempotently by tool-call key. Review and YOLO mode changes now also emit daemon-owned `workspace.trust_warning` records with read-only repository context, branch policy warnings, graph/node provenance, ignored canvas-local trust/suppression fields, SDK `workspace_trust_warning` events, TUI `workspace_trust_rows`, and React Flow `hook_policy` projection. | Add first-class React Flow mode/trust authoring controls and run-inspector affordances that request daemon mode changes, show warning receipts, and optionally require an explicit review acknowledgement before risky workflow execution. | Graph-level mode selector, trust profile, node approval overrides, workspace trust records, and review/YOLO warnings compile into daemon-owned approval and warning manifests with replayable human-gate projection. |
+| P1-C | Modes, trust, approvals | Thread-level `plan`, `review`, `agent`, and `yolo` controls are daemon-owned through `/v1/threads/{thread_id}/mode`, persisted on the thread, inherited by subsequent turns, emitted as `OperatorControl.Mode`, exposed through SDK `Thread.mode`, and mirrored by TUI `/mode` plus React Flow mode-status rows. Mutating coding tools now evaluate their coding-tool contract effect class before execution; in `plan`/`review` or human/policy approval modes the daemon returns a blocked coding-tool result, leaves the workspace unchanged, emits a receipt-backed `approval.required` / `OperatorApproval.Request` event with `ioi.runtime.coding-tool-approval-manifest.v1`, preserves workflow graph/node identity, records authority scopes/effect class/risk domain, and ignores permissive UI approval overrides. React Flow coding-tool control builders and coding-pack binding controls now compile `requiresApproval`, `approvalMode`, `trustProfile`, and `nodeApprovalOverride` into daemon invocation requests. The daemon folds those graph/node policy fields into `workflow_policy`, `workflow_trust_profile`, `node_requires_approval`, `node_approval_override`, `input_hash`, and policy-reason fields on the same approval manifest, blocks mutating tools even from `yolo`/`never_prompt` when workflow policy requires approval, records approval decisions with the original manifest, and executes approved retries idempotently by tool-call key. Review and YOLO mode changes emit daemon-owned `workspace.trust_warning` records with read-only repository context, branch policy warnings, graph/node provenance, ignored canvas-local trust/suppression fields, SDK `workspace_trust_warning` events, TUI `workspace_trust_rows`, and React Flow `hook_policy` projection. React Flow now has a first-class `runtime_thread_mode` authoring node that compiles mode, approval mode, trust profile, warning-ack requirement, and graph/node provenance into the daemon mode endpoint; the run inspector renders executable workspace trust acknowledgement actions that call `/v1/threads/{thread_id}/workspace-trust/{warning_id}/acknowledge` and projects `workspace_trust_acknowledged` receipts back into the same warning row. | Prove acknowledgement can gate or annotate risky workflow activation beside existing approval manifests without letting the canvas become trust truth. | Graph-level mode selector, trust profile, node approval overrides, workspace trust records, review/YOLO warnings, and warning acknowledgements compile into daemon-owned approval and warning manifests with replayable human-gate projection. |
 | P1-D | Usage, cost, context telemetry | `RuntimeUsageTelemetry` now aggregates run, thread, and delegated subagent token/cost/context estimates through daemon endpoints, SDK clients, TUI status rows, `usage_final` runtime events, and React Flow run-inspector rows. React Flow now has first-class `UsageMeterNode`, `ContextBudgetNode`, `CompactionPolicyNode`, and `RuntimeApprovalRequestNode` definitions: usage reads compile into daemon-owned telemetry requests, context-budget policy evaluations compile token/cost/context-pressure thresholds into daemon-owned `ok`/`warn`/`blocked` decisions, compaction policy evaluations turn budget outcomes into receipt-backed warn/compact/stop/approval-required actions with graph/node identity, and approval-request controls compile into daemon-owned `approval.required` gates. TUI `/cost`, `/context`, and `/events` now read those same daemon telemetry/policy streams and project `cost_status`, `context_budget`, `compaction_policy`, `usage_delta`, `context_pressure_delta`, and `context_pressure_alert` rows. Runtime fixture and runtime-service bridge turns emit streaming `usage.delta`, `context.pressure_delta`, and threshold-crossing `context.pressure_alert` events with stable workflow node identity before `usage_final`. React Flow workflow runs now pre-bind a thread before execution, show a provisional running run in the Runs rail, poll the live thread-event stream, merge usage/context-pressure deltas and alert action rows into the same projection while execution is in flight, render advisory and executable pressure actions in the run inspector, and execute compact, stop, request-approval, and delegate-summary actions through daemon runtime-control channels (`runtime.context-compact`, `runtime_operator_interrupt`, `runtime_approval_request`, and `runtime_subagent`/SubagentManager). | Keep usage/context regression green while P1-C finishes graph-level approval/trust authoring. | Usage-meter, context-budget, compaction policy, approval-request, context-pressure alert, and delegate-summary subagent controls simulate, stream, and enforce workflow caps from daemon-owned telemetry rather than canvas-local counters. |
 
 ### Immediate Tactical Queue
 
-1. Continue P1-C modes/trust/approvals: add first-class React Flow
-   mode/trust authoring controls and run-inspector acknowledgement affordances
-   that call the daemon instead of storing trust state on the canvas.
-2. Prove review/YOLO warning rows can gate or annotate risky workflow runs
-   beside the existing approval manifests without duplicating approval truth.
+1. Continue P1-C modes/trust/approvals: make workspace trust acknowledgement
+   a real workflow activation/run gate beside approval manifests, with daemon
+   receipts deciding whether a risky review/YOLO run may proceed.
+2. Prove review/YOLO warning rows can annotate, block, and unblock risky
+   workflow runs without duplicating approval truth or accepting canvas-local
+   trust state.
 3. Keep MCP regression green; add visual MCP server/tool/resource/prompt nodes
    only when a concrete workflow composition needs them.
 4. When adding the next recovery or diagnostics affordance, keep it
@@ -1020,20 +1025,24 @@ Modes:
 
 Runtime work:
 
-- Extend `AgentMode` or introduce `RuntimeInteractionMode`.
-- Add `ApprovalMode`:
+- Maintain daemon-owned `RuntimeInteractionMode` records for thread-level
+  `plan`, `review`, `agent`, `yolo`, and workflow-design flows.
+- Maintain `ApprovalMode`:
   - `suggest`;
   - `auto_local`;
   - `never_prompt`;
   - `human_required`;
   - `policy_required`.
-- Add workspace trust record.
+- Keep workspace trust warning and acknowledgement records daemon-owned.
 
 React Flow workflow surface:
 
-- Add graph-level mode selector.
+- Add graph-level mode selector and `RuntimeThreadModeNode`.
 - Add node-level approval override where policy permits.
-- Add visual warnings for YOLO/trusted workspace activation.
+- Add visual warnings and acknowledgement actions for YOLO/trusted workspace
+  activation.
+- Add activation gates that consume acknowledgement receipts without making
+  React Flow the trust authority.
 - Add "proposal-only" lock state for workflow edits.
 
 Acceptance evidence:
@@ -1041,15 +1050,24 @@ Acceptance evidence:
 - Plan mode blocks mutating tools at runtime even if a UI enables them;
 - YOLO cannot bypass wallet authority scopes;
 - mode changes are evented, persisted, and replayable;
-- React Flow graph export includes mode and approval profile.
+- React Flow graph export includes mode, approval profile, trust profile, and
+  acknowledgement requirements.
 
-Implementation status, 2026-05-13:
+Implementation status, 2026-05-14:
 
 - `/v1/threads/{thread_id}/mode`, SDK `Thread.mode`, TUI `/mode`, and React
-  Flow mode-status projection are in place for `plan`, `agent`, and `yolo`.
-- Remaining work is hard policy enforcement across every mutating tool,
-  review-mode semantics, workspace trust warnings, and the graph approval
-  manifest.
+  Flow mode-status projection are in place for `plan`, `review`, `agent`, and
+  `yolo`.
+- React Flow `runtime_thread_mode` workflow nodes now compile mode, approval
+  mode, trust profile, warning acknowledgement requirements, and graph/node
+  provenance into `/v1/threads/{thread_id}/mode`.
+- Review and YOLO mode warnings project as daemon-owned workspace trust records
+  across SDK, TUI, and React Flow. Run-inspector acknowledgement actions call
+  the daemon acknowledgement endpoint and project
+  `workspace_trust_acknowledged` receipts.
+- Remaining work is to bind acknowledgement receipts into workflow activation
+  semantics, hard policy enforcement coverage, and proposal-only workflow edit
+  locks.
 
 ### P1. Cost, Usage, Context, And Capacity Telemetry
 
@@ -1505,12 +1523,14 @@ Tools:
 
 Safety:
 
+- `RuntimeThreadModeNode`;
 - `ApprovalGateNode`;
 - `PolicyDecisionNode`;
 - `AuthorityScopeNode`;
 - `PiiRedactionNode`;
 - `SandboxProfileNode`;
 - `TrustProfileNode`;
+- `WorkspaceTrustGateNode`;
 
 Subagents/workers:
 
@@ -1919,19 +1939,20 @@ adding more infrastructure by default.
 Recent focused validation, 2026-05-14:
 
 - Latest full command/evidence detail lives in the validation ledger.
-- Current slice proof: daemon syntax, focused live review/YOLO workspace trust
-  warning proof, SDK/TUI/React Flow projection tests, targeted TUI row proof,
-  source-contract guard, and live GUI preflight.
-- Latest GUI/workflow preflight:
-  `/tmp/ioi-autopilot-gui-harness-runtime-workspace-trust-warning/2026-05-14T00-17-53-763Z/result.json`.
+- Current slice proof: runtime-layout guard, agent-ide/agent-sdk builds,
+  targeted Tauri workflow contract tests, focused live React Flow
+  mode/trust/acknowledgement proof, source-contract guard, and live
+  GUI/workflow preflight.
+- Latest GUI/workflow preflight is recorded in the validation ledger for the
+  React Flow mode/trust authoring and workspace trust acknowledgement slice.
 
 Next runtime implementation sequence:
 
-1. Continue P1-C by adding first-class React Flow mode/trust authoring controls
-   and run-inspector acknowledgement affordances backed by the daemon warning
-   records.
-2. Prove warning acknowledgement can annotate or gate risky workflow execution
-   beside approval manifests without becoming canvas-local trust truth.
+1. Continue P1-C by making warning acknowledgement a workflow activation/run
+   gate that consumes daemon warning and acknowledgement receipts.
+2. Prove warning acknowledgement can annotate, block, and unblock risky
+   workflow execution beside approval manifests without becoming canvas-local
+   trust truth.
 3. Keep MCP, diagnostics repair, memory, and usage/context controls
    regression-green while trust/approval policy remains the primary
    workflow-authoring gap.

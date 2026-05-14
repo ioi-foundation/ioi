@@ -451,6 +451,35 @@ fn workflow_runtime_diagnostics_repair_action(value: String) -> String {
     }
 }
 
+fn workflow_runtime_thread_mode_mode(value: String) -> String {
+    match value.to_lowercase().replace(['-', '.'], "_").as_str() {
+        "plan" | "planning" | "read_only" | "readonly" => "plan".to_string(),
+        "review" | "review_mode" | "human_review" | "approval_review" => {
+            "review".to_string()
+        }
+        "yolo" | "auto" | "auto_local" | "never_prompt" => "yolo".to_string(),
+        "custom" | "dry_run" | "handoff" | "learn" => "custom".to_string(),
+        _ => "agent".to_string(),
+    }
+}
+
+fn workflow_runtime_thread_mode_default_approval(mode: &str) -> &'static str {
+    match mode {
+        "plan" | "review" => "human_required",
+        "yolo" => "never_prompt",
+        _ => "suggest",
+    }
+}
+
+fn workflow_runtime_thread_mode_approval_mode(value: String, mode: &str) -> String {
+    match value.to_lowercase().replace(['-', '.'], "_").as_str() {
+        "suggest" | "auto_local" | "never_prompt" | "human_required" | "policy_required" => {
+            value.to_lowercase().replace(['-', '.'], "_")
+        }
+        _ => workflow_runtime_thread_mode_default_approval(mode).to_string(),
+    }
+}
+
 fn workflow_runtime_control_envelope(
     workflow: Option<&WorkflowProject>,
     logic: &Value,
@@ -827,6 +856,124 @@ fn workflow_runtime_context_compact_output(
         Some(turn_id_value),
         request,
     )
+}
+
+fn workflow_runtime_thread_mode_output(
+    workflow: Option<&WorkflowProject>,
+    node_id: &str,
+    logic: &Value,
+    input: &Value,
+    evidence_kind: &str,
+) -> Value {
+    let envelope = workflow_runtime_control_envelope(
+        workflow,
+        logic,
+        input,
+        &WorkflowRuntimeControlEnvelopeConfig {
+            thread_id_logic_key: "runtimeThreadModeThreadId",
+            thread_id_field_key: "runtimeThreadModeThreadIdField",
+            turn_id_logic_key: None,
+            turn_id_field_key: None,
+            workflow_node_id_logic_key: "runtimeThreadModeWorkflowNodeId",
+            actor_logic_key: "runtimeThreadModeActor",
+            endpoint_logic_key: "runtimeThreadModeEndpoint",
+            default_workflow_node_id: "runtime.thread-mode",
+            default_endpoint: "/v1/threads/{threadId}/mode",
+            missing_turn_id: None,
+        },
+    );
+    let output_config = WorkflowRuntimeControlOutputConfig {
+        schema_version: "ioi.workflow.runtime-thread-mode-control.v1",
+        source: "react_flow",
+        component_kind: "runtime_mode",
+        event_kind: "OperatorControl.Mode",
+        payload_schema_version: "ioi.runtime.thread-mode-control.v1",
+        nested_key: "runtimeThreadMode",
+    };
+    let mode = workflow_runtime_thread_mode_mode(workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeThreadModeModeField",
+        "mode",
+        "runtimeThreadModeMode",
+        "agent",
+    ));
+    let approval_mode = workflow_runtime_thread_mode_approval_mode(
+        workflow_runtime_control_input_field_or_logic(
+            logic,
+            input,
+            "runtimeThreadModeApprovalModeField",
+            "approvalMode",
+            "runtimeThreadModeApprovalMode",
+            workflow_runtime_thread_mode_default_approval(&mode),
+        ),
+        &mode,
+    );
+    let trust_profile = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeThreadModeTrustProfileField",
+        "trustProfile",
+        "runtimeThreadModeTrustProfile",
+        "local_private",
+    );
+    let workspace_trust_workflow_node_id = workflow_runtime_control_input_field_or_logic(
+        logic,
+        input,
+        "runtimeThreadModeWorkspaceTrustWorkflowNodeIdField",
+        "workspaceTrustWorkflowNodeId",
+        "runtimeThreadModeWorkspaceTrustWorkflowNodeId",
+        &format!("{}.workspace-trust", envelope.workflow_node_id),
+    );
+    let request_warning_acknowledgement = workflow_runtime_control_bool_field_or_logic(
+        logic,
+        input,
+        "runtimeThreadModeRequestWarningAcknowledgementField",
+        "requestWarningAcknowledgement",
+        "runtimeThreadModeRequestWarningAcknowledgement",
+        true,
+    );
+    let request = workflow_runtime_control_request(
+        &output_config,
+        &envelope,
+        vec![
+            ("mode", json!(mode.clone())),
+            ("interactionMode", json!(mode.clone())),
+            ("interaction_mode", json!(mode.clone())),
+            ("approvalMode", json!(approval_mode.clone())),
+            ("approval_mode", json!(approval_mode.clone())),
+            ("trustProfile", json!(trust_profile.clone())),
+            ("trust_profile", json!(trust_profile)),
+            (
+                "workspaceTrustWorkflowNodeId",
+                json!(workspace_trust_workflow_node_id.clone()),
+            ),
+            (
+                "workspace_trust_workflow_node_id",
+                json!(workspace_trust_workflow_node_id),
+            ),
+            (
+                "requestWarningAcknowledgement",
+                json!(request_warning_acknowledgement),
+            ),
+            (
+                "request_warning_acknowledgement",
+                json!(request_warning_acknowledgement),
+            ),
+        ],
+    );
+    let mut output = workflow_runtime_control_output(
+        node_id,
+        evidence_kind,
+        input,
+        &output_config,
+        envelope,
+        None,
+        request,
+    );
+    output["mode"] = json!(mode);
+    output["approvalMode"] = json!(approval_mode);
+    output
 }
 
 fn workflow_runtime_approval_request_output(
@@ -1387,6 +1534,13 @@ pub(super) fn execute_workflow_node(
             evidence_kind,
         ),
         ActionKind::RuntimeOperatorSteer => workflow_runtime_operator_steer_output(
+            workflow,
+            &node_id,
+            &logic,
+            &input,
+            evidence_kind,
+        ),
+        ActionKind::RuntimeThreadMode => workflow_runtime_thread_mode_output(
             workflow,
             &node_id,
             &logic,

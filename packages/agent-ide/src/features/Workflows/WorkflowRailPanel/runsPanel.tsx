@@ -8,6 +8,7 @@ import type { WorkflowRunHistoryModel } from "../../../runtime/workflow-run-hist
 import type {
   WorkflowRuntimeContextPressureActionDescriptor,
   WorkflowRuntimeDiagnosticsRepairActionDescriptor,
+  WorkflowRuntimeWorkspaceTrustActionDescriptor,
 } from "../../../runtime/workflow-runtime-event-projection";
 import {
   workflowDurationLabel,
@@ -39,6 +40,9 @@ type WorkflowRunsPanelProps = {
   onExecuteRuntimeContextPressureAction?: (
     action: WorkflowRuntimeContextPressureActionDescriptor,
   ) => void | Promise<void>;
+  onExecuteRuntimeWorkspaceTrustAction?: (
+    action: WorkflowRuntimeWorkspaceTrustActionDescriptor,
+  ) => void | Promise<void>;
 };
 
 export function WorkflowRunsPanel({
@@ -57,6 +61,7 @@ export function WorkflowRunsPanel({
   onInspectNode,
   onExecuteRuntimeDiagnosticsRepair,
   onExecuteRuntimeContextPressureAction,
+  onExecuteRuntimeWorkspaceTrustAction,
 }: WorkflowRunsPanelProps) {
   const {
     totalRuns,
@@ -362,6 +367,9 @@ export function WorkflowRunsPanel({
                     data-context-pressure-action-count={
                       node.data.contextPressureActions.length
                     }
+                    data-workspace-trust-action-count={
+                      node.data.workspaceTrustActions.length
+                    }
                     data-tool-name={node.data.toolName ?? ""}
                     data-approval-id={node.data.approvalId ?? ""}
                     data-tui-deep-link-schema-version={
@@ -497,6 +505,52 @@ export function WorkflowRunsPanel({
                               }
                               onClick={() => {
                                 void onExecuteRuntimeContextPressureAction?.(
+                                  action,
+                                );
+                              }}
+                            >
+                              {action.label}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                      {node.data.workspaceTrustActions.length > 0 ? (
+                        <div
+                          className="workflow-run-workspace-trust-actions"
+                          data-testid={`workflow-run-workspace-trust-actions-${node.id}`}
+                          data-action-count={
+                            node.data.workspaceTrustActions.length
+                          }
+                        >
+                          {node.data.workspaceTrustActions.map((action) => (
+                            <button
+                              key={action.id}
+                              type="button"
+                              className="workflow-secondary-action"
+                              data-testid={`workflow-run-workspace-trust-action-${action.action}`}
+                              data-action-id={action.id}
+                              data-action={action.action}
+                              data-action-status={action.status}
+                              data-warning-id={action.warningId}
+                              data-severity={action.severity ?? ""}
+                              data-mode={action.mode ?? ""}
+                              data-approval-mode={action.approvalMode ?? ""}
+                              data-thread-id={action.threadId}
+                              data-workflow-graph-id={
+                                action.workflowGraphId ?? ""
+                              }
+                              data-workflow-node-id={action.workflowNodeId}
+                              data-source-event-id={action.sourceEventId ?? ""}
+                              data-event-id={action.eventId}
+                              data-executable={action.executable}
+                              title={action.summary ?? action.label}
+                              aria-label={`${action.label} workspace trust action`}
+                              disabled={
+                                !action.executable ||
+                                !onExecuteRuntimeWorkspaceTrustAction
+                              }
+                              onClick={() => {
+                                void onExecuteRuntimeWorkspaceTrustAction?.(
                                   action,
                                 );
                               }}

@@ -1621,6 +1621,8 @@ test("local daemon projects Agentgres runs through thread, turn, and monotonic e
 test("daemon owns thread mode, model, and thinking controls for TUI and React Flow", async () => {
   const { Thread, createRuntimeSubstrateClient } = await importSdk();
   const {
+    createRuntimeThreadModeControlRequestFromWorkflowNode,
+    createRuntimeWorkspaceTrustAcknowledgementControlRequest,
     projectRuntimeTuiControlStateToWorkflowProjection,
     projectRuntimeThreadEventsToWorkflowProjection,
   } = await importAgentIde();
@@ -1742,6 +1744,8 @@ test("daemon owns thread mode, model, and thinking controls for TUI and React Fl
 test("daemon emits workspace trust warnings for review and yolo mode controls", async () => {
   const { Thread, createRuntimeSubstrateClient } = await importSdk();
   const {
+    createRuntimeThreadModeControlRequestFromWorkflowNode,
+    createRuntimeWorkspaceTrustAcknowledgementControlRequest,
     projectRuntimeTuiControlStateToWorkflowProjection,
     projectRuntimeThreadEventsToWorkflowProjection,
   } = await importAgentIde();
@@ -1772,14 +1776,33 @@ test("daemon emits workspace trust warnings for review and yolo mode controls", 
         options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
       }),
     });
-    const yoloMode = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/mode`, {
+    const yoloControl = createRuntimeThreadModeControlRequestFromWorkflowNode(
+      {
+        id: "mode-control",
+        type: "runtime_thread_mode",
+        config: {
+          logic: {
+            runtimeThreadModeWorkflowNodeId: modeNodeId,
+            runtimeThreadModeWorkspaceTrustWorkflowNodeId: `${modeNodeId}.workspace-trust`,
+            runtimeThreadModeTrustProfile: "canvas_claims_trusted",
+          },
+        },
+      },
+      {
+        threadId: thread.thread_id,
+        mode: "yolo",
+        approvalMode: "never_prompt",
+        trustProfile: "canvas_claims_trusted",
+      },
+      { workflowGraphId },
+    );
+    assert.equal(yoloControl.nodeType, "runtime_thread_mode");
+    assert.equal(yoloControl.endpoint, `/v1/threads/${thread.thread_id}/mode`);
+    assert.equal(yoloControl.body.workspace_trust_workflow_node_id, `${modeNodeId}.workspace-trust`);
+    const yoloMode = await fetchJson(`${daemon.endpoint}${yoloControl.endpoint}`, {
       method: "POST",
       body: JSON.stringify({
-        mode: "yolo",
-        source: "react_flow",
-        workflowGraphId,
-        workflowNodeId: modeNodeId,
-        trustProfile: "canvas_claims_trusted",
+        ...yoloControl.body,
         workspaceTrustStatus: "trusted",
         workspaceTrustSuppressed: true,
         workspaceTrustIdempotencyKey: "canvas-controlled-warning-key",
@@ -1869,6 +1892,66 @@ test("daemon emits workspace trust warnings for review and yolo mode controls", 
     assert.equal(trustNode.label, "Workspace trust warning");
     assert.equal(trustNode.status, "warning");
     assert.equal(trustNode.workflowNodeId, `${modeNodeId}.workspace-trust`);
+    assert.equal(trustNode.workspaceTrustActions[0]?.action, "acknowledge");
+    assert.equal(trustNode.workspaceTrustActions[0]?.executable, true);
+
+    const acknowledgementRequest = createRuntimeWorkspaceTrustAcknowledgementControlRequest({
+      nodeId: trustNode.workspaceTrustActions[0].id,
+      threadId: thread.thread_id,
+      warningId: yoloWarningEvent.payload_summary.warning_id,
+      sourceEventId: yoloWarningEvent.event_id,
+      workflowGraphId,
+      workflowNodeId: trustNode.workflowNodeId,
+      reason: "operator reviewed the daemon workspace trust warning",
+    });
+    assert.equal(
+      acknowledgementRequest.endpoint,
+      `/v1/threads/${thread.thread_id}/workspace-trust/${yoloWarningEvent.payload_summary.warning_id}/acknowledge`,
+    );
+    const acknowledgement = await fetchJson(
+      `${daemon.endpoint}${acknowledgementRequest.endpoint}`,
+      {
+        method: "POST",
+        body: JSON.stringify(acknowledgementRequest.body),
+      },
+    );
+    assert.equal(
+      acknowledgement.workspace_trust_acknowledgement?.warning_id,
+      yoloWarningEvent.payload_summary.warning_id,
+    );
+    assert.equal(
+      acknowledgement.workspace_trust_acknowledgement_event?.event_kind,
+      "workspace.trust_acknowledged",
+    );
+    assert.equal(
+      acknowledgement.workspace_trust_acknowledgement_event?.workflow_node_id,
+      trustNode.workflowNodeId,
+    );
+
+    const sdkEventsAfterAck = await collect(sdkThread.events({ sinceSeq: 0 }));
+    const sdkAcknowledgement = sdkEventsAfterAck.find(
+      (event) =>
+        event.id === acknowledgement.workspace_trust_acknowledgement_event.event_id,
+    );
+    assert.ok(sdkAcknowledgement);
+    assert.equal(sdkAcknowledgement.type, "workspace_trust_acknowledged");
+    assert.equal(sdkAcknowledgement.componentKind, "workspace_trust");
+    const acknowledgedProjection =
+      projectRuntimeThreadEventsToWorkflowProjection(sdkEventsAfterAck);
+    const acknowledgedTrustNode = acknowledgedProjection.nodes.find((node) =>
+      node.eventIds.includes(acknowledgement.workspace_trust_acknowledgement_event.event_id),
+    );
+    assert.ok(acknowledgedTrustNode);
+    assert.equal(acknowledgedTrustNode.status, "completed");
+    assert.equal(acknowledgedTrustNode.label, "Workspace trust acknowledged");
+    assert.equal(
+      acknowledgedTrustNode.workspaceTrustActions[0]?.status,
+      "acknowledged",
+    );
+    assert.equal(
+      acknowledgedTrustNode.workspaceTrustActions[0]?.executable,
+      false,
+    );
 
     const tuiProjection = projectRuntimeTuiControlStateToWorkflowProjection({
       schema_version: "ioi.agent-cli.tui-control-state.v1",
@@ -11248,6 +11331,10 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRunsPanel, /workflow-run-context-pressure-action-/);
   assert.match(workflowRunsPanel, /data-context-pressure-action-count/);
   assert.match(workflowRunsPanel, /onExecuteRuntimeContextPressureAction/);
+  assert.match(workflowRunsPanel, /workflow-run-workspace-trust-actions/);
+  assert.match(workflowRunsPanel, /workflow-run-workspace-trust-action-/);
+  assert.match(workflowRunsPanel, /data-workspace-trust-action-count/);
+  assert.match(workflowRunsPanel, /onExecuteRuntimeWorkspaceTrustAction/);
   assert.match(workflowRunsPanel, /workflow-run-subagent-subflows/);
   assert.match(workflowRunsPanel, /data-subagent-child-subflow-count/);
   assert.match(workflowRunsPanel, /data-usage-row-count/);
@@ -11263,6 +11350,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeEventProjection, /diagnosticsRepairActionsForEvents/);
   assert.match(workflowRuntimeEventProjection, /contextPressureActionsForEvents/);
   assert.match(workflowRuntimeEventProjection, /WorkflowRuntimeContextPressureActionDescriptor/);
+  assert.match(workflowRuntimeEventProjection, /workspaceTrustActionsForEvents/);
+  assert.match(workflowRuntimeEventProjection, /WorkflowRuntimeWorkspaceTrustActionDescriptor/);
   assert.match(workflowRuntimeDiagnosticsRepairActions, /WorkflowRuntimeDiagnosticsRepairActionDescriptor/);
   assert.match(workflowRuntimeDiagnosticsRepairActions, /repair_decisions/);
   assert.match(workflowRuntimeDiagnosticsRepairActions, /runtime\.run-inspector\.diagnostics-repair/);
@@ -11273,14 +11362,17 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowComposerController, /createRuntimeApprovalRequestControlRequest/);
   assert.match(workflowComposerController, /createRuntimeContextCompactControlRequest/);
   assert.match(workflowComposerController, /createRuntimeOperatorInterruptControlRequest/);
+  assert.match(workflowComposerController, /createRuntimeWorkspaceTrustAcknowledgementControlRequest/);
   assert.match(workflowComposerController, /createRuntimeSubagentControlRequest/);
   assert.match(workflowComposerController, /handleExecuteRuntimeContextPressureAction/);
+  assert.match(workflowComposerController, /handleExecuteRuntimeWorkspaceTrustAction/);
   assert.match(workflowComposerController, /"request_approval"/);
   assert.match(workflowComposerController, /"delegate_summary"/);
   assert.match(workflowComposerController, /executeWorkflowRuntimeControlRequest/);
   assert.match(workflowComposerView, /runtimeThreadEvents=\{runtimeThreadEvents\}/);
   assert.match(workflowComposerView, /onExecuteRuntimeDiagnosticsRepair/);
   assert.match(workflowComposerView, /onExecuteRuntimeContextPressureAction/);
+  assert.match(workflowComposerView, /onExecuteRuntimeWorkspaceTrustAction/);
   assert.match(runtimeDaemon, /context_pressure_alert/);
   assert.match(runtimeDaemon, /context\.pressure_alert/);
   assert.match(runtimeDaemon, /requestThreadApproval/);
@@ -11295,9 +11387,12 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(runtimeDaemon, /coding_tool_approval_required/);
   assert.match(runtimeDaemon, /thread_review_mode_requires_approval/);
   assert.match(runtimeDaemon, /WORKSPACE_TRUST_WARNING_SCHEMA_VERSION/);
+  assert.match(runtimeDaemon, /WORKSPACE_TRUST_ACKNOWLEDGEMENT_SCHEMA_VERSION/);
   assert.match(runtimeDaemon, /workspace\.trust_warning/);
+  assert.match(runtimeDaemon, /workspace\.trust_acknowledged/);
   assert.match(runtimeDaemon, /canvas_local_trust_state_accepted/);
   assert.match(workflowRuntimeEventProjection, /workspace_trust_warning/);
+  assert.match(workflowRuntimeEventProjection, /workspace_trust_acknowledged/);
   assert.match(workflowRuntimeEventProjection, /workspaceTrustRows/);
   assert.match(graphRuntimeTypes, /executeWorkflowRuntimeControlRequest\?/);
   assert.match(graphRuntimeTypes, /WorkflowRuntimeControlRequest/);
@@ -11305,6 +11400,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(graphRuntimeTypes, /RuntimeCodingToolControlRequest/);
   assert.match(graphRuntimeTypes, /RuntimeContextCompactControlRequest/);
   assert.match(graphRuntimeTypes, /RuntimeOperatorInterruptControlRequest/);
+  assert.match(graphRuntimeTypes, /RuntimeThreadModeControlRequest/);
+  assert.match(graphRuntimeTypes, /RuntimeWorkspaceTrustAcknowledgementControlRequest/);
   assert.match(tauriRuntime, /execute_workflow_runtime_control_request/);
   assert.match(tauriArtifacts, /execute_workflow_runtime_control_request/);
   assert.match(tauriLib, /execute_workflow_runtime_control_request/);
@@ -12097,10 +12194,12 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(tauriProjectWorkflowNodeExecutionLane, /ActionKind::WorkflowPackageExport/);
   assert.match(tauriProjectWorkflowNodeExecutionLane, /ActionKind::WorkflowPackageImport/);
   assert.match(tauriProjectWorkflowNodeExecutionLane, /ActionKind::GithubPrCreate/);
+  assert.match(tauriProjectWorkflowNodeExecutionLane, /ActionKind::RuntimeThreadMode/);
   assert.match(tauriProjectWorkflowNodeExecutionLane, /ActionKind::RuntimeRollbackSnapshot/);
   assert.match(tauriProjectWorkflowNodeExecutionLane, /ActionKind::RuntimeRestoreGate/);
   assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_runtime_rollback_snapshot_output/);
   assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_runtime_restore_gate_output/);
+  assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_runtime_thread_mode_output/);
   assert.match(tauriProjectWorkflowNodeExecutionLane, /workflow_package_lane/);
   assert.match(tauriProjectWorkflowPackageLane, /execute_workflow_package_export_node/);
   assert.match(tauriProjectWorkflowPackageLane, /execute_workflow_package_import_node/);
@@ -12123,6 +12222,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(tauriProjectTemplates, /workflow_runtime_thread_fork_output_schema/);
   assert.match(tauriProjectTemplates, /workflow_runtime_operator_interrupt_output_schema/);
   assert.match(tauriProjectTemplates, /workflow_runtime_operator_steer_output_schema/);
+  assert.match(tauriProjectTemplates, /workflow_runtime_thread_mode_output_schema/);
   assert.match(tauriProjectTemplates, /workflow_runtime_context_compact_output_schema/);
   assert.match(tauriProjectTemplates, /workflow_runtime_rollback_snapshot_output_schema/);
   assert.match(tauriProjectTemplates, /workflow_runtime_restore_gate_output_schema/);
@@ -12132,6 +12232,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(tauriRuntimeProjection, /RuntimeThreadFork/);
   assert.match(tauriRuntimeProjection, /RuntimeOperatorInterrupt/);
   assert.match(tauriRuntimeProjection, /RuntimeOperatorSteer/);
+  assert.match(tauriRuntimeProjection, /RuntimeThreadMode/);
   assert.match(tauriRuntimeProjection, /RuntimeContextCompact/);
   assert.match(tauriRuntimeProjection, /RuntimeRollbackSnapshot/);
   assert.match(tauriRuntimeProjection, /RuntimeRestoreGate/);
@@ -12197,6 +12298,14 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(nodeRegistry, /RuntimeDiagnosticsRepairNode/);
   assert.match(nodeRegistry, /runtimeDiagnosticsRepairDecisionIdField/);
   assert.match(nodeRegistry, /\/v1\/threads\/\{threadId\}\/diagnostics\/repair-decisions\/\{decisionId\}\/execute/);
+  assert.match(nodeRegistry, /runtime_thread_mode/);
+  assert.match(nodeRegistry, /RuntimeThreadModeNode/);
+  assert.match(nodeRegistry, /runtimeThreadModeWorkspaceTrustWorkflowNodeId/);
+  assert.match(nodeRegistry, /\/v1\/threads\/\{threadId\}\/mode/);
+  assert.match(workflowRuntimeControlNodes, /createRuntimeThreadModeControlRequestFromWorkflowNode/);
+  assert.match(workflowRuntimeControlNodes, /createRuntimeWorkspaceTrustAcknowledgementControlRequest/);
+  assert.match(workflowRuntimeControlNodes, /RUNTIME_THREAD_MODE_SOURCE_EVENT_KIND/);
+  assert.match(workflowRuntimeControlNodes, /WorkspaceTrust\.Acknowledged/);
   assert.match(workflowRuntimeControlNodes, /createRuntimeDiagnosticsRepairControlRequestFromWorkflowNode/);
   assert.match(workflowRuntimeControlNodes, /RUNTIME_DIAGNOSTICS_REPAIR_SOURCE_EVENT_KIND/);
   assert.match(workflowRuntimeControlNodes, /operatorOverrideApproved/);

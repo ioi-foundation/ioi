@@ -124,6 +124,72 @@ test("projects workspace trust warnings as hook-policy React Flow rows", () => {
     "runtime.thread-mode.yolo.workspace-trust",
   );
   assert.deepEqual(projection.nodes[0]?.receiptRefs, ["receipt-workspace-trust"]);
+  assert.deepEqual(projection.nodes[0]?.workspaceTrustActions[0], {
+    id: "workspace-trust:thread-test:workspace_trust_test:acknowledge",
+    action: "acknowledge",
+    label: "Acknowledge warning",
+    summary: "YOLO mode can run without further prompts.",
+    status: "available",
+    executable: true,
+    warningId: "workspace_trust_test",
+    severity: "high",
+    mode: "yolo",
+    approvalMode: "never_prompt",
+    threadId: "thread-test",
+    workflowGraphId: "workflow-test",
+    workflowNodeId: "runtime.thread-mode.yolo.workspace-trust",
+    eventId: "event-workspace-trust",
+    sourceEventId: "event-workspace-trust",
+    receiptRefs: ["receipt-workspace-trust"],
+    policyDecisionRefs: ["policy-workspace-trust-yolo"],
+  });
+});
+
+test("projects workspace trust acknowledgements as completed hook-policy rows", () => {
+  const projection = projectRuntimeThreadEventsToWorkflowProjection([
+    event("event-workspace-trust", 1, {
+      type: "workspace_trust_warning",
+      eventKind: "workspace.trust_warning",
+      sourceEventKind: "WorkspaceTrust.Warning",
+      status: "warning",
+      workflowNodeId: "runtime.thread-mode.yolo.workspace-trust",
+      componentKind: "workspace_trust",
+      payloadSchemaVersion: "ioi.runtime.workspace-trust-warning.v1",
+      receiptRefs: ["receipt-workspace-trust"],
+      policyDecisionRefs: ["policy-workspace-trust-yolo"],
+      payload: {
+        warning_id: "workspace_trust_test",
+        mode: "yolo",
+        approval_mode: "never_prompt",
+        severity: "high",
+      },
+    }),
+    event("event-workspace-trust-ack", 2, {
+      type: "workspace_trust_acknowledged",
+      eventKind: "workspace.trust_acknowledged",
+      sourceEventKind: "WorkspaceTrust.Acknowledged",
+      status: "completed",
+      workflowNodeId: "runtime.thread-mode.yolo.workspace-trust",
+      componentKind: "workspace_trust",
+      payloadSchemaVersion: "ioi.runtime.workspace-trust-acknowledgement.v1",
+      receiptRefs: ["receipt-workspace-trust-ack"],
+      policyDecisionRefs: ["policy-workspace-trust-ack"],
+      payload: {
+        warning_id: "workspace_trust_test",
+        source_event_id: "event-workspace-trust",
+        status: "acknowledged",
+      },
+    }),
+  ]);
+
+  assert.equal(projection.nodes[0]?.label, "Workspace trust acknowledged");
+  assert.equal(projection.nodes[0]?.status, "completed");
+  assert.equal(projection.nodes[0]?.workspaceTrustActions[0]?.status, "acknowledged");
+  assert.equal(projection.nodes[0]?.workspaceTrustActions[0]?.executable, false);
+  assert.deepEqual(projection.nodes[0]?.workspaceTrustActions[0]?.receiptRefs, [
+    "receipt-workspace-trust",
+    "receipt-workspace-trust-ack",
+  ]);
 });
 
 test("projects coding tool events as receipt-backed React Flow rows", () => {
