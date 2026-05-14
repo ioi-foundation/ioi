@@ -10794,6 +10794,8 @@ export function useWorkflowComposerController({
         );
         return selectedNodeId ?? "";
       }
+      const shouldOfferCompositionFollowup =
+        nodes.length === 0 && (type === "trigger" || type === "source");
       const nodeId = addNode(type, label, preferredId);
       const definition =
         (options.creatorId
@@ -10847,6 +10849,20 @@ export function useWorkflowComposerController({
         );
       }
       markWorkflowDirty();
+      if (shouldOfferCompositionFollowup) {
+        handleNodeSelect(nodeId);
+        setBottomPanel("selection");
+        setRightPanel("outputs");
+        closeCanvasSearch();
+        setNodeConfigOpen(false);
+        setCompatiblePortFocus(null);
+        setNodePaletteMode("all");
+        setNodeGroupFilter("Compatible");
+        setNodeSearch("");
+        openLeftDrawer();
+        setStatusMessage(`${label} added. Choose a compatible next primitive.`);
+        return nodeId;
+      }
       if (options.openConfig) {
         handleNodeSelect(nodeId);
         setBottomPanel("selection");
@@ -10867,6 +10883,8 @@ export function useWorkflowComposerController({
       handleNodeSelect,
       isReadOnlyWorkflow,
       markWorkflowDirty,
+      nodes.length,
+      openLeftDrawer,
       selectedNodeId,
       setNodes,
     ],

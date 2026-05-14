@@ -1272,8 +1272,8 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     type="button"
                     className="workflow-selection-action"
                     data-testid="workflow-show-compatible-nodes"
-                    aria-label="Show compatible nodes"
-                    title="Show compatible nodes"
+                    aria-label="Add next node"
+                    title="Add next node"
                     disabled={compatibleNodeHints.length === 0}
                     onClick={() => {
                       setCompatiblePortFocus(null);
@@ -1290,7 +1290,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                   >
                     <WorkflowInlineIcon icon={Plus} />
                     <span className="workflow-action-tooltip">
-                      Show compatible nodes
+                      Add next node
                     </span>
                   </button>
                   <button
