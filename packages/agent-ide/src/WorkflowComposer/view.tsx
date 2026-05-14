@@ -1190,6 +1190,31 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                       Browse all primitives
                     </button>
                   </header>
+                  <div
+                    className="workflow-empty-goal-row"
+                    data-testid="workflow-empty-goal-row"
+                  >
+                    {[
+                      ["agent", "Agent", "agent"],
+                      ["tool", "Tool", "tool"],
+                      ["verification", "Verification", "verification"],
+                    ].map(([goalId, label, search]) => (
+                      <button
+                        key={goalId}
+                        type="button"
+                        data-testid={`workflow-empty-goal-${goalId}`}
+                        onClick={() => {
+                          setNodePaletteMode("recommended");
+                          setNodeGroupFilter("All");
+                          setNodeSearch(search);
+                          setRightPanel("outputs");
+                          openLeftDrawer();
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                   <div className="workflow-start-card-grid">
                     {emptyCanvasStartItems.map((item) => {
                       const itemId = workflowCreatorItemId(item);
