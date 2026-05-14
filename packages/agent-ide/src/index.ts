@@ -35,6 +35,7 @@ export {
   workflowNodeTypeForActionKind,
 } from "./runtime/runtime-projection-adapter";
 export {
+  WORKFLOW_RUNTIME_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_EVENT_PROJECTION_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION,
   WORKFLOW_RUNTIME_TUI_DEEP_LINK_SCHEMA_VERSION,
@@ -438,6 +439,8 @@ export type {
   WorkflowRuntimeEventProjection,
   WorkflowRuntimeDiagnosticsRepairAction,
   WorkflowRuntimeDiagnosticsRepairActionDescriptor,
+  WorkflowRuntimeCodingToolBudgetRecoveryAction,
+  WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   WorkflowRuntimeProjectedEdge,
   WorkflowRuntimeProjectedNode,
   WorkflowRuntimeProjectedStatus,

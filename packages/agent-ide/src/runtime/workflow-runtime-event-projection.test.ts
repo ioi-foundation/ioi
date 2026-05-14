@@ -611,6 +611,139 @@ test("projects workflow-run coding budget preflight blocks as coding-tool policy
   assert.deepEqual(node?.receiptRefs, [
     "receipt_workflow_run_coding_tool_budget_preflight",
   ]);
+  assert.deepEqual(
+    node?.codingToolBudgetRecoveryActions.map((action) => [
+      action.action,
+      action.status,
+      action.executable,
+    ]),
+    [
+      ["review_receipt", "available", false],
+      ["request_approval", "available", true],
+      ["approve_override", "waiting", false],
+      ["reject_override", "waiting", false],
+      ["retry_approved", "waiting", false],
+    ],
+  );
+  assert.equal(
+    node?.codingToolBudgetRecoveryActions[1]?.schemaVersion,
+    "ioi.workflow.coding-tool-budget-recovery.v1",
+  );
+  assert.equal(
+    node?.codingToolBudgetRecoveryActions[1]?.eventId,
+    "event-workflow-run-preflight-blocked",
+  );
+});
+
+test("projects coding budget recovery approval and retry actions", () => {
+  const projection = projectRuntimeThreadEventsToWorkflowProjection([
+    event("event-workflow-run-preflight-blocked", 1, {
+      type: "policy_blocked",
+      eventKind: "policy.blocked",
+      sourceEventKind: "WorkflowRunCodingToolBudgetPreflightBlocked",
+      status: "blocked",
+      componentKind: "coding_tool",
+      workflowNodeId: "runtime.coding-tool-budget-preflight",
+      workflowGraphId: "workflow.react-flow.coding-tool-preflight",
+      payloadSchemaVersion: "ioi.workflow.coding-tool-budget-preflight.v1",
+      receiptRefs: ["receipt-preflight"],
+      policyDecisionRefs: ["policy-preflight"],
+      payload: {
+        reason: "coding_tool_budget_preflight_blocked",
+        status: "blocked",
+        contextBudgetStatus: "blocked",
+        mutationBlocked: true,
+        targetNodeIds: ["node-write"],
+      },
+    }),
+    event("event-approval-required", 2, {
+      type: "approval_required",
+      eventKind: "approval.required",
+      sourceEventKind: "OperatorApproval.Request",
+      status: "waiting_for_approval",
+      componentKind: "approval_gate",
+      workflowNodeId: "runtime.coding-tool-budget-preflight",
+      workflowGraphId: "workflow.react-flow.coding-tool-preflight",
+      approvalId: "approval-budget",
+      payloadSchemaVersion: "ioi.runtime.approval-request.v1",
+      receiptRefs: ["receipt-approval-request"],
+      policyDecisionRefs: ["policy-approval-request"],
+      payload: {
+        reason: "coding_tool_budget_preflight_blocked",
+        sourceEventId: "event-workflow-run-preflight-blocked",
+        approvalId: "approval-budget",
+        targetNodeIds: ["node-write"],
+      },
+    }),
+    event("event-approval-approved", 3, {
+      type: "approval_decision",
+      eventKind: "approval.approved",
+      sourceEventKind: "OperatorApproval.Approve",
+      status: "approved",
+      componentKind: "approval_gate",
+      workflowNodeId: "runtime.coding-tool-budget-preflight",
+      workflowGraphId: "workflow.react-flow.coding-tool-preflight",
+      approvalId: "approval-budget",
+      payloadSchemaVersion: "ioi.runtime.approval-decision.v1",
+      receiptRefs: ["receipt-approval-approved"],
+      policyDecisionRefs: ["policy-approval-approved"],
+      payload: {
+        decision: "approve",
+        approvalId: "approval-budget",
+        approvalRequestEventId: "event-approval-required",
+        targetNodeIds: ["node-write"],
+      },
+    }),
+    event("event-retry-completed", 4, {
+      type: "tool_completed",
+      eventKind: "workflow.run.retry_completed",
+      sourceEventKind: "WorkflowRunCodingToolBudgetApprovedRetry",
+      status: "completed",
+      componentKind: "coding_tool",
+      workflowNodeId: "runtime.coding-tool-budget-preflight",
+      workflowGraphId: "workflow.react-flow.coding-tool-preflight",
+      approvalId: "approval-budget",
+      payloadSchemaVersion: "ioi.workflow.coding-tool-budget-recovery.v1",
+      receiptRefs: ["receipt-retry"],
+      policyDecisionRefs: ["policy-retry"],
+      payload: {
+        approvalId: "approval-budget",
+        approvalSatisfied: true,
+        approvalDecisionEventId: "event-approval-approved",
+        targetNodeIds: ["node-write"],
+      },
+    }),
+  ]);
+
+  const node = projection.nodes[0];
+  assert.deepEqual(
+    node?.codingToolBudgetRecoveryActions.map((action) => [
+      action.action,
+      action.status,
+      action.executable,
+    ]),
+    [
+      ["review_receipt", "completed", false],
+      ["request_approval", "completed", false],
+      ["approve_override", "completed", false],
+      ["reject_override", "blocked", false],
+      ["retry_approved", "completed", false],
+    ],
+  );
+  assert.equal(
+    node?.codingToolBudgetRecoveryActions[4]?.approvalDecisionEventId,
+    "event-approval-approved",
+  );
+  assert.deepEqual(node?.codingToolBudgetRecoveryActions[4]?.targetNodeIds, [
+    "node-write",
+    "runtime.coding-tool-budget-preflight",
+  ]);
+  assert.deepEqual(node?.codingToolBudgetRecoveryActions[4]?.receiptRefs, [
+    "receipt-preflight",
+    "receipt-approval-request",
+    "receipt-approval-approved",
+    "receipt-retry",
+  ]);
 });
 
 test("projects approval and policy events without workflow node ids", () => {

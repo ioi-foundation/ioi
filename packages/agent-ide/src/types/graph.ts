@@ -5163,6 +5163,8 @@ export interface WorkflowStreamEvent {
     | "node_blocked"
     | "node_interrupted"
     | "policy_blocked"
+    | "approval_required"
+    | "approval_decision"
     | "state_updated"
     | "output_created"
     | "asset_materialized"

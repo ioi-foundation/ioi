@@ -12,6 +12,8 @@ export const WORKFLOW_RUNTIME_TUI_DEEP_LINK_SCHEMA_VERSION =
   "ioi.workflow.runtime-tui-deeplink.v1" as const;
 export const WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION =
   "ioi.workflow.runtime-tui-control-state.v1" as const;
+export const WORKFLOW_RUNTIME_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION =
+  "ioi.workflow.coding-tool-budget-recovery.v1" as const;
 
 export type WorkflowRuntimeThreadEventType =
   | "thread_started"
@@ -132,10 +134,39 @@ export interface WorkflowRuntimeReactFlowNodeData {
   codingToolBudgetViolations: unknown[];
   codingToolBudgetUsageTelemetry: Record<string, unknown> | null;
   codingToolMutationBlocked: boolean | null;
+  codingToolBudgetRecoveryActions: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor[];
   diagnosticsRepairActions: WorkflowRuntimeDiagnosticsRepairActionDescriptor[];
   contextPressureActions: WorkflowRuntimeContextPressureActionDescriptor[];
   workspaceTrustActions: WorkflowRuntimeWorkspaceTrustActionDescriptor[];
   tuiDeepLink: WorkflowRuntimeTuiDeepLinkDescriptor;
+}
+
+export type WorkflowRuntimeCodingToolBudgetRecoveryAction =
+  | "review_receipt"
+  | "request_approval"
+  | "approve_override"
+  | "reject_override"
+  | "retry_approved";
+
+export interface WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor {
+  id: string;
+  schemaVersion: typeof WORKFLOW_RUNTIME_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION;
+  action: WorkflowRuntimeCodingToolBudgetRecoveryAction;
+  label: string;
+  summary: string | null;
+  status: string;
+  executable: boolean;
+  threadId: string;
+  workflowGraphId: string | null;
+  workflowNodeId: string;
+  eventId: string;
+  sourceEventId: string | null;
+  approvalId: string | null;
+  approvalRequestEventId: string | null;
+  approvalDecisionEventId: string | null;
+  targetNodeIds: string[];
+  receiptRefs: string[];
+  policyDecisionRefs: string[];
 }
 
 export type WorkflowRuntimeContextPressureAction =
@@ -2188,6 +2219,10 @@ function projectedNodeForBucket(
     codingToolBudgetUsageTelemetry:
       codingToolBudgetEvidence.usageTelemetry,
     codingToolMutationBlocked: codingToolBudgetEvidence.mutationBlocked,
+    codingToolBudgetRecoveryActions: codingToolBudgetRecoveryActionsForEvents(
+      events,
+      latestEvent,
+    ),
     diagnosticsRepairActions: diagnosticsRepairActionsForEvents(
       events,
       latestEvent,
@@ -2417,6 +2452,273 @@ function workspaceTrustActionsForEvents(
       ]),
     },
   ];
+}
+
+function codingToolBudgetRecoveryActionsForEvents(
+  events: readonly WorkflowRuntimeThreadEventLike[],
+  latestEvent: WorkflowRuntimeThreadEventLike,
+): WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor[] {
+  const blockedEvent =
+    [...events].reverse().find(isWorkflowRunCodingToolBudgetPreflightBlockedEvent) ??
+    null;
+  if (!blockedEvent) return [];
+
+  const approvalRequestEvent =
+    [...events].reverse().find((event) =>
+      isCodingToolBudgetRecoveryApprovalRequest(event, blockedEvent),
+    ) ?? null;
+  const approvalId =
+    stringField(approvalRequestEvent, "approvalId", "approval_id") ??
+    stringField(approvalRequestEvent?.payload, "approvalId", "approval_id") ??
+    stringField(latestEvent, "approvalId", "approval_id") ??
+    stringField(latestEvent.payload, "approvalId", "approval_id");
+  const approvalDecisionEvent =
+    approvalRequestEvent
+      ? [...events].reverse().find((event) =>
+          isCodingToolBudgetRecoveryApprovalDecision(
+            event,
+            approvalRequestEvent,
+            approvalId,
+          ),
+        ) ?? null
+      : null;
+  const approved =
+    approvalDecisionEvent?.eventKind === "approval.approved" ||
+    approvalDecisionEvent?.status.toLowerCase().includes("approved") ||
+    stringField(approvalDecisionEvent?.payload, "decision") === "approve";
+  const rejected =
+    approvalDecisionEvent?.eventKind === "approval.rejected" ||
+    approvalDecisionEvent?.status.toLowerCase().includes("rejected") ||
+    stringField(approvalDecisionEvent?.payload, "decision") === "reject";
+  const retryEvent =
+    approved && approvalDecisionEvent
+      ? [...events].reverse().find((event) =>
+          isCodingToolBudgetApprovedRetryEvent(
+            event,
+            approvalDecisionEvent,
+            approvalId,
+          ),
+        ) ?? null
+      : null;
+  const sourceEventId =
+    stringField(blockedEvent.payload, "sourceEventId", "source_event_id") ??
+    blockedEvent.id;
+  const targetNodeIds = uniqueStrings([
+    ...stringArrayField(blockedEvent.payload, "targetNodeIds", "target_node_ids"),
+    ...stringArrayField(
+      approvalRequestEvent?.payload,
+      "targetNodeIds",
+      "target_node_ids",
+    ),
+    ...stringArrayField(
+      approvalDecisionEvent?.payload,
+      "targetNodeIds",
+      "target_node_ids",
+    ),
+    ...stringArrayField(retryEvent?.payload, "targetNodeIds", "target_node_ids"),
+    blockedEvent.workflowNodeId ?? latestEvent.workflowNodeId ?? "",
+  ]);
+  const receiptRefs = uniqueStrings([
+    ...events.flatMap((event) => event.receiptRefs),
+    ...stringArrayField(blockedEvent.payload, "receiptRefs", "receipt_refs"),
+    ...stringArrayField(
+      approvalRequestEvent?.payload,
+      "receiptRefs",
+      "receipt_refs",
+    ),
+    ...stringArrayField(
+      approvalDecisionEvent?.payload,
+      "receiptRefs",
+      "receipt_refs",
+    ),
+    ...stringArrayField(retryEvent?.payload, "receiptRefs", "receipt_refs"),
+  ]);
+  const policyDecisionRefs = uniqueStrings([
+    ...events.flatMap((event) => event.policyDecisionRefs),
+    ...stringArrayField(
+      blockedEvent.payload,
+      "policyDecisionRefs",
+      "policy_decision_refs",
+    ),
+    ...stringArrayField(
+      approvalRequestEvent?.payload,
+      "policyDecisionRefs",
+      "policy_decision_refs",
+    ),
+    ...stringArrayField(
+      approvalDecisionEvent?.payload,
+      "policyDecisionRefs",
+      "policy_decision_refs",
+    ),
+    ...stringArrayField(
+      retryEvent?.payload,
+      "policyDecisionRefs",
+      "policy_decision_refs",
+    ),
+  ]);
+  const base = {
+    schemaVersion: WORKFLOW_RUNTIME_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
+    threadId: blockedEvent.threadId,
+    workflowGraphId: blockedEvent.workflowGraphId ?? latestEvent.workflowGraphId,
+    workflowNodeId: blockedEvent.workflowNodeId ?? "runtime.coding-tool-budget-preflight",
+    eventId: blockedEvent.id,
+    sourceEventId,
+    approvalId,
+    approvalRequestEventId: approvalRequestEvent?.id ?? null,
+    approvalDecisionEventId: approvalDecisionEvent?.id ?? null,
+    targetNodeIds,
+    receiptRefs,
+    policyDecisionRefs,
+  } satisfies Omit<
+    WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
+    "id" | "action" | "label" | "summary" | "status" | "executable"
+  >;
+
+  return [
+    codingToolBudgetRecoveryActionDescriptor(base, latestEvent, {
+      action: "review_receipt",
+      label: "Review receipt",
+      summary: "Review the persisted coding-tool budget receipt before recovery.",
+      status: retryEvent ? "completed" : "available",
+      executable: false,
+    }),
+    codingToolBudgetRecoveryActionDescriptor(base, latestEvent, {
+      action: "request_approval",
+      label: approvalRequestEvent ? "Approval requested" : "Request approval",
+      summary: approvalRequestEvent
+        ? "Operator approval has been requested for this blocked launch."
+        : "Request operator approval before retrying the blocked launch.",
+      status: approvalRequestEvent ? "completed" : "available",
+      executable: !approvalRequestEvent,
+    }),
+    codingToolBudgetRecoveryActionDescriptor(base, latestEvent, {
+      action: "approve_override",
+      label: approved ? "Override approved" : "Approve override",
+      summary: approvalRequestEvent
+        ? "Approve the coding-tool budget override and enable a recorded retry."
+        : "Request approval before approving the override.",
+      status: approved ? "completed" : rejected ? "blocked" : approvalRequestEvent ? "available" : "waiting",
+      executable: Boolean(approvalRequestEvent && !approvalDecisionEvent),
+    }),
+    codingToolBudgetRecoveryActionDescriptor(base, latestEvent, {
+      action: "reject_override",
+      label: rejected ? "Override rejected" : "Reject override",
+      summary: approvalRequestEvent
+        ? "Reject the coding-tool budget override and keep the launch blocked."
+        : "Request approval before rejecting the override.",
+      status: rejected ? "completed" : approved ? "blocked" : approvalRequestEvent ? "available" : "waiting",
+      executable: Boolean(approvalRequestEvent && !approvalDecisionEvent),
+    }),
+    codingToolBudgetRecoveryActionDescriptor(base, latestEvent, {
+      action: "retry_approved",
+      label: retryEvent ? "Retry recorded" : "Retry approved run",
+      summary: approved
+        ? "Retry the launch through the daemon-recorded approval decision."
+        : "Approve the override before retrying the launch.",
+      status: retryEvent ? "completed" : approved ? "available" : rejected ? "blocked" : "waiting",
+      executable: Boolean(approved && !retryEvent),
+    }),
+  ];
+}
+
+function codingToolBudgetRecoveryActionDescriptor(
+  base: Omit<
+    WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
+    "id" | "action" | "label" | "summary" | "status" | "executable"
+  >,
+  latestEvent: WorkflowRuntimeThreadEventLike,
+  action: Pick<
+    WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
+    "action" | "label" | "summary" | "status" | "executable"
+  >,
+): WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor {
+  return {
+    id: `coding-tool-budget-recovery:${latestEvent.threadId}:${base.eventId}:${action.action}`,
+    ...base,
+    ...action,
+  };
+}
+
+function isWorkflowRunCodingToolBudgetPreflightBlockedEvent(
+  event: WorkflowRuntimeThreadEventLike,
+): boolean {
+  if (!isCodingToolBudgetBlockedEvent(event)) return false;
+  const reason =
+    stringField(event.payload, "reason", "blockReason", "block_reason") ??
+    codingToolBudgetEvidenceForRuntimeThreadEvent(event).reason;
+  return (
+    reason === "coding_tool_budget_preflight_blocked" ||
+    event.sourceEventKind === "WorkflowRunCodingToolBudgetPreflightBlocked" ||
+    stringField(event.payload, "eventKind", "event_kind") ===
+      "WorkflowRunCodingToolBudgetPreflightBlocked"
+  );
+}
+
+function isCodingToolBudgetRecoveryApprovalRequest(
+  event: WorkflowRuntimeThreadEventLike,
+  blockedEvent: WorkflowRuntimeThreadEventLike,
+): boolean {
+  if (
+    event.seq <= blockedEvent.seq ||
+    event.type !== "approval_required" ||
+    event.eventKind !== "approval.required"
+  ) {
+    return false;
+  }
+  return (
+    stringField(event.payload, "reason", "blockReason", "block_reason") ===
+      "coding_tool_budget_preflight_blocked" ||
+    stringField(event.payload, "sourceEventId", "source_event_id") ===
+      blockedEvent.id ||
+    event.sourceEventKind === "OperatorApproval.Request"
+  );
+}
+
+function isCodingToolBudgetRecoveryApprovalDecision(
+  event: WorkflowRuntimeThreadEventLike,
+  requestEvent: WorkflowRuntimeThreadEventLike,
+  approvalId: string | null,
+): boolean {
+  if (
+    event.seq <= requestEvent.seq ||
+    (event.type !== "approval_decision" &&
+      event.eventKind !== "approval.approved" &&
+      event.eventKind !== "approval.rejected")
+  ) {
+    return false;
+  }
+  const eventApprovalId =
+    stringField(event, "approvalId", "approval_id") ??
+    stringField(event.payload, "approvalId", "approval_id");
+  return !approvalId || eventApprovalId === approvalId;
+}
+
+function isCodingToolBudgetApprovedRetryEvent(
+  event: WorkflowRuntimeThreadEventLike,
+  decisionEvent: WorkflowRuntimeThreadEventLike,
+  approvalId: string | null,
+): boolean {
+  if (event.seq <= decisionEvent.seq) return false;
+  const retryKind =
+    event.eventKind === "workflow.run.retry_completed" ||
+    event.sourceEventKind === "WorkflowRunCodingToolBudgetApprovedRetry";
+  if (event.type !== "tool_completed" && !retryKind) return false;
+  const eventApprovalId =
+    stringField(event, "approvalId", "approval_id") ??
+    stringField(event.payload, "approvalId", "approval_id");
+  const decisionEventId = stringField(
+    event.payload,
+    "approvalDecisionEventId",
+    "approval_decision_event_id",
+  );
+  const approvalSatisfied =
+    booleanField(event.payload, "approvalSatisfied", "approval_satisfied") ??
+    retryKind;
+  return (
+    approvalSatisfied &&
+    (!approvalId || eventApprovalId === approvalId) &&
+    (!decisionEventId || decisionEventId === decisionEvent.id)
+  );
 }
 
 function workflowNodeIdForContextPressureAction(action: string): string {

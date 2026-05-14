@@ -1434,36 +1434,80 @@ pub fn run_workflow_project(
     };
     save_workflow_thread(&workflow_path, &thread)?;
     let state = initial_workflow_state(&thread, "pending");
+    let coding_tool_budget_recovery =
+        workflow_coding_tool_budget_recovery_from_options(options.as_ref());
+    if let Some(recovery) = coding_tool_budget_recovery.as_ref() {
+        if workflow_coding_tool_budget_recovery_is_control_action(recovery) {
+            let result = workflow_coding_tool_budget_recovery_control_result(
+                &workflow_path,
+                &bundle.workflow,
+                bundle.tests.len(),
+                thread,
+                state,
+                recovery.clone(),
+                None,
+            )?;
+            append_workflow_evidence(
+                &workflow_path,
+                WorkflowEvidenceSummary {
+                    id: result.summary.id.clone(),
+                    kind: "run".to_string(),
+                    created_at_ms: result.summary.started_at_ms,
+                    summary: result.summary.summary.clone(),
+                    path: Some(
+                        workflow_run_result_path(&workflow_path, &result.summary.id)
+                            .display()
+                            .to_string(),
+                    ),
+                },
+            )?;
+            return Ok(result);
+        }
+    }
     if let Some(preflight) =
         workflow_coding_tool_budget_preflight_blocked_from_options(options.as_ref())
     {
-        let result = workflow_coding_tool_budget_preflight_blocked_result(
+        if !workflow_coding_tool_budget_recovery_is_approved_retry(
+            coding_tool_budget_recovery.as_ref(),
+        ) {
+            let result = workflow_coding_tool_budget_preflight_blocked_result(
+                &workflow_path,
+                &bundle.workflow,
+                bundle.tests.len(),
+                thread,
+                state,
+                preflight,
+                None,
+            )?;
+            append_workflow_evidence(
+                &workflow_path,
+                WorkflowEvidenceSummary {
+                    id: result.summary.id.clone(),
+                    kind: "run".to_string(),
+                    created_at_ms: result.summary.started_at_ms,
+                    summary: result.summary.summary.clone(),
+                    path: Some(
+                        workflow_run_result_path(&workflow_path, &result.summary.id)
+                            .display()
+                            .to_string(),
+                    ),
+                },
+            )?;
+            return Ok(result);
+        }
+    }
+    let workflow_for_recovery = bundle.workflow.clone();
+    let mut result =
+        execute_workflow_project(&workflow_path, bundle, thread, state, None, &skill_resolver)?;
+    if let Some(recovery) = coding_tool_budget_recovery {
+        result = workflow_attach_coding_tool_budget_recovery_retry(
             &workflow_path,
-            &bundle.workflow,
-            bundle.tests.len(),
-            thread,
-            state,
-            preflight,
+            &workflow_for_recovery,
+            result,
+            recovery,
             None,
         )?;
-        append_workflow_evidence(
-            &workflow_path,
-            WorkflowEvidenceSummary {
-                id: result.summary.id.clone(),
-                kind: "run".to_string(),
-                created_at_ms: result.summary.started_at_ms,
-                summary: result.summary.summary.clone(),
-                path: Some(
-                    workflow_run_result_path(&workflow_path, &result.summary.id)
-                        .display()
-                        .to_string(),
-                ),
-            },
-        )?;
-        return Ok(result);
     }
-    let result =
-        execute_workflow_project(&workflow_path, bundle, thread, state, None, &skill_resolver)?;
     append_workflow_evidence(
         &workflow_path,
         WorkflowEvidenceSummary {
@@ -1493,10 +1537,47 @@ pub fn run_workflow_node(
     let skill_resolver = WorkflowSkillResolver::from_options(options.as_ref());
     let _node = workflow_node_by_id(&bundle.workflow, &node_id)
         .ok_or_else(|| format!("Workflow node '{}' was not found.", node_id))?;
+    let coding_tool_budget_recovery =
+        workflow_coding_tool_budget_recovery_from_options(options.as_ref());
+    if let Some(recovery) = coding_tool_budget_recovery.as_ref() {
+        if workflow_coding_tool_budget_recovery_is_control_action(recovery) {
+            let thread = new_workflow_thread(&workflow_path, input.clone());
+            save_workflow_thread(&workflow_path, &thread)?;
+            let state = initial_workflow_state(&thread, "pending");
+            let result = workflow_coding_tool_budget_recovery_control_result(
+                &workflow_path,
+                &bundle.workflow,
+                bundle.tests.len(),
+                thread,
+                state,
+                recovery.clone(),
+                Some(&node_id),
+            )?;
+            append_workflow_evidence(
+                &workflow_path,
+                WorkflowEvidenceSummary {
+                    id: result.summary.id.clone(),
+                    kind: "run".to_string(),
+                    created_at_ms: result.summary.started_at_ms,
+                    summary: result.summary.summary.clone(),
+                    path: Some(
+                        workflow_run_result_path(&workflow_path, &result.summary.id)
+                            .display()
+                            .to_string(),
+                    ),
+                },
+            )?;
+            return Ok(result);
+        }
+    }
     if let Some(preflight) =
         workflow_coding_tool_budget_preflight_blocked_from_options(options.as_ref())
     {
-        if workflow_coding_tool_budget_preflight_targets_node(&preflight, &node_id) {
+        if workflow_coding_tool_budget_preflight_targets_node(&preflight, &node_id)
+            && !workflow_coding_tool_budget_recovery_is_approved_retry(
+                coding_tool_budget_recovery.as_ref(),
+            )
+        {
             let thread = new_workflow_thread(&workflow_path, input.clone());
             save_workflow_thread(&workflow_path, &thread)?;
             let state = initial_workflow_state(&thread, "pending");
@@ -1526,14 +1607,25 @@ pub fn run_workflow_node(
             return Ok(result);
         }
     }
-    workflow_single_node_result(
+    let result = workflow_single_node_result(
         &workflow_path,
         &bundle.workflow,
         &node_id,
         input,
         false,
         &skill_resolver,
-    )
+    )?;
+    if let Some(recovery) = coding_tool_budget_recovery {
+        workflow_attach_coding_tool_budget_recovery_retry(
+            &workflow_path,
+            &bundle.workflow,
+            result,
+            recovery,
+            Some(&node_id),
+        )
+    } else {
+        Ok(result)
+    }
 }
 
 #[tauri::command]

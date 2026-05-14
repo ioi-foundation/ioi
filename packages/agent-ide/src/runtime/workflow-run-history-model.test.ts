@@ -874,6 +874,118 @@ test("workflow run history model replays daemon-owned coding budget preflight bl
   ]);
 });
 
+test("workflow run history model replays coding budget recovery chains", () => {
+  const target = {
+    ...runResult("run-a", "passed", { answer: "retried" }),
+    runtimeThreadEvents: [
+      runtimeThreadEvent("event-workflow-run-preflight-blocked", 1, {
+        type: "policy_blocked",
+        eventKind: "policy.blocked",
+        sourceEventKind: "WorkflowRunCodingToolBudgetPreflightBlocked",
+        status: "blocked",
+        componentKind: "coding_tool",
+        workflowNodeId: "runtime.coding-tool-budget-preflight",
+        payloadSchemaVersion: "ioi.workflow.coding-tool-budget-preflight.v1",
+        receiptRefs: ["receipt-workflow-run-budget"],
+        policyDecisionRefs: ["policy-workflow-run-budget"],
+        payload: {
+          reason: "coding_tool_budget_preflight_blocked",
+          status: "blocked",
+          contextBudgetStatus: "blocked",
+          mutationBlocked: true,
+        },
+      }),
+      runtimeThreadEvent("event-approval-required", 2, {
+        type: "approval_required",
+        eventKind: "approval.required",
+        sourceEventKind: "OperatorApproval.Request",
+        status: "waiting_for_approval",
+        componentKind: "approval_gate",
+        workflowNodeId: "runtime.coding-tool-budget-preflight",
+        approvalId: "approval-budget",
+        payloadSchemaVersion: "ioi.runtime.approval-request.v1",
+        receiptRefs: ["receipt-approval-required"],
+        policyDecisionRefs: ["policy-approval-required"],
+        payload: {
+          reason: "coding_tool_budget_preflight_blocked",
+          approvalId: "approval-budget",
+          sourceEventId: "event-workflow-run-preflight-blocked",
+        },
+      }),
+      runtimeThreadEvent("event-approval-approved", 3, {
+        type: "approval_decision",
+        eventKind: "approval.approved",
+        sourceEventKind: "OperatorApproval.Approve",
+        status: "approved",
+        componentKind: "approval_gate",
+        workflowNodeId: "runtime.coding-tool-budget-preflight",
+        approvalId: "approval-budget",
+        payloadSchemaVersion: "ioi.runtime.approval-decision.v1",
+        receiptRefs: ["receipt-approval-approved"],
+        policyDecisionRefs: ["policy-approval-approved"],
+        payload: {
+          decision: "approve",
+          approvalId: "approval-budget",
+        },
+      }),
+      runtimeThreadEvent("event-retry-completed", 4, {
+        type: "tool_completed",
+        eventKind: "workflow.run.retry_completed",
+        sourceEventKind: "WorkflowRunCodingToolBudgetApprovedRetry",
+        status: "completed",
+        componentKind: "coding_tool",
+        workflowNodeId: "runtime.coding-tool-budget-preflight",
+        approvalId: "approval-budget",
+        payloadSchemaVersion: "ioi.workflow.coding-tool-budget-recovery.v1",
+        receiptRefs: ["receipt-retry"],
+        policyDecisionRefs: ["policy-retry"],
+        payload: {
+          approvalId: "approval-budget",
+          approvalSatisfied: true,
+          approvalDecisionEventId: "event-approval-approved",
+        },
+      }),
+    ],
+  } as unknown as WorkflowRunResult;
+
+  const model = workflowRunHistoryModel({
+    workflow,
+    runs,
+    lastRunResult: target,
+    compareRunResult: null,
+    selectedRunId: "run-a",
+    compareRunId: null,
+    runEvents: [],
+    searchQuery: "",
+    statusFilter: "all",
+    sourceFilter: "all",
+  });
+
+  assert.equal(model.runtimePolicyStack.status, "completed");
+  assert.deepEqual(
+    model.runtimePolicyStack.stages.map((stage) => [stage.kind, stage.status]),
+    [
+      ["workspace_trust_warning", "not_required"],
+      ["workspace_trust_acknowledgement", "not_required"],
+      ["approval_requirement", "completed"],
+      ["approval_decision", "completed"],
+      ["approved_retry", "completed"],
+    ],
+  );
+  assert.deepEqual(
+    model.runtimeEventProjection.nodes[0]?.codingToolBudgetRecoveryActions.map(
+      (action) => [action.action, action.status, action.executable],
+    ),
+    [
+      ["review_receipt", "completed", false],
+      ["request_approval", "completed", false],
+      ["approve_override", "completed", false],
+      ["reject_override", "blocked", false],
+      ["retry_approved", "completed", false],
+    ],
+  );
+});
+
 test("workflow run history model falls back to ambient events without selected run", () => {
   const fallbackEvents = [event("fallback")];
   const model = workflowRunHistoryModel({

@@ -128,10 +128,14 @@ import {
 } from "../runtime/workflow-runtime-control-nodes";
 import { createRuntimeSubagentControlRequest } from "../runtime/workflow-runtime-subagent-control-nodes";
 import type {
+  WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   WorkflowRuntimeContextPressureActionDescriptor,
   WorkflowRuntimeDiagnosticsRepairActionDescriptor,
   WorkflowRuntimeThreadEventLike,
   WorkflowRuntimeWorkspaceTrustActionDescriptor,
+} from "../runtime/workflow-runtime-event-projection";
+import {
+  WORKFLOW_RUNTIME_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
 } from "../runtime/workflow-runtime-event-projection";
 import {
   WORKFLOW_RUNTIME_TELEMETRY_POLL_INTERVAL_MS,
@@ -9722,6 +9726,82 @@ export function useWorkflowComposerController({
     [currentProjectFile.metadata.id, loadRuntimeThreadEvents, runtime],
   );
 
+  const handleExecuteRuntimeCodingToolBudgetRecovery = useCallback(
+    async (action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor) => {
+      setRightPanel("runs");
+      setBottomPanel("run_output");
+      if (action.action === "review_receipt") {
+        const refs = [
+          ...action.receiptRefs,
+          ...action.policyDecisionRefs,
+        ].filter(Boolean);
+        setStatusMessage(
+          refs.length > 0
+            ? `Coding budget recovery receipt: ${refs.slice(0, 3).join(", ")}`
+            : "Coding budget recovery receipt is captured on the blocked run.",
+        );
+        return;
+      }
+      if (!action.executable) {
+        setStatusMessage(
+          `Coding budget recovery ${action.label} is ${action.status}`,
+        );
+        return;
+      }
+      if (!runtime.runWorkflowProject) {
+        setStatusMessage(
+          "Coding budget recovery requires the daemon workflow runner.",
+        );
+        return;
+      }
+      const resultEvents =
+        (lastRunResult as { runtimeThreadEvents?: unknown } | null)
+          ?.runtimeThreadEvents;
+      const recoveryEvents =
+        runtimeThreadEvents.length > 0
+          ? runtimeThreadEvents
+          : Array.isArray(resultEvents)
+            ? resultEvents
+            : [];
+      const codingToolBudgetRecovery = {
+        schemaVersion: WORKFLOW_RUNTIME_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
+        action: action.action,
+        sourceEventId: action.sourceEventId ?? action.eventId,
+        blockedEventId: action.eventId,
+        approvalId: action.approvalId,
+        approvalRequestEventId: action.approvalRequestEventId,
+        approvalDecisionEventId: action.approvalDecisionEventId,
+        targetNodeIds: action.targetNodeIds,
+        workflowNodeId: action.workflowNodeId,
+        receiptRefs: action.receiptRefs,
+        policyDecisionRefs: action.policyDecisionRefs,
+        recoveryEvents,
+      };
+      try {
+        const result = await runtime.runWorkflowProject(workflowPath, {
+          source:
+            action.action === "retry_approved"
+              ? "coding-tool-budget-approved-retry"
+              : "coding-tool-budget-recovery",
+          codingToolBudgetRecovery,
+        });
+        await applyRunResult(result);
+        setStatusMessage(`Coding budget recovery ${action.label} recorded`);
+      } catch (error) {
+        setStatusMessage(
+          `Coding budget recovery ${action.label} blocked: ${errorMessage(error)}`,
+        );
+      }
+    },
+    [
+      applyRunResult,
+      lastRunResult,
+      runtime,
+      runtimeThreadEvents,
+      workflowPath,
+    ],
+  );
+
   const handleSelectRun = useCallback(
     async (run: WorkflowRunSummary) => {
       setSelectedRunId(run.id);
@@ -13935,6 +14015,7 @@ export function useWorkflowComposerController({
     handleExecuteRuntimeDiagnosticsRepair,
     handleExecuteRuntimeContextPressureAction,
     handleExecuteRuntimeWorkspaceTrustAction,
+    handleExecuteRuntimeCodingToolBudgetRecovery,
     handleExecuteHarnessRollback,
     handleExpandHarnessGroups,
     handleExportPortablePackage,
