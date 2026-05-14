@@ -5,8 +5,10 @@ import {
   FirewallPolicy,
   WorkflowHarnessGroupView,
   WorkflowPortDefinition,
+  WorkflowNodeKind,
 } from "../../../../types/graph";
 import { workflowRuntimeNodeChrome } from "../../../../runtime/workflow-runtime-ui-strings";
+import { workflowPrimitiveConfigProjection } from "../../../../runtime/workflow-primitive-config-projection";
 import "./CanvasNode.css";
 
 type CanvasNodeData = Node & Record<string, unknown>;
@@ -312,9 +314,27 @@ export const CanvasNode = memo(({ data, selected }: NodeProps) => {
     fallbackLabel: isGhost ? "Proposed step" : String(name ?? nodeType),
     locale: workflowChromeLocale,
   });
+  const normalizedNodeKind = familyForType(nodeType) as WorkflowNodeKind;
+  const primitiveProjection = workflowPrimitiveConfigProjection(
+    normalizedNodeKind,
+    logic,
+  );
   const nodeTitle = isGhost ? "Proposed step" : chrome.label;
-  const nodeFamilyLabel = familyLabels[nodeType] || familyLabels[family] || "Step";
+  const nodeFamilyLabel =
+    primitiveProjection.primitiveLabel ||
+    familyLabels[nodeType] ||
+    familyLabels[family] ||
+    "Step";
   const footerStatus = chrome.colorIndependentStatus ? chrome.statusText : statusClass;
+  const accessibleNodeLabel = [
+    chrome.ariaLabel,
+    primitiveProjection.primitiveLabel,
+    primitiveProjection.modeLabel,
+    primitiveProjection.authorityLabel,
+    footerStatus,
+  ]
+    .filter(Boolean)
+    .join(". ");
   const nodeId = String(nodeData.id ?? "");
   const selectNodeFromKeyboard = () => {
     if (nodeId) onKeyboardSelect?.(nodeId);
@@ -331,9 +351,13 @@ export const CanvasNode = memo(({ data, selected }: NodeProps) => {
       className={`canvas-node canvas-node--${family} ${viewMacro ? "canvas-node--macro-member" : ""} ${harnessGroup ? "canvas-node--harness-group" : ""} ${selected ? "selected" : ""} ${ghostClass} ${activeClass} ${issueSummary ? "has-issues" : ""} ${(issueSummary?.blockerCount ?? 0) > 0 ? "has-blockers" : ""}`}
       role="group"
       tabIndex={0}
-      aria-label={chrome.ariaLabel}
+      aria-label={accessibleNodeLabel}
       aria-keyshortcuts="Enter Space"
       data-node-family={family}
+      data-canonical-primitive={primitiveProjection.canonicalPrimitive}
+      data-shape-boundary={primitiveProjection.canonicalPrimitive}
+      data-authority-boundary={primitiveProjection.authorityLabel}
+      data-status-text-equivalent={footerStatus}
       data-keyboard-selectable="true"
       data-runtime-ui-catalog={chrome.isRuntimeChrome ? logic.runtimeUiStringCatalogRef : undefined}
       data-workflow-chrome-locale={workflowChromeLocale ?? undefined}
