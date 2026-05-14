@@ -189,6 +189,8 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(projection, /usage_status/);
   assert.match(projection, /usageTotalTokens/);
   assert.match(projection, /usageCostEstimateUsd/);
+  assert.match(projection, /coding_tool/);
+  assert.match(projection, /codingToolRowCount/);
   assert.match(projection, /coding_tool_budget/);
   assert.match(projection, /codingToolBudgetRowCount/);
   assert.match(projection, /codingToolBudgetStatus/);
@@ -491,6 +493,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(contextBudgetControlNodesTest, /workflow\.react-flow\.context-budget-proof/);
   assert.match(codingToolControlNodesTest, /runtime telemetry summary budget gates/);
   assert.match(typeTest, /projects coding tool budget blocks/);
+  assert.match(typeTest, /projects TUI coding-tool success rows/);
   assert.match(typeTest, /projects TUI coding-tool budget rows/);
   assert.match(runHistoryModelTest, /componentKind: "coding_tool"/);
   assert.match(runsPanel, /data-coding-tool-budget-row-count/);

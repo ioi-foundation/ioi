@@ -1977,3 +1977,90 @@ test("projects TUI coding-tool budget rows into inspector controls", () => {
     "policy_context_budget_thread_budget_blocked",
   ]);
 });
+
+test("projects TUI coding-tool success rows into inspector controls", () => {
+  const projection = projectRuntimeTuiControlStateToWorkflowProjection({
+    schema_version: "ioi.agent-cli.tui-control-state.v1",
+    surface: "tui",
+    thread_id: "thread-coding-tool-terminal",
+    workflow_graph_id: "workflow.react-flow.terminal-coding-tools",
+    current_turn_id: "turn-coding-tool-terminal",
+    last_cursor: "events_thread:terminal:8",
+    last_event_id: "event-coding-retrieve",
+    coding_tool_rows: [
+      {
+        id: "coding-tool-status-row",
+        row_kind: "coding_tool",
+        status: "completed",
+        command: "status",
+        raw_input: "/status",
+        tool_name: "workspace.status",
+        tool_call_id: "coding_tool_status",
+        workflow_node_id: "runtime.coding-tool.workspace.status",
+        event_id: "event-coding-status",
+        receipt_refs: ["receipt_coding_tool_status"],
+        shell_fallback_used: false,
+        mutation_blocked: false,
+      },
+      {
+        id: "coding-tool-patch-dry-run-row",
+        row_kind: "coding_tool",
+        status: "completed",
+        command: "patch-dry-run",
+        raw_input: "/patch-dry-run README.md",
+        tool_name: "file.apply_patch",
+        tool_call_id: "coding_tool_patch_dry_run",
+        workflow_node_id: "runtime.coding-tool.file.apply-patch",
+        event_id: "event-coding-patch-dry-run",
+        receipt_refs: ["receipt_coding_tool_patch"],
+        dry_run: true,
+        shell_fallback_used: "false",
+        mutation_blocked: false,
+      },
+      {
+        id: "coding-tool-test-row",
+        row_kind: "coding_tool",
+        status: "completed",
+        command: "test",
+        raw_input: "/test sample.test.mjs",
+        tool_name: "test.run",
+        tool_call_id: "coding_tool_test",
+        workflow_node_id: "runtime.coding-tool.test.run",
+        event_id: "event-coding-test",
+        receipt_refs: ["receipt_coding_tool_test"],
+        artifact_refs: ["artifact_test_output"],
+        rollback_refs: ["workspace_snapshot_test"],
+        shell_fallback_used: false,
+        mutation_blocked: false,
+      },
+    ],
+  });
+
+  assert.equal(projection.codingToolRowCount, 3);
+  assert.equal(projection.codingToolBudgetRowCount, 0);
+  assert.equal(projection.rowCount, 4);
+  const statusRow = projection.rows.find(
+    (candidate) => candidate.toolName === "workspace.status",
+  );
+  assert.ok(statusRow);
+  assert.equal(statusRow.rowKind, "coding_tool");
+  assert.equal(statusRow.command, "status");
+  assert.equal(statusRow.reactFlowNodeId, "runtime.coding-tool.workspace.status");
+  assert.equal(statusRow.codingToolShellFallbackUsed, false);
+  assert.deepEqual(statusRow.receiptRefs, ["receipt_coding_tool_status"]);
+  const dryRunRow = projection.rows.find(
+    (candidate) => candidate.toolCallId === "coding_tool_patch_dry_run",
+  );
+  assert.ok(dryRunRow);
+  assert.equal(dryRunRow.command, "patch-dry-run");
+  assert.equal(dryRunRow.rawInput, "/patch-dry-run README.md");
+  assert.equal(dryRunRow.codingToolDryRun, true);
+  assert.equal(dryRunRow.codingToolMutationBlocked, false);
+  const testRow = projection.rows.find(
+    (candidate) => candidate.toolName === "test.run",
+  );
+  assert.ok(testRow);
+  assert.deepEqual(testRow.artifactRefs, ["artifact_test_output"]);
+  assert.deepEqual(testRow.rollbackRefs, ["workspace_snapshot_test"]);
+  assert.equal(testRow.reactFlowNodeId, "runtime.coding-tool.test.run");
+});

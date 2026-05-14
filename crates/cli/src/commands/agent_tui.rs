@@ -2425,9 +2425,301 @@ pub(crate) fn tui_coding_tool_rows(
 ) -> Vec<Value> {
     events
         .iter()
-        .filter(|event| is_tui_coding_tool_budget_block_event(event))
-        .map(|event| tui_coding_tool_budget_row(event, fallback_thread_id))
+        .filter_map(|event| {
+            if is_tui_coding_tool_budget_block_event(event) {
+                Some(tui_coding_tool_budget_row(event, fallback_thread_id))
+            } else if is_tui_coding_tool_completion_event(event) {
+                Some(tui_coding_tool_row(event, fallback_thread_id))
+            } else {
+                None
+            }
+        })
         .collect()
+}
+
+fn tui_coding_tool_row(event: &Value, fallback_thread_id: Option<&str>) -> Value {
+    let null = Value::Null;
+    let payload = event_payload_summary(event);
+    let raw_payload = event.pointer("/payload").unwrap_or(&null);
+    let result = payload
+        .pointer("/result")
+        .or_else(|| raw_payload.pointer("/result"))
+        .unwrap_or(&null);
+    let result_summary = payload
+        .pointer("/result_summary")
+        .or_else(|| payload.pointer("/resultSummary"))
+        .or_else(|| raw_payload.pointer("/result_summary"))
+        .or_else(|| raw_payload.pointer("/resultSummary"))
+        .unwrap_or(&null);
+    let input = payload
+        .pointer("/input")
+        .or_else(|| raw_payload.pointer("/input"))
+        .unwrap_or(&null);
+    let seq = event.pointer("/seq").and_then(Value::as_u64);
+    let cursor = tui_event_cursor(event, seq);
+    let event_id = json_path_string(event, "/event_id");
+    let tool_name = json_path_string(event, "/tool_name")
+        .or_else(|| json_path_string(event, "/toolName"))
+        .or_else(|| json_path_string(payload, "/tool_name"))
+        .or_else(|| json_path_string(payload, "/toolName"))
+        .or_else(|| json_path_string(payload, "/tool_id"))
+        .or_else(|| json_path_string(payload, "/toolId"))
+        .or_else(|| json_path_string(raw_payload, "/tool_name"))
+        .or_else(|| json_path_string(raw_payload, "/toolName"))
+        .or_else(|| json_path_string(result, "/tool_name"))
+        .or_else(|| json_path_string(result, "/toolName"));
+    let tool_call_id = json_path_string(event, "/tool_call_id")
+        .or_else(|| json_path_string(event, "/toolCallId"))
+        .or_else(|| json_path_string(payload, "/tool_call_id"))
+        .or_else(|| json_path_string(payload, "/toolCallId"))
+        .or_else(|| json_path_string(raw_payload, "/tool_call_id"))
+        .or_else(|| json_path_string(raw_payload, "/toolCallId"))
+        .or_else(|| json_path_string(result, "/tool_call_id"))
+        .or_else(|| json_path_string(result, "/toolCallId"));
+    let tool_key = tool_name
+        .clone()
+        .or_else(|| tool_call_id.clone())
+        .unwrap_or_else(|| "coding_tool".to_string());
+    let thread_id = json_path_string(payload, "/thread_id")
+        .or_else(|| json_path_string(payload, "/threadId"))
+        .or_else(|| json_path_string(raw_payload, "/thread_id"))
+        .or_else(|| json_path_string(raw_payload, "/threadId"))
+        .or_else(|| json_path_string(event, "/thread_id"))
+        .or_else(|| fallback_thread_id.map(ToOwned::to_owned));
+    let turn_id = json_path_string(payload, "/turn_id")
+        .or_else(|| json_path_string(payload, "/turnId"))
+        .or_else(|| json_path_string(raw_payload, "/turn_id"))
+        .or_else(|| json_path_string(raw_payload, "/turnId"))
+        .or_else(|| json_path_string(event, "/turn_id"));
+    let workflow_graph_id = json_path_string(event, "/workflow_graph_id")
+        .or_else(|| json_path_string(payload, "/workflow_graph_id"))
+        .or_else(|| json_path_string(payload, "/workflowGraphId"))
+        .or_else(|| json_path_string(raw_payload, "/workflow_graph_id"))
+        .or_else(|| json_path_string(raw_payload, "/workflowGraphId"));
+    let workflow_node_id = json_path_string(event, "/workflow_node_id")
+        .or_else(|| json_path_string(payload, "/workflow_node_id"))
+        .or_else(|| json_path_string(payload, "/workflowNodeId"))
+        .or_else(|| json_path_string(raw_payload, "/workflow_node_id"))
+        .or_else(|| json_path_string(raw_payload, "/workflowNodeId"))
+        .unwrap_or_else(|| format!("runtime.coding-tool.{}", safe_id(&tool_key)));
+    let dry_run = tui_json_boolish(input, "/dryRun")
+        .or_else(|| tui_json_boolish(input, "/dry_run"))
+        .or_else(|| tui_json_boolish(result_summary, "/dryRun"))
+        .or_else(|| tui_json_boolish(result_summary, "/dry_run"))
+        .or_else(|| tui_json_boolish(result, "/dryRun"))
+        .or_else(|| tui_json_boolish(result, "/dry_run"));
+    let command = tui_coding_tool_command(&tool_key, dry_run);
+    let raw_input = tui_coding_tool_raw_input(command, &tool_key, input);
+    let status = json_path_string(event, "/status")
+        .or_else(|| json_path_string(payload, "/status"))
+        .or_else(|| json_path_string(raw_payload, "/status"))
+        .or_else(|| json_path_string(result_summary, "/status"))
+        .or_else(|| json_path_string(result, "/status"))
+        .unwrap_or_else(|| "completed".to_string());
+    let shell_fallback_used = tui_json_boolish(payload, "/shell_fallback_used")
+        .or_else(|| tui_json_boolish(payload, "/shellFallbackUsed"))
+        .or_else(|| tui_json_boolish(raw_payload, "/shell_fallback_used"))
+        .or_else(|| tui_json_boolish(raw_payload, "/shellFallbackUsed"))
+        .or_else(|| tui_json_boolish(result_summary, "/shellFallbackUsed"))
+        .or_else(|| tui_json_boolish(result_summary, "/shell_fallback_used"))
+        .or_else(|| tui_json_boolish(result, "/shellFallbackUsed"))
+        .or_else(|| tui_json_boolish(result, "/shell_fallback_used"));
+    let mutation_blocked = tui_json_boolish(payload, "/mutation_blocked")
+        .or_else(|| tui_json_boolish(payload, "/mutationBlocked"))
+        .or_else(|| tui_json_boolish(raw_payload, "/mutation_blocked"))
+        .or_else(|| tui_json_boolish(raw_payload, "/mutationBlocked"))
+        .or_else(|| tui_json_boolish(result_summary, "/mutation_blocked"))
+        .or_else(|| tui_json_boolish(result_summary, "/mutationBlocked"))
+        .or_else(|| tui_json_boolish(result, "/mutation_blocked"))
+        .or_else(|| tui_json_boolish(result, "/mutationBlocked"))
+        .unwrap_or(false);
+    let receipt_refs = event
+        .pointer("/receipt_refs")
+        .or_else(|| event.pointer("/receiptRefs"))
+        .or_else(|| payload.pointer("/receipt_refs"))
+        .or_else(|| payload.pointer("/receiptRefs"))
+        .or_else(|| raw_payload.pointer("/receipt_refs"))
+        .or_else(|| raw_payload.pointer("/receiptRefs"))
+        .cloned()
+        .unwrap_or_else(|| Value::Array(Vec::new()));
+    let artifact_refs = event
+        .pointer("/artifact_refs")
+        .or_else(|| event.pointer("/artifactRefs"))
+        .or_else(|| payload.pointer("/artifact_refs"))
+        .or_else(|| payload.pointer("/artifactRefs"))
+        .or_else(|| raw_payload.pointer("/artifact_refs"))
+        .or_else(|| raw_payload.pointer("/artifactRefs"))
+        .cloned()
+        .unwrap_or_else(|| Value::Array(Vec::new()));
+    let policy_decision_refs = event
+        .pointer("/policy_decision_refs")
+        .or_else(|| event.pointer("/policyDecisionRefs"))
+        .or_else(|| payload.pointer("/policy_decision_refs"))
+        .or_else(|| payload.pointer("/policyDecisionRefs"))
+        .or_else(|| raw_payload.pointer("/policy_decision_refs"))
+        .or_else(|| raw_payload.pointer("/policyDecisionRefs"))
+        .cloned()
+        .unwrap_or_else(|| Value::Array(Vec::new()));
+    let rollback_refs = event
+        .pointer("/rollback_refs")
+        .or_else(|| event.pointer("/rollbackRefs"))
+        .or_else(|| payload.pointer("/rollback_refs"))
+        .or_else(|| payload.pointer("/rollbackRefs"))
+        .or_else(|| raw_payload.pointer("/rollback_refs"))
+        .or_else(|| raw_payload.pointer("/rollbackRefs"))
+        .cloned()
+        .unwrap_or_else(|| Value::Array(Vec::new()));
+    let mut row = Map::new();
+    row.insert(
+        "schema_version".to_string(),
+        Value::String(TUI_WORKFLOW_DEEP_LINK_SCHEMA_VERSION.to_string()),
+    );
+    row.insert("surface".to_string(), Value::String("tui".to_string()));
+    row.insert(
+        "id".to_string(),
+        Value::String(format!(
+            "tui-coding-tool-{}-{}",
+            safe_id(&tool_key),
+            seq.unwrap_or(0)
+        )),
+    );
+    row.insert(
+        "row_kind".to_string(),
+        Value::String("coding_tool".to_string()),
+    );
+    row.insert("status".to_string(), Value::String(status));
+    row.insert("command".to_string(), Value::String(command.to_string()));
+    row.insert("raw_input".to_string(), Value::String(raw_input));
+    row.insert(
+        "label".to_string(),
+        Value::String(format!("Coding tool: {tool_key}")),
+    );
+    row.insert(
+        "message".to_string(),
+        json_path_string(payload, "/summary")
+            .or_else(|| json_path_string(raw_payload, "/summary"))
+            .or_else(|| json_path_string(result_summary, "/summary"))
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+    );
+    row.insert(
+        "summary".to_string(),
+        json_path_string(payload, "/summary")
+            .or_else(|| json_path_string(raw_payload, "/summary"))
+            .or_else(|| json_path_string(result_summary, "/summary"))
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+    );
+    row.insert(
+        "thread_id".to_string(),
+        thread_id.clone().map(Value::String).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "turn_id".to_string(),
+        turn_id.map(Value::String).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "workflow_graph_id".to_string(),
+        workflow_graph_id
+            .clone()
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+    );
+    row.insert(
+        "workflow_node_id".to_string(),
+        Value::String(workflow_node_id.clone()),
+    );
+    row.insert(
+        "tool_name".to_string(),
+        tool_name.map(Value::String).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "tool_call_id".to_string(),
+        tool_call_id.map(Value::String).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "shell_fallback_used".to_string(),
+        shell_fallback_used.map(Value::Bool).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "mutation_blocked".to_string(),
+        Value::Bool(mutation_blocked),
+    );
+    row.insert(
+        "dry_run".to_string(),
+        dry_run.map(Value::Bool).unwrap_or(Value::Null),
+    );
+    row.insert("input".to_string(), input.clone());
+    row.insert("result_summary".to_string(), result_summary.clone());
+    row.insert("receipt_refs".to_string(), receipt_refs);
+    row.insert("artifact_refs".to_string(), artifact_refs);
+    row.insert("policy_decision_refs".to_string(), policy_decision_refs);
+    row.insert("rollback_refs".to_string(), rollback_refs);
+    row.insert(
+        "event_id".to_string(),
+        event_id.clone().map(Value::String).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "event_kind".to_string(),
+        json_path_string(event, "/event_kind")
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+    );
+    row.insert(
+        "source_event_kind".to_string(),
+        json_path_string(event, "/source_event_kind")
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+    );
+    row.insert(
+        "component_kind".to_string(),
+        json_path_string(event, "/component_kind")
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+    );
+    row.insert(
+        "seq".to_string(),
+        seq.map(|value| Value::Number(value.into()))
+            .unwrap_or(Value::Null),
+    );
+    row.insert(
+        "sequence".to_string(),
+        seq.map(|value| Value::Number(value.into()))
+            .unwrap_or(Value::Null),
+    );
+    row.insert(
+        "cursor".to_string(),
+        cursor.clone().map(Value::String).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "tui_reopen".to_string(),
+        serde_json::json!({
+            "command": "ioi agent tui",
+            "args": tui_reopen_args(thread_id.as_deref(), seq),
+            "thread_id": thread_id,
+            "since_seq": seq,
+            "last_event_id": event_id,
+        }),
+    );
+    row.insert(
+        "routes".to_string(),
+        serde_json::json!({
+            "invoke": thread_id.as_deref().map(|thread_id| {
+                route_with_thread(TUI_CODING_TOOL_INVOKE_ROUTE_TEMPLATE, thread_id)
+                    .replace("{tool_id}", &tool_key)
+            }),
+        }),
+    );
+    row.insert(
+        "react_flow".to_string(),
+        serde_json::json!({
+            "workflow_graph_id": workflow_graph_id,
+            "workflow_node_id": workflow_node_id,
+            "event_id": json_path_string(event, "/event_id"),
+            "cursor": cursor,
+        }),
+    );
+    Value::Object(row)
 }
 
 fn tui_coding_tool_budget_row(event: &Value, fallback_thread_id: Option<&str>) -> Value {
@@ -4097,6 +4389,25 @@ fn is_tui_context_pressure_event(event: &Value) -> bool {
         || haystack.contains("context_pressure")
 }
 
+fn is_tui_coding_tool_completion_event(event: &Value) -> bool {
+    let component_kind = json_path_string(event, "/component_kind")
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    if component_kind != "coding_tool" {
+        return false;
+    }
+    let event_kind = json_path_string(event, "/event_kind")
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let status = json_path_string(event, "/status")
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    if event_kind != "tool.completed" && status != "completed" {
+        return false;
+    }
+    !is_tui_coding_tool_budget_block_event(event)
+}
+
 fn is_tui_coding_tool_budget_block_event(event: &Value) -> bool {
     let component_kind = json_path_string(event, "/component_kind")
         .unwrap_or_default()
@@ -4155,6 +4466,49 @@ fn is_tui_coding_tool_budget_block_event(event: &Value) -> bool {
             .as_deref(),
         Some("blocked")
     )
+}
+
+fn tui_json_boolish(value: &Value, path: &str) -> Option<bool> {
+    match value.pointer(path)? {
+        Value::Bool(value) => Some(*value),
+        Value::String(value) => match value.trim().to_ascii_lowercase().as_str() {
+            "true" => Some(true),
+            "false" => Some(false),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+fn tui_coding_tool_command(tool_id: &str, dry_run: Option<bool>) -> &'static str {
+    match tool_id {
+        "workspace.status" => "status",
+        "git.diff" => "diff",
+        "file.inspect" => "inspect",
+        "file.apply_patch" if dry_run == Some(true) => "patch-dry-run",
+        "file.apply_patch" => "patch",
+        "test.run" => "test",
+        "lsp.diagnostics" => "diagnostics",
+        "artifact.read" => "artifact",
+        "tool.retrieve_result" => "retrieve",
+        _ => "tool",
+    }
+}
+
+fn tui_coding_tool_raw_input(command: &str, tool_id: &str, input: &Value) -> String {
+    let argument = match tool_id {
+        "artifact.read" => json_path_string(input, "/artifactId")
+            .or_else(|| json_path_string(input, "/artifact_id")),
+        "tool.retrieve_result" => json_path_string(input, "/toolCallId")
+            .or_else(|| json_path_string(input, "/tool_call_id"))
+            .or_else(|| json_path_string(input, "/artifactId"))
+            .or_else(|| json_path_string(input, "/artifact_id")),
+        _ => json_path_string(input, "/path"),
+    };
+    match argument {
+        Some(argument) => format!("/{command} {argument}"),
+        None => format!("/{command}"),
+    }
 }
 
 fn is_tui_workspace_trust_warning_event(event: &Value) -> bool {
@@ -4623,8 +4977,8 @@ mod tests {
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0]["row_kind"], "coding_tool_budget");
         assert_eq!(rows[0]["status"], "blocked");
-        assert_eq!(rows[0]["command"], "events");
-        assert_eq!(rows[0]["raw_input"], "/events");
+        assert_eq!(rows[0]["command"], "run");
+        assert_eq!(rows[0]["raw_input"], "/run recovery request run_live");
         assert_eq!(rows[0]["tool_name"], "file.apply_patch");
         assert_eq!(
             rows[0]["tool_call_id"],
@@ -4680,6 +5034,165 @@ mod tests {
         assert_eq!(
             state["coding_tool_rows"][0]["tool_call_id"],
             "coding_tool_summary_budget_blocked"
+        );
+    }
+
+    #[test]
+    fn tui_coding_tool_rows_project_successful_terminal_commands() {
+        let events = vec![
+            serde_json::json!({
+                "event_id": "event_coding_status",
+                "event_stream_id": "events_thread_live",
+                "seq": 15,
+                "thread_id": "thread_live",
+                "turn_id": "turn_live",
+                "event_kind": "tool.completed",
+                "source_event_kind": "CodingTool.WorkspaceStatus",
+                "status": "completed",
+                "component_kind": "coding_tool",
+                "workflow_graph_id": "workflow.react-flow.coding-tools",
+                "workflow_node_id": "runtime.coding-tool.workspace.status",
+                "tool_call_id": "coding_tool_status",
+                "receipt_refs": ["receipt_coding_tool_status"],
+                "payload_summary": {
+                    "tool_name": "workspace.status",
+                    "tool_call_id": "coding_tool_status",
+                    "shell_fallback_used": false,
+                    "summary": "Workspace status inspected 1 changed file(s).",
+                },
+            }),
+            serde_json::json!({
+                "event_id": "event_coding_patch_dry_run",
+                "event_stream_id": "events_thread_live",
+                "seq": 16,
+                "thread_id": "thread_live",
+                "turn_id": "turn_live",
+                "event_kind": "tool.completed",
+                "source_event_kind": "CodingTool.FileApplyPatch",
+                "status": "completed",
+                "component_kind": "coding_tool",
+                "workflow_graph_id": "workflow.react-flow.coding-tools",
+                "workflow_node_id": "runtime.coding-tool.file.apply-patch",
+                "tool_call_id": "coding_tool_patch_dry_run",
+                "receipt_refs": ["receipt_coding_tool_patch"],
+                "payload_summary": {
+                    "tool_name": "file.apply_patch",
+                    "tool_call_id": "coding_tool_patch_dry_run",
+                    "shell_fallback_used": "false",
+                    "input": {
+                        "path": "README.md",
+                        "dryRun": true,
+                    },
+                    "result_summary": {
+                        "status": "completed",
+                        "dryRun": true,
+                        "applied": false,
+                    },
+                    "summary": "Patch dry-run produced a diff for README.md.",
+                },
+            }),
+            serde_json::json!({
+                "event_id": "event_coding_test",
+                "event_stream_id": "events_thread_live",
+                "seq": 17,
+                "thread_id": "thread_live",
+                "turn_id": "turn_live",
+                "event_kind": "tool.completed",
+                "source_event_kind": "CodingTool.TestRun",
+                "status": "completed",
+                "component_kind": "coding_tool",
+                "workflow_graph_id": "workflow.react-flow.coding-tools",
+                "workflow_node_id": "runtime.coding-tool.test.run",
+                "tool_call_id": "coding_tool_test",
+                "receipt_refs": ["receipt_coding_tool_test"],
+                "artifact_refs": ["artifact_test_output"],
+                "payload_summary": {
+                    "tool_name": "test.run",
+                    "tool_call_id": "coding_tool_test",
+                    "shell_fallback_used": false,
+                    "input": { "path": "sample.test.mjs" },
+                    "result_summary": { "status": "passed" },
+                    "summary": "Test run passed with exit code 0.",
+                },
+            }),
+            serde_json::json!({
+                "event_id": "event_coding_retrieve",
+                "event_stream_id": "events_thread_live",
+                "seq": 18,
+                "thread_id": "thread_live",
+                "turn_id": "turn_live",
+                "event_kind": "tool.completed",
+                "source_event_kind": "CodingTool.ToolRetrieveResult",
+                "status": "completed",
+                "component_kind": "coding_tool",
+                "workflow_graph_id": "workflow.react-flow.coding-tools",
+                "workflow_node_id": "runtime.coding-tool.tool.retrieve-result",
+                "tool_call_id": "coding_tool_retrieve",
+                "receipt_refs": ["receipt_coding_tool_retrieve"],
+                "artifact_refs": ["artifact_test_output"],
+                "payload_summary": {
+                    "tool_name": "tool.retrieve_result",
+                    "tool_call_id": "coding_tool_retrieve",
+                    "shell_fallback_used": false,
+                    "input": { "toolCallId": "coding_tool_test" },
+                    "summary": "Retrieved tool result coding_tool_test.",
+                },
+            }),
+        ];
+
+        let rows = tui_coding_tool_rows(&events, Some("thread_live"));
+        assert_eq!(rows.len(), 4);
+        assert_eq!(rows[0]["row_kind"], "coding_tool");
+        assert_eq!(rows[0]["command"], "status");
+        assert_eq!(rows[0]["raw_input"], "/status");
+        assert_eq!(rows[0]["tool_name"], "workspace.status");
+        assert_eq!(rows[0]["shell_fallback_used"], false);
+        assert_eq!(rows[0]["mutation_blocked"], false);
+        assert_eq!(
+            rows[0]["receipt_refs"],
+            serde_json::json!(["receipt_coding_tool_status"])
+        );
+        assert_eq!(rows[0]["cursor"], "events_thread_live:15");
+        assert_eq!(rows[1]["command"], "patch-dry-run");
+        assert_eq!(rows[1]["raw_input"], "/patch-dry-run README.md");
+        assert_eq!(rows[1]["dry_run"], true);
+        assert_eq!(rows[1]["mutation_blocked"], false);
+        assert_eq!(rows[2]["command"], "test");
+        assert_eq!(rows[2]["raw_input"], "/test sample.test.mjs");
+        assert_eq!(
+            rows[2]["artifact_refs"],
+            serde_json::json!(["artifact_test_output"])
+        );
+        assert_eq!(rows[3]["command"], "retrieve");
+        assert_eq!(rows[3]["raw_input"], "/retrieve coding_tool_test");
+        assert_eq!(
+            rows[3]["artifact_refs"],
+            serde_json::json!(["artifact_test_output"])
+        );
+        assert_eq!(
+            rows[3]["workflow_node_id"],
+            "runtime.coding-tool.tool.retrieve-result"
+        );
+
+        let render = TuiRender {
+            endpoint: "http://127.0.0.1:8765".to_string(),
+            event_route: "/v1/threads/thread_live/events?since_seq=0".to_string(),
+            thread: serde_json::json!({ "thread_id": "thread_live" }),
+            submitted_turn: None,
+            control: None,
+            events,
+            jobs: Vec::new(),
+            since_seq: Some(0),
+            last_event_id: None,
+            follow: false,
+        };
+        let state = tui_control_state_for_render(&render, Some("thread_live"));
+        assert_eq!(state["coding_tool_rows"].as_array().unwrap().len(), 4);
+        assert_eq!(state["coding_tool_rows"][1]["row_kind"], "coding_tool");
+        assert_eq!(state["coding_tool_rows"][1]["command"], "patch-dry-run");
+        assert_eq!(
+            state["coding_tool_rows"][2]["artifact_refs"],
+            serde_json::json!(["artifact_test_output"])
         );
     }
 
