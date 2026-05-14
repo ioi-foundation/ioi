@@ -20,6 +20,10 @@ import {
   runtimeNodeChromeLogic,
   runtimeNodeLocalization,
 } from "./workflow-runtime-ui-strings";
+import {
+  applyWorkflowNodeTaxonomy,
+  type WorkflowNodeTaxonomyMetadata,
+} from "./workflow-node-taxonomy";
 
 export type WorkflowNodeGroup =
   | "Start"
@@ -35,7 +39,7 @@ export type WorkflowNodeGroup =
   | "Tests"
   | "Proposals";
 
-export interface WorkflowNodeDefinition extends WorkflowNodeDefinitionContract {
+interface WorkflowNodeDefinitionBase extends WorkflowNodeDefinitionContract {
   type: WorkflowNodeKind;
   label: string;
   group: WorkflowNodeGroup;
@@ -52,13 +56,21 @@ export interface WorkflowNodeDefinition extends WorkflowNodeDefinitionContract {
   defaultLaw: FirewallPolicy;
 }
 
-export interface WorkflowNodeCreatorDefinition
-  extends Omit<WorkflowNodeDefinition, "type"> {
+export interface WorkflowNodeDefinition
+  extends WorkflowNodeDefinitionBase,
+    WorkflowNodeTaxonomyMetadata {}
+
+interface WorkflowNodeCreatorDefinitionBase
+  extends Omit<WorkflowNodeDefinitionBase, "type"> {
   type: WorkflowNodeKind;
   creatorId: string;
   baseType: WorkflowNodeKind;
   creatorDescription: string;
 }
+
+export interface WorkflowNodeCreatorDefinition
+  extends WorkflowNodeCreatorDefinitionBase,
+    WorkflowNodeTaxonomyMetadata {}
 
 export const DEFAULT_SANDBOX = {
   timeoutMs: 1000,
@@ -207,7 +219,7 @@ export const DEFAULT_WORKFLOW_SKILL_CONTEXT_LOGIC: NodeLogic = {
   outputSchema: WORKFLOW_SKILL_CONTEXT_OUTPUT_SCHEMA,
 };
 
-export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
+const WORKFLOW_NODE_DEFINITION_BASES: WorkflowNodeDefinitionBase[] = [
   {
     type: "source",
     label: "Source/Input",
@@ -4446,12 +4458,27 @@ export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] = [
   },
 ];
 
+export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] =
+  WORKFLOW_NODE_DEFINITION_BASES.map((definition) =>
+    applyWorkflowNodeTaxonomy(definition),
+  );
+
 const DEFINITION_BY_TYPE = new Map(
   WORKFLOW_NODE_DEFINITIONS.map((item) => [item.type, item]),
 );
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function uniqueCreatorAliases(values: string[]): string[] {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => value.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  );
 }
 
 function creatorDefinition(
@@ -4468,7 +4495,7 @@ function creatorDefinition(
   },
 ): WorkflowNodeCreatorDefinition {
   const definition = workflowNodeDefinition(baseType);
-  return {
+  const creator = applyWorkflowNodeTaxonomy({
     ...definition,
     label: overrides.label,
     creatorId: overrides.creatorId,
@@ -4482,6 +4509,13 @@ function creatorDefinition(
     defaultLaw: overrides.defaultLaw
       ? clone(overrides.defaultLaw)
       : clone(definition.defaultLaw),
+  });
+  return {
+    ...creator,
+    searchAliases: uniqueCreatorAliases([
+      ...creator.searchAliases,
+      ...(overrides.keywords ?? []),
+    ]),
   };
 }
 
