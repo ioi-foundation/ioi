@@ -126,6 +126,7 @@ export function WorkflowRunsPanel({
     runtimeTelemetrySourceFilter,
     runtimeTelemetrySourceFilters,
     runtimeCodingToolBudgetEvidence,
+    modelInvocationTraces,
     tuiControlStateProjection,
     visibleTuiControlStateRows,
   } = model;
@@ -401,6 +402,91 @@ export function WorkflowRunsPanel({
               </button>
             );
           })}
+          {modelInvocationTraces.length > 0 ? (
+            <section
+              className="workflow-run-comparison"
+              data-testid="workflow-run-model-invocation-trace"
+              data-model-invocation-count={modelInvocationTraces.length}
+              data-model-refs={modelInvocationTraces
+                .map((trace) => trace.modelRef)
+                .join("|")}
+              data-model-ids={modelInvocationTraces
+                .map((trace) => trace.modelId)
+                .join("|")}
+              data-response-hashes={modelInvocationTraces
+                .map((trace) => trace.responseHash)
+                .join("|")}
+            >
+              <h4>Model pipeline</h4>
+              <span>
+                {modelInvocationTraces.length} invocation
+                {modelInvocationTraces.length === 1 ? "" : "s"} with prompt,
+                binding, and response evidence.
+              </span>
+              <div
+                className="workflow-run-runtime-event-summary"
+                data-testid="workflow-run-model-invocation-summary"
+              >
+                <span>{modelInvocationTraces[0]?.mode ?? "model"}</span>
+                <span>{modelInvocationTraces[0]?.modelRef ?? "model"}</span>
+                <span>
+                  {modelInvocationTraces[0]?.trace.length ?? 0} trace steps
+                </span>
+              </div>
+              <div className="workflow-run-comparison-list">
+                {modelInvocationTraces.map((invocation) => (
+                  <article
+                    key={`${invocation.nodeId}-${invocation.responseHash}`}
+                    className="workflow-run-comparison-node"
+                    data-testid={`workflow-run-model-invocation-node-${invocation.nodeId}`}
+                    data-node-id={invocation.nodeId}
+                    data-model-ref={invocation.modelRef}
+                    data-model-id={invocation.modelId}
+                    data-mode={invocation.mode}
+                    data-prompt-hash={invocation.promptHash}
+                    data-response-hash={invocation.responseHash}
+                  >
+                    <strong>{invocation.nodeName}</strong>
+                    <span>
+                      {invocation.modelRef} · {invocation.modelId} ·{" "}
+                      {invocation.mode}
+                    </span>
+                    <small>{invocation.promptUser}</small>
+                    <small>
+                      {invocation.promptHash} · {invocation.responseHash}
+                    </small>
+                    <ol
+                      className="workflow-run-policy-stack"
+                      data-testid="workflow-run-model-invocation-steps"
+                    >
+                      {invocation.trace.map((step, index) => (
+                        <li
+                          key={`${invocation.nodeId}-${step.phase}-${index}`}
+                          className="workflow-run-policy-stack-stage is-completed"
+                          data-testid="workflow-run-model-invocation-step"
+                          data-phase={step.phase}
+                        >
+                          <span>{step.phase}</span>
+                          <small>
+                            {step.summary}
+                            {step.detail ? ` · ${step.detail}` : ""}
+                          </small>
+                        </li>
+                      ))}
+                    </ol>
+                    <button
+                      type="button"
+                      className="workflow-secondary-action"
+                      data-testid={`workflow-run-model-invocation-inspect-${invocation.nodeId}`}
+                      onClick={() => onInspectNode(invocation.nodeId)}
+                    >
+                      Inspect node
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
           {runtimeTelemetrySummary.sourceKinds.length > 0 ? (
             <section
               className="workflow-run-telemetry-summary"

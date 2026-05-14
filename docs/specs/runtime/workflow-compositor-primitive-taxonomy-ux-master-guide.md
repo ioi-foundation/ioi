@@ -79,7 +79,7 @@ Target sentence:
 | P0 | Default vs advanced palette | Default palette shows authoring primitives/templates; advanced palette exposes raw runtime/protocol/debug nodes. | Done / regression guarded |
 | P1 | Search and synonyms | Common authoring words find the expected primitive: worker, terminal, agent, pull request, repo, skills, memory, tool, policy. | Done / regression guarded |
 | P1 | Primitive collapse | Skills, Memory, Tool Pack, Worker, Repository/Pull Request, Hook, Model/Agent Step collapse into config modes where appropriate. | Done / regression guarded |
-| P1 | Live model prompt pipeline | Composer runs use the live daemon runner for configured Agent Step/model nodes; mounted-model prompt, binding, response, and phase trace evidence appears in run output. | Done / regression guarded |
+| P1 | Live model prompt pipeline | Composer runs use the live daemon runner for configured Agent Step/model nodes; mounted-model prompt, binding, response, and phase trace evidence appears in run output and the primary Runs rail. | Done / regression guarded |
 | P1 | Post-starter flow | Adding a trigger/input keeps composition moving with a side inspector and `Add next node` compatible suggestions. | Done / regression guarded |
 | P1 | Empty canvas | Empty graph guides the user toward agent/tool/verification workflows and aligns the right rail with the current start task. | Done / regression guarded |
 | P1 | Harness teaching view | Default harness opens as a fitted canonical-group overview with fork/use action; raw type counts move to advanced details. | Done / regression guarded |
@@ -516,7 +516,8 @@ Runtime validation:
 - workflow activation manifest test for a canonical agent workflow;
 - mounted-model Agent Step pipeline test with prompt/binding/response trace
   evidence;
-- run-shelf render probe for the visible model invocation prompt pipeline;
+- run-shelf and Runs-rail render probe for the visible model invocation prompt
+  pipeline;
 - replay from runtime events/receipts into compositor state.
 
 GUI validation:
@@ -528,7 +529,7 @@ GUI validation:
 - open advanced palette and verify raw runtime nodes still exist;
 - open default harness and assert canonical group overview;
 - run a configured Agent Step/model workflow and inspect prompt, binding,
-  response hash, and phase trace evidence in run output
+  response hash, and phase trace evidence in run output and the primary Runs rail
   (`scripts/lib/workflow-model-invocation-trace-gui-probe.mjs`);
 - click Run on blank graph and assert no render-blocked route.
 
@@ -566,7 +567,8 @@ This sprint is complete when:
 - the default harness teaches the canonical workflow topology before exposing
   raw runtime internals;
 - configured Agent Step/model workflows can run through mounted daemon models
-  and expose prompt pipeline trace evidence;
+  and expose prompt pipeline trace evidence in run output and the primary Runs
+  rail;
 - existing workflows remain compatible through projection/migration helpers;
 - static, runtime, GUI, and accessibility validation are in place.
 
