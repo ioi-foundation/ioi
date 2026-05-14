@@ -180,6 +180,16 @@ pub(super) fn workflow_node(
             json!(["plan", "blockers", "request"]),
             json!({ "in": "approval", "out": "approval" }),
         ),
+        "runtime_thread_mode" => (
+            json!(["thread"]),
+            json!(["mode", "trust", "event", "status"]),
+            json!({ "in": "state", "out": "state" }),
+        ),
+        "runtime_workspace_trust_gate" => (
+            json!(["trust"]),
+            json!(["gate", "status", "receipt"]),
+            json!({ "in": "state", "out": "state" }),
+        ),
         "parser" => (
             json!([]),
             json!(["parser"]),
@@ -378,6 +388,50 @@ pub(super) fn workflow_node(
             "mutationExecuted": true,
             "outputSchema": workflow_package_import_output_schema()
         }),
+        "runtime_thread_mode" => json!({
+            "runtimeThreadModeEndpoint": "/v1/threads/{threadId}/mode",
+            "runtimeThreadModeField": "runtimeThreadMode",
+            "runtimeThreadModeEventField": "runtimeThreadMode.event",
+            "runtimeThreadModeStatusField": "runtimeThreadMode.status",
+            "runtimeThreadModeTrustField": "runtimeThreadMode.workspaceTrustWarning",
+            "runtimeThreadModeReceiptField": "runtimeThreadMode.receiptRefs",
+            "runtimeThreadModePolicyField": "runtimeThreadMode.policyDecisionRefs",
+            "runtimeThreadModeThreadIdField": "threadId",
+            "runtimeThreadModeModeField": "mode",
+            "runtimeThreadModeMode": "review",
+            "runtimeThreadModeApprovalModeField": "approvalMode",
+            "runtimeThreadModeApprovalMode": "human_required",
+            "runtimeThreadModeTrustProfileField": "trustProfile",
+            "runtimeThreadModeTrustProfile": "local_private",
+            "runtimeThreadModeWorkspaceTrustWorkflowNodeId": "runtime.thread-mode.workspace-trust",
+            "runtimeThreadModeRequestWarningAcknowledgement": true,
+            "runtimeThreadModeWorkflowNodeId": "runtime.thread-mode",
+            "runtimeThreadModeSource": "react_flow",
+            "runtimeThreadModeActor": "operator",
+            "dryRun": false,
+            "mutationExecuted": true,
+            "redactionProfile": "runtime_thread_mode_safe",
+            "outputSchema": workflow_runtime_thread_mode_output_schema()
+        }),
+        "runtime_workspace_trust_gate" => json!({
+            "runtimeWorkspaceTrustGateField": "runtimeWorkspaceTrustGate",
+            "runtimeWorkspaceTrustGateStatusField": "runtimeWorkspaceTrustGate.status",
+            "runtimeWorkspaceTrustGateWarningIdField": "warningId",
+            "runtimeWorkspaceTrustGateWarningWorkflowNodeId": "runtime.thread-mode.workspace-trust",
+            "runtimeWorkspaceTrustGateModeNodeId": "runtime-thread-mode",
+            "runtimeWorkspaceTrustGateSourceEventIdField": "sourceEventId",
+            "runtimeWorkspaceTrustGateAcknowledgementEventField": "runtimeWorkspaceTrustGate.acknowledgementEvent",
+            "runtimeWorkspaceTrustGateReceiptField": "runtimeWorkspaceTrustGate.receiptRefs",
+            "runtimeWorkspaceTrustGatePolicyField": "runtimeWorkspaceTrustGate.policyDecisionRefs",
+            "runtimeWorkspaceTrustGateRequireAcknowledgement": true,
+            "runtimeWorkspaceTrustGateMode": "review",
+            "runtimeWorkspaceTrustGateModeField": "mode",
+            "runtimeWorkspaceTrustGateWorkflowNodeId": "runtime.workspace-trust-gate",
+            "dryRun": false,
+            "mutationExecuted": false,
+            "redactionProfile": "runtime_workspace_trust_gate_safe",
+            "outputSchema": workflow_runtime_workspace_trust_gate_output_schema()
+        }),
         "model_binding" => json!({
             "modelRef": if metric_value == "vision" { "vision" } else { "reasoning" },
             "modelBinding": {
@@ -541,6 +595,11 @@ pub(super) fn canonical_workflow_node_types() -> Vec<(&'static str, &'static str
         ),
         ("runtime_operator_steer", "Runtime", "Operator Steer"),
         ("runtime_thread_mode", "Runtime", "Thread Mode"),
+        (
+            "runtime_workspace_trust_gate",
+            "Runtime",
+            "Workspace Trust Gate",
+        ),
         ("runtime_context_compact", "Runtime", "Context Compact"),
         ("runtime_approval_request", "Runtime", "Approval Request"),
         ("runtime_rollback_snapshot", "Runtime", "Rollback Snapshot"),
@@ -774,6 +833,35 @@ pub(super) fn workflow_runtime_thread_mode_output_schema() -> Value {
             "endpoint": { "type": "string" },
             "request": { "type": "object" },
             "runtimeThreadMode": { "type": "object" }
+        }
+    })
+}
+
+pub(super) fn workflow_runtime_workspace_trust_gate_output_schema() -> Value {
+    json!({
+        "type": "object",
+        "required": [
+            "schemaVersion",
+            "status",
+            "componentKind",
+            "workflowNodeId",
+            "warningWorkflowNodeId",
+            "daemonEventHistoryRequired"
+        ],
+        "properties": {
+            "schemaVersion": { "type": "string" },
+            "status": { "type": "string" },
+            "componentKind": { "type": "string" },
+            "workflowGraphId": { "type": ["string", "null"] },
+            "workflowNodeId": { "type": "string" },
+            "warningId": { "type": ["string", "null"] },
+            "warningWorkflowNodeId": { "type": "string" },
+            "acknowledgementEventId": { "type": ["string", "null"] },
+            "receiptRefs": { "type": "array" },
+            "policyDecisionRefs": { "type": "array" },
+            "daemonEventHistoryRequired": { "type": "boolean" },
+            "canvasLocalTrustAccepted": { "type": "boolean" },
+            "runtimeWorkspaceTrustGate": { "type": "object" }
         }
     })
 }
@@ -1331,6 +1419,42 @@ pub(super) fn workflow_scaffold_definitions() -> Vec<Value> {
             })),
         ),
         workflow_scaffold(
+            "workflow.runtime.workspace_trust_gate",
+            "runtime_workspace_trust_gate",
+            "Runtime",
+            "Workspace trust gate",
+            "Require daemon workspace trust acknowledgement receipts before risky runtime modes can execute.",
+            "Trust",
+            "gate",
+            json!({
+                "runtimeWorkspaceTrustGateField": "runtimeWorkspaceTrustGate",
+                "runtimeWorkspaceTrustGateStatusField": "runtimeWorkspaceTrustGate.status",
+                "runtimeWorkspaceTrustGateWarningIdField": "warningId",
+                "runtimeWorkspaceTrustGateWarningWorkflowNodeId": "runtime.thread-mode.workspace-trust",
+                "runtimeWorkspaceTrustGateModeNodeId": "runtime-thread-mode",
+                "runtimeWorkspaceTrustGateSourceEventIdField": "sourceEventId",
+                "runtimeWorkspaceTrustGateAcknowledgementEventField": "runtimeWorkspaceTrustGate.acknowledgementEvent",
+                "runtimeWorkspaceTrustGateReceiptField": "runtimeWorkspaceTrustGate.receiptRefs",
+                "runtimeWorkspaceTrustGatePolicyField": "runtimeWorkspaceTrustGate.policyDecisionRefs",
+                "runtimeWorkspaceTrustGateRequireAcknowledgement": true,
+                "runtimeWorkspaceTrustGateMode": "review",
+                "runtimeWorkspaceTrustGateModeField": "mode",
+                "runtimeWorkspaceTrustGateWorkflowNodeId": "runtime.workspace-trust-gate",
+                "dryRun": false,
+                "mutationExecuted": false,
+                "redactionProfile": "runtime_workspace_trust_gate_safe",
+                "outputSchema": workflow_runtime_workspace_trust_gate_output_schema()
+            }),
+            json!({ "privilegedActions": [] }),
+            Some(json!({
+                "sideEffectClass": "none",
+                "requiresApproval": true,
+                "supportsDryRun": true,
+                "schemaRequired": true,
+                "connectionClasses": ["state", "data", "control", "approval"]
+            })),
+        ),
+        workflow_scaffold(
             "workflow.runtime.context_compact",
             "runtime_context_compact",
             "Runtime",
@@ -1497,6 +1621,7 @@ pub(super) fn workflow_scaffold_definitions() -> Vec<Value> {
                 | "runtime_operator_interrupt"
                 | "runtime_operator_steer"
                 | "runtime_thread_mode"
+                | "runtime_workspace_trust_gate"
                 | "runtime_context_compact"
                 | "runtime_approval_request"
                 | "runtime_rollback_snapshot"
@@ -1557,6 +1682,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
             | "workflow_package_import"
             | "github_pr_create"
             | "runtime_thread_mode"
+            | "runtime_workspace_trust_gate"
             | "runtime_approval_request"
             | "runtime_restore_gate"
     );
@@ -1573,6 +1699,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
             | "runtime_operator_interrupt"
             | "runtime_operator_steer"
             | "runtime_thread_mode"
+            | "runtime_workspace_trust_gate"
             | "runtime_context_compact"
             | "runtime_approval_request"
             | "runtime_rollback_snapshot"
@@ -1603,6 +1730,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
             | "runtime_operator_interrupt"
             | "runtime_operator_steer"
             | "runtime_thread_mode"
+            | "runtime_workspace_trust_gate"
             | "runtime_context_compact"
             | "runtime_approval_request"
             | "runtime_rollback_snapshot"
@@ -1628,6 +1756,7 @@ pub(super) fn workflow_node_action_metadata(node_type: &str) -> Value {
         "runtime_operator_interrupt" => vec!["state", "data", "control"],
         "runtime_operator_steer" => vec!["state", "data", "control"],
         "runtime_thread_mode" => vec!["state", "data", "control", "approval"],
+        "runtime_workspace_trust_gate" => vec!["state", "data", "control", "approval"],
         "runtime_context_compact" => vec!["state", "data", "control"],
         "runtime_approval_request" => vec!["state", "data", "control", "approval"],
         "runtime_rollback_snapshot" => vec!["state", "data", "control"],

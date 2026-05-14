@@ -78,6 +78,7 @@ export function workflowNodeHasDeclaredOutputSchema(node: Node): boolean {
       node.type === "runtime_operator_interrupt" ||
       node.type === "runtime_operator_steer" ||
       node.type === "runtime_thread_mode" ||
+      node.type === "runtime_workspace_trust_gate" ||
       node.type === "runtime_context_compact" ||
       node.type === "runtime_approval_request" ||
       node.type === "runtime_usage_meter" ||
@@ -216,6 +217,34 @@ export function workflowNodeDeclaredOutputSchema(node: Node, latestOutput?: unkn
         endpoint: { type: "string" },
         request: { type: "object" },
         runtimeThreadMode: { type: "object" },
+      },
+    };
+  }
+  if (node.type === "runtime_workspace_trust_gate") {
+    return {
+      type: "object",
+      required: [
+        "schemaVersion",
+        "status",
+        "componentKind",
+        "workflowNodeId",
+        "warningWorkflowNodeId",
+        "daemonEventHistoryRequired",
+      ],
+      properties: {
+        schemaVersion: { type: "string" },
+        status: { type: "string" },
+        componentKind: { type: "string" },
+        workflowGraphId: { type: ["string", "null"] },
+        workflowNodeId: { type: "string" },
+        warningId: { type: ["string", "null"] },
+        warningWorkflowNodeId: { type: "string" },
+        acknowledgementEventId: { type: ["string", "null"] },
+        receiptRefs: { type: "array" },
+        policyDecisionRefs: { type: "array" },
+        daemonEventHistoryRequired: { type: "boolean" },
+        canvasLocalTrustAccepted: { type: "boolean" },
+        runtimeWorkspaceTrustGate: { type: "object" },
       },
     };
   }
@@ -442,6 +471,21 @@ export function workflowNodeDeclaredInputSchema(node: Node): unknown {
         approvalMode: { type: "string" },
         trustProfile: { type: "string" },
         workspaceTrustWorkflowNodeId: { type: "string" },
+        workflowGraphId: { type: "string" },
+      },
+    };
+  }
+  if (node.type === "runtime_workspace_trust_gate") {
+    return {
+      type: "object",
+      properties: {
+        warningId: { type: "string" },
+        warningWorkflowNodeId: { type: "string" },
+        sourceEventId: { type: "string" },
+        acknowledgementEventId: { type: "string" },
+        receiptRefs: { type: "array" },
+        policyDecisionRefs: { type: "array" },
+        mode: { type: "string" },
         workflowGraphId: { type: "string" },
       },
     };

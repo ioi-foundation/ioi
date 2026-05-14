@@ -1906,7 +1906,7 @@ export function workflowNodeKindForRuntimeThreadEvent(
   if (event.componentKind === "usage_telemetry") return "runtime_usage_meter";
   if (event.componentKind === "context_pressure") return "runtime_context_budget";
   if (event.componentKind === "context_pressure_alert") return "hook_policy";
-  if (event.componentKind === "workspace_trust") return "hook_policy";
+  if (event.componentKind === "workspace_trust") return "runtime_workspace_trust_gate";
   if (event.componentKind === "context_budget") return "runtime_context_budget";
   if (event.componentKind === "compaction_policy") return "runtime_compaction_policy";
   if (event.componentKind === "lsp_diagnostics_repair") return "hook_policy";

@@ -35,6 +35,7 @@ pub enum ActionKind {
     RuntimeOperatorInterrupt,
     RuntimeOperatorSteer,
     RuntimeThreadMode,
+    RuntimeWorkspaceTrustGate,
     RuntimeContextCompact,
     RuntimeApprovalRequest,
     RuntimeRollbackSnapshot,
@@ -90,6 +91,7 @@ impl ActionKind {
             "runtime_operator_interrupt" => Self::RuntimeOperatorInterrupt,
             "runtime_operator_steer" => Self::RuntimeOperatorSteer,
             "runtime_thread_mode" => Self::RuntimeThreadMode,
+            "runtime_workspace_trust_gate" => Self::RuntimeWorkspaceTrustGate,
             "runtime_context_compact" => Self::RuntimeContextCompact,
             "runtime_approval_request" => Self::RuntimeApprovalRequest,
             "runtime_rollback_snapshot" => Self::RuntimeRollbackSnapshot,
@@ -145,6 +147,7 @@ impl ActionKind {
             Self::RuntimeOperatorInterrupt => "runtime_operator_interrupt",
             Self::RuntimeOperatorSteer => "runtime_operator_steer",
             Self::RuntimeThreadMode => "runtime_thread_mode",
+            Self::RuntimeWorkspaceTrustGate => "runtime_workspace_trust_gate",
             Self::RuntimeContextCompact => "runtime_context_compact",
             Self::RuntimeApprovalRequest => "runtime_approval_request",
             Self::RuntimeRollbackSnapshot => "runtime_rollback_snapshot",
@@ -200,6 +203,7 @@ impl ActionKind {
             Self::RuntimeOperatorInterrupt => "runtime_operator_interrupt",
             Self::RuntimeOperatorSteer => "runtime_operator_steer",
             Self::RuntimeThreadMode => "runtime_thread_mode",
+            Self::RuntimeWorkspaceTrustGate => "runtime_workspace_trust_gate",
             Self::RuntimeContextCompact => "runtime_context_compact",
             Self::RuntimeApprovalRequest => "runtime_approval_request",
             Self::RuntimeRollbackSnapshot => "runtime_rollback_snapshot",
@@ -271,7 +275,10 @@ impl ActionKind {
                 | Self::RuntimeThreadFork
                 | Self::RuntimeOperatorInterrupt
                 | Self::RuntimeOperatorSteer
+                | Self::RuntimeThreadMode
+                | Self::RuntimeWorkspaceTrustGate
                 | Self::RuntimeContextCompact
+                | Self::RuntimeApprovalRequest
                 | Self::RuntimeRollbackSnapshot
                 | Self::RuntimeRestoreGate
                 | Self::RuntimeDiagnosticsRepair
@@ -503,6 +510,10 @@ mod tests {
         assert_eq!(
             ActionKind::from_node_type("runtime_thread_mode"),
             ActionKind::RuntimeThreadMode
+        );
+        assert_eq!(
+            ActionKind::from_node_type("runtime_workspace_trust_gate"),
+            ActionKind::RuntimeWorkspaceTrustGate
         );
         assert_eq!(
             ActionKind::from_node_type("runtime_context_compact"),

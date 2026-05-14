@@ -316,8 +316,7 @@ pub(super) fn validate_workflow_project_bundle(
                 missing_config.push(WorkflowValidationIssue {
                     node_id: Some(node_id.clone()),
                     code: "missing_runtime_thread_mode_endpoint".to_string(),
-                    message: "Runtime thread mode nodes need a mode endpoint template."
-                        .to_string(),
+                    message: "Runtime thread mode nodes need a mode endpoint template.".to_string(),
                 });
             }
             if workflow_json_string(&logic, "runtimeThreadModeThreadIdField").is_none()
@@ -326,9 +325,33 @@ pub(super) fn validate_workflow_project_bundle(
                 missing_config.push(WorkflowValidationIssue {
                     node_id: Some(node_id.clone()),
                     code: "missing_runtime_thread_mode_thread".to_string(),
+                    message: "Runtime thread mode nodes need a thread id field or fixed thread id."
+                        .to_string(),
+                });
+            }
+        }
+        if action_kind == ActionKind::RuntimeWorkspaceTrustGate {
+            if workflow_json_string(&logic, "runtimeWorkspaceTrustGateWarningWorkflowNodeId")
+                .is_none()
+                && workflow_json_string(
+                    &logic,
+                    "runtimeWorkspaceTrustGateWarningWorkflowNodeIdField",
+                )
+                .is_none()
+            {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_workspace_trust_gate_warning".to_string(),
                     message:
-                        "Runtime thread mode nodes need a thread id field or fixed thread id."
+                        "Workspace trust gate nodes need a warning workflow node id or warning id field."
                             .to_string(),
+                });
+            }
+            if workflow_json_string(&logic, "runtimeWorkspaceTrustGateStatusField").is_none() {
+                missing_config.push(WorkflowValidationIssue {
+                    node_id: Some(node_id.clone()),
+                    code: "missing_runtime_workspace_trust_gate_status".to_string(),
+                    message: "Workspace trust gate nodes need a status field.".to_string(),
                 });
             }
         }
@@ -1144,6 +1167,62 @@ fn workflow_json_string<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
         .filter(|value| !value.is_empty())
 }
 
+fn workflow_json_bool(value: &Value, key: &str) -> Option<bool> {
+    value.get(key).and_then(Value::as_bool)
+}
+
+fn workflow_runtime_thread_mode_requires_workspace_trust_gate(logic: &Value) -> bool {
+    if workflow_json_bool(logic, "runtimeThreadModeRequestWarningAcknowledgement") == Some(false) {
+        return false;
+    }
+    matches!(
+        workflow_json_string(logic, "runtimeThreadModeMode").unwrap_or("review"),
+        "review" | "yolo"
+    )
+}
+
+fn workflow_runtime_thread_mode_warning_workflow_node_id(logic: &Value) -> String {
+    workflow_json_string(logic, "runtimeThreadModeWorkspaceTrustWorkflowNodeId")
+        .map(str::to_string)
+        .or_else(|| {
+            workflow_json_string(logic, "runtimeThreadModeWorkflowNodeId")
+                .map(|workflow_node_id| format!("{}.workspace-trust", workflow_node_id))
+        })
+        .unwrap_or_else(|| "runtime.thread-mode.workspace-trust".to_string())
+}
+
+fn workflow_has_workspace_trust_gate_for_thread_mode(
+    workflow: &WorkflowProject,
+    mode_node: &Value,
+    warning_workflow_node_id: &str,
+) -> bool {
+    let mode_node_id = workflow_node_id(mode_node);
+    workflow.nodes.iter().any(|node| {
+        if workflow_node_type(node) != "runtime_workspace_trust_gate" {
+            return false;
+        }
+        let logic = workflow_node_logic(node);
+        let gate_warning_id =
+            workflow_json_string(&logic, "runtimeWorkspaceTrustGateWarningWorkflowNodeId");
+        let gate_mode_node_id = workflow_json_string(&logic, "runtimeWorkspaceTrustGateModeNodeId");
+        let direct_config_match = gate_warning_id == Some(warning_workflow_node_id)
+            || (mode_node_id.is_some() && gate_mode_node_id == mode_node_id.as_deref());
+        if direct_config_match {
+            return true;
+        }
+        let Some(mode_node_id) = mode_node_id.as_deref() else {
+            return false;
+        };
+        let Some(gate_node_id) = workflow_node_id(node) else {
+            return false;
+        };
+        workflow.edges.iter().any(|edge| {
+            workflow_edge_from(edge).as_deref() == Some(mode_node_id)
+                && workflow_edge_to(edge).as_deref() == Some(gate_node_id.as_str())
+        })
+    })
+}
+
 fn workflow_harness_required_slot_ids(harness: &Value) -> std::collections::BTreeSet<String> {
     harness
         .get("slotIds")
@@ -1324,6 +1403,32 @@ pub(super) fn apply_workflow_activation_readiness(
                     message:
                         "Operational side effects need an error or retry path before activation."
                             .to_string(),
+                },
+            );
+        }
+    }
+    for mode_node in workflow
+        .nodes
+        .iter()
+        .filter(|node| workflow_node_type(node) == "runtime_thread_mode")
+    {
+        let logic = workflow_node_logic(mode_node);
+        if !workflow_runtime_thread_mode_requires_workspace_trust_gate(&logic) {
+            continue;
+        }
+        let warning_workflow_node_id =
+            workflow_runtime_thread_mode_warning_workflow_node_id(&logic);
+        if !workflow_has_workspace_trust_gate_for_thread_mode(
+            workflow,
+            mode_node,
+            &warning_workflow_node_id,
+        ) {
+            push_workflow_readiness_issue(
+                &mut result,
+                WorkflowValidationIssue {
+                    node_id: workflow_node_id(mode_node),
+                    code: "missing_workspace_trust_gate".to_string(),
+                    message: "Risky runtime thread modes need a WorkspaceTrustGateNode wired to daemon workspace-trust receipts.".to_string(),
                 },
             );
         }

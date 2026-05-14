@@ -45,6 +45,11 @@ export {
   workflowNodeKindForRuntimeThreadEvent,
 } from "./runtime/workflow-runtime-event-projection";
 export {
+  RUNTIME_WORKSPACE_TRUST_GATE_NODE_TYPE,
+  workflowWorkspaceTrustGateIssues,
+  workflowWorkspaceTrustGateReadiness,
+} from "./runtime/workflow-workspace-trust-gate";
+export {
   RUNTIME_CONTEXT_COMPACT_COMPONENT_KIND,
   RUNTIME_CONTEXT_COMPACT_PAYLOAD_SCHEMA_VERSION,
   RUNTIME_CONTEXT_COMPACT_SOURCE,
@@ -427,6 +432,11 @@ export type {
   WorkflowRuntimeWorkspaceTrustAction,
   WorkflowRuntimeWorkspaceTrustActionDescriptor,
 } from "./runtime/workflow-runtime-event-projection";
+export type {
+  WorkflowWorkspaceTrustGateReadiness,
+  WorkflowWorkspaceTrustGateRequirement,
+  WorkflowWorkspaceTrustGateRequirementStatus,
+} from "./runtime/workflow-workspace-trust-gate";
 export type {
   RuntimeApprovalRequestControlRequest,
   RuntimeApprovalRequestControlRequestBody,

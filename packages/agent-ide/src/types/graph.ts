@@ -710,6 +710,23 @@ export interface NodeLogic {
   runtimeThreadModeWorkflowNodeId?: string;
   runtimeThreadModeSource?: "react_flow" | "sdk_client" | "cli_tui" | string;
   runtimeThreadModeActor?: string;
+  runtimeWorkspaceTrustGate?: unknown;
+  runtimeWorkspaceTrustGateField?: string;
+  runtimeWorkspaceTrustGateStatusField?: string;
+  runtimeWorkspaceTrustGateWarningId?: string;
+  runtimeWorkspaceTrustGateWarningIdField?: string;
+  runtimeWorkspaceTrustGateWarningWorkflowNodeId?: string;
+  runtimeWorkspaceTrustGateWarningWorkflowNodeIdField?: string;
+  runtimeWorkspaceTrustGateModeNodeId?: string;
+  runtimeWorkspaceTrustGateModeNodeIdField?: string;
+  runtimeWorkspaceTrustGateSourceEventIdField?: string;
+  runtimeWorkspaceTrustGateAcknowledgementEventField?: string;
+  runtimeWorkspaceTrustGateReceiptField?: string;
+  runtimeWorkspaceTrustGatePolicyField?: string;
+  runtimeWorkspaceTrustGateRequireAcknowledgement?: boolean;
+  runtimeWorkspaceTrustGateMode?: string;
+  runtimeWorkspaceTrustGateModeField?: string;
+  runtimeWorkspaceTrustGateWorkflowNodeId?: string;
   runtimeContextCompactEndpoint?: string;
   runtimeContextCompact?: unknown;
   runtimeContextCompactField?: string;
@@ -1033,6 +1050,12 @@ export interface NodeLogic {
     runtimeOperatorSteerStatusField?: string;
     runtimeThreadModeField?: string;
     runtimeThreadModeStatusField?: string;
+    consumesRuntimeWorkspaceTrustGate?: boolean;
+    consumesRuntimeWorkspaceTrustAcknowledgement?: boolean;
+    runtimeWorkspaceTrustGateField?: string;
+    runtimeWorkspaceTrustGateStatusField?: string;
+    runtimeWorkspaceTrustAcknowledgementField?: string;
+    runtimeWorkspaceTrustAcknowledgementStatusField?: string;
     runtimeContextCompactField?: string;
     runtimeContextCompactStatusField?: string;
     consumesRuntimeApprovalRequest?: boolean;
@@ -4284,6 +4307,7 @@ export type WorkflowHarnessComponentKind =
   | "runtime_operator_interrupt"
   | "runtime_operator_steer"
   | "runtime_thread_mode"
+  | "runtime_workspace_trust_gate"
   | "runtime_context_compact"
   | "runtime_approval_request"
   | "runtime_usage_meter"
@@ -4850,6 +4874,7 @@ export type WorkflowNodeKind =
   | "runtime_operator_interrupt"
   | "runtime_operator_steer"
   | "runtime_thread_mode"
+  | "runtime_workspace_trust_gate"
   | "runtime_context_compact"
   | "runtime_approval_request"
   | "runtime_usage_meter"

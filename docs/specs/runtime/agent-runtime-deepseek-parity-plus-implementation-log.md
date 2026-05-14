@@ -177,8 +177,45 @@ workstream was narrower.
 | 175 | 2026-05-13 | P1-C. Modes, Trust, Approvals | React Flow approval policy manifest and retry gate | /tmp/ioi-autopilot-gui-harness-runtime-coding-approval-retry/2026-05-14T00-01-23-557Z/result.json |
 | 176 | 2026-05-14 | P1-C. Modes, Trust, Approvals | daemon-owned workspace trust warning records | /tmp/ioi-autopilot-gui-harness-runtime-workspace-trust-warning/2026-05-14T00-17-53-763Z/result.json |
 | 177 | 2026-05-14 | P1-C. Modes, Trust, Approvals | React Flow mode/trust authoring and workspace trust acknowledgement controls | /tmp/ioi-autopilot-gui-harness-runtime-thread-mode-ack/2026-05-14T00-50-29-577Z/result.json |
+| 178 | 2026-05-14 | P1-C. Modes, Trust, Approvals | WorkspaceTrustGateNode activation/run gate | /tmp/ioi-autopilot-gui-harness-workspace-trust-gate/2026-05-14T01-22-22-906Z/result.json |
 
 ## P1. Model Auto-Routing And Reasoning Effort
+
+### Slice 178. 2026-05-14 - WorkspaceTrustGateNode activation/run gate
+
+Implementation slice completed 2026-05-14, P1-C workspace trust gating:
+
+- Added `runtime_workspace_trust_gate` / `WorkspaceTrustGateNode` across React
+  Flow node types, registry metadata, canvas token/label, runtime UI strings,
+  schema declarations, generated action schemas, Tauri templates, local
+  execution-lane output, runtime projection, and activation-readiness checks.
+- Added `workflowWorkspaceTrustGateReadiness` so risky `review`/`yolo`
+  `runtime_thread_mode` nodes require a matching gate and daemon-owned
+  `workspace_trust_warning` plus `workspace_trust_acknowledged` receipts before
+  run readiness can pass.
+- Wired React Flow run preflight to emit the daemon mode warning from the
+  workflow node, block the run until the operator acknowledges the daemon
+  warning in the run inspector, and then consume the refreshed daemon event
+  history on the next run.
+- Updated the live daemon/source-contract proof so workspace trust warning
+  projection now maps to `runtime_workspace_trust_gate` and verifies before/after
+  acknowledgement gate status without accepting canvas-local pass state.
+- Updated the master guide so the next P1-C work is approval/trust policy
+  composition rather than basic acknowledgement gating.
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-workspace-trust-gate.test.ts`
+- `npm run build --workspace=@ioi/agent-ide`
+- `cargo test runtime_projection --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `node --test --test-name-pattern "workspace trust" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-workspace-trust-gate`
+  - preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-workspace-trust-gate/2026-05-14T01-22-22-906Z/result.json`.
+- `node scripts/generate-runtime-action-contracts.mjs --check`
+- `cargo fmt --manifest-path apps/autopilot/src-tauri/Cargo.toml -- --check`
+- `git diff --check`
 
 ### Slice 177. 2026-05-14 - React Flow mode/trust authoring and workspace trust acknowledgement controls
 

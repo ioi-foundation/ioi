@@ -43,6 +43,8 @@ import {
   workflowSchedulerLaneReadiness,
   workflowSchedulerLaneReadinessIssues,
 } from "./workflow-scheduler-lane-readiness";
+import type { WorkflowRuntimeThreadEventLike } from "./workflow-runtime-event-projection";
+import { workflowWorkspaceTrustGateIssues } from "./workflow-workspace-trust-gate";
 
 export function defaultTestsForWorkflow(workflow: WorkflowProject): WorkflowTestCase[] {
   if (workflow.nodes.length === 0) return [];
@@ -1312,6 +1314,7 @@ export function evaluateWorkflowActivationReadiness(
   baseResult: WorkflowValidationResult = validateWorkflowProject(workflow, tests),
   proposals: WorkflowProposal[] = [],
   fixtures: WorkflowNodeFixture[] | null = [],
+  runtimeThreadEvents: readonly WorkflowRuntimeThreadEventLike[] | null = null,
 ): WorkflowValidationResult {
   const next: WorkflowValidationResult = {
     ...baseResult,
@@ -1532,6 +1535,13 @@ export function evaluateWorkflowActivationReadiness(
         else addAdvisoryWarning(issue);
       });
   }
+  const workspaceTrustGateIssues =
+    runtimeThreadEvents === null
+      ? workflowWorkspaceTrustGateIssues(workflow, []).filter(
+          (issue) => issue.code === "missing_workspace_trust_gate",
+        )
+      : workflowWorkspaceTrustGateIssues(workflow, runtimeThreadEvents);
+  workspaceTrustGateIssues.forEach(addReadinessIssue);
   if (
     workflow.metadata.workflowKind === "scheduled_workflow" &&
     !workflow.nodes.some((node) => node.type === "trigger" && node.config?.logic?.triggerKind === "scheduled")

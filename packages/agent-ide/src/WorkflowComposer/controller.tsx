@@ -123,6 +123,7 @@ import {
   createRuntimeContextCompactControlRequest,
   createRuntimeDiagnosticsRepairControlRequest,
   createRuntimeOperatorInterruptControlRequest,
+  createRuntimeThreadModeControlRequestFromWorkflowNode,
   createRuntimeWorkspaceTrustAcknowledgementControlRequest,
 } from "../runtime/workflow-runtime-control-nodes";
 import { createRuntimeSubagentControlRequest } from "../runtime/workflow-runtime-subagent-control-nodes";
@@ -137,6 +138,7 @@ import {
   createLiveWorkflowRunTelemetryHydration,
   mergeWorkflowRuntimeThreadEvents,
 } from "../runtime/workflow-runtime-live-telemetry";
+import { workflowWorkspaceTrustGateReadiness } from "../runtime/workflow-workspace-trust-gate";
 import {
   WORKFLOW_NODE_DEFINITIONS,
   type WorkflowNodeCreatorDefinition,
@@ -11166,6 +11168,7 @@ export function useWorkflowComposerController({
         runtimeReadinessAvailable
           ? null
           : Object.values(nodeFixturesById).flat(),
+        runtimeThreadEvents,
       );
     } catch (error) {
       result = createWorkflowActionFailure(
@@ -11928,9 +11931,140 @@ export function useWorkflowComposerController({
       let liveTelemetryHydration:
         | { threadId: string; stop: () => void }
         | null = null;
-      try {
+      let trustEvents = runtimeThreadEvents;
+      let trustGateReadiness = workflowWorkspaceTrustGateReadiness(
+        currentProjectFile,
+        trustEvents,
+      );
+      const readinessFromTrustEvents = (
+        events: readonly WorkflowRuntimeThreadEventLike[],
+      ) =>
+        evaluateWorkflowActivationReadiness(
+          currentProjectFile,
+          tests,
+          validation,
+          proposals,
+          runtime.validateWorkflowExecutionReadiness
+            ? null
+            : Object.values(nodeFixturesById).flat(),
+          events,
+        );
+      const trustWarningPreflightRequired =
+        trustGateReadiness.status === "blocked" &&
+        trustGateReadiness.issues.some(
+          (issue) => issue.code === "workspace_trust_warning_not_emitted",
+        );
+      if (
+        trustWarningPreflightRequired &&
+        runtime.executeWorkflowRuntimeControlRequest
+      ) {
         try {
           liveTelemetryHydration = await prepareLiveRuntimeTelemetryHydration();
+          if (liveTelemetryHydration) {
+            const modeNodeIds = new Set(
+              trustGateReadiness.requirements
+                .filter(
+                  (requirement) =>
+                    requirement.blockerCode ===
+                    "workspace_trust_warning_not_emitted",
+                )
+                .map((requirement) => requirement.modeNodeId),
+            );
+            for (const modeNodeId of modeNodeIds) {
+              const modeNode = currentProjectFile.nodes.find(
+                (node) => node.id === modeNodeId,
+              );
+              if (!modeNode) continue;
+              const request = createRuntimeThreadModeControlRequestFromWorkflowNode(
+                modeNode,
+                { threadId: liveTelemetryHydration.threadId },
+                { workflowGraphId: currentProjectFile.metadata.id },
+              );
+              await runtime.executeWorkflowRuntimeControlRequest(request);
+            }
+            const loadedEvents = await loadRuntimeThreadEvents(
+              liveTelemetryHydration.threadId,
+            );
+            trustEvents = mergeWorkflowRuntimeThreadEvents(
+              trustEvents,
+              loadedEvents,
+            );
+            setRuntimeThreadEvents(trustEvents);
+            trustGateReadiness = workflowWorkspaceTrustGateReadiness(
+              currentProjectFile,
+              trustEvents,
+            );
+          }
+        } catch (error) {
+          setStatusMessage(
+            `Workspace trust preflight blocked: ${errorMessage(error)}`,
+          );
+        }
+      }
+      if (trustGateReadiness.status === "blocked") {
+        liveTelemetryHydration?.stop();
+        const liveTelemetryRunId = liveTelemetryRunIdRef.current;
+        liveTelemetryRunIdRef.current = null;
+        if (liveTelemetryRunId) {
+          setLastRunResult((current) =>
+            current?.summary.id === liveTelemetryRunId ? null : current,
+          );
+        }
+        const readiness = readinessFromTrustEvents(trustEvents);
+        setReadinessResult(readiness);
+        const blockedSummary = createSubstrateProjectionRunSummary(
+          currentProjectFile,
+          readiness,
+        );
+        setSelectedRunId(blockedSummary.id);
+        setRuns((current) => [
+          blockedSummary,
+          ...current.filter(
+            (run) =>
+              run.id !== blockedSummary.id && run.id !== liveTelemetryRunId,
+          ),
+        ]);
+        setRightPanel("runs");
+        setBottomPanel("run_output");
+        setStatusMessage(
+          trustGateReadiness.issues[0]?.message ??
+            "Run blocked by workspace trust acknowledgement gate.",
+        );
+        return;
+      }
+      const acknowledgedTrustThreadIds = Array.from(
+        new Set(
+          trustGateReadiness.requirements
+            .filter((requirement) => requirement.status === "passed")
+            .map((requirement) => requirement.threadId)
+            .filter((threadId): threadId is string => Boolean(threadId)),
+        ),
+      );
+      const acknowledgedTrustThreadId =
+        acknowledgedTrustThreadIds.length === 1
+          ? acknowledgedTrustThreadIds[0]
+          : null;
+      try {
+        try {
+          if (!liveTelemetryHydration) {
+            if (
+              acknowledgedTrustThreadId &&
+              runtime.loadWorkflowRuntimeThreadEvents
+            ) {
+              liveTelemetryHydration = {
+                threadId: acknowledgedTrustThreadId,
+                stop: startRuntimeThreadEventHydration(
+                  acknowledgedTrustThreadId,
+                ),
+              };
+              setStatusMessage(
+                "Run reusing acknowledged workspace trust thread",
+              );
+            } else {
+              liveTelemetryHydration =
+                await prepareLiveRuntimeTelemetryHydration();
+            }
+          }
         } catch (error) {
           setStatusMessage(
             `Run starting without live telemetry hydration: ${errorMessage(error)}`,
