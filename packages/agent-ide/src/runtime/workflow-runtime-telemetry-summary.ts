@@ -42,6 +42,7 @@ export interface WorkflowRuntimeTelemetrySummary {
   costRowCount: number;
   contextRowCount: number;
   subagentRowCount: number;
+  codingToolBudgetRowCount: number;
   totalTokens: number | null;
   inputTokens: number | null;
   outputTokens: number | null;
@@ -124,6 +125,9 @@ export function workflowRuntimeTelemetrySummaryFromProjection({
       row.rowKind === "context_budget" || row.rowKind === "compaction_policy",
   );
   const subagentRows = tuiRows.filter((row) => row.rowKind === "subagent");
+  const codingToolBudgetRows = tuiRows.filter(
+    (row) => row.rowKind === "coding_tool_budget",
+  );
   const sourceKinds = sourceKindsForTelemetry({
     runtimeUsageEvents,
     runtimeContextPressureEvents,
@@ -132,6 +136,7 @@ export function workflowRuntimeTelemetrySummaryFromProjection({
     costRows,
     contextRows,
     subagentRows,
+    codingToolBudgetRows,
   });
   const snapshots = [
     ...runtimeUsageEvents.map(usageSnapshotFromEvent),
@@ -143,6 +148,7 @@ export function workflowRuntimeTelemetrySummaryFromProjection({
     ...costRows.map(usageSnapshotFromTuiRow),
     ...contextRows.map(usageSnapshotFromTuiRow),
     ...subagentRows.map(usageSnapshotFromSubagentRow),
+    ...codingToolBudgetRows.map(usageSnapshotFromCodingToolBudgetRow),
   ].filter(snapshotHasTelemetry);
   const combinedSnapshot = combineUsageSnapshots(snapshots);
   const latestEvent = sortedEvents[sortedEvents.length - 1] ?? null;
@@ -152,6 +158,7 @@ export function workflowRuntimeTelemetrySummaryFromProjection({
     status: telemetrySummaryStatus({
       snapshot: combinedSnapshot,
       contextRows,
+      codingToolBudgetRows,
       alertEvents: runtimeContextPressureAlertEvents,
     }),
     sourceKinds,
@@ -203,6 +210,9 @@ export function workflowRuntimeTelemetrySummaryFromProjection({
       tuiControlStateProjection?.contextRowCount ?? contextRows.length,
     subagentRowCount:
       tuiControlStateProjection?.subagentRowCount ?? subagentRows.length,
+    codingToolBudgetRowCount:
+      tuiControlStateProjection?.codingToolBudgetRowCount ??
+      codingToolBudgetRows.length,
     totalTokens: combinedSnapshot.totalTokens,
     inputTokens: combinedSnapshot.inputTokens,
     outputTokens: combinedSnapshot.outputTokens,
@@ -291,6 +301,7 @@ function sourceKindsForTelemetry({
   costRows,
   contextRows,
   subagentRows,
+  codingToolBudgetRows,
 }: {
   runtimeUsageEvents: readonly WorkflowRuntimeThreadEventLike[];
   runtimeContextPressureEvents: readonly WorkflowRuntimeThreadEventLike[];
@@ -299,6 +310,7 @@ function sourceKindsForTelemetry({
   costRows: readonly WorkflowRuntimeTuiControlStateRow[];
   contextRows: readonly WorkflowRuntimeTuiControlStateRow[];
   subagentRows: readonly WorkflowRuntimeTuiControlStateRow[];
+  codingToolBudgetRows: readonly WorkflowRuntimeTuiControlStateRow[];
 }): string[] {
   const kinds: string[] = [];
   if (runtimeUsageEvents.length > 0) kinds.push("runtime_usage_events");
@@ -312,6 +324,7 @@ function sourceKindsForTelemetry({
   if (costRows.length > 0) kinds.push("tui_cost_rows");
   if (contextRows.length > 0) kinds.push("tui_context_rows");
   if (subagentRows.length > 0) kinds.push("tui_subagent_rows");
+  if (codingToolBudgetRows.length > 0) kinds.push("tui_coding_tool_rows");
   return kinds;
 }
 
@@ -452,6 +465,31 @@ function usageSnapshotFromSubagentRow(
   };
 }
 
+function usageSnapshotFromCodingToolBudgetRow(
+  row: WorkflowRuntimeTuiControlStateRow,
+): UsageSnapshot {
+  return {
+    totalTokens:
+      row.codingToolBudgetUsageTotalTokens ?? row.usageTotalTokens ?? null,
+    inputTokens: null,
+    outputTokens: null,
+    costEstimateUsd:
+      row.codingToolBudgetUsageCostEstimateUsd ??
+      row.usageCostEstimateUsd ??
+      null,
+    contextPressure:
+      row.codingToolBudgetUsageContextPressure ??
+      row.usageContextPressure ??
+      null,
+    contextPressureStatus:
+      row.codingToolContextBudgetStatus ??
+      row.usageContextPressureStatus ??
+      null,
+    runCount: null,
+    subagentCount: null,
+  };
+}
+
 function combineUsageSnapshots(
   snapshots: readonly UsageSnapshot[],
 ): UsageSnapshot {
@@ -479,10 +517,12 @@ function combineUsageSnapshots(
 function telemetrySummaryStatus({
   snapshot,
   contextRows,
+  codingToolBudgetRows,
   alertEvents,
 }: {
   snapshot: UsageSnapshot;
   contextRows: readonly WorkflowRuntimeTuiControlStateRow[];
+  codingToolBudgetRows: readonly WorkflowRuntimeTuiControlStateRow[];
   alertEvents: readonly WorkflowRuntimeThreadEventLike[];
 }): WorkflowRuntimeTelemetrySummaryStatus {
   if (alertEvents.some((event) => event.status === "blocked")) return "blocked";
@@ -496,8 +536,19 @@ function telemetrySummaryStatus({
   ) {
     return "blocked";
   }
+  if (
+    codingToolBudgetRows.some(
+      (row) =>
+        row.status === "blocked" ||
+        row.codingToolBudgetStatus === "exceeded" ||
+        row.codingToolContextBudgetStatus === "blocked",
+    )
+  ) {
+    return "blocked";
+  }
   const contextStatus =
     snapshot.contextPressureStatus ?? statusFromContextPressure(snapshot.contextPressure);
+  if (contextStatus === "blocked") return "blocked";
   if (contextStatus === "high") return "high";
   if (contextStatus === "elevated" || contextStatus === "warning") return "elevated";
   if (

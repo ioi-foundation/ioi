@@ -353,6 +353,9 @@ export function WorkflowRunsPanel({
               data-cost-row-count={runtimeTelemetrySummary.costRowCount}
               data-context-row-count={runtimeTelemetrySummary.contextRowCount}
               data-subagent-row-count={runtimeTelemetrySummary.subagentRowCount}
+              data-coding-tool-budget-row-count={
+                runtimeTelemetrySummary.codingToolBudgetRowCount
+              }
               data-total-tokens={runtimeTelemetrySummary.totalTokens ?? ""}
               data-input-tokens={runtimeTelemetrySummary.inputTokens ?? ""}
               data-output-tokens={runtimeTelemetrySummary.outputTokens ?? ""}

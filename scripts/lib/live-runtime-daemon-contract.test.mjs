@@ -2419,6 +2419,7 @@ test("React Flow coding-tool budget gates consume runtime telemetry summary befo
     createRuntimeCodingToolControlRequestFromWorkflowNode,
     projectRuntimeThreadEventsToWorkflowProjection,
     projectRuntimeTuiControlStateToWorkflowProjection,
+    workflowRuntimeTelemetrySummaryFromProjection,
   } = await importAgentIde();
   const cli = cliBinary();
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-coding-budget-workspace-"));
@@ -2634,6 +2635,81 @@ test("React Flow coding-tool budget gates consume runtime telemetry summary befo
     assert.equal(budgetRow.codingToolContextBudgetStatus, "blocked");
     assert.equal(budgetRow.codingToolBudgetViolationCount, 1);
     assert.equal(budgetRow.codingToolMutationBlocked, true);
+
+    const tuiTelemetrySummary = workflowRuntimeTelemetrySummaryFromProjection({
+      tuiControlStateProjection: tuiProjection,
+    });
+    assert.equal(tuiTelemetrySummary.status, "blocked");
+    assert.ok(tuiTelemetrySummary.sourceKinds.includes("tui_coding_tool_rows"));
+    assert.equal(tuiTelemetrySummary.codingToolBudgetRowCount, 1);
+    assert.equal(tuiTelemetrySummary.totalTokens, 720);
+    assert.equal(tuiTelemetrySummary.contextPressure, 0.72);
+    assert.equal(tuiTelemetrySummary.contextPressureStatus, "blocked");
+    assert.ok(tuiTelemetrySummary.eventIds.includes(budgetEvent.event_id));
+    const followupControl = createRuntimeCodingToolControlRequestFromWorkflowNode(
+      {
+        id: "react-flow-coding-tool-tui-summary-budget",
+        type: "plugin_tool",
+        config: {
+          logic: {
+            workflowNodeId: "workflow.coding.file.apply_patch.tui-summary-budget",
+            toolBinding: {
+              toolRef: "file.apply_patch",
+              bindingKind: "coding_tool_pack",
+              mockBinding: false,
+              credentialReady: true,
+              capabilityScope: ["file.apply_patch"],
+              sideEffectClass: "write",
+              requiresApproval: false,
+              arguments: {
+                path: "README.md",
+                oldText: "Budget gate keeps this line.",
+                newText: "TUI summary budget should not allow mutation.",
+              },
+              toolPack: {
+                pack: "coding",
+                writeEnabled: true,
+                dryRun: false,
+                approvalMode: "suggest",
+                trustProfile: "local_private",
+                nodeApprovalOverride: "inherit",
+                requiresApproval: false,
+                budgetMode: "block",
+                budgetUsageField: "runtimeTelemetrySummary",
+                maxTotalTokens: 100,
+                maxCostUsd: 1,
+                maxContextPressure: 1,
+              },
+            },
+          },
+        },
+      },
+      { threadId: thread.thread_id, runtimeTelemetrySummary: tuiTelemetrySummary },
+      { workflowGraphId, actor: "workflow-author" },
+    );
+    assert.equal(followupControl.body.budgetUsageTelemetry.total_tokens, 720);
+    assert.ok(
+      followupControl.body.budgetUsageTelemetry.source_refs.includes(
+        budgetEvent.event_id,
+      ),
+    );
+    const followupBlocked = await fetchJsonStatus(
+      `${daemon.endpoint}${followupControl.endpoint}`,
+      {
+        method: followupControl.method,
+        body: JSON.stringify({
+          ...followupControl.body,
+          tool_call_id: "coding_tool_tui_summary_budget_blocked",
+          toolCallId: "coding_tool_tui_summary_budget_blocked",
+        }),
+      },
+    );
+    assert.equal(followupBlocked.status, 403);
+    assert.equal(
+      followupBlocked.body.error.details.budget_usage_telemetry.total_tokens,
+      720,
+    );
+    assert.equal(fs.readFileSync(targetPath, "utf8"), "Budget gate keeps this line.\n");
   } finally {
     await daemon.close();
   }
@@ -12229,6 +12305,9 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeCodingToolControlNodes, /runtimeTelemetrySummary/);
   assert.match(workflowRuntimeCodingToolControlNodes, /budgetUsageTelemetry/);
   assert.match(workflowRuntimeCodingToolControlNodes, /workflowRuntimeTelemetrySummaryToUsageTelemetry/);
+  assert.match(workflowRuntimeTelemetrySummary, /tui_coding_tool_rows/);
+  assert.match(workflowRuntimeTelemetrySummary, /codingToolBudgetRowCount/);
+  assert.match(workflowRuntimeTelemetrySummary, /usageSnapshotFromCodingToolBudgetRow/);
   assert.match(workflowNodeBindingEditorSections, /workflow-coding-tool-pack-budget-mode/);
   assert.match(workflowNodeBindingEditorSections, /workflow-coding-tool-pack-budget-usage-field/);
   assert.match(runtimeCodingTools, /toolPack\.coding\.budgetUsageField/);
@@ -12297,6 +12376,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(runtimeUsageTelemetry, /costEstimateUsd/);
   assert.match(workflowRuntimeEventProjection, /usage_status/);
   assert.match(workflowRuntimeEventProjection, /usageTotalTokens/);
+  assert.match(workflowRuntimeEventProjection, /coding_tool_budget/);
   assert.match(workflowRuntimeEventProjection, /usage_delta/);
   assert.match(workflowRuntimeEventProjection, /context_pressure_delta/);
   assert.match(graphTypes, /mcp_import/);

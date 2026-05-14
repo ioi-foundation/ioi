@@ -236,7 +236,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(telemetrySummary, /tui_usage_rows/);
   assert.match(telemetrySummary, /tui_context_rows/);
   assert.match(telemetrySummary, /tui_subagent_rows/);
+  assert.match(telemetrySummary, /tui_coding_tool_rows/);
+  assert.match(telemetrySummary, /codingToolBudgetRowCount/);
   assert.match(telemetrySummaryTest, /merges usage, context, TUI, and subagent rows/);
+  assert.match(telemetrySummaryTest, /TUI coding-tool budget rows/);
   assert.match(telemetrySummaryTest, /converts to daemon budget usage telemetry/);
   assert.match(contextBudgetControlNodes, /runtimeTelemetrySummary/);
   assert.match(contextBudgetControlNodesTest, /runtime telemetry summary input/);
