@@ -274,6 +274,7 @@ async function importAgentIde() {
     "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-diagnostics-repair-actions.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-subflow.ts",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
   ].map((file) => path.join(root, file));
   const bundleMtime = fs.existsSync(bundle) ? fs.statSync(bundle).mtimeMs : 0;
@@ -327,6 +328,37 @@ async function fetchSseEvents(url, options = {}) {
         .join("\n");
       return JSON.parse(data);
     });
+}
+
+function workflowProjectionEventsFromDaemonEvents(daemonEvents) {
+  return daemonEvents.map((event) => ({
+    id: event.event_id,
+    seq: event.seq,
+    type: event.event_kind === "approval.required"
+      ? "approval_required"
+      : event.event_kind === "approval.approved" || event.event_kind === "approval.rejected"
+        ? "approval_decision"
+        : event.event_kind === "workflow.run.retry_completed"
+          ? "tool_completed"
+          : event.event_kind === "policy.blocked"
+            ? "policy_blocked"
+            : event.event_kind,
+    eventKind: event.event_kind,
+    sourceEventKind: event.source_event_kind,
+    status: event.status,
+    componentKind: event.component_kind,
+    workflowNodeId: event.workflow_node_id,
+    workflowGraphId: event.workflow_graph_id,
+    threadId: event.thread_id,
+    turnId: event.turn_id,
+    approvalId: event.approval_id,
+    payloadSchemaVersion: event.payload_schema_version,
+    payload: event.payload_summary ?? event.payload ?? {},
+    receiptRefs: event.receipt_refs ?? [],
+    policyDecisionRefs: event.policy_decision_refs ?? [],
+    artifactRefs: event.artifact_refs ?? [],
+    rollbackRefs: event.rollback_refs ?? [],
+  }));
 }
 
 function canonicalRuntimeEventCursor(event) {
@@ -11987,6 +12019,204 @@ test("React Flow and line-mode TUI steer controls share the operator-control eve
     restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", previousEnv.command);
     restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS", previousEnv.args);
     restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", previousEnv.id);
+  }
+});
+
+test("React Flow generated coding-tool budget recovery subflow executes daemon recovery route", async () => {
+  const {
+    createRuntimeCodingToolBudgetRecoveryControlRequestFromWorkflowNode,
+    createWorkflowRuntimeCodingToolBudgetRecoverySubflow,
+    projectRuntimeThreadEventsToWorkflowProjection,
+  } = await importAgentIde();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-react-flow-budget-subflow-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-react-flow-budget-subflow-state-"));
+  const workflowGraphId = "workflow.react-flow.coding-budget-recovery-subflow-proof";
+  const targetNodeId = "workflow.coding.file.apply_patch.subflow";
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        goal: "Recover a coding-tool budget block from a generated React Flow subflow.",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+      }),
+    });
+    const turn = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "Wait for a generated React Flow coding-tool budget recovery subflow proof.",
+      }),
+    });
+    daemon.store.appendRuntimeEvent({
+      event_stream_id: thread.event_stream_id,
+      thread_id: thread.thread_id,
+      turn_id: turn.turn_id,
+      item_id: `${turn.turn_id}:item:react-flow-budget-subflow-preflight-blocked`,
+      idempotency_key: `${turn.turn_id}:react-flow-budget-subflow-preflight-blocked`,
+      source: "daemon_bridge",
+      source_event_kind: "WorkflowRunCodingToolBudgetPreflightBlocked",
+      event_kind: "policy.blocked",
+      status: "blocked",
+      actor: "runtime",
+      workspace_root: cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: targetNodeId,
+      component_kind: "coding_tool",
+      payload_schema_version: "ioi.workflow.coding-tool-budget-preflight.v1",
+      payload: {
+        eventKind: "WorkflowRunCodingToolBudgetPreflightBlocked",
+        reason: "coding_tool_budget_preflight_blocked",
+        runId: turn.request_id,
+        threadId: thread.thread_id,
+        targetNodeIds: [targetNodeId],
+        recoveryPolicy: {
+          schemaVersion: "ioi.workflow.coding-tool-budget-recovery-policy.v1",
+          source: "react_flow_generated_subflow_live",
+          approvalScope: "target_nodes",
+          operatorRole: "budget_operator",
+          retryLimit: 1,
+          ttlMs: 300000,
+          requiresApproval: true,
+          allowOverride: true,
+          targetNodeIds: [targetNodeId],
+          sourceNodeIds: [targetNodeId],
+        },
+      },
+      receipt_refs: ["receipt_budget_preflight_generated_subflow_live"],
+      policy_decision_refs: ["policy_budget_preflight_generated_subflow_live"],
+      artifact_refs: [],
+      rollback_refs: [],
+    });
+
+    const blockedEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const blockedProjection = projectRuntimeThreadEventsToWorkflowProjection(
+      workflowProjectionEventsFromDaemonEvents(blockedEvents),
+    );
+    const blockedNode = blockedProjection.nodes.find(
+      (node) =>
+        node.workflowNodeId === targetNodeId &&
+        node.codingToolBudgetRecoveryActions.length > 0,
+    );
+    assert.ok(blockedNode);
+    const seed = blockedNode.codingToolBudgetRecoveryActions.find(
+      (action) => action.action === "request_approval",
+    );
+    assert.ok(seed);
+    const subflow = createWorkflowRuntimeCodingToolBudgetRecoverySubflow(seed, {
+      idPrefix: "react-flow-generated-budget-recovery",
+      origin: { x: 480, y: 160 },
+    });
+    const subflowNodeByAction = new Map(
+      subflow.nodes.map((node) => [
+        node.config?.logic.runtimeCodingToolBudgetRecoveryAction,
+        node,
+      ]),
+    );
+    const requestNode = subflowNodeByAction.get("request_approval");
+    const approveNode = subflowNodeByAction.get("approve_override");
+    const retryNode = subflowNodeByAction.get("retry_approved");
+    assert.ok(requestNode);
+    assert.ok(approveNode);
+    assert.ok(retryNode);
+
+    const requestApproval =
+      createRuntimeCodingToolBudgetRecoveryControlRequestFromWorkflowNode(
+        requestNode,
+        {},
+        { workflowGraphId },
+      );
+    assert.equal(requestApproval.body.workflowNodeId, subflow.requestNodeId);
+    const approvalResult = await fetchJson(`${daemon.endpoint}${requestApproval.endpoint}`, {
+      method: "POST",
+      body: JSON.stringify(requestApproval.body),
+    });
+    assert.equal(approvalResult.status, "waiting_for_approval");
+
+    const approve = createRuntimeCodingToolBudgetRecoveryControlRequestFromWorkflowNode(
+      approveNode,
+      {},
+      { workflowGraphId },
+    );
+    assert.equal(approve.body.approvalId, requestApproval.body.approvalId);
+    assert.equal(approve.body.workflowNodeId, subflow.approveNodeId);
+    const approveResult = await fetchJson(`${daemon.endpoint}${approve.endpoint}`, {
+      method: "POST",
+      body: JSON.stringify(approve.body),
+    });
+    assert.equal(approveResult.status, "approved");
+
+    const retry = createRuntimeCodingToolBudgetRecoveryControlRequestFromWorkflowNode(
+      retryNode,
+      {},
+      { workflowGraphId },
+    );
+    assert.equal(retry.body.approvalId, requestApproval.body.approvalId);
+    assert.equal(retry.body.workflowNodeId, subflow.retryNodeId);
+    const retryResult = await fetchJson(`${daemon.endpoint}${retry.endpoint}`, {
+      method: "POST",
+      body: JSON.stringify(retry.body),
+    });
+    assert.equal(retryResult.status, "completed");
+    assert.equal(retryResult.recoveryPolicy.operatorRole, "budget_operator");
+
+    const daemonEvents = await fetchSseEvents(
+      `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+    );
+    const approvalEvent = daemonEvents.find(
+      (event) =>
+        event.event_kind === "approval.required" &&
+        event.approval_id === requestApproval.body.approvalId,
+    );
+    const decisionEvent = daemonEvents.find(
+      (event) =>
+        event.event_kind === "approval.approved" &&
+        event.approval_id === requestApproval.body.approvalId,
+    );
+    const retryEvent = daemonEvents.find(
+      (event) =>
+        event.event_kind === "workflow.run.retry_completed" &&
+        event.approval_id === requestApproval.body.approvalId,
+    );
+    assert.ok(approvalEvent);
+    assert.ok(decisionEvent);
+    assert.ok(retryEvent);
+    assert.equal(approvalEvent.source, "react_flow");
+    assert.equal(approvalEvent.workflow_node_id, subflow.requestNodeId);
+    assert.equal(decisionEvent.workflow_node_id, subflow.approveNodeId);
+    assert.equal(retryEvent.workflow_node_id, subflow.retryNodeId);
+    assert.equal(retryEvent.workflow_graph_id, workflowGraphId);
+    assert.equal(retryEvent.payload_summary.sourceEventId, seed.sourceEventId);
+    assert.equal(retryEvent.payload_summary.recoveryPolicy.operatorRole, "budget_operator");
+
+    const projection = projectRuntimeThreadEventsToWorkflowProjection(
+      workflowProjectionEventsFromDaemonEvents(daemonEvents),
+    );
+    const projectedNodeIds = new Set(projection.nodes.map((node) => node.workflowNodeId));
+    assert.ok(projectedNodeIds.has(subflow.requestNodeId));
+    assert.ok(projectedNodeIds.has(subflow.approveNodeId));
+    assert.ok(projectedNodeIds.has(subflow.retryNodeId));
+    const retryProjectionNode = projection.nodes.find(
+      (node) => node.workflowNodeId === subflow.retryNodeId,
+    );
+    assert.ok(retryProjectionNode);
+    const runInspectorEvidenceLink = {
+      schemaVersion: "ioi.workflow.run-inspector.evidence-link.v1",
+      kind: "coding_tool_budget_recovery_subflow_execution",
+      runId: turn.request_id,
+      threadId: thread.thread_id,
+      workflowGraphId,
+      workflowNodeId: subflow.retryNodeId,
+      eventId: retryEvent.event_id,
+      reopenCommand: retryProjectionNode.tuiDeepLink.reopenCommand,
+    };
+    assert.equal(runInspectorEvidenceLink.workflowNodeId, subflow.retryNodeId);
+    assert.match(runInspectorEvidenceLink.reopenCommand, new RegExp(thread.thread_id));
+    assert.match(runInspectorEvidenceLink.reopenCommand, /--since-seq/);
+  } finally {
+    if (daemon) await daemon.close();
   }
 });
 

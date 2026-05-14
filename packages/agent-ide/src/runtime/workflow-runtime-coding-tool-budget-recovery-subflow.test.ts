@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { createRuntimeCodingToolBudgetRecoveryControlRequestFromWorkflowNode } from "./workflow-runtime-coding-tool-budget-recovery-control-nodes";
 import { createWorkflowRuntimeCodingToolBudgetRecoverySubflow } from "./workflow-runtime-coding-tool-budget-recovery-subflow";
 import type { WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor } from "./workflow-runtime-event-projection";
 
-test("creates a prewired coding-tool budget recovery subflow from blocked evidence", () => {
-  const seed: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor = {
+function codingToolBudgetRecoverySeed(): WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor {
+  return {
     id: "coding-tool-budget-recovery:thread:event-blocked:request_approval",
     schemaVersion: "ioi.workflow.coding-tool-budget-recovery.v1",
     action: "request_approval",
@@ -38,7 +39,10 @@ test("creates a prewired coding-tool budget recovery subflow from blocked eviden
       allowOverride: true,
     },
   };
+}
 
+test("creates a prewired coding-tool budget recovery subflow from blocked evidence", () => {
+  const seed = codingToolBudgetRecoverySeed();
   const subflow = createWorkflowRuntimeCodingToolBudgetRecoverySubflow(seed, {
     idPrefix: "budget-recovery-proof",
     origin: { x: 100, y: 200 },
@@ -82,4 +86,55 @@ test("creates a prewired coding-tool budget recovery subflow from blocked eviden
       [subflow.approveNodeId, subflow.retryNodeId, "approved_retry"],
     ],
   );
+});
+
+test("generated coding-tool budget recovery subflow nodes compile into daemon requests", () => {
+  const subflow = createWorkflowRuntimeCodingToolBudgetRecoverySubflow(
+    codingToolBudgetRecoverySeed(),
+    {
+      idPrefix: "budget-recovery-executable-proof",
+      origin: { x: 100, y: 200 },
+    },
+  );
+  const requests = subflow.nodes.map((node) =>
+    createRuntimeCodingToolBudgetRecoveryControlRequestFromWorkflowNode(node, {}, {
+      workflowGraphId: subflow.workflowGraphId,
+    }),
+  );
+
+  assert.deepEqual(
+    requests.map((request) => request.action),
+    [
+      "request_approval",
+      "approve_override",
+      "reject_override",
+      "retry_approved",
+    ],
+  );
+  assert.deepEqual(
+    requests.map((request) => request.endpoint),
+    [
+      "/v1/runs/run-budget-blocked/coding-tool-budget-recovery",
+      "/v1/runs/run-budget-blocked/coding-tool-budget-recovery",
+      "/v1/runs/run-budget-blocked/coding-tool-budget-recovery",
+      "/v1/runs/run-budget-blocked/coding-tool-budget-recovery",
+    ],
+  );
+  assert.deepEqual(
+    requests.map((request) => request.body.workflowNodeId),
+    subflow.nodes.map((node) => node.id),
+  );
+  assert.deepEqual(
+    requests.map((request) => request.body.workflowGraphId),
+    [
+      "workflow.graph",
+      "workflow.graph",
+      "workflow.graph",
+      "workflow.graph",
+    ],
+  );
+  assert.equal(requests[0]?.body.approvalId, requests[1]?.body.approvalId);
+  assert.equal(requests[1]?.body.approvalId, requests[3]?.body.approvalId);
+  assert.equal(requests[3]?.body.recoveryPolicy.operatorRole, "budget_operator");
+  assert.deepEqual(requests[3]?.body.targetNodeIds, ["node.apply_patch"]);
 });
