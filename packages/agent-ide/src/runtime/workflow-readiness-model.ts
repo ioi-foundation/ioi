@@ -11,6 +11,7 @@ import type {
   WorkflowValidationResult,
 } from "../types/graph";
 import { workflowSchedulerLaneReadiness } from "./workflow-scheduler-lane-readiness";
+import type { WorkflowRunCodingToolBudgetEvidence } from "./workflow-run-history-model";
 
 export type WorkflowReadinessChecklistItem = {
   label: string;
@@ -20,6 +21,27 @@ export type WorkflowReadinessChecklistItem = {
 export type WorkflowReadinessAttentionIssue = {
   issue: WorkflowValidationIssue;
   status: "blocked" | "warning";
+};
+
+export type WorkflowCodingToolBudgetPreflight = {
+  sourceKind: "tui_coding_tool_rows";
+  status: "blocked" | "warning";
+  issue: WorkflowValidationIssue;
+  rowCount: number;
+  targetNodeIds: string[];
+  evidenceWorkflowNodeIds: string[];
+  eventIds: string[];
+  toolNames: string[];
+  toolCallIds: string[];
+  budgetStatuses: string[];
+  contextBudgetStatuses: string[];
+  totalTokens: number | null;
+  costEstimateUsd: number | null;
+  contextPressure: number | null;
+  contextPressureStatus: string | null;
+  mutationBlocked: boolean;
+  receiptRefs: string[];
+  policyDecisionRefs: string[];
 };
 
 export type WorkflowReadinessModelInput = {
@@ -41,6 +63,7 @@ export type WorkflowReadinessModelInput = {
     | WorkflowHarnessDefaultRuntimeDispatchProof
     | null;
   harnessAuthorityGateLiveReady: boolean;
+  runtimeCodingToolBudgetEvidence?: WorkflowRunCodingToolBudgetEvidence | null;
 };
 
 export type WorkflowReadinessModel = {
@@ -50,6 +73,7 @@ export type WorkflowReadinessModel = {
   policyRequiredNodeIds: string[];
   schedulerLaneReadiness: WorkflowSchedulerLaneReadiness[];
   schedulerLaneReadyCount: number;
+  codingToolBudgetPreflight: WorkflowCodingToolBudgetPreflight | null;
   readinessItems: WorkflowReadinessChecklistItem[];
   passedReadinessChecks: number;
   attentionIssues: WorkflowReadinessAttentionIssue[];
@@ -84,9 +108,10 @@ export function workflowReadinessModel({
   harnessActivationReady,
   harnessDefaultRuntimeDispatchProof,
   harnessAuthorityGateLiveReady,
+  runtimeCodingToolBudgetEvidence = null,
 }: WorkflowReadinessModelInput): WorkflowReadinessModel {
   const result = readinessResult ?? validationResult;
-  const blockers = result
+  const baseBlockers = result
     ? [
         ...result.errors,
         ...(result.executionReadinessIssues ?? []),
@@ -95,7 +120,23 @@ export function workflowReadinessModel({
         ...(result.verificationIssues ?? []),
       ]
     : [];
-  const readinessWarnings = result?.warnings ?? [];
+  const baseReadinessWarnings = result?.warnings ?? [];
+  const codingToolBudgetPreflight = workflowCodingToolBudgetPreflight({
+    workflow,
+    evidence: runtimeCodingToolBudgetEvidence,
+  });
+  const blockers = [
+    ...baseBlockers,
+    ...(codingToolBudgetPreflight?.status === "blocked"
+      ? [codingToolBudgetPreflight.issue]
+      : []),
+  ];
+  const readinessWarnings = [
+    ...baseReadinessWarnings,
+    ...(codingToolBudgetPreflight?.status === "warning"
+      ? [codingToolBudgetPreflight.issue]
+      : []),
+  ];
   const policyRequiredNodeIds = result?.policyRequiredNodes ?? [];
   const schedulerLaneReadiness =
     result?.schedulerLaneReadiness ?? workflowSchedulerLaneReadiness();
@@ -196,6 +237,10 @@ export function workflowReadinessModel({
         !harnessDefaultRuntimeDispatchProof ||
         harnessAuthorityGateLiveReady,
     },
+    {
+      label: "Coding budget preflight",
+      ready: codingToolBudgetPreflight === null,
+    },
     { label: "Readiness checked", ready: readinessResult !== null },
     {
       label: "No blockers",
@@ -219,8 +264,73 @@ export function workflowReadinessModel({
     policyRequiredNodeIds,
     schedulerLaneReadiness,
     schedulerLaneReadyCount,
+    codingToolBudgetPreflight,
     readinessItems,
     passedReadinessChecks,
     attentionIssues,
   };
+}
+
+function workflowCodingToolBudgetPreflight({
+  workflow,
+  evidence,
+}: {
+  workflow: WorkflowProject;
+  evidence: WorkflowRunCodingToolBudgetEvidence | null;
+}): WorkflowCodingToolBudgetPreflight | null {
+  if (!evidence || evidence.rowCount <= 0) return null;
+  const targetNodeIds = workflow.nodes
+    .filter(workflowNodeIsMutatingCodingTool)
+    .map((node) => node.id);
+  if (targetNodeIds.length === 0) return null;
+  const blocked =
+    evidence.mutationBlocked ||
+    evidence.status === "blocked" ||
+    evidence.budgetStatuses.includes("exceeded") ||
+    evidence.contextBudgetStatuses.includes("blocked");
+  const status = blocked ? "blocked" : "warning";
+  const eventId = evidence.eventIds[0] ?? "event pending";
+  const toolCallId = evidence.toolCallIds[0] ?? "tool call pending";
+  const sourceNodeId =
+    evidence.workflowNodeIds[0] ?? "workflow node pending";
+  const policyRef = evidence.policyDecisionRefs[0] ?? "policy pending";
+  const toolLabel = evidence.toolNames[0] ?? "coding tool";
+  const evidenceVerb = blocked ? "blocked" : "reported";
+  return {
+    sourceKind: "tui_coding_tool_rows",
+    status,
+    issue: {
+      nodeId: targetNodeIds[0],
+      code: "prior_coding_tool_budget_evidence",
+      message:
+        `Prior ${toolLabel} budget evidence ${eventId} from ${sourceNodeId} ` +
+        `${evidenceVerb} ${toolCallId}; review ${policyRef} before invoking another mutating coding tool.`,
+      repairLabel: "Review budget evidence",
+      configSection: "runtimeTelemetrySummary",
+      fieldPath: "tui_coding_tool_rows",
+    },
+    rowCount: evidence.rowCount,
+    targetNodeIds,
+    evidenceWorkflowNodeIds: evidence.workflowNodeIds,
+    eventIds: evidence.eventIds,
+    toolNames: evidence.toolNames,
+    toolCallIds: evidence.toolCallIds,
+    budgetStatuses: evidence.budgetStatuses,
+    contextBudgetStatuses: evidence.contextBudgetStatuses,
+    totalTokens: evidence.totalTokens,
+    costEstimateUsd: evidence.costEstimateUsd,
+    contextPressure: evidence.contextPressure,
+    contextPressureStatus: evidence.contextPressureStatus,
+    mutationBlocked: evidence.mutationBlocked,
+    receiptRefs: evidence.receiptRefs,
+    policyDecisionRefs: evidence.policyDecisionRefs,
+  };
+}
+
+function workflowNodeIsMutatingCodingTool(node: Node): boolean {
+  if (node.type !== "plugin_tool") return false;
+  const binding = node.config?.logic?.toolBinding;
+  if (binding?.bindingKind !== "coding_tool_pack") return false;
+  const sideEffectClass = String(binding.sideEffectClass ?? "none");
+  return !["none", "read"].includes(sideEffectClass);
 }

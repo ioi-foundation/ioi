@@ -44,6 +44,7 @@ export function WorkflowReadinessPanel({
   harnessActivationReady,
   harnessDefaultRuntimeDispatchProof,
   harnessAuthorityGateLiveReady,
+  runtimeCodingToolBudgetEvidence,
   onResolveIssue,
   onInspectNode,
   onConfigureNode,
@@ -57,6 +58,7 @@ export function WorkflowReadinessPanel({
     policyRequiredNodeIds,
     schedulerLaneReadiness,
     schedulerLaneReadyCount,
+    codingToolBudgetPreflight,
     readinessItems,
     passedReadinessChecks,
     attentionIssues,
@@ -77,6 +79,7 @@ export function WorkflowReadinessPanel({
     harnessActivationReady,
     harnessDefaultRuntimeDispatchProof,
     harnessAuthorityGateLiveReady,
+    runtimeCodingToolBudgetEvidence,
   });
 
   return (
@@ -146,6 +149,60 @@ export function WorkflowReadinessPanel({
           </article>
         ))}
       </div>
+      {codingToolBudgetPreflight ? (
+        <section
+          className="workflow-rail-section"
+          data-testid="workflow-readiness-coding-tool-budget-preflight"
+          data-preflight-status={codingToolBudgetPreflight.status}
+          data-source-kind={codingToolBudgetPreflight.sourceKind}
+          data-budget-row-count={codingToolBudgetPreflight.rowCount}
+          data-target-node-ids={codingToolBudgetPreflight.targetNodeIds.join("|")}
+          data-evidence-workflow-node-ids={
+            codingToolBudgetPreflight.evidenceWorkflowNodeIds.join("|")
+          }
+          data-event-ids={codingToolBudgetPreflight.eventIds.join("|")}
+          data-tool-names={codingToolBudgetPreflight.toolNames.join("|")}
+          data-tool-call-ids={codingToolBudgetPreflight.toolCallIds.join("|")}
+          data-budget-statuses={
+            codingToolBudgetPreflight.budgetStatuses.join("|")
+          }
+          data-context-budget-statuses={
+            codingToolBudgetPreflight.contextBudgetStatuses.join("|")
+          }
+          data-total-tokens={codingToolBudgetPreflight.totalTokens ?? ""}
+          data-cost-estimate-usd={
+            codingToolBudgetPreflight.costEstimateUsd ?? ""
+          }
+          data-context-pressure={
+            codingToolBudgetPreflight.contextPressure ?? ""
+          }
+          data-context-pressure-status={
+            codingToolBudgetPreflight.contextPressureStatus ?? ""
+          }
+          data-mutation-blocked={codingToolBudgetPreflight.mutationBlocked}
+          data-receipt-refs={codingToolBudgetPreflight.receiptRefs.join("|")}
+          data-policy-decision-refs={
+            codingToolBudgetPreflight.policyDecisionRefs.join("|")
+          }
+        >
+          <h4>Coding budget preflight</h4>
+          <button
+            type="button"
+            className={`workflow-search-result is-${codingToolBudgetPreflight.status}`}
+            data-testid="workflow-readiness-coding-tool-budget-preflight-action"
+            onClick={() => onResolveIssue(codingToolBudgetPreflight.issue)}
+          >
+            <strong>{workflowIssueTitle(codingToolBudgetPreflight.issue)}</strong>
+            <span>
+              {codingToolBudgetPreflight.toolNames.join(", ") ||
+                "coding tool"}{" "}
+              · {codingToolBudgetPreflight.rowCount} evidence rows
+            </span>
+            <small>{codingToolBudgetPreflight.issue.message}</small>
+            <small>{workflowIssueActionLabel(codingToolBudgetPreflight.issue)}</small>
+          </button>
+        </section>
+      ) : null}
       <section
         className="workflow-rail-section"
         data-testid="workflow-readiness-scheduler-lanes"

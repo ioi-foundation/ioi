@@ -230,3 +230,87 @@ test("workflow readiness model treats an incoming model-class edge as a model bi
 
   assert.equal(checklistReady(readiness.readinessItems, "Model binding"), true);
 });
+
+test("workflow readiness model blocks mutating coding tools on prior TUI budget evidence", () => {
+  const codingToolNode = {
+    id: "workflow.coding.file.apply_patch.followup",
+    type: "plugin_tool",
+    name: "Apply patch",
+    x: 0,
+    y: 0,
+    config: {
+      logic: {
+        toolBinding: {
+          bindingKind: "coding_tool_pack",
+          toolRef: "file.apply_patch",
+          sideEffectClass: "write",
+        },
+      },
+    },
+  } as Node;
+  const readiness = model({
+    workflow: workflow({
+      nodes: [...workflow().nodes, codingToolNode],
+    }),
+    runtimeCodingToolBudgetEvidence: {
+      sourceKind: "tui_coding_tool_rows",
+      label: "TUI coding budget evidence",
+      status: "blocked",
+      rowCount: 1,
+      eventIds: ["event-budget"],
+      workflowNodeIds: ["workflow.coding.file.apply_patch.prior"],
+      toolNames: ["file.apply_patch"],
+      toolCallIds: ["tool-call-budget"],
+      budgetStatuses: ["exceeded"],
+      contextBudgetStatuses: ["blocked"],
+      totalTokens: 720,
+      costEstimateUsd: 0.0042,
+      contextPressure: 0.72,
+      contextPressureStatus: "blocked",
+      mutationBlocked: true,
+      receiptRefs: ["receipt-budget"],
+      policyDecisionRefs: ["policy-budget"],
+    },
+  });
+
+  assert.equal(
+    checklistReady(readiness.readinessItems, "Coding budget preflight"),
+    false,
+  );
+  assert.equal(checklistReady(readiness.readinessItems, "No blockers"), false);
+  assert.equal(readiness.codingToolBudgetPreflight?.status, "blocked");
+  assert.equal(
+    readiness.codingToolBudgetPreflight?.issue.nodeId,
+    "workflow.coding.file.apply_patch.followup",
+  );
+  assert.equal(
+    readiness.codingToolBudgetPreflight?.issue.code,
+    "prior_coding_tool_budget_evidence",
+  );
+  assert.match(
+    readiness.codingToolBudgetPreflight?.issue.message ?? "",
+    /event-budget/,
+  );
+  assert.match(
+    readiness.codingToolBudgetPreflight?.issue.message ?? "",
+    /tool-call-budget/,
+  );
+  assert.match(
+    readiness.codingToolBudgetPreflight?.issue.message ?? "",
+    /policy-budget/,
+  );
+  assert.deepEqual(readiness.codingToolBudgetPreflight?.targetNodeIds, [
+    "workflow.coding.file.apply_patch.followup",
+  ]);
+  assert.deepEqual(readiness.codingToolBudgetPreflight?.policyDecisionRefs, [
+    "policy-budget",
+  ]);
+  assert.equal(
+    readiness.blockers[readiness.blockers.length - 1]?.code,
+    "prior_coding_tool_budget_evidence",
+  );
+  assert.equal(
+    readiness.attentionIssues[readiness.attentionIssues.length - 1]?.status,
+    "blocked",
+  );
+});

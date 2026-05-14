@@ -3356,6 +3356,9 @@ export function WorkflowRailPanel({
         harnessActivationReady={harnessActivationReady}
         harnessDefaultRuntimeDispatchProof={harnessDefaultRuntimeDispatchProof}
         harnessAuthorityGateLiveReady={harnessAuthorityGateLiveReady}
+        runtimeCodingToolBudgetEvidence={
+          runHistoryModel.runtimeCodingToolBudgetEvidence
+        }
         onResolveIssue={onResolveIssue}
         onInspectNode={onInspectNode}
         onConfigureNode={onConfigureNode}

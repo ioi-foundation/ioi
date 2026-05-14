@@ -60,6 +60,15 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const runHistoryModelTest = read(
     "packages/agent-ide/src/runtime/workflow-run-history-model.test.ts",
   );
+  const readinessModel = read(
+    "packages/agent-ide/src/runtime/workflow-readiness-model.ts",
+  );
+  const readinessModelTest = read(
+    "packages/agent-ide/src/runtime/workflow-readiness-model.test.ts",
+  );
+  const readinessPanel = read(
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
+  );
   const runsPanel = read(
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
   );
@@ -231,6 +240,14 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(runHistoryModel, /runtimeThreadEventsForRunResult/);
   assert.match(runHistoryModelTest, /projects canonical runtime thread events/);
   assert.match(runHistoryModelTest, /source-filtered TUI coding-tool budget evidence/);
+  assert.match(readinessModel, /WorkflowCodingToolBudgetPreflight/);
+  assert.match(readinessModel, /runtimeCodingToolBudgetEvidence/);
+  assert.match(readinessModel, /prior_coding_tool_budget_evidence/);
+  assert.match(readinessModel, /Coding budget preflight/);
+  assert.match(readinessModelTest, /prior TUI budget evidence/);
+  assert.match(readinessPanel, /workflow-readiness-coding-tool-budget-preflight/);
+  assert.match(readinessPanel, /data-tool-call-ids/);
+  assert.match(readinessPanel, /data-policy-decision-refs/);
   assert.match(telemetrySummary, /ioi\.workflow\.runtime-telemetry-summary\.v1/);
   assert.match(telemetrySummary, /workflowRuntimeTelemetrySummaryToUsageTelemetry/);
   assert.match(telemetrySummary, /estimated_cost_usd/);
@@ -249,6 +266,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(contextBudgetControlNodesTest, /runtime telemetry summary input/);
   assert.match(railPanel, /runtimeThreadEvents\?: WorkflowRuntimeThreadEventLike\[\]/);
   assert.match(railPanel, /runtimeThreadEvents,/);
+  assert.match(railPanel, /runtimeCodingToolBudgetEvidence/);
   assert.match(composerController, /loadWorkflowRuntimeThreadEvents/);
   assert.match(composerController, /setRuntimeThreadEvents/);
   assert.match(composerView, /runtimeThreadEvents=\{runtimeThreadEvents\}/);
