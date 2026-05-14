@@ -267,10 +267,11 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     zoomOut
   } = model;
 
-  const workflowRunDisabled = isReadOnlyWorkflow || workflowRunLaunchBlocked;
+  const workflowRunDisabled = isReadOnlyWorkflow;
   const workflowRunDisabledReason =
-    workflowRunLaunchDisabledReason ??
-    (isReadOnlyWorkflow ? "Workflow is read-only" : undefined);
+    isReadOnlyWorkflow
+      ? "Workflow is read-only"
+      : workflowRunLaunchDisabledReason ?? undefined;
   const workflowRunPreflightStatus =
     workflowRunCodingBudgetPreflight?.status ?? "none";
   const workflowRunPreflightTargetNodeIds =
@@ -281,6 +282,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
       className="workflow-composer"
       data-testid="workflow-composer"
       data-selected-node-id={selectedNodeId ?? ""}
+      data-workflow-run-launch-blocked={workflowRunLaunchBlocked}
     >
       <header
         className="workflow-composer-header"

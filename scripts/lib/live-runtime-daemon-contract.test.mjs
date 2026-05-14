@@ -12037,6 +12037,13 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     ),
     "utf8",
   );
+  const tauriProjectWorkflowRunPolicyLane = fs.readFileSync(
+    path.join(
+      root,
+      "apps/autopilot/src-tauri/src/project/workflow_run_policy_lane.rs",
+    ),
+    "utf8",
+  );
   const tauriProjectWorkflowSchedulerInterruptLane = fs.readFileSync(
     path.join(
       root,
@@ -12619,6 +12626,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowComposerController, /workflowRunCodingBudgetPreflight/);
   assert.match(workflowComposerController, /coding_tool_budget_preflight_blocked/);
   assert.match(workflowComposerController, /codingToolBudgetPreflight/);
+  assert.match(workflowComposerController, /coding-tool-budget-preflight/);
+  assert.match(workflowComposerController, /inspector-coding-tool-budget-preflight/);
   assert.match(workflowRuntimeDiagnosticsRepairActions, /WorkflowRuntimeDiagnosticsRepairActionDescriptor/);
   assert.match(workflowRuntimeDiagnosticsRepairActions, /repair_decisions/);
   assert.match(workflowRuntimeDiagnosticsRepairActions, /runtime\.run-inspector\.diagnostics-repair/);
@@ -12639,6 +12648,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowComposerController, /executeWorkflowRuntimeControlRequest/);
   assert.match(workflowComposerView, /runtimeThreadEvents=\{runtimeThreadEvents\}/);
   assert.match(workflowComposerView, /workflowRunLaunchBlocked/);
+  assert.match(workflowComposerView, /data-workflow-run-launch-blocked/);
   assert.match(workflowComposerView, /data-coding-tool-budget-preflight-status/);
   assert.match(workflowComposerView, /data-disabled-reason/);
   assert.match(workflowComposerView, /onExecuteRuntimeDiagnosticsRepair/);
@@ -12671,6 +12681,17 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(graphRuntimeTypes, /executeWorkflowRuntimeControlRequest\?/);
   assert.match(graphRuntimeTypes, /WorkflowRunRequestOptions/);
   assert.match(graphRuntimeTypes, /codingToolBudgetPreflight/);
+  assert.match(tauriProjectCommands, /workflow_coding_tool_budget_preflight_blocked_from_options/);
+  assert.match(tauriProjectCommands, /workflow_coding_tool_budget_preflight_blocked_result/);
+  assert.match(tauriProjectTypes, /runtime_thread_events/);
+  assert.match(tauriProjectTypes, /tui_control_state/);
+  assert.match(tauriProjectWorkflowRunPolicyLane, /ioi\.workflow\.coding-tool-budget-preflight\.v1/);
+  assert.match(tauriProjectWorkflowRunPolicyLane, /WorkflowRunCodingToolBudgetPreflightBlocked/);
+  assert.match(tauriProjectWorkflowRunPolicyLane, /coding_tool_budget_preflight_blocked/);
+  assert.match(tauriProjectWorkflowRunPolicyLane, /runtime_thread_events/);
+  assert.match(tauriProjectWorkflowRunPolicyLane, /tui_control_state/);
+  assert.match(tauriProjectWorkflowRunPolicyLane, /policy_blocked/);
+  assert.match(tauriProjectWorkflowRunPolicyLane, /workflow_finalize_run_result/);
   assert.match(graphRuntimeTypes, /WorkflowRuntimeControlRequest/);
   assert.match(graphRuntimeTypes, /RuntimeApprovalRequestControlRequest/);
   assert.match(graphRuntimeTypes, /RuntimeCodingToolControlRequest/);

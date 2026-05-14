@@ -475,6 +475,114 @@ fn workflow_run_validation_proposal_and_evidence_are_sidecars() {
 }
 
 #[test]
+fn workflow_project_run_records_coding_tool_budget_preflight_policy_block() {
+    let root = temp_root("coding-budget-preflight");
+    let bundle = create_workflow_from_template(CreateWorkflowFromTemplateRequest {
+        project_root: root.display().to_string(),
+        template_id: "basic-agent-answer".to_string(),
+        name: Some("Budget Blocked Agent".to_string()),
+    })
+    .expect("template should instantiate");
+
+    let result = run_workflow_project(
+        bundle.workflow_path.clone(),
+        Some(json!({
+            "source": "test",
+            "codingToolBudgetPreflight": {
+                "schemaVersion": "ioi.workflow.coding-tool-budget-preflight.v1",
+                "sourceKind": "tui_coding_tool_rows",
+                "status": "blocked",
+                "rowCount": 1,
+                "targetNodeIds": ["model-answer"],
+                "evidenceWorkflowNodeIds": ["workflow.coding.file.apply_patch.summary-budget"],
+                "eventIds": ["event-coding-budget-blocked"],
+                "toolNames": ["file.apply_patch"],
+                "toolCallIds": ["tool-call-budget"],
+                "budgetStatuses": ["exceeded"],
+                "contextBudgetStatuses": ["blocked"],
+                "totalTokens": 720,
+                "costEstimateUsd": 0.0042,
+                "contextPressure": 0.72,
+                "contextPressureStatus": "blocked",
+                "mutationBlocked": true,
+                "receiptRefs": ["receipt-budget"],
+                "policyDecisionRefs": ["policy-budget"],
+                "issueCode": "prior_coding_tool_budget_evidence",
+                "issueMessage": "Budget exceeded before launch."
+            }
+        })),
+    )
+    .expect("blocked preflight should record a run");
+
+    assert_eq!(result.summary.status, "blocked");
+    assert!(result.summary.summary.contains("coding-tool budget preflight"));
+    assert!(result.events.iter().any(|event| event.kind == "policy_blocked"));
+    assert!(result
+        .final_state
+        .values
+        .contains_key("codingToolBudgetPreflight"));
+    assert_eq!(result.final_state.blocked_node_ids, vec!["model-answer"]);
+    assert!(result
+        .node_runs
+        .iter()
+        .any(|run| run.node_id == "model-answer" && run.status == "blocked"));
+
+    let runtime_event = result
+        .runtime_thread_events
+        .first()
+        .expect("runtime event should be persisted");
+    assert_eq!(
+        runtime_event.get("eventKind").and_then(Value::as_str),
+        Some("policy.blocked")
+    );
+    assert_eq!(
+        runtime_event
+            .get("sourceEventKind")
+            .and_then(Value::as_str),
+        Some("WorkflowRunCodingToolBudgetPreflightBlocked")
+    );
+    assert_eq!(
+        runtime_event
+            .get("payload")
+            .and_then(|payload| payload.get("reason"))
+            .and_then(Value::as_str),
+        Some("coding_tool_budget_preflight_blocked")
+    );
+    assert!(runtime_event
+        .get("receiptRefs")
+        .and_then(Value::as_array)
+        .expect("receipt refs")
+        .iter()
+        .any(|item| item.as_str() == Some("receipt-budget")));
+
+    let coding_rows = result
+        .tui_control_state
+        .as_ref()
+        .and_then(|state| state.get("codingToolRows"))
+        .and_then(Value::as_array)
+        .expect("TUI coding budget rows should persist");
+    assert_eq!(
+        coding_rows[0].get("reason").and_then(Value::as_str),
+        Some("coding_tool_budget_preflight_blocked")
+    );
+    assert_eq!(
+        coding_rows[0].get("budgetStatus").and_then(Value::as_str),
+        Some("exceeded")
+    );
+
+    let runs = list_workflow_runs(bundle.workflow_path.clone()).expect("runs should list");
+    assert!(runs
+        .iter()
+        .any(|run| run.id == result.summary.id && run.status == "blocked"));
+    let loaded = load_workflow_run(bundle.workflow_path.clone(), result.summary.id.clone())
+        .expect("run result should load");
+    assert_eq!(loaded.summary.status, "blocked");
+    assert_eq!(loaded.runtime_thread_events.len(), 1);
+    assert!(workflow_run_result_path(&PathBuf::from(&bundle.workflow_path), &result.summary.id)
+        .exists());
+}
+
+#[test]
 fn workflow_run_project_reuses_prebound_thread_for_live_telemetry_hydration() {
     let root = temp_root("live-telemetry-thread");
     let bundle = create_workflow_from_template(CreateWorkflowFromTemplateRequest {

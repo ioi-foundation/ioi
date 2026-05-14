@@ -1434,6 +1434,34 @@ pub fn run_workflow_project(
     };
     save_workflow_thread(&workflow_path, &thread)?;
     let state = initial_workflow_state(&thread, "pending");
+    if let Some(preflight) =
+        workflow_coding_tool_budget_preflight_blocked_from_options(options.as_ref())
+    {
+        let result = workflow_coding_tool_budget_preflight_blocked_result(
+            &workflow_path,
+            &bundle.workflow,
+            bundle.tests.len(),
+            thread,
+            state,
+            preflight,
+            None,
+        )?;
+        append_workflow_evidence(
+            &workflow_path,
+            WorkflowEvidenceSummary {
+                id: result.summary.id.clone(),
+                kind: "run".to_string(),
+                created_at_ms: result.summary.started_at_ms,
+                summary: result.summary.summary.clone(),
+                path: Some(
+                    workflow_run_result_path(&workflow_path, &result.summary.id)
+                        .display()
+                        .to_string(),
+                ),
+            },
+        )?;
+        return Ok(result);
+    }
     let result =
         execute_workflow_project(&workflow_path, bundle, thread, state, None, &skill_resolver)?;
     append_workflow_evidence(
@@ -1463,6 +1491,41 @@ pub fn run_workflow_node(
     let workflow_path = resolve_workflow_file_path(&path)?;
     let bundle = load_workflow_bundle_from_path(&workflow_path)?;
     let skill_resolver = WorkflowSkillResolver::from_options(options.as_ref());
+    let _node = workflow_node_by_id(&bundle.workflow, &node_id)
+        .ok_or_else(|| format!("Workflow node '{}' was not found.", node_id))?;
+    if let Some(preflight) =
+        workflow_coding_tool_budget_preflight_blocked_from_options(options.as_ref())
+    {
+        if workflow_coding_tool_budget_preflight_targets_node(&preflight, &node_id) {
+            let thread = new_workflow_thread(&workflow_path, input.clone());
+            save_workflow_thread(&workflow_path, &thread)?;
+            let state = initial_workflow_state(&thread, "pending");
+            let result = workflow_coding_tool_budget_preflight_blocked_result(
+                &workflow_path,
+                &bundle.workflow,
+                bundle.tests.len(),
+                thread,
+                state,
+                preflight,
+                Some(&node_id),
+            )?;
+            append_workflow_evidence(
+                &workflow_path,
+                WorkflowEvidenceSummary {
+                    id: result.summary.id.clone(),
+                    kind: "run".to_string(),
+                    created_at_ms: result.summary.started_at_ms,
+                    summary: result.summary.summary.clone(),
+                    path: Some(
+                        workflow_run_result_path(&workflow_path, &result.summary.id)
+                            .display()
+                            .to_string(),
+                    ),
+                },
+            )?;
+            return Ok(result);
+        }
+    }
     workflow_single_node_result(
         &workflow_path,
         &bundle.workflow,

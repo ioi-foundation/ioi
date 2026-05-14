@@ -36,6 +36,7 @@ mod workflow_node_metadata_lane;
 mod workflow_output_lane;
 mod workflow_package_lane;
 mod workflow_run_lifecycle_lane;
+mod workflow_run_policy_lane;
 mod workflow_scheduler_finalization_lane;
 mod workflow_scheduler_interrupt_lane;
 mod workflow_scheduler_lane;
@@ -68,6 +69,7 @@ use workflow_node_execution_lane::*;
 use workflow_node_metadata_lane::*;
 use workflow_output_lane::*;
 use workflow_run_lifecycle_lane::*;
+use workflow_run_policy_lane::*;
 use workflow_state_lane::*;
 
 fn default_gitignore() -> &'static str {

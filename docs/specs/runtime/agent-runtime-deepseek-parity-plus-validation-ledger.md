@@ -189,6 +189,58 @@ the practical workstream when the source heading is broad.
 | 188 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget run-history evidence | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-run-history/2026-05-14T03-39-35-777Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-run-history-model.test.ts packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "React Flow coding-tool budget gates consume runtime telemetry summary before mutation" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-budget-run-history<br>git diff --check |
 | 189 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget readiness preflight | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-readiness-preflight/2026-05-14T03-48-02-824Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-readiness-model.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "React Flow coding-tool budget gates consume runtime telemetry summary before mutation" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-budget-readiness-preflight<br>git diff --check |
 | 190 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget run-launch preflight | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-run-launch-preflight/2026-05-14T03-58-36-539Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-readiness-model.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "React Flow coding-tool budget gates consume runtime telemetry summary before mutation" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-budget-run-launch-preflight<br>git diff --check |
+| 191 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack | coding-tool budget daemon launch policy | /tmp/ioi-autopilot-gui-harness-coding-tool-budget-daemon-launch-policy/2026-05-14T04-18-52-794Z/result.json | cargo test workflow_project_run_records_coding_tool_budget_preflight_policy_block --manifest-path apps/autopilot/src-tauri/Cargo.toml<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts packages/agent-ide/src/runtime/workflow-readiness-model.test.ts<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>node --test --test-name-pattern "React Flow coding-tool budget gates consume runtime telemetry summary before mutation" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>cargo fmt --manifest-path apps/autopilot/src-tauri/Cargo.toml -- --check<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-budget-daemon-launch-policy<br>git diff --check |
+
+## Slice 191. 2026-05-14 - Coding-tool budget daemon launch policy
+
+Guide section: P1-D. Usage, Cost, Context Telemetry / P0-B. Coding Tool Pack
+
+Evidence bundles:
+
+- apps/autopilot/src-tauri/src/project/workflow_run_policy_lane.rs
+- apps/autopilot/src-tauri/src/project/commands.rs
+- apps/autopilot/src-tauri/src/project/types.rs
+- apps/autopilot/src-tauri/src/project/workflow_execution_results_lane.rs
+- apps/autopilot/src-tauri/src/project/workflow_project_tests/test_harness_and_runs.rs
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts
+- packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts
+- packages/agent-ide/src/runtime/workflow-run-history-model.test.ts
+- packages/agent-ide/src/types/graph.ts
+- packages/agent-ide/src/WorkflowComposer/controller.tsx
+- packages/agent-ide/src/WorkflowComposer/view.tsx
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- scripts/lib/workflow-runtime-event-projection-contract.test.mjs
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md
+- docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md
+- /tmp/ioi-autopilot-gui-harness-coding-tool-budget-daemon-launch-policy/2026-05-14T04-18-52-794Z/result.json
+
+Validation evidence:
+
+- `cargo test workflow_project_run_records_coding_tool_budget_preflight_policy_block --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+  - Focused Tauri workflow run test passed, proving blocked preflight creates a
+    durable run sidecar with `policy_blocked` timeline event, canonical
+    runtime thread event, TUI coding-tool budget row, receipt refs, policy
+    refs, and blocked node ids.
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts packages/agent-ide/src/runtime/workflow-readiness-model.test.ts`
+  - Focused projection, run-history, telemetry-summary, and readiness tests
+    passed, including daemon-owned coding-budget launch-block replay.
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  - Runtime projection source-contract guard passed with the new preflight
+    block reason and run-history replay tests.
+- `node --test --test-name-pattern "React Flow coding-tool budget gates consume runtime telemetry summary before mutation" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - Focused live daemon coding-tool budget proof passed with policy-lane source
+    guards.
+- `npm run build --workspace=@ioi/agent-ide`
+  - Agent IDE build passed.
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - Broad React Flow/runtime source-contract regression passed.
+- `cargo fmt --manifest-path apps/autopilot/src-tauri/Cargo.toml -- --check`
+  - Tauri Rust formatting check passed.
+- `npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-coding-tool-budget-daemon-launch-policy`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-coding-tool-budget-daemon-launch-policy/2026-05-14T04-18-52-794Z/result.json`.
+- `git diff --check`
+  - whitespace check passed.
 
 ## Slice 190. 2026-05-14 - Coding-tool budget run-launch preflight
 
