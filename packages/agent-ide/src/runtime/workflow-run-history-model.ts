@@ -31,6 +31,10 @@ import {
   workflowRuntimeEditProposalPolicyStackFromEvents,
   type WorkflowRuntimeEditProposalPolicyStack,
 } from "./workflow-runtime-edit-proposal-policy";
+import {
+  workflowRuntimeTelemetrySummaryFromProjection,
+  type WorkflowRuntimeTelemetrySummary,
+} from "./workflow-runtime-telemetry-summary";
 
 export type WorkflowRunHistoryRow = {
   run: WorkflowRunSummary;
@@ -68,6 +72,7 @@ export type WorkflowRunHistoryModel = {
   runtimeEventProjection: WorkflowRuntimeEventProjection;
   runtimePolicyStack: WorkflowRuntimePolicyStack;
   runtimeEditProposalPolicyStack: WorkflowRuntimeEditProposalPolicyStack;
+  runtimeTelemetrySummary: WorkflowRuntimeTelemetrySummary;
   tuiControlStateProjection: WorkflowRuntimeTuiControlStateProjection;
   defaultCompareRun: WorkflowRunSummary | null;
   timelineEvents: WorkflowStreamEvent[];
@@ -131,6 +136,11 @@ export function workflowRunHistoryModel({
   const tuiControlStateProjection = projectRuntimeTuiControlStateToWorkflowProjection(
     tuiControlState ?? tuiControlStateForRunResult(selectedRun),
   );
+  const runtimeTelemetrySummary = workflowRuntimeTelemetrySummaryFromProjection({
+    runtimeThreadEvents: canonicalRuntimeThreadEvents,
+    runtimeEventProjection,
+    tuiControlStateProjection,
+  });
   const runStatuses = Array.from(new Set(runs.map((run) => run.status))).sort();
   const statusCounts = runs.reduce<WorkflowRunHistoryStatusCounts>(
     (counts, run) => {
@@ -163,6 +173,7 @@ export function workflowRunHistoryModel({
     runtimeEventProjection,
     runtimePolicyStack,
     runtimeEditProposalPolicyStack,
+    runtimeTelemetrySummary,
     tuiControlStateProjection,
     defaultCompareRun,
     timelineEvents,

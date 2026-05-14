@@ -243,6 +243,11 @@
   gap: 8px;
 }
 
+.workflow-run-telemetry-summary {
+  display: grid;
+  gap: 8px;
+}
+
 .workflow-run-runtime-event-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -179,6 +179,46 @@ the practical workstream when the source heading is broad.
 | 178 | 2026-05-14 | P1-C. Modes, Trust, Approvals | WorkspaceTrustGateNode activation/run gate | /tmp/ioi-autopilot-gui-harness-workspace-trust-gate/2026-05-14T01-22-22-906Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-workspace-trust-gate.test.ts<br>npm run build --workspace=@ioi/agent-ide<br>cargo test runtime_projection --manifest-path apps/autopilot/src-tauri/Cargo.toml<br>node --test --test-name-pattern "workspace trust" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-workspace-trust-gate<br>node scripts/generate-runtime-action-contracts.mjs --check<br>cargo fmt --manifest-path apps/autopilot/src-tauri/Cargo.toml -- --check<br>git diff --check |
 | 179 | 2026-05-14 | P1-C. Modes, Trust, Approvals | React Flow policy-stack replay for trust plus coding approval | /tmp/ioi-autopilot-gui-harness-policy-stack-replay/2026-05-14T01-35-21-567Z/result.json | npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-policy-stack.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts<br>node --test --test-name-pattern "React Flow policy stack replays workspace trust and coding approval gates in order" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-policy-stack-replay |
 | 180 | 2026-05-14 | P1-C. Modes, Trust, Approvals | daemon-gated workflow edit proposals | /tmp/ioi-autopilot-gui-harness-workflow-edit-proposals/2026-05-14T01-59-10-348Z/result.json | node --check packages/runtime-daemon/src/index.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-sdk<br>npm run build --workspace=@ioi/agent-ide<br>node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.test.ts packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-policy.test.ts packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts<br>node --test --test-name-pattern "React Flow workflow edit proposals are daemon-gated and replayable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow policy stack replays workspace trust and coding approval gates in order" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run validate:autopilot-gui-harness -- --output-root /tmp/ioi-autopilot-gui-harness-workflow-edit-proposals |
+| 181 | 2026-05-14 | P1-D. Usage, Cost, Context Telemetry | runtime telemetry summary unification | /tmp/ioi-autopilot-gui-harness-runtime-telemetry-summary/2026-05-14T02-11-13-757Z/result.json | node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts<br>node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs<br>node --check scripts/lib/live-runtime-daemon-contract.test.mjs<br>npm run build --workspace=@ioi/agent-ide<br>node --test --test-name-pattern "daemon aggregates usage" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs<br>node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-runtime-telemetry-summary<br>git diff --check |
+
+## Slice 181. 2026-05-14 - Runtime telemetry summary unification
+
+Guide section: P1-D. Usage, Cost, Context Telemetry
+
+Evidence bundles:
+
+- packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.ts
+- packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts
+- packages/agent-ide/src/runtime/workflow-run-history-model.ts
+- packages/agent-ide/src/runtime/workflow-run-history-model.test.ts
+- packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx
+- packages/agent-ide/src/WorkflowComposer/styles/composer-panels.css
+- packages/agent-ide/src/index.ts
+- scripts/lib/live-runtime-daemon-contract.test.mjs
+- scripts/lib/workflow-runtime-event-projection-contract.test.mjs
+- /tmp/ioi-autopilot-gui-harness-runtime-telemetry-summary/2026-05-14T02-11-13-757Z/result.json
+
+Validation evidence:
+
+- `node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts packages/agent-ide/src/runtime/workflow-run-history-model.test.ts`
+  - telemetry-summary and run-history tests passed.
+- `node --test scripts/lib/workflow-runtime-event-projection-contract.test.mjs`
+  - source-contract guard passed with telemetry summary, run inspector, and
+    export coverage.
+- `node --check scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live contract syntax check passed.
+- `npm run build --workspace=@ioi/agent-ide`
+  - agent-ide TypeScript/Vite build passed.
+- `node --test --test-name-pattern "daemon aggregates usage" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - live daemon usage/subagent/context telemetry proof passed with the shared
+    summary asserted over SDK events and TUI projection rows.
+- `node --test --test-name-pattern "React Flow memory, authority/tooling, doctor, skill, hook, and package node contracts remain workflow-addressable" scripts/lib/live-runtime-daemon-contract.test.mjs`
+  - broad React Flow/runtime source-contract regression passed.
+- `node scripts/run-autopilot-gui-harness-validation.mjs --preflight --output-root /tmp/ioi-autopilot-gui-harness-runtime-telemetry-summary`
+  - live GUI/workflow preflight passed and wrote
+    `/tmp/ioi-autopilot-gui-harness-runtime-telemetry-summary/2026-05-14T02-11-13-757Z/result.json`.
+- `git diff --check`
+  - whitespace guard passed.
 
 ## Slice 180. 2026-05-14 - Daemon-gated workflow edit proposals
 

@@ -477,6 +477,14 @@ test("workflow run history model hydrates live telemetry for an in-flight run", 
         workflowNodeId: "runtime.usage-telemetry",
         componentKind: "usage_telemetry",
         status: "running",
+        payload: {
+          total_tokens: 128,
+          input_tokens: 80,
+          output_tokens: 48,
+          estimated_cost_usd: 0.000128,
+          context_pressure: 0.42,
+          context_pressure_status: "nominal",
+        },
       }),
     ],
     [
@@ -488,6 +496,14 @@ test("workflow run history model hydrates live telemetry for an in-flight run", 
         workflowNodeId: "runtime.usage-telemetry",
         componentKind: "usage_telemetry",
         status: "running",
+        payload: {
+          total_tokens: 128,
+          input_tokens: 80,
+          output_tokens: 48,
+          estimated_cost_usd: 0.000128,
+          context_pressure: 0.42,
+          context_pressure_status: "nominal",
+        },
       }),
       runtimeThreadEvent("context-2", 2, {
         threadId: "thread-live",
@@ -497,6 +513,12 @@ test("workflow run history model hydrates live telemetry for an in-flight run", 
         workflowNodeId: "runtime.context-budget",
         componentKind: "context_pressure",
         status: "running",
+        payload: {
+          usage_total_tokens: 192,
+          usage_cost_estimate_usd: 0.000192,
+          usage_context_pressure: 0.74,
+          usage_context_pressure_status: "elevated",
+        },
       }),
       runtimeThreadEvent("context-alert-3", 3, {
         threadId: "thread-live",
@@ -546,6 +568,12 @@ test("workflow run history model hydrates live telemetry for an in-flight run", 
   assert.equal(model.selectedRun?.summary.status, "running");
   assert.equal(model.timelineEvents[0]?.threadId, "thread-live");
   assert.equal(model.runtimeEventProjection.eventCount, 3);
+  assert.equal(model.runtimeTelemetrySummary.status, "elevated");
+  assert.equal(model.runtimeTelemetrySummary.totalTokens, 192);
+  assert.equal(model.runtimeTelemetrySummary.contextPressureStatus, "elevated");
+  assert.equal(model.runtimeTelemetrySummary.usageEventCount, 1);
+  assert.equal(model.runtimeTelemetrySummary.contextPressureEventCount, 1);
+  assert.equal(model.runtimeTelemetrySummary.contextPressureAlertCount, 1);
   assert.deepEqual(
     model.runtimeEventProjection.reactFlowNodes.map((node) => [
       node.id,

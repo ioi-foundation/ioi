@@ -58,6 +58,10 @@ export {
   workflowRuntimeEditProposalPolicyStackFromEvents,
 } from "./runtime/workflow-runtime-edit-proposal-policy";
 export {
+  WORKFLOW_RUNTIME_TELEMETRY_SUMMARY_SCHEMA_VERSION,
+  workflowRuntimeTelemetrySummaryFromProjection,
+} from "./runtime/workflow-runtime-telemetry-summary";
+export {
   RUNTIME_WORKFLOW_EDIT_PROPOSAL_APPLY_PAYLOAD_SCHEMA_VERSION,
   RUNTIME_WORKFLOW_EDIT_PROPOSAL_APPLY_SOURCE_EVENT_KIND,
   RUNTIME_WORKFLOW_EDIT_PROPOSAL_COMPONENT_KIND,

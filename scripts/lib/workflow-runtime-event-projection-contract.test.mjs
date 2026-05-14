@@ -45,6 +45,12 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const runHistoryModel = read(
     "packages/agent-ide/src/runtime/workflow-run-history-model.ts",
   );
+  const telemetrySummary = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.ts",
+  );
+  const telemetrySummaryTest = read(
+    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts",
+  );
   const runHistoryModelTest = read(
     "packages/agent-ide/src/runtime/workflow-run-history-model.test.ts",
   );
@@ -178,6 +184,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(controlNodesTest, /workflow\.react-flow\.rollback-snapshot-proof/);
   assert.match(controlNodesTest, /workflow\.react-flow\.restore-gate-proof/);
   assert.match(exports, /workflow-runtime-event-projection/);
+  assert.match(exports, /workflow-runtime-telemetry-summary/);
   assert.match(exports, /workflow-runtime-control-nodes/);
   assert.match(exports, /workflow-runtime-usage-control-nodes/);
   assert.match(exports, /workflow-runtime-context-budget-control-nodes/);
@@ -193,8 +200,18 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(runHistoryModel, /projectRuntimeThreadEventsToWorkflowProjection/);
   assert.match(runHistoryModel, /runtimeThreadEvents\?: WorkflowRuntimeThreadEventLike\[\]/);
   assert.match(runHistoryModel, /runtimeEventProjection: WorkflowRuntimeEventProjection/);
+  assert.match(runHistoryModel, /runtimeTelemetrySummary: WorkflowRuntimeTelemetrySummary/);
+  assert.match(runHistoryModel, /workflowRuntimeTelemetrySummaryFromProjection/);
   assert.match(runHistoryModel, /runtimeThreadEventsForRunResult/);
   assert.match(runHistoryModelTest, /projects canonical runtime thread events/);
+  assert.match(telemetrySummary, /ioi\.workflow\.runtime-telemetry-summary\.v1/);
+  assert.match(telemetrySummary, /runtime_usage_events/);
+  assert.match(telemetrySummary, /runtime_context_pressure_events/);
+  assert.match(telemetrySummary, /runtime_context_pressure_alerts/);
+  assert.match(telemetrySummary, /tui_usage_rows/);
+  assert.match(telemetrySummary, /tui_context_rows/);
+  assert.match(telemetrySummary, /tui_subagent_rows/);
+  assert.match(telemetrySummaryTest, /merges usage, context, TUI, and subagent rows/);
   assert.match(railPanel, /runtimeThreadEvents\?: WorkflowRuntimeThreadEventLike\[\]/);
   assert.match(railPanel, /runtimeThreadEvents,/);
   assert.match(composerController, /loadWorkflowRuntimeThreadEvents/);
@@ -203,6 +220,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(graphRuntimeTypes, /loadWorkflowRuntimeThreadEvents/);
   assert.match(tauriRuntime, /loadWorkflowRuntimeThreadEvents/);
   assert.match(runsPanel, /workflow-run-runtime-event-graph/);
+  assert.match(runsPanel, /workflow-run-telemetry-summary/);
+  assert.match(runsPanel, /data-telemetry-status/);
+  assert.match(runsPanel, /data-context-pressure-event-count/);
   assert.match(runsPanel, /workflow-run-runtime-event-node-/);
   assert.match(runsPanel, /workflow-run-runtime-event-edge-/);
   assert.match(runsPanel, /data-event-id/);
