@@ -734,6 +734,65 @@ test("runtime daemon activates mounted visual computer-use contracts instead of 
   }
 });
 
+test("runtime daemon activates mounted sandboxed computer-use contracts instead of failing closed", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-hosted-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-hosted-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const run = await agent.send("Use a hosted computer to inspect the isolated app.", {
+      metadata: {
+        computerUse: true,
+        computerUseLane: "sandboxed_hosted",
+        computerUseSessionMode: "hosted_sandbox",
+        computerUseObservationBundle: {
+          observation_ref: "observation-hosted-mounted",
+          lane: "sandboxed_hosted",
+          session_mode: "hosted_sandbox",
+          app_name: "Hosted Browser",
+          window_title: "Hosted session",
+          screenshot_ref: "artifact:hosted:screenshot-redacted",
+          target_index_ref: "target-index-hosted-mounted",
+          detected_patterns: ["form"],
+        },
+        computerUseTargetIndex: {
+          target_index_ref: "target-index-hosted-mounted",
+          observation_ref: "observation-hosted-mounted",
+          coordinate_space_id: "hosted-screen-1",
+          drift_state: "fresh",
+          targets: [
+            {
+              target_ref: "target-hosted-form",
+              label: "Hosted form",
+              role: "form",
+              semantic_ids: ["hosted:form"],
+              selectors: [],
+              confidence: 91,
+              available_actions: ["inspect"],
+            },
+          ],
+        },
+      },
+    });
+    const trace = await run.inspect();
+    assert.equal(trace.computerUse.environmentSelection.selected_lane, "sandboxed_hosted");
+    assert.equal(trace.computerUse.lease.status, "active");
+    assert.equal(trace.computerUse.observation.app_name, "Hosted Browser");
+    assert.equal(trace.computerUse.actionProposal.target_ref, "target-hosted-form");
+    assert.equal(
+      trace.events.some((event) => event.type === "computer_use_environment_unavailable"),
+      false,
+    );
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("requested unavailable computer-use lanes fail closed with visible recovery policy", async () => {
   const { cwd, client } = tempClient();
   const agent = await Agent.create({
