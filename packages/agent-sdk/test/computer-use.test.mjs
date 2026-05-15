@@ -23,6 +23,7 @@ import {
   outcomeContractForGoal,
   planComputerUseHarnessImprovement,
   recoveryPolicyForComputerUseFailure,
+  runComputerUseBenchmarkSuite,
 } from "../dist/index.js";
 import { createMockRuntimeSubstrateClient } from "../dist/testing.js";
 import { startRuntimeDaemonService } from "../../runtime-daemon/src/index.mjs";
@@ -344,6 +345,21 @@ test("computer-use trajectory eval projects pass and fail-closed outcomes", () =
   assert.equal(benchmarkCase.manifest.raw_artifacts_included, false);
   assert.equal(benchmarkCase.failure_mode, "sandbox_unavailable");
   assert.equal(benchmarkCase.promotion_gate_ref, improvementPlan.promotion_gate.promotion_ref);
+
+  const passedBenchmarkCase = exportComputerUseBenchmarkCase({
+    eval: passed,
+  });
+  const benchmarkSuite = runComputerUseBenchmarkSuite({
+    suite_ref: "suite-computer-use-regression",
+    cases: [passedBenchmarkCase, benchmarkCase],
+  });
+  assert.equal(benchmarkSuite.case_count, 2);
+  assert.equal(benchmarkSuite.average_score, 0.75);
+  assert.equal(benchmarkSuite.passed_count, 1);
+  assert.equal(benchmarkSuite.blocked_count, 1);
+  assert.equal(benchmarkSuite.scorecard.pass_rate, 0.5);
+  assert.equal(benchmarkSuite.scorecard.fail_closed_rate, 0.5);
+  assert.equal(benchmarkSuite.hidden_runtime_shortcuts_forbidden, true);
 });
 
 test("computer-use model adapters normalize OpenAI-style actions into IOI proposals and actions", () => {
