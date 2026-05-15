@@ -81,7 +81,7 @@ All three lanes must share IOI runtime truth:
 | --- | --- | --- |
 | Guide promotion | Done | `docs/plans/browser-use-master-guide.md` is active and linked to the meta/CUA guides. |
 | Contract spine | Done | `cargo test -p ioi-types --lib` covers the Rust runtime contracts; `npm --prefix packages/agent-sdk test` covers SDK contract projection. |
-| Owned browser adapter projection | Done | `cargo test -p ioi-drivers browser::computer_use --lib` covers owned-browser lease, adapter, and observation projection. |
+| Owned browser adapter projection | Done | `cargo test -p ioi-drivers browser::computer_use --lib` covers owned-browser lease, adapter, observation bundle, target-index, and affordance-graph projection from Browser Use artifacts. |
 | SDK/runtime lifecycle projection | Done | `packages/agent-sdk/test/computer-use.test.mjs` asserts browser prompts emit environment selection, lease acquisition, run state, observation, target index, affordance, action proposal, action receipt, verification, trajectory, cleanup, receipt, artifact, and runtime event projections. |
 | Daemon lifecycle projection | Done | Runtime daemon runs now emit canonical `computer_use.*` events, `computer-use-trace.json`, `computer_use_trace` receipts, and workflow node ids for the full read-only behavioral loop. |
 | Visual/sandbox fail-closed projection | Done | Explicit `visual_gui` or `sandboxed_hosted` lane requests emit blocked runtime events, failed-closed leases, recovery policy payloads, and no-action cleanup receipts until those adapters are mounted. |

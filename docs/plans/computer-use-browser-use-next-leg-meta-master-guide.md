@@ -462,6 +462,8 @@ Deliverables:
 - auth handoff state;
 - unified browser observation bundle;
 - fused DOM/AX/SoM target index;
+- adapter-side Browser Use artifact projection into canonical target indexes
+  and affordance graphs;
 - receipted browser action executor.
 
 Acceptance:
