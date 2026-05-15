@@ -51,16 +51,25 @@ export function computerUseProjectionForRun({
   const requestedRetentionMode =
     workflowBinding.observationRetentionMode ?? "local_redacted_artifacts";
   const contractOverrides = computerUseContractOverrides(request);
-  if (requestedLane !== "native_browser") {
+  const selectedLane = requestedLane;
+  const selectedSessionMode = selectedLane === "native_browser"
+    ? "owned_hermetic_browser"
+    : requestedComputerUseSessionMode(request, selectedLane);
+  const hasMountedContracts = Boolean(contractOverrides.observationBundle);
+  if (selectedLane !== "native_browser" && !hasMountedContracts) {
     return unavailableComputerUseProjectionForRun({
       runId,
       prompt,
       mode,
-      requestedLane,
-      requestedSessionMode: requestedComputerUseSessionMode(request, requestedLane),
+      requestedLane: selectedLane,
+      requestedSessionMode: selectedSessionMode,
       workflowBinding,
     });
   }
+  const selectedAuthority = `computer_use.${selectedLane}.read`;
+  const adapterId = hasMountedContracts
+    ? `ioi.${selectedLane}.mounted_contract`
+    : "ioi.native_browser.chromiumoxide.daemon";
   const targetHint = computerUseTargetHint(prompt);
   const leaseId = `lease_${runId}_browser`;
   const observationRef =
@@ -81,47 +90,60 @@ export function computerUseProjectionForRun({
   const traceReceiptId = `receipt_${runId}_computer_use_trace`;
   const trajectoryRef = `trajectory_${runId}_computer_use`;
   const cleanupRef = `cleanup_${runId}_computer_use`;
+  const rejectedOptions = selectedLane === "native_browser"
+    ? [
+        {
+          lane: "visual_gui",
+          session_mode: "visual_fallback",
+          reason: "DOM, AX, selector, screenshot, and CDP evidence are available before visual fallback.",
+        },
+        {
+          lane: "sandboxed_hosted",
+          session_mode: "local_sandbox",
+          reason: "This daemon run is local and read-only; sandbox isolation remains available for risky or reproducible tasks.",
+        },
+      ]
+    : [
+        {
+          lane: "native_browser",
+          session_mode: "owned_hermetic_browser",
+          reason: `Mounted ${selectedLane}/${selectedSessionMode} contracts were explicitly supplied by the runtime executor.`,
+        },
+      ];
   const environmentSelection = {
     receipt_ref: `receipt_${runId}_computer_use_environment`,
     run_id: runId,
-    selected_lane: "native_browser",
-    selected_session_mode: "owned_hermetic_browser",
-    rejected_options: [
-      {
-        lane: "visual_gui",
-        session_mode: "visual_fallback",
-        reason: "DOM, AX, selector, screenshot, and CDP evidence are available before visual fallback.",
-      },
-      {
-        lane: "sandboxed_hosted",
-        session_mode: "local_sandbox",
-        reason: "This daemon run is local and read-only; sandbox isolation remains available for risky or reproducible tasks.",
-      },
-    ],
+    selected_lane: selectedLane,
+    selected_session_mode: selectedSessionMode,
+    rejected_options: rejectedOptions,
     reasons: [
       "Prompt indicates browser or computer-use automation.",
-      "Native browser lane gives the strongest semantic grounding for web tasks.",
+      hasMountedContracts
+        ? `Mounted ${selectedLane}/${selectedSessionMode} contracts were supplied by the runtime executor.`
+        : "Native browser lane gives the strongest semantic grounding for web tasks.",
       "Visual and sandbox lanes remain explicit fallback options under the same IOI contracts.",
     ],
     risk_posture: mode === "dry_run" ? "preview_only" : "read_only_probe",
-    authority_required: "computer_use.native_browser.read",
+    authority_required: selectedAuthority,
     privacy_impact: requestedRetentionMode,
-    expected_cleanup: "close_owned_browser_context_and_retain_redacted_trace",
+    expected_cleanup: hasMountedContracts
+      ? "release_mounted_executor_contract_and_retain_redacted_trace"
+      : "close_owned_browser_context_and_retain_redacted_trace",
   };
   const lease = {
     schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
     lease_id: leaseId,
-    lane: "native_browser",
-    session_mode: "owned_hermetic_browser",
+    lane: selectedLane,
+    session_mode: selectedSessionMode,
     status: "active",
     authority_scope: environmentSelection.authority_required,
     consent_scope: "operator_prompt",
     target_hint: targetHint,
-    environment_ref: `local_browser:${stableHash(agent.cwd).slice(0, 16)}`,
-    profile_provenance: "temporary_ioi_browser_profile",
+    environment_ref: `${selectedLane}:${stableHash(agent.cwd).slice(0, 16)}`,
+    profile_provenance: hasMountedContracts ? "mounted_runtime_contract" : "temporary_ioi_browser_profile",
     retention_mode: requestedRetentionMode,
     cleanup_required: true,
-    evidence_refs: [environmentSelection.receipt_ref, "ioi.native_browser.chromiumoxide"],
+    evidence_refs: [environmentSelection.receipt_ref, adapterId],
   };
   const runState = {
     run_id: runId,
@@ -147,8 +169,8 @@ export function computerUseProjectionForRun({
   const observation = mergeObservationContract({
     observation_ref: observationRef,
     lease_id: leaseId,
-    lane: "native_browser",
-    session_mode: "owned_hermetic_browser",
+    lane: selectedLane,
+    session_mode: selectedSessionMode,
     url: targetHint.startsWith("http") ? targetHint : null,
     title: "IOI computer-use daemon observation",
     app_name: "Chromium",
@@ -163,7 +185,7 @@ export function computerUseProjectionForRun({
     freshness_ms: 0,
     retention_mode: requestedRetentionMode,
     detected_patterns: ["form", "toolbar", "warning_or_toast"],
-  }, contractOverrides.observationBundle, leaseId, requestedRetentionMode);
+  }, contractOverrides.observationBundle, leaseId, selectedLane, selectedSessionMode, requestedRetentionMode);
   const pageTarget = {
     target_ref: `target_${runId}_document`,
     label: "Current page",
@@ -202,7 +224,7 @@ export function computerUseProjectionForRun({
         confidence: 95,
         expected_state_transition: "A read-only inspection summary can be produced without external side effects.",
         risk_class: "read_only",
-        required_authority: "computer_use.native_browser.read",
+        required_authority: selectedAuthority,
         confirmation_required: false,
         fallback_action_paths: ["reobserve", "switch_to_visual_lane"],
         invalidation_conditions: ["navigation", "modal_interruption", "auth_wall"],
@@ -236,7 +258,7 @@ export function computerUseProjectionForRun({
   const actionReceipt = {
     receipt_ref: actionReceiptRef,
     action_ref: action.action_ref,
-    adapter_id: "ioi.native_browser.chromiumoxide.daemon",
+    adapter_id: adapterId,
     status: "completed",
     grounding_ref: targetIndex.target_index_ref,
     postcondition_summary: "Read-only inspection action was grounded in the observation and produced no external side effect.",
@@ -396,7 +418,7 @@ export function computerUseProjectionForRun({
         computer_use_step: "acquire_lease",
         lease,
         adapter_contract: {
-          adapter_id: "ioi.native_browser.chromiumoxide.daemon",
+          adapter_id: adapterId,
           lane: environmentSelection.selected_lane,
           supported_session_modes: [environmentSelection.selected_session_mode],
           capabilities: ["observe.dom", "observe.ax", "observe.screenshot", "act.inspect", "verify.postcondition"],
@@ -911,15 +933,15 @@ function computerUseContractOverrides(request = {}) {
   };
 }
 
-function mergeObservationContract(base, override, leaseId, retentionMode) {
+function mergeObservationContract(base, override, leaseId, lane, sessionMode, retentionMode) {
   if (!override) return base;
   return {
     ...base,
     ...override,
     observation_ref: cleanString(override.observation_ref) ?? base.observation_ref,
     lease_id: leaseId,
-    lane: "native_browser",
-    session_mode: "owned_hermetic_browser",
+    lane,
+    session_mode: sessionMode,
     target_index_ref: cleanString(override.target_index_ref) ?? base.target_index_ref,
     retention_mode: cleanString(override.retention_mode) ?? retentionMode,
     detected_patterns: cleanStringArray(override.detected_patterns).length > 0

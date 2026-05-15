@@ -625,7 +625,7 @@ Required guarantees:
 | Affordance/action proposal pipeline | Started: target index, affordance graph, policy-gated `ActionProposal`, grounded `ComputerAction`, and `ActionReceipt` are SDK/daemon trace-visible; adapter executor pending |
 | Recovery, handoff, and commit gates | Started: SDK contracts and helpers now generate fail-closed `RecoveryPolicy`, credential-safe `HumanHandoffState`, bounded `OutcomeContract`, external-effect `CommitGate`, and retention checks; SDK, daemon, saved workflow runs, and React Flow run history now expose `computer_use.commit_gate` with outcome and commit-gate evidence; full policy executor pending |
 | Native browser parity | Started: owned browser artifacts now project into canonical observation bundles, target indexes, and affordance graphs, and SDK-local plus daemon-backed runs can ingest those canonical observation/target/affordance contracts when supplied by a mounted executor; real daemon lease/action executor still pending |
-| Visual GUI parity | Started: unavailable requests fail closed with recovery policy evidence; GUI adapter pending |
+| Visual GUI parity | Started: unavailable requests fail closed with recovery policy evidence unless a mounted executor supplies canonical observation/target/affordance contracts, in which case daemon-backed runs activate the visual lane and preserve the same trace spine; GUI adapter pending |
 | Sandboxed/hosted parity | Started: unavailable requests fail closed with recovery policy evidence; hosted adapter pending |
 | Trajectory replay | Started: `ComputerUseTrajectoryBundle` is emitted as trace data; replay reader/eval projection pending |
 | Trajectory-driven harness improvement | Not started |
