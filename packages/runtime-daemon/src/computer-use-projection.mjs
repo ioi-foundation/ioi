@@ -57,7 +57,7 @@ export function computerUseProjectionForRun({
   const contractOverrides = computerUseContractOverrides(request);
   const selectedLane = requestedLane;
   const selectedSessionMode = selectedLane === "native_browser"
-    ? "owned_hermetic_browser"
+    ? requestedComputerUseSessionMode(request, selectedLane)
     : requestedComputerUseSessionMode(request, selectedLane);
   const hasBrowserObservationArtifacts =
     selectedLane === "native_browser" &&
@@ -1128,6 +1128,12 @@ function requestedComputerUseSessionMode(request = {}, lane) {
   const metadata = request.options?.metadata ?? request.metadata ?? {};
   const value = metadata.computerUseSessionMode ?? metadata.computer_use_session_mode;
   if (
+    lane === "native_browser" &&
+    ["owned_hermetic_browser", "attached_cdp", "controlled_relaunch", "discovery_only"].includes(value)
+  ) {
+    return value;
+  }
+  if (
     lane === "visual_gui" &&
     ["visual_fallback", "foreground_desktop", "background_desktop", "app_scoped_desktop"].includes(value)
   ) {
@@ -1139,7 +1145,9 @@ function requestedComputerUseSessionMode(request = {}, lane) {
   ) {
     return value;
   }
-  return lane === "visual_gui" ? "visual_fallback" : "hosted_sandbox";
+  if (lane === "visual_gui") return "visual_fallback";
+  if (lane === "sandboxed_hosted") return "hosted_sandbox";
+  return "owned_hermetic_browser";
 }
 
 function requestedComputerUseActionKind(request = {}, prompt = "") {
