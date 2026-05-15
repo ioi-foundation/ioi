@@ -1,12 +1,28 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import {
+  Agent,
   COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
   computerActionHasGrounding,
   defaultComputerUseHarnessContract,
   isActionProposalReadyForExecution,
 } from "../dist/index.js";
+import { createMockRuntimeSubstrateClient } from "../dist/testing.js";
+
+function tempClient() {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-agent-sdk-computer-use-"));
+  return {
+    cwd,
+    client: createMockRuntimeSubstrateClient({
+      cwd,
+      checkpointDir: path.join(cwd, ".ioi", "agent-sdk"),
+    }),
+  };
+}
 
 test("computer-use contract projection exposes three lanes and behavioral loop", () => {
   const contract = defaultComputerUseHarnessContract();
@@ -73,6 +89,69 @@ test("computer-use helpers require policy-gated proposals and grounded actions",
       payload_summary: "click submit",
       expected_postcondition: "form submitted",
     }),
+    true,
+  );
+});
+
+test("browser prompts emit glass-box computer-use trace and runtime events", async () => {
+  const { cwd, client } = tempClient();
+  const agent = await Agent.create({
+    model: { id: "local:auto" },
+    local: { cwd },
+    substrateClient: client,
+  });
+  const run = await agent.send("Use the browser to inspect https://example.com and explain next actions.", {
+    metadata: { computerUse: true },
+  });
+  const streamed = [];
+  for await (const event of run.stream()) {
+    streamed.push(event);
+  }
+  const expectedTypes = [
+    "computer_use_environment_selected",
+    "computer_use_run_state",
+    "computer_use_observation",
+    "computer_use_affordance_graph",
+    "computer_use_action_proposed",
+    "computer_use_verification",
+  ];
+  assert.deepEqual(
+    streamed.filter((event) => event.type.startsWith("computer_use_")).map((event) => event.type),
+    expectedTypes,
+  );
+
+  const trace = await run.inspect();
+  const environmentEvent = trace.events.find((event) => event.type === "computer_use_environment_selected");
+  assert.ok(environmentEvent);
+  assert.equal(environmentEvent.data.schema_version, COMPUTER_USE_CONTRACT_SCHEMA_VERSION);
+  assert.equal(environmentEvent.data.computer_use_step, "select_environment");
+  assert.equal(environmentEvent.data.environment_selection_receipt.selected_lane, "native_browser");
+  assert.equal(environmentEvent.data.lease.session_mode, "owned_hermetic_browser");
+
+  const observationEvent = trace.events.find((event) => event.type === "computer_use_observation");
+  assert.ok(observationEvent);
+  assert.equal(observationEvent.data.observation_bundle.url, "https://example.com");
+  assert.equal(observationEvent.data.target_index.targets[0].available_actions.includes("inspect"), true);
+
+  const proposalEvent = trace.events.find((event) => event.type === "computer_use_action_proposed");
+  assert.ok(proposalEvent);
+  assert.equal(proposalEvent.data.action_proposal.policy_decision_ref.startsWith("policy_"), true);
+  assert.equal(proposalEvent.data.policy_gate.outcome, "approved_for_read_only_probe");
+
+  const thread = await agent.thread();
+  const runtimeEvents = [];
+  for await (const event of thread.events()) {
+    runtimeEvents.push(event);
+  }
+  const runtimeComputerEvents = runtimeEvents.filter((event) => event.eventKind.startsWith("computer_use."));
+  assert.equal(runtimeComputerEvents.length, expectedTypes.length);
+  assert.equal(runtimeComputerEvents[0].payloadSchemaVersion, COMPUTER_USE_CONTRACT_SCHEMA_VERSION);
+  assert.equal(runtimeComputerEvents[0].componentKind, "computer_use_harness");
+  assert.equal(runtimeComputerEvents[0].workflowNodeId, "computer-use.select-environment");
+  assert.equal(runtimeComputerEvents[0].payload.computer_use_step, "select_environment");
+  assert.equal(runtimeComputerEvents[0].payload.computer_use_lane, "native_browser");
+  assert.equal(
+    trace.receipts.some((receipt) => receipt.kind === "computer_use_trace"),
     true,
   );
 });

@@ -78,6 +78,8 @@ export type {
 } from "./substrate-client.js";
 export type {
   ActionProposal,
+  AffordanceGraph,
+  AffordanceRecord,
   ComputerAction,
   ComputerActionKind,
   ComputerControlAdapterContract,
@@ -85,8 +87,15 @@ export type {
   ComputerUseLane,
   ComputerUseLease,
   ComputerUseObservationBundle,
+  ComputerUseRunState,
   ComputerUseSessionMode,
+  ComputerUseTargetEntry,
+  ComputerUseVerificationReceipt,
+  ComputerUseVerificationStatus,
+  EnvironmentOptionRejection,
+  EnvironmentSelectionReceipt,
   ObservationRetentionMode,
+  TargetIndex,
 } from "./computer-use.js";
 export type {
   AgentOptions,
