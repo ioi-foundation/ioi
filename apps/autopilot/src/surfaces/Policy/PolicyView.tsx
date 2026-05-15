@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AgentWorkbenchRuntime, ConnectorSummary } from "@ioi/agent-ide";
-import { AuthorityCenterPanel } from "./AuthorityCenterPanel";
+import {
+  AuthorityCenterPanel,
+  type AuthorityCenterReceiptPreview,
+} from "./AuthorityCenterPanel";
 import {
   buildAuthorityCenterProjection,
+  buildAuthorityGrantRequestPayload,
+  type AuthorityCenterCapabilityRow,
+  type AuthorityCenterGrantRow,
   type AuthorityCenterProjection,
 } from "./authorityCenter";
 import type {
@@ -145,9 +151,17 @@ function readAuthorityDaemonEndpoint(): string {
 async function fetchAuthorityJson(
   endpoint: string,
   path: string,
+  options: { method?: string; body?: unknown } = {},
 ): Promise<unknown> {
   const response = await fetch(`${endpoint.replace(/\/+$/, "")}${path}`, {
-    headers: { accept: "application/json" },
+    method: options.method ?? "GET",
+    headers: {
+      accept: "application/json",
+      ...(options.body === undefined
+        ? {}
+        : { "content-type": "application/json" }),
+    },
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
   });
   const text = await response.text();
   const value = text ? JSON.parse(text) : null;
@@ -159,6 +173,68 @@ async function fetchAuthorityJson(
     throw new Error(message);
   }
   return value;
+}
+
+function authorityReceiptPreview(
+  value: unknown,
+): AuthorityCenterReceiptPreview {
+  const record =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  return {
+    id: typeof record.id === "string" ? record.id : "receipt.unknown",
+    kind: typeof record.kind === "string" ? record.kind : "unknown",
+    summary:
+      typeof record.summary === "string" ? record.summary : "No summary.",
+    createdAt:
+      typeof record.createdAt === "string"
+        ? record.createdAt
+        : typeof record.created_at === "string"
+          ? record.created_at
+          : "unknown",
+    redaction:
+      typeof record.redaction === "string" ? record.redaction : "redacted",
+    evidenceRefs: Array.isArray(record.evidenceRefs)
+      ? record.evidenceRefs.filter(
+          (item): item is string => typeof item === "string",
+        )
+      : Array.isArray(record.evidence_refs)
+        ? record.evidence_refs.filter(
+            (item): item is string => typeof item === "string",
+          )
+        : [],
+  };
+}
+
+function authorityString(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+function authorityRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function latestReceiptIdForGrant(
+  receipts: unknown,
+  kind: string,
+  grantId: string,
+): string | null {
+  if (!Array.isArray(receipts)) return null;
+  return (
+    receipts
+      .map(authorityRecord)
+      .filter((receipt): receipt is Record<string, unknown> => Boolean(receipt))
+      .filter((receipt) => receipt.kind === kind)
+      .filter(
+        (receipt) => authorityRecord(receipt.details)?.grantId === grantId,
+      )
+      .map((receipt) => authorityString(receipt.id, ""))
+      .filter(Boolean)
+      .at(-1) ?? null
+  );
 }
 
 function PolicySelect<T extends string>({
@@ -213,6 +289,14 @@ export function PolicyView({
     );
   const [authorityLoading, setAuthorityLoading] = useState(false);
   const [authorityError, setAuthorityError] = useState<string | null>(null);
+  const [authorityActionStatus, setAuthorityActionStatus] = useState<
+    string | null
+  >(null);
+  const [authorityBusyAction, setAuthorityBusyAction] = useState<string | null>(
+    null,
+  );
+  const [authorityReceipt, setAuthorityReceipt] =
+    useState<AuthorityCenterReceiptPreview | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<string>("global");
   const effectivePolicyState = governanceRequest?.requestedState ?? policyState;
 
@@ -308,6 +392,99 @@ export function PolicyView({
   useEffect(() => {
     void refreshAuthorityCenter();
   }, [refreshAuthorityCenter]);
+
+  const openAuthorityReceipt = useCallback(async (receiptId: string) => {
+    if (!receiptId || receiptId === "none") return;
+    const endpoint = readAuthorityDaemonEndpoint();
+    setAuthorityBusyAction(`receipt:${receiptId}`);
+    try {
+      const receipt = await fetchAuthorityJson(
+        endpoint,
+        `/api/v1/receipts/${encodeURIComponent(receiptId)}`,
+      );
+      setAuthorityReceipt(authorityReceiptPreview(receipt));
+      setAuthorityActionStatus(`Opened receipt ${receiptId}.`);
+      setAuthorityError(null);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : `Receipt ${receiptId} failed.`;
+      setAuthorityActionStatus(message);
+      setAuthorityError(message);
+    } finally {
+      setAuthorityBusyAction(null);
+    }
+  }, []);
+
+  const requestAuthorityGrant = useCallback(
+    async (capability: AuthorityCenterCapabilityRow) => {
+      const endpoint = readAuthorityDaemonEndpoint();
+      setAuthorityBusyAction(`grant:${capability.id}`);
+      try {
+        const result = await fetchAuthorityJson(endpoint, "/api/v1/tokens", {
+          method: "POST",
+          body: buildAuthorityGrantRequestPayload(capability),
+        });
+        const grant = authorityRecord(result);
+        const grantId = authorityString(grant?.grantId, capability.label);
+        const receiptId = authorityString(grant?.receiptId, "");
+        setAuthorityActionStatus(
+          `${grantId} issued; raw session token was discarded after daemon acknowledgement.`,
+        );
+        setAuthorityError(null);
+        await refreshAuthorityCenter();
+        if (receiptId) await openAuthorityReceipt(receiptId);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Authority grant request failed.";
+        setAuthorityActionStatus(message);
+        setAuthorityError(message);
+      } finally {
+        setAuthorityBusyAction(null);
+      }
+    },
+    [openAuthorityReceipt, refreshAuthorityCenter],
+  );
+
+  const revokeAuthorityGrant = useCallback(
+    async (grant: AuthorityCenterGrantRow) => {
+      if (!grant.canRevoke) return;
+      const endpoint = readAuthorityDaemonEndpoint();
+      setAuthorityBusyAction(`revoke:${grant.id}`);
+      try {
+        const result = await fetchAuthorityJson(
+          endpoint,
+          `/api/v1/tokens/${encodeURIComponent(grant.id)}`,
+          { method: "DELETE" },
+        );
+        const revoked = authorityRecord(result);
+        const receipts = await fetchAuthorityJson(endpoint, "/api/v1/receipts");
+        const receiptId =
+          latestReceiptIdForGrant(
+            receipts,
+            "permission_token_revocation",
+            grant.grantId,
+          ) ?? authorityString(revoked?.receiptId, grant.receiptRef);
+        setAuthorityActionStatus(
+          `${grant.grantId} revoked through the daemon authority boundary.`,
+        );
+        setAuthorityError(null);
+        await refreshAuthorityCenter();
+        if (receiptId && receiptId !== "none") {
+          await openAuthorityReceipt(receiptId);
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Grant revocation failed.";
+        setAuthorityActionStatus(message);
+        setAuthorityError(message);
+      } finally {
+        setAuthorityBusyAction(null);
+      }
+    },
+    [openAuthorityReceipt, refreshAuthorityCenter],
+  );
 
   useEffect(() => {
     const requestConnectorId = governanceRequest?.connectorId ?? null;
@@ -688,7 +865,13 @@ export function PolicyView({
             projection={authorityProjection}
             loading={authorityLoading}
             error={authorityError}
+            actionStatus={authorityActionStatus}
+            busyAction={authorityBusyAction}
+            selectedReceipt={authorityReceipt}
             onRefresh={refreshAuthorityCenter}
+            onRequestGrant={requestAuthorityGrant}
+            onRevokeGrant={revokeAuthorityGrant}
+            onOpenReceipt={openAuthorityReceipt}
           />
 
           <div
