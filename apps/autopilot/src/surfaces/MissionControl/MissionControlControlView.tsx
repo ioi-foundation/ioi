@@ -56,9 +56,10 @@ export function MissionControlControlView({
   onDismissGovernanceRequest,
   onOpenConnections,
 }: MissionControlControlViewProps) {
-  const title = surface === "policy" ? "Policy" : "System Settings";
+  const title = surface === "policy" ? "Authority Center" : "System Settings";
   const kicker = surface === "policy" ? "Govern" : "Configure";
-  const surfaceLabel = surface === "policy" ? "Policy" : "Control plane";
+  const surfaceLabel =
+    surface === "policy" ? "Policy and grants" : "Control plane";
 
   return (
     <div className="mission-control-view mission-control-view--control">
@@ -84,7 +85,7 @@ export function MissionControlControlView({
               className={surface === "policy" ? "is-active" : ""}
               onClick={() => onSurfaceChange("policy")}
             >
-              Policy
+              Authority
             </button>
             <button
               type="button"

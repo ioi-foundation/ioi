@@ -1,4 +1,3 @@
-
 .mission-control-header-copy--control {
   max-width: none;
   display: flex;
@@ -991,6 +990,26 @@
   background: var(--chat-warning-muted);
 }
 
+.shield-status.status-ready {
+  color: var(--chat-success);
+  background: var(--chat-success-muted);
+}
+
+.shield-status.status-warning {
+  color: var(--chat-warning);
+  background: var(--chat-warning-muted);
+}
+
+.shield-status.status-blocked {
+  color: var(--chat-danger);
+  background: var(--chat-danger-muted);
+}
+
+.shield-status.status-idle {
+  color: var(--chat-text-secondary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
 .shield-detail-panel {
   padding: 20px 22px 24px;
   display: flex;
@@ -1088,17 +1107,115 @@
 .shield-trust-card {
   border-color: var(--interactive-selected-border);
   background:
-    radial-gradient(circle at top left, var(--accent-wash-muted), transparent 44%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015)),
+    radial-gradient(
+      circle at top left,
+      var(--accent-wash-muted),
+      transparent 44%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.035),
+      rgba(255, 255, 255, 0.015)
+    ),
     var(--surface-3);
 }
 
 .shield-request-card {
   border-color: rgba(242, 189, 90, 0.24);
   background:
-    radial-gradient(circle at top left, rgba(242, 189, 90, 0.15), transparent 42%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015)),
+    radial-gradient(
+      circle at top left,
+      rgba(242, 189, 90, 0.15),
+      transparent 42%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.035),
+      rgba(255, 255, 255, 0.015)
+    ),
     var(--surface-3);
+}
+
+.shield-authority-center {
+  border-color: rgba(118, 181, 255, 0.2);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.035),
+      rgba(255, 255, 255, 0.015)
+    ),
+    var(--surface-3);
+}
+
+.shield-authority-copy {
+  margin: 0;
+  color: var(--chat-text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.shield-authority-blockers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid rgba(242, 189, 90, 0.2);
+  border-radius: 12px;
+  background: rgba(242, 189, 90, 0.08);
+}
+
+.shield-authority-blockers span {
+  color: var(--chat-warning);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.shield-authority-lanes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.shield-authority-lanes h3 {
+  margin: 0 0 8px;
+  color: var(--chat-text);
+  font-size: 13px;
+}
+
+.shield-authority-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shield-authority-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px;
+  border: 1px solid var(--chat-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.shield-authority-row > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shield-authority-row strong {
+  color: var(--chat-text);
+  font-size: 12px;
+}
+
+.shield-authority-row span,
+.shield-authority-row small {
+  color: var(--chat-text-secondary);
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .shield-trust-summary {
@@ -1357,7 +1474,8 @@
 
   .shield-form-grid,
   .shield-help-content,
-  .shield-summary-row {
+  .shield-summary-row,
+  .shield-authority-lanes {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -1386,7 +1504,8 @@
   .chat-settings-diagnostics,
   .shield-form-grid,
   .shield-help-content,
-  .shield-summary-row {
+  .shield-summary-row,
+  .shield-authority-lanes {
     grid-template-columns: minmax(0, 1fr);
   }
 }
