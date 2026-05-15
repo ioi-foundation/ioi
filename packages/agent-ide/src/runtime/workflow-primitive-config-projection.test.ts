@@ -68,6 +68,11 @@ test("creator display labels collapse operation variants into primitive names", 
   assert.equal(creators.get("memory.search")?.displayLabel, "Memory");
   assert.equal(creators.get("subagent.spawn")?.displayLabel, "Worker");
   assert.equal(creators.get("plugin_tool.coding_pack")?.displayLabel, "Tool Pack");
+  assert.equal(creators.get("plugin_tool.browser_use")?.displayLabel, "Tool Pack");
+  assert.equal(
+    creators.get("plugin_tool.computer_use.visual_gui")?.displayLabel,
+    "Tool Pack",
+  );
   assert.equal(creators.get("skill_context.discover")?.displayLabel, "Skills");
   assert.equal(creators.get("github_pr_create")?.displayLabel, "Pull Request");
   assert.equal(workflowNodeDefinition("model_call").displayLabel, "Agent Step");

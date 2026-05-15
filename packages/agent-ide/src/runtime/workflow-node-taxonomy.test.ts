@@ -105,7 +105,7 @@ test("taxonomy projects over-expanded subsystem facets to canonical primitives",
   assert.equal(workflowNodeDefinition("runtime_task").paletteVisibility, "advanced");
 });
 
-test("creator taxonomy covers memory, worker, mcp, and skill authoring words", () => {
+test("creator taxonomy covers memory, worker, mcp, skill, and computer-use authoring words", () => {
   const creators = new Map(
     workflowNodeCreatorDefinitions().map((creator) => [creator.creatorId, creator]),
   );
@@ -116,4 +116,32 @@ test("creator taxonomy covers memory, worker, mcp, and skill authoring words", (
   assert.equal(creators.get("mcp.status")?.canonicalPrimitive, "connector");
   assert.equal(creators.get("skill_context.discover")?.canonicalPrimitive, "skills");
   assert.equal(creators.get("plugin_tool.coding_pack")?.canonicalPrimitive, "tool_pack");
+  assert.equal(creators.get("plugin_tool.browser_use")?.canonicalPrimitive, "tool_pack");
+  assert.equal(
+    creators.get("plugin_tool.computer_use.visual_gui")?.canonicalPrimitive,
+    "tool_pack",
+  );
+  assert.equal(
+    creators.get("plugin_tool.computer_use.sandboxed")?.canonicalPrimitive,
+    "tool_pack",
+  );
+  assert.deepEqual(
+    creators.get("plugin_tool.browser_use")?.defaultLogic.toolBinding?.arguments,
+    {
+      computerUse: true,
+      computerUseLane: "native_browser",
+      computerUseSessionMode: "owned_hermetic_browser",
+      observationRetentionMode: "local_redacted_artifacts",
+      failClosedWhenUnavailable: true,
+    },
+  );
+  assert.equal(
+    creators.get("plugin_tool.computer_use.visual_gui")?.defaultLaw.requireHumanGate,
+    true,
+  );
+  assert.equal(
+    creators.get("plugin_tool.computer_use.sandboxed")?.defaultLogic.toolBinding
+      ?.arguments?.["computerUseLane"],
+    "sandboxed_hosted",
+  );
 });
