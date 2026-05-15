@@ -60,6 +60,18 @@ import type {
   UncertaintyProjection,
 } from "./messages.js";
 import type { RuntimeModelCatalogEntry } from "./model-mounts.js";
+import {
+  COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+  defaultComputerUseHarnessContract,
+  type ActionProposal,
+  type AffordanceGraph,
+  type ComputerUseLease,
+  type ComputerUseObservationBundle,
+  type ComputerUseRunState,
+  type ComputerUseVerificationReceipt,
+  type EnvironmentSelectionReceipt,
+  type TargetIndex,
+} from "./computer-use.js";
 
 export { runtimeThreadEventFromEnvelope } from "./runtime-events.js";
 
@@ -7278,6 +7290,17 @@ function buildMockRun(
   );
   const modelRouteReceiptId = `receipt_${runId}_model_route`;
   const selectedModel = modelRouteDecision.selectedModel ?? options.model?.id ?? agent.modelId;
+  const computerUseProjection = mockComputerUseProjectionForRun({
+    agent,
+    runId,
+    prompt,
+    mode,
+    options,
+    selectedModel,
+  });
+  if (computerUseProjection) {
+    toolSequence.push("computer_use_harness");
+  }
   const inlineMcpServerNames = Object.keys(options.mcpServers ?? {});
   const memoryRecords = memory.records;
   const memoryMutations = memory.mutations ?? memory.writes.map((write) => ({ ...write, operation: "write" as const }));
@@ -7305,6 +7328,12 @@ function buildMockRun(
             `Subagent memory inheritance: mode=${subagentMemoryInheritance.mode}, receiver=${subagentMemoryInheritance.subagentName ?? "handoff"}, records=${subagentMemoryInheritance.records.length}, writeAllowed=${subagentMemoryInheritance.writeAllowed}`,
           ]
         : []),
+      ...(computerUseProjection
+        ? [
+            `Computer-use lane: ${computerUseProjection.environmentSelection.selected_lane}/${computerUseProjection.environmentSelection.selected_session_mode}`,
+            `Computer-use observation: ${computerUseProjection.observation.observation_ref} with target index ${computerUseProjection.targetIndex.target_index_ref}`,
+          ]
+        : []),
       ...memoryRecords.map((record) => `Memory fact (${record.scope}:${record.id}): ${record.fact}`),
     ],
     uncertainFacts: mode === "dry_run" ? ["Side effects are previewed, not executed"] : [],
@@ -7322,6 +7351,10 @@ function buildMockRun(
       ...memoryRecords.map((record) => record.id),
       ...memoryWriteReceipts.map((receipt) => receipt.id),
       subagentMemoryReceipt?.id,
+      computerUseProjection?.receipt.id,
+      computerUseProjection?.environmentSelection.receipt_ref,
+      computerUseProjection?.observation.observation_ref,
+      computerUseProjection?.actionProposal.proposal_ref,
     ].filter((value): value is string => Boolean(value)),
   };
   const uncertainty: UncertaintyProjection = {
@@ -7379,6 +7412,17 @@ function buildMockRun(
       "ModelRouteDecision",
       "AgentMemoryPolicy",
       "SubagentMemoryInheritanceProjection",
+      ...(computerUseProjection
+        ? [
+            "ComputerUseRunState",
+            "EnvironmentSelectionReceipt",
+            "ComputerUseObservationBundle",
+            "TargetIndex",
+            "AffordanceGraph",
+            "ActionProposal",
+            "ComputerUseVerificationReceipt",
+          ]
+        : []),
     ],
     changedPolicies: [
       ...(mode === "dry_run" ? ["authority.preview_only"] : []),
@@ -7430,6 +7474,7 @@ function buildMockRun(
       redaction: "none",
       evidenceRefs: modelRouteDecision.evidenceRefs,
     },
+    ...(computerUseProjection ? [computerUseProjection.receipt] : []),
     ...(subagentMemoryReceipt ? [subagentMemoryReceipt] : []),
     ...memoryWriteReceipts,
     {
@@ -7462,6 +7507,11 @@ function buildMockRun(
     ...modelRouteDecision,
     receiptId: modelRouteReceiptId,
   });
+  if (computerUseProjection) {
+    for (const event of computerUseProjection.events) {
+      addEvent(event.type, event.summary, event.data);
+    }
+  }
   for (const mutation of memoryMutations) {
     addEvent("memory_update", mockMemoryEventSummary(mutation.operation), {
       ...(("record" in mutation ? mutation.record : mutation.policy) ?? {}),
@@ -7575,6 +7625,329 @@ function buildMockRun(
     subagentMemoryInheritance,
     result,
   };
+}
+
+interface MockComputerUseProjection {
+  environmentSelection: EnvironmentSelectionReceipt;
+  lease: ComputerUseLease;
+  runState: ComputerUseRunState;
+  observation: ComputerUseObservationBundle;
+  targetIndex: TargetIndex;
+  affordanceGraph: AffordanceGraph;
+  actionProposal: ActionProposal;
+  verification: ComputerUseVerificationReceipt;
+  receipt: RuntimeReceipt;
+  events: Array<{
+    type: IOISDKMessage["type"];
+    summary: string;
+    data: Record<string, unknown>;
+  }>;
+}
+
+function mockComputerUseProjectionForRun({
+  agent,
+  runId,
+  prompt,
+  mode,
+  options,
+  selectedModel,
+}: {
+  agent: RuntimeAgentRecord;
+  runId: string;
+  prompt: string;
+  mode: RuntimeRunRecord["mode"];
+  options: SendOptions;
+  selectedModel: string;
+}): MockComputerUseProjection | null {
+  if (!shouldProjectComputerUse(prompt, options)) {
+    return null;
+  }
+  const targetHint = computerUseTargetHint(prompt);
+  const leaseId = `lease_${runId}_browser`;
+  const observationRef = `observation_${runId}_browser_initial`;
+  const targetIndexRef = `target_index_${runId}_browser_initial`;
+  const affordanceGraphRef = `affordance_${runId}_browser_initial`;
+  const proposalRef = `proposal_${runId}_browser_inspect`;
+  const policyDecisionRef = `policy_${runId}_computer_use_read_only`;
+  const verificationRef = `verification_${runId}_computer_use_probe`;
+  const environmentSelection: EnvironmentSelectionReceipt = {
+    receipt_ref: `receipt_${runId}_computer_use_environment`,
+    run_id: runId,
+    selected_lane: "native_browser",
+    selected_session_mode: "owned_hermetic_browser",
+    rejected_options: [
+      {
+        lane: "visual_gui",
+        session_mode: "visual_fallback",
+        reason: "DOM, AX, selector, screenshot, and CDP evidence are available before visual fallback.",
+      },
+      {
+        lane: "sandboxed_hosted",
+        session_mode: "local_sandbox",
+        reason: "The mock SDK task is local and read-only; hosted isolation is retained for risky or reproducible runs.",
+      },
+    ],
+    reasons: [
+      "Prompt indicates browser or computer-use automation.",
+      "Native browser lane gives the strongest semantic grounding for web tasks.",
+      "Visual and sandbox lanes remain explicit fallback options under the same IOI contracts.",
+    ],
+    risk_posture: mode === "dry_run" ? "preview_only" : "read_only_probe",
+    authority_required: "computer_use.native_browser.read",
+    privacy_impact: "local_redacted_artifacts",
+    expected_cleanup: "close_owned_browser_context_and_retain_redacted_trace",
+  };
+  const lease: ComputerUseLease = {
+    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    lease_id: leaseId,
+    lane: "native_browser",
+    session_mode: "owned_hermetic_browser",
+    status: "active",
+    authority_scope: environmentSelection.authority_required,
+    consent_scope: "operator_prompt",
+    target_hint: targetHint,
+    environment_ref: `local_browser:${safeFileName(agent.cwd)}`,
+    profile_provenance: "temporary_ioi_browser_profile",
+    retention_mode: "local_redacted_artifacts",
+    cleanup_required: true,
+    evidence_refs: [environmentSelection.receipt_ref, "ioi.native_browser.chromiumoxide"],
+  };
+  const runState: ComputerUseRunState = {
+    run_id: runId,
+    lease_id: leaseId,
+    user_goal: prompt,
+    current_subgoal: "Observe the requested surface, index targets, and propose a grounded next action.",
+    plan_graph_ref: `plan_graph_${runId}_computer_use`,
+    current_observation_ref: observationRef,
+    current_target_index_ref: targetIndexRef,
+    active_hypotheses: [
+      "Native browser semantics should resolve the task before visual fallback.",
+      "No external side effect should occur before a policy-gated action proposal.",
+    ],
+    expected_postcondition: "A redacted observation, target index, affordance graph, and approved read-only action proposal exist.",
+    last_action_ref: null,
+    verification_status: "unknown",
+    blocker_state: null,
+    retry_budget: 2,
+    risk_posture: environmentSelection.risk_posture,
+    user_handoff_ref: null,
+    cleanup_state: "cleanup_required",
+  };
+  const observation: ComputerUseObservationBundle = {
+    observation_ref: observationRef,
+    lease_id: leaseId,
+    lane: "native_browser",
+    session_mode: "owned_hermetic_browser",
+    url: targetHint.startsWith("http") ? targetHint : null,
+    title: "IOI computer-use mock observation",
+    app_name: "Chromium",
+    window_title: "IOI browser-use harness",
+    screenshot_ref: `artifact:${runId}:browser_screenshot_redacted`,
+    som_ref: `artifact:${runId}:som_overlay`,
+    dom_ref: `artifact:${runId}:dom_snapshot`,
+    ax_ref: `artifact:${runId}:ax_tree`,
+    selector_map_ref: `artifact:${runId}:selector_map`,
+    target_index_ref: targetIndexRef,
+    redaction_report_ref: `artifact:${runId}:redaction_report`,
+    freshness_ms: 0,
+    retention_mode: "local_redacted_artifacts",
+    detected_patterns: ["form", "toolbar", "warning_or_toast"],
+  };
+  const targetIndex: TargetIndex = {
+    target_index_ref: targetIndexRef,
+    observation_ref: observationRef,
+    coordinate_space_id: `viewport_${runId}`,
+    drift_state: "fresh",
+    targets: [
+      {
+        target_ref: `target_${runId}_document`,
+        label: "Current page",
+        role: "document",
+        semantic_ids: ["document", "page-root"],
+        selectors: ["html", "body"],
+        som_id: 1,
+        ax_ref: `${observation.ax_ref}#document`,
+        bounds: {
+          x: 0,
+          y: 0,
+          width: 1280,
+          height: 720,
+          coordinate_space_id: `viewport_${runId}`,
+        },
+        confidence: 96,
+        available_actions: ["inspect", "scroll", "click"],
+      },
+    ],
+  };
+  const affordanceGraph: AffordanceGraph = {
+    graph_ref: affordanceGraphRef,
+    target_index_ref: targetIndexRef,
+    observation_ref: observationRef,
+    affordances: [
+      {
+        target_ref: targetIndex.targets[0].target_ref,
+        possible_action: "inspect",
+        action_preconditions: ["fresh_observation", "target_index_present"],
+        confidence: 95,
+        expected_state_transition: "A read-only inspection summary can be produced without external side effects.",
+        risk_class: "read_only",
+        required_authority: "computer_use.native_browser.read",
+        confirmation_required: false,
+        fallback_action_paths: ["reobserve", "switch_to_visual_lane"],
+        invalidation_conditions: ["navigation", "modal_interruption", "auth_wall"],
+      },
+    ],
+  };
+  const actionProposal: ActionProposal = {
+    proposal_ref: proposalRef,
+    proposed_by: selectedModel,
+    model_role: "grounder",
+    raw_model_output_ref: `model_output_${runId}_computer_use_candidate`,
+    normalized_action_candidate: "inspect current page and summarize actionable targets",
+    target_ref: targetIndex.targets[0].target_ref,
+    confidence: 92,
+    rationale_summary: "The page root is present and read-only inspection is the lowest-risk next step.",
+    predicted_postcondition: "The harness has a grounded page summary and next-action candidates.",
+    risk_assessment: "read_only",
+    policy_decision_ref: policyDecisionRef,
+  };
+  const verification: ComputerUseVerificationReceipt = {
+    verification_ref: verificationRef,
+    action_ref: null,
+    status: "passed",
+    expected_postcondition: actionProposal.predicted_postcondition,
+    observed_postcondition: "Environment, lease, observation, target index, affordance graph, and action proposal are trace-visible.",
+    verifier: "sdk_mock_computer_use_harness",
+    evidence_refs: [
+      environmentSelection.receipt_ref,
+      observation.observation_ref,
+      targetIndex.target_index_ref,
+      affordanceGraph.graph_ref,
+      actionProposal.proposal_ref,
+    ],
+  };
+  const basePayload = {
+    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    harness_contract: defaultComputerUseHarnessContract(),
+  };
+  const events: MockComputerUseProjection["events"] = [
+    {
+      type: "computer_use_environment_selected",
+      summary: "Computer-use environment selected",
+      data: {
+        ...basePayload,
+        computer_use_step: "select_environment",
+        computer_use_lane: environmentSelection.selected_lane,
+        computer_use_session_mode: environmentSelection.selected_session_mode,
+        computer_use_lease_id: lease.lease_id,
+        environment_selection_receipt: environmentSelection,
+        lease,
+      },
+    },
+    {
+      type: "computer_use_run_state",
+      summary: "Computer-use run state projected",
+      data: {
+        ...basePayload,
+        computer_use_step: "plan_next_step",
+        computer_use_lease_id: lease.lease_id,
+        computer_use_observation_ref: observation.observation_ref,
+        computer_use_target_index_ref: targetIndex.target_index_ref,
+        computer_use_run_state: runState,
+      },
+    },
+    {
+      type: "computer_use_observation",
+      summary: "Computer-use observation indexed",
+      data: {
+        ...basePayload,
+        computer_use_step: "observe",
+        computer_use_observation_ref: observation.observation_ref,
+        computer_use_target_index_ref: targetIndex.target_index_ref,
+        observation_bundle: observation,
+        target_index: targetIndex,
+      },
+    },
+    {
+      type: "computer_use_affordance_graph",
+      summary: "Computer-use affordance graph built",
+      data: {
+        ...basePayload,
+        computer_use_step: "build_affordance_graph",
+        computer_use_affordance_graph_ref: affordanceGraph.graph_ref,
+        computer_use_target_index_ref: targetIndex.target_index_ref,
+        affordance_graph: affordanceGraph,
+      },
+    },
+    {
+      type: "computer_use_action_proposed",
+      summary: "Computer-use action proposal policy-gated",
+      data: {
+        ...basePayload,
+        computer_use_step: "propose_action",
+        computer_use_proposal_ref: actionProposal.proposal_ref,
+        computer_use_target_ref: actionProposal.target_ref,
+        computer_use_policy_decision_ref: policyDecisionRef,
+        action_proposal: actionProposal,
+        policy_gate: {
+          policy_decision_ref: policyDecisionRef,
+          outcome: "approved_for_read_only_probe",
+          authority_scope: environmentSelection.authority_required,
+        },
+      },
+    },
+    {
+      type: "computer_use_verification",
+      summary: "Computer-use postcondition verified",
+      data: {
+        ...basePayload,
+        computer_use_step: "verify_postcondition",
+        computer_use_verification_ref: verification.verification_ref,
+        computer_use_proposal_ref: actionProposal.proposal_ref,
+        verification_receipt: verification,
+      },
+    },
+  ];
+  return {
+    environmentSelection,
+    lease,
+    runState,
+    observation,
+    targetIndex,
+    affordanceGraph,
+    actionProposal,
+    verification,
+    events,
+    receipt: {
+      id: `receipt_${runId}_computer_use_trace`,
+      kind: "computer_use_trace",
+      summary: "Computer-use harness trace exposed environment selection, observation, targets, affordances, proposal, and verification.",
+      redaction: "redacted",
+      evidenceRefs: [
+        "ComputerUseHarnessContract",
+        environmentSelection.receipt_ref,
+        lease.lease_id,
+        observation.observation_ref,
+        targetIndex.target_index_ref,
+        affordanceGraph.graph_ref,
+        actionProposal.proposal_ref,
+        verification.verification_ref,
+      ],
+    },
+  };
+}
+
+function shouldProjectComputerUse(prompt: string, options: SendOptions): boolean {
+  if (options.metadata?.computerUse === true || options.metadata?.computer_use === true) {
+    return true;
+  }
+  return /\b(browser|chromium|website|web page|url|computer[- ]use|cua|gui|desktop|click|selector|playwright)\b/i
+    .test(prompt);
+}
+
+function computerUseTargetHint(prompt: string): string {
+  const url = String(prompt).match(/https?:\/\/[^\s)]+/i)?.[0];
+  return url ?? "browser surface requested by user prompt";
 }
 
 function resultForMode(

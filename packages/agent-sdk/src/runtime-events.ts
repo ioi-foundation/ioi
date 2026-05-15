@@ -1,5 +1,6 @@
 import type { IOISDKMessage, RuntimeEventEnvelope, RuntimeThreadEvent, RuntimeTurnRecord } from "./messages.js";
 import type { RuntimeAgentRecord, RuntimeEventStreamOptions, RuntimeRunRecord } from "./substrate-client.js";
+import { COMPUTER_USE_CONTRACT_SCHEMA_VERSION } from "./computer-use.js";
 
 export function runtimeThreadEventFromEnvelope(event: RuntimeEventEnvelope): RuntimeThreadEvent {
   const payload = runtimeEventPayload(event);
@@ -286,6 +287,18 @@ function runtimeEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
       return "tool.completed";
     case "model_route_decision":
       return "model.route_decision";
+    case "computer_use_environment_selected":
+      return "computer_use.environment_selected";
+    case "computer_use_run_state":
+      return "computer_use.run_state";
+    case "computer_use_observation":
+      return "computer_use.observation";
+    case "computer_use_affordance_graph":
+      return "computer_use.affordance_graph";
+    case "computer_use_action_proposed":
+      return "computer_use.action_proposed";
+    case "computer_use_verification":
+      return "computer_use.verification";
     case "completed":
       return "turn.completed";
     case "canceled":
@@ -325,6 +338,11 @@ function runtimeEventStatusForSdkMessage(type: IOISDKMessage["type"]): string {
   if (
     type === "run_started" ||
     type === "delta" ||
+    type === "computer_use_environment_selected" ||
+    type === "computer_use_run_state" ||
+    type === "computer_use_observation" ||
+    type === "computer_use_affordance_graph" ||
+    type === "computer_use_action_proposed" ||
     type === "usage_delta" ||
     type === "context_pressure_delta" ||
     type === "context_pressure_alert"
@@ -352,6 +370,7 @@ function componentKindForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "workflow_edit_proposed" || type === "workflow_edit_applied") return "workflow_edit_proposal";
   if (type === "approval_required" || type === "approval_decision") return "approval_gate";
   if (type === "model_route_decision") return "model_router";
+  if (type.startsWith("computer_use_")) return "computer_use_harness";
   if (type === "tool_result") return "tool_result";
   if (type === "delta") return "reasoning_delta";
   return type;
@@ -371,6 +390,12 @@ function workflowNodeIdForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "workflow_edit_proposed" || type === "workflow_edit_applied") return "runtime.workflow-edit-proposal";
   if (type === "approval_decision") return "runtime.approval-decision";
   if (type === "model_route_decision") return "runtime.model-router";
+  if (type === "computer_use_environment_selected") return "computer-use.select-environment";
+  if (type === "computer_use_run_state") return "computer-use.run-state";
+  if (type === "computer_use_observation") return "computer-use.observe";
+  if (type === "computer_use_affordance_graph") return "computer-use.affordance-graph";
+  if (type === "computer_use_action_proposed") return "computer-use.action-proposal";
+  if (type === "computer_use_verification") return "computer-use.verify";
   if (type === "tool_result") return "runtime.tool-result";
   if (type === "delta") return "runtime.reasoning";
   return `runtime.${type.replaceAll("_", "-")}`;
@@ -391,6 +416,12 @@ function sourceEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "workflow_edit_proposed") return "WorkflowEdit.Proposed";
   if (type === "workflow_edit_applied") return "WorkflowEdit.Applied";
   if (type === "approval_decision") return "OperatorApproval.Decision";
+  if (type === "computer_use_environment_selected") return "ComputerUse.EnvironmentSelected";
+  if (type === "computer_use_run_state") return "ComputerUse.RunState";
+  if (type === "computer_use_observation") return "ComputerUse.Observation";
+  if (type === "computer_use_affordance_graph") return "ComputerUse.AffordanceGraph";
+  if (type === "computer_use_action_proposed") return "ComputerUse.ActionProposed";
+  if (type === "computer_use_verification") return "ComputerUse.Verification";
   return `run.${type}`;
 }
 
@@ -408,6 +439,7 @@ function payloadSchemaVersionForSdkMessage(type: IOISDKMessage["type"]): string 
   if (type === "workflow_edit_proposed") return "ioi.runtime.workflow-edit-proposal.v1";
   if (type === "workflow_edit_applied") return "ioi.runtime.workflow-edit-apply.v1";
   if (type === "approval_decision") return "ioi.runtime.approval-decision.v1";
+  if (type.startsWith("computer_use_")) return COMPUTER_USE_CONTRACT_SCHEMA_VERSION;
   return "ioi.agent-sdk.event.v1";
 }
 

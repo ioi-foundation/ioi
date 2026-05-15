@@ -619,10 +619,10 @@ Required guarantees:
 
 | Area | Target status |
 | --- | --- |
-| Contract spine | Not started |
-| Behavioral control loop | Not started |
-| Environment planner | Not started |
-| Affordance/action proposal pipeline | Not started |
+| Contract spine | Done / regression guarded |
+| Behavioral control loop | Started: SDK/runtime trace projection emits the loop spine; daemon execution loop pending |
+| Environment planner | Started: `EnvironmentSelectionReceipt` is trace-visible; full daemon planner pending |
+| Affordance/action proposal pipeline | Started: target index, affordance graph, and policy-gated `ActionProposal` are trace-visible; executor pending |
 | Recovery, handoff, and commit gates | Not started |
 | Native browser parity | Not started |
 | Visual GUI parity | Not started |
@@ -632,9 +632,9 @@ Required guarantees:
 | Model action adapters | Not started |
 | Co-op coding agent computer use | Not started |
 | Benchmark/eval harness | Not started |
-| Autopilot glass-box workbench | Not started |
+| Autopilot glass-box workbench | Started: canonical runtime payloads exist; UI workbench pending |
 | Workflow compositor projection | Not started |
-| Safety/governance receipts | Not started |
+| Safety/governance receipts | Started: `computer_use_trace` receipt and read-only policy gate projection exist; policy executor pending |
 
 ## Definition Of Done
 

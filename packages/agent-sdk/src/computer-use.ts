@@ -86,6 +86,47 @@ export interface ComputerUseObservationBundle {
   detected_patterns: string[];
 }
 
+export interface ComputerUseTargetEntry {
+  target_ref: string;
+  label: string;
+  role: string;
+  semantic_ids: string[];
+  selectors: string[];
+  som_id?: number | null;
+  ax_ref?: string | null;
+  bounds?: unknown;
+  confidence: number;
+  available_actions: ComputerActionKind[];
+}
+
+export interface TargetIndex {
+  target_index_ref: string;
+  observation_ref: string;
+  coordinate_space_id: string;
+  drift_state: string;
+  targets: ComputerUseTargetEntry[];
+}
+
+export interface AffordanceRecord {
+  target_ref: string;
+  possible_action: ComputerActionKind;
+  action_preconditions: string[];
+  confidence: number;
+  expected_state_transition: string;
+  risk_class: string;
+  required_authority: string;
+  confirmation_required: boolean;
+  fallback_action_paths: string[];
+  invalidation_conditions: string[];
+}
+
+export interface AffordanceGraph {
+  graph_ref: string;
+  target_index_ref: string;
+  observation_ref: string;
+  affordances: AffordanceRecord[];
+}
+
 export interface ActionProposal {
   proposal_ref: string;
   proposed_by: string;
@@ -98,6 +139,56 @@ export interface ActionProposal {
   predicted_postcondition: string;
   risk_assessment: string;
   policy_decision_ref?: string | null;
+}
+
+export type ComputerUseVerificationStatus = "passed" | "failed" | "requires_human" | "blocked" | "unknown";
+
+export interface ComputerUseVerificationReceipt {
+  verification_ref: string;
+  action_ref?: string | null;
+  status: ComputerUseVerificationStatus;
+  expected_postcondition: string;
+  observed_postcondition: string;
+  verifier: string;
+  evidence_refs: unknown[];
+}
+
+export interface ComputerUseRunState {
+  run_id: string;
+  lease_id: string;
+  user_goal: string;
+  current_subgoal: string;
+  plan_graph_ref?: string | null;
+  current_observation_ref?: string | null;
+  current_target_index_ref?: string | null;
+  active_hypotheses: string[];
+  expected_postcondition: string;
+  last_action_ref?: string | null;
+  verification_status: ComputerUseVerificationStatus;
+  blocker_state?: string | null;
+  retry_budget: number;
+  risk_posture: string;
+  user_handoff_ref?: string | null;
+  cleanup_state: string;
+}
+
+export interface EnvironmentOptionRejection {
+  lane: ComputerUseLane;
+  session_mode: ComputerUseSessionMode;
+  reason: string;
+}
+
+export interface EnvironmentSelectionReceipt {
+  receipt_ref: string;
+  run_id: string;
+  selected_lane: ComputerUseLane;
+  selected_session_mode: ComputerUseSessionMode;
+  rejected_options: EnvironmentOptionRejection[];
+  reasons: string[];
+  risk_posture: string;
+  authority_required: string;
+  privacy_impact: string;
+  expected_cleanup: string;
 }
 
 export interface ComputerAction {

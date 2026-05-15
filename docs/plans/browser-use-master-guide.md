@@ -75,6 +75,17 @@ All three lanes must share IOI runtime truth:
   same observations, target indexes, action proposals, actions, receipts,
   trajectories, policies, artifacts, and manifests.
 
+## Current Implementation Snapshot
+
+| Slice | Status | Regression guard |
+| --- | --- | --- |
+| Guide promotion | Done | `docs/plans/browser-use-master-guide.md` is active and linked to the meta/CUA guides. |
+| Contract spine | Done | `cargo test -p ioi-types --lib` covers the Rust runtime contracts; `npm --prefix packages/agent-sdk test` covers SDK contract projection. |
+| Owned browser adapter projection | Done | `cargo test -p ioi-drivers browser::computer_use --lib` covers owned-browser lease, adapter, and observation projection. |
+| SDK/runtime trace projection | Done | `packages/agent-sdk/test/computer-use.test.mjs` asserts browser prompts emit environment selection, run state, observation, target index, affordance, action proposal, verification, receipt, and runtime event projections. |
+| Daemon planner/executor | Pending | Next slice should move the SDK trace shape into daemon-owned planner and execution events. |
+| Autopilot workbench | Pending | UI should consume the new runtime event payloads instead of inventing a separate trace channel. |
+
 ## Behavioral Control Layer
 
 The browser lane must be more than a screenshot-to-click loop. The canonical
