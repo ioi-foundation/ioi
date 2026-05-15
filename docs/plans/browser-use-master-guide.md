@@ -83,7 +83,8 @@ All three lanes must share IOI runtime truth:
 | Contract spine | Done | `cargo test -p ioi-types --lib` covers the Rust runtime contracts; `npm --prefix packages/agent-sdk test` covers SDK contract projection. |
 | Owned browser adapter projection | Done | `cargo test -p ioi-drivers browser::computer_use --lib` covers owned-browser lease, adapter, and observation projection. |
 | SDK/runtime trace projection | Done | `packages/agent-sdk/test/computer-use.test.mjs` asserts browser prompts emit environment selection, run state, observation, target index, affordance, action proposal, verification, receipt, and runtime event projections. |
-| Daemon planner/executor | Pending | Next slice should move the SDK trace shape into daemon-owned planner and execution events. |
+| Daemon trace projection | Done | Runtime daemon runs now emit canonical `computer_use.*` events, `computer-use-trace.json`, `computer_use_trace` receipts, and workflow node ids for the behavioral loop. |
+| Daemon planner/executor | Pending | Next slices should replace the read-only trace projection with real lease acquisition, observation capture, action execution, verification, and cleanup receipts. |
 | Autopilot workbench | Pending | UI should consume the new runtime event payloads instead of inventing a separate trace channel. |
 
 ## Behavioral Control Layer
@@ -949,8 +950,10 @@ Minimum test coverage:
 | Enterprise GUI | Graph canvas, rail, bottom panel, table, and expanded group states remain inspectable. |
 
 Existing tests already cover pieces of this under browser runtime, reliability,
-and computer-use suites. The new work should add attach/relaunch and evidence
-bundle tests rather than duplicating the owned-browser smoke tests.
+and computer-use suites. `npm --prefix packages/agent-sdk test` guards SDK and
+daemon event projection for the computer-use loop. The next work should add
+attach/relaunch, execution, cleanup, and evidence bundle tests rather than
+duplicating the owned-browser smoke tests.
 
 ## Later Decisions
 
