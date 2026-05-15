@@ -20414,6 +20414,7 @@ function payloadSummaryForRunEvent(event) {
       computer_use_lane: event.data?.computer_use_lane ?? null,
       computer_use_session_mode: event.data?.computer_use_session_mode ?? null,
       computer_use_lease_id: event.data?.computer_use_lease_id ?? null,
+      computer_use_contract_ingest: event.data?.computer_use_contract_ingest ?? null,
       computer_use_observation_ref: event.data?.computer_use_observation_ref ?? null,
       computer_use_target_index_ref: event.data?.computer_use_target_index_ref ?? null,
       computer_use_affordance_graph_ref: event.data?.computer_use_affordance_graph_ref ?? null,

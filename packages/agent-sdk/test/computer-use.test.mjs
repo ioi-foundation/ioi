@@ -507,6 +507,90 @@ test("runtime daemon preserves workflow-authored computer-use node metadata", as
   }
 });
 
+test("runtime daemon ingests canonical computer-use observation contracts", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-live-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-live-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const run = await agent.send("Use the browser to inspect https://live.example.test.", {
+      metadata: {
+        computerUse: true,
+        computerUseObservationBundle: {
+          observation_ref: "observation-live-browser",
+          lease_id: "ignored-by-daemon",
+          lane: "native_browser",
+          session_mode: "owned_hermetic_browser",
+          url: "https://live.example.test/dashboard",
+          title: "Live Dashboard",
+          target_index_ref: "target-index-live-browser",
+          retention_mode: "local_redacted_artifacts",
+          detected_patterns: ["table", "toolbar"],
+        },
+        computerUseTargetIndex: {
+          target_index_ref: "target-index-live-browser",
+          observation_ref: "observation-live-browser",
+          coordinate_space_id: "viewport-live-browser",
+          drift_state: "fresh",
+          targets: [
+            {
+              target_ref: "target-live-refresh",
+              label: "Refresh",
+              role: "button",
+              semantic_ids: ["button:refresh"],
+              selectors: ["button[data-testid=refresh]"],
+              confidence: 97,
+              available_actions: ["inspect", "click"],
+            },
+          ],
+        },
+        computerUseAffordanceGraph: {
+          graph_ref: "affordance-live-browser",
+          target_index_ref: "target-index-live-browser",
+          observation_ref: "observation-live-browser",
+          affordances: [
+            {
+              target_ref: "target-live-refresh",
+              possible_action: "inspect",
+              action_preconditions: ["fresh_observation"],
+              confidence: 96,
+              expected_state_transition: "Refresh button can be inspected without side effects.",
+              risk_class: "read_only",
+              required_authority: "computer_use.native_browser.read",
+              confirmation_required: false,
+              fallback_action_paths: ["reobserve"],
+              invalidation_conditions: ["navigation"],
+            },
+          ],
+        },
+      },
+    });
+    const trace = await run.inspect();
+    assert.equal(trace.computerUse.observation.observation_ref, "observation-live-browser");
+    assert.equal(trace.computerUse.observation.url, "https://live.example.test/dashboard");
+    assert.equal(trace.computerUse.targetIndex.targets[0].target_ref, "target-live-refresh");
+    assert.equal(trace.computerUse.affordanceGraph.graph_ref, "affordance-live-browser");
+    assert.equal(trace.computerUse.actionProposal.target_ref, "target-live-refresh");
+
+    const thread = await agent.thread();
+    const runtimeEvents = [];
+    for await (const event of thread.events()) {
+      runtimeEvents.push(event);
+    }
+    const observationEvent = runtimeEvents.find((event) => event.eventKind === "computer_use.observation");
+    assert.ok(observationEvent);
+    assert.equal(observationEvent.payload.computer_use_contract_ingest, "canonical_runtime_contract");
+    assert.equal(observationEvent.payload.computer_use_observation_ref, "observation-live-browser");
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("requested unavailable computer-use lanes fail closed with visible recovery policy", async () => {
   const { cwd, client } = tempClient();
   const agent = await Agent.create({
