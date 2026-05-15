@@ -61,7 +61,7 @@ If any supporting roadmap disagrees, the architecture files above win.
 | Roadmap alignment          | `docs/roadmap.md` gates Phase 5 correctly; implementation roadmap now routes through Phase 4.5 before Phase 5.                                                                                                                                                                                                                | One current sequencing story with stale docs marked or updated.                                                                    | Done / regression guarded                                                                          |
 | Tool registry              | SDK, daemon `/v1/tools`, MCP serve descriptors, Rust service contracts, CLI inspection, TUI coding-tool rows, and React Flow/Autopilot workflow validation now expose or enforce readiness, approval, rate-limit, idempotency, receipt, availability, and marketplace fields.                                                 | Daemon/API/SDK/CLI/TUI/Autopilot share one complete contract shape.                                                                | Partial / tool projection guarded; full Authority Center remains                                   |
 | Model capability registry  | Daemon/API/SDK/CLI expose canonical model capability readiness contracts with privacy tier, provider priority, fallback policy, cost estimate visibility, vault/BYOK posture, receipt behavior, and workflow/agent availability; React Flow validation now blocks live model bindings that omit those contracts.              | Workflow/model nodes call model capability routes with policy, BYOK, readiness, fallback, and receipt metadata.                    | Partial / registry and fail-closed projection guarded; Authority Center/workflow picker UX remains |
-| wallet-core-lite           | Strong type/service pieces exist; Autopilot-facing encrypted vault and brokered action UX are incomplete.                                                                                                                                                                                                                     | Secrets, BYOK, connector credentials, grants, approval tokens, revocation, audit, and step-up are user-visible and runtime-backed. | Open                                                                                               |
+| wallet-core-lite           | Daemon now exposes a wallet-shaped `/api/v1/authority` projection with grant, revocation, vault, receipt, adapter, and approval-queue posture; Autopilot consumes that projection before falling back to model-mounting internals.                                                                                            | Secrets, BYOK, connector credentials, grants, approval tokens, revocation, audit, and step-up are user-visible and runtime-backed. | Partial / authority projection guarded; vault binding and approval queue actions remain            |
 | Policy execution           | Scoped policy receipts exist in lanes, but cross-domain policy substrate is not yet the common control surface.                                                                                                                                                                                                               | One policy envelope governs connector, shell, computer-use, model, worker, memory, and artifact actions.                           | Open                                                                                               |
 | Policy/Settings GUI        | Policy now opens as an Authority Center foundation with model/tool/connector capability readiness, grant, vault, blocker, no-secret-leak projection, scoped grant requests, grant revocation, and redacted receipt previews; Settings labels raw env values as advanced compatibility rather than the primary authority path. | Authority Center with grants, vault refs, readiness, policy decisions, approvals, revocation, and receipt links.                   | Partial / grant and revocation actions guarded; pending approval queue and vault binding UX remain |
 | Task-scoped GUI harness    | Recent live audit proved the desired method manually: choose the correct GUI lane, launch Autopilot, use an isolated browser profile, retain evidence outside git, and clean up the server.                                                                                                                                   | Computer-use harness can perform the same method as a first-class runtime capability with receipts.                                | Open                                                                                               |
@@ -416,14 +416,14 @@ Phase 5 may begin only when:
 
 ## First Tactical Slice
 
-Current immediate slice after the tool/model capability registry projections and
-Authority Center grant/revocation foundation:
+Current immediate slice after the tool/model capability registry projections,
+Authority Center grant/revocation foundation, and wallet authority projection:
 
-1. start wallet-core-lite product slice once model/tool/connector projections
-   agree on readiness, grants, approvals, and receipt fields.
-2. wire workflow picker/inspector UX to model capability refs instead of
+1. wire workflow picker/inspector UX to model capability refs instead of
    provider-flavored shortcuts.
-3. add pending approval queue and vault binding UX inside Authority Center.
+2. add pending approval queue and vault binding UX inside Authority Center.
+3. connect wallet-core-lite approval tokens and step-up hooks once the queue
+   contract is live.
 
 Historical first slice:
 

@@ -186,4 +186,50 @@ test("authority center projection degrades when live capabilities are blocked", 
   );
 });
 
+test("authority center prefers wallet authority snapshots for grants and vault refs", () => {
+  const projection = buildAuthorityCenterProjection({
+    policyState: createDefaultShieldPolicyState(),
+    authoritySnapshot: {
+      grants: [
+        {
+          id: "token.authority",
+          grantId: "wallet.grant.authority",
+          allowed: ["model.chat:*"],
+          denied: [],
+          expiresAt: "2026-05-15T13:00:00Z",
+          revokedAt: null,
+          receiptId: "receipt_authority_grant",
+        },
+      ],
+      vaultRefs: [
+        {
+          vaultRefHash: "vault-authority",
+          label: "Authority vault",
+          purpose: "model.provider.auth",
+          configured: true,
+          lastResolvedAt: "2026-05-15T12:00:00Z",
+        },
+      ],
+    },
+    modelSnapshot: {
+      tokens: [
+        {
+          id: "token.model-snapshot",
+          grantId: "wallet.grant.model-snapshot",
+          allowed: ["model.chat:*"],
+          denied: [],
+          expiresAt: "2026-05-15T13:00:00Z",
+          revokedAt: null,
+          receiptId: "receipt_model_snapshot",
+        },
+      ],
+    },
+  });
+
+  assert.equal(projection.grants.length, 1);
+  assert.equal(projection.grants[0]?.id, "token.authority");
+  assert.equal(projection.vaultRefs.length, 1);
+  assert.equal(projection.vaultRefs[0]?.id, "vault-authority");
+});
+
 console.log("authorityCenter.test.ts: ok");

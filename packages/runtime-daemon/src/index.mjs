@@ -11405,6 +11405,10 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
     writeJsonResponse(response, mounts.snapshot(baseUrl));
     return;
   }
+  if (request.method === "GET" && url.pathname === "/api/v1/authority") {
+    writeJsonResponse(response, mounts.authoritySnapshot(baseUrl));
+    return;
+  }
   if (request.method === "GET" && url.pathname === "/api/v1/model-capabilities") {
     writeJsonResponse(response, mounts.listModelCapabilities());
     return;
