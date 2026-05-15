@@ -18,14 +18,14 @@ export async function executeNativeBrowserCdpAction({
     prompt,
   })).slice(0, 16)}`;
   const normalizedActionKind = normalizeActionKind(actionKind);
-  if (!approvalRef || !["click", "navigate", "type_text"].includes(normalizedActionKind)) {
+  if (!approvalRef || !["click", "navigate", "type_text", "key_press"].includes(normalizedActionKind)) {
     return unavailableExecution({
       executorRef,
       actionKind: normalizedActionKind,
       approvalRef,
       errorClass: "NativeBrowserCdpUnsupportedAction",
       errorSummary:
-        "The native-browser CDP executor currently supports approved navigate, click, and type_text actions.",
+        "The native-browser CDP executor currently supports approved navigate, click, type_text, and key_press actions.",
     });
   }
 
@@ -47,11 +47,14 @@ export async function executeNativeBrowserCdpAction({
     await client.command("Page.enable");
     await client.command("Runtime.enable");
     const before = await observePage(client);
-    const actionResult = normalizedActionKind === "navigate"
-      ? await executeNavigate(client, input, prompt, { timeoutMs })
-      : normalizedActionKind === "type_text"
-        ? await executeTypeText(client, input, targetRef, prompt)
-        : await executeClick(client, input, targetRef);
+    const actionResult = await executeApprovedAction({
+      client,
+      input,
+      actionKind: normalizedActionKind,
+      targetRef,
+      prompt,
+      timeoutMs,
+    });
     const after = await observePage(client);
     return {
       schema_version: NATIVE_BROWSER_CDP_EXECUTOR_SCHEMA_VERSION,
@@ -86,6 +89,19 @@ export async function executeNativeBrowserCdpAction({
   } finally {
     await client?.close?.();
   }
+}
+
+async function executeApprovedAction({ client, input, actionKind, targetRef, prompt, timeoutMs }) {
+  if (actionKind === "navigate") {
+    return executeNavigate(client, input, prompt, { timeoutMs });
+  }
+  if (actionKind === "type_text") {
+    return executeTypeText(client, input, targetRef, prompt);
+  }
+  if (actionKind === "key_press") {
+    return executeKeyPress(client, input, prompt);
+  }
+  return executeClick(client, input, targetRef);
 }
 
 async function executeNavigate(client, input, prompt, { timeoutMs }) {
@@ -220,6 +236,45 @@ async function executeTypeText(client, input, targetRef, prompt) {
   return {
     action: "type_text",
     ...value,
+  };
+}
+
+async function executeKeyPress(client, input, prompt) {
+  const key = normalizeKey(
+    stringValue(
+      input.key ??
+        input.keyText ??
+        input.key_text ??
+        input.keyboardKey ??
+        input.keyboard_key,
+    ) ?? String(prompt ?? "").match(/\b(?:press|key(?:_press)?)\s+["']?([A-Za-z0-9 _+-]+)["']?/i)?.[1],
+  );
+  if (!key) {
+    throw new Error("Approved key_press action requires key, keyText, or a press-key prompt.");
+  }
+  const descriptor = keyDescriptor(key);
+  await client.command("Input.dispatchKeyEvent", {
+    type: "keyDown",
+    key: descriptor.key,
+    code: descriptor.code,
+    windowsVirtualKeyCode: descriptor.windowsVirtualKeyCode,
+    nativeVirtualKeyCode: descriptor.windowsVirtualKeyCode,
+    text: descriptor.text,
+    unmodifiedText: descriptor.text,
+  });
+  await client.command("Input.dispatchKeyEvent", {
+    type: "keyUp",
+    key: descriptor.key,
+    code: descriptor.code,
+    windowsVirtualKeyCode: descriptor.windowsVirtualKeyCode,
+    nativeVirtualKeyCode: descriptor.windowsVirtualKeyCode,
+  });
+  return {
+    action: "key_press",
+    key: descriptor.key,
+    code: descriptor.code,
+    text_length: descriptor.text.length,
+    windows_virtual_key_code: descriptor.windowsVirtualKeyCode,
   };
 }
 
@@ -431,8 +486,55 @@ function unavailableExecution({
 function normalizeActionKind(value) {
   const normalized = String(value ?? "").trim().toLowerCase().replace(/[\s-]+/g, "_");
   if (normalized === "type" || normalized === "input_text") return "type_text";
-  if (normalized === "keypress") return "key_press";
+  if (normalized === "keypress" || normalized === "press_key") return "key_press";
   return normalized || "inspect";
+}
+
+function normalizeKey(value) {
+  const key = stringValue(value);
+  if (!key) return null;
+  return key.trim().replace(/\s+/g, " ");
+}
+
+function keyDescriptor(key) {
+  const normalized = key.toLowerCase().replace(/\s+/g, "");
+  const special = {
+    enter: ["Enter", "Enter", 13],
+    return: ["Enter", "Enter", 13],
+    tab: ["Tab", "Tab", 9],
+    escape: ["Escape", "Escape", 27],
+    esc: ["Escape", "Escape", 27],
+    backspace: ["Backspace", "Backspace", 8],
+    delete: ["Delete", "Delete", 46],
+    arrowup: ["ArrowUp", "ArrowUp", 38],
+    up: ["ArrowUp", "ArrowUp", 38],
+    arrowdown: ["ArrowDown", "ArrowDown", 40],
+    down: ["ArrowDown", "ArrowDown", 40],
+    arrowleft: ["ArrowLeft", "ArrowLeft", 37],
+    left: ["ArrowLeft", "ArrowLeft", 37],
+    arrowright: ["ArrowRight", "ArrowRight", 39],
+    right: ["ArrowRight", "ArrowRight", 39],
+    space: [" ", "Space", 32],
+  }[normalized];
+  if (special) {
+    const [specialKey, code, keyCode] = special;
+    return {
+      key: specialKey,
+      code,
+      windowsVirtualKeyCode: keyCode,
+      text: specialKey === " " ? " " : "",
+    };
+  }
+  if (key.length === 1) {
+    const upper = key.toUpperCase();
+    return {
+      key,
+      code: /^[a-z]$/i.test(key) ? `Key${upper}` : key,
+      windowsVirtualKeyCode: upper.charCodeAt(0),
+      text: key,
+    };
+  }
+  throw new Error(`Unsupported key_press key ${key}; use a single character or a named key such as Enter, Tab, Escape, Backspace, Delete, or ArrowUp.`);
 }
 
 function normalizeNavigationUrl(value) {

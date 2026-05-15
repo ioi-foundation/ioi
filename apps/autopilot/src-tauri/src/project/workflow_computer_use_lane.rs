@@ -25,6 +25,7 @@ struct WorkflowComputerUseBinding {
     target_ref: Option<String>,
     selector: Option<String>,
     text: Option<String>,
+    key: Option<String>,
     cdp_endpoint_url: Option<String>,
     cdp_websocket_url: Option<String>,
     cdp_timeout_ms: Option<u64>,
@@ -148,6 +149,7 @@ fn workflow_computer_use_binding(workflow: &WorkflowProject) -> Option<WorkflowC
     let selector =
         workflow_value_string_any(&arguments, &["selector", "cssSelector", "css_selector"]);
     let text = workflow_value_string_any(&arguments, &["text", "inputText", "input_text"]);
+    let key = workflow_value_string_any(&arguments, &["key", "keyText", "key_text"]);
     let cdp_endpoint_url = workflow_value_string_any(
         &arguments,
         &[
@@ -183,6 +185,7 @@ fn workflow_computer_use_binding(workflow: &WorkflowProject) -> Option<WorkflowC
         target_ref,
         selector,
         text,
+        key,
         cdp_endpoint_url,
         cdp_websocket_url,
         cdp_timeout_ms,
@@ -1402,6 +1405,7 @@ fn workflow_computer_use_base_payload(
         "computerUseTargetRef": binding.target_ref,
         "selector": binding.selector,
         "text": binding.text,
+        "key": binding.key,
         "cdp_endpoint_url": binding.cdp_endpoint_url,
         "cdpEndpointUrl": binding.cdp_endpoint_url,
         "cdp_websocket_url": binding.cdp_websocket_url,

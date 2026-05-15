@@ -964,6 +964,55 @@ test("runtime daemon executes approved native browser type_text through CDP", as
   }
 });
 
+test("runtime daemon executes approved native browser key_press through CDP", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-key-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-key-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  const cdp = await startFakeNativeBrowserCdpServer();
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const thread = await agent.thread();
+    const result = await client.invokeThreadTool(thread.id, "ioi.computer_use.native_browser", {
+      source: "react_flow",
+      workflowGraphId: "workflow.native-browser-key-tool",
+      workflowNodeId: "native-browser-key-tool",
+      input: {
+        prompt: "Press Enter in the browser at https://example.com.",
+        url: "https://example.com",
+        actionKind: "key_press",
+        key: "Enter",
+        cdpEndpointUrl: cdp.endpointUrl,
+        approvalRef: "approval-browser-key",
+        observationRetentionMode: "prompt_visible_summary_only",
+      },
+    });
+
+    assert.equal(result.status, "completed");
+    assert.equal(result.result.action.action_kind, "key_press");
+    assert.equal(result.result.action.approval_ref, "approval-browser-key");
+    assert.equal(result.result.actionReceipt.adapter_id, "ioi.native_browser.cdp");
+    assert.equal(result.result.verification.status, "passed");
+    assert.equal(result.result.commitGate.status, "completed");
+    assert.deepEqual(cdp.state.keys, [{ key: "Enter", code: "Enter", text: "" }]);
+
+    const runtimeEvents = [];
+    for await (const event of thread.events()) {
+      runtimeEvents.push(event);
+    }
+    const actionEvent = runtimeEvents.find((event) => event.type === "computer_use_action_executed");
+    assert.equal(actionEvent.payload.native_browser_execution_result.action_result.action, "key_press");
+    assert.equal(actionEvent.payload.native_browser_execution_result.status, "completed");
+  } finally {
+    await cdp.close();
+    await daemon.close();
+  }
+});
+
 test("runtime daemon preserves workflow-authored computer-use node metadata", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-workflow-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-workflow-state-"));

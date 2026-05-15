@@ -1182,6 +1182,7 @@ function computerUseActionKindFromText(text) {
   const normalized = String(text ?? "").trim().toLowerCase();
   if (/^click\b|\bclick\s+/.test(normalized)) return "click";
   if (/^type\b|\btype\s+|type_text|input\s+text/.test(normalized)) return "type_text";
+  if (/^key\b|\bkey\s+|key_press|keypress|^press\b|\bpress\s+/.test(normalized)) return "key_press";
   if (/^scroll\b|\bscroll\s+/.test(normalized)) return "scroll";
   if (/^hover\b|\bhover\s+|mouse_move/.test(normalized)) return "hover";
   if (/^wait\b|\bwait\s+/.test(normalized)) return "wait";
