@@ -1,7 +1,7 @@
 # Domain Ontologies and Data Recipes
 
 Status: canonical architecture authority.
-Canonical owner: this file for Domain Ontologies, Data Recipes, canonical object models, connector mappings, policy-bound data views, evaluation datasets, ontology-aware projections, and ontology-to-worker generation.
+Canonical owner: this file for Domain Ontologies, Data Recipes, canonical object models, connector mappings, policy-bound data views, distilled ontology datasets, evaluation datasets, ontology-aware projections, and ontology-to-worker generation.
 Supersedes: product, training, connector, or storage docs when they treat raw files, connector payloads, or ad hoc schemas as sufficient domain truth for Worker Training.
 Superseded by: none.
 Last alignment pass: 2026-05-14.
@@ -17,6 +17,7 @@ truth.
 ```text
 Ontology = what the domain means.
 Data Recipe = how raw sources become ontology-bound runtime, training, and evaluation data.
+Distilled Ontology Dataset = compact, high-signal training/evaluation data derived from ontology-bound source truth.
 ```
 
 This layer is required for serious Worker Training. Without it, a training
@@ -27,7 +28,11 @@ should serve them.
 
 ## Core Doctrine
 
-Workers train on ontology-bound data, not raw blobs.
+Workers train on ontology-bound data, not raw blobs. For efficient specialist
+workers, the best substrate is often **distilled ontology-bound data**:
+compact examples, counterexamples, verifier assertions, tool traces, canonical
+object transitions, rubric judgments, and failure regressions derived from
+ontology-bound source material.
 
 ```text
 raw sources
@@ -36,15 +41,15 @@ raw sources
 → TransformationRun
 → canonical ontology-bound objects
 → PolicyBoundDataView
-→ EvaluationDataset / WorkerTraining / OntologyProjection
+→ DistilledOntologyDataset / EvaluationDataset / WorkerTraining / OntologyProjection
 → WorkerManifest, MoW routing, service outcomes
 ```
 
 Agentgres stores ontology state, recipe definitions, transformation runs,
-object heads, projection definitions, evaluation dataset refs, receipts, and
-lineage. Filecoin/CAS stores large payload bytes by hash/CID. wallet.network
-controls source access, training-data use, evaluation use, export, decryption,
-and connector authority.
+object heads, projection definitions, distilled dataset refs, evaluation
+dataset refs, receipts, and lineage. Filecoin/CAS stores large payload bytes by
+hash/CID. wallet.network controls source access, training-data use, evaluation
+use, export, decryption, and connector authority.
 
 ## What This Layer Is
 
@@ -54,6 +59,8 @@ This layer is:
 - the source of canonical domain object definitions;
 - the repeatable path from source data to training/evaluation data;
 - the mapping layer between connectors and canonical domain objects;
+- the distillation layer that turns ontology-bound source truth into compact
+  training and evaluation signal;
 - the basis for ontology-aware Agentgres projections;
 - the input to Worker Training, benchmark profiles, and service templates;
 - the provenance layer for transformed data and generated examples.
@@ -80,6 +87,7 @@ This layer is not:
 | `PolicyBoundDataView` | Governed data lens defining who or what may read, train, evaluate, export, publish, or route over a subset of data. |
 | `TransformationRun` | Execution record for extraction, normalization, redaction, dedupe, validation, and mapping. |
 | `TransformationReceipt` | Proof of what transformed, from which source, under which policy, into which object, dataset, or projection. |
+| `DistilledOntologyDataset` | Compact high-signal training/evaluation corpus distilled from ontology-bound data, traces, corrections, verifier judgments, and examples while preserving provenance. |
 | `EvaluationDataset` | Golden cases, holdouts, adversarial examples, regressions, rubric bindings, benchmark refs, and provenance commitments. |
 | `OntologyProjection` | Agentgres projection generated from ontology relationships, canonical object models, recipes, and policy-bound views. |
 | `OntologyToWorkerPlan` | Plan that turns ontology, recipes, workflow schemas, tools, policies, evals, and benchmarks into a WorkerManifest. |
@@ -104,7 +112,7 @@ This layer is not:
 4. **Authorize Policy-Bound Views**
    wallet.network or an equivalent authority layer grants a PolicyBoundDataView
    that specifies which data may be read, transformed, used for training, used
-   for evaluation, exported, published, or retained.
+   for distillation, used for evaluation, exported, published, or retained.
 
 5. **Run Data Recipe**
    A DataRecipe extracts, redacts, normalizes, dedupes, validates, links, and
@@ -115,23 +123,32 @@ This layer is not:
    version, ontology refs, policy hash, authority grants, source refs, and
    artifact refs.
 
-7. **Build Evaluation Datasets**
+7. **Distill Ontology-Bound Signal**
+   Data recipes, verifier workers, teacher workers, deterministic gates, and
+   human reviewers may distill ontology-bound source truth into compact
+   high-signal datasets for training and evaluation. Distillation may compress
+   raw source volume, but it must not erase provenance: distilled datasets bind
+   source commitments, recipe versions, policy-bound data view refs,
+   transformation receipts, teacher/verifier refs when used, and rubric or
+   benchmark bindings.
+
+8. **Build Evaluation Datasets**
    Golden cases, holdouts, adversarial cases, failure regressions, and rubric
    bindings are generated or curated from ontology-bound data. Evaluation
    datasets are not just folders of examples; they are receipted benchmark
    inputs with domain meaning.
 
-8. **Generate Ontology Projections**
+9. **Generate Ontology Projections**
    Agentgres projections can be generated from ontology relationships and
    canonical object models. Query and UI surfaces should read from these
    projections with visible freshness, policy, and source watermarks.
 
-9. **Create Ontology-to-Worker Plan**
+10. **Create Ontology-to-Worker Plan**
    The ontology, data recipes, workflow schemas, policy-bound data views,
-   tools, evals, benchmarks, and routing category combine into a plan for
-   Worker Training or worker/package generation.
+   distilled datasets, tools, evals, benchmarks, and routing category combine
+   into a plan for Worker Training or worker/package generation.
 
-10. **Train, Benchmark, Publish, and Route**
+11. **Train, Benchmark, Publish, and Route**
     Autopilot Foundry, daemon jobs, or sas.xyz training engagements use the
     plan to produce a WorkerManifest, policy envelope, lineage refs,
     evaluation receipts, benchmark receipts, and MoW routing metadata.
@@ -140,8 +157,9 @@ This layer is not:
 
 Autopilot Foundry is the primary local product surface for authoring and
 inspecting ontologies, data recipes, connector mappings, evaluation datasets,
-and ontology-to-worker plans. It should expose both a guided workflow and an
-editable canvas.
+and ontology-to-worker plans. It should expose guided views first, then allow
+advanced users to open the same data, training, evaluation, benchmark,
+deployment, or outcome recipe in the standard workflow compositor.
 
 aiagent.xyz uses this layer to evaluate, rank, and route workers inside Sparse
 Worker Categories. A worker category should declare the ontology, object models,
@@ -150,8 +168,9 @@ comparable.
 
 sas.xyz uses this layer to sell worker-training and worker-composed outcomes.
 A service provider should deliver not only a trained worker, but also the
-ontology, recipes, policy-bound data views, evaluation datasets, and
-transformation receipts that make the outcome repeatable.
+ontology, recipes, policy-bound data views, distilled ontology datasets,
+evaluation datasets, and transformation receipts that make the outcome
+repeatable.
 
 ioi.ai may coordinate cross-device restore, publishing, remote-runtime
 entitlement, and archive references for ontology packs and recipe outputs, but
@@ -179,9 +198,10 @@ Approval
 Connector mappings can map Drive PDFs, email threads, spreadsheets, CRM
 records, and prior quotes into those objects. Data recipes can extract plan
 sheet metadata, normalize material names, dedupe line items, redact private
-customer data, produce golden estimate examples, and build evaluation datasets.
-Agentgres can then project estimates by project, material, room, quote state,
-approval status, and policy-bound visibility.
+customer data, distill high-signal line-item examples and counterexamples,
+produce golden estimate examples, and build evaluation datasets. Agentgres can
+then project estimates by project, material, room, quote state, approval
+status, and policy-bound visibility.
 
 ## Agentgres Boundary
 
@@ -195,6 +215,7 @@ ConnectorMapping
 PolicyBoundDataView
 TransformationRun
 TransformationReceipt refs
+DistilledOntologyDataset refs
 EvaluationDataset refs
 OntologyProjection
 OntologyToWorkerPlan
@@ -221,8 +242,8 @@ data recipes need permission
 ## Storage Boundary
 
 Filecoin/CAS may store ontology packs, recipe payloads, source snapshots,
-transformation outputs, evaluation datasets, trace bundles, projection
-checkpoints, and sealed archives by hash/CID.
+transformation outputs, distilled ontology datasets, evaluation datasets, trace
+bundles, projection checkpoints, and sealed archives by hash/CID.
 
 Those bytes are not the canonical live database. Agentgres stores the
 operation-backed truth that says what the bytes are, which recipe produced
@@ -237,15 +258,18 @@ trained on, published, or challenged.
    ConnectorMapping and DataRecipe bind it.
 3. DataRecipe runs must emit transformation receipts for consequential
    training, evaluation, projection, or service outcomes.
-4. PolicyBoundDataViews gate read, train, evaluate, export, publish, and route
-   use of private or governed data.
-5. EvaluationDatasets must bind ontology refs, rubric refs, benchmark refs,
+4. PolicyBoundDataViews gate read, transform, distill, train, evaluate,
+   export, publish, and route use of private or governed data.
+5. Distillation must preserve provenance. A distilled dataset must bind source
+   commitments, recipe versions, policy-bound data views, transformation
+   receipts, and teacher/verifier refs when used.
+6. EvaluationDatasets must bind ontology refs, rubric refs, benchmark refs,
    source commitments, and policy.
-6. OntologyProjections are serving views over Agentgres truth. They must expose
+7. OntologyProjections are serving views over Agentgres truth. They must expose
    freshness, recipe version, policy, and source watermark.
-7. OntologyToWorkerPlan can propose workers, tools, schemas, evals, and
+8. OntologyToWorkerPlan can propose workers, tools, schemas, evals, and
    manifests, but it cannot grant authority.
-8. The semantic data plane connects Worker Training to the IOI stack; it does
+9. The semantic data plane connects Worker Training to the IOI stack; it does
    not replace compute markets, Agentgres, wallet.network, Filecoin/CAS, MoW,
    service composition, settlement, or disputes.
 

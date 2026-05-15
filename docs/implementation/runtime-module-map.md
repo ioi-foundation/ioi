@@ -30,7 +30,8 @@ parallel execution path.
 | `ioi-cli` / TUI | `crates/cli/` | Terminal and interactive TUI client over daemon/public runtime APIs, including training, benchmark, receipt, and routing inspection controls. |
 | `@ioi/agent-ide` | `packages/agent-ide/` | Workbench and workflow-composer projection over shared contracts. |
 | Autopilot | `apps/autopilot/` | Product shell over chat, IDE, Autopilot Foundry, and daemon/runtime projections. |
-| Workflow compositor | `packages/agent-ide/src/WorkflowComposer/` | UI/workflow client that submits to the substrate, not canonical run truth. |
+| Shared builder substrate | `packages/agent-ide/src/types/graph.ts`, `packages/agent-ide/src/runtime/workflow-schema.ts`, workflow runtime models | Typed graph, schema, and recipe contracts consumed by multiple builder lenses. |
+| Workflow compositor | `packages/agent-ide/src/WorkflowComposer/` | Standard graph projection over the shared builder substrate; submits to daemon/domain contracts and never owns canonical run truth. |
 
 ## Validation Surfaces
 

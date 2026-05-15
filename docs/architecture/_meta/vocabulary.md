@@ -4,7 +4,7 @@ Status: canonical vocabulary reference.
 Canonical owner: this file for runtime, audit, substrate, projection, and legacy naming vocabulary.
 Supersedes: overlapping runtime vocabulary in plans/specs when names conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-05-15.
 
 The agent harness uses behavior-first names in runtime code and reserves
 compliance acronyms for hidden audit material.
@@ -69,6 +69,25 @@ compliance acronyms for hidden audit material.
   subquadratic, hybrid attention/state, retrieval-augmented, mutable-context,
   adapter-trained, distillation-trained, perpetually post-trained, or
   deterministic verifier/toolchain. A training profile is not a protocol actor.
+- `TrainingOrchestrator`: the accountable coordination role for a training run.
+  It owns goals, case specs, batch plans, prompt sets, executor mix, gate policy,
+  rejects, reports, and worklog while delegating to planner, generator,
+  verifier, reviewer, trainer, and evaluator workers.
+- `ModelCapacityProfile`: training metadata that describes target worker/model
+  size, prompt budget, context budget, tool batch limits, row structure, serving
+  posture, cost/latency targets, and recommendations for making a smaller or
+  more efficient worker succeed.
+- `TrainingBatchPlan`: a bounded plan for one generation, capture, curation, or
+  distillation batch. It defines target scope or family, label boundaries, hard
+  eval pattern, quota, split policy, executor mix, and acceptance thresholds.
+- `RawBatchArchive`: the pre-curation archive of generated or captured rows,
+  prompts, caches, provider metadata, token/cost telemetry, and rejected material.
+  It is evidence, not accepted training signal.
+- `QualityGateReport`: a report binding gate policy, pass/fail decisions,
+  rejection reasons, accepted dataset refs, and receipts for a training batch.
+- `TrainingCostLedger`: the training-run ledger for provider calls, tokens,
+  runtime, spend, accepted/rejected row counts, cost per accepted row, dataset
+  yield, and quality lift.
 - `DomainOntology`: the semantic model for a domain's entities,
   relationships, events, actions, states, roles, and invariants.
 - `CanonicalObjectModel`: the typed object contract that grounds a domain
@@ -92,8 +111,18 @@ compliance acronyms for hidden audit material.
 - `OntologyToWorkerPlan`: a plan that turns ontology, recipes, workflow
   schemas, tools, policies, evals, and benchmarks into a WorkerManifest or
   Worker Training spec.
-- `AutopilotFoundry`: the Autopilot product surface for capturing, training,
-  evaluating, and deploying workers through the Worker Training lifecycle.
+- `SharedBuilderSubstrate`: the shared graph model, typed node contracts,
+  schemas, recipe model, daemon execution path, and Agentgres receipt model
+  used by Autopilot builder lenses. It is a UI/workflow substrate, not
+  canonical runtime truth by itself.
+- `AutopilotFoundry`: the Autopilot product lens for creating, training,
+  configuring, evaluating, packaging, deploying, and improving workers through
+  the Worker Training lifecycle. It can project recipes into the standard
+  workflow compositor, but it is not a separate canvas environment.
+- `WorkflowCompositor`: the standard graph authoring projection over the
+  SharedBuilderSubstrate. It may render outcome workflows, data recipes,
+  training recipes, evaluation recipes, benchmark recipes, or deployment
+  recipes with lens-specific palettes and inspectors.
 - `TaskCapsule`: a minimized, policy-bound execution packet given to a runtime
   node. It carries visible context, hidden context classes, allowed/forbidden
   actions, output contract, TTL, and authority bindings.

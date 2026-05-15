@@ -1,58 +1,73 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="980" height="132" viewBox="0 0 980 132" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="220" viewBox="0 0 1200 220" role="img" aria-labelledby="title desc">
   <title id="title">Canonical Web4 Equation</title>
-  <desc id="desc">Web4 equals read plus write plus own plus act with cryptographic determinism.</desc>
+  <desc id="desc">Web4 equals Read plus Write plus Own plus Act with cryptographic determinism.</desc>
   <metadata>LaTeX source: \mathrm{Web4} = \mathrm{Read} + \mathrm{Write} + \mathrm{Own} + \mathrm{Act}_{\mathrm{cryptographic\ determinism}}</metadata>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#03070f"/>
+      <stop offset="0.54" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#020409"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" x2="1">
+      <stop offset="0" stop-color="#7db7ff"/>
+      <stop offset="1" stop-color="#c9d7ff"/>
+    </linearGradient>
+  </defs>
   <style>
-    .page { fill: #fffdf6; }
-    .rule { stroke: #111111; stroke-width: 1.2; }
-    .hairline { stroke: #111111; stroke-width: 0.7; }
+    .label {
+      fill: #7aaee8;
+      font-family: Arial;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.19em;
+    }
     .eq {
-      fill: #111111;
-      font-family: "STIX Two Text", "Cambria Math", "Times New Roman", serif;
-      font-size: 39px;
+      fill: #eef4ff;
+      font-family: Georgia;
+      font-size: 46px;
       font-style: italic;
     }
     .op {
-      fill: #111111;
-      font-family: "STIX Two Text", "Cambria Math", "Times New Roman", serif;
+      fill: #9eb9e8;
+      font-family: Arial;
       font-size: 38px;
-      font-style: normal;
+      font-weight: 500;
     }
     .sub {
-      fill: #111111;
-      font-family: "STIX Two Text", "Cambria Math", "Times New Roman", serif;
-      font-size: 16px;
+      fill: #83b8ff;
+      font-family: Georgia;
+      font-size: 17px;
       font-style: italic;
-      letter-spacing: 0.01em;
     }
     .caption {
-      fill: #333333;
-      font-family: "Times New Roman", Times, serif;
-      font-size: 14px;
+      fill: #aeb9c8;
+      font-family: Arial;
+      font-size: 15px;
     }
-    .label {
-      fill: #111111;
-      font-family: "Times New Roman", Times, serif;
-      font-size: 12px;
-      letter-spacing: 0.08em;
-    }
+    .rule { stroke: #254468; stroke-width: 1; }
+    .hairline { stroke: #17304d; stroke-width: 1; }
+    .trace { stroke: #1e6bb0; stroke-width: 1; opacity: 0.34; }
   </style>
 
-  <rect class="page" x="0" y="0" width="980" height="132"/>
-  <line class="rule" x1="26" y1="22" x2="954" y2="22"/>
-  <line class="hairline" x1="26" y1="104" x2="954" y2="104"/>
+  <rect width="1200" height="220" fill="url(#bg)"/>
+  <circle cx="1010" cy="82" r="124" fill="none" stroke="#2a70b6" stroke-width="1.1" opacity="0.48"/>
+  <circle cx="1010" cy="82" r="82" fill="none" stroke="#1e5f9e" stroke-width="0.9" opacity="0.38"/>
+  <line class="rule" x1="48" y1="38" x2="1152" y2="38"/>
+  <line class="hairline" x1="48" y1="164" x2="1152" y2="164"/>
+  <path class="trace" d="M48 188 C230 130 316 210 490 152 S832 150 1152 86"/>
+  <path class="trace" d="M48 118 C236 74 352 74 522 118 S820 174 1152 134"/>
 
-  <text class="label" x="26" y="49">DEFINITION 1</text>
-  <text class="eq" x="196" y="66">Web4</text>
-  <text class="op" x="314" y="66">=</text>
-  <text class="eq" x="376" y="66">Read</text>
-  <text class="op" x="485" y="66">+</text>
-  <text class="eq" x="532" y="66">Write</text>
-  <text class="op" x="654" y="66">+</text>
-  <text class="eq" x="701" y="66">Own</text>
-  <text class="op" x="804" y="66">+</text>
-  <text class="eq" x="842" y="66">Act</text>
-  <text class="sub" x="744" y="86">cryptographic determinism</text>
+  <text class="label" x="48" y="72">WEB4 PRIMITIVE</text>
+  <text class="eq" x="214" y="112">Web4</text>
+  <text class="op" x="342" y="112">=</text>
+  <text class="eq" x="398" y="112">Read</text>
+  <text class="op" x="523" y="112">+</text>
+  <text class="eq" x="572" y="112">Write</text>
+  <text class="op" x="710" y="112">+</text>
+  <text class="eq" x="760" y="112">Own</text>
+  <text class="op" x="875" y="112">+</text>
+  <text class="eq" x="924" y="112">Act</text>
+  <text class="sub" x="785" y="138">cryptographic determinism</text>
 
-  <text class="caption" x="26" y="123">Autonomous action is admissible only after authority, policy, receipt, replay, and settlement constraints collapse it into deterministic state.</text>
+  <text class="caption" x="48" y="196">Autonomous action is admissible only after authority, policy, receipt, replay, and settlement constraints collapse it into deterministic state.</text>
 </svg>

@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for shared envelope names, ID namespaces, primitive capability tiers, authority grants, and receipt/run/event envelope fields.
 Supersedes: older flattened capability-tier examples in plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-05-15.
 
 ## Purpose
 
@@ -37,9 +37,16 @@ DataRecipeEnvelope
 ConnectorMappingEnvelope
 PolicyBoundDataViewEnvelope
 TransformationRunEnvelope
+DistilledOntologyDatasetEnvelope
 EvaluationDatasetEnvelope
 OntologyProjectionEnvelope
 OntologyToWorkerPlanEnvelope
+ModelCapacityProfileEnvelope
+TrainingBatchPlanEnvelope
+GenerationBatchEnvelope
+RawBatchArchiveEnvelope
+QualityGateReportEnvelope
+TrainingCostLedgerEnvelope
 WorkerTrainingEnvelope
 PostTrainingCycleEnvelope
 ContextMutationEnvelope
@@ -75,6 +82,10 @@ dataset://...           evaluation or training dataset identity
 projection://...        ontology-aware or Agentgres projection identity
 transform://...         transformation run identity
 plan://...              ontology-to-worker plan identity
+profile://...           training/model capacity profile identity
+batch://...             training batch plan or generation batch identity
+gate://...              quality gate report or promotion gate identity
+ledger://...            usage, token, cost, or contribution ledger identity
 cid://...               Filecoin/CAS content ref
 wallet://...            wallet.network account or authority ref
 prim://...              primitive execution capability ref
@@ -170,6 +181,7 @@ ManifestEnvelope:
     canonical_object_model_refs: []
     data_recipe_refs: []
     connector_mapping_refs: []
+    distilled_dataset_refs: []
     evaluation_dataset_refs: []
 ```
 
@@ -355,7 +367,7 @@ RuntimeEventEnvelope:
   run_id: run_...
   task_id: task_...
   turn_id: optional
-  kind: session.started | model.requested | model.completed | tool.proposed | policy.decided | approval.requested | tool.started | tool.completed | artifact.created | ontology.bound | data_recipe.run_started | data_recipe.run_completed | transformation.receipt_emitted | evaluation_dataset.bound | ontology_projection.updated | receipt.emitted | run.completed | run.failed
+  kind: session.started | model.requested | model.completed | tool.proposed | policy.decided | approval.requested | tool.started | tool.completed | artifact.created | ontology.bound | data_recipe.run_started | data_recipe.run_completed | transformation.receipt_emitted | distilled_dataset.bound | evaluation_dataset.bound | ontology_projection.updated | training.batch_planned | training.generation_batch_archived | training.quality_gates_reported | training.cost_ledger_updated | receipt.emitted | run.completed | run.failed
   timestamp: timestamp
   actor_id: agent://... | runtime://... | wallet://...
   privacy_class: public | internal | private | secret
@@ -371,7 +383,7 @@ RuntimeEventEnvelope:
 ```yaml
 ReceiptEnvelope:
   receipt_id: receipt_...
-  receipt_type: policy | approval | model_invocation | tool_execution | artifact | validation | delivery | settlement | contribution | quality | data_recipe_run | transformation | ontology_projection | training_trace | dataset_curation | context_mutation | post_training_cycle | promotion_decision | benchmark_run | evaluation_verdict | routing_decision
+  receipt_type: policy | approval | model_invocation | tool_execution | artifact | validation | delivery | settlement | contribution | quality | data_recipe_run | transformation | dataset_distillation | ontology_projection | training_batch_plan | generation_batch | quality_gate_report | training_cost_ledger | training_trace | dataset_curation | context_mutation | post_training_cycle | promotion_decision | benchmark_run | evaluation_verdict | routing_decision
   run_id: optional
   task_id: optional
   actor_id: string
@@ -450,7 +462,7 @@ ContributionEnvelope:
   contributor_id: worker://... | service://... | publisher://... | tool://... | model://...
   consumer_id: wallet://... | service://... | agent://...
   task_id: task_...
-  contribution_type: worker_invocation | service_delivery | tool_use | model_use | dataset_use | workflow_use | verification | training_data | training_service | benchmark_submission | routing_selection | verifier_signal
+  contribution_type: worker_invocation | service_delivery | tool_use | model_use | dataset_use | workflow_use | verification | training_data | distilled_training_data | training_service | benchmark_submission | routing_selection | verifier_signal
   usage_hash: hash
   sparse_worker_category: optional
   benchmark_profile_ref: optional
@@ -519,6 +531,8 @@ DataRecipeEnvelope:
     - object-model://...
   output_dataset_refs:
     - dataset://...
+  output_distilled_dataset_refs:
+    - dataset://...
   transformation_steps:
     - extract
     - redact
@@ -568,6 +582,7 @@ PolicyBoundDataViewEnvelope:
   allowed_uses:
     - read
     - transform
+    - distill
     - train
     - evaluate
     - export
@@ -597,6 +612,8 @@ TransformationRunEnvelope:
     - agentgres://object/...
   output_dataset_refs:
     - dataset://...
+  output_distilled_dataset_refs:
+    - dataset://...
   output_artifact_refs:
     - artifact://...
   policy_bound_data_view_refs:
@@ -608,6 +625,43 @@ TransformationRunEnvelope:
   status: queued | running | completed | failed | rejected
 ```
 
+## DistilledOntologyDatasetEnvelope
+
+```yaml
+DistilledOntologyDatasetEnvelope:
+  distilled_dataset_id: dataset://...
+  ontology_refs:
+    - ontology://...
+  data_recipe_refs:
+    - recipe://...
+  source_commitments:
+    - hash
+  policy_bound_data_view_refs:
+    - view://...
+  transformation_receipt_refs:
+    - receipt://...
+  distillation_methods:
+    - teacher_distillation
+    - verifier_filtering
+    - rubric_judgment
+    - tool_trace_extraction
+    - counterexample_generation
+    - failure_regression
+    - schema_canonicalization
+  teacher_refs:
+    - worker://...
+  verifier_refs:
+    - worker://...
+  output_artifact_refs:
+    - artifact://...
+  evaluation_dataset_refs:
+    - dataset://...
+  benchmark_profile_refs:
+    - benchmark://...
+  receipt_root: hash
+  status: draft | active | deprecated | revoked
+```
+
 ## EvaluationDatasetEnvelope
 
 ```yaml
@@ -617,7 +671,7 @@ EvaluationDatasetEnvelope:
     - ontology://...
   data_recipe_refs:
     - recipe://...
-  dataset_type: golden | holdout | adversarial | regression | benchmark | synthetic
+  dataset_type: golden | holdout | adversarial | regression | benchmark | synthetic | distilled
   rubric_ref: rubric://...
   benchmark_profile_ref: optional
   source_commitment: hash
@@ -662,11 +716,167 @@ OntologyToWorkerPlanEnvelope:
     - view://...
   evaluation_dataset_refs:
     - dataset://...
+  distilled_dataset_refs:
+    - dataset://...
   benchmark_profile_refs:
     - benchmark://...
   proposed_worker_manifest_ref: optional
   worker_training_ref: optional
   status: draft | proposed | training | evaluated | bound | rejected
+```
+
+## ModelCapacityProfileEnvelope
+
+```yaml
+ModelCapacityProfileEnvelope:
+  model_capacity_profile_id: profile://...
+  training_id: optional
+  target_worker_id: optional
+  target_class: small_local | balanced_local | specialist_local | hosted_frontier | hybrid_worker | deterministic_worker | custom
+  parameter_range: optional
+  context_budget_tokens: optional
+  system_prompt_budget_tokens: optional
+  tool_batch_limit: optional
+  row_structure: freeform | structured | ontology_bound | tool_trace | mixed
+  label_space_ref: optional
+  latency_target: optional
+  cost_target: optional
+  privacy_posture: local | hosted | private_runtime | regulated
+  recommendations:
+    - structured_rows
+    - shorter_system_prompt
+    - tighter_label_set
+    - smaller_tool_batches
+    - stronger_gold_reasons
+    - more_eval_coverage
+  status: draft | active | superseded
+```
+
+## TrainingBatchPlanEnvelope
+
+```yaml
+TrainingBatchPlanEnvelope:
+  batch_plan_id: batch://...
+  training_id: train_...
+  orchestrator_ref: worker://... | runtime://... | agent://...
+  target_scope: string
+  target_family: optional
+  label_boundary_ref: optional
+  hard_eval_pattern_ref: optional
+  quota:
+    target_rows: integer
+    target_tokens: optional
+    max_cost: optional
+  split_policy:
+    train: percentage
+    holdout: percentage
+    golden: percentage
+    adversarial: percentage
+    regression: percentage
+  model_capacity_profile_ref: optional
+  executor_worker_refs:
+    - worker://...
+  prompt_artifact_refs:
+    - artifact://...
+  acceptance_thresholds: object
+  receipt_refs:
+    - receipt://...
+  status: draft | running | completed | rejected | superseded
+```
+
+## GenerationBatchEnvelope
+
+```yaml
+GenerationBatchEnvelope:
+  generation_batch_id: batch://...
+  batch_plan_ref: batch://...
+  training_id: train_...
+  executor_ref: worker://... | model://... | runtime://...
+  provider_model_ref: optional
+  input_prompt_ref: artifact://... | cid://...
+  raw_batch_archive_ref: artifact://...
+  row_count: integer
+  token_count: optional
+  provider_call_count: optional
+  cost_estimate: optional
+  started_at: timestamp
+  completed_at: optional
+  status: queued | running | archived | gated | rejected | failed
+```
+
+## RawBatchArchiveEnvelope
+
+```yaml
+RawBatchArchiveEnvelope:
+  raw_batch_archive_id: artifact://...
+  training_id: train_...
+  generation_batch_refs:
+    - batch://...
+  raw_artifact_refs:
+    - artifact://...
+  cache_artifact_refs:
+    - artifact://...
+  provider_metadata_hash: optional
+  prompt_hash: optional
+  token_count: optional
+  cost_estimate: optional
+  policy_hash: hash
+  status: archived | redacted | rejected | promoted_to_curation
+```
+
+## QualityGateReportEnvelope
+
+```yaml
+QualityGateReportEnvelope:
+  gate_report_id: gate://...
+  training_id: train_...
+  batch_plan_ref: optional
+  generation_batch_ref: optional
+  gate_policy_hash: hash
+  gate_results:
+    schema_validity: pass | fail | skipped
+    role_order: pass | fail | skipped
+    final_user_turn: pass | fail | skipped
+    allowed_labels: pass | fail | skipped
+    canonical_order: pass | fail | skipped
+    duplicate_prompt: pass | fail | skipped
+    placeholder_or_meta_text: pass | fail | skipped
+    target_scope_signal: pass | fail | skipped
+    helper_scope_policy: pass | fail | skipped
+    unsupported_primary_policy: pass | fail | skipped
+    split_intent: pass | fail | skipped
+    leakage_risk: pass | fail | skipped
+    low_quality_or_synthetic_pattern: pass | fail | skipped
+    gold_reason_quality: pass | fail | skipped
+    rubric_fit: pass | fail | skipped
+  accepted_count: integer
+  rejected_count: integer
+  rejection_reason_counts: object
+  accepted_dataset_refs:
+    - dataset://...
+  receipt_refs:
+    - receipt://...
+  status: draft | completed | disputed | superseded
+```
+
+## TrainingCostLedgerEnvelope
+
+```yaml
+TrainingCostLedgerEnvelope:
+  training_cost_ledger_id: ledger://...
+  training_id: train_...
+  batch_plan_refs:
+    - batch://...
+  provider_call_count: integer
+  token_count: integer
+  runtime_seconds: optional
+  spend_estimate: optional
+  accepted_row_count: integer
+  rejected_row_count: integer
+  cost_per_accepted_row: optional
+  dataset_yield_summary_ref: optional
+  quality_lift_summary_ref: optional
+  status: open | closed | disputed
 ```
 
 ## WorkerTrainingEnvelope
@@ -696,7 +906,13 @@ WorkerTrainingEnvelope:
   canonical_object_model_refs: []
   data_recipe_refs: []
   policy_bound_data_view_refs: []
+  distilled_dataset_refs: []
   evaluation_dataset_refs: []
+  model_capacity_profile_ref: optional
+  training_batch_plan_refs: []
+  raw_batch_archive_refs: []
+  quality_gate_report_refs: []
+  training_cost_ledger_ref: optional
   ontology_to_worker_plan_ref: optional
   privacy_policy_ref: optional
   evaluation_rubric_ref: rubric://...

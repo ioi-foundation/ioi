@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for runtime events, receipts, delivery bundles, trace bundles, and quality records.
 Supersedes: overlapping event/receipt examples in plans/specs when event, trace, or receipt fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-05-15.
 
 ## Purpose
 
@@ -86,6 +86,10 @@ data_recipe.run_completed
 transformation.receipt_emitted
 evaluation_dataset.bound
 training.spec_bound
+training.batch_planned
+training.generation_batch_archived
+training.quality_gates_reported
+training.cost_ledger_updated
 training.dataset_curated
 training.context_mutated
 training.post_training_cycle_started
@@ -144,6 +148,10 @@ DataRecipeRunReceipt
 TransformationReceipt
 OntologyProjectionReceipt
 TrainingTraceReceipt
+TrainingBatchPlanReceipt
+GenerationBatchReceipt
+QualityGateReportReceipt
+TrainingCostLedgerReceipt
 DatasetCurationReceipt
 ContextMutationReceipt
 PostTrainingCycleReceipt
@@ -214,10 +222,14 @@ still apply.
 ```json
 {
   "receipt_id": "receipt_training_123",
-  "receipt_type": "training_trace | dataset_curation | context_mutation | post_training_cycle | promotion_decision",
+  "receipt_type": "training_batch_plan | generation_batch | quality_gate_report | training_cost_ledger | training_trace | dataset_curation | context_mutation | post_training_cycle | promotion_decision",
   "training_id": "train_123",
   "target_worker_id": "worker://...",
   "run_id": "run_123",
+  "batch_plan_ref": "batch://...",
+  "generation_batch_ref": "batch://...",
+  "quality_gate_report_ref": "gate://...",
+  "training_cost_ledger_ref": "ledger://...",
   "ontology_refs": ["ontology://..."],
   "data_recipe_refs": ["recipe://..."],
   "evaluation_dataset_refs": ["dataset://..."],

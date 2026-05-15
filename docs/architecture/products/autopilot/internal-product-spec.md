@@ -4,7 +4,7 @@ Status: canonical product/surface architecture reference.
 Canonical owner: this file for Autopilot product definition, UX surface intent, and long-range operator-shell direction.
 Supersedes: `docs/specs/autopilot/internal_product_spec.md`.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-05-15.
 
 **Version:** 1.3
 **Status:** Proposed revision
@@ -230,7 +230,11 @@ Autopilot should:
 
 Autopilot should make Worker Training a first-class local product workflow.
 The goal is not a generic fine-tuning dashboard; it is a governed foundry for
-creating deployable workers from repeated work.
+creating deployable workers from repeated work. The product should feel like a
+worker creation and improvement studio: plan better examples, capture better
+evidence, gate weak data faster, compare candidates, deploy bounded workers,
+and learn from failures when the worker returns for another pass. Iteration is
+supported, not mandatory.
 
 The default user-facing action is:
 
@@ -246,20 +250,39 @@ Define Task
 → Ingest / Generate Examples
 → Quality Gates
 → Human Review
+→ Distill Ontology-Bound Data
 → Train or Configure
 → Evaluate
-→ Deploy as Worker
-→ Monitor & Improve
+→ Package or Deploy as Worker
+→ Monitor & Improve When Needed
 ```
 
-The canvas version should expose this as an editable graph with nodes for task
-definition, domain ontology, canonical object model, connector mapping, data
-recipe, policy-bound data view, source loading, example generation, quality
-gates, context graph editing, route-policy training, dedupe/cleaning,
-PII/secrets filtering, human review, dataset export, evaluation dataset
-building, ontology projection, training, evaluation, promotion gates, rollback
-gates, model mounting, worker mounting, deployment gates, and feedback
-collection.
+Foundry is a product lens over the shared Autopilot builder substrate, not a
+separate canvas environment. Training recipes, evaluation recipes, benchmark
+recipes, deployment recipes, data recipes, and outcome workflows should all be
+typed recipes that can project into the standard workflow compositor.
+
+The guided pipeline should be openable as an editable workflow-compositor graph
+with nodes for task definition, domain ontology, canonical object model,
+connector mapping, data recipe, policy-bound data view, source loading, example
+generation, quality gates, context graph editing, route-policy training,
+dedupe/cleaning, PII/secrets filtering, human review, dataset workbench, gate
+console, model bake-off, cost/quality simulator, dataset export, distilled
+ontology dataset building, evaluation dataset building, ontology projection,
+training, evaluation, iteration loop, promotion gates, rollback gates, model
+mounting, worker mounting, deploy preview, deployment gates, worker card
+building, and feedback collection.
+
+Foundry should keep the proof machinery available without making it the main
+experience. Receipts, lineage, policy, and replay are the audit layer. The
+product layer is the builder's loop: objective, data, gates, candidate workers,
+comparison, deployment, failure capture, and improvement.
+
+The final user-facing output should be a Worker Card rather than merely a
+checkpoint file. It should summarize the worker's task class, ontology refs,
+data recipe refs, distilled dataset refs, evaluation results, benchmark claims,
+known limitations, authority scopes, runtime profiles, interaction surfaces,
+and deployment options.
 
 Autopilot Foundry should expose training profiles rather than a single model
 architecture. Supported profiles may include dense transformer workers,
@@ -272,11 +295,12 @@ These profiles are options, not IOI primitives.
 Autopilot owns the product experience. The IOI daemon runs recipe,
 transformation, training, evaluation, benchmark, routing, and deployment jobs.
 Agentgres records ontologies, object models, data recipes, policy-bound data
-views, transformation runs, specs, dataset commitments, lineage, receipts,
-quality records, and benchmark state. wallet.network grants data, tool, model,
-secret, connector, training, evaluation, and decryption authority. Filecoin/CAS
-stores large ontology packs, recipe payloads, training payloads, artifacts,
-traces, checkpoints, and sealed archives.
+views, transformation runs, specs, dataset commitments, distilled dataset refs,
+lineage, receipts, quality records, and benchmark state. wallet.network grants
+data, tool, model, secret, connector, training, evaluation, and decryption
+authority. Filecoin/CAS stores large ontology packs, recipe payloads, distilled
+datasets, training payloads, artifacts, traces, checkpoints, and sealed
+archives.
 
 Worker Training improves capability; it does not grant authority. A trained
 worker still requires an explicit policy envelope and authority grants before
@@ -406,10 +430,20 @@ A local Worker Training plan with:
 
 * worker objective
 * input and output schema
+* domain ontology and data recipe refs
+* training orchestrator role
+* model capacity profile
 * source documents and traces
+* batch plans
+* executor or generator mix
+* raw batch archive policy
 * example generation strategy
 * quality gates
+* gate library and gate report policy
+* distilled ontology dataset strategy
+* model bake-off and comparison policy
 * training profile and active-context strategy
+* token and cost ledger policy
 * human review policy
 * training or configuration method
 * context mutation or route-policy update policy
@@ -424,8 +458,13 @@ The auditable record of how a worker was produced:
 
 * source refs
 * dataset commitments
+* training batch plans
+* raw batch archive refs
 * rejected/accepted example counts
+* rejection reason counts
 * verifier gates
+* quality gate reports
+* token, provider-call, and cost summaries
 * training/configuration runs
 * evaluation receipts
 * benchmark receipts
@@ -636,8 +675,8 @@ Autopilot’s product loop should be:
 
 9. **Train**
    Repeated successful work can become a trained worker through Autopilot
-   Foundry: capture, specify, generate, curate, train/configure, evaluate,
-   bind, and deploy.
+   Foundry: capture, specify, generate, curate, distill ontology-bound signal,
+   train/configure, evaluate, bind, and deploy.
 
 10. **Productize**
    Repeated successful work becomes a durable worker or service candidate that
