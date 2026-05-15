@@ -743,6 +743,22 @@ export function WorkflowRunsPanel({
               data-proposal-ref={computerUseWorkbench.proposalRef ?? ""}
               data-action-ref={computerUseWorkbench.actionRef ?? ""}
               data-action-kind={computerUseWorkbench.actionKind ?? ""}
+              data-execution-ref={computerUseWorkbench.executionRef ?? ""}
+              data-execution-status={computerUseWorkbench.executionStatus ?? ""}
+              data-execution-adapter-id={
+                computerUseWorkbench.executionAdapterId ?? ""
+              }
+              data-execution-provider-id={
+                computerUseWorkbench.executionProviderId ?? ""
+              }
+              data-execution-preflight-status={
+                computerUseWorkbench.executionPreflightStatus ?? ""
+              }
+              data-execution-requires-reobserve={
+                computerUseWorkbench.executionRequiresReobserve === null
+                  ? ""
+                  : String(computerUseWorkbench.executionRequiresReobserve)
+              }
               data-verification-status={
                 computerUseWorkbench.verificationStatus ?? ""
               }
@@ -883,6 +899,20 @@ export function WorkflowRunsPanel({
                   data-verification-status={
                     computerUseWorkbench.verificationStatus ?? ""
                   }
+                  data-execution-status={
+                    computerUseWorkbench.executionStatus ?? ""
+                  }
+                  data-execution-provider-id={
+                    computerUseWorkbench.executionProviderId ?? ""
+                  }
+                  data-execution-preflight-status={
+                    computerUseWorkbench.executionPreflightStatus ?? ""
+                  }
+                  data-execution-requires-reobserve={
+                    computerUseWorkbench.executionRequiresReobserve === null
+                      ? ""
+                      : String(computerUseWorkbench.executionRequiresReobserve)
+                  }
                 >
                   <strong>Action path</strong>
                   <span>
@@ -899,6 +929,18 @@ export function WorkflowRunsPanel({
                   </span>
                   <small>
                     {[
+                      computerUseWorkbench.executionStatus
+                        ? `execution ${computerUseWorkbench.executionStatus}`
+                        : null,
+                      computerUseWorkbench.executionProviderId
+                        ? `provider ${computerUseWorkbench.executionProviderId}`
+                        : computerUseWorkbench.executionAdapterId,
+                      computerUseWorkbench.executionPreflightStatus
+                        ? `preflight ${computerUseWorkbench.executionPreflightStatus}`
+                        : null,
+                      computerUseWorkbench.executionRequiresReobserve === true
+                        ? "reobserve required"
+                        : null,
                       computerUseWorkbench.verificationStatus,
                       computerUseWorkbench.commitGateStatus,
                       computerUseWorkbench.blocker,
@@ -1417,6 +1459,30 @@ export function WorkflowRunsPanel({
                           data-action-receipt-ref={
                             node.data.computerUse.actionReceiptRef ?? ""
                           }
+                          data-execution-ref={
+                            node.data.computerUse.executionRef ?? ""
+                          }
+                          data-execution-status={
+                            node.data.computerUse.executionStatus ?? ""
+                          }
+                          data-execution-adapter-id={
+                            node.data.computerUse.executionAdapterId ?? ""
+                          }
+                          data-execution-provider-id={
+                            node.data.computerUse.executionProviderId ?? ""
+                          }
+                          data-execution-preflight-status={
+                            node.data.computerUse.executionPreflightStatus ?? ""
+                          }
+                          data-execution-requires-reobserve={
+                            node.data.computerUse.executionRequiresReobserve ===
+                            null
+                              ? ""
+                              : String(
+                                  node.data.computerUse
+                                    .executionRequiresReobserve,
+                                )
+                          }
                           data-verification-ref={
                             node.data.computerUse.verificationRef ?? ""
                           }
@@ -1544,10 +1610,10 @@ export function WorkflowRunsPanel({
                                 {node.data.computerUse.proposalRef ?? "pending"}
                               </dd>
                             </div>
-                            <div>
-                              <dt>Action</dt>
-                              <dd>
-                                {node.data.computerUse.actionRef
+	                            <div>
+	                              <dt>Action</dt>
+	                              <dd>
+	                                {node.data.computerUse.actionRef
                                   ? [
                                       node.data.computerUse.actionKind,
                                       node.data.computerUse.actionRef,
@@ -1556,11 +1622,35 @@ export function WorkflowRunsPanel({
                                       .join(" · ")
                                   : node.data.computerUse.proposalRef
                                     ? "not executed"
-                                    : "pending"}
-                              </dd>
-                            </div>
-                            <div>
-                              <dt>Verification</dt>
+	                                    : "pending"}
+	                              </dd>
+	                            </div>
+                            {node.data.computerUse.executionStatus ||
+                            node.data.computerUse.executionProviderId ||
+                            node.data.computerUse.executionAdapterId ? (
+                              <div>
+                                <dt>Executor</dt>
+                                <dd>
+                                  {[
+                                    node.data.computerUse.executionStatus,
+                                    node.data.computerUse.executionProviderId ??
+                                      node.data.computerUse.executionAdapterId,
+                                    node.data.computerUse
+                                      .executionPreflightStatus
+                                      ? `preflight ${node.data.computerUse.executionPreflightStatus}`
+                                      : null,
+                                    node.data.computerUse
+                                      .executionRequiresReobserve === true
+                                      ? "reobserve required"
+                                      : null,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </dd>
+                              </div>
+                            ) : null}
+	                            <div>
+	                              <dt>Verification</dt>
                               <dd>
                                 {node.data.computerUse.verificationStatus ??
                                   node.data.computerUse.verificationRef ??
