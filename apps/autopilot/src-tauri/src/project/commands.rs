@@ -807,6 +807,14 @@ struct WorkflowBindingInspection {
     side_effect_class: String,
     requires_approval: bool,
     capability_scope: Vec<String>,
+    model_capability_ref: Option<String>,
+    route_id: Option<String>,
+    authority_scopes: Vec<String>,
+    authority_scope_requirements: Vec<String>,
+    receipt_behavior: Option<Value>,
+    readiness: Option<Value>,
+    grant_readiness: Option<Value>,
+    policy_posture: Option<Value>,
 }
 
 fn workflow_binding_bool(binding: &Value, key: &str, default_value: bool) -> bool {
@@ -844,6 +852,109 @@ fn workflow_binding_side_effect(binding: &Value, default_value: &str) -> String 
     workflow_binding_text(binding, "sideEffectClass").unwrap_or_else(|| default_value.to_string())
 }
 
+fn workflow_binding_status_ready(binding: &Value, key: &str) -> bool {
+    binding
+        .get(key)
+        .and_then(|value| value.get("status"))
+        .and_then(Value::as_str)
+        .map(|status| status.trim().eq_ignore_ascii_case("ready"))
+        .unwrap_or(false)
+}
+
+fn workflow_model_capability_slug(value: &str, fallback: &str) -> String {
+    let mut slug = value
+        .trim()
+        .to_ascii_lowercase()
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '_' || ch == '.' || ch == ':' || ch == '-' {
+                ch
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>();
+    while slug.contains("--") {
+        slug = slug.replace("--", "-");
+    }
+    let slug = slug.trim_matches('-').to_string();
+    if slug.is_empty() {
+        fallback.to_string()
+    } else {
+        slug
+    }
+}
+
+fn workflow_model_capability_for_binding(
+    binding: &Value,
+    model_ref: &str,
+) -> (
+    Option<String>,
+    Option<String>,
+    Vec<String>,
+    Vec<String>,
+    Option<Value>,
+    Option<Value>,
+    Option<Value>,
+    Option<Value>,
+) {
+    let route_id = workflow_binding_text(binding, "routeId")
+        .or_else(|| workflow_binding_text(binding, "route_id"))
+        .unwrap_or_else(|| "route.local-first".to_string());
+    let model_id = workflow_binding_text(binding, "modelId")
+        .or_else(|| workflow_binding_text(binding, "model_id"));
+    let model_capability_ref = workflow_binding_text(binding, "modelCapabilityRef")
+        .or_else(|| workflow_binding_text(binding, "model_capability_ref"))
+        .or_else(|| {
+            model_id.as_ref().map(|model_id| {
+                format!(
+                    "model-capability:legacy.{}.{}",
+                    workflow_model_capability_slug(model_ref, "model"),
+                    workflow_model_capability_slug(model_id, "model")
+                )
+            })
+        })
+        .or_else(|| Some(format!("model-capability:{}", route_id)));
+    let capability =
+        workflow_binding_text(binding, "capability").unwrap_or_else(|| "chat".to_string());
+    let mut authority_scopes = workflow_binding_string_array(binding, "authorityScopes", &[]);
+    let authority_scope_requirements =
+        workflow_binding_string_array(binding, "authorityScopeRequirements", &[]);
+    if authority_scopes.is_empty() && !authority_scope_requirements.is_empty() {
+        authority_scopes = authority_scope_requirements.clone();
+    }
+    if authority_scopes.is_empty() {
+        authority_scopes = vec![
+            format!("route.use:{}", route_id),
+            format!("model.{}:*", capability),
+        ];
+    }
+    let authority_scope_requirements = if authority_scope_requirements.is_empty() {
+        authority_scopes.clone()
+    } else {
+        authority_scope_requirements
+    };
+    let receipt_behavior = binding.get("receiptBehavior").cloned().or_else(|| {
+        Some(json!({
+            "receiptRequired": true,
+            "requiredReceiptTypes": ["model_route_selection", "model_invocation"]
+        }))
+    });
+    let readiness = binding.get("credentialReadiness").cloned();
+    let grant_readiness = binding.get("grantReadiness").cloned();
+    let policy_posture = binding.get("policyPosture").cloned();
+    (
+        model_capability_ref,
+        Some(route_id),
+        authority_scopes,
+        authority_scope_requirements,
+        receipt_behavior,
+        readiness,
+        grant_readiness,
+        policy_posture,
+    )
+}
+
 fn workflow_binding_inspections(
     workflow: &WorkflowProject,
     node: &Value,
@@ -857,16 +968,27 @@ fn workflow_binding_inspections(
     if node_type == "model_call" {
         if let Some(binding) = logic.get("modelBinding") {
             let mock_binding = workflow_binding_bool(binding, "mockBinding", false);
-            let credential_ready = workflow_binding_bool(binding, "credentialReady", false);
+            let credential_ready = workflow_binding_bool(binding, "credentialReady", false)
+                || workflow_binding_status_ready(binding, "credentialReadiness");
             let model_ref =
                 workflow_binding_text(binding, "modelRef").unwrap_or_else(|| "model".to_string());
+            let (
+                model_capability_ref,
+                route_id,
+                authority_scopes,
+                authority_scope_requirements,
+                receipt_behavior,
+                readiness,
+                grant_readiness,
+                policy_posture,
+            ) = workflow_model_capability_for_binding(binding, &model_ref);
             rows.push(WorkflowBindingInspection {
                 row_id: format!("{}-model", node_id),
                 node_id: node_id.clone(),
                 node_name: node_name.clone(),
                 node_type: node_type.clone(),
                 binding_kind: "Model".to_string(),
-                reference: model_ref,
+                reference: model_capability_ref.clone().unwrap_or(model_ref),
                 mode: if mock_binding { "mock" } else { "live" }.to_string(),
                 ready: mock_binding || credential_ready,
                 mock_binding,
@@ -878,6 +1000,14 @@ fn workflow_binding_inspections(
                     "capabilityScope",
                     &["reasoning"],
                 ),
+                model_capability_ref,
+                route_id,
+                authority_scopes,
+                authority_scope_requirements,
+                receipt_behavior,
+                readiness,
+                grant_readiness,
+                policy_posture,
             });
         } else {
             let model_ref = logic
@@ -893,13 +1023,27 @@ fn workflow_binding_inspections(
                 .and_then(|binding| binding.get("modelId"))
                 .and_then(Value::as_str)
                 .filter(|value| !value.trim().is_empty());
+            let empty_binding = json!({});
+            let binding = global_binding.unwrap_or(&empty_binding);
+            let (
+                model_capability_ref,
+                route_id,
+                authority_scopes,
+                authority_scope_requirements,
+                receipt_behavior,
+                readiness,
+                grant_readiness,
+                policy_posture,
+            ) = workflow_model_capability_for_binding(binding, model_ref);
             rows.push(WorkflowBindingInspection {
                 row_id: format!("{}-global-model", node_id),
                 node_id: node_id.clone(),
                 node_name: node_name.clone(),
                 node_type: node_type.clone(),
                 binding_kind: "Model".to_string(),
-                reference: model_id.unwrap_or(model_ref).to_string(),
+                reference: model_capability_ref
+                    .clone()
+                    .unwrap_or_else(|| model_id.unwrap_or(model_ref).to_string()),
                 mode: if model_id.is_some() { "live" } else { "local" }.to_string(),
                 ready: model_id.is_some()
                     || workflow_has_incoming_connection_class(workflow, &node_id, "model"),
@@ -908,6 +1052,14 @@ fn workflow_binding_inspections(
                 side_effect_class: "none".to_string(),
                 requires_approval: false,
                 capability_scope: vec![model_ref.to_string()],
+                model_capability_ref,
+                route_id,
+                authority_scopes,
+                authority_scope_requirements,
+                receipt_behavior,
+                readiness,
+                grant_readiness,
+                policy_posture,
             });
         }
     }
@@ -915,15 +1067,27 @@ fn workflow_binding_inspections(
     if node_type == "model_binding" {
         if let Some(binding) = logic.get("modelBinding") {
             let mock_binding = workflow_binding_bool(binding, "mockBinding", false);
-            let credential_ready = workflow_binding_bool(binding, "credentialReady", false);
+            let credential_ready = workflow_binding_bool(binding, "credentialReady", false)
+                || workflow_binding_status_ready(binding, "credentialReadiness");
+            let model_ref =
+                workflow_binding_text(binding, "modelRef").unwrap_or_else(|| "model".to_string());
+            let (
+                model_capability_ref,
+                route_id,
+                authority_scopes,
+                authority_scope_requirements,
+                receipt_behavior,
+                readiness,
+                grant_readiness,
+                policy_posture,
+            ) = workflow_model_capability_for_binding(binding, &model_ref);
             rows.push(WorkflowBindingInspection {
                 row_id: format!("{}-model-binding", node_id),
                 node_id: node_id.clone(),
                 node_name: node_name.clone(),
                 node_type: node_type.clone(),
                 binding_kind: "Model".to_string(),
-                reference: workflow_binding_text(binding, "modelRef")
-                    .unwrap_or_else(|| "model".to_string()),
+                reference: model_capability_ref.clone().unwrap_or(model_ref),
                 mode: if mock_binding { "mock" } else { "live" }.to_string(),
                 ready: mock_binding || credential_ready,
                 mock_binding,
@@ -935,6 +1099,14 @@ fn workflow_binding_inspections(
                     "capabilityScope",
                     &["reasoning"],
                 ),
+                model_capability_ref,
+                route_id,
+                authority_scopes,
+                authority_scope_requirements,
+                receipt_behavior,
+                readiness,
+                grant_readiness,
+                policy_posture,
             });
         }
     }
@@ -962,6 +1134,14 @@ fn workflow_binding_inspections(
                     "capabilityScope",
                     &["read"],
                 ),
+                model_capability_ref: None,
+                route_id: None,
+                authority_scopes: Vec::new(),
+                authority_scope_requirements: Vec::new(),
+                receipt_behavior: None,
+                readiness: None,
+                grant_readiness: None,
+                policy_posture: None,
             });
         }
     }
@@ -1015,6 +1195,14 @@ fn workflow_binding_inspections(
                     "capabilityScope",
                     &["tool"],
                 ),
+                model_capability_ref: None,
+                route_id: None,
+                authority_scopes: Vec::new(),
+                authority_scope_requirements: Vec::new(),
+                receipt_behavior: None,
+                readiness: None,
+                grant_readiness: None,
+                policy_posture: None,
             });
         }
     }
@@ -1041,6 +1229,14 @@ fn workflow_binding_inspections(
                     "capabilityScope",
                     &["structured_output"],
                 ),
+                model_capability_ref: None,
+                route_id: None,
+                authority_scopes: Vec::new(),
+                authority_scope_requirements: Vec::new(),
+                receipt_behavior: None,
+                readiness: None,
+                grant_readiness: None,
+                policy_posture: None,
             });
         }
     }
@@ -1169,6 +1365,14 @@ fn workflow_binding_manifest_for_workflow(workflow: &WorkflowProject) -> Workflo
                 side_effect_class: inspection.side_effect_class,
                 requires_approval: inspection.requires_approval,
                 capability_scope: inspection.capability_scope,
+                model_capability_ref: inspection.model_capability_ref,
+                route_id: inspection.route_id,
+                authority_scopes: inspection.authority_scopes,
+                authority_scope_requirements: inspection.authority_scope_requirements,
+                receipt_behavior: inspection.receipt_behavior,
+                readiness: inspection.readiness,
+                grant_readiness: inspection.grant_readiness,
+                policy_posture: inspection.policy_posture,
                 status: check.status,
                 status_reason: check.summary,
             });
@@ -1235,6 +1439,14 @@ pub fn check_workflow_binding(
                 side_effect_class: "none".to_string(),
                 requires_approval: false,
                 capability_scope: Vec::new(),
+                model_capability_ref: None,
+                route_id: None,
+                authority_scopes: Vec::new(),
+                authority_scope_requirements: Vec::new(),
+                receipt_behavior: None,
+                readiness: None,
+                grant_readiness: None,
+                policy_posture: None,
             })
     };
     let result = workflow_binding_check_result(inspection, &bundle.workflow);

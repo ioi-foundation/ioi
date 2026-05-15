@@ -10,6 +10,7 @@ import type {
   WorkflowNodeFixture,
   WorkflowProject,
   WorkflowProposal,
+  WorkflowModelBinding,
   WorkflowRevisionBinding,
   WorkflowRevisionRestoreResult,
   WorkflowTestCase,
@@ -45,6 +46,7 @@ import {
   workflowSchedulerLaneReadinessIssues,
 } from "./workflow-scheduler-lane-readiness";
 import type { WorkflowRuntimeThreadEventLike } from "./workflow-runtime-event-projection";
+import { normalizeWorkflowModelBinding } from "./workflow-model-capability-binding";
 import { workflowWorkspaceTrustGateIssues } from "./workflow-workspace-trust-gate";
 
 export function defaultTestsForWorkflow(workflow: WorkflowProject): WorkflowTestCase[] {
@@ -149,24 +151,44 @@ function liveModelBindingContractMetadataIssues(
     providerPriority?: string[];
     fallbackPolicy?: Record<string, unknown>;
     costEstimateVisibility?: Record<string, unknown>;
+    modelCapabilityRef?: string;
+    routeId?: string;
+    authorityScopes?: string[];
     authorityScopeRequirements?: string[];
+    grantReadiness?: { status?: string } | Record<string, unknown>;
+    policyPosture?: Record<string, unknown>;
   } | null | undefined,
 ): WorkflowValidationIssue[] {
   if (!binding || binding.mockBinding !== false) return [];
+  const normalized = normalizeWorkflowModelBinding(binding as Partial<WorkflowModelBinding>, {});
   const issues: WorkflowValidationIssue[] = [];
   const credentialStatus = String(
-    (binding.credentialReadiness as { status?: unknown } | undefined)?.status ?? "",
+    (normalized.credentialReadiness as { status?: unknown } | undefined)?.status ?? "",
   ).trim();
-  if (!credentialStatus && typeof binding.credentialReady !== "boolean") {
+  if (credentialStatus !== "ready" && normalized.credentialReady !== true) {
     issues.push({
       nodeId,
       code: "missing_model_credential_readiness_contract",
-      message: "Live model bindings need credentialReadiness status metadata before execution.",
+      message: "Live model bindings need ready credentialReadiness or capability readiness metadata before execution.",
     });
   }
-  const receiptRequired = Boolean(binding.receiptBehavior?.receiptRequired);
-  const receiptTypes = Array.isArray(binding.receiptBehavior?.requiredReceiptTypes)
-    ? binding.receiptBehavior.requiredReceiptTypes.length
+  if (!String(normalized.modelCapabilityRef ?? "").trim()) {
+    issues.push({
+      nodeId,
+      code: "missing_model_capability_ref",
+      message: "Live model bindings need a modelCapabilityRef from /api/v1/model-capabilities or authority projection.",
+    });
+  }
+  if (!String(normalized.routeId ?? "").trim()) {
+    issues.push({
+      nodeId,
+      code: "missing_model_route_id",
+      message: "Live model bindings need a canonical routeId for deterministic model routing.",
+    });
+  }
+  const receiptRequired = Boolean(normalized.receiptBehavior?.receiptRequired);
+  const receiptTypes = Array.isArray(normalized.receiptBehavior?.requiredReceiptTypes)
+    ? normalized.receiptBehavior.requiredReceiptTypes.length
     : 0;
   if (!receiptRequired || receiptTypes === 0) {
     issues.push({
@@ -175,53 +197,76 @@ function liveModelBindingContractMetadataIssues(
       message: "Live model bindings need receiptBehavior with model route and invocation receipt types.",
     });
   }
-  if (binding.workflowAvailability?.available !== true) {
+  if (normalized.workflowAvailability?.available !== true) {
     issues.push({
       nodeId,
       code: "missing_model_workflow_availability",
       message: "Live model bindings need workflowAvailability.available=true before activation.",
     });
   }
-  if (binding.agentAvailability?.available !== true) {
+  if (normalized.agentAvailability?.available !== true) {
     issues.push({
       nodeId,
       code: "missing_model_agent_availability",
       message: "Live model bindings need agentAvailability.available=true before execution.",
     });
   }
-  if (!String(binding.privacyTier ?? "").trim()) {
+  if (!String(normalized.privacyTier ?? "").trim()) {
     issues.push({
       nodeId,
       code: "missing_model_privacy_tier",
       message: "Live model bindings need privacyTier metadata for routing policy.",
     });
   }
-  if (!Array.isArray(binding.providerPriority) || binding.providerPriority.length === 0) {
+  if (!Array.isArray(normalized.providerPriority) || normalized.providerPriority.length === 0) {
     issues.push({
       nodeId,
       code: "missing_model_provider_priority",
       message: "Live model bindings need providerPriority metadata for deterministic routing.",
     });
   }
-  if (!binding.fallbackPolicy || Object.keys(binding.fallbackPolicy).length === 0) {
+  if (!normalized.fallbackPolicy || Object.keys(normalized.fallbackPolicy).length === 0) {
     issues.push({
       nodeId,
       code: "missing_model_fallback_policy",
       message: "Live model bindings need fallbackPolicy metadata for deterministic failover.",
     });
   }
-  if (!binding.costEstimateVisibility || Object.keys(binding.costEstimateVisibility).length === 0) {
+  if (!normalized.costEstimateVisibility || Object.keys(normalized.costEstimateVisibility).length === 0) {
     issues.push({
       nodeId,
       code: "missing_model_cost_estimate_visibility",
       message: "Live model bindings need costEstimateVisibility metadata before execution.",
     });
   }
-  if (!Array.isArray(binding.authorityScopeRequirements) || binding.authorityScopeRequirements.length === 0) {
+  const authorityScopes = Array.isArray(normalized.authorityScopes) && normalized.authorityScopes.length > 0
+    ? normalized.authorityScopes
+    : normalized.authorityScopeRequirements;
+  if (!Array.isArray(authorityScopes) || authorityScopes.length === 0) {
     issues.push({
       nodeId,
       code: "missing_model_authority_scope_requirements",
-      message: "Live model bindings need authorityScopeRequirements metadata.",
+      message: "Live model bindings need authorityScopes or authorityScopeRequirements metadata.",
+    });
+  }
+  const grantStatus = String(
+    (normalized.grantReadiness as { status?: unknown } | undefined)?.status ?? "",
+  ).trim();
+  if (grantStatus !== "ready") {
+    issues.push({
+      nodeId,
+      code: "missing_model_grant_readiness",
+      message: "Live model bindings need ready grantReadiness from wallet authority before execution.",
+    });
+  }
+  const policyStatus = String(
+    (normalized.policyPosture as { status?: unknown } | undefined)?.status ?? "",
+  ).trim();
+  if (!["allowed", "approved", "ready"].includes(policyStatus)) {
+    issues.push({
+      nodeId,
+      code: "missing_model_policy_posture",
+      message: "Live model bindings need an allowed policyPosture before execution.",
     });
   }
   return issues;

@@ -22,6 +22,11 @@ import type {
 } from "../types/graph";
 import { workflowHarnessForkMutationCanaryNodeAttempts } from "./harness-workflow";
 import {
+  normalizeGraphModelBinding,
+  normalizeWorkflowModelBinding,
+  workflowModelBindingIsReady,
+} from "./workflow-model-capability-binding";
+import {
   workflowValuePreview,
   type WorkflowValuePreview,
 } from "./workflow-value-preview";
@@ -2045,49 +2050,54 @@ export function workflowBindingRegistryRows(workflow: WorkflowProject): Workflow
     if (nodeItem.type === "model_call") {
       const modelBinding = logic.modelBinding;
       if (modelBinding) {
+        const normalized = normalizeWorkflowModelBinding(modelBinding, logic);
         rows.push({
           id: `${nodeItem.id}-model`,
           nodeItem,
           bindingKind: "Model",
-          ref: modelBinding.modelRef || "model",
-          mode: modelBinding.mockBinding ? "mock" : "live",
-          ready: modelBinding.mockBinding || modelBinding.credentialReady === true,
-          scope: modelBinding.capabilityScope?.join(", ") || "reasoning",
-          sideEffectClass: modelBinding.sideEffectClass ?? "none",
-          approval: modelBinding.requiresApproval ? "approval required" : "not required",
+          ref: normalized.modelCapabilityRef || normalized.modelRef || "model",
+          mode: normalized.mockBinding ? "mock" : "live",
+          ready: workflowModelBindingIsReady(normalized),
+          scope: (normalized.authorityScopes ?? normalized.capabilityScope)?.join(", ") || "reasoning",
+          sideEffectClass: normalized.sideEffectClass ?? "none",
+          approval: normalized.requiresApproval ? "approval required" : "not required",
         });
       } else {
         const modelRef = String(logic.modelRef ?? "reasoning");
-        const globalBinding = workflow.global_config.modelBindings?.[modelRef];
+        const globalBinding = normalizeGraphModelBinding(
+          modelRef,
+          workflow.global_config.modelBindings?.[modelRef],
+        );
         rows.push({
           id: `${nodeItem.id}-global-model`,
           nodeItem,
           bindingKind: "Model",
-          ref: globalBinding?.modelId || modelRef,
-          mode: globalBinding?.modelId ? "live" : "local",
+          ref: globalBinding.modelCapabilityRef || modelRef,
+          mode: globalBinding.modelId ? "live" : "local",
           ready:
-            Boolean(globalBinding?.modelId) ||
+            workflowModelBindingIsReady(globalBinding) ||
             workflow.edges.some((edge) => {
               const edgeClass = edge.connectionClass ?? edge.data?.connectionClass;
               return edge.to === nodeItem.id && (edgeClass === "model" || edge.toPort === "model");
             }),
-          scope: modelRef,
+          scope: (globalBinding.authorityScopes ?? [modelRef]).join(", "),
           sideEffectClass: "none",
           approval: "not required",
         });
       }
     }
     if (nodeItem.type === "model_binding" && logic.modelBinding) {
+      const normalized = normalizeWorkflowModelBinding(logic.modelBinding, logic);
       rows.push({
         id: `${nodeItem.id}-model-binding`,
         nodeItem,
         bindingKind: "Model",
-        ref: logic.modelBinding.modelRef || "model",
-        mode: logic.modelBinding.mockBinding ? "mock" : "live",
-        ready: logic.modelBinding.mockBinding || logic.modelBinding.credentialReady === true,
-        scope: logic.modelBinding.capabilityScope?.join(", ") || "reasoning",
-        sideEffectClass: logic.modelBinding.sideEffectClass ?? "none",
-        approval: logic.modelBinding.requiresApproval ? "approval required" : "not required",
+        ref: normalized.modelCapabilityRef || normalized.modelRef || "model",
+        mode: normalized.mockBinding ? "mock" : "live",
+        ready: workflowModelBindingIsReady(normalized),
+        scope: (normalized.authorityScopes ?? normalized.capabilityScope)?.join(", ") || "reasoning",
+        sideEffectClass: normalized.sideEffectClass ?? "none",
+        approval: normalized.requiresApproval ? "approval required" : "not required",
       });
     }
     if (nodeItem.type === "adapter" && logic.connectorBinding) {
@@ -2633,13 +2643,31 @@ export function workflowSelectedNodeBindingSummary(
   logic: Record<string, any>,
 ): WorkflowBindingSummaryItem[] {
   if (node.type === "model_call") {
-    return [{ label: "Model", value: String(logic.modelRef || "not selected"), ready: Boolean(logic.modelRef) }];
+    const binding = normalizeWorkflowModelBinding(logic.modelBinding, logic);
+    return [
+      {
+        label: "Capability",
+        value: binding.modelCapabilityRef ?? "not selected",
+        ready: Boolean(binding.modelCapabilityRef),
+      },
+      {
+        label: "Route",
+        value: binding.routeId ?? "not selected",
+        ready: Boolean(binding.routeId),
+      },
+      {
+        label: "Receipts",
+        value: binding.receiptBehavior?.receiptRequired ? "required" : "missing",
+        ready: Boolean(binding.receiptBehavior?.receiptRequired),
+      },
+    ];
   }
   if (node.type === "model_binding") {
-    const binding = logic.modelBinding ?? {};
+    const binding = normalizeWorkflowModelBinding(logic.modelBinding, logic);
     return [
-      { label: "Model", value: String(binding.modelRef || logic.modelRef || "not selected"), ready: Boolean(binding.modelRef || logic.modelRef) },
+      { label: "Capability", value: String(binding.modelCapabilityRef || "not selected"), ready: Boolean(binding.modelCapabilityRef) },
       { label: "Mode", value: binding.mockBinding === true ? "mock" : "live", ready: typeof binding.mockBinding === "boolean" },
+      { label: "Authority", value: (binding.authorityScopes ?? binding.authorityScopeRequirements ?? []).join(", ") || "missing", ready: Boolean((binding.authorityScopes ?? binding.authorityScopeRequirements ?? []).length) },
       { label: "Result schema", value: binding.resultSchema || logic.outputSchema ? "configured" : "missing", ready: Boolean(binding.resultSchema || logic.outputSchema) },
     ];
   }

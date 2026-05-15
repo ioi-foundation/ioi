@@ -430,6 +430,10 @@ pub struct WorkflowParserBinding {
 #[serde(rename_all = "camelCase")]
 pub struct WorkflowModelBinding {
     pub model_ref: String,
+    #[serde(default)]
+    pub model_capability_ref: Option<String>,
+    #[serde(default)]
+    pub route_id: Option<String>,
     pub mock_binding: bool,
     #[serde(default)]
     pub capability_scope: Vec<String>,
@@ -441,6 +445,22 @@ pub struct WorkflowModelBinding {
     pub requires_approval: bool,
     #[serde(default)]
     pub credential_ready: Option<bool>,
+    #[serde(default)]
+    pub credential_readiness: Option<Value>,
+    #[serde(default)]
+    pub receipt_behavior: Option<Value>,
+    #[serde(default)]
+    pub workflow_availability: Option<Value>,
+    #[serde(default)]
+    pub agent_availability: Option<Value>,
+    #[serde(default)]
+    pub authority_scopes: Vec<String>,
+    #[serde(default)]
+    pub authority_scope_requirements: Vec<String>,
+    #[serde(default)]
+    pub grant_readiness: Option<Value>,
+    #[serde(default)]
+    pub policy_posture: Option<Value>,
     #[serde(default)]
     pub tool_use_mode: Option<String>,
 }
@@ -902,6 +922,22 @@ pub struct WorkflowBindingManifestEntry {
     pub side_effect_class: String,
     pub requires_approval: bool,
     pub capability_scope: Vec<String>,
+    #[serde(default)]
+    pub model_capability_ref: Option<String>,
+    #[serde(default)]
+    pub route_id: Option<String>,
+    #[serde(default)]
+    pub authority_scopes: Vec<String>,
+    #[serde(default)]
+    pub authority_scope_requirements: Vec<String>,
+    #[serde(default)]
+    pub receipt_behavior: Option<serde_json::Value>,
+    #[serde(default)]
+    pub readiness: Option<serde_json::Value>,
+    #[serde(default)]
+    pub grant_readiness: Option<serde_json::Value>,
+    #[serde(default)]
+    pub policy_posture: Option<serde_json::Value>,
     pub status: String,
     pub status_reason: String,
 }

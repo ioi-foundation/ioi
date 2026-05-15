@@ -254,6 +254,10 @@ import {
   workflowCanvasSearchResults,
   workflowNodeCreatorBadge,
 } from "../runtime/workflow-composer-model";
+import {
+  normalizeGraphModelBinding,
+  workflowModelBindingIsReady,
+} from "../runtime/workflow-model-capability-binding";
 import { workflowRunLaunchGuard } from "../runtime/workflow-run-launch-guard";
 import { workflowNodeDeclaredOutputSchema } from "../runtime/workflow-schema";
 import {
@@ -2994,9 +2998,9 @@ export function useWorkflowComposerController({
         if (!nodeItem || nodeItem.type !== "model_call") return false;
         const logic = nodeItem.config?.logic ?? {};
         const modelRef = String(logic.modelRef ?? "reasoning");
-        const hasInlineBinding = Boolean(logic.modelBinding?.modelRef);
-        const hasGlobalBinding = Boolean(
-          globalConfig.modelBindings[modelRef]?.modelId,
+        const hasInlineBinding = workflowModelBindingIsReady(logic.modelBinding);
+        const hasGlobalBinding = workflowModelBindingIsReady(
+          normalizeGraphModelBinding(modelRef, globalConfig.modelBindings[modelRef]),
         );
         const hasAttachedModelBinding = edges.some((edge) => {
           if (edge.target !== nodeItem.id) return false;

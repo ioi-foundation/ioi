@@ -10,6 +10,13 @@ import type {
 } from "../../types/graph";
 import { workflowNodeDeclaredOutputSchema } from "../../runtime/workflow-schema";
 import {
+  MODEL_AUTHORITY_BINDING_ENDPOINT,
+  MODEL_CAPABILITY_BINDING_ENDPOINT,
+  WORKFLOW_MODEL_BINDING_KEYS,
+  normalizeGraphModelBinding,
+  workflowModelBindingIsReady,
+} from "../../runtime/workflow-model-capability-binding";
+import {
   workflowIssueActionLabel,
   workflowIssueTitle,
   workflowNodeName,
@@ -219,25 +226,21 @@ export function ModelBindingModal({
     updater: (current: GraphGlobalConfig) => GraphGlobalConfig,
   ) => void;
 }) {
-  const bindingKeys = ["reasoning", "vision", "embedding", "image"];
-  const modelBindings = bindingKeys.map(
+  const modelBindings = WORKFLOW_MODEL_BINDING_KEYS.map(
     (bindingKey) =>
       [
         bindingKey,
-        globalConfig.modelBindings[bindingKey] ?? {
-          modelId: "",
-          required: false,
-        },
+        normalizeGraphModelBinding(bindingKey, globalConfig.modelBindings[bindingKey]),
       ] as const,
   );
   const requiredCount = modelBindings.filter(
     ([, binding]) => binding.required,
   ).length;
   const boundCount = modelBindings.filter(([, binding]) =>
-    String(binding.modelId ?? "").trim(),
+    workflowModelBindingIsReady(binding),
   ).length;
   const missingRequiredCount = modelBindings.filter(
-    ([, binding]) => binding.required && !String(binding.modelId ?? "").trim(),
+    ([, binding]) => binding.required && !workflowModelBindingIsReady(binding),
   ).length;
   return (
     <div
@@ -278,7 +281,7 @@ export function ModelBindingModal({
           data-testid="workflow-model-binding-list"
         >
           {modelBindings.map(([bindingKey, binding]) => {
-            const ready = Boolean(String(binding.modelId ?? "").trim());
+            const ready = workflowModelBindingIsReady(binding);
             return (
               <section
                 key={bindingKey}
@@ -295,27 +298,114 @@ export function ModelBindingModal({
                         : "optional"}
                   </span>
                 </header>
+                <p className="workflow-create-summary">
+                  Bind through {MODEL_CAPABILITY_BINDING_ENDPOINT} or{" "}
+                  {MODEL_AUTHORITY_BINDING_ENDPOINT}; legacy model ids are
+                  projected into capability refs for compatibility.
+                </p>
                 <label>
-                  Model id
+                  Model capability ref
                   <input
-                    value={binding.modelId ?? ""}
-                    placeholder={`${bindingKey} model id`}
+                    data-testid={`workflow-model-binding-capability-ref-${bindingKey}`}
+                    value={binding.modelCapabilityRef ?? ""}
+                    placeholder="model-capability:route.local-first"
                     onChange={(event) =>
                       onUpdate((current) => ({
                         ...current,
                         modelBindings: {
                           ...current.modelBindings,
                           [bindingKey]: {
-                            ...(current.modelBindings[bindingKey] ?? {
-                              required: false,
-                            }),
-                            modelId: event.target.value,
+                            ...normalizeGraphModelBinding(
+                              bindingKey,
+                              current.modelBindings[bindingKey],
+                            ),
+                            modelCapabilityRef: event.target.value,
                           },
                         },
                       }))
                     }
                   />
                 </label>
+                <label>
+                  Route id
+                  <input
+                    data-testid={`workflow-model-binding-route-id-${bindingKey}`}
+                    value={binding.routeId ?? ""}
+                    placeholder="route.local-first"
+                    onChange={(event) =>
+                      onUpdate((current) => ({
+                        ...current,
+                        modelBindings: {
+                          ...current.modelBindings,
+                          [bindingKey]: normalizeGraphModelBinding(bindingKey, {
+                            ...current.modelBindings[bindingKey],
+                            routeId: event.target.value,
+                            modelCapabilityRef: `model-capability:${event.target.value || "route.local-first"}`,
+                          }),
+                        },
+                      }))
+                    }
+                  />
+                </label>
+                <label>
+                  Authority scopes
+                  <input
+                    data-testid={`workflow-model-binding-authority-scopes-${bindingKey}`}
+                    value={(binding.authorityScopes ?? binding.authorityScopeRequirements ?? []).join(", ")}
+                    placeholder="route.use:route.local-first, model.chat:*"
+                    onChange={(event) => {
+                      const authorityScopes = event.target.value
+                        .split(",")
+                        .map((value) => value.trim())
+                        .filter(Boolean);
+                      onUpdate((current) => ({
+                        ...current,
+                        modelBindings: {
+                          ...current.modelBindings,
+                          [bindingKey]: normalizeGraphModelBinding(bindingKey, {
+                            ...current.modelBindings[bindingKey],
+                            authorityScopes,
+                            authorityScopeRequirements: authorityScopes,
+                          }),
+                        },
+                      }));
+                    }}
+                  />
+                </label>
+                <label>
+                  Legacy model id
+                  <input
+                    data-testid={`workflow-model-binding-legacy-model-id-${bindingKey}`}
+                    value={binding.modelId ?? ""}
+                    placeholder="compatibility only"
+                    onChange={(event) =>
+                      onUpdate((current) => ({
+                        ...current,
+                        modelBindings: {
+                          ...current.modelBindings,
+                          [bindingKey]: normalizeGraphModelBinding(bindingKey, {
+                            ...current.modelBindings[bindingKey],
+                            modelId: event.target.value,
+                          }),
+                        },
+                      }))
+                    }
+                  />
+                </label>
+                <dl>
+                  <div>
+                    <dt>Readiness</dt>
+                    <dd>{binding.credentialReadiness?.status ?? "unknown"}</dd>
+                  </div>
+                  <div>
+                    <dt>Receipts</dt>
+                    <dd>{binding.receiptBehavior?.receiptRequired ? "required" : "missing"}</dd>
+                  </div>
+                  <div>
+                    <dt>Policy</dt>
+                    <dd>{String((binding.policyPosture as { status?: unknown })?.status ?? "unknown")}</dd>
+                  </div>
+                </dl>
                 <label className="workflow-binding-checkbox">
                   <input
                     type="checkbox"
@@ -327,9 +417,10 @@ export function ModelBindingModal({
                         modelBindings: {
                           ...current.modelBindings,
                           [bindingKey]: {
-                            ...(current.modelBindings[bindingKey] ?? {
-                              modelId: "",
-                            }),
+                            ...normalizeGraphModelBinding(
+                              bindingKey,
+                              current.modelBindings[bindingKey],
+                            ),
                             required: event.target.checked,
                           },
                         },

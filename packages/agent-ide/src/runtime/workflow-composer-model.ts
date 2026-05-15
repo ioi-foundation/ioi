@@ -15,6 +15,10 @@ import type {
 } from "../types/graph";
 import { connectionClassForPorts } from "./runtime-projection-adapter";
 import { slugify } from "./workflow-defaults";
+import {
+  normalizeGraphModelBinding,
+  workflowModelBindingIsReady,
+} from "./workflow-model-capability-binding";
 import type { WorkflowNodeDefinition } from "./workflow-node-registry";
 import { workflowConfiguredFieldNames } from "./workflow-value-preview";
 
@@ -30,9 +34,10 @@ export function workflowNodeCreatorBadge(
 ): { label: string; status: "ready" | "needs_attention" | "sandboxed" | "approval" } {
   if (definition.type === "model_call") {
     const modelRef = String(definition.defaultLogic.modelRef ?? "reasoning");
-    return globalConfig.modelBindings?.[modelRef]?.modelId
+    const binding = normalizeGraphModelBinding(modelRef, globalConfig.modelBindings?.[modelRef]);
+    return workflowModelBindingIsReady(binding)
       ? { label: "Model bound", status: "ready" }
-      : { label: "Needs model", status: "needs_attention" };
+      : { label: "Needs capability", status: "needs_attention" };
   }
   if (definition.type === "adapter") {
     return { label: "Needs connector", status: "needs_attention" };

@@ -611,6 +611,81 @@ fn workflow_binding_manifest_persists_environment_sidecar() {
 }
 
 #[test]
+fn workflow_binding_manifest_projects_model_capability_contracts() {
+    let root = temp_root("binding-model-capability");
+    let mut bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "Binding Model Capability".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "local".to_string(),
+        template_id: None,
+    })
+    .expect("workflow bundle should create");
+    bundle.workflow.global_config["modelBindings"]["reasoning"] = json!({
+        "modelId": "demo-mounted-model",
+        "modelCapabilityRef": "model-capability:route.local-first",
+        "routeId": "route.local-first",
+        "authorityScopes": ["route.use:route.local-first", "model.chat:*"],
+        "authorityScopeRequirements": ["route.use:route.local-first", "model.chat:*"],
+        "receiptBehavior": {
+            "receiptRequired": true,
+            "requiredReceiptTypes": ["model_route_selection", "model_invocation"]
+        },
+        "credentialReadiness": { "status": "ready" },
+        "grantReadiness": { "status": "ready" },
+        "policyPosture": { "status": "allowed" }
+    });
+
+    let mut model = workflow_node(
+        "capability-model",
+        "model_call",
+        "Capability model",
+        120,
+        160,
+        "Model",
+        "reasoning",
+    );
+    logic_mut(&mut model).remove("modelBinding");
+    logic_mut(&mut model).insert("modelRef".to_string(), json!("reasoning"));
+    bundle.workflow.nodes.push(model);
+    save_workflow_project(bundle.workflow_path.clone(), bundle.workflow)
+        .expect("workflow should save with model capability binding");
+
+    let manifest = generate_workflow_binding_manifest(bundle.workflow_path.clone())
+        .expect("manifest should generate");
+    let model_entry = manifest
+        .bindings
+        .iter()
+        .find(|entry| entry.id == "capability-model-global-model")
+        .expect("model capability entry should exist");
+    assert_eq!(
+        model_entry.model_capability_ref.as_deref(),
+        Some("model-capability:route.local-first")
+    );
+    assert_eq!(model_entry.route_id.as_deref(), Some("route.local-first"));
+    assert!(model_entry
+        .authority_scopes
+        .iter()
+        .any(|scope| scope == "model.chat:*"));
+    assert_eq!(
+        model_entry
+            .receipt_behavior
+            .as_ref()
+            .and_then(|value| value.get("receiptRequired"))
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        model_entry
+            .grant_readiness
+            .as_ref()
+            .and_then(|value| value.get("status"))
+            .and_then(Value::as_str),
+        Some("ready")
+    );
+}
+
+#[test]
 fn legacy_artifact_nodes_normalize_to_output_nodes_on_load_and_save() {
     let root = temp_root("legacy-output-normalization");
     let bundle = create_workflow_project(CreateWorkflowProjectRequest {

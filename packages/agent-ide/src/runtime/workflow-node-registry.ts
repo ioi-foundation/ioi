@@ -24,6 +24,10 @@ import {
   applyWorkflowNodeTaxonomy,
   type WorkflowNodeTaxonomyMetadata,
 } from "./workflow-node-taxonomy";
+import {
+  modelCapabilityRefForRoute,
+  normalizeWorkflowModelBinding,
+} from "./workflow-model-capability-binding";
 
 export type WorkflowNodeGroup =
   | "Start"
@@ -3411,10 +3415,11 @@ const WORKFLOW_NODE_DEFINITION_BASES: WorkflowNodeDefinitionBase[] = [
     },
     defaultLogic: {
       modelRef: "reasoning",
+      modelCapabilityRef: modelCapabilityRefForRoute("route.local-first"),
       modelId: null,
       routeId: "route.local-first",
       reasoningEffort: "medium",
-      modelBinding: {
+      modelBinding: normalizeWorkflowModelBinding({
         modelRef: "reasoning",
         modelId: null,
         routeId: "route.local-first",
@@ -3427,7 +3432,7 @@ const WORKFLOW_NODE_DEFINITION_BASES: WorkflowNodeDefinitionBase[] = [
         requiresApproval: false,
         credentialReady: false,
         toolUseMode: "none",
-      },
+      }),
     },
     defaultLaw: {},
   },
@@ -3496,6 +3501,7 @@ const WORKFLOW_NODE_DEFINITION_BASES: WorkflowNodeDefinitionBase[] = [
     },
     defaultLogic: {
       modelRef: "reasoning",
+      modelCapabilityRef: modelCapabilityRefForRoute("route.local-first"),
       modelId: null,
       routeId: "route.local-first",
       reasoningEffort: "medium",
@@ -3508,7 +3514,7 @@ const WORKFLOW_NODE_DEFINITION_BASES: WorkflowNodeDefinitionBase[] = [
       memoryWriteRequiresApproval: false,
       memorySubagentInheritance: "explicit",
       prompt: "Use the input and context to produce the next workflow result.",
-      modelBinding: {
+      modelBinding: normalizeWorkflowModelBinding({
         modelRef: "reasoning",
         modelId: null,
         routeId: "route.local-first",
@@ -3525,7 +3531,7 @@ const WORKFLOW_NODE_DEFINITION_BASES: WorkflowNodeDefinitionBase[] = [
         requiresApproval: false,
         credentialReady: false,
         toolUseMode: "none",
-      },
+      }),
     },
     defaultLaw: {},
   },
@@ -4773,12 +4779,13 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
     metricValue: "vision",
     defaultLogic: {
       modelRef: "vision",
+      modelCapabilityRef: modelCapabilityRefForRoute("route.local-first"),
       routeId: "route.local-first",
       modelPolicy: { privacy: "local_or_enterprise", quality: "adaptive" },
       capability: "vision",
       receiptRequired: true,
       prompt: "Inspect the media input and return structured observations.",
-      modelBinding: {
+      modelBinding: normalizeWorkflowModelBinding({
         modelRef: "vision",
         modelId: null,
         routeId: "route.local-first",
@@ -4794,7 +4801,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
         requiresApproval: false,
         credentialReady: false,
         toolUseMode: "none",
-      },
+      }),
       validateStructuredOutput: true,
       jsonMode: true,
     },
@@ -4806,12 +4813,13 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
     metricValue: "embedding",
     defaultLogic: {
       modelRef: "embedding",
+      modelCapabilityRef: modelCapabilityRefForRoute("route.local-first"),
       routeId: "route.local-first",
       modelPolicy: { privacy: "local_or_enterprise", quality: "adaptive" },
       capability: "embeddings",
       receiptRequired: true,
       prompt: "Embed the input for semantic comparison.",
-      modelBinding: {
+      modelBinding: normalizeWorkflowModelBinding({
         modelRef: "embedding",
         modelId: null,
         routeId: "route.local-first",
@@ -4827,7 +4835,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
         requiresApproval: false,
         credentialReady: false,
         toolUseMode: "none",
-      },
+      }),
     },
   });
   const modelEvaluator = creatorDefinition("model_call", {
