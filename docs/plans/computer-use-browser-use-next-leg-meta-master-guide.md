@@ -546,6 +546,9 @@ Deliverables:
 - composer Run activation metadata bridge that sends configured lane, session,
   retention, fail-closed, workflow node ids, tool ref, and authority scopes to
   the runtime request.
+- saved workflow-run manifest projection that emits the same canonical
+  `computer_use.*` runtime-thread trace when invoked outside the React Flow
+  controller path.
 
 Acceptance:
 

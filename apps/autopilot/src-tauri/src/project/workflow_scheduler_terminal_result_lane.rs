@@ -73,6 +73,12 @@ pub(super) fn workflow_scheduler_terminal_result(
     });
     let (harness_attempts, harness_shadow_comparisons, harness_gated_cluster_runs) =
         workflow_attach_harness_run_artifacts(workflow, run_id, &mut parts.node_runs);
+    let runtime_thread_events = workflow_computer_use_runtime_thread_events(
+        workflow,
+        run_id,
+        thread_id,
+        &parts.final_state,
+    );
     workflow_finalize_run_result(
         workflow_path,
         workflow,
@@ -83,7 +89,7 @@ pub(super) fn workflow_scheduler_terminal_result(
             node_runs: parts.node_runs,
             checkpoints: parts.checkpoints,
             events: parts.events,
-            runtime_thread_events: Vec::new(),
+            runtime_thread_events,
             tui_control_state: None,
             harness_attempts,
             harness_shadow_comparisons,
