@@ -23,6 +23,7 @@ import {
 } from "../dist/index.js";
 import { createMockRuntimeSubstrateClient } from "../dist/testing.js";
 import { startRuntimeDaemonService } from "../../runtime-daemon/src/index.mjs";
+import { startFakeNativeBrowserCdpServer } from "../../runtime-daemon/src/native-browser-cdp-test-fixture.mjs";
 
 function tempClient() {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-agent-sdk-computer-use-"));
@@ -798,6 +799,7 @@ test("runtime daemon resumes approved mutating native browser actions through ac
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-approved-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-approved-state-"));
   const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  const cdp = await startFakeNativeBrowserCdpServer();
   try {
     const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
     const agent = await Agent.create({
@@ -814,7 +816,9 @@ test("runtime daemon resumes approved mutating native browser actions through ac
         prompt: "Click the submit button at https://example.com.",
         url: "https://example.com",
         actionKind: "click",
-        targetRef: "target-submit",
+        targetRef: "#submit",
+        selector: "#submit",
+        cdpEndpointUrl: cdp.endpointUrl,
         approvalRef: "approval-browser-click",
         observationRetentionMode: "prompt_visible_summary_only",
       },
@@ -822,12 +826,15 @@ test("runtime daemon resumes approved mutating native browser actions through ac
 
     assert.equal(result.status, "completed");
     assert.equal(result.result.action.action_kind, "click");
+    assert.equal(result.result.action.target_ref, "#submit");
     assert.equal(result.result.action.approval_ref, "approval-browser-click");
     assert.equal(result.result.actionReceipt.status, "completed");
+    assert.equal(result.result.actionReceipt.adapter_id, "ioi.native_browser.cdp");
     assert.equal(result.result.verification.status, "passed");
     assert.equal(result.result.commitGate.status, "completed");
     assert.equal(result.result.commitGate.final_action_ref, result.result.action.action_ref);
     assert.equal(result.event_count, expectedComputerUseEventTypes.length);
+    assert.deepEqual(cdp.state.clicks, ["#submit"]);
 
     const runtimeEvents = [];
     for await (const event of thread.events()) {
@@ -838,9 +845,68 @@ test("runtime daemon resumes approved mutating native browser actions through ac
     const proposalEvent = computerEvents.find((event) => event.type === "computer_use_action_proposed");
     assert.equal(proposalEvent.payload.policy_gate.outcome, "approved_after_confirmation");
     assert.equal(proposalEvent.payload.policy_gate.approval_ref, "approval-browser-click");
+    assert.equal(proposalEvent.payload.policy_gate.executor_status, "completed");
+    const actionEvent = computerEvents.find((event) => event.type === "computer_use_action_executed");
+    assert.equal(actionEvent.payload.native_browser_execution_result.status, "completed");
     const commitEvent = computerEvents.find((event) => event.type === "computer_use_commit_gate");
     assert.ok(commitEvent);
     assert.equal(commitEvent.payload.commit_gate.status, "completed");
+    assert.equal(commitEvent.payload.human_handoff_state, null);
+  } finally {
+    await cdp.close();
+    await daemon.close();
+  }
+});
+
+test("runtime daemon fails closed when approved native browser action has no CDP adapter", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-approved-blocked-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-approved-blocked-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const thread = await agent.thread();
+    const result = await client.invokeThreadTool(thread.id, "ioi.computer_use.native_browser", {
+      source: "react_flow",
+      workflowGraphId: "workflow.native-browser-approved-blocked-tool",
+      workflowNodeId: "native-browser-approved-blocked-tool",
+      input: {
+        prompt: "Click the submit button at https://example.com.",
+        url: "https://example.com",
+        actionKind: "click",
+        targetRef: "#submit",
+        approvalRef: "approval-browser-click",
+        observationRetentionMode: "prompt_visible_summary_only",
+      },
+    });
+
+    assert.equal(result.status, "completed");
+    assert.equal(result.result.action, null);
+    assert.equal(result.result.actionReceipt, null);
+    assert.equal(result.result.verification.status, "blocked");
+    assert.equal(result.result.commitGate.status, "blocked");
+    assert.equal(result.result.commitGate.user_confirmation_required, false);
+    assert.equal(result.event_count, expectedComputerUseEventTypes.length - 1);
+
+    const runtimeEvents = [];
+    for await (const event of thread.events()) {
+      runtimeEvents.push(event);
+    }
+    const computerEvents = runtimeEvents.filter((event) => event.eventKind.startsWith("computer_use."));
+    assert.equal(computerEvents.some((event) => event.type === "computer_use_action_executed"), false);
+    const proposalEvent = computerEvents.find((event) => event.type === "computer_use_action_proposed");
+    assert.equal(proposalEvent.payload.policy_gate.outcome, "blocked_executor_unavailable");
+    assert.equal(proposalEvent.payload.policy_gate.executor_status, "unavailable");
+    const verificationEvent = computerEvents.find((event) => event.type === "computer_use_verification");
+    assert.equal(verificationEvent.payload.verification_receipt.status, "blocked");
+    assert.equal(verificationEvent.payload.native_browser_execution_result.status, "unavailable");
+    const commitEvent = computerEvents.find((event) => event.type === "computer_use_commit_gate");
+    assert.ok(commitEvent);
+    assert.equal(commitEvent.payload.commit_gate.status, "blocked");
     assert.equal(commitEvent.payload.human_handoff_state, null);
   } finally {
     await daemon.close();
