@@ -16,6 +16,7 @@ export {
   planComputerUseHarnessImprovement,
   recoveryPolicyForComputerUseFailure,
   runComputerUseBenchmarkSuite,
+  runComputerUseShadowReplay,
 } from "./computer-use.js";
 export { Run } from "./run.js";
 export { Thread, Turn } from "./thread.js";
@@ -103,6 +104,8 @@ export type {
   ComputerUseBenchmarkExportMode,
   ComputerUseBenchmarkSuiteInput,
   ComputerUseBenchmarkSuiteResult,
+  ComputerUseShadowReplayRunInput,
+  ComputerUseShadowReplayRunResult,
   ComputerAction,
   ComputerActionKind,
   ComputerControlAdapterContract,
