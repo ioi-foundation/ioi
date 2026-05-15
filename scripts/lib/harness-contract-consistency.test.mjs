@@ -33,9 +33,11 @@ function readTsHarnessWorkflow() {
 }
 
 function readWorkflowRailPanel() {
-  return read(
+  return readMany([
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx",
-  );
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationWizardDetails.tsx",
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingSummary.tsx",
+  ]);
 }
 
 function readGuiHarnessValidation() {
