@@ -806,6 +806,52 @@ test("runtime daemon invokes browser discovery through thread tool spine", async
   }
 });
 
+test("runtime daemon records coding-agent computer-use lease requests", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-coding-lease-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-coding-lease-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const thread = await agent.thread();
+    const result = await client.invokeThreadTool(thread.id, "computer_use.request_lease", {
+      source: "runtime_agent",
+      workflowGraphId: "workflow.coop-coding-computer-use",
+      workflowNodeId: "coding-agent-computer-use-lease",
+      input: {
+        prompt: "Open the local preview and click the refresh button.",
+        lane: "native_browser",
+        actionKind: "click",
+        url: "https://example.com",
+        targetRef: "target-refresh",
+      },
+    });
+
+    assert.equal(result.status, "completed");
+    assert.equal(result.result.object, "ioi.coding_agent_computer_use_lease_request");
+    assert.equal(result.result.leaseRequest.lane, "native_browser");
+    assert.equal(result.result.leaseRequest.authorityScope, "computer_use.native_browser.act");
+    assert.equal(result.result.approvalRequiredBeforeExecution, true);
+    assert.equal(result.result.threadTool.toolName, "ioi.computer_use.native_browser");
+    assert.equal(result.result.threadTool.input.actionKind, "click");
+
+    const runtimeEvents = [];
+    for await (const event of thread.events()) {
+      runtimeEvents.push(event);
+    }
+    const requestEvent = runtimeEvents.find((event) => event.type === "tool_completed");
+    assert.ok(requestEvent);
+    assert.equal(requestEvent.workflowNodeId, "coding-agent-computer-use-lease");
+    assert.equal(requestEvent.payload.result.requestRef, result.result.requestRef);
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("runtime daemon invokes native browser loop through thread tool spine", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-tool-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-tool-state-"));

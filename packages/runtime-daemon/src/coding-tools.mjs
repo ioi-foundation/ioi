@@ -16,6 +16,7 @@ export const CODING_TOOL_IDS = new Set([
   "lsp.diagnostics",
   "artifact.read",
   "tool.retrieve_result",
+  "computer_use.request_lease",
 ]);
 
 const CODING_TOOL_DEFAULT_PREVIEW_BYTES = 16 * 1024;
@@ -388,6 +389,51 @@ export function codingToolContracts() {
         ...CODING_TOOL_BUDGET_WORKFLOW_CONFIG_FIELDS,
       ],
     },
+    {
+      schemaVersion: CODING_TOOL_PACK_SCHEMA_VERSION,
+      stableToolId: "computer_use.request_lease",
+      displayName: "Request computer-use lease",
+      pack: CODING_TOOL_PACK_ID,
+      primitiveCapabilities: ["prim:computer_use.lease.request", "prim:computer_use.manifest"],
+      authorityScopeRequirements: ["computer_use.lease.request"],
+      effectClass: "local_read",
+      riskDomain: "computer_use",
+      inputSchema: {
+        type: "object",
+        required: ["prompt"],
+        additionalProperties: false,
+        properties: {
+          prompt: { type: "string" },
+          lane: { type: "string", enum: ["native_browser", "visual_gui", "sandboxed_hosted"] },
+          sessionMode: { type: "string" },
+          session_mode: { type: "string" },
+          actionKind: { type: "string" },
+          action_kind: { type: "string" },
+          url: { type: "string" },
+          targetRef: { type: "string" },
+          target_ref: { type: "string" },
+          selector: { type: "string" },
+          approvalRef: { type: "string" },
+          approval_ref: { type: "string" },
+          observationRetentionMode: { type: "string" },
+          observation_retention_mode: { type: "string" },
+        },
+      },
+      outputSchema: {
+        type: "object",
+        required: ["requestRef", "leaseRequest", "threadTool"],
+      },
+      evidenceRequirements: ["computer_use_lease_request_receipt", "coding_tool_receipt"],
+      workflowNodeType: "ComputerUseLeaseRequestNode",
+      workflowConfigFields: [
+        "toolPack.coding.computerUseLeaseRequest",
+        "computerUse.lane",
+        "computerUse.sessionMode",
+        "computerUse.actionKind",
+        "computerUse.approvalPolicy",
+        ...CODING_TOOL_BUDGET_WORKFLOW_CONFIG_FIELDS,
+      ],
+    },
   ];
 }
 
@@ -416,6 +462,8 @@ export function executeCodingTool(toolId, workspaceRoot, input = {}, context = {
       return artifactReadTool(input, context);
     case "tool.retrieve_result":
       return toolRetrieveResultTool(input, context);
+    case "computer_use.request_lease":
+      return computerUseLeaseRequestTool(workspaceRoot, input);
     default:
       throw codingToolError(404, "not_found", `Coding tool not found: ${toolId}`, {
         toolId,
@@ -461,6 +509,14 @@ export function codingToolInputSummary(toolId, input = {}) {
       toolCallId: optionalString(input.toolCallId ?? input.tool_call_id) ?? null,
       artifactId: optionalString(input.artifactId ?? input.artifact_id ?? input.artifactRef ?? input.artifact_ref) ?? null,
       channel: optionalString(input.channel) ?? null,
+    };
+  }
+  if (toolId === "computer_use.request_lease") {
+    return {
+      lane: computerUseLaneForInput(input),
+      sessionMode: computerUseSessionModeForInput(input),
+      actionKind: computerUseActionKindForInput(input),
+      url: optionalString(input.url) ?? null,
     };
   }
   if (toolId === "git.diff") return { paths: codingToolRawPathSummary(input) };
@@ -544,6 +600,15 @@ export function codingToolResultSummary(toolId, result = {}) {
       truncated: Boolean(result?.truncated),
     };
   }
+  if (toolId === "computer_use.request_lease") {
+    return {
+      requestRef: result?.requestRef ?? null,
+      lane: result?.leaseRequest?.lane ?? null,
+      sessionMode: result?.leaseRequest?.sessionMode ?? null,
+      actionKind: result?.leaseRequest?.actionKind ?? null,
+      approvalRequiredBeforeExecution: Boolean(result?.approvalRequiredBeforeExecution),
+    };
+  }
   return {};
 }
 
@@ -576,6 +641,9 @@ export function codingToolSummary(toolId, result = {}, status = "completed") {
   if (toolId === "tool.retrieve_result") {
     return `Retrieved tool result ${result?.toolCallId ?? result?.artifactId ?? "artifact"}.`;
   }
+  if (toolId === "computer_use.request_lease") {
+    return `Recorded computer-use lease request ${result?.requestRef ?? ""}`.trim();
+  }
   return `${toolId} completed.`;
 }
 
@@ -584,6 +652,115 @@ export function codingToolSourceEventKind(toolId) {
     .split(/[._-]/)
     .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
     .join("")}`;
+}
+
+function computerUseLeaseRequestTool(workspaceRoot, input = {}) {
+  const prompt = optionalString(input.prompt ?? input.goal ?? input.objective) ??
+    "Coding agent requested a governed computer-use lease.";
+  const lane = computerUseLaneForInput(input);
+  const sessionMode = computerUseSessionModeForInput(input);
+  const actionKind = computerUseActionKindForInput(input);
+  const approvalRef = optionalString(input.approvalRef ?? input.approval_ref) ?? null;
+  const requestSeed = JSON.stringify({
+    workspaceRoot,
+    prompt,
+    lane,
+    sessionMode,
+    actionKind,
+    url: optionalString(input.url) ?? null,
+    targetRef: optionalString(input.targetRef ?? input.target_ref) ?? null,
+    selector: optionalString(input.selector) ?? null,
+  });
+  const requestRef = `computer_use_lease_request_${hashText(requestSeed).slice(0, 16)}`;
+  const authorityScope =
+    actionKind === "inspect" || actionKind === "hover" || actionKind === "wait" || actionKind === "scroll"
+      ? `computer_use.${lane}.read`
+      : `computer_use.${lane}.act`;
+  const threadToolName = lane === "native_browser" ? "ioi.computer_use.native_browser" : null;
+  const threadToolInput = {
+    prompt,
+    url: optionalString(input.url) ?? null,
+    actionKind,
+    sessionMode,
+    targetRef: optionalString(input.targetRef ?? input.target_ref) ?? null,
+    selector: optionalString(input.selector) ?? null,
+    approvalRef,
+    observationRetentionMode:
+      optionalString(input.observationRetentionMode ?? input.observation_retention_mode) ??
+      "prompt_visible_summary_only",
+  };
+  return {
+    schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
+    object: "ioi.coding_agent_computer_use_lease_request",
+    requestRef,
+    workspaceRoot,
+    leaseRequest: {
+      prompt,
+      lane,
+      sessionMode,
+      actionKind,
+      authorityScope,
+      repoAuthorityScope: "workspace.read",
+      sharedClipboardPolicy: "disabled_until_explicit_approval",
+      artifactPolicy: "redacted_trace_artifacts_only",
+      approvalRef,
+      failClosedWhenUnavailable: true,
+    },
+    threadTool: {
+      toolPack: "computer_use",
+      toolName: threadToolName,
+      unavailableReason: threadToolName
+        ? null
+        : "Requested lane is recorded as a governed lease request; concrete visual/hosted execution adapter is not mounted yet.",
+      input: threadToolInput,
+    },
+    approvalRequiredBeforeExecution: authorityScope.endsWith(".act") && !approvalRef,
+    evidenceRefs: [
+      requestRef,
+      "computer_use_lease_request_receipt",
+      "coding_tool_receipt",
+    ],
+    shellFallbackUsed: false,
+  };
+}
+
+function computerUseLaneForInput(input = {}) {
+  const value = optionalString(input.lane ?? input.computerUseLane ?? input.computer_use_lane);
+  if (value === "visual_gui" || value === "sandboxed_hosted") return value;
+  return "native_browser";
+}
+
+function computerUseSessionModeForInput(input = {}) {
+  const value = optionalString(input.sessionMode ?? input.session_mode);
+  if (value) return value;
+  const lane = computerUseLaneForInput(input);
+  if (lane === "visual_gui") return "visual_fallback";
+  if (lane === "sandboxed_hosted") return "hosted_sandbox";
+  return "owned_hermetic_browser";
+}
+
+function computerUseActionKindForInput(input = {}) {
+  const value = optionalString(input.actionKind ?? input.action_kind)?.toLowerCase().replace(/[\s-]+/g, "_");
+  if (!value) return "inspect";
+  if (value === "type" || value === "input_text") return "type_text";
+  if (value === "keypress") return "key_press";
+  if ([
+    "click",
+    "type_text",
+    "key_press",
+    "scroll",
+    "drag",
+    "hover",
+    "select",
+    "upload",
+    "clipboard",
+    "wait",
+    "shell",
+    "mobile_gesture",
+    "navigate",
+    "inspect",
+  ].includes(value)) return value;
+  return "inspect";
 }
 
 function workspaceStatusTool(workspaceRoot, input = {}) {
