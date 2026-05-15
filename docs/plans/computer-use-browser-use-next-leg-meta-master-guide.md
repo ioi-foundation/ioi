@@ -470,7 +470,8 @@ When the same turn includes `browser__*` tool results, the bridge now emits
 canonical action-executed and verification rows so the persisted trace can show
 the real browser tool effect instead of only generic tool completion.
 Daemon-backed visual and hosted/sandbox lane runs activate through the same
-trace spine when a mounted executor supplies those contracts, while missing
+trace spine when a mounted executor supplies those contracts, preserving
+adapter contracts and cleanup receipts when present, while missing
 visual/sandbox adapters still fail closed. The browser lane now also has a
 daemon/SDK read-only discovery receipt for browser process inventory, declared
 CDP endpoints, default-profile remote-debugging blockers, and redaction/safety
