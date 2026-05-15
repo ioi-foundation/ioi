@@ -466,6 +466,9 @@ target index, blocker, handoff/confirmation state, and cleanup ownership.
 The RuntimeAgentService bridge now emits the proposal and commit-gate events
 directly from native browser affordances, with daemon-side derivation retained
 for older bridge streams that only provide observation and affordance rows.
+When the same turn includes `browser__*` tool results, the bridge now emits
+canonical action-executed and verification rows so the persisted trace can show
+the real browser tool effect instead of only generic tool completion.
 Daemon-backed visual and hosted/sandbox lane runs activate through the same
 trace spine when a mounted executor supplies those contracts, while missing
 visual/sandbox adapters still fail closed. The browser lane now also has a
