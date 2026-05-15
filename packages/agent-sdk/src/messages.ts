@@ -6,11 +6,15 @@ export type IOISDKMessageType =
   | "model_route_decision"
   | "memory_update"
   | "computer_use_environment_selected"
+  | "computer_use_lease_acquired"
   | "computer_use_run_state"
   | "computer_use_observation"
   | "computer_use_affordance_graph"
   | "computer_use_action_proposed"
+  | "computer_use_action_executed"
   | "computer_use_verification"
+  | "computer_use_trajectory_written"
+  | "computer_use_cleanup"
   | "step"
   | "delta"
   | "tool_call"
@@ -399,6 +403,20 @@ export interface RuntimeTraceBundle {
   usage_telemetry?: RuntimeUsageRecord | null;
   usageTelemetry?: RuntimeUsageRecord | null;
   runtimeUsage?: RuntimeUsageRecord | null;
+  computerUse?: {
+    environmentSelection: unknown;
+    lease: unknown;
+    runState: unknown;
+    observation: unknown;
+    targetIndex: unknown;
+    affordanceGraph: unknown;
+    actionProposal: unknown;
+    action: unknown;
+    actionReceipt: unknown;
+    verification: unknown;
+    trajectory: unknown;
+    cleanup: unknown;
+  } | null;
   stopCondition: StopConditionProjection;
   qualityLedger: AgentQualityLedgerProjection;
   scorecard: RuntimeScorecard;

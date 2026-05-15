@@ -26,6 +26,19 @@ function tempClient() {
   };
 }
 
+const expectedComputerUseEventTypes = [
+  "computer_use_environment_selected",
+  "computer_use_lease_acquired",
+  "computer_use_run_state",
+  "computer_use_observation",
+  "computer_use_affordance_graph",
+  "computer_use_action_proposed",
+  "computer_use_action_executed",
+  "computer_use_verification",
+  "computer_use_trajectory_written",
+  "computer_use_cleanup",
+];
+
 test("computer-use contract projection exposes three lanes and behavioral loop", () => {
   const contract = defaultComputerUseHarnessContract();
   assert.equal(contract.schema_version, COMPUTER_USE_CONTRACT_SCHEMA_VERSION);
@@ -109,17 +122,9 @@ test("browser prompts emit glass-box computer-use trace and runtime events", asy
   for await (const event of run.stream()) {
     streamed.push(event);
   }
-  const expectedTypes = [
-    "computer_use_environment_selected",
-    "computer_use_run_state",
-    "computer_use_observation",
-    "computer_use_affordance_graph",
-    "computer_use_action_proposed",
-    "computer_use_verification",
-  ];
   assert.deepEqual(
     streamed.filter((event) => event.type.startsWith("computer_use_")).map((event) => event.type),
-    expectedTypes,
+    expectedComputerUseEventTypes,
   );
 
   const trace = await run.inspect();
@@ -140,13 +145,24 @@ test("browser prompts emit glass-box computer-use trace and runtime events", asy
   assert.equal(proposalEvent.data.action_proposal.policy_decision_ref.startsWith("policy_"), true);
   assert.equal(proposalEvent.data.policy_gate.outcome, "approved_for_read_only_probe");
 
+  const actionEvent = trace.events.find((event) => event.type === "computer_use_action_executed");
+  assert.ok(actionEvent);
+  assert.equal(actionEvent.data.computer_action.proposal_ref, proposalEvent.data.action_proposal.proposal_ref);
+  assert.equal(actionEvent.data.action_receipt.status, "completed");
+  assert.equal(trace.computerUse.action.action_ref, actionEvent.data.computer_action.action_ref);
+
+  const cleanupEvent = trace.events.find((event) => event.type === "computer_use_cleanup");
+  assert.ok(cleanupEvent);
+  assert.equal(cleanupEvent.data.cleanup_receipt.status, "completed");
+  assert.equal(trace.computerUse.cleanup.cleanup_ref, cleanupEvent.data.cleanup_receipt.cleanup_ref);
+
   const thread = await agent.thread();
   const runtimeEvents = [];
   for await (const event of thread.events()) {
     runtimeEvents.push(event);
   }
   const runtimeComputerEvents = runtimeEvents.filter((event) => event.eventKind.startsWith("computer_use."));
-  assert.equal(runtimeComputerEvents.length, expectedTypes.length);
+  assert.equal(runtimeComputerEvents.length, expectedComputerUseEventTypes.length);
   assert.equal(runtimeComputerEvents[0].payloadSchemaVersion, COMPUTER_USE_CONTRACT_SCHEMA_VERSION);
   assert.equal(runtimeComputerEvents[0].componentKind, "computer_use_harness");
   assert.equal(runtimeComputerEvents[0].workflowNodeId, "computer-use.select-environment");
@@ -173,21 +189,17 @@ test("runtime daemon emits canonical computer-use events for browser prompts", a
       metadata: { computerUse: true },
     });
     const trace = await run.inspect();
-    const expectedTypes = [
-      "computer_use_environment_selected",
-      "computer_use_run_state",
-      "computer_use_observation",
-      "computer_use_affordance_graph",
-      "computer_use_action_proposed",
-      "computer_use_verification",
-    ];
     assert.deepEqual(
       trace.events.filter((event) => event.type.startsWith("computer_use_")).map((event) => event.type),
-      expectedTypes,
+      expectedComputerUseEventTypes,
     );
     assert.equal(trace.computerUse.environmentSelection.selected_lane, "native_browser");
     assert.equal(trace.computerUse.observation.url, "https://example.com");
     assert.equal(trace.computerUse.actionProposal.policy_decision_ref.startsWith("policy_"), true);
+    assert.equal(trace.computerUse.actionReceipt.status, "completed");
+    assert.equal(trace.computerUse.verification.action_ref, trace.computerUse.action.action_ref);
+    assert.equal(trace.computerUse.trajectory.entries.some((entry) => entry.event_kind === "execute_action"), true);
+    assert.equal(trace.computerUse.cleanup.status, "completed");
     assert.equal(
       trace.receipts.some((receipt) => receipt.kind === "computer_use_trace"),
       true,
@@ -199,7 +211,7 @@ test("runtime daemon emits canonical computer-use events for browser prompts", a
       runtimeEvents.push(event);
     }
     const runtimeComputerEvents = runtimeEvents.filter((event) => event.eventKind.startsWith("computer_use."));
-    assert.equal(runtimeComputerEvents.length, expectedTypes.length);
+    assert.equal(runtimeComputerEvents.length, expectedComputerUseEventTypes.length);
     assert.equal(runtimeComputerEvents[0].payloadSchemaVersion, COMPUTER_USE_CONTRACT_SCHEMA_VERSION);
     assert.equal(runtimeComputerEvents[0].componentKind, "computer_use_harness");
     assert.equal(runtimeComputerEvents[0].workflowNodeId, "computer-use.select-environment");

@@ -175,11 +175,15 @@ const RUN_EVENT_TO_TTI_EVENT = {
   github_pr_create_plan: "item.completed",
   model_route_decision: "item.completed",
   computer_use_environment_selected: "computer_use.environment_selected",
+  computer_use_lease_acquired: "computer_use.lease_acquired",
   computer_use_run_state: "computer_use.run_state",
   computer_use_observation: "computer_use.observation",
   computer_use_affordance_graph: "computer_use.affordance_graph",
   computer_use_action_proposed: "computer_use.action_proposed",
+  computer_use_action_executed: "computer_use.action_executed",
   computer_use_verification: "computer_use.verification",
+  computer_use_trajectory_written: "computer_use.trajectory_written",
+  computer_use_cleanup: "computer_use.cleanup",
   skill_hook_manifest: "item.completed",
   hook_dry_run_plan: "item.completed",
   hook_invocation_ledger: "item.completed",
@@ -13211,6 +13215,10 @@ function buildRun({
       computerUseProjection?.environmentSelection.receipt_ref,
       computerUseProjection?.observation.observation_ref,
       computerUseProjection?.actionProposal.proposal_ref,
+      computerUseProjection?.action.action_ref,
+      computerUseProjection?.actionReceipt.receipt_ref,
+      computerUseProjection?.trajectory.trajectory_ref,
+      computerUseProjection?.cleanup.cleanup_ref,
     ].filter(Boolean),
   };
   const uncertainty = {
@@ -13321,7 +13329,7 @@ function buildRun({
         ? [
             {
               checkId: "computer-use-glass-box-trace",
-              description: "Computer-use environment selection, observation, target index, affordance graph, action proposal, and verification are trace-visible.",
+              description: "Computer-use environment selection, lease, observation, target index, affordance graph, action proposal, action receipt, verification, trajectory, and cleanup are trace-visible.",
               status: "passed",
             },
           ]
@@ -13380,7 +13388,7 @@ function buildRun({
       "hook_dry_run_plan",
       "hook_invocation_ledger",
       "hook_escalation_receipt",
-      ...(computerUseProjection ? ["computer_use_trace"] : []),
+      ...(computerUseProjection ? ["computer_use_trace", "computer-use-trace.json"] : []),
       ...(diagnosticsFeedback ? ["lsp_diagnostics_injection"] : []),
       ...(diagnosticsBlockingGate ? ["lsp_diagnostics_blocking_gate"] : []),
     ],
@@ -13441,7 +13449,11 @@ function buildRun({
             "TargetIndex",
             "AffordanceGraph",
             "ActionProposal",
+            "ComputerAction",
+            "ActionReceipt",
             "ComputerUseVerificationReceipt",
+            "ComputerUseTrajectoryBundle",
+            "CleanupReceipt",
           ]
         : []),
       ...(diagnosticsBlockingGate ? ["LspDiagnosticsBlockingGate"] : []),
@@ -13484,6 +13496,7 @@ function buildRun({
         ? [
             "computer_use.native_browser.read_only",
             "computer_use.action_proposal_required",
+            "computer_use.cleanup_required",
             "computer_use.observation_retention.local_redacted_artifacts",
           ]
         : []),
@@ -14150,7 +14163,11 @@ function buildRun({
           targetIndex: computerUseProjection.targetIndex,
           affordanceGraph: computerUseProjection.affordanceGraph,
           actionProposal: computerUseProjection.actionProposal,
+          action: computerUseProjection.action,
+          actionReceipt: computerUseProjection.actionReceipt,
           verification: computerUseProjection.verification,
+          trajectory: computerUseProjection.trajectory,
+          cleanup: computerUseProjection.cleanup,
         }
       : null,
     diagnosticsFeedback,
@@ -14297,7 +14314,11 @@ function buildRun({
               targetIndex: computerUseProjection.targetIndex,
               affordanceGraph: computerUseProjection.affordanceGraph,
               actionProposal: computerUseProjection.actionProposal,
+              action: computerUseProjection.action,
+              actionReceipt: computerUseProjection.actionReceipt,
               verification: computerUseProjection.verification,
+              trajectory: computerUseProjection.trajectory,
+              cleanup: computerUseProjection.cleanup,
             },
             "redacted",
           ),
@@ -20315,7 +20336,14 @@ function runtimeContextPressureStatus(pressure) {
 
 function runtimeEventStatusForRunEvent(event) {
   if (isComputerUseRunEventType(event.type)) {
-    return event.type === "computer_use_verification" ? "completed" : "running";
+    return [
+      "computer_use_action_executed",
+      "computer_use_verification",
+      "computer_use_trajectory_written",
+      "computer_use_cleanup",
+    ].includes(event.type)
+      ? "completed"
+      : "running";
   }
   if (event.type === "job_queued") return "queued";
   if (
@@ -20382,18 +20410,26 @@ function payloadSummaryForRunEvent(event) {
       computer_use_target_index_ref: event.data?.computer_use_target_index_ref ?? null,
       computer_use_affordance_graph_ref: event.data?.computer_use_affordance_graph_ref ?? null,
       computer_use_proposal_ref: event.data?.computer_use_proposal_ref ?? null,
+      computer_use_action_ref: event.data?.computer_use_action_ref ?? null,
       computer_use_target_ref: event.data?.computer_use_target_ref ?? null,
       computer_use_policy_decision_ref: event.data?.computer_use_policy_decision_ref ?? null,
       computer_use_verification_ref: event.data?.computer_use_verification_ref ?? null,
+      computer_use_trajectory_ref: event.data?.computer_use_trajectory_ref ?? null,
+      computer_use_cleanup_ref: event.data?.computer_use_cleanup_ref ?? null,
       environment_selection_receipt: event.data?.environment_selection_receipt ?? null,
       lease: event.data?.lease ?? null,
+      adapter_contract: event.data?.adapter_contract ?? null,
       computer_use_run_state: event.data?.computer_use_run_state ?? null,
       observation_bundle: event.data?.observation_bundle ?? null,
       target_index: event.data?.target_index ?? null,
       affordance_graph: event.data?.affordance_graph ?? null,
       action_proposal: event.data?.action_proposal ?? null,
+      computer_action: event.data?.computer_action ?? null,
+      action_receipt: event.data?.action_receipt ?? null,
       policy_gate: event.data?.policy_gate ?? null,
       verification_receipt: event.data?.verification_receipt ?? null,
+      trajectory_bundle: event.data?.trajectory_bundle ?? null,
+      cleanup_receipt: event.data?.cleanup_receipt ?? null,
       workflow_node_id: event.data?.workflowNodeId ?? null,
       redaction: "computer_use_trace_safe",
     };

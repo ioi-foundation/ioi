@@ -289,6 +289,8 @@ function runtimeEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
       return "model.route_decision";
     case "computer_use_environment_selected":
       return "computer_use.environment_selected";
+    case "computer_use_lease_acquired":
+      return "computer_use.lease_acquired";
     case "computer_use_run_state":
       return "computer_use.run_state";
     case "computer_use_observation":
@@ -297,8 +299,14 @@ function runtimeEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
       return "computer_use.affordance_graph";
     case "computer_use_action_proposed":
       return "computer_use.action_proposed";
+    case "computer_use_action_executed":
+      return "computer_use.action_executed";
     case "computer_use_verification":
       return "computer_use.verification";
+    case "computer_use_trajectory_written":
+      return "computer_use.trajectory_written";
+    case "computer_use_cleanup":
+      return "computer_use.cleanup";
     case "completed":
       return "turn.completed";
     case "canceled":
@@ -339,6 +347,7 @@ function runtimeEventStatusForSdkMessage(type: IOISDKMessage["type"]): string {
     type === "run_started" ||
     type === "delta" ||
     type === "computer_use_environment_selected" ||
+    type === "computer_use_lease_acquired" ||
     type === "computer_use_run_state" ||
     type === "computer_use_observation" ||
     type === "computer_use_affordance_graph" ||
@@ -391,11 +400,15 @@ function workflowNodeIdForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "approval_decision") return "runtime.approval-decision";
   if (type === "model_route_decision") return "runtime.model-router";
   if (type === "computer_use_environment_selected") return "computer-use.select-environment";
+  if (type === "computer_use_lease_acquired") return "computer-use.acquire-lease";
   if (type === "computer_use_run_state") return "computer-use.run-state";
   if (type === "computer_use_observation") return "computer-use.observe";
   if (type === "computer_use_affordance_graph") return "computer-use.affordance-graph";
   if (type === "computer_use_action_proposed") return "computer-use.action-proposal";
+  if (type === "computer_use_action_executed") return "computer-use.execute-action";
   if (type === "computer_use_verification") return "computer-use.verify";
+  if (type === "computer_use_trajectory_written") return "computer-use.write-trajectory";
+  if (type === "computer_use_cleanup") return "computer-use.cleanup";
   if (type === "tool_result") return "runtime.tool-result";
   if (type === "delta") return "runtime.reasoning";
   return `runtime.${type.replaceAll("_", "-")}`;
@@ -417,11 +430,15 @@ function sourceEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "workflow_edit_applied") return "WorkflowEdit.Applied";
   if (type === "approval_decision") return "OperatorApproval.Decision";
   if (type === "computer_use_environment_selected") return "ComputerUse.EnvironmentSelected";
+  if (type === "computer_use_lease_acquired") return "ComputerUse.LeaseAcquired";
   if (type === "computer_use_run_state") return "ComputerUse.RunState";
   if (type === "computer_use_observation") return "ComputerUse.Observation";
   if (type === "computer_use_affordance_graph") return "ComputerUse.AffordanceGraph";
   if (type === "computer_use_action_proposed") return "ComputerUse.ActionProposed";
+  if (type === "computer_use_action_executed") return "ComputerUse.ActionExecuted";
   if (type === "computer_use_verification") return "ComputerUse.Verification";
+  if (type === "computer_use_trajectory_written") return "ComputerUse.TrajectoryWritten";
+  if (type === "computer_use_cleanup") return "ComputerUse.Cleanup";
   return `run.${type}`;
 }
 
