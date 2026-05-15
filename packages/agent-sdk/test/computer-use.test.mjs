@@ -24,6 +24,7 @@ import {
   planComputerUseHarnessImprovement,
   recoveryPolicyForComputerUseFailure,
   runComputerUseBenchmarkSuite,
+  runComputerUseShadowReplay,
 } from "../dist/index.js";
 import { createMockRuntimeSubstrateClient } from "../dist/testing.js";
 import { startRuntimeDaemonService } from "../../runtime-daemon/src/index.mjs";
@@ -360,6 +361,17 @@ test("computer-use trajectory eval projects pass and fail-closed outcomes", () =
   assert.equal(benchmarkSuite.scorecard.pass_rate, 0.5);
   assert.equal(benchmarkSuite.scorecard.fail_closed_rate, 0.5);
   assert.equal(benchmarkSuite.hidden_runtime_shortcuts_forbidden, true);
+
+  const shadowReplay = runComputerUseShadowReplay({
+    improvement_plan: improvementPlan,
+    replay_cases: [benchmarkCase],
+    held_out_cases: [passedBenchmarkCase],
+  });
+  assert.equal(shadowReplay.status, "passed");
+  assert.equal(shadowReplay.replayed_case_count, 1);
+  assert.equal(shadowReplay.held_out_case_count, 1);
+  assert.equal(shadowReplay.failed_gates.length, 0);
+  assert.equal(shadowReplay.scorecard.hidden_runtime_shortcuts_forbidden, true);
 });
 
 test("computer-use model adapters normalize OpenAI-style actions into IOI proposals and actions", () => {

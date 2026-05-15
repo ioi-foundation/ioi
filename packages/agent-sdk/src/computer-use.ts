@@ -533,6 +533,32 @@ export interface ComputerUseBenchmarkSuiteResult {
   summary: string;
 }
 
+export interface ComputerUseShadowReplayRunInput {
+  improvement_plan: ComputerUseHarnessImprovementPlan;
+  replay_cases?: ComputerUseBenchmarkCaseExport[];
+  held_out_cases?: ComputerUseBenchmarkCaseExport[];
+}
+
+export interface ComputerUseShadowReplayRunResult {
+  schema_version: typeof COMPUTER_USE_CONTRACT_SCHEMA_VERSION | string;
+  replay_ref: string;
+  improvement_plan_ref: string;
+  status: "not_required" | "passed" | "blocked_missing_fixtures" | "failed";
+  required_fixtures: string[];
+  replayed_case_count: number;
+  held_out_case_count: number;
+  comparison_gates: string[];
+  passed_gates: string[];
+  failed_gates: string[];
+  promotion_status: ComputerUsePromotionGateReceipt["status"];
+  scorecard: {
+    replay_average_score: number;
+    held_out_average_score: number;
+    hidden_runtime_shortcuts_forbidden: boolean;
+  };
+  summary: string;
+}
+
 export interface CleanupReceipt {
   cleanup_ref: string;
   lease_id: string;
@@ -1078,6 +1104,68 @@ export function runComputerUseBenchmarkSuite(
       incompleteCount,
       promotionBlockedCount,
     }),
+  };
+}
+
+export function runComputerUseShadowReplay(
+  input: ComputerUseShadowReplayRunInput,
+): ComputerUseShadowReplayRunResult {
+  const plan = input.improvement_plan;
+  const replayCases = input.replay_cases ?? [];
+  const heldOutCases = input.held_out_cases ?? [];
+  const allCases = [...replayCases, ...heldOutCases];
+  const shortcutSafe = allCases.every(
+    (item) => item.manifest.hidden_runtime_shortcuts_forbidden,
+  );
+  const replayAverage = averageCaseScore(replayCases);
+  const heldOutAverage = averageCaseScore(heldOutCases);
+  const missingFixtures =
+    plan.shadow_replay.status === "required_before_promotion" &&
+    replayCases.length === 0;
+  const failedGates = missingFixtures
+    ? ["required_fixtures_missing"]
+    : [
+        shortcutSafe ? null : "hidden_runtime_shortcut_guard",
+        replayCases.some((item) => item.outcome === "failed") ? "replay_failure" : null,
+        heldOutCases.some((item) => item.outcome === "failed") ? "held_out_failure" : null,
+      ].filter((value): value is string => Boolean(value));
+  const passedGates =
+    failedGates.length > 0
+      ? []
+      : [
+          ...plan.shadow_replay.comparison_gates,
+          heldOutCases.length > 0 ? "held_out_eval_result" : null,
+          "hidden_runtime_shortcut_guard",
+        ].filter((value): value is string => Boolean(value));
+  const status =
+    plan.shadow_replay.status === "not_required"
+      ? "not_required"
+      : missingFixtures
+        ? "blocked_missing_fixtures"
+        : failedGates.length > 0
+          ? "failed"
+          : "passed";
+  return {
+    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    replay_ref: plan.shadow_replay.replay_ref,
+    improvement_plan_ref: plan.plan_ref,
+    status,
+    required_fixtures: plan.shadow_replay.required_fixtures,
+    replayed_case_count: replayCases.length,
+    held_out_case_count: heldOutCases.length,
+    comparison_gates: plan.shadow_replay.comparison_gates,
+    passed_gates: passedGates,
+    failed_gates: failedGates,
+    promotion_status:
+      status === "passed" && plan.promotion_gate.status === "blocked_pending_shadow_replay"
+        ? "eligible_after_shadow_replay"
+        : plan.promotion_gate.status,
+    scorecard: {
+      replay_average_score: replayAverage,
+      held_out_average_score: heldOutAverage,
+      hidden_runtime_shortcuts_forbidden: shortcutSafe,
+    },
+    summary: shadowReplaySummary(plan, status, replayCases.length, heldOutCases.length),
   };
 }
 
@@ -1821,11 +1909,26 @@ function benchmarkSuiteSummary(input: {
   return `Computer-use benchmark suite scored ${input.averageScore} across ${input.caseCount} case(s): ${input.passedCount} passed, ${input.blockedCount} fail-closed, ${input.failedCount} failed, ${input.incompleteCount} incomplete; ${input.promotionBlockedCount} require promotion evidence.`;
 }
 
+function shadowReplaySummary(
+  plan: ComputerUseHarnessImprovementPlan,
+  status: ComputerUseShadowReplayRunResult["status"],
+  replayedCaseCount: number,
+  heldOutCaseCount: number,
+): string {
+  if (status === "not_required") return `${plan.plan_ref} does not require shadow replay.`;
+  return `${plan.plan_ref} shadow replay ${status} with ${replayedCaseCount} replay case(s) and ${heldOutCaseCount} held-out case(s).`;
+}
+
 function countBy(values: readonly string[]): Record<string, number> {
   return values.reduce<Record<string, number>>((counts, value) => {
     counts[value] = (counts[value] ?? 0) + 1;
     return counts;
   }, {});
+}
+
+function averageCaseScore(cases: readonly ComputerUseBenchmarkCaseExport[]): number {
+  if (cases.length === 0) return 0;
+  return Number((cases.reduce((total, item) => total + item.score, 0) / cases.length).toFixed(4));
 }
 
 function ratio(numerator: number, denominator: number): number {
