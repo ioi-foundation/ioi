@@ -672,6 +672,11 @@ test("runtime daemon emits canonical computer-use events for browser prompts", a
       (await run.computerUseTrajectory()).entries.some((entry) => entry.event_kind === "execute_action"),
       true,
     );
+    const trajectoryEval = await run.computerUseTrajectoryEval();
+    assert.equal(trajectoryEval.outcome, "passed");
+    assert.equal(trajectoryEval.score, 1);
+    assert.equal(trajectoryEval.lane, "native_browser");
+    assert.equal(trajectoryEval.missing_regression_gates.length, 0);
 
     const thread = await agent.thread();
     const runtimeEvents = [];

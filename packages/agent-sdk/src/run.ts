@@ -7,6 +7,7 @@ import type {
   RuntimeTraceBundle,
 } from "./messages.js";
 import type { StreamOptions } from "./options.js";
+import type { ComputerUseTrajectoryEvalProjection } from "./computer-use.js";
 import type { RuntimeArtifact, RuntimeRunRecord, RuntimeSubstrateClient } from "./substrate-client.js";
 
 export class Run {
@@ -63,6 +64,10 @@ export class Run {
 
   computerUseTrajectory(): Promise<unknown> {
     return this.client.getRunComputerUseTrajectory(this.id);
+  }
+
+  computerUseTrajectoryEval(): Promise<ComputerUseTrajectoryEvalProjection> {
+    return this.client.getRunComputerUseTrajectoryEval(this.id);
   }
 
   async routeDecision(): Promise<ModelRouteDecision | null> {

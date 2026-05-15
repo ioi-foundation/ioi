@@ -4,6 +4,10 @@ import path from "node:path";
 
 import { IoiAgentError, type IoiAgentErrorCode } from "./errors.js";
 import {
+  evaluateComputerUseTrajectory,
+  type ComputerUseTrajectoryEvalProjection,
+} from "./computer-use.js";
+import {
   eventStreamIdForThread,
   mockRuntimeCursorSeq,
   mockRuntimeEnvelopeForSdkEvent,
@@ -1397,6 +1401,7 @@ export interface RuntimeSubstrateClient {
   inspectRun(runId: string): Promise<RuntimeTraceBundle>;
   getRunComputerUseTrace(runId: string): Promise<RuntimeTraceBundle["computerUse"]>;
   getRunComputerUseTrajectory(runId: string): Promise<unknown>;
+  getRunComputerUseTrajectoryEval(runId: string): Promise<ComputerUseTrajectoryEvalProjection>;
   discoverComputerUseBrowsers(
     options?: RuntimeComputerUseBrowserDiscoveryOptions,
   ): Promise<RuntimeComputerUseBrowserDiscoveryReport>;
@@ -1996,6 +2001,13 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       "GET",
       `/v1/runs/${encodePath(runId)}/computer-use/trajectory`,
     );
+  }
+
+  async getRunComputerUseTrajectoryEval(
+    runId: string,
+  ): Promise<ComputerUseTrajectoryEvalProjection> {
+    const trace = await this.getRunComputerUseTrace(runId);
+    return evaluateComputerUseTrajectory({ trace });
   }
 
   async discoverComputerUseBrowsers(
@@ -4822,6 +4834,13 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
 
   async getRunComputerUseTrajectory(runId: string): Promise<unknown> {
     return (await this.getRunComputerUseTrace(runId))?.trajectory ?? null;
+  }
+
+  async getRunComputerUseTrajectoryEval(
+    runId: string,
+  ): Promise<ComputerUseTrajectoryEvalProjection> {
+    const trace = await this.getRunComputerUseTrace(runId);
+    return evaluateComputerUseTrajectory({ trace });
   }
 
   async discoverComputerUseBrowsers(
