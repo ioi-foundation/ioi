@@ -554,6 +554,9 @@ Acceptance:
   computer-use lane into the daemon/runtime request.
 - Autopilot/run history can rebuild the computer-use prompt-to-action pipeline
   from canonical runtime events without a separate trace store.
+- SDK and daemon runtime thread events preserve authored workflow graph/node
+  ids, tool refs, authority scopes, and observation-retention metadata so the
+  glass-box trace lands back on the composed primitive.
 
 ### Phase 8: Evals And Meta-Harness
 

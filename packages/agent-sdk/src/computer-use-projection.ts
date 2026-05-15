@@ -14,6 +14,7 @@ import {
   type ComputerUseTrajectoryBundle,
   type ComputerUseVerificationReceipt,
   type EnvironmentSelectionReceipt,
+  type ObservationRetentionMode,
   type TargetIndex,
 } from "./computer-use.js";
 
@@ -58,7 +59,10 @@ export function mockComputerUseProjectionForRun({
   if (!shouldProjectComputerUse(prompt, options)) {
     return null;
   }
+  const workflowBinding = computerUseWorkflowBinding(options.metadata);
   const requestedLane = requestedComputerUseLane(options.metadata);
+  const requestedRetentionMode =
+    workflowBinding.observationRetentionMode ?? "local_redacted_artifacts";
   if (requestedLane !== "native_browser") {
     return mockUnavailableComputerUseProjectionForRun({
       runId,
@@ -66,6 +70,7 @@ export function mockComputerUseProjectionForRun({
       mode,
       requestedLane,
       requestedSessionMode: requestedComputerUseSessionMode(options.metadata, requestedLane),
+      workflowBinding,
     });
   }
   const targetHint = computerUseTargetHint(prompt);
@@ -104,7 +109,7 @@ export function mockComputerUseProjectionForRun({
     ],
     risk_posture: mode === "dry_run" ? "preview_only" : "read_only_probe",
     authority_required: "computer_use.native_browser.read",
-    privacy_impact: "local_redacted_artifacts",
+    privacy_impact: requestedRetentionMode,
     expected_cleanup: "close_owned_browser_context_and_retain_redacted_trace",
   };
   const lease: ComputerUseLease = {
@@ -118,7 +123,7 @@ export function mockComputerUseProjectionForRun({
     target_hint: targetHint,
     environment_ref: `local_browser:${safeFileName(cwd)}`,
     profile_provenance: "temporary_ioi_browser_profile",
-    retention_mode: "local_redacted_artifacts",
+    retention_mode: requestedRetentionMode,
     cleanup_required: true,
     evidence_refs: [environmentSelection.receipt_ref, "ioi.native_browser.chromiumoxide"],
   };
@@ -160,7 +165,7 @@ export function mockComputerUseProjectionForRun({
     target_index_ref: targetIndexRef,
     redaction_report_ref: `artifact:${runId}:redaction_report`,
     freshness_ms: 0,
-    retention_mode: "local_redacted_artifacts",
+    retention_mode: requestedRetentionMode,
     detected_patterns: ["form", "toolbar", "warning_or_toast"],
   };
   const targetIndex: TargetIndex = {
@@ -267,7 +272,7 @@ export function mockComputerUseProjectionForRun({
     trajectory_ref: trajectoryRef,
     run_id: runId,
     lease_id: lease.lease_id,
-    retention_mode: "local_redacted_artifacts",
+    retention_mode: requestedRetentionMode,
     entries: [
       {
         sequence: 1,
@@ -322,6 +327,18 @@ export function mockComputerUseProjectionForRun({
     computer_use_lane: environmentSelection.selected_lane,
     computer_use_session_mode: environmentSelection.selected_session_mode,
     computer_use_lease_id: lease.lease_id,
+    observation_retention_mode: requestedRetentionMode,
+    fail_closed_when_unavailable: workflowBinding.failClosedWhenUnavailable,
+    workflowGraphId: workflowBinding.workflowGraphId,
+    workflow_graph_id: workflowBinding.workflowGraphId,
+    workflowNodeId: workflowBinding.workflowNodeId,
+    workflow_node_id: workflowBinding.workflowNodeId,
+    workflowNodeIds: workflowBinding.workflowNodeIds,
+    workflow_node_ids: workflowBinding.workflowNodeIds,
+    toolRef: workflowBinding.toolRef,
+    tool_ref: workflowBinding.toolRef,
+    authorityScopes: workflowBinding.authorityScopes,
+    authority_scopes: workflowBinding.authorityScopes,
   };
   const events: MockComputerUseProjection["events"] = [
     computerUseProjectionEvent("computer_use_environment_selected", "Computer-use environment selected", {
@@ -454,6 +471,7 @@ function mockUnavailableComputerUseProjectionForRun({
   mode,
   requestedLane,
   requestedSessionMode,
+  workflowBinding,
 }: {
   runId: string;
   prompt: string;
@@ -467,7 +485,10 @@ function mockUnavailableComputerUseProjectionForRun({
     | "local_sandbox"
     | "hosted_sandbox"
     | "mobile_device";
+  workflowBinding: ComputerUseWorkflowBinding;
 }): MockComputerUseProjection {
+  const requestedRetentionMode =
+    workflowBinding.observationRetentionMode ?? "no_persistence";
   const targetHint = computerUseTargetHint(prompt);
   const leaseId = `lease_${runId}_${requestedLane}_unavailable`;
   const observationRef = `observation_${runId}_${requestedLane}_unavailable`;
@@ -495,7 +516,7 @@ function mockUnavailableComputerUseProjectionForRun({
     ],
     risk_posture: mode === "dry_run" ? "preview_only" : "blocked_unavailable",
     authority_required: `computer_use.${requestedLane}.execute`,
-    privacy_impact: "no_persistence",
+    privacy_impact: requestedRetentionMode,
     expected_cleanup: "no environment acquired; retain blocked trace only",
   };
   const lease: ComputerUseLease = {
@@ -509,7 +530,7 @@ function mockUnavailableComputerUseProjectionForRun({
     target_hint: targetHint,
     environment_ref: `${requestedLane}:unavailable`,
     profile_provenance: "none",
-    retention_mode: "no_persistence",
+    retention_mode: requestedRetentionMode,
     cleanup_required: false,
     evidence_refs: [environmentSelection.receipt_ref, "adapter_unavailable"],
   };
@@ -530,7 +551,7 @@ function mockUnavailableComputerUseProjectionForRun({
     target_index_ref: targetIndexRef,
     redaction_report_ref: null,
     freshness_ms: null,
-    retention_mode: "no_persistence",
+    retention_mode: requestedRetentionMode,
     detected_patterns: [],
   };
   const targetIndex: TargetIndex = {
@@ -599,6 +620,18 @@ function mockUnavailableComputerUseProjectionForRun({
     computer_use_lane: requestedLane,
     computer_use_session_mode: requestedSessionMode,
     computer_use_lease_id: lease.lease_id,
+    observation_retention_mode: requestedRetentionMode,
+    fail_closed_when_unavailable: workflowBinding.failClosedWhenUnavailable,
+    workflowGraphId: workflowBinding.workflowGraphId,
+    workflow_graph_id: workflowBinding.workflowGraphId,
+    workflowNodeId: workflowBinding.workflowNodeId,
+    workflow_node_id: workflowBinding.workflowNodeId,
+    workflowNodeIds: workflowBinding.workflowNodeIds,
+    workflow_node_ids: workflowBinding.workflowNodeIds,
+    toolRef: workflowBinding.toolRef,
+    tool_ref: workflowBinding.toolRef,
+    authorityScopes: workflowBinding.authorityScopes,
+    authority_scopes: workflowBinding.authorityScopes,
   };
   const events: MockComputerUseProjection["events"] = [
     computerUseProjectionEvent("computer_use_environment_selected", "Computer-use environment selected", {
@@ -672,6 +705,45 @@ function computerUseProjectionEvent(
   return { type, summary, data };
 }
 
+interface ComputerUseWorkflowBinding {
+  workflowGraphId: string | null;
+  workflowNodeId: string | null;
+  workflowNodeIds: string[];
+  toolRef: string | null;
+  authorityScopes: string[];
+  observationRetentionMode: ObservationRetentionMode | null;
+  failClosedWhenUnavailable: boolean;
+}
+
+function computerUseWorkflowBinding(
+  metadata: SendOptions["metadata"],
+): ComputerUseWorkflowBinding {
+  return {
+    workflowGraphId: cleanString(
+      metadata?.workflowGraphId ?? metadata?.workflow_graph_id,
+    ),
+    workflowNodeId: cleanString(
+      metadata?.workflowNodeId ?? metadata?.workflow_node_id,
+    ),
+    workflowNodeIds: cleanStringArray(
+      metadata?.workflowNodeIds ?? metadata?.workflow_node_ids,
+    ),
+    toolRef: cleanString(metadata?.toolRef ?? metadata?.tool_ref),
+    authorityScopes: cleanStringArray(
+      metadata?.authorityScopes ?? metadata?.authority_scopes,
+    ),
+    observationRetentionMode: observationRetentionModeValue(
+      metadata?.observationRetentionMode ??
+        metadata?.observation_retention_mode,
+    ),
+    failClosedWhenUnavailable:
+      booleanValue(
+        metadata?.failClosedWhenUnavailable ??
+          metadata?.fail_closed_when_unavailable,
+      ) ?? true,
+  };
+}
+
 function shouldProjectComputerUse(prompt: string, options: SendOptions): boolean {
   if (options.metadata?.computerUse === true || options.metadata?.computer_use === true) {
     return true;
@@ -719,6 +791,40 @@ function requestedComputerUseSessionMode(
 function computerUseTargetHint(prompt: string): string {
   const url = String(prompt).match(/https?:\/\/[^\s)]+/i)?.[0];
   return url ?? "browser surface requested by user prompt";
+}
+
+function cleanString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function cleanStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => cleanString(item))
+    .filter((item): item is string => Boolean(item));
+}
+
+function booleanValue(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    if (value.toLowerCase() === "true") return true;
+    if (value.toLowerCase() === "false") return false;
+  }
+  return null;
+}
+
+function observationRetentionModeValue(
+  value: unknown,
+): ObservationRetentionMode | null {
+  const cleaned = cleanString(value);
+  return cleaned === "prompt_visible_summary_only" ||
+    cleaned === "local_redacted_artifacts" ||
+    cleaned === "local_raw_artifacts" ||
+    cleaned === "encrypted_local_raw_artifacts" ||
+    cleaned === "shareable_eval_artifacts" ||
+    cleaned === "no_persistence"
+    ? cleaned
+    : null;
 }
 
 function safeFileName(value: string): string {

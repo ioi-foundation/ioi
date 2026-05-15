@@ -182,6 +182,50 @@ test("browser prompts emit glass-box computer-use trace and runtime events", asy
   );
 });
 
+test("workflow-authored computer-use metadata round-trips through SDK trace events", async () => {
+  const { cwd, client } = tempClient();
+  const agent = await Agent.create({
+    model: { id: "local:auto" },
+    local: { cwd },
+    substrateClient: client,
+  });
+  const run = await agent.send("Use the browser to inspect https://example.com.", {
+    metadata: {
+      computerUse: true,
+      workflowGraphId: "workflow.browser-use-demo",
+      workflowNodeId: "browser-use-node",
+      workflowNodeIds: ["browser-use-node"],
+      toolRef: "ioi.computer_use.native_browser",
+      authorityScopes: ["computer_use.native_browser.read"],
+      observationRetentionMode: "prompt_visible_summary_only",
+      failClosedWhenUnavailable: true,
+    },
+  });
+  const trace = await run.inspect();
+  const environmentEvent = trace.events.find((event) => event.type === "computer_use_environment_selected");
+  assert.ok(environmentEvent);
+  assert.equal(environmentEvent.data.workflowGraphId, "workflow.browser-use-demo");
+  assert.equal(environmentEvent.data.workflowNodeId, "browser-use-node");
+  assert.deepEqual(environmentEvent.data.workflowNodeIds, ["browser-use-node"]);
+  assert.equal(environmentEvent.data.toolRef, "ioi.computer_use.native_browser");
+  assert.deepEqual(environmentEvent.data.authorityScopes, ["computer_use.native_browser.read"]);
+  assert.equal(trace.computerUse.observation.retention_mode, "prompt_visible_summary_only");
+
+  const thread = await agent.thread();
+  const runtimeEvents = [];
+  for await (const event of thread.events()) {
+    runtimeEvents.push(event);
+  }
+  const runtimeComputerEvent = runtimeEvents.find((event) =>
+    event.eventKind.startsWith("computer_use."),
+  );
+  assert.ok(runtimeComputerEvent);
+  assert.equal(runtimeComputerEvent.workflowGraphId, "workflow.browser-use-demo");
+  assert.equal(runtimeComputerEvent.workflowNodeId, "browser-use-node");
+  assert.equal(runtimeComputerEvent.payload.workflowNodeId, "browser-use-node");
+  assert.equal(runtimeComputerEvent.payload.observation_retention_mode, "prompt_visible_summary_only");
+});
+
 test("runtime daemon emits canonical computer-use events for browser prompts", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-state-"));
@@ -226,6 +270,55 @@ test("runtime daemon emits canonical computer-use events for browser prompts", a
     assert.equal(runtimeComputerEvents[0].payload.computer_use_step, "select_environment");
     assert.equal(runtimeComputerEvents[0].payload.computer_use_lane, "native_browser");
     assert.ok((await run.artifacts()).some((artifact) => artifact.name === "computer-use-trace.json"));
+  } finally {
+    await daemon.close();
+  }
+});
+
+test("runtime daemon preserves workflow-authored computer-use node metadata", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-workflow-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-workflow-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const run = await agent.send("Use the browser to inspect https://example.com.", {
+      metadata: {
+        computerUse: true,
+        workflowGraphId: "workflow.browser-use-demo",
+        workflowNodeId: "browser-use-node",
+        workflowNodeIds: ["browser-use-node"],
+        toolRef: "ioi.computer_use.native_browser",
+        authorityScopes: ["computer_use.native_browser.read"],
+        observationRetentionMode: "prompt_visible_summary_only",
+        failClosedWhenUnavailable: true,
+      },
+    });
+    const trace = await run.inspect();
+    const environmentEvent = trace.events.find((event) => event.type === "computer_use_environment_selected");
+    assert.ok(environmentEvent);
+    assert.equal(environmentEvent.data.workflowGraphId, "workflow.browser-use-demo");
+    assert.equal(environmentEvent.data.workflowNodeId, "browser-use-node");
+    assert.equal(environmentEvent.data.observation_retention_mode, "prompt_visible_summary_only");
+    assert.equal(trace.computerUse.lease.retention_mode, "prompt_visible_summary_only");
+
+    const thread = await agent.thread();
+    const runtimeEvents = [];
+    for await (const event of thread.events()) {
+      runtimeEvents.push(event);
+    }
+    const runtimeComputerEvent = runtimeEvents.find((event) =>
+      event.eventKind.startsWith("computer_use."),
+    );
+    assert.ok(runtimeComputerEvent);
+    assert.equal(runtimeComputerEvent.workflowGraphId, "workflow.browser-use-demo");
+    assert.equal(runtimeComputerEvent.workflowNodeId, "browser-use-node");
+    assert.equal(runtimeComputerEvent.payload.workflow_node_id, "browser-use-node");
+    assert.deepEqual(runtimeComputerEvent.payload.authority_scopes, ["computer_use.native_browser.read"]);
   } finally {
     await daemon.close();
   }
