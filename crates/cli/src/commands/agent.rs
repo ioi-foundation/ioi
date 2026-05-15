@@ -412,6 +412,9 @@ pub enum ToolCommands {
         /// Requested browser action kind. Mutating actions are proposal/commit-gate only until approved.
         #[clap(long = "action-kind", default_value = "inspect")]
         action_kind: String,
+        /// Approval receipt/ref that allows a mutating browser action to execute.
+        #[clap(long = "approval-ref")]
+        approval_ref: Option<String>,
         /// Observation retention mode.
         #[clap(
             long = "observation-retention-mode",
@@ -1315,6 +1318,7 @@ async fn run_tool_command(
             prompt,
             url,
             action_kind,
+            approval_ref,
             observation_retention_mode,
             turn_id,
             workflow_graph_id,
@@ -1328,6 +1332,7 @@ async fn run_tool_command(
                 prompt,
                 url,
                 action_kind,
+                approval_ref,
                 observation_retention_mode,
                 turn_id,
                 workflow_graph_id,
@@ -1508,6 +1513,7 @@ async fn invoke_native_browser_tool(
     prompt: Option<String>,
     url: Option<String>,
     action_kind: String,
+    approval_ref: Option<String>,
     observation_retention_mode: String,
     turn_id: Option<String>,
     workflow_graph_id: Option<String>,
@@ -1540,6 +1546,15 @@ async fn invoke_native_browser_tool(
         input.insert(
             "actionKind".to_string(),
             serde_json::Value::String(action_kind.trim().to_string()),
+        );
+    }
+    if let Some(approval_ref) = approval_ref
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "approvalRef".to_string(),
+            serde_json::Value::String(approval_ref.trim().to_string()),
         );
     }
     input.insert(
@@ -2852,6 +2867,8 @@ mod tests {
             "https://example.com",
             "--action-kind",
             "click",
+            "--approval-ref",
+            "approval-browser-click",
             "--json",
         ])
         .expect("native browser command should parse");
@@ -2861,11 +2878,14 @@ mod tests {
                 command: Some(ToolCommands::NativeBrowser {
                     thread_id,
                     action_kind,
+                    approval_ref: Some(approval_ref),
                     json: true,
                     ..
                 }),
                 ..
-            }) if thread_id == "thread_runtime_cli" && action_kind == "click"
+            }) if thread_id == "thread_runtime_cli"
+                && action_kind == "click"
+                && approval_ref == "approval-browser-click"
         ));
         let coding_tool_run = AgentArgs::try_parse_from([
             "agent",

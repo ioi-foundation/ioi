@@ -483,11 +483,15 @@ counts in the same glass-box run-history projection. Direct SDK/daemon
 thread-tool invocation of `ioi.computer_use.native_browser` now emits the full
 read-only native-browser behavioral loop through canonical `computer_use.*`
 events, giving workflows and TUI surfaces a glass-box prompt-through-pipeline
-trace while the CDP-backed mutating executor remains the next browser-lane
-implementation target. CLI and TUI operators now have dedicated native-browser
-commands over the same daemon thread-tool route, so manual validation can run
-the prompt pipeline without knowing the raw `ioi.computer_use.native_browser`
-tool id.
+trace; mutating actions remain proposal/commit-gate only until an explicit
+approval ref is supplied, at which point the same route emits the approved
+`ComputerAction`, `ActionReceipt`, passed verification, and completed commit
+gate evidence. The real CDP-backed mutating executor remains the next
+browser-lane implementation target. CLI and TUI operators now have dedicated
+native-browser commands over the same daemon thread-tool route, including
+`--approval-ref`, so manual validation can run both the gated and approved
+prompt pipeline without knowing the raw `ioi.computer_use.native_browser` tool
+id.
 Future daemon, workflow, and Autopilot policy executors should consume these
 helpers rather than defining local policy shapes.
 
@@ -605,12 +609,13 @@ Deliverables:
   that compile to runtime-owned computer-use lane/session metadata rather than
   React Flow state.
 - composer Run activation metadata bridge that sends configured lane, session,
-  action kind, retention, fail-closed, workflow node ids, tool ref, and authority
-  scopes to the runtime request.
+  action kind, approval ref, retention, fail-closed, workflow node ids, tool ref,
+  and authority scopes to the runtime request.
 - saved workflow-run manifest projection that emits the same canonical
   `computer_use.*` runtime-thread trace when invoked outside the React Flow
   controller path, including proposal-only commit-gated traces for mutating
-  native-browser actions.
+  native-browser actions and approved action/receipt traces when approval refs
+  are present.
 
 Acceptance:
 

@@ -10,6 +10,7 @@ export interface WorkflowComposerComputerUseRunMetadata {
   computerUseLane: string;
   computerUseSessionMode: string;
   computerUseActionKind: string;
+  computerUseApprovalRef?: string;
   observationRetentionMode: string | null;
   failClosedWhenUnavailable: boolean;
   workflowGraphId: string | null;
@@ -54,6 +55,11 @@ export function workflowComposerComputerUseRunOptions(
     cleanString(first.args["actionKind"]) ??
     cleanString(first.args["action_kind"]) ??
     "inspect";
+  const approvalRef =
+    cleanString(first.args["computerUseApprovalRef"]) ??
+    cleanString(first.args["computer_use_approval_ref"]) ??
+    cleanString(first.args["approvalRef"]) ??
+    cleanString(first.args["approval_ref"]);
   return {
     metadata: {
       schemaVersion: WORKFLOW_COMPOSER_COMPUTER_USE_RUN_OPTIONS_SCHEMA_VERSION,
@@ -62,6 +68,7 @@ export function workflowComposerComputerUseRunOptions(
       computerUseLane: lane,
       computerUseSessionMode: sessionMode,
       computerUseActionKind: actionKind,
+      ...(approvalRef ? { computerUseApprovalRef: approvalRef } : {}),
       observationRetentionMode:
         cleanString(first.args["observationRetentionMode"]) ??
         cleanString(first.args["observation_retention_mode"]),

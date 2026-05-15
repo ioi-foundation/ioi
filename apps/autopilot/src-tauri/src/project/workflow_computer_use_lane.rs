@@ -19,6 +19,7 @@ struct WorkflowComputerUseBinding {
     lane: String,
     session_mode: String,
     action_kind: String,
+    approval_ref: Option<String>,
     observation_retention_mode: String,
     fail_closed_when_unavailable: bool,
     browser_discovery: bool,
@@ -118,6 +119,15 @@ fn workflow_computer_use_binding(workflow: &WorkflowProject) -> Option<WorkflowC
     )
     .and_then(|value| normalize_computer_use_action_kind(&value).map(str::to_string))
     .unwrap_or_else(|| "inspect".to_string());
+    let approval_ref = workflow_value_string_any(
+        &arguments,
+        &[
+            "computerUseApprovalRef",
+            "computer_use_approval_ref",
+            "approvalRef",
+            "approval_ref",
+        ],
+    );
     Some(WorkflowComputerUseBinding {
         workflow_graph_id: workflow.metadata.id.clone(),
         workflow_node_id,
@@ -130,6 +140,7 @@ fn workflow_computer_use_binding(workflow: &WorkflowProject) -> Option<WorkflowC
         lane,
         session_mode,
         action_kind,
+        approval_ref,
         observation_retention_mode,
         fail_closed_when_unavailable: workflow_value_bool_any(
             &arguments,
@@ -347,6 +358,9 @@ fn workflow_native_browser_runtime_thread_events(
     let affordance_graph_ref = format!("affordance_{}_browser_initial", run_id);
     let action_kind = binding.action_kind.as_str();
     let action_is_read_only = computer_use_action_kind_is_read_only(action_kind);
+    let action_approval_ref = binding.approval_ref.as_deref();
+    let action_has_approval = !action_is_read_only && action_approval_ref.is_some();
+    let action_will_execute = action_is_read_only || action_has_approval;
     let action_authority = if action_is_read_only {
         "computer_use.native_browser.read"
     } else {
@@ -360,15 +374,17 @@ fn workflow_native_browser_runtime_thread_events(
     let proposal_ref = format!("proposal_{}_browser_{}", run_id, action_kind);
     let action_ref = format!("action_{}_browser_{}", run_id, action_kind);
     let action_receipt_ref = format!("receipt_{}_computer_use_action", run_id);
-    let policy_decision_ref = format!(
-        "policy_{}_computer_use_{}",
-        run_id,
-        if action_is_read_only {
-            "read_only"
-        } else {
-            "requires_confirmation"
-        }
-    );
+    let policy_decision_ref = action_approval_ref.map(str::to_string).unwrap_or_else(|| {
+        format!(
+            "policy_{}_computer_use_{}",
+            run_id,
+            if action_is_read_only {
+                "read_only"
+            } else {
+                "requires_confirmation"
+            }
+        )
+    });
     let verification_ref = format!("verification_{}_computer_use_{}", run_id, action_kind);
     let outcome_ref = format!("outcome_{}", run_id);
     let commit_gate_ref = format!("commit_gate_{}_{}", run_id, action_ref);
@@ -393,6 +409,8 @@ fn workflow_native_browser_runtime_thread_events(
                 "session_mode": "hosted_sandbox",
                 "reason": if action_is_read_only {
                     "This workflow run is local and read-only; sandbox isolation remains available for risky or reproducible tasks."
+                } else if action_has_approval {
+                    "The workflow run has approval for a mutating browser action; sandbox isolation remains available for higher-risk tasks."
                 } else {
                     "The workflow run is only proposing a mutating browser action; sandbox isolation remains available before execution authority is granted."
                 }
@@ -403,7 +421,13 @@ fn workflow_native_browser_runtime_thread_events(
             "Native browser lane gives the strongest semantic grounding for web tasks.",
             "The workflow executor compiled the saved manifest, not React Flow local state."
         ],
-        "risk_posture": if action_is_read_only { "read_only_probe" } else { "commit_confirmation_required" },
+        "risk_posture": if action_is_read_only {
+            "read_only_probe"
+        } else if action_has_approval {
+            "approved_external_effect"
+        } else {
+            "commit_confirmation_required"
+        },
         "authority_required": action_authority,
         "privacy_impact": binding.observation_retention_mode,
         "expected_cleanup": "close_owned_browser_context_and_retain_redacted_trace"
@@ -437,14 +461,22 @@ fn workflow_native_browser_runtime_thread_events(
         ],
         "expected_postcondition": if action_is_read_only {
             "A redacted observation, target index, affordance graph, and approved read-only action proposal exist."
+        } else if action_has_approval {
+            "A redacted observation, target index, affordance graph, approval-bound action, and verification receipt exist."
         } else {
             "A redacted observation, target index, affordance graph, and confirmation-gated action proposal exist without execution."
         },
         "last_action_ref": Value::Null,
-        "verification_status": if action_is_read_only { "unknown" } else { "requires_human" },
-        "blocker_state": if action_is_read_only { Value::Null } else { json!("commit_gate_requires_confirmation") },
+        "verification_status": if action_will_execute { "unknown" } else { "requires_human" },
+        "blocker_state": if action_will_execute { Value::Null } else { json!("commit_gate_requires_confirmation") },
         "retry_budget": 2,
-        "risk_posture": if action_is_read_only { "read_only_probe" } else { "commit_confirmation_required" },
+        "risk_posture": if action_is_read_only {
+            "read_only_probe"
+        } else if action_has_approval {
+            "approved_external_effect"
+        } else {
+            "commit_confirmation_required"
+        },
         "user_handoff_ref": Value::Null,
         "cleanup_state": "cleanup_required"
     });
@@ -499,6 +531,11 @@ fn workflow_native_browser_runtime_thread_events(
     };
     let predicted_postcondition = if action_is_read_only {
         "The harness has a grounded page summary and next-action candidates.".to_string()
+    } else if action_has_approval {
+        format!(
+            "The harness has a grounded {} action approved for execution and verifies the postcondition.",
+            action_kind
+        )
     } else {
         format!(
             "The harness has a grounded {} proposal and pauses before execution for confirmation.",
@@ -513,9 +550,11 @@ fn workflow_native_browser_runtime_thread_events(
             "target_ref": target_ref,
             "possible_action": action_kind,
             "action_preconditions": ["fresh_observation", "target_index_present"],
-            "confidence": if action_is_read_only { 95 } else { 88 },
+            "confidence": if action_is_read_only { 95 } else if action_has_approval { 90 } else { 88 },
             "expected_state_transition": if action_is_read_only {
                 "A read-only inspection summary can be produced without external side effects.".to_string()
+            } else if let Some(approval_ref) = action_approval_ref {
+                format!("A {} action can proceed because approval {} is present.", action_kind, approval_ref)
             } else {
                 format!("A {} action could change browser state and must be confirmed before execution.", action_kind)
             },
@@ -533,9 +572,11 @@ fn workflow_native_browser_runtime_thread_events(
         "raw_model_output_ref": format!("model_output_{}_computer_use_candidate", run_id),
         "normalized_action_candidate": normalized_action_candidate,
         "target_ref": target_ref,
-        "confidence": if action_is_read_only { 92 } else { 86 },
+        "confidence": if action_is_read_only { 92 } else if action_has_approval { 89 } else { 86 },
         "rationale_summary": if action_is_read_only {
             "The page root is present and read-only inspection is the lowest-risk next step.".to_string()
+        } else if let Some(approval_ref) = action_approval_ref {
+            format!("The requested {} action is grounded to the current target index and approval {} is present.", action_kind, approval_ref)
         } else {
             format!("The requested {} action is grounded to the current target index and requires confirmation before execution.", action_kind)
         },
@@ -543,7 +584,7 @@ fn workflow_native_browser_runtime_thread_events(
         "risk_assessment": action_risk,
         "policy_decision_ref": policy_decision_ref
     });
-    let action = if action_is_read_only {
+    let action = if action_will_execute {
         json!({
             "action_ref": action_ref,
             "proposal_ref": proposal_ref,
@@ -553,23 +594,29 @@ fn workflow_native_browser_runtime_thread_events(
             "coordinate_space_id": format!("viewport_{}", run_id),
             "payload_summary": if action_kind == "inspect" {
                 "Read-only inspect of the current page and target index.".to_string()
+            } else if let Some(approval_ref) = action_approval_ref {
+                format!("Approved {} {} using {}.", action_kind, target_ref, approval_ref)
             } else {
                 format!("{} {} without external side effects.", action_kind, target_ref)
             },
             "expected_postcondition": action_proposal["predicted_postcondition"].clone(),
-            "approval_ref": Value::Null
+            "approval_ref": action_approval_ref
         })
     } else {
         Value::Null
     };
-    let action_receipt = if action_is_read_only {
+    let action_receipt = if action_will_execute {
         json!({
             "receipt_ref": action_receipt_ref,
             "action_ref": action_ref,
             "adapter_id": "ioi.native_browser.workflow_manifest",
             "status": "completed",
             "grounding_ref": target_index_ref,
-            "postcondition_summary": "Read-only browser action was grounded in the observation and produced no external side effect.",
+            "postcondition_summary": if action_is_read_only {
+                "Read-only browser action was grounded in the observation and produced no external side effect."
+            } else {
+                "Approved mutating browser action was grounded in the observation and executed after confirmation."
+            },
             "verification_ref": verification_ref,
             "evidence_refs": [observation_ref, target_index_ref, proposal_ref]
         })
@@ -578,11 +625,13 @@ fn workflow_native_browser_runtime_thread_events(
     };
     let verification = json!({
         "verification_ref": verification_ref,
-        "action_ref": if action_is_read_only { json!(action_ref) } else { Value::Null },
-        "status": if action_is_read_only { "passed" } else { "requires_human" },
+        "action_ref": if action_will_execute { json!(action_ref) } else { Value::Null },
+        "status": if action_will_execute { "passed" } else { "requires_human" },
         "expected_postcondition": action_proposal["predicted_postcondition"].clone(),
         "observed_postcondition": if action_is_read_only {
             "Environment, lease, observation, target index, affordance graph, action proposal, action receipt, verification, outcome, commit gate, trajectory, and cleanup are trace-visible."
+        } else if action_has_approval {
+            "Approval was present, so the grounded mutating browser action executed and produced a verification receipt."
         } else {
             "No mutating browser action was executed; the proposal is waiting on the commit gate confirmation."
         },
@@ -593,13 +642,15 @@ fn workflow_native_browser_runtime_thread_events(
             json!(target_index_ref),
             json!(affordance_graph_ref),
             json!(proposal_ref),
-            if action_is_read_only { json!(action_receipt_ref) } else { Value::Null }
+            if action_will_execute { json!(action_receipt_ref) } else { Value::Null }
         ])
     });
     let outcome_contract = json!({
         "outcome_ref": outcome_ref,
         "requested_outcome": if action_is_read_only {
             "Produce a grounded browser observation summary without external side effects.".to_string()
+        } else if action_has_approval {
+            format!("Execute the approved grounded {} browser action and verify the postcondition.", action_kind)
         } else {
             format!("Prepare a grounded {} browser action and pause before external effects.", action_kind)
         },
@@ -610,18 +661,24 @@ fn workflow_native_browser_runtime_thread_events(
         "rollback_or_cleanup_required": true,
         "external_effect_policy": "confirmation_required"
     });
-    let commit_gate = if action_is_read_only {
+    let commit_gate = if action_will_execute {
         json!({
             "commit_gate_ref": commit_gate_ref,
             "final_action_ref": action_ref,
             "outcome_ref": outcome_contract["outcome_ref"].clone(),
-            "external_effect": false,
-            "user_confirmation_required": false,
-            "authority_required": "computer_use.read_only",
-            "pre_commit_summary": format!("No commit gate required for {}.", action["payload_summary"].as_str().unwrap_or("read-only inspect")),
-            "post_commit_verification": "The harness has a grounded page summary and next-action candidates.",
+            "external_effect": !action_is_read_only,
+            "user_confirmation_required": !action_is_read_only,
+            "authority_required": if action_is_read_only { "computer_use.read_only" } else { "computer_use.external_effect" },
+            "pre_commit_summary": if action_is_read_only {
+                format!("No commit gate required for {}.", action["payload_summary"].as_str().unwrap_or("read-only inspect"))
+            } else {
+                format!("Approval {} allowed {}.", action_approval_ref.unwrap_or("unknown_approval"), action["payload_summary"].as_str().unwrap_or("approved action"))
+            },
+            "post_commit_verification": outcome_contract["success_criteria"].as_array().map(|values| {
+                values.iter().filter_map(Value::as_str).collect::<Vec<_>>().join("; ")
+            }).unwrap_or_default(),
             "policy_decision_ref": policy_decision_ref,
-            "status": "not_required"
+            "status": if action_is_read_only { "not_required" } else { "completed" }
         })
     } else {
         json!({
@@ -658,38 +715,48 @@ fn workflow_native_browser_runtime_thread_events(
             "proposal_ref": proposal_ref,
             "summary": if action_is_read_only {
                 "Normalized a read-only proposal and policy-gated it before execution."
+            } else if action_has_approval {
+                "Normalized an approved mutating action proposal and allowed execution."
             } else {
                 "Normalized a mutating action proposal and stopped at the confirmation gate."
             }
         }),
     ];
-    if action_is_read_only {
+    if action_will_execute {
         trajectory_entries.push(json!({
             "sequence": 4,
             "event_kind": "execute_action",
             "action_ref": action_ref,
             "receipt_ref": action_receipt_ref,
-            "summary": "Executed the grounded read-only browser action."
+            "summary": if action_is_read_only {
+                "Executed the grounded read-only browser action."
+            } else {
+                "Executed the approved grounded mutating browser action."
+            }
         }));
     }
     trajectory_entries.push(json!({
-        "sequence": if action_is_read_only { 5 } else { 4 },
+        "sequence": if action_will_execute { 5 } else { 4 },
         "event_kind": "verify_postcondition",
-        "action_ref": if action_is_read_only { json!(action_ref) } else { Value::Null },
+        "action_ref": if action_will_execute { json!(action_ref) } else { Value::Null },
         "verification_ref": verification_ref,
         "summary": if action_is_read_only {
             "Verified the read-only postcondition and retained the trace."
+        } else if action_has_approval {
+            "Verified the approved mutating action postcondition and retained the trace."
         } else {
             "Verified that no mutating action executed before confirmation."
         }
     }));
     trajectory_entries.push(json!({
-        "sequence": if action_is_read_only { 6 } else { 5 },
+        "sequence": if action_will_execute { 6 } else { 5 },
         "event_kind": "commit_or_handoff",
-        "action_ref": if action_is_read_only { json!(action_ref) } else { Value::Null },
+        "action_ref": if action_will_execute { json!(action_ref) } else { Value::Null },
         "receipt_ref": commit_gate["commit_gate_ref"].clone(),
         "summary": if action_is_read_only {
             "Evaluated the outcome contract and confirmed no external-effect commit was required."
+        } else if action_has_approval {
+            "Evaluated the outcome contract with explicit approval and retained completion evidence."
         } else {
             "Paused at the commit gate until explicit approval is available."
         }
@@ -755,7 +822,7 @@ fn workflow_native_browser_runtime_thread_events(
                     "supported_session_modes": [binding.session_mode],
                     "capabilities": ["observe.dom", "observe.ax", "observe.screenshot", format!("act.{}", action_kind), "verify.postcondition"],
                     "emits_observation_bundle": true,
-                    "emits_action_receipts": action_is_read_only,
+                    "emits_action_receipts": action_will_execute,
                     "fail_closed_when_unavailable": true
                 }
             }),
@@ -850,8 +917,15 @@ fn workflow_native_browser_runtime_thread_events(
                 "action_proposal": action_proposal,
                 "policy_gate": {
                     "policy_decision_ref": policy_decision_ref,
-                    "outcome": if action_is_read_only { "approved_for_read_only_probe" } else { "requires_confirmation_before_execution" },
-                    "authority_scope": action_authority
+                    "outcome": if action_is_read_only {
+                        "approved_for_read_only_probe"
+                    } else if action_has_approval {
+                        "approved_after_confirmation"
+                    } else {
+                        "requires_confirmation_before_execution"
+                    },
+                    "authority_scope": action_authority,
+                    "approval_ref": action_approval_ref
                 }
             }),
             vec![trace_receipt_id.clone()],
@@ -870,7 +944,11 @@ fn workflow_native_browser_runtime_thread_events(
             "completed",
             &trace_receipt_id,
             json!({
-                "summary": "Computer-use read-only action executed",
+                "summary": if action_is_read_only {
+                    "Computer-use read-only action executed"
+                } else {
+                    "Computer-use approved mutating action executed"
+                },
                 "computer_use_step": "execute_action",
                 "computer_use_action_ref": action_ref,
                 "computer_use_proposal_ref": proposal_ref,
@@ -918,10 +996,10 @@ fn workflow_native_browser_runtime_thread_events(
                 "summary": "Computer-use commit gate evaluated",
                 "computer_use_step": "commit_or_handoff",
                 "computer_use_commit_gate_ref": commit_gate["commit_gate_ref"].clone(),
-                "computer_use_action_ref": if action_is_read_only { json!(action_ref) } else { Value::Null },
+                "computer_use_action_ref": if action_will_execute { json!(action_ref) } else { Value::Null },
                 "outcome_contract": outcome_contract,
                 "commit_gate": commit_gate,
-                "human_handoff_state": if action_is_read_only { Value::Null } else { json!({
+                "human_handoff_state": if action_will_execute { Value::Null } else { json!({
                     "handoff_ref": format!("handoff_{}_{}", run_id, action_kind),
                     "reason": "mutating_browser_action_requires_confirmation",
                     "requested_user_action": format!("Approve or reject {}.", action_proposal["normalized_action_candidate"].as_str().unwrap_or(action_kind)),
@@ -981,7 +1059,7 @@ fn workflow_native_browser_runtime_thread_events(
             &base_payload,
         ),
     ];
-    if action_is_read_only {
+    if action_will_execute {
         events
     } else {
         events
@@ -1270,6 +1348,8 @@ fn workflow_computer_use_base_payload(
         "computerUseSessionMode": binding.session_mode,
         "computer_use_action_kind": binding.action_kind,
         "computerUseActionKind": binding.action_kind,
+        "computer_use_approval_ref": binding.approval_ref,
+        "computerUseApprovalRef": binding.approval_ref,
         "computer_use_external_effect": !computer_use_action_kind_is_read_only(&binding.action_kind),
         "computer_use_lease_id": lease_id,
         "computerUseLeaseId": lease_id,
