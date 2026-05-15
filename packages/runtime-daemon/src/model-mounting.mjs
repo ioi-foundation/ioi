@@ -3079,6 +3079,48 @@ export class ModelMountingState {
     };
   }
 
+  authoritySnapshot(baseUrl) {
+    const grants = this.listTokens();
+    const vaultRefs = this.listVaultRefs();
+    const wallet = this.walletAuthority.adapterStatus();
+    const authorityReceipts = this.listReceipts()
+      .filter((receipt) =>
+        [
+          "permission_token",
+          "permission_token_revocation",
+          "vault_ref_binding",
+          "vault_ref_removal",
+          "vault_adapter_health",
+        ].includes(receipt.kind),
+      )
+      .slice(-25);
+    return {
+      schemaVersion: "ioi.wallet-core-lite.authority.v1",
+      source: "agentgres_wallet_authority_projection",
+      generatedAt: this.nowIso(),
+      server: this.serverStatus(baseUrl),
+      wallet,
+      vault: this.vaultStatus(),
+      grants,
+      vaultRefs,
+      approvals: [],
+      approvalQueue: {
+        status: "not_configured",
+        pendingCount: 0,
+        evidenceRefs: ["wallet.network.approval_queue.pending_runtime_adapter"],
+      },
+      receipts: authorityReceipts,
+      summary: {
+        activeGrants: grants.filter((grant) => !grant.revokedAt).length,
+        revokedGrants: grants.filter((grant) => Boolean(grant.revokedAt)).length,
+        vaultRefs: vaultRefs.length,
+        pendingApprovals: 0,
+        receiptCount: authorityReceipts.length,
+        remoteWalletConfigured: Boolean(wallet.remoteAdapter?.configured),
+      },
+    };
+  }
+
   projectionSummary() {
     const projection = this.projection();
     return {

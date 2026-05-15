@@ -344,15 +344,21 @@ export function PolicyView({
     const endpoint = readAuthorityDaemonEndpoint();
     setAuthorityLoading(true);
     try {
-      const [modelResult, toolsResult] = await Promise.allSettled([
-        fetchAuthorityJson(endpoint, "/api/v1/models"),
-        fetchAuthorityJson(endpoint, "/v1/tools"),
-      ]);
+      const [modelResult, toolsResult, authorityResult] =
+        await Promise.allSettled([
+          fetchAuthorityJson(endpoint, "/api/v1/models"),
+          fetchAuthorityJson(endpoint, "/v1/tools"),
+          fetchAuthorityJson(endpoint, "/api/v1/authority"),
+        ]);
       const modelSnapshot =
         modelResult.status === "fulfilled" ? modelResult.value : undefined;
       const toolCatalog =
         toolsResult.status === "fulfilled" ? toolsResult.value : [];
-      const failures = [modelResult, toolsResult]
+      const authoritySnapshot =
+        authorityResult.status === "fulfilled"
+          ? authorityResult.value
+          : undefined;
+      const failures = [modelResult, toolsResult, authorityResult]
         .filter(
           (result): result is PromiseRejectedResult =>
             result.status === "rejected",
@@ -363,6 +369,7 @@ export function PolicyView({
             : String(result.reason),
         );
       const nextProjection = buildAuthorityCenterProjection({
+        authoritySnapshot,
         modelSnapshot,
         toolCatalog,
         connectors,

@@ -60,6 +60,7 @@ export interface AuthorityCenterProjection {
 }
 
 export interface BuildAuthorityCenterProjectionInput {
+  authoritySnapshot?: unknown;
   modelSnapshot?: unknown;
   toolCatalog?: unknown;
   connectors?: ConnectorSummary[];
@@ -99,6 +100,7 @@ export function buildAuthorityGrantRequestPayload(
 }
 
 export function buildAuthorityCenterProjection({
+  authoritySnapshot,
   modelSnapshot,
   toolCatalog,
   connectors = [],
@@ -116,10 +118,14 @@ export function buildAuthorityCenterProjection({
     ...toolCapabilities,
     ...connectorCapabilities,
   ];
-  const grants = arrayOf(recordValue(modelSnapshot)?.tokens).map(grantRow);
-  const vaultRefs = arrayOf(recordValue(modelSnapshot)?.vaultRefs).map(
-    vaultRow,
+  const authorityRecord = recordValue(authoritySnapshot);
+  const modelRecord = recordValue(modelSnapshot);
+  const grants = arrayOf(authorityRecord?.grants ?? modelRecord?.tokens).map(
+    grantRow,
   );
+  const vaultRefs = arrayOf(
+    authorityRecord?.vaultRefs ?? modelRecord?.vaultRefs,
+  ).map(vaultRow);
   const blockedCapabilities = capabilities.filter(
     (capability) => capability.tone === "blocked",
   ).length;
