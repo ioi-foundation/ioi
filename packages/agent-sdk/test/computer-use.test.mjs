@@ -434,6 +434,11 @@ test("browser prompts emit glass-box computer-use trace and runtime events", asy
   assert.ok(proposalEvent);
   assert.equal(proposalEvent.data.action_proposal.policy_decision_ref.startsWith("policy_"), true);
   assert.equal(proposalEvent.data.policy_gate.outcome, "approved_for_read_only_probe");
+  assert.equal(
+    proposalEvent.data.policy_decision_receipt.policy_decision_ref,
+    proposalEvent.data.action_proposal.policy_decision_ref,
+  );
+  assert.equal(proposalEvent.data.policy_decision_receipt.outcome, "approved_for_read_only_probe");
 
   const actionEvent = trace.events.find((event) => event.type === "computer_use_action_executed");
   assert.ok(actionEvent);
@@ -656,6 +661,9 @@ test("runtime daemon emits canonical computer-use events for browser prompts", a
     assert.equal(trace.computerUse.environmentSelection.selected_lane, "native_browser");
     assert.equal(trace.computerUse.observation.url, "https://example.com");
     assert.equal(trace.computerUse.actionProposal.policy_decision_ref.startsWith("policy_"), true);
+    assert.equal(trace.computerUse.policyDecision.policy_decision_ref, trace.computerUse.actionProposal.policy_decision_ref);
+    assert.equal(trace.computerUse.policyDecision.outcome, "approved_for_read_only_probe");
+    assert.equal(trace.computerUse.policyDecision.external_effect, false);
     assert.equal(trace.computerUse.actionReceipt.status, "completed");
     assert.equal(trace.computerUse.verification.action_ref, trace.computerUse.action.action_ref);
     assert.equal(trace.computerUse.commitGate.status, "not_required");
@@ -802,6 +810,8 @@ test("runtime daemon invokes native browser loop through thread tool spine", asy
     assert.equal(result.result.lease.authority_scope, "computer_use.native_browser.read");
     assert.equal(result.result.observation.retention_mode, "prompt_visible_summary_only");
     assert.equal(result.result.action.action_kind, "inspect");
+    assert.equal(result.result.policyDecision.outcome, "approved_for_read_only_probe");
+    assert.equal(result.result.policyDecision.fail_closed, false);
     assert.equal(result.result.actionReceipt.status, "completed");
     assert.equal(result.result.commitGate.status, "not_required");
 
@@ -817,6 +827,11 @@ test("runtime daemon invokes native browser loop through thread tool spine", asy
     assert.equal(computerEvents[0].payload.tool_ref, "ioi.computer_use.native_browser");
     assert.equal(computerEvents[5].type, "computer_use_action_proposed");
     assert.equal(computerEvents[5].payload.action_proposal.target_ref, result.result.action.target_ref);
+    assert.equal(computerEvents[5].payload.policy_decision_receipt.outcome, "approved_for_read_only_probe");
+    assert.equal(
+      computerEvents[5].payload.policy_decision_receipt.policy_decision_ref,
+      computerEvents[5].payload.action_proposal.policy_decision_ref,
+    );
     assert.equal(computerEvents[6].type, "computer_use_action_executed");
     assert.equal(computerEvents[6].payload.action_receipt.status, "completed");
   } finally {
@@ -853,6 +868,9 @@ test("runtime daemon gates mutating native browser actions before execution", as
     assert.equal(result.result.lease.authority_scope, "computer_use.native_browser.act");
     assert.equal(result.result.actionProposal.normalized_action_candidate, "click target-submit");
     assert.equal(result.result.actionProposal.risk_assessment, "possible_external_effect");
+    assert.equal(result.result.policyDecision.outcome, "requires_confirmation_before_execution");
+    assert.equal(result.result.policyDecision.fail_closed, true);
+    assert.equal(result.result.policyDecision.external_effect, true);
     assert.equal(result.result.action, null);
     assert.equal(result.result.actionReceipt, null);
     assert.equal(result.result.verification.status, "requires_human");
@@ -866,7 +884,10 @@ test("runtime daemon gates mutating native browser actions before execution", as
     }
     const computerEvents = runtimeEvents.filter((event) => event.eventKind.startsWith("computer_use."));
     assert.equal(computerEvents.some((event) => event.type === "computer_use_action_executed"), false);
-    assert.equal(computerEvents.find((event) => event.type === "computer_use_action_proposed").payload.policy_gate.outcome, "requires_confirmation_before_execution");
+    const proposalEvent = computerEvents.find((event) => event.type === "computer_use_action_proposed");
+    assert.equal(proposalEvent.payload.policy_gate.outcome, "requires_confirmation_before_execution");
+    assert.equal(proposalEvent.payload.policy_decision_receipt.outcome, "requires_confirmation_before_execution");
+    assert.equal(proposalEvent.payload.policy_decision_receipt.fail_closed, true);
     const commitEvent = computerEvents.find((event) => event.type === "computer_use_commit_gate");
     assert.ok(commitEvent);
     assert.equal(commitEvent.payload.commit_gate.status, "pending_confirmation");
@@ -912,6 +933,9 @@ test("runtime daemon resumes approved mutating native browser actions through ac
     assert.equal(result.result.actionReceipt.status, "completed");
     assert.equal(result.result.actionReceipt.adapter_id, "ioi.native_browser.cdp");
     assert.equal(result.result.verification.status, "passed");
+    assert.equal(result.result.policyDecision.outcome, "approved_after_confirmation");
+    assert.equal(result.result.policyDecision.fail_closed, false);
+    assert.equal(result.result.policyDecision.approval_ref, "approval-browser-click");
     assert.equal(result.result.commitGate.status, "completed");
     assert.equal(result.result.commitGate.final_action_ref, result.result.action.action_ref);
     assert.equal(result.event_count, expectedComputerUseEventTypes.length);
@@ -930,6 +954,8 @@ test("runtime daemon resumes approved mutating native browser actions through ac
     assert.equal(proposalEvent.payload.policy_gate.outcome, "approved_after_confirmation");
     assert.equal(proposalEvent.payload.policy_gate.approval_ref, "approval-browser-click");
     assert.equal(proposalEvent.payload.policy_gate.executor_status, "completed");
+    assert.equal(proposalEvent.payload.policy_decision_receipt.outcome, "approved_after_confirmation");
+    assert.equal(proposalEvent.payload.policy_decision_receipt.fail_closed, false);
     const actionEvent = computerEvents.find((event) => event.type === "computer_use_action_executed");
     assert.equal(actionEvent.payload.native_browser_execution_result.status, "completed");
     const commitEvent = computerEvents.find((event) => event.type === "computer_use_commit_gate");
@@ -972,6 +998,9 @@ test("runtime daemon fails closed when approved native browser action has no CDP
     assert.equal(result.result.action, null);
     assert.equal(result.result.actionReceipt, null);
     assert.equal(result.result.verification.status, "blocked");
+    assert.equal(result.result.policyDecision.outcome, "blocked_executor_unavailable");
+    assert.equal(result.result.policyDecision.fail_closed, true);
+    assert.equal(result.result.policyDecision.approval_ref, "approval-browser-click");
     assert.equal(result.result.commitGate.status, "blocked");
     assert.equal(result.result.commitGate.user_confirmation_required, false);
     assert.equal(result.event_count, expectedComputerUseEventTypes.length - 1);
@@ -985,6 +1014,8 @@ test("runtime daemon fails closed when approved native browser action has no CDP
     const proposalEvent = computerEvents.find((event) => event.type === "computer_use_action_proposed");
     assert.equal(proposalEvent.payload.policy_gate.outcome, "blocked_executor_unavailable");
     assert.equal(proposalEvent.payload.policy_gate.executor_status, "unavailable");
+    assert.equal(proposalEvent.payload.policy_decision_receipt.outcome, "blocked_executor_unavailable");
+    assert.equal(proposalEvent.payload.policy_decision_receipt.fail_closed, true);
     const verificationEvent = computerEvents.find((event) => event.type === "computer_use_verification");
     assert.equal(verificationEvent.payload.verification_receipt.status, "blocked");
     assert.equal(verificationEvent.payload.native_browser_execution_result.status, "unavailable");

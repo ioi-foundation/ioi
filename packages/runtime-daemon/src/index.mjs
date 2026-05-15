@@ -14532,6 +14532,7 @@ function buildRun({
           actionReceipt: computerUseProjection.actionReceipt,
           verification: computerUseProjection.verification,
           outcomeContract: computerUseProjection.outcomeContract,
+          policyDecision: computerUseProjection.policyDecision,
           commitGate: computerUseProjection.commitGate,
           trajectory: computerUseProjection.trajectory,
           cleanup: computerUseProjection.cleanup,
@@ -18081,6 +18082,8 @@ function computerUseNativeBrowserInvocationResultFromEvents(events, context = {}
     payloads.find((payload) => payload.affordance_graph || payload.affordanceGraph) ?? {};
   const proposalPayload =
     payloads.find((payload) => payload.action_proposal || payload.actionProposal) ?? {};
+  const policyDecisionPayload =
+    payloads.find((payload) => payload.policy_decision_receipt || payload.policyDecisionReceipt) ?? {};
   const runStatePayload =
     payloads.find((payload) => payload.computer_use_run_state || payload.computerUseRunState) ?? {};
   const outcomePayload =
@@ -18166,6 +18169,11 @@ function computerUseNativeBrowserInvocationResultFromEvents(events, context = {}
         projection.outcomeContract ??
         outcomePayload.outcome_contract ??
         outcomePayload.outcomeContract ??
+        null,
+      policyDecision:
+        projection.policyDecision ??
+        policyDecisionPayload.policy_decision_receipt ??
+        policyDecisionPayload.policyDecisionReceipt ??
         null,
       commitGate:
         projection.commitGate ??
@@ -21664,6 +21672,9 @@ function policyDecisionRefsForRunEvent(event) {
     event.data?.policy_decision_id,
     event.data?.policyDecisionRef,
     event.data?.policy_decision_ref,
+    event.data?.computer_use_policy_decision_ref,
+    event.data?.policyDecisionReceipt?.policy_decision_ref,
+    event.data?.policy_decision_receipt?.policy_decision_ref,
     ...normalizeArray(event.data?.policyDecisionRefs),
     ...normalizeArray(event.data?.policy_decision_refs),
   ]);
@@ -21728,6 +21739,7 @@ function payloadSummaryForRunEvent(event) {
       computer_action: event.data?.computer_action ?? null,
       action_receipt: event.data?.action_receipt ?? null,
       policy_gate: event.data?.policy_gate ?? null,
+      policy_decision_receipt: event.data?.policy_decision_receipt ?? null,
       verification_receipt: event.data?.verification_receipt ?? null,
       outcome_contract: event.data?.outcome_contract ?? null,
       commit_gate: event.data?.commit_gate ?? null,

@@ -141,6 +141,26 @@ export interface ActionProposal {
   policy_decision_ref?: string | null;
 }
 
+export type ComputerUsePolicyDecisionOutcome =
+  | "approved_for_read_only_probe"
+  | "requires_confirmation_before_execution"
+  | "approved_after_confirmation"
+  | "blocked_executor_unavailable"
+  | string;
+
+export interface ComputerUsePolicyDecisionReceipt {
+  policy_decision_ref: string;
+  proposal_ref: string;
+  action_kind: ComputerActionKind | string;
+  outcome: ComputerUsePolicyDecisionOutcome;
+  authority_scope: string;
+  approval_ref?: string | null;
+  external_effect: boolean;
+  fail_closed: boolean;
+  reasons: string[];
+  evidence_refs: unknown[];
+}
+
 export type ComputerUseVerificationStatus = "passed" | "failed" | "requires_human" | "blocked" | "unknown";
 
 export interface ComputerUseVerificationReceipt {

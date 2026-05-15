@@ -431,6 +431,7 @@ export interface RuntimeTraceBundle {
     actionReceipt: unknown;
     verification: unknown;
     outcomeContract?: unknown;
+    policyDecision?: unknown;
     commitGate?: unknown;
     trajectory: unknown;
     cleanup: unknown;

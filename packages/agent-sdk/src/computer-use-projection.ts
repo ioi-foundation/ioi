@@ -18,6 +18,7 @@ import {
   type ComputerActionKind,
   type ComputerUseLease,
   type ComputerUseObservationBundle,
+  type ComputerUsePolicyDecisionReceipt,
   type ComputerUseRunState,
   type ComputerUseTrajectoryBundle,
   type ComputerUseVerificationReceipt,
@@ -37,6 +38,7 @@ export interface MockComputerUseProjection {
   targetIndex: TargetIndex;
   affordanceGraph: AffordanceGraph;
   actionProposal: ActionProposal | null;
+  policyDecision: ComputerUsePolicyDecisionReceipt | null;
   action: ComputerAction | null;
   actionReceipt: ActionReceipt | null;
   verification: ComputerUseVerificationReceipt;
@@ -317,6 +319,34 @@ export function mockComputerUseProjectionForRun({
     risk_assessment: requestedActionRisk,
     policy_decision_ref: policyDecisionRef,
   };
+  const policyDecision: ComputerUsePolicyDecisionReceipt = {
+    policy_decision_ref: policyDecisionRef,
+    proposal_ref: actionProposal.proposal_ref,
+    action_kind: requestedActionKind,
+    outcome: requestedActionIsReadOnly
+      ? "approved_for_read_only_probe"
+      : requestedActionHasApproval
+        ? "approved_after_confirmation"
+        : "requires_confirmation_before_execution",
+    authority_scope: requestedActionAuthority,
+    approval_ref: requestedActionApprovalRef,
+    external_effect: !requestedActionIsReadOnly,
+    fail_closed: !requestedActionIsReadOnly && !requestedActionHasApproval,
+    reasons: [
+      requestedActionIsReadOnly
+        ? "Read-only computer-use action can execute without external effects."
+        : "Mutating computer-use action requires approval before execution.",
+      ...(requestedActionHasApproval
+        ? ["Approval evidence is present for the requested mutating action."]
+        : []),
+    ],
+    evidence_refs: compactUnknowns([
+      observation.observation_ref,
+      targetIndex.target_index_ref,
+      actionProposal.proposal_ref,
+      requestedActionApprovalRef,
+    ]),
+  };
   const action: ComputerAction | null = requestedActionWillExecute
     ? {
         action_ref: actionRef,
@@ -571,15 +601,12 @@ export function mockComputerUseProjectionForRun({
       computer_use_policy_decision_ref: policyDecisionRef,
       action_proposal: actionProposal,
       policy_gate: {
-        policy_decision_ref: policyDecisionRef,
-        outcome: requestedActionIsReadOnly
-          ? "approved_for_read_only_probe"
-          : requestedActionHasApproval
-            ? "approved_after_confirmation"
-          : "requires_confirmation_before_execution",
-        authority_scope: requestedActionAuthority,
-        approval_ref: requestedActionApprovalRef,
+        policy_decision_ref: policyDecision.policy_decision_ref,
+        outcome: policyDecision.outcome,
+        authority_scope: policyDecision.authority_scope,
+        approval_ref: policyDecision.approval_ref,
       },
+      policy_decision_receipt: policyDecision,
     }),
     ...actionExecutionEvents,
     computerUseProjectionEvent("computer_use_verification", "Computer-use postcondition verified", {
@@ -629,6 +656,7 @@ export function mockComputerUseProjectionForRun({
     targetIndex,
     affordanceGraph,
     actionProposal,
+    policyDecision,
     action,
     actionReceipt,
     verification,
@@ -872,6 +900,7 @@ function mockUnavailableComputerUseProjectionForRun({
     targetIndex,
     affordanceGraph,
     actionProposal: null,
+    policyDecision: null,
     action: null,
     actionReceipt: null,
     verification,
