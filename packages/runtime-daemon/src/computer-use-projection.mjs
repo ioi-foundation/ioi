@@ -44,6 +44,16 @@ export function computerUseProjectionForRun({
   if (!shouldProjectComputerUse(prompt, request)) {
     return null;
   }
+  const requestedLane = requestedComputerUseLane(request);
+  if (requestedLane !== "native_browser") {
+    return unavailableComputerUseProjectionForRun({
+      runId,
+      prompt,
+      mode,
+      requestedLane,
+      requestedSessionMode: requestedComputerUseSessionMode(request, requestedLane),
+    });
+  }
   const targetHint = computerUseTargetHint(prompt);
   const leaseId = `lease_${runId}_browser`;
   const observationRef = `observation_${runId}_browser_initial`;
@@ -484,6 +494,239 @@ export function computerUseProjectionForRun({
   };
 }
 
+function unavailableComputerUseProjectionForRun({
+  runId,
+  prompt,
+  mode,
+  requestedLane,
+  requestedSessionMode,
+}) {
+  const targetHint = computerUseTargetHint(prompt);
+  const leaseId = `lease_${runId}_${requestedLane}_unavailable`;
+  const observationRef = `observation_${runId}_${requestedLane}_unavailable`;
+  const targetIndexRef = `target_index_${runId}_${requestedLane}_unavailable`;
+  const affordanceGraphRef = `affordance_${runId}_${requestedLane}_unavailable`;
+  const verificationRef = `verification_${runId}_computer_use_unavailable`;
+  const cleanupRef = `cleanup_${runId}_computer_use_unavailable`;
+  const traceReceiptId = `receipt_${runId}_computer_use_trace`;
+  const environmentSelection = {
+    receipt_ref: `receipt_${runId}_computer_use_environment`,
+    run_id: runId,
+    selected_lane: requestedLane,
+    selected_session_mode: requestedSessionMode,
+    rejected_options: [
+      {
+        lane: "native_browser",
+        session_mode: "owned_hermetic_browser",
+        reason: "The workflow explicitly requested a different computer-use lane.",
+      },
+    ],
+    reasons: [
+      `Workflow metadata requested ${requestedLane}/${requestedSessionMode}.`,
+      "The requested adapter is not mounted in this local daemon harness.",
+      "The harness failed closed before acquiring an uncontrolled environment.",
+    ],
+    risk_posture: mode === "dry_run" ? "preview_only" : "blocked_unavailable",
+    authority_required: `computer_use.${requestedLane}.execute`,
+    privacy_impact: "no_persistence",
+    expected_cleanup: "no environment acquired; retain blocked trace only",
+  };
+  const lease = {
+    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    lease_id: leaseId,
+    lane: requestedLane,
+    session_mode: requestedSessionMode,
+    status: "failed_closed",
+    authority_scope: environmentSelection.authority_required,
+    consent_scope: "operator_prompt",
+    target_hint: targetHint,
+    environment_ref: `${requestedLane}:unavailable`,
+    profile_provenance: "none",
+    retention_mode: "no_persistence",
+    cleanup_required: false,
+    evidence_refs: [environmentSelection.receipt_ref, "adapter_unavailable"],
+  };
+  const observation = {
+    observation_ref: observationRef,
+    lease_id: leaseId,
+    lane: requestedLane,
+    session_mode: requestedSessionMode,
+    url: null,
+    title: null,
+    app_name: null,
+    window_title: null,
+    screenshot_ref: null,
+    som_ref: null,
+    dom_ref: null,
+    ax_ref: null,
+    selector_map_ref: null,
+    target_index_ref: targetIndexRef,
+    redaction_report_ref: null,
+    freshness_ms: null,
+    retention_mode: "no_persistence",
+    detected_patterns: [],
+  };
+  const targetIndex = {
+    target_index_ref: targetIndexRef,
+    observation_ref: observationRef,
+    coordinate_space_id: `unavailable_${runId}`,
+    drift_state: "unavailable",
+    targets: [],
+  };
+  const affordanceGraph = {
+    graph_ref: affordanceGraphRef,
+    target_index_ref: targetIndexRef,
+    observation_ref: observationRef,
+    affordances: [],
+  };
+  const runState = {
+    run_id: runId,
+    lease_id: leaseId,
+    user_goal: prompt,
+    current_subgoal: "Fail closed because the requested computer-use lane is unavailable.",
+    plan_graph_ref: `plan_graph_${runId}_computer_use`,
+    current_observation_ref: observationRef,
+    current_target_index_ref: targetIndexRef,
+    active_hypotheses: [
+      "No adapter means no safe observation or action should be attempted.",
+      "The workflow can retry after mounting the requested provider or switch lanes explicitly.",
+    ],
+    expected_postcondition: "A blocked, no-action trace explains why the requested lane was unavailable.",
+    last_action_ref: null,
+    verification_status: "blocked",
+    blocker_state: "computer_use_lane_unavailable",
+    retry_budget: 0,
+    risk_posture: environmentSelection.risk_posture,
+    user_handoff_ref: null,
+    cleanup_state: "not_required",
+  };
+  const verification = {
+    verification_ref: verificationRef,
+    action_ref: null,
+    status: "blocked",
+    expected_postcondition: runState.expected_postcondition,
+    observed_postcondition: "No adapter was mounted; no lease, observation, action, or external side effect occurred.",
+    verifier: "runtime_daemon_computer_use_harness",
+    evidence_refs: [environmentSelection.receipt_ref, lease.lease_id, cleanupRef],
+  };
+  const cleanup = {
+    cleanup_ref: cleanupRef,
+    lease_id: lease.lease_id,
+    status: "not_required",
+    closed_process_refs: [],
+    deleted_profile_refs: [],
+    retained_artifact_refs: ["computer-use-trace.json"],
+    warnings: [`${requestedLane}/${requestedSessionMode} adapter unavailable; no environment acquired.`],
+  };
+  const recoveryPolicy = {
+    policy_id: `computer-use-recovery:${runId}:${requestedLane}`,
+    failure_class: "environment",
+    allowed_actions: ["terminate_safely", "switch_to_browser_lane", "ask_user"],
+    max_attempts: 0,
+    lane_switch_allowed: true,
+    requires_human_visible_reason: true,
+  };
+  const basePayload = {
+    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    harness_contract: defaultComputerUseHarnessContract(),
+    computer_use_lane: requestedLane,
+    computer_use_session_mode: requestedSessionMode,
+    computer_use_lease_id: lease.lease_id,
+  };
+  const events = [
+    computerUseEvent({
+      type: "computer_use_environment_selected",
+      summary: "Computer-use environment selected",
+      workflowNodeId: "computer-use.select-environment",
+      traceReceiptId,
+      data: {
+        ...basePayload,
+        computer_use_step: "select_environment",
+        environment_selection_receipt: environmentSelection,
+        lease,
+      },
+    }),
+    computerUseEvent({
+      type: "computer_use_environment_unavailable",
+      summary: "Computer-use environment unavailable; failed closed",
+      workflowNodeId: "computer-use.environment-unavailable",
+      traceReceiptId,
+      data: {
+        ...basePayload,
+        computer_use_step: "acquire_lease",
+        computer_use_blocker: "adapter_unavailable",
+        lease,
+        recovery_policy: recoveryPolicy,
+      },
+    }),
+    computerUseEvent({
+      type: "computer_use_run_state",
+      summary: "Computer-use run state blocked",
+      workflowNodeId: "computer-use.run-state",
+      traceReceiptId,
+      data: {
+        ...basePayload,
+        computer_use_step: "plan_next_step",
+        computer_use_observation_ref: observation.observation_ref,
+        computer_use_target_index_ref: targetIndex.target_index_ref,
+        computer_use_run_state: runState,
+      },
+    }),
+    computerUseEvent({
+      type: "computer_use_verification",
+      summary: "Computer-use unavailable state verified",
+      workflowNodeId: "computer-use.verify",
+      traceReceiptId,
+      data: {
+        ...basePayload,
+        computer_use_step: "verify_postcondition",
+        computer_use_verification_ref: verification.verification_ref,
+        verification_receipt: verification,
+      },
+    }),
+    computerUseEvent({
+      type: "computer_use_cleanup",
+      summary: "Computer-use cleanup completed",
+      workflowNodeId: "computer-use.cleanup",
+      traceReceiptId,
+      data: {
+        ...basePayload,
+        computer_use_step: "cleanup",
+        computer_use_cleanup_ref: cleanup.cleanup_ref,
+        cleanup_receipt: cleanup,
+      },
+    }),
+  ];
+  return {
+    environmentSelection,
+    lease,
+    runState,
+    observation,
+    targetIndex,
+    affordanceGraph,
+    actionProposal: null,
+    action: null,
+    actionReceipt: null,
+    verification,
+    trajectory: null,
+    cleanup,
+    events,
+    receipt: {
+      id: traceReceiptId,
+      kind: "computer_use_trace",
+      summary: "Computer-use harness failed closed because the requested lane adapter was unavailable.",
+      redaction: "redacted",
+      evidenceRefs: [
+        "ComputerUseHarnessContract",
+        environmentSelection.receipt_ref,
+        lease.lease_id,
+        verification.verification_ref,
+        cleanup.cleanup_ref,
+      ],
+    },
+  };
+}
+
 function computerUseEvent({ type, summary, workflowNodeId, traceReceiptId, data }) {
   return {
     type,
@@ -504,6 +747,30 @@ function shouldProjectComputerUse(prompt, request = {}) {
   }
   return /\b(browser|chromium|website|web page|url|computer[- ]use|cua|gui|desktop|click|selector|playwright)\b/i
     .test(String(prompt ?? ""));
+}
+
+function requestedComputerUseLane(request = {}) {
+  const metadata = request.options?.metadata ?? request.metadata ?? {};
+  const value = metadata.computerUseLane ?? metadata.computer_use_lane;
+  return value === "visual_gui" || value === "sandboxed_hosted" ? value : "native_browser";
+}
+
+function requestedComputerUseSessionMode(request = {}, lane) {
+  const metadata = request.options?.metadata ?? request.metadata ?? {};
+  const value = metadata.computerUseSessionMode ?? metadata.computer_use_session_mode;
+  if (
+    lane === "visual_gui" &&
+    ["visual_fallback", "foreground_desktop", "background_desktop", "app_scoped_desktop"].includes(value)
+  ) {
+    return value;
+  }
+  if (
+    lane === "sandboxed_hosted" &&
+    ["local_sandbox", "hosted_sandbox", "mobile_device"].includes(value)
+  ) {
+    return value;
+  }
+  return lane === "visual_gui" ? "visual_fallback" : "hosted_sandbox";
 }
 
 function computerUseTargetHint(prompt) {

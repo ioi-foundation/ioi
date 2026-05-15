@@ -6,6 +6,7 @@ export type IOISDKMessageType =
   | "model_route_decision"
   | "memory_update"
   | "computer_use_environment_selected"
+  | "computer_use_environment_unavailable"
   | "computer_use_lease_acquired"
   | "computer_use_run_state"
   | "computer_use_observation"
