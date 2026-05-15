@@ -981,6 +981,110 @@ test("runtime daemon invokes native browser loop through thread tool spine", asy
   }
 });
 
+test("runtime daemon projects local visual GUI observations through thread tool spine", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-visual-gui-tool-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-visual-gui-tool-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const thread = await agent.thread();
+    const result = await client.invokeThreadTool(thread.id, "ioi.computer_use.visual_gui", {
+      source: "react_flow",
+      workflowGraphId: "workflow.visual-gui-local-observation",
+      workflowNodeId: "visual-gui-local-observation",
+      input: {
+        prompt: "Inspect the local canvas app.",
+        sessionMode: "foreground_desktop",
+        actionKind: "inspect",
+        observationRetentionMode: "local_redacted_artifacts",
+        appName: "Canvas App",
+        windowTitle: "Canvas App - Local",
+        screenshotRef: "artifact:visual-local:screenshot-redacted",
+        somRef: "artifact:visual-local:som",
+        axRef: "artifact:visual-local:ax",
+        coordinateSpaceId: "screen-visual-local",
+        viewportWidth: 1200,
+        viewportHeight: 800,
+        visualTargets: [
+          {
+            targetRef: "target-local-canvas",
+            label: "Main canvas",
+            role: "canvas",
+            somId: 1,
+            confidence: 0.88,
+            bounds: {
+              x: 10,
+              y: 20,
+              width: 500,
+              height: 360,
+              coordinateSpaceId: "screen-visual-local",
+            },
+            availableActions: ["inspect"],
+          },
+        ],
+      },
+    });
+
+    assert.equal(result.status, "completed");
+    assert.equal(result.object, "ioi.runtime_computer_use_visual_gui_result");
+    assert.equal(result.tool_name, "ioi.computer_use.visual_gui");
+    assert.equal(result.workflow_graph_id, "workflow.visual-gui-local-observation");
+    assert.equal(result.workflow_node_id, "visual-gui-local-observation");
+    assert.equal(result.event_count, expectedComputerUseEventTypes.length);
+    assert.equal(result.result.environmentSelection.selected_lane, "visual_gui");
+    assert.equal(result.result.environmentSelection.selected_session_mode, "foreground_desktop");
+    assert.equal(result.result.lease.status, "active");
+    assert.equal(result.result.lease.authority_scope, "computer_use.visual_gui.read");
+    assert.equal(result.result.runState.user_goal, "Inspect the local canvas app.");
+    assert.equal(
+      result.result.runState.current_subgoal,
+      "Observe the requested surface, index targets, and propose a grounded next action.",
+    );
+    assert.equal(result.result.observation.screenshot_ref, "artifact:visual-local:screenshot-redacted");
+    assert.equal(result.result.observation.som_ref, "artifact:visual-local:som");
+    assert.equal(result.result.observation.ax_ref, "artifact:visual-local:ax");
+    assert.equal(result.result.targetIndex.coordinate_space_id, "screen-visual-local");
+    assert.equal(result.result.targetIndex.targets[0].target_ref, "target-local-canvas");
+    assert.equal(result.result.affordanceGraph.affordances[0].required_authority, "computer_use.visual_gui.read");
+    assert.equal(result.result.action.action_kind, "inspect");
+    assert.equal(result.result.actionReceipt.adapter_id, "ioi.visual_gui.local_observation");
+    assert.equal(result.result.verification.status, "passed");
+    assert.equal(result.result.trajectory.entries[0].summary.includes("visual"), true);
+    assert.deepEqual(result.result.cleanup.retained_artifact_refs, [
+      "computer-use-trace.json",
+      "artifact:visual-local:screenshot-redacted",
+      "artifact:visual-local:som",
+      "artifact:visual-local:ax",
+    ]);
+
+    const runtimeEvents = [];
+    for await (const event of thread.events()) {
+      runtimeEvents.push(event);
+    }
+    const computerEvents = runtimeEvents.filter((event) => event.eventKind.startsWith("computer_use."));
+    assert.deepEqual(computerEvents.map((event) => event.type), expectedComputerUseEventTypes);
+    assert.equal(
+      computerEvents.some((event) => event.eventKind === "computer_use.environment_unavailable"),
+      false,
+    );
+    const selected = computerEvents.find((event) => event.eventKind === "computer_use.environment_selected");
+    assert.ok(selected);
+    assert.equal(selected.payload.computer_use_lane, "visual_gui");
+    assert.equal(selected.payload.computer_use_contract_ingest, "local_visual_observation");
+    const observation = computerEvents.find((event) => event.eventKind === "computer_use.observation");
+    assert.ok(observation);
+    assert.equal(observation.payload.observation_bundle.screenshot_ref, "artifact:visual-local:screenshot-redacted");
+    assert.equal(observation.payload.target_index.targets[0].target_ref, "target-local-canvas");
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("runtime daemon gates mutating native browser actions before execution", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-gate-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-gate-state-"));

@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 
 import { computerUseContractsFromBrowserObservationArtifacts } from "./computer-use-browser-artifacts.mjs";
+import { computerUseContractsFromVisualObservation } from "./computer-use-visual-observation.mjs";
 
 export const COMPUTER_USE_CONTRACT_SCHEMA_VERSION = "ioi.computer-use.harness.v1";
 
@@ -54,7 +55,6 @@ export function computerUseProjectionForRun({
   const requestedLane = requestedComputerUseLane(request);
   const requestedRetentionMode =
     workflowBinding.observationRetentionMode ?? "local_redacted_artifacts";
-  const contractOverrides = computerUseContractOverrides(request);
   const controlledRelaunchBroker = controlledRelaunchBrokerForRequest(request);
   const controlledRelaunchLaunchReceipt = controlledRelaunchLaunchReceiptForRequest(request);
   const controlledRelaunchLaunchAttempted = Boolean(controlledRelaunchLaunchReceipt);
@@ -62,9 +62,35 @@ export function computerUseProjectionForRun({
   const selectedSessionMode = selectedLane === "native_browser"
     ? requestedComputerUseSessionMode(request, selectedLane)
     : requestedComputerUseSessionMode(request, selectedLane);
+  const rawContractOverrides = computerUseContractOverrides(request);
+  const localVisualContracts = selectedLane === "visual_gui" && !rawContractOverrides.observationBundle
+    ? computerUseContractsFromVisualObservation({
+        request,
+        runId,
+        leaseId: `lease_${runId}_visual`,
+        observationRef: `observation_${runId}_visual_initial`,
+        targetIndexRef: `target_index_${runId}_visual_initial`,
+        affordanceGraphRef: `affordance_${runId}_visual_initial`,
+        retentionMode: requestedRetentionMode,
+        sessionMode: selectedSessionMode,
+      })
+    : null;
+  const contractOverrides = {
+    ...rawContractOverrides,
+    observationBundle:
+      rawContractOverrides.observationBundle ?? localVisualContracts?.observationBundle ?? null,
+    targetIndex: rawContractOverrides.targetIndex ?? localVisualContracts?.targetIndex ?? null,
+    affordanceGraph:
+      rawContractOverrides.affordanceGraph ?? localVisualContracts?.affordanceGraph ?? null,
+    adapterContract:
+      rawContractOverrides.adapterContract ?? localVisualContracts?.adapterContract ?? null,
+    cleanupReceipt:
+      rawContractOverrides.cleanupReceipt ?? localVisualContracts?.cleanupReceipt ?? null,
+  };
   const hasBrowserObservationArtifacts =
     selectedLane === "native_browser" &&
     Boolean(contractOverrides.browserObservationArtifacts);
+  const hasLocalVisualObservation = Boolean(localVisualContracts);
   const hasMountedContracts = Boolean(
     contractOverrides.observationBundle ||
     hasBrowserObservationArtifacts,
@@ -140,7 +166,9 @@ export function computerUseProjectionForRun({
   const affordanceGraphOverride =
     contractOverrides.affordanceGraph ?? browserArtifactContracts?.affordanceGraph ?? null;
   const contractIngest = contractOverrides.observationBundle
-    ? "canonical_runtime_contract"
+    ? hasLocalVisualObservation
+      ? "local_visual_observation"
+      : "canonical_runtime_contract"
     : browserArtifactContracts
       ? "browser_observation_artifacts"
       : controlledRelaunchLaunchReceipt
@@ -218,9 +246,11 @@ export function computerUseProjectionForRun({
         ? "An explicit host-browser launch approval started a controlled browser with an isolated temporary profile and CDP endpoint."
         : controlledRelaunchLaunchFailed
           ? "Controlled relaunch launch authority was requested but failed closed before an attachable browser endpoint was acquired."
-          : hasMountedContracts
-        ? `Mounted ${selectedLane}/${selectedSessionMode} contracts were supplied by the runtime executor.`
-        : "Native browser lane gives the strongest semantic grounding for web tasks.",
+          : hasLocalVisualObservation
+            ? "Local visual observation refs were supplied and compiled into IOI screenshot, SoM, accessibility, target, and affordance contracts."
+            : hasMountedContracts
+              ? `Mounted ${selectedLane}/${selectedSessionMode} contracts were supplied by the runtime executor.`
+              : "Native browser lane gives the strongest semantic grounding for web tasks.",
       "Visual and sandbox lanes remain explicit fallback options under the same IOI contracts.",
     ],
     risk_posture: mode === "dry_run"
@@ -358,10 +388,12 @@ export function computerUseProjectionForRun({
   const primaryTarget = targetIndex.targets[0] ?? pageTarget;
   const requestedTargetRef = requestedComputerUseTargetRef(request) ?? primaryTarget.target_ref;
   const normalizedActionCandidate = requestedActionKind === "inspect"
-    ? "inspect current page and summarize actionable targets"
+    ? selectedLane === "native_browser"
+      ? "inspect current page and summarize actionable targets"
+      : "inspect current visual surface and summarize actionable targets"
     : `${requestedActionKind} ${requestedTargetRef}`;
   const predictedPostcondition = requestedActionIsReadOnly
-    ? "The harness has a grounded page summary and next-action candidates."
+    ? "The harness has a grounded observation summary and next-action candidates."
     : requestedActionExecutionCompleted
       ? `The harness has a grounded ${requestedActionKind} action approved for execution, adapter evidence, and verified postcondition.`
       : requestedActionHasApproval
@@ -401,7 +433,7 @@ export function computerUseProjectionForRun({
     target_ref: requestedTargetRef,
     confidence: requestedActionIsReadOnly ? 92 : requestedActionExecutionCompleted ? 89 : 86,
     rationale_summary: requestedActionIsReadOnly
-      ? "The page root is present and read-only inspection is the lowest-risk next step."
+      ? "The observed surface is present and read-only inspection is the lowest-risk next step."
       : requestedActionExecutionCompleted
         ? `The requested ${requestedActionKind} action is grounded to the current target index and approval ${requestedActionApprovalRef} is present.`
         : requestedActionHasApproval
@@ -473,7 +505,7 @@ export function computerUseProjectionForRun({
         status: "completed",
         grounding_ref: targetIndex.target_index_ref,
         postcondition_summary: requestedActionIsReadOnly
-          ? "Read-only browser action was grounded in the observation and produced no external side effect."
+          ? "Read-only computer-use action was grounded in the observation and produced no external side effect."
           : "Approved mutating browser action was grounded in the observation and executed by the native-browser CDP adapter after confirmation.",
         verification_ref: verificationRef,
         evidence_refs: compactValues([
@@ -521,7 +553,7 @@ export function computerUseProjectionForRun({
     requested_outcome: requestedActionExecutionBlocked
       ? `Block the grounded ${requestedActionKind} browser action because the native-browser executor was unavailable.`
       : requestedActionIsReadOnly
-        ? "Produce a grounded browser observation summary without external side effects."
+        ? "Produce a grounded computer-use observation summary without external side effects."
         : requestedActionExecutionCompleted
         ? `Execute the approved grounded ${requestedActionKind} browser action and verify the postcondition.`
         : requestedActionHasApproval
@@ -589,7 +621,7 @@ export function computerUseProjectionForRun({
         sequence: 1,
         event_kind: "select_environment",
         receipt_ref: environmentSelection.receipt_ref,
-        summary: "Selected native browser lane with visual and sandbox lanes retained as fallbacks.",
+        summary: `Selected ${selectedLane}/${selectedSessionMode} lane with other computer-use lanes retained as fallbacks.`,
       },
       {
         sequence: 2,
