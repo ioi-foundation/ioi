@@ -6986,6 +6986,10 @@ export class AgentgresRuntimeStateStore {
     return this.modelMounting.legacyModelList();
   }
 
+  listModelCapabilities() {
+    return this.modelMounting.listModelCapabilities();
+  }
+
   listRepositories() {
     const context = repositoryContextForWorkspace({
       cwd: this.defaultCwd,
@@ -11135,6 +11139,10 @@ async function handleRequest({ request, response, store }) {
       writeJsonResponse(response, store.listModels());
       return;
     }
+    if (request.method === "GET" && url.pathname === "/v1/model-capabilities") {
+      writeJsonResponse(response, store.listModelCapabilities());
+      return;
+    }
     if (request.method === "GET" && url.pathname === "/v1/repositories") {
       writeJsonResponse(response, store.listRepositories());
       return;
@@ -11395,6 +11403,10 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
   }
   if (request.method === "GET" && url.pathname === "/api/v1/models") {
     writeJsonResponse(response, mounts.snapshot(baseUrl));
+    return;
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/model-capabilities") {
+    writeJsonResponse(response, mounts.listModelCapabilities());
     return;
   }
   if (request.method === "GET" && url.pathname === "/api/v1/models/catalog/search") {

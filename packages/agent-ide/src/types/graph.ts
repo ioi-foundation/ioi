@@ -1300,6 +1300,21 @@ export interface WorkflowCapabilityContractMetadata {
   marketplaceExposure?: Record<string, unknown>;
 }
 
+export interface WorkflowModelCapabilityContractMetadata {
+  credentialReadiness?: WorkflowCapabilityCredentialReadiness;
+  receiptBehavior?: Record<string, unknown>;
+  workflowAvailability?: WorkflowCapabilityAvailability;
+  agentAvailability?: WorkflowCapabilityAvailability;
+  privacyTier?: string;
+  providerPriority?: string[];
+  fallbackPolicy?: Record<string, unknown>;
+  fallbackEvidence?: Array<Record<string, unknown>>;
+  costEstimateVisibility?: Record<string, unknown>;
+  authorityScopeRequirements?: string[];
+  vaultReadiness?: Record<string, unknown>;
+  byokRequired?: boolean;
+}
+
 export interface WorkflowToolBinding {
   toolRef: string;
   bindingKind?: WorkflowToolBindingKind;
@@ -1570,6 +1585,18 @@ export interface WorkflowModelBinding {
   sideEffectClass: WorkflowSideEffectClass;
   requiresApproval: boolean;
   credentialReady?: boolean;
+  credentialReadiness?: WorkflowCapabilityCredentialReadiness;
+  receiptBehavior?: Record<string, unknown>;
+  workflowAvailability?: WorkflowCapabilityAvailability;
+  agentAvailability?: WorkflowCapabilityAvailability;
+  privacyTier?: string;
+  providerPriority?: string[];
+  fallbackPolicy?: Record<string, unknown>;
+  fallbackEvidence?: Array<Record<string, unknown>>;
+  costEstimateVisibility?: Record<string, unknown>;
+  authorityScopeRequirements?: string[];
+  vaultReadiness?: Record<string, unknown>;
+  byokRequired?: boolean;
   toolUseMode?: "none" | "explicit" | "auto";
 }
 
@@ -1977,6 +2004,21 @@ export interface GraphModelBinding {
   modelId: string;
   modelHash?: string;
   required?: boolean;
+  modelRef?: string;
+  routeId?: string;
+  mockBinding?: boolean;
+  credentialReadiness?: WorkflowCapabilityCredentialReadiness;
+  receiptBehavior?: Record<string, unknown>;
+  workflowAvailability?: WorkflowCapabilityAvailability;
+  agentAvailability?: WorkflowCapabilityAvailability;
+  privacyTier?: string;
+  providerPriority?: string[];
+  fallbackPolicy?: Record<string, unknown>;
+  fallbackEvidence?: Array<Record<string, unknown>>;
+  costEstimateVisibility?: Record<string, unknown>;
+  authorityScopeRequirements?: string[];
+  vaultReadiness?: Record<string, unknown>;
+  byokRequired?: boolean;
 }
 
 export interface GraphProductionProfile {

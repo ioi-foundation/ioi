@@ -137,9 +137,11 @@ test("model routing parity keeps canonical route decisions modular and workflow-
   const facade = readRepoFile("packages/runtime-daemon/src/model-mounting.mjs");
   const routeDecision = readRepoFile("packages/runtime-daemon/src/model-mounting/route-decision.mjs");
   const workflow = readRepoFile("packages/agent-ide/src/runtime/harness-workflow/core.ts");
+  const modelCapability = readRepoFile("packages/runtime-daemon/src/model-mounting/model-capability.mjs");
 
   assert.match(facade, /createModelRouteDecision/);
   assert.match(facade, /routeDecisionProjectionFromReceipt/);
+  assert.match(facade, /listModelCapabilities/);
   assert.match(facade, /providerRequestBodyForRoute/);
   assert.match(routeDecision, /MODEL_ROUTE_DECISION_SCHEMA_VERSION/);
   assert.match(routeDecision, /MODEL_ROUTE_DECISION_EVENT_KIND/);
@@ -148,6 +150,11 @@ test("model routing parity keeps canonical route decisions modular and workflow-
   assert.match(routeDecision, /localRemotePlacement/);
   assert.match(routeDecision, /privacyPosture/);
   assert.match(routeDecision, /costEstimateUsd/);
+  assert.match(modelCapability, /MODEL_CAPABILITY_SCHEMA_VERSION/);
+  assert.match(modelCapability, /providerPriority/);
+  assert.match(modelCapability, /fallbackPolicy/);
+  assert.match(modelCapability, /costEstimateVisibility/);
+  assert.match(modelCapability, /credentialReadiness/);
   assert.match(workflow, /"ModelRouteDecision"/);
   assert.match(workflow, /"reasoning_effort"/);
   assert.match(workflow, /"privacy_posture"/);
@@ -164,6 +171,32 @@ async function waitForReceipt(endpoint, predicate, { timeoutMs = 2000 } = {}) {
   }
   assert.fail("Expected receipt was not recorded before timeout.");
 }
+
+test("model capability projection exposes canonical readiness contracts", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-capability-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-capability-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const capabilities = await expectOk(daemon.endpoint, "/api/v1/model-capabilities");
+    const publicCapabilities = await expectOk(daemon.endpoint, "/v1/model-capabilities");
+    const localFirst = capabilities.find((capability) => capability.routeId === "route.local-first");
+
+    assert.ok(localFirst);
+    assert.deepEqual(publicCapabilities, capabilities);
+    assert.equal(localFirst.schemaVersion, "ioi.model-capability.v1");
+    assert.equal(localFirst.object, "ioi.model_capability");
+    assert.equal(localFirst.policyTarget, "model.route.local-first");
+    assert.equal(localFirst.credentialReadiness.status, "ready");
+    assert.equal(localFirst.workflowAvailability.available, true);
+    assert.equal(localFirst.agentAvailability.available, true);
+    assert.equal(localFirst.receiptBehavior.receiptRequired, true);
+    assert.equal(localFirst.fallbackPolicy.deterministicOrder, true);
+    assert.ok(localFirst.authorityScopeRequirements.includes("model.chat:*"));
+    assert.equal(JSON.stringify(capabilities).includes("sk-"), false);
+  } finally {
+    await daemon.close();
+  }
+});
 
 test("model=auto resolves to a canonical ModelRouteDecision before provider invocation and workflow replay", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-route-decision-workspace-"));
