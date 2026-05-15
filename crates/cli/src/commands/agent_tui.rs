@@ -98,6 +98,7 @@ const TUI_RUN_TRACE_ROUTE_TEMPLATE: &str = "/v1/runs/{run_id}/trace";
 const TUI_RUN_INSPECT_ROUTE_TEMPLATE: &str = "/v1/runs/{run_id}/inspect";
 const TUI_RUN_CODING_TOOL_BUDGET_RECOVERY_ROUTE_TEMPLATE: &str =
     "/v1/runs/{run_id}/coding-tool-budget-recovery";
+const TUI_BROWSER_DISCOVERY_TOOL_ID: &str = "ioi.computer_use.browser_discovery";
 
 #[derive(Parser, Debug)]
 pub struct AgentTuiArgs {
@@ -1690,12 +1691,27 @@ pub(crate) async fn invoke_tui_coding_tool(
         &route,
         Some(serde_json::json!({
             "source": "cli_tui",
-            "workflow_node_id": format!("runtime.coding-tool.{}", safe_id(tool_id)),
-            "component_kind": "coding_tool",
+            "workflow_node_id": tui_thread_tool_workflow_node_id(tool_id),
+            "component_kind": tui_thread_tool_component_kind(tool_id),
             "input": input,
         })),
     )
     .await
+}
+
+fn tui_thread_tool_workflow_node_id(tool_id: &str) -> String {
+    if tool_id == TUI_BROWSER_DISCOVERY_TOOL_ID {
+        return "computer-use.browser-discovery.tui".to_string();
+    }
+    format!("runtime.coding-tool.{}", safe_id(tool_id))
+}
+
+fn tui_thread_tool_component_kind(tool_id: &str) -> &'static str {
+    if tool_id == TUI_BROWSER_DISCOVERY_TOOL_ID {
+        "computer_use_harness"
+    } else {
+        "coding_tool"
+    }
 }
 
 pub(crate) async fn list_tui_workspace_snapshots(
@@ -1883,8 +1899,8 @@ pub(crate) async fn list_tui_tasks_for_thread(
     Ok(tasks
         .iter()
         .filter(|task| {
-            let task_thread_id =
-                json_path_string(task, "/threadId").or_else(|| json_path_string(task, "/thread_id"));
+            let task_thread_id = json_path_string(task, "/threadId")
+                .or_else(|| json_path_string(task, "/thread_id"));
             match (thread_id.as_deref(), task_thread_id.as_deref()) {
                 (Some(expected), Some(actual)) => actual == expected,
                 _ => true,
@@ -5579,7 +5595,10 @@ mod tests {
         assert_eq!(task_rows[0]["row_kind"], "task");
         assert_eq!(task_rows[0]["task_id"], "task_run_live");
         assert_eq!(task_rows[0]["run_id"], "run_live");
-        assert_eq!(task_rows[0]["cancel_endpoint"], "/v1/tasks/task_run_live/cancel");
+        assert_eq!(
+            task_rows[0]["cancel_endpoint"],
+            "/v1/tasks/task_run_live/cancel"
+        );
         assert_eq!(
             task_rows[0]["react_flow"]["workflow_node_id"],
             "runtime.runtime-task"

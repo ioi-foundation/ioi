@@ -4,26 +4,25 @@ use super::agent_event_stream::{format_runtime_event_line, json_path_string};
 use super::agent_tui::{
     add_tui_mcp_server, apply_tui_workspace_restore, assign_tui_subagent, cancel_tui_job,
     cancel_tui_run, cancel_tui_subagent, cancel_tui_task, decide_tui_approval, delete_tui_memory,
-    edit_tui_memory,
-    evaluate_tui_compaction_policy, evaluate_tui_context_budget,
+    edit_tui_memory, evaluate_tui_compaction_policy, evaluate_tui_context_budget,
     execute_tui_diagnostics_repair_decision, execute_tui_run_coding_tool_budget_recovery,
     fetch_tui_event_batch, fetch_tui_job, fetch_tui_mcp_tool, fetch_tui_run, fetch_tui_run_trace,
-    fetch_tui_subagent_result, fetch_tui_task, fetch_tui_thread, fetch_tui_thread_usage, import_tui_mcp,
-    inspect_tui_mcp_status, inspect_tui_memory_path, inspect_tui_memory_policy,
+    fetch_tui_subagent_result, fetch_tui_task, fetch_tui_thread, fetch_tui_thread_usage,
+    import_tui_mcp, inspect_tui_mcp_status, inspect_tui_memory_path, inspect_tui_memory_policy,
     inspect_tui_memory_status, inspect_tui_run, interrupt_tui_turn, invoke_tui_coding_tool,
     invoke_tui_mcp_tool, latest_event_seq, latest_usage_delta_status, list_tui_jobs_for_thread,
     list_tui_memory_records, list_tui_subagents, list_tui_tasks_for_thread,
-    list_tui_workspace_snapshots,
-    preview_tui_workspace_restore, propagate_tui_subagent_cancellation, remember_tui_memory,
-    remove_tui_mcp_server, replay_tui_run_events, resume_tui_subagent, resume_tui_thread,
-    search_tui_mcp_tools, selected_run_id_from_thread, selected_turn_id_from_values,
-    send_tui_subagent_input, set_tui_mcp_server_enabled, spawn_tui_subagent, steer_tui_turn,
-    thread_id_from_value, tui_approval_decisions, tui_approval_rows, tui_coding_tool_rows,
-    tui_context_pressure_rows, tui_context_rows, tui_cost_rows, tui_job_rows, tui_mcp_rows,
-    tui_memory_rows, tui_mode_status, tui_run_lifecycle_rows, tui_subagent_rows, tui_task_rows,
-    tui_usage_delta_rows, tui_usage_status, tui_workspace_trust_rows, update_tui_memory_policy,
-    update_tui_thread_mode, update_tui_thread_model, update_tui_thread_thinking, validate_tui_mcp,
-    validate_tui_memory, wait_tui_subagent,
+    list_tui_workspace_snapshots, preview_tui_workspace_restore,
+    propagate_tui_subagent_cancellation, remember_tui_memory, remove_tui_mcp_server,
+    replay_tui_run_events, resume_tui_subagent, resume_tui_thread, search_tui_mcp_tools,
+    selected_run_id_from_thread, selected_turn_id_from_values, send_tui_subagent_input,
+    set_tui_mcp_server_enabled, spawn_tui_subagent, steer_tui_turn, thread_id_from_value,
+    tui_approval_decisions, tui_approval_rows, tui_coding_tool_rows, tui_context_pressure_rows,
+    tui_context_rows, tui_cost_rows, tui_job_rows, tui_mcp_rows, tui_memory_rows, tui_mode_status,
+    tui_run_lifecycle_rows, tui_subagent_rows, tui_task_rows, tui_usage_delta_rows,
+    tui_usage_status, tui_workspace_trust_rows, update_tui_memory_policy, update_tui_thread_mode,
+    update_tui_thread_model, update_tui_thread_thinking, validate_tui_mcp, validate_tui_memory,
+    wait_tui_subagent,
 };
 use anyhow::{anyhow, Result};
 use serde_json::{Map, Value};
@@ -75,6 +74,7 @@ pub(crate) enum TuiLineCommand {
     },
     Cost,
     Context,
+    BrowserDiscovery,
     Mcp {
         action: Option<String>,
     },
@@ -362,6 +362,18 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                     line.trim(),
                     "applied",
                     Some("context budget and compaction policy inspected"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::BrowserDiscovery) => {
+                let events = handle_browser_discovery_command(&mut session).await?;
+                control_state.record_command(
+                    "browser-discovery",
+                    line.trim(),
+                    "applied",
+                    Some("browser discovery receipt emitted"),
                     &session,
                     &events,
                 );
@@ -903,6 +915,24 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 return Err(anyhow!("/context does not accept extra arguments"));
             }
             Ok(TuiLineCommand::Context)
+        }
+        "browser-discovery" | "browser-discover" | "discover-browsers" => {
+            if !rest.is_empty() {
+                return Err(anyhow!("/{command} does not accept extra arguments"));
+            }
+            Ok(TuiLineCommand::BrowserDiscovery)
+        }
+        "computer-use" => {
+            if matches!(
+                rest,
+                "browser-discovery" | "browser-discover" | "discover-browsers"
+            ) {
+                Ok(TuiLineCommand::BrowserDiscovery)
+            } else {
+                Err(anyhow!(
+                    "/computer-use currently accepts browser-discovery; use /help"
+                ))
+            }
         }
         "mcp" => Ok(TuiLineCommand::Mcp {
             action: non_empty_string(rest),
@@ -2446,6 +2476,15 @@ async fn handle_coding_tool_command(
     handle_coding_tool_input_command(session, tool_id, input).await
 }
 
+async fn handle_browser_discovery_command(
+    session: &mut TuiInteractiveSession,
+) -> Result<Vec<Value>> {
+    let mut input = serde_json::Map::new();
+    input.insert("includeTabs".to_string(), Value::Bool(false));
+    input.insert("revealTabTitles".to_string(), Value::Bool(false));
+    handle_coding_tool_input_command(session, "ioi.computer_use.browser_discovery", input).await
+}
+
 async fn handle_coding_tool_input_command(
     session: &mut TuiInteractiveSession,
     tool_id: &str,
@@ -3032,12 +3071,13 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
         "lsp.diagnostics" => "diagnostics",
         "artifact.read" => "artifact",
         "tool.retrieve_result" => "retrieve",
+        "ioi.computer_use.browser_discovery" => "browser-discovery",
         _ => "tool",
     }
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -4057,6 +4097,14 @@ mod tests {
         assert_eq!(
             parse_tui_line_command("/context").unwrap(),
             TuiLineCommand::Context
+        );
+        assert_eq!(
+            parse_tui_line_command("/browser-discovery").unwrap(),
+            TuiLineCommand::BrowserDiscovery
+        );
+        assert_eq!(
+            parse_tui_line_command("/computer-use browser-discovery").unwrap(),
+            TuiLineCommand::BrowserDiscovery
         );
         assert_eq!(
             parse_tui_line_command("/mcp tools").unwrap(),
