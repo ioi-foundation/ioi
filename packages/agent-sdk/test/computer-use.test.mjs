@@ -20,6 +20,7 @@ import {
   isActionProposalReadyForExecution,
   observationRetentionAllowsRawPersistence,
   outcomeContractForGoal,
+  planComputerUseHarnessImprovement,
   recoveryPolicyForComputerUseFailure,
 } from "../dist/index.js";
 import { createMockRuntimeSubstrateClient } from "../dist/testing.js";
@@ -294,34 +295,43 @@ test("computer-use trajectory eval projects pass and fail-closed outcomes", () =
     "trajectory-eval",
   ]);
 
-  const blocked = evaluateComputerUseTrajectory({
-    trace: {
-      environmentSelection: {
-        run_id: "run-blocked",
-        selected_lane: "sandboxed_hosted",
-        selected_session_mode: "hosted_sandbox",
-      },
-      runState: { blocker_state: "adapter_unavailable" },
-      observation: { observation_ref: "observation-blocked" },
-      targetIndex: { target_index_ref: "target-index-blocked" },
-      actionProposal: { proposal_ref: "proposal-blocked" },
-      verification: {
-        verification_ref: "verification-blocked",
-        status: "blocked",
-      },
-      cleanup: { cleanup_ref: "cleanup-blocked", status: "not_required" },
-      trajectory: {
-        trajectory_ref: "trajectory-blocked",
-        run_id: "run-blocked",
-        entries: [{ sequence: 1, event_kind: "propose_action" }],
-      },
+  const blockedTrace = {
+    environmentSelection: {
+      run_id: "run-blocked",
+      selected_lane: "sandboxed_hosted",
+      selected_session_mode: "hosted_sandbox",
     },
-  });
+    runState: { blocker_state: "adapter_unavailable" },
+    observation: { observation_ref: "observation-blocked" },
+    targetIndex: { target_index_ref: "target-index-blocked" },
+    actionProposal: { proposal_ref: "proposal-blocked" },
+    verification: {
+      verification_ref: "verification-blocked",
+      status: "blocked",
+    },
+    cleanup: { cleanup_ref: "cleanup-blocked", status: "not_required" },
+    trajectory: {
+      trajectory_ref: "trajectory-blocked",
+      run_id: "run-blocked",
+      entries: [{ sequence: 1, event_kind: "propose_action" }],
+    },
+  };
+  const blocked = evaluateComputerUseTrajectory({ trace: blockedTrace });
   assert.equal(blocked.outcome, "blocked");
   assert.equal(blocked.score, 0.5);
   assert.equal(blocked.failure_class, "environment");
   assert.equal(blocked.failure_mode, "sandbox_unavailable");
   assert.equal(blocked.summary.includes("failed closed"), true);
+
+  const improvementPlan = planComputerUseHarnessImprovement({
+    trace: blockedTrace,
+    eval: blocked,
+  });
+  assert.equal(improvementPlan.outcome, "blocked");
+  assert.equal(improvementPlan.recovery_policy.failure_mode, "sandbox_unavailable");
+  assert.equal(improvementPlan.patch_proposals[0].target_surface, "adapter");
+  assert.equal(improvementPlan.shadow_replay.status, "required_before_promotion");
+  assert.equal(improvementPlan.promotion_gate.status, "blocked_external_adapter");
 });
 
 test("computer-use model adapters normalize OpenAI-style actions into IOI proposals and actions", () => {
@@ -685,6 +695,10 @@ test("runtime daemon emits canonical computer-use events for browser prompts", a
     assert.equal(trajectoryEval.score, 1);
     assert.equal(trajectoryEval.lane, "native_browser");
     assert.equal(trajectoryEval.missing_regression_gates.length, 0);
+    const improvementPlan = await run.computerUseHarnessImprovementPlan();
+    assert.equal(improvementPlan.outcome, "passed");
+    assert.equal(improvementPlan.patch_proposals.length, 0);
+    assert.equal(improvementPlan.promotion_gate.status, "not_required");
 
     const thread = await agent.thread();
     const runtimeEvents = [];

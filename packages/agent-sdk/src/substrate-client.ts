@@ -5,6 +5,8 @@ import path from "node:path";
 import { IoiAgentError, type IoiAgentErrorCode } from "./errors.js";
 import {
   evaluateComputerUseTrajectory,
+  planComputerUseHarnessImprovement,
+  type ComputerUseHarnessImprovementPlan,
   type ComputerUseTrajectoryEvalProjection,
 } from "./computer-use.js";
 import {
@@ -1402,6 +1404,7 @@ export interface RuntimeSubstrateClient {
   getRunComputerUseTrace(runId: string): Promise<RuntimeTraceBundle["computerUse"]>;
   getRunComputerUseTrajectory(runId: string): Promise<unknown>;
   getRunComputerUseTrajectoryEval(runId: string): Promise<ComputerUseTrajectoryEvalProjection>;
+  getRunComputerUseHarnessImprovementPlan(runId: string): Promise<ComputerUseHarnessImprovementPlan>;
   discoverComputerUseBrowsers(
     options?: RuntimeComputerUseBrowserDiscoveryOptions,
   ): Promise<RuntimeComputerUseBrowserDiscoveryReport>;
@@ -2008,6 +2011,14 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
   ): Promise<ComputerUseTrajectoryEvalProjection> {
     const trace = await this.getRunComputerUseTrace(runId);
     return evaluateComputerUseTrajectory({ trace });
+  }
+
+  async getRunComputerUseHarnessImprovementPlan(
+    runId: string,
+  ): Promise<ComputerUseHarnessImprovementPlan> {
+    const trace = await this.getRunComputerUseTrace(runId);
+    const evalProjection = evaluateComputerUseTrajectory({ trace });
+    return planComputerUseHarnessImprovement({ trace, eval: evalProjection });
   }
 
   async discoverComputerUseBrowsers(
@@ -4841,6 +4852,14 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
   ): Promise<ComputerUseTrajectoryEvalProjection> {
     const trace = await this.getRunComputerUseTrace(runId);
     return evaluateComputerUseTrajectory({ trace });
+  }
+
+  async getRunComputerUseHarnessImprovementPlan(
+    runId: string,
+  ): Promise<ComputerUseHarnessImprovementPlan> {
+    const trace = await this.getRunComputerUseTrace(runId);
+    const evalProjection = evaluateComputerUseTrajectory({ trace });
+    return planComputerUseHarnessImprovement({ trace, eval: evalProjection });
   }
 
   async discoverComputerUseBrowsers(

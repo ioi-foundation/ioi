@@ -12,6 +12,7 @@ export {
   isActionProposalReadyForExecution,
   observationRetentionAllowsRawPersistence,
   outcomeContractForGoal,
+  planComputerUseHarnessImprovement,
   recoveryPolicyForComputerUseFailure,
 } from "./computer-use.js";
 export { Run } from "./run.js";
@@ -105,6 +106,10 @@ export type {
   ComputerUseFailureClass,
   ComputerUseFailureMode,
   ComputerUseHarnessContract,
+  ComputerUseHarnessImprovementInput,
+  ComputerUseHarnessImprovementPlan,
+  ComputerUseHarnessPatchProposal,
+  ComputerUseHarnessPatchTarget,
   ComputerUseLane,
   ComputerUseLease,
   ComputerUseModelActionAdapterInput,
@@ -125,6 +130,7 @@ export type {
   ComputerUseTrajectoryEvalOutcome,
   ComputerUseTrajectoryEvalProjection,
   ComputerUseTrajectoryEntry,
+  ComputerUsePromotionGateReceipt,
   ComputerUseVerificationReceipt,
   ComputerUseVerificationStatus,
   EnvironmentOptionRejection,
@@ -139,6 +145,7 @@ export type {
   OutcomeContract,
   OutcomeContractInput,
   RecoveryPolicy,
+  ComputerUseShadowReplayPlan,
   TargetIndex,
 } from "./computer-use.js";
 export type {
