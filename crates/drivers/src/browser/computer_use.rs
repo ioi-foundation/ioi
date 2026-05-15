@@ -1,7 +1,8 @@
 use super::BrowserObservationArtifacts;
 use ioi_types::app::runtime::computer_use::{
-    ComputerControlAdapterContract, ComputerUseLane, ComputerUseLease,
-    ComputerUseObservationBundle, ComputerUseSessionMode, ObservationRetentionMode,
+    AffordanceGraph, AffordanceRecord, ComputerActionKind, ComputerControlAdapterContract,
+    ComputerUseLane, ComputerUseLease, ComputerUseObservationBundle, ComputerUseSessionMode,
+    ComputerUseTargetEntry, ObservationRetentionMode, TargetIndex,
 };
 
 fn artifact_ref(observation_ref: &str, suffix: &str, present: bool) -> Option<String> {
@@ -63,6 +64,261 @@ pub fn observation_bundle_from_browser_artifacts(
         ),
         retention_mode: ObservationRetentionMode::PromptVisibleSummaryOnly,
         ..ComputerUseObservationBundle::default()
+    }
+}
+
+pub fn target_index_from_browser_artifacts(
+    observation: &ComputerUseObservationBundle,
+    artifacts: &BrowserObservationArtifacts,
+) -> TargetIndex {
+    let coordinate_space_id = format!("viewport:{}", observation.observation_ref);
+    let mut targets = artifacts
+        .browser_use_selector_map_text
+        .as_deref()
+        .map(|selector_map| {
+            selector_map_targets(
+                selector_map,
+                &observation.observation_ref,
+                observation.ax_ref.as_deref(),
+            )
+        })
+        .unwrap_or_default();
+    if targets.is_empty() {
+        targets.push(document_target(
+            observation,
+            &coordinate_space_id,
+            artifacts.browsergym_focused_bid.as_deref(),
+        ));
+    }
+    TargetIndex {
+        target_index_ref: observation
+            .target_index_ref
+            .clone()
+            .unwrap_or_else(|| format!("{}:target_index", observation.observation_ref)),
+        observation_ref: observation.observation_ref.clone(),
+        coordinate_space_id,
+        drift_state: "fresh".to_string(),
+        targets,
+    }
+}
+
+pub fn affordance_graph_from_target_index(target_index: &TargetIndex) -> AffordanceGraph {
+    let affordances = target_index
+        .targets
+        .iter()
+        .flat_map(|target| {
+            target
+                .available_actions
+                .iter()
+                .map(|action| AffordanceRecord {
+                    target_ref: target.target_ref.clone(),
+                    possible_action: *action,
+                    action_preconditions: vec![
+                        "fresh_observation".to_string(),
+                        "target_index_present".to_string(),
+                        "grounded_target_ref".to_string(),
+                    ],
+                    confidence: target.confidence,
+                    expected_state_transition: expected_transition_for_action(*action),
+                    risk_class: risk_class_for_action(*action).to_string(),
+                    required_authority: authority_for_action(*action).to_string(),
+                    confirmation_required: confirmation_required_for_action(*action),
+                    fallback_action_paths: vec![
+                        "reobserve".to_string(),
+                        "switch_to_visual_lane".to_string(),
+                    ],
+                    invalidation_conditions: vec![
+                        "navigation".to_string(),
+                        "modal_interruption".to_string(),
+                        "target_drift".to_string(),
+                    ],
+                })
+        })
+        .collect();
+    AffordanceGraph {
+        graph_ref: format!("{}:affordance_graph", target_index.target_index_ref),
+        target_index_ref: target_index.target_index_ref.clone(),
+        observation_ref: target_index.observation_ref.clone(),
+        affordances,
+    }
+}
+
+fn selector_map_targets(
+    selector_map: &str,
+    observation_ref: &str,
+    ax_ref: Option<&str>,
+) -> Vec<ComputerUseTargetEntry> {
+    selector_map
+        .lines()
+        .filter_map(|line| selector_map_target(line, observation_ref, ax_ref))
+        .collect()
+}
+
+fn selector_map_target(
+    line: &str,
+    observation_ref: &str,
+    ax_ref: Option<&str>,
+) -> Option<ComputerUseTargetEntry> {
+    let trimmed = line.trim();
+    let backend_id = trimmed
+        .strip_prefix('[')?
+        .split_once(']')?
+        .0
+        .trim()
+        .to_string();
+    let tag = trimmed
+        .split_once('<')
+        .and_then(|(_, rest)| rest.split_whitespace().next())
+        .unwrap_or("element")
+        .trim_matches('/')
+        .to_ascii_lowercase();
+    let target_id = attr_value(trimmed, "target_id");
+    let label = attr_value(trimmed, "name")
+        .or_else(|| attr_value(trimmed, "aria-label"))
+        .or_else(|| attr_value(trimmed, "placeholder"))
+        .unwrap_or_else(|| tag.clone());
+    let mut semantic_ids = vec![format!("browser-use.backend-node:{backend_id}")];
+    if let Some(target_id) = target_id.as_deref() {
+        semantic_ids.push(format!("browser-use.target:{target_id}"));
+    }
+    Some(ComputerUseTargetEntry {
+        target_ref: target_id
+            .map(|target_id| format!("target:{observation_ref}:{target_id}"))
+            .unwrap_or_else(|| format!("target:{observation_ref}:backend:{backend_id}")),
+        label,
+        role: role_for_tag(&tag).to_string(),
+        semantic_ids,
+        selectors: vec![format!("browser-use://backend-node/{backend_id}")],
+        som_id: None,
+        ax_ref: ax_ref.map(|value| format!("{value}#backend-{backend_id}")),
+        bounds: None,
+        confidence: confidence_for_tag(&tag),
+        available_actions: actions_for_tag(&tag),
+    })
+}
+
+fn document_target(
+    observation: &ComputerUseObservationBundle,
+    coordinate_space_id: &str,
+    focused_bid: Option<&str>,
+) -> ComputerUseTargetEntry {
+    let mut semantic_ids = vec!["document".to_string(), "page-root".to_string()];
+    if let Some(focused_bid) = focused_bid {
+        semantic_ids.push(format!("browsergym.bid:{focused_bid}"));
+    }
+    ComputerUseTargetEntry {
+        target_ref: format!("target:{}:document", observation.observation_ref),
+        label: observation
+            .title
+            .clone()
+            .unwrap_or_else(|| "Current page".to_string()),
+        role: "document".to_string(),
+        semantic_ids,
+        selectors: vec!["html".to_string(), "body".to_string()],
+        som_id: None,
+        ax_ref: observation
+            .ax_ref
+            .as_ref()
+            .map(|value| format!("{value}#document")),
+        bounds: Some(ioi_types::app::runtime::computer_use::ComputerUseBounds {
+            x: 0,
+            y: 0,
+            width: 1280,
+            height: 720,
+            coordinate_space_id: coordinate_space_id.to_string(),
+        }),
+        confidence: 90,
+        available_actions: vec![ComputerActionKind::Inspect, ComputerActionKind::Scroll],
+    }
+}
+
+fn attr_value(line: &str, attr: &str) -> Option<String> {
+    let needle = format!("{attr}=");
+    let start = line.find(&needle)? + needle.len();
+    let rest = &line[start..];
+    let value = if let Some(stripped) = rest.strip_prefix('"') {
+        stripped.split_once('"')?.0
+    } else {
+        rest.split_whitespace()
+            .next()
+            .unwrap_or("")
+            .trim_end_matches("/>")
+            .trim_end_matches('/')
+    };
+    (!value.trim().is_empty()).then(|| value.trim().to_string())
+}
+
+fn role_for_tag(tag: &str) -> &'static str {
+    match tag {
+        "a" => "link",
+        "button" => "button",
+        "input" | "textarea" => "textbox",
+        "select" => "combobox",
+        _ => "element",
+    }
+}
+
+fn actions_for_tag(tag: &str) -> Vec<ComputerActionKind> {
+    match tag {
+        "button" | "a" => vec![ComputerActionKind::Inspect, ComputerActionKind::Click],
+        "input" | "textarea" => vec![ComputerActionKind::Inspect, ComputerActionKind::TypeText],
+        "select" => vec![ComputerActionKind::Inspect, ComputerActionKind::Select],
+        _ => vec![ComputerActionKind::Inspect],
+    }
+}
+
+fn confidence_for_tag(tag: &str) -> u8 {
+    match tag {
+        "button" | "a" | "input" | "textarea" | "select" => 94,
+        _ => 82,
+    }
+}
+
+fn authority_for_action(action: ComputerActionKind) -> &'static str {
+    match action {
+        ComputerActionKind::Inspect
+        | ComputerActionKind::Scroll
+        | ComputerActionKind::Hover
+        | ComputerActionKind::Wait => "computer_use.native_browser.read",
+        _ => "computer_use.native_browser.act",
+    }
+}
+
+fn risk_class_for_action(action: ComputerActionKind) -> &'static str {
+    match action {
+        ComputerActionKind::Inspect
+        | ComputerActionKind::Scroll
+        | ComputerActionKind::Hover
+        | ComputerActionKind::Wait => "read_only",
+        _ => "possible_external_effect",
+    }
+}
+
+fn confirmation_required_for_action(action: ComputerActionKind) -> bool {
+    !matches!(
+        action,
+        ComputerActionKind::Inspect
+            | ComputerActionKind::Scroll
+            | ComputerActionKind::Hover
+            | ComputerActionKind::Wait
+    )
+}
+
+fn expected_transition_for_action(action: ComputerActionKind) -> String {
+    match action {
+        ComputerActionKind::Inspect => {
+            "A read-only inspection summary can be produced without external side effects."
+                .to_string()
+        }
+        ComputerActionKind::Scroll => {
+            "The viewport position changes after a grounded scroll.".to_string()
+        }
+        ComputerActionKind::Click => {
+            "The selected element may activate navigation, submit, or open UI state.".to_string()
+        }
+        ComputerActionKind::TypeText => "The selected field receives text input.".to_string(),
+        ComputerActionKind::Select => "The selected option changes form state.".to_string(),
+        _ => "The target state changes according to the grounded browser action.".to_string(),
     }
 }
 
@@ -141,5 +397,67 @@ mod tests {
             bundle.retention_mode,
             ObservationRetentionMode::PromptVisibleSummaryOnly
         );
+    }
+
+    #[test]
+    fn browser_artifacts_project_selector_map_to_targets_and_affordances() {
+        let mut artifacts = artifacts();
+        artifacts.browser_use_selector_map_text = Some(
+            "[42] <button name=Submit target_id=target-submit />\n\
+             [43] <input name=Search placeholder=Search target_id=target-search />"
+                .to_string(),
+        );
+        let observation = observation_bundle_from_browser_artifacts("lease:1", "obs:1", &artifacts);
+        let target_index = target_index_from_browser_artifacts(&observation, &artifacts);
+
+        assert_eq!(target_index.target_index_ref, "obs:1:target_index");
+        assert_eq!(target_index.targets.len(), 2);
+        let button = &target_index.targets[0];
+        assert_eq!(button.target_ref, "target:obs:1:target-submit");
+        assert_eq!(button.label, "Submit");
+        assert_eq!(button.role, "button");
+        assert!(button
+            .available_actions
+            .contains(&ComputerActionKind::Click));
+        let input = &target_index.targets[1];
+        assert_eq!(input.label, "Search");
+        assert!(input
+            .available_actions
+            .contains(&ComputerActionKind::TypeText));
+
+        let affordance_graph = affordance_graph_from_target_index(&target_index);
+        assert_eq!(
+            affordance_graph.target_index_ref,
+            target_index.target_index_ref
+        );
+        assert!(affordance_graph.affordances.iter().any(|affordance| {
+            affordance.target_ref == button.target_ref
+                && affordance.possible_action == ComputerActionKind::Click
+                && affordance.confirmation_required
+                && affordance.risk_class == "possible_external_effect"
+        }));
+        assert!(affordance_graph.affordances.iter().any(|affordance| {
+            affordance.target_ref == input.target_ref
+                && affordance.possible_action == ComputerActionKind::Inspect
+                && !affordance.confirmation_required
+                && affordance.required_authority == "computer_use.native_browser.read"
+        }));
+    }
+
+    #[test]
+    fn browser_artifacts_fallback_to_document_target_without_selector_map() {
+        let mut artifacts = artifacts();
+        artifacts.browser_use_selector_map_text = None;
+        let observation = observation_bundle_from_browser_artifacts("lease:1", "obs:1", &artifacts);
+        let target_index = target_index_from_browser_artifacts(&observation, &artifacts);
+
+        assert_eq!(target_index.targets.len(), 1);
+        assert_eq!(target_index.targets[0].role, "document");
+        assert!(target_index.targets[0]
+            .semantic_ids
+            .contains(&"browsergym.bid:bid-1".to_string()));
+        assert!(target_index.targets[0]
+            .available_actions
+            .contains(&ComputerActionKind::Scroll));
     }
 }

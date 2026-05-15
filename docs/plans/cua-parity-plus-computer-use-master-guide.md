@@ -624,7 +624,7 @@ Required guarantees:
 | Environment planner | Started: `EnvironmentSelectionReceipt` is SDK/daemon trace-visible and explicit visual/sandbox requests fail closed; full daemon planner pending |
 | Affordance/action proposal pipeline | Started: target index, affordance graph, policy-gated `ActionProposal`, grounded `ComputerAction`, and `ActionReceipt` are SDK/daemon trace-visible; adapter executor pending |
 | Recovery, handoff, and commit gates | Not started |
-| Native browser parity | Not started |
+| Native browser parity | Started: owned browser artifacts now project into canonical observation bundles, target indexes, and affordance graphs; daemon executor still needs to consume live adapter output |
 | Visual GUI parity | Started: unavailable requests fail closed with recovery policy evidence; GUI adapter pending |
 | Sandboxed/hosted parity | Started: unavailable requests fail closed with recovery policy evidence; hosted adapter pending |
 | Trajectory replay | Started: `ComputerUseTrajectoryBundle` is emitted as trace data; replay reader/eval projection pending |
