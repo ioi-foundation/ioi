@@ -8,6 +8,7 @@ import type {
 } from "./messages.js";
 import type { StreamOptions } from "./options.js";
 import type {
+  ComputerUseBenchmarkCaseExport,
   ComputerUseHarnessImprovementPlan,
   ComputerUseTrajectoryEvalProjection,
 } from "./computer-use.js";
@@ -75,6 +76,10 @@ export class Run {
 
   computerUseHarnessImprovementPlan(): Promise<ComputerUseHarnessImprovementPlan> {
     return this.client.getRunComputerUseHarnessImprovementPlan(this.id);
+  }
+
+  computerUseBenchmarkCase(): Promise<ComputerUseBenchmarkCaseExport> {
+    return this.client.getRunComputerUseBenchmarkCase(this.id);
   }
 
   async routeDecision(): Promise<ModelRouteDecision | null> {

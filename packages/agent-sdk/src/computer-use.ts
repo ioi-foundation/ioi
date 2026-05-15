@@ -464,6 +464,45 @@ export interface ComputerUseHarnessImprovementInput {
   eval?: ComputerUseTrajectoryEvalProjection | null;
 }
 
+export type ComputerUseBenchmarkExportMode =
+  | "redacted_regression"
+  | "shareable_eval"
+  | "local_private";
+
+export interface ComputerUseBenchmarkCaseExportInput {
+  trace?: Record<string, unknown> | null;
+  trajectory?: ComputerUseTrajectoryBundle | Record<string, unknown> | null;
+  eval?: ComputerUseTrajectoryEvalProjection | null;
+  improvement_plan?: ComputerUseHarnessImprovementPlan | null;
+  export_mode?: ComputerUseBenchmarkExportMode;
+  include_raw_artifacts?: boolean;
+}
+
+export interface ComputerUseBenchmarkCaseExport {
+  schema_version: typeof COMPUTER_USE_CONTRACT_SCHEMA_VERSION | string;
+  export_ref: string;
+  run_id: string | null;
+  trajectory_ref: string | null;
+  eval_ref: string;
+  export_mode: ComputerUseBenchmarkExportMode;
+  redaction: "redacted" | "private";
+  included_contracts: string[];
+  evidence_refs: string[];
+  regression_gates: string[];
+  outcome: ComputerUseTrajectoryEvalOutcome;
+  score: number;
+  failure_class: ComputerUseFailureClass;
+  failure_mode: ComputerUseFailureMode;
+  improvement_plan_ref: string;
+  promotion_gate_ref: string;
+  manifest: {
+    deterministic: boolean;
+    raw_artifacts_included: boolean;
+    hidden_runtime_shortcuts_forbidden: boolean;
+  };
+  summary: string;
+}
+
 export interface CleanupReceipt {
   cleanup_ref: string;
   lease_id: string;
@@ -886,6 +925,60 @@ export function planComputerUseHarnessImprovement(
     promotion_gate: promotionGate,
     residual_risks: residualRisksForImprovementPlan(trajectoryEval, patchProposals),
     summary: improvementPlanSummary(trajectoryEval, patchProposals, promotionGate),
+  };
+}
+
+export function exportComputerUseBenchmarkCase(
+  input: ComputerUseBenchmarkCaseExportInput,
+): ComputerUseBenchmarkCaseExport {
+  const trajectoryEval =
+    input.eval ??
+    evaluateComputerUseTrajectory({
+      trace: input.trace,
+      trajectory: input.trajectory,
+    });
+  const improvementPlan =
+    input.improvement_plan ??
+    planComputerUseHarnessImprovement({
+      trace: input.trace,
+      trajectory: input.trajectory,
+      eval: trajectoryEval,
+    });
+  const exportMode = input.export_mode ?? "redacted_regression";
+  const rawArtifactsIncluded = Boolean(input.include_raw_artifacts) && exportMode === "local_private";
+  const redaction = rawArtifactsIncluded ? "private" : "redacted";
+  const runId = trajectoryEval.run_id ?? improvementPlan.run_id ?? "trajectory";
+  return {
+    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    export_ref: `computer_use_benchmark_${safeComputerUseId(runId)}_${exportMode}`,
+    run_id: trajectoryEval.run_id,
+    trajectory_ref: trajectoryEval.trajectory_ref,
+    eval_ref: trajectoryEval.eval_ref,
+    export_mode: exportMode,
+    redaction,
+    included_contracts: [
+      "ComputerUseTrajectoryBundle",
+      "ComputerUseTrajectoryEvalProjection",
+      "ComputerUseHarnessImprovementPlan",
+      "ComputerUsePromotionGateReceipt",
+    ],
+    evidence_refs: benchmarkEvidenceRefs(trajectoryEval, improvementPlan, rawArtifactsIncluded),
+    regression_gates: [
+      ...trajectoryEval.missing_regression_gates,
+      ...improvementPlan.shadow_replay.comparison_gates,
+    ],
+    outcome: trajectoryEval.outcome,
+    score: trajectoryEval.score,
+    failure_class: trajectoryEval.failure_class,
+    failure_mode: trajectoryEval.failure_mode,
+    improvement_plan_ref: improvementPlan.plan_ref,
+    promotion_gate_ref: improvementPlan.promotion_gate.promotion_ref,
+    manifest: {
+      deterministic: true,
+      raw_artifacts_included: rawArtifactsIncluded,
+      hidden_runtime_shortcuts_forbidden: true,
+    },
+    summary: benchmarkExportSummary(trajectoryEval, exportMode, rawArtifactsIncluded),
   };
 }
 
@@ -1585,6 +1678,35 @@ function improvementPlanSummary(
 function computerUseLaneValue(value: string | null): ComputerUseLane | undefined {
   if (value === "native_browser" || value === "visual_gui" || value === "sandboxed_hosted") return value;
   return undefined;
+}
+
+function benchmarkEvidenceRefs(
+  trajectoryEval: ComputerUseTrajectoryEvalProjection,
+  improvementPlan: ComputerUseHarnessImprovementPlan,
+  rawArtifactsIncluded: boolean,
+): string[] {
+  return [
+    ...trajectoryEval.evidence_refs.map((ref) => rawArtifactsIncluded ? ref : redactArtifactRef(ref)),
+    improvementPlan.plan_ref,
+    improvementPlan.promotion_gate.promotion_ref,
+    ...improvementPlan.patch_proposals.map((proposal) => proposal.patch_ref),
+  ];
+}
+
+function redactArtifactRef(ref: string): string {
+  if (ref.startsWith("artifact:") || ref.includes("screenshot") || ref.includes("raw")) {
+    return `redacted:${safeComputerUseId(ref)}`;
+  }
+  return ref;
+}
+
+function benchmarkExportSummary(
+  trajectoryEval: ComputerUseTrajectoryEvalProjection,
+  exportMode: ComputerUseBenchmarkExportMode,
+  rawArtifactsIncluded: boolean,
+): string {
+  const rawNote = rawArtifactsIncluded ? "with local-private raw artifacts" : "with redacted evidence refs";
+  return `${trajectoryEval.eval_ref} exported as ${exportMode} benchmark case ${rawNote}.`;
 }
 
 function safeComputerUseId(value: string): string {

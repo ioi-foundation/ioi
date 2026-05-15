@@ -936,6 +936,8 @@ Deliverables:
 Acceptance:
 
 - trajectory evidence supports debugging and improvement proposals;
+- benchmark case exports are deterministic, redacted by default, and forbid
+  hidden runtime shortcuts;
 - accepted harness changes require held-out validation;
 - generated evidence remains ignored or policy-retained.
 
