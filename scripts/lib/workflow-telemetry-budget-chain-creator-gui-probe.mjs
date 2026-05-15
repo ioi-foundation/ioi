@@ -158,6 +158,9 @@ function requestCompilationChecks(subflow) {
 const controller = read("packages/agent-ide/src/WorkflowComposer/controller.tsx");
 const view = read("packages/agent-ide/src/WorkflowComposer/view.tsx");
 const insertion = read("packages/agent-ide/src/WorkflowComposer/runtimeSubflowInsertion.ts");
+const compositionHelpers = read(
+  "packages/agent-ide/src/runtime/workflow-composition-helpers.ts",
+);
 
 const subflow = createWorkflowRuntimeTelemetryBudgetChainTemplateSubflow({
   idPrefix: "telemetry-budget-chain-gui-click",
@@ -230,11 +233,18 @@ const expectedEdgeTriples = [
 
 const checks = {
   workflowCreatorButtonRendered:
-    /data-testid="workflow-add-runtime-telemetry-budget-chain-template"/.test(
+    /telemetry_budget_chain:\s*"workflow-add-runtime-telemetry-budget-chain-template"/.test(
       view,
-    ),
+    ) &&
+    /data-testid=\{helperTestIds\[helper\.helperId\]\}/.test(view) &&
+    /helperId: "telemetry_budget_chain"/.test(compositionHelpers) &&
+    /label: "Telemetry budget chain"/.test(compositionHelpers) &&
+    /paletteVisibility: "template"/.test(compositionHelpers),
   workflowCreatorButtonClickWired:
-    /onClick=\{handleInsertRuntimeTelemetryBudgetChainTemplate\}/.test(view),
+    /telemetry_budget_chain: handleInsertRuntimeTelemetryBudgetChainTemplate/.test(
+      view,
+    ) &&
+    /onClick=\{compositionHelperHandlers\[helper\.helperId\]\}/.test(view),
   controllerCreatesTemplate:
     /createWorkflowRuntimeTelemetryBudgetChainTemplateSubflow/.test(
       controller,
@@ -321,6 +331,7 @@ const proof = {
     "packages/agent-ide/src/WorkflowComposer/view.tsx",
     "packages/agent-ide/src/WorkflowComposer/controller.tsx",
     "packages/agent-ide/src/WorkflowComposer/runtimeSubflowInsertion.ts",
+    "packages/agent-ide/src/runtime/workflow-composition-helpers.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.test.ts",
     "packages/agent-ide/src/runtime/workflow-validation.ts",

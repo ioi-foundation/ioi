@@ -90,6 +90,9 @@ function requestCompilationChecks(subflow) {
 const controller = read("packages/agent-ide/src/WorkflowComposer/controller.tsx");
 const view = read("packages/agent-ide/src/WorkflowComposer/view.tsx");
 const insertion = read("packages/agent-ide/src/WorkflowComposer/runtimeSubflowInsertion.ts");
+const compositionHelpers = read(
+  "packages/agent-ide/src/runtime/workflow-composition-helpers.ts",
+);
 
 const subflow = createWorkflowRuntimeTerminalCodingLoopTemplateSubflow({
   idPrefix: "terminal-coding-loop-gui-click",
@@ -108,11 +111,18 @@ const requestChecks = requestCompilationChecks(subflow);
 
 const checks = {
   workflowCreatorButtonRendered:
-    /data-testid="workflow-add-runtime-terminal-coding-loop-template"/.test(
+    /terminal_coding_loop:\s*"workflow-add-runtime-terminal-coding-loop-template"/.test(
       view,
-    ),
+    ) &&
+    /data-testid=\{helperTestIds\[helper\.helperId\]\}/.test(view) &&
+    /helperId: "terminal_coding_loop"/.test(compositionHelpers) &&
+    /label: "Terminal coding loop"/.test(compositionHelpers) &&
+    /paletteVisibility: "template"/.test(compositionHelpers),
   workflowCreatorButtonClickWired:
-    /onClick=\{handleInsertRuntimeTerminalCodingLoopTemplate\}/.test(view),
+    /terminal_coding_loop: handleInsertRuntimeTerminalCodingLoopTemplate/.test(
+      view,
+    ) &&
+    /onClick=\{compositionHelperHandlers\[helper\.helperId\]\}/.test(view),
   controllerCreatesTemplate:
     /createWorkflowRuntimeTerminalCodingLoopTemplateSubflow/.test(controller) &&
     /handleInsertRuntimeTerminalCodingLoopTemplate/.test(controller),
@@ -180,6 +190,7 @@ const proof = {
     "packages/agent-ide/src/WorkflowComposer/view.tsx",
     "packages/agent-ide/src/WorkflowComposer/controller.tsx",
     "packages/agent-ide/src/WorkflowComposer/runtimeSubflowInsertion.ts",
+    "packages/agent-ide/src/runtime/workflow-composition-helpers.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.test.ts",
   ],
