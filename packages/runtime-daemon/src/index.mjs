@@ -22695,6 +22695,7 @@ function payloadSummaryForRunEvent(event) {
       computer_use_executor_ref: event.data?.computer_use_executor_ref ?? null,
       computer_use_executor_status: event.data?.computer_use_executor_status ?? null,
       computer_use_executor_error_class: event.data?.computer_use_executor_error_class ?? null,
+      computer_use_execution_result: event.data?.computer_use_execution_result ?? null,
       native_browser_execution_result: event.data?.native_browser_execution_result ?? null,
       computer_use_controlled_relaunch_launch_ref:
         event.data?.computer_use_controlled_relaunch_launch_ref ?? null,

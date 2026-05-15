@@ -1390,6 +1390,23 @@ test("runtime daemon executes approved visual GUI actions through local fixture 
       visualRun.result.actionReceipt.computer_use_execution_result.preflight_receipt.status,
       "captured",
     );
+
+    const runtimeEvents = [];
+    for await (const event of thread.events()) {
+      runtimeEvents.push(event);
+    }
+    const localActionEvent = runtimeEvents
+      .filter((event) => event.type === "computer_use_action_executed")
+      .find((event) => event.payload.action_receipt.adapter_id === "ioi.visual_gui.local_executor");
+    assert.ok(localActionEvent);
+    assert.equal(
+      localActionEvent.payload.computer_use_execution_result.execution_receipt.provider_id,
+      "fixture",
+    );
+    assert.equal(
+      localActionEvent.payload.computer_use_execution_result.preflight_receipt.status,
+      "captured",
+    );
   } finally {
     if (priorCaptureFlag == null) {
       delete process.env.IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE;
