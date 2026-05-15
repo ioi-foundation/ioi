@@ -1118,6 +1118,51 @@ test("runtime daemon executes approved native browser upload through CDP", async
   }
 });
 
+test("runtime daemon fails closed for unbrokered controlled relaunch requests", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-controlled-relaunch-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-controlled-relaunch-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const thread = await agent.thread();
+    const result = await client.invokeThreadTool(thread.id, "ioi.computer_use.native_browser", {
+      source: "react_flow",
+      workflowGraphId: "workflow.native-browser-controlled-relaunch",
+      workflowNodeId: "native-browser-controlled-relaunch",
+      input: {
+        prompt: "Continue this task by controlled relaunching Chrome.",
+        actionKind: "inspect",
+        sessionMode: "controlled_relaunch",
+        observationRetentionMode: "prompt_visible_summary_only",
+      },
+    });
+
+    assert.equal(result.status, "completed");
+    assert.equal(result.result.lease.status, "failed_closed");
+    assert.equal(result.result.lease.session_mode, "controlled_relaunch");
+    assert.equal(result.result.runState.blocker_state, "controlled_relaunch_broker_unavailable");
+    assert.equal(result.result.verification.status, "blocked");
+    assert.equal(result.result.action, null);
+    assert.equal(result.event_count, 5);
+
+    const runtimeEvents = [];
+    for await (const event of thread.events()) {
+      runtimeEvents.push(event);
+    }
+    const environmentEvent = runtimeEvents.find((event) => event.type === "computer_use_environment_selected");
+    assert.equal(environmentEvent.payload.environment_selection_receipt.selected_session_mode, "controlled_relaunch");
+    const unavailableEvent = runtimeEvents.find((event) => event.type === "computer_use_environment_unavailable");
+    assert.equal(unavailableEvent.payload.recovery_policy.allowed_actions.includes("use_attached_cdp"), true);
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("runtime daemon preserves workflow-authored computer-use node metadata", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-workflow-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-workflow-state-"));

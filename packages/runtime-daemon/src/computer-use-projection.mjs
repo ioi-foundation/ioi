@@ -66,7 +66,11 @@ export function computerUseProjectionForRun({
     contractOverrides.observationBundle ||
     hasBrowserObservationArtifacts,
   );
-  if (selectedLane !== "native_browser" && !hasMountedContracts) {
+  const controlledRelaunchUnavailable =
+    selectedLane === "native_browser" &&
+    selectedSessionMode === "controlled_relaunch" &&
+    !hasMountedContracts;
+  if ((selectedLane !== "native_browser" || controlledRelaunchUnavailable) && !hasMountedContracts) {
     return unavailableComputerUseProjectionForRun({
       runId,
       prompt,
@@ -850,20 +854,18 @@ function unavailableComputerUseProjectionForRun({
     run_id: runId,
     selected_lane: requestedLane,
     selected_session_mode: requestedSessionMode,
-    rejected_options: [
-      {
-        lane: "native_browser",
-        session_mode: "owned_hermetic_browser",
-        reason: "The workflow explicitly requested a different computer-use lane.",
-      },
-    ],
+    rejected_options: unavailableRejectedOptions(requestedLane, requestedSessionMode),
     reasons: [
       `Workflow metadata requested ${requestedLane}/${requestedSessionMode}.`,
-      "The requested adapter is not mounted in this local daemon harness.",
+      requestedLane === "native_browser" && requestedSessionMode === "controlled_relaunch"
+        ? "Controlled relaunch requires an explicit relaunch broker and user handoff before a browser environment can be acquired."
+        : "The requested adapter is not mounted in this local daemon harness.",
       "The harness failed closed before acquiring an uncontrolled environment.",
     ],
     risk_posture: mode === "dry_run" ? "preview_only" : "blocked_unavailable",
-    authority_required: `computer_use.${requestedLane}.execute`,
+    authority_required: requestedLane === "native_browser" && requestedSessionMode === "controlled_relaunch"
+      ? "computer_use.native_browser.controlled_relaunch"
+      : `computer_use.${requestedLane}.execute`,
     privacy_impact: requestedRetentionMode,
     expected_cleanup: "no environment acquired; retain blocked trace only",
   };
@@ -919,18 +921,26 @@ function unavailableComputerUseProjectionForRun({
     run_id: runId,
     lease_id: leaseId,
     user_goal: prompt,
-    current_subgoal: "Fail closed because the requested computer-use lane is unavailable.",
+    current_subgoal: requestedLane === "native_browser" && requestedSessionMode === "controlled_relaunch"
+      ? "Fail closed because controlled relaunch is not yet brokered by the daemon."
+      : "Fail closed because the requested computer-use lane is unavailable.",
     plan_graph_ref: `plan_graph_${runId}_computer_use`,
     current_observation_ref: observationRef,
     current_target_index_ref: targetIndexRef,
     active_hypotheses: [
-      "No adapter means no safe observation or action should be attempted.",
+      requestedLane === "native_browser" && requestedSessionMode === "controlled_relaunch"
+        ? "No controlled relaunch broker means no safe profile or process handoff should be attempted."
+        : "No adapter means no safe observation or action should be attempted.",
       "The workflow can retry after mounting the requested provider or switch lanes explicitly.",
     ],
-    expected_postcondition: "A blocked, no-action trace explains why the requested lane was unavailable.",
+    expected_postcondition: requestedLane === "native_browser" && requestedSessionMode === "controlled_relaunch"
+      ? "A blocked, no-action trace explains why controlled relaunch requires a brokered user handoff."
+      : "A blocked, no-action trace explains why the requested lane was unavailable.",
     last_action_ref: null,
     verification_status: "blocked",
-    blocker_state: "computer_use_lane_unavailable",
+    blocker_state: requestedLane === "native_browser" && requestedSessionMode === "controlled_relaunch"
+      ? "controlled_relaunch_broker_unavailable"
+      : "computer_use_lane_unavailable",
     retry_budget: 0,
     risk_posture: environmentSelection.risk_posture,
     user_handoff_ref: null,
@@ -952,12 +962,14 @@ function unavailableComputerUseProjectionForRun({
     closed_process_refs: [],
     deleted_profile_refs: [],
     retained_artifact_refs: ["computer-use-trace.json"],
-    warnings: [`${requestedLane}/${requestedSessionMode} adapter unavailable; no environment acquired.`],
+    warnings: [`${requestedLane}/${requestedSessionMode} unavailable; no environment acquired.`],
   };
   const recoveryPolicy = {
     policy_id: `computer-use-recovery:${runId}:${requestedLane}`,
     failure_class: "environment",
-    allowed_actions: ["terminate_safely", "switch_to_browser_lane", "ask_user"],
+    allowed_actions: requestedLane === "native_browser" && requestedSessionMode === "controlled_relaunch"
+      ? ["terminate_safely", "use_attached_cdp", "use_owned_browser", "ask_user"]
+      : ["terminate_safely", "switch_to_browser_lane", "ask_user"],
     max_attempts: 0,
     lane_switch_allowed: true,
     requires_human_visible_reason: true,
@@ -1075,6 +1087,30 @@ function unavailableComputerUseProjectionForRun({
       ],
     },
   };
+}
+
+function unavailableRejectedOptions(requestedLane, requestedSessionMode) {
+  if (requestedLane === "native_browser" && requestedSessionMode === "controlled_relaunch") {
+    return [
+      {
+        lane: "native_browser",
+        session_mode: "owned_hermetic_browser",
+        reason: "The workflow requested controlled relaunch instead of a fresh owned browser.",
+      },
+      {
+        lane: "native_browser",
+        session_mode: "attached_cdp",
+        reason: "No explicit attached CDP endpoint was supplied for this controlled relaunch request.",
+      },
+    ];
+  }
+  return [
+    {
+      lane: "native_browser",
+      session_mode: "owned_hermetic_browser",
+      reason: "The workflow explicitly requested a different computer-use lane.",
+    },
+  ];
 }
 
 function computerUseEvent({ type, summary, workflowNodeId, traceReceiptId, data }) {
