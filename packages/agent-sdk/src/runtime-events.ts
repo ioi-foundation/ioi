@@ -218,6 +218,9 @@ function runtimeEventPayload(event: RuntimeEventEnvelope): Record<string, unknow
 }
 
 function runtimeThreadEventTypeFromKind(kind: string): RuntimeThreadEvent["type"] {
+  if (kind.startsWith("computer_use.")) {
+    return kind.replace(/\./g, "_") as RuntimeThreadEvent["type"];
+  }
   switch (kind) {
     case "thread.started":
       return "thread_started";
