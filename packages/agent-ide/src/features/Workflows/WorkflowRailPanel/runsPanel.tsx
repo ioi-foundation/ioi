@@ -869,6 +869,18 @@ export function WorkflowRunsPanel({
                     data-computer-use-verification-ref={
                       node.data.computerUse?.verificationRef ?? ""
                     }
+                    data-computer-use-commit-gate-ref={
+                      node.data.computerUse?.commitGateRef ?? ""
+                    }
+                    data-computer-use-commit-gate-status={
+                      node.data.computerUse?.commitGateStatus ?? ""
+                    }
+                    data-computer-use-outcome-ref={
+                      node.data.computerUse?.outcomeRef ?? ""
+                    }
+                    data-computer-use-human-handoff-ref={
+                      node.data.computerUse?.humanHandoffRef ?? ""
+                    }
                     data-computer-use-cleanup-ref={
                       node.data.computerUse?.cleanupRef ?? ""
                     }
@@ -968,6 +980,16 @@ export function WorkflowRunsPanel({
                           data-verification-status={
                             node.data.computerUse.verificationStatus ?? ""
                           }
+                          data-commit-gate-ref={
+                            node.data.computerUse.commitGateRef ?? ""
+                          }
+                          data-commit-gate-status={
+                            node.data.computerUse.commitGateStatus ?? ""
+                          }
+                          data-outcome-ref={node.data.computerUse.outcomeRef ?? ""}
+                          data-human-handoff-ref={
+                            node.data.computerUse.humanHandoffRef ?? ""
+                          }
                           data-trajectory-ref={
                             node.data.computerUse.trajectoryRef ?? ""
                           }
@@ -1046,9 +1068,22 @@ export function WorkflowRunsPanel({
                             <div>
                               <dt>Proposal</dt>
                               <dd>
-                                {node.data.computerUse.proposalRef ??
-                                  node.data.computerUse.actionRef ??
-                                  "pending"}
+                                {node.data.computerUse.proposalRef ?? "pending"}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>Action</dt>
+                              <dd>
+                                {node.data.computerUse.actionRef
+                                  ? [
+                                      node.data.computerUse.actionKind,
+                                      node.data.computerUse.actionRef,
+                                    ]
+                                      .filter(Boolean)
+                                      .join(" · ")
+                                  : node.data.computerUse.proposalRef
+                                    ? "not executed"
+                                    : "pending"}
                               </dd>
                             </div>
                             <div>
@@ -1059,6 +1094,32 @@ export function WorkflowRunsPanel({
                                   "pending"}
                               </dd>
                             </div>
+                            {node.data.computerUse.commitGateRef ||
+                            node.data.computerUse.commitGateStatus ? (
+                              <div>
+                                <dt>Commit gate</dt>
+                                <dd>
+                                  {[
+                                    node.data.computerUse.commitGateStatus,
+                                    node.data.computerUse.commitGateRef,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </dd>
+                              </div>
+                            ) : null}
+                            {node.data.computerUse.outcomeRef ? (
+                              <div>
+                                <dt>Outcome</dt>
+                                <dd>{node.data.computerUse.outcomeRef}</dd>
+                              </div>
+                            ) : null}
+                            {node.data.computerUse.humanHandoffRef ? (
+                              <div>
+                                <dt>Handoff</dt>
+                                <dd>{node.data.computerUse.humanHandoffRef}</dd>
+                              </div>
+                            ) : null}
                             <div>
                               <dt>Retention</dt>
                               <dd>
