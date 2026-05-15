@@ -42,7 +42,10 @@ test("computer-use composer run options project sandboxed preset metadata", () =
 
   assert.ok(options);
   assert.equal(options.metadata.computerUseLane, "sandboxed_hosted");
-  assert.equal(options.metadata.computerUseSessionMode, "hosted_sandbox");
+  assert.equal(options.metadata.computerUseSessionMode, "local_sandbox");
+  assert.equal(options.metadata.sandboxProvider, "local_fixture");
+  assert.equal(options.metadata.sandboxFixture, true);
+  assert.equal(options.metadata.sandboxImageRef, "ioi/sandbox-fixture:local");
   assert.equal(options.metadata.observationRetentionMode, "no_persistence");
   assert.equal(options.metadata.failClosedWhenUnavailable, true);
   assert.equal(options.metadata.toolRef, "ioi.computer_use.sandboxed_hosted");

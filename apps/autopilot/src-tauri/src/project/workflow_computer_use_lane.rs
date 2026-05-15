@@ -1,6 +1,7 @@
 // apps/autopilot/src-tauri/src/project/workflow_computer_use_lane.rs
 
 use super::workflow_binding_lane::workflow_tool_binding;
+use super::workflow_computer_use_sandbox_lane::workflow_local_sandbox_runtime_thread_events;
 use super::workflow_node_metadata_lane::{workflow_node_id, workflow_node_type};
 use super::workflow_value_helpers::{
     workflow_value_bool_any, workflow_value_i64_any, workflow_value_string_any,
@@ -8,34 +9,38 @@ use super::workflow_value_helpers::{
 };
 use super::*;
 
-const COMPUTER_USE_CONTRACT_SCHEMA_VERSION: &str = "ioi.computer-use.harness.v1";
+pub(super) const COMPUTER_USE_CONTRACT_SCHEMA_VERSION: &str = "ioi.computer-use.harness.v1";
 const WORKFLOW_COMPOSER_COMPUTER_USE_RUN_OPTIONS_SCHEMA_VERSION: &str =
     "ioi.workflow.composer-computer-use-run-options.v1";
 
 #[derive(Debug, Clone)]
-struct WorkflowComputerUseBinding {
-    workflow_graph_id: String,
-    workflow_node_id: String,
-    workflow_node_ids: Vec<String>,
-    tool_ref: Option<String>,
-    authority_scopes: Vec<String>,
-    lane: String,
-    session_mode: String,
-    action_kind: String,
-    approval_ref: Option<String>,
-    target_ref: Option<String>,
-    selector: Option<String>,
-    text: Option<String>,
-    key: Option<String>,
-    scroll_x: Option<i64>,
-    scroll_y: Option<i64>,
-    file_path: Option<String>,
-    cdp_endpoint_url: Option<String>,
-    cdp_websocket_url: Option<String>,
-    cdp_timeout_ms: Option<u64>,
-    observation_retention_mode: String,
-    fail_closed_when_unavailable: bool,
-    browser_discovery: bool,
+pub(super) struct WorkflowComputerUseBinding {
+    pub(super) workflow_graph_id: String,
+    pub(super) workflow_node_id: String,
+    pub(super) workflow_node_ids: Vec<String>,
+    pub(super) tool_ref: Option<String>,
+    pub(super) authority_scopes: Vec<String>,
+    pub(super) lane: String,
+    pub(super) session_mode: String,
+    pub(super) action_kind: String,
+    pub(super) approval_ref: Option<String>,
+    pub(super) target_ref: Option<String>,
+    pub(super) selector: Option<String>,
+    pub(super) text: Option<String>,
+    pub(super) key: Option<String>,
+    pub(super) scroll_x: Option<i64>,
+    pub(super) scroll_y: Option<i64>,
+    pub(super) file_path: Option<String>,
+    pub(super) cdp_endpoint_url: Option<String>,
+    pub(super) cdp_websocket_url: Option<String>,
+    pub(super) cdp_timeout_ms: Option<u64>,
+    pub(super) sandbox_provider: Option<String>,
+    pub(super) sandbox_fixture: bool,
+    pub(super) sandbox_image_ref: Option<String>,
+    pub(super) sandbox_task_ref: Option<String>,
+    pub(super) observation_retention_mode: String,
+    pub(super) fail_closed_when_unavailable: bool,
+    pub(super) browser_discovery: bool,
 }
 
 pub(super) fn workflow_computer_use_runtime_thread_events(
@@ -51,6 +56,8 @@ pub(super) fn workflow_computer_use_runtime_thread_events(
         workflow_browser_discovery_runtime_thread_events(&binding, run_id, thread_id, state)
     } else if binding.lane == "native_browser" {
         workflow_native_browser_runtime_thread_events(&binding, run_id, thread_id, state)
+    } else if binding.lane == "sandboxed_hosted" && binding.sandbox_fixture {
+        workflow_local_sandbox_runtime_thread_events(&binding, run_id, thread_id, state)
     } else {
         workflow_unavailable_computer_use_runtime_thread_events(&binding, run_id, thread_id, state)
     }
@@ -179,6 +186,47 @@ fn workflow_computer_use_binding(workflow: &WorkflowProject) -> Option<WorkflowC
         ],
     );
     let cdp_timeout_ms = workflow_value_u64_any(&arguments, &["cdpTimeoutMs", "cdp_timeout_ms"]);
+    let sandbox_provider = workflow_value_string_any(
+        &arguments,
+        &[
+            "computerUseSandboxProvider",
+            "computer_use_sandbox_provider",
+            "sandboxProvider",
+            "sandbox_provider",
+        ],
+    );
+    let sandbox_fixture = workflow_value_bool_any(
+        &arguments,
+        &[
+            "computerUseSandboxFixture",
+            "computer_use_sandbox_fixture",
+            "sandboxFixture",
+            "sandbox_fixture",
+        ],
+    )
+    .unwrap_or_else(|| {
+        sandbox_provider
+            .as_deref()
+            .is_some_and(|provider| provider == "local_fixture")
+    });
+    let sandbox_image_ref = workflow_value_string_any(
+        &arguments,
+        &[
+            "computerUseSandboxImageRef",
+            "computer_use_sandbox_image_ref",
+            "sandboxImageRef",
+            "sandbox_image_ref",
+        ],
+    );
+    let sandbox_task_ref = workflow_value_string_any(
+        &arguments,
+        &[
+            "computerUseSandboxTaskRef",
+            "computer_use_sandbox_task_ref",
+            "sandboxTaskRef",
+            "sandbox_task_ref",
+        ],
+    );
     Some(WorkflowComputerUseBinding {
         workflow_graph_id: workflow.metadata.id.clone(),
         workflow_node_id,
@@ -202,6 +250,10 @@ fn workflow_computer_use_binding(workflow: &WorkflowProject) -> Option<WorkflowC
         cdp_endpoint_url,
         cdp_websocket_url,
         cdp_timeout_ms,
+        sandbox_provider,
+        sandbox_fixture,
+        sandbox_image_ref,
+        sandbox_task_ref,
         observation_retention_mode,
         fail_closed_when_unavailable: workflow_value_bool_any(
             &arguments,
@@ -1344,7 +1396,7 @@ fn workflow_unavailable_computer_use_runtime_thread_events(
     ]
 }
 
-fn workflow_computer_use_event(
+pub(super) fn workflow_computer_use_event(
     seq: usize,
     run_id: &str,
     thread_id: &str,
@@ -1394,7 +1446,7 @@ fn workflow_computer_use_event(
     })
 }
 
-fn workflow_computer_use_base_payload(
+pub(super) fn workflow_computer_use_base_payload(
     binding: &WorkflowComputerUseBinding,
     lease_id: &str,
 ) -> Value {
@@ -1431,6 +1483,14 @@ fn workflow_computer_use_base_payload(
         "cdpWebSocketUrl": binding.cdp_websocket_url,
         "cdp_timeout_ms": binding.cdp_timeout_ms,
         "cdpTimeoutMs": binding.cdp_timeout_ms,
+        "computer_use_sandbox_provider": binding.sandbox_provider,
+        "computerUseSandboxProvider": binding.sandbox_provider,
+        "computer_use_sandbox_fixture": binding.sandbox_fixture,
+        "computerUseSandboxFixture": binding.sandbox_fixture,
+        "computer_use_sandbox_image_ref": binding.sandbox_image_ref,
+        "computerUseSandboxImageRef": binding.sandbox_image_ref,
+        "computer_use_sandbox_task_ref": binding.sandbox_task_ref,
+        "computerUseSandboxTaskRef": binding.sandbox_task_ref,
         "computer_use_external_effect": !computer_use_action_kind_is_read_only(&binding.action_kind),
         "computer_use_lease_id": lease_id,
         "computerUseLeaseId": lease_id,
@@ -1452,7 +1512,7 @@ fn workflow_computer_use_base_payload(
     })
 }
 
-fn workflow_computer_use_user_goal(state: &WorkflowStateSnapshot) -> String {
+pub(super) fn workflow_computer_use_user_goal(state: &WorkflowStateSnapshot) -> String {
     state
         .values
         .get("input")
@@ -1499,7 +1559,7 @@ fn computer_use_goal_from_value(value: &Value) -> Option<String> {
         .and_then(|items| items.iter().find_map(computer_use_goal_from_value))
 }
 
-fn computer_use_target_hint(user_goal: &str) -> String {
+pub(super) fn computer_use_target_hint(user_goal: &str) -> String {
     computer_use_url_hint(user_goal).unwrap_or_else(|| "workflow://computer-use".to_string())
 }
 
@@ -1514,7 +1574,7 @@ fn computer_use_url_hint(user_goal: &str) -> Option<String> {
 fn default_session_mode_for_computer_use_lane(lane: &str) -> &'static str {
     match lane {
         "visual_gui" => "visual_fallback",
-        "sandboxed_hosted" => "hosted_sandbox",
+        "sandboxed_hosted" => "local_sandbox",
         _ => "owned_hermetic_browser",
     }
 }
@@ -1552,11 +1612,11 @@ fn normalize_computer_use_action_kind(value: &str) -> Option<&'static str> {
     }
 }
 
-fn computer_use_action_kind_is_read_only(action_kind: &str) -> bool {
+pub(super) fn computer_use_action_kind_is_read_only(action_kind: &str) -> bool {
     matches!(action_kind, "inspect" | "hover" | "wait" | "scroll")
 }
 
-fn computer_use_evidence_refs(values: Vec<Value>) -> Value {
+pub(super) fn computer_use_evidence_refs(values: Vec<Value>) -> Value {
     Value::Array(
         values
             .into_iter()

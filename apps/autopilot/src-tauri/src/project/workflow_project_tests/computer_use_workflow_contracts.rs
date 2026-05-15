@@ -594,6 +594,108 @@ fn workflow_run_fails_closed_unavailable_computer_use_lanes() {
 }
 
 #[test]
+fn workflow_run_executes_local_fixture_sandboxed_computer_lane() {
+    let root = temp_root("computer-use-local-sandbox");
+    let bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "Local Sandbox Computer Trace".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "local".to_string(),
+        template_id: None,
+    })
+    .expect("workflow bundle should create");
+
+    let mut sandbox = workflow_node(
+        "sandboxed-computer",
+        "plugin_tool",
+        "Sandboxed Computer",
+        120,
+        180,
+        "Computer",
+        "sandbox",
+    );
+    logic_mut(&mut sandbox).insert(
+        "toolBinding".to_string(),
+        json!({
+            "toolRef": "ioi.computer_use.sandboxed_hosted",
+            "bindingKind": "plugin_tool",
+            "mockBinding": true,
+            "credentialReady": false,
+            "capabilityScope": [
+                "computer_use.sandboxed_hosted.observe",
+                "computer_use.sandboxed_hosted.propose_action",
+                "computer_use.cleanup"
+            ],
+            "sideEffectClass": "external_write",
+            "requiresApproval": true,
+            "arguments": {
+                "computerUse": true,
+                "computerUseLane": "sandboxed_hosted",
+                "computerUseSessionMode": "local_sandbox",
+                "sandboxProvider": "local_fixture",
+                "sandboxFixture": true,
+                "sandboxImageRef": "ioi/sandbox-fixture:local",
+                "observationRetentionMode": "no_persistence",
+                "failClosedWhenUnavailable": true
+            }
+        }),
+    );
+
+    let mut workflow = bundle.workflow.clone();
+    workflow.nodes = vec![sandbox];
+    workflow.edges = Vec::new();
+    save_workflow_project(bundle.workflow_path.clone(), workflow).expect("workflow should save");
+
+    let run = run_workflow_project(bundle.workflow_path, None).expect("workflow should run");
+    assert_eq!(run.runtime_thread_events.len(), 11);
+    assert!(!run.runtime_thread_events.iter().any(|event| {
+        event.get("eventKind").and_then(Value::as_str)
+            == Some("computer_use.environment_unavailable")
+    }));
+    let lease_event = run
+        .runtime_thread_events
+        .iter()
+        .find(|event| {
+            event.get("eventKind").and_then(Value::as_str)
+                == Some("computer_use.lease_acquired")
+        })
+        .expect("lease event should exist");
+    let payload = lease_event.get("payload").expect("payload should exist");
+    assert_eq!(
+        payload.get("computer_use_lane").and_then(Value::as_str),
+        Some("sandboxed_hosted")
+    );
+    assert_eq!(
+        payload
+            .get("computer_use_contract_ingest")
+            .and_then(Value::as_str),
+        Some("local_sandbox_fixture")
+    );
+    assert_eq!(
+        payload
+            .get("adapter_contract")
+            .and_then(|value| value.get("adapter_id"))
+            .and_then(Value::as_str),
+        Some("ioi.sandboxed_hosted.local_fixture")
+    );
+    let cleanup_event = run
+        .runtime_thread_events
+        .iter()
+        .find(|event| {
+            event.get("eventKind").and_then(Value::as_str) == Some("computer_use.cleanup")
+        })
+        .expect("cleanup event should exist");
+    assert_eq!(
+        cleanup_event
+            .get("payload")
+            .and_then(|value| value.get("cleanup_receipt"))
+            .and_then(|value| value.get("status"))
+            .and_then(Value::as_str),
+        Some("completed")
+    );
+}
+
+#[test]
 fn workflow_run_projects_browser_discovery_primitive_to_receipts() {
     let root = temp_root("browser-discovery-runtime-events");
     let bundle = create_workflow_project(CreateWorkflowProjectRequest {

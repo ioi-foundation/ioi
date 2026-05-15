@@ -240,6 +240,12 @@ const COMPUTER_USE_VISUAL_GUI_TOOL_IDS = new Set([
   "ioi.computer_use.visual_gui",
   "computer_use.visual_gui",
 ]);
+const COMPUTER_USE_SANDBOXED_HOSTED_TOOL_IDS = new Set([
+  "ioi.computer_use.sandboxed_hosted",
+  "computer_use.sandboxed_hosted",
+  "ioi.computer_use.sandboxed",
+  "computer_use.sandboxed",
+]);
 const COMPUTER_USE_VISUAL_GUI_OBSERVE_TOOL_IDS = new Set([
   "ioi.computer_use.visual_gui.observe",
   "computer_use.visual_gui.observe",
@@ -8040,6 +8046,199 @@ export class AgentgresRuntimeStateStore {
     });
   }
 
+  async invokeComputerUseSandboxedHostedTool(threadId, toolId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const turnId =
+      optionalString(request.turn_id ?? request.turnId) ??
+      optionalString(this.threadForAgent(agent).latest_turn_id) ??
+      "";
+    const workflowNodeId =
+      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      "computer-use.sandboxed-hosted";
+    const workflowGraphId =
+      optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+    const toolCallId =
+      optionalString(request.tool_call_id ?? request.toolCallId) ??
+      `computer_use_sandboxed_hosted_${doctorHash(`${threadId}:${toolId}:${Date.now()}`).slice(0, 16)}`;
+    const idempotencyKey =
+      optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+      `thread:${threadId}:computer-use-sandboxed-hosted:${toolCallId}`;
+    const stream = this.runtimeEventStream(eventStreamIdForThread(threadId));
+    const duplicateEvents = stream.events.filter((event) => (
+      event.payload_summary?.computer_use_tool_invocation_ref === idempotencyKey ||
+      event.payload?.computer_use_tool_invocation_ref === idempotencyKey
+    ));
+    if (duplicateEvents.length > 0) {
+      return computerUseNativeBrowserInvocationResultFromEvents(duplicateEvents, {
+        agent,
+        threadId,
+        turnId,
+        toolId,
+        toolCallId,
+        workflowGraphId,
+        workflowNodeId,
+        computerUseLane: "sandboxed_hosted",
+      });
+    }
+    const requestInput = objectRecord(request.input);
+    const requestArguments = objectRecord(request.arguments);
+    const input = Object.keys(requestInput).length
+      ? requestInput
+      : Object.keys(requestArguments).length
+        ? requestArguments
+        : objectRecord(request);
+    const goal =
+      optionalString(input.prompt ?? input.goal ?? input.objective ?? request.prompt ?? request.goal) ??
+      "Inspect the sandboxed computer fixture without external side effects.";
+    const runId = `run_${safeId(toolCallId)}`;
+    const observationRetentionMode =
+      optionalString(input.observationRetentionMode ?? input.observation_retention_mode) ??
+      "no_persistence";
+    const requestedActionKind = nativeBrowserActionKindForInput(input, goal);
+    const requestedActionAuthority = nativeBrowserActionKindIsReadOnly(requestedActionKind)
+      ? "computer_use.sandboxed_hosted.read"
+      : "computer_use.sandboxed_hosted.act";
+    const requestedApprovalRef = nativeBrowserApprovalRefForInput(input);
+    const requestedTargetRef =
+      optionalString(input.targetRef ?? input.target_ref ?? input.computerUseTargetRef ?? input.computer_use_target_ref);
+    const requestedSessionMode = sandboxedHostedSessionModeForInput(input);
+    const sandboxProvider =
+      optionalString(
+        input.computerUseSandboxProvider ??
+          input.computer_use_sandbox_provider ??
+          input.sandboxProvider ??
+          input.sandbox_provider,
+      ) ?? "local_fixture";
+    const sandboxFixture =
+      booleanValue(
+        input.computerUseSandboxFixture ??
+          input.computer_use_sandbox_fixture ??
+          input.sandboxFixture ??
+          input.sandbox_fixture,
+      ) ?? sandboxProvider === "local_fixture";
+    const metadata = {
+      computerUse: true,
+      computerUseLane: "sandboxed_hosted",
+      computerUseSessionMode: requestedSessionMode,
+      workflowGraphId,
+      workflowNodeId,
+      workflowNodeIds: uniqueStrings([
+        workflowNodeId,
+        ...normalizeArray(input.workflowNodeIds ?? input.workflow_node_ids),
+      ]),
+      toolRef: toolId,
+      authorityScopes: uniqueStrings([
+        requestedActionAuthority,
+        "computer_use.sandboxed_hosted.observe",
+        "computer_use.sandboxed_hosted.read",
+        ...normalizeArray(input.authorityScopes ?? input.authority_scopes),
+      ]),
+      observationRetentionMode,
+      failClosedWhenUnavailable: true,
+      computerUseActionKind: requestedActionKind,
+      computerUseApprovalRef: requestedApprovalRef,
+      computerUseTargetRef: requestedTargetRef,
+      computerUseSandboxProvider: sandboxProvider,
+      computerUseSandboxFixture: sandboxFixture,
+      computerUseSandboxImageRef:
+        optionalString(input.computerUseSandboxImageRef ?? input.computer_use_sandbox_image_ref ?? input.sandboxImageRef ?? input.sandbox_image_ref),
+      computerUseSandboxTaskRef:
+        optionalString(input.computerUseSandboxTaskRef ?? input.computer_use_sandbox_task_ref ?? input.sandboxTaskRef ?? input.sandbox_task_ref),
+      computerUseObservationBundle:
+        objectRecord(input.computerUseObservationBundle ?? input.observation_bundle),
+      computerUseTargetIndex:
+        objectRecord(input.computerUseTargetIndex ?? input.target_index),
+      computerUseAffordanceGraph:
+        objectRecord(input.computerUseAffordanceGraph ?? input.affordance_graph),
+      computerUseAdapterContract:
+        objectRecord(input.computerUseAdapterContract ?? input.adapter_contract),
+      computerUseCleanupReceipt:
+        objectRecord(input.computerUseCleanupReceipt ?? input.cleanup_receipt),
+    };
+    for (const key of [
+      "computerUseApprovalRef",
+      "computerUseTargetRef",
+      "computerUseSandboxImageRef",
+      "computerUseSandboxTaskRef",
+      "computerUseObservationBundle",
+      "computerUseTargetIndex",
+      "computerUseAffordanceGraph",
+      "computerUseAdapterContract",
+      "computerUseCleanupReceipt",
+    ]) {
+      if (metadata[key] && typeof metadata[key] === "object") {
+        if (Object.keys(metadata[key]).length === 0) delete metadata[key];
+      } else if (metadata[key] == null || metadata[key] === "") {
+        delete metadata[key];
+      }
+    }
+    const projection = computerUseProjectionForRun({
+      agent,
+      runId,
+      prompt: goal,
+      mode: "send",
+      request: { metadata },
+      selectedModel: agent.modelId,
+    });
+    if (!projection) {
+      throw runtimeError({
+        status: 500,
+        code: "computer_use_projection_unavailable",
+        message: "Sandboxed hosted computer-use tool invocation could not build a computer-use projection.",
+        details: { threadId, toolId },
+      });
+    }
+    const appendedEvents = [];
+    for (const [index, projectionEvent] of projection.events.entries()) {
+      const runEvent = makeEvent(
+        runId,
+        agent.id,
+        index,
+        projectionEvent.type,
+        projectionEvent.summary,
+        {
+          ...projectionEvent.data,
+          source: "runtime_thread_tool",
+          computer_use_tool_invocation_ref: idempotencyKey,
+          toolRef: toolId,
+          tool_ref: toolId,
+          toolCallId,
+          tool_call_id: toolCallId,
+          workflowGraphId,
+          workflow_graph_id: workflowGraphId,
+          workflowNodeId,
+          workflow_node_id: workflowNodeId,
+        },
+      );
+      const envelope = ttiEnvelopeForRunEvent({
+        event: runEvent,
+        threadId,
+        turnId,
+        workspaceRoot: agent.cwd,
+      });
+      appendedEvents.push(this.appendRuntimeEvent({
+        ...envelope,
+        idempotency_key: `${idempotencyKey}:event:${String(index).padStart(2, "0")}:${projectionEvent.type}`,
+        source: operatorControlSource(request.source),
+        component_kind: "computer_use_harness",
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: workflowNodeId,
+        tool_call_id: toolCallId,
+      }));
+    }
+    return computerUseNativeBrowserInvocationResultFromEvents(appendedEvents, {
+      agent,
+      threadId,
+      turnId,
+      toolId,
+      toolCallId,
+      workflowGraphId,
+      workflowNodeId,
+      projection,
+      computerUseLane: "sandboxed_hosted",
+    });
+  }
+
   async invokeComputerUseVisualGuiObserveTool(threadId, toolId, request = {}) {
     const requestInput = objectRecord(request.input);
     const requestArguments = objectRecord(request.arguments);
@@ -8136,6 +8335,9 @@ export class AgentgresRuntimeStateStore {
     if (COMPUTER_USE_VISUAL_GUI_TOOL_IDS.has(normalizedToolId)) {
       return await this.invokeComputerUseVisualGuiTool(threadId, normalizedToolId, request);
     }
+    if (COMPUTER_USE_SANDBOXED_HOSTED_TOOL_IDS.has(normalizedToolId)) {
+      return await this.invokeComputerUseSandboxedHostedTool(threadId, normalizedToolId, request);
+    }
     if (COMPUTER_USE_VISUAL_GUI_OBSERVE_TOOL_IDS.has(normalizedToolId)) {
       return await this.invokeComputerUseVisualGuiObserveTool(threadId, normalizedToolId, request);
     }
@@ -8156,6 +8358,9 @@ export class AgentgresRuntimeStateStore {
     }
     if (COMPUTER_USE_VISUAL_GUI_TOOL_IDS.has(normalizedToolId)) {
       return this.invokeComputerUseVisualGuiTool(threadId, normalizedToolId, request);
+    }
+    if (COMPUTER_USE_SANDBOXED_HOSTED_TOOL_IDS.has(normalizedToolId)) {
+      return this.invokeComputerUseSandboxedHostedTool(threadId, normalizedToolId, request);
     }
     if (COMPUTER_USE_VISUAL_GUI_OBSERVE_TOOL_IDS.has(normalizedToolId)) {
       return this.invokeComputerUseVisualGuiObserveTool(threadId, normalizedToolId, request);
@@ -18999,6 +19204,16 @@ function computerUseNativeBrowserInvocationResultFromEvents(events, context = {}
         controlledRelaunchLaunchPayload.controlled_relaunch_launch_receipt ??
         controlledRelaunchLaunchPayload.controlledRelaunchLaunchReceipt ??
         null,
+      contractIngest:
+        projection.contractIngest ??
+        firstPayload.computer_use_contract_ingest ??
+        firstPayload.contractIngest ??
+        null,
+      contract_ingest:
+        projection.contractIngest ??
+        firstPayload.computer_use_contract_ingest ??
+        firstPayload.contractIngest ??
+        null,
     },
     error: null,
   };
@@ -19120,6 +19335,19 @@ function visualGuiSessionModeForInput(input = {}) {
     return explicit;
   }
   return "visual_fallback";
+}
+
+function sandboxedHostedSessionModeForInput(input = {}) {
+  const explicit = optionalString(
+    input.sessionMode ??
+      input.session_mode ??
+      input.computerUseSessionMode ??
+      input.computer_use_session_mode,
+  );
+  if (["local_sandbox", "hosted_sandbox", "mobile_device"].includes(explicit)) {
+    return explicit;
+  }
+  return "local_sandbox";
 }
 
 function visualGuiObservationMetadataForInput(input = {}) {
@@ -21612,6 +21840,15 @@ function optionalString(value) {
   if (value === undefined || value === null) return undefined;
   const text = String(value).trim();
   return text ? text : undefined;
+}
+
+function booleanValue(value) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    if (value.toLowerCase() === "true") return true;
+    if (value.toLowerCase() === "false") return false;
+  }
+  return null;
 }
 
 function operatorControlSource(value) {
