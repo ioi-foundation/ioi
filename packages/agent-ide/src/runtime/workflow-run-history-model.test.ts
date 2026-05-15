@@ -363,6 +363,16 @@ test("workflow run history model exposes computer-use prompt pipelines", () => {
           computer_use_lane: "native_browser",
           computer_use_session_mode: "owned_hermetic_browser",
           computer_use_lease_id: "lease-browser",
+          computer_use_controlled_relaunch_launch_ref:
+            "controlled_relaunch_run_a",
+          controlled_relaunch_launch_receipt: {
+            launch_ref: "controlled_relaunch_run_a",
+            status: "launched",
+            approval_ref: "approval-controlled-browser-launch",
+            process_ref: "process:native_browser:run-a",
+            profile_dir_ref: "profile:controlled_relaunch:run-a",
+            endpoint_ref: "cdp_endpoint_run_a",
+          },
           environment_selection_receipt: {
             risk_posture: "read_only_probe",
             authority_required: "computer_use.native_browser.read",
@@ -513,6 +523,18 @@ test("workflow run history model exposes computer-use prompt pipelines", () => {
   assert.equal(
     model.computerUseWorkbench?.screenRef,
     "artifact:run-a:screenshot",
+  );
+  assert.equal(
+    model.computerUseWorkbench?.controlledRelaunchLaunchRef,
+    "controlled_relaunch_run_a",
+  );
+  assert.equal(
+    model.computerUseWorkbench?.controlledRelaunchLaunchStatus,
+    "launched",
+  );
+  assert.equal(
+    model.computerUseWorkbench?.controlledRelaunchEndpointRef,
+    "cdp_endpoint_run_a",
   );
   assert.equal(model.computerUseWorkbench?.somRef, "artifact:run-a:som-overlay");
   assert.deepEqual(

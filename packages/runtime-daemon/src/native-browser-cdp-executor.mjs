@@ -20,7 +20,7 @@ export async function executeNativeBrowserCdpAction({
     prompt,
   })).slice(0, 16)}`;
   const normalizedActionKind = normalizeActionKind(actionKind);
-  const supportedActionKinds = ["click", "navigate", "type_text", "key_press", "scroll", "upload"];
+  const supportedActionKinds = ["inspect", "click", "navigate", "type_text", "key_press", "scroll", "upload"];
   if (!supportedActionKinds.includes(normalizedActionKind)) {
     return unavailableExecution({
       executorRef,
@@ -28,10 +28,10 @@ export async function executeNativeBrowserCdpAction({
       approvalRef,
       errorClass: "NativeBrowserCdpUnsupportedAction",
       errorSummary:
-        "The native-browser CDP executor currently supports approved navigate, click, type_text, key_press, upload, and explicit scroll actions.",
+        "The native-browser CDP executor currently supports inspect, approved navigate, click, type_text, key_press, upload, and explicit scroll actions.",
     });
   }
-  if (!approvalRef && normalizedActionKind !== "scroll") {
+  if (!approvalRef && !["inspect", "scroll"].includes(normalizedActionKind)) {
     return unavailableExecution({
       executorRef,
       actionKind: normalizedActionKind,
@@ -106,6 +106,9 @@ export async function executeNativeBrowserCdpAction({
 }
 
 async function executeApprovedAction({ client, input, actionKind, targetRef, prompt, timeoutMs }) {
+  if (actionKind === "inspect") {
+    return { action: "inspect" };
+  }
   if (actionKind === "navigate") {
     return executeNavigate(client, input, prompt, { timeoutMs });
   }

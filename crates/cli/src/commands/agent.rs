@@ -412,9 +412,21 @@ pub enum ToolCommands {
         /// Requested browser action kind. Mutating actions are proposal/commit-gate only until approved.
         #[clap(long = "action-kind", default_value = "inspect")]
         action_kind: String,
+        /// Browser session mode: owned_hermetic_browser, attached_cdp, or controlled_relaunch.
+        #[clap(long = "session-mode")]
+        session_mode: Option<String>,
         /// Approval receipt/ref that allows a mutating browser action to execute.
         #[clap(long = "approval-ref")]
         approval_ref: Option<String>,
+        /// Approval receipt/ref that allows a controlled host browser relaunch.
+        #[clap(long = "controlled-relaunch-approval-ref")]
+        controlled_relaunch_approval_ref: Option<String>,
+        /// Explicit browser executable path for controlled relaunch.
+        #[clap(long = "controlled-relaunch-executable-path")]
+        controlled_relaunch_executable_path: Option<String>,
+        /// Launch controlled relaunch in headless mode.
+        #[clap(long = "controlled-relaunch-headless")]
+        controlled_relaunch_headless: bool,
         /// Grounded target ref for the requested browser action, for example a selector-shaped #id.
         #[clap(long = "target-ref")]
         target_ref: Option<String>,
@@ -1390,7 +1402,11 @@ async fn run_tool_command(
             prompt,
             url,
             action_kind,
+            session_mode,
             approval_ref,
+            controlled_relaunch_approval_ref,
+            controlled_relaunch_executable_path,
+            controlled_relaunch_headless,
             target_ref,
             selector,
             text,
@@ -1414,7 +1430,11 @@ async fn run_tool_command(
                 prompt,
                 url,
                 action_kind,
+                session_mode,
                 approval_ref,
+                controlled_relaunch_approval_ref,
+                controlled_relaunch_executable_path,
+                controlled_relaunch_headless,
                 target_ref,
                 selector,
                 text,
@@ -1637,7 +1657,11 @@ async fn invoke_native_browser_tool(
     prompt: Option<String>,
     url: Option<String>,
     action_kind: String,
+    session_mode: Option<String>,
     approval_ref: Option<String>,
+    controlled_relaunch_approval_ref: Option<String>,
+    controlled_relaunch_executable_path: Option<String>,
+    controlled_relaunch_headless: bool,
     target_ref: Option<String>,
     selector: Option<String>,
     text: Option<String>,
@@ -1682,6 +1706,15 @@ async fn invoke_native_browser_tool(
             serde_json::Value::String(action_kind.trim().to_string()),
         );
     }
+    if let Some(session_mode) = session_mode
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "sessionMode".to_string(),
+            serde_json::Value::String(session_mode.trim().to_string()),
+        );
+    }
     if let Some(approval_ref) = approval_ref
         .as_deref()
         .filter(|value| !value.trim().is_empty())
@@ -1689,6 +1722,30 @@ async fn invoke_native_browser_tool(
         input.insert(
             "approvalRef".to_string(),
             serde_json::Value::String(approval_ref.trim().to_string()),
+        );
+    }
+    if let Some(controlled_relaunch_approval_ref) = controlled_relaunch_approval_ref
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "controlledRelaunchApprovalRef".to_string(),
+            serde_json::Value::String(controlled_relaunch_approval_ref.trim().to_string()),
+        );
+    }
+    if let Some(controlled_relaunch_executable_path) = controlled_relaunch_executable_path
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "controlledRelaunchExecutablePath".to_string(),
+            serde_json::Value::String(controlled_relaunch_executable_path.trim().to_string()),
+        );
+    }
+    if controlled_relaunch_headless {
+        input.insert(
+            "controlledRelaunchHeadless".to_string(),
+            serde_json::Value::Bool(true),
         );
     }
     if let Some(target_ref) = target_ref
@@ -1825,8 +1882,12 @@ async fn invoke_native_browser_tool(
         .pointer("/result/commitGate/status")
         .and_then(|value| value.as_str())
         .unwrap_or("unknown");
+    let controlled_relaunch_launch_status = value
+        .pointer("/result/controlledRelaunchLaunch/status")
+        .and_then(|value| value.as_str())
+        .unwrap_or("none");
     println!(
-        "Native browser computer-use: thread={thread_id} status={status} node={workflow_node} events={event_count} action={action_status} commit_gate={commit_gate_status}"
+        "Native browser computer-use: thread={thread_id} status={status} node={workflow_node} events={event_count} action={action_status} commit_gate={commit_gate_status} controlled_relaunch_launch={controlled_relaunch_launch_status}"
     );
     Ok(())
 }
@@ -1936,7 +1997,12 @@ async fn invoke_computer_use_control_tool(
     let status = value
         .pointer("/result/controlReceipt/status")
         .and_then(|value| value.as_str())
-        .unwrap_or_else(|| value.get("status").and_then(|value| value.as_str()).unwrap_or("unknown"));
+        .unwrap_or_else(|| {
+            value
+                .get("status")
+                .and_then(|value| value.as_str())
+                .unwrap_or("unknown")
+        });
     let receipt = value
         .pointer("/result/controlReceipt/receipt_ref")
         .and_then(|value| value.as_str())
@@ -3190,8 +3256,15 @@ mod tests {
             "https://example.com",
             "--action-kind",
             "click",
+            "--session-mode",
+            "controlled_relaunch",
             "--approval-ref",
             "approval-browser-click",
+            "--controlled-relaunch-approval-ref",
+            "approval-controlled-browser-launch",
+            "--controlled-relaunch-executable-path",
+            "/usr/bin/chromium",
+            "--controlled-relaunch-headless",
             "--selector",
             "#submit",
             "--target-ref",
@@ -3217,7 +3290,13 @@ mod tests {
                 command: Some(ToolCommands::NativeBrowser {
                     thread_id,
                     action_kind,
+                    session_mode: Some(session_mode),
                     approval_ref: Some(approval_ref),
+                    controlled_relaunch_approval_ref:
+                        Some(controlled_relaunch_approval_ref),
+                    controlled_relaunch_executable_path:
+                        Some(controlled_relaunch_executable_path),
+                    controlled_relaunch_headless: true,
                     selector: Some(selector),
                     target_ref: Some(target_ref),
                     text: Some(text),
@@ -3232,7 +3311,10 @@ mod tests {
                 ..
             }) if thread_id == "thread_runtime_cli"
                 && action_kind == "click"
+                && session_mode == "controlled_relaunch"
                 && approval_ref == "approval-browser-click"
+                && controlled_relaunch_approval_ref == "approval-controlled-browser-launch"
+                && controlled_relaunch_executable_path == "/usr/bin/chromium"
                 && selector == "#submit"
                 && target_ref == "#submit"
                 && text == "hello"

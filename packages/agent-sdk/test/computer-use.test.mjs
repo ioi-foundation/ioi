@@ -41,6 +41,41 @@ function tempClient() {
   };
 }
 
+function writeFakeControlledRelaunchExecutable(cwd) {
+  const scriptPath = path.join(cwd, "fake-controlled-relaunch-browser.mjs");
+  const fixturePath = path.resolve("packages/runtime-daemon/src/native-browser-cdp-test-fixture.mjs");
+  fs.writeFileSync(
+    scriptPath,
+    [
+      "import fs from 'node:fs';",
+      "import path from 'node:path';",
+      `import { startFakeNativeBrowserCdpServer } from ${JSON.stringify(fixturePath)};`,
+      "const userDataArg = process.argv.find((arg) => arg.startsWith('--user-data-dir='));",
+      "const userDataDir = userDataArg ? userDataArg.slice('--user-data-dir='.length) : null;",
+      "if (!userDataDir) throw new Error('fake controlled relaunch missing --user-data-dir');",
+      "const fixture = await startFakeNativeBrowserCdpServer();",
+      "const port = new URL(fixture.endpointUrl).port;",
+      "fs.mkdirSync(userDataDir, { recursive: true });",
+      "fs.writeFileSync(path.join(userDataDir, 'DevToolsActivePort'), `${port}\\n/devtools/browser/fake\\n`);",
+      "let closed = false;",
+      "async function closeAndExit(code = 0) {",
+      "  if (closed) return;",
+      "  closed = true;",
+      "  await fixture.close();",
+      "  process.exit(code);",
+      "}",
+      "process.on('SIGTERM', () => { void closeAndExit(0); });",
+      "process.on('SIGINT', () => { void closeAndExit(0); });",
+      "setInterval(() => {}, 1000);",
+    ].join("\n"),
+  );
+  return {
+    executablePath: process.execPath,
+    executableArgs: [scriptPath],
+    scriptPath,
+  };
+}
+
 function runtimeBridgeEnvelope({
   eventKind,
   sourceEventKind = eventKind,
@@ -1441,6 +1476,77 @@ test("runtime daemon brokers controlled relaunch leases before browser authority
       handoffEvent.payload.human_handoff_state.forbidden_agent_actions.includes("harvest_credentials"),
       true,
     );
+  } finally {
+    await daemon.close();
+  }
+});
+
+test("runtime daemon launches approved controlled relaunch with isolated profile and cleanup receipts", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-controlled-relaunch-launch-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-controlled-relaunch-launch-state-"));
+  const fakeBrowser = writeFakeControlledRelaunchExecutable(cwd);
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const thread = await agent.thread();
+    const result = await client.invokeThreadTool(thread.id, "ioi.computer_use.native_browser", {
+      source: "react_flow",
+      workflowGraphId: "workflow.native-browser-controlled-relaunch-launch",
+      workflowNodeId: "native-browser-controlled-relaunch-launch",
+      input: {
+        prompt: "Inspect https://example.test by launching a controlled browser.",
+        actionKind: "inspect",
+        sessionMode: "controlled_relaunch",
+        observationRetentionMode: "prompt_visible_summary_only",
+        controlledRelaunchApprovalRef: "approval-controlled-browser-launch",
+        controlledRelaunchBrokerRef: "broker_controlled_relaunch_launch_test",
+        controlledRelaunchExecutablePath: fakeBrowser.executablePath,
+        controlledRelaunchExecutableArgs: fakeBrowser.executableArgs,
+        controlledRelaunchHeadless: true,
+        url: "https://example.test",
+      },
+    });
+
+    assert.equal(result.status, "completed");
+    assert.equal(result.result.environmentSelection.selected_session_mode, "controlled_relaunch");
+    assert.equal(result.result.environmentSelection.risk_posture, "read_only_probe");
+    assert.equal(result.result.lease.status, "active");
+    assert.equal(result.result.lease.session_mode, "controlled_relaunch");
+    assert.equal(result.result.lease.consent_scope, "explicit_host_browser_launch_approval");
+    assert.equal(result.result.controlledRelaunchLaunch.status, "launched");
+    assert.equal(result.result.controlledRelaunchLaunch.approval_ref, "approval-controlled-browser-launch");
+    assert.equal(result.result.controlledRelaunchLaunch.process_ref.startsWith("process:native_browser:"), true);
+    assert.equal(result.result.controlledRelaunchLaunch.profile_dir_ref.startsWith("profile:controlled_relaunch:"), true);
+    assert.equal(result.result.action.action_kind, "inspect");
+    assert.equal(result.result.actionReceipt.adapter_id, "ioi.native_browser.cdp");
+    assert.equal(result.result.verification.status, "passed");
+    assert.equal(result.result.cleanup.status, "completed");
+    assert.equal(result.result.cleanup.closed_process_refs.length, 1);
+    assert.equal(result.result.cleanup.deleted_profile_refs.length, 1);
+    assert.equal(result.event_count, 11);
+
+    const runtimeEvents = [];
+    for await (const event of thread.events()) {
+      runtimeEvents.push(event);
+    }
+    const computerEvents = runtimeEvents.filter((event) => event.eventKind.startsWith("computer_use."));
+    assert.equal(computerEvents.some((event) => event.type === "computer_use_observation"), true);
+    assert.equal(computerEvents.some((event) => event.type === "computer_use_action_executed"), true);
+    const leaseEvent = computerEvents.find((event) => event.type === "computer_use_lease_acquired");
+    assert.equal(
+      leaseEvent.payload.controlled_relaunch_launch_receipt.status,
+      "launched",
+    );
+    const cleanupEvent = computerEvents.find((event) => event.type === "computer_use_cleanup");
+    assert.equal(cleanupEvent.payload.cleanup_receipt.deleted_profile_refs.length, 1);
+    const eventText = JSON.stringify(computerEvents);
+    assert.equal(eventText.includes("ioi-controlled-browser-"), false);
+    assert.equal(eventText.includes(fakeBrowser.scriptPath), false);
   } finally {
     await daemon.close();
   }

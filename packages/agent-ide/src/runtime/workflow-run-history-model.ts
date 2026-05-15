@@ -102,6 +102,12 @@ export type WorkflowRunComputerUseWorkbench = {
   lane: string | null;
   sessionMode: string | null;
   leaseId: string | null;
+  controlledRelaunchLaunchRef: string | null;
+  controlledRelaunchLaunchStatus: string | null;
+  controlledRelaunchProcessRef: string | null;
+  controlledRelaunchProfileDirRef: string | null;
+  controlledRelaunchEndpointRef: string | null;
+  controlledRelaunchApprovalRef: string | null;
   observationRef: string | null;
   screenRef: string | null;
   somRef: string | null;
@@ -362,6 +368,24 @@ function workflowRunComputerUseWorkbench(
     lane: latestComputerUse.lane ?? latestScreen.lane,
     sessionMode: latestComputerUse.sessionMode ?? latestScreen.sessionMode,
     leaseId: latestComputerUse.leaseId ?? latestScreen.leaseId,
+    controlledRelaunchLaunchRef:
+      [...nodes].reverse().find((node) => node.computerUse?.controlledRelaunchLaunchRef)
+        ?.computerUse?.controlledRelaunchLaunchRef ?? null,
+    controlledRelaunchLaunchStatus:
+      [...nodes].reverse().find((node) => node.computerUse?.controlledRelaunchLaunchStatus)
+        ?.computerUse?.controlledRelaunchLaunchStatus ?? null,
+    controlledRelaunchProcessRef:
+      [...nodes].reverse().find((node) => node.computerUse?.controlledRelaunchProcessRef)
+        ?.computerUse?.controlledRelaunchProcessRef ?? null,
+    controlledRelaunchProfileDirRef:
+      [...nodes].reverse().find((node) => node.computerUse?.controlledRelaunchProfileDirRef)
+        ?.computerUse?.controlledRelaunchProfileDirRef ?? null,
+    controlledRelaunchEndpointRef:
+      [...nodes].reverse().find((node) => node.computerUse?.controlledRelaunchEndpointRef)
+        ?.computerUse?.controlledRelaunchEndpointRef ?? null,
+    controlledRelaunchApprovalRef:
+      [...nodes].reverse().find((node) => node.computerUse?.controlledRelaunchApprovalRef)
+        ?.computerUse?.controlledRelaunchApprovalRef ?? null,
     observationRef: latestScreen.observationRef,
     screenRef: latestScreen.screenRef,
     somRef: latestScreen.somRef,

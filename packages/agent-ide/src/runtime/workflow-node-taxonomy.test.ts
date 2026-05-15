@@ -144,6 +144,9 @@ test("creator taxonomy covers memory, worker, mcp, skill, and computer-use autho
   assert.equal(browserUseArguments["computerUseLane"], "native_browser");
   assert.equal(browserUseArguments["computerUseSessionMode"], "owned_hermetic_browser");
   assert.equal(browserUseArguments["computerUseActionKind"], "inspect");
+  assert.equal(browserUseArguments["controlledRelaunchApprovalRef"], "");
+  assert.equal(browserUseArguments["controlledRelaunchExecutablePath"], "");
+  assert.equal(browserUseArguments["controlledRelaunchHeadless"], false);
   assert.equal(browserUseArguments["observationRetentionMode"], "local_redacted_artifacts");
   assert.equal(browserUseArguments["failClosedWhenUnavailable"], true);
   assert.equal(

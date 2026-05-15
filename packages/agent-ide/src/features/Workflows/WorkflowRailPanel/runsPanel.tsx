@@ -710,6 +710,24 @@ export function WorkflowRunsPanel({
               data-lane={computerUseWorkbench.lane ?? ""}
               data-session-mode={computerUseWorkbench.sessionMode ?? ""}
               data-lease-id={computerUseWorkbench.leaseId ?? ""}
+              data-controlled-relaunch-launch-ref={
+                computerUseWorkbench.controlledRelaunchLaunchRef ?? ""
+              }
+              data-controlled-relaunch-launch-status={
+                computerUseWorkbench.controlledRelaunchLaunchStatus ?? ""
+              }
+              data-controlled-relaunch-process-ref={
+                computerUseWorkbench.controlledRelaunchProcessRef ?? ""
+              }
+              data-controlled-relaunch-profile-dir-ref={
+                computerUseWorkbench.controlledRelaunchProfileDirRef ?? ""
+              }
+              data-controlled-relaunch-endpoint-ref={
+                computerUseWorkbench.controlledRelaunchEndpointRef ?? ""
+              }
+              data-controlled-relaunch-approval-ref={
+                computerUseWorkbench.controlledRelaunchApprovalRef ?? ""
+              }
               data-observation-ref={computerUseWorkbench.observationRef ?? ""}
               data-screen-ref={computerUseWorkbench.screenRef ?? ""}
               data-som-ref={computerUseWorkbench.somRef ?? ""}
@@ -766,6 +784,50 @@ export function WorkflowRunsPanel({
             >
               <h4>Computer-use workbench</h4>
               <div className="workflow-run-computer-use-workbench-grid">
+                {computerUseWorkbench.controlledRelaunchLaunchRef ? (
+                  <article
+                    className="workflow-run-computer-use-pane"
+                    data-testid="workflow-run-computer-use-launch-pane"
+                    data-launch-ref={
+                      computerUseWorkbench.controlledRelaunchLaunchRef
+                    }
+                    data-launch-status={
+                      computerUseWorkbench.controlledRelaunchLaunchStatus ?? ""
+                    }
+                    data-process-ref={
+                      computerUseWorkbench.controlledRelaunchProcessRef ?? ""
+                    }
+                    data-profile-dir-ref={
+                      computerUseWorkbench.controlledRelaunchProfileDirRef ?? ""
+                    }
+                    data-endpoint-ref={
+                      computerUseWorkbench.controlledRelaunchEndpointRef ?? ""
+                    }
+                    data-approval-ref={
+                      computerUseWorkbench.controlledRelaunchApprovalRef ?? ""
+                    }
+                  >
+                    <strong>Browser launch</strong>
+                    <span>
+                      {[
+                        computerUseWorkbench.controlledRelaunchLaunchStatus,
+                        computerUseWorkbench.controlledRelaunchLaunchRef,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                    <small>
+                      {[
+                        computerUseWorkbench.controlledRelaunchEndpointRef,
+                        computerUseWorkbench.controlledRelaunchProcessRef,
+                        computerUseWorkbench.controlledRelaunchProfileDirRef,
+                        computerUseWorkbench.controlledRelaunchApprovalRef,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || "launch evidence pending"}
+                    </small>
+                  </article>
+                ) : null}
                 <article
                   className="workflow-run-computer-use-pane"
                   data-testid="workflow-run-computer-use-screen-pane"
@@ -1456,6 +1518,23 @@ export function WorkflowRunsPanel({
                                     `${node.data.computerUse.cdpEndpointCount ?? 0} CDP`,
                                     `${node.data.computerUse.defaultProfileBlockerCount ?? 0} blockers`,
                                   ].join(" · ")}
+                                </dd>
+                              </div>
+                            ) : null}
+                            {node.data.computerUse.controlledRelaunchLaunchRef ? (
+                              <div>
+                                <dt>Launch</dt>
+                                <dd>
+                                  {[
+                                    node.data.computerUse
+                                      .controlledRelaunchLaunchStatus,
+                                    node.data.computerUse
+                                      .controlledRelaunchLaunchRef,
+                                    node.data.computerUse
+                                      .controlledRelaunchEndpointRef,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" · ")}
                                 </dd>
                               </div>
                             ) : null}
