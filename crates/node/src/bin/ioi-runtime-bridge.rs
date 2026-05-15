@@ -385,6 +385,7 @@ impl BridgeRuntime {
         if request_indicates_computer_use(&input.request, &prompt)
             || kernel_events.iter().any(kernel_event_mentions_browser_tool)
         {
+            let browser_tool_results = browser_tool_results(&kernel_events);
             if let Some((_, artifacts)) = self
                 .browser_driver
                 .recent_browser_observation_artifacts(Duration::from_secs(120))
@@ -398,7 +399,9 @@ impl BridgeRuntime {
                     created_at: &completed_at,
                 };
                 events.extend(browser_observation_artifacts_to_tti_events(
-                    &context, &artifacts,
+                    &context,
+                    &artifacts,
+                    &browser_tool_results,
                 ));
             }
         }
@@ -605,9 +608,18 @@ struct RuntimeBridgeComputerUseContext<'a> {
     created_at: &'a str,
 }
 
+#[derive(Debug, Clone)]
+struct BrowserToolResult {
+    step_index: u32,
+    tool_name: String,
+    output: String,
+    error_class: Option<String>,
+}
+
 fn browser_observation_artifacts_to_tti_events(
     context: &RuntimeBridgeComputerUseContext<'_>,
     artifacts: &ioi_drivers::browser::BrowserObservationArtifacts,
+    browser_tool_results: &[BrowserToolResult],
 ) -> Vec<Value> {
     let lease_id = format!("lease_{}_browser", context.run_id);
     let observation_ref = format!("observation_{}_browser_live", context.run_id);
@@ -699,7 +711,7 @@ fn browser_observation_artifacts_to_tti_events(
             payload: affordance_payload,
         }),
     ];
-    if let (Some(action_proposal), Some(commit_gate)) = (action_proposal, commit_gate) {
+    if let (Some(action_proposal), Some(commit_gate)) = (&action_proposal, &commit_gate) {
         let proposal_payload = extend_json_object(
             base_payload.clone(),
             json!({
@@ -720,7 +732,7 @@ fn browser_observation_artifacts_to_tti_events(
             }),
         );
         let commit_payload = extend_json_object(
-            base_payload,
+            base_payload.clone(),
             json!({
                 "computer_use_step": "commit_or_handoff",
                 "computer_use_commit_gate_ref": commit_gate.gate_ref.clone(),
@@ -771,6 +783,147 @@ fn browser_observation_artifacts_to_tti_events(
             payload: commit_payload,
         }));
     }
+    for result in browser_tool_results {
+        let action_kind = browser_tool_action_kind(&result.tool_name);
+        let failed = result.error_class.is_some();
+        let action_ref = format!(
+            "action_{}_runtime_bridge_{}_{}",
+            stable_bridge_ref_fragment(context.run_id),
+            result.step_index,
+            stable_bridge_ref_fragment(&result.tool_name),
+        );
+        let verification_ref = format!(
+            "verification_{}_runtime_bridge_{}_{}",
+            stable_bridge_ref_fragment(context.run_id),
+            result.step_index,
+            stable_bridge_ref_fragment(&result.tool_name),
+        );
+        let target_ref = action_proposal
+            .as_ref()
+            .and_then(|proposal| proposal.target_ref.clone())
+            .or_else(|| {
+                target_index
+                    .targets
+                    .first()
+                    .map(|target| target.target_ref.clone())
+            });
+        let proposal_ref = action_proposal
+            .as_ref()
+            .map(|proposal| proposal.proposal_ref.clone());
+        let computer_action = json!({
+            "action_ref": action_ref,
+            "proposal_ref": proposal_ref.clone(),
+            "action_kind": action_kind,
+            "target_ref": target_ref,
+            "observation_ref": observation.observation_ref,
+            "coordinate_space_id": target_index.coordinate_space_id,
+            "payload_summary": format!("RuntimeAgentService executed {}.", result.tool_name),
+            "expected_postcondition": format!("{} result is reflected in the browser observation evidence.", result.tool_name),
+            "approval_ref": Value::Null,
+            "tool_name": result.tool_name,
+            "step_index": result.step_index,
+        });
+        let action_receipt = json!({
+            "receipt_ref": format!("receipt_{}_runtime_bridge_action_{}", stable_bridge_ref_fragment(context.run_id), result.step_index),
+            "action_ref": action_ref,
+            "adapter_id": "ioi.native_browser.runtime_service_bridge",
+            "status": if failed { "failed" } else { "completed" },
+            "grounding_ref": target_index.target_index_ref,
+            "postcondition_summary": if failed {
+                format!("Browser tool {} failed: {}.", result.tool_name, result.error_class.as_deref().unwrap_or("unknown_error"))
+            } else {
+                summarize_browser_tool_output(&result.output)
+            },
+            "verification_ref": verification_ref,
+            "evidence_refs": [
+                observation.observation_ref.clone(),
+                target_index.target_index_ref.clone(),
+                affordance_graph.graph_ref.clone(),
+            ],
+            "error_class": result.error_class.clone(),
+        });
+        let verification_receipt = json!({
+            "verification_ref": verification_ref,
+            "action_ref": action_ref,
+            "status": if failed { "failed" } else { "passed" },
+            "expected_postcondition": format!("{} produces a browser tool result bound to the active observation.", result.tool_name),
+            "observed_postcondition": if failed {
+                format!("Browser tool failed before postcondition verification: {}.", result.error_class.as_deref().unwrap_or("unknown_error"))
+            } else {
+                summarize_browser_tool_output(&result.output)
+            },
+            "verifier": "runtime_service_bridge_browser_tool_result",
+            "evidence_refs": [
+                observation.observation_ref.clone(),
+                target_index.target_index_ref.clone(),
+                format!("receipt_{}_runtime_bridge_action_{}", stable_bridge_ref_fragment(context.run_id), result.step_index),
+            ],
+        });
+        let action_payload = extend_json_object(
+            base_payload.clone(),
+            json!({
+                "computer_use_step": "execute_action",
+                "computer_use_action_ref": computer_action["action_ref"].clone(),
+                "computer_use_proposal_ref": proposal_ref,
+                "computer_use_target_ref": computer_action["target_ref"].clone(),
+                "computer_action": computer_action,
+                "action_receipt": action_receipt,
+            }),
+        );
+        let verification_payload = extend_json_object(
+            base_payload.clone(),
+            json!({
+                "computer_use_step": "verify_postcondition",
+                "computer_use_action_ref": verification_receipt["action_ref"].clone(),
+                "computer_use_verification_ref": verification_receipt["verification_ref"].clone(),
+                "verification_receipt": verification_receipt,
+            }),
+        );
+        events.push(tti_event(TtiEventInput {
+            thread_id: context.thread_id,
+            turn_id: context.turn_id,
+            item_id: &format!(
+                "{}:item:computer-use:action-executed:{}",
+                context.turn_id, result.step_index
+            ),
+            idempotency_key: &format!(
+                "runtime-agent-service:{}:computer-use:action-executed:{}",
+                context.run_id, result.step_index
+            ),
+            source_event_kind: "KernelEvent::AgentActionResult",
+            event_kind: "computer_use.action_executed",
+            status: if failed { "failed" } else { "completed" },
+            actor: "runtime",
+            created_at: context.created_at,
+            workspace_root: context.workspace_root,
+            component_kind: "computer_use_harness",
+            workflow_node_id: "computer-use.action-executed",
+            payload_schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION_V1,
+            payload: action_payload,
+        }));
+        events.push(tti_event(TtiEventInput {
+            thread_id: context.thread_id,
+            turn_id: context.turn_id,
+            item_id: &format!(
+                "{}:item:computer-use:verification:{}",
+                context.turn_id, result.step_index
+            ),
+            idempotency_key: &format!(
+                "runtime-agent-service:{}:computer-use:verification:{}",
+                context.run_id, result.step_index
+            ),
+            source_event_kind: "KernelEvent::AgentActionResult",
+            event_kind: "computer_use.verification",
+            status: if failed { "failed" } else { "completed" },
+            actor: "runtime",
+            created_at: context.created_at,
+            workspace_root: context.workspace_root,
+            component_kind: "computer_use_harness",
+            workflow_node_id: "computer-use.verification",
+            payload_schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION_V1,
+            payload: verification_payload,
+        }));
+    }
     events
 }
 
@@ -807,6 +960,94 @@ fn commit_gate_payload(gate: &ioi_types::app::runtime::computer_use::CommitGate)
         );
     }
     payload
+}
+
+fn browser_tool_results(events: &[KernelEvent]) -> Vec<BrowserToolResult> {
+    events
+        .iter()
+        .filter_map(|event| match event {
+            KernelEvent::AgentActionResult {
+                step_index,
+                tool_name,
+                output,
+                error_class,
+                ..
+            } if is_browser_tool(tool_name) => Some(BrowserToolResult {
+                step_index: *step_index,
+                tool_name: tool_name.clone(),
+                output: output.clone(),
+                error_class: error_class.clone(),
+            }),
+            _ => None,
+        })
+        .collect()
+}
+
+fn browser_tool_action_kind(tool_name: &str) -> &'static str {
+    let normalized = tool_name.trim().to_ascii_lowercase();
+    if normalized.contains("click") {
+        "click"
+    } else if normalized.contains("type") || normalized.contains("input") {
+        "type_text"
+    } else if normalized.contains("key") {
+        "key_press"
+    } else if normalized.contains("scroll") {
+        "scroll"
+    } else if normalized.contains("hover") {
+        "hover"
+    } else if normalized.contains("select") {
+        "select"
+    } else if normalized.contains("upload") {
+        "upload"
+    } else if normalized.contains("navigate")
+        || normalized.contains("open")
+        || normalized.contains("go_to")
+    {
+        "navigate"
+    } else if normalized.contains("wait") {
+        "wait"
+    } else {
+        "inspect"
+    }
+}
+
+fn summarize_browser_tool_output(output: &str) -> String {
+    let compact = output.split_whitespace().collect::<Vec<_>>().join(" ");
+    if compact.is_empty() {
+        "Browser tool completed without textual output.".to_string()
+    } else if compact.len() > 240 {
+        format!("{}...", &compact[..240])
+    } else {
+        compact
+    }
+}
+
+fn stable_bridge_ref_fragment(value: &str) -> String {
+    let mut fragment = String::with_capacity(value.len().min(64));
+    let mut previous_was_separator = false;
+    for ch in value.chars() {
+        let normalized = if ch.is_ascii_alphanumeric() {
+            previous_was_separator = false;
+            Some(ch.to_ascii_lowercase())
+        } else if !previous_was_separator {
+            previous_was_separator = true;
+            Some('_')
+        } else {
+            None
+        };
+        if let Some(normalized) = normalized {
+            fragment.push(normalized);
+        }
+        if fragment.len() >= 64 {
+            break;
+        }
+    }
+    let trimmed = fragment.trim_matches('_');
+    if trimmed.is_empty() {
+        "runtime_bridge".to_string()
+    } else {
+        trimmed.to_string()
+    }
 }
 
 fn request_indicates_computer_use(request: &Value, prompt: &str) -> bool {
@@ -990,7 +1231,7 @@ mod tests {
             workspace_root: Some("/tmp/ioi"),
             created_at: "2026-05-14T00:00:00Z",
         };
-        let events = browser_observation_artifacts_to_tti_events(&context, &artifacts);
+        let events = browser_observation_artifacts_to_tti_events(&context, &artifacts, &[]);
         assert_eq!(events.len(), 4);
         assert_eq!(events[0]["event_kind"], "computer_use.observation");
         assert_eq!(events[0]["component_kind"], "computer_use_harness");
@@ -1032,6 +1273,62 @@ mod tests {
         assert_eq!(
             events[3]["payload"]["commit_gate"]["commit_gate_ref"],
             events[3]["payload"]["commit_gate"]["gate_ref"]
+        );
+    }
+
+    #[test]
+    fn browser_tool_results_project_to_action_and_verification_events() {
+        let artifacts = BrowserObservationArtifacts {
+            captured_at: Instant::now(),
+            url: Some("https://example.test/app".to_string()),
+            page_title: Some("Example App".to_string()),
+            browser_use_state_text: Some("state".to_string()),
+            browser_use_selector_map_text: Some(
+                "[42] <button name=Submit target_id=target-submit />".to_string(),
+            ),
+            browser_use_html_text: None,
+            browser_use_eval_text: None,
+            browser_use_markdown_text: None,
+            browser_use_pagination_text: None,
+            browser_use_tabs_text: None,
+            browser_use_page_info_text: None,
+            browser_use_pending_requests_text: None,
+            browser_use_recent_events_text: None,
+            browser_use_closed_popup_messages_text: None,
+            browsergym_extra_properties_text: None,
+            browsergym_focused_bid: Some("bid-submit".to_string()),
+            browsergym_dom_text: Some("<button>Submit</button>".to_string()),
+            browsergym_axtree_text: Some("button Submit".to_string()),
+        };
+        let context = RuntimeBridgeComputerUseContext {
+            thread_id: "thread_browser",
+            turn_id: "turn_browser",
+            run_id: "run_browser",
+            workspace_root: Some("/tmp/ioi"),
+            created_at: "2026-05-14T00:00:00Z",
+        };
+        let browser_results = vec![BrowserToolResult {
+            step_index: 7,
+            tool_name: "browser__inspect".to_string(),
+            output: "Observed the Submit button.".to_string(),
+            error_class: None,
+        }];
+        let events =
+            browser_observation_artifacts_to_tti_events(&context, &artifacts, &browser_results);
+        assert_eq!(events.len(), 6);
+        assert_eq!(events[4]["event_kind"], "computer_use.action_executed");
+        assert_eq!(
+            events[4]["payload"]["computer_action"]["action_kind"],
+            "inspect"
+        );
+        assert_eq!(
+            events[4]["payload"]["action_receipt"]["status"],
+            "completed"
+        );
+        assert_eq!(events[5]["event_kind"], "computer_use.verification");
+        assert_eq!(
+            events[5]["payload"]["verification_receipt"]["status"],
+            "passed"
         );
     }
 
