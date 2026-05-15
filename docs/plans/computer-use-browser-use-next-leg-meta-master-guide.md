@@ -644,6 +644,10 @@ Deliverables:
   control, forwards local-fixture sandbox metadata into runtime options, and
   verifies step-addressed glass-box trace projection without React Flow owning
   runtime truth.
+- native-browser prompt pipeline proof that composes a mounted model node with
+  Browser Use, carries a demo prompt through the model invocation trace, and
+  verifies the model-to-browser handoff plus browser observation, proposal,
+  action, verification, trajectory, and cleanup rows.
 
 Acceptance:
 
@@ -657,6 +661,9 @@ Acceptance:
 - authored single-node computer-use traces remain glass-box visible as
   environment, observation, affordance, proposal, action, verification,
   trajectory, and cleanup steps instead of collapsing into one opaque node.
+- composed model plus Browser Use workflows show the prompt, mounted model
+  trace, selected browser action path, policy posture, verification, and
+  cleanup evidence in one run-history surface.
 - SDK and daemon runtime thread events preserve authored workflow graph/node
   ids, tool refs, authority scopes, and observation-retention metadata so the
   glass-box trace lands back on the composed primitive.

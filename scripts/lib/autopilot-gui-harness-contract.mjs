@@ -196,6 +196,7 @@ export const REQUIRED_GUI_ARTIFACTS = Object.freeze([
   "workflow_terminal_coding_loop_run_inspector",
   "workflow_terminal_coding_loop_run_button",
   "workflow_sandboxed_computer_run_button",
+  "workflow_native_browser_prompt_pipeline",
   "workflow_coding_route_create_run",
   "workflow_coding_route_promotion_loop",
 ]);
@@ -302,6 +303,7 @@ export const RUNTIME_CONSISTENCY_REQUIREMENTS = Object.freeze([
   "workflow_terminal_coding_loop_run_inspector_proof_present",
   "workflow_terminal_coding_loop_run_button_proof_present",
   "workflow_sandboxed_computer_run_button_proof_present",
+  "workflow_native_browser_prompt_pipeline_proof_present",
   "workflow_coding_route_create_run_proof_present",
   "workflow_coding_route_promotion_loop_proof_present",
 ]);
