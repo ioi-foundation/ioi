@@ -1085,6 +1085,62 @@ test("runtime daemon projects local visual GUI observations through thread tool 
   }
 });
 
+test("runtime daemon retains local visual GUI observation files as governed artifacts", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-visual-gui-artifact-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-visual-gui-artifact-state-"));
+  const screenshotPath = path.join(cwd, "visual-screenshot.png");
+  const somPath = path.join(cwd, "visual-som.json");
+  const axPath = path.join(cwd, "visual-ax.json");
+  fs.writeFileSync(screenshotPath, "fake png bytes");
+  fs.writeFileSync(somPath, JSON.stringify({ marks: [{ id: 1, label: "Canvas" }] }));
+  fs.writeFileSync(axPath, JSON.stringify({ role: "window", name: "Canvas App" }));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const thread = await agent.thread();
+    const result = await client.invokeThreadTool(thread.id, "ioi.computer_use.visual_gui", {
+      source: "sdk_test",
+      workflowGraphId: "workflow.visual-gui-artifact-observation",
+      workflowNodeId: "visual-gui-artifact-observation",
+      input: {
+        prompt: "Inspect retained local visual artifacts.",
+        sessionMode: "foreground_desktop",
+        screenshotPath,
+        somPath,
+        axPath,
+        appName: "Canvas App",
+        windowTitle: "Canvas App - Retained",
+      },
+    });
+
+    assert.equal(result.status, "completed");
+    const screenshotRef = result.result.observation.screenshot_ref;
+    const somRef = result.result.observation.som_ref;
+    const axRef = result.result.observation.ax_ref;
+    assert.match(screenshotRef, /^artifact_computer_use_visual_/);
+    assert.match(somRef, /^artifact_computer_use_visual_/);
+    assert.match(axRef, /^artifact_computer_use_visual_/);
+    assert.ok(result.artifact_refs.includes(screenshotRef));
+    assert.ok(result.artifact_refs.includes(somRef));
+    assert.ok(result.artifact_refs.includes(axRef));
+    assert.ok(result.result.cleanup.retained_artifact_refs.includes(screenshotRef));
+
+    const artifactRead = await client.invokeThreadTool(thread.id, "artifact.read", {
+      input: { artifactId: screenshotRef },
+    });
+    assert.equal(artifactRead.status, "completed");
+    assert.equal(artifactRead.result.mediaType, "image/png");
+    assert.equal(artifactRead.result.content, Buffer.from("fake png bytes").toString("base64"));
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("runtime daemon gates mutating native browser actions before execution", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-gate-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-gate-state-"));

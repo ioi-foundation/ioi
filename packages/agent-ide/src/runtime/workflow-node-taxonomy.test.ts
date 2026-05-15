@@ -154,8 +154,11 @@ test("creator taxonomy covers memory, worker, mcp, skill, and computer-use autho
   assert.equal(visualUseArguments["computerUseLane"], "visual_gui");
   assert.equal(visualUseArguments["computerUseActionKind"], "inspect");
   assert.equal(visualUseArguments["screenshotRef"], "");
+  assert.equal(visualUseArguments["screenshotPath"], "");
   assert.equal(visualUseArguments["somRef"], "");
+  assert.equal(visualUseArguments["somPath"], "");
   assert.equal(visualUseArguments["axRef"], "");
+  assert.equal(visualUseArguments["axPath"], "");
   assert.equal(
     creators.get("plugin_tool.computer_use.visual_gui")?.defaultLaw.requireHumanGate,
     true,

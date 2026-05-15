@@ -97,8 +97,11 @@ pub(crate) enum TuiLineCommand {
         prompt: Option<String>,
         session_mode: Option<String>,
         screenshot_ref: Option<String>,
+        screenshot_path: Option<String>,
         som_ref: Option<String>,
+        som_path: Option<String>,
         ax_ref: Option<String>,
+        ax_path: Option<String>,
         app_name: Option<String>,
         window_title: Option<String>,
         coordinate_space_id: Option<String>,
@@ -471,8 +474,11 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                 prompt,
                 session_mode,
                 screenshot_ref,
+                screenshot_path,
                 som_ref,
+                som_path,
                 ax_ref,
+                ax_path,
                 app_name,
                 window_title,
                 coordinate_space_id,
@@ -485,8 +491,11 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                         prompt,
                         session_mode,
                         screenshot_ref,
+                        screenshot_path,
                         som_ref,
+                        som_path,
                         ax_ref,
+                        ax_path,
                         app_name,
                         window_title,
                         coordinate_space_id,
@@ -1105,8 +1114,11 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 prompt: args.prompt,
                 session_mode: args.session_mode,
                 screenshot_ref: args.screenshot_ref,
+                screenshot_path: args.screenshot_path,
                 som_ref: args.som_ref,
+                som_path: args.som_path,
                 ax_ref: args.ax_ref,
+                ax_path: args.ax_path,
                 app_name: args.app_name,
                 window_title: args.window_title,
                 coordinate_space_id: args.coordinate_space_id,
@@ -1177,8 +1189,11 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                     prompt: args.prompt,
                     session_mode: args.session_mode,
                     screenshot_ref: args.screenshot_ref,
+                    screenshot_path: args.screenshot_path,
                     som_ref: args.som_ref,
+                    som_path: args.som_path,
                     ax_ref: args.ax_ref,
+                    ax_path: args.ax_path,
                     app_name: args.app_name,
                     window_title: args.window_title,
                     coordinate_space_id: args.coordinate_space_id,
@@ -2921,6 +2936,16 @@ async fn handle_visual_gui_command(
             Value::String(screenshot_ref.trim().to_string()),
         );
     }
+    if let Some(screenshot_path) = args
+        .screenshot_path
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "screenshotPath".to_string(),
+            Value::String(screenshot_path.trim().to_string()),
+        );
+    }
     if let Some(som_ref) = args
         .som_ref
         .as_deref()
@@ -2931,6 +2956,16 @@ async fn handle_visual_gui_command(
             Value::String(som_ref.trim().to_string()),
         );
     }
+    if let Some(som_path) = args
+        .som_path
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "somPath".to_string(),
+            Value::String(som_path.trim().to_string()),
+        );
+    }
     if let Some(ax_ref) = args
         .ax_ref
         .as_deref()
@@ -2939,6 +2974,16 @@ async fn handle_visual_gui_command(
         input.insert(
             "axRef".to_string(),
             Value::String(ax_ref.trim().to_string()),
+        );
+    }
+    if let Some(ax_path) = args
+        .ax_path
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "axPath".to_string(),
+            Value::String(ax_path.trim().to_string()),
         );
     }
     if let Some(app_name) = args
@@ -3620,7 +3665,7 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--session-mode owned_hermetic_browser|attached_cdp|controlled_relaunch] [--approval-ref approval_id] [--controlled-relaunch-approval-ref approval_id] [--controlled-relaunch-executable-path path] [--controlled-relaunch-headless] [--selector css] [--target-ref ref] [--text value] [--key value] [--scroll-x n] [--scroll-y n] [--file-path path] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /visual-gui [prompt] [--session-mode visual_fallback|foreground_desktop|background_desktop|app_scoped_desktop] [--screenshot-ref ref] [--som-ref ref] [--ax-ref ref] [--app-name name] [--window-title title] [--coordinate-space-id id] [--viewport-width n] [--viewport-height n] /computer-use [pause|resume|abort|cleanup] --lease-id lease_id [--handoff-ref ref] [--reason text] [--resume-observation-ref ref] [--cdp-endpoint-url url] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--session-mode owned_hermetic_browser|attached_cdp|controlled_relaunch] [--approval-ref approval_id] [--controlled-relaunch-approval-ref approval_id] [--controlled-relaunch-executable-path path] [--controlled-relaunch-headless] [--selector css] [--target-ref ref] [--text value] [--key value] [--scroll-x n] [--scroll-y n] [--file-path path] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /visual-gui [prompt] [--session-mode visual_fallback|foreground_desktop|background_desktop|app_scoped_desktop] [--screenshot-ref ref|--screenshot-path path] [--som-ref ref|--som-path path] [--ax-ref ref|--ax-path path] [--app-name name] [--window-title title] [--coordinate-space-id id] [--viewport-width n] [--viewport-height n] /computer-use [pause|resume|abort|cleanup] --lease-id lease_id [--handoff-ref ref] [--reason text] [--resume-observation-ref ref] [--cdp-endpoint-url url] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -3982,8 +4027,11 @@ struct VisualGuiLineArgs {
     prompt: Option<String>,
     session_mode: Option<String>,
     screenshot_ref: Option<String>,
+    screenshot_path: Option<String>,
     som_ref: Option<String>,
+    som_path: Option<String>,
     ax_ref: Option<String>,
+    ax_path: Option<String>,
     app_name: Option<String>,
     window_title: Option<String>,
     coordinate_space_id: Option<String>,
@@ -3995,8 +4043,11 @@ fn parse_visual_gui_args(value: &str) -> Result<VisualGuiLineArgs> {
     let mut prompt_parts = Vec::new();
     let mut session_mode = None;
     let mut screenshot_ref = None;
+    let mut screenshot_path = None;
     let mut som_ref = None;
+    let mut som_path = None;
     let mut ax_ref = None;
+    let mut ax_path = None;
     let mut app_name = None;
     let mut window_title = None;
     let mut coordinate_space_id = None;
@@ -4026,6 +4077,17 @@ fn parse_visual_gui_args(value: &str) -> Result<VisualGuiLineArgs> {
             )?);
             continue;
         }
+        if let Some(inline) = part.strip_prefix("--screenshot-path=") {
+            screenshot_path = Some(non_empty_flag_value("--screenshot-path", inline)?);
+            continue;
+        }
+        if part == "--screenshot-path" {
+            screenshot_path = Some(non_empty_flag_value(
+                "--screenshot-path",
+                required_flag_value("--screenshot-path", &mut parts)?,
+            )?);
+            continue;
+        }
         if let Some(inline) = part.strip_prefix("--som-ref=") {
             som_ref = Some(non_empty_flag_value("--som-ref", inline)?);
             continue;
@@ -4037,8 +4099,30 @@ fn parse_visual_gui_args(value: &str) -> Result<VisualGuiLineArgs> {
             )?);
             continue;
         }
+        if let Some(inline) = part.strip_prefix("--som-path=") {
+            som_path = Some(non_empty_flag_value("--som-path", inline)?);
+            continue;
+        }
+        if part == "--som-path" {
+            som_path = Some(non_empty_flag_value(
+                "--som-path",
+                required_flag_value("--som-path", &mut parts)?,
+            )?);
+            continue;
+        }
         if let Some(inline) = part.strip_prefix("--ax-ref=") {
             ax_ref = Some(non_empty_flag_value("--ax-ref", inline)?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--ax-path=") {
+            ax_path = Some(non_empty_flag_value("--ax-path", inline)?);
+            continue;
+        }
+        if part == "--ax-path" {
+            ax_path = Some(non_empty_flag_value(
+                "--ax-path",
+                required_flag_value("--ax-path", &mut parts)?,
+            )?);
             continue;
         }
         if part == "--ax-ref" {
@@ -4109,8 +4193,11 @@ fn parse_visual_gui_args(value: &str) -> Result<VisualGuiLineArgs> {
         prompt: non_empty_string(&prompt_parts.join(" ")),
         session_mode,
         screenshot_ref,
+        screenshot_path,
         som_ref,
+        som_path,
         ax_ref,
+        ax_path,
         app_name,
         window_title,
         coordinate_space_id,
@@ -5241,8 +5328,11 @@ mod tests {
                 prompt: Some("inspect local canvas".to_string()),
                 session_mode: Some("foreground_desktop".to_string()),
                 screenshot_ref: Some("artifact:visual:screenshot".to_string()),
+                screenshot_path: None,
                 som_ref: Some("artifact:visual:som".to_string()),
+                som_path: None,
                 ax_ref: Some("artifact:visual:ax".to_string()),
+                ax_path: None,
                 app_name: Some("CanvasApp".to_string()),
                 window_title: Some("CanvasWindow".to_string()),
                 coordinate_space_id: Some("screen-visual-1".to_string()),
@@ -5256,8 +5346,29 @@ mod tests {
                 prompt: Some("inspect canvas".to_string()),
                 session_mode: None,
                 screenshot_ref: Some("artifact:visual:screenshot".to_string()),
+                screenshot_path: None,
                 som_ref: None,
+                som_path: None,
                 ax_ref: None,
+                ax_path: None,
+                app_name: None,
+                window_title: None,
+                coordinate_space_id: None,
+                viewport_width: None,
+                viewport_height: None,
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/computer-use visual-gui inspect canvas --screenshot-path /tmp/visual.png --som-path /tmp/som.json --ax-path /tmp/ax.json").unwrap(),
+            TuiLineCommand::VisualGui {
+                prompt: Some("inspect canvas".to_string()),
+                session_mode: None,
+                screenshot_ref: None,
+                screenshot_path: Some("/tmp/visual.png".to_string()),
+                som_ref: None,
+                som_path: Some("/tmp/som.json".to_string()),
+                ax_ref: None,
+                ax_path: Some("/tmp/ax.json".to_string()),
                 app_name: None,
                 window_title: None,
                 coordinate_space_id: None,

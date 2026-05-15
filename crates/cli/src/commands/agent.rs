@@ -502,12 +502,21 @@ pub enum ToolCommands {
         /// Redacted screenshot artifact/ref for the current observation.
         #[clap(long = "screenshot-ref")]
         screenshot_ref: Option<String>,
+        /// Local screenshot path to retain as a governed artifact/ref.
+        #[clap(long = "screenshot-path")]
+        screenshot_path: Option<String>,
         /// Set-of-Marks artifact/ref for the current observation.
         #[clap(long = "som-ref")]
         som_ref: Option<String>,
+        /// Local Set-of-Marks path to retain as a governed artifact/ref.
+        #[clap(long = "som-path")]
+        som_path: Option<String>,
         /// Accessibility tree artifact/ref for the current observation.
         #[clap(long = "ax-ref")]
         ax_ref: Option<String>,
+        /// Local accessibility tree path to retain as a governed artifact/ref.
+        #[clap(long = "ax-path")]
+        ax_path: Option<String>,
         /// Observed app name.
         #[clap(long = "app-name")]
         app_name: Option<String>,
@@ -1528,8 +1537,11 @@ async fn run_tool_command(
             session_mode,
             target_ref,
             screenshot_ref,
+            screenshot_path,
             som_ref,
+            som_path,
             ax_ref,
+            ax_path,
             app_name,
             window_title,
             coordinate_space_id,
@@ -1550,8 +1562,11 @@ async fn run_tool_command(
                 session_mode,
                 target_ref,
                 screenshot_ref,
+                screenshot_path,
                 som_ref,
+                som_path,
                 ax_ref,
+                ax_path,
                 app_name,
                 window_title,
                 coordinate_space_id,
@@ -2011,8 +2026,11 @@ async fn invoke_visual_gui_tool(
     session_mode: Option<String>,
     target_ref: Option<String>,
     screenshot_ref: Option<String>,
+    screenshot_path: Option<String>,
     som_ref: Option<String>,
+    som_path: Option<String>,
     ax_ref: Option<String>,
+    ax_path: Option<String>,
     app_name: Option<String>,
     window_title: Option<String>,
     coordinate_space_id: Option<String>,
@@ -2073,16 +2091,37 @@ async fn invoke_visual_gui_tool(
             serde_json::Value::String(screenshot_ref.trim().to_string()),
         );
     }
+    if let Some(screenshot_path) = screenshot_path
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "screenshotPath".to_string(),
+            serde_json::Value::String(screenshot_path.trim().to_string()),
+        );
+    }
     if let Some(som_ref) = som_ref.as_deref().filter(|value| !value.trim().is_empty()) {
         input.insert(
             "somRef".to_string(),
             serde_json::Value::String(som_ref.trim().to_string()),
         );
     }
+    if let Some(som_path) = som_path.as_deref().filter(|value| !value.trim().is_empty()) {
+        input.insert(
+            "somPath".to_string(),
+            serde_json::Value::String(som_path.trim().to_string()),
+        );
+    }
     if let Some(ax_ref) = ax_ref.as_deref().filter(|value| !value.trim().is_empty()) {
         input.insert(
             "axRef".to_string(),
             serde_json::Value::String(ax_ref.trim().to_string()),
+        );
+    }
+    if let Some(ax_path) = ax_path.as_deref().filter(|value| !value.trim().is_empty()) {
+        input.insert(
+            "axPath".to_string(),
+            serde_json::Value::String(ax_path.trim().to_string()),
         );
     }
     if let Some(app_name) = app_name.as_deref().filter(|value| !value.trim().is_empty()) {
@@ -3635,10 +3674,16 @@ mod tests {
             "foreground_desktop",
             "--screenshot-ref",
             "artifact:visual:screenshot",
+            "--screenshot-path",
+            "/tmp/visual-screenshot.png",
             "--som-ref",
             "artifact:visual:som",
+            "--som-path",
+            "/tmp/visual-som.json",
             "--ax-ref",
             "artifact:visual:ax",
+            "--ax-path",
+            "/tmp/visual-ax.json",
             "--app-name",
             "CanvasApp",
             "--window-title",
@@ -3659,8 +3704,11 @@ mod tests {
                     thread_id,
                     session_mode: Some(session_mode),
                     screenshot_ref: Some(screenshot_ref),
+                    screenshot_path: Some(screenshot_path),
                     som_ref: Some(som_ref),
+                    som_path: Some(som_path),
                     ax_ref: Some(ax_ref),
+                    ax_path: Some(ax_path),
                     app_name: Some(app_name),
                     window_title: Some(window_title),
                     coordinate_space_id: Some(coordinate_space_id),
@@ -3673,8 +3721,11 @@ mod tests {
             }) if thread_id == "thread_runtime_cli"
                 && session_mode == "foreground_desktop"
                 && screenshot_ref == "artifact:visual:screenshot"
+                && screenshot_path == "/tmp/visual-screenshot.png"
                 && som_ref == "artifact:visual:som"
+                && som_path == "/tmp/visual-som.json"
                 && ax_ref == "artifact:visual:ax"
+                && ax_path == "/tmp/visual-ax.json"
                 && app_name == "CanvasApp"
                 && window_title == "CanvasWindow"
                 && coordinate_space_id == "screen-visual-1"

@@ -28,8 +28,11 @@ export interface WorkflowComposerComputerUseRunMetadata {
   cdpWebSocketUrl?: string;
   cdpTimeoutMs?: number;
   screenshotRef?: string;
+  screenshotPath?: string;
   somRef?: string;
+  somPath?: string;
   axRef?: string;
+  axPath?: string;
   appName?: string;
   windowTitle?: string;
   coordinateSpaceId?: string;
@@ -150,16 +153,29 @@ export function workflowComposerComputerUseRunOptions(
   const screenshotRef =
     cleanString(first.args["screenshotRef"]) ??
     cleanString(first.args["screenshot_ref"]);
+  const screenshotPath =
+    cleanString(first.args["screenshotPath"]) ??
+    cleanString(first.args["screenshot_path"]);
   const somRef =
     cleanString(first.args["somRef"]) ??
     cleanString(first.args["som_ref"]) ??
     cleanString(first.args["setOfMarksRef"]) ??
     cleanString(first.args["set_of_marks_ref"]);
+  const somPath =
+    cleanString(first.args["somPath"]) ??
+    cleanString(first.args["som_path"]) ??
+    cleanString(first.args["setOfMarksPath"]) ??
+    cleanString(first.args["set_of_marks_path"]);
   const axRef =
     cleanString(first.args["axRef"]) ??
     cleanString(first.args["ax_ref"]) ??
     cleanString(first.args["accessibilityTreeRef"]) ??
     cleanString(first.args["accessibility_tree_ref"]);
+  const axPath =
+    cleanString(first.args["axPath"]) ??
+    cleanString(first.args["ax_path"]) ??
+    cleanString(first.args["accessibilityTreePath"]) ??
+    cleanString(first.args["accessibility_tree_path"]);
   const appName =
     cleanString(first.args["appName"]) ??
     cleanString(first.args["app_name"]);
@@ -210,8 +226,11 @@ export function workflowComposerComputerUseRunOptions(
         ? { cdpTimeoutMs }
         : {}),
       ...(screenshotRef ? { screenshotRef } : {}),
+      ...(screenshotPath ? { screenshotPath } : {}),
       ...(somRef ? { somRef } : {}),
+      ...(somPath ? { somPath } : {}),
       ...(axRef ? { axRef } : {}),
+      ...(axPath ? { axPath } : {}),
       ...(appName ? { appName } : {}),
       ...(windowTitle ? { windowTitle } : {}),
       ...(coordinateSpaceId ? { coordinateSpaceId } : {}),
