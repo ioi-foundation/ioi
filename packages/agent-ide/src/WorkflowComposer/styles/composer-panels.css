@@ -412,6 +412,31 @@
   padding: 0 8px 8px;
 }
 
+.workflow-run-computer-use-trace {
+  display: grid;
+  gap: 6px;
+  margin: 0 8px 8px;
+  border-left: 2px solid var(--accent-blue);
+  background: color-mix(in srgb, var(--workflow-panel-strong) 82%, transparent);
+  padding: 7px 8px;
+}
+
+.workflow-run-computer-use-trace > span {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.workflow-run-computer-use-trace dl {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 0;
+}
+
+.workflow-run-computer-use-trace.is-blocked,
+.workflow-run-computer-use-trace.is-failed {
+  border-color: color-mix(in srgb, var(--status-warning) 68%, var(--border-default));
+}
+
 .workflow-run-diagnostics-repair-actions .workflow-secondary-action {
   min-width: 0;
   width: 100%;
