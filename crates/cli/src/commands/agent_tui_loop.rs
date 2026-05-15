@@ -135,6 +135,17 @@ pub(crate) enum TuiLineCommand {
         viewport_width: Option<u64>,
         viewport_height: Option<u64>,
     },
+    SandboxedComputer {
+        prompt: Option<String>,
+        action_kind: Option<String>,
+        session_mode: Option<String>,
+        approval_ref: Option<String>,
+        target_ref: Option<String>,
+        sandbox_provider: Option<String>,
+        no_sandbox_fixture: bool,
+        sandbox_image_ref: Option<String>,
+        sandbox_task_ref: Option<String>,
+    },
     ComputerUseControl {
         action: String,
         lease_id: String,
@@ -605,6 +616,42 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                     line.trim(),
                     "applied",
                     Some("visual-GUI observation broker trace emitted"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::SandboxedComputer {
+                prompt,
+                action_kind,
+                session_mode,
+                approval_ref,
+                target_ref,
+                sandbox_provider,
+                no_sandbox_fixture,
+                sandbox_image_ref,
+                sandbox_task_ref,
+            }) => {
+                let events = handle_sandboxed_computer_command(
+                    &mut session,
+                    SandboxedComputerLineArgs {
+                        prompt,
+                        action_kind,
+                        session_mode,
+                        approval_ref,
+                        target_ref,
+                        sandbox_provider,
+                        no_sandbox_fixture,
+                        sandbox_image_ref,
+                        sandbox_task_ref,
+                    },
+                )
+                .await?;
+                control_state.record_command(
+                    "sandboxed-computer",
+                    line.trim(),
+                    "applied",
+                    Some("sandboxed computer-use trace emitted"),
                     &session,
                     &events,
                 );
@@ -1252,6 +1299,20 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 viewport_height: args.viewport_height,
             })
         }
+        "sandboxed-computer" | "sandbox" | "hosted-computer" => {
+            let args = parse_sandboxed_computer_args(rest)?;
+            Ok(TuiLineCommand::SandboxedComputer {
+                prompt: args.prompt,
+                action_kind: args.action_kind,
+                session_mode: args.session_mode,
+                approval_ref: args.approval_ref,
+                target_ref: args.target_ref,
+                sandbox_provider: args.sandbox_provider,
+                no_sandbox_fixture: args.no_sandbox_fixture,
+                sandbox_image_ref: args.sandbox_image_ref,
+                sandbox_task_ref: args.sandbox_task_ref,
+            })
+        }
         "computer-use-control" => {
             let args = parse_computer_use_control_args(rest)?;
             Ok(TuiLineCommand::ComputerUseControl {
@@ -1303,6 +1364,26 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                     cdp_endpoint_url: args.cdp_endpoint_url,
                     cdp_websocket_url: args.cdp_websocket_url,
                     cdp_timeout_ms: args.cdp_timeout_ms,
+                })
+            } else if let Some(prompt) = rest
+                .strip_prefix("sandboxed-computer ")
+                .or_else(|| (rest == "sandboxed-computer").then_some(""))
+                .or_else(|| rest.strip_prefix("sandbox "))
+                .or_else(|| (rest == "sandbox").then_some(""))
+                .or_else(|| rest.strip_prefix("hosted-computer "))
+                .or_else(|| (rest == "hosted-computer").then_some(""))
+            {
+                let args = parse_sandboxed_computer_args(prompt)?;
+                Ok(TuiLineCommand::SandboxedComputer {
+                    prompt: args.prompt,
+                    action_kind: args.action_kind,
+                    session_mode: args.session_mode,
+                    approval_ref: args.approval_ref,
+                    target_ref: args.target_ref,
+                    sandbox_provider: args.sandbox_provider,
+                    no_sandbox_fixture: args.no_sandbox_fixture,
+                    sandbox_image_ref: args.sandbox_image_ref,
+                    sandbox_task_ref: args.sandbox_task_ref,
                 })
             } else if let Some(prompt) = rest
                 .strip_prefix("visual-gui-observe ")
@@ -1362,7 +1443,7 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 })
             } else {
                 Err(anyhow!(
-                    "/computer-use accepts browser-discovery, native-browser <prompt>, visual-gui-observe <prompt>, visual-gui <prompt>, or pause|resume|abort|cleanup --lease-id <id>; use /help"
+                    "/computer-use accepts browser-discovery, native-browser <prompt>, sandboxed-computer <prompt>, visual-gui-observe <prompt>, visual-gui <prompt>, or pause|resume|abort|cleanup --lease-id <id>; use /help"
                 ))
             }
         }
@@ -3057,6 +3138,112 @@ async fn handle_native_browser_command(
     handle_coding_tool_input_command(session, "ioi.computer_use.native_browser", input).await
 }
 
+async fn handle_sandboxed_computer_command(
+    session: &mut TuiInteractiveSession,
+    args: SandboxedComputerLineArgs,
+) -> Result<Vec<Value>> {
+    let mut input = serde_json::Map::new();
+    if let Some(prompt) = args
+        .prompt
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        if args.action_kind.is_none() {
+            if let Some(action_kind) = computer_use_action_kind_from_prompt(prompt) {
+                input.insert(
+                    "actionKind".to_string(),
+                    Value::String(action_kind.to_string()),
+                );
+            }
+        }
+        input.insert(
+            "prompt".to_string(),
+            Value::String(prompt.trim().to_string()),
+        );
+    }
+    if let Some(action_kind) = args
+        .action_kind
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "actionKind".to_string(),
+            Value::String(action_kind.trim().to_string()),
+        );
+    }
+    input.insert(
+        "sessionMode".to_string(),
+        Value::String(
+            args.session_mode
+                .as_deref()
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or("local_sandbox")
+                .trim()
+                .to_string(),
+        ),
+    );
+    if let Some(approval_ref) = args
+        .approval_ref
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "approvalRef".to_string(),
+            Value::String(approval_ref.trim().to_string()),
+        );
+    }
+    if let Some(target_ref) = args
+        .target_ref
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "targetRef".to_string(),
+            Value::String(target_ref.trim().to_string()),
+        );
+    }
+    input.insert(
+        "sandboxProvider".to_string(),
+        Value::String(
+            args.sandbox_provider
+                .as_deref()
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or("local_fixture")
+                .trim()
+                .to_string(),
+        ),
+    );
+    input.insert(
+        "sandboxFixture".to_string(),
+        Value::Bool(!args.no_sandbox_fixture),
+    );
+    if let Some(sandbox_image_ref) = args
+        .sandbox_image_ref
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "sandboxImageRef".to_string(),
+            Value::String(sandbox_image_ref.trim().to_string()),
+        );
+    }
+    if let Some(sandbox_task_ref) = args
+        .sandbox_task_ref
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "sandboxTaskRef".to_string(),
+            Value::String(sandbox_task_ref.trim().to_string()),
+        );
+    }
+    input.insert(
+        "observationRetentionMode".to_string(),
+        Value::String("no_persistence".to_string()),
+    );
+    handle_coding_tool_input_command(session, "ioi.computer_use.sandboxed_hosted", input).await
+}
+
 async fn handle_visual_gui_command(
     session: &mut TuiInteractiveSession,
     args: VisualGuiLineArgs,
@@ -3266,6 +3453,24 @@ fn native_browser_action_kind_from_prompt(prompt: &str) -> Option<&'static str> 
         "click" => Some("click"),
         "type" | "type_text" | "input" => Some("type_text"),
         "key" | "key_press" | "keypress" | "press" => Some("key_press"),
+        "navigate" | "open" => Some("navigate"),
+        "select" => Some("select"),
+        "upload" => Some("upload"),
+        "scroll" => Some("scroll"),
+        "hover" => Some("hover"),
+        "wait" => Some("wait"),
+        "inspect" => Some("inspect"),
+        _ => None,
+    }
+}
+
+fn computer_use_action_kind_from_prompt(prompt: &str) -> Option<&'static str> {
+    let first = prompt.split_whitespace().next()?.to_ascii_lowercase();
+    match first.as_str() {
+        "click" => Some("click"),
+        "type" | "type_text" | "input" => Some("type_text"),
+        "key" | "key_press" | "keypress" | "press" => Some("key_press"),
+        "shell" | "run" | "exec" => Some("shell"),
         "navigate" | "open" => Some("navigate"),
         "select" => Some("select"),
         "upload" => Some("upload"),
@@ -3867,13 +4072,14 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
         "ioi.computer_use.native_browser" => "native-browser",
         "ioi.computer_use.visual_gui" => "visual-gui",
         "ioi.computer_use.visual_gui.observe" => "visual-gui-observe",
+        "ioi.computer_use.sandboxed_hosted" => "sandboxed-computer",
         "ioi.computer_use.control" => "computer-use-control",
         _ => "tool",
     }
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--session-mode owned_hermetic_browser|attached_cdp|controlled_relaunch] [--approval-ref approval_id] [--controlled-relaunch-approval-ref approval_id] [--controlled-relaunch-executable-path path] [--controlled-relaunch-headless] [--selector css] [--target-ref ref] [--text value] [--key value] [--scroll-x n] [--scroll-y n] [--file-path path] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /visual-gui-observe [prompt] [--session-mode visual_fallback|foreground_desktop|background_desktop|app_scoped_desktop] [--screenshot-ref ref|--screenshot-path path] [--som-ref ref|--som-path path] [--ax-ref ref|--ax-path path] [--capture-screen] [--capture-ax-tree] [--capture-app-name name] [--capture-window-title title] [--app-name name] [--window-title title] [--coordinate-space-id id] [--viewport-width n] [--viewport-height n] /visual-gui [prompt] [--session-mode visual_fallback|foreground_desktop|background_desktop|app_scoped_desktop] [--screenshot-ref ref|--screenshot-path path] [--som-ref ref|--som-path path] [--ax-ref ref|--ax-path path] [--local-gui-executor] [--local-gui-executor-provider auto|fixture] [--app-name name] [--window-title title] [--coordinate-space-id id] [--viewport-width n] [--viewport-height n] /computer-use [pause|resume|abort|cleanup] --lease-id lease_id [--handoff-ref ref] [--reason text] [--resume-observation-ref ref] [--cdp-endpoint-url url] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--session-mode owned_hermetic_browser|attached_cdp|controlled_relaunch] [--approval-ref approval_id] [--controlled-relaunch-approval-ref approval_id] [--controlled-relaunch-executable-path path] [--controlled-relaunch-headless] [--selector css] [--target-ref ref] [--text value] [--key value] [--scroll-x n] [--scroll-y n] [--file-path path] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /sandboxed-computer [prompt] [--action-kind inspect|shell|wait] [--session-mode local_sandbox|hosted_sandbox] [--approval-ref approval_id] [--target-ref ref] [--sandbox-provider provider] [--no-sandbox-fixture] [--sandbox-image-ref image] [--sandbox-task-ref task] /visual-gui-observe [prompt] [--session-mode visual_fallback|foreground_desktop|background_desktop|app_scoped_desktop] [--screenshot-ref ref|--screenshot-path path] [--som-ref ref|--som-path path] [--ax-ref ref|--ax-path path] [--capture-screen] [--capture-ax-tree] [--capture-app-name name] [--capture-window-title title] [--app-name name] [--window-title title] [--coordinate-space-id id] [--viewport-width n] [--viewport-height n] /visual-gui [prompt] [--session-mode visual_fallback|foreground_desktop|background_desktop|app_scoped_desktop] [--screenshot-ref ref|--screenshot-path path] [--som-ref ref|--som-path path] [--ax-ref ref|--ax-path path] [--local-gui-executor] [--local-gui-executor-provider auto|fixture] [--app-name name] [--window-title title] [--coordinate-space-id id] [--viewport-width n] [--viewport-height n] /computer-use [pause|resume|abort|cleanup] --lease-id lease_id [--handoff-ref ref] [--reason text] [--resume-observation-ref ref] [--cdp-endpoint-url url] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -4227,6 +4433,127 @@ fn parse_native_browser_args(value: &str) -> Result<NativeBrowserLineArgs> {
         cdp_endpoint_url,
         cdp_websocket_url,
         cdp_timeout_ms,
+    })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SandboxedComputerLineArgs {
+    prompt: Option<String>,
+    action_kind: Option<String>,
+    session_mode: Option<String>,
+    approval_ref: Option<String>,
+    target_ref: Option<String>,
+    sandbox_provider: Option<String>,
+    no_sandbox_fixture: bool,
+    sandbox_image_ref: Option<String>,
+    sandbox_task_ref: Option<String>,
+}
+
+fn parse_sandboxed_computer_args(value: &str) -> Result<SandboxedComputerLineArgs> {
+    let mut prompt_parts = Vec::new();
+    let mut action_kind = None;
+    let mut session_mode = None;
+    let mut approval_ref = None;
+    let mut target_ref = None;
+    let mut sandbox_provider = None;
+    let mut no_sandbox_fixture = false;
+    let mut sandbox_image_ref = None;
+    let mut sandbox_task_ref = None;
+    let mut parts = value.split_whitespace();
+    while let Some(part) = parts.next() {
+        if let Some(inline) = part.strip_prefix("--action-kind=") {
+            action_kind = Some(non_empty_flag_value("--action-kind", inline)?);
+            continue;
+        }
+        if part == "--action-kind" {
+            action_kind = Some(non_empty_flag_value(
+                "--action-kind",
+                required_flag_value("--action-kind", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--session-mode=") {
+            session_mode = Some(non_empty_flag_value("--session-mode", inline)?);
+            continue;
+        }
+        if part == "--session-mode" {
+            session_mode = Some(non_empty_flag_value(
+                "--session-mode",
+                required_flag_value("--session-mode", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--approval-ref=") {
+            approval_ref = Some(non_empty_flag_value("--approval-ref", inline)?);
+            continue;
+        }
+        if part == "--approval-ref" {
+            approval_ref = Some(non_empty_flag_value(
+                "--approval-ref",
+                required_flag_value("--approval-ref", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--target-ref=") {
+            target_ref = Some(non_empty_flag_value("--target-ref", inline)?);
+            continue;
+        }
+        if part == "--target-ref" {
+            target_ref = Some(non_empty_flag_value(
+                "--target-ref",
+                required_flag_value("--target-ref", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--sandbox-provider=") {
+            sandbox_provider = Some(non_empty_flag_value("--sandbox-provider", inline)?);
+            continue;
+        }
+        if part == "--sandbox-provider" {
+            sandbox_provider = Some(non_empty_flag_value(
+                "--sandbox-provider",
+                required_flag_value("--sandbox-provider", &mut parts)?,
+            )?);
+            continue;
+        }
+        if part == "--no-sandbox-fixture" {
+            no_sandbox_fixture = true;
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--sandbox-image-ref=") {
+            sandbox_image_ref = Some(non_empty_flag_value("--sandbox-image-ref", inline)?);
+            continue;
+        }
+        if part == "--sandbox-image-ref" {
+            sandbox_image_ref = Some(non_empty_flag_value(
+                "--sandbox-image-ref",
+                required_flag_value("--sandbox-image-ref", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--sandbox-task-ref=") {
+            sandbox_task_ref = Some(non_empty_flag_value("--sandbox-task-ref", inline)?);
+            continue;
+        }
+        if part == "--sandbox-task-ref" {
+            sandbox_task_ref = Some(non_empty_flag_value(
+                "--sandbox-task-ref",
+                required_flag_value("--sandbox-task-ref", &mut parts)?,
+            )?);
+            continue;
+        }
+        prompt_parts.push(part);
+    }
+    Ok(SandboxedComputerLineArgs {
+        prompt: non_empty_string(&prompt_parts.join(" ")),
+        action_kind,
+        session_mode,
+        approval_ref,
+        target_ref,
+        sandbox_provider,
+        no_sandbox_fixture,
+        sandbox_image_ref,
+        sandbox_task_ref,
     })
 }
 
@@ -5591,6 +5918,40 @@ mod tests {
                 cdp_endpoint_url: None,
                 cdp_websocket_url: None,
                 cdp_timeout_ms: None,
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command(
+                "/sandboxed-computer inspect workspace --action-kind shell --session-mode local_sandbox --approval-ref approval-sandbox-shell --target-ref target_sandbox_workspace --sandbox-provider local_fixture --sandbox-image-ref ioi/sandbox-fixture:local --sandbox-task-ref sandbox_task_tui"
+            )
+            .unwrap(),
+            TuiLineCommand::SandboxedComputer {
+                prompt: Some("inspect workspace".to_string()),
+                action_kind: Some("shell".to_string()),
+                session_mode: Some("local_sandbox".to_string()),
+                approval_ref: Some("approval-sandbox-shell".to_string()),
+                target_ref: Some("target_sandbox_workspace".to_string()),
+                sandbox_provider: Some("local_fixture".to_string()),
+                no_sandbox_fixture: false,
+                sandbox_image_ref: Some("ioi/sandbox-fixture:local".to_string()),
+                sandbox_task_ref: Some("sandbox_task_tui".to_string()),
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command(
+                "/computer-use sandboxed-computer inspect workspace --no-sandbox-fixture --sandbox-provider hosted_fixture"
+            )
+            .unwrap(),
+            TuiLineCommand::SandboxedComputer {
+                prompt: Some("inspect workspace".to_string()),
+                action_kind: None,
+                session_mode: None,
+                approval_ref: None,
+                target_ref: None,
+                sandbox_provider: Some("hosted_fixture".to_string()),
+                no_sandbox_fixture: true,
+                sandbox_image_ref: None,
+                sandbox_task_ref: None,
             }
         );
         assert_eq!(
