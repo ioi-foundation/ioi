@@ -2,7 +2,7 @@
 
 Owner: agent runtime / browser driver / computer-use harness / Autopilot GUI
 
-Status: active next-leg master guide
+Status: complete for the local tri-lane harness; external provider deferrals tracked
 
 Created: 2026-05-07
 
@@ -115,7 +115,7 @@ classify_intent
 -> cleanup
 ```
 
-The first implementation slice should establish these shared contracts:
+The implemented local tri-lane contract spine is:
 
 - `ComputerUseLease`;
 - `ComputerControlAdapterContract`;
@@ -983,7 +983,7 @@ Open decisions for this browser-use leg:
 
 ## Definition Of Done
 
-The browser-use harness leg is complete when:
+The local browser/computer-use harness leg is complete when:
 
 - browser sessions are leased, not improvised;
 - attach, owned, controlled relaunch, and visual fallback modes share one
@@ -1000,6 +1000,11 @@ The browser-use harness leg is complete when:
 - Autopilot shows users which browser/session is controlled and why;
 - the default agent can run browser-use through workflow nodes that users can
   inspect, fork, and modify.
+
+The current local tri-lane implementation satisfies this definition through the
+completion dashboard above. Remaining work is intentionally scoped to external
+provider/eval adapters, broader cross-domain policy-platform execution, and
+private screenshot preview policy.
 
 The north star is not "use Playwright" or "use screenshots." The north star is a
 browser-control harness that can fluidly choose the right mechanism while

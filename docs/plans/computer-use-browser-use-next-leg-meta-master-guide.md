@@ -2,7 +2,7 @@
 
 Owner: agent runtime / browser driver / GUI driver / Autopilot workflow compositor
 
-Status: draft next-leg guide
+Status: complete for the local three-lane harness; external provider/eval deferrals tracked
 
 Created: 2026-05-14
 
@@ -23,8 +23,8 @@ Companion guides:
 
 ## Executive Verdict
 
-The next leg should promote `docs/plans/browser-use-master-guide.md` from a
-future-track plan into the active computer-use/browser-use sprint.
+This leg promoted `docs/plans/browser-use-master-guide.md` from a future-track
+plan into the active computer-use/browser-use sprint.
 
 The framing should be broader than browser automation. The target is a first
 class IOI computer-use harness that can operate through browser semantics,
@@ -38,11 +38,12 @@ truth:
   the same observations, target indexes, action proposals, actions, receipts,
   trajectories, policies, artifacts, and manifests.
 
-The immediate move is to turn browser-use into the first concrete lane, then
-generalize the same contracts across visual GUI and sandboxed/hosted computer
-use.
+The implemented local shape turns browser-use into the first concrete lane and
+generalizes the same contracts across visual GUI and sandboxed/hosted computer
+use through deterministic local fixture and mounted-contract paths.
 
-The first draft of this guide defines the right contract and lifecycle shape.
+This guide now defines the completed local contract and lifecycle shape plus the
+remaining external-provider/eval deferrals.
 The SOTA-plus target also needs an explicit behavioral control layer: how the
 runtime chooses an environment, perceives the surface, builds affordances,
 proposes actions, gates risk, verifies outcomes, repairs failures, hands off to
@@ -730,3 +731,8 @@ This next leg is complete when:
 - generated evidence is ignored or retained only under explicit policy;
 - targeted unit, contract, manifest, and GUI validation tests pass;
 - remaining external dependencies are documented as narrow deferrals.
+
+The local three-lane harness now satisfies these criteria. Remaining non-local
+work is limited to selected external hosted providers, third-party eval
+ingestion, broader policy-platform execution, and private screenshot preview
+policy.
