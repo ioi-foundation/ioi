@@ -852,6 +852,29 @@ export function WorkflowRunsPanel({
                     data-coding-tool-budget-recovery-action-count={
                       node.data.codingToolBudgetRecoveryActions.length
                     }
+                    data-computer-use-step={node.data.computerUse?.step ?? ""}
+                    data-computer-use-lane={node.data.computerUse?.lane ?? ""}
+                    data-computer-use-session-mode={
+                      node.data.computerUse?.sessionMode ?? ""
+                    }
+                    data-computer-use-lease-id={
+                      node.data.computerUse?.leaseId ?? ""
+                    }
+                    data-computer-use-proposal-ref={
+                      node.data.computerUse?.proposalRef ?? ""
+                    }
+                    data-computer-use-action-ref={
+                      node.data.computerUse?.actionRef ?? ""
+                    }
+                    data-computer-use-verification-ref={
+                      node.data.computerUse?.verificationRef ?? ""
+                    }
+                    data-computer-use-cleanup-ref={
+                      node.data.computerUse?.cleanupRef ?? ""
+                    }
+                    data-computer-use-blocker={
+                      node.data.computerUse?.blocker ?? ""
+                    }
                     data-tool-name={node.data.toolName ?? ""}
                     data-approval-id={node.data.approvalId ?? ""}
                     data-tui-deep-link-schema-version={
@@ -909,6 +932,140 @@ export function WorkflowRunsPanel({
                           </dd>
                         </div>
                       </dl>
+                      {node.data.computerUse ? (
+                        <div
+                          className={`workflow-run-computer-use-trace is-${node.data.computerUse.status}`}
+                          data-testid={`workflow-run-computer-use-trace-${node.id}`}
+                          data-schema-version={node.data.computerUse.schemaVersion}
+                          data-step={node.data.computerUse.step ?? ""}
+                          data-lane={node.data.computerUse.lane ?? ""}
+                          data-session-mode={
+                            node.data.computerUse.sessionMode ?? ""
+                          }
+                          data-lease-id={node.data.computerUse.leaseId ?? ""}
+                          data-observation-ref={
+                            node.data.computerUse.observationRef ?? ""
+                          }
+                          data-target-index-ref={
+                            node.data.computerUse.targetIndexRef ?? ""
+                          }
+                          data-affordance-graph-ref={
+                            node.data.computerUse.affordanceGraphRef ?? ""
+                          }
+                          data-proposal-ref={
+                            node.data.computerUse.proposalRef ?? ""
+                          }
+                          data-action-ref={node.data.computerUse.actionRef ?? ""}
+                          data-action-kind={
+                            node.data.computerUse.actionKind ?? ""
+                          }
+                          data-action-receipt-ref={
+                            node.data.computerUse.actionReceiptRef ?? ""
+                          }
+                          data-verification-ref={
+                            node.data.computerUse.verificationRef ?? ""
+                          }
+                          data-verification-status={
+                            node.data.computerUse.verificationStatus ?? ""
+                          }
+                          data-trajectory-ref={
+                            node.data.computerUse.trajectoryRef ?? ""
+                          }
+                          data-cleanup-ref={
+                            node.data.computerUse.cleanupRef ?? ""
+                          }
+                          data-cleanup-status={
+                            node.data.computerUse.cleanupStatus ?? ""
+                          }
+                          data-retention-mode={
+                            node.data.computerUse.retentionMode ?? ""
+                          }
+                          data-risk-posture={
+                            node.data.computerUse.riskPosture ?? ""
+                          }
+                          data-authority-required={
+                            node.data.computerUse.authorityRequired ?? ""
+                          }
+                          data-target-count={
+                            node.data.computerUse.targetCount ?? ""
+                          }
+                          data-affordance-count={
+                            node.data.computerUse.affordanceCount ?? ""
+                          }
+                          data-detected-patterns={
+                            node.data.computerUse.detectedPatterns.join("|")
+                          }
+                          data-blocker={node.data.computerUse.blocker ?? ""}
+                        >
+                          <span>Computer use trace</span>
+                          <dl>
+                            <div>
+                              <dt>Lane</dt>
+                              <dd>
+                                {[node.data.computerUse.lane, node.data.computerUse.sessionMode]
+                                  .filter(Boolean)
+                                  .join(" / ") || "unknown"}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>Lease</dt>
+                              <dd>{node.data.computerUse.leaseId ?? "none"}</dd>
+                            </div>
+                            <div>
+                              <dt>Targeting</dt>
+                              <dd>
+                                {node.data.computerUse.targetCount ?? 0} targets ·{" "}
+                                {node.data.computerUse.affordanceCount ?? 0} affordances
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>Proposal</dt>
+                              <dd>
+                                {node.data.computerUse.proposalRef ??
+                                  node.data.computerUse.actionRef ??
+                                  "pending"}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>Verification</dt>
+                              <dd>
+                                {node.data.computerUse.verificationStatus ??
+                                  node.data.computerUse.verificationRef ??
+                                  "pending"}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>Retention</dt>
+                              <dd>
+                                {node.data.computerUse.retentionMode ??
+                                  "policy default"}
+                              </dd>
+                            </div>
+                            {node.data.computerUse.blocker ? (
+                              <div>
+                                <dt>Blocker</dt>
+                                <dd>{node.data.computerUse.blocker}</dd>
+                              </div>
+                            ) : null}
+                            {node.data.computerUse.recoveryPolicy ? (
+                              <div>
+                                <dt>Recovery</dt>
+                                <dd>
+                                  {String(
+                                    node.data.computerUse.recoveryPolicy[
+                                      "failure_class"
+                                    ] ??
+                                      node.data.computerUse.recoveryPolicy[
+                                        "failureClass"
+                                      ] ??
+                                      "policy attached",
+                                  )}
+                                </dd>
+                              </div>
+                            ) : null}
+                          </dl>
+                        </div>
+                      ) : null}
                       {node.data.diagnosticsRepairActions.length > 0 ? (
                         <div
                           className="workflow-run-diagnostics-repair-actions"

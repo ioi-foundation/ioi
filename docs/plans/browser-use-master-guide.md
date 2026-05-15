@@ -87,7 +87,7 @@ All three lanes must share IOI runtime truth:
 | Visual/sandbox fail-closed projection | Done | Explicit `visual_gui` or `sandboxed_hosted` lane requests emit blocked runtime events, failed-closed leases, recovery policy payloads, and no-action cleanup receipts until those adapters are mounted. |
 | Daemon planner/executor | Pending | Next slices should replace the read-only lifecycle projection with real lease acquisition, observation capture, action execution, verification, and cleanup through the browser/GUI/sandbox adapters. |
 | Autopilot/workflow projection | Started | `workflow-runtime-event-projection` now projects canonical `computer_use.*` events into node-addressed React Flow/run-history rows with lane, session, lease, observation, target index, proposal, action, verification, cleanup, recovery, and fail-closed evidence. |
-| Autopilot workbench | Pending | UI should render the projected computer-use rows as a dedicated prompt-to-action-to-verification workbench instead of a flat runtime log. |
+| Autopilot workbench | Started | Run history rows now surface a compact computer-use trace block with lane/session/lease, targeting counts, proposal/action, verification, retention, blocker, and recovery evidence; dedicated live screen/overlay panes remain pending. |
 
 ## Behavioral Control Layer
 
