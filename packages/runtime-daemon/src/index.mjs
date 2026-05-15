@@ -14771,6 +14771,12 @@ function runtimeBridgeComputerUseTrace({ projection, events }) {
   const affordanceGraph = value("affordance_graph");
   const action = value("computer_action");
   const cleanup = value("cleanup_receipt");
+  const environmentSelection =
+    value("environment_selection_receipt") ??
+    runtimeBridgeEnvironmentSelectionFromObservation({ projection, observation });
+  const lease =
+    value("lease") ??
+    runtimeBridgeLeaseFromObservation({ projection, observation, environmentSelection });
   const trajectory =
     value("trajectory_bundle") ??
     runtimeBridgeTrajectoryFromComputerUseEvents({
@@ -14799,9 +14805,9 @@ function runtimeBridgeComputerUseTrace({ projection, events }) {
       receiptRefs: normalizeArray(event.data?.receiptRefs),
       artifactRefs: normalizeArray(event.data?.artifactRefs),
     })),
-    environmentSelection: value("environment_selection_receipt"),
-    environment_selection: value("environment_selection_receipt"),
-    lease: value("lease"),
+    environmentSelection,
+    environment_selection: environmentSelection,
+    lease,
     runState: value("computer_use_run_state"),
     run_state: value("computer_use_run_state"),
     observation,
@@ -14851,6 +14857,58 @@ function runtimeBridgeComputerUseTrace({ projection, events }) {
       value("computer_use_verification_ref"),
       value("computer_use_cleanup_ref"),
     ]),
+  };
+}
+
+function runtimeBridgeEnvironmentSelectionFromObservation({ projection, observation }) {
+  if (!observation) return null;
+  const selectedLane = observation.lane ?? "native_browser";
+  const selectedSessionMode = observation.session_mode ?? "owned_hermetic_browser";
+  return {
+    receipt_ref: `receipt_${projection.runId}_runtime_bridge_environment`,
+    run_id: projection.runId,
+    selected_lane: selectedLane,
+    selected_session_mode: selectedSessionMode,
+    rejected_options: [],
+    reasons: [
+      "RuntimeAgentService emitted canonical computer-use observation evidence.",
+      "The daemon preserved bridge-provided lane/session as projection data instead of selecting a second runtime.",
+    ],
+    risk_posture: "bridge_observation",
+    authority_required: `computer_use.${selectedLane}.read`,
+    privacy_impact: observation.retention_mode ?? "local_redacted_artifacts",
+    expected_cleanup: "runtime_service_adapter_owns_environment_cleanup; daemon_retains_redacted_trace",
+  };
+}
+
+function runtimeBridgeLeaseFromObservation({ projection, observation, environmentSelection }) {
+  if (!observation && !environmentSelection) return null;
+  const lane = observation?.lane ?? environmentSelection?.selected_lane ?? "native_browser";
+  const sessionMode =
+    observation?.session_mode ??
+    environmentSelection?.selected_session_mode ??
+    "owned_hermetic_browser";
+  return {
+    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    lease_id: observation?.lease_id ?? `lease_${projection.runId}_runtime_bridge`,
+    lane,
+    session_mode: sessionMode,
+    status: "active",
+    authority_scope: environmentSelection?.authority_required ?? `computer_use.${lane}.read`,
+    consent_scope: "runtime_service_bridge",
+    target_hint: observation?.url ?? projection.prompt ?? "runtime service computer-use surface",
+    environment_ref: `${lane}:runtime_service_bridge`,
+    profile_provenance: "runtime_service_bridge",
+    retention_mode:
+      observation?.retention_mode ??
+      environmentSelection?.privacy_impact ??
+      "local_redacted_artifacts",
+    cleanup_required: false,
+    evidence_refs: [
+      environmentSelection?.receipt_ref,
+      observation?.observation_ref,
+      observation?.target_index_ref,
+    ].filter(Boolean),
   };
 }
 
