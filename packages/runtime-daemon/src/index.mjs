@@ -20,6 +20,7 @@ import {
   computerUseSourceEventKind,
   isComputerUseRunEventType,
 } from "./computer-use-projection.mjs";
+import { discoverComputerUseBrowsers } from "./browser-discovery.mjs";
 import { AgentMemoryStore, parseMemoryCommand } from "./memory-store.mjs";
 import {
   CODING_TOOL_IDS,
@@ -9727,6 +9728,17 @@ async function handleRequest({ request, response, store }) {
     }
     if (request.method === "GET" && url.pathname === "/v1/doctor") {
       writeJsonResponse(response, store.doctorReport({ baseUrl: baseUrlForRequest(request) }));
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/computer-use/browser-discovery") {
+      writeJsonResponse(
+        response,
+        await discoverComputerUseBrowsers({
+          includeCdpProbe: normalizeBooleanOption(url.searchParams.get("probe"), true),
+          includeTabMetadata: normalizeBooleanOption(url.searchParams.get("include_tabs"), false),
+          revealTabTitles: normalizeBooleanOption(url.searchParams.get("reveal_tab_titles"), false),
+        }),
+      );
       return;
     }
     if (request.method === "GET" && url.pathname === "/v1/skills") {
