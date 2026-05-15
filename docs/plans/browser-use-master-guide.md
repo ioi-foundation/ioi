@@ -84,6 +84,7 @@ All three lanes must share IOI runtime truth:
 | Owned browser adapter projection | Done | `cargo test -p ioi-drivers browser::computer_use --lib` covers owned-browser lease, adapter, and observation projection. |
 | SDK/runtime lifecycle projection | Done | `packages/agent-sdk/test/computer-use.test.mjs` asserts browser prompts emit environment selection, lease acquisition, run state, observation, target index, affordance, action proposal, action receipt, verification, trajectory, cleanup, receipt, artifact, and runtime event projections. |
 | Daemon lifecycle projection | Done | Runtime daemon runs now emit canonical `computer_use.*` events, `computer-use-trace.json`, `computer_use_trace` receipts, and workflow node ids for the full read-only behavioral loop. |
+| Visual/sandbox fail-closed projection | Done | Explicit `visual_gui` or `sandboxed_hosted` lane requests emit blocked runtime events, failed-closed leases, recovery policy payloads, and no-action cleanup receipts until those adapters are mounted. |
 | Daemon planner/executor | Pending | Next slices should replace the read-only lifecycle projection with real lease acquisition, observation capture, action execution, verification, and cleanup through the browser/GUI/sandbox adapters. |
 | Autopilot workbench | Pending | UI should consume the new runtime event payloads instead of inventing a separate trace channel. |
 
@@ -748,7 +749,7 @@ Deliverables:
 Acceptance:
 
 - runs can explain selected and rejected lane/session modes;
-- missing sandbox or hosted providers fail closed;
+- missing visual, sandbox, or hosted providers fail closed;
 - user browser attach/relaunch never happens without explicit authority.
 
 ### Phase 2: User Browser Discovery
@@ -951,8 +952,9 @@ Minimum test coverage:
 
 Existing tests already cover pieces of this under browser runtime, reliability,
 and computer-use suites. `npm --prefix packages/agent-sdk test` guards SDK and
-daemon lifecycle projection for the computer-use loop. The next work should add
-attach/relaunch, real execution/cleanup, and evidence bundle tests rather than
+daemon lifecycle projection plus fail-closed visual/sandbox lane requests for
+the computer-use loop. The next work should add attach/relaunch, real
+execution/cleanup, and evidence bundle tests rather than
 duplicating the owned-browser smoke tests.
 
 ## Later Decisions

@@ -289,6 +289,8 @@ function runtimeEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
       return "model.route_decision";
     case "computer_use_environment_selected":
       return "computer_use.environment_selected";
+    case "computer_use_environment_unavailable":
+      return "computer_use.environment_unavailable";
     case "computer_use_lease_acquired":
       return "computer_use.lease_acquired";
     case "computer_use_run_state":
@@ -343,6 +345,9 @@ function runtimeEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
 }
 
 function runtimeEventStatusForSdkMessage(type: IOISDKMessage["type"]): string {
+  if (
+    type === "computer_use_environment_unavailable"
+  ) return "blocked";
   if (
     type === "run_started" ||
     type === "delta" ||
@@ -400,6 +405,7 @@ function workflowNodeIdForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "approval_decision") return "runtime.approval-decision";
   if (type === "model_route_decision") return "runtime.model-router";
   if (type === "computer_use_environment_selected") return "computer-use.select-environment";
+  if (type === "computer_use_environment_unavailable") return "computer-use.environment-unavailable";
   if (type === "computer_use_lease_acquired") return "computer-use.acquire-lease";
   if (type === "computer_use_run_state") return "computer-use.run-state";
   if (type === "computer_use_observation") return "computer-use.observe";
@@ -430,6 +436,7 @@ function sourceEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "workflow_edit_applied") return "WorkflowEdit.Applied";
   if (type === "approval_decision") return "OperatorApproval.Decision";
   if (type === "computer_use_environment_selected") return "ComputerUse.EnvironmentSelected";
+  if (type === "computer_use_environment_unavailable") return "ComputerUse.EnvironmentUnavailable";
   if (type === "computer_use_lease_acquired") return "ComputerUse.LeaseAcquired";
   if (type === "computer_use_run_state") return "ComputerUse.RunState";
   if (type === "computer_use_observation") return "ComputerUse.Observation";

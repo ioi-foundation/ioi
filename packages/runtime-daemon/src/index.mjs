@@ -175,6 +175,7 @@ const RUN_EVENT_TO_TTI_EVENT = {
   github_pr_create_plan: "item.completed",
   model_route_decision: "item.completed",
   computer_use_environment_selected: "computer_use.environment_selected",
+  computer_use_environment_unavailable: "computer_use.environment_unavailable",
   computer_use_lease_acquired: "computer_use.lease_acquired",
   computer_use_run_state: "computer_use.run_state",
   computer_use_observation: "computer_use.observation",
@@ -13214,10 +13215,10 @@ function buildRun({
       computerUseProjection?.receipt.id,
       computerUseProjection?.environmentSelection.receipt_ref,
       computerUseProjection?.observation.observation_ref,
-      computerUseProjection?.actionProposal.proposal_ref,
-      computerUseProjection?.action.action_ref,
-      computerUseProjection?.actionReceipt.receipt_ref,
-      computerUseProjection?.trajectory.trajectory_ref,
+      computerUseProjection?.actionProposal?.proposal_ref,
+      computerUseProjection?.action?.action_ref,
+      computerUseProjection?.actionReceipt?.receipt_ref,
+      computerUseProjection?.trajectory?.trajectory_ref,
       computerUseProjection?.cleanup.cleanup_ref,
     ].filter(Boolean),
   };
@@ -20336,6 +20337,7 @@ function runtimeContextPressureStatus(pressure) {
 
 function runtimeEventStatusForRunEvent(event) {
   if (isComputerUseRunEventType(event.type)) {
+    if (event.type === "computer_use_environment_unavailable") return "blocked";
     return [
       "computer_use_action_executed",
       "computer_use_verification",
@@ -20416,9 +20418,11 @@ function payloadSummaryForRunEvent(event) {
       computer_use_verification_ref: event.data?.computer_use_verification_ref ?? null,
       computer_use_trajectory_ref: event.data?.computer_use_trajectory_ref ?? null,
       computer_use_cleanup_ref: event.data?.computer_use_cleanup_ref ?? null,
+      computer_use_blocker: event.data?.computer_use_blocker ?? null,
       environment_selection_receipt: event.data?.environment_selection_receipt ?? null,
       lease: event.data?.lease ?? null,
       adapter_contract: event.data?.adapter_contract ?? null,
+      recovery_policy: event.data?.recovery_policy ?? null,
       computer_use_run_state: event.data?.computer_use_run_state ?? null,
       observation_bundle: event.data?.observation_bundle ?? null,
       target_index: event.data?.target_index ?? null,

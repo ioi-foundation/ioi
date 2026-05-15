@@ -621,12 +621,12 @@ Required guarantees:
 | --- | --- |
 | Contract spine | Done / regression guarded |
 | Behavioral control loop | Started: SDK and daemon lifecycle projection emit select, acquire, observe, affordance, propose, execute, verify, trajectory, and cleanup steps with workflow node ids; real executor loop pending |
-| Environment planner | Started: `EnvironmentSelectionReceipt` is SDK/daemon trace-visible; full daemon planner pending |
+| Environment planner | Started: `EnvironmentSelectionReceipt` is SDK/daemon trace-visible and explicit visual/sandbox requests fail closed; full daemon planner pending |
 | Affordance/action proposal pipeline | Started: target index, affordance graph, policy-gated `ActionProposal`, grounded `ComputerAction`, and `ActionReceipt` are SDK/daemon trace-visible; adapter executor pending |
 | Recovery, handoff, and commit gates | Not started |
 | Native browser parity | Not started |
-| Visual GUI parity | Not started |
-| Sandboxed/hosted parity | Not started |
+| Visual GUI parity | Started: unavailable requests fail closed with recovery policy evidence; GUI adapter pending |
+| Sandboxed/hosted parity | Started: unavailable requests fail closed with recovery policy evidence; hosted adapter pending |
 | Trajectory replay | Started: `ComputerUseTrajectoryBundle` is emitted as trace data; replay reader/eval projection pending |
 | Trajectory-driven harness improvement | Not started |
 | Model action adapters | Not started |
@@ -634,7 +634,7 @@ Required guarantees:
 | Benchmark/eval harness | Not started |
 | Autopilot glass-box workbench | Started: canonical runtime payloads and `computer-use-trace.json` artifacts exist; UI workbench pending |
 | Workflow compositor projection | Not started |
-| Safety/governance receipts | Started: `computer_use_trace`, action, verification, trajectory, and cleanup receipts are projected; policy executor pending |
+| Safety/governance receipts | Started: `computer_use_trace`, failed-closed leases, recovery policy payloads, action, verification, trajectory, and cleanup receipts are projected; policy executor pending |
 
 ## Definition Of Done
 
