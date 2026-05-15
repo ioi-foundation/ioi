@@ -461,11 +461,16 @@ capability.
 
 Deliverables:
 
-- coding-agent computer-use lease request;
-- sandbox/browser/device selection policy;
-- shared clipboard and artifact policy;
-- repo/worktree authority scope;
-- run history and evidence projection in Autopilot;
+- coding-agent computer-use lease request: started with `computer_use.request_lease`
+  in the governed coding-tool pack;
+- sandbox/browser/device selection policy: lease manifest records native browser,
+  visual GUI, or sandboxed/hosted lane intent before execution;
+- shared clipboard and artifact policy: lease manifest fails closed with clipboard
+  disabled until explicit approval and redacted trace artifacts by default;
+- repo/worktree authority scope: lease manifest records workspace read scope while
+  leaving write/mutating authority to explicit approvals and downstream tools;
+- run history and evidence projection in Autopilot: coding-tool result receipts
+  preserve workflow graph/node ids plus the downstream thread-tool handoff;
 - CLI/TUI controls for pause, resume, abort, and cleanup.
 
 Acceptance:
@@ -630,7 +635,7 @@ Required guarantees:
 | Trajectory replay | Started: `ComputerUseTrajectoryBundle` is emitted as trace data; RuntimeAgentService bridge computer-use traces synthesize deterministic event-level trajectory entries when the bridge emits observation/affordance events without a full trajectory bundle; daemon API and SDK expose direct computer-use trace/trajectory readers so consumers do not need artifact-name coupling; SDK `computerUseTrajectoryEval()` now scores passed, human-boundary, fail-closed, failed, and incomplete traces with failure class/mode and regression-gate evidence |
 | Trajectory-driven harness improvement | Started: SDK and Run helpers now turn trajectory evals into deterministic harness improvement plans with recovery policy, patch proposal records, shadow replay requirements, promotion-gate receipts, residual risks, and no hidden benchmark shortcuts; concrete shadow replay runner and held-out eval executor pending |
 | Model action adapters | Started: SDK model-action adapter fixtures normalize OpenAI-style CUA outputs, UI-TARS coordinate strings, and generic VLM action records into IOI `ActionProposal` plus grounded `ComputerAction` objects with policy decision refs, safety-check mapping, and observation-bound coordinates |
-| Co-op coding agent computer use | Not started |
+| Co-op coding agent computer use | Started: coding agents can now invoke `computer_use.request_lease` through the governed coding-tool pack to record deterministic computer-use lease request manifests with lane/session/action, repo authority, shared clipboard/artifact policy, approval-before-execution evidence, and a canonical thread-tool handoff shape without silently seizing browser/GUI authority; concrete sandbox/GUI execution adapters plus CLI/TUI pause/resume/abort/cleanup controls pending |
 | Benchmark/eval harness | Started: SDK and Run helpers now export deterministic redacted computer-use benchmark cases from trace, trajectory eval, improvement plan, promotion gate, evidence refs, and regression gates, with raw artifacts excluded unless a local-private export explicitly asks for them; concrete benchmark runner and scorecard aggregation pending |
 | Autopilot glass-box workbench | Started: canonical runtime payloads, `computer-use-trace.json` artifacts, workflow/run-history projection, compact trace rows, and a dedicated computer-use workbench now expose harness lane, lease, screenshot/SoM refs, coordinate space, target overlay summaries, proposal, action execution state, verification, outcome, commit gate, handoff, cleanup, blocker, and recovery evidence; runtime bridge affordance projections now emit source-side live proposal and commit-gate events for the stream, the UI distinguishes gated proposal-only steps from executed actions, and the workbench renders URL/data screenshot refs plus SVG target boxes when bounds are available; artifact fetch/preview for opaque local evidence refs pending |
 | Workflow compositor projection | Started: React Flow runtime projection maps `computer_use.*` events into glass-box harness nodes with lane/session/lease, observation/target/affordance, browser discovery, proposal/action, verification, outcome, commit-gate, handoff, cleanup, and recovery evidence; palette creator presets now expose Browser Use, Computer Use, and Sandboxed Computer lanes without a second runtime, with Browser Discovery available in the advanced palette as a read-only process/CDP inventory primitive whose saved workflow run emits `computer_use.browser_discovery` receipts; composer Run forwards the configured lane/session/action-kind/approval-ref/retention plus target/selector/text/CDP endpoint metadata into the daemon request, saved workflow runs and direct SDK/CLI/TUI thread-tool invocation compile Browser/Computer Use tool bindings into canonical runtime-thread traces, including read-only executable, mutating proposal-only, CDP-backed approved, and approved-without-adapter fail-closed `ioi.computer_use.native_browser` loops; CLI `agent tools native-browser --action-kind ... --approval-ref ... --selector ... --text ... --cdp-endpoint-url ...` and TUI `/native-browser <action> ... --approval-ref ... --selector ... --text ... --cdp-endpoint-url ...` expose that same loop as operator commands, SDK thread streams expose typed `computer_use_*` events, and SDK/daemon/workflow events preserve authored workflow node ids/tool refs/authority scopes for glass-box trace alignment |

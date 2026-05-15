@@ -3341,6 +3341,21 @@ function mockCodingToolContracts(): RuntimeToolCatalogEntry[] {
       workflowNodeType: "ToolResultRetrievalNode",
       workflowConfigFields: ["toolPack.coding.resultRetrievalEnabled", "toolPack.coding.artifactEnabled"],
     },
+    {
+      schemaVersion: "ioi.runtime.coding-tool-pack.v1",
+      stableToolId: "computer_use.request_lease",
+      displayName: "Request computer-use lease",
+      pack: "coding",
+      primitiveCapabilities: ["prim:computer_use.lease.request", "prim:computer_use.manifest"],
+      authorityScopeRequirements: ["computer_use.lease.request"],
+      effectClass: "local_read",
+      riskDomain: "computer_use",
+      inputSchema: { type: "object", required: ["prompt"] },
+      outputSchema: { type: "object" },
+      evidenceRequirements: ["computer_use_lease_request_receipt", "coding_tool_receipt"],
+      workflowNodeType: "ComputerUseLeaseRequestNode",
+      workflowConfigFields: ["toolPack.coding.computerUseLeaseRequest", "computerUse.lane", "computerUse.sessionMode"],
+    },
   ];
 }
 
@@ -5741,6 +5756,25 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
               backendStatus: "available",
               fallbackUsed: false,
               shellFallbackUsed: false,
+            }
+          : {}),
+        ...(toolId === "computer_use.request_lease"
+          ? {
+              requestRef: `mock_computer_use_lease_request_${toolCallId}`,
+              leaseRequest: {
+                prompt: String((input.input as { prompt?: unknown } | undefined)?.prompt ?? "Computer-use lease requested."),
+                lane: "native_browser",
+                sessionMode: "owned_hermetic_browser",
+                actionKind: "inspect",
+                authorityScope: "computer_use.native_browser.read",
+                failClosedWhenUnavailable: true,
+              },
+              threadTool: {
+                toolPack: "computer_use",
+                toolName: "ioi.computer_use.native_browser",
+                input: input.input ?? input,
+              },
+              approvalRequiredBeforeExecution: false,
             }
           : {}),
         ...(artifactRefs.length
