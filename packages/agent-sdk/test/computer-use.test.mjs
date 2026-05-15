@@ -1309,6 +1309,102 @@ test("runtime daemon observes local visual GUI captures through read-only fixtur
   }
 });
 
+test("runtime daemon executes approved visual GUI actions through local fixture executor", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-visual-gui-executor-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-visual-gui-executor-state-"));
+  const priorCaptureFlag = process.env.IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE;
+  const priorExecutorFlag = process.env.IOI_RUNTIME_ENABLE_VISUAL_EXECUTOR_FIXTURE;
+  process.env.IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE = "1";
+  process.env.IOI_RUNTIME_ENABLE_VISUAL_EXECUTOR_FIXTURE = "1";
+  const fixturePngBase64 =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l6eI2wAAAABJRU5ErkJggg==";
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const thread = await agent.thread();
+    const observe = await client.invokeThreadTool(thread.id, "ioi.computer_use.visual_gui.observe", {
+      source: "sdk_test",
+      toolCallId: "executor_observe_fixture",
+      input: {
+        prompt: "Capture a button target for approved execution.",
+        captureScreen: true,
+        captureProvider: "fixture",
+        captureFixturePngBase64: fixturePngBase64,
+        captureAppName: "Autopilot",
+        captureWindowTitle: "Workflow Composer",
+        visualTargets: [
+          {
+            targetRef: "target-run-button",
+            label: "Run",
+            role: "button",
+            confidence: 0.94,
+            bounds: {
+              coordinateSpaceId: "screen_executor_observe_fixture_local_capture",
+              x: 0,
+              y: 0,
+              width: 1,
+              height: 1,
+            },
+            availableActions: ["inspect", "click"],
+          },
+        ],
+      },
+    });
+    const visualRun = await client.invokeThreadTool(thread.id, "ioi.computer_use.visual_gui", {
+      source: "sdk_test",
+      toolCallId: "executor_click_fixture",
+      input: {
+        prompt: "Click the Run button.",
+        actionKind: "click",
+        approvalRef: "approval_visual_click",
+        targetRef: "target-run-button",
+        screenshotRef: observe.result.observation.screenshot_ref,
+        appName: "Autopilot",
+        windowTitle: "Workflow Composer",
+        coordinateSpaceId: "screen_executor_observe_fixture_local_capture",
+        viewportWidth: 1,
+        viewportHeight: 1,
+        visualTargets: observe.result.targetIndex.targets,
+        localGuiExecutor: true,
+        localGuiExecutorProvider: "fixture",
+        localGuiExecutorFixturePngBase64: fixturePngBase64,
+      },
+    });
+
+    assert.equal(visualRun.status, "completed");
+    assert.equal(visualRun.result.action.action_kind, "click");
+    assert.equal(visualRun.result.actionReceipt.status, "completed");
+    assert.equal(visualRun.result.actionReceipt.adapter_id, "ioi.visual_gui.local_executor");
+    assert.equal(visualRun.result.policyDecision.outcome, "approved_after_confirmation");
+    assert.equal(visualRun.result.commitGate.status, "completed");
+    assert.equal(
+      visualRun.result.actionReceipt.computer_use_execution_result.execution_receipt.provider_id,
+      "fixture",
+    );
+    assert.equal(
+      visualRun.result.actionReceipt.computer_use_execution_result.preflight_receipt.status,
+      "captured",
+    );
+  } finally {
+    if (priorCaptureFlag == null) {
+      delete process.env.IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE;
+    } else {
+      process.env.IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE = priorCaptureFlag;
+    }
+    if (priorExecutorFlag == null) {
+      delete process.env.IOI_RUNTIME_ENABLE_VISUAL_EXECUTOR_FIXTURE;
+    } else {
+      process.env.IOI_RUNTIME_ENABLE_VISUAL_EXECUTOR_FIXTURE = priorExecutorFlag;
+    }
+    await daemon.close();
+  }
+});
+
 test("runtime daemon gates mutating native browser actions before execution", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-gate-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-gate-state-"));

@@ -516,6 +516,7 @@ export function computerUseProjectionForRun({
           requestedActionExecution?.executor_ref,
           controlledRelaunchLaunchReceipt?.launch_ref,
         ]),
+        computer_use_execution_result: requestedActionExecution ?? null,
       }
     : null;
   const verification = {
@@ -759,6 +760,7 @@ export function computerUseProjectionForRun({
             computer_use_proposal_ref: actionProposal.proposal_ref,
             computer_action: action,
             action_receipt: actionReceipt,
+            computer_use_execution_result: requestedActionExecution,
             native_browser_execution_result: requestedActionExecution,
           },
         }),
@@ -868,6 +870,7 @@ export function computerUseProjectionForRun({
         computer_use_verification_ref: verification.verification_ref,
         computer_use_proposal_ref: actionProposal.proposal_ref,
         verification_receipt: verification,
+        computer_use_execution_result: requestedActionExecution,
         native_browser_execution_result: requestedActionExecution,
       },
     }),
@@ -883,6 +886,7 @@ export function computerUseProjectionForRun({
         computer_use_action_ref: action?.action_ref ?? null,
         outcome_contract: outcomeContract,
         commit_gate: commitGate,
+        computer_use_execution_result: requestedActionExecution,
         native_browser_execution_result: requestedActionExecution,
         human_handoff_state: requestedActionWillExecute || requestedActionExecutionBlocked ? null : {
           handoff_ref: `handoff_${runId}_${requestedActionKind}`,

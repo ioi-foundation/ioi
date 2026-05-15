@@ -471,8 +471,15 @@ canonical action-executed and verification rows so the persisted trace can show
 the real browser tool effect instead of only generic tool completion.
 Daemon-backed visual and hosted/sandbox lane runs activate through the same
 trace spine when a mounted executor supplies those contracts, preserving
-adapter contracts and cleanup receipts when present, while missing
-visual/sandbox adapters still fail closed. The browser lane now also has a
+adapter contracts and cleanup receipts when present, while missing hosted
+adapters still fail closed. Visual GUI runs can now broker supplied
+screenshot/SoM/AX files or read-only local captures through
+`ioi.computer_use.visual_gui.observe`, then feed the retained observation refs
+into a later visual run. Approved visual GUI action runs can opt into the local
+GUI executor only with an approval ref, observation-bound target bounds, the
+original screenshot artifact, a preflight screenshot drift check, provider
+execution receipt, and required reobserve-after-action evidence; missing local
+providers still fail closed. The browser lane now also has a
 daemon/SDK read-only discovery receipt for browser process inventory, declared
 CDP endpoints, default-profile remote-debugging blockers, and redaction/safety
 posture before any attach or relaunch authority is requested. Workflow authors
@@ -489,14 +496,16 @@ approval ref is supplied, at which point the same route emits the approved
 `ComputerAction`, `ActionReceipt`, passed verification, and completed commit
 gate evidence when a CDP endpoint/websocket is available. The daemon now
 contains a narrow CDP-backed executor for approved `click`, `navigate`,
-`type_text`, `key_press`, and `upload` actions plus explicit `scroll` actions; missing browser adapter evidence fails
-closed with blocked verification and commit-gate receipts instead of synthetic
-execution. Explicit CDP endpoints now infer `attached_cdp` session-mode receipts
-instead of being projected as owned hermetic sessions. CLI and TUI operators now have dedicated native-browser commands over
-the same daemon thread-tool route, including `--approval-ref`,
-target/selector/text/key/scroll/file, and CDP endpoint/websocket options, so manual
-validation can run both the gated and approved prompt pipeline without knowing
-the raw `ioi.computer_use.native_browser` tool id.
+`type_text`, `key_press`, and `upload` actions plus explicit `scroll` actions;
+missing browser adapter evidence fails closed with blocked verification and
+commit-gate receipts instead of synthetic execution. Explicit CDP endpoints now
+infer `attached_cdp` session-mode receipts instead of being projected as owned
+hermetic sessions. CLI and TUI operators now have dedicated native-browser,
+visual-observe, and visual-action commands over the same daemon thread-tool
+route, including approval, target/selector/text/key/scroll/file, CDP
+endpoint/websocket, local-capture, and opt-in local GUI executor options, so
+manual validation can run both the gated and approved prompt pipeline without
+knowing raw tool ids.
 Future daemon, workflow, and Autopilot policy executors should consume these
 helpers rather than defining local policy shapes.
 

@@ -37,6 +37,8 @@ export interface WorkflowComposerComputerUseRunMetadata {
   captureAxTree?: boolean;
   captureAppName?: string;
   captureWindowTitle?: string;
+  localGuiExecutor?: boolean;
+  localGuiExecutorProvider?: string;
   appName?: string;
   windowTitle?: string;
   coordinateSpaceId?: string;
@@ -196,6 +198,14 @@ export function workflowComposerComputerUseRunOptions(
   const captureWindowTitle =
     cleanString(first.args["captureWindowTitle"]) ??
     cleanString(first.args["capture_window_title"]);
+  const localGuiExecutor =
+    booleanValue(first.args["localGuiExecutor"]) ??
+    booleanValue(first.args["local_gui_executor"]) ??
+    booleanValue(first.args["executeLocalGui"]) ??
+    booleanValue(first.args["execute_local_gui"]);
+  const localGuiExecutorProvider =
+    cleanString(first.args["localGuiExecutorProvider"]) ??
+    cleanString(first.args["local_gui_executor_provider"]);
   const appName =
     cleanString(first.args["appName"]) ??
     cleanString(first.args["app_name"]);
@@ -255,6 +265,10 @@ export function workflowComposerComputerUseRunOptions(
       ...(captureAxTree === true ? { captureAxTree: true } : {}),
       ...(captureAppName ? { captureAppName } : {}),
       ...(captureWindowTitle ? { captureWindowTitle } : {}),
+      ...(localGuiExecutor === true ? { localGuiExecutor: true } : {}),
+      ...(localGuiExecutor === true && localGuiExecutorProvider
+        ? { localGuiExecutorProvider }
+        : {}),
       ...(appName ? { appName } : {}),
       ...(windowTitle ? { windowTitle } : {}),
       ...(coordinateSpaceId ? { coordinateSpaceId } : {}),

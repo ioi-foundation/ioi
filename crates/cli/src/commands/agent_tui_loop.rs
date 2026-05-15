@@ -102,6 +102,8 @@ pub(crate) enum TuiLineCommand {
         som_path: Option<String>,
         ax_ref: Option<String>,
         ax_path: Option<String>,
+        local_gui_executor: bool,
+        local_gui_executor_provider: Option<String>,
         capture_screen: bool,
         capture_ax_tree: bool,
         capture_app_name: Option<String>,
@@ -121,6 +123,8 @@ pub(crate) enum TuiLineCommand {
         som_path: Option<String>,
         ax_ref: Option<String>,
         ax_path: Option<String>,
+        local_gui_executor: bool,
+        local_gui_executor_provider: Option<String>,
         capture_screen: bool,
         capture_ax_tree: bool,
         capture_app_name: Option<String>,
@@ -502,6 +506,8 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                 som_path,
                 ax_ref,
                 ax_path,
+                local_gui_executor,
+                local_gui_executor_provider,
                 capture_screen,
                 capture_ax_tree,
                 capture_app_name,
@@ -523,6 +529,8 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                         som_path,
                         ax_ref,
                         ax_path,
+                        local_gui_executor,
+                        local_gui_executor_provider,
                         capture_screen,
                         capture_ax_tree,
                         capture_app_name,
@@ -554,6 +562,8 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                 som_path,
                 ax_ref,
                 ax_path,
+                local_gui_executor,
+                local_gui_executor_provider,
                 capture_screen,
                 capture_ax_tree,
                 capture_app_name,
@@ -575,6 +585,8 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                         som_path,
                         ax_ref,
                         ax_path,
+                        local_gui_executor,
+                        local_gui_executor_provider,
                         capture_screen,
                         capture_ax_tree,
                         capture_app_name,
@@ -1203,6 +1215,8 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 som_path: args.som_path,
                 ax_ref: args.ax_ref,
                 ax_path: args.ax_path,
+                local_gui_executor: args.local_gui_executor,
+                local_gui_executor_provider: args.local_gui_executor_provider,
                 capture_screen: args.capture_screen,
                 capture_ax_tree: args.capture_ax_tree,
                 capture_app_name: args.capture_app_name,
@@ -1225,6 +1239,8 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 som_path: args.som_path,
                 ax_ref: args.ax_ref,
                 ax_path: args.ax_path,
+                local_gui_executor: args.local_gui_executor,
+                local_gui_executor_provider: args.local_gui_executor_provider,
                 capture_screen: args.capture_screen,
                 capture_ax_tree: args.capture_ax_tree,
                 capture_app_name: args.capture_app_name,
@@ -1304,6 +1320,8 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                     som_path: args.som_path,
                     ax_ref: args.ax_ref,
                     ax_path: args.ax_path,
+                    local_gui_executor: args.local_gui_executor,
+                    local_gui_executor_provider: args.local_gui_executor_provider,
                     capture_screen: args.capture_screen,
                     capture_ax_tree: args.capture_ax_tree,
                     capture_app_name: args.capture_app_name,
@@ -1330,6 +1348,8 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                     som_path: args.som_path,
                     ax_ref: args.ax_ref,
                     ax_path: args.ax_path,
+                    local_gui_executor: args.local_gui_executor,
+                    local_gui_executor_provider: args.local_gui_executor_provider,
                     capture_screen: args.capture_screen,
                     capture_ax_tree: args.capture_ax_tree,
                     capture_app_name: args.capture_app_name,
@@ -3134,6 +3154,19 @@ async fn handle_visual_gui_command_with_tool(
             Value::String(ax_path.trim().to_string()),
         );
     }
+    if args.local_gui_executor {
+        input.insert("localGuiExecutor".to_string(), Value::Bool(true));
+    }
+    if let Some(local_gui_executor_provider) = args
+        .local_gui_executor_provider
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "localGuiExecutorProvider".to_string(),
+            Value::String(local_gui_executor_provider.trim().to_string()),
+        );
+    }
     if let Some(app_name) = args
         .app_name
         .as_deref()
@@ -3840,7 +3873,7 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--session-mode owned_hermetic_browser|attached_cdp|controlled_relaunch] [--approval-ref approval_id] [--controlled-relaunch-approval-ref approval_id] [--controlled-relaunch-executable-path path] [--controlled-relaunch-headless] [--selector css] [--target-ref ref] [--text value] [--key value] [--scroll-x n] [--scroll-y n] [--file-path path] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /visual-gui-observe [prompt] [--session-mode visual_fallback|foreground_desktop|background_desktop|app_scoped_desktop] [--screenshot-ref ref|--screenshot-path path] [--som-ref ref|--som-path path] [--ax-ref ref|--ax-path path] [--capture-screen] [--capture-ax-tree] [--capture-app-name name] [--capture-window-title title] [--app-name name] [--window-title title] [--coordinate-space-id id] [--viewport-width n] [--viewport-height n] /visual-gui [prompt] [--session-mode visual_fallback|foreground_desktop|background_desktop|app_scoped_desktop] [--screenshot-ref ref|--screenshot-path path] [--som-ref ref|--som-path path] [--ax-ref ref|--ax-path path] [--app-name name] [--window-title title] [--coordinate-space-id id] [--viewport-width n] [--viewport-height n] /computer-use [pause|resume|abort|cleanup] --lease-id lease_id [--handoff-ref ref] [--reason text] [--resume-observation-ref ref] [--cdp-endpoint-url url] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--session-mode owned_hermetic_browser|attached_cdp|controlled_relaunch] [--approval-ref approval_id] [--controlled-relaunch-approval-ref approval_id] [--controlled-relaunch-executable-path path] [--controlled-relaunch-headless] [--selector css] [--target-ref ref] [--text value] [--key value] [--scroll-x n] [--scroll-y n] [--file-path path] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /visual-gui-observe [prompt] [--session-mode visual_fallback|foreground_desktop|background_desktop|app_scoped_desktop] [--screenshot-ref ref|--screenshot-path path] [--som-ref ref|--som-path path] [--ax-ref ref|--ax-path path] [--capture-screen] [--capture-ax-tree] [--capture-app-name name] [--capture-window-title title] [--app-name name] [--window-title title] [--coordinate-space-id id] [--viewport-width n] [--viewport-height n] /visual-gui [prompt] [--session-mode visual_fallback|foreground_desktop|background_desktop|app_scoped_desktop] [--screenshot-ref ref|--screenshot-path path] [--som-ref ref|--som-path path] [--ax-ref ref|--ax-path path] [--local-gui-executor] [--local-gui-executor-provider auto|fixture] [--app-name name] [--window-title title] [--coordinate-space-id id] [--viewport-width n] [--viewport-height n] /computer-use [pause|resume|abort|cleanup] --lease-id lease_id [--handoff-ref ref] [--reason text] [--resume-observation-ref ref] [--cdp-endpoint-url url] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -4207,6 +4240,8 @@ struct VisualGuiLineArgs {
     som_path: Option<String>,
     ax_ref: Option<String>,
     ax_path: Option<String>,
+    local_gui_executor: bool,
+    local_gui_executor_provider: Option<String>,
     capture_screen: bool,
     capture_ax_tree: bool,
     capture_app_name: Option<String>,
@@ -4227,6 +4262,8 @@ fn parse_visual_gui_args(value: &str) -> Result<VisualGuiLineArgs> {
     let mut som_path = None;
     let mut ax_ref = None;
     let mut ax_path = None;
+    let mut local_gui_executor = false;
+    let mut local_gui_executor_provider = None;
     let mut capture_screen = false;
     let mut capture_ax_tree = false;
     let mut capture_app_name = None;
@@ -4312,6 +4349,24 @@ fn parse_visual_gui_args(value: &str) -> Result<VisualGuiLineArgs> {
             ax_ref = Some(non_empty_flag_value(
                 "--ax-ref",
                 required_flag_value("--ax-ref", &mut parts)?,
+            )?);
+            continue;
+        }
+        if part == "--local-gui-executor" {
+            local_gui_executor = true;
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--local-gui-executor-provider=") {
+            local_gui_executor_provider = Some(non_empty_flag_value(
+                "--local-gui-executor-provider",
+                inline,
+            )?);
+            continue;
+        }
+        if part == "--local-gui-executor-provider" {
+            local_gui_executor_provider = Some(non_empty_flag_value(
+                "--local-gui-executor-provider",
+                required_flag_value("--local-gui-executor-provider", &mut parts)?,
             )?);
             continue;
         }
@@ -4411,6 +4466,8 @@ fn parse_visual_gui_args(value: &str) -> Result<VisualGuiLineArgs> {
         som_path,
         ax_ref,
         ax_path,
+        local_gui_executor,
+        local_gui_executor_provider,
         capture_screen,
         capture_ax_tree,
         capture_app_name,
@@ -5538,7 +5595,7 @@ mod tests {
         );
         assert_eq!(
             parse_tui_line_command(
-                "/visual-gui inspect local canvas --session-mode foreground_desktop --screenshot-ref artifact:visual:screenshot --som-ref artifact:visual:som --ax-ref artifact:visual:ax --app-name CanvasApp --window-title CanvasWindow --coordinate-space-id screen-visual-1 --viewport-width 1200 --viewport-height 800"
+                "/visual-gui inspect local canvas --session-mode foreground_desktop --screenshot-ref artifact:visual:screenshot --som-ref artifact:visual:som --ax-ref artifact:visual:ax --local-gui-executor --local-gui-executor-provider auto --app-name CanvasApp --window-title CanvasWindow --coordinate-space-id screen-visual-1 --viewport-width 1200 --viewport-height 800"
             )
             .unwrap(),
             TuiLineCommand::VisualGui {
@@ -5550,6 +5607,8 @@ mod tests {
                 som_path: None,
                 ax_ref: Some("artifact:visual:ax".to_string()),
                 ax_path: None,
+                local_gui_executor: true,
+                local_gui_executor_provider: Some("auto".to_string()),
                 capture_screen: false,
                 capture_ax_tree: false,
                 capture_app_name: None,
@@ -5572,6 +5631,8 @@ mod tests {
                 som_path: None,
                 ax_ref: None,
                 ax_path: None,
+                local_gui_executor: false,
+                local_gui_executor_provider: None,
                 capture_screen: false,
                 capture_ax_tree: false,
                 capture_app_name: None,
@@ -5594,6 +5655,8 @@ mod tests {
                 som_path: Some("/tmp/som.json".to_string()),
                 ax_ref: None,
                 ax_path: Some("/tmp/ax.json".to_string()),
+                local_gui_executor: false,
+                local_gui_executor_provider: None,
                 capture_screen: false,
                 capture_ax_tree: false,
                 capture_app_name: None,
@@ -5616,6 +5679,8 @@ mod tests {
                 som_path: Some("/tmp/som.json".to_string()),
                 ax_ref: None,
                 ax_path: Some("/tmp/ax.json".to_string()),
+                local_gui_executor: false,
+                local_gui_executor_provider: None,
                 capture_screen: true,
                 capture_ax_tree: true,
                 capture_app_name: Some("CapturedApp".to_string()),
@@ -5638,6 +5703,8 @@ mod tests {
                 som_path: None,
                 ax_ref: None,
                 ax_path: None,
+                local_gui_executor: false,
+                local_gui_executor_provider: None,
                 capture_screen: false,
                 capture_ax_tree: false,
                 capture_app_name: None,
