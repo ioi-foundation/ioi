@@ -1911,6 +1911,14 @@ pub struct RuntimeToolContract {
     pub policy_target: String,
     pub approval_scope_fields: Vec<String>,
     pub evidence_requirements: Vec<String>,
+    pub credential_readiness: String,
+    pub approval_required: bool,
+    pub rate_limit_profile: String,
+    pub idempotency_behavior: String,
+    pub receipt_behavior: String,
+    pub workflow_availability: String,
+    pub agent_availability: String,
+    pub marketplace_exposure_eligible: bool,
     pub replayability_classification: String,
     pub redaction_policy: String,
     pub owner_module: String,
@@ -1936,6 +1944,14 @@ impl Default for RuntimeToolContract {
             policy_target: String::new(),
             approval_scope_fields: Vec::new(),
             evidence_requirements: Vec::new(),
+            credential_readiness: "not_required".to_string(),
+            approval_required: false,
+            rate_limit_profile: "unlimited_local_read".to_string(),
+            idempotency_behavior: "read_only".to_string(),
+            receipt_behavior: "required_receipt".to_string(),
+            workflow_availability: "unprojected".to_string(),
+            agent_availability: "available".to_string(),
+            marketplace_exposure_eligible: false,
             replayability_classification: String::new(),
             redaction_policy: String::new(),
             owner_module: String::new(),
@@ -2852,6 +2868,31 @@ mod tests {
         assert!(!contract.requires_primitive_capability("scope:gmail.send"));
         assert!(contract.requires_authority_scope("scope:gmail.send"));
         assert!(!contract.requires_authority_scope("prim:net.request"));
+    }
+
+    #[test]
+    fn runtime_tool_contract_carries_phase_five_readiness_metadata() {
+        let contract = RuntimeToolContract {
+            stable_tool_id: "tool:connector.gmail.send@v1".to_string(),
+            credential_readiness: "unknown".to_string(),
+            approval_required: true,
+            rate_limit_profile: "runtime_governed".to_string(),
+            idempotency_behavior: "caller_or_runtime_key".to_string(),
+            receipt_behavior: "receipt_required".to_string(),
+            workflow_availability: "ConnectorNode".to_string(),
+            agent_availability: "available".to_string(),
+            marketplace_exposure_eligible: false,
+            ..RuntimeToolContract::default()
+        };
+
+        assert_eq!(contract.credential_readiness, "unknown");
+        assert!(contract.approval_required);
+        assert_eq!(contract.rate_limit_profile, "runtime_governed");
+        assert_eq!(contract.idempotency_behavior, "caller_or_runtime_key");
+        assert_eq!(contract.receipt_behavior, "receipt_required");
+        assert_eq!(contract.workflow_availability, "ConnectorNode");
+        assert_eq!(contract.agent_availability, "available");
+        assert!(!contract.marketplace_exposure_eligible);
     }
 
     #[test]

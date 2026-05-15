@@ -7239,7 +7239,7 @@ export class AgentgresRuntimeStateStore {
         evidenceRequirements: ["mcp_containment_receipt"],
       },
       ...codingToolContracts(),
-    ];
+    ].map((tool) => runtimeToolRegistryGovernanceMetadata(tool));
     return pack
       ? tools.filter((tool) => optionalString(tool.pack)?.toLowerCase() === pack)
       : tools;
@@ -19604,8 +19604,133 @@ function mcpServeAllowedToolIds(options = {}) {
   );
 }
 
+function runtimeToolRegistryGovernanceMetadata(tool = {}) {
+  const stableToolId = optionalString(tool.stableToolId ?? tool.stable_tool_id) ?? "runtime.tool";
+  const effectClass = optionalString(tool.effectClass ?? tool.effect_class) ?? "local_read";
+  const riskDomain = optionalString(tool.riskDomain ?? tool.risk_domain) ?? "runtime";
+  const authorityScopeRequirements = uniqueStrings(tool.authorityScopeRequirements ?? tool.authority_scope_requirements);
+  const evidenceRequirements = uniqueStrings(tool.evidenceRequirements ?? tool.evidence_requirements);
+  const workflowNodeType = optionalString(tool.workflowNodeType ?? tool.workflow_node_type) ?? null;
+  const workflowConfigFields = uniqueStrings(tool.workflowConfigFields ?? tool.workflow_config_fields);
+  const approvalRequired =
+    typeof tool.approvalRequired === "boolean"
+      ? tool.approvalRequired
+      : typeof tool.approval_required === "boolean"
+        ? tool.approval_required
+        : authorityScopeRequirements.length > 0 || !runtimeToolEffectIsReadOnly(effectClass);
+  const credentialReadiness =
+    tool.credentialReadiness && typeof tool.credentialReadiness === "object"
+      ? tool.credentialReadiness
+      : {
+          status: runtimeToolLikelyRequiresCredential(stableToolId, riskDomain, effectClass) ? "unknown" : "not_required",
+          checkedAt: null,
+          evidenceRefs: [],
+          reason: null,
+        };
+  const credentialReady = credentialReadiness.status === "ready" || credentialReadiness.status === "not_required";
+  return {
+    ...tool,
+    stableToolId,
+    displayName: tool.displayName ?? tool.display_name ?? stableToolId,
+    primitiveCapabilities: uniqueStrings(tool.primitiveCapabilities ?? tool.primitive_capabilities),
+    authorityScopeRequirements,
+    effectClass,
+    riskDomain,
+    evidenceRequirements,
+    credentialReady,
+    credentialReadiness,
+    approvalRequired,
+    approval_required: approvalRequired,
+    rateLimitProfile: tool.rateLimitProfile ?? {
+      policy: runtimeToolEffectIsReadOnly(effectClass) ? "unlimited_local_read" : "runtime_governed",
+      scope: stableToolId,
+      maxCalls: null,
+      windowMs: null,
+      burst: null,
+      evidenceRefs: [],
+    },
+    idempotencyBehavior: tool.idempotencyBehavior ?? {
+      required: !runtimeToolEffectIsReadOnly(effectClass),
+      strategy: runtimeToolEffectIsReadOnly(effectClass)
+        ? "read_only"
+        : runtimeToolEffectIsExternal(effectClass)
+          ? "caller_or_runtime_key"
+          : "runtime_key",
+      keyScope: runtimeToolEffectIsReadOnly(effectClass) ? null : stableToolId,
+      evidenceRefs: [],
+    },
+    receiptBehavior: tool.receiptBehavior ?? {
+      emitsReceipt: evidenceRequirements.length > 0,
+      receiptRequired: evidenceRequirements.length > 0,
+      requiredReceiptTypes: evidenceRequirements,
+      evidenceRequirements,
+    },
+    workflowAvailability: tool.workflowAvailability ?? {
+      available: Boolean(workflowNodeType),
+      reason: workflowNodeType ? null : "No workflow node projection registered.",
+      nodeType: workflowNodeType,
+      configFields: workflowConfigFields,
+      evidenceRefs: [],
+    },
+    agentAvailability: tool.agentAvailability ?? {
+      available: true,
+      reason: null,
+      nodeType: null,
+      configFields: [],
+      evidenceRefs: [],
+    },
+    marketplaceExposure: tool.marketplaceExposure ?? {
+      eligible: !approvalRequired && credentialReady && runtimeToolEffectIsReadOnly(effectClass),
+      reason:
+        !approvalRequired && credentialReady && runtimeToolEffectIsReadOnly(effectClass)
+          ? "Read-only tool is eligible for governed exposure."
+          : "Requires authority review before exposure.",
+      trustRequired: approvalRequired,
+      versionPinned: true,
+      evidenceRefs: [],
+    },
+    workflowNodeType,
+    workflowConfigFields,
+  };
+}
+
+function runtimeToolEffectIsReadOnly(effectClass) {
+  const normalized = String(effectClass ?? "").trim().toLowerCase();
+  return normalized === "read" || normalized === "local_read" || normalized.endsWith("_read");
+}
+
+function runtimeToolEffectIsExternal(effectClass) {
+  const normalized = String(effectClass ?? "").trim().toLowerCase();
+  return (
+    normalized.includes("external") ||
+    normalized.includes("connector") ||
+    normalized.includes("destructive") ||
+    normalized.includes("commerce")
+  );
+}
+
+function runtimeToolLikelyRequiresCredential(stableToolId, riskDomain, effectClass) {
+  const haystack = `${stableToolId} ${riskDomain} ${effectClass}`.toLowerCase();
+  return haystack.includes("connector") || haystack.includes("mcp") || haystack.includes("model") || haystack.includes("oauth");
+}
+
 function mcpServeToolDescriptor(tool = {}) {
+  tool = runtimeToolRegistryGovernanceMetadata(tool);
   const toolId = optionalString(tool.stableToolId ?? tool.stable_tool_id) ?? "runtime.tool";
+  const approvalRequired =
+    typeof tool.approvalRequired === "boolean"
+      ? tool.approvalRequired
+      : typeof tool.approval_required === "boolean"
+        ? tool.approval_required
+        : normalizeArray(tool.authorityScopeRequirements ?? tool.authority_scope_requirements).length > 0;
+  const credentialReadiness =
+    tool.credentialReadiness && typeof tool.credentialReadiness === "object"
+      ? tool.credentialReadiness
+      : { status: "unknown", checkedAt: null, evidenceRefs: [], reason: null };
+  const idempotencyBehavior =
+    tool.idempotencyBehavior && typeof tool.idempotencyBehavior === "object"
+      ? tool.idempotencyBehavior
+      : { required: false, strategy: "read_only", keyScope: null, evidenceRefs: [] };
   return {
     name: toolId,
     title: tool.displayName ?? tool.display_name ?? toolId,
@@ -19619,16 +19744,26 @@ function mcpServeToolDescriptor(tool = {}) {
       pack: tool.pack ?? CODING_TOOL_PACK_ID,
       effectClass: tool.effectClass ?? "local_read",
       riskDomain: tool.riskDomain ?? "workspace",
-      primitiveCapabilities: normalizeArray(tool.primitiveCapabilities),
-      authorityScopeRequirements: normalizeArray(tool.authorityScopeRequirements),
-      evidenceRequirements: normalizeArray(tool.evidenceRequirements),
+      primitiveCapabilities: normalizeArray(tool.primitiveCapabilities ?? tool.primitive_capabilities),
+      authorityScopeRequirements: normalizeArray(tool.authorityScopeRequirements ?? tool.authority_scope_requirements),
+      evidenceRequirements: normalizeArray(tool.evidenceRequirements ?? tool.evidence_requirements),
+      credentialReady: Boolean(tool.credentialReady),
+      credentialReadiness,
+      approvalRequired,
+      approval_required: approvalRequired,
+      rateLimitProfile: tool.rateLimitProfile ?? null,
+      idempotencyBehavior,
+      receiptBehavior: tool.receiptBehavior ?? null,
+      workflowAvailability: tool.workflowAvailability ?? null,
+      agentAvailability: tool.agentAvailability ?? null,
+      marketplaceExposure: tool.marketplaceExposure ?? null,
       workflowNodeType: tool.workflowNodeType ?? null,
       workflowConfigFields: normalizeArray(tool.workflowConfigFields),
     },
     annotations: {
       readOnlyHint: tool.effectClass !== "local_write" && tool.effectClass !== "local_command",
       destructiveHint: false,
-      idempotentHint: true,
+      idempotentHint: idempotencyBehavior.strategy === "read_only" || Boolean(idempotencyBehavior.required),
       openWorldHint: false,
     },
   };

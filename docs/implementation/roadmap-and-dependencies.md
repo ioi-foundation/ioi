@@ -4,7 +4,7 @@ Status: canonical architecture roadmap.
 Canonical owner: this file for high-level implementation sequencing; low-level proof gates live in [`low-level-implementation-milestones.md`](./low-level-implementation-milestones.md).
 Supersedes: overlapping roadmap prose when phase ordering conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-05-15.
 
 ## Purpose
 
@@ -17,9 +17,8 @@ Workflow Canvas V1 Hardening
 → Workflow Runtime Parity
 → Harness Componentization
 → Harness-as-Workflow
-→ Connector Tool Registry
-→ Model Router / BYOK / Local Mounting
-→ wallet-core-lite
+→ Phase 4.5 Capability Authority Readiness Gate
+→ Phase 5 Early Connector Expansion
 → Autopilot Foundry / Worker Training Workbench
 → Minimal Persistent Worker/Agent State
 → Daemon-backed CLI/TUI Operator Controls
@@ -124,34 +123,58 @@ Build:
 - wallet authority scope mapping;
 - receipts.
 
-## Phase 5 — Model Router / BYOK / Local Mounting
+## Phase 4.5 — Capability Authority Readiness Gate
 
-Goal: model calls route through policy.
-
-Build:
-
-- model registry;
-- model router;
-- BYOK via wallet.network;
-- LM Studio/Ollama/OpenAI-compatible mounting;
-- model invocation receipts;
-- run-to-idle lifecycle.
-
-## Phase 6 — wallet-core-lite
-
-Goal: safe authority before persistent workers.
+Goal: remove remaining authority drift before Phase 5 connector expansion.
 
 Build:
 
-- encrypted local secret store;
-- authority scope request API;
-- policy envelopes;
-- session grants;
-- approval tokens;
-- revocation;
-- audit receipts;
-- BYOK brokerage;
-- connector credential vault.
+- canonical connector/tool/model capability registry metadata;
+- wallet-core-lite authority path for BYOK, connector secrets, grants, approval tokens, revocation, and audit receipts;
+- capability request APIs so workflows call model/tool capabilities rather than provider-specific branches;
+- Autopilot Policy/Settings authority center refresh for credentials, grants, approvals, and stale settings removal;
+- React Flow capability binding/readiness projections;
+- Playwright-backed browser/computer-use readiness probes for isolated task contexts and degraded/fail-closed paths;
+- go/no-go report proving Phase 5 can start without a second runtime or shadow truth store.
+
+Authoritative guides:
+
+- [Phase 4.5 Capability Authority Readiness Master Guide](../plans/phase-4-5-capability-authority-readiness-master-guide.md)
+- [Isolated Computer Providers Master Guide](../plans/isolated-computer-providers-master-guide.md)
+
+## Phase 5 — Early Connector Expansion
+
+Goal: prove Autopilot can operate real production software safely without
+starting with money-moving commerce.
+
+Build:
+
+- filesystem and Git read/write with proposal-first mutation;
+- browser/computer-use hardening;
+- local shell/sandbox hardening;
+- Blender connector;
+- FreeCAD/CAD connector;
+- read-only Google Workspace and mail improvements;
+- draft-only email/calendar/doc outputs.
+
+Authoritative guide:
+
+- [Phase 5 Early Connector Expansion Master Guide](../plans/phase-5-early-connector-expansion-master-guide.md)
+
+## Phase 6 — Minimal Persistent Workers And My Agents
+
+Goal: add durable workers only after Phase 4.5 authority and Phase 5 connector
+proofs are working.
+
+Build:
+
+- background worker records;
+- task/job lifecycle APIs;
+- schedule monitors;
+- worker pause/resume/cancel;
+- hosted worker fail-closed records;
+- worker receipts and dashboards;
+- My Agents surfaces backed by runtime contracts.
 
 ## Phase 6.5 — Autopilot Foundry / Worker Training Workbench
 

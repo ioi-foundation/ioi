@@ -265,6 +265,14 @@ export interface RuntimeToolContract {
   policyTarget: string;
   approvalScopeFields: string[];
   evidenceRequirements: string[];
+  credentialReadiness?: string;
+  approvalRequired?: boolean;
+  rateLimitProfile?: string;
+  idempotencyBehavior?: string;
+  receiptBehavior?: string;
+  workflowAvailability?: string;
+  agentAvailability?: string;
+  marketplaceExposureEligible?: boolean;
   replayabilityClassification: string;
   redactionPolicy: string;
   ownerModule: string;
