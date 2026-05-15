@@ -18078,6 +18078,8 @@ function computerUseNativeBrowserInvocationResultFromEvents(events, context = {}
     payloads.find((payload) => payload.affordance_graph || payload.affordanceGraph) ?? {};
   const proposalPayload =
     payloads.find((payload) => payload.action_proposal || payload.actionProposal) ?? {};
+  const runStatePayload =
+    payloads.find((payload) => payload.computer_use_run_state || payload.computerUseRunState) ?? {};
   const outcomePayload =
     payloads.find((payload) => payload.outcome_contract || payload.outcomeContract) ?? {};
   const commitGatePayload =
@@ -18136,6 +18138,11 @@ function computerUseNativeBrowserInvocationResultFromEvents(events, context = {}
         projection.actionProposal ??
         proposalPayload.action_proposal ??
         proposalPayload.actionProposal ??
+        null,
+      runState:
+        projection.runState ??
+        runStatePayload.computer_use_run_state ??
+        runStatePayload.computerUseRunState ??
         null,
       action:
         projection.action ??
