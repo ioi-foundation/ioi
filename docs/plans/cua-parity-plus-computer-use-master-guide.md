@@ -623,7 +623,7 @@ Required guarantees:
 | Behavioral control loop | Started: SDK and daemon lifecycle projection emit select, acquire, observe, affordance, propose, execute, verify, trajectory, and cleanup steps with workflow node ids; real executor loop pending |
 | Environment planner | Started: `EnvironmentSelectionReceipt` is SDK/daemon trace-visible and explicit visual/sandbox requests fail closed; full daemon planner pending |
 | Affordance/action proposal pipeline | Started: target index, affordance graph, policy-gated `ActionProposal`, grounded `ComputerAction`, and `ActionReceipt` are SDK/daemon trace-visible; adapter executor pending |
-| Recovery, handoff, and commit gates | Not started |
+| Recovery, handoff, and commit gates | Started: SDK contracts and helpers now generate fail-closed `RecoveryPolicy`, credential-safe `HumanHandoffState`, bounded `OutcomeContract`, external-effect `CommitGate`, and retention checks; daemon/UI policy executor wiring pending |
 | Native browser parity | Started: owned browser artifacts now project into canonical observation bundles, target indexes, and affordance graphs; daemon executor still needs to consume live adapter output |
 | Visual GUI parity | Started: unavailable requests fail closed with recovery policy evidence; GUI adapter pending |
 | Sandboxed/hosted parity | Started: unavailable requests fail closed with recovery policy evidence; hosted adapter pending |
