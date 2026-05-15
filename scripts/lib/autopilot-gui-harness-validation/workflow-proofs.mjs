@@ -153,6 +153,17 @@ export function collectWorkflowSandboxedComputerRunButtonProof(outputRoot) {
   });
 }
 
+export function collectWorkflowNativeBrowserPromptPipelineProof(outputRoot) {
+  return collectProbeProof(outputRoot, {
+    fileName: "workflow-native-browser-prompt-pipeline-proof.json",
+    scriptPath:
+      "scripts/lib/workflow-native-browser-prompt-pipeline-gui-probe.mjs",
+    schemaVersion: "workflow.native-browser.prompt-pipeline-proof.v1",
+    scenario: "workflow_native_browser_prompt_pipeline",
+    errorLabel: "native browser prompt pipeline probe",
+  });
+}
+
 export function collectWorkflowSkillContextProof(outputRoot) {
   const files = {
     graphTypes: "packages/agent-ide/src/types/graph.ts",
