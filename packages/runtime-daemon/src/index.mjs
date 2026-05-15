@@ -29,6 +29,10 @@ import {
   visualGuiLocalCaptureRequested,
   visualGuiLocalCaptureUnavailablePatch,
 } from "./visual-gui-local-capture.mjs";
+import {
+  executeLocalVisualGuiAction,
+  visualGuiLocalExecutorRequested,
+} from "./visual-gui-local-executor.mjs";
 import { launchControlledNativeBrowser } from "./native-browser-controlled-relaunch-broker.mjs";
 import { executeNativeBrowserCdpAction } from "./native-browser-cdp-executor.mjs";
 import { AgentMemoryStore, parseMemoryCommand } from "./memory-store.mjs";
@@ -7878,6 +7882,28 @@ export class AgentgresRuntimeStateStore {
       ...input,
       ...materializedVisualArtifacts.metadata,
     });
+    const visualExecutionInput = {
+      ...input,
+      ...materializedVisualArtifacts.metadata,
+      ...visualObservationMetadata,
+    };
+    const visualGuiExecution = visualGuiLocalExecutorRequested({
+      input: visualExecutionInput,
+      actionKind: requestedActionKind,
+      approvalRef: requestedApprovalRef,
+    })
+      ? await executeLocalVisualGuiAction({
+          input: visualExecutionInput,
+          actionKind: requestedActionKind,
+          approvalRef: requestedApprovalRef,
+          targetRef: requestedTargetRef,
+          prompt: goal,
+          toolCallId,
+          captureDir: this.pathFor("visual-gui-captures"),
+          artifactResolver: (artifactRef) => this.codingArtifacts.get(artifactRef),
+          maxBytes: COMPUTER_USE_VISUAL_ARTIFACT_MAX_BYTES,
+        })
+      : null;
     const metadata = {
       computerUse: true,
       computerUseLane: "visual_gui",
@@ -7901,6 +7927,8 @@ export class AgentgresRuntimeStateStore {
       computerUseApprovalRef: requestedApprovalRef,
       computerUseTargetRef: requestedTargetRef,
       computerUseVisualArtifactRefs: materializedVisualArtifacts.artifactRefs,
+      computerUseExecutionResult: visualGuiExecution,
+      computerUseVisualGuiExecution: visualGuiExecution,
       ...visualObservationMetadata,
       computerUseObservationBundle:
         objectRecord(input.computerUseObservationBundle ?? input.observation_bundle),
@@ -7918,6 +7946,8 @@ export class AgentgresRuntimeStateStore {
       "computerUseTargetRef",
       "computerUseVisualObservation",
       "computerUseVisualArtifactRefs",
+      "computerUseExecutionResult",
+      "computerUseVisualGuiExecution",
       "screenshotRef",
       "somRef",
       "axRef",

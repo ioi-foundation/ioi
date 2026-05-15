@@ -78,6 +78,14 @@ test("computer-use searches prioritize lane-specific authoring presets", () => {
     "plugin_tool.computer_use.visual_gui",
   );
   assert.equal(
+    topNode("local gui executor").creatorId,
+    "plugin_tool.computer_use.visual_gui",
+  );
+  assert.equal(
+    topNode("approved local input").creatorId,
+    "plugin_tool.computer_use.visual_gui",
+  );
+  assert.equal(
     topNode("sandboxed computer").creatorId,
     "plugin_tool.computer_use.sandboxed",
   );

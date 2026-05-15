@@ -154,6 +154,8 @@ test("computer-use composer run options project visual GUI observation refs", ()
   args["captureAxTree"] = true;
   args["captureAppName"] = "Autopilot";
   args["captureWindowTitle"] = "Workflow Composer";
+  args["localGuiExecutor"] = true;
+  args["localGuiExecutorProvider"] = "auto";
   args["appName"] = "Canvas App";
   args["windowTitle"] = "Canvas App - Local";
   args["coordinateSpaceId"] = "screen-visual-local";
@@ -175,6 +177,8 @@ test("computer-use composer run options project visual GUI observation refs", ()
   assert.equal(options.metadata.captureAxTree, true);
   assert.equal(options.metadata.captureAppName, "Autopilot");
   assert.equal(options.metadata.captureWindowTitle, "Workflow Composer");
+  assert.equal(options.metadata.localGuiExecutor, true);
+  assert.equal(options.metadata.localGuiExecutorProvider, "auto");
   assert.equal(options.metadata.appName, "Canvas App");
   assert.equal(options.metadata.windowTitle, "Canvas App - Local");
   assert.equal(options.metadata.coordinateSpaceId, "screen-visual-local");

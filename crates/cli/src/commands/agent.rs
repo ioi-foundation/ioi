@@ -517,6 +517,12 @@ pub enum ToolCommands {
         /// Local accessibility tree path to retain as a governed artifact/ref.
         #[clap(long = "ax-path")]
         ax_path: Option<String>,
+        /// Enable approved local GUI input execution for the visual action.
+        #[clap(long = "local-gui-executor")]
+        local_gui_executor: bool,
+        /// Local GUI input executor provider: auto, fixture.
+        #[clap(long = "local-gui-executor-provider")]
+        local_gui_executor_provider: Option<String>,
         /// Observed app name.
         #[clap(long = "app-name")]
         app_name: Option<String>,
@@ -1623,6 +1629,8 @@ async fn run_tool_command(
             som_path,
             ax_ref,
             ax_path,
+            local_gui_executor,
+            local_gui_executor_provider,
             app_name,
             window_title,
             coordinate_space_id,
@@ -1648,6 +1656,8 @@ async fn run_tool_command(
                 som_path,
                 ax_ref,
                 ax_path,
+                local_gui_executor,
+                local_gui_executor_provider,
                 app_name,
                 window_title,
                 coordinate_space_id,
@@ -1706,6 +1716,8 @@ async fn run_tool_command(
                 som_path,
                 ax_ref,
                 ax_path,
+                false,
+                None,
                 app_name,
                 window_title,
                 coordinate_space_id,
@@ -2177,6 +2189,8 @@ async fn invoke_visual_gui_tool(
     som_path: Option<String>,
     ax_ref: Option<String>,
     ax_path: Option<String>,
+    local_gui_executor: bool,
+    local_gui_executor_provider: Option<String>,
     app_name: Option<String>,
     window_title: Option<String>,
     coordinate_space_id: Option<String>,
@@ -2206,6 +2220,8 @@ async fn invoke_visual_gui_tool(
         som_path,
         ax_ref,
         ax_path,
+        local_gui_executor,
+        local_gui_executor_provider,
         app_name,
         window_title,
         coordinate_space_id,
@@ -2241,6 +2257,8 @@ async fn invoke_visual_gui_tool_with_tool_ref(
     som_path: Option<String>,
     ax_ref: Option<String>,
     ax_path: Option<String>,
+    local_gui_executor: bool,
+    local_gui_executor_provider: Option<String>,
     app_name: Option<String>,
     window_title: Option<String>,
     coordinate_space_id: Option<String>,
@@ -2339,6 +2357,21 @@ async fn invoke_visual_gui_tool_with_tool_ref(
         input.insert(
             "axPath".to_string(),
             serde_json::Value::String(ax_path.trim().to_string()),
+        );
+    }
+    if local_gui_executor {
+        input.insert(
+            "localGuiExecutor".to_string(),
+            serde_json::Value::Bool(true),
+        );
+    }
+    if let Some(local_gui_executor_provider) = local_gui_executor_provider
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "localGuiExecutorProvider".to_string(),
+            serde_json::Value::String(local_gui_executor_provider.trim().to_string()),
         );
     }
     if let Some(app_name) = app_name.as_deref().filter(|value| !value.trim().is_empty()) {
@@ -3925,6 +3958,9 @@ mod tests {
             "artifact:visual:ax",
             "--ax-path",
             "/tmp/visual-ax.json",
+            "--local-gui-executor",
+            "--local-gui-executor-provider",
+            "auto",
             "--app-name",
             "CanvasApp",
             "--window-title",
@@ -3950,6 +3986,8 @@ mod tests {
                     som_path: Some(som_path),
                     ax_ref: Some(ax_ref),
                     ax_path: Some(ax_path),
+                    local_gui_executor: true,
+                    local_gui_executor_provider: Some(local_gui_executor_provider),
                     app_name: Some(app_name),
                     window_title: Some(window_title),
                     coordinate_space_id: Some(coordinate_space_id),
@@ -3967,6 +4005,7 @@ mod tests {
                 && som_path == "/tmp/visual-som.json"
                 && ax_ref == "artifact:visual:ax"
                 && ax_path == "/tmp/visual-ax.json"
+                && local_gui_executor_provider == "auto"
                 && app_name == "CanvasApp"
                 && window_title == "CanvasWindow"
                 && coordinate_space_id == "screen-visual-1"
