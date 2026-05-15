@@ -56,6 +56,7 @@ test("computer-use composer run options project configured native-browser action
   args["computerUseApprovalRef"] = "approval-browser-click";
   args["targetRef"] = "#submit";
   args["selector"] = "#submit";
+  args["text"] = "hello";
   args["cdpEndpointUrl"] = "http://127.0.0.1:9222";
   args["cdpTimeoutMs"] = 5000;
 
@@ -66,6 +67,7 @@ test("computer-use composer run options project configured native-browser action
   assert.equal(options.metadata.computerUseApprovalRef, "approval-browser-click");
   assert.equal(options.metadata.computerUseTargetRef, "#submit");
   assert.equal(options.metadata.selector, "#submit");
+  assert.equal(options.metadata.text, "hello");
   assert.equal(options.metadata.cdpEndpointUrl, "http://127.0.0.1:9222");
   assert.equal(options.metadata.cdpTimeoutMs, 5000);
 });

@@ -4967,6 +4967,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
           computerUseActionKind: "inspect",
           targetRef: "",
           selector: "",
+          text: "",
           cdpEndpointUrl: "",
           cdpWebSocketUrl: "",
           cdpTimeoutMs: 3000,

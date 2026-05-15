@@ -488,7 +488,7 @@ approval ref is supplied, at which point the same route emits the approved
 `ComputerAction`, `ActionReceipt`, passed verification, and completed commit
 gate evidence when a CDP endpoint/websocket is available. The daemon now
 contains a narrow CDP-backed executor for approved `click` and `navigate`
-actions; missing browser adapter evidence fails closed with blocked
+plus `type_text` actions; missing browser adapter evidence fails closed with blocked
 verification and commit-gate receipts instead of synthetic execution. CLI and TUI operators now have dedicated
 native-browser commands over the same daemon thread-tool route, including
 `--approval-ref`, target/selector, and CDP endpoint/websocket options, so manual
