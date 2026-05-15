@@ -231,6 +231,12 @@ const COMPUTER_USE_VISUAL_GUI_TOOL_IDS = new Set([
   "ioi.computer_use.visual_gui",
   "computer_use.visual_gui",
 ]);
+const COMPUTER_USE_VISUAL_GUI_OBSERVE_TOOL_IDS = new Set([
+  "ioi.computer_use.visual_gui.observe",
+  "computer_use.visual_gui.observe",
+  "ioi.computer_use.visual_gui_observe",
+  "computer_use.visual_gui_observe",
+]);
 const COMPUTER_USE_CONTROL_TOOL_IDS = new Set([
   "ioi.computer_use.control",
   "computer_use.control",
@@ -7999,6 +8005,70 @@ export class AgentgresRuntimeStateStore {
     });
   }
 
+  async invokeComputerUseVisualGuiObserveTool(threadId, toolId, request = {}) {
+    const requestInput = objectRecord(request.input);
+    const requestArguments = objectRecord(request.arguments);
+    const input = Object.keys(requestInput).length
+      ? requestInput
+      : Object.keys(requestArguments).length
+        ? requestArguments
+        : objectRecord(request);
+    const toolCallId =
+      optionalString(request.tool_call_id ?? request.toolCallId) ??
+      `computer_use_visual_gui_observe_${doctorHash(`${threadId}:${toolId}:${Date.now()}`).slice(0, 16)}`;
+    const idempotencyKey =
+      optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+      `thread:${threadId}:computer-use-visual-gui-observe:${toolCallId}`;
+    const sanitizedInput = {
+      ...input,
+      actionKind: "inspect",
+      action_kind: "inspect",
+      computerUseActionKind: "inspect",
+      computer_use_action_kind: "inspect",
+      authorityScopes: normalizeArray(input.authorityScopes ?? input.authority_scopes)
+        .map((scope) => optionalString(scope))
+        .filter((scope) => scope && !scope.includes(".act") && scope !== "coordinate_action"),
+    };
+    const result = await this.invokeComputerUseVisualGuiTool(threadId, toolId, {
+      ...request,
+      input: sanitizedInput,
+      tool_call_id: toolCallId,
+      toolCallId,
+      idempotency_key: idempotencyKey,
+      idempotencyKey,
+      workflow_node_id:
+        optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+        "computer-use.visual-gui.observe",
+      workflowNodeId:
+        optionalString(request.workflowNodeId ?? request.workflow_node_id) ??
+        "computer-use.visual-gui.observe",
+    });
+    const observationBroker = {
+      schema_version: "ioi.runtime.computer-use-visual-gui-observation-broker.v1",
+      object: "ioi.runtime_computer_use_visual_gui_observation_broker",
+      broker_ref: `visual_gui_observation_broker_${safeId(toolCallId)}`,
+      lane: "visual_gui",
+      session_mode: result.result?.environmentSelection?.selected_session_mode ?? "visual_fallback",
+      authority_scope: "computer_use.visual_gui.read",
+      tool_ref: toolId,
+      tool_call_id: toolCallId,
+      observation_ref: result.result?.observation?.observation_ref ?? null,
+      target_index_ref: result.result?.targetIndex?.target_index_ref ?? null,
+      affordance_graph_ref: result.result?.affordanceGraph?.graph_ref ?? null,
+      retained_artifact_refs: result.result?.cleanup?.retained_artifact_refs ?? [],
+      fail_closed_when_unavailable: true,
+      note: "Observation broker is read-only; coordinate/OS input authority is not granted.",
+    };
+    return {
+      ...result,
+      result: {
+        ...result.result,
+        observationBroker,
+        observation_broker: observationBroker,
+      },
+    };
+  }
+
   async invokeThreadToolAsync(threadId, toolId, request = {}) {
     const normalizedToolId = optionalString(toolId);
     if (COMPUTER_USE_CONTROL_TOOL_IDS.has(normalizedToolId)) {
@@ -8009,6 +8079,9 @@ export class AgentgresRuntimeStateStore {
     }
     if (COMPUTER_USE_VISUAL_GUI_TOOL_IDS.has(normalizedToolId)) {
       return await this.invokeComputerUseVisualGuiTool(threadId, normalizedToolId, request);
+    }
+    if (COMPUTER_USE_VISUAL_GUI_OBSERVE_TOOL_IDS.has(normalizedToolId)) {
+      return await this.invokeComputerUseVisualGuiObserveTool(threadId, normalizedToolId, request);
     }
     return this.invokeThreadTool(threadId, toolId, request);
   }
@@ -8027,6 +8100,9 @@ export class AgentgresRuntimeStateStore {
     }
     if (COMPUTER_USE_VISUAL_GUI_TOOL_IDS.has(normalizedToolId)) {
       return this.invokeComputerUseVisualGuiTool(threadId, normalizedToolId, request);
+    }
+    if (COMPUTER_USE_VISUAL_GUI_OBSERVE_TOOL_IDS.has(normalizedToolId)) {
+      return this.invokeComputerUseVisualGuiObserveTool(threadId, normalizedToolId, request);
     }
     if (!normalizedToolId || !CODING_TOOL_IDS.has(normalizedToolId)) {
       throw notFound(`Coding tool not found: ${toolId}`, {

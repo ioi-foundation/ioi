@@ -557,6 +557,75 @@ pub enum ToolCommands {
         #[clap(long)]
         json: bool,
     },
+    /// Capture a read-only visual-GUI observation bundle from supplied screenshot/AX/SoM refs.
+    VisualGuiObserve {
+        /// Runtime thread id that owns the computer-use event stream.
+        #[clap(long = "thread-id")]
+        thread_id: String,
+        /// Prompt/goal to associate with the observation.
+        #[clap(long)]
+        prompt: Option<String>,
+        /// Visual GUI session mode: visual_fallback, foreground_desktop, background_desktop, or app_scoped_desktop.
+        #[clap(long = "session-mode")]
+        session_mode: Option<String>,
+        /// Redacted screenshot artifact/ref for the current observation.
+        #[clap(long = "screenshot-ref")]
+        screenshot_ref: Option<String>,
+        /// Local screenshot path to retain as a governed artifact/ref.
+        #[clap(long = "screenshot-path")]
+        screenshot_path: Option<String>,
+        /// Set-of-Marks artifact/ref for the current observation.
+        #[clap(long = "som-ref")]
+        som_ref: Option<String>,
+        /// Local Set-of-Marks path to retain as a governed artifact/ref.
+        #[clap(long = "som-path")]
+        som_path: Option<String>,
+        /// Accessibility tree artifact/ref for the current observation.
+        #[clap(long = "ax-ref")]
+        ax_ref: Option<String>,
+        /// Local accessibility tree path to retain as a governed artifact/ref.
+        #[clap(long = "ax-path")]
+        ax_path: Option<String>,
+        /// Observed app name.
+        #[clap(long = "app-name")]
+        app_name: Option<String>,
+        /// Observed window title.
+        #[clap(long = "window-title")]
+        window_title: Option<String>,
+        /// Coordinate-space id that bounds screenshot/SoM targets.
+        #[clap(long = "coordinate-space-id")]
+        coordinate_space_id: Option<String>,
+        /// Observation viewport width.
+        #[clap(long = "viewport-width")]
+        viewport_width: Option<u64>,
+        /// Observation viewport height.
+        #[clap(long = "viewport-height")]
+        viewport_height: Option<u64>,
+        /// Observation retention mode.
+        #[clap(
+            long = "observation-retention-mode",
+            default_value = "local_redacted_artifacts"
+        )]
+        observation_retention_mode: String,
+        /// Runtime turn id to associate with the tool result.
+        #[clap(long = "turn-id")]
+        turn_id: Option<String>,
+        /// Workflow graph id for React Flow-originated invocations.
+        #[clap(long = "workflow-graph-id")]
+        workflow_graph_id: Option<String>,
+        /// Workflow node id for React Flow-originated invocations.
+        #[clap(long = "workflow-node-id")]
+        workflow_node_id: Option<String>,
+        /// Runtime daemon endpoint. Defaults to IOI_DAEMON_ENDPOINT or http://127.0.0.1:8765.
+        #[clap(long)]
+        endpoint: Option<String>,
+        /// Capability token. Defaults to IOI_DAEMON_TOKEN.
+        #[clap(long)]
+        token: Option<String>,
+        /// Emit machine-readable JSON.
+        #[clap(long)]
+        json: bool,
+    },
     /// Emit governed computer-use pause/resume/abort/cleanup control receipts.
     ComputerUseControl {
         /// Runtime thread id that owns the computer-use event stream.
@@ -1582,6 +1651,59 @@ async fn run_tool_command(
             )
             .await
         }
+        Some(ToolCommands::VisualGuiObserve {
+            thread_id,
+            prompt,
+            session_mode,
+            screenshot_ref,
+            screenshot_path,
+            som_ref,
+            som_path,
+            ax_ref,
+            ax_path,
+            app_name,
+            window_title,
+            coordinate_space_id,
+            viewport_width,
+            viewport_height,
+            observation_retention_mode,
+            turn_id,
+            workflow_graph_id,
+            workflow_node_id,
+            endpoint,
+            token,
+            json,
+        }) => {
+            invoke_visual_gui_tool_with_tool_ref(
+                thread_id,
+                prompt,
+                "inspect".to_string(),
+                session_mode,
+                None,
+                screenshot_ref,
+                screenshot_path,
+                som_ref,
+                som_path,
+                ax_ref,
+                ax_path,
+                app_name,
+                window_title,
+                coordinate_space_id,
+                viewport_width,
+                viewport_height,
+                observation_retention_mode,
+                turn_id,
+                workflow_graph_id,
+                workflow_node_id,
+                endpoint,
+                token,
+                json,
+                "ioi.computer_use.visual_gui.observe",
+                "computer-use.visual-gui.observe.cli",
+                "Visual GUI observation broker",
+            )
+            .await
+        }
         Some(ToolCommands::ComputerUseControl {
             thread_id,
             action,
@@ -2044,6 +2166,65 @@ async fn invoke_visual_gui_tool(
     token: Option<String>,
     json: bool,
 ) -> Result<()> {
+    invoke_visual_gui_tool_with_tool_ref(
+        thread_id,
+        prompt,
+        action_kind,
+        session_mode,
+        target_ref,
+        screenshot_ref,
+        screenshot_path,
+        som_ref,
+        som_path,
+        ax_ref,
+        ax_path,
+        app_name,
+        window_title,
+        coordinate_space_id,
+        viewport_width,
+        viewport_height,
+        observation_retention_mode,
+        turn_id,
+        workflow_graph_id,
+        workflow_node_id,
+        endpoint,
+        token,
+        json,
+        "ioi.computer_use.visual_gui",
+        "computer-use.visual-gui.cli",
+        "Visual GUI computer-use",
+    )
+    .await
+}
+
+async fn invoke_visual_gui_tool_with_tool_ref(
+    thread_id: String,
+    prompt: Option<String>,
+    action_kind: String,
+    session_mode: Option<String>,
+    target_ref: Option<String>,
+    screenshot_ref: Option<String>,
+    screenshot_path: Option<String>,
+    som_ref: Option<String>,
+    som_path: Option<String>,
+    ax_ref: Option<String>,
+    ax_path: Option<String>,
+    app_name: Option<String>,
+    window_title: Option<String>,
+    coordinate_space_id: Option<String>,
+    viewport_width: Option<u64>,
+    viewport_height: Option<u64>,
+    observation_retention_mode: String,
+    turn_id: Option<String>,
+    workflow_graph_id: Option<String>,
+    workflow_node_id: Option<String>,
+    endpoint: Option<String>,
+    token: Option<String>,
+    json: bool,
+    tool_ref: &str,
+    default_workflow_node_id: &str,
+    summary_label: &str,
+) -> Result<()> {
     let endpoint = resolve_daemon_endpoint(endpoint.as_deref());
     let token = resolve_daemon_token(token.as_deref());
     let mut body = serde_json::Map::new();
@@ -2186,11 +2367,11 @@ async fn invoke_visual_gui_tool(
             workflow_node_id
                 .as_deref()
                 .filter(|value| !value.trim().is_empty())
-                .unwrap_or("computer-use.visual-gui.cli")
+                .unwrap_or(default_workflow_node_id)
                 .to_string(),
         ),
     );
-    let route = coding_tool_invoke_route(&thread_id, "ioi.computer_use.visual_gui");
+    let route = coding_tool_invoke_route(&thread_id, tool_ref);
     let value = daemon_request(
         Some(&endpoint),
         token.as_deref(),
@@ -2213,7 +2394,7 @@ async fn invoke_visual_gui_tool(
     let workflow_node = value
         .get("workflow_node_id")
         .and_then(|value| value.as_str())
-        .unwrap_or("computer-use.visual-gui.cli");
+        .unwrap_or(default_workflow_node_id);
     let action_status = value
         .pointer("/result/actionReceipt/status")
         .and_then(|value| value.as_str())
@@ -2223,7 +2404,7 @@ async fn invoke_visual_gui_tool(
         .and_then(|value| value.as_str())
         .unwrap_or("none");
     println!(
-        "Visual GUI computer-use: thread={thread_id} status={status} node={workflow_node} events={event_count} action={action_status} observation={observation_ref}"
+        "{summary_label}: thread={thread_id} status={status} node={workflow_node} events={event_count} action={action_status} observation={observation_ref}"
     );
     Ok(())
 }
@@ -3725,6 +3906,64 @@ mod tests {
                 && som_ref == "artifact:visual:som"
                 && som_path == "/tmp/visual-som.json"
                 && ax_ref == "artifact:visual:ax"
+                && ax_path == "/tmp/visual-ax.json"
+                && app_name == "CanvasApp"
+                && window_title == "CanvasWindow"
+                && coordinate_space_id == "screen-visual-1"
+        ));
+        let visual_gui_observe = AgentArgs::try_parse_from([
+            "agent",
+            "tools",
+            "visual-gui-observe",
+            "--endpoint",
+            "http://127.0.0.1:8765",
+            "--thread-id",
+            "thread_runtime_cli",
+            "--prompt",
+            "capture local canvas",
+            "--session-mode",
+            "foreground_desktop",
+            "--screenshot-path",
+            "/tmp/visual-screenshot.png",
+            "--som-path",
+            "/tmp/visual-som.json",
+            "--ax-path",
+            "/tmp/visual-ax.json",
+            "--app-name",
+            "CanvasApp",
+            "--window-title",
+            "CanvasWindow",
+            "--coordinate-space-id",
+            "screen-visual-1",
+            "--viewport-width",
+            "1200",
+            "--viewport-height",
+            "800",
+            "--json",
+        ])
+        .expect("visual gui observe command should parse");
+        assert!(matches!(
+            visual_gui_observe.command,
+            Some(AgentCommands::Tools {
+                command: Some(ToolCommands::VisualGuiObserve {
+                    thread_id,
+                    session_mode: Some(session_mode),
+                    screenshot_path: Some(screenshot_path),
+                    som_path: Some(som_path),
+                    ax_path: Some(ax_path),
+                    app_name: Some(app_name),
+                    window_title: Some(window_title),
+                    coordinate_space_id: Some(coordinate_space_id),
+                    viewport_width: Some(1200),
+                    viewport_height: Some(800),
+                    json: true,
+                    ..
+                }),
+                ..
+            }) if thread_id == "thread_runtime_cli"
+                && session_mode == "foreground_desktop"
+                && screenshot_path == "/tmp/visual-screenshot.png"
+                && som_path == "/tmp/visual-som.json"
                 && ax_path == "/tmp/visual-ax.json"
                 && app_name == "CanvasApp"
                 && window_title == "CanvasWindow"

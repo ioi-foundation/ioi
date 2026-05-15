@@ -90,6 +90,10 @@ test("computer-use searches prioritize lane-specific authoring presets", () => {
     "computer_use.browser_discovery",
   );
   assert.equal(
+    topNode("visual observation").creatorId,
+    "computer_use.visual_gui_observe",
+  );
+  assert.equal(
     topNode("cdp endpoint").creatorId,
     "computer_use.browser_discovery",
   );
@@ -147,6 +151,7 @@ test("palette visibility separates default authoring from advanced runtime contr
   assert.ok(advanced.includes("runtime_task"));
   assert.ok(advanced.includes("workflow_package_import"));
   assert.ok(advanced.includes("computer_use.browser_discovery"));
+  assert.ok(advanced.includes("computer_use.visual_gui_observe"));
 });
 
 test("composition helpers are searchable by authoring vocabulary", () => {
