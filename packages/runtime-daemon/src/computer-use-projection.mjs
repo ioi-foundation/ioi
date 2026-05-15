@@ -20,6 +20,8 @@ export function computerUseSourceEventKind(type) {
       return "ComputerUse.Observation";
     case "computer_use_affordance_graph":
       return "ComputerUse.AffordanceGraph";
+    case "computer_use_browser_discovery":
+      return "ComputerUse.BrowserDiscovery";
     case "computer_use_action_proposed":
       return "ComputerUse.ActionProposed";
     case "computer_use_action_executed":

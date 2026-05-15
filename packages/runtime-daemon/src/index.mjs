@@ -181,6 +181,7 @@ const RUN_EVENT_TO_TTI_EVENT = {
   computer_use_run_state: "computer_use.run_state",
   computer_use_observation: "computer_use.observation",
   computer_use_affordance_graph: "computer_use.affordance_graph",
+  computer_use_browser_discovery: "computer_use.browser_discovery",
   computer_use_action_proposed: "computer_use.action_proposed",
   computer_use_action_executed: "computer_use.action_executed",
   computer_use_verification: "computer_use.verification",

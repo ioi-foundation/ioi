@@ -55,6 +55,7 @@ export type WorkflowRuntimeThreadEventType =
   | "computer_use_run_state"
   | "computer_use_observation"
   | "computer_use_affordance_graph"
+  | "computer_use_browser_discovery"
   | "computer_use_action_proposed"
   | "computer_use_action_executed"
   | "computer_use_verification"
@@ -178,6 +179,10 @@ export interface WorkflowRuntimeComputerUseProjection {
   observationRef: string | null;
   targetIndexRef: string | null;
   affordanceGraphRef: string | null;
+  browserDiscoveryRef: string | null;
+  browserProcessCount: number | null;
+  cdpEndpointCount: number | null;
+  defaultProfileBlockerCount: number | null;
   proposalRef: string | null;
   actionRef: string | null;
   actionKind: string | null;
@@ -3181,6 +3186,11 @@ function computerUseProjectionForRuntimeThreadEvent(
     "affordance_graph",
     "affordanceGraph",
   );
+  const browserDiscoveryReport = recordField(
+    payload,
+    "browser_discovery_report",
+    "browserDiscoveryReport",
+  );
   const actionProposal = recordField(
     payload,
     "action_proposal",
@@ -3292,6 +3302,31 @@ function computerUseProjectionForRuntimeThreadEvent(
         "computer_use_affordance_graph_ref",
         "computerUseAffordanceGraphRef",
       ) ?? stringField(affordanceGraph, "graph_ref", "graphRef"),
+    browserDiscoveryRef:
+      stringField(
+        payload,
+        "computer_use_browser_discovery_ref",
+        "computerUseBrowserDiscoveryRef",
+      ) ??
+      stringField(browserDiscoveryReport, "discovery_ref", "discoveryRef") ??
+      stringField(browserDiscoveryReport, "receipt_ref", "receiptRef"),
+    browserProcessCount: numberField(
+      browserDiscoveryReport,
+      "browser_process_count",
+      "browserProcessCount",
+    ),
+    cdpEndpointCount: numberField(
+      browserDiscoveryReport,
+      "cdp_endpoint_count",
+      "cdpEndpointCount",
+    ),
+    defaultProfileBlockerCount: browserDiscoveryReport
+      ? arrayField(
+          browserDiscoveryReport,
+          "default_profile_remote_debugging_blockers",
+          "defaultProfileRemoteDebuggingBlockers",
+        ).length
+      : null,
     proposalRef:
       stringField(payload, "computer_use_proposal_ref", "computerUseProposalRef") ??
       stringField(actionProposal, "proposal_ref", "proposalRef"),
@@ -3384,6 +3419,9 @@ function labelForComputerUseRuntimeThreadEvent(
     case "build_affordance_graph":
     case "affordance_graph":
       return "Computer use: affordances";
+    case "discover_browser":
+    case "browser_discovery":
+      return "Computer use: browser discovery";
     case "propose_action":
     case "action_proposed":
       return "Computer use: propose action";
@@ -3412,6 +3450,9 @@ function summaryForComputerUseProjection(
   const parts = [
     computerUse.lane,
     computerUse.sessionMode,
+    computerUse.browserDiscoveryRef
+      ? `discovery ${computerUse.browserProcessCount ?? 0} browsers / ${computerUse.cdpEndpointCount ?? 0} CDP`
+      : null,
     computerUse.actionKind,
     computerUse.verificationStatus,
     computerUse.commitGateStatus,

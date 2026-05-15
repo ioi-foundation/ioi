@@ -860,6 +860,15 @@ export function WorkflowRunsPanel({
                     data-computer-use-lease-id={
                       node.data.computerUse?.leaseId ?? ""
                     }
+                    data-computer-use-browser-discovery-ref={
+                      node.data.computerUse?.browserDiscoveryRef ?? ""
+                    }
+                    data-computer-use-browser-process-count={
+                      node.data.computerUse?.browserProcessCount ?? ""
+                    }
+                    data-computer-use-cdp-endpoint-count={
+                      node.data.computerUse?.cdpEndpointCount ?? ""
+                    }
                     data-computer-use-proposal-ref={
                       node.data.computerUse?.proposalRef ?? ""
                     }
@@ -964,6 +973,18 @@ export function WorkflowRunsPanel({
                           data-affordance-graph-ref={
                             node.data.computerUse.affordanceGraphRef ?? ""
                           }
+                          data-browser-discovery-ref={
+                            node.data.computerUse.browserDiscoveryRef ?? ""
+                          }
+                          data-browser-process-count={
+                            node.data.computerUse.browserProcessCount ?? ""
+                          }
+                          data-cdp-endpoint-count={
+                            node.data.computerUse.cdpEndpointCount ?? ""
+                          }
+                          data-default-profile-blocker-count={
+                            node.data.computerUse.defaultProfileBlockerCount ?? ""
+                          }
                           data-proposal-ref={
                             node.data.computerUse.proposalRef ?? ""
                           }
@@ -1065,6 +1086,19 @@ export function WorkflowRunsPanel({
                                 {node.data.computerUse.affordanceCount ?? 0} affordances
                               </dd>
                             </div>
+                            {node.data.computerUse.browserDiscoveryRef ? (
+                              <div>
+                                <dt>Discovery</dt>
+                                <dd>
+                                  {[
+                                    node.data.computerUse.browserDiscoveryRef,
+                                    `${node.data.computerUse.browserProcessCount ?? 0} browsers`,
+                                    `${node.data.computerUse.cdpEndpointCount ?? 0} CDP`,
+                                    `${node.data.computerUse.defaultProfileBlockerCount ?? 0} blockers`,
+                                  ].join(" · ")}
+                                </dd>
+                              </div>
+                            ) : null}
                             <div>
                               <dt>Proposal</dt>
                               <dd>
