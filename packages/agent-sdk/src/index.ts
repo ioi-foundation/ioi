@@ -113,6 +113,8 @@ export type {
   ComputerUseModelActionGrounding,
   ComputerUseModelActionSafetyCheck,
   ComputerUseObservationBundle,
+  ComputerUsePolicyDecisionOutcome,
+  ComputerUsePolicyDecisionReceipt,
   ComputerUseRecoveryAction,
   ComputerUseRecoveryPolicyInput,
   ComputerUseRunState,

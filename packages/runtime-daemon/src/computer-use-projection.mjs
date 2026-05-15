@@ -366,6 +366,42 @@ export function computerUseProjectionForRun({
     risk_assessment: requestedActionRisk,
     policy_decision_ref: policyDecisionRef,
   };
+  const policyDecision = {
+    policy_decision_ref: policyDecisionRef,
+    proposal_ref: actionProposal.proposal_ref,
+    action_kind: requestedActionKind,
+    outcome: requestedActionExecutionBlocked
+      ? "blocked_executor_unavailable"
+      : requestedActionIsReadOnly
+        ? "approved_for_read_only_probe"
+        : requestedActionExecutionCompleted
+          ? "approved_after_confirmation"
+          : requestedActionHasApproval
+            ? "blocked_executor_unavailable"
+            : "requires_confirmation_before_execution",
+    authority_scope: requestedActionAuthority,
+    approval_ref: requestedActionApprovalRef,
+    external_effect: !requestedActionIsReadOnly,
+    fail_closed: requestedActionExecutionBlocked || (!requestedActionIsReadOnly && !requestedActionHasApproval),
+    reasons: compactValues([
+      requestedActionIsReadOnly
+        ? "Read-only computer-use action can execute without external effects."
+        : "Mutating computer-use action requires approval before execution.",
+      requestedActionExecutionBlocked
+        ? "Approved action could not execute because the adapter failed closed."
+        : null,
+      requestedActionExecutionCompleted
+        ? "Approval and adapter execution evidence are present."
+        : null,
+    ]),
+    evidence_refs: compactValues([
+      observation.observation_ref,
+      targetIndex.target_index_ref,
+      actionProposal.proposal_ref,
+      requestedActionApprovalRef,
+      requestedActionExecution?.executor_ref,
+    ]),
+  };
   const action = requestedActionWillExecute
     ? {
         action_ref: actionRef,
@@ -723,21 +759,14 @@ export function computerUseProjectionForRun({
         computer_use_policy_decision_ref: policyDecisionRef,
         action_proposal: actionProposal,
         policy_gate: {
-          policy_decision_ref: policyDecisionRef,
-          outcome: requestedActionExecutionBlocked
-            ? "blocked_executor_unavailable"
-            : requestedActionIsReadOnly
-              ? "approved_for_read_only_probe"
-              : requestedActionExecutionCompleted
-              ? "approved_after_confirmation"
-              : requestedActionHasApproval
-                ? "blocked_executor_unavailable"
-            : "requires_confirmation_before_execution",
-          authority_scope: requestedActionAuthority,
-          approval_ref: requestedActionApprovalRef,
+          policy_decision_ref: policyDecision.policy_decision_ref,
+          outcome: policyDecision.outcome,
+          authority_scope: policyDecision.authority_scope,
+          approval_ref: policyDecision.approval_ref,
           executor_ref: requestedActionExecution?.executor_ref ?? null,
           executor_status: requestedActionExecution?.status ?? null,
         },
+        policy_decision_receipt: policyDecision,
       },
     }),
     ...actionExecutionEvents,
@@ -818,6 +847,7 @@ export function computerUseProjectionForRun({
     actionReceipt,
     verification,
     outcomeContract,
+    policyDecision,
     commitGate,
     trajectory,
     cleanup,

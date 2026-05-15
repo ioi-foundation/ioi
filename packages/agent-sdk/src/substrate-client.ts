@@ -7781,6 +7781,7 @@ function buildMockRun(
           targetIndex: computerUseProjection.targetIndex,
           affordanceGraph: computerUseProjection.affordanceGraph,
           actionProposal: computerUseProjection.actionProposal,
+          policyDecision: computerUseProjection.policyDecision,
           action: computerUseProjection.action,
           actionReceipt: computerUseProjection.actionReceipt,
           verification: computerUseProjection.verification,
