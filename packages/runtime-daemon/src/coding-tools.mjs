@@ -676,7 +676,11 @@ function computerUseLeaseRequestTool(workspaceRoot, input = {}) {
     actionKind === "inspect" || actionKind === "hover" || actionKind === "wait" || actionKind === "scroll"
       ? `computer_use.${lane}.read`
       : `computer_use.${lane}.act`;
-  const threadToolName = lane === "native_browser" ? "ioi.computer_use.native_browser" : null;
+  const threadToolName = lane === "native_browser"
+    ? "ioi.computer_use.native_browser"
+    : lane === "sandboxed_hosted"
+      ? "ioi.computer_use.sandboxed_hosted"
+      : null;
   const threadToolInput = {
     prompt,
     url: optionalString(input.url) ?? null,
@@ -687,7 +691,12 @@ function computerUseLeaseRequestTool(workspaceRoot, input = {}) {
     approvalRef,
     observationRetentionMode:
       optionalString(input.observationRetentionMode ?? input.observation_retention_mode) ??
-      "prompt_visible_summary_only",
+      (lane === "sandboxed_hosted" ? "no_persistence" : "prompt_visible_summary_only"),
+    sandboxProvider:
+      lane === "sandboxed_hosted"
+        ? optionalString(input.sandboxProvider ?? input.sandbox_provider) ?? "local_fixture"
+        : undefined,
+    sandboxFixture: lane === "sandboxed_hosted" ? true : undefined,
   };
   return {
     schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
@@ -711,7 +720,7 @@ function computerUseLeaseRequestTool(workspaceRoot, input = {}) {
       toolName: threadToolName,
       unavailableReason: threadToolName
         ? null
-        : "Requested lane is recorded as a governed lease request; concrete visual/hosted execution adapter is not mounted yet.",
+        : "Requested lane is recorded as a governed lease request; concrete visual execution adapter is not mounted yet.",
       input: threadToolInput,
     },
     approvalRequiredBeforeExecution: authorityScope.endsWith(".act") && !approvalRef,
@@ -735,7 +744,7 @@ function computerUseSessionModeForInput(input = {}) {
   if (value) return value;
   const lane = computerUseLaneForInput(input);
   if (lane === "visual_gui") return "visual_fallback";
-  if (lane === "sandboxed_hosted") return "hosted_sandbox";
+  if (lane === "sandboxed_hosted") return "local_sandbox";
   return "owned_hermetic_browser";
 }
 

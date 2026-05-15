@@ -186,9 +186,11 @@ test("creator taxonomy covers memory, worker, mcp, skill, and computer-use autho
     creators.get("plugin_tool.computer_use.visual_gui")?.defaultLaw.requireHumanGate,
     true,
   );
-  assert.equal(
+  const sandboxArguments =
     creators.get("plugin_tool.computer_use.sandboxed")?.defaultLogic.toolBinding
-      ?.arguments?.["computerUseLane"],
-    "sandboxed_hosted",
-  );
+      ?.arguments ?? {};
+  assert.equal(sandboxArguments["computerUseLane"], "sandboxed_hosted");
+  assert.equal(sandboxArguments["computerUseSessionMode"], "local_sandbox");
+  assert.equal(sandboxArguments["sandboxProvider"], "local_fixture");
+  assert.equal(sandboxArguments["sandboxFixture"], true);
 });

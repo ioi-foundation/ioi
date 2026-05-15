@@ -470,8 +470,10 @@ When the same turn includes `browser__*` tool results, the bridge now emits
 canonical action-executed and verification rows so the persisted trace can show
 the real browser tool effect instead of only generic tool completion.
 Daemon-backed visual and hosted/sandbox lane runs activate through the same
-trace spine when a mounted executor supplies those contracts, preserving
-adapter contracts and cleanup receipts when present, while missing hosted
+trace spine when a mounted executor supplies those contracts or, for the
+sandboxed-hosted lane, when the caller opts into the deterministic local
+fixture provider. Those runs preserve adapter contracts, cleanup receipts,
+contract-ingest evidence, and trajectory data while missing external hosted
 adapters still fail closed. Visual GUI runs can now broker supplied
 screenshot/SoM/AX files or read-only local captures through
 `ioi.computer_use.visual_gui.observe`, then feed the retained observation refs
@@ -505,7 +507,10 @@ visual-observe, and visual-action commands over the same daemon thread-tool
 route, including approval, target/selector/text/key/scroll/file, CDP
 endpoint/websocket, local-capture, and opt-in local GUI executor options, so
 manual validation can run both the gated and approved prompt pipeline without
-knowing raw tool ids.
+knowing raw tool ids. Sandboxed Computer authoring presets now default to
+`local_sandbox` plus `local_fixture`, giving workflow authors a runnable
+hosted-style harness trace while concrete VM/container/mobile providers remain
+behind explicit adapter, authority, isolation, and retention policy work.
 Future daemon, workflow, and Autopilot policy executors should consume these
 helpers rather than defining local policy shapes.
 
@@ -580,8 +585,10 @@ Deliverables:
 
 Acceptance:
 
-- hosted or sandbox unavailable states fail closed;
-- sandboxed runs are replayable and cleanly cleaned up;
+- hosted or sandbox unavailable states fail closed unless a mounted provider or
+  deterministic local fixture adapter is configured;
+- local fixture and provider-backed sandboxed runs are replayable and cleanly
+  cleaned up;
 - team/worker surfaces use the same runtime events and receipts.
 
 ### Phase 6: Glass-Box Workbench

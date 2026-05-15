@@ -5143,7 +5143,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
   const sandboxedComputerUseTool = creatorDefinition("plugin_tool", {
     creatorId: "plugin_tool.computer_use.sandboxed",
     label: "Sandboxed Computer",
-    description: "Use a hosted or sandboxed computer lane for risky tasks, reproducible evals, and team worker sessions with explicit leases and fail-closed unavailable behavior.",
+    description: "Use the sandboxed computer lane for deterministic local fixtures, risky tasks, reproducible evals, and team worker sessions with explicit leases and fail-closed unavailable behavior.",
     metricLabel: "Computer lane",
     metricValue: "sandbox",
     defaultLogic: {
@@ -5162,7 +5162,11 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
         arguments: {
           computerUse: true,
           computerUseLane: "sandboxed_hosted",
-          computerUseSessionMode: "hosted_sandbox",
+          computerUseSessionMode: "local_sandbox",
+          sandboxProvider: "local_fixture",
+          sandboxFixture: true,
+          sandboxImageRef: "ioi/sandbox-fixture:local",
+          sandboxTaskRef: "",
           observationRetentionMode: "no_persistence",
           failClosedWhenUnavailable: true,
         },
@@ -5176,6 +5180,9 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
       "sandbox",
       "sandboxed computer",
       "hosted computer",
+      "local sandbox",
+      "local fixture",
+      "deterministic fixture",
       "vm",
       "container",
       "mobile",

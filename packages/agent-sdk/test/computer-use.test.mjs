@@ -2673,6 +2673,84 @@ test("runtime daemon activates mounted sandboxed computer-use contracts instead 
   }
 });
 
+test("SDK activates local fixture sandboxed computer-use lane instead of failing closed", async () => {
+  const { cwd, client } = tempClient();
+  const agent = await Agent.create({
+    model: { id: "local:auto" },
+    local: { cwd },
+    substrateClient: client,
+  });
+  const run = await agent.send("Use a sandboxed computer fixture to inspect the isolated app.", {
+    metadata: {
+      computerUse: true,
+      computerUseLane: "sandboxed_hosted",
+      computerUseSessionMode: "local_sandbox",
+      sandboxProvider: "local_fixture",
+      sandboxFixture: true,
+      observationRetentionMode: "no_persistence",
+    },
+  });
+  const trace = await run.inspect();
+  assert.deepEqual(
+    trace.events.filter((event) => event.type.startsWith("computer_use_")).map((event) => event.type),
+    expectedComputerUseEventTypes,
+  );
+  assert.equal(trace.computerUse.environmentSelection.selected_lane, "sandboxed_hosted");
+  assert.equal(trace.computerUse.environmentSelection.selected_session_mode, "local_sandbox");
+  assert.equal(trace.computerUse.lease.status, "active");
+  assert.equal(trace.computerUse.observation.app_name, "IOI Local Sandbox Fixture");
+  assert.equal(trace.computerUse.cleanup.status, "completed");
+  const leaseEvent = trace.events.find((event) => event.type === "computer_use_lease_acquired");
+  assert.ok(leaseEvent);
+  assert.equal(leaseEvent.data.computer_use_contract_ingest, "local_sandbox_fixture");
+  assert.equal(leaseEvent.data.adapter_contract.adapter_id, "ioi.sandboxed_hosted.local_fixture");
+  assert.equal(
+    trace.events.some((event) => event.type === "computer_use_environment_unavailable"),
+    false,
+  );
+});
+
+test("runtime daemon thread tool activates local fixture sandboxed computer-use lane", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-local-sandbox-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-local-sandbox-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const thread = await agent.thread();
+    const result = await client.invokeThreadTool(thread.id, "ioi.computer_use.sandboxed_hosted", {
+      input: {
+        prompt: "Inspect the sandbox fixture workspace.",
+        sessionMode: "local_sandbox",
+        sandboxProvider: "local_fixture",
+        sandboxFixture: true,
+        observationRetentionMode: "no_persistence",
+      },
+    });
+    assert.equal(result.object, "ioi.runtime_computer_use_sandboxed_hosted_result");
+    assert.equal(result.result.environmentSelection.selected_lane, "sandboxed_hosted");
+    assert.equal(result.result.lease.status, "active");
+    assert.equal(result.result.observation.app_name, "IOI Local Sandbox Fixture");
+    assert.equal(result.result.adapterContract.adapter_id, "ioi.sandboxed_hosted.local_fixture");
+    assert.equal(result.result.contractIngest, "local_sandbox_fixture");
+    const runtimeEvents = [];
+    for await (const event of thread.events()) {
+      runtimeEvents.push(event);
+    }
+    assert.equal(
+      runtimeEvents.some((event) => event.eventKind === "computer_use.environment_unavailable"),
+      false,
+    );
+    assert.ok(runtimeEvents.some((event) => event.eventKind === "computer_use.lease_acquired"));
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("requested unavailable computer-use lanes fail closed with visible recovery policy", async () => {
   const { cwd, client } = tempClient();
   const agent = await Agent.create({

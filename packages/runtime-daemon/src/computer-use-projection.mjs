@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 
 import { computerUseContractsFromBrowserObservationArtifacts } from "./computer-use-browser-artifacts.mjs";
+import { computerUseContractsFromSandboxFixture } from "./computer-use-sandbox-fixture.mjs";
 import { computerUseContractsFromVisualObservation } from "./computer-use-visual-observation.mjs";
 
 export const COMPUTER_USE_CONTRACT_SCHEMA_VERSION = "ioi.computer-use.harness.v1";
@@ -63,29 +64,75 @@ export function computerUseProjectionForRun({
     ? requestedComputerUseSessionMode(request, selectedLane)
     : requestedComputerUseSessionMode(request, selectedLane);
   const rawContractOverrides = computerUseContractOverrides(request);
+  const referenceSuffix = selectedLane === "native_browser"
+    ? "browser"
+    : selectedLane === "visual_gui"
+      ? "visual"
+      : "sandbox";
+  const leaseId = `lease_${runId}_${referenceSuffix}`;
+  const observationRef =
+    cleanString(rawContractOverrides.observationBundle?.observation_ref) ??
+    `observation_${runId}_${referenceSuffix}_initial`;
+  const targetIndexRef =
+    cleanString(rawContractOverrides.targetIndex?.target_index_ref) ??
+    cleanString(rawContractOverrides.observationBundle?.target_index_ref) ??
+    `target_index_${runId}_${referenceSuffix}_initial`;
+  const affordanceGraphRef =
+    cleanString(rawContractOverrides.affordanceGraph?.graph_ref) ??
+    `affordance_${runId}_${referenceSuffix}_initial`;
+  const requestedActionKind = requestedComputerUseActionKind(request, prompt);
   const localVisualContracts = selectedLane === "visual_gui" && !rawContractOverrides.observationBundle
     ? computerUseContractsFromVisualObservation({
         request,
         runId,
-        leaseId: `lease_${runId}_visual`,
-        observationRef: `observation_${runId}_visual_initial`,
-        targetIndexRef: `target_index_${runId}_visual_initial`,
-        affordanceGraphRef: `affordance_${runId}_visual_initial`,
+        leaseId,
+        observationRef,
+        targetIndexRef,
+        affordanceGraphRef,
         retentionMode: requestedRetentionMode,
         sessionMode: selectedSessionMode,
+      })
+    : null;
+  const localSandboxContracts = selectedLane === "sandboxed_hosted" && !rawContractOverrides.observationBundle
+    ? computerUseContractsFromSandboxFixture({
+        request,
+        runId,
+        leaseId,
+        observationRef,
+        targetIndexRef,
+        affordanceGraphRef,
+        retentionMode: requestedRetentionMode,
+        sessionMode: selectedSessionMode,
+        actionKind: requestedActionKind,
       })
     : null;
   const contractOverrides = {
     ...rawContractOverrides,
     observationBundle:
-      rawContractOverrides.observationBundle ?? localVisualContracts?.observationBundle ?? null,
-    targetIndex: rawContractOverrides.targetIndex ?? localVisualContracts?.targetIndex ?? null,
+      rawContractOverrides.observationBundle ??
+      localVisualContracts?.observationBundle ??
+      localSandboxContracts?.observationBundle ??
+      null,
+    targetIndex:
+      rawContractOverrides.targetIndex ??
+      localVisualContracts?.targetIndex ??
+      localSandboxContracts?.targetIndex ??
+      null,
     affordanceGraph:
-      rawContractOverrides.affordanceGraph ?? localVisualContracts?.affordanceGraph ?? null,
+      rawContractOverrides.affordanceGraph ??
+      localVisualContracts?.affordanceGraph ??
+      localSandboxContracts?.affordanceGraph ??
+      null,
     adapterContract:
-      rawContractOverrides.adapterContract ?? localVisualContracts?.adapterContract ?? null,
+      rawContractOverrides.adapterContract ??
+      localVisualContracts?.adapterContract ??
+      localSandboxContracts?.adapterContract ??
+      null,
     cleanupReceipt:
-      rawContractOverrides.cleanupReceipt ?? localVisualContracts?.cleanupReceipt ?? null,
+      rawContractOverrides.cleanupReceipt ??
+      localVisualContracts?.cleanupReceipt ??
+      localSandboxContracts?.cleanupReceipt ??
+      null,
   };
   const hasBrowserObservationArtifacts =
     selectedLane === "native_browser" &&
@@ -135,26 +182,22 @@ export function computerUseProjectionForRun({
       ? `ioi.${selectedLane}.mounted_contract`
       : "ioi.native_browser.chromiumoxide.daemon");
   const targetHint = computerUseTargetHint(prompt);
-  const leaseId = `lease_${runId}_browser`;
-  const observationRef =
-    cleanString(contractOverrides.observationBundle?.observation_ref) ??
-    `observation_${runId}_browser_initial`;
-  const targetIndexRef =
+  const effectiveTargetIndexRef =
     cleanString(contractOverrides.targetIndex?.target_index_ref) ??
     cleanString(contractOverrides.observationBundle?.target_index_ref) ??
     (hasBrowserObservationArtifacts ? `${observationRef}:target_index` : null) ??
-    `target_index_${runId}_browser_initial`;
-  const affordanceGraphRef =
+    targetIndexRef;
+  const effectiveAffordanceGraphRef =
     cleanString(contractOverrides.affordanceGraph?.graph_ref) ??
-    (hasBrowserObservationArtifacts ? `${targetIndexRef}:affordance_graph` : null) ??
-    `affordance_${runId}_browser_initial`;
+    (hasBrowserObservationArtifacts ? `${effectiveTargetIndexRef}:affordance_graph` : null) ??
+    affordanceGraphRef;
   const browserArtifactContracts = hasBrowserObservationArtifacts
     ? computerUseContractsFromBrowserObservationArtifacts({
         artifacts: contractOverrides.browserObservationArtifacts,
         leaseId,
         observationRef,
-        targetIndexRef,
-        affordanceGraphRef,
+        targetIndexRef: effectiveTargetIndexRef,
+        affordanceGraphRef: effectiveAffordanceGraphRef,
         retentionMode: requestedRetentionMode,
         sessionMode: selectedSessionMode,
       })
@@ -168,13 +211,14 @@ export function computerUseProjectionForRun({
   const contractIngest = contractOverrides.observationBundle
     ? hasLocalVisualObservation
       ? "local_visual_observation"
+      : localSandboxContracts
+        ? "local_sandbox_fixture"
       : "canonical_runtime_contract"
     : browserArtifactContracts
       ? "browser_observation_artifacts"
       : controlledRelaunchLaunchReceipt
         ? "controlled_relaunch_launch_receipt"
       : "synthetic_daemon_projection";
-  const requestedActionKind = requestedComputerUseActionKind(request, prompt);
   const requestedActionIsReadOnly = computerUseActionKindIsReadOnly(requestedActionKind);
   const requestedActionApprovalRef = requestedComputerUseApprovalRef(request);
   const requestedActionHasApproval = !requestedActionIsReadOnly && requestedActionApprovalRef !== null;

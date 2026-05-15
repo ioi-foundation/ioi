@@ -4,6 +4,7 @@ import {
   computerUseContractsFromBrowserObservationArtifacts,
   type BrowserObservationArtifacts,
 } from "./computer-use-browser-artifacts.js";
+import { computerUseContractsFromSandboxFixture } from "./computer-use-sandbox-fixture.js";
 import {
   COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
   commitGateForComputerAction,
@@ -16,10 +17,13 @@ import {
   type CommitGate,
   type ComputerAction,
   type ComputerActionKind,
+  type ComputerControlAdapterContract,
+  type ComputerUseLane,
   type ComputerUseLease,
   type ComputerUseObservationBundle,
   type ComputerUsePolicyDecisionReceipt,
   type ComputerUseRunState,
+  type ComputerUseSessionMode,
   type ComputerUseTrajectoryBundle,
   type ComputerUseVerificationReceipt,
   type EnvironmentSelectionReceipt,
@@ -76,39 +80,76 @@ export function mockComputerUseProjectionForRun({
   const requestedLane = requestedComputerUseLane(options.metadata);
   const requestedRetentionMode =
     workflowBinding.observationRetentionMode ?? "local_redacted_artifacts";
-  const contractOverrides = computerUseContractOverrides(options.metadata);
-  if (requestedLane !== "native_browser") {
+  const requestedSessionMode = requestedComputerUseSessionMode(options.metadata, requestedLane);
+  const requestedActionKind = requestedComputerUseActionKind(options.metadata, prompt);
+  const referenceSuffix = computerUseReferenceSuffix(requestedLane);
+  const leaseId = `lease_${runId}_${referenceSuffix}`;
+  const rawContractOverrides = computerUseContractOverrides(options.metadata);
+  const observationRef =
+    cleanString(rawContractOverrides.observationBundle?.observation_ref) ??
+    `observation_${runId}_${referenceSuffix}_initial`;
+  const targetIndexRef =
+    cleanString(rawContractOverrides.targetIndex?.target_index_ref) ??
+    cleanString(rawContractOverrides.observationBundle?.target_index_ref) ??
+    `target_index_${runId}_${referenceSuffix}_initial`;
+  const affordanceGraphRef =
+    cleanString(rawContractOverrides.affordanceGraph?.graph_ref) ??
+    `affordance_${runId}_${referenceSuffix}_initial`;
+  const localSandboxContracts = requestedLane === "sandboxed_hosted" && !rawContractOverrides.observationBundle
+    ? computerUseContractsFromSandboxFixture({
+        metadata: options.metadata,
+        runId,
+        leaseId,
+        observationRef,
+        targetIndexRef,
+        affordanceGraphRef,
+        retentionMode: requestedRetentionMode,
+        sessionMode: requestedSessionMode,
+        actionKind: requestedActionKind,
+      })
+    : null;
+  const contractOverrides: ComputerUseContractOverrides = {
+    ...rawContractOverrides,
+    observationBundle:
+      rawContractOverrides.observationBundle ?? localSandboxContracts?.observationBundle ?? null,
+    targetIndex: rawContractOverrides.targetIndex ?? localSandboxContracts?.targetIndex ?? null,
+    affordanceGraph:
+      rawContractOverrides.affordanceGraph ?? localSandboxContracts?.affordanceGraph ?? null,
+    adapterContract:
+      rawContractOverrides.adapterContract ?? localSandboxContracts?.adapterContract ?? null,
+    cleanupReceipt:
+      rawContractOverrides.cleanupReceipt ?? localSandboxContracts?.cleanupReceipt ?? null,
+  };
+  if (requestedLane !== "native_browser" && !localSandboxContracts) {
     return mockUnavailableComputerUseProjectionForRun({
       runId,
       prompt,
       mode,
       requestedLane,
-      requestedSessionMode: requestedComputerUseSessionMode(options.metadata, requestedLane),
+      requestedSessionMode,
       workflowBinding,
     });
   }
+  const selectedLane = requestedLane;
+  const selectedSessionMode = requestedSessionMode;
   const targetHint = computerUseTargetHint(prompt);
-  const leaseId = `lease_${runId}_browser`;
-  const observationRef =
-    cleanString(contractOverrides.observationBundle?.observation_ref) ??
-    `observation_${runId}_browser_initial`;
   const hasBrowserObservationArtifacts = Boolean(contractOverrides.browserObservationArtifacts);
-  const targetIndexRef =
+  const effectiveTargetIndexRef =
     cleanString(contractOverrides.targetIndex?.target_index_ref) ??
     cleanString(contractOverrides.observationBundle?.target_index_ref) ??
     (hasBrowserObservationArtifacts ? `${observationRef}:target_index` : null) ??
-    `target_index_${runId}_browser_initial`;
-  const affordanceGraphRef =
+    targetIndexRef;
+  const effectiveAffordanceGraphRef =
     cleanString(contractOverrides.affordanceGraph?.graph_ref) ??
-    (hasBrowserObservationArtifacts ? `${targetIndexRef}:affordance_graph` : null) ??
-    `affordance_${runId}_browser_initial`;
+    (hasBrowserObservationArtifacts ? `${effectiveTargetIndexRef}:affordance_graph` : null) ??
+    affordanceGraphRef;
   const browserArtifactContracts = hasBrowserObservationArtifacts
     ? computerUseContractsFromBrowserObservationArtifacts({
         artifacts: contractOverrides.browserObservationArtifacts,
         leaseId,
         observationRef,
-        targetIndexRef,
-        affordanceGraphRef,
+        targetIndexRef: effectiveTargetIndexRef,
+        affordanceGraphRef: effectiveAffordanceGraphRef,
         retentionMode: requestedRetentionMode,
       })
     : null;
@@ -119,18 +160,26 @@ export function mockComputerUseProjectionForRun({
   const affordanceGraphOverride =
     contractOverrides.affordanceGraph ?? browserArtifactContracts?.affordanceGraph ?? null;
   const contractIngest = contractOverrides.observationBundle
-    ? "canonical_runtime_contract"
+    ? localSandboxContracts
+      ? "local_sandbox_fixture"
+      : "canonical_runtime_contract"
     : browserArtifactContracts
       ? "browser_observation_artifacts"
       : "synthetic_sdk_projection";
-  const requestedActionKind = requestedComputerUseActionKind(options.metadata, prompt);
+  const adapterContractOverride = contractOverrides.adapterContract;
+  const cleanupOverride = contractOverrides.cleanupReceipt;
+  const adapterId =
+    cleanString(adapterContractOverride?.adapter_id) ??
+    (localSandboxContracts
+      ? "ioi.sandboxed_hosted.local_fixture"
+      : "ioi.native_browser.chromiumoxide.mock");
   const requestedActionIsReadOnly = computerUseActionKindIsReadOnly(requestedActionKind);
   const requestedActionApprovalRef = requestedComputerUseApprovalRef(options.metadata);
   const requestedActionHasApproval = !requestedActionIsReadOnly && requestedActionApprovalRef !== null;
   const requestedActionWillExecute = requestedActionIsReadOnly || requestedActionHasApproval;
   const requestedActionAuthority = requestedActionIsReadOnly
-    ? "computer_use.native_browser.read"
-    : "computer_use.native_browser.act";
+    ? `computer_use.${selectedLane}.read`
+    : `computer_use.${selectedLane}.act`;
   const requestedActionRisk = requestedActionIsReadOnly
     ? "read_only"
     : "possible_external_effect";
@@ -139,8 +188,8 @@ export function mockComputerUseProjectionForRun({
     : requestedActionHasApproval
       ? "approved_external_effect"
       : "requires_confirmation";
-  const proposalRef = `proposal_${runId}_browser_${requestedActionKind}`;
-  const actionRef = `action_${runId}_browser_${requestedActionKind}`;
+  const proposalRef = `proposal_${runId}_${referenceSuffix}_${requestedActionKind}`;
+  const actionRef = `action_${runId}_${referenceSuffix}_${requestedActionKind}`;
   const actionReceiptRef = `receipt_${runId}_computer_use_action`;
   const policyDecisionRef = requestedActionApprovalRef ?? `policy_${runId}_computer_use_${actionPolicySlug}`;
   const verificationRef = `verification_${runId}_computer_use_${requestedActionKind}`;
@@ -149,25 +198,19 @@ export function mockComputerUseProjectionForRun({
   const environmentSelection: EnvironmentSelectionReceipt = {
     receipt_ref: `receipt_${runId}_computer_use_environment`,
     run_id: runId,
-    selected_lane: "native_browser",
-    selected_session_mode: "owned_hermetic_browser",
-    rejected_options: [
-      {
-        lane: "visual_gui",
-        session_mode: "visual_fallback",
-        reason: "DOM, AX, selector, screenshot, and CDP evidence are available before visual fallback.",
-      },
-      {
-        lane: "sandboxed_hosted",
-        session_mode: "local_sandbox",
-        reason: requestedActionIsReadOnly
-          ? "The mock SDK task is local and read-only; hosted isolation is retained for risky or reproducible runs."
-          : "The SDK task is only proposing a mutating browser action; hosted isolation remains available before execution authority is granted.",
-      },
-    ],
+    selected_lane: selectedLane,
+    selected_session_mode: selectedSessionMode,
+    rejected_options: rejectedComputerUseOptionsForSdkProjection({
+      selectedLane,
+      selectedSessionMode,
+      requestedActionIsReadOnly,
+      localSandboxFixture: Boolean(localSandboxContracts),
+    }),
     reasons: [
       "Prompt indicates browser or computer-use automation.",
-      "Native browser lane gives the strongest semantic grounding for web tasks.",
+      localSandboxContracts
+        ? "Local deterministic sandbox fixture supplied provider-neutral observation, target, affordance, adapter, and cleanup contracts."
+        : "Native browser lane gives the strongest semantic grounding for web tasks.",
       "Visual and sandbox lanes remain explicit fallback options under the same IOI contracts.",
     ],
     risk_posture: mode === "dry_run"
@@ -179,22 +222,31 @@ export function mockComputerUseProjectionForRun({
           : "commit_confirmation_required",
     authority_required: requestedActionAuthority,
     privacy_impact: requestedRetentionMode,
-    expected_cleanup: "close_owned_browser_context_and_retain_redacted_trace",
+    expected_cleanup: localSandboxContracts
+      ? "cleanup_ephemeral_sandbox_fixture_and_retain_trace"
+      : "close_owned_browser_context_and_retain_redacted_trace",
   };
   const lease: ComputerUseLease = {
     schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
     lease_id: leaseId,
-    lane: "native_browser",
-    session_mode: "owned_hermetic_browser",
+    lane: selectedLane,
+    session_mode: selectedSessionMode,
     status: "active",
     authority_scope: environmentSelection.authority_required,
     consent_scope: "operator_prompt",
     target_hint: targetHint,
-    environment_ref: `local_browser:${safeFileName(cwd)}`,
-    profile_provenance: "temporary_ioi_browser_profile",
+    environment_ref: localSandboxContracts
+      ? `local_sandbox_fixture:${safeFileName(cwd)}`
+      : `local_browser:${safeFileName(cwd)}`,
+    profile_provenance: localSandboxContracts
+      ? "ephemeral_local_sandbox_fixture"
+      : "temporary_ioi_browser_profile",
     retention_mode: requestedRetentionMode,
     cleanup_required: true,
-    evidence_refs: [environmentSelection.receipt_ref, "ioi.native_browser.chromiumoxide"],
+    evidence_refs: [
+      environmentSelection.receipt_ref,
+      localSandboxContracts ? "ioi.sandboxed_hosted.local_fixture" : "ioi.native_browser.chromiumoxide",
+    ],
   };
   const runState: ComputerUseRunState = {
     run_id: runId,
@@ -205,7 +257,9 @@ export function mockComputerUseProjectionForRun({
     current_observation_ref: observationRef,
     current_target_index_ref: targetIndexRef,
     active_hypotheses: [
-      "Native browser semantics should resolve the task before visual fallback.",
+      localSandboxContracts
+        ? "The local fixture sandbox should produce deterministic, replayable observation and cleanup evidence."
+        : "Native browser semantics should resolve the task before visual fallback.",
       "No external side effect should occur before a policy-gated action proposal.",
     ],
     expected_postcondition: requestedActionIsReadOnly
@@ -224,8 +278,8 @@ export function mockComputerUseProjectionForRun({
   const observation: ComputerUseObservationBundle = mergeObservationContract({
     observation_ref: observationRef,
     lease_id: leaseId,
-    lane: "native_browser",
-    session_mode: "owned_hermetic_browser",
+    lane: selectedLane,
+    session_mode: selectedSessionMode,
     url: targetHint.startsWith("http") ? targetHint : null,
     title: "IOI computer-use mock observation",
     app_name: "Chromium",
@@ -240,7 +294,7 @@ export function mockComputerUseProjectionForRun({
     freshness_ms: 0,
     retention_mode: requestedRetentionMode,
     detected_patterns: ["form", "toolbar", "warning_or_toast"],
-  }, observationOverride, leaseId, requestedRetentionMode);
+  }, observationOverride, leaseId, selectedLane, selectedSessionMode, requestedRetentionMode);
   const targetIndex: TargetIndex = mergeTargetIndexContract({
     target_index_ref: targetIndexRef,
     observation_ref: observation.observation_ref,
@@ -368,7 +422,7 @@ export function mockComputerUseProjectionForRun({
     ? {
         receipt_ref: actionReceiptRef,
         action_ref: action.action_ref,
-        adapter_id: "ioi.native_browser.chromiumoxide.mock",
+        adapter_id: adapterId,
         status: "completed",
         grounding_ref: targetIndex.target_index_ref,
         postcondition_summary: requestedActionIsReadOnly
@@ -500,11 +554,14 @@ export function mockComputerUseProjectionForRun({
     cleanup_ref: cleanupRef,
     lease_id: lease.lease_id,
     status: "completed",
-    closed_process_refs: [`process:${lease.environment_ref}`],
-    deleted_profile_refs: [`profile:${lease.lease_id}`],
+    closed_process_refs: localSandboxContracts ? [`sandbox_fixture:${runId}`] : [`process:${lease.environment_ref}`],
+    deleted_profile_refs: localSandboxContracts
+      ? [`sandbox_fixture_workspace:${runId}`]
+      : [`profile:${lease.lease_id}`],
     retained_artifact_refs: ["computer-use-trace.json"],
     warnings: [],
-  };
+    ...(cleanupOverride ?? {}),
+  } as CleanupReceipt;
   const basePayload = {
     schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
     harness_contract: defaultComputerUseHarnessContract(),
@@ -561,13 +618,28 @@ export function mockComputerUseProjectionForRun({
       computer_use_step: "acquire_lease",
       lease,
       adapter_contract: {
-        adapter_id: "ioi.native_browser.chromiumoxide.mock",
+        adapter_id: adapterId,
         lane: environmentSelection.selected_lane,
         supported_session_modes: [environmentSelection.selected_session_mode],
-        capabilities: ["observe.dom", "observe.ax", "observe.screenshot", `act.${requestedActionKind}`, "verify.postcondition"],
+        capabilities:
+          cleanStringArray(adapterContractOverride?.capabilities).length > 0
+            ? cleanStringArray(adapterContractOverride?.capabilities)
+            : localSandboxContracts
+              ? [
+                  "lease.local_fixture",
+                  "observe.screenshot",
+                  "observe.ax",
+                  "observe.som",
+                  `act.${requestedActionKind}`,
+                  "verify.postcondition",
+                  "cleanup.ephemeral_workspace",
+                ]
+              : ["observe.dom", "observe.ax", "observe.screenshot", `act.${requestedActionKind}`, "verify.postcondition"],
         emits_observation_bundle: true,
         emits_action_receipts: requestedActionIsReadOnly,
+        emits_cleanup_receipts: true,
         fail_closed_when_unavailable: true,
+        ...(adapterContractOverride ?? {}),
       },
     }),
     computerUseProjectionEvent("computer_use_run_state", "Computer-use run state projected", {
@@ -702,14 +774,7 @@ function mockUnavailableComputerUseProjectionForRun({
   prompt: string;
   mode: RuntimeRunMode;
   requestedLane: "visual_gui" | "sandboxed_hosted";
-  requestedSessionMode:
-    | "visual_fallback"
-    | "foreground_desktop"
-    | "background_desktop"
-    | "app_scoped_desktop"
-    | "local_sandbox"
-    | "hosted_sandbox"
-    | "mobile_device";
+  requestedSessionMode: ComputerUseSessionMode;
   workflowBinding: ComputerUseWorkflowBinding;
 }): MockComputerUseProjection {
   const requestedRetentionMode =
@@ -985,19 +1050,67 @@ function requestedComputerUseLane(metadata: SendOptions["metadata"]): "native_br
   return value === "visual_gui" || value === "sandboxed_hosted" ? value : "native_browser";
 }
 
+function computerUseReferenceSuffix(lane: ComputerUseLane): "browser" | "visual" | "sandbox" {
+  if (lane === "visual_gui") return "visual";
+  if (lane === "sandboxed_hosted") return "sandbox";
+  return "browser";
+}
+
+function rejectedComputerUseOptionsForSdkProjection({
+  selectedLane,
+  selectedSessionMode,
+  requestedActionIsReadOnly,
+  localSandboxFixture,
+}: {
+  selectedLane: ComputerUseLane;
+  selectedSessionMode: ComputerUseSessionMode;
+  requestedActionIsReadOnly: boolean;
+  localSandboxFixture: boolean;
+}): EnvironmentSelectionReceipt["rejected_options"] {
+  if (selectedLane === "native_browser") {
+    return [
+      {
+        lane: "visual_gui",
+        session_mode: "visual_fallback",
+        reason: "DOM, AX, selector, screenshot, and CDP evidence are available before visual fallback.",
+      },
+      {
+        lane: "sandboxed_hosted",
+        session_mode: "local_sandbox",
+        reason: requestedActionIsReadOnly
+          ? "The mock SDK task is local and read-only; hosted isolation is retained for risky or reproducible runs."
+          : "The SDK task is only proposing a mutating browser action; hosted isolation remains available before execution authority is granted.",
+      },
+    ];
+  }
+  return [
+    {
+      lane: "native_browser",
+      session_mode: "owned_hermetic_browser",
+      reason: localSandboxFixture
+        ? "The workflow explicitly selected a provider-neutral sandbox fixture for deterministic local execution."
+        : "The workflow explicitly requested a different computer-use lane.",
+    },
+    {
+      lane: "visual_gui",
+      session_mode: "visual_fallback",
+      reason: `${selectedLane}/${selectedSessionMode} supplied canonical observation contracts without falling back to coordinate-only GUI control.`,
+    },
+  ];
+}
+
 function requestedComputerUseSessionMode(
   metadata: SendOptions["metadata"],
-  lane: "visual_gui" | "sandboxed_hosted",
-):
-  | "visual_fallback"
-  | "foreground_desktop"
-  | "background_desktop"
-  | "app_scoped_desktop"
-  | "local_sandbox"
-  | "hosted_sandbox"
-  | "mobile_device" {
+  lane: ComputerUseLane,
+): ComputerUseSessionMode {
   const rawValue = metadata?.computerUseSessionMode ?? metadata?.computer_use_session_mode;
   const value = typeof rawValue === "string" ? rawValue : "";
+  if (
+    lane === "native_browser" &&
+    (value === "owned_hermetic_browser" || value === "attached_browser" || value === "controlled_relaunch")
+  ) {
+    return value;
+  }
   if (
     lane === "visual_gui" &&
     (value === "visual_fallback" ||
@@ -1013,7 +1126,9 @@ function requestedComputerUseSessionMode(
   ) {
     return value;
   }
-  return lane === "visual_gui" ? "visual_fallback" : "hosted_sandbox";
+  if (lane === "visual_gui") return "visual_fallback";
+  if (lane === "sandboxed_hosted") return "hosted_sandbox";
+  return "owned_hermetic_browser";
 }
 
 function requestedComputerUseActionKind(
@@ -1102,6 +1217,8 @@ interface ComputerUseContractOverrides {
   observationBundle: Partial<ComputerUseObservationBundle> | null;
   targetIndex: Partial<TargetIndex> | null;
   affordanceGraph: Partial<AffordanceGraph> | null;
+  adapterContract: (Partial<ComputerControlAdapterContract> & Record<string, unknown>) | null;
+  cleanupReceipt: Partial<CleanupReceipt> | null;
   browserObservationArtifacts: BrowserObservationArtifacts | null;
 }
 
@@ -1121,6 +1238,14 @@ function computerUseContractOverrides(
       metadata?.computerUseAffordanceGraph ??
         metadata?.computer_use_affordance_graph,
     ) as Partial<AffordanceGraph> | null,
+    adapterContract: objectValue(
+      metadata?.computerUseAdapterContract ??
+        metadata?.computer_use_adapter_contract,
+    ) as (Partial<ComputerControlAdapterContract> & Record<string, unknown>) | null,
+    cleanupReceipt: objectValue(
+      metadata?.computerUseCleanupReceipt ??
+        metadata?.computer_use_cleanup_receipt,
+    ) as Partial<CleanupReceipt> | null,
     browserObservationArtifacts: objectValue(
       metadata?.computerUseBrowserObservationArtifacts ??
         metadata?.computer_use_browser_observation_artifacts ??
@@ -1134,6 +1259,8 @@ function mergeObservationContract(
   base: ComputerUseObservationBundle,
   override: Partial<ComputerUseObservationBundle> | null,
   leaseId: string,
+  lane: ComputerUseLane,
+  sessionMode: ComputerUseSessionMode,
   retentionMode: ObservationRetentionMode,
 ): ComputerUseObservationBundle {
   if (!override) return base;
@@ -1143,8 +1270,8 @@ function mergeObservationContract(
     ...override,
     observation_ref: cleanString(override.observation_ref) ?? base.observation_ref,
     lease_id: leaseId,
-    lane: "native_browser",
-    session_mode: "owned_hermetic_browser",
+    lane,
+    session_mode: sessionMode,
     target_index_ref: cleanString(override.target_index_ref) ?? base.target_index_ref,
     retention_mode: observationRetentionModeValue(override.retention_mode) ?? retentionMode,
     detected_patterns: detectedPatterns.length > 0 ? detectedPatterns : base.detected_patterns,

@@ -30,6 +30,7 @@ mod workflow_binding_lane;
 mod workflow_checkpoint_lane;
 mod workflow_coding_route_lane;
 mod workflow_computer_use_lane;
+mod workflow_computer_use_sandbox_lane;
 mod workflow_execution_results_lane;
 mod workflow_graph_execution_lane;
 mod workflow_harness_results_lane;

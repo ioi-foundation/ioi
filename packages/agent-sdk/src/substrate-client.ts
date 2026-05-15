@@ -5705,6 +5705,45 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       ...((Array.isArray(input.rollbackRefs) ? input.rollbackRefs : []) as string[]),
       ...((Array.isArray(input.rollback_refs) ? input.rollback_refs : []) as string[]),
     ];
+    const computerUseLeaseInput = (input.input ?? input) as Record<string, unknown>;
+    const computerUseLane =
+      computerUseLeaseInput.lane === "sandboxed_hosted" ||
+      computerUseLeaseInput.computerUseLane === "sandboxed_hosted" ||
+      computerUseLeaseInput.computer_use_lane === "sandboxed_hosted"
+        ? "sandboxed_hosted"
+        : computerUseLeaseInput.lane === "visual_gui" ||
+            computerUseLeaseInput.computerUseLane === "visual_gui" ||
+            computerUseLeaseInput.computer_use_lane === "visual_gui"
+          ? "visual_gui"
+          : "native_browser";
+    const computerUseSessionMode = String(
+      computerUseLeaseInput.sessionMode ??
+        computerUseLeaseInput.session_mode ??
+        computerUseLeaseInput.computerUseSessionMode ??
+        computerUseLeaseInput.computer_use_session_mode ??
+        (computerUseLane === "sandboxed_hosted"
+          ? "local_sandbox"
+          : computerUseLane === "visual_gui"
+            ? "visual_fallback"
+            : "owned_hermetic_browser"),
+    );
+    const computerUseActionKind = String(
+      computerUseLeaseInput.actionKind ??
+        computerUseLeaseInput.action_kind ??
+        computerUseLeaseInput.computerUseActionKind ??
+        computerUseLeaseInput.computer_use_action_kind ??
+        "inspect",
+    );
+    const computerUseAuthorityScope =
+      ["inspect", "hover", "wait", "scroll"].includes(computerUseActionKind)
+        ? `computer_use.${computerUseLane}.read`
+        : `computer_use.${computerUseLane}.act`;
+    const computerUseThreadToolName =
+      computerUseLane === "native_browser"
+        ? "ioi.computer_use.native_browser"
+        : computerUseLane === "sandboxed_hosted"
+          ? "ioi.computer_use.sandboxed_hosted"
+          : null;
     const event = mockRuntimeEventEnvelope({
       agent,
       threadId,
@@ -5780,19 +5819,22 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
           ? {
               requestRef: `mock_computer_use_lease_request_${toolCallId}`,
               leaseRequest: {
-                prompt: String((input.input as { prompt?: unknown } | undefined)?.prompt ?? "Computer-use lease requested."),
-                lane: "native_browser",
-                sessionMode: "owned_hermetic_browser",
-                actionKind: "inspect",
-                authorityScope: "computer_use.native_browser.read",
+                prompt: String(computerUseLeaseInput.prompt ?? "Computer-use lease requested."),
+                lane: computerUseLane,
+                sessionMode: computerUseSessionMode,
+                actionKind: computerUseActionKind,
+                authorityScope: computerUseAuthorityScope,
                 failClosedWhenUnavailable: true,
               },
               threadTool: {
                 toolPack: "computer_use",
-                toolName: "ioi.computer_use.native_browser",
+                toolName: computerUseThreadToolName,
+                unavailableReason: computerUseThreadToolName
+                  ? null
+                  : "Requested lane is recorded as a governed lease request; concrete visual execution adapter is not mounted yet.",
                 input: input.input ?? input,
               },
-              approvalRequiredBeforeExecution: false,
+              approvalRequiredBeforeExecution: computerUseAuthorityScope.endsWith(".act"),
             }
           : {}),
         ...(artifactRefs.length

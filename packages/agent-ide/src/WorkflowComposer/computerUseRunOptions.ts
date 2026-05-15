@@ -44,6 +44,10 @@ export interface WorkflowComposerComputerUseRunMetadata {
   coordinateSpaceId?: string;
   viewportWidth?: number;
   viewportHeight?: number;
+  sandboxProvider?: string;
+  sandboxFixture?: boolean;
+  sandboxImageRef?: string;
+  sandboxTaskRef?: string;
   observationRetentionMode: string | null;
   failClosedWhenUnavailable: boolean;
   workflowGraphId: string | null;
@@ -221,6 +225,26 @@ export function workflowComposerComputerUseRunOptions(
   const viewportHeight = positiveNumber(
     first.args["viewportHeight"] ?? first.args["viewport_height"],
   );
+  const sandboxProvider =
+    cleanString(first.args["computerUseSandboxProvider"]) ??
+    cleanString(first.args["computer_use_sandbox_provider"]) ??
+    cleanString(first.args["sandboxProvider"]) ??
+    cleanString(first.args["sandbox_provider"]);
+  const sandboxFixture =
+    booleanValue(first.args["computerUseSandboxFixture"]) ??
+    booleanValue(first.args["computer_use_sandbox_fixture"]) ??
+    booleanValue(first.args["sandboxFixture"]) ??
+    booleanValue(first.args["sandbox_fixture"]);
+  const sandboxImageRef =
+    cleanString(first.args["computerUseSandboxImageRef"]) ??
+    cleanString(first.args["computer_use_sandbox_image_ref"]) ??
+    cleanString(first.args["sandboxImageRef"]) ??
+    cleanString(first.args["sandbox_image_ref"]);
+  const sandboxTaskRef =
+    cleanString(first.args["computerUseSandboxTaskRef"]) ??
+    cleanString(first.args["computer_use_sandbox_task_ref"]) ??
+    cleanString(first.args["sandboxTaskRef"]) ??
+    cleanString(first.args["sandbox_task_ref"]);
   return {
     metadata: {
       schemaVersion: WORKFLOW_COMPOSER_COMPUTER_USE_RUN_OPTIONS_SCHEMA_VERSION,
@@ -274,6 +298,10 @@ export function workflowComposerComputerUseRunOptions(
       ...(coordinateSpaceId ? { coordinateSpaceId } : {}),
       ...(viewportWidth ? { viewportWidth } : {}),
       ...(viewportHeight ? { viewportHeight } : {}),
+      ...(sandboxProvider ? { sandboxProvider } : {}),
+      ...(sandboxFixture === true ? { sandboxFixture: true } : {}),
+      ...(sandboxImageRef ? { sandboxImageRef } : {}),
+      ...(sandboxTaskRef ? { sandboxTaskRef } : {}),
       observationRetentionMode:
         cleanString(first.args["observationRetentionMode"]) ??
         cleanString(first.args["observation_retention_mode"]),
@@ -307,7 +335,7 @@ export function mergeWorkflowComposerComputerUseRunOptions(
 
 function defaultSessionModeForLane(lane: string): string {
   if (lane === "visual_gui") return "visual_fallback";
-  if (lane === "sandboxed_hosted") return "hosted_sandbox";
+  if (lane === "sandboxed_hosted") return "local_sandbox";
   return "owned_hermetic_browser";
 }
 
