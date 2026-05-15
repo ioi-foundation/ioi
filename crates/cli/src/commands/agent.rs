@@ -470,6 +470,48 @@ pub enum ToolCommands {
         #[clap(long)]
         json: bool,
     },
+    /// Emit governed computer-use pause/resume/abort/cleanup control receipts.
+    ComputerUseControl {
+        /// Runtime thread id that owns the computer-use event stream.
+        #[clap(long = "thread-id")]
+        thread_id: String,
+        /// Control action: pause, resume, abort, or cleanup.
+        #[clap(long = "action")]
+        action: String,
+        /// Computer-use lease id to control.
+        #[clap(long = "lease-id")]
+        lease_id: String,
+        /// Human handoff ref to pause/resume.
+        #[clap(long = "handoff-ref")]
+        handoff_ref: Option<String>,
+        /// Operator-visible reason.
+        #[clap(long)]
+        reason: Option<String>,
+        /// Observation ref supplied after a resume handoff.
+        #[clap(long = "resume-observation-ref")]
+        resume_observation_ref: Option<String>,
+        /// CDP endpoint supplied after a controlled relaunch resume.
+        #[clap(long = "cdp-endpoint-url")]
+        cdp_endpoint_url: Option<String>,
+        /// Runtime turn id to associate with the control receipt.
+        #[clap(long = "turn-id")]
+        turn_id: Option<String>,
+        /// Workflow graph id for React Flow-originated controls.
+        #[clap(long = "workflow-graph-id")]
+        workflow_graph_id: Option<String>,
+        /// Workflow node id for React Flow-originated controls.
+        #[clap(long = "workflow-node-id")]
+        workflow_node_id: Option<String>,
+        /// Runtime daemon endpoint. Defaults to IOI_DAEMON_ENDPOINT or http://127.0.0.1:8765.
+        #[clap(long)]
+        endpoint: Option<String>,
+        /// Capability token. Defaults to IOI_DAEMON_TOKEN.
+        #[clap(long)]
+        token: Option<String>,
+        /// Emit machine-readable JSON.
+        #[clap(long)]
+        json: bool,
+    },
     /// Invoke a daemon-backed coding tool for a runtime thread.
     Run {
         /// Coding tool id, for example workspace.status, git.diff, file.inspect, file.apply_patch, test.run, lsp.diagnostics, artifact.read, or tool.retrieve_result.
@@ -1393,6 +1435,38 @@ async fn run_tool_command(
             )
             .await
         }
+        Some(ToolCommands::ComputerUseControl {
+            thread_id,
+            action,
+            lease_id,
+            handoff_ref,
+            reason,
+            resume_observation_ref,
+            cdp_endpoint_url,
+            turn_id,
+            workflow_graph_id,
+            workflow_node_id,
+            endpoint,
+            token,
+            json,
+        }) => {
+            invoke_computer_use_control_tool(
+                thread_id,
+                action,
+                lease_id,
+                handoff_ref,
+                reason,
+                resume_observation_ref,
+                cdp_endpoint_url,
+                turn_id,
+                workflow_graph_id,
+                workflow_node_id,
+                endpoint,
+                token,
+                json,
+            )
+            .await
+        }
         Some(ToolCommands::Run {
             tool,
             thread_id,
@@ -1753,6 +1827,123 @@ async fn invoke_native_browser_tool(
         .unwrap_or("unknown");
     println!(
         "Native browser computer-use: thread={thread_id} status={status} node={workflow_node} events={event_count} action={action_status} commit_gate={commit_gate_status}"
+    );
+    Ok(())
+}
+
+async fn invoke_computer_use_control_tool(
+    thread_id: String,
+    action: String,
+    lease_id: String,
+    handoff_ref: Option<String>,
+    reason: Option<String>,
+    resume_observation_ref: Option<String>,
+    cdp_endpoint_url: Option<String>,
+    turn_id: Option<String>,
+    workflow_graph_id: Option<String>,
+    workflow_node_id: Option<String>,
+    endpoint: Option<String>,
+    token: Option<String>,
+    json: bool,
+) -> Result<()> {
+    let endpoint = resolve_daemon_endpoint(endpoint.as_deref());
+    let token = resolve_daemon_token(token.as_deref());
+    let mut body = serde_json::Map::new();
+    body.insert(
+        "source".to_string(),
+        serde_json::Value::String("cli".to_string()),
+    );
+    let mut input = serde_json::Map::new();
+    input.insert(
+        "controlAction".to_string(),
+        serde_json::Value::String(action.trim().to_string()),
+    );
+    input.insert(
+        "leaseId".to_string(),
+        serde_json::Value::String(lease_id.trim().to_string()),
+    );
+    if let Some(handoff_ref) = handoff_ref
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "handoffRef".to_string(),
+            serde_json::Value::String(handoff_ref.trim().to_string()),
+        );
+    }
+    if let Some(reason) = reason.as_deref().filter(|value| !value.trim().is_empty()) {
+        input.insert(
+            "reason".to_string(),
+            serde_json::Value::String(reason.trim().to_string()),
+        );
+    }
+    if let Some(resume_observation_ref) = resume_observation_ref
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "resumeObservationRef".to_string(),
+            serde_json::Value::String(resume_observation_ref.trim().to_string()),
+        );
+    }
+    if let Some(cdp_endpoint_url) = cdp_endpoint_url
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "cdpEndpointUrl".to_string(),
+            serde_json::Value::String(cdp_endpoint_url.trim().to_string()),
+        );
+    }
+    body.insert("input".to_string(), serde_json::Value::Object(input));
+    if let Some(turn_id) = turn_id.as_deref().filter(|value| !value.trim().is_empty()) {
+        body.insert(
+            "turn_id".to_string(),
+            serde_json::Value::String(turn_id.to_string()),
+        );
+    }
+    if let Some(workflow_graph_id) = workflow_graph_id
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        body.insert(
+            "workflow_graph_id".to_string(),
+            serde_json::Value::String(workflow_graph_id.to_string()),
+        );
+    }
+    body.insert(
+        "workflow_node_id".to_string(),
+        serde_json::Value::String(
+            workflow_node_id
+                .as_deref()
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or("computer-use.control.cli")
+                .to_string(),
+        ),
+    );
+    let route = coding_tool_invoke_route(&thread_id, "ioi.computer_use.control");
+    let value = daemon_request(
+        Some(&endpoint),
+        token.as_deref(),
+        Method::POST,
+        &route,
+        Some(serde_json::Value::Object(body)),
+    )
+    .await?;
+    if json {
+        return print_json(&value);
+    }
+    let status = value
+        .pointer("/result/controlReceipt/status")
+        .and_then(|value| value.as_str())
+        .unwrap_or_else(|| value.get("status").and_then(|value| value.as_str()).unwrap_or("unknown"));
+    let receipt = value
+        .pointer("/result/controlReceipt/receipt_ref")
+        .and_then(|value| value.as_str())
+        .unwrap_or("none");
+    println!(
+        "Computer-use control: thread={thread_id} lease={lease_id} action={} status={status} receipt={receipt}",
+        action.trim()
     );
     Ok(())
 }
@@ -3050,6 +3241,48 @@ mod tests {
                 && file_path == "/tmp/upload.txt"
                 && cdp_endpoint_url == "http://127.0.0.1:9222"
                 && cdp_timeout_ms == 5000
+        ));
+        let computer_use_control = AgentArgs::try_parse_from([
+            "agent",
+            "tools",
+            "computer-use-control",
+            "--endpoint",
+            "http://127.0.0.1:8765",
+            "--thread-id",
+            "thread_runtime_cli",
+            "--action",
+            "resume",
+            "--lease-id",
+            "lease_controlled_relaunch",
+            "--handoff-ref",
+            "handoff_controlled_relaunch",
+            "--resume-observation-ref",
+            "observation_after_relaunch",
+            "--cdp-endpoint-url",
+            "http://127.0.0.1:9222",
+            "--json",
+        ])
+        .expect("computer-use control command should parse");
+        assert!(matches!(
+            computer_use_control.command,
+            Some(AgentCommands::Tools {
+                command: Some(ToolCommands::ComputerUseControl {
+                    thread_id,
+                    action,
+                    lease_id,
+                    handoff_ref: Some(handoff_ref),
+                    resume_observation_ref: Some(resume_observation_ref),
+                    cdp_endpoint_url: Some(cdp_endpoint_url),
+                    json: true,
+                    ..
+                }),
+                ..
+            }) if thread_id == "thread_runtime_cli"
+                && action == "resume"
+                && lease_id == "lease_controlled_relaunch"
+                && handoff_ref == "handoff_controlled_relaunch"
+                && resume_observation_ref == "observation_after_relaunch"
+                && cdp_endpoint_url == "http://127.0.0.1:9222"
         ));
         let coding_tool_run = AgentArgs::try_parse_from([
             "agent",

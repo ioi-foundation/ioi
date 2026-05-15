@@ -1415,6 +1415,89 @@ test("runtime daemon brokers controlled relaunch leases before browser authority
   }
 });
 
+test("runtime daemon emits computer-use pause resume abort cleanup control receipts", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-control-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-control-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const thread = await agent.thread();
+    const pause = await client.invokeThreadTool(thread.id, "ioi.computer_use.control", {
+      source: "tui",
+      workflowGraphId: "workflow.computer-use-control",
+      workflowNodeId: "computer-use-control",
+      input: {
+        controlAction: "pause",
+        leaseId: "lease_controlled_relaunch_test",
+        handoffRef: "handoff_controlled_relaunch_test",
+        reason: "operator wants to inspect the controlled relaunch handoff",
+      },
+    });
+    const resume = await client.invokeThreadTool(thread.id, "ioi.computer_use.control", {
+      source: "tui",
+      workflowGraphId: "workflow.computer-use-control",
+      workflowNodeId: "computer-use-control",
+      input: {
+        controlAction: "resume",
+        leaseId: "lease_controlled_relaunch_test",
+        handoffRef: "handoff_controlled_relaunch_test",
+        resumeObservationRef: "observation_after_relaunch",
+        cdpEndpointUrl: "http://127.0.0.1:9222",
+      },
+    });
+    const abort = await client.invokeThreadTool(thread.id, "ioi.computer_use.control", {
+      source: "cli",
+      workflowGraphId: "workflow.computer-use-control",
+      workflowNodeId: "computer-use-control",
+      input: {
+        controlAction: "abort",
+        leaseId: "lease_controlled_relaunch_test",
+        reason: "operator aborted the relaunch",
+      },
+    });
+    const cleanup = await client.invokeThreadTool(thread.id, "ioi.computer_use.control", {
+      source: "cli",
+      workflowGraphId: "workflow.computer-use-control",
+      workflowNodeId: "computer-use-control",
+      input: {
+        controlAction: "cleanup",
+        leaseId: "lease_controlled_relaunch_test",
+      },
+    });
+
+    assert.equal(pause.status, "completed");
+    assert.equal(pause.result.controlReceipt.status, "paused");
+    assert.equal(pause.result.humanHandoffState.status, "pending");
+    assert.equal(resume.result.controlReceipt.status, "resumed");
+    assert.equal(resume.result.humanHandoffState.observation_after_resume_ref, "observation_after_relaunch");
+    assert.equal(abort.status, "canceled");
+    assert.equal(abort.result.controlReceipt.status, "aborted");
+    assert.equal(abort.result.cleanup.status, "completed_after_abort");
+    assert.equal(cleanup.result.controlReceipt.status, "cleanup_completed");
+    assert.equal(cleanup.result.cleanup.status, "completed");
+
+    const runtimeEvents = [];
+    for await (const event of thread.events()) {
+      runtimeEvents.push(event);
+    }
+    const controlEvents = runtimeEvents.filter((event) => event.type === "computer_use_control");
+    assert.deepEqual(
+      controlEvents.map((event) => event.payload.control_receipt.action),
+      ["pause", "resume", "abort", "cleanup"],
+    );
+    assert.equal(controlEvents[0].workflowNodeId, "computer-use-control");
+    assert.equal(controlEvents[0].payload.control_receipt.lease_id, "lease_controlled_relaunch_test");
+    assert.ok(controlEvents[2].receiptRefs.includes(abort.result.cleanup.cleanup_ref));
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("runtime daemon preserves workflow-authored computer-use node metadata", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-workflow-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-workflow-state-"));
