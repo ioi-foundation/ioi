@@ -927,9 +927,10 @@ overfitting.
 Deliverables:
 
 - trajectory bundle writer;
-- failure taxonomy summaries and SDK trajectory eval projection;
-- shadow replay fixtures;
-- held-out eval promotion gate;
+- failure taxonomy summaries, SDK trajectory eval projection, and deterministic
+  harness improvement plans;
+- shadow replay fixture requirements;
+- held-out eval promotion gate receipts;
 - regression tests for model action adapters.
 
 Acceptance:

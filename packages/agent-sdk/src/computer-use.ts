@@ -408,6 +408,62 @@ export interface ComputerUseTrajectoryEvalInput {
   trajectory?: ComputerUseTrajectoryBundle | Record<string, unknown> | null;
 }
 
+export type ComputerUseHarnessPatchTarget =
+  | "environment_planner"
+  | "target_index"
+  | "affordance_graph"
+  | "policy_gate"
+  | "verification"
+  | "adapter"
+  | "workflow_projection"
+  | "evidence_retention";
+
+export interface ComputerUseHarnessPatchProposal {
+  patch_ref: string;
+  target_surface: ComputerUseHarnessPatchTarget;
+  change_summary: string;
+  rationale: string;
+  expected_regression_gates: string[];
+  authority_required: string;
+}
+
+export interface ComputerUseShadowReplayPlan {
+  replay_ref: string;
+  status: "not_required" | "required_before_promotion";
+  required_fixtures: string[];
+  comparison_gates: string[];
+}
+
+export interface ComputerUsePromotionGateReceipt {
+  promotion_ref: string;
+  status: "not_required" | "blocked_pending_shadow_replay" | "blocked_external_adapter" | "eligible_after_shadow_replay";
+  required_evidence: string[];
+  summary: string;
+}
+
+export interface ComputerUseHarnessImprovementPlan {
+  schema_version: typeof COMPUTER_USE_CONTRACT_SCHEMA_VERSION | string;
+  plan_ref: string;
+  eval_ref: string;
+  trajectory_ref: string | null;
+  run_id: string | null;
+  outcome: ComputerUseTrajectoryEvalOutcome;
+  failure_class: ComputerUseFailureClass;
+  failure_mode: ComputerUseFailureMode;
+  recovery_policy: RecoveryPolicy | null;
+  patch_proposals: ComputerUseHarnessPatchProposal[];
+  shadow_replay: ComputerUseShadowReplayPlan;
+  promotion_gate: ComputerUsePromotionGateReceipt;
+  residual_risks: string[];
+  summary: string;
+}
+
+export interface ComputerUseHarnessImprovementInput {
+  trace?: Record<string, unknown> | null;
+  trajectory?: ComputerUseTrajectoryBundle | Record<string, unknown> | null;
+  eval?: ComputerUseTrajectoryEvalProjection | null;
+}
+
 export interface CleanupReceipt {
   cleanup_ref: string;
   lease_id: string;
@@ -769,6 +825,67 @@ export function evaluateComputerUseTrajectory(
       trajectory,
     }),
     summary: trajectoryEvalSummary(outcome, lane, sessionMode, blocker),
+  };
+}
+
+export function planComputerUseHarnessImprovement(
+  input: ComputerUseHarnessImprovementInput,
+): ComputerUseHarnessImprovementPlan {
+  const trajectoryEval =
+    input.eval ??
+    evaluateComputerUseTrajectory({
+      trace: input.trace,
+      trajectory: input.trajectory,
+    });
+  const runId = trajectoryEval.run_id ?? "trajectory";
+  const patchProposals = harnessPatchProposalsForEval(trajectoryEval);
+  const needsImprovement = trajectoryEval.outcome !== "passed" || trajectoryEval.missing_regression_gates.length > 0;
+  const recoveryPolicy = needsImprovement
+    ? recoveryPolicyForComputerUseFailure({
+        run_id: runId,
+        failure_mode: trajectoryEval.failure_mode,
+        failure_class: trajectoryEval.failure_class,
+        lane: computerUseLaneValue(trajectoryEval.lane),
+        retry_budget: 1,
+      })
+    : null;
+  const shadowReplay: ComputerUseShadowReplayPlan = {
+    replay_ref: `computer_use_shadow_replay_${safeComputerUseId(runId)}`,
+    status: needsImprovement ? "required_before_promotion" : "not_required",
+    required_fixtures: needsImprovement
+      ? shadowReplayFixturesForTrajectoryEval(trajectoryEval)
+      : [],
+    comparison_gates: needsImprovement
+      ? [
+          "same_observation_inputs",
+          "same_policy_posture",
+          "no_new_external_effects",
+          "verification_status_improves",
+          "cleanup_receipt_preserved",
+        ]
+      : [],
+  };
+  const promotionGate = promotionGateForImprovementPlan({
+    runId,
+    trajectoryEval,
+    patchProposals,
+    shadowReplay,
+  });
+  return {
+    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    plan_ref: `computer_use_improvement_${safeComputerUseId(runId)}`,
+    eval_ref: trajectoryEval.eval_ref,
+    trajectory_ref: trajectoryEval.trajectory_ref,
+    run_id: trajectoryEval.run_id,
+    outcome: trajectoryEval.outcome,
+    failure_class: trajectoryEval.failure_class,
+    failure_mode: trajectoryEval.failure_mode,
+    recovery_policy: recoveryPolicy,
+    patch_proposals: patchProposals,
+    shadow_replay: shadowReplay,
+    promotion_gate: promotionGate,
+    residual_risks: residualRisksForImprovementPlan(trajectoryEval, patchProposals),
+    summary: improvementPlanSummary(trajectoryEval, patchProposals, promotionGate),
   };
 }
 
@@ -1301,6 +1418,173 @@ function trajectoryEvalSummary(
   if (outcome === "blocked") return `${surface} trajectory failed closed${blocker ? ` on ${blocker}` : ""}.`;
   if (outcome === "failed") return `${surface} trajectory failed verification.`;
   return `${surface} trajectory is incomplete for evaluation.`;
+}
+
+function harnessPatchProposalsForEval(
+  trajectoryEval: ComputerUseTrajectoryEvalProjection,
+): ComputerUseHarnessPatchProposal[] {
+  if (trajectoryEval.outcome === "passed" && trajectoryEval.missing_regression_gates.length === 0) {
+    return [];
+  }
+  const runId = safeComputerUseId(trajectoryEval.run_id ?? trajectoryEval.trajectory_ref ?? trajectoryEval.eval_ref);
+  const proposals: ComputerUseHarnessPatchProposal[] = [];
+  for (const missingGate of trajectoryEval.missing_regression_gates) {
+    proposals.push({
+      patch_ref: `patch_${runId}_regression_${safeComputerUseId(missingGate)}`,
+      target_surface: patchTargetForMissingRegressionGate(missingGate),
+      change_summary: `Restore missing regression evidence for ${missingGate}.`,
+      rationale: "A trajectory cannot be promoted while required computer-use proof is absent.",
+      expected_regression_gates: [missingGate],
+      authority_required: "computer_use.harness.patch",
+    });
+  }
+  if (proposals.length > 0) return proposals;
+  const targetSurface = patchTargetForFailureMode(trajectoryEval.failure_mode);
+  return [{
+    patch_ref: `patch_${runId}_${trajectoryEval.failure_mode}`,
+    target_surface: targetSurface,
+    change_summary: patchSummaryForFailureMode(trajectoryEval.failure_mode),
+    rationale: `${trajectoryEval.failure_mode} was classified as ${trajectoryEval.failure_class}; patch the harness surface that owns that failure before promotion.`,
+    expected_regression_gates: expectedRegressionGatesForPatchTarget(targetSurface),
+    authority_required: targetSurface === "adapter"
+      ? "computer_use.adapter.mount_or_configure"
+      : "computer_use.harness.patch",
+  }];
+}
+
+function patchTargetForMissingRegressionGate(missingGate: string): ComputerUseHarnessPatchTarget {
+  if (missingGate.includes("observation")) return "evidence_retention";
+  if (missingGate.includes("target")) return "target_index";
+  if (missingGate.includes("proposal")) return "affordance_graph";
+  if (missingGate.includes("verification")) return "verification";
+  if (missingGate.includes("cleanup")) return "adapter";
+  return "workflow_projection";
+}
+
+function patchTargetForFailureMode(failureMode: ComputerUseFailureMode): ComputerUseHarnessPatchTarget {
+  if (failureMode === "sandbox_unavailable" || failureMode === "browser_crash" || failureMode === "network_stall") {
+    return "adapter";
+  }
+  if (failureMode === "target_not_found") return "target_index";
+  if (failureMode === "stale_observation" || failureMode === "visual_drift") return "evidence_retention";
+  if (failureMode === "policy_block" || failureMode === "handoff_timeout" || failureMode === "auth_wall") {
+    return "policy_gate";
+  }
+  if (failureMode === "no_effect_action" || failureMode === "modal_interruption") return "verification";
+  return "workflow_projection";
+}
+
+function patchSummaryForFailureMode(failureMode: ComputerUseFailureMode): string {
+  switch (failureMode) {
+    case "sandbox_unavailable":
+      return "Mount or configure the requested sandbox/hosted adapter, or update environment planning to choose an available lane explicitly.";
+    case "target_not_found":
+      return "Improve target indexing and fallback grounding for the observed interface pattern.";
+    case "stale_observation":
+    case "visual_drift":
+      return "Refresh observation capture and target-index invalidation before retrying actions.";
+    case "policy_block":
+      return "Surface the policy decision, required authority, and human approval path before action execution.";
+    case "handoff_timeout":
+    case "auth_wall":
+      return "Make the human handoff resume condition and timeout policy explicit in the harness.";
+    case "no_effect_action":
+    case "modal_interruption":
+      return "Strengthen postcondition verification and repair selection for no-effect or interrupted actions.";
+    default:
+      return "Add missing harness evidence and classify the failure before promotion.";
+  }
+}
+
+function expectedRegressionGatesForPatchTarget(target: ComputerUseHarnessPatchTarget): string[] {
+  if (target === "environment_planner" || target === "adapter") {
+    return ["environment_selection", "cleanup_receipt"];
+  }
+  if (target === "target_index") return ["target_index", "trajectory_propose_action_step"];
+  if (target === "affordance_graph") return ["action_proposal", "trajectory_propose_action_step"];
+  if (target === "verification") return ["verification_receipt", "cleanup_receipt"];
+  if (target === "policy_gate") return ["action_proposal", "verification_receipt"];
+  if (target === "evidence_retention") return ["observation_bundle", "cleanup_receipt"];
+  return ["trajectory_propose_action_step", "cleanup_receipt"];
+}
+
+function shadowReplayFixturesForTrajectoryEval(
+  trajectoryEval: ComputerUseTrajectoryEvalProjection,
+): string[] {
+  return [
+    trajectoryEval.trajectory_ref ? `trajectory:${trajectoryEval.trajectory_ref}` : null,
+    trajectoryEval.lane ? `lane:${trajectoryEval.lane}` : null,
+    trajectoryEval.session_mode ? `session:${trajectoryEval.session_mode}` : null,
+    ...trajectoryEval.evidence_refs.map((ref) => `evidence:${ref}`),
+  ].filter((value): value is string => Boolean(value));
+}
+
+function promotionGateForImprovementPlan(input: {
+  runId: string;
+  trajectoryEval: ComputerUseTrajectoryEvalProjection;
+  patchProposals: ComputerUseHarnessPatchProposal[];
+  shadowReplay: ComputerUseShadowReplayPlan;
+}): ComputerUsePromotionGateReceipt {
+  const promotionRef = `computer_use_promotion_${safeComputerUseId(input.runId)}`;
+  if (input.patchProposals.length === 0) {
+    return {
+      promotion_ref: promotionRef,
+      status: "not_required",
+      required_evidence: [],
+      summary: "Trajectory already passes regression gates; no harness patch promotion is required.",
+    };
+  }
+  if (input.patchProposals.some((proposal) => proposal.target_surface === "adapter")) {
+    return {
+      promotion_ref: promotionRef,
+      status: "blocked_external_adapter",
+      required_evidence: ["adapter_contract", "cleanup_receipt", "shadow_replay_result"],
+      summary: "Promotion is blocked until the required computer-use adapter evidence exists and passes shadow replay.",
+    };
+  }
+  return {
+    promotion_ref: promotionRef,
+    status: "blocked_pending_shadow_replay",
+    required_evidence: [
+      "harness_patch_diff",
+      "shadow_replay_result",
+      "held_out_eval_result",
+      ...input.shadowReplay.comparison_gates,
+    ],
+    summary: "Promotion is blocked until the proposed harness patch passes deterministic shadow replay and held-out eval gates.",
+  };
+}
+
+function residualRisksForImprovementPlan(
+  trajectoryEval: ComputerUseTrajectoryEvalProjection,
+  patchProposals: ComputerUseHarnessPatchProposal[],
+): string[] {
+  if (patchProposals.length === 0) return [];
+  return [
+    trajectoryEval.failure_mode === "sandbox_unavailable"
+      ? "Adapter availability may still depend on external provider credentials or host capacity."
+      : null,
+    trajectoryEval.outcome === "needs_human"
+      ? "Human handoff timing may vary across replay environments."
+      : null,
+    "No harness patch should be promoted without replaying the original trajectory and at least one held-out fixture.",
+  ].filter((value): value is string => Boolean(value));
+}
+
+function improvementPlanSummary(
+  trajectoryEval: ComputerUseTrajectoryEvalProjection,
+  patchProposals: ComputerUseHarnessPatchProposal[],
+  promotionGate: ComputerUsePromotionGateReceipt,
+): string {
+  if (patchProposals.length === 0) {
+    return `${trajectoryEval.eval_ref} passed; no trajectory-driven harness patch is needed.`;
+  }
+  return `${trajectoryEval.eval_ref} produced ${patchProposals.length} harness patch proposal(s); promotion status is ${promotionGate.status}.`;
+}
+
+function computerUseLaneValue(value: string | null): ComputerUseLane | undefined {
+  if (value === "native_browser" || value === "visual_gui" || value === "sandboxed_hosted") return value;
+  return undefined;
 }
 
 function safeComputerUseId(value: string): string {
