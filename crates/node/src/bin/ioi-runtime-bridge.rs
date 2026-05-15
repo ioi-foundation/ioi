@@ -7,6 +7,10 @@ use ioi_api::services::BlockchainService;
 use ioi_api::state::{StateAccess, StateManager};
 use ioi_api::transaction::context::TxContext;
 use ioi_api::vm::inference::{InferenceRuntime, UnavailableInferenceRuntime};
+use ioi_drivers::browser::computer_use::{
+    affordance_graph_from_target_index, observation_bundle_from_browser_artifacts,
+    target_index_from_browser_artifacts,
+};
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::gui::IoiGuiDriver;
 use ioi_drivers::os::NativeOsDriver;
@@ -19,7 +23,8 @@ use ioi_services::agentic::runtime::{
 };
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::flat::RedbFlatStore;
-use ioi_types::app::{AccountId, ChainId, KernelEvent};
+use ioi_types::app::runtime::computer_use::COMPUTER_USE_CONTRACT_SCHEMA_VERSION_V1;
+use ioi_types::app::{AccountId, ChainId, KernelEvent, WorkloadReceipt};
 use ioi_types::codec;
 use parity_scale_codec::Encode;
 use rand::RngCore;
@@ -29,7 +34,7 @@ use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
@@ -158,6 +163,7 @@ struct BridgeRuntime {
     state: RedbFlatStore<HashCommitmentScheme>,
     service: RuntimeAgentService,
     services: ServiceDirectory,
+    browser_driver: Arc<BrowserDriver>,
     event_receiver: tokio::sync::broadcast::Receiver<KernelEvent>,
     height: u64,
 }
@@ -180,11 +186,12 @@ impl BridgeRuntime {
             "Runtime bridge inference is unavailable until a model route is configured.",
         ));
         let gui = Arc::new(IoiGuiDriver::new());
+        let browser_driver = Arc::new(BrowserDriver::new());
         let (event_sender, event_receiver) = tokio::sync::broadcast::channel(1024);
         let service = RuntimeAgentService::new_hybrid(
             gui,
             Arc::new(TerminalDriver::new()),
-            Arc::new(BrowserDriver::new()),
+            browser_driver.clone(),
             inference.clone(),
             inference,
         )
@@ -197,6 +204,7 @@ impl BridgeRuntime {
             state,
             service,
             services: ServiceDirectory::new(vec![]),
+            browser_driver,
             event_receiver,
             height: unix_millis(),
         })
@@ -371,6 +379,26 @@ impl BridgeRuntime {
                 },
             ) {
                 events.push(mapped);
+            }
+        }
+        if request_indicates_computer_use(&input.request, &prompt)
+            || kernel_events.iter().any(kernel_event_mentions_browser_tool)
+        {
+            if let Some((_, artifacts)) = self
+                .browser_driver
+                .recent_browser_observation_artifacts(Duration::from_secs(120))
+                .await
+            {
+                let context = RuntimeBridgeComputerUseContext {
+                    thread_id: &input.thread_id,
+                    turn_id: &turn_id,
+                    run_id: &run_id,
+                    workspace_root: input.workspace_root.as_deref(),
+                    created_at: &completed_at,
+                };
+                events.extend(browser_observation_artifacts_to_tti_events(
+                    &context, &artifacts,
+                ));
             }
         }
         events.push(tti_event(TtiEventInput {
@@ -568,6 +596,181 @@ fn positive_u64(value: &Value, keys: &[&str]) -> Option<u64> {
     None
 }
 
+struct RuntimeBridgeComputerUseContext<'a> {
+    thread_id: &'a str,
+    turn_id: &'a str,
+    run_id: &'a str,
+    workspace_root: Option<&'a str>,
+    created_at: &'a str,
+}
+
+fn browser_observation_artifacts_to_tti_events(
+    context: &RuntimeBridgeComputerUseContext<'_>,
+    artifacts: &ioi_drivers::browser::BrowserObservationArtifacts,
+) -> Vec<Value> {
+    let lease_id = format!("lease_{}_browser", context.run_id);
+    let observation_ref = format!("observation_{}_browser_live", context.run_id);
+    let observation =
+        observation_bundle_from_browser_artifacts(&lease_id, &observation_ref, artifacts);
+    let target_index = target_index_from_browser_artifacts(&observation, artifacts);
+    let affordance_graph = affordance_graph_from_target_index(&target_index);
+    let base_payload = json!({
+        "schema_version": COMPUTER_USE_CONTRACT_SCHEMA_VERSION_V1,
+        "computer_use_lane": "native_browser",
+        "computer_use_session_mode": "owned_hermetic_browser",
+        "computer_use_lease_id": lease_id,
+        "computer_use_contract_ingest": "browser_observation_artifacts",
+        "observation_retention_mode": "prompt_visible_summary_only",
+        "run_id": context.run_id,
+    });
+    let observation_payload = extend_json_object(
+        base_payload.clone(),
+        json!({
+            "computer_use_step": "observe",
+            "computer_use_observation_ref": observation.observation_ref.clone(),
+            "computer_use_target_index_ref": target_index.target_index_ref.clone(),
+            "observation_bundle": observation.clone(),
+            "target_index": target_index.clone(),
+            "browser_observation_artifacts": {
+                "url": artifacts.url.clone(),
+                "page_title": artifacts.page_title.clone(),
+                "browser_use_selector_map_present": artifacts.browser_use_selector_map_text.is_some(),
+                "browsergym_dom_present": artifacts.browsergym_dom_text.is_some(),
+                "browsergym_axtree_present": artifacts.browsergym_axtree_text.is_some(),
+                "browsergym_focused_bid": artifacts.browsergym_focused_bid.clone(),
+            },
+        }),
+    );
+    let affordance_payload = extend_json_object(
+        base_payload,
+        json!({
+            "computer_use_step": "build_affordance_graph",
+            "computer_use_affordance_graph_ref": affordance_graph.graph_ref.clone(),
+            "computer_use_target_index_ref": affordance_graph.target_index_ref.clone(),
+            "affordance_graph": affordance_graph.clone(),
+        }),
+    );
+    vec![
+        tti_event(TtiEventInput {
+            thread_id: context.thread_id,
+            turn_id: context.turn_id,
+            item_id: &format!("{}:item:computer-use:observe", context.turn_id),
+            idempotency_key: &format!(
+                "runtime-agent-service:{}:computer-use:observation",
+                context.run_id
+            ),
+            source_event_kind: "BrowserDriver.recent_browser_observation_artifacts",
+            event_kind: "computer_use.observation",
+            status: "completed",
+            actor: "runtime",
+            created_at: context.created_at,
+            workspace_root: context.workspace_root,
+            component_kind: "computer_use_harness",
+            workflow_node_id: "computer-use.observe",
+            payload_schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION_V1,
+            payload: observation_payload,
+        }),
+        tti_event(TtiEventInput {
+            thread_id: context.thread_id,
+            turn_id: context.turn_id,
+            item_id: &format!("{}:item:computer-use:affordance-graph", context.turn_id),
+            idempotency_key: &format!(
+                "runtime-agent-service:{}:computer-use:affordance-graph",
+                context.run_id
+            ),
+            source_event_kind: "BrowserDriver.recent_browser_observation_artifacts",
+            event_kind: "computer_use.affordance_graph",
+            status: "completed",
+            actor: "runtime",
+            created_at: context.created_at,
+            workspace_root: context.workspace_root,
+            component_kind: "computer_use_harness",
+            workflow_node_id: "computer-use.affordance-graph",
+            payload_schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION_V1,
+            payload: affordance_payload,
+        }),
+    ]
+}
+
+fn extend_json_object(mut base: Value, extension: Value) -> Value {
+    let (Value::Object(base_map), Value::Object(extension_map)) = (&mut base, extension) else {
+        return base;
+    };
+    for (key, value) in extension_map {
+        base_map.insert(key, value);
+    }
+    base
+}
+
+fn request_indicates_computer_use(request: &Value, prompt: &str) -> bool {
+    bool_value(request, &["computerUse", "computer_use"]).unwrap_or(false)
+        || non_empty_string(request, &["computerUseLane", "computer_use_lane"]).is_some()
+        || prompt_mentions_computer_use(prompt)
+}
+
+fn prompt_mentions_computer_use(prompt: &str) -> bool {
+    let normalized = prompt.to_ascii_lowercase();
+    [
+        "browser",
+        "chromium",
+        "website",
+        "web page",
+        "url",
+        "computer-use",
+        "computer use",
+        "cua",
+        "gui",
+        "desktop",
+        "click",
+        "selector",
+        "playwright",
+    ]
+    .iter()
+    .any(|needle| normalized.contains(needle))
+}
+
+fn bool_value(value: &Value, keys: &[&str]) -> Option<bool> {
+    for key in keys {
+        if let Some(parsed) = value.get(*key).and_then(Value::as_bool) {
+            return Some(parsed);
+        }
+    }
+    None
+}
+
+fn kernel_event_mentions_browser_tool(event: &KernelEvent) -> bool {
+    match event {
+        KernelEvent::AgentActionResult { tool_name, .. } => is_browser_tool(tool_name),
+        KernelEvent::WorkloadReceipt(receipt) => {
+            workload_receipt_tool_name(&receipt.receipt).is_some_and(is_browser_tool)
+        }
+        _ => false,
+    }
+}
+
+fn workload_receipt_tool_name(receipt: &WorkloadReceipt) -> Option<&str> {
+    match receipt {
+        WorkloadReceipt::Exec(item) => Some(&item.tool_name),
+        WorkloadReceipt::FsWrite(item) => Some(&item.tool_name),
+        WorkloadReceipt::NetFetch(item) => Some(&item.tool_name),
+        WorkloadReceipt::WebRetrieve(item) => Some(&item.tool_name),
+        WorkloadReceipt::MemoryRetrieve(item) => Some(&item.tool_name),
+        WorkloadReceipt::Inference(item) => Some(&item.tool_name),
+        WorkloadReceipt::Media(item) => Some(&item.tool_name),
+        WorkloadReceipt::ModelLifecycle(item) => Some(&item.tool_name),
+        WorkloadReceipt::Worker(item) => Some(&item.tool_name),
+        WorkloadReceipt::ParentPlaybook(item) => Some(&item.tool_name),
+        WorkloadReceipt::Adapter(item) => Some(&item.tool_name),
+    }
+}
+
+fn is_browser_tool(tool_name: &str) -> bool {
+    tool_name
+        .trim()
+        .to_ascii_lowercase()
+        .starts_with("browser__")
+}
+
 fn build_ctx<'a>(services: &'a ServiceDirectory, height: u64) -> TxContext<'a> {
     TxContext {
         block_height: height,
@@ -611,6 +814,8 @@ fn now_rfc3339() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ioi_drivers::browser::BrowserObservationArtifacts;
+    use std::time::Instant;
 
     #[test]
     fn parses_bridge_request_aliases() {
@@ -643,5 +848,87 @@ mod tests {
         assert_eq!(event["source"], "runtime_service");
         assert_eq!(event["fixture_profile"], Value::Null);
         assert_eq!(event["event_stream_id"], "thread_a:events");
+    }
+
+    #[test]
+    fn browser_artifacts_project_to_computer_use_tti_events() {
+        let artifacts = BrowserObservationArtifacts {
+            captured_at: Instant::now(),
+            url: Some("https://example.test/app".to_string()),
+            page_title: Some("Example App".to_string()),
+            browser_use_state_text: Some("state".to_string()),
+            browser_use_selector_map_text: Some(
+                "[42] <button name=Submit target_id=target-submit />\n\
+                 [43] <input name=Search placeholder=Search target_id=target-search />"
+                    .to_string(),
+            ),
+            browser_use_html_text: None,
+            browser_use_eval_text: None,
+            browser_use_markdown_text: None,
+            browser_use_pagination_text: None,
+            browser_use_tabs_text: None,
+            browser_use_page_info_text: None,
+            browser_use_pending_requests_text: None,
+            browser_use_recent_events_text: None,
+            browser_use_closed_popup_messages_text: None,
+            browsergym_extra_properties_text: None,
+            browsergym_focused_bid: Some("bid-submit".to_string()),
+            browsergym_dom_text: Some("<button>Submit</button>".to_string()),
+            browsergym_axtree_text: Some("button Submit".to_string()),
+        };
+        let context = RuntimeBridgeComputerUseContext {
+            thread_id: "thread_browser",
+            turn_id: "turn_browser",
+            run_id: "run_browser",
+            workspace_root: Some("/tmp/ioi"),
+            created_at: "2026-05-14T00:00:00Z",
+        };
+        let events = browser_observation_artifacts_to_tti_events(&context, &artifacts);
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0]["event_kind"], "computer_use.observation");
+        assert_eq!(events[0]["component_kind"], "computer_use_harness");
+        assert_eq!(
+            events[0]["payload"]["computer_use_contract_ingest"],
+            "browser_observation_artifacts"
+        );
+        assert_eq!(
+            events[0]["payload"]["observation_bundle"]["url"],
+            "https://example.test/app"
+        );
+        assert_eq!(
+            events[0]["payload"]["target_index"]["targets"][0]["label"],
+            "Submit"
+        );
+        assert_eq!(events[1]["event_kind"], "computer_use.affordance_graph");
+        assert!(events[1]["payload"]["affordance_graph"]["affordances"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|affordance| {
+                affordance["possible_action"] == "click"
+                    && affordance["confirmation_required"] == true
+            }));
+    }
+
+    #[test]
+    fn computer_use_detection_accepts_metadata_prompt_and_browser_tools() {
+        assert!(request_indicates_computer_use(
+            &json!({"computerUse": true}),
+            ""
+        ));
+        assert!(request_indicates_computer_use(
+            &json!({}),
+            "open the browser"
+        ));
+        assert!(kernel_event_mentions_browser_tool(
+            &KernelEvent::AgentActionResult {
+                session_id: [9u8; 32],
+                step_index: 1,
+                tool_name: "browser__inspect".to_string(),
+                output: "ok".to_string(),
+                error_class: None,
+                agent_status: "Running".to_string(),
+            }
+        ));
     }
 }
