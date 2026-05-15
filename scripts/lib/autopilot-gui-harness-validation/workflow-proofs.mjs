@@ -164,6 +164,17 @@ export function collectWorkflowNativeBrowserPromptPipelineProof(outputRoot) {
   });
 }
 
+export function collectWorkflowVisualGuiPromptPipelineProof(outputRoot) {
+  return collectProbeProof(outputRoot, {
+    fileName: "workflow-visual-gui-prompt-pipeline-proof.json",
+    scriptPath:
+      "scripts/lib/workflow-visual-gui-prompt-pipeline-gui-probe.mjs",
+    schemaVersion: "workflow.visual-gui.prompt-pipeline-proof.v1",
+    scenario: "workflow_visual_gui_prompt_pipeline",
+    errorLabel: "visual GUI prompt pipeline probe",
+  });
+}
+
 export function collectWorkflowSkillContextProof(outputRoot) {
   const files = {
     graphTypes: "packages/agent-ide/src/types/graph.ts",

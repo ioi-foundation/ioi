@@ -508,6 +508,12 @@ daemon thread-tool route, including approval, target selectors, text/key/scroll
 and file payloads, CDP endpoint/websocket, sandbox provider/image/task refs,
 local-capture, and opt-in local GUI executor options, so manual validation can
 run both the gated and approved prompt pipeline without knowing raw tool ids.
+The workflow proof harness now covers the same authoring path for native
+browser, sandboxed computer, and visual GUI lanes: mounted model prompt traces
+flow into Browser Use or Visual Observation plus Computer Use, then project
+environment, observation, target-index/SoM/AX, affordance, proposal, approval,
+preflight drift, action, verification, trajectory, and cleanup rows without a
+React Flow shadow truth store.
 Sandboxed
 Computer authoring presets now default to `local_sandbox` plus `local_fixture`,
 giving workflow authors a runnable hosted-style harness trace while concrete
