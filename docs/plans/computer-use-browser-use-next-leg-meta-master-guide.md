@@ -484,7 +484,10 @@ thread-tool invocation of `ioi.computer_use.native_browser` now emits the full
 read-only native-browser behavioral loop through canonical `computer_use.*`
 events, giving workflows and TUI surfaces a glass-box prompt-through-pipeline
 trace while the CDP-backed mutating executor remains the next browser-lane
-implementation target.
+implementation target. CLI and TUI operators now have dedicated native-browser
+commands over the same daemon thread-tool route, so manual validation can run
+the prompt pipeline without knowing the raw `ioi.computer_use.native_browser`
+tool id.
 Future daemon, workflow, and Autopilot policy executors should consume these
 helpers rather than defining local policy shapes.
 
