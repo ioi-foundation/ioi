@@ -80,9 +80,12 @@ export function computerUseProjectionForRun({
       workflowBinding,
     });
   }
-  const adapterId = hasMountedContracts
-    ? `ioi.${selectedLane}.mounted_contract`
-    : "ioi.native_browser.chromiumoxide.daemon";
+  const adapterContractOverride = contractOverrides.adapterContract;
+  const cleanupOverride = contractOverrides.cleanupReceipt;
+  const adapterId = cleanString(adapterContractOverride?.adapter_id) ??
+    (hasMountedContracts
+      ? `ioi.${selectedLane}.mounted_contract`
+      : "ioi.native_browser.chromiumoxide.daemon");
   const targetHint = computerUseTargetHint(prompt);
   const leaseId = `lease_${runId}_browser`;
   const observationRef =
@@ -203,7 +206,9 @@ export function computerUseProjectionForRun({
     authority_required: requestedActionAuthority,
     privacy_impact: requestedRetentionMode,
     expected_cleanup: hasMountedContracts
-      ? "release_mounted_executor_contract_and_retain_redacted_trace"
+      ? cleanupOverride
+        ? "adapter_cleanup_receipt_supplied_and_redacted_trace_retained"
+        : "release_mounted_executor_contract_and_retain_redacted_trace"
       : "close_owned_browser_context_and_retain_redacted_trace",
   };
   const lease = {
@@ -561,15 +566,34 @@ export function computerUseProjectionForRun({
       },
     ],
   };
-  const cleanup = {
+  const cleanup = mergeCleanupReceipt({
     cleanup_ref: cleanupRef,
     lease_id: lease.lease_id,
     status: "completed",
-    closed_process_refs: [`process:${lease.environment_ref}`],
-    deleted_profile_refs: [`profile:${lease.lease_id}`],
+    closed_process_refs: hasMountedContracts ? [] : [`process:${lease.environment_ref}`],
+    deleted_profile_refs: hasMountedContracts ? [] : [`profile:${lease.lease_id}`],
     retained_artifact_refs: ["computer-use-trace.json"],
-    warnings: [],
-  };
+    warnings: hasMountedContracts && !cleanupOverride
+      ? ["mounted_executor_cleanup_receipt_not_supplied"]
+      : [],
+  }, cleanupOverride, cleanupRef, lease.lease_id);
+  const adapterContract = mergeAdapterContract({
+    adapter_id: executionAdapterId,
+    lane: environmentSelection.selected_lane,
+    supported_session_modes: [environmentSelection.selected_session_mode],
+    capabilities: [
+      "observe.dom",
+      "observe.ax",
+      "observe.screenshot",
+      `act.${requestedActionKind}`,
+      "verify.postcondition",
+      "cleanup",
+    ],
+    emits_observation_bundle: true,
+    emits_action_receipts: requestedActionWillExecute,
+    emits_cleanup_receipts: true,
+    fail_closed_when_unavailable: true,
+  }, adapterContractOverride, selectedLane, selectedSessionMode);
   const basePayload = {
     schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
     harness_contract: defaultComputerUseHarnessContract(),
@@ -642,15 +666,7 @@ export function computerUseProjectionForRun({
         ...basePayload,
         computer_use_step: "acquire_lease",
         lease,
-        adapter_contract: {
-          adapter_id: executionAdapterId,
-          lane: environmentSelection.selected_lane,
-          supported_session_modes: [environmentSelection.selected_session_mode],
-          capabilities: ["observe.dom", "observe.ax", "observe.screenshot", `act.${requestedActionKind}`, "verify.postcondition"],
-          emits_observation_bundle: true,
-          emits_action_receipts: requestedActionWillExecute,
-          fail_closed_when_unavailable: true,
-        },
+        adapter_contract: adapterContract,
       },
     }),
     computerUseEvent({
@@ -805,6 +821,7 @@ export function computerUseProjectionForRun({
     commitGate,
     trajectory,
     cleanup,
+    adapterContract,
     events,
     receipt: {
       id: traceReceiptId,
@@ -1293,12 +1310,61 @@ function computerUseContractOverrides(request = {}) {
       metadata.computerUseAffordanceGraph ??
       metadata.computer_use_affordance_graph,
     ),
+    adapterContract: objectValue(
+      metadata.computerUseAdapterContract ??
+      metadata.computer_use_adapter_contract,
+    ),
+    cleanupReceipt: objectValue(
+      metadata.computerUseCleanupReceipt ??
+      metadata.computer_use_cleanup_receipt,
+    ),
     browserObservationArtifacts: objectValue(
       metadata.computerUseBrowserObservationArtifacts ??
       metadata.computer_use_browser_observation_artifacts ??
       metadata.browserObservationArtifacts ??
       metadata.browser_observation_artifacts,
     ),
+  };
+}
+
+function mergeAdapterContract(base, override, lane, sessionMode) {
+  if (!override) return base;
+  return {
+    ...base,
+    ...override,
+    adapter_id: cleanString(override.adapter_id) ?? base.adapter_id,
+    lane: cleanString(override.lane) ?? lane,
+    supported_session_modes: cleanStringArray(override.supported_session_modes).length > 0
+      ? cleanStringArray(override.supported_session_modes)
+      : [sessionMode],
+    capabilities: cleanStringArray(override.capabilities).length > 0
+      ? cleanStringArray(override.capabilities)
+      : base.capabilities,
+    emits_observation_bundle: booleanValue(override.emits_observation_bundle) ?? base.emits_observation_bundle,
+    emits_action_receipts: booleanValue(override.emits_action_receipts) ?? base.emits_action_receipts,
+    emits_cleanup_receipts: booleanValue(override.emits_cleanup_receipts) ?? base.emits_cleanup_receipts,
+    fail_closed_when_unavailable: booleanValue(override.fail_closed_when_unavailable) ?? base.fail_closed_when_unavailable,
+  };
+}
+
+function mergeCleanupReceipt(base, override, cleanupRef, leaseId) {
+  if (!override) return base;
+  return {
+    ...base,
+    ...override,
+    cleanup_ref: cleanString(override.cleanup_ref) ?? cleanupRef,
+    lease_id: cleanString(override.lease_id) ?? leaseId,
+    status: cleanString(override.status) ?? base.status,
+    closed_process_refs: cleanStringArray(override.closed_process_refs).length > 0
+      ? cleanStringArray(override.closed_process_refs)
+      : base.closed_process_refs,
+    deleted_profile_refs: cleanStringArray(override.deleted_profile_refs).length > 0
+      ? cleanStringArray(override.deleted_profile_refs)
+      : base.deleted_profile_refs,
+    retained_artifact_refs: cleanStringArray(override.retained_artifact_refs).length > 0
+      ? cleanStringArray(override.retained_artifact_refs)
+      : base.retained_artifact_refs,
+    warnings: cleanStringArray(override.warnings),
   };
 }
 

@@ -434,6 +434,7 @@ export interface RuntimeTraceBundle {
     commitGate?: unknown;
     trajectory: unknown;
     cleanup: unknown;
+    adapterContract?: unknown;
   } | null;
   stopCondition: StopConditionProjection;
   qualityLedger: AgentQualityLedgerProjection;

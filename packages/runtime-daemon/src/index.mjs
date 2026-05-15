@@ -14535,6 +14535,7 @@ function buildRun({
           commitGate: computerUseProjection.commitGate,
           trajectory: computerUseProjection.trajectory,
           cleanup: computerUseProjection.cleanup,
+          adapterContract: computerUseProjection.adapterContract,
         }
       : null,
     diagnosticsFeedback,
@@ -18074,6 +18075,8 @@ function computerUseNativeBrowserInvocationResultFromEvents(events, context = {}
     payloads.find((payload) => payload.verification_receipt || payload.verificationReceipt) ?? {};
   const cleanupPayload =
     payloads.find((payload) => payload.cleanup_receipt || payload.cleanupReceipt) ?? {};
+  const adapterPayload =
+    payloads.find((payload) => payload.adapter_contract || payload.adapterContract) ?? {};
   const affordancePayload =
     payloads.find((payload) => payload.affordance_graph || payload.affordanceGraph) ?? {};
   const proposalPayload =
@@ -18178,6 +18181,11 @@ function computerUseNativeBrowserInvocationResultFromEvents(events, context = {}
         projection.cleanup ??
         cleanupPayload.cleanup_receipt ??
         cleanupPayload.cleanupReceipt ??
+        null,
+      adapterContract:
+        projection.adapterContract ??
+        adapterPayload.adapter_contract ??
+        adapterPayload.adapterContract ??
         null,
     },
     error: null,

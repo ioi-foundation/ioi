@@ -1591,6 +1591,24 @@ test("runtime daemon activates mounted visual computer-use contracts instead of 
         computerUse: true,
         computerUseLane: "visual_gui",
         computerUseSessionMode: "foreground_desktop",
+        computerUseAdapterContract: {
+          adapter_id: "ioi.visual_gui.test_adapter",
+          lane: "visual_gui",
+          supported_session_modes: ["foreground_desktop"],
+          capabilities: ["observe.screenshot", "observe.som", "verify.postcondition", "cleanup"],
+          emits_observation_bundle: true,
+          emits_action_receipts: true,
+          emits_cleanup_receipts: true,
+          fail_closed_when_unavailable: true,
+        },
+        computerUseCleanupReceipt: {
+          cleanup_ref: "cleanup-visual-mounted",
+          status: "completed",
+          closed_process_refs: ["window:canvas-app"],
+          deleted_profile_refs: [],
+          retained_artifact_refs: ["computer-use-trace.json", "artifact:visual:screenshot-redacted"],
+          warnings: [],
+        },
         computerUseObservationBundle: {
           observation_ref: "observation-visual-mounted",
           lane: "visual_gui",
@@ -1631,7 +1649,10 @@ test("runtime daemon activates mounted visual computer-use contracts instead of 
     assert.equal(trace.computerUse.lease.status, "active");
     assert.equal(trace.computerUse.observation.app_name, "Canvas App");
     assert.equal(trace.computerUse.actionProposal.target_ref, "target-visual-canvas");
+    assert.equal(trace.computerUse.adapterContract.adapter_id, "ioi.visual_gui.test_adapter");
     assert.equal(trace.computerUse.cleanup.status, "completed");
+    assert.equal(trace.computerUse.cleanup.cleanup_ref, "cleanup-visual-mounted");
+    assert.deepEqual(trace.computerUse.cleanup.closed_process_refs, ["window:canvas-app"]);
 
     const thread = await agent.thread();
     const runtimeEvents = [];
@@ -1646,6 +1667,12 @@ test("runtime daemon activates mounted visual computer-use contracts instead of 
     assert.ok(selected);
     assert.equal(selected.payload.computer_use_lane, "visual_gui");
     assert.equal(selected.payload.computer_use_contract_ingest, "canonical_runtime_contract");
+    const leaseEvent = runtimeEvents.find((event) => event.eventKind === "computer_use.lease_acquired");
+    assert.ok(leaseEvent);
+    assert.equal(leaseEvent.payload.adapter_contract.adapter_id, "ioi.visual_gui.test_adapter");
+    const cleanupEvent = runtimeEvents.find((event) => event.eventKind === "computer_use.cleanup");
+    assert.ok(cleanupEvent);
+    assert.equal(cleanupEvent.payload.cleanup_receipt.cleanup_ref, "cleanup-visual-mounted");
   } finally {
     await daemon.close();
   }
@@ -1667,6 +1694,24 @@ test("runtime daemon activates mounted sandboxed computer-use contracts instead 
         computerUse: true,
         computerUseLane: "sandboxed_hosted",
         computerUseSessionMode: "hosted_sandbox",
+        computerUseAdapterContract: {
+          adapter_id: "ioi.sandboxed_hosted.test_adapter",
+          lane: "sandboxed_hosted",
+          supported_session_modes: ["hosted_sandbox"],
+          capabilities: ["provision", "observe.screenshot", "verify.postcondition", "cleanup"],
+          emits_observation_bundle: true,
+          emits_action_receipts: true,
+          emits_cleanup_receipts: true,
+          fail_closed_when_unavailable: true,
+        },
+        computerUseCleanupReceipt: {
+          cleanup_ref: "cleanup-hosted-mounted",
+          status: "completed",
+          closed_process_refs: ["sandbox:hosted-session"],
+          deleted_profile_refs: ["image-layer:ephemeral"],
+          retained_artifact_refs: ["computer-use-trace.json", "artifact:hosted:screenshot-redacted"],
+          warnings: [],
+        },
         computerUseObservationBundle: {
           observation_ref: "observation-hosted-mounted",
           lane: "sandboxed_hosted",
@@ -1701,6 +1746,9 @@ test("runtime daemon activates mounted sandboxed computer-use contracts instead 
     assert.equal(trace.computerUse.lease.status, "active");
     assert.equal(trace.computerUse.observation.app_name, "Hosted Browser");
     assert.equal(trace.computerUse.actionProposal.target_ref, "target-hosted-form");
+    assert.equal(trace.computerUse.adapterContract.adapter_id, "ioi.sandboxed_hosted.test_adapter");
+    assert.equal(trace.computerUse.cleanup.cleanup_ref, "cleanup-hosted-mounted");
+    assert.deepEqual(trace.computerUse.cleanup.deleted_profile_refs, ["image-layer:ephemeral"]);
     assert.equal(
       trace.events.some((event) => event.type === "computer_use_environment_unavailable"),
       false,
