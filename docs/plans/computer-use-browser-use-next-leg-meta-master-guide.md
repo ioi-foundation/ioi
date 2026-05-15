@@ -436,6 +436,9 @@ helpers. SDK, daemon, saved workflow runs, and React Flow run history now expose
 commit-gate evidence through the canonical `computer_use.commit_gate` step.
 SDK-local and daemon-backed runs also accept canonical native-browser
 observation, target-index, and affordance contracts from mounted executors.
+Daemon-backed visual lane runs activate through the same trace spine when a
+mounted visual executor supplies those contracts, while missing visual/sandbox
+adapters still fail closed.
 Future daemon, workflow, and Autopilot policy executors should consume these
 helpers rather than defining local policy shapes.
 

@@ -658,6 +658,82 @@ test("runtime daemon ingests canonical computer-use observation contracts", asyn
   }
 });
 
+test("runtime daemon activates mounted visual computer-use contracts instead of failing closed", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-visual-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-visual-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const run = await agent.send("Use the visual desktop to inspect the canvas app.", {
+      metadata: {
+        computerUse: true,
+        computerUseLane: "visual_gui",
+        computerUseSessionMode: "foreground_desktop",
+        computerUseObservationBundle: {
+          observation_ref: "observation-visual-mounted",
+          lane: "visual_gui",
+          session_mode: "foreground_desktop",
+          app_name: "Canvas App",
+          window_title: "Canvas App - Mounted",
+          screenshot_ref: "artifact:visual:screenshot-redacted",
+          som_ref: "artifact:visual:som",
+          target_index_ref: "target-index-visual-mounted",
+          detected_patterns: ["canvas", "toolbar"],
+        },
+        computerUseTargetIndex: {
+          target_index_ref: "target-index-visual-mounted",
+          observation_ref: "observation-visual-mounted",
+          coordinate_space_id: "screen-visual-1",
+          drift_state: "fresh",
+          targets: [
+            {
+              target_ref: "target-visual-canvas",
+              label: "Main canvas",
+              role: "canvas",
+              semantic_ids: ["som:1"],
+              selectors: [],
+              som_id: 1,
+              confidence: 89,
+              available_actions: ["inspect"],
+            },
+          ],
+        },
+      },
+    });
+    const trace = await run.inspect();
+    assert.deepEqual(
+      trace.events.filter((event) => event.type.startsWith("computer_use_")).map((event) => event.type),
+      expectedComputerUseEventTypes,
+    );
+    assert.equal(trace.computerUse.environmentSelection.selected_lane, "visual_gui");
+    assert.equal(trace.computerUse.lease.status, "active");
+    assert.equal(trace.computerUse.observation.app_name, "Canvas App");
+    assert.equal(trace.computerUse.actionProposal.target_ref, "target-visual-canvas");
+    assert.equal(trace.computerUse.cleanup.status, "completed");
+
+    const thread = await agent.thread();
+    const runtimeEvents = [];
+    for await (const event of thread.events()) {
+      runtimeEvents.push(event);
+    }
+    assert.equal(
+      runtimeEvents.some((event) => event.eventKind === "computer_use.environment_unavailable"),
+      false,
+    );
+    const selected = runtimeEvents.find((event) => event.eventKind === "computer_use.environment_selected");
+    assert.ok(selected);
+    assert.equal(selected.payload.computer_use_lane, "visual_gui");
+    assert.equal(selected.payload.computer_use_contract_ingest, "canonical_runtime_contract");
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("requested unavailable computer-use lanes fail closed with visible recovery policy", async () => {
   const { cwd, client } = tempClient();
   const agent = await Agent.create({
