@@ -120,10 +120,13 @@ export function computerUseProjectionForRun({
   const requestedActionApprovalRef = requestedComputerUseApprovalRef(request);
   const requestedActionHasApproval = !requestedActionIsReadOnly && requestedActionApprovalRef !== null;
   const requestedActionExecution = requestedComputerUseExecutionResult(request);
+  const requestedActionExecutionAttempted = Boolean(requestedActionExecution);
   const requestedActionExecutionCompleted = requestedActionExecution?.status === "completed";
   const requestedActionExecutionBlocked =
-    requestedActionHasApproval && !requestedActionExecutionCompleted;
-  const requestedActionWillExecute = requestedActionIsReadOnly || requestedActionExecutionCompleted;
+    requestedActionExecutionAttempted && !requestedActionExecutionCompleted;
+  const requestedActionWillExecute = requestedActionExecutionAttempted
+    ? requestedActionExecutionCompleted
+    : requestedActionIsReadOnly;
   const executionAdapterId = cleanString(requestedActionExecution?.adapter_id) ?? adapterId;
   const executionAfter = objectValue(requestedActionExecution?.after);
   const requestedActionAuthority = requestedActionIsReadOnly
@@ -132,9 +135,11 @@ export function computerUseProjectionForRun({
   const requestedActionRisk = requestedActionIsReadOnly
     ? "read_only"
     : "possible_external_effect";
-  const actionPolicySlug = requestedActionIsReadOnly
-    ? "read_only"
-    : requestedActionExecutionCompleted
+  const actionPolicySlug = requestedActionExecutionBlocked
+    ? "executor_unavailable"
+    : requestedActionIsReadOnly
+      ? "read_only"
+      : requestedActionExecutionCompleted
       ? "approved_external_effect"
       : requestedActionHasApproval
         ? "executor_unavailable"
@@ -183,7 +188,9 @@ export function computerUseProjectionForRun({
     risk_posture: mode === "dry_run"
       ? "preview_only"
       : requestedActionIsReadOnly
-        ? "read_only_probe"
+        ? requestedActionExecutionBlocked
+          ? "blocked_executor_unavailable"
+          : "read_only_probe"
         : requestedActionExecutionCompleted
           ? "approved_external_effect"
           : requestedActionHasApproval
@@ -396,9 +403,11 @@ export function computerUseProjectionForRun({
         ? "blocked"
         : "requires_human",
     expected_postcondition: actionProposal.predicted_postcondition,
-    observed_postcondition: requestedActionIsReadOnly
-      ? "Environment, lease, observation, target index, affordance graph, action proposal, action receipt, and cleanup are trace-visible."
-      : requestedActionExecutionCompleted
+    observed_postcondition: requestedActionExecutionBlocked
+      ? `No browser action was executed because the executor failed closed: ${cleanString(requestedActionExecution?.error_summary) ?? "native browser executor unavailable"}.`
+      : requestedActionIsReadOnly
+        ? "Environment, lease, observation, target index, affordance graph, action proposal, action receipt, and cleanup are trace-visible."
+        : requestedActionExecutionCompleted
         ? "Approval was present, the CDP adapter executed the grounded mutating browser action, and the post-action observation is trace-visible."
         : requestedActionHasApproval
           ? `Approval was present, but no mutating browser action was executed because the executor failed closed: ${cleanString(requestedActionExecution?.error_summary) ?? "native browser executor unavailable"}.`
@@ -416,9 +425,11 @@ export function computerUseProjectionForRun({
   };
   const outcomeContract = {
     outcome_ref: `outcome_${runId}`,
-    requested_outcome: requestedActionIsReadOnly
-      ? "Produce a grounded browser observation summary without external side effects."
-      : requestedActionExecutionCompleted
+    requested_outcome: requestedActionExecutionBlocked
+      ? `Block the grounded ${requestedActionKind} browser action because the native-browser executor was unavailable.`
+      : requestedActionIsReadOnly
+        ? "Produce a grounded browser observation summary without external side effects."
+        : requestedActionExecutionCompleted
         ? `Execute the approved grounded ${requestedActionKind} browser action and verify the postcondition.`
         : requestedActionHasApproval
           ? `Block the approved grounded ${requestedActionKind} browser action because the native-browser executor was unavailable.`
@@ -452,10 +463,12 @@ export function computerUseProjectionForRun({
           commit_gate_ref: `commit_gate_${runId}_${actionProposal.proposal_ref}`,
           final_action_ref: null,
           outcome_ref: outcomeContract.outcome_ref,
-          external_effect: true,
+          external_effect: !requestedActionIsReadOnly,
           user_confirmation_required: false,
           authority_required: requestedActionAuthority,
-          pre_commit_summary: `Approved ${actionProposal.normalized_action_candidate} could not execute because the native-browser executor was unavailable.`,
+          pre_commit_summary: requestedActionHasApproval
+            ? `Approved ${actionProposal.normalized_action_candidate} could not execute because the native-browser executor was unavailable.`
+            : `Explicit ${actionProposal.normalized_action_candidate} execution could not proceed because the native-browser executor was unavailable.`,
           post_commit_verification: outcomeContract.success_criteria.join("; "),
           policy_decision_ref: policyDecisionRef,
           status: "blocked",
@@ -691,9 +704,11 @@ export function computerUseProjectionForRun({
         action_proposal: actionProposal,
         policy_gate: {
           policy_decision_ref: policyDecisionRef,
-          outcome: requestedActionIsReadOnly
-            ? "approved_for_read_only_probe"
-            : requestedActionExecutionCompleted
+          outcome: requestedActionExecutionBlocked
+            ? "blocked_executor_unavailable"
+            : requestedActionIsReadOnly
+              ? "approved_for_read_only_probe"
+              : requestedActionExecutionCompleted
               ? "approved_after_confirmation"
               : requestedActionHasApproval
                 ? "blocked_executor_unavailable"

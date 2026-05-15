@@ -35,6 +35,17 @@ pub(super) fn workflow_value_u64_any(value: &Value, keys: &[&str]) -> Option<u64
     })
 }
 
+pub(super) fn workflow_value_i64_any(value: &Value, keys: &[&str]) -> Option<i64> {
+    keys.iter().find_map(|key| {
+        value.get(*key).and_then(Value::as_i64).or_else(|| {
+            value
+                .get(*key)
+                .and_then(Value::as_u64)
+                .and_then(|item| i64::try_from(item).ok())
+        })
+    })
+}
+
 pub(super) fn workflow_string_array_any(value: &Value, keys: &[&str]) -> Vec<String> {
     keys.iter()
         .find_map(|key| value.get(*key).and_then(Value::as_array))

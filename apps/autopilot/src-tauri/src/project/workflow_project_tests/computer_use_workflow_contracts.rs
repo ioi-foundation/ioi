@@ -368,6 +368,7 @@ fn workflow_run_executes_approved_mutating_native_browser_action() {
                 "selector": "#submit",
                 "text": "hello",
                 "key": "Enter",
+                "scrollY": 420,
                 "cdpEndpointUrl": "http://127.0.0.1:9222",
                 "cdpTimeoutMs": 5000,
                 "observationRetentionMode": "local_redacted_artifacts",
@@ -454,6 +455,13 @@ fn workflow_run_executes_approved_mutating_native_browser_action() {
             .and_then(|value| value.get("key"))
             .and_then(Value::as_str),
         Some("Enter")
+    );
+    assert_eq!(
+        proposal_event
+            .get("payload")
+            .and_then(|value| value.get("scrollY"))
+            .and_then(Value::as_i64),
+        Some(420)
     );
     assert_eq!(
         proposal_event

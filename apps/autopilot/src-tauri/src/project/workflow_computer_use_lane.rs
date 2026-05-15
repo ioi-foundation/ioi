@@ -3,7 +3,8 @@
 use super::workflow_binding_lane::workflow_tool_binding;
 use super::workflow_node_metadata_lane::{workflow_node_id, workflow_node_type};
 use super::workflow_value_helpers::{
-    workflow_value_bool_any, workflow_value_string_any, workflow_value_u64_any,
+    workflow_value_bool_any, workflow_value_i64_any, workflow_value_string_any,
+    workflow_value_u64_any,
 };
 use super::*;
 
@@ -26,6 +27,8 @@ struct WorkflowComputerUseBinding {
     selector: Option<String>,
     text: Option<String>,
     key: Option<String>,
+    scroll_x: Option<i64>,
+    scroll_y: Option<i64>,
     cdp_endpoint_url: Option<String>,
     cdp_websocket_url: Option<String>,
     cdp_timeout_ms: Option<u64>,
@@ -150,6 +153,8 @@ fn workflow_computer_use_binding(workflow: &WorkflowProject) -> Option<WorkflowC
         workflow_value_string_any(&arguments, &["selector", "cssSelector", "css_selector"]);
     let text = workflow_value_string_any(&arguments, &["text", "inputText", "input_text"]);
     let key = workflow_value_string_any(&arguments, &["key", "keyText", "key_text"]);
+    let scroll_x = workflow_value_i64_any(&arguments, &["scrollX", "scroll_x"]);
+    let scroll_y = workflow_value_i64_any(&arguments, &["scrollY", "scroll_y"]);
     let cdp_endpoint_url = workflow_value_string_any(
         &arguments,
         &[
@@ -186,6 +191,8 @@ fn workflow_computer_use_binding(workflow: &WorkflowProject) -> Option<WorkflowC
         selector,
         text,
         key,
+        scroll_x,
+        scroll_y,
         cdp_endpoint_url,
         cdp_websocket_url,
         cdp_timeout_ms,
@@ -1406,6 +1413,10 @@ fn workflow_computer_use_base_payload(
         "selector": binding.selector,
         "text": binding.text,
         "key": binding.key,
+        "scroll_x": binding.scroll_x,
+        "scrollX": binding.scroll_x,
+        "scroll_y": binding.scroll_y,
+        "scrollY": binding.scroll_y,
         "cdp_endpoint_url": binding.cdp_endpoint_url,
         "cdpEndpointUrl": binding.cdp_endpoint_url,
         "cdp_websocket_url": binding.cdp_websocket_url,
