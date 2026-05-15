@@ -126,6 +126,7 @@ export function WorkflowRunsPanel({
     runtimeTelemetrySourceFilter,
     runtimeTelemetrySourceFilters,
     runtimeCodingToolBudgetEvidence,
+    computerUseWorkbench,
     modelInvocationTraces,
     tuiControlStateProjection,
     visibleTuiControlStateRows,
@@ -692,6 +693,172 @@ export function WorkflowRunsPanel({
                     · {runtimeCodingToolBudgetEvidence.eventIds[0] ?? "event pending"}
                   </small>
                 </article>
+              ) : null}
+            </section>
+          ) : null}
+          {computerUseWorkbench ? (
+            <section
+              className={`workflow-run-computer-use-workbench is-${computerUseWorkbench.status}`}
+              data-testid="workflow-run-computer-use-workbench"
+              data-status={computerUseWorkbench.status}
+              data-lane={computerUseWorkbench.lane ?? ""}
+              data-session-mode={computerUseWorkbench.sessionMode ?? ""}
+              data-lease-id={computerUseWorkbench.leaseId ?? ""}
+              data-observation-ref={computerUseWorkbench.observationRef ?? ""}
+              data-screen-ref={computerUseWorkbench.screenRef ?? ""}
+              data-som-ref={computerUseWorkbench.somRef ?? ""}
+              data-coordinate-space-id={
+                computerUseWorkbench.coordinateSpaceId ?? ""
+              }
+              data-target-index-ref={computerUseWorkbench.targetIndexRef ?? ""}
+              data-target-count={computerUseWorkbench.targetCount}
+              data-affordance-count={computerUseWorkbench.affordanceCount}
+              data-detected-patterns={
+                computerUseWorkbench.detectedPatterns.join("|")
+              }
+              data-proposal-ref={computerUseWorkbench.proposalRef ?? ""}
+              data-action-ref={computerUseWorkbench.actionRef ?? ""}
+              data-action-kind={computerUseWorkbench.actionKind ?? ""}
+              data-verification-status={
+                computerUseWorkbench.verificationStatus ?? ""
+              }
+              data-commit-gate-status={
+                computerUseWorkbench.commitGateStatus ?? ""
+              }
+              data-blocker={computerUseWorkbench.blocker ?? ""}
+              data-retention-mode={computerUseWorkbench.retentionMode ?? ""}
+              data-authority-required={
+                computerUseWorkbench.authorityRequired ?? ""
+              }
+              data-event-ids={computerUseWorkbench.eventIds.join("|")}
+              data-workflow-node-ids={
+                computerUseWorkbench.workflowNodeIds.join("|")
+              }
+              data-artifact-refs={computerUseWorkbench.artifactRefs.join("|")}
+              data-visual-target-refs={computerUseWorkbench.visualTargetSummaries
+                .map((target) => target.targetRef)
+                .join("|")}
+            >
+              <h4>Computer-use workbench</h4>
+              <div className="workflow-run-computer-use-workbench-grid">
+                <article
+                  className="workflow-run-computer-use-pane"
+                  data-testid="workflow-run-computer-use-screen-pane"
+                  data-screen-ref={computerUseWorkbench.screenRef ?? ""}
+                  data-som-ref={computerUseWorkbench.somRef ?? ""}
+                  data-coordinate-space-id={
+                    computerUseWorkbench.coordinateSpaceId ?? ""
+                  }
+                >
+                  <strong>Screen</strong>
+                  <span>
+                    {[
+                      computerUseWorkbench.screenRef ?? "screen pending",
+                      computerUseWorkbench.somRef
+                        ? `overlay ${computerUseWorkbench.somRef}`
+                        : null,
+                      computerUseWorkbench.coordinateSpaceId,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                  <small>
+                    {[
+                      computerUseWorkbench.lane,
+                      computerUseWorkbench.sessionMode,
+                      computerUseWorkbench.observationRef,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "observation pending"}
+                  </small>
+                </article>
+                <article
+                  className="workflow-run-computer-use-pane"
+                  data-testid="workflow-run-computer-use-overlay-pane"
+                  data-target-count={computerUseWorkbench.targetCount}
+                  data-affordance-count={computerUseWorkbench.affordanceCount}
+                >
+                  <strong>Target overlay</strong>
+                  <span>
+                    {computerUseWorkbench.targetCount} targets ·{" "}
+                    {computerUseWorkbench.affordanceCount} affordances
+                  </span>
+                  <small>
+                    {computerUseWorkbench.detectedPatterns.join(", ") ||
+                      "patterns pending"}
+                  </small>
+                </article>
+                <article
+                  className="workflow-run-computer-use-pane"
+                  data-testid="workflow-run-computer-use-action-pane"
+                  data-proposal-ref={computerUseWorkbench.proposalRef ?? ""}
+                  data-action-ref={computerUseWorkbench.actionRef ?? ""}
+                  data-verification-status={
+                    computerUseWorkbench.verificationStatus ?? ""
+                  }
+                >
+                  <strong>Action path</strong>
+                  <span>
+                    {computerUseWorkbench.actionRef
+                      ? [
+                          computerUseWorkbench.actionKind,
+                          computerUseWorkbench.actionRef,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")
+                      : computerUseWorkbench.proposalRef
+                        ? `proposal ${computerUseWorkbench.proposalRef}`
+                        : "proposal pending"}
+                  </span>
+                  <small>
+                    {[
+                      computerUseWorkbench.verificationStatus,
+                      computerUseWorkbench.commitGateStatus,
+                      computerUseWorkbench.blocker,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "verification pending"}
+                  </small>
+                </article>
+              </div>
+              {computerUseWorkbench.visualTargetSummaries.length > 0 ? (
+                <ol
+                  className="workflow-run-computer-use-targets"
+                  data-testid="workflow-run-computer-use-targets"
+                >
+                  {computerUseWorkbench.visualTargetSummaries
+                    .slice(0, 6)
+                    .map((target) => (
+                      <li
+                        key={target.targetRef}
+                        data-target-ref={target.targetRef}
+                        data-target-role={target.role ?? ""}
+                        data-som-id={target.somId ?? ""}
+                        data-confidence={target.confidence ?? ""}
+                        data-bounds-summary={target.boundsSummary ?? ""}
+                        data-available-actions={target.availableActions.join("|")}
+                      >
+                        <strong>
+                          {target.label ?? target.targetRef}
+                        </strong>
+                        <span>
+                          {[
+                            target.role,
+                            target.somId === null
+                              ? null
+                              : `mark ${target.somId}`,
+                            target.boundsSummary,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ") || "target evidence"}
+                        </span>
+                        <small>
+                          {target.availableActions.join(", ") ||
+                            "actions pending"}
+                        </small>
+                      </li>
+                    ))}
+                </ol>
               ) : null}
             </section>
           ) : null}

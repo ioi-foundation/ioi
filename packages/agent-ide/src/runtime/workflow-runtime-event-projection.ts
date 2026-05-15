@@ -177,6 +177,9 @@ export interface WorkflowRuntimeComputerUseProjection {
   authorityScopes: string[];
   failClosedWhenUnavailable: boolean | null;
   observationRef: string | null;
+  screenRef: string | null;
+  somRef: string | null;
+  coordinateSpaceId: string | null;
   targetIndexRef: string | null;
   affordanceGraphRef: string | null;
   browserDiscoveryRef: string | null;
@@ -204,10 +207,22 @@ export interface WorkflowRuntimeComputerUseProjection {
   targetCount: number | null;
   affordanceCount: number | null;
   detectedPatterns: string[];
+  visualTargetRefs: string[];
+  visualTargetSummaries: WorkflowRuntimeComputerUseVisualTargetSummary[];
   recoveryPolicy: Record<string, unknown> | null;
   outcomeContract: Record<string, unknown> | null;
   commitGate: Record<string, unknown> | null;
   humanHandoffState: Record<string, unknown> | null;
+}
+
+export interface WorkflowRuntimeComputerUseVisualTargetSummary {
+  targetRef: string;
+  label: string | null;
+  role: string | null;
+  somId: number | null;
+  confidence: number | null;
+  boundsSummary: string | null;
+  availableActions: string[];
 }
 
 export type WorkflowRuntimeCodingToolBudgetRecoveryAction =
@@ -3240,6 +3255,7 @@ function computerUseProjectionForRuntimeThreadEvent(
   const affordanceCount = affordanceGraph
     ? arrayField(affordanceGraph, "affordances").length
     : null;
+  const visualTargetSummaries = visualTargetSummariesForTargetIndex(targetIndex);
 
   return {
     schemaVersion: WORKFLOW_RUNTIME_COMPUTER_USE_PROJECTION_SCHEMA_VERSION,
@@ -3291,6 +3307,21 @@ function computerUseProjectionForRuntimeThreadEvent(
       stringField(payload, "computer_use_observation_ref", "computerUseObservationRef") ??
       stringField(observationBundle, "observation_ref", "observationRef") ??
       stringField(runState, "current_observation_ref", "currentObservationRef"),
+    screenRef:
+      stringField(payload, "computer_use_screen_ref", "computerUseScreenRef") ??
+      stringField(observationBundle, "screenshot_ref", "screenshotRef"),
+    somRef:
+      stringField(payload, "computer_use_som_ref", "computerUseSomRef") ??
+      stringField(observationBundle, "som_ref", "somRef"),
+    coordinateSpaceId:
+      stringField(
+        payload,
+        "computer_use_coordinate_space_id",
+        "computerUseCoordinateSpaceId",
+      ) ??
+      stringField(targetIndex, "coordinate_space_id", "coordinateSpaceId") ??
+      stringField(computerAction, "coordinate_space_id", "coordinateSpaceId") ??
+      stringField(actionReceipt, "coordinate_space_id", "coordinateSpaceId"),
     targetIndexRef:
       stringField(payload, "computer_use_target_index_ref", "computerUseTargetIndexRef") ??
       stringField(targetIndex, "target_index_ref", "targetIndexRef") ??
@@ -3388,11 +3419,57 @@ function computerUseProjectionForRuntimeThreadEvent(
       "detected_patterns",
       "detectedPatterns",
     ),
+    visualTargetRefs: visualTargetSummaries.map((target) => target.targetRef),
+    visualTargetSummaries,
     recoveryPolicy: recordField(payload, "recovery_policy", "recoveryPolicy"),
     outcomeContract,
     commitGate,
     humanHandoffState,
   };
+}
+
+function visualTargetSummariesForTargetIndex(
+  targetIndex: Record<string, unknown> | null,
+): WorkflowRuntimeComputerUseVisualTargetSummary[] {
+  return arrayField(targetIndex, "targets")
+    .map((target) => objectField(target))
+    .filter((target): target is Record<string, unknown> => Boolean(target))
+    .map((target) => ({
+      targetRef: stringField(target, "target_ref", "targetRef") ?? "target",
+      label: stringField(target, "label", "name"),
+      role: stringField(target, "role"),
+      somId: numberField(target, "som_id", "somId"),
+      confidence: numberField(target, "confidence"),
+      boundsSummary: boundsSummaryForTarget(target),
+      availableActions: stringArrayField(
+        target,
+        "available_actions",
+        "availableActions",
+      ),
+    }));
+}
+
+function boundsSummaryForTarget(target: Record<string, unknown>): string | null {
+  const bounds = recordField(target, "bounds");
+  if (!bounds) return null;
+  const coordinateSpaceId = stringField(
+    bounds,
+    "coordinate_space_id",
+    "coordinateSpaceId",
+  );
+  const x = numberField(bounds, "x");
+  const y = numberField(bounds, "y");
+  const width = numberField(bounds, "width", "w");
+  const height = numberField(bounds, "height", "h");
+  if (x === null || y === null || width === null || height === null) {
+    return coordinateSpaceId;
+  }
+  return [
+    coordinateSpaceId,
+    `${Math.round(x)},${Math.round(y)} ${Math.round(width)}x${Math.round(height)}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function labelForComputerUseRuntimeThreadEvent(

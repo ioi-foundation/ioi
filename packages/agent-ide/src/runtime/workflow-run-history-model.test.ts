@@ -390,11 +390,30 @@ test("workflow run history model exposes computer-use prompt pipelines", () => {
           observation_bundle: {
             observation_ref: "observation-browser",
             target_index_ref: "target-index-browser",
+            screenshot_ref: "artifact:run-a:screenshot",
+            som_ref: "artifact:run-a:som-overlay",
             detected_patterns: ["form", "toolbar"],
           },
           target_index: {
             target_index_ref: "target-index-browser",
-            targets: [{ target_ref: "target-page" }],
+            coordinate_space_id: "viewport-run-a",
+            targets: [
+              {
+                target_ref: "target-page",
+                label: "Page body",
+                role: "document",
+                som_id: 1,
+                confidence: 0.91,
+                available_actions: ["inspect"],
+                bounds: {
+                  coordinate_space_id: "viewport-run-a",
+                  x: 0,
+                  y: 0,
+                  width: 1024,
+                  height: 768,
+                },
+              },
+            ],
           },
         },
       }),
@@ -483,6 +502,27 @@ test("workflow run history model exposes computer-use prompt pipelines", () => {
     model.runtimeEventProjection.nodes[1]?.computerUse?.targetIndexRef,
     "target-index-browser",
   );
+  assert.equal(
+    model.computerUseWorkbench?.screenRef,
+    "artifact:run-a:screenshot",
+  );
+  assert.equal(model.computerUseWorkbench?.somRef, "artifact:run-a:som-overlay");
+  assert.equal(model.computerUseWorkbench?.coordinateSpaceId, "viewport-run-a");
+  assert.equal(model.computerUseWorkbench?.targetCount, 1);
+  assert.equal(model.computerUseWorkbench?.affordanceCount, 0);
+  assert.deepEqual(model.computerUseWorkbench?.detectedPatterns, [
+    "form",
+    "toolbar",
+  ]);
+  assert.deepEqual(model.computerUseWorkbench?.visualTargetSummaries[0], {
+    targetRef: "target-page",
+    label: "Page body",
+    role: "document",
+    somId: 1,
+    confidence: 0.91,
+    boundsSummary: "viewport-run-a · 0,0 1024x768",
+    availableActions: ["inspect"],
+  });
   assert.equal(
     model.runtimeEventProjection.nodes[2]?.computerUse?.policyDecisionRef,
     "policy-read-only",

@@ -22,6 +22,7 @@ import {
   type WorkflowRuntimeTuiControlStateProjection,
   type WorkflowRuntimeTuiControlStateRow,
   type WorkflowRuntimeEventProjection,
+  type WorkflowRuntimeComputerUseVisualTargetSummary,
   type WorkflowRuntimeThreadEventLike,
 } from "./workflow-runtime-event-projection";
 import {
@@ -95,6 +96,33 @@ export type WorkflowRunCodingToolBudgetEvidence = {
   policyDecisionRefs: string[];
 };
 
+export type WorkflowRunComputerUseWorkbench = {
+  status: string;
+  lane: string | null;
+  sessionMode: string | null;
+  leaseId: string | null;
+  observationRef: string | null;
+  screenRef: string | null;
+  somRef: string | null;
+  coordinateSpaceId: string | null;
+  targetIndexRef: string | null;
+  targetCount: number;
+  affordanceCount: number;
+  detectedPatterns: string[];
+  proposalRef: string | null;
+  actionRef: string | null;
+  actionKind: string | null;
+  verificationStatus: string | null;
+  commitGateStatus: string | null;
+  blocker: string | null;
+  retentionMode: string | null;
+  authorityRequired: string | null;
+  eventIds: string[];
+  workflowNodeIds: string[];
+  artifactRefs: string[];
+  visualTargetSummaries: WorkflowRuntimeComputerUseVisualTargetSummary[];
+};
+
 export type WorkflowRunHistoryModel = {
   normalizedSearch: string;
   totalRuns: number;
@@ -111,6 +139,7 @@ export type WorkflowRunHistoryModel = {
   runtimeTelemetrySourceFilter: string;
   runtimeTelemetrySourceFilters: WorkflowRunTelemetrySourceFilter[];
   runtimeCodingToolBudgetEvidence: WorkflowRunCodingToolBudgetEvidence | null;
+  computerUseWorkbench: WorkflowRunComputerUseWorkbench | null;
   modelInvocationTraces: WorkflowModelInvocationTraceView[];
   tuiControlStateProjection: WorkflowRuntimeTuiControlStateProjection;
   visibleTuiControlStateRows: WorkflowRuntimeTuiControlStateRow[];
@@ -196,6 +225,8 @@ export function workflowRunHistoryModel({
     runtimeTelemetrySummary,
     tuiControlStateProjection.rows,
   );
+  const computerUseWorkbench =
+    workflowRunComputerUseWorkbench(runtimeEventProjection);
   const selectedModelInvocationTraces = workflowModelInvocationTraces(
     selectedRun,
     workflow,
@@ -263,6 +294,7 @@ export function workflowRunHistoryModel({
     runtimeTelemetrySourceFilter,
     runtimeTelemetrySourceFilters,
     runtimeCodingToolBudgetEvidence,
+    computerUseWorkbench,
     modelInvocationTraces: selectedModelInvocationTraces,
     tuiControlStateProjection,
     visibleTuiControlStateRows,
@@ -273,6 +305,91 @@ export function workflowRunHistoryModel({
     harnessAttempts: selectedRun?.harnessAttempts ?? [],
     harnessComparisons: selectedRun?.harnessShadowComparisons ?? [],
   };
+}
+
+function workflowRunComputerUseWorkbench(
+  projection: WorkflowRuntimeEventProjection,
+): WorkflowRunComputerUseWorkbench | null {
+  const nodes = projection.nodes.filter((node) => node.computerUse);
+  if (nodes.length === 0) return null;
+  const latestNode = nodes[nodes.length - 1];
+  const latestComputerUse = latestNode?.computerUse;
+  if (!latestComputerUse) return null;
+  const latestScreenNode =
+    [...nodes]
+      .reverse()
+      .find((node) =>
+        Boolean(
+          node.computerUse?.screenRef ??
+            node.computerUse?.somRef ??
+            node.computerUse?.observationRef,
+        ),
+      ) ?? latestNode;
+  const latestScreen = latestScreenNode.computerUse ?? latestComputerUse;
+  const targetSummaries = uniqueTargets(
+    nodes.flatMap((node) => node.computerUse?.visualTargetSummaries ?? []),
+  );
+  return {
+    status: latestComputerUse.status,
+    lane: latestComputerUse.lane ?? latestScreen.lane,
+    sessionMode: latestComputerUse.sessionMode ?? latestScreen.sessionMode,
+    leaseId: latestComputerUse.leaseId ?? latestScreen.leaseId,
+    observationRef: latestScreen.observationRef,
+    screenRef: latestScreen.screenRef,
+    somRef: latestScreen.somRef,
+    coordinateSpaceId: latestScreen.coordinateSpaceId,
+    targetIndexRef: latestScreen.targetIndexRef,
+    targetCount: Math.max(
+      latestScreen.targetCount ?? 0,
+      targetSummaries.length,
+    ),
+    affordanceCount: nodes.reduce(
+      (count, node) => Math.max(count, node.computerUse?.affordanceCount ?? 0),
+      latestScreen.affordanceCount ?? 0,
+    ),
+    detectedPatterns: uniqueStrings(
+      nodes.flatMap((node) => node.computerUse?.detectedPatterns ?? []),
+    ),
+    proposalRef:
+      [...nodes].reverse().find((node) => node.computerUse?.proposalRef)
+        ?.computerUse?.proposalRef ?? null,
+    actionRef:
+      [...nodes].reverse().find((node) => node.computerUse?.actionRef)
+        ?.computerUse?.actionRef ?? null,
+    actionKind:
+      [...nodes].reverse().find((node) => node.computerUse?.actionKind)
+        ?.computerUse?.actionKind ?? null,
+    verificationStatus:
+      [...nodes].reverse().find((node) => node.computerUse?.verificationStatus)
+        ?.computerUse?.verificationStatus ?? null,
+    commitGateStatus:
+      [...nodes].reverse().find((node) => node.computerUse?.commitGateStatus)
+        ?.computerUse?.commitGateStatus ?? null,
+    blocker:
+      [...nodes].reverse().find((node) => node.computerUse?.blocker)
+        ?.computerUse?.blocker ?? null,
+    retentionMode:
+      latestScreen.retentionMode ?? latestComputerUse.retentionMode,
+    authorityRequired:
+      latestComputerUse.authorityRequired ?? latestScreen.authorityRequired,
+    eventIds: uniqueStrings(nodes.flatMap((node) => node.eventIds)),
+    workflowNodeIds: uniqueStrings(nodes.map((node) => node.workflowNodeId)),
+    artifactRefs: uniqueStrings(nodes.flatMap((node) => node.artifactRefs)),
+    visualTargetSummaries: targetSummaries,
+  };
+}
+
+function uniqueTargets(
+  targets: readonly WorkflowRuntimeComputerUseVisualTargetSummary[],
+): WorkflowRuntimeComputerUseVisualTargetSummary[] {
+  const seen = new Set<string>();
+  const unique: WorkflowRuntimeComputerUseVisualTargetSummary[] = [];
+  for (const target of targets) {
+    if (seen.has(target.targetRef)) continue;
+    seen.add(target.targetRef);
+    unique.push(target);
+  }
+  return unique;
 }
 
 function workflowRunTelemetrySourceFilters(
