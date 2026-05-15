@@ -2,7 +2,7 @@
 
 Owner: agent runtime / drivers / sandbox / Autopilot / workflow compositor
 
-Status: draft parity-plus guide
+Status: complete for local parity-plus lanes; external providers/evals tracked as deferrals
 
 Created: 2026-05-14
 
@@ -646,7 +646,7 @@ Required guarantees:
 
 ## Definition Of Done
 
-CUA parity-plus is complete when:
+CUA parity-plus for the local IOI lanes is complete when:
 
 - native browser, visual GUI, and sandboxed/hosted computer-use lanes share the
   same runtime contracts;
@@ -663,3 +663,10 @@ CUA parity-plus is complete when:
 - benchmark and trajectory exports support regression and meta-harness work;
 - safety rules around credentials, private screenshots, profiles, destructive
   actions, and cleanup are enforced by policy and visible in receipts.
+
+The completion dashboard above satisfies this definition for native browser,
+visual GUI, deterministic sandbox fixture, mounted-contract, workflow,
+SDK/CLI/TUI, and Autopilot glass-box surfaces. The remaining non-local work is
+narrowly deferred to selected external hosted providers, third-party eval
+ingestion, broader cross-domain policy-platform execution, and private
+screenshot preview policy.
