@@ -62,13 +62,33 @@ test("computer-use composer run options project configured native-browser action
   args["filePath"] = "/tmp/upload.txt";
   args["cdpEndpointUrl"] = "http://127.0.0.1:9222";
   args["cdpTimeoutMs"] = 5000;
+  args["computerUseSessionMode"] = "controlled_relaunch";
+  args["controlledRelaunchApprovalRef"] = "approval-controlled-browser-launch";
+  args["controlledRelaunchBrokerRef"] = "broker-controlled-browser-launch";
+  args["controlledRelaunchExecutablePath"] = "/usr/bin/chromium";
+  args["controlledRelaunchHeadless"] = true;
+  args["controlledRelaunchStartUrl"] = "https://example.test";
+  args["controlledRelaunchCdpPort"] = 9223;
 
   const options = workflowComposerComputerUseRunOptions(workflow);
 
   assert.ok(options);
+  assert.equal(options.metadata.computerUseSessionMode, "controlled_relaunch");
   assert.equal(options.metadata.computerUseActionKind, "click");
   assert.equal(options.metadata.computerUseApprovalRef, "approval-browser-click");
   assert.equal(options.metadata.computerUseTargetRef, "#submit");
+  assert.equal(
+    options.metadata.controlledRelaunchApprovalRef,
+    "approval-controlled-browser-launch",
+  );
+  assert.equal(
+    options.metadata.controlledRelaunchBrokerRef,
+    "broker-controlled-browser-launch",
+  );
+  assert.equal(options.metadata.controlledRelaunchExecutablePath, "/usr/bin/chromium");
+  assert.equal(options.metadata.controlledRelaunchHeadless, true);
+  assert.equal(options.metadata.controlledRelaunchStartUrl, "https://example.test");
+  assert.equal(options.metadata.controlledRelaunchCdpPort, 9223);
   assert.equal(options.metadata.selector, "#submit");
   assert.equal(options.metadata.text, "hello");
   assert.equal(options.metadata.key, "Enter");

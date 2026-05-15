@@ -186,6 +186,12 @@ export interface WorkflowRuntimeComputerUseProjection {
   browserProcessCount: number | null;
   cdpEndpointCount: number | null;
   defaultProfileBlockerCount: number | null;
+  controlledRelaunchLaunchRef: string | null;
+  controlledRelaunchLaunchStatus: string | null;
+  controlledRelaunchProcessRef: string | null;
+  controlledRelaunchProfileDirRef: string | null;
+  controlledRelaunchEndpointRef: string | null;
+  controlledRelaunchApprovalRef: string | null;
   proposalRef: string | null;
   actionRef: string | null;
   actionKind: string | null;
@@ -3220,6 +3226,11 @@ function computerUseProjectionForRuntimeThreadEvent(
     "browser_discovery_report",
     "browserDiscoveryReport",
   );
+  const controlledRelaunchLaunchReceipt = recordField(
+    payload,
+    "controlled_relaunch_launch_receipt",
+    "controlledRelaunchLaunchReceipt",
+  );
   const actionProposal = recordField(
     payload,
     "action_proposal",
@@ -3375,6 +3386,41 @@ function computerUseProjectionForRuntimeThreadEvent(
           "defaultProfileRemoteDebuggingBlockers",
         ).length
       : null,
+    controlledRelaunchLaunchRef:
+      stringField(
+        payload,
+        "computer_use_controlled_relaunch_launch_ref",
+        "computerUseControlledRelaunchLaunchRef",
+      ) ??
+      stringField(
+        controlledRelaunchLaunchReceipt,
+        "launch_ref",
+        "launchRef",
+      ),
+    controlledRelaunchLaunchStatus: stringField(
+      controlledRelaunchLaunchReceipt,
+      "status",
+    ),
+    controlledRelaunchProcessRef: stringField(
+      controlledRelaunchLaunchReceipt,
+      "process_ref",
+      "processRef",
+    ),
+    controlledRelaunchProfileDirRef: stringField(
+      controlledRelaunchLaunchReceipt,
+      "profile_dir_ref",
+      "profileDirRef",
+    ),
+    controlledRelaunchEndpointRef: stringField(
+      controlledRelaunchLaunchReceipt,
+      "endpoint_ref",
+      "endpointRef",
+    ),
+    controlledRelaunchApprovalRef: stringField(
+      controlledRelaunchLaunchReceipt,
+      "approval_ref",
+      "approvalRef",
+    ),
     proposalRef:
       stringField(payload, "computer_use_proposal_ref", "computerUseProposalRef") ??
       stringField(actionProposal, "proposal_ref", "proposalRef"),
@@ -3583,6 +3629,9 @@ function summaryForComputerUseProjection(
     computerUse.sessionMode,
     computerUse.browserDiscoveryRef
       ? `discovery ${computerUse.browserProcessCount ?? 0} browsers / ${computerUse.cdpEndpointCount ?? 0} CDP`
+      : null,
+    computerUse.controlledRelaunchLaunchStatus
+      ? `launch ${computerUse.controlledRelaunchLaunchStatus}`
       : null,
     computerUse.actionKind,
     computerUse.verificationStatus,

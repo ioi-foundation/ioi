@@ -12,6 +12,12 @@ export interface WorkflowComposerComputerUseRunMetadata {
   computerUseActionKind: string;
   computerUseApprovalRef?: string;
   computerUseTargetRef?: string;
+  controlledRelaunchApprovalRef?: string;
+  controlledRelaunchBrokerRef?: string;
+  controlledRelaunchExecutablePath?: string;
+  controlledRelaunchHeadless?: boolean;
+  controlledRelaunchStartUrl?: string;
+  controlledRelaunchCdpPort?: number;
   selector?: string;
   text?: string;
   key?: string;
@@ -75,6 +81,35 @@ export function workflowComposerComputerUseRunOptions(
     cleanString(first.args["computer_use_target_ref"]) ??
     cleanString(first.args["targetRef"]) ??
     cleanString(first.args["target_ref"]);
+  const controlledRelaunchApprovalRef =
+    cleanString(first.args["controlledRelaunchApprovalRef"]) ??
+    cleanString(first.args["controlled_relaunch_approval_ref"]) ??
+    cleanString(first.args["hostBrowserLaunchApprovalRef"]) ??
+    cleanString(first.args["host_browser_launch_approval_ref"]) ??
+    cleanString(first.args["browserLaunchApprovalRef"]) ??
+    cleanString(first.args["browser_launch_approval_ref"]);
+  const controlledRelaunchBrokerRef =
+    cleanString(first.args["controlledRelaunchBrokerRef"]) ??
+    cleanString(first.args["controlled_relaunch_broker_ref"]);
+  const controlledRelaunchExecutablePath =
+    cleanString(first.args["controlledRelaunchExecutablePath"]) ??
+    cleanString(first.args["controlled_relaunch_executable_path"]) ??
+    cleanString(first.args["browserExecutablePath"]) ??
+    cleanString(first.args["browser_executable_path"]);
+  const controlledRelaunchHeadless =
+    booleanValue(first.args["controlledRelaunchHeadless"]) ??
+    booleanValue(first.args["controlled_relaunch_headless"]) ??
+    booleanValue(first.args["browserLaunchHeadless"]) ??
+    booleanValue(first.args["browser_launch_headless"]);
+  const controlledRelaunchStartUrl =
+    cleanString(first.args["controlledRelaunchStartUrl"]) ??
+    cleanString(first.args["controlled_relaunch_start_url"]);
+  const controlledRelaunchCdpPort = positiveNumber(
+    first.args["controlledRelaunchCdpPort"] ??
+      first.args["controlled_relaunch_cdp_port"] ??
+      first.args["browserLaunchCdpPort"] ??
+      first.args["browser_launch_cdp_port"],
+  );
   const selector = cleanString(first.args["selector"]) ?? cleanString(first.args["cssSelector"]);
   const text =
     cleanString(first.args["text"]) ??
@@ -114,15 +149,30 @@ export function workflowComposerComputerUseRunOptions(
       computerUseActionKind: actionKind,
       ...(approvalRef ? { computerUseApprovalRef: approvalRef } : {}),
       ...(targetRef ? { computerUseTargetRef: targetRef } : {}),
+      ...(controlledRelaunchApprovalRef
+        ? { controlledRelaunchApprovalRef }
+        : {}),
+      ...(controlledRelaunchBrokerRef ? { controlledRelaunchBrokerRef } : {}),
+      ...(controlledRelaunchExecutablePath
+        ? { controlledRelaunchExecutablePath }
+        : {}),
+      ...(controlledRelaunchHeadless === true
+        ? { controlledRelaunchHeadless: true }
+        : {}),
+      ...(controlledRelaunchStartUrl ? { controlledRelaunchStartUrl } : {}),
+      ...(controlledRelaunchCdpPort ? { controlledRelaunchCdpPort } : {}),
       ...(selector ? { selector } : {}),
       ...(text ? { text } : {}),
       ...(key ? { key } : {}),
-      ...(scrollX !== null ? { scrollX } : {}),
-      ...(scrollY !== null ? { scrollY } : {}),
+      ...(scrollX !== null && actionKind !== "inspect" ? { scrollX } : {}),
+      ...(scrollY !== null && actionKind !== "inspect" ? { scrollY } : {}),
       ...(filePath ? { filePath } : {}),
       ...(cdpEndpointUrl ? { cdpEndpointUrl } : {}),
       ...(cdpWebSocketUrl ? { cdpWebSocketUrl } : {}),
-      ...(cdpTimeoutMs ? { cdpTimeoutMs } : {}),
+      ...(cdpTimeoutMs &&
+      (cdpEndpointUrl || cdpWebSocketUrl || sessionMode === "controlled_relaunch")
+        ? { cdpTimeoutMs }
+        : {}),
       observationRetentionMode:
         cleanString(first.args["observationRetentionMode"]) ??
         cleanString(first.args["observation_retention_mode"]),

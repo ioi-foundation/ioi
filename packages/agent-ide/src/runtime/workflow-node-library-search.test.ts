@@ -89,6 +89,7 @@ test("computer-use searches prioritize lane-specific authoring presets", () => {
     topNode("cdp endpoint").creatorId,
     "computer_use.browser_discovery",
   );
+  assert.equal(topNode("launch chrome").creatorId, "plugin_tool.browser_use");
 });
 
 test("short pr query does not act like broad substring search", () => {

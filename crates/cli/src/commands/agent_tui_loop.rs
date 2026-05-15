@@ -77,7 +77,11 @@ pub(crate) enum TuiLineCommand {
     BrowserDiscovery,
     NativeBrowser {
         prompt: Option<String>,
+        session_mode: Option<String>,
         approval_ref: Option<String>,
+        controlled_relaunch_approval_ref: Option<String>,
+        controlled_relaunch_executable_path: Option<String>,
+        controlled_relaunch_headless: bool,
         target_ref: Option<String>,
         selector: Option<String>,
         text: Option<String>,
@@ -403,7 +407,11 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
             }
             Ok(TuiLineCommand::NativeBrowser {
                 prompt,
+                session_mode,
                 approval_ref,
+                controlled_relaunch_approval_ref,
+                controlled_relaunch_executable_path,
+                controlled_relaunch_headless,
                 target_ref,
                 selector,
                 text,
@@ -419,7 +427,11 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                     &mut session,
                     NativeBrowserLineArgs {
                         prompt,
+                        session_mode,
                         approval_ref,
+                        controlled_relaunch_approval_ref,
+                        controlled_relaunch_executable_path,
+                        controlled_relaunch_headless,
                         target_ref,
                         selector,
                         text,
@@ -1020,7 +1032,11 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
             let args = parse_native_browser_args(rest)?;
             Ok(TuiLineCommand::NativeBrowser {
                 prompt: args.prompt,
+                session_mode: args.session_mode,
                 approval_ref: args.approval_ref,
+                controlled_relaunch_approval_ref: args.controlled_relaunch_approval_ref,
+                controlled_relaunch_executable_path: args.controlled_relaunch_executable_path,
+                controlled_relaunch_headless: args.controlled_relaunch_headless,
                 target_ref: args.target_ref,
                 selector: args.selector,
                 text: args.text,
@@ -1069,7 +1085,11 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 let args = parse_native_browser_args(prompt)?;
                 Ok(TuiLineCommand::NativeBrowser {
                     prompt: args.prompt,
+                    session_mode: args.session_mode,
                     approval_ref: args.approval_ref,
+                    controlled_relaunch_approval_ref: args.controlled_relaunch_approval_ref,
+                    controlled_relaunch_executable_path: args.controlled_relaunch_executable_path,
+                    controlled_relaunch_headless: args.controlled_relaunch_headless,
                     target_ref: args.target_ref,
                     selector: args.selector,
                     text: args.text,
@@ -2664,6 +2684,16 @@ async fn handle_native_browser_command(
         "observationRetentionMode".to_string(),
         Value::String("prompt_visible_summary_only".to_string()),
     );
+    if let Some(session_mode) = args
+        .session_mode
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "sessionMode".to_string(),
+            Value::String(session_mode.trim().to_string()),
+        );
+    }
     if let Some(approval_ref) = approval_ref
         .as_deref()
         .filter(|value| !value.trim().is_empty())
@@ -2672,6 +2702,29 @@ async fn handle_native_browser_command(
             "approvalRef".to_string(),
             Value::String(approval_ref.trim().to_string()),
         );
+    }
+    if let Some(controlled_relaunch_approval_ref) = args
+        .controlled_relaunch_approval_ref
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "controlledRelaunchApprovalRef".to_string(),
+            Value::String(controlled_relaunch_approval_ref.trim().to_string()),
+        );
+    }
+    if let Some(controlled_relaunch_executable_path) = args
+        .controlled_relaunch_executable_path
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "controlledRelaunchExecutablePath".to_string(),
+            Value::String(controlled_relaunch_executable_path.trim().to_string()),
+        );
+    }
+    if args.controlled_relaunch_headless {
+        input.insert("controlledRelaunchHeadless".to_string(), Value::Bool(true));
     }
     if let Some(target_ref) = args
         .target_ref
@@ -3384,7 +3437,7 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--approval-ref approval_id] [--selector css] [--target-ref ref] [--text value] [--key value] [--scroll-x n] [--scroll-y n] [--file-path path] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /computer-use [pause|resume|abort|cleanup] --lease-id lease_id [--handoff-ref ref] [--reason text] [--resume-observation-ref ref] [--cdp-endpoint-url url] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--session-mode owned_hermetic_browser|attached_cdp|controlled_relaunch] [--approval-ref approval_id] [--controlled-relaunch-approval-ref approval_id] [--controlled-relaunch-executable-path path] [--controlled-relaunch-headless] [--selector css] [--target-ref ref] [--text value] [--key value] [--scroll-x n] [--scroll-y n] [--file-path path] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /computer-use [pause|resume|abort|cleanup] --lease-id lease_id [--handoff-ref ref] [--reason text] [--resume-observation-ref ref] [--cdp-endpoint-url url] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -3430,7 +3483,11 @@ fn parse_computer_use_control_args(value: &str) -> Result<ComputerUseControlLine
         "resume" => "resume",
         "abort" | "cancel" => "abort",
         "cleanup" => "cleanup",
-        _ => return Err(anyhow!("computer-use control action must be pause, resume, abort, or cleanup")),
+        _ => {
+            return Err(anyhow!(
+                "computer-use control action must be pause, resume, abort, or cleanup"
+            ))
+        }
     }
     .to_string();
     let mut lease_id = None;
@@ -3462,7 +3519,8 @@ fn parse_computer_use_control_args(value: &str) -> Result<ComputerUseControlLine
             continue;
         }
         if let Some(inline) = part.strip_prefix("--resume-observation-ref=") {
-            resume_observation_ref = Some(non_empty_flag_value("--resume-observation-ref", inline)?);
+            resume_observation_ref =
+                Some(non_empty_flag_value("--resume-observation-ref", inline)?);
             continue;
         }
         if part == "--resume-observation-ref" {
@@ -3511,7 +3569,11 @@ fn parse_computer_use_control_args(value: &str) -> Result<ComputerUseControlLine
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct NativeBrowserLineArgs {
     prompt: Option<String>,
+    session_mode: Option<String>,
     approval_ref: Option<String>,
+    controlled_relaunch_approval_ref: Option<String>,
+    controlled_relaunch_executable_path: Option<String>,
+    controlled_relaunch_headless: bool,
     target_ref: Option<String>,
     selector: Option<String>,
     text: Option<String>,
@@ -3526,7 +3588,11 @@ struct NativeBrowserLineArgs {
 
 fn parse_native_browser_args(value: &str) -> Result<NativeBrowserLineArgs> {
     let mut prompt_parts = Vec::new();
+    let mut session_mode = None;
     let mut approval_ref = None;
+    let mut controlled_relaunch_approval_ref = None;
+    let mut controlled_relaunch_executable_path = None;
+    let mut controlled_relaunch_headless = false;
     let mut target_ref = None;
     let mut selector = None;
     let mut text = None;
@@ -3551,6 +3617,49 @@ fn parse_native_browser_args(value: &str) -> Result<NativeBrowserLineArgs> {
                 return Err(anyhow!("--approval-ref requires a value"));
             };
             approval_ref = Some(next.trim().to_string());
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--session-mode=") {
+            session_mode = Some(non_empty_flag_value("--session-mode", inline)?);
+            continue;
+        }
+        if part == "--session-mode" {
+            session_mode = Some(non_empty_flag_value(
+                "--session-mode",
+                required_flag_value("--session-mode", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--controlled-relaunch-approval-ref=") {
+            controlled_relaunch_approval_ref = Some(non_empty_flag_value(
+                "--controlled-relaunch-approval-ref",
+                inline,
+            )?);
+            continue;
+        }
+        if part == "--controlled-relaunch-approval-ref" {
+            controlled_relaunch_approval_ref = Some(non_empty_flag_value(
+                "--controlled-relaunch-approval-ref",
+                required_flag_value("--controlled-relaunch-approval-ref", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--controlled-relaunch-executable-path=") {
+            controlled_relaunch_executable_path = Some(non_empty_flag_value(
+                "--controlled-relaunch-executable-path",
+                inline,
+            )?);
+            continue;
+        }
+        if part == "--controlled-relaunch-executable-path" {
+            controlled_relaunch_executable_path = Some(non_empty_flag_value(
+                "--controlled-relaunch-executable-path",
+                required_flag_value("--controlled-relaunch-executable-path", &mut parts)?,
+            )?);
+            continue;
+        }
+        if part == "--controlled-relaunch-headless" {
+            controlled_relaunch_headless = true;
             continue;
         }
         if let Some(inline) = part.strip_prefix("--target-ref=") {
@@ -3667,7 +3776,11 @@ fn parse_native_browser_args(value: &str) -> Result<NativeBrowserLineArgs> {
     }
     Ok(NativeBrowserLineArgs {
         prompt: non_empty_string(&prompt_parts.join(" ")),
+        session_mode,
         approval_ref,
+        controlled_relaunch_approval_ref,
+        controlled_relaunch_executable_path,
+        controlled_relaunch_headless,
         target_ref,
         selector,
         text,
@@ -4745,7 +4858,11 @@ mod tests {
             parse_tui_line_command("/native-browser inspect https://example.com").unwrap(),
             TuiLineCommand::NativeBrowser {
                 prompt: Some("inspect https://example.com".to_string()),
+                session_mode: None,
                 approval_ref: None,
+                controlled_relaunch_approval_ref: None,
+                controlled_relaunch_executable_path: None,
+                controlled_relaunch_headless: false,
                 target_ref: None,
                 selector: None,
                 text: None,
@@ -4762,7 +4879,11 @@ mod tests {
             parse_tui_line_command("/computer-use native-browser https://example.com").unwrap(),
             TuiLineCommand::NativeBrowser {
                 prompt: Some("https://example.com".to_string()),
+                session_mode: None,
                 approval_ref: None,
+                controlled_relaunch_approval_ref: None,
+                controlled_relaunch_executable_path: None,
+                controlled_relaunch_headless: false,
                 target_ref: None,
                 selector: None,
                 text: None,
@@ -4777,12 +4898,18 @@ mod tests {
         );
         assert_eq!(
             parse_tui_line_command(
-                "/native-browser click submit --approval-ref approval-browser-click --selector #submit --target-ref #submit --text hello --key Enter --scroll-y 420 --file-path /tmp/upload.txt --cdp-endpoint-url http://127.0.0.1:9222 --cdp-timeout-ms 5000"
+                "/native-browser click submit --session-mode controlled_relaunch --approval-ref approval-browser-click --controlled-relaunch-approval-ref approval-controlled-browser-launch --controlled-relaunch-executable-path /usr/bin/chromium --controlled-relaunch-headless --selector #submit --target-ref #submit --text hello --key Enter --scroll-y 420 --file-path /tmp/upload.txt --cdp-endpoint-url http://127.0.0.1:9222 --cdp-timeout-ms 5000"
             )
             .unwrap(),
             TuiLineCommand::NativeBrowser {
                 prompt: Some("click submit".to_string()),
+                session_mode: Some("controlled_relaunch".to_string()),
                 approval_ref: Some("approval-browser-click".to_string()),
+                controlled_relaunch_approval_ref: Some(
+                    "approval-controlled-browser-launch".to_string()
+                ),
+                controlled_relaunch_executable_path: Some("/usr/bin/chromium".to_string()),
+                controlled_relaunch_headless: true,
                 target_ref: Some("#submit".to_string()),
                 selector: Some("#submit".to_string()),
                 text: Some("hello".to_string()),

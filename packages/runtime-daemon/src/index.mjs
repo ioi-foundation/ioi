@@ -24,6 +24,7 @@ import {
   discoverComputerUseBrowsers,
   discoverComputerUseBrowsersSync,
 } from "./browser-discovery.mjs";
+import { launchControlledNativeBrowser } from "./native-browser-controlled-relaunch-broker.mjs";
 import { executeNativeBrowserCdpAction } from "./native-browser-cdp-executor.mjs";
 import { AgentMemoryStore, parseMemoryCommand } from "./memory-store.mjs";
 import {
@@ -7597,24 +7598,64 @@ export class AgentgresRuntimeStateStore {
     const requestedApprovalRef = nativeBrowserApprovalRefForInput(input);
     const requestedTargetRef =
       optionalString(input.targetRef ?? input.target_ref ?? input.computerUseTargetRef ?? input.computer_use_target_ref);
-    const nativeBrowserExecution = nativeBrowserActionShouldUseCdpExecutor(
-      requestedActionKind,
-      requestedApprovalRef,
-      input,
-    )
-      ? await executeNativeBrowserCdpAction({
+    const requestedSessionMode = nativeBrowserSessionModeForInput(input);
+    const requestedLaunchApprovalRef = nativeBrowserControlledRelaunchApprovalRefForInput(input);
+    const shouldLaunchControlledRelaunch =
+      requestedSessionMode === "controlled_relaunch" &&
+      requestedLaunchApprovalRef &&
+      !nativeBrowserHasExplicitCdpEndpoint(input);
+    const controlledRelaunchLaunch = shouldLaunchControlledRelaunch
+      ? await launchControlledNativeBrowser({
           input,
+          runId,
+          approvalRef: requestedLaunchApprovalRef,
+          timeoutMs: nativeBrowserCdpTimeoutMs(input),
+          cwd: agent.cwd,
+        })
+      : null;
+    const executionInput = controlledRelaunchLaunch?.status === "launched"
+      ? { ...input, cdpEndpointUrl: controlledRelaunchLaunch.endpointUrl }
+      : input;
+    let nativeBrowserExecution = null;
+    let controlledRelaunchCleanup = null;
+    const shouldUseCdpExecutor =
+      controlledRelaunchLaunch?.status === "launched" ||
+      nativeBrowserActionShouldUseCdpExecutor(
+        requestedActionKind,
+        requestedApprovalRef,
+        executionInput,
+      );
+    if (controlledRelaunchLaunch?.status === "unavailable") {
+      nativeBrowserExecution = nativeBrowserExecutionUnavailableFromControlledRelaunchLaunch({
+        launchReceipt: controlledRelaunchLaunch.launchReceipt,
+        actionKind: requestedActionKind,
+        approvalRef: requestedApprovalRef,
+      });
+      controlledRelaunchCleanup = await controlledRelaunchLaunch.cleanup({
+        leaseId: `lease_${runId}_browser`,
+      });
+    } else if (shouldUseCdpExecutor) {
+      try {
+        nativeBrowserExecution = await executeNativeBrowserCdpAction({
+          input: executionInput,
           actionKind: requestedActionKind,
           approvalRef: requestedApprovalRef,
           targetRef: requestedTargetRef,
           prompt: goal,
           timeoutMs: nativeBrowserCdpTimeoutMs(input),
-        })
-      : null;
+        });
+      } finally {
+        if (controlledRelaunchLaunch?.cleanup) {
+          controlledRelaunchCleanup = await controlledRelaunchLaunch.cleanup({
+            leaseId: `lease_${runId}_browser`,
+          });
+        }
+      }
+    }
     const metadata = {
       computerUse: true,
       computerUseLane: "native_browser",
-      computerUseSessionMode: nativeBrowserSessionModeForInput(input),
+      computerUseSessionMode: requestedSessionMode,
       workflowGraphId,
       workflowNodeId,
       workflowNodeIds: uniqueStrings([
@@ -7633,6 +7674,7 @@ export class AgentgresRuntimeStateStore {
       computerUseApprovalRef: requestedApprovalRef,
       computerUseTargetRef: requestedTargetRef,
       computerUseNativeBrowserExecution: nativeBrowserExecution,
+      computerUseControlledRelaunchLaunchReceipt: controlledRelaunchLaunch?.launchReceipt ?? null,
       computerUseObservationBundle:
         objectRecord(input.computerUseObservationBundle ?? input.observation_bundle),
       computerUseTargetIndex:
@@ -7656,11 +7698,16 @@ export class AgentgresRuntimeStateStore {
         optionalString(input.controlledRelaunchProfileDirRef ?? input.controlled_relaunch_profile_dir_ref),
       controlledRelaunchLaunchPlanRef:
         optionalString(input.controlledRelaunchLaunchPlanRef ?? input.controlled_relaunch_launch_plan_ref),
+      controlledRelaunchApprovalRef: requestedLaunchApprovalRef,
+      controlledRelaunchExecutablePath:
+        optionalString(input.controlledRelaunchExecutablePath ?? input.controlled_relaunch_executable_path),
+      computerUseCleanupReceipt: controlledRelaunchCleanup,
     };
     for (const key of [
       "computerUseApprovalRef",
       "computerUseTargetRef",
       "computerUseNativeBrowserExecution",
+      "computerUseControlledRelaunchLaunchReceipt",
       "computerUseObservationBundle",
       "computerUseTargetIndex",
       "computerUseAffordanceGraph",
@@ -7670,6 +7717,9 @@ export class AgentgresRuntimeStateStore {
       "controlledRelaunchStartUrl",
       "controlledRelaunchProfileDirRef",
       "controlledRelaunchLaunchPlanRef",
+      "controlledRelaunchApprovalRef",
+      "controlledRelaunchExecutablePath",
+      "computerUseCleanupReceipt",
     ]) {
       if (metadata[key] && typeof metadata[key] === "object") {
         if (Object.keys(metadata[key]).length === 0) delete metadata[key];
@@ -18359,6 +18409,11 @@ function computerUseNativeBrowserInvocationResultFromEvents(events, context = {}
     payloads.find((payload) => payload.cleanup_receipt || payload.cleanupReceipt) ?? {};
   const adapterPayload =
     payloads.find((payload) => payload.adapter_contract || payload.adapterContract) ?? {};
+  const controlledRelaunchLaunchPayload =
+    payloads.find((payload) => (
+      payload.controlled_relaunch_launch_receipt ||
+      payload.controlledRelaunchLaunchReceipt
+    )) ?? {};
   const affordancePayload =
     payloads.find((payload) => payload.affordance_graph || payload.affordanceGraph) ?? {};
   const proposalPayload =
@@ -18476,6 +18531,11 @@ function computerUseNativeBrowserInvocationResultFromEvents(events, context = {}
         adapterPayload.adapter_contract ??
         adapterPayload.adapterContract ??
         null,
+      controlledRelaunchLaunch:
+        projection.controlledRelaunchLaunchReceipt ??
+        controlledRelaunchLaunchPayload.controlled_relaunch_launch_receipt ??
+        controlledRelaunchLaunchPayload.controlledRelaunchLaunchReceipt ??
+        null,
     },
     error: null,
   };
@@ -18514,6 +18574,46 @@ function nativeBrowserApprovalRefForInput(input = {}) {
       input.computerUseApprovalRef ??
       input.computer_use_approval_ref,
   );
+}
+
+function nativeBrowserControlledRelaunchApprovalRefForInput(input = {}) {
+  return optionalString(
+    input.controlledRelaunchApprovalRef ??
+      input.controlled_relaunch_approval_ref ??
+      input.hostBrowserLaunchApprovalRef ??
+      input.host_browser_launch_approval_ref ??
+      input.browserLaunchApprovalRef ??
+      input.browser_launch_approval_ref,
+  );
+}
+
+function nativeBrowserExecutionUnavailableFromControlledRelaunchLaunch({
+  launchReceipt,
+  actionKind,
+  approvalRef,
+} = {}) {
+  return {
+    schema_version: "ioi.runtime.native-browser-cdp-executor.v1",
+    object: "ioi.runtime_native_browser_cdp_execution",
+    executor_ref: `${launchReceipt?.launch_ref ?? "controlled_relaunch"}_executor_unavailable`,
+    adapter_id: launchReceipt?.adapter_id ?? "ioi.native_browser.controlled_relaunch_broker",
+    session_ref: launchReceipt?.session_ref ?? null,
+    endpoint_ref: launchReceipt?.endpoint_ref ?? null,
+    endpoint_source: launchReceipt?.endpoint_source ?? null,
+    action_kind: actionKind,
+    approval_ref: approvalRef ?? null,
+    status: "unavailable",
+    error_class: launchReceipt?.error_class ?? "ControlledRelaunchLaunchUnavailable",
+    error_summary:
+      launchReceipt?.error_summary ??
+      "Controlled browser relaunch did not produce an attachable CDP endpoint.",
+    evidence_refs: uniqueStrings([
+      launchReceipt?.launch_ref,
+      launchReceipt?.broker_ref,
+      launchReceipt?.profile_dir_ref,
+      ...(launchReceipt?.evidence_refs ?? []),
+    ]),
+  };
 }
 
 function nativeBrowserCdpTimeoutMs(input = {}) {
@@ -22021,6 +22121,10 @@ function payloadSummaryForRunEvent(event) {
       computer_use_executor_status: event.data?.computer_use_executor_status ?? null,
       computer_use_executor_error_class: event.data?.computer_use_executor_error_class ?? null,
       native_browser_execution_result: event.data?.native_browser_execution_result ?? null,
+      computer_use_controlled_relaunch_launch_ref:
+        event.data?.computer_use_controlled_relaunch_launch_ref ?? null,
+      controlled_relaunch_launch_receipt:
+        event.data?.controlled_relaunch_launch_receipt ?? null,
       controlled_relaunch_broker: event.data?.controlled_relaunch_broker ?? null,
       controlled_relaunch_handoff_ref: event.data?.controlled_relaunch_handoff_ref ?? null,
       environment_selection_receipt: event.data?.environment_selection_receipt ?? null,

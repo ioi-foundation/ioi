@@ -56,6 +56,8 @@ export function computerUseProjectionForRun({
     workflowBinding.observationRetentionMode ?? "local_redacted_artifacts";
   const contractOverrides = computerUseContractOverrides(request);
   const controlledRelaunchBroker = controlledRelaunchBrokerForRequest(request);
+  const controlledRelaunchLaunchReceipt = controlledRelaunchLaunchReceiptForRequest(request);
+  const controlledRelaunchLaunchAttempted = Boolean(controlledRelaunchLaunchReceipt);
   const selectedLane = requestedLane;
   const selectedSessionMode = selectedLane === "native_browser"
     ? requestedComputerUseSessionMode(request, selectedLane)
@@ -71,6 +73,7 @@ export function computerUseProjectionForRun({
     selectedLane === "native_browser" &&
     selectedSessionMode === "controlled_relaunch" &&
     !controlledRelaunchBroker &&
+    !controlledRelaunchLaunchAttempted &&
     !hasMountedContracts;
   if ((selectedLane !== "native_browser" || controlledRelaunchUnavailable) && !hasMountedContracts) {
     return unavailableComputerUseProjectionForRun({
@@ -86,6 +89,7 @@ export function computerUseProjectionForRun({
     selectedLane === "native_browser" &&
     selectedSessionMode === "controlled_relaunch" &&
     controlledRelaunchBroker &&
+    !controlledRelaunchLaunchAttempted &&
     !hasMountedContracts
   ) {
     return controlledRelaunchProjectionForRun({
@@ -139,6 +143,8 @@ export function computerUseProjectionForRun({
     ? "canonical_runtime_contract"
     : browserArtifactContracts
       ? "browser_observation_artifacts"
+      : controlledRelaunchLaunchReceipt
+        ? "controlled_relaunch_launch_receipt"
       : "synthetic_daemon_projection";
   const requestedActionKind = requestedComputerUseActionKind(request, prompt);
   const requestedActionIsReadOnly = computerUseActionKindIsReadOnly(requestedActionKind);
@@ -149,6 +155,9 @@ export function computerUseProjectionForRun({
   const requestedActionExecutionCompleted = requestedActionExecution?.status === "completed";
   const requestedActionExecutionBlocked =
     requestedActionExecutionAttempted && !requestedActionExecutionCompleted;
+  const controlledRelaunchLaunchCompleted = controlledRelaunchLaunchReceipt?.status === "launched";
+  const controlledRelaunchLaunchFailed =
+    Boolean(controlledRelaunchLaunchReceipt) && !controlledRelaunchLaunchCompleted;
   const requestedActionWillExecute = requestedActionExecutionAttempted
     ? requestedActionExecutionCompleted
     : requestedActionIsReadOnly;
@@ -205,7 +214,11 @@ export function computerUseProjectionForRun({
     rejected_options: rejectedOptions,
     reasons: [
       "Prompt indicates browser or computer-use automation.",
-      hasMountedContracts
+      controlledRelaunchLaunchCompleted
+        ? "An explicit host-browser launch approval started a controlled browser with an isolated temporary profile and CDP endpoint."
+        : controlledRelaunchLaunchFailed
+          ? "Controlled relaunch launch authority was requested but failed closed before an attachable browser endpoint was acquired."
+          : hasMountedContracts
         ? `Mounted ${selectedLane}/${selectedSessionMode} contracts were supplied by the runtime executor.`
         : "Native browser lane gives the strongest semantic grounding for web tasks.",
       "Visual and sandbox lanes remain explicit fallback options under the same IOI contracts.",
@@ -227,6 +240,10 @@ export function computerUseProjectionForRun({
       ? cleanupOverride
         ? "adapter_cleanup_receipt_supplied_and_redacted_trace_retained"
         : "release_mounted_executor_contract_and_retain_redacted_trace"
+      : controlledRelaunchLaunchCompleted
+        ? "terminate_controlled_browser_process_delete_temp_profile_and_retain_redacted_trace"
+        : controlledRelaunchLaunchFailed
+          ? "failed_launch_cleanup_receipt_supplied_and_redacted_trace_retained"
       : "close_owned_browser_context_and_retain_redacted_trace",
   };
   const lease = {
@@ -234,18 +251,26 @@ export function computerUseProjectionForRun({
     lease_id: leaseId,
     lane: selectedLane,
     session_mode: selectedSessionMode,
-    status: "active",
+    status: controlledRelaunchLaunchFailed ? "failed_closed" : "active",
     authority_scope: environmentSelection.authority_required,
-    consent_scope: "operator_prompt",
+    consent_scope: controlledRelaunchLaunchReceipt
+      ? "explicit_host_browser_launch_approval"
+      : "operator_prompt",
     target_hint: targetHint,
-    environment_ref: `${selectedLane}:${stableHash(agent.cwd).slice(0, 16)}`,
-    profile_provenance: hasMountedContracts ? "mounted_runtime_contract" : "temporary_ioi_browser_profile",
+    environment_ref: controlledRelaunchLaunchReceipt?.process_ref
+      ? `${selectedLane}:${controlledRelaunchLaunchReceipt.process_ref}`
+      : `${selectedLane}:${stableHash(agent.cwd).slice(0, 16)}`,
+    profile_provenance: controlledRelaunchLaunchReceipt?.profile_provenance ??
+      (hasMountedContracts ? "mounted_runtime_contract" : "temporary_ioi_browser_profile"),
     retention_mode: requestedRetentionMode,
-    cleanup_required: true,
+    cleanup_required: !controlledRelaunchLaunchFailed,
     evidence_refs: compactValues([
       environmentSelection.receipt_ref,
       executionAdapterId,
       requestedActionExecution?.executor_ref,
+      controlledRelaunchLaunchReceipt?.launch_ref,
+      controlledRelaunchLaunchReceipt?.process_ref,
+      controlledRelaunchLaunchReceipt?.profile_dir_ref,
     ]),
   };
   const runState = {
@@ -257,7 +282,9 @@ export function computerUseProjectionForRun({
     current_observation_ref: observationRef,
     current_target_index_ref: targetIndexRef,
     active_hypotheses: [
-      "Native browser semantics should resolve the task before visual fallback.",
+      controlledRelaunchLaunchCompleted
+        ? "Controlled relaunch supplied an isolated temporary browser profile and CDP endpoint under explicit launch approval."
+        : "Native browser semantics should resolve the task before visual fallback.",
       "No external side effect should occur before a policy-gated action proposal.",
     ],
     expected_postcondition: requestedActionIsReadOnly
@@ -418,6 +445,7 @@ export function computerUseProjectionForRun({
       actionProposal.proposal_ref,
       requestedActionApprovalRef,
       requestedActionExecution?.executor_ref,
+      controlledRelaunchLaunchReceipt?.launch_ref,
     ]),
   };
   const action = requestedActionWillExecute
@@ -454,6 +482,7 @@ export function computerUseProjectionForRun({
           actionProposal.proposal_ref,
           ...(requestedActionExecution?.evidence_refs ?? []),
           requestedActionExecution?.executor_ref,
+          controlledRelaunchLaunchReceipt?.launch_ref,
         ]),
       }
     : null;
@@ -484,6 +513,7 @@ export function computerUseProjectionForRun({
       actionProposal.proposal_ref,
       actionReceipt?.receipt_ref,
       requestedActionExecution?.executor_ref,
+      controlledRelaunchLaunchReceipt?.launch_ref,
     ]),
   };
   const outcomeContract = {
@@ -629,6 +659,8 @@ export function computerUseProjectionForRun({
     retained_artifact_refs: ["computer-use-trace.json"],
     warnings: hasMountedContracts && !cleanupOverride
       ? ["mounted_executor_cleanup_receipt_not_supplied"]
+      : controlledRelaunchLaunchCompleted && !cleanupOverride
+        ? ["controlled_relaunch_cleanup_receipt_not_supplied"]
       : [],
   }, cleanupOverride, cleanupRef, lease.lease_id);
   const adapterContract = mergeAdapterContract({
@@ -642,6 +674,7 @@ export function computerUseProjectionForRun({
       `act.${requestedActionKind}`,
       "verify.postcondition",
       "cleanup",
+      ...(controlledRelaunchLaunchReceipt ? ["broker.controlled_relaunch"] : []),
     ],
     emits_observation_bundle: true,
     emits_action_receipts: requestedActionWillExecute,
@@ -673,6 +706,10 @@ export function computerUseProjectionForRun({
     computer_use_executor_ref: requestedActionExecution?.executor_ref ?? null,
     computer_use_executor_status: requestedActionExecution?.status ?? null,
     computer_use_executor_error_class: requestedActionExecution?.error_class ?? null,
+    computer_use_controlled_relaunch_launch_ref:
+      controlledRelaunchLaunchReceipt?.launch_ref ?? null,
+    controlled_relaunch_launch_receipt: controlledRelaunchLaunchReceipt,
+    controlled_relaunch_broker: controlledRelaunchBroker,
   };
   const actionExecutionEvents = action && actionReceipt
     ? [
@@ -870,6 +907,7 @@ export function computerUseProjectionForRun({
     trajectory,
     cleanup,
     adapterContract,
+    controlledRelaunchLaunchReceipt,
     events,
     receipt: {
       id: traceReceiptId,
@@ -891,6 +929,7 @@ export function computerUseProjectionForRun({
         commitGate.commit_gate_ref,
         trajectory.trajectory_ref,
         cleanup.cleanup_ref,
+        controlledRelaunchLaunchReceipt?.launch_ref,
       ]),
     },
   };
@@ -1691,6 +1730,16 @@ function requestedComputerUseExecutionResult(request = {}) {
       metadata.computer_use_native_browser_execution ??
       metadata.computerUseExecutionResult ??
       metadata.computer_use_execution_result,
+  );
+}
+
+function controlledRelaunchLaunchReceiptForRequest(request = {}) {
+  const metadata = request.options?.metadata ?? request.metadata ?? {};
+  return objectValue(
+    metadata.computerUseControlledRelaunchLaunchReceipt ??
+      metadata.computer_use_controlled_relaunch_launch_receipt ??
+      metadata.controlledRelaunchLaunchReceipt ??
+      metadata.controlled_relaunch_launch_receipt,
   );
 }
 

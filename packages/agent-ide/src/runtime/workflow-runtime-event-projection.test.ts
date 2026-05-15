@@ -417,6 +417,69 @@ test("projects browser discovery receipts as glass-box computer-use rows", () =>
   );
 });
 
+test("projects controlled relaunch launch receipts as browser-use evidence", () => {
+  const projection = projectRuntimeThreadEventsToWorkflowProjection([
+    event("computer-use-controlled-relaunch", 1, {
+      type: "computer_use_lease_acquired",
+      eventKind: "computer_use.lease_acquired",
+      sourceEventKind: "ComputerUse.LeaseAcquired",
+      status: "completed",
+      componentKind: "computer_use_harness",
+      workflowNodeId: "browser-use-node",
+      workflowGraphId: "workflow.browser-use-controlled-relaunch",
+      payloadSchemaVersion: "ioi.computer-use.harness.v1",
+      payload: {
+        computer_use_step: "select_environment",
+        computer_use_lane: "native_browser",
+        computer_use_session_mode: "controlled_relaunch",
+        computer_use_lease_id: "lease-controlled-browser",
+        computer_use_controlled_relaunch_launch_ref:
+          "controlled_relaunch_abc123",
+        controlled_relaunch_launch_receipt: {
+          launch_ref: "controlled_relaunch_abc123",
+          status: "launched",
+          approval_ref: "approval-controlled-browser-launch",
+          process_ref: "process:native_browser:abc123",
+          profile_dir_ref: "profile:controlled_relaunch:def456",
+          endpoint_ref: "cdp_endpoint_789",
+        },
+        lease: {
+          lease_id: "lease-controlled-browser",
+          lane: "native_browser",
+          session_mode: "controlled_relaunch",
+          retention_mode: "prompt_visible_summary_only",
+        },
+      },
+    }),
+  ]);
+
+  assert.equal(
+    projection.nodes[0]?.computerUse?.controlledRelaunchLaunchRef,
+    "controlled_relaunch_abc123",
+  );
+  assert.equal(
+    projection.nodes[0]?.computerUse?.controlledRelaunchLaunchStatus,
+    "launched",
+  );
+  assert.equal(
+    projection.nodes[0]?.computerUse?.controlledRelaunchProcessRef,
+    "process:native_browser:abc123",
+  );
+  assert.equal(
+    projection.nodes[0]?.computerUse?.controlledRelaunchProfileDirRef,
+    "profile:controlled_relaunch:def456",
+  );
+  assert.equal(
+    projection.nodes[0]?.computerUse?.controlledRelaunchEndpointRef,
+    "cdp_endpoint_789",
+  );
+  assert.equal(
+    projection.nodes[0]?.computerUse?.controlledRelaunchApprovalRef,
+    "approval-controlled-browser-launch",
+  );
+  assert.match(projection.nodes[0]?.summary ?? "", /launch launched/);
+});
+
 test("projects bridge-derived proposal-only computer-use gates without executed actions", () => {
   const projection = projectRuntimeThreadEventsToWorkflowProjection([
     event("bridge-observation", 1, {
