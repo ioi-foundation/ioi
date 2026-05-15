@@ -50,6 +50,7 @@ export function computerUseProjectionForRun({
   const requestedLane = requestedComputerUseLane(request);
   const requestedRetentionMode =
     workflowBinding.observationRetentionMode ?? "local_redacted_artifacts";
+  const contractOverrides = computerUseContractOverrides(request);
   if (requestedLane !== "native_browser") {
     return unavailableComputerUseProjectionForRun({
       runId,
@@ -62,9 +63,16 @@ export function computerUseProjectionForRun({
   }
   const targetHint = computerUseTargetHint(prompt);
   const leaseId = `lease_${runId}_browser`;
-  const observationRef = `observation_${runId}_browser_initial`;
-  const targetIndexRef = `target_index_${runId}_browser_initial`;
-  const affordanceGraphRef = `affordance_${runId}_browser_initial`;
+  const observationRef =
+    cleanString(contractOverrides.observationBundle?.observation_ref) ??
+    `observation_${runId}_browser_initial`;
+  const targetIndexRef =
+    cleanString(contractOverrides.targetIndex?.target_index_ref) ??
+    cleanString(contractOverrides.observationBundle?.target_index_ref) ??
+    `target_index_${runId}_browser_initial`;
+  const affordanceGraphRef =
+    cleanString(contractOverrides.affordanceGraph?.graph_ref) ??
+    `affordance_${runId}_browser_initial`;
   const proposalRef = `proposal_${runId}_browser_inspect`;
   const actionRef = `action_${runId}_browser_inspect`;
   const actionReceiptRef = `receipt_${runId}_computer_use_action`;
@@ -136,7 +144,7 @@ export function computerUseProjectionForRun({
     user_handoff_ref: null,
     cleanup_state: "cleanup_required",
   };
-  const observation = {
+  const observation = mergeObservationContract({
     observation_ref: observationRef,
     lease_id: leaseId,
     lane: "native_browser",
@@ -155,7 +163,7 @@ export function computerUseProjectionForRun({
     freshness_ms: 0,
     retention_mode: requestedRetentionMode,
     detected_patterns: ["form", "toolbar", "warning_or_toast"],
-  };
+  }, contractOverrides.observationBundle, leaseId, requestedRetentionMode);
   const pageTarget = {
     target_ref: `target_${runId}_document`,
     label: "Current page",
@@ -174,20 +182,21 @@ export function computerUseProjectionForRun({
     confidence: 96,
     available_actions: ["inspect", "scroll", "click"],
   };
-  const targetIndex = {
+  const targetIndex = mergeTargetIndexContract({
     target_index_ref: targetIndexRef,
     observation_ref: observationRef,
     coordinate_space_id: `viewport_${runId}`,
     drift_state: "fresh",
     targets: [pageTarget],
-  };
-  const affordanceGraph = {
+  }, contractOverrides.targetIndex, observation.observation_ref);
+  const primaryTarget = targetIndex.targets[0] ?? pageTarget;
+  const affordanceGraph = mergeAffordanceGraphContract({
     graph_ref: affordanceGraphRef,
-    target_index_ref: targetIndexRef,
-    observation_ref: observationRef,
+    target_index_ref: targetIndex.target_index_ref,
+    observation_ref: observation.observation_ref,
     affordances: [
       {
-        target_ref: pageTarget.target_ref,
+        target_ref: primaryTarget.target_ref,
         possible_action: "inspect",
         action_preconditions: ["fresh_observation", "target_index_present"],
         confidence: 95,
@@ -199,14 +208,14 @@ export function computerUseProjectionForRun({
         invalidation_conditions: ["navigation", "modal_interruption", "auth_wall"],
       },
     ],
-  };
+  }, contractOverrides.affordanceGraph, targetIndex.target_index_ref, observation.observation_ref);
   const actionProposal = {
     proposal_ref: proposalRef,
     proposed_by: selectedModel,
     model_role: "grounder",
     raw_model_output_ref: `model_output_${runId}_computer_use_candidate`,
     normalized_action_candidate: "inspect current page and summarize actionable targets",
-    target_ref: pageTarget.target_ref,
+    target_ref: primaryTarget.target_ref,
     confidence: 92,
     rationale_summary: "The page root is present and read-only inspection is the lowest-risk next step.",
     predicted_postcondition: "The harness has a grounded page summary and next-action candidates.",
@@ -345,6 +354,9 @@ export function computerUseProjectionForRun({
     computer_use_lane: environmentSelection.selected_lane,
     computer_use_session_mode: environmentSelection.selected_session_mode,
     computer_use_lease_id: lease.lease_id,
+    computer_use_contract_ingest: contractOverrides.observationBundle
+      ? "canonical_runtime_contract"
+      : "synthetic_daemon_projection",
     observation_retention_mode: requestedRetentionMode,
     fail_closed_when_unavailable: workflowBinding.failClosedWhenUnavailable,
     workflowGraphId: workflowBinding.workflowGraphId,
@@ -879,6 +891,71 @@ function requestedComputerUseSessionMode(request = {}, lane) {
 
 function computerUseTargetHint(prompt) {
   return String(prompt ?? "").match(/https?:\/\/[^\s)]+/i)?.[0] ?? "browser surface requested by user prompt";
+}
+
+function computerUseContractOverrides(request = {}) {
+  const metadata = request.options?.metadata ?? request.metadata ?? {};
+  return {
+    observationBundle: objectValue(
+      metadata.computerUseObservationBundle ??
+      metadata.computer_use_observation_bundle,
+    ),
+    targetIndex: objectValue(
+      metadata.computerUseTargetIndex ??
+      metadata.computer_use_target_index,
+    ),
+    affordanceGraph: objectValue(
+      metadata.computerUseAffordanceGraph ??
+      metadata.computer_use_affordance_graph,
+    ),
+  };
+}
+
+function mergeObservationContract(base, override, leaseId, retentionMode) {
+  if (!override) return base;
+  return {
+    ...base,
+    ...override,
+    observation_ref: cleanString(override.observation_ref) ?? base.observation_ref,
+    lease_id: leaseId,
+    lane: "native_browser",
+    session_mode: "owned_hermetic_browser",
+    target_index_ref: cleanString(override.target_index_ref) ?? base.target_index_ref,
+    retention_mode: cleanString(override.retention_mode) ?? retentionMode,
+    detected_patterns: cleanStringArray(override.detected_patterns).length > 0
+      ? cleanStringArray(override.detected_patterns)
+      : base.detected_patterns,
+  };
+}
+
+function mergeTargetIndexContract(base, override, observationRef) {
+  if (!override) return base;
+  const targets = Array.isArray(override.targets) ? override.targets : base.targets;
+  return {
+    ...base,
+    ...override,
+    target_index_ref: cleanString(override.target_index_ref) ?? base.target_index_ref,
+    observation_ref: observationRef,
+    coordinate_space_id: cleanString(override.coordinate_space_id) ?? base.coordinate_space_id,
+    drift_state: cleanString(override.drift_state) ?? base.drift_state,
+    targets,
+  };
+}
+
+function mergeAffordanceGraphContract(base, override, targetIndexRef, observationRef) {
+  if (!override) return base;
+  return {
+    ...base,
+    ...override,
+    graph_ref: cleanString(override.graph_ref) ?? base.graph_ref,
+    target_index_ref: targetIndexRef,
+    observation_ref: observationRef,
+    affordances: Array.isArray(override.affordances) ? override.affordances : base.affordances,
+  };
+}
+
+function objectValue(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
 
 function cleanString(value) {
