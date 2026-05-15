@@ -958,6 +958,14 @@ test("runtime service bridge computer-use events persist as run trace artifacts"
       trace.events.filter((event) => event.type.startsWith("computer_use_")).map((event) => event.type),
       ["computer_use_observation", "computer_use_affordance_graph"],
     );
+    const turnEvents = [];
+    for await (const event of turn.events()) {
+      turnEvents.push(event);
+    }
+    assert.deepEqual(
+      turnEvents.filter((event) => event.eventKind.startsWith("computer_use.")).map((event) => event.type),
+      ["computer_use_observation", "computer_use_affordance_graph"],
+    );
     assert.equal(trace.computerUse.observation.url, "https://bridge.example.test/app");
     assert.equal(trace.computerUse.targetIndex.targets[0].target_ref, "target-bridge-submit");
     assert.equal(trace.computerUse.affordanceGraph.affordances[0].possible_action, "click");
