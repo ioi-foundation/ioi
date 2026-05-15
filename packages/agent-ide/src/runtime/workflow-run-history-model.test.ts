@@ -507,6 +507,30 @@ test("workflow run history model exposes computer-use prompt pipelines", () => {
     "artifact:run-a:screenshot",
   );
   assert.equal(model.computerUseWorkbench?.somRef, "artifact:run-a:som-overlay");
+  assert.deepEqual(
+    model.computerUseWorkbench?.artifactPreviews.map((artifact) => [
+      artifact.artifactRef,
+      artifact.previewKind,
+      artifact.fetchPath,
+    ]),
+    [
+      [
+        "artifact:run-a:screenshot",
+        "runtime_artifact",
+        "/v1/runs/run-a/artifacts/artifact%3Arun-a%3Ascreenshot",
+      ],
+      [
+        "artifact:run-a:som-overlay",
+        "runtime_artifact",
+        "/v1/runs/run-a/artifacts/artifact%3Arun-a%3Asom-overlay",
+      ],
+      [
+        "computer-use-trace.json",
+        "runtime_artifact",
+        "/v1/runs/run-a/artifacts/computer-use-trace.json",
+      ],
+    ],
+  );
   assert.equal(model.computerUseWorkbench?.coordinateSpaceId, "viewport-run-a");
   assert.deepEqual(model.computerUseWorkbench?.overlayViewport, {
     coordinateSpaceId: "viewport-run-a",

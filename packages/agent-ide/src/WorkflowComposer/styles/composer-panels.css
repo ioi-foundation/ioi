@@ -327,7 +327,10 @@
 .workflow-run-computer-use-pane small,
 .workflow-run-computer-use-targets strong,
 .workflow-run-computer-use-targets span,
-.workflow-run-computer-use-targets small {
+.workflow-run-computer-use-targets small,
+.workflow-run-computer-use-artifacts strong,
+.workflow-run-computer-use-artifacts span,
+.workflow-run-computer-use-artifacts small {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -335,7 +338,8 @@
 }
 
 .workflow-run-computer-use-pane strong,
-.workflow-run-computer-use-targets strong {
+.workflow-run-computer-use-targets strong,
+.workflow-run-computer-use-artifacts strong {
   color: var(--text-secondary);
   font-size: 11px;
 }
@@ -344,6 +348,8 @@
 .workflow-run-computer-use-pane small,
 .workflow-run-computer-use-targets span,
 .workflow-run-computer-use-targets small,
+.workflow-run-computer-use-artifacts span,
+.workflow-run-computer-use-artifacts small,
 .workflow-run-computer-use-visual-preview figcaption {
   color: var(--text-tertiary);
   font-size: 11px;
@@ -395,7 +401,8 @@
   white-space: nowrap;
 }
 
-.workflow-run-computer-use-targets {
+.workflow-run-computer-use-targets,
+.workflow-run-computer-use-artifacts {
   display: grid;
   gap: 5px;
   margin: 0;
@@ -403,7 +410,8 @@
   list-style: none;
 }
 
-.workflow-run-computer-use-targets li {
+.workflow-run-computer-use-targets li,
+.workflow-run-computer-use-artifacts li {
   display: grid;
   grid-template-columns: minmax(90px, 0.8fr) minmax(0, 1.2fr) minmax(76px, 0.8fr);
   gap: 6px;
