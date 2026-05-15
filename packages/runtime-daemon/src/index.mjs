@@ -24,6 +24,7 @@ import {
   discoverComputerUseBrowsers,
   discoverComputerUseBrowsersSync,
 } from "./browser-discovery.mjs";
+import { executeNativeBrowserCdpAction } from "./native-browser-cdp-executor.mjs";
 import { AgentMemoryStore, parseMemoryCommand } from "./memory-store.mjs";
 import {
   CODING_TOOL_IDS,
@@ -6288,7 +6289,7 @@ export class AgentgresRuntimeStateStore {
           : params.args && typeof params.args === "object" && !Array.isArray(params.args)
             ? params.args
             : {};
-        const invocation = this.invokeThreadTool(threadId, toolId, {
+        const invocation = await this.invokeThreadToolAsync(threadId, toolId, {
           source: "mcp_serve",
           workflow_graph_id:
             optionalString(request.workflow_graph_id ?? request.workflowGraphId) ??
@@ -7337,7 +7338,7 @@ export class AgentgresRuntimeStateStore {
     });
   }
 
-  invokeComputerUseNativeBrowserTool(threadId, toolId, request = {}) {
+  async invokeComputerUseNativeBrowserTool(threadId, toolId, request = {}) {
     const agent = this.agentForThread(threadId);
     const turnId =
       optionalString(request.turn_id ?? request.turnId) ??
@@ -7390,6 +7391,18 @@ export class AgentgresRuntimeStateStore {
       ? "computer_use.native_browser.read"
       : "computer_use.native_browser.act";
     const requestedApprovalRef = nativeBrowserApprovalRefForInput(input);
+    const requestedTargetRef =
+      optionalString(input.targetRef ?? input.target_ref ?? input.computerUseTargetRef ?? input.computer_use_target_ref);
+    const nativeBrowserExecution = !nativeBrowserActionKindIsReadOnly(requestedActionKind) && requestedApprovalRef
+      ? await executeNativeBrowserCdpAction({
+          input,
+          actionKind: requestedActionKind,
+          approvalRef: requestedApprovalRef,
+          targetRef: requestedTargetRef,
+          prompt: goal,
+          timeoutMs: nativeBrowserCdpTimeoutMs(input),
+        })
+      : null;
     const metadata = {
       computerUse: true,
       computerUseLane: "native_browser",
@@ -7411,8 +7424,8 @@ export class AgentgresRuntimeStateStore {
       failClosedWhenUnavailable: true,
       computerUseActionKind: requestedActionKind,
       computerUseApprovalRef: requestedApprovalRef,
-      computerUseTargetRef:
-        optionalString(input.targetRef ?? input.target_ref ?? input.computerUseTargetRef ?? input.computer_use_target_ref),
+      computerUseTargetRef: requestedTargetRef,
+      computerUseNativeBrowserExecution: nativeBrowserExecution,
       computerUseObservationBundle:
         objectRecord(input.computerUseObservationBundle ?? input.observation_bundle),
       computerUseTargetIndex:
@@ -7424,6 +7437,8 @@ export class AgentgresRuntimeStateStore {
     };
     for (const key of [
       "computerUseApprovalRef",
+      "computerUseTargetRef",
+      "computerUseNativeBrowserExecution",
       "computerUseObservationBundle",
       "computerUseTargetIndex",
       "computerUseAffordanceGraph",
@@ -7499,6 +7514,14 @@ export class AgentgresRuntimeStateStore {
       workflowNodeId,
       projection,
     });
+  }
+
+  async invokeThreadToolAsync(threadId, toolId, request = {}) {
+    const normalizedToolId = optionalString(toolId);
+    if (COMPUTER_USE_NATIVE_BROWSER_TOOL_IDS.has(normalizedToolId)) {
+      return await this.invokeComputerUseNativeBrowserTool(threadId, normalizedToolId, request);
+    }
+    return this.invokeThreadTool(threadId, toolId, request);
   }
 
   invokeThreadTool(threadId, toolId, request = {}) {
@@ -12431,7 +12454,7 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
     return;
   }
   if (request.method === "POST" && action === "tools" && segments[4] && segments[5] === "invoke" && !segments[6]) {
-    writeJsonResponse(response, store.invokeThreadTool(threadId, decodeURIComponent(segments[4]), await readBody(request)));
+    writeJsonResponse(response, await store.invokeThreadToolAsync(threadId, decodeURIComponent(segments[4]), await readBody(request)));
     return;
   }
   if (
@@ -18181,6 +18204,19 @@ function nativeBrowserApprovalRefForInput(input = {}) {
   );
 }
 
+function nativeBrowserCdpTimeoutMs(input = {}) {
+  const value = Number(
+    input.cdpTimeoutMs ??
+      input.cdp_timeout_ms ??
+      input.timeoutMs ??
+      input.timeout_ms,
+  );
+  if (Number.isFinite(value) && value >= 100 && value <= 120_000) {
+    return Math.round(value);
+  }
+  return 3_000;
+}
+
 function nativeBrowserActionKindValue(value) {
   const normalized = optionalString(value)?.toLowerCase().replace(/[\s-]+/g, "_");
   if (!normalized) return null;
@@ -21617,6 +21653,10 @@ function payloadSummaryForRunEvent(event) {
       computer_use_trajectory_ref: event.data?.computer_use_trajectory_ref ?? null,
       computer_use_cleanup_ref: event.data?.computer_use_cleanup_ref ?? null,
       computer_use_blocker: event.data?.computer_use_blocker ?? null,
+      computer_use_executor_ref: event.data?.computer_use_executor_ref ?? null,
+      computer_use_executor_status: event.data?.computer_use_executor_status ?? null,
+      computer_use_executor_error_class: event.data?.computer_use_executor_error_class ?? null,
+      native_browser_execution_result: event.data?.native_browser_execution_result ?? null,
       environment_selection_receipt: event.data?.environment_selection_receipt ?? null,
       lease: event.data?.lease ?? null,
       adapter_contract: event.data?.adapter_contract ?? null,

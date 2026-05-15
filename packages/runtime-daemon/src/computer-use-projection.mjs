@@ -119,7 +119,13 @@ export function computerUseProjectionForRun({
   const requestedActionIsReadOnly = computerUseActionKindIsReadOnly(requestedActionKind);
   const requestedActionApprovalRef = requestedComputerUseApprovalRef(request);
   const requestedActionHasApproval = !requestedActionIsReadOnly && requestedActionApprovalRef !== null;
-  const requestedActionWillExecute = requestedActionIsReadOnly || requestedActionHasApproval;
+  const requestedActionExecution = requestedComputerUseExecutionResult(request);
+  const requestedActionExecutionCompleted = requestedActionExecution?.status === "completed";
+  const requestedActionExecutionBlocked =
+    requestedActionHasApproval && !requestedActionExecutionCompleted;
+  const requestedActionWillExecute = requestedActionIsReadOnly || requestedActionExecutionCompleted;
+  const executionAdapterId = cleanString(requestedActionExecution?.adapter_id) ?? adapterId;
+  const executionAfter = objectValue(requestedActionExecution?.after);
   const requestedActionAuthority = requestedActionIsReadOnly
     ? `computer_use.${selectedLane}.read`
     : `computer_use.${selectedLane}.act`;
@@ -128,8 +134,10 @@ export function computerUseProjectionForRun({
     : "possible_external_effect";
   const actionPolicySlug = requestedActionIsReadOnly
     ? "read_only"
-    : requestedActionHasApproval
+    : requestedActionExecutionCompleted
       ? "approved_external_effect"
+      : requestedActionHasApproval
+        ? "executor_unavailable"
       : "requires_confirmation";
   const proposalRef = `proposal_${runId}_browser_${requestedActionKind}`;
   const actionRef = `action_${runId}_browser_${requestedActionKind}`;
@@ -176,8 +184,10 @@ export function computerUseProjectionForRun({
       ? "preview_only"
       : requestedActionIsReadOnly
         ? "read_only_probe"
-        : requestedActionHasApproval
+        : requestedActionExecutionCompleted
           ? "approved_external_effect"
+          : requestedActionHasApproval
+            ? "blocked_executor_unavailable"
           : "commit_confirmation_required",
     authority_required: requestedActionAuthority,
     privacy_impact: requestedRetentionMode,
@@ -198,7 +208,11 @@ export function computerUseProjectionForRun({
     profile_provenance: hasMountedContracts ? "mounted_runtime_contract" : "temporary_ioi_browser_profile",
     retention_mode: requestedRetentionMode,
     cleanup_required: true,
-    evidence_refs: [environmentSelection.receipt_ref, adapterId],
+    evidence_refs: compactValues([
+      environmentSelection.receipt_ref,
+      executionAdapterId,
+      requestedActionExecution?.executor_ref,
+    ]),
   };
   const runState = {
     run_id: runId,
@@ -214,12 +228,22 @@ export function computerUseProjectionForRun({
     ],
     expected_postcondition: requestedActionIsReadOnly
       ? "A redacted observation, target index, affordance graph, and approved read-only action proposal exist."
-      : requestedActionHasApproval
-        ? "A redacted observation, target index, affordance graph, approval-bound action, and verification receipt exist."
+      : requestedActionExecutionCompleted
+        ? "A redacted observation, target index, affordance graph, approval-bound action, execution evidence, and verification receipt exist."
+        : requestedActionHasApproval
+          ? "A redacted observation, target index, affordance graph, and blocked execution receipt explain why no browser action ran."
         : "A redacted observation, target index, affordance graph, and confirmation-gated action proposal exist without execution.",
     last_action_ref: null,
-    verification_status: requestedActionWillExecute ? "unknown" : "requires_human",
-    blocker_state: requestedActionWillExecute ? null : "commit_gate_requires_confirmation",
+    verification_status: requestedActionWillExecute
+      ? "unknown"
+      : requestedActionExecutionBlocked
+        ? "blocked"
+        : "requires_human",
+    blocker_state: requestedActionWillExecute
+      ? null
+      : requestedActionExecutionBlocked
+        ? "native_browser_executor_unavailable"
+        : "commit_gate_requires_confirmation",
     retry_budget: 2,
     risk_posture: environmentSelection.risk_posture,
     user_handoff_ref: null,
@@ -230,13 +254,13 @@ export function computerUseProjectionForRun({
     lease_id: leaseId,
     lane: selectedLane,
     session_mode: selectedSessionMode,
-    url: targetHint.startsWith("http") ? targetHint : null,
-    title: "IOI computer-use daemon observation",
+    url: cleanString(executionAfter?.url) ?? (targetHint.startsWith("http") ? targetHint : null),
+    title: cleanString(executionAfter?.title) ?? "IOI computer-use daemon observation",
     app_name: "Chromium",
     window_title: "IOI browser-use harness",
     screenshot_ref: `artifact:${runId}:browser_screenshot_redacted`,
     som_ref: `artifact:${runId}:som_overlay`,
-    dom_ref: `artifact:${runId}:dom_snapshot`,
+    dom_ref: cleanString(executionAfter?.html_ref) ?? `artifact:${runId}:dom_snapshot`,
     ax_ref: `artifact:${runId}:ax_tree`,
     selector_map_ref: `artifact:${runId}:selector_map`,
     target_index_ref: targetIndexRef,
@@ -277,8 +301,10 @@ export function computerUseProjectionForRun({
     : `${requestedActionKind} ${requestedTargetRef}`;
   const predictedPostcondition = requestedActionIsReadOnly
     ? "The harness has a grounded page summary and next-action candidates."
-    : requestedActionHasApproval
-      ? `The harness has a grounded ${requestedActionKind} action approved for execution and verifies the postcondition.`
+    : requestedActionExecutionCompleted
+      ? `The harness has a grounded ${requestedActionKind} action approved for execution, adapter evidence, and verified postcondition.`
+      : requestedActionHasApproval
+        ? `The harness has a grounded ${requestedActionKind} action and failed closed because the native browser executor was unavailable.`
       : `The harness has a grounded ${requestedActionKind} proposal and pauses before execution for confirmation.`;
   const affordanceGraph = mergeAffordanceGraphContract({
     graph_ref: affordanceGraphRef,
@@ -289,11 +315,13 @@ export function computerUseProjectionForRun({
         target_ref: requestedTargetRef,
         possible_action: requestedActionKind,
         action_preconditions: ["fresh_observation", "target_index_present"],
-        confidence: requestedActionIsReadOnly ? 95 : requestedActionHasApproval ? 90 : 88,
+        confidence: requestedActionIsReadOnly ? 95 : requestedActionExecutionCompleted ? 90 : 88,
         expected_state_transition: requestedActionIsReadOnly
           ? "A read-only inspection summary can be produced without external side effects."
-          : requestedActionHasApproval
+          : requestedActionExecutionCompleted
             ? `A ${requestedActionKind} action can proceed because approval ${requestedActionApprovalRef} is present.`
+            : requestedActionHasApproval
+              ? `A ${requestedActionKind} action was approved but blocked because the native browser executor was unavailable.`
             : `A ${requestedActionKind} action could change browser state and must be confirmed before execution.`,
         risk_class: requestedActionRisk,
         required_authority: requestedActionAuthority,
@@ -310,11 +338,13 @@ export function computerUseProjectionForRun({
     raw_model_output_ref: `model_output_${runId}_computer_use_candidate`,
     normalized_action_candidate: normalizedActionCandidate,
     target_ref: requestedTargetRef,
-    confidence: requestedActionIsReadOnly ? 92 : requestedActionHasApproval ? 89 : 86,
+    confidence: requestedActionIsReadOnly ? 92 : requestedActionExecutionCompleted ? 89 : 86,
     rationale_summary: requestedActionIsReadOnly
       ? "The page root is present and read-only inspection is the lowest-risk next step."
-      : requestedActionHasApproval
+      : requestedActionExecutionCompleted
         ? `The requested ${requestedActionKind} action is grounded to the current target index and approval ${requestedActionApprovalRef} is present.`
+        : requestedActionHasApproval
+          ? `The requested ${requestedActionKind} action is grounded and approved, but no native-browser executor completed it.`
         : `The requested ${requestedActionKind} action is grounded to the current target index and requires confirmation before execution.`,
     predicted_postcondition: predictedPostcondition,
     risk_assessment: requestedActionRisk,
@@ -330,7 +360,7 @@ export function computerUseProjectionForRun({
         coordinate_space_id: targetIndex.coordinate_space_id,
         payload_summary: requestedActionKind === "inspect"
           ? "Read-only inspect of the current page and target index."
-          : requestedActionHasApproval
+          : requestedActionExecutionCompleted
             ? `Approved ${requestedActionKind} ${requestedTargetRef} using ${requestedActionApprovalRef}.`
           : `${requestedActionKind} ${requestedTargetRef} without external side effects.`,
         expected_postcondition: actionProposal.predicted_postcondition,
@@ -341,29 +371,37 @@ export function computerUseProjectionForRun({
     ? {
         receipt_ref: actionReceiptRef,
         action_ref: action.action_ref,
-        adapter_id: adapterId,
+        adapter_id: executionAdapterId,
         status: "completed",
         grounding_ref: targetIndex.target_index_ref,
         postcondition_summary: requestedActionIsReadOnly
           ? "Read-only browser action was grounded in the observation and produced no external side effect."
-          : "Approved mutating browser action was grounded in the observation and executed after confirmation.",
+          : "Approved mutating browser action was grounded in the observation and executed by the native-browser CDP adapter after confirmation.",
         verification_ref: verificationRef,
-        evidence_refs: [
+        evidence_refs: compactValues([
           observation.observation_ref,
           targetIndex.target_index_ref,
           actionProposal.proposal_ref,
-        ],
+          ...(requestedActionExecution?.evidence_refs ?? []),
+          requestedActionExecution?.executor_ref,
+        ]),
       }
     : null;
   const verification = {
     verification_ref: verificationRef,
     action_ref: action?.action_ref ?? null,
-    status: requestedActionWillExecute ? "passed" : "requires_human",
+    status: requestedActionWillExecute
+      ? "passed"
+      : requestedActionExecutionBlocked
+        ? "blocked"
+        : "requires_human",
     expected_postcondition: actionProposal.predicted_postcondition,
     observed_postcondition: requestedActionIsReadOnly
       ? "Environment, lease, observation, target index, affordance graph, action proposal, action receipt, and cleanup are trace-visible."
-      : requestedActionHasApproval
-        ? "Approval was present, so the grounded mutating browser action executed and produced a verification receipt."
+      : requestedActionExecutionCompleted
+        ? "Approval was present, the CDP adapter executed the grounded mutating browser action, and the post-action observation is trace-visible."
+        : requestedActionHasApproval
+          ? `Approval was present, but no mutating browser action was executed because the executor failed closed: ${cleanString(requestedActionExecution?.error_summary) ?? "native browser executor unavailable"}.`
       : "No mutating browser action was executed; the proposal is waiting on the commit gate confirmation.",
     verifier: "runtime_daemon_computer_use_harness",
     evidence_refs: compactValues([
@@ -373,14 +411,17 @@ export function computerUseProjectionForRun({
       affordanceGraph.graph_ref,
       actionProposal.proposal_ref,
       actionReceipt?.receipt_ref,
+      requestedActionExecution?.executor_ref,
     ]),
   };
   const outcomeContract = {
     outcome_ref: `outcome_${runId}`,
     requested_outcome: requestedActionIsReadOnly
       ? "Produce a grounded browser observation summary without external side effects."
-      : requestedActionHasApproval
+      : requestedActionExecutionCompleted
         ? `Execute the approved grounded ${requestedActionKind} browser action and verify the postcondition.`
+        : requestedActionHasApproval
+          ? `Block the approved grounded ${requestedActionKind} browser action because the native-browser executor was unavailable.`
         : `Prepare a grounded ${requestedActionKind} browser action and pause before external effects.`,
     success_criteria: [verification.expected_postcondition],
     acceptable_side_effects: ["Retain a redacted computer-use trace artifact."],
@@ -396,15 +437,30 @@ export function computerUseProjectionForRun({
         commit_gate_ref: `commit_gate_${runId}_${action.action_ref}`,
         final_action_ref: action.action_ref,
         outcome_ref: outcomeContract.outcome_ref,
-        external_effect: false,
+        external_effect: !requestedActionIsReadOnly,
         user_confirmation_required: false,
-        authority_required: "computer_use.read_only",
-        pre_commit_summary: `No commit gate required for ${action.payload_summary}.`,
+        authority_required: requestedActionAuthority,
+        pre_commit_summary: requestedActionIsReadOnly
+          ? `No commit gate required for ${action.payload_summary}.`
+          : `Approval ${requestedActionApprovalRef} authorized ${action.payload_summary}.`,
         post_commit_verification: outcomeContract.success_criteria.join("; "),
         policy_decision_ref: policyDecisionRef,
-        status: requestedActionHasApproval ? "completed" : "not_required",
+        status: requestedActionExecutionCompleted ? "completed" : "not_required",
       }
-    : {
+    : requestedActionExecutionBlocked
+      ? {
+          commit_gate_ref: `commit_gate_${runId}_${actionProposal.proposal_ref}`,
+          final_action_ref: null,
+          outcome_ref: outcomeContract.outcome_ref,
+          external_effect: true,
+          user_confirmation_required: false,
+          authority_required: requestedActionAuthority,
+          pre_commit_summary: `Approved ${actionProposal.normalized_action_candidate} could not execute because the native-browser executor was unavailable.`,
+          post_commit_verification: outcomeContract.success_criteria.join("; "),
+          policy_decision_ref: policyDecisionRef,
+          status: "blocked",
+        }
+      : {
         commit_gate_ref: `commit_gate_${runId}_${actionProposal.proposal_ref}`,
         final_action_ref: null,
         outcome_ref: outcomeContract.outcome_ref,
@@ -443,7 +499,11 @@ export function computerUseProjectionForRun({
         proposal_ref: actionProposal.proposal_ref,
         summary: requestedActionIsReadOnly
           ? "Normalized a read-only proposal and policy-gated it before execution."
-          : "Normalized a mutating action proposal and stopped at the confirmation gate.",
+          : requestedActionExecutionCompleted
+            ? "Normalized an approved mutating action proposal and captured adapter execution evidence."
+            : requestedActionHasApproval
+              ? "Normalized an approved mutating action proposal and failed closed because the adapter was unavailable."
+              : "Normalized a mutating action proposal and stopped at the confirmation gate.",
       },
       ...(action && actionReceipt ? [{
         sequence: 4,
@@ -452,7 +512,9 @@ export function computerUseProjectionForRun({
         proposal_ref: actionProposal.proposal_ref,
         action_ref: action.action_ref,
         receipt_ref: actionReceipt.receipt_ref,
-        summary: "Executed the grounded read-only browser action.",
+        summary: requestedActionIsReadOnly
+          ? "Executed the grounded read-only browser action."
+          : "Executed the grounded mutating browser action through the CDP adapter.",
       }] : []),
       {
         sequence: action ? 5 : 4,
@@ -461,7 +523,11 @@ export function computerUseProjectionForRun({
         verification_ref: verification.verification_ref,
         summary: requestedActionIsReadOnly
           ? "Verified the read-only postcondition and retained the trace."
-          : "Verified that no mutating action executed before confirmation.",
+          : requestedActionExecutionCompleted
+            ? "Verified the approved mutating action against CDP adapter evidence."
+            : requestedActionHasApproval
+              ? "Verified the approved mutating action failed closed before execution."
+              : "Verified that no mutating action executed before confirmation.",
       },
       {
         sequence: action ? 6 : 5,
@@ -470,7 +536,11 @@ export function computerUseProjectionForRun({
         receipt_ref: commitGate.commit_gate_ref,
         summary: requestedActionIsReadOnly
           ? "Evaluated the outcome contract and confirmed no external-effect commit was required."
-          : "Paused at the commit gate until explicit approval is available.",
+          : requestedActionExecutionCompleted
+            ? "Recorded the completed approval-bound commit gate."
+            : requestedActionHasApproval
+              ? "Recorded the blocked commit gate with executor-unavailable evidence."
+              : "Paused at the commit gate until explicit approval is available.",
       },
     ],
   };
@@ -505,6 +575,9 @@ export function computerUseProjectionForRun({
     computer_use_action_kind: requestedActionKind,
     computer_use_external_effect: !requestedActionIsReadOnly,
     computer_use_approval_ref: requestedActionApprovalRef,
+    computer_use_executor_ref: requestedActionExecution?.executor_ref ?? null,
+    computer_use_executor_status: requestedActionExecution?.status ?? null,
+    computer_use_executor_error_class: requestedActionExecution?.error_class ?? null,
   };
   const actionExecutionEvents = action && actionReceipt
     ? [
@@ -522,6 +595,7 @@ export function computerUseProjectionForRun({
             computer_use_proposal_ref: actionProposal.proposal_ref,
             computer_action: action,
             action_receipt: actionReceipt,
+            native_browser_execution_result: requestedActionExecution,
           },
         }),
       ]
@@ -552,12 +626,12 @@ export function computerUseProjectionForRun({
         computer_use_step: "acquire_lease",
         lease,
         adapter_contract: {
-          adapter_id: adapterId,
+          adapter_id: executionAdapterId,
           lane: environmentSelection.selected_lane,
           supported_session_modes: [environmentSelection.selected_session_mode],
           capabilities: ["observe.dom", "observe.ax", "observe.screenshot", `act.${requestedActionKind}`, "verify.postcondition"],
           emits_observation_bundle: true,
-          emits_action_receipts: requestedActionIsReadOnly,
+          emits_action_receipts: requestedActionWillExecute,
           fail_closed_when_unavailable: true,
         },
       },
@@ -619,11 +693,15 @@ export function computerUseProjectionForRun({
           policy_decision_ref: policyDecisionRef,
           outcome: requestedActionIsReadOnly
             ? "approved_for_read_only_probe"
-            : requestedActionHasApproval
+            : requestedActionExecutionCompleted
               ? "approved_after_confirmation"
+              : requestedActionHasApproval
+                ? "blocked_executor_unavailable"
             : "requires_confirmation_before_execution",
           authority_scope: requestedActionAuthority,
           approval_ref: requestedActionApprovalRef,
+          executor_ref: requestedActionExecution?.executor_ref ?? null,
+          executor_status: requestedActionExecution?.status ?? null,
         },
       },
     }),
@@ -639,6 +717,7 @@ export function computerUseProjectionForRun({
         computer_use_verification_ref: verification.verification_ref,
         computer_use_proposal_ref: actionProposal.proposal_ref,
         verification_receipt: verification,
+        native_browser_execution_result: requestedActionExecution,
       },
     }),
     computerUseEvent({
@@ -653,7 +732,8 @@ export function computerUseProjectionForRun({
         computer_use_action_ref: action?.action_ref ?? null,
         outcome_contract: outcomeContract,
         commit_gate: commitGate,
-        human_handoff_state: requestedActionWillExecute ? null : {
+        native_browser_execution_result: requestedActionExecution,
+        human_handoff_state: requestedActionWillExecute || requestedActionExecutionBlocked ? null : {
           handoff_ref: `handoff_${runId}_${requestedActionKind}`,
           reason: "mutating_browser_action_requires_confirmation",
           requested_user_action: `Approve or reject ${actionProposal.normalized_action_candidate}.`,
@@ -1076,6 +1156,16 @@ function requestedComputerUseApprovalRef(request = {}) {
       metadata.computer_use_approval_ref ??
       metadata.approvalRef ??
       metadata.approval_ref,
+  );
+}
+
+function requestedComputerUseExecutionResult(request = {}) {
+  const metadata = request.options?.metadata ?? request.metadata ?? {};
+  return objectValue(
+    metadata.computerUseNativeBrowserExecution ??
+      metadata.computer_use_native_browser_execution ??
+      metadata.computerUseExecutionResult ??
+      metadata.computer_use_execution_result,
   );
 }
 
