@@ -108,6 +108,21 @@ pub(crate) enum TuiLineCommand {
         viewport_width: Option<u64>,
         viewport_height: Option<u64>,
     },
+    VisualGuiObserve {
+        prompt: Option<String>,
+        session_mode: Option<String>,
+        screenshot_ref: Option<String>,
+        screenshot_path: Option<String>,
+        som_ref: Option<String>,
+        som_path: Option<String>,
+        ax_ref: Option<String>,
+        ax_path: Option<String>,
+        app_name: Option<String>,
+        window_title: Option<String>,
+        coordinate_space_id: Option<String>,
+        viewport_width: Option<u64>,
+        viewport_height: Option<u64>,
+    },
     ComputerUseControl {
         action: String,
         lease_id: String,
@@ -509,6 +524,51 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                     line.trim(),
                     "applied",
                     Some("visual-GUI computer-use trace emitted"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::VisualGuiObserve {
+                prompt,
+                session_mode,
+                screenshot_ref,
+                screenshot_path,
+                som_ref,
+                som_path,
+                ax_ref,
+                ax_path,
+                app_name,
+                window_title,
+                coordinate_space_id,
+                viewport_width,
+                viewport_height,
+            }) => {
+                let events = handle_visual_gui_command_with_tool(
+                    &mut session,
+                    VisualGuiLineArgs {
+                        prompt,
+                        session_mode,
+                        screenshot_ref,
+                        screenshot_path,
+                        som_ref,
+                        som_path,
+                        ax_ref,
+                        ax_path,
+                        app_name,
+                        window_title,
+                        coordinate_space_id,
+                        viewport_width,
+                        viewport_height,
+                    },
+                    "ioi.computer_use.visual_gui.observe",
+                )
+                .await?;
+                control_state.record_command(
+                    "visual-gui-observe",
+                    line.trim(),
+                    "applied",
+                    Some("visual-GUI observation broker trace emitted"),
                     &session,
                     &events,
                 );
@@ -1126,6 +1186,24 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 viewport_height: args.viewport_height,
             })
         }
+        "visual-gui-observe" | "visual-observe" | "desktop-gui-observe" => {
+            let args = parse_visual_gui_args(rest)?;
+            Ok(TuiLineCommand::VisualGuiObserve {
+                prompt: args.prompt,
+                session_mode: args.session_mode,
+                screenshot_ref: args.screenshot_ref,
+                screenshot_path: args.screenshot_path,
+                som_ref: args.som_ref,
+                som_path: args.som_path,
+                ax_ref: args.ax_ref,
+                ax_path: args.ax_path,
+                app_name: args.app_name,
+                window_title: args.window_title,
+                coordinate_space_id: args.coordinate_space_id,
+                viewport_width: args.viewport_width,
+                viewport_height: args.viewport_height,
+            })
+        }
         "computer-use-control" => {
             let args = parse_computer_use_control_args(rest)?;
             Ok(TuiLineCommand::ComputerUseControl {
@@ -1179,6 +1257,28 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                     cdp_timeout_ms: args.cdp_timeout_ms,
                 })
             } else if let Some(prompt) = rest
+                .strip_prefix("visual-gui-observe ")
+                .or_else(|| (rest == "visual-gui-observe").then_some(""))
+                .or_else(|| rest.strip_prefix("desktop-gui-observe "))
+                .or_else(|| (rest == "desktop-gui-observe").then_some(""))
+            {
+                let args = parse_visual_gui_args(prompt)?;
+                Ok(TuiLineCommand::VisualGuiObserve {
+                    prompt: args.prompt,
+                    session_mode: args.session_mode,
+                    screenshot_ref: args.screenshot_ref,
+                    screenshot_path: args.screenshot_path,
+                    som_ref: args.som_ref,
+                    som_path: args.som_path,
+                    ax_ref: args.ax_ref,
+                    ax_path: args.ax_path,
+                    app_name: args.app_name,
+                    window_title: args.window_title,
+                    coordinate_space_id: args.coordinate_space_id,
+                    viewport_width: args.viewport_width,
+                    viewport_height: args.viewport_height,
+                })
+            } else if let Some(prompt) = rest
                 .strip_prefix("visual-gui ")
                 .or_else(|| (rest == "visual-gui").then_some(""))
                 .or_else(|| rest.strip_prefix("desktop-gui "))
@@ -1202,7 +1302,7 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 })
             } else {
                 Err(anyhow!(
-                    "/computer-use accepts browser-discovery, native-browser <prompt>, visual-gui <prompt>, or pause|resume|abort|cleanup --lease-id <id>; use /help"
+                    "/computer-use accepts browser-discovery, native-browser <prompt>, visual-gui-observe <prompt>, visual-gui <prompt>, or pause|resume|abort|cleanup --lease-id <id>; use /help"
                 ))
             }
         }
@@ -2901,6 +3001,14 @@ async fn handle_visual_gui_command(
     session: &mut TuiInteractiveSession,
     args: VisualGuiLineArgs,
 ) -> Result<Vec<Value>> {
+    handle_visual_gui_command_with_tool(session, args, "ioi.computer_use.visual_gui").await
+}
+
+async fn handle_visual_gui_command_with_tool(
+    session: &mut TuiInteractiveSession,
+    args: VisualGuiLineArgs,
+    tool_id: &str,
+) -> Result<Vec<Value>> {
     let mut input = serde_json::Map::new();
     if let Some(prompt) = args
         .prompt
@@ -3022,7 +3130,7 @@ async fn handle_visual_gui_command(
     if let Some(viewport_height) = args.viewport_height {
         input.insert("viewportHeight".to_string(), Value::from(viewport_height));
     }
-    handle_coding_tool_input_command(session, "ioi.computer_use.visual_gui", input).await
+    handle_coding_tool_input_command(session, tool_id, input).await
 }
 
 async fn handle_computer_use_control_command(
@@ -3659,13 +3767,14 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
         "ioi.computer_use.browser_discovery" => "browser-discovery",
         "ioi.computer_use.native_browser" => "native-browser",
         "ioi.computer_use.visual_gui" => "visual-gui",
+        "ioi.computer_use.visual_gui.observe" => "visual-gui-observe",
         "ioi.computer_use.control" => "computer-use-control",
         _ => "tool",
     }
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--session-mode owned_hermetic_browser|attached_cdp|controlled_relaunch] [--approval-ref approval_id] [--controlled-relaunch-approval-ref approval_id] [--controlled-relaunch-executable-path path] [--controlled-relaunch-headless] [--selector css] [--target-ref ref] [--text value] [--key value] [--scroll-x n] [--scroll-y n] [--file-path path] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /visual-gui [prompt] [--session-mode visual_fallback|foreground_desktop|background_desktop|app_scoped_desktop] [--screenshot-ref ref|--screenshot-path path] [--som-ref ref|--som-path path] [--ax-ref ref|--ax-path path] [--app-name name] [--window-title title] [--coordinate-space-id id] [--viewport-width n] [--viewport-height n] /computer-use [pause|resume|abort|cleanup] --lease-id lease_id [--handoff-ref ref] [--reason text] [--resume-observation-ref ref] [--cdp-endpoint-url url] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--session-mode owned_hermetic_browser|attached_cdp|controlled_relaunch] [--approval-ref approval_id] [--controlled-relaunch-approval-ref approval_id] [--controlled-relaunch-executable-path path] [--controlled-relaunch-headless] [--selector css] [--target-ref ref] [--text value] [--key value] [--scroll-x n] [--scroll-y n] [--file-path path] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /visual-gui-observe [prompt] [--session-mode visual_fallback|foreground_desktop|background_desktop|app_scoped_desktop] [--screenshot-ref ref|--screenshot-path path] [--som-ref ref|--som-path path] [--ax-ref ref|--ax-path path] [--app-name name] [--window-title title] [--coordinate-space-id id] [--viewport-width n] [--viewport-height n] /visual-gui [prompt] [--session-mode visual_fallback|foreground_desktop|background_desktop|app_scoped_desktop] [--screenshot-ref ref|--screenshot-path path] [--som-ref ref|--som-path path] [--ax-ref ref|--ax-path path] [--app-name name] [--window-title title] [--coordinate-space-id id] [--viewport-width n] [--viewport-height n] /computer-use [pause|resume|abort|cleanup] --lease-id lease_id [--handoff-ref ref] [--reason text] [--resume-observation-ref ref] [--cdp-endpoint-url url] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -5369,6 +5478,42 @@ mod tests {
                 som_path: Some("/tmp/som.json".to_string()),
                 ax_ref: None,
                 ax_path: Some("/tmp/ax.json".to_string()),
+                app_name: None,
+                window_title: None,
+                coordinate_space_id: None,
+                viewport_width: None,
+                viewport_height: None,
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/visual-gui-observe capture canvas --screenshot-path /tmp/visual.png --som-path /tmp/som.json --ax-path /tmp/ax.json").unwrap(),
+            TuiLineCommand::VisualGuiObserve {
+                prompt: Some("capture canvas".to_string()),
+                session_mode: None,
+                screenshot_ref: None,
+                screenshot_path: Some("/tmp/visual.png".to_string()),
+                som_ref: None,
+                som_path: Some("/tmp/som.json".to_string()),
+                ax_ref: None,
+                ax_path: Some("/tmp/ax.json".to_string()),
+                app_name: None,
+                window_title: None,
+                coordinate_space_id: None,
+                viewport_width: None,
+                viewport_height: None,
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/computer-use visual-gui-observe capture canvas --screenshot-ref artifact:visual:screenshot").unwrap(),
+            TuiLineCommand::VisualGuiObserve {
+                prompt: Some("capture canvas".to_string()),
+                session_mode: None,
+                screenshot_ref: Some("artifact:visual:screenshot".to_string()),
+                screenshot_path: None,
+                som_ref: None,
+                som_path: None,
+                ax_ref: None,
+                ax_path: None,
                 app_name: None,
                 window_title: None,
                 coordinate_space_id: None,

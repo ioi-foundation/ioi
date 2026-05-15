@@ -1141,6 +1141,105 @@ test("runtime daemon retains local visual GUI observation files as governed arti
   }
 });
 
+test("runtime daemon brokers read-only visual GUI observations for later visual runs", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-visual-gui-observe-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-visual-gui-observe-state-"));
+  const screenshotPath = path.join(cwd, "observed-screen.png");
+  const somPath = path.join(cwd, "observed-som.json");
+  const axPath = path.join(cwd, "observed-ax.json");
+  fs.writeFileSync(screenshotPath, "broker png bytes");
+  fs.writeFileSync(somPath, JSON.stringify({ marks: [{ id: 1, label: "Run button" }] }));
+  fs.writeFileSync(axPath, JSON.stringify({ role: "window", name: "Composer" }));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const thread = await agent.thread();
+    const observe = await client.invokeThreadTool(thread.id, "ioi.computer_use.visual_gui.observe", {
+      source: "sdk_test",
+      workflowGraphId: "workflow.visual-gui-observe",
+      workflowNodeId: "visual-gui-observe",
+      input: {
+        prompt: "Capture the workflow composer surface.",
+        actionKind: "click",
+        authorityScopes: ["computer_use.visual_gui.act", "coordinate_action"],
+        sessionMode: "foreground_desktop",
+        screenshotPath,
+        somPath,
+        axPath,
+        appName: "Autopilot",
+        windowTitle: "Workflow Composer",
+        coordinateSpaceId: "screen-workflow-composer",
+        viewportWidth: 1440,
+        viewportHeight: 900,
+        visualTargets: [
+          {
+            targetRef: "target-run-button",
+            label: "Run",
+            role: "button",
+            somId: 1,
+            confidence: 0.92,
+            bounds: {
+              x: 1260,
+              y: 18,
+              width: 88,
+              height: 36,
+              coordinateSpaceId: "screen-workflow-composer",
+            },
+            availableActions: ["inspect"],
+          },
+        ],
+      },
+    });
+
+    assert.equal(observe.status, "completed");
+    assert.equal(observe.tool_name, "ioi.computer_use.visual_gui.observe");
+    assert.equal(observe.result.lease.authority_scope, "computer_use.visual_gui.read");
+    assert.equal(observe.result.action.action_kind, "inspect");
+    assert.equal(observe.result.policyDecision.authority_scope, "computer_use.visual_gui.read");
+    assert.equal(observe.result.observationBroker.authority_scope, "computer_use.visual_gui.read");
+    assert.equal(observe.result.observationBroker.observation_ref, observe.result.observation.observation_ref);
+    assert.equal(observe.result.targetIndex.targets[0].target_ref, "target-run-button");
+    const screenshotRef = observe.result.observation.screenshot_ref;
+    const somRef = observe.result.observation.som_ref;
+    const axRef = observe.result.observation.ax_ref;
+    assert.match(screenshotRef, /^artifact_computer_use_visual_/);
+    assert.ok(observe.artifact_refs.includes(screenshotRef));
+
+    const visualRun = await client.invokeThreadTool(thread.id, "ioi.computer_use.visual_gui", {
+      source: "sdk_test",
+      workflowGraphId: "workflow.visual-gui-from-observe",
+      workflowNodeId: "visual-gui-from-observe",
+      input: {
+        prompt: "Inspect the brokered workflow composer observation.",
+        sessionMode: "foreground_desktop",
+        screenshotRef,
+        somRef,
+        axRef,
+        appName: "Autopilot",
+        windowTitle: "Workflow Composer",
+        coordinateSpaceId: "screen-workflow-composer",
+        viewportWidth: 1440,
+        viewportHeight: 900,
+      },
+    });
+
+    assert.equal(visualRun.status, "completed");
+    assert.equal(visualRun.tool_name, "ioi.computer_use.visual_gui");
+    assert.equal(visualRun.result.observation.screenshot_ref, screenshotRef);
+    assert.equal(visualRun.result.observation.som_ref, somRef);
+    assert.equal(visualRun.result.observation.ax_ref, axRef);
+    assert.equal(visualRun.result.action.action_kind, "inspect");
+    assert.equal(visualRun.result.actionReceipt.adapter_id, "ioi.visual_gui.local_observation");
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("runtime daemon gates mutating native browser actions before execution", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-gate-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-gate-state-"));

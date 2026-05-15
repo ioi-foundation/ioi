@@ -174,6 +174,21 @@ test("computer-use composer run options project visual GUI observation refs", ()
   assert.equal(options.metadata.viewportHeight, 800);
 });
 
+test("computer-use composer run options project visual observation broker primitive", () => {
+  const workflow = workflowWithCreator("computer_use.visual_gui_observe");
+  const options = workflowComposerComputerUseRunOptions(workflow);
+
+  assert.ok(options);
+  assert.equal(options.metadata.computerUseLane, "visual_gui");
+  assert.equal(options.metadata.computerUseActionKind, "inspect");
+  assert.equal(options.metadata.toolRef, "ioi.computer_use.visual_gui.observe");
+  assert.deepEqual(options.metadata.authorityScopes, [
+    "computer_use.visual_gui.observe",
+    "computer_use.visual_gui.read",
+    "computer_use.cleanup",
+  ]);
+});
+
 test("computer-use composer run options ignore non computer-use workflows", () => {
   const options = workflowComposerComputerUseRunOptions(
     workflowWithCreator("plugin_tool.coding_pack"),
