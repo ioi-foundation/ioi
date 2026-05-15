@@ -1,6 +1,10 @@
 import type { IOISDKMessage, RuntimeReceipt } from "./messages.js";
 import type { SendOptions } from "./options.js";
 import {
+  computerUseContractsFromBrowserObservationArtifacts,
+  type BrowserObservationArtifacts,
+} from "./computer-use-browser-artifacts.js";
+import {
   COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
   commitGateForComputerAction,
   defaultComputerUseHarnessContract,
@@ -85,13 +89,37 @@ export function mockComputerUseProjectionForRun({
   const observationRef =
     cleanString(contractOverrides.observationBundle?.observation_ref) ??
     `observation_${runId}_browser_initial`;
+  const hasBrowserObservationArtifacts = Boolean(contractOverrides.browserObservationArtifacts);
   const targetIndexRef =
     cleanString(contractOverrides.targetIndex?.target_index_ref) ??
     cleanString(contractOverrides.observationBundle?.target_index_ref) ??
+    (hasBrowserObservationArtifacts ? `${observationRef}:target_index` : null) ??
     `target_index_${runId}_browser_initial`;
   const affordanceGraphRef =
     cleanString(contractOverrides.affordanceGraph?.graph_ref) ??
+    (hasBrowserObservationArtifacts ? `${targetIndexRef}:affordance_graph` : null) ??
     `affordance_${runId}_browser_initial`;
+  const browserArtifactContracts = hasBrowserObservationArtifacts
+    ? computerUseContractsFromBrowserObservationArtifacts({
+        artifacts: contractOverrides.browserObservationArtifacts,
+        leaseId,
+        observationRef,
+        targetIndexRef,
+        affordanceGraphRef,
+        retentionMode: requestedRetentionMode,
+      })
+    : null;
+  const observationOverride =
+    contractOverrides.observationBundle ?? browserArtifactContracts?.observationBundle ?? null;
+  const targetIndexOverride =
+    contractOverrides.targetIndex ?? browserArtifactContracts?.targetIndex ?? null;
+  const affordanceGraphOverride =
+    contractOverrides.affordanceGraph ?? browserArtifactContracts?.affordanceGraph ?? null;
+  const contractIngest = contractOverrides.observationBundle
+    ? "canonical_runtime_contract"
+    : browserArtifactContracts
+      ? "browser_observation_artifacts"
+      : "synthetic_sdk_projection";
   const proposalRef = `proposal_${runId}_browser_inspect`;
   const actionRef = `action_${runId}_browser_inspect`;
   const actionReceiptRef = `receipt_${runId}_computer_use_action`;
@@ -181,7 +209,7 @@ export function mockComputerUseProjectionForRun({
     freshness_ms: 0,
     retention_mode: requestedRetentionMode,
     detected_patterns: ["form", "toolbar", "warning_or_toast"],
-  }, contractOverrides.observationBundle, leaseId, requestedRetentionMode);
+  }, observationOverride, leaseId, requestedRetentionMode);
   const targetIndex: TargetIndex = mergeTargetIndexContract({
     target_index_ref: targetIndexRef,
     observation_ref: observation.observation_ref,
@@ -207,7 +235,7 @@ export function mockComputerUseProjectionForRun({
         available_actions: ["inspect", "scroll", "click"],
       },
     ],
-  }, contractOverrides.targetIndex, observation.observation_ref);
+  }, targetIndexOverride, observation.observation_ref);
   const primaryTarget = targetIndex.targets[0];
   const affordanceGraph: AffordanceGraph = mergeAffordanceGraphContract({
     graph_ref: affordanceGraphRef,
@@ -227,7 +255,7 @@ export function mockComputerUseProjectionForRun({
         invalidation_conditions: ["navigation", "modal_interruption", "auth_wall"],
       },
     ],
-  }, contractOverrides.affordanceGraph, targetIndex.target_index_ref, observation.observation_ref);
+  }, affordanceGraphOverride, targetIndex.target_index_ref, observation.observation_ref);
   const actionProposal: ActionProposal = {
     proposal_ref: proposalRef,
     proposed_by: selectedModel,
@@ -367,9 +395,7 @@ export function mockComputerUseProjectionForRun({
     computer_use_lane: environmentSelection.selected_lane,
     computer_use_session_mode: environmentSelection.selected_session_mode,
     computer_use_lease_id: lease.lease_id,
-    computer_use_contract_ingest: contractOverrides.observationBundle
-      ? "canonical_runtime_contract"
-      : "synthetic_sdk_projection",
+    computer_use_contract_ingest: contractIngest,
     observation_retention_mode: requestedRetentionMode,
     fail_closed_when_unavailable: workflowBinding.failClosedWhenUnavailable,
     workflowGraphId: workflowBinding.workflowGraphId,
@@ -855,6 +881,7 @@ interface ComputerUseContractOverrides {
   observationBundle: Partial<ComputerUseObservationBundle> | null;
   targetIndex: Partial<TargetIndex> | null;
   affordanceGraph: Partial<AffordanceGraph> | null;
+  browserObservationArtifacts: BrowserObservationArtifacts | null;
 }
 
 function computerUseContractOverrides(
@@ -873,6 +900,12 @@ function computerUseContractOverrides(
       metadata?.computerUseAffordanceGraph ??
         metadata?.computer_use_affordance_graph,
     ) as Partial<AffordanceGraph> | null,
+    browserObservationArtifacts: objectValue(
+      metadata?.computerUseBrowserObservationArtifacts ??
+        metadata?.computer_use_browser_observation_artifacts ??
+        metadata?.browserObservationArtifacts ??
+        metadata?.browser_observation_artifacts,
+    ) as BrowserObservationArtifacts | null,
   };
 }
 

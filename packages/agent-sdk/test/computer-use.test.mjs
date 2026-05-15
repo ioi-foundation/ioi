@@ -473,6 +473,59 @@ test("SDK local traces ingest canonical computer-use observation contracts", asy
   assert.equal(observationEvent.data.computer_use_contract_ingest, "canonical_runtime_contract");
 });
 
+test("SDK local traces project browser observation artifacts into canonical targets", async () => {
+  const { cwd, client } = tempClient();
+  const agent = await Agent.create({
+    model: { id: "local:auto" },
+    local: { cwd },
+    substrateClient: client,
+  });
+  const run = await agent.send("Use the browser to inspect the mounted app.", {
+    metadata: {
+      computerUse: true,
+      computerUseBrowserObservationArtifacts: {
+        url: "https://artifact.example.test/app",
+        page_title: "Artifact App",
+        browser_use_selector_map_text:
+          "[42] <button name=Submit target_id=target-submit />\n" +
+          "[43] <input name=Search placeholder=Search target_id=target-search />",
+        browsergym_dom_text: '<button id="submit">Submit</button><input placeholder="Search" />',
+        browsergym_axtree_text: "button Submit\ntextbox Search",
+        browsergym_focused_bid: "bid-submit",
+      },
+    },
+  });
+  const trace = await run.inspect();
+  assert.equal(trace.computerUse.observation.url, "https://artifact.example.test/app");
+  assert.equal(trace.computerUse.observation.title, "Artifact App");
+  assert.equal(trace.computerUse.observation.dom_ref.endsWith(":browsergym_dom"), true);
+  assert.equal(trace.computerUse.observation.selector_map_ref.endsWith(":selector_map"), true);
+  assert.equal(trace.computerUse.observation.detected_patterns.includes("form"), true);
+
+  const [button, input] = trace.computerUse.targetIndex.targets;
+  assert.equal(button.target_ref.endsWith(":target-submit"), true);
+  assert.equal(button.label, "Submit");
+  assert.equal(button.role, "button");
+  assert.equal(button.available_actions.includes("click"), true);
+  assert.equal(input.label, "Search");
+  assert.equal(input.available_actions.includes("type_text"), true);
+  assert.equal(
+    trace.computerUse.affordanceGraph.affordances.some((affordance) =>
+      affordance.target_ref === button.target_ref &&
+        affordance.possible_action === "click" &&
+        affordance.confirmation_required === true &&
+        affordance.risk_class === "possible_external_effect",
+    ),
+    true,
+  );
+  assert.equal(trace.computerUse.actionProposal.target_ref, button.target_ref);
+
+  const observationEvent = trace.events.find((event) => event.type === "computer_use_observation");
+  assert.ok(observationEvent);
+  assert.equal(observationEvent.data.computer_use_contract_ingest, "browser_observation_artifacts");
+  assert.equal(observationEvent.data.target_index.targets.length, 2);
+});
+
 test("runtime daemon emits canonical computer-use events for browser prompts", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-state-"));
@@ -653,6 +706,69 @@ test("runtime daemon ingests canonical computer-use observation contracts", asyn
     assert.ok(observationEvent);
     assert.equal(observationEvent.payload.computer_use_contract_ingest, "canonical_runtime_contract");
     assert.equal(observationEvent.payload.computer_use_observation_ref, "observation-live-browser");
+  } finally {
+    await daemon.close();
+  }
+});
+
+test("runtime daemon projects browser observation artifacts into canonical computer-use targets", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-artifacts-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-artifacts-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const run = await agent.send("Use the browser to inspect the mounted app.", {
+      metadata: {
+        computerUse: true,
+        computerUseBrowserObservationArtifacts: {
+          url: "https://artifact.example.test/app",
+          page_title: "Artifact App",
+          browser_use_selector_map_text:
+            "[42] <button name=Submit target_id=target-submit />\n" +
+            "[43] <input name=Search placeholder=Search target_id=target-search />",
+          browsergym_dom_text: '<button id="submit">Submit</button><input placeholder="Search" />',
+          browsergym_axtree_text: "button Submit\ntextbox Search",
+          browsergym_focused_bid: "bid-submit",
+        },
+      },
+    });
+    const trace = await run.inspect();
+    assert.equal(trace.computerUse.observation.url, "https://artifact.example.test/app");
+    assert.equal(trace.computerUse.observation.title, "Artifact App");
+    assert.equal(trace.computerUse.observation.dom_ref.endsWith(":browsergym_dom"), true);
+    assert.equal(trace.computerUse.observation.selector_map_ref.endsWith(":selector_map"), true);
+
+    const [button, input] = trace.computerUse.targetIndex.targets;
+    assert.equal(button.target_ref.endsWith(":target-submit"), true);
+    assert.equal(button.label, "Submit");
+    assert.equal(button.role, "button");
+    assert.equal(button.available_actions.includes("click"), true);
+    assert.equal(input.label, "Search");
+    assert.equal(input.available_actions.includes("type_text"), true);
+    assert.equal(trace.computerUse.actionProposal.target_ref, button.target_ref);
+    assert.equal(
+      trace.computerUse.affordanceGraph.affordances.some((affordance) =>
+        affordance.target_ref === button.target_ref &&
+          affordance.possible_action === "click" &&
+          affordance.confirmation_required === true,
+      ),
+      true,
+    );
+
+    const thread = await agent.thread();
+    const runtimeEvents = [];
+    for await (const event of thread.events()) {
+      runtimeEvents.push(event);
+    }
+    const observationEvent = runtimeEvents.find((event) => event.eventKind === "computer_use.observation");
+    assert.ok(observationEvent);
+    assert.equal(observationEvent.payload.computer_use_contract_ingest, "browser_observation_artifacts");
+    assert.equal(observationEvent.payload.target_index.targets.length, 2);
   } finally {
     await daemon.close();
   }
