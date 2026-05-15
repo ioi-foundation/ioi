@@ -15,6 +15,7 @@ import {
   computerActionHasGrounding,
   createRuntimeSubstrateClient,
   defaultComputerUseHarnessContract,
+  evaluateComputerUseTrajectory,
   humanHandoffForComputerUseBoundary,
   isActionProposalReadyForExecution,
   observationRetentionAllowsRawPersistence,
@@ -246,6 +247,81 @@ test("computer-use outcome contracts create commit gates for external effects", 
   });
   assert.equal(prohibitedGate.status, "blocked");
   assert.equal(prohibitedGate.user_confirmation_required, true);
+});
+
+test("computer-use trajectory eval projects pass and fail-closed outcomes", () => {
+  const passed = evaluateComputerUseTrajectory({
+    trace: {
+      environmentSelection: {
+        receipt_ref: "receipt-env",
+        run_id: "run-eval",
+        selected_lane: "native_browser",
+        selected_session_mode: "owned_hermetic_browser",
+      },
+      lease: { lane: "native_browser", session_mode: "owned_hermetic_browser" },
+      observation: { observation_ref: "observation-eval" },
+      targetIndex: { target_index_ref: "target-index-eval" },
+      actionProposal: { proposal_ref: "proposal-eval" },
+      verification: {
+        verification_ref: "verification-eval",
+        status: "passed",
+      },
+      cleanup: { cleanup_ref: "cleanup-eval", status: "completed" },
+      trajectory: {
+        trajectory_ref: "trajectory-eval",
+        run_id: "run-eval",
+        entries: [
+          { sequence: 1, event_kind: "select_environment" },
+          { sequence: 2, event_kind: "observe" },
+          { sequence: 3, event_kind: "propose_action" },
+          { sequence: 4, event_kind: "verify_postcondition" },
+          { sequence: 5, event_kind: "cleanup" },
+        ],
+      },
+    },
+  });
+  assert.equal(passed.outcome, "passed");
+  assert.equal(passed.score, 1);
+  assert.equal(passed.failure_class, "unknown");
+  assert.deepEqual(passed.missing_regression_gates, []);
+  assert.deepEqual(passed.evidence_refs, [
+    "receipt-env",
+    "observation-eval",
+    "target-index-eval",
+    "proposal-eval",
+    "verification-eval",
+    "cleanup-eval",
+    "trajectory-eval",
+  ]);
+
+  const blocked = evaluateComputerUseTrajectory({
+    trace: {
+      environmentSelection: {
+        run_id: "run-blocked",
+        selected_lane: "sandboxed_hosted",
+        selected_session_mode: "hosted_sandbox",
+      },
+      runState: { blocker_state: "adapter_unavailable" },
+      observation: { observation_ref: "observation-blocked" },
+      targetIndex: { target_index_ref: "target-index-blocked" },
+      actionProposal: { proposal_ref: "proposal-blocked" },
+      verification: {
+        verification_ref: "verification-blocked",
+        status: "blocked",
+      },
+      cleanup: { cleanup_ref: "cleanup-blocked", status: "not_required" },
+      trajectory: {
+        trajectory_ref: "trajectory-blocked",
+        run_id: "run-blocked",
+        entries: [{ sequence: 1, event_kind: "propose_action" }],
+      },
+    },
+  });
+  assert.equal(blocked.outcome, "blocked");
+  assert.equal(blocked.score, 0.5);
+  assert.equal(blocked.failure_class, "environment");
+  assert.equal(blocked.failure_mode, "sandbox_unavailable");
+  assert.equal(blocked.summary.includes("failed closed"), true);
 });
 
 test("computer-use model adapters normalize OpenAI-style actions into IOI proposals and actions", () => {

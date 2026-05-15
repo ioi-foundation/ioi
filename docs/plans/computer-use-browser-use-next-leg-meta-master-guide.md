@@ -647,7 +647,7 @@ Deliverables:
 - SDK action-adapter compiler fixtures for OpenAI-style computer-use outputs,
   UI-TARS coordinate actions, and generic VLM action records, all normalized
   into IOI `ActionProposal` and grounded `ComputerAction` contracts;
-- failure-class scorecards.
+- failure-class scorecards from SDK trajectory eval projection.
 
 Acceptance:
 
