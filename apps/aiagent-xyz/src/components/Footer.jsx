@@ -1,6 +1,7 @@
 // src/components/Footer.jsx
 import React from 'react';
 import { Link } from 'react-router-dom';
+import BrandLogo from './BrandLogo';
 
 export default function Footer() {
   return (
@@ -31,8 +32,8 @@ export default function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 mb-12">
           
           <div className="col-span-2 lg:col-span-2">
-            <Link to="/" className="text-xl font-black tracking-tighter text-white mb-4 block">
-              aiagent<span className="text-blue-500">.xyz</span>
+            <Link to="/" className="mb-4 inline-block" aria-label="aiagent.xyz home">
+              <BrandLogo surface="dark" />
             </Link>
             <p className="mb-6 max-w-sm text-slate-500">
               Composable autonomous supply for the IOI network. Discover, publish, and license verifiable agents, workflows, operator packs, service modules, and embodied runtimes.

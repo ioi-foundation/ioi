@@ -1,6 +1,7 @@
 // src/components/Header.jsx
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import BrandLogo from './BrandLogo';
 import WalletModal from './WalletModal';
 
 export default function Header() {
@@ -64,8 +65,29 @@ export default function Header() {
       />
 
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+        {/* 1. Alpha Notice */}
+        <div className="bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 text-white">
+          <div className="container mx-auto px-4 h-7 flex items-center justify-center gap-3 text-xs">
+            <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-white/15 shadow-sm">
+              <svg className="h-3 w-3" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M4 12L12 4M6 4h6v6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            <span>
+              <strong>Alpha Preview:</strong> Running on IOI Testnet. Do not use real funds.
+            </span>
+            <a
+              href="https://developers.ioi.ai"
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium underline underline-offset-2 hover:text-cyan-50"
+            >
+              Read the Docs
+            </a>
+          </div>
+        </div>
         
-        {/* 1. Ticker Bar */}
+        {/* 2. Ticker Bar */}
         <div className="bg-slate-50 border-b border-gray-200 py-1 overflow-hidden">
           <div className="flex gap-8 text-xs font-mono animate-marquee whitespace-nowrap px-4">
             {tickerItems.map((item, i) => (
@@ -80,11 +102,11 @@ export default function Header() {
           </div>
         </div>
 
-        {/* 2. Main Nav */}
+        {/* 3. Main Nav */}
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
-            <Link to="/" className="text-xl font-black tracking-tighter text-slate-900">
-              aiagent<span className="text-blue-500">.xyz</span>
+            <Link to="/" className="block h-9 w-[156px] shrink-0" aria-label="aiagent.xyz home">
+              <BrandLogo />
             </Link>
             
             <div className="relative w-96 hidden md:block">
@@ -179,7 +201,7 @@ export default function Header() {
           </div>
         </div>
 
-        {/* 3. Tab Bar */}
+        {/* 4. Tab Bar */}
         <div className="container mx-auto px-4 overflow-x-auto">
           <nav className="flex gap-1 min-w-max">
             <NavLink to="/" active={(location.pathname === '/' && activeFormat === 'All Listings') || location.pathname.startsWith('/agent/')}>Explore</NavLink>
