@@ -4964,6 +4964,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
           computerUse: true,
           computerUseLane: "native_browser",
           computerUseSessionMode: "owned_hermetic_browser",
+          computerUseActionKind: "inspect",
           observationRetentionMode: "local_redacted_artifacts",
           failClosedWhenUnavailable: true,
         },

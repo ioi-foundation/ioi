@@ -20,6 +20,7 @@ test("computer-use composer run options project browser-use preset metadata", ()
     computerUse: true,
     computerUseLane: "native_browser",
     computerUseSessionMode: "owned_hermetic_browser",
+    computerUseActionKind: "inspect",
     observationRetentionMode: "local_redacted_artifacts",
     failClosedWhenUnavailable: true,
     workflowGraphId: "workflow.computer-use-test",
@@ -45,6 +46,18 @@ test("computer-use composer run options project sandboxed preset metadata", () =
   assert.equal(options.metadata.observationRetentionMode, "no_persistence");
   assert.equal(options.metadata.failClosedWhenUnavailable, true);
   assert.equal(options.metadata.toolRef, "ioi.computer_use.sandboxed_hosted");
+});
+
+test("computer-use composer run options project configured native-browser action kind", () => {
+  const workflow = workflowWithCreator("plugin_tool.browser_use");
+  const first = workflow.nodes[0];
+  const args = first.config?.logic?.toolBinding?.arguments as Record<string, unknown>;
+  args["computerUseActionKind"] = "click";
+
+  const options = workflowComposerComputerUseRunOptions(workflow);
+
+  assert.ok(options);
+  assert.equal(options.metadata.computerUseActionKind, "click");
 });
 
 test("computer-use composer run options preserve existing run metadata", () => {
@@ -73,6 +86,7 @@ test("computer-use composer run options preserve existing run metadata", () => {
     computerUse: true,
     computerUseLane: "visual_gui",
     computerUseSessionMode: "visual_fallback",
+    computerUseActionKind: "inspect",
     observationRetentionMode: "local_redacted_artifacts",
     failClosedWhenUnavailable: true,
     workflowGraphId: "workflow.computer-use-test",

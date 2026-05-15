@@ -605,11 +605,12 @@ Deliverables:
   that compile to runtime-owned computer-use lane/session metadata rather than
   React Flow state.
 - composer Run activation metadata bridge that sends configured lane, session,
-  retention, fail-closed, workflow node ids, tool ref, and authority scopes to
-  the runtime request.
+  action kind, retention, fail-closed, workflow node ids, tool ref, and authority
+  scopes to the runtime request.
 - saved workflow-run manifest projection that emits the same canonical
   `computer_use.*` runtime-thread trace when invoked outside the React Flow
-  controller path.
+  controller path, including proposal-only commit-gated traces for mutating
+  native-browser actions.
 
 Acceptance:
 
@@ -617,7 +618,7 @@ Acceptance:
 - every node maps to runtime contracts;
 - old workflows continue to load.
 - mounted-model prompts launched from a composed workflow carry the selected
-  computer-use lane into the daemon/runtime request.
+  computer-use lane and action kind into the daemon/runtime request.
 - Autopilot/run history can rebuild the computer-use prompt-to-action pipeline
   from canonical runtime events without a separate trace store.
 - SDK and daemon runtime thread events preserve authored workflow graph/node

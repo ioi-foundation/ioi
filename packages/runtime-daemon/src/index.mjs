@@ -7385,6 +7385,10 @@ export class AgentgresRuntimeStateStore {
     const observationRetentionMode =
       optionalString(input.observationRetentionMode ?? input.observation_retention_mode) ??
       "prompt_visible_summary_only";
+    const requestedActionKind = nativeBrowserActionKindForInput(input, goal);
+    const requestedActionAuthority = nativeBrowserActionKindIsReadOnly(requestedActionKind)
+      ? "computer_use.native_browser.read"
+      : "computer_use.native_browser.act";
     const metadata = {
       computerUse: true,
       computerUseLane: "native_browser",
@@ -7398,11 +7402,15 @@ export class AgentgresRuntimeStateStore {
       ]),
       toolRef: toolId,
       authorityScopes: uniqueStrings([
+        requestedActionAuthority,
         "computer_use.native_browser.read",
         ...normalizeArray(input.authorityScopes ?? input.authority_scopes),
       ]),
       observationRetentionMode,
       failClosedWhenUnavailable: true,
+      computerUseActionKind: requestedActionKind,
+      computerUseTargetRef:
+        optionalString(input.targetRef ?? input.target_ref ?? input.computerUseTargetRef ?? input.computer_use_target_ref),
       computerUseObservationBundle:
         objectRecord(input.computerUseObservationBundle ?? input.observation_bundle),
       computerUseTargetIndex:
@@ -18144,6 +18152,62 @@ function normalizeReasoningEffort(value, allowNull = false) {
     message: "Thinking controls accept low, medium, high, or xhigh.",
     details: { reasoningEffort: value ?? null },
   });
+}
+
+function nativeBrowserActionKindForInput(input = {}, prompt = "") {
+  const explicit = nativeBrowserActionKindValue(
+    input.actionKind ??
+      input.action_kind ??
+      input.computerUseActionKind ??
+      input.computer_use_action_kind,
+  );
+  if (explicit) return explicit;
+  return nativeBrowserActionKindFromText(prompt) ?? "inspect";
+}
+
+function nativeBrowserActionKindValue(value) {
+  const normalized = optionalString(value)?.toLowerCase().replace(/[\s-]+/g, "_");
+  if (!normalized) return null;
+  if (normalized === "type" || normalized === "input_text") return "type_text";
+  if (normalized === "keypress") return "key_press";
+  if (normalized === "mouse_move") return "hover";
+  return nativeBrowserActionKinds().has(normalized) ? normalized : null;
+}
+
+function nativeBrowserActionKindFromText(value) {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (/^click\b|\bclick\s+/.test(normalized)) return "click";
+  if (/^type\b|\btype\s+|type_text|input\s+text/.test(normalized)) return "type_text";
+  if (/^scroll\b|\bscroll\s+/.test(normalized)) return "scroll";
+  if (/^hover\b|\bhover\s+|mouse_move/.test(normalized)) return "hover";
+  if (/^wait\b|\bwait\s+/.test(normalized)) return "wait";
+  if (/^navigate\b|\bnavigate\s+|open\s+url/.test(normalized)) return "navigate";
+  if (/^select\b|\bselect\s+/.test(normalized)) return "select";
+  if (/^upload\b|\bupload\s+/.test(normalized)) return "upload";
+  return null;
+}
+
+function nativeBrowserActionKinds() {
+  return new Set([
+    "click",
+    "type_text",
+    "key_press",
+    "scroll",
+    "drag",
+    "hover",
+    "select",
+    "upload",
+    "clipboard",
+    "wait",
+    "shell",
+    "mobile_gesture",
+    "navigate",
+    "inspect",
+  ]);
+}
+
+function nativeBrowserActionKindIsReadOnly(actionKind) {
+  return ["inspect", "hover", "wait", "scroll"].includes(actionKind);
 }
 
 function normalizeArray(value) {

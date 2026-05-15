@@ -2518,6 +2518,12 @@ async fn handle_native_browser_command(
 ) -> Result<Vec<Value>> {
     let mut input = serde_json::Map::new();
     if let Some(prompt) = prompt.as_deref().filter(|value| !value.trim().is_empty()) {
+        if let Some(action_kind) = native_browser_action_kind_from_prompt(prompt) {
+            input.insert(
+                "actionKind".to_string(),
+                Value::String(action_kind.to_string()),
+            );
+        }
         input.insert(
             "prompt".to_string(),
             Value::String(prompt.trim().to_string()),
@@ -2531,6 +2537,22 @@ async fn handle_native_browser_command(
         Value::String("prompt_visible_summary_only".to_string()),
     );
     handle_coding_tool_input_command(session, "ioi.computer_use.native_browser", input).await
+}
+
+fn native_browser_action_kind_from_prompt(prompt: &str) -> Option<&'static str> {
+    let first = prompt.split_whitespace().next()?.to_ascii_lowercase();
+    match first.as_str() {
+        "click" => Some("click"),
+        "type" | "type_text" | "input" => Some("type_text"),
+        "navigate" | "open" => Some("navigate"),
+        "select" => Some("select"),
+        "upload" => Some("upload"),
+        "scroll" => Some("scroll"),
+        "hover" => Some("hover"),
+        "wait" => Some("wait"),
+        "inspect" => Some("inspect"),
+        _ => None,
+    }
 }
 
 async fn handle_coding_tool_input_command(

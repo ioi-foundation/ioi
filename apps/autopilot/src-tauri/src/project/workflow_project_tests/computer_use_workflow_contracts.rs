@@ -188,6 +188,128 @@ fn workflow_run_compiles_computer_use_manifest_to_runtime_events() {
 }
 
 #[test]
+fn workflow_run_gates_mutating_native_browser_action_before_execution() {
+    let root = temp_root("computer-use-mutating-gate");
+    let bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "Browser Use Gated Action".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "local".to_string(),
+        template_id: None,
+    })
+    .expect("workflow bundle should create");
+
+    let mut source = workflow_node(
+        "browser-source",
+        "source",
+        "Prompt",
+        80,
+        180,
+        "Input",
+        "manual",
+    );
+    logic_mut(&mut source).insert(
+        "payload".to_string(),
+        json!({"prompt": "Click the submit button at https://example.test."}),
+    );
+    let mut browser = workflow_node(
+        "browser-use",
+        "plugin_tool",
+        "Browser Use",
+        320,
+        180,
+        "Computer",
+        "browser",
+    );
+    logic_mut(&mut browser).insert(
+        "toolBinding".to_string(),
+        json!({
+            "toolRef": "ioi.computer_use.native_browser",
+            "bindingKind": "plugin_tool",
+            "mockBinding": true,
+            "credentialReady": false,
+            "capabilityScope": [
+                "computer_use.native_browser.read",
+                "computer_use.native_browser.act",
+                "computer_use.action_proposal",
+                "computer_use.cleanup"
+            ],
+            "sideEffectClass": "read",
+            "requiresApproval": false,
+            "arguments": {
+                "computerUse": true,
+                "computerUseLane": "native_browser",
+                "computerUseSessionMode": "owned_hermetic_browser",
+                "computerUseActionKind": "click",
+                "observationRetentionMode": "local_redacted_artifacts",
+                "failClosedWhenUnavailable": true
+            }
+        }),
+    );
+
+    let mut workflow = bundle.workflow.clone();
+    workflow.nodes = vec![source, browser];
+    workflow.edges = vec![workflow_edge(
+        "edge-browser-source-use",
+        "browser-source",
+        "browser-use",
+    )];
+    save_workflow_project(bundle.workflow_path.clone(), workflow).expect("workflow should save");
+
+    let run = run_workflow_project(bundle.workflow_path, None).expect("workflow should run");
+    assert_eq!(run.summary.status, "passed");
+    let event_kinds = run
+        .runtime_thread_events
+        .iter()
+        .map(|event| event.get("eventKind").and_then(Value::as_str).unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(event_kinds.len(), 10);
+    assert!(!event_kinds.contains(&"computer_use.action_executed"));
+    assert!(event_kinds.contains(&"computer_use.action_proposed"));
+    assert!(event_kinds.contains(&"computer_use.commit_gate"));
+
+    let proposal_event = run
+        .runtime_thread_events
+        .iter()
+        .find(|event| {
+            event.get("eventKind").and_then(Value::as_str) == Some("computer_use.action_proposed")
+        })
+        .expect("proposal event should exist");
+    assert_eq!(
+        proposal_event
+            .get("payload")
+            .and_then(|value| value.get("action_proposal"))
+            .and_then(|value| value.get("risk_assessment"))
+            .and_then(Value::as_str),
+        Some("possible_external_effect")
+    );
+
+    let commit_event = run
+        .runtime_thread_events
+        .iter()
+        .find(|event| {
+            event.get("eventKind").and_then(Value::as_str) == Some("computer_use.commit_gate")
+        })
+        .expect("commit gate event should exist");
+    assert_eq!(
+        commit_event
+            .get("payload")
+            .and_then(|value| value.get("commit_gate"))
+            .and_then(|value| value.get("status"))
+            .and_then(Value::as_str),
+        Some("pending_confirmation")
+    );
+    assert_eq!(
+        commit_event
+            .get("payload")
+            .and_then(|value| value.get("human_handoff_state"))
+            .and_then(|value| value.get("reason"))
+            .and_then(Value::as_str),
+        Some("mutating_browser_action_requires_confirmation")
+    );
+}
+
+#[test]
 fn workflow_run_fails_closed_unavailable_computer_use_lanes() {
     let root = temp_root("computer-use-unavailable");
     let bundle = create_workflow_project(CreateWorkflowProjectRequest {

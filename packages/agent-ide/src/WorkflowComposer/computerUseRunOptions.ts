@@ -9,6 +9,7 @@ export interface WorkflowComposerComputerUseRunMetadata {
   computerUse: true;
   computerUseLane: string;
   computerUseSessionMode: string;
+  computerUseActionKind: string;
   observationRetentionMode: string | null;
   failClosedWhenUnavailable: boolean;
   workflowGraphId: string | null;
@@ -47,6 +48,12 @@ export function workflowComposerComputerUseRunOptions(
     cleanString(first.args["computerUseSessionMode"]) ??
     cleanString(first.args["computer_use_session_mode"]) ??
     defaultSessionModeForLane(lane);
+  const actionKind =
+    cleanString(first.args["computerUseActionKind"]) ??
+    cleanString(first.args["computer_use_action_kind"]) ??
+    cleanString(first.args["actionKind"]) ??
+    cleanString(first.args["action_kind"]) ??
+    "inspect";
   return {
     metadata: {
       schemaVersion: WORKFLOW_COMPOSER_COMPUTER_USE_RUN_OPTIONS_SCHEMA_VERSION,
@@ -54,6 +61,7 @@ export function workflowComposerComputerUseRunOptions(
       computerUse: true,
       computerUseLane: lane,
       computerUseSessionMode: sessionMode,
+      computerUseActionKind: actionKind,
       observationRetentionMode:
         cleanString(first.args["observationRetentionMode"]) ??
         cleanString(first.args["observation_retention_mode"]),
