@@ -435,6 +435,14 @@ test("workflow run history model exposes computer-use prompt pipelines", () => {
             target_ref: "target-page",
             policy_decision_ref: "policy-read-only",
           },
+          policy_decision_receipt: {
+            policy_decision_ref: "policy-read-only",
+            outcome: "approved_for_read_only_probe",
+            authority_scope: "computer_use.native_browser.read",
+            approval_ref: null,
+            external_effect: false,
+            fail_closed: false,
+          },
         },
       }),
       runtimeThreadEvent("computer-use-verification", 4, {
@@ -563,6 +571,16 @@ test("workflow run history model exposes computer-use prompt pipelines", () => {
     model.runtimeEventProjection.nodes[2]?.computerUse?.policyDecisionRef,
     "policy-read-only",
   );
+  assert.equal(
+    model.computerUseWorkbench?.policyOutcome,
+    "approved_for_read_only_probe",
+  );
+  assert.equal(
+    model.computerUseWorkbench?.policyAuthorityScope,
+    "computer_use.native_browser.read",
+  );
+  assert.equal(model.computerUseWorkbench?.policyExternalEffect, false);
+  assert.equal(model.computerUseWorkbench?.policyFailClosed, false);
   assert.equal(
     model.runtimeEventProjection.nodes[3]?.computerUse?.verificationStatus,
     "passed",

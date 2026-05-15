@@ -115,6 +115,12 @@ export type WorkflowRunComputerUseWorkbench = {
   actionKind: string | null;
   verificationStatus: string | null;
   commitGateStatus: string | null;
+  policyDecisionRef: string | null;
+  policyOutcome: string | null;
+  policyAuthorityScope: string | null;
+  policyApprovalRef: string | null;
+  policyExternalEffect: boolean | null;
+  policyFailClosed: boolean | null;
   blocker: string | null;
   retentionMode: string | null;
   authorityRequired: string | null;
@@ -387,6 +393,24 @@ function workflowRunComputerUseWorkbench(
     commitGateStatus:
       [...nodes].reverse().find((node) => node.computerUse?.commitGateStatus)
         ?.computerUse?.commitGateStatus ?? null,
+    policyDecisionRef:
+      [...nodes].reverse().find((node) => node.computerUse?.policyDecisionRef)
+        ?.computerUse?.policyDecisionRef ?? null,
+    policyOutcome:
+      [...nodes].reverse().find((node) => node.computerUse?.policyOutcome)
+        ?.computerUse?.policyOutcome ?? null,
+    policyAuthorityScope:
+      [...nodes].reverse().find((node) => node.computerUse?.policyAuthorityScope)
+        ?.computerUse?.policyAuthorityScope ?? null,
+    policyApprovalRef:
+      [...nodes].reverse().find((node) => node.computerUse?.policyApprovalRef)
+        ?.computerUse?.policyApprovalRef ?? null,
+    policyExternalEffect:
+      [...nodes].reverse().find((node) => node.computerUse?.policyExternalEffect !== null)
+        ?.computerUse?.policyExternalEffect ?? null,
+    policyFailClosed:
+      [...nodes].reverse().find((node) => node.computerUse?.policyFailClosed !== null)
+        ?.computerUse?.policyFailClosed ?? null,
     blocker:
       [...nodes].reverse().find((node) => node.computerUse?.blocker)
         ?.computerUse?.blocker ?? null,
