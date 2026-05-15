@@ -53,11 +53,13 @@ test("computer-use composer run options project configured native-browser action
   const first = workflow.nodes[0];
   const args = first.config?.logic?.toolBinding?.arguments as Record<string, unknown>;
   args["computerUseActionKind"] = "click";
+  args["computerUseApprovalRef"] = "approval-browser-click";
 
   const options = workflowComposerComputerUseRunOptions(workflow);
 
   assert.ok(options);
   assert.equal(options.metadata.computerUseActionKind, "click");
+  assert.equal(options.metadata.computerUseApprovalRef, "approval-browser-click");
 });
 
 test("computer-use composer run options preserve existing run metadata", () => {

@@ -7389,6 +7389,7 @@ export class AgentgresRuntimeStateStore {
     const requestedActionAuthority = nativeBrowserActionKindIsReadOnly(requestedActionKind)
       ? "computer_use.native_browser.read"
       : "computer_use.native_browser.act";
+    const requestedApprovalRef = nativeBrowserApprovalRefForInput(input);
     const metadata = {
       computerUse: true,
       computerUseLane: "native_browser",
@@ -7409,6 +7410,7 @@ export class AgentgresRuntimeStateStore {
       observationRetentionMode,
       failClosedWhenUnavailable: true,
       computerUseActionKind: requestedActionKind,
+      computerUseApprovalRef: requestedApprovalRef,
       computerUseTargetRef:
         optionalString(input.targetRef ?? input.target_ref ?? input.computerUseTargetRef ?? input.computer_use_target_ref),
       computerUseObservationBundle:
@@ -7421,12 +7423,17 @@ export class AgentgresRuntimeStateStore {
         objectRecord(input.computerUseBrowserObservationArtifacts ?? input.browser_observation_artifacts),
     };
     for (const key of [
+      "computerUseApprovalRef",
       "computerUseObservationBundle",
       "computerUseTargetIndex",
       "computerUseAffordanceGraph",
       "computerUseBrowserObservationArtifacts",
     ]) {
-      if (Object.keys(metadata[key]).length === 0) delete metadata[key];
+      if (metadata[key] && typeof metadata[key] === "object") {
+        if (Object.keys(metadata[key]).length === 0) delete metadata[key];
+      } else if (metadata[key] == null || metadata[key] === "") {
+        delete metadata[key];
+      }
     }
     const projection = computerUseProjectionForRun({
       agent,
@@ -18163,6 +18170,15 @@ function nativeBrowserActionKindForInput(input = {}, prompt = "") {
   );
   if (explicit) return explicit;
   return nativeBrowserActionKindFromText(prompt) ?? "inspect";
+}
+
+function nativeBrowserApprovalRefForInput(input = {}) {
+  return optionalString(
+    input.approvalRef ??
+      input.approval_ref ??
+      input.computerUseApprovalRef ??
+      input.computer_use_approval_ref,
+  );
 }
 
 function nativeBrowserActionKindValue(value) {
