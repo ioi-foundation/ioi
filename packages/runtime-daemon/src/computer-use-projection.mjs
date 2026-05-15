@@ -55,6 +55,7 @@ export function computerUseProjectionForRun({
   const requestedRetentionMode =
     workflowBinding.observationRetentionMode ?? "local_redacted_artifacts";
   const contractOverrides = computerUseContractOverrides(request);
+  const controlledRelaunchBroker = controlledRelaunchBrokerForRequest(request);
   const selectedLane = requestedLane;
   const selectedSessionMode = selectedLane === "native_browser"
     ? requestedComputerUseSessionMode(request, selectedLane)
@@ -69,6 +70,7 @@ export function computerUseProjectionForRun({
   const controlledRelaunchUnavailable =
     selectedLane === "native_browser" &&
     selectedSessionMode === "controlled_relaunch" &&
+    !controlledRelaunchBroker &&
     !hasMountedContracts;
   if ((selectedLane !== "native_browser" || controlledRelaunchUnavailable) && !hasMountedContracts) {
     return unavailableComputerUseProjectionForRun({
@@ -78,6 +80,22 @@ export function computerUseProjectionForRun({
       requestedLane: selectedLane,
       requestedSessionMode: selectedSessionMode,
       workflowBinding,
+    });
+  }
+  if (
+    selectedLane === "native_browser" &&
+    selectedSessionMode === "controlled_relaunch" &&
+    controlledRelaunchBroker &&
+    !hasMountedContracts
+  ) {
+    return controlledRelaunchProjectionForRun({
+      agent,
+      runId,
+      prompt,
+      mode,
+      requestedRetentionMode,
+      workflowBinding,
+      controlledRelaunchBroker,
     });
   }
   const adapterContractOverride = contractOverrides.adapterContract;
@@ -878,6 +896,358 @@ export function computerUseProjectionForRun({
   };
 }
 
+function controlledRelaunchProjectionForRun({
+  agent,
+  runId,
+  prompt,
+  mode,
+  requestedRetentionMode,
+  workflowBinding,
+  controlledRelaunchBroker,
+}) {
+  const targetHint = computerUseTargetHint(prompt);
+  const brokerRef = controlledRelaunchBroker.broker_ref;
+  const leaseId = `lease_${runId}_controlled_relaunch`;
+  const handoffRef = `handoff_${runId}_controlled_relaunch`;
+  const verificationRef = `verification_${runId}_controlled_relaunch_handoff`;
+  const cleanupRef = `cleanup_${runId}_controlled_relaunch`;
+  const traceReceiptId = `receipt_${runId}_computer_use_trace`;
+  const trajectoryRef = `trajectory_${runId}_controlled_relaunch`;
+  const authorityScope = "computer_use.native_browser.controlled_relaunch";
+  const environmentSelection = {
+    receipt_ref: `receipt_${runId}_computer_use_environment`,
+    run_id: runId,
+    selected_lane: "native_browser",
+    selected_session_mode: "controlled_relaunch",
+    rejected_options: [
+      {
+        lane: "native_browser",
+        session_mode: "owned_hermetic_browser",
+        reason: "The workflow requested operator-visible controlled relaunch instead of an isolated fresh browser.",
+      },
+      {
+        lane: "native_browser",
+        session_mode: "attached_cdp",
+        reason: "A CDP endpoint will be attached only after the brokered relaunch handoff completes.",
+      },
+    ],
+    reasons: [
+      "Prompt indicates browser or computer-use automation.",
+      "Workflow supplied a controlled relaunch broker manifest.",
+      "The daemon records the lease and handoff before any browser process or profile authority is used.",
+    ],
+    risk_posture: mode === "dry_run" ? "preview_only" : "controlled_relaunch_handoff_required",
+    authority_required: authorityScope,
+    privacy_impact: requestedRetentionMode,
+    expected_cleanup: "cleanup pending until brokered relaunch handoff completes or is aborted",
+  };
+  const lease = {
+    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    lease_id: leaseId,
+    lane: "native_browser",
+    session_mode: "controlled_relaunch",
+    status: "handoff_pending",
+    authority_scope: authorityScope,
+    consent_scope: "explicit_controlled_relaunch_broker",
+    target_hint: targetHint,
+    environment_ref: `native_browser:controlled_relaunch:${brokerRef}`,
+    profile_provenance: controlledRelaunchBroker.profile_provenance,
+    retention_mode: requestedRetentionMode,
+    cleanup_required: true,
+    evidence_refs: compactValues([
+      environmentSelection.receipt_ref,
+      brokerRef,
+      handoffRef,
+      controlledRelaunchBroker.launch_plan_ref,
+    ]),
+  };
+  const humanHandoffState = {
+    handoff_ref: handoffRef,
+    reason: "controlled_relaunch_requires_operator_visible_browser_start",
+    requested_user_action:
+      "Review the relaunch plan, start the controlled browser, complete any auth wall manually, and resume with an attached CDP endpoint.",
+    forbidden_agent_actions: [
+      "copy_default_profile_without_consent",
+      "harvest_credentials",
+      "launch_unbrokered_browser_process",
+      "execute_browser_actions_before_attach_verification",
+    ],
+    resume_condition: "A resumed run supplies a verified CDP endpoint or mounted observation bundle for this lease.",
+    observation_after_resume_ref: null,
+    timeout_policy: "pause_until_user_resumes_aborts_or_cleanup_runs",
+    evidence_retention: requestedRetentionMode,
+    status: "pending",
+  };
+  const runState = {
+    run_id: runId,
+    lease_id: leaseId,
+    user_goal: prompt,
+    current_subgoal: "Wait for the operator-visible controlled relaunch handoff to complete.",
+    plan_graph_ref: `plan_graph_${runId}_controlled_relaunch`,
+    current_observation_ref: null,
+    current_target_index_ref: null,
+    active_hypotheses: [
+      "Controlled relaunch can preserve user-visible context without giving the agent uncontrolled profile authority.",
+      "The next safe step is an operator handoff followed by an attached CDP observation.",
+    ],
+    expected_postcondition:
+      "A controlled relaunch lease, handoff state, trajectory, and cleanup plan are recorded before browser action.",
+    last_action_ref: null,
+    verification_status: "requires_human",
+    blocker_state: "controlled_relaunch_handoff_pending",
+    retry_budget: 1,
+    risk_posture: environmentSelection.risk_posture,
+    user_handoff_ref: handoffRef,
+    cleanup_state: "pending_handoff",
+  };
+  const verification = {
+    verification_ref: verificationRef,
+    action_ref: null,
+    status: "requires_human",
+    expected_postcondition: runState.expected_postcondition,
+    observed_postcondition:
+      "No browser observation or action has occurred; controlled relaunch is waiting on explicit operator handoff.",
+    verifier: "runtime_daemon_computer_use_harness",
+    evidence_refs: compactValues([environmentSelection.receipt_ref, lease.lease_id, handoffRef, brokerRef]),
+  };
+  const outcomeContract = {
+    outcome_ref: `outcome_${runId}_controlled_relaunch`,
+    requested_outcome: "Prepare controlled browser relaunch and pause before process/profile authority is used.",
+    success_criteria: [
+      "Controlled relaunch lease is recorded.",
+      "Operator handoff forbids credential harvesting and unbrokered launch.",
+      "Resume requires attached CDP or mounted observation evidence.",
+    ],
+    acceptable_side_effects: ["Retain a redacted controlled relaunch trace artifact."],
+    prohibited_side_effects: [
+      "Copying default browser profiles without consent.",
+      "Starting untracked browser processes.",
+      "Executing web actions before post-handoff observation.",
+    ],
+    evidence_required: ["environment_selection_receipt", "controlled_relaunch_handoff", "cleanup_receipt"],
+    rollback_or_cleanup_required: true,
+    external_effect_policy: "operator_handoff_required",
+  };
+  const commitGate = {
+    commit_gate_ref: `commit_gate_${runId}_controlled_relaunch`,
+    final_action_ref: null,
+    outcome_ref: outcomeContract.outcome_ref,
+    external_effect: true,
+    user_confirmation_required: true,
+    authority_required: authorityScope,
+    pre_commit_summary: "Review and start the brokered controlled browser relaunch before IOI attaches.",
+    post_commit_verification: "Resume must include attached CDP or mounted observation evidence.",
+    policy_decision_ref: `policy_${runId}_controlled_relaunch_handoff`,
+    status: "pending_confirmation",
+  };
+  const trajectory = {
+    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    trajectory_ref: trajectoryRef,
+    run_id: runId,
+    lease_id: lease.lease_id,
+    retention_mode: requestedRetentionMode,
+    entries: [
+      {
+        sequence: 1,
+        event_kind: "select_environment",
+        receipt_ref: environmentSelection.receipt_ref,
+        summary: "Selected controlled relaunch with an explicit broker manifest.",
+      },
+      {
+        sequence: 2,
+        event_kind: "acquire_lease",
+        receipt_ref: lease.lease_id,
+        summary: "Recorded a pending controlled relaunch lease before browser authority was used.",
+      },
+      {
+        sequence: 3,
+        event_kind: "commit_or_handoff",
+        receipt_ref: handoffRef,
+        summary: "Paused for operator-visible relaunch and auth handoff.",
+      },
+      {
+        sequence: 4,
+        event_kind: "verify_postcondition",
+        verification_ref: verification.verification_ref,
+        summary: "Verified that no browser action ran before handoff completion.",
+      },
+      {
+        sequence: 5,
+        event_kind: "cleanup",
+        receipt_ref: cleanupRef,
+        summary: "Recorded cleanup ownership for the pending relaunch lease.",
+      },
+    ],
+  };
+  const cleanup = {
+    cleanup_ref: cleanupRef,
+    lease_id: lease.lease_id,
+    status: "pending_handoff",
+    closed_process_refs: [],
+    deleted_profile_refs: [],
+    retained_artifact_refs: ["computer-use-trace.json"],
+    warnings: ["controlled_relaunch_handoff_pending"],
+  };
+  const adapterContract = {
+    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    adapter_id: controlledRelaunchBroker.adapter_id,
+    lane: "native_browser",
+    supported_session_modes: ["controlled_relaunch", "attached_cdp"],
+    capabilities: [
+      "broker.controlled_relaunch",
+      "handoff.operator_visible",
+      "attach.cdp_after_relaunch",
+      "verify.postcondition",
+      "cleanup",
+    ],
+    emits_observation_bundle: false,
+    emits_action_receipts: false,
+    emits_cleanup_receipts: true,
+    fail_closed_when_unavailable: true,
+  };
+  const basePayload = {
+    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    harness_contract: defaultComputerUseHarnessContract(),
+    computer_use_lane: "native_browser",
+    computer_use_session_mode: "controlled_relaunch",
+    computer_use_lease_id: lease.lease_id,
+    computer_use_contract_ingest: "controlled_relaunch_broker_manifest",
+    observation_retention_mode: requestedRetentionMode,
+    fail_closed_when_unavailable: workflowBinding.failClosedWhenUnavailable,
+    workflowGraphId: workflowBinding.workflowGraphId,
+    workflow_graph_id: workflowBinding.workflowGraphId,
+    workflowNodeId: workflowBinding.workflowNodeId,
+    workflow_node_id: workflowBinding.workflowNodeId,
+    workflowNodeIds: workflowBinding.workflowNodeIds,
+    workflow_node_ids: workflowBinding.workflowNodeIds,
+    toolRef: workflowBinding.toolRef,
+    tool_ref: workflowBinding.toolRef,
+    authorityScopes: uniqueStrings([authorityScope, ...workflowBinding.authorityScopes]),
+    authority_scopes: uniqueStrings([authorityScope, ...workflowBinding.authorityScopes]),
+    controlled_relaunch_broker: controlledRelaunchBroker,
+    controlled_relaunch_handoff_ref: handoffRef,
+  };
+  const events = [
+    computerUseEvent({
+      type: "computer_use_environment_selected",
+      summary: "Computer-use controlled relaunch environment selected",
+      workflowNodeId: "computer-use.select-environment",
+      traceReceiptId,
+      data: {
+        ...basePayload,
+        computer_use_step: "select_environment",
+        environment_selection_receipt: environmentSelection,
+        lease,
+      },
+    }),
+    computerUseEvent({
+      type: "computer_use_lease_acquired",
+      summary: "Computer-use controlled relaunch lease pending handoff",
+      workflowNodeId: "computer-use.acquire-lease",
+      traceReceiptId,
+      data: {
+        ...basePayload,
+        computer_use_step: "acquire_lease",
+        lease,
+        adapter_contract: adapterContract,
+      },
+    }),
+    computerUseEvent({
+      type: "computer_use_run_state",
+      summary: "Computer-use controlled relaunch run state projected",
+      workflowNodeId: "computer-use.run-state",
+      traceReceiptId,
+      data: {
+        ...basePayload,
+        computer_use_step: "commit_or_handoff",
+        computer_use_run_state: runState,
+      },
+    }),
+    computerUseEvent({
+      type: "computer_use_verification",
+      summary: "Computer-use controlled relaunch handoff verified",
+      workflowNodeId: "computer-use.verify",
+      traceReceiptId,
+      data: {
+        ...basePayload,
+        computer_use_step: "verify_postcondition",
+        verification_receipt: verification,
+      },
+    }),
+    computerUseEvent({
+      type: "computer_use_commit_gate",
+      summary: "Computer-use controlled relaunch handoff gate evaluated",
+      workflowNodeId: "computer-use.commit-gate",
+      traceReceiptId,
+      data: {
+        ...basePayload,
+        computer_use_step: "commit_or_handoff",
+        outcome_contract: outcomeContract,
+        commit_gate: commitGate,
+        human_handoff_state: humanHandoffState,
+      },
+    }),
+    computerUseEvent({
+      type: "computer_use_trajectory_written",
+      summary: "Computer-use controlled relaunch trajectory written",
+      workflowNodeId: "computer-use.write-trajectory",
+      traceReceiptId,
+      data: {
+        ...basePayload,
+        computer_use_step: "write_trajectory",
+        trajectory_bundle: trajectory,
+      },
+    }),
+    computerUseEvent({
+      type: "computer_use_cleanup",
+      summary: "Computer-use controlled relaunch cleanup pending handoff",
+      workflowNodeId: "computer-use.cleanup",
+      traceReceiptId,
+      data: {
+        ...basePayload,
+        computer_use_step: "cleanup",
+        cleanup_receipt: cleanup,
+      },
+    }),
+  ];
+  return {
+    environmentSelection,
+    lease,
+    runState,
+    observation: null,
+    targetIndex: null,
+    affordanceGraph: null,
+    actionProposal: null,
+    action: null,
+    actionReceipt: null,
+    verification,
+    outcomeContract,
+    policyDecision: null,
+    commitGate,
+    trajectory,
+    cleanup,
+    adapterContract,
+    events,
+    receipt: {
+      id: traceReceiptId,
+      kind: "computer_use_trace",
+      summary: "Computer-use controlled relaunch trace recorded a brokered lease, handoff, trajectory, and cleanup plan.",
+      redaction: "redacted",
+      evidenceRefs: compactValues([
+        "ComputerUseHarnessContract",
+        environmentSelection.receipt_ref,
+        lease.lease_id,
+        handoffRef,
+        verification.verification_ref,
+        outcomeContract.outcome_ref,
+        commitGate.commit_gate_ref,
+        trajectory.trajectory_ref,
+        cleanup.cleanup_ref,
+      ]),
+    },
+  };
+}
+
 function unavailableComputerUseProjectionForRun({
   runId,
   prompt,
@@ -1231,6 +1601,55 @@ function requestedComputerUseSessionMode(request = {}, lane) {
   if (lane === "visual_gui") return "visual_fallback";
   if (lane === "sandboxed_hosted") return "hosted_sandbox";
   return "owned_hermetic_browser";
+}
+
+function controlledRelaunchBrokerForRequest(request = {}) {
+  const metadata = request.options?.metadata ?? request.metadata ?? {};
+  const explicit =
+    objectValue(metadata.computerUseControlledRelaunchBroker) ??
+    objectValue(metadata.computer_use_controlled_relaunch_broker) ??
+    objectValue(metadata.controlledRelaunchBroker) ??
+    objectValue(metadata.controlled_relaunch_broker);
+  const brokerRef =
+    cleanString(explicit?.broker_ref ?? explicit?.brokerRef) ??
+    cleanString(metadata.controlledRelaunchBrokerRef ?? metadata.controlled_relaunch_broker_ref);
+  if (!explicit && !brokerRef) return null;
+  const startUrl =
+    cleanString(explicit?.start_url ?? explicit?.startUrl) ??
+    cleanString(metadata.controlledRelaunchStartUrl ?? metadata.controlled_relaunch_start_url) ??
+    null;
+  const profileDirRef =
+    cleanString(explicit?.profile_dir_ref ?? explicit?.profileDirRef) ??
+    cleanString(metadata.controlledRelaunchProfileDirRef ?? metadata.controlled_relaunch_profile_dir_ref) ??
+    "profile:controlled_relaunch:temporary";
+  const launchPlanRef =
+    cleanString(explicit?.launch_plan_ref ?? explicit?.launchPlanRef) ??
+    cleanString(metadata.controlledRelaunchLaunchPlanRef ?? metadata.controlled_relaunch_launch_plan_ref) ??
+    `${brokerRef ?? "controlled_relaunch_broker"}:launch_plan`;
+  return {
+    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    broker_ref: brokerRef ?? `broker_controlled_relaunch_${stableHash(JSON.stringify(metadata)).slice(0, 12)}`,
+    adapter_id:
+      cleanString(explicit?.adapter_id ?? explicit?.adapterId) ??
+      "ioi.native_browser.controlled_relaunch_broker",
+    launch_plan_ref: launchPlanRef,
+    start_url: startUrl,
+    profile_dir_ref: profileDirRef,
+    profile_provenance:
+      cleanString(explicit?.profile_provenance ?? explicit?.profileProvenance) ??
+      "temporary_ioi_controlled_relaunch_profile",
+    user_visible: booleanValue(explicit?.user_visible ?? explicit?.userVisible) ?? true,
+    requires_operator_handoff:
+      booleanValue(explicit?.requires_operator_handoff ?? explicit?.requiresOperatorHandoff) ?? true,
+    attach_after_relaunch: booleanValue(explicit?.attach_after_relaunch ?? explicit?.attachAfterRelaunch) ?? true,
+    cleanup_required: booleanValue(explicit?.cleanup_required ?? explicit?.cleanupRequired) ?? true,
+    forbidden_authority: uniqueStrings([
+      "copy_default_profile_without_consent",
+      "harvest_credentials",
+      "unbrokered_process_launch",
+      ...cleanStringArray(explicit?.forbidden_authority ?? explicit?.forbiddenAuthority),
+    ]),
+  };
 }
 
 function requestedComputerUseActionKind(request = {}, prompt = "") {

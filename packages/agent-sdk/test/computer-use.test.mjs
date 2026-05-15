@@ -1351,6 +1351,70 @@ test("runtime daemon fails closed for unbrokered controlled relaunch requests", 
   }
 });
 
+test("runtime daemon brokers controlled relaunch leases before browser authority is used", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-controlled-relaunch-broker-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-controlled-relaunch-broker-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const thread = await agent.thread();
+    const result = await client.invokeThreadTool(thread.id, "ioi.computer_use.native_browser", {
+      source: "react_flow",
+      workflowGraphId: "workflow.native-browser-controlled-relaunch-broker",
+      workflowNodeId: "native-browser-controlled-relaunch-broker",
+      input: {
+        prompt: "Continue this task by controlled relaunching Chrome.",
+        actionKind: "inspect",
+        sessionMode: "controlled_relaunch",
+        observationRetentionMode: "prompt_visible_summary_only",
+        controlledRelaunchBrokerRef: "broker_controlled_relaunch_test",
+        controlledRelaunchLaunchPlanRef: "launch_plan_controlled_relaunch_test",
+        controlledRelaunchProfileDirRef: "profile_controlled_relaunch_test",
+        url: "https://example.com",
+      },
+    });
+
+    assert.equal(result.status, "completed");
+    assert.equal(result.result.environmentSelection.selected_session_mode, "controlled_relaunch");
+    assert.equal(result.result.environmentSelection.risk_posture, "controlled_relaunch_handoff_required");
+    assert.equal(result.result.lease.status, "handoff_pending");
+    assert.equal(result.result.lease.authority_scope, "computer_use.native_browser.controlled_relaunch");
+    assert.equal(result.result.runState.blocker_state, "controlled_relaunch_handoff_pending");
+    assert.equal(result.result.verification.status, "requires_human");
+    assert.equal(result.result.commitGate.status, "pending_confirmation");
+    assert.equal(result.result.adapterContract.adapter_id, "ioi.native_browser.controlled_relaunch_broker");
+    assert.equal(result.result.observation, null);
+    assert.equal(result.result.action, null);
+    assert.equal(result.event_count, 7);
+
+    const runtimeEvents = [];
+    for await (const event of thread.events()) {
+      runtimeEvents.push(event);
+    }
+    const computerEvents = runtimeEvents.filter((event) => event.eventKind.startsWith("computer_use."));
+    assert.equal(computerEvents.some((event) => event.type === "computer_use_observation"), false);
+    assert.equal(computerEvents.some((event) => event.type === "computer_use_action_executed"), false);
+    const leaseEvent = computerEvents.find((event) => event.type === "computer_use_lease_acquired");
+    assert.equal(leaseEvent.payload.controlled_relaunch_broker.broker_ref, "broker_controlled_relaunch_test");
+    const handoffEvent = computerEvents.find((event) => event.type === "computer_use_commit_gate");
+    assert.equal(
+      handoffEvent.payload.human_handoff_state.reason,
+      "controlled_relaunch_requires_operator_visible_browser_start",
+    );
+    assert.equal(
+      handoffEvent.payload.human_handoff_state.forbidden_agent_actions.includes("harvest_credentials"),
+      true,
+    );
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("runtime daemon preserves workflow-authored computer-use node metadata", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-workflow-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-workflow-state-"));
