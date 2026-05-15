@@ -86,7 +86,8 @@ All three lanes must share IOI runtime truth:
 | Daemon lifecycle projection | Done | Runtime daemon runs now emit canonical `computer_use.*` events, `computer-use-trace.json`, `computer_use_trace` receipts, and workflow node ids for the full read-only behavioral loop. |
 | Visual/sandbox fail-closed projection | Done | Explicit `visual_gui` or `sandboxed_hosted` lane requests emit blocked runtime events, failed-closed leases, recovery policy payloads, and no-action cleanup receipts until those adapters are mounted. |
 | Daemon planner/executor | Pending | Next slices should replace the read-only lifecycle projection with real lease acquisition, observation capture, action execution, verification, and cleanup through the browser/GUI/sandbox adapters. |
-| Autopilot workbench | Pending | UI should consume the new runtime event payloads instead of inventing a separate trace channel. |
+| Autopilot/workflow projection | Started | `workflow-runtime-event-projection` now projects canonical `computer_use.*` events into node-addressed React Flow/run-history rows with lane, session, lease, observation, target index, proposal, action, verification, cleanup, recovery, and fail-closed evidence. |
+| Autopilot workbench | Pending | UI should render the projected computer-use rows as a dedicated prompt-to-action-to-verification workbench instead of a flat runtime log. |
 
 ## Behavioral Control Layer
 

@@ -632,8 +632,8 @@ Required guarantees:
 | Model action adapters | Not started |
 | Co-op coding agent computer use | Not started |
 | Benchmark/eval harness | Not started |
-| Autopilot glass-box workbench | Started: canonical runtime payloads and `computer-use-trace.json` artifacts exist; UI workbench pending |
-| Workflow compositor projection | Not started |
+| Autopilot glass-box workbench | Started: canonical runtime payloads, `computer-use-trace.json` artifacts, and workflow/run-history projection now exist; dedicated workbench UI pending |
+| Workflow compositor projection | Started: React Flow runtime projection maps `computer_use.*` events into glass-box harness nodes with lane/session/lease, observation/target/affordance, proposal/action, verification, cleanup, and recovery evidence |
 | Safety/governance receipts | Started: `computer_use_trace`, failed-closed leases, recovery policy payloads, action, verification, trajectory, and cleanup receipts are projected; policy executor pending |
 
 ## Definition Of Done

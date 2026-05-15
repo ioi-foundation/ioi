@@ -93,6 +93,196 @@ test("projects Thread.events runtime events into stable React Flow nodes and edg
   assert.equal(projection.latestCursor, "events_thread:test:3");
 });
 
+test("projects computer-use lifecycle events as glass-box harness rows", () => {
+  const projection = projectRuntimeThreadEventsToWorkflowProjection([
+    event("computer-use-environment", 1, {
+      eventKind: "computer_use.environment_selected",
+      sourceEventKind: "ComputerUse.EnvironmentSelected",
+      status: "completed",
+      componentKind: "computer_use_harness",
+      workflowNodeId: "computer-use.select-environment",
+      payloadSchemaVersion: "ioi.computer-use.harness.v1",
+      receiptRefs: ["receipt-computer-use-environment"],
+      payload: {
+        summary: "Computer-use environment selected",
+        computer_use_step: "select_environment",
+        computer_use_lane: "native_browser",
+        computer_use_session_mode: "owned_hermetic_browser",
+        computer_use_lease_id: "lease-browser",
+        environment_selection_receipt: {
+          receipt_ref: "receipt-computer-use-environment",
+          risk_posture: "read_only_probe",
+          authority_required: "computer_use.native_browser.read",
+        },
+        lease: {
+          lease_id: "lease-browser",
+          lane: "native_browser",
+          session_mode: "owned_hermetic_browser",
+          retention_mode: "local_redacted_artifacts",
+        },
+      },
+    }),
+    event("computer-use-observe", 2, {
+      eventKind: "computer_use.observation",
+      sourceEventKind: "ComputerUse.Observation",
+      status: "completed",
+      componentKind: "computer_use_harness",
+      workflowNodeId: "computer-use.observe",
+      payloadSchemaVersion: "ioi.computer-use.harness.v1",
+      artifactRefs: ["computer-use-trace.json"],
+      payload: {
+        computer_use_step: "observe",
+        computer_use_lane: "native_browser",
+        computer_use_session_mode: "owned_hermetic_browser",
+        computer_use_lease_id: "lease-browser",
+        computer_use_observation_ref: "observation-browser",
+        computer_use_target_index_ref: "target-index-browser",
+        observation_bundle: {
+          observation_ref: "observation-browser",
+          target_index_ref: "target-index-browser",
+          retention_mode: "local_redacted_artifacts",
+          detected_patterns: ["form", "toolbar"],
+        },
+        target_index: {
+          target_index_ref: "target-index-browser",
+          targets: [{ target_ref: "target-page" }, { target_ref: "target-submit" }],
+        },
+      },
+    }),
+    event("computer-use-propose", 3, {
+      eventKind: "computer_use.action_proposed",
+      sourceEventKind: "ComputerUse.ActionProposed",
+      status: "waiting_for_policy",
+      componentKind: "computer_use_harness",
+      workflowNodeId: "computer-use.action-proposal",
+      payloadSchemaVersion: "ioi.computer-use.harness.v1",
+      policyDecisionRefs: ["policy-read-only"],
+      payload: {
+        computer_use_step: "propose_action",
+        computer_use_lane: "native_browser",
+        computer_use_session_mode: "owned_hermetic_browser",
+        computer_use_lease_id: "lease-browser",
+        computer_use_proposal_ref: "proposal-inspect",
+        computer_use_target_ref: "target-page",
+        computer_use_policy_decision_ref: "policy-read-only",
+        action_proposal: {
+          proposal_ref: "proposal-inspect",
+          target_ref: "target-page",
+          policy_decision_ref: "policy-read-only",
+        },
+      },
+    }),
+    event("computer-use-execute", 4, {
+      eventKind: "computer_use.action_executed",
+      sourceEventKind: "ComputerUse.ActionExecuted",
+      status: "completed",
+      componentKind: "computer_use_harness",
+      workflowNodeId: "computer-use.execute-action",
+      payloadSchemaVersion: "ioi.computer-use.harness.v1",
+      receiptRefs: ["receipt-action"],
+      payload: {
+        computer_use_step: "execute_action",
+        computer_use_action_ref: "action-inspect",
+        computer_use_proposal_ref: "proposal-inspect",
+        computer_action: {
+          action_ref: "action-inspect",
+          action_kind: "inspect",
+          target_ref: "target-page",
+        },
+        action_receipt: {
+          receipt_ref: "receipt-action",
+          action_ref: "action-inspect",
+          status: "completed",
+          verification_ref: "verification-inspect",
+        },
+      },
+    }),
+  ]);
+
+  assert.deepEqual(
+    projection.reactFlowNodes.map((node) => node.id),
+    [
+      "computer-use.select-environment",
+      "computer-use.observe",
+      "computer-use.action-proposal",
+      "computer-use.execute-action",
+    ],
+  );
+  assert.equal(projection.nodes[0]?.nodeKind, "gui_harness_validation");
+  assert.equal(projection.nodes[0]?.componentKind, "computer_use_harness");
+  assert.equal(projection.nodes[0]?.label, "Computer use: select environment");
+  assert.equal(projection.nodes[0]?.computerUse?.lane, "native_browser");
+  assert.equal(
+    projection.nodes[0]?.computerUse?.sessionMode,
+    "owned_hermetic_browser",
+  );
+  assert.equal(projection.nodes[0]?.computerUse?.leaseId, "lease-browser");
+  assert.equal(projection.nodes[0]?.computerUse?.riskPosture, "read_only_probe");
+  assert.equal(
+    projection.nodes[0]?.computerUse?.authorityRequired,
+    "computer_use.native_browser.read",
+  );
+  assert.equal(projection.nodes[0]?.computerUse?.retentionMode, "local_redacted_artifacts");
+  assert.equal(projection.nodes[1]?.label, "Computer use: observe");
+  assert.equal(projection.nodes[1]?.computerUse?.observationRef, "observation-browser");
+  assert.equal(projection.nodes[1]?.computerUse?.targetIndexRef, "target-index-browser");
+  assert.equal(projection.nodes[1]?.computerUse?.targetCount, 2);
+  assert.deepEqual(projection.nodes[1]?.computerUse?.detectedPatterns, [
+    "form",
+    "toolbar",
+  ]);
+  assert.equal(projection.nodes[2]?.status, "waiting");
+  assert.equal(projection.nodes[2]?.label, "Computer use: propose action");
+  assert.equal(projection.nodes[2]?.computerUse?.proposalRef, "proposal-inspect");
+  assert.equal(projection.nodes[2]?.computerUse?.policyDecisionRef, "policy-read-only");
+  assert.equal(projection.nodes[3]?.label, "Computer use: execute action");
+  assert.equal(projection.nodes[3]?.computerUse?.actionKind, "inspect");
+  assert.equal(projection.nodes[3]?.computerUse?.actionReceiptRef, "receipt-action");
+  assert.equal(projection.nodes[3]?.computerUse?.verificationRef, "verification-inspect");
+});
+
+test("projects unavailable computer-use lanes as blocked recovery evidence", () => {
+  const unavailable = event("computer-use-unavailable", 1, {
+    eventKind: "computer_use.environment_unavailable",
+    sourceEventKind: "ComputerUse.EnvironmentUnavailable",
+    status: "blocked",
+    componentKind: null,
+    workflowNodeId: null,
+    payloadSchemaVersion: "ioi.computer-use.harness.v1",
+    payload: {
+      computer_use_step: "acquire_lease",
+      computer_use_lane: "sandboxed_hosted",
+      computer_use_session_mode: "hosted_sandbox",
+      computer_use_lease_id: "lease-hosted-unavailable",
+      computer_use_blocker: "adapter_unavailable",
+      recovery_policy: {
+        policy_id: "computer-use-recovery:run:sandboxed_hosted",
+        failure_class: "environment",
+        allowed_actions: ["terminate_safely", "switch_to_browser_lane"],
+      },
+    },
+  });
+
+  const projection = projectRuntimeThreadEventsToWorkflowProjection([unavailable]);
+
+  assert.equal(
+    workflowNodeIdForRuntimeThreadEvent(unavailable),
+    "computer-use.acquire-lease",
+  );
+  assert.equal(projection.nodes[0]?.nodeKind, "gui_harness_validation");
+  assert.equal(projection.nodes[0]?.componentKind, "computer_use_harness");
+  assert.equal(projection.nodes[0]?.status, "blocked");
+  assert.equal(projection.nodes[0]?.label, "Computer use unavailable");
+  assert.equal(projection.nodes[0]?.computerUse?.lane, "sandboxed_hosted");
+  assert.equal(projection.nodes[0]?.computerUse?.sessionMode, "hosted_sandbox");
+  assert.equal(projection.nodes[0]?.computerUse?.blocker, "adapter_unavailable");
+  assert.deepEqual(projection.nodes[0]?.computerUse?.recoveryPolicy, {
+    policy_id: "computer-use-recovery:run:sandboxed_hosted",
+    failure_class: "environment",
+    allowed_actions: ["terminate_safely", "switch_to_browser_lane"],
+  });
+});
+
 test("projects workspace trust warnings as workspace trust gate React Flow rows", () => {
   const projection = projectRuntimeThreadEventsToWorkflowProjection([
     event("event-workspace-trust", 1, {

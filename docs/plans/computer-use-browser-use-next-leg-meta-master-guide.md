@@ -534,12 +534,18 @@ Deliverables:
 - deterministic manifest compile;
 - migration compatibility for stored workflows;
 - default harness teaching graph.
+- runtime-event projection that turns `computer_use.*` events into
+  node-addressed glass-box rows with lane, lease, observation, target,
+  affordance, proposal, action, verification, trajectory, cleanup, recovery,
+  and fail-closed evidence.
 
 Acceptance:
 
 - React Flow remains a configurable projection;
 - every node maps to runtime contracts;
 - old workflows continue to load.
+- Autopilot/run history can rebuild the computer-use prompt-to-action pipeline
+  from canonical runtime events without a separate trace store.
 
 ### Phase 8: Evals And Meta-Harness
 
