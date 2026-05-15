@@ -50,6 +50,16 @@ test("computer-use tri-lane scorecard gates retained workflow proofs", () => {
     "workflow_computer_use_tri_lane_scorecard",
   );
   assert.equal(scorecard.proof.promotionStatus, "passed");
+  assert.equal(scorecard.proof.operatorSummary.status, "passed");
+  assert.equal(scorecard.proof.operatorSummary.blockers.length, 0);
+  assert.deepEqual(
+    scorecard.proof.operatorSummary.summaryRows.map((row) => row.status),
+    ["passed", "passed", "passed"],
+  );
+  assert.deepEqual(
+    scorecard.proof.operatorSummary.summaryRows.map((row) => row.label),
+    ["Native Browser", "Visual GUI", "Sandboxed Hosted"],
+  );
   assert.equal(scorecard.proof.scorecard.laneCoverage, 3);
   assert.equal(scorecard.proof.scorecard.promptTraceLanesCovered, 2);
   assert.equal(scorecard.proof.checks.noReactFlowShadowRuntimeTruth, true);
@@ -183,8 +193,16 @@ test("computer-use tri-lane scorecard blocks missing and degraded proof evidence
 
     assert.equal(scorecard.passed, false, scenario.name);
     assert.equal(scorecard.promotionStatus, "blocked", scenario.name);
+    assert.equal(scorecard.operatorSummary.status, "blocked", scenario.name);
+    assert.ok(scorecard.operatorSummary.blockers.length > 0, scenario.name);
     for (const check of scenario.blockedChecks) {
       assert.equal(scorecard.checks[check], false, `${scenario.name}: ${check}`);
+      assert.ok(
+        scorecard.operatorSummary.blockers.some(
+          (blocker) => blocker.check === check,
+        ),
+        `${scenario.name}: operator blocker ${check}`,
+      );
     }
   }
 });

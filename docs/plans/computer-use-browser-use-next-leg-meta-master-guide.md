@@ -517,7 +517,10 @@ React Flow shadow truth store. A retained tri-lane computer-use scorecard now
 rolls those proofs into one promotion gate for lane coverage, prompt-trace
 coverage where model nodes are composed, target/affordance/action evidence,
 approval/fail-closed posture, and explicit external deferrals for hosted
-providers and third-party eval ingestion.
+providers and third-party eval ingestion. The scorecard also carries an
+operator summary with per-lane status rows, blocker rows, and exact proof
+artifact paths so the retained gate is readable without opening every proof
+file.
 Sandboxed
 Computer authoring presets now default to `local_sandbox` plus `local_fixture`,
 giving workflow authors a runnable hosted-style harness trace while concrete

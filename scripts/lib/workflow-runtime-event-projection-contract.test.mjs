@@ -714,6 +714,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
     computerUseTriLaneScorecardTest,
     /workflow_computer_use_tri_lane_scorecard/,
   );
+  assert.match(computerUseTriLaneScorecardTest, /operatorSummary/);
+  assert.match(computerUseTriLaneScorecardTest, /summaryRows/);
+  assert.match(computerUseTriLaneScorecardTest, /blockers/);
   assert.match(computerUseTriLaneScorecardTest, /hosted_provider_backends/);
   assert.match(
     liveRuntimeDaemonContract,

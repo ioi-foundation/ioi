@@ -7369,6 +7369,8 @@ export function buildGuiEvidenceAssessment({
       hasWorkflowNativeBrowserPromptPipelineProof,
       hasWorkflowVisualGuiPromptPipelineProof,
       hasWorkflowComputerUseTriLaneScorecard,
+      computerUseTriLaneScorecard:
+        workflowComputerUseTriLaneScorecard?.proof?.operatorSummary ?? null,
       providerGatedVisibleOutputRequiredScenarios: [
         ...AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
       ],
