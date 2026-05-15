@@ -94,5 +94,5 @@ state; they are not consensus inputs.
 - new work must use `MemoryRuntime`-shaped abstractions
 - migrations should prefer clean replacement over compatibility shims
 - any remaining raw-state readers must document why they are consensus-sensitive
-- the living execution tracker remains
-  `docs/plans/memory-runtime-plan.md`
+- any living execution tracker remains internal implementation context and does
+  not supersede canonical architecture docs

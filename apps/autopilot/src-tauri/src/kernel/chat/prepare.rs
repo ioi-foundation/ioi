@@ -404,7 +404,8 @@ fn score_workspace_source(
         || intent_lower.contains("runtime")
         || intent_lower.contains("agent runtime"))
         && (relative_path.contains("runtime_contracts")
-            || relative_path.contains("agent-runtime-parity-plus-master-guide")
+            || relative_path.contains("sota-runtime-invariants")
+            || relative_path.contains("autopilot-chat-agent-ux")
             || relative_path.ends_with("agentic/runtime/substrate.rs"));
     let requested_task_state_models = intent_lower.contains("task state")
         && (relative_path.ends_with("models/session.rs")
@@ -595,7 +596,7 @@ fn select_workspace_grounding_sources(root: &Path, intent: &str) -> Vec<Workspac
 fn runtime_contract_grounding_source(relative_path: &str) -> bool {
     relative_path.ends_with("crates/types/src/app/runtime_contracts.rs")
         || relative_path.ends_with("crates/services/src/agentic/runtime/substrate.rs")
-        || relative_path.ends_with("docs/specs/runtime/agent-runtime-parity-plus-master-guide.md")
+        || relative_path.ends_with("internal-docs/specs/runtime/autopilot-chat-agent-ux.md")
 }
 
 fn workspace_source_references(

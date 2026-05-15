@@ -59,4 +59,3 @@ truth until it is mapped, transformed, authorized, receipted, and projected.
 - `docs/architecture/foundations/common-objects-and-envelopes.md`
 - `docs/architecture/components/agentgres/api-object-model.md`
 - `docs/architecture/components/connectors-tools/contracts.md`
-- `docs/architecture/products/autopilot/local-app-workflow-canvas.md`

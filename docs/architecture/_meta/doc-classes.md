@@ -15,17 +15,21 @@ This register names the document classes used to keep architecture doctrine, ref
 | Class | Meaning | Primary Home |
 | --- | --- | --- |
 | `canonical-index` | Navigation and ownership index. | `docs/architecture/README.md`, `docs/architecture/_meta/` |
-| `canonical-doctrine` | Stable architecture authority prose. | `docs/architecture/foundations/`, `docs/architecture/components/`, `docs/architecture/domains/`, `docs/architecture/products/`, `docs/architecture/protocols/` |
-| `canonical-reference` | Low-level APIs, object models, endpoint references, and contracts. | `docs/architecture/components/`, `docs/architecture/protocols/` |
-| `canonical-schema` | Shared schemas that drive generated contracts. | `docs/implementation/` until schema generation is split into a package |
+| `canonical-doctrine` | Stable architecture authority prose. | `docs/architecture/foundations/`, `docs/architecture/components/`, `docs/architecture/domains/` |
+| `canonical-reference` | Low-level APIs, object models, endpoint references, and contracts. | `docs/architecture/components/`, selected endpoint references under `docs/architecture/domains/` |
+| `canonical-schema` | Shared schemas that drive generated contracts. | `internal-docs/implementation/` until schema generation is split into a package |
 | `conformance-contract` | Hidden or public invariant contracts used for conformance checks. | `docs/conformance/` |
-| `implementation-plan` | Sequencing, package maps, milestones, and source-tree guidance. | `docs/implementation/` |
-| `product-context` | Product-surface reference material and UX intent that follows canonical doctrine. | `docs/architecture/products/` |
+| `implementation-plan` | Sequencing, package maps, milestones, and source-tree guidance. | `internal-docs/implementation/` and `internal-docs/plans/` |
+| `product-context` | Product-surface reference material and UX intent that follows canonical doctrine. | `internal-docs/architecture/products/` |
 | `decision-history` | Resolved historical decisions retained only when future maintainers need the reason. | Nearest owning component or `_meta/changelog/` |
-| `formal-source` | TLA+, configs, proof source, and formal-model READMEs. | `docs/architecture/protocols/aft/formal/` |
-| `formal-generated` | TLC traces, generated trace modules, state dumps, and model-checker byproducts. | `docs/formal-artifacts/aft/` |
+| `formal-source` | TLA+, configs, proof source, and formal-model READMEs. | `internal-docs/architecture/protocols/aft/formal/` |
+| `formal-generated` | TLC traces, generated trace modules, state dumps, and model-checker byproducts. | `internal-docs/formal/aft/` |
 | `evidence-artifact` | Validation outputs, scorecards, screenshots, bundles, and run reports. | `docs/evidence/` |
 
 ## Placement Rule
 
-`docs/architecture/` should not contain `formal-generated`, `evidence-artifact`, `.st`, `.fp`, `.bin`, `.aux`, `.log`, `.out`, generated trace modules, or `states/` directories. Architecture docs may link to those artifacts when the generated output is useful evidence.
+`docs/architecture/` should not contain `implementation-plan`,
+`product-context`, `formal-source`, `formal-generated`, `evidence-artifact`,
+`.st`, `.fp`, `.bin`, `.aux`, `.log`, `.out`, generated trace modules, or
+`states/` directories. Architecture docs may reference those artifact classes
+only when the generated output is necessary public evidence.

@@ -55,18 +55,17 @@ naming, product boundaries, and future specs.
 
 ## Taxonomy
 
-Architecture contains stable authority prose, protocol references, and
-low-level component references. Implementation plans live in
-[`docs/implementation`](../implementation/). Conformance contracts live in
-[`docs/conformance`](../conformance/). Generated formal outputs live in
-[`docs/formal-artifacts`](../formal-artifacts/).
+Architecture contains stable authority prose and low-level component
+references. Conformance contracts live in [`docs/conformance`](../conformance/).
+Implementation plans, runtime iteration specs, product-internal notes, protocol
+corpora, prompt scratchpads, and generated formal outputs are retained outside
+the forward-facing docs tree and do not supersede this architecture pack.
 
 ## Navigation And Ownership
 
 - [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) — canonical subject ownership, edit rules, and conflict policy.
 - [`Architecture Decision Records`](../decisions/README.md) — accepted decision history for durable architecture choices.
 - [`doc-classes.md`](./_meta/doc-classes.md) — documentation class vocabulary for future metadata/linting.
-- [`2026-05-02-taxonomy-refactor.md`](./_meta/changelog/2026-05-02-taxonomy-refactor.md) — latest documentation refactor report.
 
 ## High-Level Canonical Spec Files
 
@@ -78,21 +77,17 @@ low-level component references. Implementation plans live in
 - [`domain-kernels.md`](./foundations/domain-kernels.md) — L0 substrate, fractal/edge-in topology, application-domain kernels, and Agentgres hosting.
 - [`agentgres/doctrine.md`](./components/agentgres/doctrine.md) — per-domain state substrate for canonical operational truth.
 - [`agentgres/postgres-bridge-and-readiness-contract.md`](./components/agentgres/postgres-bridge-and-readiness-contract.md) — Postgres bridge posture, consistency levels, durability/readiness contract.
-- [`autopilot/local-app-workflow-canvas.md`](./products/autopilot/local-app-workflow-canvas.md) — local app, workflow builder, harness-as-workflow.
-- [`autopilot/internal-product-spec.md`](./products/autopilot/internal-product-spec.md) — Autopilot product definition, UX surface intent, and operator-shell direction.
 - [`daemon-runtime/doctrine.md`](./components/daemon-runtime/doctrine.md) — universal execution endpoint for local, hosted, and DePIN nodes.
 - [`wallet-network/doctrine.md`](./components/wallet-network/doctrine.md) — identity, secrets, authority scopes, approvals, payments.
 - [`domains/aiagent/worker-marketplace.md`](./domains/aiagent/worker-marketplace.md) — worker marketplace, managed instances, and routing application domain.
 - [`domains/sas/service-marketplace.md`](./domains/sas/service-marketplace.md) — Service-as-Software outcome marketplace application domain.
 - [`domains/ioi-ai/control-plane.md`](./domains/ioi-ai/control-plane.md) — lightweight account, device, restore, publishing, and remote-runtime control plane.
-- [`protocols/ai-url/registry-and-manifests.md`](./protocols/ai-url/registry-and-manifests.md) — `ai://` naming, manifests, resolver metadata.
 - [`filecoin-cas/doctrine.md`](./components/filecoin-cas/doctrine.md) — package, artifact, evidence, checkpoint availability.
 - [`daemon-runtime/runtime-nodes-tee-depin.md`](./components/daemon-runtime/runtime-nodes-tee-depin.md) — local/hosted/DePIN/TEE execution modes.
 - [`model-router/doctrine.md`](./components/model-router/doctrine.md) — model registry, BYOK, local mounting, run-to-idle compute.
 - [`connectors-tools/doctrine.md`](./components/connectors-tools/doctrine.md) — typed tools, connector authority, risk classes.
 - [`domains/marketplace-neutrality.md`](./domains/marketplace-neutrality.md) — anti-cannibalization doctrine, contribution receipts, attribution.
 - [`security-privacy-policy-invariants.md`](./foundations/security-privacy-policy-invariants.md) — non-negotiable security and authority invariants.
-- [`protocols/aft/README.md`](./protocols/aft/README.md) — AFT protocol corpus index.
 
 ## Low-Level Reference Files
 
@@ -104,7 +99,6 @@ low-level component references. Implementation plans live in
 - [`agentgres/projection-system-reference.md`](./components/agentgres/projection-system-reference.md) — CSPS taxonomy reference for projection-native state systems.
 - [`wallet-network/api-authority-scopes.md`](./components/wallet-network/api-authority-scopes.md) — wallet.network authority scopes, grants, approvals, brokerage, revocation.
 - [`ioi-l1-contract-interfaces.md`](./foundations/ioi-l1-contract-interfaces.md) — IOI L1 contract interfaces.
-- [`protocols/ai-url/manifest-schemas.md`](./protocols/ai-url/manifest-schemas.md) — `ai://` manifest schemas and resolution flow.
 - [`daemon-runtime/task-capsule-protocol.md`](./components/daemon-runtime/task-capsule-protocol.md) — runtime assignment, task capsules, privacy modes, attestation.
 - [`filecoin-cas/api-artifact-refs.md`](./components/filecoin-cas/api-artifact-refs.md) — artifact/package refs, bundles, verification.
 - [`model-router/api-byok-mounting.md`](./components/model-router/api-byok-mounting.md) — model provider, endpoint, route, invocation, BYOK, mounting.
@@ -114,15 +108,8 @@ low-level component references. Implementation plans live in
 ## Boundary And Generated References
 
 - [`vocabulary.md`](./_meta/vocabulary.md) — runtime, audit, substrate, projection, and legacy naming vocabulary.
-- [`roadmap-and-dependencies.md`](../implementation/roadmap-and-dependencies.md) — recommended chronological implementation path.
-- [`low-level-implementation-milestones.md`](../implementation/low-level-implementation-milestones.md) — low-level milestones and cross-surface proof gates.
-- [`runtime-package-boundaries.md`](../implementation/runtime-package-boundaries.md) — implementation ownership map for daemon, CLI, SDK, agent-ide, harness, benchmarks, adaptive work graph strategy, and local projections.
-- [`runtime-module-map.md`](../implementation/runtime-module-map.md) — concrete source-tree map for runtime, clients, projections, validation, and legacy naming.
-- [`runtime-action-schema.json`](../implementation/runtime-action-schema.json) — shared action-kind source for generated Rust and TypeScript runtime/workflow contracts.
 - [`CIRC.md`](../conformance/agentic-runtime/CIRC.md) — hidden intent-resolution conformance invariant.
 - [`CEC.md`](../conformance/agentic-runtime/CEC.md) — hidden completion-evidence conformance invariant.
-- [`protocols/aft/specs/README.md`](./protocols/aft/specs/README.md) — AFT spec corpus, yellow paper, runbooks, and protocol references.
-- [`protocols/aft/formal/README.md`](./protocols/aft/formal/README.md) — AFT formal source and proof material. Generated traces and TLC state dumps live under [`docs/formal-artifacts/aft`](../formal-artifacts/aft/).
 
 ## Source Of Truth By Subject
 

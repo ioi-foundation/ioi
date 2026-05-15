@@ -95,7 +95,7 @@ export const DOC_PAGES: DocPage[] = [
     sources: [
       'apps/developers-ioi-ai/README.md',
       'docs/architecture/components/daemon-runtime/doctrine.md',
-      'docs/architecture/products/autopilot/internal-product-spec.md',
+      'docs/architecture/components/daemon-runtime/doctrine.md',
       'docs/architecture/domains/sas/service-marketplace.md',
       'docs/architecture/domains/aiagent/worker-marketplace.md',
     ],
@@ -518,7 +518,7 @@ npm run lint --workspace=apps/developers-ioi-ai`}
     sources: [
       'apps/autopilot/README.md',
       'apps/autopilot/package.json',
-      'docs/architecture/products/autopilot/internal-product-spec.md',
+      'docs/architecture/components/daemon-runtime/doctrine.md',
     ],
     canonicalLinks: [],
     nextSteps: [
@@ -881,7 +881,7 @@ cargo run -p ioi-cli --bin cli -- query status`}
     lastVerified: '2026-03-31',
     keywords: ['promotion path', 'service candidate', 'autopilot', 'sas', 'ioi cli'],
     sources: [
-      'docs/architecture/products/autopilot/internal-product-spec.md',
+      'docs/architecture/foundations/worker-training-lifecycle.md',
       'docs/architecture/domains/sas/service-marketplace.md',
       'docs/architecture/components/daemon-runtime/doctrine.md',
     ],

@@ -49,7 +49,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_OUTPUT_ROOT = (
     PROJECT_ROOT / "docs/evidence/route-hierarchy/live-openvscode-onboarding"
 )
-PASS_DOC_ROOT = PROJECT_ROOT / "docs/plans"
+PASS_DOC_ROOT = PROJECT_ROOT / "internal-docs/plans"
 POST_WINDOW_SETTLE_SECS = 8.0
 POST_FULLSCREEN_SETTLE_SECS = 4.0
 
