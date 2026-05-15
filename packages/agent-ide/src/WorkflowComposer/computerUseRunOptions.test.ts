@@ -150,6 +150,10 @@ test("computer-use composer run options project visual GUI observation refs", ()
   args["somPath"] = "./evidence/som.json";
   args["axRef"] = "artifact:visual:ax";
   args["axPath"] = "./evidence/ax.json";
+  args["captureScreen"] = true;
+  args["captureAxTree"] = true;
+  args["captureAppName"] = "Autopilot";
+  args["captureWindowTitle"] = "Workflow Composer";
   args["appName"] = "Canvas App";
   args["windowTitle"] = "Canvas App - Local";
   args["coordinateSpaceId"] = "screen-visual-local";
@@ -167,6 +171,10 @@ test("computer-use composer run options project visual GUI observation refs", ()
   assert.equal(options.metadata.somPath, "./evidence/som.json");
   assert.equal(options.metadata.axRef, "artifact:visual:ax");
   assert.equal(options.metadata.axPath, "./evidence/ax.json");
+  assert.equal(options.metadata.captureScreen, true);
+  assert.equal(options.metadata.captureAxTree, true);
+  assert.equal(options.metadata.captureAppName, "Autopilot");
+  assert.equal(options.metadata.captureWindowTitle, "Workflow Composer");
   assert.equal(options.metadata.appName, "Canvas App");
   assert.equal(options.metadata.windowTitle, "Canvas App - Local");
   assert.equal(options.metadata.coordinateSpaceId, "screen-visual-local");

@@ -24,6 +24,11 @@ import {
   discoverComputerUseBrowsers,
   discoverComputerUseBrowsersSync,
 } from "./browser-discovery.mjs";
+import {
+  captureLocalVisualGuiObservation,
+  visualGuiLocalCaptureRequested,
+  visualGuiLocalCaptureUnavailablePatch,
+} from "./visual-gui-local-capture.mjs";
 import { launchControlledNativeBrowser } from "./native-browser-controlled-relaunch-broker.mjs";
 import { executeNativeBrowserCdpAction } from "./native-browser-cdp-executor.mjs";
 import { AgentMemoryStore, parseMemoryCommand } from "./memory-store.mjs";
@@ -8019,8 +8024,21 @@ export class AgentgresRuntimeStateStore {
     const idempotencyKey =
       optionalString(request.idempotency_key ?? request.idempotencyKey) ??
       `thread:${threadId}:computer-use-visual-gui-observe:${toolCallId}`;
+    const localCapture = visualGuiLocalCaptureRequested(input)
+      ? captureLocalVisualGuiObservation({
+          input,
+          captureDir: this.pathFor("visual-gui-captures"),
+          toolCallId,
+          maxBytes: COMPUTER_USE_VISUAL_ARTIFACT_MAX_BYTES,
+        })
+      : null;
     const sanitizedInput = {
       ...input,
+      ...(localCapture?.status === "captured"
+        ? localCapture.inputPatch
+        : localCapture?.status === "unavailable"
+          ? visualGuiLocalCaptureUnavailablePatch(input)
+          : {}),
       actionKind: "inspect",
       action_kind: "inspect",
       computerUseActionKind: "inspect",
@@ -8029,44 +8047,52 @@ export class AgentgresRuntimeStateStore {
         .map((scope) => optionalString(scope))
         .filter((scope) => scope && !scope.includes(".act") && scope !== "coordinate_action"),
     };
-    const result = await this.invokeComputerUseVisualGuiTool(threadId, toolId, {
-      ...request,
-      input: sanitizedInput,
-      tool_call_id: toolCallId,
-      toolCallId,
-      idempotency_key: idempotencyKey,
-      idempotencyKey,
-      workflow_node_id:
-        optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
-        "computer-use.visual-gui.observe",
-      workflowNodeId:
-        optionalString(request.workflowNodeId ?? request.workflow_node_id) ??
-        "computer-use.visual-gui.observe",
-    });
-    const observationBroker = {
-      schema_version: "ioi.runtime.computer-use-visual-gui-observation-broker.v1",
-      object: "ioi.runtime_computer_use_visual_gui_observation_broker",
-      broker_ref: `visual_gui_observation_broker_${safeId(toolCallId)}`,
-      lane: "visual_gui",
-      session_mode: result.result?.environmentSelection?.selected_session_mode ?? "visual_fallback",
-      authority_scope: "computer_use.visual_gui.read",
-      tool_ref: toolId,
-      tool_call_id: toolCallId,
-      observation_ref: result.result?.observation?.observation_ref ?? null,
-      target_index_ref: result.result?.targetIndex?.target_index_ref ?? null,
-      affordance_graph_ref: result.result?.affordanceGraph?.graph_ref ?? null,
-      retained_artifact_refs: result.result?.cleanup?.retained_artifact_refs ?? [],
-      fail_closed_when_unavailable: true,
-      note: "Observation broker is read-only; coordinate/OS input authority is not granted.",
-    };
-    return {
-      ...result,
-      result: {
-        ...result.result,
-        observationBroker,
-        observation_broker: observationBroker,
-      },
-    };
+    try {
+      const result = await this.invokeComputerUseVisualGuiTool(threadId, toolId, {
+        ...request,
+        input: sanitizedInput,
+        tool_call_id: toolCallId,
+        toolCallId,
+        idempotency_key: idempotencyKey,
+        idempotencyKey,
+        workflow_node_id:
+          optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+          "computer-use.visual-gui.observe",
+        workflowNodeId:
+          optionalString(request.workflowNodeId ?? request.workflow_node_id) ??
+          "computer-use.visual-gui.observe",
+      });
+      const observationBroker = {
+        schema_version: "ioi.runtime.computer-use-visual-gui-observation-broker.v1",
+        object: "ioi.runtime_computer_use_visual_gui_observation_broker",
+        broker_ref: `visual_gui_observation_broker_${safeId(toolCallId)}`,
+        lane: "visual_gui",
+        session_mode: result.result?.environmentSelection?.selected_session_mode ?? "visual_fallback",
+        authority_scope: "computer_use.visual_gui.read",
+        tool_ref: toolId,
+        tool_call_id: toolCallId,
+        observation_ref: result.result?.observation?.observation_ref ?? null,
+        target_index_ref: result.result?.targetIndex?.target_index_ref ?? null,
+        affordance_graph_ref: result.result?.affordanceGraph?.graph_ref ?? null,
+        retained_artifact_refs: result.result?.cleanup?.retained_artifact_refs ?? [],
+        capture_receipt: localCapture?.receipt ?? null,
+        captureReceipt: localCapture?.receipt ?? null,
+        fail_closed_when_unavailable: true,
+        note: "Observation broker is read-only; coordinate/OS input authority is not granted.",
+      };
+      return {
+        ...result,
+        result: {
+          ...result.result,
+          observationBroker,
+          observation_broker: observationBroker,
+        },
+      };
+    } finally {
+      for (const filePath of localCapture?.cleanupPaths ?? []) {
+        this.removeQuiet(filePath);
+      }
+    }
   }
 
   async invokeThreadToolAsync(threadId, toolId, request = {}) {

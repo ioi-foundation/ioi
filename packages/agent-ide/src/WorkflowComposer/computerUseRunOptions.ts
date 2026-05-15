@@ -33,6 +33,10 @@ export interface WorkflowComposerComputerUseRunMetadata {
   somPath?: string;
   axRef?: string;
   axPath?: string;
+  captureScreen?: boolean;
+  captureAxTree?: boolean;
+  captureAppName?: string;
+  captureWindowTitle?: string;
   appName?: string;
   windowTitle?: string;
   coordinateSpaceId?: string;
@@ -176,6 +180,22 @@ export function workflowComposerComputerUseRunOptions(
     cleanString(first.args["ax_path"]) ??
     cleanString(first.args["accessibilityTreePath"]) ??
     cleanString(first.args["accessibility_tree_path"]);
+  const captureScreen =
+    booleanValue(first.args["captureScreen"]) ??
+    booleanValue(first.args["capture_screen"]) ??
+    booleanValue(first.args["localCapture"]) ??
+    booleanValue(first.args["local_capture"]);
+  const captureAxTree =
+    booleanValue(first.args["captureAxTree"]) ??
+    booleanValue(first.args["capture_ax_tree"]) ??
+    booleanValue(first.args["captureAccessibilityTree"]) ??
+    booleanValue(first.args["capture_accessibility_tree"]);
+  const captureAppName =
+    cleanString(first.args["captureAppName"]) ??
+    cleanString(first.args["capture_app_name"]);
+  const captureWindowTitle =
+    cleanString(first.args["captureWindowTitle"]) ??
+    cleanString(first.args["capture_window_title"]);
   const appName =
     cleanString(first.args["appName"]) ??
     cleanString(first.args["app_name"]);
@@ -231,6 +251,10 @@ export function workflowComposerComputerUseRunOptions(
       ...(somPath ? { somPath } : {}),
       ...(axRef ? { axRef } : {}),
       ...(axPath ? { axPath } : {}),
+      ...(captureScreen === true ? { captureScreen: true } : {}),
+      ...(captureAxTree === true ? { captureAxTree: true } : {}),
+      ...(captureAppName ? { captureAppName } : {}),
+      ...(captureWindowTitle ? { captureWindowTitle } : {}),
       ...(appName ? { appName } : {}),
       ...(windowTitle ? { windowTitle } : {}),
       ...(coordinateSpaceId ? { coordinateSpaceId } : {}),

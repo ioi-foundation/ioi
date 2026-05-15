@@ -102,6 +102,10 @@ pub(crate) enum TuiLineCommand {
         som_path: Option<String>,
         ax_ref: Option<String>,
         ax_path: Option<String>,
+        capture_screen: bool,
+        capture_ax_tree: bool,
+        capture_app_name: Option<String>,
+        capture_window_title: Option<String>,
         app_name: Option<String>,
         window_title: Option<String>,
         coordinate_space_id: Option<String>,
@@ -117,6 +121,10 @@ pub(crate) enum TuiLineCommand {
         som_path: Option<String>,
         ax_ref: Option<String>,
         ax_path: Option<String>,
+        capture_screen: bool,
+        capture_ax_tree: bool,
+        capture_app_name: Option<String>,
+        capture_window_title: Option<String>,
         app_name: Option<String>,
         window_title: Option<String>,
         coordinate_space_id: Option<String>,
@@ -494,6 +502,10 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                 som_path,
                 ax_ref,
                 ax_path,
+                capture_screen,
+                capture_ax_tree,
+                capture_app_name,
+                capture_window_title,
                 app_name,
                 window_title,
                 coordinate_space_id,
@@ -511,6 +523,10 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                         som_path,
                         ax_ref,
                         ax_path,
+                        capture_screen,
+                        capture_ax_tree,
+                        capture_app_name,
+                        capture_window_title,
                         app_name,
                         window_title,
                         coordinate_space_id,
@@ -538,6 +554,10 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                 som_path,
                 ax_ref,
                 ax_path,
+                capture_screen,
+                capture_ax_tree,
+                capture_app_name,
+                capture_window_title,
                 app_name,
                 window_title,
                 coordinate_space_id,
@@ -555,6 +575,10 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                         som_path,
                         ax_ref,
                         ax_path,
+                        capture_screen,
+                        capture_ax_tree,
+                        capture_app_name,
+                        capture_window_title,
                         app_name,
                         window_title,
                         coordinate_space_id,
@@ -1179,6 +1203,10 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 som_path: args.som_path,
                 ax_ref: args.ax_ref,
                 ax_path: args.ax_path,
+                capture_screen: args.capture_screen,
+                capture_ax_tree: args.capture_ax_tree,
+                capture_app_name: args.capture_app_name,
+                capture_window_title: args.capture_window_title,
                 app_name: args.app_name,
                 window_title: args.window_title,
                 coordinate_space_id: args.coordinate_space_id,
@@ -1197,6 +1225,10 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 som_path: args.som_path,
                 ax_ref: args.ax_ref,
                 ax_path: args.ax_path,
+                capture_screen: args.capture_screen,
+                capture_ax_tree: args.capture_ax_tree,
+                capture_app_name: args.capture_app_name,
+                capture_window_title: args.capture_window_title,
                 app_name: args.app_name,
                 window_title: args.window_title,
                 coordinate_space_id: args.coordinate_space_id,
@@ -1272,6 +1304,10 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                     som_path: args.som_path,
                     ax_ref: args.ax_ref,
                     ax_path: args.ax_path,
+                    capture_screen: args.capture_screen,
+                    capture_ax_tree: args.capture_ax_tree,
+                    capture_app_name: args.capture_app_name,
+                    capture_window_title: args.capture_window_title,
                     app_name: args.app_name,
                     window_title: args.window_title,
                     coordinate_space_id: args.coordinate_space_id,
@@ -1294,6 +1330,10 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                     som_path: args.som_path,
                     ax_ref: args.ax_ref,
                     ax_path: args.ax_path,
+                    capture_screen: args.capture_screen,
+                    capture_ax_tree: args.capture_ax_tree,
+                    capture_app_name: args.capture_app_name,
+                    capture_window_title: args.capture_window_title,
                     app_name: args.app_name,
                     window_title: args.window_title,
                     coordinate_space_id: args.coordinate_space_id,
@@ -3130,6 +3170,32 @@ async fn handle_visual_gui_command_with_tool(
     if let Some(viewport_height) = args.viewport_height {
         input.insert("viewportHeight".to_string(), Value::from(viewport_height));
     }
+    if args.capture_screen {
+        input.insert("captureScreen".to_string(), Value::Bool(true));
+    }
+    if args.capture_ax_tree {
+        input.insert("captureAxTree".to_string(), Value::Bool(true));
+    }
+    if let Some(capture_app_name) = args
+        .capture_app_name
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "captureAppName".to_string(),
+            Value::String(capture_app_name.trim().to_string()),
+        );
+    }
+    if let Some(capture_window_title) = args
+        .capture_window_title
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "captureWindowTitle".to_string(),
+            Value::String(capture_window_title.trim().to_string()),
+        );
+    }
     handle_coding_tool_input_command(session, tool_id, input).await
 }
 
@@ -3774,7 +3840,7 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--session-mode owned_hermetic_browser|attached_cdp|controlled_relaunch] [--approval-ref approval_id] [--controlled-relaunch-approval-ref approval_id] [--controlled-relaunch-executable-path path] [--controlled-relaunch-headless] [--selector css] [--target-ref ref] [--text value] [--key value] [--scroll-x n] [--scroll-y n] [--file-path path] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /visual-gui-observe [prompt] [--session-mode visual_fallback|foreground_desktop|background_desktop|app_scoped_desktop] [--screenshot-ref ref|--screenshot-path path] [--som-ref ref|--som-path path] [--ax-ref ref|--ax-path path] [--app-name name] [--window-title title] [--coordinate-space-id id] [--viewport-width n] [--viewport-height n] /visual-gui [prompt] [--session-mode visual_fallback|foreground_desktop|background_desktop|app_scoped_desktop] [--screenshot-ref ref|--screenshot-path path] [--som-ref ref|--som-path path] [--ax-ref ref|--ax-path path] [--app-name name] [--window-title title] [--coordinate-space-id id] [--viewport-width n] [--viewport-height n] /computer-use [pause|resume|abort|cleanup] --lease-id lease_id [--handoff-ref ref] [--reason text] [--resume-observation-ref ref] [--cdp-endpoint-url url] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--session-mode owned_hermetic_browser|attached_cdp|controlled_relaunch] [--approval-ref approval_id] [--controlled-relaunch-approval-ref approval_id] [--controlled-relaunch-executable-path path] [--controlled-relaunch-headless] [--selector css] [--target-ref ref] [--text value] [--key value] [--scroll-x n] [--scroll-y n] [--file-path path] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /visual-gui-observe [prompt] [--session-mode visual_fallback|foreground_desktop|background_desktop|app_scoped_desktop] [--screenshot-ref ref|--screenshot-path path] [--som-ref ref|--som-path path] [--ax-ref ref|--ax-path path] [--capture-screen] [--capture-ax-tree] [--capture-app-name name] [--capture-window-title title] [--app-name name] [--window-title title] [--coordinate-space-id id] [--viewport-width n] [--viewport-height n] /visual-gui [prompt] [--session-mode visual_fallback|foreground_desktop|background_desktop|app_scoped_desktop] [--screenshot-ref ref|--screenshot-path path] [--som-ref ref|--som-path path] [--ax-ref ref|--ax-path path] [--app-name name] [--window-title title] [--coordinate-space-id id] [--viewport-width n] [--viewport-height n] /computer-use [pause|resume|abort|cleanup] --lease-id lease_id [--handoff-ref ref] [--reason text] [--resume-observation-ref ref] [--cdp-endpoint-url url] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -4141,6 +4207,10 @@ struct VisualGuiLineArgs {
     som_path: Option<String>,
     ax_ref: Option<String>,
     ax_path: Option<String>,
+    capture_screen: bool,
+    capture_ax_tree: bool,
+    capture_app_name: Option<String>,
+    capture_window_title: Option<String>,
     app_name: Option<String>,
     window_title: Option<String>,
     coordinate_space_id: Option<String>,
@@ -4157,6 +4227,10 @@ fn parse_visual_gui_args(value: &str) -> Result<VisualGuiLineArgs> {
     let mut som_path = None;
     let mut ax_ref = None;
     let mut ax_path = None;
+    let mut capture_screen = false;
+    let mut capture_ax_tree = false;
+    let mut capture_app_name = None;
+    let mut capture_window_title = None;
     let mut app_name = None;
     let mut window_title = None;
     let mut coordinate_space_id = None;
@@ -4241,6 +4315,36 @@ fn parse_visual_gui_args(value: &str) -> Result<VisualGuiLineArgs> {
             )?);
             continue;
         }
+        if part == "--capture-screen" {
+            capture_screen = true;
+            continue;
+        }
+        if part == "--capture-ax-tree" {
+            capture_ax_tree = true;
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--capture-app-name=") {
+            capture_app_name = Some(non_empty_flag_value("--capture-app-name", inline)?);
+            continue;
+        }
+        if part == "--capture-app-name" {
+            capture_app_name = Some(non_empty_flag_value(
+                "--capture-app-name",
+                required_flag_value("--capture-app-name", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--capture-window-title=") {
+            capture_window_title = Some(non_empty_flag_value("--capture-window-title", inline)?);
+            continue;
+        }
+        if part == "--capture-window-title" {
+            capture_window_title = Some(non_empty_flag_value(
+                "--capture-window-title",
+                required_flag_value("--capture-window-title", &mut parts)?,
+            )?);
+            continue;
+        }
         if let Some(inline) = part.strip_prefix("--app-name=") {
             app_name = Some(non_empty_flag_value("--app-name", inline)?);
             continue;
@@ -4307,6 +4411,10 @@ fn parse_visual_gui_args(value: &str) -> Result<VisualGuiLineArgs> {
         som_path,
         ax_ref,
         ax_path,
+        capture_screen,
+        capture_ax_tree,
+        capture_app_name,
+        capture_window_title,
         app_name,
         window_title,
         coordinate_space_id,
@@ -5442,6 +5550,10 @@ mod tests {
                 som_path: None,
                 ax_ref: Some("artifact:visual:ax".to_string()),
                 ax_path: None,
+                capture_screen: false,
+                capture_ax_tree: false,
+                capture_app_name: None,
+                capture_window_title: None,
                 app_name: Some("CanvasApp".to_string()),
                 window_title: Some("CanvasWindow".to_string()),
                 coordinate_space_id: Some("screen-visual-1".to_string()),
@@ -5460,6 +5572,10 @@ mod tests {
                 som_path: None,
                 ax_ref: None,
                 ax_path: None,
+                capture_screen: false,
+                capture_ax_tree: false,
+                capture_app_name: None,
+                capture_window_title: None,
                 app_name: None,
                 window_title: None,
                 coordinate_space_id: None,
@@ -5478,6 +5594,10 @@ mod tests {
                 som_path: Some("/tmp/som.json".to_string()),
                 ax_ref: None,
                 ax_path: Some("/tmp/ax.json".to_string()),
+                capture_screen: false,
+                capture_ax_tree: false,
+                capture_app_name: None,
+                capture_window_title: None,
                 app_name: None,
                 window_title: None,
                 coordinate_space_id: None,
@@ -5486,7 +5606,7 @@ mod tests {
             }
         );
         assert_eq!(
-            parse_tui_line_command("/visual-gui-observe capture canvas --screenshot-path /tmp/visual.png --som-path /tmp/som.json --ax-path /tmp/ax.json").unwrap(),
+            parse_tui_line_command("/visual-gui-observe capture canvas --screenshot-path /tmp/visual.png --som-path /tmp/som.json --ax-path /tmp/ax.json --capture-screen --capture-ax-tree --capture-app-name CapturedApp --capture-window-title CapturedWindow").unwrap(),
             TuiLineCommand::VisualGuiObserve {
                 prompt: Some("capture canvas".to_string()),
                 session_mode: None,
@@ -5496,6 +5616,10 @@ mod tests {
                 som_path: Some("/tmp/som.json".to_string()),
                 ax_ref: None,
                 ax_path: Some("/tmp/ax.json".to_string()),
+                capture_screen: true,
+                capture_ax_tree: true,
+                capture_app_name: Some("CapturedApp".to_string()),
+                capture_window_title: Some("CapturedWindow".to_string()),
                 app_name: None,
                 window_title: None,
                 coordinate_space_id: None,
@@ -5514,6 +5638,10 @@ mod tests {
                 som_path: None,
                 ax_ref: None,
                 ax_path: None,
+                capture_screen: false,
+                capture_ax_tree: false,
+                capture_app_name: None,
+                capture_window_title: None,
                 app_name: None,
                 window_title: None,
                 coordinate_space_id: None,
