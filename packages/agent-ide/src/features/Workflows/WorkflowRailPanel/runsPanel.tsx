@@ -996,6 +996,25 @@ export function WorkflowRunsPanel({
                             node.data.computerUse.detectedPatterns.join("|")
                           }
                           data-blocker={node.data.computerUse.blocker ?? ""}
+                          data-workflow-graph-id={
+                            node.data.computerUse.workflowGraphId ?? ""
+                          }
+                          data-workflow-node-id={
+                            node.data.computerUse.workflowNodeId ?? ""
+                          }
+                          data-tool-ref={node.data.computerUse.toolRef ?? ""}
+                          data-authority-scopes={
+                            node.data.computerUse.authorityScopes.join("|")
+                          }
+                          data-fail-closed-when-unavailable={
+                            node.data.computerUse.failClosedWhenUnavailable ===
+                            null
+                              ? ""
+                              : String(
+                                  node.data.computerUse
+                                    .failClosedWhenUnavailable,
+                                )
+                          }
                         >
                           <span>Computer use trace</span>
                           <dl>
@@ -1011,6 +1030,12 @@ export function WorkflowRunsPanel({
                               <dt>Lease</dt>
                               <dd>{node.data.computerUse.leaseId ?? "none"}</dd>
                             </div>
+                            {node.data.computerUse.toolRef ? (
+                              <div>
+                                <dt>Tool</dt>
+                                <dd>{node.data.computerUse.toolRef}</dd>
+                              </div>
+                            ) : null}
                             <div>
                               <dt>Targeting</dt>
                               <dd>
@@ -1038,6 +1063,14 @@ export function WorkflowRunsPanel({
                               <dt>Retention</dt>
                               <dd>
                                 {node.data.computerUse.retentionMode ??
+                                  "policy default"}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>Authority</dt>
+                              <dd>
+                                {node.data.computerUse.authorityScopes[0] ??
+                                  node.data.computerUse.authorityRequired ??
                                   "policy default"}
                               </dd>
                             </div>

@@ -100,7 +100,8 @@ test("projects computer-use lifecycle events as glass-box harness rows", () => {
       sourceEventKind: "ComputerUse.EnvironmentSelected",
       status: "completed",
       componentKind: "computer_use_harness",
-      workflowNodeId: "computer-use.select-environment",
+      workflowNodeId: "browser-use-node",
+      workflowGraphId: "workflow.browser-use-demo",
       payloadSchemaVersion: "ioi.computer-use.harness.v1",
       receiptRefs: ["receipt-computer-use-environment"],
       payload: {
@@ -109,6 +110,12 @@ test("projects computer-use lifecycle events as glass-box harness rows", () => {
         computer_use_lane: "native_browser",
         computer_use_session_mode: "owned_hermetic_browser",
         computer_use_lease_id: "lease-browser",
+        workflowGraphId: "workflow.browser-use-demo",
+        workflowNodeId: "browser-use-node",
+        workflowNodeIds: ["browser-use-node"],
+        toolRef: "ioi.computer_use.native_browser",
+        authorityScopes: ["computer_use.native_browser.read"],
+        failClosedWhenUnavailable: true,
         environment_selection_receipt: {
           receipt_ref: "receipt-computer-use-environment",
           risk_posture: "read_only_probe",
@@ -202,7 +209,7 @@ test("projects computer-use lifecycle events as glass-box harness rows", () => {
   assert.deepEqual(
     projection.reactFlowNodes.map((node) => node.id),
     [
-      "computer-use.select-environment",
+      "browser-use-node",
       "computer-use.observe",
       "computer-use.action-proposal",
       "computer-use.execute-action",
@@ -217,6 +224,28 @@ test("projects computer-use lifecycle events as glass-box harness rows", () => {
     "owned_hermetic_browser",
   );
   assert.equal(projection.nodes[0]?.computerUse?.leaseId, "lease-browser");
+  assert.equal(
+    projection.nodes[0]?.computerUse?.workflowGraphId,
+    "workflow.browser-use-demo",
+  );
+  assert.equal(
+    projection.nodes[0]?.computerUse?.workflowNodeId,
+    "browser-use-node",
+  );
+  assert.deepEqual(projection.nodes[0]?.computerUse?.workflowNodeIds, [
+    "browser-use-node",
+  ]);
+  assert.equal(
+    projection.nodes[0]?.computerUse?.toolRef,
+    "ioi.computer_use.native_browser",
+  );
+  assert.deepEqual(projection.nodes[0]?.computerUse?.authorityScopes, [
+    "computer_use.native_browser.read",
+  ]);
+  assert.equal(
+    projection.nodes[0]?.computerUse?.failClosedWhenUnavailable,
+    true,
+  );
   assert.equal(projection.nodes[0]?.computerUse?.riskPosture, "read_only_probe");
   assert.equal(
     projection.nodes[0]?.computerUse?.authorityRequired,
