@@ -18,6 +18,7 @@ import {
   collectWorkflowCodingRouteProof,
   collectWorkflowCodingRoutePromotionLoopProof,
   collectWorkflowNativeBrowserPromptPipelineProof,
+  collectWorkflowVisualGuiPromptPipelineProof,
   collectWorkflowSkillContextProof,
   collectWorkflowSandboxedComputerRunButtonProof,
   collectWorkflowTelemetryBudgetChainCreatorProof,
@@ -30,6 +31,7 @@ export {
   collectWorkflowCodingRouteProof,
   collectWorkflowCodingRoutePromotionLoopProof,
   collectWorkflowNativeBrowserPromptPipelineProof,
+  collectWorkflowVisualGuiPromptPipelineProof,
   collectWorkflowSkillContextProof,
   collectWorkflowSandboxedComputerRunButtonProof,
   collectWorkflowTelemetryBudgetChainCreatorProof,
@@ -6011,6 +6013,7 @@ export function buildGuiEvidenceAssessment({
   workflowTerminalCodingLoopRunButtonProof,
   workflowSandboxedComputerRunButtonProof,
   workflowNativeBrowserPromptPipelineProof,
+  workflowVisualGuiPromptPipelineProof,
   workflowSkillContextProof,
   workflowCodingRouteProof,
   workflowCodingRoutePromotionLoopProof,
@@ -7053,6 +7056,8 @@ export function buildGuiEvidenceAssessment({
     workflowSandboxedComputerRunButtonProof?.proof?.passed === true;
   const hasWorkflowNativeBrowserPromptPipelineProof =
     workflowNativeBrowserPromptPipelineProof?.proof?.passed === true;
+  const hasWorkflowVisualGuiPromptPipelineProof =
+    workflowVisualGuiPromptPipelineProof?.proof?.passed === true;
   const hasWorkflowCodingRouteCreateRunProof =
     workflowCodingRouteProof?.proof?.passed === true;
   const hasWorkflowCodingRoutePromotionLoopProof =
@@ -7257,6 +7262,8 @@ export function buildGuiEvidenceAssessment({
         hasWorkflowSandboxedComputerRunButtonProof,
       workflow_native_browser_prompt_pipeline_proof_present:
         hasWorkflowNativeBrowserPromptPipelineProof,
+      workflow_visual_gui_prompt_pipeline_proof_present:
+        hasWorkflowVisualGuiPromptPipelineProof,
       workflow_coding_route_create_run_proof_present:
         hasWorkflowCodingRouteCreateRunProof,
       workflow_coding_route_promotion_loop_proof_present:
@@ -7353,6 +7360,7 @@ export function buildGuiEvidenceAssessment({
       hasWorkflowTerminalCodingLoopRunButtonProof,
       hasWorkflowSandboxedComputerRunButtonProof,
       hasWorkflowNativeBrowserPromptPipelineProof,
+      hasWorkflowVisualGuiPromptPipelineProof,
       providerGatedVisibleOutputRequiredScenarios: [
         ...AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
       ],
@@ -11150,6 +11158,8 @@ async function runGuiValidation(args, outputRoot) {
       collectWorkflowSandboxedComputerRunButtonProof(outputRoot);
     const workflowNativeBrowserPromptPipelineProof =
       collectWorkflowNativeBrowserPromptPipelineProof(outputRoot);
+    const workflowVisualGuiPromptPipelineProof =
+      collectWorkflowVisualGuiPromptPipelineProof(outputRoot);
     const workflowSkillContextProof =
       collectWorkflowSkillContextProof(outputRoot);
     const workflowCodingRouteProof =
@@ -11169,6 +11179,7 @@ async function runGuiValidation(args, outputRoot) {
       workflowTerminalCodingLoopRunButtonProof,
       workflowSandboxedComputerRunButtonProof,
       workflowNativeBrowserPromptPipelineProof,
+      workflowVisualGuiPromptPipelineProof,
       workflowSkillContextProof,
       workflowCodingRouteProof,
       workflowCodingRoutePromotionLoopProof,
@@ -11683,6 +11694,10 @@ async function runGuiValidation(args, outputRoot) {
           workflowNativeBrowserPromptPipelineProof.proof.passed === true
             ? workflowNativeBrowserPromptPipelineProof.path
             : false,
+        workflow_visual_gui_prompt_pipeline:
+          workflowVisualGuiPromptPipelineProof.proof.passed === true
+            ? workflowVisualGuiPromptPipelineProof.path
+            : false,
         workflow_coding_route_create_run:
           workflowCodingRouteProof.proof.passed === true
             ? workflowCodingRouteProof.path
@@ -11715,6 +11730,8 @@ async function runGuiValidation(args, outputRoot) {
           workflowSandboxedComputerRunButtonProof.proof,
         workflowNativeBrowserPromptPipeline:
           workflowNativeBrowserPromptPipelineProof.proof,
+        workflowVisualGuiPromptPipeline:
+          workflowVisualGuiPromptPipelineProof.proof,
         workflowCodingRoute: workflowCodingRouteProof.proof,
         workflowCodingRoutePromotionLoop:
           workflowCodingRoutePromotionLoopProof.proof,
