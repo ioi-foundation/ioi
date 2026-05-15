@@ -639,6 +639,53 @@ test("runtime daemon exposes read-only browser discovery receipts", async () => 
   }
 });
 
+test("runtime daemon invokes browser discovery through thread tool spine", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-browser-discovery-tool-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-browser-discovery-tool-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const thread = await agent.thread();
+    const result = await client.invokeThreadTool(thread.id, "ioi.computer_use.browser_discovery", {
+      source: "react_flow",
+      workflowGraphId: "workflow.browser-discovery-tool",
+      workflowNodeId: "browser-discovery-tool",
+      input: {
+        includeTabs: false,
+        revealTabTitles: false,
+      },
+    });
+    assert.equal(result.status, "completed");
+    assert.equal(result.object, "ioi.runtime_computer_use_browser_discovery_result");
+    assert.equal(result.tool_pack, "computer_use");
+    assert.equal(result.tool_name, "ioi.computer_use.browser_discovery");
+    assert.equal(result.workflow_node_id, "browser-discovery-tool");
+    assert.equal(result.event.event_kind, "computer_use.browser_discovery");
+    assert.equal(result.event.component_kind, "computer_use_harness");
+    assert.equal(result.result.object, "ioi.computer_use.browser_discovery_report");
+    assert.equal(result.result.safety.read_only, true);
+
+    const runtimeEvents = [];
+    for await (const event of thread.events()) {
+      runtimeEvents.push(event);
+    }
+    const discovery = runtimeEvents.find((event) => event.type === "computer_use_browser_discovery");
+    assert.ok(discovery);
+    assert.equal(discovery.workflowNodeId, "browser-discovery-tool");
+    assert.equal(
+      discovery.payload.browser_discovery_report.object,
+      "ioi.computer_use.browser_discovery_report",
+    );
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("runtime daemon preserves workflow-authored computer-use node metadata", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-workflow-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-workflow-state-"));
