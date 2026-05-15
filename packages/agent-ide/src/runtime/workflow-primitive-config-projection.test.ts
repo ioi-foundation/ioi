@@ -73,6 +73,10 @@ test("creator display labels collapse operation variants into primitive names", 
     creators.get("plugin_tool.computer_use.visual_gui")?.displayLabel,
     "Tool Pack",
   );
+  assert.equal(
+    creators.get("computer_use.browser_discovery")?.displayLabel,
+    "Browser Discovery",
+  );
   assert.equal(creators.get("skill_context.discover")?.displayLabel, "Skills");
   assert.equal(creators.get("github_pr_create")?.displayLabel, "Pull Request");
   assert.equal(workflowNodeDefinition("model_call").displayLabel, "Agent Step");

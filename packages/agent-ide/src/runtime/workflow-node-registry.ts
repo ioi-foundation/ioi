@@ -5071,6 +5071,45 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
       "computer use",
     ],
   });
+  const browserDiscoveryTool = creatorDefinition("plugin_tool", {
+    creatorId: "computer_use.browser_discovery",
+    label: "Browser Discovery",
+    description: "Read host browser process and declared CDP endpoint inventory as a redacted computer-use discovery receipt before any attach or relaunch authority is requested.",
+    metricLabel: "Browser lane",
+    metricValue: "discover",
+    defaultLogic: {
+      toolBinding: {
+        toolRef: "ioi.computer_use.browser_discovery",
+        bindingKind: "plugin_tool",
+        mockBinding: false,
+        credentialReady: true,
+        capabilityScope: [
+          "computer_use.browser_discovery.read",
+          "computer_use.native_browser.discovery",
+        ],
+        sideEffectClass: "read",
+        requiresApproval: false,
+        arguments: {
+          computerUseBrowserDiscovery: true,
+          probe: false,
+          includeTabs: false,
+          revealTabTitles: false,
+          retentionMode: "prompt_visible_summary_only",
+        },
+      },
+    },
+    keywords: [
+      "browser discovery",
+      "browser process inventory",
+      "cdp endpoint",
+      "remote debugging",
+      "attach browser",
+      "controlled relaunch",
+      "profile broker",
+      "computer use",
+      "advanced",
+    ],
+  });
   const browserTool = creatorDefinition("plugin_tool", {
     creatorId: "plugin_tool.browser",
     label: "Browser/computer tool",
@@ -6140,6 +6179,7 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
     browserUseTool,
     visualComputerUseTool,
     sandboxedComputerUseTool,
+    browserDiscoveryTool,
     browserTool,
     workflowTool,
     codingToolPack,

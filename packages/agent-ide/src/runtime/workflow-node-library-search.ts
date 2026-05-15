@@ -257,6 +257,19 @@ function itemBaseFields(
   ];
 }
 
+function exactAuthoringIntentBoost(
+  query: string,
+  item: SearchableWorkflowNode,
+): number {
+  const exactFields = uniqueStrings([
+    item.label,
+    item.displayLabel,
+    "creatorId" in item ? item.creatorId : item.type,
+    ...item.searchAliases,
+  ]);
+  return exactFields.includes(normalizeSearchText(query)) ? 220 : 0;
+}
+
 export function rankWorkflowNodeLibrary<T extends SearchableWorkflowNode>(
   items: T[],
   query: string,
@@ -278,6 +291,7 @@ export function rankWorkflowNodeLibrary<T extends SearchableWorkflowNode>(
         item,
         score:
           scored.score +
+          exactAuthoringIntentBoost(normalizedQuery, item) +
           primitiveBoost(normalizedQuery, item.canonicalPrimitive) +
           PALETTE_SCORE[item.paletteVisibility],
         matchedTerms: scored.matchedTerms,

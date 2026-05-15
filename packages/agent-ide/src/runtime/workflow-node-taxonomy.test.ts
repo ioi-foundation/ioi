@@ -125,6 +125,19 @@ test("creator taxonomy covers memory, worker, mcp, skill, and computer-use autho
     creators.get("plugin_tool.computer_use.sandboxed")?.canonicalPrimitive,
     "tool_pack",
   );
+  assert.equal(
+    creators.get("computer_use.browser_discovery")?.canonicalPrimitive,
+    "harness_runtime",
+  );
+  assert.equal(
+    creators.get("computer_use.browser_discovery")?.paletteVisibility,
+    "advanced",
+  );
+  assert.equal(
+    creators.get("computer_use.browser_discovery")?.defaultLogic.toolBinding
+      ?.arguments?.["computerUseBrowserDiscovery"],
+    true,
+  );
   assert.deepEqual(
     creators.get("plugin_tool.browser_use")?.defaultLogic.toolBinding?.arguments,
     {

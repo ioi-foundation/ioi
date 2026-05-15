@@ -212,6 +212,7 @@ function creatorPrimitive(
   if (creatorId.startsWith("hook.")) return "hook";
   if (creatorId.startsWith("memory.")) return "memory";
   if (creatorId.startsWith("subagent.")) return "worker";
+  if (creatorId.startsWith("computer_use.")) return "harness_runtime";
   if (creatorId.startsWith("mcp.invoke") || creatorId.includes(".invoke")) {
     return "tool_pack";
   }
