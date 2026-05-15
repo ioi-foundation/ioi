@@ -590,6 +590,11 @@ test("runtime daemon emits canonical computer-use events for browser prompts", a
       trace.receipts.some((receipt) => receipt.kind === "computer_use_trace"),
       true,
     );
+    assert.equal((await run.computerUseTrace()).observation.url, "https://example.com");
+    assert.equal(
+      (await run.computerUseTrajectory()).entries.some((entry) => entry.event_kind === "execute_action"),
+      true,
+    );
 
     const thread = await agent.thread();
     const runtimeEvents = [];
@@ -953,6 +958,8 @@ test("runtime service bridge computer-use events persist as run trace artifacts"
       metadata: { computerUse: true },
     });
     const trace = await client.inspectRun(turn.runId);
+    const directComputerUseTrace = await client.getRunComputerUseTrace(turn.runId);
+    const directTrajectory = await client.getRunComputerUseTrajectory(turn.runId);
     assert.equal(trace.source, "runtime_service");
     assert.deepEqual(
       trace.events.filter((event) => event.type.startsWith("computer_use_")).map((event) => event.type),
@@ -989,6 +996,8 @@ test("runtime service bridge computer-use events persist as run trace artifacts"
     assert.equal(trace.computerUse.outcomeContract.external_effect_policy, "confirmation_required");
     assert.equal(trace.computerUse.commitGate.status, "requires_confirmation_before_execution");
     assert.equal(trace.computerUse.commitGate.final_action_ref, null);
+    assert.equal(directComputerUseTrace.commitGate.status, "requires_confirmation_before_execution");
+    assert.equal(directTrajectory.entries.at(-1).event_kind, "commit_or_handoff");
     assert.deepEqual(
       trace.computerUse.trajectory.entries.map((entry) => entry.event_kind),
       ["observe", "build_affordance_graph", "propose_action", "commit_or_handoff"],

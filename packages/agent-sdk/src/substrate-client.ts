@@ -1324,6 +1324,8 @@ export interface RuntimeSubstrateClient {
   exportTrace(runId: string): Promise<RuntimeTraceBundle>;
   replayTrace(runId: string): AsyncIterable<IOISDKMessage>;
   inspectRun(runId: string): Promise<RuntimeTraceBundle>;
+  getRunComputerUseTrace(runId: string): Promise<RuntimeTraceBundle["computerUse"]>;
+  getRunComputerUseTrajectory(runId: string): Promise<unknown>;
   scorecard(runId: string): Promise<RuntimeScorecard>;
   listModels(): Promise<RuntimeModelCatalogEntry[]>;
   listRepositories(): Promise<Array<{ url: string; source: string; status: string }>>;
@@ -1904,6 +1906,22 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
 
   async inspectRun(runId: string): Promise<RuntimeTraceBundle> {
     return this.request("inspectRun", "GET", `/v1/runs/${encodePath(runId)}/inspect`);
+  }
+
+  async getRunComputerUseTrace(runId: string): Promise<RuntimeTraceBundle["computerUse"]> {
+    return this.request(
+      "getRunComputerUseTrace",
+      "GET",
+      `/v1/runs/${encodePath(runId)}/computer-use/trace`,
+    );
+  }
+
+  async getRunComputerUseTrajectory(runId: string): Promise<unknown> {
+    return this.request(
+      "getRunComputerUseTrajectory",
+      "GET",
+      `/v1/runs/${encodePath(runId)}/computer-use/trajectory`,
+    );
   }
 
   async scorecard(runId: string): Promise<RuntimeScorecard> {
@@ -4697,6 +4715,14 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
 
   async inspectRun(runId: string): Promise<RuntimeTraceBundle> {
     return this.exportTrace(runId);
+  }
+
+  async getRunComputerUseTrace(runId: string): Promise<RuntimeTraceBundle["computerUse"]> {
+    return (await this.getRun(runId)).trace.computerUse ?? null;
+  }
+
+  async getRunComputerUseTrajectory(runId: string): Promise<unknown> {
+    return (await this.getRunComputerUseTrace(runId))?.trajectory ?? null;
   }
 
   async scorecard(runId: string): Promise<RuntimeScorecard> {
