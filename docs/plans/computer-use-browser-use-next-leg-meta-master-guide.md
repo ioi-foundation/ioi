@@ -459,7 +459,10 @@ bridge projection also synthesizes live
 target index, blocker, handoff/confirmation state, and cleanup ownership.
 Daemon-backed visual and hosted/sandbox lane runs activate through the same
 trace spine when a mounted executor supplies those contracts, while missing
-visual/sandbox adapters still fail closed.
+visual/sandbox adapters still fail closed. The browser lane now also has a
+daemon/SDK read-only discovery receipt for browser process inventory, declared
+CDP endpoints, default-profile remote-debugging blockers, and redaction/safety
+posture before any attach or relaunch authority is requested.
 Future daemon, workflow, and Autopilot policy executors should consume these
 helpers rather than defining local policy shapes.
 

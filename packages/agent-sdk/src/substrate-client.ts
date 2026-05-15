@@ -1241,6 +1241,77 @@ export interface RuntimeEventStreamOptions {
   signal?: AbortSignal;
 }
 
+export interface RuntimeComputerUseBrowserDiscoveryOptions {
+  probe?: boolean;
+  include_tabs?: boolean;
+  includeTabs?: boolean;
+  reveal_tab_titles?: boolean;
+  revealTabTitles?: boolean;
+}
+
+export interface RuntimeComputerUseBrowserDiscoveryProcess {
+  process_ref: string;
+  pid: number;
+  ppid: number;
+  command: string;
+  browser_family: string;
+  is_browser_child_process: boolean;
+  has_remote_debugging_port: boolean;
+  remote_debugging_port: number | null;
+  remote_debugging_address: string | null;
+  user_data_dir_present: boolean;
+  user_data_dir_hash: string | null;
+  profile_directory_present: boolean;
+  profile_directory_hash: string | null;
+  profile_provenance: string;
+  default_profile_cdp_refusal_risk: boolean;
+  cdp_status: string;
+  redacted_flags: Array<{ flag: string; value: string }>;
+}
+
+export interface RuntimeComputerUseBrowserDiscoveryEndpoint {
+  endpoint_ref: string;
+  process_ref: string;
+  pid: number;
+  browser_family: string;
+  host: string;
+  port: number;
+  endpoint_url: string;
+  source: string;
+  status: string;
+  browser: string | null;
+  protocol_version: string | null;
+  tab_count: number | null;
+  tabs: Array<Record<string, unknown>>;
+  error_class?: string;
+  error_summary?: string;
+}
+
+export interface RuntimeComputerUseBrowserDiscoveryReport {
+  schema_version: "ioi.computer-use.browser-discovery.v1" | string;
+  object: "ioi.computer_use.browser_discovery_report" | string;
+  receipt_ref: string;
+  discovered_at: string;
+  platform: string;
+  process_count: number;
+  browser_process_count: number;
+  browser_processes: RuntimeComputerUseBrowserDiscoveryProcess[];
+  cdp_endpoint_count: number;
+  cdp_endpoints: RuntimeComputerUseBrowserDiscoveryEndpoint[];
+  default_profile_remote_debugging_blockers: Array<Record<string, unknown>>;
+  safety: {
+    read_only: boolean;
+    mutated_browser_state: boolean;
+    copied_profiles: boolean;
+    copied_credentials: boolean;
+    raw_profile_paths_redacted: boolean;
+    raw_command_lines_redacted: boolean;
+    cdp_probe_enabled: boolean;
+    cdp_probe_scope: string;
+  };
+  recommended_next_steps: string[];
+}
+
 export interface RuntimeSubstrateClient {
   createThread(input?: RuntimeThreadCreateInput): Promise<RuntimeThreadRecord>;
   listThreads(): Promise<RuntimeThreadRecord[]>;
@@ -1326,6 +1397,9 @@ export interface RuntimeSubstrateClient {
   inspectRun(runId: string): Promise<RuntimeTraceBundle>;
   getRunComputerUseTrace(runId: string): Promise<RuntimeTraceBundle["computerUse"]>;
   getRunComputerUseTrajectory(runId: string): Promise<unknown>;
+  discoverComputerUseBrowsers(
+    options?: RuntimeComputerUseBrowserDiscoveryOptions,
+  ): Promise<RuntimeComputerUseBrowserDiscoveryReport>;
   scorecard(runId: string): Promise<RuntimeScorecard>;
   listModels(): Promise<RuntimeModelCatalogEntry[]>;
   listRepositories(): Promise<Array<{ url: string; source: string; status: string }>>;
@@ -1921,6 +1995,16 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       "getRunComputerUseTrajectory",
       "GET",
       `/v1/runs/${encodePath(runId)}/computer-use/trajectory`,
+    );
+  }
+
+  async discoverComputerUseBrowsers(
+    options: RuntimeComputerUseBrowserDiscoveryOptions = {},
+  ): Promise<RuntimeComputerUseBrowserDiscoveryReport> {
+    return this.request(
+      "discoverComputerUseBrowsers",
+      "GET",
+      `/v1/computer-use/browser-discovery${computerUseBrowserDiscoveryQuery(options)}`,
     );
   }
 
@@ -3021,6 +3105,21 @@ function memoryListQuery(options: MemoryListOptions = {}): string {
 function toolListQuery(options: RuntimeToolListOptions = {}): string {
   const params = new URLSearchParams();
   if (options.pack) params.set("pack", options.pack);
+  const text = params.toString();
+  return text ? `?${text}` : "";
+}
+
+function computerUseBrowserDiscoveryQuery(
+  options: RuntimeComputerUseBrowserDiscoveryOptions = {},
+): string {
+  const params = new URLSearchParams();
+  if (options.probe !== undefined) params.set("probe", String(options.probe));
+  const includeTabs = options.includeTabs ?? options.include_tabs;
+  if (includeTabs !== undefined) params.set("include_tabs", String(includeTabs));
+  const revealTabTitles = options.revealTabTitles ?? options.reveal_tab_titles;
+  if (revealTabTitles !== undefined) {
+    params.set("reveal_tab_titles", String(revealTabTitles));
+  }
   const text = params.toString();
   return text ? `?${text}` : "";
 }
@@ -4723,6 +4822,39 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
 
   async getRunComputerUseTrajectory(runId: string): Promise<unknown> {
     return (await this.getRunComputerUseTrace(runId))?.trajectory ?? null;
+  }
+
+  async discoverComputerUseBrowsers(
+    options: RuntimeComputerUseBrowserDiscoveryOptions = {},
+  ): Promise<RuntimeComputerUseBrowserDiscoveryReport> {
+    const now = new Date().toISOString();
+    return {
+      schema_version: "ioi.computer-use.browser-discovery.v1",
+      object: "ioi.computer_use.browser_discovery_report",
+      receipt_ref: "receipt_mock_computer_use_browser_discovery",
+      discovered_at: now,
+      platform: "mock",
+      process_count: 0,
+      browser_process_count: 0,
+      browser_processes: [],
+      cdp_endpoint_count: 0,
+      cdp_endpoints: [],
+      default_profile_remote_debugging_blockers: [],
+      safety: {
+        read_only: true,
+        mutated_browser_state: false,
+        copied_profiles: false,
+        copied_credentials: false,
+        raw_profile_paths_redacted: true,
+        raw_command_lines_redacted: true,
+        cdp_probe_enabled: options.probe !== false,
+        cdp_probe_scope: "declared_remote_debugging_ports_only",
+      },
+      recommended_next_steps: [
+        "No mock browser process was discovered.",
+        "Use a daemon-backed client for host browser discovery.",
+      ],
+    };
   }
 
   async scorecard(runId: string): Promise<RuntimeScorecard> {

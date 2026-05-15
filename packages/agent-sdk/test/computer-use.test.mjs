@@ -614,6 +614,31 @@ test("runtime daemon emits canonical computer-use events for browser prompts", a
   }
 });
 
+test("runtime daemon exposes read-only browser discovery receipts", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-browser-discovery-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-browser-discovery-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const report = await client.discoverComputerUseBrowsers({ probe: false });
+    assert.equal(report.schema_version, "ioi.computer-use.browser-discovery.v1");
+    assert.equal(report.object, "ioi.computer_use.browser_discovery_report");
+    assert.equal(report.safety.read_only, true);
+    assert.equal(report.safety.mutated_browser_state, false);
+    assert.equal(report.safety.copied_profiles, false);
+    assert.equal(report.safety.copied_credentials, false);
+    assert.equal(report.safety.raw_profile_paths_redacted, true);
+    assert.equal(report.safety.raw_command_lines_redacted, true);
+    assert.equal(report.safety.cdp_probe_enabled, false);
+    assert.ok(Array.isArray(report.browser_processes));
+    assert.ok(Array.isArray(report.cdp_endpoints));
+    assert.ok(Array.isArray(report.recommended_next_steps));
+    assert.equal(JSON.stringify(report).includes(process.env.HOME ?? "__no_home__"), false);
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("runtime daemon preserves workflow-authored computer-use node metadata", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-workflow-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-workflow-state-"));
