@@ -27,6 +27,7 @@ use chromiumoxide::cdp::browser_protocol::page::{
     CaptureScreenshotFormat, CaptureScreenshotParams, GetFrameTreeParams, GetLayoutMetricsParams,
 };
 
+pub mod computer_use;
 pub mod context;
 mod dom_ops;
 mod driver_core;
