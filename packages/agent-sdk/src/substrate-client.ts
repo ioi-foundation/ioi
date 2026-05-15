@@ -2068,7 +2068,9 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
   }
 
   async listTools(options: RuntimeToolListOptions = {}): Promise<RuntimeToolCatalogEntry[]> {
-    return this.request("listTools", "GET", `/v1/tools${toolListQuery(options)}`);
+    return normalizeRuntimeToolCatalogEntries(
+      await this.request("listTools", "GET", `/v1/tools${toolListQuery(options)}`),
+    );
   }
 
   async getMcpStatus(options: RuntimeMcpListOptions = {}): Promise<RuntimeMcpStatus> {
@@ -3171,6 +3173,263 @@ function mcpListQuery(options: RuntimeMcpListOptions = {}): string {
   }
   const text = params.toString();
   return text ? `?${text}` : "";
+}
+
+function normalizeRuntimeToolCatalogEntries(value: unknown): RuntimeToolCatalogEntry[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((tool): tool is RuntimeToolCatalogEntry => Boolean(tool && typeof tool === "object"))
+    .map((tool) => normalizeRuntimeToolCatalogEntry(tool));
+}
+
+function normalizeRuntimeToolCatalogEntry(tool: RuntimeToolCatalogEntry): RuntimeToolCatalogEntry {
+  const raw = tool as RuntimeToolCatalogEntry & Record<string, unknown>;
+  const stableToolId = toolString(raw.stableToolId ?? raw.stable_tool_id) ?? "runtime.tool";
+  const displayName = toolString(raw.displayName ?? raw.display_name) ?? stableToolId;
+  const primitiveCapabilities = toolStringArray(
+    raw.primitiveCapabilities ?? raw.primitive_capabilities,
+  );
+  const authorityScopeRequirements = toolStringArray(
+    raw.authorityScopeRequirements ?? raw.authority_scope_requirements,
+  );
+  const evidenceRequirements = toolStringArray(raw.evidenceRequirements ?? raw.evidence_requirements);
+  const effectClass = toolString(raw.effectClass ?? raw.effect_class) ?? "unknown";
+  const riskDomain = toolString(raw.riskDomain ?? raw.risk_domain) ?? "runtime";
+  const workflowNodeType = toolString(raw.workflowNodeType ?? raw.workflow_node_type);
+  const workflowConfigFields = toolStringArray(raw.workflowConfigFields ?? raw.workflow_config_fields);
+  const approvalRequired =
+    toolBoolean(raw.approvalRequired ?? raw.approval_required) ??
+    runtimeToolRequiresApproval(effectClass, authorityScopeRequirements);
+  const credentialReadiness = normalizeRuntimeToolCredentialReadiness(
+    raw.credentialReadiness ?? raw.credential_readiness,
+    raw.credentialReady ?? raw.credential_ready,
+    { stableToolId, riskDomain, effectClass },
+  );
+  const credentialReady = credentialReadiness.status === "ready" || credentialReadiness.status === "not_required";
+  const receiptBehavior = normalizeRuntimeToolReceiptBehavior(
+    raw.receiptBehavior ?? raw.receipt_behavior,
+    evidenceRequirements,
+  );
+  const idempotencyBehavior = normalizeRuntimeToolIdempotencyBehavior(
+    raw.idempotencyBehavior ?? raw.idempotency_behavior,
+    effectClass,
+    stableToolId,
+  );
+  const rateLimitProfile = normalizeRuntimeToolRateLimitProfile(
+    raw.rateLimitProfile ?? raw.rate_limit_profile,
+    effectClass,
+    stableToolId,
+  );
+  const workflowAvailability = normalizeRuntimeToolAvailability(
+    raw.workflowAvailability ?? raw.workflow_availability,
+    Boolean(workflowNodeType),
+    workflowNodeType ?? null,
+    workflowConfigFields,
+    workflowNodeType ? null : "No workflow node projection registered.",
+  );
+  const agentAvailability = normalizeRuntimeToolAvailability(
+    raw.agentAvailability ?? raw.agent_availability,
+    true,
+    null,
+    [],
+    null,
+  );
+  const marketplaceExposure = normalizeRuntimeToolMarketplaceExposure(
+    raw.marketplaceExposure ?? raw.marketplace_exposure,
+    approvalRequired,
+    credentialReadiness.status,
+    effectClass,
+  );
+
+  return {
+    ...tool,
+    stableToolId,
+    stable_tool_id: toolString(raw.stable_tool_id) ?? stableToolId,
+    displayName,
+    display_name: toolString(raw.display_name) ?? displayName,
+    primitiveCapabilities,
+    authorityScopeRequirements,
+    effectClass,
+    riskDomain,
+    inputSchema: toolRecord(raw.inputSchema ?? raw.input_schema) ?? { type: "object" },
+    outputSchema: toolRecord(raw.outputSchema ?? raw.output_schema) ?? { type: "object" },
+    evidenceRequirements,
+    credentialReady,
+    credentialReadiness,
+    approvalRequired,
+    approval_required: approvalRequired,
+    rateLimitProfile,
+    idempotencyBehavior,
+    receiptBehavior,
+    workflowAvailability,
+    agentAvailability,
+    marketplaceExposure,
+    workflowNodeType,
+    workflowConfigFields,
+  };
+}
+
+function normalizeRuntimeToolCredentialReadiness(
+  value: unknown,
+  credentialReadyValue: unknown,
+  context: { stableToolId: string; riskDomain: string; effectClass: string },
+): NonNullable<RuntimeToolCatalogEntry["credentialReadiness"]> {
+  const record = toolRecord(value);
+  const explicitStatus = toolString(record?.status);
+  const explicitReady = toolBoolean(credentialReadyValue);
+  let status = explicitStatus;
+  if (!status && explicitReady === true) status = "ready";
+  if (!status && explicitReady === false) status = "missing";
+  if (!status) {
+    status = runtimeToolLikelyRequiresCredential(context) ? "unknown" : "not_required";
+  }
+  return {
+    status,
+    checkedAt: toolString(record?.checkedAt ?? record?.checked_at) ?? null,
+    evidenceRefs: toolStringArray(record?.evidenceRefs ?? record?.evidence_refs),
+    reason: toolString(record?.reason) ?? null,
+  };
+}
+
+function normalizeRuntimeToolRateLimitProfile(
+  value: unknown,
+  effectClass: string,
+  stableToolId: string,
+): NonNullable<RuntimeToolCatalogEntry["rateLimitProfile"]> {
+  const record = toolRecord(value);
+  const readOnly = runtimeToolIsReadOnly(effectClass);
+  return {
+    policy: toolString(record?.policy) ?? (readOnly ? "unlimited_local_read" : "runtime_governed"),
+    scope: toolString(record?.scope) ?? stableToolId,
+    maxCalls: toolNumberOrNull(record?.maxCalls ?? record?.max_calls),
+    windowMs: toolNumberOrNull(record?.windowMs ?? record?.window_ms),
+    burst: toolNumberOrNull(record?.burst),
+    evidenceRefs: toolStringArray(record?.evidenceRefs ?? record?.evidence_refs),
+  };
+}
+
+function normalizeRuntimeToolIdempotencyBehavior(
+  value: unknown,
+  effectClass: string,
+  stableToolId: string,
+): NonNullable<RuntimeToolCatalogEntry["idempotencyBehavior"]> {
+  const record = toolRecord(value);
+  const readOnly = runtimeToolIsReadOnly(effectClass);
+  return {
+    required: toolBoolean(record?.required) ?? !readOnly,
+    strategy:
+      toolString(record?.strategy) ??
+      (readOnly ? "read_only" : runtimeToolIsExternalEffect(effectClass) ? "caller_or_runtime_key" : "runtime_key"),
+    keyScope: toolString(record?.keyScope ?? record?.key_scope) ?? (readOnly ? null : stableToolId),
+    evidenceRefs: toolStringArray(record?.evidenceRefs ?? record?.evidence_refs),
+  };
+}
+
+function normalizeRuntimeToolReceiptBehavior(
+  value: unknown,
+  evidenceRequirements: string[],
+): NonNullable<RuntimeToolCatalogEntry["receiptBehavior"]> {
+  const record = toolRecord(value);
+  return {
+    emitsReceipt: toolBoolean(record?.emitsReceipt ?? record?.emits_receipt) ?? evidenceRequirements.length > 0,
+    receiptRequired:
+      toolBoolean(record?.receiptRequired ?? record?.receipt_required) ?? evidenceRequirements.length > 0,
+    requiredReceiptTypes: toolStringArray(record?.requiredReceiptTypes ?? record?.required_receipt_types).length
+      ? toolStringArray(record?.requiredReceiptTypes ?? record?.required_receipt_types)
+      : evidenceRequirements,
+    evidenceRequirements,
+  };
+}
+
+function normalizeRuntimeToolAvailability(
+  value: unknown,
+  defaultAvailable: boolean,
+  nodeType: string | null,
+  configFields: string[],
+  defaultReason: string | null,
+): NonNullable<RuntimeToolCatalogEntry["workflowAvailability"]> {
+  const record = toolRecord(value);
+  return {
+    available: toolBoolean(record?.available) ?? defaultAvailable,
+    reason: toolString(record?.reason) ?? defaultReason,
+    nodeType: toolString(record?.nodeType ?? record?.node_type) ?? nodeType,
+    configFields: toolStringArray(record?.configFields ?? record?.config_fields).length
+      ? toolStringArray(record?.configFields ?? record?.config_fields)
+      : configFields,
+    evidenceRefs: toolStringArray(record?.evidenceRefs ?? record?.evidence_refs),
+  };
+}
+
+function normalizeRuntimeToolMarketplaceExposure(
+  value: unknown,
+  approvalRequired: boolean,
+  credentialStatus: string,
+  effectClass: string,
+): NonNullable<RuntimeToolCatalogEntry["marketplaceExposure"]> {
+  const record = toolRecord(value);
+  const eligible = !approvalRequired && credentialStatus !== "missing" && runtimeToolIsReadOnly(effectClass);
+  return {
+    eligible: toolBoolean(record?.eligible) ?? eligible,
+    reason:
+      toolString(record?.reason) ??
+      (eligible ? "Read-only tool is eligible for marketplace exposure." : "Requires authority review before exposure."),
+    trustRequired: toolBoolean(record?.trustRequired ?? record?.trust_required) ?? approvalRequired,
+    versionPinned: toolBoolean(record?.versionPinned ?? record?.version_pinned) ?? true,
+    evidenceRefs: toolStringArray(record?.evidenceRefs ?? record?.evidence_refs),
+  };
+}
+
+function runtimeToolRequiresApproval(effectClass: string, authorityScopes: string[]): boolean {
+  return authorityScopes.length > 0 || !runtimeToolIsReadOnly(effectClass);
+}
+
+function runtimeToolIsReadOnly(effectClass: string): boolean {
+  const normalized = effectClass.trim().toLowerCase();
+  return normalized === "read" || normalized === "local_read" || normalized.endsWith("_read");
+}
+
+function runtimeToolIsExternalEffect(effectClass: string): boolean {
+  const normalized = effectClass.trim().toLowerCase();
+  return (
+    normalized.includes("external") ||
+    normalized.includes("connector") ||
+    normalized.includes("destructive") ||
+    normalized.includes("commerce")
+  );
+}
+
+function runtimeToolLikelyRequiresCredential(context: {
+  stableToolId: string;
+  riskDomain: string;
+  effectClass: string;
+}): boolean {
+  const haystack = `${context.stableToolId} ${context.riskDomain} ${context.effectClass}`.toLowerCase();
+  return haystack.includes("connector") || haystack.includes("mcp") || haystack.includes("model") || haystack.includes("oauth");
+}
+
+function toolStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map((item) => toolString(item)).filter((item): item is string => Boolean(item)))];
+}
+
+function toolString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function toolBoolean(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") return value;
+  return undefined;
+}
+
+function toolNumberOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function toolRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  return value as Record<string, unknown>;
 }
 
 function subagentListQuery(options: RuntimeSubagentListInput = {}): string {
@@ -5051,7 +5310,8 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       },
       ...mockCodingToolContracts(),
     ];
-    return options.pack ? tools.filter((tool) => tool.pack === options.pack) : tools;
+    const normalized = normalizeRuntimeToolCatalogEntries(tools);
+    return options.pack ? normalized.filter((tool) => tool.pack === options.pack) : normalized;
   }
 
   async getMcpStatus(options: RuntimeMcpListOptions = {}): Promise<RuntimeMcpStatus> {

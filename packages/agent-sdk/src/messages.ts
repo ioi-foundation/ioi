@@ -461,6 +461,60 @@ export interface RuntimeNodeProfile {
   evidenceRefs: string[];
 }
 
+export type RuntimeToolCredentialReadinessStatus =
+  | "not_required"
+  | "ready"
+  | "missing"
+  | "degraded"
+  | "unknown"
+  | string;
+
+export interface RuntimeToolCredentialReadiness {
+  status: RuntimeToolCredentialReadinessStatus;
+  checkedAt?: string | null;
+  evidenceRefs?: string[];
+  reason?: string | null;
+}
+
+export interface RuntimeToolRateLimitProfile {
+  policy: string;
+  scope?: string | null;
+  maxCalls?: number | null;
+  windowMs?: number | null;
+  burst?: number | null;
+  evidenceRefs?: string[];
+}
+
+export interface RuntimeToolIdempotencyBehavior {
+  required: boolean;
+  strategy: string;
+  keyScope?: string | null;
+  evidenceRefs?: string[];
+}
+
+export interface RuntimeToolReceiptBehavior {
+  emitsReceipt: boolean;
+  receiptRequired: boolean;
+  requiredReceiptTypes: string[];
+  evidenceRequirements: string[];
+}
+
+export interface RuntimeToolAvailability {
+  available: boolean;
+  reason?: string | null;
+  nodeType?: string | null;
+  configFields?: string[];
+  evidenceRefs?: string[];
+}
+
+export interface RuntimeToolMarketplaceExposure {
+  eligible: boolean;
+  reason?: string | null;
+  trustRequired?: boolean;
+  versionPinned?: boolean;
+  evidenceRefs?: string[];
+}
+
 export interface RuntimeToolCatalogEntry {
   schemaVersion?: string;
   schema_version?: string;
@@ -477,6 +531,16 @@ export interface RuntimeToolCatalogEntry {
   inputSchema: Record<string, unknown>;
   outputSchema: Record<string, unknown>;
   evidenceRequirements: string[];
+  credentialReady?: boolean;
+  credentialReadiness?: RuntimeToolCredentialReadiness;
+  approvalRequired?: boolean;
+  approval_required?: boolean;
+  rateLimitProfile?: RuntimeToolRateLimitProfile;
+  idempotencyBehavior?: RuntimeToolIdempotencyBehavior;
+  receiptBehavior?: RuntimeToolReceiptBehavior;
+  workflowAvailability?: RuntimeToolAvailability;
+  agentAvailability?: RuntimeToolAvailability;
+  marketplaceExposure?: RuntimeToolMarketplaceExposure;
   workflowNodeType?: string;
   workflowConfigFields?: string[];
 }

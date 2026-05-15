@@ -238,6 +238,25 @@ test("SDK exposes governed tool catalog and subagent map without creating a seco
   const tools = await agent.tools();
   assert.ok(tools.some((tool) => tool.primitiveCapabilities.includes("prim:sys.exec")));
   assert.ok(tools.some((tool) => tool.authorityScopeRequirements.includes("scope:host.controlled_execution")));
+  for (const tool of tools) {
+    assert.ok(tool.credentialReadiness?.status);
+    assert.equal(typeof tool.credentialReady, "boolean");
+    assert.equal(typeof tool.approvalRequired, "boolean");
+    assert.ok(tool.rateLimitProfile?.policy);
+    assert.ok(tool.idempotencyBehavior?.strategy);
+    assert.equal(typeof tool.receiptBehavior?.receiptRequired, "boolean");
+    assert.ok(Array.isArray(tool.receiptBehavior?.requiredReceiptTypes));
+    assert.equal(typeof tool.workflowAvailability?.available, "boolean");
+    assert.equal(typeof tool.agentAvailability?.available, "boolean");
+    assert.equal(typeof tool.marketplaceExposure?.eligible, "boolean");
+  }
+  const shellTool = tools.find((tool) => tool.stableToolId === "sys.exec");
+  assert.equal(shellTool?.approvalRequired, true);
+  assert.equal(shellTool?.credentialReadiness.status, "not_required");
+  assert.equal(shellTool?.idempotencyBehavior.required, true);
+  const readTool = tools.find((tool) => tool.stableToolId === "fs.read");
+  assert.equal(readTool?.approvalRequired, false);
+  assert.equal(readTool?.credentialReady, true);
   const targeted = await agent.memory.remember("Reviewer should see the targeted handoff fact.", {
     memoryKey: "reviewer-handoff",
   });
@@ -497,7 +516,11 @@ test("daemon SDK client uses the public substrate HTTP endpoint", async () => {
     assert.equal((await Cursor.models.list({ substrateClient: client })).at(0)?.provider, "daemon");
     assert.equal((await Cursor.account.get({ substrateClient: client })).source, "daemon");
     assert.equal((await Cursor.runtimeNodes.list({ substrateClient: client })).at(0)?.id, "daemon-local");
-    assert.equal((await agent.tools()).at(0)?.stableToolId, "sys.exec");
+    const httpTools = await agent.tools();
+    assert.equal(httpTools.at(0)?.stableToolId, "sys.exec");
+    assert.equal(httpTools.at(0)?.approvalRequired, true);
+    assert.equal(httpTools.at(0)?.credentialReadiness.status, "not_required");
+    assert.equal(httpTools.at(0)?.receiptBehavior.requiredReceiptTypes.at(0), "shell_receipt");
     assert.ok(requests.includes("POST /v1/agents"));
     assert.ok(requests.includes("POST /v1/agents/agent_http/runs"));
     assert.ok(requests.includes("GET /v1/runs/run_http/events?lastEventId=run_http%3A0"));

@@ -434,7 +434,131 @@ export function codingToolContracts() {
         ...CODING_TOOL_BUDGET_WORKFLOW_CONFIG_FIELDS,
       ],
     },
-  ];
+  ].map((tool) => codingToolRegistryGovernanceMetadata(tool));
+}
+
+function codingToolRegistryGovernanceMetadata(tool = {}) {
+  const stableToolId = optionalString(tool.stableToolId ?? tool.stable_tool_id) ?? "runtime.tool";
+  const effectClass = optionalString(tool.effectClass ?? tool.effect_class) ?? "local_read";
+  const riskDomain = optionalString(tool.riskDomain ?? tool.risk_domain) ?? "workspace";
+  const authorityScopeRequirements = normalizeStringArray(
+    tool.authorityScopeRequirements ?? tool.authority_scope_requirements,
+  );
+  const evidenceRequirements = normalizeStringArray(tool.evidenceRequirements ?? tool.evidence_requirements);
+  const workflowNodeType = optionalString(tool.workflowNodeType ?? tool.workflow_node_type) ?? null;
+  const workflowConfigFields = normalizeStringArray(tool.workflowConfigFields ?? tool.workflow_config_fields);
+  const approvalRequired =
+    typeof tool.approvalRequired === "boolean"
+      ? tool.approvalRequired
+      : typeof tool.approval_required === "boolean"
+        ? tool.approval_required
+        : authorityScopeRequirements.length > 0 || !codingToolEffectIsReadOnly(effectClass);
+  const credentialReadiness =
+    tool.credentialReadiness && typeof tool.credentialReadiness === "object"
+      ? tool.credentialReadiness
+      : {
+          status: codingToolLikelyRequiresCredential(stableToolId, riskDomain, effectClass) ? "unknown" : "not_required",
+          checkedAt: null,
+          evidenceRefs: [],
+          reason: null,
+        };
+  const credentialReady = credentialReadiness.status === "ready" || credentialReadiness.status === "not_required";
+  const receiptBehavior = {
+    emitsReceipt: true,
+    receiptRequired: evidenceRequirements.length > 0,
+    requiredReceiptTypes: evidenceRequirements,
+    evidenceRequirements,
+    ...(tool.receiptBehavior && typeof tool.receiptBehavior === "object" ? tool.receiptBehavior : {}),
+  };
+  return {
+    ...tool,
+    stableToolId,
+    displayName: tool.displayName ?? tool.display_name ?? stableToolId,
+    primitiveCapabilities: normalizeStringArray(tool.primitiveCapabilities ?? tool.primitive_capabilities),
+    authorityScopeRequirements,
+    effectClass,
+    riskDomain,
+    evidenceRequirements,
+    credentialReady,
+    credentialReadiness,
+    approvalRequired,
+    approval_required: approvalRequired,
+    rateLimitProfile:
+      tool.rateLimitProfile ??
+      tool.rate_limit_profile ?? {
+        policy: codingToolEffectIsReadOnly(effectClass) ? "unlimited_local_read" : "runtime_governed",
+        scope: stableToolId,
+        maxCalls: null,
+        windowMs: null,
+        burst: null,
+        evidenceRefs: [],
+      },
+    idempotencyBehavior:
+      tool.idempotencyBehavior ??
+      tool.idempotency_behavior ?? {
+        required: !codingToolEffectIsReadOnly(effectClass),
+        strategy: codingToolEffectIsReadOnly(effectClass)
+          ? "read_only"
+          : codingToolEffectIsExternal(effectClass)
+            ? "caller_or_runtime_key"
+            : "runtime_key",
+        keyScope: codingToolEffectIsReadOnly(effectClass) ? null : stableToolId,
+        evidenceRefs: [],
+      },
+    receiptBehavior,
+    workflowAvailability:
+      tool.workflowAvailability ??
+      tool.workflow_availability ?? {
+        available: Boolean(workflowNodeType),
+        reason: workflowNodeType ? null : "No workflow node projection registered.",
+        nodeType: workflowNodeType,
+        configFields: workflowConfigFields,
+        evidenceRefs: [],
+      },
+    agentAvailability:
+      tool.agentAvailability ??
+      tool.agent_availability ?? {
+        available: true,
+        reason: null,
+        nodeType: null,
+        configFields: [],
+        evidenceRefs: [],
+      },
+    marketplaceExposure:
+      tool.marketplaceExposure ??
+      tool.marketplace_exposure ?? {
+        eligible: !approvalRequired && credentialReady && codingToolEffectIsReadOnly(effectClass),
+        reason:
+          !approvalRequired && credentialReady && codingToolEffectIsReadOnly(effectClass)
+            ? "Read-only coding tool is eligible for governed exposure."
+            : "Requires authority review before exposure.",
+        trustRequired: approvalRequired,
+        versionPinned: true,
+        evidenceRefs: [],
+      },
+    workflowNodeType,
+    workflowConfigFields,
+  };
+}
+
+function codingToolEffectIsReadOnly(effectClass) {
+  const normalized = String(effectClass ?? "").trim().toLowerCase();
+  return normalized === "read" || normalized === "local_read" || normalized.endsWith("_read");
+}
+
+function codingToolEffectIsExternal(effectClass) {
+  const normalized = String(effectClass ?? "").trim().toLowerCase();
+  return (
+    normalized.includes("external") ||
+    normalized.includes("connector") ||
+    normalized.includes("destructive") ||
+    normalized.includes("commerce")
+  );
+}
+
+function codingToolLikelyRequiresCredential(stableToolId, riskDomain, effectClass) {
+  const haystack = `${stableToolId} ${riskDomain} ${effectClass}`.toLowerCase();
+  return haystack.includes("connector") || haystack.includes("mcp") || haystack.includes("model") || haystack.includes("oauth");
 }
 
 export function codingToolInputForRequest(request = {}) {

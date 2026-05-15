@@ -5,6 +5,18 @@ const GENERIC_OUTPUT_SCHEMA: &str = r#"{"type":"object"}"#;
 
 pub fn runtime_tool_contract_for_definition(tool: &LlmToolDefinition) -> RuntimeToolContract {
     let profile = ToolContractProfile::for_name(&tool.name);
+    let approval_required =
+        tool_approval_required(profile.effect_class, &profile.authority_scope_requirements);
+    let credential_readiness = tool_credential_readiness(&tool.name, &profile);
+    let rate_limit_profile = tool_rate_limit_profile(profile.effect_class);
+    let idempotency_behavior = tool_idempotency_behavior(profile.effect_class);
+    let receipt_behavior = tool_receipt_behavior(&profile.evidence_requirements);
+    let workflow_availability = tool_workflow_availability(&tool.name);
+    let marketplace_exposure_eligible = tool_marketplace_exposure_eligible(
+        approval_required,
+        &credential_readiness,
+        profile.effect_class,
+    );
     RuntimeToolContract {
         stable_tool_id: format!("tool:{}@{}", tool.name, RUNTIME_CONTRACT_SCHEMA_VERSION_V1),
         namespace: namespace_for_tool_name(&tool.name),
@@ -22,6 +34,14 @@ pub fn runtime_tool_contract_for_definition(tool: &LlmToolDefinition) -> Runtime
         policy_target: profile.policy_target.clone(),
         approval_scope_fields: profile.approval_scope_fields,
         evidence_requirements: profile.evidence_requirements,
+        credential_readiness,
+        approval_required,
+        rate_limit_profile,
+        idempotency_behavior,
+        receipt_behavior,
+        workflow_availability,
+        agent_availability: "available".to_string(),
+        marketplace_exposure_eligible,
         replayability_classification: profile.replayability_classification.to_string(),
         redaction_policy: profile.redaction_policy.to_string(),
         owner_module: owner_module_for_tool_name(&tool.name).to_string(),
@@ -34,6 +54,68 @@ pub fn runtime_tool_contracts_for_tools(tools: &[LlmToolDefinition]) -> Vec<Runt
         .iter()
         .map(runtime_tool_contract_for_definition)
         .collect()
+}
+
+fn tool_approval_required(effect_class: &str, authority_scope_requirements: &[String]) -> bool {
+    !matches!(effect_class, "read") || !authority_scope_requirements.is_empty()
+}
+
+fn tool_credential_readiness(tool_name: &str, profile: &ToolContractProfile) -> String {
+    let haystack = format!(
+        "{} {} {} {}",
+        tool_name, profile.risk_domain, profile.effect_class, profile.policy_target
+    )
+    .to_ascii_lowercase();
+    if haystack.contains("connector") || haystack.contains("oauth") || haystack.contains("model_registry")
+    {
+        "unknown".to_string()
+    } else {
+        "not_required".to_string()
+    }
+}
+
+fn tool_rate_limit_profile(effect_class: &str) -> String {
+    if matches!(effect_class, "read") {
+        "unlimited_local_read".to_string()
+    } else {
+        "runtime_governed".to_string()
+    }
+}
+
+fn tool_idempotency_behavior(effect_class: &str) -> String {
+    match effect_class {
+        "read" => "read_only".to_string(),
+        "external_effect" | "destructive" => "caller_or_runtime_key".to_string(),
+        _ => "runtime_key".to_string(),
+    }
+}
+
+fn tool_receipt_behavior(evidence_requirements: &[String]) -> String {
+    if evidence_requirements.is_empty() {
+        "receipt_optional".to_string()
+    } else {
+        "receipt_required".to_string()
+    }
+}
+
+fn tool_workflow_availability(tool_name: &str) -> String {
+    if tool_name.starts_with("connector__") {
+        "ConnectorNode".to_string()
+    } else if tool_name.starts_with("browser__") || tool_name.starts_with("screen__") {
+        "ComputerUseNode".to_string()
+    } else if tool_name.starts_with("model__") || tool_name.starts_with("model_registry__") {
+        "ModelCapabilityNode".to_string()
+    } else {
+        "ToolCapabilityNode".to_string()
+    }
+}
+
+fn tool_marketplace_exposure_eligible(
+    approval_required: bool,
+    credential_readiness: &str,
+    effect_class: &str,
+) -> bool {
+    !approval_required && credential_readiness != "missing" && matches!(effect_class, "read")
 }
 
 #[derive(Debug, Clone)]
@@ -640,6 +722,11 @@ mod tests {
             .approval_scope_fields
             .iter()
             .any(|item| item == "path"));
+        assert_eq!(contract.approval_required, true);
+        assert_eq!(contract.credential_readiness, "not_required");
+        assert_eq!(contract.idempotency_behavior, "runtime_key");
+        assert_eq!(contract.receipt_behavior, "receipt_required");
+        assert_eq!(contract.workflow_availability, "ToolCapabilityNode");
     }
 
     #[test]
@@ -651,6 +738,10 @@ mod tests {
         assert!(!contract.is_effectful());
         assert_eq!(contract.primitive_capabilities, vec!["prim:net.request"]);
         assert!(contract.authority_scope_requirements.is_empty());
+        assert_eq!(contract.approval_required, false);
+        assert_eq!(contract.rate_limit_profile, "unlimited_local_read");
+        assert_eq!(contract.idempotency_behavior, "read_only");
+        assert_eq!(contract.marketplace_exposure_eligible, true);
     }
 
     #[test]
@@ -661,6 +752,8 @@ mod tests {
             contract.replayability_classification,
             "requires_fresh_approval_non_replayable"
         );
+        assert_eq!(contract.approval_required, true);
+        assert_eq!(contract.idempotency_behavior, "caller_or_runtime_key");
         assert!(contract
             .evidence_requirements
             .iter()
@@ -681,5 +774,8 @@ mod tests {
             .authority_scope_requirements
             .iter()
             .any(|item| item == "scope:connector.session"));
+        assert_eq!(contract.credential_readiness, "unknown");
+        assert_eq!(contract.workflow_availability, "ConnectorNode");
+        assert_eq!(contract.marketplace_exposure_eligible, false);
     }
 }
