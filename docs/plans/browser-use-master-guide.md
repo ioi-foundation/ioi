@@ -85,7 +85,7 @@ All three lanes must share IOI runtime truth:
 | SDK/runtime lifecycle projection | Done | `packages/agent-sdk/test/computer-use.test.mjs` asserts browser prompts emit environment selection, lease acquisition, run state, observation, target index, affordance, action proposal, action receipt, verification, trajectory, cleanup, receipt, artifact, and runtime event projections. |
 | Daemon lifecycle projection | Done | Runtime daemon runs now emit canonical `computer_use.*` events, `computer-use-trace.json`, `computer_use_trace` receipts, and workflow node ids for the full read-only behavioral loop. |
 | Visual/sandbox fail-closed projection | Done | Explicit `visual_gui` or `sandboxed_hosted` lane requests emit blocked runtime events, failed-closed leases, recovery policy payloads, and no-action cleanup receipts until those adapters are mounted. |
-| Workflow authoring primitives | Started | The compositor palette now exposes Browser Use, Computer Use, and Sandboxed Computer creator presets over the existing tool/runtime contract, each compiling to deterministic computer-use lane/session metadata and fail-closed policy. |
+| Workflow authoring primitives | Started | The compositor palette now exposes Browser Use, Computer Use, and Sandboxed Computer creator presets over the existing tool/runtime contract, each compiling to deterministic computer-use lane/session metadata and fail-closed policy. The composer Run action now forwards the selected lane/session/retention metadata into the daemon run request so mounted-model prompts can flow through the authored computer-use pipeline. |
 | Daemon planner/executor | Pending | Next slices should replace the read-only lifecycle projection with real lease acquisition, observation capture, action execution, verification, and cleanup through the browser/GUI/sandbox adapters. |
 | Autopilot/workflow projection | Started | `workflow-runtime-event-projection` now projects canonical `computer_use.*` events into node-addressed React Flow/run-history rows with lane, session, lease, observation, target index, proposal, action, verification, cleanup, recovery, and fail-closed evidence. |
 | Autopilot workbench | Started | Run history rows now surface a compact computer-use trace block with lane/session/lease, targeting counts, proposal/action, verification, retention, blocker, and recovery evidence; dedicated live screen/overlay panes remain pending. |
@@ -903,6 +903,9 @@ Goal: run browser-use as workflow nodes.
 Deliverables:
 
 - browser-use subgraph package;
+- composer run activation bridge that forwards configured lane, session,
+  retention, fail-closed, node id, and tool authority metadata to the daemon
+  run request;
 - retained browser-control scenarios;
 - attach/relaunch/fallback fixtures;
 - evidence bundle comparison;
