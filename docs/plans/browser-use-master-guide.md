@@ -2,13 +2,17 @@
 
 Owner: agent runtime / browser driver / computer-use harness / Autopilot GUI
 
-Status: future-track master guide
+Status: active next-leg master guide
 
 Created: 2026-05-07
+
+Promoted: 2026-05-14
 
 Related:
 
 - `docs/plans/agent-runtime-harness-as-workflow-master-guide.md`
+- `docs/plans/computer-use-browser-use-next-leg-meta-master-guide.md`
+- `docs/plans/cua-parity-plus-computer-use-master-guide.md`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 - `crates/drivers/README.md`
 - `crates/drivers/src/browser/README.md`
@@ -45,9 +49,80 @@ set of nodes that can choose between owned browser, CDP-attached browser,
 controlled relaunch, and visual/OS fallback, while preserving consent,
 grounding, receipts, redaction, and cleanup.
 
-This guide is a later-track guide. It should inform the current
-harness-as-workflow leg, but it should not displace the chronological focus on
-componentizing the default agent runtime harness.
+This guide is now the active first lane for the broader computer-use leg. The
+browser lane ships first because IOI already has strong native CDP, DOM, AX,
+BrowserGym, Browser-use, screenshot, and Set-of-Marks substrate. The same
+contracts must later generalize to visual GUI and sandboxed/hosted computer
+lanes without creating a second runtime.
+
+## Active Next-Leg Scope
+
+Browser use is the first concrete implementation lane inside a three-lane
+computer-use harness family:
+
+| Lane | Purpose | Default substrate |
+| --- | --- | --- |
+| Native Browser Use | Web automation, authenticated web app inspection, DOM/AX-rich workflows, browser benchmarks | Owned or attached Chromium through IOI's native CDP driver |
+| Computer Use / Visual GUI | Arbitrary desktop apps, canvas apps, native apps, non-DOM browser surfaces, semantic fallback | Screenshot, accessibility tree, Set-of-Marks, coordinate-space guards |
+| Sandboxed / Hosted Computer | Risk isolation, reproducible evals, training trajectories, team/hosted workers, mobile/device workflows | VM, container, hosted browser, hosted computer, or device adapter |
+
+All three lanes must share IOI runtime truth:
+
+- no second runtime;
+- no React Flow shadow truth store;
+- daemon/runtime contracts first;
+- browser, GUI, sandbox, model, workflow, and Autopilot surfaces consume the
+  same observations, target indexes, action proposals, actions, receipts,
+  trajectories, policies, artifacts, and manifests.
+
+## Behavioral Control Layer
+
+The browser lane must be more than a screenshot-to-click loop. The canonical
+behavioral loop is:
+
+```text
+classify_intent
+-> select_environment
+-> acquire_lease
+-> observe
+-> build_target_index
+-> build_affordance_graph
+-> plan_next_step
+-> propose_action
+-> policy/risk_gate
+-> execute_action
+-> verify_postcondition
+-> repair_or_continue
+-> commit_or_handoff
+-> write_trajectory
+-> cleanup
+```
+
+The first implementation slice should establish these shared contracts:
+
+- `ComputerUseLease`;
+- `ComputerControlAdapterContract`;
+- `ComputerUseObservationBundle`;
+- `TargetIndex`;
+- `AffordanceGraph`;
+- `ActionProposal`;
+- `ComputerAction`;
+- `ActionReceipt`;
+- `ComputerUseVerificationReceipt`;
+- `ComputerUseTrajectoryBundle`;
+- `CleanupReceipt`;
+- `ComputerUseRunState`;
+- `EnvironmentSelectionReceipt`;
+- `RecoveryPolicy`;
+- `HumanHandoffState`;
+- `InterfacePatternIndex`;
+- `OutcomeContract`;
+- `CommitGate`;
+- `ObservationRetentionMode`.
+
+Provider/model outputs must become `ActionProposal` records before executable
+`ComputerAction` records. Coordinates must be observation-bound. External-effect
+final steps must pass through `CommitGate` when policy requires it.
 
 ## Why This Exists
 
@@ -298,8 +373,9 @@ Browser-use should become an explicit graph of workflow-addressable components:
 | Evidence writer | Persist redacted screenshots, observation text, action receipts, and summaries. |
 | Cleanup manager | Stop controlled processes, delete temporary profiles, delete scratch screenshots, and record retained artifacts. |
 
-These nodes should be usable directly in the default agent harness workflow once
-the broader harness-as-workflow substrate is ready.
+These nodes should be usable directly in the default agent harness workflow and
+projected through React Flow as configurable primitives, not as a parallel
+runtime state store.
 
 ## Ideal Browser Control Workflow
 
@@ -483,7 +559,7 @@ but Playwright is not a general runtime browser-control adapter.
 Recommendation:
 
 - keep `chromiumoxide` as the native browser driver;
-- introduce a `BrowserControlAdapter` boundary;
+- introduce a `ComputerControlAdapterContract` boundary;
 - allow a Playwright-backed adapter for benchmarks, external app exploration,
   and rapid dogfood where it adds leverage;
 - require all adapters to emit the same observation, action, verification, and
@@ -605,32 +681,65 @@ This aligns with the harness-as-workflow master guide:
 - users can fork browser-use strategy for their own workers;
 - the default agent dogfoods the same browser-use substrate users can inspect.
 
-Do not implement this before the default harness componentization baseline is
-stable. This is a strong later leg, and a useful design constraint on the
-current one.
+This is now the active leg. The implementation should start with the shared
+contract spine, then map the existing owned browser path into it without
+changing browser behavior.
 
 ## Implementation Phases
 
-### Phase 0: Inventory And Contracts
+### Phase 0: Promotion And Contract Spine
 
-Goal: freeze current truth and define the adapter contract.
+Goal: promote this guide, freeze current truth, and define the common
+computer-use/browser-use contract spine.
 
 Deliverables:
 
-- `BrowserSessionLease` data model;
-- `BrowserControlAdapter` trait or equivalent boundary;
-- session mode enum;
+- active next-leg guide status;
+- related meta and CUA parity-plus guide links;
+- `ComputerUseLease` data model;
+- `ComputerControlAdapterContract` boundary;
+- lane and session mode enums;
 - observation bundle schema;
 - target index schema;
-- evidence bundle schema;
-- cleanup receipt schema.
+- affordance graph schema;
+- action proposal schema;
+- executable action and receipt schemas;
+- verification receipt schema;
+- trajectory bundle schema;
+- cleanup receipt schema;
+- run state, environment selection, recovery, handoff, outcome, commit, and
+  retention contracts.
 
 Acceptance:
 
-- owned browser path can emit the new schemas without behavior change;
+- owned browser path can emit or be wrapped by the new schemas without behavior
+  change;
+- provider/model outputs pass through `ActionProposal` before execution;
+- coordinates are invalid without observation grounding;
+- commit gates exist for consequential external-effect actions;
 - docs clearly say Playwright is optional adapter, not core replacement.
 
-### Phase 1: User Browser Discovery
+### Phase 1: Environment Planner And Run State
+
+Goal: make lane/session selection explainable and replayable.
+
+Deliverables:
+
+- intent classifier;
+- environment planner;
+- `EnvironmentSelectionReceipt`;
+- `ComputerUseRunState`;
+- read-only vs action-capable posture;
+- retention policy selection;
+- structured rejected-option reasons.
+
+Acceptance:
+
+- runs can explain selected and rejected lane/session modes;
+- missing sandbox or hosted providers fail closed;
+- user browser attach/relaunch never happens without explicit authority.
+
+### Phase 2: User Browser Discovery
 
 Goal: make discovery first-class and read-only.
 
@@ -649,7 +758,7 @@ Acceptance:
 - Linux Flatpak/system Chrome differences are recorded;
 - no credentials or cookies are copied.
 
-### Phase 2: Attach And Controlled Relaunch
+### Phase 3: Attach And Controlled Relaunch
 
 Goal: productize the workflow we used manually.
 
@@ -667,7 +776,7 @@ Acceptance:
 - user can reauthenticate and the harness resumes;
 - cleanup removes temporary profiles and reports retained evidence.
 
-### Phase 3: Unified Observation Bundle
+### Phase 4: Unified Observation Bundle
 
 Goal: fuse browser and visual observations.
 
@@ -689,7 +798,29 @@ Acceptance:
 - prompt-facing observation stays compact;
 - raw evidence follows retention policy.
 
-### Phase 4: Safe Action Executor
+### Phase 5: Target Index And Affordance Graph
+
+Goal: make action choice explainable before execution.
+
+Deliverables:
+
+- DOM/AX/BrowserGym/SoM target index;
+- interface pattern hints;
+- affordance graph;
+- action confidence;
+- action preconditions;
+- expected transitions;
+- risk class;
+- fallback action paths.
+
+Acceptance:
+
+- the runtime can explain what each target is and what can safely be done with
+  it;
+- action proposals cite target refs and expected postconditions;
+- stale observations invalidate affected affordances.
+
+### Phase 6: Safe Action Executor
 
 Goal: normalize action execution across adapters.
 
@@ -708,7 +839,27 @@ Acceptance:
 - visible-control follow-ups require reobservation when geometry changed;
 - failed actions explain what was tried and what to do next.
 
-### Phase 5: Browser-use GUI Workbench
+### Phase 7: Recovery, Handoff, Outcome, And Commit Gates
+
+Goal: turn failures and sensitive final steps into structured runtime states.
+
+Deliverables:
+
+- `RecoveryPolicy`;
+- failure classes for perception, grounding, planning, policy, execution,
+  verification, and environment;
+- `HumanHandoffState`;
+- auth/challenge/user-correction resume states;
+- `OutcomeContract`;
+- `CommitGate`.
+
+Acceptance:
+
+- auth walls pause for user action and resume only after observation;
+- no-effect actions reobserve before retry;
+- external-effect final actions can be staged before commit.
+
+### Phase 8: Browser-use GUI Workbench
 
 Goal: make browser-control state legible in Autopilot.
 
@@ -730,7 +881,7 @@ Acceptance:
 - users can pause/resume auth handoff;
 - screenshots and target ids map visibly to actions.
 
-### Phase 6: Harness Graph Dogfood
+### Phase 9: Harness Graph Dogfood
 
 Goal: run browser-use as workflow nodes.
 
@@ -747,6 +898,25 @@ Acceptance:
 - a worker can fork the browser-use subgraph;
 - default agent browser tasks produce node-addressed receipts;
 - attached browser mode and owned browser mode share the same action contract.
+
+### Phase 10: Trajectory Learning And Regression
+
+Goal: use browser-use trajectories to improve the harness without benchmark
+overfitting.
+
+Deliverables:
+
+- trajectory bundle writer;
+- failure taxonomy summaries;
+- shadow replay fixtures;
+- held-out eval promotion gate;
+- regression tests for model action adapters.
+
+Acceptance:
+
+- trajectory evidence supports debugging and improvement proposals;
+- accepted harness changes require held-out validation;
+- generated evidence remains ignored or policy-retained.
 
 ## Test Matrix
 
@@ -773,7 +943,7 @@ bundle tests rather than duplicating the owned-browser smoke tests.
 
 ## Later Decisions
 
-Open decisions for the later browser-use leg:
+Open decisions for this browser-use leg:
 
 - Should Playwright be a production adapter, a benchmark-only adapter, or a
   developer debug adapter?
@@ -792,6 +962,10 @@ The browser-use harness leg is complete when:
 - browser sessions are leased, not improvised;
 - attach, owned, controlled relaunch, and visual fallback modes share one
   observation/action/evidence contract;
+- durable run state, environment selection receipts, target indexes,
+  affordance graphs, action proposals, recovery policies, handoff states,
+  outcome contracts, commit gates, and retention modes exist in the canonical
+  runtime contract spine;
 - user authentication handoff is explicit and credential-safe;
 - screenshots, SoM, DOM, AX, BrowserGym ids, selectors, and coordinates resolve
   through one target index;

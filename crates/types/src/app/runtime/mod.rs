@@ -7,6 +7,7 @@ pub mod adapters;
 pub mod agentgres;
 pub mod authority;
 pub mod cognition;
+pub mod computer_use;
 pub mod envelope;
 pub mod events;
 pub mod policy;
