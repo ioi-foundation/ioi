@@ -359,6 +359,35 @@ export interface ComputerUseTrajectoryBundle {
   retention_mode: ObservationRetentionMode;
 }
 
+export type ComputerUseTrajectoryEvalOutcome =
+  | "passed"
+  | "blocked"
+  | "needs_human"
+  | "failed"
+  | "unknown";
+
+export interface ComputerUseTrajectoryEvalProjection {
+  schema_version: typeof COMPUTER_USE_CONTRACT_SCHEMA_VERSION | string;
+  eval_ref: string;
+  trajectory_ref: string | null;
+  run_id: string | null;
+  lane: ComputerUseLane | string | null;
+  session_mode: ComputerUseSessionMode | string | null;
+  outcome: ComputerUseTrajectoryEvalOutcome;
+  score: number;
+  failure_class: ComputerUseFailureClass;
+  failure_mode: ComputerUseFailureMode;
+  step_counts: Record<string, number>;
+  missing_regression_gates: string[];
+  evidence_refs: string[];
+  summary: string;
+}
+
+export interface ComputerUseTrajectoryEvalInput {
+  trace?: Record<string, unknown> | null;
+  trajectory?: ComputerUseTrajectoryBundle | Record<string, unknown> | null;
+}
+
 export interface CleanupReceipt {
   cleanup_ref: string;
   lease_id: string;
@@ -627,6 +656,100 @@ export function computerActionHasExternalEffect(action: ComputerAction): boolean
 
 export function observationRetentionAllowsRawPersistence(mode: ObservationRetentionMode): boolean {
   return mode === "local_raw_artifacts" || mode === "encrypted_local_raw_artifacts";
+}
+
+export function evaluateComputerUseTrajectory(
+  input: ComputerUseTrajectoryEvalInput,
+): ComputerUseTrajectoryEvalProjection {
+  const trace = recordValue(input.trace);
+  const explicitTrajectory = recordValue(input.trajectory);
+  const traceTrajectoryCandidate = recordValue(trace["trajectory"]);
+  const traceTrajectory = Object.keys(traceTrajectoryCandidate).length > 0
+    ? traceTrajectoryCandidate
+    : recordValue(trace["trajectory_bundle"]);
+  const trajectory = Object.keys(explicitTrajectory).length > 0
+    ? explicitTrajectory
+    : traceTrajectory;
+  const entries = arrayValue(trajectory["entries"]).map((entry) =>
+    recordValue(entry),
+  );
+  const stepCounts = entries.reduce<Record<string, number>>((counts, entry) => {
+    const step = stringValue(entry["event_kind"]) ?? "unknown";
+    counts[step] = (counts[step] ?? 0) + 1;
+    return counts;
+  }, {});
+  const environmentSelection = recordValue(trace["environmentSelection"]) || recordValue(trace["environment_selection"]);
+  const lease = recordValue(trace["lease"]);
+  const runState = recordValue(trace["runState"]) || recordValue(trace["run_state"]);
+  const observation = recordValue(trace["observation"]);
+  const targetIndex = recordValue(trace["targetIndex"]) || recordValue(trace["target_index"]);
+  const actionProposal = recordValue(trace["actionProposal"]) || recordValue(trace["action_proposal"]);
+  const verification = recordValue(trace["verification"]) || recordValue(trace["verification_receipt"]);
+  const cleanup = recordValue(trace["cleanup"]) || recordValue(trace["cleanup_receipt"]);
+  const commitGate = recordValue(trace["commitGate"]) || recordValue(trace["commit_gate"]);
+  const verificationStatus = stringValue(verification["status"]);
+  const cleanupStatus = stringValue(cleanup["status"]);
+  const blocker = stringValue(runState["blocker_state"]) ?? stringValue(trace["blocker_state"]);
+  const commitGateStatus = stringValue(commitGate["status"]);
+  const missingRegressionGates = regressionGatesForComputerUseTrace({
+    environmentSelection,
+    observation,
+    targetIndex,
+    actionProposal,
+    verification,
+    cleanup,
+    stepCounts,
+  });
+  const outcome = trajectoryEvalOutcome({
+    verificationStatus,
+    cleanupStatus,
+    blocker,
+    commitGateStatus,
+    missingRegressionGates,
+  });
+  const failure = trajectoryEvalFailure({
+    outcome,
+    verificationStatus,
+    blocker,
+    missingRegressionGates,
+  });
+  const runId =
+    stringValue(trajectory["run_id"]) ??
+    stringValue(runState["run_id"]) ??
+    stringValue(environmentSelection["run_id"]);
+  const trajectoryRef = stringValue(trajectory["trajectory_ref"]);
+  const lane =
+    stringValue(environmentSelection["selected_lane"]) ??
+    stringValue(lease["lane"]) ??
+    null;
+  const sessionMode =
+    stringValue(environmentSelection["selected_session_mode"]) ??
+    stringValue(lease["session_mode"]) ??
+    null;
+  return {
+    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    eval_ref: `computer_use_eval_${safeComputerUseId(runId ?? trajectoryRef ?? "trajectory")}`,
+    trajectory_ref: trajectoryRef,
+    run_id: runId,
+    lane,
+    session_mode: sessionMode,
+    outcome,
+    score: trajectoryEvalScore(outcome, missingRegressionGates.length),
+    failure_class: failure.failureClass,
+    failure_mode: failure.failureMode,
+    step_counts: stepCounts,
+    missing_regression_gates: missingRegressionGates,
+    evidence_refs: trajectoryEvalEvidenceRefs({
+      environmentSelection,
+      observation,
+      targetIndex,
+      actionProposal,
+      verification,
+      cleanup,
+      trajectory,
+    }),
+    summary: trajectoryEvalSummary(outcome, lane, sessionMode, blocker),
+  };
 }
 
 export function compileComputerUseModelActionAdapter(
@@ -1025,8 +1148,147 @@ function safetyStatus(value: string | null): ComputerUseModelActionSafetyCheck["
   return "unknown";
 }
 
+function regressionGatesForComputerUseTrace(input: {
+  environmentSelection: Record<string, unknown>;
+  observation: Record<string, unknown>;
+  targetIndex: Record<string, unknown>;
+  actionProposal: Record<string, unknown>;
+  verification: Record<string, unknown>;
+  cleanup: Record<string, unknown>;
+  stepCounts: Record<string, number>;
+}): string[] {
+  const missing: string[] = [];
+  if (!stringValue(input.environmentSelection["selected_lane"])) {
+    missing.push("environment_selection");
+  }
+  if (!stringValue(input.observation["observation_ref"])) {
+    missing.push("observation_bundle");
+  }
+  if (!stringValue(input.targetIndex["target_index_ref"])) {
+    missing.push("target_index");
+  }
+  if (!stringValue(input.actionProposal["proposal_ref"])) {
+    missing.push("action_proposal");
+  }
+  if (!stringValue(input.verification["verification_ref"])) {
+    missing.push("verification_receipt");
+  }
+  if (!stringValue(input.cleanup["cleanup_ref"])) {
+    missing.push("cleanup_receipt");
+  }
+  if (!input.stepCounts["propose_action"]) {
+    missing.push("trajectory_propose_action_step");
+  }
+  return missing;
+}
+
+function trajectoryEvalOutcome(input: {
+  verificationStatus: string | null;
+  cleanupStatus: string | null;
+  blocker: string | null;
+  commitGateStatus: string | null;
+  missingRegressionGates: string[];
+}): ComputerUseTrajectoryEvalOutcome {
+  if (input.missingRegressionGates.length > 0) return "unknown";
+  if (input.verificationStatus === "passed") return "passed";
+  if (input.verificationStatus === "blocked" || input.blocker) return "blocked";
+  if (
+    input.verificationStatus === "requires_human" ||
+    input.commitGateStatus === "pending_confirmation" ||
+    input.commitGateStatus === "requires_confirmation_before_execution"
+  ) {
+    return "needs_human";
+  }
+  if (input.verificationStatus === "failed" || input.cleanupStatus === "failed") {
+    return "failed";
+  }
+  return "unknown";
+}
+
+function trajectoryEvalFailure(input: {
+  outcome: ComputerUseTrajectoryEvalOutcome;
+  verificationStatus: string | null;
+  blocker: string | null;
+  missingRegressionGates: string[];
+}): {
+  failureClass: ComputerUseFailureClass;
+  failureMode: ComputerUseFailureMode;
+} {
+  if (input.outcome === "passed") {
+    return { failureClass: "unknown", failureMode: "unknown" };
+  }
+  if (input.missingRegressionGates.includes("observation_bundle")) {
+    return { failureClass: "perception", failureMode: "stale_observation" };
+  }
+  if (input.missingRegressionGates.includes("target_index")) {
+    return { failureClass: "grounding", failureMode: "target_not_found" };
+  }
+  if (input.blocker?.includes("adapter") || input.blocker?.includes("executor")) {
+    return { failureClass: "environment", failureMode: "sandbox_unavailable" };
+  }
+  if (input.blocker?.includes("policy") || input.verificationStatus === "blocked") {
+    return { failureClass: "policy", failureMode: "policy_block" };
+  }
+  if (input.outcome === "needs_human") {
+    return { failureClass: "handoff", failureMode: "handoff_timeout" };
+  }
+  if (input.outcome === "failed") {
+    return { failureClass: "verification", failureMode: "no_effect_action" };
+  }
+  return { failureClass: "unknown", failureMode: "unknown" };
+}
+
+function trajectoryEvalScore(
+  outcome: ComputerUseTrajectoryEvalOutcome,
+  missingGateCount: number,
+): number {
+  if (missingGateCount > 0) return 0;
+  if (outcome === "passed") return 1;
+  if (outcome === "needs_human") return 0.75;
+  if (outcome === "blocked") return 0.5;
+  return 0;
+}
+
+function trajectoryEvalEvidenceRefs(input: {
+  environmentSelection: Record<string, unknown>;
+  observation: Record<string, unknown>;
+  targetIndex: Record<string, unknown>;
+  actionProposal: Record<string, unknown>;
+  verification: Record<string, unknown>;
+  cleanup: Record<string, unknown>;
+  trajectory: Record<string, unknown>;
+}): string[] {
+  return [
+    stringValue(input.environmentSelection["receipt_ref"]),
+    stringValue(input.observation["observation_ref"]),
+    stringValue(input.targetIndex["target_index_ref"]),
+    stringValue(input.actionProposal["proposal_ref"]),
+    stringValue(input.verification["verification_ref"]),
+    stringValue(input.cleanup["cleanup_ref"]),
+    stringValue(input.trajectory["trajectory_ref"]),
+  ].filter((value): value is string => Boolean(value));
+}
+
+function trajectoryEvalSummary(
+  outcome: ComputerUseTrajectoryEvalOutcome,
+  lane: string | null,
+  sessionMode: string | null,
+  blocker: string | null,
+): string {
+  const surface = [lane, sessionMode].filter(Boolean).join("/") || "computer-use";
+  if (outcome === "passed") return `${surface} trajectory passed regression gates.`;
+  if (outcome === "needs_human") return `${surface} trajectory stopped at a human/commit boundary.`;
+  if (outcome === "blocked") return `${surface} trajectory failed closed${blocker ? ` on ${blocker}` : ""}.`;
+  if (outcome === "failed") return `${surface} trajectory failed verification.`;
+  return `${surface} trajectory is incomplete for evaluation.`;
+}
+
 function safeComputerUseId(value: string): string {
   return value.replace(/[^a-zA-Z0-9_.-]+/g, "_");
+}
+
+function arrayValue(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
 }
 
 function recordValue(value: unknown): Record<string, unknown> {
