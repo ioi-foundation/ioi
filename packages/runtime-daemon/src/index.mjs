@@ -192,6 +192,7 @@ const RUN_EVENT_TO_TTI_EVENT = {
   computer_use_commit_gate: "computer_use.commit_gate",
   computer_use_trajectory_written: "computer_use.trajectory_written",
   computer_use_cleanup: "computer_use.cleanup",
+  computer_use_control: "computer_use.control",
   skill_hook_manifest: "item.completed",
   hook_dry_run_plan: "item.completed",
   hook_invocation_ledger: "item.completed",
@@ -223,6 +224,10 @@ const COMPUTER_USE_BROWSER_DISCOVERY_TOOL_IDS = new Set([
 const COMPUTER_USE_NATIVE_BROWSER_TOOL_IDS = new Set([
   "ioi.computer_use.native_browser",
   "computer_use.native_browser",
+]);
+const COMPUTER_USE_CONTROL_TOOL_IDS = new Set([
+  "ioi.computer_use.control",
+  "computer_use.control",
 ]);
 const HOOK_INVOCATION_RUNTIME_EVENTS = [
   {
@@ -7343,6 +7348,200 @@ export class AgentgresRuntimeStateStore {
     });
   }
 
+  invokeComputerUseControlTool(threadId, toolId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const turnId =
+      optionalString(request.turn_id ?? request.turnId) ??
+      optionalString(this.threadForAgent(agent).latest_turn_id) ??
+      "";
+    const workflowNodeId =
+      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      "computer-use.control";
+    const workflowGraphId =
+      optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+    const toolCallId =
+      optionalString(request.tool_call_id ?? request.toolCallId) ??
+      `computer_use_control_${crypto.randomUUID()}`;
+    const idempotencyKey =
+      optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+      `thread:${threadId}:computer-use-control:${toolCallId}`;
+    const duplicateEvent = this.runtimeEventStream(eventStreamIdForThread(threadId)).idempotency.get(
+      idempotencyKey,
+    );
+    if (duplicateEvent) {
+      return computerUseControlInvocationResultFromEvent(duplicateEvent, {
+        agent,
+        threadId,
+        turnId,
+        toolId,
+        toolCallId,
+        workflowGraphId,
+        workflowNodeId,
+      });
+    }
+    const requestInput = objectRecord(request.input);
+    const requestArguments = objectRecord(request.arguments);
+    const input = Object.keys(requestInput).length
+      ? requestInput
+      : Object.keys(requestArguments).length
+        ? requestArguments
+        : objectRecord(request);
+    const action = computerUseControlActionForInput(input);
+    const leaseId =
+      optionalString(input.leaseId ?? input.lease_id ?? input.computerUseLeaseId ?? input.computer_use_lease_id) ??
+      `lease_${safeId(threadId)}_computer_use`;
+    const handoffRef =
+      optionalString(input.handoffRef ?? input.handoff_ref ?? input.humanHandoffRef ?? input.human_handoff_ref) ??
+      null;
+    const reason =
+      optionalString(input.reason) ??
+      `operator requested computer-use ${action}`;
+    const receiptRef = `receipt_${safeId(toolCallId)}_computer_use_control_${action}`;
+    const cleanupRef =
+      optionalString(input.cleanupRef ?? input.cleanup_ref) ??
+      `cleanup_${safeId(toolCallId)}_computer_use_control`;
+    const resumeObservationRef =
+      optionalString(input.resumeObservationRef ?? input.resume_observation_ref) ?? null;
+    const cdpEndpointRef =
+      optionalString(
+        input.cdpEndpointUrl ??
+          input.cdp_endpoint_url ??
+          input.cdpWebSocketUrl ??
+          input.cdp_websocket_url,
+      ) ?? null;
+    const statusByAction = {
+      pause: "paused",
+      resume: "resumed",
+      abort: "aborted",
+      cleanup: "cleanup_completed",
+    };
+    const cleanupReceipt = action === "cleanup" || action === "abort"
+      ? {
+          cleanup_ref: cleanupRef,
+          lease_id: leaseId,
+          status: action === "abort" ? "completed_after_abort" : "completed",
+          closed_process_refs: [],
+          deleted_profile_refs: [],
+          retained_artifact_refs: ["computer-use-trace.json"],
+          warnings: [],
+        }
+      : null;
+    const humanHandoffState = action === "resume"
+      ? {
+          handoff_ref: handoffRef,
+          reason: "operator_resumed_computer_use_handoff",
+          requested_user_action: "Resume the computer-use lane after operator handoff.",
+          forbidden_agent_actions: ["resume_without_fresh_observation_or_endpoint"],
+          resume_condition: "Resume request supplies a post-handoff observation ref or attachable endpoint ref.",
+          observation_after_resume_ref: resumeObservationRef,
+          timeout_policy: "resume_requested_by_operator",
+          evidence_retention: optionalString(input.observationRetentionMode ?? input.observation_retention_mode) ??
+            "prompt_visible_summary_only",
+          status: "resumed",
+        }
+      : action === "pause"
+        ? {
+            handoff_ref: handoffRef ?? `handoff_${safeId(toolCallId)}_computer_use_pause`,
+            reason: "operator_paused_computer_use",
+            requested_user_action: "Review the paused computer-use lease before resuming or aborting.",
+            forbidden_agent_actions: ["execute_browser_or_desktop_action_while_paused"],
+            resume_condition: "Operator issues computer-use resume with fresh evidence.",
+            observation_after_resume_ref: null,
+            timeout_policy: "pause_until_user_resumes_or_aborts",
+            evidence_retention: optionalString(input.observationRetentionMode ?? input.observation_retention_mode) ??
+              "prompt_visible_summary_only",
+            status: "pending",
+          }
+        : null;
+    const controlReceipt = {
+      schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+      receipt_ref: receiptRef,
+      tool_ref: toolId,
+      thread_id: threadId,
+      turn_id: turnId || null,
+      lease_id: leaseId,
+      handoff_ref: handoffRef,
+      action,
+      status: statusByAction[action],
+      reason,
+      resume_observation_ref: resumeObservationRef,
+      cdp_endpoint_ref: cdpEndpointRef,
+      cleanup_ref: cleanupReceipt?.cleanup_ref ?? null,
+      authority_scope: `computer_use.control.${action}`,
+      fail_closed_when_unavailable: true,
+      evidence_refs: uniqueStrings([leaseId, handoffRef, resumeObservationRef, cdpEndpointRef, cleanupReceipt?.cleanup_ref]),
+    };
+    const payloadSummary = {
+      schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+      schemaVersion: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+      event_kind: "ComputerUse.Control",
+      source: "runtime_thread_tool",
+      computerUse: true,
+      computer_use: true,
+      computer_use_step: action === "cleanup" ? "cleanup" : "commit_or_handoff",
+      computerUseStep: action === "cleanup" ? "cleanup" : "commit_or_handoff",
+      computer_use_lane: optionalString(input.lane ?? input.computerUseLane ?? input.computer_use_lane) ??
+        "native_browser",
+      computer_use_session_mode:
+        optionalString(input.sessionMode ?? input.session_mode ?? input.computerUseSessionMode ?? input.computer_use_session_mode) ??
+        null,
+      computer_use_lease_id: leaseId,
+      computer_use_control_action: action,
+      computer_use_control_receipt_ref: receiptRef,
+      tool_ref: toolId,
+      toolRef: toolId,
+      workflow_graph_id: workflowGraphId,
+      workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      workflowNodeId,
+      authority_scopes: [`computer_use.control.${action}`],
+      authorityScopes: [`computer_use.control.${action}`],
+      fail_closed_when_unavailable: true,
+      failClosedWhenUnavailable: true,
+      summary: `Computer-use ${action} control receipt emitted`,
+      control_receipt: controlReceipt,
+      controlReceipt,
+      human_handoff_state: humanHandoffState,
+      humanHandoffState,
+      cleanup_receipt: cleanupReceipt,
+      cleanupReceipt,
+      receipt_id: receiptRef,
+      receiptId: receiptRef,
+    };
+    const event = this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turnId,
+      item_id: `${turnId || threadId}:item:computer-use-control:${doctorHash(toolCallId).slice(0, 12)}`,
+      idempotency_key: idempotencyKey,
+      source: operatorControlSource(request.source),
+      source_event_kind: "ComputerUse.Control",
+      event_kind: "computer_use.control",
+      status: action === "abort" ? "canceled" : "completed",
+      actor: "runtime",
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      component_kind: "computer_use_harness",
+      tool_call_id: toolCallId,
+      tool_name: toolId,
+      artifact_refs: [],
+      receipt_refs: uniqueStrings([receiptRef, cleanupReceipt?.cleanup_ref]),
+      rollback_refs: [],
+      payload_schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+      payload_summary: payloadSummary,
+    });
+    return computerUseControlInvocationResultFromEvent(event, {
+      agent,
+      threadId,
+      turnId,
+      toolId,
+      toolCallId,
+      workflowGraphId,
+      workflowNodeId,
+    });
+  }
+
   async invokeComputerUseNativeBrowserTool(threadId, toolId, request = {}) {
     const agent = this.agentForThread(threadId);
     const turnId =
@@ -7546,6 +7745,9 @@ export class AgentgresRuntimeStateStore {
 
   async invokeThreadToolAsync(threadId, toolId, request = {}) {
     const normalizedToolId = optionalString(toolId);
+    if (COMPUTER_USE_CONTROL_TOOL_IDS.has(normalizedToolId)) {
+      return this.invokeComputerUseControlTool(threadId, normalizedToolId, request);
+    }
     if (COMPUTER_USE_NATIVE_BROWSER_TOOL_IDS.has(normalizedToolId)) {
       return await this.invokeComputerUseNativeBrowserTool(threadId, normalizedToolId, request);
     }
@@ -7557,6 +7759,9 @@ export class AgentgresRuntimeStateStore {
     const normalizedToolId = optionalString(toolId);
     if (COMPUTER_USE_BROWSER_DISCOVERY_TOOL_IDS.has(normalizedToolId)) {
       return this.invokeComputerUseBrowserDiscoveryTool(threadId, normalizedToolId, request);
+    }
+    if (COMPUTER_USE_CONTROL_TOOL_IDS.has(normalizedToolId)) {
+      return this.invokeComputerUseControlTool(threadId, normalizedToolId, request);
     }
     if (COMPUTER_USE_NATIVE_BROWSER_TOOL_IDS.has(normalizedToolId)) {
       return this.invokeComputerUseNativeBrowserTool(threadId, normalizedToolId, request);
@@ -18084,6 +18289,40 @@ function computerUseBrowserDiscoveryInvocationResultFromEvent(event, context = {
   };
 }
 
+function computerUseControlInvocationResultFromEvent(event, context = {}) {
+  const payload = event.payload_summary ?? event.payload ?? {};
+  const result = objectRecord(payload.control_receipt ?? payload.controlReceipt);
+  return {
+    schema_version: "ioi.runtime.computer-use-control-result.v1",
+    object: "ioi.runtime_computer_use_control_result",
+    tool_pack: "computer_use",
+    tool_name: payload.tool_ref ?? payload.toolRef ?? context.toolId ?? null,
+    tool_call_id: event.tool_call_id ?? context.toolCallId ?? null,
+    thread_id: event.thread_id ?? context.threadId ?? null,
+    turn_id: event.turn_id ?? context.turnId ?? null,
+    status: event.status ?? payload.status ?? "completed",
+    workspace_root: event.workspace_root ?? context.agent?.cwd ?? null,
+    workflow_graph_id: payload.workflow_graph_id ?? context.workflowGraphId ?? event.workflow_graph_id ?? null,
+    workflow_node_id: payload.workflow_node_id ?? context.workflowNodeId ?? event.workflow_node_id ?? null,
+    shell_fallback_used: false,
+    receipt_refs: event.receipt_refs,
+    artifact_refs: event.artifact_refs,
+    rollback_refs: event.rollback_refs,
+    event,
+    idempotent_replay: true,
+    idempotentReplay: true,
+    result: {
+      controlReceipt: result,
+      control_receipt: result,
+      humanHandoffState: payload.human_handoff_state ?? payload.humanHandoffState ?? null,
+      human_handoff_state: payload.human_handoff_state ?? payload.humanHandoffState ?? null,
+      cleanup: payload.cleanup_receipt ?? payload.cleanupReceipt ?? null,
+      cleanup_receipt: payload.cleanup_receipt ?? payload.cleanupReceipt ?? null,
+    },
+    error: null,
+  };
+}
+
 function computerUseNativeBrowserInvocationResultFromEvents(events, context = {}) {
   const orderedEvents = [...events].sort((left, right) => (left.seq ?? 0) - (right.seq ?? 0));
   const payloads = orderedEvents.map((event) => event.payload_summary ?? event.payload ?? {});
@@ -18286,6 +18525,19 @@ function nativeBrowserSessionModeForInput(input = {}) {
 function nativeBrowserActionShouldUseCdpExecutor(actionKind, approvalRef, input = {}) {
   if (!nativeBrowserActionKindIsReadOnly(actionKind) && approvalRef) return true;
   return actionKind === "scroll" && nativeBrowserHasExplicitCdpEndpoint(input);
+}
+
+function computerUseControlActionForInput(input = {}) {
+  const explicit = optionalString(
+    input.controlAction ??
+      input.control_action ??
+      input.action ??
+      input.command,
+  )?.toLowerCase().replace(/[\s-]+/g, "_");
+  if (explicit === "resume" || explicit === "continue") return "resume";
+  if (explicit === "abort" || explicit === "cancel" || explicit === "stop") return "abort";
+  if (explicit === "cleanup" || explicit === "clean_up" || explicit === "clean") return "cleanup";
+  return "pause";
 }
 
 function nativeBrowserHasExplicitCdpEndpoint(input = {}) {

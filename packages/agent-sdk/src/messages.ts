@@ -18,6 +18,7 @@ export type IOISDKMessageType =
   | "computer_use_commit_gate"
   | "computer_use_trajectory_written"
   | "computer_use_cleanup"
+  | "computer_use_control"
   | "step"
   | "delta"
   | "tool_call"
@@ -203,6 +204,7 @@ export const RUNTIME_THREAD_EVENT_TYPES = [
   "computer_use_commit_gate",
   "computer_use_trajectory_written",
   "computer_use_cleanup",
+  "computer_use_control",
   "runtime_step",
 ] as const;
 

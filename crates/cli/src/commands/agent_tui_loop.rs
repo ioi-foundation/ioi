@@ -89,6 +89,14 @@ pub(crate) enum TuiLineCommand {
         cdp_websocket_url: Option<String>,
         cdp_timeout_ms: Option<u64>,
     },
+    ComputerUseControl {
+        action: String,
+        lease_id: String,
+        handoff_ref: Option<String>,
+        reason: Option<String>,
+        resume_observation_ref: Option<String>,
+        cdp_endpoint_url: Option<String>,
+    },
     Mcp {
         action: Option<String>,
     },
@@ -430,6 +438,36 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                     line.trim(),
                     "applied",
                     Some("native-browser computer-use trace emitted"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::ComputerUseControl {
+                action,
+                lease_id,
+                handoff_ref,
+                reason,
+                resume_observation_ref,
+                cdp_endpoint_url,
+            }) => {
+                let events = handle_computer_use_control_command(
+                    &mut session,
+                    ComputerUseControlLineArgs {
+                        action,
+                        lease_id,
+                        handoff_ref,
+                        reason,
+                        resume_observation_ref,
+                        cdp_endpoint_url,
+                    },
+                )
+                .await?;
+                control_state.record_command(
+                    "computer-use-control",
+                    line.trim(),
+                    "applied",
+                    Some("computer-use control receipt emitted"),
                     &session,
                     &events,
                 );
@@ -995,12 +1033,33 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 cdp_timeout_ms: args.cdp_timeout_ms,
             })
         }
+        "computer-use-control" => {
+            let args = parse_computer_use_control_args(rest)?;
+            Ok(TuiLineCommand::ComputerUseControl {
+                action: args.action,
+                lease_id: args.lease_id,
+                handoff_ref: args.handoff_ref,
+                reason: args.reason,
+                resume_observation_ref: args.resume_observation_ref,
+                cdp_endpoint_url: args.cdp_endpoint_url,
+            })
+        }
         "computer-use" => {
             if matches!(
                 rest,
                 "browser-discovery" | "browser-discover" | "discover-browsers"
             ) {
                 Ok(TuiLineCommand::BrowserDiscovery)
+            } else if computer_use_control_prefix(rest).is_some() {
+                let args = parse_computer_use_control_args(rest)?;
+                Ok(TuiLineCommand::ComputerUseControl {
+                    action: args.action,
+                    lease_id: args.lease_id,
+                    handoff_ref: args.handoff_ref,
+                    reason: args.reason,
+                    resume_observation_ref: args.resume_observation_ref,
+                    cdp_endpoint_url: args.cdp_endpoint_url,
+                })
             } else if let Some(prompt) = rest
                 .strip_prefix("native-browser ")
                 .or_else(|| (rest == "native-browser").then_some(""))
@@ -1024,7 +1083,7 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 })
             } else {
                 Err(anyhow!(
-                    "/computer-use accepts browser-discovery or native-browser <prompt>; use /help"
+                    "/computer-use accepts browser-discovery, native-browser <prompt>, or pause|resume|abort|cleanup --lease-id <id>; use /help"
                 ))
             }
         }
@@ -2686,6 +2745,34 @@ async fn handle_native_browser_command(
     handle_coding_tool_input_command(session, "ioi.computer_use.native_browser", input).await
 }
 
+async fn handle_computer_use_control_command(
+    session: &mut TuiInteractiveSession,
+    args: ComputerUseControlLineArgs,
+) -> Result<Vec<Value>> {
+    let mut input = serde_json::Map::new();
+    input.insert("controlAction".to_string(), Value::String(args.action));
+    input.insert("leaseId".to_string(), Value::String(args.lease_id));
+    if let Some(handoff_ref) = args.handoff_ref {
+        input.insert("handoffRef".to_string(), Value::String(handoff_ref));
+    }
+    if let Some(reason) = args.reason {
+        input.insert("reason".to_string(), Value::String(reason));
+    }
+    if let Some(resume_observation_ref) = args.resume_observation_ref {
+        input.insert(
+            "resumeObservationRef".to_string(),
+            Value::String(resume_observation_ref),
+        );
+    }
+    if let Some(cdp_endpoint_url) = args.cdp_endpoint_url {
+        input.insert(
+            "cdpEndpointUrl".to_string(),
+            Value::String(cdp_endpoint_url),
+        );
+    }
+    handle_coding_tool_input_command(session, "ioi.computer_use.control", input).await
+}
+
 fn native_browser_action_kind_from_prompt(prompt: &str) -> Option<&'static str> {
     let first = prompt.split_whitespace().next()?.to_ascii_lowercase();
     match first.as_str() {
@@ -3291,12 +3378,13 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
         "tool.retrieve_result" => "retrieve",
         "ioi.computer_use.browser_discovery" => "browser-discovery",
         "ioi.computer_use.native_browser" => "native-browser",
+        "ioi.computer_use.control" => "computer-use-control",
         _ => "tool",
     }
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--approval-ref approval_id] [--selector css] [--target-ref ref] [--text value] [--key value] [--scroll-x n] [--scroll-y n] [--file-path path] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--approval-ref approval_id] [--selector css] [--target-ref ref] [--text value] [--key value] [--scroll-x n] [--scroll-y n] [--file-path path] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /computer-use [pause|resume|abort|cleanup] --lease-id lease_id [--handoff-ref ref] [--reason text] [--resume-observation-ref ref] [--cdp-endpoint-url url] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -3312,6 +3400,112 @@ fn non_empty_string(value: &str) -> Option<String> {
     } else {
         Some(trimmed.to_string())
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ComputerUseControlLineArgs {
+    action: String,
+    lease_id: String,
+    handoff_ref: Option<String>,
+    reason: Option<String>,
+    resume_observation_ref: Option<String>,
+    cdp_endpoint_url: Option<String>,
+}
+
+fn computer_use_control_prefix(value: &str) -> Option<&str> {
+    let first = value.split_whitespace().next()?;
+    match first {
+        "pause" | "resume" | "abort" | "cancel" | "cleanup" => Some(first),
+        _ => None,
+    }
+}
+
+fn parse_computer_use_control_args(value: &str) -> Result<ComputerUseControlLineArgs> {
+    let mut parts = value.split_whitespace();
+    let action = parts
+        .next()
+        .ok_or_else(|| anyhow!("computer-use control requires pause, resume, abort, or cleanup"))?;
+    let action = match action {
+        "pause" => "pause",
+        "resume" => "resume",
+        "abort" | "cancel" => "abort",
+        "cleanup" => "cleanup",
+        _ => return Err(anyhow!("computer-use control action must be pause, resume, abort, or cleanup")),
+    }
+    .to_string();
+    let mut lease_id = None;
+    let mut handoff_ref = None;
+    let mut reason_parts = Vec::new();
+    let mut resume_observation_ref = None;
+    let mut cdp_endpoint_url = None;
+    while let Some(part) = parts.next() {
+        if let Some(inline) = part.strip_prefix("--lease-id=") {
+            lease_id = Some(non_empty_flag_value("--lease-id", inline)?);
+            continue;
+        }
+        if part == "--lease-id" {
+            lease_id = Some(non_empty_flag_value(
+                "--lease-id",
+                required_flag_value("--lease-id", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--handoff-ref=") {
+            handoff_ref = Some(non_empty_flag_value("--handoff-ref", inline)?);
+            continue;
+        }
+        if part == "--handoff-ref" {
+            handoff_ref = Some(non_empty_flag_value(
+                "--handoff-ref",
+                required_flag_value("--handoff-ref", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--resume-observation-ref=") {
+            resume_observation_ref = Some(non_empty_flag_value("--resume-observation-ref", inline)?);
+            continue;
+        }
+        if part == "--resume-observation-ref" {
+            resume_observation_ref = Some(non_empty_flag_value(
+                "--resume-observation-ref",
+                required_flag_value("--resume-observation-ref", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--cdp-endpoint-url=") {
+            cdp_endpoint_url = Some(non_empty_flag_value("--cdp-endpoint-url", inline)?);
+            continue;
+        }
+        if part == "--cdp-endpoint-url" {
+            cdp_endpoint_url = Some(non_empty_flag_value(
+                "--cdp-endpoint-url",
+                required_flag_value("--cdp-endpoint-url", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--reason=") {
+            reason_parts.push(non_empty_flag_value("--reason", inline)?);
+            reason_parts.extend(parts.map(ToString::to_string));
+            break;
+        }
+        if part == "--reason" {
+            reason_parts.push(non_empty_flag_value(
+                "--reason",
+                required_flag_value("--reason", &mut parts)?,
+            )?);
+            reason_parts.extend(parts.map(ToString::to_string));
+            break;
+        }
+        reason_parts.push(part.to_string());
+    }
+    Ok(ComputerUseControlLineArgs {
+        action,
+        lease_id: lease_id.ok_or_else(|| anyhow!("computer-use control requires --lease-id"))?,
+        handoff_ref,
+        reason: non_empty_string(&reason_parts.join(" ")),
+        resume_observation_ref,
+        cdp_endpoint_url,
+    })
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -4532,6 +4726,20 @@ mod tests {
         assert_eq!(
             parse_tui_line_command("/computer-use browser-discovery").unwrap(),
             TuiLineCommand::BrowserDiscovery
+        );
+        assert_eq!(
+            parse_tui_line_command(
+                "/computer-use resume --lease-id lease_controlled_relaunch --handoff-ref handoff_controlled_relaunch --resume-observation-ref observation_after_relaunch --cdp-endpoint-url http://127.0.0.1:9222"
+            )
+            .unwrap(),
+            TuiLineCommand::ComputerUseControl {
+                action: "resume".to_string(),
+                lease_id: "lease_controlled_relaunch".to_string(),
+                handoff_ref: Some("handoff_controlled_relaunch".to_string()),
+                reason: None,
+                resume_observation_ref: Some("observation_after_relaunch".to_string()),
+                cdp_endpoint_url: Some("http://127.0.0.1:9222".to_string()),
+            }
         );
         assert_eq!(
             parse_tui_line_command("/native-browser inspect https://example.com").unwrap(),

@@ -3541,6 +3541,10 @@ function isRuntimeTerminalEvent(event: RuntimeEventEnvelope): boolean {
 function sdkMessageTypeFromRuntimeEvent(event: RuntimeEventEnvelope): IOISDKMessage["type"] {
   const legacyType = event.payload?.legacy_event_type;
   if (typeof legacyType === "string" && isSdkMessageType(legacyType)) return legacyType;
+  if (event.event_kind.startsWith("computer_use.")) {
+    const computerUseType = event.event_kind.replace(/\./g, "_");
+    if (isSdkMessageType(computerUseType)) return computerUseType;
+  }
   switch (event.event_kind) {
     case "thread.started":
     case "turn.started":
@@ -3574,6 +3578,20 @@ function isSdkMessageType(value: string): value is IOISDKMessage["type"] {
     "run_started",
     "model_route_decision",
     "memory_update",
+    "computer_use_environment_selected",
+    "computer_use_environment_unavailable",
+    "computer_use_lease_acquired",
+    "computer_use_run_state",
+    "computer_use_observation",
+    "computer_use_affordance_graph",
+    "computer_use_browser_discovery",
+    "computer_use_action_proposed",
+    "computer_use_action_executed",
+    "computer_use_verification",
+    "computer_use_commit_gate",
+    "computer_use_trajectory_written",
+    "computer_use_cleanup",
+    "computer_use_control",
     "step",
     "delta",
     "tool_call",

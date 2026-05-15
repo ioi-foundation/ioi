@@ -328,6 +328,8 @@ function runtimeEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
       return "computer_use.trajectory_written";
     case "computer_use_cleanup":
       return "computer_use.cleanup";
+    case "computer_use_control":
+      return "computer_use.control";
     case "completed":
       return "turn.completed";
     case "canceled":
@@ -436,6 +438,7 @@ function workflowNodeIdForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "computer_use_commit_gate") return "computer-use.commit-gate";
   if (type === "computer_use_trajectory_written") return "computer-use.write-trajectory";
   if (type === "computer_use_cleanup") return "computer-use.cleanup";
+  if (type === "computer_use_control") return "computer-use.control";
   if (type === "tool_result") return "runtime.tool-result";
   if (type === "delta") return "runtime.reasoning";
   return `runtime.${type.replaceAll("_", "-")}`;
@@ -469,6 +472,7 @@ function sourceEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "computer_use_commit_gate") return "ComputerUse.CommitGate";
   if (type === "computer_use_trajectory_written") return "ComputerUse.TrajectoryWritten";
   if (type === "computer_use_cleanup") return "ComputerUse.Cleanup";
+  if (type === "computer_use_control") return "ComputerUse.Control";
   return `run.${type}`;
 }
 
