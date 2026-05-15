@@ -78,6 +78,30 @@ test("native browser CDP executor completes approved type_text actions", async (
   }
 });
 
+test("native browser CDP executor completes approved key_press actions", async () => {
+  const fixture = await startFakeNativeBrowserCdpServer();
+  try {
+    const result = await executeNativeBrowserCdpAction({
+      input: {
+        cdpEndpointUrl: fixture.endpointUrl,
+        key: "Enter",
+      },
+      actionKind: "key_press",
+      approvalRef: "approval-key",
+      prompt: "Press Enter",
+    });
+
+    assert.equal(result.status, "completed");
+    assert.equal(result.action_result.action, "key_press");
+    assert.equal(result.action_result.key, "Enter");
+    assert.equal(result.action_result.code, "Enter");
+    assert.equal(result.after.text_preview, "Pressed Enter");
+    assert.deepEqual(fixture.state.keys, [{ key: "Enter", code: "Enter", text: "" }]);
+  } finally {
+    await fixture.close();
+  }
+});
+
 test("native browser CDP executor fails closed without endpoint", async () => {
   const result = await executeNativeBrowserCdpAction({
     input: {},

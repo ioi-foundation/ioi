@@ -7,6 +7,7 @@ export async function startFakeNativeBrowserCdpServer() {
     title: "Fake CDP",
     clicks: [],
     typed: [],
+    keys: [],
   };
   const sockets = new Set();
   const server = http.createServer((request, response) => {
@@ -69,6 +70,17 @@ function handleFakeCdpCommand({ command, socket, state }) {
     sendServerFrame(socket, { method: "Page.loadEventFired", params: { timestamp: 1 } });
     return;
   }
+  if (command.method === "Input.dispatchKeyEvent") {
+    if (command.params?.type === "keyDown") {
+      state.keys.push({
+        key: command.params?.key ?? "",
+        code: command.params?.code ?? "",
+        text: command.params?.text ?? "",
+      });
+    }
+    sendServerFrame(socket, { id: command.id, result: {} });
+    return;
+  }
   if (command.method === "Runtime.evaluate") {
     const expression = String(command.params?.expression ?? "");
     if (expression.includes("document.querySelector") && expression.includes("const text =")) {
@@ -125,7 +137,9 @@ function handleFakeCdpCommand({ command, socket, state }) {
             title: state.title,
             text: state.typed.length > 0
               ? `Typed ${state.typed.at(-1).text}`
-              : state.clicks.length > 0 ? "Clicked" : "Ready",
+              : state.keys.length > 0
+                ? `Pressed ${state.keys.at(-1).key}`
+                : state.clicks.length > 0 ? "Clicked" : "Ready",
             html: `<html><head><title>${state.title}</title></head><body><input id="input"><button id="submit">Submit</button></body></html>`,
           },
         },

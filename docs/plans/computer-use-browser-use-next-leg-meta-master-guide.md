@@ -487,11 +487,12 @@ trace; mutating actions remain proposal/commit-gate only until an explicit
 approval ref is supplied, at which point the same route emits the approved
 `ComputerAction`, `ActionReceipt`, passed verification, and completed commit
 gate evidence when a CDP endpoint/websocket is available. The daemon now
-contains a narrow CDP-backed executor for approved `click` and `navigate`
-plus `type_text` actions; missing browser adapter evidence fails closed with blocked
-verification and commit-gate receipts instead of synthetic execution. CLI and TUI operators now have dedicated
-native-browser commands over the same daemon thread-tool route, including
-`--approval-ref`, target/selector, and CDP endpoint/websocket options, so manual
+contains a narrow CDP-backed executor for approved `click`, `navigate`,
+`type_text`, and `key_press` actions; missing browser adapter evidence fails
+closed with blocked verification and commit-gate receipts instead of synthetic
+execution. CLI and TUI operators now have dedicated native-browser commands over
+the same daemon thread-tool route, including `--approval-ref`,
+target/selector/text/key, and CDP endpoint/websocket options, so manual
 validation can run both the gated and approved prompt pipeline without knowing
 the raw `ioi.computer_use.native_browser` tool id.
 Future daemon, workflow, and Autopilot policy executors should consume these

@@ -424,6 +424,9 @@ pub enum ToolCommands {
         /// Text payload for approved type_text actions.
         #[clap(long)]
         text: Option<String>,
+        /// Key payload for approved key_press actions, for example Enter or Escape.
+        #[clap(long)]
+        key: Option<String>,
         /// HTTP CDP endpoint, for example http://127.0.0.1:9222.
         #[clap(long = "cdp-endpoint-url")]
         cdp_endpoint_url: Option<String>,
@@ -1340,6 +1343,7 @@ async fn run_tool_command(
             target_ref,
             selector,
             text,
+            key,
             cdp_endpoint_url,
             cdp_websocket_url,
             cdp_timeout_ms,
@@ -1360,6 +1364,7 @@ async fn run_tool_command(
                 target_ref,
                 selector,
                 text,
+                key,
                 cdp_endpoint_url,
                 cdp_websocket_url,
                 cdp_timeout_ms,
@@ -1547,6 +1552,7 @@ async fn invoke_native_browser_tool(
     target_ref: Option<String>,
     selector: Option<String>,
     text: Option<String>,
+    key: Option<String>,
     cdp_endpoint_url: Option<String>,
     cdp_websocket_url: Option<String>,
     cdp_timeout_ms: Option<u64>,
@@ -1612,6 +1618,12 @@ async fn invoke_native_browser_tool(
         input.insert(
             "text".to_string(),
             serde_json::Value::String(text.trim().to_string()),
+        );
+    }
+    if let Some(key) = key.as_deref().filter(|value| !value.trim().is_empty()) {
+        input.insert(
+            "key".to_string(),
+            serde_json::Value::String(key.trim().to_string()),
         );
     }
     if let Some(cdp_endpoint_url) = cdp_endpoint_url
@@ -2956,6 +2968,8 @@ mod tests {
             "#submit",
             "--text",
             "hello",
+            "--key",
+            "Enter",
             "--cdp-endpoint-url",
             "http://127.0.0.1:9222",
             "--cdp-timeout-ms",
@@ -2973,6 +2987,7 @@ mod tests {
                     selector: Some(selector),
                     target_ref: Some(target_ref),
                     text: Some(text),
+                    key: Some(key),
                     cdp_endpoint_url: Some(cdp_endpoint_url),
                     cdp_timeout_ms: Some(cdp_timeout_ms),
                     json: true,
@@ -2985,6 +3000,7 @@ mod tests {
                 && selector == "#submit"
                 && target_ref == "#submit"
                 && text == "hello"
+                && key == "Enter"
                 && cdp_endpoint_url == "http://127.0.0.1:9222"
                 && cdp_timeout_ms == 5000
         ));

@@ -14,6 +14,7 @@ export interface WorkflowComposerComputerUseRunMetadata {
   computerUseTargetRef?: string;
   selector?: string;
   text?: string;
+  key?: string;
   cdpEndpointUrl?: string;
   cdpWebSocketUrl?: string;
   cdpTimeoutMs?: number;
@@ -76,6 +77,10 @@ export function workflowComposerComputerUseRunOptions(
     cleanString(first.args["text"]) ??
     cleanString(first.args["inputText"]) ??
     cleanString(first.args["input_text"]);
+  const key =
+    cleanString(first.args["key"]) ??
+    cleanString(first.args["keyText"]) ??
+    cleanString(first.args["key_text"]);
   const cdpEndpointUrl =
     cleanString(first.args["cdpEndpointUrl"]) ??
     cleanString(first.args["cdp_endpoint_url"]) ??
@@ -101,6 +106,7 @@ export function workflowComposerComputerUseRunOptions(
       ...(targetRef ? { computerUseTargetRef: targetRef } : {}),
       ...(selector ? { selector } : {}),
       ...(text ? { text } : {}),
+      ...(key ? { key } : {}),
       ...(cdpEndpointUrl ? { cdpEndpointUrl } : {}),
       ...(cdpWebSocketUrl ? { cdpWebSocketUrl } : {}),
       ...(cdpTimeoutMs ? { cdpTimeoutMs } : {}),
