@@ -96,6 +96,22 @@ export function buildWorkflowComputerUseTriLaneScorecard({
     ),
   };
   const passed = Object.values(checks).every(Boolean);
+  const externalDeferrals = [
+    {
+      id: "hosted_provider_backends",
+      status: "external_provider_deferral",
+      reason:
+        "Concrete VM/container/mobile hosted providers still require selected provider credentials, isolation policy, and retention policy; the deterministic local fixture covers runtime truth and fail-closed posture.",
+    },
+    {
+      id: "external_eval_ingestion",
+      status: "external_provider_deferral",
+      reason:
+        "OSWorld/ScreenSpot/WorkArena scorecard ingestion remains provider-backed; this scorecard gates IOI's retained tri-lane runtime/workflow proof artifacts.",
+    },
+  ];
+  const summaryRows = laneReports.map(operatorSummaryRow);
+  const blockers = blockingRowsForChecks(checks, laneReports);
   return {
     schemaVersion: WORKFLOW_COMPUTER_USE_TRI_LANE_SCORECARD_SCHEMA_VERSION,
     scenario: "workflow_computer_use_tri_lane_scorecard",
@@ -103,6 +119,15 @@ export function buildWorkflowComputerUseTriLaneScorecard({
     promotionStatus: passed ? "passed" : "blocked",
     checks,
     laneReports,
+    operatorSummary: {
+      status: passed ? "passed" : "blocked",
+      headline: passed
+        ? "Computer-use tri-lane retained gate passed."
+        : `${blockers.length} computer-use tri-lane blocker${blockers.length === 1 ? "" : "s"} detected.`,
+      summaryRows,
+      blockers,
+      externalDeferrals,
+    },
     scorecard: {
       laneCoverage: countTrue([
         checks.nativeBrowserProofPassed,
@@ -129,20 +154,7 @@ export function buildWorkflowComputerUseTriLaneScorecard({
         0,
       ),
     },
-    externalDeferrals: [
-      {
-        id: "hosted_provider_backends",
-        status: "external_provider_deferral",
-        reason:
-          "Concrete VM/container/mobile hosted providers still require selected provider credentials, isolation policy, and retention policy; the deterministic local fixture covers runtime truth and fail-closed posture.",
-      },
-      {
-        id: "external_eval_ingestion",
-        status: "external_provider_deferral",
-        reason:
-          "OSWorld/ScreenSpot/WorkArena scorecard ingestion remains provider-backed; this scorecard gates IOI's retained tri-lane runtime/workflow proof artifacts.",
-      },
-    ],
+    externalDeferrals,
   };
 }
 
@@ -221,4 +233,216 @@ function laneById(lanes, laneId) {
 
 function countTrue(values) {
   return values.filter(Boolean).length;
+}
+
+function operatorSummaryRow(lane) {
+  const blockers = laneBlockers(lane);
+  return {
+    id: `lane:${lane.lane}`,
+    lane: lane.lane,
+    status: blockers.length === 0 ? "passed" : "blocked",
+    label: laneLabel(lane.lane),
+    sessionMode: lane.sessionMode,
+    actionKind: lane.workbench.actionKind ?? lane.actionKind,
+    modelPromptTrace:
+      lane.requiredModelTrace === false
+        ? "not_required"
+        : lane.modelPromptTracePresent
+          ? "present"
+          : "missing",
+    runtimeEvents: lane.runtimeEventCount,
+    projectedNodes: lane.projectedNodeCount,
+    targets: lane.targetCount,
+    affordances: lane.affordanceCount,
+    policy:
+      lane.workbench.policyApprovalRef ??
+      lane.workbench.policyOutcome ??
+      (lane.workbench.policyFailClosed === true ? "fail_closed" : null),
+    verification: lane.workbench.verificationStatus,
+    cleanup: lane.workbench.cleanupStatus,
+    proofPath: lane.proofPath,
+    blockers,
+  };
+}
+
+function laneBlockers(lane) {
+  const blockers = [];
+  if (!lane.proofPassed) blockers.push("proof_failed_or_missing");
+  if (lane.proofScenario !== lane.requiredScenario) {
+    blockers.push("required_scenario_missing");
+  }
+  if (!lane.runButtonWired) blockers.push("composer_run_not_wired");
+  if (lane.requiredModelTrace && !lane.modelPromptTracePresent) {
+    blockers.push("model_prompt_trace_missing");
+  }
+  if ((lane.runtimeEventCount ?? 0) < 10) blockers.push("runtime_trace_short");
+  if (!lane.environmentSelectionPresent) {
+    blockers.push("environment_selection_missing");
+  }
+  if (lane.targetCount <= 0) blockers.push("target_index_missing");
+  if (lane.affordanceCount <= 0) blockers.push("affordance_graph_missing");
+  if (!lane.workbench.proposalRef) blockers.push("proposal_missing");
+  if (!lane.workbench.policyOutcome) blockers.push("policy_outcome_missing");
+  if (!lane.workbench.actionRef) blockers.push("action_missing");
+  if (lane.workbench.verificationStatus !== "passed") {
+    blockers.push("verification_not_passed");
+  }
+  if (lane.workbench.cleanupStatus !== "completed") {
+    blockers.push("cleanup_not_completed");
+  }
+  if (!lane.workbench.commitGateStatus) blockers.push("commit_gate_missing");
+  if (
+    lane.lane === "visual_gui" &&
+    lane.workbench.policyApprovalRef !== "approval-visual-gui-run-button" &&
+    lane.workbench.commitGateStatus !== "approved"
+  ) {
+    blockers.push("visual_approval_missing");
+  }
+  if (lane.lane === "sandboxed_hosted" && lane.workbench.policyFailClosed !== true) {
+    blockers.push("sandbox_fail_closed_missing");
+  }
+  if (!lane.projectionIdentityPreserved) {
+    blockers.push("projection_identity_missing");
+  }
+  if (!lane.noCanvasLocalRuntimeTruth) {
+    blockers.push("react_flow_shadow_truth_detected");
+  }
+  return blockers;
+}
+
+function blockingRowsForChecks(checks, laneReports) {
+  return Object.entries(checks)
+    .filter(([, passed]) => passed !== true)
+    .map(([check]) => ({
+      id: `blocker:${check}`,
+      severity: "blocking",
+      check,
+      title: blockerTitle(check),
+      detail: blockerDetail(check),
+      lanes: blockedLanesForCheck(check, laneReports),
+    }));
+}
+
+function blockedLanesForCheck(check, laneReports) {
+  switch (check) {
+    case "nativeBrowserProofPassed":
+      return ["native_browser"];
+    case "visualGuiProofPassed":
+      return ["visual_gui"];
+    case "sandboxedHostedProofPassed":
+      return ["sandboxed_hosted"];
+    case "laneCoverageComplete":
+      return laneReports
+        .filter((lane) => lane.proofScenario !== lane.requiredScenario)
+        .map((lane) => lane.lane);
+    case "runButtonCoverage":
+      return laneReports.filter((lane) => !lane.runButtonWired).map((lane) => lane.lane);
+    case "modelPromptTraceCoverage":
+      return laneReports
+        .filter((lane) => lane.requiredModelTrace && !lane.modelPromptTracePresent)
+        .map((lane) => lane.lane);
+    case "runtimeTraceCoverage":
+      return laneReports
+        .filter((lane) => (lane.runtimeEventCount ?? 0) < 10)
+        .map((lane) => lane.lane);
+    case "environmentSelectionCoverage":
+      return laneReports
+        .filter((lane) => !lane.environmentSelectionPresent)
+        .map((lane) => lane.lane);
+    case "observationAndTargetCoverage":
+      return laneReports.filter((lane) => lane.targetCount <= 0).map((lane) => lane.lane);
+    case "affordanceProposalPolicyCoverage":
+      return laneReports
+        .filter(
+          (lane) =>
+            lane.affordanceCount <= 0 ||
+            !lane.workbench.proposalRef ||
+            !lane.workbench.policyOutcome,
+        )
+        .map((lane) => lane.lane);
+    case "actionVerificationCleanupCoverage":
+      return laneReports
+        .filter(
+          (lane) =>
+            !lane.workbench.actionRef ||
+            lane.workbench.verificationStatus !== "passed" ||
+            lane.workbench.cleanupStatus !== "completed",
+        )
+        .map((lane) => lane.lane);
+    case "approvalOrFailClosedCoverage":
+      return laneReports
+        .filter(
+          (lane) =>
+            !lane.workbench.commitGateStatus ||
+            (lane.lane === "visual_gui" &&
+              lane.workbench.policyApprovalRef !==
+                "approval-visual-gui-run-button" &&
+              lane.workbench.commitGateStatus !== "approved") ||
+            (lane.lane === "sandboxed_hosted" &&
+              lane.workbench.policyFailClosed !== true),
+        )
+        .map((lane) => lane.lane);
+    case "projectionIdentityCoverage":
+      return laneReports
+        .filter((lane) => !lane.projectionIdentityPreserved)
+        .map((lane) => lane.lane);
+    case "noReactFlowShadowRuntimeTruth":
+      return laneReports
+        .filter((lane) => !lane.noCanvasLocalRuntimeTruth)
+        .map((lane) => lane.lane);
+    default:
+      return [];
+  }
+}
+
+function blockerTitle(check) {
+  return (
+    {
+      nativeBrowserProofPassed: "Native browser proof did not pass.",
+      visualGuiProofPassed: "Visual GUI proof did not pass.",
+      sandboxedHostedProofPassed: "Sandboxed hosted proof did not pass.",
+      laneCoverageComplete: "Required lane proof is missing or mismatched.",
+      runButtonCoverage: "Composer Run wiring evidence is incomplete.",
+      modelPromptTraceCoverage: "Mounted model prompt trace coverage is incomplete.",
+      runtimeTraceCoverage: "Runtime trace coverage is incomplete.",
+      environmentSelectionCoverage:
+        "Environment selection evidence is incomplete.",
+      observationAndTargetCoverage: "Observation or target evidence is incomplete.",
+      affordanceProposalPolicyCoverage:
+        "Affordance, proposal, or policy evidence is incomplete.",
+      actionVerificationCleanupCoverage:
+        "Action, verification, or cleanup evidence is incomplete.",
+      approvalOrFailClosedCoverage:
+        "Approval or fail-closed posture is incomplete.",
+      projectionIdentityCoverage:
+        "Workflow projection identity evidence is incomplete.",
+      noReactFlowShadowRuntimeTruth:
+        "React Flow shadow runtime truth regression detected.",
+    }[check] ?? `Computer-use scorecard check failed: ${check}`
+  );
+}
+
+function blockerDetail(check) {
+  return (
+    {
+      laneCoverageComplete:
+        "Every retained lane must have the expected proof scenario before promotion.",
+      modelPromptTraceCoverage:
+        "Composed model lanes must show input, binding, prompt, model, and tool-selection phases.",
+      approvalOrFailClosedCoverage:
+        "Visual coordinate actions need approval evidence and sandboxed lanes need fail-closed posture.",
+      noReactFlowShadowRuntimeTruth:
+        "React Flow may project and configure runtime truth, but must not own a second runtime state.",
+    }[check] ?? "Inspect the lane summary rows for the missing evidence class."
+  );
+}
+
+function laneLabel(lane) {
+  return (
+    {
+      native_browser: "Native Browser",
+      visual_gui: "Visual GUI",
+      sandboxed_hosted: "Sandboxed Hosted",
+    }[lane] ?? lane
+  );
 }
