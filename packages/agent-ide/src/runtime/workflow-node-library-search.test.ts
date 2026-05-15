@@ -81,6 +81,14 @@ test("computer-use searches prioritize lane-specific authoring presets", () => {
     topNode("hosted computer").creatorId,
     "plugin_tool.computer_use.sandboxed",
   );
+  assert.equal(
+    topNode("browser discovery").creatorId,
+    "computer_use.browser_discovery",
+  );
+  assert.equal(
+    topNode("cdp endpoint").creatorId,
+    "computer_use.browser_discovery",
+  );
 });
 
 test("short pr query does not act like broad substring search", () => {
@@ -133,6 +141,7 @@ test("palette visibility separates default authoring from advanced runtime contr
   assert.ok(!defaultAuthoring.includes("runtime_task"));
   assert.ok(advanced.includes("runtime_task"));
   assert.ok(advanced.includes("workflow_package_import"));
+  assert.ok(advanced.includes("computer_use.browser_discovery"));
 });
 
 test("composition helpers are searchable by authoring vocabulary", () => {

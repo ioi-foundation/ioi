@@ -462,7 +462,10 @@ trace spine when a mounted executor supplies those contracts, while missing
 visual/sandbox adapters still fail closed. The browser lane now also has a
 daemon/SDK read-only discovery receipt for browser process inventory, declared
 CDP endpoints, default-profile remote-debugging blockers, and redaction/safety
-posture before any attach or relaunch authority is requested.
+posture before any attach or relaunch authority is requested. Workflow authors
+can add the same capability through an advanced Browser Discovery primitive
+that compiles to the runtime tool contract and deterministic discovery
+arguments instead of a React Flow-owned browser state.
 Future daemon, workflow, and Autopilot policy executors should consume these
 helpers rather than defining local policy shapes.
 
