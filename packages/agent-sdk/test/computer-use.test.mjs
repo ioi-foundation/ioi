@@ -16,6 +16,7 @@ import {
   createRuntimeSubstrateClient,
   defaultComputerUseHarnessContract,
   evaluateComputerUseTrajectory,
+  exportComputerUseBenchmarkCase,
   humanHandoffForComputerUseBoundary,
   isActionProposalReadyForExecution,
   observationRetentionAllowsRawPersistence,
@@ -332,6 +333,17 @@ test("computer-use trajectory eval projects pass and fail-closed outcomes", () =
   assert.equal(improvementPlan.patch_proposals[0].target_surface, "adapter");
   assert.equal(improvementPlan.shadow_replay.status, "required_before_promotion");
   assert.equal(improvementPlan.promotion_gate.status, "blocked_external_adapter");
+
+  const benchmarkCase = exportComputerUseBenchmarkCase({
+    trace: blockedTrace,
+    eval: blocked,
+    improvement_plan: improvementPlan,
+  });
+  assert.equal(benchmarkCase.export_mode, "redacted_regression");
+  assert.equal(benchmarkCase.manifest.deterministic, true);
+  assert.equal(benchmarkCase.manifest.raw_artifacts_included, false);
+  assert.equal(benchmarkCase.failure_mode, "sandbox_unavailable");
+  assert.equal(benchmarkCase.promotion_gate_ref, improvementPlan.promotion_gate.promotion_ref);
 });
 
 test("computer-use model adapters normalize OpenAI-style actions into IOI proposals and actions", () => {
@@ -699,6 +711,10 @@ test("runtime daemon emits canonical computer-use events for browser prompts", a
     assert.equal(improvementPlan.outcome, "passed");
     assert.equal(improvementPlan.patch_proposals.length, 0);
     assert.equal(improvementPlan.promotion_gate.status, "not_required");
+    const benchmarkCase = await run.computerUseBenchmarkCase();
+    assert.equal(benchmarkCase.outcome, "passed");
+    assert.equal(benchmarkCase.export_mode, "redacted_regression");
+    assert.equal(benchmarkCase.manifest.hidden_runtime_shortcuts_forbidden, true);
 
     const thread = await agent.thread();
     const runtimeEvents = [];

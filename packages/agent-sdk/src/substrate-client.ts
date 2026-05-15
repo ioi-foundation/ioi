@@ -5,7 +5,9 @@ import path from "node:path";
 import { IoiAgentError, type IoiAgentErrorCode } from "./errors.js";
 import {
   evaluateComputerUseTrajectory,
+  exportComputerUseBenchmarkCase,
   planComputerUseHarnessImprovement,
+  type ComputerUseBenchmarkCaseExport,
   type ComputerUseHarnessImprovementPlan,
   type ComputerUseTrajectoryEvalProjection,
 } from "./computer-use.js";
@@ -1405,6 +1407,7 @@ export interface RuntimeSubstrateClient {
   getRunComputerUseTrajectory(runId: string): Promise<unknown>;
   getRunComputerUseTrajectoryEval(runId: string): Promise<ComputerUseTrajectoryEvalProjection>;
   getRunComputerUseHarnessImprovementPlan(runId: string): Promise<ComputerUseHarnessImprovementPlan>;
+  getRunComputerUseBenchmarkCase(runId: string): Promise<ComputerUseBenchmarkCaseExport>;
   discoverComputerUseBrowsers(
     options?: RuntimeComputerUseBrowserDiscoveryOptions,
   ): Promise<RuntimeComputerUseBrowserDiscoveryReport>;
@@ -2019,6 +2022,19 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     const trace = await this.getRunComputerUseTrace(runId);
     const evalProjection = evaluateComputerUseTrajectory({ trace });
     return planComputerUseHarnessImprovement({ trace, eval: evalProjection });
+  }
+
+  async getRunComputerUseBenchmarkCase(
+    runId: string,
+  ): Promise<ComputerUseBenchmarkCaseExport> {
+    const trace = await this.getRunComputerUseTrace(runId);
+    const evalProjection = evaluateComputerUseTrajectory({ trace });
+    const improvementPlan = planComputerUseHarnessImprovement({ trace, eval: evalProjection });
+    return exportComputerUseBenchmarkCase({
+      trace,
+      eval: evalProjection,
+      improvement_plan: improvementPlan,
+    });
   }
 
   async discoverComputerUseBrowsers(
@@ -4860,6 +4876,19 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     const trace = await this.getRunComputerUseTrace(runId);
     const evalProjection = evaluateComputerUseTrajectory({ trace });
     return planComputerUseHarnessImprovement({ trace, eval: evalProjection });
+  }
+
+  async getRunComputerUseBenchmarkCase(
+    runId: string,
+  ): Promise<ComputerUseBenchmarkCaseExport> {
+    const trace = await this.getRunComputerUseTrace(runId);
+    const evalProjection = evaluateComputerUseTrajectory({ trace });
+    const improvementPlan = planComputerUseHarnessImprovement({ trace, eval: evalProjection });
+    return exportComputerUseBenchmarkCase({
+      trace,
+      eval: evalProjection,
+      improvement_plan: improvementPlan,
+    });
   }
 
   async discoverComputerUseBrowsers(
