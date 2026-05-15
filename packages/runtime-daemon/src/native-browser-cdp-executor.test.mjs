@@ -102,6 +102,29 @@ test("native browser CDP executor completes approved key_press actions", async (
   }
 });
 
+test("native browser CDP executor completes explicit scroll actions", async () => {
+  const fixture = await startFakeNativeBrowserCdpServer();
+  try {
+    const result = await executeNativeBrowserCdpAction({
+      input: {
+        cdpEndpointUrl: fixture.endpointUrl,
+        scrollY: 420,
+      },
+      actionKind: "scroll",
+      prompt: "Scroll down",
+    });
+
+    assert.equal(result.status, "completed");
+    assert.equal(result.action_result.action, "scroll");
+    assert.equal(result.action_result.delta_y, 420);
+    assert.equal(result.action_result.target, "window");
+    assert.equal(result.after.text_preview, "Scrolled 420");
+    assert.deepEqual(fixture.state.scrolls, [{ selector: null, deltaX: 0, deltaY: 420 }]);
+  } finally {
+    await fixture.close();
+  }
+});
+
 test("native browser CDP executor fails closed without endpoint", async () => {
   const result = await executeNativeBrowserCdpAction({
     input: {},

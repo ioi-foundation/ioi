@@ -15,6 +15,8 @@ export interface WorkflowComposerComputerUseRunMetadata {
   selector?: string;
   text?: string;
   key?: string;
+  scrollX?: number;
+  scrollY?: number;
   cdpEndpointUrl?: string;
   cdpWebSocketUrl?: string;
   cdpTimeoutMs?: number;
@@ -81,6 +83,8 @@ export function workflowComposerComputerUseRunOptions(
     cleanString(first.args["key"]) ??
     cleanString(first.args["keyText"]) ??
     cleanString(first.args["key_text"]);
+  const scrollX = finiteNumber(first.args["scrollX"] ?? first.args["scroll_x"]);
+  const scrollY = finiteNumber(first.args["scrollY"] ?? first.args["scroll_y"]);
   const cdpEndpointUrl =
     cleanString(first.args["cdpEndpointUrl"]) ??
     cleanString(first.args["cdp_endpoint_url"]) ??
@@ -107,6 +111,8 @@ export function workflowComposerComputerUseRunOptions(
       ...(selector ? { selector } : {}),
       ...(text ? { text } : {}),
       ...(key ? { key } : {}),
+      ...(scrollX !== null ? { scrollX } : {}),
+      ...(scrollY !== null ? { scrollY } : {}),
       ...(cdpEndpointUrl ? { cdpEndpointUrl } : {}),
       ...(cdpWebSocketUrl ? { cdpWebSocketUrl } : {}),
       ...(cdpTimeoutMs ? { cdpTimeoutMs } : {}),
@@ -164,6 +170,11 @@ function positiveNumber(value: unknown): number | null {
   const numeric = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(numeric) || numeric <= 0) return null;
   return numeric;
+}
+
+function finiteNumber(value: unknown): number | null {
+  const numeric = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
 }
 
 function recordValue(value: unknown): Record<string, unknown> {

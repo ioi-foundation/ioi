@@ -8,6 +8,7 @@ export async function startFakeNativeBrowserCdpServer() {
     clicks: [],
     typed: [],
     keys: [],
+    scrolls: [],
   };
   const sockets = new Set();
   const server = http.createServer((request, response) => {
@@ -106,6 +107,31 @@ function handleFakeCdpCommand({ command, socket, state }) {
       });
       return;
     }
+    if (expression.includes("const deltaY =")) {
+      const selector = expression.match(/const selector = ([^;]+);/)?.[1] ?? "null";
+      const deltaX = Number(expression.match(/const deltaX = (-?\d+(?:\.\d+)?);/)?.[1] ?? 0);
+      const deltaY = Number(expression.match(/const deltaY = (-?\d+(?:\.\d+)?);/)?.[1] ?? 0);
+      const selectorValue = selector === "null" ? null : selector.replace(/^"|"$/g, "");
+      state.scrolls.push({ selector: selectorValue, deltaX, deltaY });
+      sendServerFrame(socket, {
+        id: command.id,
+        result: {
+          result: {
+            type: "object",
+            value: {
+              scrolled: true,
+              selector: selectorValue,
+              target: selectorValue ? "element" : "window",
+              delta_x: deltaX,
+              delta_y: deltaY,
+              before: { x: 0, y: 0 },
+              after: { x: deltaX, y: deltaY },
+            },
+          },
+        },
+      });
+      return;
+    }
     if (expression.includes("document.querySelector")) {
       const selector = expression.match(/const selector = "([^"]+)"/)?.[1] ?? "#submit";
       state.clicks.push(selector);
@@ -139,7 +165,9 @@ function handleFakeCdpCommand({ command, socket, state }) {
               ? `Typed ${state.typed.at(-1).text}`
               : state.keys.length > 0
                 ? `Pressed ${state.keys.at(-1).key}`
-                : state.clicks.length > 0 ? "Clicked" : "Ready",
+                : state.scrolls.length > 0
+                  ? `Scrolled ${state.scrolls.at(-1).deltaY}`
+                  : state.clicks.length > 0 ? "Clicked" : "Ready",
             html: `<html><head><title>${state.title}</title></head><body><input id="input"><button id="submit">Submit</button></body></html>`,
           },
         },

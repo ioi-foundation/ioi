@@ -18,14 +18,25 @@ export async function executeNativeBrowserCdpAction({
     prompt,
   })).slice(0, 16)}`;
   const normalizedActionKind = normalizeActionKind(actionKind);
-  if (!approvalRef || !["click", "navigate", "type_text", "key_press"].includes(normalizedActionKind)) {
+  const supportedActionKinds = ["click", "navigate", "type_text", "key_press", "scroll"];
+  if (!supportedActionKinds.includes(normalizedActionKind)) {
     return unavailableExecution({
       executorRef,
       actionKind: normalizedActionKind,
       approvalRef,
       errorClass: "NativeBrowserCdpUnsupportedAction",
       errorSummary:
-        "The native-browser CDP executor currently supports approved navigate, click, type_text, and key_press actions.",
+        "The native-browser CDP executor currently supports approved navigate, click, type_text, key_press, and explicit scroll actions.",
+    });
+  }
+  if (!approvalRef && normalizedActionKind !== "scroll") {
+    return unavailableExecution({
+      executorRef,
+      actionKind: normalizedActionKind,
+      approvalRef,
+      errorClass: "NativeBrowserCdpApprovalRequired",
+      errorSummary:
+        "The native-browser CDP executor requires approval for navigate, click, type_text, and key_press actions.",
     });
   }
 
@@ -100,6 +111,9 @@ async function executeApprovedAction({ client, input, actionKind, targetRef, pro
   }
   if (actionKind === "key_press") {
     return executeKeyPress(client, input, prompt);
+  }
+  if (actionKind === "scroll") {
+    return executeScroll(client, input, targetRef, prompt);
   }
   return executeClick(client, input, targetRef);
 }
@@ -275,6 +289,56 @@ async function executeKeyPress(client, input, prompt) {
     code: descriptor.code,
     text_length: descriptor.text.length,
     windows_virtual_key_code: descriptor.windowsVirtualKeyCode,
+  };
+}
+
+async function executeScroll(client, input, targetRef, prompt) {
+  const selector = normalizeSelector(
+    input.selector ??
+      input.targetSelector ??
+      input.target_selector ??
+      input.cssSelector ??
+      input.css_selector ??
+      targetRef,
+  );
+  const { deltaX, deltaY, source } = scrollDelta(input, prompt);
+  const expression = `(() => {
+    const selector = ${JSON.stringify(selector)};
+    const deltaX = ${JSON.stringify(deltaX)};
+    const deltaY = ${JSON.stringify(deltaY)};
+    const target = selector ? document.querySelector(selector) : null;
+    const before = target
+      ? { x: target.scrollLeft || 0, y: target.scrollTop || 0 }
+      : { x: window.scrollX || 0, y: window.scrollY || 0 };
+    if (selector && !target) {
+      return { scrolled: false, selector, reason: "target_not_found" };
+    }
+    if (target) {
+      target.scrollBy({ left: deltaX, top: deltaY, behavior: "instant" });
+    } else {
+      window.scrollBy({ left: deltaX, top: deltaY, behavior: "instant" });
+    }
+    const after = target
+      ? { x: target.scrollLeft || 0, y: target.scrollTop || 0 }
+      : { x: window.scrollX || 0, y: window.scrollY || 0 };
+    return {
+      scrolled: true,
+      selector,
+      target: target ? "element" : "window",
+      delta_x: deltaX,
+      delta_y: deltaY,
+      before,
+      after
+    };
+  })()`;
+  const value = await evaluateReturnByValue(client, expression);
+  if (!value?.scrolled) {
+    throw new Error(`CDP scroll did not find target selector ${selector}.`);
+  }
+  return {
+    action: "scroll",
+    scroll_source: source,
+    ...value,
   };
 }
 
@@ -548,6 +612,44 @@ function normalizeSelector(value) {
   const selector = stringValue(value);
   if (!selector) return null;
   if (/^(#|\.|\[|[a-zA-Z][\w-]*(?:[#.\[]|$))/.test(selector)) return selector;
+  return null;
+}
+
+function scrollDelta(input, prompt) {
+  const explicitX = numberValue(
+    input.scrollX ??
+      input.scroll_x ??
+      input.deltaX ??
+      input.delta_x ??
+      input.x,
+  );
+  const explicitY = numberValue(
+    input.scrollY ??
+      input.scroll_y ??
+      input.deltaY ??
+      input.delta_y ??
+      input.y,
+  );
+  if (explicitX !== null || explicitY !== null) {
+    return {
+      deltaX: explicitX ?? 0,
+      deltaY: explicitY ?? 0,
+      source: "explicit_delta",
+    };
+  }
+  const normalized = String(prompt ?? "").toLowerCase();
+  if (/\bleft\b/.test(normalized)) return { deltaX: -600, deltaY: 0, source: "prompt_direction" };
+  if (/\bright\b/.test(normalized)) return { deltaX: 600, deltaY: 0, source: "prompt_direction" };
+  if (/\bup\b/.test(normalized)) return { deltaX: 0, deltaY: -600, source: "prompt_direction" };
+  return { deltaX: 0, deltaY: 600, source: /\bdown\b/.test(normalized) ? "prompt_direction" : "default_down" };
+}
+
+function numberValue(value) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) return numeric;
+  }
   return null;
 }
 

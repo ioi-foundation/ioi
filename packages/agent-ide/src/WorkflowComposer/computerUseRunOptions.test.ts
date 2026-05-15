@@ -58,6 +58,7 @@ test("computer-use composer run options project configured native-browser action
   args["selector"] = "#submit";
   args["text"] = "hello";
   args["key"] = "Enter";
+  args["scrollY"] = 420;
   args["cdpEndpointUrl"] = "http://127.0.0.1:9222";
   args["cdpTimeoutMs"] = 5000;
 
@@ -70,6 +71,7 @@ test("computer-use composer run options project configured native-browser action
   assert.equal(options.metadata.selector, "#submit");
   assert.equal(options.metadata.text, "hello");
   assert.equal(options.metadata.key, "Enter");
+  assert.equal(options.metadata.scrollY, 420);
   assert.equal(options.metadata.cdpEndpointUrl, "http://127.0.0.1:9222");
   assert.equal(options.metadata.cdpTimeoutMs, 5000);
 });

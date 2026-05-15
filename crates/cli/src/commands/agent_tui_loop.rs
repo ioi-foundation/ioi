@@ -82,6 +82,8 @@ pub(crate) enum TuiLineCommand {
         selector: Option<String>,
         text: Option<String>,
         key: Option<String>,
+        scroll_x: Option<i64>,
+        scroll_y: Option<i64>,
         cdp_endpoint_url: Option<String>,
         cdp_websocket_url: Option<String>,
         cdp_timeout_ms: Option<u64>,
@@ -397,6 +399,8 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                 selector,
                 text,
                 key,
+                scroll_x,
+                scroll_y,
                 cdp_endpoint_url,
                 cdp_websocket_url,
                 cdp_timeout_ms,
@@ -410,6 +414,8 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                         selector,
                         text,
                         key,
+                        scroll_x,
+                        scroll_y,
                         cdp_endpoint_url,
                         cdp_websocket_url,
                         cdp_timeout_ms,
@@ -978,6 +984,8 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 selector: args.selector,
                 text: args.text,
                 key: args.key,
+                scroll_x: args.scroll_x,
+                scroll_y: args.scroll_y,
                 cdp_endpoint_url: args.cdp_endpoint_url,
                 cdp_websocket_url: args.cdp_websocket_url,
                 cdp_timeout_ms: args.cdp_timeout_ms,
@@ -1003,6 +1011,8 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                     selector: args.selector,
                     text: args.text,
                     key: args.key,
+                    scroll_x: args.scroll_x,
+                    scroll_y: args.scroll_y,
                     cdp_endpoint_url: args.cdp_endpoint_url,
                     cdp_websocket_url: args.cdp_websocket_url,
                     cdp_timeout_ms: args.cdp_timeout_ms,
@@ -2629,6 +2639,12 @@ async fn handle_native_browser_command(
     if let Some(key) = args.key.as_deref().filter(|value| !value.trim().is_empty()) {
         input.insert("key".to_string(), Value::String(key.trim().to_string()));
     }
+    if let Some(scroll_x) = args.scroll_x {
+        input.insert("scrollX".to_string(), Value::from(scroll_x));
+    }
+    if let Some(scroll_y) = args.scroll_y {
+        input.insert("scrollY".to_string(), Value::from(scroll_y));
+    }
     if let Some(cdp_endpoint_url) = args
         .cdp_endpoint_url
         .as_deref()
@@ -3265,7 +3281,7 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--approval-ref approval_id] [--selector css] [--target-ref ref] [--text value] [--key value] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--approval-ref approval_id] [--selector css] [--target-ref ref] [--text value] [--key value] [--scroll-x n] [--scroll-y n] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -3291,6 +3307,8 @@ struct NativeBrowserLineArgs {
     selector: Option<String>,
     text: Option<String>,
     key: Option<String>,
+    scroll_x: Option<i64>,
+    scroll_y: Option<i64>,
     cdp_endpoint_url: Option<String>,
     cdp_websocket_url: Option<String>,
     cdp_timeout_ms: Option<u64>,
@@ -3303,6 +3321,8 @@ fn parse_native_browser_args(value: &str) -> Result<NativeBrowserLineArgs> {
     let mut selector = None;
     let mut text = None;
     let mut key = None;
+    let mut scroll_x = None;
+    let mut scroll_y = None;
     let mut cdp_endpoint_url = None;
     let mut cdp_websocket_url = None;
     let mut cdp_timeout_ms = None;
@@ -3366,6 +3386,28 @@ fn parse_native_browser_args(value: &str) -> Result<NativeBrowserLineArgs> {
             )?);
             continue;
         }
+        if let Some(inline) = part.strip_prefix("--scroll-x=") {
+            scroll_x = Some(parse_scroll_delta("--scroll-x", inline)?);
+            continue;
+        }
+        if part == "--scroll-x" {
+            scroll_x = Some(parse_scroll_delta(
+                "--scroll-x",
+                required_flag_value("--scroll-x", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--scroll-y=") {
+            scroll_y = Some(parse_scroll_delta("--scroll-y", inline)?);
+            continue;
+        }
+        if part == "--scroll-y" {
+            scroll_y = Some(parse_scroll_delta(
+                "--scroll-y",
+                required_flag_value("--scroll-y", &mut parts)?,
+            )?);
+            continue;
+        }
         if let Some(inline) = part.strip_prefix("--cdp-endpoint-url=") {
             cdp_endpoint_url = Some(non_empty_flag_value("--cdp-endpoint-url", inline)?);
             continue;
@@ -3408,6 +3450,8 @@ fn parse_native_browser_args(value: &str) -> Result<NativeBrowserLineArgs> {
         selector,
         text,
         key,
+        scroll_x,
+        scroll_y,
         cdp_endpoint_url,
         cdp_websocket_url,
         cdp_timeout_ms,
@@ -3440,6 +3484,13 @@ fn parse_cdp_timeout_ms(value: &str) -> Result<u64> {
         return Err(anyhow!("--cdp-timeout-ms must be greater than zero"));
     }
     Ok(parsed)
+}
+
+fn parse_scroll_delta(flag: &str, value: &str) -> Result<i64> {
+    value
+        .trim()
+        .parse::<i64>()
+        .map_err(|_| anyhow!("{flag} requires an integer pixel delta"))
 }
 
 fn line_command_head(value: &str) -> Option<String> {
@@ -4462,6 +4513,8 @@ mod tests {
                 selector: None,
                 text: None,
                 key: None,
+                scroll_x: None,
+                scroll_y: None,
                 cdp_endpoint_url: None,
                 cdp_websocket_url: None,
                 cdp_timeout_ms: None,
@@ -4476,6 +4529,8 @@ mod tests {
                 selector: None,
                 text: None,
                 key: None,
+                scroll_x: None,
+                scroll_y: None,
                 cdp_endpoint_url: None,
                 cdp_websocket_url: None,
                 cdp_timeout_ms: None,
@@ -4483,7 +4538,7 @@ mod tests {
         );
         assert_eq!(
             parse_tui_line_command(
-                "/native-browser click submit --approval-ref approval-browser-click --selector #submit --target-ref #submit --text hello --key Enter --cdp-endpoint-url http://127.0.0.1:9222 --cdp-timeout-ms 5000"
+                "/native-browser click submit --approval-ref approval-browser-click --selector #submit --target-ref #submit --text hello --key Enter --scroll-y 420 --cdp-endpoint-url http://127.0.0.1:9222 --cdp-timeout-ms 5000"
             )
             .unwrap(),
             TuiLineCommand::NativeBrowser {
@@ -4493,6 +4548,8 @@ mod tests {
                 selector: Some("#submit".to_string()),
                 text: Some("hello".to_string()),
                 key: Some("Enter".to_string()),
+                scroll_x: None,
+                scroll_y: Some(420),
                 cdp_endpoint_url: Some("http://127.0.0.1:9222".to_string()),
                 cdp_websocket_url: None,
                 cdp_timeout_ms: Some(5000),

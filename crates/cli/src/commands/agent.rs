@@ -427,6 +427,12 @@ pub enum ToolCommands {
         /// Key payload for approved key_press actions, for example Enter or Escape.
         #[clap(long)]
         key: Option<String>,
+        /// Horizontal scroll delta for explicit scroll actions.
+        #[clap(long = "scroll-x")]
+        scroll_x: Option<i64>,
+        /// Vertical scroll delta for explicit scroll actions.
+        #[clap(long = "scroll-y")]
+        scroll_y: Option<i64>,
         /// HTTP CDP endpoint, for example http://127.0.0.1:9222.
         #[clap(long = "cdp-endpoint-url")]
         cdp_endpoint_url: Option<String>,
@@ -1344,6 +1350,8 @@ async fn run_tool_command(
             selector,
             text,
             key,
+            scroll_x,
+            scroll_y,
             cdp_endpoint_url,
             cdp_websocket_url,
             cdp_timeout_ms,
@@ -1365,6 +1373,8 @@ async fn run_tool_command(
                 selector,
                 text,
                 key,
+                scroll_x,
+                scroll_y,
                 cdp_endpoint_url,
                 cdp_websocket_url,
                 cdp_timeout_ms,
@@ -1553,6 +1563,8 @@ async fn invoke_native_browser_tool(
     selector: Option<String>,
     text: Option<String>,
     key: Option<String>,
+    scroll_x: Option<i64>,
+    scroll_y: Option<i64>,
     cdp_endpoint_url: Option<String>,
     cdp_websocket_url: Option<String>,
     cdp_timeout_ms: Option<u64>,
@@ -1624,6 +1636,18 @@ async fn invoke_native_browser_tool(
         input.insert(
             "key".to_string(),
             serde_json::Value::String(key.trim().to_string()),
+        );
+    }
+    if let Some(scroll_x) = scroll_x {
+        input.insert(
+            "scrollX".to_string(),
+            serde_json::Value::Number(scroll_x.into()),
+        );
+    }
+    if let Some(scroll_y) = scroll_y {
+        input.insert(
+            "scrollY".to_string(),
+            serde_json::Value::Number(scroll_y.into()),
         );
     }
     if let Some(cdp_endpoint_url) = cdp_endpoint_url
@@ -2970,6 +2994,8 @@ mod tests {
             "hello",
             "--key",
             "Enter",
+            "--scroll-y",
+            "420",
             "--cdp-endpoint-url",
             "http://127.0.0.1:9222",
             "--cdp-timeout-ms",
@@ -2988,6 +3014,7 @@ mod tests {
                     target_ref: Some(target_ref),
                     text: Some(text),
                     key: Some(key),
+                    scroll_y: Some(scroll_y),
                     cdp_endpoint_url: Some(cdp_endpoint_url),
                     cdp_timeout_ms: Some(cdp_timeout_ms),
                     json: true,
@@ -3001,6 +3028,7 @@ mod tests {
                 && target_ref == "#submit"
                 && text == "hello"
                 && key == "Enter"
+                && scroll_y == 420
                 && cdp_endpoint_url == "http://127.0.0.1:9222"
                 && cdp_timeout_ms == 5000
         ));

@@ -7398,7 +7398,11 @@ export class AgentgresRuntimeStateStore {
     const requestedApprovalRef = nativeBrowserApprovalRefForInput(input);
     const requestedTargetRef =
       optionalString(input.targetRef ?? input.target_ref ?? input.computerUseTargetRef ?? input.computer_use_target_ref);
-    const nativeBrowserExecution = !nativeBrowserActionKindIsReadOnly(requestedActionKind) && requestedApprovalRef
+    const nativeBrowserExecution = nativeBrowserActionShouldUseCdpExecutor(
+      requestedActionKind,
+      requestedApprovalRef,
+      input,
+    )
       ? await executeNativeBrowserCdpAction({
           input,
           actionKind: requestedActionKind,
@@ -18220,6 +18224,26 @@ function nativeBrowserCdpTimeoutMs(input = {}) {
     return Math.round(value);
   }
   return 3_000;
+}
+
+function nativeBrowserActionShouldUseCdpExecutor(actionKind, approvalRef, input = {}) {
+  if (!nativeBrowserActionKindIsReadOnly(actionKind) && approvalRef) return true;
+  return actionKind === "scroll" && nativeBrowserHasExplicitCdpEndpoint(input);
+}
+
+function nativeBrowserHasExplicitCdpEndpoint(input = {}) {
+  return Boolean(optionalString(
+    input.cdpEndpointUrl ??
+      input.cdp_endpoint_url ??
+      input.cdpEndpoint ??
+      input.cdp_endpoint ??
+      input.cdpWebSocketUrl ??
+      input.cdp_websocket_url ??
+      input.cdpWsUrl ??
+      input.cdp_ws_url ??
+      input.webSocketDebuggerUrl ??
+      input.websocketDebuggerUrl,
+  ));
 }
 
 function nativeBrowserActionKindValue(value) {
