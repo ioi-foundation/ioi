@@ -1240,6 +1240,75 @@ test("runtime daemon brokers read-only visual GUI observations for later visual 
   }
 });
 
+test("runtime daemon observes local visual GUI captures through read-only fixture provider", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-visual-gui-capture-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-visual-gui-capture-state-"));
+  const priorFixtureFlag = process.env.IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE;
+  process.env.IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE = "1";
+  const fixturePngBase64 =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l6eI2wAAAABJRU5ErkJggg==";
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const thread = await agent.thread();
+    const observe = await client.invokeThreadTool(thread.id, "ioi.computer_use.visual_gui.observe", {
+      source: "sdk_test",
+      workflowGraphId: "workflow.visual-gui-capture",
+      workflowNodeId: "visual-gui-capture",
+      toolCallId: "capture_fixture",
+      input: {
+        prompt: "Capture the current local workflow composer surface.",
+        captureScreen: true,
+        captureAxTree: true,
+        captureProvider: "fixture",
+        captureFixturePngBase64: fixturePngBase64,
+        captureFixtureAxTree: { role: "window", name: "Workflow Composer" },
+        captureAppName: "Autopilot",
+        captureWindowTitle: "Workflow Composer",
+        sessionMode: "foreground_desktop",
+      },
+    });
+
+    assert.equal(observe.status, "completed");
+    assert.equal(observe.result.action.action_kind, "inspect");
+    assert.equal(observe.result.lease.authority_scope, "computer_use.visual_gui.read");
+    assert.equal(observe.result.observation.app_name, "Autopilot");
+    assert.equal(observe.result.observation.window_title, "Workflow Composer");
+    assert.match(observe.result.observation.screenshot_ref, /^artifact_computer_use_visual_/);
+    assert.match(observe.result.observation.ax_ref, /^artifact_computer_use_visual_/);
+    assert.equal(observe.result.targetIndex.coordinate_space_id, "screen_capture_fixture_local_capture");
+    assert.equal(observe.result.targetIndex.targets[0].bounds.width, 1);
+    assert.equal(observe.result.targetIndex.targets[0].bounds.height, 1);
+    assert.deepEqual(observe.result.targetIndex.targets[0].available_actions, ["inspect"]);
+    assert.equal(observe.result.observationBroker.capture_receipt.status, "captured");
+    assert.equal(observe.result.observationBroker.capture_receipt.provider_id, "fixture");
+    assert.equal(observe.result.observationBroker.capture_receipt.source_path_included, false);
+    assert.ok(observe.result.cleanup.retained_artifact_refs.includes(observe.result.observation.screenshot_ref));
+    assert.equal(
+      fs.existsSync(path.join(stateDir, "visual-gui-captures", "visual_gui_local_capture_capture_fixture.png")),
+      false,
+    );
+
+    const screenshotArtifact = await client.invokeThreadTool(thread.id, "artifact.read", {
+      input: { artifactId: observe.result.observation.screenshot_ref },
+    });
+    assert.equal(screenshotArtifact.status, "completed");
+    assert.equal(screenshotArtifact.result.content, fixturePngBase64);
+  } finally {
+    if (priorFixtureFlag == null) {
+      delete process.env.IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE;
+    } else {
+      process.env.IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE = priorFixtureFlag;
+    }
+    await daemon.close();
+  }
+});
+
 test("runtime daemon gates mutating native browser actions before execution", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-gate-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-gate-state-"));

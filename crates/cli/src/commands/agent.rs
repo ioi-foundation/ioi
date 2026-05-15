@@ -586,6 +586,18 @@ pub enum ToolCommands {
         /// Local accessibility tree path to retain as a governed artifact/ref.
         #[clap(long = "ax-path")]
         ax_path: Option<String>,
+        /// Capture the local primary screen through a read-only daemon adapter.
+        #[clap(long = "capture-screen")]
+        capture_screen: bool,
+        /// Request accessibility-tree capture when the local adapter supports it.
+        #[clap(long = "capture-ax-tree")]
+        capture_ax_tree: bool,
+        /// App name metadata to attach to a local capture.
+        #[clap(long = "capture-app-name")]
+        capture_app_name: Option<String>,
+        /// Window title metadata to attach to a local capture.
+        #[clap(long = "capture-window-title")]
+        capture_window_title: Option<String>,
         /// Observed app name.
         #[clap(long = "app-name")]
         app_name: Option<String>,
@@ -1641,6 +1653,10 @@ async fn run_tool_command(
                 coordinate_space_id,
                 viewport_width,
                 viewport_height,
+                false,
+                false,
+                None,
+                None,
                 observation_retention_mode,
                 turn_id,
                 workflow_graph_id,
@@ -1661,6 +1677,10 @@ async fn run_tool_command(
             som_path,
             ax_ref,
             ax_path,
+            capture_screen,
+            capture_ax_tree,
+            capture_app_name,
+            capture_window_title,
             app_name,
             window_title,
             coordinate_space_id,
@@ -1691,6 +1711,10 @@ async fn run_tool_command(
                 coordinate_space_id,
                 viewport_width,
                 viewport_height,
+                capture_screen,
+                capture_ax_tree,
+                capture_app_name,
+                capture_window_title,
                 observation_retention_mode,
                 turn_id,
                 workflow_graph_id,
@@ -2158,6 +2182,10 @@ async fn invoke_visual_gui_tool(
     coordinate_space_id: Option<String>,
     viewport_width: Option<u64>,
     viewport_height: Option<u64>,
+    capture_screen: bool,
+    capture_ax_tree: bool,
+    capture_app_name: Option<String>,
+    capture_window_title: Option<String>,
     observation_retention_mode: String,
     turn_id: Option<String>,
     workflow_graph_id: Option<String>,
@@ -2183,6 +2211,10 @@ async fn invoke_visual_gui_tool(
         coordinate_space_id,
         viewport_width,
         viewport_height,
+        capture_screen,
+        capture_ax_tree,
+        capture_app_name,
+        capture_window_title,
         observation_retention_mode,
         turn_id,
         workflow_graph_id,
@@ -2214,6 +2246,10 @@ async fn invoke_visual_gui_tool_with_tool_ref(
     coordinate_space_id: Option<String>,
     viewport_width: Option<u64>,
     viewport_height: Option<u64>,
+    capture_screen: bool,
+    capture_ax_tree: bool,
+    capture_app_name: Option<String>,
+    capture_window_title: Option<String>,
     observation_retention_mode: String,
     turn_id: Option<String>,
     workflow_graph_id: Option<String>,
@@ -2339,6 +2375,30 @@ async fn invoke_visual_gui_tool_with_tool_ref(
         input.insert(
             "viewportHeight".to_string(),
             serde_json::Value::Number(viewport_height.into()),
+        );
+    }
+    if capture_screen {
+        input.insert("captureScreen".to_string(), serde_json::Value::Bool(true));
+    }
+    if capture_ax_tree {
+        input.insert("captureAxTree".to_string(), serde_json::Value::Bool(true));
+    }
+    if let Some(capture_app_name) = capture_app_name
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "captureAppName".to_string(),
+            serde_json::Value::String(capture_app_name.trim().to_string()),
+        );
+    }
+    if let Some(capture_window_title) = capture_window_title
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "captureWindowTitle".to_string(),
+            serde_json::Value::String(capture_window_title.trim().to_string()),
         );
     }
     input.insert(
@@ -3929,6 +3989,12 @@ mod tests {
             "/tmp/visual-som.json",
             "--ax-path",
             "/tmp/visual-ax.json",
+            "--capture-screen",
+            "--capture-ax-tree",
+            "--capture-app-name",
+            "CapturedApp",
+            "--capture-window-title",
+            "CapturedWindow",
             "--app-name",
             "CanvasApp",
             "--window-title",
@@ -3951,6 +4017,10 @@ mod tests {
                     screenshot_path: Some(screenshot_path),
                     som_path: Some(som_path),
                     ax_path: Some(ax_path),
+                    capture_screen: true,
+                    capture_ax_tree: true,
+                    capture_app_name: Some(capture_app_name),
+                    capture_window_title: Some(capture_window_title),
                     app_name: Some(app_name),
                     window_title: Some(window_title),
                     coordinate_space_id: Some(coordinate_space_id),
@@ -3965,6 +4035,8 @@ mod tests {
                 && screenshot_path == "/tmp/visual-screenshot.png"
                 && som_path == "/tmp/visual-som.json"
                 && ax_path == "/tmp/visual-ax.json"
+                && capture_app_name == "CapturedApp"
+                && capture_window_title == "CapturedWindow"
                 && app_name == "CanvasApp"
                 && window_title == "CanvasWindow"
                 && coordinate_space_id == "screen-visual-1"

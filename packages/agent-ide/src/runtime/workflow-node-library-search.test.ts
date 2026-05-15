@@ -94,6 +94,10 @@ test("computer-use searches prioritize lane-specific authoring presets", () => {
     "computer_use.visual_gui_observe",
   );
   assert.equal(
+    topNode("local screen capture").creatorId,
+    "computer_use.visual_gui_observe",
+  );
+  assert.equal(
     topNode("cdp endpoint").creatorId,
     "computer_use.browser_discovery",
   );

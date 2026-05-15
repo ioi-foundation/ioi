@@ -147,6 +147,16 @@ test("creator taxonomy covers memory, worker, mcp, skill, and computer-use autho
     "ioi.computer_use.visual_gui.observe",
   );
   assert.equal(
+    creators.get("computer_use.visual_gui_observe")?.defaultLogic.toolBinding
+      ?.arguments?.["captureScreen"],
+    false,
+  );
+  assert.equal(
+    creators.get("computer_use.visual_gui_observe")?.defaultLogic.toolBinding
+      ?.arguments?.["captureAxTree"],
+    false,
+  );
+  assert.equal(
     creators.get("computer_use.browser_discovery")?.defaultLogic.toolBinding
       ?.arguments?.["computerUseBrowserDiscovery"],
     true,
