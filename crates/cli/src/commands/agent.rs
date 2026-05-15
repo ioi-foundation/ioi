@@ -398,6 +398,42 @@ pub enum ToolCommands {
         #[clap(long)]
         json: bool,
     },
+    /// Run a read-only native-browser computer-use prompt through the daemon thread-tool spine.
+    NativeBrowser {
+        /// Runtime thread id that owns the computer-use event stream.
+        #[clap(long = "thread-id")]
+        thread_id: String,
+        /// Prompt/goal to run through the native-browser harness.
+        #[clap(long)]
+        prompt: Option<String>,
+        /// URL hint for the native-browser observation.
+        #[clap(long)]
+        url: Option<String>,
+        /// Observation retention mode.
+        #[clap(
+            long = "observation-retention-mode",
+            default_value = "prompt_visible_summary_only"
+        )]
+        observation_retention_mode: String,
+        /// Runtime turn id to associate with the tool result.
+        #[clap(long = "turn-id")]
+        turn_id: Option<String>,
+        /// Workflow graph id for React Flow-originated invocations.
+        #[clap(long = "workflow-graph-id")]
+        workflow_graph_id: Option<String>,
+        /// Workflow node id for React Flow-originated invocations.
+        #[clap(long = "workflow-node-id")]
+        workflow_node_id: Option<String>,
+        /// Runtime daemon endpoint. Defaults to IOI_DAEMON_ENDPOINT or http://127.0.0.1:8765.
+        #[clap(long)]
+        endpoint: Option<String>,
+        /// Capability token. Defaults to IOI_DAEMON_TOKEN.
+        #[clap(long)]
+        token: Option<String>,
+        /// Emit machine-readable JSON.
+        #[clap(long)]
+        json: bool,
+    },
     /// Invoke a daemon-backed coding tool for a runtime thread.
     Run {
         /// Coding tool id, for example workspace.status, git.diff, file.inspect, file.apply_patch, test.run, lsp.diagnostics, artifact.read, or tool.retrieve_result.
@@ -1271,6 +1307,32 @@ async fn run_tool_command(
             )
             .await
         }
+        Some(ToolCommands::NativeBrowser {
+            thread_id,
+            prompt,
+            url,
+            observation_retention_mode,
+            turn_id,
+            workflow_graph_id,
+            workflow_node_id,
+            endpoint,
+            token,
+            json,
+        }) => {
+            invoke_native_browser_tool(
+                thread_id,
+                prompt,
+                url,
+                observation_retention_mode,
+                turn_id,
+                workflow_graph_id,
+                workflow_node_id,
+                endpoint,
+                token,
+                json,
+            )
+            .await
+        }
         Some(ToolCommands::Run {
             tool,
             thread_id,
@@ -1433,6 +1495,102 @@ async fn print_coding_tool_catalog(
             println!("  {id}: {display} node={node}");
         }
     }
+    Ok(())
+}
+
+async fn invoke_native_browser_tool(
+    thread_id: String,
+    prompt: Option<String>,
+    url: Option<String>,
+    observation_retention_mode: String,
+    turn_id: Option<String>,
+    workflow_graph_id: Option<String>,
+    workflow_node_id: Option<String>,
+    endpoint: Option<String>,
+    token: Option<String>,
+    json: bool,
+) -> Result<()> {
+    let endpoint = resolve_daemon_endpoint(endpoint.as_deref());
+    let token = resolve_daemon_token(token.as_deref());
+    let mut body = serde_json::Map::new();
+    body.insert(
+        "source".to_string(),
+        serde_json::Value::String("sdk_client".to_string()),
+    );
+    let mut input = serde_json::Map::new();
+    if let Some(prompt) = prompt.as_deref().filter(|value| !value.trim().is_empty()) {
+        input.insert(
+            "prompt".to_string(),
+            serde_json::Value::String(prompt.trim().to_string()),
+        );
+    }
+    if let Some(url) = url.as_deref().filter(|value| !value.trim().is_empty()) {
+        input.insert(
+            "url".to_string(),
+            serde_json::Value::String(url.trim().to_string()),
+        );
+    }
+    input.insert(
+        "observationRetentionMode".to_string(),
+        serde_json::Value::String(observation_retention_mode),
+    );
+    body.insert("input".to_string(), serde_json::Value::Object(input));
+    if let Some(turn_id) = turn_id.as_deref().filter(|value| !value.trim().is_empty()) {
+        body.insert(
+            "turn_id".to_string(),
+            serde_json::Value::String(turn_id.to_string()),
+        );
+    }
+    if let Some(workflow_graph_id) = workflow_graph_id
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        body.insert(
+            "workflow_graph_id".to_string(),
+            serde_json::Value::String(workflow_graph_id.to_string()),
+        );
+    }
+    body.insert(
+        "workflow_node_id".to_string(),
+        serde_json::Value::String(
+            workflow_node_id
+                .as_deref()
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or("computer-use.native-browser.cli")
+                .to_string(),
+        ),
+    );
+    let route = coding_tool_invoke_route(&thread_id, "ioi.computer_use.native_browser");
+    let value = daemon_request(
+        Some(&endpoint),
+        token.as_deref(),
+        Method::POST,
+        &route,
+        Some(serde_json::Value::Object(body)),
+    )
+    .await?;
+    if json {
+        return print_json(&value);
+    }
+    let status = value
+        .get("status")
+        .and_then(|value| value.as_str())
+        .unwrap_or("unknown");
+    let event_count = value
+        .get("event_count")
+        .and_then(|value| value.as_u64())
+        .unwrap_or(0);
+    let workflow_node = value
+        .get("workflow_node_id")
+        .and_then(|value| value.as_str())
+        .unwrap_or("computer-use.native-browser.cli");
+    let action_status = value
+        .pointer("/result/actionReceipt/status")
+        .and_then(|value| value.as_str())
+        .unwrap_or("unknown");
+    println!(
+        "Native browser computer-use: thread={thread_id} status={status} node={workflow_node} events={event_count} action={action_status}"
+    );
     Ok(())
 }
 
@@ -2663,6 +2821,32 @@ mod tests {
                 }),
                 ..
             })
+        ));
+        let native_browser = AgentArgs::try_parse_from([
+            "agent",
+            "tools",
+            "native-browser",
+            "--endpoint",
+            "http://127.0.0.1:8765",
+            "--thread-id",
+            "thread_runtime_cli",
+            "--prompt",
+            "inspect https://example.com",
+            "--url",
+            "https://example.com",
+            "--json",
+        ])
+        .expect("native browser command should parse");
+        assert!(matches!(
+            native_browser.command,
+            Some(AgentCommands::Tools {
+                command: Some(ToolCommands::NativeBrowser {
+                    thread_id,
+                    json: true,
+                    ..
+                }),
+                ..
+            }) if thread_id == "thread_runtime_cli"
         ));
         let coding_tool_run = AgentArgs::try_parse_from([
             "agent",

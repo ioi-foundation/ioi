@@ -99,6 +99,7 @@ const TUI_RUN_INSPECT_ROUTE_TEMPLATE: &str = "/v1/runs/{run_id}/inspect";
 const TUI_RUN_CODING_TOOL_BUDGET_RECOVERY_ROUTE_TEMPLATE: &str =
     "/v1/runs/{run_id}/coding-tool-budget-recovery";
 const TUI_BROWSER_DISCOVERY_TOOL_ID: &str = "ioi.computer_use.browser_discovery";
+const TUI_NATIVE_BROWSER_TOOL_ID: &str = "ioi.computer_use.native_browser";
 
 #[derive(Parser, Debug)]
 pub struct AgentTuiArgs {
@@ -1703,11 +1704,14 @@ fn tui_thread_tool_workflow_node_id(tool_id: &str) -> String {
     if tool_id == TUI_BROWSER_DISCOVERY_TOOL_ID {
         return "computer-use.browser-discovery.tui".to_string();
     }
+    if tool_id == TUI_NATIVE_BROWSER_TOOL_ID {
+        return "computer-use.native-browser.tui".to_string();
+    }
     format!("runtime.coding-tool.{}", safe_id(tool_id))
 }
 
 fn tui_thread_tool_component_kind(tool_id: &str) -> &'static str {
-    if tool_id == TUI_BROWSER_DISCOVERY_TOOL_ID {
+    if tool_id == TUI_BROWSER_DISCOVERY_TOOL_ID || tool_id == TUI_NATIVE_BROWSER_TOOL_ID {
         "computer_use_harness"
     } else {
         "coding_tool"
