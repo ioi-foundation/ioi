@@ -192,6 +192,11 @@ export interface WorkflowRuntimeComputerUseProjection {
   actionReceiptRef: string | null;
   targetRef: string | null;
   policyDecisionRef: string | null;
+  policyOutcome: string | null;
+  policyAuthorityScope: string | null;
+  policyApprovalRef: string | null;
+  policyExternalEffect: boolean | null;
+  policyFailClosed: boolean | null;
   verificationRef: string | null;
   verificationStatus: string | null;
   commitGateRef: string | null;
@@ -3260,6 +3265,9 @@ function computerUseProjectionForRuntimeThreadEvent(
     "cleanup_receipt",
     "cleanupReceipt",
   );
+  const policyDecisionReceipt =
+    recordField(payload, "policy_decision_receipt", "policyDecisionReceipt") ??
+    recordField(payload, "policy_gate", "policyGate");
   const targetCount = targetIndex ? arrayField(targetIndex, "targets").length : null;
   const affordanceCount = affordanceGraph
     ? arrayField(affordanceGraph, "affordances").length
@@ -3386,8 +3394,30 @@ function computerUseProjectionForRuntimeThreadEvent(
         "computer_use_policy_decision_ref",
         "computerUsePolicyDecisionRef",
       ) ??
+      stringField(policyDecisionReceipt, "policy_decision_ref", "policyDecisionRef") ??
       stringField(actionProposal, "policy_decision_ref", "policyDecisionRef") ??
       stringField(recordField(payload, "policy_gate", "policyGate"), "policy_decision_ref", "policyDecisionRef"),
+    policyOutcome: stringField(policyDecisionReceipt, "outcome", "decision"),
+    policyAuthorityScope: stringField(
+      policyDecisionReceipt,
+      "authority_scope",
+      "authorityScope",
+    ),
+    policyApprovalRef: stringField(
+      policyDecisionReceipt,
+      "approval_ref",
+      "approvalRef",
+    ),
+    policyExternalEffect: booleanField(
+      policyDecisionReceipt,
+      "external_effect",
+      "externalEffect",
+    ),
+    policyFailClosed: booleanField(
+      policyDecisionReceipt,
+      "fail_closed",
+      "failClosed",
+    ),
     verificationRef:
       stringField(payload, "computer_use_verification_ref", "computerUseVerificationRef") ??
       stringField(verificationReceipt, "verification_ref", "verificationRef") ??

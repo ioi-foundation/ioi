@@ -731,6 +731,22 @@ export function WorkflowRunsPanel({
               data-commit-gate-status={
                 computerUseWorkbench.commitGateStatus ?? ""
               }
+              data-policy-decision-ref={
+                computerUseWorkbench.policyDecisionRef ?? ""
+              }
+              data-policy-outcome={computerUseWorkbench.policyOutcome ?? ""}
+              data-policy-authority-scope={
+                computerUseWorkbench.policyAuthorityScope ?? ""
+              }
+              data-policy-approval-ref={
+                computerUseWorkbench.policyApprovalRef ?? ""
+              }
+              data-policy-external-effect={
+                computerUseWorkbench.policyExternalEffect ?? ""
+              }
+              data-policy-fail-closed={
+                computerUseWorkbench.policyFailClosed ?? ""
+              }
               data-blocker={computerUseWorkbench.blocker ?? ""}
               data-retention-mode={computerUseWorkbench.retentionMode ?? ""}
               data-authority-required={
@@ -827,6 +843,54 @@ export function WorkflowRunsPanel({
                     ]
                       .filter(Boolean)
                       .join(" · ") || "verification pending"}
+                  </small>
+                </article>
+                <article
+                  className="workflow-run-computer-use-pane"
+                  data-testid="workflow-run-computer-use-policy-pane"
+                  data-policy-decision-ref={
+                    computerUseWorkbench.policyDecisionRef ?? ""
+                  }
+                  data-policy-outcome={computerUseWorkbench.policyOutcome ?? ""}
+                  data-policy-authority-scope={
+                    computerUseWorkbench.policyAuthorityScope ?? ""
+                  }
+                  data-policy-approval-ref={
+                    computerUseWorkbench.policyApprovalRef ?? ""
+                  }
+                  data-policy-external-effect={
+                    computerUseWorkbench.policyExternalEffect ?? ""
+                  }
+                  data-policy-fail-closed={
+                    computerUseWorkbench.policyFailClosed ?? ""
+                  }
+                >
+                  <strong>Policy</strong>
+                  <span>
+                    {[
+                      computerUseWorkbench.policyOutcome,
+                      computerUseWorkbench.policyFailClosed === true
+                        ? "fail closed"
+                        : computerUseWorkbench.policyFailClosed === false
+                          ? "allowed"
+                          : null,
+                      computerUseWorkbench.policyExternalEffect === true
+                        ? "external effect"
+                        : computerUseWorkbench.policyExternalEffect === false
+                          ? "no external effect"
+                          : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "policy pending"}
+                  </span>
+                  <small>
+                    {[
+                      computerUseWorkbench.policyDecisionRef,
+                      computerUseWorkbench.policyAuthorityScope,
+                      computerUseWorkbench.policyApprovalRef,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "decision evidence pending"}
                   </small>
                 </article>
               </div>
