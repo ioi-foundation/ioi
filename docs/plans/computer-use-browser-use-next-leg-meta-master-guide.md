@@ -444,7 +444,9 @@ Autopilot/daemon consumption, and daemon run records now preserve those bridge
 events in run inspection plus `computer-use-trace.json` artifacts. When a
 bridge emits computer-use events without a full trajectory bundle, the daemon
 synthesizes deterministic event-level trajectory entries so the trace remains
-replayable.
+replayable. Bridge observation traces also infer lane, session, environment
+selection, and lease projection data from the canonical observation bundle
+without creating a second runtime owner.
 Daemon-backed visual and hosted/sandbox lane runs activate through the same
 trace spine when a mounted executor supplies those contracts, while missing
 visual/sandbox adapters still fail closed.

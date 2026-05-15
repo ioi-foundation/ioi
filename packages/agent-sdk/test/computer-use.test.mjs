@@ -966,6 +966,10 @@ test("runtime service bridge computer-use events persist as run trace artifacts"
       turnEvents.filter((event) => event.eventKind.startsWith("computer_use.")).map((event) => event.type),
       ["computer_use_observation", "computer_use_affordance_graph"],
     );
+    assert.equal(trace.computerUse.environmentSelection.selected_lane, "native_browser");
+    assert.equal(trace.computerUse.environmentSelection.selected_session_mode, "owned_hermetic_browser");
+    assert.equal(trace.computerUse.lease.lease_id, "lease-bridge-browser");
+    assert.equal(trace.computerUse.lease.cleanup_required, false);
     assert.equal(trace.computerUse.observation.url, "https://bridge.example.test/app");
     assert.equal(trace.computerUse.targetIndex.targets[0].target_ref, "target-bridge-submit");
     assert.equal(trace.computerUse.affordanceGraph.affordances[0].possible_action, "click");
@@ -980,6 +984,8 @@ test("runtime service bridge computer-use events persist as run trace artifacts"
     const computerUseArtifact = artifacts.find((artifact) => artifact.name === "computer-use-trace.json");
     assert.ok(computerUseArtifact);
     const artifactTrace = JSON.parse(computerUseArtifact.content);
+    assert.equal(artifactTrace.environmentSelection.selected_lane, "native_browser");
+    assert.equal(artifactTrace.lease.authority_scope, "computer_use.native_browser.read");
     assert.equal(artifactTrace.observation.url, "https://bridge.example.test/app");
     assert.equal(artifactTrace.targetIndex.targets[0].label, "Submit");
     assert.equal(artifactTrace.affordanceGraph.graph_ref, "affordance-bridge-browser");
