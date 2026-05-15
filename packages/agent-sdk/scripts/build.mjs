@@ -12,6 +12,7 @@ const packageEntryPoints = [
   "src/thread.ts",
   "src/runtime-events.ts",
   "src/messages.ts",
+  "src/computer-use.ts",
   "src/options.ts",
   "src/errors.ts",
   "src/substrate-client.ts",
