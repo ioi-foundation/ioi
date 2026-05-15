@@ -65,6 +65,9 @@ Promotion means:
 - route reusable browser/computer-use primitives through canonical runtime
   tool invocations when they are executable from workflows, SDK, CLI, or TUI,
   even when a convenience endpoint also exists;
+- keep quick operator diagnostics available from CLI/TUI without requiring
+  React Flow, while preserving the same receipts and event kinds used by
+  workflows;
 - treat Playwright, UI-TARS, OpenAI CUA, Cua, and other tools as adapters or
   references unless explicitly introduced behind a typed IOI contract.
 

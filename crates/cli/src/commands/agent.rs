@@ -33,6 +33,7 @@ use tonic::transport::Channel;
 const DESKTOP_AGENT_SERVICE_ID: &str = "desktop_agent";
 const CODING_TOOLS_ROUTE: &str = "/v1/tools?pack=coding";
 const CODING_TOOL_INVOKE_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/tools/{tool_id}/invoke";
+const COMPUTER_USE_BROWSER_DISCOVERY_ROUTE: &str = "/v1/computer-use/browser-discovery";
 
 #[derive(Parser, Debug)]
 pub struct AgentArgs {
@@ -372,6 +373,27 @@ pub enum ToolCommands {
         /// Capability token. Defaults to IOI_DAEMON_TOKEN.
         #[clap(long)]
         token: Option<String>,
+        /// Emit machine-readable JSON.
+        #[clap(long)]
+        json: bool,
+    },
+    /// Discover local browser sessions without attaching, relaunching, or copying profiles.
+    BrowserDiscovery {
+        /// Runtime daemon endpoint. Defaults to IOI_DAEMON_ENDPOINT or http://127.0.0.1:8765.
+        #[clap(long)]
+        endpoint: Option<String>,
+        /// Capability token. Defaults to IOI_DAEMON_TOKEN.
+        #[clap(long)]
+        token: Option<String>,
+        /// Probe declared CDP endpoints for read-only metadata.
+        #[clap(long)]
+        probe: bool,
+        /// Include tab metadata when a declared CDP endpoint is probed.
+        #[clap(long = "include-tabs")]
+        include_tabs: bool,
+        /// Reveal tab titles in discovery output. Defaults to redacted titles.
+        #[clap(long = "reveal-tab-titles")]
+        reveal_tab_titles: bool,
         /// Emit machine-readable JSON.
         #[clap(long)]
         json: bool,
@@ -1231,6 +1253,24 @@ async fn run_tool_command(
             token,
             json,
         }) => print_coding_tool_catalog(endpoint, token, json).await,
+        Some(ToolCommands::BrowserDiscovery {
+            endpoint,
+            token,
+            probe,
+            include_tabs,
+            reveal_tab_titles,
+            json,
+        }) => {
+            print_browser_discovery(
+                endpoint,
+                token,
+                probe,
+                include_tabs,
+                reveal_tab_titles,
+                json,
+            )
+            .await
+        }
         Some(ToolCommands::Run {
             tool,
             thread_id,
@@ -1287,6 +1327,67 @@ async fn run_tool_command(
         }
         None => print_agent_tools(legacy_tool.as_deref(), json),
     }
+}
+
+async fn print_browser_discovery(
+    endpoint: Option<String>,
+    token: Option<String>,
+    probe: bool,
+    include_tabs: bool,
+    reveal_tab_titles: bool,
+    json: bool,
+) -> Result<()> {
+    let endpoint = resolve_daemon_endpoint(endpoint.as_deref());
+    let token = resolve_daemon_token(token.as_deref());
+    let route = format!(
+        "{}?probe={}&include_tabs={}&reveal_tab_titles={}",
+        COMPUTER_USE_BROWSER_DISCOVERY_ROUTE, probe, include_tabs, reveal_tab_titles
+    );
+    let value =
+        daemon_request(Some(&endpoint), token.as_deref(), Method::GET, &route, None).await?;
+    if json {
+        return print_json(&serde_json::json!({
+            "schema_version": "ioi.agent-cli.browser-discovery.v1",
+            "tool_ref": "ioi.computer_use.browser_discovery",
+            "endpoint": endpoint,
+            "route": route,
+            "browser_discovery_report": value,
+        }));
+    }
+    let browser_process_count = value
+        .get("browser_process_count")
+        .and_then(|value| value.as_u64())
+        .unwrap_or(0);
+    let cdp_endpoint_count = value
+        .get("cdp_endpoint_count")
+        .and_then(|value| value.as_u64())
+        .unwrap_or(0);
+    let blocker_count = value
+        .get("default_profile_remote_debugging_blockers")
+        .and_then(|value| value.as_array())
+        .map(Vec::len)
+        .unwrap_or(0);
+    let read_only = value
+        .pointer("/safety/read_only")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(true);
+    let receipt = value
+        .get("receipt_ref")
+        .and_then(|value| value.as_str())
+        .unwrap_or("none");
+    println!(
+        "Agent browser discovery: browsers={browser_process_count} cdp={cdp_endpoint_count} default_profile_blockers={blocker_count} read_only={read_only}"
+    );
+    println!("  receipt: {receipt}");
+    if let Some(next_steps) = value
+        .get("recommended_next_steps")
+        .and_then(|value| value.as_array())
+    {
+        for step in next_steps.iter().filter_map(|value| value.as_str()).take(3) {
+            println!("  next: {step}");
+        }
+    }
+    Ok(())
 }
 
 async fn print_coding_tool_catalog(
@@ -1861,7 +1962,12 @@ async fn print_runtime_list(json: bool, route: &str, label: &str) -> Result<()> 
     let count = value
         .as_array()
         .map(|items| items.len())
-        .or_else(|| value.get("count").and_then(|value| value.as_u64()).map(|count| count as usize))
+        .or_else(|| {
+            value
+                .get("count")
+                .and_then(|value| value.as_u64())
+                .map(|count| count as usize)
+        })
         .unwrap_or(0);
     println!("Agent runtime {label}: count={count}");
     println!("  report: {route} (secrets redacted)");
@@ -2537,6 +2643,27 @@ mod tests {
                 ..
             })
         ));
+        let browser_discovery = AgentArgs::try_parse_from([
+            "agent",
+            "tools",
+            "browser-discovery",
+            "--endpoint",
+            "http://127.0.0.1:8765",
+            "--include-tabs",
+            "--json",
+        ])
+        .expect("browser discovery command should parse");
+        assert!(matches!(
+            browser_discovery.command,
+            Some(AgentCommands::Tools {
+                command: Some(ToolCommands::BrowserDiscovery {
+                    include_tabs: true,
+                    json: true,
+                    ..
+                }),
+                ..
+            })
+        ));
         let coding_tool_run = AgentArgs::try_parse_from([
             "agent",
             "tools",
@@ -2553,6 +2680,29 @@ mod tests {
             coding_tool_run.command,
             Some(AgentCommands::Tools {
                 command: Some(ToolCommands::Run { json: true, .. }),
+                ..
+            })
+        ));
+        let browser_discovery_tool_run = AgentArgs::try_parse_from([
+            "agent",
+            "tools",
+            "run",
+            "ioi.computer_use.browser_discovery",
+            "--thread-id",
+            "thread_runtime_cli",
+            "--workflow-node-id",
+            "computer-use.browser-discovery",
+            "--json",
+        ])
+        .expect("computer-use browser discovery tool command should parse");
+        assert!(matches!(
+            browser_discovery_tool_run.command,
+            Some(AgentCommands::Tools {
+                command: Some(ToolCommands::Run {
+                    workflow_node_id: Some(_),
+                    json: true,
+                    ..
+                }),
                 ..
             })
         ));
