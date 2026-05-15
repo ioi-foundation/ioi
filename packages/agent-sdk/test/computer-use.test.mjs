@@ -969,6 +969,10 @@ test("runtime service bridge computer-use events persist as run trace artifacts"
     assert.equal(trace.computerUse.observation.url, "https://bridge.example.test/app");
     assert.equal(trace.computerUse.targetIndex.targets[0].target_ref, "target-bridge-submit");
     assert.equal(trace.computerUse.affordanceGraph.affordances[0].possible_action, "click");
+    assert.deepEqual(
+      trace.computerUse.trajectory.entries.map((entry) => entry.event_kind),
+      ["observe", "build_affordance_graph"],
+    );
     assert.equal(trace.computerUse.contractIngest, "browser_observation_artifacts");
     assert.equal(trace.receipts.some((receipt) => receipt.kind === "computer_use_trace"), true);
 
@@ -979,6 +983,7 @@ test("runtime service bridge computer-use events persist as run trace artifacts"
     assert.equal(artifactTrace.observation.url, "https://bridge.example.test/app");
     assert.equal(artifactTrace.targetIndex.targets[0].label, "Submit");
     assert.equal(artifactTrace.affordanceGraph.graph_ref, "affordance-bridge-browser");
+    assert.equal(artifactTrace.trajectory.trajectory_ref, "trajectory_run_bridge_computer_use_runtime_bridge");
   } finally {
     await daemon.close();
   }

@@ -14771,6 +14771,13 @@ function runtimeBridgeComputerUseTrace({ projection, events }) {
   const affordanceGraph = value("affordance_graph");
   const action = value("computer_action");
   const cleanup = value("cleanup_receipt");
+  const trajectory =
+    value("trajectory_bundle") ??
+    runtimeBridgeTrajectoryFromComputerUseEvents({
+      projection,
+      events: computerUseEvents,
+      observation,
+    });
   return {
     schemaVersion: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
     schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
@@ -14816,8 +14823,8 @@ function runtimeBridgeComputerUseTrace({ projection, events }) {
     outcome_contract: value("outcome_contract"),
     commitGate: value("commit_gate"),
     commit_gate: value("commit_gate"),
-    trajectory: value("trajectory_bundle"),
-    trajectory_bundle: value("trajectory_bundle"),
+    trajectory,
+    trajectory_bundle: trajectory,
     cleanup,
     cleanup_receipt: cleanup,
     recoveryPolicy: value("recovery_policy"),
@@ -14844,6 +14851,47 @@ function runtimeBridgeComputerUseTrace({ projection, events }) {
       value("computer_use_verification_ref"),
       value("computer_use_cleanup_ref"),
     ]),
+  };
+}
+
+function runtimeBridgeTrajectoryFromComputerUseEvents({ projection, events, observation }) {
+  return {
+    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    trajectory_ref: `trajectory_${projection.runId}_runtime_bridge`,
+    run_id: projection.runId,
+    lease_id:
+      events.find((event) => event.data?.computer_use_lease_id)?.data?.computer_use_lease_id ??
+      observation?.lease_id ??
+      null,
+    retention_mode:
+      events.find((event) => event.data?.observation_retention_mode)?.data?.observation_retention_mode ??
+      observation?.retention_mode ??
+      "local_redacted_artifacts",
+    entries: events.map((event, index) => ({
+      sequence: index + 1,
+      event_kind:
+        event.data?.computer_use_step ??
+        event.type.replace(/^computer_use_/, ""),
+      observation_ref:
+        event.data?.computer_use_observation_ref ??
+        event.data?.observation_bundle?.observation_ref ??
+        null,
+      target_index_ref:
+        event.data?.computer_use_target_index_ref ??
+        event.data?.target_index?.target_index_ref ??
+        null,
+      affordance_graph_ref:
+        event.data?.computer_use_affordance_graph_ref ??
+        event.data?.affordance_graph?.graph_ref ??
+        null,
+      proposal_ref: event.data?.computer_use_proposal_ref ?? null,
+      action_ref: event.data?.computer_use_action_ref ?? null,
+      verification_ref: event.data?.computer_use_verification_ref ?? null,
+      cleanup_ref: event.data?.computer_use_cleanup_ref ?? null,
+      runtime_event_ref: event.data?.runtimeEventId ?? null,
+      workflow_node_id: event.data?.workflowNodeId ?? null,
+      summary: event.summary,
+    })),
   };
 }
 
