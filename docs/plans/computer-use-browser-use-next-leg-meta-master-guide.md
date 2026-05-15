@@ -446,7 +446,10 @@ bridge emits computer-use events without a full trajectory bundle, the daemon
 synthesizes deterministic event-level trajectory entries so the trace remains
 replayable. Bridge observation traces also infer lane, session, environment
 selection, and lease projection data from the canonical observation bundle
-without creating a second runtime owner.
+without creating a second runtime owner. When the bridge supplies an
+affordance graph but no explicit proposal, the daemon projects a non-executing
+`ActionProposal` from the top affordance so policy and UI surfaces can show the
+next candidate without pretending an action already ran.
 Daemon-backed visual and hosted/sandbox lane runs activate through the same
 trace spine when a mounted executor supplies those contracts, while missing
 visual/sandbox adapters still fail closed.

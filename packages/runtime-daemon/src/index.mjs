@@ -14777,6 +14777,12 @@ function runtimeBridgeComputerUseTrace({ projection, events }) {
   const lease =
     value("lease") ??
     runtimeBridgeLeaseFromObservation({ projection, observation, environmentSelection });
+  const actionProposal =
+    value("action_proposal") ??
+    runtimeBridgeActionProposalFromAffordanceGraph({
+      projection,
+      affordanceGraph,
+    });
   const trajectory =
     value("trajectory_bundle") ??
     runtimeBridgeTrajectoryFromComputerUseEvents({
@@ -14817,8 +14823,8 @@ function runtimeBridgeComputerUseTrace({ projection, events }) {
     target_index: targetIndex,
     affordanceGraph,
     affordance_graph: affordanceGraph,
-    actionProposal: value("action_proposal"),
-    action_proposal: value("action_proposal"),
+    actionProposal,
+    action_proposal: actionProposal,
     action,
     computer_action: action,
     actionReceipt: value("action_receipt"),
@@ -14857,6 +14863,34 @@ function runtimeBridgeComputerUseTrace({ projection, events }) {
       value("computer_use_verification_ref"),
       value("computer_use_cleanup_ref"),
     ]),
+  };
+}
+
+function runtimeBridgeActionProposalFromAffordanceGraph({ projection, affordanceGraph }) {
+  const affordance = normalizeArray(affordanceGraph?.affordances)[0];
+  if (!affordance) return null;
+  const actionKind = affordance.possible_action ?? "inspect";
+  const targetRef = affordance.target_ref ?? null;
+  return {
+    proposal_ref: `proposal_${projection.runId}_runtime_bridge_${safeId(targetRef ?? actionKind)}`,
+    proposed_by: "runtime_service_bridge_affordance_projection",
+    model_role: "grounder",
+    raw_model_output_ref: null,
+    normalized_action_candidate: targetRef
+      ? `${actionKind} ${targetRef}`
+      : String(actionKind),
+    target_ref: targetRef,
+    confidence: Number.isFinite(Number(affordance.confidence))
+      ? Number(affordance.confidence)
+      : 0,
+    rationale_summary:
+      "Projected from the RuntimeAgentService bridge affordance graph; no action was executed by this projection.",
+    predicted_postcondition:
+      affordance.expected_state_transition ??
+      "A policy gate can decide whether this affordance should become an executable ComputerAction.",
+    risk_assessment: affordance.risk_class ?? "unknown",
+    policy_decision_ref: `policy_${projection.runId}_runtime_bridge_action_proposal_required`,
+    confirmation_required: Boolean(affordance.confirmation_required),
   };
 }
 
