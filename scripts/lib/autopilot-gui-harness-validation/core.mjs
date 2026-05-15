@@ -6453,19 +6453,15 @@ export function collectWorkflowCodingRouteProof(outputRoot) {
       /importWorkflowSkillPack/.test(source.tauriRuntime) &&
       /addSkillSource/.test(source.tauriRuntime) &&
       /syncSkillSource/.test(source.tauriRuntime),
-    exampleSkillPackDraftSource:
-      existsSync(
-        resolve(
-          repoRoot,
-          "examples/agent-skills-main/skills/incremental-implementation/SKILL.md",
-        ),
+    draftSkillPackImportFixture:
+      /"sourceType": "runtime_skill_source_draft"/.test(source.runtimeTests) &&
+      /"relativePath": "skills\/incremental-implementation\/SKILL\.md"/.test(
+        source.runtimeTests,
       ) &&
-      existsSync(
-        resolve(
-          repoRoot,
-          "examples/agent-skills-main/skills/code-review-and-quality/SKILL.md",
-        ),
-      ),
+      /"phaseTags": \["coding\.build", "coding\.verify"\]/.test(
+        source.runtimeTests,
+      ) &&
+      /"routeTags": \["coding\.template\.build"\]/.test(source.runtimeTests),
     createRunInspectTests:
       /coding_route_templates_validate_run_and_emit_route_evidence/.test(
         source.runtimeTests,
@@ -6574,18 +6570,14 @@ export function collectWorkflowCodingRoutePromotionLoopProof(outputRoot) {
       ) &&
       /coding\.route\.benchmark\.v1/.test(source.runtimeTests) &&
       /coding\.route\.promotion\.v1/.test(source.runtimeTests),
-    firstFiveSkillPackPresent:
-      [
-        "incremental-implementation",
-        "test-driven-development",
-        "debugging-and-error-recovery",
-        "code-review-and-quality",
-        "source-driven-development",
-      ].every((name) =>
-        existsSync(
-          resolve(repoRoot, `examples/agent-skills-main/skills/${name}/SKILL.md`),
-        ),
-      ),
+    draftSkillPackPromotionFixture:
+      /"skillHash": "draft-incremental"/.test(source.runtimeTests) &&
+      /"sourceType": "runtime_skill_source_draft"/.test(source.runtimeTests) &&
+      /"relativePath": "skills\/incremental-implementation\/SKILL\.md"/.test(
+        source.runtimeTests,
+      ) &&
+      /selected_skill_hash == "draft-incremental"/.test(source.runtimeTests) &&
+      /decision\.to_lifecycle_state == "Promoted"/.test(source.runtimeTests),
   };
   const proof = {
     schemaVersion: "workflow.coding-route.promotion-loop.gui-proof.v1",
