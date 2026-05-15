@@ -59,11 +59,11 @@ If any supporting roadmap disagrees, the architecture files above win.
 | Area | Current finding | Target state | Status |
 | --- | --- | --- | --- |
 | Roadmap alignment | `docs/roadmap.md` gates Phase 5 correctly; implementation roadmap now routes through Phase 4.5 before Phase 5. | One current sequencing story with stale docs marked or updated. | Done / regression guarded |
-| Tool registry | SDK, daemon `/v1/tools`, MCP serve descriptors, Rust service contracts, CLI inspection, and React Flow/Autopilot workflow validation now expose or enforce readiness, approval, rate-limit, idempotency, receipt, availability, and marketplace fields. | Daemon/API/SDK/CLI/TUI/Autopilot share one complete contract shape. | Partial / core, CLI, and workflow validation done; TUI display and Authority Center remain |
+| Tool registry | SDK, daemon `/v1/tools`, MCP serve descriptors, Rust service contracts, CLI inspection, TUI coding-tool rows, and React Flow/Autopilot workflow validation now expose or enforce readiness, approval, rate-limit, idempotency, receipt, availability, and marketplace fields. | Daemon/API/SDK/CLI/TUI/Autopilot share one complete contract shape. | Partial / tool projection guarded; model capability registry and full Authority Center remain |
 | Model capability registry | Model router doctrine is canonical, but product settings still expose provider-like freeform fields. | Workflow/model nodes call model capability routes with policy, BYOK, readiness, fallback, and receipt metadata. | Open |
 | wallet-core-lite | Strong type/service pieces exist; Autopilot-facing encrypted vault and brokered action UX are incomplete. | Secrets, BYOK, connector credentials, grants, approval tokens, revocation, audit, and step-up are user-visible and runtime-backed. | Open |
 | Policy execution | Scoped policy receipts exist in lanes, but cross-domain policy substrate is not yet the common control surface. | One policy envelope governs connector, shell, computer-use, model, worker, memory, and artifact actions. | Open |
-| Policy/Settings GUI | Policy and Settings are older than Workflow/Home/Chat surfaces and expose stale concepts such as raw env secrets. | Authority Center with grants, vault refs, readiness, policy decisions, approvals, revocation, and receipt links. | Open |
+| Policy/Settings GUI | Policy and Settings are older than Workflow/Home/Chat surfaces and expose stale concepts such as raw env secrets; Settings now surfaces credential-readiness posture and flags raw secret compatibility bindings. | Authority Center with grants, vault refs, readiness, policy decisions, approvals, revocation, and receipt links. | Partial / readiness posture started; full Authority Center remains |
 | Task-scoped GUI harness | Recent live audit proved the desired method manually: choose the correct GUI lane, launch Autopilot, use an isolated browser profile, retain evidence outside git, and clean up the server. | Computer-use harness can perform the same method as a first-class runtime capability with receipts. | Open |
 | Playwright adapter posture | Current browser stack is CDP/chromiumoxide/browser-use shaped; Playwright is not yet a first-class runtime provider. | Playwright is evaluated and mounted as a best-in-class browser automation adapter without becoming runtime truth. | Open |
 | Workflow manifests | Workflow nodes have useful `toolBinding` and `connectorBinding` fields, but provider-specific branches can still leak into authoring. | Nodes bind to model/tool capabilities and compile to deterministic manifests with compatibility projections. | Open |
@@ -416,11 +416,13 @@ Phase 5 may begin only when:
 
 ## First Tactical Slice
 
-Current immediate slice after the SDK/daemon/Rust registry core:
+Current immediate slice after the SDK/daemon/Rust/TUI/React Flow registry
+projection:
 
-1. expose the new registry fields in TUI display rows and Authority Center;
-2. connect model capability readiness to the same registry shape;
-3. start wallet-core-lite product slice only after those projections agree.
+1. connect model capability readiness to the same registry shape;
+2. expand the Settings/Policy posture into the full Authority Center;
+3. start wallet-core-lite product slice once model/tool/connector projections
+   agree on readiness, grants, approvals, and receipt fields.
 
 Historical first slice:
 

@@ -1,28 +1,73 @@
 import type { SettingsViewBodyView } from "./settingsViewTypes";
+import { summarizeSettingsAuthorityPosture } from "./settingsAuthorityPosture";
 
 export function SettingsEnvironmentSection({
   view,
 }: {
   view: SettingsViewBodyView;
 }) {
-  const { controlPlane, updateEngineDraft } = view;
+  const { controlPlane, updateEngineDraft, onOpenPolicySurface, onOpenConnections } =
+    view;
   if (!controlPlane) return null;
+  const authorityPosture = summarizeSettingsAuthorityPosture(
+    controlPlane.environment,
+  );
+  const posturePillClass =
+    authorityPosture.tone === "warning"
+      ? "chat-settings-pill chat-settings-pill-warning"
+      : "chat-settings-pill";
 
   return (
     <div className="chat-settings-stack">
       <article className="chat-settings-card">
         <div className="chat-settings-card-head">
           <div>
+            <span className="chat-settings-card-eyebrow">
+              Authority posture
+            </span>
+            <h2>Credential readiness</h2>
+          </div>
+          <span className={posturePillClass}>{authorityPosture.label}</span>
+        </div>
+        <p className="chat-settings-body">{authorityPosture.detail}</p>
+        <div className="chat-settings-summary-grid">
+          {authorityPosture.checklist.map((item) => (
+            <article key={item} className="chat-settings-subcard">
+              <strong>{item.split(" ").slice(1).join(" ")}</strong>
+              <span>{item.split(" ")[0]}</span>
+            </article>
+          ))}
+        </div>
+        <div className="chat-settings-actions">
+          <button
+            type="button"
+            className="chat-settings-secondary"
+            onClick={onOpenPolicySurface}
+          >
+            Open policy
+          </button>
+          <button
+            type="button"
+            className="chat-settings-secondary"
+            onClick={onOpenConnections}
+          >
+            Open connections
+          </button>
+        </div>
+      </article>
+      <article className="chat-settings-card">
+        <div className="chat-settings-card-head">
+          <div>
             <span className="chat-settings-card-eyebrow">Environment</span>
-            <h2>Runtime bindings</h2>
+            <h2>Compatibility bindings</h2>
           </div>
           <span className="chat-settings-pill">
             {controlPlane.environment.length} bindings
           </span>
         </div>
         <p className="chat-settings-body">
-          Bindings are now kernel-backed settings documents so the same runtime
-          posture can later be applied from the CLI or another shell.
+          Long-lived provider keys and connector credentials should resolve to
+          vault or wallet refs; raw values remain available for local compatibility.
         </p>
         <div className="chat-settings-stack chat-settings-stack--compact">
           {controlPlane.environment.map((binding, index) => (
