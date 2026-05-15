@@ -437,7 +437,10 @@ commit-gate evidence through the canonical `computer_use.commit_gate` step.
 SDK-local and daemon-backed runs also accept canonical native-browser
 observation, target-index, and affordance contracts from mounted executors, or
 native `BrowserObservationArtifacts` that compile into the same observation,
-target-index, and affordance contracts.
+target-index, and affordance contracts. RuntimeAgentService bridge turns now
+project recent native browser driver artifacts into canonical
+`computer_use.observation` and `computer_use.affordance_graph` events for
+Autopilot/daemon consumption.
 Daemon-backed visual and hosted/sandbox lane runs activate through the same
 trace spine when a mounted executor supplies those contracts, while missing
 visual/sandbox adapters still fail closed.
