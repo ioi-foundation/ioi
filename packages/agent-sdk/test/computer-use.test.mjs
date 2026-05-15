@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   Agent,
   COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+  compileComputerUseModelActionAdapter,
   computerActionHasGrounding,
   createRuntimeSubstrateClient,
   defaultComputerUseHarnessContract,
@@ -114,6 +115,80 @@ test("computer-use helpers require policy-gated proposals and grounded actions",
     }),
     true,
   );
+});
+
+test("computer-use model adapters normalize OpenAI-style actions into IOI proposals and actions", () => {
+  const targetIndex = {
+    target_index_ref: "target-index-browser",
+    observation_ref: "observation-browser",
+    coordinate_space_id: "viewport-browser",
+    drift_state: "fresh",
+    targets: [
+      {
+        target_ref: "target-submit",
+        label: "Submit",
+        role: "button",
+        semantic_ids: ["button:submit"],
+        selectors: ["button[type=submit]"],
+        bounds: { x: 20, y: 10, width: 90, height: 40, coordinate_space_id: "viewport-browser" },
+        confidence: 96,
+        available_actions: ["click"],
+      },
+    ],
+  };
+  const result = compileComputerUseModelActionAdapter({
+    adapter_kind: "openai_computer_use",
+    run_id: "run-openai",
+    observation_ref: "observation-browser",
+    target_index: targetIndex,
+    raw_model_output: {
+      type: "click",
+      x: 42,
+      y: 28,
+      confidence: 0.88,
+      rationale: "Click the visible submit button.",
+      safety_checks: [{ id: "provider-check", status: "review", summary: "Provider requested confirmation." }],
+    },
+    proposed_by: "mounted-openai-cua",
+  });
+
+  assert.equal(result.action_proposal.target_ref, "target-submit");
+  assert.equal(result.action_proposal.policy_decision_ref, "policy_run-openai_openai_computer_use_click");
+  assert.equal(result.action_proposal.confidence, 88);
+  assert.equal(result.computer_action.action_kind, "click");
+  assert.equal(result.computer_action.observation_ref, "observation-browser");
+  assert.equal(result.computer_action.coordinate_space_id, "viewport-browser");
+  assert.equal(result.computer_action.approval_ref, result.action_proposal.policy_decision_ref);
+  assert.equal(result.grounding.grounding_status, "target_ref");
+  assert.equal(result.safety_checks[0].status, "requires_approval");
+  assert.equal(isActionProposalReadyForExecution(result.action_proposal), true);
+  assert.equal(computerActionHasGrounding(result.computer_action), true);
+});
+
+test("computer-use model adapters normalize UI-TARS coordinates as observation-bound actions", () => {
+  const result = compileComputerUseModelActionAdapter({
+    adapter_kind: "ui_tars",
+    run_id: "run-ui-tars",
+    observation_ref: "observation-screen",
+    target_index: {
+      target_index_ref: "target-index-screen",
+      observation_ref: "observation-screen",
+      coordinate_space_id: "screen-1",
+      drift_state: "fresh",
+      targets: [],
+    },
+    raw_model_output: "click(128, 256)",
+    proposed_by: "local-ui-tars",
+    policy_decision_ref: "policy-ui-tars-coordinate-approved",
+  });
+
+  assert.equal(result.action_proposal.normalized_action_candidate, "click at (128, 256)");
+  assert.equal(result.action_proposal.target_ref, null);
+  assert.equal(result.computer_action.coordinate_space_id, "screen-1");
+  assert.equal(result.grounding.grounding_status, "coordinate");
+  assert.deepEqual(result.grounding.coordinate, { x: 128, y: 256 });
+  assert.equal(result.safety_checks[0].status, "requires_approval");
+  assert.equal(computerActionHasGrounding(result.computer_action), true);
 });
 
 test("browser prompts emit glass-box computer-use trace and runtime events", async () => {
