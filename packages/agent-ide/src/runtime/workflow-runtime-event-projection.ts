@@ -173,6 +173,10 @@ export interface WorkflowRuntimeComputerUseProjection {
   policyDecisionRef: string | null;
   verificationRef: string | null;
   verificationStatus: string | null;
+  commitGateRef: string | null;
+  commitGateStatus: string | null;
+  outcomeRef: string | null;
+  humanHandoffRef: string | null;
   trajectoryRef: string | null;
   cleanupRef: string | null;
   cleanupStatus: string | null;
@@ -183,6 +187,9 @@ export interface WorkflowRuntimeComputerUseProjection {
   affordanceCount: number | null;
   detectedPatterns: string[];
   recoveryPolicy: Record<string, unknown> | null;
+  outcomeContract: Record<string, unknown> | null;
+  commitGate: Record<string, unknown> | null;
+  humanHandoffState: Record<string, unknown> | null;
 }
 
 export type WorkflowRuntimeCodingToolBudgetRecoveryAction =
@@ -3181,6 +3188,21 @@ function computerUseProjectionForRuntimeThreadEvent(
     "verification_receipt",
     "verificationReceipt",
   );
+  const outcomeContract = recordField(
+    payload,
+    "outcome_contract",
+    "outcomeContract",
+  );
+  const commitGate = recordField(
+    payload,
+    "commit_gate",
+    "commitGate",
+  );
+  const humanHandoffState = recordField(
+    payload,
+    "human_handoff_state",
+    "humanHandoffState",
+  );
   const trajectoryBundle = recordField(
     payload,
     "trajectory_bundle",
@@ -3280,6 +3302,12 @@ function computerUseProjectionForRuntimeThreadEvent(
     verificationStatus:
       stringField(verificationReceipt, "status") ??
       stringField(runState, "verification_status", "verificationStatus"),
+    commitGateRef:
+      stringField(payload, "computer_use_commit_gate_ref", "computerUseCommitGateRef") ??
+      stringField(commitGate, "commit_gate_ref", "commitGateRef"),
+    commitGateStatus: stringField(commitGate, "status"),
+    outcomeRef: stringField(outcomeContract, "outcome_ref", "outcomeRef"),
+    humanHandoffRef: stringField(humanHandoffState, "handoff_ref", "handoffRef"),
     trajectoryRef:
       stringField(payload, "computer_use_trajectory_ref", "computerUseTrajectoryRef") ??
       stringField(trajectoryBundle, "trajectory_ref", "trajectoryRef"),
@@ -3308,6 +3336,9 @@ function computerUseProjectionForRuntimeThreadEvent(
       "detectedPatterns",
     ),
     recoveryPolicy: recordField(payload, "recovery_policy", "recoveryPolicy"),
+    outcomeContract,
+    commitGate,
+    humanHandoffState,
   };
 }
 
@@ -3344,6 +3375,9 @@ function labelForComputerUseRuntimeThreadEvent(
     case "verify_postcondition":
     case "verification":
       return "Computer use: verify";
+    case "commit_or_handoff":
+    case "commit_gate":
+      return "Computer use: commit gate";
     case "write_trajectory":
     case "trajectory_written":
       return "Computer use: trajectory";
@@ -3362,6 +3396,7 @@ function summaryForComputerUseProjection(
     computerUse.sessionMode,
     computerUse.actionKind,
     computerUse.verificationStatus,
+    computerUse.commitGateStatus,
     computerUse.cleanupStatus,
     computerUse.blocker,
   ].filter((part): part is string => Boolean(part));

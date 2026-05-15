@@ -432,8 +432,10 @@ Acceptance:
 
 Current status: the SDK exposes the contract spine plus executable recovery,
 human handoff, outcome, commit-gate, retention, and model-action adapter
-helpers. Daemon, workflow, and Autopilot surfaces should consume these helpers
-rather than defining local policy shapes.
+helpers. SDK, daemon, saved workflow runs, and React Flow run history now expose
+commit-gate evidence through the canonical `computer_use.commit_gate` step.
+Future daemon, workflow, and Autopilot policy executors should consume these
+helpers rather than defining local policy shapes.
 
 ### Phase 2: Environment Planner And Behavioral Loop
 

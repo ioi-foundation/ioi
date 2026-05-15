@@ -14,6 +14,7 @@ export type IOISDKMessageType =
   | "computer_use_action_proposed"
   | "computer_use_action_executed"
   | "computer_use_verification"
+  | "computer_use_commit_gate"
   | "computer_use_trajectory_written"
   | "computer_use_cleanup"
   | "step"
@@ -415,6 +416,8 @@ export interface RuntimeTraceBundle {
     action: unknown;
     actionReceipt: unknown;
     verification: unknown;
+    outcomeContract?: unknown;
+    commitGate?: unknown;
     trajectory: unknown;
     cleanup: unknown;
   } | null;

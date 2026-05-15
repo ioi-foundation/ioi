@@ -319,6 +319,8 @@ function runtimeEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
       return "computer_use.action_executed";
     case "computer_use_verification":
       return "computer_use.verification";
+    case "computer_use_commit_gate":
+      return "computer_use.commit_gate";
     case "computer_use_trajectory_written":
       return "computer_use.trajectory_written";
     case "computer_use_cleanup":
@@ -427,6 +429,7 @@ function workflowNodeIdForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "computer_use_action_proposed") return "computer-use.action-proposal";
   if (type === "computer_use_action_executed") return "computer-use.execute-action";
   if (type === "computer_use_verification") return "computer-use.verify";
+  if (type === "computer_use_commit_gate") return "computer-use.commit-gate";
   if (type === "computer_use_trajectory_written") return "computer-use.write-trajectory";
   if (type === "computer_use_cleanup") return "computer-use.cleanup";
   if (type === "tool_result") return "runtime.tool-result";
@@ -458,6 +461,7 @@ function sourceEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "computer_use_action_proposed") return "ComputerUse.ActionProposed";
   if (type === "computer_use_action_executed") return "ComputerUse.ActionExecuted";
   if (type === "computer_use_verification") return "ComputerUse.Verification";
+  if (type === "computer_use_commit_gate") return "ComputerUse.CommitGate";
   if (type === "computer_use_trajectory_written") return "ComputerUse.TrajectoryWritten";
   if (type === "computer_use_cleanup") return "ComputerUse.Cleanup";
   return `run.${type}`;
