@@ -1,8 +1,9 @@
 use super::BrowserObservationArtifacts;
 use ioi_types::app::runtime::computer_use::{
-    AffordanceGraph, AffordanceRecord, ComputerActionKind, ComputerControlAdapterContract,
-    ComputerUseLane, ComputerUseLease, ComputerUseObservationBundle, ComputerUseSessionMode,
-    ComputerUseTargetEntry, ObservationRetentionMode, TargetIndex,
+    ActionProposal, AffordanceGraph, AffordanceRecord, CommitGate, CommitGateStatus,
+    ComputerActionKind, ComputerControlAdapterContract, ComputerUseLane, ComputerUseLease,
+    ComputerUseObservationBundle, ComputerUseSessionMode, ComputerUseTargetEntry,
+    ObservationRetentionMode, TargetIndex,
 };
 
 fn artifact_ref(observation_ref: &str, suffix: &str, present: bool) -> Option<String> {
@@ -143,6 +144,93 @@ pub fn affordance_graph_from_target_index(target_index: &TargetIndex) -> Afforda
     }
 }
 
+pub fn action_proposal_from_affordance_graph(
+    run_id: impl AsRef<str>,
+    proposed_by: impl Into<String>,
+    affordance_graph: &AffordanceGraph,
+) -> Option<ActionProposal> {
+    let affordance = affordance_graph.affordances.first()?;
+    let action = action_kind_slug(affordance.possible_action);
+    let target_ref =
+        (!affordance.target_ref.trim().is_empty()).then(|| affordance.target_ref.clone());
+    let target_fragment = target_ref
+        .as_deref()
+        .map(stable_ref_fragment)
+        .unwrap_or_else(|| action.to_string());
+    Some(ActionProposal {
+        proposal_ref: format!(
+            "proposal_{}_native_browser_{}",
+            stable_ref_fragment(run_id.as_ref()),
+            target_fragment,
+        ),
+        proposed_by: proposed_by.into(),
+        model_role: "grounder".to_string(),
+        raw_model_output_ref: None,
+        normalized_action_candidate: target_ref
+            .as_deref()
+            .map(|target| format!("{action} {target}"))
+            .unwrap_or_else(|| action.to_string()),
+        target_ref,
+        confidence: affordance.confidence,
+        rationale_summary: format!(
+            "Selected top native-browser affordance from {} for policy review before execution.",
+            affordance_graph.graph_ref,
+        ),
+        predicted_postcondition: affordance.expected_state_transition.clone(),
+        risk_assessment: affordance.risk_class.clone(),
+        policy_decision_ref: Some(format!(
+            "policy_{}_native_browser_{}_proposal",
+            stable_ref_fragment(run_id.as_ref()),
+            target_fragment,
+        )),
+    })
+}
+
+pub fn commit_gate_for_action_proposal(
+    run_id: impl AsRef<str>,
+    proposal: &ActionProposal,
+    affordance_graph: &AffordanceGraph,
+) -> CommitGate {
+    let proposal_target = proposal.target_ref.as_deref().unwrap_or_default();
+    let affordance = affordance_graph
+        .affordances
+        .iter()
+        .find(|candidate| candidate.target_ref == proposal_target)
+        .or_else(|| affordance_graph.affordances.first());
+    let requires_confirmation = affordance
+        .map(|candidate| candidate.confirmation_required || candidate.risk_class != "read_only")
+        .unwrap_or(true);
+    let run_fragment = stable_ref_fragment(run_id.as_ref());
+    let proposal_fragment = stable_ref_fragment(&proposal.proposal_ref);
+    CommitGate {
+        gate_ref: format!("commit_gate_{run_fragment}_{proposal_fragment}"),
+        status: if requires_confirmation {
+            CommitGateStatus::Pending
+        } else {
+            CommitGateStatus::NotRequired
+        },
+        final_action_ref: None,
+        external_effect: if requires_confirmation {
+            "possible_external_effect".to_string()
+        } else {
+            "none".to_string()
+        },
+        user_confirmation_required: requires_confirmation,
+        pre_commit_summary: if requires_confirmation {
+            format!(
+                "Native-browser proposal '{}' requires confirmation before it can become an executable action.",
+                proposal.normalized_action_candidate,
+            )
+        } else {
+            format!(
+                "Native-browser proposal '{}' is read-only and can remain proposal-only without a commit gate.",
+                proposal.normalized_action_candidate,
+            )
+        },
+        post_commit_verification_ref: None,
+    }
+}
+
 fn selector_map_targets(
     selector_map: &str,
     observation_ref: &str,
@@ -264,6 +352,53 @@ fn actions_for_tag(tag: &str) -> Vec<ComputerActionKind> {
         "input" | "textarea" => vec![ComputerActionKind::Inspect, ComputerActionKind::TypeText],
         "select" => vec![ComputerActionKind::Inspect, ComputerActionKind::Select],
         _ => vec![ComputerActionKind::Inspect],
+    }
+}
+
+fn action_kind_slug(action: ComputerActionKind) -> &'static str {
+    match action {
+        ComputerActionKind::Click => "click",
+        ComputerActionKind::TypeText => "type_text",
+        ComputerActionKind::KeyPress => "key_press",
+        ComputerActionKind::Scroll => "scroll",
+        ComputerActionKind::Drag => "drag",
+        ComputerActionKind::Hover => "hover",
+        ComputerActionKind::Select => "select",
+        ComputerActionKind::Upload => "upload",
+        ComputerActionKind::Clipboard => "clipboard",
+        ComputerActionKind::Wait => "wait",
+        ComputerActionKind::Shell => "shell",
+        ComputerActionKind::MobileGesture => "mobile_gesture",
+        ComputerActionKind::Navigate => "navigate",
+        ComputerActionKind::Inspect => "inspect",
+    }
+}
+
+fn stable_ref_fragment(value: &str) -> String {
+    let mut fragment = String::with_capacity(value.len().min(64));
+    let mut previous_was_separator = false;
+    for ch in value.chars() {
+        let normalized = if ch.is_ascii_alphanumeric() {
+            previous_was_separator = false;
+            Some(ch.to_ascii_lowercase())
+        } else if !previous_was_separator {
+            previous_was_separator = true;
+            Some('_')
+        } else {
+            None
+        };
+        if let Some(normalized) = normalized {
+            fragment.push(normalized);
+        }
+        if fragment.len() >= 64 {
+            break;
+        }
+    }
+    let trimmed = fragment.trim_matches('_');
+    if trimmed.is_empty() {
+        "target".to_string()
+    } else {
+        trimmed.to_string()
     }
 }
 
@@ -442,6 +577,62 @@ mod tests {
                 && !affordance.confirmation_required
                 && affordance.required_authority == "computer_use.native_browser.read"
         }));
+    }
+
+    #[test]
+    fn top_affordance_projects_to_policy_gated_action_proposal() {
+        let mut artifacts = artifacts();
+        artifacts.browser_use_selector_map_text =
+            Some("[42] <button name=Submit target_id=target-submit />".to_string());
+        let observation = observation_bundle_from_browser_artifacts("lease:1", "obs:1", &artifacts);
+        let target_index = target_index_from_browser_artifacts(&observation, &artifacts);
+        let affordance_graph = affordance_graph_from_target_index(&target_index);
+
+        let proposal = action_proposal_from_affordance_graph(
+            "run:browser",
+            "runtime_service_bridge",
+            &affordance_graph,
+        )
+        .expect("top affordance should produce a proposal");
+        assert!(proposal.is_ready_for_execution());
+        assert_eq!(proposal.proposed_by, "runtime_service_bridge");
+        assert_eq!(proposal.model_role, "grounder");
+        assert_eq!(
+            proposal.target_ref.as_deref(),
+            Some("target:obs:1:target-submit")
+        );
+        assert_eq!(proposal.risk_assessment, "read_only");
+
+        let gate = commit_gate_for_action_proposal("run:browser", &proposal, &affordance_graph);
+        assert_eq!(gate.status, CommitGateStatus::NotRequired);
+        assert!(!gate.blocks_without_confirmation());
+        assert_eq!(gate.external_effect, "none");
+    }
+
+    #[test]
+    fn mutating_affordance_blocks_at_commit_gate_until_confirmed() {
+        let mut artifacts = artifacts();
+        artifacts.browser_use_selector_map_text =
+            Some("[42] <button name=Submit target_id=target-submit />".to_string());
+        let observation = observation_bundle_from_browser_artifacts("lease:1", "obs:1", &artifacts);
+        let target_index = target_index_from_browser_artifacts(&observation, &artifacts);
+        let mut affordance_graph = affordance_graph_from_target_index(&target_index);
+        affordance_graph
+            .affordances
+            .retain(|affordance| affordance.possible_action == ComputerActionKind::Click);
+
+        let proposal = action_proposal_from_affordance_graph(
+            "run:browser",
+            "runtime_service_bridge",
+            &affordance_graph,
+        )
+        .expect("click affordance should produce a proposal");
+        assert_eq!(proposal.risk_assessment, "possible_external_effect");
+
+        let gate = commit_gate_for_action_proposal("run:browser", &proposal, &affordance_graph);
+        assert_eq!(gate.status, CommitGateStatus::Pending);
+        assert!(gate.blocks_without_confirmation());
+        assert_eq!(gate.external_effect, "possible_external_effect");
     }
 
     #[test]

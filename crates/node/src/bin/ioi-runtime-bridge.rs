@@ -8,7 +8,8 @@ use ioi_api::state::{StateAccess, StateManager};
 use ioi_api::transaction::context::TxContext;
 use ioi_api::vm::inference::{InferenceRuntime, UnavailableInferenceRuntime};
 use ioi_drivers::browser::computer_use::{
-    affordance_graph_from_target_index, observation_bundle_from_browser_artifacts,
+    action_proposal_from_affordance_graph, affordance_graph_from_target_index,
+    commit_gate_for_action_proposal, observation_bundle_from_browser_artifacts,
     target_index_from_browser_artifacts,
 };
 use ioi_drivers::browser::BrowserDriver;
@@ -614,6 +615,14 @@ fn browser_observation_artifacts_to_tti_events(
         observation_bundle_from_browser_artifacts(&lease_id, &observation_ref, artifacts);
     let target_index = target_index_from_browser_artifacts(&observation, artifacts);
     let affordance_graph = affordance_graph_from_target_index(&target_index);
+    let action_proposal = action_proposal_from_affordance_graph(
+        context.run_id,
+        "runtime_service_bridge",
+        &affordance_graph,
+    );
+    let commit_gate = action_proposal.as_ref().map(|proposal| {
+        commit_gate_for_action_proposal(context.run_id, proposal, &affordance_graph)
+    });
     let base_payload = json!({
         "schema_version": COMPUTER_USE_CONTRACT_SCHEMA_VERSION_V1,
         "computer_use_lane": "native_browser",
@@ -642,7 +651,7 @@ fn browser_observation_artifacts_to_tti_events(
         }),
     );
     let affordance_payload = extend_json_object(
-        base_payload,
+        base_payload.clone(),
         json!({
             "computer_use_step": "build_affordance_graph",
             "computer_use_affordance_graph_ref": affordance_graph.graph_ref.clone(),
@@ -650,7 +659,7 @@ fn browser_observation_artifacts_to_tti_events(
             "affordance_graph": affordance_graph.clone(),
         }),
     );
-    vec![
+    let mut events = vec![
         tti_event(TtiEventInput {
             thread_id: context.thread_id,
             turn_id: context.turn_id,
@@ -689,7 +698,80 @@ fn browser_observation_artifacts_to_tti_events(
             payload_schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION_V1,
             payload: affordance_payload,
         }),
-    ]
+    ];
+    if let (Some(action_proposal), Some(commit_gate)) = (action_proposal, commit_gate) {
+        let proposal_payload = extend_json_object(
+            base_payload.clone(),
+            json!({
+                "computer_use_step": "propose_action",
+                "computer_use_proposal_ref": action_proposal.proposal_ref.clone(),
+                "computer_use_target_ref": action_proposal.target_ref.clone(),
+                "computer_use_policy_decision_ref": action_proposal.policy_decision_ref.clone(),
+                "action_proposal": action_proposal_payload(&action_proposal, &commit_gate),
+                "policy_gate": {
+                    "policy_decision_ref": action_proposal.policy_decision_ref.clone(),
+                    "outcome": if commit_gate.blocks_without_confirmation() {
+                        "requires_confirmation_before_execution"
+                    } else {
+                        "approved_for_proposal_only"
+                    },
+                    "authority_scope": "computer_use.native_browser.read",
+                },
+            }),
+        );
+        let commit_payload = extend_json_object(
+            base_payload,
+            json!({
+                "computer_use_step": "commit_or_handoff",
+                "computer_use_commit_gate_ref": commit_gate.gate_ref.clone(),
+                "commit_gate": commit_gate_payload(&commit_gate),
+                "human_handoff_state": Value::Null,
+            }),
+        );
+        events.push(tti_event(TtiEventInput {
+            thread_id: context.thread_id,
+            turn_id: context.turn_id,
+            item_id: &format!("{}:item:computer-use:action-proposed", context.turn_id),
+            idempotency_key: &format!(
+                "runtime-agent-service:{}:computer-use:action-proposed",
+                context.run_id
+            ),
+            source_event_kind: "BrowserDriver.recent_browser_observation_artifacts",
+            event_kind: "computer_use.action_proposed",
+            status: "running",
+            actor: "runtime",
+            created_at: context.created_at,
+            workspace_root: context.workspace_root,
+            component_kind: "computer_use_harness",
+            workflow_node_id: "computer-use.action-proposal",
+            payload_schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION_V1,
+            payload: proposal_payload,
+        }));
+        events.push(tti_event(TtiEventInput {
+            thread_id: context.thread_id,
+            turn_id: context.turn_id,
+            item_id: &format!("{}:item:computer-use:commit-gate", context.turn_id),
+            idempotency_key: &format!(
+                "runtime-agent-service:{}:computer-use:commit-gate",
+                context.run_id
+            ),
+            source_event_kind: "BrowserDriver.recent_browser_observation_artifacts",
+            event_kind: "computer_use.commit_gate",
+            status: if commit_gate.blocks_without_confirmation() {
+                "blocked"
+            } else {
+                "completed"
+            },
+            actor: "runtime",
+            created_at: context.created_at,
+            workspace_root: context.workspace_root,
+            component_kind: "computer_use_harness",
+            workflow_node_id: "computer-use.commit-gate",
+            payload_schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION_V1,
+            payload: commit_payload,
+        }));
+    }
+    events
 }
 
 fn extend_json_object(mut base: Value, extension: Value) -> Value {
@@ -700,6 +782,31 @@ fn extend_json_object(mut base: Value, extension: Value) -> Value {
         base_map.insert(key, value);
     }
     base
+}
+
+fn action_proposal_payload(
+    proposal: &ioi_types::app::runtime::computer_use::ActionProposal,
+    commit_gate: &ioi_types::app::runtime::computer_use::CommitGate,
+) -> Value {
+    let mut payload = serde_json::to_value(proposal).unwrap_or_else(|_| json!({}));
+    if let Value::Object(map) = &mut payload {
+        map.insert(
+            "confirmation_required".to_string(),
+            Value::Bool(commit_gate.blocks_without_confirmation()),
+        );
+    }
+    payload
+}
+
+fn commit_gate_payload(gate: &ioi_types::app::runtime::computer_use::CommitGate) -> Value {
+    let mut payload = serde_json::to_value(gate).unwrap_or_else(|_| json!({}));
+    if let Value::Object(map) = &mut payload {
+        map.insert(
+            "commit_gate_ref".to_string(),
+            Value::String(gate.gate_ref.clone()),
+        );
+    }
+    payload
 }
 
 fn request_indicates_computer_use(request: &Value, prompt: &str) -> bool {
@@ -884,7 +991,7 @@ mod tests {
             created_at: "2026-05-14T00:00:00Z",
         };
         let events = browser_observation_artifacts_to_tti_events(&context, &artifacts);
-        assert_eq!(events.len(), 2);
+        assert_eq!(events.len(), 4);
         assert_eq!(events[0]["event_kind"], "computer_use.observation");
         assert_eq!(events[0]["component_kind"], "computer_use_harness");
         assert_eq!(
@@ -908,6 +1015,24 @@ mod tests {
                 affordance["possible_action"] == "click"
                     && affordance["confirmation_required"] == true
             }));
+        assert_eq!(events[2]["event_kind"], "computer_use.action_proposed");
+        assert_eq!(
+            events[2]["payload"]["action_proposal"]["target_ref"],
+            "target:observation_run_browser_browser_live:target-submit"
+        );
+        assert_eq!(
+            events[2]["payload"]["action_proposal"]["confirmation_required"],
+            false
+        );
+        assert_eq!(events[3]["event_kind"], "computer_use.commit_gate");
+        assert_eq!(
+            events[3]["payload"]["commit_gate"]["status"],
+            "not_required"
+        );
+        assert_eq!(
+            events[3]["payload"]["commit_gate"]["commit_gate_ref"],
+            events[3]["payload"]["commit_gate"]["gate_ref"]
+        );
     }
 
     #[test]

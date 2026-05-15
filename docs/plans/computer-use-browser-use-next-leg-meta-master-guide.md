@@ -463,6 +463,9 @@ distinction as typed, non-executed, confirmation-gated harness rows. The same
 bridge projection also synthesizes live
 `ComputerUseRunState` so inspection surfaces can show the current observation,
 target index, blocker, handoff/confirmation state, and cleanup ownership.
+The RuntimeAgentService bridge now emits the proposal and commit-gate events
+directly from native browser affordances, with daemon-side derivation retained
+for older bridge streams that only provide observation and affordance rows.
 Daemon-backed visual and hosted/sandbox lane runs activate through the same
 trace spine when a mounted executor supplies those contracts, while missing
 visual/sandbox adapters still fail closed. The browser lane now also has a
