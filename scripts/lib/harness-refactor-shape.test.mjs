@@ -126,6 +126,7 @@ test("workflow rail modules own extracted implementation", () => {
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/outputSummaryCards.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/statusPrimitives.tsx",
     "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/types.ts",
     "packages/agent-ide/src/runtime/workflow-rail-search-model.ts",
@@ -926,6 +927,11 @@ test("workflow rail modules own extracted implementation", () => {
     /workflowRunHistoryModel/,
     80,
   );
+  assertOwnsImplementation(
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/outputSummaryCards.tsx",
+    /WorkflowGithubPrCreateOutputSummaryCard/,
+    120,
+  );
 });
 
 test("GUI harness validation modules remain split by concern", () => {
@@ -936,6 +942,7 @@ test("GUI harness validation modules remain split by concern", () => {
     "scripts/lib/autopilot-gui-harness-validation/artifacts.mjs",
     "scripts/lib/autopilot-gui-harness-validation/promotion-proof.mjs",
     "scripts/lib/autopilot-gui-harness-validation/rollback-proof.mjs",
+    "scripts/lib/autopilot-gui-harness-validation/workflow-proofs.mjs",
     "scripts/lib/autopilot-gui-harness-validation/assessment.mjs",
   ]) {
     assertExists(relativePath);
@@ -954,6 +961,11 @@ test("GUI harness validation modules remain split by concern", () => {
   assertOwnsImplementation(
     "scripts/lib/autopilot-gui-harness-validation/desktop.mjs",
     /typeQuery/,
+    200,
+  );
+  assertOwnsImplementation(
+    "scripts/lib/autopilot-gui-harness-validation/workflow-proofs.mjs",
+    /collectWorkflowTerminalCodingLoopRunButtonProof/,
     200,
   );
 });

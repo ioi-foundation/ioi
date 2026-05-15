@@ -25,3 +25,37 @@ export const DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_INVARIANT =
   "reviewed_import_activation_apply";
 export const DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_PROOF_MAX_AGE_MS =
   5 * 60 * 1000;
+
+export const HARNESS_INPUT_SCHEMA = {
+  type: "object",
+  required: ["sessionId", "turnId"],
+  properties: {
+    sessionId: { type: "string" },
+    turnId: { type: "string" },
+    input: {},
+    state: { type: "object" },
+    policyContext: { type: "object" },
+  },
+} as const;
+
+export const HARNESS_OUTPUT_SCHEMA = {
+  type: "object",
+  required: ["status"],
+  properties: {
+    status: { type: "string" },
+    value: {},
+    evidence: { type: "array", items: { type: "string" } },
+    receipts: { type: "array", items: { type: "string" } },
+  },
+} as const;
+
+export const HARNESS_ERROR_SCHEMA = {
+  type: "object",
+  required: ["code", "message", "retryable"],
+  properties: {
+    code: { type: "string" },
+    message: { type: "string" },
+    retryable: { type: "boolean" },
+    evidenceRef: { type: "string" },
+  },
+} as const;
