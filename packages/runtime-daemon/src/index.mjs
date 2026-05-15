@@ -14469,6 +14469,42 @@ function runtimeTaskRecord({
 }
 
 function runtimeBridgeRunRecord({ agent, request, projection }) {
+  const bridgeEvents = runtimeBridgeMessagesForProjection({ agent, projection });
+  const computerUseTrace = runtimeBridgeComputerUseTrace({
+    projection,
+    events: bridgeEvents,
+  });
+  const receipts = [
+    ...(computerUseTrace
+      ? [
+          {
+            id: `receipt_${projection.runId}_runtime_bridge_computer_use_trace`,
+            kind: "computer_use_trace",
+            summary:
+              "RuntimeAgentService bridge computer-use events were projected into a durable trace artifact.",
+            redaction: "redacted",
+            evidenceRefs: uniqueStrings([
+              "RuntimeAgentService",
+              "ComputerUseHarnessContract",
+              ...computerUseTrace.events.map((event) => event.runtimeEventId).filter(Boolean),
+              computerUseTrace.observation?.observation_ref,
+              computerUseTrace.targetIndex?.target_index_ref,
+              computerUseTrace.affordanceGraph?.graph_ref,
+            ]),
+          },
+        ]
+      : []),
+    {
+      id: `receipt_${projection.runId}_runtime_bridge_trace`,
+      kind: "trace_export",
+      summary: "RuntimeAgentService bridge run trace was persisted from canonical runtime events.",
+      redaction: "redacted",
+      evidenceRefs: uniqueStrings([
+        "RuntimeAgentService",
+        ...bridgeEvents.map((event) => event.data?.runtimeEventId).filter(Boolean),
+      ]),
+    },
+  ];
   const taskFamily = taskFamilyForMode(projection.mode);
   const selectedStrategy = strategyForMode(projection.mode);
   const stopCondition = {
@@ -14502,12 +14538,15 @@ function runtimeBridgeRunRecord({ agent, request, projection }) {
     verifierIndependence: 1,
   };
   const trace = {
+    schemaVersion: "ioi.agent-sdk.trace.v1",
+    traceBundleId: `trace_${projection.runId}`,
     runId: projection.runId,
     agentId: agent.id,
     status: projection.status,
     source: "runtime_service",
-    events: [],
-    receipts: [],
+    eventStreamId: eventStreamIdForThread(threadIdForAgent(agent.id)),
+    events: bridgeEvents,
+    receipts,
     artifacts: [],
     taskState: null,
     uncertainty: null,
@@ -14517,6 +14556,7 @@ function runtimeBridgeRunRecord({ agent, request, projection }) {
     memoryPolicy: null,
     memoryRecords: [],
     memoryWrites: [],
+    computerUse: computerUseTrace,
     stopCondition,
     qualityLedger,
     scorecard,
@@ -14536,6 +14576,61 @@ function runtimeBridgeRunRecord({ agent, request, projection }) {
     agent,
     threadId: threadIdForAgent(agent.id),
   });
+  const traceWithUsage = {
+    ...trace,
+    usage: usageTelemetry,
+    usage_telemetry: usageTelemetry,
+    usageTelemetry,
+    runtimeUsage: usageTelemetry,
+  };
+  const artifacts = [
+    artifact(
+      projection.runId,
+      "trace.json",
+      "application/json",
+      `receipt_${projection.runId}_runtime_bridge_trace`,
+      traceWithUsage,
+      "redacted",
+    ),
+    ...(computerUseTrace
+      ? [
+          artifact(
+            projection.runId,
+            "computer-use-trace.json",
+            "application/json",
+            `receipt_${projection.runId}_runtime_bridge_computer_use_trace`,
+            computerUseTrace,
+            "redacted",
+          ),
+        ]
+      : []),
+    artifact(
+      projection.runId,
+      "scorecard.json",
+      "application/json",
+      `receipt_${projection.runId}_runtime_bridge_trace`,
+      scorecard,
+      "none",
+    ),
+  ];
+  const traceWithArtifacts = {
+    ...traceWithUsage,
+    artifacts: artifacts.map((item) => ({
+      id: item.id,
+      name: item.name,
+      mediaType: item.mediaType,
+      redaction: item.redaction,
+      receiptId: item.receiptId,
+    })),
+  };
+  artifacts[0] = artifact(
+    projection.runId,
+    "trace.json",
+    "application/json",
+    `receipt_${projection.runId}_runtime_bridge_trace`,
+    traceWithArtifacts,
+    "redacted",
+  );
   return {
     id: projection.runId,
     agentId: agent.id,
@@ -14553,25 +14648,202 @@ function runtimeBridgeRunRecord({ agent, request, projection }) {
     usage_telemetry: usageTelemetry,
     usageTelemetry,
     runtimeUsage: usageTelemetry,
-    events: [],
+    events: bridgeEvents,
     conversation: [
       { role: "user", content: projection.prompt, createdAt: projection.createdAt },
       ...(projection.result ? [{ role: "assistant", content: projection.result, createdAt: projection.updatedAt }] : []),
     ],
-    trace: {
-      ...trace,
-      usage: usageTelemetry,
-      usage_telemetry: usageTelemetry,
-      usageTelemetry,
-      runtimeUsage: usageTelemetry,
-    },
-    artifacts: [],
-    receipts: [],
+    trace: traceWithArtifacts,
+    artifacts,
+    receipts,
     modelRouteDecision: agent.modelRouteDecision ?? null,
     modelRouteReceiptId: agent.modelRouteReceiptId ?? null,
     activeSkillHookManifest: null,
     memoryRecords: [],
     memoryWriteReceipts: [],
+  };
+}
+
+function runtimeBridgeMessagesForProjection({ agent, projection }) {
+  return normalizeArray(projection.events).map((event, index) =>
+    runtimeBridgeMessageForEvent({ agent, projection, event, index }),
+  );
+}
+
+function runtimeBridgeMessageForEvent({ agent, projection, event, index }) {
+  const payload = runtimeBridgeEventPayload(event);
+  const type = runtimeBridgeRunEventType(event);
+  const summary =
+    optionalString(payload.summary) ??
+    optionalString(event.summary) ??
+    optionalString(event.source_event_kind) ??
+    optionalString(event.event_kind) ??
+    type;
+  return {
+    id: `${projection.runId}:bridge:${String(index).padStart(3, "0")}:${type}`,
+    runId: projection.runId,
+    agentId: agent.id,
+    type,
+    cursor: `${projection.runId}:${index}`,
+    createdAt: event.created_at ?? projection.updatedAt ?? projection.createdAt,
+    summary,
+    data: {
+      ...payload,
+      eventKind: payload.event_kind ?? event.source_event_kind ?? event.event_kind ?? type,
+      workflowGraphId: event.workflow_graph_id ?? payload.workflow_graph_id ?? null,
+      workflow_graph_id: event.workflow_graph_id ?? payload.workflow_graph_id ?? null,
+      workflowNodeId: event.workflow_node_id ?? payload.workflow_node_id ?? null,
+      workflow_node_id: event.workflow_node_id ?? payload.workflow_node_id ?? null,
+      componentKind: event.component_kind ?? payload.component_kind ?? null,
+      component_kind: event.component_kind ?? payload.component_kind ?? null,
+      payloadSchemaVersion: event.payload_schema_version ?? payload.schema_version ?? null,
+      payload_schema_version: event.payload_schema_version ?? payload.schema_version ?? null,
+      runtimeEventId: event.event_id ?? null,
+      runtime_event_id: event.event_id ?? null,
+      runtimeEventKind: event.event_kind ?? null,
+      runtime_event_kind: event.event_kind ?? null,
+      sourceEventKind: event.source_event_kind ?? null,
+      source_event_kind: event.source_event_kind ?? null,
+      receiptRefs: normalizeArray(event.receipt_refs),
+      receipt_refs: normalizeArray(event.receipt_refs),
+      artifactRefs: normalizeArray(event.artifact_refs),
+      artifact_refs: normalizeArray(event.artifact_refs),
+      policyDecisionRefs: normalizeArray(event.policy_decision_refs),
+      policy_decision_refs: normalizeArray(event.policy_decision_refs),
+    },
+  };
+}
+
+function runtimeBridgeEventPayload(event = {}) {
+  const payloadSummary = objectRecord(event.payload_summary);
+  const payload = objectRecord(event.payload);
+  return Object.keys(payloadSummary).length > 0 ? payloadSummary : payload;
+}
+
+function objectRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function runtimeBridgeRunEventType(event = {}) {
+  const kind = String(event.event_kind ?? "").trim();
+  if (kind.startsWith("computer_use.")) {
+    return kind.replace(/\./g, "_");
+  }
+  switch (kind) {
+    case "turn.started":
+      return "run_started";
+    case "turn.completed":
+      return "completed";
+    case "turn.failed":
+      return "error";
+    case "turn.canceled":
+      return "canceled";
+    case "item.delta":
+    case "reasoning.delta":
+      return "delta";
+    case "usage.delta":
+      return "usage_delta";
+    case "context.pressure_delta":
+      return "context_pressure_delta";
+    case "context.pressure_alert":
+      return "context_pressure_alert";
+    case "policy.blocked":
+      return "policy_blocked";
+    default:
+      return kind ? kind.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "").toLowerCase() : "runtime_step";
+  }
+}
+
+function runtimeBridgeComputerUseTrace({ projection, events }) {
+  const computerUseEvents = events.filter((event) => isComputerUseRunEventType(event.type));
+  if (!computerUseEvents.length) return null;
+  const payloads = computerUseEvents.map((event) => event.data ?? {});
+  const value = (...keys) => {
+    for (const payload of payloads) {
+      for (const key of keys) {
+        if (payload[key] !== undefined && payload[key] !== null) return payload[key];
+      }
+    }
+    return null;
+  };
+  const observation = value("observation_bundle");
+  const targetIndex = value("target_index");
+  const affordanceGraph = value("affordance_graph");
+  const action = value("computer_action");
+  const cleanup = value("cleanup_receipt");
+  return {
+    schemaVersion: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    source: "runtime_service_bridge",
+    runId: projection.runId,
+    run_id: projection.runId,
+    turnId: projection.turnId,
+    turn_id: projection.turnId,
+    eventCount: computerUseEvents.length,
+    event_count: computerUseEvents.length,
+    events: computerUseEvents.map((event) => ({
+      id: event.id,
+      type: event.type,
+      summary: event.summary,
+      runtimeEventId: event.data?.runtimeEventId ?? null,
+      runtimeEventKind: event.data?.runtimeEventKind ?? null,
+      workflowNodeId: event.data?.workflowNodeId ?? null,
+      componentKind: event.data?.componentKind ?? null,
+      receiptRefs: normalizeArray(event.data?.receiptRefs),
+      artifactRefs: normalizeArray(event.data?.artifactRefs),
+    })),
+    environmentSelection: value("environment_selection_receipt"),
+    environment_selection: value("environment_selection_receipt"),
+    lease: value("lease"),
+    runState: value("computer_use_run_state"),
+    run_state: value("computer_use_run_state"),
+    observation,
+    observationBundle: observation,
+    observation_bundle: observation,
+    targetIndex,
+    target_index: targetIndex,
+    affordanceGraph,
+    affordance_graph: affordanceGraph,
+    actionProposal: value("action_proposal"),
+    action_proposal: value("action_proposal"),
+    action,
+    computer_action: action,
+    actionReceipt: value("action_receipt"),
+    action_receipt: value("action_receipt"),
+    verification: value("verification_receipt"),
+    verification_receipt: value("verification_receipt"),
+    outcomeContract: value("outcome_contract"),
+    outcome_contract: value("outcome_contract"),
+    commitGate: value("commit_gate"),
+    commit_gate: value("commit_gate"),
+    trajectory: value("trajectory_bundle"),
+    trajectory_bundle: value("trajectory_bundle"),
+    cleanup,
+    cleanup_receipt: cleanup,
+    recoveryPolicy: value("recovery_policy"),
+    recovery_policy: value("recovery_policy"),
+    humanHandoffState: value("human_handoff_state"),
+    human_handoff_state: value("human_handoff_state"),
+    contractIngest: value("computer_use_contract_ingest"),
+    contract_ingest: value("computer_use_contract_ingest"),
+    retentionMode:
+      value("observation_retention_mode") ??
+      observation?.retention_mode ??
+      null,
+    retention_mode:
+      value("observation_retention_mode") ??
+      observation?.retention_mode ??
+      null,
+    evidenceRefs: uniqueStrings([
+      ...computerUseEvents.map((event) => event.data?.runtimeEventId).filter(Boolean),
+      observation?.observation_ref,
+      targetIndex?.target_index_ref,
+      affordanceGraph?.graph_ref,
+      value("computer_use_proposal_ref"),
+      action?.action_ref,
+      value("computer_use_verification_ref"),
+      value("computer_use_cleanup_ref"),
+    ]),
   };
 }
 
