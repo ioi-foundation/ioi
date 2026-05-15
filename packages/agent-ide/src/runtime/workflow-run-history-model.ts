@@ -22,6 +22,7 @@ import {
   type WorkflowRuntimeTuiControlStateProjection,
   type WorkflowRuntimeTuiControlStateRow,
   type WorkflowRuntimeEventProjection,
+  type WorkflowRuntimeComputerUseVisualTargetBounds,
   type WorkflowRuntimeComputerUseVisualTargetSummary,
   type WorkflowRuntimeThreadEventLike,
 } from "./workflow-runtime-event-projection";
@@ -120,7 +121,14 @@ export type WorkflowRunComputerUseWorkbench = {
   eventIds: string[];
   workflowNodeIds: string[];
   artifactRefs: string[];
+  overlayViewport: WorkflowRunComputerUseOverlayViewport | null;
   visualTargetSummaries: WorkflowRuntimeComputerUseVisualTargetSummary[];
+};
+
+export type WorkflowRunComputerUseOverlayViewport = {
+  coordinateSpaceId: string | null;
+  width: number;
+  height: number;
 };
 
 export type WorkflowRunHistoryModel = {
@@ -375,6 +383,10 @@ function workflowRunComputerUseWorkbench(
     eventIds: uniqueStrings(nodes.flatMap((node) => node.eventIds)),
     workflowNodeIds: uniqueStrings(nodes.map((node) => node.workflowNodeId)),
     artifactRefs: uniqueStrings(nodes.flatMap((node) => node.artifactRefs)),
+    overlayViewport: overlayViewportForTargets(
+      targetSummaries,
+      latestScreen.coordinateSpaceId,
+    ),
     visualTargetSummaries: targetSummaries,
   };
 }
@@ -390,6 +402,26 @@ function uniqueTargets(
     unique.push(target);
   }
   return unique;
+}
+
+function overlayViewportForTargets(
+  targets: readonly WorkflowRuntimeComputerUseVisualTargetSummary[],
+  coordinateSpaceId: string | null,
+): WorkflowRunComputerUseOverlayViewport | null {
+  const bounds = targets
+    .map((target) => target.bounds)
+    .filter((value): value is WorkflowRuntimeComputerUseVisualTargetBounds =>
+      Boolean(value),
+    );
+  if (bounds.length === 0) return null;
+  const width = Math.max(...bounds.map((box) => box.x + box.width));
+  const height = Math.max(...bounds.map((box) => box.y + box.height));
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
+  return {
+    coordinateSpaceId: coordinateSpaceId ?? bounds[0]?.coordinateSpaceId ?? null,
+    width: Math.max(1, Math.ceil(width)),
+    height: Math.max(1, Math.ceil(height)),
+  };
 }
 
 function workflowRunTelemetrySourceFilters(
