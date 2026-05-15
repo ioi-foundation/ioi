@@ -956,7 +956,12 @@ test("runtime service bridge computer-use events persist as run trace artifacts"
     assert.equal(trace.source, "runtime_service");
     assert.deepEqual(
       trace.events.filter((event) => event.type.startsWith("computer_use_")).map((event) => event.type),
-      ["computer_use_observation", "computer_use_affordance_graph"],
+      [
+        "computer_use_observation",
+        "computer_use_affordance_graph",
+        "computer_use_action_proposed",
+        "computer_use_commit_gate",
+      ],
     );
     const turnEvents = [];
     for await (const event of turn.events()) {
@@ -964,7 +969,12 @@ test("runtime service bridge computer-use events persist as run trace artifacts"
     }
     assert.deepEqual(
       turnEvents.filter((event) => event.eventKind.startsWith("computer_use.")).map((event) => event.type),
-      ["computer_use_observation", "computer_use_affordance_graph"],
+      [
+        "computer_use_observation",
+        "computer_use_affordance_graph",
+        "computer_use_action_proposed",
+        "computer_use_commit_gate",
+      ],
     );
     assert.equal(trace.computerUse.environmentSelection.selected_lane, "native_browser");
     assert.equal(trace.computerUse.environmentSelection.selected_session_mode, "owned_hermetic_browser");
@@ -981,7 +991,7 @@ test("runtime service bridge computer-use events persist as run trace artifacts"
     assert.equal(trace.computerUse.commitGate.final_action_ref, null);
     assert.deepEqual(
       trace.computerUse.trajectory.entries.map((entry) => entry.event_kind),
-      ["observe", "build_affordance_graph"],
+      ["observe", "build_affordance_graph", "propose_action", "commit_or_handoff"],
     );
     assert.equal(trace.computerUse.contractIngest, "browser_observation_artifacts");
     assert.equal(trace.receipts.some((receipt) => receipt.kind === "computer_use_trace"), true);
