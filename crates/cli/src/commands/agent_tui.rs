@@ -2691,6 +2691,8 @@ fn tui_coding_tool_row(event: &Value, fallback_thread_id: Option<&str>) -> Value
         .or_else(|| raw_payload.pointer("/rollbackRefs"))
         .cloned()
         .unwrap_or_else(|| Value::Array(Vec::new()));
+    let authority_projection =
+        tui_coding_tool_authority_projection(event, payload, raw_payload, result, result_summary);
     let mut row = Map::new();
     row.insert(
         "schema_version".to_string(),
@@ -2777,6 +2779,9 @@ fn tui_coding_tool_row(event: &Value, fallback_thread_id: Option<&str>) -> Value
     row.insert("artifact_refs".to_string(), artifact_refs);
     row.insert("policy_decision_refs".to_string(), policy_decision_refs);
     row.insert("rollback_refs".to_string(), rollback_refs);
+    for (key, value) in authority_projection {
+        row.insert(key, value);
+    }
     row.insert(
         "event_id".to_string(),
         event_id.clone().map(Value::String).unwrap_or(Value::Null),
@@ -2842,6 +2847,315 @@ fn tui_coding_tool_row(event: &Value, fallback_thread_id: Option<&str>) -> Value
         }),
     );
     Value::Object(row)
+}
+
+fn tui_coding_tool_authority_projection(
+    event: &Value,
+    payload: &Value,
+    raw_payload: &Value,
+    result: &Value,
+    result_summary: &Value,
+) -> Map<String, Value> {
+    let sources = [event, payload, raw_payload, result, result_summary];
+    let credential_readiness = tui_first_json_value(
+        &sources,
+        &[
+            "/credential_readiness",
+            "/credentialReadiness",
+            "/tool_contract/credential_readiness",
+            "/toolContract/credentialReadiness",
+            "/runtime_tool_contract/credential_readiness",
+            "/runtimeToolContract/credentialReadiness",
+            "/contract/credential_readiness",
+            "/contract/credentialReadiness",
+        ],
+    );
+    let credential_status = credential_readiness
+        .as_ref()
+        .and_then(|value| {
+            json_path_string(value, "/status")
+                .or_else(|| json_path_string(value, "/state"))
+                .or_else(|| value.as_str().map(ToOwned::to_owned))
+        })
+        .or_else(|| {
+            tui_first_json_string(
+                &sources,
+                &[
+                    "/credential_readiness_status",
+                    "/credentialReadinessStatus",
+                    "/credential_status",
+                    "/credentialStatus",
+                ],
+            )
+        });
+    let credential_ready = tui_first_json_boolish(
+        &sources,
+        &[
+            "/credential_ready",
+            "/credentialReady",
+            "/tool_contract/credential_ready",
+            "/toolContract/credentialReady",
+            "/runtime_tool_contract/credential_ready",
+            "/runtimeToolContract/credentialReady",
+            "/contract/credential_ready",
+            "/contract/credentialReady",
+        ],
+    )
+    .or_else(|| {
+        credential_status.as_deref().map(|status| {
+            matches!(
+                status.to_ascii_lowercase().as_str(),
+                "ready" | "available" | "configured"
+            )
+        })
+    });
+    let approval_required = tui_first_json_boolish(
+        &sources,
+        &[
+            "/approval_required",
+            "/approvalRequired",
+            "/requires_approval",
+            "/requiresApproval",
+            "/tool_contract/approval_required",
+            "/toolContract/approvalRequired",
+            "/runtime_tool_contract/approval_required",
+            "/runtimeToolContract/approvalRequired",
+            "/contract/approval_required",
+            "/contract/approvalRequired",
+        ],
+    );
+    let authority_scopes = tui_first_json_value(
+        &sources,
+        &[
+            "/authority_scope_requirements",
+            "/authorityScopeRequirements",
+            "/authority_scopes",
+            "/authorityScopes",
+            "/capability_scope",
+            "/capabilityScope",
+            "/tool_contract/authority_scope_requirements",
+            "/toolContract/authorityScopeRequirements",
+            "/runtime_tool_contract/authority_scope_requirements",
+            "/runtimeToolContract/authorityScopeRequirements",
+            "/contract/authority_scope_requirements",
+            "/contract/authorityScopeRequirements",
+        ],
+    )
+    .unwrap_or_else(|| Value::Array(Vec::new()));
+    let rate_limit_profile = tui_first_json_value(
+        &sources,
+        &[
+            "/rate_limit_profile",
+            "/rateLimitProfile",
+            "/rate_limit",
+            "/rateLimit",
+            "/tool_contract/rate_limit_profile",
+            "/toolContract/rateLimitProfile",
+            "/runtime_tool_contract/rate_limit_profile",
+            "/runtimeToolContract/rateLimitProfile",
+            "/contract/rate_limit_profile",
+            "/contract/rateLimitProfile",
+        ],
+    );
+    let rate_limit_policy = rate_limit_profile
+        .as_ref()
+        .and_then(|value| json_path_string(value, "/policy"))
+        .or_else(|| {
+            tui_first_json_string(
+                &sources,
+                &[
+                    "/rate_limit_policy",
+                    "/rateLimitPolicy",
+                    "/rate_limit_profile/policy",
+                    "/rateLimitProfile/policy",
+                ],
+            )
+        });
+    let idempotency_behavior = tui_first_json_value(
+        &sources,
+        &[
+            "/idempotency_behavior",
+            "/idempotencyBehavior",
+            "/idempotency",
+            "/tool_contract/idempotency_behavior",
+            "/toolContract/idempotencyBehavior",
+            "/runtime_tool_contract/idempotency_behavior",
+            "/runtimeToolContract/idempotencyBehavior",
+            "/contract/idempotency_behavior",
+            "/contract/idempotencyBehavior",
+        ],
+    );
+    let idempotency_required = idempotency_behavior
+        .as_ref()
+        .and_then(|value| tui_json_boolish(value, "/required"));
+    let idempotency_strategy = idempotency_behavior
+        .as_ref()
+        .and_then(|value| json_path_string(value, "/strategy"));
+    let receipt_behavior = tui_first_json_value(
+        &sources,
+        &[
+            "/receipt_behavior",
+            "/receiptBehavior",
+            "/tool_contract/receipt_behavior",
+            "/toolContract/receiptBehavior",
+            "/runtime_tool_contract/receipt_behavior",
+            "/runtimeToolContract/receiptBehavior",
+            "/contract/receipt_behavior",
+            "/contract/receiptBehavior",
+        ],
+    );
+    let receipt_required = receipt_behavior.as_ref().and_then(|value| {
+        tui_json_boolish(value, "/receiptRequired")
+            .or_else(|| tui_json_boolish(value, "/receipt_required"))
+    });
+    let workflow_availability = tui_first_json_value(
+        &sources,
+        &[
+            "/workflow_availability",
+            "/workflowAvailability",
+            "/tool_contract/workflow_availability",
+            "/toolContract/workflowAvailability",
+            "/runtime_tool_contract/workflow_availability",
+            "/runtimeToolContract/workflowAvailability",
+            "/contract/workflow_availability",
+            "/contract/workflowAvailability",
+        ],
+    );
+    let workflow_available = workflow_availability
+        .as_ref()
+        .and_then(|value| tui_json_boolish(value, "/available"));
+    let agent_availability = tui_first_json_value(
+        &sources,
+        &[
+            "/agent_availability",
+            "/agentAvailability",
+            "/tool_contract/agent_availability",
+            "/toolContract/agentAvailability",
+            "/runtime_tool_contract/agent_availability",
+            "/runtimeToolContract/agentAvailability",
+            "/contract/agent_availability",
+            "/contract/agentAvailability",
+        ],
+    );
+    let agent_available = agent_availability
+        .as_ref()
+        .and_then(|value| tui_json_boolish(value, "/available"));
+    let marketplace_exposure = tui_first_json_value(
+        &sources,
+        &[
+            "/marketplace_exposure",
+            "/marketplaceExposure",
+            "/tool_contract/marketplace_exposure",
+            "/toolContract/marketplaceExposure",
+            "/runtime_tool_contract/marketplace_exposure",
+            "/runtimeToolContract/marketplaceExposure",
+            "/contract/marketplace_exposure",
+            "/contract/marketplaceExposure",
+        ],
+    );
+
+    let mut authority_summary = Vec::new();
+    if let Some(status) = credential_status.as_deref() {
+        authority_summary.push(format!("credentials {status}"));
+    }
+    if let Some(required) = approval_required {
+        authority_summary.push(if required {
+            "approval required".to_string()
+        } else {
+            "approval not required".to_string()
+        });
+    }
+    if let Some(required) = receipt_required {
+        authority_summary.push(if required {
+            "receipt required".to_string()
+        } else {
+            "receipt optional".to_string()
+        });
+    }
+    if let Some(strategy) = idempotency_strategy.as_deref() {
+        authority_summary.push(format!("idempotency {strategy}"));
+    }
+    if let Some(policy) = rate_limit_policy.as_deref() {
+        authority_summary.push(format!("rate limit {policy}"));
+    }
+
+    let mut row = Map::new();
+    row.insert(
+        "credential_readiness".to_string(),
+        credential_readiness.unwrap_or(Value::Null),
+    );
+    row.insert(
+        "credential_readiness_status".to_string(),
+        credential_status.map(Value::String).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "credential_ready".to_string(),
+        credential_ready.map(Value::Bool).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "approval_required".to_string(),
+        approval_required.map(Value::Bool).unwrap_or(Value::Null),
+    );
+    row.insert("authority_scope_requirements".to_string(), authority_scopes);
+    row.insert(
+        "rate_limit_profile".to_string(),
+        rate_limit_profile.unwrap_or(Value::Null),
+    );
+    row.insert(
+        "rate_limit_policy".to_string(),
+        rate_limit_policy.map(Value::String).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "idempotency_behavior".to_string(),
+        idempotency_behavior.unwrap_or(Value::Null),
+    );
+    row.insert(
+        "idempotency_required".to_string(),
+        idempotency_required.map(Value::Bool).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "idempotency_strategy".to_string(),
+        idempotency_strategy
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+    );
+    row.insert(
+        "receipt_behavior".to_string(),
+        receipt_behavior.unwrap_or(Value::Null),
+    );
+    row.insert(
+        "receipt_required".to_string(),
+        receipt_required.map(Value::Bool).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "workflow_availability".to_string(),
+        workflow_availability.unwrap_or(Value::Null),
+    );
+    row.insert(
+        "workflow_available".to_string(),
+        workflow_available.map(Value::Bool).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "agent_availability".to_string(),
+        agent_availability.unwrap_or(Value::Null),
+    );
+    row.insert(
+        "agent_available".to_string(),
+        agent_available.map(Value::Bool).unwrap_or(Value::Null),
+    );
+    row.insert(
+        "marketplace_exposure".to_string(),
+        marketplace_exposure.unwrap_or(Value::Null),
+    );
+    row.insert(
+        "authority_summary".to_string(),
+        if authority_summary.is_empty() {
+            Value::Null
+        } else {
+            Value::String(authority_summary.join("; "))
+        },
+    );
+    row
 }
 
 fn tui_coding_tool_budget_row(event: &Value, fallback_thread_id: Option<&str>) -> Value {
@@ -4669,6 +4983,43 @@ fn tui_json_boolish(value: &Value, path: &str) -> Option<bool> {
     }
 }
 
+fn tui_first_json_value(sources: &[&Value], paths: &[&str]) -> Option<Value> {
+    for source in sources {
+        for path in paths {
+            if let Some(value) = source.pointer(path) {
+                if !value.is_null() {
+                    return Some(value.clone());
+                }
+            }
+        }
+    }
+    None
+}
+
+fn tui_first_json_string(sources: &[&Value], paths: &[&str]) -> Option<String> {
+    for source in sources {
+        for path in paths {
+            if let Some(value) = json_path_string(source, path) {
+                if !value.trim().is_empty() {
+                    return Some(value);
+                }
+            }
+        }
+    }
+    None
+}
+
+fn tui_first_json_boolish(sources: &[&Value], paths: &[&str]) -> Option<bool> {
+    for source in sources {
+        for path in paths {
+            if let Some(value) = tui_json_boolish(source, path) {
+                return Some(value);
+            }
+        }
+    }
+    None
+}
+
 fn tui_coding_tool_command(tool_id: &str, dry_run: Option<bool>) -> &'static str {
     match tool_id {
         "workspace.status" => "status",
@@ -5252,6 +5603,29 @@ mod tests {
                     "tool_name": "workspace.status",
                     "tool_call_id": "coding_tool_status",
                     "shell_fallback_used": false,
+                    "credentialReadiness": {
+                        "status": "ready",
+                        "checkedAt": "2026-05-15T00:00:00Z",
+                        "evidenceRefs": ["credential:workspace-status"]
+                    },
+                    "approvalRequired": false,
+                    "authorityScopeRequirements": ["scope:workspace:read"],
+                    "rateLimitProfile": {
+                        "policy": "workspace_local",
+                        "limit": 60,
+                        "windowMs": 60000
+                    },
+                    "idempotencyBehavior": {
+                        "required": false,
+                        "strategy": "read_only"
+                    },
+                    "receiptBehavior": {
+                        "receiptRequired": true,
+                        "requiredReceiptTypes": ["tool_read"]
+                    },
+                    "workflowAvailability": { "available": true },
+                    "agentAvailability": { "available": true },
+                    "marketplaceExposure": { "eligible": false },
                     "summary": "Workspace status inspected 1 changed file(s).",
                 },
             }),
@@ -5342,6 +5716,23 @@ mod tests {
         assert_eq!(rows[0]["tool_name"], "workspace.status");
         assert_eq!(rows[0]["shell_fallback_used"], false);
         assert_eq!(rows[0]["mutation_blocked"], false);
+        assert_eq!(rows[0]["credential_readiness_status"], "ready");
+        assert_eq!(rows[0]["credential_ready"], true);
+        assert_eq!(rows[0]["approval_required"], false);
+        assert_eq!(
+            rows[0]["authority_scope_requirements"],
+            serde_json::json!(["scope:workspace:read"])
+        );
+        assert_eq!(rows[0]["rate_limit_policy"], "workspace_local");
+        assert_eq!(rows[0]["idempotency_required"], false);
+        assert_eq!(rows[0]["idempotency_strategy"], "read_only");
+        assert_eq!(rows[0]["receipt_required"], true);
+        assert_eq!(rows[0]["workflow_available"], true);
+        assert_eq!(rows[0]["agent_available"], true);
+        assert_eq!(
+            rows[0]["authority_summary"],
+            "credentials ready; approval not required; receipt required; idempotency read_only; rate limit workspace_local"
+        );
         assert_eq!(
             rows[0]["receipt_refs"],
             serde_json::json!(["receipt_coding_tool_status"])
