@@ -35,8 +35,8 @@ truth:
 - no workflow-compositor shadow truth store;
 - daemon/runtime contracts first;
 - browser, GUI, sandbox, model, workflow, and Autopilot surfaces all consume
-  the same observations, target indexes, actions, receipts, trajectories,
-  policies, artifacts, and manifests.
+  the same observations, target indexes, action proposals, actions, receipts,
+  trajectories, policies, artifacts, and manifests.
 
 The immediate move is to turn browser-use into the first concrete lane, then
 generalize the same contracts across visual GUI and sandboxed/hosted computer
@@ -62,6 +62,9 @@ Promotion means:
 - make contract spine work the first implementation phase;
 - require every new browser/computer-use behavior to emit deterministic
   manifests, receipts, and evidence;
+- route reusable browser/computer-use primitives through canonical runtime
+  tool invocations when they are executable from workflows, SDK, CLI, or TUI,
+  even when a convenience endpoint also exists;
 - treat Playwright, UI-TARS, OpenAI CUA, Cua, and other tools as adapters or
   references unless explicitly introduced behind a typed IOI contract.
 

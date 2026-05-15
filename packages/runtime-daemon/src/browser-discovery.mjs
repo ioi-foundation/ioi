@@ -47,6 +47,14 @@ export async function discoverComputerUseBrowsers(options = {}) {
   });
 }
 
+export function discoverComputerUseBrowsersSync(options = {}) {
+  const rows = options.processRows ?? listBrowserProcessRows();
+  return browserDiscoveryReportFromProcessRows(rows, {
+    ...options,
+    includeCdpProbe: false,
+  });
+}
+
 export function browserDiscoveryReportFromProcessRows(rows, options = {}) {
   const platform = options.platform ?? os.platform();
   const discoveredAt = options.discoveredAt ?? new Date().toISOString();

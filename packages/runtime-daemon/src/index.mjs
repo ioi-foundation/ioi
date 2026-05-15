@@ -20,7 +20,10 @@ import {
   computerUseSourceEventKind,
   isComputerUseRunEventType,
 } from "./computer-use-projection.mjs";
-import { discoverComputerUseBrowsers } from "./browser-discovery.mjs";
+import {
+  discoverComputerUseBrowsers,
+  discoverComputerUseBrowsersSync,
+} from "./browser-discovery.mjs";
 import { AgentMemoryStore, parseMemoryCommand } from "./memory-store.mjs";
 import {
   CODING_TOOL_IDS,
@@ -212,6 +215,10 @@ const RUN_EVENT_TO_TTI_EVENT = {
   failed: "turn.failed",
   error: "turn.failed",
 };
+const COMPUTER_USE_BROWSER_DISCOVERY_TOOL_IDS = new Set([
+  "ioi.computer_use.browser_discovery",
+  "computer_use.browser_discovery",
+]);
 const HOOK_INVOCATION_RUNTIME_EVENTS = [
   {
     eventKind: "workflow_activation",
@@ -7201,9 +7208,137 @@ export class AgentgresRuntimeStateStore {
       : tools;
   }
 
+  invokeComputerUseBrowserDiscoveryTool(threadId, toolId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const turnId =
+      optionalString(request.turn_id ?? request.turnId) ??
+      optionalString(this.threadForAgent(agent).latest_turn_id) ??
+      "";
+    const workflowNodeId =
+      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      "computer-use.browser-discovery";
+    const workflowGraphId =
+      optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+    const toolCallId =
+      optionalString(request.tool_call_id ?? request.toolCallId) ??
+      `computer_use_browser_discovery_${doctorHash(`${threadId}:${toolId}:${Date.now()}`).slice(0, 16)}`;
+    const idempotencyKey =
+      optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+      `thread:${threadId}:computer-use-browser-discovery:${toolCallId}`;
+    const duplicateEvent = this.runtimeEventStream(eventStreamIdForThread(threadId)).idempotency.get(
+      idempotencyKey,
+    );
+    if (duplicateEvent) {
+      return computerUseBrowserDiscoveryInvocationResultFromEvent(duplicateEvent, {
+        agent,
+        threadId,
+        turnId,
+        toolId,
+        toolCallId,
+        workflowGraphId,
+        workflowNodeId,
+      });
+    }
+    const requestInput = objectRecord(request.input);
+    const requestArguments = objectRecord(request.arguments);
+    const input = Object.keys(requestInput).length
+      ? requestInput
+      : Object.keys(requestArguments).length
+        ? requestArguments
+        : objectRecord(request);
+    const report = discoverComputerUseBrowsersSync({
+      includeCdpProbe: false,
+      includeTabMetadata: Boolean(input.includeTabs ?? input.include_tabs),
+      revealTabTitles: Boolean(input.revealTabTitles ?? input.reveal_tab_titles),
+    });
+    const leaseId = `lease_${safeId(threadId)}_${safeId(toolCallId)}_browser_discovery`;
+    const payloadSummary = {
+      schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+      schemaVersion: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+      event_kind: "ComputerUse.BrowserDiscovery",
+      source: "runtime_thread_tool",
+      computerUse: true,
+      computer_use: true,
+      computer_use_step: "discover_browser",
+      computerUseStep: "discover_browser",
+      computer_use_lane: "native_browser",
+      computerUseLane: "native_browser",
+      computer_use_session_mode: "discovery_only",
+      computerUseSessionMode: "discovery_only",
+      computer_use_lease_id: leaseId,
+      computerUseLeaseId: leaseId,
+      computer_use_browser_discovery_ref: report.discovery_ref ?? report.receipt_ref,
+      computerUseBrowserDiscoveryRef: report.discovery_ref ?? report.receipt_ref,
+      tool_ref: toolId,
+      toolRef: toolId,
+      workflow_graph_id: workflowGraphId,
+      workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      workflowNodeId,
+      authority_scopes: ["computer_use.browser_discovery.read"],
+      authorityScopes: ["computer_use.browser_discovery.read"],
+      fail_closed_when_unavailable: true,
+      failClosedWhenUnavailable: true,
+      summary: "Browser discovery receipt emitted",
+      lease: {
+        schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+        lease_id: leaseId,
+        lane: "native_browser",
+        session_mode: "discovery_only",
+        status: "not_acquired",
+        authority_scope: "computer_use.browser_discovery.read",
+        consent_scope: "operator_prompt",
+        environment_ref: "browser_discovery:local_host",
+        profile_provenance: "none",
+        retention_mode: "prompt_visible_summary_only",
+        cleanup_required: false,
+        evidence_refs: [report.receipt_ref],
+      },
+      browser_discovery_report: report,
+      browserDiscoveryReport: report,
+      receipt_id: report.receipt_ref,
+      receiptId: report.receipt_ref,
+    };
+    const event = this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turnId,
+      item_id: `${turnId || threadId}:item:computer-use-browser-discovery:${doctorHash(toolCallId).slice(0, 12)}`,
+      idempotency_key: idempotencyKey,
+      source: operatorControlSource(request.source),
+      source_event_kind: "ComputerUse.BrowserDiscovery",
+      event_kind: "computer_use.browser_discovery",
+      status: "completed",
+      actor: "runtime",
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      component_kind: "computer_use_harness",
+      tool_call_id: toolCallId,
+      tool_name: toolId,
+      artifact_refs: ["computer-use-browser-discovery.json"],
+      receipt_refs: uniqueStrings([report.receipt_ref]),
+      rollback_refs: [],
+      payload_schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+      payload_summary: payloadSummary,
+    });
+    return computerUseBrowserDiscoveryInvocationResultFromEvent(event, {
+      agent,
+      threadId,
+      turnId,
+      toolId,
+      toolCallId,
+      workflowGraphId,
+      workflowNodeId,
+    });
+  }
+
   invokeThreadTool(threadId, toolId, request = {}) {
     const agent = this.agentForThread(threadId);
     const normalizedToolId = optionalString(toolId);
+    if (COMPUTER_USE_BROWSER_DISCOVERY_TOOL_IDS.has(normalizedToolId)) {
+      return this.invokeComputerUseBrowserDiscoveryTool(threadId, normalizedToolId, request);
+    }
     if (!normalizedToolId || !CODING_TOOL_IDS.has(normalizedToolId)) {
       throw notFound(`Coding tool not found: ${toolId}`, {
         threadId,
@@ -17681,6 +17816,41 @@ function codingToolInvocationResultFromEvent(event, context = {}) {
     idempotentReplay: true,
     workspace_snapshot: result?.workspace_snapshot ?? result?.workspaceSnapshot ?? null,
     workspaceSnapshot: result?.workspaceSnapshot ?? result?.workspace_snapshot ?? null,
+    workspace_snapshot_event: null,
+    workspaceSnapshotEvent: null,
+    auto_diagnostics: null,
+    autoDiagnostics: null,
+    result,
+    error: payload.error ?? null,
+  };
+}
+
+function computerUseBrowserDiscoveryInvocationResultFromEvent(event, context = {}) {
+  const payload = event.payload_summary ?? event.payload ?? {};
+  const result = objectRecord(
+    payload.browser_discovery_report ?? payload.browserDiscoveryReport,
+  );
+  return {
+    schema_version: "ioi.runtime.computer-use-browser-discovery-result.v1",
+    object: "ioi.runtime_computer_use_browser_discovery_result",
+    tool_pack: "computer_use",
+    tool_name: payload.tool_ref ?? payload.toolRef ?? context.toolId ?? null,
+    tool_call_id: event.tool_call_id ?? context.toolCallId ?? null,
+    thread_id: event.thread_id ?? context.threadId ?? null,
+    turn_id: event.turn_id ?? context.turnId ?? null,
+    status: event.status ?? payload.status ?? "completed",
+    workspace_root: event.workspace_root ?? context.agent?.cwd ?? null,
+    workflow_graph_id: payload.workflow_graph_id ?? context.workflowGraphId ?? event.workflow_graph_id ?? null,
+    workflow_node_id: payload.workflow_node_id ?? context.workflowNodeId ?? event.workflow_node_id ?? null,
+    shell_fallback_used: false,
+    receipt_refs: event.receipt_refs,
+    artifact_refs: event.artifact_refs,
+    rollback_refs: event.rollback_refs,
+    event,
+    idempotent_replay: true,
+    idempotentReplay: true,
+    workspace_snapshot: null,
+    workspaceSnapshot: null,
     workspace_snapshot_event: null,
     workspaceSnapshotEvent: null,
     auto_diagnostics: null,
