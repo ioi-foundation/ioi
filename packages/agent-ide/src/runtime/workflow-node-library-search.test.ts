@@ -66,6 +66,23 @@ test("authoring synonyms prioritize canonical primitives", () => {
   assertTopPrimitive("output", "output");
 });
 
+test("computer-use searches prioritize lane-specific authoring presets", () => {
+  assert.equal(topNode("browser use").creatorId, "plugin_tool.browser_use");
+  assert.equal(topNode("native browser").creatorId, "plugin_tool.browser_use");
+  assert.equal(
+    topNode("visual gui").creatorId,
+    "plugin_tool.computer_use.visual_gui",
+  );
+  assert.equal(
+    topNode("sandboxed computer").creatorId,
+    "plugin_tool.computer_use.sandboxed",
+  );
+  assert.equal(
+    topNode("hosted computer").creatorId,
+    "plugin_tool.computer_use.sandboxed",
+  );
+});
+
 test("short pr query does not act like broad substring search", () => {
   const results = rankNodes("pr");
   assert.ok(results.length > 0);

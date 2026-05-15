@@ -538,6 +538,9 @@ Deliverables:
   node-addressed glass-box rows with lane, lease, observation, target,
   affordance, proposal, action, verification, trajectory, cleanup, recovery,
   and fail-closed evidence.
+- canonical Browser Use, Computer Use, and Sandboxed Computer creator presets
+  that compile to runtime-owned computer-use lane/session metadata rather than
+  React Flow state.
 
 Acceptance:
 
