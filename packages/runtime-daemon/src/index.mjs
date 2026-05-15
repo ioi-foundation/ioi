@@ -12962,6 +12962,14 @@ async function handleRunRoute({ request, response, store, url, segments }) {
     });
     return;
   }
+  if (request.method === "GET" && action === "computer-use" && segments[4] === "trace" && !segments[5]) {
+    writeJsonResponse(response, store.getRun(runId).trace?.computerUse ?? null);
+    return;
+  }
+  if (request.method === "GET" && action === "computer-use" && segments[4] === "trajectory" && !segments[5]) {
+    writeJsonResponse(response, store.getRun(runId).trace?.computerUse?.trajectory ?? null);
+    return;
+  }
   if (request.method === "GET" && action === "scorecard") {
     writeJsonResponse(response, store.getRun(runId).trace.scorecard);
     return;

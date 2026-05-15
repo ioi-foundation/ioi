@@ -57,6 +57,14 @@ export class Run {
     return this.client.exportTrace(this.id);
   }
 
+  computerUseTrace(): Promise<RuntimeTraceBundle["computerUse"]> {
+    return this.client.getRunComputerUseTrace(this.id);
+  }
+
+  computerUseTrajectory(): Promise<unknown> {
+    return this.client.getRunComputerUseTrajectory(this.id);
+  }
+
   async routeDecision(): Promise<ModelRouteDecision | null> {
     const trace = await this.inspect();
     return trace.modelRouteDecision ?? null;
