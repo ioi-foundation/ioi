@@ -149,6 +149,13 @@ test("creator taxonomy covers memory, worker, mcp, skill, and computer-use autho
   assert.equal(browserUseArguments["controlledRelaunchHeadless"], false);
   assert.equal(browserUseArguments["observationRetentionMode"], "local_redacted_artifacts");
   assert.equal(browserUseArguments["failClosedWhenUnavailable"], true);
+  const visualUseArguments =
+    creators.get("plugin_tool.computer_use.visual_gui")?.defaultLogic.toolBinding?.arguments ?? {};
+  assert.equal(visualUseArguments["computerUseLane"], "visual_gui");
+  assert.equal(visualUseArguments["computerUseActionKind"], "inspect");
+  assert.equal(visualUseArguments["screenshotRef"], "");
+  assert.equal(visualUseArguments["somRef"], "");
+  assert.equal(visualUseArguments["axRef"], "");
   assert.equal(
     creators.get("plugin_tool.computer_use.visual_gui")?.defaultLaw.requireHumanGate,
     true,

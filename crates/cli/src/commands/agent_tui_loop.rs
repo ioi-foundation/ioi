@@ -93,6 +93,18 @@ pub(crate) enum TuiLineCommand {
         cdp_websocket_url: Option<String>,
         cdp_timeout_ms: Option<u64>,
     },
+    VisualGui {
+        prompt: Option<String>,
+        session_mode: Option<String>,
+        screenshot_ref: Option<String>,
+        som_ref: Option<String>,
+        ax_ref: Option<String>,
+        app_name: Option<String>,
+        window_title: Option<String>,
+        coordinate_space_id: Option<String>,
+        viewport_width: Option<u64>,
+        viewport_height: Option<u64>,
+    },
     ComputerUseControl {
         action: String,
         lease_id: String,
@@ -450,6 +462,44 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                     line.trim(),
                     "applied",
                     Some("native-browser computer-use trace emitted"),
+                    &session,
+                    &events,
+                );
+                print_tui_control_state(&control_state)?;
+            }
+            Ok(TuiLineCommand::VisualGui {
+                prompt,
+                session_mode,
+                screenshot_ref,
+                som_ref,
+                ax_ref,
+                app_name,
+                window_title,
+                coordinate_space_id,
+                viewport_width,
+                viewport_height,
+            }) => {
+                let events = handle_visual_gui_command(
+                    &mut session,
+                    VisualGuiLineArgs {
+                        prompt,
+                        session_mode,
+                        screenshot_ref,
+                        som_ref,
+                        ax_ref,
+                        app_name,
+                        window_title,
+                        coordinate_space_id,
+                        viewport_width,
+                        viewport_height,
+                    },
+                )
+                .await?;
+                control_state.record_command(
+                    "visual-gui",
+                    line.trim(),
+                    "applied",
+                    Some("visual-GUI computer-use trace emitted"),
                     &session,
                     &events,
                 );
@@ -1049,6 +1099,21 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 cdp_timeout_ms: args.cdp_timeout_ms,
             })
         }
+        "visual-gui" | "computer-vision" | "desktop-gui" => {
+            let args = parse_visual_gui_args(rest)?;
+            Ok(TuiLineCommand::VisualGui {
+                prompt: args.prompt,
+                session_mode: args.session_mode,
+                screenshot_ref: args.screenshot_ref,
+                som_ref: args.som_ref,
+                ax_ref: args.ax_ref,
+                app_name: args.app_name,
+                window_title: args.window_title,
+                coordinate_space_id: args.coordinate_space_id,
+                viewport_width: args.viewport_width,
+                viewport_height: args.viewport_height,
+            })
+        }
         "computer-use-control" => {
             let args = parse_computer_use_control_args(rest)?;
             Ok(TuiLineCommand::ComputerUseControl {
@@ -1101,9 +1166,28 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                     cdp_websocket_url: args.cdp_websocket_url,
                     cdp_timeout_ms: args.cdp_timeout_ms,
                 })
+            } else if let Some(prompt) = rest
+                .strip_prefix("visual-gui ")
+                .or_else(|| (rest == "visual-gui").then_some(""))
+                .or_else(|| rest.strip_prefix("desktop-gui "))
+                .or_else(|| (rest == "desktop-gui").then_some(""))
+            {
+                let args = parse_visual_gui_args(prompt)?;
+                Ok(TuiLineCommand::VisualGui {
+                    prompt: args.prompt,
+                    session_mode: args.session_mode,
+                    screenshot_ref: args.screenshot_ref,
+                    som_ref: args.som_ref,
+                    ax_ref: args.ax_ref,
+                    app_name: args.app_name,
+                    window_title: args.window_title,
+                    coordinate_space_id: args.coordinate_space_id,
+                    viewport_width: args.viewport_width,
+                    viewport_height: args.viewport_height,
+                })
             } else {
                 Err(anyhow!(
-                    "/computer-use accepts browser-discovery, native-browser <prompt>, or pause|resume|abort|cleanup --lease-id <id>; use /help"
+                    "/computer-use accepts browser-discovery, native-browser <prompt>, visual-gui <prompt>, or pause|resume|abort|cleanup --lease-id <id>; use /help"
                 ))
             }
         }
@@ -2798,6 +2882,104 @@ async fn handle_native_browser_command(
     handle_coding_tool_input_command(session, "ioi.computer_use.native_browser", input).await
 }
 
+async fn handle_visual_gui_command(
+    session: &mut TuiInteractiveSession,
+    args: VisualGuiLineArgs,
+) -> Result<Vec<Value>> {
+    let mut input = serde_json::Map::new();
+    if let Some(prompt) = args
+        .prompt
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "prompt".to_string(),
+            Value::String(prompt.trim().to_string()),
+        );
+    }
+    input.insert(
+        "observationRetentionMode".to_string(),
+        Value::String("local_redacted_artifacts".to_string()),
+    );
+    if let Some(session_mode) = args
+        .session_mode
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "sessionMode".to_string(),
+            Value::String(session_mode.trim().to_string()),
+        );
+    }
+    if let Some(screenshot_ref) = args
+        .screenshot_ref
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "screenshotRef".to_string(),
+            Value::String(screenshot_ref.trim().to_string()),
+        );
+    }
+    if let Some(som_ref) = args
+        .som_ref
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "somRef".to_string(),
+            Value::String(som_ref.trim().to_string()),
+        );
+    }
+    if let Some(ax_ref) = args
+        .ax_ref
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "axRef".to_string(),
+            Value::String(ax_ref.trim().to_string()),
+        );
+    }
+    if let Some(app_name) = args
+        .app_name
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "appName".to_string(),
+            Value::String(app_name.trim().to_string()),
+        );
+    }
+    if let Some(window_title) = args
+        .window_title
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "windowTitle".to_string(),
+            Value::String(window_title.trim().to_string()),
+        );
+    }
+    if let Some(coordinate_space_id) = args
+        .coordinate_space_id
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "coordinateSpaceId".to_string(),
+            Value::String(coordinate_space_id.trim().to_string()),
+        );
+    }
+    if let Some(viewport_width) = args.viewport_width {
+        input.insert("viewportWidth".to_string(), Value::from(viewport_width));
+    }
+    if let Some(viewport_height) = args.viewport_height {
+        input.insert("viewportHeight".to_string(), Value::from(viewport_height));
+    }
+    handle_coding_tool_input_command(session, "ioi.computer_use.visual_gui", input).await
+}
+
 async fn handle_computer_use_control_command(
     session: &mut TuiInteractiveSession,
     args: ComputerUseControlLineArgs,
@@ -3431,13 +3613,14 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
         "tool.retrieve_result" => "retrieve",
         "ioi.computer_use.browser_discovery" => "browser-discovery",
         "ioi.computer_use.native_browser" => "native-browser",
+        "ioi.computer_use.visual_gui" => "visual-gui",
         "ioi.computer_use.control" => "computer-use-control",
         _ => "tool",
     }
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--session-mode owned_hermetic_browser|attached_cdp|controlled_relaunch] [--approval-ref approval_id] [--controlled-relaunch-approval-ref approval_id] [--controlled-relaunch-executable-path path] [--controlled-relaunch-headless] [--selector css] [--target-ref ref] [--text value] [--key value] [--scroll-x n] [--scroll-y n] [--file-path path] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /computer-use [pause|resume|abort|cleanup] --lease-id lease_id [--handoff-ref ref] [--reason text] [--resume-observation-ref ref] [--cdp-endpoint-url url] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--session-mode owned_hermetic_browser|attached_cdp|controlled_relaunch] [--approval-ref approval_id] [--controlled-relaunch-approval-ref approval_id] [--controlled-relaunch-executable-path path] [--controlled-relaunch-headless] [--selector css] [--target-ref ref] [--text value] [--key value] [--scroll-x n] [--scroll-y n] [--file-path path] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /visual-gui [prompt] [--session-mode visual_fallback|foreground_desktop|background_desktop|app_scoped_desktop] [--screenshot-ref ref] [--som-ref ref] [--ax-ref ref] [--app-name name] [--window-title title] [--coordinate-space-id id] [--viewport-width n] [--viewport-height n] /computer-use [pause|resume|abort|cleanup] --lease-id lease_id [--handoff-ref ref] [--reason text] [--resume-observation-ref ref] [--cdp-endpoint-url url] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -3794,6 +3977,148 @@ fn parse_native_browser_args(value: &str) -> Result<NativeBrowserLineArgs> {
     })
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct VisualGuiLineArgs {
+    prompt: Option<String>,
+    session_mode: Option<String>,
+    screenshot_ref: Option<String>,
+    som_ref: Option<String>,
+    ax_ref: Option<String>,
+    app_name: Option<String>,
+    window_title: Option<String>,
+    coordinate_space_id: Option<String>,
+    viewport_width: Option<u64>,
+    viewport_height: Option<u64>,
+}
+
+fn parse_visual_gui_args(value: &str) -> Result<VisualGuiLineArgs> {
+    let mut prompt_parts = Vec::new();
+    let mut session_mode = None;
+    let mut screenshot_ref = None;
+    let mut som_ref = None;
+    let mut ax_ref = None;
+    let mut app_name = None;
+    let mut window_title = None;
+    let mut coordinate_space_id = None;
+    let mut viewport_width = None;
+    let mut viewport_height = None;
+    let mut parts = value.split_whitespace();
+    while let Some(part) = parts.next() {
+        if let Some(inline) = part.strip_prefix("--session-mode=") {
+            session_mode = Some(non_empty_flag_value("--session-mode", inline)?);
+            continue;
+        }
+        if part == "--session-mode" {
+            session_mode = Some(non_empty_flag_value(
+                "--session-mode",
+                required_flag_value("--session-mode", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--screenshot-ref=") {
+            screenshot_ref = Some(non_empty_flag_value("--screenshot-ref", inline)?);
+            continue;
+        }
+        if part == "--screenshot-ref" {
+            screenshot_ref = Some(non_empty_flag_value(
+                "--screenshot-ref",
+                required_flag_value("--screenshot-ref", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--som-ref=") {
+            som_ref = Some(non_empty_flag_value("--som-ref", inline)?);
+            continue;
+        }
+        if part == "--som-ref" {
+            som_ref = Some(non_empty_flag_value(
+                "--som-ref",
+                required_flag_value("--som-ref", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--ax-ref=") {
+            ax_ref = Some(non_empty_flag_value("--ax-ref", inline)?);
+            continue;
+        }
+        if part == "--ax-ref" {
+            ax_ref = Some(non_empty_flag_value(
+                "--ax-ref",
+                required_flag_value("--ax-ref", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--app-name=") {
+            app_name = Some(non_empty_flag_value("--app-name", inline)?);
+            continue;
+        }
+        if part == "--app-name" {
+            app_name = Some(non_empty_flag_value(
+                "--app-name",
+                required_flag_value("--app-name", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--window-title=") {
+            window_title = Some(non_empty_flag_value("--window-title", inline)?);
+            continue;
+        }
+        if part == "--window-title" {
+            window_title = Some(non_empty_flag_value(
+                "--window-title",
+                required_flag_value("--window-title", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--coordinate-space-id=") {
+            coordinate_space_id = Some(non_empty_flag_value("--coordinate-space-id", inline)?);
+            continue;
+        }
+        if part == "--coordinate-space-id" {
+            coordinate_space_id = Some(non_empty_flag_value(
+                "--coordinate-space-id",
+                required_flag_value("--coordinate-space-id", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--viewport-width=") {
+            viewport_width = Some(parse_positive_u64("--viewport-width", inline)?);
+            continue;
+        }
+        if part == "--viewport-width" {
+            viewport_width = Some(parse_positive_u64(
+                "--viewport-width",
+                required_flag_value("--viewport-width", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--viewport-height=") {
+            viewport_height = Some(parse_positive_u64("--viewport-height", inline)?);
+            continue;
+        }
+        if part == "--viewport-height" {
+            viewport_height = Some(parse_positive_u64(
+                "--viewport-height",
+                required_flag_value("--viewport-height", &mut parts)?,
+            )?);
+            continue;
+        }
+        prompt_parts.push(part);
+    }
+    Ok(VisualGuiLineArgs {
+        prompt: non_empty_string(&prompt_parts.join(" ")),
+        session_mode,
+        screenshot_ref,
+        som_ref,
+        ax_ref,
+        app_name,
+        window_title,
+        coordinate_space_id,
+        viewport_width,
+        viewport_height,
+    })
+}
+
 fn required_flag_value<'a>(
     flag: &str,
     parts: &mut std::str::SplitWhitespace<'a>,
@@ -3818,6 +4143,17 @@ fn parse_cdp_timeout_ms(value: &str) -> Result<u64> {
         .map_err(|_| anyhow!("--cdp-timeout-ms requires an integer millisecond value"))?;
     if parsed == 0 {
         return Err(anyhow!("--cdp-timeout-ms must be greater than zero"));
+    }
+    Ok(parsed)
+}
+
+fn parse_positive_u64(flag: &str, value: &str) -> Result<u64> {
+    let parsed = value
+        .trim()
+        .parse::<u64>()
+        .map_err(|_| anyhow!("{flag} requires a positive integer value"))?;
+    if parsed == 0 {
+        return Err(anyhow!("{flag} must be greater than zero"));
     }
     Ok(parsed)
 }
@@ -4894,6 +5230,39 @@ mod tests {
                 cdp_endpoint_url: None,
                 cdp_websocket_url: None,
                 cdp_timeout_ms: None,
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command(
+                "/visual-gui inspect local canvas --session-mode foreground_desktop --screenshot-ref artifact:visual:screenshot --som-ref artifact:visual:som --ax-ref artifact:visual:ax --app-name CanvasApp --window-title CanvasWindow --coordinate-space-id screen-visual-1 --viewport-width 1200 --viewport-height 800"
+            )
+            .unwrap(),
+            TuiLineCommand::VisualGui {
+                prompt: Some("inspect local canvas".to_string()),
+                session_mode: Some("foreground_desktop".to_string()),
+                screenshot_ref: Some("artifact:visual:screenshot".to_string()),
+                som_ref: Some("artifact:visual:som".to_string()),
+                ax_ref: Some("artifact:visual:ax".to_string()),
+                app_name: Some("CanvasApp".to_string()),
+                window_title: Some("CanvasWindow".to_string()),
+                coordinate_space_id: Some("screen-visual-1".to_string()),
+                viewport_width: Some(1200),
+                viewport_height: Some(800),
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/computer-use visual-gui inspect canvas --screenshot-ref artifact:visual:screenshot").unwrap(),
+            TuiLineCommand::VisualGui {
+                prompt: Some("inspect canvas".to_string()),
+                session_mode: None,
+                screenshot_ref: Some("artifact:visual:screenshot".to_string()),
+                som_ref: None,
+                ax_ref: None,
+                app_name: None,
+                window_title: None,
+                coordinate_space_id: None,
+                viewport_width: None,
+                viewport_height: None,
             }
         );
         assert_eq!(

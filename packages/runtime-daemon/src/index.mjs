@@ -226,6 +226,10 @@ const COMPUTER_USE_NATIVE_BROWSER_TOOL_IDS = new Set([
   "ioi.computer_use.native_browser",
   "computer_use.native_browser",
 ]);
+const COMPUTER_USE_VISUAL_GUI_TOOL_IDS = new Set([
+  "ioi.computer_use.visual_gui",
+  "computer_use.visual_gui",
+]);
 const COMPUTER_USE_CONTROL_TOOL_IDS = new Set([
   "ioi.computer_use.control",
   "computer_use.control",
@@ -7574,6 +7578,7 @@ export class AgentgresRuntimeStateStore {
         toolCallId,
         workflowGraphId,
         workflowNodeId,
+        computerUseLane: "native_browser",
       });
     }
     const requestInput = objectRecord(request.input);
@@ -7790,6 +7795,194 @@ export class AgentgresRuntimeStateStore {
       workflowGraphId,
       workflowNodeId,
       projection,
+      computerUseLane: "native_browser",
+    });
+  }
+
+  async invokeComputerUseVisualGuiTool(threadId, toolId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const turnId =
+      optionalString(request.turn_id ?? request.turnId) ??
+      optionalString(this.threadForAgent(agent).latest_turn_id) ??
+      "";
+    const workflowNodeId =
+      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      "computer-use.visual-gui";
+    const workflowGraphId =
+      optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+    const toolCallId =
+      optionalString(request.tool_call_id ?? request.toolCallId) ??
+      `computer_use_visual_gui_${doctorHash(`${threadId}:${toolId}:${Date.now()}`).slice(0, 16)}`;
+    const idempotencyKey =
+      optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+      `thread:${threadId}:computer-use-visual-gui:${toolCallId}`;
+    const stream = this.runtimeEventStream(eventStreamIdForThread(threadId));
+    const duplicateEvents = stream.events.filter((event) => (
+      event.payload_summary?.computer_use_tool_invocation_ref === idempotencyKey ||
+      event.payload?.computer_use_tool_invocation_ref === idempotencyKey
+    ));
+    if (duplicateEvents.length > 0) {
+      return computerUseNativeBrowserInvocationResultFromEvents(duplicateEvents, {
+        agent,
+        threadId,
+        turnId,
+        toolId,
+        toolCallId,
+        workflowGraphId,
+        workflowNodeId,
+        computerUseLane: "visual_gui",
+      });
+    }
+    const requestInput = objectRecord(request.input);
+    const requestArguments = objectRecord(request.arguments);
+    const input = Object.keys(requestInput).length
+      ? requestInput
+      : Object.keys(requestArguments).length
+        ? requestArguments
+        : objectRecord(request);
+    const goal =
+      optionalString(input.prompt ?? input.goal ?? input.objective ?? request.prompt ?? request.goal) ??
+      "Inspect the visual GUI surface without external side effects.";
+    const runId = `run_${safeId(toolCallId)}`;
+    const observationRetentionMode =
+      optionalString(input.observationRetentionMode ?? input.observation_retention_mode) ??
+      "local_redacted_artifacts";
+    const requestedActionKind = nativeBrowserActionKindForInput(input, goal);
+    const requestedActionAuthority = nativeBrowserActionKindIsReadOnly(requestedActionKind)
+      ? "computer_use.visual_gui.read"
+      : "computer_use.visual_gui.act";
+    const requestedApprovalRef = nativeBrowserApprovalRefForInput(input);
+    const requestedTargetRef =
+      optionalString(input.targetRef ?? input.target_ref ?? input.computerUseTargetRef ?? input.computer_use_target_ref);
+    const requestedSessionMode = visualGuiSessionModeForInput(input);
+    const visualObservationMetadata = visualGuiObservationMetadataForInput(input);
+    const metadata = {
+      computerUse: true,
+      computerUseLane: "visual_gui",
+      computerUseSessionMode: requestedSessionMode,
+      workflowGraphId,
+      workflowNodeId,
+      workflowNodeIds: uniqueStrings([
+        workflowNodeId,
+        ...normalizeArray(input.workflowNodeIds ?? input.workflow_node_ids),
+      ]),
+      toolRef: toolId,
+      authorityScopes: uniqueStrings([
+        requestedActionAuthority,
+        "computer_use.visual_gui.observe",
+        "computer_use.visual_gui.read",
+        ...normalizeArray(input.authorityScopes ?? input.authority_scopes),
+      ]),
+      observationRetentionMode,
+      failClosedWhenUnavailable: true,
+      computerUseActionKind: requestedActionKind,
+      computerUseApprovalRef: requestedApprovalRef,
+      computerUseTargetRef: requestedTargetRef,
+      ...visualObservationMetadata,
+      computerUseObservationBundle:
+        objectRecord(input.computerUseObservationBundle ?? input.observation_bundle),
+      computerUseTargetIndex:
+        objectRecord(input.computerUseTargetIndex ?? input.target_index),
+      computerUseAffordanceGraph:
+        objectRecord(input.computerUseAffordanceGraph ?? input.affordance_graph),
+      computerUseAdapterContract:
+        objectRecord(input.computerUseAdapterContract ?? input.adapter_contract),
+      computerUseCleanupReceipt:
+        objectRecord(input.computerUseCleanupReceipt ?? input.cleanup_receipt),
+    };
+    for (const key of [
+      "computerUseApprovalRef",
+      "computerUseTargetRef",
+      "computerUseVisualObservation",
+      "screenshotRef",
+      "somRef",
+      "axRef",
+      "appName",
+      "windowTitle",
+      "coordinateSpaceId",
+      "viewportWidth",
+      "viewportHeight",
+      "visualTargets",
+      "visualAffordances",
+      "detectedPatterns",
+      "computerUseObservationBundle",
+      "computerUseTargetIndex",
+      "computerUseAffordanceGraph",
+      "computerUseAdapterContract",
+      "computerUseCleanupReceipt",
+    ]) {
+      if (Array.isArray(metadata[key])) {
+        if (metadata[key].length === 0) delete metadata[key];
+      } else if (metadata[key] && typeof metadata[key] === "object") {
+        if (Object.keys(metadata[key]).length === 0) delete metadata[key];
+      } else if (metadata[key] == null || metadata[key] === "") {
+        delete metadata[key];
+      }
+    }
+    const projection = computerUseProjectionForRun({
+      agent,
+      runId,
+      prompt: goal,
+      mode: "send",
+      request: { metadata },
+      selectedModel: agent.modelId,
+    });
+    if (!projection) {
+      throw runtimeError({
+        status: 500,
+        code: "computer_use_projection_unavailable",
+        message: "Visual GUI tool invocation could not build a computer-use projection.",
+        details: { threadId, toolId },
+      });
+    }
+    const appendedEvents = [];
+    for (const [index, projectionEvent] of projection.events.entries()) {
+      const runEvent = makeEvent(
+        runId,
+        agent.id,
+        index,
+        projectionEvent.type,
+        projectionEvent.summary,
+        {
+          ...projectionEvent.data,
+          source: "runtime_thread_tool",
+          computer_use_tool_invocation_ref: idempotencyKey,
+          toolRef: toolId,
+          tool_ref: toolId,
+          toolCallId,
+          tool_call_id: toolCallId,
+          workflowGraphId,
+          workflow_graph_id: workflowGraphId,
+          workflowNodeId,
+          workflow_node_id: workflowNodeId,
+        },
+      );
+      const envelope = ttiEnvelopeForRunEvent({
+        event: runEvent,
+        threadId,
+        turnId,
+        workspaceRoot: agent.cwd,
+      });
+      appendedEvents.push(this.appendRuntimeEvent({
+        ...envelope,
+        idempotency_key: `${idempotencyKey}:event:${String(index).padStart(2, "0")}:${projectionEvent.type}`,
+        source: operatorControlSource(request.source),
+        component_kind: "computer_use_harness",
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: workflowNodeId,
+        tool_call_id: toolCallId,
+      }));
+    }
+    return computerUseNativeBrowserInvocationResultFromEvents(appendedEvents, {
+      agent,
+      threadId,
+      turnId,
+      toolId,
+      toolCallId,
+      workflowGraphId,
+      workflowNodeId,
+      projection,
+      computerUseLane: "visual_gui",
     });
   }
 
@@ -7800,6 +7993,9 @@ export class AgentgresRuntimeStateStore {
     }
     if (COMPUTER_USE_NATIVE_BROWSER_TOOL_IDS.has(normalizedToolId)) {
       return await this.invokeComputerUseNativeBrowserTool(threadId, normalizedToolId, request);
+    }
+    if (COMPUTER_USE_VISUAL_GUI_TOOL_IDS.has(normalizedToolId)) {
+      return await this.invokeComputerUseVisualGuiTool(threadId, normalizedToolId, request);
     }
     return this.invokeThreadTool(threadId, toolId, request);
   }
@@ -7815,6 +8011,9 @@ export class AgentgresRuntimeStateStore {
     }
     if (COMPUTER_USE_NATIVE_BROWSER_TOOL_IDS.has(normalizedToolId)) {
       return this.invokeComputerUseNativeBrowserTool(threadId, normalizedToolId, request);
+    }
+    if (COMPUTER_USE_VISUAL_GUI_TOOL_IDS.has(normalizedToolId)) {
+      return this.invokeComputerUseVisualGuiTool(threadId, normalizedToolId, request);
     }
     if (!normalizedToolId || !CODING_TOOL_IDS.has(normalizedToolId)) {
       throw notFound(`Coding tool not found: ${toolId}`, {
@@ -18399,6 +18598,14 @@ function computerUseNativeBrowserInvocationResultFromEvents(events, context = {}
   const orderedEvents = [...events].sort((left, right) => (left.seq ?? 0) - (right.seq ?? 0));
   const payloads = orderedEvents.map((event) => event.payload_summary ?? event.payload ?? {});
   const firstPayload = payloads[0] ?? {};
+  const resultLane = optionalString(
+    context.computerUseLane ??
+      context.computer_use_lane ??
+      firstPayload.computer_use_lane ??
+      firstPayload.computerUseLane,
+  ) ?? "native_browser";
+  const resultObjectLane = safeId(resultLane);
+  const resultSchemaLane = resultObjectLane.replace(/_/g, "-");
   const observationPayload =
     payloads.find((payload) => payload.observation_bundle || payload.observationBundle) ?? {};
   const actionPayload =
@@ -18432,8 +18639,8 @@ function computerUseNativeBrowserInvocationResultFromEvents(events, context = {}
   const receiptRefs = uniqueStrings(orderedEvents.flatMap((event) => event.receipt_refs ?? []));
   const artifactRefs = uniqueStrings(orderedEvents.flatMap((event) => event.artifact_refs ?? []));
   return {
-    schema_version: "ioi.runtime.computer-use-native-browser-result.v1",
-    object: "ioi.runtime_computer_use_native_browser_result",
+    schema_version: `ioi.runtime.computer-use-${resultSchemaLane}-result.v1`,
+    object: `ioi.runtime_computer_use_${resultObjectLane}_result`,
     tool_pack: "computer_use",
     tool_name: context.toolId ?? firstPayload.tool_ref ?? firstPayload.toolRef ?? null,
     tool_call_id: context.toolCallId ?? orderedEvents[0]?.tool_call_id ?? null,
@@ -18642,6 +18849,93 @@ function nativeBrowserSessionModeForInput(input = {}) {
     return "controlled_relaunch";
   }
   return "owned_hermetic_browser";
+}
+
+function visualGuiSessionModeForInput(input = {}) {
+  const explicit = optionalString(
+    input.sessionMode ??
+      input.session_mode ??
+      input.computerUseSessionMode ??
+      input.computer_use_session_mode,
+  );
+  if (
+    ["visual_fallback", "foreground_desktop", "background_desktop", "app_scoped_desktop"].includes(explicit)
+  ) {
+    return explicit;
+  }
+  return "visual_fallback";
+}
+
+function visualGuiObservationMetadataForInput(input = {}) {
+  const visualObservation = objectRecord(
+    input.computerUseVisualObservation ??
+      input.computer_use_visual_observation ??
+      input.visualGuiObservation ??
+      input.visual_gui_observation ??
+      input.visualObservation ??
+      input.visual_observation,
+  );
+  const metadata = {};
+  const stringFields = [
+    ["screenshotRef", "screenshot_ref"],
+    ["somRef", "som_ref"],
+    ["axRef", "ax_ref"],
+    ["accessibilityTreeRef", "accessibility_tree_ref"],
+    ["appName", "app_name"],
+    ["windowTitle", "window_title"],
+    ["coordinateSpaceId", "coordinate_space_id"],
+    ["redactionReportRef", "redaction_report_ref"],
+  ];
+  for (const [camelKey, snakeKey] of stringFields) {
+    const value = optionalString(input[camelKey] ?? input[snakeKey] ?? visualObservation[camelKey] ?? visualObservation[snakeKey]);
+    if (value) metadata[camelKey] = value;
+  }
+  const width = visualGuiFiniteNumber(
+    input.viewportWidth ??
+      input.viewport_width ??
+      visualObservation.viewportWidth ??
+      visualObservation.viewport_width,
+  );
+  const height = visualGuiFiniteNumber(
+    input.viewportHeight ??
+      input.viewport_height ??
+      visualObservation.viewportHeight ??
+      visualObservation.viewport_height,
+  );
+  if (width !== null) metadata.viewportWidth = width;
+  if (height !== null) metadata.viewportHeight = height;
+  const visualTargets = normalizeArray(
+    input.visualTargets ??
+      input.visual_targets ??
+      visualObservation.visualTargets ??
+      visualObservation.visual_targets ??
+      visualObservation.targets,
+  );
+  const visualAffordances = normalizeArray(
+    input.visualAffordances ??
+      input.visual_affordances ??
+      visualObservation.visualAffordances ??
+      visualObservation.visual_affordances ??
+      visualObservation.affordances,
+  );
+  const detectedPatterns = normalizeArray(
+    input.detectedPatterns ??
+      input.detected_patterns ??
+      visualObservation.detectedPatterns ??
+      visualObservation.detected_patterns,
+  );
+  if (visualTargets.length > 0) metadata.visualTargets = visualTargets;
+  if (visualAffordances.length > 0) metadata.visualAffordances = visualAffordances;
+  if (detectedPatterns.length > 0) metadata.detectedPatterns = detectedPatterns;
+  if (Object.keys(visualObservation).length > 0) {
+    metadata.computerUseVisualObservation = visualObservation;
+  }
+  return metadata;
+}
+
+function visualGuiFiniteNumber(value) {
+  const numeric = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
 }
 
 function nativeBrowserActionShouldUseCdpExecutor(actionKind, approvalRef, input = {}) {

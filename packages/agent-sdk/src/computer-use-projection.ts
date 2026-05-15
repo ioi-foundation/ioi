@@ -272,10 +272,10 @@ export function mockComputerUseProjectionForRun({
     requestedComputerUseTargetRef(options.metadata) ?? primaryTarget.target_ref;
   const normalizedActionCandidate =
     requestedActionKind === "inspect"
-      ? "inspect current page and summarize actionable targets"
+      ? "inspect current surface and summarize actionable targets"
       : `${requestedActionKind} ${requestedTargetRef}`;
   const predictedPostcondition = requestedActionIsReadOnly
-    ? "The harness has a grounded page summary and next-action candidates."
+    ? "The harness has a grounded observation summary and next-action candidates."
     : requestedActionHasApproval
       ? `The harness has a grounded ${requestedActionKind} action approved for execution and verifies the postcondition.`
       : `The harness has a grounded ${requestedActionKind} proposal and pauses before execution for confirmation.`;
@@ -311,7 +311,7 @@ export function mockComputerUseProjectionForRun({
     target_ref: requestedTargetRef,
     confidence: requestedActionIsReadOnly ? 92 : requestedActionHasApproval ? 89 : 86,
     rationale_summary: requestedActionIsReadOnly
-      ? "The page root is present and read-only inspection is the lowest-risk next step."
+      ? "The observed surface is present and read-only inspection is the lowest-risk next step."
       : requestedActionHasApproval
         ? `The requested ${requestedActionKind} action is grounded to the current target index and approval ${requestedActionApprovalRef} is present.`
         : `The requested ${requestedActionKind} action is grounded to the current target index and requires confirmation before execution.`,
@@ -372,7 +372,7 @@ export function mockComputerUseProjectionForRun({
         status: "completed",
         grounding_ref: targetIndex.target_index_ref,
         postcondition_summary: requestedActionIsReadOnly
-          ? "Read-only browser action was grounded in the observation and produced no external side effect."
+          ? "Read-only computer-use action was grounded in the observation and produced no external side effect."
           : "Approved mutating browser action was grounded in the observation and executed after confirmation.",
         verification_ref: verificationRef,
         evidence_refs: [
@@ -405,7 +405,7 @@ export function mockComputerUseProjectionForRun({
   const outcomeContract = outcomeContractForGoal({
     run_id: runId,
     requested_outcome: requestedActionIsReadOnly
-      ? "Produce a grounded browser observation summary without external side effects."
+      ? "Produce a grounded computer-use observation summary without external side effects."
       : requestedActionHasApproval
         ? `Execute the approved grounded ${requestedActionKind} browser action and verify the postcondition.`
         : `Prepare a grounded ${requestedActionKind} browser action and pause before external effects.`,
@@ -449,7 +449,7 @@ export function mockComputerUseProjectionForRun({
         sequence: 1,
         event_kind: "select_environment",
         receipt_ref: environmentSelection.receipt_ref,
-        summary: "Selected native browser lane with visual and sandbox lanes retained as fallbacks.",
+        summary: "Selected native_browser lane with visual and sandbox lanes retained as fallbacks.",
       },
       {
         sequence: 2,

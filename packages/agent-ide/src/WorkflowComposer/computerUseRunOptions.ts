@@ -27,6 +27,14 @@ export interface WorkflowComposerComputerUseRunMetadata {
   cdpEndpointUrl?: string;
   cdpWebSocketUrl?: string;
   cdpTimeoutMs?: number;
+  screenshotRef?: string;
+  somRef?: string;
+  axRef?: string;
+  appName?: string;
+  windowTitle?: string;
+  coordinateSpaceId?: string;
+  viewportWidth?: number;
+  viewportHeight?: number;
   observationRetentionMode: string | null;
   failClosedWhenUnavailable: boolean;
   workflowGraphId: string | null;
@@ -139,6 +147,34 @@ export function workflowComposerComputerUseRunOptions(
   const cdpTimeoutMs = positiveNumber(
     first.args["cdpTimeoutMs"] ?? first.args["cdp_timeout_ms"],
   );
+  const screenshotRef =
+    cleanString(first.args["screenshotRef"]) ??
+    cleanString(first.args["screenshot_ref"]);
+  const somRef =
+    cleanString(first.args["somRef"]) ??
+    cleanString(first.args["som_ref"]) ??
+    cleanString(first.args["setOfMarksRef"]) ??
+    cleanString(first.args["set_of_marks_ref"]);
+  const axRef =
+    cleanString(first.args["axRef"]) ??
+    cleanString(first.args["ax_ref"]) ??
+    cleanString(first.args["accessibilityTreeRef"]) ??
+    cleanString(first.args["accessibility_tree_ref"]);
+  const appName =
+    cleanString(first.args["appName"]) ??
+    cleanString(first.args["app_name"]);
+  const windowTitle =
+    cleanString(first.args["windowTitle"]) ??
+    cleanString(first.args["window_title"]);
+  const coordinateSpaceId =
+    cleanString(first.args["coordinateSpaceId"]) ??
+    cleanString(first.args["coordinate_space_id"]);
+  const viewportWidth = positiveNumber(
+    first.args["viewportWidth"] ?? first.args["viewport_width"],
+  );
+  const viewportHeight = positiveNumber(
+    first.args["viewportHeight"] ?? first.args["viewport_height"],
+  );
   return {
     metadata: {
       schemaVersion: WORKFLOW_COMPOSER_COMPUTER_USE_RUN_OPTIONS_SCHEMA_VERSION,
@@ -173,6 +209,14 @@ export function workflowComposerComputerUseRunOptions(
       (cdpEndpointUrl || cdpWebSocketUrl || sessionMode === "controlled_relaunch")
         ? { cdpTimeoutMs }
         : {}),
+      ...(screenshotRef ? { screenshotRef } : {}),
+      ...(somRef ? { somRef } : {}),
+      ...(axRef ? { axRef } : {}),
+      ...(appName ? { appName } : {}),
+      ...(windowTitle ? { windowTitle } : {}),
+      ...(coordinateSpaceId ? { coordinateSpaceId } : {}),
+      ...(viewportWidth ? { viewportWidth } : {}),
+      ...(viewportHeight ? { viewportHeight } : {}),
       observationRetentionMode:
         cleanString(first.args["observationRetentionMode"]) ??
         cleanString(first.args["observation_retention_mode"]),

@@ -139,6 +139,35 @@ test("computer-use composer run options preserve existing run metadata", () => {
   });
 });
 
+test("computer-use composer run options project visual GUI observation refs", () => {
+  const workflow = workflowWithCreator("plugin_tool.computer_use.visual_gui");
+  const first = workflow.nodes[0];
+  const args = first.config?.logic?.toolBinding?.arguments as Record<string, unknown>;
+  args["computerUseSessionMode"] = "foreground_desktop";
+  args["screenshotRef"] = "artifact:visual:screenshot-redacted";
+  args["somRef"] = "artifact:visual:som";
+  args["axRef"] = "artifact:visual:ax";
+  args["appName"] = "Canvas App";
+  args["windowTitle"] = "Canvas App - Local";
+  args["coordinateSpaceId"] = "screen-visual-local";
+  args["viewportWidth"] = 1200;
+  args["viewportHeight"] = 800;
+
+  const options = workflowComposerComputerUseRunOptions(workflow);
+
+  assert.ok(options);
+  assert.equal(options.metadata.computerUseLane, "visual_gui");
+  assert.equal(options.metadata.computerUseSessionMode, "foreground_desktop");
+  assert.equal(options.metadata.screenshotRef, "artifact:visual:screenshot-redacted");
+  assert.equal(options.metadata.somRef, "artifact:visual:som");
+  assert.equal(options.metadata.axRef, "artifact:visual:ax");
+  assert.equal(options.metadata.appName, "Canvas App");
+  assert.equal(options.metadata.windowTitle, "Canvas App - Local");
+  assert.equal(options.metadata.coordinateSpaceId, "screen-visual-local");
+  assert.equal(options.metadata.viewportWidth, 1200);
+  assert.equal(options.metadata.viewportHeight, 800);
+});
+
 test("computer-use composer run options ignore non computer-use workflows", () => {
   const options = workflowComposerComputerUseRunOptions(
     workflowWithCreator("plugin_tool.coding_pack"),

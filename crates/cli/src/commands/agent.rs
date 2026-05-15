@@ -482,6 +482,72 @@ pub enum ToolCommands {
         #[clap(long)]
         json: bool,
     },
+    /// Run a read-only visual-GUI computer-use prompt from supplied screenshot/AX/SoM refs.
+    VisualGui {
+        /// Runtime thread id that owns the computer-use event stream.
+        #[clap(long = "thread-id")]
+        thread_id: String,
+        /// Prompt/goal to run through the visual GUI harness.
+        #[clap(long)]
+        prompt: Option<String>,
+        /// Requested GUI action kind. Non-read-only actions remain governed by approval policy.
+        #[clap(long = "action-kind", default_value = "inspect")]
+        action_kind: String,
+        /// Visual GUI session mode: visual_fallback, foreground_desktop, background_desktop, or app_scoped_desktop.
+        #[clap(long = "session-mode")]
+        session_mode: Option<String>,
+        /// Grounded target ref for the requested visual action.
+        #[clap(long = "target-ref")]
+        target_ref: Option<String>,
+        /// Redacted screenshot artifact/ref for the current observation.
+        #[clap(long = "screenshot-ref")]
+        screenshot_ref: Option<String>,
+        /// Set-of-Marks artifact/ref for the current observation.
+        #[clap(long = "som-ref")]
+        som_ref: Option<String>,
+        /// Accessibility tree artifact/ref for the current observation.
+        #[clap(long = "ax-ref")]
+        ax_ref: Option<String>,
+        /// Observed app name.
+        #[clap(long = "app-name")]
+        app_name: Option<String>,
+        /// Observed window title.
+        #[clap(long = "window-title")]
+        window_title: Option<String>,
+        /// Coordinate-space id that bounds screenshot/SoM targets.
+        #[clap(long = "coordinate-space-id")]
+        coordinate_space_id: Option<String>,
+        /// Observation viewport width.
+        #[clap(long = "viewport-width")]
+        viewport_width: Option<u64>,
+        /// Observation viewport height.
+        #[clap(long = "viewport-height")]
+        viewport_height: Option<u64>,
+        /// Observation retention mode.
+        #[clap(
+            long = "observation-retention-mode",
+            default_value = "local_redacted_artifacts"
+        )]
+        observation_retention_mode: String,
+        /// Runtime turn id to associate with the tool result.
+        #[clap(long = "turn-id")]
+        turn_id: Option<String>,
+        /// Workflow graph id for React Flow-originated invocations.
+        #[clap(long = "workflow-graph-id")]
+        workflow_graph_id: Option<String>,
+        /// Workflow node id for React Flow-originated invocations.
+        #[clap(long = "workflow-node-id")]
+        workflow_node_id: Option<String>,
+        /// Runtime daemon endpoint. Defaults to IOI_DAEMON_ENDPOINT or http://127.0.0.1:8765.
+        #[clap(long)]
+        endpoint: Option<String>,
+        /// Capability token. Defaults to IOI_DAEMON_TOKEN.
+        #[clap(long)]
+        token: Option<String>,
+        /// Emit machine-readable JSON.
+        #[clap(long)]
+        json: bool,
+    },
     /// Emit governed computer-use pause/resume/abort/cleanup control receipts.
     ComputerUseControl {
         /// Runtime thread id that owns the computer-use event stream.
@@ -1455,6 +1521,52 @@ async fn run_tool_command(
             )
             .await
         }
+        Some(ToolCommands::VisualGui {
+            thread_id,
+            prompt,
+            action_kind,
+            session_mode,
+            target_ref,
+            screenshot_ref,
+            som_ref,
+            ax_ref,
+            app_name,
+            window_title,
+            coordinate_space_id,
+            viewport_width,
+            viewport_height,
+            observation_retention_mode,
+            turn_id,
+            workflow_graph_id,
+            workflow_node_id,
+            endpoint,
+            token,
+            json,
+        }) => {
+            invoke_visual_gui_tool(
+                thread_id,
+                prompt,
+                action_kind,
+                session_mode,
+                target_ref,
+                screenshot_ref,
+                som_ref,
+                ax_ref,
+                app_name,
+                window_title,
+                coordinate_space_id,
+                viewport_width,
+                viewport_height,
+                observation_retention_mode,
+                turn_id,
+                workflow_graph_id,
+                workflow_node_id,
+                endpoint,
+                token,
+                json,
+            )
+            .await
+        }
         Some(ToolCommands::ComputerUseControl {
             thread_id,
             action,
@@ -1888,6 +2000,191 @@ async fn invoke_native_browser_tool(
         .unwrap_or("none");
     println!(
         "Native browser computer-use: thread={thread_id} status={status} node={workflow_node} events={event_count} action={action_status} commit_gate={commit_gate_status} controlled_relaunch_launch={controlled_relaunch_launch_status}"
+    );
+    Ok(())
+}
+
+async fn invoke_visual_gui_tool(
+    thread_id: String,
+    prompt: Option<String>,
+    action_kind: String,
+    session_mode: Option<String>,
+    target_ref: Option<String>,
+    screenshot_ref: Option<String>,
+    som_ref: Option<String>,
+    ax_ref: Option<String>,
+    app_name: Option<String>,
+    window_title: Option<String>,
+    coordinate_space_id: Option<String>,
+    viewport_width: Option<u64>,
+    viewport_height: Option<u64>,
+    observation_retention_mode: String,
+    turn_id: Option<String>,
+    workflow_graph_id: Option<String>,
+    workflow_node_id: Option<String>,
+    endpoint: Option<String>,
+    token: Option<String>,
+    json: bool,
+) -> Result<()> {
+    let endpoint = resolve_daemon_endpoint(endpoint.as_deref());
+    let token = resolve_daemon_token(token.as_deref());
+    let mut body = serde_json::Map::new();
+    body.insert(
+        "source".to_string(),
+        serde_json::Value::String("sdk_client".to_string()),
+    );
+    let mut input = serde_json::Map::new();
+    if let Some(prompt) = prompt.as_deref().filter(|value| !value.trim().is_empty()) {
+        input.insert(
+            "prompt".to_string(),
+            serde_json::Value::String(prompt.trim().to_string()),
+        );
+    }
+    if !action_kind.trim().is_empty() {
+        input.insert(
+            "actionKind".to_string(),
+            serde_json::Value::String(action_kind.trim().to_string()),
+        );
+    }
+    if let Some(session_mode) = session_mode
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "sessionMode".to_string(),
+            serde_json::Value::String(session_mode.trim().to_string()),
+        );
+    }
+    if let Some(target_ref) = target_ref
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "targetRef".to_string(),
+            serde_json::Value::String(target_ref.trim().to_string()),
+        );
+    }
+    if let Some(screenshot_ref) = screenshot_ref
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "screenshotRef".to_string(),
+            serde_json::Value::String(screenshot_ref.trim().to_string()),
+        );
+    }
+    if let Some(som_ref) = som_ref.as_deref().filter(|value| !value.trim().is_empty()) {
+        input.insert(
+            "somRef".to_string(),
+            serde_json::Value::String(som_ref.trim().to_string()),
+        );
+    }
+    if let Some(ax_ref) = ax_ref.as_deref().filter(|value| !value.trim().is_empty()) {
+        input.insert(
+            "axRef".to_string(),
+            serde_json::Value::String(ax_ref.trim().to_string()),
+        );
+    }
+    if let Some(app_name) = app_name.as_deref().filter(|value| !value.trim().is_empty()) {
+        input.insert(
+            "appName".to_string(),
+            serde_json::Value::String(app_name.trim().to_string()),
+        );
+    }
+    if let Some(window_title) = window_title
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "windowTitle".to_string(),
+            serde_json::Value::String(window_title.trim().to_string()),
+        );
+    }
+    if let Some(coordinate_space_id) = coordinate_space_id
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "coordinateSpaceId".to_string(),
+            serde_json::Value::String(coordinate_space_id.trim().to_string()),
+        );
+    }
+    if let Some(viewport_width) = viewport_width {
+        input.insert(
+            "viewportWidth".to_string(),
+            serde_json::Value::Number(viewport_width.into()),
+        );
+    }
+    if let Some(viewport_height) = viewport_height {
+        input.insert(
+            "viewportHeight".to_string(),
+            serde_json::Value::Number(viewport_height.into()),
+        );
+    }
+    input.insert(
+        "observationRetentionMode".to_string(),
+        serde_json::Value::String(observation_retention_mode),
+    );
+    body.insert("input".to_string(), serde_json::Value::Object(input));
+    if let Some(turn_id) = turn_id.as_deref().filter(|value| !value.trim().is_empty()) {
+        body.insert(
+            "turn_id".to_string(),
+            serde_json::Value::String(turn_id.to_string()),
+        );
+    }
+    if let Some(workflow_graph_id) = workflow_graph_id
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        body.insert(
+            "workflow_graph_id".to_string(),
+            serde_json::Value::String(workflow_graph_id.to_string()),
+        );
+    }
+    body.insert(
+        "workflow_node_id".to_string(),
+        serde_json::Value::String(
+            workflow_node_id
+                .as_deref()
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or("computer-use.visual-gui.cli")
+                .to_string(),
+        ),
+    );
+    let route = coding_tool_invoke_route(&thread_id, "ioi.computer_use.visual_gui");
+    let value = daemon_request(
+        Some(&endpoint),
+        token.as_deref(),
+        Method::POST,
+        &route,
+        Some(serde_json::Value::Object(body)),
+    )
+    .await?;
+    if json {
+        return print_json(&value);
+    }
+    let status = value
+        .get("status")
+        .and_then(|value| value.as_str())
+        .unwrap_or("unknown");
+    let event_count = value
+        .get("event_count")
+        .and_then(|value| value.as_u64())
+        .unwrap_or(0);
+    let workflow_node = value
+        .get("workflow_node_id")
+        .and_then(|value| value.as_str())
+        .unwrap_or("computer-use.visual-gui.cli");
+    let action_status = value
+        .pointer("/result/actionReceipt/status")
+        .and_then(|value| value.as_str())
+        .unwrap_or("unknown");
+    let observation_ref = value
+        .pointer("/result/observation/observation_ref")
+        .and_then(|value| value.as_str())
+        .unwrap_or("none");
+    println!(
+        "Visual GUI computer-use: thread={thread_id} status={status} node={workflow_node} events={event_count} action={action_status} observation={observation_ref}"
     );
     Ok(())
 }
@@ -3323,6 +3620,64 @@ mod tests {
                 && file_path == "/tmp/upload.txt"
                 && cdp_endpoint_url == "http://127.0.0.1:9222"
                 && cdp_timeout_ms == 5000
+        ));
+        let visual_gui = AgentArgs::try_parse_from([
+            "agent",
+            "tools",
+            "visual-gui",
+            "--endpoint",
+            "http://127.0.0.1:8765",
+            "--thread-id",
+            "thread_runtime_cli",
+            "--prompt",
+            "inspect local canvas",
+            "--session-mode",
+            "foreground_desktop",
+            "--screenshot-ref",
+            "artifact:visual:screenshot",
+            "--som-ref",
+            "artifact:visual:som",
+            "--ax-ref",
+            "artifact:visual:ax",
+            "--app-name",
+            "CanvasApp",
+            "--window-title",
+            "CanvasWindow",
+            "--coordinate-space-id",
+            "screen-visual-1",
+            "--viewport-width",
+            "1200",
+            "--viewport-height",
+            "800",
+            "--json",
+        ])
+        .expect("visual gui command should parse");
+        assert!(matches!(
+            visual_gui.command,
+            Some(AgentCommands::Tools {
+                command: Some(ToolCommands::VisualGui {
+                    thread_id,
+                    session_mode: Some(session_mode),
+                    screenshot_ref: Some(screenshot_ref),
+                    som_ref: Some(som_ref),
+                    ax_ref: Some(ax_ref),
+                    app_name: Some(app_name),
+                    window_title: Some(window_title),
+                    coordinate_space_id: Some(coordinate_space_id),
+                    viewport_width: Some(1200),
+                    viewport_height: Some(800),
+                    json: true,
+                    ..
+                }),
+                ..
+            }) if thread_id == "thread_runtime_cli"
+                && session_mode == "foreground_desktop"
+                && screenshot_ref == "artifact:visual:screenshot"
+                && som_ref == "artifact:visual:som"
+                && ax_ref == "artifact:visual:ax"
+                && app_name == "CanvasApp"
+                && window_title == "CanvasWindow"
+                && coordinate_space_id == "screen-visual-1"
         ));
         let computer_use_control = AgentArgs::try_parse_from([
             "agent",
