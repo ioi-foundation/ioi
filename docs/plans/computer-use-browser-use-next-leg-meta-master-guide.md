@@ -434,10 +434,10 @@ Current status: the SDK exposes the contract spine plus executable recovery,
 human handoff, outcome, commit-gate, retention, and model-action adapter
 helpers. SDK, daemon, saved workflow runs, and React Flow run history now expose
 commit-gate evidence through the canonical `computer_use.commit_gate` step.
-The daemon also accepts canonical native-browser observation, target-index, and
-affordance contracts from mounted executors. Future daemon, workflow, and
-Autopilot policy executors should consume these helpers rather than defining
-local policy shapes.
+SDK-local and daemon-backed runs also accept canonical native-browser
+observation, target-index, and affordance contracts from mounted executors.
+Future daemon, workflow, and Autopilot policy executors should consume these
+helpers rather than defining local policy shapes.
 
 ### Phase 2: Environment Planner And Behavioral Loop
 
