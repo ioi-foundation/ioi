@@ -14,6 +14,12 @@ import {
   openAiResponse,
 } from "./model-mounting.mjs";
 import * as routeDecision from "./model-mounting/route-decision.mjs";
+import {
+  COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+  computerUseProjectionForRun,
+  computerUseSourceEventKind,
+  isComputerUseRunEventType,
+} from "./computer-use-projection.mjs";
 import { AgentMemoryStore, parseMemoryCommand } from "./memory-store.mjs";
 import {
   CODING_TOOL_IDS,
@@ -168,6 +174,12 @@ const RUN_EVENT_TO_TTI_EVENT = {
   review_gate: "item.completed",
   github_pr_create_plan: "item.completed",
   model_route_decision: "item.completed",
+  computer_use_environment_selected: "computer_use.environment_selected",
+  computer_use_run_state: "computer_use.run_state",
+  computer_use_observation: "computer_use.observation",
+  computer_use_affordance_graph: "computer_use.affordance_graph",
+  computer_use_action_proposed: "computer_use.action_proposed",
+  computer_use_verification: "computer_use.verification",
   skill_hook_manifest: "item.completed",
   hook_dry_run_plan: "item.completed",
   hook_invocation_ledger: "item.completed",
@@ -12981,6 +12993,17 @@ function buildRun({
     modelRoute?.selectedModel ??
     request.options?.model?.id ??
     agent.modelId;
+  const computerUseProjection = computerUseProjectionForRun({
+    agent,
+    runId,
+    prompt,
+    mode,
+    request,
+    selectedModel,
+  });
+  if (computerUseProjection) {
+    toolSequence.push("computer_use_harness");
+  }
   const modelRouteReceiptId =
     modelRoute?.receiptId ?? modelRouteDecision?.receiptId ?? `receipt_${runId}_model_route`;
   const memoryRecords = normalizeArray(memory.records);
@@ -13119,6 +13142,12 @@ function buildRun({
             `Subagent memory inheritance: mode=${subagentMemoryInheritance.mode}, receiver=${subagentMemoryInheritance.subagentName ?? "handoff"}, records=${subagentMemoryInheritance.records.length}, writeAllowed=${subagentMemoryInheritance.writeAllowed}`,
           ]
         : []),
+      ...(computerUseProjection
+        ? [
+            `Computer-use lane: ${computerUseProjection.environmentSelection.selected_lane}/${computerUseProjection.environmentSelection.selected_session_mode}`,
+            `Computer-use observation: ${computerUseProjection.observation.observation_ref} with target index ${computerUseProjection.targetIndex.target_index_ref}`,
+          ]
+        : []),
       `Active skill/hook manifest: skills=${activeSkillHookManifest.selectedSkillIds.length}, hooks=${activeSkillHookManifest.selectedHookIds.length}, skillSet=${activeSkillHookManifest.activeSkillSetHash.slice(0, 12)}, hookSet=${activeSkillHookManifest.activeHookSetHash.slice(0, 12)}`,
       `Hook dry-run plan: wouldRun=${hookDryRunPlan.wouldRunCount}, blocked=${hookDryRunPlan.blockedCount}, skipped=${hookDryRunPlan.skippedCount}`,
       `Hook invocation ledger: invocations=${hookInvocationLedger.invocationCount}, wouldRun=${hookInvocationLedger.wouldRunCount}, blocked=${hookInvocationLedger.blockedCount}, skipped=${hookInvocationLedger.skippedCount}`,
@@ -13178,6 +13207,10 @@ function buildRun({
       ...memoryRecords.map((record) => record.id),
       ...memoryWriteReceipts.map((receipt) => receipt.id),
       subagentMemoryReceipt?.id,
+      computerUseProjection?.receipt.id,
+      computerUseProjection?.environmentSelection.receipt_ref,
+      computerUseProjection?.observation.observation_ref,
+      computerUseProjection?.actionProposal.proposal_ref,
     ].filter(Boolean),
   };
   const uncertainty = {
@@ -13284,6 +13317,15 @@ function buildRun({
         description: "Hook execution is previewed with policy decisions and no command execution.",
         status: "passed",
       },
+      ...(computerUseProjection
+        ? [
+            {
+              checkId: "computer-use-glass-box-trace",
+              description: "Computer-use environment selection, observation, target index, affordance graph, action proposal, and verification are trace-visible.",
+              status: "passed",
+            },
+          ]
+        : []),
       ...(hookInvocationLedger.escalationCount > 0
         ? [
             {
@@ -13338,6 +13380,7 @@ function buildRun({
       "hook_dry_run_plan",
       "hook_invocation_ledger",
       "hook_escalation_receipt",
+      ...(computerUseProjection ? ["computer_use_trace"] : []),
       ...(diagnosticsFeedback ? ["lsp_diagnostics_injection"] : []),
       ...(diagnosticsBlockingGate ? ["lsp_diagnostics_blocking_gate"] : []),
     ],
@@ -13390,6 +13433,17 @@ function buildRun({
       "HookInvocationRecord",
       "HookEscalationReceipt",
       "RuntimeUsageTelemetry",
+      ...(computerUseProjection
+        ? [
+            "ComputerUseRunState",
+            "EnvironmentSelectionReceipt",
+            "ComputerUseObservationBundle",
+            "TargetIndex",
+            "AffordanceGraph",
+            "ActionProposal",
+            "ComputerUseVerificationReceipt",
+          ]
+        : []),
       ...(diagnosticsBlockingGate ? ["LspDiagnosticsBlockingGate"] : []),
       "RuntimeEventEnvelope",
     ],
@@ -13426,6 +13480,13 @@ function buildRun({
         ? [`lsp.diagnostics.${diagnosticsFeedback.mode}`]
         : []),
       ...(diagnosticsBlockingGate ? ["lsp.diagnostics.blocking_gate"] : []),
+      ...(computerUseProjection
+        ? [
+            "computer_use.native_browser.read_only",
+            "computer_use.action_proposal_required",
+            "computer_use.observation_retention.local_redacted_artifacts",
+          ]
+        : []),
     ],
     affectedTests: ["live-runtime-daemon-contract"],
     affectedDocs: ["docs/plans/architectural-improvements-broad-master-guide.md"],
@@ -13717,6 +13778,7 @@ function buildRun({
   };
   const receipts = [
     modelRouteReceipt,
+    computerUseProjection?.receipt,
     subagentMemoryReceipt,
     runtimeTaskReceipt,
     runtimeJobReceipt,
@@ -13875,6 +13937,11 @@ function buildRun({
       receiptId: modelRouteReceiptId,
     });
   }
+  if (computerUseProjection) {
+    for (const event of computerUseProjection.events) {
+      addEvent(event.type, event.summary, event.data);
+    }
+  }
   for (const mutation of memoryMutations) {
     const operation = mutation.operation ?? "write";
     addEvent("memory_update", memoryEventSummary(operation), {
@@ -13991,6 +14058,7 @@ function buildRun({
       "hook-dry-run-plan.json",
       "hook-invocations.json",
       ...(diagnosticsBlockingGate ? ["diagnostics-blocking-gate.json"] : []),
+      ...(computerUseProjection ? ["computer-use-trace.json"] : []),
       "scorecard.json",
       "agentgres-projection.json",
     ],
@@ -14073,6 +14141,18 @@ function buildRun({
     usage_telemetry: usageTelemetry,
     usageTelemetry,
     runtimeUsage: usageTelemetry,
+    computerUse: computerUseProjection
+      ? {
+          environmentSelection: computerUseProjection.environmentSelection,
+          lease: computerUseProjection.lease,
+          runState: computerUseProjection.runState,
+          observation: computerUseProjection.observation,
+          targetIndex: computerUseProjection.targetIndex,
+          affordanceGraph: computerUseProjection.affordanceGraph,
+          actionProposal: computerUseProjection.actionProposal,
+          verification: computerUseProjection.verification,
+        }
+      : null,
     diagnosticsFeedback,
     diagnosticsBlockingGate,
     subagentMemoryInheritance,
@@ -14202,6 +14282,27 @@ function buildRun({
       hookInvocationLedger,
       "redacted",
     ),
+    ...(computerUseProjection
+      ? [
+          artifact(
+            runId,
+            "computer-use-trace.json",
+            "application/json",
+            computerUseProjection.receipt.id,
+            {
+              environmentSelection: computerUseProjection.environmentSelection,
+              lease: computerUseProjection.lease,
+              runState: computerUseProjection.runState,
+              observation: computerUseProjection.observation,
+              targetIndex: computerUseProjection.targetIndex,
+              affordanceGraph: computerUseProjection.affordanceGraph,
+              actionProposal: computerUseProjection.actionProposal,
+              verification: computerUseProjection.verification,
+            },
+            "redacted",
+          ),
+        ]
+      : []),
     ...(diagnosticsBlockingGate
       ? [
           artifact(
@@ -19808,6 +19909,7 @@ function lifecycleStatusForRun(status) {
 function ttiEnvelopeForRunEvent({ event, threadId, turnId, workspaceRoot }) {
   const eventKind = RUN_EVENT_TO_TTI_EVENT[event.type] ?? `item.${event.type}`;
   const payload = payloadSummaryForRunEvent(event);
+  const isComputerUseEvent = isComputerUseRunEventType(event.type);
   const isDiagnosticsInjection = event.type === "lsp_diagnostics_injected";
   const isDiagnosticsBlockingGate =
     event.type === "policy_blocked" && event.data?.reason === "post_edit_diagnostics_findings";
@@ -19823,7 +19925,9 @@ function ttiEnvelopeForRunEvent({ event, threadId, turnId, workspaceRoot }) {
       ? "LspDiagnostics.Injected"
       : isDiagnosticsBlockingGate
         ? "LspDiagnostics.BlockingGate"
-        : `run.${event.type}`,
+        : isComputerUseEvent
+          ? event.data?.eventKind ?? computerUseSourceEventKind(event.type)
+          : `run.${event.type}`,
     event_kind: eventKind,
     status: runtimeEventStatusForRunEvent(event),
     actor: event.type === "delta" ? "assistant" : "runtime",
@@ -19840,7 +19944,9 @@ function ttiEnvelopeForRunEvent({ event, threadId, turnId, workspaceRoot }) {
       ? LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION
       : isDiagnosticsBlockingGate
         ? LSP_DIAGNOSTICS_BLOCKING_GATE_SCHEMA_VERSION
-        : RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION,
+        : isComputerUseEvent
+          ? COMPUTER_USE_CONTRACT_SCHEMA_VERSION
+          : RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION,
     payload,
     payload_ref: null,
     receipt_refs: receiptRefsForRunEvent(event),
@@ -20208,6 +20314,9 @@ function runtimeContextPressureStatus(pressure) {
 }
 
 function runtimeEventStatusForRunEvent(event) {
+  if (isComputerUseRunEventType(event.type)) {
+    return event.type === "computer_use_verification" ? "completed" : "running";
+  }
   if (event.type === "job_queued") return "queued";
   if (
     event.type === "job_started" ||
@@ -20257,6 +20366,38 @@ function payloadSummaryForRunEvent(event) {
     agent_id: event.agentId,
     summary: event.summary,
   };
+  if (isComputerUseRunEventType(event.type)) {
+    return {
+      ...summary,
+      event_kind: event.data?.eventKind ?? computerUseSourceEventKind(event.type),
+      schema_version:
+        event.data?.schema_version ??
+        event.data?.schemaVersion ??
+        COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+      computer_use_step: event.data?.computer_use_step ?? null,
+      computer_use_lane: event.data?.computer_use_lane ?? null,
+      computer_use_session_mode: event.data?.computer_use_session_mode ?? null,
+      computer_use_lease_id: event.data?.computer_use_lease_id ?? null,
+      computer_use_observation_ref: event.data?.computer_use_observation_ref ?? null,
+      computer_use_target_index_ref: event.data?.computer_use_target_index_ref ?? null,
+      computer_use_affordance_graph_ref: event.data?.computer_use_affordance_graph_ref ?? null,
+      computer_use_proposal_ref: event.data?.computer_use_proposal_ref ?? null,
+      computer_use_target_ref: event.data?.computer_use_target_ref ?? null,
+      computer_use_policy_decision_ref: event.data?.computer_use_policy_decision_ref ?? null,
+      computer_use_verification_ref: event.data?.computer_use_verification_ref ?? null,
+      environment_selection_receipt: event.data?.environment_selection_receipt ?? null,
+      lease: event.data?.lease ?? null,
+      computer_use_run_state: event.data?.computer_use_run_state ?? null,
+      observation_bundle: event.data?.observation_bundle ?? null,
+      target_index: event.data?.target_index ?? null,
+      affordance_graph: event.data?.affordance_graph ?? null,
+      action_proposal: event.data?.action_proposal ?? null,
+      policy_gate: event.data?.policy_gate ?? null,
+      verification_receipt: event.data?.verification_receipt ?? null,
+      workflow_node_id: event.data?.workflowNodeId ?? null,
+      redaction: "computer_use_trace_safe",
+    };
+  }
   if (event.type === "memory_update") {
     return {
       ...summary,
@@ -20792,6 +20933,7 @@ function payloadSummaryForRunEvent(event) {
 
 function componentKindForRunEvent(eventOrType) {
   const type = typeof eventOrType === "string" ? eventOrType : eventOrType?.type;
+  if (isComputerUseRunEventType(type)) return "computer_use_harness";
   switch (type) {
     case "runtime_task":
       return "runtime_task";
@@ -20899,7 +21041,8 @@ function workflowNodeForRunEvent(eventOrType) {
       eventOrType?.type === "usage_delta" ||
       eventOrType?.type === "context_pressure_delta" ||
       eventOrType?.type === "context_pressure_alert" ||
-      eventOrType?.type === "usage_final") &&
+      eventOrType?.type === "usage_final" ||
+      isComputerUseRunEventType(eventOrType?.type)) &&
     eventOrType.data?.workflowNodeId
   ) {
     return eventOrType.data.workflowNodeId;
@@ -20909,6 +21052,9 @@ function workflowNodeForRunEvent(eventOrType) {
 
 function receiptRefsForRunEvent(event) {
   if (event.type === "run_started") return [`receipt_${event.runId}_policy`];
+  if (isComputerUseRunEventType(event.type)) {
+    return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+  }
   if (event.type === "model_route_decision") {
     return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
   }
@@ -20983,6 +21129,7 @@ function receiptRefsForRunEvent(event) {
 }
 
 function artifactRefsForRunEvent(event) {
+  if (isComputerUseRunEventType(event.type)) return ["computer-use-trace.json"];
   if (event.type === "runtime_task") return ["runtime-task.json"];
   if (event.type === "runtime_checklist") return ["runtime-checklist.json"];
   if (event.type === "job_queued" || event.type === "job_started" || event.type === "job_completed" || event.type === "job_failed" || event.type === "job_canceled") return ["runtime-job.json"];

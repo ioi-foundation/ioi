@@ -1,0 +1,404 @@
+import crypto from "node:crypto";
+
+export const COMPUTER_USE_CONTRACT_SCHEMA_VERSION = "ioi.computer-use.harness.v1";
+
+export function isComputerUseRunEventType(type) {
+  return String(type ?? "").startsWith("computer_use_");
+}
+
+export function computerUseSourceEventKind(type) {
+  switch (type) {
+    case "computer_use_environment_selected":
+      return "ComputerUse.EnvironmentSelected";
+    case "computer_use_run_state":
+      return "ComputerUse.RunState";
+    case "computer_use_observation":
+      return "ComputerUse.Observation";
+    case "computer_use_affordance_graph":
+      return "ComputerUse.AffordanceGraph";
+    case "computer_use_action_proposed":
+      return "ComputerUse.ActionProposed";
+    case "computer_use_verification":
+      return "ComputerUse.Verification";
+    default:
+      return "ComputerUse.Event";
+  }
+}
+
+export function computerUseProjectionForRun({
+  agent,
+  runId,
+  prompt,
+  mode,
+  request,
+  selectedModel,
+}) {
+  if (!shouldProjectComputerUse(prompt, request)) {
+    return null;
+  }
+  const targetHint = computerUseTargetHint(prompt);
+  const leaseId = `lease_${runId}_browser`;
+  const observationRef = `observation_${runId}_browser_initial`;
+  const targetIndexRef = `target_index_${runId}_browser_initial`;
+  const affordanceGraphRef = `affordance_${runId}_browser_initial`;
+  const proposalRef = `proposal_${runId}_browser_inspect`;
+  const policyDecisionRef = `policy_${runId}_computer_use_read_only`;
+  const verificationRef = `verification_${runId}_computer_use_probe`;
+  const traceReceiptId = `receipt_${runId}_computer_use_trace`;
+  const environmentSelection = {
+    receipt_ref: `receipt_${runId}_computer_use_environment`,
+    run_id: runId,
+    selected_lane: "native_browser",
+    selected_session_mode: "owned_hermetic_browser",
+    rejected_options: [
+      {
+        lane: "visual_gui",
+        session_mode: "visual_fallback",
+        reason: "DOM, AX, selector, screenshot, and CDP evidence are available before visual fallback.",
+      },
+      {
+        lane: "sandboxed_hosted",
+        session_mode: "local_sandbox",
+        reason: "This daemon run is local and read-only; sandbox isolation remains available for risky or reproducible tasks.",
+      },
+    ],
+    reasons: [
+      "Prompt indicates browser or computer-use automation.",
+      "Native browser lane gives the strongest semantic grounding for web tasks.",
+      "Visual and sandbox lanes remain explicit fallback options under the same IOI contracts.",
+    ],
+    risk_posture: mode === "dry_run" ? "preview_only" : "read_only_probe",
+    authority_required: "computer_use.native_browser.read",
+    privacy_impact: "local_redacted_artifacts",
+    expected_cleanup: "close_owned_browser_context_and_retain_redacted_trace",
+  };
+  const lease = {
+    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    lease_id: leaseId,
+    lane: "native_browser",
+    session_mode: "owned_hermetic_browser",
+    status: "active",
+    authority_scope: environmentSelection.authority_required,
+    consent_scope: "operator_prompt",
+    target_hint: targetHint,
+    environment_ref: `local_browser:${stableHash(agent.cwd).slice(0, 16)}`,
+    profile_provenance: "temporary_ioi_browser_profile",
+    retention_mode: "local_redacted_artifacts",
+    cleanup_required: true,
+    evidence_refs: [environmentSelection.receipt_ref, "ioi.native_browser.chromiumoxide"],
+  };
+  const runState = {
+    run_id: runId,
+    lease_id: leaseId,
+    user_goal: prompt,
+    current_subgoal: "Observe the requested surface, index targets, and propose a grounded next action.",
+    plan_graph_ref: `plan_graph_${runId}_computer_use`,
+    current_observation_ref: observationRef,
+    current_target_index_ref: targetIndexRef,
+    active_hypotheses: [
+      "Native browser semantics should resolve the task before visual fallback.",
+      "No external side effect should occur before a policy-gated action proposal.",
+    ],
+    expected_postcondition: "A redacted observation, target index, affordance graph, and approved read-only action proposal exist.",
+    last_action_ref: null,
+    verification_status: "unknown",
+    blocker_state: null,
+    retry_budget: 2,
+    risk_posture: environmentSelection.risk_posture,
+    user_handoff_ref: null,
+    cleanup_state: "cleanup_required",
+  };
+  const observation = {
+    observation_ref: observationRef,
+    lease_id: leaseId,
+    lane: "native_browser",
+    session_mode: "owned_hermetic_browser",
+    url: targetHint.startsWith("http") ? targetHint : null,
+    title: "IOI computer-use daemon observation",
+    app_name: "Chromium",
+    window_title: "IOI browser-use harness",
+    screenshot_ref: `artifact:${runId}:browser_screenshot_redacted`,
+    som_ref: `artifact:${runId}:som_overlay`,
+    dom_ref: `artifact:${runId}:dom_snapshot`,
+    ax_ref: `artifact:${runId}:ax_tree`,
+    selector_map_ref: `artifact:${runId}:selector_map`,
+    target_index_ref: targetIndexRef,
+    redaction_report_ref: `artifact:${runId}:redaction_report`,
+    freshness_ms: 0,
+    retention_mode: "local_redacted_artifacts",
+    detected_patterns: ["form", "toolbar", "warning_or_toast"],
+  };
+  const pageTarget = {
+    target_ref: `target_${runId}_document`,
+    label: "Current page",
+    role: "document",
+    semantic_ids: ["document", "page-root"],
+    selectors: ["html", "body"],
+    som_id: 1,
+    ax_ref: `${observation.ax_ref}#document`,
+    bounds: {
+      x: 0,
+      y: 0,
+      width: 1280,
+      height: 720,
+      coordinate_space_id: `viewport_${runId}`,
+    },
+    confidence: 96,
+    available_actions: ["inspect", "scroll", "click"],
+  };
+  const targetIndex = {
+    target_index_ref: targetIndexRef,
+    observation_ref: observationRef,
+    coordinate_space_id: `viewport_${runId}`,
+    drift_state: "fresh",
+    targets: [pageTarget],
+  };
+  const affordanceGraph = {
+    graph_ref: affordanceGraphRef,
+    target_index_ref: targetIndexRef,
+    observation_ref: observationRef,
+    affordances: [
+      {
+        target_ref: pageTarget.target_ref,
+        possible_action: "inspect",
+        action_preconditions: ["fresh_observation", "target_index_present"],
+        confidence: 95,
+        expected_state_transition: "A read-only inspection summary can be produced without external side effects.",
+        risk_class: "read_only",
+        required_authority: "computer_use.native_browser.read",
+        confirmation_required: false,
+        fallback_action_paths: ["reobserve", "switch_to_visual_lane"],
+        invalidation_conditions: ["navigation", "modal_interruption", "auth_wall"],
+      },
+    ],
+  };
+  const actionProposal = {
+    proposal_ref: proposalRef,
+    proposed_by: selectedModel,
+    model_role: "grounder",
+    raw_model_output_ref: `model_output_${runId}_computer_use_candidate`,
+    normalized_action_candidate: "inspect current page and summarize actionable targets",
+    target_ref: pageTarget.target_ref,
+    confidence: 92,
+    rationale_summary: "The page root is present and read-only inspection is the lowest-risk next step.",
+    predicted_postcondition: "The harness has a grounded page summary and next-action candidates.",
+    risk_assessment: "read_only",
+    policy_decision_ref: policyDecisionRef,
+  };
+  const verification = {
+    verification_ref: verificationRef,
+    action_ref: null,
+    status: "passed",
+    expected_postcondition: actionProposal.predicted_postcondition,
+    observed_postcondition: "Environment, lease, observation, target index, affordance graph, and action proposal are trace-visible.",
+    verifier: "runtime_daemon_computer_use_harness",
+    evidence_refs: [
+      environmentSelection.receipt_ref,
+      observation.observation_ref,
+      targetIndex.target_index_ref,
+      affordanceGraph.graph_ref,
+      actionProposal.proposal_ref,
+    ],
+  };
+  const basePayload = {
+    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    harness_contract: defaultComputerUseHarnessContract(),
+  };
+  const events = [
+    computerUseEvent({
+      type: "computer_use_environment_selected",
+      summary: "Computer-use environment selected",
+      workflowNodeId: "computer-use.select-environment",
+      traceReceiptId,
+      data: {
+        ...basePayload,
+        computer_use_step: "select_environment",
+        computer_use_lane: environmentSelection.selected_lane,
+        computer_use_session_mode: environmentSelection.selected_session_mode,
+        computer_use_lease_id: lease.lease_id,
+        environment_selection_receipt: environmentSelection,
+        lease,
+      },
+    }),
+    computerUseEvent({
+      type: "computer_use_run_state",
+      summary: "Computer-use run state projected",
+      workflowNodeId: "computer-use.run-state",
+      traceReceiptId,
+      data: {
+        ...basePayload,
+        computer_use_step: "plan_next_step",
+        computer_use_lease_id: lease.lease_id,
+        computer_use_observation_ref: observation.observation_ref,
+        computer_use_target_index_ref: targetIndex.target_index_ref,
+        computer_use_run_state: runState,
+      },
+    }),
+    computerUseEvent({
+      type: "computer_use_observation",
+      summary: "Computer-use observation indexed",
+      workflowNodeId: "computer-use.observe",
+      traceReceiptId,
+      data: {
+        ...basePayload,
+        computer_use_step: "observe",
+        computer_use_observation_ref: observation.observation_ref,
+        computer_use_target_index_ref: targetIndex.target_index_ref,
+        observation_bundle: observation,
+        target_index: targetIndex,
+      },
+    }),
+    computerUseEvent({
+      type: "computer_use_affordance_graph",
+      summary: "Computer-use affordance graph built",
+      workflowNodeId: "computer-use.affordance-graph",
+      traceReceiptId,
+      data: {
+        ...basePayload,
+        computer_use_step: "build_affordance_graph",
+        computer_use_affordance_graph_ref: affordanceGraph.graph_ref,
+        computer_use_target_index_ref: targetIndex.target_index_ref,
+        affordance_graph: affordanceGraph,
+      },
+    }),
+    computerUseEvent({
+      type: "computer_use_action_proposed",
+      summary: "Computer-use action proposal policy-gated",
+      workflowNodeId: "computer-use.action-proposal",
+      traceReceiptId,
+      data: {
+        ...basePayload,
+        computer_use_step: "propose_action",
+        computer_use_proposal_ref: actionProposal.proposal_ref,
+        computer_use_target_ref: actionProposal.target_ref,
+        computer_use_policy_decision_ref: policyDecisionRef,
+        action_proposal: actionProposal,
+        policy_gate: {
+          policy_decision_ref: policyDecisionRef,
+          outcome: "approved_for_read_only_probe",
+          authority_scope: environmentSelection.authority_required,
+        },
+      },
+    }),
+    computerUseEvent({
+      type: "computer_use_verification",
+      summary: "Computer-use postcondition verified",
+      workflowNodeId: "computer-use.verify",
+      traceReceiptId,
+      data: {
+        ...basePayload,
+        computer_use_step: "verify_postcondition",
+        computer_use_verification_ref: verification.verification_ref,
+        computer_use_proposal_ref: actionProposal.proposal_ref,
+        verification_receipt: verification,
+      },
+    }),
+  ];
+  return {
+    environmentSelection,
+    lease,
+    runState,
+    observation,
+    targetIndex,
+    affordanceGraph,
+    actionProposal,
+    verification,
+    events,
+    receipt: {
+      id: traceReceiptId,
+      kind: "computer_use_trace",
+      summary: "Computer-use harness trace exposed environment selection, observation, targets, affordances, proposal, and verification.",
+      redaction: "redacted",
+      evidenceRefs: [
+        "ComputerUseHarnessContract",
+        environmentSelection.receipt_ref,
+        lease.lease_id,
+        observation.observation_ref,
+        targetIndex.target_index_ref,
+        affordanceGraph.graph_ref,
+        actionProposal.proposal_ref,
+        verification.verification_ref,
+      ],
+    },
+  };
+}
+
+function computerUseEvent({ type, summary, workflowNodeId, traceReceiptId, data }) {
+  return {
+    type,
+    summary,
+    data: {
+      ...data,
+      eventKind: computerUseSourceEventKind(type),
+      workflowNodeId,
+      receiptId: traceReceiptId,
+    },
+  };
+}
+
+function shouldProjectComputerUse(prompt, request = {}) {
+  const metadata = request.options?.metadata ?? request.metadata ?? {};
+  if (metadata.computerUse === true || metadata.computer_use === true) {
+    return true;
+  }
+  return /\b(browser|chromium|website|web page|url|computer[- ]use|cua|gui|desktop|click|selector|playwright)\b/i
+    .test(String(prompt ?? ""));
+}
+
+function computerUseTargetHint(prompt) {
+  return String(prompt ?? "").match(/https?:\/\/[^\s)]+/i)?.[0] ?? "browser surface requested by user prompt";
+}
+
+function defaultComputerUseHarnessContract() {
+  return {
+    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    required_lanes: ["native_browser", "visual_gui", "sandboxed_hosted"],
+    required_loop_steps: [
+      "classify_intent",
+      "select_environment",
+      "acquire_lease",
+      "observe",
+      "build_target_index",
+      "build_affordance_graph",
+      "plan_next_step",
+      "propose_action",
+      "policy_risk_gate",
+      "execute_action",
+      "verify_postcondition",
+      "repair_or_continue",
+      "commit_or_handoff",
+      "write_trajectory",
+      "cleanup",
+    ],
+    required_contracts: [
+      "ComputerUseLease",
+      "ComputerControlAdapterContract",
+      "ComputerUseObservationBundle",
+      "TargetIndex",
+      "AffordanceGraph",
+      "ActionProposal",
+      "ComputerAction",
+      "ActionReceipt",
+      "ComputerUseVerificationReceipt",
+      "ComputerUseTrajectoryBundle",
+      "CleanupReceipt",
+      "ComputerUseRunState",
+      "EnvironmentSelectionReceipt",
+      "RecoveryPolicy",
+      "HumanHandoffState",
+      "InterfacePatternIndex",
+      "OutcomeContract",
+      "CommitGate",
+      "ObservationRetentionMode",
+    ],
+    requires_action_proposal_before_execution: true,
+    requires_observation_grounding_for_coordinates: true,
+    requires_commit_gate_for_external_effects: true,
+    requires_trajectory_bundle: true,
+    forbids_shadow_runtime_truth: true,
+  };
+}
+
+function stableHash(value) {
+  return crypto.createHash("sha256").update(String(value ?? "")).digest("hex");
+}

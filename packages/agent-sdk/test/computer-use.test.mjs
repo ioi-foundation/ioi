@@ -8,10 +8,12 @@ import {
   Agent,
   COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
   computerActionHasGrounding,
+  createRuntimeSubstrateClient,
   defaultComputerUseHarnessContract,
   isActionProposalReadyForExecution,
 } from "../dist/index.js";
 import { createMockRuntimeSubstrateClient } from "../dist/testing.js";
+import { startRuntimeDaemonService } from "../../runtime-daemon/src/index.mjs";
 
 function tempClient() {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-agent-sdk-computer-use-"));
@@ -154,4 +156,57 @@ test("browser prompts emit glass-box computer-use trace and runtime events", asy
     trace.receipts.some((receipt) => receipt.kind === "computer_use_trace"),
     true,
   );
+});
+
+test("runtime daemon emits canonical computer-use events for browser prompts", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const run = await agent.send("Use the browser to inspect https://example.com and explain next actions.", {
+      metadata: { computerUse: true },
+    });
+    const trace = await run.inspect();
+    const expectedTypes = [
+      "computer_use_environment_selected",
+      "computer_use_run_state",
+      "computer_use_observation",
+      "computer_use_affordance_graph",
+      "computer_use_action_proposed",
+      "computer_use_verification",
+    ];
+    assert.deepEqual(
+      trace.events.filter((event) => event.type.startsWith("computer_use_")).map((event) => event.type),
+      expectedTypes,
+    );
+    assert.equal(trace.computerUse.environmentSelection.selected_lane, "native_browser");
+    assert.equal(trace.computerUse.observation.url, "https://example.com");
+    assert.equal(trace.computerUse.actionProposal.policy_decision_ref.startsWith("policy_"), true);
+    assert.equal(
+      trace.receipts.some((receipt) => receipt.kind === "computer_use_trace"),
+      true,
+    );
+
+    const thread = await agent.thread();
+    const runtimeEvents = [];
+    for await (const event of thread.events()) {
+      runtimeEvents.push(event);
+    }
+    const runtimeComputerEvents = runtimeEvents.filter((event) => event.eventKind.startsWith("computer_use."));
+    assert.equal(runtimeComputerEvents.length, expectedTypes.length);
+    assert.equal(runtimeComputerEvents[0].payloadSchemaVersion, COMPUTER_USE_CONTRACT_SCHEMA_VERSION);
+    assert.equal(runtimeComputerEvents[0].componentKind, "computer_use_harness");
+    assert.equal(runtimeComputerEvents[0].workflowNodeId, "computer-use.select-environment");
+    assert.equal(runtimeComputerEvents[0].payload.computer_use_step, "select_environment");
+    assert.equal(runtimeComputerEvents[0].payload.computer_use_lane, "native_browser");
+    assert.ok((await run.artifacts()).some((artifact) => artifact.name === "computer-use-trace.json"));
+  } finally {
+    await daemon.close();
+  }
 });
