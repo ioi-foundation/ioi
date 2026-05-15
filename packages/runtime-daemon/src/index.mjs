@@ -7442,6 +7442,21 @@ export class AgentgresRuntimeStateStore {
         objectRecord(input.computerUseAffordanceGraph ?? input.affordance_graph),
       computerUseBrowserObservationArtifacts:
         objectRecord(input.computerUseBrowserObservationArtifacts ?? input.browser_observation_artifacts),
+      computerUseControlledRelaunchBroker:
+        objectRecord(
+          input.computerUseControlledRelaunchBroker ??
+            input.computer_use_controlled_relaunch_broker ??
+            input.controlledRelaunchBroker ??
+            input.controlled_relaunch_broker,
+        ),
+      controlledRelaunchBrokerRef:
+        optionalString(input.controlledRelaunchBrokerRef ?? input.controlled_relaunch_broker_ref),
+      controlledRelaunchStartUrl:
+        optionalString(input.controlledRelaunchStartUrl ?? input.controlled_relaunch_start_url ?? input.url),
+      controlledRelaunchProfileDirRef:
+        optionalString(input.controlledRelaunchProfileDirRef ?? input.controlled_relaunch_profile_dir_ref),
+      controlledRelaunchLaunchPlanRef:
+        optionalString(input.controlledRelaunchLaunchPlanRef ?? input.controlled_relaunch_launch_plan_ref),
     };
     for (const key of [
       "computerUseApprovalRef",
@@ -7451,6 +7466,11 @@ export class AgentgresRuntimeStateStore {
       "computerUseTargetIndex",
       "computerUseAffordanceGraph",
       "computerUseBrowserObservationArtifacts",
+      "computerUseControlledRelaunchBroker",
+      "controlledRelaunchBrokerRef",
+      "controlledRelaunchStartUrl",
+      "controlledRelaunchProfileDirRef",
+      "controlledRelaunchLaunchPlanRef",
     ]) {
       if (metadata[key] && typeof metadata[key] === "object") {
         if (Object.keys(metadata[key]).length === 0) delete metadata[key];
@@ -21727,6 +21747,8 @@ function payloadSummaryForRunEvent(event) {
       computer_use_executor_status: event.data?.computer_use_executor_status ?? null,
       computer_use_executor_error_class: event.data?.computer_use_executor_error_class ?? null,
       native_browser_execution_result: event.data?.native_browser_execution_result ?? null,
+      controlled_relaunch_broker: event.data?.controlled_relaunch_broker ?? null,
+      controlled_relaunch_handoff_ref: event.data?.controlled_relaunch_handoff_ref ?? null,
       environment_selection_receipt: event.data?.environment_selection_receipt ?? null,
       lease: event.data?.lease ?? null,
       adapter_contract: event.data?.adapter_contract ?? null,
