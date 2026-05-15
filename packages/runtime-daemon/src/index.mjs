@@ -219,6 +219,10 @@ const COMPUTER_USE_BROWSER_DISCOVERY_TOOL_IDS = new Set([
   "ioi.computer_use.browser_discovery",
   "computer_use.browser_discovery",
 ]);
+const COMPUTER_USE_NATIVE_BROWSER_TOOL_IDS = new Set([
+  "ioi.computer_use.native_browser",
+  "computer_use.native_browser",
+]);
 const HOOK_INVOCATION_RUNTIME_EVENTS = [
   {
     eventKind: "workflow_activation",
@@ -7333,11 +7337,163 @@ export class AgentgresRuntimeStateStore {
     });
   }
 
+  invokeComputerUseNativeBrowserTool(threadId, toolId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const turnId =
+      optionalString(request.turn_id ?? request.turnId) ??
+      optionalString(this.threadForAgent(agent).latest_turn_id) ??
+      "";
+    const workflowNodeId =
+      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      "computer-use.native-browser";
+    const workflowGraphId =
+      optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+    const toolCallId =
+      optionalString(request.tool_call_id ?? request.toolCallId) ??
+      `computer_use_native_browser_${doctorHash(`${threadId}:${toolId}:${Date.now()}`).slice(0, 16)}`;
+    const idempotencyKey =
+      optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+      `thread:${threadId}:computer-use-native-browser:${toolCallId}`;
+    const stream = this.runtimeEventStream(eventStreamIdForThread(threadId));
+    const duplicateEvents = stream.events.filter((event) => (
+      event.payload_summary?.computer_use_tool_invocation_ref === idempotencyKey ||
+      event.payload?.computer_use_tool_invocation_ref === idempotencyKey
+    ));
+    if (duplicateEvents.length > 0) {
+      return computerUseNativeBrowserInvocationResultFromEvents(duplicateEvents, {
+        agent,
+        threadId,
+        turnId,
+        toolId,
+        toolCallId,
+        workflowGraphId,
+        workflowNodeId,
+      });
+    }
+    const requestInput = objectRecord(request.input);
+    const requestArguments = objectRecord(request.arguments);
+    const input = Object.keys(requestInput).length
+      ? requestInput
+      : Object.keys(requestArguments).length
+        ? requestArguments
+        : objectRecord(request);
+    const goal =
+      optionalString(input.prompt ?? input.goal ?? input.objective ?? request.prompt ?? request.goal) ??
+      optionalString(input.url)?.replace(/^/, "Inspect browser surface at ") ??
+      "Inspect the native browser surface without external side effects.";
+    const runId = `run_${safeId(toolCallId)}`;
+    const observationRetentionMode =
+      optionalString(input.observationRetentionMode ?? input.observation_retention_mode) ??
+      "prompt_visible_summary_only";
+    const metadata = {
+      computerUse: true,
+      computerUseLane: "native_browser",
+      computerUseSessionMode:
+        optionalString(input.sessionMode ?? input.session_mode) ?? "owned_hermetic_browser",
+      workflowGraphId,
+      workflowNodeId,
+      workflowNodeIds: uniqueStrings([
+        workflowNodeId,
+        ...normalizeArray(input.workflowNodeIds ?? input.workflow_node_ids),
+      ]),
+      toolRef: toolId,
+      authorityScopes: uniqueStrings([
+        "computer_use.native_browser.read",
+        ...normalizeArray(input.authorityScopes ?? input.authority_scopes),
+      ]),
+      observationRetentionMode,
+      failClosedWhenUnavailable: true,
+      computerUseObservationBundle:
+        objectRecord(input.computerUseObservationBundle ?? input.observation_bundle),
+      computerUseTargetIndex:
+        objectRecord(input.computerUseTargetIndex ?? input.target_index),
+      computerUseAffordanceGraph:
+        objectRecord(input.computerUseAffordanceGraph ?? input.affordance_graph),
+      computerUseBrowserObservationArtifacts:
+        objectRecord(input.computerUseBrowserObservationArtifacts ?? input.browser_observation_artifacts),
+    };
+    for (const key of [
+      "computerUseObservationBundle",
+      "computerUseTargetIndex",
+      "computerUseAffordanceGraph",
+      "computerUseBrowserObservationArtifacts",
+    ]) {
+      if (Object.keys(metadata[key]).length === 0) delete metadata[key];
+    }
+    const projection = computerUseProjectionForRun({
+      agent,
+      runId,
+      prompt: goal,
+      mode: "send",
+      request: { metadata },
+      selectedModel: agent.modelId,
+    });
+    if (!projection) {
+      throw runtimeError({
+        status: 500,
+        code: "computer_use_projection_unavailable",
+        message: "Native browser tool invocation could not build a computer-use projection.",
+        details: { threadId, toolId },
+      });
+    }
+    const appendedEvents = [];
+    for (const [index, projectionEvent] of projection.events.entries()) {
+      const runEvent = makeEvent(
+        runId,
+        agent.id,
+        index,
+        projectionEvent.type,
+        projectionEvent.summary,
+        {
+          ...projectionEvent.data,
+          source: "runtime_thread_tool",
+          computer_use_tool_invocation_ref: idempotencyKey,
+          toolRef: toolId,
+          tool_ref: toolId,
+          toolCallId,
+          tool_call_id: toolCallId,
+          workflowGraphId,
+          workflow_graph_id: workflowGraphId,
+          workflowNodeId,
+          workflow_node_id: workflowNodeId,
+        },
+      );
+      const envelope = ttiEnvelopeForRunEvent({
+        event: runEvent,
+        threadId,
+        turnId,
+        workspaceRoot: agent.cwd,
+      });
+      appendedEvents.push(this.appendRuntimeEvent({
+        ...envelope,
+        idempotency_key: `${idempotencyKey}:event:${String(index).padStart(2, "0")}:${projectionEvent.type}`,
+        source: operatorControlSource(request.source),
+        component_kind: "computer_use_harness",
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: workflowNodeId,
+        tool_call_id: toolCallId,
+      }));
+    }
+    return computerUseNativeBrowserInvocationResultFromEvents(appendedEvents, {
+      agent,
+      threadId,
+      turnId,
+      toolId,
+      toolCallId,
+      workflowGraphId,
+      workflowNodeId,
+      projection,
+    });
+  }
+
   invokeThreadTool(threadId, toolId, request = {}) {
     const agent = this.agentForThread(threadId);
     const normalizedToolId = optionalString(toolId);
     if (COMPUTER_USE_BROWSER_DISCOVERY_TOOL_IDS.has(normalizedToolId)) {
       return this.invokeComputerUseBrowserDiscoveryTool(threadId, normalizedToolId, request);
+    }
+    if (COMPUTER_USE_NATIVE_BROWSER_TOOL_IDS.has(normalizedToolId)) {
+      return this.invokeComputerUseNativeBrowserTool(threadId, normalizedToolId, request);
     }
     if (!normalizedToolId || !CODING_TOOL_IDS.has(normalizedToolId)) {
       throw notFound(`Coding tool not found: ${toolId}`, {
@@ -17857,6 +18013,121 @@ function computerUseBrowserDiscoveryInvocationResultFromEvent(event, context = {
     autoDiagnostics: null,
     result,
     error: payload.error ?? null,
+  };
+}
+
+function computerUseNativeBrowserInvocationResultFromEvents(events, context = {}) {
+  const orderedEvents = [...events].sort((left, right) => (left.seq ?? 0) - (right.seq ?? 0));
+  const payloads = orderedEvents.map((event) => event.payload_summary ?? event.payload ?? {});
+  const firstPayload = payloads[0] ?? {};
+  const observationPayload =
+    payloads.find((payload) => payload.observation_bundle || payload.observationBundle) ?? {};
+  const actionPayload =
+    payloads.find((payload) => payload.computer_action || payload.computerAction) ?? {};
+  const verificationPayload =
+    payloads.find((payload) => payload.verification_receipt || payload.verificationReceipt) ?? {};
+  const cleanupPayload =
+    payloads.find((payload) => payload.cleanup_receipt || payload.cleanupReceipt) ?? {};
+  const affordancePayload =
+    payloads.find((payload) => payload.affordance_graph || payload.affordanceGraph) ?? {};
+  const proposalPayload =
+    payloads.find((payload) => payload.action_proposal || payload.actionProposal) ?? {};
+  const outcomePayload =
+    payloads.find((payload) => payload.outcome_contract || payload.outcomeContract) ?? {};
+  const commitGatePayload =
+    payloads.find((payload) => payload.commit_gate || payload.commitGate) ?? {};
+  const trajectoryPayload =
+    payloads.find((payload) => payload.trajectory_bundle || payload.trajectoryBundle) ?? {};
+  const projection = context.projection ?? {};
+  const receiptRefs = uniqueStrings(orderedEvents.flatMap((event) => event.receipt_refs ?? []));
+  const artifactRefs = uniqueStrings(orderedEvents.flatMap((event) => event.artifact_refs ?? []));
+  return {
+    schema_version: "ioi.runtime.computer-use-native-browser-result.v1",
+    object: "ioi.runtime_computer_use_native_browser_result",
+    tool_pack: "computer_use",
+    tool_name: context.toolId ?? firstPayload.tool_ref ?? firstPayload.toolRef ?? null,
+    tool_call_id: context.toolCallId ?? orderedEvents[0]?.tool_call_id ?? null,
+    thread_id: context.threadId ?? orderedEvents[0]?.thread_id ?? null,
+    turn_id: context.turnId ?? orderedEvents[0]?.turn_id ?? null,
+    status: orderedEvents.every((event) => event.status !== "failed") ? "completed" : "failed",
+    workspace_root: context.agent?.cwd ?? orderedEvents[0]?.workspace_root ?? null,
+    workflow_graph_id:
+      context.workflowGraphId ?? firstPayload.workflow_graph_id ?? firstPayload.workflowGraphId ?? null,
+    workflow_node_id:
+      context.workflowNodeId ?? firstPayload.workflow_node_id ?? firstPayload.workflowNodeId ?? null,
+    shell_fallback_used: false,
+    receipt_refs: receiptRefs,
+    artifact_refs: artifactRefs,
+    rollback_refs: uniqueStrings(orderedEvents.flatMap((event) => event.rollback_refs ?? [])),
+    event_count: orderedEvents.length,
+    event_refs: orderedEvents.map((event) => event.event_id),
+    events: orderedEvents,
+    idempotent_replay: true,
+    idempotentReplay: true,
+    result: {
+      environmentSelection:
+        projection.environmentSelection ??
+        firstPayload.environment_selection_receipt ??
+        firstPayload.environmentSelectionReceipt ??
+        null,
+      lease: projection.lease ?? firstPayload.lease ?? null,
+      observation:
+        projection.observation ??
+        observationPayload.observation_bundle ??
+        observationPayload.observationBundle ??
+        null,
+      targetIndex:
+        projection.targetIndex ??
+        observationPayload.target_index ??
+        observationPayload.targetIndex ??
+        null,
+      affordanceGraph:
+        projection.affordanceGraph ??
+        affordancePayload.affordance_graph ??
+        affordancePayload.affordanceGraph ??
+        null,
+      actionProposal:
+        projection.actionProposal ??
+        proposalPayload.action_proposal ??
+        proposalPayload.actionProposal ??
+        null,
+      action:
+        projection.action ??
+        actionPayload.computer_action ??
+        actionPayload.computerAction ??
+        null,
+      actionReceipt:
+        projection.actionReceipt ??
+        actionPayload.action_receipt ??
+        actionPayload.actionReceipt ??
+        null,
+      verification:
+        projection.verification ??
+        verificationPayload.verification_receipt ??
+        verificationPayload.verificationReceipt ??
+        null,
+      outcomeContract:
+        projection.outcomeContract ??
+        outcomePayload.outcome_contract ??
+        outcomePayload.outcomeContract ??
+        null,
+      commitGate:
+        projection.commitGate ??
+        commitGatePayload.commit_gate ??
+        commitGatePayload.commitGate ??
+        null,
+      trajectory:
+        projection.trajectory ??
+        trajectoryPayload.trajectory_bundle ??
+        trajectoryPayload.trajectoryBundle ??
+        null,
+      cleanup:
+        projection.cleanup ??
+        cleanupPayload.cleanup_receipt ??
+        cleanupPayload.cleanupReceipt ??
+        null,
+    },
+    error: null,
   };
 }
 
