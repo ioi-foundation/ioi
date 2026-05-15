@@ -680,6 +680,121 @@ test("workflow run history model exposes computer-use prompt pipelines", () => {
   );
 });
 
+test("workflow run history model exposes computer-use scorecard summaries", () => {
+  const target = runResult("run-a", "passed", {
+    evidenceAssessment: {
+      computerUseTriLaneScorecard: {
+        status: "passed",
+        headline: "Computer-use tri-lane retained gate passed.",
+        summaryRows: [
+          {
+            id: "lane:native_browser",
+            lane: "native_browser",
+            label: "Native Browser",
+            status: "passed",
+            sessionMode: "owned_hermetic_browser",
+            actionKind: "inspect",
+            modelPromptTrace: "present",
+            runtimeEvents: 18,
+            projectedNodes: 11,
+            targets: 3,
+            affordances: 4,
+            policy: "approved_for_read_only_probe",
+            verification: "passed",
+            cleanup: "completed",
+            proofPath: "/tmp/native-browser-proof.json",
+            blockers: [],
+          },
+          {
+            id: "lane:visual_gui",
+            lane: "visual_gui",
+            label: "Visual GUI",
+            status: "passed",
+            sessionMode: "local_gui",
+            actionKind: "click",
+            modelPromptTrace: "present",
+            runtimeEvents: 20,
+            projectedNodes: 12,
+            targets: 5,
+            affordances: 6,
+            policy: "approval-visual-gui-run-button",
+            verification: "passed",
+            cleanup: "completed",
+            proofPath: "/tmp/visual-gui-proof.json",
+            blockers: [],
+          },
+          {
+            id: "lane:sandboxed_hosted",
+            lane: "sandboxed_hosted",
+            label: "Sandboxed Hosted",
+            status: "passed",
+            sessionMode: "local_sandbox",
+            actionKind: "inspect",
+            modelPromptTrace: "not_required",
+            runtimeEvents: 16,
+            projectedNodes: 10,
+            targets: 2,
+            affordances: 3,
+            policy: "fail_closed",
+            verification: "passed",
+            cleanup: "completed",
+            proofPath: "/tmp/sandboxed-proof.json",
+            blockers: [],
+          },
+        ],
+        blockers: [],
+        externalDeferrals: [
+          {
+            id: "hosted_provider_backends",
+            status: "external_provider_deferral",
+            reason: "Provider credentials are selected outside this run.",
+          },
+        ],
+      },
+    },
+  });
+  const model = workflowRunHistoryModel({
+    workflow,
+    runs,
+    lastRunResult: target,
+    compareRunResult: null,
+    selectedRunId: "run-a",
+    compareRunId: null,
+    runEvents: [],
+    searchQuery: "",
+    statusFilter: "all",
+  });
+
+  assert.equal(model.computerUseScorecard?.status, "passed");
+  assert.equal(
+    model.computerUseScorecard?.headline,
+    "Computer-use tri-lane retained gate passed.",
+  );
+  assert.deepEqual(
+    model.computerUseScorecard?.summaryRows.map((row) => [
+      row.lane,
+      row.status,
+      row.runtimeEvents,
+      row.targets,
+      row.affordances,
+    ]),
+    [
+      ["native_browser", "passed", 18, 3, 4],
+      ["visual_gui", "passed", 20, 5, 6],
+      ["sandboxed_hosted", "passed", 16, 2, 3],
+    ],
+  );
+  assert.deepEqual(model.computerUseScorecard?.proofPaths, [
+    "/tmp/native-browser-proof.json",
+    "/tmp/visual-gui-proof.json",
+    "/tmp/sandboxed-proof.json",
+  ]);
+  assert.equal(
+    model.computerUseScorecard?.externalDeferrals[0]?.id,
+    "hosted_provider_backends",
+  );
+});
+
 test("workflow run history model projects the replayable runtime policy stack", () => {
   const target = runResult("run-a", "passed", { answer: "new" });
   const model = workflowRunHistoryModel({

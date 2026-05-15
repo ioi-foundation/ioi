@@ -133,6 +133,7 @@ export function WorkflowRunsPanel({
     runtimeTelemetrySourceFilters,
     runtimeCodingToolBudgetEvidence,
     computerUseWorkbench,
+    computerUseScorecard,
     modelInvocationTraces,
     tuiControlStateProjection,
     visibleTuiControlStateRows,
@@ -699,6 +700,122 @@ export function WorkflowRunsPanel({
                     · {runtimeCodingToolBudgetEvidence.eventIds[0] ?? "event pending"}
                   </small>
                 </article>
+              ) : null}
+            </section>
+          ) : null}
+          {computerUseScorecard ? (
+            <section
+              className={`workflow-run-computer-use-scorecard is-${computerUseScorecard.status}`}
+              data-testid="workflow-run-computer-use-scorecard"
+              data-status={computerUseScorecard.status}
+              data-lanes={computerUseScorecard.summaryRows
+                .map((row) => row.lane)
+                .join("|")}
+              data-blocker-count={computerUseScorecard.blockers.length}
+              data-external-deferral-count={
+                computerUseScorecard.externalDeferrals.length
+              }
+              data-proof-paths={computerUseScorecard.proofPaths.join("|")}
+            >
+              <h4>Computer Use Scorecard</h4>
+              <p>{computerUseScorecard.headline}</p>
+              <div
+                className="workflow-run-computer-use-scorecard-grid"
+                data-testid="workflow-run-computer-use-scorecard-rows"
+              >
+                {computerUseScorecard.summaryRows.map((row) => (
+                  <article
+                    key={row.id}
+                    className={`workflow-run-computer-use-scorecard-row is-${row.status}`}
+                    data-testid={`workflow-run-computer-use-scorecard-row-${row.lane}`}
+                    data-lane={row.lane}
+                    data-status={row.status}
+                    data-session-mode={row.sessionMode ?? ""}
+                    data-action-kind={row.actionKind ?? ""}
+                    data-model-prompt-trace={row.modelPromptTrace ?? ""}
+                    data-runtime-events={row.runtimeEvents}
+                    data-projected-nodes={row.projectedNodes}
+                    data-targets={row.targets}
+                    data-affordances={row.affordances}
+                    data-policy={row.policy ?? ""}
+                    data-verification={row.verification ?? ""}
+                    data-cleanup={row.cleanup ?? ""}
+                    data-proof-path={row.proofPath ?? ""}
+                    data-blockers={row.blockers.join("|")}
+                  >
+                    <strong>{row.label}</strong>
+                    <span>
+                      {accessibleStatusLabel(row.status)} ·{" "}
+                      {row.sessionMode ?? "session pending"}
+                    </span>
+                    <small>
+                      {[
+                        row.actionKind,
+                        row.modelPromptTrace
+                          ? `prompt trace ${row.modelPromptTrace}`
+                          : null,
+                        `${row.runtimeEvents} events`,
+                        `${row.targets} targets`,
+                        `${row.affordances} affordances`,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </small>
+                    <small>
+                      {[
+                        row.policy,
+                        row.verification
+                          ? `verification ${row.verification}`
+                          : null,
+                        row.cleanup ? `cleanup ${row.cleanup}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || "policy evidence pending"}
+                    </small>
+                    {row.proofPath ? <small>{row.proofPath}</small> : null}
+                  </article>
+                ))}
+              </div>
+              {computerUseScorecard.blockers.length > 0 ? (
+                <ol
+                  className="workflow-run-computer-use-scorecard-list"
+                  data-testid="workflow-run-computer-use-scorecard-blockers"
+                >
+                  {computerUseScorecard.blockers.map((blocker) => (
+                    <li
+                      key={blocker.id}
+                      data-check={blocker.check}
+                      data-severity={blocker.severity}
+                      data-lanes={blocker.lanes.join("|")}
+                    >
+                      <strong>{blocker.title}</strong>
+                      <span>{blocker.detail}</span>
+                      <small>
+                        {blocker.lanes.length > 0
+                          ? blocker.lanes.join(", ")
+                          : blocker.check}
+                      </small>
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
+              {computerUseScorecard.externalDeferrals.length > 0 ? (
+                <ol
+                  className="workflow-run-computer-use-scorecard-list"
+                  data-testid="workflow-run-computer-use-scorecard-deferrals"
+                >
+                  {computerUseScorecard.externalDeferrals.map((deferral) => (
+                    <li
+                      key={deferral.id}
+                      data-deferral-id={deferral.id}
+                      data-deferral-status={deferral.status}
+                    >
+                      <strong>{deferral.id}</strong>
+                      <span>{deferral.reason}</span>
+                      <small>{deferral.status}</small>
+                    </li>
+                  ))}
+                </ol>
               ) : null}
             </section>
           ) : null}

@@ -160,6 +160,49 @@ export type WorkflowRunComputerUseOverlayViewport = {
   height: number;
 };
 
+export type WorkflowRunComputerUseScorecardRow = {
+  id: string;
+  lane: string;
+  label: string;
+  status: string;
+  sessionMode: string | null;
+  actionKind: string | null;
+  modelPromptTrace: string | null;
+  runtimeEvents: number;
+  projectedNodes: number;
+  targets: number;
+  affordances: number;
+  policy: string | null;
+  verification: string | null;
+  cleanup: string | null;
+  proofPath: string | null;
+  blockers: string[];
+};
+
+export type WorkflowRunComputerUseScorecardBlocker = {
+  id: string;
+  check: string;
+  severity: string;
+  title: string;
+  detail: string;
+  lanes: string[];
+};
+
+export type WorkflowRunComputerUseScorecardDeferral = {
+  id: string;
+  status: string;
+  reason: string;
+};
+
+export type WorkflowRunComputerUseScorecard = {
+  status: string;
+  headline: string;
+  summaryRows: WorkflowRunComputerUseScorecardRow[];
+  blockers: WorkflowRunComputerUseScorecardBlocker[];
+  externalDeferrals: WorkflowRunComputerUseScorecardDeferral[];
+  proofPaths: string[];
+};
+
 export type WorkflowRunHistoryModel = {
   normalizedSearch: string;
   totalRuns: number;
@@ -177,6 +220,7 @@ export type WorkflowRunHistoryModel = {
   runtimeTelemetrySourceFilters: WorkflowRunTelemetrySourceFilter[];
   runtimeCodingToolBudgetEvidence: WorkflowRunCodingToolBudgetEvidence | null;
   computerUseWorkbench: WorkflowRunComputerUseWorkbench | null;
+  computerUseScorecard: WorkflowRunComputerUseScorecard | null;
   modelInvocationTraces: WorkflowModelInvocationTraceView[];
   tuiControlStateProjection: WorkflowRuntimeTuiControlStateProjection;
   visibleTuiControlStateRows: WorkflowRuntimeTuiControlStateRow[];
@@ -267,6 +311,7 @@ export function workflowRunHistoryModel({
       runtimeEventProjection,
       selectedRun?.summary.id ?? selectedRunId,
     );
+  const computerUseScorecard = workflowRunComputerUseScorecard(selectedRun);
   const selectedModelInvocationTraces = workflowModelInvocationTraces(
     selectedRun,
     workflow,
@@ -335,6 +380,7 @@ export function workflowRunHistoryModel({
     runtimeTelemetrySourceFilters,
     runtimeCodingToolBudgetEvidence,
     computerUseWorkbench,
+    computerUseScorecard,
     modelInvocationTraces: selectedModelInvocationTraces,
     tuiControlStateProjection,
     visibleTuiControlStateRows,
@@ -491,6 +537,151 @@ function workflowRunComputerUseWorkbench(
       latestScreen.coordinateSpaceId,
     ),
     visualTargetSummaries: targetSummaries,
+  };
+}
+
+function workflowRunComputerUseScorecard(
+  run: WorkflowRunResult | null,
+): WorkflowRunComputerUseScorecard | null {
+  if (!run) return null;
+  for (const candidate of workflowRunComputerUseScorecardCandidates(run)) {
+    const scorecard = normalizeWorkflowRunComputerUseScorecard(candidate);
+    if (scorecard) return scorecard;
+  }
+  return null;
+}
+
+function workflowRunComputerUseScorecardCandidates(
+  run: WorkflowRunResult,
+): unknown[] {
+  const candidates: unknown[] = [];
+  pushComputerUseScorecardCandidates(candidates, run.finalState.values);
+  for (const nodeRun of run.nodeRuns) {
+    pushComputerUseScorecardCandidates(candidates, nodeRun.output);
+  }
+  return candidates;
+}
+
+function pushComputerUseScorecardCandidates(
+  candidates: unknown[],
+  value: unknown,
+) {
+  const record = asRecord(value);
+  if (!record) return;
+  candidates.push(
+    record.computerUseTriLaneScorecard,
+    record.workflowComputerUseTriLaneScorecard,
+    record.workflow_computer_use_tri_lane_scorecard,
+  );
+  const evidenceAssessment = asRecord(record.evidenceAssessment);
+  candidates.push(evidenceAssessment?.computerUseTriLaneScorecard);
+  const guiEvidence = asRecord(record.guiEvidence);
+  const guiEvidenceAssessment = asRecord(guiEvidence?.evidenceAssessment);
+  candidates.push(guiEvidenceAssessment?.computerUseTriLaneScorecard);
+  const result = asRecord(record.result);
+  if (result) {
+    candidates.push(
+      result.computerUseTriLaneScorecard,
+      result.workflowComputerUseTriLaneScorecard,
+      result.workflow_computer_use_tri_lane_scorecard,
+    );
+  }
+  if (record.operatorSummary || record.summaryRows) {
+    candidates.push(record);
+  }
+}
+
+function normalizeWorkflowRunComputerUseScorecard(
+  candidate: unknown,
+): WorkflowRunComputerUseScorecard | null {
+  const record = asRecord(candidate);
+  if (!record) return null;
+  const summary = asRecord(record.operatorSummary) ?? record;
+  const summaryRows = arrayOfRecords(summary.summaryRows)
+    .map(normalizeWorkflowRunComputerUseScorecardRow)
+    .filter(
+      (row): row is WorkflowRunComputerUseScorecardRow => Boolean(row),
+    );
+  const blockers = arrayOfRecords(summary.blockers).map(
+    normalizeWorkflowRunComputerUseScorecardBlocker,
+  );
+  const externalDeferrals = arrayOfRecords(
+    summary.externalDeferrals ?? record.externalDeferrals,
+  ).map(normalizeWorkflowRunComputerUseScorecardDeferral);
+  if (
+    summaryRows.length === 0 &&
+    blockers.length === 0 &&
+    externalDeferrals.length === 0
+  ) {
+    return null;
+  }
+  return {
+    status:
+      readString(summary.status) ??
+      readString(record.promotionStatus) ??
+      (record.passed === true ? "passed" : "unknown"),
+    headline:
+      readString(summary.headline) ??
+      "Computer-use tri-lane scorecard summary is available.",
+    summaryRows,
+    blockers,
+    externalDeferrals,
+    proofPaths: uniqueStrings(summaryRows.map((row) => row.proofPath)),
+  };
+}
+
+function normalizeWorkflowRunComputerUseScorecardRow(
+  row: Record<string, unknown>,
+): WorkflowRunComputerUseScorecardRow | null {
+  const lane = readString(row.lane);
+  const label = readString(row.label) ?? lane;
+  if (!label) return null;
+  return {
+    id: readString(row.id) ?? `lane:${lane ?? label}`,
+    lane: lane ?? label,
+    label,
+    status: readString(row.status) ?? "unknown",
+    sessionMode: readString(row.sessionMode),
+    actionKind: readString(row.actionKind),
+    modelPromptTrace: readString(row.modelPromptTrace),
+    runtimeEvents: readNumber(row.runtimeEvents),
+    projectedNodes: readNumber(row.projectedNodes),
+    targets: readNumber(row.targets),
+    affordances: readNumber(row.affordances),
+    policy: readString(row.policy),
+    verification: readString(row.verification),
+    cleanup: readString(row.cleanup),
+    proofPath: readString(row.proofPath),
+    blockers: uniqueStrings(Array.isArray(row.blockers) ? row.blockers : []),
+  };
+}
+
+function normalizeWorkflowRunComputerUseScorecardBlocker(
+  blocker: Record<string, unknown>,
+): WorkflowRunComputerUseScorecardBlocker {
+  const check = readString(blocker.check) ?? "unknown_check";
+  return {
+    id: readString(blocker.id) ?? `blocker:${check}`,
+    check,
+    severity: readString(blocker.severity) ?? "blocking",
+    title: readString(blocker.title) ?? check,
+    detail:
+      readString(blocker.detail) ??
+      "Inspect the computer-use scorecard lane rows for missing evidence.",
+    lanes: uniqueStrings(Array.isArray(blocker.lanes) ? blocker.lanes : []),
+  };
+}
+
+function normalizeWorkflowRunComputerUseScorecardDeferral(
+  deferral: Record<string, unknown>,
+): WorkflowRunComputerUseScorecardDeferral {
+  const id = readString(deferral.id) ?? "external_deferral";
+  return {
+    id,
+    status: readString(deferral.status) ?? "external_deferral",
+    reason:
+      readString(deferral.reason) ??
+      "This evidence depends on a selected external provider or eval.",
   };
 }
 
@@ -746,6 +937,36 @@ function isWorkflowRuntimeThreadEventLike(
     Array.isArray(candidate.policyDecisionRefs) &&
     Array.isArray(candidate.rollbackRefs)
   );
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function arrayOfRecords(value: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (item): item is Record<string, unknown> =>
+      Boolean(item) && typeof item === "object" && !Array.isArray(item),
+  );
+}
+
+function readString(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  const text = String(value).trim();
+  return text || null;
+}
+
+function readNumber(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
 }
 
 function uniqueStrings(values: readonly unknown[]): string[] {

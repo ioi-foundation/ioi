@@ -369,6 +369,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(runsPanel, /workflow-run-telemetry-budget-chain-materialize/);
   assert.match(runsPanel, /onMaterializeRuntimeTelemetryBudgetChain/);
+  assert.match(runsPanel, /workflow-run-computer-use-scorecard/);
+  assert.match(runsPanel, /Computer Use Scorecard/);
+  assert.match(runsPanel, /data-external-deferral-count/);
   assert.match(runsPanel, /workflow-run-computer-use-trace/);
   assert.match(runsPanel, /data-computer-use-lane/);
   assert.match(runsPanel, /data-computer-use-browser-discovery-ref/);
@@ -706,6 +709,8 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(visualGuiPromptPipelineProbe, /modelInvocationTraceVisible/);
   assert.match(visualGuiPromptPipelineProbe, /traceCrossesModelToVisual/);
   assert.match(visualGuiPromptPipelineProbe, /targetOverlayEvidence/);
+  assert.match(runHistoryModelTest, /computerUseScorecard/);
+  assert.match(runHistoryModelTest, /hosted_provider_backends/);
   assert.match(
     computerUseTriLaneScorecardTest,
     /collectWorkflowComputerUseTriLaneScorecard/,
@@ -716,6 +721,11 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(computerUseTriLaneScorecardTest, /operatorSummary/);
   assert.match(computerUseTriLaneScorecardTest, /summaryRows/);
+  assert.match(
+    computerUseTriLaneScorecardTest,
+    /renderWorkflowComputerUseTriLaneScorecardMarkdown/,
+  );
+  assert.match(computerUseTriLaneScorecardTest, /Computer Use Scorecard/);
   assert.match(computerUseTriLaneScorecardTest, /blockers/);
   assert.match(computerUseTriLaneScorecardTest, /hosted_provider_backends/);
   assert.match(
