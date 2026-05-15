@@ -7415,8 +7415,7 @@ export class AgentgresRuntimeStateStore {
     const metadata = {
       computerUse: true,
       computerUseLane: "native_browser",
-      computerUseSessionMode:
-        optionalString(input.sessionMode ?? input.session_mode) ?? "owned_hermetic_browser",
+      computerUseSessionMode: nativeBrowserSessionModeForInput(input),
       workflowGraphId,
       workflowNodeId,
       workflowNodeIds: uniqueStrings([
@@ -18224,6 +18223,21 @@ function nativeBrowserCdpTimeoutMs(input = {}) {
     return Math.round(value);
   }
   return 3_000;
+}
+
+function nativeBrowserSessionModeForInput(input = {}) {
+  const explicit = optionalString(
+    input.sessionMode ??
+      input.session_mode ??
+      input.computerUseSessionMode ??
+      input.computer_use_session_mode,
+  );
+  if (explicit) return explicit;
+  if (nativeBrowserHasExplicitCdpEndpoint(input)) return "attached_cdp";
+  if (input.controlledRelaunch === true || input.controlled_relaunch === true) {
+    return "controlled_relaunch";
+  }
+  return "owned_hermetic_browser";
 }
 
 function nativeBrowserActionShouldUseCdpExecutor(actionKind, approvalRef, input = {}) {

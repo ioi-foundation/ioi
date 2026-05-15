@@ -842,6 +842,9 @@ test("runtime daemon resumes approved mutating native browser actions through ac
     }
     const computerEvents = runtimeEvents.filter((event) => event.eventKind.startsWith("computer_use."));
     assert.equal(computerEvents.some((event) => event.type === "computer_use_action_executed"), true);
+    const environmentEvent = computerEvents.find((event) => event.type === "computer_use_environment_selected");
+    assert.equal(environmentEvent.payload.environment_selection_receipt.selected_session_mode, "attached_cdp");
+    assert.equal(environmentEvent.payload.lease.session_mode, "attached_cdp");
     const proposalEvent = computerEvents.find((event) => event.type === "computer_use_action_proposed");
     assert.equal(proposalEvent.payload.policy_gate.outcome, "approved_after_confirmation");
     assert.equal(proposalEvent.payload.policy_gate.approval_ref, "approval-browser-click");
