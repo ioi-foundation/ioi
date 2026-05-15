@@ -138,16 +138,14 @@ test("creator taxonomy covers memory, worker, mcp, skill, and computer-use autho
       ?.arguments?.["computerUseBrowserDiscovery"],
     true,
   );
-  assert.deepEqual(
-    creators.get("plugin_tool.browser_use")?.defaultLogic.toolBinding?.arguments,
-    {
-      computerUse: true,
-      computerUseLane: "native_browser",
-      computerUseSessionMode: "owned_hermetic_browser",
-      observationRetentionMode: "local_redacted_artifacts",
-      failClosedWhenUnavailable: true,
-    },
-  );
+  const browserUseArguments =
+    creators.get("plugin_tool.browser_use")?.defaultLogic.toolBinding?.arguments ?? {};
+  assert.equal(browserUseArguments["computerUse"], true);
+  assert.equal(browserUseArguments["computerUseLane"], "native_browser");
+  assert.equal(browserUseArguments["computerUseSessionMode"], "owned_hermetic_browser");
+  assert.equal(browserUseArguments["computerUseActionKind"], "inspect");
+  assert.equal(browserUseArguments["observationRetentionMode"], "local_redacted_artifacts");
+  assert.equal(browserUseArguments["failClosedWhenUnavailable"], true);
   assert.equal(
     creators.get("plugin_tool.computer_use.visual_gui")?.defaultLaw.requireHumanGate,
     true,
