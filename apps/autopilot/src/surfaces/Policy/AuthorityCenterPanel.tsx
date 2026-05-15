@@ -1,15 +1,40 @@
-import type { AuthorityCenterProjection } from "./authorityCenter";
+import type {
+  AuthorityCenterCapabilityRow,
+  AuthorityCenterGrantRow,
+  AuthorityCenterProjection,
+} from "./authorityCenter";
+
+export interface AuthorityCenterReceiptPreview {
+  id: string;
+  kind: string;
+  summary: string;
+  createdAt: string;
+  redaction: string;
+  evidenceRefs: string[];
+}
 
 export function AuthorityCenterPanel({
   projection,
   loading,
   error,
+  actionStatus,
+  busyAction,
+  selectedReceipt,
   onRefresh,
+  onRequestGrant,
+  onRevokeGrant,
+  onOpenReceipt,
 }: {
   projection: AuthorityCenterProjection;
   loading: boolean;
   error: string | null;
+  actionStatus: string | null;
+  busyAction: string | null;
+  selectedReceipt: AuthorityCenterReceiptPreview | null;
   onRefresh: () => void;
+  onRequestGrant: (capability: AuthorityCenterCapabilityRow) => void;
+  onRevokeGrant: (grant: AuthorityCenterGrantRow) => void;
+  onOpenReceipt: (receiptId: string) => void;
 }) {
   const topCapabilities = projection.capabilities.slice(0, 5);
   const topGrants = projection.grants.slice(0, 3);
@@ -50,6 +75,11 @@ export function AuthorityCenterPanel({
         </div>
       </div>
       <p className="shield-authority-copy">{error ?? projection.detail}</p>
+      {actionStatus ? (
+        <div className="shield-authority-action-status" role="status">
+          {actionStatus}
+        </div>
+      ) : null}
 
       <div
         className="shield-summary-row"
@@ -113,6 +143,16 @@ export function AuthorityCenterPanel({
                   <span className={`shield-status status-${capability.tone}`}>
                     {capability.status}
                   </span>
+                  <button
+                    type="button"
+                    className="shield-button shield-button-secondary shield-authority-row-action"
+                    onClick={() => onRequestGrant(capability)}
+                    disabled={Boolean(busyAction)}
+                  >
+                    {busyAction === `grant:${capability.id}`
+                      ? "Requesting"
+                      : "Request grant"}
+                  </button>
                 </div>
               ))
             )}
@@ -142,6 +182,30 @@ export function AuthorityCenterPanel({
                   <span className={`shield-status status-${grant.tone}`}>
                     {grant.state}
                   </span>
+                  <div className="shield-authority-row-actions">
+                    {grant.receiptRefs[0] ? (
+                      <button
+                        type="button"
+                        className="shield-button shield-button-secondary shield-authority-row-action"
+                        onClick={() => onOpenReceipt(grant.receiptRefs[0])}
+                        disabled={Boolean(busyAction)}
+                      >
+                        Open receipt
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="shield-button shield-button-secondary shield-authority-row-action"
+                      onClick={() => onRevokeGrant(grant)}
+                      disabled={Boolean(busyAction) || !grant.canRevoke}
+                    >
+                      {busyAction === `revoke:${grant.id}`
+                        ? "Revoking"
+                        : grant.canRevoke
+                          ? "Revoke"
+                          : "Revoked"}
+                    </button>
+                  </div>
                 </div>
               ))
             )}
@@ -172,6 +236,28 @@ export function AuthorityCenterPanel({
           </div>
         </section>
       </div>
+
+      {selectedReceipt ? (
+        <section
+          className="shield-authority-receipt"
+          aria-labelledby="shield-authority-receipt-title"
+        >
+          <div>
+            <span className="shield-kicker">Receipt</span>
+            <h3 id="shield-authority-receipt-title">{selectedReceipt.id}</h3>
+            <p>{selectedReceipt.summary}</p>
+          </div>
+          <div className="shield-authority-receipt-facts">
+            <span>{selectedReceipt.kind}</span>
+            <span>{selectedReceipt.redaction}</span>
+            <span>{selectedReceipt.createdAt}</span>
+            <span>
+              {selectedReceipt.evidenceRefs.length} evidence ref
+              {selectedReceipt.evidenceRefs.length === 1 ? "" : "s"}
+            </span>
+          </div>
+        </section>
+      ) : null}
     </article>
   );
 }

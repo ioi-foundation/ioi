@@ -24,8 +24,10 @@ export interface AuthorityCenterGrantRow {
   deniedCount: number;
   vaultRefCount: number;
   receiptRef: string;
+  receiptRefs: string[];
   lastScope: string;
   expiresAt: string;
+  canRevoke: boolean;
 }
 
 export interface AuthorityCenterVaultRow {
@@ -64,6 +66,36 @@ export interface BuildAuthorityCenterProjectionInput {
   policyState: ShieldPolicyState;
   generatedAtMs?: number;
   error?: string | null;
+}
+
+export interface AuthorityCenterGrantRequestPayload {
+  audience: string;
+  allowed: string[];
+  denied: string[];
+  expiresAt: string;
+  grantId: string;
+}
+
+export function buildAuthorityGrantRequestPayload(
+  capability: AuthorityCenterCapabilityRow,
+  {
+    generatedAtMs = Date.now(),
+    expiresInMs = 60 * 60 * 1000,
+  }: { generatedAtMs?: number; expiresInMs?: number } = {},
+): AuthorityCenterGrantRequestPayload {
+  const allowed =
+    capability.requiredScopes.length > 0
+      ? capability.requiredScopes
+      : fallbackScopesForCapability(capability);
+  return {
+    audience: "autopilot-authority-center",
+    allowed,
+    denied: ["connector.gmail.send", "filesystem.write", "shell.exec"],
+    expiresAt: new Date(generatedAtMs + expiresInMs).toISOString(),
+    grantId: `wallet.grant.authority-center.${safeGrantSegment(
+      capability.kind,
+    )}.${safeGrantSegment(capability.id)}`,
+  };
 }
 
 export function buildAuthorityCenterProjection({
@@ -233,6 +265,11 @@ function grantRow(item: unknown): AuthorityCenterGrantRow {
   const record = recordValue(item);
   const revoked = Boolean(record?.revokedAt);
   const state = revoked ? "revoked" : "active";
+  const receiptRef = stringValue(record?.receiptId, "none");
+  const receiptRefs = [
+    receiptRef,
+    ...stringArray(record?.auditReceiptIds),
+  ].filter((receiptId) => receiptId !== "none");
   return {
     id: stringValue(record?.id, "grant.unknown"),
     grantId: stringValue(record?.grantId, "wallet.grant.unknown"),
@@ -241,9 +278,11 @@ function grantRow(item: unknown): AuthorityCenterGrantRow {
     allowedCount: stringArray(record?.allowed).length,
     deniedCount: stringArray(record?.denied).length,
     vaultRefCount: Object.keys(recordValue(record?.vaultRefs) ?? {}).length,
-    receiptRef: stringValue(record?.receiptId, "none"),
+    receiptRef,
+    receiptRefs,
     lastScope: stringValue(record?.lastUsedScope, "none"),
     expiresAt: stringValue(record?.expiresAt, "unknown"),
+    canRevoke: !revoked,
   };
 }
 
@@ -310,4 +349,20 @@ function containsRawSecretMaterial(value: unknown): boolean {
   return /\b(sk-[A-Za-z0-9_-]{8,}|xox[baprs]-[A-Za-z0-9-]{8,}|gh[pousr]_[A-Za-z0-9_]{12,})\b/.test(
     serialized,
   );
+}
+
+function fallbackScopesForCapability(
+  capability: AuthorityCenterCapabilityRow,
+): string[] {
+  if (capability.kind === "model") return ["model.chat:*", "route.use:*"];
+  if (capability.kind === "tool") return [`tool.call:${capability.id}`];
+  return [`connector.use:${capability.id}`];
+}
+
+function safeGrantSegment(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
 }

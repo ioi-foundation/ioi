@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { ConnectorSummary } from "@ioi/agent-ide";
-import { buildAuthorityCenterProjection } from "./authorityCenter";
+import {
+  buildAuthorityCenterProjection,
+  buildAuthorityGrantRequestPayload,
+} from "./authorityCenter";
 import { createDefaultShieldPolicyState } from "./policyCenter";
 
 const connector: ConnectorSummary = {
@@ -84,6 +87,10 @@ test("authority center projection aggregates readiness without leaking raw secre
   assert.equal(projection.summary.readyCapabilities, 3);
   assert.equal(projection.summary.activeGrants, 1);
   assert.equal(projection.summary.vaultRefs, 1);
+  assert.deepEqual(projection.grants[0]?.receiptRefs, [
+    "receipt_permission_token_test",
+  ]);
+  assert.equal(projection.grants[0]?.canRevoke, true);
   assert.equal(
     JSON.stringify(projection).includes("sk-rawshouldnotescape"),
     false,
@@ -94,6 +101,48 @@ test("authority center projection aggregates readiness without leaking raw secre
     ),
     true,
   );
+});
+
+test("authority center builds scoped grant payloads from capability rows", () => {
+  const projection = buildAuthorityCenterProjection({
+    policyState: createDefaultShieldPolicyState(),
+    modelSnapshot: {
+      modelCapabilities: [
+        {
+          id: "model-capability:route.local-first",
+          routeId: "route.local-first",
+          capability: "chat",
+          authorityScopeRequirements: [
+            "model.chat:*",
+            "route.use:route.local-first",
+          ],
+          credentialReadiness: { status: "ready" },
+          workflowAvailability: { available: true },
+          agentAvailability: { available: true },
+        },
+      ],
+    },
+  });
+
+  const payload = buildAuthorityGrantRequestPayload(
+    projection.capabilities[0],
+    {
+      generatedAtMs: Date.parse("2026-05-15T12:00:00Z"),
+      expiresInMs: 30 * 60 * 1000,
+    },
+  );
+
+  assert.equal(payload.audience, "autopilot-authority-center");
+  assert.deepEqual(payload.allowed, [
+    "model.chat:*",
+    "route.use:route.local-first",
+  ]);
+  assert.equal(payload.expiresAt, "2026-05-15T12:30:00.000Z");
+  assert.equal(
+    payload.grantId,
+    "wallet.grant.authority-center.model.model-capability-route-local-first",
+  );
+  assert.equal(JSON.stringify(payload).includes("provider."), false);
 });
 
 test("authority center projection degrades when live capabilities are blocked", () => {

@@ -1154,6 +1154,16 @@
   line-height: 1.55;
 }
 
+.shield-authority-action-status {
+  padding: 10px 12px;
+  border: 1px solid rgba(118, 181, 255, 0.2);
+  border-radius: 12px;
+  background: rgba(118, 181, 255, 0.08);
+  color: rgba(226, 232, 240, 0.84);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .shield-authority-blockers {
   display: flex;
   flex-direction: column;
@@ -1190,7 +1200,7 @@
 
 .shield-authority-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 10px;
   align-items: flex-start;
   padding: 10px;
@@ -1216,6 +1226,57 @@
   color: var(--chat-text-secondary);
   font-size: 11px;
   line-height: 1.4;
+}
+
+.shield-authority-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.shield-authority-row-action {
+  min-height: 28px;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+
+.shield-authority-receipt {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(45, 212, 191, 0.2);
+  border-radius: 12px;
+  background: rgba(45, 212, 191, 0.07);
+}
+
+.shield-authority-receipt h3 {
+  margin: 3px 0 0;
+  color: var(--chat-text);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.shield-authority-receipt p {
+  margin: 6px 0 0;
+  color: var(--chat-text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.shield-authority-receipt-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.shield-authority-receipt-facts span {
+  padding: 4px 7px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--chat-text-secondary);
+  font-size: 11px;
 }
 
 .shield-trust-summary {
@@ -1507,6 +1568,14 @@
   .shield-summary-row,
   .shield-authority-lanes {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shield-authority-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shield-authority-row-actions {
+    justify-content: flex-start;
   }
 }
 
