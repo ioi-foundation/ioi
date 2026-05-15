@@ -44,7 +44,10 @@ export function computerUseProjectionForRun({
   if (!shouldProjectComputerUse(prompt, request)) {
     return null;
   }
+  const workflowBinding = computerUseWorkflowBinding(request);
   const requestedLane = requestedComputerUseLane(request);
+  const requestedRetentionMode =
+    workflowBinding.observationRetentionMode ?? "local_redacted_artifacts";
   if (requestedLane !== "native_browser") {
     return unavailableComputerUseProjectionForRun({
       runId,
@@ -52,6 +55,7 @@ export function computerUseProjectionForRun({
       mode,
       requestedLane,
       requestedSessionMode: requestedComputerUseSessionMode(request, requestedLane),
+      workflowBinding,
     });
   }
   const targetHint = computerUseTargetHint(prompt);
@@ -91,7 +95,7 @@ export function computerUseProjectionForRun({
     ],
     risk_posture: mode === "dry_run" ? "preview_only" : "read_only_probe",
     authority_required: "computer_use.native_browser.read",
-    privacy_impact: "local_redacted_artifacts",
+    privacy_impact: requestedRetentionMode,
     expected_cleanup: "close_owned_browser_context_and_retain_redacted_trace",
   };
   const lease = {
@@ -105,7 +109,7 @@ export function computerUseProjectionForRun({
     target_hint: targetHint,
     environment_ref: `local_browser:${stableHash(agent.cwd).slice(0, 16)}`,
     profile_provenance: "temporary_ioi_browser_profile",
-    retention_mode: "local_redacted_artifacts",
+    retention_mode: requestedRetentionMode,
     cleanup_required: true,
     evidence_refs: [environmentSelection.receipt_ref, "ioi.native_browser.chromiumoxide"],
   };
@@ -147,7 +151,7 @@ export function computerUseProjectionForRun({
     target_index_ref: targetIndexRef,
     redaction_report_ref: `artifact:${runId}:redaction_report`,
     freshness_ms: 0,
-    retention_mode: "local_redacted_artifacts",
+    retention_mode: requestedRetentionMode,
     detected_patterns: ["form", "toolbar", "warning_or_toast"],
   };
   const pageTarget = {
@@ -253,7 +257,7 @@ export function computerUseProjectionForRun({
     trajectory_ref: trajectoryRef,
     run_id: runId,
     lease_id: lease.lease_id,
-    retention_mode: "local_redacted_artifacts",
+    retention_mode: requestedRetentionMode,
     entries: [
       {
         sequence: 1,
@@ -308,6 +312,18 @@ export function computerUseProjectionForRun({
     computer_use_lane: environmentSelection.selected_lane,
     computer_use_session_mode: environmentSelection.selected_session_mode,
     computer_use_lease_id: lease.lease_id,
+    observation_retention_mode: requestedRetentionMode,
+    fail_closed_when_unavailable: workflowBinding.failClosedWhenUnavailable,
+    workflowGraphId: workflowBinding.workflowGraphId,
+    workflow_graph_id: workflowBinding.workflowGraphId,
+    workflowNodeId: workflowBinding.workflowNodeId,
+    workflow_node_id: workflowBinding.workflowNodeId,
+    workflowNodeIds: workflowBinding.workflowNodeIds,
+    workflow_node_ids: workflowBinding.workflowNodeIds,
+    toolRef: workflowBinding.toolRef,
+    tool_ref: workflowBinding.toolRef,
+    authorityScopes: workflowBinding.authorityScopes,
+    authority_scopes: workflowBinding.authorityScopes,
   };
   const events = [
     computerUseEvent({
@@ -500,7 +516,10 @@ function unavailableComputerUseProjectionForRun({
   mode,
   requestedLane,
   requestedSessionMode,
+  workflowBinding,
 }) {
+  const requestedRetentionMode =
+    workflowBinding.observationRetentionMode ?? "no_persistence";
   const targetHint = computerUseTargetHint(prompt);
   const leaseId = `lease_${runId}_${requestedLane}_unavailable`;
   const observationRef = `observation_${runId}_${requestedLane}_unavailable`;
@@ -528,7 +547,7 @@ function unavailableComputerUseProjectionForRun({
     ],
     risk_posture: mode === "dry_run" ? "preview_only" : "blocked_unavailable",
     authority_required: `computer_use.${requestedLane}.execute`,
-    privacy_impact: "no_persistence",
+    privacy_impact: requestedRetentionMode,
     expected_cleanup: "no environment acquired; retain blocked trace only",
   };
   const lease = {
@@ -542,7 +561,7 @@ function unavailableComputerUseProjectionForRun({
     target_hint: targetHint,
     environment_ref: `${requestedLane}:unavailable`,
     profile_provenance: "none",
-    retention_mode: "no_persistence",
+    retention_mode: requestedRetentionMode,
     cleanup_required: false,
     evidence_refs: [environmentSelection.receipt_ref, "adapter_unavailable"],
   };
@@ -563,7 +582,7 @@ function unavailableComputerUseProjectionForRun({
     target_index_ref: targetIndexRef,
     redaction_report_ref: null,
     freshness_ms: null,
-    retention_mode: "no_persistence",
+    retention_mode: requestedRetentionMode,
     detected_patterns: [],
   };
   const targetIndex = {
@@ -632,6 +651,18 @@ function unavailableComputerUseProjectionForRun({
     computer_use_lane: requestedLane,
     computer_use_session_mode: requestedSessionMode,
     computer_use_lease_id: lease.lease_id,
+    observation_retention_mode: requestedRetentionMode,
+    fail_closed_when_unavailable: workflowBinding.failClosedWhenUnavailable,
+    workflowGraphId: workflowBinding.workflowGraphId,
+    workflow_graph_id: workflowBinding.workflowGraphId,
+    workflowNodeId: workflowBinding.workflowNodeId,
+    workflow_node_id: workflowBinding.workflowNodeId,
+    workflowNodeIds: workflowBinding.workflowNodeIds,
+    workflow_node_ids: workflowBinding.workflowNodeIds,
+    toolRef: workflowBinding.toolRef,
+    tool_ref: workflowBinding.toolRef,
+    authorityScopes: workflowBinding.authorityScopes,
+    authority_scopes: workflowBinding.authorityScopes,
   };
   const events = [
     computerUseEvent({
@@ -728,13 +759,16 @@ function unavailableComputerUseProjectionForRun({
 }
 
 function computerUseEvent({ type, summary, workflowNodeId, traceReceiptId, data }) {
+  const resolvedWorkflowNodeId =
+    data.workflowNodeId ?? data.workflow_node_id ?? workflowNodeId;
   return {
     type,
     summary,
     data: {
       ...data,
       eventKind: computerUseSourceEventKind(type),
-      workflowNodeId,
+      workflowNodeId: resolvedWorkflowNodeId,
+      workflow_node_id: resolvedWorkflowNodeId,
       receiptId: traceReceiptId,
     },
   };
@@ -747,6 +781,22 @@ function shouldProjectComputerUse(prompt, request = {}) {
   }
   return /\b(browser|chromium|website|web page|url|computer[- ]use|cua|gui|desktop|click|selector|playwright)\b/i
     .test(String(prompt ?? ""));
+}
+
+function computerUseWorkflowBinding(request = {}) {
+  const metadata = request.options?.metadata ?? request.metadata ?? {};
+  return {
+    workflowGraphId: cleanString(metadata.workflowGraphId ?? metadata.workflow_graph_id),
+    workflowNodeId: cleanString(metadata.workflowNodeId ?? metadata.workflow_node_id),
+    workflowNodeIds: cleanStringArray(metadata.workflowNodeIds ?? metadata.workflow_node_ids),
+    toolRef: cleanString(metadata.toolRef ?? metadata.tool_ref),
+    authorityScopes: cleanStringArray(metadata.authorityScopes ?? metadata.authority_scopes),
+    observationRetentionMode: cleanString(
+      metadata.observationRetentionMode ?? metadata.observation_retention_mode,
+    ),
+    failClosedWhenUnavailable:
+      booleanValue(metadata.failClosedWhenUnavailable ?? metadata.fail_closed_when_unavailable) ?? true,
+  };
 }
 
 function requestedComputerUseLane(request = {}) {
@@ -775,6 +825,24 @@ function requestedComputerUseSessionMode(request = {}, lane) {
 
 function computerUseTargetHint(prompt) {
   return String(prompt ?? "").match(/https?:\/\/[^\s)]+/i)?.[0] ?? "browser surface requested by user prompt";
+}
+
+function cleanString(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function cleanStringArray(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => cleanString(item)).filter(Boolean);
+}
+
+function booleanValue(value) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    if (value.toLowerCase() === "true") return true;
+    if (value.toLowerCase() === "false") return false;
+  }
+  return null;
 }
 
 function defaultComputerUseHarnessContract() {

@@ -20434,7 +20434,13 @@ function payloadSummaryForRunEvent(event) {
       verification_receipt: event.data?.verification_receipt ?? null,
       trajectory_bundle: event.data?.trajectory_bundle ?? null,
       cleanup_receipt: event.data?.cleanup_receipt ?? null,
-      workflow_node_id: event.data?.workflowNodeId ?? null,
+      workflow_graph_id: event.data?.workflowGraphId ?? event.data?.workflow_graph_id ?? null,
+      workflow_node_id: event.data?.workflowNodeId ?? event.data?.workflow_node_id ?? null,
+      workflow_node_ids: event.data?.workflowNodeIds ?? event.data?.workflow_node_ids ?? [],
+      tool_ref: event.data?.toolRef ?? event.data?.tool_ref ?? null,
+      authority_scopes: event.data?.authorityScopes ?? event.data?.authority_scopes ?? [],
+      observation_retention_mode: event.data?.observation_retention_mode ?? null,
+      fail_closed_when_unavailable: Boolean(event.data?.fail_closed_when_unavailable),
       redaction: "computer_use_trace_safe",
     };
   }

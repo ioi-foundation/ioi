@@ -633,7 +633,7 @@ Required guarantees:
 | Co-op coding agent computer use | Not started |
 | Benchmark/eval harness | Not started |
 | Autopilot glass-box workbench | Started: canonical runtime payloads, `computer-use-trace.json` artifacts, workflow/run-history projection, and compact trace rows now expose the harness lane, lease, targeting, proposal, action, verification, cleanup, blocker, and recovery evidence; live screen/overlay panes pending |
-| Workflow compositor projection | Started: React Flow runtime projection maps `computer_use.*` events into glass-box harness nodes with lane/session/lease, observation/target/affordance, proposal/action, verification, cleanup, and recovery evidence; palette creator presets now expose Browser Use, Computer Use, and Sandboxed Computer lanes without a second runtime, and composer Run forwards the configured lane/session/retention metadata into the daemon request |
+| Workflow compositor projection | Started: React Flow runtime projection maps `computer_use.*` events into glass-box harness nodes with lane/session/lease, observation/target/affordance, proposal/action, verification, cleanup, and recovery evidence; palette creator presets now expose Browser Use, Computer Use, and Sandboxed Computer lanes without a second runtime, composer Run forwards the configured lane/session/retention metadata into the daemon request, and SDK/daemon events preserve authored workflow node ids/tool refs/authority scopes for glass-box trace alignment |
 | Safety/governance receipts | Started: `computer_use_trace`, failed-closed leases, recovery policy payloads, action, verification, trajectory, and cleanup receipts are projected; policy executor pending |
 
 ## Definition Of Done

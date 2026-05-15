@@ -95,6 +95,17 @@ export function mockRuntimeEnvelopeForSdkEvent({
   turnId: string;
 }): RuntimeEventEnvelope {
   const eventKind = runtimeEventKindForSdkMessage(event.type);
+  const eventPayload =
+    event.data && typeof event.data === "object" && !Array.isArray(event.data)
+      ? (event.data as Record<string, unknown>)
+      : {};
+  const workflowGraphId =
+    optionalString(eventPayload["workflowGraphId"]) ??
+    optionalString(eventPayload["workflow_graph_id"]);
+  const workflowNodeId =
+    optionalString(eventPayload["workflowNodeId"]) ??
+    optionalString(eventPayload["workflow_node_id"]) ??
+    workflowNodeIdForSdkMessage(event.type);
   return mockRuntimeEventEnvelope({
     agent,
     threadId,
@@ -107,7 +118,7 @@ export function mockRuntimeEnvelopeForSdkEvent({
     status: runtimeEventStatusForSdkMessage(event.type),
     payloadSchemaVersion: payloadSchemaVersionForSdkMessage(event.type),
     payload: {
-      ...(event.data && typeof event.data === "object" && !Array.isArray(event.data) ? event.data : {}),
+      ...eventPayload,
       event_kind: event.type,
       agent_id: agent.id,
       run_id: run.id,
@@ -117,7 +128,8 @@ export function mockRuntimeEnvelopeForSdkEvent({
     },
     createdAt: event.createdAt,
     componentKind: componentKindForSdkMessage(event.type),
-    workflowNodeId: workflowNodeIdForSdkMessage(event.type),
+    workflowGraphId,
+    workflowNodeId,
     receiptRefs: run.receipts.map((receipt) => receipt.id),
   });
 }
@@ -136,6 +148,7 @@ export function mockRuntimeEventEnvelope({
   status = "completed",
   payloadSchemaVersion = "ioi.agent-sdk.thread-event.v1",
   componentKind = null,
+  workflowGraphId = null,
   workflowNodeId = null,
   receiptRefs = [],
   artifactRefs = [],
@@ -155,6 +168,7 @@ export function mockRuntimeEventEnvelope({
   status?: string;
   payloadSchemaVersion?: string;
   componentKind?: string | null;
+  workflowGraphId?: string | null;
   workflowNodeId?: string | null;
   receiptRefs?: string[];
   artifactRefs?: string[];
@@ -178,7 +192,7 @@ export function mockRuntimeEventEnvelope({
     actor: "runtime",
     created_at: createdAt,
     workspace_root: agent.cwd,
-    workflow_graph_id: null,
+    workflow_graph_id: workflowGraphId,
     workflow_node_id: workflowNodeId,
     component_kind: componentKind,
     tool_call_id: null,
