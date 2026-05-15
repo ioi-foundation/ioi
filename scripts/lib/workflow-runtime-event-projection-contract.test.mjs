@@ -99,6 +99,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const visualGuiPromptPipelineProbe = read(
     "scripts/lib/workflow-visual-gui-prompt-pipeline-gui-probe.mjs",
   );
+  const computerUseTriLaneScorecardTest = read(
+    "scripts/lib/workflow-computer-use-tri-lane-scorecard.test.mjs",
+  );
   const telemetryBudgetChainRuntimeSubflowInsertion = read(
     "packages/agent-ide/src/WorkflowComposer/runtimeSubflowInsertion.ts",
   );
@@ -704,6 +707,15 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(visualGuiPromptPipelineProbe, /traceCrossesModelToVisual/);
   assert.match(visualGuiPromptPipelineProbe, /targetOverlayEvidence/);
   assert.match(
+    computerUseTriLaneScorecardTest,
+    /collectWorkflowComputerUseTriLaneScorecard/,
+  );
+  assert.match(
+    computerUseTriLaneScorecardTest,
+    /workflow_computer_use_tri_lane_scorecard/,
+  );
+  assert.match(computerUseTriLaneScorecardTest, /hosted_provider_backends/);
+  assert.match(
     liveRuntimeDaemonContract,
     /React Flow run-inspector-created telemetry budget chain executes/,
   );
@@ -790,6 +802,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(
     guiHarnessContract,
+    /workflow_computer_use_tri_lane_scorecard/,
+  );
+  assert.match(
+    guiHarnessContract,
     /workflow_terminal_coding_loop_creator_proof_present/,
   );
   assert.match(
@@ -811,6 +827,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(
     guiHarnessContract,
     /workflow_visual_gui_prompt_pipeline_proof_present/,
+  );
+  assert.match(
+    guiHarnessContract,
+    /workflow_computer_use_tri_lane_scorecard_present/,
   );
   assert.match(
     guiHarnessValidation,
@@ -874,6 +894,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(
     guiHarnessValidation,
+    /workflowComputerUseTriLaneScorecard/,
+  );
+  assert.match(
+    guiHarnessValidation,
     /workflow_telemetry_budget_chain_creator/,
   );
   assert.match(
@@ -906,6 +930,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(
     guiHarnessValidation,
+    /workflow_computer_use_tri_lane_scorecard/,
+  );
+  assert.match(
+    guiHarnessValidation,
     /workflow_telemetry_budget_chain_creator_proof_present/,
   );
   assert.match(
@@ -935,6 +963,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(
     guiHarnessValidation,
     /workflow_visual_gui_prompt_pipeline_proof_present/,
+  );
+  assert.match(
+    guiHarnessValidation,
+    /workflow_computer_use_tri_lane_scorecard_present/,
   );
   assert.match(projection, /Coding tool budget/);
   assert.match(projection, /runtimeSubagentSubflow/);

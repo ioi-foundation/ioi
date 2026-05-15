@@ -513,7 +513,11 @@ browser, sandboxed computer, and visual GUI lanes: mounted model prompt traces
 flow into Browser Use or Visual Observation plus Computer Use, then project
 environment, observation, target-index/SoM/AX, affordance, proposal, approval,
 preflight drift, action, verification, trajectory, and cleanup rows without a
-React Flow shadow truth store.
+React Flow shadow truth store. A retained tri-lane computer-use scorecard now
+rolls those proofs into one promotion gate for lane coverage, prompt-trace
+coverage where model nodes are composed, target/affordance/action evidence,
+approval/fail-closed posture, and explicit external deferrals for hosted
+providers and third-party eval ingestion.
 Sandboxed
 Computer authoring presets now default to `local_sandbox` plus `local_fixture`,
 giving workflow authors a runnable hosted-style harness trace while concrete
