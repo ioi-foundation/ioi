@@ -336,6 +336,152 @@ test("workflow run history model projects canonical runtime thread events", () =
   assert.equal(model.timelineEvents[0]?.runId, "run-a");
 });
 
+test("workflow run history model exposes computer-use prompt pipelines", () => {
+  const target = runResult("run-a", "passed", {
+    answer: "browser prompt inspected",
+  });
+  const model = workflowRunHistoryModel({
+    workflow,
+    runs,
+    lastRunResult: target,
+    compareRunResult: null,
+    selectedRunId: "run-a",
+    compareRunId: null,
+    runEvents: [],
+    runtimeThreadEvents: [
+      runtimeThreadEvent("computer-use-environment", 1, {
+        eventKind: "computer_use.environment_selected",
+        sourceEventKind: "ComputerUse.EnvironmentSelected",
+        status: "completed",
+        componentKind: "computer_use_harness",
+        workflowNodeId: "computer-use.select-environment",
+        payloadSchemaVersion: "ioi.computer-use.harness.v1",
+        receiptRefs: ["receipt-computer-use-environment"],
+        payload: {
+          summary: "Computer-use environment selected",
+          computer_use_step: "select_environment",
+          computer_use_lane: "native_browser",
+          computer_use_session_mode: "owned_hermetic_browser",
+          computer_use_lease_id: "lease-browser",
+          environment_selection_receipt: {
+            risk_posture: "read_only_probe",
+            authority_required: "computer_use.native_browser.read",
+          },
+          lease: {
+            lease_id: "lease-browser",
+            lane: "native_browser",
+            session_mode: "owned_hermetic_browser",
+            retention_mode: "local_redacted_artifacts",
+          },
+        },
+      }),
+      runtimeThreadEvent("computer-use-observation", 2, {
+        eventKind: "computer_use.observation",
+        sourceEventKind: "ComputerUse.Observation",
+        status: "completed",
+        componentKind: "computer_use_harness",
+        workflowNodeId: "computer-use.observe",
+        payloadSchemaVersion: "ioi.computer-use.harness.v1",
+        artifactRefs: ["computer-use-trace.json"],
+        payload: {
+          computer_use_step: "observe",
+          computer_use_observation_ref: "observation-browser",
+          computer_use_target_index_ref: "target-index-browser",
+          observation_bundle: {
+            observation_ref: "observation-browser",
+            target_index_ref: "target-index-browser",
+            detected_patterns: ["form", "toolbar"],
+          },
+          target_index: {
+            target_index_ref: "target-index-browser",
+            targets: [{ target_ref: "target-page" }],
+          },
+        },
+      }),
+      runtimeThreadEvent("computer-use-proposal", 3, {
+        eventKind: "computer_use.action_proposed",
+        sourceEventKind: "ComputerUse.ActionProposed",
+        status: "waiting_for_policy",
+        componentKind: "computer_use_harness",
+        workflowNodeId: "computer-use.action-proposal",
+        payloadSchemaVersion: "ioi.computer-use.harness.v1",
+        policyDecisionRefs: ["policy-read-only"],
+        payload: {
+          computer_use_step: "propose_action",
+          computer_use_proposal_ref: "proposal-inspect",
+          computer_use_target_ref: "target-page",
+          computer_use_policy_decision_ref: "policy-read-only",
+          action_proposal: {
+            proposal_ref: "proposal-inspect",
+            target_ref: "target-page",
+            policy_decision_ref: "policy-read-only",
+          },
+        },
+      }),
+      runtimeThreadEvent("computer-use-verification", 4, {
+        eventKind: "computer_use.verification",
+        sourceEventKind: "ComputerUse.Verification",
+        status: "completed",
+        componentKind: "computer_use_harness",
+        workflowNodeId: "computer-use.verify",
+        payloadSchemaVersion: "ioi.computer-use.harness.v1",
+        payload: {
+          computer_use_step: "verify_postcondition",
+          computer_use_verification_ref: "verification-inspect",
+          verification_receipt: {
+            verification_ref: "verification-inspect",
+            status: "passed",
+          },
+        },
+      }),
+    ],
+    searchQuery: "",
+    statusFilter: "all",
+  });
+
+  assert.equal(model.runtimeEventProjection.eventCount, 4);
+  assert.deepEqual(
+    model.runtimeEventProjection.reactFlowNodes.map((node) => node.data.label),
+    [
+      "Computer use: select environment",
+      "Computer use: observe",
+      "Computer use: propose action",
+      "Computer use: verify",
+    ],
+  );
+  assert.deepEqual(
+    model.runtimeEventProjection.reactFlowNodes.map((node) => node.data.computerUse?.step),
+    ["select_environment", "observe", "propose_action", "verify_postcondition"],
+  );
+  assert.equal(
+    model.runtimeEventProjection.nodes[0]?.computerUse?.lane,
+    "native_browser",
+  );
+  assert.equal(
+    model.runtimeEventProjection.nodes[1]?.computerUse?.targetIndexRef,
+    "target-index-browser",
+  );
+  assert.equal(
+    model.runtimeEventProjection.nodes[2]?.computerUse?.policyDecisionRef,
+    "policy-read-only",
+  );
+  assert.equal(
+    model.runtimeEventProjection.nodes[3]?.computerUse?.verificationStatus,
+    "passed",
+  );
+  assert.deepEqual(
+    model.runtimeEventProjection.reactFlowEdges.map((edge) => [
+      edge.source,
+      edge.target,
+    ]),
+    [
+      ["computer-use.select-environment", "computer-use.observe"],
+      ["computer-use.observe", "computer-use.action-proposal"],
+      ["computer-use.action-proposal", "computer-use.verify"],
+    ],
+  );
+});
+
 test("workflow run history model projects the replayable runtime policy stack", () => {
   const target = runResult("run-a", "passed", { answer: "new" });
   const model = workflowRunHistoryModel({
