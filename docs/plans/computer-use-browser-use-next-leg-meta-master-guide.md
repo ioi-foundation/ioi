@@ -441,7 +441,10 @@ target-index, and affordance contracts. RuntimeAgentService bridge turns now
 project recent native browser driver artifacts into canonical
 `computer_use.observation` and `computer_use.affordance_graph` events for
 Autopilot/daemon consumption, and daemon run records now preserve those bridge
-events in run inspection plus `computer-use-trace.json` artifacts.
+events in run inspection plus `computer-use-trace.json` artifacts. When a
+bridge emits computer-use events without a full trajectory bundle, the daemon
+synthesizes deterministic event-level trajectory entries so the trace remains
+replayable.
 Daemon-backed visual and hosted/sandbox lane runs activate through the same
 trace spine when a mounted executor supplies those contracts, while missing
 visual/sandbox adapters still fail closed.
