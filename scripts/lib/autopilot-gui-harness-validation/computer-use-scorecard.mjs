@@ -51,7 +51,8 @@ export function buildWorkflowComputerUseTriLaneScorecard({
     laneCoverageComplete:
       laneIds.has("native_browser") &&
       laneIds.has("visual_gui") &&
-      laneIds.has("sandboxed_hosted"),
+      laneIds.has("sandboxed_hosted") &&
+      laneReports.every((lane) => lane.proofScenario === lane.requiredScenario),
     runButtonCoverage: laneReports.every((lane) => lane.runButtonWired),
     modelPromptTraceCoverage: laneReports
       .filter((lane) => lane.requiredModelTrace)
