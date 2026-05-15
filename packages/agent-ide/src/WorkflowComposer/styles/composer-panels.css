@@ -295,6 +295,83 @@
   border-color: color-mix(in srgb, var(--status-warning) 62%, var(--border-default));
 }
 
+.workflow-run-computer-use-scorecard {
+  display: grid;
+  gap: 8px;
+  border-left: 2px solid var(--accent-cyan);
+  background: color-mix(in srgb, var(--workflow-panel-strong) 70%, transparent);
+  padding: 8px;
+}
+
+.workflow-run-computer-use-scorecard.is-blocked {
+  border-left-color: var(--status-warning);
+}
+
+.workflow-run-computer-use-scorecard h4,
+.workflow-run-computer-use-scorecard p {
+  margin: 0;
+}
+
+.workflow-run-computer-use-scorecard p {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.workflow-run-computer-use-scorecard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.workflow-run-computer-use-scorecard-row,
+.workflow-run-computer-use-scorecard-list li {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--workflow-panel-strong) 78%, transparent);
+  padding: 7px 8px;
+}
+
+.workflow-run-computer-use-scorecard-row.is-blocked,
+.workflow-run-computer-use-scorecard-list li {
+  border-color: color-mix(in srgb, var(--status-warning) 50%, var(--border-subtle));
+}
+
+.workflow-run-computer-use-scorecard-row strong,
+.workflow-run-computer-use-scorecard-row span,
+.workflow-run-computer-use-scorecard-row small,
+.workflow-run-computer-use-scorecard-list strong,
+.workflow-run-computer-use-scorecard-list span,
+.workflow-run-computer-use-scorecard-list small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-run-computer-use-scorecard-row strong,
+.workflow-run-computer-use-scorecard-list strong {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.workflow-run-computer-use-scorecard-row span,
+.workflow-run-computer-use-scorecard-row small,
+.workflow-run-computer-use-scorecard-list span,
+.workflow-run-computer-use-scorecard-list small {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.workflow-run-computer-use-scorecard-list {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 .workflow-run-computer-use-workbench {
   display: grid;
   gap: 8px;

@@ -158,6 +158,80 @@ export function buildWorkflowComputerUseTriLaneScorecard({
   };
 }
 
+export function renderWorkflowComputerUseTriLaneScorecardMarkdown(scorecard) {
+  const summary = scorecard?.operatorSummary ?? {};
+  const summaryRows = Array.isArray(summary.summaryRows)
+    ? summary.summaryRows
+    : [];
+  const blockers = Array.isArray(summary.blockers) ? summary.blockers : [];
+  const externalDeferrals = Array.isArray(
+    summary.externalDeferrals ?? scorecard?.externalDeferrals,
+  )
+    ? (summary.externalDeferrals ?? scorecard?.externalDeferrals)
+    : [];
+  const lines = [
+    "# Computer Use Scorecard",
+    "",
+    `Status: ${cell(summary.status ?? scorecard?.promotionStatus ?? "unknown")}`,
+    "",
+    cell(
+      summary.headline ??
+        "Computer-use tri-lane scorecard summary is unavailable.",
+    ),
+    "",
+    "| Lane | Status | Session | Action | Prompt trace | Runtime events | Targets | Affordances | Policy | Verification | Cleanup | Proof |",
+    "| --- | --- | --- | --- | --- | ---: | ---: | ---: | --- | --- | --- | --- |",
+    ...summaryRows.map((row) =>
+      [
+        cell(row.label ?? row.lane),
+        cell(row.status),
+        cell(row.sessionMode),
+        cell(row.actionKind),
+        cell(row.modelPromptTrace),
+        numberCell(row.runtimeEvents),
+        numberCell(row.targets),
+        numberCell(row.affordances),
+        cell(row.policy),
+        cell(row.verification),
+        cell(row.cleanup),
+        cell(row.proofPath),
+      ].join(" | "),
+    ).map((row) => `| ${row} |`),
+    "",
+    "## Blockers",
+    "",
+    ...(blockers.length > 0
+      ? [
+          "| Check | Lanes | Detail |",
+          "| --- | --- | --- |",
+          ...blockers.map((blocker) =>
+            `| ${cell(blocker.check)} | ${cell(
+              Array.isArray(blocker.lanes)
+                ? blocker.lanes.join(", ")
+                : blocker.lanes,
+            )} | ${cell(blocker.detail ?? blocker.title)} |`,
+          ),
+        ]
+      : ["None"]),
+    "",
+    "## External Deferrals",
+    "",
+    ...(externalDeferrals.length > 0
+      ? [
+          "| Deferral | Status | Reason |",
+          "| --- | --- | --- |",
+          ...externalDeferrals.map((deferral) =>
+            `| ${cell(deferral.id)} | ${cell(deferral.status)} | ${cell(
+              deferral.reason,
+            )} |`,
+          ),
+        ]
+      : ["None"]),
+    "",
+  ];
+  return `${lines.join("\n")}\n`;
+}
+
 function laneReport({
   laneId,
   proof,
@@ -445,4 +519,16 @@ function laneLabel(lane) {
       sandboxed_hosted: "Sandboxed Hosted",
     }[lane] ?? lane
   );
+}
+
+function cell(value) {
+  const raw =
+    value === null || value === undefined || value === ""
+      ? "pending"
+      : String(value);
+  return raw.replaceAll("|", "\\|").replace(/\s+/g, " ").trim();
+}
+
+function numberCell(value) {
+  return Number.isFinite(value) ? String(value) : "0";
 }

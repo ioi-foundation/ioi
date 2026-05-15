@@ -2,7 +2,10 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-import { buildWorkflowComputerUseTriLaneScorecard } from "./computer-use-scorecard.mjs";
+import {
+  buildWorkflowComputerUseTriLaneScorecard,
+  renderWorkflowComputerUseTriLaneScorecardMarkdown,
+} from "./computer-use-scorecard.mjs";
 
 const repoRoot = resolve(new URL("../../..", import.meta.url).pathname);
 
@@ -186,13 +189,22 @@ export function collectWorkflowComputerUseTriLaneScorecard(
   },
 ) {
   const path = join(outputRoot, "workflow-computer-use-tri-lane-scorecard.json");
+  const summaryPath = join(
+    outputRoot,
+    "workflow-computer-use-tri-lane-scorecard.md",
+  );
   const proof = buildWorkflowComputerUseTriLaneScorecard({
     sandboxedComputerRunButtonProof: workflowSandboxedComputerRunButtonProof,
     nativeBrowserPromptPipelineProof: workflowNativeBrowserPromptPipelineProof,
     visualGuiPromptPipelineProof: workflowVisualGuiPromptPipelineProof,
   });
   writeFileSync(path, `${JSON.stringify(proof, null, 2)}\n`, "utf8");
-  return { path, proof };
+  writeFileSync(
+    summaryPath,
+    renderWorkflowComputerUseTriLaneScorecardMarkdown(proof),
+    "utf8",
+  );
+  return { path, summaryPath, proof };
 }
 
 export function collectWorkflowSkillContextProof(outputRoot) {

@@ -436,6 +436,16 @@ test("runtime consistency contract requires harness shadow proof", () => {
       "workflow_terminal_coding_loop_run_button",
     ),
   );
+  assert.ok(
+    contract.requiredArtifacts.includes(
+      "workflow_computer_use_tri_lane_scorecard",
+    ),
+  );
+  assert.ok(
+    contract.requiredArtifacts.includes(
+      "workflow_computer_use_tri_lane_scorecard_summary",
+    ),
+  );
   assert.ok(contract.runtimeConsistencyRequirements.includes("harness_shadow_attempts_present"));
   assert.ok(contract.runtimeConsistencyRequirements.includes("harness_gated_cognition_present"));
   assert.ok(contract.runtimeConsistencyRequirements.includes("harness_cognition_node_authority_present"));

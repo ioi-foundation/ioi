@@ -7371,6 +7371,8 @@ export function buildGuiEvidenceAssessment({
       hasWorkflowComputerUseTriLaneScorecard,
       computerUseTriLaneScorecard:
         workflowComputerUseTriLaneScorecard?.proof?.operatorSummary ?? null,
+      computerUseTriLaneScorecardSummaryPath:
+        workflowComputerUseTriLaneScorecard?.summaryPath ?? null,
       providerGatedVisibleOutputRequiredScenarios: [
         ...AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
       ],
@@ -11718,6 +11720,10 @@ async function runGuiValidation(args, outputRoot) {
         workflow_computer_use_tri_lane_scorecard:
           workflowComputerUseTriLaneScorecard.proof.passed === true
             ? workflowComputerUseTriLaneScorecard.path
+            : false,
+        workflow_computer_use_tri_lane_scorecard_summary:
+          workflowComputerUseTriLaneScorecard.proof.passed === true
+            ? workflowComputerUseTriLaneScorecard.summaryPath
             : false,
         workflow_coding_route_create_run:
           workflowCodingRouteProof.proof.passed === true

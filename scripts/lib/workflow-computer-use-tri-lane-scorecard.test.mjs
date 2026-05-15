@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { buildWorkflowComputerUseTriLaneScorecard } from "./autopilot-gui-harness-validation/computer-use-scorecard.mjs";
+import {
+  buildWorkflowComputerUseTriLaneScorecard,
+  renderWorkflowComputerUseTriLaneScorecardMarkdown,
+} from "./autopilot-gui-harness-validation/computer-use-scorecard.mjs";
 import {
   collectWorkflowComputerUseTriLaneScorecard,
   collectWorkflowNativeBrowserPromptPipelineProof,
@@ -50,6 +53,7 @@ test("computer-use tri-lane scorecard gates retained workflow proofs", () => {
     "workflow_computer_use_tri_lane_scorecard",
   );
   assert.equal(scorecard.proof.promotionStatus, "passed");
+  assert.ok(scorecard.summaryPath.endsWith(".md"));
   assert.equal(scorecard.proof.operatorSummary.status, "passed");
   assert.equal(scorecard.proof.operatorSummary.blockers.length, 0);
   assert.deepEqual(
@@ -84,6 +88,13 @@ test("computer-use tri-lane scorecard gates retained workflow proofs", () => {
       (deferral) => deferral.id === "hosted_provider_backends",
     ),
   );
+  const operatorSummary = readFileSync(scorecard.summaryPath, "utf8");
+  assert.match(operatorSummary, /# Computer Use Scorecard/);
+  assert.match(operatorSummary, /Native Browser/);
+  assert.match(operatorSummary, /Visual GUI/);
+  assert.match(operatorSummary, /Sandboxed Hosted/);
+  assert.match(operatorSummary, /External Deferrals/);
+  assert.match(operatorSummary, /hosted_provider_backends/);
 });
 
 test("computer-use tri-lane scorecard blocks missing and degraded proof evidence", () => {
@@ -195,6 +206,12 @@ test("computer-use tri-lane scorecard blocks missing and degraded proof evidence
     assert.equal(scorecard.promotionStatus, "blocked", scenario.name);
     assert.equal(scorecard.operatorSummary.status, "blocked", scenario.name);
     assert.ok(scorecard.operatorSummary.blockers.length > 0, scenario.name);
+    const rendered = renderWorkflowComputerUseTriLaneScorecardMarkdown(scorecard);
+    assert.match(rendered, /## Blockers/, scenario.name);
+    assert.ok(
+      scenario.blockedChecks.some((check) => rendered.includes(check)),
+      scenario.name,
+    );
     for (const check of scenario.blockedChecks) {
       assert.equal(scorecard.checks[check], false, `${scenario.name}: ${check}`);
       assert.ok(

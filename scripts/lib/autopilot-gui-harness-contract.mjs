@@ -199,6 +199,7 @@ export const REQUIRED_GUI_ARTIFACTS = Object.freeze([
   "workflow_native_browser_prompt_pipeline",
   "workflow_visual_gui_prompt_pipeline",
   "workflow_computer_use_tri_lane_scorecard",
+  "workflow_computer_use_tri_lane_scorecard_summary",
   "workflow_coding_route_create_run",
   "workflow_coding_route_promotion_loop",
 ]);
