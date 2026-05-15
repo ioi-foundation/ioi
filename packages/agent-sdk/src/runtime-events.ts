@@ -429,6 +429,7 @@ function workflowNodeIdForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "computer_use_run_state") return "computer-use.run-state";
   if (type === "computer_use_observation") return "computer-use.observe";
   if (type === "computer_use_affordance_graph") return "computer-use.affordance-graph";
+  if (type === "computer_use_browser_discovery") return "computer-use.browser-discovery";
   if (type === "computer_use_action_proposed") return "computer-use.action-proposal";
   if (type === "computer_use_action_executed") return "computer-use.execute-action";
   if (type === "computer_use_verification") return "computer-use.verify";
@@ -461,6 +462,7 @@ function sourceEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "computer_use_run_state") return "ComputerUse.RunState";
   if (type === "computer_use_observation") return "ComputerUse.Observation";
   if (type === "computer_use_affordance_graph") return "ComputerUse.AffordanceGraph";
+  if (type === "computer_use_browser_discovery") return "ComputerUse.BrowserDiscovery";
   if (type === "computer_use_action_proposed") return "ComputerUse.ActionProposed";
   if (type === "computer_use_action_executed") return "ComputerUse.ActionExecuted";
   if (type === "computer_use_verification") return "ComputerUse.Verification";

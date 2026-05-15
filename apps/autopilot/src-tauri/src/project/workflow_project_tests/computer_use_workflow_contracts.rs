@@ -106,9 +106,13 @@ fn workflow_run_compiles_computer_use_manifest_to_runtime_events() {
     let run_state_event = run
         .runtime_thread_events
         .iter()
-        .find(|event| event.get("eventKind").and_then(Value::as_str) == Some("computer_use.run_state"))
+        .find(|event| {
+            event.get("eventKind").and_then(Value::as_str) == Some("computer_use.run_state")
+        })
         .expect("run state event should exist");
-    let payload = run_state_event.get("payload").expect("payload should exist");
+    let payload = run_state_event
+        .get("payload")
+        .expect("payload should exist");
     assert_eq!(
         payload
             .get("workflowNodeId")
@@ -117,10 +121,7 @@ fn workflow_run_compiles_computer_use_manifest_to_runtime_events() {
         "browser-use"
     );
     assert_eq!(
-        payload
-            .get("toolRef")
-            .and_then(Value::as_str)
-            .unwrap(),
+        payload.get("toolRef").and_then(Value::as_str).unwrap(),
         "ioi.computer_use.native_browser"
     );
     assert_eq!(
@@ -146,7 +147,9 @@ fn workflow_run_compiles_computer_use_manifest_to_runtime_events() {
     let observation_event = run
         .runtime_thread_events
         .iter()
-        .find(|event| event.get("eventKind").and_then(Value::as_str) == Some("computer_use.observation"))
+        .find(|event| {
+            event.get("eventKind").and_then(Value::as_str) == Some("computer_use.observation")
+        })
         .expect("observation event should exist");
     assert_eq!(
         observation_event
@@ -161,9 +164,13 @@ fn workflow_run_compiles_computer_use_manifest_to_runtime_events() {
     let commit_gate_event = run
         .runtime_thread_events
         .iter()
-        .find(|event| event.get("eventKind").and_then(Value::as_str) == Some("computer_use.commit_gate"))
+        .find(|event| {
+            event.get("eventKind").and_then(Value::as_str) == Some("computer_use.commit_gate")
+        })
         .expect("commit gate event should exist");
-    let commit_payload = commit_gate_event.get("payload").expect("payload should exist");
+    let commit_payload = commit_gate_event
+        .get("payload")
+        .expect("payload should exist");
     assert_eq!(
         commit_payload
             .get("commit_gate")
@@ -244,7 +251,9 @@ fn workflow_run_fails_closed_unavailable_computer_use_lanes() {
         unavailable_event.get("status").and_then(Value::as_str),
         Some("blocked")
     );
-    let payload = unavailable_event.get("payload").expect("payload should exist");
+    let payload = unavailable_event
+        .get("payload")
+        .expect("payload should exist");
     assert_eq!(
         payload.get("computer_use_lane").and_then(Value::as_str),
         Some("sandboxed_hosted")
@@ -260,4 +269,129 @@ fn workflow_run_fails_closed_unavailable_computer_use_lanes() {
         payload.get("workflowNodeId").and_then(Value::as_str),
         Some("hosted-computer")
     );
+}
+
+#[test]
+fn workflow_run_projects_browser_discovery_primitive_to_receipts() {
+    let root = temp_root("browser-discovery-runtime-events");
+    let bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "Browser Discovery Trace".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "local".to_string(),
+        template_id: None,
+    })
+    .expect("workflow bundle should create");
+
+    let mut discovery = workflow_node(
+        "browser-discovery",
+        "plugin_tool",
+        "Browser Discovery",
+        120,
+        180,
+        "Computer",
+        "browser",
+    );
+    logic_mut(&mut discovery).insert(
+        "toolBinding".to_string(),
+        json!({
+            "toolRef": "ioi.computer_use.browser_discovery",
+            "bindingKind": "plugin_tool",
+            "mockBinding": false,
+            "credentialReady": true,
+            "capabilityScope": [
+                "computer_use.browser_discovery.read",
+                "computer_use.native_browser.discovery"
+            ],
+            "sideEffectClass": "read",
+            "requiresApproval": false,
+            "arguments": {
+                "computerUseBrowserDiscovery": true,
+                "probe": false,
+                "includeTabs": false,
+                "revealTabTitles": false,
+                "retentionMode": "prompt_visible_summary_only"
+            }
+        }),
+    );
+
+    let mut workflow = bundle.workflow.clone();
+    workflow.nodes = vec![discovery];
+    workflow.edges = Vec::new();
+    save_workflow_project(bundle.workflow_path.clone(), workflow).expect("workflow should save");
+
+    let run = run_workflow_project(bundle.workflow_path, None).expect("workflow should run");
+    assert_eq!(run.summary.status, "passed");
+    assert_eq!(run.runtime_thread_events.len(), 4);
+
+    let event_kinds = run
+        .runtime_thread_events
+        .iter()
+        .map(|event| event.get("eventKind").and_then(Value::as_str).unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        event_kinds,
+        vec![
+            "computer_use.environment_selected",
+            "computer_use.browser_discovery",
+            "computer_use.verification",
+            "computer_use.cleanup",
+        ]
+    );
+
+    let discovery_event = run
+        .runtime_thread_events
+        .iter()
+        .find(|event| {
+            event.get("eventKind").and_then(Value::as_str) == Some("computer_use.browser_discovery")
+        })
+        .expect("browser discovery event should exist");
+    assert_eq!(
+        discovery_event
+            .get("workflowNodeId")
+            .and_then(Value::as_str),
+        Some("browser-discovery")
+    );
+    assert_eq!(
+        discovery_event.get("toolName").and_then(Value::as_str),
+        Some("ioi.computer_use.browser_discovery")
+    );
+    let payload = discovery_event
+        .get("payload")
+        .expect("payload should exist");
+    assert_eq!(
+        payload.get("computer_use_step").and_then(Value::as_str),
+        Some("discover_browser")
+    );
+    assert_eq!(
+        payload
+            .get("computer_use_session_mode")
+            .and_then(Value::as_str),
+        Some("discovery_only")
+    );
+    assert_eq!(
+        payload
+            .get("browser_discovery_report")
+            .and_then(|value| value.get("object"))
+            .and_then(Value::as_str),
+        Some("ioi.computer_use.browser_discovery_report")
+    );
+    assert_eq!(
+        payload
+            .get("browser_discovery_report")
+            .and_then(|value| value.get("safety"))
+            .and_then(|value| value.get("read_only"))
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert!(discovery_event
+        .get("receiptRefs")
+        .and_then(Value::as_array)
+        .expect("receipt refs should exist")
+        .iter()
+        .any(|value| {
+            value
+                .as_str()
+                .is_some_and(|entry| entry.contains("browser_discovery"))
+        }));
 }

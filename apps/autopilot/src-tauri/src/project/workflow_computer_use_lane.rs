@@ -20,6 +20,7 @@ struct WorkflowComputerUseBinding {
     session_mode: String,
     observation_retention_mode: String,
     fail_closed_when_unavailable: bool,
+    browser_discovery: bool,
 }
 
 pub(super) fn workflow_computer_use_runtime_thread_events(
@@ -31,7 +32,9 @@ pub(super) fn workflow_computer_use_runtime_thread_events(
     let Some(binding) = workflow_computer_use_binding(workflow) else {
         return Vec::new();
     };
-    if binding.lane == "native_browser" {
+    if binding.browser_discovery {
+        workflow_browser_discovery_runtime_thread_events(&binding, run_id, thread_id, state)
+    } else if binding.lane == "native_browser" {
         workflow_native_browser_runtime_thread_events(&binding, run_id, thread_id, state)
     } else {
         workflow_unavailable_computer_use_runtime_thread_events(&binding, run_id, thread_id, state)
@@ -48,7 +51,16 @@ fn workflow_computer_use_binding(workflow: &WorkflowProject) -> Option<WorkflowC
             continue;
         };
         let arguments = binding.arguments.clone().unwrap_or_else(|| json!({}));
-        if workflow_value_bool_any(&arguments, &["computerUse", "computer_use"]) != Some(true) {
+        let browser_discovery = workflow_value_bool_any(
+            &arguments,
+            &[
+                "computerUseBrowserDiscovery",
+                "computer_use_browser_discovery",
+            ],
+        ) == Some(true);
+        if !browser_discovery
+            && workflow_value_bool_any(&arguments, &["computerUse", "computer_use"]) != Some(true)
+        {
             continue;
         }
         let Some(node_id) = workflow_node_id(node) else {
@@ -57,13 +69,27 @@ fn workflow_computer_use_binding(workflow: &WorkflowProject) -> Option<WorkflowC
         matches.push((node_id, binding, arguments));
     }
     let (workflow_node_id, binding, arguments) = matches.first()?.clone();
+    let browser_discovery = workflow_value_bool_any(
+        &arguments,
+        &[
+            "computerUseBrowserDiscovery",
+            "computer_use_browser_discovery",
+        ],
+    )
+    .unwrap_or(false);
     let lane = workflow_value_string_any(&arguments, &["computerUseLane", "computer_use_lane"])
         .unwrap_or_else(|| "native_browser".to_string());
     let session_mode = workflow_value_string_any(
         &arguments,
         &["computerUseSessionMode", "computer_use_session_mode"],
     )
-    .unwrap_or_else(|| default_session_mode_for_computer_use_lane(&lane).to_string());
+    .unwrap_or_else(|| {
+        if browser_discovery {
+            "discovery_only".to_string()
+        } else {
+            default_session_mode_for_computer_use_lane(&lane).to_string()
+        }
+    });
     let observation_retention_mode = workflow_value_string_any(
         &arguments,
         &[
@@ -73,7 +99,13 @@ fn workflow_computer_use_binding(workflow: &WorkflowProject) -> Option<WorkflowC
             "retention_mode",
         ],
     )
-    .unwrap_or_else(|| default_retention_mode_for_computer_use_lane(&lane).to_string());
+    .unwrap_or_else(|| {
+        if browser_discovery {
+            "prompt_visible_summary_only".to_string()
+        } else {
+            default_retention_mode_for_computer_use_lane(&lane).to_string()
+        }
+    });
     Some(WorkflowComputerUseBinding {
         workflow_graph_id: workflow.metadata.id.clone(),
         workflow_node_id,
@@ -91,7 +123,201 @@ fn workflow_computer_use_binding(workflow: &WorkflowProject) -> Option<WorkflowC
             &["failClosedWhenUnavailable", "fail_closed_when_unavailable"],
         )
         .unwrap_or(true),
+        browser_discovery,
     })
+}
+
+fn workflow_browser_discovery_runtime_thread_events(
+    binding: &WorkflowComputerUseBinding,
+    run_id: &str,
+    thread_id: &str,
+    state: &WorkflowStateSnapshot,
+) -> Vec<Value> {
+    let user_goal = workflow_computer_use_user_goal(state);
+    let discovery_ref = format!("browser_discovery_{}", run_id);
+    let discovery_receipt_ref = format!("receipt_{}_browser_discovery", run_id);
+    let lease_id = format!("lease_{}_browser_discovery_read_only", run_id);
+    let trace_receipt_id = format!("receipt_{}_computer_use_trace", run_id);
+    let verification_ref = format!("verification_{}_browser_discovery", run_id);
+    let cleanup_ref = format!("cleanup_{}_browser_discovery", run_id);
+    let environment_selection = json!({
+        "receipt_ref": format!("receipt_{}_computer_use_environment", run_id),
+        "run_id": run_id,
+        "selected_lane": "native_browser",
+        "selected_session_mode": binding.session_mode,
+        "rejected_options": [
+            {
+                "lane": "visual_gui",
+                "session_mode": "visual_fallback",
+                "reason": "Browser process and CDP endpoint discovery is a browser-lane read-only preparation step."
+            },
+            {
+                "lane": "sandboxed_hosted",
+                "session_mode": "hosted_sandbox",
+                "reason": "Discovery inspects the local host browser inventory before any hosted environment is provisioned."
+            }
+        ],
+        "reasons": [
+            "Workflow manifest contains a Browser Discovery primitive.",
+            "Discovery is read-only and runs before attach or controlled relaunch authority.",
+            "The workflow executor compiled the saved manifest, not React Flow local state."
+        ],
+        "risk_posture": "read_only_discovery",
+        "authority_required": "computer_use.browser_discovery.read",
+        "privacy_impact": binding.observation_retention_mode,
+        "expected_cleanup": "no browser state mutated; retain redacted discovery receipt"
+    });
+    let lease = json!({
+        "schema_version": COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+        "lease_id": lease_id,
+        "lane": "native_browser",
+        "session_mode": binding.session_mode,
+        "status": "not_acquired",
+        "authority_scope": "computer_use.browser_discovery.read",
+        "consent_scope": "operator_prompt",
+        "target_hint": computer_use_target_hint(&user_goal),
+        "environment_ref": "browser_discovery:local_host",
+        "profile_provenance": "none",
+        "retention_mode": binding.observation_retention_mode,
+        "cleanup_required": false,
+        "evidence_refs": [environment_selection["receipt_ref"].clone(), discovery_receipt_ref.clone()]
+    });
+    let discovery_report = json!({
+        "schema_version": "ioi.computer-use.browser-discovery.v1",
+        "object": "ioi.computer_use.browser_discovery_report",
+        "receipt_ref": discovery_receipt_ref,
+        "discovery_ref": discovery_ref,
+        "run_id": run_id,
+        "source": "workflow_manifest_projection",
+        "discovered_at": unix_ms_to_iso(now_ms()),
+        "platform": std::env::consts::OS,
+        "process_count": 0,
+        "browser_process_count": 0,
+        "cdp_endpoint_count": 0,
+        "browser_processes": [],
+        "cdp_endpoints": [],
+        "default_profile_remote_debugging_blockers": [],
+        "safety": {
+            "read_only": true,
+            "attached": false,
+            "launched": false,
+            "profile_copied": false,
+            "raw_command_lines_redacted": true,
+            "profile_paths_hashed": true,
+            "tab_titles_redacted": true
+        },
+        "recommended_next_steps": [
+            "Use daemon /v1/computer-use/browser-discovery for live host inventory when available.",
+            "Request explicit attach or controlled-relaunch authority before controlling a browser.",
+            "Keep prompt-visible summaries redacted unless policy allows local raw artifacts."
+        ]
+    });
+    let verification = json!({
+        "verification_ref": verification_ref,
+        "action_ref": Value::Null,
+        "status": "passed",
+        "expected_postcondition": "A redacted Browser Discovery receipt exists before any attach, relaunch, profile copy, or browser control action.",
+        "observed_postcondition": "Workflow manifest produced a read-only discovery receipt and no browser state was mutated.",
+        "verifier": "workflow_browser_discovery_manifest_harness",
+        "evidence_refs": [environment_selection["receipt_ref"].clone(), discovery_report["receipt_ref"].clone()]
+    });
+    let cleanup = json!({
+        "cleanup_ref": cleanup_ref,
+        "lease_id": lease_id,
+        "status": "not_required",
+        "closed_process_refs": [],
+        "deleted_profile_refs": [],
+        "retained_artifact_refs": ["computer-use-browser-discovery.json"],
+        "warnings": []
+    });
+    let base_payload = workflow_computer_use_base_payload(binding, &lease_id);
+
+    vec![
+        workflow_computer_use_event(
+            1,
+            run_id,
+            thread_id,
+            binding,
+            "computer_use_environment_selected",
+            "computer_use.environment_selected",
+            "ComputerUse.EnvironmentSelected",
+            "completed",
+            &trace_receipt_id,
+            json!({
+                "summary": "Computer-use browser discovery environment selected",
+                "computer_use_step": "select_environment",
+                "environment_selection_receipt": environment_selection,
+                "lease": lease
+            }),
+            vec![trace_receipt_id.clone()],
+            Vec::new(),
+            Vec::new(),
+            &base_payload,
+        ),
+        workflow_computer_use_event(
+            2,
+            run_id,
+            thread_id,
+            binding,
+            "computer_use_browser_discovery",
+            "computer_use.browser_discovery",
+            "ComputerUse.BrowserDiscovery",
+            "completed",
+            &trace_receipt_id,
+            json!({
+                "summary": "Browser discovery receipt emitted",
+                "computer_use_step": "discover_browser",
+                "computer_use_browser_discovery_ref": discovery_ref,
+                "browser_discovery_report": discovery_report
+            }),
+            vec![trace_receipt_id.clone(), discovery_receipt_ref],
+            Vec::new(),
+            vec!["computer-use-browser-discovery.json".to_string()],
+            &base_payload,
+        ),
+        workflow_computer_use_event(
+            3,
+            run_id,
+            thread_id,
+            binding,
+            "computer_use_verification",
+            "computer_use.verification",
+            "ComputerUse.Verification",
+            "completed",
+            &trace_receipt_id,
+            json!({
+                "summary": "Browser discovery read-only posture verified",
+                "computer_use_step": "verify_postcondition",
+                "computer_use_verification_ref": verification_ref,
+                "verification_receipt": verification
+            }),
+            vec![trace_receipt_id.clone()],
+            Vec::new(),
+            vec!["computer-use-browser-discovery.json".to_string()],
+            &base_payload,
+        ),
+        workflow_computer_use_event(
+            4,
+            run_id,
+            thread_id,
+            binding,
+            "computer_use_cleanup",
+            "computer_use.cleanup",
+            "ComputerUse.Cleanup",
+            "completed",
+            &trace_receipt_id,
+            json!({
+                "summary": "Browser discovery cleanup completed",
+                "computer_use_step": "cleanup",
+                "computer_use_cleanup_ref": cleanup_ref,
+                "cleanup_receipt": cleanup
+            }),
+            vec![trace_receipt_id.clone()],
+            Vec::new(),
+            vec!["computer-use-browser-discovery.json".to_string()],
+            &base_payload,
+        ),
+    ]
 }
 
 fn workflow_native_browser_runtime_thread_events(

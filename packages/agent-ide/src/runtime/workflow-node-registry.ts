@@ -5091,9 +5091,12 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
         requiresApproval: false,
         arguments: {
           computerUseBrowserDiscovery: true,
+          computerUseLane: "native_browser",
+          computerUseSessionMode: "discovery_only",
           probe: false,
           includeTabs: false,
           revealTabTitles: false,
+          observationRetentionMode: "prompt_visible_summary_only",
           retentionMode: "prompt_visible_summary_only",
         },
       },

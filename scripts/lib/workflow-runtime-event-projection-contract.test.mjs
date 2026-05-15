@@ -251,6 +251,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
     "computer_use_observation_ref",
     "computer_use_target_index_ref",
     "computer_use_affordance_graph_ref",
+    "computer_use_browser_discovery_ref",
     "computer_use_proposal_ref",
     "computer_use_action_ref",
     "computer_use_verification_ref",
@@ -355,6 +356,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(runsPanel, /onMaterializeRuntimeTelemetryBudgetChain/);
   assert.match(runsPanel, /workflow-run-computer-use-trace/);
   assert.match(runsPanel, /data-computer-use-lane/);
+  assert.match(runsPanel, /data-computer-use-browser-discovery-ref/);
   assert.match(runsPanel, /data-computer-use-proposal-ref/);
   assert.match(runsPanel, /data-computer-use-verification-ref/);
   assert.match(runsPanel, /data-workflow-node-id/);

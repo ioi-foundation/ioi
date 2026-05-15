@@ -465,7 +465,9 @@ CDP endpoints, default-profile remote-debugging blockers, and redaction/safety
 posture before any attach or relaunch authority is requested. Workflow authors
 can add the same capability through an advanced Browser Discovery primitive
 that compiles to the runtime tool contract and deterministic discovery
-arguments instead of a React Flow-owned browser state.
+arguments instead of a React Flow-owned browser state. Saved workflow runs now
+emit a dedicated `computer_use.browser_discovery` event with browser/CDP/blocker
+counts in the same glass-box run-history projection.
 Future daemon, workflow, and Autopilot policy executors should consume these
 helpers rather than defining local policy shapes.
 

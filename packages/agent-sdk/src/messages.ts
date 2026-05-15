@@ -11,6 +11,7 @@ export type IOISDKMessageType =
   | "computer_use_run_state"
   | "computer_use_observation"
   | "computer_use_affordance_graph"
+  | "computer_use_browser_discovery"
   | "computer_use_action_proposed"
   | "computer_use_action_executed"
   | "computer_use_verification"
@@ -195,6 +196,7 @@ export const RUNTIME_THREAD_EVENT_TYPES = [
   "computer_use_run_state",
   "computer_use_observation",
   "computer_use_affordance_graph",
+  "computer_use_browser_discovery",
   "computer_use_action_proposed",
   "computer_use_action_executed",
   "computer_use_verification",

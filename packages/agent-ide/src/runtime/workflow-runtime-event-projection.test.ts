@@ -296,6 +296,72 @@ test("projects computer-use lifecycle events as glass-box harness rows", () => {
   assert.equal(projection.nodes[4]?.computerUse?.outcomeRef, "outcome-inspect");
 });
 
+test("projects browser discovery receipts as glass-box computer-use rows", () => {
+  const projection = projectRuntimeThreadEventsToWorkflowProjection([
+    event("computer-use-browser-discovery", 1, {
+      type: "computer_use_browser_discovery",
+      eventKind: "computer_use.browser_discovery",
+      sourceEventKind: "ComputerUse.BrowserDiscovery",
+      status: "completed",
+      componentKind: "computer_use_harness",
+      workflowNodeId: "browser-discovery-node",
+      workflowGraphId: "workflow.browser-discovery",
+      payloadSchemaVersion: "ioi.computer-use.harness.v1",
+      receiptRefs: [
+        "receipt-computer-use-trace",
+        "receipt-browser-discovery",
+      ],
+      artifactRefs: ["computer-use-browser-discovery.json"],
+      payload: {
+        summary: "Browser discovery receipt emitted",
+        computer_use_step: "discover_browser",
+        computer_use_lane: "native_browser",
+        computer_use_session_mode: "discovery_only",
+        computer_use_lease_id: "lease-browser-discovery",
+        computer_use_browser_discovery_ref: "browser-discovery-1",
+        workflowGraphId: "workflow.browser-discovery",
+        workflowNodeId: "browser-discovery-node",
+        workflowNodeIds: ["browser-discovery-node"],
+        toolRef: "ioi.computer_use.browser_discovery",
+        authorityScopes: ["computer_use.browser_discovery.read"],
+        failClosedWhenUnavailable: true,
+        browser_discovery_report: {
+          receipt_ref: "receipt-browser-discovery",
+          discovery_ref: "browser-discovery-1",
+          browser_process_count: 2,
+          cdp_endpoint_count: 1,
+          default_profile_remote_debugging_blockers: [
+            { browser_family: "chrome" },
+          ],
+          safety: {
+            read_only: true,
+            attached: false,
+            launched: false,
+            raw_command_lines_redacted: true,
+          },
+        },
+        lease: {
+          lease_id: "lease-browser-discovery",
+          lane: "native_browser",
+          session_mode: "discovery_only",
+          retention_mode: "prompt_visible_summary_only",
+        },
+      },
+    }),
+  ]);
+
+  assert.equal(projection.nodes.length, 1);
+  assert.equal(projection.nodes[0]?.label, "Computer use: browser discovery");
+  assert.equal(projection.nodes[0]?.computerUse?.browserDiscoveryRef, "browser-discovery-1");
+  assert.equal(projection.nodes[0]?.computerUse?.browserProcessCount, 2);
+  assert.equal(projection.nodes[0]?.computerUse?.cdpEndpointCount, 1);
+  assert.equal(projection.nodes[0]?.computerUse?.defaultProfileBlockerCount, 1);
+  assert.equal(
+    projection.nodes[0]?.summary,
+    "Browser discovery receipt emitted",
+  );
+});
+
 test("projects bridge-derived proposal-only computer-use gates without executed actions", () => {
   const projection = projectRuntimeThreadEventsToWorkflowProjection([
     event("bridge-observation", 1, {
