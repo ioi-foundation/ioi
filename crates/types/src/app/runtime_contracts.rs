@@ -18,6 +18,7 @@ pub use super::runtime::thread_turn_item::{
 
 pub const RUNTIME_CONTRACT_SCHEMA_VERSION_V1: &str = "ioi.agent-runtime.substrate.v1";
 pub const AUTOPILOT_GUI_HARNESS_SCHEMA_VERSION_V1: &str = "ioi.autopilot.gui-harness-validation.v1";
+pub const COMPUTER_USE_CONTRACT_SCHEMA_VERSION_V1: &str = "ioi.computer-use.harness.v1";
 pub const AUTOPILOT_GUI_HARNESS_LAUNCH_COMMAND: &str =
     "AUTOPILOT_LOCAL_GPU_DEV=1 npm run dev:desktop";
 
@@ -917,6 +918,656 @@ impl ErrorRecoveryContract {
                 ..Self::default()
             },
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ComputerUseLane {
+    #[default]
+    NativeBrowser,
+    VisualGui,
+    SandboxedHosted,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ComputerUseSessionMode {
+    #[default]
+    OwnedHermeticBrowser,
+    AttachedBrowser,
+    ControlledRelaunch,
+    VisualFallback,
+    ForegroundDesktop,
+    BackgroundDesktop,
+    AppScopedDesktop,
+    LocalSandbox,
+    HostedSandbox,
+    MobileDevice,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ComputerUseLeaseStatus {
+    Requested,
+    #[default]
+    Active,
+    PausedForHuman,
+    Blocked,
+    Completed,
+    CleaningUp,
+    CleanedUp,
+    FailedClosed,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ObservationRetentionMode {
+    #[default]
+    PromptVisibleSummaryOnly,
+    LocalRedactedArtifacts,
+    LocalRawArtifacts,
+    EncryptedLocalRawArtifacts,
+    ShareableEvalArtifacts,
+    NoPersistence,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ComputerUseFailureClass {
+    Perception,
+    Grounding,
+    Planning,
+    Policy,
+    Execution,
+    Verification,
+    Environment,
+    #[default]
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ComputerUseRecoveryAction {
+    Reobserve,
+    RebuildTargetIndex,
+    RebuildAffordanceGraph,
+    SwitchToVisualLane,
+    SwitchToBrowserLane,
+    AskUser,
+    PauseForAuth,
+    RollbackOrRestore,
+    EscalateToSandbox,
+    MarkBlocked,
+    #[default]
+    TerminateSafely,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ComputerActionKind {
+    Click,
+    TypeText,
+    KeyPress,
+    Scroll,
+    Drag,
+    Hover,
+    Select,
+    Upload,
+    Clipboard,
+    Wait,
+    Shell,
+    MobileGesture,
+    Navigate,
+    #[default]
+    Inspect,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ComputerUseVerificationStatus {
+    Passed,
+    Failed,
+    RequiresHuman,
+    Blocked,
+    #[default]
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum CommitGateStatus {
+    #[default]
+    NotRequired,
+    Pending,
+    Approved,
+    Denied,
+    Completed,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum InterfacePatternKind {
+    Form,
+    Table,
+    Modal,
+    Canvas,
+    Graph,
+    Editor,
+    Terminal,
+    FilePicker,
+    Sidebar,
+    Toolbar,
+    Tabset,
+    WarningOrToast,
+    AuthWall,
+    Iframe,
+    ShadowDom,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct ComputerUseBounds {
+    pub x: i64,
+    pub y: i64,
+    pub width: i64,
+    pub height: i64,
+    pub coordinate_space_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+#[serde(default)]
+pub struct ComputerUseLease {
+    pub schema_version: String,
+    pub lease_id: String,
+    pub lane: ComputerUseLane,
+    pub session_mode: ComputerUseSessionMode,
+    pub status: ComputerUseLeaseStatus,
+    pub authority_scope: String,
+    pub consent_scope: String,
+    pub target_hint: String,
+    pub environment_ref: String,
+    pub profile_provenance: String,
+    pub retention_mode: ObservationRetentionMode,
+    pub cleanup_required: bool,
+    pub evidence_refs: Vec<EvidenceRef>,
+}
+
+impl Default for ComputerUseLease {
+    fn default() -> Self {
+        Self {
+            schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION_V1.to_string(),
+            lease_id: String::new(),
+            lane: ComputerUseLane::NativeBrowser,
+            session_mode: ComputerUseSessionMode::OwnedHermeticBrowser,
+            status: ComputerUseLeaseStatus::Active,
+            authority_scope: "read_only_inspection".to_string(),
+            consent_scope: "owned_hermetic_browser".to_string(),
+            target_hint: String::new(),
+            environment_ref: String::new(),
+            profile_provenance: "temporary_ioi_profile".to_string(),
+            retention_mode: ObservationRetentionMode::PromptVisibleSummaryOnly,
+            cleanup_required: true,
+            evidence_refs: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+#[serde(default)]
+pub struct ComputerControlAdapterContract {
+    pub schema_version: String,
+    pub adapter_id: String,
+    pub lane: ComputerUseLane,
+    pub supported_session_modes: Vec<ComputerUseSessionMode>,
+    pub capabilities: Vec<String>,
+    pub emits_observation_bundle: bool,
+    pub emits_action_receipts: bool,
+    pub fail_closed_when_unavailable: bool,
+}
+
+impl Default for ComputerControlAdapterContract {
+    fn default() -> Self {
+        Self {
+            schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION_V1.to_string(),
+            adapter_id: "ioi.native_browser.chromiumoxide".to_string(),
+            lane: ComputerUseLane::NativeBrowser,
+            supported_session_modes: vec![ComputerUseSessionMode::OwnedHermeticBrowser],
+            capabilities: vec![
+                "observe.dom".to_string(),
+                "observe.ax".to_string(),
+                "observe.screenshot".to_string(),
+                "act.browser".to_string(),
+                "verify.postcondition".to_string(),
+            ],
+            emits_observation_bundle: true,
+            emits_action_receipts: true,
+            fail_closed_when_unavailable: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct ComputerUseObservationBundle {
+    pub observation_ref: String,
+    pub lease_id: String,
+    pub lane: ComputerUseLane,
+    pub session_mode: ComputerUseSessionMode,
+    pub url: Option<String>,
+    pub title: Option<String>,
+    pub app_name: Option<String>,
+    pub window_title: Option<String>,
+    pub screenshot_ref: Option<String>,
+    pub som_ref: Option<String>,
+    pub dom_ref: Option<String>,
+    pub ax_ref: Option<String>,
+    pub selector_map_ref: Option<String>,
+    pub target_index_ref: Option<String>,
+    pub redaction_report_ref: Option<String>,
+    pub freshness_ms: Option<u64>,
+    pub retention_mode: ObservationRetentionMode,
+    pub detected_patterns: Vec<InterfacePatternKind>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct ComputerUseTargetEntry {
+    pub target_ref: String,
+    pub label: String,
+    pub role: String,
+    pub semantic_ids: Vec<String>,
+    pub selectors: Vec<String>,
+    pub som_id: Option<u32>,
+    pub ax_ref: Option<String>,
+    pub bounds: Option<ComputerUseBounds>,
+    pub confidence: u8,
+    pub available_actions: Vec<ComputerActionKind>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct TargetIndex {
+    pub target_index_ref: String,
+    pub observation_ref: String,
+    pub coordinate_space_id: String,
+    pub drift_state: String,
+    pub targets: Vec<ComputerUseTargetEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct AffordanceRecord {
+    pub target_ref: String,
+    pub possible_action: ComputerActionKind,
+    pub action_preconditions: Vec<String>,
+    pub confidence: u8,
+    pub expected_state_transition: String,
+    pub risk_class: String,
+    pub required_authority: String,
+    pub confirmation_required: bool,
+    pub fallback_action_paths: Vec<String>,
+    pub invalidation_conditions: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct AffordanceGraph {
+    pub graph_ref: String,
+    pub target_index_ref: String,
+    pub observation_ref: String,
+    pub affordances: Vec<AffordanceRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct ActionProposal {
+    pub proposal_ref: String,
+    pub proposed_by: String,
+    pub model_role: String,
+    pub raw_model_output_ref: Option<String>,
+    pub normalized_action_candidate: String,
+    pub target_ref: Option<String>,
+    pub confidence: u8,
+    pub rationale_summary: String,
+    pub predicted_postcondition: String,
+    pub risk_assessment: String,
+    pub policy_decision_ref: Option<String>,
+}
+
+impl ActionProposal {
+    pub fn is_ready_for_execution(&self) -> bool {
+        self.target_ref
+            .as_deref()
+            .map(|target| !target.trim().is_empty())
+            .unwrap_or(false)
+            && self.policy_decision_ref.is_some()
+            && !self.predicted_postcondition.trim().is_empty()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct ComputerAction {
+    pub action_ref: String,
+    pub proposal_ref: Option<String>,
+    pub action_kind: ComputerActionKind,
+    pub target_ref: Option<String>,
+    pub observation_ref: String,
+    pub coordinate_space_id: Option<String>,
+    pub payload_summary: String,
+    pub expected_postcondition: String,
+    pub approval_ref: Option<String>,
+}
+
+impl ComputerAction {
+    pub fn has_grounding(&self) -> bool {
+        !self.observation_ref.trim().is_empty()
+            && self
+                .target_ref
+                .as_deref()
+                .map(|target| !target.trim().is_empty())
+                .unwrap_or_else(|| self.coordinate_space_id.is_some())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct ActionReceipt {
+    pub receipt_ref: String,
+    pub action_ref: String,
+    pub adapter_id: String,
+    pub status: String,
+    pub grounding_ref: String,
+    pub postcondition_summary: String,
+    pub verification_ref: Option<String>,
+    pub evidence_refs: Vec<EvidenceRef>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct ComputerUseVerificationReceipt {
+    pub verification_ref: String,
+    pub action_ref: Option<String>,
+    pub status: ComputerUseVerificationStatus,
+    pub expected_postcondition: String,
+    pub observed_postcondition: String,
+    pub verifier: String,
+    pub evidence_refs: Vec<EvidenceRef>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct ComputerUseTrajectoryEntry {
+    pub sequence: u64,
+    pub event_kind: String,
+    pub observation_ref: Option<String>,
+    pub proposal_ref: Option<String>,
+    pub action_ref: Option<String>,
+    pub receipt_ref: Option<String>,
+    pub verification_ref: Option<String>,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+#[serde(default)]
+pub struct ComputerUseTrajectoryBundle {
+    pub schema_version: String,
+    pub trajectory_ref: String,
+    pub run_id: String,
+    pub lease_id: String,
+    pub entries: Vec<ComputerUseTrajectoryEntry>,
+    pub retention_mode: ObservationRetentionMode,
+}
+
+impl Default for ComputerUseTrajectoryBundle {
+    fn default() -> Self {
+        Self {
+            schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION_V1.to_string(),
+            trajectory_ref: String::new(),
+            run_id: String::new(),
+            lease_id: String::new(),
+            entries: Vec::new(),
+            retention_mode: ObservationRetentionMode::PromptVisibleSummaryOnly,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct CleanupReceipt {
+    pub cleanup_ref: String,
+    pub lease_id: String,
+    pub status: String,
+    pub closed_process_refs: Vec<String>,
+    pub deleted_profile_refs: Vec<String>,
+    pub retained_artifact_refs: Vec<String>,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct ComputerUseRunState {
+    pub run_id: String,
+    pub lease_id: String,
+    pub user_goal: String,
+    pub current_subgoal: String,
+    pub plan_graph_ref: Option<String>,
+    pub current_observation_ref: Option<String>,
+    pub current_target_index_ref: Option<String>,
+    pub active_hypotheses: Vec<String>,
+    pub expected_postcondition: String,
+    pub last_action_ref: Option<String>,
+    pub verification_status: ComputerUseVerificationStatus,
+    pub blocker_state: Option<String>,
+    pub retry_budget: u32,
+    pub risk_posture: String,
+    pub user_handoff_ref: Option<String>,
+    pub cleanup_state: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct EnvironmentOptionRejection {
+    pub lane: ComputerUseLane,
+    pub session_mode: ComputerUseSessionMode,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+#[serde(default)]
+pub struct EnvironmentSelectionReceipt {
+    pub receipt_ref: String,
+    pub run_id: String,
+    pub selected_lane: ComputerUseLane,
+    pub selected_session_mode: ComputerUseSessionMode,
+    pub rejected_options: Vec<EnvironmentOptionRejection>,
+    pub reasons: Vec<String>,
+    pub risk_posture: String,
+    pub authority_required: String,
+    pub privacy_impact: String,
+    pub expected_cleanup: String,
+}
+
+impl Default for EnvironmentSelectionReceipt {
+    fn default() -> Self {
+        Self {
+            receipt_ref: String::new(),
+            run_id: String::new(),
+            selected_lane: ComputerUseLane::NativeBrowser,
+            selected_session_mode: ComputerUseSessionMode::OwnedHermeticBrowser,
+            rejected_options: Vec::new(),
+            reasons: vec!["owned browser is deterministic and lowest ambiguity".to_string()],
+            risk_posture: "low".to_string(),
+            authority_required: "read_only_or_explicit_user_approval".to_string(),
+            privacy_impact: "temporary_ioi_profile".to_string(),
+            expected_cleanup: "delete_temporary_profile_and_scratch_artifacts".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+#[serde(default)]
+pub struct RecoveryPolicy {
+    pub policy_id: String,
+    pub failure_class: ComputerUseFailureClass,
+    pub allowed_actions: Vec<ComputerUseRecoveryAction>,
+    pub max_attempts: u32,
+    pub lane_switch_allowed: bool,
+    pub requires_human_visible_reason: bool,
+}
+
+impl Default for RecoveryPolicy {
+    fn default() -> Self {
+        Self {
+            policy_id: "computer-use-recovery:default".to_string(),
+            failure_class: ComputerUseFailureClass::Unknown,
+            allowed_actions: vec![ComputerUseRecoveryAction::TerminateSafely],
+            max_attempts: 0,
+            lane_switch_allowed: false,
+            requires_human_visible_reason: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct HumanHandoffState {
+    pub handoff_ref: String,
+    pub reason: String,
+    pub requested_user_action: String,
+    pub forbidden_agent_actions: Vec<String>,
+    pub resume_condition: String,
+    pub observation_after_resume: Option<String>,
+    pub timeout_policy: String,
+    pub evidence_retention: ObservationRetentionMode,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct InterfacePatternIndex {
+    pub index_ref: String,
+    pub observation_ref: String,
+    pub patterns: Vec<InterfacePatternKind>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct OutcomeContract {
+    pub outcome_ref: String,
+    pub requested_outcome: String,
+    pub success_criteria: Vec<String>,
+    pub acceptable_side_effects: Vec<String>,
+    pub prohibited_side_effects: Vec<String>,
+    pub evidence_required: Vec<String>,
+    pub rollback_or_cleanup_required: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct CommitGate {
+    pub gate_ref: String,
+    pub status: CommitGateStatus,
+    pub final_action_ref: Option<String>,
+    pub external_effect: String,
+    pub user_confirmation_required: bool,
+    pub pre_commit_summary: String,
+    pub post_commit_verification_ref: Option<String>,
+}
+
+impl CommitGate {
+    pub fn blocks_without_confirmation(&self) -> bool {
+        self.user_confirmation_required && self.status != CommitGateStatus::Approved
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+#[serde(default)]
+pub struct ComputerUseHarnessContract {
+    pub schema_version: String,
+    pub required_lanes: Vec<ComputerUseLane>,
+    pub required_loop_steps: Vec<String>,
+    pub required_contracts: Vec<String>,
+    pub requires_action_proposal_before_execution: bool,
+    pub requires_observation_grounding_for_coordinates: bool,
+    pub requires_commit_gate_for_external_effects: bool,
+    pub requires_trajectory_bundle: bool,
+    pub forbids_shadow_runtime_truth: bool,
+}
+
+impl Default for ComputerUseHarnessContract {
+    fn default() -> Self {
+        Self {
+            schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION_V1.to_string(),
+            required_lanes: vec![
+                ComputerUseLane::NativeBrowser,
+                ComputerUseLane::VisualGui,
+                ComputerUseLane::SandboxedHosted,
+            ],
+            required_loop_steps: vec![
+                "classify_intent",
+                "select_environment",
+                "acquire_lease",
+                "observe",
+                "build_target_index",
+                "build_affordance_graph",
+                "plan_next_step",
+                "propose_action",
+                "policy_risk_gate",
+                "execute_action",
+                "verify_postcondition",
+                "repair_or_continue",
+                "commit_or_handoff",
+                "write_trajectory",
+                "cleanup",
+            ]
+            .into_iter()
+            .map(str::to_string)
+            .collect(),
+            required_contracts: vec![
+                "ComputerUseLease",
+                "ComputerControlAdapterContract",
+                "ComputerUseObservationBundle",
+                "TargetIndex",
+                "AffordanceGraph",
+                "ActionProposal",
+                "ComputerAction",
+                "ActionReceipt",
+                "ComputerUseVerificationReceipt",
+                "ComputerUseTrajectoryBundle",
+                "CleanupReceipt",
+                "ComputerUseRunState",
+                "EnvironmentSelectionReceipt",
+                "RecoveryPolicy",
+                "HumanHandoffState",
+                "InterfacePatternIndex",
+                "OutcomeContract",
+                "CommitGate",
+                "ObservationRetentionMode",
+            ]
+            .into_iter()
+            .map(str::to_string)
+            .collect(),
+            requires_action_proposal_before_execution: true,
+            requires_observation_grounding_for_coordinates: true,
+            requires_commit_gate_for_external_effects: true,
+            requires_trajectory_bundle: true,
+            forbids_shadow_runtime_truth: true,
+        }
+    }
+}
+
+impl ComputerUseHarnessContract {
+    pub fn includes_lane(&self, lane: ComputerUseLane) -> bool {
+        self.required_lanes
+            .iter()
+            .any(|candidate| *candidate == lane)
+    }
+
+    pub fn includes_contract(&self, contract: &str) -> bool {
+        self.required_contracts
+            .iter()
+            .any(|candidate| candidate == contract)
     }
 }
 
@@ -1880,6 +2531,26 @@ pub fn master_guide_required_evidence_classes() -> Vec<String> {
         "CognitiveBudget",
         "DriftSignal",
         "StopConditionRecord",
+        "ComputerUseHarnessContract",
+        "ComputerUseLease",
+        "ComputerControlAdapterContract",
+        "ComputerUseObservationBundle",
+        "TargetIndex",
+        "AffordanceGraph",
+        "ActionProposal",
+        "ComputerAction",
+        "ActionReceipt",
+        "ComputerUseVerificationReceipt",
+        "ComputerUseTrajectoryBundle",
+        "CleanupReceipt",
+        "ComputerUseRunState",
+        "EnvironmentSelectionReceipt",
+        "RecoveryPolicy",
+        "HumanHandoffState",
+        "InterfacePatternIndex",
+        "OutcomeContract",
+        "CommitGate",
+        "ObservationRetentionMode",
         "HandoffQuality",
         "DryRunCapability",
         "BoundedSelfImprovementGate",
@@ -2080,6 +2751,26 @@ mod tests {
             "CognitiveBudget",
             "DriftSignal",
             "StopConditionRecord",
+            "ComputerUseHarnessContract",
+            "ComputerUseLease",
+            "ComputerControlAdapterContract",
+            "ComputerUseObservationBundle",
+            "TargetIndex",
+            "AffordanceGraph",
+            "ActionProposal",
+            "ComputerAction",
+            "ActionReceipt",
+            "ComputerUseVerificationReceipt",
+            "ComputerUseTrajectoryBundle",
+            "CleanupReceipt",
+            "ComputerUseRunState",
+            "EnvironmentSelectionReceipt",
+            "RecoveryPolicy",
+            "HumanHandoffState",
+            "InterfacePatternIndex",
+            "OutcomeContract",
+            "CommitGate",
+            "ObservationRetentionMode",
             "HandoffQuality",
             "DryRunCapability",
             "BoundedSelfImprovementGate",
@@ -2430,6 +3121,109 @@ mod tests {
             ..BoundedSelfImprovementGate::default()
         };
         assert!(complete.can_promote());
+    }
+
+    #[test]
+    fn computer_use_harness_contract_requires_three_lanes_and_behavioral_loop() {
+        let contract = ComputerUseHarnessContract::default();
+        assert!(contract.includes_lane(ComputerUseLane::NativeBrowser));
+        assert!(contract.includes_lane(ComputerUseLane::VisualGui));
+        assert!(contract.includes_lane(ComputerUseLane::SandboxedHosted));
+        assert!(contract.includes_contract("ActionProposal"));
+        assert!(contract.includes_contract("AffordanceGraph"));
+        assert!(contract.includes_contract("EnvironmentSelectionReceipt"));
+        assert!(contract.requires_action_proposal_before_execution);
+        assert!(contract.requires_observation_grounding_for_coordinates);
+        assert!(contract.requires_commit_gate_for_external_effects);
+        assert!(contract.requires_trajectory_bundle);
+        assert!(contract.forbids_shadow_runtime_truth);
+        assert!(contract
+            .required_loop_steps
+            .iter()
+            .any(|step| step == "select_environment"));
+        assert!(contract
+            .required_loop_steps
+            .iter()
+            .any(|step| step == "build_affordance_graph"));
+        assert!(contract
+            .required_loop_steps
+            .iter()
+            .any(|step| step == "commit_or_handoff"));
+    }
+
+    #[test]
+    fn computer_use_proposals_must_be_grounded_and_policy_gated_before_execution() {
+        let incomplete = ActionProposal {
+            target_ref: Some("target:submit".to_string()),
+            predicted_postcondition: "form submitted".to_string(),
+            ..ActionProposal::default()
+        };
+        assert!(!incomplete.is_ready_for_execution());
+
+        let ready = ActionProposal {
+            target_ref: Some("target:submit".to_string()),
+            predicted_postcondition: "form submitted".to_string(),
+            policy_decision_ref: Some("policy:approved".to_string()),
+            ..ActionProposal::default()
+        };
+        assert!(ready.is_ready_for_execution());
+
+        let ungrounded_action = ComputerAction {
+            observation_ref: "obs:1".to_string(),
+            action_kind: ComputerActionKind::Click,
+            ..ComputerAction::default()
+        };
+        assert!(!ungrounded_action.has_grounding());
+
+        let grounded_action = ComputerAction {
+            observation_ref: "obs:1".to_string(),
+            target_ref: Some("target:submit".to_string()),
+            action_kind: ComputerActionKind::Click,
+            ..ComputerAction::default()
+        };
+        assert!(grounded_action.has_grounding());
+    }
+
+    #[test]
+    fn computer_use_defaults_are_fail_closed_and_privacy_preserving() {
+        let lease = ComputerUseLease::default();
+        assert_eq!(lease.lane, ComputerUseLane::NativeBrowser);
+        assert_eq!(
+            lease.session_mode,
+            ComputerUseSessionMode::OwnedHermeticBrowser
+        );
+        assert_eq!(
+            lease.retention_mode,
+            ObservationRetentionMode::PromptVisibleSummaryOnly
+        );
+        assert!(lease.cleanup_required);
+
+        let adapter = ComputerControlAdapterContract::default();
+        assert!(adapter.emits_observation_bundle);
+        assert!(adapter.emits_action_receipts);
+        assert!(adapter.fail_closed_when_unavailable);
+
+        let gate = CommitGate {
+            user_confirmation_required: true,
+            status: CommitGateStatus::Pending,
+            ..CommitGate::default()
+        };
+        assert!(gate.blocks_without_confirmation());
+
+        let receipt = EnvironmentSelectionReceipt {
+            rejected_options: vec![EnvironmentOptionRejection {
+                lane: ComputerUseLane::SandboxedHosted,
+                session_mode: ComputerUseSessionMode::HostedSandbox,
+                reason: "hosted sandbox provider unavailable".to_string(),
+            }],
+            ..EnvironmentSelectionReceipt::default()
+        };
+        assert_eq!(receipt.selected_lane, ComputerUseLane::NativeBrowser);
+        assert_eq!(receipt.rejected_options.len(), 1);
+        assert!(receipt
+            .rejected_options
+            .iter()
+            .all(|option| !option.reason.trim().is_empty()));
     }
 
     #[test]
