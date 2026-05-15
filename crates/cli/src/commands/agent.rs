@@ -409,6 +409,9 @@ pub enum ToolCommands {
         /// URL hint for the native-browser observation.
         #[clap(long)]
         url: Option<String>,
+        /// Requested browser action kind. Mutating actions are proposal/commit-gate only until approved.
+        #[clap(long = "action-kind", default_value = "inspect")]
+        action_kind: String,
         /// Observation retention mode.
         #[clap(
             long = "observation-retention-mode",
@@ -1311,6 +1314,7 @@ async fn run_tool_command(
             thread_id,
             prompt,
             url,
+            action_kind,
             observation_retention_mode,
             turn_id,
             workflow_graph_id,
@@ -1323,6 +1327,7 @@ async fn run_tool_command(
                 thread_id,
                 prompt,
                 url,
+                action_kind,
                 observation_retention_mode,
                 turn_id,
                 workflow_graph_id,
@@ -1502,6 +1507,7 @@ async fn invoke_native_browser_tool(
     thread_id: String,
     prompt: Option<String>,
     url: Option<String>,
+    action_kind: String,
     observation_retention_mode: String,
     turn_id: Option<String>,
     workflow_graph_id: Option<String>,
@@ -1528,6 +1534,12 @@ async fn invoke_native_browser_tool(
         input.insert(
             "url".to_string(),
             serde_json::Value::String(url.trim().to_string()),
+        );
+    }
+    if !action_kind.trim().is_empty() {
+        input.insert(
+            "actionKind".to_string(),
+            serde_json::Value::String(action_kind.trim().to_string()),
         );
     }
     input.insert(
@@ -1588,8 +1600,12 @@ async fn invoke_native_browser_tool(
         .pointer("/result/actionReceipt/status")
         .and_then(|value| value.as_str())
         .unwrap_or("unknown");
+    let commit_gate_status = value
+        .pointer("/result/commitGate/status")
+        .and_then(|value| value.as_str())
+        .unwrap_or("unknown");
     println!(
-        "Native browser computer-use: thread={thread_id} status={status} node={workflow_node} events={event_count} action={action_status}"
+        "Native browser computer-use: thread={thread_id} status={status} node={workflow_node} events={event_count} action={action_status} commit_gate={commit_gate_status}"
     );
     Ok(())
 }
@@ -2834,6 +2850,8 @@ mod tests {
             "inspect https://example.com",
             "--url",
             "https://example.com",
+            "--action-kind",
+            "click",
             "--json",
         ])
         .expect("native browser command should parse");
@@ -2842,11 +2860,12 @@ mod tests {
             Some(AgentCommands::Tools {
                 command: Some(ToolCommands::NativeBrowser {
                     thread_id,
+                    action_kind,
                     json: true,
                     ..
                 }),
                 ..
-            }) if thread_id == "thread_runtime_cli"
+            }) if thread_id == "thread_runtime_cli" && action_kind == "click"
         ));
         let coding_tool_run = AgentArgs::try_parse_from([
             "agent",

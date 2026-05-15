@@ -742,6 +742,58 @@ test("runtime daemon invokes native browser loop through thread tool spine", asy
   }
 });
 
+test("runtime daemon gates mutating native browser actions before execution", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-gate-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-gate-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const thread = await agent.thread();
+    const result = await client.invokeThreadTool(thread.id, "ioi.computer_use.native_browser", {
+      source: "react_flow",
+      workflowGraphId: "workflow.native-browser-gated-tool",
+      workflowNodeId: "native-browser-gated-tool",
+      input: {
+        prompt: "Click the submit button at https://example.com.",
+        url: "https://example.com",
+        actionKind: "click",
+        targetRef: "target-submit",
+        observationRetentionMode: "prompt_visible_summary_only",
+      },
+    });
+
+    assert.equal(result.status, "completed");
+    assert.equal(result.result.lease.authority_scope, "computer_use.native_browser.act");
+    assert.equal(result.result.actionProposal.normalized_action_candidate, "click target-submit");
+    assert.equal(result.result.actionProposal.risk_assessment, "possible_external_effect");
+    assert.equal(result.result.action, null);
+    assert.equal(result.result.actionReceipt, null);
+    assert.equal(result.result.verification.status, "requires_human");
+    assert.equal(result.result.commitGate.status, "pending_confirmation");
+    assert.equal(result.result.commitGate.final_action_ref, null);
+    assert.equal(result.event_count, expectedComputerUseEventTypes.length - 1);
+
+    const runtimeEvents = [];
+    for await (const event of thread.events()) {
+      runtimeEvents.push(event);
+    }
+    const computerEvents = runtimeEvents.filter((event) => event.eventKind.startsWith("computer_use."));
+    assert.equal(computerEvents.some((event) => event.type === "computer_use_action_executed"), false);
+    assert.equal(computerEvents.find((event) => event.type === "computer_use_action_proposed").payload.policy_gate.outcome, "requires_confirmation_before_execution");
+    const commitEvent = computerEvents.find((event) => event.type === "computer_use_commit_gate");
+    assert.ok(commitEvent);
+    assert.equal(commitEvent.payload.commit_gate.status, "pending_confirmation");
+    assert.equal(commitEvent.payload.human_handoff_state.reason, "mutating_browser_action_requires_confirmation");
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("runtime daemon preserves workflow-authored computer-use node metadata", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-workflow-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-workflow-state-"));

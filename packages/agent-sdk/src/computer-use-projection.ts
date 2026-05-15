@@ -15,6 +15,7 @@ import {
   type CleanupReceipt,
   type CommitGate,
   type ComputerAction,
+  type ComputerActionKind,
   type ComputerUseLease,
   type ComputerUseObservationBundle,
   type ComputerUseRunState,
@@ -120,11 +121,20 @@ export function mockComputerUseProjectionForRun({
     : browserArtifactContracts
       ? "browser_observation_artifacts"
       : "synthetic_sdk_projection";
-  const proposalRef = `proposal_${runId}_browser_inspect`;
-  const actionRef = `action_${runId}_browser_inspect`;
+  const requestedActionKind = requestedComputerUseActionKind(options.metadata, prompt);
+  const requestedActionIsReadOnly = computerUseActionKindIsReadOnly(requestedActionKind);
+  const requestedActionAuthority = requestedActionIsReadOnly
+    ? "computer_use.native_browser.read"
+    : "computer_use.native_browser.act";
+  const requestedActionRisk = requestedActionIsReadOnly
+    ? "read_only"
+    : "possible_external_effect";
+  const actionPolicySlug = requestedActionIsReadOnly ? "read_only" : "requires_confirmation";
+  const proposalRef = `proposal_${runId}_browser_${requestedActionKind}`;
+  const actionRef = `action_${runId}_browser_${requestedActionKind}`;
   const actionReceiptRef = `receipt_${runId}_computer_use_action`;
-  const policyDecisionRef = `policy_${runId}_computer_use_read_only`;
-  const verificationRef = `verification_${runId}_computer_use_probe`;
+  const policyDecisionRef = `policy_${runId}_computer_use_${actionPolicySlug}`;
+  const verificationRef = `verification_${runId}_computer_use_${requestedActionKind}`;
   const trajectoryRef = `trajectory_${runId}_computer_use`;
   const cleanupRef = `cleanup_${runId}_computer_use`;
   const environmentSelection: EnvironmentSelectionReceipt = {
@@ -141,7 +151,9 @@ export function mockComputerUseProjectionForRun({
       {
         lane: "sandboxed_hosted",
         session_mode: "local_sandbox",
-        reason: "The mock SDK task is local and read-only; hosted isolation is retained for risky or reproducible runs.",
+        reason: requestedActionIsReadOnly
+          ? "The mock SDK task is local and read-only; hosted isolation is retained for risky or reproducible runs."
+          : "The SDK task is only proposing a mutating browser action; hosted isolation remains available before execution authority is granted.",
       },
     ],
     reasons: [
@@ -149,8 +161,12 @@ export function mockComputerUseProjectionForRun({
       "Native browser lane gives the strongest semantic grounding for web tasks.",
       "Visual and sandbox lanes remain explicit fallback options under the same IOI contracts.",
     ],
-    risk_posture: mode === "dry_run" ? "preview_only" : "read_only_probe",
-    authority_required: "computer_use.native_browser.read",
+    risk_posture: mode === "dry_run"
+      ? "preview_only"
+      : requestedActionIsReadOnly
+        ? "read_only_probe"
+        : "commit_confirmation_required",
+    authority_required: requestedActionAuthority,
     privacy_impact: requestedRetentionMode,
     expected_cleanup: "close_owned_browser_context_and_retain_redacted_trace",
   };
@@ -181,10 +197,12 @@ export function mockComputerUseProjectionForRun({
       "Native browser semantics should resolve the task before visual fallback.",
       "No external side effect should occur before a policy-gated action proposal.",
     ],
-    expected_postcondition: "A redacted observation, target index, affordance graph, and approved read-only action proposal exist.",
+    expected_postcondition: requestedActionIsReadOnly
+      ? "A redacted observation, target index, affordance graph, and approved read-only action proposal exist."
+      : "A redacted observation, target index, affordance graph, and confirmation-gated action proposal exist without execution.",
     last_action_ref: null,
-    verification_status: "unknown",
-    blocker_state: null,
+    verification_status: requestedActionIsReadOnly ? "unknown" : "requires_human",
+    blocker_state: requestedActionIsReadOnly ? null : "commit_gate_requires_confirmation",
     retry_budget: 2,
     risk_posture: environmentSelection.risk_posture,
     user_handoff_ref: null,
@@ -232,25 +250,36 @@ export function mockComputerUseProjectionForRun({
           coordinate_space_id: `viewport_${runId}`,
         },
         confidence: 96,
-        available_actions: ["inspect", "scroll", "click"],
+        available_actions: uniqueComputerActionKinds(["inspect", "scroll", "click", requestedActionKind]),
       },
     ],
   }, targetIndexOverride, observation.observation_ref);
   const primaryTarget = targetIndex.targets[0];
+  const requestedTargetRef =
+    requestedComputerUseTargetRef(options.metadata) ?? primaryTarget.target_ref;
+  const normalizedActionCandidate =
+    requestedActionKind === "inspect"
+      ? "inspect current page and summarize actionable targets"
+      : `${requestedActionKind} ${requestedTargetRef}`;
+  const predictedPostcondition = requestedActionIsReadOnly
+    ? "The harness has a grounded page summary and next-action candidates."
+    : `The harness has a grounded ${requestedActionKind} proposal and pauses before execution for confirmation.`;
   const affordanceGraph: AffordanceGraph = mergeAffordanceGraphContract({
     graph_ref: affordanceGraphRef,
     target_index_ref: targetIndexRef,
     observation_ref: observation.observation_ref,
     affordances: [
       {
-        target_ref: primaryTarget.target_ref,
-        possible_action: "inspect",
+        target_ref: requestedTargetRef,
+        possible_action: requestedActionKind,
         action_preconditions: ["fresh_observation", "target_index_present"],
-        confidence: 95,
-        expected_state_transition: "A read-only inspection summary can be produced without external side effects.",
-        risk_class: "read_only",
-        required_authority: "computer_use.native_browser.read",
-        confirmation_required: false,
+        confidence: requestedActionIsReadOnly ? 95 : 88,
+        expected_state_transition: requestedActionIsReadOnly
+          ? "A read-only inspection summary can be produced without external side effects."
+          : `A ${requestedActionKind} action could change browser state and must be confirmed before execution.`,
+        risk_class: requestedActionRisk,
+        required_authority: requestedActionAuthority,
+        confirmation_required: !requestedActionIsReadOnly,
         fallback_action_paths: ["reobserve", "switch_to_visual_lane"],
         invalidation_conditions: ["navigation", "modal_interruption", "auth_wall"],
       },
@@ -261,58 +290,70 @@ export function mockComputerUseProjectionForRun({
     proposed_by: selectedModel,
     model_role: "grounder",
     raw_model_output_ref: `model_output_${runId}_computer_use_candidate`,
-    normalized_action_candidate: "inspect current page and summarize actionable targets",
-    target_ref: primaryTarget.target_ref,
-    confidence: 92,
-    rationale_summary: "The page root is present and read-only inspection is the lowest-risk next step.",
-    predicted_postcondition: "The harness has a grounded page summary and next-action candidates.",
-    risk_assessment: "read_only",
+    normalized_action_candidate: normalizedActionCandidate,
+    target_ref: requestedTargetRef,
+    confidence: requestedActionIsReadOnly ? 92 : 86,
+    rationale_summary: requestedActionIsReadOnly
+      ? "The page root is present and read-only inspection is the lowest-risk next step."
+      : `The requested ${requestedActionKind} action is grounded to the current target index and requires confirmation before execution.`,
+    predicted_postcondition: predictedPostcondition,
+    risk_assessment: requestedActionRisk,
     policy_decision_ref: policyDecisionRef,
   };
-  const action: ComputerAction = {
-    action_ref: actionRef,
-    proposal_ref: actionProposal.proposal_ref,
-    action_kind: "inspect",
-    target_ref: actionProposal.target_ref,
-    observation_ref: observation.observation_ref,
-    coordinate_space_id: targetIndex.coordinate_space_id,
-    payload_summary: "Read-only inspect of the current page and target index.",
-    expected_postcondition: actionProposal.predicted_postcondition,
-    approval_ref: null,
-  };
-  const actionReceipt: ActionReceipt = {
-    receipt_ref: actionReceiptRef,
-    action_ref: action.action_ref,
-    adapter_id: "ioi.native_browser.chromiumoxide.mock",
-    status: "completed",
-    grounding_ref: targetIndex.target_index_ref,
-    postcondition_summary: "Read-only inspection action was grounded in the observation and produced no external side effect.",
-    verification_ref: verificationRef,
-    evidence_refs: [
-      observation.observation_ref,
-      targetIndex.target_index_ref,
-      actionProposal.proposal_ref,
-    ],
-  };
+  const action: ComputerAction | null = requestedActionIsReadOnly
+    ? {
+        action_ref: actionRef,
+        proposal_ref: actionProposal.proposal_ref,
+        action_kind: requestedActionKind,
+        target_ref: actionProposal.target_ref,
+        observation_ref: observation.observation_ref,
+        coordinate_space_id: targetIndex.coordinate_space_id,
+        payload_summary: requestedActionKind === "inspect"
+          ? "Read-only inspect of the current page and target index."
+          : `${requestedActionKind} ${requestedTargetRef} without external side effects.`,
+        expected_postcondition: actionProposal.predicted_postcondition,
+        approval_ref: null,
+      }
+    : null;
+  const actionReceipt: ActionReceipt | null = action
+    ? {
+        receipt_ref: actionReceiptRef,
+        action_ref: action.action_ref,
+        adapter_id: "ioi.native_browser.chromiumoxide.mock",
+        status: "completed",
+        grounding_ref: targetIndex.target_index_ref,
+        postcondition_summary: "Read-only browser action was grounded in the observation and produced no external side effect.",
+        verification_ref: verificationRef,
+        evidence_refs: [
+          observation.observation_ref,
+          targetIndex.target_index_ref,
+          actionProposal.proposal_ref,
+        ],
+      }
+    : null;
   const verification: ComputerUseVerificationReceipt = {
     verification_ref: verificationRef,
-    action_ref: action.action_ref,
-    status: "passed",
+    action_ref: action?.action_ref ?? null,
+    status: requestedActionIsReadOnly ? "passed" : "requires_human",
     expected_postcondition: actionProposal.predicted_postcondition,
-    observed_postcondition: "Environment, lease, observation, target index, affordance graph, action proposal, action receipt, and cleanup are trace-visible.",
+    observed_postcondition: requestedActionIsReadOnly
+      ? "Environment, lease, observation, target index, affordance graph, action proposal, action receipt, and cleanup are trace-visible."
+      : "No mutating browser action was executed; the proposal is waiting on the commit gate confirmation.",
     verifier: "sdk_mock_computer_use_harness",
-    evidence_refs: [
+    evidence_refs: compactUnknowns([
       environmentSelection.receipt_ref,
       observation.observation_ref,
       targetIndex.target_index_ref,
       affordanceGraph.graph_ref,
       actionProposal.proposal_ref,
-      actionReceipt.receipt_ref,
-    ],
+      actionReceipt?.receipt_ref,
+    ]),
   };
   const outcomeContract = outcomeContractForGoal({
     run_id: runId,
-    requested_outcome: "Produce a grounded browser observation summary without external side effects.",
+    requested_outcome: requestedActionIsReadOnly
+      ? "Produce a grounded browser observation summary without external side effects."
+      : `Prepare a grounded ${requestedActionKind} browser action and pause before external effects.`,
     success_criteria: [verification.expected_postcondition],
     acceptable_side_effects: ["Retain a redacted computer-use trace artifact."],
     prohibited_side_effects: [
@@ -322,12 +363,25 @@ export function mockComputerUseProjectionForRun({
     rollback_or_cleanup_required: true,
     external_effect_policy: "confirmation_required",
   });
-  const commitGate = commitGateForComputerAction({
-    run_id: runId,
-    action,
-    outcome_contract: outcomeContract,
-    proposal: actionProposal,
-  });
+  const commitGate: CommitGate = action
+    ? commitGateForComputerAction({
+        run_id: runId,
+        action,
+        outcome_contract: outcomeContract,
+        proposal: actionProposal,
+      })
+    : {
+        commit_gate_ref: `commit_gate_${runId}_${actionProposal.proposal_ref}`,
+        final_action_ref: null,
+        outcome_ref: outcomeContract.outcome_ref,
+        external_effect: true,
+        user_confirmation_required: true,
+        authority_required: "computer_use.external_effect",
+        pre_commit_summary: `Review before executing ${actionProposal.normalized_action_candidate}.`,
+        post_commit_verification: outcomeContract.success_criteria.join("; "),
+        policy_decision_ref: policyDecisionRef,
+        status: "pending_confirmation",
+      };
   const trajectory: ComputerUseTrajectoryBundle = {
     schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
     trajectory_ref: trajectoryRef,
@@ -353,30 +407,36 @@ export function mockComputerUseProjectionForRun({
         event_kind: "propose_action",
         observation_ref: observation.observation_ref,
         proposal_ref: actionProposal.proposal_ref,
-        summary: "Normalized a read-only inspect proposal and policy-gated it before execution.",
+        summary: requestedActionIsReadOnly
+          ? "Normalized a read-only proposal and policy-gated it before execution."
+          : "Normalized a mutating action proposal and stopped at the confirmation gate.",
       },
-      {
+      ...(action && actionReceipt ? [{
         sequence: 4,
         event_kind: "execute_action",
         observation_ref: observation.observation_ref,
         proposal_ref: actionProposal.proposal_ref,
         action_ref: action.action_ref,
         receipt_ref: actionReceipt.receipt_ref,
-        summary: "Executed the grounded read-only inspect action.",
-      },
+        summary: "Executed the grounded read-only browser action.",
+      }] : []),
       {
-        sequence: 5,
+        sequence: action ? 5 : 4,
         event_kind: "verify_postcondition",
-        action_ref: action.action_ref,
+        action_ref: action?.action_ref ?? null,
         verification_ref: verification.verification_ref,
-        summary: "Verified the read-only postcondition and retained the trace.",
+        summary: requestedActionIsReadOnly
+          ? "Verified the read-only postcondition and retained the trace."
+          : "Verified that no mutating action executed before confirmation.",
       },
       {
-        sequence: 6,
+        sequence: action ? 6 : 5,
         event_kind: "commit_or_handoff",
-        action_ref: action.action_ref,
+        action_ref: action?.action_ref ?? null,
         receipt_ref: commitGate.commit_gate_ref,
-        summary: "Evaluated the outcome contract and confirmed no external-effect commit was required.",
+        summary: requestedActionIsReadOnly
+          ? "Evaluated the outcome contract and confirmed no external-effect commit was required."
+          : "Paused at the commit gate until explicit approval is available.",
       },
     ],
   };
@@ -406,9 +466,23 @@ export function mockComputerUseProjectionForRun({
     workflow_node_ids: workflowBinding.workflowNodeIds,
     toolRef: workflowBinding.toolRef,
     tool_ref: workflowBinding.toolRef,
-    authorityScopes: workflowBinding.authorityScopes,
-    authority_scopes: workflowBinding.authorityScopes,
+    authorityScopes: uniqueStrings([requestedActionAuthority, ...workflowBinding.authorityScopes]),
+    authority_scopes: uniqueStrings([requestedActionAuthority, ...workflowBinding.authorityScopes]),
+    computer_use_action_kind: requestedActionKind,
+    computer_use_external_effect: !requestedActionIsReadOnly,
   };
+  const actionExecutionEvents: MockComputerUseProjection["events"] = action && actionReceipt
+    ? [
+        computerUseProjectionEvent("computer_use_action_executed", "Computer-use read-only action executed", {
+          ...basePayload,
+          computer_use_step: "execute_action",
+          computer_use_action_ref: action.action_ref,
+          computer_use_proposal_ref: actionProposal.proposal_ref,
+          computer_action: action,
+          action_receipt: actionReceipt,
+        }),
+      ]
+    : [];
   const events: MockComputerUseProjection["events"] = [
     computerUseProjectionEvent("computer_use_environment_selected", "Computer-use environment selected", {
       ...basePayload,
@@ -427,9 +501,9 @@ export function mockComputerUseProjectionForRun({
         adapter_id: "ioi.native_browser.chromiumoxide.mock",
         lane: environmentSelection.selected_lane,
         supported_session_modes: [environmentSelection.selected_session_mode],
-        capabilities: ["observe.dom", "observe.ax", "observe.screenshot", "act.inspect", "verify.postcondition"],
+        capabilities: ["observe.dom", "observe.ax", "observe.screenshot", `act.${requestedActionKind}`, "verify.postcondition"],
         emits_observation_bundle: true,
-        emits_action_receipts: true,
+        emits_action_receipts: requestedActionIsReadOnly,
         fail_closed_when_unavailable: true,
       },
     }),
@@ -465,18 +539,13 @@ export function mockComputerUseProjectionForRun({
       action_proposal: actionProposal,
       policy_gate: {
         policy_decision_ref: policyDecisionRef,
-        outcome: "approved_for_read_only_probe",
-        authority_scope: environmentSelection.authority_required,
+        outcome: requestedActionIsReadOnly
+          ? "approved_for_read_only_probe"
+          : "requires_confirmation_before_execution",
+        authority_scope: requestedActionAuthority,
       },
     }),
-    computerUseProjectionEvent("computer_use_action_executed", "Computer-use read-only action executed", {
-      ...basePayload,
-      computer_use_step: "execute_action",
-      computer_use_action_ref: action.action_ref,
-      computer_use_proposal_ref: actionProposal.proposal_ref,
-      computer_action: action,
-      action_receipt: actionReceipt,
-    }),
+    ...actionExecutionEvents,
     computerUseProjectionEvent("computer_use_verification", "Computer-use postcondition verified", {
       ...basePayload,
       computer_use_step: "verify_postcondition",
@@ -488,10 +557,20 @@ export function mockComputerUseProjectionForRun({
       ...basePayload,
       computer_use_step: "commit_or_handoff",
       computer_use_commit_gate_ref: commitGate.commit_gate_ref,
-      computer_use_action_ref: action.action_ref,
+      computer_use_action_ref: action?.action_ref ?? null,
       outcome_contract: outcomeContract,
       commit_gate: commitGate,
-      human_handoff_state: null,
+      human_handoff_state: requestedActionIsReadOnly ? null : {
+        handoff_ref: `handoff_${runId}_${requestedActionKind}`,
+        reason: "mutating_browser_action_requires_confirmation",
+        requested_user_action: `Approve or reject ${actionProposal.normalized_action_candidate}.`,
+        forbidden_agent_actions: ["execute_mutating_browser_action_without_approval"],
+        resume_condition: "A commit-gate approval receipt is present.",
+        observation_after_resume_ref: null,
+        timeout_policy: "pause_until_user_resumes_or_cancels",
+        evidence_retention: requestedRetentionMode,
+        status: "pending",
+      },
     }),
     computerUseProjectionEvent("computer_use_trajectory_written", "Computer-use trajectory written", {
       ...basePayload,
@@ -527,7 +606,7 @@ export function mockComputerUseProjectionForRun({
       kind: "computer_use_trace",
       summary: "Computer-use harness trace exposed environment selection, lease, observation, targets, affordances, proposal, action, verification, outcome, commit gate, trajectory, and cleanup.",
       redaction: "redacted",
-      evidenceRefs: [
+      evidenceRefs: compactUnknowns([
         "ComputerUseHarnessContract",
         environmentSelection.receipt_ref,
         lease.lease_id,
@@ -535,14 +614,14 @@ export function mockComputerUseProjectionForRun({
         targetIndex.target_index_ref,
         affordanceGraph.graph_ref,
         actionProposal.proposal_ref,
-        action.action_ref,
-        actionReceipt.receipt_ref,
+        action?.action_ref,
+        actionReceipt?.receipt_ref,
         verification.verification_ref,
         outcomeContract.outcome_ref,
         commitGate.commit_gate_ref,
         trajectory.trajectory_ref,
         cleanup.cleanup_ref,
-      ],
+      ]),
     },
   };
 }
@@ -872,6 +951,74 @@ function requestedComputerUseSessionMode(
   return lane === "visual_gui" ? "visual_fallback" : "hosted_sandbox";
 }
 
+function requestedComputerUseActionKind(
+  metadata: SendOptions["metadata"],
+  prompt: string,
+): ComputerActionKind {
+  const rawValue =
+    metadata?.computerUseActionKind ??
+    metadata?.computer_use_action_kind ??
+    metadata?.actionKind ??
+    metadata?.action_kind;
+  const explicit = computerUseActionKindValue(rawValue);
+  if (explicit) return explicit;
+  return computerUseActionKindFromText(prompt) ?? "inspect";
+}
+
+function requestedComputerUseTargetRef(metadata: SendOptions["metadata"]): string | null {
+  return cleanString(
+    metadata?.computerUseTargetRef ??
+      metadata?.computer_use_target_ref ??
+      metadata?.targetRef ??
+      metadata?.target_ref,
+  );
+}
+
+function computerUseActionKindValue(value: unknown): ComputerActionKind | null {
+  const normalized = cleanString(value)?.toLowerCase().replace(/[\s-]+/g, "_");
+  if (!normalized) return null;
+  if (normalized === "type" || normalized === "input_text") return "type_text";
+  if (normalized === "keypress") return "key_press";
+  if (normalized === "mouse_move") return "hover";
+  return isComputerActionKind(normalized) ? normalized : null;
+}
+
+function computerUseActionKindFromText(text: string): ComputerActionKind | null {
+  const normalized = text.trim().toLowerCase();
+  if (/^click\b|\bclick\s+/.test(normalized)) return "click";
+  if (/^type\b|\btype\s+|type_text|input\s+text/.test(normalized)) return "type_text";
+  if (/^scroll\b|\bscroll\s+/.test(normalized)) return "scroll";
+  if (/^hover\b|\bhover\s+|mouse_move/.test(normalized)) return "hover";
+  if (/^wait\b|\bwait\s+/.test(normalized)) return "wait";
+  if (/^navigate\b|\bnavigate\s+|open\s+url/.test(normalized)) return "navigate";
+  if (/^select\b|\bselect\s+/.test(normalized)) return "select";
+  if (/^upload\b|\bupload\s+/.test(normalized)) return "upload";
+  return null;
+}
+
+function isComputerActionKind(value: string): value is ComputerActionKind {
+  return [
+    "click",
+    "type_text",
+    "key_press",
+    "scroll",
+    "drag",
+    "hover",
+    "select",
+    "upload",
+    "clipboard",
+    "wait",
+    "shell",
+    "mobile_gesture",
+    "navigate",
+    "inspect",
+  ].includes(value);
+}
+
+function computerUseActionKindIsReadOnly(actionKind: ComputerActionKind): boolean {
+  return ["inspect", "hover", "wait", "scroll"].includes(actionKind);
+}
+
 function computerUseTargetHint(prompt: string): string {
   const url = String(prompt).match(/https?:\/\/[^\s)]+/i)?.[0];
   return url ?? "browser surface requested by user prompt";
@@ -982,6 +1129,18 @@ function cleanStringArray(value: unknown): string[] {
   return value
     .map((item) => cleanString(item))
     .filter((item): item is string => Boolean(item));
+}
+
+function uniqueStrings(values: unknown[]): string[] {
+  return [...new Set(values.map((value) => cleanString(value)).filter(Boolean) as string[])];
+}
+
+function uniqueComputerActionKinds(values: ComputerActionKind[]): ComputerActionKind[] {
+  return [...new Set(values)];
+}
+
+function compactUnknowns<T>(values: Array<T | null | undefined | false | "">): T[] {
+  return values.filter(Boolean) as T[];
 }
 
 function booleanValue(value: unknown): boolean | null {
