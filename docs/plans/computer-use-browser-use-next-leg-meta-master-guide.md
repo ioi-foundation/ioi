@@ -503,14 +503,16 @@ missing browser adapter evidence fails closed with blocked verification and
 commit-gate receipts instead of synthetic execution. Explicit CDP endpoints now
 infer `attached_cdp` session-mode receipts instead of being projected as owned
 hermetic sessions. CLI and TUI operators now have dedicated native-browser,
-visual-observe, and visual-action commands over the same daemon thread-tool
-route, including approval, target/selector/text/key/scroll/file, CDP
-endpoint/websocket, local-capture, and opt-in local GUI executor options, so
-manual validation can run both the gated and approved prompt pipeline without
-knowing raw tool ids. Sandboxed Computer authoring presets now default to
-`local_sandbox` plus `local_fixture`, giving workflow authors a runnable
-hosted-style harness trace while concrete VM/container/mobile providers remain
-behind explicit adapter, authority, isolation, and retention policy work.
+sandboxed-computer, visual-observe, and visual-action commands over the same
+daemon thread-tool route, including approval, target selectors, text/key/scroll
+and file payloads, CDP endpoint/websocket, sandbox provider/image/task refs,
+local-capture, and opt-in local GUI executor options, so manual validation can
+run both the gated and approved prompt pipeline without knowing raw tool ids.
+Sandboxed
+Computer authoring presets now default to `local_sandbox` plus `local_fixture`,
+giving workflow authors a runnable hosted-style harness trace while concrete
+VM/container/mobile providers remain behind explicit adapter, authority,
+isolation, and retention policy work.
 Future daemon, workflow, and Autopilot policy executors should consume these
 helpers rather than defining local policy shapes.
 

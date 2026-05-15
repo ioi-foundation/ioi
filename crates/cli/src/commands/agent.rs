@@ -644,6 +644,60 @@ pub enum ToolCommands {
         #[clap(long)]
         json: bool,
     },
+    /// Run a sandboxed/hosted computer-use prompt through the local fixture or a mounted provider.
+    SandboxedComputer {
+        /// Runtime thread id that owns the computer-use event stream.
+        #[clap(long = "thread-id")]
+        thread_id: String,
+        /// Prompt/goal to run through the sandboxed computer harness.
+        #[clap(long)]
+        prompt: Option<String>,
+        /// Requested sandbox action kind. Mutating actions require approval unless the provider policy says otherwise.
+        #[clap(long = "action-kind", default_value = "inspect")]
+        action_kind: String,
+        /// Sandboxed session mode: local_sandbox, hosted_sandbox, container, vm, mobile_device, or hosted_browser.
+        #[clap(long = "session-mode", default_value = "local_sandbox")]
+        session_mode: String,
+        /// Approval receipt/ref that allows a mutating sandboxed action to execute.
+        #[clap(long = "approval-ref")]
+        approval_ref: Option<String>,
+        /// Grounded target ref for the requested sandboxed action.
+        #[clap(long = "target-ref")]
+        target_ref: Option<String>,
+        /// Sandbox provider id. Defaults to the deterministic local fixture.
+        #[clap(long = "sandbox-provider", default_value = "local_fixture")]
+        sandbox_provider: String,
+        /// Disable the deterministic local fixture flag for external hosted providers.
+        #[clap(long = "no-sandbox-fixture")]
+        no_sandbox_fixture: bool,
+        /// Image/environment ref for hosted or local sandbox execution.
+        #[clap(long = "sandbox-image-ref")]
+        sandbox_image_ref: Option<String>,
+        /// Task/job ref for hosted or local sandbox execution.
+        #[clap(long = "sandbox-task-ref")]
+        sandbox_task_ref: Option<String>,
+        /// Observation retention mode.
+        #[clap(long = "observation-retention-mode", default_value = "no_persistence")]
+        observation_retention_mode: String,
+        /// Runtime turn id to associate with the tool result.
+        #[clap(long = "turn-id")]
+        turn_id: Option<String>,
+        /// Workflow graph id for React Flow-originated invocations.
+        #[clap(long = "workflow-graph-id")]
+        workflow_graph_id: Option<String>,
+        /// Workflow node id for React Flow-originated invocations.
+        #[clap(long = "workflow-node-id")]
+        workflow_node_id: Option<String>,
+        /// Runtime daemon endpoint. Defaults to IOI_DAEMON_ENDPOINT or http://127.0.0.1:8765.
+        #[clap(long)]
+        endpoint: Option<String>,
+        /// Capability token. Defaults to IOI_DAEMON_TOKEN.
+        #[clap(long)]
+        token: Option<String>,
+        /// Emit machine-readable JSON.
+        #[clap(long)]
+        json: bool,
+    },
     /// Emit governed computer-use pause/resume/abort/cleanup control receipts.
     ComputerUseControl {
         /// Runtime thread id that owns the computer-use event stream.
@@ -1740,6 +1794,46 @@ async fn run_tool_command(
             )
             .await
         }
+        Some(ToolCommands::SandboxedComputer {
+            thread_id,
+            prompt,
+            action_kind,
+            session_mode,
+            approval_ref,
+            target_ref,
+            sandbox_provider,
+            no_sandbox_fixture,
+            sandbox_image_ref,
+            sandbox_task_ref,
+            observation_retention_mode,
+            turn_id,
+            workflow_graph_id,
+            workflow_node_id,
+            endpoint,
+            token,
+            json,
+        }) => {
+            invoke_sandboxed_computer_tool(
+                thread_id,
+                prompt,
+                action_kind,
+                session_mode,
+                approval_ref,
+                target_ref,
+                sandbox_provider,
+                !no_sandbox_fixture,
+                sandbox_image_ref,
+                sandbox_task_ref,
+                observation_retention_mode,
+                turn_id,
+                workflow_graph_id,
+                workflow_node_id,
+                endpoint,
+                token,
+                json,
+            )
+            .await
+        }
         Some(ToolCommands::ComputerUseControl {
             thread_id,
             action,
@@ -2498,6 +2592,170 @@ async fn invoke_visual_gui_tool_with_tool_ref(
         .unwrap_or("none");
     println!(
         "{summary_label}: thread={thread_id} status={status} node={workflow_node} events={event_count} action={action_status} observation={observation_ref}"
+    );
+    Ok(())
+}
+
+async fn invoke_sandboxed_computer_tool(
+    thread_id: String,
+    prompt: Option<String>,
+    action_kind: String,
+    session_mode: String,
+    approval_ref: Option<String>,
+    target_ref: Option<String>,
+    sandbox_provider: String,
+    sandbox_fixture: bool,
+    sandbox_image_ref: Option<String>,
+    sandbox_task_ref: Option<String>,
+    observation_retention_mode: String,
+    turn_id: Option<String>,
+    workflow_graph_id: Option<String>,
+    workflow_node_id: Option<String>,
+    endpoint: Option<String>,
+    token: Option<String>,
+    json: bool,
+) -> Result<()> {
+    let endpoint = resolve_daemon_endpoint(endpoint.as_deref());
+    let token = resolve_daemon_token(token.as_deref());
+    let mut body = serde_json::Map::new();
+    body.insert(
+        "source".to_string(),
+        serde_json::Value::String("sdk_client".to_string()),
+    );
+    let mut input = serde_json::Map::new();
+    if let Some(prompt) = prompt.as_deref().filter(|value| !value.trim().is_empty()) {
+        input.insert(
+            "prompt".to_string(),
+            serde_json::Value::String(prompt.trim().to_string()),
+        );
+    }
+    if !action_kind.trim().is_empty() {
+        input.insert(
+            "actionKind".to_string(),
+            serde_json::Value::String(action_kind.trim().to_string()),
+        );
+    }
+    if !session_mode.trim().is_empty() {
+        input.insert(
+            "sessionMode".to_string(),
+            serde_json::Value::String(session_mode.trim().to_string()),
+        );
+    }
+    if let Some(approval_ref) = approval_ref
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "approvalRef".to_string(),
+            serde_json::Value::String(approval_ref.trim().to_string()),
+        );
+    }
+    if let Some(target_ref) = target_ref
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "targetRef".to_string(),
+            serde_json::Value::String(target_ref.trim().to_string()),
+        );
+    }
+    if !sandbox_provider.trim().is_empty() {
+        input.insert(
+            "sandboxProvider".to_string(),
+            serde_json::Value::String(sandbox_provider.trim().to_string()),
+        );
+    }
+    input.insert(
+        "sandboxFixture".to_string(),
+        serde_json::Value::Bool(sandbox_fixture),
+    );
+    if let Some(sandbox_image_ref) = sandbox_image_ref
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "sandboxImageRef".to_string(),
+            serde_json::Value::String(sandbox_image_ref.trim().to_string()),
+        );
+    }
+    if let Some(sandbox_task_ref) = sandbox_task_ref
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "sandboxTaskRef".to_string(),
+            serde_json::Value::String(sandbox_task_ref.trim().to_string()),
+        );
+    }
+    input.insert(
+        "observationRetentionMode".to_string(),
+        serde_json::Value::String(observation_retention_mode),
+    );
+    body.insert("input".to_string(), serde_json::Value::Object(input));
+    if let Some(turn_id) = turn_id.as_deref().filter(|value| !value.trim().is_empty()) {
+        body.insert(
+            "turn_id".to_string(),
+            serde_json::Value::String(turn_id.to_string()),
+        );
+    }
+    if let Some(workflow_graph_id) = workflow_graph_id
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        body.insert(
+            "workflow_graph_id".to_string(),
+            serde_json::Value::String(workflow_graph_id.to_string()),
+        );
+    }
+    body.insert(
+        "workflow_node_id".to_string(),
+        serde_json::Value::String(
+            workflow_node_id
+                .as_deref()
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or("computer-use.sandboxed-computer.cli")
+                .to_string(),
+        ),
+    );
+    let route = coding_tool_invoke_route(&thread_id, "ioi.computer_use.sandboxed_hosted");
+    let value = daemon_request(
+        Some(&endpoint),
+        token.as_deref(),
+        Method::POST,
+        &route,
+        Some(serde_json::Value::Object(body)),
+    )
+    .await?;
+    if json {
+        return print_json(&value);
+    }
+    let status = value
+        .get("status")
+        .and_then(|value| value.as_str())
+        .unwrap_or("unknown");
+    let event_count = value
+        .get("event_count")
+        .and_then(|value| value.as_u64())
+        .unwrap_or(0);
+    let workflow_node = value
+        .get("workflow_node_id")
+        .and_then(|value| value.as_str())
+        .unwrap_or("computer-use.sandboxed-computer.cli");
+    let action_status = value
+        .pointer("/result/actionReceipt/status")
+        .and_then(|value| value.as_str())
+        .unwrap_or("unknown");
+    let adapter_id = value
+        .pointer("/result/adapterContract/adapter_id")
+        .and_then(|value| value.as_str())
+        .unwrap_or("unknown");
+    let contract_ingest = value
+        .pointer("/result/contractIngest")
+        .or_else(|| value.pointer("/result/contract_ingest"))
+        .and_then(|value| value.as_str())
+        .unwrap_or("unknown");
+    println!(
+        "Sandboxed computer-use: thread={thread_id} status={status} node={workflow_node} events={event_count} action={action_status} adapter={adapter_id} contract_ingest={contract_ingest}"
     );
     Ok(())
 }
@@ -3933,6 +4191,61 @@ mod tests {
                 && file_path == "/tmp/upload.txt"
                 && cdp_endpoint_url == "http://127.0.0.1:9222"
                 && cdp_timeout_ms == 5000
+        ));
+        let sandboxed_computer = AgentArgs::try_parse_from([
+            "agent",
+            "tools",
+            "sandboxed-computer",
+            "--endpoint",
+            "http://127.0.0.1:8765",
+            "--thread-id",
+            "thread_runtime_cli",
+            "--prompt",
+            "inspect sandbox workspace",
+            "--action-kind",
+            "shell",
+            "--session-mode",
+            "local_sandbox",
+            "--approval-ref",
+            "approval-sandbox-shell",
+            "--target-ref",
+            "target_sandbox_workspace",
+            "--sandbox-provider",
+            "local_fixture",
+            "--sandbox-image-ref",
+            "ioi/sandbox-fixture:local",
+            "--sandbox-task-ref",
+            "sandbox_task_cli",
+            "--json",
+        ])
+        .expect("sandboxed computer command should parse");
+        assert!(matches!(
+            sandboxed_computer.command,
+            Some(AgentCommands::Tools {
+                command: Some(ToolCommands::SandboxedComputer {
+                    thread_id,
+                    prompt: Some(prompt),
+                    action_kind,
+                    session_mode,
+                    approval_ref: Some(approval_ref),
+                    target_ref: Some(target_ref),
+                    sandbox_provider,
+                    no_sandbox_fixture: false,
+                    sandbox_image_ref: Some(sandbox_image_ref),
+                    sandbox_task_ref: Some(sandbox_task_ref),
+                    json: true,
+                    ..
+                }),
+                ..
+            }) if thread_id == "thread_runtime_cli"
+                && prompt == "inspect sandbox workspace"
+                && action_kind == "shell"
+                && session_mode == "local_sandbox"
+                && approval_ref == "approval-sandbox-shell"
+                && target_ref == "target_sandbox_workspace"
+                && sandbox_provider == "local_fixture"
+                && sandbox_image_ref == "ioi/sandbox-fixture:local"
+                && sandbox_task_ref == "sandbox_task_cli"
         ));
         let visual_gui = AgentArgs::try_parse_from([
             "agent",
