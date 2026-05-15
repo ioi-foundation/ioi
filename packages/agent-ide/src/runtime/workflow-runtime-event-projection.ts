@@ -2223,17 +2223,20 @@ function subagentChildSubflowsForRows(
 export function workflowNodeIdForRuntimeThreadEvent(
   event: WorkflowRuntimeThreadEventLike,
 ): string {
-  if (event.workflowNodeId) return event.workflowNodeId;
   if (isComputerUseRuntimeThreadEvent(event)) {
     const payloadNodeId = stringField(
       event.payload,
       "workflowNodeId",
       "workflow_node_id",
     );
-    if (payloadNodeId) return payloadNodeId;
+    const authoredNodeId = event.workflowNodeId ?? payloadNodeId;
     const step = computerUseStepForRuntimeThreadEvent(event);
+    if (authoredNodeId) {
+      return computerUseProjectionNodeId(authoredNodeId, step, event.eventKind);
+    }
     return `computer-use.${slug(step ?? event.eventKind)}`;
   }
+  if (event.workflowNodeId) return event.workflowNodeId;
   if (isCodingToolBudgetBlockedEvent(event)) {
     const evidence = codingToolBudgetEvidenceForRuntimeThreadEvent(event);
     return `runtime.coding-tool-budget.${slug(
@@ -2296,6 +2299,17 @@ export function workflowNodeIdForRuntimeThreadEvent(
     default:
       return `runtime.${slug(event.componentKind ?? event.eventKind)}`;
   }
+}
+
+function computerUseProjectionNodeId(
+  authoredNodeId: string,
+  step: string | null,
+  eventKind: string,
+): string {
+  if (authoredNodeId.startsWith("computer-use.")) return authoredNodeId;
+  const stepSlug = slug(step ?? eventKind);
+  if (!stepSlug) return authoredNodeId;
+  return `${authoredNodeId}.${stepSlug}`;
 }
 
 export function workflowNodeKindForRuntimeThreadEvent(

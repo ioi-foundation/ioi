@@ -127,6 +127,8 @@ export type WorkflowRunComputerUseWorkbench = {
   executionRequiresReobserve: boolean | null;
   verificationStatus: string | null;
   commitGateStatus: string | null;
+  cleanupRef: string | null;
+  cleanupStatus: string | null;
   policyDecisionRef: string | null;
   policyOutcome: string | null;
   policyAuthorityScope: string | null;
@@ -438,6 +440,12 @@ function workflowRunComputerUseWorkbench(
     commitGateStatus:
       [...nodes].reverse().find((node) => node.computerUse?.commitGateStatus)
         ?.computerUse?.commitGateStatus ?? null,
+    cleanupRef:
+      [...nodes].reverse().find((node) => node.computerUse?.cleanupRef)
+        ?.computerUse?.cleanupRef ?? null,
+    cleanupStatus:
+      [...nodes].reverse().find((node) => node.computerUse?.cleanupStatus)
+        ?.computerUse?.cleanupStatus ?? null,
     policyDecisionRef:
       [...nodes].reverse().find((node) => node.computerUse?.policyDecisionRef)
         ?.computerUse?.policyDecisionRef ?? null,
@@ -464,7 +472,13 @@ function workflowRunComputerUseWorkbench(
     authorityRequired:
       latestComputerUse.authorityRequired ?? latestScreen.authorityRequired,
     eventIds: uniqueStrings(nodes.flatMap((node) => node.eventIds)),
-    workflowNodeIds: uniqueStrings(nodes.map((node) => node.workflowNodeId)),
+    workflowNodeIds: uniqueStrings(
+      nodes.flatMap((node) => [
+        node.computerUse?.workflowNodeId,
+        ...(node.computerUse?.workflowNodeIds ?? []),
+        node.workflowNodeId,
+      ]),
+    ),
     artifactRefs,
     artifactPreviews: computerUseArtifactPreviews({
       runId,

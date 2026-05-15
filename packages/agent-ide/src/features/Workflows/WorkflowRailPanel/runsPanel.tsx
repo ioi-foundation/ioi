@@ -765,6 +765,8 @@ export function WorkflowRunsPanel({
               data-commit-gate-status={
                 computerUseWorkbench.commitGateStatus ?? ""
               }
+              data-cleanup-ref={computerUseWorkbench.cleanupRef ?? ""}
+              data-cleanup-status={computerUseWorkbench.cleanupStatus ?? ""}
               data-policy-decision-ref={
                 computerUseWorkbench.policyDecisionRef ?? ""
               }
@@ -913,6 +915,10 @@ export function WorkflowRunsPanel({
                       ? ""
                       : String(computerUseWorkbench.executionRequiresReobserve)
                   }
+                  data-cleanup-ref={computerUseWorkbench.cleanupRef ?? ""}
+                  data-cleanup-status={
+                    computerUseWorkbench.cleanupStatus ?? ""
+                  }
                 >
                   <strong>Action path</strong>
                   <span>
@@ -943,6 +949,9 @@ export function WorkflowRunsPanel({
                         : null,
                       computerUseWorkbench.verificationStatus,
                       computerUseWorkbench.commitGateStatus,
+                      computerUseWorkbench.cleanupStatus
+                        ? `cleanup ${computerUseWorkbench.cleanupStatus}`
+                        : null,
                       computerUseWorkbench.blocker,
                     ]
                       .filter(Boolean)

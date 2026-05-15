@@ -93,6 +93,122 @@ test("projects Thread.events runtime events into stable React Flow nodes and edg
   assert.equal(projection.latestCursor, "events_thread:test:3");
 });
 
+test("projects multi-step computer-use events from one authored node as glass-box trace steps", () => {
+  const projection = projectRuntimeThreadEventsToWorkflowProjection([
+    event("computer-use-observe", 1, {
+      eventKind: "computer_use.observation",
+      sourceEventKind: "ComputerUse.Observation",
+      workflowNodeId: "workflow.sandboxed-computer",
+      componentKind: "computer_use_harness",
+      payload: {
+        computer_use_step: "observe",
+        computer_use_lane: "sandboxed_hosted",
+        computer_use_session_mode: "local_sandbox",
+        workflow_node_id: "workflow.sandboxed-computer",
+        tool_ref: "ioi.computer_use.sandboxed_hosted",
+        computer_use_observation_ref: "observation-sandboxed",
+        computer_use_target_index_ref: "target-index-sandboxed",
+        target_index: {
+          target_index_ref: "target-index-sandboxed",
+          coordinate_space_id: "sandbox-viewport",
+          targets: [
+            {
+              target_ref: "target-task",
+              label: "Task",
+              available_actions: ["inspect"],
+              bounds: {
+                coordinate_space_id: "sandbox-viewport",
+                x: 0,
+                y: 0,
+                width: 100,
+                height: 40,
+              },
+            },
+          ],
+        },
+      },
+    }),
+    event("computer-use-action", 2, {
+      eventKind: "computer_use.action_executed",
+      sourceEventKind: "ComputerUse.ActionExecuted",
+      workflowNodeId: "workflow.sandboxed-computer",
+      componentKind: "computer_use_harness",
+      payload: {
+        computer_use_step: "execute_action",
+        computer_use_lane: "sandboxed_hosted",
+        computer_use_session_mode: "local_sandbox",
+        workflow_node_id: "workflow.sandboxed-computer",
+        tool_ref: "ioi.computer_use.sandboxed_hosted",
+        computer_action: {
+          action_ref: "action-sandboxed",
+          action_kind: "inspect",
+          target_ref: "target-task",
+        },
+      },
+    }),
+    event("computer-use-cleanup", 3, {
+      eventKind: "computer_use.cleanup",
+      sourceEventKind: "ComputerUse.Cleanup",
+      workflowNodeId: "workflow.sandboxed-computer",
+      componentKind: "computer_use_harness",
+      payload: {
+        computer_use_step: "cleanup",
+        computer_use_lane: "sandboxed_hosted",
+        computer_use_session_mode: "local_sandbox",
+        workflow_node_id: "workflow.sandboxed-computer",
+        tool_ref: "ioi.computer_use.sandboxed_hosted",
+        cleanup_receipt: {
+          cleanup_ref: "cleanup-sandboxed",
+          status: "completed",
+        },
+      },
+    }),
+  ]);
+
+  assert.deepEqual(
+    projection.reactFlowNodes.map((node) => node.id),
+    [
+      "workflow.sandboxed-computer.observe",
+      "workflow.sandboxed-computer.execute-action",
+      "workflow.sandboxed-computer.cleanup",
+    ],
+  );
+  assert.deepEqual(
+    projection.reactFlowNodes.map((node) => node.data.label),
+    [
+      "Computer use: observe",
+      "Computer use: execute action",
+      "Computer use: cleanup",
+    ],
+  );
+  assert.ok(
+    projection.nodes.every(
+      (node) =>
+        node.computerUse?.workflowNodeId === "workflow.sandboxed-computer" &&
+        node.computerUse.toolRef === "ioi.computer_use.sandboxed_hosted",
+    ),
+  );
+  assert.equal(
+    projection.nodes[0]?.computerUse?.targetIndexRef,
+    "target-index-sandboxed",
+  );
+  assert.equal(projection.nodes[1]?.computerUse?.actionKind, "inspect");
+  assert.equal(projection.nodes[2]?.computerUse?.cleanupStatus, "completed");
+  assert.deepEqual(
+    projection.reactFlowEdges.map((edge) => [edge.source, edge.target]),
+    [
+      [
+        "workflow.sandboxed-computer.observe",
+        "workflow.sandboxed-computer.execute-action",
+      ],
+      [
+        "workflow.sandboxed-computer.execute-action",
+        "workflow.sandboxed-computer.cleanup",
+      ],
+    ],
+  );
+});
+
 test("projects computer-use lifecycle events as glass-box harness rows", () => {
   const projection = projectRuntimeThreadEventsToWorkflowProjection([
     event("computer-use-environment", 1, {
@@ -268,7 +384,7 @@ test("projects computer-use lifecycle events as glass-box harness rows", () => {
   assert.deepEqual(
     projection.reactFlowNodes.map((node) => node.id),
     [
-      "browser-use-node",
+      "browser-use-node.select-environment",
       "computer-use.observe",
       "computer-use.action-proposal",
       "computer-use.execute-action",
