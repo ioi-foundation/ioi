@@ -571,6 +571,9 @@ Deliverables:
 - OSWorld/ScreenSpot/BrowserGym/WorkArena style adapters where feasible;
 - retained challenge batteries;
 - model adapter regression fixtures;
+- SDK action-adapter compiler fixtures for OpenAI-style computer-use outputs,
+  UI-TARS coordinate actions, and generic VLM action records, all normalized
+  into IOI `ActionProposal` and grounded `ComputerAction` contracts;
 - failure-class scorecards.
 
 Acceptance:

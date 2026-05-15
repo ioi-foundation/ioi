@@ -1,6 +1,7 @@
 export { Agent, AgentMemory, AgentSubagent, Cursor, CursorCompatibleAgent, createAgentPlatform } from "./agent.js";
 export {
   COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+  compileComputerUseModelActionAdapter,
   computerActionHasGrounding,
   defaultComputerUseHarnessContract,
   isActionProposalReadyForExecution,

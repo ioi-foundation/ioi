@@ -629,7 +629,7 @@ Required guarantees:
 | Sandboxed/hosted parity | Started: unavailable requests fail closed with recovery policy evidence; hosted adapter pending |
 | Trajectory replay | Started: `ComputerUseTrajectoryBundle` is emitted as trace data; replay reader/eval projection pending |
 | Trajectory-driven harness improvement | Not started |
-| Model action adapters | Not started |
+| Model action adapters | Started: SDK model-action adapter fixtures normalize OpenAI-style CUA outputs, UI-TARS coordinate strings, and generic VLM action records into IOI `ActionProposal` plus grounded `ComputerAction` objects with policy decision refs, safety-check mapping, and observation-bound coordinates |
 | Co-op coding agent computer use | Not started |
 | Benchmark/eval harness | Not started |
 | Autopilot glass-box workbench | Started: canonical runtime payloads, `computer-use-trace.json` artifacts, workflow/run-history projection, and compact trace rows now expose the harness lane, lease, targeting, proposal, action, verification, cleanup, blocker, and recovery evidence; live screen/overlay panes pending |
