@@ -13,6 +13,7 @@ export interface WorkflowComposerComputerUseRunMetadata {
   computerUseApprovalRef?: string;
   computerUseTargetRef?: string;
   selector?: string;
+  text?: string;
   cdpEndpointUrl?: string;
   cdpWebSocketUrl?: string;
   cdpTimeoutMs?: number;
@@ -71,6 +72,10 @@ export function workflowComposerComputerUseRunOptions(
     cleanString(first.args["targetRef"]) ??
     cleanString(first.args["target_ref"]);
   const selector = cleanString(first.args["selector"]) ?? cleanString(first.args["cssSelector"]);
+  const text =
+    cleanString(first.args["text"]) ??
+    cleanString(first.args["inputText"]) ??
+    cleanString(first.args["input_text"]);
   const cdpEndpointUrl =
     cleanString(first.args["cdpEndpointUrl"]) ??
     cleanString(first.args["cdp_endpoint_url"]) ??
@@ -95,6 +100,7 @@ export function workflowComposerComputerUseRunOptions(
       ...(approvalRef ? { computerUseApprovalRef: approvalRef } : {}),
       ...(targetRef ? { computerUseTargetRef: targetRef } : {}),
       ...(selector ? { selector } : {}),
+      ...(text ? { text } : {}),
       ...(cdpEndpointUrl ? { cdpEndpointUrl } : {}),
       ...(cdpWebSocketUrl ? { cdpWebSocketUrl } : {}),
       ...(cdpTimeoutMs ? { cdpTimeoutMs } : {}),

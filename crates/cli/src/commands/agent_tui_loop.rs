@@ -80,6 +80,7 @@ pub(crate) enum TuiLineCommand {
         approval_ref: Option<String>,
         target_ref: Option<String>,
         selector: Option<String>,
+        text: Option<String>,
         cdp_endpoint_url: Option<String>,
         cdp_websocket_url: Option<String>,
         cdp_timeout_ms: Option<u64>,
@@ -393,6 +394,7 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                 approval_ref,
                 target_ref,
                 selector,
+                text,
                 cdp_endpoint_url,
                 cdp_websocket_url,
                 cdp_timeout_ms,
@@ -404,6 +406,7 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
                         approval_ref,
                         target_ref,
                         selector,
+                        text,
                         cdp_endpoint_url,
                         cdp_websocket_url,
                         cdp_timeout_ms,
@@ -970,6 +973,7 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 approval_ref: args.approval_ref,
                 target_ref: args.target_ref,
                 selector: args.selector,
+                text: args.text,
                 cdp_endpoint_url: args.cdp_endpoint_url,
                 cdp_websocket_url: args.cdp_websocket_url,
                 cdp_timeout_ms: args.cdp_timeout_ms,
@@ -993,6 +997,7 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                     approval_ref: args.approval_ref,
                     target_ref: args.target_ref,
                     selector: args.selector,
+                    text: args.text,
                     cdp_endpoint_url: args.cdp_endpoint_url,
                     cdp_websocket_url: args.cdp_websocket_url,
                     cdp_timeout_ms: args.cdp_timeout_ms,
@@ -2609,6 +2614,13 @@ async fn handle_native_browser_command(
             Value::String(selector.trim().to_string()),
         );
     }
+    if let Some(text) = args
+        .text
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert("text".to_string(), Value::String(text.trim().to_string()));
+    }
     if let Some(cdp_endpoint_url) = args
         .cdp_endpoint_url
         .as_deref()
@@ -3244,7 +3256,7 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--approval-ref approval_id] [--selector css] [--target-ref ref] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--approval-ref approval_id] [--selector css] [--target-ref ref] [--text value] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -3268,6 +3280,7 @@ struct NativeBrowserLineArgs {
     approval_ref: Option<String>,
     target_ref: Option<String>,
     selector: Option<String>,
+    text: Option<String>,
     cdp_endpoint_url: Option<String>,
     cdp_websocket_url: Option<String>,
     cdp_timeout_ms: Option<u64>,
@@ -3278,6 +3291,7 @@ fn parse_native_browser_args(value: &str) -> Result<NativeBrowserLineArgs> {
     let mut approval_ref = None;
     let mut target_ref = None;
     let mut selector = None;
+    let mut text = None;
     let mut cdp_endpoint_url = None;
     let mut cdp_websocket_url = None;
     let mut cdp_timeout_ms = None;
@@ -3316,6 +3330,17 @@ fn parse_native_browser_args(value: &str) -> Result<NativeBrowserLineArgs> {
             selector = Some(non_empty_flag_value(
                 "--selector",
                 required_flag_value("--selector", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--text=") {
+            text = Some(non_empty_flag_value("--text", inline)?);
+            continue;
+        }
+        if part == "--text" {
+            text = Some(non_empty_flag_value(
+                "--text",
+                required_flag_value("--text", &mut parts)?,
             )?);
             continue;
         }
@@ -3359,6 +3384,7 @@ fn parse_native_browser_args(value: &str) -> Result<NativeBrowserLineArgs> {
         approval_ref,
         target_ref,
         selector,
+        text,
         cdp_endpoint_url,
         cdp_websocket_url,
         cdp_timeout_ms,
@@ -4411,6 +4437,7 @@ mod tests {
                 approval_ref: None,
                 target_ref: None,
                 selector: None,
+                text: None,
                 cdp_endpoint_url: None,
                 cdp_websocket_url: None,
                 cdp_timeout_ms: None,
@@ -4423,6 +4450,7 @@ mod tests {
                 approval_ref: None,
                 target_ref: None,
                 selector: None,
+                text: None,
                 cdp_endpoint_url: None,
                 cdp_websocket_url: None,
                 cdp_timeout_ms: None,
@@ -4430,7 +4458,7 @@ mod tests {
         );
         assert_eq!(
             parse_tui_line_command(
-                "/native-browser click submit --approval-ref approval-browser-click --selector #submit --target-ref #submit --cdp-endpoint-url http://127.0.0.1:9222 --cdp-timeout-ms 5000"
+                "/native-browser click submit --approval-ref approval-browser-click --selector #submit --target-ref #submit --text hello --cdp-endpoint-url http://127.0.0.1:9222 --cdp-timeout-ms 5000"
             )
             .unwrap(),
             TuiLineCommand::NativeBrowser {
@@ -4438,6 +4466,7 @@ mod tests {
                 approval_ref: Some("approval-browser-click".to_string()),
                 target_ref: Some("#submit".to_string()),
                 selector: Some("#submit".to_string()),
+                text: Some("hello".to_string()),
                 cdp_endpoint_url: Some("http://127.0.0.1:9222".to_string()),
                 cdp_websocket_url: None,
                 cdp_timeout_ms: Some(5000),

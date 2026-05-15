@@ -52,6 +52,32 @@ test("native browser CDP executor completes approved click actions", async () =>
   }
 });
 
+test("native browser CDP executor completes approved type_text actions", async () => {
+  const fixture = await startFakeNativeBrowserCdpServer();
+  try {
+    const result = await executeNativeBrowserCdpAction({
+      input: {
+        cdpEndpointUrl: fixture.endpointUrl,
+        selector: "#input",
+        text: "hello IOI",
+      },
+      actionKind: "type_text",
+      approvalRef: "approval-type",
+      targetRef: "#input",
+      prompt: "Type into input",
+    });
+
+    assert.equal(result.status, "completed");
+    assert.equal(result.action_result.action, "type_text");
+    assert.equal(result.action_result.selector, "#input");
+    assert.equal(result.action_result.text_length, 9);
+    assert.equal(result.after.text_preview, "Typed hello IOI");
+    assert.deepEqual(fixture.state.typed, [{ selector: "#input", text: "hello IOI" }]);
+  } finally {
+    await fixture.close();
+  }
+});
+
 test("native browser CDP executor fails closed without endpoint", async () => {
   const result = await executeNativeBrowserCdpAction({
     input: {},

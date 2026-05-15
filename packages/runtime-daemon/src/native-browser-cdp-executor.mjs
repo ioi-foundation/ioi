@@ -18,14 +18,14 @@ export async function executeNativeBrowserCdpAction({
     prompt,
   })).slice(0, 16)}`;
   const normalizedActionKind = normalizeActionKind(actionKind);
-  if (!approvalRef || !["click", "navigate"].includes(normalizedActionKind)) {
+  if (!approvalRef || !["click", "navigate", "type_text"].includes(normalizedActionKind)) {
     return unavailableExecution({
       executorRef,
       actionKind: normalizedActionKind,
       approvalRef,
       errorClass: "NativeBrowserCdpUnsupportedAction",
       errorSummary:
-        "The native-browser CDP executor currently supports approved navigate and click actions.",
+        "The native-browser CDP executor currently supports approved navigate, click, and type_text actions.",
     });
   }
 
@@ -49,7 +49,9 @@ export async function executeNativeBrowserCdpAction({
     const before = await observePage(client);
     const actionResult = normalizedActionKind === "navigate"
       ? await executeNavigate(client, input, prompt, { timeoutMs })
-      : await executeClick(client, input, targetRef);
+      : normalizedActionKind === "type_text"
+        ? await executeTypeText(client, input, targetRef, prompt)
+        : await executeClick(client, input, targetRef);
     const after = await observePage(client);
     return {
       schema_version: NATIVE_BROWSER_CDP_EXECUTOR_SCHEMA_VERSION,
@@ -149,6 +151,74 @@ async function executeClick(client, input, targetRef) {
   }
   return {
     action: "click",
+    ...value,
+  };
+}
+
+async function executeTypeText(client, input, targetRef, prompt) {
+  const selector = normalizeSelector(
+    input.selector ??
+      input.targetSelector ??
+      input.target_selector ??
+      input.cssSelector ??
+      input.css_selector ??
+      targetRef,
+  );
+  if (!selector) {
+    throw new Error("Approved type_text action requires selector, targetSelector, or selector-shaped targetRef.");
+  }
+  const text = stringValue(
+    input.text ??
+      input.value ??
+      input.inputText ??
+      input.input_text ??
+      input.textValue ??
+      input.text_value,
+  ) ?? String(prompt ?? "").match(/\btype(?:_text)?\s+["']([^"']+)["']/i)?.[1];
+  if (text === null || text === undefined) {
+    throw new Error("Approved type_text action requires text, value, inputText, or a quoted type prompt.");
+  }
+  const expression = `(() => {
+    const selector = ${JSON.stringify(selector)};
+    const text = ${JSON.stringify(text)};
+    const element = document.querySelector(selector);
+    if (!element) {
+      return { typed: false, selector, reason: "target_not_found" };
+    }
+    element.scrollIntoView({ block: "center", inline: "center" });
+    element.focus();
+    const previousValue = "value" in element ? String(element.value ?? "") : (element.textContent || "");
+    if ("value" in element) {
+      element.value = text;
+    } else if (element.isContentEditable) {
+      element.textContent = text;
+    } else {
+      return { typed: false, selector, reason: "target_not_editable" };
+    }
+    element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+    const rect = element.getBoundingClientRect();
+    return {
+      typed: true,
+      selector,
+      tag: element.tagName,
+      id: element.id || null,
+      previous_value_length: previousValue.length,
+      text_length: text.length,
+      bounds: {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height
+      }
+    };
+  })()`;
+  const value = await evaluateReturnByValue(client, expression);
+  if (!value?.typed) {
+    throw new Error(`CDP type_text did not update target selector ${selector}: ${value?.reason ?? "unknown"}.`);
+  }
+  return {
+    action: "type_text",
     ...value,
   };
 }

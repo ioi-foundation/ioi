@@ -366,6 +366,7 @@ fn workflow_run_executes_approved_mutating_native_browser_action() {
                 "computerUseApprovalRef": "approval-browser-click",
                 "targetRef": "#submit",
                 "selector": "#submit",
+                "text": "hello",
                 "cdpEndpointUrl": "http://127.0.0.1:9222",
                 "cdpTimeoutMs": 5000,
                 "observationRetentionMode": "local_redacted_artifacts",
@@ -438,6 +439,13 @@ fn workflow_run_executes_approved_mutating_native_browser_action() {
             .and_then(|value| value.get("selector"))
             .and_then(Value::as_str),
         Some("#submit")
+    );
+    assert_eq!(
+        proposal_event
+            .get("payload")
+            .and_then(|value| value.get("text"))
+            .and_then(Value::as_str),
+        Some("hello")
     );
     assert_eq!(
         proposal_event
