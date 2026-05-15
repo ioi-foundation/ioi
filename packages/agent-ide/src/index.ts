@@ -14,6 +14,15 @@ export type {
   WorkflowComposerTerminalCodingLoopControlRequest,
   WorkflowComposerTerminalCodingLoopRunActivationOptions,
 } from "./WorkflowComposer/terminalCodingLoopRunActivation";
+export {
+  WORKFLOW_COMPOSER_COMPUTER_USE_RUN_OPTIONS_SCHEMA_VERSION,
+  mergeWorkflowComposerComputerUseRunOptions,
+  workflowComposerComputerUseRunOptions,
+} from "./WorkflowComposer/computerUseRunOptions";
+export type {
+  WorkflowComposerComputerUseRunMetadata,
+  WorkflowComposerComputerUseRunOptions,
+} from "./WorkflowComposer/computerUseRunOptions";
 export { createWorkflowHarnessTools } from "./runtime/workflow-harness-tools";
 export {
   WORKFLOW_CODING_ROUTE_CONTRACTS,

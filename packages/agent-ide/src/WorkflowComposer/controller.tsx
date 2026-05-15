@@ -157,6 +157,10 @@ import {
   workflowComposerTerminalCodingLoopControlRequestForRuntime,
   workflowComposerTerminalCodingLoopRunLaunchEligible,
 } from "./terminalCodingLoopRunActivation";
+import {
+  mergeWorkflowComposerComputerUseRunOptions,
+  workflowComposerComputerUseRunOptions,
+} from "./computerUseRunOptions";
 import type {
   WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   WorkflowRuntimeContextPressureActionDescriptor,
@@ -13073,6 +13077,13 @@ export function useWorkflowComposerController({
           workflowRunOptions.codingToolBudgetPreflight =
             workflowRunCodingBudgetPreflightAnnotation;
         }
+        Object.assign(
+          workflowRunOptions,
+          mergeWorkflowComposerComputerUseRunOptions(
+            workflowRunOptions,
+            workflowComposerComputerUseRunOptions(currentProjectFile),
+          ),
+        );
         if (
           validation.status === "passed" &&
           liveTelemetryHydration &&

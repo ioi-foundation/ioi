@@ -541,12 +541,17 @@ Deliverables:
 - canonical Browser Use, Computer Use, and Sandboxed Computer creator presets
   that compile to runtime-owned computer-use lane/session metadata rather than
   React Flow state.
+- composer Run activation metadata bridge that sends configured lane, session,
+  retention, fail-closed, workflow node ids, tool ref, and authority scopes to
+  the runtime request.
 
 Acceptance:
 
 - React Flow remains a configurable projection;
 - every node maps to runtime contracts;
 - old workflows continue to load.
+- mounted-model prompts launched from a composed workflow carry the selected
+  computer-use lane into the daemon/runtime request.
 - Autopilot/run history can rebuild the computer-use prompt-to-action pipeline
   from canonical runtime events without a separate trace store.
 
