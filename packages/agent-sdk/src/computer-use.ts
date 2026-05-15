@@ -503,6 +503,36 @@ export interface ComputerUseBenchmarkCaseExport {
   summary: string;
 }
 
+export interface ComputerUseBenchmarkSuiteInput {
+  suite_ref?: string | null;
+  cases: ComputerUseBenchmarkCaseExport[];
+}
+
+export interface ComputerUseBenchmarkSuiteResult {
+  schema_version: typeof COMPUTER_USE_CONTRACT_SCHEMA_VERSION | string;
+  suite_ref: string;
+  case_count: number;
+  average_score: number;
+  passed_count: number;
+  blocked_count: number;
+  failed_count: number;
+  incomplete_count: number;
+  outcomes: Record<string, number>;
+  failure_classes: Record<string, number>;
+  failure_modes: Record<string, number>;
+  regression_gate_refs: string[];
+  promotion_blocked_count: number;
+  raw_artifacts_included_count: number;
+  hidden_runtime_shortcuts_forbidden: boolean;
+  scorecard: {
+    pass_rate: number;
+    fail_closed_rate: number;
+    promotion_ready_rate: number;
+    regression_gate_count: number;
+  };
+  summary: string;
+}
+
 export interface CleanupReceipt {
   cleanup_ref: string;
   lease_id: string;
@@ -979,6 +1009,75 @@ export function exportComputerUseBenchmarkCase(
       hidden_runtime_shortcuts_forbidden: true,
     },
     summary: benchmarkExportSummary(trajectoryEval, exportMode, rawArtifactsIncluded),
+  };
+}
+
+export function runComputerUseBenchmarkSuite(
+  input: ComputerUseBenchmarkSuiteInput,
+): ComputerUseBenchmarkSuiteResult {
+  const cases = input.cases ?? [];
+  const caseCount = cases.length;
+  const outcomeCounts = countBy(cases.map((item) => item.outcome));
+  const failureClassCounts = countBy(cases.map((item) => item.failure_class));
+  const failureModeCounts = countBy(cases.map((item) => item.failure_mode));
+  const passedCount = outcomeCounts.passed ?? 0;
+  const blockedCount = outcomeCounts.blocked ?? 0;
+  const failedCount = outcomeCounts.failed ?? 0;
+  const incompleteCount = outcomeCounts.incomplete ?? 0;
+  const promotionBlockedCount = cases.filter((item) =>
+    item.promotion_gate_ref.includes("blocked") ||
+    item.regression_gates.length > 0 ||
+    item.failure_class === "environment",
+  ).length;
+  const regressionGateRefs = uniqueStrings(
+    cases.flatMap((item) => item.regression_gates),
+  );
+  const rawArtifactsIncludedCount = cases.filter(
+    (item) => item.manifest.raw_artifacts_included,
+  ).length;
+  const averageScore =
+    caseCount === 0
+      ? 0
+      : Number(
+          (
+            cases.reduce((total, item) => total + item.score, 0) / caseCount
+          ).toFixed(4),
+        );
+  return {
+    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    suite_ref:
+      input.suite_ref?.trim() ||
+      `computer_use_benchmark_suite_${safeComputerUseId(String(caseCount))}`,
+    case_count: caseCount,
+    average_score: averageScore,
+    passed_count: passedCount,
+    blocked_count: blockedCount,
+    failed_count: failedCount,
+    incomplete_count: incompleteCount,
+    outcomes: outcomeCounts,
+    failure_classes: failureClassCounts,
+    failure_modes: failureModeCounts,
+    regression_gate_refs: regressionGateRefs,
+    promotion_blocked_count: promotionBlockedCount,
+    raw_artifacts_included_count: rawArtifactsIncludedCount,
+    hidden_runtime_shortcuts_forbidden: cases.every(
+      (item) => item.manifest.hidden_runtime_shortcuts_forbidden,
+    ),
+    scorecard: {
+      pass_rate: ratio(passedCount, caseCount),
+      fail_closed_rate: ratio(blockedCount, caseCount),
+      promotion_ready_rate: ratio(caseCount - promotionBlockedCount, caseCount),
+      regression_gate_count: regressionGateRefs.length,
+    },
+    summary: benchmarkSuiteSummary({
+      caseCount,
+      averageScore,
+      passedCount,
+      blockedCount,
+      failedCount,
+      incompleteCount,
+      promotionBlockedCount,
+    }),
   };
 }
 
@@ -1707,6 +1806,35 @@ function benchmarkExportSummary(
 ): string {
   const rawNote = rawArtifactsIncluded ? "with local-private raw artifacts" : "with redacted evidence refs";
   return `${trajectoryEval.eval_ref} exported as ${exportMode} benchmark case ${rawNote}.`;
+}
+
+function benchmarkSuiteSummary(input: {
+  caseCount: number;
+  averageScore: number;
+  passedCount: number;
+  blockedCount: number;
+  failedCount: number;
+  incompleteCount: number;
+  promotionBlockedCount: number;
+}): string {
+  if (input.caseCount === 0) return "Computer-use benchmark suite contains no cases.";
+  return `Computer-use benchmark suite scored ${input.averageScore} across ${input.caseCount} case(s): ${input.passedCount} passed, ${input.blockedCount} fail-closed, ${input.failedCount} failed, ${input.incompleteCount} incomplete; ${input.promotionBlockedCount} require promotion evidence.`;
+}
+
+function countBy(values: readonly string[]): Record<string, number> {
+  return values.reduce<Record<string, number>>((counts, value) => {
+    counts[value] = (counts[value] ?? 0) + 1;
+    return counts;
+  }, {});
+}
+
+function ratio(numerator: number, denominator: number): number {
+  if (denominator <= 0) return 0;
+  return Number((numerator / denominator).toFixed(4));
+}
+
+function uniqueStrings(values: readonly string[]): string[] {
+  return [...new Set(values.filter((value) => value.trim()).map((value) => value.trim()))];
 }
 
 function safeComputerUseId(value: string): string {
