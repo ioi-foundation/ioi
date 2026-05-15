@@ -90,6 +90,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const terminalCodingLoopRunButtonProbe = read(
     "scripts/lib/workflow-terminal-coding-loop-run-button-gui-probe.mjs",
   );
+  const sandboxedComputerRunButtonProbe = read(
+    "scripts/lib/workflow-sandboxed-computer-run-button-gui-probe.mjs",
+  );
   const telemetryBudgetChainRuntimeSubflowInsertion = read(
     "packages/agent-ide/src/WorkflowComposer/runtimeSubflowInsertion.ts",
   );
@@ -364,6 +367,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(runsPanel, /data-computer-use-verification-ref/);
   assert.match(runsPanel, /data-execution-provider-id/);
   assert.match(runsPanel, /data-execution-requires-reobserve/);
+  assert.match(runsPanel, /data-cleanup-status/);
   assert.match(runsPanel, /data-workflow-node-id/);
   assert.match(runsPanel, /data-tool-ref/);
   assert.match(runsPanel, /data-authority-scopes/);
@@ -641,6 +645,23 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
     /approvalDecisionEvidence/,
   );
   assert.match(
+    sandboxedComputerRunButtonProbe,
+    /workflow_sandboxed_computer_run_button_activation/,
+  );
+  assert.match(sandboxedComputerRunButtonProbe, /workflow-run-button/);
+  assert.match(sandboxedComputerRunButtonProbe, /Sandboxed Computer/);
+  assert.match(
+    sandboxedComputerRunButtonProbe,
+    /workflowComposerComputerUseRunOptions/,
+  );
+  assert.match(
+    sandboxedComputerRunButtonProbe,
+    /mergeWorkflowComposerComputerUseRunOptions/,
+  );
+  assert.match(sandboxedComputerRunButtonProbe, /local_sandbox_fixture/);
+  assert.match(sandboxedComputerRunButtonProbe, /workflowRunHistoryModel/);
+  assert.match(sandboxedComputerRunButtonProbe, /glassBoxWorkbench/);
+  assert.match(
     liveRuntimeDaemonContract,
     /React Flow run-inspector-created telemetry budget chain executes/,
   );
@@ -715,6 +736,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(
     guiHarnessContract,
+    /workflow_sandboxed_computer_run_button/,
+  );
+  assert.match(
+    guiHarnessContract,
     /workflow_terminal_coding_loop_creator_proof_present/,
   );
   assert.match(
@@ -724,6 +749,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(
     guiHarnessContract,
     /workflow_terminal_coding_loop_run_button_proof_present/,
+  );
+  assert.match(
+    guiHarnessContract,
+    /workflow_sandboxed_computer_run_button_proof_present/,
   );
   assert.match(
     guiHarnessValidation,
@@ -747,6 +776,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(
     guiHarnessValidation,
+    /collectWorkflowSandboxedComputerRunButtonProof/,
+  );
+  assert.match(
+    guiHarnessValidation,
     /workflowTelemetryBudgetChainCreatorProof/,
   );
   assert.match(
@@ -764,6 +797,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(
     guiHarnessValidation,
     /workflowTerminalCodingLoopRunButtonProof/,
+  );
+  assert.match(
+    guiHarnessValidation,
+    /workflowSandboxedComputerRunButtonProof/,
   );
   assert.match(
     guiHarnessValidation,
@@ -787,6 +824,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(
     guiHarnessValidation,
+    /workflow_sandboxed_computer_run_button/,
+  );
+  assert.match(
+    guiHarnessValidation,
     /workflow_telemetry_budget_chain_creator_proof_present/,
   );
   assert.match(
@@ -804,6 +845,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(
     guiHarnessValidation,
     /workflow_terminal_coding_loop_run_button_proof_present/,
+  );
+  assert.match(
+    guiHarnessValidation,
+    /workflow_sandboxed_computer_run_button_proof_present/,
   );
   assert.match(projection, /Coding tool budget/);
   assert.match(projection, /runtimeSubagentSubflow/);

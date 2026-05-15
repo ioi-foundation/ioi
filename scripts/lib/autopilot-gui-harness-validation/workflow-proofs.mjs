@@ -142,6 +142,17 @@ export function collectWorkflowTerminalCodingLoopRunButtonProof(outputRoot) {
   });
 }
 
+export function collectWorkflowSandboxedComputerRunButtonProof(outputRoot) {
+  return collectProbeProof(outputRoot, {
+    fileName: "workflow-sandboxed-computer-run-button-proof.json",
+    scriptPath:
+      "scripts/lib/workflow-sandboxed-computer-run-button-gui-probe.mjs",
+    schemaVersion: "workflow.sandboxed-computer.run-button-proof.v1",
+    scenario: "workflow_sandboxed_computer_run_button_activation",
+    errorLabel: "sandboxed computer Run-button probe",
+  });
+}
+
 export function collectWorkflowSkillContextProof(outputRoot) {
   const files = {
     graphTypes: "packages/agent-ide/src/types/graph.ts",

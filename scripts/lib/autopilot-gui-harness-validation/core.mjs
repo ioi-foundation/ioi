@@ -18,6 +18,7 @@ import {
   collectWorkflowCodingRouteProof,
   collectWorkflowCodingRoutePromotionLoopProof,
   collectWorkflowSkillContextProof,
+  collectWorkflowSandboxedComputerRunButtonProof,
   collectWorkflowTelemetryBudgetChainCreatorProof,
   collectWorkflowTelemetryBudgetChainRunInspectorProof,
   collectWorkflowTerminalCodingLoopCreatorProof,
@@ -28,6 +29,7 @@ export {
   collectWorkflowCodingRouteProof,
   collectWorkflowCodingRoutePromotionLoopProof,
   collectWorkflowSkillContextProof,
+  collectWorkflowSandboxedComputerRunButtonProof,
   collectWorkflowTelemetryBudgetChainCreatorProof,
   collectWorkflowTelemetryBudgetChainRunInspectorProof,
   collectWorkflowTerminalCodingLoopCreatorProof,
@@ -6005,6 +6007,7 @@ export function buildGuiEvidenceAssessment({
   workflowTerminalCodingLoopCreatorProof,
   workflowTerminalCodingLoopRunInspectorProof,
   workflowTerminalCodingLoopRunButtonProof,
+  workflowSandboxedComputerRunButtonProof,
   workflowSkillContextProof,
   workflowCodingRouteProof,
   workflowCodingRoutePromotionLoopProof,
@@ -7043,6 +7046,8 @@ export function buildGuiEvidenceAssessment({
     workflowTerminalCodingLoopRunInspectorProof?.proof?.passed === true;
   const hasWorkflowTerminalCodingLoopRunButtonProof =
     workflowTerminalCodingLoopRunButtonProof?.proof?.passed === true;
+  const hasWorkflowSandboxedComputerRunButtonProof =
+    workflowSandboxedComputerRunButtonProof?.proof?.passed === true;
   const hasWorkflowCodingRouteCreateRunProof =
     workflowCodingRouteProof?.proof?.passed === true;
   const hasWorkflowCodingRoutePromotionLoopProof =
@@ -7243,6 +7248,8 @@ export function buildGuiEvidenceAssessment({
         hasWorkflowTerminalCodingLoopRunInspectorProof,
       workflow_terminal_coding_loop_run_button_proof_present:
         hasWorkflowTerminalCodingLoopRunButtonProof,
+      workflow_sandboxed_computer_run_button_proof_present:
+        hasWorkflowSandboxedComputerRunButtonProof,
       workflow_coding_route_create_run_proof_present:
         hasWorkflowCodingRouteCreateRunProof,
       workflow_coding_route_promotion_loop_proof_present:
@@ -7337,6 +7344,7 @@ export function buildGuiEvidenceAssessment({
       hasWorkflowTerminalCodingLoopCreatorProof,
       hasWorkflowTerminalCodingLoopRunInspectorProof,
       hasWorkflowTerminalCodingLoopRunButtonProof,
+      hasWorkflowSandboxedComputerRunButtonProof,
       providerGatedVisibleOutputRequiredScenarios: [
         ...AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
       ],
@@ -11130,6 +11138,8 @@ async function runGuiValidation(args, outputRoot) {
       collectWorkflowTerminalCodingLoopRunInspectorProof(outputRoot);
     const workflowTerminalCodingLoopRunButtonProof =
       collectWorkflowTerminalCodingLoopRunButtonProof(outputRoot);
+    const workflowSandboxedComputerRunButtonProof =
+      collectWorkflowSandboxedComputerRunButtonProof(outputRoot);
     const workflowSkillContextProof =
       collectWorkflowSkillContextProof(outputRoot);
     const workflowCodingRouteProof =
@@ -11147,6 +11157,7 @@ async function runGuiValidation(args, outputRoot) {
       workflowTerminalCodingLoopCreatorProof,
       workflowTerminalCodingLoopRunInspectorProof,
       workflowTerminalCodingLoopRunButtonProof,
+      workflowSandboxedComputerRunButtonProof,
       workflowSkillContextProof,
       workflowCodingRouteProof,
       workflowCodingRoutePromotionLoopProof,
@@ -11653,6 +11664,10 @@ async function runGuiValidation(args, outputRoot) {
           workflowTerminalCodingLoopRunButtonProof.proof.passed === true
             ? workflowTerminalCodingLoopRunButtonProof.path
             : false,
+        workflow_sandboxed_computer_run_button:
+          workflowSandboxedComputerRunButtonProof.proof.passed === true
+            ? workflowSandboxedComputerRunButtonProof.path
+            : false,
         workflow_coding_route_create_run:
           workflowCodingRouteProof.proof.passed === true
             ? workflowCodingRouteProof.path
@@ -11681,6 +11696,8 @@ async function runGuiValidation(args, outputRoot) {
           workflowTerminalCodingLoopRunInspectorProof.proof,
         workflowTerminalCodingLoopRunButton:
           workflowTerminalCodingLoopRunButtonProof.proof,
+        workflowSandboxedComputerRunButton:
+          workflowSandboxedComputerRunButtonProof.proof,
         workflowCodingRoute: workflowCodingRouteProof.proof,
         workflowCodingRoutePromotionLoop:
           workflowCodingRoutePromotionLoopProof.proof,
