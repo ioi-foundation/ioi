@@ -406,6 +406,73 @@ test("workflow-authored computer-use metadata round-trips through SDK trace even
   assert.equal(runtimeComputerEvent.payload.observation_retention_mode, "prompt_visible_summary_only");
 });
 
+test("SDK local traces ingest canonical computer-use observation contracts", async () => {
+  const { cwd, client } = tempClient();
+  const agent = await Agent.create({
+    model: { id: "local:auto" },
+    local: { cwd },
+    substrateClient: client,
+  });
+  const run = await agent.send("Use the browser to inspect https://local-live.example.test.", {
+    metadata: {
+      computerUse: true,
+      computerUseObservationBundle: {
+        observation_ref: "observation-sdk-live",
+        url: "https://local-live.example.test/app",
+        title: "SDK Live App",
+        target_index_ref: "target-index-sdk-live",
+        detected_patterns: ["table"],
+      },
+      computerUseTargetIndex: {
+        target_index_ref: "target-index-sdk-live",
+        observation_ref: "observation-sdk-live",
+        coordinate_space_id: "viewport-sdk-live",
+        drift_state: "fresh",
+        targets: [
+          {
+            target_ref: "target-sdk-live-table",
+            label: "Accounts table",
+            role: "table",
+            semantic_ids: ["table:accounts"],
+            selectors: ["[data-testid=accounts-table]"],
+            confidence: 95,
+            available_actions: ["inspect"],
+          },
+        ],
+      },
+      computerUseAffordanceGraph: {
+        graph_ref: "affordance-sdk-live",
+        target_index_ref: "target-index-sdk-live",
+        observation_ref: "observation-sdk-live",
+        affordances: [
+          {
+            target_ref: "target-sdk-live-table",
+            possible_action: "inspect",
+            action_preconditions: ["fresh_observation"],
+            confidence: 95,
+            expected_state_transition: "Table state is summarized.",
+            risk_class: "read_only",
+            required_authority: "computer_use.native_browser.read",
+            confirmation_required: false,
+            fallback_action_paths: ["reobserve"],
+            invalidation_conditions: ["navigation"],
+          },
+        ],
+      },
+    },
+  });
+  const trace = await run.inspect();
+  assert.equal(trace.computerUse.observation.observation_ref, "observation-sdk-live");
+  assert.equal(trace.computerUse.observation.url, "https://local-live.example.test/app");
+  assert.equal(trace.computerUse.targetIndex.targets[0].target_ref, "target-sdk-live-table");
+  assert.equal(trace.computerUse.affordanceGraph.graph_ref, "affordance-sdk-live");
+  assert.equal(trace.computerUse.actionProposal.target_ref, "target-sdk-live-table");
+
+  const observationEvent = trace.events.find((event) => event.type === "computer_use_observation");
+  assert.ok(observationEvent);
+  assert.equal(observationEvent.data.computer_use_contract_ingest, "canonical_runtime_contract");
+});
+
 test("runtime daemon emits canonical computer-use events for browser prompts", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-state-"));

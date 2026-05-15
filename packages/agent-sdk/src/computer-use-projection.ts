@@ -69,6 +69,7 @@ export function mockComputerUseProjectionForRun({
   const requestedLane = requestedComputerUseLane(options.metadata);
   const requestedRetentionMode =
     workflowBinding.observationRetentionMode ?? "local_redacted_artifacts";
+  const contractOverrides = computerUseContractOverrides(options.metadata);
   if (requestedLane !== "native_browser") {
     return mockUnavailableComputerUseProjectionForRun({
       runId,
@@ -81,9 +82,16 @@ export function mockComputerUseProjectionForRun({
   }
   const targetHint = computerUseTargetHint(prompt);
   const leaseId = `lease_${runId}_browser`;
-  const observationRef = `observation_${runId}_browser_initial`;
-  const targetIndexRef = `target_index_${runId}_browser_initial`;
-  const affordanceGraphRef = `affordance_${runId}_browser_initial`;
+  const observationRef =
+    cleanString(contractOverrides.observationBundle?.observation_ref) ??
+    `observation_${runId}_browser_initial`;
+  const targetIndexRef =
+    cleanString(contractOverrides.targetIndex?.target_index_ref) ??
+    cleanString(contractOverrides.observationBundle?.target_index_ref) ??
+    `target_index_${runId}_browser_initial`;
+  const affordanceGraphRef =
+    cleanString(contractOverrides.affordanceGraph?.graph_ref) ??
+    `affordance_${runId}_browser_initial`;
   const proposalRef = `proposal_${runId}_browser_inspect`;
   const actionRef = `action_${runId}_browser_inspect`;
   const actionReceiptRef = `receipt_${runId}_computer_use_action`;
@@ -154,7 +162,7 @@ export function mockComputerUseProjectionForRun({
     user_handoff_ref: null,
     cleanup_state: "cleanup_required",
   };
-  const observation: ComputerUseObservationBundle = {
+  const observation: ComputerUseObservationBundle = mergeObservationContract({
     observation_ref: observationRef,
     lease_id: leaseId,
     lane: "native_browser",
@@ -173,10 +181,10 @@ export function mockComputerUseProjectionForRun({
     freshness_ms: 0,
     retention_mode: requestedRetentionMode,
     detected_patterns: ["form", "toolbar", "warning_or_toast"],
-  };
-  const targetIndex: TargetIndex = {
+  }, contractOverrides.observationBundle, leaseId, requestedRetentionMode);
+  const targetIndex: TargetIndex = mergeTargetIndexContract({
     target_index_ref: targetIndexRef,
-    observation_ref: observationRef,
+    observation_ref: observation.observation_ref,
     coordinate_space_id: `viewport_${runId}`,
     drift_state: "fresh",
     targets: [
@@ -199,14 +207,15 @@ export function mockComputerUseProjectionForRun({
         available_actions: ["inspect", "scroll", "click"],
       },
     ],
-  };
-  const affordanceGraph: AffordanceGraph = {
+  }, contractOverrides.targetIndex, observation.observation_ref);
+  const primaryTarget = targetIndex.targets[0];
+  const affordanceGraph: AffordanceGraph = mergeAffordanceGraphContract({
     graph_ref: affordanceGraphRef,
     target_index_ref: targetIndexRef,
-    observation_ref: observationRef,
+    observation_ref: observation.observation_ref,
     affordances: [
       {
-        target_ref: targetIndex.targets[0].target_ref,
+        target_ref: primaryTarget.target_ref,
         possible_action: "inspect",
         action_preconditions: ["fresh_observation", "target_index_present"],
         confidence: 95,
@@ -218,14 +227,14 @@ export function mockComputerUseProjectionForRun({
         invalidation_conditions: ["navigation", "modal_interruption", "auth_wall"],
       },
     ],
-  };
+  }, contractOverrides.affordanceGraph, targetIndex.target_index_ref, observation.observation_ref);
   const actionProposal: ActionProposal = {
     proposal_ref: proposalRef,
     proposed_by: selectedModel,
     model_role: "grounder",
     raw_model_output_ref: `model_output_${runId}_computer_use_candidate`,
     normalized_action_candidate: "inspect current page and summarize actionable targets",
-    target_ref: targetIndex.targets[0].target_ref,
+    target_ref: primaryTarget.target_ref,
     confidence: 92,
     rationale_summary: "The page root is present and read-only inspection is the lowest-risk next step.",
     predicted_postcondition: "The harness has a grounded page summary and next-action candidates.",
@@ -358,6 +367,9 @@ export function mockComputerUseProjectionForRun({
     computer_use_lane: environmentSelection.selected_lane,
     computer_use_session_mode: environmentSelection.selected_session_mode,
     computer_use_lease_id: lease.lease_id,
+    computer_use_contract_ingest: contractOverrides.observationBundle
+      ? "canonical_runtime_contract"
+      : "synthetic_sdk_projection",
     observation_retention_mode: requestedRetentionMode,
     fail_closed_when_unavailable: workflowBinding.failClosedWhenUnavailable,
     workflowGraphId: workflowBinding.workflowGraphId,
@@ -837,6 +849,95 @@ function requestedComputerUseSessionMode(
 function computerUseTargetHint(prompt: string): string {
   const url = String(prompt).match(/https?:\/\/[^\s)]+/i)?.[0];
   return url ?? "browser surface requested by user prompt";
+}
+
+interface ComputerUseContractOverrides {
+  observationBundle: Partial<ComputerUseObservationBundle> | null;
+  targetIndex: Partial<TargetIndex> | null;
+  affordanceGraph: Partial<AffordanceGraph> | null;
+}
+
+function computerUseContractOverrides(
+  metadata: SendOptions["metadata"],
+): ComputerUseContractOverrides {
+  return {
+    observationBundle: objectValue(
+      metadata?.computerUseObservationBundle ??
+        metadata?.computer_use_observation_bundle,
+    ) as Partial<ComputerUseObservationBundle> | null,
+    targetIndex: objectValue(
+      metadata?.computerUseTargetIndex ??
+        metadata?.computer_use_target_index,
+    ) as Partial<TargetIndex> | null,
+    affordanceGraph: objectValue(
+      metadata?.computerUseAffordanceGraph ??
+        metadata?.computer_use_affordance_graph,
+    ) as Partial<AffordanceGraph> | null,
+  };
+}
+
+function mergeObservationContract(
+  base: ComputerUseObservationBundle,
+  override: Partial<ComputerUseObservationBundle> | null,
+  leaseId: string,
+  retentionMode: ObservationRetentionMode,
+): ComputerUseObservationBundle {
+  if (!override) return base;
+  const detectedPatterns = cleanStringArray(override.detected_patterns);
+  return {
+    ...base,
+    ...override,
+    observation_ref: cleanString(override.observation_ref) ?? base.observation_ref,
+    lease_id: leaseId,
+    lane: "native_browser",
+    session_mode: "owned_hermetic_browser",
+    target_index_ref: cleanString(override.target_index_ref) ?? base.target_index_ref,
+    retention_mode: observationRetentionModeValue(override.retention_mode) ?? retentionMode,
+    detected_patterns: detectedPatterns.length > 0 ? detectedPatterns : base.detected_patterns,
+  };
+}
+
+function mergeTargetIndexContract(
+  base: TargetIndex,
+  override: Partial<TargetIndex> | null,
+  observationRef: string,
+): TargetIndex {
+  if (!override) return base;
+  const targets = Array.isArray(override.targets) && override.targets.length > 0
+    ? override.targets
+    : base.targets;
+  return {
+    ...base,
+    ...override,
+    target_index_ref: cleanString(override.target_index_ref) ?? base.target_index_ref,
+    observation_ref: observationRef,
+    coordinate_space_id: cleanString(override.coordinate_space_id) ?? base.coordinate_space_id,
+    drift_state: cleanString(override.drift_state) ?? base.drift_state,
+    targets,
+  };
+}
+
+function mergeAffordanceGraphContract(
+  base: AffordanceGraph,
+  override: Partial<AffordanceGraph> | null,
+  targetIndexRef: string,
+  observationRef: string,
+): AffordanceGraph {
+  if (!override) return base;
+  return {
+    ...base,
+    ...override,
+    graph_ref: cleanString(override.graph_ref) ?? base.graph_ref,
+    target_index_ref: targetIndexRef,
+    observation_ref: observationRef,
+    affordances: Array.isArray(override.affordances) ? override.affordances : base.affordances,
+  };
+}
+
+function objectValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
 }
 
 function cleanString(value: unknown): string | null {
