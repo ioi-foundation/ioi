@@ -231,7 +231,7 @@ fn harness_probe_grounded_reply_includes_uncertainty_and_probe() {
 #[test]
 fn chat_ux_grounded_reply_cites_sources() {
     let sources = vec![super::WorkspaceGroundingSource {
-        relative_path: "docs/specs/runtime/agent-runtime-parity-plus-master-guide.md".to_string(),
+        relative_path: "internal-docs/specs/runtime/autopilot-chat-agent-ux.md".to_string(),
         line: 2448,
         excerpt:
             "| Chat UX | Final answer is primary; Markdown, Mermaid, collapsible work summaries, and source chips render cleanly without raw receipt dumps, facts dashboards, or default evidence drawers. |"

@@ -97,7 +97,7 @@ assert(
 
 const tsSubstrate = read("packages/agent-ide/src/runtime/runtime-projection-adapter.ts");
 const rustSubstrate = read("apps/autopilot/src-tauri/src/runtime_projection.rs");
-const actionSchema = readJson("docs/implementation/runtime-action-schema.json");
+const actionSchema = readJson("internal-docs/implementation/runtime-action-schema.json");
 const generatedTsActionSchema = read("packages/agent-ide/src/runtime/generated/action-schema.ts");
 const generatedRustActionSchema = read(
   "apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs",
@@ -173,7 +173,7 @@ assert(
   "Service intent helpers must centralize the desktop_agent service id.",
 );
 
-const boundaryDoc = read("docs/implementation/runtime-package-boundaries.md");
+const boundaryDoc = read("internal-docs/implementation/runtime-package-boundaries.md");
 for (const required of [
   "ioi-daemon",
   "@ioi/agent-sdk",
@@ -208,7 +208,7 @@ assert(
   "Daemon architecture doc must distinguish daemon execution from CLI client behavior.",
 );
 
-const workGraphPlan = read("docs/plans/adaptive-scoped-swarm-execution-plan.md");
+const workGraphPlan = read("internal-docs/plans/adaptive-scoped-swarm-execution-plan.md");
 assert(
   workGraphPlan.includes("`swarm` is an execution strategy, not a product surface") ||
     workGraphPlan.includes("adaptive work graph is an execution strategy"),
@@ -223,14 +223,17 @@ assert(
   developerDocs.includes("@ioi/agent-sdk") && !developerDocs.includes("ioi-swarm"),
   "Developer docs must route SDK-first agent development to @ioi/agent-sdk, not the retired ioi-swarm product surface.",
 );
-const preLegChecklist = read("docs/plans/pre-next-leg-cleanup-checklist.md");
-assert(
-  !preLegChecklist.includes("Follow-On Debt") &&
-    preLegChecklist.includes("Status: pre-leg ready") &&
-    preLegChecklist.includes("daemon-backed") &&
-    preLegChecklist.includes("runtime-layout checks"),
-  "Pre-next-leg checklist must not leave guardrail-only follow-on debt.",
-);
+const preLegChecklistPath = "internal-docs/plans/pre-next-leg-cleanup-checklist.md";
+if (fs.existsSync(path.join(root, preLegChecklistPath))) {
+  const preLegChecklist = read(preLegChecklistPath);
+  assert(
+    !preLegChecklist.includes("Follow-On Debt") &&
+      preLegChecklist.includes("Status: pre-leg ready") &&
+      preLegChecklist.includes("daemon-backed") &&
+      preLegChecklist.includes("runtime-layout checks"),
+    "Pre-next-leg checklist must not leave guardrail-only follow-on debt.",
+  );
+}
 
 const workflowValidation = read("packages/agent-ide/src/runtime/workflow-validation.ts");
 assert(

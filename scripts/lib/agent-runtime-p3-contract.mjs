@@ -9,7 +9,7 @@ export const AGENT_RUNTIME_P3_SCHEMA_VERSION =
   "ioi.agent-runtime.p3-exhaustive-validation.v1";
 
 export const MASTER_GUIDE_PATH =
-  "docs/plans/architectural-improvements-broad-master-guide.md";
+  "internal-docs/plans/architectural-improvements-broad-master-guide.md";
 
 export const P3_PRODUCT_POLISH_ITEMS = Object.freeze([
   {

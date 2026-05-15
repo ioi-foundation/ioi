@@ -44,6 +44,21 @@ docs/context-atlas-implementation-plan.md
 docs/evidence/
 packages/agent-ide/tsconfig.tsbuildinfo
 
+# Keep public docs consumer-facing; internal plans/specs belong under internal-docs/.
+docs/plans/
+docs/implementation/
+docs/specs/runtime/
+docs/architecture/products/
+docs/architecture/protocols/
+docs/architecture/_meta/changelog/
+docs/formal/aft/generated/
+docs/formal/aft/traces/
+docs/formal/
+docs/autopilot-desktop-ux-visibility-prompt.md
+docs/ioi-zero-to-hero-autonomy-prompt.md
+docs/specs/benchmarks-scorecard-ux.md
+docs/specs/slate-cobalt-reference.html
+
 # Python cache/build artifacts
 __pycache__/
 *.pyc

@@ -3082,7 +3082,7 @@ mod tests {
         state.tool_execution_log.insert(
             "file__write:docs".to_string(),
             ToolCallStatus::Executed(
-                "step=6;tool=file__write;path=docs/specs/runtime/agent-runtime-parity-plus-master-guide.md"
+                "step=6;tool=file__write;path=internal-docs/specs/runtime/autopilot-chat-agent-ux.md"
                     .to_string(),
             ),
         );

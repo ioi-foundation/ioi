@@ -12,10 +12,6 @@ The product direction is a scorecard-first benchmark app with triage as a
 downstream drilldown mode, not a triage-first console with score panels mixed
 in.
 
-Companion UX spec:
-
-- `docs/specs/benchmarks-scorecard-ux.md`
-
 It mirrors:
 
 - the rolling local store at

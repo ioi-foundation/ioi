@@ -14818,7 +14818,9 @@ function buildRun({
         : []),
     ],
     affectedTests: ["live-runtime-daemon-contract"],
-    affectedDocs: ["docs/plans/architectural-improvements-broad-master-guide.md"],
+    affectedDocs: [
+      "internal-docs/plans/architectural-improvements-broad-master-guide.md",
+    ],
     riskClass: postconditions.riskClass,
   };
   const stopCondition = {

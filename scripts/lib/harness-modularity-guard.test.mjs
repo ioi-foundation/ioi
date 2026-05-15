@@ -390,7 +390,7 @@ test("active harness sources do not reintroduce retired runtime fallback authori
     "apps/autopilot/src/windows/AutopilotShellWindow",
     "packages/agent-ide/src",
     "scripts/lib",
-    "docs/plans",
+    "internal-docs/plans",
   ];
   const sourceFiles = sourceRoots.flatMap(walkSourceFiles).filter(
     (relativePath) =>

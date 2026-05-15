@@ -30,7 +30,7 @@ function relative(file) {
 }
 
 function isImportedConsensusCorpus(file) {
-  return relative(file).startsWith("docs/architecture/protocols/aft/");
+  return relative(file).startsWith("internal-docs/architecture/protocols/aft/");
 }
 
 function isGeneratedArchitectureArtifact(file) {
@@ -49,7 +49,7 @@ function fail(message) {
 const markdownFiles = allMarkdownFiles(architectureRoot);
 for (const file of allFiles(architectureRoot)) {
   if (isGeneratedArchitectureArtifact(file)) {
-    fail(`${relative(file)} is generated proof/evidence output and must live under docs/formal-artifacts/.`);
+    fail(`${relative(file)} is generated proof/evidence output and must live outside docs/architecture/.`);
   }
 }
 const rootMarkdownFiles = fs
@@ -140,7 +140,7 @@ for (const required of [
   "_meta/doc-classes.md",
   "components/daemon-runtime/api.md",
   "components/agentgres/api-object-model.md",
-  "../implementation/low-level-implementation-milestones.md",
+  "components/daemon-runtime/events-receipts-delivery-bundles.md",
 ]) {
   if (!index.includes(required)) {
     fail(`README.md must link ${required}.`);

@@ -4,7 +4,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const guidePath = path.join(repoRoot, "docs/specs/runtime/lm-studio-model-mounting-master-guide.md");
+const guidePath = path.join(
+  repoRoot,
+  "internal-docs/specs/runtime/lm-studio-model-mounting-master-guide.md",
+);
+if (!fs.existsSync(guidePath)) {
+  console.log("Model mounting master guide check skipped: guide is not present.");
+  process.exit(0);
+}
 const guide = fs.readFileSync(guidePath, "utf8");
 const failures = [];
 

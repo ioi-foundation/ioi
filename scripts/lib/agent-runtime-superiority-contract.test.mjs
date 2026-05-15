@@ -122,9 +122,9 @@ test("superiority validation fails when a decisive IOI runtime anchor is absent"
       "remote sessions",
     ].join("\n"),
   );
-  fs.mkdirSync(path.join(tmp, "docs/specs/runtime"), { recursive: true });
+  fs.mkdirSync(path.join(tmp, "internal-docs/specs/runtime"), { recursive: true });
   fs.writeFileSync(
-    path.join(tmp, "docs/specs/runtime/agent-runtime-parity-plus-master-guide.md"),
+    path.join(tmp, "internal-docs/specs/runtime/agent-runtime-parity-plus-master-guide.md"),
     "# Guide\n",
   );
   fs.writeFileSync(

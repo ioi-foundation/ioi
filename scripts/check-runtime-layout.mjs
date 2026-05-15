@@ -63,7 +63,7 @@ const allowedSwarmCompatibilityFiles = new Set([
 ]);
 const generatedTs = read("packages/agent-ide/src/runtime/generated/action-schema.ts");
 const generatedRust = read("apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs");
-const actionSchema = JSON.parse(read("docs/implementation/runtime-action-schema.json"));
+const actionSchema = JSON.parse(read("internal-docs/implementation/runtime-action-schema.json"));
 
 assert(
   "daemon-promoted",
@@ -104,10 +104,13 @@ assert(
 );
 assert(
   "runtime-module-map",
-  exists("docs/implementation/runtime-module-map.md") &&
-    read("docs/implementation/runtime-module-map.md").includes("RuntimeSubstrate") &&
-    read("docs/implementation/runtime-package-boundaries.md").includes("runtime-module-map.md"),
-  ["docs/implementation/runtime-module-map.md", "docs/implementation/runtime-package-boundaries.md"],
+  exists("internal-docs/implementation/runtime-module-map.md") &&
+    read("internal-docs/implementation/runtime-module-map.md").includes("RuntimeSubstrate") &&
+    read("internal-docs/implementation/runtime-package-boundaries.md").includes("runtime-module-map.md"),
+  [
+    "internal-docs/implementation/runtime-module-map.md",
+    "internal-docs/implementation/runtime-package-boundaries.md",
+  ],
   "runtime module map must identify canonical homes and be linked from boundary docs",
 );
 assert(
@@ -204,7 +207,11 @@ assert(
 assert(
   "action-schema-drift",
   actionSchema.actionKinds.every((kind) => generatedTs.includes(`"${kind}"`) && generatedRust.includes(`"${kind}"`)),
-  ["docs/implementation/runtime-action-schema.json", "packages/agent-ide/src/runtime/generated/action-schema.ts", "apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs"],
+  [
+    "internal-docs/implementation/runtime-action-schema.json",
+    "packages/agent-ide/src/runtime/generated/action-schema.ts",
+    "apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs",
+  ],
   "generated action schema projections must match shared runtime-action-schema.json",
 );
 assert(
@@ -231,11 +238,12 @@ assert(
 );
 assert(
   "debt-ledger-closed",
-  read("docs/evidence/runtime-layout-refactor/remaining-debt.md").includes(
-    "No remaining runtime-layout refactor debt",
-  ),
+  !exists("docs/evidence/runtime-layout-refactor/remaining-debt.md") ||
+    read("docs/evidence/runtime-layout-refactor/remaining-debt.md").includes(
+      "No remaining runtime-layout refactor debt",
+    ),
   ["docs/evidence/runtime-layout-refactor/remaining-debt.md"],
-  "runtime-layout debt ledger must be closed before claiming completion",
+  "runtime-layout debt ledger must be closed before claiming completion when generated evidence is present",
 );
 
 const evidenceDir = path.join(root, "docs/evidence/runtime-layout-refactor");

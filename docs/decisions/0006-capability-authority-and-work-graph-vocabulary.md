@@ -56,4 +56,3 @@ doctrine surface.
 - `docs/architecture/_meta/vocabulary.md`
 - `docs/architecture/foundations/common-objects-and-envelopes.md`
 - `docs/architecture/components/connectors-tools/contracts.md`
-- `docs/implementation/runtime-package-boundaries.md`
