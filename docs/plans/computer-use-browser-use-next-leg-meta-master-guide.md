@@ -449,7 +449,10 @@ selection, and lease projection data from the canonical observation bundle
 without creating a second runtime owner. When the bridge supplies an
 affordance graph but no explicit proposal, the daemon projects a non-executing
 `ActionProposal` from the top affordance so policy and UI surfaces can show the
-next candidate without pretending an action already ran.
+next candidate without pretending an action already ran. Those bridge-derived
+proposals synthesize proposal-only outcome and commit gates, requiring
+confirmation for possible external effects while keeping `ComputerAction`
+execution null.
 Daemon-backed visual and hosted/sandbox lane runs activate through the same
 trace spine when a mounted executor supplies those contracts, while missing
 visual/sandbox adapters still fail closed.

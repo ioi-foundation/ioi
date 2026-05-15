@@ -14783,6 +14783,17 @@ function runtimeBridgeComputerUseTrace({ projection, events }) {
       projection,
       affordanceGraph,
     });
+  const outcomeContract =
+    value("outcome_contract") ??
+    runtimeBridgeOutcomeContractFromProposal({ projection, actionProposal });
+  const commitGate =
+    value("commit_gate") ??
+    runtimeBridgeCommitGateFromProposal({
+      projection,
+      actionProposal,
+      outcomeContract,
+      environmentSelection,
+    });
   const trajectory =
     value("trajectory_bundle") ??
     runtimeBridgeTrajectoryFromComputerUseEvents({
@@ -14831,10 +14842,10 @@ function runtimeBridgeComputerUseTrace({ projection, events }) {
     action_receipt: value("action_receipt"),
     verification: value("verification_receipt"),
     verification_receipt: value("verification_receipt"),
-    outcomeContract: value("outcome_contract"),
-    outcome_contract: value("outcome_contract"),
-    commitGate: value("commit_gate"),
-    commit_gate: value("commit_gate"),
+    outcomeContract,
+    outcome_contract: outcomeContract,
+    commitGate,
+    commit_gate: commitGate,
     trajectory,
     trajectory_bundle: trajectory,
     cleanup,
@@ -14863,6 +14874,55 @@ function runtimeBridgeComputerUseTrace({ projection, events }) {
       value("computer_use_verification_ref"),
       value("computer_use_cleanup_ref"),
     ]),
+  };
+}
+
+function runtimeBridgeOutcomeContractFromProposal({ projection, actionProposal }) {
+  if (!actionProposal) return null;
+  const confirmationRequired = Boolean(actionProposal.confirmation_required);
+  return {
+    outcome_ref: `outcome_${projection.runId}_runtime_bridge`,
+    requested_outcome: projection.prompt ?? "Runtime service computer-use run",
+    success_criteria: [
+      actionProposal.predicted_postcondition ??
+        "A policy gate decides whether the bridge proposal can become an executable ComputerAction.",
+    ],
+    acceptable_side_effects: [
+      "Persist redacted computer-use trace, target, affordance, and proposal evidence.",
+    ],
+    prohibited_side_effects: [
+      "Execute the bridge-derived proposal without a grounded ComputerAction and policy approval.",
+    ],
+    evidence_required: ["computer_use_trace", "action_proposal", "commit_gate"],
+    rollback_or_cleanup_required: false,
+    external_effect_policy: confirmationRequired ? "confirmation_required" : "not_required",
+  };
+}
+
+function runtimeBridgeCommitGateFromProposal({
+  projection,
+  actionProposal,
+  outcomeContract,
+  environmentSelection,
+}) {
+  if (!actionProposal || !outcomeContract) return null;
+  const confirmationRequired =
+    Boolean(actionProposal.confirmation_required) ||
+    !["read_only", "inspect", "none"].includes(String(actionProposal.risk_assessment ?? ""));
+  return {
+    commit_gate_ref: `commit_gate_${projection.runId}_runtime_bridge`,
+    final_action_ref: null,
+    outcome_ref: outcomeContract.outcome_ref,
+    external_effect: confirmationRequired,
+    user_confirmation_required: confirmationRequired,
+    authority_required:
+      environmentSelection?.authority_required ??
+      `computer_use.${environmentSelection?.selected_lane ?? "native_browser"}.read`,
+    pre_commit_summary:
+      "Runtime bridge projected a candidate action but did not execute it; execution requires a grounded ComputerAction and policy approval.",
+    post_commit_verification: outcomeContract.success_criteria.join("; "),
+    policy_decision_ref: actionProposal.policy_decision_ref,
+    status: confirmationRequired ? "requires_confirmation_before_execution" : "proposal_only",
   };
 }
 
