@@ -2,6 +2,8 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
+import { buildWorkflowComputerUseTriLaneScorecard } from "./computer-use-scorecard.mjs";
+
 const repoRoot = resolve(new URL("../../..", import.meta.url).pathname);
 
 function read(relativePath) {
@@ -173,6 +175,24 @@ export function collectWorkflowVisualGuiPromptPipelineProof(outputRoot) {
     scenario: "workflow_visual_gui_prompt_pipeline",
     errorLabel: "visual GUI prompt pipeline probe",
   });
+}
+
+export function collectWorkflowComputerUseTriLaneScorecard(
+  outputRoot,
+  {
+    workflowSandboxedComputerRunButtonProof,
+    workflowNativeBrowserPromptPipelineProof,
+    workflowVisualGuiPromptPipelineProof,
+  },
+) {
+  const path = join(outputRoot, "workflow-computer-use-tri-lane-scorecard.json");
+  const proof = buildWorkflowComputerUseTriLaneScorecard({
+    sandboxedComputerRunButtonProof: workflowSandboxedComputerRunButtonProof,
+    nativeBrowserPromptPipelineProof: workflowNativeBrowserPromptPipelineProof,
+    visualGuiPromptPipelineProof: workflowVisualGuiPromptPipelineProof,
+  });
+  writeFileSync(path, `${JSON.stringify(proof, null, 2)}\n`, "utf8");
+  return { path, proof };
 }
 
 export function collectWorkflowSkillContextProof(outputRoot) {

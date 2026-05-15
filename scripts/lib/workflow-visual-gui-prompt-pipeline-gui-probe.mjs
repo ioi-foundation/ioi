@@ -1067,6 +1067,9 @@ const proof = {
       commitGateStatus: workbench?.commitGateStatus ?? null,
       cleanupStatus: workbench?.cleanupStatus ?? null,
       policyOutcome: workbench?.policyOutcome ?? null,
+      policyApprovalRef: workbench?.policyApprovalRef ?? null,
+      policyExternalEffect: workbench?.policyExternalEffect ?? null,
+      policyFailClosed: workbench?.policyFailClosed ?? null,
       executionPreflightStatus: workbench?.executionPreflightStatus ?? null,
       executionRequiresReobserve:
         workbench?.executionRequiresReobserve ?? null,
