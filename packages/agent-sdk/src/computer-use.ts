@@ -203,6 +203,47 @@ export interface ComputerAction {
   approval_ref?: string | null;
 }
 
+export interface ActionReceipt {
+  receipt_ref: string;
+  action_ref: string;
+  adapter_id: string;
+  status: string;
+  grounding_ref: string;
+  postcondition_summary: string;
+  verification_ref?: string | null;
+  evidence_refs: unknown[];
+}
+
+export interface ComputerUseTrajectoryEntry {
+  sequence: number;
+  event_kind: string;
+  observation_ref?: string | null;
+  proposal_ref?: string | null;
+  action_ref?: string | null;
+  receipt_ref?: string | null;
+  verification_ref?: string | null;
+  summary: string;
+}
+
+export interface ComputerUseTrajectoryBundle {
+  schema_version: typeof COMPUTER_USE_CONTRACT_SCHEMA_VERSION | string;
+  trajectory_ref: string;
+  run_id: string;
+  lease_id: string;
+  entries: ComputerUseTrajectoryEntry[];
+  retention_mode: ObservationRetentionMode;
+}
+
+export interface CleanupReceipt {
+  cleanup_ref: string;
+  lease_id: string;
+  status: string;
+  closed_process_refs: string[];
+  deleted_profile_refs: string[];
+  retained_artifact_refs: string[];
+  warnings: string[];
+}
+
 export interface ComputerUseHarnessContract {
   schema_version: typeof COMPUTER_USE_CONTRACT_SCHEMA_VERSION | string;
   required_lanes: ComputerUseLane[];

@@ -10,6 +10,8 @@ export function computerUseSourceEventKind(type) {
   switch (type) {
     case "computer_use_environment_selected":
       return "ComputerUse.EnvironmentSelected";
+    case "computer_use_lease_acquired":
+      return "ComputerUse.LeaseAcquired";
     case "computer_use_run_state":
       return "ComputerUse.RunState";
     case "computer_use_observation":
@@ -18,8 +20,14 @@ export function computerUseSourceEventKind(type) {
       return "ComputerUse.AffordanceGraph";
     case "computer_use_action_proposed":
       return "ComputerUse.ActionProposed";
+    case "computer_use_action_executed":
+      return "ComputerUse.ActionExecuted";
     case "computer_use_verification":
       return "ComputerUse.Verification";
+    case "computer_use_trajectory_written":
+      return "ComputerUse.TrajectoryWritten";
+    case "computer_use_cleanup":
+      return "ComputerUse.Cleanup";
     default:
       return "ComputerUse.Event";
   }
@@ -42,9 +50,13 @@ export function computerUseProjectionForRun({
   const targetIndexRef = `target_index_${runId}_browser_initial`;
   const affordanceGraphRef = `affordance_${runId}_browser_initial`;
   const proposalRef = `proposal_${runId}_browser_inspect`;
+  const actionRef = `action_${runId}_browser_inspect`;
+  const actionReceiptRef = `receipt_${runId}_computer_use_action`;
   const policyDecisionRef = `policy_${runId}_computer_use_read_only`;
   const verificationRef = `verification_${runId}_computer_use_probe`;
   const traceReceiptId = `receipt_${runId}_computer_use_trace`;
+  const trajectoryRef = `trajectory_${runId}_computer_use`;
+  const cleanupRef = `cleanup_${runId}_computer_use`;
   const environmentSelection = {
     receipt_ref: `receipt_${runId}_computer_use_environment`,
     run_id: runId,
@@ -185,12 +197,37 @@ export function computerUseProjectionForRun({
     risk_assessment: "read_only",
     policy_decision_ref: policyDecisionRef,
   };
+  const action = {
+    action_ref: actionRef,
+    proposal_ref: actionProposal.proposal_ref,
+    action_kind: "inspect",
+    target_ref: actionProposal.target_ref,
+    observation_ref: observation.observation_ref,
+    coordinate_space_id: targetIndex.coordinate_space_id,
+    payload_summary: "Read-only inspect of the current page and target index.",
+    expected_postcondition: actionProposal.predicted_postcondition,
+    approval_ref: null,
+  };
+  const actionReceipt = {
+    receipt_ref: actionReceiptRef,
+    action_ref: action.action_ref,
+    adapter_id: "ioi.native_browser.chromiumoxide.daemon",
+    status: "completed",
+    grounding_ref: targetIndex.target_index_ref,
+    postcondition_summary: "Read-only inspection action was grounded in the observation and produced no external side effect.",
+    verification_ref: verificationRef,
+    evidence_refs: [
+      observation.observation_ref,
+      targetIndex.target_index_ref,
+      actionProposal.proposal_ref,
+    ],
+  };
   const verification = {
     verification_ref: verificationRef,
-    action_ref: null,
+    action_ref: action.action_ref,
     status: "passed",
     expected_postcondition: actionProposal.predicted_postcondition,
-    observed_postcondition: "Environment, lease, observation, target index, affordance graph, and action proposal are trace-visible.",
+    observed_postcondition: "Environment, lease, observation, target index, affordance graph, action proposal, action receipt, and cleanup are trace-visible.",
     verifier: "runtime_daemon_computer_use_harness",
     evidence_refs: [
       environmentSelection.receipt_ref,
@@ -198,11 +235,69 @@ export function computerUseProjectionForRun({
       targetIndex.target_index_ref,
       affordanceGraph.graph_ref,
       actionProposal.proposal_ref,
+      actionReceipt.receipt_ref,
     ],
+  };
+  const trajectory = {
+    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    trajectory_ref: trajectoryRef,
+    run_id: runId,
+    lease_id: lease.lease_id,
+    retention_mode: "local_redacted_artifacts",
+    entries: [
+      {
+        sequence: 1,
+        event_kind: "select_environment",
+        receipt_ref: environmentSelection.receipt_ref,
+        summary: "Selected native browser lane with visual and sandbox lanes retained as fallbacks.",
+      },
+      {
+        sequence: 2,
+        event_kind: "observe",
+        observation_ref: observation.observation_ref,
+        receipt_ref: observation.observation_ref,
+        summary: "Captured redacted browser observation and target index.",
+      },
+      {
+        sequence: 3,
+        event_kind: "propose_action",
+        observation_ref: observation.observation_ref,
+        proposal_ref: actionProposal.proposal_ref,
+        summary: "Normalized a read-only inspect proposal and policy-gated it before execution.",
+      },
+      {
+        sequence: 4,
+        event_kind: "execute_action",
+        observation_ref: observation.observation_ref,
+        proposal_ref: actionProposal.proposal_ref,
+        action_ref: action.action_ref,
+        receipt_ref: actionReceipt.receipt_ref,
+        summary: "Executed the grounded read-only inspect action.",
+      },
+      {
+        sequence: 5,
+        event_kind: "verify_postcondition",
+        action_ref: action.action_ref,
+        verification_ref: verification.verification_ref,
+        summary: "Verified the read-only postcondition and retained the trace.",
+      },
+    ],
+  };
+  const cleanup = {
+    cleanup_ref: cleanupRef,
+    lease_id: lease.lease_id,
+    status: "completed",
+    closed_process_refs: [`process:${lease.environment_ref}`],
+    deleted_profile_refs: [`profile:${lease.lease_id}`],
+    retained_artifact_refs: ["computer-use-trace.json"],
+    warnings: [],
   };
   const basePayload = {
     schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
     harness_contract: defaultComputerUseHarnessContract(),
+    computer_use_lane: environmentSelection.selected_lane,
+    computer_use_session_mode: environmentSelection.selected_session_mode,
+    computer_use_lease_id: lease.lease_id,
   };
   const events = [
     computerUseEvent({
@@ -218,6 +313,26 @@ export function computerUseProjectionForRun({
         computer_use_lease_id: lease.lease_id,
         environment_selection_receipt: environmentSelection,
         lease,
+      },
+    }),
+    computerUseEvent({
+      type: "computer_use_lease_acquired",
+      summary: "Computer-use lease acquired",
+      workflowNodeId: "computer-use.acquire-lease",
+      traceReceiptId,
+      data: {
+        ...basePayload,
+        computer_use_step: "acquire_lease",
+        lease,
+        adapter_contract: {
+          adapter_id: "ioi.native_browser.chromiumoxide.daemon",
+          lane: environmentSelection.selected_lane,
+          supported_session_modes: [environmentSelection.selected_session_mode],
+          capabilities: ["observe.dom", "observe.ax", "observe.screenshot", "act.inspect", "verify.postcondition"],
+          emits_observation_bundle: true,
+          emits_action_receipts: true,
+          fail_closed_when_unavailable: true,
+        },
       },
     }),
     computerUseEvent({
@@ -281,6 +396,20 @@ export function computerUseProjectionForRun({
       },
     }),
     computerUseEvent({
+      type: "computer_use_action_executed",
+      summary: "Computer-use read-only action executed",
+      workflowNodeId: "computer-use.execute-action",
+      traceReceiptId,
+      data: {
+        ...basePayload,
+        computer_use_step: "execute_action",
+        computer_use_action_ref: action.action_ref,
+        computer_use_proposal_ref: actionProposal.proposal_ref,
+        computer_action: action,
+        action_receipt: actionReceipt,
+      },
+    }),
+    computerUseEvent({
       type: "computer_use_verification",
       summary: "Computer-use postcondition verified",
       workflowNodeId: "computer-use.verify",
@@ -293,6 +422,30 @@ export function computerUseProjectionForRun({
         verification_receipt: verification,
       },
     }),
+    computerUseEvent({
+      type: "computer_use_trajectory_written",
+      summary: "Computer-use trajectory written",
+      workflowNodeId: "computer-use.write-trajectory",
+      traceReceiptId,
+      data: {
+        ...basePayload,
+        computer_use_step: "write_trajectory",
+        computer_use_trajectory_ref: trajectory.trajectory_ref,
+        trajectory_bundle: trajectory,
+      },
+    }),
+    computerUseEvent({
+      type: "computer_use_cleanup",
+      summary: "Computer-use cleanup completed",
+      workflowNodeId: "computer-use.cleanup",
+      traceReceiptId,
+      data: {
+        ...basePayload,
+        computer_use_step: "cleanup",
+        computer_use_cleanup_ref: cleanup.cleanup_ref,
+        cleanup_receipt: cleanup,
+      },
+    }),
   ];
   return {
     environmentSelection,
@@ -302,12 +455,16 @@ export function computerUseProjectionForRun({
     targetIndex,
     affordanceGraph,
     actionProposal,
+    action,
+    actionReceipt,
     verification,
+    trajectory,
+    cleanup,
     events,
     receipt: {
       id: traceReceiptId,
       kind: "computer_use_trace",
-      summary: "Computer-use harness trace exposed environment selection, observation, targets, affordances, proposal, and verification.",
+      summary: "Computer-use harness trace exposed environment selection, lease, observation, targets, affordances, proposal, action, verification, trajectory, and cleanup.",
       redaction: "redacted",
       evidenceRefs: [
         "ComputerUseHarnessContract",
@@ -317,7 +474,11 @@ export function computerUseProjectionForRun({
         targetIndex.target_index_ref,
         affordanceGraph.graph_ref,
         actionProposal.proposal_ref,
+        action.action_ref,
+        actionReceipt.receipt_ref,
         verification.verification_ref,
+        trajectory.trajectory_ref,
+        cleanup.cleanup_ref,
       ],
     },
   };

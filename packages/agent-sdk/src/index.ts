@@ -77,9 +77,11 @@ export type {
   UpdateMemoryRecordInput,
 } from "./substrate-client.js";
 export type {
+  ActionReceipt,
   ActionProposal,
   AffordanceGraph,
   AffordanceRecord,
+  CleanupReceipt,
   ComputerAction,
   ComputerActionKind,
   ComputerControlAdapterContract,
@@ -90,6 +92,8 @@ export type {
   ComputerUseRunState,
   ComputerUseSessionMode,
   ComputerUseTargetEntry,
+  ComputerUseTrajectoryBundle,
+  ComputerUseTrajectoryEntry,
   ComputerUseVerificationReceipt,
   ComputerUseVerificationStatus,
   EnvironmentOptionRejection,

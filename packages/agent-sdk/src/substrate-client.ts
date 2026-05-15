@@ -63,11 +63,15 @@ import type { RuntimeModelCatalogEntry } from "./model-mounts.js";
 import {
   COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
   defaultComputerUseHarnessContract,
+  type ActionReceipt,
   type ActionProposal,
   type AffordanceGraph,
+  type CleanupReceipt,
+  type ComputerAction,
   type ComputerUseLease,
   type ComputerUseObservationBundle,
   type ComputerUseRunState,
+  type ComputerUseTrajectoryBundle,
   type ComputerUseVerificationReceipt,
   type EnvironmentSelectionReceipt,
   type TargetIndex,
@@ -7355,6 +7359,10 @@ function buildMockRun(
       computerUseProjection?.environmentSelection.receipt_ref,
       computerUseProjection?.observation.observation_ref,
       computerUseProjection?.actionProposal.proposal_ref,
+      computerUseProjection?.action.action_ref,
+      computerUseProjection?.actionReceipt.receipt_ref,
+      computerUseProjection?.trajectory.trajectory_ref,
+      computerUseProjection?.cleanup.cleanup_ref,
     ].filter((value): value is string => Boolean(value)),
   };
   const uncertainty: UncertaintyProjection = {
@@ -7400,8 +7408,23 @@ function buildMockRun(
         description: "Quality ledger and stop condition are attached.",
         status: "passed",
       },
+      ...(computerUseProjection
+        ? [
+            {
+              checkId: "computer-use-lifecycle-trace",
+              description: "Computer-use lease, proposal, action receipt, verification, trajectory, and cleanup are trace-visible.",
+              status: "passed" as const,
+            },
+          ]
+        : []),
     ],
-    minimumEvidence: ["events", "receipts", "trace", "scorecard"],
+    minimumEvidence: [
+      "events",
+      "receipts",
+      "trace",
+      ...(computerUseProjection ? ["computer_use_trace", "computer-use-trace.json"] : []),
+      "scorecard",
+    ],
   };
   const semanticImpact: SemanticImpactProjection = {
     changedSymbols: [],
@@ -7420,7 +7443,11 @@ function buildMockRun(
             "TargetIndex",
             "AffordanceGraph",
             "ActionProposal",
+            "ComputerAction",
+            "ActionReceipt",
             "ComputerUseVerificationReceipt",
+            "ComputerUseTrajectoryBundle",
+            "CleanupReceipt",
           ]
         : []),
     ],
@@ -7430,6 +7457,13 @@ function buildMockRun(
       ...(memory.policyUpdates?.map(() => "memory.policy") ?? []),
       ...(subagentMemoryInheritance
         ? [`memory.subagent_inheritance.${subagentMemoryInheritance.mode}`]
+        : []),
+      ...(computerUseProjection
+        ? [
+            "computer_use.native_browser.read_only",
+            "computer_use.action_proposal_required",
+            "computer_use.cleanup_required",
+          ]
         : []),
     ],
     affectedTests: ["cursor-sdk-parity-contract"],
@@ -7576,6 +7610,22 @@ function buildMockRun(
     memoryPolicy,
     memoryRecords,
     memoryWrites,
+    computerUse: computerUseProjection
+      ? {
+          environmentSelection: computerUseProjection.environmentSelection,
+          lease: computerUseProjection.lease,
+          runState: computerUseProjection.runState,
+          observation: computerUseProjection.observation,
+          targetIndex: computerUseProjection.targetIndex,
+          affordanceGraph: computerUseProjection.affordanceGraph,
+          actionProposal: computerUseProjection.actionProposal,
+          action: computerUseProjection.action,
+          actionReceipt: computerUseProjection.actionReceipt,
+          verification: computerUseProjection.verification,
+          trajectory: computerUseProjection.trajectory,
+          cleanup: computerUseProjection.cleanup,
+        }
+      : null,
     subagentMemoryInheritance,
     stopCondition,
     qualityLedger,
@@ -7591,6 +7641,19 @@ function buildMockRun(
       receiptId: receipts[receipts.length - 1]?.id ?? modelRouteReceiptId,
       content: JSON.stringify(trace, null, 2),
     },
+    ...(computerUseProjection
+      ? [
+          {
+            id: `artifact_${runId}_computer_use_trace`,
+            runId,
+            name: "computer-use-trace.json",
+            mediaType: "application/json",
+            redaction: "redacted" as const,
+            receiptId: computerUseProjection.receipt.id,
+            content: JSON.stringify(trace.computerUse, null, 2),
+          },
+        ]
+      : []),
     {
       id: `artifact_${runId}_scorecard`,
       runId,
@@ -7635,7 +7698,11 @@ interface MockComputerUseProjection {
   targetIndex: TargetIndex;
   affordanceGraph: AffordanceGraph;
   actionProposal: ActionProposal;
+  action: ComputerAction;
+  actionReceipt: ActionReceipt;
   verification: ComputerUseVerificationReceipt;
+  trajectory: ComputerUseTrajectoryBundle;
+  cleanup: CleanupReceipt;
   receipt: RuntimeReceipt;
   events: Array<{
     type: IOISDKMessage["type"];
@@ -7668,8 +7735,12 @@ function mockComputerUseProjectionForRun({
   const targetIndexRef = `target_index_${runId}_browser_initial`;
   const affordanceGraphRef = `affordance_${runId}_browser_initial`;
   const proposalRef = `proposal_${runId}_browser_inspect`;
+  const actionRef = `action_${runId}_browser_inspect`;
+  const actionReceiptRef = `receipt_${runId}_computer_use_action`;
   const policyDecisionRef = `policy_${runId}_computer_use_read_only`;
   const verificationRef = `verification_${runId}_computer_use_probe`;
+  const trajectoryRef = `trajectory_${runId}_computer_use`;
+  const cleanupRef = `cleanup_${runId}_computer_use`;
   const environmentSelection: EnvironmentSelectionReceipt = {
     receipt_ref: `receipt_${runId}_computer_use_environment`,
     run_id: runId,
@@ -7811,12 +7882,37 @@ function mockComputerUseProjectionForRun({
     risk_assessment: "read_only",
     policy_decision_ref: policyDecisionRef,
   };
+  const action: ComputerAction = {
+    action_ref: actionRef,
+    proposal_ref: actionProposal.proposal_ref,
+    action_kind: "inspect",
+    target_ref: actionProposal.target_ref,
+    observation_ref: observation.observation_ref,
+    coordinate_space_id: targetIndex.coordinate_space_id,
+    payload_summary: "Read-only inspect of the current page and target index.",
+    expected_postcondition: actionProposal.predicted_postcondition,
+    approval_ref: null,
+  };
+  const actionReceipt: ActionReceipt = {
+    receipt_ref: actionReceiptRef,
+    action_ref: action.action_ref,
+    adapter_id: "ioi.native_browser.chromiumoxide.mock",
+    status: "completed",
+    grounding_ref: targetIndex.target_index_ref,
+    postcondition_summary: "Read-only inspection action was grounded in the observation and produced no external side effect.",
+    verification_ref: verificationRef,
+    evidence_refs: [
+      observation.observation_ref,
+      targetIndex.target_index_ref,
+      actionProposal.proposal_ref,
+    ],
+  };
   const verification: ComputerUseVerificationReceipt = {
     verification_ref: verificationRef,
-    action_ref: null,
+    action_ref: action.action_ref,
     status: "passed",
     expected_postcondition: actionProposal.predicted_postcondition,
-    observed_postcondition: "Environment, lease, observation, target index, affordance graph, and action proposal are trace-visible.",
+    observed_postcondition: "Environment, lease, observation, target index, affordance graph, action proposal, action receipt, and cleanup are trace-visible.",
     verifier: "sdk_mock_computer_use_harness",
     evidence_refs: [
       environmentSelection.receipt_ref,
@@ -7824,11 +7920,69 @@ function mockComputerUseProjectionForRun({
       targetIndex.target_index_ref,
       affordanceGraph.graph_ref,
       actionProposal.proposal_ref,
+      actionReceipt.receipt_ref,
     ],
+  };
+  const trajectory: ComputerUseTrajectoryBundle = {
+    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+    trajectory_ref: trajectoryRef,
+    run_id: runId,
+    lease_id: lease.lease_id,
+    retention_mode: "local_redacted_artifacts",
+    entries: [
+      {
+        sequence: 1,
+        event_kind: "select_environment",
+        receipt_ref: environmentSelection.receipt_ref,
+        summary: "Selected native browser lane with visual and sandbox lanes retained as fallbacks.",
+      },
+      {
+        sequence: 2,
+        event_kind: "observe",
+        observation_ref: observation.observation_ref,
+        receipt_ref: observation.observation_ref,
+        summary: "Captured redacted browser observation and target index.",
+      },
+      {
+        sequence: 3,
+        event_kind: "propose_action",
+        observation_ref: observation.observation_ref,
+        proposal_ref: actionProposal.proposal_ref,
+        summary: "Normalized a read-only inspect proposal and policy-gated it before execution.",
+      },
+      {
+        sequence: 4,
+        event_kind: "execute_action",
+        observation_ref: observation.observation_ref,
+        proposal_ref: actionProposal.proposal_ref,
+        action_ref: action.action_ref,
+        receipt_ref: actionReceipt.receipt_ref,
+        summary: "Executed the grounded read-only inspect action.",
+      },
+      {
+        sequence: 5,
+        event_kind: "verify_postcondition",
+        action_ref: action.action_ref,
+        verification_ref: verification.verification_ref,
+        summary: "Verified the read-only postcondition and retained the trace.",
+      },
+    ],
+  };
+  const cleanup: CleanupReceipt = {
+    cleanup_ref: cleanupRef,
+    lease_id: lease.lease_id,
+    status: "completed",
+    closed_process_refs: [`process:${lease.environment_ref}`],
+    deleted_profile_refs: [`profile:${lease.lease_id}`],
+    retained_artifact_refs: ["computer-use-trace.json"],
+    warnings: [],
   };
   const basePayload = {
     schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
     harness_contract: defaultComputerUseHarnessContract(),
+    computer_use_lane: environmentSelection.selected_lane,
+    computer_use_session_mode: environmentSelection.selected_session_mode,
+    computer_use_lease_id: lease.lease_id,
   };
   const events: MockComputerUseProjection["events"] = [
     {
@@ -7842,6 +7996,24 @@ function mockComputerUseProjectionForRun({
         computer_use_lease_id: lease.lease_id,
         environment_selection_receipt: environmentSelection,
         lease,
+      },
+    },
+    {
+      type: "computer_use_lease_acquired",
+      summary: "Computer-use lease acquired",
+      data: {
+        ...basePayload,
+        computer_use_step: "acquire_lease",
+        lease,
+        adapter_contract: {
+          adapter_id: "ioi.native_browser.chromiumoxide.mock",
+          lane: environmentSelection.selected_lane,
+          supported_session_modes: [environmentSelection.selected_session_mode],
+          capabilities: ["observe.dom", "observe.ax", "observe.screenshot", "act.inspect", "verify.postcondition"],
+          emits_observation_bundle: true,
+          emits_action_receipts: true,
+          fail_closed_when_unavailable: true,
+        },
       },
     },
     {
@@ -7897,6 +8069,18 @@ function mockComputerUseProjectionForRun({
       },
     },
     {
+      type: "computer_use_action_executed",
+      summary: "Computer-use read-only action executed",
+      data: {
+        ...basePayload,
+        computer_use_step: "execute_action",
+        computer_use_action_ref: action.action_ref,
+        computer_use_proposal_ref: actionProposal.proposal_ref,
+        computer_action: action,
+        action_receipt: actionReceipt,
+      },
+    },
+    {
       type: "computer_use_verification",
       summary: "Computer-use postcondition verified",
       data: {
@@ -7905,6 +8089,26 @@ function mockComputerUseProjectionForRun({
         computer_use_verification_ref: verification.verification_ref,
         computer_use_proposal_ref: actionProposal.proposal_ref,
         verification_receipt: verification,
+      },
+    },
+    {
+      type: "computer_use_trajectory_written",
+      summary: "Computer-use trajectory written",
+      data: {
+        ...basePayload,
+        computer_use_step: "write_trajectory",
+        computer_use_trajectory_ref: trajectory.trajectory_ref,
+        trajectory_bundle: trajectory,
+      },
+    },
+    {
+      type: "computer_use_cleanup",
+      summary: "Computer-use cleanup completed",
+      data: {
+        ...basePayload,
+        computer_use_step: "cleanup",
+        computer_use_cleanup_ref: cleanup.cleanup_ref,
+        cleanup_receipt: cleanup,
       },
     },
   ];
@@ -7916,12 +8120,16 @@ function mockComputerUseProjectionForRun({
     targetIndex,
     affordanceGraph,
     actionProposal,
+    action,
+    actionReceipt,
     verification,
+    trajectory,
+    cleanup,
     events,
     receipt: {
       id: `receipt_${runId}_computer_use_trace`,
       kind: "computer_use_trace",
-      summary: "Computer-use harness trace exposed environment selection, observation, targets, affordances, proposal, and verification.",
+      summary: "Computer-use harness trace exposed environment selection, lease, observation, targets, affordances, proposal, action, verification, trajectory, and cleanup.",
       redaction: "redacted",
       evidenceRefs: [
         "ComputerUseHarnessContract",
@@ -7931,7 +8139,11 @@ function mockComputerUseProjectionForRun({
         targetIndex.target_index_ref,
         affordanceGraph.graph_ref,
         actionProposal.proposal_ref,
+        action.action_ref,
+        actionReceipt.receipt_ref,
         verification.verification_ref,
+        trajectory.trajectory_ref,
+        cleanup.cleanup_ref,
       ],
     },
   };
