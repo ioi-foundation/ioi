@@ -13,6 +13,7 @@ const packageEntryPoints = [
   "src/runtime-events.ts",
   "src/messages.ts",
   "src/computer-use.ts",
+  "src/computer-use-browser-artifacts.ts",
   "src/computer-use-projection.ts",
   "src/options.ts",
   "src/errors.ts",

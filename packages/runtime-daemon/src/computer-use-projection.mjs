@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
 
+import { computerUseContractsFromBrowserObservationArtifacts } from "./computer-use-browser-artifacts.mjs";
+
 export const COMPUTER_USE_CONTRACT_SCHEMA_VERSION = "ioi.computer-use.harness.v1";
 
 export function isComputerUseRunEventType(type) {
@@ -55,7 +57,13 @@ export function computerUseProjectionForRun({
   const selectedSessionMode = selectedLane === "native_browser"
     ? "owned_hermetic_browser"
     : requestedComputerUseSessionMode(request, selectedLane);
-  const hasMountedContracts = Boolean(contractOverrides.observationBundle);
+  const hasBrowserObservationArtifacts =
+    selectedLane === "native_browser" &&
+    Boolean(contractOverrides.browserObservationArtifacts);
+  const hasMountedContracts = Boolean(
+    contractOverrides.observationBundle ||
+    hasBrowserObservationArtifacts,
+  );
   if (selectedLane !== "native_browser" && !hasMountedContracts) {
     return unavailableComputerUseProjectionForRun({
       runId,
@@ -78,10 +86,34 @@ export function computerUseProjectionForRun({
   const targetIndexRef =
     cleanString(contractOverrides.targetIndex?.target_index_ref) ??
     cleanString(contractOverrides.observationBundle?.target_index_ref) ??
+    (hasBrowserObservationArtifacts ? `${observationRef}:target_index` : null) ??
     `target_index_${runId}_browser_initial`;
   const affordanceGraphRef =
     cleanString(contractOverrides.affordanceGraph?.graph_ref) ??
+    (hasBrowserObservationArtifacts ? `${targetIndexRef}:affordance_graph` : null) ??
     `affordance_${runId}_browser_initial`;
+  const browserArtifactContracts = hasBrowserObservationArtifacts
+    ? computerUseContractsFromBrowserObservationArtifacts({
+        artifacts: contractOverrides.browserObservationArtifacts,
+        leaseId,
+        observationRef,
+        targetIndexRef,
+        affordanceGraphRef,
+        retentionMode: requestedRetentionMode,
+        sessionMode: selectedSessionMode,
+      })
+    : null;
+  const observationOverride =
+    contractOverrides.observationBundle ?? browserArtifactContracts?.observationBundle ?? null;
+  const targetIndexOverride =
+    contractOverrides.targetIndex ?? browserArtifactContracts?.targetIndex ?? null;
+  const affordanceGraphOverride =
+    contractOverrides.affordanceGraph ?? browserArtifactContracts?.affordanceGraph ?? null;
+  const contractIngest = contractOverrides.observationBundle
+    ? "canonical_runtime_contract"
+    : browserArtifactContracts
+      ? "browser_observation_artifacts"
+      : "synthetic_daemon_projection";
   const proposalRef = `proposal_${runId}_browser_inspect`;
   const actionRef = `action_${runId}_browser_inspect`;
   const actionReceiptRef = `receipt_${runId}_computer_use_action`;
@@ -185,7 +217,7 @@ export function computerUseProjectionForRun({
     freshness_ms: 0,
     retention_mode: requestedRetentionMode,
     detected_patterns: ["form", "toolbar", "warning_or_toast"],
-  }, contractOverrides.observationBundle, leaseId, selectedLane, selectedSessionMode, requestedRetentionMode);
+  }, observationOverride, leaseId, selectedLane, selectedSessionMode, requestedRetentionMode);
   const pageTarget = {
     target_ref: `target_${runId}_document`,
     label: "Current page",
@@ -210,7 +242,7 @@ export function computerUseProjectionForRun({
     coordinate_space_id: `viewport_${runId}`,
     drift_state: "fresh",
     targets: [pageTarget],
-  }, contractOverrides.targetIndex, observation.observation_ref);
+  }, targetIndexOverride, observation.observation_ref);
   const primaryTarget = targetIndex.targets[0] ?? pageTarget;
   const affordanceGraph = mergeAffordanceGraphContract({
     graph_ref: affordanceGraphRef,
@@ -230,7 +262,7 @@ export function computerUseProjectionForRun({
         invalidation_conditions: ["navigation", "modal_interruption", "auth_wall"],
       },
     ],
-  }, contractOverrides.affordanceGraph, targetIndex.target_index_ref, observation.observation_ref);
+  }, affordanceGraphOverride, targetIndex.target_index_ref, observation.observation_ref);
   const actionProposal = {
     proposal_ref: proposalRef,
     proposed_by: selectedModel,
@@ -376,9 +408,7 @@ export function computerUseProjectionForRun({
     computer_use_lane: environmentSelection.selected_lane,
     computer_use_session_mode: environmentSelection.selected_session_mode,
     computer_use_lease_id: lease.lease_id,
-    computer_use_contract_ingest: contractOverrides.observationBundle
-      ? "canonical_runtime_contract"
-      : "synthetic_daemon_projection",
+    computer_use_contract_ingest: contractIngest,
     observation_retention_mode: requestedRetentionMode,
     fail_closed_when_unavailable: workflowBinding.failClosedWhenUnavailable,
     workflowGraphId: workflowBinding.workflowGraphId,
@@ -929,6 +959,12 @@ function computerUseContractOverrides(request = {}) {
     affordanceGraph: objectValue(
       metadata.computerUseAffordanceGraph ??
       metadata.computer_use_affordance_graph,
+    ),
+    browserObservationArtifacts: objectValue(
+      metadata.computerUseBrowserObservationArtifacts ??
+      metadata.computer_use_browser_observation_artifacts ??
+      metadata.browserObservationArtifacts ??
+      metadata.browser_observation_artifacts,
     ),
   };
 }
