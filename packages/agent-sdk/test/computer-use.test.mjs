@@ -1061,6 +1061,60 @@ test("runtime daemon executes explicit native browser scroll through CDP", async
   }
 });
 
+test("runtime daemon executes approved native browser upload through CDP", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-upload-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-upload-state-"));
+  const uploadPath = path.join(cwd, "fixture.txt");
+  fs.writeFileSync(uploadPath, "upload me", "utf8");
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  const cdp = await startFakeNativeBrowserCdpServer();
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const thread = await agent.thread();
+    const result = await client.invokeThreadTool(thread.id, "ioi.computer_use.native_browser", {
+      source: "react_flow",
+      workflowGraphId: "workflow.native-browser-upload-tool",
+      workflowNodeId: "native-browser-upload-tool",
+      input: {
+        prompt: "Upload a fixture file at https://example.com.",
+        url: "https://example.com",
+        actionKind: "upload",
+        targetRef: "#file",
+        selector: "#file",
+        filePath: uploadPath,
+        cdpEndpointUrl: cdp.endpointUrl,
+        approvalRef: "approval-browser-upload",
+        observationRetentionMode: "prompt_visible_summary_only",
+      },
+    });
+
+    assert.equal(result.status, "completed");
+    assert.equal(result.result.action.action_kind, "upload");
+    assert.equal(result.result.action.target_ref, "#file");
+    assert.equal(result.result.action.approval_ref, "approval-browser-upload");
+    assert.equal(result.result.actionReceipt.adapter_id, "ioi.native_browser.cdp");
+    assert.equal(result.result.verification.status, "passed");
+    assert.equal(result.result.commitGate.status, "completed");
+    assert.deepEqual(cdp.state.uploads, [{ nodeId: 2, files: [uploadPath] }]);
+
+    const runtimeEvents = [];
+    for await (const event of thread.events()) {
+      runtimeEvents.push(event);
+    }
+    const actionEvent = runtimeEvents.find((event) => event.type === "computer_use_action_executed");
+    assert.equal(actionEvent.payload.native_browser_execution_result.action_result.action, "upload");
+    assert.equal(actionEvent.payload.native_browser_execution_result.status, "completed");
+  } finally {
+    await cdp.close();
+    await daemon.close();
+  }
+});
+
 test("runtime daemon preserves workflow-authored computer-use node metadata", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-workflow-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-workflow-state-"));

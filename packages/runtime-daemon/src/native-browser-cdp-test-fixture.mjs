@@ -9,6 +9,7 @@ export async function startFakeNativeBrowserCdpServer() {
     typed: [],
     keys: [],
     scrolls: [],
+    uploads: [],
   };
   const sockets = new Set();
   const server = http.createServer((request, response) => {
@@ -60,7 +61,29 @@ export async function startFakeNativeBrowserCdpServer() {
 }
 
 function handleFakeCdpCommand({ command, socket, state }) {
-  if (command.method === "Page.enable" || command.method === "Runtime.enable") {
+  if (command.method === "Page.enable" || command.method === "Runtime.enable" || command.method === "DOM.enable") {
+    sendServerFrame(socket, { id: command.id, result: {} });
+    return;
+  }
+  if (command.method === "DOM.getDocument") {
+    sendServerFrame(socket, {
+      id: command.id,
+      result: { root: { nodeId: 1, nodeName: "#document" } },
+    });
+    return;
+  }
+  if (command.method === "DOM.querySelector") {
+    sendServerFrame(socket, {
+      id: command.id,
+      result: { nodeId: command.params?.selector ? 2 : 0 },
+    });
+    return;
+  }
+  if (command.method === "DOM.setFileInputFiles") {
+    state.uploads.push({
+      nodeId: command.params?.nodeId ?? null,
+      files: command.params?.files ?? [],
+    });
     sendServerFrame(socket, { id: command.id, result: {} });
     return;
   }
@@ -132,6 +155,31 @@ function handleFakeCdpCommand({ command, socket, state }) {
       });
       return;
     }
+    if (expression.includes("Array.from(element.files")) {
+      const selector = expression.match(/const selector = "([^"]+)"/)?.[1] ?? "#file";
+      const latestUpload = state.uploads.at(-1);
+      sendServerFrame(socket, {
+        id: command.id,
+        result: {
+          result: {
+            type: "object",
+            value: {
+              uploaded: true,
+              selector,
+              tag: "INPUT",
+              id: selector.replace(/^#/, ""),
+              file_count: latestUpload?.files?.length ?? 0,
+              files: (latestUpload?.files ?? []).map((file) => ({
+                name: file.split(/[\\/]/).pop(),
+                size: 12,
+                type: "text/plain",
+              })),
+            },
+          },
+        },
+      });
+      return;
+    }
     if (expression.includes("document.querySelector")) {
       const selector = expression.match(/const selector = "([^"]+)"/)?.[1] ?? "#submit";
       state.clicks.push(selector);
@@ -167,8 +215,10 @@ function handleFakeCdpCommand({ command, socket, state }) {
                 ? `Pressed ${state.keys.at(-1).key}`
                 : state.scrolls.length > 0
                   ? `Scrolled ${state.scrolls.at(-1).deltaY}`
-                  : state.clicks.length > 0 ? "Clicked" : "Ready",
-            html: `<html><head><title>${state.title}</title></head><body><input id="input"><button id="submit">Submit</button></body></html>`,
+                  : state.uploads.length > 0
+                    ? `Uploaded ${state.uploads.at(-1).files.length}`
+                    : state.clicks.length > 0 ? "Clicked" : "Ready",
+            html: `<html><head><title>${state.title}</title></head><body><input id="input"><input id="file" type="file"><button id="submit">Submit</button></body></html>`,
           },
         },
       },

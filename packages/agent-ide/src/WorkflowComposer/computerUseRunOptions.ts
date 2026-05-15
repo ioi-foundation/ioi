@@ -17,6 +17,7 @@ export interface WorkflowComposerComputerUseRunMetadata {
   key?: string;
   scrollX?: number;
   scrollY?: number;
+  filePath?: string;
   cdpEndpointUrl?: string;
   cdpWebSocketUrl?: string;
   cdpTimeoutMs?: number;
@@ -85,6 +86,11 @@ export function workflowComposerComputerUseRunOptions(
     cleanString(first.args["key_text"]);
   const scrollX = finiteNumber(first.args["scrollX"] ?? first.args["scroll_x"]);
   const scrollY = finiteNumber(first.args["scrollY"] ?? first.args["scroll_y"]);
+  const filePath =
+    cleanString(first.args["filePath"]) ??
+    cleanString(first.args["file_path"]) ??
+    cleanString(first.args["uploadPath"]) ??
+    cleanString(first.args["upload_path"]);
   const cdpEndpointUrl =
     cleanString(first.args["cdpEndpointUrl"]) ??
     cleanString(first.args["cdp_endpoint_url"]) ??
@@ -113,6 +119,7 @@ export function workflowComposerComputerUseRunOptions(
       ...(key ? { key } : {}),
       ...(scrollX !== null ? { scrollX } : {}),
       ...(scrollY !== null ? { scrollY } : {}),
+      ...(filePath ? { filePath } : {}),
       ...(cdpEndpointUrl ? { cdpEndpointUrl } : {}),
       ...(cdpWebSocketUrl ? { cdpWebSocketUrl } : {}),
       ...(cdpTimeoutMs ? { cdpTimeoutMs } : {}),

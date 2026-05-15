@@ -29,6 +29,7 @@ struct WorkflowComputerUseBinding {
     key: Option<String>,
     scroll_x: Option<i64>,
     scroll_y: Option<i64>,
+    file_path: Option<String>,
     cdp_endpoint_url: Option<String>,
     cdp_websocket_url: Option<String>,
     cdp_timeout_ms: Option<u64>,
@@ -155,6 +156,10 @@ fn workflow_computer_use_binding(workflow: &WorkflowProject) -> Option<WorkflowC
     let key = workflow_value_string_any(&arguments, &["key", "keyText", "key_text"]);
     let scroll_x = workflow_value_i64_any(&arguments, &["scrollX", "scroll_x"]);
     let scroll_y = workflow_value_i64_any(&arguments, &["scrollY", "scroll_y"]);
+    let file_path = workflow_value_string_any(
+        &arguments,
+        &["filePath", "file_path", "uploadPath", "upload_path"],
+    );
     let cdp_endpoint_url = workflow_value_string_any(
         &arguments,
         &[
@@ -193,6 +198,7 @@ fn workflow_computer_use_binding(workflow: &WorkflowProject) -> Option<WorkflowC
         key,
         scroll_x,
         scroll_y,
+        file_path,
         cdp_endpoint_url,
         cdp_websocket_url,
         cdp_timeout_ms,
@@ -1417,6 +1423,8 @@ fn workflow_computer_use_base_payload(
         "scrollX": binding.scroll_x,
         "scroll_y": binding.scroll_y,
         "scrollY": binding.scroll_y,
+        "file_path": binding.file_path,
+        "filePath": binding.file_path,
         "cdp_endpoint_url": binding.cdp_endpoint_url,
         "cdpEndpointUrl": binding.cdp_endpoint_url,
         "cdp_websocket_url": binding.cdp_websocket_url,

@@ -433,6 +433,9 @@ pub enum ToolCommands {
         /// Vertical scroll delta for explicit scroll actions.
         #[clap(long = "scroll-y")]
         scroll_y: Option<i64>,
+        /// File path for approved upload actions.
+        #[clap(long = "file-path")]
+        file_path: Option<String>,
         /// HTTP CDP endpoint, for example http://127.0.0.1:9222.
         #[clap(long = "cdp-endpoint-url")]
         cdp_endpoint_url: Option<String>,
@@ -1352,6 +1355,7 @@ async fn run_tool_command(
             key,
             scroll_x,
             scroll_y,
+            file_path,
             cdp_endpoint_url,
             cdp_websocket_url,
             cdp_timeout_ms,
@@ -1375,6 +1379,7 @@ async fn run_tool_command(
                 key,
                 scroll_x,
                 scroll_y,
+                file_path,
                 cdp_endpoint_url,
                 cdp_websocket_url,
                 cdp_timeout_ms,
@@ -1565,6 +1570,7 @@ async fn invoke_native_browser_tool(
     key: Option<String>,
     scroll_x: Option<i64>,
     scroll_y: Option<i64>,
+    file_path: Option<String>,
     cdp_endpoint_url: Option<String>,
     cdp_websocket_url: Option<String>,
     cdp_timeout_ms: Option<u64>,
@@ -1648,6 +1654,15 @@ async fn invoke_native_browser_tool(
         input.insert(
             "scrollY".to_string(),
             serde_json::Value::Number(scroll_y.into()),
+        );
+    }
+    if let Some(file_path) = file_path
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "filePath".to_string(),
+            serde_json::Value::String(file_path.trim().to_string()),
         );
     }
     if let Some(cdp_endpoint_url) = cdp_endpoint_url
@@ -2996,6 +3011,8 @@ mod tests {
             "Enter",
             "--scroll-y",
             "420",
+            "--file-path",
+            "/tmp/upload.txt",
             "--cdp-endpoint-url",
             "http://127.0.0.1:9222",
             "--cdp-timeout-ms",
@@ -3015,6 +3032,7 @@ mod tests {
                     text: Some(text),
                     key: Some(key),
                     scroll_y: Some(scroll_y),
+                    file_path: Some(file_path),
                     cdp_endpoint_url: Some(cdp_endpoint_url),
                     cdp_timeout_ms: Some(cdp_timeout_ms),
                     json: true,
@@ -3029,6 +3047,7 @@ mod tests {
                 && text == "hello"
                 && key == "Enter"
                 && scroll_y == 420
+                && file_path == "/tmp/upload.txt"
                 && cdp_endpoint_url == "http://127.0.0.1:9222"
                 && cdp_timeout_ms == 5000
         ));

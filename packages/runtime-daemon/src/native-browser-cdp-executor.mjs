@@ -1,4 +1,6 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 
 export const NATIVE_BROWSER_CDP_EXECUTOR_SCHEMA_VERSION =
   "ioi.runtime.native-browser-cdp-executor.v1";
@@ -18,7 +20,7 @@ export async function executeNativeBrowserCdpAction({
     prompt,
   })).slice(0, 16)}`;
   const normalizedActionKind = normalizeActionKind(actionKind);
-  const supportedActionKinds = ["click", "navigate", "type_text", "key_press", "scroll"];
+  const supportedActionKinds = ["click", "navigate", "type_text", "key_press", "scroll", "upload"];
   if (!supportedActionKinds.includes(normalizedActionKind)) {
     return unavailableExecution({
       executorRef,
@@ -26,7 +28,7 @@ export async function executeNativeBrowserCdpAction({
       approvalRef,
       errorClass: "NativeBrowserCdpUnsupportedAction",
       errorSummary:
-        "The native-browser CDP executor currently supports approved navigate, click, type_text, key_press, and explicit scroll actions.",
+        "The native-browser CDP executor currently supports approved navigate, click, type_text, key_press, upload, and explicit scroll actions.",
     });
   }
   if (!approvalRef && normalizedActionKind !== "scroll") {
@@ -36,7 +38,7 @@ export async function executeNativeBrowserCdpAction({
       approvalRef,
       errorClass: "NativeBrowserCdpApprovalRequired",
       errorSummary:
-        "The native-browser CDP executor requires approval for navigate, click, type_text, and key_press actions.",
+        "The native-browser CDP executor requires approval for navigate, click, type_text, key_press, and upload actions.",
     });
   }
 
@@ -57,6 +59,7 @@ export async function executeNativeBrowserCdpAction({
     client = await connectCdpWebSocket(endpoint.webSocketDebuggerUrl, { timeoutMs });
     await client.command("Page.enable");
     await client.command("Runtime.enable");
+    await client.command("DOM.enable");
     const before = await observePage(client);
     const actionResult = await executeApprovedAction({
       client,
@@ -114,6 +117,9 @@ async function executeApprovedAction({ client, input, actionKind, targetRef, pro
   }
   if (actionKind === "scroll") {
     return executeScroll(client, input, targetRef, prompt);
+  }
+  if (actionKind === "upload") {
+    return executeUpload(client, input, targetRef);
   }
   return executeClick(client, input, targetRef);
 }
@@ -339,6 +345,68 @@ async function executeScroll(client, input, targetRef, prompt) {
     action: "scroll",
     scroll_source: source,
     ...value,
+  };
+}
+
+async function executeUpload(client, input, targetRef) {
+  const selector = normalizeSelector(
+    input.selector ??
+      input.targetSelector ??
+      input.target_selector ??
+      input.cssSelector ??
+      input.css_selector ??
+      targetRef,
+  );
+  if (!selector) {
+    throw new Error("Approved upload action requires selector, targetSelector, or selector-shaped targetRef.");
+  }
+  const files = normalizeUploadFiles(input);
+  if (files.length === 0) {
+    throw new Error("Approved upload action requires filePath, file_path, uploadPath, or files.");
+  }
+  const documentResult = await client.command("DOM.getDocument", { depth: 1, pierce: true });
+  const rootNodeId = documentResult?.root?.nodeId;
+  if (!rootNodeId) {
+    throw new Error("CDP upload could not resolve the document root.");
+  }
+  const queryResult = await client.command("DOM.querySelector", {
+    nodeId: rootNodeId,
+    selector,
+  });
+  if (!queryResult?.nodeId) {
+    throw new Error(`CDP upload did not find target selector ${selector}.`);
+  }
+  await client.command("DOM.setFileInputFiles", {
+    nodeId: queryResult.nodeId,
+    files,
+  });
+  const verification = await evaluateReturnByValue(client, `(() => {
+    const selector = ${JSON.stringify(selector)};
+    const element = document.querySelector(selector);
+    if (!element) return { uploaded: false, selector, reason: "target_not_found" };
+    const files = Array.from(element.files || []).map((file) => ({
+      name: file.name,
+      size: file.size,
+      type: file.type || null
+    }));
+    return {
+      uploaded: true,
+      selector,
+      tag: element.tagName,
+      id: element.id || null,
+      file_count: files.length,
+      files
+    };
+  })()`);
+  if (!verification?.uploaded) {
+    throw new Error(`CDP upload could not verify target selector ${selector}.`);
+  }
+  return {
+    action: "upload",
+    selector,
+    file_count: files.length,
+    file_refs: files.map((file) => `file:${stableHash(file).slice(0, 16)}`),
+    ...verification,
   };
 }
 
@@ -642,6 +710,30 @@ function scrollDelta(input, prompt) {
   if (/\bright\b/.test(normalized)) return { deltaX: 600, deltaY: 0, source: "prompt_direction" };
   if (/\bup\b/.test(normalized)) return { deltaX: 0, deltaY: -600, source: "prompt_direction" };
   return { deltaX: 0, deltaY: 600, source: /\bdown\b/.test(normalized) ? "prompt_direction" : "default_down" };
+}
+
+function normalizeUploadFiles(input) {
+  const candidates = [
+    input.filePath,
+    input.file_path,
+    input.uploadPath,
+    input.upload_path,
+    input.path,
+    ...(Array.isArray(input.files) ? input.files : []),
+    ...(Array.isArray(input.filePaths) ? input.filePaths : []),
+    ...(Array.isArray(input.file_paths) ? input.file_paths : []),
+  ];
+  return candidates
+    .map(stringValue)
+    .filter(Boolean)
+    .map((filePath) => path.resolve(filePath))
+    .filter((filePath) => {
+      try {
+        return fs.statSync(filePath).isFile();
+      } catch {
+        return false;
+      }
+    });
 }
 
 function numberValue(value) {
