@@ -81,6 +81,9 @@ import {
   DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_PROOF_MAX_AGE_MS,
   DEFAULT_AGENT_HARNESS_VERSION,
   DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+  HARNESS_ERROR_SCHEMA,
+  HARNESS_INPUT_SCHEMA,
+  HARNESS_OUTPUT_SCHEMA,
 } from "./constants";
 import {
   isRuntimeChromeNodeKind,
@@ -97,31 +100,11 @@ export {
   DEFAULT_AGENT_HARNESS_REVIEWED_IMPORT_ACTIVATION_APPLY_PROOF_MAX_AGE_MS,
   DEFAULT_AGENT_HARNESS_VERSION,
   DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+  HARNESS_ERROR_SCHEMA,
+  HARNESS_INPUT_SCHEMA,
+  HARNESS_OUTPUT_SCHEMA,
 } from "./constants";
 import { stableContentHash } from "./hashing";
-
-const HARNESS_INPUT_SCHEMA = {
-  type: "object",
-  required: ["sessionId", "turnId"],
-  properties: {
-    sessionId: { type: "string" },
-    turnId: { type: "string" },
-    input: {},
-    state: { type: "object" },
-    policyContext: { type: "object" },
-  },
-};
-
-const HARNESS_OUTPUT_SCHEMA = {
-  type: "object",
-  required: ["status"],
-  properties: {
-    status: { type: "string" },
-    value: {},
-    evidence: { type: "array", items: { type: "string" } },
-    receipts: { type: "array", items: { type: "string" } },
-  },
-};
 
 export function workflowHarnessActivationIdGateClickProofBlockers(
   proof: WorkflowHarnessActivationIdGateClickProof | null | undefined,
@@ -764,17 +747,6 @@ export function workflowHarnessPackageImportActivationApplyProofBlockers(
   }
   return uniqueStrings(blockers);
 }
-
-const HARNESS_ERROR_SCHEMA = {
-  type: "object",
-  required: ["code", "message", "retryable"],
-  properties: {
-    code: { type: "string" },
-    message: { type: "string" },
-    retryable: { type: "boolean" },
-    evidenceRef: { type: "string" },
-  },
-};
 
 export function defaultHarnessComponentVersionSet(): Record<string, string> {
   return Object.fromEntries(

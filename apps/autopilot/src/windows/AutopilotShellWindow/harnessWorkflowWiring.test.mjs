@@ -24,13 +24,15 @@ const workflowComposer = [
 ]
   .map((path) => fs.readFileSync(new URL(path, import.meta.url), "utf8"))
   .join("\n");
-const workflowRailPanel = fs.readFileSync(
-  new URL(
-    "../../../../../packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx",
-    import.meta.url,
-  ),
-  "utf8",
+const workflowRailPanelDir = new URL(
+  "../../../../../packages/agent-ide/src/features/Workflows/WorkflowRailPanel/",
+  import.meta.url,
 );
+const workflowRailPanel = fs
+  .readdirSync(workflowRailPanelDir)
+  .filter((name) => /\.(ts|tsx)$/.test(name))
+  .map((name) => fs.readFileSync(new URL(name, workflowRailPanelDir), "utf8"))
+  .join("\n");
 const workflowRailModel = fs.readFileSync(
   new URL(
     "../../../../../packages/agent-ide/src/runtime/workflow-rail-model.ts",
