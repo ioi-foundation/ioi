@@ -239,6 +239,27 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(projection, /recoveryPolicy/);
   assert.match(projection, /WorkflowRunCodingToolBudgetApprovedRetry/);
   assert.match(projection, /ioi\.workflow\.coding-tool-budget-recovery\.v1/);
+  assert.match(projection, /ioi\.workflow\.computer-use-projection\.v1/);
+  assert.match(projection, /WorkflowRuntimeComputerUseProjection/);
+  assert.match(projection, /computerUseProjectionForRuntimeThreadEvent/);
+  for (const computerUseField of [
+    "computerUse",
+    "computer_use_step",
+    "computer_use_lane",
+    "computer_use_session_mode",
+    "computer_use_lease_id",
+    "computer_use_observation_ref",
+    "computer_use_target_index_ref",
+    "computer_use_affordance_graph_ref",
+    "computer_use_proposal_ref",
+    "computer_use_action_ref",
+    "computer_use_verification_ref",
+    "computer_use_trajectory_ref",
+    "computer_use_cleanup_ref",
+    "computer_use_blocker",
+  ]) {
+    assert.match(projection, new RegExp(computerUseField));
+  }
   assert.match(
     codingToolBudgetRecoveryPolicy,
     /ioi\.workflow\.coding-tool-budget-recovery-policy\.v1/,

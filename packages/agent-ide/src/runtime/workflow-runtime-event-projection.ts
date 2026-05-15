@@ -18,6 +18,8 @@ export const WORKFLOW_RUNTIME_TUI_CONTROL_STATE_SCHEMA_VERSION =
   "ioi.workflow.runtime-tui-control-state.v1" as const;
 export const WORKFLOW_RUNTIME_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION =
   "ioi.workflow.coding-tool-budget-recovery.v1" as const;
+export const WORKFLOW_RUNTIME_COMPUTER_USE_PROJECTION_SCHEMA_VERSION =
+  "ioi.workflow.computer-use-projection.v1" as const;
 
 export type WorkflowRuntimeThreadEventType =
   | "thread_started"
@@ -142,7 +144,39 @@ export interface WorkflowRuntimeReactFlowNodeData {
   diagnosticsRepairActions: WorkflowRuntimeDiagnosticsRepairActionDescriptor[];
   contextPressureActions: WorkflowRuntimeContextPressureActionDescriptor[];
   workspaceTrustActions: WorkflowRuntimeWorkspaceTrustActionDescriptor[];
+  computerUse: WorkflowRuntimeComputerUseProjection | null;
   tuiDeepLink: WorkflowRuntimeTuiDeepLinkDescriptor;
+}
+
+export interface WorkflowRuntimeComputerUseProjection {
+  schemaVersion: typeof WORKFLOW_RUNTIME_COMPUTER_USE_PROJECTION_SCHEMA_VERSION;
+  step: string | null;
+  lane: string | null;
+  sessionMode: string | null;
+  leaseId: string | null;
+  status: WorkflowRuntimeProjectedStatus;
+  blocker: string | null;
+  observationRef: string | null;
+  targetIndexRef: string | null;
+  affordanceGraphRef: string | null;
+  proposalRef: string | null;
+  actionRef: string | null;
+  actionKind: string | null;
+  actionReceiptRef: string | null;
+  targetRef: string | null;
+  policyDecisionRef: string | null;
+  verificationRef: string | null;
+  verificationStatus: string | null;
+  trajectoryRef: string | null;
+  cleanupRef: string | null;
+  cleanupStatus: string | null;
+  retentionMode: string | null;
+  riskPosture: string | null;
+  authorityRequired: string | null;
+  targetCount: number | null;
+  affordanceCount: number | null;
+  detectedPatterns: string[];
+  recoveryPolicy: Record<string, unknown> | null;
 }
 
 export type WorkflowRuntimeCodingToolBudgetRecoveryAction =
@@ -2118,6 +2152,16 @@ export function workflowNodeIdForRuntimeThreadEvent(
   event: WorkflowRuntimeThreadEventLike,
 ): string {
   if (event.workflowNodeId) return event.workflowNodeId;
+  if (isComputerUseRuntimeThreadEvent(event)) {
+    const payloadNodeId = stringField(
+      event.payload,
+      "workflowNodeId",
+      "workflow_node_id",
+    );
+    if (payloadNodeId) return payloadNodeId;
+    const step = computerUseStepForRuntimeThreadEvent(event);
+    return `computer-use.${slug(step ?? event.eventKind)}`;
+  }
   if (isCodingToolBudgetBlockedEvent(event)) {
     const evidence = codingToolBudgetEvidenceForRuntimeThreadEvent(event);
     return `runtime.coding-tool-budget.${slug(
@@ -2185,6 +2229,7 @@ export function workflowNodeIdForRuntimeThreadEvent(
 export function workflowNodeKindForRuntimeThreadEvent(
   event: WorkflowRuntimeThreadEventLike,
 ): WorkflowNodeKind {
+  if (isComputerUseRuntimeThreadEvent(event)) return "gui_harness_validation";
   if (event.componentKind === "workspace_snapshot") return "quality_ledger";
   if (event.componentKind === "restore_gate") return "hook_policy";
   if (event.componentKind === "usage_telemetry") return "runtime_usage_meter";
@@ -2265,6 +2310,7 @@ function projectedNodeForBucket(
   const latestEvent = events[events.length - 1];
   const codingToolBudgetEvidence =
     codingToolBudgetEvidenceForRuntimeThreadEvent(latestEvent);
+  const computerUse = computerUseProjectionForRuntimeThreadEvent(latestEvent);
   const nodeData: WorkflowRuntimeReactFlowNodeData = {
     schemaVersion: WORKFLOW_RUNTIME_EVENT_PROJECTION_SCHEMA_VERSION,
     nodeKind: workflowNodeKindForRuntimeThreadEvent(latestEvent),
@@ -2321,6 +2367,7 @@ function projectedNodeForBucket(
     ),
     contextPressureActions: contextPressureActionsForEvents(events, latestEvent),
     workspaceTrustActions: workspaceTrustActionsForEvents(events, latestEvent),
+    computerUse,
     tuiDeepLink: tuiDeepLinkForRuntimeThreadEvent(latestEvent, bucket.nodeId),
   };
   const reactFlowNode: WorkflowRuntimeReactFlowNode = {
@@ -3052,10 +3099,254 @@ function codingToolBudgetEvidenceFromRecord(
   };
 }
 
+function isComputerUseRuntimeThreadEvent(
+  event: WorkflowRuntimeThreadEventLike,
+): boolean {
+  return (
+    event.componentKind === "computer_use_harness" ||
+    event.eventKind.startsWith("computer_use.") ||
+    event.sourceEventKind.startsWith("ComputerUse.") ||
+    Boolean(computerUseStepForRuntimeThreadEvent(event))
+  );
+}
+
+function computerUseStepForRuntimeThreadEvent(
+  event: WorkflowRuntimeThreadEventLike,
+): string | null {
+  const payloadStep = stringField(
+    event.payload,
+    "computer_use_step",
+    "computerUseStep",
+  );
+  if (payloadStep) return payloadStep;
+  if (event.eventKind.startsWith("computer_use.")) {
+    return event.eventKind.slice("computer_use.".length);
+  }
+  if (event.type.startsWith("computer_use_")) {
+    return event.type.slice("computer_use_".length);
+  }
+  return null;
+}
+
+function computerUseProjectionForRuntimeThreadEvent(
+  event: WorkflowRuntimeThreadEventLike,
+): WorkflowRuntimeComputerUseProjection | null {
+  if (!isComputerUseRuntimeThreadEvent(event)) return null;
+  const payload = event.payload ?? {};
+  const lease = recordField(payload, "lease");
+  const environmentSelectionReceipt = recordField(
+    payload,
+    "environment_selection_receipt",
+    "environmentSelectionReceipt",
+  );
+  const runState = recordField(
+    payload,
+    "computer_use_run_state",
+    "computerUseRunState",
+  );
+  const observationBundle = recordField(
+    payload,
+    "observation_bundle",
+    "observationBundle",
+  );
+  const targetIndex = recordField(payload, "target_index", "targetIndex");
+  const affordanceGraph = recordField(
+    payload,
+    "affordance_graph",
+    "affordanceGraph",
+  );
+  const actionProposal = recordField(
+    payload,
+    "action_proposal",
+    "actionProposal",
+  );
+  const computerAction = recordField(
+    payload,
+    "computer_action",
+    "computerAction",
+  );
+  const actionReceipt = recordField(
+    payload,
+    "action_receipt",
+    "actionReceipt",
+  );
+  const verificationReceipt = recordField(
+    payload,
+    "verification_receipt",
+    "verificationReceipt",
+  );
+  const trajectoryBundle = recordField(
+    payload,
+    "trajectory_bundle",
+    "trajectoryBundle",
+  );
+  const cleanupReceipt = recordField(
+    payload,
+    "cleanup_receipt",
+    "cleanupReceipt",
+  );
+  const targetCount = targetIndex ? arrayField(targetIndex, "targets").length : null;
+  const affordanceCount = affordanceGraph
+    ? arrayField(affordanceGraph, "affordances").length
+    : null;
+
+  return {
+    schemaVersion: WORKFLOW_RUNTIME_COMPUTER_USE_PROJECTION_SCHEMA_VERSION,
+    step: computerUseStepForRuntimeThreadEvent(event),
+    lane:
+      stringField(payload, "computer_use_lane", "computerUseLane") ??
+      stringField(lease, "lane") ??
+      stringField(observationBundle, "lane"),
+    sessionMode:
+      stringField(payload, "computer_use_session_mode", "computerUseSessionMode") ??
+      stringField(lease, "session_mode", "sessionMode") ??
+      stringField(observationBundle, "session_mode", "sessionMode"),
+    leaseId:
+      stringField(payload, "computer_use_lease_id", "computerUseLeaseId") ??
+      stringField(lease, "lease_id", "leaseId") ??
+      stringField(runState, "lease_id", "leaseId"),
+    status: projectedStatusForRuntimeThreadEvent(event),
+    blocker:
+      stringField(payload, "computer_use_blocker", "computerUseBlocker") ??
+      stringField(runState, "blocker_state", "blockerState"),
+    observationRef:
+      stringField(payload, "computer_use_observation_ref", "computerUseObservationRef") ??
+      stringField(observationBundle, "observation_ref", "observationRef") ??
+      stringField(runState, "current_observation_ref", "currentObservationRef"),
+    targetIndexRef:
+      stringField(payload, "computer_use_target_index_ref", "computerUseTargetIndexRef") ??
+      stringField(targetIndex, "target_index_ref", "targetIndexRef") ??
+      stringField(observationBundle, "target_index_ref", "targetIndexRef") ??
+      stringField(runState, "current_target_index_ref", "currentTargetIndexRef"),
+    affordanceGraphRef:
+      stringField(
+        payload,
+        "computer_use_affordance_graph_ref",
+        "computerUseAffordanceGraphRef",
+      ) ?? stringField(affordanceGraph, "graph_ref", "graphRef"),
+    proposalRef:
+      stringField(payload, "computer_use_proposal_ref", "computerUseProposalRef") ??
+      stringField(actionProposal, "proposal_ref", "proposalRef"),
+    actionRef:
+      stringField(payload, "computer_use_action_ref", "computerUseActionRef") ??
+      stringField(computerAction, "action_ref", "actionRef") ??
+      stringField(actionReceipt, "action_ref", "actionRef"),
+    actionKind: stringField(computerAction, "action_kind", "actionKind"),
+    actionReceiptRef: stringField(actionReceipt, "receipt_ref", "receiptRef"),
+    targetRef:
+      stringField(payload, "computer_use_target_ref", "computerUseTargetRef") ??
+      stringField(actionProposal, "target_ref", "targetRef") ??
+      stringField(computerAction, "target_ref", "targetRef"),
+    policyDecisionRef:
+      stringField(
+        payload,
+        "computer_use_policy_decision_ref",
+        "computerUsePolicyDecisionRef",
+      ) ??
+      stringField(actionProposal, "policy_decision_ref", "policyDecisionRef") ??
+      stringField(recordField(payload, "policy_gate", "policyGate"), "policy_decision_ref", "policyDecisionRef"),
+    verificationRef:
+      stringField(payload, "computer_use_verification_ref", "computerUseVerificationRef") ??
+      stringField(verificationReceipt, "verification_ref", "verificationRef") ??
+      stringField(actionReceipt, "verification_ref", "verificationRef"),
+    verificationStatus:
+      stringField(verificationReceipt, "status") ??
+      stringField(runState, "verification_status", "verificationStatus"),
+    trajectoryRef:
+      stringField(payload, "computer_use_trajectory_ref", "computerUseTrajectoryRef") ??
+      stringField(trajectoryBundle, "trajectory_ref", "trajectoryRef"),
+    cleanupRef:
+      stringField(payload, "computer_use_cleanup_ref", "computerUseCleanupRef") ??
+      stringField(cleanupReceipt, "cleanup_ref", "cleanupRef"),
+    cleanupStatus: stringField(cleanupReceipt, "status"),
+    retentionMode:
+      stringField(lease, "retention_mode", "retentionMode") ??
+      stringField(observationBundle, "retention_mode", "retentionMode") ??
+      stringField(trajectoryBundle, "retention_mode", "retentionMode"),
+    riskPosture:
+      stringField(environmentSelectionReceipt, "risk_posture", "riskPosture") ??
+      stringField(runState, "risk_posture", "riskPosture"),
+    authorityRequired:
+      stringField(
+        environmentSelectionReceipt,
+        "authority_required",
+        "authorityRequired",
+      ) ?? stringField(lease, "authority_scope", "authorityScope"),
+    targetCount,
+    affordanceCount,
+    detectedPatterns: stringArrayField(
+      observationBundle,
+      "detected_patterns",
+      "detectedPatterns",
+    ),
+    recoveryPolicy: recordField(payload, "recovery_policy", "recoveryPolicy"),
+  };
+}
+
+function labelForComputerUseRuntimeThreadEvent(
+  event: WorkflowRuntimeThreadEventLike,
+): string | null {
+  const computerUse = computerUseProjectionForRuntimeThreadEvent(event);
+  if (!computerUse) return null;
+  if (event.eventKind === "computer_use.environment_unavailable" || computerUse.blocker) {
+    return "Computer use unavailable";
+  }
+  switch (computerUse.step) {
+    case "select_environment":
+    case "environment_selected":
+      return "Computer use: select environment";
+    case "acquire_lease":
+    case "lease_acquired":
+      return "Computer use: acquire lease";
+    case "plan_next_step":
+    case "run_state":
+      return "Computer use: run state";
+    case "observe":
+    case "observation":
+      return "Computer use: observe";
+    case "build_affordance_graph":
+    case "affordance_graph":
+      return "Computer use: affordances";
+    case "propose_action":
+    case "action_proposed":
+      return "Computer use: propose action";
+    case "execute_action":
+    case "action_executed":
+      return "Computer use: execute action";
+    case "verify_postcondition":
+    case "verification":
+      return "Computer use: verify";
+    case "write_trajectory":
+    case "trajectory_written":
+      return "Computer use: trajectory";
+    case "cleanup":
+      return "Computer use: cleanup";
+    default:
+      return "Computer use";
+  }
+}
+
+function summaryForComputerUseProjection(
+  computerUse: WorkflowRuntimeComputerUseProjection,
+): string {
+  const parts = [
+    computerUse.lane,
+    computerUse.sessionMode,
+    computerUse.actionKind,
+    computerUse.verificationStatus,
+    computerUse.cleanupStatus,
+    computerUse.blocker,
+  ].filter((part): part is string => Boolean(part));
+  return parts.length > 0
+    ? parts.join(" · ")
+    : "Computer-use harness event projected from canonical runtime truth.";
+}
+
 function componentKindForRuntimeThreadEvent(
   event: WorkflowRuntimeThreadEventLike,
 ): string {
   if (event.componentKind) return event.componentKind;
+  if (isComputerUseRuntimeThreadEvent(event)) return "computer_use_harness";
   switch (event.type) {
     case "thread_started":
       return "runtime_thread";
@@ -3110,6 +3401,8 @@ function componentKindForRuntimeThreadEvent(
 }
 
 function labelForRuntimeThreadEvent(event: WorkflowRuntimeThreadEventLike): string {
+  const computerUseLabel = labelForComputerUseRuntimeThreadEvent(event);
+  if (computerUseLabel) return computerUseLabel;
   if (isCodingToolBudgetBlockedEvent(event)) {
     const evidence = codingToolBudgetEvidenceForRuntimeThreadEvent(event);
     return `Coding tool budget: ${
@@ -3272,6 +3565,8 @@ function summaryForRuntimeThreadEvent(
     const value = payload[key];
     if (typeof value === "string" && value.trim()) return value;
   }
+  const computerUse = computerUseProjectionForRuntimeThreadEvent(event);
+  if (computerUse) return summaryForComputerUseProjection(computerUse);
   return null;
 }
 
