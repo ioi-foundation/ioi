@@ -1275,11 +1275,43 @@ export type WorkflowToolBindingKind =
   | "workflow_tool"
   | "coding_tool_pack";
 
+export interface WorkflowCapabilityCredentialReadiness {
+  status: "not_required" | "ready" | "missing" | "degraded" | "unknown" | string;
+  checkedAt?: string | null;
+  evidenceRefs?: string[];
+  reason?: string | null;
+}
+
+export interface WorkflowCapabilityAvailability {
+  available: boolean;
+  reason?: string | null;
+  nodeType?: string | null;
+  configFields?: string[];
+  evidenceRefs?: string[];
+}
+
+export interface WorkflowCapabilityContractMetadata {
+  credentialReadiness?: WorkflowCapabilityCredentialReadiness;
+  rateLimitProfile?: Record<string, unknown>;
+  idempotencyBehavior?: Record<string, unknown>;
+  receiptBehavior?: Record<string, unknown>;
+  workflowAvailability?: WorkflowCapabilityAvailability;
+  agentAvailability?: WorkflowCapabilityAvailability;
+  marketplaceExposure?: Record<string, unknown>;
+}
+
 export interface WorkflowToolBinding {
   toolRef: string;
   bindingKind?: WorkflowToolBindingKind;
   mockBinding: boolean;
   credentialReady?: boolean;
+  credentialReadiness?: WorkflowCapabilityCredentialReadiness;
+  rateLimitProfile?: Record<string, unknown>;
+  idempotencyBehavior?: Record<string, unknown>;
+  receiptBehavior?: Record<string, unknown>;
+  workflowAvailability?: WorkflowCapabilityAvailability;
+  agentAvailability?: WorkflowCapabilityAvailability;
+  marketplaceExposure?: Record<string, unknown>;
   capabilityScope: string[];
   sideEffectClass: WorkflowSideEffectClass;
   requiresApproval: boolean;
@@ -1356,6 +1388,13 @@ export interface WorkflowConnectorBinding {
   connectorRef: string;
   mockBinding: boolean;
   credentialReady?: boolean;
+  credentialReadiness?: WorkflowCapabilityCredentialReadiness;
+  rateLimitProfile?: Record<string, unknown>;
+  idempotencyBehavior?: Record<string, unknown>;
+  receiptBehavior?: Record<string, unknown>;
+  workflowAvailability?: WorkflowCapabilityAvailability;
+  agentAvailability?: WorkflowCapabilityAvailability;
+  marketplaceExposure?: Record<string, unknown>;
   capabilityScope: string[];
   sideEffectClass: WorkflowSideEffectClass;
   requiresApproval: boolean;

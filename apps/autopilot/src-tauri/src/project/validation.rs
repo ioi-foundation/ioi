@@ -760,6 +760,19 @@ pub(super) fn validate_workflow_project_bundle(
                             message: "Live connector bindings need credentials marked ready before execution.".to_string(),
                         });
                     }
+                    execution_readiness_issues.extend(live_binding_contract_metadata_issues(
+                        &node_id,
+                        "connector",
+                        &binding.side_effect_class,
+                        binding.mock_binding,
+                        binding.credential_ready,
+                        binding.credential_readiness.as_ref(),
+                        binding.rate_limit_profile.as_ref(),
+                        binding.idempotency_behavior.as_ref(),
+                        binding.receipt_behavior.as_ref(),
+                        binding.workflow_availability.as_ref(),
+                        binding.agent_availability.as_ref(),
+                    ));
                     if !binding.mock_binding
                         && workflow_side_effect_requires_live_runtime(&binding.side_effect_class)
                     {
@@ -854,6 +867,21 @@ pub(super) fn validate_workflow_project_bundle(
                             code: "missing_live_tool_credential".to_string(),
                             message: "Live plugin or MCP tool bindings need credentials marked ready before execution.".to_string(),
                         });
+                    }
+                    if binding.binding_kind.as_deref() != Some("workflow_tool") {
+                        execution_readiness_issues.extend(live_binding_contract_metadata_issues(
+                            &node_id,
+                            "tool",
+                            &binding.side_effect_class,
+                            binding.mock_binding,
+                            binding.credential_ready,
+                            binding.credential_readiness.as_ref(),
+                            binding.rate_limit_profile.as_ref(),
+                            binding.idempotency_behavior.as_ref(),
+                            binding.receipt_behavior.as_ref(),
+                            binding.workflow_availability.as_ref(),
+                            binding.agent_availability.as_ref(),
+                        ));
                     }
                     if !binding.mock_binding
                         && workflow_side_effect_requires_live_runtime(&binding.side_effect_class)
@@ -1050,6 +1078,136 @@ fn finalize_workflow_readiness_status(result: &mut WorkflowValidationResult) {
     } else {
         "passed".to_string()
     };
+}
+
+fn live_binding_contract_metadata_issues(
+    node_id: &str,
+    binding_kind: &str,
+    side_effect_class: &str,
+    mock_binding: bool,
+    credential_ready: Option<bool>,
+    credential_readiness: Option<&Value>,
+    rate_limit_profile: Option<&Value>,
+    idempotency_behavior: Option<&Value>,
+    receipt_behavior: Option<&Value>,
+    workflow_availability: Option<&Value>,
+    agent_availability: Option<&Value>,
+) -> Vec<WorkflowValidationIssue> {
+    if mock_binding {
+        return Vec::new();
+    }
+
+    let mut issues = Vec::new();
+    let credential_status = credential_readiness
+        .and_then(|value| value.get("status").or_else(|| value.get("state")))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    if credential_status.is_none() && credential_ready.is_none() {
+        issues.push(WorkflowValidationIssue {
+            node_id: Some(node_id.to_string()),
+            code: "missing_credential_readiness_contract".to_string(),
+            message: format!(
+                "Live {binding_kind} bindings need credentialReadiness status metadata or a compatibility credentialReady projection."
+            ),
+        });
+    }
+
+    let effectful = !matches!(side_effect_class, "none" | "read");
+    if !effectful {
+        return issues;
+    }
+
+    let rate_limit_policy = rate_limit_profile
+        .and_then(|value| value.get("policy"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    if rate_limit_policy.is_none() {
+        issues.push(WorkflowValidationIssue {
+            node_id: Some(node_id.to_string()),
+            code: "missing_rate_limit_profile".to_string(),
+            message: format!(
+                "Live {binding_kind} bindings need rateLimitProfile.policy before execution."
+            ),
+        });
+    }
+
+    let receipt_required = receipt_behavior
+        .and_then(|value| {
+            value
+                .get("receiptRequired")
+                .or_else(|| value.get("receipt_required"))
+        })
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let receipt_types = receipt_behavior
+        .and_then(|value| {
+            value
+                .get("requiredReceiptTypes")
+                .or_else(|| value.get("required_receipt_types"))
+        })
+        .and_then(Value::as_array)
+        .map(Vec::len)
+        .unwrap_or(0);
+    if !receipt_required || receipt_types == 0 {
+        issues.push(WorkflowValidationIssue {
+            node_id: Some(node_id.to_string()),
+            code: "missing_receipt_behavior".to_string(),
+            message: format!(
+                "Live {binding_kind} bindings need receiptBehavior with required receipt types before execution."
+            ),
+        });
+    }
+
+    let idempotency_strategy = idempotency_behavior
+        .and_then(|value| value.get("strategy"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let idempotency_required = idempotency_behavior
+        .and_then(|value| value.get("required"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    if idempotency_strategy.is_none() || !idempotency_required {
+        issues.push(WorkflowValidationIssue {
+            node_id: Some(node_id.to_string()),
+            code: "missing_idempotency_behavior".to_string(),
+            message: format!(
+                "Effectful live {binding_kind} bindings need idempotencyBehavior.required and strategy metadata."
+            ),
+        });
+    }
+
+    let workflow_available = workflow_availability
+        .and_then(|value| value.get("available"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    if !workflow_available {
+        issues.push(WorkflowValidationIssue {
+            node_id: Some(node_id.to_string()),
+            code: "missing_workflow_availability".to_string(),
+            message: format!(
+                "Live {binding_kind} bindings need workflowAvailability.available=true before activation."
+            ),
+        });
+    }
+
+    let agent_available = agent_availability
+        .and_then(|value| value.get("available"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    if !agent_available {
+        issues.push(WorkflowValidationIssue {
+            node_id: Some(node_id.to_string()),
+            code: "missing_agent_availability".to_string(),
+            message: format!(
+                "Live {binding_kind} bindings need agentAvailability.available=true before execution."
+            ),
+        });
+    }
+
+    issues
 }
 
 fn workflow_production_string(workflow: &WorkflowProject, key: &str) -> Option<String> {
