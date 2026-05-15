@@ -54,12 +54,20 @@ test("computer-use composer run options project configured native-browser action
   const args = first.config?.logic?.toolBinding?.arguments as Record<string, unknown>;
   args["computerUseActionKind"] = "click";
   args["computerUseApprovalRef"] = "approval-browser-click";
+  args["targetRef"] = "#submit";
+  args["selector"] = "#submit";
+  args["cdpEndpointUrl"] = "http://127.0.0.1:9222";
+  args["cdpTimeoutMs"] = 5000;
 
   const options = workflowComposerComputerUseRunOptions(workflow);
 
   assert.ok(options);
   assert.equal(options.metadata.computerUseActionKind, "click");
   assert.equal(options.metadata.computerUseApprovalRef, "approval-browser-click");
+  assert.equal(options.metadata.computerUseTargetRef, "#submit");
+  assert.equal(options.metadata.selector, "#submit");
+  assert.equal(options.metadata.cdpEndpointUrl, "http://127.0.0.1:9222");
+  assert.equal(options.metadata.cdpTimeoutMs, 5000);
 });
 
 test("computer-use composer run options preserve existing run metadata", () => {

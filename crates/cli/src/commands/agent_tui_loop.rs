@@ -78,6 +78,11 @@ pub(crate) enum TuiLineCommand {
     NativeBrowser {
         prompt: Option<String>,
         approval_ref: Option<String>,
+        target_ref: Option<String>,
+        selector: Option<String>,
+        cdp_endpoint_url: Option<String>,
+        cdp_websocket_url: Option<String>,
+        cdp_timeout_ms: Option<u64>,
     },
     Mcp {
         action: Option<String>,
@@ -386,9 +391,25 @@ pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession)
             Ok(TuiLineCommand::NativeBrowser {
                 prompt,
                 approval_ref,
+                target_ref,
+                selector,
+                cdp_endpoint_url,
+                cdp_websocket_url,
+                cdp_timeout_ms,
             }) => {
-                let events =
-                    handle_native_browser_command(&mut session, prompt, approval_ref).await?;
+                let events = handle_native_browser_command(
+                    &mut session,
+                    NativeBrowserLineArgs {
+                        prompt,
+                        approval_ref,
+                        target_ref,
+                        selector,
+                        cdp_endpoint_url,
+                        cdp_websocket_url,
+                        cdp_timeout_ms,
+                    },
+                )
+                .await?;
                 control_state.record_command(
                     "native-browser",
                     line.trim(),
@@ -947,6 +968,11 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
             Ok(TuiLineCommand::NativeBrowser {
                 prompt: args.prompt,
                 approval_ref: args.approval_ref,
+                target_ref: args.target_ref,
+                selector: args.selector,
+                cdp_endpoint_url: args.cdp_endpoint_url,
+                cdp_websocket_url: args.cdp_websocket_url,
+                cdp_timeout_ms: args.cdp_timeout_ms,
             })
         }
         "computer-use" => {
@@ -965,6 +991,11 @@ pub(crate) fn parse_tui_line_command(line: &str) -> Result<TuiLineCommand> {
                 Ok(TuiLineCommand::NativeBrowser {
                     prompt: args.prompt,
                     approval_ref: args.approval_ref,
+                    target_ref: args.target_ref,
+                    selector: args.selector,
+                    cdp_endpoint_url: args.cdp_endpoint_url,
+                    cdp_websocket_url: args.cdp_websocket_url,
+                    cdp_timeout_ms: args.cdp_timeout_ms,
                 })
             } else {
                 Err(anyhow!(
@@ -2525,9 +2556,10 @@ async fn handle_browser_discovery_command(
 
 async fn handle_native_browser_command(
     session: &mut TuiInteractiveSession,
-    prompt: Option<String>,
-    approval_ref: Option<String>,
+    args: NativeBrowserLineArgs,
 ) -> Result<Vec<Value>> {
+    let prompt = args.prompt;
+    let approval_ref = args.approval_ref;
     let mut input = serde_json::Map::new();
     if let Some(prompt) = prompt.as_deref().filter(|value| !value.trim().is_empty()) {
         if let Some(action_kind) = native_browser_action_kind_from_prompt(prompt) {
@@ -2556,6 +2588,49 @@ async fn handle_native_browser_command(
             "approvalRef".to_string(),
             Value::String(approval_ref.trim().to_string()),
         );
+    }
+    if let Some(target_ref) = args
+        .target_ref
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "targetRef".to_string(),
+            Value::String(target_ref.trim().to_string()),
+        );
+    }
+    if let Some(selector) = args
+        .selector
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "selector".to_string(),
+            Value::String(selector.trim().to_string()),
+        );
+    }
+    if let Some(cdp_endpoint_url) = args
+        .cdp_endpoint_url
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "cdpEndpointUrl".to_string(),
+            Value::String(cdp_endpoint_url.trim().to_string()),
+        );
+    }
+    if let Some(cdp_websocket_url) = args
+        .cdp_websocket_url
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "cdpWebSocketUrl".to_string(),
+            Value::String(cdp_websocket_url.trim().to_string()),
+        );
+    }
+    if let Some(cdp_timeout_ms) = args.cdp_timeout_ms {
+        input.insert("cdpTimeoutMs".to_string(), Value::from(cdp_timeout_ms));
     }
     handle_coding_tool_input_command(session, "ioi.computer_use.native_browser", input).await
 }
@@ -3169,7 +3244,7 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--approval-ref approval_id] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--approval-ref approval_id] [--selector css] [--target-ref ref] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -3191,11 +3266,21 @@ fn non_empty_string(value: &str) -> Option<String> {
 struct NativeBrowserLineArgs {
     prompt: Option<String>,
     approval_ref: Option<String>,
+    target_ref: Option<String>,
+    selector: Option<String>,
+    cdp_endpoint_url: Option<String>,
+    cdp_websocket_url: Option<String>,
+    cdp_timeout_ms: Option<u64>,
 }
 
 fn parse_native_browser_args(value: &str) -> Result<NativeBrowserLineArgs> {
     let mut prompt_parts = Vec::new();
     let mut approval_ref = None;
+    let mut target_ref = None;
+    let mut selector = None;
+    let mut cdp_endpoint_url = None;
+    let mut cdp_websocket_url = None;
+    let mut cdp_timeout_ms = None;
     let mut parts = value.split_whitespace();
     while let Some(part) = parts.next() {
         if let Some(inline) = part.strip_prefix("--approval-ref=") {
@@ -3212,12 +3297,100 @@ fn parse_native_browser_args(value: &str) -> Result<NativeBrowserLineArgs> {
             approval_ref = Some(next.trim().to_string());
             continue;
         }
+        if let Some(inline) = part.strip_prefix("--target-ref=") {
+            target_ref = Some(non_empty_flag_value("--target-ref", inline)?);
+            continue;
+        }
+        if part == "--target-ref" {
+            target_ref = Some(non_empty_flag_value(
+                "--target-ref",
+                required_flag_value("--target-ref", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--selector=") {
+            selector = Some(non_empty_flag_value("--selector", inline)?);
+            continue;
+        }
+        if part == "--selector" {
+            selector = Some(non_empty_flag_value(
+                "--selector",
+                required_flag_value("--selector", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--cdp-endpoint-url=") {
+            cdp_endpoint_url = Some(non_empty_flag_value("--cdp-endpoint-url", inline)?);
+            continue;
+        }
+        if part == "--cdp-endpoint-url" {
+            cdp_endpoint_url = Some(non_empty_flag_value(
+                "--cdp-endpoint-url",
+                required_flag_value("--cdp-endpoint-url", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--cdp-websocket-url=") {
+            cdp_websocket_url = Some(non_empty_flag_value("--cdp-websocket-url", inline)?);
+            continue;
+        }
+        if part == "--cdp-websocket-url" {
+            cdp_websocket_url = Some(non_empty_flag_value(
+                "--cdp-websocket-url",
+                required_flag_value("--cdp-websocket-url", &mut parts)?,
+            )?);
+            continue;
+        }
+        if let Some(inline) = part.strip_prefix("--cdp-timeout-ms=") {
+            cdp_timeout_ms = Some(parse_cdp_timeout_ms(inline)?);
+            continue;
+        }
+        if part == "--cdp-timeout-ms" {
+            cdp_timeout_ms = Some(parse_cdp_timeout_ms(required_flag_value(
+                "--cdp-timeout-ms",
+                &mut parts,
+            )?)?);
+            continue;
+        }
         prompt_parts.push(part);
     }
     Ok(NativeBrowserLineArgs {
         prompt: non_empty_string(&prompt_parts.join(" ")),
         approval_ref,
+        target_ref,
+        selector,
+        cdp_endpoint_url,
+        cdp_websocket_url,
+        cdp_timeout_ms,
     })
+}
+
+fn required_flag_value<'a>(
+    flag: &str,
+    parts: &mut std::str::SplitWhitespace<'a>,
+) -> Result<&'a str> {
+    parts
+        .next()
+        .ok_or_else(|| anyhow!("{flag} requires a value"))
+}
+
+fn non_empty_flag_value(flag: &str, value: &str) -> Result<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err(anyhow!("{flag} requires a non-empty value"));
+    }
+    Ok(trimmed.to_string())
+}
+
+fn parse_cdp_timeout_ms(value: &str) -> Result<u64> {
+    let parsed = value
+        .trim()
+        .parse::<u64>()
+        .map_err(|_| anyhow!("--cdp-timeout-ms requires an integer millisecond value"))?;
+    if parsed == 0 {
+        return Err(anyhow!("--cdp-timeout-ms must be greater than zero"));
+    }
+    Ok(parsed)
 }
 
 fn line_command_head(value: &str) -> Option<String> {
@@ -4235,24 +4408,39 @@ mod tests {
             parse_tui_line_command("/native-browser inspect https://example.com").unwrap(),
             TuiLineCommand::NativeBrowser {
                 prompt: Some("inspect https://example.com".to_string()),
-                approval_ref: None
+                approval_ref: None,
+                target_ref: None,
+                selector: None,
+                cdp_endpoint_url: None,
+                cdp_websocket_url: None,
+                cdp_timeout_ms: None,
             }
         );
         assert_eq!(
             parse_tui_line_command("/computer-use native-browser https://example.com").unwrap(),
             TuiLineCommand::NativeBrowser {
                 prompt: Some("https://example.com".to_string()),
-                approval_ref: None
+                approval_ref: None,
+                target_ref: None,
+                selector: None,
+                cdp_endpoint_url: None,
+                cdp_websocket_url: None,
+                cdp_timeout_ms: None,
             }
         );
         assert_eq!(
             parse_tui_line_command(
-                "/native-browser click submit --approval-ref approval-browser-click"
+                "/native-browser click submit --approval-ref approval-browser-click --selector #submit --target-ref #submit --cdp-endpoint-url http://127.0.0.1:9222 --cdp-timeout-ms 5000"
             )
             .unwrap(),
             TuiLineCommand::NativeBrowser {
                 prompt: Some("click submit".to_string()),
-                approval_ref: Some("approval-browser-click".to_string())
+                approval_ref: Some("approval-browser-click".to_string()),
+                target_ref: Some("#submit".to_string()),
+                selector: Some("#submit".to_string()),
+                cdp_endpoint_url: Some("http://127.0.0.1:9222".to_string()),
+                cdp_websocket_url: None,
+                cdp_timeout_ms: Some(5000),
             }
         );
         assert_eq!(

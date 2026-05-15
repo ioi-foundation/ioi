@@ -364,6 +364,10 @@ fn workflow_run_executes_approved_mutating_native_browser_action() {
                 "computerUseSessionMode": "owned_hermetic_browser",
                 "computerUseActionKind": "click",
                 "computerUseApprovalRef": "approval-browser-click",
+                "targetRef": "#submit",
+                "selector": "#submit",
+                "cdpEndpointUrl": "http://127.0.0.1:9222",
+                "cdpTimeoutMs": 5000,
                 "observationRetentionMode": "local_redacted_artifacts",
                 "failClosedWhenUnavailable": true
             }
@@ -404,6 +408,14 @@ fn workflow_run_executes_approved_mutating_native_browser_action() {
             .and_then(Value::as_str),
         Some("approval-browser-click")
     );
+    assert_eq!(
+        action_event
+            .get("payload")
+            .and_then(|value| value.get("computer_action"))
+            .and_then(|value| value.get("target_ref"))
+            .and_then(Value::as_str),
+        Some("#submit")
+    );
 
     let proposal_event = run
         .runtime_thread_events
@@ -419,6 +431,27 @@ fn workflow_run_executes_approved_mutating_native_browser_action() {
             .and_then(|value| value.get("outcome"))
             .and_then(Value::as_str),
         Some("approved_after_confirmation")
+    );
+    assert_eq!(
+        proposal_event
+            .get("payload")
+            .and_then(|value| value.get("selector"))
+            .and_then(Value::as_str),
+        Some("#submit")
+    );
+    assert_eq!(
+        proposal_event
+            .get("payload")
+            .and_then(|value| value.get("cdpEndpointUrl"))
+            .and_then(Value::as_str),
+        Some("http://127.0.0.1:9222")
+    );
+    assert_eq!(
+        proposal_event
+            .get("payload")
+            .and_then(|value| value.get("cdpTimeoutMs"))
+            .and_then(Value::as_u64),
+        Some(5000)
     );
 
     let commit_event = run

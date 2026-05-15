@@ -11,6 +11,11 @@ export interface WorkflowComposerComputerUseRunMetadata {
   computerUseSessionMode: string;
   computerUseActionKind: string;
   computerUseApprovalRef?: string;
+  computerUseTargetRef?: string;
+  selector?: string;
+  cdpEndpointUrl?: string;
+  cdpWebSocketUrl?: string;
+  cdpTimeoutMs?: number;
   observationRetentionMode: string | null;
   failClosedWhenUnavailable: boolean;
   workflowGraphId: string | null;
@@ -60,6 +65,25 @@ export function workflowComposerComputerUseRunOptions(
     cleanString(first.args["computer_use_approval_ref"]) ??
     cleanString(first.args["approvalRef"]) ??
     cleanString(first.args["approval_ref"]);
+  const targetRef =
+    cleanString(first.args["computerUseTargetRef"]) ??
+    cleanString(first.args["computer_use_target_ref"]) ??
+    cleanString(first.args["targetRef"]) ??
+    cleanString(first.args["target_ref"]);
+  const selector = cleanString(first.args["selector"]) ?? cleanString(first.args["cssSelector"]);
+  const cdpEndpointUrl =
+    cleanString(first.args["cdpEndpointUrl"]) ??
+    cleanString(first.args["cdp_endpoint_url"]) ??
+    cleanString(first.args["cdpEndpoint"]) ??
+    cleanString(first.args["cdp_endpoint"]);
+  const cdpWebSocketUrl =
+    cleanString(first.args["cdpWebSocketUrl"]) ??
+    cleanString(first.args["cdp_websocket_url"]) ??
+    cleanString(first.args["webSocketDebuggerUrl"]) ??
+    cleanString(first.args["websocketDebuggerUrl"]);
+  const cdpTimeoutMs = positiveNumber(
+    first.args["cdpTimeoutMs"] ?? first.args["cdp_timeout_ms"],
+  );
   return {
     metadata: {
       schemaVersion: WORKFLOW_COMPOSER_COMPUTER_USE_RUN_OPTIONS_SCHEMA_VERSION,
@@ -69,6 +93,11 @@ export function workflowComposerComputerUseRunOptions(
       computerUseSessionMode: sessionMode,
       computerUseActionKind: actionKind,
       ...(approvalRef ? { computerUseApprovalRef: approvalRef } : {}),
+      ...(targetRef ? { computerUseTargetRef: targetRef } : {}),
+      ...(selector ? { selector } : {}),
+      ...(cdpEndpointUrl ? { cdpEndpointUrl } : {}),
+      ...(cdpWebSocketUrl ? { cdpWebSocketUrl } : {}),
+      ...(cdpTimeoutMs ? { cdpTimeoutMs } : {}),
       observationRetentionMode:
         cleanString(first.args["observationRetentionMode"]) ??
         cleanString(first.args["observation_retention_mode"]),
@@ -117,6 +146,12 @@ function booleanValue(value: unknown): boolean | null {
     if (value.toLowerCase() === "false") return false;
   }
   return null;
+}
+
+function positiveNumber(value: unknown): number | null {
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return null;
+  return numeric;
 }
 
 function recordValue(value: unknown): Record<string, unknown> {

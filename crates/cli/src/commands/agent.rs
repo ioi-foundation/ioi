@@ -415,6 +415,21 @@ pub enum ToolCommands {
         /// Approval receipt/ref that allows a mutating browser action to execute.
         #[clap(long = "approval-ref")]
         approval_ref: Option<String>,
+        /// Grounded target ref for the requested browser action, for example a selector-shaped #id.
+        #[clap(long = "target-ref")]
+        target_ref: Option<String>,
+        /// CSS selector for approved click actions.
+        #[clap(long)]
+        selector: Option<String>,
+        /// HTTP CDP endpoint, for example http://127.0.0.1:9222.
+        #[clap(long = "cdp-endpoint-url")]
+        cdp_endpoint_url: Option<String>,
+        /// CDP websocket debugger URL.
+        #[clap(long = "cdp-websocket-url")]
+        cdp_websocket_url: Option<String>,
+        /// CDP executor timeout in milliseconds.
+        #[clap(long = "cdp-timeout-ms")]
+        cdp_timeout_ms: Option<u64>,
         /// Observation retention mode.
         #[clap(
             long = "observation-retention-mode",
@@ -1319,6 +1334,11 @@ async fn run_tool_command(
             url,
             action_kind,
             approval_ref,
+            target_ref,
+            selector,
+            cdp_endpoint_url,
+            cdp_websocket_url,
+            cdp_timeout_ms,
             observation_retention_mode,
             turn_id,
             workflow_graph_id,
@@ -1333,6 +1353,11 @@ async fn run_tool_command(
                 url,
                 action_kind,
                 approval_ref,
+                target_ref,
+                selector,
+                cdp_endpoint_url,
+                cdp_websocket_url,
+                cdp_timeout_ms,
                 observation_retention_mode,
                 turn_id,
                 workflow_graph_id,
@@ -1514,6 +1539,11 @@ async fn invoke_native_browser_tool(
     url: Option<String>,
     action_kind: String,
     approval_ref: Option<String>,
+    target_ref: Option<String>,
+    selector: Option<String>,
+    cdp_endpoint_url: Option<String>,
+    cdp_websocket_url: Option<String>,
+    cdp_timeout_ms: Option<u64>,
     observation_retention_mode: String,
     turn_id: Option<String>,
     workflow_graph_id: Option<String>,
@@ -1555,6 +1585,45 @@ async fn invoke_native_browser_tool(
         input.insert(
             "approvalRef".to_string(),
             serde_json::Value::String(approval_ref.trim().to_string()),
+        );
+    }
+    if let Some(target_ref) = target_ref
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "targetRef".to_string(),
+            serde_json::Value::String(target_ref.trim().to_string()),
+        );
+    }
+    if let Some(selector) = selector.as_deref().filter(|value| !value.trim().is_empty()) {
+        input.insert(
+            "selector".to_string(),
+            serde_json::Value::String(selector.trim().to_string()),
+        );
+    }
+    if let Some(cdp_endpoint_url) = cdp_endpoint_url
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "cdpEndpointUrl".to_string(),
+            serde_json::Value::String(cdp_endpoint_url.trim().to_string()),
+        );
+    }
+    if let Some(cdp_websocket_url) = cdp_websocket_url
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        input.insert(
+            "cdpWebSocketUrl".to_string(),
+            serde_json::Value::String(cdp_websocket_url.trim().to_string()),
+        );
+    }
+    if let Some(cdp_timeout_ms) = cdp_timeout_ms {
+        input.insert(
+            "cdpTimeoutMs".to_string(),
+            serde_json::Value::Number(cdp_timeout_ms.into()),
         );
     }
     input.insert(
@@ -2869,6 +2938,14 @@ mod tests {
             "click",
             "--approval-ref",
             "approval-browser-click",
+            "--selector",
+            "#submit",
+            "--target-ref",
+            "#submit",
+            "--cdp-endpoint-url",
+            "http://127.0.0.1:9222",
+            "--cdp-timeout-ms",
+            "5000",
             "--json",
         ])
         .expect("native browser command should parse");
@@ -2879,6 +2956,10 @@ mod tests {
                     thread_id,
                     action_kind,
                     approval_ref: Some(approval_ref),
+                    selector: Some(selector),
+                    target_ref: Some(target_ref),
+                    cdp_endpoint_url: Some(cdp_endpoint_url),
+                    cdp_timeout_ms: Some(cdp_timeout_ms),
                     json: true,
                     ..
                 }),
@@ -2886,6 +2967,10 @@ mod tests {
             }) if thread_id == "thread_runtime_cli"
                 && action_kind == "click"
                 && approval_ref == "approval-browser-click"
+                && selector == "#submit"
+                && target_ref == "#submit"
+                && cdp_endpoint_url == "http://127.0.0.1:9222"
+                && cdp_timeout_ms == 5000
         ));
         let coding_tool_run = AgentArgs::try_parse_from([
             "agent",

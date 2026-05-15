@@ -2,7 +2,9 @@
 
 use super::workflow_binding_lane::workflow_tool_binding;
 use super::workflow_node_metadata_lane::{workflow_node_id, workflow_node_type};
-use super::workflow_value_helpers::{workflow_value_bool_any, workflow_value_string_any};
+use super::workflow_value_helpers::{
+    workflow_value_bool_any, workflow_value_string_any, workflow_value_u64_any,
+};
 use super::*;
 
 const COMPUTER_USE_CONTRACT_SCHEMA_VERSION: &str = "ioi.computer-use.harness.v1";
@@ -20,6 +22,11 @@ struct WorkflowComputerUseBinding {
     session_mode: String,
     action_kind: String,
     approval_ref: Option<String>,
+    target_ref: Option<String>,
+    selector: Option<String>,
+    cdp_endpoint_url: Option<String>,
+    cdp_websocket_url: Option<String>,
+    cdp_timeout_ms: Option<u64>,
     observation_retention_mode: String,
     fail_closed_when_unavailable: bool,
     browser_discovery: bool,
@@ -128,6 +135,36 @@ fn workflow_computer_use_binding(workflow: &WorkflowProject) -> Option<WorkflowC
             "approval_ref",
         ],
     );
+    let target_ref = workflow_value_string_any(
+        &arguments,
+        &[
+            "computerUseTargetRef",
+            "computer_use_target_ref",
+            "targetRef",
+            "target_ref",
+        ],
+    );
+    let selector =
+        workflow_value_string_any(&arguments, &["selector", "cssSelector", "css_selector"]);
+    let cdp_endpoint_url = workflow_value_string_any(
+        &arguments,
+        &[
+            "cdpEndpointUrl",
+            "cdp_endpoint_url",
+            "cdpEndpoint",
+            "cdp_endpoint",
+        ],
+    );
+    let cdp_websocket_url = workflow_value_string_any(
+        &arguments,
+        &[
+            "cdpWebSocketUrl",
+            "cdp_websocket_url",
+            "webSocketDebuggerUrl",
+            "websocketDebuggerUrl",
+        ],
+    );
+    let cdp_timeout_ms = workflow_value_u64_any(&arguments, &["cdpTimeoutMs", "cdp_timeout_ms"]);
     Some(WorkflowComputerUseBinding {
         workflow_graph_id: workflow.metadata.id.clone(),
         workflow_node_id,
@@ -141,6 +178,11 @@ fn workflow_computer_use_binding(workflow: &WorkflowProject) -> Option<WorkflowC
         session_mode,
         action_kind,
         approval_ref,
+        target_ref,
+        selector,
+        cdp_endpoint_url,
+        cdp_websocket_url,
+        cdp_timeout_ms,
         observation_retention_mode,
         fail_closed_when_unavailable: workflow_value_bool_any(
             &arguments,
@@ -391,7 +433,10 @@ fn workflow_native_browser_runtime_thread_events(
     let trace_receipt_id = format!("receipt_{}_computer_use_trace", run_id);
     let trajectory_ref = format!("trajectory_{}_computer_use", run_id);
     let cleanup_ref = format!("cleanup_{}_computer_use", run_id);
-    let target_ref = format!("target_{}_document", run_id);
+    let target_ref = binding
+        .target_ref
+        .clone()
+        .unwrap_or_else(|| format!("target_{}_document", run_id));
 
     let environment_selection = json!({
         "receipt_ref": format!("receipt_{}_computer_use_environment", run_id),
@@ -1350,6 +1395,15 @@ fn workflow_computer_use_base_payload(
         "computerUseActionKind": binding.action_kind,
         "computer_use_approval_ref": binding.approval_ref,
         "computerUseApprovalRef": binding.approval_ref,
+        "computer_use_target_ref": binding.target_ref,
+        "computerUseTargetRef": binding.target_ref,
+        "selector": binding.selector,
+        "cdp_endpoint_url": binding.cdp_endpoint_url,
+        "cdpEndpointUrl": binding.cdp_endpoint_url,
+        "cdp_websocket_url": binding.cdp_websocket_url,
+        "cdpWebSocketUrl": binding.cdp_websocket_url,
+        "cdp_timeout_ms": binding.cdp_timeout_ms,
+        "cdpTimeoutMs": binding.cdp_timeout_ms,
         "computer_use_external_effect": !computer_use_action_kind_is_read_only(&binding.action_kind),
         "computer_use_lease_id": lease_id,
         "computerUseLeaseId": lease_id,
