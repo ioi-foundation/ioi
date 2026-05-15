@@ -6,8 +6,12 @@ export function SettingsEnvironmentSection({
 }: {
   view: SettingsViewBodyView;
 }) {
-  const { controlPlane, updateEngineDraft, onOpenPolicySurface, onOpenConnections } =
-    view;
+  const {
+    controlPlane,
+    updateEngineDraft,
+    onOpenPolicySurface,
+    onOpenConnections,
+  } = view;
   if (!controlPlane) return null;
   const authorityPosture = summarizeSettingsAuthorityPosture(
     controlPlane.environment,
@@ -44,7 +48,7 @@ export function SettingsEnvironmentSection({
             className="chat-settings-secondary"
             onClick={onOpenPolicySurface}
           >
-            Open policy
+            Open Authority Center
           </button>
           <button
             type="button"
@@ -59,7 +63,7 @@ export function SettingsEnvironmentSection({
         <div className="chat-settings-card-head">
           <div>
             <span className="chat-settings-card-eyebrow">Environment</span>
-            <h2>Compatibility bindings</h2>
+            <h2>Advanced compatibility bindings</h2>
           </div>
           <span className="chat-settings-pill">
             {controlPlane.environment.length} bindings
@@ -67,7 +71,8 @@ export function SettingsEnvironmentSection({
         </div>
         <p className="chat-settings-body">
           Long-lived provider keys and connector credentials should resolve to
-          vault or wallet refs; raw values remain available for local compatibility.
+          vault or wallet refs. Raw values remain available only as a local
+          compatibility path while the Authority Center is the primary posture.
         </p>
         <div className="chat-settings-stack chat-settings-stack--compact">
           {controlPlane.environment.map((binding, index) => (
@@ -110,10 +115,11 @@ export function SettingsEnvironmentSection({
                   onChange={(event) =>
                     updateEngineDraft((current) => ({
                       ...current,
-                      environment: current.environment.map((entry, entryIndex) =>
-                        entryIndex === index
-                          ? { ...entry, secret: event.target.checked }
-                          : entry,
+                      environment: current.environment.map(
+                        (entry, entryIndex) =>
+                          entryIndex === index
+                            ? { ...entry, secret: event.target.checked }
+                            : entry,
                       ),
                     }))
                   }
