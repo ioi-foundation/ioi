@@ -145,8 +145,11 @@ test("computer-use composer run options project visual GUI observation refs", ()
   const args = first.config?.logic?.toolBinding?.arguments as Record<string, unknown>;
   args["computerUseSessionMode"] = "foreground_desktop";
   args["screenshotRef"] = "artifact:visual:screenshot-redacted";
+  args["screenshotPath"] = "./evidence/screenshot.png";
   args["somRef"] = "artifact:visual:som";
+  args["somPath"] = "./evidence/som.json";
   args["axRef"] = "artifact:visual:ax";
+  args["axPath"] = "./evidence/ax.json";
   args["appName"] = "Canvas App";
   args["windowTitle"] = "Canvas App - Local";
   args["coordinateSpaceId"] = "screen-visual-local";
@@ -159,8 +162,11 @@ test("computer-use composer run options project visual GUI observation refs", ()
   assert.equal(options.metadata.computerUseLane, "visual_gui");
   assert.equal(options.metadata.computerUseSessionMode, "foreground_desktop");
   assert.equal(options.metadata.screenshotRef, "artifact:visual:screenshot-redacted");
+  assert.equal(options.metadata.screenshotPath, "./evidence/screenshot.png");
   assert.equal(options.metadata.somRef, "artifact:visual:som");
+  assert.equal(options.metadata.somPath, "./evidence/som.json");
   assert.equal(options.metadata.axRef, "artifact:visual:ax");
+  assert.equal(options.metadata.axPath, "./evidence/ax.json");
   assert.equal(options.metadata.appName, "Canvas App");
   assert.equal(options.metadata.windowTitle, "Canvas App - Local");
   assert.equal(options.metadata.coordinateSpaceId, "screen-visual-local");

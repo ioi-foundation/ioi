@@ -128,6 +128,7 @@ const WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION =
 const WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON =
   "coding_tool_budget_preflight_blocked";
 const CODING_TOOL_ARTIFACT_SCHEMA_VERSION = "ioi.runtime.coding-tool-artifact.v1";
+const COMPUTER_USE_VISUAL_ARTIFACT_MAX_BYTES = 5 * 1024 * 1024;
 const RUNTIME_MCP_SERVE_SCHEMA_VERSION = "ioi.runtime.mcp-serve.v1";
 const RUNTIME_MCP_SERVE_PROTOCOL_VERSION = "2024-11-05";
 const RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS = [
@@ -7855,7 +7856,17 @@ export class AgentgresRuntimeStateStore {
     const requestedTargetRef =
       optionalString(input.targetRef ?? input.target_ref ?? input.computerUseTargetRef ?? input.computer_use_target_ref);
     const requestedSessionMode = visualGuiSessionModeForInput(input);
-    const visualObservationMetadata = visualGuiObservationMetadataForInput(input);
+    const materializedVisualArtifacts = this.materializeVisualGuiObservationArtifacts({
+      threadId,
+      toolId,
+      toolCallId,
+      workspaceRoot: agent.cwd,
+      input,
+    });
+    const visualObservationMetadata = visualGuiObservationMetadataForInput({
+      ...input,
+      ...materializedVisualArtifacts.metadata,
+    });
     const metadata = {
       computerUse: true,
       computerUseLane: "visual_gui",
@@ -7878,6 +7889,7 @@ export class AgentgresRuntimeStateStore {
       computerUseActionKind: requestedActionKind,
       computerUseApprovalRef: requestedApprovalRef,
       computerUseTargetRef: requestedTargetRef,
+      computerUseVisualArtifactRefs: materializedVisualArtifacts.artifactRefs,
       ...visualObservationMetadata,
       computerUseObservationBundle:
         objectRecord(input.computerUseObservationBundle ?? input.observation_bundle),
@@ -7894,6 +7906,7 @@ export class AgentgresRuntimeStateStore {
       "computerUseApprovalRef",
       "computerUseTargetRef",
       "computerUseVisualObservation",
+      "computerUseVisualArtifactRefs",
       "screenshotRef",
       "somRef",
       "axRef",
@@ -10247,6 +10260,117 @@ export class AgentgresRuntimeStateStore {
         return artifactRecord;
       })
       .filter(Boolean);
+  }
+
+  materializeVisualGuiObservationArtifacts({ threadId, toolId, toolCallId, workspaceRoot, input }) {
+    const specs = [
+      {
+        pathKeys: ["screenshotPath", "screenshot_path", "screenshotFile", "screenshot_file"],
+        refKey: "screenshotRef",
+        channel: "visual-gui-screenshot",
+        defaultName: "visual-gui-screenshot.png",
+        defaultMediaType: "image/png",
+      },
+      {
+        pathKeys: ["somPath", "som_path", "setOfMarksPath", "set_of_marks_path"],
+        refKey: "somRef",
+        channel: "visual-gui-som",
+        defaultName: "visual-gui-som.json",
+        defaultMediaType: "application/json",
+      },
+      {
+        pathKeys: ["axPath", "ax_path", "accessibilityTreePath", "accessibility_tree_path"],
+        refKey: "axRef",
+        channel: "visual-gui-ax",
+        defaultName: "visual-gui-ax.json",
+        defaultMediaType: "application/json",
+      },
+    ];
+    const createdAt = new Date().toISOString();
+    const metadata = {};
+    const artifactRefs = [];
+    const artifacts = [];
+    for (const spec of specs) {
+      const explicitRef = optionalString(input[spec.refKey] ?? input[snakeCaseKey(spec.refKey)]);
+      if (explicitRef) continue;
+      const sourcePath = firstOptionalString(spec.pathKeys.map((key) => input[key]));
+      if (!sourcePath) continue;
+      const resolvedPath = path.resolve(workspaceRoot ?? process.cwd(), sourcePath);
+      let contentBuffer;
+      try {
+        contentBuffer = fs.readFileSync(resolvedPath);
+      } catch (error) {
+        throw runtimeError({
+          status: 400,
+          code: "computer_use_visual_artifact_unreadable",
+          message: `Visual GUI observation artifact could not be read for ${spec.channel}.`,
+          details: {
+            channel: spec.channel,
+            sourcePathHash: doctorHash(resolvedPath),
+            error: error?.code ?? error?.message ?? "read_failed",
+          },
+        });
+      }
+      if (contentBuffer.byteLength > COMPUTER_USE_VISUAL_ARTIFACT_MAX_BYTES) {
+        throw runtimeError({
+          status: 413,
+          code: "computer_use_visual_artifact_too_large",
+          message: `Visual GUI observation artifact exceeds ${COMPUTER_USE_VISUAL_ARTIFACT_MAX_BYTES} bytes.`,
+          details: {
+            channel: spec.channel,
+            sourcePathHash: doctorHash(resolvedPath),
+            contentBytes: contentBuffer.byteLength,
+            maxBytes: COMPUTER_USE_VISUAL_ARTIFACT_MAX_BYTES,
+          },
+        });
+      }
+      const content = contentBuffer.toString("base64");
+      const extension = path.extname(resolvedPath);
+      const mediaType =
+        optionalString(input[`${spec.refKey}MediaType`] ?? input[`${snakeCaseKey(spec.refKey)}_media_type`]) ??
+        visualGuiMediaTypeForPath(resolvedPath) ??
+        spec.defaultMediaType;
+      const artifactId = `artifact_computer_use_visual_${safeId(toolCallId)}_${safeId(spec.channel)}`;
+      const receiptId = `receipt_${safeId(toolCallId)}_${safeId(spec.channel)}`;
+      const artifactRecord = {
+        schema_version: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
+        schemaVersion: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
+        id: artifactId,
+        thread_id: threadId,
+        threadId,
+        tool_name: toolId,
+        toolName: toolId,
+        tool_call_id: toolCallId,
+        toolCallId,
+        workspace_root: workspaceRoot,
+        workspaceRoot,
+        name: extension ? `${spec.channel}${extension}` : spec.defaultName,
+        channel: spec.channel,
+        media_type: mediaType,
+        mediaType,
+        encoding: "base64",
+        redaction: "local_redacted_artifacts",
+        receipt_id: receiptId,
+        receiptId,
+        content,
+        content_bytes: contentBuffer.byteLength,
+        contentBytes: contentBuffer.byteLength,
+        content_hash: doctorHash(content),
+        contentHash: doctorHash(content),
+        source_path_hash: doctorHash(resolvedPath),
+        sourcePathHash: doctorHash(resolvedPath),
+        source_path_included: false,
+        sourcePathIncluded: false,
+        created_at: createdAt,
+        createdAt,
+      };
+      this.codingArtifacts.set(artifactRecord.id, artifactRecord);
+      writeJson(this.pathFor("artifacts", `${artifactRecord.id}.json`), artifactRecord);
+      metadata[spec.refKey] = artifactId;
+      artifactRefs.push(artifactId);
+      artifacts.push(artifactRecord);
+    }
+    return { metadata, artifactRefs, artifacts };
   }
 
   readCodingToolArtifact(threadId, artifactId, range = {}) {
@@ -18938,6 +19062,31 @@ function visualGuiFiniteNumber(value) {
   return Number.isFinite(numeric) ? numeric : null;
 }
 
+function visualGuiMediaTypeForPath(filePath) {
+  const ext = path.extname(String(filePath ?? "")).toLowerCase();
+  if (ext === ".png") return "image/png";
+  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+  if (ext === ".webp") return "image/webp";
+  if (ext === ".json") return "application/json";
+  if (ext === ".txt") return "text/plain";
+  if (ext === ".svg") return "image/svg+xml";
+  return null;
+}
+
+function firstOptionalString(values) {
+  for (const value of values) {
+    const text = optionalString(value);
+    if (text) return text;
+  }
+  return null;
+}
+
+function snakeCaseKey(value) {
+  return String(value ?? "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .toLowerCase();
+}
+
 function nativeBrowserActionShouldUseCdpExecutor(actionKind, approvalRef, input = {}) {
   if (!nativeBrowserActionKindIsReadOnly(actionKind) && approvalRef) return true;
   return actionKind === "scroll" && nativeBrowserHasExplicitCdpEndpoint(input);
@@ -23181,7 +23330,9 @@ function receiptRefsForRunEvent(event) {
 }
 
 function artifactRefsForRunEvent(event) {
-  if (isComputerUseRunEventType(event.type)) return ["computer-use-trace.json"];
+  if (isComputerUseRunEventType(event.type)) {
+    return computerUseArtifactRefsForRunEvent(event);
+  }
   if (event.type === "runtime_task") return ["runtime-task.json"];
   if (event.type === "runtime_checklist") return ["runtime-checklist.json"];
   if (event.type === "job_queued" || event.type === "job_started" || event.type === "job_completed" || event.type === "job_failed" || event.type === "job_canceled") return ["runtime-job.json"];
@@ -23198,6 +23349,23 @@ function artifactRefsForRunEvent(event) {
   if (event.type === "policy_blocked" && event.data?.reason === "post_edit_diagnostics_findings") return ["diagnostics-blocking-gate.json"];
   if (event.type === "artifact") return event.data?.artifactNames ?? [];
   return [];
+}
+
+function computerUseArtifactRefsForRunEvent(event) {
+  const data = objectRecord(event.data);
+  const observation = objectRecord(data.observation_bundle ?? data.observationBundle);
+  const cleanup = objectRecord(data.cleanup_receipt ?? data.cleanupReceipt);
+  return uniqueStrings([
+    "computer-use-trace.json",
+    observation.screenshot_ref,
+    observation.screenshotRef,
+    observation.som_ref,
+    observation.somRef,
+    observation.ax_ref,
+    observation.axRef,
+    ...normalizeArray(cleanup.retained_artifact_refs ?? cleanup.retainedArtifactRefs),
+    ...normalizeArray(data.computerUseVisualArtifactRefs ?? data.computer_use_visual_artifact_refs),
+  ]);
 }
 
 function codingToolResultWithoutDrafts(result = {}, artifacts = []) {
