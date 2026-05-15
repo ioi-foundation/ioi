@@ -156,6 +156,12 @@ export interface WorkflowRuntimeComputerUseProjection {
   leaseId: string | null;
   status: WorkflowRuntimeProjectedStatus;
   blocker: string | null;
+  workflowGraphId: string | null;
+  workflowNodeId: string | null;
+  workflowNodeIds: string[];
+  toolRef: string | null;
+  authorityScopes: string[];
+  failClosedWhenUnavailable: boolean | null;
   observationRef: string | null;
   targetIndexRef: string | null;
   affordanceGraphRef: string | null;
@@ -3209,6 +3215,28 @@ function computerUseProjectionForRuntimeThreadEvent(
     blocker:
       stringField(payload, "computer_use_blocker", "computerUseBlocker") ??
       stringField(runState, "blocker_state", "blockerState"),
+    workflowGraphId:
+      event.workflowGraphId ??
+      stringField(payload, "workflow_graph_id", "workflowGraphId"),
+    workflowNodeId:
+      event.workflowNodeId ??
+      stringField(payload, "workflow_node_id", "workflowNodeId"),
+    workflowNodeIds: stringArrayField(
+      payload,
+      "workflow_node_ids",
+      "workflowNodeIds",
+    ),
+    toolRef: stringField(payload, "tool_ref", "toolRef"),
+    authorityScopes: stringArrayField(
+      payload,
+      "authority_scopes",
+      "authorityScopes",
+    ),
+    failClosedWhenUnavailable: booleanField(
+      payload,
+      "fail_closed_when_unavailable",
+      "failClosedWhenUnavailable",
+    ),
     observationRef:
       stringField(payload, "computer_use_observation_ref", "computerUseObservationRef") ??
       stringField(observationBundle, "observation_ref", "observationRef") ??

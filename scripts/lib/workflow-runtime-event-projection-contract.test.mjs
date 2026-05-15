@@ -357,6 +357,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(runsPanel, /data-computer-use-lane/);
   assert.match(runsPanel, /data-computer-use-proposal-ref/);
   assert.match(runsPanel, /data-computer-use-verification-ref/);
+  assert.match(runsPanel, /data-workflow-node-id/);
+  assert.match(runsPanel, /data-tool-ref/);
+  assert.match(runsPanel, /data-authority-scopes/);
   assert.match(railPanel, /onMaterializeRuntimeTelemetryBudgetChain/);
   assert.match(composerView, /handleMaterializeRuntimeTelemetryBudgetChain/);
   assert.match(
