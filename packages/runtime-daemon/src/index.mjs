@@ -14807,6 +14807,17 @@ function runtimeBridgeComputerUseTrace({ projection, events }) {
       outcomeContract,
       environmentSelection,
     });
+  const runState =
+    value("computer_use_run_state") ??
+    runtimeBridgeRunStateFromTrace({
+      projection,
+      lease,
+      observation,
+      targetIndex,
+      actionProposal,
+      action,
+      commitGate,
+    });
   const trajectory =
     value("trajectory_bundle") ??
     runtimeBridgeTrajectoryFromComputerUseEvents({
@@ -14838,8 +14849,8 @@ function runtimeBridgeComputerUseTrace({ projection, events }) {
     environmentSelection,
     environment_selection: environmentSelection,
     lease,
-    runState: value("computer_use_run_state"),
-    run_state: value("computer_use_run_state"),
+    runState,
+    run_state: runState,
     observation,
     observationBundle: observation,
     observation_bundle: observation,
@@ -14887,6 +14898,49 @@ function runtimeBridgeComputerUseTrace({ projection, events }) {
       value("computer_use_verification_ref"),
       value("computer_use_cleanup_ref"),
     ]),
+  };
+}
+
+function runtimeBridgeRunStateFromTrace({
+  projection,
+  lease,
+  observation,
+  targetIndex,
+  actionProposal,
+  action,
+  commitGate,
+}) {
+  const requiresConfirmation = Boolean(commitGate?.user_confirmation_required);
+  return {
+    run_id: projection.runId,
+    lease_id: lease?.lease_id ?? observation?.lease_id ?? null,
+    user_goal: projection.prompt ?? "",
+    current_subgoal: actionProposal
+      ? "Policy-gate the bridge-derived action proposal before execution."
+      : "Observe the runtime-service computer-use surface and preserve grounding evidence.",
+    plan_graph_ref: `plan_graph_${projection.runId}_runtime_bridge_computer_use`,
+    current_observation_ref: observation?.observation_ref ?? null,
+    current_target_index_ref: targetIndex?.target_index_ref ?? observation?.target_index_ref ?? null,
+    active_hypotheses: [
+      "RuntimeAgentService remains the environment owner for this bridge turn.",
+      actionProposal
+        ? "The top affordance is a candidate only; execution requires a grounded ComputerAction and policy approval."
+        : "Observation and target evidence should be inspected before proposing an action.",
+    ],
+    expected_postcondition:
+      actionProposal?.predicted_postcondition ??
+      "Computer-use observation evidence is preserved in the run trace.",
+    last_action_ref: action?.action_ref ?? null,
+    verification_status: requiresConfirmation
+      ? "requires_human"
+      : action
+        ? "passed"
+        : "unknown",
+    blocker_state: requiresConfirmation ? "commit_gate_requires_confirmation" : null,
+    retry_budget: requiresConfirmation ? 0 : 1,
+    risk_posture: commitGate?.status ?? "bridge_observation",
+    user_handoff_ref: requiresConfirmation ? commitGate?.commit_gate_ref ?? null : null,
+    cleanup_state: lease?.cleanup_required ? "cleanup_required" : "external_runtime_owned",
   };
 }
 
