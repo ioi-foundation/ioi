@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import { executeNativeBrowserCdpAction } from "./native-browser-cdp-executor.mjs";
@@ -122,6 +125,36 @@ test("native browser CDP executor completes explicit scroll actions", async () =
     assert.deepEqual(fixture.state.scrolls, [{ selector: null, deltaX: 0, deltaY: 420 }]);
   } finally {
     await fixture.close();
+  }
+});
+
+test("native browser CDP executor completes approved upload actions", async () => {
+  const fixture = await startFakeNativeBrowserCdpServer();
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-cdp-upload-"));
+  const uploadPath = path.join(tempDir, "fixture.txt");
+  fs.writeFileSync(uploadPath, "upload me", "utf8");
+  try {
+    const result = await executeNativeBrowserCdpAction({
+      input: {
+        cdpEndpointUrl: fixture.endpointUrl,
+        selector: "#file",
+        filePath: uploadPath,
+      },
+      actionKind: "upload",
+      approvalRef: "approval-upload",
+      targetRef: "#file",
+      prompt: "Upload the fixture",
+    });
+
+    assert.equal(result.status, "completed");
+    assert.equal(result.action_result.action, "upload");
+    assert.equal(result.action_result.selector, "#file");
+    assert.equal(result.action_result.file_count, 1);
+    assert.equal(result.after.text_preview, "Uploaded 1");
+    assert.deepEqual(fixture.state.uploads, [{ nodeId: 2, files: [uploadPath] }]);
+  } finally {
+    await fixture.close();
+    fs.rmSync(tempDir, { recursive: true, force: true });
   }
 });
 
