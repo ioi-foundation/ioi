@@ -79,6 +79,12 @@ function codingToolBudgetRecoverySubflowSeed(
   );
 }
 
+function embeddableComputerUseScreenRef(ref: string | null): string | null {
+  const value = ref?.trim();
+  if (!value) return null;
+  return /^(https?:\/\/|data:image\/|blob:|\/)/i.test(value) ? value : null;
+}
+
 export function WorkflowRunsPanel({
   workflow,
   model,
@@ -821,6 +827,95 @@ export function WorkflowRunsPanel({
                   </small>
                 </article>
               </div>
+              {computerUseWorkbench.overlayViewport ? (
+                <figure
+                  className="workflow-run-computer-use-visual-preview"
+                  data-testid="workflow-run-computer-use-visual-preview"
+                  data-preview-kind={
+                    embeddableComputerUseScreenRef(
+                      computerUseWorkbench.screenRef,
+                    )
+                      ? "image"
+                      : "overlay"
+                  }
+                  data-screen-ref={computerUseWorkbench.screenRef ?? ""}
+                  data-som-ref={computerUseWorkbench.somRef ?? ""}
+                  data-coordinate-space-id={
+                    computerUseWorkbench.overlayViewport.coordinateSpaceId ?? ""
+                  }
+                  data-viewport-width={computerUseWorkbench.overlayViewport.width}
+                  data-viewport-height={
+                    computerUseWorkbench.overlayViewport.height
+                  }
+                >
+                  <svg
+                    viewBox={`0 0 ${computerUseWorkbench.overlayViewport.width} ${computerUseWorkbench.overlayViewport.height}`}
+                    role="img"
+                    aria-label="Computer-use target overlay"
+                    preserveAspectRatio="xMidYMid meet"
+                  >
+                    <rect
+                      className="workflow-run-computer-use-preview-surface"
+                      x="0"
+                      y="0"
+                      width={computerUseWorkbench.overlayViewport.width}
+                      height={computerUseWorkbench.overlayViewport.height}
+                    />
+                    {embeddableComputerUseScreenRef(
+                      computerUseWorkbench.screenRef,
+                    ) ? (
+                      <image
+                        href={
+                          embeddableComputerUseScreenRef(
+                            computerUseWorkbench.screenRef,
+                          ) ?? undefined
+                        }
+                        x="0"
+                        y="0"
+                        width={computerUseWorkbench.overlayViewport.width}
+                        height={computerUseWorkbench.overlayViewport.height}
+                        preserveAspectRatio="xMidYMid slice"
+                      />
+                    ) : null}
+                    {computerUseWorkbench.visualTargetSummaries
+                      .filter((target) => target.bounds)
+                      .slice(0, 12)
+                      .map((target, index) => (
+                        <g key={target.targetRef}>
+                          <title>
+                            {[
+                              target.label ?? target.targetRef,
+                              target.role,
+                              target.availableActions.join(", "),
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </title>
+                          <rect
+                            className="workflow-run-computer-use-preview-target"
+                            x={target.bounds?.x ?? 0}
+                            y={target.bounds?.y ?? 0}
+                            width={target.bounds?.width ?? 1}
+                            height={target.bounds?.height ?? 1}
+                          />
+                          <text
+                            className="workflow-run-computer-use-preview-label"
+                            x={(target.bounds?.x ?? 0) + 6}
+                            y={(target.bounds?.y ?? 0) + 16}
+                          >
+                            {target.somId ?? index + 1}
+                          </text>
+                        </g>
+                      ))}
+                  </svg>
+                  <figcaption>
+                    {computerUseWorkbench.screenRef ??
+                      "screen artifact not retained"}{" "}
+                    · {computerUseWorkbench.visualTargetSummaries.length} target
+                    boxes
+                  </figcaption>
+                </figure>
+              ) : null}
               {computerUseWorkbench.visualTargetSummaries.length > 0 ? (
                 <ol
                   className="workflow-run-computer-use-targets"

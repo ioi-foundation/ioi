@@ -221,8 +221,17 @@ export interface WorkflowRuntimeComputerUseVisualTargetSummary {
   role: string | null;
   somId: number | null;
   confidence: number | null;
+  bounds: WorkflowRuntimeComputerUseVisualTargetBounds | null;
   boundsSummary: string | null;
   availableActions: string[];
+}
+
+export interface WorkflowRuntimeComputerUseVisualTargetBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  coordinateSpaceId: string | null;
 }
 
 export type WorkflowRuntimeCodingToolBudgetRecoveryAction =
@@ -3440,6 +3449,7 @@ function visualTargetSummariesForTargetIndex(
       role: stringField(target, "role"),
       somId: numberField(target, "som_id", "somId"),
       confidence: numberField(target, "confidence"),
+      bounds: targetBounds(target),
       boundsSummary: boundsSummaryForTarget(target),
       availableActions: stringArrayField(
         target,
@@ -3449,24 +3459,38 @@ function visualTargetSummariesForTargetIndex(
     }));
 }
 
-function boundsSummaryForTarget(target: Record<string, unknown>): string | null {
+function targetBounds(
+  target: Record<string, unknown>,
+): WorkflowRuntimeComputerUseVisualTargetBounds | null {
   const bounds = recordField(target, "bounds");
   if (!bounds) return null;
-  const coordinateSpaceId = stringField(
-    bounds,
-    "coordinate_space_id",
-    "coordinateSpaceId",
-  );
   const x = numberField(bounds, "x");
   const y = numberField(bounds, "y");
   const width = numberField(bounds, "width", "w");
   const height = numberField(bounds, "height", "h");
   if (x === null || y === null || width === null || height === null) {
-    return coordinateSpaceId;
+    return null;
   }
+  return {
+    x,
+    y,
+    width,
+    height,
+    coordinateSpaceId: stringField(
+      bounds,
+      "coordinate_space_id",
+      "coordinateSpaceId",
+    ),
+  };
+}
+
+function boundsSummaryForTarget(target: Record<string, unknown>): string | null {
+  const bounds = targetBounds(target);
+  const coordinateSpaceId = bounds?.coordinateSpaceId ?? null;
+  if (!bounds) return coordinateSpaceId;
   return [
     coordinateSpaceId,
-    `${Math.round(x)},${Math.round(y)} ${Math.round(width)}x${Math.round(height)}`,
+    `${Math.round(bounds.x)},${Math.round(bounds.y)} ${Math.round(bounds.width)}x${Math.round(bounds.height)}`,
   ]
     .filter(Boolean)
     .join(" · ");

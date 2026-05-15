@@ -508,6 +508,11 @@ test("workflow run history model exposes computer-use prompt pipelines", () => {
   );
   assert.equal(model.computerUseWorkbench?.somRef, "artifact:run-a:som-overlay");
   assert.equal(model.computerUseWorkbench?.coordinateSpaceId, "viewport-run-a");
+  assert.deepEqual(model.computerUseWorkbench?.overlayViewport, {
+    coordinateSpaceId: "viewport-run-a",
+    width: 1024,
+    height: 768,
+  });
   assert.equal(model.computerUseWorkbench?.targetCount, 1);
   assert.equal(model.computerUseWorkbench?.affordanceCount, 0);
   assert.deepEqual(model.computerUseWorkbench?.detectedPatterns, [
@@ -520,6 +525,13 @@ test("workflow run history model exposes computer-use prompt pipelines", () => {
     role: "document",
     somId: 1,
     confidence: 0.91,
+    bounds: {
+      x: 0,
+      y: 0,
+      width: 1024,
+      height: 768,
+      coordinateSpaceId: "viewport-run-a",
+    },
     boundsSummary: "viewport-run-a · 0,0 1024x768",
     availableActions: ["inspect"],
   });

@@ -343,9 +343,56 @@
 .workflow-run-computer-use-pane span,
 .workflow-run-computer-use-pane small,
 .workflow-run-computer-use-targets span,
-.workflow-run-computer-use-targets small {
+.workflow-run-computer-use-targets small,
+.workflow-run-computer-use-visual-preview figcaption {
   color: var(--text-tertiary);
   font-size: 11px;
+}
+
+.workflow-run-computer-use-visual-preview {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--workflow-panel) 78%, transparent);
+  padding: 6px;
+}
+
+.workflow-run-computer-use-visual-preview svg {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--workflow-panel-strong) 74%, transparent);
+}
+
+.workflow-run-computer-use-preview-surface {
+  fill: color-mix(in srgb, var(--workflow-panel-strong) 82%, transparent);
+}
+
+.workflow-run-computer-use-preview-target {
+  fill: color-mix(in srgb, var(--accent-blue) 16%, transparent);
+  stroke: var(--accent-blue);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.workflow-run-computer-use-preview-label {
+  fill: var(--text-primary);
+  font-size: 14px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: color-mix(in srgb, var(--workflow-panel) 92%, transparent);
+  stroke-width: 3px;
+}
+
+.workflow-run-computer-use-visual-preview figcaption {
+  min-width: 0;
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workflow-run-computer-use-targets {

@@ -311,6 +311,13 @@ test("projects computer-use lifecycle events as glass-box harness rows", () => {
     role: "document",
     somId: 1,
     confidence: 0.96,
+    bounds: {
+      x: 0,
+      y: 0,
+      width: 1280,
+      height: 720,
+      coordinateSpaceId: "viewport-browser",
+    },
     boundsSummary: "viewport-browser · 0,0 1280x720",
     availableActions: ["inspect"],
   });
