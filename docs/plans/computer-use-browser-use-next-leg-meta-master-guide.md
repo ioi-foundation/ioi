@@ -491,9 +491,9 @@ contains a narrow CDP-backed executor for approved `click` and `navigate`
 actions; missing browser adapter evidence fails closed with blocked
 verification and commit-gate receipts instead of synthetic execution. CLI and TUI operators now have dedicated
 native-browser commands over the same daemon thread-tool route, including
-`--approval-ref`, so manual validation can run both the gated and approved
-prompt pipeline without knowing the raw `ioi.computer_use.native_browser` tool
-id.
+`--approval-ref`, target/selector, and CDP endpoint/websocket options, so manual
+validation can run both the gated and approved prompt pipeline without knowing
+the raw `ioi.computer_use.native_browser` tool id.
 Future daemon, workflow, and Autopilot policy executors should consume these
 helpers rather than defining local policy shapes.
 

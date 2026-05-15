@@ -7246,11 +7246,16 @@ export class AgentgresRuntimeStateStore {
     }
     const requestInput = objectRecord(request.input);
     const requestArguments = objectRecord(request.arguments);
-    const input = Object.keys(requestInput).length
+    const requestMetadata = objectRecord(request.metadata ?? request.options?.metadata);
+    const explicitInput = Object.keys(requestInput).length
       ? requestInput
       : Object.keys(requestArguments).length
         ? requestArguments
         : objectRecord(request);
+    const input = {
+      ...requestMetadata,
+      ...explicitInput,
+    };
     const report = discoverComputerUseBrowsersSync({
       includeCdpProbe: false,
       includeTabMetadata: Boolean(input.includeTabs ?? input.include_tabs),
