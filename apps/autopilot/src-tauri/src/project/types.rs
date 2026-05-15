@@ -475,11 +475,50 @@ pub struct WorkflowToolBinding {
     #[serde(default)]
     pub arguments: Option<Value>,
     #[serde(default)]
+    pub credential_readiness: Option<Value>,
+    #[serde(default)]
+    pub rate_limit_profile: Option<Value>,
+    #[serde(default)]
+    pub idempotency_behavior: Option<Value>,
+    #[serde(default)]
+    pub receipt_behavior: Option<Value>,
+    #[serde(default)]
+    pub workflow_availability: Option<Value>,
+    #[serde(default)]
+    pub agent_availability: Option<Value>,
+    #[serde(default)]
+    pub marketplace_exposure: Option<Value>,
+    #[serde(default)]
     pub argument_schema: Option<Value>,
     #[serde(default)]
     pub result_schema: Option<Value>,
     #[serde(default)]
     pub workflow_tool: Option<WorkflowToolSubgraphBinding>,
+}
+
+impl Default for WorkflowToolBinding {
+    fn default() -> Self {
+        Self {
+            tool_ref: String::new(),
+            binding_kind: None,
+            mock_binding: true,
+            credential_ready: None,
+            capability_scope: Vec::new(),
+            side_effect_class: "read".to_string(),
+            requires_approval: false,
+            arguments: None,
+            credential_readiness: None,
+            rate_limit_profile: None,
+            idempotency_behavior: None,
+            receipt_behavior: None,
+            workflow_availability: None,
+            agent_availability: None,
+            marketplace_exposure: None,
+            argument_schema: None,
+            result_schema: None,
+            workflow_tool: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -495,6 +534,41 @@ pub struct WorkflowConnectorBinding {
     pub requires_approval: bool,
     #[serde(default)]
     pub operation: Option<String>,
+    #[serde(default)]
+    pub credential_readiness: Option<Value>,
+    #[serde(default)]
+    pub rate_limit_profile: Option<Value>,
+    #[serde(default)]
+    pub idempotency_behavior: Option<Value>,
+    #[serde(default)]
+    pub receipt_behavior: Option<Value>,
+    #[serde(default)]
+    pub workflow_availability: Option<Value>,
+    #[serde(default)]
+    pub agent_availability: Option<Value>,
+    #[serde(default)]
+    pub marketplace_exposure: Option<Value>,
+}
+
+impl Default for WorkflowConnectorBinding {
+    fn default() -> Self {
+        Self {
+            connector_ref: String::new(),
+            mock_binding: true,
+            credential_ready: None,
+            capability_scope: Vec::new(),
+            side_effect_class: "read".to_string(),
+            requires_approval: false,
+            operation: None,
+            credential_readiness: None,
+            rate_limit_profile: None,
+            idempotency_behavior: None,
+            receipt_behavior: None,
+            workflow_availability: None,
+            agent_availability: None,
+            marketplace_exposure: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

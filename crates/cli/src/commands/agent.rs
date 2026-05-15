@@ -1020,6 +1020,39 @@ fn print_json<T: serde::Serialize>(value: &T) -> Result<()> {
     Ok(())
 }
 
+fn json_string_field<'a>(value: &'a serde_json::Value, keys: &[&str]) -> Option<&'a str> {
+    keys.iter()
+        .find_map(|key| value.get(*key).and_then(|field| field.as_str()))
+        .filter(|value| !value.trim().is_empty())
+}
+
+fn json_bool_field(value: &serde_json::Value, keys: &[&str]) -> Option<bool> {
+    keys.iter()
+        .find_map(|key| value.get(*key).and_then(|field| field.as_bool()))
+}
+
+fn json_nested_string_field<'a>(
+    value: &'a serde_json::Value,
+    object_keys: &[&str],
+    field_keys: &[&str],
+) -> Option<&'a str> {
+    object_keys.iter().find_map(|object_key| {
+        let object = value.get(*object_key)?;
+        json_string_field(object, field_keys)
+    })
+}
+
+fn json_nested_bool_field(
+    value: &serde_json::Value,
+    object_keys: &[&str],
+    field_keys: &[&str],
+) -> Option<bool> {
+    object_keys.iter().find_map(|object_key| {
+        let object = value.get(*object_key)?;
+        json_bool_field(object, field_keys)
+    })
+}
+
 fn parse_session_id_hex(input: &str) -> Result<[u8; 32]> {
     let bytes =
         hex::decode(input.trim().trim_start_matches("0x")).context("Invalid session ID hex")?;
@@ -1576,6 +1609,36 @@ fn print_agent_tools(tool: Option<&str>, json: bool) -> Result<()> {
         println!("  policy: {}", contract.policy_target);
         println!("  effect: {}", contract.effect_class);
         println!("  risk: {}", contract.risk_domain);
+        println!(
+            "  authority: {}",
+            if contract.authority_scope_requirements.is_empty() {
+                "none".to_string()
+            } else {
+                contract.authority_scope_requirements.join(", ")
+            }
+        );
+        println!("  readiness: {}", contract.credential_readiness);
+        println!(
+            "  approval: {}",
+            if contract.approval_required {
+                "required"
+            } else {
+                "not required"
+            }
+        );
+        println!("  rate limit: {}", contract.rate_limit_profile);
+        println!("  idempotency: {}", contract.idempotency_behavior);
+        println!("  receipts: {}", contract.receipt_behavior);
+        println!("  workflow: {}", contract.workflow_availability);
+        println!("  agent: {}", contract.agent_availability);
+        println!(
+            "  marketplace: {}",
+            if contract.marketplace_exposure_eligible {
+                "eligible"
+            } else {
+                "not eligible"
+            }
+        );
         println!("  evidence: {}", contract.evidence_requirements.join(", "));
     }
     Ok(())
@@ -2025,7 +2088,37 @@ async fn print_coding_tool_catalog(
                 .get("workflowNodeType")
                 .and_then(|value| value.as_str())
                 .unwrap_or("CodingToolNode");
-            println!("  {id}: {display} node={node}");
+            let readiness = json_nested_string_field(
+                tool,
+                &["credentialReadiness", "credential_readiness"],
+                &["status"],
+            )
+            .unwrap_or("unknown");
+            let approval = json_bool_field(tool, &["approvalRequired", "approval_required"])
+                .map(|value| if value { "required" } else { "not_required" })
+                .unwrap_or("unknown");
+            let receipt = json_nested_bool_field(
+                tool,
+                &["receiptBehavior", "receipt_behavior"],
+                &["receiptRequired", "receipt_required"],
+            )
+            .map(|value| if value { "required" } else { "not_required" })
+            .unwrap_or("unknown");
+            let rate_limit = json_nested_string_field(
+                tool,
+                &["rateLimitProfile", "rate_limit_profile"],
+                &["policy"],
+            )
+            .unwrap_or("unknown");
+            let idempotency = json_nested_string_field(
+                tool,
+                &["idempotencyBehavior", "idempotency_behavior"],
+                &["strategy"],
+            )
+            .unwrap_or("unknown");
+            println!(
+                "  {id}: {display} node={node} credential={readiness} approval={approval} rate_limit={rate_limit} idempotency={idempotency} receipt={receipt}"
+            );
         }
     }
     Ok(())

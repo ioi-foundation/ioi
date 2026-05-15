@@ -59,7 +59,7 @@ If any supporting roadmap disagrees, the architecture files above win.
 | Area | Current finding | Target state | Status |
 | --- | --- | --- | --- |
 | Roadmap alignment | `docs/roadmap.md` gates Phase 5 correctly; implementation roadmap now routes through Phase 4.5 before Phase 5. | One current sequencing story with stale docs marked or updated. | Done / regression guarded |
-| Tool registry | SDK, daemon `/v1/tools`, MCP serve descriptors, and Rust service contracts now expose readiness, approval, rate-limit, idempotency, receipt, availability, and marketplace fields. | Daemon/API/SDK/CLI/TUI/Autopilot share one complete contract shape. | Partial / SDK-daemon core done; CLI/TUI/Autopilot projections remain |
+| Tool registry | SDK, daemon `/v1/tools`, MCP serve descriptors, Rust service contracts, CLI inspection, and React Flow/Autopilot workflow validation now expose or enforce readiness, approval, rate-limit, idempotency, receipt, availability, and marketplace fields. | Daemon/API/SDK/CLI/TUI/Autopilot share one complete contract shape. | Partial / core, CLI, and workflow validation done; TUI display and Authority Center remain |
 | Model capability registry | Model router doctrine is canonical, but product settings still expose provider-like freeform fields. | Workflow/model nodes call model capability routes with policy, BYOK, readiness, fallback, and receipt metadata. | Open |
 | wallet-core-lite | Strong type/service pieces exist; Autopilot-facing encrypted vault and brokered action UX are incomplete. | Secrets, BYOK, connector credentials, grants, approval tokens, revocation, audit, and step-up are user-visible and runtime-backed. | Open |
 | Policy execution | Scoped policy receipts exist in lanes, but cross-domain policy substrate is not yet the common control surface. | One policy envelope governs connector, shell, computer-use, model, worker, memory, and artifact actions. | Open |
@@ -418,8 +418,8 @@ Phase 5 may begin only when:
 
 Current immediate slice after the SDK/daemon/Rust registry core:
 
-1. expose the new registry fields in CLI/TUI and Autopilot readiness surfaces;
-2. add fail-closed validation for missing live-action readiness fields;
+1. expose the new registry fields in TUI display rows and Authority Center;
+2. connect model capability readiness to the same registry shape;
 3. start wallet-core-lite product slice only after those projections agree.
 
 Historical first slice:

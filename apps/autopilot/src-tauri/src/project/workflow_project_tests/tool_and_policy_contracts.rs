@@ -455,6 +455,10 @@ fn live_connector_and_tool_bindings_require_ready_credentials() {
         .expect("connector binding");
     connector_binding.insert("mockBinding".to_string(), Value::Bool(false));
     connector_binding.insert("credentialReady".to_string(), Value::Bool(false));
+    connector_binding.insert(
+        "sideEffectClass".to_string(),
+        Value::String("external_write".to_string()),
+    );
     save_workflow_project(adapter_bundle.workflow_path.clone(), adapter_workflow)
         .expect("adapter workflow should save");
     let adapter_validation = validate_workflow_bundle(adapter_bundle.workflow_path.clone())
@@ -463,6 +467,22 @@ fn live_connector_and_tool_bindings_require_ready_credentials() {
         .connector_binding_issues
         .iter()
         .any(|issue| issue.code == "missing_live_connector_credential"));
+    assert!(adapter_validation
+        .execution_readiness_issues
+        .iter()
+        .any(|issue| issue.code == "missing_rate_limit_profile"));
+    assert!(adapter_validation
+        .execution_readiness_issues
+        .iter()
+        .any(|issue| issue.code == "missing_receipt_behavior"));
+    assert!(adapter_validation
+        .execution_readiness_issues
+        .iter()
+        .any(|issue| issue.code == "missing_workflow_availability"));
+    assert!(adapter_validation
+        .execution_readiness_issues
+        .iter()
+        .any(|issue| issue.code == "missing_agent_availability"));
 
     let plugin_bundle = create_workflow_from_template(CreateWorkflowFromTemplateRequest {
         project_root: root.display().to_string(),
@@ -482,6 +502,10 @@ fn live_connector_and_tool_bindings_require_ready_credentials() {
         .expect("tool binding");
     tool_binding.insert("mockBinding".to_string(), Value::Bool(false));
     tool_binding.insert("credentialReady".to_string(), Value::Bool(false));
+    tool_binding.insert(
+        "sideEffectClass".to_string(),
+        Value::String("external_write".to_string()),
+    );
     save_workflow_project(plugin_bundle.workflow_path.clone(), plugin_workflow)
         .expect("plugin workflow should save");
     let plugin_validation = validate_workflow_bundle(plugin_bundle.workflow_path.clone())
@@ -490,6 +514,14 @@ fn live_connector_and_tool_bindings_require_ready_credentials() {
         .connector_binding_issues
         .iter()
         .any(|issue| issue.code == "missing_live_tool_credential"));
+    assert!(plugin_validation
+        .execution_readiness_issues
+        .iter()
+        .any(|issue| issue.code == "missing_rate_limit_profile"));
+    assert!(plugin_validation
+        .execution_readiness_issues
+        .iter()
+        .any(|issue| issue.code == "missing_receipt_behavior"));
 }
 
 #[test]

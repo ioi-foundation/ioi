@@ -60,6 +60,82 @@ export function defaultTestsForWorkflow(workflow: WorkflowProject): WorkflowTest
   ];
 }
 
+function liveBindingContractMetadataIssues(
+  nodeId: string,
+  bindingKind: "connector" | "tool",
+  binding: {
+    mockBinding?: boolean;
+    credentialReady?: boolean;
+    credentialReadiness?: { status?: string } | Record<string, unknown>;
+    rateLimitProfile?: Record<string, unknown>;
+    idempotencyBehavior?: Record<string, unknown>;
+    receiptBehavior?: Record<string, unknown>;
+    workflowAvailability?: { available?: boolean } | Record<string, unknown>;
+    agentAvailability?: { available?: boolean } | Record<string, unknown>;
+    sideEffectClass?: string;
+  } | null | undefined,
+): WorkflowValidationIssue[] {
+  if (!binding || binding.mockBinding !== false) return [];
+  const issues: WorkflowValidationIssue[] = [];
+  const sideEffectClass = String(binding.sideEffectClass ?? "none");
+  const effectful = !["none", "read"].includes(sideEffectClass);
+  const credentialStatus = String(
+    (binding.credentialReadiness as { status?: unknown } | undefined)?.status ?? "",
+  ).trim();
+  if (!credentialStatus && typeof binding.credentialReady !== "boolean") {
+    issues.push({
+      nodeId,
+      code: "missing_credential_readiness_contract",
+      message: `Live ${bindingKind} bindings need credentialReadiness status metadata or a compatibility credentialReady projection.`,
+    });
+  }
+  if (!effectful) return issues;
+  if (!String(binding.rateLimitProfile?.policy ?? "").trim()) {
+    issues.push({
+      nodeId,
+      code: "missing_rate_limit_profile",
+      message: `Live ${bindingKind} bindings need rateLimitProfile.policy before execution.`,
+    });
+  }
+  const receiptRequired = Boolean(binding.receiptBehavior?.receiptRequired);
+  const receiptTypes = Array.isArray(binding.receiptBehavior?.requiredReceiptTypes)
+    ? binding.receiptBehavior.requiredReceiptTypes.length
+    : 0;
+  if (!receiptRequired || receiptTypes === 0) {
+    issues.push({
+      nodeId,
+      code: "missing_receipt_behavior",
+      message: `Live ${bindingKind} bindings need receiptBehavior with required receipt types before execution.`,
+    });
+  }
+  if (effectful) {
+    const idempotencyRequired = Boolean(binding.idempotencyBehavior?.required);
+    const idempotencyStrategy = String(binding.idempotencyBehavior?.strategy ?? "").trim();
+    if (!idempotencyRequired || !idempotencyStrategy) {
+      issues.push({
+        nodeId,
+        code: "missing_idempotency_behavior",
+        message: `Effectful live ${bindingKind} bindings need idempotencyBehavior.required and strategy metadata.`,
+      });
+    }
+  }
+  if (binding.workflowAvailability?.available !== true) {
+    issues.push({
+      nodeId,
+      code: "missing_workflow_availability",
+      message: `Live ${bindingKind} bindings need workflowAvailability.available=true before activation.`,
+    });
+  }
+  if (binding.agentAvailability?.available !== true) {
+    issues.push({
+      nodeId,
+      code: "missing_agent_availability",
+      message: `Live ${bindingKind} bindings need agentAvailability.available=true before execution.`,
+    });
+  }
+  return issues;
+}
+
 function workflowHarnessPromotionClusterReplayGateBlocksActivation(
   cluster: WorkflowHarnessPromotionCluster,
 ): boolean {
@@ -1500,6 +1576,15 @@ export function validateWorkflowProject(
         message: "Live connector bindings need credentials marked ready before execution.",
       });
     }
+    if (nodeItem.type === "adapter") {
+      executionReadinessIssues.push(
+        ...liveBindingContractMetadataIssues(
+          nodeItem.id,
+          "connector",
+          logic.connectorBinding,
+        ),
+      );
+    }
     if (nodeItem.type === "plugin_tool" && !logic.toolBinding?.toolRef) {
       connectorBindingIssues.push({
         nodeId: nodeItem.id,
@@ -1518,6 +1603,18 @@ export function validateWorkflowProject(
         code: "missing_live_tool_credential",
         message: "Live plugin or MCP tool bindings need credentials marked ready before execution.",
       });
+    }
+    if (
+      nodeItem.type === "plugin_tool" &&
+      logic.toolBinding?.bindingKind !== "workflow_tool"
+    ) {
+      executionReadinessIssues.push(
+        ...liveBindingContractMetadataIssues(
+          nodeItem.id,
+          "tool",
+          logic.toolBinding,
+        ),
+      );
     }
     if (
       nodeItem.type === "plugin_tool" &&

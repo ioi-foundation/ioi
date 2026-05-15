@@ -2013,6 +2013,7 @@ pub fn list_workflow_tool_catalog(
             argument_schema: Some(json!({"type": "object", "required": ["mode", "mutation"]})),
             result_schema: Some(json!({"type": "object"})),
             workflow_tool: None,
+            ..WorkflowToolBinding::default()
         },
         WorkflowToolBinding {
             tool_ref: "agent.runtime.native-tool.catalog.read".to_string(),
@@ -2033,6 +2034,7 @@ pub fn list_workflow_tool_catalog(
             argument_schema: Some(json!({"type": "object", "required": ["mode", "mutation"]})),
             result_schema: Some(json!({"type": "object"})),
             workflow_tool: None,
+            ..WorkflowToolBinding::default()
         },
         WorkflowToolBinding {
             tool_ref: "web_search_mcp".to_string(),
@@ -2046,6 +2048,7 @@ pub fn list_workflow_tool_catalog(
             argument_schema: Some(json!({"type": "object", "required": ["query"]})),
             result_schema: Some(json!({"type": "object"})),
             workflow_tool: None,
+            ..WorkflowToolBinding::default()
         },
         WorkflowToolBinding {
             tool_ref: "codex_plugin".to_string(),
@@ -2059,6 +2062,7 @@ pub fn list_workflow_tool_catalog(
             argument_schema: Some(json!({"type": "object"})),
             result_schema: Some(json!({"type": "object"})),
             workflow_tool: None,
+            ..WorkflowToolBinding::default()
         },
         WorkflowToolBinding {
             tool_ref: "workflow_tool".to_string(),
@@ -2079,6 +2083,7 @@ pub fn list_workflow_tool_catalog(
                 timeout_ms: Some(30000),
                 max_attempts: Some(1),
             }),
+            ..WorkflowToolBinding::default()
         },
     ])
 }
@@ -2099,6 +2104,7 @@ pub fn list_workflow_connector_catalog(
             side_effect_class: "read".to_string(),
             requires_approval: false,
             operation: Some("catalog".to_string()),
+            ..WorkflowConnectorBinding::default()
         },
         WorkflowConnectorBinding {
             connector_ref: "agent.connector.catalog".to_string(),
@@ -2111,6 +2117,7 @@ pub fn list_workflow_connector_catalog(
             side_effect_class: "read".to_string(),
             requires_approval: false,
             operation: Some("describe".to_string()),
+            ..WorkflowConnectorBinding::default()
         },
         WorkflowConnectorBinding {
             connector_ref: "slack".to_string(),
@@ -2120,6 +2127,7 @@ pub fn list_workflow_connector_catalog(
             side_effect_class: "read".to_string(),
             requires_approval: false,
             operation: Some("read".to_string()),
+            ..WorkflowConnectorBinding::default()
         },
         WorkflowConnectorBinding {
             connector_ref: "support".to_string(),
@@ -2129,6 +2137,7 @@ pub fn list_workflow_connector_catalog(
             side_effect_class: "read".to_string(),
             requires_approval: false,
             operation: Some("read".to_string()),
+            ..WorkflowConnectorBinding::default()
         },
         WorkflowConnectorBinding {
             connector_ref: "it_ticketing".to_string(),
@@ -2138,6 +2147,7 @@ pub fn list_workflow_connector_catalog(
             side_effect_class: "external_write".to_string(),
             requires_approval: true,
             operation: Some("draft_or_create".to_string()),
+            ..WorkflowConnectorBinding::default()
         },
         WorkflowConnectorBinding {
             connector_ref: "analytics".to_string(),
@@ -2147,6 +2157,7 @@ pub fn list_workflow_connector_catalog(
             side_effect_class: "read".to_string(),
             requires_approval: false,
             operation: Some("read".to_string()),
+            ..WorkflowConnectorBinding::default()
         },
         WorkflowConnectorBinding {
             connector_ref: "accounting_system".to_string(),
@@ -2156,6 +2167,7 @@ pub fn list_workflow_connector_catalog(
             side_effect_class: "read".to_string(),
             requires_approval: false,
             operation: Some("read".to_string()),
+            ..WorkflowConnectorBinding::default()
         },
         WorkflowConnectorBinding {
             connector_ref: "docs".to_string(),
@@ -2165,6 +2177,7 @@ pub fn list_workflow_connector_catalog(
             side_effect_class: "read".to_string(),
             requires_approval: false,
             operation: Some("lookup".to_string()),
+            ..WorkflowConnectorBinding::default()
         },
     ])
 }
