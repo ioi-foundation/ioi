@@ -231,6 +231,7 @@ export type {
   ModelCatalogProviderStatus,
   ModelCatalogStatus,
   ModelCapability,
+  ModelCapabilityContract,
   ModelDownloadJob,
   ModelEndpoint,
   ModelInstance,

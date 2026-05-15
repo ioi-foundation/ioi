@@ -136,6 +136,97 @@ function liveBindingContractMetadataIssues(
   return issues;
 }
 
+function liveModelBindingContractMetadataIssues(
+  nodeId: string,
+  binding: {
+    mockBinding?: boolean;
+    credentialReady?: boolean;
+    credentialReadiness?: { status?: string } | Record<string, unknown>;
+    receiptBehavior?: Record<string, unknown>;
+    workflowAvailability?: { available?: boolean } | Record<string, unknown>;
+    agentAvailability?: { available?: boolean } | Record<string, unknown>;
+    privacyTier?: string;
+    providerPriority?: string[];
+    fallbackPolicy?: Record<string, unknown>;
+    costEstimateVisibility?: Record<string, unknown>;
+    authorityScopeRequirements?: string[];
+  } | null | undefined,
+): WorkflowValidationIssue[] {
+  if (!binding || binding.mockBinding !== false) return [];
+  const issues: WorkflowValidationIssue[] = [];
+  const credentialStatus = String(
+    (binding.credentialReadiness as { status?: unknown } | undefined)?.status ?? "",
+  ).trim();
+  if (!credentialStatus && typeof binding.credentialReady !== "boolean") {
+    issues.push({
+      nodeId,
+      code: "missing_model_credential_readiness_contract",
+      message: "Live model bindings need credentialReadiness status metadata before execution.",
+    });
+  }
+  const receiptRequired = Boolean(binding.receiptBehavior?.receiptRequired);
+  const receiptTypes = Array.isArray(binding.receiptBehavior?.requiredReceiptTypes)
+    ? binding.receiptBehavior.requiredReceiptTypes.length
+    : 0;
+  if (!receiptRequired || receiptTypes === 0) {
+    issues.push({
+      nodeId,
+      code: "missing_model_receipt_behavior",
+      message: "Live model bindings need receiptBehavior with model route and invocation receipt types.",
+    });
+  }
+  if (binding.workflowAvailability?.available !== true) {
+    issues.push({
+      nodeId,
+      code: "missing_model_workflow_availability",
+      message: "Live model bindings need workflowAvailability.available=true before activation.",
+    });
+  }
+  if (binding.agentAvailability?.available !== true) {
+    issues.push({
+      nodeId,
+      code: "missing_model_agent_availability",
+      message: "Live model bindings need agentAvailability.available=true before execution.",
+    });
+  }
+  if (!String(binding.privacyTier ?? "").trim()) {
+    issues.push({
+      nodeId,
+      code: "missing_model_privacy_tier",
+      message: "Live model bindings need privacyTier metadata for routing policy.",
+    });
+  }
+  if (!Array.isArray(binding.providerPriority) || binding.providerPriority.length === 0) {
+    issues.push({
+      nodeId,
+      code: "missing_model_provider_priority",
+      message: "Live model bindings need providerPriority metadata for deterministic routing.",
+    });
+  }
+  if (!binding.fallbackPolicy || Object.keys(binding.fallbackPolicy).length === 0) {
+    issues.push({
+      nodeId,
+      code: "missing_model_fallback_policy",
+      message: "Live model bindings need fallbackPolicy metadata for deterministic failover.",
+    });
+  }
+  if (!binding.costEstimateVisibility || Object.keys(binding.costEstimateVisibility).length === 0) {
+    issues.push({
+      nodeId,
+      code: "missing_model_cost_estimate_visibility",
+      message: "Live model bindings need costEstimateVisibility metadata before execution.",
+    });
+  }
+  if (!Array.isArray(binding.authorityScopeRequirements) || binding.authorityScopeRequirements.length === 0) {
+    issues.push({
+      nodeId,
+      code: "missing_model_authority_scope_requirements",
+      message: "Live model bindings need authorityScopeRequirements metadata.",
+    });
+  }
+  return issues;
+}
+
 function workflowHarnessPromotionClusterReplayGateBlocksActivation(
   cluster: WorkflowHarnessPromotionCluster,
 ): boolean {
@@ -1453,6 +1544,9 @@ export function validateWorkflowProject(
           message: "Model nodes need an inline model ref or attached Model Binding before runtime execution.",
         });
       }
+      const modelRef = String(logic.modelRef ?? logic.modelBinding?.modelRef ?? "").trim();
+      const modelBinding = logic.modelBinding ?? (modelRef ? workflow.global_config.modelBindings?.[modelRef] : undefined);
+      executionReadinessIssues.push(...liveModelBindingContractMetadataIssues(nodeItem.id, modelBinding));
       const toolUseMode = logic.modelBinding?.toolUseMode ?? logic.toolUseMode ?? "none";
       if ((toolUseMode === "explicit" || toolUseMode === "auto") && !hasIncomingConnectionClass("tool")) {
         executionReadinessIssues.push({
@@ -1503,6 +1597,7 @@ export function validateWorkflowProject(
           message: "Model Binding nodes need a result schema so downstream model outputs can be verified.",
         });
       }
+      executionReadinessIssues.push(...liveModelBindingContractMetadataIssues(nodeItem.id, modelBinding));
     }
     if (nodeItem.type === "parser") {
       const parserBinding = logic.parserBinding;

@@ -26,6 +26,8 @@ pub struct ModelsArgs {
 pub enum ModelsCommands {
     /// List registry artifacts, endpoints, instances, providers, routes, and receipts.
     Ls,
+    /// List canonical model capability readiness contracts.
+    Capabilities,
     /// Inspect one model artifact by artifact id or model id.
     Get { id: String },
     /// Search the model catalog through deterministic fixtures or gated live adapters.
@@ -181,6 +183,10 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
     let value = match args.command {
         ModelsCommands::Ls => {
             daemon_request(endpoint, token, Method::GET, "/api/v1/models", None).await?
+        }
+        ModelsCommands::Capabilities => {
+            daemon_request(endpoint, token, Method::GET, "/api/v1/model-capabilities", None)
+                .await?
         }
         ModelsCommands::Get { id } => {
             daemon_request(

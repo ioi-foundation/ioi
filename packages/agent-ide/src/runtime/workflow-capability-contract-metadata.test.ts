@@ -28,6 +28,30 @@ function liveToolWorkflow(toolBinding: Record<string, unknown>): WorkflowProject
   };
 }
 
+function liveModelWorkflow(modelBinding: Record<string, unknown>): WorkflowProject {
+  const workflow = makeDefaultWorkflow();
+  return {
+    ...workflow,
+    nodes: [
+      ...workflow.nodes,
+      makeWorkflowNode("live-model-binding", "model_binding", "Live model binding", 320, 160, {
+        modelRef: "default",
+        modelBinding: {
+          modelRef: "default",
+          modelId: "local:auto",
+          routeId: "route.local-first",
+          mockBinding: false,
+          capabilityScope: ["model.chat:*", "route.use:route.local-first"],
+          sideEffectClass: "read",
+          requiresApproval: false,
+          resultSchema: { type: "object" },
+          ...modelBinding,
+        },
+      }),
+    ],
+  };
+}
+
 test("React Flow validation blocks live tool bindings missing authority metadata", () => {
   const validation = validateWorkflowProject(liveToolWorkflow({}), []);
   const codes = (validation.executionReadinessIssues ?? []).map(
@@ -87,6 +111,75 @@ test("React Flow validation accepts complete live tool authority metadata", () =
   assert.equal(codes.includes("missing_idempotency_behavior"), false);
   assert.equal(codes.includes("missing_workflow_availability"), false);
   assert.equal(codes.includes("missing_agent_availability"), false);
+});
+
+test("React Flow validation blocks live model bindings missing route capability metadata", () => {
+  const validation = validateWorkflowProject(liveModelWorkflow({}), []);
+  const codes = (validation.executionReadinessIssues ?? []).map(
+    (issue) => issue.code,
+  );
+
+  assert.equal(validation.status, "blocked");
+  assert.equal(codes.includes("missing_model_credential_readiness_contract"), true);
+  assert.equal(codes.includes("missing_model_receipt_behavior"), true);
+  assert.equal(codes.includes("missing_model_workflow_availability"), true);
+  assert.equal(codes.includes("missing_model_agent_availability"), true);
+  assert.equal(codes.includes("missing_model_privacy_tier"), true);
+  assert.equal(codes.includes("missing_model_provider_priority"), true);
+  assert.equal(codes.includes("missing_model_fallback_policy"), true);
+  assert.equal(codes.includes("missing_model_cost_estimate_visibility"), true);
+  assert.equal(codes.includes("missing_model_authority_scope_requirements"), true);
+});
+
+test("React Flow validation accepts complete live model route capability metadata", () => {
+  const validation = validateWorkflowProject(
+    liveModelWorkflow({
+      credentialReadiness: {
+        status: "ready",
+        checkedAt: "2026-05-15T00:00:00Z",
+        evidenceRefs: ["model-capability:route.local-first"],
+      },
+      receiptBehavior: {
+        receiptRequired: true,
+        requiredReceiptTypes: ["model_route_selection", "model_invocation"],
+      },
+      workflowAvailability: {
+        available: true,
+        reason: "Workflow can bind the local model route.",
+      },
+      agentAvailability: {
+        available: true,
+        reason: "Agent runtime can request the model capability.",
+      },
+      privacyTier: "local_private",
+      providerPriority: ["local_private", "workspace", "hosted"],
+      fallbackPolicy: {
+        allowed: true,
+        endpointIds: ["endpoint.local-auto", "endpoint.gpt-5.4-mini"],
+        deterministicOrder: true,
+      },
+      costEstimateVisibility: {
+        visible: true,
+        maxCostUsd: 0,
+        source: "model_route_policy",
+      },
+      authorityScopeRequirements: ["route.use:route.local-first", "model.chat:*"],
+    }),
+    [],
+  );
+  const codes = (validation.executionReadinessIssues ?? []).map(
+    (issue) => issue.code,
+  );
+
+  assert.equal(codes.includes("missing_model_credential_readiness_contract"), false);
+  assert.equal(codes.includes("missing_model_receipt_behavior"), false);
+  assert.equal(codes.includes("missing_model_workflow_availability"), false);
+  assert.equal(codes.includes("missing_model_agent_availability"), false);
+  assert.equal(codes.includes("missing_model_privacy_tier"), false);
+  assert.equal(codes.includes("missing_model_provider_priority"), false);
+  assert.equal(codes.includes("missing_model_fallback_policy"), false);
+  assert.equal(codes.includes("missing_model_cost_estimate_visibility"), false);
+  assert.equal(codes.includes("missing_model_authority_scope_requirements"), false);
 });
 
 console.log("workflow-capability-contract-metadata.test.ts: ok");

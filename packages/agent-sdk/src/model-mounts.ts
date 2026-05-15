@@ -224,6 +224,48 @@ export interface ModelRoute {
   lastReceiptId: string | null;
 }
 
+export interface ModelCapabilityContract {
+  schemaVersion: "ioi.model-capability.v1" | string;
+  object: "ioi.model_capability" | string;
+  id: string;
+  routeId: string;
+  role: string;
+  modelRole: string;
+  capability: ModelCapability | string;
+  primitiveCapability: string;
+  authorityScopeRequirements: string[];
+  policyTarget: string;
+  privacyTier: string;
+  providerPriority: string[];
+  fallbackPolicy: Record<string, unknown>;
+  fallbackEvidence?: Array<Record<string, unknown>>;
+  costEstimateVisibility: Record<string, unknown>;
+  credentialReadiness: {
+    status: "not_required" | "ready" | "missing" | "degraded" | "disabled" | "unknown" | string;
+    checkedAt?: string | null;
+    reason?: string | null;
+    evidenceRefs?: string[];
+  };
+  vaultReadiness?: Record<string, unknown>;
+  byokRequired?: boolean;
+  receiptBehavior: {
+    receiptRequired: boolean;
+    requiredReceiptTypes: string[];
+  };
+  workflowAvailability: {
+    available: boolean;
+    reason?: string | null;
+    configFields?: string[];
+    evidenceRefs?: string[];
+  };
+  agentAvailability: {
+    available: boolean;
+    reason?: string | null;
+    evidenceRefs?: string[];
+  };
+  candidates?: Array<Record<string, unknown>>;
+}
+
 export interface ModelLifecycleEvent {
   id: string;
   operation:

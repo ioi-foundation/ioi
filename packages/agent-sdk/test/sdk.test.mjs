@@ -40,6 +40,25 @@ test("default SDK client is daemon-backed and fails closed without transport", a
   );
 });
 
+test("explicit mock projects model capability readiness contracts", async () => {
+  const { client } = tempClient();
+  const capabilities = await client.listModelCapabilities();
+  const localRoute = capabilities.find((capability) => capability.routeId === "route.local-first");
+
+  assert.ok(localRoute);
+  assert.equal(localRoute.policyTarget, "model.route.local-first");
+  assert.equal(localRoute.credentialReadiness.status, "ready");
+  assert.equal(localRoute.receiptBehavior.receiptRequired, true);
+  assert.deepEqual(localRoute.receiptBehavior.requiredReceiptTypes, [
+    "model_route_selection",
+    "model_invocation",
+  ]);
+  assert.equal(localRoute.workflowAvailability.available, true);
+  assert.equal(localRoute.agentAvailability.available, true);
+  assert.equal(localRoute.fallbackPolicy.deterministicOrder, true);
+  assert.ok(localRoute.authorityScopeRequirements.includes("model.chat:*"));
+});
+
 test("explicit mock quickstart streams, waits, inspects, scores, and exports trace", async () => {
   const { cwd, client } = tempClient();
   const agent = await Agent.create({

@@ -67,7 +67,7 @@ import type {
   TaskStateProjection,
   UncertaintyProjection,
 } from "./messages.js";
-import type { RuntimeModelCatalogEntry } from "./model-mounts.js";
+import type { ModelCapabilityContract, RuntimeModelCatalogEntry } from "./model-mounts.js";
 import { mockComputerUseProjectionForRun } from "./computer-use-projection.js";
 
 export { runtimeThreadEventFromEnvelope } from "./runtime-events.js";
@@ -1413,6 +1413,7 @@ export interface RuntimeSubstrateClient {
   ): Promise<RuntimeComputerUseBrowserDiscoveryReport>;
   scorecard(runId: string): Promise<RuntimeScorecard>;
   listModels(): Promise<RuntimeModelCatalogEntry[]>;
+  listModelCapabilities(): Promise<ModelCapabilityContract[]>;
   listRepositories(): Promise<Array<{ url: string; source: string; status: string }>>;
   getAccount(): Promise<RuntimeAccountProfile>;
   listRuntimeNodes(): Promise<RuntimeNodeProfile[]>;
@@ -2053,6 +2054,10 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
 
   async listModels(): Promise<RuntimeModelCatalogEntry[]> {
     return this.request("listModels", "GET", "/v1/models");
+  }
+
+  async listModelCapabilities(): Promise<ModelCapabilityContract[]> {
+    return this.request("listModelCapabilities", "GET", "/v1/model-capabilities");
   }
 
   async listRepositories(): Promise<Array<{ url: string; source: string; status: string }>> {
@@ -5225,6 +5230,71 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
       { id: "local:auto", provider: "ioi-local", cost: "local", quality: "adaptive" },
       { id: "gpt-5.5", provider: "configured-provider", cost: "high", quality: "frontier" },
       { id: "gpt-5.4-mini", provider: "configured-provider", cost: "low", quality: "fast" },
+    ];
+  }
+
+  async listModelCapabilities(): Promise<ModelCapabilityContract[]> {
+    return [
+      {
+        schemaVersion: "ioi.model-capability.v1",
+        object: "ioi.model_capability",
+        id: "model-capability:route.local-first",
+        routeId: "route.local-first",
+        role: "default",
+        modelRole: "default",
+        capability: "chat",
+        primitiveCapability: "prim:model.chat",
+        authorityScopeRequirements: ["route.use:route.local-first", "model.chat:*"],
+        policyTarget: "model.route.local-first",
+        privacyTier: "local_private",
+        providerPriority: ["local_private", "workspace", "hosted"],
+        fallbackPolicy: {
+          allowed: true,
+          endpointIds: ["endpoint.local-auto", "endpoint.gpt-5.4-mini"],
+          selectedEndpointId: "endpoint.local-auto",
+          deterministicOrder: true,
+        },
+        costEstimateVisibility: {
+          visible: true,
+          maxCostUsd: 0,
+          source: "mock_model_route_policy",
+        },
+        credentialReadiness: {
+          status: "ready",
+          reason: "Mock local route is always available in explicit mock SDK mode.",
+          evidenceRefs: ["explicit_mock_runtime_substrate_projection"],
+        },
+        vaultReadiness: {
+          status: "ready",
+          requiredCount: 0,
+          configuredCount: 0,
+          missingCount: 0,
+        },
+        byokRequired: false,
+        receiptBehavior: {
+          receiptRequired: true,
+          requiredReceiptTypes: ["model_route_selection", "model_invocation"],
+        },
+        workflowAvailability: {
+          available: true,
+          reason: "Mock workflow can bind the local model route.",
+          configFields: ["modelRef", "routeId", "modelBinding"],
+          evidenceRefs: ["explicit_mock_runtime_substrate_projection"],
+        },
+        agentAvailability: {
+          available: true,
+          reason: "Mock agent runtime can request the model capability.",
+          evidenceRefs: ["explicit_mock_runtime_substrate_projection"],
+        },
+        candidates: [
+          {
+            endpointId: "endpoint.local-auto",
+            modelId: "local:auto",
+            status: "ready",
+            ready: true,
+          },
+        ],
+      },
     ];
   }
 

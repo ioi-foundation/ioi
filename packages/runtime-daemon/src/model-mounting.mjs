@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 import * as routeDecision from "./model-mounting/route-decision.mjs";
+import { modelCapabilities as buildModelCapabilities } from "./model-mounting/model-capability.mjs";
 import { AgentgresModelMountingStore } from "./model-mounting/store.mjs";
 import {
   capabilityForWorkflowNode,
@@ -3019,6 +3020,10 @@ export class ModelMountingState {
     return [...this.routes.values()].sort((left, right) => left.id.localeCompare(right.id));
   }
 
+  listModelCapabilities() {
+    return buildModelCapabilities({ routes: this.listRoutes(), endpoints: this.listEndpoints(), providers: this.listProviders(), artifacts: this.listArtifacts(), instances: this.listInstances() });
+  }
+
   listDownloads() {
     return [...this.downloads.values()].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
   }
@@ -3056,6 +3061,7 @@ export class ModelMountingState {
       instances: this.listInstances(),
       providers: this.listProviders(),
       routes: this.listRoutes(),
+      modelCapabilities: this.listModelCapabilities(),
       downloads: this.listDownloads(),
       providerHealth: this.listProviderHealth(),
       runtimeEngines: this.listRuntimeEngines(),
@@ -3094,6 +3100,7 @@ export class ModelMountingState {
       endpoints: this.listEndpoints(),
       instances: this.listInstances(),
       routes: this.listRoutes(),
+      modelCapabilities: this.listModelCapabilities(),
       backends: this.listBackends(),
       backendProcesses: this.listBackendProcesses(),
       providers: this.listProviders(),
