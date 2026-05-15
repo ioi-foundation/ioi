@@ -26,7 +26,7 @@ Read the stack this way:
 - domain kernels run Agentgres, routing, policy, projections, and application
   state;
 - Domain Ontologies and Data Recipes bind raw sources into trainable,
-  queryable, receipted domain truth;
+  queryable, receipted, and distillable domain truth;
 - IOI daemon/runtime nodes execute workers, workflows, tools, models,
   connectors, and artifacts;
 - wallet.network authorizes identity, secrets, approvals, payments, data use,
@@ -36,8 +36,9 @@ Read the stack this way:
 - MoW routes bounded workers by policy, benchmarks, receipts, cost, trust, and
   contribution quality;
 - Autopilot Desktop trains and runs workers through a local daemon profile;
-- agent-ide, CLI/TUI, SDK, workflow compositor, harnesses, and benchmarks are
-  clients or projections;
+- agent-ide and the workflow compositor render typed recipes over the shared
+  builder substrate; CLI/TUI, SDK, harnesses, and benchmarks are clients or
+  projections;
 - aiagent.xyz publishes, benchmarks, ranks, installs, initializes managed
   instances, and routes workers;
 - sas.xyz sells worker-powered outcomes, including Worker Training contracts;
@@ -138,13 +139,14 @@ supporting file.
 | IOI L1 | Registry, rights, settlement, governance, bonds, disputes, and public trust commitments. |
 | Mixture of Workers | Labor-routing architecture that selects bounded workers by policy, benchmark evidence, cost, trust, and contribution quality. |
 | Worker Training | Supply-creation lifecycle for turning workflows, examples, corrections, data, gates, and training profiles into deployable benchmarked workers. |
-| Domain Ontologies and Data Recipes | Semantic data plane that turns sources, connector payloads, traces, schemas, and policies into ontology-bound training, evaluation, runtime, and projection truth. |
+| Domain Ontologies and Data Recipes | Semantic data plane that turns sources, connector payloads, traces, schemas, and policies into ontology-bound, optionally distilled training, evaluation, runtime, and projection truth. |
 | Domain Kernel | Application-domain authority/runtime deployment for Agentgres and routing. |
 | Agentgres | Per-domain canonical operational state, receipts, projections, quality, and contribution accounting. |
 | IOI Daemon / Runtime Node | Universal execution endpoint for workflows, workers, tools, models, connectors, and artifacts. |
 | IOI CLI/TUI | Human terminal and TUI operator client over daemon/public runtime APIs. |
 | IOI SDK | Developer client facade over daemon/substrate contracts, never the canonical execution owner. |
-| agent-ide / Workflow Compositor | GUI/workbench projection and workflow authoring client over shared contracts. |
+| Shared Builder Substrate | Shared graph model, typed node contracts, schemas, recipes, daemon execution path, and receipt model used by Autopilot builder lenses. |
+| agent-ide / Workflow Compositor | GUI/workbench projection that renders typed recipes and workflows over the shared builder substrate. |
 | Autopilot Desktop | Local user application and workbench that trains, runs, inspects, and governs workers through a local IOI daemon/runtime profile. |
 | wallet.network | Sovereign authority layer for identity, secrets, keys, authority scopes, approvals, payments, and revocation. |
 | aiagent.xyz | Canonical Web4 marketplace for portable digital workers, benchmark profiles, Sparse Worker Categories, installs, and routing eligibility. |
@@ -165,7 +167,7 @@ Application Domains
   each runs kernel/runtime deployment + Agentgres domain
 
 Semantic Data Plane
-  domain ontologies, canonical object models, data recipes, connector mappings, policy-bound data views, evaluation datasets, ontology-aware projections
+  domain ontologies, canonical object models, data recipes, connector mappings, policy-bound data views, distilled ontology datasets, evaluation datasets, ontology-aware projections
 
 MoW Routing Layer
   sparse worker categories, routing decisions, contribution policies, benchmark eligibility
@@ -199,4 +201,4 @@ Authority Plane
 12. Worker is the protocol actor; model is a cognition backend; agent is product-facing or colloquial language.
 13. MoW is labor routing across bounded workers, not a fifth Web primitive and not model-provider routing.
 14. Worker Training creates or improves capability but does not grant authority; wallet.network or equivalent authority grants power.
-15. Workers train on ontology-bound data and policy-bound data views, not raw blobs or ambient connector payloads.
+15. Workers train on ontology-bound, policy-bound, and when useful distilled data, not raw blobs or ambient connector payloads.

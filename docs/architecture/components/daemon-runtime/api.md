@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for public daemon/runtime API endpoints, event streaming, run lifecycle, structured errors, and client-vs-runtime ownership.
 Supersedes: older daemon/SDK/CLI endpoint lists when endpoint shape conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-05-15.
 
 ## Purpose
 
@@ -165,6 +165,10 @@ GET  /v1/data-recipes/runs/{transformation_run_id}/receipts
 POST /v1/ontology-projections/{projection_id}/refresh
 POST /v1/training/specs
 GET  /v1/training/specs/{training_id}
+POST /v1/training/{training_id}/batch-plans
+POST /v1/training/{training_id}/generation-batches
+POST /v1/training/{training_id}/quality-gate-reports
+POST /v1/training/{training_id}/cost-ledgers
 POST /v1/training/{training_id}/run
 POST /v1/training/{training_id}/curate
 POST /v1/training/{training_id}/evaluate

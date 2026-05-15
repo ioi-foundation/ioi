@@ -30,6 +30,12 @@ and settlement.
 Worker Training is broader than fine-tuning and narrower than the whole IOI
 stack. It creates or improves capability; it does not grant authority.
 
+Autopilot Foundry is the product lens for Worker Training. It uses the shared
+builder substrate rather than defining a separate canvas environment. Training,
+evaluation, benchmark, deployment, data, and outcome recipes may project into
+the standard workflow compositor with lens-specific palettes, inspectors, run
+panels, templates, and validation rules.
+
 ## Consequences
 
 - aiagent.xyz ranks and routes bounded workers, not standalone model
@@ -41,6 +47,8 @@ stack. It creates or improves capability; it does not grant authority.
   contribution evidence rather than platform fiat or raw token usage.
 - Model architecture claims are profile metadata; they require evaluation,
   benchmark, promotion, and regression receipts before affecting routing.
+- Foundry should lead with guided product flows and expose graph editing as an
+  advanced workflow-compositor projection, not as a second training-only canvas.
 
 ## Canonical References
 

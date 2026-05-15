@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for Autopilot, workflow canvas, harness-as-workflow, and local GUI boundaries.
 Supersedes: overlapping plan prose when Autopilot ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-05-15.
 
 ## Canonical Definition
 
@@ -119,24 +119,37 @@ Autopilot Foundry is the local product surface for the Worker Training
 lifecycle. It turns repeated work, examples, corrections, source documents,
 quality gates, and verifier feedback into deployable workers.
 
+Foundry should feel like a worker creation and improvement studio, not a
+generic fine-tuning form. The primary UX is to help users create a better
+worker faster: plan scope, capture or generate strong examples, gate weak
+data, review efficiently, train or configure, compare, deploy, and improve
+from failures when the worker returns for another pass.
+
 The default guided flow is:
 
 ```text
 Define Task
 → Select Base Model, Cognition Backend, or Training Profile
 → Bind Domain Ontology and Data Recipes
-→ Plan Dataset Scope
-→ Ingest / Generate Examples
-→ Quality Gates
+→ Plan Dataset Scope and Batch Strategy
+→ Generate or Capture Raw Batches
+→ Gate and Reject Weak Data
 → Human Review
+→ Distill Ontology-Bound Data
 → Train or Configure
 → Evaluate
-→ Deploy as Worker
-→ Monitor & Improve
+→ Package or Deploy as Worker
+→ Monitor & Improve When Needed
 ```
 
-The same flow should also exist as an editable workflow-canvas graph. Canonical
-training nodes include:
+Foundry is a lens over the shared Autopilot builder substrate, not a separate
+canvas environment. Training recipes, evaluation recipes, benchmark recipes,
+deployment recipes, data recipes, and outcome workflows should all be typed
+recipes that can project into the standard workflow compositor.
+
+The same Foundry flow should be openable as a workflow-compositor graph for
+advanced inspection, customization, reuse, or composition. Canonical training
+nodes include:
 
 - task definition;
 - domain schema;
@@ -146,24 +159,81 @@ training nodes include:
 - data recipe;
 - policy-bound data view;
 - source loader;
+- training orchestrator;
+- training copilot;
+- batch planner;
+- dataset workbench;
+- raw batch archive;
 - example generator;
 - context graph editor;
 - route-policy trainer;
 - quality gate or judge;
+- gate console;
+- gate library;
+- quality gate report;
 - deduper or cleaner;
 - PII / secrets filter;
 - human review queue;
+- model capacity advisor;
+- model bake-off;
+- cost/quality simulator;
+- token and cost ledger;
 - dataset exporter;
+- distilled ontology dataset builder;
 - evaluation dataset builder;
 - ontology projection;
 - trainer;
 - evaluator;
+- iteration loop;
 - promotion gate;
 - rollback gate;
 - model registry or model mount;
 - worker mount;
 - deployment gate;
+- deploy preview;
+- worker card builder;
 - feedback collector.
+
+Foundry should support complementary views over the same recipe:
+
+- **Guided View** for users who want a clear path from objective to trained
+  worker.
+- **Recipe View** for users who want to inspect stages, inputs, outputs,
+  gates, costs, and candidate results without editing a graph.
+- **Open in Workflow Composer** for builders who want to edit every planner,
+  generator, gate, review, trainer, evaluator, deployment, and feedback node
+  in the standard canvas.
+
+The product should make the iteration loop visible. A failed eval, rejected
+example, bad production output, or reviewer correction should become a concrete
+next action: add an edge case, adjust a DataRecipe, tighten a gate, change a
+rubric, generate more examples, try another training profile, compare against a
+baseline, or update deployment thresholds.
+
+The product should also make batch economics and batch quality visible. A
+Training Orchestrator view should show the current batch plan, executor mix,
+prompts, raw batch archive, gate pass/fail counts, rejection reasons, accepted
+row yield, token burn, provider calls, cost per accepted row, and worklog. Raw
+batches are inspectable evidence; only curated, gated, policy-authorized material
+becomes training signal.
+
+Foundry should expose a Model Capacity Advisor for small and efficient workers.
+It should help builders decide whether the target should be a small local model,
+adapter, retrieval/context worker, hosted model, or larger specialist based on
+row structure, label complexity, prompt budget, tool count, latency, privacy,
+cost, and eval risk. Smaller workers should receive tighter prompts, more
+structured rows, smaller tool batches, and stronger gold-reason/eval coverage.
+
+The user should be able to compare candidate workers before publication. A
+Model Bake-Off view should run the same evaluation set against the base model,
+candidate worker, previous worker version, frontier reference, competing
+worker, or deterministic baseline, then show quality, cost, latency, and
+failure categories.
+
+The final product output should be a Worker Card, not merely a checkpoint file:
+task class, ontology refs, data recipe refs, distilled dataset refs, evals,
+benchmarks, known limitations, authority scopes, runtime profiles,
+interaction surfaces, and deployment options.
 
 Autopilot Foundry should expose training profiles rather than a single
 fine-tuning path. Valid profiles include dense transformer workers,

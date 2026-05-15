@@ -23,6 +23,7 @@ code.
 | `@ioi/agent-sdk` | Developer SDK client over the daemon/substrate | Synthetic runtime as canonical default |
 | `@ioi/agent-ide` | UI/workbench/workflow composer client over shared contracts | Canonical run/session/proposal/task truth |
 | Autopilot Desktop | Product shell composing chat, IDE, Autopilot Foundry, and local daemon UX | A separate runtime path, marketplace ranking authority, or portable headless substrate |
+| Shared builder substrate | Typed graph, schema, recipe, and builder-lens contracts used by Foundry, data recipes, evals, benchmarks, deployments, and outcome workflows | A separate runtime, Agentgres replacement, or one forced UI for every builder persona |
 | Harness/benchmarks | Deterministic validation over public substrate contracts | Privileged bypasses or fixture-only production routing |
 | Adaptive Work Graph | Execution strategy under the generic runtime envelope | Product surface, daemon, SDK, or runtime identity |
 

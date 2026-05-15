@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for Agentgres APIs, canonical object classes, runtime v0 state, operation logs, projection watermarks, and replay/export authority; bridge/readiness semantics live in [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md).
 Supersedes: older Agentgres-as-generic-store wording when runtime truth ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-05-15.
 
 ## Purpose
 
@@ -49,9 +49,15 @@ POST /v1/data-recipes/{recipe_id}/run
 GET  /v1/data-recipes/{recipe_id}/runs
 POST /v1/connector-mappings
 POST /v1/policy-bound-data-views
+POST /v1/distilled-ontology-datasets
 POST /v1/evaluation-datasets
 POST /v1/ontology-projections
 POST /v1/ontology-to-worker-plans
+POST /v1/worker-training
+POST /v1/worker-training/{training_id}/batch-plans
+POST /v1/worker-training/{training_id}/generation-batches
+POST /v1/worker-training/{training_id}/quality-gate-reports
+POST /v1/worker-training/{training_id}/cost-ledgers
 ```
 
 ## Archive/Restore API
@@ -158,9 +164,16 @@ ConnectorMapping
 PolicyBoundDataView
 TransformationRun
 TransformationReceipt
+DistilledOntologyDataset
 EvaluationDataset
 OntologyProjection
 OntologyToWorkerPlan
+ModelCapacityProfile
+TrainingBatchPlan
+GenerationBatch
+RawBatchArchive
+QualityGateReport
+TrainingCostLedger
 WorkerTraining
 DatasetCommitment
 TrainingLineage
@@ -445,6 +458,7 @@ another blob store by hash/CID.
   "ontology_refs": ["ontology://construction-estimating/v1"],
   "connector_mapping_refs": ["mapping://drive-plan-sheets", "mapping://gmail-quote-thread"],
   "output_object_model_refs": ["object-model://Estimate", "object-model://LineItem"],
+  "output_distilled_dataset_refs": ["dataset://construction-estimate-distilled-v1"],
   "transformation_steps": ["extract", "redact", "normalize", "dedupe", "validate", "map", "link"],
   "policy_bound_data_view_refs": ["view://customer-estimate-training"],
   "receipt_obligations": ["data_recipe_run", "transformation"],
@@ -458,7 +472,7 @@ another blob store by hash/CID.
   "view_id": "view://customer-estimate-training",
   "ontology_refs": ["ontology://construction-estimating/v1"],
   "object_model_refs": ["object-model://Estimate", "object-model://Quote"],
-  "allowed_uses": ["read", "transform", "train", "evaluate"],
+  "allowed_uses": ["read", "transform", "distill", "train", "evaluate"],
   "authority_grant_refs": ["grant://..."],
   "privacy_class": "confidential",
   "policy_hash": "sha256:...",
@@ -474,6 +488,7 @@ another blob store by hash/CID.
   "input_refs": ["artifact://plans_pdf", "connector://gmail/thread_123"],
   "output_object_refs": ["agentgres://object/Estimate/est_123"],
   "output_dataset_refs": ["dataset://construction-estimate-holdout-v1"],
+  "output_distilled_dataset_refs": ["dataset://construction-estimate-distilled-v1"],
   "output_artifact_refs": ["artifact://transformed_estimates"],
   "authority_grant_refs": ["grant://..."],
   "receipt_refs": ["receipt://transform_123"],
@@ -483,11 +498,30 @@ another blob store by hash/CID.
 
 ```json
 {
+  "object_class": "DistilledOntologyDataset",
+  "distilled_dataset_id": "dataset://construction-estimate-distilled-v1",
+  "ontology_refs": ["ontology://construction-estimating/v1"],
+  "data_recipe_refs": ["recipe://construction/estimate-normalization/v1"],
+  "source_commitments": ["sha256:..."],
+  "policy_bound_data_view_refs": ["view://customer-estimate-training"],
+  "transformation_receipt_refs": ["receipt://transform_123"],
+  "distillation_methods": ["teacher_distillation", "verifier_filtering", "schema_canonicalization", "failure_regression"],
+  "teacher_refs": ["worker://planner-teacher"],
+  "verifier_refs": ["worker://estimate-verifier"],
+  "output_artifact_refs": ["artifact://distilled_estimate_examples"],
+  "evaluation_dataset_refs": ["dataset://construction-estimate-holdout-v1"],
+  "receipt_root": "sha256:...",
+  "status": "draft | active | deprecated | revoked"
+}
+```
+
+```json
+{
   "object_class": "EvaluationDataset",
   "evaluation_dataset_id": "dataset://construction-estimate-holdout-v1",
   "ontology_refs": ["ontology://construction-estimating/v1"],
   "data_recipe_refs": ["recipe://construction/estimate-normalization/v1"],
-  "dataset_type": "golden | holdout | adversarial | regression | benchmark | synthetic",
+  "dataset_type": "golden | holdout | adversarial | regression | benchmark | synthetic | distilled",
   "rubric_ref": "rubric://construction-estimate/v1",
   "benchmark_profile_ref": "benchmark://ioi/categories/construction_estimate/v1",
   "source_commitment": "sha256:...",
@@ -504,6 +538,7 @@ another blob store by hash/CID.
   "canonical_object_model_refs": ["object-model://Estimate", "object-model://LineItem"],
   "data_recipe_refs": ["recipe://construction/estimate-normalization/v1"],
   "policy_bound_data_view_refs": ["view://customer-estimate-training"],
+  "distilled_dataset_refs": ["dataset://construction-estimate-distilled-v1"],
   "evaluation_dataset_refs": ["dataset://construction-estimate-holdout-v1"],
   "benchmark_profile_refs": ["benchmark://ioi/categories/construction_estimate/v1"],
   "proposed_worker_manifest_ref": "ai://workers/construction-estimator",
@@ -526,13 +561,19 @@ and are referenced by hash/CID.
   "provider_id": "service://...",
   "training_objective": "Train a construction estimating worker",
   "training_profile": "dense_transformer | moe | subquadratic | hybrid_attention_state | retrieval_augmented | mutable_context | adapter_trained | distillation_trained | deterministic_verifier | custom",
-  "training_methods": ["workflow_trace", "retrieval_curation", "context_update", "route_policy_training", "adapter_training", "model_finetune"],
+  "training_methods": ["workflow_trace", "retrieval_curation", "context_update", "route_policy_training", "adapter_training", "model_finetune", "distillation"],
   "dataset_commitment": "sha256:...",
   "domain_ontology_ref": "ontology://construction-estimating/v1",
   "canonical_object_model_refs": ["object-model://Estimate", "object-model://LineItem"],
   "data_recipe_refs": ["recipe://construction/estimate-normalization/v1"],
   "policy_bound_data_view_refs": ["view://customer-estimate-training"],
+  "distilled_dataset_refs": ["dataset://construction-estimate-distilled-v1"],
   "evaluation_dataset_refs": ["dataset://construction-estimate-holdout-v1"],
+  "model_capacity_profile_ref": "profile://construction-estimator-small-v1",
+  "training_batch_plan_refs": ["batch://estimate-scope-001"],
+  "raw_batch_archive_refs": ["artifact://raw-estimate-batch-001"],
+  "quality_gate_report_refs": ["gate://estimate-batch-001"],
+  "training_cost_ledger_ref": "ledger://train_123",
   "ontology_to_worker_plan_ref": "plan://123",
   "privacy_policy_ref": "policy://...",
   "evaluation_rubric_ref": "rubric://...",
@@ -541,6 +582,128 @@ and are referenced by hash/CID.
   "output_manifest_ref": "ai://workers/...",
   "receipt_root": "sha256:...",
   "status": "proposed | running | evaluated | accepted | rejected | disputed"
+}
+```
+
+```json
+{
+  "object_class": "ModelCapacityProfile",
+  "model_capacity_profile_id": "profile://construction-estimator-small-v1",
+  "training_id": "train_123",
+  "target_class": "small_local | balanced_local | specialist_local | hosted_frontier | hybrid_worker | deterministic_worker | custom",
+  "context_budget_tokens": 8192,
+  "system_prompt_budget_tokens": 1200,
+  "tool_batch_limit": 4,
+  "row_structure": "structured | ontology_bound | tool_trace | mixed",
+  "recommendations": [
+    "structured_rows",
+    "shorter_system_prompt",
+    "tighter_label_set",
+    "smaller_tool_batches",
+    "stronger_gold_reasons"
+  ],
+  "status": "draft | active | superseded"
+}
+```
+
+```json
+{
+  "object_class": "TrainingBatchPlan",
+  "batch_plan_id": "batch://estimate-scope-001",
+  "training_id": "train_123",
+  "orchestrator_ref": "worker://training-orchestrator",
+  "target_scope": "change-order estimate line items",
+  "target_family": "construction-estimating",
+  "label_boundary_ref": "artifact://estimate-label-boundary",
+  "hard_eval_pattern_ref": "dataset://construction-estimate-hard-cases",
+  "quota": {
+    "target_rows": 5000,
+    "target_tokens": 20000000,
+    "max_cost": "optional"
+  },
+  "split_policy": {
+    "train": 80,
+    "holdout": 10,
+    "golden": 5,
+    "adversarial": 3,
+    "regression": 2
+  },
+  "model_capacity_profile_ref": "profile://construction-estimator-small-v1",
+  "executor_worker_refs": ["worker://generator-a", "worker://generator-b"],
+  "status": "draft | running | completed | rejected | superseded"
+}
+```
+
+```json
+{
+  "object_class": "GenerationBatch",
+  "generation_batch_id": "batch://estimate-generation-001",
+  "batch_plan_ref": "batch://estimate-scope-001",
+  "training_id": "train_123",
+  "executor_ref": "worker://generator-a",
+  "input_prompt_ref": "artifact://estimate-generation-prompt",
+  "raw_batch_archive_ref": "artifact://raw-estimate-batch-001",
+  "row_count": 1200,
+  "token_count": 1500000,
+  "provider_call_count": 120,
+  "cost_estimate": "optional",
+  "status": "queued | running | archived | gated | rejected | failed"
+}
+```
+
+```json
+{
+  "object_class": "RawBatchArchive",
+  "raw_batch_archive_id": "artifact://raw-estimate-batch-001",
+  "training_id": "train_123",
+  "generation_batch_refs": ["batch://estimate-generation-001"],
+  "raw_artifact_refs": ["artifact://estimate-raw-jsonl"],
+  "cache_artifact_refs": ["artifact://estimate-generation-cache"],
+  "provider_metadata_hash": "sha256:...",
+  "prompt_hash": "sha256:...",
+  "token_count": 1500000,
+  "cost_estimate": "optional",
+  "policy_hash": "sha256:...",
+  "status": "archived | redacted | rejected | promoted_to_curation"
+}
+```
+
+```json
+{
+  "object_class": "QualityGateReport",
+  "gate_report_id": "gate://estimate-batch-001",
+  "training_id": "train_123",
+  "batch_plan_ref": "batch://estimate-scope-001",
+  "generation_batch_ref": "batch://estimate-generation-001",
+  "gate_policy_hash": "sha256:...",
+  "accepted_count": 740,
+  "rejected_count": 460,
+  "rejection_reason_counts": {
+    "schema_validity": 20,
+    "duplicate_prompt": 44,
+    "leakage_risk": 7,
+    "low_quality_or_synthetic_pattern": 91,
+    "weak_gold_reason": 58
+  },
+  "accepted_dataset_refs": ["dataset://construction-estimate-curated-v1"],
+  "receipt_refs": ["receipt://gate_report_001"],
+  "status": "draft | completed | disputed | superseded"
+}
+```
+
+```json
+{
+  "object_class": "TrainingCostLedger",
+  "training_cost_ledger_id": "ledger://train_123",
+  "training_id": "train_123",
+  "batch_plan_refs": ["batch://estimate-scope-001"],
+  "provider_call_count": 120,
+  "token_count": 1500000,
+  "accepted_row_count": 740,
+  "rejected_row_count": 460,
+  "cost_per_accepted_row": "optional",
+  "dataset_yield_summary_ref": "artifact://yield-summary",
+  "status": "open | closed | disputed"
 }
 ```
 
@@ -657,6 +820,11 @@ StopConditionRecorded
 ScorecardRecorded
 QualityRecordRecorded
 WorkerTrainingSpecCreated
+ModelCapacityProfileRecorded
+TrainingBatchPlanRecorded
+GenerationBatchArchived
+QualityGateReportRecorded
+TrainingCostLedgerUpdated
 DatasetCommitmentRecorded
 TrainingLineageUpdated
 BenchmarkSubmissionCreated

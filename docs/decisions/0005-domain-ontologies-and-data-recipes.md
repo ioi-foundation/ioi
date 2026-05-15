@@ -26,7 +26,7 @@ raw sources
 → TransformationRun
 → ontology-bound canonical objects
 → PolicyBoundDataView
-→ EvaluationDataset / WorkerTraining / OntologyProjection
+→ DistilledOntologyDataset / EvaluationDataset / WorkerTraining / OntologyProjection
 → WorkerManifest, MoW routing, service outcomes
 ```
 
@@ -37,10 +37,17 @@ truth until it is mapped, transformed, authorized, receipted, and projected.
 
 - Workers train on ontology-bound data and policy-bound data views, not raw
   blobs or ambient connector payloads.
+- Efficient specialist workers may train from distilled ontology-bound
+  datasets: compact high-signal examples, counterexamples, tool traces,
+  verifier assertions, rubric judgments, canonical object transitions, and
+  failure regressions derived from ontology-bound source truth.
+- Distillation does not erase provenance. Distilled datasets bind source
+  commitments, recipe versions, policy-bound views, transformation receipts,
+  and teacher/verifier refs when used.
 - Connector payloads are source material until ConnectorMapping and DataRecipe
   boundaries bind them into canonical domain objects.
 - Evaluation datasets bind ontology refs, rubric refs, benchmark refs, source
-  commitments, policy, and receipt roots.
+  commitments, policy, distilled dataset refs when used, and receipt roots.
 - Autopilot Foundry should expose ontology, recipe, mapping, data-view,
   transformation, evaluation dataset, and projection controls.
 - Agentgres owns ontology and recipe lifecycle state; Filecoin/CAS stores large

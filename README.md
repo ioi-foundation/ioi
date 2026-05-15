@@ -5,25 +5,21 @@
 ![Consensus](https://img.shields.io/badge/consensus-AFT-purple)
 ![Runtime](https://img.shields.io/badge/runtime-Web4-black)
 
-**Canonical infrastructure for the Internet of Intelligence.**
+<p align="center">
+  <img src="docs/assets/readme-hero.svg" alt="Internet of Intelligence: alignment security for machine authority." width="100%">
+</p>
 
-IOI is the Web4 execution substrate for autonomous software: cybersecurity,
-bounded authority, operational memory, cryptographic receipts, replayable proof,
-and settlement-grade recourse.
+**Alignment security for machine authority.**
 
-Autonomous software is beginning to operate browsers, files, APIs, wallets,
-credentials, models, tools, and other agents. Traditional cybersecurity protects
-systems from malicious software. IOI protects systems from
-**authorized-but-unbounded autonomous software**.
+IOI is the Web4 execution substrate for autonomous software: a deterministic
+action boundary where workers can act under scoped authority, emit receipts,
+prove outcomes, and settle consequences.
 
-Most agent frameworks give a model tools. IOI gives autonomous work a
-deterministic execution boundary: every consequential action is canonicalized,
-policy-checked, authority-scoped, approval-gated when necessary, receipted,
-replayable, and settleable.
+> **A programmable economy for hiring verifiable workers.**
 
-Web1 made information readable. Web2 made it writable. Web3 made it ownable.
-IOI is building the next layer: **sovereign action that can be delegated,
-governed, verified, replayed, and settled.**
+The internet learned to read, then write, then own. What it has never been able
+to do safely is act. IOI builds the final primitive: sovereign action that can
+be delegated, governed, verified, replayed, remediated, and settled.
 
 ```text
 probabilistic reasoning
@@ -37,7 +33,27 @@ probabilistic reasoning
 
 The model can be fuzzy. The consequences cannot.
 
-## What IOI Is
+## The Autonomy Gap
+
+Autonomous software is beginning to operate browsers, files, APIs, wallets,
+credentials, models, tools, and other workers. Traditional cybersecurity
+protects systems from malicious software. IOI protects systems from
+authorized-but-unbounded autonomous software.
+
+Most agent frameworks give a model tools. IOI gives autonomous work a
+deterministic execution boundary: every consequential action is canonicalized,
+policy-checked, authority-scoped, approval-gated when necessary, receipted,
+replayable, and settleable.
+
+| Not | Is |
+|---|---|
+| A chatbot | Policy-bound execution |
+| A model marketplace | Worker routing through receipts and benchmarks |
+| A wallet bolted to an LLM | Authority-scoped credentials and approvals |
+| A workflow toy | Canonical operational state and replay |
+| A chain with AI bolted on | Settlement for completed machine labor |
+
+## Web4
 
 IOI is the reference implementation of canonical Web4:
 
@@ -47,33 +63,120 @@ IOI is the reference implementation of canonical Web4:
   <img src="docs/assets/readme-web4-equation.svg" alt="Web4 equals read plus write plus own plus act with cryptographic determinism." width="100%">
 </p>
 
-It is also the runtime boundary for autonomous software workers.
+Web1 made information readable. Web2 made it writable. Web3 made it ownable.
+Web4 makes authority executable.
 
-It is not a chatbot, workflow toy, wallet wrapper, antivirus product, or chain
-with AI bolted on. It is one substrate for intelligent applications where
-autonomous actors can work across systems without receiving ambient authority:
+Act inherits the guarantees of Own. A worker may reason creatively, but the
+moment it attempts to spend, sign, deploy, read private data, mutate state, or
+invoke another worker, the runtime collapses that intent into a deterministic
+action: allowed, denied, escalated, receipted, and replayable.
 
-- the **daemon** executes workflows, tools, models, agents, connectors, and artifacts;
-- **wallet.network** authorizes identity, secrets, authority scopes, approvals, and payments;
-- **Agentgres** records canonical operational truth, projections, receipts, quality, and replay state;
-- **IOI L1** settles public rights, registries, roots, bonds, disputes, and economic commitments;
-- **Autopilot**, `ioi-cli`, `@ioi/agent-sdk`, `agent-ide`, harnesses, benchmarks, and workflow composers are clients over the same runtime substrate.
+## The Stack
 
-<p align="center">
-  <img src="docs/assets/readme-ioi-runtime-flowchart.svg" alt="IOI runtime stack flowchart showing clients using the daemon, daemon using wallet.network, Agentgres, and Filecoin/CAS, and relevant commitments anchoring into IOI L1." width="100%">
-</p>
+The IOI stack is edge-in. Work starts near the user, device, data, and runtime
+boundary, then projects only the commitments that need public trust into
+settlement.
 
-## The Rules That Make It Different
+- The **IOI daemon** executes workflows, tools, models, workers, connectors, and
+  artifacts.
+- **wallet.network** authorizes identity, secrets, authority scopes, approvals,
+  payments, data use, and decryption.
+- **Agentgres** records canonical operational truth: accepted operations,
+  object heads, projections, receipts, quality, lineage, and replay state.
+- **Filecoin/CAS** stores payload bytes, packages, artifacts, sealed archives,
+  traces, checkpoints, and evidence bundles by hash/CID.
+- **IOI L1** settles public rights, registries, roots, bonds, disputes,
+  governance, and economic commitments.
+- **Clients** compose and inspect work: Autopilot, CLI/TUI, SDK, agent-ide,
+  harnesses, benchmarks, and workflow canvases.
 
-- **Cybersecurity for agency.** Traditional security assumes software follows deterministic code paths. IOI assumes autonomous software will plan, retry, delegate, mutate, and use tools, so the security boundary must sit at the point of action.
-- **One runtime substrate.** No separate SDK, GUI, CLI, benchmark, harness, or workflow runtime.
-- **Authority is portable and explicit.** `prim:*` and `scope:*` turn ambient permission into delegated capabilities: what the runtime may execute, what the wallet/provider may authorize, and what evidence must exist before power crosses a trust boundary.
-- **Tool calls are requests, not grants.** Raw model output is never the authority for consequential action.
-- **Credentials are never cognition.** Models request effects; wallet.network brokers secrets, approvals, payments, and scoped authority without handing raw keys to the agent.
-- **Logs become receipts.** Runs emit externally legible events, receipts, traces, scorecards, stop reasons, and replayable evidence.
-- **Memory is operational.** Agentgres is not prompt stuffing; it is canonical state for autonomous work.
-- **Autopilot is the local security shell.** Autopilot wraps browser, desktop, API, filesystem, model, and workflow actions in IOI's policy and receipt boundary.
-- **AFT breaks the 40-year BFT ceiling.** IOI's Asymptote Fault Tolerance line uses omission-dominant ordering, deterministic collapse, and proof-carrying continuation to break the classical lower-bound shape that has constrained Byzantine agreement since the 1980s.
+The doctrine is simple:
+
+```text
+The daemon executes.
+wallet.network authorizes.
+Agentgres remembers.
+Filecoin/CAS preserves.
+MoW routes.
+IOI L1 settles.
+Clients compose.
+Evidence proves.
+```
+
+## Mixture Of Workers
+
+The Internet of Intelligence is not a single monolithic model. It is a routed
+supply chain of specialized, bounded workers.
+
+Mixture of Experts routes inference across model experts. Mixture of Workers
+routes consequential labor across accountable workers.
+
+```text
+Intent
+  -> task decomposition
+  -> worker selection
+  -> capability and policy check
+  -> execution
+  -> verification
+  -> ContributionReceipts
+  -> settlement
+```
+
+Models are mounted. Workers are installed. Services are hired. MoW is routed.
+Receipts pay contributors.
+
+## Worker Training
+
+The first commercial leg of MoW is not "buy an agent marketplace." It is:
+
+> **Train a specialist worker for a defined outcome.**
+
+Autopilot Foundry turns workflows, traces, documents, examples, corrections,
+data recipes, domain ontologies, quality gates, evaluations, and benchmark runs
+into deployable workers.
+
+Training is broader than fine-tuning. A worker can improve through prompt
+optimization, retrieval curation, tool-policy hardening, workflow-graph
+refinement, verifier gates, adapter training, distillation, or model
+fine-tuning. Training improves capability; authority grants power.
+
+## Product Surfaces
+
+| Surface | Role |
+|---|---|
+| **Autopilot** | Local desktop runtime, operator shell, workflow canvas, and Worker Training Workbench. |
+| **ioi.ai** | Lightweight control plane for accounts, devices, restore, publishing, sync metadata, and remote-runtime access. |
+| **aiagent.xyz** | Worker marketplace for manifests, benchmark profiles, Sparse Worker Categories, managed instances, installs, and routing. |
+| **sas.xyz** | Outcome marketplace for Service-as-Software contracts, including Worker Training contracts and worker-composed services. |
+| **developers.ioi.ai** | Developer surface for docs, SDKs, references, guides, and integration paths. |
+
+Stop renting tools. Hire workers.
+
+## Rules Of The Runtime
+
+- **Action-safe alignment.** IOI shifts alignment from filtering model text to
+  governing model consequences.
+- **One execution substrate.** No separate SDK, GUI, CLI, TUI, benchmark,
+  harness, or workflow runtime owns consequential execution semantics.
+- **Authority is explicit.** `prim:*` describes what the runtime may execute.
+  `scope:*` describes what a wallet, provider, user, or tenant may authorize.
+- **Tool calls are requests, not grants.** Raw model output is never authority
+  for consequential action.
+- **Credentials are never cognition.** Models request effects; wallet.network
+  brokers secrets, approvals, payments, and scoped authority without handing raw
+  keys to the worker.
+- **Logs become receipts.** Runs emit legible events, receipts, traces,
+  scorecards, stop reasons, delivery bundles, and replayable evidence.
+- **State is operational.** Agentgres is not prompt stuffing. It is canonical
+  state for worker-produced truth.
+- **Data has meaning.** Domain Ontologies and Data Recipes turn source systems,
+  connector payloads, traces, and documents into trainable, queryable,
+  receipted domain truth.
+- **Settlement is last, not first.** IOI L1 anchors the commitments that need
+  public trust. The runtime stays edge-in.
+- **AFT breaks the 40-year BFT ceiling** IOI's Asymptote Fault Tolerance work explores
+  omission-dominant ordering, deterministic collapse, and proof-carrying
+  continuation to break the classical lower-bound shape that has constrained Byzantine agreement since the 1980s.
 
 ## Repository Map
 
@@ -85,10 +188,12 @@ autonomous actors can work across systems without receiving ambient authority:
 | [`packages/agent-ide`](packages/agent-ide) | Workbench and workflow-composition client over shared contracts. |
 | [`packages/workspace-substrate`](packages/workspace-substrate) | Shared workspace substrate for app and workbench surfaces. |
 | [`apps/autopilot`](apps/autopilot) | Local desktop operator shell for chat, workflows, artifacts, approvals, and runtime UX. |
-| [`apps/aiagent-xyz`](apps/aiagent-xyz) | Marketplace for bounded agents and autonomous capabilities. |
-| [`apps/sas-xyz`](apps/sas-xyz) | Marketplace for verified autonomous service outcomes. |
+| [`apps/aiagent-xyz`](apps/aiagent-xyz) | Marketplace for bounded workers, manifests, benchmark profiles, managed instances, and autonomous capabilities. |
+| [`apps/sas-xyz`](apps/sas-xyz) | Marketplace for verified autonomous service outcomes and Worker Training contracts. |
+| [`apps/developers-ioi-ai`](apps/developers-ioi-ai) | Developer-facing documentation and onboarding surface. |
 | [`apps/benchmarks`](apps/benchmarks) | Benchmark and scorecard surfaces. |
 | [`docs/architecture`](docs/architecture) | Canonical architecture authority. Start here when docs disagree. |
+| [`docs/decisions`](docs/decisions) | Accepted architecture decisions and durable rationale. |
 
 ## Start Here
 
@@ -118,21 +223,25 @@ Desktop builds require the usual Tauri system dependencies for your platform.
 
 - [`docs/architecture/README.md`](docs/architecture/README.md) - architecture navigation and source-of-authority index.
 - [`docs/architecture/foundations/web4-and-ioi-stack.md`](docs/architecture/foundations/web4-and-ioi-stack.md) - the canonical Web4 definition.
-- [`docs/architecture/components/daemon-runtime/doctrine.md`](docs/architecture/components/daemon-runtime/doctrine.md) - daemon, CLI, and operator-surface boundaries.
-- [`docs/architecture/components/daemon-runtime/api.md`](docs/architecture/components/daemon-runtime/api.md) - public runtime API.
+- [`docs/architecture/foundations/mixture-of-workers.md`](docs/architecture/foundations/mixture-of-workers.md) - MoW labor-routing doctrine.
+- [`docs/architecture/foundations/worker-training-lifecycle.md`](docs/architecture/foundations/worker-training-lifecycle.md) - Worker Training lifecycle and Autopilot Foundry doctrine.
+- [`docs/architecture/foundations/domain-ontologies-and-data-recipes.md`](docs/architecture/foundations/domain-ontologies-and-data-recipes.md) - semantic data plane.
+- [`docs/architecture/components/daemon-runtime/doctrine.md`](docs/architecture/components/daemon-runtime/doctrine.md) - daemon, CLI/TUI, and operator-surface boundaries.
 - [`docs/architecture/components/agentgres/doctrine.md`](docs/architecture/components/agentgres/doctrine.md) - Agentgres and canonical operational truth.
 - [`docs/architecture/components/wallet-network/doctrine.md`](docs/architecture/components/wallet-network/doctrine.md) - wallet.network authority plane.
+- [`docs/architecture/domains/aiagent/worker-marketplace.md`](docs/architecture/domains/aiagent/worker-marketplace.md) - aiagent.xyz worker marketplace.
+- [`docs/architecture/domains/sas/service-marketplace.md`](docs/architecture/domains/sas/service-marketplace.md) - sas.xyz Service-as-Software marketplace.
 - [`docs/conformance/agentic-runtime/CIRC.md`](docs/conformance/agentic-runtime/CIRC.md) - intent-resolution invariant.
 - [`docs/conformance/agentic-runtime/CEC.md`](docs/conformance/agentic-runtime/CEC.md) - completion-evidence invariant.
 - [`docs/architecture/protocols/aft/README.md`](docs/architecture/protocols/aft/README.md) - AFT consensus corpus.
 
 ## Status
 
-IOI is active alpha research and engineering. Some surfaces are production-shaped;
-others are research prototypes or environment-dependent. The architectural
-direction is intentionally strict:
+IOI is active alpha research and engineering. Some surfaces are
+production-shaped; others are research prototypes or environment-dependent.
+The architecture is intentionally strict:
 
-> **The daemon executes. wallet.network authorizes. Agentgres remembers. IOI L1 settles. Clients compose. Evidence proves.**
+> **The daemon executes. wallet.network authorizes. Agentgres remembers. MoW routes. IOI L1 settles. Clients compose. Evidence proves.**
 
 ## License
 

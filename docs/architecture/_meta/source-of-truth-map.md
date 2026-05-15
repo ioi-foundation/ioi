@@ -4,7 +4,7 @@ Status: canonical documentation ownership map.
 Canonical owner: this file for where architecture subjects should be edited first.
 Supersedes: informal subject ownership scattered across plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-05-15.
 
 ## Purpose
 
@@ -32,7 +32,12 @@ Conflict rule:
    - Model is a cognition backend;
    - MoW is labor routing;
    - Worker Training is the supply-creation lifecycle;
+   - TrainingBatchPlan, RawBatchArchive, QualityGateReport,
+     ModelCapacityProfile, and TrainingCostLedger are first-class Foundry and
+     Agentgres objects when batch-level training mechanics matter;
    - Domain Ontologies and Data Recipes are the semantic data plane;
+   - DistilledOntologyDataset is the compact high-signal data substrate for
+     efficient specialist training and evaluation when useful;
    - adaptive work graph is execution strategy only.
 3. Record resolved contradictions only when the decision history is needed for
    future maintainers; do not keep obsolete variants as parallel doctrine.
@@ -44,12 +49,12 @@ Conflict rule:
 | Web4 category and IOI stack | [`web4-and-ioi-stack.md`](../foundations/web4-and-ioi-stack.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | architectural-improvements plans |
 | Mixture of Workers and worker routing | [`mixture-of-workers.md`](../foundations/mixture-of-workers.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`marketplace-neutrality-and-contribution-accounting.md`](../domains/marketplace-neutrality.md) | aiagent/sas routing docs |
 | Worker Training lifecycle and training profiles | [`worker-training-lifecycle.md`](../foundations/worker-training-lifecycle.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`model-router-api-byok-and-mounting.md`](../components/model-router/api-byok-mounting.md) | Autopilot Foundry, aiagent categories, sas worker-training contracts |
-| Domain Ontologies and Data Recipes | [`domain-ontologies-and-data-recipes.md`](../foundations/domain-ontologies-and-data-recipes.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`connector-and-tool-contracts.md`](../components/connectors-tools/contracts.md) | Autopilot Foundry, Worker Training, connector mappings, ontology-aware projections |
+| Domain Ontologies and Data Recipes | [`domain-ontologies-and-data-recipes.md`](../foundations/domain-ontologies-and-data-recipes.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`connector-and-tool-contracts.md`](../components/connectors-tools/contracts.md) | Autopilot Foundry, Worker Training, connector mappings, distilled ontology datasets, ontology-aware projections |
 | IOI L1, L0/L1 boundary, and settlement | [`ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) | [`ioi-l1-smart-contract-interfaces.md`](../foundations/ioi-l1-contract-interfaces.md) | sas/aiagent marketplace docs |
 | Consensus and AFT protocol corpus | [`consensus/README.md`](../protocols/aft/README.md) | [`aft/specs/README.md`](../protocols/aft/specs/README.md), [`aft/formal/README.md`](../protocols/aft/formal/README.md) | consensus crate docs |
 | Kernel/domain architecture and edge-in topology | [`domain-kernels.md`](../foundations/domain-kernels.md) | [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md) | runtime package boundaries |
 | Agentgres canonical state and Postgres bridge | [`agentgres-state-substrate.md`](../components/agentgres/doctrine.md) | [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`agentgres-postgres-bridge-and-readiness-contract.md`](../components/agentgres/postgres-bridge-and-readiness-contract.md), [`canonical-state-and-projection-system-whitepaper.md`](../components/agentgres/projection-system-reference.md) | detailed Agentgres reference module inside canonical owner, evidence/architectural-improvements-broad |
-| Autopilot and workflow canvas | [`autopilot-local-app-and-workflow-canvas.md`](../products/autopilot/local-app-workflow-canvas.md) | [`autopilot-internal-product-spec.md`](../products/autopilot/internal-product-spec.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | chat UX/runtime specs |
+| Autopilot, shared builder substrate, and workflow compositor | [`autopilot-local-app-and-workflow-canvas.md`](../products/autopilot/local-app-workflow-canvas.md) | [`autopilot-internal-product-spec.md`](../products/autopilot/internal-product-spec.md), [`runtime-module-map.md`](../../implementation/runtime-module-map.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | chat UX/runtime specs |
 | Daemon and public runtime API | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | Cursor SDK parity guide |
 | SDK, CLI, GUI, harness, benchmark, compositor boundaries | [`runtime-package-boundaries.md`](../../implementation/runtime-package-boundaries.md) | [`runtime-module-map.md`](../../implementation/runtime-module-map.md), [`harness-change-workflow.md`](../../specs/runtime/harness-change-workflow.md) | pre-next-leg checklist |
 | wallet.network authority | [`wallet-network-authority-layer.md`](../components/wallet-network/doctrine.md) | [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md) | CIRC/CEC |
@@ -72,12 +77,14 @@ Conflict rule:
 
 - Add new runtime/client/package ownership language to
   [`runtime-package-boundaries.md`](../../implementation/runtime-package-boundaries.md) first.
-- Add new MoW, worker-routing, Sparse Worker Category, or Worker Training
+- Add new MoW, worker-routing, Sparse Worker Category, Worker Training, batch
+  planning, generation-batch, quality-gate, model-capacity, or training-cost
   doctrine to [`mixture-of-workers.md`](../foundations/mixture-of-workers.md)
   and [`worker-training-lifecycle.md`](../foundations/worker-training-lifecycle.md)
   before product/domain docs rely on it.
 - Add new ontology, DataRecipe, CanonicalObjectModel, ConnectorMapping,
-  PolicyBoundDataView, EvaluationDataset, OntologyProjection, or
+  PolicyBoundDataView, DistilledOntologyDataset, EvaluationDataset,
+  OntologyProjection, or
   ontology-to-worker doctrine to
   [`domain-ontologies-and-data-recipes.md`](../foundations/domain-ontologies-and-data-recipes.md)
   before product, connector, Agentgres, or Worker Training docs rely on it.

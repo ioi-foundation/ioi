@@ -8,7 +8,8 @@ Companion documents:
 
 - `docs/plans/benchmark-combination-matrix-plan.md`
 - `docs/ioi-zero-to-hero-autonomy-prompt.md`
-- `docs/computer-use-autonomy-prompt.md`
+- `docs/plans/computer-use-external-eval-ingestion-master-guide.md`
+- `docs/plans/isolated-computer-providers-master-guide.md`
 - `docs/architecture/products/autopilot/internal-product-spec.md`
 
 ## Purpose
