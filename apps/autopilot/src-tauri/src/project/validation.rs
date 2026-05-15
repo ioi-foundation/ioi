@@ -578,6 +578,15 @@ pub(super) fn validate_workflow_project_bundle(
                     message: "Model nodes need an inline model ref or attached Model Binding before runtime execution.".to_string(),
                 });
             }
+            if let Some(binding_value) = logic.get("modelBinding") {
+                if let Ok(binding) =
+                    serde_json::from_value::<WorkflowModelBinding>(binding_value.clone())
+                {
+                    execution_readiness_issues.extend(live_model_binding_contract_metadata_issues(
+                        &node_id, &binding,
+                    ));
+                }
+            }
             let tool_use_mode = logic
                 .get("modelBinding")
                 .and_then(|binding| workflow_value_string(binding, "toolUseMode"))
@@ -665,13 +674,21 @@ pub(super) fn validate_workflow_project_bundle(
                             message: "Model Binding nodes need a result schema so downstream model outputs can be verified.".to_string(),
                         });
                     }
-                    if !binding.mock_binding && binding.credential_ready != Some(true) {
+                    let model_credential_status =
+                        workflow_metadata_status(binding.credential_readiness.as_ref());
+                    if !binding.mock_binding
+                        && binding.credential_ready != Some(true)
+                        && model_credential_status.as_deref() != Some("ready")
+                    {
                         connector_binding_issues.push(WorkflowValidationIssue {
                             node_id: Some(node_id.clone()),
                             code: "missing_live_model_credential".to_string(),
                             message: "Live model bindings need credentials marked ready before execution.".to_string(),
                         });
                     }
+                    execution_readiness_issues.extend(live_model_binding_contract_metadata_issues(
+                        &node_id, &binding,
+                    ));
                 }
                 Err(error) => missing_config.push(WorkflowValidationIssue {
                     node_id: Some(node_id.clone()),
@@ -1207,6 +1224,141 @@ fn live_binding_contract_metadata_issues(
         });
     }
 
+    issues
+}
+
+fn workflow_metadata_status(value: Option<&Value>) -> Option<String> {
+    value
+        .and_then(|item| item.get("status").or_else(|| item.get("state")))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|status| !status.is_empty())
+        .map(str::to_string)
+}
+
+fn workflow_metadata_available(value: Option<&Value>) -> bool {
+    value
+        .and_then(|item| item.get("available"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+}
+
+fn workflow_receipt_behavior_ready(value: Option<&Value>) -> bool {
+    let receipt_required = value
+        .and_then(|item| {
+            item.get("receiptRequired")
+                .or_else(|| item.get("receipt_required"))
+        })
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let receipt_types = value
+        .and_then(|item| {
+            item.get("requiredReceiptTypes")
+                .or_else(|| item.get("required_receipt_types"))
+        })
+        .and_then(Value::as_array)
+        .map(Vec::len)
+        .unwrap_or(0);
+    receipt_required && receipt_types > 0
+}
+
+fn live_model_binding_contract_metadata_issues(
+    node_id: &str,
+    binding: &WorkflowModelBinding,
+) -> Vec<WorkflowValidationIssue> {
+    if binding.mock_binding {
+        return Vec::new();
+    }
+
+    let mut issues = Vec::new();
+    let credential_status = workflow_metadata_status(binding.credential_readiness.as_ref());
+    if credential_status.as_deref() != Some("ready") && binding.credential_ready != Some(true) {
+        issues.push(WorkflowValidationIssue {
+            node_id: Some(node_id.to_string()),
+            code: "missing_model_credential_readiness_contract".to_string(),
+            message: "Live model bindings need ready credentialReadiness or capability readiness metadata before execution.".to_string(),
+        });
+    }
+    if binding
+        .model_capability_ref
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_none()
+    {
+        issues.push(WorkflowValidationIssue {
+            node_id: Some(node_id.to_string()),
+            code: "missing_model_capability_ref".to_string(),
+            message: "Live model bindings need a modelCapabilityRef from /api/v1/model-capabilities or authority projection.".to_string(),
+        });
+    }
+    if binding
+        .route_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_none()
+    {
+        issues.push(WorkflowValidationIssue {
+            node_id: Some(node_id.to_string()),
+            code: "missing_model_route_id".to_string(),
+            message:
+                "Live model bindings need a canonical routeId for deterministic model routing."
+                    .to_string(),
+        });
+    }
+    if !workflow_receipt_behavior_ready(binding.receipt_behavior.as_ref()) {
+        issues.push(WorkflowValidationIssue {
+            node_id: Some(node_id.to_string()),
+            code: "missing_model_receipt_behavior".to_string(),
+            message: "Live model bindings need receiptBehavior with model route and invocation receipt types.".to_string(),
+        });
+    }
+    if !workflow_metadata_available(binding.workflow_availability.as_ref()) {
+        issues.push(WorkflowValidationIssue {
+            node_id: Some(node_id.to_string()),
+            code: "missing_model_workflow_availability".to_string(),
+            message:
+                "Live model bindings need workflowAvailability.available=true before activation."
+                    .to_string(),
+        });
+    }
+    if !workflow_metadata_available(binding.agent_availability.as_ref()) {
+        issues.push(WorkflowValidationIssue {
+            node_id: Some(node_id.to_string()),
+            code: "missing_model_agent_availability".to_string(),
+            message: "Live model bindings need agentAvailability.available=true before execution."
+                .to_string(),
+        });
+    }
+    if binding.authority_scopes.is_empty() && binding.authority_scope_requirements.is_empty() {
+        issues.push(WorkflowValidationIssue {
+            node_id: Some(node_id.to_string()),
+            code: "missing_model_authority_scope_requirements".to_string(),
+            message:
+                "Live model bindings need authorityScopes or authorityScopeRequirements metadata."
+                    .to_string(),
+        });
+    }
+    if workflow_metadata_status(binding.grant_readiness.as_ref()).as_deref() != Some("ready") {
+        issues.push(WorkflowValidationIssue {
+            node_id: Some(node_id.to_string()),
+            code: "missing_model_grant_readiness".to_string(),
+            message: "Live model bindings need ready grantReadiness from wallet authority before execution.".to_string(),
+        });
+    }
+    let policy_status = workflow_metadata_status(binding.policy_posture.as_ref());
+    if !matches!(
+        policy_status.as_deref(),
+        Some("allowed" | "approved" | "ready")
+    ) {
+        issues.push(WorkflowValidationIssue {
+            node_id: Some(node_id.to_string()),
+            code: "missing_model_policy_posture".to_string(),
+            message: "Live model bindings need an allowed policyPosture before execution."
+                .to_string(),
+        });
+    }
     issues
 }
 

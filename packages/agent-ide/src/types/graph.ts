@@ -392,6 +392,7 @@ export interface NodeLogic {
 
   // --- Model Nodes ---
   modelRef?: string;
+  modelCapabilityRef?: string;
   provider?: string;
   model?: string;
   modelId?: string | null;
@@ -1301,6 +1302,8 @@ export interface WorkflowCapabilityContractMetadata {
 }
 
 export interface WorkflowModelCapabilityContractMetadata {
+  modelCapabilityRef?: string;
+  routeId?: string;
   credentialReadiness?: WorkflowCapabilityCredentialReadiness;
   receiptBehavior?: Record<string, unknown>;
   workflowAvailability?: WorkflowCapabilityAvailability;
@@ -1310,7 +1313,10 @@ export interface WorkflowModelCapabilityContractMetadata {
   fallbackPolicy?: Record<string, unknown>;
   fallbackEvidence?: Array<Record<string, unknown>>;
   costEstimateVisibility?: Record<string, unknown>;
+  authorityScopes?: string[];
   authorityScopeRequirements?: string[];
+  grantReadiness?: WorkflowCapabilityCredentialReadiness | Record<string, unknown>;
+  policyPosture?: Record<string, unknown>;
   vaultReadiness?: Record<string, unknown>;
   byokRequired?: boolean;
 }
@@ -1563,6 +1569,7 @@ export interface WorkflowFunctionRef {
 
 export interface WorkflowModelBinding {
   modelRef: string;
+  modelCapabilityRef?: string;
   modelId?: string | null;
   routeId?: string;
   reasoningEffort?: "low" | "medium" | "high" | "xhigh" | string;
@@ -1594,7 +1601,10 @@ export interface WorkflowModelBinding {
   fallbackPolicy?: Record<string, unknown>;
   fallbackEvidence?: Array<Record<string, unknown>>;
   costEstimateVisibility?: Record<string, unknown>;
+  authorityScopes?: string[];
   authorityScopeRequirements?: string[];
+  grantReadiness?: WorkflowCapabilityCredentialReadiness | Record<string, unknown>;
+  policyPosture?: Record<string, unknown>;
   vaultReadiness?: Record<string, unknown>;
   byokRequired?: boolean;
   toolUseMode?: "none" | "explicit" | "auto";
@@ -1976,6 +1986,14 @@ export interface WorkflowBindingManifestEntry {
   sideEffectClass: string;
   requiresApproval: boolean;
   capabilityScope: string[];
+  modelCapabilityRef?: string | null;
+  routeId?: string | null;
+  authorityScopes?: string[];
+  authorityScopeRequirements?: string[];
+  receiptBehavior?: Record<string, unknown> | null;
+  readiness?: Record<string, unknown> | null;
+  grantReadiness?: Record<string, unknown> | null;
+  policyPosture?: Record<string, unknown> | null;
   status: WorkflowBindingCheckStatus;
   statusReason: string;
 }
@@ -2005,6 +2023,7 @@ export interface GraphModelBinding {
   modelHash?: string;
   required?: boolean;
   modelRef?: string;
+  modelCapabilityRef?: string;
   routeId?: string;
   mockBinding?: boolean;
   credentialReadiness?: WorkflowCapabilityCredentialReadiness;
@@ -2016,7 +2035,10 @@ export interface GraphModelBinding {
   fallbackPolicy?: Record<string, unknown>;
   fallbackEvidence?: Array<Record<string, unknown>>;
   costEstimateVisibility?: Record<string, unknown>;
+  authorityScopes?: string[];
   authorityScopeRequirements?: string[];
+  grantReadiness?: WorkflowCapabilityCredentialReadiness | Record<string, unknown>;
+  policyPosture?: Record<string, unknown>;
   vaultReadiness?: Record<string, unknown>;
   byokRequired?: boolean;
 }

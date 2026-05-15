@@ -14,6 +14,7 @@ import type {
   WorkflowJsonSchema,
   WorkflowTestCase,
 } from "../../../types/graph";
+import { normalizeWorkflowModelBinding } from "../../../runtime/workflow-model-capability-binding";
 import { WorkflowSubagentStateFields } from "./subagentFields";
 import type { WorkflowNodeBindingSectionsProps } from "./types";
 
@@ -146,28 +147,14 @@ export function WorkflowNodeBindingSections({
   };
   const modelBindingFor = (
     overrides: Partial<NonNullable<NodeLogic["modelBinding"]>> = {},
-  ): NonNullable<NodeLogic["modelBinding"]> => ({
-    modelRef: String(
-      logic.modelBinding?.modelRef ?? logic.modelRef ?? "reasoning",
-    ),
-    modelId: logic.modelBinding?.modelId ?? logic.modelId,
-    routeId: logic.modelBinding?.routeId ?? logic.routeId,
-    reasoningEffort:
-      logic.modelBinding?.reasoningEffort ??
-      logic.reasoningEffort ??
-      "medium",
-    mockBinding: logic.modelBinding?.mockBinding ?? true,
-    capabilityScope: logic.modelBinding?.capabilityScope ?? ["reasoning"],
-    argumentSchema: logic.modelBinding?.argumentSchema ??
-      logic.inputSchema ?? { type: "object" },
-    resultSchema: logic.modelBinding?.resultSchema ??
-      logic.outputSchema ?? { type: "object" },
-    sideEffectClass: logic.modelBinding?.sideEffectClass ?? "none",
-    requiresApproval: logic.modelBinding?.requiresApproval ?? false,
-    credentialReady: logic.modelBinding?.credentialReady ?? false,
-    toolUseMode: logic.modelBinding?.toolUseMode ?? logic.toolUseMode ?? "none",
-    ...overrides,
-  });
+  ): NonNullable<NodeLogic["modelBinding"]> =>
+    normalizeWorkflowModelBinding(
+      {
+        ...(logic.modelBinding ?? {}),
+        ...overrides,
+      },
+      logic,
+    );
 
   return (
     <>
@@ -634,11 +621,33 @@ export function WorkflowNodeBindingSections({
             />
           </label>
           <label>
-            Model id
+            Model capability ref
+            <input
+              data-testid="workflow-model-capability-ref"
+              value={String(
+                logic.modelBinding?.modelCapabilityRef ??
+                  logic.modelCapabilityRef ??
+                  "",
+              )}
+              placeholder="model-capability:route.local-first"
+              onChange={(event) => {
+                const modelCapabilityRef = event.target.value;
+                updateLogic({
+                  ...logic,
+                  modelCapabilityRef,
+                  modelBinding: modelBindingFor({
+                    modelCapabilityRef,
+                  }),
+                });
+              }}
+            />
+          </label>
+          <label>
+            Legacy model id
             <input
               data-testid="workflow-model-id"
               value={String(logic.modelBinding?.modelId ?? logic.modelId ?? "")}
-              placeholder="auto"
+              placeholder="compatibility only"
               onChange={(event) => {
                 const modelId = event.target.value || null;
                 updateLogic({
@@ -671,6 +680,47 @@ export function WorkflowNodeBindingSections({
               }}
             />
           </label>
+          <label>
+            Authority scopes
+            <input
+              data-testid="workflow-model-authority-scopes"
+              value={(
+                logic.modelBinding?.authorityScopes ??
+                logic.modelBinding?.authorityScopeRequirements ??
+                []
+              ).join(", ")}
+              placeholder="route.use:route.local-first, model.chat:*"
+              onChange={(event) => {
+                const authorityScopes = event.target.value
+                  .split(",")
+                  .map((value) => value.trim())
+                  .filter(Boolean);
+                updateLogic({
+                  ...logic,
+                  authorityScopes,
+                  modelBinding: modelBindingFor({
+                    authorityScopes,
+                    authorityScopeRequirements: authorityScopes,
+                  }),
+                });
+              }}
+            />
+          </label>
+          <div className="workflow-model-attachment-summary">
+            <span>
+              Readiness{" "}
+              {logic.modelBinding?.credentialReadiness?.status ?? "unknown"}
+            </span>
+            <span>
+              Grant {String((logic.modelBinding?.grantReadiness as { status?: unknown } | undefined)?.status ?? "unknown")}
+            </span>
+            <span>
+              Receipts{" "}
+              {logic.modelBinding?.receiptBehavior?.receiptRequired
+                ? "required"
+                : "missing"}
+            </span>
+          </div>
           <label>
             Thinking
             <select
@@ -920,11 +970,31 @@ export function WorkflowNodeBindingSections({
             />
           </label>
           <label>
-            Model id
+            Model capability ref
+            <input
+              data-testid="workflow-model-binding-capability-ref"
+              value={String(
+                logic.modelBinding?.modelCapabilityRef ??
+                  logic.modelCapabilityRef ??
+                  "",
+              )}
+              placeholder="model-capability:route.local-first"
+              onChange={(event) => {
+                const modelCapabilityRef = event.target.value;
+                updateLogic({
+                  ...logic,
+                  modelCapabilityRef,
+                  modelBinding: modelBindingFor({ modelCapabilityRef }),
+                });
+              }}
+            />
+          </label>
+          <label>
+            Legacy model id
             <input
               data-testid="workflow-model-binding-model-id"
               value={String(logic.modelBinding?.modelId ?? logic.modelId ?? "")}
-              placeholder="auto"
+              placeholder="compatibility only"
               onChange={(event) => {
                 const modelId = event.target.value || null;
                 updateLogic({
@@ -951,6 +1021,46 @@ export function WorkflowNodeBindingSections({
               }}
             />
           </label>
+          <label>
+            Authority scopes
+            <input
+              data-testid="workflow-model-binding-authority-scopes"
+              value={(
+                logic.modelBinding?.authorityScopes ??
+                logic.modelBinding?.authorityScopeRequirements ??
+                []
+              ).join(", ")}
+              placeholder="route.use:route.local-first, model.chat:*"
+              onChange={(event) => {
+                const authorityScopes = event.target.value
+                  .split(",")
+                  .map((value) => value.trim())
+                  .filter(Boolean);
+                updateLogic({
+                  ...logic,
+                  modelBinding: modelBindingFor({
+                    authorityScopes,
+                    authorityScopeRequirements: authorityScopes,
+                  }),
+                });
+              }}
+            />
+          </label>
+          <div className="workflow-model-attachment-summary">
+            <span>
+              Readiness{" "}
+              {logic.modelBinding?.credentialReadiness?.status ?? "unknown"}
+            </span>
+            <span>
+              Grant {String((logic.modelBinding?.grantReadiness as { status?: unknown } | undefined)?.status ?? "unknown")}
+            </span>
+            <span>
+              Receipts{" "}
+              {logic.modelBinding?.receiptBehavior?.receiptRequired
+                ? "required"
+                : "missing"}
+            </span>
+          </div>
           <label>
             Thinking
             <select

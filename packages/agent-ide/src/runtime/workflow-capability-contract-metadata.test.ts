@@ -113,22 +113,35 @@ test("React Flow validation accepts complete live tool authority metadata", () =
   assert.equal(codes.includes("missing_agent_availability"), false);
 });
 
-test("React Flow validation blocks live model bindings missing route capability metadata", () => {
-  const validation = validateWorkflowProject(liveModelWorkflow({}), []);
+test("React Flow validation blocks live model bindings missing readiness and authority posture", () => {
+  const validation = validateWorkflowProject(
+    liveModelWorkflow({
+      modelId: null,
+      credentialReady: false,
+      credentialReadiness: { status: "unknown" },
+      workflowAvailability: { available: false },
+      agentAvailability: { available: false },
+      grantReadiness: { status: "unknown" },
+      policyPosture: { status: "unknown" },
+    }),
+    [],
+  );
   const codes = (validation.executionReadinessIssues ?? []).map(
     (issue) => issue.code,
   );
 
   assert.equal(validation.status, "blocked");
   assert.equal(codes.includes("missing_model_credential_readiness_contract"), true);
-  assert.equal(codes.includes("missing_model_receipt_behavior"), true);
+  assert.equal(codes.includes("missing_model_receipt_behavior"), false);
   assert.equal(codes.includes("missing_model_workflow_availability"), true);
   assert.equal(codes.includes("missing_model_agent_availability"), true);
-  assert.equal(codes.includes("missing_model_privacy_tier"), true);
-  assert.equal(codes.includes("missing_model_provider_priority"), true);
-  assert.equal(codes.includes("missing_model_fallback_policy"), true);
-  assert.equal(codes.includes("missing_model_cost_estimate_visibility"), true);
-  assert.equal(codes.includes("missing_model_authority_scope_requirements"), true);
+  assert.equal(codes.includes("missing_model_privacy_tier"), false);
+  assert.equal(codes.includes("missing_model_provider_priority"), false);
+  assert.equal(codes.includes("missing_model_fallback_policy"), false);
+  assert.equal(codes.includes("missing_model_cost_estimate_visibility"), false);
+  assert.equal(codes.includes("missing_model_authority_scope_requirements"), false);
+  assert.equal(codes.includes("missing_model_grant_readiness"), true);
+  assert.equal(codes.includes("missing_model_policy_posture"), true);
 });
 
 test("React Flow validation accepts complete live model route capability metadata", () => {
@@ -164,6 +177,17 @@ test("React Flow validation accepts complete live model route capability metadat
         source: "model_route_policy",
       },
       authorityScopeRequirements: ["route.use:route.local-first", "model.chat:*"],
+      authorityScopes: ["route.use:route.local-first", "model.chat:*"],
+      modelCapabilityRef: "model-capability:route.local-first",
+      routeId: "route.local-first",
+      grantReadiness: {
+        status: "ready",
+        reason: "Authority grant is ready.",
+      },
+      policyPosture: {
+        status: "allowed",
+        policyTarget: "model.route.local-first",
+      },
     }),
     [],
   );
@@ -180,6 +204,10 @@ test("React Flow validation accepts complete live model route capability metadat
   assert.equal(codes.includes("missing_model_fallback_policy"), false);
   assert.equal(codes.includes("missing_model_cost_estimate_visibility"), false);
   assert.equal(codes.includes("missing_model_authority_scope_requirements"), false);
+  assert.equal(codes.includes("missing_model_capability_ref"), false);
+  assert.equal(codes.includes("missing_model_route_id"), false);
+  assert.equal(codes.includes("missing_model_grant_readiness"), false);
+  assert.equal(codes.includes("missing_model_policy_posture"), false);
 });
 
 console.log("workflow-capability-contract-metadata.test.ts: ok");

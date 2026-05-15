@@ -211,7 +211,13 @@ fn model_status_is_executable(status: &str) -> bool {
     )
 }
 
-fn inject_bound_model_fields(config: &Value, model_id: &str, model_hash: &str) -> Value {
+fn inject_bound_model_fields(
+    config: &Value,
+    model_id: &str,
+    model_hash: &str,
+    model_capability_ref: Option<&str>,
+    route_id: Option<&str>,
+) -> Value {
     let mut resolved = if config.is_object() {
         config.clone()
     } else {
@@ -236,6 +242,15 @@ fn inject_bound_model_fields(config: &Value, model_id: &str, model_hash: &str) -
 
     target.insert("model".to_string(), Value::String(model_id.to_string()));
     target.insert("modelId".to_string(), Value::String(model_id.to_string()));
+    if let Some(model_capability_ref) = model_capability_ref {
+        target.insert(
+            "modelCapabilityRef".to_string(),
+            Value::String(model_capability_ref.to_string()),
+        );
+    }
+    if let Some(route_id) = route_id {
+        target.insert("routeId".to_string(), Value::String(route_id.to_string()));
+    }
     target.insert(
         "modelHash".to_string(),
         Value::String(model_hash.to_string()),
@@ -265,15 +280,23 @@ pub fn resolve_node_execution_config(
 
     let binding = binding_map.get(&model_ref).ok_or_else(|| {
         format!(
-            "Graph model binding '{}' is not configured for node '{}'. Add it under graph settings -> model bindings.",
+            "Graph model capability binding '{}' is not configured for node '{}'. Add it under graph settings -> model bindings.",
             model_ref, node_type
         )
     })?;
+    let model_capability_ref =
+        first_non_empty_string(binding, &["modelCapabilityRef", "model_capability_ref"]);
+    let route_id = first_non_empty_string(binding, &["routeId", "route_id"]);
 
     let model_id = first_non_empty_string(binding, &["modelId", "model_id"]).ok_or_else(|| {
         format!(
-            "Graph model binding '{}' is empty for node '{}'. Set a concrete modelId in graph settings.",
-            model_ref, node_type
+            "Graph model capability binding '{}' is not executable for node '{}'. Resolve a ready modelCapabilityRef{} to a concrete mounted model id before running.",
+            model_ref,
+            node_type,
+            model_capability_ref
+                .as_ref()
+                .map(|value| format!(" '{}'", value))
+                .unwrap_or_default()
         )
     })?;
 
@@ -302,7 +325,13 @@ pub fn resolve_node_execution_config(
         .map(Ok)
         .unwrap_or_else(|| derive_model_hash_hex(&model_id))?;
 
-    Ok(inject_bound_model_fields(config, &model_id, &model_hash))
+    Ok(inject_bound_model_fields(
+        config,
+        &model_id,
+        &model_hash,
+        model_capability_ref.as_deref(),
+        route_id.as_deref(),
+    ))
 }
 
 pub async fn run_local_graph<F>(

@@ -1,11 +1,15 @@
 import type { GraphGlobalConfig, WorkflowProject } from "../types/graph";
+import {
+  WORKFLOW_MODEL_BINDING_KEYS,
+  normalizeGraphModelBinding,
+} from "./workflow-model-capability-binding";
 
-export const DEFAULT_MODEL_BINDINGS = {
-  reasoning: { modelId: "", required: false },
-  vision: { modelId: "", required: false },
-  embedding: { modelId: "", required: false },
-  image: { modelId: "", required: false },
-};
+export const DEFAULT_MODEL_BINDINGS = Object.fromEntries(
+  WORKFLOW_MODEL_BINDING_KEYS.map((modelRef) => [
+    modelRef,
+    normalizeGraphModelBinding(modelRef, { modelId: "", required: false }),
+  ]),
+);
 
 export const DEFAULT_CAPABILITY_REQUIREMENTS = {
   reasoning: { required: false, bindingKey: "reasoning" },
@@ -50,14 +54,20 @@ export function slugify(value: string): string {
 }
 
 export function normalizeGlobalConfig(config?: Partial<GraphGlobalConfig> | null): GraphGlobalConfig {
+  const modelBindings = {
+    ...DEFAULT_MODEL_BINDINGS,
+    ...(config?.modelBindings ?? {}),
+  };
   return {
     ...DEFAULT_GLOBAL_CONFIG,
     ...(config ?? {}),
     workflowChromeLocale: config?.workflowChromeLocale ?? DEFAULT_GLOBAL_CONFIG.workflowChromeLocale,
-    modelBindings: {
-      ...DEFAULT_MODEL_BINDINGS,
-      ...(config?.modelBindings ?? {}),
-    },
+    modelBindings: Object.fromEntries(
+      Object.entries(modelBindings).map(([modelRef, binding]) => [
+        modelRef,
+        normalizeGraphModelBinding(modelRef, binding),
+      ]),
+    ),
     codingRoute: config?.codingRoute,
     environmentProfile: {
       target: config?.environmentProfile?.target ?? DEFAULT_GLOBAL_CONFIG.environmentProfile!.target,
