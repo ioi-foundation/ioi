@@ -430,6 +430,11 @@ Acceptance:
 - generated manifests are deterministic;
 - no React Flow state becomes runtime truth.
 
+Current status: the SDK exposes the contract spine plus executable recovery,
+human handoff, outcome, commit-gate, retention, and model-action adapter
+helpers. Daemon, workflow, and Autopilot surfaces should consume these helpers
+rather than defining local policy shapes.
+
 ### Phase 2: Environment Planner And Behavioral Loop
 
 Deliverables:

@@ -172,6 +172,131 @@ export interface ComputerUseRunState {
   cleanup_state: string;
 }
 
+export type ComputerUseFailureClass =
+  | "perception"
+  | "grounding"
+  | "planning"
+  | "policy"
+  | "execution"
+  | "verification"
+  | "environment"
+  | "handoff"
+  | "unknown";
+
+export type ComputerUseFailureMode =
+  | "visual_drift"
+  | "target_not_found"
+  | "no_effect_action"
+  | "stale_observation"
+  | "modal_interruption"
+  | "auth_wall"
+  | "navigation_loop"
+  | "network_stall"
+  | "browser_crash"
+  | "sandbox_unavailable"
+  | "policy_block"
+  | "handoff_timeout"
+  | "unknown";
+
+export type ComputerUseRecoveryAction =
+  | "reobserve"
+  | "rebuild_target_index"
+  | "switch_to_visual_fallback"
+  | "switch_to_native_browser"
+  | "ask_user"
+  | "pause_for_auth"
+  | "retry_action"
+  | "rollback"
+  | "terminate_safely"
+  | "escalate_to_sandbox"
+  | "mark_blocked";
+
+export interface RecoveryPolicy {
+  policy_ref: string;
+  failure_class: ComputerUseFailureClass;
+  failure_mode: ComputerUseFailureMode;
+  allowed_actions: ComputerUseRecoveryAction[];
+  disallowed_actions: string[];
+  retry_budget_delta: number;
+  requires_human_handoff: boolean;
+  fail_closed: boolean;
+  evidence_required: string[];
+  rationale_summary: string;
+}
+
+export type HumanHandoffStatus = "pending" | "resumed" | "timeout" | "cancelled";
+
+export interface HumanHandoffState {
+  handoff_ref: string;
+  reason: string;
+  requested_user_action: string;
+  forbidden_agent_actions: string[];
+  resume_condition: string;
+  observation_after_resume_ref?: string | null;
+  timeout_policy: string;
+  evidence_retention: ObservationRetentionMode;
+  status: HumanHandoffStatus;
+}
+
+export type InterfacePatternKind =
+  | "form"
+  | "table"
+  | "modal"
+  | "canvas"
+  | "graph"
+  | "editor"
+  | "terminal"
+  | "file_picker"
+  | "sidebar"
+  | "toolbar"
+  | "tabset"
+  | "toast_or_warning"
+  | "auth_wall"
+  | "iframe"
+  | "shadow_dom";
+
+export interface InterfacePatternRecord {
+  pattern_ref: string;
+  pattern_kind: InterfacePatternKind;
+  target_refs: string[];
+  confidence: number;
+  summary: string;
+}
+
+export interface InterfacePatternIndex {
+  pattern_index_ref: string;
+  observation_ref: string;
+  patterns: InterfacePatternRecord[];
+}
+
+export type ComputerUseExternalEffectPolicy = "allowed" | "confirmation_required" | "prohibited";
+
+export interface OutcomeContract {
+  outcome_ref: string;
+  requested_outcome: string;
+  success_criteria: string[];
+  acceptable_side_effects: string[];
+  prohibited_side_effects: string[];
+  evidence_required: string[];
+  rollback_or_cleanup_required: boolean;
+  external_effect_policy: ComputerUseExternalEffectPolicy;
+}
+
+export type CommitGateStatus = "not_required" | "pending_confirmation" | "approved" | "blocked" | "completed";
+
+export interface CommitGate {
+  commit_gate_ref: string;
+  final_action_ref?: string | null;
+  outcome_ref?: string | null;
+  external_effect: boolean;
+  user_confirmation_required: boolean;
+  authority_required: string;
+  pre_commit_summary: string;
+  post_commit_verification: string;
+  policy_decision_ref?: string | null;
+  status: CommitGateStatus;
+}
+
 export interface EnvironmentOptionRejection {
   lane: ComputerUseLane;
   session_mode: ComputerUseSessionMode;
@@ -298,6 +423,49 @@ export interface ComputerUseModelActionAdapterResult {
   safety_checks: ComputerUseModelActionSafetyCheck[];
 }
 
+export interface ComputerUseRecoveryPolicyInput {
+  run_id: string;
+  failure_mode: ComputerUseFailureMode;
+  failure_class?: ComputerUseFailureClass;
+  lane?: ComputerUseLane;
+  retry_budget?: number;
+  fail_closed?: boolean;
+  allowed_actions?: ComputerUseRecoveryAction[];
+}
+
+export interface HumanHandoffInput {
+  run_id: string;
+  reason: string;
+  requested_user_action?: string;
+  forbidden_agent_actions?: string[];
+  resume_condition?: string;
+  observation_after_resume_ref?: string | null;
+  timeout_policy?: string;
+  evidence_retention?: ObservationRetentionMode;
+  status?: HumanHandoffStatus;
+}
+
+export interface OutcomeContractInput {
+  run_id: string;
+  requested_outcome: string;
+  success_criteria?: string[];
+  acceptable_side_effects?: string[];
+  prohibited_side_effects?: string[];
+  evidence_required?: string[];
+  rollback_or_cleanup_required?: boolean;
+  external_effect_policy?: ComputerUseExternalEffectPolicy;
+}
+
+export interface CommitGateInput {
+  run_id: string;
+  action: ComputerAction;
+  outcome_contract?: OutcomeContract | null;
+  proposal?: ActionProposal | null;
+  policy_decision_ref?: string | null;
+  external_effect?: boolean;
+  status?: CommitGateStatus;
+}
+
 export function defaultComputerUseHarnessContract(): ComputerUseHarnessContract {
   return {
     schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
@@ -361,6 +529,104 @@ export function computerActionHasGrounding(action: ComputerAction): boolean {
     action.observation_ref.trim() &&
       (action.target_ref?.trim() || action.coordinate_space_id?.trim()),
   );
+}
+
+export function recoveryPolicyForComputerUseFailure(input: ComputerUseRecoveryPolicyInput): RecoveryPolicy {
+  const failureClass = input.failure_class ?? failureClassForMode(input.failure_mode);
+  const allowedActions = input.allowed_actions ?? defaultRecoveryActionsForFailure(input.failure_mode, input.lane);
+  const requiresHumanHandoff = allowedActions.some((action) => action === "ask_user" || action === "pause_for_auth");
+  const failClosed =
+    input.fail_closed ??
+    ["auth_wall", "policy_block", "sandbox_unavailable", "handoff_timeout"].includes(input.failure_mode);
+  return {
+    policy_ref: `recovery_policy_${safeComputerUseId(input.run_id)}_${input.failure_mode}`,
+    failure_class: failureClass,
+    failure_mode: input.failure_mode,
+    allowed_actions: allowedActions,
+    disallowed_actions: disallowedRecoveryActionsForFailure(input.failure_mode),
+    retry_budget_delta: retryBudgetDeltaForFailure(input.failure_mode, input.retry_budget ?? 0),
+    requires_human_handoff: requiresHumanHandoff,
+    fail_closed: failClosed,
+    evidence_required: evidenceForFailure(input.failure_mode),
+    rationale_summary: recoveryRationale(input.failure_mode, failureClass, failClosed),
+  };
+}
+
+export function humanHandoffForComputerUseBoundary(input: HumanHandoffInput): HumanHandoffState {
+  return {
+    handoff_ref: `handoff_${safeComputerUseId(input.run_id)}_${safeComputerUseId(input.reason)}`,
+    reason: input.reason,
+    requested_user_action:
+      input.requested_user_action ??
+      "Complete the sensitive or human-only step, then return control to the agent.",
+    forbidden_agent_actions: input.forbidden_agent_actions ?? [
+      "enter_secret",
+      "solve_captcha",
+      "submit_payment",
+      "change_account_permissions",
+    ],
+    resume_condition: input.resume_condition ?? "A fresh observation confirms the user completed the handoff step.",
+    observation_after_resume_ref: input.observation_after_resume_ref ?? null,
+    timeout_policy: input.timeout_policy ?? "pause_until_user_resumes_or_cancels",
+    evidence_retention: input.evidence_retention ?? "prompt_visible_summary_only",
+    status: input.status ?? "pending",
+  };
+}
+
+export function outcomeContractForGoal(input: OutcomeContractInput): OutcomeContract {
+  return {
+    outcome_ref: `outcome_${safeComputerUseId(input.run_id)}`,
+    requested_outcome: input.requested_outcome,
+    success_criteria: input.success_criteria ?? ["The requested UI state transition is observed and verified."],
+    acceptable_side_effects: input.acceptable_side_effects ?? [],
+    prohibited_side_effects: input.prohibited_side_effects ?? [
+      "Submitting credentials, payments, messages, purchases, or permission changes without confirmation.",
+    ],
+    evidence_required: input.evidence_required ?? ["verification_receipt"],
+    rollback_or_cleanup_required: input.rollback_or_cleanup_required ?? true,
+    external_effect_policy: input.external_effect_policy ?? "confirmation_required",
+  };
+}
+
+export function commitGateForComputerAction(input: CommitGateInput): CommitGate {
+  const externalEffect = input.external_effect ?? computerActionHasExternalEffect(input.action);
+  const externalPolicy = input.outcome_contract?.external_effect_policy ?? "confirmation_required";
+  const policyDecisionRef =
+    input.policy_decision_ref ??
+    input.proposal?.policy_decision_ref ??
+    input.action.approval_ref ??
+    null;
+  const status =
+    input.status ??
+    commitGateStatusForPolicy(externalEffect, externalPolicy, policyDecisionRef);
+  return {
+    commit_gate_ref: `commit_gate_${safeComputerUseId(input.run_id)}_${safeComputerUseId(input.action.action_ref)}`,
+    final_action_ref: input.action.action_ref,
+    outcome_ref: input.outcome_contract?.outcome_ref ?? null,
+    external_effect: externalEffect,
+    user_confirmation_required: externalEffect && externalPolicy !== "allowed",
+    authority_required: externalEffect ? "computer_use.external_effect" : "computer_use.read_only",
+    pre_commit_summary: externalEffect
+      ? `Review before applying ${input.action.payload_summary}.`
+      : `No commit gate required for ${input.action.payload_summary}.`,
+    post_commit_verification:
+      input.outcome_contract?.success_criteria.join("; ") ??
+      input.action.expected_postcondition,
+    policy_decision_ref: policyDecisionRef,
+    status,
+  };
+}
+
+export function commitGateRequiresConfirmation(gate: CommitGate): boolean {
+  return gate.user_confirmation_required && gate.status === "pending_confirmation";
+}
+
+export function computerActionHasExternalEffect(action: ComputerAction): boolean {
+  return riskAssessmentForComputerAction(action.action_kind) !== "read_only";
+}
+
+export function observationRetentionAllowsRawPersistence(mode: ObservationRetentionMode): boolean {
+  return mode === "local_raw_artifacts" || mode === "encrypted_local_raw_artifacts";
 }
 
 export function compileComputerUseModelActionAdapter(
@@ -636,6 +902,84 @@ function confidenceForGrounding(targetRef: string | null, coordinate: { x: numbe
 function riskAssessmentForComputerAction(actionKind: ComputerActionKind): string {
   if (["inspect", "hover", "wait", "scroll"].includes(actionKind)) return "read_only";
   return "possible_external_effect";
+}
+
+function failureClassForMode(failureMode: ComputerUseFailureMode): ComputerUseFailureClass {
+  if (failureMode === "visual_drift" || failureMode === "stale_observation") return "perception";
+  if (failureMode === "target_not_found") return "grounding";
+  if (failureMode === "navigation_loop") return "planning";
+  if (failureMode === "policy_block") return "policy";
+  if (failureMode === "no_effect_action" || failureMode === "modal_interruption") return "verification";
+  if (failureMode === "network_stall" || failureMode === "browser_crash" || failureMode === "sandbox_unavailable") {
+    return "environment";
+  }
+  if (failureMode === "auth_wall" || failureMode === "handoff_timeout") return "handoff";
+  return "unknown";
+}
+
+function defaultRecoveryActionsForFailure(
+  failureMode: ComputerUseFailureMode,
+  lane: ComputerUseLane | undefined,
+): ComputerUseRecoveryAction[] {
+  if (failureMode === "visual_drift" || failureMode === "stale_observation") {
+    return ["reobserve", "rebuild_target_index", "retry_action"];
+  }
+  if (failureMode === "target_not_found") {
+    return lane === "native_browser"
+      ? ["rebuild_target_index", "switch_to_visual_fallback", "ask_user"]
+      : ["reobserve", "ask_user", "mark_blocked"];
+  }
+  if (failureMode === "auth_wall") return ["pause_for_auth", "reobserve", "mark_blocked"];
+  if (failureMode === "policy_block") return ["ask_user", "rollback", "mark_blocked"];
+  if (failureMode === "sandbox_unavailable") return ["switch_to_native_browser", "terminate_safely", "mark_blocked"];
+  if (failureMode === "browser_crash" || failureMode === "network_stall") {
+    return ["reobserve", "retry_action", "terminate_safely"];
+  }
+  if (failureMode === "navigation_loop" || failureMode === "modal_interruption") {
+    return ["reobserve", "rollback", "ask_user"];
+  }
+  if (failureMode === "handoff_timeout") return ["ask_user", "terminate_safely", "mark_blocked"];
+  return ["reobserve", "mark_blocked"];
+}
+
+function disallowedRecoveryActionsForFailure(failureMode: ComputerUseFailureMode): string[] {
+  const disallowed = ["ignore_failure", "continue_without_verification"];
+  if (failureMode === "auth_wall") return [...disallowed, "enter_secret", "solve_captcha"];
+  if (failureMode === "policy_block") return [...disallowed, "bypass_policy", "execute_side_effect"];
+  if (failureMode === "sandbox_unavailable") return [...disallowed, "silently_downgrade_to_unscoped_desktop"];
+  return disallowed;
+}
+
+function retryBudgetDeltaForFailure(failureMode: ComputerUseFailureMode, retryBudget: number): number {
+  if (["auth_wall", "policy_block", "sandbox_unavailable", "handoff_timeout"].includes(failureMode)) return 0;
+  return retryBudget > 0 ? -1 : 0;
+}
+
+function evidenceForFailure(failureMode: ComputerUseFailureMode): string[] {
+  if (failureMode === "auth_wall") return ["observation_bundle", "redacted_screenshot_or_summary", "handoff_state"];
+  if (failureMode === "policy_block") return ["policy_decision", "action_proposal", "outcome_contract"];
+  if (failureMode === "sandbox_unavailable") return ["environment_selection_receipt", "adapter_contract"];
+  return ["observation_bundle", "verification_receipt"];
+}
+
+function recoveryRationale(
+  failureMode: ComputerUseFailureMode,
+  failureClass: ComputerUseFailureClass,
+  failClosed: boolean,
+): string {
+  const posture = failClosed ? "The harness must fail closed until an allowed recovery path is selected." : "The harness may attempt a bounded repair.";
+  return `${failureMode} is classified as ${failureClass}. ${posture}`;
+}
+
+function commitGateStatusForPolicy(
+  externalEffect: boolean,
+  externalPolicy: ComputerUseExternalEffectPolicy,
+  policyDecisionRef: string | null,
+): CommitGateStatus {
+  if (!externalEffect) return "not_required";
+  if (externalPolicy === "prohibited") return "blocked";
+  if (externalPolicy === "allowed" && policyDecisionRef) return "approved";
+  return "pending_confirmation";
 }
 
 function modelActionSafetyChecks(

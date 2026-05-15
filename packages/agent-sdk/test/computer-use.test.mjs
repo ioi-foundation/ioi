@@ -8,10 +8,17 @@ import {
   Agent,
   COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
   compileComputerUseModelActionAdapter,
+  commitGateForComputerAction,
+  commitGateRequiresConfirmation,
+  computerActionHasExternalEffect,
   computerActionHasGrounding,
   createRuntimeSubstrateClient,
   defaultComputerUseHarnessContract,
+  humanHandoffForComputerUseBoundary,
   isActionProposalReadyForExecution,
+  observationRetentionAllowsRawPersistence,
+  outcomeContractForGoal,
+  recoveryPolicyForComputerUseFailure,
 } from "../dist/index.js";
 import { createMockRuntimeSubstrateClient } from "../dist/testing.js";
 import { startRuntimeDaemonService } from "../../runtime-daemon/src/index.mjs";
@@ -115,6 +122,97 @@ test("computer-use helpers require policy-gated proposals and grounded actions",
     }),
     true,
   );
+});
+
+test("computer-use recovery and handoff helpers fail closed at sensitive boundaries", () => {
+  const authPolicy = recoveryPolicyForComputerUseFailure({
+    run_id: "run-auth",
+    failure_mode: "auth_wall",
+    lane: "native_browser",
+    retry_budget: 2,
+  });
+  assert.equal(authPolicy.failure_class, "handoff");
+  assert.equal(authPolicy.requires_human_handoff, true);
+  assert.equal(authPolicy.fail_closed, true);
+  assert.equal(authPolicy.retry_budget_delta, 0);
+  assert.ok(authPolicy.allowed_actions.includes("pause_for_auth"));
+  assert.ok(authPolicy.disallowed_actions.includes("enter_secret"));
+  assert.ok(authPolicy.evidence_required.includes("handoff_state"));
+
+  const driftPolicy = recoveryPolicyForComputerUseFailure({
+    run_id: "run-drift",
+    failure_mode: "visual_drift",
+    retry_budget: 2,
+  });
+  assert.equal(driftPolicy.failure_class, "perception");
+  assert.equal(driftPolicy.fail_closed, false);
+  assert.equal(driftPolicy.retry_budget_delta, -1);
+  assert.ok(driftPolicy.allowed_actions.includes("rebuild_target_index"));
+
+  const handoff = humanHandoffForComputerUseBoundary({
+    run_id: "run-auth",
+    reason: "auth_wall",
+    requested_user_action: "Sign in inside the browser window.",
+  });
+  assert.equal(handoff.status, "pending");
+  assert.equal(handoff.evidence_retention, "prompt_visible_summary_only");
+  assert.ok(handoff.forbidden_agent_actions.includes("enter_secret"));
+  assert.equal(observationRetentionAllowsRawPersistence("local_redacted_artifacts"), false);
+  assert.equal(observationRetentionAllowsRawPersistence("encrypted_local_raw_artifacts"), true);
+});
+
+test("computer-use outcome contracts create commit gates for external effects", () => {
+  const action = {
+    action_ref: "action-submit",
+    action_kind: "click",
+    target_ref: "target-submit",
+    observation_ref: "obs-submit",
+    payload_summary: "click target-submit",
+    expected_postcondition: "confirmation screen appears",
+    approval_ref: "policy-submit",
+  };
+  const outcome = outcomeContractForGoal({
+    run_id: "run-submit",
+    requested_outcome: "Prepare the form for submission.",
+    success_criteria: ["The confirmation screen appears."],
+    external_effect_policy: "confirmation_required",
+  });
+  const gate = commitGateForComputerAction({
+    run_id: "run-submit",
+    action,
+    outcome_contract: outcome,
+  });
+  assert.equal(computerActionHasExternalEffect(action), true);
+  assert.equal(gate.status, "pending_confirmation");
+  assert.equal(gate.external_effect, true);
+  assert.equal(gate.authority_required, "computer_use.external_effect");
+  assert.equal(commitGateRequiresConfirmation(gate), true);
+
+  const inspectGate = commitGateForComputerAction({
+    run_id: "run-readonly",
+    action: {
+      action_ref: "action-inspect",
+      action_kind: "inspect",
+      observation_ref: "obs-readonly",
+      payload_summary: "inspect page state",
+      expected_postcondition: "page state is summarized",
+    },
+  });
+  assert.equal(inspectGate.status, "not_required");
+  assert.equal(inspectGate.external_effect, false);
+  assert.equal(commitGateRequiresConfirmation(inspectGate), false);
+
+  const prohibitedGate = commitGateForComputerAction({
+    run_id: "run-prohibited",
+    action,
+    outcome_contract: outcomeContractForGoal({
+      run_id: "run-prohibited",
+      requested_outcome: "Inspect only.",
+      external_effect_policy: "prohibited",
+    }),
+  });
+  assert.equal(prohibitedGate.status, "blocked");
+  assert.equal(prohibitedGate.user_confirmation_required, true);
 });
 
 test("computer-use model adapters normalize OpenAI-style actions into IOI proposals and actions", () => {
