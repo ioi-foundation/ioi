@@ -455,7 +455,41 @@ test("workflow run history model exposes computer-use prompt pipelines", () => {
           },
         },
       }),
-      runtimeThreadEvent("computer-use-verification", 4, {
+      runtimeThreadEvent("computer-use-action", 4, {
+        eventKind: "computer_use.action_executed",
+        sourceEventKind: "ComputerUse.ActionExecuted",
+        status: "completed",
+        componentKind: "computer_use_harness",
+        workflowNodeId: "computer-use.execute-action",
+        payloadSchemaVersion: "ioi.computer-use.harness.v1",
+        payload: {
+          computer_use_step: "execute_action",
+          computer_use_action_ref: "action-click",
+          computer_use_proposal_ref: "proposal-inspect",
+          computer_action: {
+            action_ref: "action-click",
+            action_kind: "click",
+            target_ref: "target-page",
+          },
+          action_receipt: {
+            receipt_ref: "receipt-action-click",
+            action_ref: "action-click",
+            adapter_id: "ioi.visual_gui.local_executor",
+            status: "completed",
+            verification_ref: "verification-inspect",
+          },
+          computer_use_execution_result: {
+            status: "completed",
+            executor_ref: "visual-gui-executor-run-a",
+            adapter_id: "ioi.visual_gui.local_executor",
+            provider_id: "fixture",
+            preflight_receipt: { status: "captured" },
+            execution_receipt: { provider_id: "fixture" },
+            after: { requires_reobserve: true },
+          },
+        },
+      }),
+      runtimeThreadEvent("computer-use-verification", 5, {
         eventKind: "computer_use.verification",
         sourceEventKind: "ComputerUse.Verification",
         status: "completed",
@@ -471,7 +505,7 @@ test("workflow run history model exposes computer-use prompt pipelines", () => {
           },
         },
       }),
-      runtimeThreadEvent("computer-use-commit-gate", 5, {
+      runtimeThreadEvent("computer-use-commit-gate", 6, {
         eventKind: "computer_use.commit_gate",
         sourceEventKind: "ComputerUse.CommitGate",
         status: "completed",
@@ -497,20 +531,28 @@ test("workflow run history model exposes computer-use prompt pipelines", () => {
     statusFilter: "all",
   });
 
-  assert.equal(model.runtimeEventProjection.eventCount, 5);
+  assert.equal(model.runtimeEventProjection.eventCount, 6);
   assert.deepEqual(
     model.runtimeEventProjection.reactFlowNodes.map((node) => node.data.label),
     [
       "Computer use: select environment",
       "Computer use: observe",
       "Computer use: propose action",
+      "Computer use: execute action",
       "Computer use: verify",
       "Computer use: commit gate",
     ],
   );
   assert.deepEqual(
     model.runtimeEventProjection.reactFlowNodes.map((node) => node.data.computerUse?.step),
-    ["select_environment", "observe", "propose_action", "verify_postcondition", "commit_or_handoff"],
+    [
+      "select_environment",
+      "observe",
+      "propose_action",
+      "execute_action",
+      "verify_postcondition",
+      "commit_or_handoff",
+    ],
   );
   assert.equal(
     model.runtimeEventProjection.nodes[0]?.computerUse?.lane,
@@ -603,12 +645,24 @@ test("workflow run history model exposes computer-use prompt pipelines", () => {
   );
   assert.equal(model.computerUseWorkbench?.policyExternalEffect, false);
   assert.equal(model.computerUseWorkbench?.policyFailClosed, false);
+  assert.equal(model.computerUseWorkbench?.executionStatus, "completed");
   assert.equal(
-    model.runtimeEventProjection.nodes[3]?.computerUse?.verificationStatus,
+    model.computerUseWorkbench?.executionAdapterId,
+    "ioi.visual_gui.local_executor",
+  );
+  assert.equal(model.computerUseWorkbench?.executionProviderId, "fixture");
+  assert.equal(model.computerUseWorkbench?.executionPreflightStatus, "captured");
+  assert.equal(model.computerUseWorkbench?.executionRequiresReobserve, true);
+  assert.equal(
+    model.runtimeEventProjection.nodes[3]?.computerUse?.executionProviderId,
+    "fixture",
+  );
+  assert.equal(
+    model.runtimeEventProjection.nodes[4]?.computerUse?.verificationStatus,
     "passed",
   );
   assert.equal(
-    model.runtimeEventProjection.nodes[4]?.computerUse?.commitGateStatus,
+    model.runtimeEventProjection.nodes[5]?.computerUse?.commitGateStatus,
     "not_required",
   );
   assert.deepEqual(
@@ -619,7 +673,8 @@ test("workflow run history model exposes computer-use prompt pipelines", () => {
     [
       ["computer-use.select-environment", "computer-use.observe"],
       ["computer-use.observe", "computer-use.action-proposal"],
-      ["computer-use.action-proposal", "computer-use.verify"],
+      ["computer-use.action-proposal", "computer-use.execute-action"],
+      ["computer-use.execute-action", "computer-use.verify"],
       ["computer-use.verify", "computer-use.commit-gate"],
     ],
   );

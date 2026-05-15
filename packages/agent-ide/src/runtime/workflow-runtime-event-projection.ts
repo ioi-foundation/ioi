@@ -196,6 +196,12 @@ export interface WorkflowRuntimeComputerUseProjection {
   actionRef: string | null;
   actionKind: string | null;
   actionReceiptRef: string | null;
+  executionRef: string | null;
+  executionStatus: string | null;
+  executionAdapterId: string | null;
+  executionProviderId: string | null;
+  executionPreflightStatus: string | null;
+  executionRequiresReobserve: boolean | null;
   targetRef: string | null;
   policyDecisionRef: string | null;
   policyOutcome: string | null;
@@ -3246,6 +3252,19 @@ function computerUseProjectionForRuntimeThreadEvent(
     "action_receipt",
     "actionReceipt",
   );
+  const executionResult =
+    recordField(payload, "computer_use_execution_result", "computerUseExecutionResult") ??
+    recordField(actionReceipt, "computer_use_execution_result", "computerUseExecutionResult") ??
+    recordField(payload, "native_browser_execution_result", "nativeBrowserExecutionResult");
+  const executionReceipt =
+    recordField(executionResult, "execution_receipt", "executionReceipt") ??
+    recordField(executionResult, "action_result", "actionResult");
+  const preflightReceipt = recordField(
+    executionResult,
+    "preflight_receipt",
+    "preflightReceipt",
+  );
+  const executionAfter = recordField(executionResult, "after");
   const verificationReceipt = recordField(
     payload,
     "verification_receipt",
@@ -3430,6 +3449,20 @@ function computerUseProjectionForRuntimeThreadEvent(
       stringField(actionReceipt, "action_ref", "actionRef"),
     actionKind: stringField(computerAction, "action_kind", "actionKind"),
     actionReceiptRef: stringField(actionReceipt, "receipt_ref", "receiptRef"),
+    executionRef: stringField(executionResult, "executor_ref", "executorRef"),
+    executionStatus: stringField(executionResult, "status"),
+    executionAdapterId:
+      stringField(executionResult, "adapter_id", "adapterId") ??
+      stringField(actionReceipt, "adapter_id", "adapterId"),
+    executionProviderId:
+      stringField(executionResult, "provider_id", "providerId") ??
+      stringField(executionReceipt, "provider_id", "providerId"),
+    executionPreflightStatus: stringField(preflightReceipt, "status"),
+    executionRequiresReobserve: booleanField(
+      executionAfter,
+      "requires_reobserve",
+      "requiresReobserve",
+    ),
     targetRef:
       stringField(payload, "computer_use_target_ref", "computerUseTargetRef") ??
       stringField(actionProposal, "target_ref", "targetRef") ??

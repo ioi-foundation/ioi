@@ -119,6 +119,12 @@ export type WorkflowRunComputerUseWorkbench = {
   proposalRef: string | null;
   actionRef: string | null;
   actionKind: string | null;
+  executionRef: string | null;
+  executionStatus: string | null;
+  executionAdapterId: string | null;
+  executionProviderId: string | null;
+  executionPreflightStatus: string | null;
+  executionRequiresReobserve: boolean | null;
   verificationStatus: string | null;
   commitGateStatus: string | null;
   policyDecisionRef: string | null;
@@ -363,6 +369,14 @@ function workflowRunComputerUseWorkbench(
     nodes.flatMap((node) => node.computerUse?.visualTargetSummaries ?? []),
   );
   const artifactRefs = uniqueStrings(nodes.flatMap((node) => node.artifactRefs));
+  const latestExecution = [...nodes]
+    .reverse()
+    .find(
+      (node) =>
+        node.computerUse?.executionStatus ||
+        node.computerUse?.executionRef ||
+        node.computerUse?.executionAdapterId,
+    )?.computerUse;
   return {
     status: latestComputerUse.status,
     lane: latestComputerUse.lane ?? latestScreen.lane,
@@ -411,6 +425,13 @@ function workflowRunComputerUseWorkbench(
     actionKind:
       [...nodes].reverse().find((node) => node.computerUse?.actionKind)
         ?.computerUse?.actionKind ?? null,
+    executionRef: latestExecution?.executionRef ?? null,
+    executionStatus: latestExecution?.executionStatus ?? null,
+    executionAdapterId: latestExecution?.executionAdapterId ?? null,
+    executionProviderId: latestExecution?.executionProviderId ?? null,
+    executionPreflightStatus: latestExecution?.executionPreflightStatus ?? null,
+    executionRequiresReobserve:
+      latestExecution?.executionRequiresReobserve ?? null,
     verificationStatus:
       [...nodes].reverse().find((node) => node.computerUse?.verificationStatus)
         ?.computerUse?.verificationStatus ?? null,

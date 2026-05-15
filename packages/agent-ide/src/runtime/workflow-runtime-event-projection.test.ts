@@ -227,8 +227,18 @@ test("projects computer-use lifecycle events as glass-box harness rows", () => {
         action_receipt: {
           receipt_ref: "receipt-action",
           action_ref: "action-inspect",
+          adapter_id: "ioi.visual_gui.local_executor",
           status: "completed",
           verification_ref: "verification-inspect",
+        },
+        computer_use_execution_result: {
+          status: "completed",
+          executor_ref: "visual-gui-executor-1",
+          adapter_id: "ioi.visual_gui.local_executor",
+          provider_id: "fixture",
+          preflight_receipt: { status: "captured" },
+          execution_receipt: { provider_id: "fixture" },
+          after: { requires_reobserve: true },
         },
       },
     }),
@@ -344,6 +354,12 @@ test("projects computer-use lifecycle events as glass-box harness rows", () => {
   assert.equal(projection.nodes[3]?.label, "Computer use: execute action");
   assert.equal(projection.nodes[3]?.computerUse?.actionKind, "inspect");
   assert.equal(projection.nodes[3]?.computerUse?.actionReceiptRef, "receipt-action");
+  assert.equal(projection.nodes[3]?.computerUse?.executionRef, "visual-gui-executor-1");
+  assert.equal(projection.nodes[3]?.computerUse?.executionStatus, "completed");
+  assert.equal(projection.nodes[3]?.computerUse?.executionAdapterId, "ioi.visual_gui.local_executor");
+  assert.equal(projection.nodes[3]?.computerUse?.executionProviderId, "fixture");
+  assert.equal(projection.nodes[3]?.computerUse?.executionPreflightStatus, "captured");
+  assert.equal(projection.nodes[3]?.computerUse?.executionRequiresReobserve, true);
   assert.equal(projection.nodes[3]?.computerUse?.verificationRef, "verification-inspect");
   assert.equal(projection.nodes[4]?.label, "Computer use: commit gate");
   assert.equal(projection.nodes[4]?.computerUse?.commitGateRef, "commit-gate-inspect");

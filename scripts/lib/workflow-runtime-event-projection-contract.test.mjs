@@ -258,6 +258,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
     "computer_use_trajectory_ref",
     "computer_use_cleanup_ref",
     "computer_use_blocker",
+    "computer_use_execution_result",
+    "executionProviderId",
+    "executionRequiresReobserve",
   ]) {
     assert.match(projection, new RegExp(computerUseField));
   }
@@ -359,6 +362,8 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(runsPanel, /data-computer-use-browser-discovery-ref/);
   assert.match(runsPanel, /data-computer-use-proposal-ref/);
   assert.match(runsPanel, /data-computer-use-verification-ref/);
+  assert.match(runsPanel, /data-execution-provider-id/);
+  assert.match(runsPanel, /data-execution-requires-reobserve/);
   assert.match(runsPanel, /data-workflow-node-id/);
   assert.match(runsPanel, /data-tool-ref/);
   assert.match(runsPanel, /data-authority-scopes/);
