@@ -25,7 +25,39 @@ pub enum HarnessComponentKind {
     ApprovalGate,
     WalletCapability,
     MemoryRead,
+    MemorySearch,
+    MemoryList,
     MemoryWrite,
+    MemorySubagentInheritance,
+    RuntimeDoctor,
+    RuntimeTask,
+    RuntimeJob,
+    RuntimeChecklist,
+    RuntimeThreadFork,
+    RuntimeOperatorInterrupt,
+    RuntimeOperatorSteer,
+    RuntimeThreadMode,
+    RuntimeWorkspaceTrustGate,
+    RuntimeContextCompact,
+    RuntimeApprovalRequest,
+    RuntimeUsageMeter,
+    RuntimeContextBudget,
+    RuntimeCompactionPolicy,
+    RuntimeRollbackSnapshot,
+    RuntimeRestoreGate,
+    RuntimeDiagnosticsRepair,
+    RuntimeCodingToolBudgetRecovery,
+    WorkflowPackageExport,
+    WorkflowPackageImport,
+    RepositoryContext,
+    BranchPolicy,
+    GithubContext,
+    IssueContext,
+    PrAttempt,
+    ReviewGate,
+    SkillRegistry,
+    HookRegistry,
+    HookPolicy,
     SemanticImpactAnalyzer,
     PostconditionSynthesizer,
     Verifier,
@@ -64,7 +96,39 @@ impl HarnessComponentKind {
             Self::ApprovalGate => "approval_gate",
             Self::WalletCapability => "wallet_capability",
             Self::MemoryRead => "memory_read",
+            Self::MemorySearch => "memory_search",
+            Self::MemoryList => "memory_list",
             Self::MemoryWrite => "memory_write",
+            Self::MemorySubagentInheritance => "memory_subagent_inheritance",
+            Self::RuntimeDoctor => "runtime_doctor",
+            Self::RuntimeTask => "runtime_task",
+            Self::RuntimeJob => "runtime_job",
+            Self::RuntimeChecklist => "runtime_checklist",
+            Self::RuntimeThreadFork => "runtime_thread_fork",
+            Self::RuntimeOperatorInterrupt => "runtime_operator_interrupt",
+            Self::RuntimeOperatorSteer => "runtime_operator_steer",
+            Self::RuntimeThreadMode => "runtime_thread_mode",
+            Self::RuntimeWorkspaceTrustGate => "runtime_workspace_trust_gate",
+            Self::RuntimeContextCompact => "runtime_context_compact",
+            Self::RuntimeApprovalRequest => "runtime_approval_request",
+            Self::RuntimeUsageMeter => "runtime_usage_meter",
+            Self::RuntimeContextBudget => "runtime_context_budget",
+            Self::RuntimeCompactionPolicy => "runtime_compaction_policy",
+            Self::RuntimeRollbackSnapshot => "runtime_rollback_snapshot",
+            Self::RuntimeRestoreGate => "runtime_restore_gate",
+            Self::RuntimeDiagnosticsRepair => "runtime_diagnostics_repair",
+            Self::RuntimeCodingToolBudgetRecovery => "runtime_coding_tool_budget_recovery",
+            Self::WorkflowPackageExport => "workflow_package_export",
+            Self::WorkflowPackageImport => "workflow_package_import",
+            Self::RepositoryContext => "repository_context",
+            Self::BranchPolicy => "branch_policy",
+            Self::GithubContext => "github_context",
+            Self::IssueContext => "issue_context",
+            Self::PrAttempt => "pr_attempt",
+            Self::ReviewGate => "review_gate",
+            Self::SkillRegistry => "skill_registry",
+            Self::HookRegistry => "hook_registry",
+            Self::HookPolicy => "hook_policy",
             Self::SemanticImpactAnalyzer => "semantic_impact_analyzer",
             Self::PostconditionSynthesizer => "postcondition_synthesizer",
             Self::Verifier => "verifier",
@@ -120,7 +184,39 @@ impl HarnessComponentKind {
             Self::PolicyGate => "crates/services/src/agentic/runtime/service/handler/execution/execution/firewall_policy.rs",
             Self::ApprovalGate => "crates/services/src/agentic/runtime/service/handler/approvals.rs",
             Self::WalletCapability => "crates/services/src/agentic/runtime/kernel/capability.rs",
-            Self::MemoryRead | Self::MemoryWrite => "crates/services/src/agentic/runtime/service/memory",
+            Self::MemoryRead | Self::MemorySearch | Self::MemoryList | Self::MemoryWrite | Self::MemorySubagentInheritance => "crates/services/src/agentic/runtime/service/memory",
+            Self::RuntimeDoctor
+            | Self::RuntimeTask
+            | Self::RuntimeJob
+            | Self::RuntimeChecklist
+            | Self::RuntimeThreadFork
+            | Self::RuntimeOperatorInterrupt
+            | Self::RuntimeOperatorSteer
+            | Self::RuntimeThreadMode
+            | Self::RuntimeWorkspaceTrustGate
+            | Self::RuntimeContextCompact
+            | Self::RuntimeApprovalRequest
+            | Self::RuntimeUsageMeter
+            | Self::RuntimeContextBudget
+            | Self::RuntimeCompactionPolicy
+            | Self::RuntimeRollbackSnapshot
+            | Self::RuntimeRestoreGate
+            | Self::RuntimeDiagnosticsRepair
+            | Self::RuntimeCodingToolBudgetRecovery => {
+                "packages/runtime-daemon/src/index.mjs"
+            }
+            Self::WorkflowPackageExport | Self::WorkflowPackageImport => {
+                "apps/autopilot/src-tauri/src/project/commands.rs"
+            }
+            Self::RepositoryContext
+            | Self::BranchPolicy
+            | Self::GithubContext
+            | Self::IssueContext
+            | Self::PrAttempt
+            | Self::ReviewGate => "packages/runtime-daemon/src/index.mjs",
+            Self::SkillRegistry | Self::HookRegistry | Self::HookPolicy => {
+                "packages/runtime-daemon/src/index.mjs"
+            }
             Self::SemanticImpactAnalyzer => {
                 "crates/types/src/app/runtime_contracts.rs::SemanticImpactAnalysis"
             }
@@ -165,7 +261,39 @@ impl HarnessComponentKind {
             Self::ApprovalGate => "Approval gate",
             Self::WalletCapability => "Wallet capability request",
             Self::MemoryRead => "Memory read",
+            Self::MemorySearch => "Memory search",
+            Self::MemoryList => "Memory list",
             Self::MemoryWrite => "Memory write",
+            Self::MemorySubagentInheritance => "Memory subagent inheritance",
+            Self::RuntimeDoctor => "Runtime doctor",
+            Self::RuntimeTask => "Runtime task",
+            Self::RuntimeJob => "Runtime job",
+            Self::RuntimeChecklist => "Runtime checklist",
+            Self::RuntimeThreadFork => "Runtime thread fork",
+            Self::RuntimeOperatorInterrupt => "Runtime operator interrupt",
+            Self::RuntimeOperatorSteer => "Runtime operator steer",
+            Self::RuntimeThreadMode => "Runtime thread mode",
+            Self::RuntimeWorkspaceTrustGate => "Runtime workspace trust gate",
+            Self::RuntimeContextCompact => "Runtime context compaction",
+            Self::RuntimeApprovalRequest => "Runtime approval request",
+            Self::RuntimeUsageMeter => "Runtime usage meter",
+            Self::RuntimeContextBudget => "Runtime context budget",
+            Self::RuntimeCompactionPolicy => "Runtime compaction policy",
+            Self::RuntimeRollbackSnapshot => "Runtime rollback snapshot",
+            Self::RuntimeRestoreGate => "Runtime restore gate",
+            Self::RuntimeDiagnosticsRepair => "Runtime diagnostics repair",
+            Self::RuntimeCodingToolBudgetRecovery => "Runtime coding tool budget recovery",
+            Self::WorkflowPackageExport => "Workflow package export",
+            Self::WorkflowPackageImport => "Workflow package import",
+            Self::RepositoryContext => "Repository context",
+            Self::BranchPolicy => "Branch policy",
+            Self::GithubContext => "GitHub context",
+            Self::IssueContext => "Issue context",
+            Self::PrAttempt => "PR attempt",
+            Self::ReviewGate => "Review gate",
+            Self::SkillRegistry => "Skill registry",
+            Self::HookRegistry => "Hook registry",
+            Self::HookPolicy => "Hook policy",
             Self::SemanticImpactAnalyzer => "Semantic impact analyzer",
             Self::PostconditionSynthesizer => "Postcondition synthesizer",
             Self::Verifier => "Verifier",
@@ -492,6 +620,7 @@ fn component_scope(kind: HarnessComponentKind) -> Vec<String> {
         HarnessComponentKind::HandoffBridge => strings(&["handoff.write", "session.state.read"]),
         HarnessComponentKind::CompletionGate => strings(&["completion.evaluate"]),
         HarnessComponentKind::GuiHarnessValidator => strings(&["gui.validate", "trace.read"]),
+        _ => strings(&["workflow.context.read", "receipt.read"]),
     }
 }
 
@@ -561,6 +690,7 @@ fn component_events(kind: HarnessComponentKind) -> Vec<String> {
         HarnessComponentKind::GuiHarnessValidator => {
             strings(&["AutopilotGuiHarnessValidationContract", "Scorecard"])
         }
+        _ => strings(&["AgentRuntimeEvent", "ExecutionContractReceipt"]),
     }
 }
 
@@ -694,6 +824,7 @@ fn component_evidence(kind: HarnessComponentKind) -> Vec<String> {
             "screenshots",
             "scorecard",
         ]),
+        _ => strings(&["runtime_binding", "workflow_node_id", "receipt_refs"]),
     }
 }
 
@@ -910,7 +1041,11 @@ fn slot_kinds_for_component(kind: HarnessComponentKind) -> Vec<HarnessSlotKind> 
         HarnessComponentKind::PolicyGate
         | HarnessComponentKind::ApprovalGate
         | HarnessComponentKind::WalletCapability => vec![HarnessSlotKind::ApprovalPolicy],
-        HarnessComponentKind::MemoryRead | HarnessComponentKind::MemoryWrite => {
+        HarnessComponentKind::MemoryRead
+        | HarnessComponentKind::MemorySearch
+        | HarnessComponentKind::MemoryList
+        | HarnessComponentKind::MemoryWrite
+        | HarnessComponentKind::MemorySubagentInheritance => {
             vec![HarnessSlotKind::MemoryPolicy]
         }
         HarnessComponentKind::SemanticImpactAnalyzer
@@ -940,6 +1075,7 @@ fn slot_kinds_for_component(kind: HarnessComponentKind) -> Vec<HarnessSlotKind> 
             HarnessSlotKind::BudgetPolicy,
         ],
         HarnessComponentKind::HandoffBridge => vec![HarnessSlotKind::HandoffPolicy],
+        _ => vec![HarnessSlotKind::StatePolicy],
     }
 }
 
