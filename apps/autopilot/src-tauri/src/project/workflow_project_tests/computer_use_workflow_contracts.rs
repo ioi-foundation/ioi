@@ -79,7 +79,7 @@ fn workflow_run_compiles_computer_use_manifest_to_runtime_events() {
 
     let run = run_workflow_project(bundle.workflow_path, None).expect("workflow should run");
     assert_eq!(run.summary.status, "passed");
-    assert_eq!(run.runtime_thread_events.len(), 10);
+    assert_eq!(run.runtime_thread_events.len(), 11);
 
     let event_kinds = run
         .runtime_thread_events
@@ -97,6 +97,7 @@ fn workflow_run_compiles_computer_use_manifest_to_runtime_events() {
             "computer_use.action_proposed",
             "computer_use.action_executed",
             "computer_use.verification",
+            "computer_use.commit_gate",
             "computer_use.trajectory_written",
             "computer_use.cleanup",
         ]
@@ -155,6 +156,27 @@ fn workflow_run_compiles_computer_use_manifest_to_runtime_events() {
             .and_then(Value::as_array)
             .map(Vec::len),
         Some(1)
+    );
+
+    let commit_gate_event = run
+        .runtime_thread_events
+        .iter()
+        .find(|event| event.get("eventKind").and_then(Value::as_str) == Some("computer_use.commit_gate"))
+        .expect("commit gate event should exist");
+    let commit_payload = commit_gate_event.get("payload").expect("payload should exist");
+    assert_eq!(
+        commit_payload
+            .get("commit_gate")
+            .and_then(|value| value.get("status"))
+            .and_then(Value::as_str),
+        Some("not_required")
+    );
+    assert_eq!(
+        commit_payload
+            .get("outcome_contract")
+            .and_then(|value| value.get("external_effect_policy"))
+            .and_then(Value::as_str),
+        Some("confirmation_required")
     );
 }
 

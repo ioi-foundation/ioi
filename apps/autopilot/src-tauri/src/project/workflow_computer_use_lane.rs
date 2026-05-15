@@ -110,6 +110,8 @@ fn workflow_native_browser_runtime_thread_events(
     let action_receipt_ref = format!("receipt_{}_computer_use_action", run_id);
     let policy_decision_ref = format!("policy_{}_computer_use_read_only", run_id);
     let verification_ref = format!("verification_{}_computer_use_probe", run_id);
+    let outcome_ref = format!("outcome_{}", run_id);
+    let commit_gate_ref = format!("commit_gate_{}_{}", run_id, action_ref);
     let trace_receipt_id = format!("receipt_{}_computer_use_trace", run_id);
     let trajectory_ref = format!("trajectory_{}_computer_use", run_id);
     let cleanup_ref = format!("cleanup_{}_computer_use", run_id);
@@ -278,7 +280,7 @@ fn workflow_native_browser_runtime_thread_events(
         "action_ref": action_ref,
         "status": "passed",
         "expected_postcondition": action_proposal["predicted_postcondition"].clone(),
-        "observed_postcondition": "Environment, lease, observation, target index, affordance graph, action proposal, action receipt, verification, trajectory, and cleanup are trace-visible.",
+        "observed_postcondition": "Environment, lease, observation, target index, affordance graph, action proposal, action receipt, verification, outcome, commit gate, trajectory, and cleanup are trace-visible.",
         "verifier": "workflow_computer_use_manifest_harness",
         "evidence_refs": [
             environment_selection["receipt_ref"].clone(),
@@ -288,6 +290,28 @@ fn workflow_native_browser_runtime_thread_events(
             proposal_ref,
             action_receipt_ref
         ]
+    });
+    let outcome_contract = json!({
+        "outcome_ref": outcome_ref,
+        "requested_outcome": "Produce a grounded browser observation summary without external side effects.",
+        "success_criteria": [verification["expected_postcondition"].clone()],
+        "acceptable_side_effects": ["Retain a redacted computer-use trace artifact."],
+        "prohibited_side_effects": ["Submitting forms, credentials, payments, messages, purchases, or permission changes."],
+        "evidence_required": ["verification_receipt", "computer_use_trace"],
+        "rollback_or_cleanup_required": true,
+        "external_effect_policy": "confirmation_required"
+    });
+    let commit_gate = json!({
+        "commit_gate_ref": commit_gate_ref,
+        "final_action_ref": action_ref,
+        "outcome_ref": outcome_contract["outcome_ref"].clone(),
+        "external_effect": false,
+        "user_confirmation_required": false,
+        "authority_required": "computer_use.read_only",
+        "pre_commit_summary": format!("No commit gate required for {}.", action["payload_summary"].as_str().unwrap_or("read-only inspect")),
+        "post_commit_verification": "The harness has a grounded page summary and next-action candidates.",
+        "policy_decision_ref": policy_decision_ref,
+        "status": "not_required"
     });
     let trajectory = json!({
         "schema_version": COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
@@ -326,6 +350,13 @@ fn workflow_native_browser_runtime_thread_events(
                 "event_kind": "verify_postcondition",
                 "verification_ref": verification_ref,
                 "summary": "Verified the read-only postcondition and retained the trace."
+            },
+            {
+                "sequence": 6,
+                "event_kind": "commit_or_handoff",
+                "action_ref": action_ref,
+                "receipt_ref": commit_gate_ref,
+                "summary": "Evaluated the outcome contract and confirmed no external-effect commit was required."
             }
         ]
     });
@@ -536,6 +567,30 @@ fn workflow_native_browser_runtime_thread_events(
             run_id,
             thread_id,
             binding,
+            "computer_use_commit_gate",
+            "computer_use.commit_gate",
+            "ComputerUse.CommitGate",
+            "completed",
+            &trace_receipt_id,
+            json!({
+                "summary": "Computer-use commit gate evaluated",
+                "computer_use_step": "commit_or_handoff",
+                "computer_use_commit_gate_ref": commit_gate_ref,
+                "computer_use_action_ref": action_ref,
+                "outcome_contract": outcome_contract,
+                "commit_gate": commit_gate,
+                "human_handoff_state": Value::Null
+            }),
+            vec![trace_receipt_id.clone()],
+            vec![policy_decision_ref.clone()],
+            vec!["computer-use-trace.json".to_string()],
+            &base_payload,
+        ),
+        workflow_computer_use_event(
+            10,
+            run_id,
+            thread_id,
+            binding,
             "computer_use_trajectory_written",
             "computer_use.trajectory_written",
             "ComputerUse.TrajectoryWritten",
@@ -553,7 +608,7 @@ fn workflow_native_browser_runtime_thread_events(
             &base_payload,
         ),
         workflow_computer_use_event(
-            10,
+            11,
             run_id,
             thread_id,
             binding,

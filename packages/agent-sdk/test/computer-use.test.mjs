@@ -43,6 +43,7 @@ const expectedComputerUseEventTypes = [
   "computer_use_action_proposed",
   "computer_use_action_executed",
   "computer_use_verification",
+  "computer_use_commit_gate",
   "computer_use_trajectory_written",
   "computer_use_cleanup",
 ];
@@ -336,6 +337,12 @@ test("browser prompts emit glass-box computer-use trace and runtime events", asy
   assert.ok(cleanupEvent);
   assert.equal(cleanupEvent.data.cleanup_receipt.status, "completed");
   assert.equal(trace.computerUse.cleanup.cleanup_ref, cleanupEvent.data.cleanup_receipt.cleanup_ref);
+  const commitGateEvent = trace.events.find((event) => event.type === "computer_use_commit_gate");
+  assert.ok(commitGateEvent);
+  assert.equal(commitGateEvent.data.computer_use_step, "commit_or_handoff");
+  assert.equal(commitGateEvent.data.commit_gate.status, "not_required");
+  assert.equal(trace.computerUse.commitGate.commit_gate_ref, commitGateEvent.data.commit_gate.commit_gate_ref);
+  assert.equal(trace.computerUse.outcomeContract.external_effect_policy, "confirmation_required");
 
   const thread = await agent.thread();
   const runtimeEvents = [];
@@ -423,7 +430,10 @@ test("runtime daemon emits canonical computer-use events for browser prompts", a
     assert.equal(trace.computerUse.actionProposal.policy_decision_ref.startsWith("policy_"), true);
     assert.equal(trace.computerUse.actionReceipt.status, "completed");
     assert.equal(trace.computerUse.verification.action_ref, trace.computerUse.action.action_ref);
+    assert.equal(trace.computerUse.commitGate.status, "not_required");
+    assert.equal(trace.computerUse.outcomeContract.evidence_required.includes("computer_use_trace"), true);
     assert.equal(trace.computerUse.trajectory.entries.some((entry) => entry.event_kind === "execute_action"), true);
+    assert.equal(trace.computerUse.trajectory.entries.some((entry) => entry.event_kind === "commit_or_handoff"), true);
     assert.equal(trace.computerUse.cleanup.status, "completed");
     assert.equal(
       trace.receipts.some((receipt) => receipt.kind === "computer_use_trace"),

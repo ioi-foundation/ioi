@@ -204,6 +204,27 @@ test("projects computer-use lifecycle events as glass-box harness rows", () => {
         },
       },
     }),
+    event("computer-use-commit-gate", 5, {
+      eventKind: "computer_use.commit_gate",
+      sourceEventKind: "ComputerUse.CommitGate",
+      status: "completed",
+      componentKind: "computer_use_harness",
+      workflowNodeId: "computer-use.commit-gate",
+      payloadSchemaVersion: "ioi.computer-use.harness.v1",
+      payload: {
+        computer_use_step: "commit_or_handoff",
+        computer_use_action_ref: "action-inspect",
+        computer_use_commit_gate_ref: "commit-gate-inspect",
+        outcome_contract: {
+          outcome_ref: "outcome-inspect",
+          external_effect_policy: "confirmation_required",
+        },
+        commit_gate: {
+          commit_gate_ref: "commit-gate-inspect",
+          status: "not_required",
+        },
+      },
+    }),
   ]);
 
   assert.deepEqual(
@@ -213,6 +234,7 @@ test("projects computer-use lifecycle events as glass-box harness rows", () => {
       "computer-use.observe",
       "computer-use.action-proposal",
       "computer-use.execute-action",
+      "computer-use.commit-gate",
     ],
   );
   assert.equal(projection.nodes[0]?.nodeKind, "gui_harness_validation");
@@ -268,6 +290,10 @@ test("projects computer-use lifecycle events as glass-box harness rows", () => {
   assert.equal(projection.nodes[3]?.computerUse?.actionKind, "inspect");
   assert.equal(projection.nodes[3]?.computerUse?.actionReceiptRef, "receipt-action");
   assert.equal(projection.nodes[3]?.computerUse?.verificationRef, "verification-inspect");
+  assert.equal(projection.nodes[4]?.label, "Computer use: commit gate");
+  assert.equal(projection.nodes[4]?.computerUse?.commitGateRef, "commit-gate-inspect");
+  assert.equal(projection.nodes[4]?.computerUse?.commitGateStatus, "not_required");
+  assert.equal(projection.nodes[4]?.computerUse?.outcomeRef, "outcome-inspect");
 });
 
 test("projects unavailable computer-use lanes as blocked recovery evidence", () => {

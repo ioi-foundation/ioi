@@ -2,11 +2,14 @@ import type { IOISDKMessage, RuntimeReceipt } from "./messages.js";
 import type { SendOptions } from "./options.js";
 import {
   COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+  commitGateForComputerAction,
   defaultComputerUseHarnessContract,
+  outcomeContractForGoal,
   type ActionProposal,
   type ActionReceipt,
   type AffordanceGraph,
   type CleanupReceipt,
+  type CommitGate,
   type ComputerAction,
   type ComputerUseLease,
   type ComputerUseObservationBundle,
@@ -15,6 +18,7 @@ import {
   type ComputerUseVerificationReceipt,
   type EnvironmentSelectionReceipt,
   type ObservationRetentionMode,
+  type OutcomeContract,
   type TargetIndex,
 } from "./computer-use.js";
 
@@ -31,6 +35,8 @@ export interface MockComputerUseProjection {
   action: ComputerAction | null;
   actionReceipt: ActionReceipt | null;
   verification: ComputerUseVerificationReceipt;
+  outcomeContract: OutcomeContract | null;
+  commitGate: CommitGate | null;
   trajectory: ComputerUseTrajectoryBundle | null;
   cleanup: CleanupReceipt;
   receipt: RuntimeReceipt;
@@ -267,6 +273,24 @@ export function mockComputerUseProjectionForRun({
       actionReceipt.receipt_ref,
     ],
   };
+  const outcomeContract = outcomeContractForGoal({
+    run_id: runId,
+    requested_outcome: "Produce a grounded browser observation summary without external side effects.",
+    success_criteria: [verification.expected_postcondition],
+    acceptable_side_effects: ["Retain a redacted computer-use trace artifact."],
+    prohibited_side_effects: [
+      "Submitting forms, credentials, payments, messages, purchases, or permission changes.",
+    ],
+    evidence_required: ["verification_receipt", "computer_use_trace"],
+    rollback_or_cleanup_required: true,
+    external_effect_policy: "confirmation_required",
+  });
+  const commitGate = commitGateForComputerAction({
+    run_id: runId,
+    action,
+    outcome_contract: outcomeContract,
+    proposal: actionProposal,
+  });
   const trajectory: ComputerUseTrajectoryBundle = {
     schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
     trajectory_ref: trajectoryRef,
@@ -309,6 +333,13 @@ export function mockComputerUseProjectionForRun({
         action_ref: action.action_ref,
         verification_ref: verification.verification_ref,
         summary: "Verified the read-only postcondition and retained the trace.",
+      },
+      {
+        sequence: 6,
+        event_kind: "commit_or_handoff",
+        action_ref: action.action_ref,
+        receipt_ref: commitGate.commit_gate_ref,
+        summary: "Evaluated the outcome contract and confirmed no external-effect commit was required.",
       },
     ],
   };
@@ -415,6 +446,15 @@ export function mockComputerUseProjectionForRun({
       computer_use_proposal_ref: actionProposal.proposal_ref,
       verification_receipt: verification,
     }),
+    computerUseProjectionEvent("computer_use_commit_gate", "Computer-use commit gate evaluated", {
+      ...basePayload,
+      computer_use_step: "commit_or_handoff",
+      computer_use_commit_gate_ref: commitGate.commit_gate_ref,
+      computer_use_action_ref: action.action_ref,
+      outcome_contract: outcomeContract,
+      commit_gate: commitGate,
+      human_handoff_state: null,
+    }),
     computerUseProjectionEvent("computer_use_trajectory_written", "Computer-use trajectory written", {
       ...basePayload,
       computer_use_step: "write_trajectory",
@@ -439,13 +479,15 @@ export function mockComputerUseProjectionForRun({
     action,
     actionReceipt,
     verification,
+    outcomeContract,
+    commitGate,
     trajectory,
     cleanup,
     events,
     receipt: {
       id: `receipt_${runId}_computer_use_trace`,
       kind: "computer_use_trace",
-      summary: "Computer-use harness trace exposed environment selection, lease, observation, targets, affordances, proposal, action, verification, trajectory, and cleanup.",
+      summary: "Computer-use harness trace exposed environment selection, lease, observation, targets, affordances, proposal, action, verification, outcome, commit gate, trajectory, and cleanup.",
       redaction: "redacted",
       evidenceRefs: [
         "ComputerUseHarnessContract",
@@ -458,6 +500,8 @@ export function mockComputerUseProjectionForRun({
         action.action_ref,
         actionReceipt.receipt_ref,
         verification.verification_ref,
+        outcomeContract.outcome_ref,
+        commitGate.commit_gate_ref,
         trajectory.trajectory_ref,
         cleanup.cleanup_ref,
       ],
@@ -678,6 +722,8 @@ function mockUnavailableComputerUseProjectionForRun({
     action: null,
     actionReceipt: null,
     verification,
+    outcomeContract: null,
+    commitGate: null,
     trajectory: null,
     cleanup,
     events,

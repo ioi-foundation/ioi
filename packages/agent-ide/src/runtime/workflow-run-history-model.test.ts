@@ -434,12 +434,33 @@ test("workflow run history model exposes computer-use prompt pipelines", () => {
           },
         },
       }),
+      runtimeThreadEvent("computer-use-commit-gate", 5, {
+        eventKind: "computer_use.commit_gate",
+        sourceEventKind: "ComputerUse.CommitGate",
+        status: "completed",
+        componentKind: "computer_use_harness",
+        workflowNodeId: "computer-use.commit-gate",
+        payloadSchemaVersion: "ioi.computer-use.harness.v1",
+        payload: {
+          computer_use_step: "commit_or_handoff",
+          computer_use_action_ref: "action-inspect",
+          computer_use_commit_gate_ref: "commit-gate-inspect",
+          outcome_contract: {
+            outcome_ref: "outcome-inspect",
+            external_effect_policy: "confirmation_required",
+          },
+          commit_gate: {
+            commit_gate_ref: "commit-gate-inspect",
+            status: "not_required",
+          },
+        },
+      }),
     ],
     searchQuery: "",
     statusFilter: "all",
   });
 
-  assert.equal(model.runtimeEventProjection.eventCount, 4);
+  assert.equal(model.runtimeEventProjection.eventCount, 5);
   assert.deepEqual(
     model.runtimeEventProjection.reactFlowNodes.map((node) => node.data.label),
     [
@@ -447,11 +468,12 @@ test("workflow run history model exposes computer-use prompt pipelines", () => {
       "Computer use: observe",
       "Computer use: propose action",
       "Computer use: verify",
+      "Computer use: commit gate",
     ],
   );
   assert.deepEqual(
     model.runtimeEventProjection.reactFlowNodes.map((node) => node.data.computerUse?.step),
-    ["select_environment", "observe", "propose_action", "verify_postcondition"],
+    ["select_environment", "observe", "propose_action", "verify_postcondition", "commit_or_handoff"],
   );
   assert.equal(
     model.runtimeEventProjection.nodes[0]?.computerUse?.lane,
@@ -469,6 +491,10 @@ test("workflow run history model exposes computer-use prompt pipelines", () => {
     model.runtimeEventProjection.nodes[3]?.computerUse?.verificationStatus,
     "passed",
   );
+  assert.equal(
+    model.runtimeEventProjection.nodes[4]?.computerUse?.commitGateStatus,
+    "not_required",
+  );
   assert.deepEqual(
     model.runtimeEventProjection.reactFlowEdges.map((edge) => [
       edge.source,
@@ -478,6 +504,7 @@ test("workflow run history model exposes computer-use prompt pipelines", () => {
       ["computer-use.select-environment", "computer-use.observe"],
       ["computer-use.observe", "computer-use.action-proposal"],
       ["computer-use.action-proposal", "computer-use.verify"],
+      ["computer-use.verify", "computer-use.commit-gate"],
     ],
   );
 });

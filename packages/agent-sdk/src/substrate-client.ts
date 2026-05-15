@@ -7607,6 +7607,8 @@ function buildMockRun(
           action: computerUseProjection.action,
           actionReceipt: computerUseProjection.actionReceipt,
           verification: computerUseProjection.verification,
+          outcomeContract: computerUseProjection.outcomeContract,
+          commitGate: computerUseProjection.commitGate,
           trajectory: computerUseProjection.trajectory,
           cleanup: computerUseProjection.cleanup,
         }
