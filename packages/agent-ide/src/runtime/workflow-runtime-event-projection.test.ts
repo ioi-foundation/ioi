@@ -147,12 +147,32 @@ test("projects computer-use lifecycle events as glass-box harness rows", () => {
         observation_bundle: {
           observation_ref: "observation-browser",
           target_index_ref: "target-index-browser",
+          screenshot_ref: "artifact:browser:screenshot",
+          som_ref: "artifact:browser:som",
           retention_mode: "local_redacted_artifacts",
           detected_patterns: ["form", "toolbar"],
         },
         target_index: {
           target_index_ref: "target-index-browser",
-          targets: [{ target_ref: "target-page" }, { target_ref: "target-submit" }],
+          coordinate_space_id: "viewport-browser",
+          targets: [
+            {
+              target_ref: "target-page",
+              label: "Page",
+              role: "document",
+              som_id: 1,
+              confidence: 0.96,
+              available_actions: ["inspect"],
+              bounds: {
+                coordinate_space_id: "viewport-browser",
+                x: 0,
+                y: 0,
+                width: 1280,
+                height: 720,
+              },
+            },
+            { target_ref: "target-submit" },
+          ],
         },
       },
     }),
@@ -276,8 +296,24 @@ test("projects computer-use lifecycle events as glass-box harness rows", () => {
   assert.equal(projection.nodes[0]?.computerUse?.retentionMode, "local_redacted_artifacts");
   assert.equal(projection.nodes[1]?.label, "Computer use: observe");
   assert.equal(projection.nodes[1]?.computerUse?.observationRef, "observation-browser");
+  assert.equal(projection.nodes[1]?.computerUse?.screenRef, "artifact:browser:screenshot");
+  assert.equal(projection.nodes[1]?.computerUse?.somRef, "artifact:browser:som");
+  assert.equal(projection.nodes[1]?.computerUse?.coordinateSpaceId, "viewport-browser");
   assert.equal(projection.nodes[1]?.computerUse?.targetIndexRef, "target-index-browser");
   assert.equal(projection.nodes[1]?.computerUse?.targetCount, 2);
+  assert.deepEqual(projection.nodes[1]?.computerUse?.visualTargetRefs, [
+    "target-page",
+    "target-submit",
+  ]);
+  assert.deepEqual(projection.nodes[1]?.computerUse?.visualTargetSummaries[0], {
+    targetRef: "target-page",
+    label: "Page",
+    role: "document",
+    somId: 1,
+    confidence: 0.96,
+    boundsSummary: "viewport-browser · 0,0 1280x720",
+    availableActions: ["inspect"],
+  });
   assert.deepEqual(projection.nodes[1]?.computerUse?.detectedPatterns, [
     "form",
     "toolbar",

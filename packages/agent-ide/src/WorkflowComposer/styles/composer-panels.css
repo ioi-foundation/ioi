@@ -295,6 +295,78 @@
   border-color: color-mix(in srgb, var(--status-warning) 62%, var(--border-default));
 }
 
+.workflow-run-computer-use-workbench {
+  display: grid;
+  gap: 8px;
+  border-left: 2px solid var(--accent-blue);
+  background: color-mix(in srgb, var(--workflow-panel-strong) 70%, transparent);
+  padding: 8px;
+}
+
+.workflow-run-computer-use-workbench h4 {
+  margin: 0;
+}
+
+.workflow-run-computer-use-workbench-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.workflow-run-computer-use-pane {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--workflow-panel-strong) 78%, transparent);
+  padding: 7px 8px;
+}
+
+.workflow-run-computer-use-pane strong,
+.workflow-run-computer-use-pane span,
+.workflow-run-computer-use-pane small,
+.workflow-run-computer-use-targets strong,
+.workflow-run-computer-use-targets span,
+.workflow-run-computer-use-targets small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-run-computer-use-pane strong,
+.workflow-run-computer-use-targets strong {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.workflow-run-computer-use-pane span,
+.workflow-run-computer-use-pane small,
+.workflow-run-computer-use-targets span,
+.workflow-run-computer-use-targets small {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.workflow-run-computer-use-targets {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workflow-run-computer-use-targets li {
+  display: grid;
+  grid-template-columns: minmax(90px, 0.8fr) minmax(0, 1.2fr) minmax(76px, 0.8fr);
+  gap: 6px;
+  align-items: center;
+  min-height: 28px;
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--workflow-panel-strong) 76%, transparent);
+  padding: 5px 7px;
+}
+
 .workflow-run-runtime-event-nodes,
 .workflow-run-runtime-event-edges,
 .workflow-run-tui-control-state-rows,
@@ -434,6 +506,11 @@
 
 .workflow-run-computer-use-trace.is-blocked,
 .workflow-run-computer-use-trace.is-failed {
+  border-color: color-mix(in srgb, var(--status-warning) 68%, var(--border-default));
+}
+
+.workflow-run-computer-use-workbench.is-blocked,
+.workflow-run-computer-use-workbench.is-failed {
   border-color: color-mix(in srgb, var(--status-warning) 68%, var(--border-default));
 }
 

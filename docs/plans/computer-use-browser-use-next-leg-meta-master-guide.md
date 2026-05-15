@@ -579,7 +579,8 @@ Acceptance:
 Deliverables:
 
 - Autopilot computer-use run view;
-- live screenshot/SoM pane;
+- live screenshot/SoM pane with runtime-derived refs and target overlay
+  summaries;
 - event/action/verification timeline;
 - run state inspector;
 - target index inspector;
