@@ -686,6 +686,62 @@ test("runtime daemon invokes browser discovery through thread tool spine", async
   }
 });
 
+test("runtime daemon invokes native browser loop through thread tool spine", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-tool-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-native-browser-tool-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const agent = await Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+    });
+    const thread = await agent.thread();
+    const result = await client.invokeThreadTool(thread.id, "ioi.computer_use.native_browser", {
+      source: "react_flow",
+      workflowGraphId: "workflow.native-browser-tool",
+      workflowNodeId: "native-browser-tool",
+      input: {
+        prompt: "Inspect https://example.com without external side effects.",
+        url: "https://example.com",
+        observationRetentionMode: "prompt_visible_summary_only",
+      },
+    });
+    assert.equal(result.status, "completed");
+    assert.equal(result.object, "ioi.runtime_computer_use_native_browser_result");
+    assert.equal(result.tool_pack, "computer_use");
+    assert.equal(result.tool_name, "ioi.computer_use.native_browser");
+    assert.equal(result.workflow_graph_id, "workflow.native-browser-tool");
+    assert.equal(result.workflow_node_id, "native-browser-tool");
+    assert.equal(result.event_count, expectedComputerUseEventTypes.length);
+    assert.equal(result.result.environmentSelection.selected_lane, "native_browser");
+    assert.equal(result.result.lease.lane, "native_browser");
+    assert.equal(result.result.lease.authority_scope, "computer_use.native_browser.read");
+    assert.equal(result.result.observation.retention_mode, "prompt_visible_summary_only");
+    assert.equal(result.result.action.action_kind, "inspect");
+    assert.equal(result.result.actionReceipt.status, "completed");
+    assert.equal(result.result.commitGate.status, "not_required");
+
+    const runtimeEvents = [];
+    for await (const event of thread.events()) {
+      runtimeEvents.push(event);
+    }
+    const computerEvents = runtimeEvents.filter((event) => event.eventKind.startsWith("computer_use."));
+    assert.deepEqual(computerEvents.map((event) => event.type), expectedComputerUseEventTypes);
+    assert.equal(computerEvents[0].workflowGraphId, "workflow.native-browser-tool");
+    assert.equal(computerEvents[0].workflowNodeId, "native-browser-tool");
+    assert.equal(computerEvents[0].componentKind, "computer_use_harness");
+    assert.equal(computerEvents[0].payload.tool_ref, "ioi.computer_use.native_browser");
+    assert.equal(computerEvents[5].type, "computer_use_action_proposed");
+    assert.equal(computerEvents[5].payload.action_proposal.target_ref, result.result.action.target_ref);
+    assert.equal(computerEvents[6].type, "computer_use_action_executed");
+    assert.equal(computerEvents[6].payload.action_receipt.status, "completed");
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("runtime daemon preserves workflow-authored computer-use node metadata", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-workflow-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-workflow-state-"));

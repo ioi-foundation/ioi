@@ -473,7 +473,12 @@ can add the same capability through an advanced Browser Discovery primitive
 that compiles to the runtime tool contract and deterministic discovery
 arguments instead of a React Flow-owned browser state. Saved workflow runs now
 emit a dedicated `computer_use.browser_discovery` event with browser/CDP/blocker
-counts in the same glass-box run-history projection.
+counts in the same glass-box run-history projection. Direct SDK/daemon
+thread-tool invocation of `ioi.computer_use.native_browser` now emits the full
+read-only native-browser behavioral loop through canonical `computer_use.*`
+events, giving workflows and TUI surfaces a glass-box prompt-through-pipeline
+trace while the CDP-backed mutating executor remains the next browser-lane
+implementation target.
 Future daemon, workflow, and Autopilot policy executors should consume these
 helpers rather than defining local policy shapes.
 
