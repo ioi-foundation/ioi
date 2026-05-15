@@ -33,6 +33,11 @@
       "import": "./dist/messages.js",
       "require": "./dist/messages.cjs"
     },
+    "./computer-use": {
+      "types": "./dist/computer-use.d.ts",
+      "import": "./dist/computer-use.js",
+      "require": "./dist/computer-use.cjs"
+    },
     "./options": {
       "types": "./dist/options.d.ts",
       "import": "./dist/options.js",

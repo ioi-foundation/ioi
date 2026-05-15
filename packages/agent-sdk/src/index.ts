@@ -1,4 +1,10 @@
 export { Agent, AgentMemory, AgentSubagent, Cursor, CursorCompatibleAgent, createAgentPlatform } from "./agent.js";
+export {
+  COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+  computerActionHasGrounding,
+  defaultComputerUseHarnessContract,
+  isActionProposalReadyForExecution,
+} from "./computer-use.js";
 export { Run } from "./run.js";
 export { Thread, Turn } from "./thread.js";
 export { IoiAgentError, ensureIoiAgentError } from "./errors.js";
@@ -70,6 +76,18 @@ export type {
   RuntimeTurnSteerInput,
   UpdateMemoryRecordInput,
 } from "./substrate-client.js";
+export type {
+  ActionProposal,
+  ComputerAction,
+  ComputerActionKind,
+  ComputerControlAdapterContract,
+  ComputerUseHarnessContract,
+  ComputerUseLane,
+  ComputerUseLease,
+  ComputerUseObservationBundle,
+  ComputerUseSessionMode,
+  ObservationRetentionMode,
+} from "./computer-use.js";
 export type {
   AgentOptions,
   CloudAgentOptions,
