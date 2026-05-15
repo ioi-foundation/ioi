@@ -452,7 +452,9 @@ affordance graph but no explicit proposal, the daemon projects a non-executing
 next candidate without pretending an action already ran. Those bridge-derived
 proposals synthesize proposal-only outcome and commit gates, requiring
 confirmation for possible external effects while keeping `ComputerAction`
-execution null. The same bridge projection also synthesizes live
+execution null; the IDE projection and run-history workbench now preserve that
+distinction as typed, non-executed, confirmation-gated harness rows. The same
+bridge projection also synthesizes live
 `ComputerUseRunState` so inspection surfaces can show the current observation,
 target index, blocker, handoff/confirmation state, and cleanup ownership.
 Daemon-backed visual and hosted/sandbox lane runs activate through the same

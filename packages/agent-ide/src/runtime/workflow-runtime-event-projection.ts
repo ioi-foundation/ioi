@@ -49,6 +49,18 @@ export type WorkflowRuntimeThreadEventType =
   | "receipt_emitted"
   | "model_route_decision"
   | "tool_route_decision"
+  | "computer_use_environment_selected"
+  | "computer_use_environment_unavailable"
+  | "computer_use_lease_acquired"
+  | "computer_use_run_state"
+  | "computer_use_observation"
+  | "computer_use_affordance_graph"
+  | "computer_use_action_proposed"
+  | "computer_use_action_executed"
+  | "computer_use_verification"
+  | "computer_use_commit_gate"
+  | "computer_use_trajectory_written"
+  | "computer_use_cleanup"
   | "runtime_step";
 
 export type WorkflowRuntimeProjectedStatus =

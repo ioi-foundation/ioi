@@ -296,6 +296,176 @@ test("projects computer-use lifecycle events as glass-box harness rows", () => {
   assert.equal(projection.nodes[4]?.computerUse?.outcomeRef, "outcome-inspect");
 });
 
+test("projects bridge-derived proposal-only computer-use gates without executed actions", () => {
+  const projection = projectRuntimeThreadEventsToWorkflowProjection([
+    event("bridge-observation", 1, {
+      type: "computer_use_observation",
+      eventKind: "computer_use.observation",
+      sourceEventKind: "ComputerUse.Observation",
+      status: "completed",
+      componentKind: null,
+      workflowNodeId: null,
+      workflowGraphId: "workflow.bridge-browser",
+      payloadSchemaVersion: "ioi.computer-use.harness.v1",
+      artifactRefs: ["computer-use-trace.json"],
+      payload: {
+        computer_use_step: "observe",
+        computer_use_lane: "native_browser",
+        computer_use_session_mode: "runtime_service_bridge",
+        computer_use_lease_id: "lease-bridge",
+        observation_bundle: {
+          observation_ref: "observation-bridge",
+          target_index_ref: "target-index-bridge",
+          retention_mode: "local_redacted_artifacts",
+        },
+        target_index: {
+          target_index_ref: "target-index-bridge",
+          targets: [{ target_ref: "target-bridge-submit" }],
+        },
+      },
+    }),
+    event("bridge-affordances", 2, {
+      type: "computer_use_affordance_graph",
+      eventKind: "computer_use.affordance_graph",
+      sourceEventKind: "ComputerUse.AffordanceGraph",
+      status: "completed",
+      componentKind: null,
+      workflowNodeId: null,
+      workflowGraphId: "workflow.bridge-browser",
+      payloadSchemaVersion: "ioi.computer-use.harness.v1",
+      artifactRefs: ["computer-use-trace.json"],
+      payload: {
+        computer_use_step: "build_affordance_graph",
+        computer_use_lane: "native_browser",
+        computer_use_session_mode: "runtime_service_bridge",
+        computer_use_lease_id: "lease-bridge",
+        affordance_graph: {
+          graph_ref: "affordance-bridge",
+          affordances: [
+            {
+              target_ref: "target-bridge-submit",
+              possible_actions: ["click"],
+              requires_confirmation: true,
+            },
+          ],
+        },
+      },
+    }),
+    event("bridge-proposal", 3, {
+      type: "computer_use_action_proposed",
+      eventKind: "computer_use.action_proposed",
+      sourceEventKind: "ComputerUse.ActionProposed",
+      status: "waiting_for_policy",
+      componentKind: null,
+      workflowNodeId: null,
+      workflowGraphId: "workflow.bridge-browser",
+      payloadSchemaVersion: "ioi.computer-use.harness.v1",
+      artifactRefs: ["computer-use-trace.json"],
+      payload: {
+        computer_use_step: "propose_action",
+        computer_use_lane: "native_browser",
+        computer_use_session_mode: "runtime_service_bridge",
+        computer_use_lease_id: "lease-bridge",
+        action_proposal: {
+          proposal_ref: "proposal-bridge-click",
+          target_ref: "target-bridge-submit",
+          policy_decision_ref: "policy-bridge-confirmation",
+        },
+        policy_gate: {
+          policy_decision_ref: "policy-bridge-confirmation",
+          decision: "requires_confirmation",
+        },
+      },
+    }),
+    event("bridge-commit-gate", 4, {
+      type: "computer_use_commit_gate",
+      eventKind: "computer_use.commit_gate",
+      sourceEventKind: "ComputerUse.CommitGate",
+      status: "waiting_for_confirmation",
+      componentKind: null,
+      workflowNodeId: null,
+      workflowGraphId: "workflow.bridge-browser",
+      payloadSchemaVersion: "ioi.computer-use.harness.v1",
+      artifactRefs: ["computer-use-trace.json"],
+      payload: {
+        computer_use_step: "commit_or_handoff",
+        computer_use_lane: "native_browser",
+        computer_use_session_mode: "runtime_service_bridge",
+        computer_use_lease_id: "lease-bridge",
+        outcome_contract: {
+          outcome_ref: "outcome-bridge-submit",
+          external_effect_policy: "confirmation_required",
+        },
+        commit_gate: {
+          commit_gate_ref: "commit-gate-bridge-submit",
+          status: "requires_confirmation_before_execution",
+          final_action_ref: null,
+          user_confirmation_required: true,
+        },
+        human_handoff_state: {
+          handoff_ref: "handoff-bridge-confirmation",
+          reason: "external_effect_confirmation",
+        },
+      },
+    }),
+  ]);
+
+  assert.deepEqual(
+    projection.reactFlowNodes.map((node) => node.id),
+    [
+      "computer-use.observe",
+      "computer-use.build-affordance-graph",
+      "computer-use.propose-action",
+      "computer-use.commit-or-handoff",
+    ],
+  );
+  assert.deepEqual(
+    projection.reactFlowNodes.map((node) => node.data.componentKind),
+    [
+      "computer_use_harness",
+      "computer_use_harness",
+      "computer_use_harness",
+      "computer_use_harness",
+    ],
+  );
+  assert.equal(projection.nodes[0]?.computerUse?.observationRef, "observation-bridge");
+  assert.equal(projection.nodes[0]?.computerUse?.targetCount, 1);
+  assert.equal(projection.nodes[1]?.computerUse?.affordanceGraphRef, "affordance-bridge");
+  assert.equal(projection.nodes[1]?.computerUse?.affordanceCount, 1);
+  assert.equal(projection.nodes[2]?.status, "waiting");
+  assert.equal(projection.nodes[2]?.label, "Computer use: propose action");
+  assert.equal(projection.nodes[2]?.computerUse?.proposalRef, "proposal-bridge-click");
+  assert.equal(projection.nodes[2]?.computerUse?.actionRef, null);
+  assert.equal(
+    projection.nodes[2]?.computerUse?.policyDecisionRef,
+    "policy-bridge-confirmation",
+  );
+  assert.equal(projection.nodes[3]?.status, "waiting");
+  assert.equal(projection.nodes[3]?.label, "Computer use: commit gate");
+  assert.equal(
+    projection.nodes[3]?.computerUse?.commitGateRef,
+    "commit-gate-bridge-submit",
+  );
+  assert.equal(
+    projection.nodes[3]?.computerUse?.commitGateStatus,
+    "requires_confirmation_before_execution",
+  );
+  assert.equal(projection.nodes[3]?.computerUse?.actionRef, null);
+  assert.equal(projection.nodes[3]?.computerUse?.outcomeRef, "outcome-bridge-submit");
+  assert.equal(
+    projection.nodes[3]?.computerUse?.humanHandoffRef,
+    "handoff-bridge-confirmation",
+  );
+  assert.deepEqual(
+    projection.reactFlowEdges.map((edge) => [edge.source, edge.target]),
+    [
+      ["computer-use.observe", "computer-use.build-affordance-graph"],
+      ["computer-use.build-affordance-graph", "computer-use.propose-action"],
+      ["computer-use.propose-action", "computer-use.commit-or-handoff"],
+    ],
+  );
+});
+
 test("projects unavailable computer-use lanes as blocked recovery evidence", () => {
   const unavailable = event("computer-use-unavailable", 1, {
     eventKind: "computer_use.environment_unavailable",
