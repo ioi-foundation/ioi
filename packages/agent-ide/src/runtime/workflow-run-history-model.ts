@@ -121,8 +121,17 @@ export type WorkflowRunComputerUseWorkbench = {
   eventIds: string[];
   workflowNodeIds: string[];
   artifactRefs: string[];
+  artifactPreviews: WorkflowRunComputerUseArtifactPreview[];
   overlayViewport: WorkflowRunComputerUseOverlayViewport | null;
   visualTargetSummaries: WorkflowRuntimeComputerUseVisualTargetSummary[];
+};
+
+export type WorkflowRunComputerUseArtifactPreview = {
+  artifactRef: string;
+  label: string;
+  previewKind: "embedded_image" | "runtime_artifact" | "opaque_ref";
+  fetchPath: string | null;
+  embeddableUrl: string | null;
 };
 
 export type WorkflowRunComputerUseOverlayViewport = {
@@ -234,7 +243,10 @@ export function workflowRunHistoryModel({
     tuiControlStateProjection.rows,
   );
   const computerUseWorkbench =
-    workflowRunComputerUseWorkbench(runtimeEventProjection);
+    workflowRunComputerUseWorkbench(
+      runtimeEventProjection,
+      selectedRun?.summary.id ?? selectedRunId,
+    );
   const selectedModelInvocationTraces = workflowModelInvocationTraces(
     selectedRun,
     workflow,
@@ -317,6 +329,7 @@ export function workflowRunHistoryModel({
 
 function workflowRunComputerUseWorkbench(
   projection: WorkflowRuntimeEventProjection,
+  runId: string | null,
 ): WorkflowRunComputerUseWorkbench | null {
   const nodes = projection.nodes.filter((node) => node.computerUse);
   if (nodes.length === 0) return null;
@@ -337,6 +350,7 @@ function workflowRunComputerUseWorkbench(
   const targetSummaries = uniqueTargets(
     nodes.flatMap((node) => node.computerUse?.visualTargetSummaries ?? []),
   );
+  const artifactRefs = uniqueStrings(nodes.flatMap((node) => node.artifactRefs));
   return {
     status: latestComputerUse.status,
     lane: latestComputerUse.lane ?? latestScreen.lane,
@@ -382,13 +396,70 @@ function workflowRunComputerUseWorkbench(
       latestComputerUse.authorityRequired ?? latestScreen.authorityRequired,
     eventIds: uniqueStrings(nodes.flatMap((node) => node.eventIds)),
     workflowNodeIds: uniqueStrings(nodes.map((node) => node.workflowNodeId)),
-    artifactRefs: uniqueStrings(nodes.flatMap((node) => node.artifactRefs)),
+    artifactRefs,
+    artifactPreviews: computerUseArtifactPreviews({
+      runId,
+      screenRef: latestScreen.screenRef,
+      somRef: latestScreen.somRef,
+      artifactRefs,
+    }),
     overlayViewport: overlayViewportForTargets(
       targetSummaries,
       latestScreen.coordinateSpaceId,
     ),
     visualTargetSummaries: targetSummaries,
   };
+}
+
+function computerUseArtifactPreviews({
+  runId,
+  screenRef,
+  somRef,
+  artifactRefs,
+}: {
+  runId: string | null;
+  screenRef: string | null | undefined;
+  somRef: string | null | undefined;
+  artifactRefs: readonly string[];
+}): WorkflowRunComputerUseArtifactPreview[] {
+  return uniqueStrings([screenRef, somRef, ...artifactRefs]).map((artifactRef) => {
+    const embeddableUrl = embeddableComputerUseArtifactRef(artifactRef);
+    const fetchPath =
+      runId && !embeddableUrl
+        ? `/v1/runs/${encodeURIComponent(runId)}/artifacts/${encodeURIComponent(artifactRef)}`
+        : null;
+    return {
+      artifactRef,
+      label: computerUseArtifactLabel(artifactRef),
+      previewKind: embeddableUrl
+        ? "embedded_image"
+        : fetchPath
+          ? "runtime_artifact"
+          : "opaque_ref",
+      fetchPath,
+      embeddableUrl,
+    };
+  });
+}
+
+function embeddableComputerUseArtifactRef(ref: string | null | undefined): string | null {
+  const value = ref?.trim();
+  if (!value) return null;
+  return /^(https?:\/\/|data:image\/|blob:|\/)/i.test(value) ? value : null;
+}
+
+function computerUseArtifactLabel(ref: string): string {
+  const value = ref.trim();
+  if (!value) return "artifact";
+  if (value.includes("/")) {
+    const segments = value.split("/").filter(Boolean);
+    return segments[segments.length - 1] ?? value;
+  }
+  if (value.includes(":")) {
+    const segments = value.split(":").filter(Boolean);
+    return segments[segments.length - 1] ?? value;
+  }
+  return value;
 }
 
 function uniqueTargets(

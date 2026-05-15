@@ -440,6 +440,9 @@ test("browser prompts emit glass-box computer-use trace and runtime events", asy
   );
 
   const trace = await run.inspect();
+  const namedArtifact = await run.artifact("computer-use-trace.json");
+  assert.equal(namedArtifact.name, "computer-use-trace.json");
+  assert.equal(JSON.parse(namedArtifact.content).observation.url, "https://example.com");
   const environmentEvent = trace.events.find((event) => event.type === "computer_use_environment_selected");
   assert.ok(environmentEvent);
   assert.equal(environmentEvent.data.schema_version, COMPUTER_USE_CONTRACT_SCHEMA_VERSION);
@@ -1895,6 +1898,8 @@ test("runtime service bridge computer-use events persist as run trace artifacts"
     const artifacts = await client.listArtifacts(turn.runId);
     const computerUseArtifact = artifacts.find((artifact) => artifact.name === "computer-use-trace.json");
     assert.ok(computerUseArtifact);
+    const namedComputerUseArtifact = await client.downloadArtifact(turn.runId, "computer-use-trace.json");
+    assert.equal(namedComputerUseArtifact.id, computerUseArtifact.id);
     const artifactTrace = JSON.parse(computerUseArtifact.content);
     assert.equal(artifactTrace.environmentSelection.selected_lane, "native_browser");
     assert.equal(artifactTrace.lease.authority_scope, "computer_use.native_browser.read");

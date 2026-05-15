@@ -4866,7 +4866,7 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
   }
 
   async downloadArtifact(runId: string, artifactId: string): Promise<RuntimeArtifact> {
-    const artifact = (await this.listArtifacts(runId)).find((item) => item.id === artifactId);
+    const artifact = resolveRuntimeArtifactRef(await this.listArtifacts(runId), artifactId);
     if (!artifact) {
       throw new IoiAgentError({
         code: "not_found",
@@ -8036,6 +8036,29 @@ function strategyForMode(mode: RuntimeRunRecord["mode"]): string {
     case "send":
       return "explicit_mock_substrate_projection";
   }
+}
+
+function resolveRuntimeArtifactRef(
+  artifacts: RuntimeArtifact[],
+  artifactRef: string,
+): RuntimeArtifact | undefined {
+  const ref = artifactRef.trim();
+  if (!ref) return undefined;
+  const normalizedRef = ref.replace(/^artifact:/, "");
+  const lastSegment = normalizedRef.split(":").filter(Boolean).at(-1) ?? normalizedRef;
+  const slugRef = normalizedRef.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "");
+  const candidates = new Set([
+    ref,
+    normalizedRef,
+    lastSegment,
+    slugRef,
+    `artifact_${slugRef}`,
+  ]);
+  return artifacts.find(
+    (artifact) =>
+      candidates.has(artifact.id) ||
+      candidates.has(artifact.name),
+  );
 }
 
 function capabilitySequenceForMode(mode: RuntimeRunRecord["mode"], agent: RuntimeAgentRecord): string[] {

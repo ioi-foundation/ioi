@@ -741,6 +741,9 @@ export function WorkflowRunsPanel({
                 computerUseWorkbench.workflowNodeIds.join("|")
               }
               data-artifact-refs={computerUseWorkbench.artifactRefs.join("|")}
+              data-artifact-preview-count={
+                computerUseWorkbench.artifactPreviews.length
+              }
               data-visual-target-refs={computerUseWorkbench.visualTargetSummaries
                 .map((target) => target.targetRef)
                 .join("|")}
@@ -950,6 +953,37 @@ export function WorkflowRunsPanel({
                         <small>
                           {target.availableActions.join(", ") ||
                             "actions pending"}
+                        </small>
+                      </li>
+                  ))}
+                </ol>
+              ) : null}
+              {computerUseWorkbench.artifactPreviews.length > 0 ? (
+                <ol
+                  className="workflow-run-computer-use-artifacts"
+                  data-testid="workflow-run-computer-use-artifacts"
+                  data-artifact-preview-count={
+                    computerUseWorkbench.artifactPreviews.length
+                  }
+                >
+                  {computerUseWorkbench.artifactPreviews
+                    .slice(0, 8)
+                    .map((artifact) => (
+                      <li
+                        key={artifact.artifactRef}
+                        data-artifact-ref={artifact.artifactRef}
+                        data-preview-kind={artifact.previewKind}
+                        data-fetch-path={artifact.fetchPath ?? ""}
+                        data-embeddable-url={artifact.embeddableUrl ?? ""}
+                      >
+                        <strong>{artifact.label}</strong>
+                        <span>{artifact.artifactRef}</span>
+                        <small>
+                          {artifact.previewKind === "embedded_image"
+                            ? "inline preview"
+                            : artifact.fetchPath
+                              ? `runtime artifact · ${artifact.fetchPath}`
+                              : "opaque reference"}
                         </small>
                       </li>
                     ))}

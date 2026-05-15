@@ -13554,9 +13554,9 @@ async function handleRunRoute({ request, response, store, url, segments }) {
     return;
   }
   if (request.method === "GET" && action === "artifacts" && segments[4]) {
-    const artifactId = decodeURIComponent(segments[4]);
-    const artifact = store.getRun(runId).artifacts.find((item) => item.id === artifactId);
-    if (!artifact) throw notFound(`Artifact not found: ${artifactId}`, { runId, artifactId });
+    const artifactRef = decodeURIComponent(segments[4]);
+    const artifact = resolveRunArtifact(store.getRun(runId), artifactRef);
+    if (!artifact) throw notFound(`Artifact not found: ${artifactRef}`, { runId, artifactRef });
     writeJsonResponse(response, artifact);
     return;
   }
@@ -17668,6 +17668,28 @@ function artifact(runId, name, mediaType, receiptId, value, redaction) {
     receiptId,
     content: typeof value === "string" ? value : JSON.stringify(value, null, 2),
   };
+}
+
+function resolveRunArtifact(run = {}, artifactRef) {
+  const ref = optionalString(artifactRef);
+  if (!ref) return null;
+  const artifacts = normalizeArray(run.artifacts);
+  const normalizedRef = ref.replace(/^artifact:/, "");
+  const lastSegment = normalizedRef.split(":").filter(Boolean).at(-1) ?? normalizedRef;
+  const slugRef = normalizedRef.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "");
+  const candidates = new Set([
+    ref,
+    normalizedRef,
+    lastSegment,
+    slugRef,
+    `artifact_${slugRef}`,
+  ]);
+  return artifacts.find((item) =>
+    candidates.has(item?.id) ||
+    candidates.has(item?.name) ||
+    candidates.has(item?.artifactRef) ||
+    candidates.has(item?.artifact_ref),
+  ) ?? null;
 }
 
 function summarizeAgentOptions(cwd, options = {}) {
