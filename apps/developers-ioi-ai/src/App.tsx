@@ -11,38 +11,104 @@ import Sidebar from './components/Sidebar';
 import {
   DEFAULT_PAGE_ID,
   DOC_PAGES,
-  DOC_SECTIONS,
-  firstPageForSection,
+  NAV_GROUPS,
+  docPageByLegacyHash,
+  docPageByRoutePath,
   getDocPage,
   matchesDocSearch,
+  routeForPageId,
+  type DocPage,
 } from './content/docs';
 
-function pageIdFromHash() {
-  const hashValue = window.location.hash.replace(/^#/, '').trim();
-  return getDocPage(hashValue) ? hashValue : DEFAULT_PAGE_ID;
+const SITE_ORIGIN = 'https://developers.ioi.ai';
+
+function pageIdFromLocation() {
+  const hashPage = docPageByLegacyHash(window.location.hash);
+  if (hashPage) {
+    return hashPage.id;
+  }
+
+  const routePage = docPageByRoutePath(window.location.pathname);
+  return routePage?.id ?? DEFAULT_PAGE_ID;
+}
+
+function replaceCurrentUrlWithPageRoute(pageId: string) {
+  const routePath = routeForPageId(pageId);
+  if (window.location.pathname !== routePath || window.location.hash) {
+    window.history.replaceState({ pageId }, '', routePath);
+  }
+}
+
+function absolutePageUrl(page: DocPage) {
+  return `${SITE_ORIGIN}${page.routePath === '/' ? '/' : page.routePath}`;
+}
+
+function setMeta(attribute: 'name' | 'property', key: string, content: string) {
+  let tag = document.head.querySelector<HTMLMetaElement>(
+    `meta[${attribute}="${key}"]`,
+  );
+
+  if (!tag) {
+    tag = document.createElement('meta');
+    tag.setAttribute(attribute, key);
+    document.head.appendChild(tag);
+  }
+
+  tag.content = content;
+}
+
+function updateDocumentSeo(page: DocPage) {
+  const title =
+    page.routePath === '/'
+      ? 'developers.ioi.ai | IOI Builder Docs'
+      : `${page.title} | developers.ioi.ai`;
+  const url = absolutePageUrl(page);
+
+  document.title = title;
+  setMeta('name', 'description', page.summary);
+  setMeta('property', 'og:title', title);
+  setMeta('property', 'og:description', page.summary);
+  setMeta('property', 'og:url', url);
+  setMeta('property', 'og:site_name', 'developers.ioi.ai');
+  setMeta('property', 'og:type', 'website');
+  setMeta('name', 'twitter:card', 'summary');
+
+  let canonical = document.head.querySelector<HTMLLinkElement>(
+    'link[rel="canonical"]',
+  );
+  if (!canonical) {
+    canonical = document.createElement('link');
+    canonical.rel = 'canonical';
+    document.head.appendChild(canonical);
+  }
+  canonical.href = url;
 }
 
 export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activePageId, setActivePageId] = useState<string>(() =>
-    typeof window === 'undefined' ? DEFAULT_PAGE_ID : pageIdFromHash(),
+    typeof window === 'undefined' ? DEFAULT_PAGE_ID : pageIdFromLocation(),
   );
   const [isDark, setIsDark] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const deferredSearchQuery = useDeferredValue(searchQuery);
 
   useEffect(() => {
-    if (!window.location.hash) {
-      window.history.replaceState(null, '', `#${DEFAULT_PAGE_ID}`);
-    }
+    replaceCurrentUrlWithPageRoute(pageIdFromLocation());
 
-    const handleHashChange = () => {
-      setActivePageId(pageIdFromHash());
+    const handleLocationChange = () => {
+      const nextPageId = pageIdFromLocation();
+      replaceCurrentUrlWithPageRoute(nextPageId);
+      setActivePageId(nextPageId);
       setIsMobileMenuOpen(false);
     };
 
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    window.addEventListener('hashchange', handleLocationChange);
+    window.addEventListener('popstate', handleLocationChange);
+    return () => {
+      window.removeEventListener('hashchange', handleLocationChange);
+      window.removeEventListener('popstate', handleLocationChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -55,21 +121,32 @@ export default function App() {
 
   const activePage = getDocPage(activePageId) ?? getDocPage(DEFAULT_PAGE_ID)!;
 
+  useEffect(() => {
+    updateDocumentSeo(activePage);
+  }, [activePage]);
+
   const searchResults = useMemo(
     () =>
-      DOC_PAGES.filter((page) => matchesDocSearch(page, deferredSearchQuery)).slice(0, 6),
+      DOC_PAGES.filter((page) => matchesDocSearch(page, deferredSearchQuery))
+        .sort((left, right) => {
+          const statusRank = { Current: 0, Preview: 1, Concept: 2 };
+          return statusRank[left.status] - statusRank[right.status];
+        })
+        .slice(0, 6),
     [deferredSearchQuery],
   );
 
-  const sidebarSections = useMemo(
+  const sidebarGroups = useMemo(
     () =>
-      DOC_SECTIONS.map((section) => ({
-        ...section,
-        pages: DOC_PAGES.filter(
-          (page) =>
-            page.section === section.id &&
-            (page.id === activePage.id || matchesDocSearch(page, deferredSearchQuery)),
-        ),
+      NAV_GROUPS.map((group) => ({
+        ...group,
+        pages: group.pageIds
+          .map(getDocPage)
+          .filter((page): page is DocPage => Boolean(page))
+          .filter(
+            (page) =>
+              page.id === activePage.id || matchesDocSearch(page, deferredSearchQuery),
+          ),
       })),
     [activePage.id, deferredSearchQuery],
   );
@@ -85,8 +162,9 @@ export default function App() {
       setIsMobileMenuOpen(false);
     });
 
-    if (window.location.hash !== `#${pageId}`) {
-      window.location.hash = pageId;
+    const routePath = routeForPageId(pageId);
+    if (window.location.pathname !== routePath || window.location.hash) {
+      window.history.pushState({ pageId }, '', routePath);
     }
   };
 
@@ -106,15 +184,7 @@ export default function App() {
         onSelectPage={navigateToPage}
         searchQuery={searchQuery}
         searchResults={searchResults}
-        sections={DOC_SECTIONS.map((section) => ({
-          ...section,
-          firstPageId: firstPageForSection(section.id)?.id ?? DEFAULT_PAGE_ID,
-          pages: DOC_PAGES.filter((page) => page.section === section.id).map((page) => ({
-            id: page.id,
-            summary: page.summary,
-            title: page.title,
-          })),
-        }))}
+        navGroups={NAV_GROUPS}
         toggleTheme={() => setIsDark((value) => !value)}
       />
       <div className="mx-auto mt-16 flex w-full max-w-[1536px] items-start">
@@ -124,7 +194,7 @@ export default function App() {
           isOpen={isMobileMenuOpen}
           onNavigate={navigateToPage}
           searchQuery={deferredSearchQuery}
-          sections={sidebarSections}
+          navGroups={sidebarGroups}
         />
         <MainContent isDark={isDark} onNavigate={navigateToPage} page={activePage} />
       </div>

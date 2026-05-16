@@ -2,34 +2,35 @@ import { ChevronDown, ExternalLink, Menu, Moon, Search, Sun } from 'lucide-react
 import { useState } from 'react';
 import logoLight from '../assets/ioi-logo-light.svg';
 import logoDark from '../assets/ioi-logo.svg';
-import type { DocPage, DocSectionMeta } from '../content/docs';
-
-interface HeaderSection extends DocSectionMeta {
-  firstPageId: string;
-  pages: Array<Pick<DocPage, 'id' | 'summary' | 'title'>>;
-}
+import {
+  DEFAULT_PAGE_ID,
+  getDocPage,
+  sectionLabel,
+  type DocPage,
+  type NavGroup,
+} from '../content/docs';
 
 interface HeaderProps {
   activeSectionId: string;
   isDark: boolean;
+  navGroups: NavGroup[];
   onMenuToggle: () => void;
   onSearchChange: (value: string) => void;
   onSelectPage: (pageId: string) => void;
   searchQuery: string;
   searchResults: DocPage[];
-  sections: HeaderSection[];
   toggleTheme: () => void;
 }
 
 export default function Header({
   activeSectionId,
   isDark,
+  navGroups,
   onMenuToggle,
   onSearchChange,
   onSelectPage,
   searchQuery,
   searchResults,
-  sections,
   toggleTheme,
 }: HeaderProps) {
   const searchHasResults = searchQuery.trim().length > 0 && searchResults.length > 0;
@@ -51,11 +52,12 @@ export default function Header({
             className={`rounded-full p-2 md:hidden ${isDark ? 'text-stone-300 hover:bg-stone-900' : 'text-stone-700 hover:bg-white'
               }`}
             onClick={onMenuToggle}
+            aria-label="Open navigation"
           >
             <Menu className="h-5 w-5" />
           </button>
           <button
-            onClick={() => onSelectPage('choose-the-right-surface')}
+            onClick={() => onSelectPage(DEFAULT_PAGE_ID)}
             className="min-w-0 text-left flex items-center gap-2.5"
           >
             <img
@@ -71,24 +73,29 @@ export default function Header({
 
         <div className="ml-4 hidden items-center lg:flex">
           <nav className="flex min-w-0 items-center gap-1">
-            {sections.map((section) => {
-              const isActive = section.id === activeSectionId;
-              const isOpen = section.id === openSectionId;
-              const featuredPages = section.pages.slice(0, 3);
+            {navGroups.map((group) => {
+              const isActive = group.id === activeSectionId;
+              const isOpen = group.id === openSectionId;
+              const firstPageId = group.pageIds[0] ?? DEFAULT_PAGE_ID;
+              const featuredPages = group.pageIds
+                .map(getDocPage)
+                .filter((page): page is DocPage => Boolean(page))
+                .slice(0, 4);
 
               return (
                 <div
-                  key={section.id}
+                  key={group.id}
                   className="relative -mb-3 pb-3"
-                  onMouseEnter={() => setOpenSectionId(section.id)}
+                  onMouseEnter={() => setOpenSectionId(group.id)}
                   onMouseLeave={closeSectionMenu}
                 >
                   <button
                     onClick={() => {
                       closeSectionMenu();
-                      onSelectPage(section.firstPageId);
+                      onSelectPage(firstPageId);
                     }}
-                    onFocus={() => setOpenSectionId(section.id)}
+                    onFocus={() => setOpenSectionId(group.id)}
+                    aria-current={isActive ? 'page' : undefined}
                     className={`inline-flex items-center gap-1 rounded-[0.95rem] px-3 py-1.5 text-[14px] leading-5 tracking-[-0.01em] transition-colors ${isActive
                         ? isDark
                           ? 'bg-[rgba(250,248,244,0.11)] text-stone-100 shadow-[inset_0_1px_0_rgba(250,248,244,0.03)]'
@@ -102,7 +109,7 @@ export default function Header({
                             : 'text-stone-600 hover:bg-[rgba(47,39,32,0.04)] hover:text-stone-900'
                       }`}
                   >
-                    <span>{section.label}</span>
+                    <span>{group.label}</span>
                     <ChevronDown
                       className={`h-3.25 w-3.25 ${isActive
                           ? isDark
@@ -132,7 +139,7 @@ export default function Header({
                         <button
                           onClick={() => {
                             closeSectionMenu();
-                            onSelectPage(section.firstPageId);
+                            onSelectPage(firstPageId);
                           }}
                           className={`block w-full px-4 py-3 text-left transition-colors ${isDark
                               ? 'bg-[rgba(250,248,244,0.06)] hover:bg-[rgba(250,248,244,0.10)]'
@@ -143,13 +150,13 @@ export default function Header({
                             className={`text-[14px] font-medium leading-5 tracking-[-0.01em] ${isDark ? 'text-stone-100' : 'text-stone-900'
                               }`}
                           >
-                            {section.label}
+                            {group.label}
                           </div>
                           <div
                             className={`mt-1 text-[12px] leading-5 ${isDark ? 'text-stone-400' : 'text-stone-600'
                               }`}
                           >
-                            {section.description}
+                            {group.description}
                           </div>
                         </button>
 
@@ -170,7 +177,22 @@ export default function Header({
                                 className={`text-[14px] font-medium leading-5 tracking-[-0.01em] ${isDark ? 'text-stone-100' : 'text-stone-900'
                                   }`}
                               >
-                                {page.title}
+                                <span>{page.title}</span>
+                                {page.status !== 'Current' ? (
+                                  <span
+                                    className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                                      page.status === 'Preview'
+                                        ? isDark
+                                          ? 'bg-[#5a8cec]/15 text-[#c8dcfd]'
+                                          : 'bg-[#edf2fd] text-[#2740a8]'
+                                        : isDark
+                                          ? 'bg-purple-500/15 text-purple-200'
+                                          : 'bg-purple-50 text-purple-700'
+                                    }`}
+                                  >
+                                    {page.status}
+                                  </span>
+                                ) : null}
                               </div>
                               <div
                                 className={`mt-1 text-[12px] leading-5 ${isDark ? 'text-stone-400' : 'text-stone-600'
@@ -284,7 +306,7 @@ export default function Header({
                   >
                     <div className="text-[14px] font-medium leading-5 tracking-[-0.01em]">{page.title}</div>
                     <div className={isDark ? 'mt-1 text-xs text-stone-500' : 'mt-1 text-xs text-stone-500'}>
-                      {page.eyebrow} • {page.section.replace('-', ' ')}
+                      {page.status === 'Current' ? 'Ready now' : page.status} / {sectionLabel(page.section)} / {page.routePath}
                     </div>
                   </button>
                 ))}

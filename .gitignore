@@ -40,6 +40,7 @@ apps/autopilot/src/generated/*
 !apps/autopilot/src/generated/autopilot-contracts/
 !apps/autopilot/src/generated/autopilot-contracts/**
 apps/autopilot/src-tauri/gen/schemas/
+apps/developers-ioi-ai/release/
 docs/context-atlas-implementation-plan.md
 docs/evidence/
 packages/agent-ide/tsconfig.tsbuildinfo

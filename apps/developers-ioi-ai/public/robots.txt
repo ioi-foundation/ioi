@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://developers.ioi.ai/sitemap.xml
