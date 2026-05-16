@@ -2,9 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  normalizeWorkflowConnectorCatalog,
   normalizeWorkflowConnectorBinding,
+  normalizeWorkflowToolCatalog,
   normalizeWorkflowToolBinding,
+  workflowConnectorBindingCatalogFallback,
   workflowConnectorBindingIsReady,
+  workflowToolBindingCatalogFallback,
   workflowToolBindingIsReady,
 } from "./workflow-tool-connector-capability-binding";
 
@@ -72,6 +76,77 @@ test("legacy connector refs project to canonical connector capability contracts"
   assert.equal(binding.receiptBehavior?.receiptRequired, true);
   assert.equal(binding.idempotencyBehavior?.required, true);
   assert.equal(workflowConnectorBindingIsReady(binding), true);
+});
+
+test("tool catalog fallback hydrates canonical capability metadata", () => {
+  const catalog = workflowToolBindingCatalogFallback();
+  const nativeCatalog = catalog.find(
+    (binding) =>
+      binding.toolCapabilityRef ===
+      "tool-capability:agent.runtime.native-tool.catalog.read",
+  );
+
+  assert.ok(nativeCatalog);
+  assert.equal(nativeCatalog.mockBinding, false);
+  assert.equal(nativeCatalog.credentialReadiness?.status, "ready");
+  assert.equal(nativeCatalog.workflowAvailability?.available, true);
+  assert.equal(nativeCatalog.agentAvailability?.available, true);
+  assert.equal(nativeCatalog.receiptBehavior?.receiptRequired, true);
+  assert.deepEqual(nativeCatalog.authorityScopeRequirements, []);
+});
+
+test("connector catalog fallback hydrates canonical authority and receipt metadata", () => {
+  const catalog = workflowConnectorBindingCatalogFallback();
+  const ticketing = catalog.find(
+    (binding) =>
+      binding.connectorCapabilityRef ===
+      "connector-capability:it_ticketing",
+  );
+
+  assert.ok(ticketing);
+  assert.equal(ticketing.mockBinding, true);
+  assert.equal(ticketing.riskClass, "external_write");
+  assert.deepEqual(ticketing.authorityScopes, [
+    "connector.invoke:it_ticketing",
+  ]);
+  assert.equal(ticketing.receiptBehavior?.receiptRequired, true);
+  assert.equal(ticketing.idempotencyBehavior?.required, true);
+});
+
+test("runtime catalog rows normalize and dedupe by capability ref", () => {
+  const catalog = normalizeWorkflowToolCatalog([
+    {
+      toolRef: "file.apply_patch",
+      toolCapabilityRef: "tool-capability:file.apply_patch",
+      bindingKind: "coding_tool_pack",
+      mockBinding: false,
+      credentialReady: true,
+      sideEffectClass: "write",
+      capabilityScope: ["file.apply_patch"],
+      requiresApproval: true,
+    },
+    {
+      toolRef: "file.apply_patch",
+      toolCapabilityRef: "tool-capability:file.apply_patch",
+      bindingKind: "coding_tool_pack",
+      mockBinding: false,
+      credentialReady: true,
+      sideEffectClass: "write",
+      capabilityScope: ["file.apply_patch"],
+      requiresApproval: true,
+    },
+  ]);
+
+  assert.equal(catalog.length, 1);
+  assert.equal(catalog[0].riskClass, "local_write");
+  assert.deepEqual(catalog[0].authorityScopeRequirements, [
+    "scope:workspace.write",
+  ]);
+});
+
+test("missing catalog input falls back to canonical offline presets", () => {
+  assert.ok(normalizeWorkflowToolCatalog(null).length >= 1);
+  assert.ok(normalizeWorkflowConnectorCatalog(undefined).length >= 1);
 });
 
 console.log("workflow-tool-connector-capability-binding.test.ts: ok");

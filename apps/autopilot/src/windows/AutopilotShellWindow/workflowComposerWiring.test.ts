@@ -879,7 +879,7 @@ assert.match(
 
 assert.match(
   workflowComposerModel,
-  /workflowNodeCreatorBadge[\s\S]*Needs model[\s\S]*Needs connector/,
+  /workflowNodeCreatorBadge[\s\S]*Needs capability[\s\S]*Needs connector/,
   "Primitive readiness badge rules should live outside the composer component",
 );
 
@@ -1575,7 +1575,7 @@ assert.match(
 
 assert.match(
   graphTypes,
-  /WorkflowToolBindingKind =\s*\|\s*"plugin_tool"\s*\|\s*"mcp_tool"\s*\|\s*"workflow_tool"[\s\S]*workflowTool\?:/,
+  /WorkflowToolBindingKind =\s*\|\s*"plugin_tool"\s*\|\s*"mcp_tool"\s*\|\s*"native_tool"\s*\|\s*"workflow_tool"[\s\S]*workflowTool\?:/,
   "Workflow tool bindings should include a typed workflow_tool variant",
 );
 
@@ -1731,8 +1731,14 @@ assert.match(
 
 assert.match(
   workflowComposerUi,
-  /workflow-connector-binding-modal[\s\S]*workflow-connector-binding-summary[\s\S]*workflow-connector-binding-list[\s\S]*workflow-connector-binding-row-\$\{row\.nodeItem\.id\}[\s\S]*onInspectNode/,
-  "Connector bindings modal should expose binding readiness and jump to per-node configuration",
+  /workflow-connector-binding-modal[\s\S]*workflow-connector-binding-summary[\s\S]*workflow-capability-catalog-summary[\s\S]*workflow-connector-binding-list[\s\S]*workflow-connector-binding-row-\$\{row\.nodeItem\.id\}[\s\S]*workflow-catalog-picker-\$\{row\.nodeItem\.id\}[\s\S]*workflow-catalog-apply-\$\{row\.nodeItem\.id\}[\s\S]*onInspectNode/,
+  "Connector bindings modal should expose runtime catalog-backed binding choices and jump to per-node configuration",
+);
+
+assert.match(
+  composer,
+  /(?=[\s\S]*listWorkflowToolCatalog)(?=[\s\S]*normalizeWorkflowToolCatalog)(?=[\s\S]*listWorkflowConnectorCatalog)(?=[\s\S]*normalizeWorkflowConnectorCatalog)(?=[\s\S]*handleApplyWorkflowCatalogBinding)/,
+  "Workflow composer should hydrate tool and connector capability catalogs before applying node bindings",
 );
 
 assert.match(

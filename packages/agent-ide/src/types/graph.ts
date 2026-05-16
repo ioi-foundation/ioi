@@ -1273,6 +1273,7 @@ export interface WorkflowFunctionBinding {
 export type WorkflowToolBindingKind =
   | "plugin_tool"
   | "mcp_tool"
+  | "native_tool"
   | "workflow_tool"
   | "coding_tool_pack";
 
