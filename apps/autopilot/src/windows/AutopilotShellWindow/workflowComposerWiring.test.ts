@@ -118,6 +118,13 @@ const workflowRailRunsPanel = fs.readFileSync(
   ),
   "utf8",
 );
+const workflowRunCapabilityReceiptsProbe = fs.readFileSync(
+  new URL(
+    "../../../../../scripts/lib/workflow-run-capability-receipts-gui-probe.mjs",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const workflowRailReadinessPanel = fs.readFileSync(
   new URL(
     "../../../../../packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
@@ -207,6 +214,13 @@ const workflowReadinessModel = fs.readFileSync(
 const workflowRunHistoryModel = fs.readFileSync(
   new URL(
     "../../../../../packages/agent-ide/src/runtime/workflow-run-history-model.ts",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const workflowRunCapabilityReceipts = fs.readFileSync(
+  new URL(
+    "../../../../../packages/agent-ide/src/runtime/workflow-run-capability-receipts.ts",
     import.meta.url,
   ),
   "utf8",
@@ -2409,6 +2423,18 @@ assert.match(
   workflowRailRunsPanel,
   /workflow-run-model-invocation-trace[\s\S]*workflow-run-model-invocation-summary[\s\S]*workflow-run-model-invocation-step/,
   "Workflow run inspector should surface model prompt pipeline evidence in the primary Runs rail",
+);
+
+assert.match(
+  `${workflowRunHistoryModel}\n${workflowRunCapabilityReceipts}\n${workflowRailRunsPanel}`,
+  /(?=[\s\S]*WorkflowRunCapabilityReceiptProjection)(?=[\s\S]*workflowRunCapabilityReceiptProjection)(?=[\s\S]*workflow-run-capability-receipts)(?=[\s\S]*workflow-run-capability-receipt-\$\{row\.nodeId\})(?=[\s\S]*data-capability-ref)(?=[\s\S]*data-grant-status)(?=[\s\S]*data-policy-status)(?=[\s\S]*data-receipt-required)(?=[\s\S]*data-fail-closed)/,
+  "Workflow run inspector should project canonical model/tool/connector capability refs with grant, policy, receipt, and fail-closed evidence.",
+);
+
+assert.match(
+  workflowRunCapabilityReceiptsProbe,
+  /(?=[\s\S]*workflow_run_capability_receipts_projection)(?=[\s\S]*renderToStaticMarkup)(?=[\s\S]*workflowRunHistoryModel)(?=[\s\S]*workflow-run-capability-receipts)(?=[\s\S]*model-capability:route\.local-first)(?=[\s\S]*tool-capability:file\.apply_patch)(?=[\s\S]*connector-capability:agent\.connector\.catalog)(?=[\s\S]*missing_credential_readiness)(?=[\s\S]*missing_receipt_behavior)/,
+  "Retained GUI proof should render the Runs rail capability receipt projection with canonical refs and fail-closed blockers.",
 );
 
 assert.match(

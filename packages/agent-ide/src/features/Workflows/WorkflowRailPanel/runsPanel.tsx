@@ -132,6 +132,7 @@ export function WorkflowRunsPanel({
     runtimeTelemetrySourceFilter,
     runtimeTelemetrySourceFilters,
     runtimeCodingToolBudgetEvidence,
+    capabilityReceiptProjection,
     computerUseWorkbench,
     computerUseScorecard,
     modelInvocationTraces,
@@ -487,6 +488,97 @@ export function WorkflowRunsPanel({
                       className="workflow-secondary-action"
                       data-testid={`workflow-run-model-invocation-inspect-${invocation.nodeId}`}
                       onClick={() => onInspectNode(invocation.nodeId)}
+                    >
+                      Inspect node
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
+          {capabilityReceiptProjection.rows.length > 0 ? (
+            <section
+              className={`workflow-run-telemetry-summary is-${capabilityReceiptProjection.status}`}
+              data-testid="workflow-run-capability-receipts"
+              data-schema-version={capabilityReceiptProjection.schemaVersion}
+              data-capability-receipt-status={capabilityReceiptProjection.status}
+              data-capability-refs={capabilityReceiptProjection.capabilityRefs.join("|")}
+              data-ready-count={capabilityReceiptProjection.readyCount}
+              data-blocked-count={capabilityReceiptProjection.blockedCount}
+              data-fail-closed-count={capabilityReceiptProjection.failClosedCount}
+              data-receipt-required-count={
+                capabilityReceiptProjection.receiptRequiredCount
+              }
+              data-receipt-refs={
+                capabilityReceiptProjection.receiptRefs.join("|")
+              }
+              data-policy-decision-refs={
+                capabilityReceiptProjection.policyDecisionRefs.join("|")
+              }
+            >
+              <h4>Capability receipts</h4>
+              <span>
+                {capabilityReceiptProjection.rows.length} runtime capability
+                binding{capabilityReceiptProjection.rows.length === 1 ? "" : "s"} ·{" "}
+                {capabilityReceiptProjection.readyCount} ready ·{" "}
+                {capabilityReceiptProjection.failClosedCount} fail-closed
+              </span>
+              <div className="workflow-run-comparison-list">
+                {capabilityReceiptProjection.rows.map((row) => (
+                  <article
+                    key={row.id}
+                    className={`workflow-run-comparison-node is-${row.status}`}
+                    data-testid={`workflow-run-capability-receipt-${row.nodeId}`}
+                    data-node-id={row.nodeId}
+                    data-node-type={row.nodeType}
+                    data-binding-kind={row.bindingKind}
+                    data-capability-ref={row.capabilityRef}
+                    data-route-id={row.routeId ?? ""}
+                    data-mode={row.mode}
+                    data-ready={row.ready}
+                    data-fail-closed={row.failClosed}
+                    data-readiness-status={row.readinessStatus}
+                    data-grant-status={row.grantStatus}
+                    data-policy-status={row.policyStatus}
+                    data-receipt-required={row.receiptRequired}
+                    data-receipt-types={row.receiptTypes.join("|")}
+                    data-authority-scopes={row.authorityScopes.join("|")}
+                    data-authority-scope-requirements={
+                      row.authorityScopeRequirements.join("|")
+                    }
+                    data-risk-class={row.riskClass ?? ""}
+                    data-side-effect-class={row.sideEffectClass}
+                    data-requires-approval={row.requiresApproval}
+                    data-receipt-refs={row.receiptRefs.join("|")}
+                    data-policy-decision-refs={row.policyDecisionRefs.join("|")}
+                    data-runtime-event-ids={row.runtimeEventIds.join("|")}
+                    data-blocker-reasons={row.blockerReasons.join("|")}
+                  >
+                    <strong>{row.nodeName}</strong>
+                    <span>
+                      {row.bindingKind} · {row.mode} ·{" "}
+                      {accessibleStatusLabel(row.status)}
+                    </span>
+                    <small>{row.capabilityRef}</small>
+                    <small>
+                      grant {row.grantStatus} · policy {row.policyStatus} ·{" "}
+                      receipts {row.receiptRequired ? "required" : "missing"}
+                    </small>
+                    <small>
+                      {row.authorityScopes.join(", ") ||
+                        row.authorityScopeRequirements.join(", ") ||
+                        "authority scope missing"}
+                    </small>
+                    {row.failClosed ? (
+                      <small>
+                        fail-closed · {row.blockerReasons.join(", ")}
+                      </small>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="workflow-secondary-action"
+                      data-testid={`workflow-run-capability-receipt-inspect-${row.nodeId}`}
+                      onClick={() => onInspectNode(row.nodeId)}
                     >
                       Inspect node
                     </button>

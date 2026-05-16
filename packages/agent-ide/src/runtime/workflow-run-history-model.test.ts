@@ -358,6 +358,243 @@ test("workflow run history model projects canonical runtime thread events", () =
   assert.equal(model.timelineEvents[0]?.runId, "run-a");
 });
 
+test("workflow run history model projects capability receipts from bound nodes", () => {
+  const capabilityWorkflow = {
+    ...workflow,
+    nodes: [
+      {
+        id: "model",
+        type: "model_call",
+        name: "Model",
+        x: 0,
+        y: 0,
+        config: {
+          kind: "model_call",
+          logic: {
+            modelBinding: {
+              modelRef: "reasoning",
+              modelId: "qwen-local",
+              modelCapabilityRef: "model-capability:route.local-first",
+              routeId: "route.local-first",
+              mockBinding: false,
+              credentialReady: true,
+              credentialReadiness: { status: "ready" },
+              grantReadiness: { status: "ready" },
+              policyPosture: { status: "allowed" },
+              receiptBehavior: {
+                receiptRequired: true,
+                requiredReceiptTypes: ["model_route_selection", "model_invocation"],
+              },
+              workflowAvailability: { available: true },
+              agentAvailability: { available: true },
+              authorityScopes: ["route.use:route.local-first", "model.chat:*"],
+              authorityScopeRequirements: [
+                "route.use:route.local-first",
+                "model.chat:*",
+              ],
+              capabilityScope: ["chat"],
+              sideEffectClass: "none",
+              requiresApproval: false,
+            },
+          },
+          law: {},
+        },
+      },
+      {
+        id: "tool",
+        type: "plugin_tool",
+        name: "Tool",
+        x: 0,
+        y: 0,
+        config: {
+          kind: "plugin_tool",
+          logic: {
+            toolBinding: {
+              toolRef: "file.apply_patch",
+              toolCapabilityRef: "tool-capability:file.apply_patch",
+              bindingKind: "coding_tool_pack",
+              mockBinding: false,
+              credentialReady: true,
+              credentialReadiness: { status: "ready" },
+              grantReadiness: { status: "ready" },
+              policyPosture: { status: "allowed" },
+              receiptBehavior: {
+                receiptRequired: true,
+                requiredReceiptTypes: ["tool_invocation", "tool_verification"],
+              },
+              workflowAvailability: { available: true },
+              agentAvailability: { available: true },
+              authorityScopes: ["scope:workspace.write"],
+              authorityScopeRequirements: ["scope:workspace.write"],
+              capabilityScope: ["file.apply_patch"],
+              sideEffectClass: "write",
+              requiresApproval: true,
+            },
+          },
+          law: {},
+        },
+      },
+      {
+        id: "connector",
+        type: "adapter",
+        name: "Connector",
+        x: 0,
+        y: 0,
+        config: {
+          kind: "adapter",
+          logic: {
+            connectorBinding: {
+              connectorRef: "agent.connector.catalog",
+              connectorCapabilityRef:
+                "connector-capability:agent.connector.catalog",
+              mockBinding: false,
+              credentialReady: true,
+              credentialReadiness: { status: "ready" },
+              grantReadiness: { status: "ready" },
+              policyPosture: { status: "allowed" },
+              receiptBehavior: {
+                receiptRequired: true,
+                requiredReceiptTypes: [
+                  "connector_invocation",
+                  "connector_verification",
+                ],
+              },
+              workflowAvailability: { available: true },
+              agentAvailability: { available: true },
+              authorityScopes: ["connector.catalog.read"],
+              authorityScopeRequirements: ["connector.catalog.read"],
+              capabilityScope: ["connector.catalog.read"],
+              sideEffectClass: "read",
+              requiresApproval: false,
+              operation: "describe",
+            },
+          },
+          law: {},
+        },
+      },
+    ],
+  } as unknown as WorkflowProject;
+
+  const target = runResult("run-a", "passed", { answer: "bound" });
+  const model = workflowRunHistoryModel({
+    workflow: capabilityWorkflow,
+    runs,
+    lastRunResult: target,
+    compareRunResult: null,
+    selectedRunId: "run-a",
+    compareRunId: null,
+    runEvents: [],
+    runtimeThreadEvents: [
+      runtimeThreadEvent("model-receipt", 1, {
+        workflowNodeId: "model",
+        type: "model_route_decision",
+        eventKind: "model.route_decision",
+        receiptRefs: ["receipt:model-route"],
+        policyDecisionRefs: ["policy:model-route"],
+      }),
+      runtimeThreadEvent("tool-receipt", 2, {
+        workflowNodeId: "tool",
+        type: "tool_route_decision",
+        eventKind: "tool.route_decision",
+        receiptRefs: ["receipt:tool"],
+        policyDecisionRefs: ["policy:tool"],
+      }),
+      runtimeThreadEvent("connector-receipt", 3, {
+        workflowNodeId: "connector",
+        type: "tool_completed",
+        eventKind: "connector.completed",
+        receiptRefs: ["receipt:connector"],
+        policyDecisionRefs: ["policy:connector"],
+      }),
+    ],
+    searchQuery: "",
+    statusFilter: "all",
+  });
+
+  assert.equal(model.capabilityReceiptProjection.status, "ready");
+  assert.deepEqual(model.capabilityReceiptProjection.capabilityRefs, [
+    "model-capability:route.local-first",
+    "tool-capability:file.apply_patch",
+    "connector-capability:agent.connector.catalog",
+  ]);
+  assert.deepEqual(model.capabilityReceiptProjection.receiptRefs, [
+    "receipt:model-route",
+    "receipt:tool",
+    "receipt:connector",
+  ]);
+  assert.equal(model.capabilityReceiptProjection.failClosedCount, 0);
+  assert.equal(
+    model.capabilityReceiptProjection.rows.find((row) => row.nodeId === "tool")
+      ?.requiresApproval,
+    true,
+  );
+});
+
+test("workflow run history model marks unready live capability bindings fail closed", () => {
+  const capabilityWorkflow = {
+    ...workflow,
+    nodes: [
+      {
+        id: "tool",
+        type: "plugin_tool",
+        name: "Unready tool",
+        x: 0,
+        y: 0,
+        config: {
+          kind: "plugin_tool",
+          logic: {
+            toolBinding: {
+              toolRef: "external.crm.write",
+              toolCapabilityRef: "tool-capability:external.crm.write",
+              bindingKind: "plugin_tool",
+              mockBinding: false,
+              credentialReady: false,
+              credentialReadiness: { status: "unknown" },
+              grantReadiness: { status: "unknown" },
+              policyPosture: { status: "unknown" },
+              workflowAvailability: { available: false },
+              agentAvailability: { available: false },
+              receiptBehavior: {
+                receiptRequired: false,
+                requiredReceiptTypes: [],
+              },
+              authorityScopes: [],
+              authorityScopeRequirements: [],
+              capabilityScope: ["write"],
+              sideEffectClass: "external_write",
+              requiresApproval: true,
+            },
+          },
+          law: {},
+        },
+      },
+    ],
+  } as unknown as WorkflowProject;
+
+  const model = workflowRunHistoryModel({
+    workflow: capabilityWorkflow,
+    runs,
+    lastRunResult: runResult("run-a", "blocked", { answer: "blocked" }),
+    compareRunResult: null,
+    selectedRunId: "run-a",
+    compareRunId: null,
+    runEvents: [],
+    searchQuery: "",
+    statusFilter: "all",
+  });
+
+  const [row] = model.capabilityReceiptProjection.rows;
+  assert.equal(model.capabilityReceiptProjection.status, "blocked");
+  assert.equal(row?.status, "blocked");
+  assert.equal(row?.failClosed, true);
+  assert.deepEqual(row?.blockerReasons, [
+    "missing_credential_readiness",
+    "missing_grant_readiness",
+    "missing_policy_posture",
+    "missing_receipt_behavior",
+  ]);
+});
+
 test("workflow run history model exposes computer-use prompt pipelines", () => {
   const target = runResult("run-a", "passed", {
     answer: "browser prompt inspected",
