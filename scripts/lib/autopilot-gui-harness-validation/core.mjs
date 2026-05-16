@@ -20,6 +20,7 @@ import {
   collectWorkflowCodingRoutePromotionLoopProof,
   collectWorkflowComputerUseTriLaneScorecard,
   collectWorkflowNativeBrowserPromptPipelineProof,
+  collectWorkflowRunCapabilityReceiptsProof,
   collectWorkflowVisualGuiPromptPipelineProof,
   collectWorkflowSkillContextProof,
   collectWorkflowSandboxedComputerRunButtonProof,
@@ -35,6 +36,7 @@ export {
   collectWorkflowCodingRoutePromotionLoopProof,
   collectWorkflowComputerUseTriLaneScorecard,
   collectWorkflowNativeBrowserPromptPipelineProof,
+  collectWorkflowRunCapabilityReceiptsProof,
   collectWorkflowVisualGuiPromptPipelineProof,
   collectWorkflowSkillContextProof,
   collectWorkflowSandboxedComputerRunButtonProof,
@@ -6016,6 +6018,7 @@ export function buildGuiEvidenceAssessment({
   workflowTerminalCodingLoopRunInspectorProof,
   workflowTerminalCodingLoopRunButtonProof,
   workflowCapabilityCatalogBindingProof,
+  workflowRunCapabilityReceiptsProof,
   workflowSandboxedComputerRunButtonProof,
   workflowNativeBrowserPromptPipelineProof,
   workflowVisualGuiPromptPipelineProof,
@@ -7060,6 +7063,8 @@ export function buildGuiEvidenceAssessment({
     workflowTerminalCodingLoopRunButtonProof?.proof?.passed === true;
   const hasWorkflowCapabilityCatalogBindingProof =
     workflowCapabilityCatalogBindingProof?.proof?.passed === true;
+  const hasWorkflowRunCapabilityReceiptsProof =
+    workflowRunCapabilityReceiptsProof?.proof?.passed === true;
   const hasWorkflowSandboxedComputerRunButtonProof =
     workflowSandboxedComputerRunButtonProof?.proof?.passed === true;
   const hasWorkflowNativeBrowserPromptPipelineProof =
@@ -7270,6 +7275,8 @@ export function buildGuiEvidenceAssessment({
         hasWorkflowTerminalCodingLoopRunButtonProof,
       workflow_capability_catalog_binding_proof_present:
         hasWorkflowCapabilityCatalogBindingProof,
+      workflow_run_capability_receipts_proof_present:
+        hasWorkflowRunCapabilityReceiptsProof,
       workflow_sandboxed_computer_run_button_proof_present:
         hasWorkflowSandboxedComputerRunButtonProof,
       workflow_native_browser_prompt_pipeline_proof_present:
@@ -11176,6 +11183,8 @@ async function runGuiValidation(args, outputRoot) {
       collectWorkflowTerminalCodingLoopRunButtonProof(outputRoot);
     const workflowCapabilityCatalogBindingProof =
       collectWorkflowCapabilityCatalogBindingProof(outputRoot);
+    const workflowRunCapabilityReceiptsProof =
+      collectWorkflowRunCapabilityReceiptsProof(outputRoot);
     const workflowSandboxedComputerRunButtonProof =
       collectWorkflowSandboxedComputerRunButtonProof(outputRoot);
     const workflowNativeBrowserPromptPipelineProof =
@@ -11206,6 +11215,7 @@ async function runGuiValidation(args, outputRoot) {
       workflowTerminalCodingLoopRunInspectorProof,
       workflowTerminalCodingLoopRunButtonProof,
       workflowCapabilityCatalogBindingProof,
+      workflowRunCapabilityReceiptsProof,
       workflowSandboxedComputerRunButtonProof,
       workflowNativeBrowserPromptPipelineProof,
       workflowVisualGuiPromptPipelineProof,
@@ -11720,6 +11730,10 @@ async function runGuiValidation(args, outputRoot) {
           workflowCapabilityCatalogBindingProof.proof.passed === true
             ? workflowCapabilityCatalogBindingProof.path
             : false,
+        workflow_run_capability_receipts:
+          workflowRunCapabilityReceiptsProof.proof.passed === true
+            ? workflowRunCapabilityReceiptsProof.path
+            : false,
         workflow_sandboxed_computer_run_button:
           workflowSandboxedComputerRunButtonProof.proof.passed === true
             ? workflowSandboxedComputerRunButtonProof.path
@@ -11770,6 +11784,8 @@ async function runGuiValidation(args, outputRoot) {
           workflowTerminalCodingLoopRunButtonProof.proof,
         workflowCapabilityCatalogBinding:
           workflowCapabilityCatalogBindingProof.proof,
+        workflowRunCapabilityReceipts:
+          workflowRunCapabilityReceiptsProof.proof,
         workflowSandboxedComputerRunButton:
           workflowSandboxedComputerRunButtonProof.proof,
         workflowNativeBrowserPromptPipeline:

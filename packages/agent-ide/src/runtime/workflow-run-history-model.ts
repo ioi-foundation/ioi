@@ -43,6 +43,15 @@ import {
   workflowModelInvocationTraces,
   type WorkflowModelInvocationTraceView,
 } from "./workflow-model-invocation-trace";
+import {
+  workflowRunCapabilityReceiptProjection,
+  type WorkflowRunCapabilityReceiptProjection,
+} from "./workflow-run-capability-receipts";
+export type {
+  WorkflowRunCapabilityReceiptProjection,
+  WorkflowRunCapabilityReceiptRow,
+  WorkflowRunCapabilityReceiptRowStatus,
+} from "./workflow-run-capability-receipts";
 
 export type WorkflowRunHistoryRow = {
   run: WorkflowRunSummary;
@@ -219,6 +228,7 @@ export type WorkflowRunHistoryModel = {
   runtimeTelemetrySourceFilter: string;
   runtimeTelemetrySourceFilters: WorkflowRunTelemetrySourceFilter[];
   runtimeCodingToolBudgetEvidence: WorkflowRunCodingToolBudgetEvidence | null;
+  capabilityReceiptProjection: WorkflowRunCapabilityReceiptProjection;
   computerUseWorkbench: WorkflowRunComputerUseWorkbench | null;
   computerUseScorecard: WorkflowRunComputerUseScorecard | null;
   modelInvocationTraces: WorkflowModelInvocationTraceView[];
@@ -306,6 +316,11 @@ export function workflowRunHistoryModel({
     runtimeTelemetrySummary,
     tuiControlStateProjection.rows,
   );
+  const capabilityReceiptProjection = workflowRunCapabilityReceiptProjection(
+    workflow,
+    selectedRun,
+    runtimeEventProjection,
+  );
   const computerUseWorkbench =
     workflowRunComputerUseWorkbench(
       runtimeEventProjection,
@@ -379,6 +394,7 @@ export function workflowRunHistoryModel({
     runtimeTelemetrySourceFilter,
     runtimeTelemetrySourceFilters,
     runtimeCodingToolBudgetEvidence,
+    capabilityReceiptProjection,
     computerUseWorkbench,
     computerUseScorecard,
     modelInvocationTraces: selectedModelInvocationTraces,

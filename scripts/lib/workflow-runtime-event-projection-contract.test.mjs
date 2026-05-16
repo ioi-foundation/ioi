@@ -90,6 +90,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const terminalCodingLoopRunButtonProbe = read(
     "scripts/lib/workflow-terminal-coding-loop-run-button-gui-probe.mjs",
   );
+  const runCapabilityReceiptsProbe = read(
+    "scripts/lib/workflow-run-capability-receipts-gui-probe.mjs",
+  );
   const sandboxedComputerRunButtonProbe = read(
     "scripts/lib/workflow-sandboxed-computer-run-button-gui-probe.mjs",
   );
@@ -383,6 +386,12 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(runsPanel, /data-workflow-node-id/);
   assert.match(runsPanel, /data-tool-ref/);
   assert.match(runsPanel, /data-authority-scopes/);
+  assert.match(runsPanel, /workflow-run-capability-receipts/);
+  assert.match(runsPanel, /data-capability-ref/);
+  assert.match(runsPanel, /data-grant-status/);
+  assert.match(runsPanel, /data-policy-status/);
+  assert.match(runsPanel, /data-receipt-required/);
+  assert.match(runsPanel, /data-fail-closed/);
   assert.match(railPanel, /onMaterializeRuntimeTelemetryBudgetChain/);
   assert.match(composerView, /handleMaterializeRuntimeTelemetryBudgetChain/);
   assert.match(
@@ -657,6 +666,30 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
     /approvalDecisionEvidence/,
   );
   assert.match(
+    runCapabilityReceiptsProbe,
+    /workflow_run_capability_receipts_projection/,
+  );
+  assert.match(runCapabilityReceiptsProbe, /renderToStaticMarkup/);
+  assert.match(runCapabilityReceiptsProbe, /workflowRunHistoryModel/);
+  assert.match(
+    runCapabilityReceiptsProbe,
+    /workflow-run-capability-receipts/,
+  );
+  assert.match(
+    runCapabilityReceiptsProbe,
+    /model-capability:route\.local-first/,
+  );
+  assert.match(
+    runCapabilityReceiptsProbe,
+    /tool-capability:file\.apply_patch/,
+  );
+  assert.match(
+    runCapabilityReceiptsProbe,
+    /connector-capability:agent\.connector\.catalog/,
+  );
+  assert.match(runCapabilityReceiptsProbe, /missing_credential_readiness/);
+  assert.match(runCapabilityReceiptsProbe, /missing_receipt_behavior/);
+  assert.match(
     sandboxedComputerRunButtonProbe,
     /workflow_sandboxed_computer_run_button_activation/,
   );
@@ -807,6 +840,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(
     guiHarnessContract,
+    /workflow_run_capability_receipts/,
+  );
+  assert.match(
+    guiHarnessContract,
     /workflow_sandboxed_computer_run_button/,
   );
   assert.match(
@@ -836,6 +873,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(
     guiHarnessContract,
     /workflow_capability_catalog_binding_proof_present/,
+  );
+  assert.match(
+    guiHarnessContract,
+    /workflow_run_capability_receipts_proof_present/,
   );
   assert.match(
     guiHarnessContract,
@@ -876,6 +917,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(
     guiHarnessValidation,
     /collectWorkflowCapabilityCatalogBindingProof/,
+  );
+  assert.match(
+    guiHarnessValidation,
+    /collectWorkflowRunCapabilityReceiptsProof/,
   );
   assert.match(
     guiHarnessValidation,
@@ -951,6 +996,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(
     guiHarnessValidation,
+    /workflow_run_capability_receipts/,
+  );
+  assert.match(
+    guiHarnessValidation,
     /workflow_sandboxed_computer_run_button/,
   );
   assert.match(
@@ -988,6 +1037,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(
     guiHarnessValidation,
     /workflow_capability_catalog_binding_proof_present/,
+  );
+  assert.match(
+    guiHarnessValidation,
+    /workflow_run_capability_receipts_proof_present/,
   );
   assert.match(
     guiHarnessValidation,

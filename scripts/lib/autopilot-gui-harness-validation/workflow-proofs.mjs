@@ -158,6 +158,17 @@ export function collectWorkflowCapabilityCatalogBindingProof(outputRoot) {
   });
 }
 
+export function collectWorkflowRunCapabilityReceiptsProof(outputRoot) {
+  return collectProbeProof(outputRoot, {
+    fileName: "workflow-run-capability-receipts-proof.json",
+    scriptPath:
+      "scripts/lib/workflow-run-capability-receipts-gui-probe.mjs",
+    schemaVersion: "workflow.run-capability-receipts.gui-proof.v1",
+    scenario: "workflow_run_capability_receipts_projection",
+    errorLabel: "workflow run capability receipts probe",
+  });
+}
+
 export function collectWorkflowSandboxedComputerRunButtonProof(outputRoot) {
   return collectProbeProof(outputRoot, {
     fileName: "workflow-sandboxed-computer-run-button-proof.json",

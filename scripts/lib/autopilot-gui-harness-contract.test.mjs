@@ -438,6 +438,11 @@ test("runtime consistency contract requires harness shadow proof", () => {
   );
   assert.ok(
     contract.requiredArtifacts.includes(
+      "workflow_run_capability_receipts",
+    ),
+  );
+  assert.ok(
+    contract.requiredArtifacts.includes(
       "workflow_computer_use_tri_lane_scorecard",
     ),
   );
@@ -776,6 +781,11 @@ test("runtime consistency contract requires harness shadow proof", () => {
   assert.ok(
     contract.runtimeConsistencyRequirements.includes(
       "workflow_capability_catalog_binding_proof_present",
+    ),
+  );
+  assert.ok(
+    contract.runtimeConsistencyRequirements.includes(
+      "workflow_run_capability_receipts_proof_present",
     ),
   );
 });
