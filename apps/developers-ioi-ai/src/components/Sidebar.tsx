@@ -1,8 +1,8 @@
 import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import type { DocPage, DocSectionMeta } from '../content/docs';
+import type { DocPage, NavGroup } from '../content/docs';
 
-interface SidebarSection extends DocSectionMeta {
+interface SidebarNavGroup extends NavGroup {
   pages: DocPage[];
 }
 
@@ -11,23 +11,23 @@ interface SidebarProps {
   isDark: boolean;
   isOpen: boolean;
   onNavigate: (pageId: string) => void;
+  navGroups: SidebarNavGroup[];
   searchQuery: string;
-  sections: SidebarSection[];
 }
 
 export default function Sidebar({
   activePageId,
   isDark,
   isOpen,
+  navGroups,
   onNavigate,
   searchQuery,
-  sections,
 }: SidebarProps) {
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
   const visibleSections = useMemo(
-    () => sections.filter((section) => section.pages.length > 0),
-    [sections],
+    () => navGroups.filter((section) => section.pages.length > 0),
+    [navGroups],
   );
 
   return (
@@ -120,6 +120,15 @@ export default function Sidebar({
                             >
                               {page.title}
                             </div>
+                            {page.status !== 'Current' ? (
+                              <div
+                                className={`mt-1 text-[12px] leading-5 ${
+                                  isDark ? 'text-stone-500' : 'text-stone-500'
+                                }`}
+                              >
+                                {page.status}
+                              </div>
+                            ) : null}
                           </div>
                         </button>
                       );
@@ -141,7 +150,7 @@ export default function Sidebar({
               : 'border-stone-200 bg-white/70 text-stone-700 hover:border-stone-300 hover:text-stone-900'
           }`}
         >
-          <span>Need canonical protocol docs?</span>
+          <span>Canonical docs</span>
           <ExternalLink className="h-3.5 w-3.5" />
         </a>
       </div>

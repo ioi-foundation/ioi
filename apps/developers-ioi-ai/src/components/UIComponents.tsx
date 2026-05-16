@@ -39,8 +39,17 @@ export function Callout({
   );
 }
 
-export function CodeBlock({ code, isDark }: { code: string; isDark: boolean }) {
+export function CodeBlock({
+  code,
+  isDark,
+  label: explicitLabel,
+}: {
+  code: string;
+  isDark: boolean;
+  label?: string;
+}) {
   const [copied, setCopied] = useState(false);
+  const label = explicitLabel ?? (looksLikeCode(code) ? 'Code' : 'Command');
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(code);
@@ -53,7 +62,7 @@ export function CodeBlock({ code, isDark }: { code: string; isDark: boolean }) {
       <div className={`flex items-center justify-between border-b px-4 py-3 ${isDark ? 'border-stone-800 bg-stone-950/95' : 'border-stone-800/70 bg-stone-950/95'}`}>
         <div className="flex items-center gap-2 text-[15px] leading-6 tracking-[-0.01em] text-stone-500">
           <FileCode2 className="h-3.5 w-3.5" />
-          Command
+          {label}
         </div>
         <button
           onClick={handleCopy}
@@ -67,6 +76,18 @@ export function CodeBlock({ code, isDark }: { code: string; isDark: boolean }) {
         <code>{code}</code>
       </pre>
     </div>
+  );
+}
+
+function looksLikeCode(code: string): boolean {
+  const trimmed = code.trim();
+  return (
+    trimmed.startsWith('import ') ||
+    trimmed.startsWith('const ') ||
+    trimmed.startsWith('let ') ||
+    trimmed.startsWith('export function') ||
+    trimmed.includes('await ') ||
+    trimmed.includes('=>')
   );
 }
 
@@ -109,6 +130,37 @@ export function Table({
         </table>
       </div>
     </div>
+  );
+}
+
+export function ScreenshotFigure({
+  alt,
+  caption,
+  isDark,
+  src,
+}: {
+  alt: string;
+  caption: string;
+  isDark: boolean;
+  src: string;
+}) {
+  return (
+    <figure
+      className={`overflow-hidden rounded-3xl border ${
+        isDark ? 'border-stone-800 bg-stone-950/70' : 'border-stone-200 bg-white'
+      }`}
+    >
+      <img src={src} alt={alt} className="block w-full" loading="lazy" />
+      <figcaption
+        className={`border-t px-4 py-3 text-xs leading-6 ${
+          isDark
+            ? 'border-stone-800 text-stone-400'
+            : 'border-stone-100 text-stone-600'
+        }`}
+      >
+        {caption}
+      </figcaption>
+    </figure>
   );
 }
 

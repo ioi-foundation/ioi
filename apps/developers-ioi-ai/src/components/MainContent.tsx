@@ -1,7 +1,13 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { Check, Copy, ExternalLink } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { DocLink, DocPage } from '../content/docs';
+import {
+  docPageByLegacyHash,
+  docPageByRoutePath,
+  statusDescription,
+  type DocLink,
+  type DocPage,
+} from '../content/docs';
 import {
   Callout,
   RightSidebar,
@@ -49,8 +55,9 @@ export default function MainContent({ isDark, onNavigate, page }: MainContentPro
       return (
         <Callout isDark={isDark} tone="preview" title="Preview surface">
           <p>
-            This page reflects the current direction and repo-backed shape of the surface, but the
-            exact UX and contracts may still move as the platform evolves.
+            This page keeps a future or partial shape visible, but it is framed by what exists
+            today. Do not read preview/static/prototype material as a live production marketplace
+            or final API contract.
           </p>
         </Callout>
       );
@@ -106,12 +113,24 @@ export default function MainContent({ isDark, onNavigate, page }: MainContentPro
                 >
                   {page.title}
                 </h1>
+                <div className="flex flex-wrap gap-2">
+                  <StatusPill isDark={isDark} label={page.status === 'Current' ? 'Ready now' : page.status} />
+                  <StatusPill isDark={isDark} label={page.routePath === '/' ? 'Home' : page.routePath} />
+                  <StatusPill isDark={isDark} label={`Verified ${page.lastVerified}`} />
+                </div>
                 <p
                   className={`max-w-3xl text-lg leading-8 ${
                     isDark ? 'text-stone-300/86' : 'text-stone-700'
                   }`}
                 >
                   {page.summary}
+                </p>
+                <p
+                  className={`max-w-3xl text-[13px] leading-6 ${
+                    isDark ? 'text-stone-500' : 'text-stone-500'
+                  }`}
+                >
+                  {statusDescription(page)}
                 </p>
               </div>
 
@@ -151,11 +170,53 @@ export default function MainContent({ isDark, onNavigate, page }: MainContentPro
                       isDark ? 'text-stone-500' : 'text-stone-500'
                     }`}
                   >
+                    Deeper Reference
+                  </div>
+                  <div className="space-y-3">
+                    {page.canonicalLinks.map((link) => renderDocAction(link, isDark, onNavigate))}
+                  </div>
+                </section>
+
+                <section
+                  className={`space-y-5 border-t pt-8 ${
+                    isDark ? 'border-stone-900/80' : 'border-stone-200'
+                  }`}
+                >
+                  <div
+                    className={`text-[15px] font-medium leading-6 tracking-[-0.01em] ${
+                      isDark ? 'text-stone-500' : 'text-stone-500'
+                    }`}
+                  >
                     Next
                   </div>
                   <div className="space-y-3">
                     {page.nextSteps.map((link) => renderDocAction(link, isDark, onNavigate))}
                   </div>
+                </section>
+
+                <section
+                  className={`space-y-3 border-t pt-8 ${
+                    isDark ? 'border-stone-900/80' : 'border-stone-200'
+                  }`}
+                >
+                  <div
+                    className={`text-[15px] font-medium leading-6 tracking-[-0.01em] ${
+                      isDark ? 'text-stone-500' : 'text-stone-500'
+                    }`}
+                  >
+                    Sources Used
+                  </div>
+                  <ul
+                    className={`grid gap-2 text-xs leading-5 ${
+                      isDark ? 'text-stone-500' : 'text-stone-500'
+                    }`}
+                  >
+                    {page.sources.map((source) => (
+                      <li key={source} className="break-words">
+                        {source}
+                      </li>
+                    ))}
+                  </ul>
                 </section>
               </div>
             </div>
@@ -188,6 +249,26 @@ export default function MainContent({ isDark, onNavigate, page }: MainContentPro
   );
 }
 
+function StatusPill({
+  isDark,
+  label,
+}: {
+  isDark: boolean;
+  label: string;
+}) {
+  return (
+    <span
+      className={`rounded-full border px-3 py-1 text-[12px] font-medium leading-5 ${
+        isDark
+          ? 'border-stone-800 bg-stone-950/75 text-stone-300'
+          : 'border-stone-200 bg-white/75 text-stone-700'
+      }`}
+    >
+      {label}
+    </span>
+  );
+}
+
 function renderDocAction(
   link: DocLink,
   isDark: boolean,
@@ -214,8 +295,26 @@ function renderDocAction(
   );
 
   if (!link.external && link.href.startsWith('#')) {
+    const target = docPageByLegacyHash(link.href);
     return (
-      <button key={link.label} onClick={() => onNavigate(link.href.replace(/^#/, ''))} className={sharedClass}>
+      <button
+        key={link.label}
+        onClick={() => target && onNavigate(target.id)}
+        className={sharedClass}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  if (!link.external && link.href.startsWith('/')) {
+    const target = docPageByRoutePath(link.href);
+    return (
+      <button
+        key={link.label}
+        onClick={() => target && onNavigate(target.id)}
+        className={sharedClass}
+      >
         {content}
       </button>
     );

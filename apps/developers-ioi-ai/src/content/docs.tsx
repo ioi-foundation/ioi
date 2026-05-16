@@ -1,13 +1,31 @@
 import type { ReactNode } from 'react';
-import { Callout, CodeBlock, StepList, Table } from '../components/UIComponents';
+import {
+  Callout,
+  CodeBlock,
+  ScreenshotFigure,
+  StepList,
+  Table,
+} from '../components/UIComponents';
 
 export type DocStatus = 'Current' | 'Preview' | 'Concept';
-export type DocSectionId = 'overview' | 'get-started' | 'build' | 'ship' | 'reference';
+export type DocMaturity = 'repo_current' | 'local_current' | 'preview' | 'concept';
+export type SourceFreshness = 'current_repo' | 'architecture' | 'product_preview';
+export type PrimaryAudience =
+  | 'new_builder'
+  | 'sdk_builder'
+  | 'operator'
+  | 'product_builder'
+  | 'marketplace_builder';
+export type DocSectionId = 'get-started' | 'build' | 'run' | 'ship';
 
 export interface DocSectionMeta {
   id: DocSectionId;
   label: string;
   description: string;
+}
+
+export interface NavGroup extends DocSectionMeta {
+  pageIds: string[];
 }
 
 export interface DocLink {
@@ -30,6 +48,13 @@ export interface DocPage {
   summary: string;
   section: DocSectionId;
   status: DocStatus;
+  maturity: DocMaturity;
+  repoBacked: boolean;
+  runnableToday: boolean;
+  sourceFreshness: SourceFreshness;
+  primaryAudience: PrimaryAudience;
+  routePath: string;
+  legacyHashes: string[];
   lastVerified: string;
   keywords: string[];
   sources: string[];
@@ -37,6 +62,8 @@ export interface DocPage {
   nextSteps: DocLink[];
   sections: DocPageSection[];
 }
+
+const LAST_VERIFIED = '2026-05-16';
 
 const bodyClass = (isDark: boolean) =>
   isDark ? 'space-y-4 text-[15px] leading-7 text-stone-300/88' : 'space-y-4 text-[15px] leading-7 text-stone-700';
@@ -51,270 +78,414 @@ const linkClass = (isDark: boolean) =>
     ? 'text-[#93bef8] underline decoration-[#5a8cec]/45 underline-offset-4 hover:text-[#c8dcfd]'
     : 'text-[#2740a8] underline decoration-[#3b5eda]/35 underline-offset-4 hover:text-[#1c2d78]';
 
-export const DOC_SECTIONS: DocSectionMeta[] = [
-  {
-    id: 'overview',
-    label: 'Overview',
-    description: 'Mental models, boundaries, and the product surface map.',
-  },
+const code = String.raw;
+
+const canonicalDocsLink: DocLink = {
+  label: 'Canonical architecture and protocol docs',
+  href: 'https://docs.ioi.network',
+  description: 'Use docs.ioi.network for durable protocol, kernel, runtime, and operator depth.',
+  external: true,
+};
+
+export const NAV_GROUPS: NavGroup[] = [
   {
     id: 'get-started',
     label: 'Get Started',
-    description: 'The fastest trustworthy paths to running something real.',
+    description: 'Choose a path, run a truthful quickstart, and understand the public API surface.',
+    pageIds: ['start-here', 'quickstart', 'api-reference', 'local-setup'],
   },
   {
     id: 'build',
     label: 'Build',
-    description: 'Builder surfaces for CLI, Chat, SDKs, and governed execution.',
+    description: 'Use SDKs, examples, tutorials, and CLI families with the local runtime as the default path.',
+    pageIds: ['sdks-and-libraries', 'examples-and-templates', 'tutorials', 'ioi-cli'],
+  },
+  {
+    id: 'run',
+    label: 'Run',
+    description: 'Operate Autopilot, daemon-backed runtime APIs, model mounts, MCP tools, and benchmarks.',
+    pageIds: ['autopilot', 'runtime-daemon', 'model-mounting', 'mcp-tools', 'benchmarks'],
   },
   {
     id: 'ship',
     label: 'Ship',
-    description: 'How stable local work becomes a service, listing, or sovereign domain.',
-  },
-  {
-    id: 'reference',
-    label: 'Reference',
-    description: 'Current command families and durable quick-reference material.',
+    description: 'Package worker services and understand the preview marketplace and sovereign-domain paths.',
+    pageIds: [
+      'service-candidate',
+      'sas-xyz',
+      'aiagent-xyz',
+      'sovereign-domain-flows',
+      'worker-training-mow',
+    ],
   },
 ];
 
-export const DEFAULT_PAGE_ID = 'choose-the-right-surface';
+export const DOC_SECTIONS: DocSectionMeta[] = NAV_GROUPS.map(({ pageIds: _pageIds, ...section }) => section);
+
+export const DEFAULT_PAGE_ID = 'start-here';
 
 export const DOC_PAGES: DocPage[] = [
   {
-    id: 'choose-the-right-surface',
-    title: 'Choose the Right Surface',
-    eyebrow: 'Orientation',
+    id: 'start-here',
+    title: 'Start Here',
+    eyebrow: 'Builder front door',
     summary:
-      'Use this page to decide whether you should start in Autopilot, IOI CLI, @ioi/agent-sdk, sas.xyz, aiagent.xyz, or the canonical docs layer.',
-    section: 'overview',
+      'developers.ioi.ai is the product-facing builder guide: start fast, build against current APIs, run local workers, and route deeper protocol questions to canonical docs.',
+    section: 'get-started',
     status: 'Current',
-    lastVerified: '2026-03-31',
-    keywords: ['surface map', 'developers', 'docs', 'autopilot', 'cli', 'swarm', 'sas', 'aiagent', 'ioi'],
+    maturity: 'repo_current',
+    repoBacked: true,
+    runnableToday: true,
+    sourceFreshness: 'current_repo',
+    primaryAudience: 'new_builder',
+    routePath: '/',
+    legacyHashes: ['choose-the-right-surface', 'introduction-to-ioi', 'overview'],
+    lastVerified: LAST_VERIFIED,
+    keywords: ['start', 'overview', 'builder jobs', 'canonical docs', 'current preview concept'],
     sources: [
-      'apps/developers-ioi-ai/README.md',
-      'docs/architecture/components/daemon-runtime/doctrine.md',
-      'docs/architecture/components/daemon-runtime/doctrine.md',
-      'docs/architecture/domains/sas/service-marketplace.md',
-      'docs/architecture/domains/aiagent/worker-marketplace.md',
+      'internal-docs/plans/developers-ioi-ai-ship-shape-master-guide.md',
+      'README.md',
+      'docs/architecture/foundations/web4-and-ioi-stack.md',
     ],
-    canonicalLinks: [
-      {
-        label: 'Need protocol and canonical reference docs?',
-        href: 'https://docs.ioi.network',
-        external: true,
-      },
-    ],
+    canonicalLinks: [canonicalDocsLink],
     nextSteps: [
-      { label: 'Introduction to IOI', href: '#introduction-to-ioi' },
-      { label: 'Local Setup', href: '#local-setup' },
-      { label: 'IOI CLI Overview', href: '#ioi-cli-overview' },
+      { label: 'Run the Quickstart', href: '#quickstart', description: 'Connect the SDK to the local daemon first.' },
+      { label: 'Browse API Reference', href: '#api-reference', description: 'Product-facing route families and SDK entrypoints.' },
+      { label: 'Run Autopilot', href: '#autopilot', description: 'See what exists today in the local desktop surface.' },
     ],
     sections: [
       {
-        id: 'surface-map',
-        title: 'Surface Map',
+        id: 'builder-jobs',
+        title: 'Builder Jobs',
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
             <p>
-              The cleanest split in the current IOI ecosystem is altitude.{' '}
-              <code>developers.ioi.ai</code> is the curated builder front door.{' '}
-              <code>docs.ioi.network</code> is the canonical technical reference. The rest of the
-              surfaces fit beneath that developer journey based on the job you are trying to do.
+              This app is intentionally not the canonical protocol manual. It is the builder path:
+              what to run, what to import, what is stable enough to build against, and where to go
+              when a detail becomes protocol or operator depth.
             </p>
             <Table
               isDark={isDark}
-              headers={['Surface', 'Best for', 'Use it when']}
+              headers={['Job', 'Use developers.ioi.ai for', 'Canonical handoff']}
               rows={[
-                ['developers.ioi.ai', 'Curated DX', 'You need onboarding, quickstarts, workflow guidance, and product-oriented docs.'],
-                ['docs.ioi.network', 'Canonical reference', 'You need low-level specs, internals, operator docs, or formal protocol material.'],
-                ['Autopilot', 'Private/local runtime', 'You want to run workers locally, supervise execution, work with Spotlight or Chat, and stay inside your trust boundary.'],
-                ['IOI CLI', 'Kernel-adjacent toolchain', 'You want to scaffold projects, run local nodes, inspect artifacts, query state, and work close to the repo and runtime.'],
-                ['@ioi/agent-sdk', 'Developer SDK', 'You want to build agents against the daemon-backed runtime substrate with policy, receipts, traces, and replay preserved.'],
-                ['sas.xyz', 'Provider path', 'You want to package and productize repeatable worker delivery as a service.'],
-                ['aiagent.xyz', 'Discovery and procurement', 'You want to distribute, compare, buy, install, or procure worker services.'],
+                ['Get Started', 'Quickstart, API map, local setup, and route selection.', 'Link out when the question becomes protocol semantics.'],
+                ['Build', 'SDK usage, examples, tutorials, and CLI families.', 'Link out for formal object/envelope definitions.'],
+                ['Run', 'Autopilot, runtime daemon, model mounting, MCP, memory, traces, and benchmarks.', 'Link out for kernel/runtime internals.'],
+                ['Ship', 'Service candidate packaging, sas.xyz, aiagent.xyz, sovereign-domain, and worker-training/MoW previews.', 'Link out for marketplace, domain, and governance architecture.'],
               ]}
             />
           </div>
         ),
       },
       {
-        id: 'separation-of-concerns',
-        title: 'Separation of Concerns',
+        id: 'maturity-language',
+        title: "Know What's Real",
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
-            <Callout isDark={isDark} tone="current" title="Front door vs source of truth">
-              <p>
-                <code>developers.ioi.ai</code> should summarize, teach, and route. It should not
-                fork canonical protocol truth. When a topic becomes low-level or durable, link
-                into <code>docs.ioi.network</code> rather than reproducing it here.
-              </p>
-            </Callout>
-            <ul className={listClass(isDark)}>
-              <li>
-                Start with <code>developers.ioi.ai</code> for quickstarts, APIs, SDKs, tutorials,
-                and surface selection.
-              </li>
-              <li>
-                Go to <code>docs.ioi.network</code> for protocol, consensus, kernel/runtime,
-                receipts, and operator reference.
-              </li>
-              <li>
-                Treat preview product docs as orientation, not as the final source of public API
-                contract truth.
-              </li>
-            </ul>
+            <p>
+              Future shapes stay visible because builders need the road signs. The labels keep a
+              static preview, local proof, or concept from reading like a live production
+              marketplace.
+            </p>
+            <Table
+              isDark={isDark}
+              headers={['Label', 'Meaning', 'Public-doc rule']}
+              rows={[
+                ['Current', 'Repo-backed implementation or local flow that can be used or inspected today.', 'Give runnable commands and current API names.'],
+                ['Preview', 'Product direction with partial implementation, static preview, or local proof evidence.', 'Start with "What Exists Today" and state the missing production parts.'],
+                ['Concept', 'Architecture or future-shape guidance that is not a live product surface.', 'Use mental-model language and hand off to canonical docs for depth.'],
+              ]}
+            />
           </div>
         ),
       },
       {
-        id: 'practical-starting-points',
-        title: 'Practical Starting Points',
+        id: 'canonical-handoff',
+        title: 'When To Use Canonical Docs',
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
-            <p>Use the following shortcuts if you do not want the full ecosystem story first.</p>
-            <ul className={listClass(isDark)}>
-              <li>
-                Want to generate or inspect artifacts? Start with{' '}
-                <a className={linkClass(isDark)} href="#build-your-first-chat-artifact">
-                  Build Your First Chat Artifact
-                </a>
-                .
-              </li>
-              <li>
-                Want to understand the command line surface? Start with{' '}
-                <a className={linkClass(isDark)} href="#ioi-cli-overview">
-                  IOI CLI Overview
-                </a>
-                .
-              </li>
-              <li>
-                Want to operate workers locally? Start with{' '}
-                <a className={linkClass(isDark)} href="#run-autopilot-locally">
-                  Run Autopilot Locally
-                </a>
-                .
-              </li>
-              <li>
-                Want SDK-first agent development? Start with{' '}
-                <a className={linkClass(isDark)} href="#build-your-first-agent-with-ioi-agent-sdk">
-                  Build Your First Agent with @ioi/agent-sdk
-                </a>
-                .
-              </li>
-            </ul>
+            <Callout isDark={isDark} tone="current" title="Small utility link, not a primary nav column">
+              <p>
+                Protocol docs, kernel/runtime internals, and node/operator reference belong in the
+                markdown-backed canonical docs rendered by <code>docs.ioi.network</code>. This app
+                links there instead of carrying primary navigation for unfinished canonical columns.
+              </p>
+            </Callout>
+            <p>
+              Keep this boundary crisp: developers.ioi.ai teaches product-facing builder jobs;
+              docs.ioi.network owns durable protocol truth.
+            </p>
           </div>
         ),
       },
     ],
   },
   {
-    id: 'introduction-to-ioi',
-    title: 'Introduction to IOI',
-    eyebrow: 'Mental model',
+    id: 'quickstart',
+    title: 'Quickstart',
+    eyebrow: 'Get Started',
     summary:
-      'IOI is a local-first, proof-oriented stack for running bounded autonomous software with explicit authority, policy gates, and receipt-bearing effects.',
-    section: 'overview',
-    status: 'Concept',
-    lastVerified: '2026-03-31',
-    keywords: ['introduction', 'bounded agency', 'ioi', 'overview', 'mental model'],
-    sources: ['README.md', 'docs/specs/verifiable_bounded_agency.md'],
-    canonicalLinks: [
-      {
-        label: 'Deep protocol and architecture reference',
-        href: 'https://docs.ioi.network',
-        external: true,
-      },
+      'Connect the SDK to the daemon-backed local runtime through IOI_DAEMON_ENDPOINT. Use the offline fixture only when you are writing tests or examples without a daemon.',
+    section: 'get-started',
+    status: 'Current',
+    maturity: 'repo_current',
+    repoBacked: true,
+    runnableToday: true,
+    sourceFreshness: 'current_repo',
+    primaryAudience: 'new_builder',
+    routePath: '/quickstart',
+    legacyHashes: ['local-setup', 'build-your-first-agent-with-ioi-agent-sdk', 'quickstart-local'],
+    lastVerified: LAST_VERIFIED,
+    keywords: ['quickstart', 'test fixture', 'daemon', 'IOI_DAEMON_ENDPOINT', 'SDK', 'runtime'],
+    sources: [
+      'packages/agent-sdk/src/substrate-client.ts',
+      'packages/agent-sdk/examples/quickstart-local.ts',
+      'packages/runtime-daemon/src/index.mjs',
     ],
+    canonicalLinks: [canonicalDocsLink],
     nextSteps: [
-      { label: 'Choose the Right Surface', href: '#choose-the-right-surface' },
-      { label: 'Policies, Approvals, and Receipts', href: '#policies-approvals-and-receipts' },
-      { label: 'Run Autopilot Locally', href: '#run-autopilot-locally' },
+      { label: 'SDKs & Libraries', href: '#sdks-and-libraries', description: 'Understand the SDK boundary and fail-closed defaults.' },
+      { label: 'Runtime Daemon', href: '#runtime-daemon', description: 'Inspect the product-facing daemon route families.' },
+      { label: 'API Reference', href: '#api-reference', description: 'Map SDK calls to daemon APIs.' },
     ],
     sections: [
       {
-        id: 'core-thesis',
-        title: 'Core Thesis',
+        id: 'connect-local-runtime',
+        title: 'Connect To The Local Runtime',
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
-            <Callout isDark={isDark} tone="concept" title="This page is for orientation">
-              <p>
-                Use this page to get the developer mental model. For protocol claims, formal
-                semantics, and lower-level internals, jump to <code>docs.ioi.network</code>.
-              </p>
-            </Callout>
             <p>
-              IOI starts from a simple claim: models can be probabilistic, but authority cannot be.
-              The runtime may plan, synthesize, and explore. Real-world effects must still cross
-              explicit policy, capability, approval, and evidence boundaries before they execute.
+              This is the path most builders should take. It uses the same daemon-backed substrate
+              that Autopilot, probes, and product-facing runtime APIs use locally.
             </p>
-            <ul className={listClass(isDark)}>
-              <li>Workers should not inherit ambient authority.</li>
-              <li>Risk should be reduced by architecture, not just prompt advice.</li>
-              <li>Important effects should be receipted, inspectable, and challengeable.</li>
-              <li>
-                Builders should be able to work locally first, then move toward service or sovereign
-                network surfaces as needed.
-              </li>
-            </ul>
-          </div>
-        ),
-      },
-      {
-        id: 'repo-today',
-        title: 'What Exists In The Repo Today',
-        render: (isDark) => (
-          <div className={bodyClass(isDark)}>
             <p>
-              This monorepo already contains multiple real builder surfaces. They are not all at
-              the same maturity, but they are enough to support a serious first-pass docs site now.
-            </p>
-            <ul className={listClass(isDark)}>
-              <li>
-                <strong>IOI CLI:</strong> a kernel-adjacent toolchain for project scaffolding,
-                local nodes, artifact workflows, query, trace, verify, policy, and dev tooling.
-              </li>
-              <li>
-                <strong>Autopilot:</strong> a Tauri-based private/local runtime with Spotlight,
-                Chat, gates, receipts, and a growing operator shell.
-              </li>
-              <li>
-                <strong>Chat artifact pipeline:</strong> shared planning, generation,
-                validation, and materialization helpers in the API and CLI layers.
-              </li>
-              <li>
-                <strong>@ioi/agent-sdk:</strong> the developer SDK over the shared runtime
-                substrate for daemon-backed agent construction with policy, receipts, traces, and
-                replay in view.
-              </li>
-              <li>
-                <strong>Provider/discovery surfaces:</strong> <code>sas.xyz</code> and{' '}
-                <code>aiagent.xyz</code> are documented enough to explain their role, even where
-                UX and contracts are still evolving.
-              </li>
-            </ul>
-          </div>
-        ),
-      },
-      {
-        id: 'developer-rule-of-thumb',
-        title: 'Developer Rule Of Thumb',
-        render: (isDark) => (
-          <div className={bodyClass(isDark)}>
-            <p>
-              The most useful shorthand for this docs surface is:
+              Start the daemon in one terminal, then copy the printed
+              <code> IOI_DAEMON_ENDPOINT</code> into the terminal where you run SDK code.
             </p>
             <CodeBlock
               isDark={isDark}
-              code={`developers.ioi.ai = how to build with IOI
-docs.ioi.network = how IOI works`}
+              label="Command"
+              code={code`node --input-type=module <<'EOF'
+import { startRuntimeDaemonService } from "./packages/runtime-daemon/src/index.mjs";
+
+const service = await startRuntimeDaemonService({
+  cwd: process.cwd(),
+  port: 8787,
+});
+
+console.log("IOI_DAEMON_ENDPOINT=" + service.endpoint);
+console.log("Leave this process running while you use the SDK.");
+
+process.on("SIGINT", async () => {
+  await service.close();
+  process.exit(0);
+});
+EOF`}
             />
+            <CodeBlock
+              isDark={isDark}
+              label="Code"
+              code={code`import { Agent, createRuntimeSubstrateClient } from "@ioi/agent-sdk";
+
+const substrateClient = createRuntimeSubstrateClient();
+
+const agent = await Agent.create({
+  model: { id: "local:auto" },
+  local: { cwd: process.cwd() },
+  substrateClient,
+});
+
+const run = await agent.send("Inspect the current workspace state");
+await run.wait();`}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'what-to-use-when',
+        title: 'What To Use When',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <Table
+              isDark={isDark}
+              headers={['You want to', 'Start here', 'Why']}
+              rows={[
+                ['Build against the real local runtime', 'Daemon-backed SDK quickstart', 'Uses IOI_DAEMON_ENDPOINT and fails closed when runtime config is missing.'],
+                ['Use the product GUI', 'Autopilot desktop', 'Local workbench over chat, artifacts, workflow canvas, model mounts, MCP, and governed execution.'],
+                ['Write tests without booting a daemon', 'Offline SDK fixture', 'Fast deterministic fixture for tests and examples; not the canonical live runtime.'],
+              ]}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'fail-closed-default',
+        title: 'Fail-Closed Default',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <Callout isDark={isDark} tone="current" title="SDK truthfulness rule">
+              <p>
+                If <code>IOI_DAEMON_ENDPOINT</code> is absent, the default SDK client raises a
+                configuration error. Tests and examples must opt into the explicit testing fixture
+                instead of implying that fixture behavior is the live runtime.
+              </p>
+            </Callout>
+          </div>
+        ),
+      },
+      {
+        id: 'offline-sdk-fixture',
+        title: 'Offline SDK Fixture For Tests',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <Callout isDark={isDark} tone="preview" title="Testing-only fixture">
+              <p>
+                This path intentionally uses <code>createMockRuntimeSubstrateClient</code> from
+                <code> @ioi/agent-sdk/testing</code>. It is for examples and tests that cannot
+                start a daemon. It is not the canonical live runtime substrate.
+              </p>
+            </Callout>
+            <CodeBlock
+              isDark={isDark}
+              code={code`import { Agent } from "@ioi/agent-sdk";
+import { createMockRuntimeSubstrateClient } from "@ioi/agent-sdk/testing";
+
+const agent = await Agent.create({
+  model: { id: "local:auto" },
+  local: { cwd: process.cwd() },
+  substrateClient: createMockRuntimeSubstrateClient({
+    cwd: process.cwd(),
+  }),
+});
+
+const run = await agent.send("Summarize this repository");
+for await (const event of run.stream()) {
+  console.log(event.type, event.summary);
+}`}
+            />
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'api-reference',
+    title: 'API Reference',
+    eyebrow: 'Product-facing APIs',
+    summary:
+      'A builder-level map of daemon APIs, SDK entrypoints, model mounting, OpenAI-compatible local endpoints, MCP/tools, memory, events, traces, and CLI families.',
+    section: 'get-started',
+    status: 'Current',
+    maturity: 'repo_current',
+    repoBacked: true,
+    runnableToday: true,
+    sourceFreshness: 'current_repo',
+    primaryAudience: 'sdk_builder',
+    routePath: '/api',
+    legacyHashes: ['api', 'reference', 'api-reference', 'runtime-api'],
+    lastVerified: LAST_VERIFIED,
+    keywords: ['api', 'daemon', 'sdk', 'models', 'mcp', 'memory', 'events', 'traces', 'cli'],
+    sources: [
+      'docs/architecture/components/daemon-runtime/api.md',
+      'packages/runtime-daemon/src/index.mjs',
+      'packages/agent-sdk/src/substrate-client.ts',
+      'apps/autopilot/src/surfaces/MissionControl/MissionControlMountsView.tsx',
+      'crates/cli',
+    ],
+    canonicalLinks: [canonicalDocsLink],
+    nextSteps: [
+      { label: 'Runtime Daemon', href: '#runtime-daemon', description: 'Operational detail for the daemon-backed local runtime.' },
+      { label: 'Model Mounting', href: '#model-mounting', description: 'Model catalog, mount, load, unload, and compatibility endpoints.' },
+      { label: 'MCP Tools', href: '#mcp-tools', description: 'Tool discovery, import, validation, and invocation.' },
+    ],
+    sections: [
+      {
+        id: 'runtime-daemon-api',
+        title: 'Runtime Daemon API',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
             <p>
-              If a page is helping you choose a workflow, run a tool, or understand a product
-              surface, it belongs here. If a page needs to become canonical technical truth, it
-              should probably live on <code>docs.ioi.network</code>.
+              The daemon API is the product-facing local runtime boundary. Use it for managed
+              worker instances, runs, events, artifacts, receipts, approvals, replay, traces, and
+              scorecards. Protocol internals remain in canonical docs.
             </p>
+            <Table
+              isDark={isDark}
+              headers={['Family', 'Representative routes', 'Builder job']}
+              rows={[
+                ['Agents', <code>POST /v1/agents, GET /v1/agents, GET /v1/agents/{'{agent_id}'}</code>, 'Create and inspect managed worker instances.'],
+                ['Runs', <code>POST /v1/agents/{'{agent_id}'}/runs, GET /v1/runs/{'{run_id}'}/status</code>, 'Launch and monitor runtime work.'],
+                ['Events', <code>GET /v1/runs/{'{run_id}'}/events?mode=replay-and-tail</code>, 'Tail streamable runtime progress.'],
+                ['Artifacts and receipts', <code>GET /v1/runs/{'{run_id}'}/artifacts, GET /v1/runs/{'{run_id}'}/receipts</code>, 'Inspect outputs and authority/effect evidence.'],
+                ['Traces and scorecards', <code>GET /v1/runs/{'{run_id}'}/trace, GET /v1/runs/{'{run_id}'}/scorecard</code>, 'Debug execution quality and replayability.'],
+              ]}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'sdk-api',
+        title: 'SDK API',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <p>
+              The SDK wraps the daemon substrate. <code>createRuntimeSubstrateClient()</code> reads
+              <code> IOI_DAEMON_ENDPOINT</code> and fails closed by default. The offline fixture
+              lives under testing for examples and tests that cannot start a daemon.
+            </p>
+            <Table
+              isDark={isDark}
+              headers={['SDK surface', 'Current meaning']}
+              rows={[
+                ['Agent.create', 'Creates an SDK-level agent projection over the selected substrate client.'],
+                ['agent.send / run.stream / run.wait', 'Launches a task and consumes runtime events until the stop condition resolves.'],
+                ['createRuntimeSubstrateClient', 'Daemon-backed default client; requires IOI_DAEMON_ENDPOINT.'],
+                ['@ioi/agent-sdk/testing#createMockRuntimeSubstrateClient', 'Offline fixture for tests and examples; not the live runtime.'],
+              ]}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'models-and-openai',
+        title: 'Model Mounting And OpenAI Compatibility',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <p>
+              Model mounting is current in the repo as a local/admin surface used by Autopilot and
+              daemon probes. The OpenAI-compatible route is a compatibility lane, not the whole
+              worker API.
+            </p>
+            <Table
+              isDark={isDark}
+              headers={['Family', 'Representative routes']}
+              rows={[
+                ['Catalog and inventory', <code>GET /api/v1/models, GET /api/v1/models/catalog/search</code>],
+                ['Download and storage', <code>POST /api/v1/models/download, POST /api/v1/models/storage/cleanup</code>],
+                ['Import and mount', <code>POST /api/v1/models/import, POST /api/v1/models/mount</code>],
+                ['Load and unload', <code>POST /api/v1/models/load, POST /api/v1/models/unload, GET /api/v1/models/loaded</code>],
+                ['Compatibility', <code>POST /v1/chat/completions</code>],
+              ]}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'mcp-memory-events-cli',
+        title: 'MCP, Memory, Events, Traces, CLI',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <Table
+              isDark={isDark}
+              headers={['Area', 'Product-facing surface']}
+              rows={[
+                ['MCP/tools', <code>GET /v1/mcp/tools, GET /v1/mcp/tools/search, POST /v1/mcp/tools/{'{tool_id}'}/invoke, POST /v1/mcp/import</code>],
+                ['Memory', <code>GET /v1/memory, GET /v1/memory/records, POST /v1/memory/validate</code>],
+                ['Events', <code>GET /v1/runs/{'{run_id}'}/events</code>],
+                ['Traces', <code>GET /v1/runs/{'{run_id}'}/trace, GET /v1/runs/{'{run_id}'}/inspect</code>],
+                ['CLI families', 'Daemon/runtime probes, benchmark harnesses, computer-use suites, model mount probes, and Autopilot desktop harness commands in the repo.'],
+              ]}
+            />
           </div>
         ),
       },
@@ -323,67 +494,48 @@ docs.ioi.network = how IOI works`}
   {
     id: 'local-setup',
     title: 'Local Setup',
-    eyebrow: 'Get started',
+    eyebrow: 'Get Started',
     summary:
-      'Set up the monorepo for the developers docs app, Autopilot, and current builder surfaces without guessing at package or workspace structure.',
+      'Prepare a local workspace for SDK, daemon, and Autopilot flows while keeping endpoint and authority configuration explicit.',
     section: 'get-started',
     status: 'Current',
-    lastVerified: '2026-03-31',
-    keywords: ['setup', 'installation', 'monorepo', 'npm', 'rust', 'tauri'],
-    sources: ['package.json', 'apps/developers-ioi-ai/README.md', 'apps/autopilot/README.md'],
-    canonicalLinks: [],
+    maturity: 'repo_current',
+    repoBacked: true,
+    runnableToday: true,
+    sourceFreshness: 'current_repo',
+    primaryAudience: 'new_builder',
+    routePath: '/setup',
+    legacyHashes: ['local-setup', 'setup'],
+    lastVerified: LAST_VERIFIED,
+    keywords: ['setup', 'local', 'workspace', 'daemon endpoint'],
+    sources: ['package.json', 'packages/runtime-daemon/package.json', 'apps/autopilot/package.json'],
+    canonicalLinks: [canonicalDocsLink],
     nextSteps: [
-      { label: 'Build Your First Chat Artifact', href: '#build-your-first-chat-artifact' },
-      { label: 'Run Autopilot Locally', href: '#run-autopilot-locally' },
-      { label: 'IOI CLI Overview', href: '#ioi-cli-overview' },
+      { label: 'Quickstart', href: '#quickstart', description: 'Connect to the daemon-backed local runtime.' },
+      { label: 'Autopilot', href: '#autopilot', description: 'Understand the GUI surface before running it.' },
     ],
     sections: [
       {
-        id: 'prerequisites',
-        title: 'Prerequisites',
-        render: (isDark) => (
-          <div className={bodyClass(isDark)}>
-            <Table
-              isDark={isDark}
-              headers={['Tooling', 'Needed for', 'Notes']}
-              rows={[
-                ['Node.js', 'Workspace apps', 'Required for the docs app and frontend surfaces. Node 20+ is a safe target.'],
-                ['Rust', 'CLI and native runtime', 'Required for crates and the native desktop stack.'],
-                ['Tauri CLI', 'Autopilot native shell', 'Only needed when you want the desktop runtime rather than web-only UI.'],
-                ['Node.js', '@ioi/agent-sdk', 'Required if you are following the SDK agent path.'],
-              ]}
-            />
-            <Callout isDark={isDark} tone="current" title="Current workspace shape">
-              <p>
-                The root <code>package.json</code> is a workspace file. Install once from the repo
-                root, then use <code>--workspace</code> commands for app-specific flows.
-              </p>
-            </Callout>
-          </div>
-        ),
-      },
-      {
-        id: 'monorepo-bootstrap',
-        title: 'Monorepo Bootstrap',
+        id: 'workspace-setup',
+        title: 'Workspace Setup',
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
             <StepList
               isDark={isDark}
               steps={[
                 {
-                  title: 'Install workspace dependencies',
-                  body: 'Run this once from the monorepo root.',
+                  title: 'Install dependencies at the repo root',
+                  body: 'Use the repo package manager lockfiles and workspace scripts already present in the monorepo.',
                   code: 'npm install',
                 },
                 {
-                  title: 'Run the developers docs app',
-                  body: 'This launches the docs shell on port 3000.',
-                  code: 'npm run dev --workspace=apps/developers-ioi-ai',
+                  title: 'Set the daemon endpoint for live SDK calls',
+                  body: 'The SDK will not silently fall back to an offline fixture when the endpoint is missing.',
+                  code: 'export IOI_DAEMON_ENDPOINT="http://127.0.0.1:8787"',
                 },
                 {
-                  title: 'Build the docs app',
-                  body: 'Use this before publishing or validating the shell.',
-                  code: 'npm run build --workspace=apps/developers-ioi-ai',
+                  title: 'Use the offline fixture only for examples or tests',
+                  body: 'Import createMockRuntimeSubstrateClient from @ioi/agent-sdk/testing only when you deliberately want a fixture without a daemon.',
                 },
               ]}
             />
@@ -391,478 +543,526 @@ docs.ioi.network = how IOI works`}
         ),
       },
       {
-        id: 'common-next-commands',
-        title: 'Common Next Commands',
+        id: 'authority-boundary',
+        title: 'Authority Boundary',
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
-            <CodeBlock
-              isDark={isDark}
-              code={`# Agent Chat web shell
-npm run dev:web
-
-# Benchmarks app
-npm run dev:benchmarks
-
-# Docs app typecheck
-npm run lint --workspace=apps/developers-ioi-ai`}
-            />
-            <p>
-              If you are heading into the native runtime path, continue with the Autopilot page for
-              Tauri dependencies and launch modes.
-            </p>
-          </div>
-        ),
-      },
-    ],
-  },
-  {
-    id: 'build-your-first-chat-artifact',
-    title: 'Build Your First Chat Artifact',
-    eyebrow: 'Get started',
-    summary:
-      'Generate a Chat artifact bundle through the shared CLI and API path using the mock runtime first, then graduate to a local inference runtime later.',
-    section: 'get-started',
-    status: 'Current',
-    lastVerified: '2026-03-31',
-    keywords: ['chat', 'artifact', 'generate', 'validation', 'mock', 'cli'],
-    sources: ['crates/cli/src/commands/artifact.rs', 'crates/api/src/chat.rs'],
-    canonicalLinks: [],
-    nextSteps: [
-      { label: 'IOI CLI Overview', href: '#ioi-cli-overview' },
-      { label: 'CLI Command Reference', href: '#cli-command-reference' },
-      { label: 'Policies, Approvals, and Receipts', href: '#policies-approvals-and-receipts' },
-    ],
-    sections: [
-      {
-        id: 'why-this-path',
-        title: 'Why Start Here',
-        render: (isDark) => (
-          <div className={bodyClass(isDark)}>
-            <p>
-              The artifact path is one of the most implementation-backed builder flows in the repo
-              today. It has a real CLI surface, a shared planning/generation/validation module, and a
-              mock mode that lets you learn the workflow without immediately wiring a local model.
-            </p>
-            <Callout isDark={isDark} tone="current" title="Best first-run posture">
+            <Callout isDark={isDark} tone="current" title="Local-first does not mean ambient authority">
               <p>
-                Use <code>--mock</code> for your first pass. Once the flow makes sense, move to{' '}
-                <code>--local</code> with your inference endpoint, API URL, and model name.
+                Treat endpoints, tokens, model mounts, MCP servers, and connector credentials as
+                explicit runtime configuration. Do not put private local paths or secrets into
+                public docs, screenshots, or example manifests.
               </p>
             </Callout>
           </div>
         ),
       },
+    ],
+  },
+  {
+    id: 'sdks-and-libraries',
+    title: 'SDKs & Libraries',
+    eyebrow: 'Build',
+    summary:
+      'Use @ioi/agent-sdk as the builder SDK for daemon-backed agents, with a separate offline fixture for tests and current model/MCP/memory helpers.',
+    section: 'build',
+    status: 'Current',
+    maturity: 'repo_current',
+    repoBacked: true,
+    runnableToday: true,
+    sourceFreshness: 'current_repo',
+    primaryAudience: 'sdk_builder',
+    routePath: '/sdks',
+    legacyHashes: ['sdks', 'sdks-and-libraries', 'build-your-first-agent-with-ioi-agent-sdk'],
+    lastVerified: LAST_VERIFIED,
+    keywords: ['sdk', '@ioi/agent-sdk', 'testing', 'mock', 'daemon'],
+    sources: ['packages/agent-sdk/src/index.ts', 'packages/agent-sdk/src/substrate-client.ts', 'packages/agent-sdk/src/testing.ts'],
+    canonicalLinks: [canonicalDocsLink],
+    nextSteps: [
+      { label: 'Quickstart', href: '#quickstart', description: 'Start with the daemon-backed local runtime.' },
+      { label: 'API Reference', href: '#api-reference', description: 'Map SDK calls to daemon route families.' },
+      { label: 'MCP Tools', href: '#mcp-tools', description: 'Build governed tool flows.' },
+    ],
+    sections: [
       {
-        id: 'artifact-quickstart',
-        title: 'Quickstart',
+        id: 'sdk-defaults',
+        title: 'SDK Defaults',
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
-            <StepList
+            <Table
               isDark={isDark}
-              steps={[
-                {
-                  title: 'Generate an artifact bundle in mock mode',
-                  body: 'This uses the CLI binary from the workspace and writes a bundle to a local output directory.',
-                  code: 'cargo run -p ioi-cli --bin cli -- artifact generate "Create a markdown release checklist for an IOI app launch." --output outputs/release-checklist --mock --force',
-                },
-                {
-                  title: 'Inspect the typed validation result',
-                  body: 'The validation command accepts the output directory or a direct path to generation.json.',
-                  code: 'cargo run -p ioi-cli --bin cli -- artifact validation outputs/release-checklist --json',
-                },
-                {
-                  title: 'Route a prompt without generating a full bundle',
-                  body: 'Use route/query mode when you only want the shared planning contract.',
-                  code: 'cargo run -p ioi-cli --bin cli -- artifact route "Build a pricing configurator page for a provider service." --mock --json',
-                },
+              headers={['Need', 'Use', 'Truthfulness note']}
+              rows={[
+                ['Live/local runtime', <code>createRuntimeSubstrateClient()</code>, 'Requires IOI_DAEMON_ENDPOINT; fails closed if missing.'],
+                ['Offline test fixture', <code>createMockRuntimeSubstrateClient()</code>, 'Only import from @ioi/agent-sdk/testing when you need a no-daemon fixture.'],
+                ['Agent loop', <code>Agent.create, agent.send, run.stream, run.wait</code>, 'Use with the substrate that matches your track.'],
+                ['Model/MCP/memory helpers', 'SDK substrate methods and typed events', 'Use daemon-backed routes for current runtime behavior.'],
               ]}
             />
           </div>
         ),
       },
       {
-        id: 'local-runtime-upgrade',
-        title: 'Move From Mock To Local Runtime',
+        id: 'daemon-backed-pattern',
+        title: 'Daemon-Backed Pattern',
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
             <CodeBlock
               isDark={isDark}
-              code={`cargo run -p ioi-cli --bin cli -- artifact generate \\
-  "Create a product landing page for a worker service." \\
-  --output outputs/landing-page \\
-  --local \\
-  --api-url http://127.0.0.1:11434/v1 \\
-  --model-name your-local-model \\
-  --force`}
-            />
-            <p>
-              The exact inference endpoint and model will depend on your local setup. The CLI also
-              exposes acceptance validation parameters when you want a separate runtime for the proof or
-              validation lane.
-            </p>
-          </div>
-        ),
-      },
-    ],
-  },
-  {
-    id: 'run-autopilot-locally',
-    title: 'Run Autopilot Locally',
-    eyebrow: 'Get started',
-    summary:
-      'Autopilot is the private/local runtime surface. Use it when you want a desktop-first operator shell with Spotlight, Chat, gates, and receipts.',
-    section: 'get-started',
-    status: 'Current',
-    lastVerified: '2026-03-31',
-    keywords: ['autopilot', 'tauri', 'desktop', 'spotlight', 'chat', 'runtime'],
-    sources: [
-      'apps/autopilot/README.md',
-      'apps/autopilot/package.json',
-      'docs/architecture/components/daemon-runtime/doctrine.md',
-    ],
-    canonicalLinks: [],
-    nextSteps: [
-      { label: 'Policies, Approvals, and Receipts', href: '#policies-approvals-and-receipts' },
-      { label: 'Choose the Right Surface', href: '#choose-the-right-surface' },
-      { label: 'Build Your First Chat Artifact', href: '#build-your-first-chat-artifact' },
-    ],
-    sections: [
-      {
-        id: 'runtime-shape',
-        title: 'Runtime Shape',
-        render: (isDark) => (
-          <div className={bodyClass(isDark)}>
-            <p>
-              Autopilot is not just a chat surface. In the repo today it is a native Tauri runtime
-              with multiple windows, cross-window state sync, a gate model for risky actions, and a
-              growing Chat path for artifacts and orchestration.
-            </p>
-            <ul className={listClass(isDark)}>
-              <li>Spotlight window for intent intake.</li>
-              <li>Pill window for non-blocking task progress.</li>
-              <li>Gate window for approvals.</li>
-              <li>Chat window for builder and artifact-oriented workflows.</li>
-            </ul>
-          </div>
-        ),
-      },
-      {
-        id: 'launch-modes',
-        title: 'Launch Modes',
-        render: (isDark) => (
-          <div className={bodyClass(isDark)}>
-            <StepList
-              isDark={isDark}
-              steps={[
-                {
-                  title: 'Web-only UI for quick inspection',
-                  body: 'This is useful if you only need the frontend shell and not the native runtime.',
-                  code: 'npm run dev --workspace=apps/autopilot',
-                },
-                {
-                  title: 'Repo-level desktop helper',
-                  body: 'The workspace exposes desktop helper scripts at the root.',
-                  code: 'npm run dev:desktop',
-                },
-                {
-                  title: 'Direct native launch from the app workspace',
-                  body: 'Use this when you are working directly inside the Autopilot app.',
-                  code: 'cd apps/autopilot && npm run tauri dev',
-                },
-              ]}
-            />
-          </div>
-        ),
-      },
-      {
-        id: 'system-dependencies',
-        title: 'System Dependencies',
-        render: (isDark) => (
-          <div className={bodyClass(isDark)}>
-            <p>
-              The README already includes the Ubuntu/Pop!_OS packages required by Tauri. Keep those
-              instructions as the source of truth for Linux desktop prerequisites.
-            </p>
-            <CodeBlock
-              isDark={isDark}
-              code={`sudo apt update
-sudo apt install -y \\
-  build-essential \\
-  pkg-config \\
-  libssl-dev \\
-  libgtk-3-dev \\
-  libayatana-appindicator3-dev \\
-  librsvg2-dev \\
-  libsoup-3.0-dev \\
-  libwebkit2gtk-4.1-dev`}
-            />
-          </div>
-        ),
-      },
-    ],
-  },
-  {
-    id: 'build-your-first-agent-with-ioi-agent-sdk',
-    title: 'Build Your First Agent with @ioi/agent-sdk',
-    eyebrow: 'Get started',
-    summary:
-      'Use the agent SDK when you want an ergonomic path to agent construction without leaving IOI runtime substrate contracts.',
-    section: 'get-started',
-    status: 'Current',
-    lastVerified: '2026-03-31',
-    keywords: ['typescript', 'sdk', 'agent', 'quickstart', 'runtime substrate'],
-    sources: ['packages/agent-sdk/package.json', 'packages/agent-sdk/examples/quickstart-local.ts'],
-    canonicalLinks: [
-      {
-        label: 'Runtime substrate architecture',
-        href: 'https://docs.ioi.network',
-        external: true,
-      },
-    ],
-    nextSteps: [
-      { label: 'Policies, Approvals, and Receipts', href: '#policies-approvals-and-receipts' },
-      { label: 'IOI CLI Overview', href: '#ioi-cli-overview' },
-    ],
-    sections: [
-      {
-        id: 'install-sdk',
-        title: 'Install The SDK',
-        render: (isDark) => (
-          <div className={bodyClass(isDark)}>
-            <CodeBlock isDark={isDark} code="npm install @ioi/agent-sdk" />
-            <p>
-              The SDK is the developer-facing client over the daemon/public runtime API. Explicit
-              testing clients are available for local projections, but the canonical runtime path
-              remains substrate-backed.
-            </p>
-          </div>
-        ),
-      },
-      {
-        id: 'minimal-agent',
-        title: 'Minimal Agent',
-        render: (isDark) => (
-          <div className={bodyClass(isDark)}>
-            <CodeBlock
-              isDark={isDark}
-              code={`import { Agent } from "@ioi/agent-sdk";
+              code={code`import { Agent, createRuntimeSubstrateClient } from "@ioi/agent-sdk";
 
 const agent = await Agent.create({
-  name: "Autopilot",
-  model: "local:auto",
+  model: { id: "local:auto" },
+  local: { cwd: process.cwd() },
+  substrateClient: createRuntimeSubstrateClient({
+    endpoint: process.env.IOI_DAEMON_ENDPOINT,
+  }),
 });
 
-const run = await agent.send("Check my vault balance and alert me if it is below 50");
-const result = await run.wait();
-const trace = await run.trace();
-
-console.log(result.status, trace.receipts.length);`}
+const run = await agent.send("Build a repo-grounded implementation plan");
+for await (const event of run.stream()) {
+  console.log(event.cursor, event.type, event.summary);
+}`}
             />
-            <p>
-              This quickstart is intentionally narrow. The useful part is the shape: create an
-              agent through the SDK, send work through the substrate, and inspect receipts or
-              traces without inventing a second runtime.
-            </p>
-          </div>
-        ),
-      },
-      {
-        id: 'what-to-expect',
-        title: 'What To Expect',
-        render: (isDark) => (
-          <div className={bodyClass(isDark)}>
-            <ul className={listClass(isDark)}>
-              <li>
-                The SDK is framed around sovereign/autonomous agents rather than generic prompt
-                wrappers.
-              </li>
-              <li>
-                Full verification and settlement capabilities expect a running IOI node in the
-                broader stack.
-              </li>
-              <li>
-                Ghost Mode is already documented as a practical path for synthesizing least-privilege
-                policy from observed traces.
-              </li>
-            </ul>
           </div>
         ),
       },
     ],
   },
   {
-    id: 'ioi-cli-overview',
-    title: 'IOI CLI Overview',
+    id: 'examples-and-templates',
+    title: 'Examples & Templates',
     eyebrow: 'Build',
     summary:
-      'The CLI is the kernel-adjacent builder surface. It is the best current entry point for scaffolding, local nodes, artifacts, query, trace, verify, and policy workflows.',
+      'Repo-backed examples exist today, but the public template gallery is a preview until examples are curated, named, and validated as launch assets.',
     section: 'build',
-    status: 'Current',
-    lastVerified: '2026-03-31',
-    keywords: ['cli', 'command line', 'artifact', 'node', 'query', 'verify', 'policy'],
-    sources: ['crates/cli/src/main.rs', 'docs/architecture/components/daemon-runtime/doctrine.md', 'crates/cli/Cargo.toml'],
-    canonicalLinks: [],
+    status: 'Preview',
+    maturity: 'preview',
+    repoBacked: true,
+    runnableToday: true,
+    sourceFreshness: 'current_repo',
+    primaryAudience: 'sdk_builder',
+    routePath: '/examples',
+    legacyHashes: ['examples', 'templates', 'build-your-first-chat-artifact'],
+    lastVerified: LAST_VERIFIED,
+    keywords: ['examples', 'templates', 'quickstart-local', 'gallery'],
+    sources: ['packages/agent-sdk/examples/quickstart-local.ts', 'packages/agent-sdk/test/sdk.test.mjs', 'apps/autopilot/scripts'],
+    canonicalLinks: [canonicalDocsLink],
     nextSteps: [
-      { label: 'CLI Command Reference', href: '#cli-command-reference' },
-      { label: 'Build Your First Chat Artifact', href: '#build-your-first-chat-artifact' },
-      { label: 'Policies, Approvals, and Receipts', href: '#policies-approvals-and-receipts' },
+      { label: 'Tutorials', href: '#tutorials', description: 'Follow practical build-guide tracks.' },
+      { label: 'SDKs & Libraries', href: '#sdks-and-libraries', description: 'Understand what each example imports.' },
     ],
     sections: [
       {
-        id: 'what-it-is',
-        title: 'What It Is',
+        id: 'what-exists-today',
+        title: 'What Exists Today',
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
             <p>
-              In the codebase today, the CLI crate is named <code>ioi-cli</code> and exposes a
-              binary named <code>cli</code>. The long-term product naming direction in the spec is
-              "IOI CLI", with <code>forge</code> treated as an important namespace rather than the
-              entire top-level brand.
+              The repo includes SDK examples, tests, daemon probes, model-mount probes, benchmark
+              fixtures, and Autopilot desktop harness scripts. The public examples gallery is not
+              yet a polished marketplace of templates.
             </p>
-            <Callout isDark={isDark} tone="current" title="Safe way to invoke it from the repo">
-              <p>
-                Use <code>cargo run -p ioi-cli --bin cli -- &lt;command&gt;</code> while the CLI
-                surface is evolving. That keeps the workspace package and binary names explicit.
-              </p>
-            </Callout>
-          </div>
-        ),
-      },
-      {
-        id: 'starter-workflows',
-        title: 'Starter Workflows',
-        render: (isDark) => (
-          <div className={bodyClass(isDark)}>
             <Table
               isDark={isDark}
-              headers={['Workflow', 'Command family', 'Best first use']}
+              headers={['Example type', 'Current source', 'Public framing']}
               rows={[
-                ['Scaffold a project', 'init / scaffold', 'Create a new IOI project shape or add services/contracts to a workspace.'],
-                ['Generate artifacts', 'artifact', 'Run route/generate/validate/materialize flows through the shared Chat path.'],
-                ['Run a local node', 'node / query', 'Bring up a local validator and inspect state or chain status.'],
-                ['Inspect execution', 'trace / verify', 'Understand traces and determinism evidence after a run.'],
-                ['Synthesize policy', 'policy / ghost', 'Turn recorded traces into a first-pass least-privilege policy.'],
-                ['Developer utilities', 'dev', 'Use injection/debug/export helpers while the platform is still rapidly evolving.'],
+                ['SDK test fixture', <code>packages/agent-sdk/examples/quickstart-local.ts</code>, 'Offline fixture for no-daemon examples and tests.'],
+                ['Daemon-backed tests', <code>packages/agent-sdk/test/sdk.test.mjs</code>, 'Evidence for route coverage and SDK behavior.'],
+                ['Autopilot probes', <code>apps/autopilot/scripts/*probe*</code>, 'Local GUI/runtime evidence, not a hosted examples product.'],
+                ['Benchmark fixtures', <code>apps/benchmarks</code>, 'Current evidence surface for evaluation routes.'],
               ]}
             />
           </div>
         ),
       },
       {
-        id: 'first-commands',
-        title: 'First Commands',
+        id: 'launch-template-rule',
+        title: 'Launch Template Rule',
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
-            <CodeBlock
-              isDark={isDark}
-              code={`# Show the top-level command surface
-cargo run -p ioi-cli --bin cli -- --help
-
-# Generate a mock artifact bundle
-cargo run -p ioi-cli --bin cli -- artifact generate "Draft a launch checklist." --output outputs/launch-checklist --mock --force
-
-# Start a local node
-cargo run -p ioi-cli --bin cli -- node
-
-# Query chain status
-cargo run -p ioi-cli --bin cli -- query status`}
-            />
+            <Callout isDark={isDark} tone="preview" title="Do not overstate templates">
+              <p>
+                A template becomes public-current only when it has a stable route, a runnable
+                command, validation output, and a clear distinction between fixture, local daemon,
+                and production deployment.
+              </p>
+            </Callout>
           </div>
         ),
       },
     ],
   },
   {
-    id: 'policies-approvals-and-receipts',
-    title: 'Policies, Approvals, and Receipts',
+    id: 'tutorials',
+    title: 'Tutorials',
     eyebrow: 'Build',
     summary:
-      'This is the bounded-execution layer for developers: use policy synthesis, explicit approvals, and verification flows to keep actions inspectable and authority narrow.',
+      'Tutorial tracks are ready to organize around builder jobs, but should stay preview until each guide has runnable commands and validation evidence.',
     section: 'build',
-    status: 'Current',
-    lastVerified: '2026-03-31',
-    keywords: ['policy', 'receipt', 'verify', 'ghost', 'approval', 'determinism'],
-    sources: [
-      'docs/specs/verifiable_bounded_agency.md',
-      'crates/cli/src/commands/policy.rs',
-      'crates/cli/src/commands/verify.rs',
-      'crates/cli/src/commands/ghost.rs',
-      'crates/services/src/agentic/runtime/README.md',
-    ],
-    canonicalLinks: [
-      {
-        label: 'Canonical technical reference for protocol and evidence semantics',
-        href: 'https://docs.ioi.network',
-        external: true,
-      },
-    ],
+    status: 'Preview',
+    maturity: 'preview',
+    repoBacked: true,
+    runnableToday: false,
+    sourceFreshness: 'product_preview',
+    primaryAudience: 'new_builder',
+    routePath: '/tutorials',
+    legacyHashes: ['tutorials', 'guides'],
+    lastVerified: LAST_VERIFIED,
+    keywords: ['tutorials', 'guides', 'step by step'],
+    sources: ['internal-docs/plans/developers-ioi-ai-ship-shape-master-guide.md', 'packages/agent-sdk/examples/quickstart-local.ts'],
+    canonicalLinks: [canonicalDocsLink],
     nextSteps: [
-      { label: 'IOI CLI Overview', href: '#ioi-cli-overview' },
-      { label: 'Run Autopilot Locally', href: '#run-autopilot-locally' },
-      { label: 'Build Your First Agent with @ioi/agent-sdk', href: '#build-your-first-agent-with-ioi-agent-sdk' },
+      { label: 'Quickstart', href: '#quickstart', description: 'Use the launch-ready onboarding path first.' },
+      { label: 'Examples & Templates', href: '#examples-and-templates', description: 'See what exists today in repo-backed examples.' },
     ],
     sections: [
       {
-        id: 'bounded-authority',
-        title: 'Bounded Authority',
+        id: 'what-exists-today',
+        title: 'What Exists Today',
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
             <p>
-              The repo's security posture is consistent across the conceptual docs and the runtime
-              code: models can propose actions, but they should not silently inherit broad power.
-              Authority is narrowed by policy, approvals, scopes, leases, and evidence-bearing
-              execution.
+              Tutorials are a public IA lane, not yet a complete tutorial library. The right launch
+              posture is to show the lane, link to current quickstarts/examples, and mark deeper
+              build guides as preview until each one is runnable and validated.
             </p>
-            <ul className={listClass(isDark)}>
-              <li>Use policies to define what a worker may do.</li>
-              <li>Use approvals when a step crosses a higher-risk threshold.</li>
-              <li>Use receipts and verification to inspect what actually happened.</li>
-            </ul>
+            <Table
+              isDark={isDark}
+              headers={['Track', 'Launch framing']}
+              rows={[
+                ['Build an SDK agent', 'Current once the daemon-backed command and expected output are validated.'],
+                ['Mount a local model', 'Current for local/admin model API; tutorial copy should warn about local resource requirements.'],
+                ['Import MCP tools', 'Current for daemon endpoints; tutorial should include validation and authority notes.'],
+                ['Package a worker service', 'Preview until service candidate packaging has public release gates.'],
+              ]}
+            />
           </div>
         ),
       },
+    ],
+  },
+  {
+    id: 'ioi-cli',
+    title: 'IOI CLI',
+    eyebrow: 'Build',
+    summary:
+      'CLI and harness commands are current repo surfaces for daemon/runtime work, benchmarking, computer-use suites, and local probes; public command docs should stay builder-level.',
+    section: 'build',
+    status: 'Preview',
+    maturity: 'preview',
+    repoBacked: true,
+    runnableToday: true,
+    sourceFreshness: 'current_repo',
+    primaryAudience: 'operator',
+    routePath: '/cli',
+    legacyHashes: ['ioi-cli-overview', 'cli', 'tui'],
+    lastVerified: LAST_VERIFIED,
+    keywords: ['cli', 'tui', 'harness', 'benchmark', 'daemon'],
+    sources: ['crates/cli', 'apps/autopilot/scripts', 'packages/runtime-daemon/package.json'],
+    canonicalLinks: [canonicalDocsLink],
+    nextSteps: [
+      { label: 'Runtime Daemon', href: '#runtime-daemon', description: 'Understand what CLI commands inspect or drive.' },
+      { label: 'Benchmarks', href: '#benchmarks', description: 'See benchmark and visual smoke evidence lanes.' },
+    ],
+    sections: [
       {
-        id: 'practical-commands',
-        title: 'Practical Commands',
+        id: 'what-exists-today',
+        title: 'What Exists Today',
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
-            <StepList
+            <p>
+              The repo contains Rust CLI code, benchmark targets, computer-use suite outputs,
+              runtime daemon scripts, and Autopilot desktop probes. This page is a command-family
+              map until public command names are frozen.
+            </p>
+            <Table
               isDark={isDark}
-              steps={[
-                {
-                  title: 'Generate a policy from a session trace',
-                  body: 'This pulls step traces from the local node and synthesizes a JSON policy.',
-                  code: 'cargo run -p ioi-cli --bin cli -- policy generate <session-id-hex> --policy-id auto-policy-v1 --output policy.json',
-                },
-                {
-                  title: 'Distill a policy with Ghost Mode',
-                  body: 'Ghost Mode emphasizes the same idea from a distinct command family.',
-                  code: 'cargo run -p ioi-cli --bin cli -- ghost distill <session-id-hex> --output policy.json',
-                },
-                {
-                  title: 'Verify determinism-boundary evidence',
-                  body: 'Use this when you want to inspect a specific session step and evidence bundle.',
-                  code: 'cargo run -p ioi-cli --bin cli -- verify determinism <session-id-hex> --step 0 --rpc 127.0.0.1:8555',
-                },
+              headers={['Family', 'Use it for']}
+              rows={[
+                ['Runtime/daemon', 'Start or probe the local daemon and inspect route families.'],
+                ['Benchmark/computer-use', 'Run browser/computer-use suites and collect trace bundles.'],
+                ['Model mounts', 'Exercise catalog, download, import, load, unload, and local compatibility routes.'],
+                ['Autopilot desktop probes', 'Launch and validate local GUI behavior with screenshots and runtime artifacts.'],
+              ]}
+            />
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'autopilot',
+    title: 'Autopilot',
+    eyebrow: 'Run',
+    summary:
+      'Autopilot is the current local desktop workbench over chat, artifacts, workflow canvas, model mounting, MCP, policy, and harness evidence.',
+    section: 'run',
+    status: 'Current',
+    maturity: 'local_current',
+    repoBacked: true,
+    runnableToday: true,
+    sourceFreshness: 'current_repo',
+    primaryAudience: 'operator',
+    routePath: '/autopilot',
+    legacyHashes: ['run-autopilot-locally', 'autopilot', 'autopilot-desktop'],
+    lastVerified: LAST_VERIFIED,
+    keywords: ['autopilot', 'desktop', 'GUI', 'screenshots', 'workflow canvas', 'chat', 'harness'],
+    sources: [
+      'apps/autopilot',
+      'apps/autopilot/src/windows/AutopilotShellWindow',
+      'apps/autopilot/src/windows/ChatShellWindow',
+      'apps/autopilot/src/surfaces/MissionControl/MissionControlMountsView.tsx',
+      'docs/evidence/autopilot-gui-harness-validation/2026-05-15T11-10-45-852Z/result.json',
+      'docs/evidence/autopilot-gui-harness-validation/2026-05-15T11-10-45-852Z/workflow-terminal-coding-loop-run-button-proof.json',
+      'docs/evidence/autopilot-gui-harness-validation/2026-05-15T11-10-45-852Z/workflow-telemetry-budget-chain-run-inspector-proof.json',
+      'docs/evidence/autopilot-gui-harness-validation/2026-05-15T11-10-45-852Z/promotion-transition-gui-behavior-proof.json',
+    ],
+    canonicalLinks: [canonicalDocsLink],
+    nextSteps: [
+      { label: 'Runtime Daemon', href: '#runtime-daemon', description: 'See the daemon route families Autopilot projects.' },
+      { label: 'Model Mounting', href: '#model-mounting', description: 'Manage local model catalog and compatibility routes.' },
+      { label: 'MCP Tools', href: '#mcp-tools', description: 'Import, validate, discover, and invoke tools.' },
+    ],
+    sections: [
+      {
+        id: 'what-exists-today',
+        title: 'What Exists Today',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <p>
+              Autopilot exists today as a local Tauri desktop product. The current repo includes
+              chat and artifact surfaces, workflow composer/runtime wiring, local model mount UI,
+              MCP import surfaces, policy/settings views, generated contracts, and GUI harness
+              evidence.
+            </p>
+            <Table
+              isDark={isDark}
+              headers={['Surface', 'Current status']}
+              rows={[
+                ['Chat workbench', 'Current local GUI with answer-first transcript, sources, artifacts, approvals, and runtime disclosures.'],
+                ['Workflow canvas', 'Current local workflow composition and harness proof path, with active preview areas for packaging/import review.'],
+                ['Model mounts', 'Current local/admin UI over /api/v1/models and /v1/chat/completions compatibility.'],
+                ['MCP tools', 'Current import/discovery/invocation paths in daemon and Autopilot surfaces.'],
+                ['Evidence harness', 'Current desktop probes capture screenshots, runtime artifacts, receipts, and logs.'],
               ]}
             />
           </div>
         ),
       },
       {
-        id: 'where-approvals-show-up',
-        title: 'Where Approvals Show Up',
+        id: 'workflow-snapshots',
+        title: 'Workflow Snapshots',
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
             <p>
-              In the desktop runtime, approvals are a lived UX surface rather than an abstract
-              policy idea. The current service lifecycle already describes paused sessions waiting on
-              signed approval tokens before an agent resumes a blocked action.
+              These snapshots are not decorative harness artifacts. They show useful Autopilot
+              workflows with the proof files that back the UI behavior. The manifest under
+              <code> public/media/screenshots/autopilot/manifest.json</code> records source paths,
+              capture time, review notes, and redaction status.
             </p>
-            <Callout isDark={isDark} tone="current" title="Practical split">
+            <div className="grid gap-5 lg:grid-cols-2">
+              <ScreenshotFigure
+                isDark={isDark}
+                src="/media/screenshots/autopilot/workflow-canvas.png"
+                alt="Autopilot workflow canvas with local GUI interaction evidence"
+                caption="Workflow compositor: default agent harness topology with fork/use-template controls and promotion gates."
+              />
+              <ScreenshotFigure
+                isDark={isDark}
+                src="/media/screenshots/autopilot/source-grounded-workflow.png"
+                alt="Autopilot source-grounded chat workflow with cited repo evidence"
+                caption="Source-grounded chat workflow: answer-first response with cited repo files and compact runtime steps."
+              />
+              <ScreenshotFigure
+                isDark={isDark}
+                src="/media/screenshots/autopilot/safety-boundary.png"
+                alt="Autopilot safety boundary refusing destructive codebase deletion without governed approval"
+                caption="Safety-boundary workflow: destructive repository deletion is blocked without an explicit governed approval path."
+              />
+            </div>
+          </div>
+        ),
+      },
+      {
+        id: 'compositor-workflows',
+        title: 'Compositor Workflows',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <p>
+              The workflow compositor is the most mature Autopilot workflow surface today. The
+              public docs should show the workflows builders can reason about, then point to proof
+              files instead of asking readers to trust screenshots alone.
+            </p>
+            <Table
+              isDark={isDark}
+              headers={['Workflow', 'What the GUI shows', 'Proof file']}
+              rows={[
+                [
+                  'Terminal coding loop',
+                  'Workspace status, git diff, file inspect, patch dry-run, approval-gated patch apply, tests, LSP diagnostics, artifact read, and result retrieval.',
+                  <code>workflow-terminal-coding-loop-run-button-proof.json</code>,
+                ],
+                [
+                  'Telemetry budget chain',
+                  'Usage meter, context budget, compaction policy, and coding budget gate wired into a runtime-readiness chain.',
+                  <code>workflow-telemetry-budget-chain-run-inspector-proof.json</code>,
+                ],
+                [
+                  'Promotion to gated/live',
+                  'Cluster promotion controls that block missing receipts/replay/canary/rollback evidence, then allow gated and live promotion when proof exists.',
+                  <code>promotion-transition-gui-behavior-proof.json</code>,
+                ],
+                [
+                  'Rollback and restore canary',
+                  'Activation gates, package evidence manifest, replay drill, rollback receipt selection, and restoration proof surfaces.',
+                  <code>rollback-restore-canary-ui-proof.json</code>,
+                ],
+              ]}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'capture-lane',
+        title: 'Docs Media Capture Lane',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <p>
+              Prefer existing desktop evidence for Autopilot screenshots because it exercises the
+              real Tauri GUI. For web-applicable docs routes, use the developers app visual smoke
+              lane after the Vite preview server is running:
+            </p>
+            <CodeBlock
+              isDark={isDark}
+              code="npm run smoke:routes --workspace=apps/developers-ioi-ai"
+            />
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'runtime-daemon',
+    title: 'Runtime Daemon',
+    eyebrow: 'Run',
+    summary:
+      'The runtime daemon is the current local product API for agents, runs, events, traces, MCP, memory, model mounting, and Agentgres v0 local store projection.',
+    section: 'run',
+    status: 'Current',
+    maturity: 'repo_current',
+    repoBacked: true,
+    runnableToday: true,
+    sourceFreshness: 'current_repo',
+    primaryAudience: 'operator',
+    routePath: '/runtime',
+    legacyHashes: ['runtime-daemon', 'policies-approvals-and-receipts', 'runtime'],
+    lastVerified: LAST_VERIFIED,
+    keywords: ['runtime', 'daemon', 'Agentgres', 'events', 'traces', 'receipts'],
+    sources: ['packages/runtime-daemon/src/index.mjs', 'docs/architecture/components/daemon-runtime/api.md', 'internal-docs/implementation/runtime-module-map.md'],
+    canonicalLinks: [canonicalDocsLink],
+    nextSteps: [
+      { label: 'API Reference', href: '#api-reference', description: 'Browse the route-family map.' },
+      { label: 'Model Mounting', href: '#model-mounting', description: 'Manage local models through daemon/admin routes.' },
+      { label: 'MCP Tools', href: '#mcp-tools', description: 'Connect external tools under runtime governance.' },
+    ],
+    sections: [
+      {
+        id: 'current-boundary',
+        title: 'Current Boundary',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <p>
+              The daemon is the local runtime boundary that SDKs, TUI/CLI, agent-ide, Autopilot,
+              benchmarks, and probes should target. The current implementation includes an
+              <code> AgentgresRuntimeStateStore</code> as the Agentgres v0 local store proof for
+              runs, tasks, artifacts, receipts, policy decisions, traces, and projections.
+            </p>
+            <Callout isDark={isDark} tone="current" title="Agentgres v0 local store">
               <p>
-                Use Autopilot when you want the operator-facing approval UX. Use the CLI when you
-                want trace, synthesis, verification, and lower-level evidence workflows.
+                Agentgres v0 is local/current here: enough state substrate for daemon-backed
+                runtime proof, not the final multi-domain Agentgres production deployment.
+              </p>
+            </Callout>
+          </div>
+        ),
+      },
+      {
+        id: 'route-families',
+        title: 'Route Families',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <Table
+              isDark={isDark}
+              headers={['Area', 'Routes']}
+              rows={[
+                ['Agents/runs', <code>/v1/agents, /v1/runs/{'{run_id}'}/events, /v1/runs/{'{run_id}'}/trace</code>],
+                ['MCP', <code>/v1/mcp, /v1/mcp/tools, /v1/mcp/import, /v1/mcp/serve</code>],
+                ['Memory', <code>/v1/memory, /v1/memory/records, /v1/memory/validate</code>],
+                ['Models', <code>/api/v1/models, /api/v1/models/load, /v1/chat/completions</code>],
+                ['Artifacts/receipts', <code>/v1/runs/{'{run_id}'}/artifacts, /v1/runs/{'{run_id}'}/receipts</code>],
+              ]}
+            />
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'model-mounting',
+    title: 'Model Mounting',
+    eyebrow: 'Run',
+    summary:
+      'Local model mounting is a current daemon/admin and Autopilot surface for catalog search, download, import, mount, load, unload, and OpenAI-compatible chat.',
+    section: 'run',
+    status: 'Current',
+    maturity: 'repo_current',
+    repoBacked: true,
+    runnableToday: true,
+    sourceFreshness: 'current_repo',
+    primaryAudience: 'operator',
+    routePath: '/model-mounting',
+    legacyHashes: ['model-mounting', 'models', 'local-models'],
+    lastVerified: LAST_VERIFIED,
+    keywords: ['model mounting', 'models', 'OpenAI compatible', 'LM Studio', 'Ollama'],
+    sources: ['packages/runtime-daemon/src/model-mounting.mjs', 'apps/autopilot/src/surfaces/MissionControl/MissionControlMountsView.tsx', 'packages/agent-sdk/src/model-mounts.ts'],
+    canonicalLinks: [canonicalDocsLink],
+    nextSteps: [
+      { label: 'Runtime Daemon', href: '#runtime-daemon', description: 'See the daemon boundary behind model routes.' },
+      { label: 'API Reference', href: '#api-reference', description: 'Browse representative route families.' },
+    ],
+    sections: [
+      {
+        id: 'current-api',
+        title: 'Current API',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <Table
+              isDark={isDark}
+              headers={['Task', 'Route']}
+              rows={[
+                ['List models', <code>GET /api/v1/models</code>],
+                ['Search catalog', <code>GET /api/v1/models/catalog/search</code>],
+                ['Download', <code>POST /api/v1/models/download</code>],
+                ['Import local artifact', <code>POST /api/v1/models/import</code>],
+                ['Mount or unmount', <code>POST /api/v1/models/mount, POST /api/v1/models/unmount</code>],
+                ['Load or unload', <code>POST /api/v1/models/load, POST /api/v1/models/unload</code>],
+                ['Use compatibility chat', <code>POST /v1/chat/completions</code>],
+              ]}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'compatibility-boundary',
+        title: 'Compatibility Boundary',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <Callout isDark={isDark} tone="current" title="A model endpoint is not the worker API">
+              <p>
+                <code>/v1/chat/completions</code> is useful for OpenAI-compatible local inference.
+                Persistent workers, policy, memory, traces, receipts, and marketplace packaging
+                belong in the runtime/agent route families.
               </p>
             </Callout>
           </div>
@@ -871,326 +1071,394 @@ cargo run -p ioi-cli --bin cli -- query status`}
     ],
   },
   {
-    id: 'from-autopilot-to-service-candidate',
-    title: 'From Autopilot to Service Candidate',
-    eyebrow: 'Ship',
+    id: 'mcp-tools',
+    title: 'MCP Tools',
+    eyebrow: 'Run',
     summary:
-      'Autopilot is the place to stabilize private/local work. Once a workflow becomes repeatable, the product path branches toward service packaging or heavier sovereign domain flows.',
-    section: 'ship',
-    status: 'Preview',
-    lastVerified: '2026-03-31',
-    keywords: ['promotion path', 'service candidate', 'autopilot', 'sas', 'ioi cli'],
-    sources: [
-      'docs/architecture/foundations/worker-training-lifecycle.md',
-      'docs/architecture/domains/sas/service-marketplace.md',
-      'docs/architecture/components/daemon-runtime/doctrine.md',
-    ],
-    canonicalLinks: [],
+      'MCP/tool support is current in the daemon and SDK: validate servers, import tools, search capabilities, and invoke tools through governed runtime routes.',
+    section: 'run',
+    status: 'Current',
+    maturity: 'repo_current',
+    repoBacked: true,
+    runnableToday: true,
+    sourceFreshness: 'current_repo',
+    primaryAudience: 'operator',
+    routePath: '/mcp-tools',
+    legacyHashes: ['mcp-tools', 'tools', 'mcp'],
+    lastVerified: LAST_VERIFIED,
+    keywords: ['mcp', 'tools', 'invoke', 'server', 'resources', 'prompts'],
+    sources: ['packages/runtime-daemon/src/mcp-manager.mjs', 'packages/agent-sdk/src/substrate-client.ts', 'docs/architecture/components/daemon-runtime/api.md'],
+    canonicalLinks: [canonicalDocsLink],
     nextSteps: [
-      { label: 'Using sas.xyz to Productize Worker Delivery', href: '#using-sas-xyz-to-productize-worker-delivery' },
-      { label: 'When to Use IOI CLI Sovereign Domain Flows', href: '#when-to-use-ioi-cli-sovereign-domain-flows' },
+      { label: 'API Reference', href: '#api-reference', description: 'See MCP in the product-facing API map.' },
+      { label: 'Autopilot', href: '#autopilot', description: 'See how the desktop surface uses tool discovery.' },
     ],
     sections: [
       {
-        id: 'promotion-doctrine',
-        title: 'Promotion Doctrine',
+        id: 'current-routes',
+        title: 'Current Routes',
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
-            <Callout isDark={isDark} tone="preview" title="Current doctrine">
+            <Table
+              isDark={isDark}
+              headers={['Task', 'Route']}
+              rows={[
+                ['Status', <code>GET /v1/mcp</code>],
+                ['Servers', <code>GET /v1/mcp/servers, POST /v1/mcp/servers</code>],
+                ['Tools', <code>GET /v1/mcp/tools, GET /v1/mcp/tools/search, GET /v1/mcp/tools/{'{tool_id}'}</code>],
+                ['Invocation', <code>POST /v1/mcp/tools/{'{tool_id}'}/invoke</code>],
+                ['Resources/prompts', <code>GET /v1/mcp/resources, GET /v1/mcp/prompts</code>],
+                ['Validation/import/serve', <code>POST /v1/mcp/validate, POST /v1/mcp/import, POST /v1/mcp/serve</code>],
+              ]}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'governance',
+        title: 'Governance',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <p>
+              MCP endpoints do not bypass runtime tool contracts, primitive capability
+              requirements, authority scopes, approvals, receipts, or trace expectations.
+            </p>
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'benchmarks',
+    title: 'Benchmarks',
+    eyebrow: 'Run',
+    summary:
+      'Benchmarks and visual smoke tests are current evidence lanes for runtime behavior, computer-use traces, route health, and public docs route rendering.',
+    section: 'run',
+    status: 'Current',
+    maturity: 'repo_current',
+    repoBacked: true,
+    runnableToday: true,
+    sourceFreshness: 'current_repo',
+    primaryAudience: 'operator',
+    routePath: '/benchmarks',
+    legacyHashes: ['benchmarks', 'evals', 'visual-smoke'],
+    lastVerified: LAST_VERIFIED,
+    keywords: ['benchmarks', 'evals', 'visual smoke', 'Playwright', 'screenshots'],
+    sources: ['apps/benchmarks', 'apps/autopilot/scripts', 'docs/evidence', 'apps/developers-ioi-ai/scripts/smoke-routes.mjs'],
+    canonicalLinks: [canonicalDocsLink],
+    nextSteps: [
+      { label: 'Autopilot', href: '#autopilot', description: 'Use current GUI evidence and public screenshot manifests.' },
+      { label: 'Runtime Daemon', href: '#runtime-daemon', description: 'Validate route families behind benchmark runs.' },
+    ],
+    sections: [
+      {
+        id: 'evidence-lanes',
+        title: 'Evidence Lanes',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <Table
+              isDark={isDark}
+              headers={['Lane', 'What it proves']}
+              rows={[
+                ['Autopilot GUI harness', 'Desktop chat, workflow, safety, sources, and runtime evidence.'],
+                ['Computer-use suites', 'Browser/control traces, receipts, diagnostics, and replay assets.'],
+                ['Model mount probes', 'Catalog, download, load/unload, and compatibility-route behavior.'],
+                ['Developers route smoke', 'Public docs routes render and key text is visible in browser automation.'],
+              ]}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'docs-visual-smoke',
+        title: 'Docs Visual Smoke',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <p>
+              The developers app includes a route-smoke command that starts a local preview server
+              and verifies major routes with Playwright when the dependency is available.
+            </p>
+            <CodeBlock
+              isDark={isDark}
+              code="npm run smoke:routes --workspace=apps/developers-ioi-ai"
+            />
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'service-candidate',
+    title: 'Service Candidate Packaging',
+    eyebrow: 'Ship',
+    summary:
+      'Service candidate packaging is the preview path for turning a local worker into a governed, portable service candidate before any production marketplace claim.',
+    section: 'ship',
+    status: 'Preview',
+    maturity: 'preview',
+    repoBacked: true,
+    runnableToday: false,
+    sourceFreshness: 'product_preview',
+    primaryAudience: 'marketplace_builder',
+    routePath: '/ship/service-candidate',
+    legacyHashes: ['package-a-service-candidate', 'service-candidate', 'ship'],
+    lastVerified: LAST_VERIFIED,
+    keywords: ['service candidate', 'package', 'worker', 'ship'],
+    sources: ['docs/architecture/domains/sas/service-marketplace.md', 'docs/architecture/foundations/common-objects-and-envelopes.md', 'apps/autopilot/src/windows/ChatShellWindow/components/ArtifactHubPackagingViews.tsx'],
+    canonicalLinks: [canonicalDocsLink],
+    nextSteps: [
+      { label: 'sas.xyz', href: '#sas-xyz', description: 'Understand the provider marketplace preview.' },
+      { label: 'aiagent.xyz', href: '#aiagent-xyz', description: 'Understand the discovery and procurement preview.' },
+    ],
+    sections: [
+      {
+        id: 'what-exists-today',
+        title: 'What Exists Today',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <p>
+              The repo has architecture, package/evidence concepts, Autopilot packaging UI code,
+              and GUI proof assets. Treat service candidates as preview until packaging manifests,
+              validation gates, import review, and release workflows are public-current.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: 'ship-checklist',
+        title: 'Ship Checklist',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <ul className={listClass(isDark)}>
+              <li>Bind worker identity, version, owner, runtime assignment, and authority scope.</li>
+              <li>Attach evidence: tests, benchmark traces, receipts, model/tool requirements, and screenshots if UI-facing.</li>
+              <li>State deployment maturity: local proof, private pilot, provider preview, or production candidate.</li>
+              <li>Hand off protocol object depth to canonical docs instead of reproducing low-level specs here.</li>
+            </ul>
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'sas-xyz',
+    title: 'sas.xyz',
+    eyebrow: 'Ship',
+    summary:
+      'sas.xyz remains visible as the provider/service marketplace shape, but it is preview framing here rather than a claim of a live production marketplace.',
+    section: 'ship',
+    status: 'Preview',
+    maturity: 'preview',
+    repoBacked: true,
+    runnableToday: false,
+    sourceFreshness: 'architecture',
+    primaryAudience: 'marketplace_builder',
+    routePath: '/ship/sas',
+    legacyHashes: ['sas-xyz-provider-path', 'sas', 'sas-xyz'],
+    lastVerified: LAST_VERIFIED,
+    keywords: ['sas.xyz', 'service marketplace', 'provider', 'ship'],
+    sources: ['docs/architecture/domains/sas/service-marketplace.md', 'docs/architecture/foundations/web4-and-ioi-stack.md'],
+    canonicalLinks: [canonicalDocsLink],
+    nextSteps: [
+      { label: 'Service Candidate Packaging', href: '#service-candidate', description: 'Package before presenting a service.' },
+      { label: 'aiagent.xyz', href: '#aiagent-xyz', description: 'Compare provider and discovery paths.' },
+    ],
+    sections: [
+      {
+        id: 'what-exists-today',
+        title: 'What Exists Today',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <p>
+              sas.xyz exists in the current architecture as the provider-side service marketplace
+              direction. Public docs should describe the shape and prerequisites, not imply that
+              listings, procurement, billing, ranking, or provider onboarding are production-live.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: 'provider-shape',
+        title: 'Provider Shape',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <Table
+              isDark={isDark}
+              headers={['Concern', 'Preview framing']}
+              rows={[
+                ['Service listing', 'A packaged worker/service candidate with evidence, scope, and terms.'],
+                ['Provider trust', 'Receipts, benchmarks, versioning, and authority declarations.'],
+                ['Delivery', 'Local, hosted, or sovereign-domain runtime depending on the service shape.'],
+              ]}
+            />
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'aiagent-xyz',
+    title: 'aiagent.xyz',
+    eyebrow: 'Ship',
+    summary:
+      'aiagent.xyz remains the preview discovery/procurement path for portable workers, framed as future marketplace shape instead of live production inventory.',
+    section: 'ship',
+    status: 'Preview',
+    maturity: 'preview',
+    repoBacked: true,
+    runnableToday: false,
+    sourceFreshness: 'architecture',
+    primaryAudience: 'marketplace_builder',
+    routePath: '/ship/aiagent',
+    legacyHashes: ['aiagent-xyz-distribution-path', 'aiagent', 'aiagent-xyz'],
+    lastVerified: LAST_VERIFIED,
+    keywords: ['aiagent.xyz', 'worker marketplace', 'discovery', 'procurement'],
+    sources: ['docs/architecture/domains/aiagent/worker-marketplace.md', 'docs/architecture/domains/aiagent/worker-endpoints.md'],
+    canonicalLinks: [canonicalDocsLink],
+    nextSteps: [
+      { label: 'Service Candidate Packaging', href: '#service-candidate', description: 'Understand the package boundary first.' },
+      { label: 'Worker Training / MoW', href: '#worker-training-mow', description: 'See the concept lane for worker improvement.' },
+    ],
+    sections: [
+      {
+        id: 'what-exists-today',
+        title: 'What Exists Today',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <p>
+              aiagent.xyz exists in architecture and endpoint design as the worker discovery and
+              procurement direction. It should not be documented as a live production inventory,
+              ranking system, billing layer, or procurement marketplace yet.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: 'worker-shape',
+        title: 'Worker Shape',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <Table
+              isDark={isDark}
+              headers={['Concern', 'Preview framing']}
+              rows={[
+                ['Discovery', 'Find workers by capability, evidence, compatibility, and deployment mode.'],
+                ['Install/procure', 'Bind a worker to local Autopilot, daemon, hosted runtime, or sovereign domain.'],
+                ['Compatibility', 'Worker value lives above /v1/chat/completions in agent, worker, and interagent routes.'],
+              ]}
+            />
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'sovereign-domain-flows',
+    title: 'Sovereign Domain Flows',
+    eyebrow: 'Ship',
+    summary:
+      'Sovereign-domain flows stay visible as a preview deployment shape for customer-controlled kernels and Agentgres-backed domains.',
+    section: 'ship',
+    status: 'Preview',
+    maturity: 'preview',
+    repoBacked: true,
+    runnableToday: false,
+    sourceFreshness: 'architecture',
+    primaryAudience: 'marketplace_builder',
+    routePath: '/ship/sovereign-domain',
+    legacyHashes: ['sovereign-domain', 'domain-kernels'],
+    lastVerified: LAST_VERIFIED,
+    keywords: ['sovereign domain', 'domain kernel', 'Agentgres', 'deployment'],
+    sources: ['docs/architecture/foundations/domain-kernels.md', 'docs/architecture/foundations/web4-and-ioi-stack.md'],
+    canonicalLinks: [canonicalDocsLink],
+    nextSteps: [
+      { label: 'Runtime Daemon', href: '#runtime-daemon', description: 'Start with local runtime boundaries.' },
+      { label: 'sas.xyz', href: '#sas-xyz', description: 'Understand provider-side service packaging.' },
+    ],
+    sections: [
+      {
+        id: 'what-exists-today',
+        title: 'What Exists Today',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <p>
+              Domain kernels and sovereign deployments are documented architecture, not a public
+              self-serve deployment product in developers.ioi.ai. Use this page to orient builders
+              toward the future shape while handing implementation depth to canonical docs.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: 'deployment-shape',
+        title: 'Deployment Shape',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <ul className={listClass(isDark)}>
+              <li>Local Autopilot or daemon domain for individual/private work.</li>
+              <li>Provider-hosted service domain for packaged service candidates.</li>
+              <li>Enterprise-private sovereign domain with customer-controlled kernel and Agentgres state.</li>
+            </ul>
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'worker-training-mow',
+    title: 'Worker Training / MoW',
+    eyebrow: 'Ship',
+    summary:
+      'Worker Training and MoW are concept-stage public shapes for improving workers from retained evidence, recipes, evaluation, and governed training loops.',
+    section: 'ship',
+    status: 'Concept',
+    maturity: 'concept',
+    repoBacked: true,
+    runnableToday: false,
+    sourceFreshness: 'architecture',
+    primaryAudience: 'marketplace_builder',
+    routePath: '/ship/worker-training-mow',
+    legacyHashes: ['worker-training', 'mow', 'worker-training-mow', 'autopilot-foundry'],
+    lastVerified: LAST_VERIFIED,
+    keywords: ['worker training', 'MoW', 'Autopilot Foundry', 'data recipes', 'evaluation'],
+    sources: ['docs/decisions/0004-worker-mow-and-training-doctrine.md', 'docs/architecture/foundations/domain-ontologies-and-data-recipes.md', 'internal-docs/implementation/roadmap-and-dependencies.md'],
+    canonicalLinks: [canonicalDocsLink],
+    nextSteps: [
+      { label: 'aiagent.xyz', href: '#aiagent-xyz', description: 'See the worker discovery preview.' },
+      { label: 'Service Candidate Packaging', href: '#service-candidate', description: 'Understand the package/evidence boundary.' },
+    ],
+    sections: [
+      {
+        id: 'concept-framing',
+        title: 'Concept Framing',
+        render: (isDark) => (
+          <div className={bodyClass(isDark)}>
+            <Callout isDark={isDark} tone="concept" title="Concept, not a live training marketplace">
               <p>
-                The most stable current product distinction is: Autopilot stabilizes work,{' '}
-                <code>sas.xyz</code> productizes it, and IOI CLI owns the heavier sovereign
-                domain path.
+                Worker Training, MoW, and Autopilot Foundry describe a future improvement loop:
+                retain governed evidence, define recipes, evaluate workers, and promote better
+                versions. Public docs should not present this as a live marketplace or production
+                training product yet.
               </p>
             </Callout>
-            <ul className={listClass(isDark)}>
-              <li>Keep early experimentation and supervision in Autopilot.</li>
-              <li>
-                Promote repeatable delivery into a service candidate when the workflow can be
-                versioned, bounded, and reused.
-              </li>
-              <li>
-                Move toward the sovereign domain path only when durable policy, delegation,
-                publication, or execution-economy semantics really matter.
-              </li>
-            </ul>
           </div>
         ),
       },
       {
-        id: 'practical-branching',
-        title: 'Practical Branching',
+        id: 'current-building-blocks',
+        title: 'Current Building Blocks',
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
             <Table
               isDark={isDark}
-              headers={['If your work has become...', 'Next likely surface', 'Why']}
+              headers={['Building block', 'Current maturity']}
               rows={[
-                ['A stable private operator workflow', 'Autopilot', 'Keep refining and supervising it locally.'],
-                ['A reusable provider-facing service', 'sas.xyz', 'You need manifests, contracts, deployment posture, and productization.'],
-                ['A demand-facing listing or install path', 'aiagent.xyz', 'You need discovery, comparison, routing, or procurement.'],
-                ['A sovereign execution domain', 'IOI CLI domain path', 'You need domain roots, policy permanence, and heavier lifecycle semantics.'],
+                ['Autopilot evidence and artifacts', 'Current local GUI/runtime evidence.'],
+                ['Benchmarks and traces', 'Current repo-backed evaluation assets.'],
+                ['Domain ontologies and data recipes', 'Architecture/current docs, not fully productized.'],
+                ['Worker promotion and marketplace packaging', 'Preview/concept depending on target surface.'],
               ]}
-            />
-          </div>
-        ),
-      },
-    ],
-  },
-  {
-    id: 'using-sas-xyz-to-productize-worker-delivery',
-    title: 'Using sas.xyz to Productize Worker Delivery',
-    eyebrow: 'Ship',
-    summary:
-      'sas.xyz is the provider operating path. Use it when stable worker delivery needs manifests, contracts, deployment posture, tenant controls, and commercialization.',
-    section: 'ship',
-    status: 'Preview',
-    lastVerified: '2026-03-31',
-    keywords: ['sas.xyz', 'provider', 'service as software', 'deploy', 'productize'],
-    sources: ['apps/sas-xyz/README.md', 'docs/architecture/domains/sas/service-marketplace.md'],
-    canonicalLinks: [],
-    nextSteps: [
-      { label: 'From Autopilot to Service Candidate', href: '#from-autopilot-to-service-candidate' },
-      { label: 'Using aiagent.xyz for Discovery and Procurement', href: '#using-aiagent-xyz-for-discovery-and-procurement' },
-    ],
-    sections: [
-      {
-        id: 'what-sas-owns',
-        title: 'What sas.xyz Owns',
-        render: (isDark) => (
-          <div className={bodyClass(isDark)}>
-            <p>
-              The current product story for <code>sas.xyz</code> is consistent: providers use it to
-              package and operate repeatable worker delivery as a service.
-            </p>
-            <ul className={listClass(isDark)}>
-              <li>Service manifests and contracts.</li>
-              <li>Capability requirements and operating envelopes.</li>
-              <li>Deployment presets across local, hosted, BYOK, or customer boundaries.</li>
-              <li>Billing, tenant controls, and distribution posture.</li>
-            </ul>
-          </div>
-        ),
-      },
-      {
-        id: 'what-sas-does-not-own',
-        title: 'What It Does Not Own',
-        render: (isDark) => (
-          <div className={bodyClass(isDark)}>
-            <ul className={listClass(isDark)}>
-              <li>It is not the private/local operator shell. That remains Autopilot.</li>
-              <li>
-                It is not the canonical domain-instantiation surface. That remains the IOI CLI
-                domain path.
-              </li>
-              <li>
-                It is not the discovery marketplace. That role belongs to <code>aiagent.xyz</code>.
-              </li>
-            </ul>
-          </div>
-        ),
-      },
-    ],
-  },
-  {
-    id: 'using-aiagent-xyz-for-discovery-and-procurement',
-    title: 'Using aiagent.xyz for Discovery and Procurement',
-    eyebrow: 'Ship',
-    summary:
-      'aiagent.xyz is the demand-side market layer. Use it to route buyers toward published worker services or bespoke procurement, not as a provider console.',
-    section: 'ship',
-    status: 'Preview',
-    lastVerified: '2026-03-31',
-    keywords: ['aiagent.xyz', 'marketplace', 'discovery', 'procurement', 'listing'],
-    sources: ['apps/aiagent-xyz/README.md', 'docs/architecture/domains/aiagent/worker-marketplace.md'],
-    canonicalLinks: [],
-    nextSteps: [
-      { label: 'Using sas.xyz to Productize Worker Delivery', href: '#using-sas-xyz-to-productize-worker-delivery' },
-      { label: 'Choose the Right Surface', href: '#choose-the-right-surface' },
-    ],
-    sections: [
-      {
-        id: 'two-market-loops',
-        title: 'Two Market Loops',
-        render: (isDark) => (
-          <div className={bodyClass(isDark)}>
-            <Table
-              isDark={isDark}
-              headers={['Loop', 'Object type', 'Typical buyer action']}
-              rows={[
-                ['Productized service loop', 'Published service object', 'Compare, buy, install, run, or route to an API/provider path.'],
-                ['Bespoke procurement loop', 'Procurement request object', 'Post a need, compare providers, and procure custom delivery.'],
-              ]}
-            />
-            <p>
-              The important rule is not to collapse those two objects into one confusing marketplace
-              story.
-            </p>
-          </div>
-        ),
-      },
-      {
-        id: 'routing-role',
-        title: 'Routing Role',
-        render: (isDark) => (
-          <div className={bodyClass(isDark)}>
-            <p>
-              <code>aiagent.xyz</code> should route demand toward the right next surface rather than
-              absorb every downstream job itself.
-            </p>
-            <ul className={listClass(isDark)}>
-              <li>Run now through a hosted demand UX.</li>
-              <li>Install into a private/local runtime.</li>
-              <li>Call a provider API.</li>
-              <li>Contact a provider for an enterprise or bespoke path.</li>
-            </ul>
-          </div>
-        ),
-      },
-    ],
-  },
-  {
-    id: 'when-to-use-ioi-cli-sovereign-domain-flows',
-    title: 'When to Use IOI CLI Sovereign Domain Flows',
-    eyebrow: 'Ship',
-    summary:
-      'Reach for the sovereign domain path when a system needs durable policy roots, publication semantics, or execution-economy behavior that is heavier than a single reusable service.',
-    section: 'ship',
-    status: 'Preview',
-    lastVerified: '2026-03-31',
-    keywords: ['sovereign domain', 'ioi cli', 'init', 'scaffold', 'node'],
-    sources: [
-      'docs/architecture/components/daemon-runtime/doctrine.md',
-      'crates/cli/src/commands/init.rs',
-      'crates/cli/src/commands/scaffold.rs',
-      'crates/cli/src/commands/node.rs',
-    ],
-    canonicalLinks: [
-      {
-        label: 'Canonical protocol and domain reference',
-        href: 'https://docs.ioi.network',
-        external: true,
-      },
-    ],
-    nextSteps: [
-      { label: 'IOI CLI Overview', href: '#ioi-cli-overview' },
-      { label: 'CLI Command Reference', href: '#cli-command-reference' },
-    ],
-    sections: [
-      {
-        id: 'use-it-when',
-        title: 'Use It When',
-        render: (isDark) => (
-          <div className={bodyClass(isDark)}>
-            <ul className={listClass(isDark)}>
-              <li>Durable sovereign state matters.</li>
-              <li>Policy roots and authority structure need to be explicit and durable.</li>
-              <li>Publication and continuity are part of the product, not an implementation detail.</li>
-              <li>
-                The system is becoming an execution domain or protocolized economy rather than only
-                a service package.
-              </li>
-            </ul>
-          </div>
-        ),
-      },
-      {
-        id: 'today-in-the-cli',
-        title: 'What Exists Today In The CLI',
-        render: (isDark) => (
-          <div className={bodyClass(isDark)}>
-            <CodeBlock
-              isDark={isDark}
-              code={`# Initialize a new project shape
-cargo run -p ioi-cli --bin cli -- init my-ioi-project
-
-# Scaffold a native service module
-cargo run -p ioi-cli --bin cli -- scaffold service payments
-
-# Scaffold a contract module
-cargo run -p ioi-cli --bin cli -- scaffold contract receipts
-
-# Bring up a local node
-cargo run -p ioi-cli --bin cli -- node`}
-            />
-            <p>
-              The command surface already exists. The broader sovereign-domain story is CLI-led
-              and should still be treated as evolving.
-            </p>
-          </div>
-        ),
-      },
-    ],
-  },
-  {
-    id: 'cli-command-reference',
-    title: 'CLI Command Reference',
-    eyebrow: 'Reference',
-    summary:
-      'Current command families exposed by the CLI binary, with the repo-safe invocation pattern and the primary use for each family.',
-    section: 'reference',
-    status: 'Current',
-    lastVerified: '2026-03-31',
-    keywords: ['reference', 'commands', 'help', 'cli', 'query', 'node', 'artifact'],
-    sources: ['crates/cli/src/main.rs', 'crates/cli/src/commands/*.rs'],
-    canonicalLinks: [],
-    nextSteps: [
-      { label: 'IOI CLI Overview', href: '#ioi-cli-overview' },
-      { label: 'Build Your First Chat Artifact', href: '#build-your-first-chat-artifact' },
-    ],
-    sections: [
-      {
-        id: 'how-to-use-this-page',
-        title: 'How To Use This Page',
-        render: (isDark) => (
-          <div className={bodyClass(isDark)}>
-            <p>
-              Treat this as a current command-family map, not as exhaustive man pages. For the
-              latest flag details, use the binary help surface directly from the workspace:
-            </p>
-            <CodeBlock isDark={isDark} code="cargo run -p ioi-cli --bin cli -- --help" />
-          </div>
-        ),
-      },
-      {
-        id: 'command-families',
-        title: 'Command Families',
-        render: (isDark) => (
-          <Table
-            isDark={isDark}
-            headers={['Command', 'Primary job', 'Notes']}
-            rows={[
-              ['init', 'Initialize a new IOI project structure', 'Creates a starter project shape with services, contracts, and config directories.'],
-              ['scaffold', 'Add services or contracts', 'Scaffolds native service modules or WASM contract modules.'],
-              ['artifact', 'Plan, generate, inspect, validate, materialize', 'One of the strongest implementation-backed workflows in the repo today.'],
-              ['node', 'Run a local chain or validator flow', 'Use this when you need a local state/rpc surface.'],
-              ['test', 'Run the project test suite', 'Builder and devnet validation path.'],
-              ['keys', 'Manage identities and connector keys', 'Includes generation and inspection paths.'],
-              ['config', 'Generate and validate configs', 'Useful when shaping orchestration or workload configs.'],
-              ['query', 'Inspect node state or tx status', 'Companion to local node workflows.'],
-              ['agent', 'Interact with the local desktop agent', 'Natural-language runtime entry point from the CLI side.'],
-              ['trace', 'Visualize or inspect execution traces', 'Helpful after runs that need postmortem or audit review.'],
-              ['verify', 'Verify determinism-boundary evidence', 'Evidence-oriented verification surface.'],
-              ['policy', 'Generate a security policy from traces', 'Focused synthesis workflow.'],
-              ['pii', 'PII review actions', 'Deterministic approval/review flow for PII decisions.'],
-              ['ghost', 'Ghost Mode policy distillation', 'Alternative command family for trace-to-policy synthesis.'],
-              ['dev', 'Developer/debug helpers', 'Includes skill injection/export and wallet bootstrap helpers.'],
-            ]}
-          />
-        ),
-      },
-      {
-        id: 'best-next-help-commands',
-        title: 'Best Next Help Commands',
-        render: (isDark) => (
-          <div className={bodyClass(isDark)}>
-            <CodeBlock
-              isDark={isDark}
-              code={`cargo run -p ioi-cli --bin cli -- artifact --help
-cargo run -p ioi-cli --bin cli -- node --help
-cargo run -p ioi-cli --bin cli -- query --help
-cargo run -p ioi-cli --bin cli -- verify --help
-cargo run -p ioi-cli --bin cli -- dev --help`}
             />
           </div>
         ),
@@ -1199,24 +1467,77 @@ cargo run -p ioi-cli --bin cli -- dev --help`}
   },
 ];
 
-export const DOC_PAGE_BY_ID = new Map(DOC_PAGES.map((page) => [page.id, page]));
-
-export function getDocPage(id: string): DocPage | undefined {
-  return DOC_PAGE_BY_ID.get(id);
-}
-
-export function matchesDocSearch(page: DocPage, query: string): boolean {
-  if (!query.trim()) {
-    return true;
-  }
-
-  const haystack = [page.title, page.summary, page.eyebrow, ...page.keywords]
-    .join(' ')
-    .toLowerCase();
-
-  return haystack.includes(query.trim().toLowerCase());
+export function getDocPage(pageId: string): DocPage | undefined {
+  return DOC_PAGES.find((page) => page.id === pageId);
 }
 
 export function firstPageForSection(sectionId: DocSectionId): DocPage | undefined {
-  return DOC_PAGES.find((page) => page.section === sectionId);
+  const group = NAV_GROUPS.find((section) => section.id === sectionId);
+  return group?.pageIds.map(getDocPage).find(Boolean);
+}
+
+export function docPageByRoutePath(pathname: string): DocPage | undefined {
+  const normalizedPath = normalizeRoutePath(pathname);
+  return DOC_PAGES.find((page) => normalizeRoutePath(page.routePath) === normalizedPath);
+}
+
+export function docPageByLegacyHash(hash: string): DocPage | undefined {
+  const normalizedHash = hash.replace(/^#/, '').trim();
+  if (!normalizedHash) {
+    return undefined;
+  }
+
+  return DOC_PAGES.find(
+    (page) => page.id === normalizedHash || page.legacyHashes.includes(normalizedHash),
+  );
+}
+
+export function routeForPageId(pageId: string): string {
+  return getDocPage(pageId)?.routePath ?? getDocPage(DEFAULT_PAGE_ID)!.routePath;
+}
+
+export function sectionLabel(sectionId: DocSectionId): string {
+  return NAV_GROUPS.find((section) => section.id === sectionId)?.label ?? sectionId;
+}
+
+export function matchesDocSearch(page: DocPage, query: string): boolean {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) {
+    return true;
+  }
+
+  return [
+    page.title,
+    page.eyebrow,
+    page.summary,
+    page.section,
+    page.status,
+    page.maturity,
+    page.routePath,
+    ...page.keywords,
+    ...page.sources,
+  ]
+    .join(' ')
+    .toLowerCase()
+    .includes(normalizedQuery);
+}
+
+export function statusDescription(page: DocPage): string {
+  if (page.status === 'Current') {
+    return page.runnableToday
+      ? 'Ready to use against current repo behavior.'
+      : 'Current repo-backed reference, but not a one-command flow.';
+  }
+
+  if (page.status === 'Preview') {
+    return 'Preview: useful direction with a clear “what works today” boundary.';
+  }
+
+  return 'Concept: useful orientation, not a live production surface.';
+}
+
+function normalizeRoutePath(pathname: string): string {
+  const withoutQuery = pathname.split('?')[0]?.split('#')[0] ?? '/';
+  const trimmed = withoutQuery.replace(/\/+$/, '');
+  return trimmed === '' ? '/' : trimmed;
 }
