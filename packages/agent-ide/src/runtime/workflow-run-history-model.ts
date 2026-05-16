@@ -555,8 +555,8 @@ function workflowRunComputerUseScorecardCandidates(
   run: WorkflowRunResult,
 ): unknown[] {
   const candidates: unknown[] = [];
-  pushComputerUseScorecardCandidates(candidates, run.finalState.values);
-  for (const nodeRun of run.nodeRuns) {
+  pushComputerUseScorecardCandidates(candidates, run.finalState?.values);
+  for (const nodeRun of run.nodeRuns ?? []) {
     pushComputerUseScorecardCandidates(candidates, nodeRun.output);
   }
   return candidates;

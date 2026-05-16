@@ -803,6 +803,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(
     guiHarnessContract,
+    /workflow_capability_catalog_binding/,
+  );
+  assert.match(
+    guiHarnessContract,
     /workflow_sandboxed_computer_run_button/,
   );
   assert.match(
@@ -828,6 +832,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(
     guiHarnessContract,
     /workflow_terminal_coding_loop_run_button_proof_present/,
+  );
+  assert.match(
+    guiHarnessContract,
+    /workflow_capability_catalog_binding_proof_present/,
   );
   assert.match(
     guiHarnessContract,
@@ -867,6 +875,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(
     guiHarnessValidation,
+    /collectWorkflowCapabilityCatalogBindingProof/,
+  );
+  assert.match(
+    guiHarnessValidation,
     /collectWorkflowSandboxedComputerRunButtonProof/,
   );
   assert.match(
@@ -892,6 +904,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(
     guiHarnessValidation,
     /workflowTerminalCodingLoopRunButtonProof/,
+  );
+  assert.match(
+    guiHarnessValidation,
+    /workflowCapabilityCatalogBindingProof/,
   );
   assert.match(
     guiHarnessValidation,
@@ -931,6 +947,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   );
   assert.match(
     guiHarnessValidation,
+    /workflow_capability_catalog_binding/,
+  );
+  assert.match(
+    guiHarnessValidation,
     /workflow_sandboxed_computer_run_button/,
   );
   assert.match(
@@ -964,6 +984,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(
     guiHarnessValidation,
     /workflow_terminal_coding_loop_run_button_proof_present/,
+  );
+  assert.match(
+    guiHarnessValidation,
+    /workflow_capability_catalog_binding_proof_present/,
   );
   assert.match(
     guiHarnessValidation,

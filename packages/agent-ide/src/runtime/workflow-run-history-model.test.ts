@@ -282,6 +282,28 @@ test("workflow run history model exposes model invocation traces and searches pr
   );
 });
 
+test("workflow run history model tolerates older runs without final state", () => {
+  const target = {
+    ...runResult("run-a", "passed", { answer: "legacy" }),
+    finalState: undefined,
+  } as unknown as WorkflowRunResult;
+
+  const model = workflowRunHistoryModel({
+    workflow,
+    runs,
+    lastRunResult: target,
+    compareRunResult: null,
+    selectedRunId: "run-a",
+    compareRunId: null,
+    runEvents: [],
+    searchQuery: "",
+    statusFilter: "all",
+  });
+
+  assert.equal(model.selectedRun?.summary.id, "run-a");
+  assert.equal(model.computerUseScorecard, null);
+});
+
 test("workflow run history model projects canonical runtime thread events", () => {
   const target = runResult("run-a", "passed", { answer: "new" });
   const model = workflowRunHistoryModel({

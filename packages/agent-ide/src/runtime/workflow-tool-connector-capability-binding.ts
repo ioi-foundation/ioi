@@ -1,11 +1,17 @@
 import type {
+  Node,
   NodeLogic,
   WorkflowCapabilityAvailability,
   WorkflowCapabilityCredentialReadiness,
   WorkflowConnectorBinding,
+  WorkflowProject,
   WorkflowSideEffectClass,
   WorkflowToolBinding,
 } from "../types/graph";
+
+export type WorkflowCatalogBindingSelection =
+  | { kind: "tool"; value: WorkflowToolBinding }
+  | { kind: "connector"; value: WorkflowConnectorBinding };
 
 export const TOOL_CAPABILITY_BINDING_ENDPOINT = "/api/v1/tools";
 export const TOOL_AUTHORITY_BINDING_ENDPOINT = "/api/v1/authority";
@@ -651,4 +657,60 @@ export function normalizeWorkflowConnectorCatalog(
     source.map((binding) => normalizeWorkflowConnectorBinding(binding)),
     (binding) => binding.connectorCapabilityRef,
   );
+}
+
+function defaultNodeConfig(nodeItem: Node): NonNullable<Node["config"]> {
+  return {
+    kind: nodeItem.type as NonNullable<Node["config"]>["kind"],
+    logic: {},
+    law: {},
+  } as NonNullable<Node["config"]>;
+}
+
+export function workflowNodeWithCatalogBinding(
+  nodeItem: Node,
+  selection: WorkflowCatalogBindingSelection,
+): Node {
+  const currentConfig = nodeItem.config ?? defaultNodeConfig(nodeItem);
+  const nextLogic = {
+    ...(currentConfig.logic ?? {}),
+  };
+  if (selection.kind === "tool") {
+    nextLogic.toolBinding = normalizeWorkflowToolBinding(selection.value);
+    delete nextLogic.connectorBinding;
+  } else {
+    nextLogic.connectorBinding = normalizeWorkflowConnectorBinding(
+      selection.value,
+    );
+    delete nextLogic.toolBinding;
+  }
+  return {
+    ...nodeItem,
+    config: {
+      ...currentConfig,
+      logic: nextLogic,
+      law: currentConfig.law ?? {},
+    } as NonNullable<Node["config"]>,
+  };
+}
+
+export function workflowWithCatalogBinding(
+  workflow: WorkflowProject,
+  nodeId: string,
+  selection: WorkflowCatalogBindingSelection,
+): { workflow: WorkflowProject; applied: boolean; node: Node | null } {
+  let appliedNode: Node | null = null;
+  const nodes = workflow.nodes.map((nodeItem) => {
+    if (nodeItem.id !== nodeId) return nodeItem;
+    appliedNode = workflowNodeWithCatalogBinding(nodeItem, selection);
+    return appliedNode;
+  });
+  return {
+    workflow: {
+      ...workflow,
+      nodes,
+    },
+    applied: Boolean(appliedNode),
+    node: appliedNode,
+  };
 }

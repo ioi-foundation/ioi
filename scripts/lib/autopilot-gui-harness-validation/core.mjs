@@ -15,6 +15,7 @@ export { parseArgs } from "./args.mjs";
 import { writeBundle } from "./artifacts.mjs";
 export { writeBundle } from "./artifacts.mjs";
 import {
+  collectWorkflowCapabilityCatalogBindingProof,
   collectWorkflowCodingRouteProof,
   collectWorkflowCodingRoutePromotionLoopProof,
   collectWorkflowComputerUseTriLaneScorecard,
@@ -29,6 +30,7 @@ import {
   collectWorkflowTerminalCodingLoopRunInspectorProof,
 } from "./workflow-proofs.mjs";
 export {
+  collectWorkflowCapabilityCatalogBindingProof,
   collectWorkflowCodingRouteProof,
   collectWorkflowCodingRoutePromotionLoopProof,
   collectWorkflowComputerUseTriLaneScorecard,
@@ -6013,6 +6015,7 @@ export function buildGuiEvidenceAssessment({
   workflowTerminalCodingLoopCreatorProof,
   workflowTerminalCodingLoopRunInspectorProof,
   workflowTerminalCodingLoopRunButtonProof,
+  workflowCapabilityCatalogBindingProof,
   workflowSandboxedComputerRunButtonProof,
   workflowNativeBrowserPromptPipelineProof,
   workflowVisualGuiPromptPipelineProof,
@@ -7055,6 +7058,8 @@ export function buildGuiEvidenceAssessment({
     workflowTerminalCodingLoopRunInspectorProof?.proof?.passed === true;
   const hasWorkflowTerminalCodingLoopRunButtonProof =
     workflowTerminalCodingLoopRunButtonProof?.proof?.passed === true;
+  const hasWorkflowCapabilityCatalogBindingProof =
+    workflowCapabilityCatalogBindingProof?.proof?.passed === true;
   const hasWorkflowSandboxedComputerRunButtonProof =
     workflowSandboxedComputerRunButtonProof?.proof?.passed === true;
   const hasWorkflowNativeBrowserPromptPipelineProof =
@@ -7263,6 +7268,8 @@ export function buildGuiEvidenceAssessment({
         hasWorkflowTerminalCodingLoopRunInspectorProof,
       workflow_terminal_coding_loop_run_button_proof_present:
         hasWorkflowTerminalCodingLoopRunButtonProof,
+      workflow_capability_catalog_binding_proof_present:
+        hasWorkflowCapabilityCatalogBindingProof,
       workflow_sandboxed_computer_run_button_proof_present:
         hasWorkflowSandboxedComputerRunButtonProof,
       workflow_native_browser_prompt_pipeline_proof_present:
@@ -7365,6 +7372,7 @@ export function buildGuiEvidenceAssessment({
       hasWorkflowTerminalCodingLoopCreatorProof,
       hasWorkflowTerminalCodingLoopRunInspectorProof,
       hasWorkflowTerminalCodingLoopRunButtonProof,
+      hasWorkflowCapabilityCatalogBindingProof,
       hasWorkflowSandboxedComputerRunButtonProof,
       hasWorkflowNativeBrowserPromptPipelineProof,
       hasWorkflowVisualGuiPromptPipelineProof,
@@ -11166,6 +11174,8 @@ async function runGuiValidation(args, outputRoot) {
       collectWorkflowTerminalCodingLoopRunInspectorProof(outputRoot);
     const workflowTerminalCodingLoopRunButtonProof =
       collectWorkflowTerminalCodingLoopRunButtonProof(outputRoot);
+    const workflowCapabilityCatalogBindingProof =
+      collectWorkflowCapabilityCatalogBindingProof(outputRoot);
     const workflowSandboxedComputerRunButtonProof =
       collectWorkflowSandboxedComputerRunButtonProof(outputRoot);
     const workflowNativeBrowserPromptPipelineProof =
@@ -11195,6 +11205,7 @@ async function runGuiValidation(args, outputRoot) {
       workflowTerminalCodingLoopCreatorProof,
       workflowTerminalCodingLoopRunInspectorProof,
       workflowTerminalCodingLoopRunButtonProof,
+      workflowCapabilityCatalogBindingProof,
       workflowSandboxedComputerRunButtonProof,
       workflowNativeBrowserPromptPipelineProof,
       workflowVisualGuiPromptPipelineProof,
@@ -11705,6 +11716,10 @@ async function runGuiValidation(args, outputRoot) {
           workflowTerminalCodingLoopRunButtonProof.proof.passed === true
             ? workflowTerminalCodingLoopRunButtonProof.path
             : false,
+        workflow_capability_catalog_binding:
+          workflowCapabilityCatalogBindingProof.proof.passed === true
+            ? workflowCapabilityCatalogBindingProof.path
+            : false,
         workflow_sandboxed_computer_run_button:
           workflowSandboxedComputerRunButtonProof.proof.passed === true
             ? workflowSandboxedComputerRunButtonProof.path
@@ -11753,6 +11768,8 @@ async function runGuiValidation(args, outputRoot) {
           workflowTerminalCodingLoopRunInspectorProof.proof,
         workflowTerminalCodingLoopRunButton:
           workflowTerminalCodingLoopRunButtonProof.proof,
+        workflowCapabilityCatalogBinding:
+          workflowCapabilityCatalogBindingProof.proof,
         workflowSandboxedComputerRunButton:
           workflowSandboxedComputerRunButtonProof.proof,
         workflowNativeBrowserPromptPipeline:

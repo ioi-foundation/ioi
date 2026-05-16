@@ -147,6 +147,17 @@ export function collectWorkflowTerminalCodingLoopRunButtonProof(outputRoot) {
   });
 }
 
+export function collectWorkflowCapabilityCatalogBindingProof(outputRoot) {
+  return collectProbeProof(outputRoot, {
+    fileName: "workflow-capability-catalog-binding-proof.json",
+    scriptPath:
+      "scripts/lib/workflow-capability-catalog-binding-gui-probe.mjs",
+    schemaVersion: "workflow.capability-catalog-binding.gui-proof.v1",
+    scenario: "workflow_capability_catalog_binding_clickthrough",
+    errorLabel: "workflow capability catalog binding probe",
+  });
+}
+
 export function collectWorkflowSandboxedComputerRunButtonProof(outputRoot) {
   return collectProbeProof(outputRoot, {
     fileName: "workflow-sandboxed-computer-run-button-proof.json",
