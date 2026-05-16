@@ -773,6 +773,11 @@ test("runtime consistency contract requires harness shadow proof", () => {
       "workflow_terminal_coding_loop_run_button_proof_present",
     ),
   );
+  assert.ok(
+    contract.runtimeConsistencyRequirements.includes(
+      "workflow_capability_catalog_binding_proof_present",
+    ),
+  );
 });
 
 test("GUI automation contract stays composer-only and forbids activity-bar clicks", () => {

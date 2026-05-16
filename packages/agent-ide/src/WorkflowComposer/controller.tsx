@@ -261,10 +261,9 @@ import {
   workflowModelBindingIsReady,
 } from "../runtime/workflow-model-capability-binding";
 import {
-  normalizeWorkflowConnectorBinding,
   normalizeWorkflowConnectorCatalog,
-  normalizeWorkflowToolBinding,
   normalizeWorkflowToolCatalog,
+  workflowNodeWithCatalogBinding,
 } from "../runtime/workflow-tool-connector-capability-binding";
 import { workflowRunLaunchGuard } from "../runtime/workflow-run-launch-guard";
 import { workflowNodeDeclaredOutputSchema } from "../runtime/workflow-schema";
@@ -12043,43 +12042,18 @@ export function useWorkflowComposerController({
         setStatusMessage("Capability binding target was not found");
         return;
       }
-      const currentConfig = nodeItem.config ?? {
-        kind: nodeItem.type as WorkflowNodeKind,
-        logic: {},
-        law: {},
-      };
-      const nextLogic = {
-        ...(currentConfig.logic ?? {}),
-      };
-      if (binding.kind === "tool") {
-        const toolBinding = normalizeWorkflowToolBinding(binding.value);
-        nextLogic.toolBinding = toolBinding;
-        delete nextLogic.connectorBinding;
-        updateNode(nodeId, {
-          config: {
-            ...currentConfig,
-            logic: nextLogic,
-            law: currentConfig.law ?? {},
-          } as NonNullable<Node["config"]>,
-        });
-        setStatusMessage(
-          `Bound ${nodeItem.name} to ${toolBinding.toolCapabilityRef ?? toolBinding.toolRef}`,
-        );
-        return;
-      }
-
-      const connectorBinding = normalizeWorkflowConnectorBinding(binding.value);
-      nextLogic.connectorBinding = connectorBinding;
-      delete nextLogic.toolBinding;
+      const nextNode = workflowNodeWithCatalogBinding(nodeItem, binding);
       updateNode(nodeId, {
-        config: {
-          ...currentConfig,
-          logic: nextLogic,
-          law: currentConfig.law ?? {},
-        } as NonNullable<Node["config"]>,
+        config: nextNode.config,
       });
+      const capabilityRef =
+        binding.kind === "tool"
+          ? (nextNode.config?.logic.toolBinding?.toolCapabilityRef ??
+            nextNode.config?.logic.toolBinding?.toolRef)
+          : (nextNode.config?.logic.connectorBinding?.connectorCapabilityRef ??
+            nextNode.config?.logic.connectorBinding?.connectorRef);
       setStatusMessage(
-        `Bound ${nodeItem.name} to ${connectorBinding.connectorCapabilityRef ?? connectorBinding.connectorRef}`,
+        `Bound ${nodeItem.name} to ${capabilityRef ?? "selected capability"}`,
       );
     },
     [nodes, updateNode],

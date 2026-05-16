@@ -305,6 +305,7 @@ export const RUNTIME_CONSISTENCY_REQUIREMENTS = Object.freeze([
   "workflow_terminal_coding_loop_creator_proof_present",
   "workflow_terminal_coding_loop_run_inspector_proof_present",
   "workflow_terminal_coding_loop_run_button_proof_present",
+  "workflow_capability_catalog_binding_proof_present",
   "workflow_sandboxed_computer_run_button_proof_present",
   "workflow_native_browser_prompt_pipeline_proof_present",
   "workflow_visual_gui_prompt_pipeline_proof_present",

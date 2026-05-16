@@ -8,9 +8,12 @@ import {
   normalizeWorkflowToolBinding,
   workflowConnectorBindingCatalogFallback,
   workflowConnectorBindingIsReady,
+  workflowWithCatalogBinding,
   workflowToolBindingCatalogFallback,
   workflowToolBindingIsReady,
 } from "./workflow-tool-connector-capability-binding";
+import { makeDefaultWorkflow } from "./workflow-defaults";
+import { makeWorkflowNode } from "./workflow-node-registry";
 
 test("legacy tool refs project to canonical tool capability contracts", () => {
   const binding = normalizeWorkflowToolBinding({
@@ -147,6 +150,43 @@ test("runtime catalog rows normalize and dedupe by capability ref", () => {
 test("missing catalog input falls back to canonical offline presets", () => {
   assert.ok(normalizeWorkflowToolCatalog(null).length >= 1);
   assert.ok(normalizeWorkflowConnectorCatalog(undefined).length >= 1);
+});
+
+test("catalog binding projection updates workflow nodes deterministically", () => {
+  const workflow = {
+    ...makeDefaultWorkflow("Catalog binding projection"),
+    nodes: [
+      makeWorkflowNode("catalog-tool", "plugin_tool", "Catalog tool", 100, 100),
+    ],
+  };
+  const [toolBinding] = normalizeWorkflowToolCatalog([
+    {
+      toolRef: "file.apply_patch",
+      bindingKind: "coding_tool_pack",
+      mockBinding: false,
+      credentialReady: true,
+      sideEffectClass: "write",
+      capabilityScope: ["file.apply_patch"],
+      requiresApproval: true,
+    },
+  ]);
+
+  const result = workflowWithCatalogBinding(workflow, "catalog-tool", {
+    kind: "tool",
+    value: toolBinding,
+  });
+
+  assert.equal(result.applied, true);
+  assert.equal(
+    result.node?.config?.logic.toolBinding?.toolCapabilityRef,
+    "tool-capability:file.apply_patch",
+  );
+  assert.equal(result.node?.config?.logic.connectorBinding, undefined);
+  assert.equal(
+    result.workflow.nodes[0].config?.logic.toolBinding?.receiptBehavior
+      ?.receiptRequired,
+    true,
+  );
 });
 
 console.log("workflow-tool-connector-capability-binding.test.ts: ok");

@@ -295,6 +295,13 @@ const guiHarnessContract = fs.readFileSync(
   ),
   "utf8",
 );
+const workflowCapabilityCatalogBindingProbe = fs.readFileSync(
+  new URL(
+    "../../../../../scripts/lib/workflow-capability-catalog-binding-gui-probe.mjs",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const promotionTransitionGuiProbe = fs.readFileSync(
   new URL(
     "../../../../../scripts/lib/harness-promotion-transition-gui-probe.mjs",
@@ -1739,6 +1746,18 @@ assert.match(
   composer,
   /(?=[\s\S]*listWorkflowToolCatalog)(?=[\s\S]*normalizeWorkflowToolCatalog)(?=[\s\S]*listWorkflowConnectorCatalog)(?=[\s\S]*normalizeWorkflowConnectorCatalog)(?=[\s\S]*handleApplyWorkflowCatalogBinding)/,
   "Workflow composer should hydrate tool and connector capability catalogs before applying node bindings",
+);
+
+assert.match(
+  `${guiHarnessValidation}\n${guiHarnessContract}`,
+  /(?=[\s\S]*collectWorkflowCapabilityCatalogBindingProof)(?=[\s\S]*workflow_capability_catalog_binding)(?=[\s\S]*workflow_capability_catalog_binding_proof_present)/,
+  "Retained GUI validation should require canonical capability catalog binding proof.",
+);
+
+assert.match(
+  workflowCapabilityCatalogBindingProbe,
+  /(?=[\s\S]*workflow-catalog-picker)(?=[\s\S]*workflow-catalog-apply)(?=[\s\S]*workflowWithCatalogBinding)(?=[\s\S]*tool-capability:mcp\.tool\.catalog\.read)(?=[\s\S]*connector-capability:agent\.connector\.catalog)(?=[\s\S]*failClosedWhenReadinessMissing)/,
+  "Catalog binding proof should exercise the modal picker path, canonical refs, and fail-closed readiness.",
 );
 
 assert.match(
