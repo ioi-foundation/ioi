@@ -475,3 +475,180 @@ export function workflowConnectorBindingIsReady(
   const normalized = normalizeWorkflowConnectorBinding(binding);
   return Boolean(cleanText(normalized.connectorCapabilityRef)) && bindingIsReady(normalized);
 }
+
+export function workflowToolBindingCatalogFallback(): WorkflowToolBinding[] {
+  return [
+    normalizeWorkflowToolBinding({
+      toolRef: "mcp.tool.catalog.read",
+      bindingKind: "mcp_tool",
+      mockBinding: false,
+      credentialReady: true,
+      capabilityScope: ["mcp.tool.catalog.read", "mcp.provider.read"],
+      sideEffectClass: "read",
+      requiresApproval: false,
+      arguments: {
+        mode: "catalog_preview",
+        mutation: false,
+        providerCatalogRef: "previousAuthorityOutput.providerCatalog",
+      },
+    }),
+    normalizeWorkflowToolBinding({
+      toolRef: "agent.runtime.native-tool.catalog.read",
+      bindingKind: "native_tool",
+      mockBinding: false,
+      credentialReady: true,
+      capabilityScope: ["native.tool.catalog.read", "mcp.tool.catalog.read"],
+      sideEffectClass: "read",
+      requiresApproval: false,
+      arguments: {
+        mode: "native_catalog_preview",
+        mutation: false,
+        mcpToolCatalogRef: "input.mcpToolCatalog",
+      },
+    }),
+    normalizeWorkflowToolBinding({
+      toolRef: "web_search_mcp",
+      bindingKind: "mcp_tool",
+      mockBinding: true,
+      credentialReady: false,
+      capabilityScope: ["read"],
+      sideEffectClass: "read",
+      requiresApproval: false,
+      arguments: { query: "{{input}}" },
+    }),
+    normalizeWorkflowToolBinding({
+      toolRef: "codex_plugin",
+      bindingKind: "plugin_tool",
+      mockBinding: true,
+      credentialReady: false,
+      capabilityScope: ["read", "analyze"],
+      sideEffectClass: "read",
+      requiresApproval: false,
+      arguments: {},
+    }),
+    normalizeWorkflowToolBinding({
+      toolRef: "workflow_tool",
+      bindingKind: "workflow_tool",
+      mockBinding: false,
+      credentialReady: true,
+      capabilityScope: ["invoke"],
+      sideEffectClass: "read",
+      requiresApproval: false,
+      arguments: {},
+      workflowTool: {
+        workflowPath: ".agents/workflows/scratch-gui-node-composition.workflow.json",
+        argumentSchema: { type: "object" },
+        resultSchema: { type: "object" },
+        timeoutMs: 30000,
+        maxAttempts: 1,
+      },
+    }),
+  ];
+}
+
+export function workflowConnectorBindingCatalogFallback(): WorkflowConnectorBinding[] {
+  return [
+    normalizeWorkflowConnectorBinding({
+      connectorRef: "mcp.capability-provider",
+      mockBinding: false,
+      credentialReady: true,
+      capabilityScope: ["mcp.provider.read", "mcp.catalog.read"],
+      sideEffectClass: "read",
+      requiresApproval: false,
+      operation: "catalog",
+    }),
+    normalizeWorkflowConnectorBinding({
+      connectorRef: "agent.connector.catalog",
+      mockBinding: false,
+      credentialReady: true,
+      capabilityScope: ["connector.catalog.read", "mcp.tool.catalog.read"],
+      sideEffectClass: "read",
+      requiresApproval: false,
+      operation: "describe",
+    }),
+    normalizeWorkflowConnectorBinding({
+      connectorRef: "slack",
+      mockBinding: true,
+      credentialReady: false,
+      capabilityScope: ["read"],
+      sideEffectClass: "read",
+      requiresApproval: false,
+      operation: "read",
+    }),
+    normalizeWorkflowConnectorBinding({
+      connectorRef: "support",
+      mockBinding: true,
+      credentialReady: false,
+      capabilityScope: ["read"],
+      sideEffectClass: "read",
+      requiresApproval: false,
+      operation: "read",
+    }),
+    normalizeWorkflowConnectorBinding({
+      connectorRef: "it_ticketing",
+      mockBinding: true,
+      credentialReady: false,
+      capabilityScope: ["read", "write"],
+      sideEffectClass: "external_write",
+      requiresApproval: true,
+      operation: "draft_or_create",
+    }),
+    normalizeWorkflowConnectorBinding({
+      connectorRef: "analytics",
+      mockBinding: true,
+      credentialReady: false,
+      capabilityScope: ["read"],
+      sideEffectClass: "read",
+      requiresApproval: false,
+      operation: "read",
+    }),
+    normalizeWorkflowConnectorBinding({
+      connectorRef: "accounting_system",
+      mockBinding: true,
+      credentialReady: false,
+      capabilityScope: ["read"],
+      sideEffectClass: "read",
+      requiresApproval: false,
+      operation: "read",
+    }),
+  ];
+}
+
+function uniqueByCapabilityRef<T>(
+  bindings: T[],
+  capabilityRef: (binding: T) => string | undefined,
+): T[] {
+  const seen = new Set<string>();
+  return bindings.filter((binding) => {
+    const key = capabilityRef(binding) ?? "";
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+export function normalizeWorkflowToolCatalog(
+  bindings: Array<Partial<WorkflowToolBinding>> | null | undefined,
+): WorkflowToolBinding[] {
+  const source =
+    Array.isArray(bindings) && bindings.length > 0
+      ? bindings
+      : workflowToolBindingCatalogFallback();
+  return uniqueByCapabilityRef(
+    source.map((binding) => normalizeWorkflowToolBinding(binding)),
+    (binding) => binding.toolCapabilityRef,
+  );
+}
+
+export function normalizeWorkflowConnectorCatalog(
+  bindings: Array<Partial<WorkflowConnectorBinding>> | null | undefined,
+): WorkflowConnectorBinding[] {
+  const source =
+    Array.isArray(bindings) && bindings.length > 0
+      ? bindings
+      : workflowConnectorBindingCatalogFallback();
+  return uniqueByCapabilityRef(
+    source.map((binding) => normalizeWorkflowConnectorBinding(binding)),
+    (binding) => binding.connectorCapabilityRef,
+  );
+}

@@ -60,6 +60,7 @@ import type {
   WorkflowBindingCheckResult,
   WorkflowBindingManifest,
   WorkflowBottomPanel,
+  WorkflowConnectorBinding,
   WorkflowHarnessActiveRuntimeRollbackApplyProof,
   WorkflowHarnessActivationAuditEvent,
   WorkflowConnectionClass,
@@ -106,6 +107,7 @@ import type {
   WorkflowStreamEvent,
   WorkflowTestCase,
   WorkflowTestRunResult,
+  WorkflowToolBinding,
   WorkflowValidationIssue,
   WorkflowValidationResult,
   WorkflowWorkbenchBundle,
@@ -258,6 +260,12 @@ import {
   normalizeGraphModelBinding,
   workflowModelBindingIsReady,
 } from "../runtime/workflow-model-capability-binding";
+import {
+  normalizeWorkflowConnectorBinding,
+  normalizeWorkflowConnectorCatalog,
+  normalizeWorkflowToolBinding,
+  normalizeWorkflowToolCatalog,
+} from "../runtime/workflow-tool-connector-capability-binding";
 import { workflowRunLaunchGuard } from "../runtime/workflow-run-launch-guard";
 import { workflowNodeDeclaredOutputSchema } from "../runtime/workflow-schema";
 import {
@@ -2591,6 +2599,18 @@ export function useWorkflowComposerController({
   } | null>(null);
   const [modelBindingOpen, setModelBindingOpen] = useState(false);
   const [connectorBindingOpen, setConnectorBindingOpen] = useState(false);
+  const [workflowToolCatalog, setWorkflowToolCatalog] = useState<
+    WorkflowToolBinding[]
+  >([]);
+  const [workflowConnectorCatalog, setWorkflowConnectorCatalog] = useState<
+    WorkflowConnectorBinding[]
+  >([]);
+  const [
+    workflowCapabilityCatalogLoading,
+    setWorkflowCapabilityCatalogLoading,
+  ] = useState(false);
+  const [workflowCapabilityCatalogError, setWorkflowCapabilityCatalogError] =
+    useState<string | null>(null);
   const [testEditorOpen, setTestEditorOpen] = useState(false);
   const [deployOpen, setDeployOpen] = useState(false);
   const [proposalToReview, setProposalToReview] =
@@ -3144,6 +3164,63 @@ export function useWorkflowComposerController({
     () => toWorkflowProject(nodes, edges, globalConfig, workflow),
     [nodes, edges, globalConfig, workflow],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    const projectRoot = currentProject?.rootPath || ".";
+
+    const loadWorkflowCapabilityCatalog = async () => {
+      setWorkflowCapabilityCatalogLoading(true);
+      setWorkflowCapabilityCatalogError(null);
+      const toolCatalogRequest = runtime.listWorkflowToolCatalog
+        ? runtime.listWorkflowToolCatalog(projectRoot)
+        : Promise.resolve(null);
+      const connectorCatalogRequest = runtime.listWorkflowConnectorCatalog
+        ? runtime.listWorkflowConnectorCatalog(projectRoot)
+        : Promise.resolve(null);
+
+      const [toolResult, connectorResult] = await Promise.allSettled([
+        toolCatalogRequest,
+        connectorCatalogRequest,
+      ]);
+      if (cancelled) return;
+
+      const toolCatalog =
+        toolResult.status === "fulfilled" ? toolResult.value : null;
+      const connectorCatalog =
+        connectorResult.status === "fulfilled" ? connectorResult.value : null;
+      setWorkflowToolCatalog(normalizeWorkflowToolCatalog(toolCatalog));
+      setWorkflowConnectorCatalog(
+        normalizeWorkflowConnectorCatalog(connectorCatalog),
+      );
+
+      const catalogIssues: string[] = [];
+      if (!runtime.listWorkflowToolCatalog) {
+        catalogIssues.push("tool catalog API unavailable");
+      } else if (toolResult.status === "rejected") {
+        catalogIssues.push(`tool catalog failed: ${errorMessage(toolResult.reason)}`);
+      }
+      if (!runtime.listWorkflowConnectorCatalog) {
+        catalogIssues.push("connector catalog API unavailable");
+      } else if (connectorResult.status === "rejected") {
+        catalogIssues.push(
+          `connector catalog failed: ${errorMessage(connectorResult.reason)}`,
+        );
+      }
+      setWorkflowCapabilityCatalogError(
+        catalogIssues.length
+          ? `${catalogIssues.join("; ")}; using offline capability presets.`
+          : null,
+      );
+      setWorkflowCapabilityCatalogLoading(false);
+    };
+
+    void loadWorkflowCapabilityCatalog();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentProject?.rootPath, runtime]);
+
   const isReadOnlyWorkflow = currentProjectFile.metadata.readOnly === true;
   const isHarnessWorkflow = workflowIsHarness(currentProjectFile);
   const isBlessedHarnessWorkflow = workflowIsBlessedHarness(currentProjectFile);
@@ -11953,6 +12030,61 @@ export function useWorkflowComposerController({
     [isReadOnlyWorkflow, markWorkflowDirty, setNodes],
   );
 
+  const handleApplyWorkflowCatalogBinding = useCallback(
+    (
+      nodeId: string,
+      binding:
+        | { kind: "tool"; value: WorkflowToolBinding }
+        | { kind: "connector"; value: WorkflowConnectorBinding },
+    ) => {
+      const nodeItem = nodes.find((flowNode) => flowNode.id === nodeId)
+        ?.data as Node | undefined;
+      if (!nodeItem) {
+        setStatusMessage("Capability binding target was not found");
+        return;
+      }
+      const currentConfig = nodeItem.config ?? {
+        kind: nodeItem.type as WorkflowNodeKind,
+        logic: {},
+        law: {},
+      };
+      const nextLogic = {
+        ...(currentConfig.logic ?? {}),
+      };
+      if (binding.kind === "tool") {
+        const toolBinding = normalizeWorkflowToolBinding(binding.value);
+        nextLogic.toolBinding = toolBinding;
+        delete nextLogic.connectorBinding;
+        updateNode(nodeId, {
+          config: {
+            ...currentConfig,
+            logic: nextLogic,
+            law: currentConfig.law ?? {},
+          } as NonNullable<Node["config"]>,
+        });
+        setStatusMessage(
+          `Bound ${nodeItem.name} to ${toolBinding.toolCapabilityRef ?? toolBinding.toolRef}`,
+        );
+        return;
+      }
+
+      const connectorBinding = normalizeWorkflowConnectorBinding(binding.value);
+      nextLogic.connectorBinding = connectorBinding;
+      delete nextLogic.toolBinding;
+      updateNode(nodeId, {
+        config: {
+          ...currentConfig,
+          logic: nextLogic,
+          law: currentConfig.law ?? {},
+        } as NonNullable<Node["config"]>,
+      });
+      setStatusMessage(
+        `Bound ${nodeItem.name} to ${connectorBinding.connectorCapabilityRef ?? connectorBinding.connectorRef}`,
+      );
+    },
+    [nodes, updateNode],
+  );
+
   const handleCreateWorkflow = async () => {
     const request: CreateWorkflowProjectRequest = {
       projectRoot: currentProject?.rootPath || ".",
@@ -14830,6 +14962,10 @@ export function useWorkflowComposerController({
     connectFromNodeId,
     ConnectorBindingModal,
     connectorBindingOpen,
+    workflowToolCatalog,
+    workflowConnectorCatalog,
+    workflowCapabilityCatalogLoading,
+    workflowCapabilityCatalogError,
     counts,
     createKind,
     createMode,
@@ -14863,6 +14999,7 @@ export function useWorkflowComposerController({
     handleAddNodeFromLibrary,
     handleAddTest,
     handleAddTestFromOutput,
+    handleApplyWorkflowCatalogBinding,
     handleApplyHarnessActivationCandidate,
     handleApplyProposal,
     handleCaptureNodeFixture,

@@ -28,6 +28,10 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     connectFromNodeId,
     ConnectorBindingModal,
     connectorBindingOpen,
+    workflowToolCatalog,
+    workflowConnectorCatalog,
+    workflowCapabilityCatalogLoading,
+    workflowCapabilityCatalogError,
     counts,
     createKind,
     createMode,
@@ -61,6 +65,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleAddNodeFromLibrary,
     handleAddTest,
     handleAddTestFromOutput,
+    handleApplyWorkflowCatalogBinding,
     handleApplyProposal,
     handleCaptureNodeFixture,
     handleCheckReadiness,
@@ -2188,6 +2193,10 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
       {connectorBindingOpen ? (
         <ConnectorBindingModal
           workflow={currentProjectFile}
+          toolCatalog={workflowToolCatalog}
+          connectorCatalog={workflowConnectorCatalog}
+          catalogLoading={workflowCapabilityCatalogLoading}
+          catalogError={workflowCapabilityCatalogError}
           onClose={() => setConnectorBindingOpen(false)}
           onInspectNode={(nodeId) => {
             const nodeItem = nodes.find((node) => node.id === nodeId)
@@ -2199,6 +2208,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
             setNodeConfigOpen(true);
             setConnectorBindingOpen(false);
           }}
+          onApplyCatalogBinding={handleApplyWorkflowCatalogBinding}
           onOpenNodeLibrary={() => {
             openLeftDrawer();
             setConnectorBindingOpen(false);

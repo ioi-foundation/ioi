@@ -1,11 +1,14 @@
+import { useState } from "react";
 import type {
   GraphGlobalConfig,
   WorkflowExecutionMode,
   WorkflowKind,
   Node,
+  WorkflowConnectorBinding,
   WorkflowProject,
   WorkflowProposal,
   WorkflowTestCase,
+  WorkflowToolBinding,
   WorkflowValidationResult,
 } from "../../types/graph";
 import { workflowNodeDeclaredOutputSchema } from "../../runtime/workflow-schema";
@@ -451,15 +454,33 @@ export function ModelBindingModal({
 
 export function ConnectorBindingModal({
   workflow,
+  toolCatalog,
+  connectorCatalog,
+  catalogLoading,
+  catalogError,
   onClose,
   onInspectNode,
   onOpenNodeLibrary,
+  onApplyCatalogBinding,
 }: {
   workflow: WorkflowProject;
+  toolCatalog: WorkflowToolBinding[];
+  connectorCatalog: WorkflowConnectorBinding[];
+  catalogLoading: boolean;
+  catalogError: string | null;
   onClose: () => void;
   onInspectNode: (nodeId: string) => void;
   onOpenNodeLibrary: () => void;
+  onApplyCatalogBinding: (
+    nodeId: string,
+    binding:
+      | { kind: "tool"; value: WorkflowToolBinding }
+      | { kind: "connector"; value: WorkflowConnectorBinding },
+  ) => void;
 }) {
+  const [selectedCatalogRefs, setSelectedCatalogRefs] = useState<
+    Record<string, string>
+  >({});
   const connectorNodes = workflow.nodes.filter(
     (nodeItem) =>
       nodeItem.type === "adapter" || nodeItem.type === "plugin_tool",
@@ -500,6 +521,10 @@ export function ConnectorBindingModal({
     return {
       nodeItem,
       ref,
+      catalogKind:
+        normalizedConnector || nodeItem.type === "adapter"
+          ? ("connector" as const)
+          : ("tool" as const),
       mockBinding,
       credentialReady,
       requiresApproval,
@@ -517,6 +542,26 @@ export function ConnectorBindingModal({
   const credentialReadyCount = bindingRows.filter(
     (row) => row.credentialReady,
   ).length;
+  const catalogOptionForRow = (row: (typeof bindingRows)[number]) => {
+    if (row.catalogKind === "connector") {
+      return connectorCatalog.map((binding) => ({
+        ref:
+          binding.connectorCapabilityRef ??
+          `connector-capability:${binding.connectorRef}`,
+        label: binding.connectorRef,
+        description: binding.operation ?? binding.sideEffectClass,
+        ready: workflowConnectorBindingIsReady(binding),
+        binding,
+      }));
+    }
+    return toolCatalog.map((binding) => ({
+      ref: binding.toolCapabilityRef ?? `tool-capability:${binding.toolRef}`,
+      label: binding.toolRef,
+      description: binding.bindingKind ?? binding.sideEffectClass,
+      ready: workflowToolBindingIsReady(binding),
+      binding,
+    }));
+  };
   return (
     <div
       className="workflow-create-backdrop"
@@ -551,6 +596,16 @@ export function ConnectorBindingModal({
             <dd>{credentialReadyCount}</dd>
           </div>
         </dl>
+        <p
+          className="workflow-create-summary"
+          data-testid="workflow-capability-catalog-summary"
+        >
+          Catalog{" "}
+          {catalogLoading
+            ? "loading from runtime..."
+            : `${toolCatalog.length} tools and ${connectorCatalog.length} connectors ready for capability binding.`}
+          {catalogError ? ` ${catalogError}` : ""}
+        </p>
         {connectorNodes.length === 0 ? (
           <p>No connector or plugin nodes in this workflow.</p>
         ) : (
@@ -558,54 +613,109 @@ export function ConnectorBindingModal({
             className="workflow-binding-list"
             data-testid="workflow-connector-binding-list"
           >
-            {bindingRows.map((row) => (
-              <article
-                key={row.nodeItem.id}
-                className={`workflow-binding-row is-${row.ready ? (row.mockBinding ? "warning" : "ready") : "blocked"}`}
-                data-testid={`workflow-connector-binding-row-${row.nodeItem.id}`}
-              >
-                <header>
-                  <strong>{row.nodeItem.name}</strong>
-                  <span>{row.ready ? row.ref : "unbound"}</span>
-                </header>
-                <dl>
-                  <div>
-                    <dt>Kind</dt>
-                    <dd>{row.bindingKind}</dd>
-                  </div>
-                  <div>
-                    <dt>Mode</dt>
-                    <dd>{row.mockBinding ? "mock" : "live"}</dd>
-                  </div>
-                  <div>
-                    <dt>Side effect</dt>
-                    <dd>{row.sideEffectClass}</dd>
-                  </div>
-                  <div>
-                    <dt>Credentials</dt>
-                    <dd>
-                      {row.credentialReady
-                        ? "ready"
-                        : row.mockBinding
-                          ? "mock"
-                          : "missing"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Approval</dt>
-                    <dd>
-                      {row.requiresApproval ? "required" : "not required"}
-                    </dd>
-                  </div>
-                </dl>
-                <button
-                  type="button"
-                  onClick={() => onInspectNode(row.nodeItem.id)}
+            {bindingRows.map((row) => {
+              const catalogOptions = catalogOptionForRow(row);
+              const currentSelectedRef =
+                selectedCatalogRefs[row.nodeItem.id] ??
+                catalogOptions.find((option) => option.ref === row.ref)?.ref ??
+                "";
+              const selectedOption = catalogOptions.find(
+                (option) => option.ref === currentSelectedRef,
+              );
+              return (
+                <article
+                  key={row.nodeItem.id}
+                  className={`workflow-binding-row is-${row.ready ? (row.mockBinding ? "warning" : "ready") : "blocked"}`}
+                  data-testid={`workflow-connector-binding-row-${row.nodeItem.id}`}
                 >
-                  Configure node
-                </button>
-              </article>
-            ))}
+                  <header>
+                    <strong>{row.nodeItem.name}</strong>
+                    <span>{row.ready ? row.ref : "unbound"}</span>
+                  </header>
+                  <dl>
+                    <div>
+                      <dt>Kind</dt>
+                      <dd>{row.bindingKind}</dd>
+                    </div>
+                    <div>
+                      <dt>Mode</dt>
+                      <dd>{row.mockBinding ? "mock" : "live"}</dd>
+                    </div>
+                    <div>
+                      <dt>Side effect</dt>
+                      <dd>{row.sideEffectClass}</dd>
+                    </div>
+                    <div>
+                      <dt>Credentials</dt>
+                      <dd>
+                        {row.credentialReady
+                          ? "ready"
+                          : row.mockBinding
+                            ? "mock"
+                            : "missing"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Approval</dt>
+                      <dd>
+                        {row.requiresApproval ? "required" : "not required"}
+                      </dd>
+                    </div>
+                  </dl>
+                  <label>
+                    Capability catalog
+                    <select
+                      data-testid={`workflow-catalog-picker-${row.nodeItem.id}`}
+                      value={currentSelectedRef}
+                      onChange={(event) =>
+                        setSelectedCatalogRefs((current) => ({
+                          ...current,
+                          [row.nodeItem.id]: event.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Choose a capability</option>
+                      {catalogOptions.map((option) => (
+                        <option key={option.ref} value={option.ref}>
+                          {option.label} · {option.description} ·{" "}
+                          {option.ready ? "ready" : "needs readiness"}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="workflow-binding-actions">
+                    <button
+                      type="button"
+                      onClick={() => onInspectNode(row.nodeItem.id)}
+                    >
+                      Configure node
+                    </button>
+                    <button
+                      type="button"
+                      data-testid={`workflow-catalog-apply-${row.nodeItem.id}`}
+                      disabled={!selectedOption}
+                      onClick={() => {
+                        if (!selectedOption) return;
+                        if (row.catalogKind === "connector") {
+                          onApplyCatalogBinding(row.nodeItem.id, {
+                            kind: "connector",
+                            value:
+                              selectedOption.binding as WorkflowConnectorBinding,
+                          });
+                          return;
+                        }
+                        onApplyCatalogBinding(row.nodeItem.id, {
+                          kind: "tool",
+                          value: selectedOption.binding as WorkflowToolBinding,
+                        });
+                      }}
+                    >
+                      Apply catalog binding
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
         <footer>
