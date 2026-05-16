@@ -10,9 +10,11 @@ import type {
   WorkflowNodeFixture,
   WorkflowProject,
   WorkflowProposal,
+  WorkflowConnectorBinding,
   WorkflowModelBinding,
   WorkflowRevisionBinding,
   WorkflowRevisionRestoreResult,
+  WorkflowToolBinding,
   WorkflowTestCase,
   WorkflowValidationIssue,
   WorkflowValidationResult,
@@ -47,6 +49,10 @@ import {
 } from "./workflow-scheduler-lane-readiness";
 import type { WorkflowRuntimeThreadEventLike } from "./workflow-runtime-event-projection";
 import { normalizeWorkflowModelBinding } from "./workflow-model-capability-binding";
+import {
+  normalizeWorkflowConnectorBinding,
+  normalizeWorkflowToolBinding,
+} from "./workflow-tool-connector-capability-binding";
 import { workflowWorkspaceTrustGateIssues } from "./workflow-workspace-trust-gate";
 
 export function defaultTestsForWorkflow(workflow: WorkflowProject): WorkflowTestCase[] {
@@ -66,6 +72,13 @@ function liveBindingContractMetadataIssues(
   nodeId: string,
   bindingKind: "connector" | "tool",
   binding: {
+    toolCapabilityRef?: string;
+    connectorCapabilityRef?: string;
+    authorityScopes?: string[];
+    authorityScopeRequirements?: string[];
+    approvalRequirement?: Record<string, unknown>;
+    grantReadiness?: { status?: string } | Record<string, unknown>;
+    policyPosture?: Record<string, unknown>;
     mockBinding?: boolean;
     credentialReady?: boolean;
     credentialReadiness?: { status?: string } | Record<string, unknown>;
@@ -78,30 +91,76 @@ function liveBindingContractMetadataIssues(
   } | null | undefined,
 ): WorkflowValidationIssue[] {
   if (!binding || binding.mockBinding !== false) return [];
+  const normalized =
+    bindingKind === "tool"
+      ? normalizeWorkflowToolBinding(binding as Partial<WorkflowToolBinding>)
+      : normalizeWorkflowConnectorBinding(binding as Partial<WorkflowConnectorBinding>);
   const issues: WorkflowValidationIssue[] = [];
-  const sideEffectClass = String(binding.sideEffectClass ?? "none");
+  const sideEffectClass = String(normalized.sideEffectClass ?? "none");
   const effectful = !["none", "read"].includes(sideEffectClass);
+  const capabilityRef =
+    bindingKind === "tool"
+      ? (normalized as WorkflowToolBinding).toolCapabilityRef
+      : (normalized as WorkflowConnectorBinding).connectorCapabilityRef;
+  if (!String(capabilityRef ?? "").trim() || String(capabilityRef).endsWith(":unbound")) {
+    issues.push({
+      nodeId,
+      code: `missing_${bindingKind}_capability_ref`,
+      message: `Live ${bindingKind} bindings need a canonical ${bindingKind}CapabilityRef before execution.`,
+    });
+  }
+  const authorityScopes = normalized.authorityScopes ?? [];
+  const authorityRequirements = normalized.authorityScopeRequirements ?? [];
+  if (effectful && authorityScopes.length === 0 && authorityRequirements.length === 0) {
+    issues.push({
+      nodeId,
+      code: "missing_authority_scope_requirements",
+      message: `Effectful live ${bindingKind} bindings need authority scope requirements before execution.`,
+    });
+  }
   const credentialStatus = String(
-    (binding.credentialReadiness as { status?: unknown } | undefined)?.status ?? "",
-  ).trim();
-  if (!credentialStatus && typeof binding.credentialReady !== "boolean") {
+    (normalized.credentialReadiness as { status?: unknown } | undefined)?.status ?? "",
+  ).trim().toLowerCase();
+  if (
+    normalized.credentialReady !== true &&
+    !["ready", "not_required"].includes(credentialStatus)
+  ) {
     issues.push({
       nodeId,
       code: "missing_credential_readiness_contract",
-      message: `Live ${bindingKind} bindings need credentialReadiness status metadata or a compatibility credentialReady projection.`,
+      message: `Live ${bindingKind} bindings need ready credentialReadiness metadata or a compatibility credentialReady projection.`,
     });
   }
-  if (!effectful) return issues;
-  if (!String(binding.rateLimitProfile?.policy ?? "").trim()) {
+  const grantStatus = String(
+    (normalized.grantReadiness as { status?: unknown } | undefined)?.status ?? "",
+  ).trim().toLowerCase();
+  if (!["ready", "not_required"].includes(grantStatus)) {
+    issues.push({
+      nodeId,
+      code: "missing_grant_readiness",
+      message: `Live ${bindingKind} bindings need ready grantReadiness before execution.`,
+    });
+  }
+  const policyStatus = String(
+    (normalized.policyPosture as { status?: unknown } | undefined)?.status ?? "",
+  ).trim().toLowerCase();
+  if (!["allowed", "approved", "ready"].includes(policyStatus)) {
+    issues.push({
+      nodeId,
+      code: "missing_policy_posture",
+      message: `Live ${bindingKind} bindings need an allowed policyPosture before execution.`,
+    });
+  }
+  if (!String(normalized.rateLimitProfile?.policy ?? "").trim()) {
     issues.push({
       nodeId,
       code: "missing_rate_limit_profile",
       message: `Live ${bindingKind} bindings need rateLimitProfile.policy before execution.`,
     });
   }
-  const receiptRequired = Boolean(binding.receiptBehavior?.receiptRequired);
-  const receiptTypes = Array.isArray(binding.receiptBehavior?.requiredReceiptTypes)
-    ? binding.receiptBehavior.requiredReceiptTypes.length
+  const receiptRequired = Boolean(normalized.receiptBehavior?.receiptRequired);
+  const receiptTypes = Array.isArray(normalized.receiptBehavior?.requiredReceiptTypes)
+    ? normalized.receiptBehavior.requiredReceiptTypes.length
     : 0;
   if (!receiptRequired || receiptTypes === 0) {
     issues.push({
@@ -111,8 +170,8 @@ function liveBindingContractMetadataIssues(
     });
   }
   if (effectful) {
-    const idempotencyRequired = Boolean(binding.idempotencyBehavior?.required);
-    const idempotencyStrategy = String(binding.idempotencyBehavior?.strategy ?? "").trim();
+    const idempotencyRequired = Boolean(normalized.idempotencyBehavior?.required);
+    const idempotencyStrategy = String(normalized.idempotencyBehavior?.strategy ?? "").trim();
     if (!idempotencyRequired || !idempotencyStrategy) {
       issues.push({
         nodeId,
@@ -121,14 +180,14 @@ function liveBindingContractMetadataIssues(
       });
     }
   }
-  if (binding.workflowAvailability?.available !== true) {
+  if (normalized.workflowAvailability?.available !== true) {
     issues.push({
       nodeId,
       code: "missing_workflow_availability",
       message: `Live ${bindingKind} bindings need workflowAvailability.available=true before activation.`,
     });
   }
-  if (binding.agentAvailability?.available !== true) {
+  if (normalized.agentAvailability?.available !== true) {
     issues.push({
       nodeId,
       code: "missing_agent_availability",
@@ -1698,7 +1757,20 @@ export function validateWorkflowProject(
         });
       }
     }
-    if (nodeItem.type === "adapter" && !logic.connectorBinding?.connectorRef) {
+    const normalizedConnectorBinding = logic.connectorBinding
+      ? normalizeWorkflowConnectorBinding(logic.connectorBinding)
+      : null;
+    const normalizedToolBinding = logic.toolBinding
+      ? normalizeWorkflowToolBinding(logic.toolBinding)
+      : null;
+    if (
+      nodeItem.type === "adapter" &&
+      !(
+        normalizedConnectorBinding?.connectorRef ||
+        (normalizedConnectorBinding?.connectorCapabilityRef &&
+          !normalizedConnectorBinding.connectorCapabilityRef.endsWith(":unbound"))
+      )
+    ) {
       connectorBindingIssues.push({
         nodeId: nodeItem.id,
         code: "missing_connector_binding",
@@ -1707,8 +1779,11 @@ export function validateWorkflowProject(
     }
     if (
       nodeItem.type === "adapter" &&
-      logic.connectorBinding?.mockBinding === false &&
-      logic.connectorBinding?.credentialReady !== true
+      normalizedConnectorBinding?.mockBinding === false &&
+      normalizedConnectorBinding.credentialReady !== true &&
+      !["ready", "not_required"].includes(
+        String(normalizedConnectorBinding.credentialReadiness?.status ?? "").toLowerCase(),
+      )
     ) {
       connectorBindingIssues.push({
         nodeId: nodeItem.id,
@@ -1721,11 +1796,18 @@ export function validateWorkflowProject(
         ...liveBindingContractMetadataIssues(
           nodeItem.id,
           "connector",
-          logic.connectorBinding,
+          normalizedConnectorBinding,
         ),
       );
     }
-    if (nodeItem.type === "plugin_tool" && !logic.toolBinding?.toolRef) {
+    if (
+      nodeItem.type === "plugin_tool" &&
+      !(
+        normalizedToolBinding?.toolRef ||
+        (normalizedToolBinding?.toolCapabilityRef &&
+          !normalizedToolBinding.toolCapabilityRef.endsWith(":unbound"))
+      )
+    ) {
       connectorBindingIssues.push({
         nodeId: nodeItem.id,
         code: "missing_tool_binding",
@@ -1734,9 +1816,12 @@ export function validateWorkflowProject(
     }
     if (
       nodeItem.type === "plugin_tool" &&
-      logic.toolBinding?.bindingKind !== "workflow_tool" &&
-      logic.toolBinding?.mockBinding === false &&
-      logic.toolBinding?.credentialReady !== true
+      normalizedToolBinding?.bindingKind !== "workflow_tool" &&
+      normalizedToolBinding?.mockBinding === false &&
+      normalizedToolBinding.credentialReady !== true &&
+      !["ready", "not_required"].includes(
+        String(normalizedToolBinding.credentialReadiness?.status ?? "").toLowerCase(),
+      )
     ) {
       connectorBindingIssues.push({
         nodeId: nodeItem.id,
@@ -1752,7 +1837,7 @@ export function validateWorkflowProject(
         ...liveBindingContractMetadataIssues(
           nodeItem.id,
           "tool",
-          logic.toolBinding,
+          normalizedToolBinding,
         ),
       );
     }

@@ -27,6 +27,12 @@ import {
   workflowModelBindingIsReady,
 } from "./workflow-model-capability-binding";
 import {
+  normalizeWorkflowConnectorBinding,
+  normalizeWorkflowToolBinding,
+  workflowConnectorBindingIsReady,
+  workflowToolBindingIsReady,
+} from "./workflow-tool-connector-capability-binding";
+import {
   workflowValuePreview,
   type WorkflowValuePreview,
 } from "./workflow-value-preview";
@@ -2101,41 +2107,45 @@ export function workflowBindingRegistryRows(workflow: WorkflowProject): Workflow
       });
     }
     if (nodeItem.type === "adapter" && logic.connectorBinding) {
+      const normalized = normalizeWorkflowConnectorBinding(logic.connectorBinding);
       rows.push({
         id: `${nodeItem.id}-connector`,
         nodeItem,
         bindingKind: "Connector",
-        ref: logic.connectorBinding.connectorRef,
-        mode: logic.connectorBinding.mockBinding ? "mock" : "live",
-        ready: logic.connectorBinding.mockBinding || logic.connectorBinding.credentialReady === true,
-        scope: logic.connectorBinding.capabilityScope?.join(", ") || "read",
-        sideEffectClass: logic.connectorBinding.sideEffectClass ?? "read",
-        approval: logic.connectorBinding.requiresApproval ? "approval required" : "not required",
+        ref: normalized.connectorCapabilityRef || normalized.connectorRef || "connector",
+        mode: normalized.mockBinding ? "mock" : "live",
+        ready: workflowConnectorBindingIsReady(normalized),
+        scope: (normalized.authorityScopes?.length
+          ? normalized.authorityScopes
+          : normalized.capabilityScope
+        ).join(", ") || "read",
+        sideEffectClass: normalized.sideEffectClass ?? "read",
+        approval: normalized.requiresApproval ? "approval required" : "not required",
       });
     }
     if (nodeItem.type === "plugin_tool" && logic.toolBinding) {
-      const isWorkflowTool = logic.toolBinding.bindingKind === "workflow_tool";
-      const workflowToolPath = logic.toolBinding.workflowTool?.workflowPath?.trim();
+      const normalized = normalizeWorkflowToolBinding(logic.toolBinding);
+      const isWorkflowTool = normalized.bindingKind === "workflow_tool";
+      const workflowToolPath = normalized.workflowTool?.workflowPath?.trim();
       rows.push({
         id: `${nodeItem.id}-tool`,
         nodeItem,
         bindingKind: isWorkflowTool ? "Workflow tool" : "Tool",
         ref: isWorkflowTool
-          ? workflowToolPath || logic.toolBinding.toolRef
-          : logic.toolBinding.toolRef,
+          ? workflowToolPath || normalized.toolCapabilityRef || normalized.toolRef
+          : normalized.toolCapabilityRef || normalized.toolRef,
         mode: isWorkflowTool
           ? "local"
-          : logic.toolBinding.mockBinding
+          : normalized.mockBinding
             ? "mock"
             : "live",
-        ready:
-          isWorkflowTool
-            ? Boolean(workflowToolPath)
-            : logic.toolBinding.mockBinding ||
-              logic.toolBinding.credentialReady === true,
-        scope: logic.toolBinding.capabilityScope?.join(", ") || "tool",
-        sideEffectClass: logic.toolBinding.sideEffectClass ?? "none",
-        approval: logic.toolBinding.requiresApproval ? "approval required" : "not required",
+        ready: workflowToolBindingIsReady(normalized),
+        scope: (normalized.authorityScopes?.length
+          ? normalized.authorityScopes
+          : normalized.capabilityScope
+        ).join(", ") || "tool",
+        sideEffectClass: normalized.sideEffectClass ?? "none",
+        approval: normalized.requiresApproval ? "approval required" : "not required",
       });
     }
     if (nodeItem.type === "parser" && logic.parserBinding) {
@@ -2680,17 +2690,18 @@ export function workflowSelectedNodeBindingSummary(
     ];
   }
   if (node.type === "adapter") {
-    const binding = logic.connectorBinding ?? {};
+    const binding = normalizeWorkflowConnectorBinding(logic.connectorBinding ?? {});
     return [
-      { label: "Connector", value: String(binding.connectorRef || "not selected"), ready: Boolean(binding.connectorRef) },
+      { label: "Capability", value: String(binding.connectorCapabilityRef || "not selected"), ready: Boolean(binding.connectorCapabilityRef && !binding.connectorCapabilityRef.endsWith(":unbound")) },
       { label: "Mode", value: binding.mockBinding === true ? "mock" : "live", ready: typeof binding.mockBinding === "boolean" },
+      { label: "Authority", value: (binding.authorityScopes ?? []).join(", ") || "none", ready: binding.mockBinding === true || workflowConnectorBindingIsReady(binding) },
       { label: "Credentials", value: binding.mockBinding === true ? "mock" : binding.credentialReady ? "ready" : "missing", ready: binding.mockBinding === true || binding.credentialReady === true },
     ];
   }
   if (node.type === "plugin_tool") {
-    const binding = logic.toolBinding ?? {};
+    const binding = normalizeWorkflowToolBinding(logic.toolBinding ?? {});
     return [
-      { label: "Tool", value: String(binding.toolRef || "not selected"), ready: Boolean(binding.toolRef) },
+      { label: "Capability", value: String(binding.toolCapabilityRef || "not selected"), ready: Boolean(binding.toolCapabilityRef && !binding.toolCapabilityRef.endsWith(":unbound")) },
       { label: "Mode", value: binding.mockBinding === true ? "mock" : "live", ready: typeof binding.mockBinding === "boolean" },
       { label: "Credentials", value: binding.bindingKind === "workflow_tool" ? "local" : binding.mockBinding === true ? "mock" : binding.credentialReady ? "ready" : "missing", ready: binding.bindingKind === "workflow_tool" || binding.mockBinding === true || binding.credentialReady === true },
     ];

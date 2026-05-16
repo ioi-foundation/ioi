@@ -15,6 +15,10 @@ import type {
   WorkflowTestCase,
 } from "../../../types/graph";
 import { normalizeWorkflowModelBinding } from "../../../runtime/workflow-model-capability-binding";
+import {
+  normalizeWorkflowConnectorBinding,
+  normalizeWorkflowToolBinding,
+} from "../../../runtime/workflow-tool-connector-capability-binding";
 import { WorkflowSubagentStateFields } from "./subagentFields";
 import type { WorkflowNodeBindingSectionsProps } from "./types";
 
@@ -127,7 +131,7 @@ export function WorkflowNodeBindingSections({
     ].filter(Boolean) as string[];
     updateLogic({
       ...logic,
-      toolBinding: {
+      toolBinding: normalizeWorkflowToolBinding({
         toolRef: logic.toolBinding?.toolRef ?? "workspace.status",
         bindingKind: "coding_tool_pack",
         mockBinding: false,
@@ -142,7 +146,7 @@ export function WorkflowNodeBindingSections({
         ),
         arguments: logic.toolBinding?.arguments ?? {},
         toolPack: nextPack,
-      },
+      }),
     });
   };
   const modelBindingFor = (
@@ -155,6 +159,20 @@ export function WorkflowNodeBindingSections({
       },
       logic,
     );
+  const connectorBindingFor = (
+    overrides: Partial<NonNullable<NodeLogic["connectorBinding"]>> = {},
+  ): NonNullable<NodeLogic["connectorBinding"]> =>
+    normalizeWorkflowConnectorBinding({
+      ...(logic.connectorBinding ?? {}),
+      ...overrides,
+    });
+  const toolBindingFor = (
+    overrides: Partial<NonNullable<NodeLogic["toolBinding"]>> = {},
+  ): NonNullable<NodeLogic["toolBinding"]> =>
+    normalizeWorkflowToolBinding({
+      ...(logic.toolBinding ?? {}),
+      ...overrides,
+    });
 
   return (
     <>
@@ -2452,26 +2470,31 @@ export function WorkflowNodeBindingSections({
       {node.type === "adapter" ? (
         <>
           <label>
-            Connector ref
+            Connector capability ref
+            <input
+              data-testid="workflow-connector-capability-ref"
+              value={connectorBindingFor().connectorCapabilityRef ?? ""}
+              onChange={(event) =>
+                updateLogic({
+                  ...logic,
+                  connectorBinding: connectorBindingFor({
+                    connectorCapabilityRef: event.target.value,
+                  }),
+                })
+              }
+            />
+          </label>
+          <label>
+            Legacy connector ref
             <input
               data-testid="workflow-connector-ref"
               value={String(logic.connectorBinding?.connectorRef ?? "")}
               onChange={(event) =>
                 updateLogic({
                   ...logic,
-                  connectorBinding: {
+                  connectorBinding: connectorBindingFor({
                     connectorRef: event.target.value,
-                    mockBinding: logic.connectorBinding?.mockBinding ?? true,
-                    credentialReady:
-                      logic.connectorBinding?.credentialReady ?? false,
-                    capabilityScope: logic.connectorBinding
-                      ?.capabilityScope ?? ["read"],
-                    sideEffectClass:
-                      logic.connectorBinding?.sideEffectClass ?? "read",
-                    requiresApproval:
-                      logic.connectorBinding?.requiresApproval ?? false,
-                    operation: logic.connectorBinding?.operation ?? "read",
-                  },
+                  }),
                 })
               }
             />
@@ -2486,21 +2509,13 @@ export function WorkflowNodeBindingSections({
               onChange={(event) =>
                 updateLogic({
                   ...logic,
-                  connectorBinding: {
-                    connectorRef: logic.connectorBinding?.connectorRef ?? "",
+                  connectorBinding: connectorBindingFor({
                     mockBinding: event.target.value !== "live",
                     credentialReady:
                       event.target.value === "live"
                         ? (logic.connectorBinding?.credentialReady ?? false)
                         : false,
-                    capabilityScope: logic.connectorBinding
-                      ?.capabilityScope ?? ["read"],
-                    sideEffectClass:
-                      logic.connectorBinding?.sideEffectClass ?? "read",
-                    requiresApproval:
-                      logic.connectorBinding?.requiresApproval ?? false,
-                    operation: logic.connectorBinding?.operation ?? "read",
-                  },
+                  }),
                 })
               }
             >
@@ -2517,19 +2532,9 @@ export function WorkflowNodeBindingSections({
               onChange={(event) =>
                 updateLogic({
                   ...logic,
-                  connectorBinding: {
-                    connectorRef: logic.connectorBinding?.connectorRef ?? "",
-                    mockBinding: logic.connectorBinding?.mockBinding ?? true,
-                    credentialReady:
-                      logic.connectorBinding?.credentialReady ?? false,
-                    capabilityScope:
-                      logic.connectorBinding?.capabilityScope ?? ["read"],
-                    sideEffectClass:
-                      logic.connectorBinding?.sideEffectClass ?? "read",
-                    requiresApproval:
-                      logic.connectorBinding?.requiresApproval ?? false,
+                  connectorBinding: connectorBindingFor({
                     operation: event.target.value,
-                  },
+                  }),
                 })
               }
             />
@@ -2545,21 +2550,31 @@ export function WorkflowNodeBindingSections({
               onChange={(event) =>
                 updateLogic({
                   ...logic,
-                  connectorBinding: {
-                    connectorRef: logic.connectorBinding?.connectorRef ?? "",
-                    mockBinding: logic.connectorBinding?.mockBinding ?? true,
-                    credentialReady:
-                      logic.connectorBinding?.credentialReady ?? false,
+                  connectorBinding: connectorBindingFor({
                     capabilityScope: event.target.value
                       .split(",")
                       .map((item) => item.trim())
                       .filter(Boolean),
-                    sideEffectClass:
-                      logic.connectorBinding?.sideEffectClass ?? "read",
-                    requiresApproval:
-                      logic.connectorBinding?.requiresApproval ?? false,
-                    operation: logic.connectorBinding?.operation ?? "read",
-                  },
+                  }),
+                })
+              }
+            />
+          </label>
+          <label>
+            Authority scopes
+            <input
+              data-testid="workflow-connector-authority-scopes"
+              value={(connectorBindingFor().authorityScopes ?? []).join(", ")}
+              placeholder="connector.invoke:github"
+              onChange={(event) =>
+                updateLogic({
+                  ...logic,
+                  connectorBinding: connectorBindingFor({
+                    authorityScopes: event.target.value
+                      .split(",")
+                      .map((item) => item.trim())
+                      .filter(Boolean),
+                  }),
                 })
               }
             />
@@ -2573,18 +2588,9 @@ export function WorkflowNodeBindingSections({
               onChange={(event) =>
                 updateLogic({
                   ...logic,
-                  connectorBinding: {
-                    connectorRef: logic.connectorBinding?.connectorRef ?? "",
-                    mockBinding: logic.connectorBinding?.mockBinding ?? true,
+                  connectorBinding: connectorBindingFor({
                     credentialReady: event.target.checked,
-                    capabilityScope: logic.connectorBinding
-                      ?.capabilityScope ?? ["read"],
-                    sideEffectClass:
-                      logic.connectorBinding?.sideEffectClass ?? "read",
-                    requiresApproval:
-                      logic.connectorBinding?.requiresApproval ?? false,
-                    operation: logic.connectorBinding?.operation ?? "read",
-                  },
+                  }),
                 })
               }
             />
@@ -2598,19 +2604,12 @@ export function WorkflowNodeBindingSections({
               onChange={(event) =>
                 updateLogic({
                   ...logic,
-                  connectorBinding: {
-                    connectorRef: logic.connectorBinding?.connectorRef ?? "",
-                    mockBinding: logic.connectorBinding?.mockBinding ?? true,
-                    credentialReady:
-                      logic.connectorBinding?.credentialReady ?? false,
-                    capabilityScope: logic.connectorBinding
-                      ?.capabilityScope ?? ["read"],
+                  connectorBinding: connectorBindingFor({
                     sideEffectClass: event.target.value as any,
                     requiresApproval:
                       event.target.value !== "read" &&
                       event.target.value !== "none",
-                    operation: logic.connectorBinding?.operation ?? "read",
-                  },
+                  }),
                 })
               }
             >
@@ -2635,18 +2634,9 @@ export function WorkflowNodeBindingSections({
               onChange={(event) =>
                 updateLogic({
                   ...logic,
-                  connectorBinding: {
-                    connectorRef: logic.connectorBinding?.connectorRef ?? "",
-                    mockBinding: logic.connectorBinding?.mockBinding ?? true,
-                    credentialReady:
-                      logic.connectorBinding?.credentialReady ?? false,
-                    capabilityScope:
-                      logic.connectorBinding?.capabilityScope ?? ["read"],
-                    sideEffectClass:
-                      logic.connectorBinding?.sideEffectClass ?? "read",
+                  connectorBinding: connectorBindingFor({
                     requiresApproval: event.target.checked,
-                    operation: logic.connectorBinding?.operation ?? "read",
-                  },
+                  }),
                 })
               }
             />
@@ -2669,7 +2659,7 @@ export function WorkflowNodeBindingSections({
                   | "coding_tool_pack";
                 updateLogic({
                   ...logic,
-                  toolBinding: {
+                  toolBinding: toolBindingFor({
                     toolRef:
                       bindingKind === "workflow_tool"
                         ? "workflow_tool"
@@ -2732,7 +2722,7 @@ export function WorkflowNodeBindingSections({
                       bindingKind === "mcp_tool"
                         ? (logic.toolBinding?.mcp ?? mcpBinding)
                         : undefined,
-                  },
+                  }),
                 });
               }}
             >
@@ -2743,32 +2733,50 @@ export function WorkflowNodeBindingSections({
             </select>
           </label>
           <label>
-            Tool ref
+            Tool capability ref
+            <input
+              data-testid="workflow-tool-capability-ref"
+              value={toolBindingFor().toolCapabilityRef ?? ""}
+              onChange={(event) =>
+                updateLogic({
+                  ...logic,
+                  toolBinding: toolBindingFor({
+                    toolCapabilityRef: event.target.value,
+                  }),
+                })
+              }
+            />
+          </label>
+          <label>
+            Legacy tool ref
             <input
               data-testid="workflow-tool-ref"
               value={String(logic.toolBinding?.toolRef ?? "")}
               onChange={(event) =>
                 updateLogic({
                   ...logic,
-                  toolBinding: {
+                  toolBinding: toolBindingFor({
                     toolRef: event.target.value,
-                    bindingKind:
-                      logic.toolBinding?.bindingKind ?? "plugin_tool",
-                    mockBinding: logic.toolBinding?.mockBinding ?? true,
-                    credentialReady:
-                      logic.toolBinding?.credentialReady ?? false,
-                    capabilityScope: logic.toolBinding?.capabilityScope ?? [
-                      "read",
-                    ],
-                    sideEffectClass:
-                      logic.toolBinding?.sideEffectClass ?? "read",
-                    requiresApproval:
-                      logic.toolBinding?.requiresApproval ?? false,
-                    arguments: logic.toolBinding?.arguments ?? {},
-                    workflowTool: logic.toolBinding?.workflowTool,
-                    toolPack: logic.toolBinding?.toolPack,
-                    mcp: logic.toolBinding?.mcp,
-                  },
+                  }),
+                })
+              }
+            />
+          </label>
+          <label>
+            Authority scopes
+            <input
+              data-testid="workflow-tool-authority-scopes"
+              value={(toolBindingFor().authorityScopes ?? []).join(", ")}
+              placeholder="scope:mcp.invoke, scope:workspace.write"
+              onChange={(event) =>
+                updateLogic({
+                  ...logic,
+                  toolBinding: toolBindingFor({
+                    authorityScopes: event.target.value
+                      .split(",")
+                      .map((item) => item.trim())
+                      .filter(Boolean),
+                  }),
                 })
               }
             />
@@ -2788,7 +2796,7 @@ export function WorkflowNodeBindingSections({
                       const serverId = event.target.value;
                       updateLogic({
                         ...logic,
-                        toolBinding: {
+                        toolBinding: toolBindingFor({
                           toolRef: mcpToolRefFor(serverId, String(mcpBinding.toolName ?? "")),
                           bindingKind: "mcp_tool",
                           mockBinding: logic.toolBinding?.mockBinding ?? true,
@@ -2808,7 +2816,7 @@ export function WorkflowNodeBindingSections({
                             ...mcpBinding,
                             serverId,
                           },
-                        },
+                        }),
                       });
                     }}
                   />
@@ -2822,7 +2830,7 @@ export function WorkflowNodeBindingSections({
                       const toolName = event.target.value;
                       updateLogic({
                         ...logic,
-                        toolBinding: {
+                        toolBinding: toolBindingFor({
                           toolRef: mcpToolRefFor(String(mcpBinding.serverId ?? ""), toolName),
                           bindingKind: "mcp_tool",
                           mockBinding: logic.toolBinding?.mockBinding ?? true,
@@ -2842,7 +2850,7 @@ export function WorkflowNodeBindingSections({
                             ...mcpBinding,
                             toolName,
                           },
-                        },
+                        }),
                       });
                     }}
                   />
@@ -2855,7 +2863,7 @@ export function WorkflowNodeBindingSections({
                     onChange={(event) =>
                       updateLogic({
                         ...logic,
-                        toolBinding: {
+                        toolBinding: toolBindingFor({
                           toolRef: logic.toolBinding?.toolRef ?? "mcp.tool.catalog.read",
                           bindingKind: "mcp_tool",
                           mockBinding: logic.toolBinding?.mockBinding ?? true,
@@ -2875,7 +2883,7 @@ export function WorkflowNodeBindingSections({
                             ...mcpBinding,
                             catalogMode: event.target.value,
                           },
-                        },
+                        }),
                       })
                     }
                   >
@@ -2891,7 +2899,7 @@ export function WorkflowNodeBindingSections({
                     onChange={(event) =>
                       updateLogic({
                         ...logic,
-                        toolBinding: {
+                        toolBinding: toolBindingFor({
                           toolRef: logic.toolBinding?.toolRef ?? "mcp.tool.catalog.read",
                           bindingKind: "mcp_tool",
                           mockBinding: logic.toolBinding?.mockBinding ?? true,
@@ -2911,7 +2919,7 @@ export function WorkflowNodeBindingSections({
                             ...mcpBinding,
                             catalogSearchQuery: event.target.value,
                           },
-                        },
+                        }),
                       })
                     }
                   />
@@ -2924,7 +2932,7 @@ export function WorkflowNodeBindingSections({
                     onChange={(event) =>
                       updateLogic({
                         ...logic,
-                        toolBinding: {
+                        toolBinding: toolBindingFor({
                           toolRef: logic.toolBinding?.toolRef ?? "mcp.tool.catalog.read",
                           bindingKind: "mcp_tool",
                           mockBinding: logic.toolBinding?.mockBinding ?? true,
@@ -2944,7 +2952,7 @@ export function WorkflowNodeBindingSections({
                             ...mcpBinding,
                             configSourceMode: event.target.value,
                           },
-                        },
+                        }),
                       })
                     }
                   >
@@ -2961,7 +2969,7 @@ export function WorkflowNodeBindingSections({
                     onChange={(event) =>
                       updateLogic({
                         ...logic,
-                        toolBinding: {
+                        toolBinding: toolBindingFor({
                           toolRef: logic.toolBinding?.toolRef ?? "mcp.tool.catalog.read",
                           bindingKind: "mcp_tool",
                           mockBinding: logic.toolBinding?.mockBinding ?? true,
@@ -2984,7 +2992,7 @@ export function WorkflowNodeBindingSections({
                               | "sandboxed"
                               | "review_required",
                           },
-                        },
+                        }),
                       })
                     }
                   >
@@ -3002,7 +3010,7 @@ export function WorkflowNodeBindingSections({
                   onChange={(event) =>
                     updateLogic({
                       ...logic,
-                      toolBinding: {
+                      toolBinding: toolBindingFor({
                         toolRef: logic.toolBinding?.toolRef ?? "mcp.tool.catalog.read",
                         bindingKind: "mcp_tool",
                         mockBinding: logic.toolBinding?.mockBinding ?? true,
@@ -3022,7 +3030,7 @@ export function WorkflowNodeBindingSections({
                           ...mcpBinding,
                           validateBeforeInvoke: event.target.checked,
                         },
-                      },
+                      }),
                     })
                   }
                 />
@@ -3046,7 +3054,7 @@ export function WorkflowNodeBindingSections({
                   onChange={(event) =>
                     updateLogic({
                       ...logic,
-                      toolBinding: {
+                      toolBinding: toolBindingFor({
                         toolRef: logic.toolBinding?.toolRef ?? "workflow_tool",
                         bindingKind: "workflow_tool",
                         mockBinding: false,
@@ -3069,7 +3077,7 @@ export function WorkflowNodeBindingSections({
                           maxAttempts:
                             logic.toolBinding?.workflowTool?.maxAttempts ?? 1,
                         },
-                      },
+                      }),
                     })
                   }
                 />
@@ -3087,7 +3095,7 @@ export function WorkflowNodeBindingSections({
                     onChange={(event) =>
                       updateLogic({
                         ...logic,
-                        toolBinding: {
+                        toolBinding: toolBindingFor({
                           toolRef:
                             logic.toolBinding?.toolRef ?? "workflow_tool",
                           bindingKind: "workflow_tool",
@@ -3111,7 +3119,7 @@ export function WorkflowNodeBindingSections({
                             maxAttempts:
                               logic.toolBinding?.workflowTool?.maxAttempts ?? 1,
                           },
-                        },
+                        }),
                       })
                     }
                   />
@@ -3129,7 +3137,7 @@ export function WorkflowNodeBindingSections({
                     onChange={(event) =>
                       updateLogic({
                         ...logic,
-                        toolBinding: {
+                        toolBinding: toolBindingFor({
                           toolRef:
                             logic.toolBinding?.toolRef ?? "workflow_tool",
                           bindingKind: "workflow_tool",
@@ -3154,7 +3162,7 @@ export function WorkflowNodeBindingSections({
                               30000,
                             maxAttempts: Number(event.target.value || 0),
                           },
-                        },
+                        }),
                       })
                     }
                   />
@@ -3174,7 +3182,7 @@ export function WorkflowNodeBindingSections({
                   onChange={(event) =>
                     updateLogic({
                       ...logic,
-                      toolBinding: {
+                      toolBinding: toolBindingFor({
                         toolRef: logic.toolBinding?.toolRef ?? "workflow_tool",
                         bindingKind: "workflow_tool",
                         mockBinding: false,
@@ -3202,7 +3210,7 @@ export function WorkflowNodeBindingSections({
                           maxAttempts:
                             logic.toolBinding?.workflowTool?.maxAttempts ?? 1,
                         },
-                      },
+                      }),
                     })
                   }
                 />
@@ -3221,7 +3229,7 @@ export function WorkflowNodeBindingSections({
                   onChange={(event) =>
                     updateLogic({
                       ...logic,
-                      toolBinding: {
+                      toolBinding: toolBindingFor({
                         toolRef: logic.toolBinding?.toolRef ?? "workflow_tool",
                         bindingKind: "workflow_tool",
                         mockBinding: false,
@@ -3249,7 +3257,7 @@ export function WorkflowNodeBindingSections({
                           maxAttempts:
                             logic.toolBinding?.workflowTool?.maxAttempts ?? 1,
                         },
-                      },
+                      }),
                     })
                   }
                 />
@@ -3801,27 +3809,14 @@ export function WorkflowNodeBindingSections({
                   onChange={(event) =>
                     updateLogic({
                       ...logic,
-                      toolBinding: {
-                        toolRef: logic.toolBinding?.toolRef ?? "",
-                        bindingKind:
-                          logic.toolBinding?.bindingKind ?? "plugin_tool",
+                      toolBinding: toolBindingFor({
                         mockBinding: event.target.value !== "live",
                         credentialReady:
                           event.target.value === "live"
                             ? (logic.toolBinding?.credentialReady ?? false)
                             : false,
-                        capabilityScope: logic.toolBinding?.capabilityScope ?? [
-                          "read",
-                        ],
-                        sideEffectClass:
-                          logic.toolBinding?.sideEffectClass ?? "read",
-                        requiresApproval:
-                          logic.toolBinding?.requiresApproval ?? false,
-                        arguments: logic.toolBinding?.arguments ?? {},
                         workflowTool: undefined,
-                        toolPack: logic.toolBinding?.toolPack,
-                        mcp: logic.toolBinding?.mcp,
-                      },
+                      }),
                     })
                   }
                 >
@@ -3838,24 +3833,10 @@ export function WorkflowNodeBindingSections({
                   onChange={(event) =>
                     updateLogic({
                       ...logic,
-                      toolBinding: {
-                        toolRef: logic.toolBinding?.toolRef ?? "",
-                        bindingKind:
-                          logic.toolBinding?.bindingKind ?? "plugin_tool",
-                        mockBinding: logic.toolBinding?.mockBinding ?? true,
+                      toolBinding: toolBindingFor({
                         credentialReady: event.target.checked,
-                        capabilityScope: logic.toolBinding?.capabilityScope ?? [
-                          "read",
-                        ],
-                        sideEffectClass:
-                          logic.toolBinding?.sideEffectClass ?? "read",
-                        requiresApproval:
-                          logic.toolBinding?.requiresApproval ?? false,
-                        arguments: logic.toolBinding?.arguments ?? {},
                         workflowTool: undefined,
-                        toolPack: logic.toolBinding?.toolPack,
-                        mcp: logic.toolBinding?.mcp,
-                      },
+                      }),
                     })
                   }
                 />
@@ -3881,25 +3862,9 @@ export function WorkflowNodeBindingSections({
                 }
                 updateLogic({
                   ...logic,
-                  toolBinding: {
-                    toolRef: logic.toolBinding?.toolRef ?? "",
-                    bindingKind:
-                      logic.toolBinding?.bindingKind ?? "plugin_tool",
-                    mockBinding: logic.toolBinding?.mockBinding ?? true,
-                    credentialReady:
-                      logic.toolBinding?.credentialReady ?? false,
-                    capabilityScope: logic.toolBinding?.capabilityScope ?? [
-                      "read",
-                    ],
-                    sideEffectClass:
-                      logic.toolBinding?.sideEffectClass ?? "read",
-                    requiresApproval:
-                      logic.toolBinding?.requiresApproval ?? false,
+                  toolBinding: toolBindingFor({
                     arguments: args,
-                    workflowTool: logic.toolBinding?.workflowTool,
-                    toolPack: logic.toolBinding?.toolPack,
-                    mcp: logic.toolBinding?.mcp,
-                  },
+                  }),
                 });
               }}
             />

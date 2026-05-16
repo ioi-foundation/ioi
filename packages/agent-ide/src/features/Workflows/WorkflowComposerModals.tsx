@@ -17,6 +17,12 @@ import {
   workflowModelBindingIsReady,
 } from "../../runtime/workflow-model-capability-binding";
 import {
+  normalizeWorkflowConnectorBinding,
+  normalizeWorkflowToolBinding,
+  workflowConnectorBindingIsReady,
+  workflowToolBindingIsReady,
+} from "../../runtime/workflow-tool-connector-capability-binding";
+import {
   workflowIssueActionLabel,
   workflowIssueTitle,
   workflowNodeName,
@@ -461,24 +467,34 @@ export function ConnectorBindingModal({
   const bindingRows = connectorNodes.map((nodeItem) => {
     const connectorBinding = nodeItem.config?.logic.connectorBinding;
     const toolBinding = nodeItem.config?.logic.toolBinding;
+    const normalizedConnector = connectorBinding
+      ? normalizeWorkflowConnectorBinding(connectorBinding)
+      : null;
+    const normalizedTool = toolBinding
+      ? normalizeWorkflowToolBinding(toolBinding)
+      : null;
     const ref = String(
-      connectorBinding?.connectorRef ?? toolBinding?.toolRef ?? "",
+      normalizedConnector?.connectorCapabilityRef ??
+        normalizedTool?.toolCapabilityRef ??
+        normalizedConnector?.connectorRef ??
+        normalizedTool?.toolRef ??
+        "",
     );
     const mockBinding = Boolean(
-      connectorBinding?.mockBinding ?? toolBinding?.mockBinding,
+      normalizedConnector?.mockBinding ?? normalizedTool?.mockBinding,
     );
     const credentialReady =
-      toolBinding?.bindingKind === "workflow_tool"
+      normalizedTool?.bindingKind === "workflow_tool"
         ? true
         : Boolean(
-            connectorBinding?.credentialReady ?? toolBinding?.credentialReady,
+            normalizedConnector?.credentialReady ?? normalizedTool?.credentialReady,
           );
     const requiresApproval = Boolean(
-      connectorBinding?.requiresApproval ?? toolBinding?.requiresApproval,
+      normalizedConnector?.requiresApproval ?? normalizedTool?.requiresApproval,
     );
     const sideEffectClass = String(
-      connectorBinding?.sideEffectClass ??
-        toolBinding?.sideEffectClass ??
+      normalizedConnector?.sideEffectClass ??
+        normalizedTool?.sideEffectClass ??
         "read",
     );
     return {
@@ -488,10 +504,12 @@ export function ConnectorBindingModal({
       credentialReady,
       requiresApproval,
       sideEffectClass,
-      ready: ref.trim().length > 0,
+      ready: normalizedConnector
+        ? workflowConnectorBindingIsReady(normalizedConnector)
+        : workflowToolBindingIsReady(normalizedTool),
       bindingKind: connectorBinding
         ? "connector"
-        : String(toolBinding?.bindingKind ?? "plugin_tool"),
+        : String(normalizedTool?.bindingKind ?? "plugin_tool"),
     };
   });
   const readyCount = bindingRows.filter((row) => row.ready).length;

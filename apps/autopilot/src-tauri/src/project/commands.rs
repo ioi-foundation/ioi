@@ -808,9 +808,15 @@ struct WorkflowBindingInspection {
     requires_approval: bool,
     capability_scope: Vec<String>,
     model_capability_ref: Option<String>,
+    tool_capability_ref: Option<String>,
+    connector_capability_ref: Option<String>,
     route_id: Option<String>,
+    risk_class: Option<String>,
+    approval_requirement: Option<Value>,
     authority_scopes: Vec<String>,
     authority_scope_requirements: Vec<String>,
+    rate_limit_profile: Option<Value>,
+    idempotency_behavior: Option<Value>,
     receipt_behavior: Option<Value>,
     readiness: Option<Value>,
     grant_readiness: Option<Value>,
@@ -955,6 +961,124 @@ fn workflow_model_capability_for_binding(
     )
 }
 
+fn workflow_binding_effectful(side_effect_class: &str) -> bool {
+    !matches!(side_effect_class, "none" | "read" | "local_read")
+}
+
+fn workflow_binding_risk_class(side_effect_class: &str) -> String {
+    match side_effect_class {
+        "none" | "read" | "local_read" => "low",
+        "write" | "local_write" => "local_write",
+        "external_write" => "external_write",
+        "financial_write" => "financial_high",
+        "admin" => "admin_high",
+        _ if workflow_binding_effectful(side_effect_class) => "elevated",
+        _ => "low",
+    }
+    .to_string()
+}
+
+fn workflow_tool_authority_scopes(
+    binding: &Value,
+    tool_ref: &str,
+    side_effect_class: &str,
+) -> (Vec<String>, Vec<String>) {
+    let mut authority_scopes = workflow_binding_string_array(binding, "authorityScopes", &[]);
+    let mut authority_scope_requirements =
+        workflow_binding_string_array(binding, "authorityScopeRequirements", &[]);
+    if authority_scopes.is_empty() && !authority_scope_requirements.is_empty() {
+        authority_scopes = authority_scope_requirements.clone();
+    }
+    if authority_scopes.is_empty() {
+        let capability_scope = workflow_binding_string_array(binding, "capabilityScope", &[]);
+        authority_scopes = capability_scope
+            .iter()
+            .filter(|scope| scope.starts_with("computer_use."))
+            .cloned()
+            .collect();
+    }
+    if authority_scopes.is_empty() {
+        authority_scopes = match tool_ref {
+            "file.apply_patch" => vec!["scope:workspace.write".to_string()],
+            "test.run" => vec!["scope:workspace.test".to_string()],
+            value if value.starts_with("mcp.") => vec!["scope:mcp.invoke".to_string()],
+            _ if workflow_binding_effectful(side_effect_class) => vec![format!(
+                "tool.invoke:{}",
+                workflow_model_capability_slug(tool_ref, "tool")
+            )],
+            _ => Vec::new(),
+        };
+    }
+    if authority_scope_requirements.is_empty() {
+        authority_scope_requirements = authority_scopes.clone();
+    }
+    (authority_scopes, authority_scope_requirements)
+}
+
+fn workflow_connector_authority_scopes(
+    binding: &Value,
+    connector_ref: &str,
+    side_effect_class: &str,
+) -> (Vec<String>, Vec<String>) {
+    let mut authority_scopes = workflow_binding_string_array(binding, "authorityScopes", &[]);
+    let mut authority_scope_requirements =
+        workflow_binding_string_array(binding, "authorityScopeRequirements", &[]);
+    if authority_scopes.is_empty() && !authority_scope_requirements.is_empty() {
+        authority_scopes = authority_scope_requirements.clone();
+    }
+    if authority_scopes.is_empty() && workflow_binding_effectful(side_effect_class) {
+        authority_scopes = vec![format!(
+            "connector.invoke:{}",
+            workflow_model_capability_slug(connector_ref, "connector")
+        )];
+    }
+    if authority_scope_requirements.is_empty() {
+        authority_scope_requirements = authority_scopes.clone();
+    }
+    (authority_scopes, authority_scope_requirements)
+}
+
+fn workflow_binding_default_readiness(
+    ready: bool,
+    capability_ref: &str,
+    ready_reason: &str,
+    missing_reason: &str,
+) -> Value {
+    json!({
+        "status": if ready { "ready" } else { "unknown" },
+        "reason": if ready { ready_reason } else { missing_reason },
+        "evidenceRefs": if ready { vec![capability_ref.to_string()] } else { Vec::<String>::new() }
+    })
+}
+
+fn workflow_binding_default_receipt(binding_kind: &str) -> Value {
+    json!({
+        "emitsReceipt": true,
+        "receiptRequired": true,
+        "requiredReceiptTypes": [
+            format!("{}_invocation", binding_kind),
+            format!("{}_verification", binding_kind)
+        ]
+    })
+}
+
+fn workflow_binding_default_rate_limit(capability_ref: &str, side_effect_class: &str) -> Value {
+    json!({
+        "policy": if workflow_binding_effectful(side_effect_class) { "runtime_governed" } else { "unlimited_local_read" },
+        "scope": capability_ref,
+        "maxCalls": Value::Null,
+        "windowMs": Value::Null
+    })
+}
+
+fn workflow_binding_default_idempotency(capability_ref: &str, side_effect_class: &str) -> Value {
+    json!({
+        "required": workflow_binding_effectful(side_effect_class),
+        "strategy": if workflow_binding_effectful(side_effect_class) { "runtime_key" } else { "read_only" },
+        "keyScope": if workflow_binding_effectful(side_effect_class) { json!(capability_ref) } else { Value::Null }
+    })
+}
+
 fn workflow_binding_inspections(
     workflow: &WorkflowProject,
     node: &Value,
@@ -1001,9 +1125,15 @@ fn workflow_binding_inspections(
                     &["reasoning"],
                 ),
                 model_capability_ref,
+                tool_capability_ref: None,
+                connector_capability_ref: None,
                 route_id,
+                risk_class: Some("low".to_string()),
+                approval_requirement: None,
                 authority_scopes,
                 authority_scope_requirements,
+                rate_limit_profile: None,
+                idempotency_behavior: None,
                 receipt_behavior,
                 readiness,
                 grant_readiness,
@@ -1053,9 +1183,15 @@ fn workflow_binding_inspections(
                 requires_approval: false,
                 capability_scope: vec![model_ref.to_string()],
                 model_capability_ref,
+                tool_capability_ref: None,
+                connector_capability_ref: None,
                 route_id,
+                risk_class: Some("low".to_string()),
+                approval_requirement: None,
                 authority_scopes,
                 authority_scope_requirements,
+                rate_limit_profile: None,
+                idempotency_behavior: None,
                 receipt_behavior,
                 readiness,
                 grant_readiness,
@@ -1100,9 +1236,15 @@ fn workflow_binding_inspections(
                     &["reasoning"],
                 ),
                 model_capability_ref,
+                tool_capability_ref: None,
+                connector_capability_ref: None,
                 route_id,
+                risk_class: Some("low".to_string()),
+                approval_requirement: None,
                 authority_scopes,
                 authority_scope_requirements,
+                rate_limit_profile: None,
+                idempotency_behavior: None,
                 receipt_behavior,
                 readiness,
                 grant_readiness,
@@ -1114,20 +1256,55 @@ fn workflow_binding_inspections(
     if node_type == "adapter" {
         if let Some(binding) = logic.get("connectorBinding") {
             let mock_binding = workflow_binding_bool(binding, "mockBinding", false);
-            let credential_ready = workflow_binding_bool(binding, "credentialReady", false);
+            let credential_ready = workflow_binding_bool(binding, "credentialReady", false)
+                || workflow_binding_status_ready(binding, "credentialReadiness");
+            let connector_ref = workflow_binding_text(binding, "connectorRef")
+                .unwrap_or_else(|| "connector".to_string());
+            let connector_capability_ref = workflow_binding_text(binding, "connectorCapabilityRef")
+                .unwrap_or_else(|| {
+                    format!(
+                        "connector-capability:{}",
+                        workflow_model_capability_slug(&connector_ref, "connector")
+                    )
+                });
+            let side_effect_class = workflow_binding_side_effect(binding, "read");
+            let (authority_scopes, authority_scope_requirements) =
+                workflow_connector_authority_scopes(binding, &connector_ref, &side_effect_class);
+            let readiness = binding.get("credentialReadiness").cloned().or_else(|| {
+                Some(workflow_binding_default_readiness(
+                    credential_ready,
+                    &connector_capability_ref,
+                    "Connector capability readiness was projected from the workflow binding.",
+                    "No executable connector capability readiness has been confirmed.",
+                ))
+            });
+            let grant_readiness = binding.get("grantReadiness").cloned().or_else(|| {
+                Some(workflow_binding_default_readiness(
+                    credential_ready,
+                    &connector_capability_ref,
+                    "Connector capability grant posture is projected from readiness metadata.",
+                    "No connector capability grant has been confirmed.",
+                ))
+            });
+            let policy_posture = binding.get("policyPosture").cloned().or_else(|| {
+                Some(json!({
+                    "status": if credential_ready || mock_binding { "allowed" } else { "unknown" },
+                    "policyTarget": connector_capability_ref,
+                    "source": "workflow_capability_projection"
+                }))
+            });
             rows.push(WorkflowBindingInspection {
                 row_id: format!("{}-connector", node_id),
                 node_id: node_id.clone(),
                 node_name: node_name.clone(),
                 node_type: node_type.clone(),
                 binding_kind: "Connector".to_string(),
-                reference: workflow_binding_text(binding, "connectorRef")
-                    .unwrap_or_else(|| "connector".to_string()),
+                reference: connector_capability_ref.clone(),
                 mode: if mock_binding { "mock" } else { "live" }.to_string(),
                 ready: mock_binding || credential_ready,
                 mock_binding,
                 credential_ready,
-                side_effect_class: workflow_binding_side_effect(binding, "read"),
+                side_effect_class: side_effect_class.clone(),
                 requires_approval: workflow_binding_bool(binding, "requiresApproval", false),
                 capability_scope: workflow_binding_string_array(
                     binding,
@@ -1135,13 +1312,38 @@ fn workflow_binding_inspections(
                     &["read"],
                 ),
                 model_capability_ref: None,
+                tool_capability_ref: None,
+                connector_capability_ref: Some(connector_capability_ref.clone()),
                 route_id: None,
-                authority_scopes: Vec::new(),
-                authority_scope_requirements: Vec::new(),
-                receipt_behavior: None,
-                readiness: None,
-                grant_readiness: None,
-                policy_posture: None,
+                risk_class: workflow_binding_text(binding, "riskClass")
+                    .or_else(|| Some(workflow_binding_risk_class(&side_effect_class))),
+                approval_requirement: binding.get("approvalRequirement").cloned().or_else(|| {
+                    Some(json!({
+                        "required": workflow_binding_bool(binding, "requiresApproval", false),
+                        "source": "workflow_capability_projection"
+                    }))
+                }),
+                authority_scopes,
+                authority_scope_requirements,
+                rate_limit_profile: binding.get("rateLimitProfile").cloned().or_else(|| {
+                    Some(workflow_binding_default_rate_limit(
+                        &connector_capability_ref,
+                        &side_effect_class,
+                    ))
+                }),
+                idempotency_behavior: binding.get("idempotencyBehavior").cloned().or_else(|| {
+                    Some(workflow_binding_default_idempotency(
+                        &connector_capability_ref,
+                        &side_effect_class,
+                    ))
+                }),
+                receipt_behavior: binding
+                    .get("receiptBehavior")
+                    .cloned()
+                    .or_else(|| Some(workflow_binding_default_receipt("connector"))),
+                readiness,
+                grant_readiness,
+                policy_posture,
             });
         }
     }
@@ -1158,7 +1360,50 @@ fn workflow_binding_inspections(
                 .and_then(Value::as_str)
                 .filter(|value| !value.trim().is_empty());
             let mock_binding = workflow_binding_bool(binding, "mockBinding", false);
-            let credential_ready = workflow_binding_bool(binding, "credentialReady", false);
+            let credential_ready = workflow_binding_bool(binding, "credentialReady", false)
+                || workflow_binding_status_ready(binding, "credentialReadiness");
+            let tool_ref =
+                workflow_binding_text(binding, "toolRef").unwrap_or_else(|| "tool".to_string());
+            let tool_capability_ref = workflow_binding_text(binding, "toolCapabilityRef")
+                .unwrap_or_else(|| {
+                    format!(
+                        "tool-capability:{}",
+                        workflow_model_capability_slug(&tool_ref, "tool")
+                    )
+                });
+            let side_effect_class = workflow_binding_side_effect(binding, "none");
+            let (authority_scopes, authority_scope_requirements) =
+                workflow_tool_authority_scopes(binding, &tool_ref, &side_effect_class);
+            let local_workflow_tool_ready =
+                binding_kind == "workflow_tool" && workflow_tool_path.is_some();
+            let effective_ready = if binding_kind == "workflow_tool" {
+                local_workflow_tool_ready
+            } else {
+                mock_binding || credential_ready
+            };
+            let readiness = binding.get("credentialReadiness").cloned().or_else(|| {
+                Some(workflow_binding_default_readiness(
+                    effective_ready,
+                    &tool_capability_ref,
+                    "Tool capability readiness was projected from the workflow binding.",
+                    "No executable tool capability readiness has been confirmed.",
+                ))
+            });
+            let grant_readiness = binding.get("grantReadiness").cloned().or_else(|| {
+                Some(workflow_binding_default_readiness(
+                    effective_ready,
+                    &tool_capability_ref,
+                    "Tool capability grant posture is projected from readiness metadata.",
+                    "No tool capability grant has been confirmed.",
+                ))
+            });
+            let policy_posture = binding.get("policyPosture").cloned().or_else(|| {
+                Some(json!({
+                    "status": if effective_ready { "allowed" } else { "unknown" },
+                    "policyTarget": tool_capability_ref,
+                    "source": "workflow_capability_projection"
+                }))
+            });
             rows.push(WorkflowBindingInspection {
                 row_id: format!("{}-tool", node_id),
                 node_id: node_id.clone(),
@@ -1171,8 +1416,7 @@ fn workflow_binding_inspections(
                 },
                 reference: workflow_tool_path
                     .map(str::to_string)
-                    .or_else(|| workflow_binding_text(binding, "toolRef"))
-                    .unwrap_or_else(|| "tool".to_string()),
+                    .unwrap_or_else(|| tool_capability_ref.clone()),
                 mode: if binding_kind == "workflow_tool" {
                     "local"
                 } else if mock_binding {
@@ -1181,14 +1425,10 @@ fn workflow_binding_inspections(
                     "live"
                 }
                 .to_string(),
-                ready: if binding_kind == "workflow_tool" {
-                    workflow_tool_path.is_some()
-                } else {
-                    mock_binding || credential_ready
-                },
+                ready: effective_ready,
                 mock_binding,
                 credential_ready,
-                side_effect_class: workflow_binding_side_effect(binding, "none"),
+                side_effect_class: side_effect_class.clone(),
                 requires_approval: workflow_binding_bool(binding, "requiresApproval", false),
                 capability_scope: workflow_binding_string_array(
                     binding,
@@ -1196,13 +1436,38 @@ fn workflow_binding_inspections(
                     &["tool"],
                 ),
                 model_capability_ref: None,
+                tool_capability_ref: Some(tool_capability_ref.clone()),
+                connector_capability_ref: None,
                 route_id: None,
-                authority_scopes: Vec::new(),
-                authority_scope_requirements: Vec::new(),
-                receipt_behavior: None,
-                readiness: None,
-                grant_readiness: None,
-                policy_posture: None,
+                risk_class: workflow_binding_text(binding, "riskClass")
+                    .or_else(|| Some(workflow_binding_risk_class(&side_effect_class))),
+                approval_requirement: binding.get("approvalRequirement").cloned().or_else(|| {
+                    Some(json!({
+                        "required": workflow_binding_bool(binding, "requiresApproval", false),
+                        "source": "workflow_capability_projection"
+                    }))
+                }),
+                authority_scopes,
+                authority_scope_requirements,
+                rate_limit_profile: binding.get("rateLimitProfile").cloned().or_else(|| {
+                    Some(workflow_binding_default_rate_limit(
+                        &tool_capability_ref,
+                        &side_effect_class,
+                    ))
+                }),
+                idempotency_behavior: binding.get("idempotencyBehavior").cloned().or_else(|| {
+                    Some(workflow_binding_default_idempotency(
+                        &tool_capability_ref,
+                        &side_effect_class,
+                    ))
+                }),
+                receipt_behavior: binding
+                    .get("receiptBehavior")
+                    .cloned()
+                    .or_else(|| Some(workflow_binding_default_receipt("tool"))),
+                readiness,
+                grant_readiness,
+                policy_posture,
             });
         }
     }
@@ -1230,9 +1495,15 @@ fn workflow_binding_inspections(
                     &["structured_output"],
                 ),
                 model_capability_ref: None,
+                tool_capability_ref: None,
+                connector_capability_ref: None,
                 route_id: None,
+                risk_class: Some("low".to_string()),
+                approval_requirement: None,
                 authority_scopes: Vec::new(),
                 authority_scope_requirements: Vec::new(),
+                rate_limit_profile: None,
+                idempotency_behavior: None,
                 receipt_behavior: None,
                 readiness: None,
                 grant_readiness: None,
@@ -1366,9 +1637,15 @@ fn workflow_binding_manifest_for_workflow(workflow: &WorkflowProject) -> Workflo
                 requires_approval: inspection.requires_approval,
                 capability_scope: inspection.capability_scope,
                 model_capability_ref: inspection.model_capability_ref,
+                tool_capability_ref: inspection.tool_capability_ref,
+                connector_capability_ref: inspection.connector_capability_ref,
                 route_id: inspection.route_id,
+                risk_class: inspection.risk_class,
+                approval_requirement: inspection.approval_requirement,
                 authority_scopes: inspection.authority_scopes,
                 authority_scope_requirements: inspection.authority_scope_requirements,
+                rate_limit_profile: inspection.rate_limit_profile,
+                idempotency_behavior: inspection.idempotency_behavior,
                 receipt_behavior: inspection.receipt_behavior,
                 readiness: inspection.readiness,
                 grant_readiness: inspection.grant_readiness,
@@ -1440,9 +1717,15 @@ pub fn check_workflow_binding(
                 requires_approval: false,
                 capability_scope: Vec::new(),
                 model_capability_ref: None,
+                tool_capability_ref: None,
+                connector_capability_ref: None,
                 route_id: None,
+                risk_class: Some("low".to_string()),
+                approval_requirement: None,
                 authority_scopes: Vec::new(),
                 authority_scope_requirements: Vec::new(),
+                rate_limit_profile: None,
+                idempotency_behavior: None,
                 receipt_behavior: None,
                 readiness: None,
                 grant_readiness: None,

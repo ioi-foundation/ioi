@@ -38,6 +38,10 @@ import {
   workflowSelectedNodeBindingSummary,
 } from "../../runtime/workflow-rail-model";
 import { workflowPrimitiveConfigProjection } from "../../runtime/workflow-primitive-config-projection";
+import {
+  workflowConnectorBindingIsReady,
+  workflowToolBindingIsReady,
+} from "../../runtime/workflow-tool-connector-capability-binding";
 
 export type {
   WorkflowCompatibleNodeHint,
@@ -436,15 +440,10 @@ export function WorkflowNodeConfigModal({
       );
     }
     if (node.type === "adapter") {
-      return (
-        String(logic.connectorBinding?.connectorRef ?? "").trim().length > 0
-      );
+      return workflowConnectorBindingIsReady(logic.connectorBinding);
     }
     if (node.type === "plugin_tool") {
-      return logic.toolBinding?.bindingKind === "workflow_tool"
-        ? String(logic.toolBinding?.workflowTool?.workflowPath ?? "").trim()
-            .length > 0
-        : String(logic.toolBinding?.toolRef ?? "").trim().length > 0;
+      return workflowToolBindingIsReady(logic.toolBinding);
     }
     if (node.type === "subgraph") {
       return String(logic.subgraphRef?.workflowPath ?? "").trim().length > 0;
