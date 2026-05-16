@@ -335,6 +335,13 @@ const projectCommands = fs.readFileSync(
   new URL("../../../src-tauri/src/project/commands.rs", import.meta.url),
   "utf8",
 );
+const projectWorkflowPolicyLane = fs.readFileSync(
+  new URL(
+    "../../../src-tauri/src/project/workflow_run_policy_lane.rs",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const projectRuntime = [
   "../../../src-tauri/src/project/runtime.rs",
   "../../../src-tauri/src/project/workflow_coding_route_lane.rs",
@@ -2243,6 +2250,24 @@ assert.match(
   composer,
   /setRightPanel\("runs"\)[\s\S]*runtime\.runWorkflowProject[\s\S]*applyRunResult\(result\)[\s\S]*setRightPanel\("runs"\)/,
   "Running a workflow should open the Runs rail so execution inspection is immediate",
+);
+
+assert.match(
+  composer,
+  /workflowCapabilityPreflight[\s\S]*workflowCapabilityRunLaunchAnnotation[\s\S]*capabilityPreflight[\s\S]*runtime\.runWorkflowProject/,
+  "Workflow runs should pass canonical capability preflight annotations to the daemon before live execution",
+);
+
+assert.match(
+  projectCommands,
+  /workflow_capability_preflight_blocked_from_options[\s\S]*workflow_capability_preflight_blocked_result/,
+  "Workflow run commands should fail closed through the canonical capability preflight lane",
+);
+
+assert.match(
+  projectWorkflowPolicyLane,
+  /WORKFLOW_CAPABILITY_PREFLIGHT_SCHEMA_VERSION[\s\S]*WorkflowRunCapabilityPreflightBlocked[\s\S]*capabilityRows[\s\S]*policyDecisionRefs/,
+  "Capability preflight daemon results should emit schemaed policy-blocked evidence and receipt metadata",
 );
 
 assert.match(

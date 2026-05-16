@@ -184,6 +184,11 @@ import {
   workflowCodingToolBudgetPreflight,
   workflowCodingToolBudgetRunLaunchAnnotation,
 } from "../runtime/workflow-readiness-model";
+import {
+  workflowCapabilityPreflight,
+  workflowCapabilityPreflightValidationResult,
+  workflowCapabilityRunLaunchAnnotation,
+} from "../runtime/workflow-capability-preflight";
 import { workflowRunHistoryModel } from "../runtime/workflow-run-history-model";
 import {
   WORKFLOW_NODE_DEFINITIONS,
@@ -9482,11 +9487,24 @@ export function useWorkflowComposerController({
       ),
     [workflowRunCodingBudgetPreflight],
   );
+  const workflowRunCapabilityPreflight = useMemo(
+    () => workflowCapabilityPreflight(currentProjectFile),
+    [currentProjectFile],
+  );
+  const workflowRunCapabilityPreflightAnnotation = useMemo(
+    () =>
+      workflowCapabilityRunLaunchAnnotation(workflowRunCapabilityPreflight),
+    [workflowRunCapabilityPreflight],
+  );
   const workflowRunLaunchBlocked =
+    workflowRunCapabilityPreflight?.status === "blocked" ||
     workflowRunCodingBudgetPreflight?.status === "blocked";
-  const workflowRunLaunchDisabledReason = workflowRunLaunchBlocked
-    ? workflowRunCodingBudgetPreflight.issue.message
-    : null;
+  const workflowRunLaunchDisabledReason =
+    workflowRunCapabilityPreflight?.status === "blocked"
+      ? workflowRunCapabilityPreflight.issue.message
+      : workflowRunCodingBudgetPreflight?.status === "blocked"
+        ? workflowRunCodingBudgetPreflight.issue.message
+        : null;
 
   const loadRuntimeSidecars = useCallback(
     async (path: string) => {
@@ -12957,7 +12975,42 @@ export function useWorkflowComposerController({
   };
 
   const handleRun = async () => {
-    if (workflowRunLaunchBlocked && workflowRunCodingBudgetPreflight) {
+    if (workflowRunCapabilityPreflight?.status === "blocked") {
+      const blockedValidation = workflowCapabilityPreflightValidationResult(
+        workflowRunCapabilityPreflight,
+      );
+      setValidationResult(blockedValidation);
+      setReadinessResult(blockedValidation);
+      setRightPanel("runs");
+      setBottomPanel("run_output");
+      if (runtime.runWorkflowProject && workflowRunCapabilityPreflightAnnotation) {
+        try {
+          const result = await runtime.runWorkflowProject(workflowPath, {
+            source: "capability-preflight",
+            capabilityPreflight: workflowRunCapabilityPreflightAnnotation,
+          });
+          await applyRunResult(result);
+          setStatusMessage(result.summary.summary);
+          return;
+        } catch (error) {
+          setStatusMessage(
+            `Capability preflight record unavailable. ${errorMessage(error)}`,
+          );
+        }
+      }
+      const blockedSummary = createSubstrateProjectionRunSummary(
+        currentProjectFile,
+        blockedValidation,
+      );
+      setSelectedRunId(blockedSummary.id);
+      setRuns((current) => [
+        blockedSummary,
+        ...current.filter((run) => run.id !== blockedSummary.id),
+      ]);
+      setStatusMessage(workflowRunCapabilityPreflight.issue.message);
+      return;
+    }
+    if (workflowRunCodingBudgetPreflight?.status === "blocked") {
       const blockedValidation = createWorkflowActionFailure(
         "coding_tool_budget_preflight_blocked",
         workflowRunCodingBudgetPreflight.issue.message,
@@ -13186,6 +13239,10 @@ export function useWorkflowComposerController({
         if (workflowRunCodingBudgetPreflightAnnotation) {
           workflowRunOptions.codingToolBudgetPreflight =
             workflowRunCodingBudgetPreflightAnnotation;
+        }
+        if (workflowRunCapabilityPreflightAnnotation) {
+          workflowRunOptions.capabilityPreflight =
+            workflowRunCapabilityPreflightAnnotation;
         }
         Object.assign(
           workflowRunOptions,
@@ -13467,6 +13524,44 @@ export function useWorkflowComposerController({
         logic.payload ?? { payload: "sample" };
       setRightPanel("runs");
       setBottomPanel("run_output");
+      const nodeHasCapabilityPreflight = Boolean(
+        workflowRunCapabilityPreflight?.targetNodeIds.includes(node.id),
+      );
+      if (
+        workflowRunCapabilityPreflight?.status === "blocked" &&
+        nodeHasCapabilityPreflight
+      ) {
+        if (runtime.runWorkflowNode && workflowRunCapabilityPreflightAnnotation) {
+          try {
+            const result = await runtime.runWorkflowNode(
+              workflowPath,
+              node.id,
+              input,
+              {
+                source: "inspector-capability-preflight",
+                capabilityPreflight: workflowRunCapabilityPreflightAnnotation,
+              },
+            );
+            await applyRunResult(result);
+            setStatusMessage(result.summary.summary);
+            return;
+          } catch (error) {
+            setStatusMessage(
+              `Capability preflight record unavailable. ${errorMessage(error)}`,
+            );
+          }
+        }
+        const blocked = createSubstrateProjectionRunSummary(
+          currentProjectFile,
+          workflowCapabilityPreflightValidationResult(
+            workflowRunCapabilityPreflight,
+          ),
+        );
+        setSelectedRunId(blocked.id);
+        setRuns((current) => [blocked, ...current]);
+        setStatusMessage(workflowRunCapabilityPreflight.issue.message);
+        return;
+      }
       const nodeHasCodingBudgetPreflight = Boolean(
         workflowRunCodingBudgetPreflight?.targetNodeIds.includes(node.id),
       );
@@ -13517,6 +13612,13 @@ export function useWorkflowComposerController({
             runOptions.codingToolBudgetPreflight =
               workflowRunCodingBudgetPreflightAnnotation;
           }
+          if (
+            nodeHasCapabilityPreflight &&
+            workflowRunCapabilityPreflightAnnotation
+          ) {
+            runOptions.capabilityPreflight =
+              workflowRunCapabilityPreflightAnnotation;
+          }
           const result = await runtime.runWorkflowNode(
             workflowPath,
             node.id,
@@ -13546,6 +13648,8 @@ export function useWorkflowComposerController({
       handleDryRunNodeFromFixture,
       nodeRunStatusById,
       runtime,
+      workflowRunCapabilityPreflight,
+      workflowRunCapabilityPreflightAnnotation,
       workflowRunCodingBudgetPreflight,
       workflowRunCodingBudgetPreflightAnnotation,
       workflowPath,
@@ -13556,6 +13660,37 @@ export function useWorkflowComposerController({
     async (node: Node) => {
       setRightPanel("runs");
       setBottomPanel("run_output");
+      if (workflowRunCapabilityPreflight?.status === "blocked") {
+        if (
+          runtime.runWorkflowProject &&
+          workflowRunCapabilityPreflightAnnotation
+        ) {
+          try {
+            const result = await runtime.runWorkflowProject(workflowPath, {
+              stopAtNodeId: node.id,
+              source: "inspector-upstream-capability-preflight",
+              capabilityPreflight: workflowRunCapabilityPreflightAnnotation,
+            });
+            await applyRunResult(result);
+            setStatusMessage(result.summary.summary);
+            return;
+          } catch (error) {
+            setStatusMessage(
+              `Capability preflight record unavailable. ${errorMessage(error)}`,
+            );
+          }
+        }
+        const blocked = createSubstrateProjectionRunSummary(
+          currentProjectFile,
+          workflowCapabilityPreflightValidationResult(
+            workflowRunCapabilityPreflight,
+          ),
+        );
+        setSelectedRunId(blocked.id);
+        setRuns((current) => [blocked, ...current]);
+        setStatusMessage(workflowRunCapabilityPreflight.issue.message);
+        return;
+      }
       if (workflowRunLaunchBlocked && workflowRunCodingBudgetPreflight) {
         if (runtime.runWorkflowProject && workflowRunCodingBudgetPreflightAnnotation) {
           try {
@@ -13596,6 +13731,10 @@ export function useWorkflowComposerController({
             runOptions.codingToolBudgetPreflight =
               workflowRunCodingBudgetPreflightAnnotation;
           }
+          if (workflowRunCapabilityPreflightAnnotation) {
+            runOptions.capabilityPreflight =
+              workflowRunCapabilityPreflightAnnotation;
+          }
           const result = await runtime.runWorkflowProject(workflowPath, {
             ...runOptions,
           });
@@ -13621,6 +13760,8 @@ export function useWorkflowComposerController({
       currentProjectFile,
       handleRunWorkflowNode,
       runtime,
+      workflowRunCapabilityPreflight,
+      workflowRunCapabilityPreflightAnnotation,
       workflowRunCodingBudgetPreflight,
       workflowRunCodingBudgetPreflightAnnotation,
       workflowRunLaunchBlocked,
@@ -15173,6 +15314,7 @@ export function useWorkflowComposerController({
     validationResult,
     visibleCompatibleNodeHints,
     workflow,
+    workflowRunCapabilityPreflight,
     workflowRunCodingBudgetPreflight,
     workflowRunLaunchBlocked,
     workflowRunLaunchDisabledReason,
