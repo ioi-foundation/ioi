@@ -265,6 +265,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     validationResult,
     visibleCompatibleNodeHints,
     workflow,
+    workflowRunCapabilityPreflight,
     workflowRunCodingBudgetPreflight,
     workflowRunLaunchBlocked,
     workflowRunLaunchDisabledReason,
@@ -300,9 +301,15 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
       ? "Workflow is read-only"
       : workflowRunLaunchDisabledReason ?? undefined;
   const workflowRunPreflightStatus =
-    workflowRunCodingBudgetPreflight?.status ?? "none";
+    workflowRunCapabilityPreflight?.status ??
+    workflowRunCodingBudgetPreflight?.status ??
+    "none";
   const workflowRunPreflightTargetNodeIds =
-    workflowRunCodingBudgetPreflight?.targetNodeIds.join("|") ?? "";
+    (
+      workflowRunCapabilityPreflight?.targetNodeIds ??
+      workflowRunCodingBudgetPreflight?.targetNodeIds ??
+      []
+    ).join("|");
 
   return (
     <div

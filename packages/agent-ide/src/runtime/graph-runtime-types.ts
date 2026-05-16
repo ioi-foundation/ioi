@@ -50,6 +50,7 @@ import type {
 import type { RuntimeCodingToolControlRequest } from "./workflow-runtime-coding-tool-control-nodes";
 import type { RuntimeCodingToolBudgetRecoveryControlRequest } from "./workflow-runtime-coding-tool-budget-recovery-control-nodes";
 import type { RuntimeSubagentControlRequest } from "./workflow-runtime-subagent-control-nodes";
+import type { WorkflowCapabilityRunLaunchAnnotation } from "./workflow-capability-preflight";
 import type { WorkflowCodingToolBudgetRunLaunchAnnotation } from "./workflow-readiness-model";
 
 export type WorkflowRuntimeControlRequest =
@@ -127,6 +128,7 @@ export interface WorkflowRunRequestOptions extends Record<string, unknown> {
   liveTelemetryHydration?: boolean;
   source?: string;
   stopAtNodeId?: string;
+  capabilityPreflight?: WorkflowCapabilityRunLaunchAnnotation;
   codingToolBudgetPreflight?: WorkflowCodingToolBudgetRunLaunchAnnotation;
   codingToolBudgetRecovery?: Record<string, unknown>;
 }

@@ -16,6 +16,7 @@ import {
   workflowMemoryOptionsFromBody,
   workflowMemoryWriteBlockReason,
 } from "./model-mounting/workflow-memory.mjs";
+import { isExecutable, listJson, notFound, readJson, runtimeError, safeFileName, safeId, writeJson } from "./model-mounting/io.mjs";
 
 const MODEL_MOUNT_SCHEMA_VERSION = "ioi.model-mounting.runtime.v1";
 const SECRET_REDACTION = "[REDACTED]";
@@ -10290,50 +10291,4 @@ function shouldRedactKey(key) {
     return false;
   }
   return /tokenHash|tokenValue|secret|material|apiKey|authorization|header|privateKey|accessToken|refreshToken/i.test(key);
-}
-
-function safeId(value) {
-  return String(value).toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "") || "item";
-}
-
-function safeFileName(value) {
-  return String(value).replace(/[^a-z0-9._-]+/gi, "_");
-}
-
-function isExecutable(filePath) {
-  try {
-    fs.accessSync(filePath, fs.constants.X_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function writeJson(filePath, value) {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
-}
-
-function readJson(filePath) {
-  return JSON.parse(fs.readFileSync(filePath, "utf8"));
-}
-
-function listJson(dir) {
-  if (!fs.existsSync(dir)) return [];
-  return fs
-    .readdirSync(dir)
-    .filter((file) => file.endsWith(".json"))
-    .map((file) => path.join(dir, file));
-}
-
-function notFound(message, details) {
-  return runtimeError({ status: 404, code: "not_found", message, details });
-}
-
-function runtimeError({ status, code, message, details }) {
-  const error = new Error(message);
-  error.status = status;
-  error.code = code;
-  error.details = details;
-  return error;
 }

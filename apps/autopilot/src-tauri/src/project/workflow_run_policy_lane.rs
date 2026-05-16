@@ -19,6 +19,13 @@ const WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_EVENT_KIND: &str =
     "WorkflowRunCodingToolBudgetPreflightBlocked";
 const WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON: &str =
     "coding_tool_budget_preflight_blocked";
+const WORKFLOW_CAPABILITY_PREFLIGHT_SCHEMA_VERSION: &str = "ioi.workflow.capability-preflight.v1";
+const WORKFLOW_RUN_CAPABILITY_PREFLIGHT_BLOCKED_EVENT_KIND: &str =
+    "WorkflowRunCapabilityPreflightBlocked";
+const WORKFLOW_RUN_CAPABILITY_PREFLIGHT_BLOCKED_REASON: &str =
+    "workflow_capability_preflight_blocked";
+const WORKFLOW_RUN_CAPABILITY_PREFLIGHT_WORKFLOW_NODE_ID: &str =
+    "runtime.workflow-capability-preflight";
 const WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION: &str =
     "ioi.workflow.coding-tool-budget-recovery.v1";
 const WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION: &str =
@@ -50,6 +57,26 @@ pub(super) fn workflow_coding_tool_budget_preflight_targets_node(
     preflight: &Value,
     node_id: &str,
 ) -> bool {
+    let target_node_ids =
+        workflow_string_array_any(preflight, &["targetNodeIds", "target_node_ids"]);
+    target_node_ids.is_empty() || target_node_ids.iter().any(|id| id == node_id)
+}
+
+pub(super) fn workflow_capability_preflight_blocked_from_options(
+    options: Option<&Value>,
+) -> Option<Value> {
+    let preflight = options
+        .and_then(|value| {
+            value
+                .get("capabilityPreflight")
+                .or_else(|| value.get("capability_preflight"))
+        })?
+        .clone();
+    (workflow_value_string_any(&preflight, &["status"]).as_deref() == Some("blocked"))
+        .then_some(preflight)
+}
+
+pub(super) fn workflow_capability_preflight_targets_node(preflight: &Value, node_id: &str) -> bool {
     let target_node_ids =
         workflow_string_array_any(preflight, &["targetNodeIds", "target_node_ids"]);
     target_node_ids.is_empty() || target_node_ids.iter().any(|id| id == node_id)
@@ -425,6 +452,270 @@ pub(super) fn workflow_coding_tool_budget_preflight_blocked_result(
         checkpoint_count: Some(checkpoints.len()),
         interrupt_id: None,
         summary: "Workflow run blocked by coding-tool budget preflight.".to_string(),
+        evidence_path: Some(workflow_evidence_path(workflow_path).display().to_string()),
+    };
+
+    workflow_finalize_run_result(
+        workflow_path,
+        workflow,
+        WorkflowRunResultParts {
+            summary,
+            thread,
+            final_state: state,
+            node_runs,
+            checkpoints,
+            events,
+            runtime_thread_events,
+            tui_control_state,
+            harness_attempts: Vec::new(),
+            harness_shadow_comparisons: Vec::new(),
+            harness_gated_cluster_runs: Vec::new(),
+            completion_requirements: Vec::new(),
+            interrupt: None,
+        },
+    )
+}
+
+pub(super) fn workflow_capability_preflight_blocked_result(
+    workflow_path: &Path,
+    workflow: &WorkflowProject,
+    test_count: usize,
+    mut thread: WorkflowThread,
+    mut state: WorkflowStateSnapshot,
+    preflight: Value,
+    target_node_id: Option<&str>,
+) -> Result<WorkflowRunResult, String> {
+    let started_at_ms = now_ms();
+    let finished_at_ms = now_ms();
+    let run_id = unique_runtime_id("workflow-run-policy");
+    let thread_id = thread.id.clone();
+    state.run_id = run_id.clone();
+    state.step_index = state.step_index.max(1);
+
+    let mut target_node_ids =
+        workflow_string_array_any(&preflight, &["targetNodeIds", "target_node_ids"]);
+    if let Some(node_id) = target_node_id {
+        target_node_ids = vec![node_id.to_string()];
+    }
+    let target_node_ids = target_node_ids
+        .into_iter()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    state.blocked_node_ids = target_node_ids.clone();
+    state
+        .values
+        .insert("capabilityPreflight".to_string(), preflight.clone());
+
+    let capability_refs =
+        workflow_string_array_any(&preflight, &["capabilityRefs", "capability_refs"]);
+    let binding_kinds = workflow_string_array_any(&preflight, &["bindingKinds", "binding_kinds"]);
+    let blocker_reasons =
+        workflow_string_array_any(&preflight, &["blockerReasons", "blocker_reasons"]);
+    let rows = workflow_preflight_value_any(&preflight, &["rows"]);
+    let mut receipt_refs = workflow_string_array_any(&preflight, &["receiptRefs", "receipt_refs"]);
+    receipt_refs.push(format!(
+        "receipt_workflow_run_capability_preflight_{}",
+        run_id
+    ));
+    receipt_refs.sort();
+    receipt_refs.dedup();
+    let mut policy_decision_refs =
+        workflow_string_array_any(&preflight, &["policyDecisionRefs", "policy_decision_refs"]);
+    policy_decision_refs.push(format!(
+        "policy_workflow_run_capability_preflight_blocked_{}",
+        run_id
+    ));
+    policy_decision_refs.sort();
+    policy_decision_refs.dedup();
+
+    let issue_code = workflow_value_string_any(&preflight, &["issueCode", "issue_code"])
+        .unwrap_or_else(|| WORKFLOW_RUN_CAPABILITY_PREFLIGHT_BLOCKED_REASON.to_string());
+    let issue_message = workflow_value_string_any(&preflight, &["issueMessage", "issue_message"])
+        .unwrap_or_else(|| "Workflow run blocked by capability readiness preflight.".to_string());
+    let runtime_workflow_node_id = target_node_id
+        .map(str::to_string)
+        .or_else(|| target_node_ids.first().cloned())
+        .unwrap_or_else(|| WORKFLOW_RUN_CAPABILITY_PREFLIGHT_WORKFLOW_NODE_ID.to_string());
+    let policy_payload = json!({
+        "schemaVersion": WORKFLOW_CAPABILITY_PREFLIGHT_SCHEMA_VERSION,
+        "eventKind": WORKFLOW_RUN_CAPABILITY_PREFLIGHT_BLOCKED_EVENT_KIND,
+        "reason": WORKFLOW_RUN_CAPABILITY_PREFLIGHT_BLOCKED_REASON,
+        "sourceKind": "workflow_capability_bindings",
+        "status": "blocked",
+        "summary": issue_message.clone(),
+        "issueCode": issue_code.clone(),
+        "issueMessage": issue_message.clone(),
+        "targetNodeIds": target_node_ids.clone(),
+        "capabilityRefs": capability_refs.clone(),
+        "bindingKinds": binding_kinds.clone(),
+        "blockerReasons": blocker_reasons.clone(),
+        "rows": rows.clone(),
+        "receiptRefs": receipt_refs.clone(),
+        "policyDecisionRefs": policy_decision_refs.clone(),
+        "resultSummary": {
+            "status": "blocked",
+            "reason": WORKFLOW_RUN_CAPABILITY_PREFLIGHT_BLOCKED_REASON
+        },
+        "result": {
+            "status": "blocked",
+            "capabilityRefs": capability_refs.clone(),
+            "blockerReasons": blocker_reasons.clone()
+        },
+        "preflight": preflight.clone()
+    });
+
+    let mut events = Vec::new();
+    workflow_push_event(
+        &mut events,
+        &run_id,
+        &thread_id,
+        "run_started",
+        None,
+        Some("running"),
+        Some("Workflow run started.".to_string()),
+        None,
+    );
+    workflow_push_event(
+        &mut events,
+        &run_id,
+        &thread_id,
+        "policy_blocked",
+        target_node_id,
+        Some("blocked"),
+        Some(issue_message.clone()),
+        Some(vec![WorkflowStateUpdate {
+            node_id: runtime_workflow_node_id.clone(),
+            key: "capabilityPreflight".to_string(),
+            value: policy_payload.clone(),
+            reducer: "replace".to_string(),
+        }]),
+    );
+
+    let mut checkpoints = Vec::new();
+    let checkpoint_id = workflow_checkpoint_state(
+        workflow_path,
+        &mut state,
+        &run_id,
+        &thread_id,
+        target_node_id,
+        "blocked",
+        issue_message.clone(),
+        &mut checkpoints,
+    )?;
+    workflow_push_event(
+        &mut events,
+        &run_id,
+        &thread_id,
+        "run_completed",
+        None,
+        Some("blocked"),
+        Some("Workflow run blocked by capability readiness preflight.".to_string()),
+        None,
+    );
+
+    let mut node_runs = Vec::new();
+    for node_id in &state.blocked_node_ids {
+        let Some(node) = workflow_node_by_id(workflow, node_id) else {
+            continue;
+        };
+        node_runs.push(WorkflowNodeRun {
+            node_id: node_id.clone(),
+            node_type: workflow_node_type(node),
+            status: "blocked".to_string(),
+            started_at_ms,
+            finished_at_ms: Some(finished_at_ms),
+            attempt: 1,
+            input: Some(policy_payload.clone()),
+            output: Some(json!({
+                "capabilityPreflight": preflight.clone(),
+                "capabilityRows": rows.clone(),
+                "receiptRefs": receipt_refs.clone(),
+                "policyDecisionRefs": policy_decision_refs.clone(),
+                "blockerReasons": blocker_reasons.clone()
+            })),
+            error: Some(issue_message.clone()),
+            checkpoint_id: Some(checkpoint_id.clone()),
+            lifecycle: workflow_node_lifecycle_steps("blocked"),
+            harness_attempt: None,
+        });
+    }
+
+    let runtime_event_node_ids = if target_node_ids.is_empty() {
+        vec![runtime_workflow_node_id.clone()]
+    } else {
+        target_node_ids.clone()
+    };
+    let runtime_thread_events = runtime_event_node_ids
+        .iter()
+        .enumerate()
+        .map(|(index, node_id)| {
+            let event_id = unique_runtime_id("runtime-event");
+            let sequence = index + 1;
+            json!({
+                "id": event_id.clone(),
+                "cursor": format!("workflow_capability_preflight:{}:{}", run_id, sequence),
+                "seq": sequence,
+                "threadId": thread_id.clone(),
+                "turnId": Value::Null,
+                "type": "policy_blocked",
+                "eventKind": "policy.blocked",
+                "sourceEventKind": WORKFLOW_RUN_CAPABILITY_PREFLIGHT_BLOCKED_EVENT_KIND,
+                "status": "blocked",
+                "componentKind": "capability_preflight",
+                "workflowNodeId": node_id.clone(),
+                "workflowGraphId": workflow.metadata.id.clone(),
+                "payloadSchemaVersion": WORKFLOW_CAPABILITY_PREFLIGHT_SCHEMA_VERSION,
+                "receiptRefs": receipt_refs.clone(),
+                "artifactRefs": [],
+                "policyDecisionRefs": policy_decision_refs.clone(),
+                "rollbackRefs": [],
+                "payload": policy_payload.clone()
+            })
+        })
+        .collect::<Vec<_>>();
+    let last_event = runtime_thread_events.last();
+    let tui_control_state = Some(json!({
+        "schemaVersion": "ioi.workflow.runtime-tui-control-state.v1",
+        "sourceSchemaVersion": WORKFLOW_CAPABILITY_PREFLIGHT_SCHEMA_VERSION,
+        "surface": "workflow_run",
+        "threadId": thread.id.clone(),
+        "workflowGraphId": workflow.metadata.id.clone(),
+        "currentTurnId": Value::Null,
+        "lastCursor": last_event
+            .and_then(|event| event.get("cursor"))
+            .cloned()
+            .unwrap_or(Value::Null),
+        "lastEventId": last_event
+            .and_then(|event| event.get("id"))
+            .cloned()
+            .unwrap_or(Value::Null),
+        "capabilityRows": rows.clone(),
+        "commandHistory": [{
+            "id": format!("workflow-run-capability-preflight-command-{}", run_id),
+            "command": "run",
+            "rawInput": "/workflow run",
+            "status": "blocked",
+            "sequence": 1,
+            "message": "Workflow run blocked by capability readiness preflight."
+        }]
+    }));
+
+    thread.status = "blocked".to_string();
+    thread.latest_checkpoint_id = Some(checkpoint_id);
+    save_workflow_thread(workflow_path, &thread)?;
+
+    let summary = WorkflowRunSummary {
+        id: run_id.clone(),
+        thread_id: Some(thread_id),
+        status: "blocked".to_string(),
+        started_at_ms,
+        finished_at_ms: Some(finished_at_ms),
+        node_count: workflow.nodes.len(),
+        test_count: Some(test_count),
+        checkpoint_count: Some(checkpoints.len()),
+        interrupt_id: None,
+        summary: "Workflow run blocked by capability readiness preflight.".to_string(),
         evidence_path: Some(workflow_evidence_path(workflow_path).display().to_string()),
     };
 
