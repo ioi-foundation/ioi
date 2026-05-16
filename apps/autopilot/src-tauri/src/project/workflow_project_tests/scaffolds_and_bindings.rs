@@ -686,6 +686,129 @@ fn workflow_binding_manifest_projects_model_capability_contracts() {
 }
 
 #[test]
+fn workflow_binding_manifest_projects_tool_connector_capability_contracts() {
+    let root = temp_root("binding-tool-connector-capability");
+    let mut bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "Binding Tool Connector Capability".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "local".to_string(),
+        template_id: None,
+    })
+    .expect("workflow bundle should create");
+    bundle.workflow.global_config["environmentProfile"] = json!({
+        "target": "local",
+        "credentialScope": "local",
+        "mockBindingPolicy": "warn"
+    });
+
+    let mut tool = workflow_node(
+        "capability-tool",
+        "plugin_tool",
+        "Patch tool",
+        120,
+        160,
+        "Tool",
+        "file.apply_patch",
+    );
+    logic_mut(&mut tool).insert(
+        "toolBinding".to_string(),
+        json!({
+            "toolRef": "file.apply_patch",
+            "bindingKind": "coding_tool_pack",
+            "mockBinding": false,
+            "credentialReady": true,
+            "capabilityScope": ["file.apply_patch"],
+            "sideEffectClass": "write",
+            "requiresApproval": true
+        }),
+    );
+
+    let mut connector = workflow_node(
+        "capability-connector",
+        "adapter",
+        "Mail connector",
+        360,
+        160,
+        "Connector",
+        "mail",
+    );
+    logic_mut(&mut connector).insert(
+        "connectorBinding".to_string(),
+        json!({
+            "connectorRef": "google.workspace.mail",
+            "mockBinding": false,
+            "credentialReady": true,
+            "capabilityScope": ["draft"],
+            "sideEffectClass": "external_write",
+            "requiresApproval": true,
+            "operation": "draft_email"
+        }),
+    );
+
+    bundle.workflow.nodes.push(tool);
+    bundle.workflow.nodes.push(connector);
+    save_workflow_project(bundle.workflow_path.clone(), bundle.workflow)
+        .expect("workflow should save with tool and connector capability bindings");
+
+    let manifest = generate_workflow_binding_manifest(bundle.workflow_path.clone())
+        .expect("manifest should generate");
+    let tool_entry = manifest
+        .bindings
+        .iter()
+        .find(|entry| entry.id == "capability-tool-tool")
+        .expect("tool capability entry should exist");
+    assert_eq!(
+        tool_entry.tool_capability_ref.as_deref(),
+        Some("tool-capability:file.apply_patch")
+    );
+    assert!(tool_entry
+        .authority_scopes
+        .iter()
+        .any(|scope| scope == "scope:workspace.write"));
+    assert_eq!(tool_entry.risk_class.as_deref(), Some("local_write"));
+    assert_eq!(
+        tool_entry
+            .receipt_behavior
+            .as_ref()
+            .and_then(|value| value.get("receiptRequired"))
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        tool_entry
+            .grant_readiness
+            .as_ref()
+            .and_then(|value| value.get("status"))
+            .and_then(Value::as_str),
+        Some("ready")
+    );
+
+    let connector_entry = manifest
+        .bindings
+        .iter()
+        .find(|entry| entry.id == "capability-connector-connector")
+        .expect("connector capability entry should exist");
+    assert_eq!(
+        connector_entry.connector_capability_ref.as_deref(),
+        Some("connector-capability:google.workspace.mail")
+    );
+    assert!(connector_entry
+        .authority_scope_requirements
+        .iter()
+        .any(|scope| scope == "connector.invoke:google.workspace.mail"));
+    assert_eq!(connector_entry.risk_class.as_deref(), Some("external_write"));
+    assert_eq!(
+        connector_entry
+            .policy_posture
+            .as_ref()
+            .and_then(|value| value.get("status"))
+            .and_then(Value::as_str),
+        Some("allowed")
+    );
+}
+
+#[test]
 fn legacy_artifact_nodes_normalize_to_output_nodes_on_load_and_save() {
     let root = temp_root("legacy-output-normalization");
     let bundle = create_workflow_project(CreateWorkflowProjectRequest {

@@ -28,6 +28,10 @@ import {
   modelCapabilityRefForRoute,
   normalizeWorkflowModelBinding,
 } from "./workflow-model-capability-binding";
+import {
+  normalizeWorkflowConnectorBinding,
+  normalizeWorkflowToolBinding,
+} from "./workflow-tool-connector-capability-binding";
 
 export type WorkflowNodeGroup =
   | "Start"
@@ -4464,9 +4468,24 @@ const WORKFLOW_NODE_DEFINITION_BASES: WorkflowNodeDefinitionBase[] = [
   },
 ];
 
+function normalizeCapabilityBindingLogic(logic: NodeLogic): NodeLogic {
+  return {
+    ...logic,
+    ...(logic.toolBinding
+      ? { toolBinding: normalizeWorkflowToolBinding(logic.toolBinding, logic) }
+      : {}),
+    ...(logic.connectorBinding
+      ? { connectorBinding: normalizeWorkflowConnectorBinding(logic.connectorBinding) }
+      : {}),
+  };
+}
+
 export const WORKFLOW_NODE_DEFINITIONS: WorkflowNodeDefinition[] =
   WORKFLOW_NODE_DEFINITION_BASES.map((definition) =>
-    applyWorkflowNodeTaxonomy(definition),
+    applyWorkflowNodeTaxonomy({
+      ...definition,
+      defaultLogic: normalizeCapabilityBindingLogic(definition.defaultLogic),
+    }),
   );
 
 const DEFINITION_BY_TYPE = new Map(
@@ -4509,9 +4528,9 @@ function creatorDefinition(
     creatorDescription: overrides.description,
     metricLabel: overrides.metricLabel ?? definition.metricLabel,
     metricValue: overrides.metricValue ?? definition.metricValue,
-    defaultLogic: overrides.defaultLogic
-      ? clone(overrides.defaultLogic)
-      : clone(definition.defaultLogic),
+    defaultLogic: normalizeCapabilityBindingLogic(
+      overrides.defaultLogic ? clone(overrides.defaultLogic) : clone(definition.defaultLogic),
+    ),
     defaultLaw: overrides.defaultLaw
       ? clone(overrides.defaultLaw)
       : clone(definition.defaultLaw),

@@ -484,10 +484,24 @@ pub struct WorkflowToolSubgraphBinding {
 pub struct WorkflowToolBinding {
     pub tool_ref: String,
     #[serde(default)]
+    pub tool_capability_ref: Option<String>,
+    #[serde(default)]
     pub binding_kind: Option<String>,
     pub mock_binding: bool,
     #[serde(default)]
     pub credential_ready: Option<bool>,
+    #[serde(default)]
+    pub risk_class: Option<String>,
+    #[serde(default)]
+    pub authority_scopes: Vec<String>,
+    #[serde(default)]
+    pub authority_scope_requirements: Vec<String>,
+    #[serde(default)]
+    pub approval_requirement: Option<Value>,
+    #[serde(default)]
+    pub grant_readiness: Option<Value>,
+    #[serde(default)]
+    pub policy_posture: Option<Value>,
     #[serde(default)]
     pub capability_scope: Vec<String>,
     pub side_effect_class: String,
@@ -520,9 +534,16 @@ impl Default for WorkflowToolBinding {
     fn default() -> Self {
         Self {
             tool_ref: String::new(),
+            tool_capability_ref: None,
             binding_kind: None,
             mock_binding: true,
             credential_ready: None,
+            risk_class: None,
+            authority_scopes: Vec::new(),
+            authority_scope_requirements: Vec::new(),
+            approval_requirement: None,
+            grant_readiness: None,
+            policy_posture: None,
             capability_scope: Vec::new(),
             side_effect_class: "read".to_string(),
             requires_approval: false,
@@ -545,9 +566,23 @@ impl Default for WorkflowToolBinding {
 #[serde(rename_all = "camelCase")]
 pub struct WorkflowConnectorBinding {
     pub connector_ref: String,
+    #[serde(default)]
+    pub connector_capability_ref: Option<String>,
     pub mock_binding: bool,
     #[serde(default)]
     pub credential_ready: Option<bool>,
+    #[serde(default)]
+    pub risk_class: Option<String>,
+    #[serde(default)]
+    pub authority_scopes: Vec<String>,
+    #[serde(default)]
+    pub authority_scope_requirements: Vec<String>,
+    #[serde(default)]
+    pub approval_requirement: Option<Value>,
+    #[serde(default)]
+    pub grant_readiness: Option<Value>,
+    #[serde(default)]
+    pub policy_posture: Option<Value>,
     #[serde(default)]
     pub capability_scope: Vec<String>,
     pub side_effect_class: String,
@@ -574,8 +609,15 @@ impl Default for WorkflowConnectorBinding {
     fn default() -> Self {
         Self {
             connector_ref: String::new(),
+            connector_capability_ref: None,
             mock_binding: true,
             credential_ready: None,
+            risk_class: None,
+            authority_scopes: Vec::new(),
+            authority_scope_requirements: Vec::new(),
+            approval_requirement: None,
+            grant_readiness: None,
+            policy_posture: None,
             capability_scope: Vec::new(),
             side_effect_class: "read".to_string(),
             requires_approval: false,
@@ -925,11 +967,23 @@ pub struct WorkflowBindingManifestEntry {
     #[serde(default)]
     pub model_capability_ref: Option<String>,
     #[serde(default)]
+    pub tool_capability_ref: Option<String>,
+    #[serde(default)]
+    pub connector_capability_ref: Option<String>,
+    #[serde(default)]
     pub route_id: Option<String>,
+    #[serde(default)]
+    pub risk_class: Option<String>,
+    #[serde(default)]
+    pub approval_requirement: Option<serde_json::Value>,
     #[serde(default)]
     pub authority_scopes: Vec<String>,
     #[serde(default)]
     pub authority_scope_requirements: Vec<String>,
+    #[serde(default)]
+    pub rate_limit_profile: Option<serde_json::Value>,
+    #[serde(default)]
+    pub idempotency_behavior: Option<serde_json::Value>,
     #[serde(default)]
     pub receipt_behavior: Option<serde_json::Value>,
     #[serde(default)]

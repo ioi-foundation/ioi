@@ -27,6 +27,7 @@ test("computer-use composer run options project browser-use preset metadata", ()
     workflowNodeId: "node-plugin_tool-browser_use",
     workflowNodeIds: ["node-plugin_tool-browser_use"],
     toolRef: "ioi.computer_use.native_browser",
+    toolCapabilityRef: "tool-capability:ioi.computer_use.native_browser",
     authorityScopes: [
       "computer_use.native_browser.read",
       "computer_use.action_proposal",
@@ -134,6 +135,7 @@ test("computer-use composer run options preserve existing run metadata", () => {
     workflowNodeId: "node-plugin_tool-computer_use-visual_gui",
     workflowNodeIds: ["node-plugin_tool-computer_use-visual_gui"],
     toolRef: "ioi.computer_use.visual_gui",
+    toolCapabilityRef: "tool-capability:ioi.computer_use.visual_gui",
     authorityScopes: [
       "computer_use.visual_gui.observe",
       "computer_use.visual_gui.propose_action",

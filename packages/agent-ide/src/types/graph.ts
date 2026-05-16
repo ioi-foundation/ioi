@@ -1292,6 +1292,14 @@ export interface WorkflowCapabilityAvailability {
 }
 
 export interface WorkflowCapabilityContractMetadata {
+  toolCapabilityRef?: string;
+  connectorCapabilityRef?: string;
+  riskClass?: string;
+  authorityScopes?: string[];
+  authorityScopeRequirements?: string[];
+  approvalRequirement?: Record<string, unknown>;
+  grantReadiness?: WorkflowCapabilityCredentialReadiness | Record<string, unknown>;
+  policyPosture?: Record<string, unknown>;
   credentialReadiness?: WorkflowCapabilityCredentialReadiness;
   rateLimitProfile?: Record<string, unknown>;
   idempotencyBehavior?: Record<string, unknown>;
@@ -1323,10 +1331,17 @@ export interface WorkflowModelCapabilityContractMetadata {
 
 export interface WorkflowToolBinding {
   toolRef: string;
+  toolCapabilityRef?: string;
   bindingKind?: WorkflowToolBindingKind;
   mockBinding: boolean;
   credentialReady?: boolean;
   credentialReadiness?: WorkflowCapabilityCredentialReadiness;
+  riskClass?: string;
+  authorityScopes?: string[];
+  authorityScopeRequirements?: string[];
+  approvalRequirement?: Record<string, unknown>;
+  grantReadiness?: WorkflowCapabilityCredentialReadiness | Record<string, unknown>;
+  policyPosture?: Record<string, unknown>;
   rateLimitProfile?: Record<string, unknown>;
   idempotencyBehavior?: Record<string, unknown>;
   receiptBehavior?: Record<string, unknown>;
@@ -1407,9 +1422,16 @@ export interface WorkflowToolBinding {
 
 export interface WorkflowConnectorBinding {
   connectorRef: string;
+  connectorCapabilityRef?: string;
   mockBinding: boolean;
   credentialReady?: boolean;
   credentialReadiness?: WorkflowCapabilityCredentialReadiness;
+  riskClass?: string;
+  authorityScopes?: string[];
+  authorityScopeRequirements?: string[];
+  approvalRequirement?: Record<string, unknown>;
+  grantReadiness?: WorkflowCapabilityCredentialReadiness | Record<string, unknown>;
+  policyPosture?: Record<string, unknown>;
   rateLimitProfile?: Record<string, unknown>;
   idempotencyBehavior?: Record<string, unknown>;
   receiptBehavior?: Record<string, unknown>;
@@ -1987,9 +2009,15 @@ export interface WorkflowBindingManifestEntry {
   requiresApproval: boolean;
   capabilityScope: string[];
   modelCapabilityRef?: string | null;
+  toolCapabilityRef?: string | null;
+  connectorCapabilityRef?: string | null;
   routeId?: string | null;
+  riskClass?: string | null;
+  approvalRequirement?: Record<string, unknown> | null;
   authorityScopes?: string[];
   authorityScopeRequirements?: string[];
+  rateLimitProfile?: Record<string, unknown> | null;
+  idempotencyBehavior?: Record<string, unknown> | null;
   receiptBehavior?: Record<string, unknown> | null;
   readiness?: Record<string, unknown> | null;
   grantReadiness?: Record<string, unknown> | null;

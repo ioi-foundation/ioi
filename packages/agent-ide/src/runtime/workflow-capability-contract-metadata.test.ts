@@ -53,12 +53,28 @@ function liveModelWorkflow(modelBinding: Record<string, unknown>): WorkflowProje
 }
 
 test("React Flow validation blocks live tool bindings missing authority metadata", () => {
-  const validation = validateWorkflowProject(liveToolWorkflow({}), []);
+  const validation = validateWorkflowProject(
+    liveToolWorkflow({
+      credentialReady: false,
+      credentialReadiness: { status: "unknown" },
+      rateLimitProfile: {},
+      idempotencyBehavior: { required: false },
+      receiptBehavior: { receiptRequired: false, requiredReceiptTypes: [] },
+      workflowAvailability: { available: false },
+      agentAvailability: { available: false },
+      grantReadiness: { status: "unknown" },
+      policyPosture: { status: "unknown" },
+    }),
+    [],
+  );
   const codes = (validation.executionReadinessIssues ?? []).map(
     (issue) => issue.code,
   );
 
   assert.equal(validation.status, "blocked");
+  assert.equal(codes.includes("missing_credential_readiness_contract"), true);
+  assert.equal(codes.includes("missing_grant_readiness"), true);
+  assert.equal(codes.includes("missing_policy_posture"), true);
   assert.equal(codes.includes("missing_rate_limit_profile"), true);
   assert.equal(codes.includes("missing_receipt_behavior"), true);
   assert.equal(codes.includes("missing_idempotency_behavior"), true);
@@ -69,6 +85,9 @@ test("React Flow validation blocks live tool bindings missing authority metadata
 test("React Flow validation accepts complete live tool authority metadata", () => {
   const validation = validateWorkflowProject(
     liveToolWorkflow({
+      toolCapabilityRef: "tool-capability:filesystem.write",
+      authorityScopes: ["tool.invoke:filesystem.write"],
+      authorityScopeRequirements: ["tool.invoke:filesystem.write"],
       credentialReadiness: {
         status: "ready",
         checkedAt: "2026-05-15T00:00:00Z",
@@ -82,6 +101,14 @@ test("React Flow validation accepts complete live tool authority metadata", () =
       idempotencyBehavior: {
         required: true,
         strategy: "operation_hash",
+      },
+      grantReadiness: {
+        status: "ready",
+        reason: "Authority grant is ready.",
+      },
+      policyPosture: {
+        status: "allowed",
+        policyTarget: "tool-capability:filesystem.write",
       },
       receiptBehavior: {
         receiptRequired: true,
@@ -107,6 +134,8 @@ test("React Flow validation accepts complete live tool authority metadata", () =
   );
 
   assert.equal(codes.includes("missing_rate_limit_profile"), false);
+  assert.equal(codes.includes("missing_grant_readiness"), false);
+  assert.equal(codes.includes("missing_policy_posture"), false);
   assert.equal(codes.includes("missing_receipt_behavior"), false);
   assert.equal(codes.includes("missing_idempotency_behavior"), false);
   assert.equal(codes.includes("missing_workflow_availability"), false);

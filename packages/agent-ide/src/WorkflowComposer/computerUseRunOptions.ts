@@ -1,4 +1,5 @@
 import type { WorkflowProject } from "../types/graph";
+import { normalizeWorkflowToolBinding } from "../runtime/workflow-tool-connector-capability-binding";
 
 export const WORKFLOW_COMPOSER_COMPUTER_USE_RUN_OPTIONS_SCHEMA_VERSION =
   "ioi.workflow.composer-computer-use-run-options.v1" as const;
@@ -54,6 +55,7 @@ export interface WorkflowComposerComputerUseRunMetadata {
   workflowNodeId: string;
   workflowNodeIds: string[];
   toolRef: string | null;
+  toolCapabilityRef: string | null;
   authorityScopes: string[];
 }
 
@@ -67,7 +69,9 @@ export function workflowComposerComputerUseRunOptions(
   const computerUseNodes = workflow.nodes
     .filter((node) => node.type === "plugin_tool")
     .map((node) => {
-      const toolBinding = node.config?.logic?.toolBinding;
+      const toolBinding = node.config?.logic?.toolBinding
+        ? normalizeWorkflowToolBinding(node.config.logic.toolBinding)
+        : null;
       const args = toolBinding?.arguments ?? {};
       return {
         node,
@@ -313,7 +317,10 @@ export function workflowComposerComputerUseRunOptions(
       workflowNodeId: first.node.id,
       workflowNodeIds: computerUseNodes.map(({ node }) => node.id),
       toolRef: cleanString(first.toolBinding?.toolRef),
-      authorityScopes: first.toolBinding?.capabilityScope ?? [],
+      toolCapabilityRef: cleanString(first.toolBinding?.toolCapabilityRef),
+      authorityScopes: first.toolBinding?.authorityScopes?.length
+        ? first.toolBinding.authorityScopes
+        : first.toolBinding?.capabilityScope ?? [],
     },
   };
 }
