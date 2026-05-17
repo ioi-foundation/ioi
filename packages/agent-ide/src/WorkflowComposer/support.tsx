@@ -62,6 +62,29 @@ export function workflowActionMetadataLabel(
   return [binding, policy, schemas].filter(Boolean).join(" · ");
 }
 
+const WORKFLOW_START_CARD_DESCRIPTIONS: Record<string, string> = {
+  "trigger.manual": "Run on demand.",
+  "source.manual": "Enter a prompt payload.",
+  "trigger.scheduled": "Run on a schedule.",
+  "trigger.event": "Start from an app event.",
+  "trigger.chat": "Start from chat.",
+  "source.api_payload": "Use a JSON payload.",
+  "source.file": "Use a local file.",
+  "source.media": "Use sanitized media.",
+  "source.dataset": "Use tabular or JSON data.",
+};
+
+export function workflowStartCardDescription(
+  definition: WorkflowNodeDefinition | WorkflowNodeCreatorDefinition,
+): string {
+  return (
+    WORKFLOW_START_CARD_DESCRIPTIONS[workflowCreatorItemId(definition)] ??
+    ("creatorDescription" in definition
+      ? definition.creatorDescription
+      : workflowActionMetadataLabel(definition))
+  );
+}
+
 export const RIGHT_PANELS: Array<{
   id: WorkflowRightPanel;
   label: string;

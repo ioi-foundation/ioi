@@ -1001,6 +1001,24 @@ assert.match(
 );
 
 assert.match(
+  composer,
+  /"trigger\.scheduled": "Run on a schedule\."[\s\S]*workflowStartCardDescription[\s\S]*workflowStartCardDescription\(item\)/,
+  "Empty workflow starter cards should use concise overlay-specific descriptions instead of wrapping global registry copy",
+);
+
+assert.match(
+  workflowComposerCss,
+  /\.workflow-start-card\s*\{[\s\S]*grid-template-rows: auto auto auto 1fr;[\s\S]*min-height: 84px;/,
+  "Empty workflow starter cards should reserve a stable row rhythm without wasting canvas space",
+);
+
+assert.match(
+  workflowComposerCss,
+  /\.workflow-start-card span\s*\{[\s\S]*text-overflow: ellipsis;[\s\S]*white-space: nowrap;/,
+  "Empty workflow starter descriptions should stay on one line for scanability",
+);
+
+assert.match(
   nodeRegistry,
   /function\.javascript[\s\S]*function\.typescript[\s\S]*function\.python[\s\S]*function\.file_backed[\s\S]*output\.table[\s\S]*output\.patch[\s\S]*output\.deploy[\s\S]*state\.read[\s\S]*state\.write[\s\S]*state\.append[\s\S]*state\.reducer[\s\S]*state\.checkpoint/,
   "Primitive creator should expose concrete action variants while keeping media/output as generic ontology primitives",
