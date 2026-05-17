@@ -1706,3 +1706,157 @@
   color: #1f2933;
   outline: 0;
 }
+
+/* Workspace repository gate follows the shell appearance contract instead of
+   pinning itself to the light workbench palette. */
+.workspace-repository-gate {
+  --workspace-repo-bg: var(--chat-bg);
+  --workspace-repo-header-bg: var(--chat-bg-elevated);
+  --workspace-repo-panel-bg: var(--chat-bg-surface);
+  --workspace-repo-panel-strong-bg: var(--surface-3);
+  --workspace-repo-hover-bg: var(--chat-bg-hover);
+  --workspace-repo-pill-bg: var(--surface-3);
+  --workspace-repo-pill-active-bg: var(--chat-accent-muted);
+  --workspace-repo-icon-bg: var(--surface-3);
+  --workspace-repo-border: var(--chat-border);
+  --workspace-repo-border-strong: var(--chat-border-strong);
+  --workspace-repo-text: var(--chat-text);
+  --workspace-repo-text-secondary: var(--chat-text-secondary);
+  --workspace-repo-text-muted: var(--chat-text-muted);
+  --workspace-repo-link: var(--chat-accent);
+  --workspace-repo-primary-bg: var(--status-success);
+  --workspace-repo-primary-hover-bg: color-mix(in srgb, var(--status-success) 84%, black 16%);
+  --workspace-repo-primary-disabled-bg: color-mix(in srgb, var(--status-success) 52%, var(--chat-bg-surface) 48%);
+  background: var(--workspace-repo-bg);
+  color: var(--workspace-repo-text);
+}
+
+.workspace-repository-gate__header {
+  border-bottom-color: var(--workspace-repo-border);
+  background: var(--workspace-repo-header-bg);
+}
+
+.workspace-repository-gate__title h1,
+.workspace-repository-gate__tabs button.is-active,
+.workspace-repository-gate__rail-heading h2,
+.workspace-repository-gate__news-card p,
+.workspace-repository-gate__repo-card h3,
+.workspace-repository-gate__repo-open strong,
+.workspace-repository-gate__create-title h2,
+.workspace-repository-gate__choice-card,
+.workspace-repository-gate__template-card {
+  color: var(--workspace-repo-text);
+}
+
+.workspace-repository-gate__icon-shell,
+.workspace-repository-gate__choice-card > span,
+.workspace-repository-gate__template-meta {
+  border-color: var(--workspace-repo-border-strong);
+  background: var(--workspace-repo-icon-bg);
+  color: var(--workspace-repo-text-secondary);
+}
+
+.workspace-repository-gate__primary-button {
+  border-color: var(--workspace-repo-primary-bg);
+  background: var(--workspace-repo-primary-bg);
+  color: #ffffff;
+}
+
+.workspace-repository-gate__primary-button:hover {
+  border-color: var(--workspace-repo-primary-hover-bg);
+  background: var(--workspace-repo-primary-hover-bg);
+}
+
+.workspace-repository-gate__primary-button:disabled {
+  border-color: var(--workspace-repo-primary-disabled-bg);
+  background: var(--workspace-repo-primary-disabled-bg);
+}
+
+.workspace-repository-gate__tabs button,
+.workspace-repository-gate__steps span {
+  background: var(--workspace-repo-pill-bg);
+  color: var(--workspace-repo-text-secondary);
+}
+
+.workspace-repository-gate__steps span.is-active {
+  background: var(--workspace-repo-pill-active-bg);
+  color: var(--workspace-repo-link);
+}
+
+.workspace-repository-gate__search-field,
+.workspace-repository-gate__repository-search,
+.workspace-repository-gate__back-button,
+.workspace-repository-gate__review-card input {
+  border-color: var(--workspace-repo-border-strong);
+  background: var(--workspace-repo-panel-bg);
+  color: var(--workspace-repo-text-secondary);
+}
+
+.workspace-repository-gate__search-field input,
+.workspace-repository-gate__repository-search input,
+.workspace-repository-gate__review-card input {
+  color: var(--workspace-repo-text);
+}
+
+.workspace-repository-gate__pr-empty,
+.workspace-repository-gate__news-card,
+.workspace-repository-gate__repo-card,
+.workspace-repository-gate__choice-card,
+.workspace-repository-gate__template-card,
+.workspace-repository-gate__review-card {
+  border-color: var(--workspace-repo-border);
+  background: var(--workspace-repo-panel-bg);
+}
+
+.workspace-repository-gate__pr-empty,
+.workspace-repository-gate__pr-empty h2,
+.workspace-repository-gate__pr-empty p,
+.workspace-repository-gate__news-card time,
+.workspace-repository-gate__repo-open,
+.workspace-repository-gate__repo-open small,
+.workspace-repository-gate__empty-small,
+.workspace-repository-gate__steps,
+.workspace-repository-gate__create-title p,
+.workspace-repository-gate__choice-card small,
+.workspace-repository-gate__template-card small,
+.workspace-repository-gate__review-card label span,
+.workspace-repository-gate__review-row span {
+  color: var(--workspace-repo-text-secondary);
+}
+
+.workspace-repository-gate__pr-empty svg,
+.workspace-repository-gate__choice-card > svg,
+.workspace-repository-gate__favorite-button {
+  color: var(--workspace-repo-text-muted);
+}
+
+.workspace-repository-gate__rail-heading button,
+.workspace-repository-gate__news-card button {
+  color: var(--workspace-repo-link);
+}
+
+.workspace-repository-gate__news-card span {
+  background: var(--workspace-repo-pill-active-bg);
+  color: var(--workspace-repo-link);
+}
+
+.workspace-repository-gate__repo-card h3,
+.workspace-repository-gate__repo-row,
+.workspace-repository-gate__favorite-button {
+  border-color: var(--workspace-repo-border);
+}
+
+.workspace-repository-gate__repo-open:hover,
+.workspace-repository-gate__favorite-button:hover {
+  background: var(--workspace-repo-hover-bg);
+}
+
+.workspace-repository-gate__choice-card:hover,
+.workspace-repository-gate__template-card:hover {
+  border-color: var(--workspace-repo-border-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+.workspace-repository-gate__recommended {
+  color: var(--workspace-repo-primary-bg);
+}

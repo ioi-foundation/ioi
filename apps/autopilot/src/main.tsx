@@ -7,12 +7,18 @@ import "@ioi/agent-ide/dist/style.css"; // Use shared theme
 import "@ioi/workspace-substrate/style.css";
 import "./styles/global.css"; // Autopilot theme overrides
 import "./services/sessionRuntime";
+import {
+  applyAutopilotAppearance,
+  loadAutopilotAppearance,
+} from "./services/autopilotAppearance";
 import { markAutopilotMetric } from "./services/workspacePerf";
 
 import { GateWindow } from "./windows/GateWindow/index";
 import { AutopilotShellWindow } from "./windows/AutopilotShellWindow";
 import { WorkspaceWorkbenchPreview } from "./dev/WorkspaceWorkbenchPreview";
 import { hideChatSessionShell, hidePillShell, showChatShell } from "@ioi/agent-ide";
+
+applyAutopilotAppearance(loadAutopilotAppearance());
 
 function AppMetricsBeacon() {
   useEffect(() => {

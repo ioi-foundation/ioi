@@ -24,7 +24,7 @@
 }
 
 .spot-container.spot-container.spot-container {
-  background: rgba(8, 8, 10, 0.96) !important;
+  background: var(--spot-bg-primary) !important;
 }
 
 .spot-main.spot-main.spot-main {
