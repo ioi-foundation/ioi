@@ -17,8 +17,75 @@ export const TOOL_CAPABILITY_BINDING_ENDPOINT = "/api/v1/tools";
 export const TOOL_AUTHORITY_BINDING_ENDPOINT = "/api/v1/authority";
 export const CONNECTOR_AUTHORITY_BINDING_ENDPOINT = "/api/v1/authority";
 
+export type WorkflowRuntimeToolContractLike = Record<string, unknown> & {
+  stableToolId?: string;
+  stable_tool_id?: string;
+  toolId?: string;
+  tool_id?: string;
+  displayName?: string;
+  display_name?: string;
+  inputSchema?: Record<string, unknown>;
+  input_schema?: Record<string, unknown>;
+  outputSchema?: Record<string, unknown>;
+  output_schema?: Record<string, unknown>;
+  riskClass?: string;
+  risk_class?: string;
+  riskDomain?: string;
+  risk_domain?: string;
+  effectClass?: string;
+  effect_class?: string;
+  primitiveCapabilities?: string[];
+  primitive_capabilities_required?: string[];
+  authorityScopeRequirements?: string[];
+  authority_scopes_required?: string[];
+  approvalRequired?: boolean;
+  approval_required?: boolean;
+  evidenceRequirements?: string[];
+  evidence_required?: string[];
+};
+
 function cleanText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function recordValue(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  return value as Record<string, unknown>;
+}
+
+function stringField(record: Record<string, unknown>, ...keys: string[]): string {
+  for (const key of keys) {
+    const value = cleanText(record[key]);
+    if (value) return value;
+  }
+  return "";
+}
+
+function booleanField(record: Record<string, unknown>, ...keys: string[]): boolean | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "boolean") return value;
+  }
+  return undefined;
+}
+
+function recordField(
+  record: Record<string, unknown>,
+  ...keys: string[]
+): Record<string, unknown> | undefined {
+  for (const key of keys) {
+    const value = recordValue(record[key]);
+    if (value) return value;
+  }
+  return undefined;
+}
+
+function arrayField(record: Record<string, unknown>, ...keys: string[]): string[] {
+  for (const key of keys) {
+    const values = stringArray(record[key]);
+    if (values.length) return values;
+  }
+  return [];
 }
 
 function slug(value: string, fallback: string): string {
@@ -150,6 +217,185 @@ function riskClassFor(sideEffectClass: string): string {
   }
 }
 
+function sideEffectClassFromRuntimeEffect(value: string): WorkflowSideEffectClass {
+  switch (value) {
+    case "read":
+      return "read";
+    case "local_write":
+    case "draft":
+    case "write_reversible":
+      return "write";
+    case "external_message":
+    case "commerce":
+      return "external_write";
+    case "funds":
+      return "financial_write";
+    case "credential_touching":
+    case "secret_export":
+    case "policy_widening":
+    case "system_destructive":
+      return "admin";
+    default:
+      return value.includes("write") ? "external_write" : "read";
+  }
+}
+
+function runtimeToolContractLike(
+  value: unknown,
+): value is WorkflowRuntimeToolContractLike {
+  const record = recordValue(value);
+  if (!record) return false;
+  return Boolean(
+    stringField(record, "stableToolId", "stable_tool_id", "toolId", "tool_id") ||
+      stringField(record, "effectClass", "effect_class") ||
+      arrayField(record, "authorityScopeRequirements", "authority_scopes_required")
+        .length ||
+      arrayField(
+        record,
+        "primitiveCapabilities",
+        "primitive_capabilities_required",
+      ).length,
+  );
+}
+
+function runtimeToolContractProjection(
+  value: unknown,
+): Partial<WorkflowToolBinding> | null {
+  if (!runtimeToolContractLike(value)) return null;
+  const record = value as Record<string, unknown>;
+  const stableToolId = stringField(
+    record,
+    "stableToolId",
+    "stable_tool_id",
+    "toolId",
+    "tool_id",
+  );
+  const toolRef =
+    cleanText((record as Partial<WorkflowToolBinding>).toolRef) ||
+    stableToolId.replace(/^tool:\/\//, "");
+  if (!toolRef) return null;
+  const effectClass = stringField(record, "effectClass", "effect_class") || "read";
+  const sideEffectClass = sideEffectClassFromRuntimeEffect(effectClass);
+  const authorityScopes = arrayField(
+    record,
+    "authorityScopeRequirements",
+    "authority_scopes_required",
+    "authorityScopes",
+    "authority_scopes",
+  );
+  const primitiveCapabilities = arrayField(
+    record,
+    "primitiveCapabilities",
+    "primitive_capabilities_required",
+  );
+  const evidenceRequirements = arrayField(
+    record,
+    "evidenceRequirements",
+    "evidence_required",
+    "evidenceRequirementsRequired",
+  );
+  const credentialReadiness =
+    recordField(record, "credentialReadiness", "credential_readiness") ??
+    undefined;
+  const credentialReady =
+    booleanField(record, "credentialReady", "credential_ready") ??
+    ["ready", "not_required"].includes(
+      cleanText(credentialReadiness?.status).toLowerCase(),
+    );
+  const approvalRequired =
+    booleanField(record, "approvalRequired", "approval_required") ??
+    isEffectful(sideEffectClass);
+  const capabilityRef =
+    stringField(record, "toolCapabilityRef", "tool_capability_ref") ||
+    toolCapabilityRefForToolRef(toolRef);
+  const inputSchema =
+    recordField(record, "inputSchema", "input_schema") ?? { type: "object" };
+  const outputSchema =
+    recordField(record, "outputSchema", "output_schema") ?? { type: "object" };
+  const defaultToolReceiptBehavior = defaultReceiptBehavior("tool");
+  const bindingKind = (
+    stringField(record, "bindingKind", "binding_kind") ||
+    (toolRef.startsWith("mcp.") ? "mcp_tool" : "plugin_tool")
+  ) as WorkflowToolBinding["bindingKind"];
+
+  return {
+    toolRef,
+    toolCapabilityRef: capabilityRef,
+    bindingKind,
+    mockBinding: booleanField(record, "mockBinding", "mock_binding") ?? false,
+    credentialReady,
+    credentialReadiness: credentialReadiness as WorkflowCapabilityCredentialReadiness | undefined,
+    riskClass:
+      stringField(record, "riskClass", "risk_class", "riskDomain", "risk_domain") ||
+      riskClassFor(sideEffectClass),
+    primitiveCapabilities,
+    authorityScopes,
+    authorityScopeRequirements: authorityScopes,
+    inputSchema,
+    outputSchema,
+    evidenceRequirements,
+    approvalRequirement:
+      recordField(record, "approvalRequirement", "approval_requirement") ??
+      defaultApprovalRequirement(approvalRequired, sideEffectClass),
+    grantReadiness:
+      recordField(record, "grantReadiness", "grant_readiness") ??
+      defaultReadiness(
+        credentialReady,
+        capabilityRef,
+        "Tool contract grant posture is projected from runtime authority metadata.",
+        "No runtime tool authority grant has been confirmed.",
+      ),
+    policyPosture:
+      recordField(record, "policyPosture", "policy_posture") ??
+      defaultPolicyPosture(credentialReady, capabilityRef),
+    rateLimitProfile: recordField(record, "rateLimitProfile", "rate_limit_profile"),
+    idempotencyBehavior: recordField(
+      record,
+      "idempotencyBehavior",
+      "idempotency_behavior",
+    ),
+    receiptBehavior:
+      recordField(record, "receiptBehavior", "receipt_behavior") ??
+      {
+        ...defaultToolReceiptBehavior,
+        requiredReceiptTypes: evidenceRequirements.length
+          ? evidenceRequirements
+          : defaultToolReceiptBehavior.requiredReceiptTypes,
+      },
+    workflowAvailability: recordField(
+      record,
+      "workflowAvailability",
+      "workflow_availability",
+    ) as WorkflowCapabilityAvailability | undefined,
+    agentAvailability: recordField(
+      record,
+      "agentAvailability",
+      "agent_availability",
+    ) as WorkflowCapabilityAvailability | undefined,
+    marketplaceExposure:
+      recordField(record, "marketplaceExposure", "marketplace_exposure") ??
+      defaultMarketplaceExposure(approvalRequired, sideEffectClass),
+    capabilityScope: primitiveCapabilities.length
+      ? primitiveCapabilities
+      : [isReadOnly(sideEffectClass) ? "read" : "write"],
+    sideEffectClass,
+    requiresApproval: approvalRequired,
+    arguments: {},
+    runtimeToolContract: {
+      stableToolId,
+      displayName: stringField(record, "displayName", "display_name"),
+      effectClass,
+      primitiveCapabilities,
+      authorityScopeRequirements: authorityScopes,
+      inputSchema,
+      outputSchema,
+      evidenceRequirements,
+      owner: stringField(record, "owner", "ownerModule", "owner_module"),
+      version: stringField(record, "version"),
+    },
+  };
+}
+
 function defaultRateLimitProfile(
   capabilityRef: string,
   sideEffectClass: string,
@@ -253,24 +499,29 @@ function scopesForBinding(
 }
 
 export function normalizeWorkflowToolBinding(
-  binding: Partial<WorkflowToolBinding> | null | undefined,
+  binding: Partial<WorkflowToolBinding> | WorkflowRuntimeToolContractLike | null | undefined,
   _logic: Partial<NodeLogic> = {},
 ): WorkflowToolBinding {
-  const bindingKind = binding?.bindingKind ?? "plugin_tool";
-  const toolRef = cleanText(binding?.toolRef) || (bindingKind === "workflow_tool" ? "workflow_tool" : "");
-  const sideEffectClass = sideEffectClassFor(binding?.sideEffectClass, bindingKind === "coding_tool_pack" ? "write" : "read");
-  const mockBinding = binding?.mockBinding ?? true;
-  const requiresApproval = binding?.requiresApproval ?? isEffectful(sideEffectClass);
-  const capabilityScope = binding?.capabilityScope?.length ? binding.capabilityScope : [isReadOnly(sideEffectClass) ? "read" : "write"];
+  const projected = runtimeToolContractProjection(binding);
+  const source = {
+    ...(projected ?? {}),
+    ...(binding ?? {}),
+  } as Partial<WorkflowToolBinding>;
+  const bindingKind = source.bindingKind ?? "plugin_tool";
+  const toolRef = cleanText(source.toolRef) || (bindingKind === "workflow_tool" ? "workflow_tool" : "");
+  const sideEffectClass = sideEffectClassFor(source.sideEffectClass, bindingKind === "coding_tool_pack" ? "write" : "read");
+  const mockBinding = source.mockBinding ?? true;
+  const requiresApproval = source.requiresApproval ?? isEffectful(sideEffectClass);
+  const capabilityScope = source.capabilityScope?.length ? source.capabilityScope : [isReadOnly(sideEffectClass) ? "read" : "write"];
   const toolCapabilityRef =
-    cleanText(binding?.toolCapabilityRef) ||
+    cleanText(source.toolCapabilityRef) ||
     (toolRef ? toolCapabilityRefForToolRef(toolRef) : "tool-capability:unbound");
   const ready = bindingKind === "workflow_tool"
-    ? Boolean(cleanText(binding?.workflowTool?.workflowPath))
-    : hasReadyProjection(binding ?? {});
+    ? Boolean(cleanText(source.workflowTool?.workflowPath))
+    : hasReadyProjection(source ?? {});
   const { authorityScopes, authorityScopeRequirements } = scopesForBinding(
-    binding?.authorityScopes,
-    binding?.authorityScopeRequirements,
+    source.authorityScopes,
+    source.authorityScopeRequirements,
     defaultToolAuthorityScopes(toolRef, sideEffectClass, capabilityScope),
   );
 
@@ -279,37 +530,41 @@ export function normalizeWorkflowToolBinding(
     toolCapabilityRef,
     bindingKind,
     mockBinding,
-    credentialReady: binding?.credentialReady ?? ready,
+    credentialReady: source.credentialReady ?? ready,
     credentialReadiness:
-      binding?.credentialReadiness ??
+      source.credentialReadiness ??
       defaultReadiness(
         ready,
         toolCapabilityRef,
         "Tool capability readiness was projected from the workflow binding.",
         "No executable tool capability readiness has been confirmed.",
       ),
-    riskClass: binding?.riskClass ?? riskClassFor(sideEffectClass),
+    riskClass: source.riskClass ?? riskClassFor(sideEffectClass),
+    primitiveCapabilities: source.primitiveCapabilities ?? [],
     authorityScopes,
     authorityScopeRequirements,
+    inputSchema: source.inputSchema,
+    outputSchema: source.outputSchema,
+    evidenceRequirements: source.evidenceRequirements ?? [],
     approvalRequirement:
-      binding?.approvalRequirement ??
+      source.approvalRequirement ??
       defaultApprovalRequirement(requiresApproval, sideEffectClass),
     grantReadiness:
-      binding?.grantReadiness ??
+      source.grantReadiness ??
       defaultReadiness(
         ready,
         toolCapabilityRef,
         "Tool capability grant posture is projected from readiness metadata.",
         "No tool capability grant has been confirmed.",
       ),
-    policyPosture: binding?.policyPosture ?? defaultPolicyPosture(ready || mockBinding, toolCapabilityRef),
+    policyPosture: source.policyPosture ?? defaultPolicyPosture(ready || mockBinding, toolCapabilityRef),
     rateLimitProfile:
-      binding?.rateLimitProfile ?? defaultRateLimitProfile(toolCapabilityRef, sideEffectClass),
+      source.rateLimitProfile ?? defaultRateLimitProfile(toolCapabilityRef, sideEffectClass),
     idempotencyBehavior:
-      binding?.idempotencyBehavior ?? defaultIdempotencyBehavior(toolCapabilityRef, sideEffectClass),
-    receiptBehavior: binding?.receiptBehavior ?? defaultReceiptBehavior("tool"),
+      source.idempotencyBehavior ?? defaultIdempotencyBehavior(toolCapabilityRef, sideEffectClass),
+    receiptBehavior: source.receiptBehavior ?? defaultReceiptBehavior("tool"),
     workflowAvailability:
-      binding?.workflowAvailability ??
+      source.workflowAvailability ??
       defaultAvailability(
         mockBinding || ready,
         mockBinding
@@ -321,7 +576,7 @@ export function normalizeWorkflowToolBinding(
         ["toolCapabilityRef", "toolBinding"],
       ),
     agentAvailability:
-      binding?.agentAvailability ??
+      source.agentAvailability ??
       defaultAvailability(
         mockBinding || ready,
         mockBinding
@@ -333,15 +588,16 @@ export function normalizeWorkflowToolBinding(
         ["toolCapabilityRef", "toolBinding"],
       ),
     marketplaceExposure:
-      binding?.marketplaceExposure ??
+      source.marketplaceExposure ??
       defaultMarketplaceExposure(requiresApproval, sideEffectClass),
+    runtimeToolContract: source.runtimeToolContract,
     capabilityScope,
     sideEffectClass,
     requiresApproval,
-    arguments: binding?.arguments ?? {},
-    mcp: binding?.mcp,
-    toolPack: binding?.toolPack,
-    workflowTool: binding?.workflowTool,
+    arguments: source.arguments ?? {},
+    mcp: source.mcp,
+    toolPack: source.toolPack,
+    workflowTool: source.workflowTool,
   };
 }
 
@@ -634,7 +890,10 @@ function uniqueByCapabilityRef<T>(
 }
 
 export function normalizeWorkflowToolCatalog(
-  bindings: Array<Partial<WorkflowToolBinding>> | null | undefined,
+  bindings:
+    | Array<Partial<WorkflowToolBinding> | WorkflowRuntimeToolContractLike>
+    | null
+    | undefined,
 ): WorkflowToolBinding[] {
   const source =
     Array.isArray(bindings) && bindings.length > 0

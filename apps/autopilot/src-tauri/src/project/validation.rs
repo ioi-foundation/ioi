@@ -770,7 +770,15 @@ pub(super) fn validate_workflow_project_bundle(
         if action_kind == ActionKind::AdapterConnector {
             match workflow_connector_binding(node) {
                 Ok(binding) => {
-                    if !binding.mock_binding && binding.credential_ready != Some(true) {
+                    let connector_credential_status =
+                        workflow_metadata_status(binding.credential_readiness.as_ref());
+                    if !binding.mock_binding
+                        && binding.credential_ready != Some(true)
+                        && !matches!(
+                            connector_credential_status.as_deref(),
+                            Some("ready" | "not_required")
+                        )
+                    {
                         connector_binding_issues.push(WorkflowValidationIssue {
                             node_id: Some(node_id.clone()),
                             code: "missing_live_connector_credential".to_string(),
@@ -783,6 +791,11 @@ pub(super) fn validate_workflow_project_bundle(
                         &binding.side_effect_class,
                         binding.mock_binding,
                         binding.credential_ready,
+                        workflow_projected_connector_capability_ref(&binding).as_deref(),
+                        &binding.authority_scopes,
+                        &binding.authority_scope_requirements,
+                        binding.grant_readiness.as_ref(),
+                        binding.policy_posture.as_ref(),
                         binding.credential_readiness.as_ref(),
                         binding.rate_limit_profile.as_ref(),
                         binding.idempotency_behavior.as_ref(),
@@ -878,6 +891,11 @@ pub(super) fn validate_workflow_project_bundle(
                     if binding.binding_kind.as_deref() != Some("workflow_tool")
                         && !binding.mock_binding
                         && binding.credential_ready != Some(true)
+                        && !matches!(
+                            workflow_metadata_status(binding.credential_readiness.as_ref())
+                                .as_deref(),
+                            Some("ready" | "not_required")
+                        )
                     {
                         connector_binding_issues.push(WorkflowValidationIssue {
                             node_id: Some(node_id.clone()),
@@ -892,6 +910,11 @@ pub(super) fn validate_workflow_project_bundle(
                             &binding.side_effect_class,
                             binding.mock_binding,
                             binding.credential_ready,
+                            workflow_projected_tool_capability_ref(&binding).as_deref(),
+                            &binding.authority_scopes,
+                            &binding.authority_scope_requirements,
+                            binding.grant_readiness.as_ref(),
+                            binding.policy_posture.as_ref(),
                             binding.credential_readiness.as_ref(),
                             binding.rate_limit_profile.as_ref(),
                             binding.idempotency_behavior.as_ref(),
@@ -1103,6 +1126,11 @@ fn live_binding_contract_metadata_issues(
     side_effect_class: &str,
     mock_binding: bool,
     credential_ready: Option<bool>,
+    capability_ref: Option<&str>,
+    authority_scopes: &[String],
+    authority_scope_requirements: &[String],
+    grant_readiness: Option<&Value>,
+    policy_posture: Option<&Value>,
     credential_readiness: Option<&Value>,
     rate_limit_profile: Option<&Value>,
     idempotency_behavior: Option<&Value>,
@@ -1115,12 +1143,30 @@ fn live_binding_contract_metadata_issues(
     }
 
     let mut issues = Vec::new();
+    let capability_ref = capability_ref
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    if capability_ref
+        .map(|value| value.ends_with(":unbound"))
+        .unwrap_or(true)
+    {
+        issues.push(WorkflowValidationIssue {
+            node_id: Some(node_id.to_string()),
+            code: format!("missing_{binding_kind}_capability_ref"),
+            message: format!(
+                "Live {binding_kind} bindings need a canonical {binding_kind}CapabilityRef before execution."
+            ),
+        });
+    }
+
     let credential_status = credential_readiness
         .and_then(|value| value.get("status").or_else(|| value.get("state")))
         .and_then(Value::as_str)
         .map(str::trim)
         .filter(|value| !value.is_empty());
-    if credential_status.is_none() && credential_ready.is_none() {
+    if credential_ready != Some(true)
+        && !matches!(credential_status, Some("ready" | "not_required"))
+    {
         issues.push(WorkflowValidationIssue {
             node_id: Some(node_id.to_string()),
             code: "missing_credential_readiness_contract".to_string(),
@@ -1131,6 +1177,41 @@ fn live_binding_contract_metadata_issues(
     }
 
     let effectful = !matches!(side_effect_class, "none" | "read");
+    if effectful && authority_scopes.is_empty() && authority_scope_requirements.is_empty() {
+        issues.push(WorkflowValidationIssue {
+            node_id: Some(node_id.to_string()),
+            code: "missing_authority_scope_requirements".to_string(),
+            message: format!(
+                "Effectful live {binding_kind} bindings need authority scope requirements before execution."
+            ),
+        });
+    }
+
+    let grant_status = workflow_metadata_status(grant_readiness);
+    if !matches!(grant_status.as_deref(), Some("ready" | "not_required")) {
+        issues.push(WorkflowValidationIssue {
+            node_id: Some(node_id.to_string()),
+            code: "missing_grant_readiness".to_string(),
+            message: format!(
+                "Live {binding_kind} bindings need ready grantReadiness before execution."
+            ),
+        });
+    }
+
+    let policy_status = workflow_metadata_status(policy_posture);
+    if !matches!(
+        policy_status.as_deref(),
+        Some("allowed" | "approved" | "ready")
+    ) {
+        issues.push(WorkflowValidationIssue {
+            node_id: Some(node_id.to_string()),
+            code: "missing_policy_posture".to_string(),
+            message: format!(
+                "Live {binding_kind} bindings need an allowed policyPosture before execution."
+            ),
+        });
+    }
+
     if !effectful {
         return issues;
     }
@@ -1225,6 +1306,68 @@ fn live_binding_contract_metadata_issues(
     }
 
     issues
+}
+
+fn workflow_validation_capability_slug(value: &str, fallback: &str) -> String {
+    let mut slug = value
+        .trim()
+        .to_lowercase()
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | ':' | '-') {
+                ch
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>();
+    while slug.contains("--") {
+        slug = slug.replace("--", "-");
+    }
+    let slug = slug.trim_matches('-').to_string();
+    if slug.is_empty() {
+        fallback.to_string()
+    } else {
+        slug
+    }
+}
+
+fn workflow_projected_tool_capability_ref(binding: &WorkflowToolBinding) -> Option<String> {
+    binding
+        .tool_capability_ref
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .or_else(|| {
+            let tool_ref = binding.tool_ref.trim();
+            (!tool_ref.is_empty()).then(|| {
+                format!(
+                    "tool-capability:{}",
+                    workflow_validation_capability_slug(tool_ref, "tool")
+                )
+            })
+        })
+}
+
+fn workflow_projected_connector_capability_ref(
+    binding: &WorkflowConnectorBinding,
+) -> Option<String> {
+    binding
+        .connector_capability_ref
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .or_else(|| {
+            let connector_ref = binding.connector_ref.trim();
+            (!connector_ref.is_empty()).then(|| {
+                format!(
+                    "connector-capability:{}",
+                    workflow_validation_capability_slug(connector_ref, "connector")
+                )
+            })
+        })
 }
 
 fn workflow_metadata_status(value: Option<&Value>) -> Option<String> {

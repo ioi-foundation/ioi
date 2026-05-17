@@ -470,6 +470,22 @@ fn live_connector_and_tool_bindings_require_ready_credentials() {
     assert!(adapter_validation
         .execution_readiness_issues
         .iter()
+        .any(|issue| issue.code == "missing_credential_readiness_contract"));
+    assert!(adapter_validation
+        .execution_readiness_issues
+        .iter()
+        .any(|issue| issue.code == "missing_authority_scope_requirements"));
+    assert!(adapter_validation
+        .execution_readiness_issues
+        .iter()
+        .any(|issue| issue.code == "missing_grant_readiness"));
+    assert!(adapter_validation
+        .execution_readiness_issues
+        .iter()
+        .any(|issue| issue.code == "missing_policy_posture"));
+    assert!(adapter_validation
+        .execution_readiness_issues
+        .iter()
         .any(|issue| issue.code == "missing_rate_limit_profile"));
     assert!(adapter_validation
         .execution_readiness_issues
@@ -514,6 +530,22 @@ fn live_connector_and_tool_bindings_require_ready_credentials() {
         .connector_binding_issues
         .iter()
         .any(|issue| issue.code == "missing_live_tool_credential"));
+    assert!(plugin_validation
+        .execution_readiness_issues
+        .iter()
+        .any(|issue| issue.code == "missing_credential_readiness_contract"));
+    assert!(plugin_validation
+        .execution_readiness_issues
+        .iter()
+        .any(|issue| issue.code == "missing_authority_scope_requirements"));
+    assert!(plugin_validation
+        .execution_readiness_issues
+        .iter()
+        .any(|issue| issue.code == "missing_grant_readiness"));
+    assert!(plugin_validation
+        .execution_readiness_issues
+        .iter()
+        .any(|issue| issue.code == "missing_policy_posture"));
     assert!(plugin_validation
         .execution_readiness_issues
         .iter()

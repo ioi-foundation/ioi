@@ -147,6 +147,76 @@ test("runtime catalog rows normalize and dedupe by capability ref", () => {
   ]);
 });
 
+test("runtime tool contracts project to workflow capability bindings", () => {
+  const [binding] = normalizeWorkflowToolCatalog([
+    {
+      schemaVersion: "ioi.runtime-tool-contract.v1",
+      tool_id: "tool://gmail.send",
+      display_name: "Send Gmail message",
+      input_schema: { type: "object", required: ["to", "body"] },
+      output_schema: { type: "object", required: ["messageId"] },
+      risk_class: "external_message",
+      effect_class: "external_message",
+      primitive_capabilities_required: ["prim:net.request"],
+      authority_scopes_required: ["scope:gmail.send"],
+      approval_required: true,
+      evidence_required: ["request_preview", "provider_response"],
+      credential_readiness: {
+        status: "ready",
+        evidenceRefs: ["credential:gmail"],
+      },
+      rate_limit_profile: {
+        policy: "gmail_user_window",
+        maxCalls: 10,
+        windowMs: 60000,
+      },
+      idempotency_behavior: {
+        required: true,
+        strategy: "message_draft_hash",
+      },
+      workflow_availability: {
+        available: true,
+        nodeType: "plugin_tool",
+        configFields: ["toolBinding"],
+      },
+      agent_availability: {
+        available: true,
+      },
+      marketplace_exposure: {
+        eligible: false,
+        reason: "External messages require explicit approval.",
+      },
+      owner: "connector://gmail",
+      version: "1.0.0",
+    } as any,
+  ]);
+
+  assert.equal(binding.toolRef, "gmail.send");
+  assert.equal(binding.toolCapabilityRef, "tool-capability:gmail.send");
+  assert.equal(binding.bindingKind, "plugin_tool");
+  assert.equal(binding.sideEffectClass, "external_write");
+  assert.equal(binding.riskClass, "external_message");
+  assert.deepEqual(binding.primitiveCapabilities, ["prim:net.request"]);
+  assert.deepEqual(binding.authorityScopeRequirements, ["scope:gmail.send"]);
+  assert.deepEqual(binding.evidenceRequirements, [
+    "request_preview",
+    "provider_response",
+  ]);
+  assert.equal(binding.receiptBehavior?.receiptRequired, true);
+  assert.deepEqual(binding.receiptBehavior?.requiredReceiptTypes, [
+    "request_preview",
+    "provider_response",
+  ]);
+  assert.equal(binding.idempotencyBehavior?.required, true);
+  assert.equal(binding.workflowAvailability?.available, true);
+  assert.equal(binding.agentAvailability?.available, true);
+  assert.equal(
+    (binding.runtimeToolContract as { owner?: string } | undefined)?.owner,
+    "connector://gmail",
+  );
+  assert.equal(workflowToolBindingIsReady(binding), true);
+});
+
 test("missing catalog input falls back to canonical offline presets", () => {
   assert.ok(normalizeWorkflowToolCatalog(null).length >= 1);
   assert.ok(normalizeWorkflowConnectorCatalog(undefined).length >= 1);

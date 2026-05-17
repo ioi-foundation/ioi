@@ -61,7 +61,7 @@ import {
   WorkflowStreamEvent,
   WorkflowTestCase,
   WorkflowTestRunResult,
-  WorkflowToolBinding,
+  type WorkflowToolCatalogEntry,
   WorkflowThread,
   WorkflowValidationResult,
   WorkflowWorkbenchBundle,
@@ -1649,7 +1649,7 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         return invoke("list_workflow_delivery_targets", { projectRoot });
     }
 
-    async listWorkflowToolCatalog(projectRoot: string): Promise<WorkflowToolBinding[]> {
+    async listWorkflowToolCatalog(projectRoot: string): Promise<WorkflowToolCatalogEntry[]> {
         return invoke("list_workflow_tool_catalog", { projectRoot });
     }
 
