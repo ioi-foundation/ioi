@@ -1529,6 +1529,13 @@ button.workflow-run-row.is-active {
   color: var(--status-warning);
 }
 
+.workflow-test-row.is-focused {
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent-blue) 45%, transparent);
+  background: color-mix(in srgb, var(--accent-blue) 10%, transparent);
+  padding: 10px;
+}
+
 .workflow-output-row.is-blocked strong,
 .workflow-search-result.is-blocked strong {
   color: var(--status-warning);

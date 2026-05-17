@@ -149,6 +149,10 @@ export function AutopilotShellContent({
                     onConsumeComposeSeedProject={
                       controller.workflow.consumeComposeSeedProject
                     }
+                    workflowPreflightSeed={controller.workflow.preflightSeed}
+                    onConsumeWorkflowPreflightSeed={
+                      controller.workflow.consumePreflightSeed
+                    }
                     onAddBuilderConfigToCanvas={(config) => {
                       controller.workflow.queueBuilderConfigToCanvas(config);
                     }}
@@ -259,8 +263,13 @@ export function AutopilotShellContent({
                     onOpenModelRoutes={() =>
                       controller.changePrimaryView("mounts")
                     }
-                    onOpenWorkflowPreflight={() =>
-                      controller.workflow.openSurface("canvas")
+                    onOpenWorkflowPreflight={(seed) =>
+                      controller.workflow.openPreflight(
+                        seed ?? {
+                          panel: "readiness",
+                          source: "authority-center",
+                        },
+                      )
                     }
                   />
                 ) : null}

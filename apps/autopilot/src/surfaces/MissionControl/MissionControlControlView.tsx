@@ -2,6 +2,7 @@ import { SettingsView } from "../Settings";
 import { PolicyView } from "../Policy";
 import { TauriRuntime } from "../../services/TauriRuntime";
 import type { AssistantUserProfile } from "../../types";
+import type { WorkflowComposerPreflightSeed } from "@ioi/agent-ide";
 import type {
   CapabilityGovernanceRequest,
   ShieldPolicyState,
@@ -33,7 +34,7 @@ interface MissionControlControlViewProps {
   onDismissGovernanceRequest?: () => void;
   onOpenConnections: () => void;
   onOpenModelRoutes?: () => void;
-  onOpenWorkflowPreflight?: () => void;
+  onOpenWorkflowPreflight?: (seed?: WorkflowComposerPreflightSeed) => void;
 }
 
 export function MissionControlControlView({

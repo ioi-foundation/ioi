@@ -2,6 +2,11 @@
 
 export { AgentEditor } from "./AgentEditor";
 export { WorkflowComposer } from "./WorkflowComposer";
+export type {
+  WorkflowComposerPreflightSeed,
+  WorkflowComposerProjectScope,
+  WorkflowComposerProps,
+} from "./WorkflowComposer/types";
 export {
   WORKFLOW_COMPOSER_TERMINAL_CODING_LOOP_RUN_ACTIVATION_SCHEMA_VERSION,
   createTerminalCodingLoopApprovalDecisionRequest,

@@ -270,6 +270,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     workflow,
     workflowRunCapabilityPreflight,
     workflowRunCodingBudgetPreflight,
+    workflowPreflightFocus,
     workflowRunLaunchBlocked,
     workflowRunLaunchDisabledReason,
     workflowActionMetadataLabel,
@@ -1530,6 +1531,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     packageImportReview={packageImportReview}
                     portablePackage={portablePackage}
                     bindingManifest={bindingManifest}
+                    workflowPreflightFocus={workflowPreflightFocus}
                     selectedNodeFixtures={selectedFixtures}
                     checkpoints={checkpoints}
                     onSelectRun={handleSelectRun}

@@ -1,5 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
+import type { WorkflowComposerPreflightSeed } from "@ioi/agent-ide";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { TauriRuntime } from "../../services/TauriRuntime";
 import { safelyDisposeTauriListener } from "../../services/tauriListeners";
@@ -78,7 +79,7 @@ interface SettingsViewProps {
   onOpenPolicySurface: () => void;
   onOpenConnections: () => void;
   onOpenModelRoutes?: () => void;
-  onOpenWorkflowPreflight?: () => void;
+  onOpenWorkflowPreflight?: (seed?: WorkflowComposerPreflightSeed) => void;
 }
 
 export function SettingsView({

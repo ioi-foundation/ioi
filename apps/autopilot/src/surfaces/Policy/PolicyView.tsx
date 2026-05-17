@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AgentWorkbenchRuntime, ConnectorSummary } from "@ioi/agent-ide";
+import type { WorkflowComposerPreflightSeed } from "@ioi/agent-ide";
 import {
   AuthorityCenterPanel,
   type AuthorityCenterReceiptPreview,
@@ -50,7 +51,7 @@ interface PolicyViewProps {
   onDismissGovernanceRequest?: () => void;
   onOpenIntegrations?: () => void;
   onOpenModelRoutes?: () => void;
-  onOpenWorkflowPreflight?: () => void;
+  onOpenWorkflowPreflight?: (seed?: WorkflowComposerPreflightSeed) => void;
 }
 
 const DECISION_OPTIONS: Array<{ value: PolicyDecisionMode; label: string }> = [
@@ -417,7 +418,12 @@ export function PolicyView({
         setAuthorityActionStatus(
           `Opening workflow preflight for ${capability.label}.`,
         );
-        onOpenWorkflowPreflight?.();
+        onOpenWorkflowPreflight?.({
+          panel: "readiness",
+          capabilityRef: action.targetRef,
+          actionKind: action.kind,
+          source: "authority-center",
+        });
       }
     },
     [onOpenIntegrations, onOpenModelRoutes, onOpenWorkflowPreflight],
