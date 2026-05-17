@@ -1,0 +1,37 @@
+{
+  "receiptSetRef": "receipt-set://repo-maintenance/proposal-first",
+  "expectedReceipts": [
+    {
+      "type": "model_route_selection",
+      "capabilityRef": "model-capability:autopilot.mounted.local-coder"
+    },
+    {
+      "type": "model_invocation",
+      "capabilityRef": "model-capability:autopilot.mounted.local-coder"
+    },
+    {
+      "type": "tool_invocation",
+      "capabilityRef": "tool-capability:file.read"
+    },
+    {
+      "type": "proposal",
+      "capabilityRef": "tool-capability:file.apply_patch"
+    },
+    {
+      "type": "diff_artifact",
+      "artifactRef": "artifact://repo-maintenance/diff"
+    },
+    {
+      "type": "approval_decision",
+      "approvalProfileRef": "policy://approval/repo-maintenance"
+    },
+    {
+      "type": "apply_result",
+      "capabilityRef": "tool-capability:file.apply_patch"
+    },
+    {
+      "type": "verification",
+      "qualityGateRef": "gate://quality/repo-maintenance"
+    }
+  ]
+}

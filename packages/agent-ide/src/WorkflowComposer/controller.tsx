@@ -14022,6 +14022,8 @@ export function useWorkflowComposerController({
       const requestedName =
         blueprintId === "repo-test-engineer"
           ? SCRATCH_DOGFOOD_WORKFLOW_NAME
+          : blueprintId === "repo-maintenance-package"
+            ? "Repo Maintenance Autonomous System"
           : `Scratch ${blueprintId.replace(/-/g, " ")}`;
       const bundle = runtime.createWorkflowProject
         ? await runtime.createWorkflowProject({
@@ -14428,6 +14430,11 @@ export function useWorkflowComposerController({
 
   const handleBuildRepoTestEngineerScratch = useCallback(
     () => handleBuildScratchBlueprint("repo-test-engineer"),
+    [handleBuildScratchBlueprint],
+  );
+
+  const handleBuildRepoMaintenancePackageScratch = useCallback(
+    () => handleBuildScratchBlueprint("repo-maintenance-package"),
     [handleBuildScratchBlueprint],
   );
 
@@ -15182,7 +15189,8 @@ export function useWorkflowComposerController({
   useEffect(() => {
     if (
       SCRATCH_DOGFOOD_SCRIPT !== "scratch-heavy" &&
-      SCRATCH_DOGFOOD_SCRIPT !== "manual-repo-test-engineer"
+      SCRATCH_DOGFOOD_SCRIPT !== "manual-repo-test-engineer" &&
+      SCRATCH_DOGFOOD_SCRIPT !== "repo-maintenance-package"
     )
       return;
     if (dogfoodAutomationStarted.current) return;
@@ -15202,7 +15210,9 @@ export function useWorkflowComposerController({
         status: "running",
         phase: isHeavySuite
           ? "build_scratch_heavy_suite"
-          : "build_repo_test_engineer",
+          : SCRATCH_DOGFOOD_SCRIPT === "repo-maintenance-package"
+            ? "build_repo_maintenance_package"
+            : "build_repo_test_engineer",
       });
       setActiveTab("graph");
       setBottomPanel("run_output");
@@ -15210,6 +15220,8 @@ export function useWorkflowComposerController({
       try {
         const result = isHeavySuite
           ? await handleBuildScratchHeavySuite()
+          : SCRATCH_DOGFOOD_SCRIPT === "repo-maintenance-package"
+            ? await handleBuildRepoMaintenancePackageScratch()
           : await handleBuildRepoTestEngineerScratch();
         publishDogfoodState({
           ...result,
@@ -15229,7 +15241,11 @@ export function useWorkflowComposerController({
     };
 
     void runScratchDogfood();
-  }, [handleBuildRepoTestEngineerScratch, handleBuildScratchHeavySuite]);
+  }, [
+    handleBuildRepoMaintenancePackageScratch,
+    handleBuildRepoTestEngineerScratch,
+    handleBuildScratchHeavySuite,
+  ]);
 
   useEffect(() => {
     if (SCRATCH_DOGFOOD_SCRIPT !== "heavy-agent-suite") return;

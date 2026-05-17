@@ -1,0 +1,17 @@
+{
+  "approvalProfileRef": "policy://approval/repo-maintenance",
+  "decisionPoint": "before file.apply_patch",
+  "requiredSummaryFields": [
+    "boundedTargets",
+    "diffPreview",
+    "riskSummary",
+    "verificationPlan"
+  ],
+  "allowedTargets": [
+    "internal-docs/samples/repo-maintenance-autonomous-system-package/fixture-repo/README.md"
+  ],
+  "receiptRefs": [
+    "receipt://approval/repo-maintenance/docs-only-patch"
+  ],
+  "failClosedWhenMissing": true
+}
