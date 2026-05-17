@@ -147,6 +147,10 @@ const workflowComposerCss = [
 ]
   .map((path) => fs.readFileSync(new URL(path, import.meta.url), "utf8"))
   .join("\n");
+const autopilotShellCss = fs.readFileSync(
+  new URL("./styles/autopilot-shell/trace-and-welcome.css", import.meta.url),
+  "utf8",
+);
 const workflowComposerUi = `${composer}\n${workflowComposerModals}\n${workflowNodeConfigModal}\n${workflowNodeBindingEditor}\n${workflowNodeBindingEditorSections}\n${workflowFunctionBindingEditor}\n${workflowNodeDetailGrid}\n${workflowRailPanel}\n${workflowRailRunsPanel}\n${workflowRailReadinessPanel}\n${workflowBottomShelf}`;
 const templates = fs.readFileSync(
   new URL(
@@ -455,6 +459,12 @@ assert.match(
   shellContent,
   /!dedicatedWorkbenchActive[\s\S]*controller\.chat\.paneVisible/,
   "Workflows should suppress the auxiliary chat pane",
+);
+
+assert.match(
+  `${shellContent}\n${autopilotShellCss}`,
+  /is-dedicated-workbench[\s\S]*chat-content-main--dedicated-workbench[\s\S]*chat-content\.is-dedicated-workbench[\s\S]*height: 100%[\s\S]*chat-content-main--dedicated-workbench > \.mission-control-view--workflow-canvas[\s\S]*height: 100%/,
+  "Dedicated workflow workbenches should stretch through the shell so the composer bottom shelf docks to the actual viewport bottom",
 );
 
 assert.match(
@@ -1214,8 +1224,20 @@ assert.match(
 
 assert.match(
   workflowComposerCss,
-  /(?=[\s\S]*grid-template-rows: auto auto auto minmax\(0, 1fr\) minmax\(220px, 31vh\))(?=[\s\S]*workflow-composer-bottom\[data-testid="workflow-bottom-run_output"\][\s\S]*min-height: min\(320px, 36vh\))(?=[\s\S]*workflow-run-detail-grid[\s\S]*align-content: start)/,
+  /(?=[\s\S]*grid-template-rows: auto auto auto minmax\(0, 1fr\) minmax\(144px, 22vh\))(?=[\s\S]*workflow-composer-header[\s\S]*grid-row: 1)(?=[\s\S]*workflow-composer-tabs[\s\S]*grid-row: 2)(?=[\s\S]*workflow-composer-banner[\s\S]*grid-row: 3)(?=[\s\S]*workflow-composer-body[\s\S]*grid-row: 4)(?=[\s\S]*workflow-composer-bottom[\s\S]*grid-row: 5)(?=[\s\S]*workflow-composer-bottom\[data-testid="workflow-bottom-run_output"\][\s\S]*min-height: min\(320px, 36vh\))(?=[\s\S]*workflow-run-detail-grid[\s\S]*align-content: start)/,
   "Run Output should have enough default shelf height to show run details without clipping in a maximized workbench",
+);
+
+assert.match(
+  workflowComposerCss,
+  /workflow-composer-bottom[\s\S]*grid-row: 5[\s\S]*grid-template-rows: auto minmax\(0, 1fr\)[\s\S]*align-self: stretch[\s\S]*min-height: 0[\s\S]*overflow: hidden[\s\S]*workflow-bottom-grid[\s\S]*min-height: 0[\s\S]*overflow: auto/,
+  "Bottom shelf should dock to the bottom grid row and scroll its contents instead of floating above unused workspace",
+);
+
+assert.doesNotMatch(
+  workflowComposerCss,
+  /workflow-composer-bottom[\s\S]*height: 100%/,
+  "Bottom shelf should not use percentage height inside the composer grid because it can inflate the bottom row and steal canvas space",
 );
 
 assert.match(
