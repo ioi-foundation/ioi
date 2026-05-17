@@ -2,6 +2,7 @@
 
 pub mod agent;
 pub mod agent_event_stream;
+pub mod agent_lifecycle;
 pub mod agent_tui;
 pub mod agent_tui_loop;
 pub mod artifact;
