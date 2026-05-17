@@ -108,6 +108,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleOpenDefaultHarness,
     handleOpenDeploy,
     handlePinNodeFixture,
+    handleResolveCapabilityGrantRequest,
     handleResolveWorkflowIssue,
     handleResumeRun,
     handleRun,
@@ -1549,6 +1550,9 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     }}
                     onCapabilityRepairAction={(action) => {
                       void handleCapabilityRepairAction(action);
+                    }}
+                    onResolveCapabilityGrantRequest={(grant, decision) => {
+                      void handleResolveCapabilityGrantRequest(grant, decision);
                     }}
                     capabilityGrantRequestsByActionId={
                       capabilityGrantRequestsByActionId

@@ -58,7 +58,8 @@ export type WorkflowCapabilityGrantRequestResultStatus =
   | "drafted"
   | "blocked"
   | "approved"
-  | "denied";
+  | "denied"
+  | "expired";
 
 export type WorkflowCapabilityGrantRequestResult = {
   schemaVersion: typeof WORKFLOW_CAPABILITY_GRANT_REQUEST_RESULT_SCHEMA_VERSION;
@@ -75,6 +76,47 @@ export type WorkflowCapabilityGrantRequestResult = {
   message: string;
   issues: string[];
   request: WorkflowCapabilityGrantRequest;
+  resolvedAtMs?: number | null;
+  resolution?: WorkflowCapabilityGrantResolution | null;
+  appliedAtMs?: number | null;
+};
+
+export type WorkflowCapabilityGrantResolutionDecision =
+  | "approve"
+  | "deny"
+  | "expire";
+
+export type WorkflowCapabilityGrantResolution = {
+  decision: WorkflowCapabilityGrantResolutionDecision;
+  reason: string | null;
+  actor: "authority_center" | "daemon" | "test" | "unknown";
+  resolvedAtMs: number;
+};
+
+export type WorkflowCapabilityGrantResolutionRequest = {
+  requestId: string;
+  decision: WorkflowCapabilityGrantResolutionDecision;
+  reason?: string | null;
+  actor?: WorkflowCapabilityGrantResolution["actor"];
+};
+
+export type WorkflowCapabilityGrantApplyRequest = {
+  requestId: string;
+};
+
+type WorkflowCapabilityGrantBindingKey =
+  | "modelBinding"
+  | "toolBinding"
+  | "connectorBinding";
+
+export type WorkflowCapabilityGrantApplyResult = {
+  status: "applied" | "blocked";
+  workflow: WorkflowProject;
+  issues: string[];
+  nodeId: string | null;
+  bindingKey: WorkflowCapabilityGrantBindingKey | null;
+  receiptRefs: string[];
+  policyDecisionRefs: string[];
 };
 
 export function workflowCapabilityGrantRequestFromRepairAction(
@@ -166,6 +208,93 @@ export function createBlockedWorkflowCapabilityGrantRequestResult(
       "Authority grant request blocked before daemon submission. Review capability scopes and binding metadata.",
     issues,
     request,
+    resolvedAtMs: null,
+    resolution: null,
+    appliedAtMs: null,
+  };
+}
+
+export function applyApprovedWorkflowCapabilityGrantRequestToWorkflow(
+  workflow: WorkflowProject,
+  grant: WorkflowCapabilityGrantRequestResult,
+): WorkflowCapabilityGrantApplyResult {
+  if (grant.status !== "approved") {
+    return blockedGrantApply(workflow, grant, [
+      `grant_status_${grant.status}_is_not_approved`,
+    ]);
+  }
+  if (grant.authorityScopes.length === 0) {
+    return blockedGrantApply(workflow, grant, ["missing_authority_scope"]);
+  }
+  const bindingKey = bindingKeyForGrantRequest(grant.request);
+  const workflowCopy = cloneWorkflow(workflow);
+  const node = workflowCopy.nodes.find(
+    (candidate) => candidate.id === grant.workflowNodeId,
+  );
+  if (!node) {
+    return blockedGrantApply(workflow, grant, ["workflow_node_not_found"]);
+  }
+  const logic = {
+    ...(node.config?.logic ?? {}),
+  } as Record<string, any>;
+  const existingBinding = {
+    ...(logic[bindingKey] ?? {}),
+  } as Record<string, any>;
+  const receiptTypes = uniqueStrings([
+    ...arrayOfStrings(existingBinding.receiptBehavior?.requiredReceiptTypes),
+    ...grant.request.receiptBehavior.requiredReceiptTypes,
+  ]);
+  logic[bindingKey] = {
+    ...existingBinding,
+    ...bindingRefPatchForGrant(grant.request, bindingKey),
+    authorityScopes: grant.authorityScopes,
+    authorityScopeRequirements: grant.authorityScopes,
+    grantReadiness: {
+      status: "ready",
+      reason: "Authority grant request approved and applied to this workflow binding.",
+      evidenceRefs: grant.receiptRefs,
+      requestId: grant.requestId,
+    },
+    policyPosture: {
+      status: "allowed",
+      policyTarget: grant.request.policyTarget.ref,
+      source: "workflow_capability_grant_request",
+      evidenceRefs: grant.policyDecisionRefs,
+      requestId: grant.requestId,
+    },
+    receiptBehavior: {
+      ...(existingBinding.receiptBehavior ?? {}),
+      receiptRequired: true,
+      requiredReceiptTypes: receiptTypes,
+    },
+    grantReceiptRefs: uniqueStrings([
+      ...arrayOfStrings(existingBinding.grantReceiptRefs),
+      ...grant.receiptRefs,
+    ]),
+    policyDecisionRefs: uniqueStrings([
+      ...arrayOfStrings(existingBinding.policyDecisionRefs),
+      ...grant.policyDecisionRefs,
+    ]),
+    lastAuthorityGrantRequestId: grant.requestId,
+  };
+  node.config = {
+    ...(node.config as any),
+    kind: (node.config as any)?.kind ?? node.type,
+    logic,
+  } as any;
+  workflowCopy.metadata = {
+    ...workflowCopy.metadata,
+    dirty: true,
+    updatedAtMs: Date.now(),
+  };
+  return {
+    status: "applied",
+    workflow: workflowCopy,
+    issues: [],
+    nodeId: grant.workflowNodeId,
+    bindingKey,
+    receiptRefs: grant.receiptRefs,
+    policyDecisionRefs: grant.policyDecisionRefs,
   };
 }
 
@@ -176,6 +305,61 @@ function policyTargetKind(
   if (bindingKind === "Connector") return "connector_capability";
   if (bindingKind === "Workflow tool") return "workflow_tool_capability";
   return "tool_capability";
+}
+
+function bindingKeyForGrantRequest(
+  request: WorkflowCapabilityGrantRequest,
+): WorkflowCapabilityGrantBindingKey {
+  if (request.bindingKind === "Model") return "modelBinding";
+  if (request.bindingKind === "Connector") return "connectorBinding";
+  return "toolBinding";
+}
+
+function bindingRefPatchForGrant(
+  request: WorkflowCapabilityGrantRequest,
+  bindingKey: WorkflowCapabilityGrantBindingKey,
+): Record<string, unknown> {
+  if (bindingKey === "modelBinding") {
+    return {
+      modelCapabilityRef: request.capabilityRef,
+      routeId: request.routeId,
+    };
+  }
+  if (bindingKey === "connectorBinding") {
+    return {
+      connectorCapabilityRef: request.capabilityRef,
+    };
+  }
+  return {
+    toolCapabilityRef: request.capabilityRef,
+  };
+}
+
+function blockedGrantApply(
+  workflow: WorkflowProject,
+  grant: WorkflowCapabilityGrantRequestResult,
+  issues: string[],
+): WorkflowCapabilityGrantApplyResult {
+  return {
+    status: "blocked",
+    workflow,
+    issues,
+    nodeId: grant.workflowNodeId ?? null,
+    bindingKey: bindingKeyForGrantRequest(grant.request),
+    receiptRefs: grant.receiptRefs,
+    policyDecisionRefs: grant.policyDecisionRefs,
+  };
+}
+
+function cloneWorkflow(workflow: WorkflowProject): WorkflowProject {
+  return JSON.parse(JSON.stringify(workflow)) as WorkflowProject;
+}
+
+function arrayOfStrings(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter(Boolean);
 }
 
 function uniqueStrings(values: string[]): string[] {

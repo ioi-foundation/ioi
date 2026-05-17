@@ -90,7 +90,10 @@ import type {
   WorkflowHarnessWorkbenchDeepLinkTarget,
 } from "./types";
 import type { WorkflowCapabilityRepairAction } from "../../../runtime/workflow-run-capability-receipts";
-import type { WorkflowCapabilityGrantRequestResult } from "../../../runtime/workflow-capability-grant-request";
+import type {
+  WorkflowCapabilityGrantRequestResult,
+  WorkflowCapabilityGrantResolutionDecision,
+} from "../../../runtime/workflow-capability-grant-request";
 import {
   workflowHarnessAuthorityGateBlockerState,
   workflowHarnessHasReviewedImportActivationInvariant,
@@ -166,6 +169,7 @@ export function WorkflowRailPanel({
   onExecuteRuntimeWorkspaceTrustAction,
   onExecuteRuntimeCodingToolBudgetRecovery,
   onCapabilityRepairAction,
+  onResolveCapabilityGrantRequest,
   capabilityGrantRequestsByActionId,
   onCreateRuntimeCodingToolBudgetRecoverySubflow,
   onBindRuntimeCodingToolBudgetRecoveryTemplate,
@@ -263,6 +267,10 @@ export function WorkflowRailPanel({
   ) => void | Promise<void>;
   onCapabilityRepairAction?: (
     action: WorkflowCapabilityRepairAction,
+  ) => void | Promise<void>;
+  onResolveCapabilityGrantRequest?: (
+    grant: WorkflowCapabilityGrantRequestResult,
+    decision: WorkflowCapabilityGrantResolutionDecision,
   ) => void | Promise<void>;
   capabilityGrantRequestsByActionId?: Record<
     string,
@@ -3189,6 +3197,7 @@ export function WorkflowRailPanel({
           onExecuteRuntimeCodingToolBudgetRecovery
         }
         onCapabilityRepairAction={onCapabilityRepairAction}
+        onResolveCapabilityGrantRequest={onResolveCapabilityGrantRequest}
         capabilityGrantRequestsByActionId={capabilityGrantRequestsByActionId}
         onCreateRuntimeCodingToolBudgetRecoverySubflow={
           onCreateRuntimeCodingToolBudgetRecoverySubflow

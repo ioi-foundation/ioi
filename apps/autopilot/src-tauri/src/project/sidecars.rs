@@ -5,6 +5,7 @@ use super::types::{
     WorkflowProposal, WorkflowRunResult, WorkflowRunSummary, WorkflowStateSnapshot,
     WorkflowTestCase, WorkflowThread,
 };
+use serde_json::Value;
 use std::fs;
 use std::path::Path;
 
@@ -224,6 +225,23 @@ pub(super) fn save_workflow_binding_manifest(
     manifest: &WorkflowBindingManifest,
 ) -> Result<(), String> {
     write_json_pretty(&workflow_binding_manifest_path(workflow_path), manifest)
+}
+
+pub(super) fn load_workflow_capability_grant_requests(
+    workflow_path: &Path,
+) -> Result<Vec<Value>, String> {
+    let path = workflow_capability_grants_path(workflow_path);
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    read_json_file(&path)
+}
+
+pub(super) fn save_workflow_capability_grant_requests(
+    workflow_path: &Path,
+    grants: &[Value],
+) -> Result<(), String> {
+    write_json_pretty(&workflow_capability_grants_path(workflow_path), &grants)
 }
 
 pub(super) fn append_workflow_evidence(

@@ -641,12 +641,18 @@ export type {
 } from "./runtime/workflow-run-history-model";
 export type {
   WorkflowCapabilityGrantRequest,
+  WorkflowCapabilityGrantApplyRequest,
+  WorkflowCapabilityGrantApplyResult,
   WorkflowCapabilityGrantRequestResult,
   WorkflowCapabilityGrantRequestResultStatus,
+  WorkflowCapabilityGrantResolution,
+  WorkflowCapabilityGrantResolutionDecision,
+  WorkflowCapabilityGrantResolutionRequest,
 } from "./runtime/workflow-capability-grant-request";
 export {
   WORKFLOW_CAPABILITY_GRANT_REQUEST_RESULT_SCHEMA_VERSION,
   WORKFLOW_CAPABILITY_GRANT_REQUEST_SCHEMA_VERSION,
+  applyApprovedWorkflowCapabilityGrantRequestToWorkflow,
   createBlockedWorkflowCapabilityGrantRequestResult,
   workflowCapabilityGrantRequestFromRepairAction,
 } from "./runtime/workflow-capability-grant-request";

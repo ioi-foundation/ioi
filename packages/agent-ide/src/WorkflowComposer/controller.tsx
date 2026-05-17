@@ -194,6 +194,7 @@ import {
   createBlockedWorkflowCapabilityGrantRequestResult,
   workflowCapabilityGrantRequestFromRepairAction,
   type WorkflowCapabilityGrantRequestResult,
+  type WorkflowCapabilityGrantResolutionDecision,
 } from "../runtime/workflow-capability-grant-request";
 import { workflowRunHistoryModel } from "../runtime/workflow-run-history-model";
 import {
@@ -9521,6 +9522,17 @@ export function useWorkflowComposerController({
       if (runtime.listWorkflowRuns) {
         setRuns(await runtime.listWorkflowRuns(path));
       }
+      if (runtime.listWorkflowCapabilityGrantRequests) {
+        const grants = await runtime.listWorkflowCapabilityGrantRequests(path);
+        setCapabilityGrantRequestsByActionId(
+          Object.fromEntries(
+            grants.map((grant) => [
+              `${grant.workflowNodeId}:request_authority_grant`,
+              grant,
+            ]),
+          ),
+        );
+      }
       if (runtime.listWorkflowNodeFixtures) {
         setNodeFixturesById(
           groupFixturesByNodeId(await runtime.listWorkflowNodeFixtures(path)),
@@ -11850,6 +11862,45 @@ export function useWorkflowComposerController({
       setBottomPanel("selection");
       setNodeConfigInitialSection(action.configSection);
       setNodeConfigOpen(true);
+      if (action.kind === "apply_approved_grant") {
+        const grant =
+          capabilityGrantRequestsByActionId[
+            `${action.nodeId}:request_authority_grant`
+          ];
+        if (grant?.status !== "approved") {
+          setStatusMessage(
+            `Apply approved grant blocked for ${action.capabilityRef}: approve a grant request first.`,
+          );
+          return;
+        }
+        if (!runtime.applyWorkflowCapabilityGrantRequest) {
+          setStatusMessage(
+            "Applying approved grants requires the daemon workflow authority API.",
+          );
+          return;
+        }
+        try {
+          const bundle = await runtime.applyWorkflowCapabilityGrantRequest(
+            workflowPath,
+            { requestId: grant.requestId },
+          );
+          loadWorkflowProject(bundle.workflow);
+          setTests(bundle.tests);
+          setProposals(bundle.proposals);
+          setRuns(bundle.runs);
+          await loadRuntimeSidecars(workflowPath);
+          setStatusMessage(
+            `Approved grant applied to ${action.capabilityRef}. Capability preflight will re-evaluate from the updated binding.`,
+          );
+        } catch (error) {
+          setStatusMessage(
+            `Apply approved grant failed for ${action.capabilityRef}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+        return;
+      }
       if (action.kind === "request_authority_grant") {
         const request = workflowCapabilityGrantRequestFromRepairAction(
           currentProjectFile,
@@ -11909,7 +11960,55 @@ export function useWorkflowComposerController({
         `${action.label}: ${target} for ${action.capabilityRef}.`,
       );
     },
-    [currentProjectFile, handleWorkflowNodeSelect, loadRuntimeSidecars, runtime, workflowPath],
+    [
+      capabilityGrantRequestsByActionId,
+      currentProjectFile,
+      handleWorkflowNodeSelect,
+      loadRuntimeSidecars,
+      loadWorkflowProject,
+      runtime,
+      workflowPath,
+    ],
+  );
+
+  const handleResolveCapabilityGrantRequest = useCallback(
+    async (
+      grant: WorkflowCapabilityGrantRequestResult,
+      decision: WorkflowCapabilityGrantResolutionDecision,
+    ) => {
+      setActiveTab("graph");
+      setRightPanel("runs");
+      if (!runtime.resolveWorkflowCapabilityGrantRequest) {
+        setStatusMessage(
+          "Resolving authority grants requires the daemon workflow authority API.",
+        );
+        return;
+      }
+      try {
+        const result = await runtime.resolveWorkflowCapabilityGrantRequest(
+          workflowPath,
+          {
+            requestId: grant.requestId,
+            decision,
+            reason: null,
+            actor: "authority_center",
+          },
+        );
+        setCapabilityGrantRequestsByActionId((current) => ({
+          ...current,
+          [`${result.workflowNodeId}:request_authority_grant`]: result,
+        }));
+        await loadRuntimeSidecars(workflowPath);
+        setStatusMessage(result.message);
+      } catch (error) {
+        setStatusMessage(
+          `Authority grant ${decision} failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    },
+    [loadRuntimeSidecars, runtime, workflowPath],
   );
 
   const handleResolveWorkflowIssue = useCallback(
@@ -15238,6 +15337,7 @@ export function useWorkflowComposerController({
     handleOpenDeploy,
     handlePinNodeFixture,
     handleResolveWorkflowIssue,
+    handleResolveCapabilityGrantRequest,
     handleResumeRun,
     handleRun,
     handleRunHarnessActivationDryRun,
