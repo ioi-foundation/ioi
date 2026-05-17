@@ -28,6 +28,10 @@ Conflict rule:
    - IOI L1 is the public settlement, registry, dispute, and governance root;
    - IOI topology is edge-in and fractal;
    - clients are projections or operators, not private runtime truth;
+   - Autopilot's primary build artifact is an Autonomous System Package;
+   - Autonomous System Package lifecycle is compose -> bind -> simulate ->
+     authorize -> run -> verify -> inspect receipts -> package -> deploy ->
+     promote -> improve;
    - Worker is the protocol actor;
    - Model is a cognition backend;
    - MoW is labor routing;
@@ -52,6 +56,7 @@ Conflict rule:
 | Domain Ontologies and Data Recipes | [`domain-ontologies-and-data-recipes.md`](../foundations/domain-ontologies-and-data-recipes.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`connector-and-tool-contracts.md`](../components/connectors-tools/contracts.md) | Autopilot Foundry, Worker Training, connector mappings, distilled ontology datasets, ontology-aware projections |
 | IOI L1, L0/L1 boundary, and settlement | [`ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) | [`ioi-l1-smart-contract-interfaces.md`](../foundations/ioi-l1-contract-interfaces.md) | sas/aiagent marketplace docs |
 | Kernel/domain architecture and edge-in topology | [`domain-kernels.md`](../foundations/domain-kernels.md) | [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md) | runtime package boundaries |
+| Autonomous System Package lifecycle | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`connector-and-tool-contracts.md`](../components/connectors-tools/contracts.md) | Autopilot lifecycle clarity master guide, autonomous systems shape audit, workflow compositor docs |
 | Agentgres canonical state and Postgres bridge | [`agentgres-state-substrate.md`](../components/agentgres/doctrine.md) | [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`agentgres-postgres-bridge-and-readiness-contract.md`](../components/agentgres/postgres-bridge-and-readiness-contract.md), [`canonical-state-and-projection-system-whitepaper.md`](../components/agentgres/projection-system-reference.md) | detailed Agentgres reference module inside canonical owner, evidence/architectural-improvements-broad |
 | Autopilot, shared builder substrate, and workflow compositor | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | internal product context and workflow-compositor specs |
 | Daemon and public runtime API | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | Cursor SDK parity guide |
@@ -75,6 +80,11 @@ Conflict rule:
 - Add new runtime/client/package ownership language to the public daemon,
   event, and common-object contracts first. Internal package-boundary plans may
   track implementation sequencing, but they do not own canonical doctrine.
+- Add new Autonomous System Package, lifecycle verb, package readiness,
+  deployment profile slot, promotion slot, or `AutonomousSystemManifest`
+  language to [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md)
+  before Phase 5 connectors, Autopilot, workflow compositor, SDK, or CLI
+  surfaces depend on it.
 - Add new MoW, worker-routing, Sparse Worker Category, Worker Training, batch
   planning, generation-batch, quality-gate, model-capacity, or training-cost
   doctrine to [`mixture-of-workers.md`](../foundations/mixture-of-workers.md)
