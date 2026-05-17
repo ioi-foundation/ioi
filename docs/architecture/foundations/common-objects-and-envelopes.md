@@ -14,6 +14,7 @@ This file defines the shared low-level objects that every IOI/Web4 component mus
 
 ```text
 ManifestEnvelope
+AutonomousSystemManifestEnvelope
 AuthorityScopeRequestEnvelope
 AuthorityGrantEnvelope
 TaskEnvelope
@@ -59,6 +60,7 @@ RoutingDecisionEnvelope
 
 ```text
 ai://...                global intelligence/app/worker/service namespace
+system://...            Autonomous System Package namespace
 ioi://publisher/...     publisher identity
 agent://...             product-facing agent instance or compatibility worker instance
 worker://...            worker package or worker type
@@ -127,7 +129,7 @@ Provider names, fixture names, tool availability, and authority scopes must neve
 ```yaml
 ManifestEnvelope:
   manifest_id: ai://...
-  manifest_type: app | worker | service | runtime | domain | tool | connector
+  manifest_type: app | autonomous_system | worker | service | runtime | domain | tool | connector
   version: semver_or_hash
   publisher_id: ioi://publisher/...
   manifest_root: hash
@@ -184,6 +186,133 @@ ManifestEnvelope:
     distilled_dataset_refs: []
     evaluation_dataset_refs: []
 ```
+
+## Autonomous System Package Lifecycle
+
+Autopilot's primary build artifact is an Autonomous System Package.
+
+An Autonomous System Package is the developer-facing skeletal unit for
+autonomous-system work. It is not an agent, connector, workflow, daemon
+process, or policy bundle. It binds worker responsibility, workflow or harness
+topology, model and tool capabilities, authority, memory/state/artifacts, evals,
+deployment profiles, and receipts into one packageable object.
+
+Implementation may represent the package as a strict `ManifestEnvelope` profile,
+as `AutonomousSystemManifestEnvelope`, or as both. That implementation choice
+must not make the package concept invisible in product, SDK, CLI/TUI, workflow,
+or documentation surfaces.
+
+The canonical lifecycle loop is:
+
+```text
+compose -> bind -> simulate -> authorize -> run -> verify -> inspect receipts
+-> package -> deploy -> promote -> improve
+```
+
+Short product form:
+
+```text
+build -> bind authority -> test -> run -> inspect receipts -> package
+-> promote
+```
+
+Lifecycle readiness must not collapse into one vague ready state. IOI clients
+should distinguish:
+
+| Readiness | Meaning | Blocking Scope |
+| --- | --- | --- |
+| Run readiness | The graph can execute now in the selected runtime profile. | Blocks Run. |
+| Authority readiness | Required grants, approvals, and secret leases are available. | Blocks live effects. |
+| Package readiness | The graph can become a complete Autonomous System Package. | Blocks package/publish. |
+| Evaluation readiness | Eval cases, scorecards, replay expectations, and quality gates exist. | Blocks promotion. |
+| Deployment readiness | The target runtime/deployment profile can run the package. | Blocks deploy. |
+| Promotion readiness | The package is safe and qualified for reuse, marketplace, service, or Foundry feedback loops. | Blocks promotion. |
+
+### Terminology Boundary Table
+
+| Term | Canonical Meaning | Must Not Mean |
+| --- | --- | --- |
+| Autonomous System Package | The primary developer-facing build artifact binding worker responsibility, topology, capabilities, authority, memory/state/artifacts, evals, deployment profiles, and receipts. | A raw workflow file, a connector config, or a daemon process. |
+| AutonomousSystemManifest | The manifest/profile contract that makes an Autonomous System Package deterministic, portable, evaluable, and receipted. | A second runtime or React Flow truth store. |
+| Worker | Durable protocol actor, responsibility boundary, package identity, routing target, and event/receipt subject. | Merely a UI label for a chat agent. |
+| Agent | Product-facing instance or compatibility alias that may be worker-backed. | The canonical low-level actor when Worker is required. |
+| Workflow | Deterministic executable composition manifest. | Hidden product state or the React Flow canvas itself. |
+| Harness | Reusable workflow topology for a behavior class such as coding loop, browser/computer-use loop, evaluation loop, or proposal-first mutation loop. | A provider-owned action runtime. |
+| Capability | Primitive/model/tool feasibility and contract reference. | Authority, secret possession, or policy permission. |
+| Authority | wallet.network grant or lease over resource, provider, identity, budget, approval, secret, and expiry. | A capability flag or UI readiness badge. |
+| Policy | Admission and behavior rules over authority, risk, approval, privacy, retention, evidence, and execution posture. | Tracing, telemetry, or run history. |
+| Tool | Executable capability with schema, risk, primitive capability requirements, authority scopes, approval requirements, and receipt behavior. | Ambient connector access. |
+| Connector | External system adapter exposing tools. | Runtime truth, authority owner, or untyped API access. |
+| Skill | Instruction/resource/procedure package that can influence context. | Authority grant or executable tool by itself. |
+| Session | Current interaction or run context. | Long-term memory or package identity. |
+| State | Scoped serializable working data. | Canonical domain truth unless settled through Agentgres/contracts. |
+| Memory | Governed long-term recall or retrieval surface. | Unbounded hidden context. |
+| Artifact | Materialized output, evidence, or deliverable. | A receipt by itself. |
+| Event | Observation that something happened. | Durable proof of correctness. |
+| Trace | Ordered diagnostic/observability path through runtime behavior. | Policy decision or authority grant. |
+| Receipt | Durable proof of an action, decision, verification, artifact, authority use, or promotion outcome. | A log line or UI-only status. |
+| Runtime | Daemon/runtime execution contract and event/receipt producer. | React Flow, a provider SDK, or a model-owned loop. |
+
+### AutonomousSystemManifestEnvelope
+
+```yaml
+AutonomousSystemManifestEnvelope:
+  schema_version: ioi.autonomous-system-manifest.v1
+  system_id: system://...
+  manifest_id: ai://...
+  display_name: string
+  description: string
+  version: semver_or_hash
+  status: draft | runnable | package_ready | deployable | promoted | revoked
+  worker:
+    worker_ref: worker://... | agent://...
+    responsibility: string
+    owner_ref: ioi://publisher/...
+  workflow:
+    workflow_manifest_ref: artifact://... | cid://... | inline_ref
+    harness_ref: optional
+    topology_hash: string
+  capabilities:
+    model_capability_refs: []
+    tool_capability_refs: []
+    connector_refs: []
+    primitive_capabilities_required: []
+  authority:
+    authority_scope_requirements: []
+    grant_requirements: []
+    approval_profile_ref: optional
+    policy_profile_ref: optional
+    revocation_posture: fail_closed | pause | degrade_read_only
+  runtime_profiles:
+    - profile_id: profile://...
+      kind: local_daemon | task_browser | local_container | hosted_daemon | cloud_vm | tee | depin | customer_vpc
+      readiness: ready | degraded | missing | external
+      cleanup_policy_ref: optional
+  session_state_memory_artifacts:
+    session_profile_ref: optional
+    state_profile_ref: optional
+    memory_profile_ref: optional
+    artifact_retention_profile_ref: optional
+    observation_retention_mode: summary_only | local_redacted | local_raw | encrypted_local_raw | no_persistence
+  evaluation:
+    eval_profile_refs: []
+    benchmark_refs: []
+    quality_gate_refs: []
+    replay_profile_ref: optional
+  promotion:
+    promotion_profile_ref: optional
+    marketplace_exposure_eligibility: none | internal | review_required | eligible
+    foundry_lineage_refs: []
+    worker_card_preview_ref: optional
+  receipts:
+    package_readiness_receipt_ref: optional
+    latest_run_receipt_refs: []
+    latest_eval_receipt_refs: []
+```
+
+The envelope is a package/readiness and portability contract. It must compile
+to daemon/runtime, wallet.network, Agentgres, workflow, connector/tool, and
+receipt contracts; it must not bypass them.
 
 ## WorkerInstanceEnvelope
 

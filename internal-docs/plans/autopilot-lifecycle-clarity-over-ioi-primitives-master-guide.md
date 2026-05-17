@@ -140,9 +140,9 @@ PromotionDecisionEnvelope
 
 | Row | Target | Status | Done When |
 | --- | --- | --- | --- |
-| P0-1 | Autonomous System Package shape | Planned | Product/doctrine asserts the first-class build artifact; manifest/profile contract binds worker, workflow, harness, capabilities, authority, memory/state/artifacts, eval, runtime/deployment, promotion, marketplace/foundry metadata. |
-| P0-2 | Canonical lifecycle glossary | Planned | Agent/Worker/Skill/Tool/Connector/Workflow/Harness/Capability/Policy/Trace/Receipt/Runtime terms have stable definitions and product-label mappings. |
-| P0-3 | Lifecycle verb loop | Planned | Compose, bind, simulate, authorize, run, verify, inspect receipts, package, deploy, promote, improve are documented and projected into Autopilot/CLI/SDK surfaces. |
+| P0-1 | Autonomous System Package shape | In progress / canonical docs locked | Product/doctrine asserts the first-class build artifact; manifest/profile contract binds worker, workflow, harness, capabilities, authority, memory/state/artifacts, eval, runtime/deployment, promotion, marketplace/foundry metadata. |
+| P0-2 | Canonical lifecycle glossary | In progress / canonical docs locked | Agent/Worker/Skill/Tool/Connector/Workflow/Harness/Capability/Policy/Trace/Receipt/Runtime terms have stable definitions and product-label mappings. |
+| P0-3 | Lifecycle verb loop | In progress / canonical docs locked | Compose, bind, simulate, authorize, run, verify, inspect receipts, package, deploy, promote, improve are documented and projected into Autopilot/CLI/SDK surfaces. |
 | P0-4 | Canonical proof sample | Planned | A repo-maintenance autonomous system sample demonstrates local fs/Git proposal-first mutation with authority, approvals, evals, receipts, and GUI run checklist. |
 | P0-5 | Workflow package readiness | Planned | Workflow Composer shows run readiness separately from autonomous-system package readiness and promotion readiness. |
 | P0-6 | Lifecycle APIs and projections | Planned | Daemon/API/SDK/CLI/TUI/Autopilot can expose lifecycle status without duplicating runtime truth. |
@@ -1010,11 +1010,12 @@ If connector expansion proceeds before lifecycle clarity:
 
 ## Current Next Tactical Slice
 
-Implement Workstream A:
+Implement Workstream B:
 
-1. Add lifecycle clarity to the source-of-truth map.
-2. Assert Autonomous System Package as the primary build artifact.
-3. Add or update common object docs with `AutonomousSystemManifest` profile.
-4. Add canonical lifecycle verb loop and glossary/boundary table.
-5. Update Phase 5 guide to make this the P0 gate.
-6. Validate docs and commit.
+1. Define lifecycle readiness categories and status enums in runtime/workflow
+   helpers.
+2. Add deterministic projection from workflow/capability/authority/eval data to
+   lifecycle readiness.
+3. Preserve old workflow compatibility.
+4. Add tests for missing model capability, missing authority, missing eval,
+   missing deployment profile, and package-ready state.
