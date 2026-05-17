@@ -570,7 +570,7 @@ body.chat-session-shell-host,
   gap: 5px;
   border-radius: 3px;
   border: 1px solid var(--spot-border-subtle);
-  background: #f8f8f8;
+  background: var(--spot-bg-tertiary);
   color: var(--spot-text-secondary);
   cursor: pointer;
   font: inherit;
@@ -617,7 +617,7 @@ body.chat-session-shell-host,
 .spot-context-btn:hover,
 .spot-input-selector:hover {
   border-color: var(--spot-border-strong);
-  background: #eeeeee;
+  background: var(--spot-bg-elevated);
   color: var(--spot-text-primary);
 }
 

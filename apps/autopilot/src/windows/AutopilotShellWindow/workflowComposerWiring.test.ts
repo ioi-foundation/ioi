@@ -163,6 +163,10 @@ const chatShellOverridesCss = fs.readFileSync(
   new URL("../ChatShellWindow/styles/Overrides.css", import.meta.url),
   "utf8",
 );
+const chatArtifactWorkbenchCss = fs.readFileSync(
+  new URL("../ChatShellWindow/styles/ChatSurface/artifact-workbench.css", import.meta.url),
+  "utf8",
+);
 const autopilotMain = fs.readFileSync(
   new URL("../../main.tsx", import.meta.url),
   "utf8",
@@ -502,9 +506,21 @@ assert.match(
 );
 
 assert.match(
+  chatShellLayoutCss,
+  /spot-context-btn,\s*\n\.spot-input-selector\s*\{[\s\S]*background: var\(--spot-bg-tertiary\);[\s\S]*spot-context-btn:hover,[\s\S]*background: var\(--spot-bg-elevated\);/,
+  "Chat input toolbar controls should use active theme tokens instead of hard-coded light pills",
+);
+
+assert.match(
   chatShellOverridesCss,
   /spot-container\.spot-container\.spot-container\s*\{\s*background: var\(--spot-bg-primary\) !important;/,
   "High-specificity chat shell overrides should still resolve through the active theme tokens",
+);
+
+assert.match(
+  chatArtifactWorkbenchCss,
+  /spot-window--chat \.spot-chat-shell\s*\{[\s\S]*background: var\(--spot-bg-primary\);[\s\S]*spot-window--chat \.spot-chat-sidebar-shell-item\s*\{[\s\S]*background: var\(--spot-bg-secondary\);[\s\S]*spot-workbench-chat-topbar[\s\S]*background: var\(--spot-bg-primary\);/,
+  "Workbench-grade chat composition should use active theme tokens instead of hard-coded light surfaces",
 );
 
 assert.match(

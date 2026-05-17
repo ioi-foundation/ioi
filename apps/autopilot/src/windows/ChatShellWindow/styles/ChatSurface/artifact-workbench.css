@@ -1321,7 +1321,7 @@
 /* Workbench-grade Chat composition, aligned to the OpenVSCode agent reference. */
 .spot-window--chat .spot-chat-shell {
   grid-template-columns: clamp(248px, 18vw, 292px) minmax(0, 1fr);
-  background: #ffffff;
+  background: var(--spot-bg-primary);
 }
 
 .spot-window--chat .spot-chat-shell.is-sidebar-hidden,
@@ -1348,8 +1348,8 @@
 }
 
 .spot-window--chat .spot-chat-sidebar-shell-item {
-  background: #f3f3f3;
-  border-right-color: #e5e5e5;
+  background: var(--spot-bg-secondary);
+  border-right-color: var(--spot-border-subtle);
 }
 
 .spot-window--chat .spot-chat-sidebar {
@@ -1357,7 +1357,7 @@
 }
 
 .spot-window--chat .spot-chat-sidebar-title {
-  color: #3c3c3c;
+  color: var(--spot-text-primary);
   font-size: 11px;
   font-weight: 600;
   line-height: 1.2;
@@ -1366,13 +1366,13 @@
 }
 
 .spot-window--chat .spot-chat-sidebar-subtitle {
-  color: #6f6f6f;
+  color: var(--spot-text-muted);
 }
 
 .spot-window--chat .spot-chat-sidebar-head-action,
 .spot-window--chat .spot-chat-sidebar-utility,
 .spot-window--chat .spot-chat-sidebar-session {
-  color: #616161;
+  color: var(--spot-text-secondary);
 }
 
 .spot-window--chat .spot-chat-sidebar-head-action {
@@ -1383,34 +1383,34 @@
 .spot-window--chat .spot-chat-sidebar-head-action:hover,
 .spot-window--chat .spot-chat-sidebar-utility:hover,
 .spot-window--chat .spot-chat-sidebar-session:hover {
-  background: #e8e8e8;
-  color: #3c3c3c;
+  background: var(--spot-bg-tertiary);
+  color: var(--spot-text-primary);
 }
 
 .spot-window--chat .spot-chat-sidebar-search {
   min-height: 28px;
-  border-color: #d4d4d4;
-  background: #ffffff;
-  color: #616161;
+  border-color: var(--spot-border);
+  background: var(--spot-bg-primary);
+  color: var(--spot-text-secondary);
 }
 
 .spot-window--chat .spot-chat-sidebar-search:focus-within {
-  border-color: #0078d4;
-  background: #ffffff;
-  color: #3c3c3c;
+  border-color: var(--spot-border-focus);
+  background: var(--spot-bg-primary);
+  color: var(--spot-text-primary);
 }
 
 .spot-window--chat .spot-chat-sidebar-search input {
-  color: #3c3c3c;
+  color: var(--spot-text-primary);
 }
 
 .spot-window--chat .spot-chat-sidebar-search input::placeholder {
-  color: #7a7a7a;
+  color: var(--spot-text-dim);
 }
 
 .spot-window--chat .spot-chat-sidebar-section-head,
 .spot-window--chat .spot-chat-sidebar-group-label {
-  color: #6f6f6f;
+  color: var(--spot-text-muted);
   letter-spacing: 0.08em;
 }
 
@@ -1421,13 +1421,13 @@
 
 .spot-window--chat .spot-chat-sidebar-utility.is-active,
 .spot-window--chat .spot-chat-sidebar-session.is-active {
-  background: #e8e8e8;
-  color: #3c3c3c;
+  background: var(--spot-bg-tertiary);
+  color: var(--spot-text-primary);
 }
 
 .spot-window--chat .spot-chat-sidebar-utility-badge {
-  background: #e0e0e0;
-  color: #3c3c3c;
+  background: var(--surface-4);
+  color: var(--spot-text-primary);
 }
 
 .spot-window--chat .spot-chat-sidebar-session {
@@ -1436,26 +1436,26 @@
 }
 
 .spot-window--chat .spot-chat-sidebar-session.is-active::before {
-  background: #0078d4;
+  background: var(--spot-accent);
   box-shadow: none;
 }
 
 .spot-window--chat .spot-chat-sidebar-session-copy strong {
-  color: #3c3c3c;
+  color: var(--spot-text-primary);
 }
 
 .spot-window--chat .spot-chat-sidebar-session-copy span,
 .spot-window--chat .spot-chat-sidebar-session.is-active .spot-chat-sidebar-session-copy span {
-  color: #6f6f6f;
+  color: var(--spot-text-muted);
 }
 
 .spot-window--chat .spot-chat-sidebar-empty {
-  color: #7a7a7a;
+  color: var(--spot-text-dim);
 }
 
 .spot-window--chat .spot-chat-conversation-shell-item {
   flex-direction: column;
-  background: #ffffff;
+  background: var(--spot-bg-primary);
 }
 
 .spot-workbench-chat-topbar {
@@ -1464,9 +1464,9 @@
   display: flex;
   align-items: stretch;
   justify-content: space-between;
-  border-bottom: 1px solid #e5e5e5;
-  background: #ffffff;
-  color: #3c3c3c;
+  border-bottom: 1px solid var(--spot-border-subtle);
+  background: var(--spot-bg-primary);
+  color: var(--spot-text-primary);
   flex: 0 0 auto;
 }
 
@@ -1477,15 +1477,15 @@
   align-items: center;
   justify-content: center;
   border-bottom: 1px solid transparent;
-  color: #616161;
+  color: var(--spot-text-secondary);
   font-size: 11px;
   line-height: 1;
   text-transform: uppercase;
 }
 
 .spot-workbench-chat-tab.is-active {
-  border-bottom-color: #0078d4;
-  color: #3c3c3c;
+  border-bottom-color: var(--spot-accent);
+  color: var(--spot-text-primary);
 }
 
 .spot-workbench-chat-actions {
@@ -1493,7 +1493,7 @@
   align-items: center;
   gap: 1px;
   padding: 0 9px;
-  color: #616161;
+  color: var(--spot-text-secondary);
 }
 
 .spot-workbench-chat-actions button {
@@ -1512,8 +1512,8 @@
 
 .spot-workbench-chat-actions button:hover,
 .spot-workbench-chat-actions button.is-active {
-  background: #eeeeee;
-  color: #3c3c3c;
+  background: var(--spot-bg-tertiary);
+  color: var(--spot-text-primary);
 }
 
 .spot-workbench-chat-actions svg {
@@ -1522,7 +1522,7 @@
 }
 
 .spot-window--chat .spot-chat-conversation {
-  background: #ffffff;
+  background: var(--spot-bg-primary);
 }
 
 .spot-window--chat .spot-chat-conversation .spot-chat {
@@ -1538,7 +1538,7 @@
   width: 38px;
   height: 38px;
   background: transparent;
-  color: #3c3c3c;
+  color: var(--spot-text-primary);
 }
 
 .spot-window--chat .spot-chat-welcome-mark svg {
@@ -1553,44 +1553,44 @@
 .spot-window--chat .spot-chat-welcome-copy h2 {
   font-size: 24px;
   font-weight: 400;
-  color: #3c3c3c;
+  color: var(--spot-text-primary);
 }
 
 .spot-window--chat .spot-chat-welcome-copy p {
-  color: #6f6f6f;
+  color: var(--spot-text-muted);
   font-size: 13px;
   line-height: 1.45;
 }
 
 .spot-window--chat .spot-chat-welcome-kicker {
-  color: #6f6f6f;
+  color: var(--spot-text-muted);
   font-weight: 500;
 }
 
 .spot-window--chat .spot-chat-lens-card {
-  border-color: #e5e5e5;
-  background: #f8f8f8;
+  border-color: var(--spot-border-subtle);
+  background: var(--spot-bg-tertiary);
 }
 
 .spot-window--chat .spot-chat-lens-card strong {
-  color: #3c3c3c;
+  color: var(--spot-text-primary);
 }
 
 .spot-window--chat .spot-chat-lens-card span {
-  color: #6f6f6f;
+  color: var(--spot-text-muted);
 }
 
 .spot-window--chat .spot-chat-suggestion {
   min-height: 24px;
   padding: 5px 9px;
   border-radius: 3px;
-  border-color: #d4d4d4;
-  background: #f8f8f8;
-  color: #616161;
+  border-color: var(--spot-border);
+  background: var(--spot-bg-tertiary);
+  color: var(--spot-text-secondary);
 }
 
 .spot-window--chat .spot-chat-suggestion:hover {
-  border-color: #0078d4;
-  background: #ffffff;
-  color: #3c3c3c;
+  border-color: var(--spot-accent);
+  background: var(--spot-bg-primary);
+  color: var(--spot-text-primary);
 }
