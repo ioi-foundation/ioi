@@ -50,6 +50,7 @@ export type WorkflowRunCapabilityReceiptRow = {
 export type WorkflowCapabilityRepairActionKind =
   | "open_capability_binding"
   | "request_authority_grant"
+  | "apply_approved_grant"
   | "attach_ready_capability"
   | "review_receipt_policy";
 
@@ -446,6 +447,25 @@ function workflowCapabilityRepairActions(input: {
       label: "Request grant",
       detail:
         "Review this binding against /api/v1/authority and request the scoped runtime grant before execution.",
+      targetSurface: "authority_center",
+      authorityEndpoint: "/api/v1/authority",
+      catalogEndpoint: null,
+      missingFields: missingFields.filter((field) =>
+        [
+          "grantReadiness",
+          "policyPosture",
+          "authorityScopes",
+          "authorityScopeRequirements",
+        ].includes(field),
+      ),
+    });
+    actions.push({
+      ...base,
+      id: `${input.nodeId}:apply_approved_grant`,
+      kind: "apply_approved_grant",
+      label: "Apply approved grant",
+      detail:
+        "Apply an approved authority grant to this node binding so the workflow can clear capability preflight.",
       targetSurface: "authority_center",
       authorityEndpoint: "/api/v1/authority",
       catalogEndpoint: null,

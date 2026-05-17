@@ -35,8 +35,10 @@ import {
   type WorkflowCodingRoutePromotionDecision,
   WorkflowBindingCheckResult,
   WorkflowBindingManifest,
+  WorkflowCapabilityGrantApplyRequest,
   WorkflowCapabilityGrantRequest,
   WorkflowCapabilityGrantRequestResult,
+  WorkflowCapabilityGrantResolutionRequest,
   WorkflowConnectorBinding,
   WorkflowCheckpoint,
   WorkflowCheckpointForkRequest,
@@ -1688,6 +1690,26 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         request: WorkflowCapabilityGrantRequest
     ): Promise<WorkflowCapabilityGrantRequestResult> {
         return invoke("create_workflow_capability_grant_request", { path, request });
+    }
+
+    async listWorkflowCapabilityGrantRequests(
+        path: string
+    ): Promise<WorkflowCapabilityGrantRequestResult[]> {
+        return invoke("list_workflow_capability_grant_requests", { path });
+    }
+
+    async resolveWorkflowCapabilityGrantRequest(
+        path: string,
+        request: WorkflowCapabilityGrantResolutionRequest
+    ): Promise<WorkflowCapabilityGrantRequestResult> {
+        return invoke("resolve_workflow_capability_grant_request", { path, request });
+    }
+
+    async applyWorkflowCapabilityGrantRequest(
+        path: string,
+        request: WorkflowCapabilityGrantApplyRequest
+    ): Promise<WorkflowWorkbenchBundle> {
+        return invoke("apply_workflow_capability_grant_request", { path, request });
     }
 
     async listWorkflowCheckpoints(

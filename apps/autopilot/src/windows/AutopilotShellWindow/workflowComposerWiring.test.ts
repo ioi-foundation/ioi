@@ -2458,14 +2458,14 @@ assert.match(
 
 assert.match(
   composer,
-  /handleCapabilityRepairAction[\s\S]*setNodeConfigInitialSection\(action\.configSection\)[\s\S]*workflowCapabilityGrantRequestFromRepairAction[\s\S]*runtime\.createWorkflowCapabilityGrantRequest[\s\S]*loadRuntimeSidecars/,
-  "Capability repair actions should draft authority grant requests through the daemon while keeping the binding editor focused.",
+  /handleCapabilityRepairAction[\s\S]*apply_approved_grant[\s\S]*runtime\.applyWorkflowCapabilityGrantRequest[\s\S]*workflowCapabilityGrantRequestFromRepairAction[\s\S]*runtime\.createWorkflowCapabilityGrantRequest[\s\S]*loadRuntimeSidecars/,
+  "Capability repair actions should draft authority grant requests and apply approved grants through the daemon.",
 );
 
 assert.match(
   `${tauriRuntime}\n${tauriLib}\n${projectCommands}\n${workflowRailRunsPanel}`,
-  /(?=[\s\S]*createWorkflowCapabilityGrantRequest)(?=[\s\S]*create_workflow_capability_grant_request)(?=[\s\S]*authority_grant_request)(?=[\s\S]*secretMaterialPresent)(?=[\s\S]*data-grant-request-status)(?=[\s\S]*data-grant-request-receipt-refs)/,
-  "Authority grant repair should have a registered daemon command, redacted receipt result, and run-rail status projection.",
+  /(?=[\s\S]*createWorkflowCapabilityGrantRequest)(?=[\s\S]*listWorkflowCapabilityGrantRequests)(?=[\s\S]*resolveWorkflowCapabilityGrantRequest)(?=[\s\S]*applyWorkflowCapabilityGrantRequest)(?=[\s\S]*create_workflow_capability_grant_request)(?=[\s\S]*resolve_workflow_capability_grant_request)(?=[\s\S]*apply_workflow_capability_grant_request)(?=[\s\S]*authority_grant_request)(?=[\s\S]*secretMaterialPresent)(?=[\s\S]*data-grant-request-status)(?=[\s\S]*workflow-run-capability-grant-\$\{decision\})(?=[\s\S]*apply_approved_grant)/,
+  "Authority grant repair should have daemon lifecycle commands, redacted receipt results, and run-rail draft/resolve/apply projection.",
 );
 
 assert.match(

@@ -127,6 +127,7 @@ test("workflow capability preflight blocks unready live capability bindings", ()
     [
       "open_capability_binding",
       "request_authority_grant",
+      "apply_approved_grant",
       "attach_ready_capability",
       "review_receipt_policy",
     ],

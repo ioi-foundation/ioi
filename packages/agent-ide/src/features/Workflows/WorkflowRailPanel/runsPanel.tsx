@@ -6,7 +6,10 @@ import type {
 } from "../../../types/graph";
 import type { WorkflowRunHistoryModel } from "../../../runtime/workflow-run-history-model";
 import type { WorkflowCapabilityRepairAction } from "../../../runtime/workflow-run-capability-receipts";
-import type { WorkflowCapabilityGrantRequestResult } from "../../../runtime/workflow-capability-grant-request";
+import type {
+  WorkflowCapabilityGrantRequestResult,
+  WorkflowCapabilityGrantResolutionDecision,
+} from "../../../runtime/workflow-capability-grant-request";
 import type { WorkflowRuntimeTelemetrySummary } from "../../../runtime/workflow-runtime-telemetry-summary";
 import type {
   WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
@@ -56,6 +59,10 @@ type WorkflowRunsPanelProps = {
   onCapabilityRepairAction?: (
     action: WorkflowCapabilityRepairAction,
   ) => void | Promise<void>;
+  onResolveCapabilityGrantRequest?: (
+    grant: WorkflowCapabilityGrantRequestResult,
+    decision: WorkflowCapabilityGrantResolutionDecision,
+  ) => void | Promise<void>;
   capabilityGrantRequestsByActionId?: Record<
     string,
     WorkflowCapabilityGrantRequestResult
@@ -99,6 +106,7 @@ function CapabilityRepairActionButton({
   rowNodeId,
   grantRequest,
   onCapabilityRepairAction,
+  onResolveCapabilityGrantRequest,
 }: {
   action: WorkflowCapabilityRepairAction;
   rowNodeId: string;
@@ -106,37 +114,92 @@ function CapabilityRepairActionButton({
   onCapabilityRepairAction?: (
     action: WorkflowCapabilityRepairAction,
   ) => void | Promise<void>;
+  onResolveCapabilityGrantRequest?: (
+    grant: WorkflowCapabilityGrantRequestResult,
+    decision: WorkflowCapabilityGrantResolutionDecision,
+  ) => void | Promise<void>;
 }) {
   const grantStatus = grantRequest?.status ?? "not_requested";
   const label =
-    action.kind === "request_authority_grant" && grantRequest
+    action.kind === "apply_approved_grant"
+      ? grantRequest?.status === "approved"
+        ? "Apply approved grant"
+        : "Grant not approved"
+      : action.kind === "request_authority_grant" && grantRequest
       ? grantRequest.status === "drafted"
         ? "Grant drafted"
         : grantRequest.status === "blocked"
           ? "Grant blocked"
-          : action.label
+          : grantRequest.status === "approved"
+            ? "Grant approved"
+            : grantRequest.status === "denied"
+              ? "Grant denied"
+              : grantRequest.status === "expired"
+                ? "Grant expired"
+                : action.label
       : action.label;
+  const disabled =
+    action.kind === "apply_approved_grant" && grantRequest?.status !== "approved";
+  const resolveActions =
+    action.kind === "request_authority_grant" &&
+    grantRequest?.status === "drafted"
+      ? ([
+          ["approve", "Approve"],
+          ["deny", "Deny"],
+          ["expire", "Expire"],
+        ] as const)
+      : [];
   return (
-    <button
-      type="button"
-      className="workflow-secondary-action"
-      data-testid={`workflow-run-capability-repair-${action.kind}-${rowNodeId}`}
-      data-action-kind={action.kind}
-      data-target-surface={action.targetSurface}
-      data-authority-endpoint={action.authorityEndpoint ?? ""}
-      data-catalog-endpoint={action.catalogEndpoint ?? ""}
-      data-missing-fields={action.missingFields.join("|")}
-      data-grant-request-status={grantStatus}
-      data-grant-request-id={grantRequest?.requestId ?? ""}
-      data-grant-request-receipt-refs={grantRequest?.receiptRefs.join("|") ?? ""}
-      data-grant-request-policy-decision-refs={
-        grantRequest?.policyDecisionRefs.join("|") ?? ""
-      }
-      title={grantRequest?.message ?? action.detail}
-      onClick={() => onCapabilityRepairAction?.(action)}
-    >
-      {label}
-    </button>
+    <span className="workflow-capability-grant-action">
+      <button
+        type="button"
+        className="workflow-secondary-action"
+        data-testid={`workflow-run-capability-repair-${action.kind}-${rowNodeId}`}
+        data-action-kind={action.kind}
+        data-target-surface={action.targetSurface}
+        data-authority-endpoint={action.authorityEndpoint ?? ""}
+        data-catalog-endpoint={action.catalogEndpoint ?? ""}
+        data-missing-fields={action.missingFields.join("|")}
+        data-grant-request-status={grantStatus}
+        data-grant-request-id={grantRequest?.requestId ?? ""}
+        data-grant-request-receipt-refs={grantRequest?.receiptRefs.join("|") ?? ""}
+        data-grant-request-policy-decision-refs={
+          grantRequest?.policyDecisionRefs.join("|") ?? ""
+        }
+        title={grantRequest?.message ?? action.detail}
+        disabled={disabled}
+        onClick={() => onCapabilityRepairAction?.(action)}
+      >
+        {label}
+      </button>
+      {resolveActions.map(([decision, decisionLabel]) => (
+        <button
+          key={decision}
+          type="button"
+          className="workflow-secondary-action"
+          data-testid={`workflow-run-capability-grant-${decision}-${rowNodeId}`}
+          data-grant-request-id={grantRequest?.requestId ?? ""}
+          data-grant-request-status={grantStatus}
+          onClick={() =>
+            grantRequest
+              ? onResolveCapabilityGrantRequest?.(grantRequest, decision)
+              : undefined
+          }
+        >
+          {decisionLabel}
+        </button>
+      ))}
+    </span>
+  );
+}
+
+function grantRequestForRepairAction(
+  action: WorkflowCapabilityRepairAction,
+  grants: Record<string, WorkflowCapabilityGrantRequestResult> | undefined,
+): WorkflowCapabilityGrantRequestResult | undefined {
+  return (
+    grants?.[action.id] ??
+    grants?.[`${action.nodeId}:request_authority_grant`]
   );
 }
 
@@ -161,6 +224,7 @@ export function WorkflowRunsPanel({
   onExecuteRuntimeWorkspaceTrustAction,
   onExecuteRuntimeCodingToolBudgetRecovery,
   onCapabilityRepairAction,
+  onResolveCapabilityGrantRequest,
   capabilityGrantRequestsByActionId,
   onCreateRuntimeCodingToolBudgetRecoverySubflow,
   onBindRuntimeCodingToolBudgetRecoveryTemplate,
@@ -645,10 +709,16 @@ export function WorkflowRunsPanel({
                             action={action}
                             rowNodeId={row.nodeId}
                             grantRequest={
-                              capabilityGrantRequestsByActionId?.[action.id]
+                              grantRequestForRepairAction(
+                                action,
+                                capabilityGrantRequestsByActionId,
+                              )
                             }
                             onCapabilityRepairAction={
                               onCapabilityRepairAction
+                            }
+                            onResolveCapabilityGrantRequest={
+                              onResolveCapabilityGrantRequest
                             }
                           />
                         ))}

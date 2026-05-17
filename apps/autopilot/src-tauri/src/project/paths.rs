@@ -105,6 +105,15 @@ pub(super) fn workflow_binding_manifest_path(workflow_path: &Path) -> PathBuf {
     }
 }
 
+pub(super) fn workflow_capability_grants_path(workflow_path: &Path) -> PathBuf {
+    let path_text = workflow_path.display().to_string();
+    if path_text.ends_with(".workflow.json") {
+        PathBuf::from(path_text.replace(".workflow.json", ".capability-grants.json"))
+    } else {
+        workflow_path.with_extension("capability-grants.json")
+    }
+}
+
 pub(super) fn workflow_functions_dir(workflow_path: &Path) -> PathBuf {
     let path_text = workflow_path.display().to_string();
     if path_text.ends_with(".workflow.json") {

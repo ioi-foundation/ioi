@@ -3,6 +3,7 @@
 use super::workflow_coding_route_lane::WorkflowSkillResolver;
 use super::*;
 use crate::models::AppState;
+use serde_json::Map;
 use sha2::{Digest, Sha256};
 use std::sync::Mutex;
 use tauri::State;
@@ -3532,7 +3533,7 @@ pub fn create_workflow_capability_grant_request(
         },
     )?;
 
-    Ok(json!({
+    let result = json!({
         "schemaVersion": "ioi.workflow.capability-grant-request-result.v1",
         "requestId": request_id,
         "status": status,
@@ -3551,7 +3552,170 @@ pub fn create_workflow_capability_grant_request(
         },
         "issues": issues,
         "request": sanitized_request,
-    }))
+        "resolvedAtMs": null,
+        "resolution": null,
+        "appliedAtMs": null,
+    });
+    workflow_upsert_capability_grant_request(&workflow_path, result.clone())?;
+    Ok(result)
+}
+
+#[tauri::command]
+pub fn list_workflow_capability_grant_requests(path: String) -> Result<Vec<Value>, String> {
+    let workflow_path = resolve_workflow_file_path(&path)?;
+    load_workflow_capability_grant_requests(&workflow_path)
+}
+
+#[tauri::command]
+pub fn resolve_workflow_capability_grant_request(
+    path: String,
+    request: Value,
+) -> Result<Value, String> {
+    let workflow_path = resolve_workflow_file_path(&path)?;
+    let request_id = request
+        .get("requestId")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| "Capability grant resolution requires requestId.".to_string())?
+        .to_string();
+    let decision = request
+        .get("decision")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| "Capability grant resolution requires decision.".to_string())?;
+    let status = match decision {
+        "approve" => "approved",
+        "deny" => "denied",
+        "expire" => "expired",
+        other => {
+            return Err(format!(
+                "Unsupported capability grant resolution decision '{}'.",
+                other
+            ))
+        }
+    };
+    let mut grants = load_workflow_capability_grant_requests(&workflow_path)?;
+    let index = grants
+        .iter()
+        .position(|grant| workflow_capability_grant_request_id(grant) == Some(request_id.as_str()))
+        .ok_or_else(|| format!("Unknown capability grant request '{}'.", request_id))?;
+    let mut grant = grants[index].clone();
+    let authority_scopes = workflow_string_array_at(&grant, "authorityScopes");
+    if status == "approved" && authority_scopes.is_empty() {
+        return Err(
+            "Cannot approve a capability grant request without authority scopes.".to_string(),
+        );
+    }
+    let now = now_ms();
+    let receipt_refs = if status == "approved" {
+        vec![format!(
+            "receipt_workflow_capability_grant_request_{}",
+            request_id
+        )]
+    } else {
+        Vec::new()
+    };
+    let policy_decision_refs = vec![format!(
+        "policy_workflow_capability_grant_{}_{}",
+        status, request_id
+    )];
+    if let Some(object) = grant.as_object_mut() {
+        object.insert("status".to_string(), json!(status));
+        object.insert("resolvedAtMs".to_string(), json!(now));
+        object.insert(
+            "resolution".to_string(),
+            json!({
+                "decision": decision,
+                "reason": request.get("reason").cloned().unwrap_or(Value::Null),
+                "actor": request.get("actor").and_then(Value::as_str).unwrap_or("authority_center"),
+                "resolvedAtMs": now,
+            }),
+        );
+        object.insert("receiptRefs".to_string(), json!(receipt_refs));
+        object.insert(
+            "policyDecisionRefs".to_string(),
+            json!(policy_decision_refs),
+        );
+        object.insert("workflowRemainsFailClosed".to_string(), json!(true));
+        object.insert("secretMaterialPresent".to_string(), json!(false));
+        object.insert(
+            "message".to_string(),
+            json!(match status {
+                "approved" => "Authority grant approved. Apply the grant to the workflow binding before running.",
+                "denied" => "Authority grant denied. The workflow remains fail-closed.",
+                "expired" => "Authority grant expired. The workflow remains fail-closed.",
+                _ => "Authority grant resolved.",
+            }),
+        );
+    }
+    grants[index] = grant.clone();
+    save_workflow_capability_grant_requests(&workflow_path, &grants)?;
+    append_workflow_evidence(
+        &workflow_path,
+        WorkflowEvidenceSummary {
+            id: format!("authority-grant-resolution-{}-{}", status, request_id),
+            kind: "authority_grant_resolution".to_string(),
+            created_at_ms: now,
+            summary: format!(
+                "Authority grant request '{}' resolved as {}.",
+                request_id, status
+            ),
+            path: None,
+        },
+    )?;
+    Ok(grant)
+}
+
+#[tauri::command]
+pub fn apply_workflow_capability_grant_request(
+    path: String,
+    request: Value,
+) -> Result<WorkflowWorkbenchBundle, String> {
+    let workflow_path = resolve_workflow_file_path(&path)?;
+    let request_id = request
+        .get("requestId")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| "Capability grant apply requires requestId.".to_string())?
+        .to_string();
+    let mut grants = load_workflow_capability_grant_requests(&workflow_path)?;
+    let index = grants
+        .iter()
+        .position(|grant| workflow_capability_grant_request_id(grant) == Some(request_id.as_str()))
+        .ok_or_else(|| format!("Unknown capability grant request '{}'.", request_id))?;
+    if grants[index].get("status").and_then(Value::as_str) != Some("approved") {
+        return Err(format!(
+            "Capability grant request '{}' is not approved.",
+            request_id
+        ));
+    }
+    let mut workflow: WorkflowProject = read_json_file(&workflow_path)?;
+    workflow_apply_capability_grant_to_binding(&mut workflow, &grants[index])?;
+    save_workflow_project(workflow_path.display().to_string(), workflow)?;
+    let now = now_ms();
+    if let Some(object) = grants[index].as_object_mut() {
+        object.insert("appliedAtMs".to_string(), json!(now));
+        object.insert("workflowRemainsFailClosed".to_string(), json!(false));
+        object.insert(
+            "message".to_string(),
+            json!("Approved authority grant applied to the workflow binding."),
+        );
+    }
+    save_workflow_capability_grant_requests(&workflow_path, &grants)?;
+    append_workflow_evidence(
+        &workflow_path,
+        WorkflowEvidenceSummary {
+            id: format!("authority-grant-apply-{}", request_id),
+            kind: "authority_grant_apply".to_string(),
+            created_at_ms: now,
+            summary: format!(
+                "Authority grant request '{}' applied to workflow binding.",
+                request_id
+            ),
+            path: None,
+        },
+    )?;
+    load_workflow_bundle_from_path(&workflow_path)
 }
 
 fn workflow_string_array_at(value: &Value, key: &str) -> Vec<String> {
@@ -3591,6 +3755,179 @@ fn workflow_redact_capability_grant_request(value: Value) -> Value {
         ),
         other => other,
     }
+}
+
+fn workflow_upsert_capability_grant_request(
+    workflow_path: &Path,
+    grant: Value,
+) -> Result<(), String> {
+    let request_id = workflow_capability_grant_request_id(&grant)
+        .ok_or_else(|| "Capability grant request result is missing requestId.".to_string())?
+        .to_string();
+    let mut grants = load_workflow_capability_grant_requests(workflow_path)?;
+    if let Some(index) = grants.iter().position(|candidate| {
+        workflow_capability_grant_request_id(candidate) == Some(request_id.as_str())
+    }) {
+        grants[index] = grant;
+    } else {
+        grants.insert(0, grant);
+    }
+    save_workflow_capability_grant_requests(workflow_path, &grants)
+}
+
+fn workflow_capability_grant_request_id(value: &Value) -> Option<&str> {
+    value.get("requestId").and_then(Value::as_str)
+}
+
+fn workflow_apply_capability_grant_to_binding(
+    workflow: &mut WorkflowProject,
+    grant: &Value,
+) -> Result<(), String> {
+    let request = grant
+        .get("request")
+        .ok_or_else(|| "Capability grant record is missing request.".to_string())?;
+    let node_id = grant
+        .get("workflowNodeId")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| "Capability grant record is missing workflowNodeId.".to_string())?;
+    let capability_ref = grant
+        .get("capabilityRef")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| "Capability grant record is missing capabilityRef.".to_string())?;
+    let binding_kind = request
+        .get("bindingKind")
+        .and_then(Value::as_str)
+        .unwrap_or("Tool");
+    let binding_key = match binding_kind {
+        "Model" => "modelBinding",
+        "Connector" => "connectorBinding",
+        _ => "toolBinding",
+    };
+    let authority_scopes = workflow_string_array_at(grant, "authorityScopes");
+    if authority_scopes.is_empty() {
+        return Err("Approved capability grant has no authority scopes.".to_string());
+    }
+    let receipt_refs = workflow_string_array_at(grant, "receiptRefs");
+    let policy_decision_refs = workflow_string_array_at(grant, "policyDecisionRefs");
+    let request_id = workflow_capability_grant_request_id(grant).unwrap_or("unknown-grant");
+    let node = workflow
+        .nodes
+        .iter_mut()
+        .find(|node| node.get("id").and_then(Value::as_str) == Some(node_id))
+        .ok_or_else(|| format!("Workflow node '{}' was not found.", node_id))?;
+    let node_object = node
+        .as_object_mut()
+        .ok_or_else(|| "Workflow node record was not an object.".to_string())?;
+    let node_type = node_object
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or("function")
+        .to_string();
+    let config = workflow_object_entry(node_object, "config");
+    if !config.contains_key("kind") {
+        config.insert("kind".to_string(), json!(node_type));
+    }
+    let logic = workflow_object_entry(config, "logic");
+    let binding = workflow_object_entry(logic, binding_key);
+    match binding_key {
+        "modelBinding" => {
+            binding.insert("modelCapabilityRef".to_string(), json!(capability_ref));
+            binding.insert(
+                "routeId".to_string(),
+                request.get("routeId").cloned().unwrap_or(Value::Null),
+            );
+        }
+        "connectorBinding" => {
+            binding.insert("connectorCapabilityRef".to_string(), json!(capability_ref));
+        }
+        _ => {
+            binding.insert("toolCapabilityRef".to_string(), json!(capability_ref));
+        }
+    }
+    let receipt_types = workflow_unique_strings(
+        workflow_string_array_at(
+            binding
+                .get("receiptBehavior")
+                .unwrap_or(&Value::Object(Map::new())),
+            "requiredReceiptTypes",
+        )
+        .into_iter()
+        .chain(workflow_string_array_at(
+            request
+                .get("receiptBehavior")
+                .unwrap_or(&Value::Object(Map::new())),
+            "requiredReceiptTypes",
+        ))
+        .collect(),
+    );
+    binding.insert("authorityScopes".to_string(), json!(authority_scopes));
+    binding.insert(
+        "authorityScopeRequirements".to_string(),
+        binding.get("authorityScopes").cloned().unwrap_or(json!([])),
+    );
+    binding.insert(
+        "grantReadiness".to_string(),
+        json!({
+            "status": "ready",
+            "reason": "Authority grant request approved and applied to this workflow binding.",
+            "evidenceRefs": receipt_refs,
+            "requestId": request_id,
+        }),
+    );
+    binding.insert(
+        "policyPosture".to_string(),
+        json!({
+            "status": "allowed",
+            "policyTarget": request.pointer("/policyTarget/ref").and_then(Value::as_str).unwrap_or(capability_ref),
+            "source": "workflow_capability_grant_request",
+            "evidenceRefs": policy_decision_refs,
+            "requestId": request_id,
+        }),
+    );
+    binding.insert(
+        "receiptBehavior".to_string(),
+        json!({
+            "receiptRequired": true,
+            "requiredReceiptTypes": receipt_types,
+        }),
+    );
+    binding.insert(
+        "grantReceiptRefs".to_string(),
+        json!(workflow_unique_strings(receipt_refs)),
+    );
+    binding.insert(
+        "policyDecisionRefs".to_string(),
+        json!(workflow_unique_strings(policy_decision_refs)),
+    );
+    binding.insert("lastAuthorityGrantRequestId".to_string(), json!(request_id));
+    workflow.metadata.updated_at_ms = Some(now_ms());
+    workflow.metadata.dirty = Some(true);
+    Ok(())
+}
+
+fn workflow_object_entry<'a>(
+    object: &'a mut Map<String, Value>,
+    key: &str,
+) -> &'a mut Map<String, Value> {
+    if !object.get(key).map(Value::is_object).unwrap_or(false) {
+        object.insert(key.to_string(), Value::Object(Map::new()));
+    }
+    object
+        .get_mut(key)
+        .and_then(Value::as_object_mut)
+        .expect("object entry should have been initialized")
+}
+
+fn workflow_unique_strings(values: Vec<String>) -> Vec<String> {
+    let mut result = Vec::new();
+    for value in values {
+        if !result.contains(&value) {
+            result.push(value);
+        }
+    }
+    result
 }
 
 fn workflow_capability_grant_secret_key(key: &str) -> bool {
