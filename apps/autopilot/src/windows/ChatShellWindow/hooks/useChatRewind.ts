@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { listenIfTauri as listen } from "../../../services/tauriListeners";
 import { useCallback, useEffect, useState } from "react";
 import type { SessionRewindSnapshot } from "../../../types";
 

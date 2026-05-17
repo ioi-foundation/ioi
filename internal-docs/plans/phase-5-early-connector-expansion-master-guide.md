@@ -2,16 +2,17 @@
 
 Owner: connectors-tools / daemon runtime / wallet.network / Autopilot / workflow compositor / computer-use
 
-Status: blocked on Phase 4.5 readiness gate
+Status: entry gate open / ready for Workstream 1
 
 Created: 2026-05-15
 
 ## Executive Verdict
 
 Phase 5 proves Autopilot can operate real production software safely without
-jumping straight to money-moving commerce. It should start only after
-`docs/plans/phase-4-5-capability-authority-readiness-master-guide.md` reaches
-Definition of Ready.
+jumping straight to money-moving commerce. The Phase 4.5 gate in
+`internal-docs/plans/phase-4-5-capability-authority-readiness-master-guide.md`
+has reached Definition of Ready for local, proposal-first, read-only,
+draft-only, and fixture-backed computer-use lanes.
 
 The target is not "more integrations." The target is:
 
@@ -21,7 +22,7 @@ The target is not "more integrations." The target is:
 
 ## Entry Gate
 
-Do not begin live Phase 5 connector work until all of these are true:
+Phase 5 may begin for the entry lanes because all of these are now true:
 
 - connector/tool registry exposes complete `RuntimeToolContract` metadata;
 - model routes expose capability, policy, BYOK, readiness, and receipt metadata;
@@ -30,18 +31,25 @@ Do not begin live Phase 5 connector work until all of these are true:
 - workflows bind model/tool capabilities rather than provider-specific branches;
 - task-scoped GUI/browser harness can launch Autopilot or another approved
   local target with an isolated profile and cleanup receipts;
-- Playwright has either been mounted as a first-class browser adapter or has a
-  documented exclusion explaining why CDP/chromiumoxide remains the only
-  approved provider for the lane;
+- Playwright has been validated as the isolated GUI/browser validation harness
+  and is queued as the preferred first-class adapter candidate for Workstream 2;
 - live actions fail closed without contract, readiness, grant, approval when
   required, idempotency posture, and receipt behavior;
-- a CLI/TUI/Autopilot readiness report confirms the environment is clean or
-  explicitly degraded.
+- targeted build, daemon, SDK, workflow GUI, authority/settings, computer-use,
+  and live Playwright clickthrough validation passed on 2026-05-17.
+
+External constraints that still apply:
+
+- live Google Workspace/mail, provider-hosted models, and external connector
+  smokes require explicit credentials and wallet grants;
+- high-risk commerce and irreversible external publication remain out of scope;
+- first-class durable Playwright runtime receipts are part of Workstream 2, not
+  a blocker for Workstream 1.
 
 ## Canonical Sources
 
 - `docs/roadmap.md`
-- `docs/plans/phase-4-5-capability-authority-readiness-master-guide.md`
+- `internal-docs/plans/phase-4-5-capability-authority-readiness-master-guide.md`
 - `docs/architecture/components/connectors-tools/doctrine.md`
 - `docs/architecture/components/connectors-tools/contracts.md`
 - `docs/architecture/components/wallet-network/doctrine.md`

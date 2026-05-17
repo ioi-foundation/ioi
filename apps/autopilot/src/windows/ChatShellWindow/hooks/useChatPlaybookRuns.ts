@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { listen } from "@tauri-apps/api/event";
+import { listenIfTauri as listen } from "../../../services/tauriListeners";
 import { submitAssistantSessionInput } from "@ioi/agent-ide";
 import {
   getSessionOperatorRuntime,

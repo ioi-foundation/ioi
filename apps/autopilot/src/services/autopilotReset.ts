@@ -1,4 +1,7 @@
-import { listen } from "@tauri-apps/api/event";
+import {
+  isTauriRuntime,
+  listenIfTauri as listen,
+} from "./tauriListeners";
 
 async function clearIndexedDb(): Promise<void> {
   if (typeof window === "undefined" || !("indexedDB" in window)) return;
@@ -64,10 +67,6 @@ export async function clearAutopilotBrowserData(): Promise<void> {
 export async function resetAutopilotFrontendState(): Promise<void> {
   await clearAutopilotBrowserData();
   window.location.reload();
-}
-
-function isTauriRuntime(): boolean {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
 export function listenForAutopilotDataReset(): Promise<() => void> {

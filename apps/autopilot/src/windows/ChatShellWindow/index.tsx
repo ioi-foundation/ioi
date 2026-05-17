@@ -312,6 +312,15 @@ export function ChatShellWindow({
     latestEvent: latestRetainedWorkbenchEvent,
     latestArtifact: latestRetainedWorkbenchArtifact,
   } = useRetainedWorkbenchTrace(retainedWorkbenchActivities);
+  const loadValidationThreadEvents = useCallback(
+    (threadId: string) => loadThreadEvents(threadId) as Promise<AgentEvent[]>,
+    [loadThreadEvents],
+  );
+  const loadValidationThreadArtifacts = useCallback(
+    (threadId: string) =>
+      loadThreadArtifacts(threadId) as Promise<Artifact[]>,
+    [loadThreadArtifacts],
+  );
   const {
     validationSummary,
     preferredEvidenceArtifactId,
@@ -322,10 +331,8 @@ export function ChatShellWindow({
     retainedWorkbenchTrace,
     latestRetainedWorkbenchEvent,
     latestRetainedWorkbenchArtifact,
-    loadThreadEvents: (threadId) =>
-      loadThreadEvents(threadId) as Promise<AgentEvent[]>,
-    loadThreadArtifacts: (threadId) =>
-      loadThreadArtifacts(threadId) as Promise<Artifact[]>,
+    loadThreadEvents: loadValidationThreadEvents,
+    loadThreadArtifacts: loadValidationThreadArtifacts,
   });
 
   const {
@@ -1028,20 +1035,24 @@ export function ChatShellWindow({
     if (!isChatVariant) {
       return;
     }
-    setSelectedChatArtifactSessionId((current) => {
-      if (
-        current &&
-        (current === activeArtifactChatSessionId ||
-          studioAvailableArtifacts.some((artifact) => artifact.sessionId === current))
-      ) {
-        return current;
-      }
 
-      return null;
-    });
+    if (!selectedChatArtifactSessionId) {
+      return;
+    }
+
+    const selectedArtifactSessionStillAvailable =
+      selectedChatArtifactSessionId === activeArtifactChatSessionId ||
+      studioAvailableArtifacts.some(
+        (artifact) => artifact.sessionId === selectedChatArtifactSessionId,
+      );
+
+    if (!selectedArtifactSessionStillAvailable) {
+      setSelectedChatArtifactSessionId(null);
+    }
   }, [
     activeArtifactChatSessionId,
     isChatVariant,
+    selectedChatArtifactSessionId,
     studioAvailableArtifacts,
   ]);
 

@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   Agent,
@@ -43,7 +44,9 @@ function tempClient() {
 
 function writeFakeControlledRelaunchExecutable(cwd) {
   const scriptPath = path.join(cwd, "fake-controlled-relaunch-browser.mjs");
-  const fixturePath = path.resolve("packages/runtime-daemon/src/native-browser-cdp-test-fixture.mjs");
+  const fixturePath = fileURLToPath(
+    new URL("../../runtime-daemon/src/native-browser-cdp-test-fixture.mjs", import.meta.url),
+  );
   fs.writeFileSync(
     scriptPath,
     [
@@ -1955,7 +1958,11 @@ test("runtime daemon launches approved controlled relaunch with isolated profile
 
     assert.equal(result.status, "completed");
     assert.equal(result.result.environmentSelection.selected_session_mode, "controlled_relaunch");
-    assert.equal(result.result.environmentSelection.risk_posture, "read_only_probe");
+    assert.equal(
+      result.result.environmentSelection.risk_posture,
+      "read_only_probe",
+      JSON.stringify(result.result.controlledRelaunchLaunch ?? result.result.environmentSelection),
+    );
     assert.equal(result.result.lease.status, "active");
     assert.equal(result.result.lease.session_mode, "controlled_relaunch");
     assert.equal(result.result.lease.consent_scope, "explicit_host_browser_launch_approval");
