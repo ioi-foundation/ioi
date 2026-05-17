@@ -53,9 +53,13 @@ are now true:
 
 Additional P0 lifecycle gate before broader connector expansion:
 
-- autonomous-system manifest/profile shape is documented;
+- Autonomous System Package is asserted as the primary build artifact;
+- autonomous-system manifest/profile shape is documented as its runtime
+  contract/profile;
 - Agent/Worker/Skill/Tool/Connector/Workflow/Harness/Capability/Policy/Trace/
   Receipt/Runtime terminology is locked;
+- lifecycle verbs are locked: compose, bind, simulate, authorize, run, verify,
+  inspect receipts, package, deploy, promote, improve;
 - Workflow Composer distinguishes run readiness from package, evaluation,
   deployment, and promotion readiness;
 - one canonical repo-maintenance autonomous-system proof sample exists;
