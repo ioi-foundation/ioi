@@ -27,13 +27,21 @@ export function SettingsEnvironmentSection({
         <div className="chat-settings-card-head">
           <div>
             <span className="chat-settings-card-eyebrow">
-              Authority posture
+              Compatibility bindings
             </span>
-            <h2>Credential readiness</h2>
+            <h2>Legacy environment credentials</h2>
           </div>
           <span className={posturePillClass}>{authorityPosture.label}</span>
         </div>
         <p className="chat-settings-body">{authorityPosture.detail}</p>
+        <div className="chat-settings-callout">
+          <strong>Source of truth</strong>
+          <p>
+            Runtime grants, policy posture, receipts, and workflow readiness are
+            governed by Authority Center. This editor only preserves local
+            environment compatibility bindings.
+          </p>
+        </div>
         <div className="chat-settings-summary-grid">
           {authorityPosture.checklist.map((item) => (
             <article key={item} className="chat-settings-subcard">

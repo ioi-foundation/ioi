@@ -1,6 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { TauriRuntime } from "../../services/TauriRuntime";
 import { safelyDisposeTauriListener } from "../../services/tauriListeners";
 import type {
@@ -24,9 +24,14 @@ import {
   type ShieldPolicyState,
   type ShieldRememberedApprovalSnapshot,
 } from "../Policy/policyCenter";
-import { cloneLocalEngineControlPlane, humanize } from "../Capabilities/components/model";
+import {
+  cloneLocalEngineControlPlane,
+  humanize,
+} from "../Capabilities/components/model";
 import { SettingsViewBody } from "./SettingsViewBody";
 import { type SettingsSection } from "./settingsViewShared";
+import { buildAuthorityCenterProjection } from "../Policy/authorityCenter";
+import { loadAuthorityCenterRuntimeProjection } from "../Policy/authorityCenterRuntime";
 
 interface SettingsViewProps {
   runtime: Pick<
@@ -39,6 +44,7 @@ interface SettingsViewProps {
     | "getKnowledgeCollectionEntryContent"
     | "getKnowledgeCollections"
     | "getSkillSources"
+    | "getConnectors"
     | "resetAutopilotData"
     | "resetKnowledgeCollection"
     | "importKnowledgeFile"
@@ -98,12 +104,10 @@ export function SettingsView({
   const [lastResult, setLastResult] = useState<ResetAutopilotDataResult | null>(
     null,
   );
-  const [engineSnapshot, setEngineSnapshot] = useState<LocalEngineSnapshot | null>(
-    null,
-  );
-  const [engineDraft, setEngineDraft] = useState<LocalEngineControlPlane | null>(
-    null,
-  );
+  const [engineSnapshot, setEngineSnapshot] =
+    useState<LocalEngineSnapshot | null>(null);
+  const [engineDraft, setEngineDraft] =
+    useState<LocalEngineControlPlane | null>(null);
   const [engineLoading, setEngineLoading] = useState(true);
   const [engineSaving, setEngineSaving] = useState(false);
   const [engineMessage, setEngineMessage] = useState<string | null>(null);
@@ -136,7 +140,9 @@ export function SettingsView({
   const [skillSources, setSkillSources] = useState<SkillSourceRecord[]>([]);
   const [skillSourcesLoading, setSkillSourcesLoading] = useState(true);
   const [skillSourcesBusy, setSkillSourcesBusy] = useState(false);
-  const [skillSourcesError, setSkillSourcesError] = useState<string | null>(null);
+  const [skillSourcesError, setSkillSourcesError] = useState<string | null>(
+    null,
+  );
   const [skillSourcesMessage, setSkillSourcesMessage] = useState<string | null>(
     null,
   );
@@ -156,6 +162,13 @@ export function SettingsView({
   const [authorityApplyingProfileId, setAuthorityApplyingProfileId] =
     useState<SessionPermissionProfileId | null>(null);
   const [authorityMessage, setAuthorityMessage] = useState<string | null>(null);
+  const [authorityCenterProjection, setAuthorityCenterProjection] = useState(
+    () => buildAuthorityCenterProjection({ policyState }),
+  );
+  const [authorityCenterLoading, setAuthorityCenterLoading] = useState(false);
+  const [authorityCenterError, setAuthorityCenterError] = useState<
+    string | null
+  >(null);
 
   const profileDirty = JSON.stringify(profileDraft) !== JSON.stringify(profile);
   const controlPlane = engineDraft ?? engineSnapshot?.controlPlane ?? null;
@@ -204,7 +217,10 @@ export function SettingsView({
       const collections = await runtime.getKnowledgeCollections();
       setKnowledgeCollections(collections);
       setSelectedKnowledgeCollectionId((current) => {
-        if (current && collections.some((collection) => collection.collectionId === current)) {
+        if (
+          current &&
+          collections.some((collection) => collection.collectionId === current)
+        ) {
           return current;
         }
         return collections[0]?.collectionId ?? null;
@@ -241,16 +257,19 @@ export function SettingsView({
     }
     setAuthorityError(null);
 
-    const [hookSnapshotResult, rememberedApprovalsResult] = await Promise.allSettled([
-      invoke<SessionHookSnapshot>("get_session_hook_snapshot", {
-        sessionId: null,
-        workspaceRoot: null,
-      }),
-      fetchShieldRememberedApprovalSnapshotFromRuntime(),
-    ]);
+    const [hookSnapshotResult, rememberedApprovalsResult] =
+      await Promise.allSettled([
+        invoke<SessionHookSnapshot>("get_session_hook_snapshot", {
+          sessionId: null,
+          workspaceRoot: null,
+        }),
+        fetchShieldRememberedApprovalSnapshotFromRuntime(),
+      ]);
 
     const nextHookSnapshot =
-      hookSnapshotResult.status === "fulfilled" ? hookSnapshotResult.value : null;
+      hookSnapshotResult.status === "fulfilled"
+        ? hookSnapshotResult.value
+        : null;
     const nextRememberedApprovals =
       rememberedApprovalsResult.status === "fulfilled"
         ? rememberedApprovalsResult.value
@@ -279,11 +298,44 @@ export function SettingsView({
     setAuthorityStatus("ready");
   };
 
+  const refreshAuthorityCenterProjection = useCallback(
+    async (showLoading = false) => {
+      if (showLoading) {
+        setAuthorityCenterLoading(true);
+      }
+      try {
+        const connectors = runtime.getConnectors
+          ? await runtime.getConnectors()
+          : [];
+        const result = await loadAuthorityCenterRuntimeProjection({
+          connectors: Array.isArray(connectors) ? connectors : [],
+          policyState,
+        });
+        setAuthorityCenterProjection(result.projection);
+        setAuthorityCenterError(result.error);
+      } catch (nextError) {
+        const message =
+          nextError instanceof Error ? nextError.message : String(nextError);
+        setAuthorityCenterProjection(
+          buildAuthorityCenterProjection({
+            policyState,
+            error: message,
+          }),
+        );
+        setAuthorityCenterError(message);
+      } finally {
+        setAuthorityCenterLoading(false);
+      }
+    },
+    [policyState, runtime],
+  );
+
   useEffect(() => {
     void loadEngineSnapshot();
     void loadKnowledgeCollections();
     void loadSkillSources();
     void loadAuthorityInputs(true);
+    void refreshAuthorityCenterProjection(true);
   }, [runtime]);
 
   useEffect(() => {
@@ -294,18 +346,24 @@ export function SettingsView({
         return;
       }
       void loadAuthorityInputs(false);
+      void refreshAuthorityCenterProjection(false);
     });
-    const governancePromise = listen("capability-governance-request-updated", () => {
-      if (cancelled) {
-        return;
-      }
-      void loadAuthorityInputs(false);
-    });
+    const governancePromise = listen(
+      "capability-governance-request-updated",
+      () => {
+        if (cancelled) {
+          return;
+        }
+        void loadAuthorityInputs(false);
+        void refreshAuthorityCenterProjection(false);
+      },
+    );
     const unlistenPolicy = onShieldPolicyStateUpdated(() => {
       if (cancelled) {
         return;
       }
       void loadAuthorityInputs(false);
+      void refreshAuthorityCenterProjection(false);
     });
 
     return () => {
@@ -314,7 +372,11 @@ export function SettingsView({
       safelyDisposeTauriListener(governancePromise);
       unlistenPolicy();
     };
-  }, []);
+  }, [refreshAuthorityCenterProjection]);
+
+  useEffect(() => {
+    void refreshAuthorityCenterProjection(false);
+  }, [refreshAuthorityCenterProjection]);
 
   const selectedKnowledgeCollection = useMemo(() => {
     if (!selectedKnowledgeCollectionId) {
@@ -322,8 +384,11 @@ export function SettingsView({
     }
     return (
       knowledgeCollections.find(
-        (collection) => collection.collectionId === selectedKnowledgeCollectionId,
-      ) ?? knowledgeCollections[0] ?? null
+        (collection) =>
+          collection.collectionId === selectedKnowledgeCollectionId,
+      ) ??
+      knowledgeCollections[0] ??
+      null
     );
   }, [knowledgeCollections, selectedKnowledgeCollectionId]);
 
@@ -332,7 +397,9 @@ export function SettingsView({
       return skillSources[0] ?? null;
     }
     return (
-      skillSources.find((source) => source.sourceId === selectedSkillSourceId) ??
+      skillSources.find(
+        (source) => source.sourceId === selectedSkillSourceId,
+      ) ??
       skillSources[0] ??
       null
     );
@@ -459,7 +526,8 @@ export function SettingsView({
             ? "Loading"
             : "Unavailable",
         tone:
-          engineSnapshot && engineSnapshot.managedSettings.localOverrideCount > 0
+          engineSnapshot &&
+          engineSnapshot.managedSettings.localOverrideCount > 0
             ? "warning"
             : "normal",
       },
@@ -636,6 +704,7 @@ export function SettingsView({
       );
       onPolicyChange(nextPolicy);
       await loadAuthorityInputs(false);
+      await refreshAuthorityCenterProjection(false);
       setAuthorityMessage(
         `Applied the ${profileId.replace(/_/g, " ")} authority profile from Chat settings.`,
       );
@@ -662,7 +731,8 @@ export function SettingsView({
           <p className="chat-settings-body">
             {engineLoading
               ? "Loading kernel-backed runtime settings…"
-              : engineError ?? "The kernel did not publish a Local Engine snapshot."}
+              : (engineError ??
+                "The kernel did not publish a Local Engine snapshot.")}
           </p>
         </article>
       );
@@ -708,12 +778,132 @@ export function SettingsView({
         {engineMessage ? (
           <p className="chat-settings-success">{engineMessage}</p>
         ) : null}
-        {engineError ? <p className="chat-settings-error">{engineError}</p> : null}
+        {engineError ? (
+          <p className="chat-settings-error">{engineError}</p>
+        ) : null}
       </>
     );
   };
 
-  const view = { runtime, profile, profileDraft, profileSaving, profileError, policyState, governanceRequest, onProfileDraftChange, onResetProfileDraft, onSaveProfile, selectedSection, setSelectedSection, isResetting, setIsResetting, resetConfirmOpen, setResetConfirmOpen, error, setError, lastResult, setLastResult, engineSnapshot, setEngineSnapshot, engineDraft, setEngineDraft, engineLoading, setEngineLoading, engineSaving, setEngineSaving, engineMessage, setEngineMessage, engineError, setEngineError, knowledgeCollections, setKnowledgeCollections, knowledgeLoading, setKnowledgeLoading, knowledgeBusy, setKnowledgeBusy, knowledgeError, setKnowledgeError, knowledgeMessage, setKnowledgeMessage, knowledgeCollectionName, setKnowledgeCollectionName, knowledgeCollectionDescription, setKnowledgeCollectionDescription, selectedKnowledgeCollectionId, setSelectedKnowledgeCollectionId, knowledgeEntryTitle, setKnowledgeEntryTitle, knowledgeEntryContent, setKnowledgeEntryContent, knowledgeImportPath, setKnowledgeImportPath, knowledgeSourceUri, setKnowledgeSourceUri, knowledgeSourceInterval, setKnowledgeSourceInterval, knowledgeSearchQuery, setKnowledgeSearchQuery, knowledgeSearchResults, setKnowledgeSearchResults, knowledgeSearchLoading, setKnowledgeSearchLoading, knowledgeEntryLoading, setKnowledgeEntryLoading, selectedKnowledgeEntryContent, setSelectedKnowledgeEntryContent, skillSources, setSkillSources, skillSourcesLoading, setSkillSourcesLoading, skillSourcesBusy, setSkillSourcesBusy, skillSourcesError, setSkillSourcesError, skillSourcesMessage, setSkillSourcesMessage, skillSourceLabel, setSkillSourceLabel, skillSourceUri, setSkillSourceUri, selectedSkillSourceId, setSelectedSkillSourceId, authorityHookSnapshot, authorityRememberedApprovals, authorityStatus, authorityError, authorityApplyingProfileId, authorityMessage, authorityCurrentProfileId, authorityActiveOverrideCount, handleApplyAuthorityProfile, onOpenPolicySurface, onOpenConnections, profileDirty, controlPlane, engineDirty, loadEngineSnapshot, loadKnowledgeCollections, loadSkillSources, selectedKnowledgeCollection, selectedSkillSource, summary, diagnostics, runKnowledgeAction, runSkillSourceAction, updateEngineDraft, handleReset, handleSaveEngine, handleRefreshManagedSettings, handleClearManagedSettingsOverrides, renderEngineControls };
+  const view = {
+    runtime,
+    profile,
+    profileDraft,
+    profileSaving,
+    profileError,
+    policyState,
+    governanceRequest,
+    onProfileDraftChange,
+    onResetProfileDraft,
+    onSaveProfile,
+    selectedSection,
+    setSelectedSection,
+    isResetting,
+    setIsResetting,
+    resetConfirmOpen,
+    setResetConfirmOpen,
+    error,
+    setError,
+    lastResult,
+    setLastResult,
+    engineSnapshot,
+    setEngineSnapshot,
+    engineDraft,
+    setEngineDraft,
+    engineLoading,
+    setEngineLoading,
+    engineSaving,
+    setEngineSaving,
+    engineMessage,
+    setEngineMessage,
+    engineError,
+    setEngineError,
+    knowledgeCollections,
+    setKnowledgeCollections,
+    knowledgeLoading,
+    setKnowledgeLoading,
+    knowledgeBusy,
+    setKnowledgeBusy,
+    knowledgeError,
+    setKnowledgeError,
+    knowledgeMessage,
+    setKnowledgeMessage,
+    knowledgeCollectionName,
+    setKnowledgeCollectionName,
+    knowledgeCollectionDescription,
+    setKnowledgeCollectionDescription,
+    selectedKnowledgeCollectionId,
+    setSelectedKnowledgeCollectionId,
+    knowledgeEntryTitle,
+    setKnowledgeEntryTitle,
+    knowledgeEntryContent,
+    setKnowledgeEntryContent,
+    knowledgeImportPath,
+    setKnowledgeImportPath,
+    knowledgeSourceUri,
+    setKnowledgeSourceUri,
+    knowledgeSourceInterval,
+    setKnowledgeSourceInterval,
+    knowledgeSearchQuery,
+    setKnowledgeSearchQuery,
+    knowledgeSearchResults,
+    setKnowledgeSearchResults,
+    knowledgeSearchLoading,
+    setKnowledgeSearchLoading,
+    knowledgeEntryLoading,
+    setKnowledgeEntryLoading,
+    selectedKnowledgeEntryContent,
+    setSelectedKnowledgeEntryContent,
+    skillSources,
+    setSkillSources,
+    skillSourcesLoading,
+    setSkillSourcesLoading,
+    skillSourcesBusy,
+    setSkillSourcesBusy,
+    skillSourcesError,
+    setSkillSourcesError,
+    skillSourcesMessage,
+    setSkillSourcesMessage,
+    skillSourceLabel,
+    setSkillSourceLabel,
+    skillSourceUri,
+    setSkillSourceUri,
+    selectedSkillSourceId,
+    setSelectedSkillSourceId,
+    authorityHookSnapshot,
+    authorityRememberedApprovals,
+    authorityStatus,
+    authorityError,
+    authorityApplyingProfileId,
+    authorityMessage,
+    authorityCurrentProfileId,
+    authorityActiveOverrideCount,
+    authorityCenterProjection,
+    authorityCenterLoading,
+    authorityCenterError,
+    refreshAuthorityCenterProjection,
+    handleApplyAuthorityProfile,
+    onOpenPolicySurface,
+    onOpenConnections,
+    profileDirty,
+    controlPlane,
+    engineDirty,
+    loadEngineSnapshot,
+    loadKnowledgeCollections,
+    loadSkillSources,
+    selectedKnowledgeCollection,
+    selectedSkillSource,
+    summary,
+    diagnostics,
+    runKnowledgeAction,
+    runSkillSourceAction,
+    updateEngineDraft,
+    handleReset,
+    handleSaveEngine,
+    handleRefreshManagedSettings,
+    handleClearManagedSettingsOverrides,
+    renderEngineControls,
+  };
 
   return (
     <div className="chat-settings-view">

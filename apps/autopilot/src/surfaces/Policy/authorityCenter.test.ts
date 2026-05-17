@@ -232,4 +232,60 @@ test("authority center prefers wallet authority snapshots for grants and vault r
   assert.equal(projection.vaultRefs[0]?.id, "vault-authority");
 });
 
+test("authority center accepts canonical endpoint wrappers and snake case contracts", () => {
+  const projection = buildAuthorityCenterProjection({
+    policyState: createDefaultShieldPolicyState(),
+    modelSnapshot: {
+      capabilities: [
+        {
+          model_capability_ref: "model-capability:route.autopilot",
+          route_id: "route.autopilot",
+          capability: "chat",
+          policy_target: "model.route.autopilot",
+          privacy_tier: "local_private",
+          authority_scope_requirements: ["model.chat:*"],
+          credential_readiness: { status: "ready" },
+          receipt_behavior: {
+            required_receipt_types: ["model_invocation"],
+          },
+          workflow_availability: { available: true },
+          agent_availability: { available: true },
+          fallback_policy: {
+            selected_endpoint_id: "endpoint.local",
+          },
+        },
+      ],
+    },
+    toolCatalog: {
+      tools: [
+        {
+          stable_tool_id: "tool://gmail.send",
+          display_name: "Send Gmail message",
+          credential_readiness: { status: "ready" },
+          effect_class: "external_message",
+          risk_class: "external_message",
+          authority_scope_requirements: ["scope:gmail.send"],
+          receipt_behavior: {
+            required_receipt_types: ["request_preview", "provider_response"],
+          },
+        },
+      ],
+    },
+  });
+
+  assert.equal(projection.status, "ready");
+  assert.equal(projection.summary.readyCapabilities, 2);
+  assert.equal(
+    projection.capabilities[0]?.id,
+    "model-capability:route.autopilot",
+  );
+  assert.deepEqual(projection.capabilities[0]?.receiptTypes, [
+    "model_invocation",
+  ]);
+  assert.equal(projection.capabilities[1]?.id, "tool://gmail.send");
+  assert.deepEqual(projection.capabilities[1]?.requiredScopes, [
+    "scope:gmail.send",
+  ]);
+});
+
 console.log("authorityCenter.test.ts: ok");

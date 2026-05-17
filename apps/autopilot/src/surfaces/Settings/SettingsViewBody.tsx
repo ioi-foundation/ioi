@@ -1,3 +1,4 @@
+import { SettingsAuthoritySection } from "./SettingsAuthoritySection";
 import { SettingsEnvironmentSection } from "./SettingsEnvironmentSection";
 import { SettingsIdentitySection } from "./SettingsIdentitySection";
 import { SettingsKnowledgeSection } from "./SettingsKnowledgeSection";
@@ -10,11 +11,7 @@ import { SettingsStorageApiSection } from "./SettingsStorageApiSection";
 import { isEngineSection } from "./settingsViewShared";
 import type { SettingsViewBodyView } from "./settingsViewTypes";
 
-export function SettingsViewBody({
-  view,
-}: {
-  view: SettingsViewBodyView;
-}) {
+export function SettingsViewBody({ view }: { view: SettingsViewBodyView }) {
   const { selectedSection, setSelectedSection, renderEngineControls } = view;
 
   return (
@@ -38,12 +35,26 @@ export function SettingsViewBody({
         <button
           type="button"
           className={`chat-settings-target ${
+            selectedSection === "authority" ? "active" : ""
+          }`}
+          onClick={() => setSelectedSection("authority")}
+        >
+          <strong>Authority</strong>
+          <span>
+            Capabilities, grants, vault refs, and fail-closed readiness.
+          </span>
+        </button>
+        <button
+          type="button"
+          className={`chat-settings-target ${
             selectedSection === "knowledge" ? "active" : ""
           }`}
           onClick={() => setSelectedSection("knowledge")}
         >
           <strong>Knowledge</strong>
-          <span>Collections, entry ingestion, search, and retrieval-ready sources.</span>
+          <span>
+            Collections, entry ingestion, search, and retrieval-ready sources.
+          </span>
         </button>
         <button
           type="button"
@@ -53,7 +64,9 @@ export function SettingsViewBody({
           onClick={() => setSelectedSection("skill_sources")}
         >
           <strong>Skill sources</strong>
-          <span>Repo or local skill roots, sync status, and provenance controls.</span>
+          <span>
+            Repo or local skill roots, sync status, and provenance controls.
+          </span>
         </button>
         <button
           type="button"
@@ -63,7 +76,9 @@ export function SettingsViewBody({
           onClick={() => setSelectedSection("managed_settings")}
         >
           <strong>Managed settings</strong>
-          <span>Signed sync channels, effective policy, and local override posture.</span>
+          <span>
+            Signed sync channels, effective policy, and local override posture.
+          </span>
         </button>
         <button
           type="button"
@@ -73,7 +88,9 @@ export function SettingsViewBody({
           onClick={() => setSelectedSection("runtime")}
         >
           <strong>Runtime</strong>
-          <span>Execution posture, watchdogs, memory, launcher, and throughput.</span>
+          <span>
+            Execution posture, watchdogs, memory, launcher, and throughput.
+          </span>
         </button>
         <button
           type="button"
@@ -93,7 +110,9 @@ export function SettingsViewBody({
           onClick={() => setSelectedSection("sources")}
         >
           <strong>Sources</strong>
-          <span>Model and backend galleries plus migration import sources.</span>
+          <span>
+            Model and backend galleries plus migration import sources.
+          </span>
         </button>
         <button
           type="button"
@@ -103,7 +122,9 @@ export function SettingsViewBody({
           onClick={() => setSelectedSection("environment")}
         >
           <strong>Environment</strong>
-          <span>Environment bindings and runtime-specific external inputs.</span>
+          <span>
+            Environment bindings and runtime-specific external inputs.
+          </span>
         </button>
         <button
           type="button"
@@ -123,7 +144,9 @@ export function SettingsViewBody({
           onClick={() => setSelectedSection("repair_reset")}
         >
           <strong>Repair / reset</strong>
-          <span>Clear local state when builds or policies are carrying context.</span>
+          <span>
+            Clear local state when builds or policies are carrying context.
+          </span>
         </button>
         <button
           type="button"
@@ -133,7 +156,9 @@ export function SettingsViewBody({
           onClick={() => setSelectedSection("diagnostics")}
         >
           <strong>Diagnostics</strong>
-          <span>Current shell state, runtime posture, and recent local resets.</span>
+          <span>
+            Current shell state, runtime posture, and recent local resets.
+          </span>
         </button>
       </aside>
 
@@ -142,6 +167,9 @@ export function SettingsViewBody({
 
         {selectedSection === "identity" ? (
           <SettingsIdentitySection view={view} />
+        ) : null}
+        {selectedSection === "authority" ? (
+          <SettingsAuthoritySection view={view} />
         ) : null}
         {selectedSection === "managed_settings" ? (
           <SettingsManagedSection view={view} />

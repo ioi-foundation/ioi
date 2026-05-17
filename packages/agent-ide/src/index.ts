@@ -657,6 +657,15 @@ export {
   createBlockedWorkflowCapabilityGrantRequestResult,
   workflowCapabilityGrantRequestFromRepairAction,
 } from "./runtime/workflow-capability-grant-request";
+export {
+  MODEL_AUTHORITY_BINDING_ENDPOINT,
+  MODEL_CAPABILITY_BINDING_ENDPOINT,
+} from "./runtime/workflow-model-capability-binding";
+export {
+  CONNECTOR_AUTHORITY_BINDING_ENDPOINT,
+  TOOL_AUTHORITY_BINDING_ENDPOINT,
+  TOOL_CAPABILITY_BINDING_ENDPOINT,
+} from "./runtime/workflow-tool-connector-capability-binding";
 export type {
   WorkflowRuntimeCodingToolBudgetRecoveryEvidenceBinding,
   WorkflowRuntimeCodingToolBudgetRecoveryNodeBindingResult,
@@ -724,9 +733,7 @@ export type {
   RuntimeUsageMeterScope,
   RuntimeUsageMeterWorkflowNodeOptions,
 } from "./runtime/workflow-runtime-usage-control-nodes";
-export type {
-  UseAssistantWorkbenchStateOptions,
-} from "./runtime/use-assistant-workbench-state";
+export type { UseAssistantWorkbenchStateOptions } from "./runtime/use-assistant-workbench-state";
 export type {
   AssistantWorkbenchBusyAction,
   UseAssistantWorkbenchActionsOptions,

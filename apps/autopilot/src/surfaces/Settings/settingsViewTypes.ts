@@ -15,6 +15,7 @@ import type {
   ShieldPolicyState,
   ShieldRememberedApprovalSnapshot,
 } from "../Policy/policyCenter";
+import type { AuthorityCenterProjection as RuntimeAuthorityCenterProjection } from "../Policy/authorityCenter";
 import type { SettingsSection } from "./settingsViewShared";
 
 export type SettingsViewBodyView = {
@@ -93,6 +94,10 @@ export type SettingsViewBodyView = {
   authorityMessage: string | null;
   authorityCurrentProfileId: SessionPermissionProfileId | null;
   authorityActiveOverrideCount: number;
+  authorityCenterProjection: RuntimeAuthorityCenterProjection;
+  authorityCenterLoading: boolean;
+  authorityCenterError: string | null;
+  refreshAuthorityCenterProjection: (showLoading?: boolean) => Promise<void>;
   handleApplyAuthorityProfile: (
     profileId: SessionPermissionProfileId,
   ) => Promise<void>;
