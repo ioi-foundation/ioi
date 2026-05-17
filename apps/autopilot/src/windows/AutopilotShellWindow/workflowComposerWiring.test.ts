@@ -651,6 +651,30 @@ assert.match(
 );
 
 assert.match(
+  composer,
+  /gridTemplateColumns: leftDrawerOpen[\s\S]*`280px minmax\(0, 1fr\)/,
+  "Workflow left drawer should reserve enough width for compact palette controls",
+);
+
+assert.match(
+  workflowComposerCss,
+  /\.workflow-node-palette-tabs\s*\{[\s\S]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);[\s\S]*border-bottom: 1px solid var\(--border-subtle\);/,
+  "Workflow palette modes should fit as a compact three-part control instead of clipping in the left drawer",
+);
+
+assert.match(
+  workflowComposerCss,
+  /\.workflow-node-group-filter\s*\{[\s\S]*flex-wrap: wrap;[\s\S]*max-height: 66px;[\s\S]*overflow-y: auto;/,
+  "Workflow group filters should wrap inside the drawer instead of presenting as a clipped horizontal strip",
+);
+
+assert.match(
+  workflowComposerCss,
+  /\.workflow-macro-library\s*\{[\s\S]*border-top: 1px solid var\(--border-subtle\);[\s\S]*background: transparent;[\s\S]*padding: 10px 0;/,
+  "Workflow composition helpers should read as command rows, not as a competing tinted panel",
+);
+
+assert.match(
   workflowComposerUi,
   /handleAddNodeFromLibrary[\s\S]*handleConnectSelectedNodes[\s\S]*Blank canvas/,
   "GUI dogfood should support scratch workflow authoring without forcing templates",
