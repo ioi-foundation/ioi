@@ -47,6 +47,10 @@ test("settings authority section is wired to the canonical authority projection"
   assert.match(settingsAuthoritySection, /data-grant-status/);
   assert.match(settingsAuthoritySection, /data-policy-status/);
   assert.match(settingsAuthoritySection, /data-receipt-status/);
+  assert.match(settingsAuthoritySection, /data-repair-receipt-count/);
+  assert.match(settingsAuthoritySection, /chat-settings-repair-trail/);
+  assert.match(settingsAuthoritySection, /lastRepairSummary/);
+  assert.match(settingsAuthoritySection, /lastRepairReceiptRefs/);
   assert.match(settingsAuthoritySection, /Runtime refs/);
   assert.match(settingsAuthoritySection, /settings-authority-repair-actions/);
   assert.match(settingsAuthoritySection, /data-repair-action-kind/);
@@ -61,11 +65,17 @@ test("authority center exposes canonical grant policy receipt posture", () => {
   assert.match(authorityCenterModel, /grantStatus/);
   assert.match(authorityCenterModel, /policyStatus/);
   assert.match(authorityCenterModel, /receiptStatus/);
+  assert.match(authorityCenterModel, /lastRepairReceiptRefs/);
+  assert.match(authorityCenterModel, /safeReceiptRefs/);
   assert.match(authorityCenterModel, /capabilityRuntimeReady/);
   assert.match(authorityCenterPanel, /data-capability-ref/);
   assert.match(authorityCenterPanel, /data-grant-status/);
   assert.match(authorityCenterPanel, /data-policy-status/);
   assert.match(authorityCenterPanel, /data-receipt-status/);
+  assert.match(authorityCenterPanel, /data-repair-receipt-count/);
+  assert.match(authorityCenterPanel, /shield-authority-repair-trail/);
+  assert.match(authorityCenterPanel, /lastRepairSummary/);
+  assert.match(authorityCenterPanel, /lastRepairReceiptRefs/);
   assert.match(authorityCenterPanel, /Runtime refs/);
   assert.match(authorityCenterPanel, /Run-ready/);
 });

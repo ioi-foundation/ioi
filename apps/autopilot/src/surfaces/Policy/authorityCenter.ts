@@ -61,6 +61,8 @@ export interface AuthorityCenterCapabilityRow {
   policyStatus: AuthorityCenterPolicyStatus;
   receiptStatus: AuthorityCenterReceiptStatus;
   readinessSummary: string;
+  lastRepairReceiptRefs: string[];
+  lastRepairSummary: string;
   repairActions: AuthorityCenterRepairAction[];
 }
 
@@ -322,6 +324,7 @@ function modelCapabilityRow(item: unknown): AuthorityCenterCapabilityRow {
     receiptTypes: stringArray(
       field(receiptBehavior, "requiredReceiptTypes", "required_receipt_types"),
     ),
+    lastRepairReceiptRefs: receiptRefsFromCapabilityRecord(record),
   });
 }
 
@@ -371,6 +374,7 @@ function toolCapabilityRow(item: unknown): AuthorityCenterCapabilityRow {
     receiptTypes: stringArray(
       field(receiptBehavior, "requiredReceiptTypes", "required_receipt_types"),
     ),
+    lastRepairReceiptRefs: receiptRefsFromCapabilityRecord(record),
   });
 }
 
@@ -390,6 +394,7 @@ function connectorCapabilityRow(
     policyTarget: `connector.${connector.id}`,
     requiredScopes: connector.scopes,
     receiptTypes: ["connector_policy_decision"],
+    lastRepairReceiptRefs: [],
   });
 }
 
@@ -401,10 +406,15 @@ function withRepairActions(
     | "policyStatus"
     | "receiptStatus"
     | "readinessSummary"
+    | "lastRepairSummary"
   >,
 ): AuthorityCenterCapabilityRow {
+  const lastRepairReceiptRefs = safeReceiptRefs(
+    capability.lastRepairReceiptRefs,
+  );
   const base = {
     ...capability,
+    lastRepairReceiptRefs,
     grantStatus: "missing" as const,
     policyStatus: capability.policyTarget
       ? ("governed" as const)
@@ -414,6 +424,7 @@ function withRepairActions(
         ? ("required" as const)
         : ("missing" as const),
     readinessSummary: "Awaiting authority posture projection.",
+    lastRepairSummary: repairReceiptSummary(lastRepairReceiptRefs),
   };
   return {
     ...base,
@@ -527,12 +538,18 @@ function withAuthorityPosture(
     `policy ${policyStatus}`,
     `receipts ${receiptStatus}`,
   ].join(" · ");
+  const lastRepairReceiptRefs = safeReceiptRefs([
+    ...capability.lastRepairReceiptRefs,
+    ...grantRepairReceiptRefsForCapability(capability, grants),
+  ]);
   const next = {
     ...capability,
     grantStatus,
     policyStatus,
     receiptStatus,
     readinessSummary,
+    lastRepairReceiptRefs,
+    lastRepairSummary: repairReceiptSummary(lastRepairReceiptRefs),
   };
   return {
     ...next,
@@ -600,16 +617,28 @@ function grantRow(item: unknown): AuthorityCenterGrantRow {
   const record = recordValue(item);
   const revoked = Boolean(record?.revokedAt);
   const state = revoked ? "revoked" : "active";
-  const receiptRef = stringValue(record?.receiptId, "none");
-  const allowedScopes = stringArray(record?.allowed);
-  const deniedScopes = stringArray(record?.denied);
-  const receiptRefs = [
+  const receiptRef =
+    safeReceiptRefs([field(record, "receiptId", "receipt_id")])[0] ?? "none";
+  const allowedScopes = stringArray(
+    field(record, "allowed", "allowedScopes", "allowed_scopes"),
+  );
+  const deniedScopes = stringArray(
+    field(record, "denied", "deniedScopes", "denied_scopes"),
+  );
+  const receiptRefs = safeReceiptRefs([
     receiptRef,
-    ...stringArray(record?.auditReceiptIds),
-  ].filter((receiptId) => receiptId !== "none");
+    ...stringArray(field(record, "auditReceiptIds", "audit_receipt_ids")),
+    ...stringArray(field(record, "repairReceiptRefs", "repair_receipt_refs")),
+    ...stringArray(
+      field(record, "lastRepairReceiptRefs", "last_repair_receipt_refs"),
+    ),
+  ]);
   return {
     id: stringValue(record?.id, "grant.unknown"),
-    grantId: stringValue(record?.grantId, "wallet.grant.unknown"),
+    grantId: stringValue(
+      field(record, "grantId", "grant_id"),
+      "wallet.grant.unknown",
+    ),
     state,
     tone: revoked ? "blocked" : "ready",
     allowedCount: allowedScopes.length,
@@ -619,10 +648,73 @@ function grantRow(item: unknown): AuthorityCenterGrantRow {
     receiptRefs,
     allowedScopes,
     deniedScopes,
-    lastScope: stringValue(record?.lastUsedScope, "none"),
-    expiresAt: stringValue(record?.expiresAt, "unknown"),
+    lastScope: stringValue(
+      field(record, "lastUsedScope", "last_used_scope"),
+      "none",
+    ),
+    expiresAt: stringValue(field(record, "expiresAt", "expires_at"), "unknown"),
     canRevoke: !revoked,
   };
+}
+
+function grantRepairReceiptRefsForCapability(
+  capability: AuthorityCenterCapabilityRow,
+  grants: AuthorityCenterGrantRow[],
+): string[] {
+  if (capability.requiredScopes.length === 0) return [];
+  return grants
+    .filter((grant) => grant.state === "active")
+    .filter((grant) =>
+      capability.requiredScopes.some((scope) =>
+        grant.allowedScopes.some((allowedScope) =>
+          authorityScopeMatches(scope, allowedScope),
+        ),
+      ),
+    )
+    .flatMap((grant) => grant.receiptRefs);
+}
+
+function repairReceiptSummary(receiptRefs: string[]): string {
+  if (receiptRefs.length === 0) return "No repair receipt yet";
+  return `${receiptRefs.length} repair receipt${
+    receiptRefs.length === 1 ? "" : "s"
+  } projected`;
+}
+
+function receiptRefsFromCapabilityRecord(
+  record: Record<string, any> | null,
+): string[] {
+  const repairMetadata = recordValue(
+    field(
+      record,
+      "repairMetadata",
+      "repair_metadata",
+      "repair",
+      "workflowPreflight",
+      "workflow_preflight",
+      "preflight",
+      "preflightReceipt",
+      "preflight_receipt",
+    ),
+  );
+  return safeReceiptRefs([
+    ...stringArray(field(record, "receiptRefs", "receipt_refs")),
+    ...stringArray(field(record, "auditReceiptIds", "audit_receipt_ids")),
+    ...stringArray(field(record, "repairReceiptRefs", "repair_receipt_refs")),
+    ...stringArray(
+      field(record, "lastRepairReceiptRefs", "last_repair_receipt_refs"),
+    ),
+    ...stringArray(
+      field(record, "preflightReceiptRefs", "preflight_receipt_refs"),
+    ),
+    ...stringArray(field(repairMetadata, "receiptRefs", "receipt_refs")),
+    ...stringArray(
+      field(repairMetadata, "auditReceiptIds", "audit_receipt_ids"),
+    ),
+    ...stringArray(
+      field(repairMetadata, "repairReceiptRefs", "repair_receipt_refs"),
+    ),
+  ]);
 }
 
 function vaultRow(item: unknown): AuthorityCenterVaultRow {
@@ -673,6 +765,25 @@ function stringArray(value: unknown): string[] {
     : [];
 }
 
+function safeReceiptRefs(value: unknown[]): string[] {
+  return Array.from(
+    new Set(
+      value
+        .filter(
+          (item): item is string =>
+            typeof item === "string" && item.trim().length > 0,
+        )
+        .map((item) => item.trim())
+        .filter(
+          (item) =>
+            item !== "none" &&
+            item !== "null" &&
+            !rawSecretMaterialPattern.test(item),
+        ),
+    ),
+  );
+}
+
 function arrayOf(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
@@ -704,10 +815,11 @@ function arrayPayload(value: unknown, keys: readonly string[]): unknown[] {
 
 function containsRawSecretMaterial(value: unknown): boolean {
   const serialized = JSON.stringify(value);
-  return /\b(sk-[A-Za-z0-9_-]{8,}|xox[baprs]-[A-Za-z0-9-]{8,}|gh[pousr]_[A-Za-z0-9_]{12,})\b/.test(
-    serialized,
-  );
+  return rawSecretMaterialPattern.test(serialized);
 }
+
+const rawSecretMaterialPattern =
+  /\b(sk-[A-Za-z0-9_-]{8,}|xox[baprs]-[A-Za-z0-9-]{8,}|gh[pousr]_[A-Za-z0-9_]{12,})\b/;
 
 function fallbackScopesForCapability(
   capability: AuthorityCenterCapabilityRow,
