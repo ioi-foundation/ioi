@@ -766,6 +766,120 @@ test("local daemon doctor reports redacted runtime readiness for CLI and workflo
   }
 });
 
+test("local daemon exposes compact authority evidence summaries without trace payload leakage", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-authority-evidence-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-authority-evidence-state-"));
+  let daemon;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        goal: "Record a blocked workflow capability preflight.",
+        options: { local: { cwd }, model: { id: "auto", routeId: "route.local-first" } },
+      }),
+    });
+    daemon.store.appendRuntimeEvent({
+      event_stream_id: thread.event_stream_id,
+      thread_id: thread.thread_id,
+      turn_id: "",
+      item_id: `${thread.thread_id}:item:authority-evidence-preflight`,
+      idempotency_key: `${thread.thread_id}:authority-evidence-preflight`,
+      source: "daemon_bridge",
+      source_event_kind: "WorkflowRunCapabilityPreflightBlocked",
+      event_kind: "policy.blocked",
+      status: "blocked",
+      actor: "runtime",
+      workspace_root: cwd,
+      workflow_graph_id: "workflow.authority-evidence-proof",
+      workflow_node_id: "runtime.workflow-capability-preflight",
+      component_kind: "capability_preflight",
+      payload_schema_version: "ioi.workflow.capability-preflight.v1",
+      payload: {
+        eventKind: "WorkflowRunCapabilityPreflightBlocked",
+        reason: "workflow_capability_preflight_blocked",
+        runId: "workflow-run-policy-authority-proof",
+        summary: "Workflow run blocked by capability readiness preflight.",
+        rows: [
+          {
+            nodeId: "model-node",
+            nodeType: "agent_step",
+            bindingKind: "model_capability",
+            capabilityRef: "model-capability:route.local-first",
+            routeId: "route.local-first",
+            authorityScopeRequirements: ["model.chat:*"],
+            receiptRefs: ["receipt_model_capability_row"],
+            policyDecisionRefs: ["policy_model_capability_row"],
+          },
+          {
+            nodeId: "tool-node",
+            nodeType: "tool_pack",
+            bindingKind: "tool_capability",
+            capabilityRef: "tool-capability:filesystem.write",
+            authorityScopeRequirements: ["filesystem.write"],
+            receiptRefs: ["receipt_tool_capability_row"],
+          },
+        ],
+        rawPayload: "sk-authorityevidenceshouldnotescape123456",
+        runtimeThreadEvents: [
+          {
+            receiptRefs: ["receipt_trace_surface_must_not_escape"],
+            payload: "ghp_tracepayloadshouldnotescape123456",
+          },
+        ],
+      },
+      receipt_refs: ["receipt_workflow_run_capability_preflight_authority_proof"],
+      policy_decision_refs: ["policy_workflow_run_capability_preflight_blocked_authority_proof"],
+      artifact_refs: [],
+      rollback_refs: [],
+    });
+
+    const evidence = await fetchJson(`${daemon.endpoint}/api/v1/authority-evidence`);
+    assert.equal(evidence.schemaVersion, "ioi.authority-evidence-summary-list.v1");
+    assert.equal(evidence.rowCount, 2);
+    assert.deepEqual(
+      evidence.items.map((row) => row.capabilityRef).sort(),
+      [
+        "model-capability:route.local-first",
+        "tool-capability:filesystem.write",
+      ],
+    );
+    const modelRow = evidence.items.find(
+      (row) => row.capabilityRef === "model-capability:route.local-first",
+    );
+    assert.equal(modelRow.routeId, "route.local-first");
+    assert.deepEqual(modelRow.authorityScopeRequirements, ["model.chat:*"]);
+    assert.ok(
+      modelRow.receiptRefs.includes(
+        "receipt_workflow_run_capability_preflight_authority_proof",
+      ),
+    );
+    assert.ok(modelRow.receiptRefs.includes("receipt_model_capability_row"));
+    assert.ok(
+      modelRow.policyDecisionRefs.includes(
+        "policy_workflow_run_capability_preflight_blocked_authority_proof",
+      ),
+    );
+    assert.ok(modelRow.policyDecisionRefs.includes("policy_model_capability_row"));
+    assert.equal(JSON.stringify(evidence).includes("sk-authorityevidence"), false);
+    assert.equal(JSON.stringify(evidence).includes("tracepayloadshouldnotescape"), false);
+    assert.equal(
+      JSON.stringify(evidence).includes("receipt_trace_surface_must_not_escape"),
+      false,
+    );
+
+    const filtered = await fetchJson(
+      `${daemon.endpoint}/api/v1/authority-evidence?capability_ref=${encodeURIComponent(
+        "tool-capability:filesystem.write",
+      )}`,
+    );
+    assert.equal(filtered.rowCount, 1);
+    assert.equal(filtered.items[0].capabilityRef, "tool-capability:filesystem.write");
+  } finally {
+    if (daemon) await daemon.close();
+  }
+});
+
 test("local daemon emits read-only repository context for Git workspaces", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-repository-context-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-repository-context-state-"));
