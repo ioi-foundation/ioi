@@ -4,6 +4,7 @@ import type {
   AuthorityCenterProjection,
   AuthorityCenterRepairAction,
 } from "./authorityCenter";
+import { authorityCenterPostureTone } from "./authorityCenter";
 
 export interface AuthorityCenterReceiptPreview {
   id: string;
@@ -135,6 +136,11 @@ export function AuthorityCenterPanel({
                 <div
                   key={`${capability.kind}-${capability.id}`}
                   className="shield-authority-row"
+                  data-testid="shield-authority-capability-row"
+                  data-capability-ref={capability.capabilityRef}
+                  data-grant-status={capability.grantStatus}
+                  data-policy-status={capability.policyStatus}
+                  data-receipt-status={capability.receiptStatus}
                 >
                   <div>
                     <strong>{capability.label}</strong>
@@ -142,25 +148,60 @@ export function AuthorityCenterPanel({
                       {capability.kind} / {capability.detail}
                     </span>
                     <small>
-                      {capability.requiredScopes.slice(0, 2).join(", ") ||
-                        "no authority scopes projected"}
+                      {capability.readinessSummary}
                     </small>
+                    <div
+                      className="shield-authority-posture-row"
+                      aria-label={`${capability.label} authority posture`}
+                    >
+                      <span className={`shield-status status-${capability.tone}`}>
+                        capability {capability.readinessStatus}
+                      </span>
+                      <span
+                        className={`shield-status status-${authorityCenterPostureTone(
+                          capability.grantStatus,
+                        )}`}
+                      >
+                        grant {capability.grantStatus}
+                      </span>
+                      <span
+                        className={`shield-status status-${authorityCenterPostureTone(
+                          capability.policyStatus,
+                        )}`}
+                      >
+                        policy {capability.policyStatus}
+                      </span>
+                      <span
+                        className={`shield-status status-${authorityCenterPostureTone(
+                          capability.receiptStatus,
+                        )}`}
+                      >
+                        receipts {capability.receiptStatus}
+                      </span>
+                    </div>
+                    <details className="shield-authority-row-details">
+                      <summary>Runtime refs</summary>
+                      <small>capability {capability.capabilityRef}</small>
+                      <small>
+                        scopes{" "}
+                        {capability.requiredScopes.join(", ") ||
+                          "no authority scopes projected"}
+                      </small>
+                      <small>
+                        receipt types{" "}
+                        {capability.receiptTypes.join(", ") ||
+                          "no receipt types projected"}
+                      </small>
+                    </details>
                   </div>
                   <span className={`shield-status status-${capability.tone}`}>
                     {capability.status}
                   </span>
                   <div className="shield-authority-row-actions">
                     {capability.repairActions.length === 0 ? (
-                      <button
-                        type="button"
-                        className="shield-button shield-button-secondary shield-authority-row-action"
-                        onClick={() => onRequestGrant(capability)}
-                        disabled={Boolean(busyAction)}
-                      >
-                        {busyAction === `grant:${capability.id}`
-                          ? "Requesting"
-                          : "Request grant"}
-                      </button>
+                      <span className="shield-authority-row-ready">
+                        Run-ready
+                      </span>
                     ) : (
                       capability.repairActions.map((action) => (
                         <button

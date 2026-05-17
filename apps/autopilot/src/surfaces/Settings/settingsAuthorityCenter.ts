@@ -42,10 +42,17 @@ export function summarizeSettingsAuthorityCenter(
   const failClosedReasons = [
     ...projection.blockers,
     ...projection.capabilities
-      .filter((capability) => capability.tone === "blocked")
+      .filter(
+        (capability) =>
+          capability.tone === "blocked" ||
+          capability.grantStatus === "missing" ||
+          capability.grantStatus === "partial" ||
+          capability.policyStatus === "unbound" ||
+          capability.receiptStatus === "missing",
+      )
       .map(
         (capability) =>
-          `${capability.label}: ${capability.status || "blocked"}`,
+          `${capability.label}: ${capability.readinessSummary}`,
       ),
   ];
 

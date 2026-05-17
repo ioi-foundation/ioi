@@ -18,6 +18,14 @@ const authorityRuntime = fs.readFileSync(
   new URL("../Policy/authorityCenterRuntime.ts", import.meta.url),
   "utf8",
 );
+const authorityCenterPanel = fs.readFileSync(
+  new URL("../Policy/AuthorityCenterPanel.tsx", import.meta.url),
+  "utf8",
+);
+const authorityCenterModel = fs.readFileSync(
+  new URL("../Policy/authorityCenter.ts", import.meta.url),
+  "utf8",
+);
 const environmentSection = fs.readFileSync(
   new URL("./SettingsEnvironmentSection.tsx", import.meta.url),
   "utf8",
@@ -35,6 +43,11 @@ test("settings authority section is wired to the canonical authority projection"
   assert.match(settingsAuthoritySection, /settings-authority-center/);
   assert.match(settingsAuthoritySection, /settings-authority-fail-closed/);
   assert.match(settingsAuthoritySection, /settings-authority-capability-row/);
+  assert.match(settingsAuthoritySection, /data-capability-ref/);
+  assert.match(settingsAuthoritySection, /data-grant-status/);
+  assert.match(settingsAuthoritySection, /data-policy-status/);
+  assert.match(settingsAuthoritySection, /data-receipt-status/);
+  assert.match(settingsAuthoritySection, /Runtime refs/);
   assert.match(settingsAuthoritySection, /settings-authority-repair-actions/);
   assert.match(settingsAuthoritySection, /data-repair-action-kind/);
   assert.match(
@@ -42,6 +55,19 @@ test("settings authority section is wired to the canonical authority projection"
     /openWorkflowPreflight[\s\S]*panel: "readiness"[\s\S]*capabilityRef: action\.targetRef[\s\S]*source: "settings-authority"/,
   );
   assert.match(settingsAuthoritySection, /openModelRoute/);
+});
+
+test("authority center exposes canonical grant policy receipt posture", () => {
+  assert.match(authorityCenterModel, /grantStatus/);
+  assert.match(authorityCenterModel, /policyStatus/);
+  assert.match(authorityCenterModel, /receiptStatus/);
+  assert.match(authorityCenterModel, /capabilityRuntimeReady/);
+  assert.match(authorityCenterPanel, /data-capability-ref/);
+  assert.match(authorityCenterPanel, /data-grant-status/);
+  assert.match(authorityCenterPanel, /data-policy-status/);
+  assert.match(authorityCenterPanel, /data-receipt-status/);
+  assert.match(authorityCenterPanel, /Runtime refs/);
+  assert.match(authorityCenterPanel, /Run-ready/);
 });
 
 test("settings authority runtime uses workflow capability endpoints with compatibility fallback", () => {

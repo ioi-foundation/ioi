@@ -1,6 +1,9 @@
 import { summarizeSettingsAuthorityCenter } from "./settingsAuthorityCenter";
 import type { SettingsViewBodyView } from "./settingsViewTypes";
-import type { AuthorityCenterRepairAction } from "../Policy/authorityCenter";
+import {
+  authorityCenterPostureTone,
+  type AuthorityCenterRepairAction,
+} from "../Policy/authorityCenter";
 
 function authorityPillClass(tone: string): string {
   if (tone === "blocked")
@@ -159,24 +162,54 @@ export function SettingsAuthoritySection({
                 key={`${capability.kind}-${capability.id}`}
                 className="chat-settings-subcard"
                 data-testid="settings-authority-capability-row"
+                data-capability-ref={capability.capabilityRef}
+                data-grant-status={capability.grantStatus}
+                data-policy-status={capability.policyStatus}
+                data-receipt-status={capability.receiptStatus}
               >
                 <div className="chat-settings-subcard-head">
                   <strong>{capability.label}</strong>
-                  <span>{capability.status}</span>
+                  <span>{capability.readinessStatus}</span>
                 </div>
                 <div className="chat-settings-chip-row">
                   <span className="chat-settings-chip">{capability.kind}</span>
-                  <span className="chat-settings-chip">
-                    {capability.receiptTypes.length} receipt type
-                    {capability.receiptTypes.length === 1 ? "" : "s"}
+                  <span
+                    className={`chat-settings-chip chat-settings-chip-${authorityCenterPostureTone(
+                      capability.grantStatus,
+                    )}`}
+                  >
+                    grant {capability.grantStatus}
                   </span>
-                  <span className="chat-settings-chip">
-                    {capability.requiredScopes.length} scope
-                    {capability.requiredScopes.length === 1 ? "" : "s"}
+                  <span
+                    className={`chat-settings-chip chat-settings-chip-${authorityCenterPostureTone(
+                      capability.policyStatus,
+                    )}`}
+                  >
+                    policy {capability.policyStatus}
+                  </span>
+                  <span
+                    className={`chat-settings-chip chat-settings-chip-${authorityCenterPostureTone(
+                      capability.receiptStatus,
+                    )}`}
+                  >
+                    receipts {capability.receiptStatus}
                   </span>
                 </div>
                 <p>{capability.detail}</p>
-                <small>{capability.policyTarget ?? capability.id}</small>
+                <small>{capability.readinessSummary}</small>
+                <details className="chat-settings-advanced">
+                  <summary>Runtime refs</summary>
+                  <small>{capability.capabilityRef}</small>
+                  <small>{capability.policyTarget ?? capability.id}</small>
+                  <small>
+                    {capability.requiredScopes.join(", ") ||
+                      "no authority scopes projected"}
+                  </small>
+                  <small>
+                    {capability.receiptTypes.join(", ") ||
+                      "no receipt types projected"}
+                  </small>
+                </details>
                 {capability.repairActions.length > 0 ? (
                   <div
                     className="chat-settings-actions chat-settings-actions--compact"

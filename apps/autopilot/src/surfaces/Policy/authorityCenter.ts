@@ -2,11 +2,38 @@ import type { ConnectorSummary } from "@ioi/agent-ide";
 import type { ShieldPolicyState } from "./policyCenter";
 
 export type AuthorityCenterTone = "ready" | "warning" | "blocked" | "idle";
+export type AuthorityCenterGrantStatus =
+  | "active"
+  | "partial"
+  | "missing"
+  | "not_required";
+export type AuthorityCenterPolicyStatus =
+  | "governed"
+  | "custom"
+  | "inherited"
+  | "unbound";
+export type AuthorityCenterReceiptStatus = "required" | "missing";
 export type AuthorityCenterRepairActionKind =
   | "requestGrant"
   | "openConnectorCredential"
   | "openModelRoute"
   | "openWorkflowPreflight";
+
+export function authorityCenterPostureTone(value: string): AuthorityCenterTone {
+  if (
+    value === "active" ||
+    value === "required" ||
+    value === "governed" ||
+    value === "custom" ||
+    value === "inherited" ||
+    value === "not_required"
+  ) {
+    return "ready";
+  }
+  if (value === "missing" || value === "unbound") return "blocked";
+  if (value === "partial") return "warning";
+  return "idle";
+}
 
 export interface AuthorityCenterRepairAction {
   id: string;
@@ -20,14 +47,20 @@ export interface AuthorityCenterRepairAction {
 
 export interface AuthorityCenterCapabilityRow {
   id: string;
+  capabilityRef: string;
   label: string;
   kind: "model" | "tool" | "connector";
   status: string;
+  readinessStatus: string;
   tone: AuthorityCenterTone;
   detail: string;
   policyTarget?: string | null;
   requiredScopes: string[];
   receiptTypes: string[];
+  grantStatus: AuthorityCenterGrantStatus;
+  policyStatus: AuthorityCenterPolicyStatus;
+  receiptStatus: AuthorityCenterReceiptStatus;
+  readinessSummary: string;
   repairActions: AuthorityCenterRepairAction[];
 }
 
@@ -41,6 +74,8 @@ export interface AuthorityCenterGrantRow {
   vaultRefCount: number;
   receiptRef: string;
   receiptRefs: string[];
+  allowedScopes: string[];
+  deniedScopes: string[];
   lastScope: string;
   expiresAt: string;
   canRevoke: boolean;
@@ -137,7 +172,7 @@ export function buildAuthorityCenterProjection({
     "items",
   ]).map(toolCapabilityRow);
   const connectorCapabilities = connectors.map(connectorCapabilityRow);
-  const capabilities = [
+  const baseCapabilities = [
     ...modelCapabilities,
     ...toolCapabilities,
     ...connectorCapabilities,
@@ -147,11 +182,14 @@ export function buildAuthorityCenterProjection({
   const grants = arrayOf(authorityRecord?.grants ?? modelRecord?.tokens).map(
     grantRow,
   );
+  const capabilities = baseCapabilities.map((capability) =>
+    withAuthorityPosture(capability, grants, policyState),
+  );
   const vaultRefs = arrayOf(
     authorityRecord?.vaultRefs ?? modelRecord?.vaultRefs,
   ).map(vaultRow);
   const blockedCapabilities = capabilities.filter(
-    (capability) => capability.tone === "blocked",
+    (capability) => !capabilityRuntimeReady(capability),
   ).length;
   const rawSecretLeakSuspected = containsRawSecretMaterial({
     capabilities,
@@ -161,15 +199,13 @@ export function buildAuthorityCenterProjection({
   const blockers = [
     ...(error ? [error] : []),
     ...(blockedCapabilities > 0
-      ? [`${blockedCapabilities} live capabilities are blocked.`]
+      ? [`${blockedCapabilities} live capabilities are not run-ready.`]
       : []),
     ...(rawSecretLeakSuspected
       ? ["Authority projection includes material that resembles a raw secret."]
       : []),
   ];
-  const readyCapabilities = capabilities.filter(
-    (capability) => capability.tone === "ready",
-  ).length;
+  const readyCapabilities = capabilities.filter(capabilityRuntimeReady).length;
   const activeGrants = grants.filter(
     (grant) => grant.state === "active",
   ).length;
@@ -259,19 +295,22 @@ function modelCapabilityRow(item: unknown): AuthorityCenterCapabilityRow {
     field(fallback, "selectedEndpointId", "selected_endpoint_id"),
     "no selected endpoint",
   );
+  const id = stringValue(
+    field(record, "id", "modelCapabilityRef", "model_capability_ref"),
+    `model-capability:${routeId}`,
+  );
   return withRepairActions({
-    id: stringValue(
-      field(record, "id", "modelCapabilityRef", "model_capability_ref"),
-      `model-capability:${routeId}`,
-    ),
+    id,
+    capabilityRef: id,
     label: `${routeId} / ${stringValue(field(record, "capability"), "model")}`,
     kind: "model",
     status,
+    readinessStatus: status,
     tone: toneForStatus(status),
     detail: `${privacyTier} / ${selectedEndpoint}`,
     policyTarget: stringValue(
       field(record, "policyTarget", "policy_target"),
-      null,
+      `model.${routeId}`,
     ),
     requiredScopes: stringArray(
       field(
@@ -306,17 +345,19 @@ function toolCapabilityRow(item: unknown): AuthorityCenterCapabilityRow {
   );
   return withRepairActions({
     id: stableToolId,
+    capabilityRef: `tool-capability:${stableToolId}`,
     label: stringValue(
       field(record, "displayName", "display_name") ?? stableToolId,
       "Runtime tool",
     ),
     kind: "tool",
     status,
+    readinessStatus: status,
     tone: toneForStatus(status),
     detail: `${stringValue(field(record, "effectClass", "effect_class"), "effect unknown")} / ${stringValue(field(record, "riskDomain", "risk_domain", "riskClass", "risk_class"), "risk unknown")}`,
     policyTarget: stringValue(
       field(record, "policyTarget", "policy_target"),
-      null,
+      `tool.${stableToolId}`,
     ),
     requiredScopes: stringArray(
       field(
@@ -339,9 +380,11 @@ function connectorCapabilityRow(
   const status = connector.status === "connected" ? "ready" : connector.status;
   return withRepairActions({
     id: connector.id,
+    capabilityRef: `connector-capability:${connector.id}`,
     label: connector.name,
     kind: "connector",
     status,
+    readinessStatus: status,
     tone: toneForStatus(status),
     detail: `${connector.provider} / ${connector.authMode}`,
     policyTarget: `connector.${connector.id}`,
@@ -351,11 +394,30 @@ function connectorCapabilityRow(
 }
 
 function withRepairActions(
-  capability: Omit<AuthorityCenterCapabilityRow, "repairActions">,
+  capability: Omit<
+    AuthorityCenterCapabilityRow,
+    | "repairActions"
+    | "grantStatus"
+    | "policyStatus"
+    | "receiptStatus"
+    | "readinessSummary"
+  >,
 ): AuthorityCenterCapabilityRow {
-  return {
+  const base = {
     ...capability,
-    repairActions: repairActionsForCapability(capability),
+    grantStatus: "missing" as const,
+    policyStatus: capability.policyTarget
+      ? ("governed" as const)
+      : ("unbound" as const),
+    receiptStatus:
+      capability.receiptTypes.length > 0
+        ? ("required" as const)
+        : ("missing" as const),
+    readinessSummary: "Awaiting authority posture projection.",
+  };
+  return {
+    ...base,
+    repairActions: repairActionsForCapability(base),
   };
 }
 
@@ -365,6 +427,10 @@ export function repairActionsForCapability(
   const normalizedStatus = capability.status.toLowerCase();
   const needsRepair =
     capability.tone !== "ready" ||
+    capability.grantStatus === "missing" ||
+    capability.grantStatus === "partial" ||
+    capability.receiptStatus === "missing" ||
+    capability.policyStatus === "unbound" ||
     [
       "missing",
       "needs_auth",
@@ -381,8 +447,14 @@ export function repairActionsForCapability(
     authorityScopes: capability.requiredScopes,
     receiptTypes: capability.receiptTypes,
   };
-  const actions: AuthorityCenterRepairAction[] = [
-    {
+  const actions: AuthorityCenterRepairAction[] = [];
+
+  if (
+    capability.grantStatus === "missing" ||
+    capability.grantStatus === "partial" ||
+    capability.tone !== "ready"
+  ) {
+    actions.push({
       ...base,
       id: `${capability.id}:request-grant`,
       kind: "requestGrant",
@@ -393,10 +465,10 @@ export function repairActionsForCapability(
               .slice(0, 2)
               .join(", ")}.`
           : "Issue a short-lived grant using the runtime capability fallback scope.",
-    },
-  ];
+    });
+  }
 
-  if (capability.kind === "model") {
+  if (capability.kind === "model" && capability.tone !== "ready") {
     actions.push({
       ...base,
       id: `${capability.id}:open-model-route`,
@@ -405,7 +477,7 @@ export function repairActionsForCapability(
       detail:
         "Review capability routing, model mounting, credential readiness, and fallback posture.",
     });
-  } else {
+  } else if (capability.kind !== "model" && capability.tone !== "ready") {
     actions.push({
       ...base,
       id: `${capability.id}:open-connector-credential`,
@@ -421,16 +493,107 @@ export function repairActionsForCapability(
     });
   }
 
-  actions.push({
-    ...base,
-    id: `${capability.id}:open-workflow-preflight`,
-    kind: "openWorkflowPreflight",
-    label: "Open workflow preflight",
-    detail:
-      "Inspect workflow readiness before a live run can consume this capability.",
-  });
+  if (
+    capability.receiptStatus === "missing" ||
+    capability.policyStatus === "unbound" ||
+    capability.grantStatus === "missing" ||
+    capability.grantStatus === "partial"
+  ) {
+    actions.push({
+      ...base,
+      id: `${capability.id}:open-workflow-preflight`,
+      kind: "openWorkflowPreflight",
+      label: "Open workflow preflight",
+      detail:
+        "Inspect workflow readiness before a live run can consume this capability.",
+    });
+  }
 
   return actions;
+}
+
+function withAuthorityPosture(
+  capability: AuthorityCenterCapabilityRow,
+  grants: AuthorityCenterGrantRow[],
+  policyState: ShieldPolicyState,
+): AuthorityCenterCapabilityRow {
+  const grantStatus = grantStatusForCapability(capability, grants);
+  const policyStatus = policyStatusForCapability(capability, policyState);
+  const receiptStatus: AuthorityCenterReceiptStatus =
+    capability.receiptTypes.length > 0 ? "required" : "missing";
+  const readinessSummary = [
+    `capability ${capability.readinessStatus}`,
+    `grant ${grantStatus}`,
+    `policy ${policyStatus}`,
+    `receipts ${receiptStatus}`,
+  ].join(" · ");
+  const next = {
+    ...capability,
+    grantStatus,
+    policyStatus,
+    receiptStatus,
+    readinessSummary,
+  };
+  return {
+    ...next,
+    repairActions: repairActionsForCapability(next),
+  };
+}
+
+function grantStatusForCapability(
+  capability: AuthorityCenterCapabilityRow,
+  grants: AuthorityCenterGrantRow[],
+): AuthorityCenterGrantStatus {
+  if (capability.requiredScopes.length === 0) return "not_required";
+  const activeAllowedScopes = grants
+    .filter((grant) => grant.state === "active")
+    .flatMap((grant) => grant.allowedScopes);
+  if (activeAllowedScopes.length === 0) return "missing";
+  const matchedCount = capability.requiredScopes.filter((scope) =>
+    activeAllowedScopes.some((allowedScope) =>
+      authorityScopeMatches(scope, allowedScope),
+    ),
+  ).length;
+  if (matchedCount === capability.requiredScopes.length) return "active";
+  if (matchedCount > 0) return "partial";
+  return "missing";
+}
+
+function authorityScopeMatches(
+  requiredScope: string,
+  allowedScope: string,
+): boolean {
+  if (requiredScope === allowedScope) return true;
+  if (allowedScope.endsWith(":*")) {
+    return requiredScope.startsWith(allowedScope.slice(0, -1));
+  }
+  if (allowedScope.endsWith(".*")) {
+    return requiredScope.startsWith(allowedScope.slice(0, -1));
+  }
+  return false;
+}
+
+function policyStatusForCapability(
+  capability: AuthorityCenterCapabilityRow,
+  policyState: ShieldPolicyState,
+): AuthorityCenterPolicyStatus {
+  if (capability.kind === "connector") {
+    const override = policyState.overrides[capability.id];
+    return override && !override.inheritGlobal ? "custom" : "inherited";
+  }
+  return capability.policyTarget ? "governed" : "unbound";
+}
+
+function capabilityRuntimeReady(
+  capability: AuthorityCenterCapabilityRow,
+): boolean {
+  return (
+    capability.tone === "ready" &&
+    (capability.grantStatus === "active" ||
+      capability.grantStatus === "not_required") &&
+    capability.policyStatus !== "unbound" &&
+    capability.receiptStatus === "required"
+  );
 }
 
 function grantRow(item: unknown): AuthorityCenterGrantRow {
@@ -438,6 +601,8 @@ function grantRow(item: unknown): AuthorityCenterGrantRow {
   const revoked = Boolean(record?.revokedAt);
   const state = revoked ? "revoked" : "active";
   const receiptRef = stringValue(record?.receiptId, "none");
+  const allowedScopes = stringArray(record?.allowed);
+  const deniedScopes = stringArray(record?.denied);
   const receiptRefs = [
     receiptRef,
     ...stringArray(record?.auditReceiptIds),
@@ -447,11 +612,13 @@ function grantRow(item: unknown): AuthorityCenterGrantRow {
     grantId: stringValue(record?.grantId, "wallet.grant.unknown"),
     state,
     tone: revoked ? "blocked" : "ready",
-    allowedCount: stringArray(record?.allowed).length,
-    deniedCount: stringArray(record?.denied).length,
+    allowedCount: allowedScopes.length,
+    deniedCount: deniedScopes.length,
     vaultRefCount: Object.keys(recordValue(record?.vaultRefs) ?? {}).length,
     receiptRef,
     receiptRefs,
+    allowedScopes,
+    deniedScopes,
     lastScope: stringValue(record?.lastUsedScope, "none"),
     expiresAt: stringValue(record?.expiresAt, "unknown"),
     canRevoke: !revoked,
