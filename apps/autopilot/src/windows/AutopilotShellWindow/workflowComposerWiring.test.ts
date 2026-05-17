@@ -1008,14 +1008,20 @@ assert.match(
 
 assert.match(
   workflowComposerCss,
-  /\.workflow-start-card\s*\{[\s\S]*grid-template-rows: auto auto auto 1fr;[\s\S]*min-height: 84px;/,
-  "Empty workflow starter cards should reserve a stable row rhythm without wasting canvas space",
+  /\.workflow-composer \.workflow-start-card\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto;[\s\S]*grid-template-rows: auto auto;[\s\S]*min-height: 68px;[\s\S]*padding: 10px 11px;/,
+  "Empty workflow starter cards should reserve compact title/description rows without visual metadata crowding",
 );
 
 assert.match(
   workflowComposerCss,
   /\.workflow-start-card span\s*\{[\s\S]*text-overflow: ellipsis;[\s\S]*white-space: nowrap;/,
   "Empty workflow starter descriptions should stay on one line for scanability",
+);
+
+assert.match(
+  composer,
+  /const metadata = workflowActionMetadataLabel\(item\);[\s\S]*const cardA11yLabel = `\$\{item\.label\}: \$\{cardDescription\} \$\{item\.group\}\. \$\{metadata\}\. \$\{badge\.label\}\.`[\s\S]*aria-label=\{cardA11yLabel\}/,
+  "Empty workflow starter cards should keep runtime metadata accessible without rendering it as cramped visual chrome",
 );
 
 assert.match(

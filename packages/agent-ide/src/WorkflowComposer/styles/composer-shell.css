@@ -748,42 +748,44 @@
   gap: 8px;
 }
 
-.workflow-start-card {
+.workflow-composer .workflow-start-card {
   display: grid;
-  gap: 3px;
-  grid-template-rows: auto auto auto 1fr;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  gap: 5px 10px;
   justify-items: start;
-  min-height: 84px;
-  padding: 9px 10px 8px;
+  min-height: 68px;
+  align-content: start;
+  align-items: start;
+  padding: 10px 11px;
   text-align: left;
 }
 
 .workflow-start-card strong {
-  font-size: 13px;
-}
-
-.workflow-start-card span {
+  grid-column: 1 / 2;
   max-width: 100%;
-  color: var(--text-tertiary);
-  font-size: 11px;
-  line-height: 1.35;
+  font-size: 13px;
+  line-height: 1.15;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.workflow-start-card small {
+.workflow-start-card span {
+  grid-column: 1 / -1;
   max-width: 100%;
   color: var(--text-tertiary);
-  font-size: 10px;
-  line-height: 1.3;
+  font-size: 11px;
+  line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .workflow-start-card em {
-  align-self: end;
+  grid-column: 2 / 3;
+  grid-row: 1 / 2;
+  align-self: start;
   border: 1px solid var(--border-subtle);
   border-radius: 999px;
   color: var(--text-tertiary);

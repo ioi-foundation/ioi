@@ -1294,12 +1294,17 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                         item,
                         globalConfig,
                       );
+                      const cardDescription =
+                        workflowStartCardDescription(item);
+                      const metadata = workflowActionMetadataLabel(item);
+                      const cardA11yLabel = `${item.label}: ${cardDescription} ${item.group}. ${metadata}. ${badge.label}.`;
                       return (
                         <button
                           key={itemId}
                           type="button"
                           className="workflow-start-card"
                           data-testid={`workflow-empty-start-${itemId}`}
+                          aria-label={cardA11yLabel}
                           onClick={() =>
                             handleAddNodeFromLibrary(
                               item.type,
@@ -1316,13 +1321,10 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                               },
                             )
                           }
-                          title={item.creatorDescription}
+                          title={cardA11yLabel}
                         >
                           <strong>{item.label}</strong>
-                          <span>{workflowStartCardDescription(item)}</span>
-                          <small>
-                            {item.group} · {workflowActionMetadataLabel(item)}
-                          </small>
+                          <span>{cardDescription}</span>
                           <em data-readiness={badge.status}>{badge.label}</em>
                         </button>
                       );
