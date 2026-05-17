@@ -2,6 +2,7 @@ import type {
   AuthorityCenterCapabilityRow,
   AuthorityCenterGrantRow,
   AuthorityCenterProjection,
+  AuthorityCenterRepairAction,
 } from "./authorityCenter";
 
 export interface AuthorityCenterReceiptPreview {
@@ -22,6 +23,7 @@ export function AuthorityCenterPanel({
   selectedReceipt,
   onRefresh,
   onRequestGrant,
+  onCapabilityRepairAction,
   onRevokeGrant,
   onOpenReceipt,
 }: {
@@ -33,6 +35,10 @@ export function AuthorityCenterPanel({
   selectedReceipt: AuthorityCenterReceiptPreview | null;
   onRefresh: () => void;
   onRequestGrant: (capability: AuthorityCenterCapabilityRow) => void;
+  onCapabilityRepairAction: (
+    capability: AuthorityCenterCapabilityRow,
+    action: AuthorityCenterRepairAction,
+  ) => void;
   onRevokeGrant: (grant: AuthorityCenterGrantRow) => void;
   onOpenReceipt: (receiptId: string) => void;
 }) {
@@ -143,16 +149,42 @@ export function AuthorityCenterPanel({
                   <span className={`shield-status status-${capability.tone}`}>
                     {capability.status}
                   </span>
-                  <button
-                    type="button"
-                    className="shield-button shield-button-secondary shield-authority-row-action"
-                    onClick={() => onRequestGrant(capability)}
-                    disabled={Boolean(busyAction)}
-                  >
-                    {busyAction === `grant:${capability.id}`
-                      ? "Requesting"
-                      : "Request grant"}
-                  </button>
+                  <div className="shield-authority-row-actions">
+                    {capability.repairActions.length === 0 ? (
+                      <button
+                        type="button"
+                        className="shield-button shield-button-secondary shield-authority-row-action"
+                        onClick={() => onRequestGrant(capability)}
+                        disabled={Boolean(busyAction)}
+                      >
+                        {busyAction === `grant:${capability.id}`
+                          ? "Requesting"
+                          : "Request grant"}
+                      </button>
+                    ) : (
+                      capability.repairActions.map((action) => (
+                        <button
+                          key={action.id}
+                          type="button"
+                          className="shield-button shield-button-secondary shield-authority-row-action"
+                          onClick={() =>
+                            action.kind === "requestGrant"
+                              ? onRequestGrant(capability)
+                              : onCapabilityRepairAction(capability, action)
+                          }
+                          disabled={Boolean(busyAction)}
+                          title={action.detail}
+                          data-repair-action-kind={action.kind}
+                          data-repair-action-target={action.targetRef}
+                        >
+                          {busyAction === `grant:${capability.id}` &&
+                          action.kind === "requestGrant"
+                            ? "Requesting"
+                            : action.label}
+                        </button>
+                      ))
+                    )}
+                  </div>
                 </div>
               ))
             )}

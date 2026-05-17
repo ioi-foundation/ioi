@@ -103,6 +103,8 @@ export type SettingsViewBodyView = {
   ) => Promise<void>;
   onOpenPolicySurface: () => void;
   onOpenConnections: () => void;
+  onOpenModelRoutes?: () => void;
+  onOpenWorkflowPreflight?: () => void;
   summary: string | null;
   diagnostics: ReadonlyArray<{ label: string; value: string; tone: string }>;
   runKnowledgeAction: (

@@ -10,6 +10,7 @@ import {
   type AuthorityCenterCapabilityRow,
   type AuthorityCenterGrantRow,
   type AuthorityCenterProjection,
+  type AuthorityCenterRepairAction,
 } from "./authorityCenter";
 import {
   fetchAuthorityJson,
@@ -48,6 +49,8 @@ interface PolicyViewProps {
   onApplyGovernanceRequest?: (next: ShieldPolicyState) => void;
   onDismissGovernanceRequest?: () => void;
   onOpenIntegrations?: () => void;
+  onOpenModelRoutes?: () => void;
+  onOpenWorkflowPreflight?: () => void;
 }
 
 const DECISION_OPTIONS: Array<{ value: PolicyDecisionMode; label: string }> = [
@@ -242,6 +245,8 @@ export function PolicyView({
   onApplyGovernanceRequest,
   onDismissGovernanceRequest,
   onOpenIntegrations,
+  onOpenModelRoutes,
+  onOpenWorkflowPreflight,
 }: PolicyViewProps) {
   const [connectors, setConnectors] = useState<ConnectorSummary[]>([]);
   const [connectorsLoading, setConnectorsLoading] = useState(true);
@@ -387,6 +392,35 @@ export function PolicyView({
       }
     },
     [openAuthorityReceipt, refreshAuthorityCenter],
+  );
+
+  const handleAuthorityRepairAction = useCallback(
+    (
+      capability: AuthorityCenterCapabilityRow,
+      action: AuthorityCenterRepairAction,
+    ) => {
+      if (action.kind === "openConnectorCredential") {
+        setAuthorityActionStatus(
+          `Opening credential readiness for ${action.targetRef}.`,
+        );
+        onOpenIntegrations?.();
+        return;
+      }
+      if (action.kind === "openModelRoute") {
+        setAuthorityActionStatus(
+          `Opening model routing posture for ${action.targetRef}.`,
+        );
+        onOpenModelRoutes?.();
+        return;
+      }
+      if (action.kind === "openWorkflowPreflight") {
+        setAuthorityActionStatus(
+          `Opening workflow preflight for ${capability.label}.`,
+        );
+        onOpenWorkflowPreflight?.();
+      }
+    },
+    [onOpenIntegrations, onOpenModelRoutes, onOpenWorkflowPreflight],
   );
 
   const revokeAuthorityGrant = useCallback(
@@ -812,6 +846,7 @@ export function PolicyView({
             selectedReceipt={authorityReceipt}
             onRefresh={refreshAuthorityCenter}
             onRequestGrant={requestAuthorityGrant}
+            onCapabilityRepairAction={handleAuthorityRepairAction}
             onRevokeGrant={revokeAuthorityGrant}
             onOpenReceipt={openAuthorityReceipt}
           />

@@ -42,6 +42,10 @@ test("settings authority center summarizes shared runtime projection", () => {
     true,
   );
   assert.equal(summary.topCapabilities.length, 2);
+  assert.deepEqual(
+    summary.topCapabilities[1]?.repairActions.map((action) => action.kind),
+    ["requestGrant", "openConnectorCredential", "openWorkflowPreflight"],
+  );
 });
 
 console.log("settingsAuthorityCenter.test.ts: ok");

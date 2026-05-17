@@ -808,6 +808,11 @@
   margin-bottom: 18px;
 }
 
+.chat-settings-actions--compact {
+  gap: 8px;
+  margin-top: 12px;
+}
+
 .chat-settings-primary,
 .chat-settings-secondary,
 .chat-settings-danger {

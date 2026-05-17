@@ -101,6 +101,7 @@ test("authority center projection aggregates readiness without leaking raw secre
     ),
     true,
   );
+  assert.deepEqual(projection.capabilities[0]?.repairActions, []);
 });
 
 test("authority center builds scoped grant payloads from capability rows", () => {
@@ -183,6 +184,18 @@ test("authority center projection degrades when live capabilities are blocked", 
   assert.equal(
     projection.blockers.includes("2 live capabilities are blocked."),
     true,
+  );
+  assert.deepEqual(
+    projection.capabilities[0]?.repairActions.map((action) => action.kind),
+    ["requestGrant", "openModelRoute", "openWorkflowPreflight"],
+  );
+  assert.deepEqual(
+    projection.capabilities[1]?.repairActions.map((action) => action.kind),
+    ["requestGrant", "openConnectorCredential", "openWorkflowPreflight"],
+  );
+  assert.equal(
+    projection.capabilities[0]?.repairActions[0]?.authorityScopes[0],
+    "model.chat:*",
   );
 });
 

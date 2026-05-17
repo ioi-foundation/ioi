@@ -77,6 +77,8 @@ interface SettingsViewProps {
   onPolicyChange: (next: ShieldPolicyState) => void;
   onOpenPolicySurface: () => void;
   onOpenConnections: () => void;
+  onOpenModelRoutes?: () => void;
+  onOpenWorkflowPreflight?: () => void;
 }
 
 export function SettingsView({
@@ -95,6 +97,8 @@ export function SettingsView({
   onPolicyChange,
   onOpenPolicySurface,
   onOpenConnections,
+  onOpenModelRoutes,
+  onOpenWorkflowPreflight,
 }: SettingsViewProps) {
   const [selectedSection, setSelectedSection] =
     useState<SettingsSection>("identity");
@@ -885,6 +889,8 @@ export function SettingsView({
     handleApplyAuthorityProfile,
     onOpenPolicySurface,
     onOpenConnections,
+    onOpenModelRoutes,
+    onOpenWorkflowPreflight,
     profileDirty,
     controlPlane,
     engineDirty,

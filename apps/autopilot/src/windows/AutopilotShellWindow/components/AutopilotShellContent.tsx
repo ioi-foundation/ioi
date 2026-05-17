@@ -256,6 +256,12 @@ export function AutopilotShellContent({
                     onOpenConnections={() =>
                       controller.changePrimaryView("capabilities")
                     }
+                    onOpenModelRoutes={() =>
+                      controller.changePrimaryView("mounts")
+                    }
+                    onOpenWorkflowPreflight={() =>
+                      controller.workflow.openSurface("canvas")
+                    }
                   />
                 ) : null}
               </div>
