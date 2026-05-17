@@ -14,7 +14,7 @@
   "workflow": {
     "workflowManifestRef": "internal-docs/samples/repo-maintenance-autonomous-system-package/workflow.json",
     "harnessRef": "harness://repo-maintenance/proposal-first",
-    "topologyHash": "topology:9:8:repo-maintenance-autonomous-system"
+    "topologyHash": "topology:9:7:repo-maintenance-autonomous-system"
   },
   "capabilities": {
     "modelCapabilityRefs": [

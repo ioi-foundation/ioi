@@ -2,7 +2,7 @@
 
 Owner: Autopilot / daemon-runtime / workflow-compositor / wallet.network / connectors-tools / Agentgres
 
-Status: P0 pre-Phase-5 master guide
+Status: P0 lifecycle gate complete / regression guarded
 
 Created: 2026-05-17
 
@@ -54,13 +54,13 @@ memory/state/artifacts, evals, deployment profiles, and receipts. Internally it
 may compile to, or profile, `ManifestEnvelope`; product/doctrine-wise it is
 first-class.
 
-This is P0 before broad Phase 5 connector expansion. Phase 5 Workstream 1
-filesystem/Git proposal-first mutation may proceed only as the proof sample for
-this lifecycle shape.
+This was the P0 gate before broad Phase 5 connector expansion. Phase 5
+Workstream 1 filesystem/Git proposal-first mutation now exists as the canonical
+proof sample for this lifecycle shape.
 
 ## Decision
 
-Before worrying about connector breadth, lock the lifecycle shape.
+Before connector breadth, lock the lifecycle shape. That gate is now complete.
 
 Phase 5 should be staged as:
 
@@ -74,9 +74,9 @@ P0 lifecycle clarity hardening
 -> read-only/draft-only production SaaS connectors
 ```
 
-No production connector lane should become the teaching pattern until the P0
-lifecycle clarity rows in this guide are Done or explicitly deferred with a
-narrow reason.
+Broad Phase 5 connector expansion may now proceed from the package/readiness
+shape proved here. Production connector lanes should copy the lifecycle package
+shape instead of becoming bespoke teaching patterns.
 
 ## North Star
 
@@ -140,15 +140,41 @@ PromotionDecisionEnvelope
 
 | Row | Target | Status | Done When |
 | --- | --- | --- | --- |
-| P0-1 | Autonomous System Package shape | In progress / canonical docs locked | Product/doctrine asserts the first-class build artifact; manifest/profile contract binds worker, workflow, harness, capabilities, authority, memory/state/artifacts, eval, runtime/deployment, promotion, marketplace/foundry metadata. |
-| P0-2 | Canonical lifecycle glossary | In progress / canonical docs locked | Agent/Worker/Skill/Tool/Connector/Workflow/Harness/Capability/Policy/Trace/Receipt/Runtime terms have stable definitions and product-label mappings. |
-| P0-3 | Lifecycle verb loop | In progress / canonical docs locked | Compose, bind, simulate, authorize, run, verify, inspect receipts, package, deploy, promote, improve are documented and projected into Autopilot/CLI/SDK surfaces. |
-| P0-4 | Canonical proof sample | In progress / sample guarded | A repo-maintenance autonomous system sample demonstrates local fs/Git proposal-first mutation with authority, approvals, evals, receipts, and GUI run checklist. |
-| P0-5 | Workflow package readiness | In progress / Composer rail wired | Workflow Composer shows run readiness separately from autonomous-system package readiness and promotion readiness. |
-| P0-6 | Lifecycle APIs and projections | In progress / CLI and SDK guarded | Daemon/API/SDK/CLI/TUI/Autopilot can expose lifecycle status without duplicating runtime truth. |
-| P0-7 | Evaluation as default | In progress / sample eval guarded | The proof sample and Phase 5 entry lanes ship fixture evals, scorecards, replay expectations, and promotion gates. |
-| P0-8 | Migration compatibility | In progress / projection helper guarded | Existing workflows project deterministically into the package/lifecycle lens without breaking stored graphs. |
-| P0-9 | Documentation convergence | Planned | Phase 5 and workflow/computer-use plans reference this guide as the P0 lifecycle gate and no longer imply connector breadth is the immediate target. |
+| P0-1 | Autonomous System Package shape | Done / regression guarded | Product/doctrine asserts the first-class build artifact; manifest/profile contract binds worker, workflow, harness, capabilities, authority, memory/state/artifacts, eval, runtime/deployment, promotion, marketplace/foundry metadata. |
+| P0-2 | Canonical lifecycle glossary | Done / regression guarded | Agent/Worker/Skill/Tool/Connector/Workflow/Harness/Capability/Policy/Trace/Receipt/Runtime terms have stable definitions and product-label mappings. |
+| P0-3 | Lifecycle verb loop | Done / regression guarded | Compose, bind, simulate, authorize, run, verify, inspect receipts, package, deploy, promote, improve are documented and projected into Autopilot/CLI/SDK surfaces. |
+| P0-4 | Canonical proof sample | Done / regression guarded | A repo-maintenance autonomous system sample demonstrates local fs/Git proposal-first mutation with authority, approvals, evals, receipts, and GUI run checklist. |
+| P0-5 | Workflow package readiness | Done / regression guarded | Workflow Composer shows run readiness separately from autonomous-system package readiness and promotion readiness. |
+| P0-6 | Lifecycle APIs and projections | Done / regression guarded | Daemon/API/SDK/CLI/TUI/Autopilot can expose lifecycle status without duplicating runtime truth. |
+| P0-7 | Evaluation as default | Done / regression guarded | The proof sample and Phase 5 entry lanes ship fixture evals, scorecards, replay expectations, and promotion gates. |
+| P0-8 | Migration compatibility | Done / regression guarded | Existing workflows project deterministically into the package/lifecycle lens without breaking stored graphs. |
+| P0-9 | Documentation convergence | Done / regression guarded | Phase 5 and workflow/computer-use plans reference this guide as the P0 lifecycle gate and no longer imply connector breadth is the immediate target. |
+
+## Completion Record
+
+Completed on 2026-05-17.
+
+Implementation landed in slice commits that:
+
+- canonized Autonomous System Package, `AutonomousSystemManifest` profile, and
+  lifecycle terminology in architecture docs;
+- added deterministic lifecycle readiness projection and package manifest
+  projection helpers for old and new workflows;
+- exposed lifecycle readiness in Workflow Composer, SDK JSON helpers, and
+  `ioi agent lifecycle --json`;
+- added the repo-maintenance Autonomous System Package proof sample with
+  workflow, model/tool capability bindings, authority policy, approval profile,
+  eval cases, expected receipts, fixture repo, GUI checklist, and run
+  instructions;
+- validated the proof sample through the live Autopilot Workflow Composer GUI
+  with proposal-first fs/Git posture, approval interruptions, fixture replay,
+  package export, and readiness evidence.
+
+Generated GUI evidence for the final proof run was written outside git under:
+
+```text
+/tmp/autopilot-lifecycle-proof/2026-05-17T10-05-11Z
+```
 
 ## What "Lifecycle Clarity" Means
 
@@ -1010,9 +1036,13 @@ If connector expansion proceeds before lifecycle clarity:
 
 ## Current Next Tactical Slice
 
-Implement Workstream F:
+The P0 lifecycle clarity gate is complete. The next tactical slice belongs to
+Phase 5:
 
-1. Run final Workflow Composer GUI probe for the repo-maintenance package.
-2. Confirm invalid/blank graph fail-closed behavior remains intact.
-3. Update this dashboard and Phase 5 guide to mark the lifecycle gate complete.
-4. Run final targeted validation and push the clean worktree.
+1. Start filesystem/Git proposal-first mutation as the first production-grade
+   connector lane.
+2. Reuse the repo-maintenance Autonomous System Package structure as the
+   canonical package/readiness/eval/receipt shape.
+3. Keep broad connector expansion behind capability contracts, wallet authority,
+   policy admission, proposal-first mutation where applicable, verification,
+   and receipts.

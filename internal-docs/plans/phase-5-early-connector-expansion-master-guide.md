@@ -2,7 +2,7 @@
 
 Owner: connectors-tools / daemon runtime / wallet.network / Autopilot / workflow compositor / computer-use
 
-Status: gated by P0 lifecycle clarity / Workstream 1 may proceed as proof sample
+Status: lifecycle gate complete / broad connector expansion ready
 
 Created: 2026-05-15
 
@@ -13,18 +13,18 @@ jumping straight to money-moving commerce. The Phase 4.5 capability authority
 gate has reached Definition of Ready for local, proposal-first, read-only,
 draft-only, and fixture-backed computer-use lanes.
 
-Before broad connector expansion, Phase 5 is gated by the P0 lifecycle clarity
-leg in
-`internal-docs/plans/autopilot-lifecycle-clarity-over-ioi-primitives-master-guide.md`.
-The core assertion is:
+The additional P0 lifecycle clarity gate in
+`internal-docs/plans/autopilot-lifecycle-clarity-over-ioi-primitives-master-guide.md`
+is complete. The core assertion remains:
 
 > Autopilot needs ADK/Gemini-level lifecycle clarity over IOI's stronger
 > primitives.
 
-Workstream 1 filesystem/Git proposal-first mutation may proceed as the canonical
-proof sample for that lifecycle shape. Broader connector breadth should wait
-until autonomous-system package shape, terminology boundaries, package
-readiness, and evaluation-as-default are locked.
+Workstream 1 filesystem/Git proposal-first mutation now has the canonical
+Autonomous System Package proof sample for that lifecycle shape. Broader
+connector breadth may proceed, provided new lanes inherit the same package,
+capability binding, readiness, evaluation, authority, policy, proposal,
+verification, receipt, and promotion posture.
 
 The target is not "more integrations." The target is:
 
@@ -34,8 +34,7 @@ The target is not "more integrations." The target is:
 
 ## Entry Gate
 
-Phase 5 Workstream 1 may begin as the P0 lifecycle proof because all of these
-are now true:
+Phase 5 may proceed because all of these are now true:
 
 - connector/tool registry exposes complete `RuntimeToolContract` metadata;
 - model routes expose capability, policy, BYOK, readiness, and receipt metadata;
@@ -51,20 +50,23 @@ are now true:
 - targeted build, daemon, SDK, workflow GUI, authority/settings, computer-use,
   and live Playwright clickthrough validation passed on 2026-05-17.
 
-Additional P0 lifecycle gate before broader connector expansion:
+Completed P0 lifecycle gate before broader connector expansion:
 
 - Autonomous System Package is asserted as the primary build artifact;
-- autonomous-system manifest/profile shape is documented as its runtime
-  contract/profile;
+- autonomous-system manifest/profile shape is documented and implemented as the
+  runtime contract/profile for package/readiness projection;
 - Agent/Worker/Skill/Tool/Connector/Workflow/Harness/Capability/Policy/Trace/
   Receipt/Runtime terminology is locked;
-- lifecycle verbs are locked: compose, bind, simulate, authorize, run, verify,
-  inspect receipts, package, deploy, promote, improve;
-- Workflow Composer distinguishes run readiness from package, evaluation,
-  deployment, and promotion readiness;
-- one canonical repo-maintenance autonomous-system proof sample exists;
+- lifecycle verbs are locked and visible: compose, bind, simulate, authorize,
+  run, verify, inspect receipts, package, deploy, promote, improve;
+- Workflow Composer distinguishes run readiness from authority, package,
+  evaluation, deployment, and promotion readiness;
+- one canonical repo-maintenance Autonomous System Package proof sample exists;
 - fixture evals and expected receipts exist for the proof sample;
-- old workflows project into the package/lifecycle lens without breaking.
+- CLI/SDK JSON lifecycle readiness projections exist;
+- old workflows project into the package/lifecycle lens without breaking;
+- the live Workflow Composer GUI proof passed with evidence retained outside
+  git under `/tmp/autopilot-lifecycle-proof/2026-05-17T10-05-11Z`.
 
 External constraints that still apply:
 
@@ -481,7 +483,7 @@ Phase 5 is complete when:
 - high-risk commerce and irreversible external actions remain deferred;
 - `git status` is clean except intentionally ignored generated evidence.
 
-## First Tactical Slice After Entry Gate
+## First Tactical Slice
 
 Start with filesystem and Git proposal-first mutation:
 

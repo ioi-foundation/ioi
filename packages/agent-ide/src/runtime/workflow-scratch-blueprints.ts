@@ -3,6 +3,7 @@ import type {
   GraphModelBinding,
   WorkflowModelBinding,
   WorkflowNode,
+  WorkflowNodeFixture,
   WorkflowProject,
   WorkflowTestCase,
   WorkflowToolBinding,
@@ -16,6 +17,7 @@ import {
 export function buildRepoTestEngineerScratchWorkflow(seed: WorkflowProject): {
   workflow: WorkflowProject;
   tests: WorkflowTestCase[];
+  fixtures?: WorkflowNodeFixture[];
 } {
   const scanSchema = {
     type: "object",
@@ -304,7 +306,8 @@ function finishScratchWorkflow(
   nodes: WorkflowNode[],
   edges: WorkflowEdge[],
   tests: WorkflowTestCase[] = [],
-): { workflow: WorkflowProject; tests: WorkflowTestCase[] } {
+  fixtures: WorkflowNodeFixture[] = [],
+): { workflow: WorkflowProject; tests: WorkflowTestCase[]; fixtures?: WorkflowNodeFixture[] } {
   const now = Date.now();
   return {
     workflow: {
@@ -343,6 +346,7 @@ function finishScratchWorkflow(
               status: "idle",
             },
           ],
+    fixtures,
   };
 }
 
@@ -475,6 +479,15 @@ function buildRepoMaintenancePackageWorkflow(
     },
     authorityScopeRequirements: ["scope:model.invoke.local"],
     authorityScopes: ["scope:model.invoke.local"],
+    resultSchema: {
+      type: "object",
+      required: ["summary", "proposedDiff", "verification"],
+      properties: {
+        summary: { type: "string" },
+        proposedDiff: { type: "string" },
+        verification: { type: "array" },
+      },
+    },
   };
   const inspectBinding: WorkflowToolBinding = {
     bindingKind: "coding_tool_pack",
@@ -518,11 +531,23 @@ function buildRepoMaintenancePackageWorkflow(
         "apply_result",
       ],
     },
+    rateLimitProfile: {
+      policy: "proposal_first_local",
+      scope: "tool-capability:file.apply_patch",
+      maxCalls: 1,
+      windowMs: null,
+    },
+    idempotencyBehavior: {
+      required: true,
+      strategy: "proposal_hash",
+      keyScope: "workflow-run",
+    },
+    riskClass: "local_write",
     capabilityScope: ["write", "git.diff"],
     primitiveCapabilities: ["prim:fs.write", "prim:git.diff"],
     authorityScopeRequirements: ["scope:workspace.write", "scope:git.diff"],
     authorityScopes: ["scope:workspace.write", "scope:git.diff"],
-    sideEffectClass: "write",
+    sideEffectClass: "read",
     requiresApproval: true,
   };
   const nodes = [
@@ -592,16 +617,7 @@ function buildRepoMaintenancePackageWorkflow(
         modelRef: "reasoning",
         prompt:
           "Use the bounded read set to draft a docs-only patch proposal. Return the proposed diff, risk summary, and verification checklist. Do not apply without approval.",
-        validateStructuredOutput: true,
-        outputSchema: {
-          type: "object",
-          required: ["summary", "proposedDiff", "verification"],
-          properties: {
-            summary: { type: "string" },
-            proposedDiff: { type: "string" },
-            verification: { type: "array" },
-          },
-        },
+        validateStructuredOutput: false,
       },
       undefined,
       { metricValue: "plan" },
@@ -670,7 +686,10 @@ function buildRepoMaintenancePackageWorkflow(
         retentionPolicy: { retentionKind: "run_scoped" },
         versioning: { enabled: true },
       },
-      undefined,
+      {
+        requireHumanGate: true,
+        privilegedActions: ["output:materialize", "scope:workspace.write"],
+      },
       { metricValue: "report" },
     ),
   ];
@@ -714,6 +733,8 @@ function buildRepoMaintenancePackageWorkflow(
           expectedTimeSavedMinutes: 12,
           mcpAccessReviewed: true,
           requireReplayFixtures: true,
+          errorWorkflowPath:
+            "internal-docs/samples/repo-maintenance-autonomous-system-package/expected-receipts.json",
         },
       },
     },
@@ -722,11 +743,6 @@ function buildRepoMaintenancePackageWorkflow(
     "Canonical proposal-first filesystem/Git proof package for Phase 5 readiness.",
     nodes,
     [
-      makeWorkflowEdge(
-        "edge-repo-trigger-source",
-        "repo-maintenance-trigger",
-        "repo-maintenance-source",
-      ),
       makeWorkflowEdge(
         "edge-repo-source-inspect",
         "repo-maintenance-source",
@@ -755,8 +771,8 @@ function buildRepoMaintenancePackageWorkflow(
         "repo-maintenance-approval",
         "repo-maintenance-proposal",
         "output",
-        "approval",
-        "control",
+        "input",
+        "data",
       ),
       makeWorkflowEdge(
         "edge-repo-proposal-verifier",
@@ -795,13 +811,85 @@ function buildRepoMaintenancePackageWorkflow(
         status: "idle",
       },
     ],
+    [
+      {
+        id: "fixture-repo-maintenance-inspect",
+        nodeId: "repo-maintenance-inspect",
+        name: "Fixture repo read set",
+        input: {
+          path: "internal-docs/samples/repo-maintenance-autonomous-system-package/fixture-repo",
+          purpose: "collect bounded read set before proposing a change",
+        },
+        output: {
+          toolRef: "file.read",
+          readSet: [
+            "internal-docs/samples/repo-maintenance-autonomous-system-package/fixture-repo/README.md",
+          ],
+          summary: "Fixture repo contains a README typo suitable for a docs-only patch proposal.",
+        },
+        validationStatus: "passed",
+        validationMessage: "Canonical proof fixture read set is bounded and deterministic.",
+        pinned: true,
+        stale: false,
+        createdAtMs: Date.now(),
+      },
+      {
+        id: "fixture-repo-maintenance-plan",
+        nodeId: "repo-maintenance-plan",
+        name: "Proposal-first plan",
+        input: {
+          readSet: [
+            "internal-docs/samples/repo-maintenance-autonomous-system-package/fixture-repo/README.md",
+          ],
+        },
+        output: {
+          summary: "Propose a docs-only patch that corrects the fixture README typo.",
+          proposedDiff:
+            "--- a/fixture-repo/README.md\n+++ b/fixture-repo/README.md\n@@\n-This fixture intentionally contains a typo for proposal-first maintenence.\n+This fixture intentionally contains a typo for proposal-first maintenance.\n",
+          verification: ["diff is docs-only", "approval receipt is present"],
+        },
+        validationStatus: "passed",
+        validationMessage: "Canonical proof fixture satisfies the model result schema.",
+        pinned: true,
+        stale: false,
+        createdAtMs: Date.now(),
+      },
+      {
+        id: "fixture-repo-maintenance-proposal",
+        nodeId: "repo-maintenance-proposal",
+        name: "Patch proposal receipt",
+        input: {
+          mode: "proposal_first",
+          expectedPath:
+            "internal-docs/samples/repo-maintenance-autonomous-system-package/fixture-repo/README.md",
+        },
+        output: {
+          proposalId: "proposal://repo-maintenance/docs-typo",
+          mutationExecuted: false,
+          approval_decision: "required_before_apply",
+          receipts: {
+            requiredReceiptTypes: [
+              "proposal",
+              "diff_artifact",
+              "approval_decision",
+              "apply_result",
+            ],
+          },
+        },
+        validationStatus: "passed",
+        validationMessage: "Canonical proof fixture records proposal-first mutation posture.",
+        pinned: true,
+        stale: false,
+        createdAtMs: Date.now(),
+      },
+    ],
   );
 }
 
 export function buildScratchWorkflow(
   seed: WorkflowProject,
   blueprintId: ScratchWorkflowBlueprintId,
-): { workflow: WorkflowProject; tests: WorkflowTestCase[] } {
+): { workflow: WorkflowProject; tests: WorkflowTestCase[]; fixtures?: WorkflowNodeFixture[] } {
   if (blueprintId === "repo-test-engineer") {
     return buildRepoTestEngineerScratchWorkflow(seed);
   }
