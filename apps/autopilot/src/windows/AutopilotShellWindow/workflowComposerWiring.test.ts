@@ -151,6 +151,22 @@ const autopilotShellCss = fs.readFileSync(
   new URL("./styles/autopilot-shell/trace-and-welcome.css", import.meta.url),
   "utf8",
 );
+const autopilotShellBaseCss = fs.readFileSync(
+  new URL("./styles/autopilot-shell/shell-base.css", import.meta.url),
+  "utf8",
+);
+const chatShellLayoutCss = fs.readFileSync(
+  new URL("../ChatShellWindow/styles/Layout.css", import.meta.url),
+  "utf8",
+);
+const chatShellOverridesCss = fs.readFileSync(
+  new URL("../ChatShellWindow/styles/Overrides.css", import.meta.url),
+  "utf8",
+);
+const autopilotMain = fs.readFileSync(
+  new URL("../../main.tsx", import.meta.url),
+  "utf8",
+);
 const workflowComposerUi = `${composer}\n${workflowComposerModals}\n${workflowNodeConfigModal}\n${workflowNodeBindingEditor}\n${workflowNodeBindingEditorSections}\n${workflowFunctionBindingEditor}\n${workflowNodeDetailGrid}\n${workflowRailPanel}\n${workflowRailRunsPanel}\n${workflowRailReadinessPanel}\n${workflowBottomShelf}`;
 const templates = fs.readFileSync(
   new URL(
@@ -465,6 +481,30 @@ assert.match(
   `${shellContent}\n${autopilotShellCss}`,
   /is-dedicated-workbench[\s\S]*chat-content-main--dedicated-workbench[\s\S]*chat-content\.is-dedicated-workbench[\s\S]*height: 100%[\s\S]*chat-content-main--dedicated-workbench > \.mission-control-view--workflow-canvas[\s\S]*height: 100%/,
   "Dedicated workflow workbenches should stretch through the shell so the composer bottom shelf docks to the actual viewport bottom",
+);
+
+assert.match(
+  autopilotMain,
+  /applyAutopilotAppearance\(loadAutopilotAppearance\(\)\);/,
+  "Autopilot should apply the saved appearance before the first shell render to avoid split light/dark startup surfaces",
+);
+
+assert.match(
+  autopilotShellBaseCss,
+  /workspace-repository-gate[\s\S]*--workspace-repo-bg: var\(--chat-bg\)[\s\S]*background: var\(--workspace-repo-bg\)[\s\S]*workspace-repository-gate__header[\s\S]*background: var\(--workspace-repo-header-bg\)/,
+  "Repository selection should consume shell theme variables instead of pinning a permanent light workbench palette",
+);
+
+assert.match(
+  chatShellLayoutCss,
+  /spot-window\.spot-window--chat[\s\S]*justify-content: stretch[\s\S]*:root\[data-autopilot-theme\^="light"\] \.spot-window\.spot-window--chat[\s\S]*--spot-bg-primary: #ffffff/,
+  "The fullscreen chat surface should only use light-specific tokens when the root appearance is light",
+);
+
+assert.match(
+  chatShellOverridesCss,
+  /spot-container\.spot-container\.spot-container\s*\{\s*background: var\(--spot-bg-primary\) !important;/,
+  "High-specificity chat shell overrides should still resolve through the active theme tokens",
 );
 
 assert.match(
