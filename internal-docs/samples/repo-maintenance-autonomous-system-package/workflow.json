@@ -60,16 +60,7 @@
         "logic": {
           "modelRef": "reasoning",
           "prompt": "Use the bounded read set to draft a docs-only patch proposal. Return the proposed diff, risk summary, and verification checklist. Do not apply without approval.",
-          "validateStructuredOutput": true,
-          "outputSchema": {
-            "type": "object",
-            "required": ["summary", "proposedDiff", "verification"],
-            "properties": {
-              "summary": { "type": "string" },
-              "proposedDiff": { "type": "string" },
-              "verification": { "type": "array" }
-            }
-          }
+          "validateStructuredOutput": false
         }
       }
     },
@@ -100,7 +91,16 @@
               ]
             },
             "authorityScopeRequirements": ["scope:model.invoke.local"],
-            "authorityScopes": ["scope:model.invoke.local"]
+            "authorityScopes": ["scope:model.invoke.local"],
+            "resultSchema": {
+              "type": "object",
+              "required": ["summary", "proposedDiff", "verification"],
+              "properties": {
+                "summary": { "type": "string" },
+                "proposedDiff": { "type": "string" },
+                "verification": { "type": "array" }
+              }
+            }
           }
         }
       }
@@ -181,13 +181,25 @@
                 "apply_result"
               ]
             },
+            "rateLimitProfile": {
+              "policy": "proposal_first_local",
+              "scope": "tool-capability:file.apply_patch",
+              "maxCalls": 1,
+              "windowMs": null
+            },
+            "idempotencyBehavior": {
+              "required": true,
+              "strategy": "proposal_hash",
+              "keyScope": "workflow-run"
+            },
+            "riskClass": "local_write",
             "primitiveCapabilities": ["prim:fs.write", "prim:git.diff"],
             "authorityScopeRequirements": [
               "scope:workspace.write",
               "scope:git.diff"
             ],
             "authorityScopes": ["scope:workspace.write", "scope:git.diff"],
-            "sideEffectClass": "write",
+            "sideEffectClass": "read",
             "requiresApproval": true
           }
         },
@@ -204,14 +216,9 @@
       "y": 180,
       "config": {
         "logic": {
-          "verificationKind": "receipt_expectation",
-          "requiredReceiptTypes": [
-            "proposal",
-            "diff_artifact",
-            "approval_decision",
-            "apply_result"
-          ],
-          "expectedArtifacts": ["artifact://repo-maintenance/diff"]
+          "assertionKind": "output_contains",
+          "expected": "approval_decision",
+          "expression": "receipts.requiredReceiptTypes"
         }
       }
     },
@@ -236,19 +243,15 @@
           "deliveryTarget": { "targetKind": "local_file" },
           "retentionPolicy": { "retentionKind": "run_scoped" },
           "versioning": { "enabled": true }
+        },
+        "law": {
+          "requireHumanGate": true,
+          "privilegedActions": ["output:materialize", "scope:workspace.write"]
         }
       }
     }
   ],
   "edges": [
-    {
-      "id": "edge-repo-trigger-source",
-      "from": "repo-maintenance-trigger",
-      "to": "repo-maintenance-source",
-      "fromPort": "output",
-      "toPort": "input",
-      "type": "data"
-    },
     {
       "id": "edge-repo-source-inspect",
       "from": "repo-maintenance-source",
@@ -287,8 +290,9 @@
       "from": "repo-maintenance-approval",
       "to": "repo-maintenance-proposal",
       "fromPort": "output",
-      "toPort": "approval",
-      "type": "control"
+      "toPort": "input",
+      "type": "data",
+      "connectionClass": "data"
     },
     {
       "id": "edge-repo-proposal-verifier",
@@ -333,7 +337,16 @@
           ]
         },
         "authorityScopeRequirements": ["scope:model.invoke.local"],
-        "authorityScopes": ["scope:model.invoke.local"]
+        "authorityScopes": ["scope:model.invoke.local"],
+        "resultSchema": {
+          "type": "object",
+          "required": ["summary", "proposedDiff", "verification"],
+          "properties": {
+            "summary": { "type": "string" },
+            "proposedDiff": { "type": "string" },
+            "verification": { "type": "array" }
+          }
+        }
       }
     },
     "requiredCapabilities": {},
@@ -354,7 +367,8 @@
       "evaluationSetPath": "internal-docs/samples/repo-maintenance-autonomous-system-package/evals",
       "expectedTimeSavedMinutes": 12,
       "mcpAccessReviewed": true,
-      "requireReplayFixtures": true
+      "requireReplayFixtures": true,
+      "errorWorkflowPath": "internal-docs/samples/repo-maintenance-autonomous-system-package/expected-receipts.json"
     }
   },
   "tests": [
@@ -369,6 +383,16 @@
       "assertion": {
         "kind": "node_exists",
         "expected": "repo-maintenance-output"
+      },
+      "status": "idle"
+    },
+    {
+      "id": "repo-maintenance-receipts-present",
+      "name": "Expected receipts present",
+      "targetNodeIds": ["repo-maintenance-verifier"],
+      "assertion": {
+        "kind": "output_contains",
+        "expected": "approval_decision"
       },
       "status": "idle"
     }

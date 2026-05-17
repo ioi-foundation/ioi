@@ -14131,6 +14131,24 @@ export function useWorkflowComposerController({
         await runtime.saveWorkflowTests(bundle.workflowPath, scratch.tests);
       }
       setTests(scratch.tests);
+      if (runtime.saveWorkflowNodeFixture && scratch.fixtures?.length) {
+        const savedFixtureGroups: WorkflowNodeFixture[] = [];
+        for (const fixture of scratch.fixtures) {
+          savedFixtureGroups.push(
+            ...(await runtime.saveWorkflowNodeFixture(
+              bundle.workflowPath,
+              fixture,
+            )),
+          );
+        }
+        setNodeFixturesById(groupFixturesByNodeId(savedFixtureGroups));
+      }
+      if (runtime.saveWorkflowProject) {
+        await runtime.saveWorkflowProject(
+          bundle.workflowPath,
+          scratch.workflow,
+        );
+      }
       await loadRuntimeSidecars(bundle.workflowPath);
 
       let bindingCheckCount = 0;
@@ -14368,6 +14386,12 @@ export function useWorkflowComposerController({
 
       let packagePath: string | null = null;
       if (runtime.exportWorkflowPackage) {
+        if (runtime.saveWorkflowProject) {
+          await runtime.saveWorkflowProject(
+            bundle.workflowPath,
+            scratch.workflow,
+          );
+        }
         const exported = await runtime.exportWorkflowPackage(
           bundle.workflowPath,
         );

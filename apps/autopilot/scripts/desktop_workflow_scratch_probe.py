@@ -46,6 +46,7 @@ WINDOW_WAIT_TIMEOUT_SECS = 90.0
 POST_WINDOW_SETTLE_SECS = 12.0
 CLICK_SETTLE_SECS = 0.75
 SCRATCH_WORKFLOW_SLUG = "scratch-gui-node-composition"
+REPO_MAINTENANCE_PACKAGE_SLUG = "repo-maintenance-autonomous-system"
 SCRATCH_WORKFLOW_SLUGS = [
     SCRATCH_WORKFLOW_SLUG,
     "scratch-mcp-research-operator",
@@ -61,6 +62,44 @@ SCRATCH_WORKFLOW_SLUGS = [
 ]
 SCRATCH_DOGFOOD_ENV = "VITE_AUTOPILOT_WORKFLOW_DOGFOOD_SCRIPT"
 SCRATCH_DOGFOOD_ENV_VALUE = "scratch-heavy"
+DOGFOOD_SCRIPT_SLUGS = {
+    "scratch-heavy": SCRATCH_WORKFLOW_SLUG,
+    "manual-repo-test-engineer": SCRATCH_WORKFLOW_SLUG,
+    "repo-maintenance-package": REPO_MAINTENANCE_PACKAGE_SLUG,
+}
+DOGFOOD_REQUIRED_NODES = {
+    "scratch-heavy": {
+        "scratch-source",
+        "scratch-function",
+        "scratch-model-binding",
+        "scratch-model",
+        "scratch-parser",
+        "scratch-assertion",
+        "scratch-gate",
+        "scratch-output",
+    },
+    "manual-repo-test-engineer": {
+        "scratch-source",
+        "scratch-function",
+        "scratch-model-binding",
+        "scratch-model",
+        "scratch-parser",
+        "scratch-assertion",
+        "scratch-gate",
+        "scratch-output",
+    },
+    "repo-maintenance-package": {
+        "repo-maintenance-trigger",
+        "repo-maintenance-source",
+        "repo-maintenance-model-binding",
+        "repo-maintenance-inspect",
+        "repo-maintenance-plan",
+        "repo-maintenance-approval",
+        "repo-maintenance-proposal",
+        "repo-maintenance-verifier",
+        "repo-maintenance-output",
+    },
+}
 FIXTURE_VALIDATION_STATUSES = {"passed", "failed", "not_declared", "stale"}
 
 
@@ -369,26 +408,25 @@ def collect_sidecar_summary(started_at: float, slug: str = SCRATCH_WORKFLOW_SLUG
     return summary
 
 
-def wait_for_dogfood_sidecars(started_at: float, timeout_secs: float) -> dict[str, Any]:
+def wait_for_dogfood_sidecars(
+    started_at: float,
+    timeout_secs: float,
+    dogfood_script: str,
+) -> dict[str, Any]:
     deadline = time.time() + timeout_secs
-    required_nodes = {
-        "scratch-source",
-        "scratch-function",
-        "scratch-model-binding",
-        "scratch-model",
-        "scratch-parser",
-        "scratch-assertion",
-        "scratch-gate",
-        "scratch-output",
-    }
+    target_slug = DOGFOOD_SCRIPT_SLUGS.get(dogfood_script, SCRATCH_WORKFLOW_SLUG)
+    required_nodes = DOGFOOD_REQUIRED_NODES.get(
+        dogfood_script,
+        DOGFOOD_REQUIRED_NODES["manual-repo-test-engineer"],
+    )
     last_summary: dict[str, Any] = {}
     while time.time() < deadline:
-        last_summary = collect_sidecar_summary(started_at)
+        last_summary = collect_sidecar_summary(started_at, target_slug)
         suite_summaries = {
             slug: collect_sidecar_summary(started_at, slug)
             for slug in SCRATCH_WORKFLOW_SLUGS
-        }
-        suite_ready = all(
+        } if dogfood_script == "scratch-heavy" else {}
+        suite_ready = dogfood_script == "scratch-heavy" and all(
             summary.get("workflowFresh")
             and summary.get("bindingManifestFresh")
             and summary.get("fixtureValidationStatuses")
@@ -424,13 +462,17 @@ def wait_for_dogfood_sidecars(started_at: float, timeout_secs: float) -> dict[st
             )
             and last_summary.get("freshProposalFiles")
         )
-        if suite_ready or (SCRATCH_DOGFOOD_ENV_VALUE != "scratch-heavy" and single_ready):
+        if suite_ready or (dogfood_script != "scratch-heavy" and single_ready):
             return {**last_summary, "suite": suite_summaries, "ready": True}
         time.sleep(1.0)
-    return {**last_summary, "suite": {
-        slug: collect_sidecar_summary(started_at, slug)
-        for slug in SCRATCH_WORKFLOW_SLUGS
-    }, "ready": False}
+    return {
+        **last_summary,
+        "suite": {
+            slug: collect_sidecar_summary(started_at, slug)
+            for slug in SCRATCH_WORKFLOW_SLUGS
+        } if dogfood_script == "scratch-heavy" else {},
+        "ready": False,
+    }
 
 
 def parse_args() -> argparse.Namespace:
@@ -440,6 +482,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dev-url", default=DEFAULT_WEB_ROOT)
     parser.add_argument("--window-name", default=WINDOW_SEARCH_PATTERN)
     parser.add_argument("--timeout-secs", type=float, default=WINDOW_WAIT_TIMEOUT_SECS)
+    parser.add_argument("--dogfood-script", default=SCRATCH_DOGFOOD_ENV_VALUE)
     return parser.parse_args()
 
 
@@ -452,7 +495,7 @@ def main() -> int:
     screenshots: list[str] = []
     started_at = time.time()
     previous_dogfood_env = os.environ.get(SCRATCH_DOGFOOD_ENV)
-    os.environ[SCRATCH_DOGFOOD_ENV] = SCRATCH_DOGFOOD_ENV_VALUE
+    os.environ[SCRATCH_DOGFOOD_ENV] = args.dogfood_script
 
     close_matching_windows(args.window_name)
     terminate_existing_desktop_instances()
@@ -486,7 +529,11 @@ def main() -> int:
         dismiss_create_workflow_modal(window_id)
 
         screenshots.append(str(capture_step(window_id, output_dir, "02-dogfood-running")))
-        sidecars = wait_for_dogfood_sidecars(started_at, args.timeout_secs)
+        sidecars = wait_for_dogfood_sidecars(
+            started_at,
+            args.timeout_secs,
+            args.dogfood_script,
+        )
         (output_dir / "sidecar-summary.json").write_text(
             json.dumps(sidecars, indent=2),
             encoding="utf-8",
@@ -533,13 +580,24 @@ def main() -> int:
                 }
             )
         else:
+            closed_entry = {
+                "id": "scratch-heavy-gui-runtime-closed",
+                "workflowId": "scratch-heavy-suite",
+                "summary": "Scratch-heavy workflow suite was authored from primitive canvas nodes, validated, tested, run, resumed where needed, proposed, and persisted through typed workflow runtime APIs.",
+            }
+            if args.dogfood_script == "repo-maintenance-package":
+                closed_entry = {
+                    "id": "repo-maintenance-package-gui-runtime-closed",
+                    "workflowId": "repo-maintenance-autonomous-system",
+                    "summary": "Repo-maintenance Autonomous System Package was authored from primitive canvas nodes, validated, fixture-seeded, run through approval interruptions, proposed, packaged, and persisted through typed workflow runtime APIs.",
+                }
             gap_ledger.append(
                 {
-                    "id": "scratch-heavy-gui-runtime-closed",
-                    "workflowId": "scratch-heavy-suite",
+                    "id": closed_entry["id"],
+                    "workflowId": closed_entry["workflowId"],
                     "severity": "info",
                     "area": "gui-runtime",
-                    "summary": "Scratch-heavy workflow suite was authored from primitive canvas nodes, validated, tested, run, resumed where needed, proposed, and persisted through typed workflow runtime APIs.",
+                    "summary": closed_entry["summary"],
                     "details": sidecars,
                     "status": "closed",
                 }
@@ -564,7 +622,7 @@ def main() -> int:
             "screenshots": screenshots,
             "gapLedgerPath": str(output_dir / "gap-ledger.json"),
             "sidecarSummaryPath": str(output_dir / "sidecar-summary.json"),
-            "dogfoodEnv": {SCRATCH_DOGFOOD_ENV: SCRATCH_DOGFOOD_ENV_VALUE},
+            "dogfoodEnv": {SCRATCH_DOGFOOD_ENV: args.dogfood_script},
             "logTail": read_log_tail(log_path),
         }
         (output_dir / "gap-ledger.json").write_text(
