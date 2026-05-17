@@ -170,7 +170,7 @@ test("authority center makes missing repair receipts explicit", () => {
   assert.equal(JSON.stringify(projection).includes("sk-"), false);
 });
 
-test("authority center hydrates repair receipts from workflow capability preflight evidence", () => {
+test("authority center hydrates repair receipts from compact authority evidence summaries", () => {
   const projection = buildAuthorityCenterProjection({
     policyState: createDefaultShieldPolicyState(),
     modelSnapshot: {
@@ -199,33 +199,36 @@ test("authority center hydrates repair receipts from workflow capability preflig
         receiptBehavior: { requiredReceiptTypes: ["tool_invocation"] },
       },
     ],
-    workflowPreflightSnapshot: {
-      runtimeThreadEvents: [
+    authorityEvidenceSnapshot: {
+      items: [
         {
-          eventKind: "policy.blocked",
-          componentKind: "capability_preflight",
+          sourceRunId: "workflow-run-policy-123",
+          capabilityRef: "model-capability:route.local-first",
+          routeId: "route.local-first",
           receiptRefs: [
             "receipt_workflow_run_capability_preflight_123",
-            "ghp_rawrepairshouldnotescape123456789",
+            "receipt_model_row_preflight",
           ],
-          payload: {
-            rows: [
-              {
-                nodeId: "model",
-                capabilityRef: "model-capability:route.local-first",
-                routeId: "route.local-first",
-                receiptRefs: ["receipt_model_row_preflight"],
-                authorityScopeRequirements: ["model.chat:*"],
-              },
-              {
-                nodeId: "tool",
-                capabilityRef: "tool-capability:legacy-filesystem-write",
-                receiptRefs: ["receipt_tool_scope_preflight"],
-                authorityScopeRequirements: ["filesystem.write"],
-              },
-            ],
-            rawPayload: "sk-preflightpayloadshouldnotescape123456",
-          },
+          policyDecisionRefs: [
+            "policy_workflow_run_capability_preflight_blocked_123",
+          ],
+          authorityScopeRequirements: ["model.chat:*"],
+          payload: "sk-preflightpayloadshouldnotescape123456",
+        },
+        {
+          sourceRunId: "workflow-run-policy-123",
+          capabilityRef: "tool-capability:legacy-filesystem-write",
+          receiptRefs: [
+            "receipt_workflow_run_capability_preflight_123",
+            "receipt_tool_scope_preflight",
+          ],
+          authorityScopeRequirements: ["filesystem.write"],
+        },
+      ],
+      runtimeThreadEvents: [
+        {
+          receiptRefs: ["receipt_trace_surface_must_not_hydrate"],
+          payload: "ghp_rawrepairshouldnotescape123456789",
         },
       ],
     },
@@ -249,6 +252,10 @@ test("authority center hydrates repair receipts from workflow capability preflig
   );
   assert.equal(
     JSON.stringify(projection).includes("rawrepairshouldnotescape"),
+    false,
+  );
+  assert.equal(
+    JSON.stringify(projection).includes("receipt_trace_surface_must_not_hydrate"),
     false,
   );
 });

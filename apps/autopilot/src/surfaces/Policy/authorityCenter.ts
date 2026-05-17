@@ -116,7 +116,7 @@ export interface BuildAuthorityCenterProjectionInput {
   authoritySnapshot?: unknown;
   modelSnapshot?: unknown;
   toolCatalog?: unknown;
-  workflowPreflightSnapshot?: unknown;
+  authorityEvidenceSnapshot?: unknown;
   connectors?: ConnectorSummary[];
   policyState: ShieldPolicyState;
   generatedAtMs?: number;
@@ -157,7 +157,7 @@ export function buildAuthorityCenterProjection({
   authoritySnapshot,
   modelSnapshot,
   toolCatalog,
-  workflowPreflightSnapshot,
+  authorityEvidenceSnapshot,
   connectors = [],
   policyState,
   generatedAtMs = Date.now(),
@@ -186,10 +186,14 @@ export function buildAuthorityCenterProjection({
   const grants = arrayOf(authorityRecord?.grants ?? modelRecord?.tokens).map(
     grantRow,
   );
-  const workflowRepairReceipts = workflowPreflightRepairReceiptRows(
-    workflowPreflightSnapshot ??
+  const authorityEvidenceRows = authorityEvidenceSummaryRows(
+    authorityEvidenceSnapshot ??
       field(
         authorityRecord,
+        "authorityEvidence",
+        "authority_evidence",
+        "workflowCapabilityPreflightEvidence",
+        "workflow_capability_preflight_evidence",
         "workflowCapabilityPreflights",
         "workflow_capability_preflights",
         "workflowPreflightReceipts",
@@ -197,6 +201,10 @@ export function buildAuthorityCenterProjection({
       ) ??
       field(
         modelRecord,
+        "authorityEvidence",
+        "authority_evidence",
+        "workflowCapabilityPreflightEvidence",
+        "workflow_capability_preflight_evidence",
         "workflowCapabilityPreflights",
         "workflow_capability_preflights",
       ),
@@ -206,7 +214,7 @@ export function buildAuthorityCenterProjection({
       capability,
       grants,
       policyState,
-      workflowRepairReceipts,
+      authorityEvidenceRows,
     ),
   );
   const vaultRefs = arrayOf(
@@ -549,7 +557,7 @@ function withAuthorityPosture(
   capability: AuthorityCenterCapabilityRow,
   grants: AuthorityCenterGrantRow[],
   policyState: ShieldPolicyState,
-  workflowRepairReceipts: AuthorityWorkflowPreflightRepairReceiptRow[] = [],
+  authorityEvidenceRows: AuthorityEvidenceSummaryRow[] = [],
 ): AuthorityCenterCapabilityRow {
   const grantStatus = grantStatusForCapability(capability, grants);
   const policyStatus = policyStatusForCapability(capability, policyState);
@@ -564,10 +572,7 @@ function withAuthorityPosture(
   const lastRepairReceiptRefs = safeReceiptRefs([
     ...capability.lastRepairReceiptRefs,
     ...grantRepairReceiptRefsForCapability(capability, grants),
-    ...workflowRepairReceiptRefsForCapability(
-      capability,
-      workflowRepairReceipts,
-    ),
+    ...authorityEvidenceReceiptRefsForCapability(capability, authorityEvidenceRows),
   ]);
   const next = {
     ...capability,
@@ -744,26 +749,29 @@ function receiptRefsFromCapabilityRecord(
   ]);
 }
 
-interface AuthorityWorkflowPreflightRepairReceiptRow {
+interface AuthorityEvidenceSummaryRow {
   capabilityRef: string;
   routeId: string | null;
   receiptRefs: string[];
+  policyDecisionRefs: string[];
   authorityScopes: string[];
   authorityScopeRequirements: string[];
+  sourceRunId: string | null;
+  createdAtMs: number | null;
 }
 
-function workflowRepairReceiptRefsForCapability(
+function authorityEvidenceReceiptRefsForCapability(
   capability: AuthorityCenterCapabilityRow,
-  rows: AuthorityWorkflowPreflightRepairReceiptRow[],
+  rows: AuthorityEvidenceSummaryRow[],
 ): string[] {
   return rows
-    .filter((row) => workflowRepairReceiptMatchesCapability(capability, row))
+    .filter((row) => authorityEvidenceMatchesCapability(capability, row))
     .flatMap((row) => row.receiptRefs);
 }
 
-function workflowRepairReceiptMatchesCapability(
+function authorityEvidenceMatchesCapability(
   capability: AuthorityCenterCapabilityRow,
-  row: AuthorityWorkflowPreflightRepairReceiptRow,
+  row: AuthorityEvidenceSummaryRow,
 ): boolean {
   const candidateRefs = [
     capability.capabilityRef,
@@ -795,113 +803,91 @@ function workflowRepairReceiptMatchesCapability(
   );
 }
 
-function workflowPreflightRepairReceiptRows(
+function authorityEvidenceSummaryRows(
   snapshot: unknown,
-): AuthorityWorkflowPreflightRepairReceiptRow[] {
-  const rows: AuthorityWorkflowPreflightRepairReceiptRow[] = [];
-  for (const envelope of workflowPreflightEnvelopeCandidates(snapshot)) {
-    const envelopeRecord = recordValue(envelope);
-    if (!envelopeRecord) continue;
-    const payload =
-      recordValue(field(envelopeRecord, "payload", "output")) ??
-      envelopeRecord;
-    const preflight = recordValue(field(payload, "preflight")) ?? payload;
-    const receiptRefs = safeReceiptRefs([
-      ...stringArray(field(envelopeRecord, "receiptRefs", "receipt_refs")),
-      ...stringArray(field(payload, "receiptRefs", "receipt_refs")),
-      ...stringArray(field(preflight, "receiptRefs", "receipt_refs")),
-    ]);
-    const rowRecords = workflowPreflightRowCandidates(preflight, payload);
-    if (rowRecords.length === 0) {
-      for (const capabilityRef of stringArray(
-        field(preflight, "capabilityRefs", "capability_refs"),
-      )) {
-        rows.push({
-          capabilityRef,
-          routeId: null,
-          receiptRefs,
-          authorityScopes: [],
-          authorityScopeRequirements: [],
-        });
-      }
-      continue;
-    }
-    for (const row of rowRecords) {
-      rows.push({
-        capabilityRef: stringValue(
-          field(row, "capabilityRef", "capability_ref"),
-          "",
+): AuthorityEvidenceSummaryRow[] {
+  if (!snapshot) return [];
+  const entries = Array.isArray(snapshot)
+    ? snapshot
+    : authorityEvidenceArrayPayload(snapshot);
+  return entries
+    .map(recordValue)
+    .filter((record): record is Record<string, any> => Boolean(record))
+    .map((record) => ({
+      capabilityRef: stringValue(
+        field(
+          record,
+          "capabilityRef",
+          "capability_ref",
+          "modelCapabilityRef",
+          "model_capability_ref",
+          "toolCapabilityRef",
+          "tool_capability_ref",
+          "connectorCapabilityRef",
+          "connector_capability_ref",
         ),
-        routeId: stringValue(field(row, "routeId", "route_id"), null),
-        receiptRefs: safeReceiptRefs([
-          ...receiptRefs,
-          ...stringArray(field(row, "receiptRefs", "receipt_refs")),
-        ]),
-        authorityScopes: stringArray(
-          field(row, "authorityScopes", "authority_scopes"),
+        "",
+      ),
+      routeId: stringValue(field(record, "routeId", "route_id"), null),
+      receiptRefs: safeReceiptRefs([
+        ...stringArray(field(record, "receiptRefs", "receipt_refs")),
+        ...stringArray(
+          field(record, "lastRepairReceiptRefs", "last_repair_receipt_refs"),
         ),
-        authorityScopeRequirements: stringArray(
-          field(
-            row,
-            "authorityScopeRequirements",
-            "authority_scope_requirements",
-          ),
+        ...stringArray(
+          field(record, "preflightReceiptRefs", "preflight_receipt_refs"),
         ),
-      });
-    }
-  }
-  return rows.filter((row) => row.receiptRefs.length > 0);
+      ]),
+      policyDecisionRefs: safeReceiptRefs([
+        ...stringArray(
+          field(record, "policyDecisionRefs", "policy_decision_refs"),
+        ),
+      ]),
+      authorityScopes: stringArray(
+        field(record, "authorityScopes", "authority_scopes"),
+      ),
+      authorityScopeRequirements: stringArray(
+        field(
+          record,
+          "authorityScopeRequirements",
+          "authority_scope_requirements",
+        ),
+      ),
+      sourceRunId: stringValue(
+        field(record, "sourceRunId", "source_run_id", "runId", "run_id"),
+        null,
+      ),
+      createdAtMs: numberValue(
+        field(record, "createdAtMs", "created_at_ms", "timestampMs"),
+      ),
+    }))
+    .filter(
+      (row) =>
+        row.receiptRefs.length > 0 &&
+        (row.capabilityRef ||
+          row.routeId ||
+          row.authorityScopes.length > 0 ||
+          row.authorityScopeRequirements.length > 0),
+    );
 }
 
-function workflowPreflightEnvelopeCandidates(snapshot: unknown): unknown[] {
-  if (!snapshot) return [];
-  if (Array.isArray(snapshot)) return snapshot;
+function authorityEvidenceArrayPayload(snapshot: unknown): unknown[] {
   const record = recordValue(snapshot);
   if (!record) return [];
-  return [
-    snapshot,
-    ...arrayPayload(record, [
-      "workflowCapabilityPreflights",
-      "workflow_capability_preflights",
-      "workflowPreflightReceipts",
-      "workflow_preflight_receipts",
-      "capabilityPreflights",
-      "capability_preflights",
-      "items",
-    ]),
-    ...arrayPayload(field(record, "runtimeThreadEvents", "runtime_thread_events"), [
-      "items",
-      "events",
-    ]),
-    ...arrayPayload(field(record, "nodeRuns", "node_runs"), ["items", "runs"]),
-    ...workflowPreflightNestedCandidate(record, ["tuiControlState", "tui_control_state"]),
-    ...workflowPreflightNestedCandidate(record, ["finalState", "final_state"]),
-  ];
-}
-
-function workflowPreflightNestedCandidate(
-  record: Record<string, any>,
-  keys: string[],
-): unknown[] {
-  const nested = recordValue(field(record, ...keys));
-  if (!nested) return [];
-  const values = recordValue(field(nested, "values"));
-  return [
-    nested,
-    field(values, "capabilityPreflight", "capability_preflight"),
-  ].filter(Boolean);
-}
-
-function workflowPreflightRowCandidates(
-  preflight: Record<string, any>,
-  payload: Record<string, any>,
-): Record<string, any>[] {
-  return [
-    ...arrayPayload(preflight, ["rows", "capabilityRows", "capability_rows"]),
-    ...arrayPayload(payload, ["rows", "capabilityRows", "capability_rows"]),
-  ]
-    .map(recordValue)
-    .filter((row): row is Record<string, any> => Boolean(row));
+  return arrayPayload(record, [
+    "authorityEvidence",
+    "authority_evidence",
+    "workflowCapabilityPreflightEvidence",
+    "workflow_capability_preflight_evidence",
+    "workflowCapabilityPreflights",
+    "workflow_capability_preflights",
+    "workflowPreflightReceipts",
+    "workflow_preflight_receipts",
+    "capabilityPreflights",
+    "capability_preflights",
+    "items",
+    "rows",
+  ]);
 }
 
 function vaultRow(item: unknown): AuthorityCenterVaultRow {
@@ -969,6 +955,10 @@ function safeReceiptRefs(value: unknown[]): string[] {
         ),
     ),
   );
+}
+
+function numberValue(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function arrayOf(value: unknown): unknown[] {
