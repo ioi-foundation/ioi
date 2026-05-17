@@ -13,6 +13,8 @@ import type { ShieldPolicyState } from "./policyCenter";
 export const DEFAULT_AUTHORITY_DAEMON_ENDPOINT = "http://127.0.0.1:8765";
 export const AUTHORITY_DAEMON_ENDPOINT_STORAGE_KEY =
   "ioi.modelMounts.daemonEndpoint";
+export const WORKFLOW_CAPABILITY_PREFLIGHT_RECEIPTS_ENDPOINT =
+  "/api/v1/workflow-capability-preflights";
 
 export interface AuthorityCenterRuntimeProjectionResult {
   endpoint: string;
@@ -92,6 +94,7 @@ export async function loadAuthorityCenterRuntimeProjection({
     modelSnapshotResult,
     toolCatalogResult,
     authorityResult,
+    workflowPreflightResult,
   ] = await Promise.allSettled([
     fetchAuthorityJsonFirst(endpoint, [
       MODEL_CAPABILITY_BINDING_ENDPOINT,
@@ -103,6 +106,11 @@ export async function loadAuthorityCenterRuntimeProjection({
       "/v1/tools",
     ]),
     fetchAuthorityJson(endpoint, MODEL_AUTHORITY_BINDING_ENDPOINT),
+    fetchAuthorityJsonFirst(endpoint, [
+      WORKFLOW_CAPABILITY_PREFLIGHT_RECEIPTS_ENDPOINT,
+      "/api/v1/workflow-capability-preflight",
+      "/v1/workflow-capability-preflights",
+    ]),
   ]);
   const modelCapabilities =
     modelCapabilitiesResult.status === "fulfilled"
@@ -116,6 +124,10 @@ export async function loadAuthorityCenterRuntimeProjection({
     toolCatalogResult.status === "fulfilled" ? toolCatalogResult.value : [];
   const authoritySnapshot =
     authorityResult.status === "fulfilled" ? authorityResult.value : undefined;
+  const workflowPreflightSnapshot =
+    workflowPreflightResult.status === "fulfilled"
+      ? workflowPreflightResult.value
+      : undefined;
   const failures = [
     modelCapabilitiesResult,
     modelSnapshotResult,
@@ -139,6 +151,7 @@ export async function loadAuthorityCenterRuntimeProjection({
       authoritySnapshot,
       modelSnapshot,
       toolCatalog,
+      workflowPreflightSnapshot,
       connectors,
       policyState,
       error,

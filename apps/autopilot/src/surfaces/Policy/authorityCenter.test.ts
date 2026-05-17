@@ -170,6 +170,89 @@ test("authority center makes missing repair receipts explicit", () => {
   assert.equal(JSON.stringify(projection).includes("sk-"), false);
 });
 
+test("authority center hydrates repair receipts from workflow capability preflight evidence", () => {
+  const projection = buildAuthorityCenterProjection({
+    policyState: createDefaultShieldPolicyState(),
+    modelSnapshot: {
+      modelCapabilities: [
+        {
+          id: "model-capability:route.local-first",
+          routeId: "route.local-first",
+          capability: "chat",
+          policyTarget: "model.route.local-first",
+          authorityScopeRequirements: ["model.chat:*"],
+          credentialReadiness: { status: "ready" },
+          workflowAvailability: { available: true },
+          agentAvailability: { available: true },
+          receiptBehavior: { requiredReceiptTypes: ["model_invocation"] },
+        },
+      ],
+    },
+    toolCatalog: [
+      {
+        stableToolId: "filesystem.write",
+        displayName: "Filesystem write",
+        credentialReadiness: { status: "missing" },
+        effectClass: "local_write",
+        riskDomain: "filesystem",
+        authorityScopeRequirements: ["filesystem.write"],
+        receiptBehavior: { requiredReceiptTypes: ["tool_invocation"] },
+      },
+    ],
+    workflowPreflightSnapshot: {
+      runtimeThreadEvents: [
+        {
+          eventKind: "policy.blocked",
+          componentKind: "capability_preflight",
+          receiptRefs: [
+            "receipt_workflow_run_capability_preflight_123",
+            "ghp_rawrepairshouldnotescape123456789",
+          ],
+          payload: {
+            rows: [
+              {
+                nodeId: "model",
+                capabilityRef: "model-capability:route.local-first",
+                routeId: "route.local-first",
+                receiptRefs: ["receipt_model_row_preflight"],
+                authorityScopeRequirements: ["model.chat:*"],
+              },
+              {
+                nodeId: "tool",
+                capabilityRef: "tool-capability:legacy-filesystem-write",
+                receiptRefs: ["receipt_tool_scope_preflight"],
+                authorityScopeRequirements: ["filesystem.write"],
+              },
+            ],
+            rawPayload: "sk-preflightpayloadshouldnotescape123456",
+          },
+        },
+      ],
+    },
+  });
+
+  assert.deepEqual(projection.capabilities[0]?.lastRepairReceiptRefs, [
+    "receipt_workflow_run_capability_preflight_123",
+    "receipt_model_row_preflight",
+  ]);
+  assert.deepEqual(projection.capabilities[1]?.lastRepairReceiptRefs, [
+    "receipt_workflow_run_capability_preflight_123",
+    "receipt_tool_scope_preflight",
+  ]);
+  assert.equal(
+    projection.capabilities[0]?.lastRepairSummary,
+    "2 repair receipts projected",
+  );
+  assert.equal(
+    JSON.stringify(projection).includes("preflightpayloadshouldnotescape"),
+    false,
+  );
+  assert.equal(
+    JSON.stringify(projection).includes("rawrepairshouldnotescape"),
+    false,
+  );
+});
+
 test("authority center builds scoped grant payloads from capability rows", () => {
   const projection = buildAuthorityCenterProjection({
     policyState: createDefaultShieldPolicyState(),
