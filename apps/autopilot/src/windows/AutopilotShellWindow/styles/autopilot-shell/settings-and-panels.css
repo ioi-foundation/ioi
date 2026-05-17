@@ -724,6 +724,35 @@
   letter-spacing: 0.05em;
 }
 
+.chat-settings-chip-ready {
+  border-color: var(--status-success-ring);
+  background: var(--status-success-dim);
+  color: var(--status-success);
+}
+
+.chat-settings-chip-warning {
+  border-color: var(--status-warning-ring);
+  background: var(--status-warning-dim);
+  color: var(--status-warning);
+}
+
+.chat-settings-chip-blocked {
+  border-color: var(--status-error-ring);
+  background: var(--status-error-dim);
+  color: var(--status-error);
+}
+
+.chat-settings-advanced {
+  display: grid;
+  gap: 6px;
+}
+
+.chat-settings-advanced summary {
+  cursor: pointer;
+  color: var(--chat-text-secondary);
+  font-size: 11px;
+}
+
 .chat-settings-inline-actions {
   display: flex;
   justify-content: flex-end;
@@ -1250,6 +1279,37 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 6px;
+}
+
+.shield-authority-posture-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.shield-authority-row-details {
+  display: grid;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.shield-authority-row-details summary {
+  cursor: pointer;
+  color: var(--chat-text-secondary);
+  font-size: 11px;
+}
+
+.shield-authority-row-ready {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--status-success-ring);
+  background: var(--status-success-dim);
+  color: var(--status-success);
+  font-size: 11px;
 }
 
 .shield-authority-row-action {

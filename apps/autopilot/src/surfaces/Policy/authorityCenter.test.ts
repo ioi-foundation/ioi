@@ -52,7 +52,12 @@ test("authority center projection aggregates readiness without leaking raw secre
         {
           id: "token.public",
           grantId: "wallet.grant.test",
-          allowed: ["model.chat:*"],
+          allowed: [
+            "model.chat:*",
+            "route.use:route.local-first",
+            "scope:host.controlled_execution",
+            "scope:google.readonly",
+          ],
           denied: ["shell.exec:*"],
           vaultRefs: { model: { redacted: true, hash: "abc123" } },
           receiptId: "receipt_permission_token_test",
@@ -99,6 +104,13 @@ test("authority center projection aggregates readiness without leaking raw secre
     projection.capabilities.some(
       (capability) => capability.policyTarget === "model.route.local-first",
     ),
+    true,
+  );
+  assert.equal(projection.capabilities[0]?.grantStatus, "active");
+  assert.equal(projection.capabilities[0]?.policyStatus, "governed");
+  assert.equal(projection.capabilities[0]?.receiptStatus, "required");
+  assert.equal(
+    projection.capabilities[0]?.readinessSummary.includes("grant active"),
     true,
   );
   assert.deepEqual(projection.capabilities[0]?.repairActions, []);
@@ -182,7 +194,7 @@ test("authority center projection degrades when live capabilities are blocked", 
   assert.equal(projection.status, "degraded");
   assert.equal(projection.summary.blockedCapabilities, 2);
   assert.equal(
-    projection.blockers.includes("2 live capabilities are blocked."),
+    projection.blockers.includes("2 live capabilities are not run-ready."),
     true,
   );
   assert.deepEqual(
@@ -249,6 +261,16 @@ test("authority center accepts canonical endpoint wrappers and snake case contra
   const projection = buildAuthorityCenterProjection({
     policyState: createDefaultShieldPolicyState(),
     modelSnapshot: {
+      tokens: [
+        {
+          id: "token.authority-center-canonical",
+          grantId: "wallet.grant.authority-center-canonical",
+          allowed: ["model.chat:*", "scope:gmail.send"],
+          denied: [],
+          receiptId: "receipt_authority_center_canonical",
+          expiresAt: "2026-05-15T13:00:00Z",
+        },
+      ],
       capabilities: [
         {
           model_capability_ref: "model-capability:route.autopilot",
