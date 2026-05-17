@@ -1,5 +1,6 @@
 export type SettingsSection =
   | "identity"
+  | "authority"
   | "knowledge"
   | "skill_sources"
   | "managed_settings"

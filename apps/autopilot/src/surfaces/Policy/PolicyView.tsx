@@ -11,6 +11,11 @@ import {
   type AuthorityCenterGrantRow,
   type AuthorityCenterProjection,
 } from "./authorityCenter";
+import {
+  fetchAuthorityJson,
+  loadAuthorityCenterRuntimeProjection,
+  readAuthorityDaemonEndpoint,
+} from "./authorityCenterRuntime";
 import type {
   AutomationPolicyMode,
   CapabilityGovernanceRequest,
@@ -32,9 +37,6 @@ import {
   updateConnectorOverride,
 } from "./policyCenter";
 import { buildConnectorTrustProfile } from "../Capabilities/components/model";
-
-const DEFAULT_DAEMON_ENDPOINT = "http://127.0.0.1:8765";
-const MOUNTS_ENDPOINT_STORAGE_KEY = "ioi.modelMounts.daemonEndpoint";
 
 interface PolicyViewProps {
   runtime: AgentWorkbenchRuntime;
@@ -135,44 +137,6 @@ function simulationSummaryLabel(value: "auto" | "gate" | "deny"): string {
 
 function deltaLabel(value: "wider" | "tighter"): string {
   return value === "wider" ? "Wider authority" : "Tighter authority";
-}
-
-function readAuthorityDaemonEndpoint(): string {
-  try {
-    return (
-      window.localStorage.getItem(MOUNTS_ENDPOINT_STORAGE_KEY) ||
-      DEFAULT_DAEMON_ENDPOINT
-    );
-  } catch {
-    return DEFAULT_DAEMON_ENDPOINT;
-  }
-}
-
-async function fetchAuthorityJson(
-  endpoint: string,
-  path: string,
-  options: { method?: string; body?: unknown } = {},
-): Promise<unknown> {
-  const response = await fetch(`${endpoint.replace(/\/+$/, "")}${path}`, {
-    method: options.method ?? "GET",
-    headers: {
-      accept: "application/json",
-      ...(options.body === undefined
-        ? {}
-        : { "content-type": "application/json" }),
-    },
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
-  });
-  const text = await response.text();
-  const value = text ? JSON.parse(text) : null;
-  if (!response.ok) {
-    const message =
-      value && typeof value === "object" && "error" in value
-        ? JSON.stringify((value as { error: unknown }).error)
-        : `${path} returned ${response.status}`;
-    throw new Error(message);
-  }
-  return value;
 }
 
 function authorityReceiptPreview(
@@ -341,43 +305,14 @@ export function PolicyView({
   }, [runtime]);
 
   const refreshAuthorityCenter = useCallback(async () => {
-    const endpoint = readAuthorityDaemonEndpoint();
     setAuthorityLoading(true);
     try {
-      const [modelResult, toolsResult, authorityResult] =
-        await Promise.allSettled([
-          fetchAuthorityJson(endpoint, "/api/v1/models"),
-          fetchAuthorityJson(endpoint, "/v1/tools"),
-          fetchAuthorityJson(endpoint, "/api/v1/authority"),
-        ]);
-      const modelSnapshot =
-        modelResult.status === "fulfilled" ? modelResult.value : undefined;
-      const toolCatalog =
-        toolsResult.status === "fulfilled" ? toolsResult.value : [];
-      const authoritySnapshot =
-        authorityResult.status === "fulfilled"
-          ? authorityResult.value
-          : undefined;
-      const failures = [modelResult, toolsResult, authorityResult]
-        .filter(
-          (result): result is PromiseRejectedResult =>
-            result.status === "rejected",
-        )
-        .map((result) =>
-          result.reason instanceof Error
-            ? result.reason.message
-            : String(result.reason),
-        );
-      const nextProjection = buildAuthorityCenterProjection({
-        authoritySnapshot,
-        modelSnapshot,
-        toolCatalog,
+      const result = await loadAuthorityCenterRuntimeProjection({
         connectors,
         policyState,
-        error: failures.length > 0 ? failures.join(" / ") : null,
       });
-      setAuthorityProjection(nextProjection);
-      setAuthorityError(failures.length > 0 ? failures.join(" / ") : null);
+      setAuthorityProjection(result.projection);
+      setAuthorityError(result.error);
     } catch (error) {
       const message =
         error instanceof Error

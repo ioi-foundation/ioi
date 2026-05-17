@@ -532,6 +532,18 @@
   border: 1px solid var(--status-warning-ring);
 }
 
+.chat-settings-pill-ready {
+  color: var(--chat-success);
+  background: var(--chat-success-muted);
+  border: 1px solid rgba(52, 211, 153, 0.34);
+}
+
+.chat-settings-pill-blocked {
+  color: var(--chat-error);
+  background: var(--chat-error-muted);
+  border: 1px solid var(--status-error-ring);
+}
+
 .chat-settings-body {
   margin: 16px 0 0;
   color: var(--chat-text-secondary);
@@ -1001,8 +1013,8 @@
 }
 
 .shield-status.status-blocked {
-  color: var(--chat-danger);
-  background: var(--chat-danger-muted);
+  color: var(--chat-error);
+  background: var(--chat-error-muted);
 }
 
 .shield-status.status-idle {

@@ -108,10 +108,18 @@ export function buildAuthorityCenterProjection({
   generatedAtMs = Date.now(),
   error = null,
 }: BuildAuthorityCenterProjectionInput): AuthorityCenterProjection {
-  const modelCapabilities = arrayOf(
-    recordValue(modelSnapshot)?.modelCapabilities,
-  ).map(modelCapabilityRow);
-  const toolCapabilities = arrayOf(toolCatalog).map(toolCapabilityRow);
+  const modelCapabilities = arrayPayload(modelSnapshot, [
+    "modelCapabilities",
+    "capabilities",
+    "items",
+  ]).map(modelCapabilityRow);
+  const toolCapabilities = arrayPayload(toolCatalog, [
+    "tools",
+    "toolCatalog",
+    "toolContracts",
+    "capabilities",
+    "items",
+  ]).map(toolCapabilityRow);
   const connectorCapabilities = connectors.map(connectorCapabilityRow);
   const capabilities = [
     ...modelCapabilities,
@@ -199,54 +207,113 @@ export function buildAuthorityCenterProjection({
 
 function modelCapabilityRow(item: unknown): AuthorityCenterCapabilityRow {
   const record = recordValue(item);
-  const routeId = stringValue(record?.routeId, "route.unknown");
+  const credentialReadiness = recordValue(
+    field(record, "credentialReadiness", "credential_readiness"),
+  );
+  const workflowAvailability = recordValue(
+    field(record, "workflowAvailability", "workflow_availability"),
+  );
+  const agentAvailability = recordValue(
+    field(record, "agentAvailability", "agent_availability"),
+  );
+  const fallback = recordValue(
+    field(record, "fallbackPolicy", "fallback_policy"),
+  );
+  const receiptBehavior = recordValue(
+    field(record, "receiptBehavior", "receipt_behavior"),
+  );
+  const routeId = stringValue(
+    field(record, "routeId", "route_id"),
+    "route.unknown",
+  );
   const credentialStatus = stringValue(
-    record?.credentialReadiness?.status,
+    field(credentialReadiness, "status", "state"),
     "unknown",
   );
   const available =
-    record?.workflowAvailability?.available === true &&
-    record?.agentAvailability?.available === true;
+    workflowAvailability?.available === true &&
+    agentAvailability?.available === true;
   const status =
     available && credentialStatus === "ready" ? "ready" : credentialStatus;
-  const privacyTier = stringValue(record?.privacyTier, "unknown privacy");
-  const fallback = recordValue(record?.fallbackPolicy);
+  const privacyTier = stringValue(
+    field(record, "privacyTier", "privacy_tier"),
+    "unknown privacy",
+  );
   const selectedEndpoint = stringValue(
-    fallback?.selectedEndpointId,
+    field(fallback, "selectedEndpointId", "selected_endpoint_id"),
     "no selected endpoint",
   );
   return {
-    id: stringValue(record?.id, `model-capability:${routeId}`),
-    label: `${routeId} / ${stringValue(record?.capability, "model")}`,
+    id: stringValue(
+      field(record, "id", "modelCapabilityRef", "model_capability_ref"),
+      `model-capability:${routeId}`,
+    ),
+    label: `${routeId} / ${stringValue(field(record, "capability"), "model")}`,
     kind: "model",
     status,
     tone: toneForStatus(status),
     detail: `${privacyTier} / ${selectedEndpoint}`,
-    policyTarget: stringValue(record?.policyTarget, null),
-    requiredScopes: stringArray(record?.authorityScopeRequirements),
-    receiptTypes: stringArray(record?.receiptBehavior?.requiredReceiptTypes),
+    policyTarget: stringValue(
+      field(record, "policyTarget", "policy_target"),
+      null,
+    ),
+    requiredScopes: stringArray(
+      field(
+        record,
+        "authorityScopeRequirements",
+        "authority_scope_requirements",
+      ),
+    ),
+    receiptTypes: stringArray(
+      field(receiptBehavior, "requiredReceiptTypes", "required_receipt_types"),
+    ),
   };
 }
 
 function toolCapabilityRow(item: unknown): AuthorityCenterCapabilityRow {
   const record = recordValue(item);
+  const credentialReadiness = recordValue(
+    field(record, "credentialReadiness", "credential_readiness"),
+  );
+  const receiptBehavior = recordValue(
+    field(record, "receiptBehavior", "receipt_behavior"),
+  );
+  const stableToolId = stringValue(
+    field(record, "stableToolId", "stable_tool_id", "toolId", "tool_id", "id"),
+    "tool.unknown",
+  );
   const status = stringValue(
-    record?.credentialReadiness?.status,
-    record?.credentialReady === true ? "ready" : "unknown",
+    field(credentialReadiness, "status", "state"),
+    field(record, "credentialReady", "credential_ready") === true
+      ? "ready"
+      : "unknown",
   );
   return {
-    id: stringValue(record?.stableToolId ?? record?.id, "tool.unknown"),
+    id: stableToolId,
     label: stringValue(
-      record?.displayName ?? record?.stableToolId,
+      field(record, "displayName", "display_name") ?? stableToolId,
       "Runtime tool",
     ),
     kind: "tool",
     status,
     tone: toneForStatus(status),
-    detail: `${stringValue(record?.effectClass, "effect unknown")} / ${stringValue(record?.riskDomain, "risk unknown")}`,
-    policyTarget: stringValue(record?.policyTarget, null),
-    requiredScopes: stringArray(record?.authorityScopeRequirements),
-    receiptTypes: stringArray(record?.receiptBehavior?.requiredReceiptTypes),
+    detail: `${stringValue(field(record, "effectClass", "effect_class"), "effect unknown")} / ${stringValue(field(record, "riskDomain", "risk_domain", "riskClass", "risk_class"), "risk unknown")}`,
+    policyTarget: stringValue(
+      field(record, "policyTarget", "policy_target"),
+      null,
+    ),
+    requiredScopes: stringArray(
+      field(
+        record,
+        "authorityScopeRequirements",
+        "authority_scope_requirements",
+        "authorityScopes",
+        "authority_scopes",
+      ),
+    ),
+    receiptTypes: stringArray(
+      field(receiptBehavior, "requiredReceiptTypes", "required_receipt_types"),
+    ),
   };
 }
 
@@ -348,6 +415,25 @@ function recordValue(value: unknown): Record<string, any> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, any>)
     : null;
+}
+
+function field(record: Record<string, any> | null, ...keys: string[]): unknown {
+  if (!record) return undefined;
+  for (const key of keys) {
+    if (record[key] !== undefined && record[key] !== null) return record[key];
+  }
+  return undefined;
+}
+
+function arrayPayload(value: unknown, keys: readonly string[]): unknown[] {
+  if (Array.isArray(value)) return value;
+  const record = recordValue(value);
+  if (!record) return [];
+  for (const key of keys) {
+    const candidate = record[key];
+    if (Array.isArray(candidate)) return candidate;
+  }
+  return [];
 }
 
 function containsRawSecretMaterial(value: unknown): boolean {
