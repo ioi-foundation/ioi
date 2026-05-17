@@ -1296,8 +1296,12 @@ export interface WorkflowCapabilityContractMetadata {
   toolCapabilityRef?: string;
   connectorCapabilityRef?: string;
   riskClass?: string;
+  primitiveCapabilities?: string[];
   authorityScopes?: string[];
   authorityScopeRequirements?: string[];
+  inputSchema?: WorkflowJsonSchema | Record<string, unknown>;
+  outputSchema?: WorkflowJsonSchema | Record<string, unknown>;
+  evidenceRequirements?: string[];
   approvalRequirement?: Record<string, unknown>;
   grantReadiness?: WorkflowCapabilityCredentialReadiness | Record<string, unknown>;
   policyPosture?: Record<string, unknown>;
@@ -1308,6 +1312,7 @@ export interface WorkflowCapabilityContractMetadata {
   workflowAvailability?: WorkflowCapabilityAvailability;
   agentAvailability?: WorkflowCapabilityAvailability;
   marketplaceExposure?: Record<string, unknown>;
+  runtimeToolContract?: Record<string, unknown>;
 }
 
 export interface WorkflowModelCapabilityContractMetadata {
@@ -1338,8 +1343,12 @@ export interface WorkflowToolBinding {
   credentialReady?: boolean;
   credentialReadiness?: WorkflowCapabilityCredentialReadiness;
   riskClass?: string;
+  primitiveCapabilities?: string[];
   authorityScopes?: string[];
   authorityScopeRequirements?: string[];
+  inputSchema?: WorkflowJsonSchema | Record<string, unknown>;
+  outputSchema?: WorkflowJsonSchema | Record<string, unknown>;
+  evidenceRequirements?: string[];
   approvalRequirement?: Record<string, unknown>;
   grantReadiness?: WorkflowCapabilityCredentialReadiness | Record<string, unknown>;
   policyPosture?: Record<string, unknown>;
@@ -1349,6 +1358,7 @@ export interface WorkflowToolBinding {
   workflowAvailability?: WorkflowCapabilityAvailability;
   agentAvailability?: WorkflowCapabilityAvailability;
   marketplaceExposure?: Record<string, unknown>;
+  runtimeToolContract?: Record<string, unknown>;
   capabilityScope: string[];
   sideEffectClass: WorkflowSideEffectClass;
   requiresApproval: boolean;
@@ -1428,8 +1438,12 @@ export interface WorkflowConnectorBinding {
   credentialReady?: boolean;
   credentialReadiness?: WorkflowCapabilityCredentialReadiness;
   riskClass?: string;
+  primitiveCapabilities?: string[];
   authorityScopes?: string[];
   authorityScopeRequirements?: string[];
+  inputSchema?: WorkflowJsonSchema | Record<string, unknown>;
+  outputSchema?: WorkflowJsonSchema | Record<string, unknown>;
+  evidenceRequirements?: string[];
   approvalRequirement?: Record<string, unknown>;
   grantReadiness?: WorkflowCapabilityCredentialReadiness | Record<string, unknown>;
   policyPosture?: Record<string, unknown>;
@@ -1439,6 +1453,7 @@ export interface WorkflowConnectorBinding {
   workflowAvailability?: WorkflowCapabilityAvailability;
   agentAvailability?: WorkflowCapabilityAvailability;
   marketplaceExposure?: Record<string, unknown>;
+  runtimeToolContract?: Record<string, unknown>;
   capabilityScope: string[];
   sideEffectClass: WorkflowSideEffectClass;
   requiresApproval: boolean;

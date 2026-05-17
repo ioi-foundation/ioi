@@ -58,6 +58,7 @@ import type {
   WorkflowCapabilityGrantResolutionRequest,
 } from "./workflow-capability-grant-request";
 import type { WorkflowCodingToolBudgetRunLaunchAnnotation } from "./workflow-readiness-model";
+import type { WorkflowRuntimeToolContractLike } from "./workflow-tool-connector-capability-binding";
 
 export type WorkflowRuntimeControlRequest =
   | RuntimeApprovalRequestControlRequest
@@ -128,6 +129,10 @@ export interface GraphCapabilityCatalog {
   capabilities: GraphRuntimeCapabilityOption[];
   activeIssueCount?: number;
 }
+
+export type WorkflowToolCatalogEntry =
+  | Partial<WorkflowToolBinding>
+  | WorkflowRuntimeToolContractLike;
 
 export interface WorkflowRunRequestOptions extends Record<string, unknown> {
   threadId?: string;
@@ -229,7 +234,7 @@ export interface GraphExecutionRuntime {
   ): Promise<WorkflowDeliveryTarget[]>;
   listWorkflowToolCatalog?(
     projectRoot: string,
-  ): Promise<WorkflowToolBinding[]>;
+  ): Promise<WorkflowToolCatalogEntry[]>;
   listWorkflowConnectorCatalog?(
     projectRoot: string,
   ): Promise<WorkflowConnectorBinding[]>;

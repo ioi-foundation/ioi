@@ -412,6 +412,7 @@ export type {
   GraphRuntimeCapabilityOption,
   GraphRuntimeModelOption,
   WorkflowRuntimeControlRequest,
+  WorkflowToolCatalogEntry,
   CacheResult,
   AgentSummary,
   FleetState,
