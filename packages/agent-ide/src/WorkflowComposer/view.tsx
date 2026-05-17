@@ -287,6 +287,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     workflowNodeRunChildLineage,
     workflowPath,
     WorkflowRailPanel,
+    workflowStartCardDescription,
     workflowTimeLabel,
     zoomIn,
     zoomOut
@@ -1318,7 +1319,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                           title={item.creatorDescription}
                         >
                           <strong>{item.label}</strong>
-                          <span>{item.creatorDescription}</span>
+                          <span>{workflowStartCardDescription(item)}</span>
                           <small>
                             {item.group} · {workflowActionMetadataLabel(item)}
                           </small>
