@@ -664,16 +664,34 @@
   justify-content: space-between;
 }
 
+.workflow-harness-teaching-actions {
+  justify-content: flex-end;
+}
+
 .workflow-harness-teaching-view span {
   color: var(--text-tertiary);
   font-size: 11px;
 }
 
-.workflow-harness-teaching-view > div span {
+.workflow-harness-teaching-group-button {
+  background: color-mix(in srgb, var(--workflow-control) 72%, transparent);
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
   color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
   padding: 3px 8px;
+}
+
+.workflow-harness-teaching-group-button:hover,
+.workflow-harness-teaching-group-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.workflow-harness-teaching-group-button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .workflow-empty-goal-row {

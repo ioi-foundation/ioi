@@ -122,6 +122,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleRunWorkflowNode,
     handleRunWorkflowUpstream,
     handleSave,
+    handleToggleHarnessGroup,
     handleSelectHarnessReceiptRef,
     handleSelectHarnessReplayFixtureRef,
     handleSelectHarnessRollbackTarget,
@@ -448,7 +449,17 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                   {harnessGroupSummary.collapsed} summarized on canvas
                 </span>
               </div>
-              <div>
+              <div className="workflow-harness-teaching-actions">
+                {harnessGroupSummary.expanded > 0 ? (
+                  <button
+                    type="button"
+                    data-testid="workflow-harness-teaching-collapse-expanded"
+                    onClick={handleCollapseHarnessGroups}
+                    title="Collapse expanded groups and return to the topology overview"
+                  >
+                    Back to overview
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   data-testid="workflow-harness-teaching-fork"
@@ -476,13 +487,19 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
             </header>
             <div>
               {harnessGroupViews.slice(0, 6).map((group) => (
-                <span
+                <button
+                  type="button"
                   key={group.groupId}
+                  className="workflow-harness-teaching-group-button"
+                  aria-pressed={!group.collapsed}
                   data-readiness={group.statusRollup.readiness}
                   data-testid="workflow-harness-teaching-group"
+                  data-group-state={group.collapsed ? "collapsed" : "expanded"}
+                  onClick={() => handleToggleHarnessGroup(String(group.groupId))}
+                  title={`${group.collapsed ? "Expand" : "Collapse"} ${group.label}`}
                 >
                   {group.label}
-                </span>
+                </button>
               ))}
             </div>
           </section>
