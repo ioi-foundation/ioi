@@ -5,6 +5,7 @@ import type {
   WorkflowRunSummary,
 } from "../../../types/graph";
 import type { WorkflowRunHistoryModel } from "../../../runtime/workflow-run-history-model";
+import type { WorkflowCapabilityRepairAction } from "../../../runtime/workflow-run-capability-receipts";
 import type { WorkflowRuntimeTelemetrySummary } from "../../../runtime/workflow-runtime-telemetry-summary";
 import type {
   WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
@@ -50,6 +51,9 @@ type WorkflowRunsPanelProps = {
   ) => void | Promise<void>;
   onExecuteRuntimeCodingToolBudgetRecovery?: (
     action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
+  ) => void | Promise<void>;
+  onCapabilityRepairAction?: (
+    action: WorkflowCapabilityRepairAction,
   ) => void | Promise<void>;
   onCreateRuntimeCodingToolBudgetRecoverySubflow?: (
     action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
@@ -105,6 +109,7 @@ export function WorkflowRunsPanel({
   onExecuteRuntimeContextPressureAction,
   onExecuteRuntimeWorkspaceTrustAction,
   onExecuteRuntimeCodingToolBudgetRecovery,
+  onCapabilityRepairAction,
   onCreateRuntimeCodingToolBudgetRecoverySubflow,
   onBindRuntimeCodingToolBudgetRecoveryTemplate,
   onBindRuntimeTelemetrySource,
@@ -573,6 +578,35 @@ export function WorkflowRunsPanel({
                       <small>
                         fail-closed · {row.blockerReasons.join(", ")}
                       </small>
+                    ) : null}
+                    {row.repairActions.length > 0 ? (
+                      <div
+                        className="workflow-harness-authority-gate-actions"
+                        data-testid={`workflow-run-capability-repair-actions-${row.nodeId}`}
+                        data-repair-action-kinds={row.repairActions
+                          .map((action) => action.kind)
+                          .join("|")}
+                      >
+                        {row.repairActions.map((action) => (
+                          <button
+                            key={action.id}
+                            type="button"
+                            className="workflow-secondary-action"
+                            data-testid={`workflow-run-capability-repair-${action.kind}-${row.nodeId}`}
+                            data-action-kind={action.kind}
+                            data-target-surface={action.targetSurface}
+                            data-authority-endpoint={
+                              action.authorityEndpoint ?? ""
+                            }
+                            data-catalog-endpoint={action.catalogEndpoint ?? ""}
+                            data-missing-fields={action.missingFields.join("|")}
+                            title={action.detail}
+                            onClick={() => onCapabilityRepairAction?.(action)}
+                          >
+                            {action.label}
+                          </button>
+                        ))}
+                      </div>
                     ) : null}
                     <button
                       type="button"

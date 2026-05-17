@@ -44,6 +44,32 @@ export type WorkflowRunCapabilityReceiptRow = {
   policyDecisionRefs: string[];
   runtimeEventIds: string[];
   blockerReasons: string[];
+  repairActions: WorkflowCapabilityRepairAction[];
+};
+
+export type WorkflowCapabilityRepairActionKind =
+  | "open_capability_binding"
+  | "request_authority_grant"
+  | "attach_ready_capability"
+  | "review_receipt_policy";
+
+export type WorkflowCapabilityRepairAction = {
+  id: string;
+  kind: WorkflowCapabilityRepairActionKind;
+  label: string;
+  detail: string;
+  nodeId: string;
+  nodeName: string;
+  bindingKind: WorkflowRunCapabilityReceiptRow["bindingKind"];
+  capabilityRef: string;
+  routeId: string | null;
+  targetSurface: "node_binding_editor" | "authority_center";
+  configSection: "bindings";
+  authorityEndpoint: "/api/v1/authority" | null;
+  catalogEndpoint: "/api/v1/model-capabilities" | "/api/v1/tools" | null;
+  missingFields: string[];
+  authorityScopes: string[];
+  blockerReasons: string[];
 };
 
 export type WorkflowRunCapabilityReceiptProjection = {
@@ -326,7 +352,167 @@ function capabilityReceiptRow(input: {
     policyDecisionRefs: input.runtimeEvidence.policyDecisionRefs,
     runtimeEventIds: input.runtimeEvidence.runtimeEventIds,
     blockerReasons,
+    repairActions: workflowCapabilityRepairActions({
+      ...input,
+      blockerReasons,
+      failClosed,
+    }),
   };
+}
+
+function workflowCapabilityRepairActions(input: {
+  nodeId: string;
+  nodeName: string;
+  bindingKind: WorkflowRunCapabilityReceiptRow["bindingKind"];
+  capabilityRef: string;
+  routeId: string | null;
+  blockerReasons: string[];
+  authorityScopes: string[];
+  authorityScopeRequirements: string[];
+  failClosed: boolean;
+}): WorkflowCapabilityRepairAction[] {
+  if (!input.failClosed) return [];
+  const authorityScopes = uniqueStrings([
+    ...input.authorityScopes,
+    ...input.authorityScopeRequirements,
+  ]);
+  const missingFields = workflowCapabilityRepairMissingFields(
+    input.bindingKind,
+    input.blockerReasons,
+  );
+  const base = {
+    nodeId: input.nodeId,
+    nodeName: input.nodeName,
+    bindingKind: input.bindingKind,
+    capabilityRef: input.capabilityRef,
+    routeId: input.routeId,
+    configSection: "bindings" as const,
+    authorityScopes,
+    blockerReasons: input.blockerReasons,
+  };
+  const actions: WorkflowCapabilityRepairAction[] = [
+    {
+      ...base,
+      id: `${input.nodeId}:open_capability_binding`,
+      kind: "open_capability_binding",
+      label: "Open capability binding",
+      detail:
+        "Open the node binding editor with canonical capability, authority, and receipt fields focused.",
+      targetSurface: "node_binding_editor",
+      authorityEndpoint: null,
+      catalogEndpoint: workflowCapabilityCatalogEndpoint(input.bindingKind),
+      missingFields,
+    },
+  ];
+  if (
+    input.blockerReasons.some((reason) =>
+      [
+        "missing_grant_readiness",
+        "missing_policy_posture",
+        "missing_authority_scope",
+      ].includes(reason),
+    )
+  ) {
+    actions.push({
+      ...base,
+      id: `${input.nodeId}:request_authority_grant`,
+      kind: "request_authority_grant",
+      label: "Request grant",
+      detail:
+        "Review this binding against /api/v1/authority and request the scoped runtime grant before execution.",
+      targetSurface: "authority_center",
+      authorityEndpoint: "/api/v1/authority",
+      catalogEndpoint: null,
+      missingFields: missingFields.filter((field) =>
+        [
+          "grantReadiness",
+          "policyPosture",
+          "authorityScopes",
+          "authorityScopeRequirements",
+        ].includes(field),
+      ),
+    });
+  }
+  if (
+    input.blockerReasons.some((reason) =>
+      ["missing_capability_ref", "missing_credential_readiness"].includes(
+        reason,
+      ),
+    )
+  ) {
+    actions.push({
+      ...base,
+      id: `${input.nodeId}:attach_ready_capability`,
+      kind: "attach_ready_capability",
+      label: "Attach ready capability",
+      detail:
+        "Bind this node to a ready capability from the canonical catalog projection.",
+      targetSurface: "node_binding_editor",
+      authorityEndpoint: null,
+      catalogEndpoint: workflowCapabilityCatalogEndpoint(input.bindingKind),
+      missingFields: missingFields.filter((field) =>
+        [
+          workflowCapabilityRefField(input.bindingKind),
+          "credentialReadiness",
+          "credentialReady",
+        ].includes(field),
+      ),
+    });
+  }
+  if (input.blockerReasons.includes("missing_receipt_behavior")) {
+    actions.push({
+      ...base,
+      id: `${input.nodeId}:review_receipt_policy`,
+      kind: "review_receipt_policy",
+      label: "Review receipt policy",
+      detail:
+        "Declare required receipt types so live execution leaves replayable evidence.",
+      targetSurface: "node_binding_editor",
+      authorityEndpoint: null,
+      catalogEndpoint: null,
+      missingFields: ["receiptBehavior"],
+    });
+  }
+  return actions;
+}
+
+function workflowCapabilityRepairMissingFields(
+  bindingKind: WorkflowRunCapabilityReceiptRow["bindingKind"],
+  blockerReasons: readonly string[],
+): string[] {
+  const fields = blockerReasons.flatMap((reason) => {
+    if (reason === "missing_capability_ref") {
+      return [workflowCapabilityRefField(bindingKind)];
+    }
+    if (reason === "missing_credential_readiness") {
+      return ["credentialReadiness", "credentialReady"];
+    }
+    if (reason === "missing_grant_readiness") return ["grantReadiness"];
+    if (reason === "missing_policy_posture") return ["policyPosture"];
+    if (reason === "missing_receipt_behavior") return ["receiptBehavior"];
+    if (reason === "missing_authority_scope") {
+      return ["authorityScopes", "authorityScopeRequirements"];
+    }
+    if (reason === "binding_not_ready") return ["readiness"];
+    return [reason];
+  });
+  return uniqueStrings(fields);
+}
+
+function workflowCapabilityRefField(
+  bindingKind: WorkflowRunCapabilityReceiptRow["bindingKind"],
+): string {
+  if (bindingKind === "Model") return "modelCapabilityRef";
+  if (bindingKind === "Connector") return "connectorCapabilityRef";
+  return "toolCapabilityRef";
+}
+
+function workflowCapabilityCatalogEndpoint(
+  bindingKind: WorkflowRunCapabilityReceiptRow["bindingKind"],
+): WorkflowCapabilityRepairAction["catalogEndpoint"] {
+  return bindingKind === "Model"
+    ? "/api/v1/model-capabilities"
+    : "/api/v1/tools";
 }
 
 function capabilityReceiptBlockerReasons(input: {

@@ -122,6 +122,21 @@ test("workflow capability preflight blocks unready live capability bindings", ()
     "ioi.workflow.capability-preflight.v1",
   );
   assert.equal(annotation?.rows[0]?.nodeId, "tool");
+  assert.deepEqual(
+    annotation?.rows[0]?.repairActions.map((action) => action.kind),
+    [
+      "open_capability_binding",
+      "request_authority_grant",
+      "attach_ready_capability",
+      "review_receipt_policy",
+    ],
+  );
+  assert.equal(
+    annotation?.rows[0]?.repairActions.find(
+      (action) => action.kind === "request_authority_grant",
+    )?.authorityEndpoint,
+    "/api/v1/authority",
+  );
 
   const validation = workflowCapabilityPreflightValidationResult(preflight!);
   assert.equal(validation.status, "blocked");
@@ -132,4 +147,48 @@ test("workflow capability preflight blocks unready live capability bindings", ()
     ),
     true,
   );
+});
+
+test("workflow capability preflight clears after canonical repair config is persisted", () => {
+  const repairedWorkflow = {
+    ...workflow,
+    nodes: [
+      {
+        id: "tool",
+        type: "plugin_tool",
+        name: "External writer",
+        x: 0,
+        y: 0,
+        config: {
+          kind: "plugin_tool",
+          logic: {
+            toolBinding: {
+              toolRef: "external.crm.write",
+              toolCapabilityRef: "tool-capability:external.crm.write",
+              bindingKind: "plugin_tool",
+              mockBinding: false,
+              credentialReady: true,
+              credentialReadiness: { status: "ready" },
+              grantReadiness: { status: "ready" },
+              policyPosture: { status: "allowed" },
+              workflowAvailability: { available: true },
+              agentAvailability: { available: true },
+              receiptBehavior: {
+                receiptRequired: true,
+                requiredReceiptTypes: ["tool_invocation", "tool_verification"],
+              },
+              authorityScopes: ["tool.invoke:external.crm.write"],
+              authorityScopeRequirements: ["tool.invoke:external.crm.write"],
+              capabilityScope: ["write"],
+              sideEffectClass: "external_write",
+              requiresApproval: true,
+            },
+          },
+          law: {},
+        },
+      },
+    ],
+  } as unknown as WorkflowProject;
+
+  assert.equal(workflowCapabilityPreflight(repairedWorkflow), null);
 });
