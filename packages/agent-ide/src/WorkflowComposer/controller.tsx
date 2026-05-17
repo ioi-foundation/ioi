@@ -15437,6 +15437,7 @@ export function useWorkflowComposerController({
     handleRunWorkflowNode,
     handleRunWorkflowUpstream,
     handleSave,
+    handleToggleHarnessGroup,
     handleSelectHarnessReceiptRef,
     handleSelectHarnessReplayFixtureRef,
     handleSelectHarnessRollbackTarget,
