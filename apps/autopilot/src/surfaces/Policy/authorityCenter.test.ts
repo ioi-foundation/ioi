@@ -41,6 +41,13 @@ test("authority center projection aggregates readiness without leaking raw secre
           receiptBehavior: {
             requiredReceiptTypes: ["model_route_selection", "model_invocation"],
           },
+          repairReceiptRefs: [
+            "receipt_model_route_repair",
+            "sk-rawrepairshouldnotescape123456",
+          ],
+          workflowPreflight: {
+            receiptRefs: ["receipt_workflow_preflight_repair"],
+          },
           workflowAvailability: { available: true },
           agentAvailability: { available: true },
           fallbackPolicy: {
@@ -61,6 +68,10 @@ test("authority center projection aggregates readiness without leaking raw secre
           denied: ["shell.exec:*"],
           vaultRefs: { model: { redacted: true, hash: "abc123" } },
           receiptId: "receipt_permission_token_test",
+          auditReceiptIds: [
+            "receipt_grant_audit_repair",
+            "xoxb-rawrepairshouldnotescape123456",
+          ],
           expiresAt: "2026-05-15T00:00:00Z",
         },
       ],
@@ -94,10 +105,15 @@ test("authority center projection aggregates readiness without leaking raw secre
   assert.equal(projection.summary.vaultRefs, 1);
   assert.deepEqual(projection.grants[0]?.receiptRefs, [
     "receipt_permission_token_test",
+    "receipt_grant_audit_repair",
   ]);
   assert.equal(projection.grants[0]?.canRevoke, true);
   assert.equal(
     JSON.stringify(projection).includes("sk-rawshouldnotescape"),
+    false,
+  );
+  assert.equal(
+    JSON.stringify(projection).includes("rawrepairshouldnotescape"),
     false,
   );
   assert.equal(
@@ -113,7 +129,45 @@ test("authority center projection aggregates readiness without leaking raw secre
     projection.capabilities[0]?.readinessSummary.includes("grant active"),
     true,
   );
+  assert.deepEqual(projection.capabilities[0]?.lastRepairReceiptRefs, [
+    "receipt_model_route_repair",
+    "receipt_workflow_preflight_repair",
+    "receipt_permission_token_test",
+    "receipt_grant_audit_repair",
+  ]);
+  assert.equal(
+    projection.capabilities[0]?.lastRepairSummary,
+    "4 repair receipts projected",
+  );
   assert.deepEqual(projection.capabilities[0]?.repairActions, []);
+});
+
+test("authority center makes missing repair receipts explicit", () => {
+  const projection = buildAuthorityCenterProjection({
+    policyState: createDefaultShieldPolicyState(),
+    modelSnapshot: {
+      modelCapabilities: [
+        {
+          id: "model-capability:route.needs-repair",
+          routeId: "route.needs-repair",
+          capability: "chat",
+          policyTarget: "model.route.needs-repair",
+          authorityScopeRequirements: ["model.chat:*"],
+          credentialReadiness: { status: "missing" },
+          receiptBehavior: { requiredReceiptTypes: ["model_invocation"] },
+          workflowAvailability: { available: false },
+          agentAvailability: { available: false },
+        },
+      ],
+    },
+  });
+
+  assert.deepEqual(projection.capabilities[0]?.lastRepairReceiptRefs, []);
+  assert.equal(
+    projection.capabilities[0]?.lastRepairSummary,
+    "No repair receipt yet",
+  );
+  assert.equal(JSON.stringify(projection).includes("sk-"), false);
 });
 
 test("authority center builds scoped grant payloads from capability rows", () => {

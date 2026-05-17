@@ -141,6 +141,9 @@ export function AuthorityCenterPanel({
                   data-grant-status={capability.grantStatus}
                   data-policy-status={capability.policyStatus}
                   data-receipt-status={capability.receiptStatus}
+                  data-repair-receipt-count={
+                    capability.lastRepairReceiptRefs.length
+                  }
                 >
                   <div>
                     <strong>{capability.label}</strong>
@@ -150,6 +153,10 @@ export function AuthorityCenterPanel({
                     <small>
                       {capability.readinessSummary}
                     </small>
+                    <div className="shield-authority-repair-trail">
+                      <span>Last repair</span>
+                      <small>{capability.lastRepairSummary}</small>
+                    </div>
                     <div
                       className="shield-authority-posture-row"
                       aria-label={`${capability.label} authority posture`}
@@ -191,6 +198,11 @@ export function AuthorityCenterPanel({
                         receipt types{" "}
                         {capability.receiptTypes.join(", ") ||
                           "no receipt types projected"}
+                      </small>
+                      <small>
+                        repair receipts{" "}
+                        {capability.lastRepairReceiptRefs.join(", ") ||
+                          "no repair receipt yet"}
                       </small>
                     </details>
                   </div>

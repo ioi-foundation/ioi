@@ -166,6 +166,9 @@ export function SettingsAuthoritySection({
                 data-grant-status={capability.grantStatus}
                 data-policy-status={capability.policyStatus}
                 data-receipt-status={capability.receiptStatus}
+                data-repair-receipt-count={
+                  capability.lastRepairReceiptRefs.length
+                }
               >
                 <div className="chat-settings-subcard-head">
                   <strong>{capability.label}</strong>
@@ -197,6 +200,10 @@ export function SettingsAuthoritySection({
                 </div>
                 <p>{capability.detail}</p>
                 <small>{capability.readinessSummary}</small>
+                <div className="chat-settings-repair-trail">
+                  <span>Last repair</span>
+                  <small>{capability.lastRepairSummary}</small>
+                </div>
                 <details className="chat-settings-advanced">
                   <summary>Runtime refs</summary>
                   <small>{capability.capabilityRef}</small>
@@ -208,6 +215,10 @@ export function SettingsAuthoritySection({
                   <small>
                     {capability.receiptTypes.join(", ") ||
                       "no receipt types projected"}
+                  </small>
+                  <small>
+                    {capability.lastRepairReceiptRefs.join(", ") ||
+                      "no repair receipt yet"}
                   </small>
                 </details>
                 {capability.repairActions.length > 0 ? (
