@@ -43,6 +43,17 @@ Then map that clarity onto IOI's primitives:
 - Worker, Workflow, Harness, Capability, Policy, Authority, Receipt, Artifact,
   Event, Evaluation, DeploymentProfile, and PromotionDecision.
 
+The named skeletal unit is:
+
+> Autopilot's primary build artifact is an Autonomous System Package.
+
+An Autonomous System Package is not an agent, connector, workflow, daemon
+process, or policy bundle. It is the developer-facing package that binds worker
+responsibility, workflow/harness topology, model/tool capabilities, authority,
+memory/state/artifacts, evals, deployment profiles, and receipts. Internally it
+may compile to, or profile, `ManifestEnvelope`; product/doctrine-wise it is
+first-class.
+
 This is P0 before broad Phase 5 connector expansion. Phase 5 Workstream 1
 filesystem/Git proposal-first mutation may proceed only as the proof sample for
 this lifecycle shape.
@@ -76,7 +87,7 @@ system through one comprehensible lifecycle, backed by IOI runtime truth.
 The developer-facing mental model should be:
 
 ```text
-Autonomous System
+Autonomous System Package
   identity and responsibility
   workflow or harness topology
   model capabilities
@@ -129,9 +140,9 @@ PromotionDecisionEnvelope
 
 | Row | Target | Status | Done When |
 | --- | --- | --- | --- |
-| P0-1 | Autonomous system package shape | Planned | Manifest/profile contract binds worker, workflow, harness, capabilities, authority, memory/state/artifacts, eval, runtime/deployment, promotion, marketplace/foundry metadata. |
+| P0-1 | Autonomous System Package shape | Planned | Product/doctrine asserts the first-class build artifact; manifest/profile contract binds worker, workflow, harness, capabilities, authority, memory/state/artifacts, eval, runtime/deployment, promotion, marketplace/foundry metadata. |
 | P0-2 | Canonical lifecycle glossary | Planned | Agent/Worker/Skill/Tool/Connector/Workflow/Harness/Capability/Policy/Trace/Receipt/Runtime terms have stable definitions and product-label mappings. |
-| P0-3 | Lifecycle stage map | Planned | Create, configure, run, observe, evaluate, package, deploy, promote, improve are documented and projected into Autopilot/CLI/SDK surfaces. |
+| P0-3 | Lifecycle verb loop | Planned | Compose, bind, simulate, authorize, run, verify, inspect receipts, package, deploy, promote, improve are documented and projected into Autopilot/CLI/SDK surfaces. |
 | P0-4 | Canonical proof sample | Planned | A repo-maintenance autonomous system sample demonstrates local fs/Git proposal-first mutation with authority, approvals, evals, receipts, and GUI run checklist. |
 | P0-5 | Workflow package readiness | Planned | Workflow Composer shows run readiness separately from autonomous-system package readiness and promotion readiness. |
 | P0-6 | Lifecycle APIs and projections | Planned | Daemon/API/SDK/CLI/TUI/Autopilot can expose lifecycle status without duplicating runtime truth. |
@@ -170,11 +181,12 @@ thing being built: an agent, app, or deployable runtime object.
 Autopilot should expose:
 
 ```text
-AutonomousSystem
+Autonomous System Package
 ```
 
-as the developer-facing package concept, even when the underlying truth is a
-profile over existing IOI manifests.
+as the developer-facing build artifact. The implementation can represent it as
+`AutonomousSystemManifest`, a strict `ManifestEnvelope` profile, or both. That
+is an implementation decision; the product/doctrine concept is not optional.
 
 ### Clear Project Topology
 
@@ -222,19 +234,19 @@ ADK/Gemini clarity comes from obvious verbs:
 - monitor;
 - optimize.
 
-Autopilot should use:
+Autopilot should use one explicit loop:
 
-- create;
-- bind capabilities;
-- request authority;
-- run;
-- observe;
-- verify;
-- evaluate;
-- package;
-- deploy;
-- promote;
-- improve.
+```text
+compose -> bind -> simulate -> authorize -> run -> verify -> inspect receipts
+-> package -> deploy -> promote -> improve
+```
+
+Short form for product surfaces:
+
+```text
+build -> bind authority -> test -> run -> inspect receipts -> package
+-> promote
+```
 
 ### Clear Named Runtime Concepts
 
@@ -325,9 +337,16 @@ Developer-facing lifecycle names for runtime and Agentgres-backed records:
 
 ## Target Developer Lifecycle
 
-### 1. Create
+The canonical lifecycle loop is:
 
-The user creates an autonomous system from:
+```text
+compose -> bind -> simulate -> authorize -> run -> verify -> inspect receipts
+-> package -> deploy -> promote -> improve
+```
+
+### 1. Compose
+
+The user composes an Autonomous System Package from:
 
 - a template;
 - a blank workflow;
@@ -338,12 +357,13 @@ The user creates an autonomous system from:
 
 Output:
 
-- draft autonomous-system manifest;
+- draft Autonomous System Package;
+- draft autonomous-system manifest/profile;
 - workflow/harness reference;
 - initial capability requirements;
 - package readiness status.
 
-### 2. Configure
+### 2. Bind
 
 The user binds:
 
@@ -365,7 +385,33 @@ Output:
 - missing-grant report;
 - mock/live posture.
 
-### 3. Run
+### 3. Simulate
+
+The user runs fixture, dry-run, or mocked paths before live authority is used.
+
+Output:
+
+- simulated run result;
+- fixture events;
+- proposal previews;
+- readiness blockers;
+- expected receipt plan;
+- eval compatibility signal.
+
+### 4. Authorize
+
+The user or policy grants the package the authority it needs for the selected
+runtime profile.
+
+Output:
+
+- authority scope request;
+- grant or denial;
+- approval requirements;
+- secret/BYOK lease posture;
+- fail-closed live-action status.
+
+### 5. Run
 
 The system runs through daemon/runtime APIs.
 
@@ -378,7 +424,19 @@ Output:
 - artifacts;
 - verification state.
 
-### 4. Observe
+### 6. Verify
+
+The runtime verifies that material actions produced the expected state changes.
+
+Output:
+
+- verification receipt;
+- postcondition status;
+- failure category;
+- recovery recommendation;
+- replay anchor.
+
+### 7. Inspect Receipts
 
 The user sees:
 
@@ -393,7 +451,7 @@ The user sees:
 
 This must be glass-box without turning tracing into policy.
 
-### 5. Evaluate
+### 8. Evaluate
 
 The user runs fixture or live evals:
 
@@ -410,7 +468,7 @@ Output:
 - promotion eligibility;
 - regression guard.
 
-### 6. Package
+### 9. Package
 
 The user packages the system when:
 
@@ -427,7 +485,7 @@ Output:
 - package readiness receipt;
 - optional Worker Card preview.
 
-### 7. Deploy
+### 10. Deploy
 
 Deployment profiles may include:
 
@@ -445,7 +503,7 @@ Deployment profiles may include:
 
 In this P0 guide, the slot matters more than full implementation.
 
-### 8. Promote
+### 11. Promote
 
 Promotion means the package becomes eligible for:
 
@@ -463,7 +521,7 @@ Output:
 - authority posture;
 - eval scorecard.
 
-### 9. Improve
+### 12. Improve
 
 The system improves through:
 
@@ -476,11 +534,18 @@ The system improves through:
 - policy changes;
 - Foundry-compatible data recipes later.
 
-## Autonomous System Manifest Target
+## Autonomous System Package And Manifest Target
 
-This guide does not require a brand-new runtime substrate. The preferred first
-implementation is a profile over existing `ManifestEnvelope` and workflow
-manifest objects.
+Autopilot's primary build artifact is an Autonomous System Package.
+
+The package is the product and developer concept. The manifest is the runtime
+contract/profile that makes the package deterministic, portable, evaluable, and
+receipted.
+
+This guide does not require a brand-new runtime substrate. The first
+implementation can be a strict profile over existing `ManifestEnvelope` and
+workflow manifest objects. That implementation choice must not make the package
+concept psychologically invisible to users.
 
 Working name:
 
@@ -731,11 +796,13 @@ Goal: make the package/lifecycle shape canonical enough to implement.
 Tasks:
 
 1. Add lifecycle clarity row to source-of-truth map.
-2. Define `AutonomousSystemManifest` as a profile over `ManifestEnvelope`, or
-   explicitly choose a separate envelope.
-3. Publish glossary/boundary table.
-4. Update Phase 5 guide to reference this P0 gate.
-5. Update workflow compositor docs to use lifecycle language.
+2. Assert Autonomous System Package as the primary build artifact.
+3. Define `AutonomousSystemManifest` as the manifest/profile contract for that
+   package, either as a strict `ManifestEnvelope` profile or a separate envelope
+   if implementation needs prove it.
+4. Publish glossary/boundary table.
+5. Update Phase 5 guide to reference this P0 gate.
+6. Update workflow compositor docs to use lifecycle language.
 
 Acceptance:
 
@@ -888,9 +955,11 @@ Confirm:
 
 This P0 leg is complete when:
 
-- `AutonomousSystemManifest` or equivalent package profile is documented;
+- Autonomous System Package is asserted as the first-class build artifact;
+- `AutonomousSystemManifest` or equivalent package profile is documented as
+  the contract/profile for that package;
 - terminology boundaries are canonical;
-- lifecycle stages are documented and visible in at least one product surface;
+- lifecycle verbs are documented and visible in at least one product surface;
 - Workflow Composer distinguishes run, authority, package, evaluation,
   deployment, and promotion readiness;
 - canonical repo-maintenance proof sample exists;
@@ -944,7 +1013,8 @@ If connector expansion proceeds before lifecycle clarity:
 Implement Workstream A:
 
 1. Add lifecycle clarity to the source-of-truth map.
-2. Add or update common object docs with `AutonomousSystemManifest` profile.
-3. Add canonical glossary/boundary table.
-4. Update Phase 5 guide to make this the P0 gate.
-5. Validate docs and commit.
+2. Assert Autonomous System Package as the primary build artifact.
+3. Add or update common object docs with `AutonomousSystemManifest` profile.
+4. Add canonical lifecycle verb loop and glossary/boundary table.
+5. Update Phase 5 guide to make this the P0 gate.
+6. Validate docs and commit.
