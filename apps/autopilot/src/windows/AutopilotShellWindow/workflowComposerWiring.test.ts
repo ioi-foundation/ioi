@@ -155,6 +155,22 @@ const autopilotShellBaseCss = fs.readFileSync(
   new URL("./styles/autopilot-shell/shell-base.css", import.meta.url),
   "utf8",
 );
+const chatIdeHeaderTsx = fs.readFileSync(
+  new URL("./components/ChatIdeHeader.tsx", import.meta.url),
+  "utf8",
+);
+const chatConversationSurfaceTsx = fs.readFileSync(
+  new URL("../ChatShellWindow/components/ChatConversationSurface.tsx", import.meta.url),
+  "utf8",
+);
+const tauriWindowDragTs = fs.readFileSync(
+  new URL("../shared/tauriWindowDrag.ts", import.meta.url),
+  "utf8",
+);
+const tauriDefaultCapabilityJson = fs.readFileSync(
+  new URL("../../../src-tauri/capabilities/default.json", import.meta.url),
+  "utf8",
+);
 const chatShellLayoutCss = fs.readFileSync(
   new URL("../ChatShellWindow/styles/Layout.css", import.meta.url),
   "utf8",
@@ -521,6 +537,42 @@ assert.match(
   chatArtifactWorkbenchCss,
   /spot-window--chat \.spot-chat-shell\s*\{[\s\S]*background: var\(--spot-bg-primary\);[\s\S]*spot-window--chat \.spot-chat-sidebar-shell-item\s*\{[\s\S]*background: var\(--spot-bg-secondary\);[\s\S]*spot-workbench-chat-topbar[\s\S]*background: var\(--spot-bg-primary\);/,
   "Workbench-grade chat composition should use active theme tokens instead of hard-coded light surfaces",
+);
+
+assert.match(
+  chatIdeHeaderTsx,
+  /className="chat-ide-drag-surface"[\s\S]*data-tauri-drag-region[\s\S]*onMouseDown=\{startTauriWindowDrag\}/,
+  "The frameless shell header should expose a broad native Tauri drag region outside the window-control buttons",
+);
+
+assert.match(
+  autopilotShellBaseCss,
+  /\.chat-ide-drag-surface\s*\{[\s\S]*flex: 1 1 auto;/,
+  "The shell drag region should expand across available header space so users can move the frameless window",
+);
+
+assert.match(
+  chatConversationSurfaceTsx,
+  /className="spot-workbench-chat-drag-region"[\s\S]*data-tauri-drag-region[\s\S]*onMouseDown=\{startTauriWindowDrag\}/,
+  "The chat workbench topbar should expose a native Tauri drag region without stealing toolbar button clicks",
+);
+
+assert.match(
+  chatArtifactWorkbenchCss,
+  /\.spot-workbench-chat-drag-region\s*\{[\s\S]*flex: 1 1 auto;/,
+  "The chat workbench drag region should expand across available topbar space",
+);
+
+assert.match(
+  tauriWindowDragTs,
+  /setPosition\(new PhysicalPosition/,
+  "The frameless drag helper should move the native Tauri window deterministically instead of relying on browser-only app-region CSS",
+);
+
+assert.match(
+  tauriDefaultCapabilityJson,
+  /"core:window:allow-set-position"/,
+  "The Tauri chat window capability must allow deterministic manual movement for frameless drag lanes",
 );
 
 assert.match(

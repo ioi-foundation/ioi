@@ -1488,6 +1488,13 @@
   color: var(--spot-text-primary);
 }
 
+.spot-workbench-chat-drag-region {
+  min-width: 48px;
+  align-self: stretch;
+  flex: 1 1 auto;
+  cursor: grab;
+}
+
 .spot-workbench-chat-actions {
   display: inline-flex;
   align-items: center;

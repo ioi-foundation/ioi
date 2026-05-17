@@ -377,6 +377,13 @@
   overflow: hidden;
 }
 
+.chat-ide-drag-surface {
+  min-width: 48px;
+  align-self: stretch;
+  flex: 1 1 auto;
+  cursor: grab;
+}
+
 .chat-ide-brand {
   width: 24px;
   height: 24px;
