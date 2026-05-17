@@ -32,6 +32,8 @@ interface MissionControlControlViewProps {
   onApplyGovernanceRequest?: (next: ShieldPolicyState) => void;
   onDismissGovernanceRequest?: () => void;
   onOpenConnections: () => void;
+  onOpenModelRoutes?: () => void;
+  onOpenWorkflowPreflight?: () => void;
 }
 
 export function MissionControlControlView({
@@ -55,6 +57,8 @@ export function MissionControlControlView({
   onApplyGovernanceRequest,
   onDismissGovernanceRequest,
   onOpenConnections,
+  onOpenModelRoutes,
+  onOpenWorkflowPreflight,
 }: MissionControlControlViewProps) {
   const title = surface === "policy" ? "Authority Center" : "System Settings";
   const kicker = surface === "policy" ? "Govern" : "Configure";
@@ -111,6 +115,8 @@ export function MissionControlControlView({
               onApplyGovernanceRequest={onApplyGovernanceRequest}
               onDismissGovernanceRequest={onDismissGovernanceRequest}
               onOpenIntegrations={onOpenConnections}
+              onOpenModelRoutes={onOpenModelRoutes}
+              onOpenWorkflowPreflight={onOpenWorkflowPreflight}
             />
           ) : (
             <SettingsView
@@ -129,6 +135,8 @@ export function MissionControlControlView({
               onPolicyChange={onPolicyChange}
               onOpenPolicySurface={() => onSurfaceChange("policy")}
               onOpenConnections={onOpenConnections}
+              onOpenModelRoutes={onOpenModelRoutes}
+              onOpenWorkflowPreflight={onOpenWorkflowPreflight}
             />
           )}
         </div>

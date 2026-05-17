@@ -2,6 +2,21 @@ import type { ConnectorSummary } from "@ioi/agent-ide";
 import type { ShieldPolicyState } from "./policyCenter";
 
 export type AuthorityCenterTone = "ready" | "warning" | "blocked" | "idle";
+export type AuthorityCenterRepairActionKind =
+  | "requestGrant"
+  | "openConnectorCredential"
+  | "openModelRoute"
+  | "openWorkflowPreflight";
+
+export interface AuthorityCenterRepairAction {
+  id: string;
+  kind: AuthorityCenterRepairActionKind;
+  label: string;
+  detail: string;
+  targetRef: string;
+  authorityScopes: string[];
+  receiptTypes: string[];
+}
 
 export interface AuthorityCenterCapabilityRow {
   id: string;
@@ -13,6 +28,7 @@ export interface AuthorityCenterCapabilityRow {
   policyTarget?: string | null;
   requiredScopes: string[];
   receiptTypes: string[];
+  repairActions: AuthorityCenterRepairAction[];
 }
 
 export interface AuthorityCenterGrantRow {
@@ -243,7 +259,7 @@ function modelCapabilityRow(item: unknown): AuthorityCenterCapabilityRow {
     field(fallback, "selectedEndpointId", "selected_endpoint_id"),
     "no selected endpoint",
   );
-  return {
+  return withRepairActions({
     id: stringValue(
       field(record, "id", "modelCapabilityRef", "model_capability_ref"),
       `model-capability:${routeId}`,
@@ -267,7 +283,7 @@ function modelCapabilityRow(item: unknown): AuthorityCenterCapabilityRow {
     receiptTypes: stringArray(
       field(receiptBehavior, "requiredReceiptTypes", "required_receipt_types"),
     ),
-  };
+  });
 }
 
 function toolCapabilityRow(item: unknown): AuthorityCenterCapabilityRow {
@@ -288,7 +304,7 @@ function toolCapabilityRow(item: unknown): AuthorityCenterCapabilityRow {
       ? "ready"
       : "unknown",
   );
-  return {
+  return withRepairActions({
     id: stableToolId,
     label: stringValue(
       field(record, "displayName", "display_name") ?? stableToolId,
@@ -314,14 +330,14 @@ function toolCapabilityRow(item: unknown): AuthorityCenterCapabilityRow {
     receiptTypes: stringArray(
       field(receiptBehavior, "requiredReceiptTypes", "required_receipt_types"),
     ),
-  };
+  });
 }
 
 function connectorCapabilityRow(
   connector: ConnectorSummary,
 ): AuthorityCenterCapabilityRow {
   const status = connector.status === "connected" ? "ready" : connector.status;
-  return {
+  return withRepairActions({
     id: connector.id,
     label: connector.name,
     kind: "connector",
@@ -331,7 +347,90 @@ function connectorCapabilityRow(
     policyTarget: `connector.${connector.id}`,
     requiredScopes: connector.scopes,
     receiptTypes: ["connector_policy_decision"],
+  });
+}
+
+function withRepairActions(
+  capability: Omit<AuthorityCenterCapabilityRow, "repairActions">,
+): AuthorityCenterCapabilityRow {
+  return {
+    ...capability,
+    repairActions: repairActionsForCapability(capability),
   };
+}
+
+export function repairActionsForCapability(
+  capability: Omit<AuthorityCenterCapabilityRow, "repairActions">,
+): AuthorityCenterRepairAction[] {
+  const normalizedStatus = capability.status.toLowerCase();
+  const needsRepair =
+    capability.tone !== "ready" ||
+    [
+      "missing",
+      "needs_auth",
+      "blocked",
+      "disabled",
+      "unknown",
+      "degraded",
+    ].includes(normalizedStatus);
+  if (!needsRepair) return [];
+
+  const targetRef = capability.policyTarget ?? capability.id;
+  const base = {
+    targetRef,
+    authorityScopes: capability.requiredScopes,
+    receiptTypes: capability.receiptTypes,
+  };
+  const actions: AuthorityCenterRepairAction[] = [
+    {
+      ...base,
+      id: `${capability.id}:request-grant`,
+      kind: "requestGrant",
+      label: "Request scoped grant",
+      detail:
+        capability.requiredScopes.length > 0
+          ? `Issue a short-lived grant for ${capability.requiredScopes
+              .slice(0, 2)
+              .join(", ")}.`
+          : "Issue a short-lived grant using the runtime capability fallback scope.",
+    },
+  ];
+
+  if (capability.kind === "model") {
+    actions.push({
+      ...base,
+      id: `${capability.id}:open-model-route`,
+      kind: "openModelRoute",
+      label: "Open model route",
+      detail:
+        "Review capability routing, model mounting, credential readiness, and fallback posture.",
+    });
+  } else {
+    actions.push({
+      ...base,
+      id: `${capability.id}:open-connector-credential`,
+      kind: "openConnectorCredential",
+      label:
+        capability.kind === "connector"
+          ? "Open connector credential"
+          : "Open tool credential",
+      detail:
+        capability.kind === "connector"
+          ? "Resolve connector auth, scopes, and vault-backed credential readiness."
+          : "Resolve the connector or local credential backing this tool capability.",
+    });
+  }
+
+  actions.push({
+    ...base,
+    id: `${capability.id}:open-workflow-preflight`,
+    kind: "openWorkflowPreflight",
+    label: "Open workflow preflight",
+    detail:
+      "Inspect workflow readiness before a live run can consume this capability.",
+  });
+
+  return actions;
 }
 
 function grantRow(item: unknown): AuthorityCenterGrantRow {

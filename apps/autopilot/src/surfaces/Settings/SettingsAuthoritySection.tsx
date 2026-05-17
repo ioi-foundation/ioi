@@ -1,5 +1,6 @@
 import { summarizeSettingsAuthorityCenter } from "./settingsAuthorityCenter";
 import type { SettingsViewBodyView } from "./settingsViewTypes";
+import type { AuthorityCenterRepairAction } from "../Policy/authorityCenter";
 
 function authorityPillClass(tone: string): string {
   if (tone === "blocked")
@@ -22,8 +23,36 @@ export function SettingsAuthoritySection({
     refreshAuthorityCenterProjection,
     onOpenPolicySurface,
     onOpenConnections,
+    onOpenModelRoutes,
+    onOpenWorkflowPreflight,
+    setSelectedSection,
   } = view;
   const summary = summarizeSettingsAuthorityCenter(authorityCenterProjection);
+  const handleRepairAction = (action: AuthorityCenterRepairAction) => {
+    if (action.kind === "requestGrant") {
+      onOpenPolicySurface();
+      return;
+    }
+    if (action.kind === "openConnectorCredential") {
+      onOpenConnections();
+      return;
+    }
+    if (action.kind === "openModelRoute") {
+      if (onOpenModelRoutes) {
+        onOpenModelRoutes();
+        return;
+      }
+      setSelectedSection("sources");
+      return;
+    }
+    if (action.kind === "openWorkflowPreflight") {
+      if (onOpenWorkflowPreflight) {
+        onOpenWorkflowPreflight();
+        return;
+      }
+      onOpenPolicySurface();
+    }
+  };
 
   return (
     <div
@@ -143,6 +172,26 @@ export function SettingsAuthoritySection({
                 </div>
                 <p>{capability.detail}</p>
                 <small>{capability.policyTarget ?? capability.id}</small>
+                {capability.repairActions.length > 0 ? (
+                  <div
+                    className="chat-settings-actions chat-settings-actions--compact"
+                    data-testid="settings-authority-repair-actions"
+                  >
+                    {capability.repairActions.map((action) => (
+                      <button
+                        key={action.id}
+                        type="button"
+                        className="chat-settings-secondary"
+                        onClick={() => handleRepairAction(action)}
+                        title={action.detail}
+                        data-repair-action-kind={action.kind}
+                        data-repair-action-target={action.targetRef}
+                      >
+                        {action.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </article>
             ))
           )}

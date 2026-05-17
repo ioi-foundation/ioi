@@ -22,6 +22,10 @@ const environmentSection = fs.readFileSync(
   new URL("./SettingsEnvironmentSection.tsx", import.meta.url),
   "utf8",
 );
+const missionControlControlView = fs.readFileSync(
+  new URL("../MissionControl/MissionControlControlView.tsx", import.meta.url),
+  "utf8",
+);
 
 test("settings authority section is wired to the canonical authority projection", () => {
   assert.match(settingsViewBody, /selectedSection === "authority"/);
@@ -31,6 +35,10 @@ test("settings authority section is wired to the canonical authority projection"
   assert.match(settingsAuthoritySection, /settings-authority-center/);
   assert.match(settingsAuthoritySection, /settings-authority-fail-closed/);
   assert.match(settingsAuthoritySection, /settings-authority-capability-row/);
+  assert.match(settingsAuthoritySection, /settings-authority-repair-actions/);
+  assert.match(settingsAuthoritySection, /data-repair-action-kind/);
+  assert.match(settingsAuthoritySection, /openWorkflowPreflight/);
+  assert.match(settingsAuthoritySection, /openModelRoute/);
 });
 
 test("settings authority runtime uses workflow capability endpoints with compatibility fallback", () => {
@@ -45,6 +53,13 @@ test("environment settings are labeled as compatibility, not authority truth", (
   assert.match(environmentSection, /Compatibility bindings/);
   assert.match(environmentSection, /Source of truth/);
   assert.match(environmentSection, /Authority Center/);
+});
+
+test("settings authority repair actions route to canonical surfaces", () => {
+  assert.match(settingsView, /onOpenModelRoutes/);
+  assert.match(settingsView, /onOpenWorkflowPreflight/);
+  assert.match(missionControlControlView, /onOpenModelRoutes/);
+  assert.match(missionControlControlView, /onOpenWorkflowPreflight/);
 });
 
 console.log("settingsAuthorityCenterWiring.test.ts: ok");
