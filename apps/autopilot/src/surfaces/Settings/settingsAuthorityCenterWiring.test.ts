@@ -66,6 +66,9 @@ test("authority center exposes canonical grant policy receipt posture", () => {
   assert.match(authorityCenterModel, /policyStatus/);
   assert.match(authorityCenterModel, /receiptStatus/);
   assert.match(authorityCenterModel, /lastRepairReceiptRefs/);
+  assert.match(authorityCenterModel, /workflowPreflightSnapshot/);
+  assert.match(authorityCenterModel, /workflowPreflightRepairReceiptRows/);
+  assert.match(authorityCenterModel, /workflowRepairReceiptRefsForCapability/);
   assert.match(authorityCenterModel, /safeReceiptRefs/);
   assert.match(authorityCenterModel, /capabilityRuntimeReady/);
   assert.match(authorityCenterPanel, /data-capability-ref/);
@@ -84,8 +87,20 @@ test("settings authority runtime uses workflow capability endpoints with compati
   assert.match(authorityRuntime, /MODEL_CAPABILITY_BINDING_ENDPOINT/);
   assert.match(authorityRuntime, /TOOL_CAPABILITY_BINDING_ENDPOINT/);
   assert.match(authorityRuntime, /MODEL_AUTHORITY_BINDING_ENDPOINT/);
+  assert.match(
+    authorityRuntime,
+    /WORKFLOW_CAPABILITY_PREFLIGHT_RECEIPTS_ENDPOINT/,
+  );
+  assert.match(
+    authorityRuntime,
+    /workflowPreflightSnapshot[\s\S]*buildAuthorityCenterProjection/,
+  );
   assert.match(authorityRuntime, new RegExp('"/v1/model-capabilities"'));
   assert.match(authorityRuntime, new RegExp('"/v1/tools"'));
+  assert.match(
+    authorityRuntime,
+    new RegExp('"/api/v1/workflow-capability-preflights"'),
+  );
 });
 
 test("environment settings are labeled as compatibility, not authority truth", () => {
