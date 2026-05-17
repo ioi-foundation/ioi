@@ -3,6 +3,7 @@ import type { AssistantSessionRuntime } from "@ioi/agent-ide";
 import { ChatShellWindow } from "../../ChatShellWindow";
 
 interface ChatCopilotViewProps {
+  presentation?: "standalone" | "embedded-pane";
   seedIntent?: string | null;
   onConsumeSeedIntent?: () => void;
   sessionRuntime: AssistantSessionRuntime;
@@ -11,6 +12,7 @@ interface ChatCopilotViewProps {
 }
 
 export function ChatCopilotView({
+  presentation = "standalone",
   seedIntent,
   onConsumeSeedIntent,
   sessionRuntime,
@@ -20,6 +22,7 @@ export function ChatCopilotView({
   return (
     <ChatShellWindow
       variant="chat"
+      presentationMode={presentation}
       seedIntent={seedIntent}
       onConsumeSeedIntent={onConsumeSeedIntent}
       sessionRuntime={sessionRuntime}

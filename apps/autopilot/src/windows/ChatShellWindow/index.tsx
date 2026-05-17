@@ -87,6 +87,7 @@ import "../ChatShellWindow/styles/ChatSurface.css";
 
 type ChatShellWindowProps = {
   variant?: "overlay" | "chat";
+  presentationMode?: "standalone" | "embedded-pane";
   seedIntent?: string | null;
   onConsumeSeedIntent?: () => void;
   sessionRuntime?: AssistantSessionRuntime;
@@ -243,12 +244,15 @@ function buildCodebaseContextualizedIntent({
 
 export function ChatShellWindow({
   variant = "overlay",
+  presentationMode = "standalone",
   seedIntent = null,
   onConsumeSeedIntent,
   sessionRuntime,
   workspaceRootHint = null,
 }: ChatShellWindowProps) {
   const isChatVariant = variant === "chat";
+  const isEmbeddedPaneChat =
+    isChatVariant && presentationMode === "embedded-pane";
   useEffect(() => {
     if (isChatVariant) {
       void hidePillShell();
@@ -1122,7 +1126,7 @@ export function ChatShellWindow({
       codePreview={chatStatusCard.codePreview}
     />
   ) : null;
-  const chatSidebarNode = isChatVariant ? (
+  const chatSidebarNode = isChatVariant && !isEmbeddedPaneChat ? (
     <ChatConversationSidebar
       sessions={sessions}
       activeSessionId={task?.session_id || task?.id || null}

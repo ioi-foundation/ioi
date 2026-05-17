@@ -9,6 +9,7 @@ interface MissionControlChatViewProps {
   session: AssistantWorkbenchSession | null;
   runtime: SessionCapableRuntime;
   embedded?: boolean;
+  chatPresentation?: "standalone" | "embedded-pane";
   seedIntent?: string | null;
   onConsumeSeedIntent?: () => void;
   onBackToInbox: () => void;
@@ -45,6 +46,7 @@ export function MissionControlChatView({
   session,
   runtime,
   embedded = false,
+  chatPresentation,
   seedIntent,
   onConsumeSeedIntent,
   onBackToInbox,
@@ -81,6 +83,9 @@ export function MissionControlChatView({
         >
           {surface === "chat" ? (
             <ChatCopilotView
+              presentation={
+                chatPresentation ?? (embedded ? "embedded-pane" : "standalone")
+              }
               seedIntent={seedIntent}
               onConsumeSeedIntent={onConsumeSeedIntent}
               sessionRuntime={runtime}

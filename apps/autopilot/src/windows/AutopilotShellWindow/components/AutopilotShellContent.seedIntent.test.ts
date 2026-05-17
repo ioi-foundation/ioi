@@ -18,4 +18,15 @@ assert.match(
   "the auxiliary chat pane should not auto-submit the same seed intent a second time",
 );
 
+const chatLeftUtilityPaneSource = fs.readFileSync(
+  new URL("./ChatLeftUtilityPane.tsx", import.meta.url),
+  "utf8",
+);
+
+assert.match(
+  chatLeftUtilityPaneSource,
+  /chatPresentation=\{maximized \? "standalone" : "embedded-pane"\}/,
+  "the persistent chat pane should use the compact embedded chat presentation until it is maximized",
+);
+
 console.log("AutopilotShellContent.seedIntent.test.ts: ok");

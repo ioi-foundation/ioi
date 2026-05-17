@@ -1324,6 +1324,29 @@
   background: #ffffff;
 }
 
+.spot-window--chat .spot-chat-shell.is-sidebar-hidden,
+.spot-window--chat .spot-chat-shell.is-sidebar-hidden.is-artifact-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.spot-window--chat .spot-chat-shell.is-sidebar-hidden.is-artifact-open {
+  grid-template-columns: minmax(0, 1fr) minmax(50%, 1fr);
+}
+
+.spot-window--chat .spot-chat-shell.is-sidebar-hidden.is-artifact-menu-open {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+}
+
+.spot-window--chat
+  .spot-chat-shell.is-sidebar-hidden
+  .spot-chat-conversation-shell-item {
+  grid-column: 1;
+}
+
+.spot-window--chat .spot-chat-shell.is-sidebar-hidden .spot-chat-artifact-drawer {
+  grid-column: 2;
+}
+
 .spot-window--chat .spot-chat-sidebar-shell-item {
   background: #f3f3f3;
   border-right-color: #e5e5e5;
