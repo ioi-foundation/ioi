@@ -12,7 +12,56 @@ export function SettingsEnvironmentSection({
     onOpenPolicySurface,
     onOpenConnections,
   } = view;
-  if (!controlPlane) return null;
+  if (!controlPlane) {
+    return (
+      <div className="chat-settings-stack">
+        <article className="chat-settings-card">
+          <div className="chat-settings-card-head">
+            <div>
+              <span className="chat-settings-card-eyebrow">
+                Compatibility bindings
+              </span>
+              <h2>Legacy environment credentials</h2>
+            </div>
+            <span className="chat-settings-pill chat-settings-pill-warning">
+              Runtime unavailable
+            </span>
+          </div>
+          <p className="chat-settings-body">
+            Local environment compatibility bindings cannot be edited until the
+            kernel-backed settings snapshot is available. Runtime grants, policy
+            posture, receipts, and workflow readiness remain governed by
+            Authority Center.
+          </p>
+          <div className="chat-settings-callout">
+            <strong>Source of truth</strong>
+            <p>
+              Vault and wallet refs are the authority-shaped path for live model
+              and connector secrets. Raw values remain available only as a local
+              compatibility path while the Authority Center is the primary
+              posture.
+            </p>
+          </div>
+          <div className="chat-settings-actions">
+            <button
+              type="button"
+              className="chat-settings-secondary"
+              onClick={onOpenPolicySurface}
+            >
+              Open Authority Center
+            </button>
+            <button
+              type="button"
+              className="chat-settings-secondary"
+              onClick={onOpenConnections}
+            >
+              Open connections
+            </button>
+          </div>
+        </article>
+      </div>
+    );
+  }
   const authorityPosture = summarizeSettingsAuthorityPosture(
     controlPlane.environment,
   );

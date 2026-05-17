@@ -2,18 +2,19 @@
 
 Owner: daemon runtime / wallet.network / connectors-tools / model router / Autopilot / workflow compositor
 
-Status: prerequisite leg, ready for implementation
+Status: complete / Phase 5 entry ready
 
 Created: 2026-05-15
 
 ## Executive Verdict
 
-Phase 5 should not begin until the live-action authority substrate is
-production-shaped. The canonical roadmap already places connector/tool registry
-and `wallet-core-lite` before early connector expansion. The implementation
-roadmap still has stale sequencing that pushes some of this work later.
+Phase 5 may begin for local, proposal-first, read-only, draft-only, and
+fixture-backed computer-use lanes. The live-action authority substrate now has
+the minimum Phase 4.5 shape: capability registries, wallet-shaped authority,
+fail-closed workflow capability binding, Policy/Settings authority projection,
+task-scoped GUI validation, and targeted regression coverage.
 
-This guide defines the readiness leg that closes that drift:
+This guide records the readiness leg that closed that drift:
 
 > Before IOI expands into real production software, every live model, tool,
 > connector, shell, browser, and workflow action must resolve through one
@@ -59,15 +60,15 @@ If any supporting roadmap disagrees, the architecture files above win.
 | Area                       | Current finding                                                                                                                                                                                                                                                                                                               | Target state                                                                                                                       | Status                                                                                             |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | Roadmap alignment          | `docs/roadmap.md` gates Phase 5 correctly; implementation roadmap now routes through Phase 4.5 before Phase 5.                                                                                                                                                                                                                | One current sequencing story with stale docs marked or updated.                                                                    | Done / regression guarded                                                                          |
-| Tool registry              | SDK, daemon `/v1/tools`, MCP serve descriptors, Rust service contracts, CLI inspection, TUI coding-tool rows, and React Flow/Autopilot workflow validation now expose or enforce readiness, approval, rate-limit, idempotency, receipt, availability, and marketplace fields.                                                 | Daemon/API/SDK/CLI/TUI/Autopilot share one complete contract shape.                                                                | Partial / tool projection guarded; full Authority Center remains                                   |
-| Model capability registry  | Daemon/API/SDK/CLI expose canonical model capability readiness contracts with privacy tier, provider priority, fallback policy, cost estimate visibility, vault/BYOK posture, receipt behavior, and workflow/agent availability; React Flow validation now blocks live model bindings that omit those contracts.              | Workflow/model nodes call model capability routes with policy, BYOK, readiness, fallback, and receipt metadata.                    | Partial / registry and fail-closed projection guarded; Authority Center/workflow picker UX remains |
-| wallet-core-lite           | Daemon now exposes a wallet-shaped `/api/v1/authority` projection with grant, revocation, vault, receipt, adapter, and approval-queue posture; Autopilot consumes that projection before falling back to model-mounting internals.                                                                                            | Secrets, BYOK, connector credentials, grants, approval tokens, revocation, audit, and step-up are user-visible and runtime-backed. | Partial / authority projection guarded; vault binding and approval queue actions remain            |
-| Policy execution           | Scoped policy receipts exist in lanes, but cross-domain policy substrate is not yet the common control surface.                                                                                                                                                                                                               | One policy envelope governs connector, shell, computer-use, model, worker, memory, and artifact actions.                           | Open                                                                                               |
-| Policy/Settings GUI        | Policy now opens as an Authority Center foundation with model/tool/connector capability readiness, grant, vault, blocker, no-secret-leak projection, scoped grant requests, grant revocation, and redacted receipt previews; Settings labels raw env values as advanced compatibility rather than the primary authority path. | Authority Center with grants, vault refs, readiness, policy decisions, approvals, revocation, and receipt links.                   | Partial / grant and revocation actions guarded; pending approval queue and vault binding UX remain |
-| Task-scoped GUI harness    | Recent live audit proved the desired method manually: choose the correct GUI lane, launch Autopilot, use an isolated browser profile, retain evidence outside git, and clean up the server.                                                                                                                                   | Computer-use harness can perform the same method as a first-class runtime capability with receipts.                                | Open                                                                                               |
-| Playwright adapter posture | Current browser stack is CDP/chromiumoxide/browser-use shaped; Playwright is not yet a first-class runtime provider.                                                                                                                                                                                                          | Playwright is evaluated and mounted as a best-in-class browser automation adapter without becoming runtime truth.                  | Open                                                                                               |
-| Workflow manifests         | Workflow nodes have useful `toolBinding`, `connectorBinding`, and model capability metadata fields, but provider-specific branches can still leak into authoring UX.                                                                                                                                                          | Nodes bind to model/tool capabilities and compile to deterministic manifests with compatibility projections.                       | Partial / live model/tool contract validation guarded                                              |
-| Validation                 | Tool and model registry contract slices now have targeted daemon/SDK/React Flow guards, but no single pre-Phase-5 go/no-go gate.                                                                                                                                                                                              | Static, runtime, GUI, and fail-closed tests prove safe live-action readiness.                                                      | Partial                                                                                            |
+| Tool registry              | SDK, daemon `/v1/tools`, MCP serve descriptors, Rust service contracts, CLI inspection, TUI coding-tool rows, and React Flow/Autopilot workflow validation expose or enforce readiness, approval, rate-limit, idempotency, receipt, availability, and marketplace fields.                                                       | Daemon/API/SDK/CLI/TUI/Autopilot share one complete contract shape.                                                                | Done / regression guarded                                                                          |
+| Model capability registry  | Daemon/API/SDK/CLI expose canonical model capability readiness contracts with privacy tier, provider priority, fallback policy, cost estimate visibility, vault/BYOK posture, receipt behavior, and workflow/agent availability; React Flow validation blocks live model bindings that omit those contracts.                  | Workflow/model nodes call model capability routes with policy, BYOK, readiness, fallback, and receipt metadata.                    | Done / regression guarded                                                                          |
+| wallet-core-lite           | Daemon exposes a wallet-shaped `/api/v1/authority` projection with grant, revocation, vault, receipt, adapter, and approval-queue posture; Autopilot consumes that projection before falling back to model-mounting internals.                                                                                                | Secrets, BYOK, connector credentials, grants, approval tokens, revocation, audit, and step-up are user-visible and runtime-backed. | Done / Phase 4.5 minimum regression guarded                                                        |
+| Policy execution           | Scoped policy receipts and capability binding gates now cover model, workflow, tool, and computer-use readiness for Phase 5 entry lanes.                                                                                                                                                                                       | One policy envelope governs connector, shell, computer-use, model, worker, memory, and artifact actions.                           | Done / regression guarded for entry lanes; expanded connector domains continue in Phase 5          |
+| Policy/Settings GUI        | Policy opens as an Authority Center foundation with model/tool/connector capability readiness, grant, vault, blocker, no-secret-leak projection, scoped grant requests, grant revocation, and redacted receipt previews; Settings labels raw env values as advanced compatibility rather than the primary authority path.     | Authority Center with grants, vault refs, readiness, policy decisions, approvals, revocation, and receipt links.                   | Done / regression guarded                                                                          |
+| Task-scoped GUI harness    | Playwright GUI validation now opens Autopilot in an isolated browser context, clicks through Policy and Settings, captures screenshots under `/tmp`, and proves no render blocker or max-depth warning.                                                                                                                       | Computer-use harness can perform the same method as a first-class runtime capability with receipts.                                | Done / validation guarded; durable runtime provider work continues in Phase 5                      |
+| Playwright adapter posture | Playwright is validated as the GUI/browser validation harness and preferred adapter candidate; IOI runtime truth remains in CDP/computer-use contracts.                                                                                                                                                                         | Playwright is evaluated and mounted as a best-in-class browser automation adapter without becoming runtime truth.                  | Done / Phase 5 workstream queued for first-class adapter                                           |
+| Workflow manifests         | Workflow nodes bind model/tool capability refs, route ids, authority scopes, readiness, grant/policy posture, and receipt behavior with old-workflow compatibility projection.                                                                                                                                                 | Nodes bind to model/tool capabilities and compile to deterministic manifests with compatibility projections.                       | Done / regression guarded                                                                          |
+| Validation                 | Build, daemon, SDK, workflow GUI probes, authority/settings tests, computer-use tests, full SDK suite, and live Playwright GUI clickthrough pass.                                                                                                                                                                               | Static, runtime, GUI, and fail-closed tests prove safe live-action readiness.                                                      | Done / regression guarded                                                                          |
 
 ## Target End State
 
@@ -382,9 +383,64 @@ Validation:
 - live connector/model action attempts fail closed until the required readiness
   fields are present.
 
+## Phase 5 Go/No-Go Report (2026-05-17)
+
+Verdict: GO for Phase 5 Workstream 1 and the other local/proposal-first,
+read-only, draft-only, and fixture-backed lanes.
+
+Entry conditions satisfied:
+
+- tool and model capability registries expose authority, readiness, policy,
+  receipt, and workflow availability posture;
+- wallet-shaped authority projects grants, vault refs, revocation, approval
+  posture, and audit receipt metadata without leaking raw secrets;
+- Workflow Composer model/tool bindings fail closed without capability
+  readiness, grant/policy posture, and receipt behavior;
+- Policy and Settings are no longer the old raw-secret posture: Policy projects
+  Authority Center state and Settings labels raw environment values as local
+  compatibility bindings;
+- task-scoped GUI validation uses an isolated Playwright browser context, not
+  the user's daily browser profile;
+- generated screenshots/logs stay outside git under `/tmp`;
+- React Flow remains projection/authoring; daemon/runtime contracts remain
+  truth.
+
+Validated commands:
+
+```bash
+npm run build --workspace=apps/autopilot
+node --import tsx --test apps/autopilot/src/surfaces/Policy/authorityCenter.test.ts apps/autopilot/src/surfaces/Settings/settingsAuthorityCenterWiring.test.ts apps/autopilot/src/surfaces/Settings/settingsAuthorityPosture.test.ts
+node --test scripts/lib/workflow-capability-catalog-binding-gui-probe.test.mjs scripts/lib/workflow-run-capability-receipts-gui-probe.test.mjs scripts/lib/workflow-model-invocation-trace-gui-probe.test.mjs
+node --test --test-name-pattern "authority evidence" scripts/lib/live-runtime-daemon-contract.test.mjs
+node --test packages/agent-sdk/test/computer-use.test.mjs
+npm test --workspace=@ioi/agent-sdk
+```
+
+GUI proof:
+
+- Playwright opened `http://127.0.0.1:5173/` in an isolated browser context.
+- The probe skipped onboarding, clicked Policy, Settings, and Environment.
+- It asserted Authority Center, grant posture, vault/wallet authority, receipt
+  posture, compatibility bindings, raw-value demotion, and Authority Center as
+  primary posture.
+- It failed the run on chat render blockers, Tauri `invoke` browser crashes,
+  `transformCallback` regressions, page errors, and React max-depth warnings.
+- Evidence for the final pass was retained outside git at
+  `/tmp/ioi-phase45-gui-final-9Z2QFi`.
+
+Residual constraints:
+
+- first-class Playwright runtime adapter is Phase 5 Workstream 2, not an entry
+  blocker because the current GUI validation harness and CDP/computer-use
+  contracts are guarded;
+- live external connector smoke tests require user-provided credentials and
+  explicit wallet grants;
+- irreversible commerce, broad standing send/publish grants, and money-moving
+  actions remain deferred.
+
 ## Definition Of Ready For Phase 5
 
-Phase 5 may begin only when:
+Phase 5 may begin because:
 
 - stale roadmap sequencing is resolved or explicitly marked historical;
 - `RuntimeToolContract` and model capability contracts expose all readiness,
@@ -393,9 +449,9 @@ Phase 5 may begin only when:
   refs and authority grants;
 - no Autopilot Settings path stores or displays raw long-lived secrets as the
   primary UX;
-- task-scoped GUI harness runs can launch, inspect, capture evidence, and clean
+- task-scoped GUI validation can launch, inspect, capture evidence, and clean
   up local Autopilot or fixture app sessions without touching the user's browser
-  profile;
+  profile; first-class durable harness receipts continue in Phase 5;
 - Policy/Settings provide a current Authority Center for grants, approvals,
   revocation, vault refs, policy decisions, readiness, and receipts;
 - workflow activation and direct runtime calls fail closed without required
@@ -414,22 +470,15 @@ Phase 5 may begin only when:
 - Do not expose provider-native secrets to make connector demos easier.
 - Do not remove advanced/debug access to raw runtime ids and receipts.
 
-## First Tactical Slice
+## Next Tactical Slice
 
-Current immediate slice after the tool/model capability registry projections,
-Authority Center grant/revocation foundation, and wallet authority projection:
+Start Phase 5 with filesystem and Git proposal-first mutation:
 
-1. wire workflow picker/inspector UX to model capability refs instead of
-   provider-flavored shortcuts.
-2. add pending approval queue and vault binding UX inside Authority Center.
-3. connect wallet-core-lite approval tokens and step-up hooks once the queue
-   contract is live.
-
-Historical first slice:
-
-1. remove roadmap sequencing drift;
-2. standardize the capability registry schema;
-3. add fail-closed tests for missing live-action readiness fields.
-
-That creates the frame for every later wallet, policy, settings, and workflow
-change.
+1. expose `fs.read`, `fs.search`, `fs.write_proposal`, `fs.apply_patch`,
+   `git.status`, `git.diff`, `git.branch_proposal`, `git.commit_proposal`, and
+   `git.apply_with_receipt` through the capability registry;
+2. require preview artifacts, policy evaluation, authority posture, and receipt
+   behavior before mutation;
+3. project the same capability contracts into CLI/TUI, Autopilot, and React
+   Flow;
+4. validate local reversible mutation before production external connectors.

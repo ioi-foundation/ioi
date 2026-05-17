@@ -152,7 +152,7 @@ export function useSessionChatArtifactDrawer({
     }
 
     if (!artifactAvailable && !artifactExpected) {
-      setVisible(false);
+      setVisible((current) => (current ? false : current));
       if (!activeSessionId) {
         autoOpenedSessionIdRef.current = null;
       }

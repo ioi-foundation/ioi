@@ -126,6 +126,10 @@ function isTauriRuntime(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
+function unavailableOutsideTauri(command: string): Error {
+  return new Error(`${command} is only available in the Autopilot desktop shell.`);
+}
+
 type LocalEngineBackend = LocalEngineSnapshot["managedBackends"][number];
 type LocalEngineWorkerTemplate = LocalEngineSnapshot["workerTemplates"][number];
 type LocalEnginePlaybook = LocalEngineSnapshot["agentPlaybooks"][number];
@@ -648,6 +652,9 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async runGraph(payload: GraphPayload): Promise<void> {
+        if (!isTauriRuntime()) {
+          throw unavailableOutsideTauri("run_chat_graph");
+        }
         await invoke("run_chat_graph", { payload });
     }
 
@@ -656,6 +663,9 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async startAssistantSession<T>(intent: string): Promise<T> {
+        if (!isTauriRuntime()) {
+          throw unavailableOutsideTauri("start_task");
+        }
         console.info("[Autopilot][Runtime] start_task invoking", {
           originSurface: this.shellSurface,
           intentLength: intent.trim().length,
@@ -680,6 +690,9 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async submitAssistantSessionInput(sessionId: string, userInput: string): Promise<void> {
+        if (!isTauriRuntime()) {
+          throw unavailableOutsideTauri("continue_task");
+        }
         await invoke("continue_task", { sessionId, userInput });
     }
 
@@ -688,6 +701,9 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async dismissAssistantSession(): Promise<void> {
+        if (!isTauriRuntime()) {
+          return;
+        }
         await invoke("dismiss_task");
     }
 
@@ -696,6 +712,9 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async stopAssistantSession(): Promise<void> {
+        if (!isTauriRuntime()) {
+          return;
+        }
         await invoke("cancel_task");
     }
 
@@ -704,6 +723,9 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async getActiveAssistantSession<T>(): Promise<T | null> {
+        if (!isTauriRuntime()) {
+          return null;
+        }
         return invoke<T | null>("get_current_task");
     }
 
@@ -712,6 +734,9 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async listAssistantSessions<T>(): Promise<T[]> {
+        if (!isTauriRuntime()) {
+          return [];
+        }
         return invoke<T[]>("get_session_history");
     }
 
@@ -722,6 +747,12 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     async getAssistantSessionProjection<TTask, TSessionSummary>(): Promise<
       AssistantSessionProjection<TTask, TSessionSummary>
     > {
+        if (!isTauriRuntime()) {
+          return {
+            task: null,
+            sessions: [],
+          };
+        }
         return invoke<AssistantSessionProjection<TTask, TSessionSummary>>(
           "get_session_projection",
         );
@@ -734,6 +765,9 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async loadAssistantSession<T>(sessionId: string): Promise<T> {
+        if (!isTauriRuntime()) {
+          throw unavailableOutsideTauri("load_session");
+        }
         return invoke<T>("load_session", { sessionId });
     }
 
@@ -745,6 +779,9 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         threadId: string,
         options?: AssistantSessionThreadLoadOptions
     ): Promise<T[]> {
+        if (!isTauriRuntime()) {
+          return [];
+        }
         return invoke<T[]>("get_thread_events", {
             threadId,
             thread_id: threadId,
@@ -768,10 +805,16 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async executeWorkflowRuntimeControlRequest(request: unknown): Promise<unknown> {
+        if (!isTauriRuntime()) {
+          throw unavailableOutsideTauri("execute_workflow_runtime_control_request");
+        }
         return invoke("execute_workflow_runtime_control_request", { request });
     }
 
     async loadAssistantSessionArtifacts<T>(threadId: string): Promise<T[]> {
+        if (!isTauriRuntime()) {
+          return [];
+        }
         return invoke<T[]>("get_thread_artifacts", {
             threadId,
             thread_id: threadId,
@@ -783,31 +826,55 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async showPillShell(): Promise<void> {
+        if (!isTauriRuntime()) {
+          return;
+        }
         await invoke("show_pill");
     }
 
     async hidePillShell(): Promise<void> {
+        if (!isTauriRuntime()) {
+          return;
+        }
         await invoke("hide_pill");
     }
 
     async showChatSessionShell(): Promise<void> {
+        if (!isTauriRuntime()) {
+          return;
+        }
         await invoke("show_chat_session");
     }
 
     async hideChatSessionShell(): Promise<void> {
+        if (!isTauriRuntime()) {
+          return;
+        }
         await invoke("hide_chat_session");
     }
 
     async showGateShell(): Promise<void> {
+        if (!isTauriRuntime()) {
+          return;
+        }
         await invoke("show_gate");
     }
 
     async hideGateShell(): Promise<void> {
+        if (!isTauriRuntime()) {
+          return;
+        }
         await invoke("hide_gate");
     }
 
     async showChatShell(): Promise<void> {
         await recordChatLaunchReceipt("runtime_show_chat_requested", {});
+        if (!isTauriRuntime()) {
+          await recordChatLaunchReceipt("runtime_show_chat_completed", {
+            shell: "browser",
+          });
+          return;
+        }
         await invoke("show_chat");
         await recordChatLaunchReceipt("runtime_show_chat_completed", {});
     }
@@ -985,6 +1052,9 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         sessionId: string,
         password: string
     ): Promise<void> {
+        if (!isTauriRuntime()) {
+          throw unavailableOutsideTauri("submit_runtime_password");
+        }
         await invoke("submit_runtime_password", { sessionId, password });
     }
 
@@ -998,6 +1068,9 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     async respondToAssistantSessionGate(
       input: AssistantSessionGateResponse,
     ): Promise<void> {
+        if (!isTauriRuntime()) {
+          throw unavailableOutsideTauri("gate_respond");
+        }
         await invoke("gate_respond", { ...input });
     }
 
@@ -1010,6 +1083,9 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         projection: AssistantSessionProjection<TTask, TSessionSummary>,
       ) => void,
     ): Promise<() => void> {
+        if (!isTauriRuntime()) {
+          return () => {};
+        }
         return listen<AssistantSessionProjection<TTask, TSessionSummary>>(
           "session-projection-updated",
           (event) => handler(event.payload),
@@ -1030,6 +1106,9 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         eventName: AssistantSessionEventName,
         handler: (payload: T) => void
     ): Promise<() => void> {
+        if (!isTauriRuntime()) {
+          return () => {};
+        }
         return listen<T>(eventName, (event) => handler(event.payload));
     }
 
@@ -1041,10 +1120,16 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async checkNodeCache(nodeId: string, config: any, input: string): Promise<any> {
+        if (!isTauriRuntime()) {
+          throw unavailableOutsideTauri("check_node_cache");
+        }
         return invoke("check_node_cache", { nodeId, config, input });
     }
 
     async getAvailableTools(): Promise<any[]> {
+        if (!isTauriRuntime()) {
+          return [];
+        }
         return invoke("get_available_tools");
     }
 

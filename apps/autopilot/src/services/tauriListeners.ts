@@ -1,4 +1,22 @@
+import { listen as listenTauriEvent } from "@tauri-apps/api/event";
+
 type TauriUnlisten = () => void | Promise<void>;
+type TauriEventCallback<T> = (event: { payload: T }) => void;
+
+export function isTauriRuntime(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+export function listenIfTauri<T>(
+  eventName: string,
+  handler: TauriEventCallback<T>,
+): Promise<TauriUnlisten> {
+  if (!isTauriRuntime()) {
+    return Promise.resolve(() => {});
+  }
+
+  return listenTauriEvent<T>(eventName, handler);
+}
 
 function tauriListenerCleanupErrorMessage(error: unknown): string {
   if (error instanceof Error) {

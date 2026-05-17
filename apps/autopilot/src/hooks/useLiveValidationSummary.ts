@@ -185,14 +185,27 @@ export function useLiveValidationSummary({
 
   useEffect(() => {
     if (!latestSessionThreadId) {
-      setLatestSessionEvidence({
-        threadId: null,
-        title: null,
-        timestamp: null,
-        events: [],
-        artifacts: [],
-        loading: false,
-        error: null,
+      setLatestSessionEvidence((current) => {
+        if (
+          current.threadId === null &&
+          current.title === null &&
+          current.timestamp === null &&
+          current.events.length === 0 &&
+          current.artifacts.length === 0 &&
+          current.loading === false &&
+          current.error === null
+        ) {
+          return current;
+        }
+        return {
+          threadId: null,
+          title: null,
+          timestamp: null,
+          events: [],
+          artifacts: [],
+          loading: false,
+          error: null,
+        };
       });
       return;
     }

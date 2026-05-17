@@ -486,17 +486,13 @@ export function PolicyView({
 
   useEffect(() => {
     const requestConnectorId = governanceRequest?.connectorId ?? null;
+    const nextSelectedTarget =
+      focusedConnectorId || requestConnectorId || "global";
 
-    if (focusedConnectorId) {
-      setSelectedTarget(focusedConnectorId);
-      return;
+    if (selectedTarget !== nextSelectedTarget) {
+      setSelectedTarget(nextSelectedTarget);
     }
-    if (requestConnectorId) {
-      setSelectedTarget(requestConnectorId);
-      return;
-    }
-    setSelectedTarget((current) => current || "global");
-  }, [focusedConnectorId, governanceRequest]);
+  }, [focusedConnectorId, governanceRequest, selectedTarget]);
 
   const selectedConnector = useMemo(
     () =>

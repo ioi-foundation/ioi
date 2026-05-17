@@ -3,7 +3,7 @@ import {
   type ConnectorSummary,
   type RuntimeCatalogEntry,
 } from "@ioi/agent-ide";
-import { listen } from "@tauri-apps/api/event";
+import { listenIfTauri as listen } from "../../../services/tauriListeners";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   ChangeEvent,
@@ -126,6 +126,17 @@ type CommandSurfaceKeyEvent = {
   shiftKey: boolean;
   preventDefault: () => void;
 };
+
+function slashContextsEqual(
+  left: SlashTokenContext | null,
+  right: SlashTokenContext | null,
+): boolean {
+  return (
+    left?.query === right?.query &&
+    left?.start === right?.start &&
+    left?.end === right?.end
+  );
+}
 
 export function ChatInputSection({
   inputRef,
@@ -265,7 +276,7 @@ export function ChatInputSection({
   const syncSlashMenu = useCallback(
     (value: string, caret: number | null | undefined) => {
       if (inputLockedByCredential) {
-        setSlashContext(null);
+        setSlashContext((current) => (current === null ? current : null));
         if (commandsMenuOpen) {
           setActiveDropdown(null);
         }
@@ -273,17 +284,15 @@ export function ChatInputSection({
       }
 
       const nextContext = getSlashTokenContext(value, caret ?? value.length);
-      setSlashContext(nextContext);
+      setSlashContext((current) =>
+        slashContextsEqual(current, nextContext) ? current : nextContext,
+      );
 
       if (nextContext) {
         if (!commandsMenuOpen) {
           setActiveDropdown("commands");
         }
         return;
-      }
-
-      if (commandsMenuOpen) {
-        setActiveDropdown(null);
       }
     },
     [commandsMenuOpen, inputLockedByCredential, setActiveDropdown],
@@ -488,15 +497,17 @@ export function ChatInputSection({
 
   useEffect(() => {
     if (!vimModeSnapshot.enabled || vimModeSnapshot.modeId !== "vim_normal") {
-      setPendingVimOperator(null);
-      setPendingVimMotionPrefix(null);
-      setPendingVimCount(null);
+      setPendingVimOperator((current) => (current === null ? current : null));
+      setPendingVimMotionPrefix((current) =>
+        current === null ? current : null,
+      );
+      setPendingVimCount((current) => (current === null ? current : null));
     }
   }, [vimModeSnapshot.enabled, vimModeSnapshot.modeId]);
 
   useEffect(() => {
     if (commandPaletteMode) {
-      setSlashContext(null);
+      setSlashContext((current) => (current === null ? current : null));
       return;
     }
 
@@ -1416,23 +1427,13 @@ export function ChatInputSection({
     [actionSections],
   );
 
-  useEffect(() => {
-    if (!commandsMenuOpen) {
-      setHighlightedItemId(null);
-      return;
-    }
-
-    if (slashActionItems.length === 0) {
-      setHighlightedItemId(null);
-      return;
-    }
-
-    setHighlightedItemId((current) =>
-      current && slashActionItems.some((item) => item.id === current)
-        ? current
-        : slashActionItems[0]?.id ?? null,
-    );
-  }, [commandsMenuOpen, slashActionItems]);
+  const activeHighlightedItemId =
+    commandsMenuOpen && slashActionItems.length > 0
+      ? highlightedItemId &&
+        slashActionItems.some((item) => item.id === highlightedItemId)
+        ? highlightedItemId
+        : slashActionItems[0]?.id ?? null
+      : null;
 
   const handleCommandSurfaceKeyDown = useCallback(
     (event: CommandSurfaceKeyEvent) => {
@@ -1459,7 +1460,9 @@ export function ChatInputSection({
 
         const currentIndex = Math.max(
           0,
-          slashActionItems.findIndex((item) => item.id === highlightedItemId),
+          slashActionItems.findIndex(
+            (item) => item.id === activeHighlightedItemId,
+          ),
         );
         const delta = event.key === "ArrowDown" ? 1 : -1;
         const nextIndex =
@@ -1471,7 +1474,7 @@ export function ChatInputSection({
 
       if (event.key === "Enter" && !event.shiftKey) {
         const selectedItem =
-          slashActionItems.find((item) => item.id === highlightedItemId) ??
+          slashActionItems.find((item) => item.id === activeHighlightedItemId) ??
           slashActionItems[0];
         if (!selectedItem?.onSelect) {
           return false;
@@ -1485,10 +1488,10 @@ export function ChatInputSection({
       return false;
     },
     [
+      activeHighlightedItemId,
       commandPaletteMode,
       commandsMenuOpen,
       focusComposer,
-      highlightedItemId,
       setActiveDropdown,
       slashActionItems,
     ],
@@ -1640,7 +1643,7 @@ export function ChatInputSection({
           <CommandMenu
             sections={actionSections}
             mode={commandPaletteMode ? "palette" : "slash"}
-            selectedItemId={highlightedItemId}
+            selectedItemId={activeHighlightedItemId}
             onHighlightItem={setHighlightedItemId}
             searchQuery={commandPaletteMode ? commandPaletteQuery : undefined}
             searchPlaceholder="Search commands, sessions, live tools, and skills"

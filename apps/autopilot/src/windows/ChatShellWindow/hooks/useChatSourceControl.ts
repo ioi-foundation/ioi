@@ -1,4 +1,4 @@
-import { listen } from "@tauri-apps/api/event";
+import { listenIfTauri as listen } from "../../../services/tauriListeners";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   WorkspaceCommitResult,
