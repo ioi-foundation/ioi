@@ -137,9 +137,8 @@ Build:
 - Playwright-backed browser/computer-use readiness probes for isolated task contexts and degraded/fail-closed paths;
 - go/no-go report proving Phase 5 can start without a second runtime or shadow truth store.
 
-Authoritative guides:
+Authoritative guide:
 
-- [Phase 4.5 Capability Authority Readiness Master Guide](../plans/phase-4-5-capability-authority-readiness-master-guide.md)
 - [Isolated Computer Providers Master Guide](../plans/isolated-computer-providers-master-guide.md)
 
 ## Phase 5 — Early Connector Expansion
