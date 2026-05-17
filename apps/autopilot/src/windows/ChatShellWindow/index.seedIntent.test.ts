@@ -72,4 +72,16 @@ assert.match(
   "chat seed intent bootstrap should route retained clarification follow-ups through the clarification submit path",
 );
 
+assert.match(
+  source,
+  /presentationMode = "standalone"[\s\S]*isEmbeddedPaneChat[\s\S]*presentationMode === "embedded-pane"/,
+  "chat shell should distinguish standalone chat from embedded persistent-pane chat",
+);
+
+assert.match(
+  source,
+  /const chatSidebarNode = isChatVariant && !isEmbeddedPaneChat \?/,
+  "embedded persistent-pane chat should not render the fullscreen session-history sidebar",
+);
+
 console.log("index.seedIntent.test.ts: ok");

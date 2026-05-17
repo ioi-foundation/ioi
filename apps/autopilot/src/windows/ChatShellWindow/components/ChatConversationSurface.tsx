@@ -30,9 +30,13 @@ export function ChatConversationSurface({
     <div
       className={`spot-chat-shell ${
         artifactVisible ? "is-artifact-open" : "is-artifact-collapsed"
-      } ${artifactMenuVisible ? "is-artifact-menu-open" : ""}`}
+      } ${artifactMenuVisible ? "is-artifact-menu-open" : ""} ${
+        sidebar ? "" : "is-sidebar-hidden"
+      }`}
     >
-      <div className="spot-chat-sidebar-shell-item">{sidebar}</div>
+      {sidebar ? (
+        <div className="spot-chat-sidebar-shell-item">{sidebar}</div>
+      ) : null}
       <div className="spot-chat-conversation-shell-item">
         <div className="spot-workbench-chat-topbar" aria-label="Chat workbench toolbar">
           <div className="spot-workbench-chat-tab is-active">Chat</div>

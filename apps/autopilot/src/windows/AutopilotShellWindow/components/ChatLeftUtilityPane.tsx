@@ -100,6 +100,7 @@ export function ChatLeftUtilityPane({
       <div className="chat-chat-pane-body">
         <MissionControlChatView
           embedded
+          chatPresentation={maximized ? "standalone" : "embedded-pane"}
           surface={surface}
           session={session}
           runtime={runtime}
