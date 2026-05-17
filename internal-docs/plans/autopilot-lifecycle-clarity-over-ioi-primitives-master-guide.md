@@ -144,7 +144,7 @@ PromotionDecisionEnvelope
 | P0-2 | Canonical lifecycle glossary | In progress / canonical docs locked | Agent/Worker/Skill/Tool/Connector/Workflow/Harness/Capability/Policy/Trace/Receipt/Runtime terms have stable definitions and product-label mappings. |
 | P0-3 | Lifecycle verb loop | In progress / canonical docs locked | Compose, bind, simulate, authorize, run, verify, inspect receipts, package, deploy, promote, improve are documented and projected into Autopilot/CLI/SDK surfaces. |
 | P0-4 | Canonical proof sample | Planned | A repo-maintenance autonomous system sample demonstrates local fs/Git proposal-first mutation with authority, approvals, evals, receipts, and GUI run checklist. |
-| P0-5 | Workflow package readiness | In progress / projection helper guarded | Workflow Composer shows run readiness separately from autonomous-system package readiness and promotion readiness. |
+| P0-5 | Workflow package readiness | In progress / Composer rail wired | Workflow Composer shows run readiness separately from autonomous-system package readiness and promotion readiness. |
 | P0-6 | Lifecycle APIs and projections | In progress / workflow projection guarded | Daemon/API/SDK/CLI/TUI/Autopilot can expose lifecycle status without duplicating runtime truth. |
 | P0-7 | Evaluation as default | Planned | The proof sample and Phase 5 entry lanes ship fixture evals, scorecards, replay expectations, and promotion gates. |
 | P0-8 | Migration compatibility | In progress / projection helper guarded | Existing workflows project deterministically into the package/lifecycle lens without breaking stored graphs. |
@@ -1010,12 +1010,13 @@ If connector expansion proceeds before lifecycle clarity:
 
 ## Current Next Tactical Slice
 
-Implement Workstream C:
+Implement Workstream D:
 
-1. Add package readiness summary to Workflow Composer.
-2. Add lifecycle inspector sections.
-3. Surface capability, authority, eval, artifact, receipt, and deployment
-   blockers.
-4. Keep raw runtime/advanced details accessible.
-5. Add GUI probe coverage for discovering the proof sample and checking
+1. Create the canonical repo-maintenance Autonomous System Package proof
+   sample.
+2. Include model capability, fs/Git tool capability, authority policy,
+   approval profile, eval fixture, expected receipts, and GUI checklist.
+3. Register or document the sample so Workflow Composer and CLI/SDK readiness
+   paths can discover it without connector-specific semantics.
+4. Add tests that the sample projects to package/eval/deployment/promotion
    readiness.

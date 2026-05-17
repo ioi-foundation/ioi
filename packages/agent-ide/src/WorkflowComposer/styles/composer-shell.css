@@ -1525,6 +1525,7 @@ button.workflow-run-row.is-active {
 }
 
 .workflow-test-row.is-failed strong,
+.workflow-test-row.is-warning strong,
 .workflow-test-row.is-blocked strong {
   color: var(--status-warning);
 }

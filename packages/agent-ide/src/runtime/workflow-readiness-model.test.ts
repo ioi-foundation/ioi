@@ -145,6 +145,42 @@ test("workflow readiness model reports all scheduler lanes ready from the manife
   assert.equal(readiness.attentionIssues.length, 0);
 });
 
+test("workflow readiness model exposes lifecycle readiness without turning package blockers into run blockers", () => {
+  const readiness = model();
+
+  assert.equal(
+    readiness.lifecycleReadiness.packageArtifact,
+    "Autonomous System Package",
+  );
+  assert.equal(
+    readiness.lifecycleReadiness.compatibility.projectedFromLegacyWorkflow,
+    true,
+  );
+  assert.deepEqual(
+    readiness.lifecycleReadiness.categories.map((category) => category.kind),
+    ["run", "authority", "package", "evaluation", "deployment", "promotion"],
+  );
+  assert.equal(
+    readiness.lifecycleReadiness.categories.find(
+      (category) => category.kind === "run",
+    )?.status,
+    "ready",
+  );
+  assert.equal(
+    readiness.lifecycleReadiness.categories.find(
+      (category) => category.kind === "package",
+    )?.status,
+    "blocked",
+  );
+  assert.equal(checklistReady(readiness.readinessItems, "Run readiness"), true);
+  assert.equal(
+    checklistReady(readiness.readinessItems, "Package readiness"),
+    false,
+  );
+  assert.equal(checklistReady(readiness.readinessItems, "No blockers"), true);
+  assert.equal(readiness.blockers.length, 0);
+});
+
 test("workflow readiness model blocks the scheduler checklist when manifest lanes are missing", () => {
   const readiness = model({
     readinessResult: validationResult({

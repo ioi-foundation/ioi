@@ -42,6 +42,24 @@ function workflowCapabilityPreflightRowFocused(
   return Boolean(focus.capabilityRef && focus.capabilityRef === capabilityRef);
 }
 
+function workflowLifecycleStatusClass(status: string): "passed" | "blocked" | "warning" {
+  if (status === "ready") return "passed";
+  if (status === "warning") return "warning";
+  return "blocked";
+}
+
+function workflowLifecycleSearchStatusClass(status: string): "ready" | "blocked" | "warning" {
+  if (status === "ready") return "ready";
+  if (status === "warning") return "warning";
+  return "blocked";
+}
+
+function workflowLifecycleStatusLabel(status: string): string {
+  if (status === "ready") return "Ready";
+  if (status === "warning") return "Warning";
+  return "Blocked";
+}
+
 export function WorkflowReadinessPanel({
   validationResult,
   readinessResult,
@@ -78,6 +96,7 @@ export function WorkflowReadinessPanel({
     schedulerLaneReadyCount,
     capabilityPreflight,
     codingToolBudgetPreflight,
+    lifecycleReadiness,
     readinessItems,
     passedReadinessChecks,
     attentionIssues,
@@ -149,6 +168,102 @@ export function WorkflowReadinessPanel({
           <dd>{readinessWarnings.length}</dd>
         </div>
       </dl>
+      <section
+        className="workflow-rail-section"
+        data-testid="workflow-lifecycle-readiness"
+        data-status={lifecycleReadiness.status}
+        data-schema-version={lifecycleReadiness.schemaVersion}
+        data-system-id={lifecycleReadiness.manifest.systemId}
+        data-manifest-id={lifecycleReadiness.manifest.manifestId}
+        data-projected-from-legacy={
+          lifecycleReadiness.compatibility.projectedFromLegacyWorkflow
+            ? "true"
+            : "false"
+        }
+      >
+        <h4>Autonomous System Package</h4>
+        <article
+          className={`workflow-test-row is-${workflowLifecycleStatusClass(
+            lifecycleReadiness.status,
+          )}`}
+          data-testid="workflow-lifecycle-package-summary"
+          data-package-artifact={lifecycleReadiness.packageArtifact}
+          data-package-status={lifecycleReadiness.manifest.status}
+          data-model-capability-count={
+            lifecycleReadiness.manifest.capabilities.modelCapabilityRefs.length
+          }
+          data-tool-capability-count={
+            lifecycleReadiness.manifest.capabilities.toolCapabilityRefs.length
+          }
+          data-connector-count={
+            lifecycleReadiness.manifest.capabilities.connectorRefs.length
+          }
+          data-authority-scope-count={
+            lifecycleReadiness.manifest.authority.authorityScopeRequirements
+              .length
+          }
+          data-eval-profile-count={
+            lifecycleReadiness.manifest.evaluation.evalProfileRefs.length
+          }
+        >
+          <strong>{lifecycleReadiness.manifest.displayName}</strong>
+          <span>
+            {workflowLifecycleStatusLabel(lifecycleReadiness.status)} ·{" "}
+            {lifecycleReadiness.manifest.status}
+          </span>
+          <small>{lifecycleReadiness.manifest.systemId}</small>
+          <small>
+            {lifecycleReadiness.manifest.capabilities.modelCapabilityRefs.length}{" "}
+            model ·{" "}
+            {lifecycleReadiness.manifest.capabilities.toolCapabilityRefs.length +
+              lifecycleReadiness.manifest.capabilities.connectorRefs.length}{" "}
+            tool/connector ·{" "}
+            {
+              lifecycleReadiness.manifest.authority.authorityScopeRequirements
+                .length
+            }{" "}
+            scope
+          </small>
+        </article>
+        <div
+          className="workflow-rail-list"
+          data-testid="workflow-lifecycle-readiness-categories"
+        >
+          {lifecycleReadiness.categories.map((category) => {
+            const primaryIssue = category.blockers[0] ?? category.warnings[0];
+            return (
+              <button
+                key={category.kind}
+                type="button"
+                className={`workflow-search-result is-${workflowLifecycleSearchStatusClass(
+                  category.status,
+                )}`}
+                data-testid={`workflow-lifecycle-readiness-${category.kind}`}
+                data-lifecycle-kind={category.kind}
+                data-lifecycle-status={category.status}
+                data-blocker-count={category.blockers.length}
+                data-warning-count={category.warnings.length}
+                data-blocking-scope={category.blockingScope}
+                disabled={!primaryIssue}
+                onClick={() => {
+                  if (primaryIssue) onResolveIssue(primaryIssue);
+                }}
+              >
+                <strong>{category.label}</strong>
+                <span>
+                  {workflowLifecycleStatusLabel(category.status)} ·{" "}
+                  {category.blockingScope}
+                </span>
+                <small>{category.summary}</small>
+                <small>
+                  {category.blockers.length} blockers ·{" "}
+                  {category.warnings.length} warnings
+                </small>
+              </button>
+            );
+          })}
+        </div>
+      </section>
       {attentionIssues.length > 0 ? (
         <section
           className="workflow-rail-section"
