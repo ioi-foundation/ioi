@@ -1375,7 +1375,7 @@ assert.match(
 
 assert.match(
   workflowRailPanel,
-  /workflow-readiness-summary[\s\S]*workflow-readiness-attention[\s\S]*workflow-readiness-attention-\$\{index\}[\s\S]*onResolveIssue\(issue\)[\s\S]*workflow-readiness-checklist[\s\S]*workflow-readiness-blockers[\s\S]*onResolveIssue\(issue\)[\s\S]*workflow-readiness-warnings[\s\S]*workflow-readiness-warning-\$\{index\}[\s\S]*onResolveIssue\(issue\)[\s\S]*workflow-readiness-policy-nodes[\s\S]*onInspectNode/,
+  /workflow-readiness-summary[\s\S]*workflow-readiness-attention[\s\S]*workflow-readiness-attention-\$\{index\}[\s\S]*onResolveIssue\(issue\)[\s\S]*workflow-readiness-checklist[\s\S]*workflow-readiness-capability-preflight[\s\S]*workflow-readiness-capability-repair-\$\{action\.kind\}-\$\{row\.nodeId\}[\s\S]*onCapabilityRepairAction\?\.\(action\)[\s\S]*workflow-readiness-blockers[\s\S]*onResolveIssue\(issue\)[\s\S]*workflow-readiness-warnings[\s\S]*workflow-readiness-warning-\$\{index\}[\s\S]*onResolveIssue\(issue\)[\s\S]*workflow-readiness-policy-nodes[\s\S]*onInspectNode/,
   "Readiness rail should summarize launch checks and make blockers/policy-required nodes actionable",
 );
 

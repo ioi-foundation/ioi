@@ -16,6 +16,10 @@ import {
   workflowCodingToolBudgetRecoveryPolicyFromWorkflow,
   type WorkflowRuntimeCodingToolBudgetRecoveryPolicyDescriptor,
 } from "./workflow-runtime-coding-tool-budget-recovery-policy";
+import {
+  workflowCapabilityPreflight,
+  type WorkflowCapabilityPreflight,
+} from "./workflow-capability-preflight";
 
 export type WorkflowReadinessChecklistItem = {
   label: string;
@@ -102,6 +106,7 @@ export type WorkflowReadinessModel = {
   policyRequiredNodeIds: string[];
   schedulerLaneReadiness: WorkflowSchedulerLaneReadiness[];
   schedulerLaneReadyCount: number;
+  capabilityPreflight: WorkflowCapabilityPreflight | null;
   codingToolBudgetPreflight: WorkflowCodingToolBudgetPreflight | null;
   readinessItems: WorkflowReadinessChecklistItem[];
   passedReadinessChecks: number;
@@ -150,12 +155,19 @@ export function workflowReadinessModel({
       ]
     : [];
   const baseReadinessWarnings = result?.warnings ?? [];
+  const capabilityPreflight = workflowCapabilityPreflight(workflow);
   const codingToolBudgetPreflight = workflowCodingToolBudgetPreflight({
     workflow,
     evidence: runtimeCodingToolBudgetEvidence,
   });
+  const capabilityPreflightIssuePresent = baseBlockers.some(
+    (issue) => issue.code === capabilityPreflight?.issue.code,
+  );
   const blockers = [
     ...baseBlockers,
+    ...(capabilityPreflight && !capabilityPreflightIssuePresent
+      ? [capabilityPreflight.issue]
+      : []),
     ...(codingToolBudgetPreflight?.status === "blocked"
       ? [codingToolBudgetPreflight.issue]
       : []),
@@ -267,6 +279,10 @@ export function workflowReadinessModel({
         harnessAuthorityGateLiveReady,
     },
     {
+      label: "Capability preflight",
+      ready: capabilityPreflight === null,
+    },
+    {
       label: "Coding budget preflight",
       ready: codingToolBudgetPreflight === null,
     },
@@ -293,6 +309,7 @@ export function workflowReadinessModel({
     policyRequiredNodeIds,
     schedulerLaneReadiness,
     schedulerLaneReadyCount,
+    capabilityPreflight,
     codingToolBudgetPreflight,
     readinessItems,
     passedReadinessChecks,
