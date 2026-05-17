@@ -20,6 +20,10 @@ import {
   workflowCapabilityPreflight,
   type WorkflowCapabilityPreflight,
 } from "./workflow-capability-preflight";
+import {
+  workflowLifecycleReadinessProjection,
+  type WorkflowLifecycleReadinessProjection,
+} from "./workflow-lifecycle-readiness";
 
 export type WorkflowReadinessChecklistItem = {
   label: string;
@@ -108,6 +112,7 @@ export type WorkflowReadinessModel = {
   schedulerLaneReadyCount: number;
   capabilityPreflight: WorkflowCapabilityPreflight | null;
   codingToolBudgetPreflight: WorkflowCodingToolBudgetPreflight | null;
+  lifecycleReadiness: WorkflowLifecycleReadinessProjection;
   readinessItems: WorkflowReadinessChecklistItem[];
   passedReadinessChecks: number;
   attentionIssues: WorkflowReadinessAttentionIssue[];
@@ -156,6 +161,11 @@ export function workflowReadinessModel({
     : [];
   const baseReadinessWarnings = result?.warnings ?? [];
   const capabilityPreflight = workflowCapabilityPreflight(workflow);
+  const lifecycleReadiness = workflowLifecycleReadinessProjection({
+    workflow,
+    tests,
+    validationResult: result ?? undefined,
+  });
   const codingToolBudgetPreflight = workflowCodingToolBudgetPreflight({
     workflow,
     evidence: runtimeCodingToolBudgetEvidence,
@@ -286,6 +296,10 @@ export function workflowReadinessModel({
       label: "Coding budget preflight",
       ready: codingToolBudgetPreflight === null,
     },
+    ...lifecycleReadiness.categories.map((category) => ({
+      label: category.label,
+      ready: category.status === "ready",
+    })),
     { label: "Readiness checked", ready: readinessResult !== null },
     {
       label: "No blockers",
@@ -311,6 +325,7 @@ export function workflowReadinessModel({
     schedulerLaneReadyCount,
     capabilityPreflight,
     codingToolBudgetPreflight,
+    lifecycleReadiness,
     readinessItems,
     passedReadinessChecks,
     attentionIssues,
