@@ -142,6 +142,38 @@ export interface PolicyDeltaDeck {
   items: PolicyDeltaItem[];
 }
 
+export type AuthorityProfileActionPosture = "allowed" | "gated" | "denied";
+
+export interface AuthorityProfileActionFamily {
+  id: string;
+  label: string;
+  posture: AuthorityProfileActionPosture;
+  detail: string;
+  rationale: string;
+}
+
+export interface AuthorityProfileProjection {
+  profileId: SessionPermissionProfileId | "custom";
+  label: string;
+  tone: "ready" | "warning" | "blocked";
+  summary: string;
+  detail: string;
+  scopeLabel: string;
+  allowedFamilies: AuthorityProfileActionFamily[];
+  gatedFamilies: AuthorityProfileActionFamily[];
+  deniedFamilies: AuthorityProfileActionFamily[];
+  automation: {
+    label: string;
+    detail: string;
+    posture: AuthorityProfileActionPosture;
+  };
+  receipts: {
+    label: string;
+    detail: string;
+    retention: DataHandlingMode;
+  };
+}
+
 export type CapabilityPolicyIntentAction = "widen" | "baseline";
 
 export type CapabilityGovernanceRequestStatus = "pending";
@@ -438,6 +470,163 @@ export function resolveSessionPermissionProfileId(
     policyDefaultsEqual(profile.policy, state.global),
   );
   return match?.id ?? null;
+}
+
+function resolvePolicyProfileId(
+  policy: GlobalPolicyDefaults,
+): SessionPermissionProfileId | "custom" {
+  const match = SESSION_PERMISSION_PROFILES.find((profile) =>
+    policyDefaultsEqual(profile.policy, policy),
+  );
+  return match?.id ?? "custom";
+}
+
+function authorityProfileActionFamily(
+  id: string,
+  label: string,
+  value: PolicyDecisionMode,
+  details: Record<PolicyDecisionMode, string>,
+): AuthorityProfileActionFamily {
+  const posture = authorityProfileDecisionPosture(value);
+  return {
+    id,
+    label,
+    posture,
+    detail: details[value],
+    rationale: `${decisionLabel(value)} in the effective policy matrix.`,
+  };
+}
+
+function authorityProfileDecisionPosture(
+  value: PolicyDecisionMode,
+): AuthorityProfileActionPosture {
+  if (value === "auto") return "allowed";
+  if (value === "block") return "denied";
+  return "gated";
+}
+
+function authorityProfileAutomationPosture(
+  value: AutomationPolicyMode,
+): AuthorityProfileActionPosture {
+  if (value === "manual_only") return "denied";
+  return "gated";
+}
+
+export function buildAuthorityProfileProjection(
+  state: ShieldPolicyState,
+  connectorId?: string | null,
+): AuthorityProfileProjection {
+  const effective = connectorId
+    ? resolveConnectorPolicy(state, connectorId).effective
+    : state.global;
+  const profileId = resolvePolicyProfileId(effective);
+  const profile = SESSION_PERMISSION_PROFILES.find(
+    (candidate) => candidate.id === profileId,
+  );
+  const families = [
+    authorityProfileActionFamily("reads", "Read actions", effective.reads, {
+      auto: "Read-only data access may run without stopping for confirmation.",
+      confirm: "Read-only data access must pass through an operator gate.",
+      block: "Read-only data access is denied before execution.",
+    }),
+    authorityProfileActionFamily("writes", "Write actions", effective.writes, {
+      auto: "State-changing writes may run without an extra approval gate.",
+      confirm: "State-changing writes pause for explicit approval.",
+      block: "State-changing writes are denied before execution.",
+    }),
+    authorityProfileActionFamily("admin", "Admin actions", effective.admin, {
+      auto: "Admin and configuration changes may run without an extra gate.",
+      confirm: "Admin and configuration changes require approval.",
+      block: "Admin and configuration changes are denied.",
+    }),
+    authorityProfileActionFamily("expert", "Expert / raw actions", effective.expert, {
+      auto: "Low-level expert actions may run without an extra gate.",
+      confirm: "Low-level expert actions require approval.",
+      block: "Low-level expert actions are denied.",
+    }),
+  ];
+  const automationPosture = authorityProfileAutomationPosture(
+    effective.automations,
+  );
+  const automationDetail =
+    effective.automations === "manual_only"
+      ? "Durable automations cannot be created from this posture."
+      : effective.automations === "confirm_on_run"
+        ? "Durable automations can exist, but every run remains approval-bound."
+        : "Durable automations require approval when created; later runtime execution remains policy-checked.";
+  const receipts =
+    effective.dataHandling === "local_redacted"
+      ? {
+          label: "Local with redacted export",
+          detail:
+            "Receipts and artifacts stay local by default and may leave the shell only through redacted export handling.",
+          retention: effective.dataHandling,
+        }
+      : {
+          label: "Local only",
+          detail:
+            "Receipts and artifacts remain local to the runtime path with no redacted export posture.",
+          retention: effective.dataHandling,
+        };
+  const allowedFamilies = families.filter(
+    (family) => family.posture === "allowed",
+  );
+  const gatedFamilies = [
+    ...families.filter((family) => family.posture === "gated"),
+    ...(automationPosture === "gated"
+      ? [
+          {
+            id: "automations",
+            label: "Durable automations",
+            posture: automationPosture,
+            detail: automationDetail,
+            rationale: `${automationLabel(effective.automations)} automation posture.`,
+          },
+        ]
+      : []),
+  ];
+  const deniedFamilies = [
+    ...families.filter((family) => family.posture === "denied"),
+    ...(automationPosture === "denied"
+      ? [
+          {
+            id: "automations",
+            label: "Durable automations",
+            posture: automationPosture,
+            detail: automationDetail,
+            rationale: `${automationLabel(effective.automations)} automation posture.`,
+          },
+        ]
+      : []),
+  ];
+  const tone =
+    effective.expert === "auto" || effective.admin === "auto"
+      ? "warning"
+      : allowedFamilies.length === 0
+        ? "blocked"
+        : "ready";
+
+  return {
+    profileId,
+    label: profile?.label ?? "Custom authority profile",
+    tone,
+    summary:
+      profile?.summary ??
+      `${allowedFamilies.length} allowed, ${gatedFamilies.length} gated, ${deniedFamilies.length} denied action families.`,
+    detail:
+      profile?.detail ??
+      "Custom policy posture projected from the persisted matrix.",
+    scopeLabel: connectorId ? "Connector override projection" : "Global baseline projection",
+    allowedFamilies,
+    gatedFamilies,
+    deniedFamilies,
+    automation: {
+      label: automationLabel(effective.automations),
+      detail: automationDetail,
+      posture: automationPosture,
+    },
+    receipts,
+  };
 }
 
 export function applySessionPermissionProfile(

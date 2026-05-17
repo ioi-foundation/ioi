@@ -28,6 +28,7 @@ import type {
   ShieldPolicyState,
 } from "./policyCenter";
 import {
+  buildAuthorityProfileProjection,
   buildPolicyIntentDeltaDeck,
   buildPolicyDeltaDeck,
   buildPolicySimulationDeck,
@@ -141,6 +142,21 @@ function simulationSummaryLabel(value: "auto" | "gate" | "deny"): string {
 
 function deltaLabel(value: "wider" | "tighter"): string {
   return value === "wider" ? "Wider authority" : "Tighter authority";
+}
+
+function authorityProfilePostureLabel(
+  value: "allowed" | "gated" | "denied",
+): string {
+  switch (value) {
+    case "allowed":
+      return "Allowed";
+    case "gated":
+      return "Gated";
+    case "denied":
+      return "Denied";
+    default:
+      return value;
+  }
 }
 
 function authorityReceiptPreview(
@@ -562,25 +578,36 @@ export function PolicyView({
     selectedConnector &&
     effectivePolicyState.overrides[selectedConnector.id]?.inheritGlobal !==
       false;
+  const selectedConnectorPolicyId = selectedConnectorMissing
+    ? null
+    : (selectedConnector?.id ?? null);
+  const authorityProfile = useMemo(
+    () =>
+      buildAuthorityProfileProjection(
+        effectivePolicyState,
+        selectedConnectorPolicyId,
+      ),
+    [effectivePolicyState, selectedConnectorPolicyId],
+  );
   const simulation = useMemo(
     () =>
       buildPolicySimulationDeck(
         effectivePolicyState,
-        selectedConnectorMissing ? null : (selectedConnector?.id ?? null),
+        selectedConnectorPolicyId,
       ),
-    [effectivePolicyState, selectedConnector, selectedConnectorMissing],
+    [effectivePolicyState, selectedConnectorPolicyId],
   );
   const deltaDeck = useMemo(() => {
     if (!governanceRequest) {
       return buildPolicyDeltaDeck(
         policyState,
-        selectedConnectorMissing ? null : (selectedConnector?.id ?? null),
+        selectedConnectorPolicyId,
       );
     }
     return buildPolicyIntentDeltaDeck(
       policyState,
       governanceRequest.requestedState,
-      selectedConnectorMissing ? null : (selectedConnector?.id ?? null),
+      selectedConnectorPolicyId,
       {
         baselineLabel: "Current effective posture",
         nextLabel:
@@ -592,8 +619,7 @@ export function PolicyView({
   }, [
     governanceRequest,
     policyState,
-    selectedConnector,
-    selectedConnectorMissing,
+    selectedConnectorPolicyId,
   ]);
   const scopeLabel = selectedConnector
     ? "Connector override"
@@ -928,17 +954,85 @@ export function PolicyView({
             </article>
           ) : null}
 
-          <article className="shield-policy-card">
+          <article
+            className="shield-policy-card shield-authority-profile-card"
+            data-testid="shield-authority-profile"
+            data-profile-id={authorityProfile.profileId}
+            data-profile-tone={authorityProfile.tone}
+          >
             <div className="shield-policy-card-head">
-              <strong>Policy matrix</strong>
-              <span>
+              <div>
+                <span className="shield-kicker">Authority profile</span>
+                <strong>{authorityProfile.label}</strong>
+              </div>
+              <span className={`shield-status status-${authorityProfile.tone}`}>
+                {authorityProfile.scopeLabel}
+              </span>
+            </div>
+            <div className="shield-authority-profile-copy">
+              <p>{authorityProfile.summary}</p>
+              <small>{authorityProfile.detail}</small>
+            </div>
+            <div className="shield-authority-profile-grid">
+              {(
+                [
+                  ["allowed", authorityProfile.allowedFamilies],
+                  ["gated", authorityProfile.gatedFamilies],
+                  ["denied", authorityProfile.deniedFamilies],
+                ] as const
+              ).map(([posture, families]) => (
+                <section
+                  key={posture}
+                  className={`shield-authority-profile-lane posture-${posture}`}
+                  data-testid={`shield-authority-profile-${posture}`}
+                >
+                  <div className="shield-authority-profile-lane-head">
+                    <strong>{authorityProfilePostureLabel(posture)}</strong>
+                    <span>{families.length}</span>
+                  </div>
+                  {families.length === 0 ? (
+                    <small>No action families in this posture.</small>
+                  ) : (
+                    families.map((family) => (
+                      <article
+                        key={family.id}
+                        className="shield-authority-profile-family"
+                        data-posture={family.posture}
+                      >
+                        <strong>{family.label}</strong>
+                        <p>{family.detail}</p>
+                        <small>{family.rationale}</small>
+                      </article>
+                    ))
+                  )}
+                </section>
+              ))}
+            </div>
+            <div className="shield-authority-profile-footer">
+              <article>
+                <strong>Automation</strong>
+                <span>{authorityProfile.automation.label}</span>
+                <small>{authorityProfile.automation.detail}</small>
+              </article>
+              <article>
+                <strong>Receipts and retention</strong>
+                <span>{authorityProfile.receipts.label}</span>
+                <small>{authorityProfile.receipts.detail}</small>
+              </article>
+            </div>
+          </article>
+
+          <details className="shield-help-panel shield-policy-matrix-details">
+            <summary>
+              <span>Advanced policy matrix</span>
+              <small>
                 {policyMatrixLocked
                   ? "Previewing the requested posture before it is persisted"
                   : selectedConnector && connectorInheritsGlobal
                     ? "Inherited from the global baseline"
                     : "Editing the selected governance object"}
-              </span>
-            </div>
+              </small>
+            </summary>
             <div className="shield-form-grid">
               <PolicySelect
                 label="Read actions"
@@ -1019,7 +1113,7 @@ export function PolicyView({
                 }
               />
             </div>
-          </article>
+          </details>
 
           <div className="shield-inspector-grid">
             <article className="shield-policy-card">
