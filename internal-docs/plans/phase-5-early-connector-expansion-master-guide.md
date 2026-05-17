@@ -13,9 +13,8 @@ jumping straight to money-moving commerce. The Phase 4.5 capability authority
 gate has reached Definition of Ready for local, proposal-first, read-only,
 draft-only, and fixture-backed computer-use lanes.
 
-The additional P0 lifecycle clarity gate in
-`internal-docs/plans/autopilot-lifecycle-clarity-over-ioi-primitives-master-guide.md`
-is complete. The core assertion remains:
+The additional P0 lifecycle clarity gate is complete and retired from active
+planning docs. The core assertion remains:
 
 > Autopilot needs ADK/Gemini-level lifecycle clarity over IOI's stronger
 > primitives.
