@@ -84,10 +84,19 @@ export function AutopilotShellContent({
 
           {!workspaceActive ? (
             <div
-              className={`chat-content ${auxiliaryChatFullscreen ? "is-chat-fullscreen" : ""}`}
+              className={clsx(
+                "chat-content",
+                auxiliaryChatFullscreen && "is-chat-fullscreen",
+                dedicatedWorkbenchActive && "is-dedicated-workbench",
+              )}
             >
             <div className="chat-center-area">
-              <div className="chat-content-main">
+              <div
+                className={clsx(
+                  "chat-content-main",
+                  dedicatedWorkbenchActive && "chat-content-main--dedicated-workbench",
+                )}
+              >
                 {activeView === "home" ? (
                   <HomeView
                     currentProject={currentProject}
