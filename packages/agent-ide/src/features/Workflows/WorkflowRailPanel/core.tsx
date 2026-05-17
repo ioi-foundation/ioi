@@ -90,6 +90,7 @@ import type {
   WorkflowHarnessWorkbenchDeepLinkTarget,
 } from "./types";
 import type { WorkflowCapabilityRepairAction } from "../../../runtime/workflow-run-capability-receipts";
+import type { WorkflowComposerPreflightSeed } from "../../../WorkflowComposer/types";
 import type {
   WorkflowCapabilityGrantRequestResult,
   WorkflowCapabilityGrantResolutionDecision,
@@ -158,6 +159,7 @@ export function WorkflowRailPanel({
   packageImportReview,
   portablePackage,
   bindingManifest,
+  workflowPreflightFocus,
   selectedNodeFixtures,
   checkpoints,
   onSelectRun,
@@ -247,6 +249,7 @@ export function WorkflowRailPanel({
   packageImportReview: WorkflowPackageImportReview | null;
   portablePackage: WorkflowPortablePackage | null;
   bindingManifest: WorkflowBindingManifest | null;
+  workflowPreflightFocus?: WorkflowComposerPreflightSeed | null;
   selectedNodeFixtures: WorkflowNodeFixture[];
   checkpoints: WorkflowCheckpoint[];
   onSelectRun: (run: WorkflowRunSummary) => void;
@@ -3244,6 +3247,7 @@ export function WorkflowRailPanel({
         onExportPackage={onExportPackage}
         onOpenImportPackage={onOpenImportPackage}
         onCapabilityRepairAction={onCapabilityRepairAction}
+        workflowPreflightFocus={workflowPreflightFocus}
       />
     );
   }

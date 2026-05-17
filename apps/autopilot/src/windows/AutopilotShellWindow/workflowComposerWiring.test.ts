@@ -132,6 +132,13 @@ const workflowRailReadinessPanel = fs.readFileSync(
   ),
   "utf8",
 );
+const workflowComposerTypes = fs.readFileSync(
+  new URL(
+    "../../../../../packages/agent-ide/src/WorkflowComposer/types.ts",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const workflowComposerCss = [
   "../../../../../packages/agent-ide/src/WorkflowComposer.css",
   "../../../../../packages/agent-ide/src/WorkflowComposer/styles/composer-shell.css",
@@ -1377,6 +1384,12 @@ assert.match(
   workflowRailPanel,
   /workflow-readiness-summary[\s\S]*workflow-readiness-attention[\s\S]*workflow-readiness-attention-\$\{index\}[\s\S]*onResolveIssue\(issue\)[\s\S]*workflow-readiness-checklist[\s\S]*workflow-readiness-capability-preflight[\s\S]*workflow-readiness-capability-repair-\$\{action\.kind\}-\$\{row\.nodeId\}[\s\S]*onCapabilityRepairAction\?\.\(action\)[\s\S]*workflow-readiness-blockers[\s\S]*onResolveIssue\(issue\)[\s\S]*workflow-readiness-warnings[\s\S]*workflow-readiness-warning-\$\{index\}[\s\S]*onResolveIssue\(issue\)[\s\S]*workflow-readiness-policy-nodes[\s\S]*onInspectNode/,
   "Readiness rail should summarize launch checks and make blockers/policy-required nodes actionable",
+);
+
+assert.match(
+  `${workflowComposerTypes}\n${controller}\n${shellContent}\n${workflowsView}\n${composer}\n${workflowRailPanel}`,
+  /(?=[\s\S]*WorkflowComposerPreflightSeed)(?=[\s\S]*preflightSeed\?: WorkflowComposerPreflightSeed)(?=[\s\S]*workflowPreflightSeed)(?=[\s\S]*openWorkflowPreflight)(?=[\s\S]*controller\.workflow\.openPreflight)(?=[\s\S]*preflightSeed=\{workflowPreflightSeed\})(?=[\s\S]*workflowPreflightFocus)(?=[\s\S]*workflow-readiness-capability-preflight)(?=[\s\S]*data-focus-capability-ref)(?=[\s\S]*data-focused=\{focused\})/,
+  "Authority Center workflow handoffs should open Workflows readiness with a focused capability preflight seed instead of creating shell-side workflow truth.",
 );
 
 assert.match(

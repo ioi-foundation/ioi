@@ -9,9 +9,19 @@ export interface WorkflowComposerProjectScope {
   rootPath: string;
 }
 
+export interface WorkflowComposerPreflightSeed {
+  panel: "readiness";
+  capabilityRef?: string | null;
+  nodeId?: string | null;
+  actionKind?: string | null;
+  source?: "authority-center" | "settings-authority" | "workflow" | string;
+}
+
 export interface WorkflowComposerProps {
   runtime: AgentWorkbenchRuntime;
   currentProject?: WorkflowComposerProjectScope;
   initialFile?: ProjectFile | null;
   onInitialFileLoaded?: () => void;
+  preflightSeed?: WorkflowComposerPreflightSeed | null;
+  onPreflightSeedConsumed?: () => void;
 }

@@ -5,6 +5,7 @@ import {
   type AgentWorkbenchRuntime,
   type ProjectFile,
   type AgentSummary,
+  type WorkflowComposerPreflightSeed,
   RuntimeCatalogView,
   WorkflowComposer,
 } from "@ioi/agent-ide";
@@ -37,6 +38,8 @@ interface MissionControlWorkflowsViewProps {
   onStageCatalogEntry: (entry: RuntimeCatalogEntry) => void;
   composeSeedProject: ProjectFile | null;
   onConsumeComposeSeedProject: () => void;
+  workflowPreflightSeed?: WorkflowComposerPreflightSeed | null;
+  onConsumeWorkflowPreflightSeed?: () => void;
   onAddBuilderConfigToCanvas: (config: any) => void;
 }
 
@@ -71,6 +74,8 @@ export function MissionControlWorkflowsView({
   onStageCatalogEntry,
   composeSeedProject,
   onConsumeComposeSeedProject,
+  workflowPreflightSeed,
+  onConsumeWorkflowPreflightSeed,
   onAddBuilderConfigToCanvas,
 }: MissionControlWorkflowsViewProps) {
   const surfaceLabel = workflowSurfaceLabel(surface);
@@ -88,6 +93,8 @@ export function MissionControlWorkflowsView({
           currentProject={currentProject}
           initialFile={composeSeedProject ?? undefined}
           onInitialFileLoaded={onConsumeComposeSeedProject}
+          preflightSeed={workflowPreflightSeed}
+          onPreflightSeedConsumed={onConsumeWorkflowPreflightSeed}
         />
       </div>
     );

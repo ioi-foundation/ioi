@@ -11,6 +11,7 @@ import type {
   AgentSummary,
   ProjectFile,
   RuntimeCatalogEntry,
+  WorkflowComposerPreflightSeed,
 } from "@ioi/agent-ide";
 import { useAssistantWorkbenchState } from "@ioi/agent-ide";
 import { bootstrapAgentSession, useAgentStore } from "../../session/autopilotSession";
@@ -299,6 +300,8 @@ export function useAutopilotShellController() {
   const [composeSeedProject, setComposeSeedProject] = useState<ProjectFile | null>(
     null,
   );
+  const [workflowPreflightSeed, setWorkflowPreflightSeed] =
+    useState<WorkflowComposerPreflightSeed | null>(null);
 
   const lastPersistedShieldPolicyRef = useRef<string>(
     JSON.stringify(loadShieldPolicyState()),
@@ -859,6 +862,14 @@ export function useAutopilotShellController() {
     setActiveView("workflows");
   };
 
+  const openWorkflowPreflight = (
+    seed: WorkflowComposerPreflightSeed | null = { panel: "readiness" },
+  ) => {
+    setWorkflowPreflightSeed(seed ?? { panel: "readiness" });
+    setWorkflowSurface("canvas");
+    setActiveView("workflows");
+  };
+
   const openReplyComposer = (
     session: Extract<AssistantWorkbenchSession, { kind: "gmail_reply" }>,
   ) => {
@@ -985,10 +996,13 @@ export function useAutopilotShellController() {
       surface: workflowSurface,
       setSurface: setWorkflowSurface,
       openSurface: openWorkflowSurface,
+      openPreflight: openWorkflowPreflight,
       selectProject: setCurrentProjectId,
       composeSeedProject,
       queueBuilderConfigToCanvas,
       consumeComposeSeedProject: () => setComposeSeedProject(null),
+      preflightSeed: workflowPreflightSeed,
+      consumePreflightSeed: () => setWorkflowPreflightSeed(null),
     },
     policy: {
       shieldPolicy,

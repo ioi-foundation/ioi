@@ -37,7 +37,10 @@ test("settings authority section is wired to the canonical authority projection"
   assert.match(settingsAuthoritySection, /settings-authority-capability-row/);
   assert.match(settingsAuthoritySection, /settings-authority-repair-actions/);
   assert.match(settingsAuthoritySection, /data-repair-action-kind/);
-  assert.match(settingsAuthoritySection, /openWorkflowPreflight/);
+  assert.match(
+    settingsAuthoritySection,
+    /openWorkflowPreflight[\s\S]*panel: "readiness"[\s\S]*capabilityRef: action\.targetRef[\s\S]*source: "settings-authority"/,
+  );
   assert.match(settingsAuthoritySection, /openModelRoute/);
 });
 

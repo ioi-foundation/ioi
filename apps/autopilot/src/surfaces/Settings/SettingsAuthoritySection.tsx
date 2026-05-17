@@ -47,7 +47,12 @@ export function SettingsAuthoritySection({
     }
     if (action.kind === "openWorkflowPreflight") {
       if (onOpenWorkflowPreflight) {
-        onOpenWorkflowPreflight();
+        onOpenWorkflowPreflight({
+          panel: "readiness",
+          capabilityRef: action.targetRef,
+          actionKind: action.kind,
+          source: "settings-authority",
+        });
         return;
       }
       onOpenPolicySurface();

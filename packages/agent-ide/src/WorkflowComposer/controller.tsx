@@ -2485,6 +2485,8 @@ export function useWorkflowComposerController({
   currentProject,
   initialFile,
   onInitialFileLoaded,
+  preflightSeed,
+  onPreflightSeedConsumed,
 }: WorkflowComposerProps) {
   const defaultWorkflow = useMemo(() => makeDefaultWorkflow(), []);
   const {
@@ -2528,6 +2530,8 @@ export function useWorkflowComposerController({
     capabilityGrantRequestsByActionId,
     setCapabilityGrantRequestsByActionId,
   ] = useState<Record<string, WorkflowCapabilityGrantRequestResult>>({});
+  const [workflowPreflightFocus, setWorkflowPreflightFocus] =
+    useState<WorkflowComposerProps["preflightSeed"]>(null);
   const [activeTab, setActiveTab] = useState<WorkflowWorkbenchTab>("graph");
   const [rightPanel, setRightPanel] = useState<WorkflowRightPanel>("outputs");
   const [bottomPanel, setBottomPanel] =
@@ -11474,6 +11478,48 @@ export function useWorkflowComposerController({
     [connectFromNodeId, connectWorkflowNodes, handleNodeSelect],
   );
 
+  useEffect(() => {
+    if (!preflightSeed || preflightSeed.panel !== "readiness") return;
+    const match =
+      workflowRunCapabilityPreflight?.rows.find((row) => {
+        if (preflightSeed.nodeId && row.nodeId === preflightSeed.nodeId) {
+          return true;
+        }
+        return Boolean(
+          preflightSeed.capabilityRef &&
+            row.capabilityRef === preflightSeed.capabilityRef,
+        );
+      }) ?? null;
+    const focusedNodeId = preflightSeed.nodeId ?? match?.nodeId ?? null;
+    const focusedCapabilityRef =
+      preflightSeed.capabilityRef ?? match?.capabilityRef ?? null;
+    setWorkflowPreflightFocus({
+      ...preflightSeed,
+      nodeId: focusedNodeId,
+      capabilityRef: focusedCapabilityRef,
+    });
+    setActiveTab("graph");
+    setRightPanel("readiness");
+    setRightRailCollapsed(false);
+    setBottomPanel("selection");
+    if (focusedNodeId) {
+      handleWorkflowNodeSelect(focusedNodeId);
+    }
+    setStatusMessage(
+      match
+        ? `Opened workflow readiness for ${match.capabilityRef}.`
+        : focusedCapabilityRef
+          ? `Opened workflow readiness. No current workflow row matches ${focusedCapabilityRef}.`
+          : "Opened workflow readiness.",
+    );
+    onPreflightSeedConsumed?.();
+  }, [
+    handleWorkflowNodeSelect,
+    onPreflightSeedConsumed,
+    preflightSeed,
+    workflowRunCapabilityPreflight,
+  ]);
+
   const handleInspectHarnessGroupNode = useCallback(
     (groupId: string, nodeId: string) => {
       setCollapsedHarnessGroupIds((current) => ({
@@ -15498,6 +15544,7 @@ export function useWorkflowComposerController({
     workflow,
     workflowRunCapabilityPreflight,
     workflowRunCodingBudgetPreflight,
+    workflowPreflightFocus,
     workflowRunLaunchBlocked,
     workflowRunLaunchDisabledReason,
     workflowActionMetadataLabel,

@@ -1,4 +1,5 @@
 import type { Dispatch, ReactNode, SetStateAction } from "react";
+import type { WorkflowComposerPreflightSeed } from "@ioi/agent-ide";
 import type {
   AssistantUserProfile,
   SessionHookSnapshot,
@@ -104,7 +105,7 @@ export type SettingsViewBodyView = {
   onOpenPolicySurface: () => void;
   onOpenConnections: () => void;
   onOpenModelRoutes?: () => void;
-  onOpenWorkflowPreflight?: () => void;
+  onOpenWorkflowPreflight?: (seed?: WorkflowComposerPreflightSeed) => void;
   summary: string | null;
   diagnostics: ReadonlyArray<{ label: string; value: string; tone: string }>;
   runKnowledgeAction: (
