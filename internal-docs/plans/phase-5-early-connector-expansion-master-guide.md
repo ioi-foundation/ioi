@@ -9,9 +9,8 @@ Created: 2026-05-15
 ## Executive Verdict
 
 Phase 5 proves Autopilot can operate real production software safely without
-jumping straight to money-moving commerce. The Phase 4.5 gate in
-`internal-docs/plans/phase-4-5-capability-authority-readiness-master-guide.md`
-has reached Definition of Ready for local, proposal-first, read-only,
+jumping straight to money-moving commerce. The Phase 4.5 capability authority
+gate has reached Definition of Ready for local, proposal-first, read-only,
 draft-only, and fixture-backed computer-use lanes.
 
 The target is not "more integrations." The target is:
@@ -49,7 +48,6 @@ External constraints that still apply:
 ## Canonical Sources
 
 - `docs/roadmap.md`
-- `internal-docs/plans/phase-4-5-capability-authority-readiness-master-guide.md`
 - `docs/architecture/components/connectors-tools/doctrine.md`
 - `docs/architecture/components/connectors-tools/contracts.md`
 - `docs/architecture/components/wallet-network/doctrine.md`
@@ -78,7 +76,7 @@ External constraints that still apply:
 
 | Lane | Goal | Initial posture | Done when |
 | --- | --- | --- | --- |
-| Filesystem/Git proposal-first mutation | Safe local code/file changes with previews and rollback. | Start first after Phase 4.5. | Reads, diffs, patch proposals, branch ops, and writes are policy-bound and receipted. |
+| Filesystem/Git proposal-first mutation | Safe local code/file changes with previews and rollback. | Start first; Phase 4.5 gate passed. | Reads, diffs, patch proposals, branch ops, and writes are policy-bound and receipted. |
 | Browser/computer-use hardening | Operate web apps through native browser, visual GUI, and sandbox lanes. | Continue from existing computer-use leg. | Actions have observation, target, proposal, policy, verification, trajectory, and cleanup receipts. |
 | Local shell/sandbox hardening | Execute commands with least privilege and clear containment. | Must share policy envelope. | Shell actions carry sandbox profile, risk, approval, stdout/stderr artifacts, and cleanup. |
 | Blender connector | Local creative connector proof. | Early safe connector. | Generate/edit/render/export through typed tools with artifact receipts. |
