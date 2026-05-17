@@ -188,7 +188,7 @@ export const NODE_PALETTE_MODES: Array<{
 }> = [
   {
     id: "recommended",
-    label: "Recommended",
+    label: "Default",
     description: "Curated canonical primitives and composition helpers.",
   },
   {

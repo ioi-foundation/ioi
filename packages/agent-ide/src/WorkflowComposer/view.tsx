@@ -683,7 +683,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
             className={`workflow-composer-graph ${leftDrawerOpen ? "has-left-drawer" : ""}`}
             style={{
               gridTemplateColumns: leftDrawerOpen
-                ? `260px minmax(0, 1fr) ${rightRailCollapsed ? "48px" : `${rightRailWidth}px`}`
+                ? `280px minmax(0, 1fr) ${rightRailCollapsed ? "48px" : `${rightRailWidth}px`}`
                 : `minmax(0, 1fr) ${rightRailCollapsed ? "48px" : `${rightRailWidth}px`}`,
             }}
           >
