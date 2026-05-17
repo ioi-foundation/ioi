@@ -29,6 +29,12 @@ export const WORKFLOW_CANVAS_NODE_TYPES = Object.fromEntries(
   WORKFLOW_CANVAS_NODE_TYPE_IDS.map((type) => [type, CanvasNode]),
 ) as Record<string, typeof CanvasNode>;
 
+export const WORKFLOW_CANVAS_MIN_ZOOM = 0.05;
+export const WORKFLOW_CANVAS_FIT_VIEW_OPTIONS = Object.freeze({
+  minZoom: WORKFLOW_CANVAS_MIN_ZOOM,
+  padding: 0.12,
+});
+
 export function Canvas({
   nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeSelect, onNodeActivate, onDrop, readOnly = false, workflowChromeLocale = null
 }: CanvasProps) {
@@ -77,6 +83,8 @@ export function Canvas({
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
+        fitViewOptions={WORKFLOW_CANVAS_FIT_VIEW_OPTIONS}
+        minZoom={WORKFLOW_CANVAS_MIN_ZOOM}
       >
         {/* @ts-ignore */}
         <Background color="rgba(123, 143, 164, 0.22)" gap={20} />
