@@ -1,0 +1,90 @@
+{
+  "schemaVersion": "ioi.autonomous-system-manifest.v1",
+  "systemId": "system://repo-maintenance",
+  "manifestId": "ai://autonomous-system/repo-maintenance",
+  "displayName": "Repo Maintenance Autonomous System",
+  "description": "Proposal-first filesystem/Git maintenance package for Phase 5 lifecycle readiness.",
+  "version": "workflow.v1",
+  "status": "deployable",
+  "worker": {
+    "workerRef": "worker://repo-maintenance",
+    "responsibility": "Inspect a bounded repo task, propose a docs-only patch, collect approval, and verify receipts.",
+    "ownerRef": "ioi://publisher/local"
+  },
+  "workflow": {
+    "workflowManifestRef": "internal-docs/samples/repo-maintenance-autonomous-system-package/workflow.json",
+    "harnessRef": "harness://repo-maintenance/proposal-first",
+    "topologyHash": "topology:9:8:repo-maintenance-autonomous-system"
+  },
+  "capabilities": {
+    "modelCapabilityRefs": [
+      "model-capability:autopilot.mounted.local-coder"
+    ],
+    "toolCapabilityRefs": [
+      "tool-capability:file.apply_patch",
+      "tool-capability:file.read"
+    ],
+    "connectorRefs": [],
+    "primitiveCapabilitiesRequired": [
+      "prim:fs.read",
+      "prim:fs.write",
+      "prim:git.diff",
+      "prim:model.invoke"
+    ]
+  },
+  "authority": {
+    "authorityScopeRequirements": [
+      "scope:git.diff",
+      "scope:model.invoke.local",
+      "scope:workspace.read",
+      "scope:workspace.write"
+    ],
+    "grantRequirements": [
+      "grant://scope-git-diff",
+      "grant://scope-model-invoke-local",
+      "grant://scope-workspace-read",
+      "grant://scope-workspace-write"
+    ],
+    "approvalProfileRef": "policy://approval/repo-maintenance",
+    "policyProfileRef": "policy://authority/repo-maintenance",
+    "revocationPosture": "fail_closed"
+  },
+  "runtimeProfiles": [
+    {
+      "profileId": "profile://runtime/repo-maintenance",
+      "kind": "local_daemon",
+      "readiness": "ready",
+      "cleanupPolicyRef": "policy://cleanup/local-run-scoped"
+    }
+  ],
+  "sessionStateMemoryArtifacts": {
+    "sessionProfileRef": "profile://session/run-scoped",
+    "stateProfileRef": "profile://state/run-scoped",
+    "memoryProfileRef": null,
+    "artifactRetentionProfileRef": "profile://artifacts/local-redacted",
+    "observationRetentionMode": "local_redacted"
+  },
+  "evaluation": {
+    "evalProfileRefs": [
+      "internal-docs/samples/repo-maintenance-autonomous-system-package/evals/propose-safe-doc-fix.json"
+    ],
+    "benchmarkRefs": [],
+    "qualityGateRefs": [
+      "gate://quality/repo-maintenance"
+    ],
+    "replayProfileRef": "profile://replay/repo-maintenance"
+  },
+  "promotion": {
+    "promotionProfileRef": "profile://promotion/repo-maintenance",
+    "marketplaceExposureEligibility": "internal",
+    "foundryLineageRefs": [],
+    "workerCardPreviewRef": "worker-card://repo-maintenance"
+  },
+  "receipts": {
+    "packageReadinessReceiptRef": "receipt://package-readiness/repo-maintenance",
+    "latestRunReceiptRefs": [],
+    "latestEvalReceiptRefs": [
+      "receipt://eval/repo-maintenance/propose-safe-doc-fix"
+    ]
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "policyRef": "policy://authority/repo-maintenance",
+  "walletAuthorityShape": "wallet.network.capability-grants.v1",
+  "defaultDecision": "fail_closed",
+  "capabilityGrants": [
+    {
+      "capabilityRef": "model-capability:autopilot.mounted.local-coder",
+      "scopes": ["scope:model.invoke.local"],
+      "grantReadiness": "ready",
+      "receiptRequired": true
+    },
+    {
+      "capabilityRef": "tool-capability:file.read",
+      "scopes": ["scope:workspace.read"],
+      "grantReadiness": "ready",
+      "receiptRequired": true
+    },
+    {
+      "capabilityRef": "tool-capability:file.apply_patch",
+      "scopes": ["scope:workspace.write", "scope:git.diff"],
+      "grantReadiness": "ready",
+      "approvalProfileRef": "policy://approval/repo-maintenance",
+      "receiptRequired": true
+    }
+  ],
+  "forbidden": [
+    "network.write",
+    "secret.read",
+    "docs/evidence.write",
+    "unbounded_workspace_mutation"
+  ]
+}

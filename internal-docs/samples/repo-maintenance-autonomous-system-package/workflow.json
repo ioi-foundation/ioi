@@ -1,0 +1,376 @@
+{
+  "version": "workflow.v1",
+  "metadata": {
+    "id": "repo-maintenance-autonomous-system",
+    "name": "Repo Maintenance Autonomous System",
+    "slug": "repo-maintenance-autonomous-system",
+    "workflowKind": "agent_workflow",
+    "executionMode": "local",
+    "gitLocation": "internal-docs/samples/repo-maintenance-autonomous-system-package/workflow.json",
+    "autonomousSystemPackage": {
+      "systemId": "system://repo-maintenance",
+      "manifestId": "internal-docs/samples/repo-maintenance-autonomous-system-package/autonomous-system.manifest.json",
+      "workerRef": "worker://repo-maintenance",
+      "workflowManifestRef": "internal-docs/samples/repo-maintenance-autonomous-system-package/workflow.json",
+      "harnessRef": "harness://repo-maintenance/proposal-first",
+      "displayName": "Repo Maintenance Autonomous System",
+      "responsibility": "Inspect a bounded repo task, propose a docs-only patch, collect approval, and verify receipts.",
+      "approvalProfileRef": "policy://approval/repo-maintenance",
+      "policyProfileRef": "policy://authority/repo-maintenance",
+      "promotionProfileRef": "profile://promotion/repo-maintenance",
+      "marketplaceExposureEligibility": "internal"
+    }
+  },
+  "nodes": [
+    {
+      "id": "repo-maintenance-trigger",
+      "type": "trigger",
+      "name": "Manual maintenance request",
+      "x": 80,
+      "y": 180,
+      "config": {
+        "logic": {
+          "triggerKind": "manual"
+        }
+      }
+    },
+    {
+      "id": "repo-maintenance-source",
+      "type": "source",
+      "name": "Fixture repo task",
+      "x": 320,
+      "y": 180,
+      "config": {
+        "logic": {
+          "payload": {
+            "task": "Fix the docs typo in the fixture repo and propose a patch.",
+            "fixtureRepo": "internal-docs/samples/repo-maintenance-autonomous-system-package/fixture-repo",
+            "mutationMode": "proposal_first"
+          }
+        }
+      }
+    },
+    {
+      "id": "repo-maintenance-plan",
+      "type": "model_call",
+      "name": "Plan proposal-first change",
+      "x": 820,
+      "y": 180,
+      "config": {
+        "logic": {
+          "modelRef": "reasoning",
+          "prompt": "Use the bounded read set to draft a docs-only patch proposal. Return the proposed diff, risk summary, and verification checklist. Do not apply without approval.",
+          "validateStructuredOutput": true,
+          "outputSchema": {
+            "type": "object",
+            "required": ["summary", "proposedDiff", "verification"],
+            "properties": {
+              "summary": { "type": "string" },
+              "proposedDiff": { "type": "string" },
+              "verification": { "type": "array" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "repo-maintenance-model-binding",
+      "type": "model_binding",
+      "name": "Mounted model capability",
+      "x": 560,
+      "y": 20,
+      "config": {
+        "logic": {
+          "modelRef": "reasoning",
+          "modelBinding": {
+            "modelId": "mounted-local-coder",
+            "modelCapabilityRef": "model-capability:autopilot.mounted.local-coder",
+            "routeId": "route.autopilot.local-first",
+            "mockBinding": false,
+            "credentialReadiness": { "status": "ready" },
+            "grantReadiness": { "status": "ready" },
+            "policyPosture": { "status": "allowed" },
+            "workflowAvailability": { "available": true },
+            "agentAvailability": { "available": true },
+            "receiptBehavior": {
+              "receiptRequired": true,
+              "requiredReceiptTypes": [
+                "model_route_selection",
+                "model_invocation"
+              ]
+            },
+            "authorityScopeRequirements": ["scope:model.invoke.local"],
+            "authorityScopes": ["scope:model.invoke.local"]
+          }
+        }
+      }
+    },
+    {
+      "id": "repo-maintenance-inspect",
+      "type": "plugin_tool",
+      "name": "Inspect fixture repo",
+      "x": 560,
+      "y": 180,
+      "config": {
+        "logic": {
+          "toolBinding": {
+            "bindingKind": "coding_tool_pack",
+            "toolRef": "file.read",
+            "toolCapabilityRef": "tool-capability:file.read",
+            "mockBinding": false,
+            "credentialReady": true,
+            "credentialReadiness": { "status": "ready" },
+            "grantReadiness": { "status": "ready" },
+            "policyPosture": { "status": "allowed" },
+            "workflowAvailability": { "available": true },
+            "agentAvailability": { "available": true },
+            "receiptBehavior": {
+              "receiptRequired": true,
+              "requiredReceiptTypes": ["tool_invocation", "read_set"]
+            },
+            "primitiveCapabilities": ["prim:fs.read"],
+            "authorityScopeRequirements": ["scope:workspace.read"],
+            "authorityScopes": ["scope:workspace.read"],
+            "sideEffectClass": "read",
+            "requiresApproval": false
+          }
+        }
+      }
+    },
+    {
+      "id": "repo-maintenance-approval",
+      "type": "human_gate",
+      "name": "Approve patch proposal",
+      "x": 1080,
+      "y": 20,
+      "config": {
+        "logic": {
+          "text": "Approve only a docs-only fixture patch with no secret or generated evidence changes."
+        },
+        "law": {
+          "requireHumanGate": true,
+          "privilegedActions": ["scope:workspace.write", "scope:git.diff"]
+        }
+      }
+    },
+    {
+      "id": "repo-maintenance-proposal",
+      "type": "plugin_tool",
+      "name": "Create patch proposal",
+      "x": 1080,
+      "y": 180,
+      "config": {
+        "logic": {
+          "toolBinding": {
+            "bindingKind": "coding_tool_pack",
+            "toolRef": "file.apply_patch",
+            "toolCapabilityRef": "tool-capability:file.apply_patch",
+            "mockBinding": false,
+            "credentialReady": true,
+            "credentialReadiness": { "status": "ready" },
+            "grantReadiness": { "status": "ready" },
+            "policyPosture": { "status": "allowed" },
+            "workflowAvailability": { "available": true },
+            "agentAvailability": { "available": true },
+            "receiptBehavior": {
+              "receiptRequired": true,
+              "requiredReceiptTypes": [
+                "proposal",
+                "diff_artifact",
+                "approval_decision",
+                "apply_result"
+              ]
+            },
+            "primitiveCapabilities": ["prim:fs.write", "prim:git.diff"],
+            "authorityScopeRequirements": [
+              "scope:workspace.write",
+              "scope:git.diff"
+            ],
+            "authorityScopes": ["scope:workspace.write", "scope:git.diff"],
+            "sideEffectClass": "write",
+            "requiresApproval": true
+          }
+        },
+        "law": {
+          "requireHumanGate": true
+        }
+      }
+    },
+    {
+      "id": "repo-maintenance-verifier",
+      "type": "verifier",
+      "name": "Verify docs-only diff",
+      "x": 1340,
+      "y": 180,
+      "config": {
+        "logic": {
+          "verificationKind": "receipt_expectation",
+          "requiredReceiptTypes": [
+            "proposal",
+            "diff_artifact",
+            "approval_decision",
+            "apply_result"
+          ],
+          "expectedArtifacts": ["artifact://repo-maintenance/diff"]
+        }
+      }
+    },
+    {
+      "id": "repo-maintenance-output",
+      "type": "output",
+      "name": "Patch receipts",
+      "x": 1600,
+      "y": 180,
+      "config": {
+        "logic": {
+          "format": "markdown",
+          "rendererRef": {
+            "rendererId": "markdown",
+            "displayMode": "inline"
+          },
+          "materialization": {
+            "enabled": true,
+            "assetPath": "outputs/repo-maintenance-receipts.md",
+            "assetKind": "report"
+          },
+          "deliveryTarget": { "targetKind": "local_file" },
+          "retentionPolicy": { "retentionKind": "run_scoped" },
+          "versioning": { "enabled": true }
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-repo-trigger-source",
+      "from": "repo-maintenance-trigger",
+      "to": "repo-maintenance-source",
+      "fromPort": "output",
+      "toPort": "input",
+      "type": "data"
+    },
+    {
+      "id": "edge-repo-source-inspect",
+      "from": "repo-maintenance-source",
+      "to": "repo-maintenance-inspect",
+      "fromPort": "output",
+      "toPort": "input",
+      "type": "data"
+    },
+    {
+      "id": "edge-repo-model-binding",
+      "from": "repo-maintenance-model-binding",
+      "to": "repo-maintenance-plan",
+      "fromPort": "model",
+      "toPort": "model",
+      "type": "data",
+      "connectionClass": "model"
+    },
+    {
+      "id": "edge-repo-inspect-plan",
+      "from": "repo-maintenance-inspect",
+      "to": "repo-maintenance-plan",
+      "fromPort": "output",
+      "toPort": "input",
+      "type": "data"
+    },
+    {
+      "id": "edge-repo-plan-proposal",
+      "from": "repo-maintenance-plan",
+      "to": "repo-maintenance-proposal",
+      "fromPort": "output",
+      "toPort": "input",
+      "type": "data"
+    },
+    {
+      "id": "edge-repo-approval-proposal",
+      "from": "repo-maintenance-approval",
+      "to": "repo-maintenance-proposal",
+      "fromPort": "output",
+      "toPort": "approval",
+      "type": "control"
+    },
+    {
+      "id": "edge-repo-proposal-verifier",
+      "from": "repo-maintenance-proposal",
+      "to": "repo-maintenance-verifier",
+      "fromPort": "output",
+      "toPort": "input",
+      "type": "data"
+    },
+    {
+      "id": "edge-repo-verifier-output",
+      "from": "repo-maintenance-verifier",
+      "to": "repo-maintenance-output",
+      "fromPort": "output",
+      "toPort": "input",
+      "type": "data"
+    }
+  ],
+  "global_config": {
+    "env": "test",
+    "environmentProfile": {
+      "target": "local",
+      "credentialScope": "local",
+      "mockBindingPolicy": "block"
+    },
+    "modelBindings": {
+      "reasoning": {
+        "modelId": "mounted-local-coder",
+        "modelCapabilityRef": "model-capability:autopilot.mounted.local-coder",
+        "routeId": "route.autopilot.local-first",
+        "mockBinding": false,
+        "credentialReadiness": { "status": "ready" },
+        "grantReadiness": { "status": "ready" },
+        "policyPosture": { "status": "allowed" },
+        "workflowAvailability": { "available": true },
+        "agentAvailability": { "available": true },
+        "receiptBehavior": {
+          "receiptRequired": true,
+          "requiredReceiptTypes": [
+            "model_route_selection",
+            "model_invocation"
+          ]
+        },
+        "authorityScopeRequirements": ["scope:model.invoke.local"],
+        "authorityScopes": ["scope:model.invoke.local"]
+      }
+    },
+    "requiredCapabilities": {},
+    "policy": {
+      "maxBudget": 5,
+      "maxSteps": 12,
+      "timeoutMs": 30000
+    },
+    "contract": {
+      "developerBond": 0,
+      "adjudicationRubric": "fixture"
+    },
+    "meta": {
+      "name": "Repo Maintenance Autonomous System",
+      "description": "Canonical proposal-first filesystem/Git proof package for Phase 5 readiness."
+    },
+    "production": {
+      "evaluationSetPath": "internal-docs/samples/repo-maintenance-autonomous-system-package/evals",
+      "expectedTimeSavedMinutes": 12,
+      "mcpAccessReviewed": true,
+      "requireReplayFixtures": true
+    }
+  },
+  "tests": [
+    {
+      "id": "repo-maintenance-proposal-first",
+      "name": "Proposal-first docs patch",
+      "targetNodeIds": [
+        "repo-maintenance-proposal",
+        "repo-maintenance-verifier",
+        "repo-maintenance-output"
+      ],
+      "assertion": {
+        "kind": "node_exists",
+        "expected": "repo-maintenance-output"
+      },
+      "status": "idle"
+    }
+  ]
+}

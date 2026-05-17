@@ -1,8 +1,11 @@
 import type {
   WorkflowEdge,
+  GraphModelBinding,
+  WorkflowModelBinding,
   WorkflowNode,
   WorkflowProject,
   WorkflowTestCase,
+  WorkflowToolBinding,
 } from "../types/graph";
 import {
   DEFAULT_SANDBOX,
@@ -277,6 +280,7 @@ export function buildRepoTestEngineerScratchWorkflow(seed: WorkflowProject): {
 
 export const SCRATCH_WORKFLOW_BLUEPRINTS = [
   "repo-test-engineer",
+  "repo-maintenance-package",
   "mcp-research-operator",
   "connector-triage-agent",
   "financial-close-assistant",
@@ -447,12 +451,362 @@ function scratchModelBinding(
   );
 }
 
+function buildRepoMaintenancePackageWorkflow(
+  seed: WorkflowProject,
+): { workflow: WorkflowProject; tests: WorkflowTestCase[] } {
+  const slug = "repo-maintenance-autonomous-system";
+  const modelBinding: WorkflowModelBinding & GraphModelBinding = {
+    modelRef: "reasoning",
+    modelId: "mounted-local-coder",
+    modelCapabilityRef: "model-capability:autopilot.mounted.local-coder",
+    routeId: "route.autopilot.local-first",
+    mockBinding: false,
+    capabilityScope: ["reasoning"],
+    sideEffectClass: "none",
+    requiresApproval: false,
+    credentialReadiness: { status: "ready" },
+    grantReadiness: { status: "ready" },
+    policyPosture: { status: "allowed" },
+    workflowAvailability: { available: true },
+    agentAvailability: { available: true },
+    receiptBehavior: {
+      receiptRequired: true,
+      requiredReceiptTypes: ["model_route_selection", "model_invocation"],
+    },
+    authorityScopeRequirements: ["scope:model.invoke.local"],
+    authorityScopes: ["scope:model.invoke.local"],
+  };
+  const inspectBinding: WorkflowToolBinding = {
+    bindingKind: "coding_tool_pack",
+    toolRef: "file.read",
+    toolCapabilityRef: "tool-capability:file.read",
+    mockBinding: false,
+    credentialReady: true,
+    credentialReadiness: { status: "ready" },
+    grantReadiness: { status: "ready" },
+    policyPosture: { status: "allowed" },
+    workflowAvailability: { available: true },
+    agentAvailability: { available: true },
+    receiptBehavior: {
+      receiptRequired: true,
+      requiredReceiptTypes: ["tool_invocation", "read_set"],
+    },
+    capabilityScope: ["read"],
+    primitiveCapabilities: ["prim:fs.read"],
+    authorityScopeRequirements: ["scope:workspace.read"],
+    authorityScopes: ["scope:workspace.read"],
+    sideEffectClass: "read",
+    requiresApproval: false,
+  };
+  const proposalBinding: WorkflowToolBinding = {
+    bindingKind: "coding_tool_pack",
+    toolRef: "file.apply_patch",
+    toolCapabilityRef: "tool-capability:file.apply_patch",
+    mockBinding: false,
+    credentialReady: true,
+    credentialReadiness: { status: "ready" },
+    grantReadiness: { status: "ready" },
+    policyPosture: { status: "allowed" },
+    workflowAvailability: { available: true },
+    agentAvailability: { available: true },
+    receiptBehavior: {
+      receiptRequired: true,
+      requiredReceiptTypes: [
+        "proposal",
+        "diff_artifact",
+        "approval_decision",
+        "apply_result",
+      ],
+    },
+    capabilityScope: ["write", "git.diff"],
+    primitiveCapabilities: ["prim:fs.write", "prim:git.diff"],
+    authorityScopeRequirements: ["scope:workspace.write", "scope:git.diff"],
+    authorityScopes: ["scope:workspace.write", "scope:git.diff"],
+    sideEffectClass: "write",
+    requiresApproval: true,
+  };
+  const nodes = [
+    makeWorkflowNode(
+      "repo-maintenance-trigger",
+      "trigger",
+      "Manual maintenance request",
+      80,
+      180,
+      { triggerKind: "manual" },
+      undefined,
+      { metricValue: "manual" },
+    ),
+    makeWorkflowNode(
+      "repo-maintenance-source",
+      "source",
+      "Fixture repo task",
+      320,
+      180,
+      {
+        payload: {
+          task: "Fix the docs typo in the fixture repo and propose a patch.",
+          fixtureRepo:
+            "internal-docs/samples/repo-maintenance-autonomous-system-package/fixture-repo",
+          mutationMode: "proposal_first",
+        },
+      },
+      undefined,
+      { metricValue: "fixture" },
+    ),
+    makeWorkflowNode(
+      "repo-maintenance-model-binding",
+      "model_binding",
+      "Mounted model capability",
+      560,
+      20,
+      {
+        modelRef: "reasoning",
+        modelBinding,
+      },
+      undefined,
+      { metricValue: "capability" },
+    ),
+    makeWorkflowNode(
+      "repo-maintenance-inspect",
+      "plugin_tool",
+      "Inspect fixture repo",
+      560,
+      180,
+      {
+        toolBinding: inspectBinding,
+        arguments: {
+          path: "{{input.fixtureRepo}}",
+          purpose: "collect bounded read set before proposing a change",
+        },
+      },
+      undefined,
+      { metricValue: "read" },
+    ),
+    makeWorkflowNode(
+      "repo-maintenance-plan",
+      "model_call",
+      "Plan proposal-first change",
+      820,
+      180,
+      {
+        modelRef: "reasoning",
+        prompt:
+          "Use the bounded read set to draft a docs-only patch proposal. Return the proposed diff, risk summary, and verification checklist. Do not apply without approval.",
+        validateStructuredOutput: true,
+        outputSchema: {
+          type: "object",
+          required: ["summary", "proposedDiff", "verification"],
+          properties: {
+            summary: { type: "string" },
+            proposedDiff: { type: "string" },
+            verification: { type: "array" },
+          },
+        },
+      },
+      undefined,
+      { metricValue: "plan" },
+    ),
+    makeWorkflowNode(
+      "repo-maintenance-approval",
+      "human_gate",
+      "Approve patch proposal",
+      1080,
+      20,
+      {
+        text: "Approve only a docs-only fixture patch with no secret or generated evidence changes.",
+      },
+      {
+        requireHumanGate: true,
+        privilegedActions: ["scope:workspace.write", "scope:git.diff"],
+      },
+      { metricValue: "approval" },
+    ),
+    makeWorkflowNode(
+      "repo-maintenance-proposal",
+      "plugin_tool",
+      "Create patch proposal",
+      1080,
+      180,
+      {
+        toolBinding: proposalBinding,
+        arguments: {
+          mode: "proposal_first",
+          expectedPath:
+            "internal-docs/samples/repo-maintenance-autonomous-system-package/fixture-repo/README.md",
+        },
+      },
+      { requireHumanGate: true },
+      { metricValue: "proposal" },
+    ),
+    makeWorkflowNode(
+      "repo-maintenance-verifier",
+      "verifier",
+      "Verify docs-only diff",
+      1340,
+      180,
+      {
+        assertionKind: "output_contains",
+        expected: "approval_decision",
+        expression: "receipts.requiredReceiptTypes",
+      },
+      undefined,
+      { metricValue: "receipts" },
+    ),
+    makeWorkflowNode(
+      "repo-maintenance-output",
+      "output",
+      "Patch receipts",
+      1600,
+      180,
+      {
+        format: "markdown",
+        rendererRef: { rendererId: "markdown", displayMode: "inline" },
+        materialization: {
+          enabled: true,
+          assetPath: "outputs/repo-maintenance-receipts.md",
+          assetKind: "report",
+        },
+        deliveryTarget: { targetKind: "local_file" },
+        retentionPolicy: { retentionKind: "run_scoped" },
+        versioning: { enabled: true },
+      },
+      undefined,
+      { metricValue: "report" },
+    ),
+  ];
+  return finishScratchWorkflow(
+    {
+      ...seed,
+      metadata: {
+        ...seed.metadata,
+        autonomousSystemPackage: {
+          systemId: "system://repo-maintenance",
+          manifestId:
+            "internal-docs/samples/repo-maintenance-autonomous-system-package/autonomous-system.manifest.json",
+          workerRef: "worker://repo-maintenance",
+          workflowManifestRef:
+            "internal-docs/samples/repo-maintenance-autonomous-system-package/workflow.json",
+          harnessRef: "harness://repo-maintenance/proposal-first",
+          displayName: "Repo Maintenance Autonomous System",
+          responsibility:
+            "Inspect a bounded repo task, propose a docs-only patch, collect approval, and verify receipts.",
+          approvalProfileRef: "policy://approval/repo-maintenance",
+          policyProfileRef: "policy://authority/repo-maintenance",
+          promotionProfileRef: "profile://promotion/repo-maintenance",
+          marketplaceExposureEligibility: "internal",
+        },
+      } as WorkflowProject["metadata"],
+      global_config: {
+        ...seed.global_config,
+        env: "test",
+        environmentProfile: {
+          target: "local",
+          credentialScope: "local",
+          mockBindingPolicy: "block",
+        },
+        modelBindings: {
+          reasoning: modelBinding,
+        },
+        production: {
+          ...(seed.global_config.production ?? {}),
+          evaluationSetPath:
+            "internal-docs/samples/repo-maintenance-autonomous-system-package/evals",
+          expectedTimeSavedMinutes: 12,
+          mcpAccessReviewed: true,
+          requireReplayFixtures: true,
+        },
+      },
+    },
+    slug,
+    "Repo Maintenance Autonomous System",
+    "Canonical proposal-first filesystem/Git proof package for Phase 5 readiness.",
+    nodes,
+    [
+      makeWorkflowEdge(
+        "edge-repo-trigger-source",
+        "repo-maintenance-trigger",
+        "repo-maintenance-source",
+      ),
+      makeWorkflowEdge(
+        "edge-repo-source-inspect",
+        "repo-maintenance-source",
+        "repo-maintenance-inspect",
+      ),
+      makeWorkflowEdge(
+        "edge-repo-model-binding",
+        "repo-maintenance-model-binding",
+        "repo-maintenance-plan",
+        "model",
+        "model",
+        "model",
+      ),
+      makeWorkflowEdge(
+        "edge-repo-inspect-plan",
+        "repo-maintenance-inspect",
+        "repo-maintenance-plan",
+      ),
+      makeWorkflowEdge(
+        "edge-repo-plan-proposal",
+        "repo-maintenance-plan",
+        "repo-maintenance-proposal",
+      ),
+      makeWorkflowEdge(
+        "edge-repo-approval-proposal",
+        "repo-maintenance-approval",
+        "repo-maintenance-proposal",
+        "output",
+        "approval",
+        "control",
+      ),
+      makeWorkflowEdge(
+        "edge-repo-proposal-verifier",
+        "repo-maintenance-proposal",
+        "repo-maintenance-verifier",
+      ),
+      makeWorkflowEdge(
+        "edge-repo-verifier-output",
+        "repo-maintenance-verifier",
+        "repo-maintenance-output",
+      ),
+    ],
+    [
+      {
+        id: "repo-maintenance-proposal-first",
+        name: "Proposal-first docs patch",
+        targetNodeIds: [
+          "repo-maintenance-proposal",
+          "repo-maintenance-verifier",
+          "repo-maintenance-output",
+        ],
+        assertion: {
+          kind: "node_exists",
+          expected: "repo-maintenance-output",
+        },
+        status: "idle",
+      },
+      {
+        id: "repo-maintenance-receipts-present",
+        name: "Expected receipts present",
+        targetNodeIds: ["repo-maintenance-verifier"],
+        assertion: {
+          kind: "output_contains",
+          expected: "approval_decision",
+        },
+        status: "idle",
+      },
+    ],
+  );
+}
+
 export function buildScratchWorkflow(
   seed: WorkflowProject,
   blueprintId: ScratchWorkflowBlueprintId,
 ): { workflow: WorkflowProject; tests: WorkflowTestCase[] } {
   if (blueprintId === "repo-test-engineer") {
     return buildRepoTestEngineerScratchWorkflow(seed);
+  }
+  if (blueprintId === "repo-maintenance-package") {
+    return buildRepoMaintenancePackageWorkflow(seed);
   }
 
   const passThroughCode =
