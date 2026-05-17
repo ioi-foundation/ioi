@@ -21,6 +21,12 @@ export {
 export { Run } from "./run.js";
 export { Thread, Turn } from "./thread.js";
 export { IoiAgentError, ensureIoiAgentError } from "./errors.js";
+export {
+  AUTONOMOUS_SYSTEM_MANIFEST_SCHEMA_VERSION,
+  WORKFLOW_LIFECYCLE_LOOP,
+  WORKFLOW_LIFECYCLE_READINESS_SCHEMA_VERSION,
+  inspectAutonomousSystemLifecycleReadiness,
+} from "./lifecycle-readiness.js";
 export { createRuntimeSubstrateClient, runtimeThreadEventFromEnvelope } from "./substrate-client.js";
 export {
   RUNTIME_APPROVAL_MODES,
@@ -177,6 +183,13 @@ export type {
   SubagentDefinition,
 } from "./options.js";
 export type { ThreadCreateOptions } from "./thread.js";
+export type {
+  AutonomousSystemLifecycleReadinessProjection,
+  AutonomousSystemManifestProfile,
+  WorkflowLifecycleReadinessCategory,
+  WorkflowLifecycleReadinessKind,
+  WorkflowLifecycleReadinessStatus,
+} from "./lifecycle-readiness.js";
 export type {
   AgentQualityLedgerProjection,
   AgentMemoryPolicy,

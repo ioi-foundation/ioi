@@ -38,6 +38,11 @@
       "import": "./dist/computer-use.js",
       "require": "./dist/computer-use.cjs"
     },
+    "./lifecycle-readiness": {
+      "types": "./dist/lifecycle-readiness.d.ts",
+      "import": "./dist/lifecycle-readiness.js",
+      "require": "./dist/lifecycle-readiness.cjs"
+    },
     "./options": {
       "types": "./dist/options.d.ts",
       "import": "./dist/options.js",

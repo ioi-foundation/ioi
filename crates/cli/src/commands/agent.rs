@@ -3,6 +3,7 @@
 use super::agent_event_stream::{
     resolve_daemon_endpoint, resolve_daemon_token, stream_agent_events, AgentEventStreamArgs,
 };
+use super::agent_lifecycle::print_lifecycle_readiness;
 use super::agent_tui::{run_agent_tui, AgentTuiArgs};
 use super::model_mount_http::daemon_request;
 use anyhow::{anyhow, Context, Result};
@@ -214,6 +215,15 @@ pub enum AgentCommands {
     },
     /// Run local doctor checks for the runtime contract surface.
     Doctor {
+        /// Emit machine-readable JSON.
+        #[clap(long)]
+        json: bool,
+    },
+    /// Inspect Autonomous System Package lifecycle readiness from a manifest.
+    Lifecycle {
+        /// AutonomousSystemManifest JSON path.
+        #[clap(long)]
+        manifest: PathBuf,
         /// Emit machine-readable JSON.
         #[clap(long)]
         json: bool,
@@ -963,6 +973,7 @@ async fn run_agent_command(command: AgentCommands) -> Result<()> {
         AgentCommands::ConfigExplain { key, json } => print_config_explain(key.as_deref(), json),
         AgentCommands::Policy { command } => run_policy_command(command),
         AgentCommands::Doctor { json } => print_doctor(json).await,
+        AgentCommands::Lifecycle { manifest, json } => print_lifecycle_readiness(manifest, json),
         AgentCommands::Status {
             session_id,
             step,
@@ -3925,6 +3936,19 @@ mod tests {
         assert!(matches!(
             events.command,
             Some(AgentCommands::Events(SnapshotArgs { json: true, .. }))
+        ));
+
+        let lifecycle = AgentArgs::try_parse_from([
+            "agent",
+            "lifecycle",
+            "--manifest",
+            "internal-docs/samples/repo-maintenance-autonomous-system-package/autonomous-system.manifest.json",
+            "--json",
+        ])
+        .expect("lifecycle command should parse");
+        assert!(matches!(
+            lifecycle.command,
+            Some(AgentCommands::Lifecycle { json: true, .. })
         ));
 
         let stream = AgentArgs::try_parse_from([
