@@ -6,6 +6,7 @@ import {
   workflowReadinessModel,
   type WorkflowReadinessModelInput,
 } from "../../../runtime/workflow-readiness-model";
+import type { WorkflowCapabilityRepairAction } from "../../../runtime/workflow-run-capability-receipts";
 import {
   workflowIssueActionLabel,
   workflowIssueTitle,
@@ -20,6 +21,9 @@ type WorkflowReadinessPanelProps = WorkflowReadinessModelInput & {
   onConfigureNode: () => void;
   onExportPackage: () => void;
   onOpenImportPackage: () => void;
+  onCapabilityRepairAction?: (
+    action: WorkflowCapabilityRepairAction,
+  ) => void | Promise<void>;
 };
 
 function workflowSchedulerLaneDomId(id: string): string {
@@ -50,6 +54,7 @@ export function WorkflowReadinessPanel({
   onConfigureNode,
   onExportPackage,
   onOpenImportPackage,
+  onCapabilityRepairAction,
 }: WorkflowReadinessPanelProps) {
   const {
     result,
@@ -58,6 +63,7 @@ export function WorkflowReadinessPanel({
     policyRequiredNodeIds,
     schedulerLaneReadiness,
     schedulerLaneReadyCount,
+    capabilityPreflight,
     codingToolBudgetPreflight,
     readinessItems,
     passedReadinessChecks,
@@ -149,6 +155,101 @@ export function WorkflowReadinessPanel({
           </article>
         ))}
       </div>
+      {capabilityPreflight ? (
+        <section
+          className="workflow-rail-section"
+          data-testid="workflow-readiness-capability-preflight"
+          data-preflight-status={capabilityPreflight.status}
+          data-source-kind={capabilityPreflight.sourceKind}
+          data-row-count={capabilityPreflight.rowCount}
+          data-target-node-ids={capabilityPreflight.targetNodeIds.join("|")}
+          data-capability-refs={capabilityPreflight.capabilityRefs.join("|")}
+          data-binding-kinds={capabilityPreflight.bindingKinds.join("|")}
+          data-blocker-reasons={capabilityPreflight.blockerReasons.join("|")}
+          data-receipt-refs={capabilityPreflight.receiptRefs.join("|")}
+          data-policy-decision-refs={
+            capabilityPreflight.policyDecisionRefs.join("|")
+          }
+        >
+          <h4>Capability preflight</h4>
+          <button
+            type="button"
+            className="workflow-search-result is-blocked"
+            data-testid="workflow-readiness-capability-preflight-action"
+            onClick={() => onResolveIssue(capabilityPreflight.issue)}
+          >
+            <strong>{workflowIssueTitle(capabilityPreflight.issue)}</strong>
+            <span>
+              {capabilityPreflight.rowCount} blocked binding
+              {capabilityPreflight.rowCount === 1 ? "" : "s"} ·{" "}
+              {capabilityPreflight.bindingKinds.join(", ")}
+            </span>
+            <small>{capabilityPreflight.issue.message}</small>
+            <small>{workflowIssueActionLabel(capabilityPreflight.issue)}</small>
+          </button>
+          <div className="workflow-rail-list">
+            {capabilityPreflight.rows.slice(0, 6).map((row) => (
+              <article
+                key={`${row.nodeId}-${row.capabilityRef}`}
+                className="workflow-test-row is-blocked"
+                data-testid={`workflow-readiness-capability-preflight-row-${row.nodeId}`}
+                data-node-id={row.nodeId}
+                data-binding-kind={row.bindingKind}
+                data-capability-ref={row.capabilityRef}
+                data-route-id={row.routeId ?? ""}
+                data-readiness-status={row.readinessStatus}
+                data-grant-status={row.grantStatus}
+                data-policy-status={row.policyStatus}
+                data-receipt-required={row.receiptRequired}
+                data-receipt-types={row.receiptTypes.join("|")}
+                data-authority-scopes={row.authorityScopes.join("|")}
+                data-authority-scope-requirements={row.authorityScopeRequirements.join(
+                  "|",
+                )}
+                data-blocker-reasons={row.blockerReasons.join("|")}
+                data-repair-action-kinds={row.repairActions
+                  .map((action) => action.kind)
+                  .join("|")}
+              >
+                <strong>{row.nodeName}</strong>
+                <span>
+                  {row.bindingKind} · {row.mode} · {row.readinessStatus}
+                </span>
+                <small>{row.capabilityRef}</small>
+                <small>
+                  grant {row.grantStatus} · policy {row.policyStatus} ·{" "}
+                  receipts {row.receiptRequired ? "required" : "missing"}
+                </small>
+                <small>fail-closed · {row.blockerReasons.join(", ")}</small>
+                {row.repairActions.length > 0 ? (
+                  <div
+                    className="workflow-harness-authority-gate-actions"
+                    data-testid={`workflow-readiness-capability-repair-actions-${row.nodeId}`}
+                  >
+                    {row.repairActions.map((action) => (
+                      <button
+                        key={action.id}
+                        type="button"
+                        className="workflow-secondary-action"
+                        data-testid={`workflow-readiness-capability-repair-${action.kind}-${row.nodeId}`}
+                        data-action-kind={action.kind}
+                        data-target-surface={action.targetSurface}
+                        data-authority-endpoint={action.authorityEndpoint ?? ""}
+                        data-catalog-endpoint={action.catalogEndpoint ?? ""}
+                        data-missing-fields={action.missingFields.join("|")}
+                        title={action.detail}
+                        onClick={() => onCapabilityRepairAction?.(action)}
+                      >
+                        {action.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
       {codingToolBudgetPreflight ? (
         <section
           className="workflow-rail-section"

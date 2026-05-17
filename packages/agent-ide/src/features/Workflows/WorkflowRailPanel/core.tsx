@@ -3243,6 +3243,7 @@ export function WorkflowRailPanel({
         onConfigureNode={onConfigureNode}
         onExportPackage={onExportPackage}
         onOpenImportPackage={onOpenImportPackage}
+        onCapabilityRepairAction={onCapabilityRepairAction}
       />
     );
   }

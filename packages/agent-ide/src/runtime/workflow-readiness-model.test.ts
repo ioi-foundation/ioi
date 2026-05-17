@@ -321,6 +321,78 @@ test("workflow readiness model blocks mutating coding tools on prior TUI budget 
   );
 });
 
+test("workflow readiness model exposes capability preflight repair actions", () => {
+  const liveToolNode = {
+    id: "tool",
+    type: "plugin_tool",
+    name: "External writer",
+    x: 0,
+    y: 0,
+    config: {
+      kind: "plugin_tool",
+      logic: {
+        toolBinding: {
+          toolRef: "external.crm.write",
+          toolCapabilityRef: "tool-capability:external.crm.write",
+          bindingKind: "plugin_tool",
+          mockBinding: false,
+          credentialReady: false,
+          credentialReadiness: { status: "unknown" },
+          grantReadiness: { status: "unknown" },
+          policyPosture: { status: "unknown" },
+          workflowAvailability: { available: false },
+          agentAvailability: { available: false },
+          receiptBehavior: {
+            receiptRequired: false,
+            requiredReceiptTypes: [],
+          },
+          authorityScopes: [],
+          authorityScopeRequirements: [],
+          capabilityScope: ["write"],
+          sideEffectClass: "external_write",
+          requiresApproval: true,
+        },
+      },
+      law: {},
+    },
+  } as Node;
+  const readiness = model({
+    workflow: workflow({
+      nodes: [...workflow().nodes, liveToolNode],
+    }),
+  });
+
+  assert.equal(
+    checklistReady(readiness.readinessItems, "Capability preflight"),
+    false,
+  );
+  assert.equal(checklistReady(readiness.readinessItems, "No blockers"), false);
+  assert.equal(readiness.capabilityPreflight?.status, "blocked");
+  assert.deepEqual(readiness.capabilityPreflight?.targetNodeIds, ["tool"]);
+  assert.equal(
+    readiness.capabilityPreflight?.rows[0]?.capabilityRef,
+    "tool-capability:external.crm.write",
+  );
+  assert.deepEqual(
+    readiness.capabilityPreflight?.rows[0]?.repairActions.map(
+      (action) => action.kind,
+    ),
+    [
+      "open_capability_binding",
+      "request_authority_grant",
+      "apply_approved_grant",
+      "attach_ready_capability",
+      "review_receipt_policy",
+    ],
+  );
+  assert.equal(
+    readiness.blockers.some(
+      (blocker) => blocker.code === "workflow_capability_preflight_blocked",
+    ),
+    true,
+  );
+});
+
 test("workflow coding budget preflight creates run launch annotations", () => {
   const preflight = workflowCodingToolBudgetPreflight({
     workflow: workflow({
