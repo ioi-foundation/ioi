@@ -2,7 +2,7 @@
 
 Owner: connectors-tools / daemon runtime / wallet.network / Autopilot / workflow compositor / computer-use
 
-Status: entry gate open / ready for Workstream 1
+Status: gated by P0 lifecycle clarity / Workstream 1 may proceed as proof sample
 
 Created: 2026-05-15
 
@@ -13,6 +13,19 @@ jumping straight to money-moving commerce. The Phase 4.5 capability authority
 gate has reached Definition of Ready for local, proposal-first, read-only,
 draft-only, and fixture-backed computer-use lanes.
 
+Before broad connector expansion, Phase 5 is gated by the P0 lifecycle clarity
+leg in
+`internal-docs/plans/autopilot-lifecycle-clarity-over-ioi-primitives-master-guide.md`.
+The core assertion is:
+
+> Autopilot needs ADK/Gemini-level lifecycle clarity over IOI's stronger
+> primitives.
+
+Workstream 1 filesystem/Git proposal-first mutation may proceed as the canonical
+proof sample for that lifecycle shape. Broader connector breadth should wait
+until autonomous-system package shape, terminology boundaries, package
+readiness, and evaluation-as-default are locked.
+
 The target is not "more integrations." The target is:
 
 > Real software operation through typed, authority-scoped, proposal-first,
@@ -21,7 +34,8 @@ The target is not "more integrations." The target is:
 
 ## Entry Gate
 
-Phase 5 may begin for the entry lanes because all of these are now true:
+Phase 5 Workstream 1 may begin as the P0 lifecycle proof because all of these
+are now true:
 
 - connector/tool registry exposes complete `RuntimeToolContract` metadata;
 - model routes expose capability, policy, BYOK, readiness, and receipt metadata;
@@ -36,6 +50,17 @@ Phase 5 may begin for the entry lanes because all of these are now true:
   required, idempotency posture, and receipt behavior;
 - targeted build, daemon, SDK, workflow GUI, authority/settings, computer-use,
   and live Playwright clickthrough validation passed on 2026-05-17.
+
+Additional P0 lifecycle gate before broader connector expansion:
+
+- autonomous-system manifest/profile shape is documented;
+- Agent/Worker/Skill/Tool/Connector/Workflow/Harness/Capability/Policy/Trace/
+  Receipt/Runtime terminology is locked;
+- Workflow Composer distinguishes run readiness from package, evaluation,
+  deployment, and promotion readiness;
+- one canonical repo-maintenance autonomous-system proof sample exists;
+- fixture evals and expected receipts exist for the proof sample;
+- old workflows project into the package/lifecycle lens without breaking.
 
 External constraints that still apply:
 
