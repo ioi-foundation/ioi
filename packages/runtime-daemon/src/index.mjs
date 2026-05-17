@@ -112,6 +112,7 @@ import {
   runtimeUsageTelemetryList,
   runtimeUsageTelemetrySummary,
 } from "./usage-telemetry.mjs";
+import { authorityEvidenceSummaryForEvents } from "./authority-evidence-summary.mjs";
 
 export {
   RuntimeAgentServiceCommandAdapter,
@@ -6578,6 +6579,16 @@ export class AgentgresRuntimeStateStore {
     });
   }
 
+  authorityEvidenceSummary(options = {}) {
+    for (const agent of this.agents.values()) {
+      this.projectThreadEvents(agent);
+    }
+    return authorityEvidenceSummaryForEvents(
+      [...this.runtimeEventStreams.values()].flatMap((stream) => stream.events),
+      options,
+    );
+  }
+
   evaluateContextBudget({ threadId = null, runId = null, request = {} } = {}) {
     const requestedRunId = optionalString(request.run_id ?? request.runId) ?? runId;
     const run = requestedRunId ? this.getRun(requestedRunId) : null;
@@ -11080,6 +11091,17 @@ async function handleRequest({ request, response, store }) {
       );
       return;
     }
+    if (
+      request.method === "GET" &&
+      (url.pathname === "/v1/authority-evidence" ||
+        url.pathname === "/v1/workflow-capability-preflights")
+    ) {
+      writeJsonResponse(
+        response,
+        store.authorityEvidenceSummary(Object.fromEntries(url.searchParams.entries())),
+      );
+      return;
+    }
     if (request.method === "POST" && url.pathname === "/v1/context-budget") {
       writeJsonResponse(
         response,
@@ -11407,6 +11429,19 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
   }
   if (request.method === "GET" && url.pathname === "/api/v1/authority") {
     writeJsonResponse(response, mounts.authoritySnapshot(baseUrl));
+    return;
+  }
+  if (
+    request.method === "GET" &&
+    (url.pathname === "/api/v1/authority-evidence" ||
+      url.pathname === "/api/v1/authority-evidence-summaries" ||
+      url.pathname === "/api/v1/workflow-capability-preflight-evidence" ||
+      url.pathname === "/api/v1/workflow-capability-preflight")
+  ) {
+    writeJsonResponse(
+      response,
+      store.authorityEvidenceSummary(Object.fromEntries(url.searchParams.entries())),
+    );
     return;
   }
   if (request.method === "GET" && url.pathname === "/api/v1/model-capabilities") {
