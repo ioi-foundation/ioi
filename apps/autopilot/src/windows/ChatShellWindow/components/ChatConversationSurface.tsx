@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { icons } from "../../../components/ui/icons";
+import { startTauriWindowDrag } from "../../shared/tauriWindowDrag";
 
 export function ChatConversationSurface({
   sidebar,
@@ -40,6 +41,12 @@ export function ChatConversationSurface({
       <div className="spot-chat-conversation-shell-item">
         <div className="spot-workbench-chat-topbar" aria-label="Chat workbench toolbar">
           <div className="spot-workbench-chat-tab is-active">Chat</div>
+          <div
+            className="spot-workbench-chat-drag-region"
+            data-tauri-drag-region
+            onMouseDown={startTauriWindowDrag}
+            aria-hidden="true"
+          />
           <div className="spot-workbench-chat-actions">
             <button type="button" onClick={onNewSession} title="New session">
               {icons.plus}

@@ -1,24 +1,17 @@
 import { useEffect, useState, type MouseEvent } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { safelyDisposeTauriListener } from "../../../services/tauriListeners";
+import {
+  isInteractiveWindowTarget,
+  isTauriRuntime,
+  startTauriWindowDrag,
+} from "../../shared/tauriWindowDrag";
 import { ChatLogoIcon } from "./ChatActivityBarIcons";
 import type { PrimaryView } from "../autopilotShellModel";
 
 interface ChatIdeHeaderProps {
   activeView: PrimaryView;
   workflowSurface: "home" | "canvas" | "agents" | "catalog";
-}
-
-function isTauriRuntime(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    "__TAURI_INTERNALS__" in window
-  );
-}
-
-function isInteractiveElement(target: EventTarget | null): boolean {
-  if (!(target instanceof Element)) return false;
-  return target.closest("button, input, select, textarea, a, [role='button']") !== null;
 }
 
 function windowSurfaceTitle(
@@ -128,7 +121,7 @@ export function ChatIdeHeader({
 
   const handleHeaderDoubleClick = (event: MouseEvent<HTMLElement>) => {
     if (!windowControlsVisible) return;
-    if (isInteractiveElement(event.target)) return;
+    if (isInteractiveWindowTarget(event.target)) return;
     void toggleWindowMaximize();
   };
 
@@ -137,11 +130,19 @@ export function ChatIdeHeader({
       <div
         className="chat-ide-leading"
         data-tauri-drag-region
+        onMouseDown={startTauriWindowDrag}
       >
         <span className="chat-ide-brand" aria-hidden="true">
           <ChatLogoIcon />
         </span>
       </div>
+
+      <div
+        className="chat-ide-drag-surface"
+        data-tauri-drag-region
+        onMouseDown={startTauriWindowDrag}
+        aria-hidden="true"
+      />
 
       {windowControlsVisible ? (
         <div className="chat-ide-window-controls" aria-label="Window controls">
