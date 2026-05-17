@@ -190,6 +190,11 @@ import {
   workflowCapabilityPreflightValidationResult,
   workflowCapabilityRunLaunchAnnotation,
 } from "../runtime/workflow-capability-preflight";
+import {
+  createBlockedWorkflowCapabilityGrantRequestResult,
+  workflowCapabilityGrantRequestFromRepairAction,
+  type WorkflowCapabilityGrantRequestResult,
+} from "../runtime/workflow-capability-grant-request";
 import { workflowRunHistoryModel } from "../runtime/workflow-run-history-model";
 import {
   WORKFLOW_NODE_DEFINITIONS,
@@ -2518,6 +2523,10 @@ export function useWorkflowComposerController({
   const [tests, setTests] = useState<WorkflowTestCase[]>([]);
   const [proposals, setProposals] = useState<WorkflowProposal[]>([]);
   const [runs, setRuns] = useState<WorkflowRunSummary[]>([]);
+  const [
+    capabilityGrantRequestsByActionId,
+    setCapabilityGrantRequestsByActionId,
+  ] = useState<Record<string, WorkflowCapabilityGrantRequestResult>>({});
   const [activeTab, setActiveTab] = useState<WorkflowWorkbenchTab>("graph");
   const [rightPanel, setRightPanel] = useState<WorkflowRightPanel>("outputs");
   const [bottomPanel, setBottomPanel] =
@@ -11834,13 +11843,64 @@ export function useWorkflowComposerController({
   );
 
   const handleCapabilityRepairAction = useCallback(
-    (action: WorkflowCapabilityRepairAction) => {
+    async (action: WorkflowCapabilityRepairAction) => {
       handleWorkflowNodeSelect(action.nodeId);
       setActiveTab("graph");
       setRightPanel("runs");
       setBottomPanel("selection");
       setNodeConfigInitialSection(action.configSection);
       setNodeConfigOpen(true);
+      if (action.kind === "request_authority_grant") {
+        const request = workflowCapabilityGrantRequestFromRepairAction(
+          currentProjectFile,
+          action,
+        );
+        if (!request) {
+          setStatusMessage(
+            `Request grant blocked for ${action.capabilityRef}: authority scopes are required before a grant can be drafted.`,
+          );
+          return;
+        }
+        if (!runtime.createWorkflowCapabilityGrantRequest) {
+          const result = createBlockedWorkflowCapabilityGrantRequestResult(
+            request,
+            ["missing_daemon_authority_grant_request_api"],
+          );
+          setCapabilityGrantRequestsByActionId((current) => ({
+            ...current,
+            [action.id]: result,
+          }));
+          setStatusMessage(
+            "Authority grant requests require the daemon workflow authority API.",
+          );
+          return;
+        }
+        try {
+          const result = await runtime.createWorkflowCapabilityGrantRequest(
+            workflowPath,
+            request,
+          );
+          setCapabilityGrantRequestsByActionId((current) => ({
+            ...current,
+            [action.id]: result,
+          }));
+          await loadRuntimeSidecars(workflowPath);
+          setStatusMessage(result.message);
+        } catch (error) {
+          const result = createBlockedWorkflowCapabilityGrantRequestResult(
+            request,
+            [error instanceof Error ? error.message : String(error)],
+          );
+          setCapabilityGrantRequestsByActionId((current) => ({
+            ...current,
+            [action.id]: result,
+          }));
+          setStatusMessage(
+            `Authority grant request failed for ${action.capabilityRef}.`,
+          );
+        }
+        return;
+      }
       const target =
         action.targetSurface === "authority_center"
           ? `Authority Center ${action.authorityEndpoint ?? "/api/v1/authority"}`
@@ -11849,7 +11909,7 @@ export function useWorkflowComposerController({
         `${action.label}: ${target} for ${action.capabilityRef}.`,
       );
     },
-    [handleWorkflowNodeSelect],
+    [currentProjectFile, handleWorkflowNodeSelect, loadRuntimeSidecars, runtime, workflowPath],
   );
 
   const handleResolveWorkflowIssue = useCallback(
@@ -15087,6 +15147,7 @@ export function useWorkflowComposerController({
     canvasSearchOpen,
     canvasSearchQuery,
     canvasSearchResults,
+    capabilityGrantRequestsByActionId,
     checkpoints,
     closeCanvasSearch,
     closeLeftDrawer,

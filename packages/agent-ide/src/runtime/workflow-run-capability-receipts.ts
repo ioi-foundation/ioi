@@ -70,6 +70,14 @@ export type WorkflowCapabilityRepairAction = {
   missingFields: string[];
   authorityScopes: string[];
   blockerReasons: string[];
+  readinessStatus: string;
+  grantStatus: string;
+  policyStatus: string;
+  riskClass: string | null;
+  sideEffectClass: string;
+  requiresApproval: boolean;
+  receiptRequired: boolean;
+  receiptTypes: string[];
 };
 
 export type WorkflowRunCapabilityReceiptProjection = {
@@ -356,6 +364,8 @@ function capabilityReceiptRow(input: {
       ...input,
       blockerReasons,
       failClosed,
+      receiptRequired,
+      receiptTypes,
     }),
   };
 }
@@ -370,6 +380,14 @@ function workflowCapabilityRepairActions(input: {
   authorityScopes: string[];
   authorityScopeRequirements: string[];
   failClosed: boolean;
+  readinessStatus: string;
+  grantStatus: string;
+  policyStatus: string;
+  riskClass: string | null;
+  sideEffectClass: string;
+  requiresApproval: boolean;
+  receiptRequired: boolean;
+  receiptTypes: string[];
 }): WorkflowCapabilityRepairAction[] {
   if (!input.failClosed) return [];
   const authorityScopes = uniqueStrings([
@@ -389,6 +407,14 @@ function workflowCapabilityRepairActions(input: {
     configSection: "bindings" as const,
     authorityScopes,
     blockerReasons: input.blockerReasons,
+    readinessStatus: input.readinessStatus,
+    grantStatus: input.grantStatus,
+    policyStatus: input.policyStatus,
+    riskClass: input.riskClass,
+    sideEffectClass: input.sideEffectClass,
+    requiresApproval: input.requiresApproval,
+    receiptRequired: input.receiptRequired,
+    receiptTypes: input.receiptTypes,
   };
   const actions: WorkflowCapabilityRepairAction[] = [
     {

@@ -18,6 +18,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     canvasSearchOpen,
     canvasSearchQuery,
     canvasSearchResults,
+    capabilityGrantRequestsByActionId,
     checkpoints,
     closeCanvasSearch,
     closeLeftDrawer,
@@ -1549,6 +1550,9 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     onCapabilityRepairAction={(action) => {
                       void handleCapabilityRepairAction(action);
                     }}
+                    capabilityGrantRequestsByActionId={
+                      capabilityGrantRequestsByActionId
+                    }
                     onCreateRuntimeCodingToolBudgetRecoverySubflow={(action) => {
                       handleCreateRuntimeCodingToolBudgetRecoverySubflow(action);
                     }}

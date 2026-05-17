@@ -6,6 +6,7 @@ import type {
 } from "../../../types/graph";
 import type { WorkflowRunHistoryModel } from "../../../runtime/workflow-run-history-model";
 import type { WorkflowCapabilityRepairAction } from "../../../runtime/workflow-run-capability-receipts";
+import type { WorkflowCapabilityGrantRequestResult } from "../../../runtime/workflow-capability-grant-request";
 import type { WorkflowRuntimeTelemetrySummary } from "../../../runtime/workflow-runtime-telemetry-summary";
 import type {
   WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
@@ -55,6 +56,10 @@ type WorkflowRunsPanelProps = {
   onCapabilityRepairAction?: (
     action: WorkflowCapabilityRepairAction,
   ) => void | Promise<void>;
+  capabilityGrantRequestsByActionId?: Record<
+    string,
+    WorkflowCapabilityGrantRequestResult
+  >;
   onCreateRuntimeCodingToolBudgetRecoverySubflow?: (
     action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
   ) => void;
@@ -89,6 +94,52 @@ function embeddableComputerUseScreenRef(ref: string | null): string | null {
   return /^(https?:\/\/|data:image\/|blob:|\/)/i.test(value) ? value : null;
 }
 
+function CapabilityRepairActionButton({
+  action,
+  rowNodeId,
+  grantRequest,
+  onCapabilityRepairAction,
+}: {
+  action: WorkflowCapabilityRepairAction;
+  rowNodeId: string;
+  grantRequest?: WorkflowCapabilityGrantRequestResult;
+  onCapabilityRepairAction?: (
+    action: WorkflowCapabilityRepairAction,
+  ) => void | Promise<void>;
+}) {
+  const grantStatus = grantRequest?.status ?? "not_requested";
+  const label =
+    action.kind === "request_authority_grant" && grantRequest
+      ? grantRequest.status === "drafted"
+        ? "Grant drafted"
+        : grantRequest.status === "blocked"
+          ? "Grant blocked"
+          : action.label
+      : action.label;
+  return (
+    <button
+      type="button"
+      className="workflow-secondary-action"
+      data-testid={`workflow-run-capability-repair-${action.kind}-${rowNodeId}`}
+      data-action-kind={action.kind}
+      data-target-surface={action.targetSurface}
+      data-authority-endpoint={action.authorityEndpoint ?? ""}
+      data-catalog-endpoint={action.catalogEndpoint ?? ""}
+      data-missing-fields={action.missingFields.join("|")}
+      data-grant-request-status={grantStatus}
+      data-grant-request-id={grantRequest?.requestId ?? ""}
+      data-grant-request-receipt-refs={grantRequest?.receiptRefs.join("|") ?? ""}
+      data-grant-request-policy-decision-refs={
+        grantRequest?.policyDecisionRefs.join("|") ?? ""
+      }
+      title={grantRequest?.message ?? action.detail}
+      onClick={() => onCapabilityRepairAction?.(action)}
+    >
+      {label}
+    </button>
+  );
+}
+
 export function WorkflowRunsPanel({
   workflow,
   model,
@@ -110,6 +161,7 @@ export function WorkflowRunsPanel({
   onExecuteRuntimeWorkspaceTrustAction,
   onExecuteRuntimeCodingToolBudgetRecovery,
   onCapabilityRepairAction,
+  capabilityGrantRequestsByActionId,
   onCreateRuntimeCodingToolBudgetRecoverySubflow,
   onBindRuntimeCodingToolBudgetRecoveryTemplate,
   onBindRuntimeTelemetrySource,
@@ -588,23 +640,17 @@ export function WorkflowRunsPanel({
                           .join("|")}
                       >
                         {row.repairActions.map((action) => (
-                          <button
+                          <CapabilityRepairActionButton
                             key={action.id}
-                            type="button"
-                            className="workflow-secondary-action"
-                            data-testid={`workflow-run-capability-repair-${action.kind}-${row.nodeId}`}
-                            data-action-kind={action.kind}
-                            data-target-surface={action.targetSurface}
-                            data-authority-endpoint={
-                              action.authorityEndpoint ?? ""
+                            action={action}
+                            rowNodeId={row.nodeId}
+                            grantRequest={
+                              capabilityGrantRequestsByActionId?.[action.id]
                             }
-                            data-catalog-endpoint={action.catalogEndpoint ?? ""}
-                            data-missing-fields={action.missingFields.join("|")}
-                            title={action.detail}
-                            onClick={() => onCapabilityRepairAction?.(action)}
-                          >
-                            {action.label}
-                          </button>
+                            onCapabilityRepairAction={
+                              onCapabilityRepairAction
+                            }
+                          />
                         ))}
                       </div>
                     ) : null}

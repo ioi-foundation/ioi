@@ -1188,6 +1188,7 @@ pub fn run() {
             project::load_workflow_run,
             project::resume_workflow_run,
             project::list_workflow_runs,
+            project::create_workflow_capability_grant_request,
             project::list_workflow_checkpoints,
             project::load_workflow_checkpoint,
             project::fork_workflow_checkpoint,
