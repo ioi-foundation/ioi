@@ -89,6 +89,7 @@ import type {
   WorkflowHarnessAuthorityGateProofView,
   WorkflowHarnessWorkbenchDeepLinkTarget,
 } from "./types";
+import type { WorkflowCapabilityRepairAction } from "../../../runtime/workflow-run-capability-receipts";
 import {
   workflowHarnessAuthorityGateBlockerState,
   workflowHarnessHasReviewedImportActivationInvariant,
@@ -163,6 +164,7 @@ export function WorkflowRailPanel({
   onExecuteRuntimeContextPressureAction,
   onExecuteRuntimeWorkspaceTrustAction,
   onExecuteRuntimeCodingToolBudgetRecovery,
+  onCapabilityRepairAction,
   onCreateRuntimeCodingToolBudgetRecoverySubflow,
   onBindRuntimeCodingToolBudgetRecoveryTemplate,
   onBindRuntimeTelemetrySource,
@@ -256,6 +258,9 @@ export function WorkflowRailPanel({
   ) => void | Promise<void>;
   onExecuteRuntimeCodingToolBudgetRecovery?: (
     action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
+  ) => void | Promise<void>;
+  onCapabilityRepairAction?: (
+    action: WorkflowCapabilityRepairAction,
   ) => void | Promise<void>;
   onCreateRuntimeCodingToolBudgetRecoverySubflow?: (
     action: WorkflowRuntimeCodingToolBudgetRecoveryActionDescriptor,
@@ -3177,6 +3182,7 @@ export function WorkflowRailPanel({
         onExecuteRuntimeCodingToolBudgetRecovery={
           onExecuteRuntimeCodingToolBudgetRecovery
         }
+        onCapabilityRepairAction={onCapabilityRepairAction}
         onCreateRuntimeCodingToolBudgetRecoverySubflow={
           onCreateRuntimeCodingToolBudgetRecoverySubflow
         }

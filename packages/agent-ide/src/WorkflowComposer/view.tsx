@@ -70,6 +70,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleCaptureNodeFixture,
     handleCheckReadiness,
     handleCheckWorkflowBinding,
+    handleCapabilityRepairAction,
     handleCollapseHarnessGroups,
     handleCompareRun,
     handleConnectSelectedNodes,
@@ -1544,6 +1545,9 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     }}
                     onExecuteRuntimeCodingToolBudgetRecovery={(action) => {
                       void handleExecuteRuntimeCodingToolBudgetRecovery(action);
+                    }}
+                    onCapabilityRepairAction={(action) => {
+                      void handleCapabilityRepairAction(action);
                     }}
                     onCreateRuntimeCodingToolBudgetRecoverySubflow={(action) => {
                       handleCreateRuntimeCodingToolBudgetRecoverySubflow(action);

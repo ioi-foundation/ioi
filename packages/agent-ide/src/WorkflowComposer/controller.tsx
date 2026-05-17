@@ -151,6 +151,7 @@ import {
   workflowRuntimeTelemetrySourceBindingIssue,
 } from "../runtime/workflow-runtime-telemetry-source-binding";
 import type { WorkflowRuntimeTelemetrySummary } from "../runtime/workflow-runtime-telemetry-summary";
+import type { WorkflowCapabilityRepairAction } from "../runtime/workflow-run-capability-receipts";
 import { materializeWorkflowRuntimeTelemetryBudgetChainFromTelemetry } from "../runtime/workflow-runtime-telemetry-budget-chain-materialization";
 import { materializeWorkflowRuntimeTerminalCodingLoopFromTuiRow } from "../runtime/workflow-runtime-terminal-coding-loop-materialization";
 import { workflowRuntimeSubflowReactFlowElements } from "./runtimeSubflowInsertion";
@@ -11832,6 +11833,25 @@ export function useWorkflowComposerController({
     [handleWorkflowNodeSelect],
   );
 
+  const handleCapabilityRepairAction = useCallback(
+    (action: WorkflowCapabilityRepairAction) => {
+      handleWorkflowNodeSelect(action.nodeId);
+      setActiveTab("graph");
+      setRightPanel("runs");
+      setBottomPanel("selection");
+      setNodeConfigInitialSection(action.configSection);
+      setNodeConfigOpen(true);
+      const target =
+        action.targetSurface === "authority_center"
+          ? `Authority Center ${action.authorityEndpoint ?? "/api/v1/authority"}`
+          : "capability binding editor";
+      setStatusMessage(
+        `${action.label}: ${target} for ${action.capabilityRef}.`,
+      );
+    },
+    [handleWorkflowNodeSelect],
+  );
+
   const handleResolveWorkflowIssue = useCallback(
     (issue: WorkflowValidationIssue) => {
       if (workflowRuntimeCodingToolBudgetRecoveryBindingIssue(issue)) {
@@ -15120,6 +15140,7 @@ export function useWorkflowComposerController({
     handleCaptureNodeFixture,
     handleCheckReadiness,
     handleCheckWorkflowBinding,
+    handleCapabilityRepairAction,
     handleCollapseHarnessGroups,
     handleCompareRun,
     handleConnectSelectedNodes,

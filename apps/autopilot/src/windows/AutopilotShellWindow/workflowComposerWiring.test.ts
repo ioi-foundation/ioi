@@ -2452,8 +2452,14 @@ assert.match(
 
 assert.match(
   `${workflowRunHistoryModel}\n${workflowRunCapabilityReceipts}\n${workflowRailRunsPanel}`,
-  /(?=[\s\S]*WorkflowRunCapabilityReceiptProjection)(?=[\s\S]*workflowRunCapabilityReceiptProjection)(?=[\s\S]*workflow-run-capability-receipts)(?=[\s\S]*workflow-run-capability-receipt-\$\{row\.nodeId\})(?=[\s\S]*data-capability-ref)(?=[\s\S]*data-grant-status)(?=[\s\S]*data-policy-status)(?=[\s\S]*data-receipt-required)(?=[\s\S]*data-fail-closed)/,
+  /(?=[\s\S]*WorkflowRunCapabilityReceiptProjection)(?=[\s\S]*workflowRunCapabilityReceiptProjection)(?=[\s\S]*workflow-run-capability-receipts)(?=[\s\S]*workflow-run-capability-receipt-\$\{row\.nodeId\})(?=[\s\S]*data-capability-ref)(?=[\s\S]*data-grant-status)(?=[\s\S]*data-policy-status)(?=[\s\S]*data-receipt-required)(?=[\s\S]*data-fail-closed)(?=[\s\S]*repairActions)(?=[\s\S]*workflow-run-capability-repair-\$\{action\.kind\}-\$\{row\.nodeId\})(?=[\s\S]*data-target-surface)(?=[\s\S]*\/api\/v1\/authority)/,
   "Workflow run inspector should project canonical model/tool/connector capability refs with grant, policy, receipt, and fail-closed evidence.",
+);
+
+assert.match(
+  composer,
+  /handleCapabilityRepairAction[\s\S]*setNodeConfigInitialSection\(action\.configSection\)[\s\S]*setNodeConfigOpen\(true\)[\s\S]*Authority Center/,
+  "Capability repair actions should route blocked rows to Authority Center context or the node binding editor, not provider shortcuts.",
 );
 
 assert.match(

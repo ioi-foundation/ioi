@@ -5,6 +5,7 @@ import type {
 } from "../types/graph";
 import {
   workflowRunCapabilityReceiptProjection,
+  type WorkflowCapabilityRepairAction,
   type WorkflowRunCapabilityReceiptRow,
 } from "./workflow-run-capability-receipts";
 import { projectRuntimeThreadEventsToWorkflowProjection } from "./workflow-runtime-event-projection";
@@ -45,6 +46,7 @@ export type WorkflowCapabilityPreflightRow = {
   authorityScopes: string[];
   authorityScopeRequirements: string[];
   blockerReasons: string[];
+  repairActions: WorkflowCapabilityRepairAction[];
 };
 
 export type WorkflowCapabilityRunLaunchAnnotation = {
@@ -180,6 +182,7 @@ function workflowCapabilityPreflightRow(
     authorityScopes: row.authorityScopes,
     authorityScopeRequirements: row.authorityScopeRequirements,
     blockerReasons: row.blockerReasons,
+    repairActions: row.repairActions,
   };
 }
 
