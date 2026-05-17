@@ -1417,6 +1417,119 @@
   color: var(--chat-text);
 }
 
+.shield-authority-profile-card {
+  border-color: rgba(45, 212, 191, 0.18);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.035),
+      rgba(255, 255, 255, 0.015)
+    ),
+    var(--surface-3);
+}
+
+.shield-authority-profile-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.shield-authority-profile-copy p,
+.shield-authority-profile-copy small {
+  margin: 0;
+  color: var(--chat-text-secondary);
+  line-height: 1.55;
+}
+
+.shield-authority-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.shield-authority-profile-lane {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--chat-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.shield-authority-profile-lane.posture-allowed {
+  border-color: var(--status-success-ring);
+}
+
+.shield-authority-profile-lane.posture-gated {
+  border-color: var(--status-warning-ring);
+}
+
+.shield-authority-profile-lane.posture-denied {
+  border-color: var(--status-error-ring);
+}
+
+.shield-authority-profile-lane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.shield-authority-profile-lane-head strong,
+.shield-authority-profile-family strong,
+.shield-authority-profile-footer strong {
+  color: var(--chat-text);
+  font-size: 12px;
+}
+
+.shield-authority-profile-lane-head span {
+  display: inline-flex;
+  min-width: 24px;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 3px 7px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--chat-text-secondary);
+  font-size: 11px;
+}
+
+.shield-authority-profile-lane > small,
+.shield-authority-profile-family p,
+.shield-authority-profile-family small,
+.shield-authority-profile-footer span,
+.shield-authority-profile-footer small {
+  margin: 0;
+  color: var(--chat-text-secondary);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.shield-authority-profile-family {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 9px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.shield-authority-profile-footer {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.shield-authority-profile-footer article {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 11px;
+  border: 1px solid var(--chat-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
 .shield-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1582,6 +1695,26 @@
   font-weight: 600;
 }
 
+.shield-policy-matrix-details {
+  padding-bottom: 16px;
+}
+
+.shield-policy-matrix-details summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.shield-policy-matrix-details summary small {
+  color: var(--chat-text-secondary);
+  font-weight: 400;
+}
+
+.shield-policy-matrix-details .shield-form-grid {
+  padding: 0 16px;
+}
+
 .shield-help-panel summary::-webkit-details-marker {
   display: none;
 }
@@ -1611,6 +1744,8 @@
   }
 
   .shield-form-grid,
+  .shield-authority-profile-grid,
+  .shield-authority-profile-footer,
   .shield-help-content,
   .shield-summary-row,
   .shield-authority-lanes {
@@ -1641,6 +1776,8 @@
 
   .chat-settings-diagnostics,
   .shield-form-grid,
+  .shield-authority-profile-grid,
+  .shield-authority-profile-footer,
   .shield-help-content,
   .shield-summary-row,
   .shield-authority-lanes {
