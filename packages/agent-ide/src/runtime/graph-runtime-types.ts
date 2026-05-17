@@ -51,6 +51,10 @@ import type { RuntimeCodingToolControlRequest } from "./workflow-runtime-coding-
 import type { RuntimeCodingToolBudgetRecoveryControlRequest } from "./workflow-runtime-coding-tool-budget-recovery-control-nodes";
 import type { RuntimeSubagentControlRequest } from "./workflow-runtime-subagent-control-nodes";
 import type { WorkflowCapabilityRunLaunchAnnotation } from "./workflow-capability-preflight";
+import type {
+  WorkflowCapabilityGrantRequest,
+  WorkflowCapabilityGrantRequestResult,
+} from "./workflow-capability-grant-request";
 import type { WorkflowCodingToolBudgetRunLaunchAnnotation } from "./workflow-readiness-model";
 
 export type WorkflowRuntimeControlRequest =
@@ -247,6 +251,10 @@ export interface GraphExecutionRuntime {
   executeWorkflowRuntimeControlRequest?(
     request: WorkflowRuntimeControlRequest,
   ): Promise<unknown>;
+  createWorkflowCapabilityGrantRequest?(
+    path: string,
+    request: WorkflowCapabilityGrantRequest,
+  ): Promise<WorkflowCapabilityGrantRequestResult>;
   loadWorkflowRun?(
     path: string,
     runId: string,

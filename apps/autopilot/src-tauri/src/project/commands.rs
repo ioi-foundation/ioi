@@ -3451,6 +3451,164 @@ pub fn list_workflow_runs(path: String) -> Result<Vec<WorkflowRunSummary>, Strin
 }
 
 #[tauri::command]
+pub fn create_workflow_capability_grant_request(
+    path: String,
+    request: Value,
+) -> Result<Value, String> {
+    let workflow_path = resolve_workflow_file_path(&path)?;
+    let workflow: WorkflowProject = read_json_file(&workflow_path)?;
+    let now = now_ms();
+    let mut sanitized_request = workflow_redact_capability_grant_request(request);
+    let request_id = sanitized_request
+        .get("requestId")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| unique_runtime_id("workflow-authority-grant"));
+    if let Some(object) = sanitized_request.as_object_mut() {
+        object.insert("requestId".to_string(), json!(request_id));
+        object.insert("createdAtMs".to_string(), json!(now));
+    }
+    let workflow_node_id = sanitized_request
+        .get("workflowNodeId")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let capability_ref = sanitized_request
+        .get("capabilityRef")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown-capability")
+        .to_string();
+    let authority_scopes = workflow_string_array_at(&sanitized_request, "authorityScopes");
+    let mut issues = Vec::new();
+    if workflow_node_id.trim().is_empty() {
+        issues.push("missing_workflow_node_id".to_string());
+    } else if !workflow.nodes.iter().any(|node| {
+        node.get("id")
+            .and_then(Value::as_str)
+            .map(|id| id == workflow_node_id)
+            .unwrap_or(false)
+    }) {
+        issues.push("workflow_node_not_found".to_string());
+    }
+    if authority_scopes.is_empty() {
+        issues.push("missing_authority_scope".to_string());
+    }
+
+    let status = if issues.is_empty() {
+        "drafted"
+    } else {
+        "blocked"
+    };
+    let receipt_refs = if issues.is_empty() {
+        vec![format!(
+            "receipt_workflow_capability_grant_request_{}",
+            request_id
+        )]
+    } else {
+        Vec::new()
+    };
+    let policy_decision_refs = if issues.is_empty() {
+        vec![format!(
+            "policy_workflow_capability_grant_request_{}",
+            request_id
+        )]
+    } else {
+        Vec::new()
+    };
+    let evidence_id = format!("authority-grant-request-{}", request_id);
+    ensure_workflow_runtime_dirs(&workflow_path)?;
+    append_workflow_evidence(
+        &workflow_path,
+        WorkflowEvidenceSummary {
+            id: evidence_id.clone(),
+            kind: "authority_grant_request".to_string(),
+            created_at_ms: now,
+            summary: format!(
+                "Authority grant request {} for '{}' on node '{}'.",
+                status, capability_ref, workflow_node_id
+            ),
+            path: None,
+        },
+    )?;
+
+    Ok(json!({
+        "schemaVersion": "ioi.workflow.capability-grant-request-result.v1",
+        "requestId": request_id,
+        "status": status,
+        "capabilityRef": capability_ref,
+        "workflowNodeId": workflow_node_id,
+        "authorityScopes": authority_scopes,
+        "policyDecisionRefs": policy_decision_refs,
+        "receiptRefs": receipt_refs,
+        "evidenceRef": evidence_id,
+        "workflowRemainsFailClosed": true,
+        "secretMaterialPresent": false,
+        "message": if issues.is_empty() {
+            "Authority grant request drafted. The workflow remains fail-closed until grant readiness is approved and policy is allowed."
+        } else {
+            "Authority grant request blocked. The workflow remains fail-closed until binding metadata is complete."
+        },
+        "issues": issues,
+        "request": sanitized_request,
+    }))
+}
+
+fn workflow_string_array_at(value: &Value, key: &str) -> Vec<String> {
+    value
+        .get(key)
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+}
+
+fn workflow_redact_capability_grant_request(value: Value) -> Value {
+    match value {
+        Value::Object(map) => Value::Object(
+            map.into_iter()
+                .map(|(key, child)| {
+                    if workflow_capability_grant_secret_key(&key) {
+                        (key, json!("[redacted]"))
+                    } else {
+                        (key, workflow_redact_capability_grant_request(child))
+                    }
+                })
+                .collect(),
+        ),
+        Value::Array(items) => Value::Array(
+            items
+                .into_iter()
+                .map(workflow_redact_capability_grant_request)
+                .collect(),
+        ),
+        other => other,
+    }
+}
+
+fn workflow_capability_grant_secret_key(key: &str) -> bool {
+    let normalized = key
+        .chars()
+        .filter(|character| character.is_ascii_alphanumeric())
+        .collect::<String>()
+        .to_ascii_lowercase();
+    normalized.contains("password")
+        || normalized == "secret"
+        || normalized.starts_with("secret")
+        || normalized.ends_with("secret")
+        || normalized.contains("apikey")
+        || normalized.contains("privatekey")
+        || normalized.ends_with("token")
+}
+
+#[tauri::command]
 pub fn list_workflow_evidence(path: String) -> Result<Vec<WorkflowEvidenceSummary>, String> {
     let workflow_path = resolve_workflow_file_path(&path)?;
     load_workflow_evidence(&workflow_evidence_path(&workflow_path))

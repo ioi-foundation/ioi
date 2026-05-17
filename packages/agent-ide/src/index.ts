@@ -640,6 +640,17 @@ export type {
   WorkflowRunHistoryModelInput,
 } from "./runtime/workflow-run-history-model";
 export type {
+  WorkflowCapabilityGrantRequest,
+  WorkflowCapabilityGrantRequestResult,
+  WorkflowCapabilityGrantRequestResultStatus,
+} from "./runtime/workflow-capability-grant-request";
+export {
+  WORKFLOW_CAPABILITY_GRANT_REQUEST_RESULT_SCHEMA_VERSION,
+  WORKFLOW_CAPABILITY_GRANT_REQUEST_SCHEMA_VERSION,
+  createBlockedWorkflowCapabilityGrantRequestResult,
+  workflowCapabilityGrantRequestFromRepairAction,
+} from "./runtime/workflow-capability-grant-request";
+export type {
   WorkflowRuntimeCodingToolBudgetRecoveryEvidenceBinding,
   WorkflowRuntimeCodingToolBudgetRecoveryNodeBindingResult,
   WorkflowRuntimeCodingToolBudgetRecoveryTemplateBindingResult,
