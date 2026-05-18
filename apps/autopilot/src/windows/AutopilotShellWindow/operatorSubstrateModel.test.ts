@@ -79,3 +79,17 @@ test("workspace embedding defers global command center to ChatIdeHeader", () => 
   assert.match(workspaceShell, /hideGlobalCommandCenter/);
   assert.match(chatHeader, /data-operator-command-center/);
 });
+
+test("workspace docked chat is real operator chrome, not screenshot hitboxes", () => {
+  const workspaceHost = readFileSync(
+    "packages/workspace-substrate/src/components/WorkspaceHost.tsx",
+    "utf8",
+  );
+
+  assert.match(workspaceHost, /data-operator-chat-pane="docked"/);
+  assert.match(workspaceHost, /data-inspection-target="workspace-chat-composer"/);
+  assert.doesNotMatch(workspaceHost, /workspace-agent-dock-header-hitbox/);
+  assert.doesNotMatch(workspaceHost, /workspace-agent-dock-hitbox/);
+  assert.doesNotMatch(workspaceHost, /workbenchDockHeaderFullStrip/);
+  assert.doesNotMatch(workspaceHost, /workbenchDockBodyStrip/);
+});
