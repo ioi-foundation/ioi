@@ -450,6 +450,24 @@ function uniqueHarnessRefs(values: Array<string | null | undefined>): string[] {
   );
 }
 
+function createLocalWorkflowWorkbenchBundle(
+  request: CreateWorkflowProjectRequest,
+): WorkflowWorkbenchBundle {
+  const slug = slugify(request.name);
+  const workflow = makeDefaultWorkflow(request.name);
+  workflow.metadata.workflowKind = request.workflowKind;
+  workflow.metadata.executionMode = request.executionMode;
+  return {
+    workflowPath: `${request.projectRoot}/.agents/workflows/${slug}.workflow.json`,
+    testsPath: `${request.projectRoot}/.agents/workflows/${slug}.tests.json`,
+    proposalsDir: `${request.projectRoot}/.agents/workflows/${slug}.proposals`,
+    workflow,
+    tests: defaultTestsForWorkflow(workflow),
+    proposals: [],
+    runs: [],
+  };
+}
+
 const harnessActivationNotValidatedIssue: WorkflowValidationIssue = {
   code: "harness_activation_not_validated",
   message: "Harness fork has not minted an activation id yet.",
@@ -12467,27 +12485,34 @@ export function useWorkflowComposerController({
       workflowKind: createKind,
       executionMode: createMode,
     };
-    if (runtime.createWorkflowProject) {
-      const bundle = await runtime.createWorkflowProject(request);
-      setWorkflowPath(bundle.workflowPath);
-      setTestsPath(bundle.testsPath);
-      setTests(bundle.tests);
-      setProposals(bundle.proposals);
-      setRuns(bundle.runs);
-      clearRunState();
-      loadWorkflowProject(bundle.workflow);
-      await loadRuntimeSidecars(bundle.workflowPath);
-      setStatusMessage("Blank workflow created");
-    } else {
-      const next = makeDefaultWorkflow(createName);
-      next.metadata.workflowKind = createKind;
-      next.metadata.executionMode = createMode;
-      setTests(defaultTestsForWorkflow(next));
-      setRuns([]);
-      clearRunState();
-      loadWorkflowProject(next);
-      setStatusMessage("Blank workflow initialized locally");
+    let bundle: WorkflowWorkbenchBundle;
+    let fallbackCopy: ReturnType<typeof workflowRuntimeUnavailableCopy> | null =
+      null;
+    try {
+      bundle = runtime.createWorkflowProject
+        ? await runtime.createWorkflowProject(request)
+        : createLocalWorkflowWorkbenchBundle(request);
+    } catch (error) {
+      fallbackCopy = workflowRuntimeUnavailableCopy(error, "runtime_bridge");
+      bundle = createLocalWorkflowWorkbenchBundle(request);
     }
+    setWorkflowPath(bundle.workflowPath);
+    setTestsPath(bundle.testsPath);
+    setTests(bundle.tests);
+    setProposals(bundle.proposals);
+    setRuns(bundle.runs);
+    clearRunState();
+    loadWorkflowProject(bundle.workflow);
+    if (!fallbackCopy && runtime.createWorkflowProject) {
+      await loadRuntimeSidecars(bundle.workflowPath);
+    }
+    setStatusMessage(
+      fallbackCopy
+        ? `${fallbackCopy.title}. Blank workflow initialized locally.`
+        : runtime.createWorkflowProject
+          ? "Blank workflow created"
+          : "Blank workflow initialized locally",
+    );
     setCreateOpen(false);
   };
 
@@ -14306,23 +14331,25 @@ export function useWorkflowComposerController({
           ? SCRATCH_DOGFOOD_WORKFLOW_NAME
           : blueprintId === "repo-maintenance-package"
             ? "Repo Maintenance Autonomous System"
-          : `Scratch ${blueprintId.replace(/-/g, " ")}`;
-      const bundle = runtime.createWorkflowProject
-        ? await runtime.createWorkflowProject({
-            projectRoot,
-            name: requestedName,
-            workflowKind: "agent_workflow",
-            executionMode: "local",
-          })
-        : {
-            workflowPath: `${projectRoot}/.agents/workflows/${slugify(requestedName)}.workflow.json`,
-            testsPath: `${projectRoot}/.agents/workflows/${slugify(requestedName)}.tests.json`,
-            proposalsDir: `${projectRoot}/.agents/workflows/${slugify(requestedName)}.proposals`,
-            workflow: makeDefaultWorkflow(requestedName),
-            tests: [],
-            proposals: [],
-            runs: [],
-          };
+            : `Scratch ${blueprintId.replace(/-/g, " ")}`;
+      const request: CreateWorkflowProjectRequest = {
+        projectRoot,
+        name: requestedName,
+        workflowKind: "agent_workflow",
+        executionMode: "local",
+      };
+      let bundle: WorkflowWorkbenchBundle;
+      try {
+        bundle = runtime.createWorkflowProject
+          ? await runtime.createWorkflowProject(request)
+          : createLocalWorkflowWorkbenchBundle(request);
+      } catch (error) {
+        const copy = workflowRuntimeUnavailableCopy(error, "runtime_bridge");
+        bundle = createLocalWorkflowWorkbenchBundle(request);
+        setStatusMessage(
+          `${copy.title}. Building ${blueprintId} as a local draft.`,
+        );
+      }
       const scratch = buildScratchWorkflow(bundle.workflow, blueprintId);
 
       const blankWorkflow = {
