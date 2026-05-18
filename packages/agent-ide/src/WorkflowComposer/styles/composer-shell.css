@@ -1717,6 +1717,48 @@ button.workflow-run-row.is-active {
   line-height: 1.35;
 }
 
+.workflow-selection-lifecycle-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 7px;
+  margin: 4px 0 0;
+}
+
+.workflow-selection-lifecycle-list div {
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--workflow-panel-strong) 86%, transparent);
+  padding: 6px 7px;
+}
+
+.workflow-selection-lifecycle-list dt {
+  color: var(--text-tertiary);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.workflow-selection-lifecycle-list dd {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.workflow-selection-lifecycle-list [data-lifecycle-status="ready"] dd {
+  color: var(--status-success);
+}
+
+.workflow-selection-lifecycle-list [data-lifecycle-status="blocked"] dd,
+.workflow-selection-lifecycle-list [data-lifecycle-status="warning"] dd {
+  color: var(--status-warning);
+}
+
+.workflow-output-row details {
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
 .workflow-node-inspector {
   display: grid;
   gap: 12px;

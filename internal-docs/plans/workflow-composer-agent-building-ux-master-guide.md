@@ -89,7 +89,7 @@ Best-in-class behavior for this product means:
 | Compatible search recovery | Avoid dead-end empty states when global matches exist. | Done / regression guarded | Searching `repo` after Manual input offers all matches, Add Agent Step, or clear compatible filter. |
 | Topology-first add mode | Stop interrupting composition with full config modals. | Done / regression guarded | Context/state/tool nodes add, select, and show next actions without dumping advanced JSON. |
 | Search ranking and aliases | Rank ordinary intent queries by likely authoring intent. | Done / regression guarded | Snapshot tests cover `repo`, `github`, `pr`, `browser`, `computer`, `model`, `output`. |
-| Beginner inspector summary | Replace raw field counts with lifecycle/readiness summary. | Planned | Default bottom shelf shows readiness checklist; raw fields live under Advanced. |
+| Beginner inspector summary | Replace raw field counts with lifecycle/readiness summary. | Done / regression guarded | Default bottom shelf shows readiness checklist; raw fields live under Advanced. |
 | Tool family labeling | Hide plugin/transport labels from default authoring copy. | Done / regression guarded | Default labels say Browser tool, Computer tool, Coding tool pack, MCP tool, Workflow tool. |
 | Guided next rail | Offer non-blocking next steps after each common node add. | Planned | Prompt, tool, repo, and output flows can continue without palette hunting. |
 | GUI regression net | Preserve behavior with live Playwright probes. | Planned | Prompt-agent, tool-agent, repo-agent, modal keyboard, search, and run-readiness probes pass. |

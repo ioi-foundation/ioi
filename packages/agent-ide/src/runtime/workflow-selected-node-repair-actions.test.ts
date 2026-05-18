@@ -6,6 +6,7 @@ import {
   workflowCompatibleSearchRecovery,
   workflowNodeCreatorDefaultAddMode,
   workflowModelBindingKeyForNode,
+  workflowSelectedNodeLifecycleSummary,
   workflowSelectedNodeRepairActions,
 } from "./workflow-composer-model";
 import type { WorkflowNodeDefinition } from "./workflow-node-registry";
@@ -275,5 +276,85 @@ test("topology-first add mode covers context, tool, and output primitives", () =
       group: "AI",
     }),
     "configure",
+  );
+});
+
+test("selected node lifecycle summary replaces raw config with readiness checks", () => {
+  const input: Node = {
+    id: "input",
+    type: "source",
+    name: "Manual input",
+    x: 0,
+    y: 0,
+  };
+  const agent: Node = {
+    id: "agent",
+    type: "model_call",
+    name: "Agent Step",
+    x: 120,
+    y: 0,
+    config: {
+      kind: "model_call",
+      logic: {
+        modelCapabilityRef: "model-capability:route.local-first",
+        routeId: "route.local-first",
+        receiptRequired: true,
+      },
+      law: {},
+    },
+  };
+  const output: Node = {
+    id: "output",
+    type: "output",
+    name: "Inline output",
+    x: 240,
+    y: 0,
+  };
+
+  const summary = workflowSelectedNodeLifecycleSummary({
+    workflow: workflow(
+      [input, agent, output],
+      [
+        {
+          id: "edge-input-agent",
+          from: "input",
+          to: "agent",
+          fromPort: "output",
+          toPort: "input",
+          type: "data",
+        },
+        {
+          id: "edge-agent-output",
+          from: "agent",
+          to: "output",
+          fromPort: "output",
+          toPort: "input",
+          type: "data",
+        },
+      ],
+    ),
+    selectedNode: agent,
+    validationResult: emptyValidation,
+    tests: [
+      {
+        id: "agent-test",
+        name: "Agent exists",
+        targetNodeIds: ["agent"],
+        assertion: { kind: "node_exists" },
+      },
+    ],
+  });
+
+  assert.deepEqual(
+    summary?.items.map((item) => [item.label, item.value, item.status]),
+    [
+      ["Input", "connected", "ready"],
+      ["Model capability", "declared route", "ready"],
+      ["Tools", "none", "idle"],
+      ["Output", "connected", "ready"],
+      ["Receipts", "required", "ready"],
+      ["Tests", "1 linked", "ready"],
+      ["Ready", "no node blockers", "ready"],
+    ],
   );
 });
