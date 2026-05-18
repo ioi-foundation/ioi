@@ -40,6 +40,7 @@ interface StoredWorkspaceRepositoryRegistry {
 }
 
 const STORAGE_KEY = "autopilot.workspace-repositories.v1";
+const PENDING_OPEN_KEY = "autopilot.workspace-repositories.pending-open.v1";
 export const GENERATED_REPOSITORY_ROOT = "examples/generated-code-repositories";
 
 const VALID_CATEGORIES = new Set<WorkspaceRepositoryCategory>([
@@ -304,6 +305,57 @@ export function persistCreatedWorkspaceRepository(record: WorkspaceRepositoryRec
     favorite: record.favorite,
   });
   writeStoredRecords(storedRecords);
+}
+
+export function persistPendingWorkspaceRepositoryOpen(record: WorkspaceRepositoryRecord) {
+  const storage = getLocalStorage();
+  if (!storage) {
+    return;
+  }
+
+  storage.setItem(
+    PENDING_OPEN_KEY,
+    JSON.stringify({
+      id: record.id,
+      requestedAtMs: Date.now(),
+    }),
+  );
+}
+
+export function consumePendingWorkspaceRepositoryOpen(
+  seedProjects: SeedWorkspaceRepositoryProject[],
+): WorkspaceRepositoryRecord | null {
+  const storage = getLocalStorage();
+  if (!storage) {
+    return null;
+  }
+
+  const raw = storage.getItem(PENDING_OPEN_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  storage.removeItem(PENDING_OPEN_KEY);
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+
+  if (!isRecord(parsed)) {
+    return null;
+  }
+
+  const id = normalizeText(parsed.id);
+  if (!id) {
+    return null;
+  }
+
+  return loadWorkspaceRepositories(seedProjects).find(
+    (repository) => repository.id === id,
+  ) ?? null;
 }
 
 export function markWorkspaceRepositoryOpened(id: string) {

@@ -21,6 +21,7 @@ import { ChatUtilityDrawer } from "./ChatUtilityDrawer";
 import { WorkspaceShell } from "../../../surfaces/Workspace";
 import { getDefaultWorkspaceWorkbenchHost } from "../../../services/workspaceWorkbenchHostRegistry";
 import { buildOperatorCommandCenterModel } from "../operatorSubstrateModel";
+import { materializeWorkflowProject } from "../../../services/workflowProjectMaterialization";
 
 interface AutopilotShellContentProps {
   controller: ReturnType<typeof useAutopilotShellController>;
@@ -172,6 +173,11 @@ export function AutopilotShellContent({
                     onConsumeWorkflowPreflightSeed={
                       controller.workflow.consumePreflightSeed
                     }
+                    onMaterializeWorkflowProject={async (request) => {
+                      const result = await materializeWorkflowProject(request);
+                      controller.changePrimaryView("workspace");
+                      return result;
+                    }}
                     onAddBuilderConfigToCanvas={(config) => {
                       controller.workflow.queueBuilderConfigToCanvas(config);
                     }}
