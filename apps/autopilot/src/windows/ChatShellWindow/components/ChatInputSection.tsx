@@ -1764,6 +1764,7 @@ export function ChatInputSection({
       className={`spot-input-section ${inputFocused ? "focused" : ""} ${
         isDraggingFile ? "drag-active" : ""
       }`}
+      data-inspection-target="operator-chat-composer"
     >
       <div className="spot-input-wrapper" onMouseDown={handleComposerWrapperMouseDown}>
         {planMode ? (

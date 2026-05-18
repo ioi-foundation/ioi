@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import { ArrowLeft } from "lucide-react";
+import { workflowRuntimeUnavailableCopy } from "@ioi/agent-ide";
 import {
   createElement,
   useCallback,
@@ -259,7 +260,14 @@ export function WorkspaceShell({
   const substratePreviewSurfaceVisible = Boolean(
     surface && surface.kind === "substrate-preview",
   );
-  const effectiveError = error ?? surfaceError;
+  const surfaceRuntimeError = useMemo(
+    () =>
+      surfaceError
+        ? workflowRuntimeUnavailableCopy(surfaceError, "workspace_runtime")
+        : null,
+    [surfaceError],
+  );
+  const effectiveError = error ?? surfaceRuntimeError;
   const overlayVisible =
     Boolean(effectiveError) ||
     status !== "ready" ||
@@ -565,9 +573,14 @@ export function WorkspaceShell({
                     </>
                   ) : null}
                   {effectiveError ? (
-                    <pre className="chat-workspace-oss-shell__error">
-                      {effectiveError}
-                    </pre>
+                    <div className="chat-workspace-oss-shell__error">
+                      <strong>{effectiveError.title}</strong>
+                      <span>{effectiveError.message}</span>
+                      <details>
+                        <summary>Advanced detail</summary>
+                        <code>{effectiveError.technicalDetail}</code>
+                      </details>
+                    </div>
                   ) : (
                     <div
                       className="chat-workspace-oss-shell__spinner"

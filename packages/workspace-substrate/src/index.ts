@@ -14,6 +14,13 @@ export { WorkspaceOperatorPane } from "./components/WorkspaceOperatorPane";
 export { WorkspaceBottomPanel } from "./components/WorkspaceBottomPanel";
 export { WorkspaceDiffPane } from "./components/WorkspaceDiffPane";
 export { WorkspaceTerminalView } from "./components/WorkspaceTerminalView";
+export {
+  OperatorChatPane,
+  type OperatorChatEmptyStateModel,
+  type OperatorChatPaneAction,
+  type OperatorChatPaneMode,
+  type OperatorChatPaneProps,
+} from "./components/OperatorChatPane";
 export { useWorkspaceSession } from "./useWorkspaceSession";
 export { useWorkspaceTerminalSession } from "./useWorkspaceTerminalSession";
 export {

@@ -5,6 +5,10 @@ const activityBar = fs.readFileSync(
   new URL("./components/ChatLocalActivityBar.tsx", import.meta.url),
   "utf8",
 );
+const operatorSubstrateModel = fs.readFileSync(
+  new URL("./operatorSubstrateModel.ts", import.meta.url),
+  "utf8",
+);
 const controller = fs.readFileSync(
   new URL("./useAutopilotShellController.ts", import.meta.url),
   "utf8",
@@ -181,6 +185,13 @@ const chatShellOverridesCss = fs.readFileSync(
 );
 const chatArtifactWorkbenchCss = fs.readFileSync(
   new URL("../ChatShellWindow/styles/ChatSurface/artifact-workbench.css", import.meta.url),
+  "utf8",
+);
+const workspaceSubstrateCss = fs.readFileSync(
+  new URL(
+    "../../../../../packages/workspace-substrate/src/style/workspace-panels.css",
+    import.meta.url,
+  ),
   "utf8",
 );
 const autopilotMain = fs.readFileSync(
@@ -462,15 +473,15 @@ const escapeRegExp = (value: string) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 assert.match(
-  activityBar,
-  /id: "workspace"[\s\S]*id: "workflows"[\s\S]*id: "runs"/,
+  operatorSubstrateModel,
+  /RAIL_VIEW_ORDER: PrimaryView\[\] = \[[\s\S]*"workspace"[\s\S]*"workflows"[\s\S]*"runs"/,
   "Workflows should sit after Workspace and before Runs in the activity bar",
 );
 
 assert.match(
   activityBar,
-  /id: "workflows"[\s\S]*shortcut: chatNavigationShortcutLabel\(3\)/,
-  "Workflows should receive the third numbered navigation shortcut",
+  /chatCommandPaletteShortcutLabel\(\)[\s\S]*chat-activity-button-shortcut/,
+  "Only the search row should expose the command palette shortcut in the activity bar",
 );
 
 assert.match(
@@ -534,8 +545,8 @@ assert.match(
 );
 
 assert.match(
-  chatArtifactWorkbenchCss,
-  /spot-window--chat \.spot-chat-shell\s*\{[\s\S]*background: var\(--spot-bg-primary\);[\s\S]*spot-window--chat \.spot-chat-sidebar-shell-item\s*\{[\s\S]*background: var\(--spot-bg-secondary\);[\s\S]*spot-workbench-chat-topbar[\s\S]*background: var\(--spot-bg-primary\);/,
+  `${chatArtifactWorkbenchCss}\n${workspaceSubstrateCss}`,
+  /spot-window--chat \.spot-chat-shell\s*\{[\s\S]*background: var\(--spot-bg-primary\);[\s\S]*spot-window--chat \.spot-chat-sidebar-shell-item\s*\{[\s\S]*background: var\(--spot-bg-secondary\);[\s\S]*operator-chat-pane[\s\S]*--operator-chat-bg: var\(--spot-bg-primary[\s\S]*operator-chat-pane__header[\s\S]*background: var\(--operator-chat-bg\);/,
   "Workbench-grade chat composition should use active theme tokens instead of hard-coded light surfaces",
 );
 
@@ -553,13 +564,13 @@ assert.match(
 
 assert.match(
   chatConversationSurfaceTsx,
-  /className="spot-workbench-chat-drag-region"[\s\S]*data-tauri-drag-region[\s\S]*onMouseDown=\{startTauriWindowDrag\}/,
-  "The chat workbench topbar should expose a native Tauri drag region without stealing toolbar button clicks",
+  /OperatorChatPane[\s\S]*dataInspectionTarget="operator-chat-pane"/,
+  "The chat workbench should use the shared operator pane chrome instead of owning a separate topbar",
 );
 
 assert.match(
-  chatArtifactWorkbenchCss,
-  /\.spot-workbench-chat-drag-region\s*\{[\s\S]*flex: 1 1 auto;/,
+  workspaceSubstrateCss,
+  /\.operator-chat-pane__drag-region\s*\{[\s\S]*flex: 1 1 auto;/,
   "The chat workbench drag region should expand across available topbar space",
 );
 

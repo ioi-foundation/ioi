@@ -10,6 +10,7 @@ import { WorkspaceOperatorPane } from "./WorkspaceOperatorPane";
 import { WorkspaceEditorPane } from "./WorkspaceEditorPane";
 import { WorkspaceBottomPanel } from "./WorkspaceBottomPanel";
 import { Codicon } from "./Codicon";
+import { OperatorChatPane, type OperatorChatPaneAction } from "./OperatorChatPane";
 import workbenchDockBoundaryStrip from "../assets/workbench-dock-boundary-strip.png";
 import workbenchAgentPillIcon from "../assets/workbench-agent-pill-icon.png";
 import workbenchLayoutIcon1 from "../assets/workbench-layout-icon-1.png";
@@ -172,120 +173,81 @@ function WorkbenchStatusBellIcon() {
   return <Codicon name="bell" className="workspace-codicon--status" />;
 }
 
-function WorkbenchAgentDock({
+function WorkspaceOperatorChatPane({
   onClose,
   onOpenSurface,
 }: {
   onClose?: () => void;
   onOpenSurface?: (surface: WorkspaceOperatorSurface) => void;
 }) {
+  const primaryActions: OperatorChatPaneAction[] = [
+    {
+      id: "new",
+      label: "New workspace chat",
+      icon: <Codicon name="add" />,
+      onClick: () => onOpenSurface?.("chat"),
+    },
+    {
+      id: "search",
+      label: "Open workflow surfaces",
+      icon: <Codicon name="type-hierarchy-sub" />,
+      onClick: () => onOpenSurface?.("workflows"),
+    },
+    {
+      id: "settings",
+      label: "Open workspace policy",
+      icon: <WorkbenchGearIcon />,
+      onClick: () => onOpenSurface?.("policy"),
+    },
+  ];
+  const secondaryActions: OperatorChatPaneAction[] = [
+    {
+      id: "artifacts",
+      label: "Open artifacts surface",
+      icon: <Codicon name="files" />,
+      onClick: () => onOpenSurface?.("artifacts"),
+    },
+    {
+      id: "expand",
+      label: "Focus chat workbench surface",
+      icon: <WorkbenchExpandIcon />,
+      onClick: () => onOpenSurface?.("chat"),
+    },
+    {
+      id: "close",
+      label: "Close agent dock",
+      icon: <Codicon name="close" />,
+      onClick: onClose,
+    },
+  ];
+
   return (
-    <aside
-      className="workspace-agent-dock"
-      aria-label="Workspace Chat"
-      data-operator-chat-pane="docked"
-      data-inspection-target="workspace-chat-pane"
-    >
-      <header className="workspace-agent-dock-header">
-        <button
-          type="button"
-          className="workspace-agent-dock-tab is-active"
-          data-operator-chat-control="tab"
-          onClick={() => onOpenSurface?.("chat")}
-        >
-          Chat
-        </button>
-        <div className="workspace-agent-dock-actions">
-          <button
-            type="button"
-            className="workspace-agent-dock-icon-button"
-            aria-label="New workspace chat"
-            title="New workspace chat"
-            data-operator-chat-control="new"
-            onClick={() => onOpenSurface?.("chat")}
-          >
-            <Codicon name="add" />
-          </button>
-          <button
-            type="button"
-            className="workspace-agent-dock-icon-button"
-            aria-label="Open workflow surfaces"
-            title="Open workflow surfaces"
-            data-operator-chat-control="workflows"
-            onClick={() => onOpenSurface?.("workflows")}
-          >
-            <Codicon name="type-hierarchy-sub" />
-          </button>
-          <button
-            type="button"
-            className="workspace-agent-dock-icon-button"
-            aria-label="Open workspace policy"
-            title="Open workspace policy"
-            data-operator-chat-control="policy"
-            onClick={() => onOpenSurface?.("policy")}
-          >
-            <WorkbenchGearIcon />
-          </button>
-          <button
-            type="button"
-            className="workspace-agent-dock-icon-button"
-            aria-label="Open artifacts surface"
-            title="Open artifacts surface"
-            data-operator-chat-control="artifacts"
-            onClick={() => onOpenSurface?.("artifacts")}
-          >
-            <Codicon name="files" />
-          </button>
-          <span className="workspace-agent-dock-divider" />
-          <button
-            type="button"
-            className="workspace-agent-dock-icon-button"
-            aria-label="Focus chat workbench surface"
-            title="Focus chat workbench surface"
-            data-operator-chat-control="focus"
-            onClick={() => onOpenSurface?.("chat")}
-          >
-            <WorkbenchExpandIcon />
-          </button>
-          <button
-            type="button"
-            className="workspace-agent-dock-icon-button"
-            aria-label="Close agent dock"
-            title="Close agent dock"
-            data-operator-chat-control="close"
-            onClick={onClose}
-          >
-            <Codicon name="close" />
-          </button>
-        </div>
-      </header>
-
-      <div className="workspace-agent-dock-body">
-        <div className="workspace-agent-dock-hero">
-          <Codicon name="sparkle" className="workspace-agent-dock-hero-mark" />
-        </div>
-        <h3>Build with Agent</h3>
-        <p>Repo, file, runtime, and evidence context stay attached.</p>
-
-        <div className="workspace-agent-dock-section-label">Suggested Actions</div>
-        <div className="workspace-agent-dock-chip-row">
-          <button
-            type="button"
-            className="workspace-agent-dock-chip"
-            onClick={() => onOpenSurface?.("workflows")}
-          >
+    <OperatorChatPane
+      mode="docked"
+      label="Workspace Chat"
+      className="workspace-operator-chat-pane"
+      dataOperatorChatPane="docked"
+      dataInspectionTarget="workspace-chat-pane"
+      primaryActions={primaryActions}
+      secondaryActions={secondaryActions}
+      onTabClick={() => onOpenSurface?.("chat")}
+      emptyState={{
+        icon: <Codicon name="sparkle" />,
+        title: "Build with Agent",
+        description: "Repo, file, runtime, and evidence context stay attached.",
+      }}
+      suggestedActions={
+        <>
+          <button type="button" onClick={() => onOpenSurface?.("workflows")}>
             Build Workspace
           </button>
-          <button
-            type="button"
-            className="workspace-agent-dock-chip"
-            onClick={() => onOpenSurface?.("policy")}
-          >
+          <button type="button" onClick={() => onOpenSurface?.("policy")}>
             Show Config
           </button>
-        </div>
-
-        <div className="workspace-agent-composer" data-inspection-target="workspace-chat-composer">
+        </>
+      }
+      composer={
+        <div className="workspace-agent-composer-card">
           <p>What do you want to materialize?</p>
           <button
             type="button"
@@ -311,8 +273,8 @@ function WorkbenchAgentDock({
             </button>
           </div>
         </div>
-      </div>
-    </aside>
+      }
+    />
   );
 }
 
@@ -1241,7 +1203,7 @@ export function WorkspaceHost({
         </div>
 
         {secondarySidebarOpen ? (
-          <WorkbenchAgentDock
+          <WorkspaceOperatorChatPane
             onClose={() => setSecondarySidebarOpen(false)}
             onOpenSurface={openOperatorSurface}
           />

@@ -355,7 +355,7 @@
 .workspace-host-sidebar-shell,
 .workspace-host-sidebar,
 .workspace-main,
-.workspace-agent-dock,
+.operator-chat-pane--docked,
 .workspace-editor {
   background: #ffffff;
 }
@@ -1119,182 +1119,296 @@
   background: linear-gradient(90deg, #d0d7de, #e5e7eb);
 }
 
-.workspace-agent-dock {
+.operator-chat-pane {
+  --operator-chat-bg: var(--spot-bg-primary, var(--workspace-surface, #1f1f1f));
+  --operator-chat-sidebar-bg: var(--spot-bg-secondary, var(--workspace-panel, #181818));
+  --operator-chat-border: var(--spot-border-subtle, var(--workspace-border, rgba(255, 255, 255, 0.13)));
+  --operator-chat-border-strong: var(--spot-border, var(--workspace-border-strong, rgba(255, 255, 255, 0.22)));
+  --operator-chat-text: var(--spot-text-primary, var(--workspace-text, #f0f0f0));
+  --operator-chat-text-secondary: var(--spot-text-secondary, var(--workspace-text-secondary, #b8b8b8));
+  --operator-chat-text-muted: var(--spot-text-dim, var(--workspace-text-muted, #858585));
+  --operator-chat-accent: var(--spot-accent, var(--workspace-accent, #0098ff));
+  --operator-chat-control-bg: var(--spot-bg-tertiary, rgba(255, 255, 255, 0.06));
+  --operator-chat-control-hover: var(--spot-bg-elevated, rgba(255, 255, 255, 0.1));
   position: relative;
   display: flex;
-  flex-direction: column;
   min-width: 0;
-  background: var(--workspace-surface);
-  border-left: 1px solid var(--workspace-border);
+  min-height: 0;
+  height: 100%;
+  background: var(--operator-chat-bg);
+  color: var(--operator-chat-text);
   overflow: hidden;
 }
 
-.workspace-agent-dock-header {
+.operator-chat-pane__sidebar {
+  flex: 0 0 320px;
+  min-width: 0;
+  border-right: 1px solid var(--operator-chat-border);
+  background: var(--operator-chat-sidebar-bg);
+}
+
+.operator-chat-pane__main {
   position: relative;
-  min-height: 34px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 0 5px 0 4px;
-  border-bottom: 1px solid var(--workspace-border);
-  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  background: var(--operator-chat-bg);
 }
 
-.workspace-agent-dock-tab {
+.operator-chat-pane__header {
+  min-height: 36px;
+  height: 36px;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--operator-chat-border);
+  background: var(--operator-chat-bg);
+  color: var(--operator-chat-text);
+}
+
+.operator-chat-pane__tab {
   position: relative;
-  min-height: 34px;
+  min-width: 74px;
+  padding: 0 16px;
   display: inline-flex;
   align-items: center;
-  padding: 0 10px 0 8px;
-  border: none;
-  border-bottom: 2px solid transparent;
+  justify-content: center;
+  border: 0;
+  border-bottom: 1px solid transparent;
   background: transparent;
-  color: var(--workspace-text-secondary);
+  color: var(--operator-chat-text-secondary);
   font: inherit;
-  font-size: 11.5px;
-  letter-spacing: 0.01em;
+  font-size: 11px;
+  line-height: 1;
   text-transform: uppercase;
   cursor: pointer;
 }
 
-.workspace-agent-dock-tab.is-active {
-  color: var(--workspace-text);
+.operator-chat-pane__tab.is-active {
+  border-bottom-color: var(--operator-chat-accent);
+  color: var(--operator-chat-text);
 }
 
-.workspace-agent-dock-tab.is-active::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  bottom: -1px;
-  width: 38px;
-  height: 2px;
-  background: var(--workspace-accent);
+.operator-chat-pane__drag-region {
+  min-width: 48px;
+  align-self: stretch;
+  flex: 1 1 auto;
+  cursor: grab;
 }
 
-.workspace-agent-dock-actions {
-  display: flex;
+.operator-chat-pane__actions {
+  display: inline-flex;
   align-items: center;
-  flex: 0 0 auto;
-  gap: 0;
-  color: var(--workspace-text-secondary);
+  gap: 1px;
+  padding: 0 8px;
+  color: var(--operator-chat-text-secondary);
 }
 
-.workspace-agent-dock-divider {
-  flex: 0 0 auto;
-  width: 1px;
-  height: 18px;
-  background: var(--workspace-border);
-  margin: 0 1px;
-}
-
-.workspace-agent-dock-icon-button {
-  width: 19px;
-  height: 19px;
-  border: none;
-  border-radius: 3px;
-  background: transparent;
-  color: inherit;
+.operator-chat-pane__control-slot {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.operator-chat-pane__divider {
   flex: 0 0 auto;
-  font-size: 13px;
+  width: 1px;
+  height: 18px;
+  margin: 0 2px;
+  background: var(--operator-chat-border);
+}
+
+.operator-chat-pane__action,
+.operator-chat-pane__control-slot > button {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
   cursor: pointer;
+  font: inherit;
 }
 
-.workspace-agent-dock-icon-button:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--workspace-text);
+.operator-chat-pane__action:hover,
+.operator-chat-pane__action.is-active,
+.operator-chat-pane__control-slot > button:hover {
+  background: var(--operator-chat-control-bg);
+  color: var(--operator-chat-text);
 }
 
-.workspace-agent-dock-icon-button svg {
+.operator-chat-pane__action:focus-visible,
+.operator-chat-pane__control-slot > button:focus-visible {
+  outline: 1px solid var(--operator-chat-accent);
+  outline-offset: 1px;
+}
+
+.operator-chat-pane__action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.operator-chat-pane__action-icon,
+.operator-chat-pane__action-icon svg,
+.operator-chat-pane__control-slot svg {
   width: 13px;
   height: 13px;
 }
 
-.workspace-agent-dock-icon-button .workspace-codicon {
-  font-size: 13px;
+.operator-chat-pane__body {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.workspace-agent-dock-body {
-  position: relative;
-  display: flex;
+.operator-chat-pane__empty {
   flex: 1;
   min-height: 0;
+  display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 28px 18px 18px;
+  padding: 34px 18px 20px;
   text-align: center;
-  overflow: auto;
 }
 
-.workspace-agent-dock-hero {
+.operator-chat-pane__empty-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--workspace-text-secondary);
-  margin-bottom: 2px;
+  color: var(--operator-chat-text-secondary);
 }
 
-.workspace-agent-dock-hero-mark {
+.operator-chat-pane__empty-icon svg,
+.operator-chat-pane__empty-icon .workspace-codicon {
   width: 36px;
   height: 36px;
   font-size: 34px;
 }
 
-.workspace-agent-dock-body h3 {
-  margin: 0 0 6px;
-  font-size: 18px;
-  font-weight: 325;
-  line-height: 1.08;
-  max-width: 220px;
-}
-
-.workspace-agent-dock-body p {
+.operator-chat-pane__empty h3 {
   margin: 0;
-  color: var(--workspace-text-secondary);
-  line-height: 1.32;
-  max-width: 220px;
+  color: var(--operator-chat-text);
+  font-size: 22px;
+  font-weight: 350;
+  line-height: 1.1;
 }
 
-.workspace-agent-dock-section-label {
-  align-self: stretch;
-  margin: 6px 0 0;
-  color: var(--workspace-text-muted);
+.operator-chat-pane__empty p {
+  margin: 0;
+  max-width: 280px;
+  color: var(--operator-chat-text-secondary);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.operator-chat-pane__section-label {
+  margin: 4px 0 0;
+  color: var(--operator-chat-text-muted);
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  text-align: left;
 }
 
-.workspace-agent-dock-chip-row {
-  width: 100%;
+.operator-chat-pane__suggestions {
   display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 8px;
+  width: 100%;
+}
+
+.operator-chat-pane__suggestion-row {
+  display: flex;
   justify-content: center;
   flex-wrap: wrap;
+  gap: 8px;
 }
 
-.workspace-agent-dock-chip {
+.operator-chat-pane__suggestion-row button,
+.operator-chat-pane__empty-footer button {
   min-height: 28px;
   padding: 0 12px;
-  border: 1px solid var(--workspace-border-strong);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--workspace-text);
+  border: 1px solid var(--operator-chat-border-strong);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--operator-chat-text);
   font: inherit;
   cursor: pointer;
 }
 
-.workspace-agent-dock-chip:hover {
-  border-color: var(--workspace-accent);
-  background: rgba(109, 168, 255, 0.1);
+.operator-chat-pane__suggestion-row button:hover,
+.operator-chat-pane__empty-footer button:hover {
+  border-color: var(--operator-chat-accent);
+  background: var(--operator-chat-control-bg);
 }
 
-.workspace-agent-composer {
+.operator-chat-pane__composer {
+  flex: 0 0 auto;
+  width: min(100% - 32px, 520px);
+  margin: 0 auto 14px;
+}
+
+.operator-chat-pane--sidebar .operator-chat-pane__sidebar,
+.operator-chat-pane--docked .operator-chat-pane__sidebar,
+.operator-chat-pane--embedded .operator-chat-pane__sidebar {
+  display: none;
+}
+
+.operator-chat-pane--sidebar .operator-chat-pane__empty h3,
+.operator-chat-pane--docked .operator-chat-pane__empty h3,
+.operator-chat-pane--embedded .operator-chat-pane__empty h3 {
+  font-size: 20px;
+}
+
+.operator-chat-pane--sidebar .operator-chat-pane__empty,
+.operator-chat-pane--docked .operator-chat-pane__empty,
+.operator-chat-pane--embedded .operator-chat-pane__empty {
+  padding: 30px 16px 16px;
+}
+
+.operator-chat-pane--docked {
+  border-left: 1px solid var(--operator-chat-border);
+}
+
+.operator-chat-pane--docked .operator-chat-pane__header,
+.operator-chat-pane--embedded .operator-chat-pane__header,
+.operator-chat-pane--sidebar .operator-chat-pane__header {
+  min-height: 34px;
+  height: 34px;
+}
+
+.operator-chat-pane--docked .operator-chat-pane__composer,
+.operator-chat-pane--embedded .operator-chat-pane__composer,
+.operator-chat-pane--sidebar .operator-chat-pane__composer {
+  width: min(100% - 24px, 360px);
+  margin-bottom: 12px;
+}
+
+.operator-chat-pane--docked .operator-chat-pane__suggestion-row,
+.operator-chat-pane--sidebar .operator-chat-pane__suggestion-row {
+  gap: 6px;
+}
+
+.operator-chat-pane--docked .operator-chat-pane__suggestion-row button,
+.operator-chat-pane--sidebar .operator-chat-pane__suggestion-row button {
+  min-height: 26px;
+  padding-inline: 10px;
+}
+
+.workspace-agent-composer,
+.workspace-agent-composer-card {
   width: min(100%, 340px);
   display: flex;
   flex-direction: column;
@@ -1319,7 +1433,8 @@
   cursor: pointer;
 }
 
-.workspace-agent-composer p {
+.workspace-agent-composer p,
+.workspace-agent-composer-card p {
   margin: 0;
   color: var(--workspace-text-secondary);
 }
@@ -1444,7 +1559,7 @@
     grid-template-columns: 48px minmax(220px, 260px) 1fr;
   }
 
-  .workspace-agent-dock {
+  .operator-chat-pane--docked {
     display: none;
   }
 

@@ -97,6 +97,9 @@ test("operator substrate code does not introduce runtime ownership", () => {
   );
 
   assert.match(source, /runtimeTruthSource: "daemon-runtime"/);
+  assert.match(source, /interface OperatorChatComposerModel/);
+  assert.match(source, /interface OperatorChatContextControlModel/);
+  assert.match(source, /interface OperatorChatPaneChrome/);
   assert.doesNotMatch(source, /new Runtime|createRuntime|React Flow shadow/i);
 });
 
@@ -161,9 +164,30 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
     "packages/workspace-substrate/src/components/WorkspaceHost.tsx",
     "utf8",
   );
+  const operatorChatPane = readFileSync(
+    "packages/workspace-substrate/src/components/OperatorChatPane.tsx",
+    "utf8",
+  );
+  const chatConversationSurface = readFileSync(
+    "apps/autopilot/src/windows/ChatShellWindow/components/ChatConversationSurface.tsx",
+    "utf8",
+  );
+  const chatInputSection = readFileSync(
+    "apps/autopilot/src/windows/ChatShellWindow/components/ChatInputSection.tsx",
+    "utf8",
+  );
 
-  assert.match(workspaceHost, /data-operator-chat-pane="docked"/);
-  assert.match(workspaceHost, /data-inspection-target="workspace-chat-composer"/);
+  assert.match(workspaceHost, /<OperatorChatPane/);
+  assert.match(workspaceHost, /dataOperatorChatPane="docked"/);
+  assert.match(workspaceHost, /dataInspectionTarget="workspace-chat-pane"/);
+  assert.match(operatorChatPane, /data-operator-chat-pane=/);
+  assert.match(operatorChatPane, /data-inspection-target=\{dataInspectionTarget/);
+  assert.match(operatorChatPane, /data-inspection-target="workspace-chat-composer"/);
+  assert.match(chatConversationSurface, /<OperatorChatPane/);
+  assert.match(chatConversationSurface, /dataInspectionTarget="operator-chat-pane"/);
+  assert.match(chatInputSection, /data-inspection-target="operator-chat-composer"/);
+  assert.doesNotMatch(chatConversationSurface, /spot-workbench-chat-topbar/);
+  assert.doesNotMatch(workspaceHost, /function WorkbenchAgentDock/);
   assert.doesNotMatch(workspaceHost, /workspace-agent-dock-header-hitbox/);
   assert.doesNotMatch(workspaceHost, /workspace-agent-dock-hitbox/);
   assert.doesNotMatch(workspaceHost, /workbenchDockHeaderFullStrip/);

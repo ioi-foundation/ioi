@@ -1533,6 +1533,7 @@ export function ChatShellWindow({
 
           {isChatVariant ? (
             <ChatConversationSurface
+              mode={isEmbeddedPaneChat ? "sidebar" : "full"}
               sidebar={chatSidebarNode}
               artifactVisible={chatArtifactVisible}
               artifactMenuVisible={studioArtifactMenuVisible}

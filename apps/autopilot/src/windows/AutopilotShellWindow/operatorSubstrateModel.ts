@@ -72,6 +72,53 @@ export interface OperatorChatPaneModel {
   evidenceRefs: OperatorRuntimeEvidenceRefs;
 }
 
+export interface OperatorChatPaneChrome {
+  mode: OperatorChromeMode;
+  tabLabel: string;
+  showHeader: boolean;
+  showSessionList: boolean;
+  actionOrder: Array<"leading" | "new" | "search" | "settings" | "divider" | "expand" | "collapse" | "close" | "trailing">;
+  runtimeTruthSource: "daemon-runtime";
+}
+
+export interface OperatorChatPaneAction {
+  id: string;
+  label: string;
+  role: "session" | "command" | "settings" | "layout" | "dismiss" | "surface";
+  route?: OperatorSurfaceRoute;
+  source: "shell-projection" | "runtime-projection" | "workspace-projection";
+}
+
+export interface OperatorChatComposerModel {
+  projectionId: string;
+  placeholder: string;
+  commandEntry: "slash" | "palette" | "both";
+  contextControl: OperatorChatContextControlModel;
+  modelControl: {
+    selectedCapabilityRef: string | null;
+    readiness: "ready" | "blocked" | "unknown";
+  };
+  toolControl: {
+    selectedCapabilityRefs: string[];
+    readiness: "ready" | "blocked" | "unknown";
+  };
+  runtimeTruthSource: "daemon-runtime";
+  evidenceRefs: OperatorRuntimeEvidenceRefs;
+}
+
+export interface OperatorChatEmptyStateModel {
+  title: string;
+  description: string;
+  suggestedActionIds: string[];
+  runtimeTruthSource: "daemon-runtime";
+}
+
+export interface OperatorChatContextControlModel {
+  allowedSources: Array<"repo" | "file" | "runtime" | "artifact" | "receipt" | "workflow" | "capability">;
+  selectedRefs: string[];
+  runtimeTruthSource: "daemon-runtime";
+}
+
 export interface OperatorContextPickerModel {
   projectionId: string;
   allowedSources: Array<"repo" | "file" | "runtime" | "artifact" | "receipt" | "workflow" | "capability">;

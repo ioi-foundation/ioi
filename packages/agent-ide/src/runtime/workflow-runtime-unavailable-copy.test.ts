@@ -52,3 +52,39 @@ test("catalog fallback copy keeps catalog failures user-facing", () => {
   assert.match(fallback.technicalDetail ?? "", /tool catalog/);
   assert.match(fallback.technicalDetail ?? "", /connector catalog/);
 });
+
+test("fleet state failures hide raw bridge exceptions", () => {
+  const copy = workflowRuntimeUnavailableCopy(
+    new Error("Cannot read properties of undefined (reading 'invoke')"),
+    "fleet_state",
+  );
+
+  assert.equal(copy.code, "runtime_bridge_unavailable");
+  assert.equal(copy.title, "Runtime bridge unavailable");
+  assert.match(copy.technicalDetail, /fleet state/);
+  assert.doesNotMatch(copy.message, /Cannot read properties|invoke/);
+});
+
+test("workspace runtime failures hide raw bridge exceptions", () => {
+  const copy = workflowRuntimeUnavailableCopy(
+    new Error("Cannot read properties of undefined (reading 'invoke')"),
+    "workspace_runtime",
+  );
+
+  assert.equal(copy.code, "runtime_bridge_unavailable");
+  assert.equal(copy.title, "Runtime bridge unavailable");
+  assert.match(copy.technicalDetail, /workspace runtime/);
+  assert.doesNotMatch(copy.message, /Cannot read properties|invoke/);
+});
+
+test("capability registry failures hide raw bridge exceptions", () => {
+  const copy = workflowRuntimeUnavailableCopy(
+    new Error("Cannot read properties of undefined (reading 'invoke')"),
+    "capability_registry",
+  );
+
+  assert.equal(copy.code, "runtime_bridge_unavailable");
+  assert.equal(copy.title, "Runtime bridge unavailable");
+  assert.match(copy.technicalDetail, /capability registry/);
+  assert.doesNotMatch(copy.message, /Cannot read properties|invoke/);
+});

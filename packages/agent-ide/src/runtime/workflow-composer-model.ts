@@ -933,7 +933,10 @@ export type WorkflowRuntimeUnavailableSurface =
   | "runtime_bridge"
   | "tool_catalog"
   | "connector_catalog"
-  | "model_catalog";
+  | "model_catalog"
+  | "fleet_state"
+  | "workspace_runtime"
+  | "capability_registry";
 
 export interface WorkflowRuntimeUnavailableCopy {
   code: string;
@@ -944,7 +947,7 @@ export interface WorkflowRuntimeUnavailableCopy {
 }
 
 const RUNTIME_BRIDGE_UNAVAILABLE_MESSAGE =
-  "The composer could not reach the desktop/runtime bridge needed to read saved workflow bundles or live catalogs. Try saving the workflow, retrying the runtime bridge, or opening diagnostics. Offline presets are available for draft composition.";
+  "The desktop/runtime bridge is unavailable, so Autopilot cannot load live runtime data right now. Retry the runtime bridge or open diagnostics. Offline or cached projections may remain available.";
 
 function workflowRuntimeUnavailableSurfaceLabel(
   surface: WorkflowRuntimeUnavailableSurface,
@@ -958,6 +961,12 @@ function workflowRuntimeUnavailableSurfaceLabel(
       return "connector catalog";
     case "model_catalog":
       return "model catalog";
+    case "fleet_state":
+      return "fleet state";
+    case "workspace_runtime":
+      return "workspace runtime";
+    case "capability_registry":
+      return "capability registry";
     case "runtime_bridge":
     default:
       return "runtime bridge";
