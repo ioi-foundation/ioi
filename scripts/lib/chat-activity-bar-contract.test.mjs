@@ -27,6 +27,8 @@ test("activity bar owns sidebar brand and can collapse without losing surface id
   assert.match(activityBar, /data-collapsed=\{collapsed \? "true" : "false"\}/);
   assert.match(activityBar, /className="chat-activity-brand-row"[\s\S]*<ChatLogoIcon \/>/);
   assert.match(activityBar, /className="chat-activity-collapse-button"/);
+  assert.match(activityBar, /<path d="M7 4h6" \/>[\s\S]*<path d="m2\.5 5\.5 2\.5 2\.5-2\.5 2\.5" \/>/);
+  assert.match(activityBar, /<path d="M6 4h7" \/>[\s\S]*<path d="m3\.5 5\.5-2\.5 2\.5 2\.5 2\.5" \/>/);
   assert.match(activityBar, /onOpenCommandPalette: \(\) => void;/);
   assert.match(activityBar, /data-window-surface="search"/);
   assert.match(activityBar, /<SearchButton onClick=\{onOpenCommandPalette\} \/>/);
