@@ -266,10 +266,13 @@ import {
   nodeVisualStatus,
   preferredCompatiblePortPair,
   toWorkflowProject,
+  workflowModelBindingKeyForNode,
   workflowRuntimeCatalogFallbackCopy,
   workflowRuntimeUnavailableCopy,
   workflowCanvasSearchResults,
   workflowNodeCreatorBadge,
+  workflowSelectedNodeRepairActions,
+  type WorkflowSelectedNodeRepairAction,
 } from "../runtime/workflow-composer-model";
 import {
   normalizeGraphModelBinding,
@@ -2621,7 +2624,12 @@ export function useWorkflowComposerController({
     direction: "downstream" | "attachment";
   } | null>(null);
   const [modelBindingOpen, setModelBindingOpen] = useState(false);
+  const [modelBindingFocusKey, setModelBindingFocusKey] = useState<
+    string | null
+  >(null);
   const [connectorBindingOpen, setConnectorBindingOpen] = useState(false);
+  const [connectorBindingFocusNodeId, setConnectorBindingFocusNodeId] =
+    useState<string | null>(null);
   const [workflowToolCatalog, setWorkflowToolCatalog] = useState<
     WorkflowToolBinding[]
   >([]);
@@ -2741,6 +2749,32 @@ export function useWorkflowComposerController({
     (nodes.find((node) => node.id === selectedNodeId)?.data as
       | Node
       | undefined) ?? null;
+  const handleOpenModelBindings = useCallback(() => {
+    setModelBindingFocusKey(
+      selectedNode?.type === "model_call"
+        ? workflowModelBindingKeyForNode(selectedNode)
+        : null,
+    );
+    setModelBindingOpen(true);
+    setStatusMessage(
+      selectedNode?.type === "model_call"
+        ? `Binding model capability for ${selectedNode.name}`
+        : "Reviewing workflow model bindings",
+    );
+  }, [selectedNode]);
+  const handleOpenConnectorBindings = useCallback(() => {
+    setConnectorBindingFocusNodeId(
+      selectedNode?.type === "plugin_tool" || selectedNode?.type === "adapter"
+        ? selectedNode.id
+        : null,
+    );
+    setConnectorBindingOpen(true);
+    setStatusMessage(
+      selectedNode?.type === "plugin_tool" || selectedNode?.type === "adapter"
+        ? `Binding tool capability for ${selectedNode.name}`
+        : "Reviewing workflow connector and tool bindings",
+    );
+  }, [selectedNode]);
   const selectedDefinition = selectedNode
     ? WORKFLOW_NODE_DEFINITIONS.find(
         (definition) => definition.type === selectedNode.type,
@@ -3190,6 +3224,16 @@ export function useWorkflowComposerController({
   const currentProjectFile = useMemo(
     () => toWorkflowProject(nodes, edges, globalConfig, workflow),
     [nodes, edges, globalConfig, workflow],
+  );
+  const selectedNodeRepairActions = useMemo(
+    () =>
+      workflowSelectedNodeRepairActions({
+        workflow: currentProjectFile,
+        selectedNode,
+        validationResult,
+        tests,
+      }),
+    [currentProjectFile, selectedNode, tests, validationResult],
   );
 
   useEffect(() => {
@@ -12494,6 +12538,61 @@ export function useWorkflowComposerController({
     return result;
   };
 
+  const handleSelectedNodeRepairAction = useCallback(
+    (action: WorkflowSelectedNodeRepairAction) => {
+      const selectedName =
+        currentProjectFile.nodes.find((node) => node.id === action.nodeId)
+          ?.name ?? "selected node";
+      if (action.kind === "bind_model_capability") {
+        setModelBindingFocusKey(action.bindingFocusKey ?? "reasoning");
+        setModelBindingOpen(true);
+        setStatusMessage(`Binding model capability for ${selectedName}`);
+        return;
+      }
+      if (action.kind === "bind_tool_capability") {
+        setConnectorBindingFocusNodeId(action.nodeId);
+        setConnectorBindingOpen(true);
+        setStatusMessage(`Binding tool capability for ${selectedName}`);
+        return;
+      }
+      if (action.kind === "add_evaluation") {
+        setNewTestTargets(action.nodeId);
+        setNewTestKind("node_exists");
+        setNewTestName(`${selectedName} readiness check`);
+        setNewTestExpected("");
+        setNewTestExpression("");
+        setTestEditorOpen(true);
+        setStatusMessage(`Adding evaluation for ${selectedName}`);
+        return;
+      }
+      if (action.kind === "check_readiness") {
+        void handleCheckReadiness();
+        return;
+      }
+
+      const searchHintByKind: Record<
+        WorkflowSelectedNodeRepairAction["kind"],
+        string
+      > = {
+        bind_model_capability: "model",
+        bind_tool_capability: "tool",
+        connect_to_agent: "agent",
+        add_agent_step: "model",
+        add_output: "output",
+        add_evaluation: "evaluation",
+        add_verifier: "verification",
+        check_readiness: "",
+      };
+      openLeftDrawer();
+      setNodePaletteMode("all");
+      setNodeGroupFilter(action.kind === "add_output" ? "Compatible" : "All");
+      setNodeSearch(action.searchHint ?? searchHintByKind[action.kind]);
+      setBottomPanel("selection");
+      setStatusMessage(`${action.label}: choose a primitive for ${selectedName}`);
+    },
+    [currentProjectFile.nodes, handleCheckReadiness, openLeftDrawer],
+  );
+
   const handleRunHarnessActivationDryRun = useCallback(async () => {
     const base = validateWorkflowProject(currentProjectFile, tests);
     const readiness = evaluateWorkflowActivationReadiness(
@@ -15368,6 +15467,7 @@ export function useWorkflowComposerController({
     connectFromNodeId,
     ConnectorBindingModal,
     connectorBindingOpen,
+    connectorBindingFocusNodeId,
     workflowToolCatalog,
     workflowConnectorCatalog,
     workflowCapabilityCatalogLoading,
@@ -15447,6 +15547,8 @@ export function useWorkflowComposerController({
     handleInspectHarnessGroupNode,
     handleOpenDefaultHarness,
     handleOpenDeploy,
+    handleOpenConnectorBindings,
+    handleOpenModelBindings,
     handlePinNodeFixture,
     handleResolveWorkflowIssue,
     handleResolveCapabilityGrantRequest,
@@ -15467,6 +15569,7 @@ export function useWorkflowComposerController({
     handleSelectHarnessReplayFixtureRef,
     handleSelectHarnessRollbackTarget,
     handleSelectRun,
+    handleSelectedNodeRepairAction,
     handleUpdateEnvironmentProfile,
     handleUpdateWorkflowChromeLocale,
     handleUpdateProductionProfile,
@@ -15492,6 +15595,7 @@ export function useWorkflowComposerController({
     missingReasoningBinding,
     ModelBindingModal,
     modelBindingOpen,
+    modelBindingFocusKey,
     newTestExpected,
     newTestExpression,
     newTestKind,
@@ -15560,6 +15664,7 @@ export function useWorkflowComposerController({
     selectedExecutionRun,
     selectedExecutionRunResult,
     selectedFixtures,
+    selectedNodeRepairActions,
     selectedNode,
     selectedNodeId,
     selectedRunId,

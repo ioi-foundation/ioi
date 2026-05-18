@@ -85,7 +85,7 @@ Best-in-class behavior for this product means:
 | Slice | Goal | Status | Done when |
 | --- | --- | --- | --- |
 | Runtime-unavailable error normalization | Remove raw bridge exceptions from Validate, Run, and catalogs. | Done / regression guarded | No visible `Cannot read properties...invoke`; blockers show remedies and advanced details. |
-| Selected-node repair actions | Make model/tool/output/eval repairs local to the selected node. | Planned | Agent Step and Tool Pack nodes expose contextual repair CTAs and deep-link global modals. |
+| Selected-node repair actions | Make model/tool/output/eval repairs local to the selected node. | Done / regression guarded | Agent Step and Tool Pack nodes expose contextual repair CTAs and deep-link global modals. |
 | Compatible search recovery | Avoid dead-end empty states when global matches exist. | Planned | Searching `repo` after Manual input offers all matches, Add Agent Step, or clear compatible filter. |
 | Topology-first add mode | Stop interrupting composition with full config modals. | Planned | Context/state/tool nodes add, select, and show next actions without dumping advanced JSON. |
 | Search ranking and aliases | Rank ordinary intent queries by likely authoring intent. | Planned | Snapshot tests cover `repo`, `github`, `pr`, `browser`, `computer`, `model`, `output`. |

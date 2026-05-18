@@ -28,6 +28,251 @@ export interface WorkflowCanvasSearchResult {
   status: string;
 }
 
+export type WorkflowSelectedNodeRepairActionKind =
+  | "bind_model_capability"
+  | "bind_tool_capability"
+  | "connect_to_agent"
+  | "add_agent_step"
+  | "add_output"
+  | "add_evaluation"
+  | "add_verifier"
+  | "check_readiness";
+
+export interface WorkflowSelectedNodeRepairAction {
+  id: string;
+  kind: WorkflowSelectedNodeRepairActionKind;
+  label: string;
+  description: string;
+  priority: "primary" | "secondary";
+  nodeId: string;
+  searchHint?: string;
+  bindingFocusKey?: string;
+}
+
+function workflowNodeHasConnection(
+  workflow: WorkflowProject,
+  nodeId: string,
+  predicate: (node: Node) => boolean,
+  direction: "incoming" | "outgoing",
+): boolean {
+  const targetIds = new Set(
+    workflow.edges
+      .filter((edge) =>
+        direction === "incoming" ? edge.to === nodeId : edge.from === nodeId,
+      )
+      .map((edge) => (direction === "incoming" ? edge.from : edge.to)),
+  );
+  return workflow.nodes.some((node) => targetIds.has(node.id) && predicate(node));
+}
+
+function workflowIsAgentStepNode(node: Node): boolean {
+  return node.type === "model_call";
+}
+
+function workflowIsToolCapabilityNode(node: Node): boolean {
+  return node.type === "plugin_tool" || node.type === "adapter";
+}
+
+function workflowIsContextNode(node: Node): boolean {
+  return (
+    node.type === "repository_context" ||
+    node.type === "github_context" ||
+    node.type === "issue_context" ||
+    node.type === "branch_policy" ||
+    node.type.endsWith("_context") ||
+    String(node.config?.kind ?? "").endsWith("_context")
+  );
+}
+
+function workflowIsVerificationNode(node: Node): boolean {
+  return (
+    node.type === "review_gate" ||
+    node.type === "quality_ledger" ||
+    node.type === "semantic_impact" ||
+    node.type === "postcondition_synthesis" ||
+    node.type.endsWith("_gate") ||
+    node.type.includes("verification")
+  );
+}
+
+export function workflowModelBindingKeyForNode(node: Node | null): string {
+  if (!node || node.type !== "model_call") return "reasoning";
+  const logic = node.config?.logic ?? {};
+  const rawKey = String(
+    logic.modelRef ??
+      logic.capability ??
+      logic.modelCapabilityRef ??
+      logic.routeId ??
+      "reasoning",
+  ).toLowerCase();
+  if (rawKey.includes("vision")) return "vision";
+  if (rawKey.includes("embed")) return "embedding";
+  if (rawKey.includes("image")) return "image";
+  return "reasoning";
+}
+
+export function workflowSelectedNodeRepairActions({
+  workflow,
+  selectedNode,
+  validationResult,
+  tests,
+}: {
+  workflow: WorkflowProject;
+  selectedNode: Node | null;
+  validationResult?: WorkflowValidationResult | null;
+  tests: WorkflowTestCase[];
+}): WorkflowSelectedNodeRepairAction[] {
+  if (!selectedNode) return [];
+
+  const actions: WorkflowSelectedNodeRepairAction[] = [];
+  const selectedIssues = [
+    ...(validationResult?.errors ?? []),
+    ...(validationResult?.warnings ?? []),
+  ].filter((issue) => issue.nodeId === selectedNode.id);
+  const hasDirectOutput = workflowNodeHasConnection(
+    workflow,
+    selectedNode.id,
+    (node) => node.type === "output",
+    "outgoing",
+  );
+  const hasAnyOutput = workflow.nodes.some((node) => node.type === "output");
+  const hasEvaluation = tests.some((test) =>
+    test.targetNodeIds.includes(selectedNode.id),
+  );
+  const addAction = (
+    kind: WorkflowSelectedNodeRepairActionKind,
+    label: string,
+    description: string,
+    options: Partial<
+      Pick<
+        WorkflowSelectedNodeRepairAction,
+        "priority" | "searchHint" | "bindingFocusKey"
+      >
+    > = {},
+  ) => {
+    if (actions.some((action) => action.kind === kind)) return;
+    actions.push({
+      id: `${selectedNode.id}:${kind}`,
+      kind,
+      label,
+      description,
+      priority: options.priority ?? "secondary",
+      nodeId: selectedNode.id,
+      searchHint: options.searchHint,
+      bindingFocusKey: options.bindingFocusKey,
+    });
+  };
+
+  if (workflowIsAgentStepNode(selectedNode)) {
+    addAction(
+      "bind_model_capability",
+      "Bind model capability",
+      "Choose the runtime model route and authority posture for this agent step.",
+      {
+        priority: "primary",
+        bindingFocusKey: workflowModelBindingKeyForNode(selectedNode),
+      },
+    );
+    if (!hasDirectOutput) {
+      addAction(
+        "add_output",
+        "Add output",
+        hasAnyOutput
+          ? "Connect this agent step to an output primitive."
+          : "Materialize the agent response through an output primitive.",
+        { priority: "primary", searchHint: "output" },
+      );
+    }
+    if (!hasEvaluation) {
+      addAction(
+        "add_evaluation",
+        "Add evaluation",
+        "Add a fixture or test so this step can be verified before promotion.",
+        { searchHint: "evaluation" },
+      );
+    }
+  } else if (workflowIsToolCapabilityNode(selectedNode)) {
+    addAction(
+      "bind_tool_capability",
+      "Bind tool capability",
+      "Choose the canonical tool or connector capability backing this node.",
+      { priority: "primary" },
+    );
+    if (
+      !workflowNodeHasConnection(
+        workflow,
+        selectedNode.id,
+        workflowIsAgentStepNode,
+        "outgoing",
+      )
+    ) {
+      addAction(
+        "connect_to_agent",
+        "Connect to agent",
+        "Attach this tool to an Agent Step before running.",
+        { searchHint: "agent" },
+      );
+    }
+    addAction(
+      "add_verifier",
+      "Add verifier",
+      "Check tool results before they affect workflow output.",
+      { searchHint: "verification" },
+    );
+  } else if (workflowIsContextNode(selectedNode)) {
+    if (
+      !workflowNodeHasConnection(
+        workflow,
+        selectedNode.id,
+        workflowIsAgentStepNode,
+        "outgoing",
+      )
+    ) {
+      addAction(
+        "connect_to_agent",
+        "Connect to agent",
+        "Feed this context into an Agent Step.",
+        { priority: "primary", searchHint: "agent" },
+      );
+    }
+    addAction(
+      "add_agent_step",
+      "Add Agent Step",
+      "Create the agent that will use this context.",
+      { searchHint: "model" },
+    );
+  } else if (selectedNode.type === "output") {
+    if (!hasEvaluation) {
+      addAction(
+        "add_evaluation",
+        "Add evaluation",
+        "Verify this output contract with a fixture or test.",
+        { priority: "primary", searchHint: "evaluation" },
+      );
+    }
+  } else if (workflowIsVerificationNode(selectedNode)) {
+    if (!hasDirectOutput) {
+      addAction(
+        "add_output",
+        "Add output",
+        "Route verified results into an output primitive.",
+        { priority: "primary", searchHint: "output" },
+      );
+    }
+  }
+
+  addAction(
+    "check_readiness",
+    "Check readiness",
+    selectedIssues.length > 0
+      ? `Refresh readiness for ${selectedIssues.length} issue${selectedIssues.length === 1 ? "" : "s"} on this node.`
+      : "Refresh run, authority, receipt, and manifest readiness for this workflow.",
+    { priority: actions.length === 0 ? "primary" : "secondary" },
+  );
+
+  return actions.slice(0, 5);
+}
+
 export function workflowNodeCreatorBadge(
   definition: WorkflowNodeDefinition,
   globalConfig: GraphGlobalConfig,

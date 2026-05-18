@@ -226,10 +226,12 @@ export function ImportPackageModal({
 
 export function ModelBindingModal({
   globalConfig,
+  focusBindingKey,
   onClose,
   onUpdate,
 }: {
   globalConfig: GraphGlobalConfig;
+  focusBindingKey?: string | null;
   onClose: () => void;
   onUpdate: (
     updater: (current: GraphGlobalConfig) => GraphGlobalConfig,
@@ -241,7 +243,12 @@ export function ModelBindingModal({
         bindingKey,
         normalizeGraphModelBinding(bindingKey, globalConfig.modelBindings[bindingKey]),
       ] as const,
-  );
+  ).sort(([left], [right]) => {
+    if (!focusBindingKey) return 0;
+    if (left === focusBindingKey) return -1;
+    if (right === focusBindingKey) return 1;
+    return 0;
+  });
   const requiredCount = modelBindings.filter(
     ([, binding]) => binding.required,
   ).length;
@@ -285,6 +292,15 @@ export function ModelBindingModal({
             <dd>{missingRequiredCount}</dd>
           </div>
         </dl>
+        {focusBindingKey ? (
+          <p
+            className="workflow-create-summary workflow-binding-focus-note"
+            data-testid="workflow-model-binding-focus"
+          >
+            Focused repair: selected Agent Step uses the {focusBindingKey} model
+            capability role.
+          </p>
+        ) : null}
         <div
           className="workflow-binding-list"
           data-testid="workflow-model-binding-list"
@@ -294,8 +310,9 @@ export function ModelBindingModal({
             return (
               <section
                 key={bindingKey}
-                className={`workflow-binding-row is-${ready ? "ready" : binding.required ? "blocked" : "idle"}`}
+                className={`workflow-binding-row is-${ready ? "ready" : binding.required ? "blocked" : "idle"}${bindingKey === focusBindingKey ? " is-focused" : ""}`}
                 data-testid={`workflow-model-binding-row-${bindingKey}`}
+                data-focused={bindingKey === focusBindingKey}
               >
                 <header>
                   <strong>{bindingKey}</strong>
@@ -459,6 +476,7 @@ export function ConnectorBindingModal({
   catalogLoading,
   catalogError,
   catalogErrorDetail,
+  focusNodeId,
   onClose,
   onInspectNode,
   onOpenNodeLibrary,
@@ -470,6 +488,7 @@ export function ConnectorBindingModal({
   catalogLoading: boolean;
   catalogError: string | null;
   catalogErrorDetail?: string | null;
+  focusNodeId?: string | null;
   onClose: () => void;
   onInspectNode: (nodeId: string) => void;
   onOpenNodeLibrary: () => void;
@@ -538,6 +557,11 @@ export function ConnectorBindingModal({
         ? "connector"
         : String(normalizedTool?.bindingKind ?? "plugin_tool"),
     };
+  }).sort((left, right) => {
+    if (!focusNodeId) return 0;
+    if (left.nodeItem.id === focusNodeId) return -1;
+    if (right.nodeItem.id === focusNodeId) return 1;
+    return 0;
   });
   const readyCount = bindingRows.filter((row) => row.ready).length;
   const mockCount = bindingRows.filter((row) => row.mockBinding).length;
@@ -617,6 +641,14 @@ export function ConnectorBindingModal({
             <span>{catalogErrorDetail}</span>
           </details>
         ) : null}
+        {focusNodeId ? (
+          <p
+            className="workflow-create-summary workflow-binding-focus-note"
+            data-testid="workflow-connector-binding-focus"
+          >
+            Focused repair: selected tool or connector node is shown first.
+          </p>
+        ) : null}
         {connectorNodes.length === 0 ? (
           <p>No connector or plugin nodes in this workflow.</p>
         ) : (
@@ -636,8 +668,9 @@ export function ConnectorBindingModal({
               return (
                 <article
                   key={row.nodeItem.id}
-                  className={`workflow-binding-row is-${row.ready ? (row.mockBinding ? "warning" : "ready") : "blocked"}`}
+                  className={`workflow-binding-row is-${row.ready ? (row.mockBinding ? "warning" : "ready") : "blocked"}${row.nodeItem.id === focusNodeId ? " is-focused" : ""}`}
                   data-testid={`workflow-connector-binding-row-${row.nodeItem.id}`}
+                  data-focused={row.nodeItem.id === focusNodeId}
                 >
                   <header>
                     <strong>{row.nodeItem.name}</strong>

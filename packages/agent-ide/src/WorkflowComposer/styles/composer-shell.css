@@ -1618,6 +1618,61 @@ button.workflow-run-row.is-active {
   font-size: 10px;
 }
 
+.workflow-selection-repair-card {
+  border: 1px solid color-mix(in srgb, var(--accent-blue) 34%, var(--border-subtle));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-blue) 8%, var(--workflow-panel-strong));
+  padding: 10px;
+}
+
+.workflow-selection-repair-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.workflow-selection-repair-actions button {
+  display: grid;
+  gap: 3px;
+  align-content: start;
+  min-height: 58px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--workflow-panel-strong) 88%, transparent);
+  color: var(--text-secondary);
+  padding: 8px;
+  text-align: left;
+}
+
+.workflow-selection-repair-actions button:hover,
+.workflow-selection-repair-actions button:focus-visible {
+  border-color: var(--accent-blue);
+  color: var(--text-primary);
+}
+
+.workflow-selection-repair-actions button[data-repair-priority="primary"] {
+  border-color: color-mix(in srgb, var(--accent-blue) 56%, var(--border-subtle));
+}
+
+.workflow-selection-repair-actions button strong,
+.workflow-selection-repair-actions button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.workflow-selection-repair-actions button strong {
+  color: var(--text-primary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.workflow-selection-repair-actions button span {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
 .workflow-node-inspector {
   display: grid;
   gap: 12px;
