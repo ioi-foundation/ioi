@@ -4,6 +4,7 @@ import test from "node:test";
 import type { Node, WorkflowProject, WorkflowValidationResult } from "../types/graph";
 import {
   workflowCompatibleSearchRecovery,
+  workflowGuidedNextActions,
   workflowNodeCreatorDefaultAddMode,
   workflowModelBindingKeyForNode,
   workflowSelectedNodeLifecycleSummary,
@@ -355,6 +356,79 @@ test("selected node lifecycle summary replaces raw config with readiness checks"
       ["Receipts", "required", "ready"],
       ["Tests", "1 linked", "ready"],
       ["Ready", "no node blockers", "ready"],
+    ],
+  );
+});
+
+test("guided next actions keep common agent authoring flows moving", () => {
+  const input: Node = {
+    id: "input",
+    type: "source",
+    name: "Manual input",
+    x: 0,
+    y: 0,
+  };
+  const agent: Node = {
+    id: "agent",
+    type: "model_call",
+    name: "Agent Step",
+    x: 120,
+    y: 0,
+    config: { kind: "model_call", logic: {}, law: {} },
+  };
+  const output: Node = {
+    id: "output",
+    type: "output",
+    name: "Inline output",
+    x: 240,
+    y: 0,
+  };
+
+  assert.deepEqual(
+    workflowGuidedNextActions({
+      workflow: workflow([input]),
+      selectedNode: input,
+      tests: [],
+    }).map((action) => [action.kind, action.label, action.priority]),
+    [
+      ["add_agent_step", "Add Agent Step", "primary"],
+      ["add_tool", "Add Tool", "secondary"],
+      ["add_output", "Add Output", "secondary"],
+    ],
+  );
+
+  assert.deepEqual(
+    workflowGuidedNextActions({
+      workflow: workflow([input, agent], [
+        {
+          id: "edge-input-agent",
+          from: "input",
+          to: "agent",
+          fromPort: "output",
+          toPort: "input",
+          type: "data",
+        },
+      ]),
+      selectedNode: agent,
+      tests: [],
+    }).map((action) => [action.kind, action.label]),
+    [
+      ["bind_model", "Bind model"],
+      ["add_tool", "Attach tool"],
+      ["add_output", "Add output"],
+    ],
+  );
+
+  assert.deepEqual(
+    workflowGuidedNextActions({
+      workflow: workflow([input, agent, output]),
+      selectedNode: output,
+      tests: [],
+    }).map((action) => [action.kind, action.label, action.priority]),
+    [
+      ["validate", "Validate", "primary"],
+      ["add_evaluation", "Add eval", "primary"],
+      ["run", "Run", "secondary"],
     ],
   );
 });

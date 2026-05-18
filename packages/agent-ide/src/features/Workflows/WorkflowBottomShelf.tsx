@@ -23,6 +23,7 @@ import {
 } from "../../runtime/workflow-bottom-panel-model";
 import {
   workflowFunctionDryRunView,
+  type WorkflowGuidedNextAction,
   workflowSelectedNodeLifecycleSummary,
   type WorkflowSelectedNodeRepairAction,
 } from "../../runtime/workflow-composer-model";
@@ -92,6 +93,8 @@ export function WorkflowBottomShelf({
   onInspectNode,
   repairActions = [],
   onRepairAction,
+  guidedNextActions = [],
+  onGuidedNextAction,
 }: {
   panel: WorkflowBottomPanel;
   selectedNode: Node | null;
@@ -118,6 +121,8 @@ export function WorkflowBottomShelf({
   onInspectNode: (nodeId: string) => void;
   repairActions?: WorkflowSelectedNodeRepairAction[];
   onRepairAction?: (action: WorkflowSelectedNodeRepairAction) => void;
+  guidedNextActions?: WorkflowGuidedNextAction[];
+  onGuidedNextAction?: (action: WorkflowGuidedNextAction) => void;
 }) {
   const interruptPreview = workflowInterruptPreview(lastRunResult);
   const selectedInputPorts = selectedNode?.ports?.filter((port) => port.direction === "input") ?? [];
@@ -193,6 +198,29 @@ export function WorkflowBottomShelf({
                     data-testid={`workflow-repair-action-${action.kind}`}
                     data-repair-priority={action.priority}
                     onClick={() => onRepairAction?.(action)}
+                  >
+                    <strong>{action.label}</strong>
+                    <span>{action.description}</span>
+                  </button>
+                ))}
+              </div>
+            </article>
+          ) : null}
+          {guidedNextActions.length > 0 ? (
+            <article
+              className="workflow-output-row workflow-guided-next-card"
+              data-testid="workflow-guided-next"
+            >
+              <strong>Build next</strong>
+              <span>Continue the workflow from this selected primitive.</span>
+              <div className="workflow-guided-next-actions">
+                {guidedNextActions.map((action) => (
+                  <button
+                    key={action.id}
+                    type="button"
+                    data-testid={`workflow-guided-next-action-${action.kind}`}
+                    data-guided-priority={action.priority}
+                    onClick={() => onGuidedNextAction?.(action)}
                   >
                     <strong>{action.label}</strong>
                     <span>{action.description}</span>

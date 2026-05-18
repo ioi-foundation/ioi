@@ -271,9 +271,11 @@ import {
   workflowRuntimeCatalogFallbackCopy,
   workflowRuntimeUnavailableCopy,
   workflowCanvasSearchResults,
+  workflowGuidedNextActions,
   workflowNodeCreatorBadge,
   workflowNodeCreatorDefaultAddMode,
   workflowSelectedNodeRepairActions,
+  type WorkflowGuidedNextAction,
   type WorkflowSelectedNodeRepairAction,
 } from "../runtime/workflow-composer-model";
 import {
@@ -3253,6 +3255,15 @@ export function useWorkflowComposerController({
         tests,
       }),
     [currentProjectFile, selectedNode, tests, validationResult],
+  );
+  const selectedNodeGuidedNextActions = useMemo(
+    () =>
+      workflowGuidedNextActions({
+        workflow: currentProjectFile,
+        selectedNode,
+        tests,
+      }),
+    [currentProjectFile, selectedNode, tests],
   );
 
   useEffect(() => {
@@ -13749,6 +13760,75 @@ export function useWorkflowComposerController({
     setBottomPanel("run_output");
   };
 
+  const handleSelectedNodeGuidedNextAction = useCallback(
+    (action: WorkflowGuidedNextAction) => {
+      const selectedName =
+        currentProjectFile.nodes.find((node) => node.id === action.nodeId)
+          ?.name ?? "selected node";
+      if (action.kind === "bind_model") {
+        setModelBindingFocusKey(action.bindingFocusKey ?? "reasoning");
+        setModelBindingOpen(true);
+        setStatusMessage(`Binding model capability for ${selectedName}`);
+        return;
+      }
+      if (action.kind === "bind_tool") {
+        setConnectorBindingFocusNodeId(action.nodeId);
+        setConnectorBindingOpen(true);
+        setStatusMessage(`Binding tool capability for ${selectedName}`);
+        return;
+      }
+      if (action.kind === "add_evaluation") {
+        setNewTestTargets(action.nodeId);
+        setNewTestKind("node_exists");
+        setNewTestName(`${selectedName} readiness check`);
+        setNewTestExpected("");
+        setNewTestExpression("");
+        setTestEditorOpen(true);
+        setStatusMessage(`Adding evaluation for ${selectedName}`);
+        return;
+      }
+      if (action.kind === "validate") {
+        void handleValidate();
+        return;
+      }
+      if (action.kind === "run") {
+        void handleRun();
+        return;
+      }
+
+      const searchHintByKind: Record<WorkflowGuidedNextAction["kind"], string> = {
+        add_agent_step: "model",
+        add_tool: "tool",
+        add_output: "output",
+        bind_model: "model",
+        bind_tool: "tool",
+        connect_to_agent: "agent",
+        add_verifier: "verification",
+        add_evaluation: "evaluation",
+        validate: "",
+        run: "",
+      };
+      const compatibleMatch = compatibleNodeHints.some((hint) => {
+        const label = `${hint.definition.label} ${hint.definition.displayLabel} ${hint.definition.group}`.toLowerCase();
+        const hintText = (action.searchHint ?? searchHintByKind[action.kind]).toLowerCase();
+        return hintText.length > 0 && label.includes(hintText);
+      });
+      openLeftDrawer();
+      setNodePaletteMode("all");
+      setNodeGroupFilter(compatibleMatch ? "Compatible" : "All");
+      setNodeSearch(action.searchHint ?? searchHintByKind[action.kind]);
+      setBottomPanel("selection");
+      setStatusMessage(`${action.label}: choose a primitive for ${selectedName}`);
+    },
+    [
+      compatibleNodeHints,
+      currentProjectFile.nodes,
+      handleRun,
+      handleValidate,
+      openLeftDrawer,
+    ],
+  );
+
   const handleResumeRun = async (outcome: WorkflowResumeRequest["outcome"]) => {
     if (!lastRunResult?.interrupt || !runtime.resumeWorkflowRun) return;
     const result = await runtime.resumeWorkflowRun(workflowPath, {
@@ -15658,6 +15738,7 @@ export function useWorkflowComposerController({
     handleUpdateProductionProfile,
     handleValidate,
     handleWorkflowNodeSelect,
+    handleSelectedNodeGuidedNextAction,
     harnessActivationCandidate,
     harnessGroupSummary,
     harnessGroupViews,
@@ -15747,6 +15828,7 @@ export function useWorkflowComposerController({
     selectedExecutionRun,
     selectedExecutionRunResult,
     selectedFixtures,
+    selectedNodeGuidedNextActions,
     selectedNodeRepairActions,
     selectedNode,
     selectedNodeId,
