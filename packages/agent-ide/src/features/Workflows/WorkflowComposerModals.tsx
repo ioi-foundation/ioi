@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   GraphGlobalConfig,
   WorkflowExecutionMode,
@@ -30,6 +30,28 @@ import {
   workflowIssueTitle,
   workflowNodeName,
 } from "../../runtime/workflow-rail-model";
+
+function useWorkflowNonDestructiveModalKeyboard(onClose: () => void) {
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    restoreFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      const target = restoreFocusRef.current;
+      if (!target?.isConnected) return;
+      requestAnimationFrame(() => target.focus({ preventScroll: true }));
+    };
+  }, [onClose]);
+}
 
 export function CreateWorkflowModal({
   name,
@@ -237,6 +259,7 @@ export function ModelBindingModal({
     updater: (current: GraphGlobalConfig) => GraphGlobalConfig,
   ) => void;
 }) {
+  useWorkflowNonDestructiveModalKeyboard(onClose);
   const modelBindings = WORKFLOW_MODEL_BINDING_KEYS.map(
     (bindingKey) =>
       [
@@ -499,6 +522,7 @@ export function ConnectorBindingModal({
       | { kind: "connector"; value: WorkflowConnectorBinding },
   ) => void;
 }) {
+  useWorkflowNonDestructiveModalKeyboard(onClose);
   const [selectedCatalogRefs, setSelectedCatalogRefs] = useState<
     Record<string, string>
   >({});
