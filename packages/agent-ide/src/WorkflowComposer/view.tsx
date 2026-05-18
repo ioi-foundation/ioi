@@ -142,6 +142,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleUpdateProductionProfile,
     handleValidate,
     handleWorkflowNodeSelect,
+    handleSelectedNodeGuidedNextAction,
     harnessActivationCandidate,
     harnessGroupSummary,
     harnessGroupViews,
@@ -213,6 +214,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     selectedExecutionRun,
     selectedExecutionRunResult,
     selectedFixtures,
+    selectedNodeGuidedNextActions,
     selectedNodeRepairActions,
     selectedHarnessGroup,
     selectedHarnessDefaultDispatchId,
@@ -2231,6 +2233,8 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
           onInspectNode={(nodeId) => handleWorkflowNodeSelect(nodeId)}
           repairActions={selectedNodeRepairActions}
           onRepairAction={handleSelectedNodeRepairAction}
+          guidedNextActions={selectedNodeGuidedNextActions}
+          onGuidedNextAction={handleSelectedNodeGuidedNextAction}
         />
       </section>
 

@@ -1669,6 +1669,13 @@ button.workflow-run-row.is-active {
   padding: 10px;
 }
 
+.workflow-guided-next-card {
+  border: 1px solid color-mix(in srgb, var(--accent-blue) 24%, var(--border-subtle));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-blue) 5%, var(--workflow-panel-strong));
+  padding: 10px;
+}
+
 .workflow-selection-repair-actions {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -1676,7 +1683,15 @@ button.workflow-run-row.is-active {
   margin-top: 4px;
 }
 
-.workflow-selection-repair-actions button {
+.workflow-guided-next-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.workflow-selection-repair-actions button,
+.workflow-guided-next-actions button {
   display: grid;
   gap: 3px;
   align-content: start;
@@ -1690,7 +1705,9 @@ button.workflow-run-row.is-active {
 }
 
 .workflow-selection-repair-actions button:hover,
-.workflow-selection-repair-actions button:focus-visible {
+.workflow-selection-repair-actions button:focus-visible,
+.workflow-guided-next-actions button:hover,
+.workflow-guided-next-actions button:focus-visible {
   border-color: var(--accent-blue);
   color: var(--text-primary);
 }
@@ -1699,19 +1716,27 @@ button.workflow-run-row.is-active {
   border-color: color-mix(in srgb, var(--accent-blue) 56%, var(--border-subtle));
 }
 
+.workflow-guided-next-actions button[data-guided-priority="primary"] {
+  border-color: color-mix(in srgb, var(--accent-blue) 56%, var(--border-subtle));
+}
+
 .workflow-selection-repair-actions button strong,
-.workflow-selection-repair-actions button span {
+.workflow-selection-repair-actions button span,
+.workflow-guided-next-actions button strong,
+.workflow-guided-next-actions button span {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.workflow-selection-repair-actions button strong {
+.workflow-selection-repair-actions button strong,
+.workflow-guided-next-actions button strong {
   color: var(--text-primary);
   font-size: 11px;
   white-space: nowrap;
 }
 
-.workflow-selection-repair-actions button span {
+.workflow-selection-repair-actions button span,
+.workflow-guided-next-actions button span {
   color: var(--text-tertiary);
   font-size: 10px;
   line-height: 1.35;
