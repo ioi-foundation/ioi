@@ -1416,8 +1416,8 @@ assert.match(
 
 assert.match(
   workflowRailPanel,
-  /workflow-settings-summary[\s\S]*workflow-settings-metadata[\s\S]*workflow-settings-model-bindings[\s\S]*workflow-settings-capabilities[\s\S]*workflow-settings-policy/,
-  "Settings rail should summarize workflow metadata, bindings, capabilities, readiness, and run policy",
+  /workflow-settings-metadata[\s\S]*workflow-environment-profile[\s\S]*workflow-settings-binding-registry[\s\S]*workflow-settings-model-bindings[\s\S]*workflow-settings-capabilities[\s\S]*workflow-settings-policy/,
+  "Settings rail should expose workflow metadata, environment posture, bindings, capabilities, readiness, and run policy",
 );
 
 assert.match(
