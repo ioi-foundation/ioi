@@ -41,7 +41,6 @@ export function WorkflowSettingsPanel({
   onInspectNode,
 }: WorkflowSettingsPanelProps) {
   const {
-    summaryItems,
     metadata,
     workflowReadOnly,
     chromeLocale,
@@ -57,18 +56,6 @@ export function WorkflowSettingsPanel({
 
   return (
     <>
-      <h3>Autonomous system</h3>
-      <dl
-        className="workflow-rail-stats workflow-rail-lifecycle-summary"
-        data-testid="workflow-settings-summary"
-      >
-        {summaryItems.map((item) => (
-          <div key={item.label}>
-            <dt>{item.label}</dt>
-            <dd>{item.value}</dd>
-          </div>
-        ))}
-      </dl>
       <section
         className="workflow-rail-section"
         data-testid="workflow-settings-metadata"
