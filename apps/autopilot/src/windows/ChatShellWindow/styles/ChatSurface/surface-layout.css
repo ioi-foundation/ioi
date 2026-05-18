@@ -97,6 +97,29 @@
   grid-column: 2;
 }
 
+@media (max-width: 1120px) {
+  .spot-window--chat .spot-chat-shell,
+  .spot-window--chat .spot-chat-shell.is-artifact-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .spot-window--chat .spot-chat-shell.is-artifact-open {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 48vw);
+  }
+
+  .spot-window--chat .spot-chat-shell.is-artifact-menu-open {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  }
+
+  .spot-window--chat .spot-chat-shell > .operator-chat-pane__sidebar {
+    display: none;
+  }
+
+  .spot-window--chat .spot-chat-shell > .operator-chat-pane__main {
+    grid-column: 1;
+  }
+}
+
 .spot-chat-conversation {
   flex: 1 1 auto;
   width: 100%;
@@ -484,13 +507,13 @@
   align-items: center;
   justify-content: center;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.94);
+  background: transparent;
+  color: var(--spot-text-primary);
 }
 
 .spot-chat-welcome-mark svg {
-  width: 20px;
-  height: 20px;
+  width: 38px;
+  height: 38px;
 }
 
 .spot-chat-welcome-copy {
@@ -512,7 +535,23 @@
   margin: 0;
   max-width: 58ch;
   color: var(--spot-text-secondary);
-  line-height: 1.6;
+  line-height: 1.45;
+}
+
+.spot-chat-welcome-link {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--spot-accent);
+  font: inherit;
+  line-height: inherit;
+  cursor: pointer;
+}
+
+.spot-chat-welcome-link:hover {
+  text-decoration: underline;
 }
 
 .spot-chat-welcome-kicker {

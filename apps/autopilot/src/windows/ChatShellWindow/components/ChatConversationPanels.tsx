@@ -87,10 +87,8 @@ function formatPreviewStats(content: string) {
 }
 
 const suggestionPrompts = [
-  "Review the current repo",
-  "Explain the active file",
-  "Find risky changes",
-  "Draft a patch plan",
+  "Build Workspace",
+  "Show Config",
 ];
 
 type ProgressRow = {
@@ -130,14 +128,22 @@ export function ChatConversationWelcome({
   return (
     <section className="spot-chat-welcome" aria-label="Chat welcome">
       <div className="spot-chat-welcome-mark" aria-hidden="true">
-        {icons.sparkles}
+        {icons.chatSparkle}
       </div>
 
       <div className="spot-chat-welcome-copy">
         <h2>Build with Agent</h2>
         <p>
-          AI responses may be inaccurate. Repo, file, runtime, and evidence
-          context stay attached.
+          AI responses may be inaccurate.
+          <br />
+          <button
+            type="button"
+            className="spot-chat-welcome-link"
+            onClick={() => onSuggestionClick("Generate Agent Instructions")}
+          >
+            Generate Agent Instructions
+          </button>{" "}
+          to onboard AI onto your codebase.
         </p>
       </div>
 

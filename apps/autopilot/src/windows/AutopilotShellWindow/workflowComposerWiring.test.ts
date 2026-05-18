@@ -193,6 +193,13 @@ const chatArtifactWorkbenchCss = fs.readFileSync(
   ),
   "utf8",
 );
+const chatSurfaceLayoutCss = fs.readFileSync(
+  new URL(
+    "../ChatShellWindow/styles/ChatSurface/surface-layout.css",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const workspaceSubstrateCss = fs.readFileSync(
   new URL(
     "../../../../../packages/workspace-substrate/src/style/workspace-panels.css",
@@ -554,6 +561,12 @@ assert.match(
   `${chatArtifactWorkbenchCss}\n${workspaceSubstrateCss}`,
   /spot-window--chat \.spot-chat-shell\s*\{[\s\S]*background: var\(--spot-bg-primary\);[\s\S]*spot-window--chat \.spot-chat-sidebar-shell-item\s*\{[\s\S]*background: var\(--spot-bg-secondary\);[\s\S]*operator-chat-pane[\s\S]*--operator-chat-bg: var\(--spot-bg-primary[\s\S]*operator-chat-pane__header[\s\S]*background: var\(--operator-chat-bg\);/,
   "Workbench-grade chat composition should use active theme tokens instead of hard-coded light surfaces",
+);
+
+assert.match(
+  chatSurfaceLayoutCss,
+  /@media \(max-width: 1120px\)[\s\S]*spot-window--chat \.spot-chat-shell > \.operator-chat-pane__sidebar\s*\{\s*display: none;/,
+  "Compact chat surfaces should not leak the fullscreen sessions sidebar into sidebar-sized panes",
 );
 
 assert.match(

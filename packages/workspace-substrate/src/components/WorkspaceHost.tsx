@@ -165,6 +165,25 @@ function WorkbenchExpandIcon() {
   return <Codicon name="screen-full" />;
 }
 
+function WorkbenchChatSparkleIcon() {
+  return (
+    <svg
+      width="34"
+      height="34"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4.5 6.5h9a3 3 0 0 1 3 3v3a3 3 0 0 1-3 3H10l-4 3v-3H4.5a3 3 0 0 1-3-3v-3a3 3 0 0 1 3-3Z" />
+      <path d="M18 3.5l.6 1.4L20 5.5l-1.4.6L18 7.5l-.6-1.4L16 5.5l1.4-.6L18 3.5Z" />
+      <path d="M21 9.5l.35.85.85.35-.85.35L21 11.9l-.35-.85-.85-.35.85-.35L21 9.5Z" />
+    </svg>
+  );
+}
+
 function WorkbenchStatusShieldIcon() {
   return <Codicon name="shield" className="workspace-codicon--status" />;
 }
@@ -185,6 +204,12 @@ function WorkspaceOperatorChatPane({
       id: "new",
       label: "New workspace chat",
       icon: <Codicon name="add" />,
+      onClick: () => onOpenSurface?.("chat"),
+    },
+    {
+      id: "new-options",
+      label: "New workspace chat options",
+      icon: <WorkbenchCaretIcon />,
       onClick: () => onOpenSurface?.("chat"),
     },
     {
@@ -226,9 +251,9 @@ function WorkspaceOperatorChatPane({
       secondaryActions={secondaryActions}
       onTabClick={() => onOpenSurface?.("chat")}
       emptyState={{
-        icon: <Codicon name="sparkle" />,
+        icon: <WorkbenchChatSparkleIcon />,
         title: "Build with Agent",
-        description: "Repo, file, runtime, and evidence context stay attached.",
+        description: "AI responses may be inaccurate.",
       }}
       suggestedActions={
         <>

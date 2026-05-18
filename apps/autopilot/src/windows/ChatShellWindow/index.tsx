@@ -1392,7 +1392,7 @@ export function ChatShellWindow({
         onOpenSettings={() => openChat("settings")}
         placeholder={
           isChatVariant
-            ? "What do you want to materialize?"
+            ? "Describe what to build next"
             : undefined
         }
       />

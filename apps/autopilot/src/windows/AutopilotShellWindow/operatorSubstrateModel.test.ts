@@ -204,6 +204,14 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
     "apps/autopilot/src/windows/ChatShellWindow/components/ChatConversationSurface.tsx",
     "utf8",
   );
+  const chatConversationPanels = readFileSync(
+    "apps/autopilot/src/windows/ChatShellWindow/components/ChatConversationPanels.tsx",
+    "utf8",
+  );
+  const chatShellWindow = readFileSync(
+    "apps/autopilot/src/windows/ChatShellWindow/index.tsx",
+    "utf8",
+  );
   const chatInputSection = readFileSync(
     "apps/autopilot/src/windows/ChatShellWindow/components/ChatInputSection.tsx",
     "utf8",
@@ -222,9 +230,25 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
     /data-inspection-target="workspace-chat-composer"/,
   );
   assert.match(chatConversationSurface, /<OperatorChatPane/);
+  assert.match(chatConversationSurface, /id: "new-options"/);
+  assert.match(chatConversationPanels, /Build Workspace/);
+  assert.match(chatConversationPanels, /Show Config/);
+  assert.match(chatConversationPanels, /Generate Agent Instructions/);
+  assert.match(chatConversationPanels, /icons\.chatSparkle/);
+  assert.match(chatShellWindow, /Describe what to build next/);
+  assert.doesNotMatch(chatShellWindow, /What do you want to materialize/);
+  assert.doesNotMatch(chatConversationPanels, /Review the current repo/);
   assert.match(
     chatConversationSurface,
     /dataInspectionTarget="operator-chat-pane"/,
+  );
+  assert.match(workspaceHost, /id: "new-options"/);
+  assert.match(workspaceHost, /Build Workspace/);
+  assert.match(workspaceHost, /Show Config/);
+  assert.match(workspaceHost, /AI responses may be inaccurate\./);
+  assert.doesNotMatch(
+    workspaceHost,
+    /Repo, file, runtime, and evidence context stay attached/,
   );
   assert.match(
     chatInputSection,
@@ -270,6 +294,10 @@ test("embedded OpenVSCode defers global search to Autopilot chrome", () => {
   );
   assert.match(
     workspaceIde,
+    /OPENVSCODE_AUTOPILOT_CHROME_PATCH_MARKER[\s\S]*\.titlebar-center[\s\S]*\.command-center[\s\S]*display: none !important/,
+  );
+  assert.match(
+    workspaceIde,
     /openvscode_user_config_owned\(&existing_user_data_dir\)[\s\S]*return Ok\(current_session_info\(existing\)\)[\s\S]*kill_session\(existing\)/,
   );
   assert.match(
@@ -288,6 +316,10 @@ test("embedded OpenVSCode defers global search to Autopilot chrome", () => {
   assert.doesNotMatch(
     bundledExtension,
     /label: "Open command palette"[\s\S]*command: "workbench\.action\.showCommands"/,
+  );
+  assert.match(
+    bundledExtension,
+    /syncAppearanceFromBridge[\s\S]*syncWorkbenchAppearance/,
   );
 });
 
