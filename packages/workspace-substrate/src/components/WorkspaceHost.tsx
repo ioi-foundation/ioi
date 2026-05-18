@@ -75,6 +75,7 @@ export interface WorkspaceHostProps {
   title?: string;
   showHeader?: boolean;
   headerActions?: ReactNode;
+  hideGlobalCommandCenter?: boolean;
   showBottomPanel?: boolean;
   defaultBottomPanel?: WorkspaceBottomPanelType;
   visibleBottomPanels?: WorkspaceBottomPanelType[];
@@ -457,6 +458,7 @@ export function WorkspaceHost({
   title = "Workspace",
   showHeader = true,
   headerActions,
+  hideGlobalCommandCenter = false,
   showBottomPanel = true,
   defaultBottomPanel = "output",
   visibleBottomPanels = DEFAULT_VISIBLE_BOTTOM_PANELS,
@@ -908,6 +910,7 @@ export function WorkspaceHost({
         `workspace-host--${layoutMode}`,
         !primarySidebarOpen && "workspace-host--sidebar-collapsed",
         !secondarySidebarOpen && "workspace-host--secondary-collapsed",
+        hideGlobalCommandCenter && "workspace-host--global-command-center-hidden",
         className,
       )}
       aria-label={title}
@@ -939,55 +942,59 @@ export function WorkspaceHost({
         />
         <div className="workspace-workbench-toolbar-live">
           <div className="workspace-workbench-toolbar-group workspace-workbench-toolbar-group--start">
-            <span className="workspace-workbench-app-icon" aria-hidden="true">
-              <WorkbenchAppIcon />
-            </span>
-            <button
-              type="button"
-              className="workspace-workbench-toolbar-button"
-              aria-label="Go back"
-              disabled={!canNavigateBack}
-              onClick={navigateBack}
-            >
-              <WorkbenchToolbarIcon>
-                <WorkbenchBackIcon />
-              </WorkbenchToolbarIcon>
-            </button>
-            <button
-              type="button"
-              className="workspace-workbench-toolbar-button"
-              aria-label="Go forward"
-              disabled={!canNavigateForward}
-              onClick={navigateForward}
-            >
-              <WorkbenchToolbarIcon>
-                <WorkbenchForwardIcon />
-              </WorkbenchToolbarIcon>
-            </button>
-            <button
-              type="button"
-              className="workspace-workbench-command-center"
-              aria-label="Open workspace search"
-              onClick={openSearchPane}
-            >
-              <WorkbenchToolbarIcon>
-                <WorkbenchSearchIcon />
-              </WorkbenchToolbarIcon>
-              <span>{workspaceLabel}</span>
-            </button>
-            <button
-              type="button"
-              className="workspace-workbench-toolbar-pill"
-              aria-label="Open agent actions"
-              onClick={openAgentSurface}
-            >
-              <WorkbenchToolbarIcon>
-                <WorkbenchToolbarAgentIcon />
-              </WorkbenchToolbarIcon>
-              <WorkbenchToolbarIcon>
-                <WorkbenchCaretIcon />
-              </WorkbenchToolbarIcon>
-            </button>
+            {!hideGlobalCommandCenter ? (
+              <>
+                <span className="workspace-workbench-app-icon" aria-hidden="true">
+                  <WorkbenchAppIcon />
+                </span>
+                <button
+                  type="button"
+                  className="workspace-workbench-toolbar-button"
+                  aria-label="Go back"
+                  disabled={!canNavigateBack}
+                  onClick={navigateBack}
+                >
+                  <WorkbenchToolbarIcon>
+                    <WorkbenchBackIcon />
+                  </WorkbenchToolbarIcon>
+                </button>
+                <button
+                  type="button"
+                  className="workspace-workbench-toolbar-button"
+                  aria-label="Go forward"
+                  disabled={!canNavigateForward}
+                  onClick={navigateForward}
+                >
+                  <WorkbenchToolbarIcon>
+                    <WorkbenchForwardIcon />
+                  </WorkbenchToolbarIcon>
+                </button>
+                <button
+                  type="button"
+                  className="workspace-workbench-command-center"
+                  aria-label="Open workspace search"
+                  onClick={openSearchPane}
+                >
+                  <WorkbenchToolbarIcon>
+                    <WorkbenchSearchIcon />
+                  </WorkbenchToolbarIcon>
+                  <span>{workspaceLabel}</span>
+                </button>
+                <button
+                  type="button"
+                  className="workspace-workbench-toolbar-pill"
+                  aria-label="Open agent actions"
+                  onClick={openAgentSurface}
+                >
+                  <WorkbenchToolbarIcon>
+                    <WorkbenchToolbarAgentIcon />
+                  </WorkbenchToolbarIcon>
+                  <WorkbenchToolbarIcon>
+                    <WorkbenchCaretIcon />
+                  </WorkbenchToolbarIcon>
+                </button>
+              </>
+            ) : null}
           </div>
 
           <div className="workspace-workbench-toolbar-group workspace-workbench-toolbar-group--end">

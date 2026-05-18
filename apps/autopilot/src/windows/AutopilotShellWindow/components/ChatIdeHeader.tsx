@@ -7,10 +7,13 @@ import {
   startTauriWindowDrag,
 } from "../../shared/tauriWindowDrag";
 import type { PrimaryView } from "../autopilotShellModel";
+import type { OperatorCommandCenterModel } from "../operatorSubstrateModel";
 
 interface ChatIdeHeaderProps {
   activeView: PrimaryView;
   workflowSurface: "home" | "canvas" | "agents" | "catalog";
+  commandCenter: OperatorCommandCenterModel;
+  onOpenCommandPalette: () => void;
 }
 
 function windowSurfaceTitle(
@@ -37,6 +40,8 @@ function windowSurfaceTitle(
 export function ChatIdeHeader({
   activeView,
   workflowSurface,
+  commandCenter,
+  onOpenCommandPalette,
 }: ChatIdeHeaderProps) {
   const [windowMaximized, setWindowMaximized] = useState(false);
   const windowControlsVisible = isTauriRuntime();
@@ -132,6 +137,41 @@ export function ChatIdeHeader({
         onMouseDown={startTauriWindowDrag}
         aria-hidden="true"
       />
+
+      <div className="chat-ide-command-shell">
+        <button
+          type="button"
+          className="chat-ide-command-center"
+          data-operator-command-center={commandCenter.projectionId}
+          data-operator-route-kind={commandCenter.activeRoute.kind}
+          aria-label={commandCenter.placeholder}
+          title={`${commandCenter.placeholder} (${commandCenter.shortcutLabel})`}
+          onClick={onOpenCommandPalette}
+        >
+          <span className="chat-ide-command-center-icon" aria-hidden="true">
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="8.5" cy="8.5" r="5.5" />
+              <path d="m12.6 12.6 4 4" />
+            </svg>
+          </span>
+          <span className="chat-ide-command-center-scope">
+            {commandCenter.scopeLabel}
+          </span>
+          <span className="chat-ide-command-center-placeholder">
+            {commandCenter.placeholder}
+          </span>
+          <kbd>{commandCenter.shortcutLabel}</kbd>
+        </button>
+      </div>
 
       {windowControlsVisible ? (
         <div className="chat-ide-window-controls" aria-label="Window controls">

@@ -92,8 +92,8 @@ toolbar affordances, but it should not own the global command/search center.
 
 | Slice | Goal | Status | Done when |
 | --- | --- | --- | --- |
-| Shared substrate contract | Define one operator substrate model across chat, workspace, workflows, and data-window surfaces. | Not started | Shared types describe command center, side rail, chat pane, context picker, inspector targets, and project materialization events. |
-| Header command center | Lift VS Code substrate center bar into `ChatIdeHeader`. | Not started | Center command/search is persistent across chat, workflows, workspace, runs, policy, and settings; workspace no longer duplicates global center chrome. |
+| Shared substrate contract | Define one operator substrate model across chat, workspace, workflows, and data-window surfaces. | Done / regression guarded | Shared types describe command center, side rail, chat pane, context picker, inspector targets, and project materialization events. |
+| Header command center | Lift VS Code substrate center bar into `ChatIdeHeader`. | Done / regression guarded | Center command/search is persistent across chat, workflows, workspace, runs, policy, and settings; workspace no longer duplicates global center chrome. |
 | Shared chat pane | Reuse the mature VS Code-style chat pane shape in Autopilot Chat and data-window surfaces. | Not started | `ChatConversationSurface` and `WorkbenchAgentDock` converge on one component family with mode variants. |
 | Activity rail convergence | Make data-window surfaces use the same improved chat activity rail semantics. | Not started | Sidebar supports collapsed/expanded modes, consistent icons, profile, search shortcut, and data-window surface routing. |
 | Workflow-to-project materialization | Make workflow composition generate/open real VS Code Studio projects. | Not started | A composed repo/project workflow can create a project package, open it in workspace, and show receipts. |
@@ -494,4 +494,3 @@ Recommended decision:
 > Split the next work into a Deep Operator Substrate pass first, then resume
 > broad connector expansion once chat, workspace, workflow materialization, and
 > inspector targeting share the same shell-level model.
-
