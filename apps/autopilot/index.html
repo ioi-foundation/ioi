@@ -25,6 +25,42 @@
         background: #0d0c0a;
       }
 
+      .autopilot-boot-fallback {
+        box-sizing: border-box;
+        width: 100%;
+        height: 100%;
+        display: grid;
+        place-items: center;
+        padding: 32px;
+        color: #f2f0eb;
+        font: 13px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .autopilot-boot-fallback__card {
+        width: min(520px, 100%);
+        padding: 18px 20px;
+        border: 1px solid rgba(242, 240, 235, 0.18);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.055);
+      }
+
+      .autopilot-boot-fallback__title {
+        margin: 0 0 6px;
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      .autopilot-boot-fallback__detail {
+        margin: 0;
+        color: rgba(242, 240, 235, 0.7);
+      }
+
+      .autopilot-boot-fallback__error {
+        margin-top: 12px;
+        white-space: pre-wrap;
+        color: #ffb4ab;
+      }
+
       html[data-window-surface="transparent"],
       html[data-window-surface="transparent"] body,
       html[data-window-surface="transparent"] #root {
@@ -33,7 +69,57 @@
     </style>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      (() => {
+        const showBootError = (message, detail = "") => {
+          const root = document.getElementById("root");
+          if (!root) return;
+          const error = root.querySelector("[data-autopilot-boot-error]");
+          if (error) {
+            error.textContent = [message, detail].filter(Boolean).join("\n");
+          }
+        };
+        window.addEventListener("error", (event) => {
+          const target = event.target;
+          const asset = target && target !== window && "src" in target ? target.src : "";
+          showBootError(
+            event.message || "Autopilot failed before React could mount.",
+            asset || event.filename || "",
+          );
+        });
+        window.addEventListener("unhandledrejection", (event) => {
+          const reason = event.reason;
+          showBootError(
+            "Autopilot failed before React could mount.",
+            reason && reason.stack ? reason.stack : String(reason ?? ""),
+          );
+        });
+      })();
+    </script>
+    <div id="root">
+      <div class="autopilot-boot-fallback" role="status" aria-live="polite">
+        <section class="autopilot-boot-fallback__card">
+          <p class="autopilot-boot-fallback__title">Starting Autopilot</p>
+          <p class="autopilot-boot-fallback__detail">
+            Loading the operator shell and runtime bridge.
+          </p>
+          <pre class="autopilot-boot-fallback__error" data-autopilot-boot-error></pre>
+        </section>
+      </div>
+    </div>
+    <script type="module">
+      import("/src/main.tsx").catch((error) => {
+        const root = document.getElementById("root");
+        const target = root?.querySelector("[data-autopilot-boot-error]");
+        if (target) {
+          target.textContent = [
+            "Autopilot failed to load the operator shell module.",
+            error && error.stack ? error.stack : String(error ?? ""),
+          ]
+            .filter(Boolean)
+            .join("\n");
+        }
+      });
+    </script>
   </body>
 </html>

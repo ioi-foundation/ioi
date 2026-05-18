@@ -45,6 +45,12 @@ export function ChatConversationSurface({
       onClick: onNewSession,
     },
     {
+      id: "new-options",
+      label: "New session options",
+      icon: icons.chevronDown,
+      onClick: onOpenCommandPalette,
+    },
+    {
       id: "settings",
       label: "Open Chat settings",
       icon: icons.settings,

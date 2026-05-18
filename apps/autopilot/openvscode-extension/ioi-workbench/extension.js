@@ -213,10 +213,10 @@ function defaultBridgeState() {
         "IOI runtime remains authoritative for policy, approvals, evidence, and settlement.",
     },
     appearance: {
-      themeId: "light-modern",
-      themeLabel: "Light Modern",
+      themeId: "dark-modern",
+      themeLabel: "Dark Modern",
       density: "default",
-      openVsCodeColorTheme: "Default Light Modern",
+      openVsCodeColorTheme: "Default Dark Modern",
       source: "default",
       updatedAtMs: 0,
     },
@@ -1163,6 +1163,12 @@ function activate(context) {
   const providers = VIEW_DEFINITIONS.map(
     (definition) => new IOIViewProvider(definition, readBridgeState),
   );
+  const syncAppearanceFromBridge = async () => {
+    const state = await readBridgeState();
+    await syncWorkbenchAppearance(state);
+    return state;
+  };
+  void syncAppearanceFromBridge();
 
   for (const provider of providers) {
     context.subscriptions.push(
@@ -1175,6 +1181,7 @@ function activate(context) {
 
   context.subscriptions.push(
     watchBridgeState(() => {
+      void syncAppearanceFromBridge();
       for (const provider of providers) {
         void provider.render();
       }

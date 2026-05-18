@@ -25,6 +25,8 @@ use url::Url;
 
 const OPENVSCODE_VERSION: &str = "1.109.5";
 const OPENVSCODE_BOOT_TIMEOUT: Duration = Duration::from_secs(90);
+const OPENVSCODE_AUTOPILOT_CHROME_PATCH_MARKER: &str =
+    "/* IOI Autopilot owns OpenVSCode command center chrome */";
 
 #[derive(Default)]
 pub struct WorkspaceIdeManager {
@@ -268,6 +270,7 @@ fn install_binary_path<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String
 fn ensure_openvscode_installation<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
     let binary_path = install_binary_path(app)?;
     if binary_path.exists() {
+        ensure_openvscode_shell_chrome_patch(&binary_path)?;
         return Ok(binary_path);
     }
 
@@ -339,7 +342,95 @@ fn ensure_openvscode_installation<R: Runtime>(app: &AppHandle<R>) -> Result<Path
         })?;
     }
 
+    ensure_openvscode_shell_chrome_patch(&binary_path)?;
+
     Ok(binary_path)
+}
+
+fn openvscode_install_root_from_binary(binary_path: &Path) -> Result<PathBuf, String> {
+    binary_path
+        .parent()
+        .and_then(Path::parent)
+        .map(Path::to_path_buf)
+        .ok_or_else(|| {
+            format!(
+                "Failed to resolve OpenVSCode install root from '{}'.",
+                binary_path.display()
+            )
+        })
+}
+
+fn ensure_openvscode_shell_chrome_patch(binary_path: &Path) -> Result<(), String> {
+    let install_root = openvscode_install_root_from_binary(binary_path)?;
+    let stylesheet_paths = [
+        install_root
+            .join("extensions")
+            .join("theme-2026")
+            .join("themes")
+            .join("styles.css"),
+        install_root
+            .join("out")
+            .join("vs")
+            .join("code")
+            .join("browser")
+            .join("workbench")
+            .join("workbench.css"),
+    ];
+
+    for stylesheet_path in stylesheet_paths {
+        ensure_openvscode_stylesheet_chrome_patch(&stylesheet_path)?;
+    }
+
+    Ok(())
+}
+
+fn ensure_openvscode_stylesheet_chrome_patch(stylesheet_path: &Path) -> Result<(), String> {
+    let mut stylesheet = fs::read_to_string(&stylesheet_path).map_err(|error| {
+        format!(
+            "Failed to read OpenVSCode shell stylesheet '{}': {}",
+            stylesheet_path.display(),
+            error
+        )
+    })?;
+
+    if stylesheet.contains(OPENVSCODE_AUTOPILOT_CHROME_PATCH_MARKER) {
+        return Ok(());
+    }
+
+    stylesheet.push_str(
+        r#"
+
+/* IOI Autopilot owns OpenVSCode command center chrome */
+.monaco-workbench .part.titlebar > .titlebar-container > .titlebar-center,
+.monaco-workbench .part.titlebar > .titlebar-container > .titlebar-center > .window-title > .command-center,
+.monaco-workbench .part.titlebar .command-center {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.monaco-workbench .part.titlebar > .titlebar-container.has-center {
+  grid-template-columns: minmax(0, 1fr) auto !important;
+}
+
+.monaco-workbench .part.titlebar > .titlebar-container.has-center > .titlebar-left {
+  flex: 1 1 auto !important;
+  max-width: none !important;
+}
+
+.monaco-workbench .part.titlebar > .titlebar-container.has-center > .titlebar-right {
+  margin-left: auto !important;
+}
+"#,
+    );
+
+    fs::write(&stylesheet_path, stylesheet).map_err(|error| {
+        format!(
+            "Failed to patch OpenVSCode shell stylesheet '{}': {}",
+            stylesheet_path.display(),
+            error
+        )
+    })
 }
 
 fn copy_dir_recursive(source: &Path, destination: &Path) -> Result<(), String> {
@@ -959,12 +1050,13 @@ pub fn take_workspace_ide_bridge_requests<R: Runtime>(
 #[cfg(test)]
 mod tests {
     use super::{
-        ensure_openvscode_user_keybindings, ensure_openvscode_user_settings,
-        openvscode_user_config_owned,
+        ensure_openvscode_shell_chrome_patch, ensure_openvscode_user_keybindings,
+        ensure_openvscode_user_settings, openvscode_user_config_owned,
+        OPENVSCODE_AUTOPILOT_CHROME_PATCH_MARKER,
     };
     use serde_json::Value;
     use std::fs;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn temp_user_data(name: &str) -> PathBuf {
@@ -978,6 +1070,34 @@ mod tests {
         ));
         fs::create_dir_all(&path).expect("temporary user-data directory should be created");
         path
+    }
+
+    fn temp_openvscode_binary(name: &str) -> PathBuf {
+        let root = temp_user_data(name);
+        let bin_dir = root.join("bin");
+        let theme_dir = root.join("extensions").join("theme-2026").join("themes");
+        let workbench_dir = root
+            .join("out")
+            .join("vs")
+            .join("code")
+            .join("browser")
+            .join("workbench");
+        fs::create_dir_all(&bin_dir).expect("OpenVSCode bin dir should be created");
+        fs::create_dir_all(&theme_dir).expect("OpenVSCode theme dir should be created");
+        fs::create_dir_all(&workbench_dir).expect("OpenVSCode workbench dir should be created");
+        let binary = bin_dir.join("openvscode-server");
+        fs::write(&binary, "#!/bin/sh\n").expect("OpenVSCode binary stub should be written");
+        fs::write(
+            theme_dir.join("styles.css"),
+            ".monaco-workbench .part.titlebar { color: inherit; }\n",
+        )
+        .expect("OpenVSCode stylesheet should be written");
+        fs::write(
+            workbench_dir.join("workbench.css"),
+            ".monaco-workbench .part.titlebar { display: flex; }\n",
+        )
+        .expect("OpenVSCode workbench stylesheet should be written");
+        binary
     }
 
     #[test]
@@ -1044,5 +1164,60 @@ mod tests {
         );
 
         let _ = fs::remove_dir_all(user_data_dir);
+    }
+
+    #[test]
+    fn openvscode_shell_chrome_patch_hides_embedded_command_center() {
+        let binary_path = temp_openvscode_binary("command-center-shell-patch");
+        let install_root = binary_path
+            .parent()
+            .and_then(Path::parent)
+            .expect("test binary should have install root")
+            .to_path_buf();
+        let stylesheet_path = install_root
+            .join("extensions")
+            .join("theme-2026")
+            .join("themes")
+            .join("styles.css");
+        let workbench_stylesheet_path = install_root
+            .join("out")
+            .join("vs")
+            .join("code")
+            .join("browser")
+            .join("workbench")
+            .join("workbench.css");
+
+        ensure_openvscode_shell_chrome_patch(&binary_path)
+            .expect("OpenVSCode command center shell chrome patch should apply");
+        ensure_openvscode_shell_chrome_patch(&binary_path)
+            .expect("OpenVSCode command center shell chrome patch should be idempotent");
+
+        let stylesheet =
+            fs::read_to_string(&stylesheet_path).expect("stylesheet should be readable");
+        assert_eq!(
+            stylesheet
+                .matches(OPENVSCODE_AUTOPILOT_CHROME_PATCH_MARKER)
+                .count(),
+            1,
+            "the shell patch should be applied once"
+        );
+        assert!(stylesheet.contains(".titlebar-center"));
+        assert!(stylesheet.contains(".command-center"));
+        assert!(stylesheet.contains("display: none !important"));
+
+        let workbench_stylesheet = fs::read_to_string(&workbench_stylesheet_path)
+            .expect("workbench stylesheet should be readable");
+        assert_eq!(
+            workbench_stylesheet
+                .matches(OPENVSCODE_AUTOPILOT_CHROME_PATCH_MARKER)
+                .count(),
+            1,
+            "the live workbench stylesheet patch should be applied once"
+        );
+        assert!(workbench_stylesheet.contains(".titlebar-center"));
+        assert!(workbench_stylesheet.contains(".command-center"));
+        assert!(workbench_stylesheet.contains("display: none !important"));
+
+        let _ = fs::remove_dir_all(install_root);
     }
 }

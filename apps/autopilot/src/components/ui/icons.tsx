@@ -114,6 +114,22 @@ export const icons = {
       <path d="M20 3v4M22 5h-4M4 17v2M5 18H3" />
     </svg>
   ),
+  chatSparkle: (
+    <svg
+      width="32"
+      height="32"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4.5 6.5h9a3 3 0 0 1 3 3v3a3 3 0 0 1-3 3H10l-4 3v-3H4.5a3 3 0 0 1-3-3v-3a3 3 0 0 1 3-3Z" />
+      <path d="M18 3.5l.6 1.4L20 5.5l-1.4.6L18 7.5l-.6-1.4L16 5.5l1.4-.6L18 3.5Z" />
+      <path d="M21 9.5l.35.85.85.35-.85.35L21 11.9l-.35-.85-.85-.35.85-.35L21 9.5Z" />
+    </svg>
+  ),
   send: (
     <svg
       width="15"
