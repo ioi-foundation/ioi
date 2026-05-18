@@ -1,5 +1,6 @@
 // apps/autopilot/src/windows/ChatShellWindow/index.tsx
 
+import type { ReactNode } from "react";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   hideChatSessionShell,
@@ -88,6 +89,8 @@ import "../ChatShellWindow/styles/ChatSurface.css";
 type ChatShellWindowProps = {
   variant?: "overlay" | "chat";
   presentationMode?: "standalone" | "embedded-pane";
+  paneLeadingAction?: ReactNode;
+  paneTrailingAction?: ReactNode;
   seedIntent?: string | null;
   onConsumeSeedIntent?: () => void;
   sessionRuntime?: AssistantSessionRuntime;
@@ -245,6 +248,8 @@ function buildCodebaseContextualizedIntent({
 export function ChatShellWindow({
   variant = "overlay",
   presentationMode = "standalone",
+  paneLeadingAction,
+  paneTrailingAction,
   seedIntent = null,
   onConsumeSeedIntent,
   sessionRuntime,
@@ -1544,6 +1549,8 @@ export function ChatShellWindow({
               onToggleArtifactDrawer={() => {
                 setChatArtifactVisible((current) => !current);
               }}
+              paneLeadingAction={paneLeadingAction}
+              paneTrailingAction={paneTrailingAction}
               artifactDrawer={
                 <div
                   className={`spot-chat-artifact-drawer ${

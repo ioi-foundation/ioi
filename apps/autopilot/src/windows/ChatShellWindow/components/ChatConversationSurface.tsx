@@ -14,6 +14,8 @@ export function ChatConversationSurface({
   onOpenCommandPalette,
   onOpenSettings,
   onToggleArtifactDrawer,
+  paneLeadingAction,
+  paneTrailingAction,
 }: {
   sidebar: ReactNode;
   artifactVisible: boolean;
@@ -26,6 +28,8 @@ export function ChatConversationSurface({
   onOpenCommandPalette: () => void;
   onOpenSettings: () => void;
   onToggleArtifactDrawer: () => void;
+  paneLeadingAction?: ReactNode;
+  paneTrailingAction?: ReactNode;
 }) {
   return (
     <div
@@ -39,7 +43,10 @@ export function ChatConversationSurface({
         <div className="spot-chat-sidebar-shell-item">{sidebar}</div>
       ) : null}
       <div className="spot-chat-conversation-shell-item">
-        <div className="spot-workbench-chat-topbar" aria-label="Chat workbench toolbar">
+        <div
+          className="spot-workbench-chat-topbar"
+          aria-label="Chat workbench toolbar"
+        >
           <div className="spot-workbench-chat-tab is-active">Chat</div>
           <div
             className="spot-workbench-chat-drag-region"
@@ -48,6 +55,11 @@ export function ChatConversationSurface({
             aria-hidden="true"
           />
           <div className="spot-workbench-chat-actions">
+            {paneLeadingAction ? (
+              <span className="spot-workbench-chat-pane-action">
+                {paneLeadingAction}
+              </span>
+            ) : null}
             <button type="button" onClick={onNewSession} title="New session">
               {icons.plus}
             </button>
@@ -58,7 +70,11 @@ export function ChatConversationSurface({
             >
               {icons.search}
             </button>
-            <button type="button" onClick={onOpenSettings} title="Open Chat settings">
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              title="Open Chat settings"
+            >
               {icons.settings}
             </button>
             {artifactDrawerAvailable ? (
@@ -70,6 +86,11 @@ export function ChatConversationSurface({
               >
                 {icons.expand}
               </button>
+            ) : null}
+            {paneTrailingAction ? (
+              <span className="spot-workbench-chat-pane-action">
+                {paneTrailingAction}
+              </span>
             ) : null}
           </div>
         </div>
