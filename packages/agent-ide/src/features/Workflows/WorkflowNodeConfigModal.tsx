@@ -144,6 +144,7 @@ export function WorkflowNodeConfigModal({
   const [activeSection, setActiveSection] =
     useState<WorkflowNodeConfigSectionId>(initialSection);
   const configDialogRef = useRef<HTMLFormElement | null>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
   const staleFixtureCount = fixtures.filter((fixture) => fixture.stale).length;
   const inputPorts = ports.filter((port) => port.direction === "input");
   const outputPorts = ports.filter((port) => port.direction === "output");
@@ -580,13 +581,22 @@ export function WorkflowNodeConfigModal({
     });
   }, [initialSection, node.id]);
   useEffect(() => {
+    restoreFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       event.preventDefault();
       onClose();
     };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      const target = restoreFocusRef.current;
+      if (!target?.isConnected) return;
+      requestAnimationFrame(() => target.focus({ preventScroll: true }));
+    };
   }, [onClose]);
   const selectedFixture = fixtures.find((fixture) => fixture.pinned) ?? fixtures[0];
   const previewText = (value: unknown) => {
