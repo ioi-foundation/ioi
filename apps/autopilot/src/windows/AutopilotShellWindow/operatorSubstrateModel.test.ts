@@ -238,6 +238,59 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
   assert.doesNotMatch(workspaceHost, /workbenchDockBodyStrip/);
 });
 
+test("embedded OpenVSCode defers global search to Autopilot chrome", () => {
+  const workspaceIde = readFileSync(
+    "apps/autopilot/src-tauri/src/workspace_ide.rs",
+    "utf8",
+  );
+  const homeView = readFileSync(
+    "apps/autopilot/src/surfaces/Home/HomeView.tsx",
+    "utf8",
+  );
+  const homeOnboardingModel = readFileSync(
+    "apps/autopilot/src/surfaces/Home/homeOnboardingModel.ts",
+    "utf8",
+  );
+  const bundledExtension = readFileSync(
+    "apps/autopilot/openvscode-extension/ioi-workbench/extension.js",
+    "utf8",
+  );
+
+  assert.match(
+    workspaceIde,
+    /"window\.commandCenter"\.to_string\(\),\s*Value::Bool\(false\)/,
+  );
+  assert.match(
+    workspaceIde,
+    /fn ensure_openvscode_user_keybindings[\s\S]*"-workbench\.action\.quickOpen"[\s\S]*"-workbench\.action\.showCommands"/,
+  );
+  assert.match(
+    workspaceIde,
+    /fn openvscode_user_config_owned[\s\S]*"window\.commandCenter"[\s\S]*workbench\.action\.quickOpen/,
+  );
+  assert.match(
+    workspaceIde,
+    /openvscode_user_config_owned\(&existing_user_data_dir\)[\s\S]*return Ok\(current_session_info\(existing\)\)[\s\S]*kill_session\(existing\)/,
+  );
+  assert.match(
+    homeView,
+    /case "quickOpen\.open":[\s\S]*onOpenCommandPalette\(\);[\s\S]*return;/,
+  );
+  assert.doesNotMatch(
+    homeView,
+    /case "quickOpen\.open":[\s\S]*queueWorkbenchCommand\("workbench\.action\.quickOpen"\)/,
+  );
+  assert.match(homeOnboardingModel, /targetRoute: "Autopilot command center"/);
+  assert.doesNotMatch(
+    homeOnboardingModel,
+    /toSide:workbench\.action\.quickOpen/,
+  );
+  assert.doesNotMatch(
+    bundledExtension,
+    /label: "Open command palette"[\s\S]*command: "workbench\.action\.showCommands"/,
+  );
+});
+
 test("controlled substrate surfaces expose inspection target attributes", () => {
   const chatHeader = readFileSync(
     "apps/autopilot/src/windows/AutopilotShellWindow/components/ChatIdeHeader.tsx",

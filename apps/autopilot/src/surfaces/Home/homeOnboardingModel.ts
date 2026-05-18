@@ -783,7 +783,7 @@ const setupWebSteps: AutopilotOnboardingStep[] = [
       "Navigate between files in an instant with one keystroke. Tip: Open multiple files by pressing the right arrow key.",
     nlsIndexes: [15289, 15290],
     sourceActions: [
-      sourceAction(15291, "Quick Open a File", "toSide:workbench.action.quickOpen"),
+      sourceAction(15291, "Quick Open a File", "autopilot.commandCenter.open"),
     ],
     media: {
       kind: "single-image",
@@ -792,14 +792,14 @@ const setupWebSteps: AutopilotOnboardingStep[] = [
     },
     condition: "workspaceFolderCount != 0",
     captureStatus: "captured",
-    targetRoute: "Contained OpenVSCode quick open",
+    targetRoute: "Autopilot command center",
     completionPredicate: "workspace-opened",
     primaryAction: action(
       "quickOpen.open",
       "Quick Open a File",
       "autopilot.onboarding.quickOpen",
       "Home: Quick Open A File",
-      "toSide:workbench.action.quickOpen",
+      "autopilot.commandCenter.open",
     ),
   }),
 ];

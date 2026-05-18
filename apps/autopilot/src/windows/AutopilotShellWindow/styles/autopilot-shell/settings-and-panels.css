@@ -214,7 +214,7 @@
 }
 
 @media (max-width: 1180px) {
-  .chat-chat-pane {
+  .operator-chat-pane-shell {
     width: 340px;
   }
 }
@@ -224,7 +224,7 @@
     padding: 0;
   }
 
-  .chat-chat-pane {
+  .operator-chat-pane-shell {
     width: 320px;
   }
 

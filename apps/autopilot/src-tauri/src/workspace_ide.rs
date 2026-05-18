@@ -8,7 +8,7 @@ use axum::{
 use flate2::read::GzDecoder;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::collections::{hash_map::DefaultHasher, VecDeque};
 use std::fs::{self, File, OpenOptions};
 use std::hash::{Hash, Hasher};
@@ -494,6 +494,11 @@ fn ensure_openvscode_user_settings(user_data_dir: &Path) -> Result<(), String> {
         "workbench.startupEditor".to_string(),
         Value::String("none".to_string()),
     );
+    settings.insert("window.commandCenter".to_string(), Value::Bool(false));
+    settings.insert(
+        "workbench.layoutControl.enabled".to_string(),
+        Value::Bool(false),
+    );
     settings.insert(
         "workbench.welcomePage.walkthroughs.openOnInstall".to_string(),
         Value::Bool(false),
@@ -517,6 +522,82 @@ fn ensure_openvscode_user_settings(user_data_dir: &Path) -> Result<(), String> {
             error
         )
     })
+}
+
+fn ensure_openvscode_user_keybindings(user_data_dir: &Path) -> Result<(), String> {
+    let settings_dir = user_data_dir.join("User");
+    fs::create_dir_all(&settings_dir).map_err(|error| {
+        format!(
+            "Failed to create OpenVSCode user keybindings directory '{}': {}",
+            settings_dir.display(),
+            error
+        )
+    })?;
+    let keybindings_path = settings_dir.join("keybindings.json");
+    let keybindings = json!([
+        {
+            "key": "ctrl+p",
+            "command": "-workbench.action.quickOpen"
+        },
+        {
+            "key": "ctrl+e",
+            "command": "-workbench.action.quickOpen"
+        },
+        {
+            "key": "ctrl+shift+p",
+            "command": "-workbench.action.showCommands"
+        },
+        {
+            "key": "f1",
+            "command": "-workbench.action.showCommands"
+        },
+        {
+            "key": "ctrl+alt+l",
+            "command": "-workbench.action.quickOpen"
+        },
+        {
+            "key": "ctrl+shift+alt+l",
+            "command": "-workbench.action.quickOpen"
+        }
+    ]);
+    let contents = serde_json::to_string_pretty(&keybindings).map_err(|error| {
+        format!(
+            "Failed to serialize OpenVSCode user keybindings '{}': {}",
+            keybindings_path.display(),
+            error
+        )
+    })?;
+    fs::write(&keybindings_path, format!("{contents}\n")).map_err(|error| {
+        format!(
+            "Failed to write OpenVSCode user keybindings '{}': {}",
+            keybindings_path.display(),
+            error
+        )
+    })
+}
+
+fn openvscode_user_config_owned(user_data_dir: &Path) -> bool {
+    let settings_path = user_data_dir.join("User").join("settings.json");
+    let keybindings_path = user_data_dir.join("User").join("keybindings.json");
+
+    let settings_ready = fs::read_to_string(&settings_path)
+        .ok()
+        .and_then(|contents| serde_json::from_str::<Value>(&contents).ok())
+        .and_then(|value| value.as_object().cloned())
+        .map(|settings| {
+            settings.get("window.commandCenter") == Some(&Value::Bool(false))
+                && settings.get("workbench.layoutControl.enabled") == Some(&Value::Bool(false))
+        })
+        .unwrap_or(false);
+
+    let keybindings_ready = fs::read_to_string(&keybindings_path)
+        .map(|contents| {
+            contents.contains("\"-workbench.action.quickOpen\"")
+                && contents.contains("\"-workbench.action.showCommands\"")
+        })
+        .unwrap_or(false);
+
+    settings_ready && keybindings_ready
 }
 
 fn wait_for_server_ready(workbench_url: &str) -> Result<(), String> {
@@ -609,7 +690,14 @@ pub fn ensure_workspace_ide_session<R: Runtime>(
                 *session_guard = None;
             }
             Ok(None) if existing.root_path == root_path.to_string_lossy() => {
-                return Ok(current_session_info(existing));
+                let existing_runtime_root = workspace_runtime_root(&app, &root_path);
+                let existing_user_data_dir = existing_runtime_root.join("user-data");
+                if openvscode_user_config_owned(&existing_user_data_dir) {
+                    return Ok(current_session_info(existing));
+                }
+
+                kill_session(existing);
+                *session_guard = None;
             }
             Ok(None) => {
                 kill_session(existing);
@@ -637,6 +725,7 @@ pub fn ensure_workspace_ide_session<R: Runtime>(
     fs::create_dir_all(&user_data_dir)
         .map_err(|error| format!("Failed to create OpenVSCode user-data directory: {}", error))?;
     ensure_openvscode_user_settings(&user_data_dir)?;
+    ensure_openvscode_user_keybindings(&user_data_dir)?;
     fs::create_dir_all(&server_data_dir).map_err(|error| {
         format!(
             "Failed to create OpenVSCode server-data directory: {}",
@@ -865,4 +954,95 @@ pub fn take_workspace_ide_bridge_requests<R: Runtime>(
         }
     }
     Ok(Vec::new())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        ensure_openvscode_user_keybindings, ensure_openvscode_user_settings,
+        openvscode_user_config_owned,
+    };
+    use serde_json::Value;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_user_data(name: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time should be after unix epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "autopilot-workspace-ide-{name}-{}-{nonce}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&path).expect("temporary user-data directory should be created");
+        path
+    }
+
+    #[test]
+    fn openvscode_user_config_defers_global_search_to_autopilot() {
+        let user_data_dir = temp_user_data("command-center-owned-by-autopilot");
+
+        ensure_openvscode_user_settings(&user_data_dir)
+            .expect("OpenVSCode settings should be written");
+        ensure_openvscode_user_keybindings(&user_data_dir)
+            .expect("OpenVSCode keybindings should be written");
+
+        let settings_path = user_data_dir.join("User").join("settings.json");
+        let settings: Value = serde_json::from_str(
+            &fs::read_to_string(&settings_path).expect("settings should be readable"),
+        )
+        .expect("settings should be json");
+        assert_eq!(
+            settings.get("window.commandCenter"),
+            Some(&Value::Bool(false))
+        );
+        assert_eq!(
+            settings.get("workbench.layoutControl.enabled"),
+            Some(&Value::Bool(false))
+        );
+
+        let keybindings = fs::read_to_string(user_data_dir.join("User").join("keybindings.json"))
+            .expect("keybindings should be readable");
+        assert!(keybindings.contains("\"-workbench.action.quickOpen\""));
+        assert!(keybindings.contains("\"-workbench.action.showCommands\""));
+        assert!(openvscode_user_config_owned(&user_data_dir));
+
+        let _ = fs::remove_dir_all(user_data_dir);
+    }
+
+    #[test]
+    fn openvscode_user_config_owned_requires_disabled_chrome_and_keybindings() {
+        let user_data_dir = temp_user_data("owned-contract");
+
+        ensure_openvscode_user_settings(&user_data_dir)
+            .expect("OpenVSCode settings should be written");
+        assert!(
+            !openvscode_user_config_owned(&user_data_dir),
+            "settings alone should not claim ownership because keybindings still route quick-open to OpenVSCode"
+        );
+
+        ensure_openvscode_user_keybindings(&user_data_dir)
+            .expect("OpenVSCode keybindings should be written");
+        assert!(openvscode_user_config_owned(&user_data_dir));
+
+        let settings_path = user_data_dir.join("User").join("settings.json");
+        let mut settings: Value = serde_json::from_str(
+            &fs::read_to_string(&settings_path).expect("settings should be readable"),
+        )
+        .expect("settings should be json");
+        settings["window.commandCenter"] = Value::Bool(true);
+        fs::write(
+            &settings_path,
+            serde_json::to_string_pretty(&settings).expect("settings should serialize"),
+        )
+        .expect("settings mutation should be written");
+        assert!(
+            !openvscode_user_config_owned(&user_data_dir),
+            "stale OpenVSCode sessions must relaunch when the substrate owns command center chrome"
+        );
+
+        let _ = fs::remove_dir_all(user_data_dir);
+    }
 }

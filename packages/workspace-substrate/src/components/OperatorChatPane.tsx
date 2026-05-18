@@ -129,6 +129,10 @@ export function OperatorChatPane({
   dataChatPaneMode,
   onTabClick,
 }: OperatorChatPaneProps) {
+  const hasUtilityControls =
+    Boolean(leadingControls) ||
+    secondaryActions.length > 0 ||
+    Boolean(trailingControls);
   const tab = (
     <button
       type="button"
@@ -171,14 +175,14 @@ export function OperatorChatPane({
             className="operator-chat-pane__actions"
             aria-label={`${tabLabel} actions`}
           >
+            {primaryActions.map(renderAction)}
+            {hasUtilityControls ? (
+              <span className="operator-chat-pane__divider" aria-hidden="true" />
+            ) : null}
             {leadingControls ? (
               <span className="operator-chat-pane__control-slot">
                 {leadingControls}
               </span>
-            ) : null}
-            {primaryActions.map(renderAction)}
-            {secondaryActions.length > 0 ? (
-              <span className="operator-chat-pane__divider" aria-hidden="true" />
             ) : null}
             {secondaryActions.map(renderAction)}
             {trailingControls ? (

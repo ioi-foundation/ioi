@@ -532,7 +532,7 @@
   min-height: 0;
 }
 
-.chat-chat-pane,
+.operator-chat-pane-shell,
 .chat-content-main,
 .chat-left-sidebar {
   min-height: 0;
@@ -554,7 +554,7 @@
   background: var(--chat-border);
 }
 
-.chat-chat-pane {
+.operator-chat-pane-shell {
   width: clamp(360px, 30vw, 460px);
   flex-shrink: 0;
   display: flex;
@@ -564,11 +564,11 @@
   align-self: stretch;
 }
 
-.chat-chat-pane.is-maximized {
+.operator-chat-pane-shell.is-maximized {
   width: clamp(520px, 44vw, 760px);
 }
 
-.chat-content.is-chat-fullscreen .chat-chat-pane {
+.chat-content.is-chat-fullscreen .operator-chat-pane-shell {
   width: 100%;
   flex: 1;
 }
@@ -650,21 +650,14 @@
   outline-offset: -1px;
 }
 
-.chat-chat-pane-body {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-  background: var(--chat-bg);
-}
-
-.chat-chat-pane-body .mission-control-view,
-.chat-chat-pane-body .mission-control-stage,
-.chat-chat-pane-body .mission-control-stage-frame,
-.chat-chat-pane-body .spot-window,
-.chat-chat-pane-body .spot-window--chat,
-.chat-chat-pane-body .spot-container,
-.chat-chat-pane-body .spot-content,
-.chat-chat-pane-body .spot-main {
+.operator-chat-pane-shell .mission-control-view,
+.operator-chat-pane-shell .mission-control-stage,
+.operator-chat-pane-shell .mission-control-stage-frame,
+.operator-chat-pane-shell .spot-window,
+.operator-chat-pane-shell .spot-window--chat,
+.operator-chat-pane-shell .spot-container,
+.operator-chat-pane-shell .spot-content,
+.operator-chat-pane-shell .spot-main {
   min-height: 0;
   height: 100%;
   display: flex;
@@ -672,39 +665,44 @@
   background: var(--chat-bg) !important;
 }
 
-.chat-chat-pane-body .spot-chat-shell {
+.operator-chat-pane-shell .mission-control-view {
+  flex: 1;
+  overflow: hidden;
+}
+
+.operator-chat-pane-shell .spot-chat-shell {
   min-height: 0;
   height: 100%;
 }
 
-.chat-chat-pane-body .spot-chat-conversation-shell-item,
-.chat-chat-pane-body .spot-chat-conversation {
+.operator-chat-pane-shell .spot-chat-conversation-shell-item,
+.operator-chat-pane-shell .spot-chat-conversation {
   min-height: 0;
   height: 100%;
 }
 
-.chat-chat-pane-body .spot-chat {
+.operator-chat-pane-shell .spot-chat {
   padding-bottom: 28px;
 }
 
-.chat-chat-pane-body .spot-input-section {
+.operator-chat-pane-shell .spot-input-section {
   margin-top: auto;
   padding: 8px 0 8px;
 }
 
-.chat-chat-pane-body .spot-input-section::before {
+.operator-chat-pane-shell .spot-input-section::before {
   top: -16px;
   height: 16px;
 }
 
-.chat-chat-pane-body .spot-sidebar-toggle,
-.chat-chat-pane-body .spot-input-wrapper,
-.chat-chat-pane-body .spot-input-actions,
-.chat-chat-pane-body .spot-dropdown-trigger {
+.operator-chat-pane-shell .spot-sidebar-toggle,
+.operator-chat-pane-shell .spot-input-wrapper,
+.operator-chat-pane-shell .spot-input-actions,
+.operator-chat-pane-shell .spot-dropdown-trigger {
   background: var(--chat-bg-surface);
 }
 
-.chat-chat-pane-body .spot-message.user {
+.operator-chat-pane-shell .spot-message.user {
   background: #242424;
   border-color: var(--chat-border);
 }

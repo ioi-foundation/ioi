@@ -45,16 +45,16 @@ export function ChatConversationSurface({
       onClick: onNewSession,
     },
     {
-      id: "search",
-      label: "Open Chat command palette",
-      icon: icons.search,
-      onClick: onOpenCommandPalette,
-    },
-    {
       id: "settings",
       label: "Open Chat settings",
       icon: icons.settings,
       onClick: onOpenSettings,
+    },
+    {
+      id: "more",
+      label: "More chat actions",
+      icon: icons.more,
+      onClick: onOpenCommandPalette,
     },
   ];
   const secondaryActions: OperatorChatPaneAction[] = artifactDrawerAvailable

@@ -1412,22 +1412,22 @@
   width: min(100%, 340px);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
   margin-top: 12px;
-  padding: 10px;
-  border: 1px solid var(--workspace-border-strong);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
+  padding: 8px;
+  border: 1px solid var(--operator-chat-border-strong);
+  border-radius: 4px;
+  background: var(--operator-chat-bg);
   text-align: left;
 }
 
 .workspace-agent-composer-context {
   align-self: flex-start;
   min-height: 24px;
-  padding: 0 8px;
-  border: 1px solid var(--workspace-border-strong);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.04);
+  padding: 0 9px;
+  border: 1px solid var(--workspace-border);
+  border-radius: 3px;
+  background: transparent;
   color: var(--workspace-text-secondary);
   font: inherit;
   cursor: pointer;
@@ -1436,25 +1436,32 @@
 .workspace-agent-composer p,
 .workspace-agent-composer-card p {
   margin: 0;
-  color: var(--workspace-text-secondary);
+  color: var(--operator-chat-text-secondary);
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .workspace-agent-composer-footer {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
   color: var(--workspace-text-secondary);
   font-size: 12px;
 }
 
 .workspace-agent-composer-footer button {
   min-height: 24px;
-  padding: 0 8px;
+  padding: 0 7px;
   border: 1px solid var(--workspace-border);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.03);
+  border-radius: 3px;
+  background: transparent;
   color: var(--workspace-text-secondary);
   font: inherit;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   cursor: pointer;
 }
 
