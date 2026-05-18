@@ -2,12 +2,14 @@ import { strict as assert } from "node:assert";
 import test from "node:test";
 
 import {
+  consumePendingWorkspaceRepositoryOpen,
   createUniqueRepositorySlug,
   formatWorkspaceRepositoryMutationError,
   getGeneratedRepositoryPath,
   loadWorkspaceRepositories,
   markWorkspaceRepositoryOpened,
   persistCreatedWorkspaceRepository,
+  persistPendingWorkspaceRepositoryOpen,
   slugifyRepositoryName,
   toggleWorkspaceRepositoryFavorite,
   type WorkspaceRepositoryRecord,
@@ -152,4 +154,16 @@ test("toggleWorkspaceRepositoryFavorite persists favorite state", () => {
     )?.favorite,
     false,
   );
+});
+
+test("pending workspace repository open is consumed once", () => {
+  installMemoryStorage();
+  persistCreatedWorkspaceRepository(createdRepository);
+  persistPendingWorkspaceRepositoryOpen(createdRepository);
+
+  assert.equal(
+    consumePendingWorkspaceRepositoryOpen(seedProjects)?.id,
+    "created:demo-pipeline",
+  );
+  assert.equal(consumePendingWorkspaceRepositoryOpen(seedProjects), null);
 });

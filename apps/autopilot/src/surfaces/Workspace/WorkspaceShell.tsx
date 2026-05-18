@@ -39,6 +39,7 @@ import { useWorkspaceWorkbenchSession } from "../../services/useWorkspaceWorkben
 import { tauriWorkspaceAdapter } from "../../services/workspaceAdapter";
 import {
   createUniqueRepositorySlug,
+  consumePendingWorkspaceRepositoryOpen,
   formatWorkspaceRepositoryMutationError,
   getGeneratedRepositoryPath,
   loadWorkspaceRepositories,
@@ -155,6 +156,21 @@ export function WorkspaceShell({
     },
     [refreshRepositories],
   );
+
+  useEffect(() => {
+    if (!active) {
+      return;
+    }
+
+    const pendingRepository = consumePendingWorkspaceRepositoryOpen(seedProjects);
+    if (!pendingRepository) {
+      return;
+    }
+
+    void openRepository(pendingRepository, {
+      ensureDirectory: false,
+    });
+  }, [active, openRepository, seedProjects]);
 
   const createRepository = useCallback(
     async (request: WorkspaceRepositoryCreateRequest) => {
