@@ -313,6 +313,121 @@ export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+export type WorkflowRuntimeUnavailableSurface =
+  | "saved_workflow_bundle"
+  | "runtime_bridge"
+  | "tool_catalog"
+  | "connector_catalog"
+  | "model_catalog";
+
+export interface WorkflowRuntimeUnavailableCopy {
+  code: string;
+  title: string;
+  message: string;
+  repairLabel: string;
+  technicalDetail: string;
+}
+
+const RUNTIME_BRIDGE_UNAVAILABLE_MESSAGE =
+  "The composer could not reach the desktop/runtime bridge needed to read saved workflow bundles or live catalogs. Try saving the workflow, retrying the runtime bridge, or opening diagnostics. Offline presets are available for draft composition.";
+
+function workflowRuntimeUnavailableSurfaceLabel(
+  surface: WorkflowRuntimeUnavailableSurface,
+): string {
+  switch (surface) {
+    case "saved_workflow_bundle":
+      return "saved workflow bundle";
+    case "tool_catalog":
+      return "tool catalog";
+    case "connector_catalog":
+      return "connector catalog";
+    case "model_catalog":
+      return "model catalog";
+    case "runtime_bridge":
+    default:
+      return "runtime bridge";
+  }
+}
+
+export function workflowRuntimeUnavailableCopy(
+  error: unknown,
+  surface: WorkflowRuntimeUnavailableSurface = "runtime_bridge",
+): WorkflowRuntimeUnavailableCopy {
+  const detail = errorMessage(error);
+  const normalizedDetail = detail.toLowerCase();
+  const bridgeLike =
+    normalizedDetail.includes("reading 'invoke'") ||
+    normalizedDetail.includes('reading "invoke"') ||
+    normalizedDetail.includes("invoke is not a function") ||
+    normalizedDetail.includes("runtime bridge") ||
+    normalizedDetail.includes("tauri") ||
+    normalizedDetail.includes("ipc");
+  const label = workflowRuntimeUnavailableSurfaceLabel(surface);
+  if (bridgeLike) {
+    return {
+      code: "runtime_bridge_unavailable",
+      title: "Runtime bridge unavailable",
+      message: RUNTIME_BRIDGE_UNAVAILABLE_MESSAGE,
+      repairLabel: "Open runtime diagnostics",
+      technicalDetail: `${label}: ${detail}`,
+    };
+  }
+  if (surface === "saved_workflow_bundle") {
+    return {
+      code: "workflow_bundle_unavailable",
+      title: "Workflow bundle unavailable",
+      message:
+        "The saved workflow bundle could not be read. Save the workflow, retry validation, or open diagnostics if the runtime bridge is unavailable.",
+      repairLabel: "Save workflow or open diagnostics",
+      technicalDetail: `${label}: ${detail}`,
+    };
+  }
+  return {
+    code: `${surface}_unavailable`,
+    title: `${workflowRuntimeUnavailableSurfaceLabel(surface)} unavailable`,
+    message: `The ${label} could not be loaded. Continue with offline presets for draft composition, then retry when the runtime is available.`,
+    repairLabel: "Retry runtime bridge",
+    technicalDetail: `${label}: ${detail}`,
+  };
+}
+
+export function createWorkflowRuntimeUnavailableFailure(
+  surface: WorkflowRuntimeUnavailableSurface,
+  error: unknown,
+): WorkflowValidationResult {
+  const copy = workflowRuntimeUnavailableCopy(error, surface);
+  return {
+    ...createWorkflowActionFailure(copy.code, copy.message),
+    errors: [
+      {
+        code: copy.code,
+        message: copy.message,
+        repairLabel: copy.repairLabel,
+        technicalDetail: copy.technicalDetail,
+      },
+    ],
+  };
+}
+
+export function workflowRuntimeCatalogFallbackCopy(
+  issues: WorkflowRuntimeUnavailableCopy[],
+): { message: string; technicalDetail: string | null } | null {
+  if (issues.length === 0) return null;
+  const hasBridgeIssue = issues.some(
+    (issue) => issue.code === "runtime_bridge_unavailable",
+  );
+  const message = hasBridgeIssue
+    ? "Runtime bridge unavailable. Live capability catalogs could not be loaded; using offline presets for draft composition."
+    : "Live capability catalogs could not be loaded; using offline presets for draft composition.";
+  return {
+    message,
+    technicalDetail: issues
+      .map((issue) => issue.technicalDetail)
+      .filter(Boolean)
+      .join("; ") || null,
+  };
+}
+
 export function workflowRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
