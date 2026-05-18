@@ -1297,6 +1297,50 @@ button.workflow-run-row.is-active {
   gap: 6px;
 }
 
+.workflow-compatible-search-recovery {
+  display: grid;
+  gap: 7px;
+  border: 1px solid color-mix(in srgb, var(--status-warning) 42%, var(--border-subtle));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--status-warning) 8%, var(--workflow-panel-strong));
+  margin: 8px 0;
+  padding: 9px;
+}
+
+.workflow-compatible-search-recovery strong {
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.workflow-compatible-search-recovery span {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.workflow-compatible-search-recovery div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.workflow-compatible-search-recovery button {
+  min-height: 26px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--workflow-panel-strong) 90%, transparent);
+  color: var(--text-secondary);
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+.workflow-compatible-search-recovery button:hover,
+.workflow-compatible-search-recovery button:focus-visible {
+  border-color: var(--accent-blue);
+  color: var(--text-primary);
+}
+
 .workflow-rail-list {
   display: grid;
   gap: 7px;

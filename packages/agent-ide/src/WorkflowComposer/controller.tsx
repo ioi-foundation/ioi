@@ -266,6 +266,7 @@ import {
   nodeVisualStatus,
   preferredCompatiblePortPair,
   toWorkflowProject,
+  workflowCompatibleSearchRecovery,
   workflowModelBindingKeyForNode,
   workflowRuntimeCatalogFallbackCopy,
   workflowRuntimeUnavailableCopy,
@@ -2980,6 +2981,23 @@ export function useWorkflowComposerController({
         return item.group === nodeGroupFilter;
       }),
     [compatibleCreatorIds, nodeGroupFilter, paletteNodeLibrary],
+  );
+  const compatibleSearchRecovery = useMemo(
+    () =>
+      workflowCompatibleSearchRecovery({
+        query: nodeSearch,
+        nodeGroupFilter,
+        selectedNode,
+        globalMatchCount: paletteNodeLibrary.length,
+        compatibleMatchCount: filteredNodeLibrary.length,
+      }),
+    [
+      filteredNodeLibrary.length,
+      nodeGroupFilter,
+      nodeSearch,
+      paletteNodeLibrary.length,
+      selectedNode,
+    ],
   );
   const visibleCompatibleNodeHints = useMemo(
     () =>
@@ -11254,6 +11272,55 @@ export function useWorkflowComposerController({
     ],
   );
 
+  const handleShowAllCompatibleSearchMatches = useCallback(() => {
+    setCompatiblePortFocus(null);
+    setNodeGroupFilter("All");
+    setNodePaletteMode("all");
+    setStatusMessage(
+      compatibleSearchRecovery
+        ? `Showing all ${compatibleSearchRecovery.query} matches`
+        : "Showing all node matches",
+    );
+  }, [compatibleSearchRecovery]);
+
+  const handleClearCompatibleSearchFilter = useCallback(() => {
+    setCompatiblePortFocus(null);
+    setNodeGroupFilter("All");
+    setNodeSearch("");
+    setNodePaletteMode("all");
+    setStatusMessage("Compatibility filter cleared");
+  }, []);
+
+  const handleAddAgentStepFromCompatibleRecovery = useCallback(() => {
+    if (!selectedNode) return;
+    const agentStepHint =
+      compatibleNodeHints.find(
+        (hint) =>
+          workflowCreatorItemId(hint.definition) === "model_call" &&
+          hint.recommended,
+      ) ??
+      compatibleNodeHints.find(
+        (hint) => workflowCreatorItemId(hint.definition) === "model_call",
+      ) ??
+      compatibleNodeHints.find((hint) => hint.definition.type === "model_call");
+    if (agentStepHint) {
+      handleAddCompatibleNode(selectedNode, agentStepHint.definition, agentStepHint);
+      return;
+    }
+    setCompatiblePortFocus(null);
+    setNodePaletteMode("all");
+    setNodeGroupFilter("Compatible");
+    setNodeSearch("model");
+    setStatusMessage("Choose an Agent Step before adding this primitive.");
+  }, [compatibleNodeHints, handleAddCompatibleNode, selectedNode]);
+
+  const handleExplainCompatibleSearchRecovery = useCallback(() => {
+    if (!compatibleSearchRecovery) return;
+    setStatusMessage(
+      `${compatibleSearchRecovery.query} exists globally, but it does not connect directly from ${compatibleSearchRecovery.selectedNodeName}. Add an Agent Step first or show all matches.`,
+    );
+  }, [compatibleSearchRecovery]);
+
   const handleInsertAgentLoopMacro = useCallback(() => {
     const macroId = `agent-loop-${Date.now()}`;
     const selectedData = selectedNode;
@@ -15462,6 +15529,7 @@ export function useWorkflowComposerController({
     closeLeftDrawer,
     compareRunId,
     compareRunResult,
+    compatibleSearchRecovery,
     compatibleNodeHints,
     compatiblePortFocusLabel,
     connectFromNodeId,
@@ -15503,6 +15571,7 @@ export function useWorkflowComposerController({
     guardedOnEdgesChange,
     guardedOnNodesChange,
     handleAddCompatibleNode,
+    handleAddAgentStepFromCompatibleRecovery,
     handleAddNodeFromLibrary,
     handleAddTest,
     handleAddTestFromOutput,
@@ -15528,6 +15597,7 @@ export function useWorkflowComposerController({
     handleExecuteRuntimeWorkspaceTrustAction,
     handleExecuteRuntimeCodingToolBudgetRecovery,
     handleCreateRuntimeCodingToolBudgetRecoverySubflow,
+    handleClearCompatibleSearchFilter,
     handleBindRuntimeCodingToolBudgetRecoveryTemplate,
     handleBindRuntimeTelemetrySource,
     handleMaterializeRuntimeTelemetryBudgetChain,
@@ -15535,6 +15605,7 @@ export function useWorkflowComposerController({
     handleExecuteHarnessRollback,
     handleExpandHarnessGroups,
     handleExportPortablePackage,
+    handleExplainCompatibleSearchRecovery,
     handleForkDefaultHarness,
     handleGenerateBindingManifest,
     handleImportNodeFixture,
@@ -15570,6 +15641,7 @@ export function useWorkflowComposerController({
     handleSelectHarnessRollbackTarget,
     handleSelectRun,
     handleSelectedNodeRepairAction,
+    handleShowAllCompatibleSearchMatches,
     handleUpdateEnvironmentProfile,
     handleUpdateWorkflowChromeLocale,
     handleUpdateProductionProfile,

@@ -49,6 +49,52 @@ export interface WorkflowSelectedNodeRepairAction {
   bindingFocusKey?: string;
 }
 
+export interface WorkflowCompatibleSearchRecovery {
+  query: string;
+  selectedNodeId: string;
+  selectedNodeName: string;
+  globalMatchCount: number;
+  title: string;
+  message: string;
+  recommendedBridgeLabel: string;
+}
+
+export function workflowCompatibleSearchRecovery({
+  query,
+  nodeGroupFilter,
+  selectedNode,
+  globalMatchCount,
+  compatibleMatchCount,
+}: {
+  query: string;
+  nodeGroupFilter: string;
+  selectedNode: Node | null;
+  globalMatchCount: number;
+  compatibleMatchCount: number;
+}): WorkflowCompatibleSearchRecovery | null {
+  const normalizedQuery = query.trim();
+  if (
+    !selectedNode ||
+    !normalizedQuery ||
+    nodeGroupFilter !== "Compatible" ||
+    compatibleMatchCount > 0 ||
+    globalMatchCount === 0
+  ) {
+    return null;
+  }
+
+  return {
+    query: normalizedQuery,
+    selectedNodeId: selectedNode.id,
+    selectedNodeName: selectedNode.name,
+    globalMatchCount,
+    title: `No ${normalizedQuery} primitives connect directly from ${selectedNode.name}.`,
+    message:
+      "Those primitives exist, but this selected node needs a bridge step or a different port path before they can attach.",
+    recommendedBridgeLabel: "Add Agent Step",
+  };
+}
+
 function workflowNodeHasConnection(
   workflow: WorkflowProject,
   nodeId: string,
