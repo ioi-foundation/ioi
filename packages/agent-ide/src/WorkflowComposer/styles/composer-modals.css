@@ -599,6 +599,18 @@
   padding: 10px;
 }
 
+.workflow-binding-row.is-focused {
+  border-color: color-mix(in srgb, var(--accent-blue) 62%, var(--border-subtle));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-blue) 18%, transparent);
+}
+
+.workflow-binding-focus-note {
+  border: 1px solid color-mix(in srgb, var(--accent-blue) 42%, var(--border-subtle));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-blue) 8%, var(--workflow-panel-strong));
+  padding: 8px;
+}
+
 .workflow-binding-row > header {
   display: flex;
   align-items: center;

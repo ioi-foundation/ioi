@@ -29,6 +29,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     connectFromNodeId,
     ConnectorBindingModal,
     connectorBindingOpen,
+    connectorBindingFocusNodeId,
     workflowToolCatalog,
     workflowConnectorCatalog,
     workflowCapabilityCatalogLoading,
@@ -108,6 +109,8 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleInspectHarnessGroupNode,
     handleOpenDefaultHarness,
     handleOpenDeploy,
+    handleOpenConnectorBindings,
+    handleOpenModelBindings,
     handlePinNodeFixture,
     handleResolveCapabilityGrantRequest,
     handleResolveWorkflowIssue,
@@ -128,6 +131,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleSelectHarnessReplayFixtureRef,
     handleSelectHarnessRollbackTarget,
     handleSelectRun,
+    handleSelectedNodeRepairAction,
     handleUpdateEnvironmentProfile,
     handleUpdateWorkflowChromeLocale,
     handleUpdateProductionProfile,
@@ -153,6 +157,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     missingReasoningBinding,
     ModelBindingModal,
     modelBindingOpen,
+    modelBindingFocusKey,
     newTestExpected,
     newTestExpression,
     newTestKind,
@@ -203,6 +208,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     selectedExecutionRun,
     selectedExecutionRunResult,
     selectedFixtures,
+    selectedNodeRepairActions,
     selectedHarnessGroup,
     selectedHarnessDefaultDispatchId,
     selectedHarnessActivationAuditEventId,
@@ -572,13 +578,13 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
               label="Models"
               icon={Brain}
               testId="workflow-model-bindings-button"
-              onClick={() => setModelBindingOpen(true)}
+              onClick={handleOpenModelBindings}
             />
             <WorkflowHeaderAction
               label="Connectors"
               icon={Cable}
               testId="workflow-connector-bindings-button"
-              onClick={() => setConnectorBindingOpen(true)}
+              onClick={handleOpenConnectorBindings}
             />
           </div>
           <div
@@ -688,7 +694,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
           <button
             type="button"
             data-testid="workflow-banner-configure-models"
-            onClick={() => setModelBindingOpen(true)}
+            onClick={handleOpenModelBindings}
           >
             Configure models
           </button>
@@ -2162,6 +2168,8 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
           }}
           onResumeRun={handleResumeRun}
           onInspectNode={(nodeId) => handleWorkflowNodeSelect(nodeId)}
+          repairActions={selectedNodeRepairActions}
+          onRepairAction={handleSelectedNodeRepairAction}
         />
       </section>
 
@@ -2227,7 +2235,10 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
       {modelBindingOpen ? (
         <ModelBindingModal
           globalConfig={globalConfig}
-          onClose={() => setModelBindingOpen(false)}
+          focusBindingKey={modelBindingFocusKey}
+          onClose={() => {
+            setModelBindingOpen(false);
+          }}
           onUpdate={setGlobalConfig}
         />
       ) : null}
@@ -2240,6 +2251,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
           catalogLoading={workflowCapabilityCatalogLoading}
           catalogError={workflowCapabilityCatalogError}
           catalogErrorDetail={workflowCapabilityCatalogErrorDetail}
+          focusNodeId={connectorBindingFocusNodeId}
           onClose={() => setConnectorBindingOpen(false)}
           onInspectNode={(nodeId) => {
             const nodeItem = nodes.find((node) => node.id === nodeId)

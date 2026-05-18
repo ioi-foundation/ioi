@@ -21,7 +21,10 @@ import {
   workflowInterruptPreview,
   workflowSelectedNodeValidationIssues,
 } from "../../runtime/workflow-bottom-panel-model";
-import { workflowFunctionDryRunView } from "../../runtime/workflow-composer-model";
+import {
+  workflowFunctionDryRunView,
+  type WorkflowSelectedNodeRepairAction,
+} from "../../runtime/workflow-composer-model";
 import { workflowFixtureSourceLabel } from "../../runtime/workflow-fixture-model";
 import {
   compareRunRecords,
@@ -86,6 +89,8 @@ export function WorkflowBottomShelf({
   onDryRunFixture,
   onResumeRun,
   onInspectNode,
+  repairActions = [],
+  onRepairAction,
 }: {
   panel: WorkflowBottomPanel;
   selectedNode: Node | null;
@@ -110,6 +115,8 @@ export function WorkflowBottomShelf({
   onDryRunFixture: (fixture?: WorkflowNodeFixture) => void | undefined;
   onResumeRun: (outcome: WorkflowResumeRequest["outcome"]) => void;
   onInspectNode: (nodeId: string) => void;
+  repairActions?: WorkflowSelectedNodeRepairAction[];
+  onRepairAction?: (action: WorkflowSelectedNodeRepairAction) => void;
 }) {
   const interruptPreview = workflowInterruptPreview(lastRunResult);
   const selectedInputPorts = selectedNode?.ports?.filter((port) => port.direction === "input") ?? [];
@@ -164,6 +171,29 @@ export function WorkflowBottomShelf({
           <dd>{validationIssuesForSelectedNode.length}</dd>
         </dl>
         <div className="workflow-selection-detail-list" data-testid="workflow-selection-detail-list">
+          {repairActions.length > 0 ? (
+            <article
+              className="workflow-output-row workflow-selection-repair-card"
+              data-testid="workflow-selection-repair-actions"
+            >
+              <strong>Next repairs</strong>
+              <span>Resolve this node's blockers without leaving its context.</span>
+              <div className="workflow-selection-repair-actions">
+                {repairActions.map((action) => (
+                  <button
+                    key={action.id}
+                    type="button"
+                    data-testid={`workflow-repair-action-${action.kind}`}
+                    data-repair-priority={action.priority}
+                    onClick={() => onRepairAction?.(action)}
+                  >
+                    <strong>{action.label}</strong>
+                    <span>{action.description}</span>
+                  </button>
+                ))}
+              </div>
+            </article>
+          ) : null}
           <article className="workflow-output-row" data-testid="workflow-selection-config">
             <strong>Configuration</strong>
             <span>
