@@ -1467,8 +1467,19 @@
   padding-bottom: 22px;
 }
 
+.spot-window--chat .spot-chat-conversation.is-empty .spot-chat {
+  flex: 1 1 0;
+  padding: 0;
+  align-content: stretch;
+}
+
 .spot-window--chat .spot-chat-welcome {
-  gap: 12px;
+  gap: 18px;
+}
+
+.spot-window--chat .spot-chat-welcome-main {
+  gap: 14px;
+  transform: translateY(10%);
 }
 
 .spot-window--chat .spot-chat-welcome-mark {
@@ -1502,6 +1513,11 @@
 .spot-window--chat .spot-chat-welcome-kicker {
   color: var(--spot-text-muted);
   font-weight: 500;
+}
+
+.spot-window--chat .spot-chat-welcome-actions {
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .spot-window--chat .spot-chat-lens-card {
