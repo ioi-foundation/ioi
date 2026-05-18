@@ -2,7 +2,7 @@
 
 Owner: Autopilot / Chat UX / Workspace substrate / Workflow Composer / Direct OpenVSCode bridge
 
-Status: completed / regression guarded
+Status: reopened / shared chat UX parity incomplete
 
 Created: 2026-05-18
 
@@ -94,12 +94,12 @@ toolbar affordances, but it should not own the global command/search center.
 | --- | --- | --- | --- |
 | Shared substrate contract | Define one operator substrate model across chat, workspace, workflows, and data-window surfaces. | Done / regression guarded | Shared types describe command center, side rail, chat pane, context picker, inspector targets, and project materialization events. |
 | Header command center | Lift VS Code substrate center bar into `ChatIdeHeader`. | Done / regression guarded | Center command/search is persistent across chat, workflows, workspace, runs, policy, and settings; workspace no longer duplicates global center chrome. |
-| Shared chat pane | Reuse the mature VS Code-style chat pane shape in Autopilot Chat and data-window surfaces. | Done / chrome contract guarded | Primary chat and workspace dock expose one operator chat-pane control contract with real DOM controls, mode-specific responsive layout, and no screenshot hitboxes. |
+| Shared chat pane | Reuse the mature VS Code-style chat pane shape in Autopilot Chat and data-window surfaces. | Reopened / visual and component parity required | Primary chat, sidebar chat, workspace dock chat, and data-window chat use the same shared `OperatorChatPane` component family, empty state, composer chrome, control order, theme tokens, spacing scale, and responsive modes. |
 | Activity rail convergence | Make data-window surfaces use the same improved chat activity rail semantics. | Done / regression guarded | Sidebar supports collapsed/expanded modes, consistent icons, profile, search shortcut, and data-window surface routing. |
 | Workflow-to-project materialization | Make workflow composition generate/open real VS Code Studio projects. | Done / regression guarded | A composed workflow emits an Autonomous System Package scaffold, persists it as a workspace repository, hands it off for workspace opening, and fail-closes with user-facing copy outside desktop runtime. |
 | Workspace bridge deepening | Turn workspace/direct OpenVSCode into an addressable controlled substrate. | Done / target-index guarded | Controlled workspace substrate chrome exposes stable inspection targets; direct OpenVSCode exposes bounded surface metadata and target-index snapshots for fallback. |
 | Inspector substrate targeting | Make web inspector effectively target VS Code substrate UX. | Done / controlled-target guarded | Inspector targets cover activity rail, command center, workspace rail/explorer/editor/terminal/chat chrome, workflow composer/canvas/nodes/palette, run evidence, and direct webview bounds. |
-| GUI validation net | Prove the integration with live clickthroughs. | Done / Playwright guarded | Browser clickthrough covers command center across primary surfaces, no duplicate workspace center bar, command palette, workflow materialization fail-closed copy, and substrate inspection markers. |
+| GUI validation net | Prove the integration with live clickthroughs. | Reopened / visual parity probes required | Playwright/autopilot probes cover command center, no duplicate workspace center bar, command palette, workflow materialization, substrate inspection markers, and screenshot/layout parity for full, sidebar, docked, and data-window chat panes. |
 
 ## Target Architecture
 
@@ -430,6 +430,18 @@ Required probes:
 - Dark/light themes remain consistent.
 
 ## Validation Snapshot
+
+Correction on 2026-05-18:
+
+- The previous completion state overstated the shared chat-pane result. The
+  implementation unified targetability and control semantics, but screenshots
+  still show materially different chat panes between Autopilot Chat and the VS
+  Code Studio substrate.
+- The master guide north star was correct, but the completion dashboard accepted
+  "chrome contract" parity where true user-facing parity required a shared
+  component family and visual/layout regression checks.
+- The leg is reopened until the shared chat pane is implemented as product UI,
+  not just as compatible inspection/control contracts.
 
 Completed validation:
 
