@@ -4,9 +4,11 @@ import test from "node:test";
 import type { Node, WorkflowProject, WorkflowValidationResult } from "../types/graph";
 import {
   workflowCompatibleSearchRecovery,
+  workflowNodeCreatorDefaultAddMode,
   workflowModelBindingKeyForNode,
   workflowSelectedNodeRepairActions,
 } from "./workflow-composer-model";
+import type { WorkflowNodeDefinition } from "./workflow-node-registry";
 
 const emptyValidation: WorkflowValidationResult = {
   status: "passed",
@@ -205,5 +207,73 @@ test("compatible search recovery stays hidden when compatible matches exist", ()
       compatibleMatchCount: 1,
     }),
     null,
+  );
+});
+
+test("topology-first add mode covers context, tool, and output primitives", () => {
+  const base = {
+    label: "Test",
+    family: "state",
+    token: "T",
+    familyLabel: "Test",
+    metricLabel: "Test",
+    metricValue: "test",
+    ioTypes: { in: "none", out: "state" },
+    inputs: [],
+    outputs: [],
+    portDefinitions: [],
+    ports: [],
+    configSchema: { type: "object" },
+    policyProfile: {},
+    evidenceProfile: {},
+    executor: {
+      nodeType: "test",
+      executorId: "test",
+      sandboxed: false,
+    },
+    defaultLogic: {},
+    defaultLaw: {},
+    paletteVisibility: "default",
+    displayLabel: "Test",
+    advancedLabel: "Test",
+    runtimeContract: {
+      nodeKind: "test",
+      actionKind: "test",
+      componentKind: "test",
+      manifestKind: "test",
+    },
+    primitive: {
+      primitiveId: "test",
+      label: "Test",
+      category: "context",
+      summary: "Test",
+      configGroups: [],
+      defaultPorts: [],
+    },
+  } as unknown as WorkflowNodeDefinition;
+
+  assert.equal(
+    workflowNodeCreatorDefaultAddMode({
+      ...base,
+      type: "repository_context",
+      group: "State",
+    }),
+    "topology_first",
+  );
+  assert.equal(
+    workflowNodeCreatorDefaultAddMode({
+      ...base,
+      type: "plugin_tool",
+      group: "Tools",
+    }),
+    "topology_first",
+  );
+  assert.equal(
+    workflowNodeCreatorDefaultAddMode({
+      ...base,
+      type: "model_call",
+      group: "AI",
+    }),
+    "configure",
   );
 });

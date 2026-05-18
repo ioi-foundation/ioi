@@ -272,6 +272,7 @@ import {
   workflowRuntimeUnavailableCopy,
   workflowCanvasSearchResults,
   workflowNodeCreatorBadge,
+  workflowNodeCreatorDefaultAddMode,
   workflowSelectedNodeRepairActions,
   type WorkflowSelectedNodeRepairAction,
 } from "../runtime/workflow-composer-model";
@@ -10995,6 +10996,7 @@ export function useWorkflowComposerController({
       preferredId?: string,
       options: {
         openConfig?: boolean;
+        selectAfterAdd?: boolean;
         closeDrawer?: boolean;
         creatorId?: string;
         defaultLogic?: NodeLogic;
@@ -11084,11 +11086,20 @@ export function useWorkflowComposerController({
         closeCanvasSearch();
         setNodeConfigInitialSection(workflowConfigSectionForNodeKind(type));
         setNodeConfigOpen(true);
+      } else if (options.selectAfterAdd) {
+        handleNodeSelect(nodeId);
+        setBottomPanel("selection");
+        closeCanvasSearch();
+        setNodeConfigOpen(false);
       }
       if (options.closeDrawer) {
         closeLeftDrawer();
       }
-      setStatusMessage(`${label} node added`);
+      setStatusMessage(
+        options.selectAfterAdd
+          ? `${label} node added. Configure from the selected-node inspector when ready.`
+          : `${label} node added`,
+      );
       return nodeId;
     },
     [
@@ -15801,6 +15812,7 @@ export function useWorkflowComposerController({
     WorkflowInlineIcon,
     WorkflowNodeConfigModal,
     workflowNodeCreatorBadge,
+    workflowNodeCreatorDefaultAddMode,
     workflowNodeName,
     workflowNodeRunChildLineage,
     workflowPath,
