@@ -1110,7 +1110,7 @@
 .workflow-rail-controls {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 10px;
   border-bottom: 1px solid var(--border-subtle);
   margin: -4px 0 12px;
@@ -1149,21 +1149,6 @@
 
 .workflow-rail-controls .workflow-icon-button {
   width: 30px;
-}
-
-.workflow-rail-controls label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-tertiary);
-  font-size: 11px;
-}
-
-.workflow-rail-controls input {
-  width: 96px;
-  min-height: 0;
-  margin: 0;
-  padding: 0;
 }
 
 .workflow-composer-rail-panel h3 {
@@ -1370,6 +1355,30 @@ button.workflow-run-row.is-active {
   color: var(--text-primary);
   font-size: 12px;
   margin: 0;
+}
+
+.workflow-rail-lifecycle-summary {
+  grid-template-columns: 1fr;
+  gap: 7px;
+}
+
+.workflow-rail-lifecycle-summary div {
+  display: grid;
+  min-height: 36px;
+  grid-template-columns: minmax(92px, 0.42fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  background: color-mix(in srgb, var(--workflow-panel-strong) 72%, transparent);
+}
+
+.workflow-rail-lifecycle-summary dt {
+  margin: 0;
+}
+
+.workflow-rail-lifecycle-summary dd {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workflow-rail-section {

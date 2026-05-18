@@ -57,9 +57,9 @@ export function WorkflowSettingsPanel({
 
   return (
     <>
-      <h3>Settings</h3>
+      <h3>Autonomous system</h3>
       <dl
-        className="workflow-rail-stats"
+        className="workflow-rail-stats workflow-rail-lifecycle-summary"
         data-testid="workflow-settings-summary"
       >
         {summaryItems.map((item) => (

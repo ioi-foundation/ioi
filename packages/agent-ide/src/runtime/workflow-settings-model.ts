@@ -59,6 +59,36 @@ export interface WorkflowSettingsModelInput {
   hasErrorOrRetryPath: boolean;
 }
 
+function workflowLifecycleNextAction({
+  validationStatus,
+  readinessStatus,
+  packageStatus,
+  bindingSummary,
+}: {
+  validationStatus: string;
+  readinessStatus: string;
+  packageStatus: string;
+  bindingSummary: WorkflowBindingRegistrySummary;
+}): string {
+  if (bindingSummary.total > 0 && bindingSummary.ready < bindingSummary.total) {
+    return "Bind capabilities";
+  }
+
+  if (validationStatus !== "passed") {
+    return "Validate graph";
+  }
+
+  if (readinessStatus !== "passed") {
+    return "Check readiness";
+  }
+
+  if (packageStatus !== "passed") {
+    return "Export package";
+  }
+
+  return "Ready to promote";
+}
+
 export function workflowSettingsModel({
   workflow,
   validationResult,
@@ -71,26 +101,43 @@ export function workflowSettingsModel({
 }: WorkflowSettingsModelInput): WorkflowSettingsModel {
   const environmentProfile = workflowEnvironmentProfile(workflow);
   const productionProfile = workflow.global_config.production ?? {};
+  const bindingRegistrySummary =
+    workflowBindingRegistrySummary(bindingRegistryRows);
+  const validationStatus = validationResult?.status ?? "not checked";
+  const readinessStatus = readinessResult?.status ?? "not checked";
+  const packageReadinessStatus =
+    portablePackage?.manifest.readinessStatus ?? "not exported";
   const expectedTimeSavedMinutes =
     productionProfile.expectedTimeSavedMinutes ?? 0;
 
   return {
     summaryItems: [
       {
-        label: "Kind",
-        value: workflow.metadata.workflowKind,
+        label: "Build artifact",
+        value:
+          packageReadinessStatus === "not exported"
+            ? "Draft workflow"
+            : "Autonomous package",
       },
       {
-        label: "Mode",
-        value: workflow.metadata.executionMode,
+        label: "Run readiness",
+        value: readinessStatus,
       },
       {
-        label: "Validation",
-        value: validationResult?.status ?? "not run",
+        label: "Authority",
+        value:
+          bindingRegistrySummary.total === 0
+            ? "No bindings"
+            : `${bindingRegistrySummary.ready}/${bindingRegistrySummary.total} ready`,
       },
       {
-        label: "Readiness",
-        value: readinessResult?.status ?? "not run",
+        label: "Next action",
+        value: workflowLifecycleNextAction({
+          validationStatus,
+          readinessStatus,
+          packageStatus: packageReadinessStatus,
+          bindingSummary: bindingRegistrySummary,
+        }),
       },
     ],
     metadata: {
@@ -106,7 +153,7 @@ export function workflowSettingsModel({
       workflow.global_config.workflowChromeLocale,
     ),
     environmentProfile,
-    bindingRegistrySummary: workflowBindingRegistrySummary(bindingRegistryRows),
+    bindingRegistrySummary,
     modelBindingItems: Object.entries(workflow.global_config.modelBindings ?? {}),
     requiredCapabilityItems: Object.entries(
       workflow.global_config.requiredCapabilities ?? {},
@@ -130,7 +177,6 @@ export function workflowSettingsModel({
             ? "reviewed"
             : "needs review",
     },
-    packageReadinessStatus:
-      portablePackage?.manifest.readinessStatus ?? "not exported",
+    packageReadinessStatus,
   };
 }

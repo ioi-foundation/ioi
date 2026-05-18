@@ -267,7 +267,6 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     setProposalToReview,
     setRightPanel,
     setRightRailCollapsed,
-    setRightRailWidth,
     setStatusMessage,
     setTestEditorOpen,
     slugify,
@@ -1554,18 +1553,6 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                         <span>{activeRightPanelMeta.description}</span>
                       </div>
                     </div>
-                    <label>
-                      Width
-                      <input
-                        type="range"
-                        min={280}
-                        max={460}
-                        value={rightRailWidth}
-                        onChange={(event) =>
-                          setRightRailWidth(Number(event.target.value))
-                        }
-                      />
-                    </label>
                   </div>
                   <WorkflowRailPanel
                     panel={rightPanel}
