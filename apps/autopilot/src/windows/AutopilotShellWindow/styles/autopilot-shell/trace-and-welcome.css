@@ -199,6 +199,9 @@
 }
 
 .chat-workspace-oss-shell__error {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin: 0;
   padding: 12px;
   border-radius: 10px;
@@ -209,6 +212,25 @@
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.chat-workspace-oss-shell__error strong {
+  color: #ffd0d0;
+  font-size: 13px;
+}
+
+.chat-workspace-oss-shell__error details {
+  color: rgba(255, 212, 212, 0.72);
+}
+
+.chat-workspace-oss-shell__error summary {
+  cursor: pointer;
+}
+
+.chat-workspace-oss-shell__error code {
+  display: block;
+  margin-top: 6px;
+  white-space: pre-wrap;
 }
 
 @keyframes chat-workspace-oss-spin {

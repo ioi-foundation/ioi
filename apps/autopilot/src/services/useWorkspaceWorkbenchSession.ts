@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  workflowRuntimeUnavailableCopy,
+  type WorkflowRuntimeUnavailableCopy,
+} from "@ioi/agent-ide";
 
 import type { TauriRuntime } from "./TauriRuntime";
 import { markWorkspaceMetric } from "./workspacePerf";
@@ -9,6 +13,7 @@ import {
 } from "./workspaceWorkbenchHost";
 
 export type WorkspaceStatus = "idle" | "starting" | "ready" | "error";
+export type WorkspaceWorkbenchSessionError = WorkflowRuntimeUnavailableCopy;
 
 export function useWorkspaceWorkbenchSession(params: {
   active: boolean;
@@ -21,7 +26,7 @@ export function useWorkspaceWorkbenchSession(params: {
   const enabled = params.enabled ?? true;
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [session, setSession] = useState<WorkspaceWorkbenchHostSession | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<WorkspaceWorkbenchSessionError | null>(null);
   const [surfaceReady, setSurfaceReady] = useState(false);
   const [bootPhase, setBootPhase] = useState("idle");
   const lastHandledRestartNonceRef = useRef(0);
@@ -98,18 +103,12 @@ export function useWorkspaceWorkbenchSession(params: {
           });
         }
         setSession(null);
-        setError(
-          sessionError instanceof Error
-            ? sessionError.message
-            : "The workspace runtime did not initialize cleanly.",
+        const copy = workflowRuntimeUnavailableCopy(
+          sessionError,
+          "workspace_runtime",
         );
-        setBootPhase(
-          `ensureSession:failed ${
-            sessionError instanceof Error
-              ? sessionError.message
-              : String(sessionError)
-          }`,
-        );
+        setError(copy);
+        setBootPhase(`ensureSession:failed ${copy.code}`);
       }
     })();
 

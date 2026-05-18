@@ -33,6 +33,15 @@ export type {
 } from "./WorkflowComposer/computerUseRunOptions";
 export { createWorkflowHarnessTools } from "./runtime/workflow-harness-tools";
 export {
+  createWorkflowRuntimeUnavailableFailure,
+  workflowRuntimeCatalogFallbackCopy,
+  workflowRuntimeUnavailableCopy,
+} from "./runtime/workflow-composer-model";
+export type {
+  WorkflowRuntimeUnavailableCopy,
+  WorkflowRuntimeUnavailableSurface,
+} from "./runtime/workflow-composer-model";
+export {
   WORKFLOW_CODING_ROUTE_CONTRACTS,
   WORKFLOW_CODING_ROUTE_EVIDENCE_KINDS,
   workflowCodingRouteContract,

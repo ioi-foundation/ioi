@@ -1,6 +1,10 @@
 // packages/agent-ide/src/features/Fleet/FleetView.tsx
 import { useState, useEffect, useMemo } from "react";
 import { AgentWorkbenchRuntime, Zone, Container } from "../../runtime/agent-runtime";
+import {
+  workflowRuntimeUnavailableCopy,
+  type WorkflowRuntimeUnavailableCopy,
+} from "../../runtime/workflow-composer-model";
 import { Icons } from "../../ui/icons";
 import "./FleetView.css";
 
@@ -57,7 +61,7 @@ export function FleetView({ runtime }: FleetViewProps) {
   const [containers, setContainers] = useState<Container[]>([]);
   const [selectedContainerId, setSelectedContainerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<WorkflowRuntimeUnavailableCopy | null>(null);
   
   // Poll for updates
   useEffect(() => {
@@ -68,7 +72,7 @@ export function FleetView({ runtime }: FleetViewProps) {
           setContainers(state.containers);
           setError(null);
         } catch (nextError) {
-          setError(String(nextError));
+          setError(workflowRuntimeUnavailableCopy(nextError, "fleet_state"));
           setZones([]);
           setContainers([]);
         } finally {
@@ -181,7 +185,13 @@ export function FleetView({ runtime }: FleetViewProps) {
 
         {error ? (
           <div className="fleet-terminal" style={{ marginBottom: 16 }}>
-            <div className="terminal-content">{error}</div>
+            <div className="terminal-content">
+              <strong>{error.title}.</strong> {error.message}
+              <details className="fleet-error-detail">
+                <summary>Advanced detail</summary>
+                <span>{error.technicalDetail}</span>
+              </details>
+            </div>
           </div>
         ) : null}
 

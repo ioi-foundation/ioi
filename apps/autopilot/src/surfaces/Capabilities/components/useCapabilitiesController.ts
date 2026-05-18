@@ -10,6 +10,7 @@ import {
   type ConnectorConfigureResult,
   type ConnectorSummary,
   useMailConnectorActions,
+  workflowRuntimeUnavailableCopy,
 } from "@ioi/agent-ide";
 import {
   listenIfTauri,
@@ -297,7 +298,10 @@ export function useCapabilitiesController({
         applyCapabilityRegistrySnapshot(snapshot, options);
         return snapshot;
       } catch (error) {
-        const message = String(error);
+        const message = workflowRuntimeUnavailableCopy(
+          error,
+          "capability_registry",
+        ).message;
         clearCapabilityRegistryState(message);
         throw error;
       }
@@ -317,7 +321,9 @@ export function useCapabilitiesController({
       })
       .catch((error) => {
         if (!cancelled) {
-          clearCapabilityRegistryState(String(error));
+          clearCapabilityRegistryState(
+            workflowRuntimeUnavailableCopy(error, "capability_registry").message,
+          );
         }
       });
 

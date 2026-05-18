@@ -51,7 +51,7 @@ const chatConversationSurfaceSource = fs.readFileSync(
 
 assert.match(
   chatConversationSurfaceSource,
-  /paneLeadingAction[\s\S]*<button type="button" onClick=\{onNewSession\}[\s\S]*paneTrailingAction/,
+  /leadingControls=\{paneLeadingAction\}[\s\S]*primaryActions=\{primaryActions\}[\s\S]*secondaryActions=\{secondaryActions\}[\s\S]*trailingControls=\{paneTrailingAction\}/,
   "pane chrome controls should bracket the normal chat controls on one shared row",
 );
 

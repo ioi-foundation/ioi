@@ -1,8 +1,13 @@
 import type { ReactNode } from "react";
+import {
+  OperatorChatPane,
+  type OperatorChatPaneAction,
+  type OperatorChatPaneMode,
+} from "@ioi/workspace-substrate";
 import { icons } from "../../../components/ui/icons";
-import { startTauriWindowDrag } from "../../shared/tauriWindowDrag";
 
 export function ChatConversationSurface({
+  mode = "full",
   sidebar,
   artifactVisible,
   artifactMenuVisible,
@@ -17,6 +22,7 @@ export function ChatConversationSurface({
   paneLeadingAction,
   paneTrailingAction,
 }: {
+  mode?: OperatorChatPaneMode;
   sidebar: ReactNode;
   artifactVisible: boolean;
   artifactMenuVisible: boolean;
@@ -31,72 +37,59 @@ export function ChatConversationSurface({
   paneLeadingAction?: ReactNode;
   paneTrailingAction?: ReactNode;
 }) {
+  const primaryActions: OperatorChatPaneAction[] = [
+    {
+      id: "new",
+      label: "New session",
+      icon: icons.plus,
+      onClick: onNewSession,
+    },
+    {
+      id: "search",
+      label: "Open Chat command palette",
+      icon: icons.search,
+      onClick: onOpenCommandPalette,
+    },
+    {
+      id: "settings",
+      label: "Open Chat settings",
+      icon: icons.settings,
+      onClick: onOpenSettings,
+    },
+  ];
+  const secondaryActions: OperatorChatPaneAction[] = artifactDrawerAvailable
+    ? [
+        {
+          id: artifactVisible ? "collapse" : "expand",
+          label: artifactVisible ? "Hide artifacts" : "Show artifacts",
+          icon: icons.expand,
+          active: artifactVisible,
+          onClick: onToggleArtifactDrawer,
+        },
+      ]
+    : [];
+
   return (
-    <div
+    <OperatorChatPane
+      mode={mode}
       className={`spot-chat-shell ${
         artifactVisible ? "is-artifact-open" : "is-artifact-collapsed"
       } ${artifactMenuVisible ? "is-artifact-menu-open" : ""} ${
         sidebar ? "" : "is-sidebar-hidden"
       }`}
+      label="Chat"
+      sidebar={sidebar}
+      artifactDrawer={artifactDrawer}
+      artifactDrawerVisible={artifactDrawerVisible}
+      artifactMenuVisible={artifactMenuVisible}
+      leadingControls={paneLeadingAction}
+      primaryActions={primaryActions}
+      secondaryActions={secondaryActions}
+      trailingControls={paneTrailingAction}
+      dataOperatorChatPane={mode}
+      dataInspectionTarget="operator-chat-pane"
     >
-      {sidebar ? (
-        <div className="spot-chat-sidebar-shell-item">{sidebar}</div>
-      ) : null}
-      <div className="spot-chat-conversation-shell-item">
-        <div
-          className="spot-workbench-chat-topbar"
-          aria-label="Chat workbench toolbar"
-        >
-          <div className="spot-workbench-chat-tab is-active">Chat</div>
-          <div
-            className="spot-workbench-chat-drag-region"
-            data-tauri-drag-region
-            onMouseDown={startTauriWindowDrag}
-            aria-hidden="true"
-          />
-          <div className="spot-workbench-chat-actions">
-            {paneLeadingAction ? (
-              <span className="spot-workbench-chat-pane-action">
-                {paneLeadingAction}
-              </span>
-            ) : null}
-            <button type="button" onClick={onNewSession} title="New session">
-              {icons.plus}
-            </button>
-            <button
-              type="button"
-              onClick={onOpenCommandPalette}
-              title="Open Chat command palette"
-            >
-              {icons.search}
-            </button>
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              title="Open Chat settings"
-            >
-              {icons.settings}
-            </button>
-            {artifactDrawerAvailable ? (
-              <button
-                type="button"
-                className={artifactVisible ? "is-active" : ""}
-                onClick={onToggleArtifactDrawer}
-                title={artifactVisible ? "Hide artifacts" : "Show artifacts"}
-              >
-                {icons.expand}
-              </button>
-            ) : null}
-            {paneTrailingAction ? (
-              <span className="spot-workbench-chat-pane-action">
-                {paneTrailingAction}
-              </span>
-            ) : null}
-          </div>
-        </div>
-        {conversationSurface}
-      </div>
-      {artifactDrawerVisible ? artifactDrawer : null}
-    </div>
+      {conversationSurface}
+    </OperatorChatPane>
   );
 }

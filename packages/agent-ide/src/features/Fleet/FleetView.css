@@ -309,6 +309,23 @@
   line-height: 1.4;
 }
 
+.fleet-error-detail {
+  margin-top: 10px;
+  color: var(--text-tertiary);
+}
+
+.fleet-error-detail summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.fleet-error-detail span {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-tertiary);
+  word-break: break-word;
+}
+
 .fleet-detail-list {
   display: flex;
   flex-direction: column;
