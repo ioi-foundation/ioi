@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   buildOperatorActivityRailModel,
   buildOperatorCommandCenterModel,
+  buildWorkspaceSubstrateTargetIndex,
   type OperatorCommandCenterModel,
 } from "./operatorSubstrateModel.ts";
 import type { ProjectScope } from "./autopilotShellModel.ts";
@@ -99,6 +100,42 @@ test("operator substrate code does not introduce runtime ownership", () => {
   assert.doesNotMatch(source, /new Runtime|createRuntime|React Flow shadow/i);
 });
 
+test("workspace substrate target index exposes controlled UI before coordinate fallback", () => {
+  const index = buildWorkspaceSubstrateTargetIndex({
+    generatedAtMs: 1_763_000_001_000,
+    directWebview: {
+      surfaceId: "surface:workspace",
+      label: "OpenVSCode",
+      bounds: { x: 10, y: 20, width: 900, height: 700 },
+      screenBounds: { x: 100, y: 200, width: 900, height: 700 },
+    },
+  });
+
+  assert.equal(index.schemaVersion, "ioi.workspace-substrate-target-index.v1");
+  assert.equal(index.targets[0]?.runtimeTruthSource, "daemon-runtime");
+  assert.ok(
+    index.targets.some((target) => target.targetId === "operator.command-center"),
+  );
+  assert.ok(index.targets.some((target) => target.targetId === "workspace.editor"));
+  assert.ok(index.targets.some((target) => target.targetId === "workflow.node"));
+  assert.ok(
+    index.targets.some(
+      (target) =>
+        target.targetId === "direct-webview.surface:workspace" &&
+        target.locators.some((locator) => locator.kind === "direct-webview"),
+    ),
+  );
+  assert.ok(
+    index.targets
+      .flatMap((target) => target.locators)
+      .some(
+        (locator) =>
+          locator.kind === "data-attribute" &&
+          locator.selector === '[data-inspection-target="workspace-editor"]',
+      ),
+  );
+});
+
 test("workspace embedding defers global command center to ChatIdeHeader", () => {
   const workspaceHost = readFileSync(
     "packages/workspace-substrate/src/components/WorkspaceHost.tsx",
@@ -131,4 +168,59 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
   assert.doesNotMatch(workspaceHost, /workspace-agent-dock-hitbox/);
   assert.doesNotMatch(workspaceHost, /workbenchDockHeaderFullStrip/);
   assert.doesNotMatch(workspaceHost, /workbenchDockBodyStrip/);
+});
+
+test("controlled substrate surfaces expose inspection target attributes", () => {
+  const chatHeader = readFileSync(
+    "apps/autopilot/src/windows/AutopilotShellWindow/components/ChatIdeHeader.tsx",
+    "utf8",
+  );
+  const activityRail = readFileSync(
+    "apps/autopilot/src/windows/AutopilotShellWindow/components/ChatLocalActivityBar.tsx",
+    "utf8",
+  );
+  const directSurface = readFileSync(
+    "apps/autopilot/src/surfaces/Workspace/OpenVsCodeDirectSurface.tsx",
+    "utf8",
+  );
+  const workspaceRail = readFileSync(
+    "packages/workspace-substrate/src/components/WorkspaceRail.tsx",
+    "utf8",
+  );
+  const explorer = readFileSync(
+    "packages/workspace-substrate/src/components/WorkspaceExplorerPane.tsx",
+    "utf8",
+  );
+  const editor = readFileSync(
+    "packages/workspace-substrate/src/components/WorkspaceEditorPane.tsx",
+    "utf8",
+  );
+  const composer = readFileSync(
+    "packages/agent-ide/src/WorkflowComposer/view.tsx",
+    "utf8",
+  );
+  const canvasNode = readFileSync(
+    "packages/agent-ide/src/features/Editor/Canvas/Nodes/CanvasNode.tsx",
+    "utf8",
+  );
+
+  assert.match(chatHeader, /data-inspection-target="operator-command-center"/);
+  assert.match(activityRail, /data-inspection-target="operator-activity-rail"/);
+  assert.match(directSurface, /__AUTOPILOT_GET_WORKBENCH_TARGET_INDEX__/);
+  assert.match(directSurface, /data-inspection-target="direct-openvscode-webview"/);
+  assert.match(workspaceRail, /data-inspection-target="workspace-rail"/);
+  assert.match(explorer, /data-inspection-target="workspace-explorer-row"/);
+  assert.match(editor, /data-inspection-target="workspace-editor-stage"/);
+  assert.match(composer, /data-inspection-target="workflow-composer"/);
+  assert.match(canvasNode, /data-inspection-target="workflow-node"/);
+});
+
+test("browser-inspected surfaces guard desktop-only event listeners", () => {
+  const capabilitiesController = readFileSync(
+    "apps/autopilot/src/surfaces/Capabilities/components/useCapabilitiesController.ts",
+    "utf8",
+  );
+
+  assert.match(capabilitiesController, /listenIfTauri/);
+  assert.doesNotMatch(capabilitiesController, /from "@tauri-apps\/api\/event"/);
 });

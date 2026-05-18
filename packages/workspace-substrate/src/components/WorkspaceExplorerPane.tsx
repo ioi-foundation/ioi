@@ -269,6 +269,9 @@ function renderTree(
               <button
                 type="button"
                 className="workspace-tree-trigger"
+                data-inspection-target="workspace-explorer-row"
+                data-workspace-path={node.path}
+                data-workspace-node-kind={node.kind}
                 onClick={() =>
                   node.kind === "directory"
                     ? props.onToggleDirectory(node)
@@ -358,7 +361,7 @@ export function WorkspaceExplorerPane(props: WorkspaceExplorerPaneProps) {
   const syntheticRootLoading = !!props.loadingDirectories[syntheticRootNode.path];
 
   return (
-    <section className="workspace-pane">
+    <section className="workspace-pane" data-inspection-target="workspace-explorer">
       <header className="workspace-pane-header">
         <img src={workbenchExplorerHeaderFullStrip} alt="" className="workspace-pane-header-strip" aria-hidden="true" />
         <div className="workspace-pane-header-live">
@@ -452,6 +455,9 @@ export function WorkspaceExplorerPane(props: WorkspaceExplorerPaneProps) {
               <button
                 type="button"
                 className="workspace-tree-trigger workspace-tree-trigger--plain-folder"
+                data-inspection-target="workspace-explorer-row"
+                data-workspace-path={syntheticRootNode.path}
+                data-workspace-node-kind={syntheticRootNode.kind}
                 onClick={() => props.onToggleDirectory(syntheticRootNode)}
               >
                 <FolderIcon open={syntheticRootExpanded} />

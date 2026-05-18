@@ -164,6 +164,46 @@ export interface OperatorInspectionTargetModel {
   runtimeTruthSource: "daemon-runtime";
 }
 
+export interface WorkspaceSubstrateTargetIndex {
+  schemaVersion: "ioi.workspace-substrate-target-index.v1";
+  indexId: string;
+  generatedAtMs: number;
+  targets: OperatorInspectionTargetModel[];
+  directWebview?: DirectWebviewInspectionTarget | null;
+}
+
+export interface WorkspaceSubstrateObservationBundle {
+  schemaVersion: "ioi.workspace-substrate-observation-bundle.v1";
+  observationId: string;
+  targetIndexId: string;
+  surfaceRoute: OperatorSurfaceRoute;
+  generatedAtMs: number;
+  evidenceRefs: OperatorRuntimeEvidenceRefs;
+}
+
+export interface WorkspaceSubstrateActionReceipt {
+  schemaVersion: "ioi.workspace-substrate-action-receipt.v1";
+  receiptId: string;
+  targetId: string;
+  actionKind: "focus" | "click" | "type" | "open" | "inspect" | "coordinate_fallback";
+  locator: SubstrateElementLocator;
+  status: "proposed" | "executed" | "blocked" | "failed";
+  generatedAtMs: number;
+  evidenceRefs: OperatorRuntimeEvidenceRefs;
+}
+
+export interface BuildOperatorInspectionTargetModelOptions {
+  includeWorkspaceTargets?: boolean;
+  includeWorkflowTargets?: boolean;
+  includeRunEvidenceTargets?: boolean;
+  directWebview?: DirectWebviewInspectionTarget | null;
+}
+
+export interface BuildWorkspaceSubstrateTargetIndexOptions
+  extends BuildOperatorInspectionTargetModelOptions {
+  generatedAtMs?: number;
+}
+
 export interface BuildOperatorCommandCenterModelOptions {
   activeView: PrimaryView;
   workflowSurface: "home" | "canvas" | "agents" | "catalog";
@@ -286,6 +326,210 @@ export function buildOperatorActivityRailModel({
         source: "shell-projection",
       },
     ],
+  };
+}
+
+function dataTarget(target: string): SubstrateElementLocator {
+  return {
+    kind: "data-attribute",
+    dataAttribute: "data-inspection-target",
+    selector: `[data-inspection-target="${target}"]`,
+  };
+}
+
+function testIdTarget(testId: string): SubstrateElementLocator {
+  return {
+    kind: "data-attribute",
+    dataAttribute: "data-testid",
+    selector: `[data-testid="${testId}"]`,
+  };
+}
+
+export function buildOperatorInspectionTargetModel({
+  includeWorkspaceTargets = true,
+  includeWorkflowTargets = true,
+  includeRunEvidenceTargets = true,
+  directWebview = null,
+}: BuildOperatorInspectionTargetModelOptions = {}): OperatorInspectionTargetModel[] {
+  const targets: OperatorInspectionTargetModel[] = [
+    {
+      targetId: "operator.command-center",
+      label: "Operator command center",
+      surface: "command-center",
+      runtimeTruthSource: "daemon-runtime",
+      locators: [
+        dataTarget("operator-command-center"),
+        {
+          kind: "data-attribute",
+          dataAttribute: "data-operator-command-center",
+          selector: "[data-operator-command-center]",
+        },
+        {
+          kind: "aria",
+          accessibleName: "Search Autopilot, code, workflows, runs, and commands",
+        },
+      ],
+    },
+    {
+      targetId: "operator.activity-rail",
+      label: "Operator activity rail",
+      surface: "activity-rail",
+      runtimeTruthSource: "daemon-runtime",
+      locators: [
+        dataTarget("operator-activity-rail"),
+        {
+          kind: "data-attribute",
+          dataAttribute: "data-operator-activity-rail",
+          selector: "[data-operator-activity-rail]",
+        },
+        {
+          kind: "data-attribute",
+          dataAttribute: "data-window-surface",
+          selector: "[data-window-surface]",
+        },
+      ],
+    },
+  ];
+
+  if (includeWorkspaceTargets) {
+    targets.push(
+      {
+        targetId: "workspace.rail",
+        label: "Workspace rail",
+        surface: "activity-rail",
+        runtimeTruthSource: "daemon-runtime",
+        locators: [dataTarget("workspace-rail")],
+      },
+      {
+        targetId: "workspace.explorer",
+        label: "Workspace explorer",
+        surface: "explorer",
+        runtimeTruthSource: "daemon-runtime",
+        locators: [
+          dataTarget("workspace-explorer"),
+          dataTarget("workspace-explorer-row"),
+        ],
+      },
+      {
+        targetId: "workspace.editor",
+        label: "Workspace editor",
+        surface: "editor",
+        runtimeTruthSource: "daemon-runtime",
+        locators: [
+          dataTarget("workspace-editor"),
+          dataTarget("workspace-editor-tab"),
+          dataTarget("workspace-editor-stage"),
+        ],
+      },
+      {
+        targetId: "workspace.terminal",
+        label: "Workspace terminal and bottom panel",
+        surface: "terminal",
+        runtimeTruthSource: "daemon-runtime",
+        locators: [dataTarget("workspace-bottom-panel")],
+      },
+      {
+        targetId: "workspace.chat-composer",
+        label: "Workspace chat composer",
+        surface: "chat-composer",
+        runtimeTruthSource: "daemon-runtime",
+        locators: [
+          dataTarget("workspace-chat-composer"),
+          {
+            kind: "aria",
+            accessibleName: "Submit workspace chat prompt",
+          },
+        ],
+      },
+    );
+  }
+
+  if (includeWorkflowTargets) {
+    targets.push(
+      {
+        targetId: "workflow.composer",
+        label: "Workflow composer",
+        surface: "workflow-composer",
+        runtimeTruthSource: "daemon-runtime",
+        locators: [
+          dataTarget("workflow-composer"),
+          testIdTarget("workflow-composer"),
+        ],
+      },
+      {
+        targetId: "workflow.node",
+        label: "Workflow node",
+        surface: "workflow-composer",
+        runtimeTruthSource: "daemon-runtime",
+        locators: [
+          dataTarget("workflow-node"),
+          {
+            kind: "data-attribute",
+            dataAttribute: "data-canonical-primitive",
+            selector: "[data-canonical-primitive]",
+          },
+        ],
+      },
+      {
+        targetId: "workflow.palette",
+        label: "Workflow palette item",
+        surface: "workflow-composer",
+        runtimeTruthSource: "daemon-runtime",
+        locators: [
+          dataTarget("workflow-palette-item"),
+          testIdTarget("workflow-node-library-search"),
+        ],
+      },
+    );
+  }
+
+  if (includeRunEvidenceTargets) {
+    targets.push({
+      targetId: "runtime.run-evidence",
+      label: "Run and evidence rows",
+      surface: "run-evidence",
+      runtimeTruthSource: "daemon-runtime",
+      locators: [
+        dataTarget("workspace-run-row"),
+        dataTarget("workflow-run-row"),
+        {
+          kind: "data-attribute",
+          dataAttribute: "data-runtime-evidence-ref",
+          selector: "[data-runtime-evidence-ref]",
+        },
+      ],
+    });
+  }
+
+  if (directWebview) {
+    targets.push({
+      targetId: `direct-webview.${directWebview.surfaceId}`,
+      label: directWebview.label,
+      surface: "direct-webview",
+      runtimeTruthSource: "daemon-runtime",
+      locators: [
+        dataTarget("direct-openvscode-webview"),
+        {
+          kind: "direct-webview",
+          surfaceId: directWebview.surfaceId,
+        },
+      ],
+    });
+  }
+
+  return targets;
+}
+
+export function buildWorkspaceSubstrateTargetIndex({
+  generatedAtMs = Date.now(),
+  ...options
+}: BuildWorkspaceSubstrateTargetIndexOptions = {}): WorkspaceSubstrateTargetIndex {
+  return {
+    schemaVersion: "ioi.workspace-substrate-target-index.v1",
+    indexId: `workspace-substrate-target-index:${generatedAtMs}`,
+    generatedAtMs,
+    directWebview: options.directWebview ?? null,
+    targets: buildOperatorInspectionTargetModel(options),
   };
 }
 

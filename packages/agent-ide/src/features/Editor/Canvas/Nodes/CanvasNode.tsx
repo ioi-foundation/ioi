@@ -354,6 +354,7 @@ export const CanvasNode = memo(({ data, selected }: NodeProps) => {
       aria-label={accessibleNodeLabel}
       aria-keyshortcuts="Enter Space"
       data-node-family={family}
+      data-inspection-target="workflow-node"
       data-canonical-primitive={primitiveProjection.canonicalPrimitive}
       data-shape-boundary={primitiveProjection.canonicalPrimitive}
       data-authority-boundary={primitiveProjection.authorityLabel}
