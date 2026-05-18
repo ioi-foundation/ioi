@@ -89,7 +89,7 @@ export function Canvas({
         {/* @ts-ignore */}
         <Background color="rgba(123, 143, 164, 0.22)" gap={20} />
         {/* @ts-ignore */}
-        <Controls />
+        <Controls showInteractive={false} />
         <MiniMap style={{background: 'var(--bg-panel)'}} />
       </ReactFlow>
     </div>

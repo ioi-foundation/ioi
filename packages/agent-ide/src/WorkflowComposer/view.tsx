@@ -56,7 +56,6 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     executionStatusCounts,
     filteredNodeLibrary,
     filteredCompositionHelpers,
-    fitView,
     FlaskConical,
     functionDryRunResult,
     GitPullRequest,
@@ -304,8 +303,6 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     WorkflowRailPanel,
     workflowStartCardDescription,
     workflowTimeLabel,
-    zoomIn,
-    zoomOut
   } = model;
 
   const compositionHelperHandlers = {
@@ -1419,20 +1416,6 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                 </section>
               ) : null}
 
-              <div className="workflow-zoom-controls">
-                <button type="button" onClick={() => zoomIn({ duration: 160 })}>
-                  +
-                </button>
-                <button
-                  type="button"
-                  onClick={() => zoomOut({ duration: 160 })}
-                >
-                  -
-                </button>
-                <button type="button" onClick={() => fitView({ padding: 0.2 })}>
-                  Fit
-                </button>
-              </div>
               {selectedNode ? (
                 <div className="workflow-selection-actions">
                   <button
