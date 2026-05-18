@@ -68,7 +68,7 @@ export function AutopilotShellContent({
           activeView={activeView}
           onViewChange={controller.changePrimaryView}
           notificationCount={notificationBadgeCount}
-          currentProject={currentProject}
+          profile={controller.profile.value}
         />
 
         <div
