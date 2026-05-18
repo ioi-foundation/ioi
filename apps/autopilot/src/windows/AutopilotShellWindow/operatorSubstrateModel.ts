@@ -49,6 +49,7 @@ export interface OperatorActivityRailItem {
   route: OperatorSurfaceRoute;
   badgeCount?: number;
   dataWindowSurface: string;
+  group: "primary" | "work" | "bottom" | "utility";
   source: "shell-projection" | "runtime-projection";
 }
 
@@ -171,6 +172,12 @@ export interface BuildOperatorCommandCenterModelOptions {
   evidenceRefs?: Partial<OperatorRuntimeEvidenceRefs>;
 }
 
+export interface BuildOperatorActivityRailModelOptions {
+  activeView: PrimaryView;
+  collapsed: boolean;
+  notificationCount: number;
+}
+
 const EMPTY_EVIDENCE_REFS: OperatorRuntimeEvidenceRefs = {
   runIds: [],
   receiptIds: [],
@@ -192,6 +199,19 @@ const PRIMARY_VIEW_LABELS: Record<PrimaryView, string> = {
   settings: "Settings",
 };
 
+const RAIL_VIEW_ORDER: PrimaryView[] = [
+  "home",
+  "chat",
+  "inbox",
+  "workspace",
+  "workflows",
+  "runs",
+  "mounts",
+  "capabilities",
+  "policy",
+  "settings",
+];
+
 function mergeEvidenceRefs(
   evidenceRefs: Partial<OperatorRuntimeEvidenceRefs> | undefined,
 ): OperatorRuntimeEvidenceRefs {
@@ -212,6 +232,60 @@ function primaryViewCommand(view: PrimaryView): OperatorCommandCenterCommand {
     route: { kind: "primary-view", view },
     keywords: [view, PRIMARY_VIEW_LABELS[view].toLowerCase()],
     source: "shell-projection",
+  };
+}
+
+function railGroupForView(view: PrimaryView): OperatorActivityRailItem["group"] {
+  if (view === "settings") return "bottom";
+  if (view === "home" || view === "chat" || view === "inbox") return "primary";
+  return "work";
+}
+
+function railItemForView(
+  view: PrimaryView,
+  notificationCount: number,
+): OperatorActivityRailItem {
+  return {
+    id: `surface.${view}`,
+    label: PRIMARY_VIEW_LABELS[view],
+    route: { kind: "primary-view", view },
+    badgeCount: view === "inbox" ? notificationCount : undefined,
+    dataWindowSurface: view,
+    group: railGroupForView(view),
+    source: view === "inbox" ? "runtime-projection" : "shell-projection",
+  };
+}
+
+export function buildOperatorActivityRailModel({
+  activeView,
+  collapsed,
+  notificationCount,
+}: BuildOperatorActivityRailModelOptions): OperatorActivityRailModel {
+  return {
+    projectionId: `operator-activity-rail:${activeView}:${collapsed ? "collapsed" : "expanded"}`,
+    chromeMode: collapsed ? "sidebar" : "full",
+    collapsed,
+    activeRoute: { kind: "primary-view", view: activeView },
+    runtimeTruthSource: "daemon-runtime",
+    items: [
+      {
+        id: "command.search",
+        label: "Search",
+        route: { kind: "command-palette" },
+        dataWindowSurface: "search",
+        group: "utility",
+        source: "shell-projection",
+      },
+      ...RAIL_VIEW_ORDER.map((view) => railItemForView(view, notificationCount)),
+      {
+        id: "profile.current",
+        label: "Profile",
+        route: { kind: "command-palette", query: "profile" },
+        dataWindowSurface: "profile",
+        group: "bottom",
+        source: "shell-projection",
+      },
+    ],
   };
 }
 
@@ -288,4 +362,3 @@ export function buildOperatorCommandCenterModel({
     commands,
   };
 }
-
