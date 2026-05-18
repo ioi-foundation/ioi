@@ -679,9 +679,24 @@ export function ChatInputSection({
     setActiveDropdown("command_palette");
   }, [inputLockedByCredential, setActiveDropdown]);
 
+  const openCommandSearch = useCallback(
+    (query: string) => {
+      if (inputLockedByCredential) {
+        return;
+      }
+
+      setSlashContext(null);
+      setCommandPaletteQuery(query);
+      setActiveDropdown("command_palette");
+    },
+    [inputLockedByCredential, setActiveDropdown],
+  );
+
   const commandQuery = commandPaletteMode
     ? commandPaletteQuery.trim().toLowerCase()
     : slashContext?.query.trim().toLowerCase() ?? "";
+  const slashQuickMode = !commandPaletteMode && commandQuery.length === 0;
+  const shouldShowSearchBackedItems = commandPaletteMode || commandQuery.length > 0;
   const hasTaskReview = !!task;
   const hasTaskBlocker = Boolean(
     task?.clarification_request ||
@@ -706,7 +721,91 @@ export function ChatInputSection({
   const actionSections = useMemo<CommandMenuSection[]>(() => {
     const commandItems: CommandMenuItem[] = [];
 
+    if (slashQuickMode) {
+      commandItems.push(
+        {
+          id: "add-context",
+          title: "Add context",
+          description: "Attach files, repo state, evidence, or runtime context.",
+          meta: "Context",
+          icon: icons.paperclip,
+          onSelect: handleContextTrigger,
+        },
+        {
+          id: "new-session",
+          title: "New chat",
+          description: "Start a fresh operator thread.",
+          meta: "Session",
+          icon: icons.plus,
+          onSelect: () => {
+            dismissCommandSurface(false);
+            onNewSession();
+          },
+        },
+        {
+          id: "open-models",
+          title: "Model",
+          description: "Switch or inspect mounted model capabilities.",
+          meta: selectedModel || "Model",
+          icon: icons.cube,
+          onSelect: () => openCommandSearch("model"),
+        },
+        {
+          id: "toggle-plan-mode",
+          title: planMode ? "Exit plan mode" : "Plan mode",
+          description: planMode
+            ? "Return to normal execution mode."
+            : "Turn the next request into a plan-first request.",
+          meta: planMode ? "On" : "Off",
+          icon: icons.sidebar,
+          active: planMode,
+          onSelect: () => {
+            dismissCommandSurface(false);
+            onTogglePlanMode(!planMode);
+          },
+        },
+        {
+          id: "open-skills-search",
+          title: "Skills",
+          description: "Find available skills and capability packs.",
+          meta: "Search",
+          icon: icons.sparkles,
+          onSelect: () => openCommandSearch("skill"),
+        },
+        {
+          id: "open-capabilities",
+          title: "Capabilities",
+          description: "Review connectors, tools, skills, and authority posture.",
+          meta: "Connectors",
+          icon: icons.code,
+          onSelect: () => {
+            dismissCommandSurface(false);
+            void openReviewCapabilities();
+          },
+        },
+        {
+          id: "open-workflows-search",
+          title: "Workflows",
+          description: "Find runnable workspace workflows.",
+          meta: "Search",
+          icon: icons.globe,
+          onSelect: () => openCommandSearch("workflow"),
+        },
+        {
+          id: "open-settings",
+          title: "Settings",
+          description: "Manage models, workspaces, and skill sources.",
+          icon: icons.settings,
+          onSelect: () => {
+            dismissCommandSurface(false);
+            onOpenSettings();
+          },
+        },
+      );
+    }
+
     if (
+      !slashQuickMode &&
       matchesSlashQuery(
         commandQuery,
         "New Session",
@@ -731,7 +830,11 @@ export function ChatInputSection({
     const gateDescription = isGated
       ? "Jump to the governed approval surface for this run."
       : "Open the compact queue and approval shell.";
-    if (matchesSlashQuery(commandQuery, gateLabel, gateDescription, "gate queue approval")) {
+    if (
+      !slashQuickMode &&
+      (isGated || hasTaskBlocker || commandQuery.length > 0) &&
+      matchesSlashQuery(commandQuery, gateLabel, gateDescription, "gate queue approval")
+    ) {
       commandItems.push({
         id: "open-gate",
         title: gateLabel,
@@ -746,6 +849,8 @@ export function ChatInputSection({
     }
 
     if (
+      !slashQuickMode &&
+      hasTaskReview &&
       matchesSlashQuery(
         commandQuery,
         "Review Tasks",
@@ -758,19 +863,17 @@ export function ChatInputSection({
         title: "Review Tasks",
         description:
           "Review the current run, checklist state, blockers, and task output.",
-        meta: hasTaskReview ? "Runtime" : "Unavailable",
+        meta: "Runtime",
         icon: icons.sidebar,
-        disabled: !hasTaskReview,
-        onSelect: hasTaskReview
-          ? () => {
-              dismissCommandSurface(false);
-              onOpenView("tasks");
-            }
-          : undefined,
+        onSelect: () => {
+          dismissCommandSurface(false);
+          onOpenView("tasks");
+        },
       });
     }
 
     if (
+      !slashQuickMode &&
       hasTaskBlocker &&
       matchesSlashQuery(
         commandQuery,
@@ -794,6 +897,7 @@ export function ChatInputSection({
     }
 
     if (
+      !slashQuickMode &&
       recommendedClarificationOptionId &&
       matchesSlashQuery(
         commandQuery,
@@ -822,6 +926,7 @@ export function ChatInputSection({
     }
 
     if (
+      !slashQuickMode &&
       task?.credential_request &&
       matchesSlashQuery(
         commandQuery,
@@ -845,6 +950,7 @@ export function ChatInputSection({
     }
 
     if (
+      !slashQuickMode &&
       canStopTask &&
       matchesSlashQuery(
         commandQuery,
@@ -866,37 +972,40 @@ export function ChatInputSection({
       });
     }
 
-    commandItems.push(
-      ...buildSharedSessionCommandItems({
-        commandQuery,
-        hasBranchSurface,
-        sessions,
-        hasSessionContext,
-        hasPermissionRequest,
-        hasReplSurface,
-        task,
-        mcpContributionCount,
-        capabilityRegistryStatus,
-        capabilityRegistryExtensionCount:
-          capabilityRegistrySnapshot?.extensionManifests.length ?? 0,
-        hookContributionCount,
-        hasRewindSurface,
-        planMode,
-        vimModeLabel: vimModeSnapshot.modeLabel,
-        hasWorkerContext,
-        workerCount,
-        hasFileSurface,
-        hasArtifacts,
-        artifactCount,
-        dismissCommandSurface,
-        onOpenView,
-        onOpenValidationEvidence,
-        onOpenSettings,
-        onTogglePlanMode,
-      }),
-    );
+    if (!slashQuickMode) {
+      commandItems.push(
+        ...buildSharedSessionCommandItems({
+          commandQuery,
+          hasBranchSurface,
+          sessions,
+          hasSessionContext,
+          hasPermissionRequest,
+          hasReplSurface,
+          task,
+          mcpContributionCount,
+          capabilityRegistryStatus,
+          capabilityRegistryExtensionCount:
+            capabilityRegistrySnapshot?.extensionManifests.length ?? 0,
+          hookContributionCount,
+          hasRewindSurface,
+          planMode,
+          vimModeLabel: vimModeSnapshot.modeLabel,
+          hasWorkerContext,
+          workerCount,
+          hasFileSurface,
+          hasArtifacts,
+          artifactCount,
+          dismissCommandSurface,
+          onOpenView,
+          onOpenValidationEvidence,
+          onOpenSettings,
+          onTogglePlanMode,
+        }),
+      );
+    }
 
     if (
+      !slashQuickMode &&
       matchesSlashQuery(
         commandQuery,
         vimModeSnapshot.enabled ? "Disable Vim Mode" : "Enable Vim Mode",
@@ -920,6 +1029,7 @@ export function ChatInputSection({
     }
 
     if (
+      !slashQuickMode &&
       lastStableSession &&
       matchesSlashQuery(
         commandQuery,
@@ -943,6 +1053,7 @@ export function ChatInputSection({
     }
 
     if (
+      !slashQuickMode &&
       hasPermissionRequest &&
       matchesSlashQuery(
         commandQuery,
@@ -966,6 +1077,7 @@ export function ChatInputSection({
     }
 
     if (
+      !slashQuickMode &&
       matchesSlashQuery(
         commandQuery,
         "Open Permission Profiles",
@@ -988,6 +1100,10 @@ export function ChatInputSection({
     }
 
     permissionProfiles.forEach((profile) => {
+      if (slashQuickMode) {
+        return;
+      }
+
       if (
         !matchesSlashQuery(
           commandQuery,
@@ -1033,7 +1149,10 @@ export function ChatInputSection({
     const autoContextDescription = autoContext
       ? "Stop pulling nearby thread context into the prompt."
       : "Include nearby thread context automatically.";
-    if (matchesSlashQuery(commandQuery, autoContextLabel, autoContextDescription, "context")) {
+    if (
+      !slashQuickMode &&
+      matchesSlashQuery(commandQuery, autoContextLabel, autoContextDescription, "context")
+    ) {
       commandItems.push({
         id: "toggle-auto-context",
         title: autoContextLabel,
@@ -1049,6 +1168,7 @@ export function ChatInputSection({
     }
 
     if (
+      !slashQuickMode &&
       matchesSlashQuery(
         commandQuery,
         "Open Catalog",
@@ -1070,6 +1190,7 @@ export function ChatInputSection({
     }
 
     if (
+      !slashQuickMode &&
       matchesSlashQuery(
         commandQuery,
         "Open Capabilities",
@@ -1092,6 +1213,7 @@ export function ChatInputSection({
     }
 
     if (
+      !slashQuickMode &&
       matchesSlashQuery(
         commandQuery,
         "Open Policy",
@@ -1113,16 +1235,20 @@ export function ChatInputSection({
       });
     }
 
-    const recentSessionItems = buildRecentSessionItems({
-      sessions,
-      currentSessionId,
-      commandQuery,
-      dismissCommandSurface,
-      onLoadSession,
-    });
+    const recentSessionItems = shouldShowSearchBackedItems
+      ? buildRecentSessionItems({
+          sessions,
+          currentSessionId,
+          commandQuery,
+          dismissCommandSurface,
+          onLoadSession,
+        })
+      : [];
 
     const runtimeCatalogItems: CommandMenuItem[] =
-      runtimeCatalogStatus === "loading"
+      !shouldShowSearchBackedItems
+        ? []
+        : runtimeCatalogStatus === "loading"
         ? [
             {
               id: "catalog-loading",
@@ -1176,7 +1302,9 @@ export function ChatInputSection({
               }));
 
     const liveToolItems: CommandMenuItem[] =
-      liveToolsStatus === "loading"
+      !shouldShowSearchBackedItems
+        ? []
+        : liveToolsStatus === "loading"
         ? [
             {
               id: "live-tools-loading",
@@ -1230,23 +1358,29 @@ export function ChatInputSection({
                 },
               }));
 
-    const modelItems = buildModelSlashItems({
-      modelOptions,
-      selectedModel,
-      commandQuery,
-      onSelectModel,
-      dismissCommandSurface,
-    });
+    const modelItems = shouldShowSearchBackedItems
+      ? buildModelSlashItems({
+          modelOptions,
+          selectedModel,
+          commandQuery,
+          onSelectModel,
+          dismissCommandSurface,
+        })
+      : [];
 
-    const workspaceItems = buildWorkspaceSlashItems({
-      workspaceOptions,
-      workspaceMode,
-      commandQuery,
-      onSelectWorkspaceMode,
-      dismissCommandSurface,
-    });
+    const workspaceItems = shouldShowSearchBackedItems
+      ? buildWorkspaceSlashItems({
+          workspaceOptions,
+          workspaceMode,
+          commandQuery,
+          onSelectWorkspaceMode,
+          dismissCommandSurface,
+        })
+      : [];
     const workflowItems: CommandMenuItem[] =
-      workspaceWorkflowsStatus === "loading"
+      !shouldShowSearchBackedItems
+        ? []
+        : workspaceWorkflowsStatus === "loading"
         ? [
             {
               id: "workflow-loading",
@@ -1294,7 +1428,9 @@ export function ChatInputSection({
     }));
 
     const skillItems: CommandMenuItem[] =
-      capabilityRegistryStatus === "loading" && skillCatalog.length === 0
+      !shouldShowSearchBackedItems
+        ? []
+        : capabilityRegistryStatus === "loading" && skillCatalog.length === 0
         ? [
             {
               id: "skills-loading",
@@ -1352,7 +1488,11 @@ export function ChatInputSection({
               }));
 
     return [
-      { id: "commands", title: "Commands", items: commandItems },
+      {
+        id: "commands",
+        title: slashQuickMode ? undefined : "Commands",
+        items: commandItems,
+      },
       { id: "sessions", title: "Recent Sessions", items: recentSessionItems },
       { id: "live-tools", title: "Live Tools", items: liveToolItems },
       { id: "runtime-catalog", title: "Runtime Catalog", items: runtimeCatalogItems },
@@ -1367,6 +1507,7 @@ export function ChatInputSection({
     currentSessionId,
     hasArtifacts,
     hasFileSurface,
+    handleContextTrigger,
     hasPermissionRequest,
     hasReplSurface,
     hasRewindSurface,
@@ -1390,6 +1531,7 @@ export function ChatInputSection({
     onOpenGate,
     onOpenValidationEvidence,
     onOpenView,
+    openCommandSearch,
     onSubmitClarification,
     onStop,
     onSelectModel,
@@ -1406,8 +1548,10 @@ export function ChatInputSection({
     runtimeCatalogEntries,
     runtimeCatalogStatus,
     selectedModel,
+    shouldShowSearchBackedItems,
     sessions,
     skillCatalog,
+    slashQuickMode,
     task,
     commandQuery,
     toggleVimMode,

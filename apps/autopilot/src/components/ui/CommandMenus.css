@@ -432,3 +432,74 @@
   color: var(--spot-text-dim);
   font-size: 12px;
 }
+
+/* Compact slash commands are a quick-action menu. Palette mode keeps the
+   roomier searchable surface above. */
+.spot-slash-menu {
+  right: auto;
+  width: min(360px, 100%);
+  min-width: min(300px, 100%);
+  padding: 6px;
+  border-radius: 10px;
+  background: rgba(37, 37, 38, 0.98);
+  border-color: rgba(255, 255, 255, 0.13);
+  box-shadow:
+    0 18px 36px rgba(0, 0, 0, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.spot-slash-menu--palette {
+  width: min(720px, 100%);
+  min-width: min(420px, 100%);
+  padding: 8px;
+  border-radius: 12px;
+}
+
+.spot-slash-menu:not(.spot-slash-menu--palette) .spot-slash-menu-scroll {
+  gap: 5px;
+  max-height: min(360px, 52vh);
+  padding: 0;
+}
+
+.spot-slash-menu:not(.spot-slash-menu--palette) .spot-slash-section {
+  gap: 3px;
+}
+
+.spot-slash-menu:not(.spot-slash-menu--palette) .spot-slash-section-label {
+  padding: 5px 8px 2px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.spot-slash-menu:not(.spot-slash-menu--palette) .spot-slash-items {
+  gap: 1px;
+}
+
+.spot-slash-menu:not(.spot-slash-menu--palette) .spot-slash-item {
+  min-height: 34px;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 6px;
+}
+
+.spot-slash-menu:not(.spot-slash-menu--palette) .spot-slash-item:hover,
+.spot-slash-menu:not(.spot-slash-menu--palette) .spot-slash-item.selected {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.spot-slash-menu:not(.spot-slash-menu--palette) .spot-slash-item-description {
+  display: none;
+}
+
+.spot-slash-menu:not(.spot-slash-menu--palette) .spot-slash-item-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spot-slash-menu:not(.spot-slash-menu--palette) .spot-slash-item-meta {
+  max-width: 116px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
