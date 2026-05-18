@@ -164,7 +164,10 @@ const chatIdeHeaderTsx = fs.readFileSync(
   "utf8",
 );
 const chatConversationSurfaceTsx = fs.readFileSync(
-  new URL("../ChatShellWindow/components/ChatConversationSurface.tsx", import.meta.url),
+  new URL(
+    "../ChatShellWindow/components/ChatConversationSurface.tsx",
+    import.meta.url,
+  ),
   "utf8",
 );
 const tauriWindowDragTs = fs.readFileSync(
@@ -184,7 +187,10 @@ const chatShellOverridesCss = fs.readFileSync(
   "utf8",
 );
 const chatArtifactWorkbenchCss = fs.readFileSync(
-  new URL("../ChatShellWindow/styles/ChatSurface/artifact-workbench.css", import.meta.url),
+  new URL(
+    "../ChatShellWindow/styles/ChatSurface/artifact-workbench.css",
+    import.meta.url,
+  ),
   "utf8",
 );
 const workspaceSubstrateCss = fs.readFileSync(
@@ -510,7 +516,7 @@ assert.match(
 
 assert.match(
   `${shellContent}\n${autopilotShellCss}`,
-  /is-dedicated-workbench[\s\S]*chat-content-main--dedicated-workbench[\s\S]*chat-content\.is-dedicated-workbench[\s\S]*height: 100%[\s\S]*chat-content-main--dedicated-workbench > \.mission-control-view--workflow-canvas[\s\S]*height: 100%/,
+  /is-dedicated-workbench[\s\S]*chat-content-main--dedicated-workbench[\s\S]*chat-content\.is-dedicated-workbench[\s\S]*height: 100%[\s\S]*chat-content-main--dedicated-workbench\s*>\s*\.mission-control-view--workflow-canvas[\s\S]*height: 100%/,
   "Dedicated workflow workbenches should stretch through the shell so the composer bottom shelf docks to the actual viewport bottom",
 );
 
@@ -1138,8 +1144,8 @@ assert.match(
 );
 
 assert.match(
-	  workflowRailPanel,
-	  /(?=[\s\S]*selectedHarnessGroup)(?=[\s\S]*workflow-harness-deep-link-state)(?=[\s\S]*workflow-copy-harness-deep-link)(?=[\s\S]*workflow-harness-group-inspector)(?=[\s\S]*workflow-harness-group-readiness-rollup)(?=[\s\S]*workflow-harness-group-components)(?=[\s\S]*workflow-harness-group-run-status)(?=[\s\S]*workflow-harness-group-gated-run)(?=[\s\S]*workflow-harness-group-receipt-refs)(?=[\s\S]*workflow-harness-group-receipt-ref-)(?=[\s\S]*workflow-harness-group-replay-fixtures)(?=[\s\S]*workflow-harness-group-replay-ref-)(?=[\s\S]*workflow-harness-group-activation-blockers)(?=[\s\S]*workflow-harness-group-shadow-comparison)(?=[\s\S]*workflow-harness-group-attempts)(?=[\s\S]*onInspectHarnessGroupNode)(?=[\s\S]*onSelectHarnessReceiptRef)(?=[\s\S]*onSelectHarnessReplayFixtureRef)(?=[\s\S]*workflow-harness-activation-wizard)(?=[\s\S]*workflow-harness-activation-candidate)(?=[\s\S]*workflow-harness-activation-candidate-decision)(?=[\s\S]*workflow-harness-fork-mutation-canary)(?=[\s\S]*workflow-harness-activation-candidate-worker-binding)(?=[\s\S]*workflow-harness-worker-binding-inspector)(?=[\s\S]*workflow-harness-worker-binding-picker)(?=[\s\S]*workflow-harness-worker-binding-option-current)(?=[\s\S]*workflow-harness-worker-binding-option-candidate)(?=[\s\S]*workflow-harness-worker-binding-option-rollback)(?=[\s\S]*workflow-harness-worker-binding-rollback-targets)(?=[\s\S]*workflow-harness-worker-binding-apply-candidate)(?=[\s\S]*workflow-harness-worker-binding-run-rollback-drill)(?=[\s\S]*workflow-harness-worker-binding-execute-rollback)(?=[\s\S]*workflow-harness-rollback-drill-proof)(?=[\s\S]*workflow-harness-rollback-execution-proof)(?=[\s\S]*workflow-harness-git-restore-proof)(?=[\s\S]*workflow-harness-git-restore-summary)(?=[\s\S]*workflow-harness-git-restore-paths)(?=[\s\S]*workflow-harness-git-restore-hashes)(?=[\s\S]*workflow-harness-git-restore-blockers)(?=[\s\S]*workflow-harness-activation-audit)(?=[\s\S]*workflow-harness-activation-audit-event-\$\{event\.eventId\})(?=[\s\S]*workflow-harness-worker-binding-version-set)(?=[\s\S]*workflow-harness-worker-binding-refresh-candidate)(?=[\s\S]*workflow-harness-worker-binding-check-readiness)(?=[\s\S]*workflow-harness-activation-candidate-gate-\$\{gate\.gateId\})(?=[\s\S]*workflow-harness-activation-dry-run)(?=[\s\S]*workflow-harness-activation-step-\$\{step\.id\})(?=[\s\S]*id: "slots")(?=[\s\S]*id: "tests")(?=[\s\S]*id: "replay-fixtures")(?=[\s\S]*id: "policy-posture")(?=[\s\S]*id: "mutation-canary")(?=[\s\S]*id: "receipt-coverage")(?=[\s\S]*id: "package-evidence")(?=[\s\S]*id: "canary")(?=[\s\S]*id: "rollback")(?=[\s\S]*id: "activation-id")(?=[\s\S]*id: "worker-binding")(?=[\s\S]*workflow-harness-activation-blocked-proof)(?=[\s\S]*workflow-harness-activation-minted-proof)(?=[\s\S]*workflow-harness-activation-run-readiness)(?=[\s\S]*workflow-harness-activation-review-proposal)(?=[\s\S]*workflow-harness-fork-component-diff)(?=[\s\S]*workflow-harness-fork-component-diff-summary)(?=[\s\S]*workflow-harness-fork-component-diff-row-\$\{row\.componentId\})(?=[\s\S]*onCheckActivationReadiness)(?=[\s\S]*onRunHarnessActivationDryRun)(?=[\s\S]*onApplyHarnessActivationCandidate)(?=[\s\S]*onRunHarnessRollbackDrill)(?=[\s\S]*onExecuteHarnessRollback)(?=[\s\S]*onSelectHarnessRollbackTarget)/,
+  workflowRailPanel,
+  /(?=[\s\S]*selectedHarnessGroup)(?=[\s\S]*workflow-harness-deep-link-state)(?=[\s\S]*workflow-copy-harness-deep-link)(?=[\s\S]*workflow-harness-group-inspector)(?=[\s\S]*workflow-harness-group-readiness-rollup)(?=[\s\S]*workflow-harness-group-components)(?=[\s\S]*workflow-harness-group-run-status)(?=[\s\S]*workflow-harness-group-gated-run)(?=[\s\S]*workflow-harness-group-receipt-refs)(?=[\s\S]*workflow-harness-group-receipt-ref-)(?=[\s\S]*workflow-harness-group-replay-fixtures)(?=[\s\S]*workflow-harness-group-replay-ref-)(?=[\s\S]*workflow-harness-group-activation-blockers)(?=[\s\S]*workflow-harness-group-shadow-comparison)(?=[\s\S]*workflow-harness-group-attempts)(?=[\s\S]*onInspectHarnessGroupNode)(?=[\s\S]*onSelectHarnessReceiptRef)(?=[\s\S]*onSelectHarnessReplayFixtureRef)(?=[\s\S]*workflow-harness-activation-wizard)(?=[\s\S]*workflow-harness-activation-candidate)(?=[\s\S]*workflow-harness-activation-candidate-decision)(?=[\s\S]*workflow-harness-fork-mutation-canary)(?=[\s\S]*workflow-harness-activation-candidate-worker-binding)(?=[\s\S]*workflow-harness-worker-binding-inspector)(?=[\s\S]*workflow-harness-worker-binding-picker)(?=[\s\S]*workflow-harness-worker-binding-option-current)(?=[\s\S]*workflow-harness-worker-binding-option-candidate)(?=[\s\S]*workflow-harness-worker-binding-option-rollback)(?=[\s\S]*workflow-harness-worker-binding-rollback-targets)(?=[\s\S]*workflow-harness-worker-binding-apply-candidate)(?=[\s\S]*workflow-harness-worker-binding-run-rollback-drill)(?=[\s\S]*workflow-harness-worker-binding-execute-rollback)(?=[\s\S]*workflow-harness-rollback-drill-proof)(?=[\s\S]*workflow-harness-rollback-execution-proof)(?=[\s\S]*workflow-harness-git-restore-proof)(?=[\s\S]*workflow-harness-git-restore-summary)(?=[\s\S]*workflow-harness-git-restore-paths)(?=[\s\S]*workflow-harness-git-restore-hashes)(?=[\s\S]*workflow-harness-git-restore-blockers)(?=[\s\S]*workflow-harness-activation-audit)(?=[\s\S]*workflow-harness-activation-audit-event-\$\{event\.eventId\})(?=[\s\S]*workflow-harness-worker-binding-version-set)(?=[\s\S]*workflow-harness-worker-binding-refresh-candidate)(?=[\s\S]*workflow-harness-worker-binding-check-readiness)(?=[\s\S]*workflow-harness-activation-candidate-gate-\$\{gate\.gateId\})(?=[\s\S]*workflow-harness-activation-dry-run)(?=[\s\S]*workflow-harness-activation-step-\$\{step\.id\})(?=[\s\S]*id: "slots")(?=[\s\S]*id: "tests")(?=[\s\S]*id: "replay-fixtures")(?=[\s\S]*id: "policy-posture")(?=[\s\S]*id: "mutation-canary")(?=[\s\S]*id: "receipt-coverage")(?=[\s\S]*id: "package-evidence")(?=[\s\S]*id: "canary")(?=[\s\S]*id: "rollback")(?=[\s\S]*id: "activation-id")(?=[\s\S]*id: "worker-binding")(?=[\s\S]*workflow-harness-activation-blocked-proof)(?=[\s\S]*workflow-harness-activation-minted-proof)(?=[\s\S]*workflow-harness-activation-run-readiness)(?=[\s\S]*workflow-harness-activation-review-proposal)(?=[\s\S]*workflow-harness-fork-component-diff)(?=[\s\S]*workflow-harness-fork-component-diff-summary)(?=[\s\S]*workflow-harness-fork-component-diff-row-\$\{row\.componentId\})(?=[\s\S]*onCheckActivationReadiness)(?=[\s\S]*onRunHarnessActivationDryRun)(?=[\s\S]*onApplyHarnessActivationCandidate)(?=[\s\S]*onRunHarnessRollbackDrill)(?=[\s\S]*onExecuteHarnessRollback)(?=[\s\S]*onSelectHarnessRollbackTarget)/,
   "Harness group rail inspection should expose readiness rollups, components, run/gate status, receipts, replay fixtures, blockers, shadow comparison, attempts, member deep links, copyable workbench state, dry-run activation candidates, rollback drill proof, activation audit history, and blessed-vs-fork component diffs.",
 );
 
@@ -1270,8 +1276,8 @@ assert.match(
 );
 
 assert.match(
-	  `${graphTypes}\n${workflowRailPanel}\n${composer}\n${guiHarnessValidation}\n${guiHarnessContract}`,
-	  /(?=[\s\S]*WorkflowHarnessPackageEvidenceGateClickProof)(?=[\s\S]*runHarnessPackageEvidenceGateClickProbe)(?=[\s\S]*packageEvidenceGateClickProof)(?=[\s\S]*packageEvidenceGateClickPassed)(?=[\s\S]*packageEvidenceGateReceiptRefCount)(?=[\s\S]*packageEvidenceGateDeepLinkCount)(?=[\s\S]*workflow-harness-package-evidence-review)(?=[\s\S]*workflow-harness-package-evidence-row-\$\{row\.id\})(?=[\s\S]*workflow-harness-package-evidence-row-ref-\$\{row\.id\}-\$\{index\})(?=[\s\S]*data-harness-package-evidence-ready)(?=[\s\S]*data-harness-package-fork-mutation-receipt-count)(?=[\s\S]*data-harness-package-receipt-ref-count)(?=[\s\S]*data-harness-package-replay-fixture-ref-count)(?=[\s\S]*data-harness-package-worker-handoff-attempt-count)(?=[\s\S]*workflowHarnessPackageDeepLinkTarget)(?=[\s\S]*harness_package_evidence_gate_click_proof)(?=[\s\S]*harness_package_evidence_gate_click_proof_present)/,
+  `${graphTypes}\n${workflowRailPanel}\n${composer}\n${guiHarnessValidation}\n${guiHarnessContract}`,
+  /(?=[\s\S]*WorkflowHarnessPackageEvidenceGateClickProof)(?=[\s\S]*runHarnessPackageEvidenceGateClickProbe)(?=[\s\S]*packageEvidenceGateClickProof)(?=[\s\S]*packageEvidenceGateClickPassed)(?=[\s\S]*packageEvidenceGateReceiptRefCount)(?=[\s\S]*packageEvidenceGateDeepLinkCount)(?=[\s\S]*workflow-harness-package-evidence-review)(?=[\s\S]*workflow-harness-package-evidence-row-\$\{row\.id\})(?=[\s\S]*workflow-harness-package-evidence-row-ref-\$\{row\.id\}-\$\{index\})(?=[\s\S]*data-harness-package-evidence-ready)(?=[\s\S]*data-harness-package-fork-mutation-receipt-count)(?=[\s\S]*data-harness-package-receipt-ref-count)(?=[\s\S]*data-harness-package-replay-fixture-ref-count)(?=[\s\S]*data-harness-package-worker-handoff-attempt-count)(?=[\s\S]*workflowHarnessPackageDeepLinkTarget)(?=[\s\S]*harness_package_evidence_gate_click_proof)(?=[\s\S]*harness_package_evidence_gate_click_proof_present)/,
   "Live promotion GUI validation should include package-evidence gate click proof with inspectable manifest rows and route-restorable refs.",
 );
 
@@ -1732,8 +1738,8 @@ assert.match(
 );
 
 assert.match(
-	  workflowValidation,
-	  /(?=[\s\S]*workflowIsHarnessFork)(?=[\s\S]*harness_required_slot_unbound)(?=[\s\S]*harness_activation_not_validated)(?=[\s\S]*harness_self_mutation_not_proposal_only)(?=[\s\S]*harness_fork_mutation_canary_not_passed)(?=[\s\S]*harness_package_manifest_incomplete)(?=[\s\S]*workflowHarnessPackageEvidenceReview)(?=[\s\S]*gateId: "mutation-canary")(?=[\s\S]*gateId: "package-evidence")/,
+  workflowValidation,
+  /(?=[\s\S]*workflowIsHarnessFork)(?=[\s\S]*harness_required_slot_unbound)(?=[\s\S]*harness_activation_not_validated)(?=[\s\S]*harness_self_mutation_not_proposal_only)(?=[\s\S]*harness_fork_mutation_canary_not_passed)(?=[\s\S]*harness_package_manifest_incomplete)(?=[\s\S]*workflowHarnessPackageEvidenceReview)(?=[\s\S]*gateId: "mutation-canary")(?=[\s\S]*gateId: "package-evidence")/,
   "Harness activation readiness should block invalid forks, unbound slots, missing activation ids, incomplete package manifests, and direct AI self-mutation",
 );
 

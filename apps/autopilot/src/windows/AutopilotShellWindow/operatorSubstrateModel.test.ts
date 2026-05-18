@@ -62,7 +62,10 @@ test("operator activity rail is a shell projection with deterministic surfaces",
   assert.equal(model.runtimeTruthSource, "daemon-runtime");
   assert.equal(model.collapsed, true);
   assert.equal(model.chromeMode, "sidebar");
-  assert.deepEqual(model.activeRoute, { kind: "primary-view", view: "workflows" });
+  assert.deepEqual(model.activeRoute, {
+    kind: "primary-view",
+    view: "workflows",
+  });
   assert.deepEqual(
     model.items.map((item) => item.dataWindowSurface),
     [
@@ -117,10 +120,16 @@ test("workspace substrate target index exposes controlled UI before coordinate f
   assert.equal(index.schemaVersion, "ioi.workspace-substrate-target-index.v1");
   assert.equal(index.targets[0]?.runtimeTruthSource, "daemon-runtime");
   assert.ok(
-    index.targets.some((target) => target.targetId === "operator.command-center"),
+    index.targets.some(
+      (target) => target.targetId === "operator.command-center",
+    ),
   );
-  assert.ok(index.targets.some((target) => target.targetId === "workspace.editor"));
-  assert.ok(index.targets.some((target) => target.targetId === "workflow.node"));
+  assert.ok(
+    index.targets.some((target) => target.targetId === "workspace.editor"),
+  );
+  assert.ok(
+    index.targets.some((target) => target.targetId === "workflow.node"),
+  );
   assert.ok(
     index.targets.some(
       (target) =>
@@ -159,6 +168,29 @@ test("workspace embedding defers global command center to ChatIdeHeader", () => 
   assert.match(chatHeader, /data-operator-command-center/);
 });
 
+test("direct OpenVSCode workspace failures stay in integrated surface chrome", () => {
+  const workspaceShell = readFileSync(
+    "apps/autopilot/src/surfaces/Workspace/WorkspaceShell.tsx",
+    "utf8",
+  );
+  const workspaceStyles = readFileSync(
+    "apps/autopilot/src/windows/AutopilotShellWindow/styles/autopilot-shell/trace-and-welcome.css",
+    "utf8",
+  );
+
+  assert.match(workspaceShell, /directOpenVsCodeSurfaceVisible/);
+  assert.match(workspaceShell, /surfaceRuntimeNotice/);
+  assert.match(workspaceShell, /!overlayVisible && surfaceNotice/);
+  assert.match(workspaceShell, /chat-workspace-oss-shell__surface-notice/);
+  assert.match(workspaceShell, /chat-workspace-oss-shell__diagnostics/);
+  assert.doesNotMatch(
+    workspaceShell,
+    /const effectiveError = error \?\? surfaceRuntimeError/,
+  );
+  assert.doesNotMatch(workspaceShell, /Force reveal now/);
+  assert.match(workspaceStyles, /chat-workspace-oss-shell__surface-notice/);
+});
+
 test("workspace docked chat is real operator chrome, not screenshot hitboxes", () => {
   const workspaceHost = readFileSync(
     "packages/workspace-substrate/src/components/WorkspaceHost.tsx",
@@ -181,11 +213,23 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
   assert.match(workspaceHost, /dataOperatorChatPane="docked"/);
   assert.match(workspaceHost, /dataInspectionTarget="workspace-chat-pane"/);
   assert.match(operatorChatPane, /data-operator-chat-pane=/);
-  assert.match(operatorChatPane, /data-inspection-target=\{dataInspectionTarget/);
-  assert.match(operatorChatPane, /data-inspection-target="workspace-chat-composer"/);
+  assert.match(
+    operatorChatPane,
+    /data-inspection-target=\{dataInspectionTarget/,
+  );
+  assert.match(
+    operatorChatPane,
+    /data-inspection-target="workspace-chat-composer"/,
+  );
   assert.match(chatConversationSurface, /<OperatorChatPane/);
-  assert.match(chatConversationSurface, /dataInspectionTarget="operator-chat-pane"/);
-  assert.match(chatInputSection, /data-inspection-target="operator-chat-composer"/);
+  assert.match(
+    chatConversationSurface,
+    /dataInspectionTarget="operator-chat-pane"/,
+  );
+  assert.match(
+    chatInputSection,
+    /data-inspection-target="operator-chat-composer"/,
+  );
   assert.doesNotMatch(chatConversationSurface, /spot-workbench-chat-topbar/);
   assert.doesNotMatch(workspaceHost, /function WorkbenchAgentDock/);
   assert.doesNotMatch(workspaceHost, /workspace-agent-dock-header-hitbox/);
@@ -231,7 +275,10 @@ test("controlled substrate surfaces expose inspection target attributes", () => 
   assert.match(chatHeader, /data-inspection-target="operator-command-center"/);
   assert.match(activityRail, /data-inspection-target="operator-activity-rail"/);
   assert.match(directSurface, /__AUTOPILOT_GET_WORKBENCH_TARGET_INDEX__/);
-  assert.match(directSurface, /data-inspection-target="direct-openvscode-webview"/);
+  assert.match(
+    directSurface,
+    /data-inspection-target="direct-openvscode-webview"/,
+  );
   assert.match(workspaceRail, /data-inspection-target="workspace-rail"/);
   assert.match(explorer, /data-inspection-target="workspace-explorer-row"/);
   assert.match(editor, /data-inspection-target="workspace-editor-stage"/);
