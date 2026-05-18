@@ -651,6 +651,10 @@
   padding: 9px;
 }
 
+.workflow-harness-teaching-view[data-topology-legend="collapsed"] {
+  padding: 7px 9px;
+}
+
 .workflow-harness-teaching-view header,
 .workflow-harness-teaching-view header div,
 .workflow-harness-teaching-view > div {
@@ -662,6 +666,11 @@
 
 .workflow-harness-teaching-view header {
   justify-content: space-between;
+}
+
+.workflow-harness-teaching-view header strong {
+  color: var(--text-primary);
+  font-size: 13px;
 }
 
 .workflow-harness-teaching-actions {
@@ -933,6 +942,25 @@
 }
 
 .workflow-composer-canvas-controls .workflow-icon-button.is-active {
+  border-color: color-mix(in srgb, var(--accent-blue) 56%, var(--border-default));
+  color: var(--accent-blue);
+}
+
+.workflow-canvas-legend-toggle {
+  min-height: 34px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  padding: 0 10px;
+}
+
+.workflow-canvas-legend-toggle:hover,
+.workflow-canvas-legend-toggle:focus-visible,
+.workflow-canvas-legend-toggle.is-active {
   border-color: color-mix(in srgb, var(--accent-blue) 56%, var(--border-default));
   color: var(--accent-blue);
 }
