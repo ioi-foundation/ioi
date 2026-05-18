@@ -72,7 +72,11 @@ export function WorkspaceRail({
   onTogglePrimarySidebar,
 }: WorkspaceRailProps) {
   return (
-    <nav className="workspace-rail" aria-label="Workspace navigation">
+    <nav
+      className="workspace-rail"
+      aria-label="Workspace navigation"
+      data-inspection-target="workspace-rail"
+    >
       <img src={stripForPane(activePane)} alt="" className="workspace-rail-strip" aria-hidden="true" />
       <div className="workspace-rail-live">
         <div className="workspace-rail-group workspace-rail-group--menu">
@@ -101,6 +105,8 @@ export function WorkspaceRail({
               onClick={() => onSelectPane(item.id)}
               title={item.label}
               aria-label={item.label}
+              data-inspection-target="workspace-rail-item"
+              data-workspace-pane={item.id}
             >
               <span className="workspace-rail-button-indicator" aria-hidden="true" />
               <span className="workspace-rail-button-glyph" aria-hidden="true">
@@ -122,6 +128,8 @@ export function WorkspaceRail({
               onClick={() => onSelectPane(item.id)}
               title={item.label}
               aria-label={item.label}
+              data-inspection-target="workspace-rail-item"
+              data-workspace-pane={item.id}
             >
               <span className="workspace-rail-button-indicator" aria-hidden="true" />
               <span className="workspace-rail-button-glyph" aria-hidden="true">

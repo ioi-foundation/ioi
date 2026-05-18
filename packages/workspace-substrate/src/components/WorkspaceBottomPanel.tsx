@@ -98,7 +98,11 @@ export function WorkspaceBottomPanel({
   onOpenRequest,
 }: WorkspaceBottomPanelProps) {
   return (
-    <section className={clsx("workspace-bottom-panel", !isOpen && "is-collapsed")}>
+    <section
+      className={clsx("workspace-bottom-panel", !isOpen && "is-collapsed")}
+      data-inspection-target="workspace-bottom-panel"
+      data-workspace-bottom-panel={activePanel}
+    >
       {isOpen ? (
         <>
           <header className="workspace-bottom-panel-header">

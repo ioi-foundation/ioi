@@ -5,14 +5,16 @@ import {
   useMemo,
   useState,
 } from "react";
-import { listen } from "@tauri-apps/api/event";
 import {
   type ConnectorActionDefinition,
   type ConnectorConfigureResult,
   type ConnectorSummary,
   useMailConnectorActions,
 } from "@ioi/agent-ide";
-import { safelyDisposeTauriListener } from "../../../services/tauriListeners";
+import {
+  listenIfTauri,
+  safelyDisposeTauriListener,
+} from "../../../services/tauriListeners";
 import { type TauriRuntime } from "../../../services/TauriRuntime";
 import type {
   CapabilityRegistryEntry,
@@ -1474,7 +1476,7 @@ export function useCapabilitiesController({
 
   useEffect(() => {
     let active = true;
-    const unlistenPromise = listen("local-engine-updated", () => {
+    const unlistenPromise = listenIfTauri("local-engine-updated", () => {
       if (!active) return;
       void refreshCapabilityRegistrySnapshot({
         preserveDraft: true,

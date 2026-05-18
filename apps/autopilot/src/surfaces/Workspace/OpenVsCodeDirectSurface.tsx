@@ -4,6 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { WorkspaceWorkbenchOpenVsCodeDirectModel } from "../../services/workspaceWorkbenchHost";
 import {
+  buildWorkspaceSubstrateTargetIndex,
+  type WorkspaceSubstrateTargetIndex,
+} from "../../windows/AutopilotShellWindow/operatorSubstrateModel";
+import {
   destroyWorkspaceDirectWebview,
   focusWorkspaceDirectWebview,
   getWorkspaceDirectWebviewState,
@@ -27,7 +31,9 @@ declare global {
   interface Window {
     __AUTOPILOT_OPEN_WORKBENCH_DEVTOOLS__?: () => Promise<WorkspaceDirectWebviewState>;
     __AUTOPILOT_GET_WORKBENCH_SURFACE_STATE__?: () => Promise<WorkspaceDirectWebviewState | null>;
+    __AUTOPILOT_GET_WORKBENCH_TARGET_INDEX__?: () => WorkspaceSubstrateTargetIndex;
     __AUTOPILOT_WORKBENCH_SURFACE__?: WorkspaceDirectWebviewState | null;
+    __AUTOPILOT_WORKBENCH_TARGET_INDEX__?: WorkspaceSubstrateTargetIndex | null;
   }
 }
 
@@ -263,9 +269,23 @@ export function OpenVsCodeDirectSurface({
   }, [onReady, scheduleSettledSyncBounds, surface.surfaceId]);
 
   useEffect(() => {
+    const directWebview =
+      nativeState && nativeState.bounds
+        ? {
+            surfaceId: nativeState.surfaceId,
+            label: nativeState.label,
+            bounds: nativeState.bounds,
+            screenBounds: nativeState.screenBounds ?? null,
+          }
+        : null;
+    const targetIndex = buildWorkspaceSubstrateTargetIndex({
+      directWebview,
+    });
     window.__AUTOPILOT_WORKBENCH_SURFACE__ = nativeState;
+    window.__AUTOPILOT_WORKBENCH_TARGET_INDEX__ = targetIndex;
     window.__AUTOPILOT_GET_WORKBENCH_SURFACE_STATE__ = () =>
       getWorkspaceDirectWebviewState(surface.surfaceId);
+    window.__AUTOPILOT_GET_WORKBENCH_TARGET_INDEX__ = () => targetIndex;
     window.__AUTOPILOT_OPEN_WORKBENCH_DEVTOOLS__ = () =>
       openWorkspaceDirectWebviewDevtools(surface.surfaceId);
 
@@ -273,11 +293,17 @@ export function OpenVsCodeDirectSurface({
       if (window.__AUTOPILOT_GET_WORKBENCH_SURFACE_STATE__) {
         delete window.__AUTOPILOT_GET_WORKBENCH_SURFACE_STATE__;
       }
+      if (window.__AUTOPILOT_GET_WORKBENCH_TARGET_INDEX__) {
+        delete window.__AUTOPILOT_GET_WORKBENCH_TARGET_INDEX__;
+      }
       if (window.__AUTOPILOT_OPEN_WORKBENCH_DEVTOOLS__) {
         delete window.__AUTOPILOT_OPEN_WORKBENCH_DEVTOOLS__;
       }
       if (window.__AUTOPILOT_WORKBENCH_SURFACE__) {
         delete window.__AUTOPILOT_WORKBENCH_SURFACE__;
+      }
+      if (window.__AUTOPILOT_WORKBENCH_TARGET_INDEX__) {
+        delete window.__AUTOPILOT_WORKBENCH_TARGET_INDEX__;
       }
     };
   }, [nativeState, surface.surfaceId]);
@@ -371,6 +397,7 @@ export function OpenVsCodeDirectSurface({
       className="chat-workspace-oss-shell__direct-surface"
       data-workspace-surface-kind="openvscode-direct"
       data-workspace-surface-id={surface.surfaceId}
+      data-inspection-target="direct-openvscode-webview"
       data-workspace-native-host-mode={nativeState?.mode ?? "pending"}
       data-workspace-native-host-label={nativeState?.label ?? ""}
       data-workspace-native-bounds={
@@ -382,7 +409,8 @@ export function OpenVsCodeDirectSurface({
       data-workspace-parent-viewport={
         parentViewport ? JSON.stringify(parentViewport) : ""
       }
-      role="presentation"
+      role="application"
+      aria-label="Direct OpenVSCode workbench webview"
       onFocus={() => {
         void focusWorkspaceDirectWebview(surface.surfaceId).catch(() => {});
       }}

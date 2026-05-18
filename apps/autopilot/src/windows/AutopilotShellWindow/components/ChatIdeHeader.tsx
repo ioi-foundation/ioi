@@ -142,6 +142,7 @@ export function ChatIdeHeader({
         <button
           type="button"
           className="chat-ide-command-center"
+          data-inspection-target="operator-command-center"
           data-operator-command-center={commandCenter.projectionId}
           data-operator-route-kind={commandCenter.activeRoute.kind}
           aria-label={commandCenter.placeholder}

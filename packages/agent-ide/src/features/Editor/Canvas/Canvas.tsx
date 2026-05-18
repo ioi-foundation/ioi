@@ -63,6 +63,7 @@ export function Canvas({
          onDragOver={e => e.preventDefault()}
          onDrop={readOnly ? undefined : onDrop}
          aria-label="Workflow canvas"
+         data-inspection-target="workflow-canvas"
          data-workflow-chrome-locale={workflowChromeLocale ?? "default"}
          data-keyboard-navigation="node-enter-space-selects-inspector"
          data-read-only={readOnly ? "true" : "false"}>

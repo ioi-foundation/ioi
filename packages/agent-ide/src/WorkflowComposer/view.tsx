@@ -340,6 +340,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     <div
       className="workflow-composer"
       data-testid="workflow-composer"
+      data-inspection-target="workflow-composer"
       data-selected-node-id={selectedNodeId ?? ""}
       data-workflow-run-launch-blocked={workflowRunLaunchBlocked}
     >
@@ -778,6 +779,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                 className="workflow-composer-left-drawer"
                 aria-label="Workflow node library"
                 data-testid="workflow-left-drawer"
+                data-inspection-target="workflow-palette"
               >
                 <header>
                   <h3>Add node</h3>
@@ -1152,6 +1154,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                               key={`drawer-${itemId}`}
                               type="button"
                               data-testid={`workflow-component-${itemId}`}
+                              data-inspection-target="workflow-palette-item"
                               data-node-type={item.type}
                               draggable
                               onDragStart={(event) =>

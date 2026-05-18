@@ -631,8 +631,8 @@ export function WorkspaceEditorPane({
   };
 
   return (
-    <section className="workspace-editor">
-      <header className="workspace-editor-tabs">
+    <section className="workspace-editor" data-inspection-target="workspace-editor">
+      <header className="workspace-editor-tabs" data-inspection-target="workspace-editor-tabs">
         <img src={workbenchEditorTabsStrip} alt="" className="workspace-editor-tabs-strip" aria-hidden="true" />
         <div className="workspace-editor-tabs-live">
           <div className="workspace-editor-tabs-list">
@@ -646,6 +646,9 @@ export function WorkspaceEditorPane({
                   <div
                     key={tab.id}
                     className={`workspace-editor-tab ${isActive ? "is-active" : ""}`}
+                    data-inspection-target="workspace-editor-tab"
+                    data-workspace-document-id={tab.id}
+                    data-workspace-path={tab.kind === "file" ? tab.path : tab.title}
                   >
                     <button type="button" onClick={() => onSelectDocument(tab.id)}>
                       <span>{title}</span>
@@ -730,7 +733,10 @@ export function WorkspaceEditorPane({
         </div>
       ) : null}
 
-      <div className={`workspace-editor-stage${shouldRenderSplitView ? " workspace-editor-stage--split" : ""}`}>
+      <div
+        className={`workspace-editor-stage${shouldRenderSplitView ? " workspace-editor-stage--split" : ""}`}
+        data-inspection-target="workspace-editor-stage"
+      >
         {!activeDocument ? (
           <div className="workspace-editor-empty workspace-editor-empty--idle">
             <div>

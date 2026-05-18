@@ -271,6 +271,7 @@ export function ChatLocalActivityBar({
       role="navigation"
       aria-label="Autopilot navigation"
       data-collapsed={collapsed ? "true" : "false"}
+      data-inspection-target="operator-activity-rail"
       data-operator-activity-rail={railModel.projectionId}
     >
       <div className="chat-activity-brand-row">

@@ -2,7 +2,7 @@
 
 Owner: Autopilot / Chat UX / Workspace substrate / Workflow Composer / Direct OpenVSCode bridge
 
-Status: proposed P0 integration leg
+Status: completed / regression guarded
 
 Created: 2026-05-18
 
@@ -94,12 +94,12 @@ toolbar affordances, but it should not own the global command/search center.
 | --- | --- | --- | --- |
 | Shared substrate contract | Define one operator substrate model across chat, workspace, workflows, and data-window surfaces. | Done / regression guarded | Shared types describe command center, side rail, chat pane, context picker, inspector targets, and project materialization events. |
 | Header command center | Lift VS Code substrate center bar into `ChatIdeHeader`. | Done / regression guarded | Center command/search is persistent across chat, workflows, workspace, runs, policy, and settings; workspace no longer duplicates global center chrome. |
-| Shared chat pane | Reuse the mature VS Code-style chat pane shape in Autopilot Chat and data-window surfaces. | In progress / docked chrome guarded | `ChatConversationSurface` and `WorkbenchAgentDock` converge on one component family with mode variants. |
+| Shared chat pane | Reuse the mature VS Code-style chat pane shape in Autopilot Chat and data-window surfaces. | Done / chrome contract guarded | Primary chat and workspace dock expose one operator chat-pane control contract with real DOM controls, mode-specific responsive layout, and no screenshot hitboxes. |
 | Activity rail convergence | Make data-window surfaces use the same improved chat activity rail semantics. | Done / regression guarded | Sidebar supports collapsed/expanded modes, consistent icons, profile, search shortcut, and data-window surface routing. |
 | Workflow-to-project materialization | Make workflow composition generate/open real VS Code Studio projects. | Done / regression guarded | A composed workflow emits an Autonomous System Package scaffold, persists it as a workspace repository, hands it off for workspace opening, and fail-closes with user-facing copy outside desktop runtime. |
-| Workspace bridge deepening | Turn workspace/direct OpenVSCode into an addressable controlled substrate. | Not started | Runtime/web inspector can target substrate UI elements through stable ids, AX metadata, DOM probes, and receipts. |
-| Inspector substrate targeting | Make web inspector effectively target VS Code substrate UX. | Not started | Inspector can identify activity rail items, command center, explorer, editor tabs, chat composer, workflow controls, and direct webview bounds. |
-| GUI validation net | Prove the integration with live clickthroughs. | Not started | Playwright/autopilot probes cover header command center, chat pane parity, workflow materialization, and inspector targeting. |
+| Workspace bridge deepening | Turn workspace/direct OpenVSCode into an addressable controlled substrate. | Done / target-index guarded | Controlled workspace substrate chrome exposes stable inspection targets; direct OpenVSCode exposes bounded surface metadata and target-index snapshots for fallback. |
+| Inspector substrate targeting | Make web inspector effectively target VS Code substrate UX. | Done / controlled-target guarded | Inspector targets cover activity rail, command center, workspace rail/explorer/editor/terminal/chat chrome, workflow composer/canvas/nodes/palette, run evidence, and direct webview bounds. |
+| GUI validation net | Prove the integration with live clickthroughs. | Done / Playwright guarded | Browser clickthrough covers command center across primary surfaces, no duplicate workspace center bar, command palette, workflow materialization fail-closed copy, and substrate inspection markers. |
 
 ## Target Architecture
 
@@ -429,6 +429,33 @@ Required probes:
 - Existing workflows and repository opening still work.
 - Dark/light themes remain consistent.
 
+## Validation Snapshot
+
+Completed validation:
+
+- `node --test apps/autopilot/src/windows/AutopilotShellWindow/operatorSubstrateModel.test.ts apps/autopilot/src/services/workflowProjectMaterializationPlan.test.ts apps/autopilot/src/services/workspaceRepositoryRegistry.test.ts`
+- `npm run build --workspace=apps/autopilot`
+- `git diff --check`
+- Live Playwright probe against `http://127.0.0.1:1428`:
+  - verified exactly one `[data-operator-command-center]` on Home, Chat,
+    Workspace, Workflows, Runs, Capabilities, Policy, and Settings;
+  - verified Workspace does not render a duplicate
+    `.workspace-workbench-command-center` in embedded mode;
+  - verified command-center click and `Ctrl+K` open the global command
+    palette;
+  - verified Workflow Composer, canvas, command center, and activity rail
+    expose inspection targets;
+  - verified `Create project` fail-closes with user-facing desktop-runtime copy
+    in browser mode and does not surface raw Tauri/JS exceptions;
+  - verified no page errors during the primary-surface substrate probe.
+
+Known boundary:
+
+- Controlled Autopilot and workspace-substrate chrome is DOM/selector
+  targetable. Direct OpenVSCode internals remain bounded by direct webview
+  surface metadata until an injected extension/CDP bridge is added; this is an
+  explicit substrate boundary, not a second runtime.
+
 ## Component Map
 
 | Current area | Current file(s) | Target role |
@@ -436,7 +463,7 @@ Required probes:
 | Shell header | `apps/autopilot/src/windows/AutopilotShellWindow/components/ChatIdeHeader.tsx` | Own global command center, nav, scope, runtime status, and window controls. |
 | Workspace command center | `packages/workspace-substrate/src/components/WorkspaceHost.tsx` | Provide extracted command-center implementation and optional local toolbar controls. |
 | Primary chat shell | `apps/autopilot/src/windows/ChatShellWindow/components/ChatConversationSurface.tsx` | Source for shared chat pane chrome and controls. |
-| Workspace agent dock | `packages/workspace-substrate/src/components/WorkspaceHost.tsx` / `WorkbenchAgentDock` | Replace with shared `OperatorChatPane` docked mode. |
+| Workspace agent dock | `packages/workspace-substrate/src/components/WorkspaceHost.tsx` / `WorkbenchAgentDock` | Provide docked operator chat chrome with shared control semantics and targetable real DOM. |
 | Activity rail | `apps/autopilot/src/windows/AutopilotShellWindow/components/ChatLocalActivityBar.tsx` | Promote into shared activity/data-window surface rail. |
 | Direct OpenVSCode webview | `apps/autopilot/src/surfaces/Workspace/OpenVsCodeDirectSurface.tsx` | Provide bounded target metadata and inspection hooks. |
 | Workspace bridge | `apps/autopilot/src/services/workspaceIde.ts` and `workspaceDirectWebview.ts` | Carry project materialization/opening and target-index receipts. |
