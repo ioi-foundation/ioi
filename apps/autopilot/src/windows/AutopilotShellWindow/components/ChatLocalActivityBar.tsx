@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
+  ChatLogoIcon,
   ComposeIcon,
   FleetIcon,
   HomeIcon,
@@ -29,30 +30,32 @@ interface ChatLocalActivityBarProps {
 }
 
 interface NavItem {
-  id: string;
+  id: PrimaryView;
   label: string;
   icon: ReactNode;
   description: string;
   shortcut?: string;
   badgeCount?: number;
-  disabled?: boolean;
 }
 
 interface ActivityButtonProps {
   item: NavItem;
-  icon: ReactNode;
+  icon?: ReactNode;
   badgeCount?: number;
   isActive: boolean;
   onClick: () => void;
-  disabled?: boolean;
 }
 
-const NAV_ITEMS: Array<NavItem & { id: PrimaryView }> = [
+const CHAT_ACTIVITY_BAR_COLLAPSED_KEY =
+  "autopilot.chatActivityBarCollapsed";
+
+const NAV_ITEMS: NavItem[] = [
   {
     id: "chat",
     label: "Chat",
     icon: <SparklesIcon />,
-    description: "Control query outcomes, open artifact tabs, and only drop into renderer-specific lenses when the work requires it.",
+    description:
+      "Control query outcomes, open artifact tabs, and only drop into renderer-specific lenses when the work requires it.",
     shortcut: chatNavigationShortcutLabel(1),
   },
   {
@@ -122,49 +125,79 @@ const HOME_NAV_ITEM: NavItem = {
   description: "Open onboarding, recent project scope, runtime health, and next actions.",
 };
 
+const PRIMARY_NAV_IDS = new Set<PrimaryView>(["chat", "inbox"]);
+const WORK_NAV_IDS = new Set<PrimaryView>([
+  "workspace",
+  "workflows",
+  "runs",
+  "mounts",
+  "capabilities",
+  "policy",
+]);
+
+function CollapseIcon({ collapsed }: { collapsed: boolean }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {collapsed ? (
+        <>
+          <path d="M6 4h7" />
+          <path d="M6 8h7" />
+          <path d="M6 12h7" />
+          <path d="m2.5 5.5 2.5 2.5-2.5 2.5" />
+        </>
+      ) : (
+        <>
+          <path d="M5 4h8" />
+          <path d="M5 8h8" />
+          <path d="M5 12h8" />
+          <path d="m3.5 5.5-2.5 2.5 2.5 2.5" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 function ActivityButton({
   item,
-  icon,
+  icon = item.icon,
   badgeCount,
   isActive,
   onClick,
-  disabled = false,
 }: ActivityButtonProps) {
-  const [hovered, setHovered] = useState(false);
-
   return (
     <button
       type="button"
       className={`chat-activity-button ${isActive ? "is-active" : ""}`}
-      disabled={disabled}
+      data-window-surface={item.id}
       onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
       aria-current={isActive ? "page" : undefined}
-      aria-disabled={disabled || undefined}
       aria-label={item.label}
-      title={`${item.label}${item.shortcut ? ` (${item.shortcut})` : ""}${
-        disabled ? " (not wired yet)" : ""
-      }`}
+      title={`${item.label}${item.shortcut ? ` (${item.shortcut})` : ""}`}
     >
-      <span
-        aria-hidden="true"
-        className="chat-activity-button-indicator"
-        style={{
-          height: isActive ? 20 : hovered ? 8 : 0,
-          transform: `translateY(-50%) translateX(${isActive || hovered ? "0px" : "-4px"})`,
-          opacity: isActive || hovered ? 1 : 0,
-        }}
-      />
       <span
         className={`chat-activity-button-icon ${
           item.id === "capabilities" ? "is-capabilities" : ""
         }`}
+        aria-hidden="true"
       >
         {icon}
       </span>
+      <span className="chat-activity-button-label">{item.label}</span>
+      {item.shortcut ? (
+        <span className="chat-activity-button-shortcut">{item.shortcut}</span>
+      ) : null}
       {badgeCount && badgeCount > 0 ? (
-        <span className="chat-activity-button-badge">
+        <span className="chat-activity-button-badge" aria-label={`${badgeCount} pending`}>
           {badgeCount > 9 ? "9+" : badgeCount}
         </span>
       ) : null}
@@ -189,6 +222,12 @@ export function ChatLocalActivityBar({
   notificationCount,
   currentProject,
 }: ChatLocalActivityBarProps) {
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const stored = window.localStorage.getItem(CHAT_ACTIVITY_BAR_COLLAPSED_KEY);
+    return stored === null ? true : stored === "true";
+  });
+
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (isEditableElement(event.target)) return;
@@ -205,7 +244,17 @@ export function ChatLocalActivityBar({
     return () => window.removeEventListener("keydown", handler);
   }, [onViewChange]);
 
-  const topNavItems = NAV_ITEMS.filter((item) => item.id !== "settings");
+  useEffect(() => {
+    window.localStorage.setItem(
+      CHAT_ACTIVITY_BAR_COLLAPSED_KEY,
+      collapsed ? "true" : "false",
+    );
+  }, [collapsed]);
+
+  const primaryNavItems = NAV_ITEMS.filter((item) =>
+    PRIMARY_NAV_IDS.has(item.id),
+  );
+  const workNavItems = NAV_ITEMS.filter((item) => WORK_NAV_IDS.has(item.id));
   const bottomNavItems = NAV_ITEMS.filter((item) => item.id === "settings");
   const projectInitials = currentProject.name
     .split(/\s+/)
@@ -216,41 +265,71 @@ export function ChatLocalActivityBar({
 
   return (
     <aside
-      className="chat-activity-bar"
+      className={`chat-activity-bar ${collapsed ? "is-collapsed" : ""}`}
       role="navigation"
-      aria-label="Chat navigation"
+      aria-label="Autopilot navigation"
+      data-collapsed={collapsed ? "true" : "false"}
     >
-      <div className="chat-activity-group" aria-label="Surface navigation">
+      <div className="chat-activity-brand-row">
+        <span className="chat-activity-brand" aria-hidden="true">
+          <ChatLogoIcon />
+        </span>
+        <button
+          type="button"
+          className="chat-activity-collapse-button"
+          aria-label={collapsed ? "Expand activity bar" : "Collapse activity bar"}
+          aria-pressed={collapsed}
+          title={collapsed ? "Expand activity bar" : "Collapse activity bar"}
+          onClick={() => setCollapsed((value) => !value)}
+        >
+          <CollapseIcon collapsed={collapsed} />
+        </button>
+      </div>
+
+      <div className="chat-activity-group" aria-label="Primary surfaces">
         <ActivityButton
           item={HOME_NAV_ITEM}
-          icon={HOME_NAV_ITEM.icon}
           isActive={activeView === "home"}
           onClick={() => onViewChange("home")}
         />
 
-        {topNavItems.map((item) => {
-          const isCapabilitiesItem = item.id === "capabilities";
-          const icon = isCapabilitiesItem ? (
-            <IntegrationsIcon
-              disableHoverAnimation={activeView === "capabilities"}
-            />
-          ) : (
-            item.icon
-          );
-          const badgeCount =
-            item.id === "inbox" ? notificationCount : item.badgeCount;
+        {primaryNavItems.map((item) => (
+          <ActivityButton
+            key={item.id}
+            item={item}
+            badgeCount={item.id === "inbox" ? notificationCount : item.badgeCount}
+            isActive={activeView === item.id}
+            onClick={() => onViewChange(item.id)}
+          />
+        ))}
+      </div>
+
+      <div className="chat-activity-group" aria-label="Work surfaces">
+        {workNavItems.map((item) => {
+          const icon =
+            item.id === "capabilities" ? (
+              <IntegrationsIcon
+                disableHoverAnimation={activeView === "capabilities"}
+              />
+            ) : (
+              item.icon
+            );
 
           return (
             <ActivityButton
               key={item.id}
               item={item}
               icon={icon}
-              badgeCount={badgeCount}
               isActive={activeView === item.id}
               onClick={() => onViewChange(item.id)}
             />
           );
         })}
+      </div>
+
+      <div className="chat-activity-apps">
+        <div className="chat-activity-section-label">Applications</div>
+        <p>Your favorite Autopilot surfaces will appear here</p>
       </div>
 
       <div className="chat-activity-spacer" />
@@ -260,33 +339,22 @@ export function ChatLocalActivityBar({
           className="chat-activity-project-indicator"
           title={`${currentProject.name} · ${currentProject.environment}`}
           aria-label={`${currentProject.name} project scope`}
+          data-window-surface="project"
         >
-          <span>{projectInitials}</span>
+          <span className="chat-activity-project-avatar">{projectInitials}</span>
+          <span className="chat-activity-project-label">
+            {currentProject.name}
+          </span>
         </div>
 
-        {bottomNavItems.map((item) => {
-          const isCapabilitiesItem = item.id === "capabilities";
-          const icon = isCapabilitiesItem ? (
-            <IntegrationsIcon
-              disableHoverAnimation={activeView === "capabilities"}
-            />
-          ) : (
-            item.icon
-          );
-          const badgeCount =
-            item.id === "inbox" ? notificationCount : item.badgeCount;
-
-          return (
-            <ActivityButton
-              key={item.id}
-              item={item}
-              icon={icon}
-              badgeCount={badgeCount}
-              isActive={activeView === item.id}
-              onClick={() => onViewChange(item.id)}
-            />
-          );
-        })}
+        {bottomNavItems.map((item) => (
+          <ActivityButton
+            key={item.id}
+            item={item}
+            isActive={activeView === item.id}
+            onClick={() => onViewChange(item.id)}
+          />
+        ))}
       </div>
     </aside>
   );
