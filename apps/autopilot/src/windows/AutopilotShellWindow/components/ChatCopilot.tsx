@@ -1,9 +1,12 @@
 // Compatibility aliases remain so the shared chat shell can re-export this view.
+import type { ReactNode } from "react";
 import type { AssistantSessionRuntime } from "@ioi/agent-ide";
 import { ChatShellWindow } from "../../ChatShellWindow";
 
 interface ChatCopilotViewProps {
   presentation?: "standalone" | "embedded-pane";
+  paneLeadingAction?: ReactNode;
+  paneTrailingAction?: ReactNode;
   seedIntent?: string | null;
   onConsumeSeedIntent?: () => void;
   sessionRuntime: AssistantSessionRuntime;
@@ -13,6 +16,8 @@ interface ChatCopilotViewProps {
 
 export function ChatCopilotView({
   presentation = "standalone",
+  paneLeadingAction,
+  paneTrailingAction,
   seedIntent,
   onConsumeSeedIntent,
   sessionRuntime,
@@ -23,6 +28,8 @@ export function ChatCopilotView({
     <ChatShellWindow
       variant="chat"
       presentationMode={presentation}
+      paneLeadingAction={paneLeadingAction}
+      paneTrailingAction={paneTrailingAction}
       seedIntent={seedIntent}
       onConsumeSeedIntent={onConsumeSeedIntent}
       sessionRuntime={sessionRuntime}

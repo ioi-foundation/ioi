@@ -80,7 +80,7 @@ assert.match(
 
 assert.match(
   source,
-  /const chatSidebarNode = isChatVariant && !isEmbeddedPaneChat \?/,
+  /const chatSidebarNode =[\s\S]*isChatVariant && !isEmbeddedPaneChat \?/,
   "embedded persistent-pane chat should not render the fullscreen session-history sidebar",
 );
 

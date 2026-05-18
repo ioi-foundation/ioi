@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { AssistantWorkbenchView, type AgentWorkbenchRuntime, type AssistantSessionRuntime } from "@ioi/agent-ide";
 import { ChatCopilotView } from "../../windows/AutopilotShellWindow/components/ChatCopilot";
 import type { AssistantWorkbenchSession } from "../../types";
@@ -10,6 +11,8 @@ interface MissionControlChatViewProps {
   runtime: SessionCapableRuntime;
   embedded?: boolean;
   chatPresentation?: "standalone" | "embedded-pane";
+  paneLeadingAction?: ReactNode;
+  paneTrailingAction?: ReactNode;
   seedIntent?: string | null;
   onConsumeSeedIntent?: () => void;
   onBackToInbox: () => void;
@@ -47,6 +50,8 @@ export function MissionControlChatView({
   runtime,
   embedded = false,
   chatPresentation,
+  paneLeadingAction,
+  paneTrailingAction,
   seedIntent,
   onConsumeSeedIntent,
   onBackToInbox,
@@ -86,6 +91,8 @@ export function MissionControlChatView({
               presentation={
                 chatPresentation ?? (embedded ? "embedded-pane" : "standalone")
               }
+              paneLeadingAction={paneLeadingAction}
+              paneTrailingAction={paneTrailingAction}
               seedIntent={seedIntent}
               onConsumeSeedIntent={onConsumeSeedIntent}
               sessionRuntime={runtime}
