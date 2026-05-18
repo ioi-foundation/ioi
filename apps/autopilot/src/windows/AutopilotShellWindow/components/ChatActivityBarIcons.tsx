@@ -64,6 +64,23 @@ export const HomeIcon = () => (
   </svg>
 );
 
+export const SearchIcon = () => (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 20 20"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.7"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <circle cx="8.5" cy="8.5" r="5.5" />
+    <path d="m12.6 12.6 4 4" />
+  </svg>
+);
+
 export const AtlasIcon = () => (
   <svg
     width="22"

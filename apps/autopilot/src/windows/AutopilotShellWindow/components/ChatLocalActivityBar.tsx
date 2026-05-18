@@ -7,18 +7,23 @@ import {
   IntegrationsIcon,
   MountsIcon,
   NotificationsIcon,
+  SearchIcon,
   SettingsIcon,
   ShieldIcon,
   SparklesIcon,
   WorkspaceIcon,
 } from "./ChatActivityBarIcons";
 import type { PrimaryView } from "../autopilotShellModel";
-import { chatNavigationShortcutLabel } from "../../shared/shellShortcuts";
+import {
+  chatCommandPaletteShortcutLabel,
+  chatNavigationShortcutLabel,
+} from "../../shared/shellShortcuts";
 import type { AssistantUserProfile } from "../../../types";
 
 interface ChatLocalActivityBarProps {
   activeView: PrimaryView;
   onViewChange: (view: PrimaryView) => void;
+  onOpenCommandPalette: () => void;
   notificationCount: number;
   profile: AssistantUserProfile;
 }
@@ -37,6 +42,10 @@ interface ActivityButtonProps {
   icon?: ReactNode;
   badgeCount?: number;
   isActive: boolean;
+  onClick: () => void;
+}
+
+interface SearchButtonProps {
   onClick: () => void;
 }
 
@@ -176,7 +185,7 @@ function ActivityButton({
       onClick={onClick}
       aria-current={isActive ? "page" : undefined}
       aria-label={item.label}
-      title={`${item.label}${item.shortcut ? ` (${item.shortcut})` : ""}`}
+      title={item.label}
     >
       <span
         className={`chat-activity-button-icon ${
@@ -187,14 +196,32 @@ function ActivityButton({
         {icon}
       </span>
       <span className="chat-activity-button-label">{item.label}</span>
-      {item.shortcut ? (
-        <span className="chat-activity-button-shortcut">{item.shortcut}</span>
-      ) : null}
       {badgeCount && badgeCount > 0 ? (
         <span className="chat-activity-button-badge" aria-label={`${badgeCount} pending`}>
           {badgeCount > 9 ? "9+" : badgeCount}
         </span>
       ) : null}
+    </button>
+  );
+}
+
+function SearchButton({ onClick }: SearchButtonProps) {
+  const shortcut = chatCommandPaletteShortcutLabel();
+
+  return (
+    <button
+      type="button"
+      className="chat-activity-button"
+      data-window-surface="search"
+      onClick={onClick}
+      aria-label="Search"
+      title={`Search (${shortcut})`}
+    >
+      <span className="chat-activity-button-icon" aria-hidden="true">
+        <SearchIcon />
+      </span>
+      <span className="chat-activity-button-label">Search</span>
+      <span className="chat-activity-button-shortcut">{shortcut}</span>
     </button>
   );
 }
@@ -234,6 +261,7 @@ function resolveProfileInitials(profile: AssistantUserProfile): string {
 export function ChatLocalActivityBar({
   activeView,
   onViewChange,
+  onOpenCommandPalette,
   notificationCount,
   profile,
 }: ChatLocalActivityBarProps) {
@@ -299,6 +327,8 @@ export function ChatLocalActivityBar({
       </div>
 
       <div className="chat-activity-group" aria-label="Primary surfaces">
+        <SearchButton onClick={onOpenCommandPalette} />
+
         <ActivityButton
           item={HOME_NAV_ITEM}
           isActive={activeView === "home"}

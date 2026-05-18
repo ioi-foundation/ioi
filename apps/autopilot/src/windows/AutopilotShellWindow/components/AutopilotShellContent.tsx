@@ -67,6 +67,7 @@ export function AutopilotShellContent({
         <ChatLocalActivityBar
           activeView={activeView}
           onViewChange={controller.changePrimaryView}
+          onOpenCommandPalette={controller.modals.openCommandPalette}
           notificationCount={notificationBadgeCount}
           profile={controller.profile.value}
         />

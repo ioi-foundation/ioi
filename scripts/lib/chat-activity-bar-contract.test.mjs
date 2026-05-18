@@ -27,10 +27,23 @@ test("activity bar owns sidebar brand and can collapse without losing surface id
   assert.match(activityBar, /data-collapsed=\{collapsed \? "true" : "false"\}/);
   assert.match(activityBar, /className="chat-activity-brand-row"[\s\S]*<ChatLogoIcon \/>/);
   assert.match(activityBar, /className="chat-activity-collapse-button"/);
+  assert.match(activityBar, /onOpenCommandPalette: \(\) => void;/);
+  assert.match(activityBar, /data-window-surface="search"/);
+  assert.match(activityBar, /<SearchButton onClick=\{onOpenCommandPalette\} \/>/);
   assert.match(activityBar, /data-window-surface=\{item\.id\}/);
   assert.match(activityBar, /data-window-surface="profile"/);
   assert.match(activityBar, /resolveProfileDisplayName\(profile\)/);
   assert.doesNotMatch(activityBar, /currentProject\.name/);
+});
+
+test("only the search rail item displays a keyboard shortcut", () => {
+  assert.match(activityBar, /chatCommandPaletteShortcutLabel/);
+  assert.equal(
+    activityBar.match(/className="chat-activity-button-shortcut"/g)?.length,
+    1,
+  );
+  assert.doesNotMatch(activityBar, /title=\{`\$\{item\.label\}/);
+  assert.match(activityBar, /title=\{item\.label\}/);
 });
 
 test("old header leading block is removed so the rail is the single sidebar identity", () => {
