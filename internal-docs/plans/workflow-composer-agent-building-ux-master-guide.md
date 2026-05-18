@@ -93,7 +93,7 @@ Best-in-class behavior for this product means:
 | Tool family labeling | Hide plugin/transport labels from default authoring copy. | Done / regression guarded | Default labels say Browser tool, Computer tool, Coding tool pack, MCP tool, Workflow tool. |
 | Guided next rail | Offer non-blocking next steps after each common node add. | Done / regression guarded | Prompt, tool, repo, and output flows can continue without palette hunting. |
 | Modal keyboard/focus polish | Make Escape and focus restoration consistent for non-destructive modals. | Done / regression guarded | Models, connectors, and node config close on Escape and return focus to composition controls. |
-| GUI regression net | Preserve behavior with live Playwright probes. | Planned | Prompt-agent, tool-agent, repo-agent, modal keyboard, search, and run-readiness probes pass. |
+| GUI regression net | Preserve behavior with live Playwright probes. | Done / regression guarded | Prompt-agent, tool-agent, repo-agent, modal keyboard, search, and run-readiness probes pass. |
 
 ## Friction-To-Solution Map
 
@@ -744,9 +744,7 @@ Run GUI probes after UX slices:
 
 ```text
 npm run dev:desktop
-node <probe for prompt-agent>
-node <probe for tool-agent>
-node <probe for repo-agent>
+node scripts/lib/workflow-agent-building-ux-gui-probe.mjs /tmp/workflow-agent-building-ux-gui-probe.json
 ```
 
 Final manual clickthrough:
