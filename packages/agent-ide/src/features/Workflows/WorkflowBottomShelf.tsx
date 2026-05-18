@@ -1151,6 +1151,12 @@ export function WorkflowBottomShelf({
                 <article key={`${category}-${issue.code}-${index}`} className={`workflow-output-row is-${status}`}>
                   <strong>{category} · {workflowIssueTitle(issue)}</strong>
                   <span>{issue.message}</span>
+                  {issue.technicalDetail ? (
+                    <details data-testid={`workflow-bottom-warning-advanced-${index}`}>
+                      <summary>Advanced details</summary>
+                      <span>{issue.technicalDetail}</span>
+                    </details>
+                  ) : null}
                   <small>{workflowIssueActionLabel(issue)}</small>
                 </article>
               ),

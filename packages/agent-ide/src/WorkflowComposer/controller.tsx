@@ -260,11 +260,14 @@ import {
   createSubstrateProjectionRunSummary,
   createSubstrateProjectionTestResult,
   createWorkflowActionFailure,
+  createWorkflowRuntimeUnavailableFailure,
   errorMessage,
   nodeFamilyCounts,
   nodeVisualStatus,
   preferredCompatiblePortPair,
   toWorkflowProject,
+  workflowRuntimeCatalogFallbackCopy,
+  workflowRuntimeUnavailableCopy,
   workflowCanvasSearchResults,
   workflowNodeCreatorBadge,
 } from "../runtime/workflow-composer-model";
@@ -2631,6 +2634,10 @@ export function useWorkflowComposerController({
   ] = useState(false);
   const [workflowCapabilityCatalogError, setWorkflowCapabilityCatalogError] =
     useState<string | null>(null);
+  const [
+    workflowCapabilityCatalogErrorDetail,
+    setWorkflowCapabilityCatalogErrorDetail,
+  ] = useState<string | null>(null);
   const [testEditorOpen, setTestEditorOpen] = useState(false);
   const [deployOpen, setDeployOpen] = useState(false);
   const [proposalToReview, setProposalToReview] =
@@ -3192,6 +3199,7 @@ export function useWorkflowComposerController({
     const loadWorkflowCapabilityCatalog = async () => {
       setWorkflowCapabilityCatalogLoading(true);
       setWorkflowCapabilityCatalogError(null);
+      setWorkflowCapabilityCatalogErrorDetail(null);
       const toolCatalogRequest = runtime.listWorkflowToolCatalog
         ? runtime.listWorkflowToolCatalog(projectRoot)
         : Promise.resolve(null);
@@ -3214,23 +3222,39 @@ export function useWorkflowComposerController({
         normalizeWorkflowConnectorCatalog(connectorCatalog),
       );
 
-      const catalogIssues: string[] = [];
+      const catalogIssues: ReturnType<typeof workflowRuntimeUnavailableCopy>[] =
+        [];
       if (!runtime.listWorkflowToolCatalog) {
-        catalogIssues.push("tool catalog API unavailable");
-      } else if (toolResult.status === "rejected") {
-        catalogIssues.push(`tool catalog failed: ${errorMessage(toolResult.reason)}`);
-      }
-      if (!runtime.listWorkflowConnectorCatalog) {
-        catalogIssues.push("connector catalog API unavailable");
-      } else if (connectorResult.status === "rejected") {
         catalogIssues.push(
-          `connector catalog failed: ${errorMessage(connectorResult.reason)}`,
+          workflowRuntimeUnavailableCopy(
+            new Error("tool catalog API unavailable"),
+            "tool_catalog",
+          ),
+        );
+      } else if (toolResult.status === "rejected") {
+        catalogIssues.push(
+          workflowRuntimeUnavailableCopy(toolResult.reason, "tool_catalog"),
         );
       }
-      setWorkflowCapabilityCatalogError(
-        catalogIssues.length
-          ? `${catalogIssues.join("; ")}; using offline capability presets.`
-          : null,
+      if (!runtime.listWorkflowConnectorCatalog) {
+        catalogIssues.push(
+          workflowRuntimeUnavailableCopy(
+            new Error("connector catalog API unavailable"),
+            "connector_catalog",
+          ),
+        );
+      } else if (connectorResult.status === "rejected") {
+        catalogIssues.push(
+          workflowRuntimeUnavailableCopy(
+            connectorResult.reason,
+            "connector_catalog",
+          ),
+        );
+      }
+      const fallbackCopy = workflowRuntimeCatalogFallbackCopy(catalogIssues);
+      setWorkflowCapabilityCatalogError(fallbackCopy?.message ?? null);
+      setWorkflowCapabilityCatalogErrorDetail(
+        fallbackCopy?.technicalDetail ?? null,
       );
       setWorkflowCapabilityCatalogLoading(false);
     };
@@ -12429,9 +12453,9 @@ export function useWorkflowComposerController({
         ? await runtime.validateWorkflowBundle(workflowPath)
         : validateWorkflowProject(currentProjectFile, tests);
     } catch (error) {
-      result = createWorkflowActionFailure(
-        "workflow_bundle_unavailable",
-        `Saved workflow bundle is unavailable. ${errorMessage(error)}`,
+      result = createWorkflowRuntimeUnavailableFailure(
+        "saved_workflow_bundle",
+        error,
       );
     }
     setValidationResult(result);
@@ -12459,9 +12483,9 @@ export function useWorkflowComposerController({
         runtimeThreadEvents,
       );
     } catch (error) {
-      result = createWorkflowActionFailure(
-        "workflow_bundle_unavailable",
-        `Saved workflow bundle is unavailable. ${errorMessage(error)}`,
+      result = createWorkflowRuntimeUnavailableFailure(
+        "saved_workflow_bundle",
+        error,
       );
     }
     setReadinessResult(result);
@@ -13179,7 +13203,7 @@ export function useWorkflowComposerController({
     } catch (error) {
       result = createBlockedTestResult(
         tests,
-        `Saved workflow bundle is unavailable. ${errorMessage(error)}`,
+        workflowRuntimeUnavailableCopy(error, "saved_workflow_bundle").message,
       );
     }
     setTestResult(result);
@@ -13287,9 +13311,9 @@ export function useWorkflowComposerController({
       validation =
         localRunLaunchGuard.status === "blocked"
           ? localRunLaunchGuard.validation
-          : createWorkflowActionFailure(
-              "workflow_bundle_unavailable",
-              `Saved workflow bundle is unavailable. ${errorMessage(error)}`,
+          : createWorkflowRuntimeUnavailableFailure(
+              "saved_workflow_bundle",
+              error,
             );
     }
     setValidationResult(validation);
@@ -15348,6 +15372,7 @@ export function useWorkflowComposerController({
     workflowConnectorCatalog,
     workflowCapabilityCatalogLoading,
     workflowCapabilityCatalogError,
+    workflowCapabilityCatalogErrorDetail,
     counts,
     createKind,
     createMode,

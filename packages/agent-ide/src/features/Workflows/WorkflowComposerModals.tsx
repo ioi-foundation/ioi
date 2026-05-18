@@ -458,6 +458,7 @@ export function ConnectorBindingModal({
   connectorCatalog,
   catalogLoading,
   catalogError,
+  catalogErrorDetail,
   onClose,
   onInspectNode,
   onOpenNodeLibrary,
@@ -468,6 +469,7 @@ export function ConnectorBindingModal({
   connectorCatalog: WorkflowConnectorBinding[];
   catalogLoading: boolean;
   catalogError: string | null;
+  catalogErrorDetail?: string | null;
   onClose: () => void;
   onInspectNode: (nodeId: string) => void;
   onOpenNodeLibrary: () => void;
@@ -606,6 +608,15 @@ export function ConnectorBindingModal({
             : `${toolCatalog.length} tools and ${connectorCatalog.length} connectors ready for capability binding.`}
           {catalogError ? ` ${catalogError}` : ""}
         </p>
+        {catalogErrorDetail ? (
+          <details
+            className="workflow-create-summary"
+            data-testid="workflow-capability-catalog-advanced-detail"
+          >
+            <summary>Advanced details</summary>
+            <span>{catalogErrorDetail}</span>
+          </details>
+        ) : null}
         {connectorNodes.length === 0 ? (
           <p>No connector or plugin nodes in this workflow.</p>
         ) : (

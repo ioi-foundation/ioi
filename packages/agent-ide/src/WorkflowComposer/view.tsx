@@ -33,6 +33,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     workflowConnectorCatalog,
     workflowCapabilityCatalogLoading,
     workflowCapabilityCatalogError,
+    workflowCapabilityCatalogErrorDetail,
     counts,
     createKind,
     createMode,
@@ -2238,6 +2239,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
           connectorCatalog={workflowConnectorCatalog}
           catalogLoading={workflowCapabilityCatalogLoading}
           catalogError={workflowCapabilityCatalogError}
+          catalogErrorDetail={workflowCapabilityCatalogErrorDetail}
           onClose={() => setConnectorBindingOpen(false)}
           onInspectNode={(nodeId) => {
             const nodeItem = nodes.find((node) => node.id === nodeId)

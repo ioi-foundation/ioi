@@ -2452,6 +2452,11 @@ const WORKFLOW_ISSUE_TITLES: Record<string, string> = {
   missing_scheduled_trigger: "Scheduled trigger missing",
   missing_event_trigger: "Event trigger missing",
   mock_binding_active: "Mock binding active",
+  runtime_bridge_unavailable: "Runtime bridge unavailable",
+  workflow_bundle_unavailable: "Workflow bundle unavailable",
+  tool_catalog_unavailable: "Tool catalog unavailable",
+  connector_catalog_unavailable: "Connector catalog unavailable",
+  model_catalog_unavailable: "Model catalog unavailable",
 };
 
 function titleCaseIssueCode(code: string): string {
@@ -2479,6 +2484,14 @@ export function workflowIssueActionLabel(
   if (issue.code === "missing_unit_tests") return "Add a unit test";
   if (issue.code === "missing_error_handling_path") return "Add an error or retry path";
   if (issue.code === "mock_binding_active") return "Review binding mode";
+  if (
+    issue.code === "runtime_bridge_unavailable" ||
+    issue.code === "workflow_bundle_unavailable" ||
+    issue.code === "tool_catalog_unavailable" ||
+    issue.code === "connector_catalog_unavailable" ||
+    issue.code === "model_catalog_unavailable"
+  )
+    return "Open runtime diagnostics";
   return "Review workflow settings";
 }
 

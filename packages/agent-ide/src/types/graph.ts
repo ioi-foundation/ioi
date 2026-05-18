@@ -5518,6 +5518,7 @@ export interface WorkflowValidationIssue {
   nodeId?: string;
   code: string;
   message: string;
+  technicalDetail?: string;
   repairActionId?: string;
   repairLabel?: string;
   configSection?: string;
