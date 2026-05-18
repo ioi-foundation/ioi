@@ -147,8 +147,8 @@ export const RIGHT_PANELS: Array<{
   },
   {
     id: "settings",
-    label: "Settings",
-    description: "Edit environment, bindings, policy, and packaging posture.",
+    label: "System",
+    description: "Bind authority, environment, policy, and packaging posture.",
     icon: Settings,
   },
 ];
