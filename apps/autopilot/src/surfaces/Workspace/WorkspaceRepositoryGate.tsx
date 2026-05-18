@@ -9,7 +9,13 @@ import {
   Search,
   Star,
 } from "lucide-react";
-import { createElement, useMemo, useState, type ComponentType } from "react";
+import {
+  createElement,
+  useEffect,
+  useMemo,
+  useState,
+  type ComponentType,
+} from "react";
 
 import {
   createUniqueRepositorySlug,
@@ -44,8 +50,10 @@ export interface WorkspaceRepositoryCreateRequest {
 interface WorkspaceRepositoryGateProps {
   repositories: WorkspaceRepositoryRecord[];
   createError: string | null;
+  createdRepository: WorkspaceRepositoryRecord | null;
   creating: boolean;
   onCreateRepository: (request: WorkspaceRepositoryCreateRequest) => void;
+  onDismissCreatedRepository: () => void;
   onOpenRepository: (repository: WorkspaceRepositoryRecord) => void;
   onToggleFavorite: (repository: WorkspaceRepositoryRecord) => void;
 }
@@ -261,8 +269,10 @@ function getDefaultTemplate(category: WorkspaceRepositoryCategory) {
 export function WorkspaceRepositoryGate({
   repositories,
   createError,
+  createdRepository,
   creating,
   onCreateRepository,
+  onDismissCreatedRepository,
   onOpenRepository,
   onToggleFavorite,
 }: WorkspaceRepositoryGateProps) {
@@ -306,6 +316,12 @@ export function WorkspaceRepositoryGate({
     (repository) => repository.favorite,
   );
   const canCreate = repositoryName.trim().length > 0 && !creating;
+
+  useEffect(() => {
+    if (createdRepository) {
+      setStep("landing");
+    }
+  }, [createdRepository]);
 
   const startCreateFlow = () => {
     setStep("category");
@@ -414,81 +430,117 @@ export function WorkspaceRepositoryGate({
       </header>
 
       {step === "landing" ? (
-        <div className="workspace-repository-gate__content">
-          <main className="workspace-repository-gate__main">
-            <div className="workspace-repository-gate__pr-toolbar">
-              <div className="workspace-repository-gate__tabs" role="tablist">
-                <button type="button" className="is-active">
-                  Pull requests
-                </button>
-                <button type="button">Created by you</button>
-                <button type="button">Review requested</button>
+        <div className="workspace-repository-gate__landing">
+          {createdRepository ? (
+            <section
+              className="workspace-repository-gate__create-success"
+              aria-live="polite"
+            >
+              <div>
+                <strong>{createdRepository.name} created</strong>
+                <span>{createdRepository.rootPath}</span>
               </div>
-              <label className="workspace-repository-gate__search-field">
-                {renderIcon(Search, { size: 16, "aria-hidden": true })}
-                <input type="search" placeholder="Find pull requests..." />
-              </label>
-            </div>
-            <section className="workspace-repository-gate__pr-empty">
-              {renderIcon(GitPullRequest, {
-                size: 46,
-                strokeWidth: 1.4,
-                "aria-hidden": true,
-              })}
-              <h2>No pull requests created by you</h2>
-              <p>
-                There are no open pull requests created by you. Here are the
-                recently visited code repositories and their pull requests.
-              </p>
+              <div className="workspace-repository-gate__create-success-actions">
+                <button
+                  type="button"
+                  className="workspace-repository-gate__secondary-button"
+                  onClick={onDismissCreatedRepository}
+                >
+                  Dismiss
+                </button>
+                <button
+                  type="button"
+                  className="workspace-repository-gate__primary-button"
+                  onClick={() => onOpenRepository(createdRepository)}
+                >
+                  <span>Open workspace</span>
+                  {renderIcon(ChevronRight, {
+                    size: 15,
+                    "aria-hidden": true,
+                  })}
+                </button>
+              </div>
             </section>
-          </main>
-
-          <aside className="workspace-repository-gate__rail">
-            <section className="workspace-repository-gate__news">
-              <div className="workspace-repository-gate__rail-heading">
-                <h2>What&apos;s new?</h2>
-                <button type="button">
-                  <span>See all</span>
-                  {renderIcon(ExternalLink, { size: 16, "aria-hidden": true })}
-                </button>
-              </div>
-              <article className="workspace-repository-gate__news-card">
-                <div>
-                  <span>Feature</span>
-                  <time dateTime="2026-04-21">Apr 21, 2026</time>
+          ) : null}
+          <div className="workspace-repository-gate__content">
+            <main className="workspace-repository-gate__main">
+              <div className="workspace-repository-gate__pr-toolbar">
+                <div className="workspace-repository-gate__tabs" role="tablist">
+                  <button type="button" className="is-active">
+                    Pull requests
+                  </button>
+                  <button type="button">Created by you</button>
+                  <button type="button">Review requested</button>
                 </div>
+                <label className="workspace-repository-gate__search-field">
+                  {renderIcon(Search, { size: 16, "aria-hidden": true })}
+                  <input type="search" placeholder="Find pull requests..." />
+                </label>
+              </div>
+              <section className="workspace-repository-gate__pr-empty">
+                {renderIcon(GitPullRequest, {
+                  size: 46,
+                  strokeWidth: 1.4,
+                  "aria-hidden": true,
+                })}
+                <h2>No pull requests created by you</h2>
                 <p>
-                  Ontology Manager now displays run history directly within
-                  function and action observability dashboards.
+                  There are no open pull requests created by you. Here are the
+                  recently visited code repositories and their pull requests.
                 </p>
-                <button type="button">More</button>
-              </article>
-            </section>
+              </section>
+            </main>
 
-            <section className="workspace-repository-gate__repositories">
-              <div className="workspace-repository-gate__rail-heading">
-                <h2>Repositories</h2>
-                {renderIcon(Search, { size: 18, "aria-hidden": true })}
-              </div>
-              <label className="workspace-repository-gate__repository-search">
-                {renderIcon(Search, { size: 15, "aria-hidden": true })}
-                <input
-                  type="search"
-                  placeholder="Search repositories"
-                  value={repositoryQuery}
-                  onChange={(event) => setRepositoryQuery(event.target.value)}
-                />
-              </label>
-              <div className="workspace-repository-gate__repo-card">
-                <h3>Recents</h3>
-                {renderRepositoryList(filteredRepositories, "No recent activity")}
-              </div>
-              <div className="workspace-repository-gate__repo-card">
-                <h3>Favorites</h3>
-                {renderRepositoryList(favoriteRepositories, "You have no favorites")}
-              </div>
-            </section>
-          </aside>
+            <aside className="workspace-repository-gate__rail">
+              <section className="workspace-repository-gate__news">
+                <div className="workspace-repository-gate__rail-heading">
+                  <h2>What&apos;s new?</h2>
+                  <button type="button">
+                    <span>See all</span>
+                    {renderIcon(ExternalLink, { size: 16, "aria-hidden": true })}
+                  </button>
+                </div>
+                <article className="workspace-repository-gate__news-card">
+                  <div>
+                    <span>Feature</span>
+                    <time dateTime="2026-04-21">Apr 21, 2026</time>
+                  </div>
+                  <p>
+                    Ontology Manager now displays run history directly within
+                    function and action observability dashboards.
+                  </p>
+                  <button type="button">More</button>
+                </article>
+              </section>
+
+              <section className="workspace-repository-gate__repositories">
+                <div className="workspace-repository-gate__rail-heading">
+                  <h2>Repositories</h2>
+                  {renderIcon(Search, { size: 18, "aria-hidden": true })}
+                </div>
+                <label className="workspace-repository-gate__repository-search">
+                  {renderIcon(Search, { size: 15, "aria-hidden": true })}
+                  <input
+                    type="search"
+                    placeholder="Search repositories"
+                    value={repositoryQuery}
+                    onChange={(event) => setRepositoryQuery(event.target.value)}
+                  />
+                </label>
+                <div className="workspace-repository-gate__repo-card">
+                  <h3>Recents</h3>
+                  {renderRepositoryList(filteredRepositories, "No recent activity")}
+                </div>
+                <div className="workspace-repository-gate__repo-card">
+                  <h3>Favorites</h3>
+                  {renderRepositoryList(
+                    favoriteRepositories,
+                    "You have no favorites",
+                  )}
+                </div>
+              </section>
+            </aside>
+          </div>
         </div>
       ) : (
         <div className="workspace-repository-gate__create">

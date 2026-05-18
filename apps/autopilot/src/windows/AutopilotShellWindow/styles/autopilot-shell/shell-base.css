@@ -1378,6 +1378,75 @@
   padding: 24px;
 }
 
+.workspace-repository-gate__landing {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.workspace-repository-gate__create-success {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 14px 24px 0;
+  padding: 12px 14px;
+  border: 1px solid #b8d8c7;
+  border-radius: 6px;
+  background: #eef9f3;
+}
+
+.workspace-repository-gate__create-success div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.workspace-repository-gate__create-success strong {
+  overflow: hidden;
+  color: #1f2933;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-repository-gate__create-success span {
+  overflow: hidden;
+  color: #5f6b7a;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-repository-gate__create-success-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.workspace-repository-gate__secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid #bdc8d4;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #344150;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.workspace-repository-gate__secondary-button:hover {
+  background: #eef3f8;
+}
+
 .workspace-repository-gate__main,
 .workspace-repository-gate__rail {
   min-width: 0;
@@ -1940,6 +2009,7 @@
 .workspace-repository-gate__search-field,
 .workspace-repository-gate__repository-search,
 .workspace-repository-gate__back-button,
+.workspace-repository-gate__secondary-button,
 .workspace-repository-gate__review-card input {
   border-color: var(--workspace-repo-border-strong);
   background: var(--workspace-repo-panel-bg);
@@ -1955,6 +2025,7 @@
 .workspace-repository-gate__pr-empty,
 .workspace-repository-gate__news-card,
 .workspace-repository-gate__repo-card,
+.workspace-repository-gate__create-success,
 .workspace-repository-gate__choice-card,
 .workspace-repository-gate__template-card,
 .workspace-repository-gate__review-card {
@@ -1968,6 +2039,7 @@
 .workspace-repository-gate__news-card time,
 .workspace-repository-gate__repo-open,
 .workspace-repository-gate__repo-open small,
+.workspace-repository-gate__create-success span,
 .workspace-repository-gate__empty-small,
 .workspace-repository-gate__steps,
 .workspace-repository-gate__create-title p,
@@ -2006,9 +2078,14 @@
 }
 
 .workspace-repository-gate__choice-card:hover,
-.workspace-repository-gate__template-card:hover {
+.workspace-repository-gate__template-card:hover,
+.workspace-repository-gate__secondary-button:hover {
   border-color: var(--workspace-repo-border-strong);
   box-shadow: var(--shadow-sm);
+}
+
+.workspace-repository-gate__create-success strong {
+  color: var(--workspace-repo-text);
 }
 
 .workspace-repository-gate__recommended {
