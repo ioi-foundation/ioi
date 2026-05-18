@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
+  buildOperatorActivityRailModel,
   buildOperatorCommandCenterModel,
   type OperatorCommandCenterModel,
 } from "./operatorSubstrateModel.ts";
@@ -47,6 +48,44 @@ test("operator command center is a daemon-runtime projection", () => {
         command.source === "workspace-projection" &&
         command.route.kind === "command-palette",
     ),
+  );
+});
+
+test("operator activity rail is a shell projection with deterministic surfaces", () => {
+  const model = buildOperatorActivityRailModel({
+    activeView: "workflows",
+    collapsed: true,
+    notificationCount: 4,
+  });
+
+  assert.equal(model.runtimeTruthSource, "daemon-runtime");
+  assert.equal(model.collapsed, true);
+  assert.equal(model.chromeMode, "sidebar");
+  assert.deepEqual(model.activeRoute, { kind: "primary-view", view: "workflows" });
+  assert.deepEqual(
+    model.items.map((item) => item.dataWindowSurface),
+    [
+      "search",
+      "home",
+      "chat",
+      "inbox",
+      "workspace",
+      "workflows",
+      "runs",
+      "mounts",
+      "capabilities",
+      "policy",
+      "settings",
+      "profile",
+    ],
+  );
+  assert.equal(
+    model.items.find((item) => item.dataWindowSurface === "inbox")?.badgeCount,
+    4,
+  );
+  assert.equal(
+    model.items.find((item) => item.dataWindowSurface === "search")?.route.kind,
+    "command-palette",
   );
 });
 

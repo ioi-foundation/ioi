@@ -15,9 +15,11 @@ import {
 } from "./ChatActivityBarIcons";
 import type { PrimaryView } from "../autopilotShellModel";
 import {
-  chatCommandPaletteShortcutLabel,
-  chatNavigationShortcutLabel,
-} from "../../shared/shellShortcuts";
+  buildOperatorActivityRailModel,
+  type OperatorActivityRailItem,
+  type OperatorSurfaceRoute,
+} from "../operatorSubstrateModel";
+import { chatCommandPaletteShortcutLabel } from "../../shared/shellShortcuts";
 import type { AssistantUserProfile } from "../../../types";
 
 interface ChatLocalActivityBarProps {
@@ -28,19 +30,9 @@ interface ChatLocalActivityBarProps {
   profile: AssistantUserProfile;
 }
 
-interface NavItem {
-  id: PrimaryView;
-  label: string;
-  icon: ReactNode;
-  description: string;
-  shortcut?: string;
-  badgeCount?: number;
-}
-
 interface ActivityButtonProps {
-  item: NavItem;
+  item: OperatorActivityRailItem;
   icon?: ReactNode;
-  badgeCount?: number;
   isActive: boolean;
   onClick: () => void;
 }
@@ -52,91 +44,30 @@ interface SearchButtonProps {
 const CHAT_ACTIVITY_BAR_COLLAPSED_KEY =
   "autopilot.chatActivityBarCollapsed";
 
-const NAV_ITEMS: NavItem[] = [
-  {
-    id: "chat",
-    label: "Chat",
-    icon: <SparklesIcon />,
-    description:
-      "Control query outcomes, open artifact tabs, and only drop into renderer-specific lenses when the work requires it.",
-    shortcut: chatNavigationShortcutLabel(1),
-  },
-  {
-    id: "workspace",
-    label: "Workspace",
-    icon: <WorkspaceIcon />,
-    description:
-      "Open the workspace surface for terminal-style actions, artifact follow-through, and project-aware operations.",
-    shortcut: chatNavigationShortcutLabel(2),
-  },
-  {
-    id: "workflows",
-    label: "Workflows",
-    icon: <ComposeIcon />,
-    description:
-      "Open the workflow composer for graph editing, tests, proposals, and git-backed agent automation.",
-    shortcut: chatNavigationShortcutLabel(3),
-  },
-  {
-    id: "runs",
-    label: "Runs",
-    icon: <FleetIcon />,
-    description: "Inspect runtime health, supervised run history, and operator actions.",
-    shortcut: chatNavigationShortcutLabel(4),
-  },
-  {
-    id: "mounts",
-    label: "Model Mounts",
-    icon: <MountsIcon />,
-    description: "Open the model mounting surface.",
-    shortcut: chatNavigationShortcutLabel(5),
-  },
-  {
-    id: "inbox",
-    label: "Inbox",
-    icon: <NotificationsIcon />,
-    description: "Review ranked prompts, approvals, and interventions.",
-    shortcut: chatNavigationShortcutLabel(6),
-  },
-  {
-    id: "capabilities",
-    label: "Capabilities",
-    icon: <IntegrationsIcon />,
-    description: "Equip workers with connections, skills, and extension manifests.",
-    shortcut: chatNavigationShortcutLabel(7),
-  },
-  {
-    id: "policy",
-    label: "Policy",
-    icon: <ShieldIcon />,
-    description: "Set governance, approvals, and execution posture.",
-    shortcut: chatNavigationShortcutLabel(8),
-  },
-  {
-    id: "settings",
-    label: "Settings",
-    icon: <SettingsIcon />,
-    description: "Manage shell identity, diagnostics, and local system state.",
-    shortcut: chatNavigationShortcutLabel(9),
-  },
-];
-
-const HOME_NAV_ITEM: NavItem = {
-  id: "home",
-  label: "Home",
-  icon: <HomeIcon />,
-  description: "Open onboarding, recent project scope, runtime health, and next actions.",
-};
-
-const PRIMARY_NAV_IDS = new Set<PrimaryView>(["chat", "inbox"]);
-const WORK_NAV_IDS = new Set<PrimaryView>([
+const KEYBOARD_NAV_VIEWS: PrimaryView[] = [
+  "chat",
   "workspace",
   "workflows",
   "runs",
   "mounts",
+  "inbox",
   "capabilities",
   "policy",
-]);
+  "settings",
+];
+
+const NAV_ICON_BY_SURFACE: Record<string, ReactNode> = {
+  home: <HomeIcon />,
+  chat: <SparklesIcon />,
+  workspace: <WorkspaceIcon />,
+  workflows: <ComposeIcon />,
+  runs: <FleetIcon />,
+  mounts: <MountsIcon />,
+  inbox: <NotificationsIcon />,
+  capabilities: <IntegrationsIcon />,
+  policy: <ShieldIcon />,
+  settings: <SettingsIcon />,
+};
 
 function CollapseIcon({ collapsed }: { collapsed: boolean }) {
   return (
@@ -172,8 +103,7 @@ function CollapseIcon({ collapsed }: { collapsed: boolean }) {
 
 function ActivityButton({
   item,
-  icon = item.icon,
-  badgeCount,
+  icon = NAV_ICON_BY_SURFACE[item.dataWindowSurface],
   isActive,
   onClick,
 }: ActivityButtonProps) {
@@ -181,7 +111,7 @@ function ActivityButton({
     <button
       type="button"
       className={`chat-activity-button ${isActive ? "is-active" : ""}`}
-      data-window-surface={item.id}
+      data-window-surface={item.dataWindowSurface}
       onClick={onClick}
       aria-current={isActive ? "page" : undefined}
       aria-label={item.label}
@@ -189,16 +119,16 @@ function ActivityButton({
     >
       <span
         className={`chat-activity-button-icon ${
-          item.id === "capabilities" ? "is-capabilities" : ""
+          item.dataWindowSurface === "capabilities" ? "is-capabilities" : ""
         }`}
         aria-hidden="true"
       >
         {icon}
       </span>
       <span className="chat-activity-button-label">{item.label}</span>
-      {badgeCount && badgeCount > 0 ? (
-        <span className="chat-activity-button-badge" aria-label={`${badgeCount} pending`}>
-          {badgeCount > 9 ? "9+" : badgeCount}
+      {item.badgeCount && item.badgeCount > 0 ? (
+        <span className="chat-activity-button-badge" aria-label={`${item.badgeCount} pending`}>
+          {item.badgeCount > 9 ? "9+" : item.badgeCount}
         </span>
       ) : null}
     </button>
@@ -235,6 +165,12 @@ function isEditableElement(target: EventTarget | null): boolean {
     tag === "textarea" ||
     tag === "select"
   );
+}
+
+function isPrimaryViewRoute(
+  route: OperatorSurfaceRoute,
+): route is { kind: "primary-view"; view: PrimaryView } {
+  return route.kind === "primary-view";
 }
 
 function resolveProfileDisplayName(profile: AssistantUserProfile): string {
@@ -277,9 +213,9 @@ export function ChatLocalActivityBar({
       if (!event.metaKey && !event.ctrlKey) return;
 
       const num = Number.parseInt(event.key, 10);
-      if (num >= 1 && num <= NAV_ITEMS.length) {
+      if (num >= 1 && num <= KEYBOARD_NAV_VIEWS.length) {
         event.preventDefault();
-        onViewChange(NAV_ITEMS[num - 1].id);
+        onViewChange(KEYBOARD_NAV_VIEWS[num - 1]);
       }
     };
 
@@ -294,14 +230,40 @@ export function ChatLocalActivityBar({
     );
   }, [collapsed]);
 
-  const primaryNavItems = NAV_ITEMS.filter((item) =>
-    PRIMARY_NAV_IDS.has(item.id),
+  const railModel = buildOperatorActivityRailModel({
+    activeView,
+    collapsed,
+    notificationCount,
+  });
+  const searchItem = railModel.items.find(
+    (item) => item.dataWindowSurface === "search",
   );
-  const workNavItems = NAV_ITEMS.filter((item) => WORK_NAV_IDS.has(item.id));
-  const bottomNavItems = NAV_ITEMS.filter((item) => item.id === "settings");
+  const primaryNavItems = railModel.items.filter(
+    (item) => item.group === "primary",
+  );
+  const workNavItems = railModel.items.filter((item) => item.group === "work");
+  const profileItem = railModel.items.find(
+    (item) => item.dataWindowSurface === "profile",
+  );
+  const bottomNavItems = railModel.items.filter(
+    (item) =>
+      item.group === "bottom" && item.dataWindowSurface !== "profile",
+  );
   const profileDisplayName = resolveProfileDisplayName(profile);
   const profileInitials = resolveProfileInitials(profile);
   const profileRoleLabel = profile.roleLabel?.trim() || "Profile";
+  const activateRoute = (route: OperatorSurfaceRoute) => {
+    if (isPrimaryViewRoute(route)) {
+      onViewChange(route.view);
+      return;
+    }
+
+    if (route.kind === "command-palette") {
+      onOpenCommandPalette();
+    }
+  };
+  const isActiveRailItem = (item: OperatorActivityRailItem) =>
+    isPrimaryViewRoute(item.route) && item.route.view === activeView;
 
   return (
     <aside
@@ -309,6 +271,7 @@ export function ChatLocalActivityBar({
       role="navigation"
       aria-label="Autopilot navigation"
       data-collapsed={collapsed ? "true" : "false"}
+      data-operator-activity-rail={railModel.projectionId}
     >
       <div className="chat-activity-brand-row">
         <span className="chat-activity-brand" aria-hidden="true">
@@ -327,21 +290,14 @@ export function ChatLocalActivityBar({
       </div>
 
       <div className="chat-activity-group" aria-label="Primary surfaces">
-        <SearchButton onClick={onOpenCommandPalette} />
-
-        <ActivityButton
-          item={HOME_NAV_ITEM}
-          isActive={activeView === "home"}
-          onClick={() => onViewChange("home")}
-        />
+        {searchItem ? <SearchButton onClick={() => activateRoute(searchItem.route)} /> : null}
 
         {primaryNavItems.map((item) => (
           <ActivityButton
             key={item.id}
             item={item}
-            badgeCount={item.id === "inbox" ? notificationCount : item.badgeCount}
-            isActive={activeView === item.id}
-            onClick={() => onViewChange(item.id)}
+            isActive={isActiveRailItem(item)}
+            onClick={() => activateRoute(item.route)}
           />
         ))}
       </div>
@@ -349,12 +305,12 @@ export function ChatLocalActivityBar({
       <div className="chat-activity-group" aria-label="Work surfaces">
         {workNavItems.map((item) => {
           const icon =
-            item.id === "capabilities" ? (
+            item.dataWindowSurface === "capabilities" ? (
               <IntegrationsIcon
                 disableHoverAnimation={activeView === "capabilities"}
               />
             ) : (
-              item.icon
+              NAV_ICON_BY_SURFACE[item.dataWindowSurface]
             );
 
           return (
@@ -362,8 +318,8 @@ export function ChatLocalActivityBar({
               key={item.id}
               item={item}
               icon={icon}
-              isActive={activeView === item.id}
-              onClick={() => onViewChange(item.id)}
+              isActive={isActiveRailItem(item)}
+              onClick={() => activateRoute(item.route)}
             />
           );
         })}
@@ -377,24 +333,28 @@ export function ChatLocalActivityBar({
       <div className="chat-activity-spacer" />
 
       <div className="chat-activity-group chat-activity-group--bottom">
-        <div
-          className="chat-activity-profile-indicator"
-          title={`${profileDisplayName} · ${profileRoleLabel}`}
-          aria-label={`${profileDisplayName} profile`}
-          data-window-surface="profile"
-        >
-          <span className="chat-activity-profile-avatar">{profileInitials}</span>
-          <span className="chat-activity-profile-label">
-            {profileDisplayName}
-          </span>
-        </div>
+        {profileItem ? (
+          <button
+            type="button"
+            className="chat-activity-profile-indicator"
+            title={`${profileDisplayName} · ${profileRoleLabel}`}
+            aria-label={`${profileDisplayName} profile`}
+            data-window-surface={profileItem.dataWindowSurface}
+            onClick={() => activateRoute(profileItem.route)}
+          >
+            <span className="chat-activity-profile-avatar">{profileInitials}</span>
+            <span className="chat-activity-profile-label">
+              {profileDisplayName}
+            </span>
+          </button>
+        ) : null}
 
         {bottomNavItems.map((item) => (
           <ActivityButton
             key={item.id}
             item={item}
-            isActive={activeView === item.id}
-            onClick={() => onViewChange(item.id)}
+            isActive={isActiveRailItem(item)}
+            onClick={() => activateRoute(item.route)}
           />
         ))}
       </div>

@@ -451,13 +451,23 @@
 }
 
 .chat-activity-profile-indicator {
+  width: 100%;
   min-height: 34px;
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr);
   align-items: center;
   column-gap: 10px;
   padding: 0 16px;
+  border: none;
+  background: transparent;
   color: var(--chat-activity-text-strong);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-activity-profile-indicator:hover {
+  background: var(--chat-activity-hover-bg);
 }
 
 .chat-activity-profile-avatar {
