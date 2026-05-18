@@ -44,8 +44,8 @@ const AUTHORING_SYNONYMS: Record<string, string[]> = {
   policy: ["policy", "policy gate", "approval", "authority", "guardrail"],
   pr: ["pr", "pull request", "github pr", "review gate"],
   pull: ["pull request", "pr"],
-  repo: ["repo", "repository", "github", "branch"],
-  repository: ["repo", "repository", "github", "branch"],
+  repo: ["repo", "repository", "local repository", "worktree", "codebase", "git"],
+  repository: ["repo", "repository", "local repository", "worktree", "codebase", "git"],
   skills: ["skills", "skill", "skill pack", "skill context"],
   skill: ["skills", "skill", "skill pack", "skill context"],
   sandbox: ["sandboxed computer", "hosted computer", "vm", "container", "eval"],
@@ -91,6 +91,85 @@ const QUERY_PRIMITIVE_BOOSTS: Array<{
   { terms: ["memory", "remember", "recall"], primitives: ["memory"] },
   { terms: ["policy", "approval", "authority"], primitives: ["policy_gate"] },
   { terms: ["output", "artifact", "deliver"], primitives: ["output"] },
+];
+
+const QUERY_CREATOR_BOOSTS: Array<{
+  terms: string[];
+  creatorIds: string[];
+  boost: number;
+}> = [
+  {
+    terms: ["repo", "repository"],
+    creatorIds: [
+      "repository_context",
+      "plugin_tool.coding_pack",
+      "plugin_tool.git_diff",
+    ],
+    boost: 1000,
+  },
+  {
+    terms: ["git"],
+    creatorIds: [
+      "plugin_tool.git_diff",
+      "repository_context",
+      "plugin_tool.coding_pack",
+      "github_context",
+    ],
+    boost: 160,
+  },
+  {
+    terms: ["github"],
+    creatorIds: ["github_context", "issue_context", "pr_attempt"],
+    boost: 150,
+  },
+  {
+    terms: ["pr", "pull request"],
+    creatorIds: ["pr_attempt", "github_pr_create", "review_gate"],
+    boost: 1000,
+  },
+  {
+    terms: ["browser", "browser use"],
+    creatorIds: ["plugin_tool.browser_use", "plugin_tool.browser"],
+    boost: 180,
+  },
+  {
+    terms: ["browser discovery", "cdp endpoint", "remote debugging"],
+    creatorIds: ["computer_use.browser_discovery"],
+    boost: 1200,
+  },
+  {
+    terms: ["computer", "computer use", "desktop", "gui", "cua"],
+    creatorIds: [
+      "plugin_tool.computer_use.visual_gui",
+      "plugin_tool.browser",
+      "plugin_tool.computer_use.sandboxed",
+      "plugin_tool.browser_use",
+    ],
+    boost: 170,
+  },
+  {
+    terms: ["model", "agent", "reasoning"],
+    creatorIds: ["model_call"],
+    boost: 150,
+  },
+  {
+    terms: ["output", "artifact", "deliver"],
+    creatorIds: [
+      "output.inline",
+      "output.file",
+      "output.delivery_draft",
+      "output.patch",
+      "output.table",
+      "output.media",
+      "output.deploy",
+    ],
+    boost: 220,
+  },
+  {
+    terms: ["mcp"],
+    creatorIds: ["plugin_tool.mcp"],
+    boost: 180,
+  },
 ];
 
 const PALETTE_SCORE: Record<WorkflowPaletteVisibility, number> = {
@@ -210,6 +289,25 @@ function primitiveBoost(
   return 0;
 }
 
+function creatorIntentBoost(
+  query: string,
+  item: SearchableWorkflowNode,
+): number {
+  const terms = expandedQueryTerms(query);
+  const creatorId = "creatorId" in item ? item.creatorId : item.type;
+  let boostValue = 0;
+  for (const boost of QUERY_CREATOR_BOOSTS) {
+    if (
+      boost.creatorIds.includes(creatorId) &&
+      boost.terms.some((term) => terms.includes(normalizeSearchText(term)))
+    ) {
+      const rank = boost.creatorIds.indexOf(creatorId);
+      boostValue = Math.max(boostValue, boost.boost - rank * 200);
+    }
+  }
+  return boostValue;
+}
+
 function itemBaseFields(
   item: SearchableWorkflowNode,
   context: WorkflowNodeLibrarySearchContext,
@@ -292,6 +390,7 @@ export function rankWorkflowNodeLibrary<T extends SearchableWorkflowNode>(
         score:
           scored.score +
           exactAuthoringIntentBoost(normalizedQuery, item) +
+          creatorIntentBoost(normalizedQuery, item) +
           primitiveBoost(normalizedQuery, item.canonicalPrimitive) +
           PALETTE_SCORE[item.paletteVisibility],
         matchedTerms: scored.matchedTerms,

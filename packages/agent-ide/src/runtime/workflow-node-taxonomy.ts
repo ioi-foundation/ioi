@@ -279,6 +279,26 @@ function displayLabel(
   input: WorkflowNodeTaxonomyInput,
   primitive: WorkflowCanonicalPrimitive,
 ): string {
+  const creatorDisplayLabel: Record<string, string> = {
+    "plugin_tool.browser_use": "Browser tool",
+    "plugin_tool.browser": "Browser/computer tool",
+    "plugin_tool.computer_use.visual_gui": "Computer tool",
+    "plugin_tool.computer_use.sandboxed": "Sandboxed computer",
+    "plugin_tool.coding_pack": "Coding tool pack",
+    "plugin_tool.git_diff": "Repository tool",
+    "plugin_tool.file_inspect": "Repository tool",
+    "plugin_tool.file_apply_patch": "Repository tool",
+    "plugin_tool.test_run": "Repository tool",
+    "plugin_tool.lsp_diagnostics": "Repository tool",
+    "plugin_tool.artifact_read": "Repository tool",
+    "plugin_tool.tool_retrieve_result": "Repository tool",
+    "plugin_tool.mcp": "MCP tool",
+    "plugin_tool.workflow_tool": "Workflow tool",
+    "plugin_tool.plugin": "Tool",
+  };
+  if (input.creatorId && creatorDisplayLabel[input.creatorId]) {
+    return creatorDisplayLabel[input.creatorId];
+  }
   if (input.creatorId && input.creatorId !== input.type) {
     switch (primitive) {
       case "agent_step":

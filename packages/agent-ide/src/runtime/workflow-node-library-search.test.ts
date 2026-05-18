@@ -42,6 +42,12 @@ function topNode(query: string): WorkflowNodeCreatorDefinition {
   return result.item;
 }
 
+function topNodeIds(query: string, count = 4): string[] {
+  return rankNodes(query)
+    .slice(0, count)
+    .map((result) => result.item.creatorId);
+}
+
 function assertTopPrimitive(
   query: string,
   primitive: WorkflowCanonicalPrimitive,
@@ -64,6 +70,63 @@ test("authoring synonyms prioritize canonical primitives", () => {
   assertTopPrimitive("policy", "policy_gate");
   assertTopPrimitive("approval", "policy_gate");
   assertTopPrimitive("output", "output");
+});
+
+test("ordinary authoring queries use deterministic intent ranking", () => {
+  assert.deepEqual(topNodeIds("repo"), [
+    "repository_context",
+    "plugin_tool.coding_pack",
+    "plugin_tool.git_diff",
+    "github_context",
+  ]);
+  assert.deepEqual(topNodeIds("repository"), [
+    "repository_context",
+    "plugin_tool.coding_pack",
+    "plugin_tool.git_diff",
+    "github_context",
+  ]);
+  assert.deepEqual(topNodeIds("pr", 3), [
+    "pr_attempt",
+    "github_pr_create",
+    "review_gate",
+  ]);
+  assert.deepEqual(topNodeIds("pull request", 3), [
+    "pr_attempt",
+    "github_pr_create",
+    "review_gate",
+  ]);
+  assert.equal(topNode("browser").creatorId, "plugin_tool.browser_use");
+  assert.equal(
+    topNode("computer").creatorId,
+    "plugin_tool.computer_use.visual_gui",
+  );
+  assert.equal(topNode("model").creatorId, "model_call");
+  assert.equal(topNode("output").creatorId, "output.inline");
+});
+
+test("default labels use authoring concepts while advanced labels keep runtime identity", () => {
+  const creators = new Map(
+    NODE_LIBRARY.map((item) => [item.creatorId, item] as const),
+  );
+
+  assert.equal(creators.get("plugin_tool.browser_use")?.displayLabel, "Browser tool");
+  assert.equal(
+    creators.get("plugin_tool.computer_use.visual_gui")?.displayLabel,
+    "Computer tool",
+  );
+  assert.equal(
+    creators.get("plugin_tool.coding_pack")?.displayLabel,
+    "Coding tool pack",
+  );
+  assert.equal(creators.get("plugin_tool.mcp")?.displayLabel, "MCP tool");
+  assert.equal(
+    creators.get("plugin_tool.workflow_tool")?.displayLabel,
+    "Workflow tool",
+  );
+  assert.match(
+    creators.get("plugin_tool.browser_use")?.advancedLabel ?? "",
+    /plugin_tool/,
+  );
 });
 
 test("computer-use searches prioritize lane-specific authoring presets", () => {
