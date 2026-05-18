@@ -235,6 +235,10 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
   assert.match(chatConversationPanels, /Show Config/);
   assert.match(chatConversationPanels, /Generate Agent Instructions/);
   assert.match(chatConversationPanels, /icons\.chatSparkle/);
+  assert.match(chatConversationPanels, /spot-chat-welcome-main/);
+  assert.match(chatConversationPanels, /spot-chat-welcome-actions/);
+  assert.match(operatorChatPane, /operator-chat-pane__empty-main/);
+  assert.match(operatorChatPane, /operator-chat-pane__suggestions/);
   assert.match(chatShellWindow, /Describe what to build next/);
   assert.doesNotMatch(chatShellWindow, /What do you want to materialize/);
   assert.doesNotMatch(chatConversationPanels, /Review the current repo/);

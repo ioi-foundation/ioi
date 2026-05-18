@@ -81,13 +81,15 @@ function OperatorChatEmptyState({
 }) {
   return (
     <div className="operator-chat-pane__empty">
-      {emptyState.icon ? (
-        <div className="operator-chat-pane__empty-icon" aria-hidden="true">
-          {emptyState.icon}
-        </div>
-      ) : null}
-      <h3>{emptyState.title}</h3>
-      {emptyState.description ? <p>{emptyState.description}</p> : null}
+      <div className="operator-chat-pane__empty-main">
+        {emptyState.icon ? (
+          <div className="operator-chat-pane__empty-icon" aria-hidden="true">
+            {emptyState.icon}
+          </div>
+        ) : null}
+        <h3>{emptyState.title}</h3>
+        {emptyState.description ? <p>{emptyState.description}</p> : null}
+      </div>
       {suggestedActions ? (
         <div className="operator-chat-pane__suggestions">
           <div className="operator-chat-pane__section-label">

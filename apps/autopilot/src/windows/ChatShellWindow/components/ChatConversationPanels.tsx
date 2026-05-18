@@ -127,38 +127,42 @@ export function ChatConversationWelcome({
 }: ChatConversationWelcomeProps) {
   return (
     <section className="spot-chat-welcome" aria-label="Chat welcome">
-      <div className="spot-chat-welcome-mark" aria-hidden="true">
-        {icons.chatSparkle}
+      <div className="spot-chat-welcome-main">
+        <div className="spot-chat-welcome-mark" aria-hidden="true">
+          {icons.chatSparkle}
+        </div>
+
+        <div className="spot-chat-welcome-copy">
+          <h2>Build with Agent</h2>
+          <p>
+            AI responses may be inaccurate.
+            <br />
+            <button
+              type="button"
+              className="spot-chat-welcome-link"
+              onClick={() => onSuggestionClick("Generate Agent Instructions")}
+            >
+              Generate Agent Instructions
+            </button>{" "}
+            to onboard AI onto your codebase.
+          </p>
+        </div>
       </div>
 
-      <div className="spot-chat-welcome-copy">
-        <h2>Build with Agent</h2>
-        <p>
-          AI responses may be inaccurate.
-          <br />
-          <button
-            type="button"
-            className="spot-chat-welcome-link"
-            onClick={() => onSuggestionClick("Generate Agent Instructions")}
-          >
-            Generate Agent Instructions
-          </button>{" "}
-          to onboard AI onto your codebase.
-        </p>
-      </div>
-
-      <span className="spot-chat-welcome-kicker">Suggested Actions</span>
-      <div className="spot-chat-suggestion-row">
-        {suggestionPrompts.map((prompt) => (
-          <button
-            key={prompt}
-            type="button"
-            className="spot-chat-suggestion"
-            onClick={() => onSuggestionClick(prompt)}
-          >
-            {prompt}
-          </button>
-        ))}
+      <div className="spot-chat-welcome-actions">
+        <span className="spot-chat-welcome-kicker">Suggested Actions</span>
+        <div className="spot-chat-suggestion-row">
+          {suggestionPrompts.map((prompt) => (
+            <button
+              key={prompt}
+              type="button"
+              className="spot-chat-suggestion"
+              onClick={() => onSuggestionClick(prompt)}
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
       </div>
     </section>
   );

@@ -425,14 +425,14 @@
 }
 
 .spot-chat-conversation.is-empty {
-  justify-content: center;
+  justify-content: stretch;
 }
 
 .spot-chat-conversation.is-empty .spot-chat {
-  flex: 0 1 auto;
+  flex: 1 1 0;
   overflow: visible;
-  padding: clamp(28px, 7vh, 84px) 0 18px;
-  align-content: end;
+  padding: 0;
+  align-content: stretch;
   --spot-content-lane-template: minmax(24px, 1fr) minmax(0, 760px)
     minmax(24px, 1fr);
 }
@@ -467,7 +467,7 @@
 
 .spot-chat-conversation.is-empty > .spot-input-section {
   padding-top: 0;
-  padding-bottom: clamp(36px, 8vh, 92px);
+  padding-bottom: clamp(36px, 7.5vh, 82px);
 }
 
 .spot-chat-shell.is-artifact-collapsed .spot-chat,
@@ -489,15 +489,25 @@
 }
 
 .spot-chat-welcome {
-  display: flex;
-  flex-direction: column;
+  min-height: 100%;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 14px;
+  gap: 18px;
   padding: 0;
   text-align: center;
   background: transparent;
   border: none;
   box-shadow: none;
+}
+
+.spot-chat-welcome-main {
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  transform: translateY(10%);
 }
 
 .spot-chat-welcome-mark {
@@ -560,6 +570,15 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--spot-text-dim);
+}
+
+.spot-chat-welcome-actions {
+  align-self: end;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .spot-chat-lens-grid {

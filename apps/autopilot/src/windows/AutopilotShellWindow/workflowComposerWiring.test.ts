@@ -570,6 +570,18 @@ assert.match(
 );
 
 assert.match(
+  chatSurfaceLayoutCss,
+  /\.spot-chat-conversation\.is-empty \.spot-chat\s*\{[\s\S]*flex: 1 1 0;[\s\S]*align-content: stretch;[\s\S]*\.spot-chat-welcome\s*\{[\s\S]*grid-template-rows: minmax\(0, 1fr\) auto;[\s\S]*\.spot-chat-welcome-actions\s*\{[\s\S]*align-self: end;/,
+  "The Autopilot chat empty state should match the substrate geometry: welcome centered, suggested actions docked above the composer",
+);
+
+assert.match(
+  workspaceSubstrateCss,
+  /\.operator-chat-pane__empty\s*\{[\s\S]*grid-template-rows: minmax\(0, 1fr\) auto;[\s\S]*\.operator-chat-pane__empty-main\s*\{[\s\S]*align-self: center;[\s\S]*\.operator-chat-pane__suggestions\s*\{[\s\S]*align-self: end;/,
+  "The shared workspace chat pane should keep the same centered welcome plus bottom suggestions geometry",
+);
+
+assert.match(
   chatIdeHeaderTsx,
   /className="chat-ide-drag-surface"[\s\S]*data-tauri-drag-region[\s\S]*onMouseDown=\{startTauriWindowDrag\}/,
   "The frameless shell header should expose a broad native Tauri drag region outside the window-control buttons",
