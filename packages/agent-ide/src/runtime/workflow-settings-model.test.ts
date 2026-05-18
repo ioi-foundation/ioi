@@ -98,15 +98,6 @@ test("workflow settings model centralizes summary, environment, and production s
     hasErrorOrRetryPath: true,
   });
 
-  assert.deepEqual(
-    model.summaryItems.map((item) => [item.label, item.value]),
-    [
-      ["Build artifact", "Autonomous package"],
-      ["Run readiness", "warning"],
-      ["Authority", "1/1 ready"],
-      ["Next action", "Check readiness"],
-    ],
-  );
   assert.equal(model.metadata.workflowPath, ".agents/workflows/settings-workflow.workflow.json");
   assert.equal(model.metadata.branch, "feature/settings");
   assert.equal(model.metadata.dirty, true);
@@ -160,15 +151,6 @@ test("workflow settings model reports defaults for editable local workflows", ()
   assert.equal(model.environmentProfile.target, "local");
   assert.equal(model.bindingRegistrySummary.total, 0);
   assert.equal(model.packageReadinessStatus, "not exported");
-  assert.deepEqual(
-    model.summaryItems.map((item) => [item.label, item.value]),
-    [
-      ["Build artifact", "Draft workflow"],
-      ["Run readiness", "not checked"],
-      ["Authority", "No bindings"],
-      ["Next action", "Validate graph"],
-    ],
-  );
   assert.deepEqual(model.productionSummary, {
     errorPath: "not set",
     evaluations: "1 model node",

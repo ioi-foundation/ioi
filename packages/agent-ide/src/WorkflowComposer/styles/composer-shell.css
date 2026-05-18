@@ -1357,36 +1357,18 @@ button.workflow-run-row.is-active {
   margin: 0;
 }
 
-.workflow-rail-lifecycle-summary {
-  grid-template-columns: 1fr;
-  gap: 7px;
-}
-
-.workflow-rail-lifecycle-summary div {
-  display: grid;
-  min-height: 36px;
-  grid-template-columns: minmax(92px, 0.42fr) minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  background: color-mix(in srgb, var(--workflow-panel-strong) 72%, transparent);
-}
-
-.workflow-rail-lifecycle-summary dt {
-  margin: 0;
-}
-
-.workflow-rail-lifecycle-summary dd {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .workflow-rail-section {
   display: grid;
   gap: 7px;
   border-top: 1px solid var(--border-subtle);
   margin-top: 12px;
   padding-top: 12px;
+}
+
+.workflow-composer-rail-panel > .workflow-rail-section:first-child {
+  border-top: 0;
+  margin-top: 0;
+  padding-top: 0;
 }
 
 .workflow-rail-section h4 {
