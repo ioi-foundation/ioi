@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Node, WorkflowWorkbenchTab } from "../types/graph";
 import type { useWorkflowComposerController } from "./controller";
 
@@ -305,6 +306,10 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     workflowTimeLabel,
   } = model;
 
+  const [harnessTopologyLegendOpen, setHarnessTopologyLegendOpen] =
+    useState(false);
+  const [canvasLegendOpen, setCanvasLegendOpen] = useState(false);
+
   const compositionHelperHandlers = {
     agent_loop: handleInsertAgentLoopMacro,
     coding_budget_recovery: handleInsertRuntimeCodingToolBudgetRecoveryTemplate,
@@ -450,17 +455,29 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
             className="workflow-harness-teaching-view"
             data-testid="workflow-harness-teaching-view"
             aria-label="Default harness topology overview"
+            data-topology-legend={
+              harnessTopologyLegendOpen ? "expanded" : "collapsed"
+            }
           >
             <header>
               <div>
-                <strong>Default Agent Harness topology</strong>
-                <span>
-                  {harnessGroupSummary.total} canonical group
-                  {harnessGroupSummary.total === 1 ? "" : "s"} ·{" "}
-                  {harnessGroupSummary.collapsed} summarized on canvas
-                </span>
+                <strong>
+                  Default Agent Harness topology · {harnessGroupSummary.total}{" "}
+                  group{harnessGroupSummary.total === 1 ? "" : "s"} ·{" "}
+                  {nodes.length} component{nodes.length === 1 ? "" : "s"}
+                </strong>
               </div>
               <div className="workflow-harness-teaching-actions">
+                <button
+                  type="button"
+                  data-testid="workflow-harness-teaching-toggle-legend"
+                  aria-expanded={harnessTopologyLegendOpen}
+                  onClick={() =>
+                    setHarnessTopologyLegendOpen((current) => !current)
+                  }
+                >
+                  {harnessTopologyLegendOpen ? "Hide topology" : "Topology"}
+                </button>
                 {harnessGroupSummary.expanded > 0 ? (
                   <button
                     type="button"
@@ -490,29 +507,38 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                 <button
                   type="button"
                   data-testid="workflow-harness-teaching-advanced"
-                  onClick={() => setRightPanel("settings")}
+                  onClick={() => {
+                    setHarnessTopologyLegendOpen(true);
+                    setRightPanel("settings");
+                  }}
                 >
                   Advanced details
                 </button>
               </div>
             </header>
-            <div>
-              {harnessGroupViews.slice(0, 6).map((group) => (
-                <button
-                  type="button"
-                  key={group.groupId}
-                  className="workflow-harness-teaching-group-button"
-                  aria-pressed={!group.collapsed}
-                  data-readiness={group.statusRollup.readiness}
-                  data-testid="workflow-harness-teaching-group"
-                  data-group-state={group.collapsed ? "collapsed" : "expanded"}
-                  onClick={() => handleToggleHarnessGroup(String(group.groupId))}
-                  title={`${group.collapsed ? "Expand" : "Collapse"} ${group.label}`}
-                >
-                  {group.label}
-                </button>
-              ))}
-            </div>
+            {harnessTopologyLegendOpen ? (
+              <div>
+                {harnessGroupViews.slice(0, 6).map((group) => (
+                  <button
+                    type="button"
+                    key={group.groupId}
+                    className="workflow-harness-teaching-group-button"
+                    aria-pressed={!group.collapsed}
+                    data-readiness={group.statusRollup.readiness}
+                    data-testid="workflow-harness-teaching-group"
+                    data-group-state={
+                      group.collapsed ? "collapsed" : "expanded"
+                    }
+                    onClick={() =>
+                      handleToggleHarnessGroup(String(group.groupId))
+                    }
+                    title={`${group.collapsed ? "Expand" : "Collapse"} ${group.label}`}
+                  >
+                    {group.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </section>
         ) : null}
         <div className="workflow-composer-actions">
@@ -1184,6 +1210,25 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                 >
                   <WorkflowInlineIcon icon={Search} />
                 </button>
+                <button
+                  type="button"
+                  className={`workflow-canvas-legend-toggle ${canvasLegendOpen ? "is-active" : ""}`}
+                  aria-expanded={canvasLegendOpen}
+                  aria-label={
+                    canvasLegendOpen
+                      ? "Hide workflow node legend"
+                      : "Show workflow node legend"
+                  }
+                  title={
+                    canvasLegendOpen
+                      ? "Hide workflow node legend"
+                      : "Show workflow node legend"
+                  }
+                  data-testid="workflow-canvas-legend-toggle"
+                  onClick={() => setCanvasLegendOpen((current) => !current)}
+                >
+                  Legend
+                </button>
                 {canvasSearchOpen ? (
                   <section
                     className="workflow-canvas-search-panel"
@@ -1286,14 +1331,16 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     </div>
                   </section>
                 ) : null}
-                <div className="workflow-legend">
-                  {counts.map((item) => (
-                    <span key={item.family}>
-                      <i data-family={item.family} />
-                      {item.family} ({item.count})
-                    </span>
-                  ))}
-                </div>
+                {canvasLegendOpen ? (
+                  <div className="workflow-legend">
+                    {counts.map((item) => (
+                      <span key={item.family}>
+                        <i data-family={item.family} />
+                        {item.family} ({item.count})
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
               </div>
 
               <Canvas
