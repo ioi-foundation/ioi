@@ -139,6 +139,60 @@
   line-height: 1.6;
 }
 
+.chat-workspace-oss-shell__surface-notice {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 6;
+  width: min(420px, calc(100% - 28px));
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px;
+  border: 1px solid rgba(255, 214, 102, 0.24);
+  border-radius: 8px;
+  background: rgba(32, 28, 18, 0.9);
+  color: #f6d888;
+  box-shadow: 0 14px 42px rgba(0, 0, 0, 0.26);
+  pointer-events: auto;
+}
+
+.chat-workspace-oss-shell__surface-notice strong {
+  color: #ffedb3;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.chat-workspace-oss-shell__surface-notice span {
+  color: rgba(255, 237, 179, 0.76);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.chat-workspace-oss-shell__surface-notice-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.chat-workspace-oss-shell__surface-notice-actions details {
+  color: rgba(255, 237, 179, 0.68);
+  font-size: 11px;
+}
+
+.chat-workspace-oss-shell__surface-notice-actions summary {
+  cursor: pointer;
+}
+
+.chat-workspace-oss-shell__surface-notice-actions code {
+  display: block;
+  max-width: 100%;
+  margin-top: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .chat-workspace-oss-shell__meta {
   display: flex;
   flex-direction: column;
@@ -171,6 +225,22 @@
   border: 2px solid rgba(255, 255, 255, 0.12);
   border-top-color: rgba(96, 146, 255, 0.95);
   animation: chat-workspace-oss-spin 0.8s linear infinite;
+}
+
+.chat-workspace-oss-shell__diagnostics {
+  color: var(--chat-text-muted);
+}
+
+.chat-workspace-oss-shell__diagnostics summary {
+  width: fit-content;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.chat-workspace-oss-shell__diagnostics[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .chat-workspace-oss-shell__actions {

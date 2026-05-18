@@ -108,9 +108,9 @@ export function WorkspaceShell({
   const [selectedRepository, setSelectedRepository] =
     useState<WorkspaceRepositoryRecord | null>(null);
   const [creatingRepository, setCreatingRepository] = useState(false);
-  const [createRepositoryError, setCreateRepositoryError] = useState<string | null>(
-    null,
-  );
+  const [createRepositoryError, setCreateRepositoryError] = useState<
+    string | null
+  >(null);
   const [createdRepositoryNotice, setCreatedRepositoryNotice] =
     useState<WorkspaceRepositoryRecord | null>(null);
   const workbenchProject = selectedRepository ?? currentProject;
@@ -163,7 +163,8 @@ export function WorkspaceShell({
       return;
     }
 
-    const pendingRepository = consumePendingWorkspaceRepositoryOpen(seedProjects);
+    const pendingRepository =
+      consumePendingWorkspaceRepositoryOpen(seedProjects);
     if (!pendingRepository) {
       return;
     }
@@ -236,9 +237,12 @@ export function WorkspaceShell({
     loadWorkspaceShellState(workbenchProject.rootPath),
   );
   const [surfaceError, setSurfaceError] = useState<string | null>(null);
-  const [bridgeState, setBridgeState] = useState<DirectWorkspaceBridgeState | null>(null);
+  const [bridgeState, setBridgeState] =
+    useState<DirectWorkspaceBridgeState | null>(null);
   const [extensionManifests, setExtensionManifests] = useState<
-    Awaited<ReturnType<typeof loadDirectWorkspaceWorkbenchData>>["extensionManifests"]
+    Awaited<
+      ReturnType<typeof loadDirectWorkspaceWorkbenchData>
+    >["extensionManifests"]
   >([]);
 
   useEffect(() => {
@@ -257,9 +261,9 @@ export function WorkspaceShell({
   const activeOperatorSurface: WorkspaceOperatorSurface =
     persistedState?.dockSurface ?? "chat";
 
-  const substratePreviewSurfaceVisible = Boolean(
-    surface && surface.kind === "substrate-preview",
-  );
+  const surfaceKind = surface?.kind ?? null;
+  const substratePreviewSurfaceVisible = surfaceKind === "substrate-preview";
+  const directOpenVsCodeSurfaceVisible = surfaceKind === "openvscode-direct";
   const surfaceRuntimeError = useMemo(
     () =>
       surfaceError
@@ -267,11 +271,43 @@ export function WorkspaceShell({
         : null,
     [surfaceError],
   );
-  const effectiveError = error ?? surfaceRuntimeError;
+  const surfaceRuntimeNotice =
+    surfaceRuntimeError && directOpenVsCodeSurfaceVisible
+      ? {
+          ...surfaceRuntimeError,
+          title: "Workspace surface did not attach",
+          message:
+            "The project session is ready, but the embedded OpenVSCode surface has not attached to the window. Keep working if it appears, or retry the surface.",
+          repairLabel: "Retry workspace surface",
+        }
+      : null;
+  const surfaceAttachNotice =
+    !surfaceRuntimeNotice &&
+    directOpenVsCodeSurfaceVisible &&
+    status === "ready" &&
+    !surfaceReady
+      ? {
+          code: "workspace_surface_attaching",
+          title: "Attaching workspace surface",
+          message:
+            "The OpenVSCode session is ready. Autopilot is attaching the embedded workbench surface.",
+          repairLabel: "Retry workspace surface",
+          technicalDetail: `surface=openvscode-direct surfaceReady=${surfaceReady} phase=${bootPhase}`,
+        }
+      : null;
+  const surfaceNotice = surfaceRuntimeNotice ?? surfaceAttachNotice;
+  const blockingError =
+    error ??
+    (surfaceRuntimeError && !surfaceRuntimeNotice ? surfaceRuntimeError : null);
+  const workspaceSurfaceReadyEnough =
+    Boolean(surface) &&
+    (substratePreviewSurfaceVisible ||
+      directOpenVsCodeSurfaceVisible ||
+      surfaceReady);
   const overlayVisible =
-    Boolean(effectiveError) ||
+    Boolean(blockingError) ||
     status !== "ready" ||
-    (!substratePreviewSurfaceVisible && !surfaceReady);
+    !workspaceSurfaceReadyEnough;
 
   useEffect(() => {
     if (!import.meta.env.DEV || !workbenchActive) {
@@ -283,10 +319,10 @@ export function WorkspaceShell({
       surfaceKind: surface?.kind ?? null,
       surfaceReady,
       overlayVisible,
-      error,
+      error: blockingError,
     });
   }, [
-    error,
+    blockingError,
     overlayVisible,
     status,
     surface,
@@ -370,7 +406,10 @@ export function WorkspaceShell({
         setExtensionManifests(next.extensionManifests);
       } catch (error) {
         if (!cancelled) {
-          console.error("[Workspace] Failed to load direct workbench model:", error);
+          console.error(
+            "[Workspace] Failed to load direct workbench model:",
+            error,
+          );
         }
       }
     };
@@ -528,6 +567,29 @@ export function WorkspaceShell({
               )
             ) : null}
 
+            {!overlayVisible && surfaceNotice ? (
+              <div className="chat-workspace-oss-shell__surface-notice">
+                <strong>{surfaceNotice.title}</strong>
+                <span>{surfaceNotice.message}</span>
+                <div className="chat-workspace-oss-shell__surface-notice-actions">
+                  <button
+                    type="button"
+                    className="chat-workspace-oss-shell__button"
+                    onClick={() => {
+                      setSurfaceError(null);
+                      restartWorkspace();
+                    }}
+                  >
+                    {surfaceNotice.repairLabel}
+                  </button>
+                  <details>
+                    <summary>Diagnostics</summary>
+                    <code>{surfaceNotice.technicalDetail}</code>
+                  </details>
+                </div>
+              </div>
+            ) : null}
+
             {overlayVisible ? (
               <div className="chat-workspace-oss-shell__overlay">
                 <div className="chat-workspace-oss-shell__overlay-card">
@@ -536,7 +598,7 @@ export function WorkspaceShell({
                   </span>
                   <h2>{workbenchProject.name}</h2>
                   <p>
-                    {effectiveError
+                    {blockingError
                       ? (sessionDescriptor?.startupFailureDescription ??
                         "The workspace runtime did not start cleanly.")
                       : (sessionDescriptor?.startupDescription ??
@@ -553,7 +615,8 @@ export function WorkspaceShell({
                     </div>
                   ) : null}
                   {import.meta.env.DEV ? (
-                    <>
+                    <details className="chat-workspace-oss-shell__diagnostics">
+                      <summary>Diagnostics</summary>
                       <div className="chat-workspace-oss-shell__meta">
                         <span>Debug</span>
                         <code>
@@ -570,15 +633,15 @@ export function WorkspaceShell({
                         <span>Phase</span>
                         <code>{bootPhase}</code>
                       </div>
-                    </>
+                    </details>
                   ) : null}
-                  {effectiveError ? (
+                  {blockingError ? (
                     <div className="chat-workspace-oss-shell__error">
-                      <strong>{effectiveError.title}</strong>
-                      <span>{effectiveError.message}</span>
+                      <strong>{blockingError.title}</strong>
+                      <span>{blockingError.message}</span>
                       <details>
                         <summary>Advanced detail</summary>
-                        <code>{effectiveError.technicalDetail}</code>
+                        <code>{blockingError.technicalDetail}</code>
                       </details>
                     </div>
                   ) : (
@@ -596,9 +659,9 @@ export function WorkspaceShell({
                         restartWorkspace();
                       }}
                     >
-                      {effectiveError
+                      {blockingError
                         ? "Retry workspace runtime"
-                        : "Force reveal now"}
+                        : "Retry workspace surface"}
                     </button>
                   </div>
                 </div>
