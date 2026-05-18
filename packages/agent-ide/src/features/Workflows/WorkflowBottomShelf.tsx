@@ -23,6 +23,7 @@ import {
 } from "../../runtime/workflow-bottom-panel-model";
 import {
   workflowFunctionDryRunView,
+  workflowSelectedNodeLifecycleSummary,
   type WorkflowSelectedNodeRepairAction,
 } from "../../runtime/workflow-composer-model";
 import { workflowFixtureSourceLabel } from "../../runtime/workflow-fixture-model";
@@ -140,6 +141,12 @@ export function WorkflowBottomShelf({
   });
   if (panel === "selection") {
     const configuredFields = workflowConfiguredFieldNames(selectedNode?.config?.logic ?? {});
+    const lifecycleSummary = workflowSelectedNodeLifecycleSummary({
+      workflow,
+      selectedNode,
+      validationResult,
+      tests,
+    });
     const latestInputPreview = workflowValuePreview(selectedNodeRun?.input);
     const latestOutputPreview = workflowValuePreview(selectedNodeRun?.output);
     const packageOutputSummary = workflowPackageNodeOutputSummary(
@@ -195,14 +202,30 @@ export function WorkflowBottomShelf({
             </article>
           ) : null}
           <article className="workflow-output-row" data-testid="workflow-selection-config">
-            <strong>Configuration</strong>
+            <strong>{lifecycleSummary?.title ?? "Lifecycle summary"}</strong>
             <span>
-              {configuredFields.length > 0
-                ? `${configuredFields.length} configured field${configuredFields.length === 1 ? "" : "s"}`
-                : "Using default configuration for this primitive."}
+              {lifecycleSummary
+                ? "Readiness at a glance for this selected primitive."
+                : "Select a workflow primitive to inspect readiness."}
             </span>
+            {lifecycleSummary ? (
+              <dl
+                className="workflow-selection-lifecycle-list"
+                data-testid="workflow-selection-lifecycle-summary"
+              >
+                {lifecycleSummary.items.map((item) => (
+                  <div key={item.label} data-lifecycle-status={item.status}>
+                    <dt>{item.label}</dt>
+                    <dd>{item.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
             {configuredFields.length > 0 ? (
-              <small>{configuredFields.slice(0, 10).join(", ")}</small>
+              <details data-testid="workflow-selection-advanced-config">
+                <summary>Advanced configuration fields</summary>
+                <small>{configuredFields.slice(0, 16).join(", ")}</small>
+              </details>
             ) : null}
           </article>
           <article

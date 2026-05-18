@@ -59,6 +59,17 @@ export interface WorkflowCompatibleSearchRecovery {
   recommendedBridgeLabel: string;
 }
 
+export interface WorkflowSelectedNodeLifecycleItem {
+  label: string;
+  value: string;
+  status: "ready" | "blocked" | "warning" | "idle";
+}
+
+export interface WorkflowSelectedNodeLifecycleSummary {
+  title: string;
+  items: WorkflowSelectedNodeLifecycleItem[];
+}
+
 export function workflowCompatibleSearchRecovery({
   query,
   nodeGroupFilter,
@@ -317,6 +328,109 @@ export function workflowSelectedNodeRepairActions({
   );
 
   return actions.slice(0, 5);
+}
+
+export function workflowSelectedNodeLifecycleSummary({
+  workflow,
+  selectedNode,
+  validationResult,
+  tests,
+}: {
+  workflow: WorkflowProject;
+  selectedNode: Node | null;
+  validationResult?: WorkflowValidationResult | null;
+  tests: WorkflowTestCase[];
+}): WorkflowSelectedNodeLifecycleSummary | null {
+  if (!selectedNode) return null;
+
+  const incomingEdges = workflow.edges.filter((edge) => edge.to === selectedNode.id);
+  const outgoingEdges = workflow.edges.filter((edge) => edge.from === selectedNode.id);
+  const requiredInputCount = (selectedNode.ports ?? []).filter(
+    (port) => port.direction === "input" && port.required,
+  ).length;
+  const selectedIssues = [
+    ...(validationResult?.errors ?? []),
+    ...(validationResult?.warnings ?? []),
+  ].filter((issue) => issue.nodeId === selectedNode.id);
+  const outputConnected =
+    selectedNode.type === "output" ||
+    outgoingEdges.some((edge) =>
+      workflow.nodes.some((node) => node.id === edge.to && node.type === "output"),
+    );
+  const toolAttachmentCount = incomingEdges.filter(
+    (edge) =>
+      edge.toPort === "tool" ||
+      edge.connectionClass === "tool" ||
+      String(edge.data?.connectionClass ?? "") === "tool",
+  ).length;
+  const logic = selectedNode.config?.logic ?? {};
+  const hasModelCapability = Boolean(
+    logic.modelCapabilityRef || logic.routeId || logic.modelBinding,
+  );
+  const testCount = tests.filter((test) =>
+    test.targetNodeIds.includes(selectedNode.id),
+  ).length;
+
+  const items: WorkflowSelectedNodeLifecycleItem[] = [];
+  items.push({
+    label: "Input",
+    value:
+      incomingEdges.length > 0
+        ? "connected"
+        : requiredInputCount > 0
+          ? "missing"
+          : "not required",
+    status:
+      incomingEdges.length > 0 || requiredInputCount === 0 ? "ready" : "blocked",
+  });
+  if (selectedNode.type === "model_call") {
+    items.push({
+      label: "Model capability",
+      value: hasModelCapability ? "declared route" : "missing",
+      status: hasModelCapability ? "ready" : "blocked",
+    });
+    items.push({
+      label: "Tools",
+      value: toolAttachmentCount > 0 ? `${toolAttachmentCount} attached` : "none",
+      status: toolAttachmentCount > 0 ? "ready" : "idle",
+    });
+  }
+  if (selectedNode.type === "plugin_tool" || selectedNode.type === "adapter") {
+    const binding = logic.toolBinding ?? logic.connectorBinding;
+    items.push({
+      label: "Capability",
+      value: binding ? "declared" : "missing",
+      status: binding ? "ready" : "blocked",
+    });
+  }
+  items.push({
+    label: "Output",
+    value: outputConnected ? "connected" : "missing",
+    status: outputConnected ? "ready" : "warning",
+  });
+  items.push({
+    label: "Receipts",
+    value: logic.receiptRequired === false ? "optional" : "required",
+    status: "ready",
+  });
+  items.push({
+    label: "Tests",
+    value: testCount > 0 ? `${testCount} linked` : "none",
+    status: testCount > 0 ? "ready" : "warning",
+  });
+  items.push({
+    label: "Ready",
+    value:
+      selectedIssues.length > 0
+        ? `${selectedIssues.length} blocker${selectedIssues.length === 1 ? "" : "s"}`
+        : "no node blockers",
+    status: selectedIssues.length > 0 ? "blocked" : "ready",
+  });
+
+  return {
+    title: "Lifecycle summary",
+    items,
+  };
 }
 
 export function workflowNodeCreatorBadge(
