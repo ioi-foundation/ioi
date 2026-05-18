@@ -14,19 +14,13 @@ import {
 } from "./ChatActivityBarIcons";
 import type { PrimaryView } from "../autopilotShellModel";
 import { chatNavigationShortcutLabel } from "../../shared/shellShortcuts";
-
-interface ProjectScope {
-  id: string;
-  name: string;
-  description: string;
-  environment: string;
-}
+import type { AssistantUserProfile } from "../../../types";
 
 interface ChatLocalActivityBarProps {
   activeView: PrimaryView;
   onViewChange: (view: PrimaryView) => void;
   notificationCount: number;
-  currentProject: ProjectScope;
+  profile: AssistantUserProfile;
 }
 
 interface NavItem {
@@ -216,11 +210,32 @@ function isEditableElement(target: EventTarget | null): boolean {
   );
 }
 
+function resolveProfileDisplayName(profile: AssistantUserProfile): string {
+  return (
+    profile.displayName?.trim() ||
+    profile.preferredName?.trim() ||
+    profile.roleLabel?.trim() ||
+    "Operator"
+  );
+}
+
+function resolveProfileInitials(profile: AssistantUserProfile): string {
+  const displayName = resolveProfileDisplayName(profile);
+  const initials = displayName
+    .split(/\s+/)
+    .map((segment) => segment[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  return initials || profile.avatarSeed?.trim().slice(0, 2).toUpperCase() || "OP";
+}
+
 export function ChatLocalActivityBar({
   activeView,
   onViewChange,
   notificationCount,
-  currentProject,
+  profile,
 }: ChatLocalActivityBarProps) {
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -256,12 +271,9 @@ export function ChatLocalActivityBar({
   );
   const workNavItems = NAV_ITEMS.filter((item) => WORK_NAV_IDS.has(item.id));
   const bottomNavItems = NAV_ITEMS.filter((item) => item.id === "settings");
-  const projectInitials = currentProject.name
-    .split(/\s+/)
-    .map((segment) => segment[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const profileDisplayName = resolveProfileDisplayName(profile);
+  const profileInitials = resolveProfileInitials(profile);
+  const profileRoleLabel = profile.roleLabel?.trim() || "Profile";
 
   return (
     <aside
@@ -336,14 +348,14 @@ export function ChatLocalActivityBar({
 
       <div className="chat-activity-group chat-activity-group--bottom">
         <div
-          className="chat-activity-project-indicator"
-          title={`${currentProject.name} · ${currentProject.environment}`}
-          aria-label={`${currentProject.name} project scope`}
-          data-window-surface="project"
+          className="chat-activity-profile-indicator"
+          title={`${profileDisplayName} · ${profileRoleLabel}`}
+          aria-label={`${profileDisplayName} profile`}
+          data-window-surface="profile"
         >
-          <span className="chat-activity-project-avatar">{projectInitials}</span>
-          <span className="chat-activity-project-label">
-            {currentProject.name}
+          <span className="chat-activity-profile-avatar">{profileInitials}</span>
+          <span className="chat-activity-profile-label">
+            {profileDisplayName}
           </span>
         </div>
 

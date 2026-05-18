@@ -262,7 +262,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #4da3ff;
+  color: var(--chat-activity-text);
 }
 
 .chat-activity-brand svg {
@@ -450,7 +450,7 @@
   line-height: 1.5;
 }
 
-.chat-activity-project-indicator {
+.chat-activity-profile-indicator {
   min-height: 34px;
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr);
@@ -460,7 +460,7 @@
   color: var(--chat-activity-text-strong);
 }
 
-.chat-activity-project-avatar {
+.chat-activity-profile-avatar {
   width: 22px;
   height: 22px;
   display: inline-flex;
@@ -473,7 +473,7 @@
   font-weight: 700;
 }
 
-.chat-activity-project-label {
+.chat-activity-profile-label {
   min-width: 0;
   overflow: hidden;
   font-size: 13px;
@@ -512,11 +512,11 @@
 .chat-activity-bar.is-collapsed .chat-activity-button-label,
 .chat-activity-bar.is-collapsed .chat-activity-button-shortcut,
 .chat-activity-bar.is-collapsed .chat-activity-apps,
-.chat-activity-bar.is-collapsed .chat-activity-project-label {
+.chat-activity-bar.is-collapsed .chat-activity-profile-label {
   display: none;
 }
 
-.chat-activity-bar.is-collapsed .chat-activity-project-indicator {
+.chat-activity-bar.is-collapsed .chat-activity-profile-indicator {
   min-height: 42px;
   display: flex;
   justify-content: center;
