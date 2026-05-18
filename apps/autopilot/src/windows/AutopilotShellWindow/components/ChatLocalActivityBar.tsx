@@ -153,16 +153,16 @@ function CollapseIcon({ collapsed }: { collapsed: boolean }) {
     >
       {collapsed ? (
         <>
-          <path d="M6 4h7" />
-          <path d="M6 8h7" />
-          <path d="M6 12h7" />
+          <path d="M7 4h6" />
+          <path d="M7 8h6" />
+          <path d="M7 12h6" />
           <path d="m2.5 5.5 2.5 2.5-2.5 2.5" />
         </>
       ) : (
         <>
-          <path d="M5 4h8" />
-          <path d="M5 8h8" />
-          <path d="M5 12h8" />
+          <path d="M6 4h7" />
+          <path d="M6 8h7" />
+          <path d="M6 12h7" />
           <path d="m3.5 5.5-2.5 2.5 2.5 2.5" />
         </>
       )}
