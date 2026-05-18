@@ -41,8 +41,10 @@ test("old header leading block is removed so the rail is the single sidebar iden
   );
 });
 
-test("activity bar styling matches the collapsible dark rail contract", () => {
+test("activity bar styling matches the themeable collapsible rail contract", () => {
   assert.match(shellBaseCss, /\.chat-activity-bar\s*\{[\s\S]*width: 230px;/);
+  assert.match(shellBaseCss, /--chat-activity-bg: #181818;/);
+  assert.match(shellBaseCss, /background: var\(--chat-activity-bg\);/);
   assert.match(shellBaseCss, /\.chat-activity-bar\.is-collapsed\s*\{\s*width: 48px;/);
   assert.match(shellBaseCss, /\.chat-activity-brand-row\s*\{[\s\S]*min-height: 48px;/);
   assert.match(shellBaseCss, /\.chat-activity-group\s*\{[\s\S]*border-bottom:/);
@@ -52,15 +54,17 @@ test("activity bar styling matches the collapsible dark rail contract", () => {
   assert.match(shellBaseCss, /\.chat-activity-button-shortcut\s*\{/);
   assert.match(shellBaseCss, /\.chat-activity-apps\s*\{/);
   assert.match(shellBaseCss, /\.chat-activity-bar\.is-collapsed \.chat-activity-button-label,/);
+  assert.match(shellBaseCss, /\.chat-activity-bar\.is-collapsed \.chat-activity-brand\s*\{\s*display: none;/);
+  assert.match(shellBaseCss, /\.chat-activity-bar\.is-collapsed \.chat-activity-collapse-button\s*\{[\s\S]*width: 42px;[\s\S]*height: 42px;/);
 });
 
-test("light workbench mode does not wash the activity rail into a pale sidebar", () => {
-  assert.doesNotMatch(
-    traceAndWelcomeCss,
-    /:root\[data-autopilot-theme\^="light"\] \.chat-activity-bar,/,
-  );
+test("light workbench mode restores the old theme-inherited activity rail colors", () => {
   assert.doesNotMatch(
     traceAndWelcomeCss,
     /:root\[data-autopilot-theme\^="light"\] \.chat-activity-button,/,
+  );
+  assert.match(
+    traceAndWelcomeCss,
+    /:root\[data-autopilot-theme\^="light"\] \.chat-activity-bar \{[\s\S]*--chat-activity-bg: #f3f3f3;[\s\S]*--chat-activity-text: #424242;/,
   );
 });
