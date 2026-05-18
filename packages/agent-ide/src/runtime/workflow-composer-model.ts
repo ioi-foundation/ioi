@@ -345,6 +345,35 @@ export function workflowNodeCreatorBadge(
   return { label: "Ready", status: "ready" };
 }
 
+export type WorkflowNodeCreatorDefaultAddMode =
+  | "configure"
+  | "topology_first";
+
+export function workflowNodeCreatorDefaultAddMode(
+  definition: WorkflowNodeDefinition,
+): WorkflowNodeCreatorDefaultAddMode {
+  if (
+    definition.type === "plugin_tool" ||
+    definition.type === "adapter" ||
+    definition.type === "output" ||
+    definition.type === "repository_context" ||
+    definition.type === "github_context" ||
+    definition.type === "issue_context" ||
+    definition.type === "branch_policy"
+  ) {
+    return "topology_first";
+  }
+  if (
+    definition.group === "Tools" ||
+    definition.group === "Connectors" ||
+    definition.group === "State" ||
+    definition.group === "Outputs"
+  ) {
+    return "topology_first";
+  }
+  return "configure";
+}
+
 // These helpers create UI-side projections when no runtime adapter is attached.
 // They are intentionally non-canonical; daemon/Agentgres-backed substrate APIs
 // own durable run, proposal, task, receipt, and quality state.

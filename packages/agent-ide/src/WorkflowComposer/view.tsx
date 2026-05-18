@@ -296,6 +296,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     WorkflowInlineIcon,
     WorkflowNodeConfigModal,
     workflowNodeCreatorBadge,
+    workflowNodeCreatorDefaultAddMode,
     workflowNodeName,
     workflowNodeRunChildLineage,
     workflowPath,
@@ -828,6 +829,9 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                           globalConfig,
                         );
                         const itemId = workflowCreatorItemId(item);
+                        const topologyFirst =
+                          workflowNodeCreatorDefaultAddMode(item) ===
+                          "topology_first";
                         return (
                           <button
                             key={`recent-${itemId}`}
@@ -839,7 +843,8 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                                 item.label,
                                 undefined,
                                 {
-                                  openConfig: true,
+                                  openConfig: !topologyFirst,
+                                  selectAfterAdd: topologyFirst,
                                   closeDrawer: true,
                                   creatorId: itemId,
                                   defaultLogic: item.defaultLogic,
@@ -1075,6 +1080,9 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                             nodePaletteMode === "advanced"
                               ? item.advancedLabel
                               : item.displayLabel;
+                          const topologyFirst =
+                            workflowNodeCreatorDefaultAddMode(item) ===
+                            "topology_first";
                           const compatibleHint =
                             selectedNode && isSearchingNodeLibrary
                               ? compatibleNodeHints.find(
@@ -1105,7 +1113,8 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                                       item.label,
                                       undefined,
                                       {
-                                        openConfig: true,
+                                        openConfig: !topologyFirst,
+                                        selectAfterAdd: topologyFirst,
                                         closeDrawer: true,
                                         creatorId: itemId,
                                         defaultLogic: item.defaultLogic,
