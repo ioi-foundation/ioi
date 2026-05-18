@@ -380,3 +380,27 @@ export function createUniqueRepositorySlug(
 
   return candidate;
 }
+
+export function formatWorkspaceRepositoryMutationError(
+  error: unknown,
+  fallback = "The repository folder could not be created.",
+): string {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "";
+  const normalized = message.toLowerCase();
+
+  if (
+    normalized.includes("reading 'invoke'") ||
+    normalized.includes('reading "invoke"') ||
+    normalized.includes("__tauri") ||
+    (normalized.includes("tauri") && normalized.includes("invoke"))
+  ) {
+    return "Repository creation requires the Autopilot desktop runtime. Open this flow in the desktop app and try again.";
+  }
+
+  return message || fallback;
+}

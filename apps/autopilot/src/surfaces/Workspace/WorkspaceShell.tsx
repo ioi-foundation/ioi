@@ -39,6 +39,7 @@ import { useWorkspaceWorkbenchSession } from "../../services/useWorkspaceWorkben
 import { tauriWorkspaceAdapter } from "../../services/workspaceAdapter";
 import {
   createUniqueRepositorySlug,
+  formatWorkspaceRepositoryMutationError,
   getGeneratedRepositoryPath,
   loadWorkspaceRepositories,
   markWorkspaceRepositoryOpened,
@@ -61,6 +62,9 @@ interface WorkspaceShellProps {
 }
 
 type WorkspaceShellMode = "repository-gate" | "workbench";
+interface OpenRepositoryOptions {
+  ensureDirectory?: boolean;
+}
 
 type ShellIconProps = {
   size?: number;
@@ -105,6 +109,8 @@ export function WorkspaceShell({
   const [createRepositoryError, setCreateRepositoryError] = useState<string | null>(
     null,
   );
+  const [createdRepositoryNotice, setCreatedRepositoryNotice] =
+    useState<WorkspaceRepositoryRecord | null>(null);
   const workbenchProject = selectedRepository ?? currentProject;
   const workbenchActive =
     active && shellMode === "workbench" && selectedRepository !== null;
@@ -118,8 +124,12 @@ export function WorkspaceShell({
   }, [refreshRepositories]);
 
   const openRepository = useCallback(
-    async (repository: WorkspaceRepositoryRecord) => {
-      if (repository.source === "created") {
+    async (
+      repository: WorkspaceRepositoryRecord,
+      options: OpenRepositoryOptions = {},
+    ) => {
+      const ensureDirectory = options.ensureDirectory ?? true;
+      if (repository.source === "created" && ensureDirectory) {
         await tauriWorkspaceAdapter.createDirectory(".", repository.rootPath);
       }
 
@@ -131,6 +141,7 @@ export function WorkspaceShell({
           (nextRepository) => nextRepository.id === repository.id,
         ) ?? repository,
       );
+      setCreatedRepositoryNotice(null);
       setCreateRepositoryError(null);
       setShellMode("workbench");
     },
@@ -175,18 +186,16 @@ export function WorkspaceShell({
         };
 
         persistCreatedWorkspaceRepository(repository);
+        setRepositories(loadWorkspaceRepositories(seedProjects));
+        setCreatedRepositoryNotice(repository);
         setCreatingRepository(false);
-        await openRepository(repository);
+        setCreateRepositoryError(null);
       } catch (error) {
         setCreatingRepository(false);
-        setCreateRepositoryError(
-          error instanceof Error
-            ? error.message
-            : "The repository folder could not be created.",
-        );
+        setCreateRepositoryError(formatWorkspaceRepositoryMutationError(error));
       }
     },
-    [openRepository, repositories],
+    [repositories, seedProjects],
   );
 
   const {
@@ -415,8 +424,10 @@ export function WorkspaceShell({
         <WorkspaceRepositoryGate
           repositories={repositories}
           createError={createRepositoryError}
+          createdRepository={createdRepositoryNotice}
           creating={creatingRepository}
           onCreateRepository={createRepository}
+          onDismissCreatedRepository={() => setCreatedRepositoryNotice(null)}
           onOpenRepository={openRepository}
           onToggleFavorite={toggleRepositoryFavorite}
         />
