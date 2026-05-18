@@ -25,6 +25,18 @@ const chatLeftUtilityPaneSource = fs.readFileSync(
 
 assert.match(
   chatLeftUtilityPaneSource,
+  /className=\{`operator-chat-pane-shell/,
+  "the persistent chat pane should use only a layout shell around shared operator chat chrome",
+);
+
+assert.doesNotMatch(
+  chatLeftUtilityPaneSource,
+  /chat-chat-pane-body/,
+  "the persistent chat pane should not wrap shared chat chrome in legacy pane body styling",
+);
+
+assert.match(
+  chatLeftUtilityPaneSource,
   /chatPresentation=\{maximized \? "standalone" : "embedded-pane"\}/,
   "the persistent chat pane should use the compact embedded chat presentation until it is maximized",
 );
@@ -51,8 +63,20 @@ const chatConversationSurfaceSource = fs.readFileSync(
 
 assert.match(
   chatConversationSurfaceSource,
-  /leadingControls=\{paneLeadingAction\}[\s\S]*primaryActions=\{primaryActions\}[\s\S]*secondaryActions=\{secondaryActions\}[\s\S]*trailingControls=\{paneTrailingAction\}/,
-  "pane chrome controls should bracket the normal chat controls on one shared row",
+  /primaryActions=\{primaryActions\}[\s\S]*secondaryActions=\{secondaryActions\}[\s\S]*trailingControls=\{paneTrailingAction\}/,
+  "pane chrome controls should stay on the shared operator chat topbar",
+);
+
+assert.match(
+  chatConversationSurfaceSource,
+  /id: "more"[\s\S]*label: "More chat actions"[\s\S]*onClick: onOpenCommandPalette/,
+  "sidebar chat should expose command actions through the substrate-style overflow control rather than a second search button",
+);
+
+assert.doesNotMatch(
+  chatConversationSurfaceSource,
+  /id: "search"/,
+  "sidebar chat should not add a separate search control that competes with the Autopilot command center",
 );
 
 console.log("AutopilotShellContent.seedIntent.test.ts: ok");

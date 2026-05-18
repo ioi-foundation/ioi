@@ -465,12 +465,31 @@ Correction on 2026-05-18:
 - The leg is reopened until the shared chat pane is implemented as product UI,
   not just as compatible inspection/control contracts.
 
+Follow-up correction on 2026-05-18:
+
+- User validation caught two remaining nonconformities after the parity pass:
+  embedded/direct OpenVSCode could still surface its own quick-open/command
+  palette affordance, and the persistent Autopilot chat sidebar still carried
+  a legacy wrapper around the shared pane.
+- The fix makes `ChatIdeHeader` the only global command/search owner: OpenVSCode
+  user settings disable command center and layout-control chrome, generated
+  keybindings unbind quick-open/show-command chords, stale direct sessions are
+  relaunched if those files are missing, Home onboarding now routes quick-open
+  intent to the Autopilot command center, and the bundled OpenVSCode extension
+  no longer advertises a separate command-palette action.
+- The persistent chat sidebar now renders the shared `OperatorChatPane` shell
+  directly, chat pane actions use the same VS Code-style ordering, and `More`
+  replaces pane-local Search so command discovery consistently flows through
+  the global command center.
+
 Completed validation:
 
 - `npx tsx --test packages/agent-ide/src/runtime/workflow-runtime-unavailable-copy.test.ts apps/autopilot/src/services/workspaceRepositoryRegistry.test.ts`
 - `node --test apps/autopilot/src/windows/AutopilotShellWindow/operatorSubstrateModel.test.ts apps/autopilot/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts apps/autopilot/src/windows/ChatShellWindow/index.seedIntent.test.ts apps/autopilot/src/windows/AutopilotShellWindow/components/AutopilotShellContent.seedIntent.test.ts`
 - `node --test apps/autopilot/src/windows/AutopilotShellWindow/operatorSubstrateModel.test.ts apps/autopilot/src/services/workflowProjectMaterializationPlan.test.ts apps/autopilot/src/services/workspaceRepositoryRegistry.test.ts`
 - `npm run build --workspace=apps/autopilot`
+- `cargo test openvscode_user_config --manifest-path apps/autopilot/src-tauri/Cargo.toml`
+- `cargo check --manifest-path apps/autopilot/src-tauri/Cargo.toml`
 - `git diff --check`
 - Live Playwright probe against `http://127.0.0.1:1428`:
   - verified exactly one `[data-operator-chat-pane]` in full and sidebar chat
@@ -486,6 +505,12 @@ Completed validation:
     Workspace, Workflows, Runs, Capabilities, Policy, and Settings;
   - verified Workspace does not render a duplicate
     `.workspace-workbench-command-center` in embedded mode;
+  - verified full Chat renders one shared `[data-operator-chat-pane]`, no
+    `.chat-chat-pane-body` legacy wrapper, a `More` pane action, and no
+    pane-local Search action;
+  - verified embedded Workspace renders one Autopilot command center, no
+    duplicate OpenVSCode command-center chrome, and no quick-open input in the
+    default workspace shell;
   - verified command-center click and `Ctrl+K` open the global command
     palette;
   - verified Workflow Composer, canvas, command center, and activity rail

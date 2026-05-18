@@ -99,7 +99,9 @@ export function ChatLeftUtilityPane({
 
   return (
     <aside
-      className={`chat-chat-pane ${maximized ? "is-maximized" : ""}`}
+      className={`operator-chat-pane-shell ${
+        maximized ? "is-maximized" : ""
+      }`}
       aria-label="Operator chat"
     >
       {usesIntegratedChatChrome ? null : (
@@ -108,26 +110,20 @@ export function ChatLeftUtilityPane({
           {closeControl}
         </div>
       )}
-      <div className="chat-chat-pane-body">
-        <MissionControlChatView
-          embedded
-          chatPresentation={maximized ? "standalone" : "embedded-pane"}
-          paneLeadingAction={
-            usesIntegratedChatChrome ? layoutControl : undefined
-          }
-          paneTrailingAction={
-            usesIntegratedChatChrome ? closeControl : undefined
-          }
-          surface={surface}
-          session={session}
-          runtime={runtime}
-          seedIntent={seedIntent}
-          onConsumeSeedIntent={onConsumeSeedIntent}
-          onBackToInbox={onBackToInbox}
-          onOpenInbox={onOpenInbox}
-          onOpenAutopilot={onOpenAutopilot}
-        />
-      </div>
+      <MissionControlChatView
+        embedded
+        chatPresentation={maximized ? "standalone" : "embedded-pane"}
+        paneLeadingAction={usesIntegratedChatChrome ? layoutControl : undefined}
+        paneTrailingAction={usesIntegratedChatChrome ? closeControl : undefined}
+        surface={surface}
+        session={session}
+        runtime={runtime}
+        seedIntent={seedIntent}
+        onConsumeSeedIntent={onConsumeSeedIntent}
+        onBackToInbox={onBackToInbox}
+        onOpenInbox={onOpenInbox}
+        onOpenAutopilot={onOpenAutopilot}
+      />
     </aside>
   );
 }

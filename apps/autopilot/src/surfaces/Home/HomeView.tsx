@@ -776,7 +776,7 @@ export function HomeView({
         return;
       case "quickOpen.open":
         markStepDone(selectedStep.id);
-        queueWorkbenchCommand("workbench.action.quickOpen");
+        onOpenCommandPalette();
         return;
       case "workbench.toggleMenuBar":
         markStepDone(selectedStep.id);

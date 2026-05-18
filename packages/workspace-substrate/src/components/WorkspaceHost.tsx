@@ -188,25 +188,19 @@ function WorkspaceOperatorChatPane({
       onClick: () => onOpenSurface?.("chat"),
     },
     {
-      id: "search",
-      label: "Open workflow surfaces",
-      icon: <Codicon name="type-hierarchy-sub" />,
-      onClick: () => onOpenSurface?.("workflows"),
-    },
-    {
       id: "settings",
       label: "Open workspace policy",
       icon: <WorkbenchGearIcon />,
       onClick: () => onOpenSurface?.("policy"),
     },
+    {
+      id: "more",
+      label: "More workspace chat actions",
+      icon: <Codicon name="ellipsis" />,
+      onClick: () => onOpenSurface?.("workflows"),
+    },
   ];
   const secondaryActions: OperatorChatPaneAction[] = [
-    {
-      id: "artifacts",
-      label: "Open artifacts surface",
-      icon: <Codicon name="files" />,
-      onClick: () => onOpenSurface?.("artifacts"),
-    },
     {
       id: "expand",
       label: "Focus chat workbench surface",
@@ -248,7 +242,6 @@ function WorkspaceOperatorChatPane({
       }
       composer={
         <div className="workspace-agent-composer-card">
-          <p>What do you want to materialize?</p>
           <button
             type="button"
             className="workspace-agent-composer-context"
@@ -256,12 +249,30 @@ function WorkspaceOperatorChatPane({
           >
             Add Context...
           </button>
+          <p>Describe what to build next</p>
           <div className="workspace-agent-composer-footer">
             <button type="button" onClick={() => onOpenSurface?.("chat")}>
+              <Codicon name="device-desktop" />
+              <Codicon name="chevron-down" />
+            </button>
+            <button type="button" onClick={() => onOpenSurface?.("workflows")}>
+              <Codicon name="symbol-operator" />
+              <Codicon name="chevron-down" />
+            </button>
+            <button type="button" onClick={() => onOpenSurface?.("policy")}>
               Local
+              <Codicon name="chevron-down" />
             </button>
             <button type="button" onClick={() => onOpenSurface?.("policy")}>
               Auto
+              <Codicon name="chevron-down" />
+            </button>
+            <button
+              type="button"
+              aria-label="Workspace chat tools"
+              onClick={() => onOpenSurface?.("policy")}
+            >
+              <Codicon name="tools" />
             </button>
             <button
               type="button"

@@ -19,10 +19,6 @@ const VIEW_DEFINITIONS = [
         label: "Explain selected code",
         command: "ioi.chat.explainSelection",
       },
-      {
-        label: "Open command palette",
-        command: "workbench.action.showCommands",
-      },
     ],
   },
   {
