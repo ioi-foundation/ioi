@@ -6,7 +6,6 @@ import {
   isTauriRuntime,
   startTauriWindowDrag,
 } from "../../shared/tauriWindowDrag";
-import { ChatLogoIcon } from "./ChatActivityBarIcons";
 import type { PrimaryView } from "../autopilotShellModel";
 
 interface ChatIdeHeaderProps {
@@ -127,16 +126,6 @@ export function ChatIdeHeader({
 
   return (
     <header className="chat-ide-header" onDoubleClick={handleHeaderDoubleClick}>
-      <div
-        className="chat-ide-leading"
-        data-tauri-drag-region
-        onMouseDown={startTauriWindowDrag}
-      >
-        <span className="chat-ide-brand" aria-hidden="true">
-          <ChatLogoIcon />
-        </span>
-      </div>
-
       <div
         className="chat-ide-drag-surface"
         data-tauri-drag-region
