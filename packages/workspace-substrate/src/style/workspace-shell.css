@@ -1546,6 +1546,14 @@
   z-index: 2;
 }
 
+.workspace-host--global-command-center-hidden .workspace-workbench-toolbar-left-cluster {
+  display: none;
+}
+
+.workspace-host--global-command-center-hidden .workspace-workbench-toolbar-group--start {
+  flex: 0 0 auto;
+}
+
 .workspace-workbench-toolbar-right-controls-strip {
   position: absolute;
   right: 0;

@@ -481,6 +481,7 @@ export function WorkspaceShell({
                   defaultPane={surface.defaultPane}
                   title={surface.title}
                   showHeader={surface.showHeader}
+                  hideGlobalCommandCenter
                   showBottomPanel={surface.showBottomPanel}
                   initialSnapshot={
                     surface.initialSnapshot ?? initialWorkspaceSnapshot

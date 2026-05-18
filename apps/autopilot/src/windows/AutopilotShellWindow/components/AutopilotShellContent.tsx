@@ -20,6 +20,7 @@ import { ChatLeftUtilityPane } from "./ChatLeftUtilityPane";
 import { ChatUtilityDrawer } from "./ChatUtilityDrawer";
 import { WorkspaceShell } from "../../../surfaces/Workspace";
 import { getDefaultWorkspaceWorkbenchHost } from "../../../services/workspaceWorkbenchHostRegistry";
+import { buildOperatorCommandCenterModel } from "../operatorSubstrateModel";
 
 interface AutopilotShellContentProps {
   controller: ReturnType<typeof useAutopilotShellController>;
@@ -48,6 +49,12 @@ export function AutopilotShellContent({
     activeView !== "chat" && activeView !== "home" && !dedicatedWorkbenchActive;
   const auxiliaryChatFullscreen =
     auxiliaryChatVisible && controller.chat.paneMaximized;
+  const commandCenterModel = buildOperatorCommandCenterModel({
+    activeView,
+    workflowSurface: controller.workflow.surface,
+    currentProject,
+    notificationCount: notificationBadgeCount,
+  });
 
   return (
     <div
@@ -56,6 +63,8 @@ export function AutopilotShellContent({
       <ChatIdeHeader
         activeView={activeView}
         workflowSurface={controller.workflow.surface}
+        commandCenter={commandCenterModel}
+        onOpenCommandPalette={controller.modals.openCommandPalette}
       />
 
       <div
