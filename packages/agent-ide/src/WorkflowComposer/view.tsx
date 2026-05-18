@@ -24,6 +24,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     closeLeftDrawer,
     compareRunId,
     compareRunResult,
+    compatibleSearchRecovery,
     compatibleNodeHints,
     compatiblePortFocusLabel,
     connectFromNodeId,
@@ -65,6 +66,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     guardedOnEdgesChange,
     guardedOnNodesChange,
     handleAddCompatibleNode,
+    handleAddAgentStepFromCompatibleRecovery,
     handleAddNodeFromLibrary,
     handleAddTest,
     handleAddTestFromOutput,
@@ -89,6 +91,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleExecuteRuntimeWorkspaceTrustAction,
     handleExecuteRuntimeCodingToolBudgetRecovery,
     handleCreateRuntimeCodingToolBudgetRecoverySubflow,
+    handleClearCompatibleSearchFilter,
     handleBindRuntimeCodingToolBudgetRecoveryTemplate,
     handleBindRuntimeTelemetrySource,
     handleMaterializeRuntimeTelemetryBudgetChain,
@@ -96,6 +99,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleExecuteHarnessRollback,
     handleExpandHarnessGroups,
     handleExportPortablePackage,
+    handleExplainCompatibleSearchRecovery,
     handleApplyHarnessActivationCandidate,
     handleForkDefaultHarness,
     handleGenerateBindingManifest,
@@ -132,6 +136,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleSelectHarnessRollbackTarget,
     handleSelectRun,
     handleSelectedNodeRepairAction,
+    handleShowAllCompatibleSearchMatches,
     handleUpdateEnvironmentProfile,
     handleUpdateWorkflowChromeLocale,
     handleUpdateProductionProfile,
@@ -947,6 +952,52 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     )}
                   </p>
                 ) : null}
+                {compatibleSearchRecovery ? (
+                  <section
+                    className="workflow-compatible-search-recovery"
+                    data-testid="workflow-compatible-search-recovery"
+                  >
+                    <strong>{compatibleSearchRecovery.title}</strong>
+                    <span>
+                      {compatibleSearchRecovery.message}{" "}
+                      {compatibleSearchRecovery.globalMatchCount} global match
+                      {compatibleSearchRecovery.globalMatchCount === 1
+                        ? ""
+                        : "es"}{" "}
+                      found.
+                    </span>
+                    <div>
+                      <button
+                        type="button"
+                        data-testid="workflow-compatible-search-show-all"
+                        onClick={handleShowAllCompatibleSearchMatches}
+                      >
+                        Show all matches
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="workflow-compatible-search-add-agent-step"
+                        onClick={handleAddAgentStepFromCompatibleRecovery}
+                      >
+                        {compatibleSearchRecovery.recommendedBridgeLabel}
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="workflow-compatible-search-clear-filter"
+                        onClick={handleClearCompatibleSearchFilter}
+                      >
+                        Clear compatible filter
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="workflow-compatible-search-explain"
+                        onClick={handleExplainCompatibleSearchRecovery}
+                      >
+                        Explain why
+                      </button>
+                    </div>
+                  </section>
+                ) : null}
                 {filteredCompositionHelpers.length > 0 ? (
                   <section
                     className="workflow-macro-library"
@@ -983,7 +1034,8 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                   className="workflow-component-library"
                   data-testid="workflow-component-library"
                 >
-                  {filteredNodeLibrary.length === 0 ? (
+                  {filteredNodeLibrary.length === 0 &&
+                  !compatibleSearchRecovery ? (
                     <p
                       className="workflow-node-library-empty"
                       data-testid="workflow-node-library-empty"

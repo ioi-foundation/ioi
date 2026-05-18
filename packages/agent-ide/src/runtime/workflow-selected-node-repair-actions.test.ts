@@ -3,6 +3,7 @@ import test from "node:test";
 
 import type { Node, WorkflowProject, WorkflowValidationResult } from "../types/graph";
 import {
+  workflowCompatibleSearchRecovery,
   workflowModelBindingKeyForNode,
   workflowSelectedNodeRepairActions,
 } from "./workflow-composer-model";
@@ -158,5 +159,51 @@ test("model binding focus maps model node capability to global binding role", ()
       y: 0,
     }),
     "reasoning",
+  );
+});
+
+test("compatible search recovery explains global matches hidden by compatibility", () => {
+  const manualInput: Node = {
+    id: "input",
+    type: "source",
+    name: "Manual input",
+    x: 0,
+    y: 0,
+  };
+
+  const recovery = workflowCompatibleSearchRecovery({
+    query: "repo",
+    nodeGroupFilter: "Compatible",
+    selectedNode: manualInput,
+    globalMatchCount: 4,
+    compatibleMatchCount: 0,
+  });
+
+  assert.equal(
+    recovery?.title,
+    "No repo primitives connect directly from Manual input.",
+  );
+  assert.match(recovery?.message ?? "", /bridge step/);
+  assert.equal(recovery?.recommendedBridgeLabel, "Add Agent Step");
+});
+
+test("compatible search recovery stays hidden when compatible matches exist", () => {
+  const selectedNode: Node = {
+    id: "agent",
+    type: "model_call",
+    name: "Agent Step",
+    x: 0,
+    y: 0,
+  };
+
+  assert.equal(
+    workflowCompatibleSearchRecovery({
+      query: "output",
+      nodeGroupFilter: "Compatible",
+      selectedNode,
+      globalMatchCount: 3,
+      compatibleMatchCount: 1,
+    }),
+    null,
   );
 });
