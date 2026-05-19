@@ -433,6 +433,57 @@ def image_difference_metric(reference_path: Path, candidate_path: Path) -> str |
     return output or None
 
 
+def list_workflow_code_proposals() -> set[Path]:
+    proposal_root = PROJECT_ROOT / ".agents" / "workflow-code-proposals"
+    if not proposal_root.exists():
+        return set()
+    return {path for path in proposal_root.iterdir() if path.is_dir()}
+
+
+def validate_workflow_code_proposal_bundle(before: set[Path]) -> dict[str, Any]:
+    deadline = time.time() + 20.0
+    last_seen: list[Path] = []
+    while time.time() < deadline:
+        after = list_workflow_code_proposals()
+        candidates = sorted(
+            after - before,
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+        if candidates:
+            proposal_root = candidates[0]
+            required = [
+                "request.json",
+                "proposal.md",
+                "diffs/proposed.patch",
+                "checks/checklist.md",
+                "receipts/workflow-code-generation-receipt.json",
+                "receipts/approval-required.json",
+                "receipts/apply-blocked.json",
+                "receipts/checks-required.json",
+                "receipts/eval-required.json",
+            ]
+            missing = [
+                rel_path
+                for rel_path in required
+                if not (proposal_root / rel_path).exists()
+            ]
+            return {
+                "proposalRoot": str(proposal_root),
+                "required": required,
+                "missing": missing,
+                "complete": not missing,
+            }
+        last_seen = sorted(after, key=lambda path: path.stat().st_mtime, reverse=True)
+        time.sleep(1.0)
+    return {
+        "proposalRoot": str(last_seen[0]) if last_seen else None,
+        "required": [],
+        "missing": ["new workflow-code proposal bundle"],
+        "complete": False,
+    }
+
+
 def analyze_image_region(
     image_path: Path,
     output_root: Path,
@@ -963,6 +1014,34 @@ def main() -> int:
             raise RuntimeError("Autopilot activity bar chrome was not visibly retained.")
         if not containment["headerVisible"]:
             raise RuntimeError("Autopilot IDE header chrome was not visibly retained.")
+
+        proposal_before = list_workflow_code_proposals()
+        build_workspace_point = (0.818, 0.647)
+        print("[openvscode-direct] interaction: native-chat-build-workspace", flush=True)
+        x, y = surface_point(target_bounds, build_workspace_point[0], build_workspace_point[1])
+        build_click = click_relative(target_window_id, x, y)
+        build_capture = capture_step(
+            target_window_id,
+            output_root,
+            "native-chat-build-workspace",
+        )
+        proposal_bundle = validate_workflow_code_proposal_bundle(proposal_before)
+        steps.append(
+            {
+                "id": "native-chat-build-workspace",
+                "click": build_click,
+                "surfacePoint": {
+                    "xRatio": build_workspace_point[0],
+                    "yRatio": build_workspace_point[1],
+                },
+                "proposalBundle": proposal_bundle,
+                **build_capture,
+            }
+        )
+        if not proposal_bundle.get("complete"):
+            raise RuntimeError(
+                f"Native chat Build Workspace did not materialize a complete workflow-code proposal bundle: {proposal_bundle}"
+            )
 
         interactions = [
             {"id": "activity-search", "point": (0.021, 0.215)},

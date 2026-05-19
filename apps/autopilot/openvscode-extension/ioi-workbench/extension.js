@@ -1277,6 +1277,12 @@ function renderChatView(state) {
         </p>
       </div>
       <div class="operator-chat-bottom">
+        <div
+          class="operator-chat-notice"
+          data-native-chat-notice
+          data-inspection-target="native-ioi-chat-notice"
+          hidden
+        ></div>
         <div class="operator-chat-suggestions" aria-label="Suggested actions">
           <span>SUGGESTED ACTIONS</span>
           <div>
@@ -1798,6 +1804,19 @@ function renderHtml(view, state) {
         display: grid;
         gap: 8px;
       }
+      .operator-chat-notice {
+        border: 1px solid var(--vscode-panel-border);
+        border-radius: 4px;
+        padding: 8px;
+        color: var(--vscode-descriptionForeground);
+        background: var(--vscode-editorWidget-background);
+        line-height: 1.35;
+      }
+      .operator-chat-notice strong {
+        color: var(--vscode-foreground);
+        display: block;
+        margin-bottom: 3px;
+      }
       .operator-chat-suggestions {
         display: grid;
         gap: 8px;
@@ -1919,6 +1938,12 @@ function renderHtml(view, state) {
             requestType: button.dataset.bridgeRequest,
             payload
           });
+          const notice = document.querySelector("[data-native-chat-notice]");
+          if (notice && button.dataset.bridgeRequest === "workflow.codeGenerationRequest") {
+            notice.hidden = false;
+            notice.innerHTML =
+              "<strong>Proposal queued</strong>Autopilot is writing a proposal-first diff, approval/check plan, and receipt trail for the active workspace.";
+          }
         });
       });
       const composer = document.querySelector("[data-chat-composer-form]");
