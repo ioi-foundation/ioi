@@ -434,6 +434,28 @@ def move_pointer_off_window() -> None:
     time.sleep(0.2)
 
 
+def dismiss_transient_workbench_notifications(window_id: int) -> dict[str, Any]:
+    """Close transient OpenVSCode toasts that can cover the native chat composer.
+
+    The product should suppress predictable prompts through managed settings, but
+    live validation still needs clean evidence when an upstream workbench toast is
+    already present. Click the standard bottom-right toast close affordance before
+    capturing composer parity screenshots.
+    """
+
+    geometry = window_geometry(window_id)
+    width = geometry.get("WIDTH", 1)
+    height = geometry.get("HEIGHT", 1)
+    click_x = max(1, width - 28)
+    click_y = max(1, min(height - 1, height - 140))
+    click = click_relative(window_id, click_x, click_y)
+    time.sleep(0.5)
+    return {
+        "reason": "dismiss transient OpenVSCode notification before screenshot evidence",
+        "click": click,
+    }
+
+
 def open_workspace_from_activity_rail(window_id: int) -> dict[str, int]:
     """Use the real shell rail to reveal Workspace before waiting on native logs."""
     geometry = window_geometry(window_id)
@@ -1065,6 +1087,7 @@ def main() -> int:
 
         proposal_before = list_workflow_code_proposals()
         build_workspace_point = (0.818, 0.647)
+        notification_dismissal = dismiss_transient_workbench_notifications(target_window_id)
         print("[openvscode-direct] interaction: native-chat-build-workspace", flush=True)
         x, y = surface_point(target_bounds, build_workspace_point[0], build_workspace_point[1])
         build_click = click_relative(target_window_id, x, y)
@@ -1082,6 +1105,7 @@ def main() -> int:
                     "xRatio": build_workspace_point[0],
                     "yRatio": build_workspace_point[1],
                 },
+                "notificationDismissal": notification_dismissal,
                 "proposalBundle": proposal_bundle,
                 **build_capture,
             }

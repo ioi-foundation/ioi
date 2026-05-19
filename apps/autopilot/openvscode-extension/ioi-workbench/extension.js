@@ -1224,6 +1224,27 @@ function renderDiagnostics(state) {
   `;
 }
 
+function renderNativeChatIcon(name) {
+  const common =
+    'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"';
+  switch (name) {
+    case "paperclip":
+      return `<svg ${common}><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>`;
+    case "device-desktop":
+      return `<svg ${common}><rect x="4.5" y="5" width="15" height="10.5" rx="1.4" /><path d="M9 19h6M12 15.5V19" /></svg>`;
+    case "symbol-operator":
+      return `<svg ${common}><path d="M7.25 4.75v5M4.75 7.25h5M14.25 7.25h5M5.5 15.5l4 4M9.5 15.5l-4 4M14.25 15.75h5M14.25 19.25h5" /><circle cx="16.75" cy="14" r=".55" fill="currentColor" stroke="none" /><circle cx="16.75" cy="21" r=".55" fill="currentColor" stroke="none" /></svg>`;
+    case "chevron-down":
+      return `<svg ${common}><path d="M6 9l6 6 6-6" /></svg>`;
+    case "tools":
+      return `<svg ${common}><path d="M7.4 20.2 20.2 7.4l-3.6-3.6L3.8 16.6l-.8 4.4Z" /><path d="m14.6 5.8 3.6 3.6M10.2 15.8l-2 2M13.6 3.8 20.2 10.4" /></svg>`;
+    case "send":
+      return `<svg ${common} fill="none"><path d="M5 4.5 20 12 5 19.5v-15Z" /><path d="M5 12h9.5" /></svg>`;
+    default:
+      return "";
+  }
+}
+
 function renderChatView(state) {
   const modelLabel =
     state.chat?.modelLabel ||
@@ -1308,7 +1329,14 @@ function renderChatView(state) {
           aria-label="Chat composer"
         >
           <div class="operator-chat-composer__context-row">
-            <button type="button" data-bridge-request="chat.addContext">${escapeHtml(contextLabel)}</button>
+            <button
+              type="button"
+              class="operator-chat-context-button"
+              data-bridge-request="chat.addContext"
+            >
+              <span class="operator-chat-button-icon">${renderNativeChatIcon("paperclip")}</span>
+              <span>${escapeHtml(contextLabel)}</span>
+            </button>
           </div>
           <textarea
             data-chat-composer-input
@@ -1317,16 +1345,49 @@ function renderChatView(state) {
             aria-label="Describe what to build next"
           ></textarea>
           <div class="operator-chat-composer__controls">
-            <button type="button" aria-label="Attach editor context" data-bridge-request="chat.attachEditorContext">▱</button>
-            <button type="button" aria-label="Context options" data-bridge-request="chat.contextOptions">⌁</button>
-            <select aria-label="Mode" data-chat-mode>
-              <option>${escapeHtml(modeLabel)}</option>
-            </select>
-            <select aria-label="Model" data-chat-model>
-              <option>${escapeHtml(modelLabel)}</option>
-            </select>
-            <button type="button" aria-label="Tool controls" data-bridge-request="chat.toolControls">♮</button>
-            <button class="operator-chat-send" type="submit" aria-label="Send chat request">▷</button>
+            <button
+              type="button"
+              class="operator-chat-icon-select"
+              aria-label="Set Session Target"
+              title="Set Session Target"
+              data-bridge-request="chat.attachEditorContext"
+            >
+              <span class="operator-chat-button-icon">${renderNativeChatIcon("device-desktop")}</span>
+              <span class="operator-chat-button-chevron">${renderNativeChatIcon("chevron-down")}</span>
+            </button>
+            <button
+              type="button"
+              class="operator-chat-icon-select"
+              aria-label="Choose model or command - ${escapeHtml(modelLabel)}"
+              title="Choose model or command - ${escapeHtml(modelLabel)}"
+              data-bridge-request="chat.contextOptions"
+              data-chat-model="${escapeHtml(modelLabel)}"
+            >
+              <span class="operator-chat-button-icon">${renderNativeChatIcon("symbol-operator")}</span>
+              <span class="operator-chat-button-chevron">${renderNativeChatIcon("chevron-down")}</span>
+            </button>
+            <button
+              type="button"
+              class="operator-chat-mode-select"
+              aria-label="Mode - ${escapeHtml(modeLabel)}"
+              title="Mode - ${escapeHtml(modeLabel)}"
+              data-bridge-request="chat.modeOptions"
+              data-chat-mode="${escapeHtml(modeLabel)}"
+            >
+              <span>${escapeHtml(modeLabel)}</span>
+              <span class="operator-chat-button-chevron">${renderNativeChatIcon("chevron-down")}</span>
+            </button>
+            <button
+              type="button"
+              class="operator-chat-tool-toggle is-active"
+              aria-label="Tool controls"
+              data-bridge-request="chat.toolControls"
+            >
+              <span class="operator-chat-button-icon">${renderNativeChatIcon("tools")}</span>
+            </button>
+            <button class="operator-chat-send" type="submit" aria-label="Send chat request">
+              <span class="operator-chat-button-icon">${renderNativeChatIcon("send")}</span>
+            </button>
           </div>
         </form>
       </div>
@@ -1584,6 +1645,10 @@ function renderBody(viewId, state) {
 function renderHtml(view, state) {
   const workspace = state.workspace || workspaceSummary();
   const isChatView = view.id === "ioi.chat";
+  const appearanceThemeId =
+    typeof state.appearance?.themeId === "string"
+      ? state.appearance.themeId
+      : "dark-modern";
   const actions = view.actions
     .map((action) => renderCommandButton(action))
     .join("");
@@ -1597,6 +1662,34 @@ function renderHtml(view, state) {
       :root {
         color-scheme: dark;
       }
+      body[data-autopilot-theme^="light"] {
+        color-scheme: light;
+        --ioi-operator-chat-bg: #ffffff;
+        --ioi-operator-chat-border: #d4d4d4;
+        --ioi-operator-chat-border-strong: #c8c8c8;
+        --ioi-operator-chat-text: #3c3c3c;
+        --ioi-operator-chat-text-secondary: #616161;
+        --ioi-operator-chat-text-muted: #7a7a7a;
+        --ioi-operator-chat-accent: #0078d4;
+        --ioi-operator-chat-control-bg: #f8f8f8;
+        --ioi-operator-chat-control-hover: #f3f3f3;
+        --ioi-operator-chat-selected-bg: #e8f3ff;
+        --ioi-operator-chat-selected-border: #0078d4;
+      }
+      body[data-autopilot-theme^="dark"] {
+        color-scheme: dark;
+        --ioi-operator-chat-bg: #000000;
+        --ioi-operator-chat-border: rgba(255, 255, 255, 0.2);
+        --ioi-operator-chat-border-strong: rgba(255, 255, 255, 0.72);
+        --ioi-operator-chat-text: #ffffff;
+        --ioi-operator-chat-text-secondary: rgba(255, 255, 255, 0.86);
+        --ioi-operator-chat-text-muted: rgba(255, 255, 255, 0.58);
+        --ioi-operator-chat-accent: #0098ff;
+        --ioi-operator-chat-control-bg: #000000;
+        --ioi-operator-chat-control-hover: #1f1f1f;
+        --ioi-operator-chat-selected-bg: rgba(0, 152, 255, 0.12);
+        --ioi-operator-chat-selected-border: #0098ff;
+      }
       body {
         margin: 0;
         padding: 16px;
@@ -1605,7 +1698,11 @@ function renderHtml(view, state) {
         background: var(--vscode-sideBar-background);
       }
       body.is-chat-view {
-        padding: 0 16px 16px;
+        width: 100vw;
+        height: 100vh;
+        padding: 0;
+        overflow: hidden;
+        background: var(--ioi-operator-chat-bg, var(--vscode-sideBar-background));
       }
       .eyebrow {
         margin: 0 0 8px;
@@ -1756,25 +1853,71 @@ function renderHtml(view, state) {
         color: var(--vscode-descriptionForeground);
       }
       .operator-chat-pane {
-        min-height: calc(100vh - 32px);
+        --operator-chat-bg: var(
+          --ioi-operator-chat-bg,
+          var(--vscode-sideBar-background, #1f1f1f)
+        );
+        --operator-chat-border: var(
+          --ioi-operator-chat-border,
+          var(--vscode-panel-border, rgba(255, 255, 255, 0.13))
+        );
+        --operator-chat-border-strong: var(
+          --ioi-operator-chat-border-strong,
+          var(--vscode-panel-border, rgba(255, 255, 255, 0.22))
+        );
+        --operator-chat-text: var(
+          --ioi-operator-chat-text,
+          var(--vscode-foreground, #f0f0f0)
+        );
+        --operator-chat-text-secondary: var(
+          --ioi-operator-chat-text-secondary,
+          var(--vscode-descriptionForeground, #b8b8b8)
+        );
+        --operator-chat-text-muted: var(
+          --ioi-operator-chat-text-muted,
+          color-mix(
+            in srgb,
+            var(--vscode-descriptionForeground, #858585) 82%,
+            transparent 18%
+          )
+        );
+        --operator-chat-accent: var(
+          --ioi-operator-chat-accent,
+          var(--vscode-textLink-foreground, #0098ff)
+        );
+        --operator-chat-control-bg: var(
+          --ioi-operator-chat-control-bg,
+          color-mix(in srgb, var(--vscode-foreground, #ffffff) 8%, transparent 92%)
+        );
+        box-sizing: border-box;
+        width: 100%;
+        height: 100vh;
+        min-height: 0;
         display: grid;
-        grid-template-rows: minmax(240px, 1fr) auto;
-        gap: 16px;
-        background: var(--vscode-sideBar-background);
-        color: var(--vscode-foreground);
+        grid-template-rows: minmax(0, 1fr) auto;
+        align-items: stretch;
+        gap: 18px;
+        padding: 30px 16px 16px;
+        overflow: hidden;
+        background: var(--operator-chat-bg);
+        color: var(--operator-chat-text);
       }
       .operator-chat-empty {
         align-self: center;
         justify-self: center;
-        max-width: 290px;
+        max-width: 280px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
         text-align: center;
-        color: var(--vscode-foreground);
+        color: var(--operator-chat-text);
+        transform: translateY(10%);
       }
       .operator-chat-empty__icon {
-        width: 42px;
-        height: 42px;
-        margin: 0 auto 12px;
-        color: var(--vscode-foreground);
+        width: 36px;
+        height: 36px;
+        color: var(--operator-chat-text-secondary);
       }
       .operator-chat-empty__icon svg {
         width: 100%;
@@ -1786,106 +1929,182 @@ function renderHtml(view, state) {
         stroke-linejoin: round;
       }
       .operator-chat-empty h2 {
-        margin: 0 0 8px;
+        margin: 0;
         font-size: 22px;
-        font-weight: 500;
-        line-height: 1.2;
+        font-weight: 350;
+        line-height: 1.1;
       }
       .operator-chat-empty p {
         margin: 0;
-        color: var(--vscode-descriptionForeground);
+        color: var(--operator-chat-text-secondary);
+        font-size: 13px;
         line-height: 1.35;
       }
       .operator-chat-empty a {
-        color: var(--vscode-textLink-foreground);
+        color: var(--operator-chat-accent);
         text-decoration: none;
       }
       .operator-chat-bottom {
         display: grid;
         gap: 8px;
+        align-self: end;
+        justify-self: center;
+        width: min(100% - 24px, 360px);
       }
       .operator-chat-notice {
         border: 1px solid var(--vscode-panel-border);
         border-radius: 4px;
         padding: 8px;
-        color: var(--vscode-descriptionForeground);
+        color: var(--operator-chat-text-secondary);
         background: var(--vscode-editorWidget-background);
         line-height: 1.35;
       }
       .operator-chat-notice strong {
-        color: var(--vscode-foreground);
+        color: var(--operator-chat-text);
         display: block;
         margin-bottom: 3px;
       }
       .operator-chat-suggestions {
-        display: grid;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
         gap: 8px;
       }
       .operator-chat-suggestions span {
-        color: var(--vscode-descriptionForeground);
+        color: var(--operator-chat-text-muted);
         font-size: 11px;
         letter-spacing: 0.08em;
+        text-transform: uppercase;
       }
       .operator-chat-suggestions div {
         display: flex;
+        justify-content: center;
         flex-wrap: wrap;
         gap: 6px;
       }
       .operator-chat-suggestion,
       .operator-chat-composer button,
-      .operator-chat-composer select {
-        border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+      .operator-chat-mode-select {
+        min-height: 26px;
+        border: 1px solid var(--operator-chat-border-strong);
         border-radius: 4px;
-        background: var(--vscode-button-secondaryBackground);
-        color: var(--vscode-button-secondaryForeground);
+        background: transparent;
+        color: var(--operator-chat-text);
         font: inherit;
+        cursor: pointer;
       }
       .operator-chat-suggestion,
       .operator-chat-composer button {
-        padding: 5px 8px;
+        padding: 0 10px;
       }
       .operator-chat-composer {
-        border: 1px solid var(--vscode-focusBorder);
+        box-sizing: border-box;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        border: 1px solid var(--operator-chat-accent);
         border-radius: 4px;
         padding: 8px;
-        background: var(--vscode-input-background);
+        background: var(--operator-chat-bg);
+        text-align: left;
       }
       .operator-chat-composer__context-row {
         display: flex;
         gap: 6px;
-        margin-bottom: 6px;
+        min-width: 0;
       }
       .operator-chat-composer textarea {
         width: 100%;
-        min-height: 42px;
+        min-height: 28px;
         resize: vertical;
         box-sizing: border-box;
         border: 0;
         outline: 0;
         padding: 0;
         background: transparent;
-        color: var(--vscode-input-foreground);
+        color: var(--operator-chat-text);
         font: inherit;
+      }
+      .operator-chat-composer textarea::placeholder {
+        color: var(--operator-chat-text-muted);
       }
       .operator-chat-composer__controls {
         display: flex;
         align-items: center;
+        flex-wrap: wrap;
         gap: 6px;
         min-width: 0;
       }
-      .operator-chat-composer select {
+      .operator-chat-context-button,
+      .operator-chat-icon-select,
+      .operator-chat-mode-select,
+      .operator-chat-tool-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
         min-width: 0;
-        max-width: 116px;
-        padding: 4px 6px;
+        white-space: nowrap;
+      }
+      .operator-chat-icon-select,
+      .operator-chat-tool-toggle {
+        width: 28px;
+        padding: 0;
+      }
+      .operator-chat-icon-select {
+        width: 48px;
+      }
+      .operator-chat-tool-toggle.is-active {
+        border-color: var(--ioi-operator-chat-selected-border, var(--operator-chat-accent));
+        background: var(
+          --ioi-operator-chat-selected-bg,
+          color-mix(in srgb, var(--operator-chat-accent) 22%, transparent 78%)
+        );
+        color: var(--operator-chat-text);
+      }
+      .operator-chat-mode-select {
+        padding: 0 8px;
+      }
+      .operator-chat-button-icon,
+      .operator-chat-button-chevron {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+      }
+      .operator-chat-button-icon svg {
+        width: 14px;
+        height: 14px;
+      }
+      .operator-chat-button-chevron svg {
+        width: 10px;
+        height: 10px;
+      }
+      .operator-chat-suggestion:hover,
+      .operator-chat-composer button:hover {
+        border-color: var(--operator-chat-accent);
+        background: var(--ioi-operator-chat-control-hover, var(--operator-chat-control-bg));
+      }
+      .operator-chat-suggestion:focus-visible,
+      .operator-chat-composer button:focus-visible,
+      .operator-chat-composer textarea:focus-visible {
+        outline: 1px solid var(--operator-chat-accent);
+        outline-offset: 1px;
       }
       .operator-chat-send {
         margin-left: auto;
         width: 28px;
         height: 28px;
+        padding: 0;
+        opacity: 0.55;
       }
     </style>
   </head>
-  <body class="${isChatView ? "is-chat-view" : ""}">
+  <body
+    class="${isChatView ? "is-chat-view" : ""}"
+    data-autopilot-theme="${escapeHtml(appearanceThemeId)}"
+  >
     ${
       isChatView
         ? renderBody(view.id, state)
@@ -1959,8 +2178,8 @@ function renderHtml(view, state) {
           requestType: "chat.submit",
           payload: {
             prompt,
-            mode: document.querySelector("[data-chat-mode]")?.value,
-            model: document.querySelector("[data-chat-model]")?.value
+            mode: document.querySelector("[data-chat-mode]")?.dataset.chatMode,
+            model: document.querySelector("[data-chat-model]")?.dataset.chatModel
           }
         });
         composerInput.value = "";

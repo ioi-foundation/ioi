@@ -24,6 +24,30 @@ test("native IOI chat view renders the canonical operator chat pane shell", asyn
   assert.match(source, /requestType: "chat\.submit"/);
 });
 
+test("native IOI chat composer uses canonical Autopilot icons and layout tokens", async () => {
+  const source = await readFile(extensionSourcePath, "utf8");
+
+  assert.match(source, /function renderNativeChatIcon/);
+  assert.match(source, /case "paperclip"/);
+  assert.match(source, /case "device-desktop"/);
+  assert.match(source, /case "symbol-operator"/);
+  assert.match(source, /case "tools"/);
+  assert.match(source, /case "send"/);
+  assert.match(source, /M7\.25 4\.75v5M4\.75 7\.25h5M14\.25 7\.25h5/);
+  assert.match(source, /M5 4\.5 20 12 5 19\.5v-15Z/);
+  assert.match(source, /class="operator-chat-icon-select"/);
+  assert.match(source, /class="operator-chat-tool-toggle is-active"/);
+  assert.match(source, /data-autopilot-theme="\$\{escapeHtml\(appearanceThemeId\)\}"/);
+  assert.match(source, /--ioi-operator-chat-accent: #0098ff/);
+  assert.match(source, /--operator-chat-accent: var\(\s*--ioi-operator-chat-accent/);
+  assert.match(source, /--ioi-operator-chat-selected-border/);
+  assert.match(source, /width: min\(100% - 24px, 360px\)/);
+  assert.match(source, /dataset\.chatMode/);
+  assert.match(source, /dataset\.chatModel/);
+  assert.doesNotMatch(source, /var\(--vscode-focusBorder\)/);
+  assert.doesNotMatch(source, />▱<\/button>|>⌁<\/button>|>♮<\/button>|>▷<\/button>/);
+});
+
 test("native IOI chat view routes user actions through bridge requests", async () => {
   const source = await readFile(extensionSourcePath, "utf8");
 
