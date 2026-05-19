@@ -931,6 +931,8 @@ fn openvscode_user_config_owned(user_data_dir: &Path) -> bool {
                 && settings.get("chat.viewSessions.enabled") == Some(&Value::Bool(false))
                 && settings.get("chat.agentSessionProjection.enabled") == Some(&Value::Bool(false))
                 && settings.get("workbench.experimental.share.enabled") == Some(&Value::Bool(false))
+                && settings.get("git.openRepositoryInParentFolders")
+                    == Some(&Value::String("never".to_string()))
         })
         .unwrap_or(false);
 
@@ -1436,6 +1438,10 @@ mod tests {
             settings.get("workbench.experimental.share.enabled"),
             Some(&Value::Bool(false))
         );
+        assert_eq!(
+            settings.get("git.openRepositoryInParentFolders"),
+            Some(&Value::String("never".to_string()))
+        );
 
         let keybindings = fs::read_to_string(user_data_dir.join("User").join("keybindings.json"))
             .expect("keybindings should be readable");
@@ -1543,6 +1549,23 @@ mod tests {
         assert!(
             !openvscode_user_config_owned(&user_data_dir),
             "stale OpenVSCode sessions must relaunch when upstream titlebar chrome is visible"
+        );
+
+        ensure_openvscode_user_settings(&user_data_dir)
+            .expect("OpenVSCode settings should restore managed titlebar posture");
+        let mut settings: Value = serde_json::from_str(
+            &fs::read_to_string(&settings_path).expect("settings should be readable"),
+        )
+        .expect("settings should be json");
+        settings["git.openRepositoryInParentFolders"] = Value::String("prompt".to_string());
+        fs::write(
+            &settings_path,
+            serde_json::to_string_pretty(&settings).expect("settings should serialize"),
+        )
+        .expect("settings mutation should be written");
+        assert!(
+            !openvscode_user_config_owned(&user_data_dir),
+            "stale OpenVSCode sessions must relaunch when Git parent-repository prompts can cover the native chat composer"
         );
 
         let _ = fs::remove_dir_all(user_data_dir);
