@@ -25,6 +25,10 @@ export interface WorkflowCodeGenerationProposalPlan {
   diffPath: string;
   checkPath: string;
   receiptPath: string;
+  approvalReceiptPath: string;
+  applyReceiptPath: string;
+  checkReceiptPath: string;
+  evalReceiptPath: string;
   files: WorkflowCodeGenerationProposalFile[];
 }
 
@@ -36,6 +40,10 @@ export interface WorkflowCodeGenerationProposalMaterialization {
   diffPath: string;
   checkPath: string;
   receiptPath: string;
+  approvalReceiptPath: string;
+  applyReceiptPath: string;
+  checkReceiptPath: string;
+  evalReceiptPath: string;
   blockers: string[];
 }
 
@@ -84,10 +92,18 @@ export function createWorkflowCodeGenerationProposalPlan(
     "receipts",
     "workflow-code-generation-receipt.json",
   );
+  const approvalReceiptPath = joinPath(proposalRootPath, "receipts", "approval-required.json");
+  const applyReceiptPath = joinPath(proposalRootPath, "receipts", "apply-blocked.json");
+  const checkReceiptPath = joinPath(proposalRootPath, "receipts", "checks-required.json");
+  const evalReceiptPath = joinPath(proposalRootPath, "receipts", "eval-required.json");
   const requestRef = stableRequestRef(request);
   const artifactRef = `artifact://workflow-code-proposal/${proposalSlug}`;
   const diffRef = `${artifactRef}/diff`;
   const receiptRef = `receipt://workflow-code-generation/${proposalSlug}`;
+  const approvalReceiptRef = `${receiptRef}/approval-required`;
+  const applyReceiptRef = `${receiptRef}/apply-blocked`;
+  const checkReceiptRef = `${receiptRef}/checks-required`;
+  const evalReceiptRef = `${receiptRef}/eval-required`;
   const proposalOnly = request.proposalOnly !== false;
   const blockers = proposalOnly
     ? ["target code not applied; approval and runtime-settled diff required"]
@@ -112,17 +128,84 @@ export function createWorkflowCodeGenerationProposalPlan(
     ownsRuntimeState: false,
   };
 
+  const approvalReceipt = {
+    schemaVersion: "ioi.workbench-integration.v1",
+    receiptId: approvalReceiptRef,
+    requestRef,
+    status: "approval_required",
+    authorityScope: normalizedRequest.authorityScope,
+    summary: "A human or policy approval is required before source files can be changed.",
+    blockers,
+    runtimeTruthSource: "daemon-runtime",
+    projectionOwner: "openvscode-workbench-adapter",
+    ownsRuntimeState: false,
+  };
+
+  const applyReceipt = {
+    schemaVersion: "ioi.workbench-integration.v1",
+    receiptId: applyReceiptRef,
+    requestRef,
+    status: "blocked",
+    appliedFiles: [],
+    changedFiles: [],
+    summary:
+      "No workspace source files were changed. Apply is blocked until IOI runtime settles an approved patch.",
+    blockers,
+    runtimeTruthSource: "daemon-runtime",
+    projectionOwner: "openvscode-workbench-adapter",
+    ownsRuntimeState: false,
+  };
+
+  const checkReceipt = {
+    schemaVersion: "ioi.workbench-integration.v1",
+    receiptId: checkReceiptRef,
+    requestRef,
+    status: "blocked",
+    checkRefs: [],
+    summary: "Checks are pending an approved patch and apply receipt.",
+    blockers: ["approved patch and apply receipt missing"],
+    runtimeTruthSource: "daemon-runtime",
+    projectionOwner: "openvscode-workbench-adapter",
+    ownsRuntimeState: false,
+  };
+
+  const evalReceipt = {
+    schemaVersion: "ioi.workbench-integration.v1",
+    receiptId: evalReceiptRef,
+    requestRef,
+    status: "blocked",
+    evalProfileRef: normalizedRequest.evalProfileRef,
+    scorecardRefs: [],
+    summary: "Evaluation is pending check evidence from the applied proposal.",
+    blockers: ["check receipt evidence missing"],
+    runtimeTruthSource: "daemon-runtime",
+    projectionOwner: "openvscode-workbench-adapter",
+    ownsRuntimeState: false,
+  };
+
   const receipt = {
     schemaVersion: "ioi.workbench-integration.v1",
     receiptId: receiptRef,
     requestRef,
     status: "proposed",
-    createdFiles: [requestPath, proposalPath, diffPath, checkPath, receiptPath],
+    createdFiles: [
+      requestPath,
+      proposalPath,
+      diffPath,
+      checkPath,
+      receiptPath,
+      approvalReceiptPath,
+      applyReceiptPath,
+      checkReceiptPath,
+      evalReceiptPath,
+    ],
     changedFiles: [],
     diffRefs: [diffRef],
     runRefs: [],
-    verificationRefs: [],
-    evalReceiptRefs: [],
+    approvalReceiptRefs: [approvalReceiptRef],
+    applyReceiptRefs: [applyReceiptRef],
+    verificationRefs: [checkReceiptRef],
+    evalReceiptRefs: [evalReceiptRef],
     promotionBlockers: blockers,
     runtimeTruthSource: "daemon-runtime",
     projectionOwner: "openvscode-workbench-adapter",
@@ -131,7 +214,13 @@ export function createWorkflowCodeGenerationProposalPlan(
       threadId: null,
       runId: null,
       turnId: null,
-      receiptRefs: [receiptRef],
+      receiptRefs: [
+        receiptRef,
+        approvalReceiptRef,
+        applyReceiptRef,
+        checkReceiptRef,
+        evalReceiptRef,
+      ],
       artifactRefs: [artifactRef, diffRef],
       authorityRefs: [normalizedRequest.authorityScope],
       manifestRefs: [packageRef],
@@ -150,6 +239,10 @@ export function createWorkflowCodeGenerationProposalPlan(
     diffPath,
     checkPath,
     receiptPath,
+    approvalReceiptPath,
+    applyReceiptPath,
+    checkReceiptPath,
+    evalReceiptPath,
     files: [
       {
         path: requestPath,
@@ -196,6 +289,22 @@ export function createWorkflowCodeGenerationProposalPlan(
         path: receiptPath,
         content: prettyJson(receipt),
       },
+      {
+        path: approvalReceiptPath,
+        content: prettyJson(approvalReceipt),
+      },
+      {
+        path: applyReceiptPath,
+        content: prettyJson(applyReceipt),
+      },
+      {
+        path: checkReceiptPath,
+        content: prettyJson(checkReceipt),
+      },
+      {
+        path: evalReceiptPath,
+        content: prettyJson(evalReceipt),
+      },
     ],
   };
 }
@@ -218,6 +327,10 @@ export async function materializeWorkflowCodeGenerationProposal(
     diffPath: plan.diffPath,
     checkPath: plan.checkPath,
     receiptPath: plan.receiptPath,
+    approvalReceiptPath: plan.approvalReceiptPath,
+    applyReceiptPath: plan.applyReceiptPath,
+    checkReceiptPath: plan.checkReceiptPath,
+    evalReceiptPath: plan.evalReceiptPath,
     blockers: ["target code not applied; approval and runtime-settled diff required"],
   };
 }
