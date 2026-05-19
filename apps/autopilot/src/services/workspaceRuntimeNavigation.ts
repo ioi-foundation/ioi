@@ -161,6 +161,88 @@ export async function routeWorkspaceBridgeRequest(
       });
       return;
     }
+    case "chat.generateAgentInstructions":
+      await openRuntimeChatPrompt(
+        runtime,
+        "Generate Agent Instructions for this workspace using the current OpenVSCode workbench context. Include repository context, setup assumptions, and safe proposal-first coding posture.",
+      );
+      recordMetric?.("bridge_request_handled", {
+        requestId: request.requestId,
+        requestType: request.requestType,
+        routedTo: "chat.intent.generate-agent-instructions",
+      });
+      return;
+    case "chat.showConfig":
+      await openRuntimeChatPrompt(
+        runtime,
+        "Show the current Autopilot native workbench configuration, including active workspace, model/tool capability posture, authority scope, and receipt expectations.",
+      );
+      recordMetric?.("bridge_request_handled", {
+        requestId: request.requestId,
+        requestType: request.requestType,
+        routedTo: "chat.intent.native-workbench-config",
+      });
+      return;
+    case "chat.addContext":
+    case "chat.attachEditorContext": {
+      if (context?.selection?.selectedText || context?.filePath) {
+        await openRuntimeCodeSelectionReview(
+          runtime,
+          context,
+          context.selection?.selectedText ?? null,
+        );
+      } else {
+        await openRuntimeChatPrompt(
+          runtime,
+          "Attach the most relevant OpenVSCode workspace context to the next Autopilot turn. Prefer active editor, selected text, diagnostics, SCM posture, and visible IOI workbench refs.",
+        );
+      }
+      recordMetric?.("bridge_request_handled", {
+        requestId: request.requestId,
+        requestType: request.requestType,
+        routedTo: "chat.intent.attach-native-context",
+        filePath: context?.filePath ?? null,
+        hasSelection: Boolean(context?.selection?.selectedText),
+      });
+      return;
+    }
+    case "chat.contextOptions":
+      await openRuntimeChatPrompt(
+        runtime,
+        "List available OpenVSCode context options for this Autopilot turn, including active editor, selection, diagnostics, SCM state, terminal/task state, workflows, runs, and evidence refs.",
+      );
+      recordMetric?.("bridge_request_handled", {
+        requestId: request.requestId,
+        requestType: request.requestType,
+        routedTo: "chat.intent.context-options",
+      });
+      return;
+    case "chat.toolControls":
+      await openRuntimeConnectionsOverview(runtime, context?.connectorId ?? null);
+      recordMetric?.("bridge_request_handled", {
+        requestId: request.requestId,
+        requestType: request.requestType,
+        routedTo: "chat.capabilities.tool-controls",
+      });
+      return;
+    case "chat.focusComposer":
+    case "chat.new":
+    case "chat.newOptions":
+    case "chat.moreActions":
+      recordMetric?.("bridge_request_handled", {
+        requestId: request.requestId,
+        requestType: request.requestType,
+        routedTo: "native-chat-local-control",
+      });
+      return;
+    case "settings.open":
+      await runtime.openChatView("settings");
+      recordMetric?.("bridge_request_handled", {
+        requestId: request.requestId,
+        requestType: request.requestType,
+        routedTo: "chat.settings",
+      });
+      return;
     case "workflow.codeGenerationRequest":
       try {
         const proposal = await materializeWorkflowCodeGenerationProposal({

@@ -24,7 +24,16 @@ test("native workbench projection requests are routed deliberately", () => {
 
 test("native chat submit routes into the runtime chat intent path", () => {
   assert.match(workspaceRuntimeNavigation, /case "chat\.submit"/);
+  assert.match(workspaceRuntimeNavigation, /case "chat\.generateAgentInstructions"/);
+  assert.match(workspaceRuntimeNavigation, /case "chat\.showConfig"/);
+  assert.match(workspaceRuntimeNavigation, /case "chat\.addContext"/);
+  assert.match(workspaceRuntimeNavigation, /case "chat\.attachEditorContext"/);
+  assert.match(workspaceRuntimeNavigation, /case "chat\.contextOptions"/);
+  assert.match(workspaceRuntimeNavigation, /case "chat\.toolControls"/);
+  assert.match(workspaceRuntimeNavigation, /case "settings\.open"/);
   assert.match(workspaceRuntimeNavigation, /openRuntimeChatPrompt\(runtime, prompt\)/);
+  assert.match(workspaceRuntimeNavigation, /openRuntimeConnectionsOverview\(runtime/);
+  assert.match(workspaceRuntimeNavigation, /runtime\.openChatView\("settings"\)/);
   assert.match(runtimeChatNavigation, /export async function openRuntimeChatPrompt/);
 });
 
