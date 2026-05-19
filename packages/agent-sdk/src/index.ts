@@ -27,6 +27,13 @@ export {
   WORKFLOW_LIFECYCLE_READINESS_SCHEMA_VERSION,
   inspectAutonomousSystemLifecycleReadiness,
 } from "./lifecycle-readiness.js";
+export {
+  WORKBENCH_INTEGRATION_CONTRACT_SCHEMA_VERSION,
+  assertWorkbenchProjectionContract,
+  emptyWorkbenchRuntimeRefs,
+  isWorkbenchProjectionContract,
+  workbenchProjectionBase,
+} from "./workbench-integration.js";
 export { createRuntimeSubstrateClient, runtimeThreadEventFromEnvelope } from "./substrate-client.js";
 export {
   RUNTIME_APPROVAL_MODES,
@@ -190,6 +197,30 @@ export type {
   WorkflowLifecycleReadinessKind,
   WorkflowLifecycleReadinessStatus,
 } from "./lifecycle-readiness.js";
+export type {
+  WorkbenchActionProposal,
+  WorkbenchActiveEditorRef,
+  WorkbenchApplyReceipt,
+  WorkbenchCommandRouteReceipt,
+  WorkbenchContextSnapshot,
+  WorkbenchDiagnosticRef,
+  WorkbenchEditProposal,
+  WorkbenchFileEdit,
+  WorkbenchInspectionLocator,
+  WorkbenchInspectionTarget,
+  WorkbenchInspectionTargetIndex,
+  WorkbenchProjectionContract,
+  WorkbenchProjectionOwner,
+  WorkbenchRuntimeRefs,
+  WorkbenchRuntimeTruthSource,
+  WorkbenchScmState,
+  WorkbenchTaskState,
+  WorkbenchTerminalState,
+  WorkbenchTextRange,
+  WorkbenchVisibleViewState,
+  WorkflowCodeGenerationReceipt,
+  WorkflowCodeGenerationRequest,
+} from "./workbench-integration.js";
 export type {
   AgentQualityLedgerProjection,
   AgentMemoryPolicy,

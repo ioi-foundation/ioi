@@ -237,17 +237,251 @@ OpenVSCode should make this loop tangible:
 
 | Slice | Goal | Status | Done when |
 | --- | --- | --- | --- |
-| Source map | Inventory OpenVSCode fork/profile, extension, product patch, and shell suppression points. | Pending | Every current CSS/settings/keybinding suppression path and extension contribution is mapped to keep/replace/remove. |
-| Native contribution contract | Define workbench bridge contracts and command/action/event envelopes. | Pending | Contracts exist in source, tests prove they are projection/control contracts and not runtime truth. |
-| Fork patch strategy | Decide vendored patch, source fork, or build overlay approach for OpenVSCode. | Pending | Build process can apply deterministic product/contribution patches without manual CSS surgery. |
-| Upstream chat replacement | Remove/disable upstream Chat contribution at source/profile level. | Pending | Native OpenVSCode chat no longer needs CSS hiding; IOI Chat is the only visible chat contribution. |
-| IOI native chat view | Mount canonical Autopilot chat as a native OpenVSCode view/webview. | Pending | Right-side workbench chat is `OperatorChatPane` backed by IOI runtime projections. |
+| Source map | Inventory OpenVSCode fork/profile, extension, product patch, and shell suppression points. | Done / migration map | Every current CSS/settings/keybinding suppression path and extension contribution is mapped to keep/replace/remove. |
+| Native contribution contract | Define workbench bridge contracts and command/action/event envelopes. | Done / regression guarded | Contracts exist in source, tests prove they are projection/control contracts and not runtime truth. |
+| Fork patch strategy | Decide vendored patch, source fork, or build overlay approach for OpenVSCode. | Done / overlay manifest guarded | Managed OpenVSCode installations write a deterministic native replacement patch manifest; remaining CSS/profile suppression is explicitly marked temporary until upstream contribution replacement lands. |
+| Upstream chat replacement | Remove/disable upstream Chat contribution at source/profile level. | In progress / profile gate guarded | Managed profile disables upstream chat/agent/session features; full completion requires IOI Chat mounted natively and CSS auxiliarybar suppression retired. |
+| IOI native chat view | Mount canonical Autopilot chat as a native OpenVSCode view/webview. | In progress / native webview shell guarded | `ioi.chat` renders a native operator chat pane and routes composer/actions through bridge requests; final completion requires bundled `OperatorChatPane` parity assets. |
 | Command center ownership | Remove duplicate OpenVSCode command center and route native commands through Autopilot command model. | Pending | Autopilot header owns global command center; OpenVSCode local commands bridge into IOI command/action receipts. |
-| Workbench context bridge | Emit typed editor/workspace/diagnostics/SCM/task snapshots. | Pending | Chat and workflows can reference current file, selection, diagnostics, branch, tasks, and terminal state by stable refs. |
-| Workflow code generation | Let composed workflows generate code proposals in the open workspace. | Pending | Prompt-agent/tool-agent/repo-agent workflows can produce proposal-first diffs, checks, and receipts. |
-| Inspector target descriptors | Replace geometry-first probing with native workbench target descriptors. | Pending | Inspector can address explorer rows, editor tabs, commands, chat composer, terminal, problems, and IOI views by native target refs. |
+| Workbench context bridge | Emit typed editor/workspace/diagnostics/SCM/task snapshots. | In progress / context snapshot guarded | Extension publishes `workbench.contextSnapshot` bridge requests for editor, selection, tabs, diagnostics, terminal, and view state; SCM/task details remain narrow follow-ups. |
+| Workflow code generation | Let composed workflows generate code proposals in the open workspace. | In progress / proposal request guarded | Native extension can raise `workflow.codeGenerationRequest` with workflow/package refs, capability refs, proposal-only posture, target workspace, and authority scope. |
+| Inspector target descriptors | Replace geometry-first probing with native workbench target descriptors. | In progress / native index guarded | Extension publishes `workbench.inspectionTargetIndex` bridge requests for IOI activity, chat pane, composer, explorer, terminal, problems, and active editor range refs. |
 | Migration from shell bridge | Retire CSS suppression and outer-shell chat adjacency where native integration is available. | Pending | Normal mode no longer depends on stylesheet patches for chat/command replacement. |
 | GUI/e2e validation | Prove the native integration end to end. | Pending | Live clickthrough shows one chat UX, no native split brain, workflow-to-code, receipts, checks, and inspector targeting. |
+
+## Slice 1 Source Map
+
+This map is the current source of truth for what exists today, why it exists,
+and how it should migrate during the native replacement leg.
+
+| Area | File/module | Current role | Disposition | Replacement target |
+| --- | --- | --- | --- | --- |
+| OpenVSCode download/install | `apps/autopilot/src-tauri/src/workspace_ide.rs` (`OPENVSCODE_VERSION`, `archive_download_url`, `ensure_openvscode_installation`) | Downloads and installs stock OpenVSCode Server `1.109.5` into the Autopilot data dir. | Keep, then wrap with deterministic patch overlay. | Managed OpenVSCode artifact with reproducible product/contribution patches. |
+| Runtime CSS suppression | `apps/autopilot/src-tauri/src/workspace_ide.rs` (`ensure_openvscode_shell_chrome_patch`, `ensure_openvscode_stylesheet_chrome_patch`) | Appends CSS to hide upstream titlebar command center and auxiliary/chat chrome. | Replace. Keep only as temporary compatibility during migration. | Source/build/profile-level OpenVSCode contribution disabling plus IOI-owned styling only. |
+| User settings suppression | `apps/autopilot/src-tauri/src/workspace_ide.rs` (`ensure_openvscode_user_settings`) | Writes profile settings disabling command center, layout control, secondary sidebar default visibility, welcome walkthroughs, workspace trust prompts, and parent Git prompts. | Split. Keep safe workspace-trust/Git posture; migrate command/chat suppression to fork/profile patch. | Managed product/profile defaults where upstream Chat/command center are disabled structurally. |
+| Keybinding suppression | `apps/autopilot/src-tauri/src/workspace_ide.rs` (`ensure_openvscode_user_keybindings`) | Unbinds quick-open/show-commands shortcuts so Autopilot header owns global command entry. | Migrate. Keep as fallback until native command routing is installed. | IOI command router with editor-local commands preserved and Autopilot-global commands routed to receipts. |
+| User-config ownership guard | `apps/autopilot/src-tauri/src/workspace_ide.rs` (`openvscode_user_config_owned`) | Forces stale OpenVSCode sessions to relaunch when suppression settings/keybindings are missing. | Replace. | Patch/profile ownership guard that verifies native replacement profile is installed. |
+| Bundled extension install | `apps/autopilot/src-tauri/src/workspace_ide.rs` (`ensure_bundled_extension`) | Copies `ioi-workbench` into the managed OpenVSCode extensions dir on every session. | Keep and harden. | Bundled native IOI contribution with chat/context/proposal/target-index bridge. |
+| Bridge server | `apps/autopilot/src-tauri/src/workspace_ide.rs` (`spawn_bridge_server`, `/state`, `/requests`, `/commands`) | Lightweight local bridge carrying state projections, UI requests, and queued OpenVSCode commands. | Keep, then type. | Bridge payloads shaped by SDK workbench contracts and runtime receipts. |
+| Session launch env | `apps/autopilot/src-tauri/src/workspace_ide.rs` (`ensure_workspace_ide_session`) | Launches OpenVSCode with bridge env vars and isolated data/extensions dirs. | Keep. | Same session lifecycle, plus deterministic native patch validation before launch. |
+| Extension manifest | `apps/autopilot/openvscode-extension/ioi-workbench/package.json` | Registers IOI activity container, IOI webview views, commands, command palette entries, and editor/explorer context menu commands. | Keep and expand. | Canonical native Autopilot chat contribution and workbench adapter commands. |
+| Extension bridge/runtime state | `apps/autopilot/openvscode-extension/ioi-workbench/extension.js` (`defaultBridgeState`, `readBridgeState`, polling) | Pulls shell/daemon projections and executes queued commands. | Keep but make contract-aware. | `WorkbenchContextSnapshot`, command route receipts, and proposal/edit receipts. |
+| Extension placeholder chat | `apps/autopilot/openvscode-extension/ioi-workbench/extension.js` (`renderChatView`) | Shows a small runtime summary/callout, not the real operator chat pane. | Replace. | Native IOI Chat webview mounting `OperatorChatPane`-equivalent UI backed by IOI runtime projections. |
+| Shell chat pane | `packages/workspace-substrate/src/components/OperatorChatPane.tsx` | Canonical shared React chat pane for shell/full/sidebar/docked mode. | Keep as reference/asset source. | Bundle or project equivalent UX inside native OpenVSCode IOI chat webview. |
+| Workspace host dock | `packages/workspace-substrate/src/components/WorkspaceHost.tsx` (`WorkspaceOperatorChatPane`) | Renders shell-side docked chat next to workspace substrate. | Migrate. | Native OpenVSCode `ioi.chat` view should own the right-side chat when in managed workbench. |
+| Outer workspace shell reservation | `apps/autopilot/src/surfaces/Workspace/WorkspaceShell.tsx` | Reserves right-side pixels for shell-rendered operator chat beside direct OpenVSCode. | Replace after native view lands. | Let OpenVSCode workbench layout own the chat pane; keep outer shell only for non-native fallback. |
+| Direct webview host | `apps/autopilot/src/surfaces/Workspace/OpenVsCodeDirectSurface.tsx`, `apps/autopilot/src-tauri/src/workspace_direct_webview.rs` | Hosts OpenVSCode as a bounded Tauri child/owned webview and exposes fallback target metadata. | Keep. | Add native target descriptors from the extension before DOM/geometry fallback. |
+| Shell command center | `apps/autopilot/src/windows/AutopilotShellWindow/components/ChatIdeHeader.tsx` and `operatorSubstrateModel.ts` | Autopilot-global command/search owner. | Keep. | Remains the only global command center; OpenVSCode commands bridge or stay editor-local. |
+| Workflow project materialization | `apps/autopilot/src/windows/AutopilotShellWindow/operatorSubstrateModel.ts`, Workflow Composer surfaces | Creates Autonomous System Package/project scaffold and opens workspace. | Keep and extend. | Workflow-to-code request/receipt path targeting the active OpenVSCode workspace. |
+| Parity harness | `scripts/lib/openvscode-chat-parity-audit.mjs` | Temporarily restores native OpenVSCode chat by removing suppression CSS rules for inspection and screenshot capture. | Keep as audit-only. | Reference harness, not normal runtime dependency. |
+| Legacy generated evidence | `docs/evidence/**` and `/tmp/autopilot-*` outputs | Stores screenshots/logs from probes. | Do not commit generated outputs. | Keep final evidence outside git or ignored. |
+
+### Migration Rules From The Map
+
+- Replace runtime CSS hiding before declaring native replacement complete.
+- Keep profile settings that enforce safety, onboarding, and upstream chat
+  feature gates; do not use CSS or keybinding suppression as the primary
+  upstream Chat removal mechanism.
+- Keep the bridge server, but move payload semantics into typed SDK contracts.
+- Treat `ioi-workbench` as the native adapter. It may render IOI views, collect
+  workbench context, and route proposals, but it must never settle model/tool
+  actions itself.
+- Retain the parity harness so the team can inspect upstream OpenVSCode UX, but
+  normal desktop launch must not depend on it.
+
+## Slice 2 Native Contribution Contracts
+
+The first SDK contract slice lives in
+`packages/agent-sdk/src/workbench-integration.ts` and exports:
+
+- `WorkbenchContextSnapshot`
+- `WorkbenchActionProposal`
+- `WorkbenchEditProposal`
+- `WorkbenchApplyReceipt`
+- `WorkflowCodeGenerationRequest`
+- `WorkflowCodeGenerationReceipt`
+- `WorkbenchInspectionTargetIndex`
+- `WorkbenchCommandRouteReceipt`
+
+Every object extends a projection contract with:
+
+```text
+schemaVersion = ioi.workbench-integration.v1
+runtimeTruthSource = daemon-runtime
+projectionOwner = openvscode-workbench-adapter
+ownsRuntimeState = false
+runtimeRefs = receipt/artifact/authority/manifest/capability refs
+```
+
+This makes the OpenVSCode contribution a native control/projection adapter
+without giving it an editor-owned runtime truth store.
+
+## Slice 3 Fork/Profile Patch Strategy
+
+Autopilot now writes an idempotent managed patch manifest into each managed
+OpenVSCode installation:
+
+```text
+<openvscode-install-root>/.ioi-autopilot/managed-openvscode-patch.json
+schemaVersion = ioi.openvscode-managed-patch.v1
+patchId = openvscode-native-autopilot-contribution-replacement
+```
+
+The manifest is the replacement control plane for the OpenVSCode fork/profile
+work. It names the target native steps and records the current migration
+posture:
+
+- `disable-upstream-chat-contribution`
+- `disable-upstream-command-center`
+- `install-ioi-workbench-contribution`
+- `bridge-workbench-context`
+- `export-native-target-index`
+- `workflow-code-generation-receipts`
+
+It also makes the present compatibility shim honest:
+
+```text
+temporaryCompatibility = true
+temporaryCompatibilityMechanism = stylesheet-and-managed-profile-suppression
+```
+
+That means CSS/profile suppression remains allowed only as a migration shim,
+not as the declared target state. Runtime tests guard that the manifest states
+OpenVSCode does not own IOI runtime state, upstream Chat is not allowed in the
+normal launch contract, and the patch metadata stays provider-neutral.
+
+## Slice 4 Upstream Chat Replacement Profile Gate
+
+The managed OpenVSCode profile now disables the upstream chat/agent/session
+surface with profile-level feature gates:
+
+```text
+chat.disableAIFeatures = true
+chat.agent.enabled = false
+chat.viewSessions.enabled = false
+chat.agentSessionProjection.enabled = false
+```
+
+`openvscode_user_config_owned` treats those gates as part of session ownership,
+so stale OpenVSCode sessions relaunch if native chat is re-enabled. The managed
+patch manifest records this as:
+
+```text
+disable-upstream-chat-contribution
+status = installed-profile-gate
+temporaryCompatibility = true
+```
+
+This is a real profile-level replacement step, but it is not the final end
+state. The temporary stylesheet suppression is still present as a compatibility
+shim until `ioi.chat` mounts the canonical Autopilot chat view natively inside
+OpenVSCode and the auxiliarybar CSS dependency can be removed.
+
+## Slice 5 IOI Native Chat Webview Shell
+
+The `ioi-workbench` OpenVSCode extension now renders `ioi.chat` as an
+Autopilot-owned operator chat pane inside the workbench webview instead of a
+runtime summary placeholder.
+
+The native view includes:
+
+- `data-operator-chat-pane="native-openvscode"`;
+- `data-inspection-target="native-ioi-chat-pane"`;
+- canonical empty state copy and suggested actions;
+- a compact composer with context, mode, model, tool, and send controls;
+- bridge-request routing for suggested actions, context attachment, and prompt
+  submit;
+- native view title actions for new chat, settings, and composer focus.
+
+All user actions from this native pane post bridge requests back to the IOI
+runtime:
+
+```text
+ioi.chat webview -> bridgeRequest -> workspace bridge -> daemon/runtime refs
+```
+
+The extension still does not own runtime state. This slice provides a native
+workbench contribution shell that can replace upstream chat in normal managed
+profiles. The next hardening step is to bundle the full shared
+`OperatorChatPane` asset or equivalent into this webview so visual parity is
+source-shared rather than manually mirrored.
+
+## Slice 6 Native Workbench Context Snapshot Bridge
+
+The `ioi-workbench` extension now builds and publishes native
+`WorkbenchContextSnapshot`-shaped bridge requests:
+
+```text
+requestType = workbench.contextSnapshot
+schemaVersion = ioi.workbench-integration.v1
+runtimeTruthSource = daemon-runtime
+projectionOwner = openvscode-workbench-adapter
+ownsRuntimeState = false
+```
+
+The first snapshot payload includes:
+
+- active editor URI, language, dirty state, selection, and selected text;
+- open editor/tab labels, URIs, dirty state, active state, and group index;
+- diagnostics with URI, message, severity, source, code, and range;
+- terminal count and active terminal name;
+- visible view summary for IOI chat and active editor state.
+
+The publisher runs on activation, editor changes, selection changes,
+diagnostic changes, tab changes, terminal changes, and a low-frequency poll.
+It hashes stable snapshot content to avoid flooding the bridge with timestamp
+churn. SCM provider detail and task execution receipts are intentionally
+marked as follow-up adapter details rather than guessed from the UI.
+
+## Slice 7 Native Inspection Target Index
+
+The `ioi-workbench` extension now publishes native target descriptors through:
+
+```text
+requestType = workbench.inspectionTargetIndex
+indexId = workbench-target-index:latest
+```
+
+The first index includes native-first targets for:
+
+- IOI activity rail / view container;
+- native IOI chat view;
+- native IOI chat composer;
+- Explorer;
+- Terminal panel;
+- Problems panel;
+- active editor range when an editor is active.
+
+Each target uses `vscode-command`, `vscode-view`, `editor-range`,
+`data-attribute`, or `aria` locators before allowing fallback. This starts the
+shift away from geometry-first browser/computer-use probing and toward native
+workbench target refs that can be receipted by the IOI runtime.
+
+## Slice 8 Workflow-To-Code Proposal Request
+
+The native IOI workbench extension now contributes:
+
+```text
+command = ioi.workflow.generateCode
+requestType = workflow.codeGenerationRequest
+```
+
+The request payload is shaped like `WorkflowCodeGenerationRequest`:
+
+```text
+schemaVersion = ioi.workbench-integration.v1
+runtimeTruthSource = daemon-runtime
+projectionOwner = openvscode-workbench-adapter
+ownsRuntimeState = false
+proposalOnly = true
+authorityScope = workspace.fs.proposal
+```
+
+It carries workflow/package refs, bound model/tool capability refs, the active
+workspace path, and the requested goal. The extension only proposes and routes
+the request; it does not mutate the filesystem or settle model/tool actions.
+The follow-up slices must connect this request to daemon-side diff generation,
+approval/apply receipts, task/check receipts, and Workflow Composer activation.
 
 ## Implementation Order
 

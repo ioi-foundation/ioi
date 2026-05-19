@@ -17,6 +17,7 @@ const packageEntryPoints = [
   "src/computer-use-sandbox-fixture.ts",
   "src/computer-use-projection.ts",
   "src/lifecycle-readiness.ts",
+  "src/workbench-integration.ts",
   "src/options.ts",
   "src/errors.ts",
   "src/substrate-client.ts",
