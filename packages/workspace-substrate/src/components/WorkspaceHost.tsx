@@ -253,7 +253,20 @@ function WorkspaceOperatorChatPane({
       emptyState={{
         icon: <WorkbenchChatSparkleIcon />,
         title: "Build with Agent",
-        description: "AI responses may be inaccurate.",
+        description: (
+          <>
+            AI responses may be inaccurate.
+            <br />
+            <button
+              type="button"
+              className="operator-chat-pane__inline-link"
+              onClick={() => onOpenSurface?.("chat")}
+            >
+              Generate Agent Instructions
+            </button>{" "}
+            to onboard AI onto your codebase.
+          </>
+        ),
       }}
       suggestedActions={
         <>

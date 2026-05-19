@@ -265,8 +265,10 @@ fn correct_child_bounds_for_parent_window<R: Runtime>(
     let Some((parent_width, parent_height)) = parent_window_content_size(parent_window) else {
         return bounds.clone();
     };
-    let target_width = (parent_width - bounds.x).max(1.0);
-    let target_height = (parent_height - bounds.y).max(1.0);
+    let max_width = (parent_width - bounds.x).max(1.0);
+    let max_height = (parent_height - bounds.y).max(1.0);
+    let target_width = bounds.width.min(max_width).max(1.0);
+    let target_height = bounds.height.min(max_height).max(1.0);
     let width_delta = (target_width - bounds.width).abs();
     let height_delta = (target_height - bounds.height).abs();
 
@@ -275,7 +277,7 @@ fn correct_child_bounds_for_parent_window<R: Runtime>(
     }
 
     eprintln!(
-        "[WorkspaceDirectWebview] corrected child bounds label={} context={} input=({}, {}, {}, {}) parent_size=({}, {}) corrected=({}, {}, {}, {})",
+        "[WorkspaceDirectWebview] clamped child bounds label={} context={} input=({}, {}, {}, {}) parent_size=({}, {}) corrected=({}, {}, {}, {})",
         label,
         context,
         bounds.x,

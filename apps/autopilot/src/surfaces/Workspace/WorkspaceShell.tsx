@@ -7,7 +7,9 @@ import {
   useEffect,
   useMemo,
   useState,
+  type CSSProperties,
   type ComponentType,
+  type ReactNode,
 } from "react";
 import {
   WorkspaceHost,
@@ -61,6 +63,8 @@ interface WorkspaceShellProps {
   runtime: TauriRuntime;
   host: WorkspaceWorkbenchHost;
   fullBleed?: boolean;
+  operatorChatPane?: ReactNode;
+  operatorChatPaneWidthPx?: number;
 }
 
 type WorkspaceShellMode = "repository-gate" | "workbench";
@@ -95,6 +99,8 @@ export function WorkspaceShell({
   runtime,
   host,
   fullBleed = false,
+  operatorChatPane = null,
+  operatorChatPaneWidthPx = 360,
 }: WorkspaceShellProps) {
   const seedProjects = useMemo(
     () => (projects && projects.length > 0 ? projects : [currentProject]),
@@ -264,6 +270,11 @@ export function WorkspaceShell({
   const surfaceKind = surface?.kind ?? null;
   const substratePreviewSurfaceVisible = surfaceKind === "substrate-preview";
   const directOpenVsCodeSurfaceVisible = surfaceKind === "openvscode-direct";
+  const showOperatorChatPane =
+    Boolean(operatorChatPane) && directOpenVsCodeSurfaceVisible;
+  const directSurfaceReservedRightPx = showOperatorChatPane
+    ? operatorChatPaneWidthPx
+    : 0;
   const surfaceRuntimeError = useMemo(
     () =>
       surfaceError
@@ -511,8 +522,22 @@ export function WorkspaceShell({
             </div>
           </header>
 
-          <div className="chat-workspace-oss-shell__workbench-surface">
-            {session && surface ? (
+          <div
+            className={clsx(
+              "chat-workspace-oss-shell__workbench-surface",
+              showOperatorChatPane &&
+                "chat-workspace-oss-shell__workbench-surface--with-chat",
+            )}
+            style={
+              showOperatorChatPane
+                ? ({
+                    "--workspace-operator-chat-width": `${operatorChatPaneWidthPx}px`,
+                  } as CSSProperties)
+                : undefined
+            }
+          >
+            <div className="chat-workspace-oss-shell__surface-stage">
+              {session && surface ? (
               surface.kind === "frame" ? (
                 <iframe
                   key={surface.key}
@@ -531,6 +556,7 @@ export function WorkspaceShell({
                   key={surface.key}
                   active={workbenchActive}
                   surface={surface}
+                  reservedRightPx={directSurfaceReservedRightPx}
                   onReady={markSurfaceReady}
                   onError={setSurfaceError}
                 />
@@ -565,9 +591,9 @@ export function WorkspaceShell({
                   }}
                 />
               )
-            ) : null}
+              ) : null}
 
-            {!overlayVisible && surfaceNotice ? (
+              {!overlayVisible && surfaceNotice ? (
               <div className="chat-workspace-oss-shell__surface-notice">
                 <strong>{surfaceNotice.title}</strong>
                 <span>{surfaceNotice.message}</span>
@@ -588,9 +614,9 @@ export function WorkspaceShell({
                   </details>
                 </div>
               </div>
-            ) : null}
+              ) : null}
 
-            {overlayVisible ? (
+              {overlayVisible ? (
               <div className="chat-workspace-oss-shell__overlay">
                 <div className="chat-workspace-oss-shell__overlay-card">
                   <span className="chat-workspace-oss-shell__eyebrow">
@@ -666,6 +692,16 @@ export function WorkspaceShell({
                   </div>
                 </div>
               </div>
+              ) : null}
+            </div>
+
+            {showOperatorChatPane ? (
+              <aside
+                className="chat-workspace-oss-shell__operator-chat-slot"
+                aria-label="Autopilot workspace chat"
+              >
+                {operatorChatPane}
+              </aside>
             ) : null}
           </div>
         </div>

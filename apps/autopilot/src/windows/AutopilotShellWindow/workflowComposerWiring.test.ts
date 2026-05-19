@@ -564,21 +564,39 @@ assert.match(
 );
 
 assert.match(
+  chatShellLayoutCss,
+  /\.spot-window\.spot-window--chat\s*\{(?=[\s\S]*--spot-bg-primary: #000000;)(?=[\s\S]*--spot-text-primary: #ffffff;)(?=[\s\S]*--spot-border-focus: #0098ff;)/,
+  "Dark standalone chat should inherit the substrate chat contrast tokens instead of the softer Autopilot panel theme",
+);
+
+assert.match(
   chatSurfaceLayoutCss,
   /@media \(max-width: 1120px\)[\s\S]*spot-window--chat \.spot-chat-shell > \.operator-chat-pane__sidebar\s*\{\s*display: none;/,
   "Compact chat surfaces should not leak the fullscreen sessions sidebar into sidebar-sized panes",
 );
 
 assert.match(
-  chatSurfaceLayoutCss,
-  /\.spot-chat-conversation\.is-empty \.spot-chat\s*\{[\s\S]*flex: 1 1 0;[\s\S]*align-content: stretch;[\s\S]*\.spot-chat-welcome\s*\{[\s\S]*grid-template-rows: minmax\(0, 1fr\) auto;[\s\S]*\.spot-chat-welcome-actions\s*\{[\s\S]*align-self: end;/,
-  "The Autopilot chat empty state should match the substrate geometry: welcome centered, suggested actions docked above the composer",
+  chatConversationSurfaceTsx,
+  /emptyState=\{emptyState\}[\s\S]*suggestedActions=\{suggestedActions\}[\s\S]*composer=\{composer\}/,
+  "Autopilot chat should delegate empty state, suggestions, and composer placement to the same shared operator pane as the workspace substrate",
 );
 
 assert.match(
   workspaceSubstrateCss,
   /\.operator-chat-pane__empty\s*\{[\s\S]*grid-template-rows: minmax\(0, 1fr\) auto;[\s\S]*\.operator-chat-pane__empty-main\s*\{[\s\S]*align-self: center;[\s\S]*\.operator-chat-pane__suggestions\s*\{[\s\S]*align-self: end;/,
   "The shared workspace chat pane should keep the same centered welcome plus bottom suggestions geometry",
+);
+
+assert.match(
+  chatArtifactWorkbenchCss,
+  /\.spot-window--chat \.operator-chat-pane__composer > \.spot-input-section\s*\{[\s\S]*display: block;[\s\S]*padding: 0;/,
+  "Autopilot's functional composer should sit inside the shared operator pane composer slot, not inside a second legacy chat body",
+);
+
+assert.match(
+  workspaceSubstrateCss,
+  /\.operator-chat-pane__inline-link\s*\{[\s\S]*color: var\(--operator-chat-accent\);/,
+  "The shared operator chat empty state should own the inline onboarding link styling used by both Autopilot and workspace substrate chat",
 );
 
 assert.match(

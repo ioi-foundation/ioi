@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { useEffect, useState } from "react";
 
 import { buildConnectorPolicySummary } from "../../../surfaces/Policy";
 import { useAutopilotShellController } from "../useAutopilotShellController";
@@ -56,6 +57,39 @@ export function AutopilotShellContent({
     currentProject,
     notificationCount: notificationBadgeCount,
   });
+  const [workspaceChatDismissed, setWorkspaceChatDismissed] = useState(false);
+
+  useEffect(() => {
+    if (!workspaceActive) {
+      setWorkspaceChatDismissed(false);
+    }
+  }, [workspaceActive]);
+
+  const workspaceOperatorChatPaneWidthPx = controller.chat.paneMaximized
+    ? 560
+    : 360;
+  const workspaceOperatorChatPane =
+    workspaceActive && !workspaceChatDismissed ? (
+      <ChatLeftUtilityPane
+        surface={controller.chat.surface}
+        session={controller.chat.assistantWorkbench}
+        runtime={runtime}
+        maximized={controller.chat.paneMaximized}
+        seedIntent={null}
+        onConsumeSeedIntent={undefined}
+        onClose={() => {
+          setWorkspaceChatDismissed(true);
+          controller.chat.hidePane();
+        }}
+        onToggleMaximize={controller.chat.toggleMaximize}
+        onBackToInbox={() => {
+          controller.chat.setSurface("chat");
+          controller.changePrimaryView("inbox");
+        }}
+        onOpenInbox={() => controller.changePrimaryView("inbox")}
+        onOpenAutopilot={controller.chat.openAutopilotWithIntent}
+      />
+    ) : null;
 
   return (
     <div
@@ -91,6 +125,8 @@ export function AutopilotShellContent({
             projects={projects}
             runtime={runtime}
             host={workspaceHost}
+            operatorChatPane={workspaceOperatorChatPane}
+            operatorChatPaneWidthPx={workspaceOperatorChatPaneWidthPx}
           />
 
           {!workspaceActive ? (

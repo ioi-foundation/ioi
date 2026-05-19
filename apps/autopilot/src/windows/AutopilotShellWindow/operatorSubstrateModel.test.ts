@@ -157,14 +157,42 @@ test("workspace embedding defers global command center to ChatIdeHeader", () => 
     "apps/autopilot/src/surfaces/Workspace/WorkspaceShell.tsx",
     "utf8",
   );
+  const openVsCodeDirectSurface = readFileSync(
+    "apps/autopilot/src/surfaces/Workspace/OpenVsCodeDirectSurface.tsx",
+    "utf8",
+  );
+  const workspaceDirectWebview = readFileSync(
+    "apps/autopilot/src-tauri/src/workspace_direct_webview.rs",
+    "utf8",
+  );
   const chatHeader = readFileSync(
     "apps/autopilot/src/windows/AutopilotShellWindow/components/ChatIdeHeader.tsx",
     "utf8",
   );
-
+  const shellContent = readFileSync(
+    "apps/autopilot/src/windows/AutopilotShellWindow/components/AutopilotShellContent.tsx",
+    "utf8",
+  );
   assert.match(workspaceHost, /hideGlobalCommandCenter\?: boolean/);
   assert.match(workspaceHost, /workspace-host--global-command-center-hidden/);
   assert.match(workspaceShell, /hideGlobalCommandCenter/);
+  assert.match(workspaceShell, /operatorChatPane\?: ReactNode/);
+  assert.match(workspaceShell, /operatorChatPaneWidthPx\?: number/);
+  assert.match(workspaceShell, /directSurfaceReservedRightPx/);
+  assert.match(workspaceShell, /reservedRightPx=\{directSurfaceReservedRightPx\}/);
+  assert.match(workspaceShell, /chat-workspace-oss-shell__operator-chat-slot/);
+  assert.match(openVsCodeDirectSurface, /reservedRightPx\?: number/);
+  assert.match(openVsCodeDirectSurface, /readElementBoundsWithReservedRight/);
+  assert.match(openVsCodeDirectSurface, /constrainBoundsForReservedRight/);
+  assert.match(openVsCodeDirectSurface, /surfaceWidth - reservedRightWidth/);
+  assert.match(
+    openVsCodeDirectSurface,
+    /\[active, reservedRightPx, scheduleSettledSyncBounds\]/,
+  );
+  assert.match(workspaceDirectWebview, /bounds\.width\.min\(max_width\)/);
+  assert.match(workspaceDirectWebview, /clamped child bounds/);
+  assert.match(shellContent, /const workspaceOperatorChatPane/);
+  assert.match(shellContent, /operatorChatPane=\{workspaceOperatorChatPane\}/);
   assert.match(chatHeader, /data-operator-command-center/);
 });
 
@@ -204,10 +232,6 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
     "apps/autopilot/src/windows/ChatShellWindow/components/ChatConversationSurface.tsx",
     "utf8",
   );
-  const chatConversationPanels = readFileSync(
-    "apps/autopilot/src/windows/ChatShellWindow/components/ChatConversationPanels.tsx",
-    "utf8",
-  );
   const chatShellWindow = readFileSync(
     "apps/autopilot/src/windows/ChatShellWindow/index.tsx",
     "utf8",
@@ -231,17 +255,20 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
   );
   assert.match(chatConversationSurface, /<OperatorChatPane/);
   assert.match(chatConversationSurface, /id: "new-options"/);
-  assert.match(chatConversationPanels, /Build Workspace/);
-  assert.match(chatConversationPanels, /Show Config/);
-  assert.match(chatConversationPanels, /Generate Agent Instructions/);
-  assert.match(chatConversationPanels, /icons\.chatSparkle/);
-  assert.match(chatConversationPanels, /spot-chat-welcome-main/);
-  assert.match(chatConversationPanels, /spot-chat-welcome-actions/);
+  assert.match(chatConversationSurface, /emptyState=\{emptyState\}/);
+  assert.match(chatConversationSurface, /suggestedActions=\{suggestedActions\}/);
+  assert.match(chatConversationSurface, /composer=\{composer\}/);
+  assert.match(chatShellWindow, /sharedChatEmptyState/);
+  assert.match(chatShellWindow, /Build Workspace/);
+  assert.match(chatShellWindow, /Show Config/);
+  assert.match(chatShellWindow, /Generate Agent Instructions/);
+  assert.match(chatShellWindow, /icons\.chatSparkle/);
+  assert.match(chatShellWindow, /operator-chat-pane__inline-link/);
+  assert.doesNotMatch(chatShellWindow, /<ChatConversationWelcome/);
   assert.match(operatorChatPane, /operator-chat-pane__empty-main/);
   assert.match(operatorChatPane, /operator-chat-pane__suggestions/);
   assert.match(chatShellWindow, /Describe what to build next/);
   assert.doesNotMatch(chatShellWindow, /What do you want to materialize/);
-  assert.doesNotMatch(chatConversationPanels, /Review the current repo/);
   assert.match(
     chatConversationSurface,
     /dataInspectionTarget="operator-chat-pane"/,
@@ -249,6 +276,8 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
   assert.match(workspaceHost, /id: "new-options"/);
   assert.match(workspaceHost, /Build Workspace/);
   assert.match(workspaceHost, /Show Config/);
+  assert.match(workspaceHost, /Generate Agent Instructions/);
+  assert.match(workspaceHost, /operator-chat-pane__inline-link/);
   assert.match(workspaceHost, /AI responses may be inaccurate\./);
   assert.doesNotMatch(
     workspaceHost,
@@ -299,6 +328,14 @@ test("embedded OpenVSCode defers global search to Autopilot chrome", () => {
   assert.match(
     workspaceIde,
     /OPENVSCODE_AUTOPILOT_CHROME_PATCH_MARKER[\s\S]*\.titlebar-center[\s\S]*\.command-center[\s\S]*display: none !important/,
+  );
+  assert.match(
+    workspaceIde,
+    /OpenVSCode command center and chat chrome v2[\s\S]*Autopilot renders the canonical operator chat pane[\s\S]*\.part\.auxiliarybar/,
+  );
+  assert.match(
+    workspaceIde,
+    /"workbench\.secondarySideBar\.defaultVisibility"\.to_string\(\),\s*Value::Bool\(false\)/,
   );
   assert.match(
     workspaceIde,

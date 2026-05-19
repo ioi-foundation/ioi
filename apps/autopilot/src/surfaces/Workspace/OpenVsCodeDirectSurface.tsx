@@ -23,6 +23,7 @@ import {
 interface OpenVsCodeDirectSurfaceProps {
   active: boolean;
   surface: WorkspaceWorkbenchOpenVsCodeDirectModel;
+  reservedRightPx?: number;
   onReady: () => void;
   onError: (message: string) => void;
 }
@@ -52,25 +53,90 @@ function boundsEqual(
   );
 }
 
-function readElementBounds(element: HTMLElement): WorkspaceDirectWebviewBounds | null {
+function readReservedRightWidth(
+  element: HTMLElement,
+  explicitReservedRightPx?: number,
+): number {
+  if (explicitReservedRightPx && explicitReservedRightPx > 0) {
+    return Math.round(explicitReservedRightPx);
+  }
+
+  const workbenchSurface = element.closest(
+    ".chat-workspace-oss-shell__workbench-surface",
+  );
+  if (!(workbenchSurface instanceof HTMLElement)) {
+    return 0;
+  }
+
+  const reservedSlot = workbenchSurface.querySelector(
+    ".chat-workspace-oss-shell__operator-chat-slot",
+  );
+  if (!(reservedSlot instanceof HTMLElement)) {
+    return 0;
+  }
+
+  const reservedWidth = Math.round(reservedSlot.getBoundingClientRect().width);
+  return reservedWidth > 0 ? reservedWidth : 0;
+}
+
+function constrainBoundsForReservedRight(
+  element: HTMLElement,
+  bounds: WorkspaceDirectWebviewBounds,
+  explicitReservedRightPx?: number,
+): WorkspaceDirectWebviewBounds {
+  const reservedRightWidth = readReservedRightWidth(
+    element,
+    explicitReservedRightPx,
+  );
+  if (reservedRightWidth <= 0) {
+    return bounds;
+  }
+
+  const workbenchSurface = element.closest(
+    ".chat-workspace-oss-shell__workbench-surface",
+  );
+  if (!(workbenchSurface instanceof HTMLElement)) {
+    return bounds;
+  }
+
+  const surfaceWidth = Math.round(workbenchSurface.getBoundingClientRect().width);
+  const availableWidth = Math.max(1, surfaceWidth - reservedRightWidth);
+  if (bounds.width <= availableWidth + 1) {
+    return bounds;
+  }
+
+  return {
+    ...bounds,
+    width: availableWidth,
+  };
+}
+
+function readElementBoundsWithReservedRight(
+  element: HTMLElement,
+  explicitReservedRightPx?: number,
+): WorkspaceDirectWebviewBounds | null {
   const rect = element.getBoundingClientRect();
   const width = Math.round(rect.width);
   const height = Math.round(rect.height);
   if (width <= 0 || height <= 0) {
     return null;
   }
-  return {
+  return constrainBoundsForReservedRight(element, {
     x: Math.round(rect.left),
     y: Math.round(rect.top),
     width,
     height,
-  };
+  }, explicitReservedRightPx);
 }
 
 async function readElementScreenBounds(
   element: HTMLElement,
+  explicitReservedRightPx?: number,
 ): Promise<WorkspaceDirectWebviewBounds | null> {
-  const bounds = readElementBounds(element);
+  const bounds = readElementBoundsWithReservedRight(
+    element,
+    explicitReservedRightPx,
+  );
   if (!bounds) {
     return null;
   }
@@ -104,6 +170,7 @@ function readParentViewport() {
 export function OpenVsCodeDirectSurface({
   active,
   surface,
+  reservedRightPx = 0,
   onReady,
   onError,
 }: OpenVsCodeDirectSurfaceProps) {
@@ -123,11 +190,17 @@ export function OpenVsCodeDirectSurface({
       return;
     }
 
-    const bounds = readElementBounds(container);
+    const bounds = readElementBoundsWithReservedRight(
+      container,
+      reservedRightPx,
+    );
     if (!bounds) {
       return;
     }
-    const screenBounds = await readElementScreenBounds(container);
+    const screenBounds = await readElementScreenBounds(
+      container,
+      reservedRightPx,
+    );
     setParentViewport(readParentViewport());
 
     try {
@@ -172,7 +245,7 @@ export function OpenVsCodeDirectSurface({
           : "The direct OpenVSCode workbench surface failed to initialize.",
       );
     }
-  }, [active, onError, surface.surfaceId, surface.workbenchUrl]);
+  }, [active, onError, reservedRightPx, surface.surfaceId, surface.workbenchUrl]);
 
   const prewarmHiddenSurface = useCallback(async () => {
     const container = containerRef.current;
@@ -180,11 +253,17 @@ export function OpenVsCodeDirectSurface({
       return;
     }
 
-    const bounds = readElementBounds(container);
+    const bounds = readElementBoundsWithReservedRight(
+      container,
+      reservedRightPx,
+    );
     if (!bounds) {
       return;
     }
-    const screenBounds = await readElementScreenBounds(container);
+    const screenBounds = await readElementScreenBounds(
+      container,
+      reservedRightPx,
+    );
     setParentViewport(readParentViewport());
 
     try {
@@ -208,7 +287,7 @@ export function OpenVsCodeDirectSurface({
           : "The direct OpenVSCode workbench surface failed to prewarm.",
       );
     }
-  }, [active, onError, surface.surfaceId, surface.workbenchUrl]);
+  }, [active, onError, reservedRightPx, surface.surfaceId, surface.workbenchUrl]);
 
   const scheduleSyncBounds = useCallback(() => {
     if (frameRef.current !== null) {
@@ -325,6 +404,14 @@ export function OpenVsCodeDirectSurface({
     });
     return () => window.cancelAnimationFrame(frame);
   }, [active, prewarmHiddenSurface]);
+
+  useEffect(() => {
+    if (!active) {
+      return;
+    }
+
+    scheduleSettledSyncBounds();
+  }, [active, reservedRightPx, scheduleSettledSyncBounds]);
 
   useEffect(() => {
     const container = containerRef.current;
