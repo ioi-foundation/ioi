@@ -157,14 +157,6 @@ function WorkbenchLayoutIcon() {
   return <img src={workbenchLayoutIcon4} alt="" className="workspace-workbench-toolbar-layout-mark workspace-workbench-toolbar-layout-mark--square" />;
 }
 
-function WorkbenchGearIcon() {
-  return <Codicon name="settings-gear" />;
-}
-
-function WorkbenchExpandIcon() {
-  return <Codicon name="screen-full" />;
-}
-
 function WorkbenchChatSparkleIcon() {
   return (
     <svg
@@ -202,40 +194,40 @@ function WorkspaceOperatorChatPane({
   const primaryActions: OperatorChatPaneAction[] = [
     {
       id: "new",
-      label: "New workspace chat",
-      icon: <Codicon name="add" />,
+      label: "New Chat (Ctrl+N)",
+      icon: <Codicon name="plus" />,
       onClick: () => onOpenSurface?.("chat"),
     },
     {
       id: "new-options",
-      label: "New workspace chat options",
-      icon: <WorkbenchCaretIcon />,
+      label: "New Chat",
+      icon: <Codicon name="chevron-down" />,
       onClick: () => onOpenSurface?.("chat"),
     },
     {
       id: "settings",
-      label: "Open workspace policy",
-      icon: <WorkbenchGearIcon />,
+      label: "Configure Chat",
+      icon: <Codicon name="gear" />,
       onClick: () => onOpenSurface?.("policy"),
     },
     {
       id: "more",
-      label: "More workspace chat actions",
-      icon: <Codicon name="ellipsis" />,
+      label: "Views and More Actions...",
+      icon: <Codicon name="toolbar-more" />,
       onClick: () => onOpenSurface?.("workflows"),
     },
   ];
   const secondaryActions: OperatorChatPaneAction[] = [
     {
-      id: "expand",
-      label: "Focus chat workbench surface",
-      icon: <WorkbenchExpandIcon />,
+      id: "maximize",
+      label: "Maximize Secondary Side Bar Size",
+      icon: <Codicon name="auxiliarybar-maximize" />,
       onClick: () => onOpenSurface?.("chat"),
     },
     {
       id: "close",
-      label: "Close agent dock",
-      icon: <Codicon name="close" />,
+      label: "Hide Secondary Side Bar (Ctrl+Alt+B)",
+      icon: <Codicon name="auxiliarybar-close" />,
       onClick: onClose,
     },
   ];

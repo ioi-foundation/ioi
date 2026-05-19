@@ -618,6 +618,12 @@ assert.match(
 );
 
 assert.match(
+  chatConversationSurfaceTsx,
+  /New Chat \(Ctrl\+N\)[\s\S]*New Chat[\s\S]*Configure Chat[\s\S]*Views and More Actions\.\.\./,
+  "The shared chat pane should absorb the native VS Code chat title action labels instead of keeping Autopilot-only wording",
+);
+
+assert.match(
   workspaceSubstrateCss,
   /\.operator-chat-pane__drag-region\s*\{[\s\S]*flex: 1 1 auto;/,
   "The chat workbench drag region should expand across available topbar space",

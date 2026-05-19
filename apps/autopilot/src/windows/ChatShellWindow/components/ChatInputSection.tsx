@@ -1832,7 +1832,6 @@ export function ChatInputSection({
             onTriggerContext={handleContextTrigger}
             onTriggerCommands={handleCommandTrigger}
             onTriggerCommandPalette={handleCommandPaletteTrigger}
-            onOpenSettings={onOpenSettings}
             onSubmit={onSubmit}
           />
         ) : (
@@ -1873,7 +1872,6 @@ export function ChatInputSection({
               onTriggerContext={handleContextTrigger}
               onTriggerCommands={handleCommandTrigger}
               onTriggerCommandPalette={handleCommandPaletteTrigger}
-              onOpenSettings={onOpenSettings}
               onSubmit={onSubmit}
             />
           </>

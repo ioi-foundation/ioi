@@ -1,3 +1,4 @@
+import { Codicon } from "@ioi/workspace-substrate";
 import { icons } from "../../../components/ui/icons";
 import { chatCommandPaletteShortcutLabel } from "../../shared/shellShortcuts";
 
@@ -18,7 +19,6 @@ export function ChatInputControls({
   onTriggerContext,
   onTriggerCommands,
   onTriggerCommandPalette,
-  onOpenSettings,
   onSubmit,
 }: {
   blocked: boolean;
@@ -37,7 +37,6 @@ export function ChatInputControls({
   onTriggerContext: () => void;
   onTriggerCommands: () => void;
   onTriggerCommandPalette: () => void;
-  onOpenSettings: () => void;
   onSubmit: () => void;
 }) {
   if (blocked) {
@@ -90,24 +89,30 @@ export function ChatInputControls({
         <button
           className="spot-input-selector"
           onClick={onTriggerCommands}
-          title="Choose workspace context"
+          aria-label={`Set Session Target - ${workspaceModeLabel}`}
+          title="Set Session Target - Open Session Target Picker"
           type="button"
         >
-          <span>{workspaceModeLabel}</span>
+          <span className="spot-input-selector__icon" aria-hidden="true">
+            <Codicon name="device-desktop" />
+          </span>
           <span className="spot-input-selector__chevron" aria-hidden="true">
-            {icons.chevron}
+            <Codicon name="chevron-down" />
           </span>
         </button>
 
         <button
           className="spot-input-selector"
           onClick={onTriggerCommandPalette}
+          aria-label={`Choose model or command - ${modelLabel}`}
           title={`Choose model or command (${chatCommandPaletteShortcutLabel()})`}
           type="button"
         >
-          <span>{modelLabel}</span>
+          <span className="spot-input-selector__icon" aria-hidden="true">
+            <Codicon name="symbol-operator" />
+          </span>
           <span className="spot-input-selector__chevron" aria-hidden="true">
-            {icons.chevron}
+            <Codicon name="chevron-down" />
           </span>
         </button>
 
@@ -121,7 +126,7 @@ export function ChatInputControls({
         >
           <span>{planMode ? "Plan" : "Auto"}</span>
           <span className="spot-input-selector__chevron" aria-hidden="true">
-            {icons.chevron}
+            <Codicon name="chevron-down" />
           </span>
         </button>
 
@@ -131,25 +136,7 @@ export function ChatInputControls({
           title={autoContext ? "Auto context enabled" : "Auto context disabled"}
           type="button"
         >
-          {icons.sparkles}
-        </button>
-
-        <button
-          className="spot-tool-toggle"
-          onClick={onTriggerCommands}
-          title="Commands (/)"
-          type="button"
-        >
-          <span className="spot-slash-trigger-text">/</span>
-        </button>
-
-        <button
-          className="spot-tool-toggle"
-          onClick={onOpenSettings}
-          title="Chat settings"
-          type="button"
-        >
-          {icons.wrench}
+          <Codicon name="tools" />
         </button>
       </div>
 
@@ -172,7 +159,7 @@ export function ChatInputControls({
             title="Send (⏎)"
             type="button"
           >
-            {icons.send}
+            <Codicon name="send" />
           </button>
         )}
       </div>

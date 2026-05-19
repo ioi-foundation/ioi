@@ -1202,7 +1202,7 @@
 .operator-chat-pane__actions {
   display: inline-flex;
   align-items: center;
-  gap: 1px;
+  gap: 0;
   padding: 0 8px;
   color: var(--operator-chat-text-secondary);
 }
@@ -1216,15 +1216,15 @@
 .operator-chat-pane__divider {
   flex: 0 0 auto;
   width: 1px;
-  height: 18px;
-  margin: 0 2px;
+  height: 16px;
+  margin: 0 7px 0 4px;
   background: var(--operator-chat-border);
 }
 
 .operator-chat-pane__action,
 .operator-chat-pane__control-slot > button {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1234,6 +1234,10 @@
   color: inherit;
   cursor: pointer;
   font: inherit;
+}
+
+.operator-chat-pane__action--new-options {
+  width: 16px;
 }
 
 .operator-chat-pane__action:hover,
@@ -1255,10 +1259,17 @@
 }
 
 .operator-chat-pane__action-icon,
+.operator-chat-pane__control-slot > button {
+  line-height: 1;
+}
+
 .operator-chat-pane__action-icon svg,
-.operator-chat-pane__control-slot svg {
-  width: 13px;
-  height: 13px;
+.operator-chat-pane__control-slot svg,
+.operator-chat-pane__action-icon .workspace-codicon,
+.operator-chat-pane__control-slot .workspace-codicon {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
 }
 
 .operator-chat-pane__body {
