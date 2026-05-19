@@ -31,6 +31,7 @@ type CommandMenuProps = {
   mode?: "slash" | "palette";
   selectedItemId?: string | null;
   onHighlightItem?: (itemId: string) => void;
+  ariaLabel?: string;
   searchPlaceholder?: string;
   searchQuery?: string;
   onSearchQueryChange?: (value: string) => void;
@@ -43,6 +44,7 @@ export function CommandMenu({
   mode = "slash",
   selectedItemId = null,
   onHighlightItem,
+  ariaLabel,
   searchPlaceholder = "Search commands, sessions, tools, and skills",
   searchQuery = "",
   onSearchQueryChange,
@@ -71,7 +73,9 @@ export function CommandMenu({
       }`}
       onClick={(event) => event.stopPropagation()}
       role="menu"
-      aria-label={commandPaletteMode ? "Command palette" : "Slash commands"}
+      aria-label={
+        ariaLabel ?? (commandPaletteMode ? "Command palette" : "Slash commands")
+      }
     >
       {commandPaletteMode ? (
         <div className="spot-slash-menu-header">

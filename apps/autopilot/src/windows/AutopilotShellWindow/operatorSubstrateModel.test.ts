@@ -247,6 +247,14 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
     "apps/autopilot/src/windows/ChatShellWindow/components/ChatInputControls.tsx",
     "utf8",
   );
+  const commandMenus = readFileSync(
+    "apps/autopilot/src/components/ui/CommandMenus.css",
+    "utf8",
+  );
+  const workspacePanelStyles = readFileSync(
+    "packages/workspace-substrate/src/style/workspace-panels.css",
+    "utf8",
+  );
   const codicon = readFileSync(
     "packages/workspace-substrate/src/components/Codicon.tsx",
     "utf8",
@@ -313,8 +321,33 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
   assert.match(chatInputControls, /name="device-desktop"/);
   assert.match(chatInputControls, /name="symbol-operator"/);
   assert.match(chatInputControls, /name="tools"/);
+  assert.match(chatInputControls, /aria-label="Select tools"/);
+  assert.match(chatInputControls, /onClick=\{onTriggerTools\}/);
+  assert.doesNotMatch(chatInputControls, /onClick=\{onToggleAutoContext\}/);
+  assert.match(chatInputSection, /activeDropdown === "tools"/);
+  assert.match(chatInputSection, /const toolPaletteMode = commandSurfaceMode === "tools"/);
+  assert.match(chatInputSection, /searchPlaceholder=\{[\s\S]*\? "Select a tool"/);
+  assert.match(chatInputSection, /ariaLabel=\{toolPaletteMode \? "Tool picker"/);
+  assert.match(chatInputSection, /id: "tool-manage-capabilities"/);
+  assert.match(commandMenus, /\.spot-slash-menu--palette \.spot-slash-menu-search/);
+  assert.match(commandMenus, /border-radius: 6px/);
+  assert.match(commandMenus, /background: #242424/);
+  assert.match(commandMenus, /background: #075486/);
   assert.match(chatInputControls, /name="send"/);
   assert.doesNotMatch(chatInputControls, /spot-slash-trigger-text/);
+  assert.match(workspaceHost, /className="workspace-agent-composer-tool-toggle"/);
+  assert.match(workspaceHost, /className="workspace-agent-tool-menu"/);
+  assert.match(workspaceHost, /aria-label="Select a tool"/);
+  assert.match(workspaceHost, /value=\{toolMenuQuery\}/);
+  assert.match(workspaceHost, /No matching tools/);
+  assert.match(workspaceHost, /surface: "connections"/);
+  assert.doesNotMatch(workspaceHost, /placeholder="Select a tool" readOnly/);
+  assert.doesNotMatch(
+    workspaceHost,
+    /aria-label="Workspace chat tools"[\s\S]*onClick=\{\(\) => onOpenSurface\?\.\("policy"\)\}/,
+  );
+  assert.match(workspacePanelStyles, /\.workspace-agent-tool-menu/);
+  assert.match(workspacePanelStyles, /\.workspace-agent-tool-menu__empty/);
   assert.match(codicon, /codicon-\$\{name\}/);
   assert.match(codicon, /"auxiliarybar-maximize": "screen-full"/);
   assert.match(chatLeftUtilityPane, /Maximize Secondary Side Bar Size/);

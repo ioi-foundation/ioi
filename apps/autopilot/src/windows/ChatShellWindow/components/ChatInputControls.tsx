@@ -15,10 +15,10 @@ export function ChatInputControls({
   inputLockedByCredential,
   onStop,
   onTogglePlanMode,
-  onToggleAutoContext,
   onTriggerContext,
   onTriggerCommands,
   onTriggerCommandPalette,
+  onTriggerTools,
   onSubmit,
 }: {
   blocked: boolean;
@@ -33,10 +33,10 @@ export function ChatInputControls({
   inputLockedByCredential: boolean;
   onStop: () => void;
   onTogglePlanMode: () => void;
-  onToggleAutoContext: () => void;
   onTriggerContext: () => void;
   onTriggerCommands: () => void;
   onTriggerCommandPalette: () => void;
+  onTriggerTools: () => void;
   onSubmit: () => void;
 }) {
   if (blocked) {
@@ -132,8 +132,9 @@ export function ChatInputControls({
 
         <button
           className={`spot-tool-toggle ${autoContext ? "is-active" : ""}`}
-          onClick={onToggleAutoContext}
-          title={autoContext ? "Auto context enabled" : "Auto context disabled"}
+          onClick={onTriggerTools}
+          aria-label="Select tools"
+          title="Select tools"
           type="button"
         >
           <Codicon name="tools" />
