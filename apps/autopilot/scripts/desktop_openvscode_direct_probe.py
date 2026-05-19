@@ -1120,6 +1120,51 @@ def main() -> int:
             }
         )
 
+        native_chat_send_point = (0.958, 0.895)
+        print("[openvscode-direct] interaction: native-chat-inline-submit", flush=True)
+        x, y = surface_point(
+            target_bounds,
+            native_chat_send_point[0],
+            native_chat_send_point[1],
+        )
+        inline_submit_click = click_relative(target_window_id, x, y)
+        time.sleep(7.0)
+        inline_submit_capture = capture_step(
+            target_window_id,
+            output_root,
+            "native-chat-inline-submit",
+        )
+        inline_submit_workbench_region = None
+        if inline_submit_capture.get("rootScreenshot"):
+            inline_submit_workbench_region = analyze_image_region(
+                Path(inline_submit_capture["rootScreenshot"]),
+                output_root,
+                "native-chat-inline-submit-workbench-top",
+                {
+                    "x": float(workbench_bounds["x"]),
+                    "y": float(workbench_bounds["y"]),
+                    "width": float(workbench_bounds["width"]),
+                    "height": min(90.0, float(workbench_bounds["height"])),
+                },
+            )
+            if not region_has_visible_detail(inline_submit_workbench_region):
+                raise RuntimeError(
+                    "Native chat inline submit did not retain the OpenVSCode workbench surface."
+                )
+        steps.append(
+            {
+                "id": "native-chat-inline-submit",
+                "click": inline_submit_click,
+                "surfacePoint": {
+                    "xRatio": native_chat_send_point[0],
+                    "yRatio": native_chat_send_point[1],
+                },
+                "typedPrompt": typed_prompt,
+                "workbenchTopRegion": inline_submit_workbench_region,
+                **inline_submit_capture,
+            }
+        )
+
         proposal_before = list_workflow_code_proposals()
         build_workspace_point = (0.818, 0.647)
         notification_dismissal = dismiss_transient_workbench_notifications(target_window_id)
