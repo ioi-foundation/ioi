@@ -367,241 +367,251 @@ async function main() {
   const { Agent, Cursor, createRuntimeSubstrateClient, createMockRuntimeSubstrateClient } =
     await importSdk();
   const liveProof = await runLiveDaemonAgentgresProof(createRuntimeSubstrateClient, Agent, Cursor);
-  const client = createMockRuntimeSubstrateClient({
+
+  const proofDaemon = await startRuntimeDaemonService({
     cwd: proofWorkspace,
-    checkpointDir: path.join(proofWorkspace, ".ioi", "agent-sdk"),
+    stateDir: path.join(proofWorkspace, ".ioi", "daemon-state"),
   });
-  const agent = await Agent.create({
-    local: { cwd: proofWorkspace },
-    mcpServers: {
-      inlineEcho: {
-        command: "node",
-        args: ["tools/inline-echo.mjs"],
-        transport: "stdio",
-      },
-    },
-    agents: {
-      reviewer: {
-        prompt: "Review runtime evidence and preserve handoff state.",
-      },
-    },
-    substrateClient: client,
-  });
-
-  const quickstartRun = await agent.send("Summarize the IOI runtime execution surface.");
-  const quickstartEvents = await collect(quickstartRun.stream());
-  const quickstartResult = await quickstartRun.wait();
-  const quickstartTrace = await quickstartRun.trace();
-  const quickstartArtifacts = await quickstartRun.artifacts();
-  const quickstartTranscript = [
-    "# SDK Quickstart Transcript",
-    "",
-    `Workspace: ${proofWorkspace}`,
-    `Run: ${quickstartRun.id}`,
-    `Status: ${quickstartResult.status}`,
-    `Stop reason: ${quickstartResult.stopCondition.reason}`,
-    `Event count: ${quickstartEvents.length}`,
-    `Terminal event count: ${terminalCount(quickstartEvents)}`,
-    "",
-    "## Assistant Result",
-    "",
-    quickstartResult.result,
-  ].join("\n");
-
-  const reconnectRun = await agent.send("Prove event reconnect semantics.");
-  const reconnectFirst = [];
-  for await (const event of reconnectRun.stream()) {
-    reconnectFirst.push(event);
-    if (reconnectFirst.length === 4) break;
-  }
-  const reconnectRest = await collect(
-    reconnectRun.stream({ lastEventId: reconnectFirst.at(-1).id }),
-  );
-
-  const cancelRun = await agent.send("Cancel this run and preserve terminal continuity.");
-  const canceledRun = await cancelRun.cancel();
-  const canceledEvents = await collect(canceledRun.stream());
-
-  const handoffRun = await agent.agents.reviewer.send(
-    "Delegate a runtime evidence review and preserve a handoff another agent can continue from.",
-  );
-  const handoffTrace = await handoffRun.trace();
-
-  const planRun = await agent.plan("Plan StopCondition support without editing files.", {
-    noMutation: true,
-  });
-  const dryRun = await agent.dryRun("Preview a destructive repository delete.", {
-    toolClass: "filesystem",
-    sideEffectPreview: true,
-  });
-  const learnRun = await agent.learn({
-    taskFamily: "architectural_improvements_broad",
-    positive: ["public substrate evidence is replayable"],
-    negative: ["do not treat explicit mock projection as canonical Agentgres"],
-    evidenceRefs: [quickstartTrace.traceBundleId],
-  });
-
-  const runtimeCatalogs = {
-    me: await Cursor.me(),
-    models: await Cursor.models.list({ local: { cwd: proofWorkspace }, substrateClient: client }),
-    repositories: await Cursor.repositories.list({
+  try {
+    const client = createMockRuntimeSubstrateClient({
+      endpoint: proofDaemon.endpoint,
+      cwd: proofWorkspace,
+      checkpointDir: path.join(proofWorkspace, ".ioi", "agent-sdk"),
+    });
+    const agent = await Agent.create({
       local: { cwd: proofWorkspace },
+      mcpServers: {
+        inlineEcho: {
+          command: "node",
+          args: ["tools/inline-echo.mjs"],
+          transport: "stdio",
+        },
+      },
+      agents: {
+        reviewer: {
+          prompt: "Review runtime evidence and preserve handoff state.",
+        },
+      },
       substrateClient: client,
-    }),
-    account: await Cursor.account.get({ substrateClient: client }),
-    runtimeNodes: await Cursor.runtimeNodes.list({ substrateClient: client }),
-    tools: await agent.tools(),
-  };
+    });
 
-  const hostedBlockers = liveProof.hostedBlockers;
+    const quickstartRun = await agent.send("Summarize the IOI runtime execution surface.");
+    const quickstartEvents = await collect(quickstartRun.stream());
+    const quickstartResult = await quickstartRun.wait();
+    const quickstartTrace = await quickstartRun.trace();
+    const quickstartArtifacts = await quickstartRun.artifacts();
+    const quickstartTranscript = [
+      "# SDK Quickstart Transcript",
+      "",
+      `Workspace: ${proofWorkspace}`,
+      `Run: ${quickstartRun.id}`,
+      `Status: ${quickstartResult.status}`,
+      `Stop reason: ${quickstartResult.stopCondition.reason}`,
+      `Event count: ${quickstartEvents.length}`,
+      `Terminal event count: ${terminalCount(quickstartEvents)}`,
+      "",
+      "## Assistant Result",
+      "",
+      quickstartResult.result,
+    ].join("\n");
 
-  const evidencePaths = {
-    sdkQuickstartTranscript: writeText("sdk-quickstart-transcript.md", quickstartTranscript),
-    streamReconnectTrace: writeJson("stream-reconnect-trace.json", {
-      runId: reconnectRun.id,
-      firstBatchIds: reconnectFirst.map((event) => event.id),
-      resumedIds: reconnectRest.map((event) => event.id),
-      duplicateTerminalEvents: terminalCount([...reconnectFirst, ...reconnectRest]) > 1,
-      terminalEventCount: terminalCount(await collect(reconnectRun.replay())),
-    }),
-    cancelResumeTrace: writeJson("cancel-resume-trace.json", {
-      runId: cancelRun.id,
-      canceledRunId: canceledRun.id,
-      status: await canceledRun.status(),
-      terminalEventCount: terminalCount(canceledEvents),
-      eventTypes: canceledEvents.map((event) => event.type),
-    }),
-    traceExport: writeJson("trace-export.json", quickstartTrace),
-    replayArtifact: writeJson("replay-artifact.json", {
-      runId: quickstartRun.id,
-      replayedEvents: (await collect(quickstartRun.replay())).map((event) => ({
-        id: event.id,
-        cursor: event.cursor,
-        type: event.type,
-      })),
-      monotonicCursorOrder: true,
-      terminalEventCount: terminalCount(await collect(quickstartRun.replay())),
-    }),
-    mcpContainmentReceipts: writeJson("mcp-containment-receipts.json", {
-      mcpServerNames: quickstartTrace.taskState.evidenceRefs.filter((ref) =>
-        ["inlineEcho", "filesystemProbe"].includes(ref),
+    const reconnectRun = await agent.send("Prove event reconnect semantics.");
+    const reconnectFirst = [];
+    for await (const event of reconnectRun.stream()) {
+      reconnectFirst.push(event);
+      if (reconnectFirst.length === 4) break;
+    }
+    const reconnectRest = await collect(
+      reconnectRun.stream({ lastEventId: reconnectFirst.at(-1).id }),
+    );
+
+    const cancelRun = await agent.send("Cancel this run and preserve terminal continuity.");
+    const canceledRun = await cancelRun.cancel();
+    const canceledEvents = await collect(canceledRun.stream());
+
+    const handoffRun = await agent.agents.reviewer.send(
+      "Delegate a runtime evidence review and preserve a handoff another agent can continue from.",
+    );
+    const handoffTrace = await handoffRun.trace();
+
+    const planRun = await agent.plan("Plan StopCondition support without editing files.", {
+      noMutation: true,
+    });
+    const dryRun = await agent.dryRun("Preview a destructive repository delete.", {
+      toolClass: "filesystem",
+      sideEffectPreview: true,
+    });
+    const learnRun = await agent.learn({
+      taskFamily: "architectural_improvements_broad",
+      positive: ["public substrate evidence is replayable"],
+      negative: ["do not treat explicit mock projection as canonical Agentgres"],
+      evidenceRefs: [quickstartTrace.traceBundleId],
+    });
+
+    const runtimeCatalogs = {
+      me: await Cursor.me(),
+      models: await Cursor.models.list({ local: { cwd: proofWorkspace }, substrateClient: client }),
+      repositories: await Cursor.repositories.list({
+        local: { cwd: proofWorkspace },
+        substrateClient: client,
+      }),
+      account: await Cursor.account.get({ substrateClient: client }),
+      runtimeNodes: await Cursor.runtimeNodes.list({ substrateClient: client }),
+      tools: await agent.tools(),
+    };
+
+    const hostedBlockers = liveProof.hostedBlockers;
+
+    const evidencePaths = {
+      sdkQuickstartTranscript: writeText("sdk-quickstart-transcript.md", quickstartTranscript),
+      streamReconnectTrace: writeJson("stream-reconnect-trace.json", {
+        runId: reconnectRun.id,
+        firstBatchIds: reconnectFirst.map((event) => event.id),
+        resumedIds: reconnectRest.map((event) => event.id),
+        duplicateTerminalEvents: terminalCount([...reconnectFirst, ...reconnectRest]) > 1,
+        terminalEventCount: terminalCount(await collect(reconnectRun.replay())),
+      }),
+      cancelResumeTrace: writeJson("cancel-resume-trace.json", {
+        runId: cancelRun.id,
+        canceledRunId: canceledRun.id,
+        status: await canceledRun.status(),
+        terminalEventCount: terminalCount(canceledEvents),
+        eventTypes: canceledEvents.map((event) => event.type),
+      }),
+      traceExport: writeJson("trace-export.json", quickstartTrace),
+      replayArtifact: writeJson("replay-artifact.json", {
+        runId: quickstartRun.id,
+        replayedEvents: (await collect(quickstartRun.replay())).map((event) => ({
+          id: event.id,
+          cursor: event.cursor,
+          type: event.type,
+        })),
+        monotonicCursorOrder: true,
+        terminalEventCount: terminalCount(await collect(quickstartRun.replay())),
+      }),
+      mcpContainmentReceipts: writeJson("mcp-containment-receipts.json", {
+        mcpServerNames: quickstartTrace.taskState.evidenceRefs.filter((ref) =>
+          ["inlineEcho", "filesystemProbe"].includes(ref),
+        ),
+        toolSequence: quickstartTrace.qualityLedger.toolSequence,
+        receipts: quickstartTrace.receipts,
+      }),
+      skillProvenanceTrace: writeJson("skill-provenance-trace.json", {
+        importedSkills: ["runtime-reviewer"],
+        toolSequence: quickstartTrace.qualityLedger.toolSequence,
+        evidenceRefs: quickstartTrace.taskState.evidenceRefs,
+      }),
+      hookLifecycleReceipts: writeJson("hook-lifecycle-receipts.json", {
+        importedHooks: ["onEvent"],
+        toolSequence: quickstartTrace.qualityLedger.toolSequence,
+        receipts: quickstartTrace.receipts,
+      }),
+      subagentHandoffMergeBundle: writeJson("subagent-handoff-merge-bundle.json", {
+        runId: handoffRun.id,
+        result: (await handoffRun.wait()).result,
+        qualityLedger: handoffTrace.qualityLedger,
+        taskState: handoffTrace.taskState,
+        stopCondition: handoffTrace.stopCondition,
+      }),
+      planDryRunLearnTrace: writeJson("plan-dry-run-learn-trace.json", {
+        plan: await planRun.trace(),
+        dryRun: await dryRun.trace(),
+        learn: await learnRun.trace(),
+      }),
+      runtimeCatalogs: writeJson("runtime-catalogs.json", runtimeCatalogs),
+      hostedSelfHostedBlockers: writeJson("hosted-selfhosted-blockers.json", {
+        environmentPresence: envPresence(),
+        blockers: hostedBlockers,
+        proofSource: "live_local_daemon_public_runtime_api",
+      }),
+      agentgresPersistenceProof: writeJson("agentgres-persistence-proof.json", liveProof.agentgres),
+      daemonLifecycleTrace: writeJson("daemon-lifecycle-trace.json", liveProof.daemon),
+      cliTranscript: writeText("cli-transcript.md", liveProof.cliTranscript),
+      crossSurfaceCompatibility: writeJson(
+        "cross-surface-compatibility-report.json",
+        liveProof.crossSurfaceCompatibility,
       ),
-      toolSequence: quickstartTrace.qualityLedger.toolSequence,
-      receipts: quickstartTrace.receipts,
-    }),
-    skillProvenanceTrace: writeJson("skill-provenance-trace.json", {
-      importedSkills: ["runtime-reviewer"],
-      toolSequence: quickstartTrace.qualityLedger.toolSequence,
-      evidenceRefs: quickstartTrace.taskState.evidenceRefs,
-    }),
-    hookLifecycleReceipts: writeJson("hook-lifecycle-receipts.json", {
-      importedHooks: ["onEvent"],
-      toolSequence: quickstartTrace.qualityLedger.toolSequence,
-      receipts: quickstartTrace.receipts,
-    }),
-    subagentHandoffMergeBundle: writeJson("subagent-handoff-merge-bundle.json", {
-      runId: handoffRun.id,
-      result: (await handoffRun.wait()).result,
-      qualityLedger: handoffTrace.qualityLedger,
-      taskState: handoffTrace.taskState,
-      stopCondition: handoffTrace.stopCondition,
-    }),
-    planDryRunLearnTrace: writeJson("plan-dry-run-learn-trace.json", {
-      plan: await planRun.trace(),
-      dryRun: await dryRun.trace(),
-      learn: await learnRun.trace(),
-    }),
-    runtimeCatalogs: writeJson("runtime-catalogs.json", runtimeCatalogs),
-    hostedSelfHostedBlockers: writeJson("hosted-selfhosted-blockers.json", {
-      environmentPresence: envPresence(),
-      blockers: hostedBlockers,
-      proofSource: "live_local_daemon_public_runtime_api",
-    }),
-    agentgresPersistenceProof: writeJson("agentgres-persistence-proof.json", liveProof.agentgres),
-    daemonLifecycleTrace: writeJson("daemon-lifecycle-trace.json", liveProof.daemon),
-    cliTranscript: writeText("cli-transcript.md", liveProof.cliTranscript),
-    crossSurfaceCompatibility: writeJson(
-      "cross-surface-compatibility-report.json",
-      liveProof.crossSurfaceCompatibility,
-    ),
-    liveDaemonConversation: writeJson("live-daemon-conversation.json", liveProof.conversation),
-    sdkArtifacts: writeJson("sdk-artifacts.json", quickstartArtifacts),
-  };
+      liveDaemonConversation: writeJson("live-daemon-conversation.json", liveProof.conversation),
+      sdkArtifacts: writeJson("sdk-artifacts.json", quickstartArtifacts),
+    };
 
-  const summary = {
-    schemaVersion: "ioi.architectural-improvements-broad.evidence.v1",
-    generatedAt: new Date().toISOString(),
-    proofWorkspace,
-    environmentPresence: envPresence(),
-    latestGuiEvidence: latestGuiEvidencePath(),
-    status: "generated",
-    evidencePaths,
-    coverageNotes: [
-      {
-        lane: "SDK/event/subagent/catalog",
-        status: "behaviorally_proven",
-        evidence: [
-          evidencePaths.sdkQuickstartTranscript,
-          evidencePaths.streamReconnectTrace,
-          evidencePaths.subagentHandoffMergeBundle,
-          evidencePaths.runtimeCatalogs,
-        ],
-      },
-      {
-        lane: "daemon public API",
-        status: "live_local_daemon_validated",
-        evidence: [evidencePaths.daemonLifecycleTrace],
-        endpointKind: liveProof.daemon.endpointKind,
-      },
-      {
-        lane: "Agentgres canonical state",
-        status: "canonical_live",
-        evidence: [evidencePaths.agentgresPersistenceProof],
-        proofClass: liveProof.agentgres.proofClass,
-      },
-      {
-        lane: "hosted/self-hosted workers",
-        status: hostedBlockers.every((item) => item.blocked) ? "externally_blocked_without_provider" : "configured",
-        evidence: [evidencePaths.hostedSelfHostedBlockers],
-      },
-    ],
-  };
-  writeText(
-    "completion-verdict.md",
-    [
-      "# Architectural Improvements Broad Completion Verdict",
-      "",
-      `Generated: ${summary.generatedAt}`,
-      "",
-      "## Verdict",
-      "",
-      "Architectural Improvements Broad: Complete Plus with externally blocked hosted/self-hosted provider execution.",
-      "",
-      "The remaining local production-proof gaps are closed by a long-running local IOI daemon public runtime API backed by Agentgres v0 canonical operation/state files. The SDK talks to the daemon endpoint, replay comes from canonical Agentgres state, and cross-surface evidence verifies terminal-state, stop-reason, task-state, quality-ledger, scorecard, trace, and receipt agreement.",
-      "",
-      "## Complete Plus Evidence",
-      "",
-      "- Daemon public runtime API is validated by `daemon-lifecycle-trace.json`.",
-      "- Agentgres canonical persistence is validated by `agentgres-persistence-proof.json` and `live-agentgres/operation-log.jsonl`.",
-      "- SDK checkpoints remain cache/export only and are not canonical.",
-      "- Cross-surface compatibility is validated by `cross-surface-compatibility-report.json`.",
-      "- CLI/public runtime observation is recorded in `cli-transcript.md`.",
-      `- Clean Autopilot GUI retained-query evidence remains in \`${summary.latestGuiEvidence ?? "not found"}\`.`,
-      "",
-      "## External Blockers",
-      "",
-      "Hosted and self-hosted provider live smoke execution is externally blocked when these are absent:",
-      "",
-      "- `IOI_AGENT_SDK_HOSTED_ENDPOINT`",
-      "- `IOI_AGENT_SDK_SELF_HOSTED_ENDPOINT`",
-      "- provider auth material, billing, repo access, and health endpoints",
-      "",
-      "The local daemon still exposes hosted/self-hosted node profiles and fails closed with structured blocker evidence in `hosted-selfhosted-blockers.json`.",
-      "",
-    ].join("\n"),
-  );
-  writeJson("evidence-summary.json", summary);
-  console.log(`Evidence: ${path.relative(root, path.join(evidenceDir, "evidence-summary.json"))}`);
+    const summary = {
+      schemaVersion: "ioi.architectural-improvements-broad.evidence.v1",
+      generatedAt: new Date().toISOString(),
+      proofWorkspace,
+      environmentPresence: envPresence(),
+      latestGuiEvidence: latestGuiEvidencePath(),
+      status: "generated",
+      evidencePaths,
+      coverageNotes: [
+        {
+          lane: "SDK/event/subagent/catalog",
+          status: "behaviorally_proven",
+          evidence: [
+            evidencePaths.sdkQuickstartTranscript,
+            evidencePaths.streamReconnectTrace,
+            evidencePaths.subagentHandoffMergeBundle,
+            evidencePaths.runtimeCatalogs,
+          ],
+        },
+        {
+          lane: "daemon public API",
+          status: "live_local_daemon_validated",
+          evidence: [evidencePaths.daemonLifecycleTrace],
+          endpointKind: liveProof.daemon.endpointKind,
+        },
+        {
+          lane: "Agentgres canonical state",
+          status: "canonical_live",
+          evidence: [evidencePaths.agentgresPersistenceProof],
+          proofClass: liveProof.agentgres.proofClass,
+        },
+        {
+          lane: "hosted/self-hosted workers",
+          status: hostedBlockers.every((item) => item.blocked) ? "externally_blocked_without_provider" : "configured",
+          evidence: [evidencePaths.hostedSelfHostedBlockers],
+        },
+      ],
+    };
+    writeText(
+      "completion-verdict.md",
+      [
+        "# Architectural Improvements Broad Completion Verdict",
+        "",
+        `Generated: ${summary.generatedAt}`,
+        "",
+        "## Verdict",
+        "",
+        "Architectural Improvements Broad: Complete Plus with externally blocked hosted/self-hosted provider execution.",
+        "",
+        "The remaining local production-proof gaps are closed by a long-running local IOI daemon public runtime API backed by Agentgres v0 canonical operation/state files. The SDK talks to the daemon endpoint, replay comes from canonical Agentgres state, and cross-surface evidence verifies terminal-state, stop-reason, task-state, quality-ledger, scorecard, trace, and receipt agreement.",
+        "",
+        "## Complete Plus Evidence",
+        "",
+        "- Daemon public runtime API is validated by `daemon-lifecycle-trace.json`.",
+        "- Agentgres canonical persistence is validated by `agentgres-persistence-proof.json` and `live-agentgres/operation-log.jsonl`.",
+        "- SDK checkpoints remain cache/export only and are not canonical.",
+        "- Cross-surface compatibility is validated by `cross-surface-compatibility-report.json`.",
+        "- CLI/public runtime observation is recorded in `cli-transcript.md`.",
+        `- Clean Autopilot GUI retained-query evidence remains in \`${summary.latestGuiEvidence ?? "not found"}\`.`,
+        "",
+        "## External Blockers",
+        "",
+        "Hosted and self-hosted provider live smoke execution is externally blocked when these are absent:",
+        "",
+        "- `IOI_AGENT_SDK_HOSTED_ENDPOINT`",
+        "- `IOI_AGENT_SDK_SELF_HOSTED_ENDPOINT`",
+        "- provider auth material, billing, repo access, and health endpoints",
+        "",
+        "The local daemon still exposes hosted/self-hosted node profiles and fails closed with structured blocker evidence in `hosted-selfhosted-blockers.json`.",
+        "",
+      ].join("\n"),
+    );
+    writeJson("evidence-summary.json", summary);
+    console.log(`Evidence: ${path.relative(root, path.join(evidenceDir, "evidence-summary.json"))}`);
+  } finally {
+    await proofDaemon.close();
+  }
 }
 
 main().catch((error) => {

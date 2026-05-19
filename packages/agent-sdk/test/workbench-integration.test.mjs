@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 
 import {
   WORKBENCH_INTEGRATION_CONTRACT_SCHEMA_VERSION,
@@ -144,7 +146,9 @@ test("workflow code generation contracts stay proposal-first and capability-shap
 });
 
 test("workbench integration source does not create a runtime or React shadow store", () => {
-  const source = readFileSync("packages/agent-sdk/src/workbench-integration.ts", "utf8");
+  const dirname = path.dirname(fileURLToPath(import.meta.url));
+  const sourcePath = path.resolve(dirname, "../src/workbench-integration.ts");
+  const source = readFileSync(sourcePath, "utf8");
 
   assert.match(source, /runtimeTruthSource: WorkbenchRuntimeTruthSource/);
   assert.match(source, /ownsRuntimeState: false/);
