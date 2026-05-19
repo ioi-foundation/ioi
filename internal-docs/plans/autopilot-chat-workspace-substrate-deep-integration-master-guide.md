@@ -6,6 +6,12 @@ Status: complete / native chat chrome parity traced and regression guarded
 
 Created: 2026-05-18
 
+Follow-on native endpoint:
+`internal-docs/plans/openvscode-native-autopilot-contribution-replacement-master-guide.md`
+tracks the next architectural target: replacing native OpenVSCode chat and
+command contribution ownership at fork/contribution level rather than relying
+on shell-side rendering plus OpenVSCode chrome suppression.
+
 ## Executive Verdict
 
 Autopilot is close enough visually that the mismatch is now more architectural
