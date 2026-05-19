@@ -1237,7 +1237,7 @@ function renderNativeChatIcon(name) {
     case "chevron-down":
       return `<svg ${common}><path d="M6 9l6 6 6-6" /></svg>`;
     case "tools":
-      return `<svg ${common}><path d="M7.4 20.2 20.2 7.4l-3.6-3.6L3.8 16.6l-.8 4.4Z" /><path d="m14.6 5.8 3.6 3.6M10.2 15.8l-2 2M13.6 3.8 20.2 10.4" /></svg>`;
+      return `<svg ${common}><path d="M14.7 6.3a3.2 3.2 0 0 0 4 4L10.4 18.6a2.1 2.1 0 0 1-3 0l-2-2a2.1 2.1 0 0 1 0-3l8.3-8.3Z" /><path d="M8.2 15.8 4.3 19.7M6.4 12.8l4.8 4.8M15.8 4.2l4 4" /></svg>`;
     case "send":
       return `<svg ${common} fill="none"><path d="M5 4.5 20 12 5 19.5v-15Z" /><path d="M5 12h9.5" /></svg>`;
     default:
@@ -1292,6 +1292,103 @@ function renderNativeChatConversation(state) {
         )
         .join("")}
       ${status}
+    </div>
+  `;
+}
+
+function renderNativeChatToolMenu(state) {
+  const connections = Array.isArray(state.connections) ? state.connections : [];
+  const connectionItems = connections.slice(0, 6).map((connection) => ({
+    label: connection.label || connection.name || connection.connectorId || "Connector",
+    description:
+      connection.description ||
+      connection.summary ||
+      "Review this connector capability and authority posture.",
+    meta:
+      connection.statusLabel ||
+      connection.availabilityLabel ||
+      connection.category ||
+      "Connector",
+    requestType: "connections.open",
+    payload: {
+      connectorId: connection.connectorId || connection.id || null,
+      workspaceRoot: workspaceSummary().path,
+    },
+  }));
+  const items = [
+    {
+      label: "Auto context",
+      description: "Use nearby editor, runtime, and workspace context automatically.",
+      meta: "Built-In",
+      requestType: "chat.contextOptions",
+      payload: { source: "tool-picker", mode: "auto-context" },
+    },
+    {
+      label: "Workspace context",
+      description: "Attach active editor, selection, diagnostics, SCM, and task state.",
+      meta: "Context",
+      requestType: "chat.attachEditorContext",
+      payload: { source: "tool-picker" },
+    },
+    {
+      label: "Workflow tools",
+      description: "Open workflow and project-generation actions for this workspace.",
+      meta: "Runtime",
+      requestType: "workflow.open",
+      payload: { workspaceRoot: workspaceSummary().path, source: "tool-picker" },
+    },
+    {
+      label: "Manage tools",
+      description: "Review callable connectors, skills, and authority posture.",
+      meta: "Capabilities",
+      requestType: "connections.open",
+      payload: { workspaceRoot: workspaceSummary().path, source: "tool-picker" },
+    },
+    ...connectionItems,
+  ];
+
+  return `
+    <div
+      class="operator-chat-tool-menu"
+      data-native-tool-menu
+      role="menu"
+      aria-label="Select a tool"
+      hidden
+    >
+      <label class="operator-chat-tool-menu__search" aria-label="Select a tool">
+        <input
+          data-native-tool-search
+          placeholder="Select a tool"
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </label>
+      <div class="operator-chat-tool-menu__items">
+        ${items
+          .map(
+            (item) => `
+              <button
+                type="button"
+                role="menuitem"
+                data-native-tool-item
+                data-tool-key="${escapeHtml(
+                  [item.label, item.description, item.meta].join(" ").toLowerCase(),
+                )}"
+                data-bridge-request="${escapeHtml(item.requestType)}"
+                data-payload="${escapeHtml(JSON.stringify(item.payload || {}))}"
+              >
+                <span>${escapeHtml(item.label)}</span>
+                <small>${escapeHtml(item.description)}</small>
+                <em>${escapeHtml(item.meta)}</em>
+              </button>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="operator-chat-tool-menu__empty" data-native-tool-empty hidden>
+        No matching tools
+      </div>
     </div>
   `;
 }
@@ -1385,6 +1482,7 @@ function renderChatView(state) {
           data-inspection-target="native-ioi-chat-composer"
           aria-label="Chat composer"
         >
+          ${renderNativeChatToolMenu(state)}
           <div class="operator-chat-composer__context-row">
             <button
               type="button"
@@ -1439,9 +1537,10 @@ function renderChatView(state) {
             </button>
             <button
               type="button"
-              class="operator-chat-tool-toggle is-active"
-              aria-label="Tool controls"
-              data-bridge-request="chat.toolControls"
+              class="operator-chat-tool-toggle"
+              aria-label="Select tools"
+              aria-expanded="false"
+              data-native-tool-picker-button
             >
               <span class="operator-chat-button-icon">${renderNativeChatIcon("tools")}</span>
             </button>
@@ -2119,6 +2218,7 @@ function renderHtml(view, state) {
         padding: 0 10px;
       }
       .operator-chat-composer {
+        position: relative;
         box-sizing: border-box;
         width: 100%;
         display: flex;
@@ -2187,6 +2287,109 @@ function renderHtml(view, state) {
           color-mix(in srgb, var(--operator-chat-accent) 22%, transparent 78%)
         );
         color: var(--operator-chat-text);
+      }
+      .operator-chat-tool-menu {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: calc(100% + 8px);
+        z-index: 20;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        padding: 6px;
+        border: 1px solid #3f3f46;
+        border-radius: 6px;
+        background: #242424;
+        box-shadow:
+          0 16px 40px rgba(0, 0, 0, 0.42),
+          0 0 0 1px rgba(255, 255, 255, 0.03);
+      }
+      .operator-chat-tool-menu[hidden] {
+        display: none;
+      }
+      .operator-chat-tool-menu__search {
+        display: flex;
+        align-items: center;
+        min-height: 29px;
+        margin-bottom: 5px;
+        padding: 0 8px;
+        border: 1px solid #007fd4;
+        border-radius: 4px;
+        background: #303030;
+        box-shadow: 0 0 0 1px rgba(0, 127, 212, 0.55);
+      }
+      .operator-chat-tool-menu__search input {
+        width: 100%;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: #cccccc;
+        font: inherit;
+        font-size: 13px;
+      }
+      .operator-chat-tool-menu__search input::placeholder {
+        color: #9d9d9d;
+      }
+      .operator-chat-tool-menu__items {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        max-height: min(312px, 42vh);
+        overflow: auto;
+      }
+      .operator-chat-tool-menu button {
+        display: grid;
+        grid-template-columns: minmax(0, max-content) minmax(0, 1fr) max-content;
+        align-items: baseline;
+        gap: 7px;
+        min-height: 24px;
+        padding: 3px 8px;
+        border: 0;
+        border-radius: 3px;
+        background: transparent;
+        color: #cccccc;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .operator-chat-tool-menu button:hover,
+      .operator-chat-tool-menu button.is-selected {
+        background: #075486;
+        color: #ffffff;
+      }
+      .operator-chat-tool-menu button:focus-visible {
+        outline: 1px solid #007fd4;
+        outline-offset: -1px;
+      }
+      .operator-chat-tool-menu button small {
+        overflow: hidden;
+        color: #9d9d9d;
+        font-size: 12px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .operator-chat-tool-menu button:hover small,
+      .operator-chat-tool-menu button.is-selected small {
+        color: rgba(255, 255, 255, 0.72);
+      }
+      .operator-chat-tool-menu button em {
+        overflow: hidden;
+        color: inherit;
+        font-size: 12px;
+        font-style: normal;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .operator-chat-tool-menu__empty {
+        min-height: 24px;
+        padding: 4px 8px;
+        color: #9d9d9d;
+        font-size: 12px;
+      }
+      .operator-chat-tool-menu__empty[hidden],
+      .operator-chat-tool-menu button[hidden] {
+        display: none;
       }
       .operator-chat-mode-select {
         padding: 0 8px;
@@ -2268,6 +2471,9 @@ function renderHtml(view, state) {
       document.querySelectorAll("[data-bridge-request]").forEach((button) => {
         button.addEventListener("click", (event) => {
           event.preventDefault();
+          if (button.matches("[data-native-tool-item]")) {
+            closeNativeToolMenu();
+          }
           const rawPayload = button.dataset.payload;
           let payload = undefined;
           if (rawPayload) {
@@ -2292,6 +2498,102 @@ function renderHtml(view, state) {
       });
       const composer = document.querySelector("[data-chat-composer-form]");
       const composerInput = document.querySelector("[data-chat-composer-input]");
+      const nativeToolButton = document.querySelector("[data-native-tool-picker-button]");
+      const nativeToolMenu = document.querySelector("[data-native-tool-menu]");
+      const nativeToolSearch = document.querySelector("[data-native-tool-search]");
+      const nativeToolItems = Array.from(document.querySelectorAll("[data-native-tool-item]"));
+      const nativeToolEmpty = document.querySelector("[data-native-tool-empty]");
+      function visibleNativeToolItems() {
+        return nativeToolItems.filter((item) => !item.hidden);
+      }
+      function setSelectedNativeToolItem(item) {
+        nativeToolItems.forEach((candidate) => {
+          candidate.classList.toggle("is-selected", candidate === item);
+        });
+      }
+      function filterNativeToolMenu() {
+        const query = String(nativeToolSearch?.value || "").trim().toLowerCase();
+        let visibleCount = 0;
+        nativeToolItems.forEach((item) => {
+          const match = !query || String(item.dataset.toolKey || "").includes(query);
+          item.hidden = !match;
+          if (match) {
+            visibleCount += 1;
+          }
+        });
+        if (nativeToolEmpty) {
+          nativeToolEmpty.hidden = visibleCount > 0;
+        }
+        setSelectedNativeToolItem(visibleNativeToolItems()[0] || null);
+      }
+      function openNativeToolMenu() {
+        if (!nativeToolMenu || !nativeToolButton) {
+          return;
+        }
+        nativeToolMenu.hidden = false;
+        nativeToolButton.classList.add("is-active");
+        nativeToolButton.setAttribute("aria-expanded", "true");
+        filterNativeToolMenu();
+        window.requestAnimationFrame(() => nativeToolSearch?.focus({ preventScroll: true }));
+      }
+      function closeNativeToolMenu() {
+        if (!nativeToolMenu || !nativeToolButton) {
+          return;
+        }
+        nativeToolMenu.hidden = true;
+        nativeToolButton.classList.remove("is-active");
+        nativeToolButton.setAttribute("aria-expanded", "false");
+        if (nativeToolSearch) {
+          nativeToolSearch.value = "";
+        }
+        nativeToolItems.forEach((item) => {
+          item.hidden = false;
+          item.classList.remove("is-selected");
+        });
+        if (nativeToolEmpty) {
+          nativeToolEmpty.hidden = true;
+        }
+      }
+      nativeToolButton?.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (nativeToolMenu && !nativeToolMenu.hidden) {
+          closeNativeToolMenu();
+          return;
+        }
+        openNativeToolMenu();
+      });
+      nativeToolSearch?.addEventListener("input", filterNativeToolMenu);
+      nativeToolSearch?.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          closeNativeToolMenu();
+          nativeToolButton?.focus();
+          return;
+        }
+        if (event.key === "Enter") {
+          event.preventDefault();
+          visibleNativeToolItems()[0]?.click();
+        }
+      });
+      document.addEventListener("pointerdown", (event) => {
+        const target = event.target;
+        if (
+          target?.closest?.("[data-native-tool-menu]") ||
+          target?.closest?.("[data-native-tool-picker-button]")
+        ) {
+          return;
+        }
+        closeNativeToolMenu();
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && nativeToolMenu && !nativeToolMenu.hidden) {
+          event.preventDefault();
+          closeNativeToolMenu();
+          nativeToolButton?.focus();
+        }
+      });
       const focusComposerInput = () => {
         if (!composerInput) {
           return;

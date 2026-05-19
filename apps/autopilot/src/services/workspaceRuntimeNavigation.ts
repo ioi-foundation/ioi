@@ -279,11 +279,10 @@ export async function routeWorkspaceBridgeRequest(
       return;
     }
     case "chat.toolControls":
-      await openRuntimeConnectionsOverview(runtime, context?.connectorId ?? null);
       recordMetric?.("bridge_request_handled", {
         requestId: request.requestId,
         requestType: request.requestType,
-        routedTo: "chat.capabilities.tool-controls",
+        routedTo: "native-chat.local-tool-picker",
       });
       return;
     case "chat.focusComposer":
