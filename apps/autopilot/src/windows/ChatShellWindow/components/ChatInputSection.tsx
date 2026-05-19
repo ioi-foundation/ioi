@@ -183,9 +183,13 @@ export function ChatInputSection({
       ? "palette"
       : activeDropdown === "commands"
         ? "slash"
+        : activeDropdown === "tools"
+          ? "tools"
         : null;
   const commandsMenuOpen = commandSurfaceMode !== null;
   const commandPaletteMode = commandSurfaceMode === "palette";
+  const toolPaletteMode = commandSurfaceMode === "tools";
+  const searchablePaletteMode = commandPaletteMode || toolPaletteMode;
   const [slashContext, setSlashContext] = useState<SlashTokenContext | null>(null);
   const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
   const [runtimeCatalogEntries, setRuntimeCatalogEntries] = useState<RuntimeCatalogEntry[]>([]);
@@ -488,12 +492,12 @@ export function ChatInputSection({
   }, [commandsMenuOpen, workspaceWorkflowsStatus]);
 
   useEffect(() => {
-    if (!commandsMenuOpen || commandPaletteMode) {
+    if (!commandsMenuOpen || searchablePaletteMode) {
       return;
     }
 
     syncSlashMenu(intent, inputRef.current?.selectionStart ?? intent.length);
-  }, [commandPaletteMode, commandsMenuOpen, inputRef, intent, syncSlashMenu]);
+  }, [commandsMenuOpen, inputRef, intent, searchablePaletteMode, syncSlashMenu]);
 
   useEffect(() => {
     if (!vimModeSnapshot.enabled || vimModeSnapshot.modeId !== "vim_normal") {
@@ -506,7 +510,7 @@ export function ChatInputSection({
   }, [vimModeSnapshot.enabled, vimModeSnapshot.modeId]);
 
   useEffect(() => {
-    if (commandPaletteMode) {
+    if (searchablePaletteMode) {
       setSlashContext((current) => (current === null ? current : null));
       return;
     }
@@ -514,7 +518,7 @@ export function ChatInputSection({
     if (commandPaletteQuery) {
       setCommandPaletteQuery("");
     }
-  }, [commandPaletteMode, commandPaletteQuery]);
+  }, [commandPaletteQuery, searchablePaletteMode]);
 
   const replaceSlashToken = useCallback(
     (replacement: string) => {
@@ -543,7 +547,7 @@ export function ChatInputSection({
 
   const dismissCommandSurface = useCallback(
     (refocusComposer = true) => {
-      if (commandPaletteMode) {
+      if (searchablePaletteMode) {
         setSlashContext(null);
         setCommandPaletteQuery("");
         setActiveDropdown(null);
@@ -556,9 +560,9 @@ export function ChatInputSection({
       replaceSlashToken("");
     },
     [
-      commandPaletteMode,
       focusComposer,
       replaceSlashToken,
+      searchablePaletteMode,
       setActiveDropdown,
     ],
   );
@@ -566,7 +570,7 @@ export function ChatInputSection({
   const insertSkillGuidance = useCallback(
     (skillName: string) => {
       const guidance = `Use the ${skillName} skill for this request. `;
-      if (!commandPaletteMode) {
+      if (!searchablePaletteMode) {
         replaceSlashToken(guidance);
         return;
       }
@@ -580,10 +584,10 @@ export function ChatInputSection({
       focusComposer(nextIntent.length);
     },
     [
-      commandPaletteMode,
       focusComposer,
       intent,
       replaceSlashToken,
+      searchablePaletteMode,
       setActiveDropdown,
       setIntent,
     ],
@@ -592,7 +596,7 @@ export function ChatInputSection({
   const insertWorkflowSlashCommand = useCallback(
     (slashCommand: string) => {
       const replacement = `${slashCommand} `;
-      if (!commandPaletteMode) {
+      if (!searchablePaletteMode) {
         replaceSlashToken(replacement);
         return;
       }
@@ -604,9 +608,9 @@ export function ChatInputSection({
       focusComposer(replacement.length);
     },
     [
-      commandPaletteMode,
       focusComposer,
       replaceSlashToken,
+      searchablePaletteMode,
       setActiveDropdown,
       setIntent,
     ],
@@ -669,6 +673,28 @@ export function ChatInputSection({
     setActiveDropdown,
   ]);
 
+  const handleToolPaletteTrigger = useCallback(() => {
+    if (inputLockedByCredential) {
+      return;
+    }
+
+    if (toolPaletteMode) {
+      setCommandPaletteQuery("");
+      setActiveDropdown(null);
+      focusComposer();
+      return;
+    }
+
+    setSlashContext(null);
+    setCommandPaletteQuery("");
+    setActiveDropdown("tools");
+  }, [
+    focusComposer,
+    inputLockedByCredential,
+    setActiveDropdown,
+    toolPaletteMode,
+  ]);
+
   const handleContextTrigger = useCallback(() => {
     if (inputLockedByCredential) {
       return;
@@ -692,11 +718,11 @@ export function ChatInputSection({
     [inputLockedByCredential, setActiveDropdown],
   );
 
-  const commandQuery = commandPaletteMode
+  const commandQuery = searchablePaletteMode
     ? commandPaletteQuery.trim().toLowerCase()
     : slashContext?.query.trim().toLowerCase() ?? "";
-  const slashQuickMode = !commandPaletteMode && commandQuery.length === 0;
-  const shouldShowSearchBackedItems = commandPaletteMode || commandQuery.length > 0;
+  const slashQuickMode = !searchablePaletteMode && commandQuery.length === 0;
+  const shouldShowSearchBackedItems = searchablePaletteMode || commandQuery.length > 0;
   const hasTaskReview = !!task;
   const hasTaskBlocker = Boolean(
     task?.clarification_request ||
@@ -1487,6 +1513,51 @@ export function ChatInputSection({
                 },
               }));
 
+    if (toolPaletteMode) {
+      const builtInToolItems: CommandMenuItem[] = [
+        {
+          id: "tool-auto-context",
+          title: autoContext ? "Auto context enabled" : "Auto context",
+          description: autoContext
+            ? "Nearby runtime and workspace context is attached automatically."
+            : "Attach nearby runtime and workspace context automatically.",
+          meta: autoContext ? "Enabled" : "Built-In",
+          icon: icons.sparkles,
+          active: autoContext,
+          onSelect: () => {
+            onToggleAutoContext();
+            dismissCommandSurface();
+          },
+        },
+        {
+          id: "tool-workspace-context",
+          title: "Workspace context",
+          description: "Choose files, editor state, artifacts, or retained evidence.",
+          meta: "Context",
+          icon: icons.paperclip,
+          onSelect: () => openCommandSearch("context"),
+        },
+        {
+          id: "tool-manage-capabilities",
+          title: "Manage tools",
+          description: "Review callable connectors, skills, and authority posture.",
+          meta: "Capabilities",
+          icon: icons.code,
+          onSelect: () => {
+            dismissCommandSurface(false);
+            void openReviewCapabilities();
+          },
+        },
+      ];
+
+      return [
+        { id: "built-in-tools", title: "Built-In", items: builtInToolItems },
+        { id: "live-tools", title: "Live Tools", items: liveToolItems },
+        { id: "runtime-catalog", title: "Runtime Catalog", items: runtimeCatalogItems },
+        { id: "skills", title: "Skills", items: skillItems },
+      ];
+    }
+
     return [
       {
         id: "commands",
@@ -1553,6 +1624,7 @@ export function ChatInputSection({
     skillCatalog,
     slashQuickMode,
     task,
+    toolPaletteMode,
     commandQuery,
     toggleVimMode,
     vimModeSnapshot.enabled,
@@ -1590,7 +1662,7 @@ export function ChatInputSection({
         setCommandPaletteQuery("");
         setSlashContext(null);
         setActiveDropdown(null);
-        if (commandPaletteMode) {
+        if (searchablePaletteMode) {
           focusComposer();
         }
         return true;
@@ -1633,9 +1705,9 @@ export function ChatInputSection({
     },
     [
       activeHighlightedItemId,
-      commandPaletteMode,
       commandsMenuOpen,
       focusComposer,
+      searchablePaletteMode,
       setActiveDropdown,
       slashActionItems,
     ],
@@ -1787,29 +1859,38 @@ export function ChatInputSection({
         {commandsMenuOpen && !inputLockedByCredential ? (
           <CommandMenu
             sections={actionSections}
-            mode={commandPaletteMode ? "palette" : "slash"}
+            mode={searchablePaletteMode ? "palette" : "slash"}
+            ariaLabel={toolPaletteMode ? "Tool picker" : undefined}
             selectedItemId={activeHighlightedItemId}
             onHighlightItem={setHighlightedItemId}
-            searchQuery={commandPaletteMode ? commandPaletteQuery : undefined}
-            searchPlaceholder="Search commands, sessions, live tools, and skills"
+            searchQuery={searchablePaletteMode ? commandPaletteQuery : undefined}
+            searchPlaceholder={
+              toolPaletteMode
+                ? "Select a tool"
+                : "Search commands, sessions, live tools, and skills"
+            }
             onSearchKeyDown={
-              commandPaletteMode
+              searchablePaletteMode
                 ? (event) => {
                     void handleCommandSurfaceKeyDown(event);
                   }
                 : undefined
             }
             onSearchQueryChange={
-              commandPaletteMode ? setCommandPaletteQuery : undefined
+              searchablePaletteMode ? setCommandPaletteQuery : undefined
             }
             emptyState={
               commandQuery
-                ? `No commands or skills match "${
-                    commandPaletteMode
+                ? `No ${
+                    toolPaletteMode ? "tools" : "commands or skills"
+                  } match "${
+                    searchablePaletteMode
                       ? commandPaletteQuery
                       : slashContext?.query ?? ""
                   }".`
-                : "No commands available right now."
+                : toolPaletteMode
+                  ? "No tools are available right now."
+                  : "No commands available right now."
             }
           />
         ) : null}
@@ -1828,10 +1909,10 @@ export function ChatInputSection({
             inputLockedByCredential={inputLockedByCredential}
             onStop={onStop}
             onTogglePlanMode={() => onTogglePlanMode()}
-            onToggleAutoContext={onToggleAutoContext}
             onTriggerContext={handleContextTrigger}
             onTriggerCommands={handleCommandTrigger}
             onTriggerCommandPalette={handleCommandPaletteTrigger}
+            onTriggerTools={handleToolPaletteTrigger}
             onSubmit={onSubmit}
           />
         ) : (
@@ -1868,10 +1949,10 @@ export function ChatInputSection({
               inputLockedByCredential={inputLockedByCredential}
               onStop={onStop}
               onTogglePlanMode={() => onTogglePlanMode()}
-              onToggleAutoContext={onToggleAutoContext}
               onTriggerContext={handleContextTrigger}
               onTriggerCommands={handleCommandTrigger}
               onTriggerCommandPalette={handleCommandPaletteTrigger}
+              onTriggerTools={handleToolPaletteTrigger}
               onSubmit={onSubmit}
             />
           </>

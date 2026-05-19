@@ -191,6 +191,50 @@ function WorkspaceOperatorChatPane({
   onClose?: () => void;
   onOpenSurface?: (surface: WorkspaceOperatorSurface) => void;
 }) {
+  const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
+  const [toolMenuQuery, setToolMenuQuery] = useState("");
+  const workspaceToolMenuItems: Array<{
+    id: string;
+    label: string;
+    description: string;
+    meta: string;
+    surface: WorkspaceOperatorSurface;
+  }> = [
+    {
+      id: "workspace-context",
+      label: "Workspace context",
+      description: "Attach editor, selection, and file context.",
+      meta: "Built-In",
+      surface: "chat",
+    },
+    {
+      id: "workflow-tools",
+      label: "Workflow tools",
+      description: "Use workflow and project-generation actions.",
+      meta: "Runtime",
+      surface: "workflows",
+    },
+    {
+      id: "manage-tools",
+      label: "Manage tools",
+      description: "Review connector authority and callable capabilities.",
+      meta: "Capabilities",
+      surface: "connections",
+    },
+  ];
+  const normalizedToolMenuQuery = toolMenuQuery.trim().toLowerCase();
+  const visibleWorkspaceToolMenuItems = workspaceToolMenuItems.filter((item) =>
+    normalizedToolMenuQuery.length === 0
+      ? true
+      : [item.label, item.description, item.meta, item.id]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedToolMenuQuery),
+  );
+  const closeToolsMenu = () => {
+    setToolsMenuOpen(false);
+    setToolMenuQuery("");
+  };
   const primaryActions: OperatorChatPaneAction[] = [
     {
       id: "new",
@@ -272,6 +316,53 @@ function WorkspaceOperatorChatPane({
       }
       composer={
         <div className="workspace-agent-composer-card">
+          {toolsMenuOpen ? (
+            <div
+              className="workspace-agent-tool-menu"
+              role="menu"
+              aria-label="Select a tool"
+            >
+              <label
+                className="workspace-agent-tool-menu__search"
+                aria-label="Select a tool"
+              >
+                <input
+                  autoFocus
+                  placeholder="Select a tool"
+                  type="text"
+                  value={toolMenuQuery}
+                  onChange={(event) => setToolMenuQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.stopPropagation();
+                      closeToolsMenu();
+                    }
+                  }}
+                />
+              </label>
+              {visibleWorkspaceToolMenuItems.length > 0 ? (
+                visibleWorkspaceToolMenuItems.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      closeToolsMenu();
+                      onOpenSurface?.(item.surface);
+                    }}
+                  >
+                    <span>{item.label}</span>
+                    <small>{item.description}</small>
+                    <em>{item.meta}</em>
+                  </button>
+                ))
+              ) : (
+                <div className="workspace-agent-tool-menu__empty" role="status">
+                  No matching tools
+                </div>
+              )}
+            </div>
+          ) : null}
           <button
             type="button"
             className="workspace-agent-composer-context"
@@ -299,8 +390,16 @@ function WorkspaceOperatorChatPane({
             </button>
             <button
               type="button"
-              aria-label="Workspace chat tools"
-              onClick={() => onOpenSurface?.("policy")}
+              className="workspace-agent-composer-tool-toggle"
+              aria-label="Select tools"
+              aria-expanded={toolsMenuOpen}
+              onClick={() => {
+                if (toolsMenuOpen) {
+                  closeToolsMenu();
+                  return;
+                }
+                setToolsMenuOpen(true);
+              }}
             >
               <Codicon name="tools" />
             </button>
