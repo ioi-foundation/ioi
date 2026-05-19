@@ -78,6 +78,24 @@
     },
     "commands": [
       {
+        "command": "ioi.chat.new",
+        "title": "IOI: New Chat",
+        "category": "IOI",
+        "icon": "$(plus)"
+      },
+      {
+        "command": "ioi.chat.openSettings",
+        "title": "IOI: Chat Settings",
+        "category": "IOI",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "ioi.chat.focusComposer",
+        "title": "IOI: Focus Chat Composer",
+        "category": "IOI",
+        "icon": "$(comment-discussion)"
+      },
+      {
         "command": "ioi.chat.explainSelection",
         "title": "IOI: Explain Selection",
         "category": "IOI"
@@ -96,6 +114,12 @@
         "command": "ioi.workflow.new",
         "title": "IOI: Start Workflow",
         "category": "IOI"
+      },
+      {
+        "command": "ioi.workflow.generateCode",
+        "title": "IOI: Generate Code From Workflow",
+        "category": "IOI",
+        "icon": "$(rocket)"
       },
       {
         "command": "ioi.runs.refresh",
@@ -146,6 +170,15 @@
     "menus": {
       "commandPalette": [
         {
+          "command": "ioi.chat.new"
+        },
+        {
+          "command": "ioi.chat.openSettings"
+        },
+        {
+          "command": "ioi.chat.focusComposer"
+        },
+        {
           "command": "ioi.chat.explainSelection"
         },
         {
@@ -156,6 +189,9 @@
         },
         {
           "command": "ioi.workflow.new"
+        },
+        {
+          "command": "ioi.workflow.generateCode"
         },
         {
           "command": "ioi.runs.refresh"
@@ -183,6 +219,28 @@
         },
         {
           "command": "ioi.automation.browser"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "ioi.chat.new",
+          "when": "view == ioi.chat",
+          "group": "navigation@1"
+        },
+        {
+          "command": "ioi.chat.openSettings",
+          "when": "view == ioi.chat",
+          "group": "navigation@2"
+        },
+        {
+          "command": "ioi.chat.focusComposer",
+          "when": "view == ioi.chat",
+          "group": "navigation@3"
+        },
+        {
+          "command": "ioi.workflow.generateCode",
+          "when": "view == ioi.workflows",
+          "group": "navigation@1"
         }
       ],
       "editor/context": [

@@ -27,6 +27,9 @@ const OPENVSCODE_VERSION: &str = "1.109.5";
 const OPENVSCODE_BOOT_TIMEOUT: Duration = Duration::from_secs(90);
 const OPENVSCODE_AUTOPILOT_CHROME_PATCH_MARKER: &str =
     "/* IOI Autopilot owns OpenVSCode command center and chat chrome v2 */";
+const OPENVSCODE_AUTOPILOT_NATIVE_PATCH_SCHEMA_VERSION: &str = "ioi.openvscode-managed-patch.v1";
+const OPENVSCODE_AUTOPILOT_NATIVE_PATCH_ID: &str =
+    "openvscode-native-autopilot-contribution-replacement";
 
 #[derive(Default)]
 pub struct WorkspaceIdeManager {
@@ -270,6 +273,7 @@ fn install_binary_path<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String
 fn ensure_openvscode_installation<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
     let binary_path = install_binary_path(app)?;
     if binary_path.exists() {
+        ensure_openvscode_native_patch_manifest(&binary_path)?;
         ensure_openvscode_shell_chrome_patch(&binary_path)?;
         return Ok(binary_path);
     }
@@ -342,6 +346,7 @@ fn ensure_openvscode_installation<R: Runtime>(app: &AppHandle<R>) -> Result<Path
         })?;
     }
 
+    ensure_openvscode_native_patch_manifest(&binary_path)?;
     ensure_openvscode_shell_chrome_patch(&binary_path)?;
 
     Ok(binary_path)
@@ -358,6 +363,112 @@ fn openvscode_install_root_from_binary(binary_path: &Path) -> Result<PathBuf, St
                 binary_path.display()
             )
         })
+}
+
+fn openvscode_native_patch_manifest(install_root: &Path) -> Value {
+    json!({
+        "schemaVersion": OPENVSCODE_AUTOPILOT_NATIVE_PATCH_SCHEMA_VERSION,
+        "patchId": OPENVSCODE_AUTOPILOT_NATIVE_PATCH_ID,
+        "openvscodeVersion": OPENVSCODE_VERSION,
+        "installRoot": install_root.to_string_lossy(),
+        "runtimeTruth": {
+            "source": "daemon-runtime",
+            "agentgresRecordsOperationalTruth": true,
+            "walletAuthorizesPower": true,
+            "openvscodeOwnsRuntimeState": false
+        },
+        "normalLaunchContract": {
+            "autopilotHeaderOwnsGlobalCommandCenter": true,
+            "singleChatContribution": "ioi.chat",
+            "upstreamChatContributionAllowed": false,
+            "reactFlowShadowRuntimeTruthAllowed": false
+        },
+        "steps": [
+            {
+                "id": "disable-upstream-chat-contribution",
+                "kind": "contribution-replacement",
+                "target": "chat.disableAIFeatures + chat.agent.enabled + chat.viewSessions.enabled",
+                "status": "installed-profile-gate",
+                "temporaryCompatibility": true,
+                "temporaryCompatibilityMechanism": "managed-profile-feature-gate-plus-stylesheet-suppression"
+            },
+            {
+                "id": "disable-upstream-command-center",
+                "kind": "profile-default",
+                "target": "window.commandCenter",
+                "status": "installed",
+                "temporaryCompatibility": true,
+                "temporaryCompatibilityMechanism": "settings-keybinding-and-stylesheet-suppression"
+            },
+            {
+                "id": "install-ioi-workbench-contribution",
+                "kind": "extension-contribution",
+                "target": "ioi.ioi-workbench",
+                "status": "installed",
+                "temporaryCompatibility": false
+            },
+            {
+                "id": "bridge-workbench-context",
+                "kind": "runtime-projection",
+                "target": "WorkbenchContextSnapshot",
+                "status": "planned",
+                "temporaryCompatibility": false
+            },
+            {
+                "id": "export-native-target-index",
+                "kind": "inspection-projection",
+                "target": "WorkbenchInspectionTargetIndex",
+                "status": "planned",
+                "temporaryCompatibility": false
+            },
+            {
+                "id": "workflow-code-generation-receipts",
+                "kind": "workflow-projection",
+                "target": "WorkflowCodeGenerationReceipt",
+                "status": "planned",
+                "temporaryCompatibility": false
+            }
+        ]
+    })
+}
+
+fn ensure_openvscode_native_patch_manifest(binary_path: &Path) -> Result<(), String> {
+    let install_root = openvscode_install_root_from_binary(binary_path)?;
+    let manifest_dir = install_root.join(".ioi-autopilot");
+    fs::create_dir_all(&manifest_dir).map_err(|error| {
+        format!(
+            "Failed to create OpenVSCode managed patch directory '{}': {}",
+            manifest_dir.display(),
+            error
+        )
+    })?;
+
+    let manifest_path = manifest_dir.join("managed-openvscode-patch.json");
+    let manifest = openvscode_native_patch_manifest(&install_root);
+    let contents = format!(
+        "{}\n",
+        serde_json::to_string_pretty(&manifest).map_err(|error| {
+            format!(
+                "Failed to serialize OpenVSCode managed patch manifest: {}",
+                error
+            )
+        })?
+    );
+
+    if fs::read_to_string(&manifest_path)
+        .map(|existing| existing == contents)
+        .unwrap_or(false)
+    {
+        return Ok(());
+    }
+
+    fs::write(&manifest_path, contents).map_err(|error| {
+        format!(
+            "Failed to write OpenVSCode managed patch manifest '{}': {}",
+            manifest_path.display(),
+            error
+        )
+    })
 }
 
 fn ensure_openvscode_shell_chrome_patch(binary_path: &Path) -> Result<(), String> {
@@ -621,6 +732,13 @@ fn ensure_openvscode_user_settings(user_data_dir: &Path) -> Result<(), String> {
         "workbench.secondarySideBar.defaultVisibility".to_string(),
         Value::Bool(false),
     );
+    settings.insert("chat.disableAIFeatures".to_string(), Value::Bool(true));
+    settings.insert("chat.agent.enabled".to_string(), Value::Bool(false));
+    settings.insert("chat.viewSessions.enabled".to_string(), Value::Bool(false));
+    settings.insert(
+        "chat.agentSessionProjection.enabled".to_string(),
+        Value::Bool(false),
+    );
     settings.insert(
         "workbench.welcomePage.walkthroughs.openOnInstall".to_string(),
         Value::Bool(false),
@@ -711,6 +829,10 @@ fn openvscode_user_config_owned(user_data_dir: &Path) -> bool {
                 && settings.get("workbench.layoutControl.enabled") == Some(&Value::Bool(false))
                 && settings.get("workbench.secondarySideBar.defaultVisibility")
                     == Some(&Value::Bool(false))
+                && settings.get("chat.disableAIFeatures") == Some(&Value::Bool(true))
+                && settings.get("chat.agent.enabled") == Some(&Value::Bool(false))
+                && settings.get("chat.viewSessions.enabled") == Some(&Value::Bool(false))
+                && settings.get("chat.agentSessionProjection.enabled") == Some(&Value::Bool(false))
         })
         .unwrap_or(false);
 
@@ -1083,9 +1205,11 @@ pub fn take_workspace_ide_bridge_requests<R: Runtime>(
 #[cfg(test)]
 mod tests {
     use super::{
-        ensure_openvscode_shell_chrome_patch, ensure_openvscode_user_keybindings,
-        ensure_openvscode_user_settings, openvscode_user_config_owned,
-        OPENVSCODE_AUTOPILOT_CHROME_PATCH_MARKER,
+        ensure_openvscode_native_patch_manifest, ensure_openvscode_shell_chrome_patch,
+        ensure_openvscode_user_keybindings, ensure_openvscode_user_settings,
+        openvscode_native_patch_manifest, openvscode_user_config_owned,
+        OPENVSCODE_AUTOPILOT_CHROME_PATCH_MARKER, OPENVSCODE_AUTOPILOT_NATIVE_PATCH_ID,
+        OPENVSCODE_AUTOPILOT_NATIVE_PATCH_SCHEMA_VERSION,
     };
     use serde_json::Value;
     use std::fs;
@@ -1159,6 +1283,22 @@ mod tests {
             settings.get("workbench.secondarySideBar.defaultVisibility"),
             Some(&Value::Bool(false))
         );
+        assert_eq!(
+            settings.get("chat.disableAIFeatures"),
+            Some(&Value::Bool(true))
+        );
+        assert_eq!(
+            settings.get("chat.agent.enabled"),
+            Some(&Value::Bool(false))
+        );
+        assert_eq!(
+            settings.get("chat.viewSessions.enabled"),
+            Some(&Value::Bool(false))
+        );
+        assert_eq!(
+            settings.get("chat.agentSessionProjection.enabled"),
+            Some(&Value::Bool(false))
+        );
 
         let keybindings = fs::read_to_string(user_data_dir.join("User").join("keybindings.json"))
             .expect("keybindings should be readable");
@@ -1198,6 +1338,23 @@ mod tests {
         assert!(
             !openvscode_user_config_owned(&user_data_dir),
             "stale OpenVSCode sessions must relaunch when the substrate owns command center chrome"
+        );
+
+        ensure_openvscode_user_settings(&user_data_dir)
+            .expect("OpenVSCode settings should restore managed chat posture");
+        let mut settings: Value = serde_json::from_str(
+            &fs::read_to_string(&settings_path).expect("settings should be readable"),
+        )
+        .expect("settings should be json");
+        settings["chat.disableAIFeatures"] = Value::Bool(false);
+        fs::write(
+            &settings_path,
+            serde_json::to_string_pretty(&settings).expect("settings should serialize"),
+        )
+        .expect("settings mutation should be written");
+        assert!(
+            !openvscode_user_config_owned(&user_data_dir),
+            "stale OpenVSCode sessions must relaunch when upstream native chat is re-enabled"
         );
 
         let _ = fs::remove_dir_all(user_data_dir);
@@ -1256,6 +1413,109 @@ mod tests {
         assert!(workbench_stylesheet.contains(".command-center"));
         assert!(workbench_stylesheet.contains(".part.auxiliarybar"));
         assert!(workbench_stylesheet.contains("display: none !important"));
+
+        let _ = fs::remove_dir_all(install_root);
+    }
+
+    #[test]
+    fn openvscode_native_patch_manifest_tracks_replacement_contract() {
+        let binary_path = temp_openvscode_binary("native-patch-manifest");
+        let install_root = binary_path
+            .parent()
+            .and_then(Path::parent)
+            .expect("test binary should have install root")
+            .to_path_buf();
+
+        let manifest = openvscode_native_patch_manifest(&install_root);
+        assert_eq!(
+            manifest.get("schemaVersion"),
+            Some(&Value::String(
+                OPENVSCODE_AUTOPILOT_NATIVE_PATCH_SCHEMA_VERSION.to_string()
+            ))
+        );
+        assert_eq!(
+            manifest.get("patchId"),
+            Some(&Value::String(
+                OPENVSCODE_AUTOPILOT_NATIVE_PATCH_ID.to_string()
+            ))
+        );
+        assert_eq!(
+            manifest
+                .pointer("/runtimeTruth/openvscodeOwnsRuntimeState")
+                .and_then(Value::as_bool),
+            Some(false),
+            "OpenVSCode patch metadata must describe projection, not runtime ownership"
+        );
+        assert_eq!(
+            manifest
+                .pointer("/normalLaunchContract/upstreamChatContributionAllowed")
+                .and_then(Value::as_bool),
+            Some(false)
+        );
+
+        let steps = manifest
+            .get("steps")
+            .and_then(Value::as_array)
+            .expect("patch manifest should include steps");
+        let step_ids: Vec<&str> = steps
+            .iter()
+            .filter_map(|step| step.get("id").and_then(Value::as_str))
+            .collect();
+        assert!(step_ids.contains(&"disable-upstream-chat-contribution"));
+        assert!(step_ids.contains(&"disable-upstream-command-center"));
+        assert!(step_ids.contains(&"install-ioi-workbench-contribution"));
+        assert!(step_ids.contains(&"bridge-workbench-context"));
+        assert!(step_ids.contains(&"export-native-target-index"));
+        assert!(step_ids.contains(&"workflow-code-generation-receipts"));
+
+        let upstream_chat_step = steps
+            .iter()
+            .find(|step| {
+                step.get("id").and_then(Value::as_str) == Some("disable-upstream-chat-contribution")
+            })
+            .expect("upstream chat replacement step should exist");
+        assert_eq!(
+            upstream_chat_step
+                .get("temporaryCompatibility")
+                .and_then(Value::as_bool),
+            Some(true),
+            "the manifest should keep current CSS/profile suppression explicit as a temporary shim"
+        );
+
+        let manifest_text =
+            serde_json::to_string(&manifest).expect("patch manifest should serialize");
+        assert!(!manifest_text.contains("OpenAI"));
+        assert!(!manifest_text.contains("Anthropic"));
+        assert!(!manifest_text.contains("provider"));
+
+        let _ = fs::remove_dir_all(install_root);
+    }
+
+    #[test]
+    fn openvscode_native_patch_manifest_is_written_idempotently() {
+        let binary_path = temp_openvscode_binary("native-patch-manifest-write");
+        let install_root = binary_path
+            .parent()
+            .and_then(Path::parent)
+            .expect("test binary should have install root")
+            .to_path_buf();
+        let manifest_path = install_root
+            .join(".ioi-autopilot")
+            .join("managed-openvscode-patch.json");
+
+        ensure_openvscode_native_patch_manifest(&binary_path)
+            .expect("OpenVSCode native patch manifest should be written");
+        let first = fs::read_to_string(&manifest_path)
+            .expect("OpenVSCode native patch manifest should be readable");
+        ensure_openvscode_native_patch_manifest(&binary_path)
+            .expect("OpenVSCode native patch manifest should be idempotent");
+        let second = fs::read_to_string(&manifest_path)
+            .expect("OpenVSCode native patch manifest should still be readable");
+
+        assert_eq!(first, second);
+        assert!(first.contains(OPENVSCODE_AUTOPILOT_NATIVE_PATCH_SCHEMA_VERSION));
+        assert!(first.contains("disable-upstream-chat-contribution"));
+        assert!(first.contains("temporaryCompatibilityMechanism"));
 
         let _ = fs::remove_dir_all(install_root);
     }

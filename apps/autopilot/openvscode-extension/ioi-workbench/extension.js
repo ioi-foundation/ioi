@@ -175,6 +175,293 @@ function workspaceSummary() {
   };
 }
 
+function toWorkbenchRange(range) {
+  if (!range) {
+    return null;
+  }
+  return {
+    startLineNumber: range.start.line + 1,
+    startColumn: range.start.character + 1,
+    endLineNumber: range.end.line + 1,
+    endColumn: range.end.character + 1,
+  };
+}
+
+function uriToRef(uri) {
+  if (!uri) {
+    return null;
+  }
+  return {
+    uri: uri.toString(),
+    path: uri.scheme === "file" ? uri.fsPath : uri.path,
+    scheme: uri.scheme,
+  };
+}
+
+function buildRuntimeRefs() {
+  return {
+    receiptRefs: [],
+    artifactRefs: [],
+    authorityRefs: [],
+    manifestRefs: [],
+    capabilityRefs: [],
+  };
+}
+
+function diagnosticSeverityLabel(severity) {
+  switch (severity) {
+    case vscode.DiagnosticSeverity.Error:
+      return "error";
+    case vscode.DiagnosticSeverity.Warning:
+      return "warning";
+    case vscode.DiagnosticSeverity.Information:
+      return "info";
+    case vscode.DiagnosticSeverity.Hint:
+      return "hint";
+    default:
+      return "info";
+  }
+}
+
+function selectedTextHash(value) {
+  if (!value) {
+    return null;
+  }
+  return crypto.createHash("sha256").update(value).digest("hex");
+}
+
+function activeEditorRef(editor) {
+  if (!editor) {
+    return null;
+  }
+  const selection = editor.selection && !editor.selection.isEmpty
+    ? toWorkbenchRange(editor.selection)
+    : null;
+  const selectedText =
+    selection && editor.selection
+      ? editor.document.getText(editor.selection)
+      : null;
+  return {
+    filePath: editor.document.uri.fsPath || editor.document.uri.toString(),
+    uri: editor.document.uri.toString(),
+    languageId: editor.document.languageId,
+    selection,
+    selectedTextHash: selectedTextHash(selectedText),
+    isDirty: editor.document.isDirty,
+  };
+}
+
+function buildWorkbenchContextSnapshot(reason = "poll") {
+  const activeEditor = vscode.window.activeTextEditor;
+  const selection = activeEditor?.selection;
+  const workspace = workspaceSummary();
+  const openEditors = vscode.window.tabGroups.all.flatMap((group, groupIndex) =>
+    group.tabs.map((tab, tabIndex) => ({
+      tabId: `${groupIndex}:${tabIndex}:${tab.label}`,
+      label: tab.label,
+      isActive: tab.isActive,
+      isDirty: tab.isDirty,
+      groupIndex,
+      uri: uriToRef(tab.input?.uri),
+      filePath: tab.input?.uri?.fsPath || tab.input?.uri?.toString?.() || null,
+    })),
+  );
+  const diagnostics = vscode.languages
+    .getDiagnostics()
+    .slice(0, 50)
+    .flatMap(([uri, entries]) =>
+      entries.slice(0, 10).map((entry) => ({
+        filePath: uri.fsPath || uri.toString(),
+        uri: uri.toString(),
+        message: entry.message,
+        severity: diagnosticSeverityLabel(entry.severity),
+        source: entry.source || null,
+        code: entry.code ? String(entry.code) : null,
+        range: toWorkbenchRange(entry.range),
+      })),
+    );
+
+  return {
+    schemaVersion: "ioi.workbench-integration.v1",
+    snapshotId: crypto.randomUUID(),
+    runtimeTruthSource: "daemon-runtime",
+    projectionOwner: "openvscode-workbench-adapter",
+    ownsRuntimeState: false,
+    generatedAtMs: Date.now(),
+    reason,
+    workspaceRoot: workspace.path,
+    workspaceRef: null,
+    packageRef: null,
+    workspace,
+    activeEditor: activeEditorRef(activeEditor),
+    openEditors: openEditors.map((editor) => ({
+      filePath: editor.filePath || editor.label,
+      uri: editor.uri?.uri || null,
+      languageId: null,
+      selection: null,
+      selectedTextHash: null,
+      isDirty: editor.isDirty,
+      label: editor.label,
+      isActive: editor.isActive,
+      groupIndex: editor.groupIndex,
+      tabId: editor.tabId,
+    })),
+    diagnostics,
+    scmState: {
+      provider: "unknown",
+      branch: null,
+      dirty: openEditors.some((editor) => editor.isDirty),
+      changedFiles: openEditors
+        .filter((editor) => editor.isDirty && editor.filePath)
+        .map((editor) => editor.filePath),
+      ahead: null,
+      behind: null,
+    },
+    taskState: {
+      activeTaskLabels: [],
+      recentTaskLabels: [],
+      lastExitCode: null,
+      checkRefs: [],
+    },
+    terminalState: {
+      terminalCount: vscode.window.terminals.length,
+      activeTerminalName: vscode.window.activeTerminal?.name || null,
+      taskBacked: false,
+    },
+    visibleView: {
+      activeTextEditorVisible: Boolean(activeEditor),
+      activeTabCount: openEditors.length,
+      ioiChatViewId: "ioi.chat",
+      activityId: "ioi",
+      sideBarViewId: "ioi.chat",
+      panelViewId: null,
+      activeEditorGroup: activeEditor ? "active" : null,
+      activeIoiViewId: "ioi.chat",
+    },
+    inspectionTargetIndexRef: "workbench-target-index:latest",
+    runtimeRefs: buildRuntimeRefs(),
+  };
+}
+
+function buildWorkbenchInspectionTargetIndex(reason = "poll") {
+  const activeEditor = vscode.window.activeTextEditor;
+  const activeEditorTarget = activeEditor
+    ? [
+        {
+          targetId: "editor.active",
+          label: activeEditor.document.fileName,
+          surface: "editor",
+          locators: [
+            {
+              kind: "editor-range",
+              filePath: activeEditor.document.uri.fsPath,
+              range: toWorkbenchRange(activeEditor.selection),
+            },
+          ],
+          fallbackAllowed: true,
+        },
+      ]
+    : [];
+
+  return {
+    schemaVersion: "ioi.workbench-integration.v1",
+    indexId: "workbench-target-index:latest",
+    runtimeTruthSource: "daemon-runtime",
+    projectionOwner: "openvscode-workbench-adapter",
+    ownsRuntimeState: false,
+    generatedAtMs: Date.now(),
+    reason,
+    runtimeRefs: buildRuntimeRefs(),
+    targets: [
+      {
+        targetId: "activity.ioi",
+        label: "IOI activity rail",
+        surface: "activity-rail",
+        locators: [
+          {
+            kind: "vscode-command",
+            commandId: "workbench.view.extension.ioi",
+          },
+          {
+            kind: "vscode-view",
+            viewId: "ioi",
+          },
+        ],
+        fallbackAllowed: true,
+      },
+      {
+        targetId: "ioi.chat",
+        label: "Autopilot Chat",
+        surface: "chat",
+        locators: [
+          {
+            kind: "vscode-view",
+            viewId: "ioi.chat",
+          },
+          {
+            kind: "data-attribute",
+            selector: "[data-operator-chat-pane='native-openvscode']",
+          },
+        ],
+        fallbackAllowed: true,
+      },
+      {
+        targetId: "ioi.chat.composer",
+        label: "Autopilot Chat composer",
+        surface: "chat",
+        locators: [
+          {
+            kind: "data-attribute",
+            selector: "[data-inspection-target='native-ioi-chat-composer']",
+          },
+          {
+            kind: "aria",
+            accessibleName: "Chat composer",
+          },
+        ],
+        fallbackAllowed: true,
+      },
+      {
+        targetId: "explorer",
+        label: "Explorer",
+        surface: "explorer",
+        locators: [
+          {
+            kind: "vscode-command",
+            commandId: "workbench.view.explorer",
+          },
+        ],
+        fallbackAllowed: true,
+      },
+      {
+        targetId: "terminal.panel",
+        label: "Terminal panel",
+        surface: "terminal",
+        locators: [
+          {
+            kind: "vscode-command",
+            commandId: "workbench.action.terminal.toggleTerminal",
+          },
+        ],
+        fallbackAllowed: true,
+      },
+      {
+        targetId: "problems.panel",
+        label: "Problems panel",
+        surface: "problems",
+        locators: [
+          {
+            kind: "vscode-command",
+            commandId: "workbench.actions.view.problems",
+          },
+        ],
+        fallbackAllowed: true,
+      },
+      ...activeEditorTarget,
+    ],
+  };
+}
+
 function buildWorkspaceActionContext(source, uri) {
   const editor = vscode.window.activeTextEditor;
   const selection = editor?.selection;
@@ -343,6 +630,77 @@ async function writeBridgeRequest(requestType, payload = {}, context = null) {
   return request;
 }
 
+function startWorkbenchContextSnapshotPublisher(context, output) {
+  let lastHash = "";
+  let lastTargetHash = "";
+  let publishing = false;
+
+  const publish = async (reason) => {
+    if (publishing) {
+      return;
+    }
+    publishing = true;
+    try {
+      const snapshot = buildWorkbenchContextSnapshot(reason);
+      const comparableSnapshot = {
+        ...snapshot,
+        snapshotId: "",
+        generatedAtMs: 0,
+        reason: "",
+      };
+      const hash = crypto
+        .createHash("sha256")
+        .update(JSON.stringify(comparableSnapshot))
+        .digest("hex");
+      if (hash !== lastHash) {
+        lastHash = hash;
+        await writeBridgeRequest("workbench.contextSnapshot", snapshot, {
+          source: "ioi-workbench",
+          reason,
+        });
+      }
+
+      const targetIndex = buildWorkbenchInspectionTargetIndex(reason);
+      const comparableTargetIndex = {
+        ...targetIndex,
+        generatedAtMs: 0,
+        reason: "",
+      };
+      const targetHash = crypto
+        .createHash("sha256")
+        .update(JSON.stringify(comparableTargetIndex))
+        .digest("hex");
+      if (targetHash !== lastTargetHash) {
+        lastTargetHash = targetHash;
+        await writeBridgeRequest("workbench.inspectionTargetIndex", targetIndex, {
+          source: "ioi-workbench",
+          reason,
+        });
+      }
+    } catch (error) {
+      output.appendLine(
+        `Workbench context snapshot failed: ${error?.message || String(error)}`,
+      );
+    } finally {
+      publishing = false;
+    }
+  };
+
+  const subscriptions = [
+    vscode.window.onDidChangeActiveTextEditor(() => void publish("activeEditor")),
+    vscode.window.onDidChangeTextEditorSelection(() => void publish("selection")),
+    vscode.languages.onDidChangeDiagnostics(() => void publish("diagnostics")),
+    vscode.window.tabGroups.onDidChangeTabs(() => void publish("tabs")),
+    vscode.window.onDidOpenTerminal(() => void publish("terminal")),
+    vscode.window.onDidCloseTerminal(() => void publish("terminal")),
+  ];
+  subscriptions.forEach((subscription) => context.subscriptions.push(subscription));
+
+  const timer = setInterval(() => void publish("poll"), 3_000);
+  context.subscriptions.push({ dispose: () => clearInterval(timer) });
+  void publish("activation");
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -429,17 +787,95 @@ function renderDiagnostics(state) {
 }
 
 function renderChatView(state) {
-  const helper = state.chat?.helperText || "Open Chat from the current file or selection.";
+  const modelLabel =
+    state.chat?.modelLabel ||
+    state.chat?.model ||
+    state.chat?.selectedModelLabel ||
+    "Local: qwen3.5:9b";
+  const contextLabel = state.chat?.contextLabel || "Add Context...";
+  const modeLabel = state.chat?.modeLabel || "Auto";
+  const suggestedActions = Array.isArray(state.chat?.suggestedActions)
+    ? state.chat.suggestedActions
+    : [
+        {
+          label: "Build Workspace",
+          requestType: "workflow.materializeProject",
+        },
+        {
+          label: "Show Config",
+          requestType: "chat.showConfig",
+        },
+      ];
   return `
-    ${renderRuntimeSummary(state)}
-    <div class="card">
-      <strong>Runtime</strong>
-      <code>${escapeHtml(state.chat?.runtime || "ioi-runtime")}</code>
-      <p>${escapeHtml(helper)}</p>
-    </div>
-    <div class="callout">
-      Chat requests from this pane route back into the IOI runtime. This workbench view does not hold authority on its own.
-    </div>
+    <section
+      class="operator-chat-pane"
+      data-operator-chat-pane="native-openvscode"
+      data-inspection-target="native-ioi-chat-pane"
+      aria-label="Autopilot Chat"
+    >
+      <div class="operator-chat-empty" data-inspection-target="native-ioi-chat-empty-state">
+        <div class="operator-chat-empty__icon" aria-hidden="true">
+          <svg viewBox="0 0 32 32" focusable="false">
+            <path d="M7.5 8.5h13a4 4 0 0 1 4 4v4a4 4 0 0 1-4 4H15l-5.5 4v-4h-2a4 4 0 0 1-4-4v-4a4 4 0 0 1 4-4Z" />
+            <path d="M24 5.5v5M21.5 8h5M27 13.5v3M25.5 15h3" />
+          </svg>
+        </div>
+        <h2>Build with Agent</h2>
+        <p>
+          AI responses may be inaccurate.
+          <a href="#" data-bridge-request="chat.generateAgentInstructions">Generate Agent Instructions</a>
+          to onboard AI onto your codebase.
+        </p>
+      </div>
+      <div class="operator-chat-bottom">
+        <div class="operator-chat-suggestions" aria-label="Suggested actions">
+          <span>SUGGESTED ACTIONS</span>
+          <div>
+            ${suggestedActions
+              .map(
+                (action) => `
+                  <button
+                    class="operator-chat-suggestion"
+                    data-bridge-request="${escapeHtml(action.requestType || "chat.suggestedAction")}"
+                    data-payload="${escapeHtml(
+                      JSON.stringify(action.payload || { label: action.label }),
+                    )}"
+                  >${escapeHtml(action.label)}</button>
+                `,
+              )
+              .join("")}
+          </div>
+        </div>
+        <form
+          class="operator-chat-composer"
+          data-chat-composer-form
+          data-inspection-target="native-ioi-chat-composer"
+          aria-label="Chat composer"
+        >
+          <div class="operator-chat-composer__context-row">
+            <button type="button" data-bridge-request="chat.addContext">${escapeHtml(contextLabel)}</button>
+          </div>
+          <textarea
+            data-chat-composer-input
+            rows="2"
+            placeholder="Describe what to build next"
+            aria-label="Describe what to build next"
+          ></textarea>
+          <div class="operator-chat-composer__controls">
+            <button type="button" aria-label="Attach editor context" data-bridge-request="chat.attachEditorContext">▱</button>
+            <button type="button" aria-label="Context options" data-bridge-request="chat.contextOptions">⌁</button>
+            <select aria-label="Mode" data-chat-mode>
+              <option>${escapeHtml(modeLabel)}</option>
+            </select>
+            <select aria-label="Model" data-chat-model>
+              <option>${escapeHtml(modelLabel)}</option>
+            </select>
+            <button type="button" aria-label="Tool controls" data-bridge-request="chat.toolControls">♮</button>
+            <button class="operator-chat-send" type="submit" aria-label="Send chat request">▷</button>
+          </div>
+        </form>
+      </div>
+    </section>
   `;
 }
 
@@ -463,6 +899,19 @@ function renderWorkflowView(state) {
               workflowId: workflow.workflowId,
               slashCommand: workflow.slashCommand,
               relativePath: workflow.relativePath,
+            },
+          })}
+          ${renderCommandButton({
+            label: "Generate code proposal",
+            command: "ioi.workflow.generateCode",
+            payload: {
+              workflowId: workflow.workflowId,
+              workflowRef: workflow.workflowId,
+              packageRef: workflow.packageRef,
+              goal: workflow.description,
+              relativePath: workflow.relativePath,
+              modelCapabilityRef: workflow.modelCapabilityRef,
+              toolCapabilityRefs: workflow.toolCapabilityRefs,
             },
           })}
           ${renderCommandButton({
@@ -679,6 +1128,7 @@ function renderBody(viewId, state) {
 
 function renderHtml(view, state) {
   const workspace = state.workspace || workspaceSummary();
+  const isChatView = view.id === "ioi.chat";
   const actions = view.actions
     .map((action) => renderCommandButton(action))
     .join("");
@@ -698,6 +1148,9 @@ function renderHtml(view, state) {
         font-family: var(--vscode-font-family);
         color: var(--vscode-foreground);
         background: var(--vscode-sideBar-background);
+      }
+      body.is-chat-view {
+        padding: 0 16px 16px;
       }
       .eyebrow {
         margin: 0 0 8px;
@@ -847,22 +1300,143 @@ function renderHtml(view, state) {
         font-size: 11px;
         color: var(--vscode-descriptionForeground);
       }
+      .operator-chat-pane {
+        min-height: calc(100vh - 32px);
+        display: grid;
+        grid-template-rows: minmax(240px, 1fr) auto;
+        gap: 16px;
+        background: var(--vscode-sideBar-background);
+        color: var(--vscode-foreground);
+      }
+      .operator-chat-empty {
+        align-self: center;
+        justify-self: center;
+        max-width: 290px;
+        text-align: center;
+        color: var(--vscode-foreground);
+      }
+      .operator-chat-empty__icon {
+        width: 42px;
+        height: 42px;
+        margin: 0 auto 12px;
+        color: var(--vscode-foreground);
+      }
+      .operator-chat-empty__icon svg {
+        width: 100%;
+        height: 100%;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .operator-chat-empty h2 {
+        margin: 0 0 8px;
+        font-size: 22px;
+        font-weight: 500;
+        line-height: 1.2;
+      }
+      .operator-chat-empty p {
+        margin: 0;
+        color: var(--vscode-descriptionForeground);
+        line-height: 1.35;
+      }
+      .operator-chat-empty a {
+        color: var(--vscode-textLink-foreground);
+        text-decoration: none;
+      }
+      .operator-chat-bottom {
+        display: grid;
+        gap: 8px;
+      }
+      .operator-chat-suggestions {
+        display: grid;
+        gap: 8px;
+      }
+      .operator-chat-suggestions span {
+        color: var(--vscode-descriptionForeground);
+        font-size: 11px;
+        letter-spacing: 0.08em;
+      }
+      .operator-chat-suggestions div {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .operator-chat-suggestion,
+      .operator-chat-composer button,
+      .operator-chat-composer select {
+        border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+        border-radius: 4px;
+        background: var(--vscode-button-secondaryBackground);
+        color: var(--vscode-button-secondaryForeground);
+        font: inherit;
+      }
+      .operator-chat-suggestion,
+      .operator-chat-composer button {
+        padding: 5px 8px;
+      }
+      .operator-chat-composer {
+        border: 1px solid var(--vscode-focusBorder);
+        border-radius: 4px;
+        padding: 8px;
+        background: var(--vscode-input-background);
+      }
+      .operator-chat-composer__context-row {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 6px;
+      }
+      .operator-chat-composer textarea {
+        width: 100%;
+        min-height: 42px;
+        resize: vertical;
+        box-sizing: border-box;
+        border: 0;
+        outline: 0;
+        padding: 0;
+        background: transparent;
+        color: var(--vscode-input-foreground);
+        font: inherit;
+      }
+      .operator-chat-composer__controls {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+      }
+      .operator-chat-composer select {
+        min-width: 0;
+        max-width: 116px;
+        padding: 4px 6px;
+      }
+      .operator-chat-send {
+        margin-left: auto;
+        width: 28px;
+        height: 28px;
+      }
     </style>
   </head>
-  <body>
-    <p class="eyebrow">${escapeHtml(view.eyebrow)}</p>
-    <h2>${escapeHtml(view.title)}</h2>
-    <p>${escapeHtml(view.description)}</p>
-    <div class="card workspace-card">
-      <strong>Workspace</strong>
-      <code>${escapeHtml(workspace.name || "No folder")}</code>
-      <code>${escapeHtml(workspace.rootPath || workspace.path || "No folder selected")}</code>
-    </div>
-    ${view.id === "ioi.chat" ? "" : renderRuntimeSummary(state)}
-    ${renderDiagnostics(state)}
-    <div class="actions">${actions}</div>
-    ${renderBody(view.id, state)}
-    <div class="footer">Snapshot refreshed ${escapeHtml(formatRelativeTime(state.generatedAtMs))} · IOI runtime remains authoritative.</div>
+  <body class="${isChatView ? "is-chat-view" : ""}">
+    ${
+      isChatView
+        ? renderBody(view.id, state)
+        : `
+          <p class="eyebrow">${escapeHtml(view.eyebrow)}</p>
+          <h2>${escapeHtml(view.title)}</h2>
+          <p>${escapeHtml(view.description)}</p>
+          <div class="card workspace-card">
+            <strong>Workspace</strong>
+            <code>${escapeHtml(workspace.name || "No folder")}</code>
+            <code>${escapeHtml(workspace.rootPath || workspace.path || "No folder selected")}</code>
+          </div>
+          ${renderRuntimeSummary(state)}
+          ${renderDiagnostics(state)}
+          <div class="actions">${actions}</div>
+          ${renderBody(view.id, state)}
+          <div class="footer">Snapshot refreshed ${escapeHtml(formatRelativeTime(state.generatedAtMs))} · IOI runtime remains authoritative.</div>
+        `
+    }
     <script>
       const vscode = acquireVsCodeApi();
       document.querySelectorAll("[data-command]").forEach((button) => {
@@ -878,6 +1452,50 @@ function renderHtml(view, state) {
           }
           vscode.postMessage({ type: "command", command: button.dataset.command, payload });
         });
+      });
+      document.querySelectorAll("[data-bridge-request]").forEach((button) => {
+        button.addEventListener("click", (event) => {
+          event.preventDefault();
+          const rawPayload = button.dataset.payload;
+          let payload = undefined;
+          if (rawPayload) {
+            try {
+              payload = JSON.parse(rawPayload);
+            } catch (error) {
+              console.error("[IOI Workbench] Failed to parse bridge payload:", error);
+            }
+          }
+          vscode.postMessage({
+            type: "bridgeRequest",
+            requestType: button.dataset.bridgeRequest,
+            payload
+          });
+        });
+      });
+      const composer = document.querySelector("[data-chat-composer-form]");
+      const composerInput = document.querySelector("[data-chat-composer-input]");
+      composer?.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const prompt = composerInput?.value?.trim();
+        if (!prompt) {
+          return;
+        }
+        vscode.postMessage({
+          type: "bridgeRequest",
+          requestType: "chat.submit",
+          payload: {
+            prompt,
+            mode: document.querySelector("[data-chat-mode]")?.value,
+            model: document.querySelector("[data-chat-model]")?.value
+          }
+        });
+        composerInput.value = "";
+      });
+      composerInput?.addEventListener("keydown", (event) => {
+        if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+          event.preventDefault();
+          composer?.requestSubmit();
+        }
       });
     </script>
   </body>
@@ -898,6 +1516,17 @@ class IOIViewProvider {
     };
     void this.render();
     webviewView.webview.onDidReceiveMessage(async (message) => {
+      if (
+        message?.type === "bridgeRequest" &&
+        typeof message.requestType === "string"
+      ) {
+        await writeBridgeRequest(
+          message.requestType,
+          message.payload || {},
+          buildWorkspaceActionContext("ioi.chat"),
+        );
+        return;
+      }
       if (message?.type !== "command" || typeof message.command !== "string") {
         return;
       }
@@ -980,6 +1609,28 @@ function registerNativeCommands(context, output) {
   };
 
   context.subscriptions.push(
+    vscode.commands.registerCommand("ioi.chat.new", async () => {
+      const context = buildWorkspaceActionContext("ioi.chat");
+      await writeBridgeRequest("chat.new", {
+        workspaceRoot: workspaceSummary().path,
+      }, context);
+      status("Queued new IOI Chat thread.");
+    }),
+    vscode.commands.registerCommand("ioi.chat.openSettings", async () => {
+      const context = buildWorkspaceActionContext("ioi.chat");
+      await writeBridgeRequest("settings.open", {
+        surface: "chat",
+        workspaceRoot: workspaceSummary().path,
+      }, context);
+      status("Queued IOI Chat settings.");
+    }),
+    vscode.commands.registerCommand("ioi.chat.focusComposer", async () => {
+      const context = buildWorkspaceActionContext("ioi.chat");
+      await writeBridgeRequest("chat.focusComposer", {
+        workspaceRoot: workspaceSummary().path,
+      }, context);
+      status("Queued IOI Chat composer focus.");
+    }),
     vscode.commands.registerCommand("ioi.chat.explainSelection", async (uri) => {
       const context = buildWorkspaceActionContext("editor", uri);
       const payloadFilePath = pickString(uri, "filePath");
@@ -1031,6 +1682,45 @@ function registerNativeCommands(context, output) {
         workspaceRoot: workspaceSummary().path,
       }, context);
       status("Queued IOI workflow surface.");
+    }),
+    vscode.commands.registerCommand("ioi.workflow.generateCode", async (payload) => {
+      const workflowRef =
+        pickString(payload, "workflowRef") ||
+        pickString(payload, "workflowId") ||
+        "workflow:active";
+      const packageRef = pickString(payload, "packageRef") || "package:active";
+      const modelCapabilityRef =
+        pickString(payload, "modelCapabilityRef") || "model-capability:unbound";
+      const toolCapabilityRefs = Array.isArray(payload?.toolCapabilityRefs)
+        ? payload.toolCapabilityRefs.filter((value) => typeof value === "string")
+        : [];
+      const request = {
+        schemaVersion: "ioi.workbench-integration.v1",
+        requestId: crypto.randomUUID(),
+        runtimeTruthSource: "daemon-runtime",
+        projectionOwner: "openvscode-workbench-adapter",
+        ownsRuntimeState: false,
+        requestedAtMs: Date.now(),
+        workflowRef,
+        packageRef,
+        goal:
+          pickString(payload, "goal") ||
+          "Generate a proposal-first code change from this workflow.",
+        boundModelCapabilityRef: modelCapabilityRef,
+        boundToolCapabilityRefs: toolCapabilityRefs,
+        targetWorkspace: workspaceSummary().path,
+        authorityScope: "workspace.fs.proposal",
+        evalProfileRef: pickString(payload, "evalProfileRef"),
+        proposalOnly: true,
+        runtimeRefs: buildRuntimeRefs(),
+      };
+      const context = {
+        ...buildWorkspaceActionContext("workflow-code-generation"),
+        workflowRef,
+        packageRef,
+      };
+      await writeBridgeRequest("workflow.codeGenerationRequest", request, context);
+      status("Queued proposal-first workflow code generation.");
     }),
     vscode.commands.registerCommand("ioi.runs.refresh", async () => {
       const context = buildWorkspaceActionContext("workbench-view");
@@ -1148,6 +1838,7 @@ function activate(context) {
   output.appendLine("IOI Workbench extension activated.");
   context.subscriptions.push(output);
   startBridgeCommandPolling(context, output);
+  startWorkbenchContextSnapshotPublisher(context, output);
 
   const statusItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Left,

@@ -43,6 +43,11 @@
       "import": "./dist/lifecycle-readiness.js",
       "require": "./dist/lifecycle-readiness.cjs"
     },
+    "./workbench-integration": {
+      "types": "./dist/workbench-integration.d.ts",
+      "import": "./dist/workbench-integration.js",
+      "require": "./dist/workbench-integration.cjs"
+    },
     "./options": {
       "types": "./dist/options.d.ts",
       "import": "./dist/options.js",
