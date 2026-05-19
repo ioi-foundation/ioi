@@ -4,9 +4,17 @@ import {
   type RuntimeCatalogEntry,
 } from "@ioi/agent-ide";
 import { listenIfTauri as listen } from "../../../services/tauriListeners";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import type {
   ChangeEvent,
+  CSSProperties,
   KeyboardEvent,
   MouseEvent,
   RefObject,
@@ -115,6 +123,9 @@ type ChatInputSectionProps = {
 type LoadStatus = "idle" | "loading" | "ready" | "error";
 
 const CHAT_COMPOSER_FOCUS_REQUESTED_EVENT = "chat-composer-focus-requested";
+const COMMAND_CENTER_SELECTOR = "[data-operator-command-center]";
+const COMMAND_CENTER_MENU_EDGE_GUTTER = 8;
+const COMMAND_CENTER_MENU_WIDTH = 596;
 
 type LiveToolRecord = {
   connector: ConnectorSummary;
@@ -126,6 +137,10 @@ type CommandSurfaceKeyEvent = {
   shiftKey: boolean;
   preventDefault: () => void;
 };
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
 
 function slashContextsEqual(
   left: SlashTokenContext | null,
@@ -199,6 +214,15 @@ export function ChatInputSection({
     useState<LoadStatus>("idle");
   const [liveTools, setLiveTools] = useState<LiveToolRecord[]>([]);
   const [liveToolsStatus, setLiveToolsStatus] = useState<LoadStatus>("idle");
+  const [commandCenterMenuStyle, setCommandCenterMenuStyle] =
+    useState<CSSProperties>(() => ({
+      left: COMMAND_CENTER_MENU_EDGE_GUTTER,
+      top: 40,
+      width: `min(${COMMAND_CENTER_MENU_WIDTH}px, calc(100vw - ${
+        COMMAND_CENTER_MENU_EDGE_GUTTER * 2
+      }px))`,
+      maxHeight: "min(74vh, 640px)",
+    }));
   const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
   const [pendingVimOperator, setPendingVimOperator] =
     useState<PendingVimOperator>(null);
@@ -316,6 +340,69 @@ export function ChatInputSection({
     },
     [enterInsertMode, inputRef],
   );
+
+  const commandCenterMenuOpen =
+    commandsMenuOpen && searchablePaletteMode && !inputLockedByCredential;
+
+  useLayoutEffect(() => {
+    if (!commandCenterMenuOpen || typeof window === "undefined") {
+      return;
+    }
+
+    const computePosition = () => {
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const availableWidth = Math.max(
+        1,
+        viewportWidth - COMMAND_CENTER_MENU_EDGE_GUTTER * 2,
+      );
+      const width = Math.min(COMMAND_CENTER_MENU_WIDTH, availableWidth);
+      const anchor = document.querySelector(COMMAND_CENTER_SELECTOR);
+      const anchorRect = anchor?.getBoundingClientRect();
+      const anchorCenter = anchorRect
+        ? anchorRect.left + anchorRect.width / 2
+        : viewportWidth / 2;
+      const left = clampNumber(
+        anchorCenter - width / 2,
+        COMMAND_CENTER_MENU_EDGE_GUTTER,
+        Math.max(
+          COMMAND_CENTER_MENU_EDGE_GUTTER,
+          viewportWidth - width - COMMAND_CENTER_MENU_EDGE_GUTTER,
+        ),
+      );
+      const preferredTop = anchorRect ? anchorRect.bottom + 6 : 40;
+      const maxHeight = Math.min(
+        640,
+        Math.max(
+          240,
+          viewportHeight - preferredTop - COMMAND_CENTER_MENU_EDGE_GUTTER,
+        ),
+      );
+      const top = clampNumber(
+        preferredTop,
+        COMMAND_CENTER_MENU_EDGE_GUTTER,
+        Math.max(
+          COMMAND_CENTER_MENU_EDGE_GUTTER,
+          viewportHeight - maxHeight - COMMAND_CENTER_MENU_EDGE_GUTTER,
+        ),
+      );
+
+      setCommandCenterMenuStyle({
+        left,
+        top,
+        width,
+        maxHeight,
+      });
+    };
+
+    computePosition();
+    window.addEventListener("resize", computePosition);
+    window.addEventListener("scroll", computePosition, true);
+    return () => {
+      window.removeEventListener("resize", computePosition);
+      window.removeEventListener("scroll", computePosition, true);
+    };
+  }, [commandCenterMenuOpen]);
 
   const handleComposerWrapperMouseDown = useCallback(
     (event: MouseEvent<HTMLDivElement>) => {
@@ -1830,6 +1917,62 @@ export function ChatInputSection({
   const modelLabel =
     modelOptions.find((option) => option.value === selectedModel)?.label ??
     (selectedModel || "Agent");
+  const commandMenu =
+    commandsMenuOpen && !inputLockedByCredential ? (
+      <CommandMenu
+        sections={actionSections}
+        mode={searchablePaletteMode ? "palette" : "slash"}
+        placement={searchablePaletteMode ? "command-center" : "composer"}
+        style={searchablePaletteMode ? commandCenterMenuStyle : undefined}
+        ariaLabel={toolPaletteMode ? "Tool picker" : undefined}
+        selectedItemId={activeHighlightedItemId}
+        onHighlightItem={setHighlightedItemId}
+        searchQuery={searchablePaletteMode ? commandPaletteQuery : undefined}
+        searchPlaceholder={
+          toolPaletteMode
+            ? "Select a tool"
+            : "Search commands, sessions, live tools, and skills"
+        }
+        onSearchKeyDown={
+          searchablePaletteMode
+            ? (event) => {
+                void handleCommandSurfaceKeyDown(event);
+              }
+            : undefined
+        }
+        onSearchQueryChange={
+          searchablePaletteMode ? setCommandPaletteQuery : undefined
+        }
+        emptyState={
+          commandQuery
+            ? `No ${toolPaletteMode ? "tools" : "commands or skills"} match "${
+                searchablePaletteMode
+                  ? commandPaletteQuery
+                  : slashContext?.query ?? ""
+              }".`
+            : toolPaletteMode
+              ? "No tools are available right now."
+              : "No commands available right now."
+        }
+      />
+    ) : null;
+  const commandCenterMenuPortal =
+    commandCenterMenuOpen && commandMenu && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className="spot-command-center-menu-overlay"
+            data-inspection-target="operator-command-center-menu"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                dismissCommandSurface(false);
+              }
+            }}
+          >
+            {commandMenu}
+          </div>,
+          document.body,
+        )
+      : null;
 
   return (
     <div
@@ -1838,6 +1981,7 @@ export function ChatInputSection({
       }`}
       data-inspection-target="operator-chat-composer"
     >
+      {commandCenterMenuPortal}
       <div className="spot-input-wrapper" onMouseDown={handleComposerWrapperMouseDown}>
         {planMode ? (
           <div className="spot-plan-mode-banner">
@@ -1856,44 +2000,7 @@ export function ChatInputSection({
           </div>
         ) : null}
 
-        {commandsMenuOpen && !inputLockedByCredential ? (
-          <CommandMenu
-            sections={actionSections}
-            mode={searchablePaletteMode ? "palette" : "slash"}
-            ariaLabel={toolPaletteMode ? "Tool picker" : undefined}
-            selectedItemId={activeHighlightedItemId}
-            onHighlightItem={setHighlightedItemId}
-            searchQuery={searchablePaletteMode ? commandPaletteQuery : undefined}
-            searchPlaceholder={
-              toolPaletteMode
-                ? "Select a tool"
-                : "Search commands, sessions, live tools, and skills"
-            }
-            onSearchKeyDown={
-              searchablePaletteMode
-                ? (event) => {
-                    void handleCommandSurfaceKeyDown(event);
-                  }
-                : undefined
-            }
-            onSearchQueryChange={
-              searchablePaletteMode ? setCommandPaletteQuery : undefined
-            }
-            emptyState={
-              commandQuery
-                ? `No ${
-                    toolPaletteMode ? "tools" : "commands or skills"
-                  } match "${
-                    searchablePaletteMode
-                      ? commandPaletteQuery
-                      : slashContext?.query ?? ""
-                  }".`
-                : toolPaletteMode
-                  ? "No tools are available right now."
-                  : "No commands available right now."
-            }
-          />
-        ) : null}
+        {!commandCenterMenuOpen ? commandMenu : null}
 
         {inputLockedByCredential ? (
           <ChatInputControls

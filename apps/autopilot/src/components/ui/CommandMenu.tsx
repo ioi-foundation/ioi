@@ -2,6 +2,7 @@ import {
   useEffect,
   useRef,
   type ChangeEvent,
+  type CSSProperties,
   type KeyboardEvent,
   type ReactNode,
 } from "react";
@@ -29,6 +30,7 @@ type CommandMenuProps = {
   sections: CommandMenuSection[];
   emptyState?: string;
   mode?: "slash" | "palette";
+  placement?: "composer" | "command-center";
   selectedItemId?: string | null;
   onHighlightItem?: (itemId: string) => void;
   ariaLabel?: string;
@@ -36,12 +38,14 @@ type CommandMenuProps = {
   searchQuery?: string;
   onSearchQueryChange?: (value: string) => void;
   onSearchKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
+  style?: CSSProperties;
 };
 
 export function CommandMenu({
   sections,
   emptyState = "No commands match that filter.",
   mode = "slash",
+  placement = "composer",
   selectedItemId = null,
   onHighlightItem,
   ariaLabel,
@@ -49,10 +53,12 @@ export function CommandMenu({
   searchQuery = "",
   onSearchQueryChange,
   onSearchKeyDown,
+  style,
 }: CommandMenuProps) {
   const visibleSections = sections.filter((section) => section.items.length > 0);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const commandPaletteMode = mode === "palette";
+  const commandCenterPlacement = placement === "command-center";
 
   useEffect(() => {
     if (!selectedItemId || !menuRef.current) {
@@ -70,7 +76,8 @@ export function CommandMenu({
       ref={menuRef}
       className={`spot-slash-menu ${
         commandPaletteMode ? "spot-slash-menu--palette" : ""
-      }`}
+      } ${commandCenterPlacement ? "spot-slash-menu--command-center" : ""}`}
+      style={style}
       onClick={(event) => event.stopPropagation()}
       role="menu"
       aria-label={

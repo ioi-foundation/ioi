@@ -326,10 +326,18 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
   assert.doesNotMatch(chatInputControls, /onClick=\{onToggleAutoContext\}/);
   assert.match(chatInputSection, /activeDropdown === "tools"/);
   assert.match(chatInputSection, /const toolPaletteMode = commandSurfaceMode === "tools"/);
+  assert.match(chatInputSection, /COMMAND_CENTER_SELECTOR = "\[data-operator-command-center\]"/);
+  assert.match(chatInputSection, /useLayoutEffect\(\(\) => \{/);
+  assert.match(chatInputSection, /createPortal\(/);
+  assert.match(chatInputSection, /data-inspection-target="operator-command-center-menu"/);
+  assert.match(chatInputSection, /placement=\{searchablePaletteMode \? "command-center" : "composer"\}/);
   assert.match(chatInputSection, /searchPlaceholder=\{[\s\S]*\? "Select a tool"/);
   assert.match(chatInputSection, /ariaLabel=\{toolPaletteMode \? "Tool picker"/);
   assert.match(chatInputSection, /id: "tool-manage-capabilities"/);
   assert.match(commandMenus, /\.spot-slash-menu--palette \.spot-slash-menu-search/);
+  assert.match(commandMenus, /\.spot-command-center-menu-overlay/);
+  assert.match(commandMenus, /\.spot-slash-menu--command-center/);
+  assert.match(commandMenus, /position: fixed/);
   assert.match(commandMenus, /border-radius: 6px/);
   assert.match(commandMenus, /background: #242424/);
   assert.match(commandMenus, /background: #075486/);

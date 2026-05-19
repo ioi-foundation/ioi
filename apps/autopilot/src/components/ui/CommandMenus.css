@@ -462,6 +462,27 @@
   -webkit-backdrop-filter: none;
 }
 
+.spot-command-center-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  background: transparent;
+}
+
+.spot-slash-menu--command-center {
+  position: fixed;
+  right: auto;
+  bottom: auto;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  z-index: 1301;
+  border: 1px solid #3f3f46;
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.46),
+    0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
 .spot-slash-menu--palette .spot-slash-menu-header {
   gap: 6px;
   padding: 0;
@@ -492,6 +513,11 @@
   gap: 2px;
   max-height: min(372px, 52vh);
   padding: 6px 0 0;
+}
+
+.spot-slash-menu--command-center .spot-slash-menu-scroll {
+  min-height: 0;
+  max-height: none;
 }
 
 .spot-slash-menu--palette .spot-slash-section {
