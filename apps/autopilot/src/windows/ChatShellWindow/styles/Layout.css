@@ -82,6 +82,24 @@ body.chat-session-shell-host,
 }
 
 .spot-window.spot-window--chat {
+  --spot-bg-primary: #000000;
+  --spot-bg-secondary: #181818;
+  --spot-bg-tertiary: #000000;
+  --spot-bg-elevated: #1f1f1f;
+  --spot-bg-surface: #000000;
+  --spot-border: rgba(255, 255, 255, 0.58);
+  --spot-border-subtle: rgba(255, 255, 255, 0.2);
+  --spot-border-strong: rgba(255, 255, 255, 0.72);
+  --spot-border-focus: #0098ff;
+  --spot-text-primary: #ffffff;
+  --spot-text-secondary: rgba(255, 255, 255, 0.86);
+  --spot-text-muted: rgba(255, 255, 255, 0.68);
+  --spot-text-dim: rgba(255, 255, 255, 0.58);
+  --spot-accent: #0098ff;
+  --spot-accent-hover: #33adff;
+  --spot-accent-muted: #0098ff;
+  --spot-accent-glow: rgba(0, 152, 255, 0.22);
+  --spot-accent-subtle: rgba(0, 152, 255, 0.12);
   width: 100%;
   height: 100%;
   justify-content: stretch;

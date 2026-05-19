@@ -26,7 +26,7 @@ use url::Url;
 const OPENVSCODE_VERSION: &str = "1.109.5";
 const OPENVSCODE_BOOT_TIMEOUT: Duration = Duration::from_secs(90);
 const OPENVSCODE_AUTOPILOT_CHROME_PATCH_MARKER: &str =
-    "/* IOI Autopilot owns OpenVSCode command center chrome */";
+    "/* IOI Autopilot owns OpenVSCode command center and chat chrome v2 */";
 
 #[derive(Default)]
 pub struct WorkspaceIdeManager {
@@ -400,7 +400,7 @@ fn ensure_openvscode_stylesheet_chrome_patch(stylesheet_path: &Path) -> Result<(
     stylesheet.push_str(
         r#"
 
-/* IOI Autopilot owns OpenVSCode command center chrome */
+/* IOI Autopilot owns OpenVSCode command center and chat chrome v2 */
 .monaco-workbench .part.titlebar > .titlebar-container > .titlebar-center,
 .monaco-workbench .part.titlebar > .titlebar-container > .titlebar-center > .window-title > .command-center,
 .monaco-workbench .part.titlebar .command-center {
@@ -420,6 +420,33 @@ fn ensure_openvscode_stylesheet_chrome_patch(stylesheet_path: &Path) -> Result<(
 
 .monaco-workbench .part.titlebar > .titlebar-container.has-center > .titlebar-right {
   margin-left: auto !important;
+}
+
+/* Autopilot renders the canonical operator chat pane outside the embedded
+   OpenVSCode webview, so native auxiliary chat chrome must stay suppressed. */
+.monaco-workbench .part.auxiliarybar,
+.monaco-workbench .part.auxiliarybar.right,
+.monaco-workbench .auxiliarybar,
+.monaco-workbench .auxiliarybar.right,
+.monaco-workbench .part.auxiliarybar .composite.title,
+.monaco-workbench .part.auxiliarybar .pane-composite-part,
+.monaco-workbench .part.auxiliarybar .pane-header,
+.monaco-workbench .part.auxiliarybar [aria-label="Chat"],
+.monaco-workbench .part.auxiliarybar [id*="chat"],
+.monaco-workbench .part.auxiliarybar [class*="chat"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.monaco-workbench .part.auxiliarybar,
+.monaco-workbench .part.auxiliarybar.right,
+.monaco-workbench .auxiliarybar,
+.monaco-workbench .auxiliarybar.right {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  flex-basis: 0 !important;
 }
 "#,
     );
@@ -591,6 +618,10 @@ fn ensure_openvscode_user_settings(user_data_dir: &Path) -> Result<(), String> {
         Value::Bool(false),
     );
     settings.insert(
+        "workbench.secondarySideBar.defaultVisibility".to_string(),
+        Value::Bool(false),
+    );
+    settings.insert(
         "workbench.welcomePage.walkthroughs.openOnInstall".to_string(),
         Value::Bool(false),
     );
@@ -678,6 +709,8 @@ fn openvscode_user_config_owned(user_data_dir: &Path) -> bool {
         .map(|settings| {
             settings.get("window.commandCenter") == Some(&Value::Bool(false))
                 && settings.get("workbench.layoutControl.enabled") == Some(&Value::Bool(false))
+                && settings.get("workbench.secondarySideBar.defaultVisibility")
+                    == Some(&Value::Bool(false))
         })
         .unwrap_or(false);
 
@@ -1122,6 +1155,10 @@ mod tests {
             settings.get("workbench.layoutControl.enabled"),
             Some(&Value::Bool(false))
         );
+        assert_eq!(
+            settings.get("workbench.secondarySideBar.defaultVisibility"),
+            Some(&Value::Bool(false))
+        );
 
         let keybindings = fs::read_to_string(user_data_dir.join("User").join("keybindings.json"))
             .expect("keybindings should be readable");
@@ -1203,6 +1240,7 @@ mod tests {
         );
         assert!(stylesheet.contains(".titlebar-center"));
         assert!(stylesheet.contains(".command-center"));
+        assert!(stylesheet.contains(".part.auxiliarybar"));
         assert!(stylesheet.contains("display: none !important"));
 
         let workbench_stylesheet = fs::read_to_string(&workbench_stylesheet_path)
@@ -1216,6 +1254,7 @@ mod tests {
         );
         assert!(workbench_stylesheet.contains(".titlebar-center"));
         assert!(workbench_stylesheet.contains(".command-center"));
+        assert!(workbench_stylesheet.contains(".part.auxiliarybar"));
         assert!(workbench_stylesheet.contains("display: none !important"));
 
         let _ = fs::remove_dir_all(install_root);

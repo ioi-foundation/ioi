@@ -63,10 +63,7 @@ import { ChatConversationSurface } from "../ChatShellWindow/components/ChatConve
 import { ChatConversationSidebar } from "../ChatShellWindow/components/ChatConversationSidebar";
 import { ChatArtifactSurface } from "../ChatShellWindow/components/ChatArtifactSurface";
 import { collectAvailableArtifacts } from "../ChatShellWindow/components/artifactConversationModel";
-import {
-  ChatConversationWelcome,
-  ChatRunStateCard,
-} from "../ChatShellWindow/components/ChatConversationPanels";
+import { ChatRunStateCard } from "../ChatShellWindow/components/ChatConversationPanels";
 import {
   CONTENT_PIPELINE_V2_ENABLED,
   modelOptions,
@@ -1145,12 +1142,111 @@ export function ChatShellWindow({
       onToggleArtifacts={handleToggleChatArtifacts}
     />
   ) : null;
+  const chatInputSectionNode = (
+    <ChatInputSection
+      inputRef={inputRef}
+      inputFocused={inputFocused}
+      setInputFocused={setInputFocused}
+      isDraggingFile={isDraggingFile}
+      inputLockedByCredential={inputLockedByCredential}
+      showPasswordPrompt={showPasswordPrompt}
+      task={task}
+      sessions={sessions}
+      intent={intent}
+      setIntent={setIntent}
+      onInputChange={handleInputChange}
+      onInputKeyDown={handleInputKeyDown}
+      autoContext={autoContext}
+      onToggleAutoContext={() => setAutoContext(!autoContext)}
+      isRunning={isRunning}
+      isGated={isGated}
+      onStop={() => stopAssistantSession().catch(console.error)}
+      onSubmit={handleSubmit}
+      onNewSession={isChatVariant ? handleChatNewSession : handleNewChat}
+      onLoadSession={(sessionId) => {
+        if (isChatVariant) {
+          handleChatSelectSession(sessionId);
+          return;
+        }
+        void handleLoadSession(sessionId);
+      }}
+      onOpenGate={() => {
+        void openCompanionGate();
+      }}
+      onOpenView={(view) => {
+        openRuntimeWorkbenchView(view);
+      }}
+      onSubmitClarification={(optionId, otherText) =>
+        handleSubmitClarification(optionId, otherText)
+      }
+      onOpenValidationEvidence={() => {
+        openRuntimeValidationEvidence();
+      }}
+      workspaceOptions={workspaceOptions}
+      workspaceMode={workspaceMode}
+      onSelectWorkspaceMode={setWorkspaceMode}
+      modelOptions={effectiveModelOptions}
+      selectedModel={effectiveSelectedModel}
+      onSelectModel={setSelectedModel}
+      planMode={planMode}
+      onTogglePlanMode={togglePlanMode}
+      artifactCount={activeArtifacts.length}
+      workerCount={Math.max(
+        runPresentation.planSummary?.workerCount ?? 0,
+        task?.work_graph_tree.length ?? 0,
+      )}
+      activeDropdown={activeDropdown}
+      setActiveDropdown={setActiveDropdown}
+      onOpenSettings={() => openChat("settings")}
+      placeholder={isChatVariant ? "Describe what to build next" : undefined}
+    />
+  );
+  const sharedChatEmptyState =
+    isChatVariant && !hasSessionContent && !showOverlaySessionChrome
+      ? {
+          icon: icons.chatSparkle,
+          title: "Build with Agent",
+          description: (
+            <>
+              AI responses may be inaccurate.
+              <br />
+              <button
+                type="button"
+                className="operator-chat-pane__inline-link"
+                onClick={() => {
+                  void handleSubmitText("Generate Agent Instructions");
+                }}
+              >
+                Generate Agent Instructions
+              </button>{" "}
+              to onboard AI onto your codebase.
+            </>
+          ),
+        }
+      : undefined;
+  const sharedChatSuggestedActions =
+    sharedChatEmptyState ? (
+      <>
+        {["Build Workspace", "Show Config"].map((prompt) => (
+          <button
+            key={prompt}
+            type="button"
+            onClick={() => {
+              void handleSubmitText(prompt);
+            }}
+          >
+            {prompt}
+          </button>
+        ))}
+      </>
+    ) : undefined;
+  const shouldUseSharedChatEmptyState = Boolean(sharedChatEmptyState);
 
   // ============================================
   // RENDER
   // ============================================
 
-  const conversationSurface = (
+  const conversationSurface = shouldUseSharedChatEmptyState ? null : (
     <div
       className={`${isChatVariant ? "spot-chat-conversation" : "spot-main"} ${
         chatArtifactVisible ? "is-artifact-open" : ""
@@ -1240,16 +1336,9 @@ export function ChatShellWindow({
       ) : null}
 
       <div className="spot-chat" ref={chatAreaRef}>
-        {!hasSessionContent &&
-          (isChatVariant ? (
-            <ChatConversationWelcome
-              onSuggestionClick={(text) => {
-                void handleSubmitText(text);
-              }}
-            />
-          ) : (
-            <IOIWatermark onSuggestionClick={(text) => setIntent(text)} />
-          ))}
+        {!hasSessionContent && !isChatVariant ? (
+          <IOIWatermark onSuggestionClick={(text) => setIntent(text)} />
+        ) : null}
 
         {CONTENT_PIPELINE_V2_ENABLED ? (
           <ConversationTimeline
@@ -1335,67 +1424,7 @@ export function ChatShellWindow({
         />
       ) : null}
 
-      <ChatInputSection
-        inputRef={inputRef}
-        inputFocused={inputFocused}
-        setInputFocused={setInputFocused}
-        isDraggingFile={isDraggingFile}
-        inputLockedByCredential={inputLockedByCredential}
-        showPasswordPrompt={showPasswordPrompt}
-        task={task}
-        sessions={sessions}
-        intent={intent}
-        setIntent={setIntent}
-        onInputChange={handleInputChange}
-        onInputKeyDown={handleInputKeyDown}
-        autoContext={autoContext}
-        onToggleAutoContext={() => setAutoContext(!autoContext)}
-        isRunning={isRunning}
-        isGated={isGated}
-        onStop={() => stopAssistantSession().catch(console.error)}
-        onSubmit={handleSubmit}
-        onNewSession={isChatVariant ? handleChatNewSession : handleNewChat}
-        onLoadSession={(sessionId) => {
-          if (isChatVariant) {
-            handleChatSelectSession(sessionId);
-            return;
-          }
-          void handleLoadSession(sessionId);
-        }}
-        onOpenGate={() => {
-          void openCompanionGate();
-        }}
-        onOpenView={(view) => {
-          openRuntimeWorkbenchView(view);
-        }}
-        onSubmitClarification={(optionId, otherText) =>
-          handleSubmitClarification(optionId, otherText)
-        }
-        onOpenValidationEvidence={() => {
-          openRuntimeValidationEvidence();
-        }}
-        workspaceOptions={workspaceOptions}
-        workspaceMode={workspaceMode}
-        onSelectWorkspaceMode={setWorkspaceMode}
-        modelOptions={effectiveModelOptions}
-        selectedModel={effectiveSelectedModel}
-        onSelectModel={setSelectedModel}
-        planMode={planMode}
-        onTogglePlanMode={togglePlanMode}
-        artifactCount={activeArtifacts.length}
-        workerCount={Math.max(
-          runPresentation.planSummary?.workerCount ?? 0,
-          task?.work_graph_tree.length ?? 0,
-        )}
-        activeDropdown={activeDropdown}
-        setActiveDropdown={setActiveDropdown}
-        onOpenSettings={() => openChat("settings")}
-        placeholder={
-          isChatVariant
-            ? "Describe what to build next"
-            : undefined
-        }
-      />
+      {!isChatVariant ? chatInputSectionNode : null}
     </div>
   );
 
@@ -1485,7 +1514,7 @@ export function ChatShellWindow({
     />
   );
 
-  const overlaySurface = (
+  const overlaySurface = shouldUseSharedChatEmptyState ? null : (
     <OverlayConversationSurface
       isChatVariant={isChatVariant}
       conversationContent={conversationSurface}
@@ -1542,6 +1571,9 @@ export function ChatShellWindow({
               }
               artifactDrawerAvailable={chatArtifactDrawerAvailable}
               conversationSurface={overlaySurface}
+              composer={chatInputSectionNode}
+              emptyState={sharedChatEmptyState}
+              suggestedActions={sharedChatSuggestedActions}
               onNewSession={handleChatNewSession}
               onOpenCommandPalette={() => {
                 setActiveDropdown("command_palette");

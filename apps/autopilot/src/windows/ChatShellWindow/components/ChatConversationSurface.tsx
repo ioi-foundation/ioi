@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
   OperatorChatPane,
+  type OperatorChatEmptyStateModel,
   type OperatorChatPaneAction,
   type OperatorChatPaneMode,
 } from "@ioi/workspace-substrate";
@@ -14,6 +15,9 @@ export function ChatConversationSurface({
   artifactDrawerVisible,
   artifactDrawerAvailable,
   conversationSurface,
+  composer,
+  emptyState,
+  suggestedActions,
   artifactDrawer,
   onNewSession,
   onOpenCommandPalette,
@@ -29,6 +33,9 @@ export function ChatConversationSurface({
   artifactDrawerVisible: boolean;
   artifactDrawerAvailable: boolean;
   conversationSurface: ReactNode;
+  composer?: ReactNode;
+  emptyState?: OperatorChatEmptyStateModel;
+  suggestedActions?: ReactNode;
   artifactDrawer: ReactNode;
   onNewSession: () => void;
   onOpenCommandPalette: () => void;
@@ -92,6 +99,9 @@ export function ChatConversationSurface({
       primaryActions={primaryActions}
       secondaryActions={secondaryActions}
       trailingControls={paneTrailingAction}
+      emptyState={emptyState}
+      suggestedActions={suggestedActions}
+      composer={composer}
       dataOperatorChatPane={mode}
       dataInspectionTarget="operator-chat-pane"
     >

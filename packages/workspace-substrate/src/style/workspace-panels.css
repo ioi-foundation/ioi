@@ -1321,6 +1321,22 @@
   line-height: 1.35;
 }
 
+.operator-chat-pane__inline-link {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--operator-chat-accent);
+  font: inherit;
+  line-height: inherit;
+  cursor: pointer;
+}
+
+.operator-chat-pane__inline-link:hover {
+  text-decoration: underline;
+}
+
 .operator-chat-pane__section-label {
   margin: 4px 0 0;
   color: var(--operator-chat-text-muted);
