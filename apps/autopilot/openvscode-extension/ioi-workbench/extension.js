@@ -480,6 +480,24 @@ function buildWorkbenchContextSnapshot(reason = "poll") {
 
 function buildWorkbenchInspectionTargetIndex(reason = "poll") {
   const activeEditor = vscode.window.activeTextEditor;
+  const openEditorTargets = vscode.window.tabGroups.all.flatMap((group, groupIndex) =>
+    group.tabs.map((tab, tabIndex) => ({
+      targetId: `editor.tab.${groupIndex}.${tabIndex}`,
+      label: tab.label,
+      surface: "editor",
+      locators: [
+        {
+          kind: "vscode-command",
+          commandId: "workbench.action.quickOpenPreviousRecentlyUsedEditorInGroup",
+        },
+        {
+          kind: "data-attribute",
+          selector: `.tabs-container .tab[aria-label*='${String(tab.label).replace(/'/g, "\\'")}']`,
+        },
+      ],
+      fallbackAllowed: true,
+    })),
+  );
   const activeEditorTarget = activeEditor
     ? [
         {
@@ -495,8 +513,41 @@ function buildWorkbenchInspectionTargetIndex(reason = "poll") {
           ],
           fallbackAllowed: true,
         },
+        {
+          targetId: "explorer.active-file",
+          label: `Explorer row for ${activeEditor.document.fileName}`,
+          surface: "explorer",
+          locators: [
+            {
+              kind: "vscode-command",
+              commandId: "revealInExplorer",
+            },
+            {
+              kind: "editor-range",
+              filePath: activeEditor.document.uri.fsPath,
+              range: toWorkbenchRange(activeEditor.selection),
+            },
+          ],
+          fallbackAllowed: true,
+        },
       ]
     : [];
+  const activeTaskTargets = (vscode.tasks.taskExecutions || []).map((execution, index) => ({
+    targetId: `task.active.${index}`,
+    label: execution.task?.name || "Active task",
+    surface: "problems",
+    locators: [
+      {
+        kind: "vscode-command",
+        commandId: "workbench.action.tasks.showLog",
+      },
+      {
+        kind: "vscode-command",
+        commandId: "workbench.action.terminal.toggleTerminal",
+      },
+    ],
+    fallbackAllowed: true,
+  }));
 
   return {
     schemaVersion: "ioi.workbench-integration.v1",
@@ -509,6 +560,29 @@ function buildWorkbenchInspectionTargetIndex(reason = "poll") {
     runtimeRefs: buildRuntimeRefs(),
     targets: [
       {
+        targetId: "command-center.autopilot-header",
+        label: "Autopilot header command center",
+        surface: "command-center",
+        locators: [
+          {
+            kind: "data-attribute",
+            selector: "[data-operator-command-center]",
+          },
+          {
+            kind: "aria",
+            accessibleName: "Search Autopilot, code, workflows, runs, and commands",
+          },
+        ],
+        fallbackAllowed: false,
+      },
+      {
+        targetId: "command-center.openvscode-disabled",
+        label: "OpenVSCode command center disabled",
+        surface: "command-center",
+        locators: [],
+        fallbackAllowed: false,
+      },
+      {
         targetId: "activity.ioi",
         label: "IOI activity rail",
         surface: "activity-rail",
@@ -520,6 +594,42 @@ function buildWorkbenchInspectionTargetIndex(reason = "poll") {
           {
             kind: "vscode-view",
             viewId: "ioi",
+          },
+        ],
+        fallbackAllowed: true,
+      },
+      {
+        targetId: "activity.explorer",
+        label: "Explorer activity",
+        surface: "activity-rail",
+        locators: [
+          {
+            kind: "vscode-command",
+            commandId: "workbench.view.explorer",
+          },
+        ],
+        fallbackAllowed: true,
+      },
+      {
+        targetId: "activity.search",
+        label: "Search activity",
+        surface: "activity-rail",
+        locators: [
+          {
+            kind: "vscode-command",
+            commandId: "workbench.view.search",
+          },
+        ],
+        fallbackAllowed: true,
+      },
+      {
+        targetId: "activity.scm",
+        label: "Source control activity",
+        surface: "activity-rail",
+        locators: [
+          {
+            kind: "vscode-command",
+            commandId: "workbench.view.scm",
           },
         ],
         fallbackAllowed: true,
@@ -561,6 +671,62 @@ function buildWorkbenchInspectionTargetIndex(reason = "poll") {
         fallbackAllowed: true,
       },
       {
+        targetId: "ioi.chat.action.build-workspace",
+        label: "Build Workspace action",
+        surface: "chat",
+        locators: [
+          {
+            kind: "data-attribute",
+            selector: "[data-bridge-request='workflow.codeGenerationRequest']",
+          },
+          {
+            kind: "aria",
+            accessibleName: "Build Workspace",
+          },
+        ],
+        fallbackAllowed: true,
+      },
+      {
+        targetId: "ioi.chat.action.show-config",
+        label: "Show Config action",
+        surface: "chat",
+        locators: [
+          {
+            kind: "data-attribute",
+            selector: "[data-bridge-request='chat.showConfig']",
+          },
+          {
+            kind: "aria",
+            accessibleName: "Show Config",
+          },
+        ],
+        fallbackAllowed: true,
+      },
+      {
+        targetId: "ioi.chat.action.new",
+        label: "New chat action",
+        surface: "chat",
+        locators: [
+          {
+            kind: "vscode-command",
+            commandId: "ioi.chat.new",
+          },
+        ],
+        fallbackAllowed: true,
+      },
+      {
+        targetId: "ioi.chat.action.settings",
+        label: "Chat settings action",
+        surface: "chat",
+        locators: [
+          {
+            kind: "vscode-command",
+            commandId: "ioi.chat.openSettings",
+          },
+        ],
+        fallbackAllowed: true,
+      },
+      {
         targetId: "explorer",
         label: "Explorer",
         surface: "explorer",
@@ -568,6 +734,50 @@ function buildWorkbenchInspectionTargetIndex(reason = "poll") {
           {
             kind: "vscode-command",
             commandId: "workbench.view.explorer",
+          },
+        ],
+        fallbackAllowed: true,
+      },
+      {
+        targetId: "workflow.list",
+        label: "IOI workflow list",
+        surface: "workflow",
+        locators: [
+          {
+            kind: "vscode-command",
+            commandId: "ioi.workflow.inspect",
+          },
+          {
+            kind: "vscode-view",
+            viewId: "ioi.workflows",
+          },
+        ],
+        fallbackAllowed: true,
+      },
+      {
+        targetId: "workflow.generate-code",
+        label: "Generate code proposal from workflow",
+        surface: "workflow",
+        locators: [
+          {
+            kind: "vscode-command",
+            commandId: "ioi.workflow.generateCode",
+          },
+        ],
+        fallbackAllowed: true,
+      },
+      {
+        targetId: "run.evidence.rows",
+        label: "IOI run and evidence rows",
+        surface: "run-evidence",
+        locators: [
+          {
+            kind: "vscode-command",
+            commandId: "ioi.runs.refresh",
+          },
+          {
+            kind: "vscode-view",
+            viewId: "ioi.runs",
           },
         ],
         fallbackAllowed: true,
@@ -585,6 +795,22 @@ function buildWorkbenchInspectionTargetIndex(reason = "poll") {
         fallbackAllowed: true,
       },
       {
+        targetId: "checks.tasks",
+        label: "Tasks and checks",
+        surface: "problems",
+        locators: [
+          {
+            kind: "vscode-command",
+            commandId: "workbench.action.tasks.runTask",
+          },
+          {
+            kind: "vscode-command",
+            commandId: "workbench.action.tasks.showLog",
+          },
+        ],
+        fallbackAllowed: true,
+      },
+      {
         targetId: "problems.panel",
         label: "Problems panel",
         surface: "problems",
@@ -596,7 +822,9 @@ function buildWorkbenchInspectionTargetIndex(reason = "poll") {
         ],
         fallbackAllowed: true,
       },
+      ...openEditorTargets,
       ...activeEditorTarget,
+      ...activeTaskTargets,
     ],
   };
 }
