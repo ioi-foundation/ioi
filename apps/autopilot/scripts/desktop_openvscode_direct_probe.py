@@ -418,9 +418,16 @@ def key(window_id: int, chord: str, *, settle_secs: float = CLICK_SETTLE_SECS) -
     time.sleep(settle_secs)
 
 
-def type_text(window_id: int, text: str, *, settle_secs: float = CLICK_SETTLE_SECS) -> None:
-    run(["xdotool", "windowactivate", str(window_id)], check=False, timeout=4.0)
-    time.sleep(0.2)
+def type_text(
+    window_id: int,
+    text: str,
+    *,
+    settle_secs: float = CLICK_SETTLE_SECS,
+    activate: bool = True,
+) -> None:
+    if activate:
+        run(["xdotool", "windowactivate", str(window_id)], check=False, timeout=4.0)
+        time.sleep(0.2)
     run(["xdotool", "type", text], check=False, timeout=10.0)
     time.sleep(settle_secs)
 
@@ -1084,6 +1091,34 @@ def main() -> int:
             raise RuntimeError("Autopilot activity bar chrome was not visibly retained.")
         if not containment["headerVisible"]:
             raise RuntimeError("Autopilot IDE header chrome was not visibly retained.")
+
+        composer_notification_dismissal = dismiss_transient_workbench_notifications(
+            target_window_id
+        )
+        composer_type_point = (0.82, 0.765)
+        typed_prompt = "probe prompt"
+        print("[openvscode-direct] interaction: native-chat-composer-type", flush=True)
+        x, y = surface_point(target_bounds, composer_type_point[0], composer_type_point[1])
+        composer_click = click_relative(target_window_id, x, y)
+        type_text(target_window_id, typed_prompt, settle_secs=0.8, activate=False)
+        composer_capture = capture_step(
+            target_window_id,
+            output_root,
+            "native-chat-composer-type",
+        )
+        steps.append(
+            {
+                "id": "native-chat-composer-type",
+                "click": composer_click,
+                "surfacePoint": {
+                    "xRatio": composer_type_point[0],
+                    "yRatio": composer_type_point[1],
+                },
+                "notificationDismissal": composer_notification_dismissal,
+                "typedPrompt": typed_prompt,
+                **composer_capture,
+            }
+        )
 
         proposal_before = list_workflow_code_proposals()
         build_workspace_point = (0.818, 0.647)

@@ -1343,6 +1343,9 @@ function renderChatView(state) {
             rows="2"
             placeholder="Describe what to build next"
             aria-label="Describe what to build next"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
           ></textarea>
           <div class="operator-chat-composer__controls">
             <button
@@ -2025,6 +2028,10 @@ function renderHtml(view, state) {
         background: transparent;
         color: var(--operator-chat-text);
         font: inherit;
+        cursor: text;
+        pointer-events: auto;
+        user-select: text;
+        -webkit-user-select: text;
       }
       .operator-chat-composer textarea::placeholder {
         color: var(--operator-chat-text-muted);
@@ -2167,6 +2174,29 @@ function renderHtml(view, state) {
       });
       const composer = document.querySelector("[data-chat-composer-form]");
       const composerInput = document.querySelector("[data-chat-composer-input]");
+      const focusComposerInput = () => {
+        if (!composerInput) {
+          return;
+        }
+        window.requestAnimationFrame(() => {
+          composerInput.focus({ preventScroll: true });
+        });
+      };
+      composer?.addEventListener("pointerdown", (event) => {
+        const target = event.target;
+        if (target?.closest?.("button,a,select,input")) {
+          return;
+        }
+        focusComposerInput();
+      });
+      composer?.addEventListener("click", (event) => {
+        const target = event.target;
+        if (target?.closest?.("button,a,select,input")) {
+          return;
+        }
+        focusComposerInput();
+      });
+      composerInput?.addEventListener("pointerdown", focusComposerInput);
       composer?.addEventListener("submit", (event) => {
         event.preventDefault();
         const prompt = composerInput?.value?.trim();
@@ -2206,6 +2236,7 @@ class IOIViewProvider {
     this.webviewView = webviewView;
     webviewView.webview.options = {
       enableScripts: true,
+      enableForms: true,
     };
     void this.render();
     webviewView.webview.onDidReceiveMessage(async (message) => {
