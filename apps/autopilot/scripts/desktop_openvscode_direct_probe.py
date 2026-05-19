@@ -394,6 +394,25 @@ def move_pointer_off_window() -> None:
     time.sleep(0.2)
 
 
+def open_workspace_from_activity_rail(window_id: int) -> dict[str, int]:
+    """Use the real shell rail to reveal Workspace before waiting on native logs."""
+    geometry = window_geometry(window_id)
+    x = 25
+    y = min(max(150, int(geometry.get("HEIGHT", 900) * 0.16)), geometry.get("HEIGHT", 900) - 24)
+    click = click_relative(window_id, x, y)
+    press_escape(window_id)
+    key(window_id, "ctrl+2", settle_secs=1.2)
+    return click
+
+
+def open_first_recent_repository(window_id: int) -> dict[str, int]:
+    """Open a real project from the Workspace repository picker."""
+    geometry = window_geometry(window_id)
+    x = max(1, min(geometry.get("WIDTH", 1280) - 1, int(geometry.get("WIDTH", 1280) * 0.935)))
+    y = max(1, min(geometry.get("HEIGHT", 650) - 1, int(geometry.get("HEIGHT", 650) * 0.66)))
+    return click_relative(window_id, x, y)
+
+
 def image_difference_metric(reference_path: Path, candidate_path: Path) -> str | None:
     if not reference_path.exists() or not candidate_path.exists():
         return None
@@ -671,6 +690,20 @@ def main() -> int:
             )
 
         focus_workspace_view(window_id)
+        steps.append(
+            {
+                "action": "open-workspace-from-activity-rail",
+                "click": open_workspace_from_activity_rail(window_id),
+            }
+        )
+        route_capture = capture_step(window_id, output_root, "after-workspace-route")
+        steps.append({"id": "after-workspace-route", **route_capture})
+        steps.append(
+            {
+                "action": "open-first-recent-repository",
+                "click": open_first_recent_repository(window_id),
+            }
+        )
         move_pointer_off_window()
         time.sleep(POST_WINDOW_SETTLE_SECS)
         surface = wait_for_surface_log(log_path)
@@ -939,20 +972,6 @@ def main() -> int:
             {"id": "activity-ioi", "point": (0.021, 0.545)},
             {"id": "activity-explorer", "point": (0.021, 0.135)},
             {"id": "explorer-context-menu", "point": (0.095, 0.165), "button": 3},
-            {"id": "toolbar-back", "point": (0.265, 0.026), "pre_escape": True},
-            {"id": "toolbar-forward", "point": (0.290, 0.026)},
-            {"id": "command-center-query", "point": (0.500, 0.026), "text": ">toggle panel"},
-            {
-                "id": "split-editor-command",
-                "point": (0.500, 0.026),
-                "command": "workbench.action.splitEditorRight",
-            },
-            {
-                "id": "bottom-panel-toggle",
-                "point": (0.925, 0.982),
-                "command": "workbench.action.togglePanel",
-                "pre_escape": True,
-            },
         ]
         for interaction in interactions:
             step_id = str(interaction["id"])

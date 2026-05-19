@@ -19,6 +19,8 @@ export type CodeAwareActionContext = {
     | "editor"
     | "explorer"
     | "workbench-view"
+    | "ioi.chat"
+    | "workflow-code-generation"
     | "workspace-runtime"
     | "artifact-source"
     | "artifact-render"
@@ -162,4 +164,35 @@ export function buildBrowserAutomationIntent(
   }
 
   return `Use governed browser/computer-use to validate or remediate ${scope}.`;
+}
+
+export function buildWorkflowCodeGenerationIntent(params: {
+  workflowRef?: string | null;
+  packageRef?: string | null;
+  goal?: string | null;
+  targetWorkspace?: string | null;
+  modelCapabilityRef?: string | null;
+  toolCapabilityRefs?: string[];
+  proposalOnly?: boolean;
+}) {
+  const workflowRef = params.workflowRef || "workflow:active";
+  const packageRef = params.packageRef || "package:active";
+  const targetWorkspace = params.targetWorkspace || "the active workspace";
+  const modelCapabilityRef = params.modelCapabilityRef || "model capability unbound";
+  const toolCapabilityRefs = params.toolCapabilityRefs?.length
+    ? params.toolCapabilityRefs.join(", ")
+    : "tool capabilities unbound";
+  const goal =
+    params.goal?.trim() ||
+    "Generate a proposal-first code change from the selected workflow.";
+  const mutationPosture = params.proposalOnly === false ? "review-gated" : "proposal-only";
+
+  return [
+    `Generate code from ${workflowRef} in ${targetWorkspace}.`,
+    `Package: ${packageRef}.`,
+    `Goal: ${goal}`,
+    `Model capability: ${modelCapabilityRef}.`,
+    `Tool capabilities: ${toolCapabilityRefs}.`,
+    `Mutation posture: ${mutationPosture}. Produce a bounded proposal, diff artifact, approval/check plan, and receipt trail before any apply.`,
+  ].join("\n");
 }

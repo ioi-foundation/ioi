@@ -33,9 +33,18 @@ test("native IOI chat title actions are contributed by the IOI extension", async
   const commands = new Set(
     (manifest.contributes?.commands || []).map((command) => command.command),
   );
+  const chatContainer = manifest.contributes?.viewsContainers?.secondarySidebar?.find(
+    (container) => container.id === "ioi-chat",
+  );
+  const chatViews = manifest.contributes?.views?.["ioi-chat"] || [];
+
+  assert.equal(chatContainer?.title, " ");
+  assert.ok(chatViews.some((view) => view.id === "ioi.chat"));
   assert.ok(commands.has("ioi.chat.new"));
+  assert.ok(commands.has("ioi.chat.newOptions"));
   assert.ok(commands.has("ioi.chat.openSettings"));
   assert.ok(commands.has("ioi.chat.focusComposer"));
+  assert.ok(commands.has("ioi.chat.moreActions"));
 
   const titleCommands = new Set(
     (manifest.contributes?.menus?.["view/title"] || [])
@@ -43,8 +52,10 @@ test("native IOI chat title actions are contributed by the IOI extension", async
       .map((item) => item.command),
   );
   assert.ok(titleCommands.has("ioi.chat.new"));
+  assert.ok(titleCommands.has("ioi.chat.newOptions"));
   assert.ok(titleCommands.has("ioi.chat.openSettings"));
-  assert.ok(titleCommands.has("ioi.chat.focusComposer"));
+  assert.ok(titleCommands.has("ioi.chat.moreActions"));
+  assert.ok(!titleCommands.has("ioi.chat.focusComposer"));
 });
 
 test("native workbench context snapshots are projected to IOI runtime bridge", async () => {
@@ -70,6 +81,7 @@ test("native inspection target index prefers workbench refs before fallback", as
   assert.match(source, /indexId: "workbench-target-index:latest"/);
   assert.match(source, /targetId: "ioi\.chat"/);
   assert.match(source, /targetId: "ioi\.chat\.composer"/);
+  assert.match(source, /commandId: "workbench\.view\.extension\.ioi-chat"/);
   assert.match(source, /targetId: "editor\.active"/);
   assert.match(source, /kind: "vscode-command"/);
   assert.match(source, /kind: "vscode-view"/);
@@ -95,4 +107,19 @@ test("workflow code generation requests are proposal-first runtime projections",
   assert.match(source, /authorityScope: "workspace\.fs\.proposal"/);
   assert.match(source, /proposalOnly: true/);
   assert.match(source, /writeBridgeRequest\("workflow\.codeGenerationRequest"/);
+});
+
+test("native command routing emits IOI route receipts", async () => {
+  const source = await readFile(extensionSourcePath, "utf8");
+
+  assert.match(source, /function buildWorkbenchCommandRouteReceipt/);
+  assert.match(source, /requestType: "workbench\.commandRouteReceipt"/);
+  assert.match(source, /route: "ioi-runtime-action"/);
+  assert.match(source, /"editor-local"/);
+  assert.match(source, /route: "blocked"/);
+  assert.match(source, /runtimeTruthSource: "daemon-runtime"/);
+  assert.match(source, /projectionOwner: "openvscode-workbench-adapter"/);
+  assert.match(source, /ownsRuntimeState: false/);
+  assert.match(source, /isRuntimeActionRequestType\(requestType\)/);
+  assert.match(source, /writeWorkbenchCommandRouteReceipt/);
 });

@@ -192,6 +192,9 @@ test("workspace embedding defers global command center to ChatIdeHeader", () => 
   assert.match(workspaceDirectWebview, /bounds\.width\.min\(max_width\)/);
   assert.match(workspaceDirectWebview, /clamped child bounds/);
   assert.match(shellContent, /const workspaceOperatorChatPane/);
+  assert.match(shellContent, /workspaceUsesNativeWorkbenchChat/);
+  assert.match(shellContent, /workspaceHost === directWorkspaceWorkbenchHost/);
+  assert.match(shellContent, /workspaceHost === openVsCodeWorkbenchHost/);
   assert.match(shellContent, /operatorChatPane=\{workspaceOperatorChatPane\}/);
   assert.match(chatHeader, /data-operator-command-center/);
 });
@@ -348,6 +351,26 @@ test("embedded OpenVSCode defers global search to Autopilot chrome", () => {
   );
   assert.match(
     workspaceIde,
+    /"window\.customTitleBarVisibility"\.to_string\(\),\s*Value::String\("never"\.to_string\(\)\)/,
+  );
+  assert.match(
+    workspaceIde,
+    /"workbench\.navigationControl\.enabled"\.to_string\(\),\s*Value::Bool\(false\)/,
+  );
+  assert.match(
+    workspaceIde,
+    /"chat\.agentsControl\.enabled"\.to_string\(\),\s*Value::Bool\(false\)/,
+  );
+  assert.match(
+    workspaceIde,
+    /"chat\.unifiedAgentsBar\.enabled"\.to_string\(\),\s*Value::Bool\(false\)/,
+  );
+  assert.match(
+    workspaceIde,
+    /"workbench\.experimental\.share\.enabled"\.to_string\(\),\s*Value::Bool\(false\)/,
+  );
+  assert.match(
+    workspaceIde,
     /fn ensure_openvscode_user_keybindings[\s\S]*"-workbench\.action\.quickOpen"[\s\S]*"-workbench\.action\.showCommands"/,
   );
   assert.match(
@@ -356,15 +379,29 @@ test("embedded OpenVSCode defers global search to Autopilot chrome", () => {
   );
   assert.match(
     workspaceIde,
-    /OPENVSCODE_AUTOPILOT_CHROME_PATCH_MARKER[\s\S]*\.titlebar-center[\s\S]*\.command-center[\s\S]*display: none !important/,
+    /fn ensure_openvscode_legacy_shell_chrome_patch_removed[\s\S]*remove_openvscode_legacy_stylesheet_chrome_patch/,
   );
   assert.match(
     workspaceIde,
-    /OpenVSCode command center and chat chrome v2[\s\S]*Autopilot renders the canonical operator chat pane[\s\S]*\.part\.auxiliarybar/,
+    /fn ensure_openvscode_native_workbench_js_patch[\s\S]*patch_openvscode_native_workbench_js/,
   );
   assert.match(
     workspaceIde,
-    /"workbench\.secondarySideBar\.defaultVisibility"\.to_string\(\),\s*Value::Bool\(false\)/,
+    /OPENVSCODE_COMMAND_CENTER_GETTER_PATCHED:\s*&str\s*=\s*"get ec\(\)\{return!1\}"/,
+  );
+  assert.match(
+    workspaceIde,
+    /OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_PATCHED:[\s\S]*data-ioi-native-command-center-disabled/,
+  );
+  assert.match(
+    workspaceIde,
+    /patch_openvscode_native_workbench_js[\s\S]*OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_SOURCE[\s\S]*OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_PATCHED/,
+  );
+  assert.doesNotMatch(workspaceIde, /stylesheet\.push_str/);
+  assert.doesNotMatch(workspaceIde, /\.titlebar-center[\s\S]*display: none !important/);
+  assert.match(
+    workspaceIde,
+    /"workbench\.secondarySideBar\.defaultVisibility"\.to_string\(\),\s*Value::String\("visible"\.to_string\(\)\)/,
   );
   assert.match(
     workspaceIde,

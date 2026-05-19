@@ -25,8 +25,15 @@ use url::Url;
 
 const OPENVSCODE_VERSION: &str = "1.109.5";
 const OPENVSCODE_BOOT_TIMEOUT: Duration = Duration::from_secs(90);
-const OPENVSCODE_AUTOPILOT_CHROME_PATCH_MARKER: &str =
+const OPENVSCODE_AUTOPILOT_LEGACY_CHROME_PATCH_MARKER: &str =
     "/* IOI Autopilot owns OpenVSCode command center and chat chrome v2 */";
+const OPENVSCODE_AUTOPILOT_WORKBENCH_JS_PATCH_MARKER: &str =
+    "/* IOI Autopilot native workbench command center replacement v1 */";
+const OPENVSCODE_COMMAND_CENTER_GETTER_SOURCE: &str =
+    "get ec(){return!this.zb&&this.Eb.getValue(\"window.commandCenter\")!==!1}";
+const OPENVSCODE_COMMAND_CENTER_GETTER_PATCHED: &str = "get ec(){return!1}";
+const OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_SOURCE: &str = r#"JAt=class{constructor(e,t,i,n){this.a=new O,this.b=this.a.add(new E),this.onDidChangeVisibility=this.b.event,this.element=document.createElement("div"),this.element.classList.add("command-center");const o=i.createInstance(ur,this.element,I.CommandCenter,{contextMenu:I.TitleBarContext,hiddenItemStrategy:-1,toolbarOptions:{primaryGroup:()=>!0},telemetrySource:"commandCenter",actionViewItemProvider:(r,a)=>r instanceof cu&&r.item.submenu===I.CommandCenterCenter?i.createInstance(QAt,r,e,{...a,hoverDelegate:t}):Dc(i,r,{...a,hoverDelegate:t})});this.a.add(H.filter(n.onShow,()=>P2t(this.element),this.a)(this.c.bind(this,!1))),this.a.add(n.onHide(this.c.bind(this,!0))),this.a.add(o)}c(e){this.element.classList.toggle("hide",!e),this.b.fire()}dispose(){this.a.dispose()}}"#;
+const OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_PATCHED: &str = r#"JAt=class{constructor(e,t,i,n){this.a=new O,this.b=this.a.add(new E),this.onDidChangeVisibility=this.b.event,this.element=document.createElement("div"),this.element.classList.add("command-center","hide"),this.element.setAttribute("data-ioi-native-command-center-disabled","true")}c(e){this.element.classList.toggle("hide",!0),this.b.fire()}dispose(){this.a.dispose()}}"#;
 const OPENVSCODE_AUTOPILOT_NATIVE_PATCH_SCHEMA_VERSION: &str = "ioi.openvscode-managed-patch.v1";
 const OPENVSCODE_AUTOPILOT_NATIVE_PATCH_ID: &str =
     "openvscode-native-autopilot-contribution-replacement";
@@ -274,7 +281,8 @@ fn ensure_openvscode_installation<R: Runtime>(app: &AppHandle<R>) -> Result<Path
     let binary_path = install_binary_path(app)?;
     if binary_path.exists() {
         ensure_openvscode_native_patch_manifest(&binary_path)?;
-        ensure_openvscode_shell_chrome_patch(&binary_path)?;
+        ensure_openvscode_native_workbench_js_patch(&binary_path)?;
+        ensure_openvscode_legacy_shell_chrome_patch_removed(&binary_path)?;
         return Ok(binary_path);
     }
 
@@ -347,7 +355,8 @@ fn ensure_openvscode_installation<R: Runtime>(app: &AppHandle<R>) -> Result<Path
     }
 
     ensure_openvscode_native_patch_manifest(&binary_path)?;
-    ensure_openvscode_shell_chrome_patch(&binary_path)?;
+    ensure_openvscode_native_workbench_js_patch(&binary_path)?;
+    ensure_openvscode_legacy_shell_chrome_patch_removed(&binary_path)?;
 
     Ok(binary_path)
 }
@@ -389,22 +398,23 @@ fn openvscode_native_patch_manifest(install_root: &Path) -> Value {
                 "kind": "contribution-replacement",
                 "target": "chat.disableAIFeatures + chat.agent.enabled + chat.viewSessions.enabled",
                 "status": "installed-profile-gate",
-                "temporaryCompatibility": true,
-                "temporaryCompatibilityMechanism": "managed-profile-feature-gate-plus-stylesheet-suppression"
+                "temporaryCompatibility": false,
+                "mechanism": "managed-profile-feature-gate"
             },
             {
                 "id": "disable-upstream-command-center",
-                "kind": "profile-default",
-                "target": "window.commandCenter",
-                "status": "installed",
-                "temporaryCompatibility": true,
-                "temporaryCompatibilityMechanism": "settings-keybinding-and-stylesheet-suppression"
+                "kind": "native-workbench-patch",
+                "target": "TitlebarPart.commandCenter getter + CommandCenter contribution renderer + managed profile keybindings",
+                "status": "installed-native-workbench-overlay",
+                "temporaryCompatibility": false,
+                "mechanism": "managed-workbench-js-contribution-noop-and-profile-keybinding",
+                "patchMarker": OPENVSCODE_AUTOPILOT_WORKBENCH_JS_PATCH_MARKER
             },
             {
                 "id": "install-ioi-workbench-contribution",
                 "kind": "extension-contribution",
-                "target": "ioi.ioi-workbench",
-                "status": "installed",
+                "target": "ioi.ioi-workbench secondarySidebar/ioi-chat",
+                "status": "installed-native-chat-container",
                 "temporaryCompatibility": false
             },
             {
@@ -429,6 +439,81 @@ fn openvscode_native_patch_manifest(install_root: &Path) -> Value {
                 "temporaryCompatibility": false
             }
         ]
+    })
+}
+
+fn ensure_openvscode_native_workbench_js_patch(binary_path: &Path) -> Result<(), String> {
+    let install_root = openvscode_install_root_from_binary(binary_path)?;
+    let workbench_script_path = install_root
+        .join("out")
+        .join("vs")
+        .join("code")
+        .join("browser")
+        .join("workbench")
+        .join("workbench.js");
+    patch_openvscode_native_workbench_js(&workbench_script_path)
+}
+
+fn patch_openvscode_native_workbench_js(workbench_script_path: &Path) -> Result<(), String> {
+    let script = fs::read_to_string(workbench_script_path).map_err(|error| {
+        format!(
+            "Failed to read OpenVSCode workbench script '{}': {}",
+            workbench_script_path.display(),
+            error
+        )
+    })?;
+
+    let mut next_script = script;
+    if !next_script.contains(OPENVSCODE_COMMAND_CENTER_GETTER_PATCHED) {
+        if next_script.contains(OPENVSCODE_COMMAND_CENTER_GETTER_SOURCE) {
+            next_script = next_script.replace(
+                OPENVSCODE_COMMAND_CENTER_GETTER_SOURCE,
+                OPENVSCODE_COMMAND_CENTER_GETTER_PATCHED,
+            );
+        } else {
+            return Err(format!(
+                "Failed to locate OpenVSCode command-center getter in '{}'. Expected OpenVSCode {} bundle shape.",
+                workbench_script_path.display(),
+                OPENVSCODE_VERSION
+            ));
+        }
+    }
+
+    if !next_script.contains(OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_PATCHED) {
+        if next_script.contains(OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_SOURCE) {
+            next_script = next_script.replace(
+                OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_SOURCE,
+                OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_PATCHED,
+            );
+        } else {
+            return Err(format!(
+                "Failed to locate OpenVSCode CommandCenter contribution renderer in '{}'. Expected OpenVSCode {} bundle shape.",
+                workbench_script_path.display(),
+                OPENVSCODE_VERSION
+            ));
+        }
+    }
+
+    if !next_script.contains(OPENVSCODE_AUTOPILOT_WORKBENCH_JS_PATCH_MARKER) {
+        next_script = format!(
+            "{}\n{}",
+            OPENVSCODE_AUTOPILOT_WORKBENCH_JS_PATCH_MARKER, next_script
+        );
+    }
+
+    if fs::read_to_string(workbench_script_path)
+        .map(|existing| existing == next_script)
+        .unwrap_or(false)
+    {
+        return Ok(());
+    }
+
+    fs::write(workbench_script_path, next_script).map_err(|error| {
+        format!(
+            "Failed to write OpenVSCode native workbench command-center patch '{}': {}",
+            workbench_script_path.display(),
+            error
+        )
     })
 }
 
@@ -471,7 +556,7 @@ fn ensure_openvscode_native_patch_manifest(binary_path: &Path) -> Result<(), Str
     })
 }
 
-fn ensure_openvscode_shell_chrome_patch(binary_path: &Path) -> Result<(), String> {
+fn ensure_openvscode_legacy_shell_chrome_patch_removed(binary_path: &Path) -> Result<(), String> {
     let install_root = openvscode_install_root_from_binary(binary_path)?;
     let stylesheet_paths = [
         install_root
@@ -489,14 +574,14 @@ fn ensure_openvscode_shell_chrome_patch(binary_path: &Path) -> Result<(), String
     ];
 
     for stylesheet_path in stylesheet_paths {
-        ensure_openvscode_stylesheet_chrome_patch(&stylesheet_path)?;
+        remove_openvscode_legacy_stylesheet_chrome_patch(&stylesheet_path)?;
     }
 
     Ok(())
 }
 
-fn ensure_openvscode_stylesheet_chrome_patch(stylesheet_path: &Path) -> Result<(), String> {
-    let mut stylesheet = fs::read_to_string(&stylesheet_path).map_err(|error| {
+fn remove_openvscode_legacy_stylesheet_chrome_patch(stylesheet_path: &Path) -> Result<(), String> {
+    let stylesheet = fs::read_to_string(&stylesheet_path).map_err(|error| {
         format!(
             "Failed to read OpenVSCode shell stylesheet '{}': {}",
             stylesheet_path.display(),
@@ -504,67 +589,19 @@ fn ensure_openvscode_stylesheet_chrome_patch(stylesheet_path: &Path) -> Result<(
         )
     })?;
 
-    if stylesheet.contains(OPENVSCODE_AUTOPILOT_CHROME_PATCH_MARKER) {
+    let Some(marker_start) = stylesheet.find(OPENVSCODE_AUTOPILOT_LEGACY_CHROME_PATCH_MARKER)
+    else {
         return Ok(());
+    };
+
+    let mut cleaned = stylesheet[..marker_start].trim_end().to_string();
+    if !cleaned.is_empty() {
+        cleaned.push('\n');
     }
 
-    stylesheet.push_str(
-        r#"
-
-/* IOI Autopilot owns OpenVSCode command center and chat chrome v2 */
-.monaco-workbench .part.titlebar > .titlebar-container > .titlebar-center,
-.monaco-workbench .part.titlebar > .titlebar-container > .titlebar-center > .window-title > .command-center,
-.monaco-workbench .part.titlebar .command-center {
-  display: none !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
-}
-
-.monaco-workbench .part.titlebar > .titlebar-container.has-center {
-  grid-template-columns: minmax(0, 1fr) auto !important;
-}
-
-.monaco-workbench .part.titlebar > .titlebar-container.has-center > .titlebar-left {
-  flex: 1 1 auto !important;
-  max-width: none !important;
-}
-
-.monaco-workbench .part.titlebar > .titlebar-container.has-center > .titlebar-right {
-  margin-left: auto !important;
-}
-
-/* Autopilot renders the canonical operator chat pane outside the embedded
-   OpenVSCode webview, so native auxiliary chat chrome must stay suppressed. */
-.monaco-workbench .part.auxiliarybar,
-.monaco-workbench .part.auxiliarybar.right,
-.monaco-workbench .auxiliarybar,
-.monaco-workbench .auxiliarybar.right,
-.monaco-workbench .part.auxiliarybar .composite.title,
-.monaco-workbench .part.auxiliarybar .pane-composite-part,
-.monaco-workbench .part.auxiliarybar .pane-header,
-.monaco-workbench .part.auxiliarybar [aria-label="Chat"],
-.monaco-workbench .part.auxiliarybar [id*="chat"],
-.monaco-workbench .part.auxiliarybar [class*="chat"] {
-  display: none !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
-}
-
-.monaco-workbench .part.auxiliarybar,
-.monaco-workbench .part.auxiliarybar.right,
-.monaco-workbench .auxiliarybar,
-.monaco-workbench .auxiliarybar.right {
-  width: 0 !important;
-  min-width: 0 !important;
-  max-width: 0 !important;
-  flex-basis: 0 !important;
-}
-"#,
-    );
-
-    fs::write(&stylesheet_path, stylesheet).map_err(|error| {
+    fs::write(&stylesheet_path, cleaned).map_err(|error| {
         format!(
-            "Failed to patch OpenVSCode shell stylesheet '{}': {}",
+            "Failed to remove OpenVSCode legacy shell stylesheet patch '{}': {}",
             stylesheet_path.display(),
             error
         )
@@ -725,18 +762,35 @@ fn ensure_openvscode_user_settings(user_data_dir: &Path) -> Result<(), String> {
     );
     settings.insert("window.commandCenter".to_string(), Value::Bool(false));
     settings.insert(
+        "window.customTitleBarVisibility".to_string(),
+        Value::String("never".to_string()),
+    );
+    settings.insert(
         "workbench.layoutControl.enabled".to_string(),
         Value::Bool(false),
     );
     settings.insert(
-        "workbench.secondarySideBar.defaultVisibility".to_string(),
+        "workbench.navigationControl.enabled".to_string(),
         Value::Bool(false),
+    );
+    settings.insert(
+        "workbench.secondarySideBar.defaultVisibility".to_string(),
+        Value::String("visible".to_string()),
     );
     settings.insert("chat.disableAIFeatures".to_string(), Value::Bool(true));
     settings.insert("chat.agent.enabled".to_string(), Value::Bool(false));
+    settings.insert("chat.agentsControl.enabled".to_string(), Value::Bool(false));
+    settings.insert(
+        "chat.unifiedAgentsBar.enabled".to_string(),
+        Value::Bool(false),
+    );
     settings.insert("chat.viewSessions.enabled".to_string(), Value::Bool(false));
     settings.insert(
         "chat.agentSessionProjection.enabled".to_string(),
+        Value::Bool(false),
+    );
+    settings.insert(
+        "workbench.experimental.share.enabled".to_string(),
         Value::Bool(false),
     );
     settings.insert(
@@ -826,13 +880,19 @@ fn openvscode_user_config_owned(user_data_dir: &Path) -> bool {
         .and_then(|value| value.as_object().cloned())
         .map(|settings| {
             settings.get("window.commandCenter") == Some(&Value::Bool(false))
+                && settings.get("window.customTitleBarVisibility")
+                    == Some(&Value::String("never".to_string()))
                 && settings.get("workbench.layoutControl.enabled") == Some(&Value::Bool(false))
+                && settings.get("workbench.navigationControl.enabled") == Some(&Value::Bool(false))
                 && settings.get("workbench.secondarySideBar.defaultVisibility")
-                    == Some(&Value::Bool(false))
+                    == Some(&Value::String("visible".to_string()))
                 && settings.get("chat.disableAIFeatures") == Some(&Value::Bool(true))
                 && settings.get("chat.agent.enabled") == Some(&Value::Bool(false))
+                && settings.get("chat.agentsControl.enabled") == Some(&Value::Bool(false))
+                && settings.get("chat.unifiedAgentsBar.enabled") == Some(&Value::Bool(false))
                 && settings.get("chat.viewSessions.enabled") == Some(&Value::Bool(false))
                 && settings.get("chat.agentSessionProjection.enabled") == Some(&Value::Bool(false))
+                && settings.get("workbench.experimental.share.enabled") == Some(&Value::Bool(false))
         })
         .unwrap_or(false);
 
@@ -1205,11 +1265,16 @@ pub fn take_workspace_ide_bridge_requests<R: Runtime>(
 #[cfg(test)]
 mod tests {
     use super::{
-        ensure_openvscode_native_patch_manifest, ensure_openvscode_shell_chrome_patch,
+        ensure_openvscode_legacy_shell_chrome_patch_removed,
+        ensure_openvscode_native_patch_manifest, ensure_openvscode_native_workbench_js_patch,
         ensure_openvscode_user_keybindings, ensure_openvscode_user_settings,
         openvscode_native_patch_manifest, openvscode_user_config_owned,
-        OPENVSCODE_AUTOPILOT_CHROME_PATCH_MARKER, OPENVSCODE_AUTOPILOT_NATIVE_PATCH_ID,
+        OPENVSCODE_AUTOPILOT_LEGACY_CHROME_PATCH_MARKER, OPENVSCODE_AUTOPILOT_NATIVE_PATCH_ID,
         OPENVSCODE_AUTOPILOT_NATIVE_PATCH_SCHEMA_VERSION,
+        OPENVSCODE_AUTOPILOT_WORKBENCH_JS_PATCH_MARKER,
+        OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_PATCHED,
+        OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_SOURCE, OPENVSCODE_COMMAND_CENTER_GETTER_PATCHED,
+        OPENVSCODE_COMMAND_CENTER_GETTER_SOURCE,
     };
     use serde_json::Value;
     use std::fs;
@@ -1254,6 +1319,15 @@ mod tests {
             ".monaco-workbench .part.titlebar { display: flex; }\n",
         )
         .expect("OpenVSCode workbench stylesheet should be written");
+        fs::write(
+            workbench_dir.join("workbench.js"),
+            format!(
+                "var nFe=class{{{}Xb(){{this.vb.clear()}}}};{};\n",
+                OPENVSCODE_COMMAND_CENTER_GETTER_SOURCE,
+                OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_SOURCE
+            ),
+        )
+        .expect("OpenVSCode workbench script should be written");
         binary
     }
 
@@ -1276,12 +1350,20 @@ mod tests {
             Some(&Value::Bool(false))
         );
         assert_eq!(
+            settings.get("window.customTitleBarVisibility"),
+            Some(&Value::String("never".to_string()))
+        );
+        assert_eq!(
             settings.get("workbench.layoutControl.enabled"),
             Some(&Value::Bool(false))
         );
         assert_eq!(
-            settings.get("workbench.secondarySideBar.defaultVisibility"),
+            settings.get("workbench.navigationControl.enabled"),
             Some(&Value::Bool(false))
+        );
+        assert_eq!(
+            settings.get("workbench.secondarySideBar.defaultVisibility"),
+            Some(&Value::String("visible".to_string()))
         );
         assert_eq!(
             settings.get("chat.disableAIFeatures"),
@@ -1292,11 +1374,23 @@ mod tests {
             Some(&Value::Bool(false))
         );
         assert_eq!(
+            settings.get("chat.agentsControl.enabled"),
+            Some(&Value::Bool(false))
+        );
+        assert_eq!(
+            settings.get("chat.unifiedAgentsBar.enabled"),
+            Some(&Value::Bool(false))
+        );
+        assert_eq!(
             settings.get("chat.viewSessions.enabled"),
             Some(&Value::Bool(false))
         );
         assert_eq!(
             settings.get("chat.agentSessionProjection.enabled"),
+            Some(&Value::Bool(false))
+        );
+        assert_eq!(
+            settings.get("workbench.experimental.share.enabled"),
             Some(&Value::Bool(false))
         );
 
@@ -1346,6 +1440,23 @@ mod tests {
             &fs::read_to_string(&settings_path).expect("settings should be readable"),
         )
         .expect("settings should be json");
+        settings["workbench.navigationControl.enabled"] = Value::Bool(true);
+        fs::write(
+            &settings_path,
+            serde_json::to_string_pretty(&settings).expect("settings should serialize"),
+        )
+        .expect("settings mutation should be written");
+        assert!(
+            !openvscode_user_config_owned(&user_data_dir),
+            "stale OpenVSCode sessions must relaunch when navigation controls can re-enable command center chrome"
+        );
+
+        ensure_openvscode_user_settings(&user_data_dir)
+            .expect("OpenVSCode settings should restore managed navigation posture");
+        let mut settings: Value = serde_json::from_str(
+            &fs::read_to_string(&settings_path).expect("settings should be readable"),
+        )
+        .expect("settings should be json");
         settings["chat.disableAIFeatures"] = Value::Bool(false);
         fs::write(
             &settings_path,
@@ -1357,12 +1468,46 @@ mod tests {
             "stale OpenVSCode sessions must relaunch when upstream native chat is re-enabled"
         );
 
+        ensure_openvscode_user_settings(&user_data_dir)
+            .expect("OpenVSCode settings should restore managed chat posture");
+        let mut settings: Value = serde_json::from_str(
+            &fs::read_to_string(&settings_path).expect("settings should be readable"),
+        )
+        .expect("settings should be json");
+        settings["chat.agentsControl.enabled"] = Value::Bool(true);
+        fs::write(
+            &settings_path,
+            serde_json::to_string_pretty(&settings).expect("settings should serialize"),
+        )
+        .expect("settings mutation should be written");
+        assert!(
+            !openvscode_user_config_owned(&user_data_dir),
+            "stale OpenVSCode sessions must relaunch when upstream agent controls can re-enable command center chrome"
+        );
+
+        ensure_openvscode_user_settings(&user_data_dir)
+            .expect("OpenVSCode settings should restore managed chat posture");
+        let mut settings: Value = serde_json::from_str(
+            &fs::read_to_string(&settings_path).expect("settings should be readable"),
+        )
+        .expect("settings should be json");
+        settings["window.customTitleBarVisibility"] = Value::String("windowed".to_string());
+        fs::write(
+            &settings_path,
+            serde_json::to_string_pretty(&settings).expect("settings should serialize"),
+        )
+        .expect("settings mutation should be written");
+        assert!(
+            !openvscode_user_config_owned(&user_data_dir),
+            "stale OpenVSCode sessions must relaunch when upstream titlebar chrome is visible"
+        );
+
         let _ = fs::remove_dir_all(user_data_dir);
     }
 
     #[test]
-    fn openvscode_shell_chrome_patch_hides_embedded_command_center() {
-        let binary_path = temp_openvscode_binary("command-center-shell-patch");
+    fn openvscode_legacy_shell_chrome_patch_is_removed() {
+        let binary_path = temp_openvscode_binary("legacy-command-center-shell-patch");
         let install_root = binary_path
             .parent()
             .and_then(Path::parent)
@@ -1380,39 +1525,80 @@ mod tests {
             .join("browser")
             .join("workbench")
             .join("workbench.css");
+        fs::write(
+            &stylesheet_path,
+            format!(
+                ".monaco-workbench .part.titlebar {{ color: inherit; }}\n\n{}\n.legacy {{ display: none !important; }}\n",
+                OPENVSCODE_AUTOPILOT_LEGACY_CHROME_PATCH_MARKER
+            ),
+        )
+        .expect("legacy stylesheet patch should be seeded");
+        fs::write(
+            &workbench_stylesheet_path,
+            format!(
+                ".monaco-workbench .part.titlebar {{ display: flex; }}\n\n{}\n.legacy {{ visibility: hidden !important; }}\n",
+                OPENVSCODE_AUTOPILOT_LEGACY_CHROME_PATCH_MARKER
+            ),
+        )
+        .expect("legacy workbench stylesheet patch should be seeded");
 
-        ensure_openvscode_shell_chrome_patch(&binary_path)
-            .expect("OpenVSCode command center shell chrome patch should apply");
-        ensure_openvscode_shell_chrome_patch(&binary_path)
-            .expect("OpenVSCode command center shell chrome patch should be idempotent");
+        ensure_openvscode_legacy_shell_chrome_patch_removed(&binary_path)
+            .expect("OpenVSCode legacy shell chrome patch should be removed");
+        ensure_openvscode_legacy_shell_chrome_patch_removed(&binary_path)
+            .expect("OpenVSCode legacy shell chrome patch removal should be idempotent");
 
         let stylesheet =
             fs::read_to_string(&stylesheet_path).expect("stylesheet should be readable");
-        assert_eq!(
-            stylesheet
-                .matches(OPENVSCODE_AUTOPILOT_CHROME_PATCH_MARKER)
-                .count(),
-            1,
-            "the shell patch should be applied once"
-        );
-        assert!(stylesheet.contains(".titlebar-center"));
-        assert!(stylesheet.contains(".command-center"));
-        assert!(stylesheet.contains(".part.auxiliarybar"));
-        assert!(stylesheet.contains("display: none !important"));
+        assert!(!stylesheet.contains(OPENVSCODE_AUTOPILOT_LEGACY_CHROME_PATCH_MARKER));
+        assert!(!stylesheet.contains(".legacy"));
+        assert!(stylesheet.contains(".part.titlebar"));
 
         let workbench_stylesheet = fs::read_to_string(&workbench_stylesheet_path)
             .expect("workbench stylesheet should be readable");
-        assert_eq!(
-            workbench_stylesheet
-                .matches(OPENVSCODE_AUTOPILOT_CHROME_PATCH_MARKER)
-                .count(),
-            1,
-            "the live workbench stylesheet patch should be applied once"
+        assert!(!workbench_stylesheet.contains(OPENVSCODE_AUTOPILOT_LEGACY_CHROME_PATCH_MARKER));
+        assert!(!workbench_stylesheet.contains(".legacy"));
+        assert!(workbench_stylesheet.contains(".part.titlebar"));
+
+        let _ = fs::remove_dir_all(install_root);
+    }
+
+    #[test]
+    fn openvscode_native_workbench_js_patch_disables_command_center_getter() {
+        let binary_path = temp_openvscode_binary("native-command-center-workbench-js-patch");
+        let install_root = binary_path
+            .parent()
+            .and_then(Path::parent)
+            .expect("test binary should have install root")
+            .to_path_buf();
+        let workbench_script_path = install_root
+            .join("out")
+            .join("vs")
+            .join("code")
+            .join("browser")
+            .join("workbench")
+            .join("workbench.js");
+
+        ensure_openvscode_native_workbench_js_patch(&binary_path)
+            .expect("OpenVSCode native workbench command-center patch should be applied");
+        let first = fs::read_to_string(&workbench_script_path)
+            .expect("workbench script should be readable");
+        ensure_openvscode_native_workbench_js_patch(&binary_path)
+            .expect("OpenVSCode native workbench command-center patch should be idempotent");
+        let second = fs::read_to_string(&workbench_script_path)
+            .expect("workbench script should be readable");
+
+        assert_eq!(first, second);
+        assert!(first.contains(OPENVSCODE_AUTOPILOT_WORKBENCH_JS_PATCH_MARKER));
+        assert!(first.contains(OPENVSCODE_COMMAND_CENTER_GETTER_PATCHED));
+        assert!(first.contains(OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_PATCHED));
+        assert!(!first.contains(OPENVSCODE_COMMAND_CENTER_GETTER_SOURCE));
+        assert!(!first.contains(OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_SOURCE));
+        assert!(!first.contains("i.createInstance(ur,this.element,I.CommandCenter"));
+        assert!(first.contains("data-ioi-native-command-center-disabled"));
+        assert!(
+            first.starts_with(OPENVSCODE_AUTOPILOT_WORKBENCH_JS_PATCH_MARKER),
+            "native patch marker should make managed workbench overlays auditable"
         );
-        assert!(workbench_stylesheet.contains(".titlebar-center"));
-        assert!(workbench_stylesheet.contains(".command-center"));
-        assert!(workbench_stylesheet.contains(".part.auxiliarybar"));
-        assert!(workbench_stylesheet.contains("display: none !important"));
 
         let _ = fs::remove_dir_all(install_root);
     }
@@ -1478,8 +1664,8 @@ mod tests {
             upstream_chat_step
                 .get("temporaryCompatibility")
                 .and_then(Value::as_bool),
-            Some(true),
-            "the manifest should keep current CSS/profile suppression explicit as a temporary shim"
+            Some(false),
+            "upstream Chat replacement should be profile/contribution-owned, not CSS-owned"
         );
 
         let manifest_text =
@@ -1515,7 +1701,7 @@ mod tests {
         assert_eq!(first, second);
         assert!(first.contains(OPENVSCODE_AUTOPILOT_NATIVE_PATCH_SCHEMA_VERSION));
         assert!(first.contains("disable-upstream-chat-contribution"));
-        assert!(first.contains("temporaryCompatibilityMechanism"));
+        assert!(first.contains("managed-profile-feature-gate"));
 
         let _ = fs::remove_dir_all(install_root);
     }

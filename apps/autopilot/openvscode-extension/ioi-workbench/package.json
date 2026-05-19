@@ -34,6 +34,13 @@
   ],
   "contributes": {
     "viewsContainers": {
+      "secondarySidebar": [
+        {
+          "id": "ioi-chat",
+          "title": " ",
+          "icon": "media/ioi-activity.svg"
+        }
+      ],
       "activitybar": [
         {
           "id": "ioi",
@@ -43,12 +50,14 @@
       ]
     },
     "views": {
-      "ioi": [
+      "ioi-chat": [
         {
           "type": "webview",
           "id": "ioi.chat",
           "name": "Chat"
-        },
+        }
+      ],
+      "ioi": [
         {
           "type": "webview",
           "id": "ioi.workflows",
@@ -84,6 +93,12 @@
         "icon": "$(plus)"
       },
       {
+        "command": "ioi.chat.newOptions",
+        "title": "IOI: New Chat Options",
+        "category": "IOI",
+        "icon": "$(chevron-down)"
+      },
+      {
         "command": "ioi.chat.openSettings",
         "title": "IOI: Chat Settings",
         "category": "IOI",
@@ -94,6 +109,12 @@
         "title": "IOI: Focus Chat Composer",
         "category": "IOI",
         "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "ioi.chat.moreActions",
+        "title": "IOI: More Chat Actions",
+        "category": "IOI",
+        "icon": "$(ellipsis)"
       },
       {
         "command": "ioi.chat.explainSelection",
@@ -173,10 +194,16 @@
           "command": "ioi.chat.new"
         },
         {
+          "command": "ioi.chat.newOptions"
+        },
+        {
           "command": "ioi.chat.openSettings"
         },
         {
           "command": "ioi.chat.focusComposer"
+        },
+        {
+          "command": "ioi.chat.moreActions"
         },
         {
           "command": "ioi.chat.explainSelection"
@@ -228,12 +255,17 @@
           "group": "navigation@1"
         },
         {
+          "command": "ioi.chat.newOptions",
+          "when": "view == ioi.chat",
+          "group": "navigation@1.1"
+        },
+        {
           "command": "ioi.chat.openSettings",
           "when": "view == ioi.chat",
           "group": "navigation@2"
         },
         {
-          "command": "ioi.chat.focusComposer",
+          "command": "ioi.chat.moreActions",
           "when": "view == ioi.chat",
           "group": "navigation@3"
         },
