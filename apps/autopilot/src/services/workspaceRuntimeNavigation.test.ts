@@ -32,6 +32,18 @@ test("native workflow code-generation requests become proposal-first runtime int
   assert.match(workspaceRuntimeNavigation, /case "workflow\.codeGenerationRequest"/);
   assert.match(
     workspaceRuntimeNavigation,
+    /materializeWorkflowCodeGenerationProposal\(\{[\s\S]*targetWorkspace:/,
+  );
+  assert.match(
+    workspaceRuntimeNavigation,
+    /bridge_request_artifact_materialized/,
+  );
+  assert.match(
+    workspaceRuntimeNavigation,
+    /bridge_request_artifact_materialization_failed/,
+  );
+  assert.match(
+    workspaceRuntimeNavigation,
     /openRuntimeWorkflowCodeGeneration\(runtime,\s*\{[\s\S]*proposalOnly:/,
   );
   assert.match(runtimeChatNavigation, /export async function openRuntimeWorkflowCodeGeneration/);

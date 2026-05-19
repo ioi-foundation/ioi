@@ -907,12 +907,23 @@ function renderChatView(state) {
     "Local: qwen3.5:9b";
   const contextLabel = state.chat?.contextLabel || "Add Context...";
   const modeLabel = state.chat?.modeLabel || "Auto";
+  const targetWorkspace = state.workspace?.path || workspaceSummary().path;
   const suggestedActions = Array.isArray(state.chat?.suggestedActions)
     ? state.chat.suggestedActions
     : [
         {
           label: "Build Workspace",
-          requestType: "workflow.materializeProject",
+          requestType: "workflow.codeGenerationRequest",
+          payload: {
+            workflowRef: "workflow:active",
+            packageRef: "package:active",
+            goal: "Generate a proposal-first code change from the active workspace prompt.",
+            boundModelCapabilityRef: "model-capability:unbound",
+            boundToolCapabilityRefs: ["tool-capability:workspace.fs.proposal"],
+            targetWorkspace,
+            authorityScope: "workspace.fs.proposal",
+            proposalOnly: true,
+          },
         },
         {
           label: "Show Config",

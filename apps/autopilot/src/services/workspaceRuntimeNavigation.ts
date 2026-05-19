@@ -16,6 +16,7 @@ import {
   openRuntimeWorkflowCodeGeneration,
   openRuntimeWorkflowView,
 } from "./runtimeChatNavigation";
+import { materializeWorkflowCodeGenerationProposal } from "./workflowCodeGenerationProposal";
 
 type WorkspaceMetricRecorder = (
   name: string,
@@ -161,6 +162,37 @@ export async function routeWorkspaceBridgeRequest(
       return;
     }
     case "workflow.codeGenerationRequest":
+      try {
+        const proposal = await materializeWorkflowCodeGenerationProposal({
+          requestId: readString(request.payload, "requestId"),
+          requestedAtMs:
+            typeof request.payload.requestedAtMs === "number"
+              ? request.payload.requestedAtMs
+              : null,
+          workflowRef: readString(request.payload, "workflowRef"),
+          packageRef: readString(request.payload, "packageRef"),
+          goal: readString(request.payload, "goal"),
+          targetWorkspace: readString(request.payload, "targetWorkspace"),
+          modelCapabilityRef: readString(request.payload, "boundModelCapabilityRef"),
+          toolCapabilityRefs: readStringArray(request.payload, "boundToolCapabilityRefs"),
+          authorityScope: readString(request.payload, "authorityScope"),
+          evalProfileRef: readString(request.payload, "evalProfileRef"),
+          proposalOnly: readBoolean(request.payload, "proposalOnly") ?? true,
+        });
+        recordMetric?.("bridge_request_artifact_materialized", {
+          requestId: request.requestId,
+          requestType: request.requestType,
+          proposalRootPath: proposal.proposalRootPath,
+          receiptPath: proposal.receiptPath,
+          status: proposal.status,
+        });
+      } catch (error) {
+        recordMetric?.("bridge_request_artifact_materialization_failed", {
+          requestId: request.requestId,
+          requestType: request.requestType,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
       await openRuntimeWorkflowCodeGeneration(runtime, {
         workflowRef: readString(request.payload, "workflowRef"),
         packageRef: readString(request.payload, "packageRef"),

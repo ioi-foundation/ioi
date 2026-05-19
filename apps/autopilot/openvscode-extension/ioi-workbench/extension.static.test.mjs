@@ -15,6 +15,11 @@ test("native IOI chat view renders the canonical operator chat pane shell", asyn
   assert.match(source, /data-inspection-target="native-ioi-chat-composer"/);
   assert.match(source, /Generate Agent Instructions/);
   assert.match(source, /Build Workspace/);
+  assert.match(
+    source,
+    /label: "Build Workspace",[\s\S]*requestType: "workflow\.codeGenerationRequest"/,
+  );
+  assert.match(source, /targetWorkspace/);
   assert.match(source, /Show Config/);
   assert.match(source, /requestType: "chat\.submit"/);
 });
