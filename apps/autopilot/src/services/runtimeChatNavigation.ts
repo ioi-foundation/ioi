@@ -6,6 +6,7 @@ import {
   buildExplainSelectionIntent,
   buildReviewFileIntent,
   buildRunReviewIntent,
+  buildWorkflowCodeGenerationIntent,
   type CodeAwareActionContext,
 } from "./codeAwareActionContext";
 
@@ -96,4 +97,23 @@ export async function openRuntimeBrowserAutomation(
   context: CodeAwareActionContext | null | undefined,
 ) {
   await runtime.openChatAutopilotIntent(buildBrowserAutomationIntent(context));
+}
+
+export async function openRuntimeChatPrompt(runtime: TauriRuntime, prompt: string) {
+  await runtime.openChatAutopilotIntent(prompt);
+}
+
+export async function openRuntimeWorkflowCodeGeneration(
+  runtime: TauriRuntime,
+  params: {
+    workflowRef?: string | null;
+    packageRef?: string | null;
+    goal?: string | null;
+    targetWorkspace?: string | null;
+    modelCapabilityRef?: string | null;
+    toolCapabilityRefs?: string[];
+    proposalOnly?: boolean;
+  },
+) {
+  await runtime.openChatAutopilotIntent(buildWorkflowCodeGenerationIntent(params));
 }

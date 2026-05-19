@@ -20,7 +20,11 @@ import { HomeView } from "../../../surfaces/Home";
 import { ChatLeftUtilityPane } from "./ChatLeftUtilityPane";
 import { ChatUtilityDrawer } from "./ChatUtilityDrawer";
 import { WorkspaceShell } from "../../../surfaces/Workspace";
-import { getDefaultWorkspaceWorkbenchHost } from "../../../services/workspaceWorkbenchHostRegistry";
+import {
+  directWorkspaceWorkbenchHost,
+  getDefaultWorkspaceWorkbenchHost,
+  openVsCodeWorkbenchHost,
+} from "../../../services/workspaceWorkbenchHostRegistry";
 import { buildOperatorCommandCenterModel } from "../operatorSubstrateModel";
 import { materializeWorkflowProject } from "../../../services/workflowProjectMaterialization";
 
@@ -36,6 +40,9 @@ export function AutopilotShellContent({
   const { activeView, currentProject, projects, notificationBadgeCount } =
     controller;
   const workspaceHost = getDefaultWorkspaceWorkbenchHost();
+  const workspaceUsesNativeWorkbenchChat =
+    workspaceHost === directWorkspaceWorkbenchHost ||
+    workspaceHost === openVsCodeWorkbenchHost;
   const workspaceActive = activeView === "workspace";
   const workflowActive = activeView === "workflows";
   const mountsActive = activeView === "mounts";
@@ -69,7 +76,9 @@ export function AutopilotShellContent({
     ? 560
     : 360;
   const workspaceOperatorChatPane =
-    workspaceActive && !workspaceChatDismissed ? (
+    workspaceActive &&
+    !workspaceUsesNativeWorkbenchChat &&
+    !workspaceChatDismissed ? (
       <ChatLeftUtilityPane
         surface={controller.chat.surface}
         session={controller.chat.assistantWorkbench}

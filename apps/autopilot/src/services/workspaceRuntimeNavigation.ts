@@ -5,6 +5,7 @@ import { openArtifactReviewTarget } from "./reviewNavigation";
 import {
   openRuntimeArtifactReview,
   openRuntimeBrowserAutomation,
+  openRuntimeChatPrompt,
   openRuntimeCodeSelectionReview,
   openRuntimeConnectionsOverview,
   openRuntimeEvidenceSession,
@@ -12,6 +13,7 @@ import {
   openRuntimePolicyView,
   openRuntimeRunsView,
   openRuntimeRunReview,
+  openRuntimeWorkflowCodeGeneration,
   openRuntimeWorkflowView,
 } from "./runtimeChatNavigation";
 
@@ -26,6 +28,24 @@ function readString(
 ): string | null {
   const value = source?.[key];
   return typeof value === "string" ? value : null;
+}
+
+function readBoolean(
+  source: Record<string, unknown> | undefined,
+  key: string,
+): boolean | null {
+  const value = source?.[key];
+  return typeof value === "boolean" ? value : null;
+}
+
+function readStringArray(
+  source: Record<string, unknown> | undefined,
+  key: string,
+): string[] {
+  const value = source?.[key];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
 }
 
 export function readWorkspaceActionContext(
@@ -94,6 +114,71 @@ export async function routeWorkspaceBridgeRequest(
   });
 
   switch (request.requestType) {
+    case "workbench.contextSnapshot":
+      recordMetric?.("bridge_request_handled", {
+        requestId: request.requestId,
+        requestType: request.requestType,
+        routedTo: "workbench.context-snapshot",
+        workspaceRoot: readString(request.payload, "workspaceRoot"),
+      });
+      return;
+    case "workbench.inspectionTargetIndex":
+      recordMetric?.("bridge_request_handled", {
+        requestId: request.requestId,
+        requestType: request.requestType,
+        routedTo: "workbench.inspection-target-index",
+        targetCount: Array.isArray(request.payload.targets)
+          ? request.payload.targets.length
+          : 0,
+      });
+      return;
+    case "workbench.commandRouteReceipt":
+      recordMetric?.("bridge_request_handled", {
+        requestId: request.requestId,
+        requestType: request.requestType,
+        routedTo: "workbench.command-route-receipt",
+        commandId: readString(request.payload, "commandId"),
+        route: readString(request.payload, "route"),
+        status: readString(request.payload, "status"),
+      });
+      return;
+    case "chat.submit": {
+      const prompt = readString(request.payload, "prompt");
+      if (!prompt) {
+        recordMetric?.("bridge_request_ignored", {
+          requestId: request.requestId,
+          requestType: request.requestType,
+          reason: "missing_prompt",
+        });
+        return;
+      }
+      await openRuntimeChatPrompt(runtime, prompt);
+      recordMetric?.("bridge_request_handled", {
+        requestId: request.requestId,
+        requestType: request.requestType,
+        routedTo: "chat.intent.native-workbench-submit",
+      });
+      return;
+    }
+    case "workflow.codeGenerationRequest":
+      await openRuntimeWorkflowCodeGeneration(runtime, {
+        workflowRef: readString(request.payload, "workflowRef"),
+        packageRef: readString(request.payload, "packageRef"),
+        goal: readString(request.payload, "goal"),
+        targetWorkspace: readString(request.payload, "targetWorkspace"),
+        modelCapabilityRef: readString(request.payload, "boundModelCapabilityRef"),
+        toolCapabilityRefs: readStringArray(request.payload, "boundToolCapabilityRefs"),
+        proposalOnly: readBoolean(request.payload, "proposalOnly") ?? true,
+      });
+      recordMetric?.("bridge_request_handled", {
+        requestId: request.requestId,
+        requestType: request.requestType,
+        routedTo: "chat.intent.workflow-code-generation",
+        workflowRef: readString(request.payload, "workflowRef"),
+        packageRef: readString(request.payload, "packageRef"),
+        proposalOnly: readBoolean(request.payload, "proposalOnly") ?? true,
+      });
+      return;
     case "chat.explainSelection": {
       const filePath = readString(request.payload, "filePath") ?? context?.filePath ?? null;
       const selectedText =

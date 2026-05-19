@@ -208,6 +208,54 @@ function buildRuntimeRefs() {
   };
 }
 
+function hashRef(prefix, value) {
+  const stableValue = typeof value === "string" ? value : JSON.stringify(value || {});
+  return `${prefix}:${crypto.createHash("sha256").update(stableValue).digest("hex").slice(0, 16)}`;
+}
+
+function isRuntimeActionRequestType(requestType) {
+  return /^(chat|workflow|runs|policy|evidence|connections|automation|settings)\./.test(
+    requestType,
+  );
+}
+
+function buildWorkbenchCommandRouteReceipt({
+  commandId,
+  route,
+  status = "routed",
+  context = null,
+  reason = null,
+  actionProposalRef = null,
+}) {
+  return {
+    schemaVersion: "ioi.workbench-integration.v1",
+    receiptId: `workbench-command-route:${crypto.randomUUID()}`,
+    runtimeTruthSource: "daemon-runtime",
+    projectionOwner: "openvscode-workbench-adapter",
+    ownsRuntimeState: false,
+    commandId,
+    routedAtMs: Date.now(),
+    route,
+    contextRef: context ? hashRef("workbench-context", context) : null,
+    actionProposalRef,
+    status,
+    reason,
+    runtimeRefs: buildRuntimeRefs(),
+  };
+}
+
+async function writeWorkbenchCommandRouteReceipt(receipt, context = null) {
+  const request = {
+    requestId: crypto.randomUUID(),
+    requestType: "workbench.commandRouteReceipt",
+    context,
+    payload: receipt,
+    timestampMs: Date.now(),
+  };
+  await requestBridge("POST", "requests", request);
+  return request;
+}
+
 function diagnosticSeverityLabel(severity) {
   switch (severity) {
     case vscode.DiagnosticSeverity.Error:
@@ -394,6 +442,10 @@ function buildWorkbenchInspectionTargetIndex(reason = "poll") {
         label: "Autopilot Chat",
         surface: "chat",
         locators: [
+          {
+            kind: "vscode-command",
+            commandId: "workbench.view.extension.ioi-chat",
+          },
           {
             kind: "vscode-view",
             viewId: "ioi.chat",
@@ -604,7 +656,42 @@ function startBridgeCommandPolling(context, output) {
         output.appendLine(
           `Executing bridge command ${bridgeCommand.command} (${bridgeCommand.commandId || "no-id"}).`,
         );
-        await vscode.commands.executeCommand(bridgeCommand.command, ...args);
+        try {
+          await vscode.commands.executeCommand(bridgeCommand.command, ...args);
+          await writeWorkbenchCommandRouteReceipt(
+            buildWorkbenchCommandRouteReceipt({
+              commandId: bridgeCommand.command,
+              route: bridgeCommand.command.startsWith("ioi.")
+                ? "ioi-runtime-action"
+                : "editor-local",
+              status: "routed",
+              context: bridgeCommand,
+            }),
+            {
+              source: "ioi-workbench-command-poll",
+              commandId: bridgeCommand.commandId || bridgeCommand.command,
+            },
+          ).catch((error) => {
+            output.appendLine(
+              `Bridge command route receipt failed: ${error?.message || String(error)}`,
+            );
+          });
+        } catch (error) {
+          await writeWorkbenchCommandRouteReceipt(
+            buildWorkbenchCommandRouteReceipt({
+              commandId: bridgeCommand.command,
+              route: "blocked",
+              status: "failed",
+              context: bridgeCommand,
+              reason: error?.message || String(error),
+            }),
+            {
+              source: "ioi-workbench-command-poll",
+              commandId: bridgeCommand.commandId || bridgeCommand.command,
+            },
+          ).catch(() => undefined);
+          throw error;
+        }
       }
     } catch (error) {
       console.error("[IOI Workbench] Failed to execute bridge command:", error);
@@ -627,6 +714,32 @@ async function writeBridgeRequest(requestType, payload = {}, context = null) {
     timestampMs: Date.now(),
   };
   await requestBridge("POST", "requests", request);
+  if (isRuntimeActionRequestType(requestType)) {
+    const commandId =
+      context?.sourceCommand ||
+      payload?.sourceCommand ||
+      payload?.commandId ||
+      requestType;
+    await writeWorkbenchCommandRouteReceipt(
+      buildWorkbenchCommandRouteReceipt({
+        commandId,
+        route: "ioi-runtime-action",
+        status: "routed",
+        context: {
+          requestId: request.requestId,
+          requestType,
+          ...(context || {}),
+        },
+      }),
+      {
+        source: "ioi-workbench",
+        originalRequestId: request.requestId,
+        requestType,
+      },
+    ).catch((error) => {
+      console.error("[IOI Workbench] Failed to write command route receipt:", error);
+    });
+  }
   return request;
 }
 
@@ -1616,6 +1729,14 @@ function registerNativeCommands(context, output) {
       }, context);
       status("Queued new IOI Chat thread.");
     }),
+    vscode.commands.registerCommand("ioi.chat.newOptions", async () => {
+      const context = buildWorkspaceActionContext("ioi.chat");
+      await writeBridgeRequest("chat.newOptions", {
+        workspaceRoot: workspaceSummary().path,
+        options: ["new-chat", "new-window", "new-workspace-chat"],
+      }, context);
+      status("Queued IOI Chat new-thread options.");
+    }),
     vscode.commands.registerCommand("ioi.chat.openSettings", async () => {
       const context = buildWorkspaceActionContext("ioi.chat");
       await writeBridgeRequest("settings.open", {
@@ -1630,6 +1751,19 @@ function registerNativeCommands(context, output) {
         workspaceRoot: workspaceSummary().path,
       }, context);
       status("Queued IOI Chat composer focus.");
+    }),
+    vscode.commands.registerCommand("ioi.chat.moreActions", async () => {
+      const context = buildWorkspaceActionContext("ioi.chat");
+      await writeBridgeRequest("chat.moreActions", {
+        workspaceRoot: workspaceSummary().path,
+        actions: [
+          "review-current-file",
+          "explain-selection",
+          "open-runs",
+          "open-policy",
+        ],
+      }, context);
+      status("Queued IOI Chat action menu.");
     }),
     vscode.commands.registerCommand("ioi.chat.explainSelection", async (uri) => {
       const context = buildWorkspaceActionContext("editor", uri);
@@ -1847,7 +1981,7 @@ function activate(context) {
   statusItem.name = "IOI Workbench";
   statusItem.text = "$(symbol-keyword) IOI";
   statusItem.tooltip = "IOI-native workbench surfaces are available.";
-  statusItem.command = "workbench.view.extension.ioi";
+  statusItem.command = "workbench.view.extension.ioi-chat";
   statusItem.show();
   context.subscriptions.push(statusItem);
 
@@ -1869,6 +2003,15 @@ function activate(context) {
       ),
     );
   }
+
+  void vscode.commands.executeCommand("workbench.view.extension.ioi-chat").then(
+    () => undefined,
+    (error) => {
+      output.appendLine(
+        `[ioi-workbench] failed to reveal native IOI chat container: ${error?.message ?? error}`,
+      );
+    },
+  );
 
   context.subscriptions.push(
     watchBridgeState(() => {
