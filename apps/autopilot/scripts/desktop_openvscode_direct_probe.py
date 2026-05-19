@@ -45,6 +45,7 @@ DEFAULT_OUTPUT_ROOT = (
     PROJECT_ROOT / "docs/evidence/route-hierarchy/live-openvscode-direct/contained"
 )
 DEFAULT_DEV_URL = DEFAULT_WEB_ROOT
+OPENVSCODE_VERSION = "1.109.5"
 SURFACE_WINDOW_SEARCH_PATTERN = "Autopilot Workspace Workbench"
 LEGACY_SURFACE_WINDOW_SEARCH_PATTERN = "OpenVSCode Workspace"
 WINDOW_WAIT_TIMEOUT_SECS = 120.0
@@ -116,6 +117,45 @@ def window_geometry(window_id: int) -> dict[str, int]:
         if key_name in {"X", "Y", "WIDTH", "HEIGHT"} and value.lstrip("-").isdigit():
             geometry[key_name] = int(value)
     return geometry
+
+
+def managed_workbench_patch_state(profile: str) -> dict[str, Any]:
+    workbench_path = (
+        Path.home()
+        / ".local/share/ai.ioi.autopilot/profiles"
+        / profile
+        / "workspace-ide/vendor"
+        / f"openvscode-server-v{OPENVSCODE_VERSION}-linux-x64"
+        / "out/vs/code/browser/workbench/workbench.js"
+    )
+    state: dict[str, Any] = {
+        "path": str(workbench_path),
+        "exists": workbench_path.exists(),
+        "marker": "IOI Autopilot native workbench contribution replacement v2",
+        "hasMarker": False,
+        "hasUpstreamChatNoop": False,
+        "hasUpstreamChatContainerRegistration": False,
+        "hasUpstreamChatViewRegistration": False,
+        "owned": False,
+    }
+    if not workbench_path.exists():
+        state["error"] = "Managed OpenVSCode workbench bundle is missing."
+        return state
+
+    contents = workbench_path.read_text(encoding="utf-8", errors="ignore")
+    state["hasMarker"] = state["marker"] in contents
+    state["hasUpstreamChatNoop"] = "ioi.disabled.upstream.chat" in contents
+    state["hasUpstreamChatContainerRegistration"] = (
+        'registerViewContainer({id:S3,title:L(6058,"Chat")' in contents
+    )
+    state["hasUpstreamChatViewRegistration"] = "registerViews([Jrn],Ire)" in contents
+    state["owned"] = (
+        state["hasMarker"]
+        and state["hasUpstreamChatNoop"]
+        and not state["hasUpstreamChatContainerRegistration"]
+        and not state["hasUpstreamChatViewRegistration"]
+    )
+    return state
 
 
 def xwininfo_details(window_id: int) -> dict[str, Any]:
@@ -732,6 +772,7 @@ def main() -> int:
     steps: list[dict[str, Any]] = []
     parent_capture: dict[str, Any] | None = None
     containment: dict[str, Any] = {}
+    workbench_patch_state: dict[str, Any] = {}
 
     try:
         window_id = wait_for_window(args.window_name, timeout_secs=args.timeout_secs)
@@ -761,6 +802,13 @@ def main() -> int:
         if surface is None:
             raise RuntimeError("Timed out waiting for native OpenVSCode surface log.")
         print(f"[openvscode-direct] surface: {surface.get('created', {}).get('mode')}", flush=True)
+        workbench_patch_state = managed_workbench_patch_state(args.profile)
+        containment["managedWorkbenchPatchState"] = workbench_patch_state
+        if not workbench_patch_state.get("owned"):
+            raise RuntimeError(
+                "Managed OpenVSCode bundle still allows upstream Chat to register before IOI Chat: "
+                f"{workbench_patch_state}"
+            )
 
         created_mode = surface.get("created", {}).get("mode")
         legacy_window_ids = window_ids_from_wmctrl(LEGACY_SURFACE_WINDOW_SEARCH_PATTERN)
@@ -1119,6 +1167,7 @@ def main() -> int:
         "surface": surface,
         "parent_capture": parent_capture,
         "containment": containment,
+        "workbench_patch_state": workbench_patch_state,
         "steps": steps,
         "probe_error": probe_error,
         "negative_checks": {
@@ -1146,6 +1195,9 @@ def main() -> int:
             "autopilotChromeRetained": bool(
                 containment.get("activityBarVisible")
                 and containment.get("headerVisible")
+            ),
+            "upstreamChatContributionNoopedBeforeFirstPaint": bool(
+                workbench_patch_state.get("owned")
             ),
         },
         "log_tail": read_log_tail(log_path),
