@@ -8,6 +8,7 @@ import {
   assertReferenceInventoryComplete,
   collectCursorSdkReference,
 } from "./cursor-sdk-reference-contract.mjs";
+import { startRuntimeDaemonService } from "../../packages/runtime-daemon/src/index.mjs";
 
 export const CURSOR_SDK_PARITY_SCHEMA_VERSION = "ioi.cursor-sdk-parity-plus.v1";
 
@@ -111,83 +112,92 @@ export async function runLocalSdkProof(sdk, testing, evidenceDir) {
     path.join(cwd, ".cursor", "hooks.json"),
     `${JSON.stringify({ onStep: { command: "echo", args: ["step"] } }, null, 2)}\n`,
   );
-  const client = testing.createMockRuntimeSubstrateClient({
+  const daemon = await startRuntimeDaemonService({
     cwd,
-    checkpointDir: path.join(cwd, ".ioi", "agent-sdk"),
+    stateDir: path.join(cwd, ".ioi", "daemon-state"),
   });
-  const agent = await sdk.Agent.create({
-    model: { id: "local:auto" },
-    local: { cwd },
-    substrateClient: client,
-    agents: { reviewer: { prompt: "Review evidence only." } },
-  });
-  const run = await agent.send("Summarize this workspace");
-  const events = [];
-  for await (const event of run.stream()) {
-    events.push(event);
-  }
-  const partial = events.slice(0, 4);
-  const reconnected = [];
-  for await (const event of run.stream({ lastEventId: partial.at(-1).id })) {
-    reconnected.push(event);
-  }
-  const result = await run.wait();
-  const trace = await run.trace();
-  const replayed = [];
-  for await (const event of run.replay()) {
-    replayed.push(event);
-  }
-  const plan = await agent.plan("Plan StopCondition support", { noMutation: true });
-  const dryRun = await agent.dryRun("Preview a destructive filesystem action", {
-    toolClass: "filesystem",
-  });
-  const handoff = await agent.handoff("Delegate a coding investigation", { receiver: "reviewer" });
-  const learned = await agent.learn({ taskFamily: "sdk_parity", negative: ["unverified shortcut"] });
-  let cloudBlocker = {};
   try {
-    await sdk.Agent.create({
-      cloud: { repos: [{ url: "https://example.invalid/repo.git" }] },
-      substrateClient: client,
+    const client = testing.createMockRuntimeSubstrateClient({
+      endpoint: daemon.endpoint,
+      cwd,
+      checkpointDir: path.join(cwd, ".ioi", "agent-sdk"),
     });
-  } catch (error) {
-    cloudBlocker = error.toJSON ? error.toJSON() : { message: String(error) };
+    const agent = await sdk.Agent.create({
+      model: { id: "local:auto" },
+      local: { cwd },
+      substrateClient: client,
+      agents: { reviewer: { prompt: "Review evidence only." } },
+    });
+    const run = await agent.send("Summarize this workspace");
+    const events = [];
+    for await (const event of run.stream()) {
+      events.push(event);
+    }
+    const partial = events.slice(0, 4);
+    const reconnected = [];
+    for await (const event of run.stream({ lastEventId: partial.at(-1).id })) {
+      reconnected.push(event);
+    }
+    const result = await run.wait();
+    const trace = await run.trace();
+    const replayed = [];
+    for await (const event of run.replay()) {
+      replayed.push(event);
+    }
+    const plan = await agent.plan("Plan StopCondition support", { noMutation: true });
+    const dryRun = await agent.dryRun("Preview a destructive filesystem action", {
+      toolClass: "filesystem",
+    });
+    const handoff = await agent.handoff("Delegate a coding investigation", { receiver: "reviewer" });
+    const learned = await agent.learn({ taskFamily: "sdk_parity", negative: ["unverified shortcut"] });
+    let cloudBlocker = {};
+    try {
+      await sdk.Agent.create({
+        cloud: { repos: [{ url: "https://example.invalid/repo.git" }] },
+        substrateClient: client,
+      });
+    } catch (error) {
+      cloudBlocker = error.toJSON ? error.toJSON() : { message: String(error) };
+    }
+    const artifacts = await run.artifacts();
+    const scorecard = await run.scorecard();
+    const proof = {
+      quickstart: {
+        runId: run.id,
+        status: result.status,
+        eventCount: events.length,
+        replayedEventCount: replayed.length,
+        conversationLength: (await run.conversation()).length,
+        artifactNames: artifacts.map((artifact) => artifact.name),
+        stopReason: result.stopCondition.reason,
+        scorecard,
+        smarterRecordsPresent: Boolean(
+          trace.taskState &&
+            trace.uncertainty &&
+            trace.probes.length > 0 &&
+            trace.postconditions &&
+            trace.semanticImpact &&
+            trace.qualityLedger,
+        ),
+      },
+      reconnect: {
+        firstBatchLastEventId: partial.at(-1).id,
+        resumedFirstEventType: reconnected[0]?.type,
+        noDuplicateTerminalEvents:
+          reconnected.filter((event) => event.type === "completed").length === 1,
+      },
+      plan: summarizeTrace(await plan.inspect()),
+      dryRun: summarizeTrace(await dryRun.inspect()),
+      handoff: summarizeTrace(await handoff.inspect()),
+      learned: summarizeTrace(await learned.inspect()),
+      cloudBlocker,
+    };
+    fs.writeFileSync(path.join(evidenceDir, "sdk-local-proof.json"), `${JSON.stringify(proof, null, 2)}\n`);
+    fs.writeFileSync(path.join(evidenceDir, "sdk-local-trace.json"), `${JSON.stringify(trace, null, 2)}\n`);
+    return proof;
+  } finally {
+    await daemon.close();
   }
-  const artifacts = await run.artifacts();
-  const scorecard = await run.scorecard();
-  const proof = {
-    quickstart: {
-      runId: run.id,
-      status: result.status,
-      eventCount: events.length,
-      replayedEventCount: replayed.length,
-      conversationLength: (await run.conversation()).length,
-      artifactNames: artifacts.map((artifact) => artifact.name),
-      stopReason: result.stopCondition.reason,
-      scorecard,
-      smarterRecordsPresent: Boolean(
-        trace.taskState &&
-          trace.uncertainty &&
-          trace.probes.length > 0 &&
-          trace.postconditions &&
-          trace.semanticImpact &&
-          trace.qualityLedger,
-      ),
-    },
-    reconnect: {
-      firstBatchLastEventId: partial.at(-1).id,
-      resumedFirstEventType: reconnected[0]?.type,
-      noDuplicateTerminalEvents:
-        reconnected.filter((event) => event.type === "completed").length === 1,
-    },
-    plan: summarizeTrace(await plan.inspect()),
-    dryRun: summarizeTrace(await dryRun.inspect()),
-    handoff: summarizeTrace(await handoff.inspect()),
-    learned: summarizeTrace(await learned.inspect()),
-    cloudBlocker,
-  };
-  fs.writeFileSync(path.join(evidenceDir, "sdk-local-proof.json"), `${JSON.stringify(proof, null, 2)}\n`);
-  fs.writeFileSync(path.join(evidenceDir, "sdk-local-trace.json"), `${JSON.stringify(trace, null, 2)}\n`);
-  return proof;
 }
 
 function summarizeTrace(trace) {

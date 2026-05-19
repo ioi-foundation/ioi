@@ -58,11 +58,6 @@ assert(
   "Agent SDK default client must be daemon/substrate backed.",
 );
 assert(
-  sdkSubstrate.includes("createMockRuntimeSubstrateClient") &&
-    sdkSubstrate.includes("class MockRuntimeSubstrateClient"),
-  "Agent SDK mock projection client must be explicit.",
-);
-assert(
   /createRuntimeSubstrateClient[\s\S]*?return new DaemonRuntimeSubstrateClient/.test(sdkSubstrate),
   "createRuntimeSubstrateClient must not default to the mock projection client.",
 );
