@@ -60,6 +60,7 @@ docs/autopilot-desktop-ux-visibility-prompt.md
 docs/ioi-zero-to-hero-autonomy-prompt.md
 docs/specs/benchmarks-scorecard-ux.md
 docs/specs/slate-cobalt-reference.html
+scripts/internal/
 
 # Python cache/build artifacts
 __pycache__/
