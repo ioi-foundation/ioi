@@ -35,31 +35,90 @@ async function waitForInteractiveClose() {
   process.stdin.pause();
 }
 
-const revealLegacyChatCss = `
-.monaco-workbench .part.auxiliarybar,
-.monaco-workbench .part.auxiliarybar.right,
-.monaco-workbench .auxiliarybar,
-.monaco-workbench .auxiliarybar.right,
-.monaco-workbench .part.auxiliarybar .composite.title,
-.monaco-workbench .part.auxiliarybar .pane-composite-part,
-.monaco-workbench .part.auxiliarybar .pane-header,
-.monaco-workbench .part.auxiliarybar [aria-label="Chat"],
-.monaco-workbench .part.auxiliarybar [id*="chat"],
-.monaco-workbench .part.auxiliarybar [class*="chat"] {
-  display: flex !important;
-  visibility: visible !important;
-  pointer-events: auto !important;
+async function restoreLegacyOpenVsCodeChrome(page) {
+  return page.evaluate(() => {
+    const removedRules = [];
+    for (const sheet of Array.from(document.styleSheets)) {
+      let rules;
+      try {
+        rules = sheet.cssRules;
+      } catch {
+        continue;
+      }
+      if (!rules) {
+        continue;
+      }
+
+      for (let index = rules.length - 1; index >= 0; index -= 1) {
+        const rule = rules[index];
+        const text = rule.cssText ?? "";
+        const targetsAutopilotSuppression =
+          text.includes(".monaco-workbench .part.auxiliarybar") ||
+          text.includes(".monaco-workbench .auxiliarybar") ||
+          text.includes(".monaco-workbench .part.titlebar") ||
+          text.includes(".monaco-workbench .part.titlebar .command-center");
+        const suppressesNativeChrome =
+          text.includes("display: none !important") ||
+          text.includes("visibility: hidden !important") ||
+          text.includes("width: 0px !important") ||
+          text.includes("flex-basis: 0px !important") ||
+          text.includes("grid-template-columns");
+        if (!targetsAutopilotSuppression || !suppressesNativeChrome) {
+          continue;
+        }
+        removedRules.push(text.slice(0, 500));
+        sheet.deleteRule(index);
+      }
+    }
+    return removedRules;
+  });
 }
-.monaco-workbench .part.auxiliarybar,
-.monaco-workbench .part.auxiliarybar.right,
-.monaco-workbench .auxiliarybar,
-.monaco-workbench .auxiliarybar.right {
-  width: 320px !important;
-  min-width: 280px !important;
-  max-width: 520px !important;
-  flex-basis: 320px !important;
+
+async function legacyChatVisible(page) {
+  return page.evaluate(() => {
+    const auxiliary = document.querySelector(".part.auxiliarybar");
+    const welcome = document.querySelector(".part.auxiliarybar .chat-welcome-view");
+    if (!auxiliary || !welcome) {
+      return false;
+    }
+    const auxiliaryRect = auxiliary.getBoundingClientRect();
+    const welcomeRect = welcome.getBoundingClientRect();
+    const auxiliaryStyle = getComputedStyle(auxiliary);
+    const welcomeStyle = getComputedStyle(welcome);
+    return (
+      auxiliaryRect.width > 120 &&
+      auxiliaryRect.height > 240 &&
+      welcomeRect.width > 120 &&
+      welcomeRect.height > 80 &&
+      welcomeRect.y < window.innerHeight - 160 &&
+      auxiliaryStyle.visibility !== "hidden" &&
+      auxiliaryStyle.display !== "none" &&
+      welcomeStyle.visibility !== "hidden" &&
+      welcomeStyle.display !== "none"
+    );
+  });
 }
-`;
+
+async function activateLegacyChat(page) {
+  if (await legacyChatVisible(page)) {
+    return { activated: false, reason: "already-visible" };
+  }
+  await page.keyboard.press("Control+Alt+I").catch(() => undefined);
+  await page.waitForTimeout(500);
+  if (await legacyChatVisible(page)) {
+    return { activated: true, method: "keyboard", chord: "Control+Alt+I" };
+  }
+
+  const chatTitle = page.locator('.part.auxiliarybar [aria-label="Chat (Ctrl+Alt+I)"]').first();
+  if ((await chatTitle.count()) > 0) {
+    await chatTitle.click({ timeout: 1500 }).catch(() => undefined);
+    await page.waitForTimeout(500);
+  }
+  if (await legacyChatVisible(page)) {
+    return { activated: true, method: "title-click" };
+  }
+  return { activated: false, reason: "chat-view-not-visible" };
+}
 
 const titleActionLabels = [
   "New Chat (Ctrl+N)",
@@ -166,7 +225,9 @@ try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 920 } });
   await page.goto(openVsCodeUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
   await page.waitForTimeout(1500);
-  await page.addStyleTag({ content: revealLegacyChatCss });
+  const removedSuppressionRules = await restoreLegacyOpenVsCodeChrome(page);
+  await page.waitForTimeout(500);
+  const activation = await activateLegacyChat(page);
   await page.waitForTimeout(500);
 
   const screenshotPath = path.join(outDir, "legacy-openvscode-chat-visible.png");
@@ -203,7 +264,9 @@ try {
     runTraces,
     screenshotPath,
     finalScreenshotPath,
-    revealLegacyChatCss,
+    restoreStrategy: "cssom-remove-autopilot-openvscode-suppression-rules",
+    removedSuppressionRules,
+    activation,
     titleActionLabels,
     before,
     traces,
