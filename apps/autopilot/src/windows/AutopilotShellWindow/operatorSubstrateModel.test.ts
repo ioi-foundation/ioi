@@ -430,6 +430,49 @@ test("embedded OpenVSCode defers global search to Autopilot chrome", () => {
   );
 });
 
+test("Autopilot command palette anchors to the header command center", () => {
+  const commandPalette = readFileSync(
+    "apps/autopilot/src/components/CommandPalette.tsx",
+    "utf8",
+  );
+  const commandPaletteStyles = readFileSync(
+    "apps/autopilot/src/components/CommandPalette.css",
+    "utf8",
+  );
+  const overlayBlock =
+    commandPaletteStyles.match(/\.command-palette-overlay\s*\{[^}]*\}/)?.[0] ??
+    "";
+
+  assert.match(
+    commandPalette,
+    /COMMAND_CENTER_SELECTOR = "\[data-operator-command-center\]"/,
+  );
+  assert.match(commandPalette, /getBoundingClientRect\(\)/);
+  assert.match(commandPalette, /style=\{palettePosition\}/);
+  assert.match(
+    commandPalette,
+    /window\.addEventListener\("resize", computePosition\)/,
+  );
+  assert.match(
+    commandPalette,
+    /window\.addEventListener\("scroll", computePosition, true\)/,
+  );
+  assert.match(
+    commandPaletteStyles,
+    /\.command-palette-overlay\s*\{[\s\S]*background: transparent;/,
+  );
+  assert.match(
+    commandPaletteStyles,
+    /\.command-palette-shell\s*\{[\s\S]*position: fixed;/,
+  );
+  assert.doesNotMatch(overlayBlock, /display: flex/);
+  assert.doesNotMatch(overlayBlock, /justify-content: center/);
+  assert.doesNotMatch(
+    commandPaletteStyles,
+    /padding: clamp\(28px, 7vh, 72px\)/,
+  );
+});
+
 test("controlled substrate surfaces expose inspection target attributes", () => {
   const chatHeader = readFileSync(
     "apps/autopilot/src/windows/AutopilotShellWindow/components/ChatIdeHeader.tsx",

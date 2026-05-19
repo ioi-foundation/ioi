@@ -1,11 +1,7 @@
 .command-palette-overlay {
   position: fixed;
   inset: 0;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: clamp(28px, 7vh, 72px) 24px 32px;
-  background: rgba(0, 0, 0, 0.28);
+  background: transparent;
   z-index: var(--z-modal);
   animation: command-palette-overlay-in 100ms ease-out;
 }
@@ -20,16 +16,17 @@
 }
 
 .command-palette-shell {
-  width: min(596px, 100%);
-  max-height: min(74vh, 640px);
+  position: fixed;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
-  border: 1px solid #454545;
-  border-radius: 7px;
-  background: #252526;
+  border: 1px solid #3f3f46;
+  border-radius: 6px;
+  background: #242424;
   color: #cccccc;
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.44),
+    0 0 0 1px rgba(0, 0, 0, 0.35);
   animation: command-palette-shell-in 120ms ease-out;
 }
 
@@ -46,21 +43,23 @@
 
 .command-palette-search {
   display: block;
-  padding: 6px 6px 3px;
+  padding: 6px 6px 4px;
 }
 
 .command-palette-search-input {
   width: 100%;
   height: 28px;
-  padding: 0 8px;
+  padding: 0 9px;
   border: 1px solid #007fd4;
   border-radius: 4px;
   outline: none;
-  background: #3c3c3c;
+  background: #303030;
   color: #d4d4d4;
   font-size: 13px;
   line-height: 28px;
-  box-shadow: 0 0 0 1px rgba(0, 127, 212, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(0, 127, 212, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
 .command-palette-search-input::placeholder {
@@ -71,6 +70,8 @@
   min-height: 0;
   overflow-y: auto;
   padding: 0 6px 6px;
+  scrollbar-color: #7a7a7a transparent;
+  scrollbar-width: thin;
 }
 
 .command-palette-results::-webkit-scrollbar {
@@ -93,14 +94,15 @@
 }
 
 .command-palette-section + .command-palette-section {
-  margin-top: 3px;
+  margin-top: 4px;
 }
 
 .command-palette-section-label {
-  padding: 6px 8px 3px;
-  color: #9d9d9d;
+  padding: 7px 8px 3px;
+  color: #a0a0a0;
   font-size: 11px;
   line-height: 16px;
+  font-weight: 500;
 }
 
 .command-palette-row {
@@ -108,7 +110,7 @@
   min-height: 23px;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   padding: 2px 8px;
   border: 0;
   border-radius: 3px;
@@ -120,7 +122,7 @@
 
 .command-palette-row:hover,
 .command-palette-row.is-selected {
-  background: #094771;
+  background: #075486;
   color: #ffffff;
 }
 
@@ -140,7 +142,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #9cdcfe;
+  color: #79c0ff;
 }
 
 .command-palette-row-copy {
@@ -156,7 +158,7 @@
   overflow: hidden;
   color: inherit;
   font-size: 13px;
-  line-height: 19px;
+  line-height: 20px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -169,7 +171,7 @@
 .command-palette-row-description {
   min-width: 0;
   overflow: hidden;
-  color: #9d9d9d;
+  color: #969696;
   font-size: 12px;
   line-height: 18px;
   text-overflow: ellipsis;
@@ -184,10 +186,10 @@
 }
 
 .command-palette-row-meta {
-  max-width: 150px;
+  max-width: 142px;
   overflow: hidden;
   flex-shrink: 0;
-  color: #9d9d9d;
+  color: #a6a6a6;
   font-size: 12px;
   line-height: 18px;
   text-overflow: ellipsis;
@@ -204,7 +206,7 @@
   align-items: center;
   gap: 3px;
   flex-shrink: 0;
-  color: #cccccc;
+  color: #c7c7c7;
   font-size: 11px;
   line-height: 18px;
 }
@@ -219,9 +221,11 @@
   min-width: 18px;
   padding: 0 5px;
   border-radius: 2px;
-  background: #3c3c3c;
+  background: #3b3b3b;
   color: #dcdcdc;
-  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 -1px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.22);
   text-align: center;
 }
 

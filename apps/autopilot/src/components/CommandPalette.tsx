@@ -19,8 +19,10 @@ import { getSessionFileContext } from "../services/sessionFileContext";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { useAgentStore } from "../session/autopilotSession";
@@ -68,6 +70,14 @@ type CommandPaletteProps = {
   onSelectProject: (projectId: string) => void;
   projects: ProjectScope[];
 };
+
+const COMMAND_CENTER_SELECTOR = "[data-operator-command-center]";
+const PALETTE_EDGE_GUTTER = 8;
+const PALETTE_WIDTH = 596;
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
 
 function humanizeLabel(value: string | null | undefined) {
   if (!value) {
@@ -238,6 +248,59 @@ export function CommandPalette({
   const [liveToolsStatus, setLiveToolsStatus] = useState<LoadStatus>("idle");
   const [recentFiles, setRecentFiles] = useState<string[]>([]);
   const [fileContextStatus, setFileContextStatus] = useState<LoadStatus>("idle");
+  const [palettePosition, setPalettePosition] = useState<CSSProperties>(() => ({
+    left: PALETTE_EDGE_GUTTER,
+    top: 40,
+    width: `min(${PALETTE_WIDTH}px, calc(100vw - ${PALETTE_EDGE_GUTTER * 2}px))`,
+    maxHeight: "min(74vh, 640px)",
+  }));
+
+  useLayoutEffect(() => {
+    const computePosition = () => {
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const availableWidth = Math.max(
+        1,
+        viewportWidth - PALETTE_EDGE_GUTTER * 2,
+      );
+      const width = Math.min(PALETTE_WIDTH, availableWidth);
+      const anchor = document.querySelector(COMMAND_CENTER_SELECTOR);
+      const anchorRect = anchor?.getBoundingClientRect();
+      const anchorCenter = anchorRect
+        ? anchorRect.left + anchorRect.width / 2
+        : viewportWidth / 2;
+      const left = clampNumber(
+        anchorCenter - width / 2,
+        PALETTE_EDGE_GUTTER,
+        Math.max(PALETTE_EDGE_GUTTER, viewportWidth - width - PALETTE_EDGE_GUTTER),
+      );
+      const preferredTop = anchorRect ? anchorRect.bottom + 6 : 40;
+      const maxHeight = Math.min(
+        640,
+        Math.max(240, viewportHeight - preferredTop - PALETTE_EDGE_GUTTER),
+      );
+      const top = clampNumber(
+        preferredTop,
+        PALETTE_EDGE_GUTTER,
+        Math.max(PALETTE_EDGE_GUTTER, viewportHeight - maxHeight - PALETTE_EDGE_GUTTER),
+      );
+
+      setPalettePosition({
+        left,
+        top,
+        width,
+        maxHeight,
+      });
+    };
+
+    computePosition();
+    window.addEventListener("resize", computePosition);
+    window.addEventListener("scroll", computePosition, true);
+    return () => {
+      window.removeEventListener("resize", computePosition);
+      window.removeEventListener("scroll", computePosition, true);
+    };
+  }, []);
   const { mode: paletteMode, searchQuery } = paletteQueryState(query);
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const currentProject = projects.find((project) => project.id === currentProjectId);
@@ -1237,6 +1300,7 @@ export function CommandPalette({
     <div className="command-palette-overlay" onClick={onClose}>
       <div
         className="command-palette-shell"
+        style={palettePosition}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
