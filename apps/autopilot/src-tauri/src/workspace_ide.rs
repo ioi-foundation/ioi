@@ -28,12 +28,14 @@ const OPENVSCODE_BOOT_TIMEOUT: Duration = Duration::from_secs(90);
 const OPENVSCODE_AUTOPILOT_LEGACY_CHROME_PATCH_MARKER: &str =
     "/* IOI Autopilot owns OpenVSCode command center and chat chrome v2 */";
 const OPENVSCODE_AUTOPILOT_WORKBENCH_JS_PATCH_MARKER: &str =
-    "/* IOI Autopilot native workbench command center replacement v1 */";
+    "/* IOI Autopilot native workbench contribution replacement v2 */";
 const OPENVSCODE_COMMAND_CENTER_GETTER_SOURCE: &str =
     "get ec(){return!this.zb&&this.Eb.getValue(\"window.commandCenter\")!==!1}";
 const OPENVSCODE_COMMAND_CENTER_GETTER_PATCHED: &str = "get ec(){return!1}";
 const OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_SOURCE: &str = r#"JAt=class{constructor(e,t,i,n){this.a=new O,this.b=this.a.add(new E),this.onDidChangeVisibility=this.b.event,this.element=document.createElement("div"),this.element.classList.add("command-center");const o=i.createInstance(ur,this.element,I.CommandCenter,{contextMenu:I.TitleBarContext,hiddenItemStrategy:-1,toolbarOptions:{primaryGroup:()=>!0},telemetrySource:"commandCenter",actionViewItemProvider:(r,a)=>r instanceof cu&&r.item.submenu===I.CommandCenterCenter?i.createInstance(QAt,r,e,{...a,hoverDelegate:t}):Dc(i,r,{...a,hoverDelegate:t})});this.a.add(H.filter(n.onShow,()=>P2t(this.element),this.a)(this.c.bind(this,!1))),this.a.add(n.onHide(this.c.bind(this,!0))),this.a.add(o)}c(e){this.element.classList.toggle("hide",!e),this.b.fire()}dispose(){this.a.dispose()}}"#;
 const OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_PATCHED: &str = r#"JAt=class{constructor(e,t,i,n){this.a=new O,this.b=this.a.add(new E),this.onDidChangeVisibility=this.b.event,this.element=document.createElement("div"),this.element.classList.add("command-center","hide"),this.element.setAttribute("data-ioi-native-command-center-disabled","true")}c(e){this.element.classList.toggle("hide",!0),this.b.fire()}dispose(){this.a.dispose()}}"#;
+const OPENVSCODE_UPSTREAM_CHAT_REGISTRATION_SOURCE: &str = r#"var Krn=we("chat-view-icon",P.chatSparkle,d(6027,null)),Ire=ce.as(xn.ViewContainersRegistry).registerViewContainer({id:S3,title:L(6058,"Chat"),icon:Krn,ctorDescriptor:new Bt(Xu,[S3,{mergeViewWithContainerWhenSingleView:!0}]),storageId:S3,hideIfEmpty:!0,order:1},2,{isDefault:!0,doNotRegisterOpenCommand:!0}),Jrn={id:mr,containerIcon:Ire.icon,containerTitle:Ire.title.value,singleViewPaneContainerTitle:Ire.title.value,name:L(6059,"Chat"),canToggleVisibility:!1,canMoveView:!0,openCommandActionDescriptor:{id:S3,title:Ire.title,mnemonicTitle:d(6028,null),keybindings:{primary:2599,mac:{primary:2343}},order:1},ctorDescriptor:new Bt(wmt),when:C.or(C.or(ee.Setup.hidden,ee.Setup.disabled)?.negate(),ee.panelParticipantRegistered,ee.extensionInvalid)};ce.as(xn.ViewsRegistry).registerViews([Jrn],Ire);"#;
+const OPENVSCODE_UPSTREAM_CHAT_REGISTRATION_PATCHED: &str = r#"var Krn=we("chat-view-icon",P.chatSparkle,d(6027,null)),Ire={id:"ioi.disabled.upstream.chat",icon:Krn,title:{value:"Chat",original:"Chat"}},Jrn={id:"ioi.disabled.upstream.chat.view",containerIcon:Ire.icon,containerTitle:Ire.title.value,singleViewPaneContainerTitle:Ire.title.value,name:"Disabled upstream Chat",canToggleVisibility:!1,canMoveView:!1,openCommandActionDescriptor:void 0,ctorDescriptor:void 0,when:C.false};"#;
 const OPENVSCODE_AUTOPILOT_NATIVE_PATCH_SCHEMA_VERSION: &str = "ioi.openvscode-managed-patch.v1";
 const OPENVSCODE_AUTOPILOT_NATIVE_PATCH_ID: &str =
     "openvscode-native-autopilot-contribution-replacement";
@@ -395,11 +397,12 @@ fn openvscode_native_patch_manifest(install_root: &Path) -> Value {
         "steps": [
             {
                 "id": "disable-upstream-chat-contribution",
-                "kind": "contribution-replacement",
-                "target": "chat.disableAIFeatures + chat.agent.enabled + chat.viewSessions.enabled",
-                "status": "installed-profile-gate",
+                "kind": "native-workbench-patch",
+                "target": "workbench.panel.chat container + workbench.panel.chat.view.copilot view registration",
+                "status": "installed-native-workbench-contribution-noop",
                 "temporaryCompatibility": false,
-                "mechanism": "managed-profile-feature-gate"
+                "mechanism": "managed-workbench-js-contribution-noop-and-profile-feature-gate",
+                "patchMarker": OPENVSCODE_AUTOPILOT_WORKBENCH_JS_PATCH_MARKER
             },
             {
                 "id": "disable-upstream-command-center",
@@ -443,15 +446,35 @@ fn openvscode_native_patch_manifest(install_root: &Path) -> Value {
 }
 
 fn ensure_openvscode_native_workbench_js_patch(binary_path: &Path) -> Result<(), String> {
+    let workbench_script_path = openvscode_workbench_script_path(binary_path)?;
+    patch_openvscode_native_workbench_js(&workbench_script_path)
+}
+
+fn openvscode_workbench_script_path(binary_path: &Path) -> Result<PathBuf, String> {
     let install_root = openvscode_install_root_from_binary(binary_path)?;
-    let workbench_script_path = install_root
+    Ok(install_root
         .join("out")
         .join("vs")
         .join("code")
         .join("browser")
         .join("workbench")
-        .join("workbench.js");
-    patch_openvscode_native_workbench_js(&workbench_script_path)
+        .join("workbench.js"))
+}
+
+fn openvscode_native_workbench_js_patch_owned(binary_path: &Path) -> bool {
+    openvscode_workbench_script_path(binary_path)
+        .ok()
+        .and_then(|workbench_script_path| fs::read_to_string(workbench_script_path).ok())
+        .map(|contents| {
+            contents.contains(OPENVSCODE_AUTOPILOT_WORKBENCH_JS_PATCH_MARKER)
+                && contents.contains(OPENVSCODE_COMMAND_CENTER_GETTER_PATCHED)
+                && contents.contains(OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_PATCHED)
+                && contents.contains(OPENVSCODE_UPSTREAM_CHAT_REGISTRATION_PATCHED)
+                && !contents.contains(OPENVSCODE_UPSTREAM_CHAT_REGISTRATION_SOURCE)
+                && !contents.contains("registerViewContainer({id:S3,title:L(6058,\"Chat\")")
+                && !contents.contains("registerViews([Jrn],Ire)")
+        })
+        .unwrap_or(false)
 }
 
 fn patch_openvscode_native_workbench_js(workbench_script_path: &Path) -> Result<(), String> {
@@ -494,6 +517,21 @@ fn patch_openvscode_native_workbench_js(workbench_script_path: &Path) -> Result<
         }
     }
 
+    if !next_script.contains(OPENVSCODE_UPSTREAM_CHAT_REGISTRATION_PATCHED) {
+        if next_script.contains(OPENVSCODE_UPSTREAM_CHAT_REGISTRATION_SOURCE) {
+            next_script = next_script.replace(
+                OPENVSCODE_UPSTREAM_CHAT_REGISTRATION_SOURCE,
+                OPENVSCODE_UPSTREAM_CHAT_REGISTRATION_PATCHED,
+            );
+        } else {
+            return Err(format!(
+                "Failed to locate OpenVSCode upstream Chat contribution registration in '{}'. Expected OpenVSCode {} bundle shape.",
+                workbench_script_path.display(),
+                OPENVSCODE_VERSION
+            ));
+        }
+    }
+
     if !next_script.contains(OPENVSCODE_AUTOPILOT_WORKBENCH_JS_PATCH_MARKER) {
         next_script = format!(
             "{}\n{}",
@@ -510,7 +548,7 @@ fn patch_openvscode_native_workbench_js(workbench_script_path: &Path) -> Result<
 
     fs::write(workbench_script_path, next_script).map_err(|error| {
         format!(
-            "Failed to write OpenVSCode native workbench command-center patch '{}': {}",
+            "Failed to write OpenVSCode native workbench contribution patch '{}': {}",
             workbench_script_path.display(),
             error
         )
@@ -998,7 +1036,10 @@ pub fn ensure_workspace_ide_session<R: Runtime>(
             Ok(None) if existing.root_path == root_path.to_string_lossy() => {
                 let existing_runtime_root = workspace_runtime_root(&app, &root_path);
                 let existing_user_data_dir = existing_runtime_root.join("user-data");
-                if openvscode_user_config_owned(&existing_user_data_dir) {
+                let native_patch_owned = install_binary_path(&app)
+                    .map(|binary_path| openvscode_native_workbench_js_patch_owned(&binary_path))
+                    .unwrap_or(false);
+                if openvscode_user_config_owned(&existing_user_data_dir) && native_patch_owned {
                     return Ok(current_session_info(existing));
                 }
 
@@ -1268,13 +1309,14 @@ mod tests {
         ensure_openvscode_legacy_shell_chrome_patch_removed,
         ensure_openvscode_native_patch_manifest, ensure_openvscode_native_workbench_js_patch,
         ensure_openvscode_user_keybindings, ensure_openvscode_user_settings,
-        openvscode_native_patch_manifest, openvscode_user_config_owned,
-        OPENVSCODE_AUTOPILOT_LEGACY_CHROME_PATCH_MARKER, OPENVSCODE_AUTOPILOT_NATIVE_PATCH_ID,
-        OPENVSCODE_AUTOPILOT_NATIVE_PATCH_SCHEMA_VERSION,
+        openvscode_native_patch_manifest, openvscode_native_workbench_js_patch_owned,
+        openvscode_user_config_owned, OPENVSCODE_AUTOPILOT_LEGACY_CHROME_PATCH_MARKER,
+        OPENVSCODE_AUTOPILOT_NATIVE_PATCH_ID, OPENVSCODE_AUTOPILOT_NATIVE_PATCH_SCHEMA_VERSION,
         OPENVSCODE_AUTOPILOT_WORKBENCH_JS_PATCH_MARKER,
         OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_PATCHED,
         OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_SOURCE, OPENVSCODE_COMMAND_CENTER_GETTER_PATCHED,
-        OPENVSCODE_COMMAND_CENTER_GETTER_SOURCE,
+        OPENVSCODE_COMMAND_CENTER_GETTER_SOURCE, OPENVSCODE_UPSTREAM_CHAT_REGISTRATION_PATCHED,
+        OPENVSCODE_UPSTREAM_CHAT_REGISTRATION_SOURCE,
     };
     use serde_json::Value;
     use std::fs;
@@ -1322,9 +1364,10 @@ mod tests {
         fs::write(
             workbench_dir.join("workbench.js"),
             format!(
-                "var nFe=class{{{}Xb(){{this.vb.clear()}}}};{};\n",
+                "var nFe=class{{{}Xb(){{this.vb.clear()}}}};{};{};\n",
                 OPENVSCODE_COMMAND_CENTER_GETTER_SOURCE,
-                OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_SOURCE
+                OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_SOURCE,
+                OPENVSCODE_UPSTREAM_CHAT_REGISTRATION_SOURCE
             ),
         )
         .expect("OpenVSCode workbench script should be written");
@@ -1591,13 +1634,44 @@ mod tests {
         assert!(first.contains(OPENVSCODE_AUTOPILOT_WORKBENCH_JS_PATCH_MARKER));
         assert!(first.contains(OPENVSCODE_COMMAND_CENTER_GETTER_PATCHED));
         assert!(first.contains(OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_PATCHED));
+        assert!(first.contains(OPENVSCODE_UPSTREAM_CHAT_REGISTRATION_PATCHED));
         assert!(!first.contains(OPENVSCODE_COMMAND_CENTER_GETTER_SOURCE));
         assert!(!first.contains(OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_SOURCE));
+        assert!(!first.contains(OPENVSCODE_UPSTREAM_CHAT_REGISTRATION_SOURCE));
         assert!(!first.contains("i.createInstance(ur,this.element,I.CommandCenter"));
         assert!(first.contains("data-ioi-native-command-center-disabled"));
+        assert!(!first.contains("registerViewContainer({id:S3,title:L(6058,\"Chat\")"));
+        assert!(!first.contains("registerViews([Jrn],Ire)"));
+        assert!(!first.contains("workbench.panel.chat.view.${PUe}"));
+        assert!(first.contains("ioi.disabled.upstream.chat"));
         assert!(
             first.starts_with(OPENVSCODE_AUTOPILOT_WORKBENCH_JS_PATCH_MARKER),
             "native patch marker should make managed workbench overlays auditable"
+        );
+
+        let _ = fs::remove_dir_all(install_root);
+    }
+
+    #[test]
+    fn openvscode_native_workbench_js_patch_ownership_requires_upstream_chat_noop() {
+        let binary_path = temp_openvscode_binary("native-chat-patch-owned");
+        let install_root = binary_path
+            .parent()
+            .and_then(Path::parent)
+            .expect("test binary should have install root")
+            .to_path_buf();
+
+        assert!(
+            !openvscode_native_workbench_js_patch_owned(&binary_path),
+            "unpatched OpenVSCode bundles must not be reused because upstream Chat can paint before IOI Chat"
+        );
+
+        ensure_openvscode_native_workbench_js_patch(&binary_path)
+            .expect("OpenVSCode native contribution patch should be applied");
+
+        assert!(
+            openvscode_native_workbench_js_patch_owned(&binary_path),
+            "managed OpenVSCode bundles are reusable only after upstream Chat registration is replaced"
         );
 
         let _ = fs::remove_dir_all(install_root);
@@ -1701,7 +1775,8 @@ mod tests {
         assert_eq!(first, second);
         assert!(first.contains(OPENVSCODE_AUTOPILOT_NATIVE_PATCH_SCHEMA_VERSION));
         assert!(first.contains("disable-upstream-chat-contribution"));
-        assert!(first.contains("managed-profile-feature-gate"));
+        assert!(first.contains("managed-workbench-js-contribution-noop-and-profile-feature-gate"));
+        assert!(first.contains("workbench.panel.chat.view.copilot"));
 
         let _ = fs::remove_dir_all(install_root);
     }
