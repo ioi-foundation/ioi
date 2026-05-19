@@ -6,6 +6,34 @@ import { chromium } from "playwright";
 const openVsCodeUrl = process.env.OPENVSCODE_URL ?? "http://127.0.0.1:24777/";
 const outDir =
   process.env.PARITY_OUT_DIR ?? "/tmp/autopilot-chat-parity";
+const interactive = truthy(process.env.OPENVSCODE_CHAT_PARITY_INTERACTIVE);
+const headless = interactive
+  ? false
+  : process.env.OPENVSCODE_CHAT_PARITY_HEADLESS !== "0";
+const runTraces = interactive
+  ? truthy(process.env.OPENVSCODE_CHAT_PARITY_TRACE)
+  : process.env.OPENVSCODE_CHAT_PARITY_TRACE !== "0";
+
+function truthy(value) {
+  return /^(1|true|yes|on)$/i.test(value ?? "");
+}
+
+async function waitForInteractiveClose() {
+  console.log(
+    "Interactive legacy OpenVSCode chat is visible. Click around in the browser, then press Enter here to capture final evidence and close.",
+  );
+  if (!process.stdin.isTTY) {
+    console.log("stdin is not a TTY; use Ctrl+C to end this interactive session.");
+    await new Promise(() => undefined);
+    return;
+  }
+  process.stdin.setEncoding("utf8");
+  process.stdin.resume();
+  await new Promise((resolve) => {
+    process.stdin.once("data", resolve);
+  });
+  process.stdin.pause();
+}
 
 const revealLegacyChatCss = `
 .monaco-workbench .part.auxiliarybar,
@@ -133,7 +161,7 @@ async function traceAction(page, label) {
 
 await mkdir(outDir, { recursive: true });
 
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless });
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 920 } });
   await page.goto(openVsCodeUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
@@ -146,20 +174,35 @@ try {
 
   const before = await collectChatDom(page);
   const traces = [];
-  for (const label of [
-    "New Chat",
-    "Configure Chat",
-    "Views and More Actions...",
-    "Maximize Secondary Side Bar Size",
-  ]) {
-    traces.push(await traceAction(page, label));
+  if (runTraces) {
+    for (const label of [
+      "New Chat",
+      "Configure Chat",
+      "Views and More Actions...",
+      "Maximize Secondary Side Bar Size",
+    ]) {
+      traces.push(await traceAction(page, label));
+    }
+  }
+  if (interactive) {
+    await waitForInteractiveClose();
   }
   const after = await collectChatDom(page);
+  const finalScreenshotPath = interactive
+    ? path.join(outDir, "legacy-openvscode-chat-interactive-final.png")
+    : null;
+  if (finalScreenshotPath) {
+    await page.screenshot({ path: finalScreenshotPath, fullPage: true });
+  }
 
   const report = {
     generatedAt: new Date().toISOString(),
     openVsCodeUrl,
+    mode: interactive ? "interactive" : "audit",
+    headless,
+    runTraces,
     screenshotPath,
+    finalScreenshotPath,
     revealLegacyChatCss,
     titleActionLabels,
     before,
@@ -169,6 +212,9 @@ try {
   const reportPath = path.join(outDir, "legacy-openvscode-chat-dom.json");
   await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
   console.log(`legacy chat screenshot: ${screenshotPath}`);
+  if (finalScreenshotPath) {
+    console.log(`legacy chat final screenshot: ${finalScreenshotPath}`);
+  }
   console.log(`legacy chat dom report: ${reportPath}`);
 } finally {
   await browser.close();
