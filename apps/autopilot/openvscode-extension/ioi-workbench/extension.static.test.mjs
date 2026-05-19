@@ -75,6 +75,15 @@ test("native workbench context snapshots are projected to IOI runtime bridge", a
   assert.match(source, /diagnostics/);
   assert.match(source, /terminalState/);
   assert.match(source, /visibleView/);
+  assert.match(source, /function buildWorkbenchScmState/);
+  assert.match(source, /vscode\.extensions\.getExtension\("vscode\.git"\)/);
+  assert.match(source, /workingTreeChanges/);
+  assert.match(source, /indexChanges/);
+  assert.match(source, /untrackedChanges/);
+  assert.match(source, /function buildWorkbenchTaskState/);
+  assert.match(source, /vscode\.tasks\.taskExecutions/);
+  assert.match(source, /vscode\.tasks\.onDidStartTask/);
+  assert.match(source, /vscode\.tasks\.onDidEndTaskProcess/);
   assert.match(source, /writeBridgeRequest\("workbench\.contextSnapshot"/);
   assert.match(source, /startWorkbenchContextSnapshotPublisher\(context, output\)/);
 });

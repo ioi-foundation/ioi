@@ -175,6 +175,32 @@ function workspaceSummary() {
   };
 }
 
+const recentTaskLabels = [];
+let lastTaskExitCode = null;
+
+function rememberRecentTaskLabel(label) {
+  const normalized = typeof label === "string" ? label.trim() : "";
+  if (!normalized) {
+    return;
+  }
+  const existingIndex = recentTaskLabels.indexOf(normalized);
+  if (existingIndex >= 0) {
+    recentTaskLabels.splice(existingIndex, 1);
+  }
+  recentTaskLabels.unshift(normalized);
+  recentTaskLabels.splice(8);
+}
+
+function refSafe(value) {
+  return (
+    String(value || "unknown")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "unknown"
+  );
+}
+
 function toWorkbenchRange(range) {
   if (!range) {
     return null;
@@ -278,6 +304,81 @@ function selectedTextHash(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
+function gitResourcePath(resource) {
+  const uri = resource?.resourceUri || resource?.uri;
+  return uri?.fsPath || uri?.toString?.() || null;
+}
+
+function buildWorkbenchScmState(openEditors) {
+  const dirtyEditors = openEditors
+    .filter((editor) => editor.isDirty && editor.filePath)
+    .map((editor) => editor.filePath);
+  try {
+    const gitExtension = vscode.extensions.getExtension("vscode.git")?.exports;
+    const gitApi = gitExtension?.getAPI?.(1);
+    const workspacePath = workspaceSummary().path;
+    const repositories = Array.isArray(gitApi?.repositories)
+      ? gitApi.repositories
+      : [];
+    const repository =
+      repositories.find((candidate) => {
+        const rootPath = candidate?.rootUri?.fsPath || candidate?.rootUri?.toString?.();
+        return rootPath && workspacePath && workspacePath.startsWith(rootPath);
+      }) || repositories[0];
+    if (!repository) {
+      return {
+        provider: dirtyEditors.length ? "unknown" : "none",
+        branch: null,
+        dirty: dirtyEditors.length > 0,
+        changedFiles: dirtyEditors,
+        ahead: null,
+        behind: null,
+      };
+    }
+
+    const state = repository.state || {};
+    const head = state.HEAD || {};
+    const changedFiles = [
+      ...(state.workingTreeChanges || []),
+      ...(state.indexChanges || []),
+      ...(state.untrackedChanges || []),
+      ...(state.mergeChanges || []),
+    ]
+      .map(gitResourcePath)
+      .filter(Boolean);
+    return {
+      provider: "git",
+      branch: head.name || head.upstream?.name || head.commit || null,
+      dirty: changedFiles.length > 0 || dirtyEditors.length > 0,
+      changedFiles: Array.from(new Set([...changedFiles, ...dirtyEditors])),
+      ahead: typeof head.ahead === "number" ? head.ahead : null,
+      behind: typeof head.behind === "number" ? head.behind : null,
+    };
+  } catch (error) {
+    return {
+      provider: "unknown",
+      branch: null,
+      dirty: dirtyEditors.length > 0,
+      changedFiles: dirtyEditors,
+      ahead: null,
+      behind: null,
+    };
+  }
+}
+
+function buildWorkbenchTaskState() {
+  const activeTaskLabels = (vscode.tasks.taskExecutions || [])
+    .map((execution) => execution.task?.name)
+    .filter((label) => typeof label === "string" && label.trim());
+  const recentLabels = Array.from(new Set([...activeTaskLabels, ...recentTaskLabels]));
+  return {
+    activeTaskLabels,
+    recentTaskLabels: recentLabels.slice(0, 8),
+    lastExitCode: lastTaskExitCode,
+    checkRefs: recentLabels.slice(0, 8).map((label) => `task:${refSafe(label)}`),
+  };
+}
+
 function activeEditorRef(editor) {
   if (!editor) {
     return null;
@@ -355,22 +456,8 @@ function buildWorkbenchContextSnapshot(reason = "poll") {
       tabId: editor.tabId,
     })),
     diagnostics,
-    scmState: {
-      provider: "unknown",
-      branch: null,
-      dirty: openEditors.some((editor) => editor.isDirty),
-      changedFiles: openEditors
-        .filter((editor) => editor.isDirty && editor.filePath)
-        .map((editor) => editor.filePath),
-      ahead: null,
-      behind: null,
-    },
-    taskState: {
-      activeTaskLabels: [],
-      recentTaskLabels: [],
-      lastExitCode: null,
-      checkRefs: [],
-    },
+    scmState: buildWorkbenchScmState(openEditors),
+    taskState: buildWorkbenchTaskState(),
     terminalState: {
       terminalCount: vscode.window.terminals.length,
       activeTerminalName: vscode.window.activeTerminal?.name || null,
@@ -806,6 +893,16 @@ function startWorkbenchContextSnapshotPublisher(context, output) {
     vscode.window.tabGroups.onDidChangeTabs(() => void publish("tabs")),
     vscode.window.onDidOpenTerminal(() => void publish("terminal")),
     vscode.window.onDidCloseTerminal(() => void publish("terminal")),
+    vscode.tasks.onDidStartTask((event) => {
+      rememberRecentTaskLabel(event.execution?.task?.name);
+      void publish("task");
+    }),
+    vscode.tasks.onDidEndTaskProcess((event) => {
+      rememberRecentTaskLabel(event.execution?.task?.name);
+      lastTaskExitCode =
+        typeof event.exitCode === "number" ? event.exitCode : lastTaskExitCode;
+      void publish("task");
+    }),
   ];
   subscriptions.forEach((subscription) => context.subscriptions.push(subscription));
 
