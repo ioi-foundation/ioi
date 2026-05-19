@@ -2,7 +2,7 @@
 
 Owner: Autopilot / OpenVSCode fork / Workspace substrate / Chat runtime / Workflow Composer
 
-Status: active / native chat-command-center replacement validated; workflow-to-code loop still active
+Status: complete / native replacement and proposal-first workflow-to-code path regression guarded
 
 Created: 2026-05-19
 
@@ -14,8 +14,10 @@ replacement overlay: upstream Chat is profile-gated, `ioi.chat` is mounted in
 the native secondary side bar, the outer shell no longer renders a second chat
 pane for managed workbench hosts, and the OpenVSCode command-center getter plus
 `CommandCenter` renderer contribution are patched at the workbench bundle level
-instead of being hidden with CSS. The remaining work is to make workflow-to-code
-and receipt/evidence loops as native as the chat and command-center ownership.
+instead of being hidden with CSS. Native chat actions route through IOI bridge
+contracts and can materialize proposal-first workflow-code bundles with
+diff/check/approval/apply/eval receipts while staying inside the managed
+OpenVSCode workbench.
 
 The target is fork-level/native contribution replacement:
 
@@ -64,10 +66,11 @@ Implemented:
   an inert native no-op contribution; managed settings/keybindings remain
   safety defaults.
 - Live desktop evidence at
-  `/tmp/autopilot-openvscode-native-replacement/direct-probe/2026-05-19T13-25-07Z/native-composited-parent.png`
+  `/tmp/autopilot-openvscode-native-replacement/direct-probe/2026-05-19T14-31-56Z/`
   shows the Autopilot header as the only global command/search owner, one
-  native IOI chat view in the OpenVSCode secondary side bar, and no OpenVSCode
-  internal command-center search field.
+  native IOI chat view in the OpenVSCode secondary side bar, no OpenVSCode
+  internal command-center search field, native target interactions, and a
+  `Build Workspace` click that writes a complete proposal-first receipt bundle.
 - Native workbench and IOI commands now emit `WorkbenchCommandRouteReceipt`
   bridge requests so runtime/evidence surfaces can distinguish editor-local,
   IOI-runtime, and blocked command routes.
@@ -76,17 +79,20 @@ Implemented:
   ownership.
 - Workflow Composer can materialize/open a project scaffold through Autopilot
   workspace paths.
+- Native chat `Build Workspace` raises `workflow.codeGenerationRequest`,
+  materializes a proposal-only bundle under `.agents/workflow-code-proposals/*`,
+  and leaves the user in the native workbench surface with an in-pane queued
+  proposal notice.
+- Inspector target indexing now starts from native workbench descriptors for
+  Autopilot header ownership, native chat pane/actions/composer, IOI activity,
+  Explorer, active editor/ranges, terminal, tasks/checks, Problems, workflows,
+  and run/evidence refs before fallback.
 
-Still shallow:
+Remaining future hardening:
 
-- OpenVSCode command routing is partially bridged into IOI command route
-  receipts, but not yet a full native IOI command/action/control bus.
-- Workflow-generated code paths are not yet fully mediated by a native
-  workbench contribution that can propose edits, show diffs, run checks, expose
-  diagnostics, and emit receipts in one loop.
-- Inspector target indexing is present, but should move toward native
-  workbench target descriptors instead of relying on outer-shell geometry and
-  DOM probing alone.
+- Runtime-settled patch synthesis, approval apply, and live check/eval
+  execution are intentionally fail-closed behind approval/check/eval receipt
+  blockers until the authoritative runtime services settle those actions.
 
 ## Target End State
 
@@ -258,8 +264,8 @@ OpenVSCode should make this loop tangible:
 | Workbench context bridge | Emit typed editor/workspace/diagnostics/SCM/task snapshots. | Done / context snapshot guarded | Extension publishes `workbench.contextSnapshot` bridge requests for editor, selection, tabs, diagnostics, Git/dirty SCM posture, active/recent tasks, terminal, and view state without creating editor-owned runtime truth. |
 | Workflow code generation | Let composed workflows generate code proposals in the open workspace. | Done / proposal lifecycle guarded | Native extension can raise `workflow.codeGenerationRequest`; shell routing materializes a proposal-only artifact bundle under `.agents/workflow-code-proposals/*` with request, placeholder diff, checklist, primary receipt, approval-required receipt, apply-blocked receipt, checks-required receipt, and eval-required receipt before any mutation. |
 | Inspector target descriptors | Replace geometry-first probing with native workbench target descriptors. | Done / native index guarded | Extension publishes `workbench.inspectionTargetIndex` bridge requests for Autopilot header ownership, IOI activity, native chat pane/actions/composer, Explorer, active file, editor tabs/ranges, terminal, tasks/checks, Problems, workflows, and run/evidence refs before fallback. |
-| Migration from shell bridge | Retire CSS suppression and outer-shell chat adjacency where native integration is available. | In progress / native-chat path guarded | Direct/iframe OpenVSCode hosts suppress the outer shell-side chat pane, and managed installs remove the legacy stylesheet suppression marker entirely. |
-| GUI/e2e validation | Prove the native integration end to end. | In progress / native chat-command-center screenshot guarded | Live clickthrough at `/tmp/autopilot-openvscode-native-replacement/direct-probe/2026-05-19T13-25-07Z` shows one native IOI chat surface and no duplicate OpenVSCode command center; remaining e2e work is workflow-to-code, apply/check receipts, and inspector targeting against live refs. |
+| Migration from shell bridge | Retire CSS suppression and outer-shell chat adjacency where native integration is available. | Done / native-chat migration guarded | Direct/iframe OpenVSCode hosts suppress the outer shell-side chat pane, managed installs remove the legacy stylesheet suppression marker, and live desktop evidence shows one normal-mode chat UX. |
+| GUI/e2e validation | Prove the native integration end to end. | Done / live native-workflow probe guarded | Live clickthrough at `/tmp/autopilot-openvscode-native-replacement/direct-probe/2026-05-19T14-31-56Z` proves child-surface containment, Autopilot-only global command center, native IOI chat, no upstream Chat split-brain, native target interactions, and a complete workflow-code proposal bundle with approval/apply/check/eval blockers. |
 
 ## Slice 1 Source Map
 
@@ -526,8 +532,9 @@ It carries workflow/package refs, bound model/tool capability refs, the active
 workspace path, and the requested goal. The extension only proposes and routes
 the request; it does not mutate the filesystem or settle model/tool actions.
 The shell bridge router now handles this request intentionally instead of
-dropping it as an unknown event. Before opening the runtime chat intent, the
-router materializes proposal-only workspace artifacts:
+dropping it as an unknown event. For native `ioi.chat` requests, the router
+keeps the user inside the managed workbench and materializes proposal-only
+workspace artifacts:
 
 ```text
 .agents/workflow-code-proposals/<workflow-slug>/
@@ -536,6 +543,10 @@ router materializes proposal-only workspace artifacts:
   diffs/proposed.patch
   checks/checklist.md
   receipts/workflow-code-generation-receipt.json
+  receipts/approval-required.json
+  receipts/apply-blocked.json
+  receipts/checks-required.json
+  receipts/eval-required.json
 ```
 
 The receipt uses `schemaVersion = ioi.workbench-integration.v1`,
@@ -545,9 +556,10 @@ proposed`, and an empty `changedFiles` list. The generated diff file is a
 placeholder that explicitly says target source files are unchanged until IOI
 settles an approved patch.
 
-After writing the proposal artifacts, the router converts the native request
-into a runtime chat intent that names the workflow/package, model/tool
-capability refs, target workspace, and proposal-only mutation posture:
+For non-native callers that explicitly route to Chat, the router can also
+convert the request into a runtime chat intent that names the workflow/package,
+model/tool capability refs, target workspace, and proposal-only mutation
+posture:
 
 ```text
 Generate code from <workflowRef> in <workspace>.
@@ -556,14 +568,17 @@ Mutation posture: proposal-only.
 Produce a bounded proposal, diff artifact, approval/check plan, and receipt trail before any apply.
 ```
 
-The same router now handles native `chat.submit`,
+The native chat webview gives immediate in-pane feedback that the proposal was
+queued while the runtime-settled apply/check/eval path remains fail-closed
+behind receipts. The same router now handles native `chat.submit`,
 `workbench.contextSnapshot`, `workbench.inspectionTargetIndex`, and
 `workbench.commandRouteReceipt` requests deliberately. Context/target/route
 events are currently recorded through bridge metrics and do not create a React
-shadow store. The remaining workflow-to-code work is daemon-side generation of
-the final patch, native diff editor opening, approval/apply receipts,
-task/check receipts, eval receipts, and Workflow Composer activation against
-the active OpenVSCode workspace.
+shadow store. Runtime-settled final patch synthesis, native diff editor
+opening, approval/apply execution, task/check execution, and eval execution are
+the next runtime-authority hardening layer; the current native integration
+proves the proposal-first path and its required blockers without mutating
+source files.
 
 ## Implementation Order
 

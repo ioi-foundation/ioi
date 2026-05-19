@@ -243,7 +243,10 @@ export async function routeWorkspaceBridgeRequest(
         routedTo: "chat.settings",
       });
       return;
-    case "workflow.codeGenerationRequest":
+    case "workflow.codeGenerationRequest": {
+      const keepInNativeWorkbench =
+        context?.source === "ioi.chat" ||
+        (readBoolean(request.payload, "stayInWorkbench") ?? false);
       try {
         const proposal = await materializeWorkflowCodeGenerationProposal({
           requestId: readString(request.payload, "requestId"),
@@ -275,24 +278,30 @@ export async function routeWorkspaceBridgeRequest(
           message: error instanceof Error ? error.message : String(error),
         });
       }
-      await openRuntimeWorkflowCodeGeneration(runtime, {
-        workflowRef: readString(request.payload, "workflowRef"),
-        packageRef: readString(request.payload, "packageRef"),
-        goal: readString(request.payload, "goal"),
-        targetWorkspace: readString(request.payload, "targetWorkspace"),
-        modelCapabilityRef: readString(request.payload, "boundModelCapabilityRef"),
-        toolCapabilityRefs: readStringArray(request.payload, "boundToolCapabilityRefs"),
-        proposalOnly: readBoolean(request.payload, "proposalOnly") ?? true,
-      });
+      if (!keepInNativeWorkbench) {
+        await openRuntimeWorkflowCodeGeneration(runtime, {
+          workflowRef: readString(request.payload, "workflowRef"),
+          packageRef: readString(request.payload, "packageRef"),
+          goal: readString(request.payload, "goal"),
+          targetWorkspace: readString(request.payload, "targetWorkspace"),
+          modelCapabilityRef: readString(request.payload, "boundModelCapabilityRef"),
+          toolCapabilityRefs: readStringArray(request.payload, "boundToolCapabilityRefs"),
+          proposalOnly: readBoolean(request.payload, "proposalOnly") ?? true,
+        });
+      }
       recordMetric?.("bridge_request_handled", {
         requestId: request.requestId,
         requestType: request.requestType,
-        routedTo: "chat.intent.workflow-code-generation",
+        routedTo: keepInNativeWorkbench
+          ? "native-chat.workflow-code-generation"
+          : "chat.intent.workflow-code-generation",
         workflowRef: readString(request.payload, "workflowRef"),
         packageRef: readString(request.payload, "packageRef"),
         proposalOnly: readBoolean(request.payload, "proposalOnly") ?? true,
+        keepInNativeWorkbench,
       });
       return;
+    }
     case "chat.explainSelection": {
       const filePath = readString(request.payload, "filePath") ?? context?.filePath ?? null;
       const selectedText =
