@@ -42,6 +42,12 @@ test("native IOI chat composer uses canonical Autopilot icons and layout tokens"
   assert.match(source, /--operator-chat-accent: var\(\s*--ioi-operator-chat-accent/);
   assert.match(source, /--ioi-operator-chat-selected-border/);
   assert.match(source, /width: min\(100% - 24px, 360px\)/);
+  assert.match(source, /enableForms: true/);
+  assert.match(source, /autocomplete="off"/);
+  assert.match(source, /spellcheck="false"/);
+  assert.match(source, /const focusComposerInput = \(\) =>/);
+  assert.match(source, /composer\?\.addEventListener\("pointerdown"/);
+  assert.match(source, /composerInput\?\.addEventListener\("pointerdown", focusComposerInput\)/);
   assert.match(source, /dataset\.chatMode/);
   assert.match(source, /dataset\.chatModel/);
   assert.doesNotMatch(source, /var\(--vscode-focusBorder\)/);

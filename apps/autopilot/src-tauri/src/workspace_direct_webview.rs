@@ -490,6 +490,12 @@ fn reparent_child_window<R: Runtime>(
         x11::xlib::XMoveResizeWindow(display, child_xid, x, y, width, height);
         if visible {
             x11::xlib::XMapRaised(display, child_xid);
+            x11::xlib::XSetInputFocus(
+                display,
+                child_xid,
+                x11::xlib::RevertToParent,
+                x11::xlib::CurrentTime,
+            );
         } else {
             x11::xlib::XUnmapWindow(display, child_xid);
         }
@@ -592,7 +598,7 @@ fn show_reparented_child_window<R: Runtime>(
         true,
         &format!("{} visible", context),
     )?;
-    let _ = parent_window.set_focus();
+    let _ = child_window.set_focus();
     Ok(())
 }
 
