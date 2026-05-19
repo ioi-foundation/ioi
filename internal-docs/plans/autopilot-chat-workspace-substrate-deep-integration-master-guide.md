@@ -2,7 +2,7 @@
 
 Owner: Autopilot / Chat UX / Workspace substrate / Workflow Composer / Direct OpenVSCode bridge
 
-Status: complete / shared chat UX parity regression guarded
+Status: complete / native chat chrome parity traced and regression guarded
 
 Created: 2026-05-18
 
@@ -484,6 +484,19 @@ Follow-up correction on 2026-05-18:
 
 Completed validation:
 
+- Added `scripts/lib/openvscode-chat-parity-audit.mjs`, which can temporarily
+  reveal the hidden legacy OpenVSCode auxiliary chat pane, capture a screenshot,
+  extract its DOM/action geometry, and trace safe menu/toggle interactions into
+  `/tmp/autopilot-chat-parity`. The captured native reference confirms:
+  `codicon-plus`, `codicon-chevron-down`, `codicon-gear`,
+  `codicon-toolbar-more`, separator, `codicon-auxiliarybar-maximize`, and
+  `codicon-auxiliarybar-close` with 22px/16px action boxes.
+- Updated the shared `OperatorChatPane` and Autopilot chat projection to carry
+  those native labels, codicon classes, action sizes, divider placement, and
+  expand/close semantics while keeping one Autopilot-owned chat substrate.
+- Tightened the functional composer toward the prior VS Code substrate shape:
+  compact target/capability codicon selectors, `Auto`, tools, and native
+  `codicon-send`, with settings remaining in the chat title bar.
 - `npx tsx --test packages/agent-ide/src/runtime/workflow-runtime-unavailable-copy.test.ts apps/autopilot/src/services/workspaceRepositoryRegistry.test.ts`
 - `node --test apps/autopilot/src/windows/AutopilotShellWindow/operatorSubstrateModel.test.ts apps/autopilot/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts apps/autopilot/src/windows/ChatShellWindow/index.seedIntent.test.ts apps/autopilot/src/windows/AutopilotShellWindow/components/AutopilotShellContent.seedIntent.test.ts`
 - `node --test apps/autopilot/src/windows/AutopilotShellWindow/operatorSubstrateModel.test.ts apps/autopilot/src/services/workflowProjectMaterializationPlan.test.ts apps/autopilot/src/services/workspaceRepositoryRegistry.test.ts`

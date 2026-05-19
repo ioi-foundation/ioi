@@ -617,11 +617,19 @@ body.chat-session-shell-host,
   padding: 0 7px;
 }
 
-.spot-input-selector span:first-child {
+.spot-input-selector span:first-child:not(.spot-input-selector__icon) {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.spot-input-selector__icon {
+  width: 13px;
+  height: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .spot-input-selector__chevron {
@@ -645,9 +653,13 @@ body.chat-session-shell-host,
   color: var(--spot-text-primary);
 }
 
-.spot-tool-toggle svg {
+.spot-tool-toggle svg,
+.spot-tool-toggle .workspace-codicon,
+.spot-send-btn .workspace-codicon,
+.spot-input-selector .workspace-codicon {
   width: 13px;
   height: 13px;
+  font-size: 13px;
 }
 
 /* Send Button - Primary CTA */

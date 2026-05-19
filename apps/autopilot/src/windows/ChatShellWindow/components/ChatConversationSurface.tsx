@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
 import {
+  Codicon,
   OperatorChatPane,
   type OperatorChatEmptyStateModel,
   type OperatorChatPaneAction,
   type OperatorChatPaneMode,
 } from "@ioi/workspace-substrate";
-import { icons } from "../../../components/ui/icons";
 
 export function ChatConversationSurface({
   mode = "full",
@@ -47,35 +47,45 @@ export function ChatConversationSurface({
   const primaryActions: OperatorChatPaneAction[] = [
     {
       id: "new",
-      label: "New session",
-      icon: icons.plus,
+      label: "New Chat (Ctrl+N)",
+      icon: <Codicon name="plus" />,
       onClick: onNewSession,
     },
     {
       id: "new-options",
-      label: "New session options",
-      icon: icons.chevronDown,
+      label: "New Chat",
+      icon: <Codicon name="chevron-down" />,
       onClick: onOpenCommandPalette,
     },
     {
       id: "settings",
-      label: "Open Chat settings",
-      icon: icons.settings,
+      label: "Configure Chat",
+      icon: <Codicon name="gear" />,
       onClick: onOpenSettings,
     },
     {
       id: "more",
-      label: "More chat actions",
-      icon: icons.more,
+      label: "Views and More Actions...",
+      icon: <Codicon name="toolbar-more" />,
       onClick: onOpenCommandPalette,
     },
   ];
   const secondaryActions: OperatorChatPaneAction[] = artifactDrawerAvailable
     ? [
         {
-          id: artifactVisible ? "collapse" : "expand",
-          label: artifactVisible ? "Hide artifacts" : "Show artifacts",
-          icon: icons.expand,
+          id: artifactVisible ? "restore" : "maximize",
+          label: artifactVisible
+            ? "Restore Secondary Side Bar Size"
+            : "Maximize Secondary Side Bar Size",
+          icon: (
+            <Codicon
+              name={
+                artifactVisible
+                  ? "auxiliarybar-restore"
+                  : "auxiliarybar-maximize"
+              }
+            />
+          ),
           active: artifactVisible,
           onClick: onToggleArtifactDrawer,
         },

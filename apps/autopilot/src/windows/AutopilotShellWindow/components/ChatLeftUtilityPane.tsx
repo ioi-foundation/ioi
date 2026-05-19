@@ -2,6 +2,7 @@ import type {
   AgentWorkbenchRuntime,
   AssistantSessionRuntime,
 } from "@ioi/agent-ide";
+import { Codicon } from "@ioi/workspace-substrate";
 import type { AssistantWorkbenchSession } from "../../../types";
 import { MissionControlChatView } from "../../../surfaces/MissionControl";
 
@@ -35,41 +36,20 @@ export function ChatLeftUtilityPane({
   onOpenAutopilot,
 }: ChatLeftUtilityPaneProps) {
   const usesIntegratedChatChrome = surface === "chat";
+  const layoutControlLabel = maximized
+    ? "Restore Secondary Side Bar Size"
+    : "Maximize Secondary Side Bar Size";
   const layoutControl = (
     <button
       type="button"
       className="chat-chat-pane-control"
       onClick={onToggleMaximize}
-      aria-label={maximized ? "Restore chat layout" : "Full screen chat"}
-      title={maximized ? "Restore chat layout" : "Full screen chat"}
+      aria-label={layoutControlLabel}
+      title={layoutControlLabel}
     >
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        {maximized ? (
-          <>
-            <path d="M8 4H4v4" />
-            <path d="M4 4l6 6" />
-            <path d="M16 20h4v-4" />
-            <path d="M20 20l-6-6" />
-          </>
-        ) : (
-          <>
-            <path d="M15 4h5v5" />
-            <path d="M14 10l6-6" />
-            <path d="M9 20H4v-5" />
-            <path d="M10 14l-6 6" />
-          </>
-        )}
-      </svg>
+      <Codicon
+        name={maximized ? "auxiliarybar-restore" : "auxiliarybar-maximize"}
+      />
     </button>
   );
   const closeControl = (
@@ -77,23 +57,10 @@ export function ChatLeftUtilityPane({
       type="button"
       className="chat-chat-pane-control"
       onClick={onClose}
-      aria-label="Close chat pane"
-      title="Close chat pane"
+      aria-label="Hide Secondary Side Bar (Ctrl+Alt+B)"
+      title="Hide Secondary Side Bar (Ctrl+Alt+B)"
     >
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M18 6 6 18" />
-        <path d="m6 6 12 12" />
-      </svg>
+      <Codicon name="auxiliarybar-close" />
     </button>
   );
 

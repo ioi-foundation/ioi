@@ -240,6 +240,18 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
     "apps/autopilot/src/windows/ChatShellWindow/components/ChatInputSection.tsx",
     "utf8",
   );
+  const chatInputControls = readFileSync(
+    "apps/autopilot/src/windows/ChatShellWindow/components/ChatInputControls.tsx",
+    "utf8",
+  );
+  const codicon = readFileSync(
+    "packages/workspace-substrate/src/components/Codicon.tsx",
+    "utf8",
+  );
+  const chatLeftUtilityPane = readFileSync(
+    "apps/autopilot/src/windows/AutopilotShellWindow/components/ChatLeftUtilityPane.tsx",
+    "utf8",
+  );
 
   assert.match(workspaceHost, /<OperatorChatPane/);
   assert.match(workspaceHost, /dataOperatorChatPane="docked"/);
@@ -255,6 +267,10 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
   );
   assert.match(chatConversationSurface, /<OperatorChatPane/);
   assert.match(chatConversationSurface, /id: "new-options"/);
+  assert.match(chatConversationSurface, /New Chat \(Ctrl\+N\)/);
+  assert.match(chatConversationSurface, /Configure Chat/);
+  assert.match(chatConversationSurface, /Views and More Actions\.\.\./);
+  assert.match(chatConversationSurface, /Maximize Secondary Side Bar Size/);
   assert.match(chatConversationSurface, /emptyState=\{emptyState\}/);
   assert.match(chatConversationSurface, /suggestedActions=\{suggestedActions\}/);
   assert.match(chatConversationSurface, /composer=\{composer\}/);
@@ -274,6 +290,10 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
     /dataInspectionTarget="operator-chat-pane"/,
   );
   assert.match(workspaceHost, /id: "new-options"/);
+  assert.match(workspaceHost, /New Chat \(Ctrl\+N\)/);
+  assert.match(workspaceHost, /Configure Chat/);
+  assert.match(workspaceHost, /Views and More Actions\.\.\./);
+  assert.match(workspaceHost, /Hide Secondary Side Bar \(Ctrl\+Alt\+B\)/);
   assert.match(workspaceHost, /Build Workspace/);
   assert.match(workspaceHost, /Show Config/);
   assert.match(workspaceHost, /Generate Agent Instructions/);
@@ -287,6 +307,15 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
     chatInputSection,
     /data-inspection-target="operator-chat-composer"/,
   );
+  assert.match(chatInputControls, /name="device-desktop"/);
+  assert.match(chatInputControls, /name="symbol-operator"/);
+  assert.match(chatInputControls, /name="tools"/);
+  assert.match(chatInputControls, /name="send"/);
+  assert.doesNotMatch(chatInputControls, /spot-slash-trigger-text/);
+  assert.match(codicon, /codicon-\$\{name\}/);
+  assert.match(codicon, /"auxiliarybar-maximize": "screen-full"/);
+  assert.match(chatLeftUtilityPane, /Maximize Secondary Side Bar Size/);
+  assert.match(chatLeftUtilityPane, /Hide Secondary Side Bar \(Ctrl\+Alt\+B\)/);
   assert.doesNotMatch(chatConversationSurface, /spot-workbench-chat-topbar/);
   assert.doesNotMatch(workspaceHost, /function WorkbenchAgentDock/);
   assert.doesNotMatch(workspaceHost, /workspace-agent-dock-header-hitbox/);

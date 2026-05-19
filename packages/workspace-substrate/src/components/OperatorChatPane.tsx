@@ -55,6 +55,7 @@ function renderAction(action: OperatorChatPaneAction) {
       type="button"
       className={clsx(
         "operator-chat-pane__action",
+        `operator-chat-pane__action--${action.id}`,
         action.active && "is-active",
       )}
       aria-label={action.label}
