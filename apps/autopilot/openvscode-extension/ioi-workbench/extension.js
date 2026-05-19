@@ -1245,6 +1245,57 @@ function renderNativeChatIcon(name) {
   }
 }
 
+function normalizedNativeChatTurns(state) {
+  const turns = Array.isArray(state.chat?.turns) ? state.chat.turns : [];
+  return turns
+    .filter((turn) => turn && typeof turn.text === "string" && turn.text.trim())
+    .map((turn, index) => ({
+      id: typeof turn.id === "string" ? turn.id : `native-chat-turn:${index}`,
+      role: typeof turn.role === "string" ? turn.role : "assistant",
+      text: turn.text.trim(),
+      timestamp: typeof turn.timestamp === "number" ? turn.timestamp : null,
+    }));
+}
+
+function renderNativeChatConversation(state) {
+  const turns = normalizedNativeChatTurns(state);
+  const phase = typeof state.chat?.phase === "string" ? state.chat.phase : null;
+  const currentStep =
+    typeof state.chat?.currentStep === "string" ? state.chat.currentStep.trim() : "";
+  if (turns.length === 0) {
+    return "";
+  }
+
+  const status =
+    phase && phase !== "Complete"
+      ? `
+        <div class="operator-chat-thread__status" data-inspection-target="native-ioi-chat-status">
+          <span>${escapeHtml(phase)}</span>
+          <strong>${escapeHtml(currentStep || "Working through the runtime...")}</strong>
+        </div>
+      `
+      : "";
+
+  return `
+    <div class="operator-chat-thread" data-inspection-target="native-ioi-chat-thread">
+      ${turns
+        .map(
+          (turn) => `
+            <article
+              class="operator-chat-message operator-chat-message--${escapeHtml(turn.role)}"
+              data-chat-turn-role="${escapeHtml(turn.role)}"
+            >
+              <span>${escapeHtml(turn.role === "user" ? "You" : "Autopilot")}</span>
+              <p>${escapeHtml(turn.text)}</p>
+            </article>
+          `,
+        )
+        .join("")}
+      ${status}
+    </div>
+  `;
+}
+
 function renderChatView(state) {
   const modelLabel =
     state.chat?.modelLabel ||
@@ -1276,6 +1327,7 @@ function renderChatView(state) {
           requestType: "chat.showConfig",
         },
       ];
+  const conversation = renderNativeChatConversation(state);
   return `
     <section
       class="operator-chat-pane"
@@ -1283,20 +1335,25 @@ function renderChatView(state) {
       data-inspection-target="native-ioi-chat-pane"
       aria-label="Autopilot Chat"
     >
-      <div class="operator-chat-empty" data-inspection-target="native-ioi-chat-empty-state">
-        <div class="operator-chat-empty__icon" aria-hidden="true">
-          <svg viewBox="0 0 32 32" focusable="false">
-            <path d="M7.5 8.5h13a4 4 0 0 1 4 4v4a4 4 0 0 1-4 4H15l-5.5 4v-4h-2a4 4 0 0 1-4-4v-4a4 4 0 0 1 4-4Z" />
-            <path d="M24 5.5v5M21.5 8h5M27 13.5v3M25.5 15h3" />
-          </svg>
-        </div>
-        <h2>Build with Agent</h2>
-        <p>
-          AI responses may be inaccurate.
-          <a href="#" data-bridge-request="chat.generateAgentInstructions">Generate Agent Instructions</a>
-          to onboard AI onto your codebase.
-        </p>
-      </div>
+      ${
+        conversation ||
+        `
+          <div class="operator-chat-empty" data-inspection-target="native-ioi-chat-empty-state">
+            <div class="operator-chat-empty__icon" aria-hidden="true">
+              <svg viewBox="0 0 32 32" focusable="false">
+                <path d="M7.5 8.5h13a4 4 0 0 1 4 4v4a4 4 0 0 1-4 4H15l-5.5 4v-4h-2a4 4 0 0 1-4-4v-4a4 4 0 0 1 4-4Z" />
+                <path d="M24 5.5v5M21.5 8h5M27 13.5v3M25.5 15h3" />
+              </svg>
+            </div>
+            <h2>Build with Agent</h2>
+            <p>
+              AI responses may be inaccurate.
+              <a href="#" data-bridge-request="chat.generateAgentInstructions">Generate Agent Instructions</a>
+              to onboard AI onto your codebase.
+            </p>
+          </div>
+        `
+      }
       <div class="operator-chat-bottom">
         <div
           class="operator-chat-notice"
@@ -1947,6 +2004,67 @@ function renderHtml(view, state) {
         color: var(--operator-chat-accent);
         text-decoration: none;
       }
+      .operator-chat-thread {
+        min-height: 0;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 8px 4px 8px;
+        scrollbar-width: thin;
+      }
+      .operator-chat-message {
+        max-width: 88%;
+        display: grid;
+        gap: 5px;
+      }
+      .operator-chat-message span {
+        color: var(--operator-chat-text-muted);
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .operator-chat-message p {
+        margin: 0;
+        border: 1px solid var(--operator-chat-border);
+        border-radius: 8px;
+        padding: 8px 10px;
+        background: var(--operator-chat-control-bg);
+        color: var(--operator-chat-text);
+        line-height: 1.45;
+        white-space: pre-wrap;
+      }
+      .operator-chat-message--user {
+        align-self: end;
+        text-align: right;
+      }
+      .operator-chat-message--user p {
+        border-color: var(--operator-chat-border-strong);
+      }
+      .operator-chat-message--assistant,
+      .operator-chat-message--tool {
+        align-self: start;
+      }
+      .operator-chat-thread__status {
+        display: grid;
+        gap: 4px;
+        border: 1px solid var(--operator-chat-border);
+        border-radius: 6px;
+        padding: 8px 10px;
+        background: var(--operator-chat-control-bg);
+        color: var(--operator-chat-text-secondary);
+      }
+      .operator-chat-thread__status span {
+        color: var(--operator-chat-accent);
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .operator-chat-thread__status strong {
+        color: var(--operator-chat-text);
+        font-size: 12px;
+        font-weight: 500;
+      }
       .operator-chat-bottom {
         display: grid;
         gap: 8px;
@@ -2230,10 +2348,12 @@ class IOIViewProvider {
     this.definition = definition;
     this.getState = getState;
     this.webviewView = null;
+    this.lastRenderedHtml = null;
   }
 
   resolveWebviewView(webviewView) {
     this.webviewView = webviewView;
+    this.lastRenderedHtml = null;
     webviewView.webview.options = {
       enableScripts: true,
       enableForms: true,
@@ -2267,7 +2387,12 @@ class IOIViewProvider {
     }
     const state = await this.getState();
     await syncWorkbenchAppearance(state);
-    this.webviewView.webview.html = renderHtml(this.definition, state);
+    const html = renderHtml(this.definition, state);
+    if (html === this.lastRenderedHtml) {
+      return;
+    }
+    this.lastRenderedHtml = html;
+    this.webviewView.webview.html = html;
   }
 }
 

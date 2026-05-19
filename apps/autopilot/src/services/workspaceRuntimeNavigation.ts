@@ -1,11 +1,11 @@
 import type { TauriRuntime } from "./TauriRuntime";
+import type { AgentTask } from "../types";
 import type { WorkspaceActionContext } from "./workspaceActionContext";
 import type { WorkspaceBridgeRouteRequest } from "./workspaceBridgeTypes";
 import { openArtifactReviewTarget } from "./reviewNavigation";
 import {
   openRuntimeArtifactReview,
   openRuntimeBrowserAutomation,
-  openRuntimeChatPrompt,
   openRuntimeCodeSelectionReview,
   openRuntimeConnectionsOverview,
   openRuntimeEvidenceSession,
@@ -47,6 +47,48 @@ function readStringArray(
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
+}
+
+function workspaceChatSessionId(task: AgentTask | null): string | null {
+  return task?.session_id?.trim() || task?.id?.trim() || null;
+}
+
+function shouldContinueWorkspaceChatTask(task: AgentTask | null): boolean {
+  if (!task) {
+    return false;
+  }
+  if (!workspaceChatSessionId(task)) {
+    return false;
+  }
+  return task.phase !== "Idle" && task.phase !== "Failed";
+}
+
+async function submitNativeWorkbenchChatPrompt(
+  runtime: TauriRuntime,
+  prompt: string,
+) {
+  const currentTask = await runtime.getCurrentSessionTask<AgentTask>();
+  const sessionId = workspaceChatSessionId(currentTask);
+  if (sessionId && shouldContinueWorkspaceChatTask(currentTask)) {
+    await runtime.continueSessionTask(sessionId, prompt);
+    return {
+      action: "continued",
+      sessionId,
+    };
+  }
+
+  const startedTask = await runtime.startSessionTask<AgentTask>(prompt);
+  return {
+    action: "started",
+    sessionId: workspaceChatSessionId(startedTask),
+  };
+}
+
+function compactNativeWorkbenchIntent(parts: Array<string | null | undefined>): string {
+  return parts
+    .filter((part): part is string => Boolean(part?.trim()))
+    .join("\n\n")
+    .trim();
 }
 
 export function readWorkspaceActionContext(
@@ -153,70 +195,89 @@ export async function routeWorkspaceBridgeRequest(
         });
         return;
       }
-      await openRuntimeChatPrompt(runtime, prompt);
+      const submitResult = await submitNativeWorkbenchChatPrompt(runtime, prompt);
       recordMetric?.("bridge_request_handled", {
         requestId: request.requestId,
         requestType: request.requestType,
-        routedTo: "chat.intent.native-workbench-submit",
+        routedTo: "native-chat.inline-runtime-submit",
+        action: submitResult.action,
+        sessionId: submitResult.sessionId,
       });
       return;
     }
-    case "chat.generateAgentInstructions":
-      await openRuntimeChatPrompt(
+    case "chat.generateAgentInstructions": {
+      const submitResult = await submitNativeWorkbenchChatPrompt(
         runtime,
         "Generate Agent Instructions for this workspace using the current OpenVSCode workbench context. Include repository context, setup assumptions, and safe proposal-first coding posture.",
       );
       recordMetric?.("bridge_request_handled", {
         requestId: request.requestId,
         requestType: request.requestType,
-        routedTo: "chat.intent.generate-agent-instructions",
+        routedTo: "native-chat.inline-generate-agent-instructions",
+        action: submitResult.action,
+        sessionId: submitResult.sessionId,
       });
       return;
-    case "chat.showConfig":
-      await openRuntimeChatPrompt(
+    }
+    case "chat.showConfig": {
+      const submitResult = await submitNativeWorkbenchChatPrompt(
         runtime,
         "Show the current Autopilot native workbench configuration, including active workspace, model/tool capability posture, authority scope, and receipt expectations.",
       );
       recordMetric?.("bridge_request_handled", {
         requestId: request.requestId,
         requestType: request.requestType,
-        routedTo: "chat.intent.native-workbench-config",
+        routedTo: "native-chat.inline-native-workbench-config",
+        action: submitResult.action,
+        sessionId: submitResult.sessionId,
       });
       return;
+    }
     case "chat.addContext":
     case "chat.attachEditorContext": {
+      let submitResult: Awaited<ReturnType<typeof submitNativeWorkbenchChatPrompt>>;
       if (context?.selection?.selectedText || context?.filePath) {
-        await openRuntimeCodeSelectionReview(
+        submitResult = await submitNativeWorkbenchChatPrompt(
           runtime,
-          context,
-          context.selection?.selectedText ?? null,
+          compactNativeWorkbenchIntent([
+            "Attach the current OpenVSCode editor context to this sidebar conversation.",
+            context.filePath ? `Active file: ${context.filePath}` : null,
+            context.selection?.selectedText
+              ? `Selected text:\n\n${context.selection.selectedText.slice(0, 6_000)}`
+              : "No selected text was provided; use the active editor/file context from the workbench bridge.",
+          ]),
         );
       } else {
-        await openRuntimeChatPrompt(
+        submitResult = await submitNativeWorkbenchChatPrompt(
           runtime,
-          "Attach the most relevant OpenVSCode workspace context to the next Autopilot turn. Prefer active editor, selected text, diagnostics, SCM posture, and visible IOI workbench refs.",
+          "Attach the most relevant OpenVSCode workspace context to this sidebar conversation. Prefer active editor, selected text, diagnostics, SCM posture, and visible IOI workbench refs.",
         );
       }
       recordMetric?.("bridge_request_handled", {
         requestId: request.requestId,
         requestType: request.requestType,
-        routedTo: "chat.intent.attach-native-context",
+        routedTo: "native-chat.inline-attach-native-context",
+        action: submitResult.action,
+        sessionId: submitResult.sessionId,
         filePath: context?.filePath ?? null,
         hasSelection: Boolean(context?.selection?.selectedText),
       });
       return;
     }
-    case "chat.contextOptions":
-      await openRuntimeChatPrompt(
+    case "chat.contextOptions": {
+      const submitResult = await submitNativeWorkbenchChatPrompt(
         runtime,
-        "List available OpenVSCode context options for this Autopilot turn, including active editor, selection, diagnostics, SCM state, terminal/task state, workflows, runs, and evidence refs.",
+        "List available OpenVSCode context options for this sidebar conversation, including active editor, selection, diagnostics, SCM state, terminal/task state, workflows, runs, and evidence refs.",
       );
       recordMetric?.("bridge_request_handled", {
         requestId: request.requestId,
         requestType: request.requestType,
-        routedTo: "chat.intent.context-options",
+        routedTo: "native-chat.inline-context-options",
+        action: submitResult.action,
+        sessionId: submitResult.sessionId,
       });
       return;
+    }
     case "chat.toolControls":
       await openRuntimeConnectionsOverview(runtime, context?.connectorId ?? null);
       recordMetric?.("bridge_request_handled", {

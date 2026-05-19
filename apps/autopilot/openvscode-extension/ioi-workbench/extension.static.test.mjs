@@ -15,6 +15,10 @@ test("native IOI chat view renders the canonical operator chat pane shell", asyn
   assert.match(source, /data-inspection-target="native-ioi-chat-composer"/);
   assert.match(source, /Generate Agent Instructions/);
   assert.match(source, /Build Workspace/);
+  assert.match(source, /function renderNativeChatConversation/);
+  assert.match(source, /data-inspection-target="native-ioi-chat-thread"/);
+  assert.match(source, /data-chat-turn-role/);
+  assert.match(source, /state\.chat\?\.turns/);
   assert.match(
     source,
     /label: "Build Workspace",[\s\S]*requestType: "workflow\.codeGenerationRequest"/,
@@ -43,6 +47,8 @@ test("native IOI chat composer uses canonical Autopilot icons and layout tokens"
   assert.match(source, /--ioi-operator-chat-selected-border/);
   assert.match(source, /width: min\(100% - 24px, 360px\)/);
   assert.match(source, /enableForms: true/);
+  assert.match(source, /this\.lastRenderedHtml = null/);
+  assert.match(source, /if \(html === this\.lastRenderedHtml\)/);
   assert.match(source, /autocomplete="off"/);
   assert.match(source, /spellcheck="false"/);
   assert.match(source, /const focusComposerInput = \(\) =>/);
