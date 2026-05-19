@@ -40,7 +40,17 @@ test("native IOI chat composer uses canonical Autopilot icons and layout tokens"
   assert.match(source, /M7\.25 4\.75v5M4\.75 7\.25h5M14\.25 7\.25h5/);
   assert.match(source, /M5 4\.5 20 12 5 19\.5v-15Z/);
   assert.match(source, /class="operator-chat-icon-select"/);
-  assert.match(source, /class="operator-chat-tool-toggle is-active"/);
+  assert.match(source, /class="operator-chat-tool-toggle"/);
+  assert.match(source, /data-native-tool-picker-button/);
+  assert.match(source, /class="operator-chat-tool-menu"/);
+  assert.match(source, /data-native-tool-search/);
+  assert.match(source, /placeholder="Select a tool"/);
+  assert.match(source, /data-native-tool-item/);
+  assert.match(source, /function renderNativeChatToolMenu/);
+  assert.match(source, /openNativeToolMenu/);
+  assert.match(source, /closeNativeToolMenu/);
+  assert.match(source, /data-bridge-request="\$\{escapeHtml\(item\.requestType\)\}"/);
+  assert.doesNotMatch(source, /data-bridge-request="chat\.toolControls"/);
   assert.match(source, /data-autopilot-theme="\$\{escapeHtml\(appearanceThemeId\)\}"/);
   assert.match(source, /--ioi-operator-chat-accent: #0098ff/);
   assert.match(source, /--operator-chat-accent: var\(\s*--ioi-operator-chat-accent/);

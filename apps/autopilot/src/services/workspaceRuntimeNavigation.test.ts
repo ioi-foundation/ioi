@@ -55,7 +55,9 @@ test("native chat submit routes into the runtime chat intent path", () => {
     workspaceRuntimeNavigation,
     /routedTo: "native-chat\.inline-context-options"/,
   );
-  assert.match(workspaceRuntimeNavigation, /openRuntimeConnectionsOverview\(runtime/);
+  assert.match(workspaceRuntimeNavigation, /routedTo: "native-chat\.local-tool-picker"/);
+  assert.match(workspaceRuntimeNavigation, /case "connections\.open"/);
+  assert.match(workspaceRuntimeNavigation, /openRuntimeConnectionsOverview\(\s*runtime/);
   assert.match(workspaceRuntimeNavigation, /runtime\.openChatView\("settings"\)/);
   assert.match(runtimeChatNavigation, /export async function openRuntimeChatPrompt/);
 });
