@@ -2559,24 +2559,59 @@ pub(crate) fn tui_coding_tool_rows(
         .collect()
 }
 
+fn ensure_parsed_json(val: &Value) -> Value {
+    match val {
+        Value::String(s) => serde_json::from_str(s).unwrap_or_else(|_| val.clone()),
+        _ => val.clone(),
+    }
+}
+
+fn tui_truncate_large_json(val: &Value) -> Value {
+    match val {
+        Value::Null => Value::Null,
+        Value::Bool(b) => Value::Bool(*b),
+        Value::Number(n) => Value::Number(n.clone()),
+        Value::String(s) => {
+            if s.len() > 256 {
+                Value::String(format!("{}... [truncated]", &s[..256]))
+            } else {
+                Value::String(s.clone())
+            }
+        }
+        Value::Array(arr) => {
+            Value::Array(arr.iter().map(|item| tui_truncate_large_json(item)).collect())
+        }
+        Value::Object(obj) => {
+            let mut new_obj = Map::new();
+            for (k, v) in obj {
+                new_obj.insert(k.clone(), tui_truncate_large_json(v));
+            }
+            Value::Object(new_obj)
+        }
+    }
+}
+
 fn tui_coding_tool_row(event: &Value, fallback_thread_id: Option<&str>) -> Value {
     let null = Value::Null;
     let payload = event_payload_summary(event);
     let raw_payload = event.pointer("/payload").unwrap_or(&null);
-    let result = payload
+    let result_ref = payload
         .pointer("/result")
         .or_else(|| raw_payload.pointer("/result"))
         .unwrap_or(&null);
-    let result_summary = payload
+    let result = ensure_parsed_json(result_ref);
+    let result_summary_ref = payload
         .pointer("/result_summary")
         .or_else(|| payload.pointer("/resultSummary"))
         .or_else(|| raw_payload.pointer("/result_summary"))
         .or_else(|| raw_payload.pointer("/resultSummary"))
         .unwrap_or(&null);
-    let input = payload
+    let result_summary = ensure_parsed_json(result_summary_ref);
+    let input_ref = payload
         .pointer("/input")
         .or_else(|| raw_payload.pointer("/input"))
         .unwrap_or(&null);
+    let input = ensure_parsed_json(input_ref);
     let seq = event.pointer("/seq").and_then(Value::as_u64);
     let cursor = tui_event_cursor(event, seq);
     let event_id = json_path_string(event, "/event_id");
@@ -2588,16 +2623,16 @@ fn tui_coding_tool_row(event: &Value, fallback_thread_id: Option<&str>) -> Value
         .or_else(|| json_path_string(payload, "/toolId"))
         .or_else(|| json_path_string(raw_payload, "/tool_name"))
         .or_else(|| json_path_string(raw_payload, "/toolName"))
-        .or_else(|| json_path_string(result, "/tool_name"))
-        .or_else(|| json_path_string(result, "/toolName"));
+        .or_else(|| json_path_string(&result, "/tool_name"))
+        .or_else(|| json_path_string(&result, "/toolName"));
     let tool_call_id = json_path_string(event, "/tool_call_id")
         .or_else(|| json_path_string(event, "/toolCallId"))
         .or_else(|| json_path_string(payload, "/tool_call_id"))
         .or_else(|| json_path_string(payload, "/toolCallId"))
         .or_else(|| json_path_string(raw_payload, "/tool_call_id"))
         .or_else(|| json_path_string(raw_payload, "/toolCallId"))
-        .or_else(|| json_path_string(result, "/tool_call_id"))
-        .or_else(|| json_path_string(result, "/toolCallId"));
+        .or_else(|| json_path_string(&result, "/tool_call_id"))
+        .or_else(|| json_path_string(&result, "/toolCallId"));
     let tool_key = tool_name
         .clone()
         .or_else(|| tool_call_id.clone())
@@ -2624,36 +2659,36 @@ fn tui_coding_tool_row(event: &Value, fallback_thread_id: Option<&str>) -> Value
         .or_else(|| json_path_string(raw_payload, "/workflow_node_id"))
         .or_else(|| json_path_string(raw_payload, "/workflowNodeId"))
         .unwrap_or_else(|| format!("runtime.coding-tool.{}", safe_id(&tool_key)));
-    let dry_run = tui_json_boolish(input, "/dryRun")
-        .or_else(|| tui_json_boolish(input, "/dry_run"))
-        .or_else(|| tui_json_boolish(result_summary, "/dryRun"))
-        .or_else(|| tui_json_boolish(result_summary, "/dry_run"))
-        .or_else(|| tui_json_boolish(result, "/dryRun"))
-        .or_else(|| tui_json_boolish(result, "/dry_run"));
+    let dry_run = tui_json_boolish(&input, "/dryRun")
+        .or_else(|| tui_json_boolish(&input, "/dry_run"))
+        .or_else(|| tui_json_boolish(&result_summary, "/dryRun"))
+        .or_else(|| tui_json_boolish(&result_summary, "/dry_run"))
+        .or_else(|| tui_json_boolish(&result, "/dryRun"))
+        .or_else(|| tui_json_boolish(&result, "/dry_run"));
     let command = tui_coding_tool_command(&tool_key, dry_run);
-    let raw_input = tui_coding_tool_raw_input(command, &tool_key, input);
+    let raw_input = tui_coding_tool_raw_input(command, &tool_key, &input);
     let status = json_path_string(event, "/status")
         .or_else(|| json_path_string(payload, "/status"))
         .or_else(|| json_path_string(raw_payload, "/status"))
-        .or_else(|| json_path_string(result_summary, "/status"))
-        .or_else(|| json_path_string(result, "/status"))
+        .or_else(|| json_path_string(&result_summary, "/status"))
+        .or_else(|| json_path_string(&result, "/status"))
         .unwrap_or_else(|| "completed".to_string());
     let shell_fallback_used = tui_json_boolish(payload, "/shell_fallback_used")
         .or_else(|| tui_json_boolish(payload, "/shellFallbackUsed"))
         .or_else(|| tui_json_boolish(raw_payload, "/shell_fallback_used"))
         .or_else(|| tui_json_boolish(raw_payload, "/shellFallbackUsed"))
-        .or_else(|| tui_json_boolish(result_summary, "/shellFallbackUsed"))
-        .or_else(|| tui_json_boolish(result_summary, "/shell_fallback_used"))
-        .or_else(|| tui_json_boolish(result, "/shellFallbackUsed"))
-        .or_else(|| tui_json_boolish(result, "/shell_fallback_used"));
+        .or_else(|| tui_json_boolish(&result_summary, "/shellFallbackUsed"))
+        .or_else(|| tui_json_boolish(&result_summary, "/shell_fallback_used"))
+        .or_else(|| tui_json_boolish(&result, "/shellFallbackUsed"))
+        .or_else(|| tui_json_boolish(&result, "/shell_fallback_used"));
     let mutation_blocked = tui_json_boolish(payload, "/mutation_blocked")
         .or_else(|| tui_json_boolish(payload, "/mutationBlocked"))
         .or_else(|| tui_json_boolish(raw_payload, "/mutation_blocked"))
         .or_else(|| tui_json_boolish(raw_payload, "/mutationBlocked"))
-        .or_else(|| tui_json_boolish(result_summary, "/mutation_blocked"))
-        .or_else(|| tui_json_boolish(result_summary, "/mutationBlocked"))
-        .or_else(|| tui_json_boolish(result, "/mutation_blocked"))
-        .or_else(|| tui_json_boolish(result, "/mutationBlocked"))
+        .or_else(|| tui_json_boolish(&result_summary, "/mutation_blocked"))
+        .or_else(|| tui_json_boolish(&result_summary, "/mutationBlocked"))
+        .or_else(|| tui_json_boolish(&result, "/mutation_blocked"))
+        .or_else(|| tui_json_boolish(&result, "/mutationBlocked"))
         .unwrap_or(false);
     let receipt_refs = event
         .pointer("/receipt_refs")
@@ -2692,7 +2727,7 @@ fn tui_coding_tool_row(event: &Value, fallback_thread_id: Option<&str>) -> Value
         .cloned()
         .unwrap_or_else(|| Value::Array(Vec::new()));
     let authority_projection =
-        tui_coding_tool_authority_projection(event, payload, raw_payload, result, result_summary);
+        tui_coding_tool_authority_projection(event, payload, raw_payload, &result, &result_summary);
     let mut row = Map::new();
     row.insert(
         "schema_version".to_string(),
@@ -2722,7 +2757,7 @@ fn tui_coding_tool_row(event: &Value, fallback_thread_id: Option<&str>) -> Value
         "message".to_string(),
         json_path_string(payload, "/summary")
             .or_else(|| json_path_string(raw_payload, "/summary"))
-            .or_else(|| json_path_string(result_summary, "/summary"))
+            .or_else(|| json_path_string(&result_summary, "/summary"))
             .map(Value::String)
             .unwrap_or(Value::Null),
     );
@@ -2730,7 +2765,7 @@ fn tui_coding_tool_row(event: &Value, fallback_thread_id: Option<&str>) -> Value
         "summary".to_string(),
         json_path_string(payload, "/summary")
             .or_else(|| json_path_string(raw_payload, "/summary"))
-            .or_else(|| json_path_string(result_summary, "/summary"))
+            .or_else(|| json_path_string(&result_summary, "/summary"))
             .map(Value::String)
             .unwrap_or(Value::Null),
     );
@@ -2773,8 +2808,8 @@ fn tui_coding_tool_row(event: &Value, fallback_thread_id: Option<&str>) -> Value
         "dry_run".to_string(),
         dry_run.map(Value::Bool).unwrap_or(Value::Null),
     );
-    row.insert("input".to_string(), input.clone());
-    row.insert("result_summary".to_string(), result_summary.clone());
+    row.insert("input".to_string(), tui_truncate_large_json(&input));
+    row.insert("result_summary".to_string(), tui_truncate_large_json(&result_summary));
     row.insert("receipt_refs".to_string(), receipt_refs);
     row.insert("artifact_refs".to_string(), artifact_refs);
     row.insert("policy_decision_refs".to_string(), policy_decision_refs);
@@ -4896,7 +4931,7 @@ fn is_tui_coding_tool_completion_event(event: &Value) -> bool {
     let component_kind = json_path_string(event, "/component_kind")
         .unwrap_or_default()
         .to_ascii_lowercase();
-    if component_kind != "coding_tool" {
+    if component_kind != "coding_tool" && component_kind != "computer_use_harness" {
         return false;
     }
     let event_kind = json_path_string(event, "/event_kind")
@@ -4915,7 +4950,7 @@ fn is_tui_coding_tool_budget_block_event(event: &Value) -> bool {
     let component_kind = json_path_string(event, "/component_kind")
         .unwrap_or_default()
         .to_ascii_lowercase();
-    if component_kind != "coding_tool" {
+    if component_kind != "coding_tool" && component_kind != "computer_use_harness" {
         return false;
     }
     let event_kind = json_path_string(event, "/event_kind")

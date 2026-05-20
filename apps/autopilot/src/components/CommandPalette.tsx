@@ -41,7 +41,8 @@ import "./CommandPalette.css";
 
 type WorkflowSurface = "home" | "canvas" | "agents" | "catalog";
 type LoadStatus = "idle" | "loading" | "ready" | "error";
-type PaletteMode = "all" | "commands" | "workspace" | "symbols" | "help";
+type PaletteMode = "all" | "commands" | "workspace" | "symbols" | "help" | "tools";
+type CommandPaletteDisplayMode = "default" | "tools";
 
 type LiveToolRecord = {
   connector: ConnectorSummary;
@@ -60,6 +61,8 @@ type CommandPaletteSection = {
 };
 
 type CommandPaletteProps = {
+  mode?: CommandPaletteDisplayMode;
+  initialQuery?: string;
   activeView: PrimaryView;
   workflowSurface: WorkflowSurface;
   currentProjectId: string;
@@ -220,6 +223,8 @@ function connectorStatusRank(status: ConnectorSummary["status"]) {
 }
 
 export function CommandPalette({
+  mode = "default",
+  initialQuery = "",
   activeView,
   workflowSurface,
   currentProjectId,
@@ -234,7 +239,7 @@ export function CommandPalette({
   const refreshSessionHistory = useAgentStore(
     (state) => state.refreshSessionHistory,
   );
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
   const [sessionsStatus, setSessionsStatus] = useState<LoadStatus>("idle");
   const [skillCatalog, setSkillCatalog] = useState<SkillCatalogEntry[]>([]);
@@ -254,6 +259,11 @@ export function CommandPalette({
     width: `min(${PALETTE_WIDTH}px, calc(100vw - ${PALETTE_EDGE_GUTTER * 2}px))`,
     maxHeight: "min(74vh, 640px)",
   }));
+
+  useEffect(() => {
+    setQuery(initialQuery);
+    setHighlightedItemId(null);
+  }, [initialQuery, mode]);
 
   useLayoutEffect(() => {
     const computePosition = () => {
@@ -301,8 +311,16 @@ export function CommandPalette({
       window.removeEventListener("scroll", computePosition, true);
     };
   }, []);
-  const { mode: paletteMode, searchQuery } = paletteQueryState(query);
-  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const { mode: computedMode, searchQuery: normalizedQuery } = useMemo(
+    () => {
+      const state = paletteQueryState(query);
+      if (mode === "tools") {
+        return { mode: "tools" as PaletteMode, searchQuery: query.trim().toLowerCase() };
+      }
+      return state;
+    },
+    [query, mode],
+  );
   const currentProject = projects.find((project) => project.id === currentProjectId);
 
   const runAction = useCallback(
@@ -985,6 +1003,44 @@ export function CommandPalette({
                   }),
               }));
 
+    const builtInToolItems: CommandPaletteItem[] = [
+      {
+        id: "tool-auto-context",
+        title: "Auto context enabled",
+        description:
+          "Nearby runtime and workspace context is attached automatically.",
+        meta: "Enabled",
+        icon: icons.sparkles,
+        active: true,
+        onSelect: () => runAction(() => undefined),
+      },
+      {
+        id: "tool-workspace-context",
+        title: "Workspace context",
+        description:
+          "Choose files, editor state, artifacts, or retained evidence.",
+        meta: "Context",
+        icon: icons.paperclip,
+        onSelect: () =>
+          runAction(() => {
+            onOpenPrimaryView("workspace");
+          }),
+      },
+      {
+        id: "tool-manage-capabilities",
+        title: "Manage tools",
+        description: "Review callable connectors, skills, and authority posture.",
+        meta: "Capabilities",
+        icon: icons.code,
+        onSelect: () =>
+          runAction(() => {
+            onOpenPrimaryView("capabilities");
+          }),
+      },
+    ].filter((item) =>
+      matchesQuery(normalizedQuery, item.title, item.description, item.meta),
+    );
+
     const sortedSkills = [...skillCatalog].sort((left, right) => {
       if (left.stale !== right.stale) {
         return Number(left.stale) - Number(right.stale);
@@ -1153,6 +1209,15 @@ export function CommandPalette({
       ...sessionItems.slice(0, 4),
     ].slice(0, 10);
 
+    if (computedMode === "tools") {
+      return [
+        { id: "built-in-tools", title: "Built-In", items: builtInToolItems },
+        { id: "live-tools", title: "Live Tools", items: liveToolItems },
+        { id: "runtime-catalog", title: "Runtime Catalog", items: runtimeCatalogItems },
+        { id: "skills", title: "Skills", items: skillItems },
+      ];
+    }
+
     if (!query.trim()) {
       return [
         { id: "quick-pick", items: quickPickItems },
@@ -1164,14 +1229,14 @@ export function CommandPalette({
       ];
     }
 
-    if (paletteMode === "commands") {
+    if (computedMode === "commands") {
       return [
         { id: "commands", items: commandItems },
         { id: "onboarding", title: "Onboarding", items: onboardingItems },
       ];
     }
 
-    if (paletteMode === "workspace") {
+    if (computedMode === "workspace") {
       return [
         { id: "workspace", items: workspaceItems },
         { id: "recent-files", title: "Recent files", items: recentFileItems },
@@ -1179,14 +1244,14 @@ export function CommandPalette({
       ];
     }
 
-    if (paletteMode === "symbols") {
+    if (computedMode === "symbols") {
       return [
         { id: "workflows", items: workflowJumpItems },
         { id: "projects", title: "Projects", items: projectItems },
       ];
     }
 
-    if (paletteMode === "help") {
+    if (computedMode === "help") {
       return [
         { id: "help", items: helpItems },
         { id: "commands", title: "Commands", items: commandItems },
@@ -1220,7 +1285,7 @@ export function CommandPalette({
     runAction,
     runtimeCatalogEntries,
     runtimeCatalogStatus,
-    paletteMode,
+    computedMode,
     query,
     recentFiles,
     sessions,
@@ -1312,7 +1377,11 @@ export function CommandPalette({
             className="command-palette-search-input"
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search files by name (append : to go to line or @ to go to symbol)"
+            placeholder={
+              mode === "tools"
+                ? "Select a tool"
+                : "Search files by name (append : to go to line or @ to go to symbol)"
+            }
             type="text"
             value={query}
           />

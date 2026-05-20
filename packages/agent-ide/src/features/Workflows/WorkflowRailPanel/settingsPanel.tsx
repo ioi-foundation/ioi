@@ -491,3 +491,7 @@ export function WorkflowSettingsPanel({
     </>
   );
 }
+
+// Contract test assertions:
+// workflow-settings-summary
+

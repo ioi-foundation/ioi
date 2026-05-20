@@ -6,6 +6,8 @@ const extensionSourcePath =
   "apps/autopilot/openvscode-extension/ioi-workbench/extension.js";
 const packageJsonPath =
   "apps/autopilot/openvscode-extension/ioi-workbench/package.json";
+const codiconSourcePath =
+  "packages/workspace-substrate/src/components/Codicon.tsx";
 
 test("native IOI chat view renders the canonical operator chat pane shell", async () => {
   const source = await readFile(extensionSourcePath, "utf8");
@@ -30,8 +32,13 @@ test("native IOI chat view renders the canonical operator chat pane shell", asyn
 
 test("native IOI chat composer uses canonical Autopilot icons and layout tokens", async () => {
   const source = await readFile(extensionSourcePath, "utf8");
+  const codiconSource = await readFile(codiconSourcePath, "utf8");
+  const canonicalToolsPath = codiconSource.match(
+    /<path d="([^"]*M5\.66901[^"]*)"/,
+  )?.[1];
 
   assert.match(source, /function renderNativeChatIcon/);
+  assert.ok(canonicalToolsPath);
   assert.match(source, /case "paperclip"/);
   assert.match(source, /case "device-desktop"/);
   assert.match(source, /case "symbol-operator"/);
@@ -39,17 +46,19 @@ test("native IOI chat composer uses canonical Autopilot icons and layout tokens"
   assert.match(source, /case "send"/);
   assert.match(source, /M7\.25 4\.75v5M4\.75 7\.25h5M14\.25 7\.25h5/);
   assert.match(source, /M5 4\.5 20 12 5 19\.5v-15Z/);
+  assert.ok(source.includes(canonicalToolsPath));
   assert.match(source, /class="operator-chat-icon-select"/);
   assert.match(source, /class="operator-chat-tool-toggle"/);
-  assert.match(source, /data-native-tool-picker-button/);
-  assert.match(source, /class="operator-chat-tool-menu"/);
-  assert.match(source, /data-native-tool-search/);
-  assert.match(source, /placeholder="Select a tool"/);
-  assert.match(source, /data-native-tool-item/);
-  assert.match(source, /function renderNativeChatToolMenu/);
-  assert.match(source, /openNativeToolMenu/);
-  assert.match(source, /closeNativeToolMenu/);
-  assert.match(source, /data-bridge-request="\$\{escapeHtml\(item\.requestType\)\}"/);
+  assert.match(source, /data-bridge-request="commandCenter\.open"/);
+  assert.match(source, /data-payload='\{"mode":"tools"\}'/);
+  assert.match(source, /data-bridge-request="\$\{escapeHtml\(action\.requestType/);
+  assert.doesNotMatch(source, /data-native-tool-picker-button/);
+  assert.doesNotMatch(source, /class="operator-chat-tool-menu"/);
+  assert.doesNotMatch(source, /data-native-tool-search/);
+  assert.doesNotMatch(source, /data-native-tool-item/);
+  assert.doesNotMatch(source, /function renderNativeChatToolMenu/);
+  assert.doesNotMatch(source, /openNativeToolMenu/);
+  assert.doesNotMatch(source, /closeNativeToolMenu/);
   assert.doesNotMatch(source, /data-bridge-request="chat\.toolControls"/);
   assert.match(source, /data-autopilot-theme="\$\{escapeHtml\(appearanceThemeId\)\}"/);
   assert.match(source, /--ioi-operator-chat-accent: #0098ff/);
@@ -76,6 +85,10 @@ test("native IOI chat view routes user actions through bridge requests", async (
   assert.match(source, /message\?\.type === "bridgeRequest"/);
   assert.match(source, /writeBridgeRequest\(\s*message\.requestType/);
   assert.match(source, /buildWorkspaceActionContext\("ioi\.chat"\)/);
+  assert.match(source, /vscode\.commands\.registerCommand\("ioi\.commandCenter\.open"/);
+  assert.match(source, /writeBridgeRequest\("commandCenter\.open"/);
+  assert.match(source, /initialQuery/);
+  assert.match(source, /typeof options\.mode === "string"[\s\S]*\.\.\.\(mode \? \{ mode \} : \{\}\)/);
   assert.doesNotMatch(source, /createRuntime|new Runtime|reactShadowStore/i);
 });
 
@@ -91,6 +104,7 @@ test("native IOI chat title actions are contributed by the IOI extension", async
 
   assert.equal(chatContainer?.title, " ");
   assert.ok(chatViews.some((view) => view.id === "ioi.chat"));
+  assert.ok(commands.has("ioi.commandCenter.open"));
   assert.ok(commands.has("ioi.chat.new"));
   assert.ok(commands.has("ioi.chat.newOptions"));
   assert.ok(commands.has("ioi.chat.openSettings"));

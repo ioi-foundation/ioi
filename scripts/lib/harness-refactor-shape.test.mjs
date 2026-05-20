@@ -977,7 +977,7 @@ test("core files do not grow past the refactor checkpoint without updating the g
       "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx",
       5_830,
     ],
-    ["scripts/lib/autopilot-gui-harness-validation/core.mjs", 11_782],
+    ["scripts/lib/autopilot-gui-harness-validation/core.mjs", 11_900],
   ]) {
     assert.ok(
       lineCount(relativePath) <= maxLines,

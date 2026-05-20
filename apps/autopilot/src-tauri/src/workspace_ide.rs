@@ -890,6 +890,43 @@ fn ensure_openvscode_user_keybindings(user_data_dir: &Path) -> Result<(), String
         {
             "key": "ctrl+shift+alt+l",
             "command": "-workbench.action.quickOpen"
+        },
+        {
+            "key": "ctrl+k",
+            "command": "ioi.commandCenter.open"
+        },
+        {
+            "key": "ctrl+p",
+            "command": "ioi.commandCenter.open"
+        },
+        {
+            "key": "ctrl+shift+p",
+            "command": "ioi.commandCenter.open",
+            "args": {
+                "initialQuery": ">"
+            }
+        },
+        {
+            "key": "f1",
+            "command": "ioi.commandCenter.open",
+            "args": {
+                "initialQuery": ">"
+            }
+        },
+        {
+            "key": "cmd+k",
+            "command": "ioi.commandCenter.open"
+        },
+        {
+            "key": "cmd+p",
+            "command": "ioi.commandCenter.open"
+        },
+        {
+            "key": "cmd+shift+p",
+            "command": "ioi.commandCenter.open",
+            "args": {
+                "initialQuery": ">"
+            }
         }
     ]);
     let contents = serde_json::to_string_pretty(&keybindings).map_err(|error| {
@@ -940,6 +977,7 @@ fn openvscode_user_config_owned(user_data_dir: &Path) -> bool {
         .map(|contents| {
             contents.contains("\"-workbench.action.quickOpen\"")
                 && contents.contains("\"-workbench.action.showCommands\"")
+                && contents.contains("\"ioi.commandCenter.open\"")
         })
         .unwrap_or(false);
 
@@ -1447,6 +1485,7 @@ mod tests {
             .expect("keybindings should be readable");
         assert!(keybindings.contains("\"-workbench.action.quickOpen\""));
         assert!(keybindings.contains("\"-workbench.action.showCommands\""));
+        assert!(keybindings.contains("\"ioi.commandCenter.open\""));
         assert!(openvscode_user_config_owned(&user_data_dir));
 
         let _ = fs::remove_dir_all(user_data_dir);

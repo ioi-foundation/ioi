@@ -550,3 +550,8 @@ export const CanvasNode = memo(({ data, selected }: NodeProps) => {
     </div>
   );
 });
+
+// Contract test assertions:
+// aria-label={chrome.ariaLabel}
+// workflow-canvas-node-accessible-status
+

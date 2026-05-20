@@ -242,7 +242,18 @@ pub(crate) enum TuiLineCommand {
 
 pub(crate) async fn run_tui_interactive_loop(mut session: TuiInteractiveSession) -> Result<()> {
     print_tui_help();
+    let thread_id = thread_id_from_value(&session.thread)?;
+    let initial_batch = fetch_tui_event_batch(
+        &thread_id,
+        &session.endpoint,
+        session.token.as_deref(),
+        false,
+        None,
+        None,
+    )
+    .await?;
     let mut control_state = TuiControlState::from_session(&session);
+    control_state.update_from_events(&initial_batch.events);
     print_tui_control_state(&control_state)?;
     let stdin = io::stdin();
     loop {

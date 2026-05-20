@@ -87,6 +87,12 @@
     },
     "commands": [
       {
+        "command": "ioi.commandCenter.open",
+        "title": "IOI: Open Autopilot Command Center",
+        "category": "IOI",
+        "icon": "$(search)"
+      },
+      {
         "command": "ioi.chat.new",
         "title": "IOI: New Chat",
         "category": "IOI",

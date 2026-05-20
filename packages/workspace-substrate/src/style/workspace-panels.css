@@ -1718,3 +1718,11 @@
     grid-template-columns: 48px minmax(0, 1fr);
   }
 }
+
+.workspace-agent-tool-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  background: transparent;
+}
+

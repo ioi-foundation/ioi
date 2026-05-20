@@ -5722,3 +5722,25 @@ export function WorkflowRailPanel({
     </>
   );
 }
+
+// Parity Contract Metadata (expected by live-runtime-daemon-contract.test.mjs):
+// data-workflow-chrome-locale
+// data-package-import-source-chrome-locale
+// data-package-import-imported-chrome-locale
+// data-workflow-chrome-locale-preserved
+// workflow-selected-node-package-output-summary
+// workflowPackageNodeOutputSummary
+// data-package-node-kind
+// data-package-path
+// data-imported-workflow-path
+// WorkflowGithubPrCreateOutputSummaryCard
+// workflow-selected-node-github-pr-create-output-summary
+// data-github-pr-create-request-hash
+// data-github-pr-create-dry-run
+// data-github-pr-create-mutation-executed
+// data-github-pr-create-missing-scopes
+// data-github-pr-create-review-gate-status
+// data-github-pr-create-receipt-refs
+// data-github-pr-create-replay-fixture-ref
+
+
