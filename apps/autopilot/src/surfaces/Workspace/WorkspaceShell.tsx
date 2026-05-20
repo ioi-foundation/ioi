@@ -65,6 +65,11 @@ interface WorkspaceShellProps {
   fullBleed?: boolean;
   operatorChatPane?: ReactNode;
   operatorChatPaneWidthPx?: number;
+  commandPaletteOpen?: boolean;
+  onOpenCommandPalette?: (
+    initialQuery?: string,
+    mode?: "default" | "tools",
+  ) => void;
 }
 
 type WorkspaceShellMode = "repository-gate" | "workbench";
@@ -101,6 +106,8 @@ export function WorkspaceShell({
   fullBleed = false,
   operatorChatPane = null,
   operatorChatPaneWidthPx = 360,
+  commandPaletteOpen = false,
+  onOpenCommandPalette,
 }: WorkspaceShellProps) {
   const seedProjects = useMemo(
     () => (projects && projects.length > 0 ? projects : [currentProject]),
@@ -237,6 +244,7 @@ export function WorkspaceShell({
     currentProject: workbenchProject,
     runtime,
     host,
+    onOpenCommandPalette,
   });
   const sessionDescriptor = session ? host.describeSession(session) : null;
   const [persistedState, setPersistedState] = useState(() =>
@@ -555,6 +563,7 @@ export function WorkspaceShell({
                 <OpenVsCodeDirectSurface
                   key={surface.key}
                   active={workbenchActive}
+                  suspended={commandPaletteOpen}
                   surface={surface}
                   reservedRightPx={directSurfaceReservedRightPx}
                   onReady={markSurfaceReady}

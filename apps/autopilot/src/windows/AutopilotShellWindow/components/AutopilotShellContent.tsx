@@ -136,6 +136,8 @@ export function AutopilotShellContent({
             host={workspaceHost}
             operatorChatPane={workspaceOperatorChatPane}
             operatorChatPaneWidthPx={workspaceOperatorChatPaneWidthPx}
+            commandPaletteOpen={controller.modals.commandPaletteOpen}
+            onOpenCommandPalette={controller.modals.openCommandPalette}
           />
 
           {!workspaceActive ? (

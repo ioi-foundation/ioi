@@ -23,6 +23,13 @@ type WorkspaceMetricRecorder = (
   detail?: Record<string, unknown>,
 ) => void;
 
+export interface WorkspaceBridgeRouteHandlers {
+  onOpenCommandPalette?: (
+    initialQuery?: string,
+    mode?: "default" | "tools",
+  ) => void;
+}
+
 function readString(
   source: Record<string, unknown> | undefined,
   key: string,
@@ -141,6 +148,7 @@ export async function routeWorkspaceBridgeRequest(
   runtime: TauriRuntime,
   request: WorkspaceBridgeRouteRequest,
   recordMetric?: WorkspaceMetricRecorder,
+  handlers: WorkspaceBridgeRouteHandlers = {},
 ) {
   const context =
     request.context && typeof request.context === "object"
@@ -157,6 +165,22 @@ export async function routeWorkspaceBridgeRequest(
   });
 
   switch (request.requestType) {
+    case "commandCenter.open":
+      {
+        const requestedMode =
+          readString(request.payload, "mode") === "tools" ? "tools" : "default";
+        handlers.onOpenCommandPalette?.(
+          readString(request.payload, "initialQuery") ?? undefined,
+          requestedMode,
+        );
+      }
+      recordMetric?.("bridge_request_handled", {
+        requestId: request.requestId,
+        requestType: request.requestType,
+        routedTo: "autopilot-header.command-center",
+        commandId: readString(request.payload, "sourceCommand"),
+      });
+      return;
     case "workbench.contextSnapshot":
       recordMetric?.("bridge_request_handled", {
         requestId: request.requestId,

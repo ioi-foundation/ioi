@@ -21,8 +21,12 @@ export function useWorkspaceWorkbenchSession(params: {
   currentProject: WorkspaceWorkbenchProjectDescriptor;
   runtime: TauriRuntime;
   host: WorkspaceWorkbenchHost;
+  onOpenCommandPalette?: (
+    initialQuery?: string,
+    mode?: "default" | "tools",
+  ) => void;
 }) {
-  const { active, currentProject, runtime, host } = params;
+  const { active, currentProject, runtime, host, onOpenCommandPalette } = params;
   const enabled = params.enabled ?? true;
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [session, setSession] = useState<WorkspaceWorkbenchHostSession | null>(null);
@@ -169,8 +173,11 @@ export function useWorkspaceWorkbenchSession(params: {
       session,
       pollMs: host.describeLifecyclePolicy().bridgeRequestPollMs,
       recordMetric: markWorkspaceMetric,
+      routeHandlers: {
+        onOpenCommandPalette,
+      },
     });
-  }, [enabled, host, runtime, session]);
+  }, [active, enabled, host, onOpenCommandPalette, runtime, session]);
 
   const status: WorkspaceStatus = !enabled
     ? "idle"

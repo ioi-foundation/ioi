@@ -288,6 +288,9 @@ export function useAutopilotShellController() {
     null,
   );
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [commandPaletteMode, setCommandPaletteMode] =
+    useState<"default" | "tools">("default");
+  const [commandPaletteInitialQuery, setCommandPaletteInitialQuery] = useState("");
   const [catalogStageModalOpen, setCatalogStageModalOpen] = useState(false);
   const [capabilitiesSurfaceSeed, setCapabilitiesSurfaceSeed] =
     useState<CapabilitySurface | null>(null);
@@ -713,6 +716,8 @@ export function useAutopilotShellController() {
       if (!event.metaKey && !event.ctrlKey) return;
       if (event.key.toLowerCase() !== "k") return;
       event.preventDefault();
+      setCommandPaletteMode("default");
+      setCommandPaletteInitialQuery("");
       setCommandPaletteOpen((open) => !open);
     };
 
@@ -1041,7 +1046,16 @@ export function useAutopilotShellController() {
     },
     modals: {
       commandPaletteOpen,
-      openCommandPalette: () => setCommandPaletteOpen(true),
+      commandPaletteMode,
+      commandPaletteInitialQuery,
+      openCommandPalette: (
+        initialQuery = "",
+        mode: "default" | "tools" = "default",
+      ) => {
+        setCommandPaletteMode(mode);
+        setCommandPaletteInitialQuery(initialQuery);
+        setCommandPaletteOpen(true);
+      },
       closeCommandPalette: () => setCommandPaletteOpen(false),
       catalogStageModalOpen,
       closeCatalogStageModal: () => setCatalogStageModalOpen(false),

@@ -165,12 +165,32 @@ test("workspace embedding defers global command center to ChatIdeHeader", () => 
     "apps/autopilot/src-tauri/src/workspace_direct_webview.rs",
     "utf8",
   );
+  const workspaceIde = readFileSync(
+    "apps/autopilot/src-tauri/src/workspace_ide.rs",
+    "utf8",
+  );
+  const workspaceRuntimeNavigation = readFileSync(
+    "apps/autopilot/src/services/workspaceRuntimeNavigation.ts",
+    "utf8",
+  );
+  const workspaceBridgeLifecycle = readFileSync(
+    "apps/autopilot/src/services/workspaceBridgeLifecycle.ts",
+    "utf8",
+  );
   const chatHeader = readFileSync(
     "apps/autopilot/src/windows/AutopilotShellWindow/components/ChatIdeHeader.tsx",
     "utf8",
   );
   const shellContent = readFileSync(
     "apps/autopilot/src/windows/AutopilotShellWindow/components/AutopilotShellContent.tsx",
+    "utf8",
+  );
+  const shellWindow = readFileSync(
+    "apps/autopilot/src/windows/AutopilotShellWindow/index.tsx",
+    "utf8",
+  );
+  const shellController = readFileSync(
+    "apps/autopilot/src/windows/AutopilotShellWindow/useAutopilotShellController.ts",
     "utf8",
   );
   assert.match(workspaceHost, /hideGlobalCommandCenter\?: boolean/);
@@ -180,22 +200,51 @@ test("workspace embedding defers global command center to ChatIdeHeader", () => 
   assert.match(workspaceShell, /operatorChatPaneWidthPx\?: number/);
   assert.match(workspaceShell, /directSurfaceReservedRightPx/);
   assert.match(workspaceShell, /reservedRightPx=\{directSurfaceReservedRightPx\}/);
+  assert.match(workspaceShell, /mode\?: "default" \| "tools"/);
   assert.match(workspaceShell, /chat-workspace-oss-shell__operator-chat-slot/);
   assert.match(openVsCodeDirectSurface, /reservedRightPx\?: number/);
+  assert.match(openVsCodeDirectSurface, /suspended\?: boolean/);
+  assert.match(openVsCodeDirectSurface, /const visible = active && !suspended/);
+  assert.match(openVsCodeDirectSurface, /hideWorkspaceDirectWebview\(surface\.surfaceId\)/);
   assert.match(openVsCodeDirectSurface, /readElementBoundsWithReservedRight/);
   assert.match(openVsCodeDirectSurface, /constrainBoundsForReservedRight/);
   assert.match(openVsCodeDirectSurface, /surfaceWidth - reservedRightWidth/);
   assert.match(
     openVsCodeDirectSurface,
-    /\[active, reservedRightPx, scheduleSettledSyncBounds\]/,
+    /\[reservedRightPx, scheduleSettledSyncBounds, visible\]/,
   );
   assert.match(workspaceDirectWebview, /bounds\.width\.min\(max_width\)/);
   assert.match(workspaceDirectWebview, /clamped child bounds/);
+  assert.match(workspaceIde, /"ioi\.commandCenter\.open"/);
+  assert.match(
+    workspaceRuntimeNavigation,
+    /case "commandCenter\.open":[\s\S]*onOpenCommandPalette\?\.\(/,
+  );
+  assert.match(
+    workspaceRuntimeNavigation,
+    /readString\(request\.payload, "mode"\) === "tools" \? "tools" : "default"/,
+  );
+  assert.match(
+    workspaceRuntimeNavigation,
+    /readString\(request\.payload, "initialQuery"\) \?\? undefined,\s*requestedMode/,
+  );
+  assert.match(
+    workspaceBridgeLifecycle,
+    /routeHandlers\?: WorkspaceBridgeRouteHandlers[\s\S]*params\.routeHandlers/,
+  );
   assert.match(shellContent, /const workspaceOperatorChatPane/);
   assert.match(shellContent, /workspaceUsesNativeWorkbenchChat/);
   assert.match(shellContent, /workspaceHost === directWorkspaceWorkbenchHost/);
   assert.match(shellContent, /workspaceHost === openVsCodeWorkbenchHost/);
   assert.match(shellContent, /operatorChatPane=\{workspaceOperatorChatPane\}/);
+  assert.match(shellContent, /commandPaletteOpen=\{controller\.modals\.commandPaletteOpen\}/);
+  assert.match(shellContent, /onOpenCommandPalette=\{controller\.modals\.openCommandPalette\}/);
+  assert.match(shellWindow, /mode=\{controller\.modals\.commandPaletteMode\}/);
+  assert.match(shellController, /useState<"default" \| "tools">\("default"\)/);
+  assert.match(
+    shellController,
+    /mode: "default" \| "tools" = "default"[\s\S]*setCommandPaletteMode\(mode\)/,
+  );
   assert.match(chatHeader, /data-operator-command-center/);
 });
 
@@ -489,7 +538,17 @@ test("Autopilot command palette anchors to the header command center", () => {
     /COMMAND_CENTER_SELECTOR = "\[data-operator-command-center\]"/,
   );
   assert.match(commandPalette, /getBoundingClientRect\(\)/);
+  assert.match(commandPalette, /initialQuery = ""/);
+  assert.match(commandPalette, /mode = "default"/);
+  assert.match(commandPalette, /CommandPaletteDisplayMode = "default" \| "tools"/);
+  assert.match(commandPalette, /useState\(initialQuery\)/);
   assert.match(commandPalette, /style=\{palettePosition\}/);
+  assert.match(commandPalette, /mode === "tools"[\s\S]*"Select a tool"/);
+  assert.match(commandPalette, /title: "Auto context enabled"/);
+  assert.match(commandPalette, /title: "Workspace context"/);
+  assert.match(commandPalette, /title: "Manage tools"/);
+  assert.match(commandPalette, /id: "built-in-tools", title: "Built-In"/);
+  assert.match(commandPalette, /id: "live-tools", title: "Live Tools"/);
   assert.match(
     commandPalette,
     /window\.addEventListener\("resize", computePosition\)/,

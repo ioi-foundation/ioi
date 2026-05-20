@@ -22,6 +22,7 @@ import {
 
 interface OpenVsCodeDirectSurfaceProps {
   active: boolean;
+  suspended?: boolean;
   surface: WorkspaceWorkbenchOpenVsCodeDirectModel;
   reservedRightPx?: number;
   onReady: () => void;
@@ -169,11 +170,13 @@ function readParentViewport() {
 
 export function OpenVsCodeDirectSurface({
   active,
+  suspended = false,
   surface,
   reservedRightPx = 0,
   onReady,
   onError,
 }: OpenVsCodeDirectSurfaceProps) {
+  const visible = active && !suspended;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const shownRef = useRef(false);
   const prewarmedRef = useRef(false);
@@ -186,7 +189,7 @@ export function OpenVsCodeDirectSurface({
 
   const syncBounds = useCallback(async () => {
     const container = containerRef.current;
-    if (!active || !container) {
+    if (!visible || !container) {
       return;
     }
 
@@ -245,11 +248,11 @@ export function OpenVsCodeDirectSurface({
           : "The direct OpenVSCode workbench surface failed to initialize.",
       );
     }
-  }, [active, onError, reservedRightPx, surface.surfaceId, surface.workbenchUrl]);
+  }, [onError, reservedRightPx, surface.surfaceId, surface.workbenchUrl, visible]);
 
   const prewarmHiddenSurface = useCallback(async () => {
     const container = containerRef.current;
-    if (active || !container || prewarmedRef.current) {
+    if (visible || !container || prewarmedRef.current) {
       return;
     }
 
@@ -287,7 +290,7 @@ export function OpenVsCodeDirectSurface({
           : "The direct OpenVSCode workbench surface failed to prewarm.",
       );
     }
-  }, [active, onError, reservedRightPx, surface.surfaceId, surface.workbenchUrl]);
+  }, [onError, reservedRightPx, surface.surfaceId, surface.workbenchUrl, visible]);
 
   const scheduleSyncBounds = useCallback(() => {
     if (frameRef.current !== null) {
@@ -395,7 +398,7 @@ export function OpenVsCodeDirectSurface({
   }, [surface.surfaceId]);
 
   useEffect(() => {
-    if (active) {
+    if (visible) {
       return;
     }
 
@@ -403,19 +406,19 @@ export function OpenVsCodeDirectSurface({
       void prewarmHiddenSurface();
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [active, prewarmHiddenSurface]);
+  }, [prewarmHiddenSurface, visible]);
 
   useEffect(() => {
-    if (!active) {
+    if (!visible) {
       return;
     }
 
     scheduleSettledSyncBounds();
-  }, [active, reservedRightPx, scheduleSettledSyncBounds]);
+  }, [reservedRightPx, scheduleSettledSyncBounds, visible]);
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!active || !container) {
+    if (!visible || !container) {
       void hideWorkspaceDirectWebview(surface.surfaceId).catch(() => {});
       shownRef.current = false;
       return;
@@ -471,11 +474,11 @@ export function OpenVsCodeDirectSurface({
       lastScreenBoundsRef.current = null;
     };
   }, [
-    active,
     clearDeferredSyncBounds,
     scheduleSettledSyncBounds,
     scheduleSyncBounds,
     surface.surfaceId,
+    visible,
   ]);
 
   return (

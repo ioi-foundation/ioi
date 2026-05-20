@@ -270,6 +270,8 @@ function AutopilotShellWindowLoaded() {
 
       {controller.modals.commandPaletteOpen ? (
         <CommandPalette
+          mode={controller.modals.commandPaletteMode}
+          initialQuery={controller.modals.commandPaletteInitialQuery}
           activeView={controller.activeView}
           workflowSurface={controller.workflow.surface}
           currentProjectId={controller.currentProject.id}

@@ -1,0 +1,1048 @@
+TAP version 13
+# LEASE EVENT seq 11: {
+#   "schema_version": "ioi.runtime.event.v1",
+#   "event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000011",
+#   "event_stream_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events",
+#   "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#   "turn_id": "",
+#   "item_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:item:coding-tool:computer_use.request_lease:8f4504b00f0f",
+#   "seq": 11,
+#   "parent_seq": 10,
+#   "idempotency_key": "thread:thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:coding-tool:coding_tool_2c822d7562a7736c",
+#   "source": "react_flow",
+#   "source_event_kind": "CodingTool.ComputerUseRequestLease",
+#   "event_kind": "tool.completed",
+#   "status": "completed",
+#   "actor": "runtime",
+#   "created_at": "2026-05-19T22:54:38.507Z",
+#   "workspace_root": "/tmp/ioi-runtime-coding-tools-workspace-AfkQ5t",
+#   "workflow_graph_id": "workflow-coding-tools",
+#   "workflow_node_id": "workflow.coding.computer_use.request_lease",
+#   "component_kind": "coding_tool",
+#   "tool_call_id": "coding_tool_2c822d7562a7736c",
+#   "approval_id": null,
+#   "artifact_refs": [],
+#   "receipt_refs": [
+#     "receipt_coding_tool_computer_use.request_lease_682011ba53f6"
+#   ],
+#   "policy_decision_refs": [],
+#   "rollback_refs": [],
+#   "payload_schema_version": "ioi.runtime.coding-tool-result.v1",
+#   "payload_ref": null,
+#   "payload": {
+#     "schema_version": "ioi.runtime.coding-tool-result.v1",
+#     "event_kind": "CodingToolResult",
+#     "tool_pack": "coding",
+#     "tool_name": "computer_use.request_lease",
+#     "tool_call_id": "coding_tool_2c822d7562a7736c",
+#     "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#     "turn_id": "null",
+#     "workspace_root": "/tmp/ioi-runtime-coding-tools-workspace-AfkQ5t",
+#     "workflow_graph_id": "workflow-coding-tools",
+#     "workflow_node_id": "workflow.coding.computer_use.request_lease",
+#     "status": "completed",
+#     "summary": "Recorded computer-use lease request computer_use_lease_request_a763bd0386c97e99",
+#     "shell_fallback_used": "false",
+#     "input_summary": "{\\"lane\\":\\"native_browser\\",\\"sessionMode\\":\\"owned_hermetic_browser\\",\\"actionKind\\":\\"inspect\\",\\"url\\":null}",
+#     "result_summary": "{\\"requestRef\\":\\"computer_use_lease_request_a763bd0386c97e99\\",\\"lane\\":\\"native_browser\\",\\"sessionMode\\":\\"owned_hermetic_browser\\",\\"actionKind\\":\\"inspect\\",\\"approvalRequiredBeforeExecution\\":false}",
+#     "result": "{\\"schemaVersion\\":\\"ioi.runtime.coding-tool-result.v1\\",\\"object\\":\\"ioi.coding_agent_computer_use_lease_request\\",\\"requestRef\\":\\"computer_use_lease_request_a763bd0386c97e99\\",\\"workspaceRoot\\":\\"/tmp/ioi-runtime-coding-tools-workspace-AfkQ5t\\",\\"leaseRequest\\":{\\"prompt\\":\\"TUI lease proof\\",\\"lane\\":\\"native_browser\\",\\"sessionMode\\":\\"owned_hermetic_browser\\",\\"actionKind\\":\\"inspect\\",\\"authorityScope\\":\\"computer_use.native_browser.read\\",\\"repoAuthorityScope\\":\\"workspace.read\\",\\"sharedClipboardPolicy\\":\\"disabled_until_explicit_approval\\",\\"artifactPolicy\\":\\"redacted_trace_artifacts_only\\",\\"approvalRef\\":null,\\"failClosedWhenUnavailable\\":true},\\"threadTool\\":{\\"toolPack\\":\\"computer_use\\",\\"toolName\\":\\"ioi.computer_use.native_browser\\",\\"unavailableReason\\":null,\\"input\\":{\\"prompt\\":\\"TUI lease proof\\",\\"url\\":null,\\"actionKind\\":\\"inspect\\",\\"sessionMode\\":\\"owned_hermetic_browser\\",\\"targetRef\\":null,\\"selector\\":null,\\"approvalRef\\":null,\\"observationRetentionMode\\":\\"prompt_visible_summary_only\\"}},\\"approvalRequiredBeforeExecution\\":false,\\"evidenceRefs\\":[\\"computer_use_lease_request_a763bd0386c97e99\\",\\"computer_use_lease_request_receipt\\",\\"coding_tool_receipt\\"],\\"shellFallbackUsed\\":false}",
+#     "error": "null",
+#     "rollback_refs": "[]",
+#     "diagnostics_repair_context": "null",
+#     "diagnosticsRepairContext": "null",
+#     "approval_required": "false",
+#     "approvalRequired": "false",
+#     "approval_satisfied": "false",
+#     "approvalSatisfied": "false",
+#     "approval_id": "null",
+#     "approvalId": "null",
+#     "approval_manifest": "null",
+#     "approvalManifest": "null",
+#     "approval_decision_event_id": "null",
+#     "approvalDecisionEventId": "null",
+#     "receipt_id": "receipt_coding_tool_computer_use.request_lease_682011ba53f6",
+#     "receipt_count": "1",
+#     "artifact_count": "0"
+#   },
+#   "redaction_profile": "internal",
+#   "fixture_profile": "local_daemon_agentgres_projection",
+#   "id": "11",
+#   "timestamp_ms": 1779231278507,
+#   "event": "tool.completed",
+#   "payload_summary": {
+#     "schema_version": "ioi.runtime.coding-tool-result.v1",
+#     "event_kind": "CodingToolResult",
+#     "tool_pack": "coding",
+#     "tool_name": "computer_use.request_lease",
+#     "tool_call_id": "coding_tool_2c822d7562a7736c",
+#     "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#     "turn_id": null,
+#     "workspace_root": "/tmp/ioi-runtime-coding-tools-workspace-AfkQ5t",
+#     "workflow_graph_id": "workflow-coding-tools",
+#     "workflow_node_id": "workflow.coding.computer_use.request_lease",
+#     "status": "completed",
+#     "summary": "Recorded computer-use lease request computer_use_lease_request_a763bd0386c97e99",
+#     "shell_fallback_used": false,
+#     "input_summary": {
+#       "lane": "native_browser",
+#       "sessionMode": "owned_hermetic_browser",
+#       "actionKind": "inspect",
+#       "url": null
+#     },
+#     "result_summary": {
+#       "requestRef": "computer_use_lease_request_a763bd0386c97e99",
+#       "lane": "native_browser",
+#       "sessionMode": "owned_hermetic_browser",
+#       "actionKind": "inspect",
+#       "approvalRequiredBeforeExecution": false
+#     },
+#     "result": {
+#       "schemaVersion": "ioi.runtime.coding-tool-result.v1",
+#       "object": "ioi.coding_agent_computer_use_lease_request",
+#       "requestRef": "computer_use_lease_request_a763bd0386c97e99",
+#       "workspaceRoot": "/tmp/ioi-runtime-coding-tools-workspace-AfkQ5t",
+#       "leaseRequest": {
+#         "prompt": "TUI lease proof",
+#         "lane": "native_browser",
+#         "sessionMode": "owned_hermetic_browser",
+#         "actionKind": "inspect",
+#         "authorityScope": "computer_use.native_browser.read",
+#         "repoAuthorityScope": "workspace.read",
+#         "sharedClipboardPolicy": "disabled_until_explicit_approval",
+#         "artifactPolicy": "redacted_trace_artifacts_only",
+#         "approvalRef": null,
+#         "failClosedWhenUnavailable": true
+#       },
+#       "threadTool": {
+#         "toolPack": "computer_use",
+#         "toolName": "ioi.computer_use.native_browser",
+#         "unavailableReason": null,
+#         "input": {
+#           "prompt": "TUI lease proof",
+#           "url": null,
+#           "actionKind": "inspect",
+#           "sessionMode": "owned_hermetic_browser",
+#           "targetRef": null,
+#           "selector": null,
+#           "approvalRef": null,
+#           "observationRetentionMode": "prompt_visible_summary_only"
+#         }
+#       },
+#       "approvalRequiredBeforeExecution": false,
+#       "evidenceRefs": [
+#         "computer_use_lease_request_a763bd0386c97e99",
+#         "computer_use_lease_request_receipt",
+#         "coding_tool_receipt"
+#       ],
+#       "shellFallbackUsed": false
+#     },
+#     "error": null,
+#     "rollback_refs": [],
+#     "diagnostics_repair_context": null,
+#     "diagnosticsRepairContext": null,
+#     "approval_required": false,
+#     "approvalRequired": false,
+#     "approval_satisfied": false,
+#     "approvalSatisfied": false,
+#     "approval_id": null,
+#     "approvalId": null,
+#     "approval_manifest": null,
+#     "approvalManifest": null,
+#     "approval_decision_event_id": null,
+#     "approvalDecisionEventId": null,
+#     "receipt_id": "receipt_coding_tool_computer_use.request_lease_682011ba53f6",
+#     "receipt_count": 1,
+#     "artifact_count": 0
+#   }
+# }
+# seq 11 component_kind: coding_tool
+# seq 11 event_kind: tool.completed
+# seq 11 status: completed
+# TUI Coding Rows: [
+#   {
+#     "agent_availability": null,
+#     "agent_available": null,
+#     "approval_required": false,
+#     "artifact_refs": [],
+#     "authority_scope_requirements": [],
+#     "authority_summary": "approval not required",
+#     "command": "status",
+#     "component_kind": "coding_tool",
+#     "credential_readiness": null,
+#     "credential_readiness_status": null,
+#     "credential_ready": null,
+#     "cursor": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:188",
+#     "dry_run": null,
+#     "event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000188",
+#     "event_kind": "tool.completed",
+#     "id": "tui-coding-tool-workspace.status-188",
+#     "idempotency_behavior": null,
+#     "idempotency_required": null,
+#     "idempotency_strategy": null,
+#     "input": null,
+#     "label": "Coding tool: workspace.status",
+#     "marketplace_exposure": null,
+#     "message": "Workspace status inspected 6 changed file(s).",
+#     "mutation_blocked": false,
+#     "policy_decision_refs": [],
+#     "rate_limit_policy": null,
+#     "rate_limit_profile": null,
+#     "raw_input": "/status",
+#     "react_flow": {
+#       "cursor": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:188",
+#       "event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000188",
+#       "workflow_graph_id": "null",
+#       "workflow_node_id": "runtime.coding-tool.workspace.status"
+#     },
+#     "receipt_behavior": null,
+#     "receipt_refs": [
+#       "receipt_coding_tool_workspace.status_3ec88c8db2cf"
+#     ],
+#     "receipt_required": null,
+#     "result_summary": {
+#       "branch": "master",
+#       "changed": 6,
+#       "gitAvailable": true
+#     },
+#     "rollback_refs": [],
+#     "routes": {
+#       "invoke": "/v1/threads/thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b/tools/workspace.status/invoke"
+#     },
+#     "row_kind": "coding_tool",
+#     "schema_version": "ioi.workflow.runtime-tui-deeplink.v1",
+#     "seq": 188,
+#     "sequence": 188,
+#     "shell_fallback_used": false,
+#     "source_event_kind": "CodingTool.WorkspaceStatus",
+#     "status": "completed",
+#     "summary": "Workspace status inspected 6 changed file(s).",
+#     "surface": "tui",
+#     "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#     "tool_call_id": "coding_tool_e10fcb4f487aeb1d",
+#     "tool_name": "workspace.status",
+#     "tui_reopen": {
+#       "args": [
+#         "agent",
+#         "tui",
+#         "--thread-id",
+#         "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#         "--since-seq",
+#         "188"
+#       ],
+#       "command": "ioi agent tui",
+#       "last_event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000188",
+#       "since_seq": 188,
+#       "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b"
+#     },
+#     "turn_id": "turn_bf416b8b-f771-4d49-8a20-2b24a94f07a0",
+#     "workflow_availability": null,
+#     "workflow_available": null,
+#     "workflow_graph_id": "null",
+#     "workflow_node_id": "runtime.coding-tool.workspace.status"
+#   },
+#   {
+#     "agent_availability": null,
+#     "agent_available": null,
+#     "approval_required": false,
+#     "artifact_refs": [],
+#     "authority_scope_requirements": [],
+#     "authority_summary": "approval not required",
+#     "command": "diff",
+#     "component_kind": "coding_tool",
+#     "credential_readiness": null,
+#     "credential_readiness_status": null,
+#     "credential_ready": null,
+#     "cursor": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:189",
+#     "dry_run": null,
+#     "event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000189",
+#     "event_kind": "tool.completed",
+#     "id": "tui-coding-tool-git.diff-189",
+#     "idempotency_behavior": null,
+#     "idempotency_required": null,
+#     "idempotency_strategy": null,
+#     "input": null,
+#     "label": "Coding tool: git.diff",
+#     "marketplace_exposure": null,
+#     "message": "Git diff inspected 200 byte(s).",
+#     "mutation_blocked": false,
+#     "policy_decision_refs": [],
+#     "rate_limit_policy": null,
+#     "rate_limit_profile": null,
+#     "raw_input": "/diff",
+#     "react_flow": {
+#       "cursor": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:189",
+#       "event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000189",
+#       "workflow_graph_id": "null",
+#       "workflow_node_id": "runtime.coding-tool.git.diff"
+#     },
+#     "receipt_behavior": null,
+#     "receipt_refs": [
+#       "receipt_coding_tool_git.diff_002a149e92cc"
+#     ],
+#     "receipt_required": null,
+#     "result_summary": {
+#       "diffBytes": 200,
+#       "paths": [
+#         "README.md"
+#       ],
+#       "truncated": false
+#     },
+#     "rollback_refs": [],
+#     "routes": {
+#       "invoke": "/v1/threads/thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b/tools/git.diff/invoke"
+#     },
+#     "row_kind": "coding_tool",
+#     "schema_version": "ioi.workflow.runtime-tui-deeplink.v1",
+#     "seq": 189,
+#     "sequence": 189,
+#     "shell_fallback_used": false,
+#     "source_event_kind": "CodingTool.GitDiff",
+#     "status": "completed",
+#     "summary": "Git diff inspected 200 byte(s).",
+#     "surface": "tui",
+#     "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#     "tool_call_id": "coding_tool_f8998aec811a478d",
+#     "tool_name": "git.diff",
+#     "tui_reopen": {
+#       "args": [
+#         "agent",
+#         "tui",
+#         "--thread-id",
+#         "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#         "--since-seq",
+#         "189"
+#       ],
+#       "command": "ioi agent tui",
+#       "last_event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000189",
+#       "since_seq": 189,
+#       "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b"
+#     },
+#     "turn_id": "turn_bf416b8b-f771-4d49-8a20-2b24a94f07a0",
+#     "workflow_availability": null,
+#     "workflow_available": null,
+#     "workflow_graph_id": "null",
+#     "workflow_node_id": "runtime.coding-tool.git.diff"
+#   },
+#   {
+#     "agent_availability": null,
+#     "agent_available": null,
+#     "approval_required": false,
+#     "artifact_refs": [],
+#     "authority_scope_requirements": [],
+#     "authority_summary": "approval not required",
+#     "command": "inspect",
+#     "component_kind": "coding_tool",
+#     "credential_readiness": null,
+#     "credential_readiness_status": null,
+#     "credential_ready": null,
+#     "cursor": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:190",
+#     "dry_run": null,
+#     "event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000190",
+#     "event_kind": "tool.completed",
+#     "id": "tui-coding-tool-file.inspect-190",
+#     "idempotency_behavior": null,
+#     "idempotency_required": null,
+#     "idempotency_strategy": null,
+#     "input": null,
+#     "label": "Coding tool: file.inspect",
+#     "marketplace_exposure": null,
+#     "message": "Inspected file README.md",
+#     "mutation_blocked": false,
+#     "policy_decision_refs": [],
+#     "rate_limit_policy": null,
+#     "rate_limit_profile": null,
+#     "raw_input": "/inspect",
+#     "react_flow": {
+#       "cursor": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:190",
+#       "event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000190",
+#       "workflow_graph_id": "null",
+#       "workflow_node_id": "runtime.coding-tool.file.inspect"
+#     },
+#     "receipt_behavior": null,
+#     "receipt_refs": [
+#       "receipt_coding_tool_file.inspect_950f7469e9ce"
+#     ],
+#     "receipt_required": null,
+#     "result_summary": {
+#       "kind": "file",
+#       "path": "README.md",
+#       "sizeBytes": 67,
+#       "truncated": false
+#     },
+#     "rollback_refs": [],
+#     "routes": {
+#       "invoke": "/v1/threads/thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b/tools/file.inspect/invoke"
+#     },
+#     "row_kind": "coding_tool",
+#     "schema_version": "ioi.workflow.runtime-tui-deeplink.v1",
+#     "seq": 190,
+#     "sequence": 190,
+#     "shell_fallback_used": false,
+#     "source_event_kind": "CodingTool.FileInspect",
+#     "status": "completed",
+#     "summary": "Inspected file README.md",
+#     "surface": "tui",
+#     "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#     "tool_call_id": "coding_tool_a62b46967085e361",
+#     "tool_name": "file.inspect",
+#     "tui_reopen": {
+#       "args": [
+#         "agent",
+#         "tui",
+#         "--thread-id",
+#         "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#         "--since-seq",
+#         "190"
+#       ],
+#       "command": "ioi agent tui",
+#       "last_event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000190",
+#       "since_seq": 190,
+#       "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b"
+#     },
+#     "turn_id": "turn_bf416b8b-f771-4d49-8a20-2b24a94f07a0",
+#     "workflow_availability": null,
+#     "workflow_available": null,
+#     "workflow_graph_id": "null",
+#     "workflow_node_id": "runtime.coding-tool.file.inspect"
+#   },
+#   {
+#     "agent_availability": null,
+#     "agent_available": null,
+#     "approval_required": false,
+#     "artifact_refs": [
+#       "artifact_workspace_snapshot_coding_tool_5b0595b4930c4c2b_de8536c7db2c_content"
+#     ],
+#     "authority_scope_requirements": [],
+#     "authority_summary": "approval not required",
+#     "command": "patch",
+#     "component_kind": "coding_tool",
+#     "credential_readiness": null,
+#     "credential_readiness_status": null,
+#     "credential_ready": null,
+#     "cursor": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:191",
+#     "dry_run": false,
+#     "event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000191",
+#     "event_kind": "tool.completed",
+#     "id": "tui-coding-tool-file.apply_patch-191",
+#     "idempotency_behavior": null,
+#     "idempotency_required": null,
+#     "idempotency_strategy": null,
+#     "input": null,
+#     "label": "Coding tool: file.apply_patch",
+#     "marketplace_exposure": null,
+#     "message": "Patch applied to README.md.",
+#     "mutation_blocked": false,
+#     "policy_decision_refs": [],
+#     "rate_limit_policy": null,
+#     "rate_limit_profile": null,
+#     "raw_input": "/patch",
+#     "react_flow": {
+#       "cursor": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:191",
+#       "event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000191",
+#       "workflow_graph_id": "null",
+#       "workflow_node_id": "runtime.coding-tool.file.apply_patch"
+#     },
+#     "receipt_behavior": null,
+#     "receipt_refs": [
+#       "receipt_coding_tool_file.apply_patch_611acbe7312c",
+#       "receipt_file_apply_patch_README.md_1b5092f716ef",
+#       "receipt_workspace_snapshot_coding_tool_5b0595b4930c4c2b_de8536c7db2c"
+#     ],
+#     "receipt_required": null,
+#     "result_summary": {
+#       "applied": true,
+#       "changed": true,
+#       "changedFileCount": 1,
+#       "dryRun": false,
+#       "editCount": 1,
+#       "path": "README.md",
+#       "workspaceSnapshotId": "workspace_snapshot_coding_tool_5b0595b4930c4c2b_de8536c7db2c"
+#     },
+#     "rollback_refs": [
+#       "workspace_snapshot_coding_tool_5b0595b4930c4c2b_de8536c7db2c"
+#     ],
+#     "routes": {
+#       "invoke": "/v1/threads/thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b/tools/file.apply_patch/invoke"
+#     },
+#     "row_kind": "coding_tool",
+#     "schema_version": "ioi.workflow.runtime-tui-deeplink.v1",
+#     "seq": 191,
+#     "sequence": 191,
+#     "shell_fallback_used": false,
+#     "source_event_kind": "CodingTool.FileApplyPatch",
+#     "status": "completed",
+#     "summary": "Patch applied to README.md.",
+#     "surface": "tui",
+#     "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#     "tool_call_id": "coding_tool_5b0595b4930c4c2b",
+#     "tool_name": "file.apply_patch",
+#     "tui_reopen": {
+#       "args": [
+#         "agent",
+#         "tui",
+#         "--thread-id",
+#         "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#         "--since-seq",
+#         "191"
+#       ],
+#       "command": "ioi agent tui",
+#       "last_event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000191",
+#       "since_seq": 191,
+#       "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b"
+#     },
+#     "turn_id": "turn_bf416b8b-f771-4d49-8a20-2b24a94f07a0",
+#     "workflow_availability": null,
+#     "workflow_available": null,
+#     "workflow_graph_id": "null",
+#     "workflow_node_id": "runtime.coding-tool.file.apply_patch"
+#   },
+#   {
+#     "agent_availability": null,
+#     "agent_available": null,
+#     "approval_required": false,
+#     "artifact_refs": [],
+#     "authority_scope_requirements": [],
+#     "authority_summary": "approval not required",
+#     "command": "diagnostics",
+#     "component_kind": "coding_tool",
+#     "credential_readiness": null,
+#     "credential_readiness_status": null,
+#     "credential_ready": null,
+#     "cursor": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:193",
+#     "dry_run": null,
+#     "event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000193",
+#     "event_kind": "tool.completed",
+#     "id": "tui-coding-tool-lsp.diagnostics-193",
+#     "idempotency_behavior": null,
+#     "idempotency_required": null,
+#     "idempotency_strategy": null,
+#     "input": null,
+#     "label": "Coding tool: lsp.diagnostics",
+#     "marketplace_exposure": null,
+#     "message": "Diagnostics degraded with 1 finding(s).",
+#     "mutation_blocked": false,
+#     "policy_decision_refs": [],
+#     "rate_limit_policy": null,
+#     "rate_limit_profile": null,
+#     "raw_input": "/diagnostics",
+#     "react_flow": {
+#       "cursor": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:193",
+#       "event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000193",
+#       "workflow_graph_id": "null",
+#       "workflow_node_id": "runtime.coding-tool.lsp-diagnostics.auto"
+#     },
+#     "receipt_behavior": null,
+#     "receipt_refs": [
+#       "receipt_coding_tool_lsp.diagnostics_3c2619a6f835",
+#       "receipt_lsp_diagnostics_node.check_01ba4719c80b",
+#       "receipt_lsp_diagnostics_degraded_unsupported_path_01ba4719c80b"
+#     ],
+#     "receipt_required": null,
+#     "result_summary": {
+#       "backend": "node.check",
+#       "backendStatus": "degraded",
+#       "commandId": "auto",
+#       "diagnosticCount": 1,
+#       "diagnosticStatus": "degraded",
+#       "fallbackUsed": false,
+#       "resolvedCommandId": "node.check",
+#       "spilloverRecommended": false,
+#       "truncated": false
+#     },
+#     "rollback_refs": [
+#       "workspace_snapshot_coding_tool_5b0595b4930c4c2b_de8536c7db2c"
+#     ],
+#     "routes": {
+#       "invoke": "/v1/threads/thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b/tools/lsp.diagnostics/invoke"
+#     },
+#     "row_kind": "coding_tool",
+#     "schema_version": "ioi.workflow.runtime-tui-deeplink.v1",
+#     "seq": 193,
+#     "sequence": 193,
+#     "shell_fallback_used": false,
+#     "source_event_kind": "CodingTool.LspDiagnostics",
+#     "status": "completed",
+#     "summary": "Diagnostics degraded with 1 finding(s).",
+#     "surface": "tui",
+#     "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#     "tool_call_id": "coding_tool_lsp_diagnostics_auto_fb2489d13b111253",
+#     "tool_name": "lsp.diagnostics",
+#     "tui_reopen": {
+#       "args": [
+#         "agent",
+#         "tui",
+#         "--thread-id",
+#         "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#         "--since-seq",
+#         "193"
+#       ],
+#       "command": "ioi agent tui",
+#       "last_event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000193",
+#       "since_seq": 193,
+#       "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b"
+#     },
+#     "turn_id": "turn_bf416b8b-f771-4d49-8a20-2b24a94f07a0",
+#     "workflow_availability": null,
+#     "workflow_available": null,
+#     "workflow_graph_id": "null",
+#     "workflow_node_id": "runtime.coding-tool.lsp-diagnostics.auto"
+#   },
+#   {
+#     "agent_availability": null,
+#     "agent_available": null,
+#     "approval_required": false,
+#     "artifact_refs": [],
+#     "authority_scope_requirements": [],
+#     "authority_summary": "approval not required",
+#     "command": "patch-dry-run",
+#     "component_kind": "coding_tool",
+#     "credential_readiness": null,
+#     "credential_readiness_status": null,
+#     "credential_ready": null,
+#     "cursor": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:194",
+#     "dry_run": true,
+#     "event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000194",
+#     "event_kind": "tool.completed",
+#     "id": "tui-coding-tool-file.apply_patch-194",
+#     "idempotency_behavior": null,
+#     "idempotency_required": null,
+#     "idempotency_strategy": null,
+#     "input": null,
+#     "label": "Coding tool: file.apply_patch",
+#     "marketplace_exposure": null,
+#     "message": "Patch previewed README.md.",
+#     "mutation_blocked": false,
+#     "policy_decision_refs": [],
+#     "rate_limit_policy": null,
+#     "rate_limit_profile": null,
+#     "raw_input": "/patch-dry-run",
+#     "react_flow": {
+#       "cursor": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:194",
+#       "event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000194",
+#       "workflow_graph_id": "null",
+#       "workflow_node_id": "runtime.coding-tool.file.apply_patch"
+#     },
+#     "receipt_behavior": null,
+#     "receipt_refs": [
+#       "receipt_coding_tool_file.apply_patch_7e1629f107b8",
+#       "receipt_file_apply_patch_README.md_d7f978b02f61"
+#     ],
+#     "receipt_required": null,
+#     "result_summary": {
+#       "applied": false,
+#       "changed": true,
+#       "changedFileCount": 1,
+#       "dryRun": true,
+#       "editCount": 1,
+#       "path": "README.md",
+#       "workspaceSnapshotId": null
+#     },
+#     "rollback_refs": [],
+#     "routes": {
+#       "invoke": "/v1/threads/thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b/tools/file.apply_patch/invoke"
+#     },
+#     "row_kind": "coding_tool",
+#     "schema_version": "ioi.workflow.runtime-tui-deeplink.v1",
+#     "seq": 194,
+#     "sequence": 194,
+#     "shell_fallback_used": false,
+#     "source_event_kind": "CodingTool.FileApplyPatch",
+#     "status": "completed",
+#     "summary": "Patch previewed README.md.",
+#     "surface": "tui",
+#     "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#     "tool_call_id": "coding_tool_9ac66dfabc32cffa",
+#     "tool_name": "file.apply_patch",
+#     "tui_reopen": {
+#       "args": [
+#         "agent",
+#         "tui",
+#         "--thread-id",
+#         "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#         "--since-seq",
+#         "194"
+#       ],
+#       "command": "ioi agent tui",
+#       "last_event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000194",
+#       "since_seq": 194,
+#       "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b"
+#     },
+#     "turn_id": "turn_bf416b8b-f771-4d49-8a20-2b24a94f07a0",
+#     "workflow_availability": null,
+#     "workflow_available": null,
+#     "workflow_graph_id": "null",
+#     "workflow_node_id": "runtime.coding-tool.file.apply_patch"
+#   },
+#   {
+#     "agent_availability": null,
+#     "agent_available": null,
+#     "approval_required": false,
+#     "artifact_refs": [],
+#     "authority_scope_requirements": [],
+#     "authority_summary": "approval not required",
+#     "command": "test",
+#     "component_kind": "coding_tool",
+#     "credential_readiness": null,
+#     "credential_readiness_status": null,
+#     "credential_ready": null,
+#     "cursor": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:195",
+#     "dry_run": null,
+#     "event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000195",
+#     "event_kind": "tool.completed",
+#     "id": "tui-coding-tool-test.run-195",
+#     "idempotency_behavior": null,
+#     "idempotency_required": null,
+#     "idempotency_strategy": null,
+#     "input": null,
+#     "label": "Coding tool: test.run",
+#     "marketplace_exposure": null,
+#     "message": "Test run passed with exit code 0.",
+#     "mutation_blocked": false,
+#     "policy_decision_refs": [],
+#     "rate_limit_policy": null,
+#     "rate_limit_profile": null,
+#     "raw_input": "/test",
+#     "react_flow": {
+#       "cursor": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:195",
+#       "event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000195",
+#       "workflow_graph_id": "null",
+#       "workflow_node_id": "runtime.coding-tool.test.run"
+#     },
+#     "receipt_behavior": null,
+#     "receipt_refs": [
+#       "receipt_coding_tool_test.run_fa404e29b41e",
+#       "receipt_test_run_node.test_dc4401de29f5"
+#     ],
+#     "receipt_required": null,
+#     "result_summary": {
+#       "commandId": "node.test",
+#       "durationMs": 59,
+#       "exitCode": 0,
+#       "spilloverRecommended": false,
+#       "testStatus": "passed",
+#       "truncated": false
+#     },
+#     "rollback_refs": [],
+#     "routes": {
+#       "invoke": "/v1/threads/thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b/tools/test.run/invoke"
+#     },
+#     "row_kind": "coding_tool",
+#     "schema_version": "ioi.workflow.runtime-tui-deeplink.v1",
+#     "seq": 195,
+#     "sequence": 195,
+#     "shell_fallback_used": false,
+#     "source_event_kind": "CodingTool.TestRun",
+#     "status": "completed",
+#     "summary": "Test run passed with exit code 0.",
+#     "surface": "tui",
+#     "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#     "tool_call_id": "coding_tool_e3e77005a594a0c3",
+#     "tool_name": "test.run",
+#     "tui_reopen": {
+#       "args": [
+#         "agent",
+#         "tui",
+#         "--thread-id",
+#         "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#         "--since-seq",
+#         "195"
+#       ],
+#       "command": "ioi agent tui",
+#       "last_event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000195",
+#       "since_seq": 195,
+#       "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b"
+#     },
+#     "turn_id": "turn_bf416b8b-f771-4d49-8a20-2b24a94f07a0",
+#     "workflow_availability": null,
+#     "workflow_available": null,
+#     "workflow_graph_id": "null",
+#     "workflow_node_id": "runtime.coding-tool.test.run"
+#   },
+#   {
+#     "agent_availability": null,
+#     "agent_available": null,
+#     "approval_required": false,
+#     "artifact_refs": [],
+#     "authority_scope_requirements": [],
+#     "authority_summary": "approval not required",
+#     "command": "diagnostics",
+#     "component_kind": "coding_tool",
+#     "credential_readiness": null,
+#     "credential_readiness_status": null,
+#     "credential_ready": null,
+#     "cursor": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:196",
+#     "dry_run": null,
+#     "event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000196",
+#     "event_kind": "tool.completed",
+#     "id": "tui-coding-tool-lsp.diagnostics-196",
+#     "idempotency_behavior": null,
+#     "idempotency_required": null,
+#     "idempotency_strategy": null,
+#     "input": null,
+#     "label": "Coding tool: lsp.diagnostics",
+#     "marketplace_exposure": null,
+#     "message": "Diagnostics findings with 1 finding(s).",
+#     "mutation_blocked": false,
+#     "policy_decision_refs": [],
+#     "rate_limit_policy": null,
+#     "rate_limit_profile": null,
+#     "raw_input": "/diagnostics",
+#     "react_flow": {
+#       "cursor": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:196",
+#       "event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000196",
+#       "workflow_graph_id": "null",
+#       "workflow_node_id": "runtime.coding-tool.lsp.diagnostics"
+#     },
+#     "receipt_behavior": null,
+#     "receipt_refs": [
+#       "receipt_coding_tool_lsp.diagnostics_bd5e7fcf4b3b",
+#       "receipt_lsp_diagnostics_node.check_acbdd896cc09"
+#     ],
+#     "receipt_required": null,
+#     "result_summary": {
+#       "backend": "node.check",
+#       "backendStatus": "available",
+#       "commandId": "auto",
+#       "diagnosticCount": 1,
+#       "diagnosticStatus": "findings",
+#       "fallbackUsed": false,
+#       "resolvedCommandId": "node.check",
+#       "spilloverRecommended": false,
+#       "truncated": false
+#     },
+#     "rollback_refs": [],
+#     "routes": {
+#       "invoke": "/v1/threads/thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b/tools/lsp.diagnostics/invoke"
+#     },
+#     "row_kind": "coding_tool",
+#     "schema_version": "ioi.workflow.runtime-tui-deeplink.v1",
+#     "seq": 196,
+#     "sequence": 196,
+#     "shell_fallback_used": false,
+#     "source_event_kind": "CodingTool.LspDiagnostics",
+#     "status": "completed",
+#     "summary": "Diagnostics findings with 1 finding(s).",
+#     "surface": "tui",
+#     "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#     "tool_call_id": "coding_tool_b7d540a4123ec1f7",
+#     "tool_name": "lsp.diagnostics",
+#     "tui_reopen": {
+#       "args": [
+#         "agent",
+#         "tui",
+#         "--thread-id",
+#         "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#         "--since-seq",
+#         "196"
+#       ],
+#       "command": "ioi agent tui",
+#       "last_event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000196",
+#       "since_seq": 196,
+#       "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b"
+#     },
+#     "turn_id": "turn_bf416b8b-f771-4d49-8a20-2b24a94f07a0",
+#     "workflow_availability": null,
+#     "workflow_available": null,
+#     "workflow_graph_id": "null",
+#     "workflow_node_id": "runtime.coding-tool.lsp.diagnostics"
+#   },
+#   {
+#     "agent_availability": null,
+#     "agent_available": null,
+#     "approval_required": false,
+#     "artifact_refs": [
+#       "artifact_coding_tool_coding_tool_a825ac9419635a5a_output"
+#     ],
+#     "authority_scope_requirements": [],
+#     "authority_summary": "approval not required",
+#     "command": "artifact",
+#     "component_kind": "coding_tool",
+#     "credential_readiness": null,
+#     "credential_readiness_status": null,
+#     "credential_ready": null,
+#     "cursor": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:197",
+#     "dry_run": null,
+#     "event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000197",
+#     "event_kind": "tool.completed",
+#     "id": "tui-coding-tool-artifact.read-197",
+#     "idempotency_behavior": null,
+#     "idempotency_required": null,
+#     "idempotency_strategy": null,
+#     "input": null,
+#     "label": "Coding tool: artifact.read",
+#     "marketplace_exposure": null,
+#     "message": "Read artifact artifact_coding_tool_coding_tool_a825ac9419635a5a_output.",
+#     "mutation_blocked": false,
+#     "policy_decision_refs": [],
+#     "rate_limit_policy": null,
+#     "rate_limit_profile": null,
+#     "raw_input": "/artifact",
+#     "react_flow": {
+#       "cursor": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:197",
+#       "event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000197",
+#       "workflow_graph_id": "null",
+#       "workflow_node_id": "runtime.coding-tool.artifact.read"
+#     },
+#     "receipt_behavior": null,
+#     "receipt_refs": [
+#       "receipt_coding_tool_artifact.read_ce9837c3ea98",
+#       "receipt_artifact_read_artifact_coding_tool_coding_tool_a825ac9419635a5a_output_07e92389efca"
+#     ],
+#     "receipt_required": null,
+#     "result_summary": {
+#       "artifactId": "artifact_coding_tool_coding_tool_a825ac9419635a5a_output",
+#       "lengthBytes": 4403,
+#       "offsetBytes": 0,
+#       "truncated": false
+#     },
+#     "rollback_refs": [],
+#     "routes": {
+#       "invoke": "/v1/threads/thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b/tools/artifact.read/invoke"
+#     },
+#     "row_kind": "coding_tool",
+#     "schema_version": "ioi.workflow.runtime-tui-deeplink.v1",
+#     "seq": 197,
+#     "sequence": 197,
+#     "shell_fallback_used": false,
+#     "source_event_kind": "CodingTool.ArtifactRead",
+#     "status": "completed",
+#     "summary": "Read artifact artifact_coding_tool_coding_tool_a825ac9419635a5a_output.",
+#     "surface": "tui",
+#     "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#     "tool_call_id": "coding_tool_54de683f39a0c0b7",
+#     "tool_name": "artifact.read",
+#     "tui_reopen": {
+#       "args": [
+#         "agent",
+#         "tui",
+#         "--thread-id",
+#         "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#         "--since-seq",
+#         "197"
+#       ],
+#       "command": "ioi agent tui",
+#       "last_event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000197",
+#       "since_seq": 197,
+#       "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b"
+#     },
+#     "turn_id": "turn_bf416b8b-f771-4d49-8a20-2b24a94f07a0",
+#     "workflow_availability": null,
+#     "workflow_available": null,
+#     "workflow_graph_id": "null",
+#     "workflow_node_id": "runtime.coding-tool.artifact.read"
+#   },
+#   {
+#     "agent_availability": null,
+#     "agent_available": null,
+#     "approval_required": false,
+#     "artifact_refs": [
+#       "artifact_coding_tool_coding_tool_a825ac9419635a5a_output"
+#     ],
+#     "authority_scope_requirements": [],
+#     "authority_summary": "approval not required",
+#     "command": "retrieve",
+#     "component_kind": "coding_tool",
+#     "credential_readiness": null,
+#     "credential_readiness_status": null,
+#     "credential_ready": null,
+#     "cursor": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:198",
+#     "dry_run": null,
+#     "event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000198",
+#     "event_kind": "tool.completed",
+#     "id": "tui-coding-tool-tool.retrieve_result-198",
+#     "idempotency_behavior": null,
+#     "idempotency_required": null,
+#     "idempotency_strategy": null,
+#     "input": null,
+#     "label": "Coding tool: tool.retrieve_result",
+#     "marketplace_exposure": null,
+#     "message": "Retrieved tool result coding_tool_a825ac9419635a5a.",
+#     "mutation_blocked": false,
+#     "policy_decision_refs": [],
+#     "rate_limit_policy": null,
+#     "rate_limit_profile": null,
+#     "raw_input": "/retrieve",
+#     "react_flow": {
+#       "cursor": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:198",
+#       "event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000198",
+#       "workflow_graph_id": "null",
+#       "workflow_node_id": "runtime.coding-tool.tool.retrieve_result"
+#     },
+#     "receipt_behavior": null,
+#     "receipt_refs": [
+#       "receipt_coding_tool_tool.retrieve_result_2f38a1109889",
+#       "receipt_artifact_read_artifact_coding_tool_coding_tool_a825ac9419635a5a_output_07e92389efca"
+#     ],
+#     "receipt_required": null,
+#     "result_summary": {
+#       "artifactId": "artifact_coding_tool_coding_tool_a825ac9419635a5a_output",
+#       "lengthBytes": 4403,
+#       "offsetBytes": 0,
+#       "toolCallId": "coding_tool_a825ac9419635a5a",
+#       "truncated": false
+#     },
+#     "rollback_refs": [],
+#     "routes": {
+#       "invoke": "/v1/threads/thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b/tools/tool.retrieve_result/invoke"
+#     },
+#     "row_kind": "coding_tool",
+#     "schema_version": "ioi.workflow.runtime-tui-deeplink.v1",
+#     "seq": 198,
+#     "sequence": 198,
+#     "shell_fallback_used": false,
+#     "source_event_kind": "CodingTool.ToolRetrieveResult",
+#     "status": "completed",
+#     "summary": "Retrieved tool result coding_tool_a825ac9419635a5a.",
+#     "surface": "tui",
+#     "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#     "tool_call_id": "coding_tool_36ea1acaaabb3b88",
+#     "tool_name": "tool.retrieve_result",
+#     "tui_reopen": {
+#       "args": [
+#         "agent",
+#         "tui",
+#         "--thread-id",
+#         "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b",
+#         "--since-seq",
+#         "198"
+#       ],
+#       "command": "ioi agent tui",
+#       "last_event_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b:events:seq:00000198",
+#       "since_seq": 198,
+#       "thread_id": "thread_a75ca0cc-d8c0-4964-835d-ac4e1ec5ba5b"
+#     },
+#     "turn_id": "turn_bf416b8b-f771-4d49-8a20-2b24a94f07a0",
+#     "workflow_availability": null,
+#     "workflow_available": null,
+#     "workflow_graph_id": "null",
+#     "workflow_node_id": "runtime.coding-tool.tool.retrieve_result"
+#   }
+# ]
+# Subtest: coding tool pack invokes status, diff, inspect, apply patch, diagnostics, test run, and artifact retrieval across daemon, SDK, CLI, TUI, and React Flow
+not ok 1 - coding tool pack invokes status, diff, inspect, apply patch, diagnostics, test run, and artifact retrieval across daemon, SDK, CLI, TUI, and React Flow
+  ---
+  duration_ms: 6658.477194
+  type: 'test'
+  location: '/home/heathledger/Documents/ioi/repos/ioi/scripts/lib/live-runtime-daemon-contract.test.mjs:9675:1'
+  failureType: 'testCodeFailure'
+  error: 'TUI control state should include successful coding-tool row for computer_use.request_lease'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/heathledger/Documents/ioi/repos/ioi/scripts/lib/live-runtime-daemon-contract.test.mjs:10785:14)
+    process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 6737.279274
