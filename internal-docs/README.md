@@ -9,3 +9,8 @@ The forward-facing `docs/` tree should stay focused on canonical architecture,
 decisions, conformance contracts, security, roadmap context, templates, and
 consumer-readable references. Internal docs can inform implementation, but they
 do not supersede `docs/architecture/`.
+
+Internal files must not declare `Status: canonical...` or `Canonical owner:`.
+Use `Status: internal...` plus an `Authority:` line that points back to
+`docs/architecture/` and accepted ADRs. This keeps private execution context
+useful without creating a second source of truth.

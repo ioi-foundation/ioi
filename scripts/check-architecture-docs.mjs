@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const architectureRoot = path.join(root, "docs/architecture");
+const internalDocsRoot = path.join(root, "internal-docs");
 const failures = [];
 
 function allMarkdownFiles(dir) {
@@ -46,10 +48,42 @@ function fail(message) {
   failures.push(message);
 }
 
+function trackedFilesUnder(...paths) {
+  const result = spawnSync("git", ["ls-files", ...paths], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  if (result.status !== 0) {
+    fail(`Unable to inspect tracked docs/formal files: ${result.stderr || result.stdout}`);
+    return [];
+  }
+  return result.stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && fs.existsSync(path.join(root, line)));
+}
+
 const markdownFiles = allMarkdownFiles(architectureRoot);
+const internalMarkdownFiles = fs.existsSync(internalDocsRoot)
+  ? allMarkdownFiles(internalDocsRoot)
+  : [];
 for (const file of allFiles(architectureRoot)) {
   if (isGeneratedArchitectureArtifact(file)) {
     fail(`${relative(file)} is generated proof/evidence output and must live outside docs/architecture/.`);
+  }
+}
+
+for (const file of trackedFilesUnder("docs/formal", "docs/formal-artifacts")) {
+  fail(`${file} is tracked under public docs formal output; use internal-docs/ or .internal/formal-cache/.`);
+}
+
+for (const file of internalMarkdownFiles) {
+  const content = fs.readFileSync(file, "utf8");
+  if (/^Status:\s*canonical\b/im.test(content)) {
+    fail(`${relative(file)} declares canonical status inside internal-docs/.`);
+  }
+  if (/^Canonical owner:/im.test(content)) {
+    fail(`${relative(file)} declares a canonical owner inside internal-docs/.`);
   }
 }
 const rootMarkdownFiles = fs
@@ -141,6 +175,9 @@ for (const required of [
   "components/daemon-runtime/api.md",
   "components/agentgres/api-object-model.md",
   "components/daemon-runtime/events-receipts-delivery-bundles.md",
+  "IOI daemon = hypervisor/control plane for autonomous execution",
+  "Autopilot Workbench = IDE-grade operator console",
+  "IOI Authority Gateway = compatibility adapter profile",
 ]) {
   if (!index.includes(required)) {
     fail(`README.md must link ${required}.`);
@@ -154,6 +191,10 @@ const sourceMap = fs.readFileSync(
 for (const required of [
   "`prim:*`",
   "`scope:*`",
+  "Autopilot Workbench is the IDE-grade operator console",
+  "the Electron/VS Code fork is the canonical Autopilot app shell",
+  "IOI Authority Gateway is the daemon sidecar/compatibility profile",
+  "the daemon authorizes anything",
   "SDK, CLI, GUI, harness, benchmark, compositor boundaries",
   "Smarter-agent runtime loop",
   "Decision History Policy",
@@ -170,9 +211,30 @@ for (const required of [
   "ADR 0004",
   "ADR 0005",
   "ADR 0006",
+  "ADR 0007",
+  "ADR 0008",
+  "ADR 0009",
 ]) {
   if (!decisionsIndex.includes(required)) {
     fail(`docs/decisions/README.md missing ${required}.`);
+  }
+}
+
+const vocabulary = fs.readFileSync(
+  path.join(architectureRoot, "_meta/vocabulary.md"),
+  "utf8",
+);
+for (const required of [
+  "`AutopilotWorkbench`",
+  "`IOIAuthorityGateway`",
+  "`AutopilotGuard`",
+  "`CompatibilityAdapter`",
+  "`AutopilotAppShell`",
+  "`GuestWorkload`",
+  "`TrustAuditSubstrate`",
+]) {
+  if (!vocabulary.includes(required)) {
+    fail(`_meta/vocabulary.md missing ${required}.`);
   }
 }
 

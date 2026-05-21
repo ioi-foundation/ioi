@@ -4,16 +4,37 @@ Status: canonical low-level reference.
 Canonical owner: this file for public daemon/runtime API endpoints, event streaming, run lifecycle, structured errors, and client-vs-runtime ownership.
 Supersedes: older daemon/SDK/CLI endpoint lists when endpoint shape conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-15.
+Last alignment pass: 2026-05-20.
 
 ## Purpose
 
-The IOI daemon is the universal execution endpoint for canonical Web4. The IOI CLI/TUI, `@ioi/agent-sdk`, agent-ide, Autopilot Desktop, workflow compositor, harnesses, and benchmarks are clients over this public runtime API. They must not own separate execution semantics. Local Autopilot-managed daemons, hosted providers, DePIN nodes, TEE nodes, and customer VPC nodes run daemon-compatible runtime nodes to execute workers, workflows, model calls, tools, connectors, worker-training jobs, evaluation jobs, benchmark jobs, MoW routing decisions, and artifact production.
+The IOI daemon is the universal execution endpoint and hypervisor/control plane
+for canonical Web4 autonomous work. The IOI CLI/TUI, `@ioi/agent-sdk`,
+agent-ide, Autopilot Workbench, Autopilot Desktop, workflow compositor,
+harnesses, benchmarks, VS Code extension-host code, and IOI Authority Gateway
+adapters are clients over this public runtime API. They must not own separate
+execution semantics. Local
+Autopilot-managed daemons, hosted providers, DePIN nodes, TEE nodes, and
+customer VPC nodes run daemon-compatible runtime nodes to execute workers,
+workflows, model calls, tools, connectors, computer-use leases, worker-training
+jobs, evaluation jobs, benchmark jobs, MoW routing decisions, and artifact
+production.
 
 Compute nodes initialize daemon-compatible runtime-node profiles, optionally
 bridging into lower-level runtime services. The SDK may submit, inspect, stream,
 or control work through this API, but it is not the execution substrate booted
 on a compute node.
+
+Workers, models, tools, connectors, browsers, shells, and computer-use providers
+are guest workloads/capabilities from this API's point of view. Policy,
+authority grants, approvals, receipts, replay records, and settlement hooks are
+the trust/audit substrate that binds those guests to accountable work.
+
+IOI Authority Gateway adapters use this API to submit proposed actions from
+existing IDEs, CLI agents, hosted agents, MCP tools, shell/Git surfaces, browser
+actions, API gateways, credential brokers, and CI/CD gates. Adapters project and
+mediate; the daemon owns policy decisions, authority, effects, receipts, replay,
+and durable state.
 
 ## Runtime Identity and Health
 
@@ -36,7 +57,7 @@ GET /v1/runtime/nodes
   "daemon_version": "0.8.0",
   "agentgres_version": "0.2.0",
   "supported_execution_profiles": ["local", "hosted", "provider", "depin_mutual_blind", "tee_enterprise", "customer_vpc"],
-  "supported_interfaces": ["agents", "managed_instances", "threads", "runs", "workers", "training", "benchmarks", "routing", "tools", "models", "connectors", "artifacts", "receipts", "trace", "replay", "scorecards"],
+  "supported_interfaces": ["agents", "managed_instances", "threads", "runs", "workers", "training", "benchmarks", "routing", "tools", "models", "connectors", "authority_gateway", "action_requests", "artifacts", "receipts", "trace", "replay", "scorecards"],
   "primitive_capabilities": ["prim:fs.read", "prim:fs.write", "prim:sys.exec", "prim:net.request", "prim:model.invoke"],
   "attestation": {
     "required": false,
@@ -284,6 +305,60 @@ Approval request shape:
 }
 ```
 
+## Action Mediation / Authority Gateway API
+
+Authority Gateway adapters submit proposed actions before they become effects.
+The daemon evaluates policy, requests authority or approval when needed, records
+the decision, executes through governed runtime paths, and emits receipts/replay
+records.
+
+```http
+POST /v1/action-requests
+GET  /v1/action-requests/{action_request_id}
+POST /v1/action-requests/{action_request_id}/approve
+POST /v1/action-requests/{action_request_id}/deny
+POST /v1/action-requests/{action_request_id}/execute
+GET  /v1/action-requests/{action_request_id}/receipts
+GET  /v1/threads/{thread_id}/action-requests
+POST /v1/threads/{thread_id}/action-requests
+```
+
+Action request shape:
+
+```json
+{
+  "action_request_id": "ar_123",
+  "source_adapter": {
+    "adapter_id": "adapter://cursor-terminal/heath",
+    "adapter_kind": "ide_extension | cli_wrapper | mcp_gateway | shell_wrapper | git_hook | workspace_watcher | api_proxy | browser_adapter | hosted_agent_gateway | ci_gate",
+    "source_tool": "cursor | vscode | codex | claude_code | jetbrains | openhands | hosted_agent"
+  },
+  "proposed_action": {
+    "kind": "shell | file | git | mcp_tool | api | browser | deploy | secret",
+    "summary": "npm install inside workspace",
+    "command_preview": "npm install",
+    "diff_preview_ref": null,
+    "target_refs": ["workspace://repo"],
+    "external_action": false
+  },
+  "risk_class": "package_install",
+  "primitive_capabilities_required": ["prim:sys.exec", "prim:net.request"],
+  "authority_scopes_required": ["scope:repo.write"],
+  "policy_decision": {
+    "status": "pending | allowed | denied | requires_approval | transform_required",
+    "policy_hash": "sha256:..."
+  },
+  "receipt_obligations": ["policy_decision", "execution", "artifact_or_diff"],
+  "run_id": "run_123",
+  "thread_id": "thread_123"
+}
+```
+
+Adapters may attach observations, previews, redacted diffs, command captures,
+and external agent metadata. They do not directly write files, invoke connectors,
+inject secrets, deploy, mutate Git, or call tools when the policy path says the
+effect must cross the daemon.
+
 ## Tool API
 
 ```http
@@ -492,3 +567,6 @@ POST /v1/runtime/assignments/{assignment_id}/reject
    present inside worker or client code, but they are not the execution owner.
 9. Training, evaluation, benchmark, and MoW routing paths are daemon/runtime
    jobs with receipts, not product-surface private loops.
+10. Authority Gateway adapters submit action requests and observations; they do
+    not own policy, effects, secrets, receipts, replay, or durable runtime
+    state, and they must not overclaim control over opaque third-party agents.

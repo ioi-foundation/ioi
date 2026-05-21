@@ -15,3 +15,6 @@ explain the accepted decision when that history remains useful.
 - [ADR 0004: Define Worker, MoW, And Worker Training As Labor Architecture](./0004-worker-mow-and-training-doctrine.md)
 - [ADR 0005: Make Domain Ontologies And Data Recipes The Semantic Data Plane](./0005-domain-ontologies-and-data-recipes.md)
 - [ADR 0006: Define Capability, Authority, And Work-Graph Vocabulary](./0006-capability-authority-and-work-graph-vocabulary.md)
+- [ADR 0007: Adopt IDE-First Autopilot With Runtime And Workbench Substrates](./0007-autopilot-ide-first-two-substrate-architecture.md)
+- [ADR 0008: Adopt IOI Authority Gateway As The Sidecar Adoption Wedge](./0008-ioi-authority-gateway-sidecar-adoption-wedge.md)
+- [ADR 0009: Switch Autopilot IDE Shell From Tauri To The Electron/VS Code Fork](./0009-switch-autopilot-ide-shell-from-tauri-to-electron-vscode-fork.md)

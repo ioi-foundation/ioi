@@ -255,8 +255,10 @@ const checks = {
     /workflow-catalog-apply-\$\{row\.nodeItem\.id\}/.test(modalSource),
   headerOpensConnectorBindingModal:
     /workflow-connector-bindings-button/.test(viewSource) &&
-    /setConnectorBindingOpen\(true\)/.test(viewSource) &&
-    /ConnectorBindingModal/.test(viewSource),
+    /onClick=\{handleOpenConnectorBindings\}/.test(viewSource) &&
+    /ConnectorBindingModal/.test(viewSource) &&
+    /handleOpenConnectorBindings/.test(controllerSource) &&
+    /setConnectorBindingOpen\(true\)/.test(controllerSource),
   controllerHydratesRuntimeCatalogs:
     /listWorkflowToolCatalog/.test(controllerSource) &&
     /normalizeWorkflowToolCatalog/.test(controllerSource) &&

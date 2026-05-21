@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "ioi.autopilot.ide-shell.manifest.v1",
+  "canonicalShell": "autopilot-vscode-electron-fork",
+  "sourceFork": {
+    "defaultPath": "ide/vscode",
+    "optionalForRuntimeLaunch": true,
+    "upstream": "https://github.com/microsoft/vscode.git",
+    "localBranchHint": "antigravity/main"
+  },
+  "packagedApp": {
+    "defaultPath": "ide/builds/VSCode-linux-x64",
+    "binary": "ide/builds/VSCode-linux-x64/bin/autopilot",
+    "requiredForRuntimeLaunch": true
+  },
+  "workbenchSource": "apps/autopilot/openvscode-extension/ioi-workbench",
+  "runtimeAuthority": "packages/runtime-daemon",
+  "doctrine": [
+    "Electron/VS Code fork is the canonical Autopilot app shell.",
+    "ioi-workbench is the built-in workbench extension/API layer.",
+    "IOI daemon is the runtime authority and durable execution boundary.",
+    "Tauri/OpenVSCode embedding is legacy extraction inventory to remove."
+  ]
+}

@@ -2,9 +2,10 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-JAR_PATH="${ROOT_DIR}/.artifacts/tla/tla2tools.jar"
+FORMAL_CACHE_DIR="${ROOT_DIR}/.internal/formal-cache"
+JAR_PATH="${FORMAL_CACHE_DIR}/tools/tla/tla2tools.jar"
 JAR_URL="https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar"
-TLAPS_DIR="${ROOT_DIR}/.artifacts/tlaps-pre"
+TLAPS_DIR="${FORMAL_CACHE_DIR}/tools/tlaps-pre"
 TLAPS_INSTALL_DIR="${TLAPS_DIR}/install"
 TLAPS_ARCHIVE="${TLAPS_DIR}/tlapm.tar.gz"
 TLAPM_BIN="${TLAPS_INSTALL_DIR}/bin/tlapm"
@@ -70,13 +71,13 @@ run_model() {
   popd >/dev/null
 }
 
-run_proof "docs/architecture/protocols/aft/formal/guardian_majority" "GuardianMajorityProof.tla"
-run_proof "docs/architecture/protocols/aft/formal/nested_guardian" "NestedGuardianProof.tla"
-run_proof "docs/architecture/protocols/aft/formal" "AsymptoteProof.tla"
-run_proof "docs/architecture/protocols/aft/formal/canonical_ordering" "CanonicalOrderingProof.tla"
-run_model "docs/architecture/protocols/aft/formal/guardian_majority" "GuardianMajority.cfg" "GuardianMajority.tla"
-run_model "docs/architecture/protocols/aft/formal/nested_guardian" "NestedGuardian.cfg" "NestedGuardian.tla"
-run_model "docs/architecture/protocols/aft/formal" "Asymptote.cfg" "Asymptote.tla"
-run_model "docs/architecture/protocols/aft/formal/canonical_ordering" "CanonicalOrdering.cfg" "CanonicalOrdering.tla"
-run_model "docs/architecture/protocols/aft/formal/canonical_ordering" "CanonicalOrderingRetrievability.cfg" "CanonicalOrderingRetrievability.tla"
-run_model "docs/architecture/protocols/aft/formal/canonical_ordering" "CanonicalCollapseRecursiveContinuity.cfg" "CanonicalCollapseRecursiveContinuity.tla"
+run_proof "internal-docs/architecture/protocols/aft/formal/guardian_majority" "GuardianMajorityProof.tla"
+run_proof "internal-docs/architecture/protocols/aft/formal/nested_guardian" "NestedGuardianProof.tla"
+run_proof "internal-docs/architecture/protocols/aft/formal" "AsymptoteProof.tla"
+run_proof "internal-docs/architecture/protocols/aft/formal/canonical_ordering" "CanonicalOrderingProof.tla"
+run_model "internal-docs/architecture/protocols/aft/formal/guardian_majority" "GuardianMajority.cfg" "GuardianMajority.tla"
+run_model "internal-docs/architecture/protocols/aft/formal/nested_guardian" "NestedGuardian.cfg" "NestedGuardian.tla"
+run_model "internal-docs/architecture/protocols/aft/formal" "Asymptote.cfg" "Asymptote.tla"
+run_model "internal-docs/architecture/protocols/aft/formal/canonical_ordering" "CanonicalOrdering.cfg" "CanonicalOrdering.tla"
+run_model "internal-docs/architecture/protocols/aft/formal/canonical_ordering" "CanonicalOrderingRetrievability.cfg" "CanonicalOrderingRetrievability.tla"
+run_model "internal-docs/architecture/protocols/aft/formal/canonical_ordering" "CanonicalCollapseRecursiveContinuity.cfg" "CanonicalCollapseRecursiveContinuity.tla"

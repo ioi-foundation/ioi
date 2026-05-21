@@ -1,16 +1,24 @@
 # Autopilot Local App and Workflow Canvas Specification
 
-Status: canonical architecture authority.
-Canonical owner: this file for Autopilot, workflow canvas, harness-as-workflow, and local GUI boundaries.
-Supersedes: overlapping plan prose when Autopilot ownership conflicts.
-Superseded by: none.
-Last alignment pass: 2026-05-15.
+Status: internal product/workflow context reference.
+Authority: `docs/architecture/` and accepted ADRs are canonical; this file is private product context only.
+Supports: Autopilot, workflow canvas, harness-as-workflow, and local GUI boundary work.
+Superseded by: canonical architecture docs or ADRs when conflicts arise.
+Last alignment pass: 2026-05-20.
 
-## Canonical Definition
+## Canonical Alignment
 
-**Autopilot Desktop is the local canonical Web4 application and workbench for building, training, running, inspecting, and governing autonomous workflows and workers through a local IOI daemon/runtime profile.**
+**Autopilot Workbench is the IDE-grade operator console for building, training,
+running, inspecting, and governing autonomous workflows and workers through an
+IOI daemon/runtime profile.**
 
-It is the default local execution environment for users who want private/local control, local files, local models, local connectors, and editable workflows.
+The canonical product shell is the Electron/VS Code fork. Autopilot Desktop is a
+mode of the same product for private/local device automation, not a separate
+runtime substrate and not a Tauri-owned long-term shell.
+
+It is the default local operator environment for users who want private/local
+control, local files, local models, local connectors, and editable workflows.
+The IOI daemon remains the autonomous-execution hypervisor/control plane.
 
 ## Core Role
 
@@ -19,7 +27,7 @@ Autopilot provides:
 - workflow canvas;
 - Autopilot Foundry / Worker Training Workbench;
 - agent harness;
-- local IOI daemon/runtime bridge management;
+- local IOI daemon/runtime supervision and projection;
 - local-first UX;
 - connector/tool management;
 - domain ontology, data recipe, and connector mapping authoring;
@@ -34,7 +42,9 @@ Autopilot provides:
 
 Autopilot may launch, configure, observe, and project the local daemon. It does
 not define a second runtime substrate separate from the IOI daemon/domain
-contracts.
+contracts. Workbench views, workflow canvas state, and extension-host code are
+operator projections unless they settle through daemon/Agentgres-compatible APIs
+with policy, authority, and receipts.
 
 ## What Autopilot Owns
 

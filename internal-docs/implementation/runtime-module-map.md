@@ -1,19 +1,19 @@
 # Runtime Module Map
 
-Status: canonical source-tree map; layout-refactor guardrail.
-Canonical owner: this file for implementation module locations related to runtime substrate, clients, projections, fixtures, and validation.
-Supersedes: overlapping source-tree maps in plans/specs when module ownership conflicts.
-Superseded by: none.
+Status: internal source-tree map; layout-refactor guardrail.
+Authority: `docs/architecture/` and accepted ADRs are canonical; this file maps implementation locations only.
+Supports: runtime substrate, clients, projections, fixtures, and validation module placement.
+Superseded by: canonical architecture docs or ADRs when conflicts arise.
 Last alignment pass: 2026-05-13.
 
-This map names the canonical homes for runtime execution, clients,
+This map names architecture-aligned homes for runtime execution, clients,
 projections, validation, and compatibility code. It is intentionally concrete:
 new runtime work should land in one of these homes rather than creating a
 parallel execution path.
 
-## Canonical Execution
+## Runtime Execution Homes
 
-| Surface | Canonical Home | Role |
+| Surface | Home | Role |
 | --- | --- | --- |
 | Runtime kernel | `crates/services/src/agentic/runtime/kernel/` | State transition, authority, and execution invariants. |
 | Runtime service loop | `crates/services/src/agentic/runtime/service/` | Agent loop orchestration over the kernel and tool contracts. |

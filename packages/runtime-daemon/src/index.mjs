@@ -11373,11 +11373,33 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
     writeJsonResponse(response, mounts.serverEvents(Object.fromEntries(url.searchParams.entries())));
     return;
   }
+  if (request.method === "GET" && url.pathname === "/api/v1/models/server") {
+    writeJsonResponse(response, mounts.serverStatus(baseUrl));
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/models/server/start") {
+    mounts.authorize(authorization, "server.control:*");
+    writeJsonResponse(response, mounts.serverStart(baseUrl));
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/models/server/stop") {
+    mounts.authorize(authorization, "server.control:*");
+    writeJsonResponse(response, mounts.serverStop(baseUrl));
+    return;
+  }
   if (request.method === "GET" && url.pathname === "/api/v1/backends") {
     writeJsonResponse(response, mounts.listBackends());
     return;
   }
+  if (request.method === "GET" && url.pathname === "/api/v1/models/backends") {
+    writeJsonResponse(response, mounts.listBackends());
+    return;
+  }
   if (request.method === "GET" && url.pathname === "/api/v1/runtime/engines") {
+    writeJsonResponse(response, mounts.listRuntimeEngines());
+    return;
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/models/runtime-engines") {
     writeJsonResponse(response, mounts.listRuntimeEngines());
     return;
   }
@@ -11546,6 +11568,76 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
   if (request.method === "POST" && url.pathname === "/api/v1/models/storage/cleanup") {
     mounts.authorize(authorization, "model.delete:*");
     writeJsonResponse(response, mounts.cleanupModelStorage(await readBody(request)));
+    return;
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/models/artifacts") {
+    writeJsonResponse(response, mounts.listArtifacts());
+    return;
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/models/instances") {
+    writeJsonResponse(response, mounts.listInstances());
+    return;
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/models/routes") {
+    writeJsonResponse(response, mounts.listRoutes());
+    return;
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/models/events") {
+    writeJsonResponse(response, mounts.projection().lifecycleEvents);
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/models/estimate-load") {
+    mounts.authorize(authorization, "model.load:*");
+    writeJsonResponse(response, await mounts.loadModel({ ...(await readBody(request)), estimate_only: true }));
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/models/mounts") {
+    mounts.authorize(authorization, "model.mount:*");
+    writeJsonResponse(response, mounts.mountEndpoint(await readBody(request)), 201);
+    return;
+  }
+  if (
+    request.method === "POST" &&
+    segments[2] === "models" &&
+    segments[3] === "mounts" &&
+    segments[4] &&
+    segments[5] === "load"
+  ) {
+    mounts.authorize(authorization, "model.load:*");
+    writeJsonResponse(response, await mounts.loadModel({ ...(await readBody(request)), endpoint_id: decodeURIComponent(segments[4]) }), 201);
+    return;
+  }
+  if (
+    request.method === "POST" &&
+    segments[2] === "models" &&
+    segments[3] === "mounts" &&
+    segments[4] &&
+    segments[5] === "unload"
+  ) {
+    mounts.authorize(authorization, "model.unload:*");
+    writeJsonResponse(response, await mounts.unloadModel({ ...(await readBody(request)), endpoint_id: decodeURIComponent(segments[4]) }));
+    return;
+  }
+  if (
+    request.method === "DELETE" &&
+    segments[2] === "models" &&
+    segments[3] === "mounts" &&
+    segments[4] &&
+    !segments[5]
+  ) {
+    mounts.authorize(authorization, "model.unmount:*");
+    writeJsonResponse(response, mounts.unmountEndpoint({ endpoint_id: decodeURIComponent(segments[4]) }));
+    return;
+  }
+  if (
+    request.method === "POST" &&
+    segments[2] === "models" &&
+    segments[3] === "instances" &&
+    segments[4] &&
+    segments[5] === "unload"
+  ) {
+    mounts.authorize(authorization, "model.unload:*");
+    writeJsonResponse(response, await mounts.unloadModel({ instance_id: decodeURIComponent(segments[4]), ...(await readBody(request)) }));
     return;
   }
   if (
@@ -14854,7 +14946,7 @@ function buildRun({
     ],
     affectedTests: ["live-runtime-daemon-contract"],
     affectedDocs: [
-      "internal-docs/plans/architectural-improvements-broad-master-guide.md",
+      ".internal/plans/architectural-improvements-broad-master-guide.md",
     ],
     riskClass: postconditions.riskClass,
   };

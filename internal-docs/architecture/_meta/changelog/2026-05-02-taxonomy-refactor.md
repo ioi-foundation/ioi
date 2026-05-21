@@ -1,7 +1,7 @@
 # Architecture Taxonomy Refactor
 
 Status: refactor report.
-Canonical owner: this file for the 2026-05-02 architecture taxonomy pass.
+Authority: historical report only; `docs/architecture/` and accepted ADRs are canonical.
 Supersedes: `docs/architecture/operations/` as a mixed metadata, roadmap, and generated-reference home.
 Superseded by: future documentation refactor reports.
 Last alignment pass: 2026-05-02.
@@ -32,7 +32,7 @@ docs/implementation/
 docs/conformance/
   agentic-runtime/
 
-docs/formal-artifacts/aft/
+internal-docs/formal/aft/
   generated/
   traces/
   states/
@@ -43,7 +43,7 @@ docs/formal-artifacts/aft/
 - Architecture keeps canonical doctrine, low-level component references, protocol source, and formal source.
 - Implementation keeps roadmaps, source-tree maps, package boundaries, and generated-contract schema inputs.
 - Conformance keeps CIRC/CEC outside the architecture tree.
-- `docs/formal-artifacts/aft/` keeps TLC traces, state dumps, and compiled yellow paper outputs.
+- `internal-docs/formal/aft/` keeps curated TLC traces, state dumps, and compiled yellow paper outputs.
 
 ## Validation
 

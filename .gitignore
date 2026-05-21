@@ -22,12 +22,6 @@ dist/
 .tlacache/
 formal/**/*_TTrace_*.tla
 formal/**/TLAPS.tla
-docs/specs/formal/aft/**/states/
-docs/architecture/protocols/aft/formal/**/states/
-docs/formal-artifacts/aft/states/
-docs/formal-artifacts/tools/
-docs/formal/aft/states/
-docs/formal/tools/
 CODEX.txt
 packages/agent-ide/tsconfig.tsbuildinfo
 .env
@@ -53,14 +47,32 @@ docs/specs/runtime/
 docs/architecture/products/
 docs/architecture/protocols/
 docs/architecture/_meta/changelog/
-docs/formal/aft/generated/
-docs/formal/aft/traces/
+# Formal source and curated generated outputs live under internal-docs/.
+# Keep public docs free of formal source, generated output, toolchains, and
+# model-checker caches.
 docs/formal/
+docs/formal-artifacts/
+.artifacts/
 docs/autopilot-desktop-ux-visibility-prompt.md
 docs/ioi-zero-to-hero-autonomy-prompt.md
 docs/specs/benchmarks-scorecard-ux.md
 docs/specs/slate-cobalt-reference.html
 scripts/internal/
+
+# Internal planning workspace. Keep private planning artifacts out of git via
+# this parent directory instead of per-file ignore rules.
+.internal/
+
+# Local daemon/runtime state. This may contain receipts, grants, projected
+# provider state, and local model artifacts from GUI validation.
+.ioi/
+
+# Local IDE substrate workspace. The VS Code fork checkout and packaged
+# Electron build are large local artifacts; keep only the boundary docs and
+# patch metadata in git.
+ide/vscode/
+ide/builds/
+ide/.cache/
 
 # Python cache/build artifacts
 __pycache__/

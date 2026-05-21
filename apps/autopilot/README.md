@@ -98,19 +98,27 @@ sudo apt install -y \
 # Install dependencies
 npm install
 
-# Run the desktop shell in development
+# Run the Electron/VS Code fork in development.
+# This also starts a supervised IOI daemon sidecar and projects discovered
+# local LM Studio/Ollama model artifacts into Autopilot Models.
 npm run dev:desktop
-
-# Build for production
-npm run tauri build
 
 # Validate the direct Workspace shell and retain a GUI receipt bundle
 npm run probe:desktop:workspace
 ```
 
-`npm run dev:desktop` now applies Linux/X11 software-friendly WebKit defaults
-for local desktop dev so the direct Workspace substrate stays visible on stacks
-that otherwise return black captures from per-window screenshot tools.
+`npm run dev:desktop` launches the canonical Electron/VS Code fork through
+`scripts/launch-autopilot-ide-fork.mjs`. If `IOI_DAEMON_ENDPOINT` is not already
+set, the launcher syncs the current `ioi-workbench` extension into the packaged
+fork, starts an IOI daemon sidecar, grants the workbench a scoped daemon token,
+asks the daemon to discover local model providers, mounts discovered local
+models as daemon endpoints, and passes the daemon endpoint/token to
+`ioi-workbench`. Set `AUTOPILOT_SKIP_EXTENSION_SYNC=1` to skip extension sync,
+`AUTOPILOT_SKIP_DAEMON=1` to opt out of daemon startup, or
+`AUTOPILOT_SKIP_MODEL_AUTODISCOVERY=1` to start the daemon without local model
+discovery. The `ide/vscode` source checkout is optional for this launch path;
+the required runtime artifact is the packaged Electron app at
+`ide/builds/VSCode-linux-x64` or `AUTOPILOT_VSCODE_PACKAGED_ROOT`.
 
 ### Project Structure
 

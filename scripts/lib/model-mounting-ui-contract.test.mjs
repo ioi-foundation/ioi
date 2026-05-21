@@ -452,18 +452,39 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /policy blocked/);
 });
 
-test("Mounts OAuth callback is packaged as a Tauri desktop deep link", () => {
-  const tauriConfig = JSON.parse(fs.readFileSync(path.join(root, "apps", "autopilot", "src-tauri", "tauri.conf.json"), "utf8"));
-  const capability = JSON.parse(fs.readFileSync(path.join(root, "apps", "autopilot", "src-tauri", "capabilities", "default.json"), "utf8"));
-  const cargoToml = fs.readFileSync(path.join(root, "apps", "autopilot", "src-tauri", "Cargo.toml"), "utf8");
-  const tauriLib = fs.readFileSync(path.join(root, "apps", "autopilot", "src-tauri", "src", "lib.rs"), "utf8");
-  const autopilotPackage = JSON.parse(fs.readFileSync(path.join(root, "apps", "autopilot", "package.json"), "utf8"));
-  assert.deepEqual(tauriConfig.plugins?.["deep-link"]?.desktop?.schemes, ["ioi"]);
-  assert.ok(capability.permissions.includes("deep-link:default"));
-  assert.match(cargoToml, /tauri-plugin-deep-link = "2\.4\.9"/);
-  assert.match(tauriLib, /tauri_plugin_deep_link::init\(\)/);
-  assert.match(tauriLib, /app\.deep_link\(\)\.register_all\(\)/);
-  assert.equal(autopilotPackage.dependencies["@tauri-apps/plugin-deep-link"], "^2.4.9");
+test("Mounts OAuth callback is daemon-owned and not packaged as a Tauri deep link", () => {
+  const srcTauriPath = path.join(root, "apps", "autopilot", "src-tauri");
+  const daemonSource = fs.readFileSync(path.join(root, "packages", "runtime-daemon", "src", "index.mjs"), "utf8");
+  const liveGate = fs.readFileSync(path.join(root, "scripts", "live-model-mounting-gate.mjs"), "utf8");
+  const workbenchExtension = fs.readFileSync(
+    path.join(root, "apps", "autopilot", "openvscode-extension", "ioi-workbench", "extension.js"),
+    "utf8",
+  );
+  const workbenchPackage = JSON.parse(
+    fs.readFileSync(
+      path.join(root, "apps", "autopilot", "openvscode-extension", "ioi-workbench", "package.json"),
+      "utf8",
+    ),
+  );
+
+  assert.equal(fs.existsSync(srcTauriPath), false);
+  assert.match(daemonSource, /segments\[6\] === "oauth"/);
+  assert.match(daemonSource, /segments\[7\] === "start"/);
+  assert.match(daemonSource, /segments\[7\] === "callback"/);
+  assert.match(daemonSource, /segments\[7\] === "exchange"/);
+  assert.match(daemonSource, /segments\[7\] === "refresh"/);
+  assert.match(daemonSource, /segments\[7\] === "revoke"/);
+  assert.match(liveGate, /ioi:\/\/mounts\/oauth\/callback/);
+  assert.match(liveGate, /IOI_MODEL_CATALOG_OAUTH_LOCAL_CALLBACK/);
+  assert.match(liveGate, /\/api\/v1\/models\/catalog\/providers\/\$\{encodeURIComponent\(providerId\)\}\/oauth\/callback/);
+  assert.match(workbenchExtension, /IOI_DAEMON_ENDPOINT/);
+  assert.match(workbenchExtension, /ioi\.models\.open/);
+  assert.ok(
+    workbenchPackage.contributes?.commands?.some(
+      (command) => command.command === "ioi.models.open",
+    ),
+  );
+  assert.doesNotMatch(workbenchExtension, /@tauri-apps|tauri:\/\/|tauri\./i);
 });
 
 test("Mounts GUI validation uses a dedicated desktop harness", () => {

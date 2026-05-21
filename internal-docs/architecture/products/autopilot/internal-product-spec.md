@@ -1,34 +1,46 @@
 # Autopilot Internal Product Spec
 
-Status: canonical product/surface architecture reference.
-Canonical owner: this file for Autopilot product definition, UX surface intent, and long-range operator-shell direction.
-Supersedes: `docs/specs/autopilot/internal_product_spec.md`.
-Superseded by: none.
-Last alignment pass: 2026-05-15.
+Status: internal product/surface context reference.
+Authority: `docs/architecture/` and accepted ADRs are canonical; this file is private product context only.
+Migrated from: `docs/specs/autopilot/internal_product_spec.md`.
+Superseded by: canonical architecture docs or ADRs when conflicts arise.
+Last alignment pass: 2026-05-20.
 
-**Version:** 1.3
+**Version:** 1.4
 **Status:** Proposed revision
 **Audience:** Product, design, Studio UI, Spotlight UI, runtime, orchestration, policy, capability, connector, and platform teams
 
 ## 1. Vision-State Product Definition
 
-**Category:** Autonomous action workbench and operator shell over a local IOI daemon/runtime profile
+**Category:** IDE-grade operator console and autonomous action workbench over an IOI daemon/runtime profile
 **Differentiator:** Private, sovereign, and verifiable by design
 
-Autopilot is the private and sovereign operator shell for autonomous,
+Autopilot is the private and sovereign operator console for autonomous,
 local-first, and verifiable software workers. In architecture terms, the
-portable execution substrate is the IOI daemon/runtime-node profile; Autopilot
-Desktop is the user-facing local shell that manages and projects it.
+portable execution substrate is the IOI daemon/runtime-node profile; the daemon
+is the hypervisor/control plane for autonomous execution; Autopilot Workbench is
+the IDE-grade operator console; and the Electron/VS Code fork is the canonical
+app shell that hosts Workbench and Desktop modes.
+
+Canonical substrate map:
+
+```text
+IOI daemon = hypervisor/control plane for autonomous execution
+Autopilot Workbench = IDE-grade operator console
+Electron/VS Code fork = canonical app shell
+Workers/models/tools/connectors = guest workloads/capabilities
+Policy/receipts/replay = trust and audit substrate
+```
 
 Today the dominant domain is bounded software action. Over time, the same runtime model should be able to extend to broader autonomous systems, including devices or embodied workers, wherever the same guarantees can be preserved.
 
-At its end state, Autopilot is not just a private desktop assistant, a workflow builder, or a copilot. It is a zero-trust operator shell for generative AI that lets an individual or organization run bounded digital workers across the desktop, browser, APIs, and external software systems through governed daemon/runtime contracts while preserving operator control, policy enforcement, provenance, and replayable evidence.
+At its end state, Autopilot is not just a private desktop assistant, a workflow builder, or a copilot. It is a zero-trust operating environment for autonomous systems that lets an individual or organization run bounded digital workers across the desktop, browser, APIs, and external software systems through governed daemon/runtime contracts while preserving operator control, policy enforcement, provenance, and replayable evidence.
 
 The long-term progression is:
 gen-AI operator shell -> software worker workbench -> adaptive work graph coordinator -> embodied action control surface
 
 Autopilot should not be marketed as a robot runtime first. It should be
-described as the local operator shell and workbench for bounded autonomous
+described as the IDE-grade operator console and workbench for bounded autonomous
 action, starting with software and extending outward only when the same policy,
 approval, evidence, and authority guarantees can be maintained.
 
@@ -74,9 +86,9 @@ The product should start from the user’s machine and trust boundary, but grow 
 
 ### One sentence
 
-Autopilot is the private/local operator shell for running sovereign, verifiable
-software workers across your desktop, apps, and connected systems with governed
-capabilities through the IOI daemon/runtime substrate.
+Autopilot is the private/local IDE-grade operator console for running sovereign,
+verifiable software workers across your desktop, apps, and connected systems
+with governed guest capabilities through the IOI daemon/runtime substrate.
 
 ### One paragraph
 

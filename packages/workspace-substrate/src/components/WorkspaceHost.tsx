@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import clsx from "clsx";
 import { WorkspaceRail } from "./WorkspaceRail";
 import { WorkspaceExplorerPane } from "./WorkspaceExplorerPane";
@@ -194,56 +193,17 @@ function WorkspaceOperatorChatPane({
 }) {
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
   const [toolMenuQuery, setToolMenuQuery] = useState("");
-  const [commandCenterMenuStyle, setCommandCenterMenuStyle] = useState<import("react").CSSProperties>(() => ({
-    left: 8,
-    top: 40,
-    width: `min(596px, calc(100vw - 16px))`,
-    maxHeight: "min(74vh, 640px)",
-  }));
 
-  useLayoutEffect(() => {
-    if (!toolsMenuOpen) {
+  useEffect(() => {
+    if (typeof window === "undefined") {
       return;
     }
-
-    const computePosition = () => {
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-      const availableWidth = Math.max(1, viewportWidth - 16);
-      const width = Math.min(596, availableWidth);
-      const anchor = document.querySelector("[data-operator-command-center]") || document.querySelector(".workspace-workbench-command-center");
-      const anchorRect = anchor?.getBoundingClientRect();
-      const anchorCenter = anchorRect ? anchorRect.left + anchorRect.width / 2 : viewportWidth / 2;
-      const left = Math.min(
-        Math.max(anchorCenter - width / 2, 8),
-        Math.max(8, viewportWidth - width - 8)
-      );
-      const preferredTop = anchorRect ? anchorRect.bottom + 6 : 40;
-      const maxHeight = Math.min(
-        640,
-        Math.max(240, viewportHeight - preferredTop - 8)
-      );
-      const top = Math.min(
-        Math.max(preferredTop, 8),
-        Math.max(8, viewportHeight - maxHeight - 8)
-      );
-
-      setCommandCenterMenuStyle({
-        left,
-        top,
-        width,
-        maxHeight,
-      });
-    };
-
-    computePosition();
-    window.addEventListener("resize", computePosition);
-    window.addEventListener("scroll", computePosition, true);
-    return () => {
-      window.removeEventListener("resize", computePosition);
-      window.removeEventListener("scroll", computePosition, true);
-    };
+    const event = new CustomEvent("spot-command-menu-toggled", {
+      detail: { open: toolsMenuOpen },
+    });
+    window.dispatchEvent(event);
   }, [toolsMenuOpen]);
+
   const workspaceToolMenuItems: Array<{
     id: string;
     label: string;
@@ -286,6 +246,35 @@ function WorkspaceOperatorChatPane({
     setToolsMenuOpen(false);
     setToolMenuQuery("");
   };
+
+  useEffect(() => {
+    if (!toolsMenuOpen) {
+      return;
+    }
+    const handleGlobalMouseDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        !target?.closest(".workspace-agent-composer-card") &&
+        !target?.closest(".workspace-agent-tool-menu")
+      ) {
+        closeToolsMenu();
+      }
+    };
+    const handleBlur = () => {
+      requestAnimationFrame(() => {
+        if (document.activeElement && document.activeElement.tagName === "IFRAME") {
+          closeToolsMenu();
+        }
+      });
+    };
+    document.addEventListener("mousedown", handleGlobalMouseDown);
+    window.addEventListener("blur", handleBlur);
+    return () => {
+      document.removeEventListener("mousedown", handleGlobalMouseDown);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, [toolsMenuOpen]);
+
   const primaryActions: OperatorChatPaneAction[] = [
     {
       id: "new",
@@ -328,165 +317,144 @@ function WorkspaceOperatorChatPane({
   ];
 
   return (
-    <>
-      <OperatorChatPane
-        mode="docked"
-        label="Workspace Chat"
-        className="workspace-operator-chat-pane"
-        dataOperatorChatPane="docked"
-        dataInspectionTarget="workspace-chat-pane"
-        primaryActions={primaryActions}
-        secondaryActions={secondaryActions}
-        onTabClick={() => onOpenSurface?.("chat")}
-        emptyState={{
-          icon: <WorkbenchChatSparkleIcon />,
-          title: "Build with Agent",
-          description: (
-            <>
-              AI responses may be inaccurate.
-              <br />
-              <button
-                type="button"
-                className="operator-chat-pane__inline-link"
-                onClick={() => onOpenSurface?.("chat")}
-              >
-                Generate Agent Instructions
-              </button>{" "}
-              to onboard AI onto your codebase.
-            </>
-          ),
-        }}
-        suggestedActions={
+    <OperatorChatPane
+      mode="docked"
+      label="Workspace Chat"
+      className="workspace-operator-chat-pane"
+      dataOperatorChatPane="docked"
+      dataInspectionTarget="workspace-chat-pane"
+      primaryActions={primaryActions}
+      secondaryActions={secondaryActions}
+      onTabClick={() => onOpenSurface?.("chat")}
+      emptyState={{
+        icon: <WorkbenchChatSparkleIcon />,
+        title: "Build with Agent",
+        description: (
           <>
-            <button type="button" onClick={() => onOpenSurface?.("workflows")}>
-              Build Workspace
-            </button>
-            <button type="button" onClick={() => onOpenSurface?.("policy")}>
-              Show Config
-            </button>
-          </>
-        }
-        composer={
-          <div className="workspace-agent-composer-card">
+            AI responses may be inaccurate.
+            <br />
             <button
               type="button"
-              className="workspace-agent-composer-context"
-              onClick={() => onOpenSurface?.("artifacts")}
+              className="operator-chat-pane__inline-link"
+              onClick={() => onOpenSurface?.("chat")}
             >
-              Add Context...
+              Generate Agent Instructions
+            </button>{" "}
+            to onboard AI onto your codebase.
+          </>
+        ),
+      }}
+      suggestedActions={
+        <>
+          <button type="button" onClick={() => onOpenSurface?.("workflows")}>
+            Build Workspace
+          </button>
+          <button type="button" onClick={() => onOpenSurface?.("policy")}>
+            Show Config
+          </button>
+        </>
+      }
+      composer={
+        <div className="workspace-agent-composer-card">
+          <button
+            type="button"
+            className="workspace-agent-composer-context"
+            onClick={() => onOpenSurface?.("artifacts")}
+          >
+            Add Context...
+          </button>
+          <p>Describe what to build next</p>
+          <div className="workspace-agent-composer-footer">
+            <button type="button" onClick={() => onOpenSurface?.("chat")}>
+              <Codicon name="device-desktop" />
+              <Codicon name="chevron-down" />
             </button>
-            <p>Describe what to build next</p>
-            <div className="workspace-agent-composer-footer">
-              <button type="button" onClick={() => onOpenSurface?.("chat")}>
-                <Codicon name="device-desktop" />
-                <Codicon name="chevron-down" />
-              </button>
-              <button type="button" onClick={() => onOpenSurface?.("workflows")}>
-                <Codicon name="symbol-operator" />
-                <Codicon name="chevron-down" />
-              </button>
-              <button type="button" onClick={() => onOpenSurface?.("policy")}>
-                Local
-                <Codicon name="chevron-down" />
-              </button>
-              <button type="button" onClick={() => onOpenSurface?.("policy")}>
-                Auto
-                <Codicon name="chevron-down" />
-              </button>
-              <button
-                type="button"
-                className="workspace-agent-composer-tool-toggle"
-                aria-label="Select tools"
-                aria-expanded={toolsMenuOpen}
-                onClick={() => {
-                  if (toolsMenuOpen) {
-                    closeToolsMenu();
-                    return;
-                  }
-                  setToolsMenuOpen(true);
-                }}
-              >
-                <Codicon name="tools" />
-              </button>
-              <button
-                type="button"
-                className="workspace-agent-composer-submit"
-                aria-label="Submit workspace chat prompt"
-                onClick={() => onOpenSurface?.("chat")}
-              >
-                <Codicon name="arrow-right" />
-              </button>
-            </div>
-          </div>
-        }
-      />
-      {toolsMenuOpen && typeof document !== "undefined"
-        ? createPortal(
-            <div
-              className="workspace-agent-tool-menu-overlay"
-              onMouseDown={(event) => {
-                if (event.target === event.currentTarget) {
+            <button type="button" onClick={() => onOpenSurface?.("workflows")}>
+              <Codicon name="symbol-operator" />
+              <Codicon name="chevron-down" />
+            </button>
+            <button type="button" onClick={() => onOpenSurface?.("policy")}>
+              Local
+              <Codicon name="chevron-down" />
+            </button>
+            <button type="button" onClick={() => onOpenSurface?.("policy")}>
+              Auto
+              <Codicon name="chevron-down" />
+            </button>
+            <button
+              type="button"
+              className="workspace-agent-composer-tool-toggle"
+              aria-label="Select tools"
+              aria-expanded={toolsMenuOpen}
+              onClick={() => {
+                if (toolsMenuOpen) {
                   closeToolsMenu();
+                  return;
                 }
+                setToolsMenuOpen(true);
               }}
             >
-              <div
-                className="workspace-agent-tool-menu"
-                role="menu"
+              <Codicon name="tools" />
+            </button>
+            <button
+              type="button"
+              className="workspace-agent-composer-submit"
+              aria-label="Submit workspace chat prompt"
+              onClick={() => onOpenSurface?.("chat")}
+            >
+              <Codicon name="arrow-right" />
+            </button>
+          </div>
+          {toolsMenuOpen ? (
+            <div
+              className="workspace-agent-tool-menu"
+              role="menu"
+              aria-label="Select a tool"
+            >
+              <label
+                className="workspace-agent-tool-menu__search"
                 aria-label="Select a tool"
-                style={{
-                  ...commandCenterMenuStyle,
-                  position: "fixed",
-                  zIndex: 1301,
-                  right: "auto",
-                  bottom: "auto",
-                }}
               >
-                <label
-                  className="workspace-agent-tool-menu__search"
-                  aria-label="Select a tool"
-                >
-                  <input
-                    autoFocus
-                    placeholder="Select a tool"
-                    type="text"
-                    value={toolMenuQuery}
-                    onChange={(event) => setToolMenuQuery(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Escape") {
-                        event.stopPropagation();
-                        closeToolsMenu();
-                      }
+                <input
+                  autoFocus
+                  placeholder="Select a tool"
+                  type="text"
+                  value={toolMenuQuery}
+                  onChange={(event) => setToolMenuQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.stopPropagation();
+                      closeToolsMenu();
+                    }
+                  }}
+                />
+              </label>
+              {visibleWorkspaceToolMenuItems.length > 0 ? (
+                visibleWorkspaceToolMenuItems.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      closeToolsMenu();
+                      onOpenSurface?.(item.surface);
                     }}
-                  />
-                </label>
-                {visibleWorkspaceToolMenuItems.length > 0 ? (
-                  visibleWorkspaceToolMenuItems.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        closeToolsMenu();
-                        onOpenSurface?.(item.surface);
-                      }}
-                    >
-                      <span>{item.label}</span>
-                      <small>{item.description}</small>
-                      <em>{item.meta}</em>
-                    </button>
-                  ))
-                ) : (
-                  <div className="workspace-agent-tool-menu__empty" role="status">
-                    No matching tools
-                  </div>
-                )}
-              </div>
-            </div>,
-            document.body
-          )
-        : null}
-    </>
+                  >
+                    <span>{item.label}</span>
+                    <small>{item.description}</small>
+                    <em>{item.meta}</em>
+                  </button>
+                ))
+              ) : (
+                <div className="workspace-agent-tool-menu__empty" role="status">
+                  No matching tools
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
+      }
+    />
   );
 }
 

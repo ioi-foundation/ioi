@@ -4,8 +4,8 @@ This directory contains the formal artifacts for AFT's proof-carrying
 equal-authority canonical-ordering model and its `99%` equal-authority
 ordering consensus claim.
 
-The canonical prose spec lives at
-[`docs/architecture/protocols/aft/specs/canonical_ordering.md`](/home/heathledger/Documents/ioi/repos/ioi/docs/architecture/protocols/aft/specs/canonical_ordering.md).
+The corresponding internal prose note lives at
+[`../../specs/canonical_ordering.md`](../../specs/canonical_ordering.md).
 
 This package captures the deterministic kernel of that claim:
 
@@ -141,9 +141,9 @@ bash .github/scripts/run_aft_formal_checks.sh
 To emit the omission-dominance trace directly:
 
 ```bash
-java -cp docs/formal-artifacts/tools/tla/tla2tools.jar tlc2.TLC -cleanup -deadlock \
-  -config docs/architecture/protocols/aft/formal/canonical_ordering/CanonicalOrderingOmissionTrace.cfg \
-  docs/architecture/protocols/aft/formal/canonical_ordering/CanonicalOrderingOmissionTrace.tla
+java -cp .internal/formal-cache/tools/tla/tla2tools.jar tlc2.TLC -cleanup -deadlock \
+  -config internal-docs/architecture/protocols/aft/formal/canonical_ordering/CanonicalOrderingOmissionTrace.cfg \
+  internal-docs/architecture/protocols/aft/formal/canonical_ordering/CanonicalOrderingOmissionTrace.tla
 ```
 
 TLC is expected to exit with an invariant violation for
@@ -152,7 +152,7 @@ TLC is expected to exit with an invariant violation for
 To run the recursive continuity model directly:
 
 ```bash
-java -cp docs/formal-artifacts/tools/tla/tla2tools.jar tlc2.TLC -cleanup -deadlock \
-  -config docs/architecture/protocols/aft/formal/canonical_ordering/CanonicalCollapseRecursiveContinuity.cfg \
-  docs/architecture/protocols/aft/formal/canonical_ordering/CanonicalCollapseRecursiveContinuity.tla
+java -cp .internal/formal-cache/tools/tla/tla2tools.jar tlc2.TLC -cleanup -deadlock \
+  -config internal-docs/architecture/protocols/aft/formal/canonical_ordering/CanonicalCollapseRecursiveContinuity.cfg \
+  internal-docs/architecture/protocols/aft/formal/canonical_ordering/CanonicalCollapseRecursiveContinuity.tla
 ```

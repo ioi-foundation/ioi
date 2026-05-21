@@ -38,7 +38,7 @@ function assertText(id, lane, content, patterns, evidence, risk) {
   );
 }
 
-const guide = read("internal-docs/plans/architectural-improvements-broad-master-guide.md");
+const guide = read(".internal/plans/architectural-improvements-broad-master-guide.md");
 const packageJson = readJson("package.json");
 const sdkSubstrate = read("packages/agent-sdk/src/substrate-client.ts");
 const sdkAgent = read("packages/agent-sdk/src/agent.ts");
@@ -194,7 +194,7 @@ assertText(
   `${guide}\n${sdkSubstrate}\n${localDaemon}`,
   ["Agentgres", "non-authoritative", "agent-sdk-mock", "schemaVersion", "ioi.agentgres.runtime.v0"],
   [
-    "internal-docs/plans/architectural-improvements-broad-master-guide.md",
+    ".internal/plans/architectural-improvements-broad-master-guide.md",
     "packages/agent-sdk/src/substrate-client.ts",
     "packages/runtime-daemon/src/index.mjs",
   ],

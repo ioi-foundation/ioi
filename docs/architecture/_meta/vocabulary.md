@@ -4,16 +4,28 @@ Status: canonical vocabulary reference.
 Canonical owner: this file for runtime, audit, substrate, projection, and legacy naming vocabulary.
 Supersedes: overlapping runtime vocabulary in plans/specs when names conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-15.
+Last alignment pass: 2026-05-20.
 
 The agent harness uses behavior-first names in runtime code and reserves
 compliance acronyms for hidden audit material.
 
 ## Runtime Terms
 
-- `IOIDaemon`: the deployable execution endpoint for Web4 work. It exposes the
-  public runtime API, hosts daemon-local execution services, writes through
-  Agentgres-compatible envelopes, and requests wallet.network authority.
+- `IOIDaemon`: the hypervisor/control plane for autonomous execution. It exposes
+  the public runtime API, hosts daemon-local execution services, schedules and
+  supervises workflows/workers/tools/models/connectors/computer-use leases,
+  writes through Agentgres-compatible envelopes, emits receipts/replay records,
+  and requests wallet.network authority.
+- `DeterminismBoundary`: the trust boundary where a model, worker, agent,
+  adapter, or operator proposal becomes a daemon-authorized effect. Models and
+  agents may reason or propose; the daemon decides what crosses this boundary.
+- `IOIAuthorityGateway`: the IOI daemon sidecar/compatibility profile for
+  existing IDEs, CLI agents, hosted agents, browser tools, MCP ecosystems,
+  shell wrappers, Git hooks, API proxies, credential brokers, and CI/CD gates.
+  It routes proposed actions through daemon policy, authority scopes,
+  approvals, receipts, and replay. It is not a separate runtime, not merely a
+  VS Code plugin identity, and it must be honest about the mediation limits of
+  opaque third-party runtimes.
 - `IOIKernelL0` or `L0Substrate`: the reusable IOI kernel substrate for
   instantiating application domains, sovereign execution domains,
   non-intelligent chains/state machines, and intelligent blockchains. It is not
@@ -126,9 +138,21 @@ compliance acronyms for hidden audit material.
 - `TaskCapsule`: a minimized, policy-bound execution packet given to a runtime
   node. It carries visible context, hidden context classes, allowed/forbidden
   actions, output contract, TTL, and authority bindings.
-- `AutopilotDesktop`: the local product shell/workbench. It may launch, manage,
-  or project a local IOI daemon/runtime profile, but it does not define a
-  separate canonical runtime path.
+- `AutopilotWorkbench`: the IDE-grade operator console for autonomous systems. It
+  observes, requests, approves, interrupts, debugs, explains, and replays
+  daemon-governed work. It is not an execution authority and it must not become a
+  second runtime inside the VS Code extension host.
+- `AutopilotGuard`: developer-facing packaging for IOI Authority Gateway
+  adapters. It can describe "bring IOI alignment security to Cursor, VS Code,
+  Codex, Claude Code, JetBrains, OpenHands, hosted agents, and similar tools,"
+  but canonical runtime authority still belongs to the IOI daemon.
+- `AutopilotAppShell`: the Electron/VS Code fork that hosts Autopilot Workbench
+  and Desktop modes. It owns shell affordances such as windows, deep links, tray,
+  shortcuts, updater, auth handoff, and daemon supervision. Tauri/OpenVSCode
+  embedding is legacy extraction inventory, not the target shell.
+- `AutopilotDesktop`: the local/private device automation mode within the
+  Autopilot product. It may launch, manage, or project a local IOI daemon/runtime
+  profile, but it does not define a separate canonical runtime path.
 - `IOICliTui`: the terminal/TUI operator client over daemon/public runtime APIs.
   It can render plans, controls, traces, approvals, and receipts, but it does
   not own execution semantics.
@@ -138,6 +162,18 @@ compliance acronyms for hidden audit material.
 - `AgentIde`: the GUI/workbench/workflow-composer projection over shared
   contracts. It authors and inspects workflows, but canonical run/session/task
   truth remains in daemon/Agentgres state.
+- `CompatibilityAdapter`: an IDE extension, CLI wrapper, MCP gateway, shell
+  shim, Git hook, workspace watcher, API proxy, browser/cloud connector, or
+  CI/CD gate that observes or submits proposed actions to the daemon. It is a
+  request and mediation surface, not the authority owner for policy, effects,
+  secrets, receipts, replay, or durable runtime state.
+- `GuestWorkload` or `GuestCapability`: a worker, model, tool, connector,
+  browser, shell, computer-use provider, or external execution venue supervised
+  by the IOI daemon under policy and authority. Guest workloads/capabilities do
+  not own policy, secrets, receipts, replay, or durable run truth.
+- `TrustAuditSubstrate`: the shared policy, authority, approval, receipt, replay,
+  verification, and settlement evidence layer that makes autonomous execution
+  inspectable and accountable.
 - `SealedStateArchive`: an encrypted content-addressed state artifact for
   inactive, idle, terminal, portable, migrated, or restorable runtime/domain
   state. It is a first-class Agentgres format, but not canonical live state by

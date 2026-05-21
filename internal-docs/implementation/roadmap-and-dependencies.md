@@ -1,9 +1,9 @@
 # Implementation Roadmap and Dependency Specification
 
-Status: canonical architecture roadmap.
-Canonical owner: this file for high-level implementation sequencing; low-level proof gates live in [`low-level-implementation-milestones.md`](./low-level-implementation-milestones.md).
-Supersedes: overlapping roadmap prose when phase ordering conflicts.
-Superseded by: none.
+Status: internal implementation roadmap.
+Authority: `docs/architecture/` and accepted ADRs are canonical; this file sequences implementation only.
+Supports: high-level implementation sequencing; low-level proof gates live in [`low-level-implementation-milestones.md`](./low-level-implementation-milestones.md).
+Superseded by: canonical architecture docs or ADRs when conflicts arise.
 Last alignment pass: 2026-05-15.
 
 ## Purpose

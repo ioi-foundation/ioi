@@ -4,11 +4,19 @@ Status: canonical low-level reference.
 Canonical owner: this file for runtime events, receipts, delivery bundles, trace bundles, and quality records.
 Supersedes: overlapping event/receipt examples in plans/specs when event, trace, or receipt fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-15.
+Last alignment pass: 2026-05-20.
 
 ## Purpose
 
-Events enable observation; receipts enable proof; delivery bundles enable marketplace settlement. These objects must be consistent across Autopilot, IOI daemon, Agentgres, aiagent.xyz, sas.xyz, and wallet.network.
+Events enable observation; receipts enable proof; replay enables inspection;
+delivery bundles enable marketplace settlement. These objects must be consistent
+across Autopilot Workbench, IOI daemon, Agentgres, aiagent.xyz, sas.xyz, and
+wallet.network.
+
+The IOI daemon emits these objects as the autonomous-execution
+hypervisor/control plane. Autopilot Workbench, CLI/TUI, SDK, harnesses,
+benchmarks, and extension-host code may project or inspect them, but they must
+not mint private runtime truth for consequential work.
 
 ## Runtime Events
 

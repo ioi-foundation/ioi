@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const schemaPath = path.join(
   root,
-  "docs",
+  "internal-docs",
   "implementation",
   "runtime-action-schema.json",
 );

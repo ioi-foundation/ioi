@@ -344,6 +344,16 @@ export function ChatInputSection({
   const commandCenterMenuOpen =
     commandsMenuOpen && searchablePaletteMode && !inputLockedByCredential;
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const event = new CustomEvent("spot-command-menu-toggled", {
+      detail: { open: commandCenterMenuOpen },
+    });
+    window.dispatchEvent(event);
+  }, [commandCenterMenuOpen]);
+
   useLayoutEffect(() => {
     if (!commandCenterMenuOpen || typeof window === "undefined") {
       return;
@@ -608,7 +618,7 @@ export function ChatInputSection({
   }, [commandPaletteQuery, searchablePaletteMode]);
 
   const replaceSlashToken = useCallback(
-    (replacement: string) => {
+    (replacement: string, refocus = true) => {
       const currentContext =
         slashContext ??
         getSlashTokenContext(intent, inputRef.current?.selectionStart ?? intent.length);
@@ -622,12 +632,14 @@ export function ChatInputSection({
       setSlashContext(null);
       setActiveDropdown(null);
 
-      window.requestAnimationFrame(() => {
-        const textarea = inputRef.current;
-        adjustTextareaHeight(textarea);
-        textarea?.focus();
-        textarea?.setSelectionRange(nextCursor, nextCursor);
-      });
+      if (refocus) {
+        window.requestAnimationFrame(() => {
+          const textarea = inputRef.current;
+          adjustTextareaHeight(textarea);
+          textarea?.focus();
+          textarea?.setSelectionRange(nextCursor, nextCursor);
+        });
+      }
     },
     [inputRef, intent, setActiveDropdown, setIntent, slashContext],
   );
@@ -644,7 +656,7 @@ export function ChatInputSection({
         return;
       }
 
-      replaceSlashToken("");
+      replaceSlashToken("", refocusComposer);
     },
     [
       focusComposer,
@@ -653,6 +665,23 @@ export function ChatInputSection({
       setActiveDropdown,
     ],
   );
+
+  useEffect(() => {
+    if (!commandsMenuOpen) {
+      return;
+    }
+    const handleBlur = () => {
+      requestAnimationFrame(() => {
+        if (document.activeElement && document.activeElement.tagName === "IFRAME") {
+          dismissCommandSurface(false);
+        }
+      });
+    };
+    window.addEventListener("blur", handleBlur);
+    return () => {
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, [commandsMenuOpen, dismissCommandSurface]);
 
   const insertSkillGuidance = useCallback(
     (skillName: string) => {
@@ -2027,6 +2056,9 @@ export function ChatInputSection({
             <textarea
               ref={inputRef}
               className="spot-input"
+              aria-label="Operator chat composer"
+              data-inspection-target="operator-chat-composer-input"
+              data-testid="operator-chat-composer-input"
               placeholder={
                 planMode
                   ? planModePlaceholder(placeholder)

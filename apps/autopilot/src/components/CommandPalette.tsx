@@ -311,6 +311,29 @@ export function CommandPalette({
       window.removeEventListener("scroll", computePosition, true);
     };
   }, []);
+
+  useEffect(() => {
+    const handleGlobalMouseDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest(".command-palette-shell")) {
+        onClose();
+      }
+    };
+    const handleBlur = () => {
+      requestAnimationFrame(() => {
+        if (document.activeElement && document.activeElement.tagName === "IFRAME") {
+          onClose();
+        }
+      });
+    };
+    document.addEventListener("mousedown", handleGlobalMouseDown);
+    window.addEventListener("blur", handleBlur);
+    return () => {
+      document.removeEventListener("mousedown", handleGlobalMouseDown);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, [onClose]);
+
   const { mode: computedMode, searchQuery: normalizedQuery } = useMemo(
     () => {
       const state = paletteQueryState(query);
