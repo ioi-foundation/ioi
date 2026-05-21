@@ -143,7 +143,7 @@ export const DOC_PAGES: DocPage[] = [
     lastVerified: LAST_VERIFIED,
     keywords: ['start', 'overview', 'builder jobs', 'canonical docs', 'current preview concept'],
     sources: [
-      'internal-docs/plans/developers-ioi-ai-ship-shape-master-guide.md',
+      '.internal/plans/developers-ioi-ai-ship-shape-master-guide.md',
       'README.md',
       'docs/architecture/foundations/web4-and-ioi-stack.md',
     ],
@@ -710,7 +710,7 @@ for await (const event of run.stream()) {
     legacyHashes: ['tutorials', 'guides'],
     lastVerified: LAST_VERIFIED,
     keywords: ['tutorials', 'guides', 'step by step'],
-    sources: ['internal-docs/plans/developers-ioi-ai-ship-shape-master-guide.md', 'packages/agent-sdk/examples/quickstart-local.ts'],
+    sources: ['.internal/plans/developers-ioi-ai-ship-shape-master-guide.md', 'packages/agent-sdk/examples/quickstart-local.ts'],
     canonicalLinks: [canonicalDocsLink],
     nextSteps: [
       { label: 'Quickstart', href: '#quickstart', description: 'Use the launch-ready onboarding path first.' },

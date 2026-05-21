@@ -3,8 +3,8 @@
 This directory contains the formal artifacts for the production
 `GuardianMajority` mode of Aft Fault Tolerance.
 
-The canonical prose spec lives at
-[`docs/architecture/protocols/aft/specs/guardian_majority.md`](/home/heathledger/Documents/ioi/repos/ioi/docs/architecture/protocols/aft/specs/guardian_majority.md).
+The corresponding internal prose note lives at
+[`../../specs/guardian_majority.md`](../../specs/guardian_majority.md).
 
 The proof surface is split into three layers:
 

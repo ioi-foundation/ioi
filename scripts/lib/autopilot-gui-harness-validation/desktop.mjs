@@ -206,6 +206,34 @@ export function closeMatchingWindows(windowName) {
   }
 }
 
+function copyFileToClipboard(inputPath) {
+  if (commandExists("wl-copy")) {
+    const copied = runShell(`wl-copy < ${JSON.stringify(inputPath)}`, {
+      timeout: 5_000,
+    });
+    if (copied.status === 0) return true;
+  }
+  if (commandExists("xclip")) {
+    const copied = runShell(
+      `xclip -selection clipboard < ${JSON.stringify(inputPath)}`,
+      {
+        timeout: 5_000,
+      },
+    );
+    if (copied.status === 0) return true;
+  }
+  if (commandExists("xsel")) {
+    const copied = runShell(
+      `xsel --clipboard --input < ${JSON.stringify(inputPath)}`,
+      {
+        timeout: 5_000,
+      },
+    );
+    if (copied.status === 0) return true;
+  }
+  return false;
+}
+
 async function sleep(ms) {
   await new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
 }
@@ -256,37 +284,30 @@ export function typeQuery(windowId, query) {
       y: point.y,
       purpose: "chat composer focus",
     });
-    const clickCommand = origin
-      ? `xdotool mousemove ${origin.x + point.x} ${origin.y + point.y} click 1`
-      : `xdotool mousemove --window ${windowId} ${point.x} ${point.y} click 1`;
-    runShell(clickCommand, { timeout: 5_000 });
+    runShell(`xdotool mousemove --window ${windowId} ${point.x} ${point.y} click 1`, {
+      timeout: 5_000,
+    });
+    if (origin) {
+      runShell(`xdotool mousemove ${origin.x + point.x} ${origin.y + point.y} click 1`, {
+        timeout: 5_000,
+      });
+    }
     runShell("sleep 0.15", { timeout: 2_000 });
   }
   runShell("sleep 0.75", { timeout: 2_000 });
   runShell(`xdotool key --clearmodifiers ctrl+a BackSpace`, { timeout: 5_000 });
   runShell("sleep 0.35", { timeout: 2_000 });
-  const typed = runShell(
-    `xdotool type --clearmodifiers --delay 18 --file ${JSON.stringify(inputPath)}`,
-    {
-      timeout: 120_000,
-    },
-  );
-  if (typed.status !== 0) {
-    let pasted = false;
-    if (commandExists("xclip")) {
-      pasted =
-        runShell(`xclip -selection clipboard < ${JSON.stringify(inputPath)}`, {
-          timeout: 5_000,
-        }).status === 0;
-    } else if (commandExists("xsel")) {
-      pasted =
-        runShell(`xsel --clipboard --input < ${JSON.stringify(inputPath)}`, {
-          timeout: 5_000,
-        }).status === 0;
-    }
-    if (pasted) {
-      runShell(`xdotool key --clearmodifiers ctrl+v`, { timeout: 5_000 });
-    } else {
+  const pasted = copyFileToClipboard(inputPath);
+  if (pasted) {
+    runShell(`xdotool key --clearmodifiers ctrl+v`, { timeout: 5_000 });
+  } else {
+    const typed = runShell(
+      `xdotool type --clearmodifiers --delay 18 --file ${JSON.stringify(inputPath)}`,
+      {
+        timeout: 120_000,
+      },
+    );
+    if (typed.status !== 0) {
       throw new Error(
         `Failed to type retained GUI query into the composer: ${typed.stderr || typed.stdout}`,
       );
@@ -300,7 +321,7 @@ export function typeQuery(windowId, query) {
         GUI_AUTOMATION_CLICK_POLICY.safeZone.minWindowX,
         composerClick.bounds.maxX - 24,
       ),
-      y: composerClick.bounds.maxY + 24,
+      y: Math.max(composerClick.y + 36, composerClick.bounds.maxY + 24),
     };
     const sendClickCommand = origin
       ? `xdotool mousemove ${origin.x + sendPoint.x} ${origin.y + sendPoint.y} click 1`
@@ -311,6 +332,9 @@ export function typeQuery(windowId, query) {
       purpose: "chat composer send",
     });
     runShell("sleep 0.2", { timeout: 2_000 });
+    runShell(`xdotool mousemove --window ${windowId} ${sendPoint.x} ${sendPoint.y} click 1`, {
+      timeout: 5_000,
+    });
     runShell(sendClickCommand, { timeout: 5_000 });
   }
   try {
@@ -322,12 +346,17 @@ export function typeQuery(windowId, query) {
 
 export function captureScreenshot(windowId, outputRoot, scenario) {
   const path = join(outputRoot, `${scenario}.png`);
-  const result = runShell(
-    `import -window ${windowId} ${JSON.stringify(path)}`,
-    {
-      timeout: 20_000,
-    },
-  );
+  let result = { status: 1, stderr: "screenshot not attempted" };
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    result = runShell(
+      `import -window ${windowId} ${JSON.stringify(path)}`,
+      {
+        timeout: 20_000,
+      },
+    );
+    if (result.status === 0) break;
+    runShell("sleep 0.4", { timeout: 2_000 });
+  }
   return {
     path,
     ok: result.status === 0,

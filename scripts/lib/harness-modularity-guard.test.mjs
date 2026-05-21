@@ -77,9 +77,6 @@ const harnessAuthorityTokens = [
 ];
 
 const harnessAuthorityAllowlist = [
-  "apps/autopilot/src-tauri/src/orchestrator/store/core.rs",
-  "apps/autopilot/src-tauri/src/orchestrator/store/tests.rs",
-  "apps/autopilot/src-tauri/src/project/workflow_harness_results_lane.rs",
   "crates/services/src/agentic/runtime/README.md",
   "crates/services/src/agentic/runtime/harness.rs",
   "packages/agent-ide/src/WorkflowComposer/controller.tsx",
@@ -177,6 +174,9 @@ function rustStructBlock(source, typeName) {
 function walkSourceFiles(rootRelativePath) {
   const root = path.join(repoRoot, rootRelativePath);
   const files = [];
+  if (!fs.existsSync(root)) {
+    return files;
+  }
   const visit = (dir) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const fullPath = path.join(dir, entry.name);
@@ -371,7 +371,6 @@ test("P0 clusters keep explicit workflow component adapter proof", () => {
 test("harness authority tokens only appear in approved substrate surfaces", () => {
   const sourceRoots = [
     "crates/services/src/agentic/runtime",
-    "apps/autopilot/src-tauri/src",
     "packages/agent-ide/src",
     "scripts/lib",
   ];
@@ -388,11 +387,10 @@ test("active harness sources do not reintroduce retired runtime fallback authori
   const sourceRoots = [
     "crates/services/src/agentic/runtime",
     "crates/types/src/app",
-    "apps/autopilot/src-tauri/src",
     "apps/autopilot/src/windows/AutopilotShellWindow",
     "packages/agent-ide/src",
     "scripts/lib",
-    "internal-docs/plans",
+    ".internal/plans",
   ];
   const sourceFiles = sourceRoots.flatMap(walkSourceFiles).filter(
     (relativePath) =>

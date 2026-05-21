@@ -4,13 +4,19 @@ Status: canonical architecture authority.
 Canonical owner: this file for connector/tool registry doctrine; low-level tool contracts and connector mappings live in [`connector-and-tool-contracts.md`](./contracts.md).
 Supersedes: older flattened capability-registry wording when it conflicts with primitive capability and authority scope tiers.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-05-20.
 
 ## Canonical Definition
 
-**Connectors expose external systems as typed, permissioned, receipted tools inside the IOI runtime.**
+**Connectors expose external systems as typed, permissioned, receipted guest
+capabilities inside the IOI daemon/runtime hypervisor.**
 
 Tools are not arbitrary function calls. Every effectful tool must have a contract, risk class, primitive capability requirements, authority scope requirements, policy target, and receipt obligation.
+
+Autopilot Workbench may display connector readiness, auth posture, dry-run
+previews, approval requests, run state, and receipts. It must not hold connector
+secrets or call provider APIs directly. Connector execution flows through daemon
+tool calls, wallet.network authority, policy decisions, and receipts.
 
 ## Connector Examples
 
@@ -27,8 +33,8 @@ github.open_issue
 github.comment_pr
 slack.post_message
 slack.import_thread
-instacart.create_cart_draft
-instacart.submit_order
+commerce.create_cart_draft
+commerce.submit_order
 blender.render_preview
 freecad.export_step
 ```
@@ -164,14 +170,14 @@ cart/search/draft     = medium risk
 submit/purchase/order = high risk, human approval required
 ```
 
-Example:
+Generic example:
 
 ```yaml
-instacart.create_cart_draft:
+commerce.create_cart_draft:
   risk: commerce_cart
   approval_required: false_or_policy
 
-instacart.submit_order:
+commerce.submit_order:
   risk: commerce_order
   approval_required: true
 ```

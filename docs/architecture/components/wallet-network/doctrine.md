@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for wallet.network authority doctrine; low-level scope APIs live in [`wallet-network-api-and-authority-scopes.md`](./api-authority-scopes.md).
 Supersedes: older generic capability-grant wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-05-13.
+Last alignment pass: 2026-05-20.
 
 ## Canonical Definition
 
@@ -12,11 +12,14 @@ Last alignment pass: 2026-05-13.
 authority-scope, approval, payment, training-data permission, decryption-lease,
 and revocation control plane for autonomous software.**
 
-It owns identity, secrets, authority scope grants, session authority, approvals, payments, revocation, and audit lineage. It is not merely a crypto wallet.
+It owns identity, secrets, authority scope grants, session authority, approvals,
+payments, revocation, and audit lineage. It is not merely a crypto wallet.
 
 ## Core Doctrine
 
-> **Autopilot runs agents. Agentgres remembers and settles what changed. wallet.network decides what power agents are allowed to use.**
+> **The IOI daemon runs autonomous work. Autopilot Workbench lets humans operate
+> it. Agentgres remembers and settles what changed. wallet.network decides what
+> power workers are allowed to use.**
 
 Put more sharply:
 
@@ -28,7 +31,9 @@ Put more sharply:
 wallet.network does not execute work, store app-domain operational truth, or
 serve as the marketplace database.
 
-- Autopilot / IOI daemon executes work.
+- IOI daemon executes work as the autonomous-execution hypervisor/control plane.
+- Autopilot Workbench and Desktop request, approve, and inspect work as operator
+  surfaces.
 - Agentgres records operational state, runs, receipts, projections, delivery,
   and contribution accounting.
 - IOI L1 settles registry, rights, escrows, bonds, disputes, and public

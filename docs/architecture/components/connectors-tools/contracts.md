@@ -4,11 +4,16 @@ Status: canonical low-level reference.
 Canonical owner: this file for RuntimeToolContract, ConnectorMapping references, tool API, connector API, risk classes, and approval rules.
 Supersedes: older flattened tool capability examples in plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-05-20.
 
 ## Purpose
 
-Connectors expose typed, permissioned, receipted tools into workflows, workers, and Autopilot. Tools are not ambient authority; every tool has a contract, risk class, primitive capability requirements, authority scope requirements, and receipt obligations.
+Connectors expose typed, permissioned, receipted guest capabilities into
+workflows, workers, and Autopilot. Tools are not ambient authority; every tool
+has a contract, risk class, primitive capability requirements, authority scope
+requirements, and receipt obligations. Effectful connector calls execute through
+the IOI daemon hypervisor/control plane, not from the workbench or extension
+host.
 
 ## RuntimeToolContract
 

@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for high-level Agentgres doctrine; low-level runtime objects live in [`agentgres-api-and-object-model.md`](./api-object-model.md), and Postgres bridge/readiness guarantees live in [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md).
 Supersedes: overlapping plan prose when Agentgres state ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-05-20.
 
 ## Canonical Definition
 
@@ -13,6 +13,11 @@ Last alignment pass: 2026-05-14.
 It records what happened, what changed, why it changed, who authorized it, what
 evidence supports it, how it can be queried, and how future workers or agents
 can reuse it.
+
+In the Autopilot/daemon canon, the IOI daemon is the hypervisor/control plane
+for autonomous execution and Agentgres is the operational truth substrate behind
+that control plane. Autopilot Workbench may render Agentgres-backed projections,
+but it must not become the canonical state store.
 
 Agentgres does not run on IOI L1. It runs inside application-domain kernel deployments.
 

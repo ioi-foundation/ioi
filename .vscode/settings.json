@@ -6,5 +6,18 @@
         "consensus-pos",
         "consensus-round-robin"
     ],
-    "chatgpt.openOnStartup": true
+    "chatgpt.openOnStartup": true,
+    "files.exclude": {
+        "**/scripts": false,
+        "**/packages": false,
+        "**/ops": false,
+        "**/models": false,
+        "**/apps": false,
+        "**/crates": false,
+        "scripts": false,
+        "packages": false,
+        "ops": false,
+        "models": false,
+        "apps": false
+    }
 }

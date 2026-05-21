@@ -4,30 +4,49 @@ Status: canonical documentation ownership map.
 Canonical owner: this file for where architecture subjects should be edited first.
 Supersedes: informal subject ownership scattered across plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-05-15.
+Last alignment pass: 2026-05-20.
 
 ## Purpose
 
 This map prevents split-brain architecture documentation. When a subject appears
 in multiple plans, specs, evidence bundles, or implementation guides, edit the
 canonical architecture file first and let supporting docs reference it.
+Internal master guides are private execution scaffolding, not doctrine. They may
+carry raw comparisons, sensitive sequencing, and transitional language; any
+durable architectural decision they produce must be distilled into the canonical
+owner below or into an accepted ADR before other docs or code treat it as canon.
 
 Conflict rule:
 
-1. Prefer `docs/architecture/` over plans, specs, and evidence when architecture
-   direction conflicts.
+1. Prefer `docs/architecture/` over plans, specs, ignored local master guides,
+   and evidence when architecture direction conflicts.
 2. If two architecture files disagree, prefer the newer aligned direction.
    Current canonical defaults:
    - `prim:*` means primitive execution capability;
    - `scope:*` means wallet/provider authority scope;
-   - daemon/public runtime APIs own execution semantics;
-   - IOI daemon/runtime nodes are compute-node execution targets;
+	   - daemon/public runtime APIs own execution semantics;
+	   - IOI daemon/runtime nodes are the hypervisor/control plane for
+	     autonomous execution;
+	   - Autopilot Workbench is the IDE-grade operator console, not runtime truth;
+	   - the Electron/VS Code fork is the canonical Autopilot app shell;
+   - IOI Authority Gateway is the daemon sidecar/compatibility profile for
+     existing IDE, CLI, browser, hosted-agent, and MCP/tool ecosystems; it is
+     not a separate runtime;
    - Agentgres is operation-backed domain truth with a Postgres bridge;
    - Filecoin/CAS is payload, evidence, archive-byte, and package availability;
    - IOI kernel is the L0 substrate;
    - IOI L1 is the public settlement, registry, dispute, and governance root;
    - IOI topology is edge-in and fractal;
-   - clients are projections or operators, not private runtime truth;
+	   - workers, models, tools, connectors, browsers, shells, and computer-use
+	     providers are guest workloads/capabilities leased through daemon
+	     authority;
+	   - policy, receipts, replay, approvals, authority scopes, and settlement
+	     hooks are the shared trust/audit substrate;
+	   - clients are projections or operators, not private runtime truth;
+   - IDE/CLI/browser/hosted-agent adapters mediate through available control
+     points only and must not claim total interception of opaque tools;
+   - models and agents may reason or propose; the daemon authorizes anything
+     that crosses the deterministic execution boundary;
    - Autopilot's primary build artifact is an Autonomous System Package;
    - Autonomous System Package lifecycle is compose -> bind -> simulate ->
      authorize -> run -> verify -> inspect receipts -> package -> deploy ->
@@ -58,7 +77,8 @@ Conflict rule:
 | Kernel/domain architecture and edge-in topology | [`domain-kernels.md`](../foundations/domain-kernels.md) | [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md) | runtime package boundaries |
 | Autonomous System Package lifecycle | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`connector-and-tool-contracts.md`](../components/connectors-tools/contracts.md) | Autopilot lifecycle clarity master guide, autonomous systems shape audit, workflow compositor docs |
 | Agentgres canonical state and Postgres bridge | [`agentgres-state-substrate.md`](../components/agentgres/doctrine.md) | [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`agentgres-postgres-bridge-and-readiness-contract.md`](../components/agentgres/postgres-bridge-and-readiness-contract.md), [`canonical-state-and-projection-system-whitepaper.md`](../components/agentgres/projection-system-reference.md) | detailed Agentgres reference module inside canonical owner, evidence/architectural-improvements-broad |
-| Autopilot, shared builder substrate, and workflow compositor | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | internal product context and workflow-compositor specs |
+| Autopilot Workbench, Electron/VS Code shell, shared builder substrate, and workflow compositor | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | internal product context, IDE-first Tauri retirement guide, and workflow-compositor specs |
+| IOI Authority Gateway, Autopilot Guard, and compatibility adapters | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`connector-and-tool-contracts.md`](../components/connectors-tools/contracts.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | IDE/CLI/browser adapter specs, MCP gateways, shell wrappers, Git hooks, hosted-agent gateways |
 | Daemon and public runtime API | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | Cursor SDK parity guide |
 | SDK, CLI, GUI, harness, benchmark, compositor boundaries | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | internal package-boundary docs |
 | wallet.network authority | [`wallet-network-authority-layer.md`](../components/wallet-network/doctrine.md) | [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md) | CIRC/CEC |
@@ -80,6 +100,16 @@ Conflict rule:
 - Add new runtime/client/package ownership language to the public daemon,
   event, and common-object contracts first. Internal package-boundary plans may
   track implementation sequencing, but they do not own canonical doctrine.
+- Add new Autopilot shell, workbench, extension-host, or GUI authority language
+  to daemon/runtime ownership docs and Autopilot product architecture docs before
+  implementation plans rely on it. Workbench surfaces are operator consoles and
+  projections; they do not own runtime truth.
+- Add new IOI Authority Gateway, Autopilot Guard, IDE/CLI sidecar, shell
+  wrapper, MCP gateway, API proxy, Git hook, browser adapter, hosted-agent
+  gateway, or CI/CD mediation language to daemon/runtime ownership docs and
+  daemon API contracts before implementation plans rely on it. These adapters
+  submit proposed actions, observations, and approvals to the daemon; they do
+  not own policy, durable runtime state, receipts, replay, secrets, or effects.
 - Add new Autonomous System Package, lifecycle verb, package readiness,
   deployment profile slot, promotion slot, or `AutonomousSystemManifest`
   language to [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md)
@@ -112,6 +142,10 @@ Conflict rule:
   before referencing them in daemon, Agentgres, GUI, harness, or benchmark docs.
 - Add new low-level proof gates to canonical runtime/event/conformance docs
   before adding them to internal implementation prompts.
+- Keep internal master guides private when they contain raw competitive,
+  transitional, or potentially misconstruable architecture notes. Treat them as
+  execution inputs only; promote their settled outcomes into canonical docs or
+  ADRs before making them durable references.
 
 ## Decision History Policy
 

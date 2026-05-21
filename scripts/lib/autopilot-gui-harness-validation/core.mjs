@@ -7597,6 +7597,97 @@ function stopDesktopProcess(desktop) {
   }
 }
 
+function appendScenarioLog(log, scenario, stream, chunk) {
+  const text = chunk.toString();
+  for (const line of text.split("\n")) {
+    if (!line) continue;
+    log.push(`[${scenario}:${stream}] ${line}\n`);
+  }
+}
+
+async function runSeedIntentRetainedQuery({
+  args,
+  retainedQuery,
+  outputRoot,
+  startedAtMs,
+  resetDataOnBoot,
+  log,
+}) {
+  closeMatchingWindows(args.windowName);
+  await sleep(1_000);
+  const desktop = spawn("npm", ["run", "dev:desktop"], {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      AUTOPILOT_LOCAL_GPU_DEV: "1",
+      AUTOPILOT_HARNESS_DEFAULT_PROMOTION:
+        process.env.AUTOPILOT_HARNESS_DEFAULT_PROMOTION ?? "1",
+      AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT:
+        process.env.AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT ?? "1",
+      AUTOPILOT_RESET_DATA_ON_BOOT: resetDataOnBoot ? "1" : "0",
+      AUTOPILOT_REUSE_DEV_SERVER: "0",
+      AUTO_START_DEV_SERVER: "1",
+      VITE_AUTOPILOT_INITIAL_VIEW: "chat",
+      VITE_AUTOPILOT_HARNESS_PROMOTION_LIVE_GUI: "1",
+      AUTOPILOT_DEV_START_SURFACE: "chat",
+      AUTOPILOT_DEV_START_INTENT: retainedQuery.query,
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+    detached: true,
+  });
+  desktop.stdout.on("data", (chunk) =>
+    appendScenarioLog(log, retainedQuery.scenario, "stdout", chunk),
+  );
+  desktop.stderr.on("data", (chunk) =>
+    appendScenarioLog(log, retainedQuery.scenario, "stderr", chunk),
+  );
+
+  let windowId = null;
+  try {
+    windowId = await waitForWindow(args.windowName, args.windowTimeoutMs);
+    if (!windowId) {
+      return {
+        windowId: null,
+        screenshot: {
+          path: join(outputRoot, `${retainedQuery.scenario}.png`),
+          ok: false,
+          stderr: `Timed out waiting for window matching ${args.windowName}`,
+        },
+        runtimeEvidence: {
+          matchedUserRequest: false,
+          hasAssistantResponse: false,
+          concatenatedPrompt: false,
+          reason: `Timed out waiting for window matching ${args.windowName}`,
+        },
+      };
+    }
+    await sleep(Math.min(Math.max(args.settleMs, 3_000), 6_000));
+    const runtimeEvidence = await waitForRetainedQueryRuntimeEvidence(
+      retainedQuery.query,
+      startedAtMs,
+      args.queryTimeoutMs,
+    );
+    const postAnswerSettleMs = Math.min(
+      Math.max(args.querySettleMs, 1_500),
+      4_000,
+    );
+    await sleep(postAnswerSettleMs);
+    const screenshot = captureScreenshot(
+      windowId,
+      outputRoot,
+      retainedQuery.scenario,
+    );
+    return {
+      windowId,
+      screenshot,
+      runtimeEvidence,
+    };
+  } finally {
+    stopDesktopProcess(desktop);
+    await sleep(3_000);
+  }
+}
+
 export async function waitForHarnessPromotionLiveWorkflow(
   proofWorkflowPath,
   timeoutMs,
@@ -11082,68 +11173,28 @@ async function runGuiValidation(args, outputRoot) {
   const logPath = join(outputRoot, "desktop.log");
   const log = [];
   const startedAtMs = Date.now();
-  closeMatchingWindows(args.windowName);
-  await sleep(1_000);
-  const desktop = spawn("npm", ["run", "dev:desktop"], {
-    cwd: repoRoot,
-    env: {
-      ...process.env,
-      AUTOPILOT_LOCAL_GPU_DEV: "1",
-      AUTOPILOT_HARNESS_DEFAULT_PROMOTION:
-        process.env.AUTOPILOT_HARNESS_DEFAULT_PROMOTION ?? "1",
-      AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT:
-        process.env.AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT ?? "1",
-      AUTOPILOT_RESET_DATA_ON_BOOT:
-        process.env.AUTOPILOT_RESET_DATA_ON_BOOT ?? "1",
-      VITE_AUTOPILOT_INITIAL_VIEW: "chat",
-      VITE_AUTOPILOT_HARNESS_PROMOTION_LIVE_GUI: "1",
-      AUTOPILOT_REUSE_DEV_SERVER: "0",
-      AUTO_START_DEV_SERVER: "1",
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-    detached: true,
-  });
-  desktop.stdout.on("data", (chunk) => log.push(chunk.toString()));
-  desktop.stderr.on("data", (chunk) => log.push(chunk.toString()));
-  let desktopStopped = false;
+  let lastWindowId = null;
 
   try {
-    const windowId = await waitForWindow(args.windowName, args.windowTimeoutMs);
-    if (!windowId) {
-      return buildBlockedAutopilotGuiHarnessResult({
-        reason: `Timed out waiting for window matching ${args.windowName}`,
-        evidence: log.slice(-80),
-      });
-    }
-    await sleep(args.settleMs);
-
     const queryResults = [];
     const screenshots = {};
     for (let index = 0; index < AUTOPILOT_RETAINED_QUERIES.length; index += 1) {
       const retainedQuery = AUTOPILOT_RETAINED_QUERIES[index];
-      const submitEvidence = await submitRetainedQuery(
+      const {
         windowId,
-        retainedQuery.query,
-        startedAtMs,
-      );
-      const runtimeEvidence =
-        submitEvidence.matchedUserRequest === true
-          ? await waitForRetainedQueryRuntimeEvidence(
-              retainedQuery.query,
-              startedAtMs,
-              args.queryTimeoutMs,
-            )
-          : submitEvidence;
-      const postAnswerSettleMs = Math.min(
-        Math.max(args.querySettleMs, 8_000),
-        30_000,
-      );
-      await sleep(postAnswerSettleMs);
-      const screenshot = captureScreenshot(
-        windowId,
+        screenshot,
+        runtimeEvidence,
+      } = await runSeedIntentRetainedQuery({
+        args,
+        retainedQuery,
         outputRoot,
-        retainedQuery.scenario,
-      );
+        startedAtMs,
+        resetDataOnBoot:
+          index === 0 &&
+          (process.env.AUTOPILOT_RESET_DATA_ON_BOOT ?? "1") !== "0",
+        log,
+      });
+      lastWindowId = windowId ?? lastWindowId;
       screenshots[retainedQuery.scenario] = screenshot;
       const passed =
         screenshot.ok &&
@@ -11158,12 +11209,10 @@ async function runGuiValidation(args, outputRoot) {
         screenshotError: screenshot.stderr || null,
         runtimeEvidence,
       });
+      writeFileSync(logPath, log.join(""), "utf8");
     }
 
     writeFileSync(logPath, log.join(""), "utf8");
-    stopDesktopProcess(desktop);
-    desktopStopped = true;
-    await sleep(3_000);
     const promotionTransitionLiveGuiInteractionProof =
       await collectPromotionTransitionLiveGuiInteractionProof(outputRoot, args);
     const runtimeArtifacts = await collectRuntimeArtifacts(outputRoot, logPath);
@@ -11257,7 +11306,7 @@ async function runGuiValidation(args, outputRoot) {
       schemaVersion: autopilotGuiHarnessContract().schemaVersion,
       launchCommand: AUTOPILOT_GUI_HARNESS_LAUNCH_COMMAND,
       blocked: false,
-      windowId,
+      windowId: lastWindowId,
       queryResults,
       artifacts: {
         screenshots,
@@ -11801,9 +11850,8 @@ async function runGuiValidation(args, outputRoot) {
       logPath,
     };
   } finally {
-    if (!desktopStopped) {
-      stopDesktopProcess(desktop);
-    }
+    writeFileSync(logPath, log.join(""), "utf8");
+    closeMatchingWindows(args.windowName);
   }
 }
 

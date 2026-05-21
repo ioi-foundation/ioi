@@ -19,7 +19,7 @@ This register names the document classes used to keep architecture doctrine, ref
 | `canonical-reference` | Low-level APIs, object models, endpoint references, and contracts. | `docs/architecture/components/`, selected endpoint references under `docs/architecture/domains/` |
 | `canonical-schema` | Shared schemas that drive generated contracts. | `internal-docs/implementation/` until schema generation is split into a package |
 | `conformance-contract` | Hidden or public invariant contracts used for conformance checks. | `docs/conformance/` |
-| `implementation-plan` | Sequencing, package maps, milestones, and source-tree guidance. | `internal-docs/implementation/` and `internal-docs/plans/` |
+| `implementation-plan` | Sequencing, package maps, milestones, and source-tree guidance. Internal master guides are private execution scaffolding and do not own doctrine. | `internal-docs/implementation/` and local ignored plans under `.internal/plans/` |
 | `product-context` | Product-surface reference material and UX intent that follows canonical doctrine. | `internal-docs/architecture/products/` |
 | `decision-history` | Resolved historical decisions retained only when future maintainers need the reason. | Nearest owning component or `_meta/changelog/` |
 | `formal-source` | TLA+, configs, proof source, and formal-model READMEs. | `internal-docs/architecture/protocols/aft/formal/` |

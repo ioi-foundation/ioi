@@ -3,8 +3,9 @@
 This directory is the top-level home for the formal artifacts backing the Aft
 protocol family.
 
-The canonical prose specifications live under
-[`docs/architecture/protocols/aft/specs/`](/home/heathledger/Documents/ioi/repos/ioi/docs/architecture/protocols/aft/specs).
+The corresponding internal prose/spec notes live under
+[`../specs/`](../specs/). They are supporting protocol context, not canonical
+architecture doctrine.
 
 Layout:
 
@@ -12,7 +13,7 @@ Layout:
   scalable two-tier finality model directly at the Aft root, including the
   deterministic equal-authority observer transcript/challenge, canonical close,
   and canonical abort kernel used for sealed-effect collapse.
-- [`canonical_ordering/README.md`](/home/heathledger/Documents/ioi/repos/ioi/docs/architecture/protocols/aft/formal/canonical_ordering/README.md)
+- [`canonical_ordering/README.md`](/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/canonical_ordering/README.md)
   covers the proof-carrying equal-authority canonical-ordering model: succinct
   witness commitments, canonical bulletin close, omission dominance,
   uniqueness, endogenous retrievability, and the repository's `99%`
@@ -20,9 +21,9 @@ Layout:
   closed-slot extraction-or-abort before positive order admission. That
   package now also ships executable TLC witnesses for a concrete
   omission-dominance case and the protocol-native retrievability plane.
-- [`guardian_majority/README.md`](/home/heathledger/Documents/ioi/repos/ioi/docs/architecture/protocols/aft/formal/guardian_majority/README.md)
+- [`guardian_majority/README.md`](/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/guardian_majority/README.md)
   covers the guardian-majority proof kernel and executable model.
-- [`nested_guardian/README.md`](/home/heathledger/Documents/ioi/repos/ioi/docs/architecture/protocols/aft/formal/nested_guardian/README.md)
+- [`nested_guardian/README.md`](/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/nested_guardian/README.md)
   covers the witness-augmented nested-guardian model.
 
 Run all formal checks locally with:
@@ -170,12 +171,12 @@ That classification is now closed and explicit:
 - restart/historical re-entry already has index-free continuation replay and
   bounded-memory paging on both the runtime and executable-model side
 - the first bounded churn witness now exists in
-  `docs/architecture/protocols/aft/formal/nested_guardian/NestedGuardianLiveness.tla`: one forced
+  `internal-docs/architecture/protocols/aft/formal/nested_guardian/NestedGuardianLiveness.tla`: one forced
   reassignment/outage/rotation/checkpoint plus continuation-boundary churn
   prefix followed by eventual target finalization and continuation bootstrap
   under weak fairness
 - the first bounded recurring witness now also exists in
-  `docs/architecture/protocols/aft/formal/nested_guardian/NestedGuardianRecurringLiveness.tla`: three
+  `internal-docs/architecture/protocols/aft/formal/nested_guardian/NestedGuardianRecurringLiveness.tla`: three
   bounded cycles compose in sequence in the default executable instance, and
   the module itself is now cycle-count parameterized so later bounded
   instances do not require rewriting the artifact
@@ -183,9 +184,9 @@ That classification is now closed and explicit:
   instantiation at four cycles, which sharpens the remaining gap to unbounded
   recurrence rather than bounded reuse
 - a reusable recovery-inclusive recurring core now also exists in
-  `docs/architecture/protocols/aft/formal/nested_guardian/NestedGuardianRecoveryRecurringLivenessCore.tla`,
+  `internal-docs/architecture/protocols/aft/formal/nested_guardian/NestedGuardianRecoveryRecurringLivenessCore.tla`,
   with the default executable wrapper
-  `docs/architecture/protocols/aft/formal/nested_guardian/NestedGuardianRecoveryRecurringLiveness.tla`
+  `internal-docs/architecture/protocols/aft/formal/nested_guardian/NestedGuardianRecoveryRecurringLiveness.tla`
   composing three recurring churn/finalize/continuation cycles with
   recovery-gated continuation resolution
 - that same reusable recovery-inclusive core now also carries an explicit
@@ -209,7 +210,7 @@ That classification is now closed and explicit:
 - the recurrence, reduction, and totality modules are now directly discharged
   under `tlapm --timing`
 - the semantic-collapse wrapper in
-  `docs/architecture/protocols/aft/formal/nested_guardian/NestedGuardianRecoveryClassicalAgreementCollapse.tla`,
+  `internal-docs/architecture/protocols/aft/formal/nested_guardian/NestedGuardianRecoveryClassicalAgreementCollapse.tla`,
   which packages the final stronger classical sentence itself, is now directly
   discharged under `tlapm --timing` as well
 - the runtime side now mirrors that bounded recurrence target through a

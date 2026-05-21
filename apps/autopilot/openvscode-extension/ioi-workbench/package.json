@@ -20,7 +20,9 @@
     "*",
     "onStartupFinished",
     "onView:ioi.chat",
+    "onView:ioi.studio",
     "onView:ioi.workflows",
+    "onView:ioi.models",
     "onView:ioi.runs",
     "onView:ioi.artifacts",
     "onView:ioi.policy",
@@ -43,9 +45,19 @@
       ],
       "activitybar": [
         {
-          "id": "ioi",
-          "title": "IOI",
-          "icon": "media/ioi-activity.svg"
+          "id": "ioi-studio",
+          "title": "Autopilot Studio",
+          "icon": "$(sparkle)"
+        },
+        {
+          "id": "ioi-workflows",
+          "title": "Autopilot Workflows",
+          "icon": "media/ioi-workflows.svg"
+        },
+        {
+          "id": "ioi-models",
+          "title": "Autopilot Models",
+          "icon": "media/ioi-models.svg"
         }
       ]
     },
@@ -55,13 +67,6 @@
           "type": "webview",
           "id": "ioi.chat",
           "name": "Chat"
-        }
-      ],
-      "ioi": [
-        {
-          "type": "webview",
-          "id": "ioi.workflows",
-          "name": "Workflows"
         },
         {
           "type": "webview",
@@ -83,6 +88,27 @@
           "id": "ioi.connections",
           "name": "Connections"
         }
+      ],
+      "ioi-studio": [
+        {
+          "type": "webview",
+          "id": "ioi.studio",
+          "name": "Studio"
+        }
+      ],
+      "ioi-workflows": [
+        {
+          "type": "webview",
+          "id": "ioi.workflows",
+          "name": "Workflows"
+        }
+      ],
+      "ioi-models": [
+        {
+          "type": "webview",
+          "id": "ioi.models",
+          "name": "Models"
+        }
       ]
     },
     "commands": [
@@ -91,6 +117,18 @@
         "title": "IOI: Open Autopilot Command Center",
         "category": "IOI",
         "icon": "$(search)"
+      },
+      {
+        "command": "ioi.studio.open",
+        "title": "IOI: Open Agent Studio",
+        "category": "IOI",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "ioi.studio.agentBuilder",
+        "title": "IOI: Open Agent Builder",
+        "category": "IOI",
+        "icon": "$(rocket)"
       },
       {
         "command": "ioi.chat.new",
@@ -115,6 +153,12 @@
         "title": "IOI: Focus Chat Composer",
         "category": "IOI",
         "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "ioi.chat.submit",
+        "title": "IOI: Submit Chat Request",
+        "category": "IOI",
+        "icon": "$(send)"
       },
       {
         "command": "ioi.chat.moreActions",
@@ -143,10 +187,67 @@
         "category": "IOI"
       },
       {
+        "command": "ioi.workflow.openComposer",
+        "title": "IOI: Open Workflow Composer",
+        "category": "IOI",
+        "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "ioi.workflow.compositor.runScenario",
+        "title": "IOI: Workflow Composer Parity Scenario",
+        "category": "IOI"
+      },
+      {
+        "command": "ioi.workflow.compositor.capturePhase",
+        "title": "IOI: Capture Workflow Composer Phase",
+        "category": "IOI"
+      },
+      {
         "command": "ioi.workflow.generateCode",
         "title": "IOI: Generate Code From Workflow",
         "category": "IOI",
         "icon": "$(rocket)"
+      },
+      {
+        "command": "ioi.models.open",
+        "title": "IOI: Open Models",
+        "category": "IOI",
+        "icon": "$(server-environment)"
+      },
+      {
+        "command": "ioi.models.openLoader",
+        "title": "IOI: Open Model Loader",
+        "category": "IOI",
+        "icon": "$(list-selection)"
+      },
+      {
+        "command": "ioi.models.selectForWorkflow",
+        "title": "IOI: Select Model for Workflow",
+        "category": "IOI",
+        "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "ioi.models.capturePhase",
+        "title": "IOI: Capture Models Phase",
+        "category": "IOI"
+      },
+      {
+        "command": "ioi.models.estimateNative",
+        "title": "IOI: Estimate Native Model Load",
+        "category": "IOI",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "ioi.models.loadNative",
+        "title": "IOI: Load Native Model",
+        "category": "IOI",
+        "icon": "$(play)"
+      },
+      {
+        "command": "ioi.models.unloadNative",
+        "title": "IOI: Unload Native Model",
+        "category": "IOI",
+        "icon": "$(debug-stop)"
       },
       {
         "command": "ioi.runs.refresh",
@@ -197,6 +298,12 @@
     "menus": {
       "commandPalette": [
         {
+          "command": "ioi.studio.open"
+        },
+        {
+          "command": "ioi.studio.agentBuilder"
+        },
+        {
           "command": "ioi.chat.new"
         },
         {
@@ -207,6 +314,9 @@
         },
         {
           "command": "ioi.chat.focusComposer"
+        },
+        {
+          "command": "ioi.chat.submit"
         },
         {
           "command": "ioi.chat.moreActions"
@@ -224,7 +334,37 @@
           "command": "ioi.workflow.new"
         },
         {
+          "command": "ioi.workflow.openComposer"
+        },
+        {
+          "command": "ioi.workflow.compositor.runScenario"
+        },
+        {
+          "command": "ioi.workflow.compositor.capturePhase"
+        },
+        {
           "command": "ioi.workflow.generateCode"
+        },
+        {
+          "command": "ioi.models.open"
+        },
+        {
+          "command": "ioi.models.openLoader"
+        },
+        {
+          "command": "ioi.models.selectForWorkflow"
+        },
+        {
+          "command": "ioi.models.capturePhase"
+        },
+        {
+          "command": "ioi.models.estimateNative"
+        },
+        {
+          "command": "ioi.models.loadNative"
+        },
+        {
+          "command": "ioi.models.unloadNative"
         },
         {
           "command": "ioi.runs.refresh"
@@ -276,9 +416,44 @@
           "group": "navigation@3"
         },
         {
+          "command": "ioi.studio.open",
+          "when": "view == ioi.studio",
+          "group": "navigation@1"
+        },
+        {
+          "command": "ioi.workflow.openComposer",
+          "when": "view == ioi.studio",
+          "group": "navigation@2"
+        },
+        {
+          "command": "ioi.models.open",
+          "when": "view == ioi.studio",
+          "group": "navigation@3"
+        },
+        {
           "command": "ioi.workflow.generateCode",
           "when": "view == ioi.workflows",
           "group": "navigation@1"
+        },
+        {
+          "command": "ioi.models.open",
+          "when": "view == ioi.models",
+          "group": "navigation@1"
+        },
+        {
+          "command": "ioi.models.openLoader",
+          "when": "view == ioi.models",
+          "group": "navigation@1.5"
+        },
+        {
+          "command": "ioi.models.estimateNative",
+          "when": "view == ioi.models",
+          "group": "navigation@2"
+        },
+        {
+          "command": "ioi.models.loadNative",
+          "when": "view == ioi.models",
+          "group": "navigation@3"
         }
       ],
       "editor/context": [

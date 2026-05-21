@@ -1,12 +1,12 @@
 # `ai://` Registry and Manifest Specification
 
-Status: canonical architecture authority.
-Canonical owner: this file for `ai://` naming doctrine; low-level manifest schemas live in [`ai-url-manifest-schemas.md`](./manifest-schemas.md).
-Supersedes: overlapping manifest prose when naming or manifest requirements conflict.
-Superseded by: none.
+Status: internal protocol reference.
+Authority: `docs/architecture/` and accepted ADRs are canonical; this file is private protocol context only.
+Supports: `ai://` naming notes; low-level manifest schema examples live in [`manifest-schemas.md`](./manifest-schemas.md).
+Superseded by: canonical architecture docs or ADRs when conflicts arise.
 Last alignment pass: 2026-05-01.
 
-## Canonical Definition
+## Canonical Alignment
 
 **`ai://` is the canonical Web4 naming and resolution scheme for intelligence, workers, services, applications, domains, manifests, runtime requirements, and authority requirements.**
 

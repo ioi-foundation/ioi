@@ -4,11 +4,19 @@ Status: canonical architecture authority.
 Canonical owner: this file for daemon/CLI ownership boundaries and IOI CLI operator-surface positioning; low-level daemon endpoints live in [`ioi-daemon-runtime-api.md`](./api.md).
 Supersedes: older CLI/daemon wording that implies the CLI owns runtime semantics or is primarily a chain/domain generator.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-05-20.
 
 ## Canonical Definition
 
-**The IOI daemon is the universal execution endpoint for canonical Web4 work.**
+**The IOI daemon is the universal execution endpoint and hypervisor/control plane
+for canonical Web4 autonomous work.**
+
+The daemon is a hypervisor by analogy: it does not make workers, models, tools,
+connectors, browsers, shells, or computer-use providers trustworthy by existing.
+It supervises them as guest workloads/capabilities under scoped authority,
+policy, receipts, replay, and settlement hooks. Clients and operator surfaces
+may request, display, approve, interrupt, or inspect work, but the daemon owns
+execution semantics and durable run truth.
 
 **`ioi-cli` is the canonical local/operator interface to IOI runtimes,
 domains, manifests, receipts, authority scopes, and mainnet/application-domain
@@ -17,13 +25,34 @@ interactions.**
 The IOI CLI is a terminal/TUI client over daemon/public runtime APIs and the
 broader canonical Web4 stack. It may mirror daemon commands, render operator
 workflows, resolve natural-language intent into inspectable plans, and
-administer domain/settlement/authority surfaces. The CLI must not own a
-separate agent runtime or execution loop.
+administer domain/settlement/authority surfaces.
+The CLI must not own a separate agent runtime or execution loop.
 
 Through daemon APIs, it launches workflows, agents, workers, tools, models,
 connectors, worker-training jobs, benchmark jobs, evaluation jobs, MoW routing
 decisions, and artifact-producing jobs across local, hosted, provider, DePIN,
 TEE, and enterprise environments.
+
+Autopilot Workbench is the IDE-grade operator console over this substrate. The
+Electron/VS Code fork is the canonical Autopilot app shell. The workbench,
+CLI/TUI, SDK, harnesses, benchmarks, and extension host are clients/projections;
+they do not become private runtimes.
+
+IOI Authority Gateway is the compatibility sidecar/profile for existing IDEs,
+CLI agents, hosted-agent tools, browser automation, MCP ecosystems, shell
+wrappers, Git hooks, API proxies, credential brokers, and CI/CD gates. It exists
+to let users keep their IDE and keep their model while putting consequential
+execution behind IOI. It is a daemon deployment/adoption profile, not a second
+runtime and not a replacement for Autopilot Workbench as the native operator
+console.
+
+> **Models reason. IOI authorizes action.**
+
+Adapters may observe, request, preview, deny, transform, or submit proposed
+actions through the daemon. They must not claim total interception over opaque
+third-party runtimes. Their job is to mediate the control points they can
+actually see: shell commands, file mutations, Git operations, MCP/tool calls,
+secret leases, browser actions, deploy/API calls, webhooks, and CI/CD gates.
 
 Compute-node rule:
 
@@ -145,6 +174,28 @@ projections. Remote, hosted, provider, DePIN, TEE, and customer runtime nodes
 should still be described as IOI daemon/runtime-node profiles, even when they
 run Autopilot-compatible workflow packages.
 
+### Authority Gateway / Sidecar Profile
+
+The Authority Gateway profile is the adoption wedge for users who already live
+inside Cursor, VS Code, JetBrains, Codex, Claude Code, OpenHands-like tools, or
+hosted agent products. The product message is:
+
+> **Keep your IDE. Keep your model. Put consequential execution behind IOI.**
+
+The sidecar routes proposed actions into the same daemon policy, authority,
+approval, receipt, replay, and settlement path used by Autopilot Workbench.
+Different tools expose different control points. VS Code-family tools can use
+extensions, terminals, workspace watchers, and MCP gateways. CLI agents can run
+as guest workloads behind shell wrappers and tool proxies. Hosted agent systems
+may require API gateways, GitHub Apps, CI/CD policy gates, webhook mediation, or
+receipt ingestion.
+
+This profile strengthens the marketplace/protocol thesis instead of competing
+with it: developers can first govern existing models and agents, then discover
+better workers, install marketplace workers, delegate authority through
+wallet.network, and graduate to the full Autopilot Workbench when they need the
+native control room.
+
 ## Runtime Role
 
 The daemon executes work. It does not own root authority or global marketplace state.
@@ -172,6 +223,9 @@ It is responsible for:
 4. **DePIN daemon** — Akash-like public compute.
 5. **TEE-verified daemon** — enterprise secure mode.
 6. **Customer VPC daemon** — enterprise private runtime.
+7. **IOI Authority Gateway sidecar** — local/private or controlled-cloud
+   mediation profile for existing IDEs, CLI agents, hosted agents, MCP tools,
+   shell/Git surfaces, browser actions, API gateways, and CI/CD gates.
 
 ## Public Runtime API
 

@@ -5858,6 +5858,8 @@ export class ModelMountingState {
       model_policy: body.model_policy ?? body.modelPolicy ?? {},
       input: body.input ?? body.prompt ?? "",
       messages: body.messages,
+      max_tokens: body.max_tokens ?? body.maxTokens,
+      temperature: body.temperature,
       workflow_graph_id: body.workflow_graph_id ?? body.workflowGraphId,
       workflow_node_id: body.workflow_node_id ?? body.workflowNodeId ?? body.node_id ?? body.nodeId,
       workflow_node_type: body.workflow_node_type ?? body.workflowNodeType ?? node,

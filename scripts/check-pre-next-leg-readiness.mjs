@@ -203,7 +203,7 @@ assert(
   "Daemon architecture doc must distinguish daemon execution from CLI client behavior.",
 );
 
-const workGraphPlan = read("internal-docs/plans/adaptive-scoped-swarm-execution-plan.md");
+const workGraphPlan = read(".internal/plans/adaptive-scoped-swarm-execution-plan.md");
 assert(
   workGraphPlan.includes("`swarm` is an execution strategy, not a product surface") ||
     workGraphPlan.includes("adaptive work graph is an execution strategy"),
@@ -218,7 +218,7 @@ assert(
   developerDocs.includes("@ioi/agent-sdk") && !developerDocs.includes("ioi-swarm"),
   "Developer docs must route SDK-first agent development to @ioi/agent-sdk, not the retired ioi-swarm product surface.",
 );
-const preLegChecklistPath = "internal-docs/plans/pre-next-leg-cleanup-checklist.md";
+const preLegChecklistPath = ".internal/plans/pre-next-leg-cleanup-checklist.md";
 if (fs.existsSync(path.join(root, preLegChecklistPath))) {
   const preLegChecklist = read(preLegChecklistPath);
   assert(

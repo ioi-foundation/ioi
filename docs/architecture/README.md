@@ -4,7 +4,7 @@ Status: canonical navigation and source-of-authority index.
 Canonical owner: this file for architecture navigation; see [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) for subject ownership.
 Supersedes: ad hoc architecture navigation in plans/specs when links or ownership disagree.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-05-20.
 
 ## Purpose
 
@@ -18,6 +18,17 @@ The core doctrine is:
 > workers act under scoped authority, domains remember operational truth, and
 > IOI L1 settles only the commitments that need public trust.**
 
+The Autopilot/autonomous-execution canon is:
+
+```text
+IOI daemon = hypervisor/control plane for autonomous execution
+Autopilot Workbench = IDE-grade operator console
+Electron/VS Code fork = canonical app shell
+IOI Authority Gateway = compatibility adapter profile for existing IDEs/agents
+Workers/models/tools/connectors = guest workloads/capabilities
+Policy/receipts/replay = trust and audit substrate
+```
+
 Read the stack this way:
 
 - the IOI kernel is the L0 substrate for instantiating domains and chains;
@@ -27,18 +38,24 @@ Read the stack this way:
   state;
 - Domain Ontologies and Data Recipes bind raw sources into trainable,
   queryable, receipted, and distillable domain truth;
-- IOI daemon/runtime nodes execute workers, workflows, tools, models,
-  connectors, and artifacts;
+- IOI daemon/runtime nodes act as the autonomous-execution hypervisor/control
+  plane, supervising workers, workflows, tools, models, connectors, computer-use
+  leases, artifacts, policy, receipts, and replay;
 - wallet.network authorizes identity, secrets, approvals, payments, data use,
   and decryption;
 - Filecoin/CAS stores payload bytes, packages, artifacts, evidence bundles,
   checkpoints, and sealed archive bytes;
 - MoW routes bounded workers by policy, benchmarks, receipts, cost, trust, and
   contribution quality;
-- Autopilot Desktop trains and runs workers through a local daemon profile;
+- Autopilot Workbench is the IDE-grade operator console for autonomous systems,
+  exposed through the Electron/VS Code fork as the canonical app shell and backed
+  by local or remote daemon profiles;
+- IOI Authority Gateway is the daemon sidecar/adapter profile for existing IDE,
+  CLI, browser, hosted-agent, and MCP/tool ecosystems: keep your IDE, keep your
+  model, and put consequential execution behind IOI;
 - agent-ide and the workflow compositor render typed recipes over the shared
-  builder substrate; CLI/TUI, SDK, harnesses, and benchmarks are clients or
-  projections;
+  builder substrate; CLI/TUI, SDK, harnesses, benchmarks, and workbench
+  extensions are clients or projections;
 - aiagent.xyz publishes, benchmarks, ranks, installs, initializes managed
   instances, and routes workers;
 - sas.xyz sells worker-powered outcomes, including Worker Training contracts;
@@ -60,6 +77,10 @@ references. Conformance contracts live in [`docs/conformance`](../conformance/).
 Implementation plans, runtime iteration specs, product-internal notes, protocol
 corpora, prompt scratchpads, and generated formal outputs are retained outside
 the forward-facing docs tree and do not supersede this architecture pack.
+Internal master guides may contain raw strategic comparisons, transitional
+language, or third-party architecture notes that are useful for execution but
+easy to misconstrue as doctrine. Durable conclusions from those guides must be
+distilled back into this architecture pack or into an accepted decision record.
 
 ## Navigation And Ownership
 
@@ -129,12 +150,15 @@ supporting file.
 | Domain Ontologies and Data Recipes | Semantic data plane that turns sources, connector payloads, traces, schemas, and policies into ontology-bound, optionally distilled training, evaluation, runtime, and projection truth. |
 | Domain Kernel | Application-domain authority/runtime deployment for Agentgres and routing. |
 | Agentgres | Per-domain canonical operational state, receipts, projections, quality, and contribution accounting. |
-| IOI Daemon / Runtime Node | Universal execution endpoint for workflows, workers, tools, models, connectors, and artifacts. |
+| IOI Daemon / Runtime Node | Hypervisor/control plane for autonomous execution across workflows, workers, tools, models, connectors, computer-use leases, artifacts, policy, receipts, and replay. |
 | IOI CLI/TUI | Human terminal and TUI operator client over daemon/public runtime APIs. |
 | IOI SDK | Developer client facade over daemon/substrate contracts, never the canonical execution owner. |
 | Shared Builder Substrate | Shared graph model, typed node contracts, schemas, recipes, daemon execution path, and receipt model used by Autopilot builder lenses. |
 | agent-ide / Workflow Compositor | GUI/workbench projection that renders typed recipes and workflows over the shared builder substrate. |
-| Autopilot Desktop | Local user application and workbench that trains, runs, inspects, and governs workers through a local IOI daemon/runtime profile. |
+| Autopilot Workbench | IDE-grade operator console for autonomous systems; observes, requests, approves, interrupts, debugs, and explains daemon-governed work without owning runtime truth. |
+| Electron/VS Code Fork | Canonical Autopilot app shell for Workbench and Desktop modes. |
+| Autopilot Desktop | Local user mode for private/device automation that trains, runs, inspects, and governs workers through a local IOI daemon/runtime profile. |
+| IOI Authority Gateway / Autopilot Guard | Compatibility sidecar/adapters for existing IDEs, CLI agents, hosted agents, browser tools, and MCP ecosystems; routes proposed actions through daemon policy, authority, receipts, and replay without becoming a second runtime. |
 | wallet.network | Sovereign authority layer for identity, secrets, keys, authority scopes, approvals, payments, and revocation. |
 | aiagent.xyz | Canonical Web4 marketplace for portable digital workers, benchmark profiles, Sparse Worker Categories, installs, and routing eligibility. |
 | sas.xyz | Canonical Web4 marketplace for autonomous service outcomes, including Worker Training as Service-as-Software. |
@@ -159,11 +183,11 @@ Semantic Data Plane
 MoW Routing Layer
   sparse worker categories, routing decisions, contribution policies, benchmark eligibility
 
-Execution Nodes
-  local IOI daemon under Autopilot Desktop, hosted IOI daemon, provider daemon, DePIN node, TEE node, customer VPC
+Execution Hypervisor / Runtime Nodes
+  local IOI daemon under Autopilot Workbench/Desktop, hosted IOI daemon, provider daemon, DePIN node, TEE node, customer VPC
 
 Client Surfaces
-  Autopilot Desktop, agent-ide, IOI CLI/TUI, @ioi/agent-sdk, browser apps, harnesses, benchmarks
+  Autopilot Workbench, Autopilot Desktop, agent-ide, IOI Authority Gateway adapters, IOI CLI/TUI, @ioi/agent-sdk, browser apps, harnesses, benchmarks
 
 Storage Plane
   Filecoin/CAS/CDN for packages, artifacts, evidence bundles, checkpoints, sealed state archive bytes
@@ -189,3 +213,5 @@ Authority Plane
 13. MoW is labor routing across bounded workers, not a fifth Web primitive and not model-provider routing.
 14. Worker Training creates or improves capability but does not grant authority; wallet.network or equivalent authority grants power.
 15. Workers train on ontology-bound, policy-bound, and when useful distilled data, not raw blobs or ambient connector payloads.
+16. Models and agents may reason or propose; IOI daemon authority decides what crosses the deterministic execution boundary.
+17. IOI Authority Gateway, Autopilot Guard, IDE extensions, CLI wrappers, MCP gateways, Git hooks, API proxies, browser adapters, and CI gates are mediation surfaces only. They must route consequential actions through daemon policy, authority, receipts, and replay, and they must not claim total interception of opaque third-party runtimes.

@@ -2,6 +2,11 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import darkPng from "../../assets/openvscode-walkthrough/dark.png";
+import darkHcPng from "../../assets/openvscode-walkthrough/dark-hc.png";
+import lightPng from "../../assets/openvscode-walkthrough/light.png";
+import lightHcPng from "../../assets/openvscode-walkthrough/light-hc.png";
+
 import type { WorkspaceWorkbenchOpenVsCodeDirectModel } from "../../services/workspaceWorkbenchHost";
 import {
   buildWorkspaceSubstrateTargetIndex,
@@ -177,6 +182,42 @@ export function OpenVsCodeDirectSurface({
   onError,
 }: OpenVsCodeDirectSurfaceProps) {
   const visible = active && !suspended;
+  const [localMenuOpen, setLocalMenuOpen] = useState(false);
+  const [themeId, setThemeId] = useState<string>(() => {
+    if (typeof document !== "undefined") {
+      return document.documentElement.dataset.autopilotTheme ?? "dark-modern";
+    }
+    return "dark-modern";
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const handleToggle = (event: Event) => {
+      const customEvent = event as CustomEvent<{ open: boolean }>;
+      setLocalMenuOpen(customEvent.detail?.open ?? false);
+    };
+    window.addEventListener("spot-command-menu-toggled", handleToggle);
+    return () => {
+      window.removeEventListener("spot-command-menu-toggled", handleToggle);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const observer = new MutationObserver(() => {
+      setThemeId(document.documentElement.dataset.autopilotTheme ?? "dark-modern");
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-autopilot-theme"],
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  const isWebviewVisible = visible && !localMenuOpen;
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const shownRef = useRef(false);
   const prewarmedRef = useRef(false);
@@ -189,7 +230,7 @@ export function OpenVsCodeDirectSurface({
 
   const syncBounds = useCallback(async () => {
     const container = containerRef.current;
-    if (!visible || !container) {
+    if (!isWebviewVisible || !container) {
       return;
     }
 
@@ -248,11 +289,11 @@ export function OpenVsCodeDirectSurface({
           : "The direct OpenVSCode workbench surface failed to initialize.",
       );
     }
-  }, [onError, reservedRightPx, surface.surfaceId, surface.workbenchUrl, visible]);
+  }, [onError, reservedRightPx, surface.surfaceId, surface.workbenchUrl, visible, isWebviewVisible]);
 
   const prewarmHiddenSurface = useCallback(async () => {
     const container = containerRef.current;
-    if (visible || !container || prewarmedRef.current) {
+    if (isWebviewVisible || !container || prewarmedRef.current) {
       return;
     }
 
@@ -290,7 +331,7 @@ export function OpenVsCodeDirectSurface({
           : "The direct OpenVSCode workbench surface failed to prewarm.",
       );
     }
-  }, [onError, reservedRightPx, surface.surfaceId, surface.workbenchUrl, visible]);
+  }, [onError, reservedRightPx, surface.surfaceId, surface.workbenchUrl, visible, isWebviewVisible]);
 
   const scheduleSyncBounds = useCallback(() => {
     if (frameRef.current !== null) {
@@ -398,7 +439,7 @@ export function OpenVsCodeDirectSurface({
   }, [surface.surfaceId]);
 
   useEffect(() => {
-    if (visible) {
+    if (isWebviewVisible) {
       return;
     }
 
@@ -406,10 +447,10 @@ export function OpenVsCodeDirectSurface({
       void prewarmHiddenSurface();
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [prewarmHiddenSurface, visible]);
+  }, [prewarmHiddenSurface, isWebviewVisible]);
 
   useEffect(() => {
-    if (!visible) {
+    if (!isWebviewVisible) {
       return;
     }
 
@@ -418,7 +459,7 @@ export function OpenVsCodeDirectSurface({
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!visible || !container) {
+    if (!isWebviewVisible || !container) {
       void hideWorkspaceDirectWebview(surface.surfaceId).catch(() => {});
       shownRef.current = false;
       return;
@@ -479,7 +520,18 @@ export function OpenVsCodeDirectSurface({
     scheduleSyncBounds,
     surface.surfaceId,
     visible,
+    isWebviewVisible,
   ]);
+
+  let editorBg = "#1f1f1f";
+  if (themeId === "light-modern") editorBg = "#f3f3f3";
+  else if (themeId === "dark-high-contrast") editorBg = "#000000";
+  else if (themeId === "light-high-contrast") editorBg = "#ffffff";
+
+  let bgImage = darkPng;
+  if (themeId === "light-modern") bgImage = lightPng;
+  else if (themeId === "dark-high-contrast") bgImage = darkHcPng;
+  else if (themeId === "light-high-contrast") bgImage = lightHcPng;
 
   return (
     <div
@@ -507,6 +559,55 @@ export function OpenVsCodeDirectSurface({
       onPointerDown={() => {
         void focusWorkspaceDirectWebview(surface.surfaceId).catch(() => {});
       }}
-    />
+      style={{ position: "relative" }}
+    >
+      {!isWebviewVisible && (
+        <div
+          className="chat-workspace-oss-shell__direct-surface-placeholder-container"
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: editorBg,
+            zIndex: 1,
+            pointerEvents: "none",
+            gap: "16px",
+          }}
+        >
+          <img
+            className="chat-workspace-oss-shell__direct-surface-placeholder"
+            src={bgImage}
+            alt="Workspace theme placeholder"
+            style={{
+              width: "280px",
+              height: "180px",
+              objectFit: "contain",
+              borderRadius: "8px",
+              border: themeId.includes("high-contrast")
+                ? "2px solid #ffffff"
+                : themeId.includes("light")
+                ? "1px solid rgba(0, 0, 0, 0.1)"
+                : "1px solid rgba(255, 255, 255, 0.1)",
+              boxShadow: "0 10px 30px rgba(0, 0, 0, 0.25)",
+              filter: "brightness(0.65) blur(0.5px)",
+            }}
+          />
+          <div
+            style={{
+              color: themeId.includes("light") ? "rgba(0, 0, 0, 0.4)" : "rgba(255, 255, 255, 0.4)",
+              fontSize: "12px",
+              fontFamily: "var(--vscode-font-family, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif)",
+              letterSpacing: "0.5px",
+              textTransform: "uppercase",
+            }}
+          >
+            Workspace Active ({themeId.replace("-", " ")})
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

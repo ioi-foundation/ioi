@@ -1,9 +1,9 @@
 # ai:// Manifest Schemas
 
-Status: canonical low-level reference.
-Canonical owner: this file for `ai://` manifest schema examples and resolution flow.
-Supersedes: overlapping manifest examples in plans/specs when schema fields conflict.
-Superseded by: none.
+Status: internal protocol schema reference.
+Authority: `docs/architecture/` and accepted ADRs are canonical; this file is private protocol context only.
+Supports: `ai://` manifest schema examples and resolution flow.
+Superseded by: canonical architecture docs or ADRs when conflicts arise.
 Last alignment pass: 2026-05-01.
 
 ## Purpose
