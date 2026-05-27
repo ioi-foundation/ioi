@@ -1545,6 +1545,50 @@ fn push_pending_web_success_rejects_non_authority_non_identifier_briefing_source
 }
 
 #[test]
+fn push_pending_web_success_keeps_currentness_parity_fixture_source() {
+    let query = "Find current sources for today's top local AI model runtime issue.";
+    let requested_url = "https://www.nist.gov/news-events/news/2026/local-ai-model-runtime-issue";
+    let mut pending = PendingSearchCompletion {
+        query: query.to_string(),
+        query_contract: query.to_string(),
+        retrieval_contract: Some(
+            crate::agentic::web::derive_web_retrieval_contract(query, None)
+                .expect("retrieval contract"),
+        ),
+        url: "https://duckduckgo.com/html/?q=local+AI+model+runtime+issue".to_string(),
+        started_step: 1,
+        started_at_ms: 1_779_682_000_000,
+        deadline_ms: 1_779_682_060_000,
+        candidate_urls: vec![requested_url.to_string()],
+        candidate_source_hints: vec![PendingSearchReadSummary {
+            url: requested_url.to_string(),
+            title: Some("Local AI Model Runtime Issue".to_string()),
+            excerpt:
+                "Deterministic current-source fixture for local AI model runtime issue retrieval."
+                    .to_string(),
+        }],
+        attempted_urls: Vec::new(),
+        blocked_urls: Vec::new(),
+        successful_reads: Vec::new(),
+        min_sources: 1,
+    };
+
+    push_pending_web_success(
+        &mut pending,
+        requested_url,
+        Some("Local AI Model Runtime Issue".to_string()),
+        "Fresh evidence fixture: the current local AI model runtime issue requires retrieved current sources before final chat__reply."
+            .to_string(),
+    );
+
+    assert_eq!(pending.successful_reads.len(), 1);
+    assert_eq!(pending.successful_reads[0].url, requested_url);
+    assert!(pending.successful_reads[0]
+        .excerpt
+        .contains("retrieved current sources"));
+}
+
+#[test]
 fn append_pending_web_success_fallback_backfills_hint_for_terminal_completion_notes() {
     let requested_url = "https://www.nist.gov/pqc";
     let mut pending = PendingSearchCompletion {

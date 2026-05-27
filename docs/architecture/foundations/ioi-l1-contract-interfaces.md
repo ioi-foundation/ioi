@@ -4,14 +4,15 @@ Status: canonical low-level reference.
 Canonical owner: this file for IOI L1 contract interfaces and sparse root commitments.
 Supersedes: overlapping smart-contract interface examples in plans/specs when contract responsibility conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-13.
+Last alignment pass: 2026-05-25.
 
 ## Purpose
 
-IOI L1 is the canonical Web4 registry, rights, settlement, sparse-commitment,
-and governance layer. It does not run the L0/kernel substrate, Agentgres, or
-rich application state. aiagent.xyz and sas.xyz interact with IOI L1 through
-smart contracts for economically meaningful commitments.
+IOI L1 is the canonical Web4 registry, rights, autonomous-system settlement,
+sparse-commitment, and governance layer. It does not run the L0/kernel
+substrate, Agentgres, or rich application state. aiagent.xyz, sas.xyz,
+Autopilot nodes, and third-party autonomous systems interact with IOI L1
+through smart contracts for economically meaningful commitments.
 
 ## Contract Set
 
@@ -20,6 +21,10 @@ AiNamespaceRegistry
 PublisherRegistry
 AppDomainRegistry
 ManifestRootRegistry
+AutonomousSystemRegistry
+AIIPChannelRegistry
+AIIPSchemaRegistry
+SettlementAccountRegistry
 WorkerRegistry
 ServiceRegistry
 LicenseRightRegistry
@@ -28,6 +33,11 @@ SLABondRegistry
 DisputeRegistry
 ReputationRootRegistry
 ContributionRootRegistry
+AuthorityLeaseCommitmentRegistry
+ReceiptRootRegistry
+SettlementIntentRegistry
+HandoffFinalityRegistry
+WorkerEligibilityRootRegistry
 SparseWorkerCategoryRegistry
 BenchmarkProfileRegistry
 TrainingLineageRootRegistry
@@ -69,6 +79,36 @@ function suspendPublisher(bytes32 publisherId, string reason) external;
 function commitManifest(bytes32 manifestId, bytes32 manifestRoot, string uri, uint256 version) external;
 function deprecateManifest(bytes32 manifestId, uint256 version, string reason) external;
 function getManifest(bytes32 manifestId) external view returns (ManifestCommitment);
+```
+
+## AutonomousSystemRegistry
+
+```solidity
+function registerSystem(bytes32 systemId, bytes32 manifestRoot, bytes32 policyRoot, bytes32 authorityRoot, string resolverURI) external payable;
+function updateSystemRoots(bytes32 systemId, bytes32 policyRoot, bytes32 moduleRegistryRoot, bytes32 receiptRoot) external;
+function updateSystemStatus(bytes32 systemId, SystemStatus status, string reason) external;
+```
+
+## AIIPChannelRegistry
+
+```solidity
+function registerChannel(bytes32 channelId, bytes32 fromSystemId, bytes32 toSystemId, bytes32 profileRoot, bytes32 schemaRoot) external payable;
+function updateChannelRoot(bytes32 channelId, bytes32 sequenceRoot, bytes32 receiptRoot) external;
+function closeChannel(bytes32 channelId, bytes32 finalityRoot, string reason) external;
+```
+
+## AIIPSchemaRegistry
+
+```solidity
+function registerAIIPSchema(bytes32 schemaId, bytes32 schemaRoot, string uri, uint256 version) external;
+function deprecateAIIPSchema(bytes32 schemaId, uint256 version, string reason) external;
+```
+
+## SettlementAccountRegistry
+
+```solidity
+function registerSettlementAccount(bytes32 accountId, address controller, bytes32 policyRoot) external payable;
+function updateSettlementPolicy(bytes32 accountId, bytes32 policyRoot) external;
 ```
 
 ## WorkerRegistry
@@ -128,6 +168,42 @@ function challengeReputationRoot(bytes32 domainId, uint256 epoch, bytes32 eviden
 ```solidity
 function commitContributionRoot(bytes32 domainId, bytes32 contributionRoot, uint256 epoch) external;
 function claimReward(bytes32 contributionId, bytes32 proofRoot) external;
+```
+
+## AuthorityLeaseCommitmentRegistry
+
+```solidity
+function commitAuthorityLease(bytes32 leaseId, bytes32 subjectId, bytes32 authorityRoot, bytes32 policyRoot, uint256 expiresAt) external;
+function revokeAuthorityLease(bytes32 leaseId, bytes32 revocationRoot) external;
+```
+
+## ReceiptRootRegistry
+
+```solidity
+function commitReceiptRoot(bytes32 domainId, bytes32 receiptRoot, uint256 epoch, bytes32 disclosurePolicyRoot) external;
+function challengeReceiptRoot(bytes32 domainId, uint256 epoch, bytes32 evidenceRoot) external;
+```
+
+## SettlementIntentRegistry
+
+```solidity
+function submitSettlementIntent(bytes32 intentId, bytes32 claimantId, bytes32 receiptConditionRoot, bytes32 paymentTermsRoot) external payable;
+function acceptSettlementIntent(bytes32 intentId) external;
+function challengeSettlementIntent(bytes32 intentId, bytes32 disputeRoot) external;
+```
+
+## HandoffFinalityRegistry
+
+```solidity
+function commitHandoffFinality(bytes32 handoffId, bytes32 fromSystemId, bytes32 toSystemId, bytes32 receiptRoot, bytes32 settlementRoot) external;
+function challengeHandoff(bytes32 handoffId, bytes32 evidenceRoot) external;
+```
+
+## WorkerEligibilityRootRegistry
+
+```solidity
+function commitWorkerEligibilityRoot(bytes32 domainId, bytes32 eligibilityRoot, uint256 epoch) external;
+function challengeWorkerEligibility(bytes32 domainId, uint256 epoch, bytes32 evidenceRoot) external;
 ```
 
 ## SparseWorkerCategoryRegistry
@@ -200,6 +276,12 @@ SLA bonds
 payouts/refunds
 disputes
 reputation/contribution root commitments
+autonomous-system registration
+AIIP channel/schema/profile registration
+authority lease commitments
+receipt root anchoring
+settlement intents
+cross-system handoff finality
 runtime provider registration/bonding
 reference implementation release commitments
 ```

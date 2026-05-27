@@ -42,7 +42,7 @@ DEFAULT_DB_PATH = (
 DEFAULT_OUTPUT_ROOT = (
     PROJECT_ROOT / "docs/evidence/route-hierarchy/live-final-gap-reuse-native-final"
 )
-WINDOW_SEARCH_PATTERN = "Autopilot Chat"
+WINDOW_SEARCH_PATTERN = "Autopilot"
 BROWSER_CAPTURE_URL = "http://127.0.0.1:1433/"
 POLL_INTERVAL_SECS = 1.0
 WINDOW_WAIT_TIMEOUT_SECS = 90.0

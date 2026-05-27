@@ -1301,6 +1301,31 @@ export interface RuntimeComputerUseBrowserDiscoveryReport {
   recommended_next_steps: string[];
 }
 
+export interface RuntimeComputerUseProviderRegistryEntry {
+  provider_id: string;
+  provider_kind: string;
+  lane: string;
+  status: string;
+  implementation_status: string;
+  thread_tool_name: string | null;
+  supported_session_modes: string[];
+  capabilities: string[];
+  authority_scopes: string[];
+  retention_modes: string[];
+  cleanup_required: boolean;
+  fixture: boolean;
+  unavailable_reason?: string;
+}
+
+export interface RuntimeComputerUseProviderRegistryReport {
+  schema_version: "ioi.computer-use.provider-registry.v1" | string;
+  object: "ioi.computer_use.provider_registry_report" | string;
+  providers: RuntimeComputerUseProviderRegistryEntry[];
+  available_provider_ids: string[];
+  unavailable_provider_ids: string[];
+  fail_closed_when_unavailable: boolean;
+}
+
 export interface RuntimeSubstrateClient {
   createThread(input?: RuntimeThreadCreateInput): Promise<RuntimeThreadRecord>;
   listThreads(): Promise<RuntimeThreadRecord[]>;
@@ -1392,6 +1417,7 @@ export interface RuntimeSubstrateClient {
   discoverComputerUseBrowsers(
     options?: RuntimeComputerUseBrowserDiscoveryOptions,
   ): Promise<RuntimeComputerUseBrowserDiscoveryReport>;
+  discoverComputerUseProviders(): Promise<RuntimeComputerUseProviderRegistryReport>;
   scorecard(runId: string): Promise<RuntimeScorecard>;
   listModels(): Promise<RuntimeModelCatalogEntry[]>;
   listModelCapabilities(): Promise<ModelCapabilityContract[]>;
@@ -2021,6 +2047,14 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       "discoverComputerUseBrowsers",
       "GET",
       `/v1/computer-use/browser-discovery${computerUseBrowserDiscoveryQuery(options)}`,
+    );
+  }
+
+  async discoverComputerUseProviders(): Promise<RuntimeComputerUseProviderRegistryReport> {
+    return this.request(
+      "discoverComputerUseProviders",
+      "GET",
+      "/v1/computer-use/providers",
     );
   }
 

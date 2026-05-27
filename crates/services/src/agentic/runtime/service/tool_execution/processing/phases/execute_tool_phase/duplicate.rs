@@ -309,6 +309,9 @@ pub(super) fn handle_duplicate_command_execution(
             is_active_web_pipeline_chat_reply_duplicate(&tool_name, agent_state);
         let prior_successful_duplicate =
             has_prior_successful_duplicate_action(agent_state, action_fingerprint);
+        if prior_successful_duplicate {
+            verification_checks.push("duplicate_action_fingerprint_prior_success=true".to_string());
+        }
         let worker_duplicate_requires_recovery_error =
             worker_duplicate_requires_recovery_error(state, session_id, tool);
         let noop_duplicate_allowed = is_duplicate_non_command_noop_allowed(

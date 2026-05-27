@@ -22,6 +22,10 @@ use std::os::unix::ffi::OsStrExt;
 
 const POST_KILL_WAIT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
 const POST_EXIT_STREAM_DRAIN_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(750);
+const RETAINED_SESSION_INTERRUPT_TIMEOUT: std::time::Duration =
+    std::time::Duration::from_millis(100);
+const RETAINED_SESSION_TERMINATE_GRACE_TIMEOUT: std::time::Duration =
+    std::time::Duration::from_millis(500);
 const RETAINED_OUTPUT_TAIL_MAX_BYTES: usize = 64 * 1024;
 
 #[cfg(unix)]
@@ -70,6 +74,48 @@ fn append_output_tail(output_tail: &mut String, chunk: &str) -> bool {
     }
     output_tail.drain(..drain_until.min(output_tail.len()));
     true
+}
+
+fn mark_retained_command_force_terminated(
+    state: &Arc<StdMutex<RetainedCommandState>>,
+    message: &str,
+) -> Result<()> {
+    let mut guard = state
+        .lock()
+        .map_err(|_| anyhow!("Retained command state mutex poisoned"))?;
+    guard.snapshot.running = false;
+    guard.snapshot.completed_at_ms = Some(unix_timestamp_ms_now());
+    guard.snapshot.exit_code = None;
+    if append_output_tail(&mut guard.snapshot.output_tail, message) {
+        guard.snapshot.output_truncated = true;
+    }
+    guard.final_output = None;
+    guard.final_error = Some(message.trim().to_string());
+    Ok(())
+}
+
+fn is_sensitive_env_key(key: &str) -> bool {
+    let lower = key.to_ascii_lowercase();
+    lower.contains("token")
+        || lower.contains("secret")
+        || lower.contains("password")
+        || lower.contains("credential")
+        || lower.contains("authorization")
+        || lower.contains("api_key")
+        || lower.contains("apikey")
+        || lower.contains("private_key")
+        || lower.contains("privatekey")
+        || lower.contains("cookie")
+        || lower.contains("session")
+        || lower.contains("vault")
+}
+
+fn remove_sensitive_inherited_env(cmd: &mut Command) {
+    for (key, _) in std::env::vars() {
+        if is_sensitive_env_key(&key) {
+            cmd.env_remove(key);
+        }
+    }
 }
 
 #[cfg(unix)]
@@ -217,6 +263,7 @@ impl TerminalDriver {
         if let Some(dir) = cwd {
             cmd.current_dir(dir);
         }
+        remove_sensitive_inherited_env(&mut cmd);
 
         if detach {
             cmd.stdout(Stdio::null());
@@ -414,6 +461,7 @@ impl TerminalDriver {
         if let Some(dir) = cwd {
             cmd.current_dir(dir);
         }
+        remove_sensitive_inherited_env(&mut cmd);
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
         cmd.stdin(Stdio::piped());
@@ -654,7 +702,34 @@ impl TerminalDriver {
                 #[cfg(unix)]
                     stdin_bridge: _,
             } => {
-                session.interrupt_current_command().await?;
+                let interrupted = time::timeout(
+                    RETAINED_SESSION_INTERRUPT_TIMEOUT,
+                    session.interrupt_current_command(),
+                )
+                .await;
+                let completed_after_interrupt = interrupted.is_ok()
+                    && time::timeout(
+                        RETAINED_SESSION_TERMINATE_GRACE_TIMEOUT,
+                        handle.completion.notified(),
+                    )
+                    .await
+                    .is_ok();
+                if !completed_after_interrupt && snapshot_from_state(&handle.state)?.running {
+                    session.force_terminate().await?;
+                    let message = "Retained shell session was force-terminated after interrupt did not produce completion markers.\n";
+                    mark_retained_command_force_terminated(&handle.state, message)?;
+                    handle.completion.notify_waiters();
+
+                    if let Some(session_key) = snapshot_from_state(&handle.state)?.terminal_id {
+                        let mut sessions = self.sessions.lock().await;
+                        if sessions
+                            .get(&session_key)
+                            .is_some_and(|existing| Arc::ptr_eq(existing, session))
+                        {
+                            sessions.remove(&session_key);
+                        }
+                    }
+                }
             }
         }
 
@@ -670,7 +745,7 @@ impl TerminalDriver {
 
         let session = { self.sessions.lock().await.remove(key) };
         if let Some(session) = session {
-            session.terminate().await?;
+            session.force_terminate().await?;
         }
         Ok(())
     }

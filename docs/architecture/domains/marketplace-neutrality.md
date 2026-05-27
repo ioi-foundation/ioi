@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for marketplace neutrality, contribution accounting, and anti-cannibalization doctrine.
 Supersedes: overlapping plan prose when marketplace neutrality or attribution conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-25.
 
 ## Canonical Definition
 
@@ -68,11 +68,15 @@ dispute posture should emit a RoutingDecisionReceipt with:
 RoutingDecisionReceipt:
   routing_decision_id: route_...
   task_id: task://...
-  router_id: worker://... | runtime://...
+  router_id: worker://... | runtime://... | system://... | domain://...
+  intent_hash: hash
   candidate_set_commitment: hash
   routing_policy_hash: hash
-  selected_worker_id: worker://...
-  selection_reason: string
+  selected_domain_or_worker: system://... | domain://... | worker://... | service://... | runtime://...
+  authority_scope: []
+  cost_bound: optional
+  reason_code: string
+  fallback_policy: optional
   contribution_policy_ref: optional
   receipt_obligations: []
 ```

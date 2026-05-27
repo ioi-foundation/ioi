@@ -1862,6 +1862,17 @@ test("daemon owns thread mode, model, and thinking controls for TUI and React Fl
     assert.equal(model.event.event_kind, "model.route_decision");
     assert.equal(model.event.component_kind, "model_router");
 
+    const thinkingOff = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/thinking`, {
+      method: "POST",
+      body: JSON.stringify({
+        reasoningEffort: "none",
+        source: "cli_tui",
+        workflowNodeId: "runtime.model-router",
+      }),
+    });
+    assert.equal(thinkingOff.reasoning_effort, "none");
+    assert.equal(thinkingOff.runtime_controls.model.reasoningEffort, "none");
+
     const thinking = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/thinking`, {
       method: "POST",
       body: JSON.stringify({
@@ -4380,6 +4391,11 @@ test("runtime_service thread creation requires RuntimeApiBridge and preserves br
     assert.equal(turn.request_id, "run_runtime_bridge_001");
     assert.equal(turn.fixture_profile, null);
     assert.equal(turn.status, "completed");
+    assert.equal(turn.result, "Runtime bridge turn completed.");
+    assert.equal(turn.output, "Runtime bridge turn completed.");
+    assert.equal(turn.text, "Runtime bridge turn completed.");
+    assert.equal(turn.conversation.at(-1)?.role, "assistant");
+    assert.equal(turn.conversation.at(-1)?.content, "Runtime bridge turn completed.");
     const replayed = await fetchSseEvents(`${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`);
     assert.equal(turn.seq_end, replayed.length);
     assert.equal(turn.stop_reason, "runtime_bridge_completed");
@@ -4550,6 +4566,11 @@ if (request.operation === "start_thread") {
     assert.equal(turn.request_id, "run_runtime_command_001");
     assert.equal(turn.status, "completed");
     assert.equal(turn.stop_reason, "runtime_bridge_completed");
+    assert.equal(turn.result, "RuntimeAgentService command bridge turn completed.");
+    assert.equal(turn.output, "RuntimeAgentService command bridge turn completed.");
+    assert.equal(turn.text, "RuntimeAgentService command bridge turn completed.");
+    assert.equal(turn.conversation.at(-1)?.role, "assistant");
+    assert.equal(turn.conversation.at(-1)?.content, "RuntimeAgentService command bridge turn completed.");
     assert.equal(turn.fixture_profile, null);
     assert.equal(turn.seq_start, 2);
     const replayed = await fetchSseEvents(`${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`);
@@ -4583,6 +4604,9 @@ test("runtime_service profile auto-wires the Rust RuntimeAgentService bridge exe
     command: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND,
     args: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS,
     id: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID,
+    inferenceUrl: process.env.IOI_RUNTIME_AGENT_SERVICE_INFERENCE_URL,
+    inferenceApiKey: process.env.IOI_RUNTIME_AGENT_SERVICE_INFERENCE_API_KEY,
+    inferenceModel: process.env.IOI_RUNTIME_AGENT_SERVICE_MODEL,
   };
   process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND = bridgeBinary;
   process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS = JSON.stringify(["--data-dir", bridgeData]);
@@ -4591,6 +4615,9 @@ test("runtime_service profile auto-wires the Rust RuntimeAgentService bridge exe
   let daemon;
   try {
     daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    process.env.IOI_RUNTIME_AGENT_SERVICE_INFERENCE_URL = `${daemon.endpoint}/v1/chat/completions`;
+    process.env.IOI_RUNTIME_AGENT_SERVICE_INFERENCE_API_KEY = "dummy-key";
+    process.env.IOI_RUNTIME_AGENT_SERVICE_MODEL = "auto";
     const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
       method: "POST",
       body: JSON.stringify({
@@ -4699,6 +4726,9 @@ test("runtime_service profile auto-wires the Rust RuntimeAgentService bridge exe
     restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", previousEnv.command);
     restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS", previousEnv.args);
     restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", previousEnv.id);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_INFERENCE_URL", previousEnv.inferenceUrl);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_INFERENCE_API_KEY", previousEnv.inferenceApiKey);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_MODEL", previousEnv.inferenceModel);
   }
 });
 
@@ -4714,6 +4744,9 @@ test("mapped KernelEvent row keeps one canonical sequence across SDK, CLI, and R
     command: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND,
     args: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS,
     id: process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID,
+    inferenceUrl: process.env.IOI_RUNTIME_AGENT_SERVICE_INFERENCE_URL,
+    inferenceApiKey: process.env.IOI_RUNTIME_AGENT_SERVICE_INFERENCE_API_KEY,
+    inferenceModel: process.env.IOI_RUNTIME_AGENT_SERVICE_MODEL,
   };
   process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND = bridgeBinary;
   process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS = JSON.stringify(["--data-dir", bridgeData]);
@@ -4722,6 +4755,9 @@ test("mapped KernelEvent row keeps one canonical sequence across SDK, CLI, and R
   let daemon;
   try {
     daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    process.env.IOI_RUNTIME_AGENT_SERVICE_INFERENCE_URL = `${daemon.endpoint}/v1/chat/completions`;
+    process.env.IOI_RUNTIME_AGENT_SERVICE_INFERENCE_API_KEY = "dummy-key";
+    process.env.IOI_RUNTIME_AGENT_SERVICE_MODEL = "auto";
     const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
       method: "POST",
       body: JSON.stringify({
@@ -4825,6 +4861,9 @@ test("mapped KernelEvent row keeps one canonical sequence across SDK, CLI, and R
     restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", previousEnv.command);
     restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS", previousEnv.args);
     restoreEnv("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", previousEnv.id);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_INFERENCE_URL", previousEnv.inferenceUrl);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_INFERENCE_API_KEY", previousEnv.inferenceApiKey);
+    restoreEnv("IOI_RUNTIME_AGENT_SERVICE_MODEL", previousEnv.inferenceModel);
   }
 });
 
@@ -14210,11 +14249,11 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     "utf8",
   );
   const tauriArtifacts = fs.readFileSync(
-    path.join(root, "apps/autopilot/src-tauri/src/kernel/artifacts/mod.rs"),
+    path.join(root, "internal-docs/legacy/autopilot-tauri-src/src/kernel/artifacts/mod.rs"),
     "utf8",
   );
   const tauriLib = fs.readFileSync(
-    path.join(root, "apps/autopilot/src-tauri/src/lib.rs"),
+    path.join(root, "internal-docs/legacy/autopilot-tauri-src/src/lib.rs"),
     "utf8",
   );
   const workflowRailModel = fs.readFileSync(
@@ -14245,234 +14284,234 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     "utf8",
   );
   const tauriProjectTypes = fs.readFileSync(
-    path.join(root, "apps/autopilot/src-tauri/src/project/types.rs"),
+    path.join(root, "internal-docs/legacy/autopilot-tauri-src/src/project/types.rs"),
     "utf8",
   );
   const tauriProjectCommands = fs.readFileSync(
-    path.join(root, "apps/autopilot/src-tauri/src/project/commands.rs"),
+    path.join(root, "internal-docs/legacy/autopilot-tauri-src/src/project/commands.rs"),
     "utf8",
   );
   const tauriProjectRuntime = fs.readFileSync(
-    path.join(root, "apps/autopilot/src-tauri/src/project/runtime.rs"),
+    path.join(root, "internal-docs/legacy/autopilot-tauri-src/src/project/runtime.rs"),
     "utf8",
   );
   const tauriProjectWorkflowSchedulerLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_scheduler_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_scheduler_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowSchedulerFinalizationLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_scheduler_finalization_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_scheduler_finalization_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowSchedulerTerminalResultLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_scheduler_terminal_result_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_scheduler_terminal_result_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowRunPolicyLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_run_policy_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_run_policy_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowSchedulerInterruptLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_scheduler_interrupt_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_scheduler_interrupt_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowSchedulerNodeExecutionLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_scheduler_node_execution_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_scheduler_node_execution_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowSchedulerNodeOutcomeLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_scheduler_node_outcome_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_scheduler_node_outcome_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowSchedulerNodeFailureOutcomeLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_scheduler_node_failure_outcome_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_scheduler_node_failure_outcome_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowSchedulerNodeSuccessEventLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_scheduler_node_success_event_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_scheduler_node_success_event_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowSchedulerNodeStateUpdateLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_scheduler_node_state_update_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_scheduler_node_state_update_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowSchedulerValidationLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_scheduler_validation_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_scheduler_validation_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectPackage = fs.readFileSync(
-    path.join(root, "apps/autopilot/src-tauri/src/project/package.rs"),
+    path.join(root, "internal-docs/legacy/autopilot-tauri-src/src/project/package.rs"),
     "utf8",
   );
   const tauriProjectValidation = fs.readFileSync(
-    path.join(root, "apps/autopilot/src-tauri/src/project/validation.rs"),
+    path.join(root, "internal-docs/legacy/autopilot-tauri-src/src/project/validation.rs"),
     "utf8",
   );
   const tauriProjectWorkflowAuthorityToolingLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_authority_tooling_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_authority_tooling_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowApprovalInterruptLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_approval_interrupt_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_approval_interrupt_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowBindingLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_binding_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_binding_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowCheckpointLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_checkpoint_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_checkpoint_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowStateLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_state_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_state_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowNodeContractLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_node_contract_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_node_contract_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowNodeMetadataLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_node_metadata_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_node_metadata_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowRunLifecycleLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_run_lifecycle_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_run_lifecycle_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowNodeExecutionLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_node_execution_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_node_execution_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowMemoryLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_memory_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_memory_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowOutputLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_output_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_output_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowPackageLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_package_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_package_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowCodingRouteLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_coding_route_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_coding_route_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowExecutionResultsLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_execution_results_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_execution_results_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowGraphExecutionLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_graph_execution_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_graph_execution_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowHarnessResultsLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_harness_results_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_harness_results_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectRepositoryPrLane = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/repository_pr_lane.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/repository_pr_lane.rs",
     ),
     "utf8",
   );
   const tauriProjectWorkflowValueHelpers = fs.readFileSync(
     path.join(
       root,
-      "apps/autopilot/src-tauri/src/project/workflow_value_helpers.rs",
+      "internal-docs/legacy/autopilot-tauri-src/src/project/workflow_value_helpers.rs",
     ),
     "utf8",
   );
   const tauriProjectTemplates = fs.readFileSync(
-    path.join(root, "apps/autopilot/src-tauri/src/project/templates.rs"),
+    path.join(root, "internal-docs/legacy/autopilot-tauri-src/src/project/templates.rs"),
     "utf8",
   );
   const tauriRuntimeProjection = fs.readFileSync(
-    path.join(root, "apps/autopilot/src-tauri/src/runtime_projection.rs"),
+    path.join(root, "internal-docs/legacy/autopilot-tauri-src/src/runtime_projection.rs"),
     "utf8",
   );
   const workflowHarnessTools = fs.readFileSync(
@@ -14492,7 +14531,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     "utf8",
   );
   const generatedRustActionSchema = fs.readFileSync(
-    path.join(root, "apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs"),
+    path.join(root, "internal-docs/legacy/autopilot-tauri-src/src/generated/runtime_action_schema.rs"),
     "utf8",
   );
   assert.match(workflowContracts, /memory\.scope/);

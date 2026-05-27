@@ -79,6 +79,31 @@ fn single_snapshot_min_sources_honors_citation_floor() {
 }
 
 #[test]
+fn non_snapshot_min_sources_honors_citation_floor() {
+    let query = "Which is a better investment right now, Akash or Filecoin?";
+    let contract = WebRetrievalContract {
+        contract_version: "test.v1".to_string(),
+        entity_cardinality_min: 1,
+        comparison_required: false,
+        currentness_required: false,
+        runtime_locality_required: false,
+        source_independence_min: 1,
+        citation_count_min: 2,
+        structured_record_preferred: false,
+        ordered_collection_preferred: false,
+        link_collection_preferred: false,
+        canonical_link_out_preferred: false,
+        geo_scoped_detail_required: false,
+        discovery_surface_required: false,
+        entity_diversity_required: false,
+        scalar_measure_required: false,
+        browser_fallback_allowed: true,
+    };
+
+    assert_eq!(retrieval_contract_min_sources(Some(&contract), query), 2);
+}
+
+#[test]
 fn comparison_requests_fall_back_to_query_when_contract_is_absent() {
     let query =
         "Find the three best-reviewed Italian restaurants in New York, NY and compare their menus.";

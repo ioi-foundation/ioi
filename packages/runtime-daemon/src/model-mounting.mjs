@@ -16,7 +16,57 @@ import {
   workflowMemoryOptionsFromBody,
   workflowMemoryWriteBlockReason,
 } from "./model-mounting/workflow-memory.mjs";
-import { isExecutable, listJson, notFound, readJson, runtimeError, safeFileName, safeId, writeJson } from "./model-mounting/io.mjs";
+import {
+  nativeFixtureConversationReply,
+  nativeFixtureQueryNeedsCommand,
+  nativeFixtureQueryNeedsWeb,
+  nativeFixtureQueryWorkspaceConstrained,
+} from "./model-mounting/native-fixture-intent.mjs";
+import { nativeFixtureRepoAwareResponse } from "./model-mounting/native-fixture-repo-aware.mjs";
+import {
+  isExecutable,
+  listJson,
+  notFound,
+  readJson,
+  runtimeError,
+  safeFileName,
+  safeId,
+  writeJson,
+  stableHash,
+  stableStringify,
+  redact,
+  shouldRedactKey,
+  emitRemoteBoundaryEvent,
+  fileSha256,
+  sleep,
+  fetchWithTimeout,
+  fileSizeIfExists,
+  normalizeNonNegativeInteger,
+  normalizeOptionalBytes,
+  truthy,
+  matchesAny,
+  publicToken,
+  publicMcpServer,
+  hashToken,
+  operationCount,
+  publicVaultRefs,
+  publicVaultRefMetadata,
+  normalizeScopes,
+  normalizeOAuthScopes,
+} from "./model-mounting/io.mjs";
+import {
+  materializeFixtureDownload,
+  materializeLiveDownload,
+  materializeLiveDownloadAttempt,
+  writeDownloadResumeMetadata,
+  isRetriableDownloadFailure,
+  downloadRetryBackoffMs,
+  shouldRetainFailedDownloadPartial,
+  failedDownloadCleanupState,
+  cleanupPartialDownload,
+  downloadFailureReason,
+  publicDownloadSource,
+} from "./model-mounting/download-helpers.mjs";
 
 const MODEL_MOUNT_SCHEMA_VERSION = "ioi.model-mounting.runtime.v1";
 const SECRET_REDACTION = "[REDACTED]";
@@ -1517,6 +1567,24 @@ class LmStudioModelProviderDriver {
   async invoke(args) {
     const result = await this.openAi.invoke({ ...args, providerLabel: "lm_studio", allowResponsesFallback: true });
     return { ...result, backend: "lm_studio", backendId: args.endpoint?.backendId ?? "backend.lmstudio" };
+  }
+
+  supportsStream(kind) {
+    return this.openAi.supportsStream(kind);
+  }
+
+  async streamInvoke(args) {
+    const result = await this.openAi.streamInvoke({ ...args, providerLabel: "lm_studio" });
+    if (!result) return null;
+    return {
+      ...result,
+      backend: "lm_studio",
+      backendId: args.endpoint?.backendId ?? "backend.lmstudio",
+      backendEvidenceRefs: [
+        "lm_studio_provider_native_stream",
+        ...(result.backendEvidenceRefs ?? []),
+      ],
+    };
   }
 
   lmsPath(provider) {
@@ -3765,12 +3833,16 @@ export class ModelMountingState {
   }
 
   async searchHuggingFaceCatalog({ query, format, quantization, limit, searchedAt }) {
-    const baseUrl = huggingFaceCatalogBaseUrl();
+    const baseUrl = huggingFaceCatalogBaseUrl(this);
+    const config = this.catalogProviderConfig("catalog.huggingface");
     const evidenceRefs = ["huggingface_catalog_adapter_boundary", "network_access_opt_in"];
+    if (config?.enabled === false) {
+      const fields = catalogProviderConfigHealthFields("catalog.huggingface", config, this.catalogProviderRuntimeMaterial("catalog.huggingface"));
+      return { ...fields, status: "disabled", baseUrlHash: stableHash(baseUrl), evidenceRefs, results: [] };
+    }
     if (!liveModelCatalogEnabled()) {
-      const config = this.catalogProviderConfig("catalog.huggingface");
       return {
-        ...catalogProviderConfigHealthFields("catalog.huggingface", config, null),
+        ...catalogProviderConfigHealthFields("catalog.huggingface", config, this.catalogProviderRuntimeMaterial("catalog.huggingface")),
         status: "gated",
         baseUrlHash: stableHash(baseUrl),
         evidenceRefs,
@@ -5533,7 +5605,7 @@ export class ModelMountingState {
     if (typeof driver.streamInvoke !== "function" || (typeof driver.supportsStream === "function" && !driver.supportsStream(kind))) {
       return {
         native: false,
-        invocation: await this.invokeModel({ authorization, requiredScope, kind, body }),
+        invocation: await this.invokeModel({ authorization, requiredScope, kind, body: { ...body, stream: false } }),
       };
     }
     const routeReceipt = this.routeSelectionReceipt(selection, { body, capability, responseId, previousResponseId });
@@ -5553,7 +5625,7 @@ export class ModelMountingState {
     if (!providerResult?.stream) {
       return {
         native: false,
-        invocation: await this.invokeModel({ authorization, requiredScope, kind, body }),
+        invocation: await this.invokeModel({ authorization, requiredScope, kind, body: { ...body, stream: false } }),
       };
     }
     const outputText = "";
@@ -7688,7 +7760,13 @@ function chatCompletionRequestBody(body, modelId) {
 }
 
 function outputTextFromChat(body) {
-  return String(body?.choices?.[0]?.message?.content ?? body?.choices?.[0]?.text ?? body?.output_text ?? "");
+  return String(
+    body?.choices?.[0]?.message?.content ??
+      body?.choices?.[0]?.message?.reasoning_content ??
+      body?.choices?.[0]?.text ??
+      body?.output_text ??
+      "",
+  );
 }
 
 function outputTextFromResponse(body) {
@@ -7721,26 +7799,7 @@ function normalizeLimit(value, fallback = 80, maximum = 200) {
   return Math.min(Math.floor(parsed), maximum);
 }
 
-function normalizeOptionalBytes(value) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) return null;
-  return Math.floor(parsed);
-}
 
-function normalizeNonNegativeInteger(value, fallback = 0) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) return fallback;
-  return Math.floor(parsed);
-}
-
-function fileSizeIfExists(filePath) {
-  if (!filePath || !fs.existsSync(filePath)) return 0;
-  try {
-    return fs.statSync(filePath).size;
-  } catch {
-    return 0;
-  }
-}
 
 function hostedProvider(id, label, apiFormat, secret) {
   return {
@@ -7850,17 +7909,7 @@ function expiresAt(nowIso, loadPolicy) {
   return new Date(Date.parse(nowIso) + Number(loadPolicy.idleTtlSeconds ?? 900) * 1000).toISOString();
 }
 
-function normalizeScopes(value, fallback) {
-  if (!value) return [...fallback];
-  if (Array.isArray(value)) return value.map(String);
-  return [String(value)];
-}
 
-function normalizeOAuthScopes(value, fallback = []) {
-  if (!value) return [...fallback];
-  if (Array.isArray(value)) return value.map(String).filter(Boolean);
-  return String(value).split(/\s+/).map((scope) => scope.trim()).filter(Boolean);
-}
 
 function sanitizeVaultRefs(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -8038,42 +8087,9 @@ function vaultRefEnvironmentAlias(vaultRef) {
   return aliases.get(vaultRef) ?? null;
 }
 
-function publicVaultRefs(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  return Object.fromEntries(
-    Object.entries(value).map(([key, vaultRef]) => [
-      key,
-      typeof vaultRef === "string" && vaultRef.startsWith("vault://")
-        ? { redacted: true, hash: stableHash(vaultRef) }
-        : SECRET_REDACTION,
-    ]),
-  );
-}
 
-function publicVaultRefMetadata(metadata) {
-  return {
-    vaultRef: { redacted: true, hash: metadata.vaultRefHash },
-    vaultRefHash: metadata.vaultRefHash,
-    label: metadata.label ?? null,
-    purpose: metadata.purpose ?? "provider.auth",
-    source: metadata.source ?? "agentgres_local_vault_metadata",
-    materialSource: metadata.materialSource ?? (metadata.resolvedMaterial ? "runtime_memory" : "unbound"),
-    configured: Boolean(metadata.configured),
-    resolvedMaterial: Boolean(metadata.resolvedMaterial),
-    runtimeBound: Boolean(metadata.runtimeBound ?? metadata.resolvedMaterial),
-    materialBound: Boolean(metadata.materialBound ?? metadata.resolvedMaterial),
-    requiresRebind: Boolean(metadata.requiresRebind ?? (metadata.configured && !metadata.resolvedMaterial)),
-    createdAt: metadata.createdAt ?? null,
-    updatedAt: metadata.updatedAt ?? null,
-    removedAt: metadata.removedAt ?? null,
-    lastResolvedAt: metadata.lastResolvedAt ?? null,
-    evidenceRefs: normalizeScopes(metadata.evidenceRefs, ["VaultPort.localBinding"]),
-  };
-}
 
-function truthy(value) {
-  return value === true || value === "true" || value === 1 || value === "1";
-}
+
 
 function requiredString(value, field) {
   if (typeof value !== "string" || value.trim() === "") {
@@ -8097,13 +8113,33 @@ function supportsResponseState(kind) {
   return ["chat", "chat.completions", "responses", "messages", "completions"].includes(kind);
 }
 
+function messageContentText(content) {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) return content.map(messageContentText).filter(Boolean).join("\n");
+  if (content && typeof content === "object") {
+    for (const key of ["text", "content", "input_text", "output_text", "value"]) {
+      const value = content[key];
+      if (typeof value === "string") return value;
+      if (Array.isArray(value)) return value.map(messageContentText).filter(Boolean).join("\n");
+    }
+    return JSON.stringify(content);
+  }
+  return String(content ?? "");
+}
+
 function inputText(body) {
   if (typeof body.input === "string") return body.input;
-  if (Array.isArray(body.input)) return body.input.map((item) => String(item)).join("\n");
+  if (Array.isArray(body.input)) return body.input.map(messageContentText).join("\n");
   if (typeof body.prompt === "string") return body.prompt;
   if (Array.isArray(body.messages)) {
     return body.messages
-      .map((message) => `${message.role ?? "user"}: ${message.content ?? ""}`)
+      .map((message) => {
+        let content = messageContentText(message.content ?? "");
+        if (message.tool_calls) content += " " + JSON.stringify(message.tool_calls);
+        if (message.toolCalls) content += " " + JSON.stringify(message.toolCalls);
+        if (message.name) content += " name:" + message.name;
+        return `${message.role ?? "user"}: ${content}`;
+      })
       .join("\n");
   }
   return JSON.stringify(body);
@@ -8116,14 +8152,421 @@ function deterministicOutput({ kind, input, modelId }) {
   return `IOI model router fixture response from ${modelId}. input_hash=${digest}`;
 }
 
+function extractedUserQuery(inputStr) {
+  const rawText = String(inputStr);
+  const promptText = rawText.includes("\\n") || rawText.includes('\\"')
+    ? rawText.replace(/\\n/g, "\n").replace(/\\"/g, '"')
+    : rawText;
+
+  const queryMatch = promptText.match(
+    /(?:^|\n)(?:user:\s*)?Query:\n([\s\S]*?)(?:\n\n(?:Intents:|Return exactly one JSON object|Return JSON)|$)/i,
+  );
+  if (queryMatch?.[1]?.trim()) return queryMatch[1].trim();
+
+  const requestMatch = promptText.match(
+    /(?:^|\n)User request:\n([\s\S]*?)(?:\n\n(?:Resolved intent:|Required capabilities:|Provider selection state:|Return exactly one JSON object)|$)/i,
+  );
+  if (requestMatch?.[1]?.trim()) return requestMatch[1].trim();
+
+  const latestRequestMatch = promptText.match(
+    /(?:^|\n)Latest user request:\n([\s\S]*?)(?:\nFinal answer text:|$)/i,
+  );
+  if (latestRequestMatch?.[1]?.trim()) return latestRequestMatch[1].trim();
+
+  const recentUserLines = [...promptText.matchAll(/(?:^|\n)user:\s*([^\n]+)/gi)]
+    .map((match) => match[1].trim())
+    .filter(Boolean);
+  if (recentUserLines.length > 0) return recentUserLines.at(-1);
+
+  const goalMatch = promptText.match(/(?:^|\n)- (?:Current Goal|Goal):\s*([^\n]+)/i);
+  if (goalMatch?.[1]?.trim()) return goalMatch[1].trim();
+
+  return rawText;
+}
+
+function nativeFixtureCurrentTurnText(rawText, queryText) {
+  const text = String(rawText || "");
+  const query = String(queryText || "").trim();
+  if (query) {
+    const lowerText = text.toLowerCase();
+    const lowerQuery = query.toLowerCase();
+    const index = lowerText.lastIndexOf(lowerQuery);
+    if (index >= 0) {
+      return text.slice(index);
+    }
+  }
+  const userMatches = [...text.matchAll(/(?:^|\n)\s*user:\s*/gi)];
+  const latestUser = userMatches.at(-1);
+  return latestUser ? text.slice(latestUser.index) : text;
+}
+
+function nativeFixturePreReadSelection(inputStr) {
+  if (
+    !inputStr.includes("CEC State 3 (Typed Web Source Selection)") &&
+    !inputStr.includes("Select URLs from the payload that best satisfy the typed retrieval contract")
+  ) {
+    return null;
+  }
+
+  const requiredUrlCount = Math.max(1, Number(inputStr.match(/"required_url_count"\s*:\s*(\d+)/)?.[1] ?? 1));
+  const urls = [...inputStr.matchAll(/"url"\s*:\s*"([^"]+)"/g)]
+    .map((match) => match[1])
+    .filter((url, index, all) => /^https?:\/\//i.test(url) && all.indexOf(url) === index);
+  const fixtureUrls = urls.filter((url) => (
+    url === "https://example.com/akt-filecoin-comparison" ||
+    url === "https://example.com/crypto/akt-price-today-2026" ||
+    url === "https://example.com/crypto/filecoin-price-today-2026" ||
+    url === "https://example.com/local-ai-runtime-issue" ||
+    url === "https://www.nist.gov/news-events/news/2026/local-ai-model-runtime-issue"
+  ));
+  const nonSearchHubUrls = urls.filter((url) => !/duckduckgo\.com|google\.com\/search/i.test(url));
+  const selected = (fixtureUrls.length > 0 ? fixtureUrls : nonSearchHubUrls).slice(0, requiredUrlCount);
+
+  return JSON.stringify({
+    selection_mode: "direct_detail",
+    urls: selected,
+  });
+}
+
 function nativeLocalOutput({ kind, input, modelId }) {
   const digest = stableHash(input).slice(0, 12);
   if (kind === "embeddings") return `native-local-embedding:${modelId}:${digest}`;
-  return `Autopilot native local model response from ${modelId}. input_hash=${digest}`;
+
+  const inputStr = String(input);
+  const queryText = extractedUserQuery(inputStr);
+  const currentTurnText = nativeFixtureCurrentTurnText(inputStr, queryText);
+  const promptContextText = `${queryText}\n${currentTurnText}`;
+  const querySignalText = String(queryText || "").trim() || promptContextText;
+  const expectsJsonToolCall =
+    inputStr.includes("[AVAILABLE TOOLS]") ||
+    inputStr.includes("Output EXACTLY ONE valid JSON tool call");
+  if (inputStr.includes("Classify the immediate next execution mode")) {
+    const preferChat = /\b(humans|hello|hi|chat|conversation)\b/i.test(queryText);
+    return JSON.stringify({
+      mode: preferChat ? "Chat" : "Blind"
+    });
+  }
+
+  if (inputStr.includes("ontology incident resolver")) {
+    return JSON.stringify({
+      name: "web__read",
+      arguments: {
+        url: "https://example.com/akt-filecoin-comparison",
+        max_chars: 1000,
+        allow_browser_fallback: false
+      }
+    });
+  }
+
+  const preReadSelection = nativeFixturePreReadSelection(inputStr);
+  if (preReadSelection) {
+    return preReadSelection;
+  }
+
+  if (inputStr.includes("Return JSON only with schema:")) {
+    let citationId = "https://example.com/akt-filecoin-comparison";
+    const match = inputStr.match(/"id":\s*"([^"]+)"/);
+    if (match) {
+      citationId = match[1];
+    }
+    return JSON.stringify({
+      heading: "Investment Comparison: AKT vs Filecoin",
+      items: [
+        {
+          title: "AKT vs Filecoin Analysis",
+          sections: [
+            {
+              label: "Summary",
+              content: "AKT is performing better than Filecoin right now due to stronger utility and demand."
+            },
+            {
+              label: "Recent Change",
+              content: "AKT has seen positive price action while Filecoin remains consolidated."
+            },
+            {
+              label: "Significance",
+              content: "This represents a shift in decentralized storage and compute preferences."
+            }
+          ],
+          citation_ids: [citationId],
+          confidence: "high",
+          caveat: "This is a deterministic test response."
+        }
+      ],
+      overall_confidence: "high",
+      overall_caveat: "No advice is given."
+    });
+  }
+  if (
+    inputStr.includes("remote_public_fact_required") &&
+    inputStr.includes("host_local_clock_targeted") &&
+    inputStr.includes("temporal_filesystem_filter")
+  ) {
+    const workspaceConstrained = nativeFixtureQueryWorkspaceConstrained(querySignalText);
+    const commandDirected = nativeFixtureQueryNeedsCommand(querySignalText);
+    const currentExternalFact = nativeFixtureQueryNeedsWeb(querySignalText) && !workspaceConstrained;
+    return JSON.stringify({
+      remote_public_fact_required: currentExternalFact,
+      host_local_clock_targeted: false,
+      command_directed: commandDirected,
+      durable_automation_requested: false,
+      model_registry_control_requested: false,
+      app_launch_directed: false,
+      direct_ui_input: false,
+      desktop_screenshot_requested: false,
+      temporal_filesystem_filter: false,
+    });
+  }
+
+  if (inputStr.includes("\"scores\"") && inputStr.includes("\"intent_id\"") && inputStr.includes("Score only semantic fit")) {
+    const intentIds = [...new Set([...inputStr.matchAll(/"intent_id"\s*:\s*"([^"]+)"/g)].map((match) => match[1]))];
+    const workspaceConstrained = nativeFixtureQueryWorkspaceConstrained(querySignalText);
+    const preferCommand = nativeFixtureQueryNeedsCommand(querySignalText);
+    const preferWeb = nativeFixtureQueryNeedsWeb(querySignalText) && !workspaceConstrained;
+    const preferWorkspace = workspaceConstrained && !preferWeb && !preferCommand;
+    const preferConversation = /\b(humans|hello|hi|chat|conversation|thanks|thank you|how are you)\b/i.test(queryText) && !preferWeb && !preferWorkspace && !preferCommand;
+    const isRustBridgeTest = /\b(Rust|RuntimeAgentService|bridge|KernelEvent|interrupt|validation|operator|cross-surface|react-flow)\b/i.test(querySignalText);
+    const scores = intentIds.map((intentId) => {
+      let score = isRustBridgeTest ? 0.0 : 0.05;
+      if (preferCommand && intentId === "command.exec") score = 0.98;
+      if (preferWeb && intentId === "web.research") score = 0.98;
+      if (preferWorkspace && intentId === "workspace.ops") score = 0.94;
+      if (preferConversation && intentId === "conversation.reply") score = 0.96;
+      if (!preferWeb && !preferWorkspace && !preferConversation && !isRustBridgeTest && intentId === "conversation.reply") score = 0.7;
+      return { intent_id: intentId, score };
+    });
+    return JSON.stringify({ scores });
+  }
+
+  const hasToolCalled = (toolName) => {
+    const lines = currentTurnText.split("\n");
+    const escapedToolName = toolName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const structuredToolEvent = new RegExp(`\\btool\\.(?:started|completed|failed|result)\\b[\\s\\S]{0,500}\\b${escapedToolName}\\b`, "i");
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (line.startsWith("assistant:") && line.includes(toolName)) {
+        return true;
+      }
+      if (
+        trimmedLine.startsWith("tool:") &&
+        (
+          trimmedLine.startsWith(`tool: ${toolName}`) ||
+          trimmedLine.startsWith(`tool:${toolName}`) ||
+          trimmedLine.includes(`name:${toolName}`) ||
+          trimmedLine.includes(`"name":"${toolName}"`) ||
+          trimmedLine.includes(`"name": "${toolName}"`) ||
+          trimmedLine.includes(`Tool Output (${toolName})`)
+        )
+      ) {
+        return true;
+      }
+    }
+    return (
+      structuredToolEvent.test(currentTurnText) ||
+      new RegExp(`"tool"\\s*:\\s*"${escapedToolName}"`, "i").test(currentTurnText) ||
+      new RegExp(`"tool_name"\\s*:\\s*"${escapedToolName}"`, "i").test(currentTurnText) ||
+      new RegExp(`"toolName"\\s*:\\s*"${escapedToolName}"`, "i").test(currentTurnText)
+    );
+  };
+
+  const repoAwareResponse = nativeFixtureRepoAwareResponse({
+    cwd: process.cwd(),
+    expectsJsonToolCall:
+      expectsJsonToolCall ||
+      /\b(chat__reply|agent__complete|file__read|file__search)\b/i.test(inputStr),
+    hasToolCalled,
+    inputText: inputStr,
+    promptContextText,
+    queryText,
+  });
+  if (repoAwareResponse) return repoAwareResponse;
+
+  if (/\b(AKT|Akash|Filecoin|FIL)\b/i.test(queryText)) {
+    if (!expectsJsonToolCall) {
+      return "Fresh retrieval is required for current AKT or Filecoin investment comparisons; I should not guess from stale model memory.";
+    }
+    if (hasToolCalled("chat__reply")) {
+      return JSON.stringify({
+        name: "agent__complete",
+        arguments: {
+          result: "Successfully completed task and compared AKT vs Filecoin."
+        }
+      });
+    }
+    if (hasToolCalled("web__read")) {
+      return JSON.stringify({
+        name: "chat__reply",
+        arguments: {
+          message: "Based on web research, AKT is performing better than Filecoin right now."
+        }
+      });
+    }
+    if (hasToolCalled("web__search")) {
+      return JSON.stringify({
+        name: "web__read",
+        arguments: {
+          url: "https://example.com/crypto/akt-price-today-2026",
+          max_chars: 1000,
+          allow_browser_fallback: false
+        }
+      });
+    }
+    return JSON.stringify({
+      name: "web__search",
+      arguments: {
+        query: "AKT or Filecoin investment status 2026",
+        limit: 5
+      }
+    });
+  }
+
+  if (nativeFixtureQueryNeedsWeb(promptContextText)) {
+    if (!expectsJsonToolCall) {
+      return "Fresh retrieval is required for current facts; I should not guess from stale model memory.";
+    }
+    if (hasToolCalled("chat__reply")) {
+      return JSON.stringify({
+        name: "agent__complete",
+        arguments: {
+          result: "Successfully completed currentness-gated retrieval."
+        }
+      });
+    }
+    if (hasToolCalled("web__read")) {
+      return JSON.stringify({
+        name: "chat__reply",
+        arguments: {
+          message: "Based on retrieved current sources, this answer is gated on fresh evidence about the local AI model runtime issue rather than stale model memory."
+        }
+      });
+    }
+    if (hasToolCalled("web__search")) {
+      return JSON.stringify({
+        name: "web__read",
+        arguments: {
+          url: "https://www.nist.gov/news-events/news/2026/local-ai-model-runtime-issue",
+          max_chars: 1000,
+          allow_browser_fallback: false
+        }
+      });
+    }
+    return JSON.stringify({
+      name: "web__search",
+      arguments: {
+        query: queryText,
+        limit: 5
+      }
+    });
+  }
+
+  if (queryText.includes("do you like humans?") || queryText.includes("humans")) {
+    if (hasToolCalled("chat__reply")) {
+      return JSON.stringify({
+        name: "agent__complete",
+        arguments: {
+          result: "Done chatting about humans."
+        }
+      });
+    }
+    return JSON.stringify({
+      name: "chat__reply",
+      arguments: {
+        message: "Yes, I like humans!"
+      }
+    });
+  }
+
+  const conversationReply = nativeFixtureConversationReply(queryText);
+  if (conversationReply) {
+    if (!expectsJsonToolCall) {
+      return conversationReply;
+    }
+    if (hasToolCalled("chat__reply")) {
+      return JSON.stringify({
+        name: "agent__complete",
+        arguments: {
+          result: "Conversational reply was delivered."
+        }
+      });
+    }
+    return JSON.stringify({
+      name: "chat__reply",
+      arguments: {
+        message: conversationReply
+      }
+    });
+  }
+
+  const fallbackSurface = `${querySignalText}\n${inputStr}`;
+
+  if (/\b(daemon|runtime authority|runtimeagentservice|bridge|electron workbench)\b/i.test(fallbackSurface)) {
+    if (hasToolCalled("chat__reply")) {
+      return JSON.stringify({
+        name: "agent__complete",
+        arguments: {
+          result: "Runtime authority explanation was delivered."
+        }
+      });
+    }
+    return JSON.stringify({
+      name: "chat__reply",
+      arguments: {
+        message: "The IOI daemon owns runtime authority so Electron stays a projection surface while governed sessions, policies, tool execution, and trace records remain in the daemon runtime."
+      }
+    });
+  }
+
+  if (/\b(repository|repo|workspace|project|codebase|source tree|inspect|file|files)\b/i.test(fallbackSurface)) {
+    if (hasToolCalled("chat__reply")) {
+      return JSON.stringify({
+        name: "agent__complete",
+        arguments: {
+          result: "Workspace context was summarized."
+        }
+      });
+    }
+    return JSON.stringify({
+      name: "chat__reply",
+      arguments: {
+        message: `You are in ${process.cwd()}. Studio should inspect the Agent Studio chat UX, runtime bridge wiring, and intent routing path first.`
+      }
+    });
+  }
+
+  // Fallback for any other prompt
+  if (hasToolCalled("chat__reply")) {
+    return JSON.stringify({
+      name: "agent__complete",
+      arguments: {
+        result: "Task completed."
+      }
+    });
+  }
+  if (
+    !expectsJsonToolCall &&
+    (
+      (modelId && String(modelId).startsWith("native:")) ||
+      inputStr.toLowerCase().includes("native") ||
+      inputStr.toLowerCase().includes("e2e")
+    )
+  ) {
+    return "Autopilot native local model response";
+  }
+  return JSON.stringify({
+    name: "chat__reply",
+    arguments: {
+      message: "Agent Studio is ready, daemon-routed, and waiting on the next governed instruction."
+    }
+  });
 }
 
 function nativeLocalStreamRecords(outputText, tokenCount) {
-  const chunks = String(outputText).match(/.{1,64}(?:\s+|$)/gs) ?? [String(outputText)];
+  const text = String(outputText);
+  const chunks = [];
+  for (let offset = 0; offset < text.length; offset += 64) {
+    chunks.push(text.slice(offset, offset + 64));
+  }
+  if (chunks.length === 0) chunks.push("");
   return [
     ...chunks.map((chunk) => ({ delta: chunk, done: false })),
     {
@@ -8551,9 +8994,9 @@ function catalogProviderConfigUpdate(providerId, body, existing = null, updatedA
       ? material.manifestPath
         ? stableHash(path.resolve(material.manifestPath))
         : existing?.manifestPathHash ?? null
-      : providerId === "catalog.custom_http" && material.baseUrl
+      : (providerId === "catalog.custom_http" || providerId === "catalog.huggingface") && material.baseUrl
         ? stableHash(material.baseUrl)
-        : providerId === "catalog.custom_http"
+        : providerId === "catalog.custom_http" || providerId === "catalog.huggingface"
           ? existing?.baseUrlHash ?? null
           : null;
   const authConfig = catalogProviderAuthConfig(providerId, body, existing, state);
@@ -8577,7 +9020,7 @@ function catalogProviderConfigUpdate(providerId, body, existing = null, updatedA
       oauthSessionHash: authConfig.oauthSessionHash,
     }),
     manifestPathHash: providerId === "catalog.local_manifest" ? materialHash : null,
-    baseUrlHash: providerId === "catalog.custom_http" ? materialHash : null,
+    baseUrlHash: providerId === "catalog.custom_http" || providerId === "catalog.huggingface" ? materialHash : null,
     authVaultRef: authConfig.authVaultRef,
     authVaultRefHash,
     catalogAuthConfigured: authConfig.catalogAuthConfigured,
@@ -8603,15 +9046,13 @@ function catalogProviderConfigUpdate(providerId, body, existing = null, updatedA
 }
 
 function catalogProviderRuntimeMaterialFromBody(providerId, body) {
-  if (providerId === "catalog.local_manifest") {
-    const manifestPath = body.manifest_path ?? body.manifestPath ?? body.path ?? null;
-    return catalogProviderRuntimeMaterialFromValue(providerId, manifestPath);
-  }
-  if (providerId === "catalog.custom_http") {
-    const baseUrl = body.base_url ?? body.baseUrl ?? body.url ?? null;
-    return catalogProviderRuntimeMaterialFromValue(providerId, baseUrl);
-  }
-  return {};
+  const source =
+    providerId === "catalog.local_manifest"
+      ? body.manifest_path ?? body.manifestPath ?? body.path ?? null
+      : providerId === "catalog.custom_http" || providerId === "catalog.huggingface"
+        ? body.base_url ?? body.baseUrl ?? body.url ?? null
+        : null;
+  return source === null ? {} : catalogProviderRuntimeMaterialFromValue(providerId, source);
 }
 
 function catalogProviderAuthConfig(providerId, body, existing = null, state) {
@@ -8690,14 +9131,10 @@ function normalizeCatalogAuthScheme(value) {
 
 function catalogProviderRuntimeMaterialFromValue(providerId, value) {
   if (providerId === "catalog.local_manifest") {
-    return {
-      manifestPath: typeof value === "string" && value.trim() ? path.resolve(value.trim()) : null,
-    };
+    return { manifestPath: typeof value === "string" && value.trim() ? path.resolve(value.trim()) : null };
   }
-  if (providerId === "catalog.custom_http") {
-    return {
-      baseUrl: typeof value === "string" && value.trim() ? value.trim().replace(/\/+$/, "") : null,
-    };
+  if (providerId === "catalog.custom_http" || providerId === "catalog.huggingface") {
+    return { baseUrl: typeof value === "string" && value.trim() ? value.trim().replace(/\/+$/, "") : null };
   }
   return {};
 }
@@ -8707,21 +9144,16 @@ function catalogProviderHasSourceMaterial(material) {
 }
 
 function catalogProviderSourceValue(providerId, material) {
-  if (providerId === "catalog.local_manifest") return path.resolve(material.manifestPath);
-  if (providerId === "catalog.custom_http") return material.baseUrl;
-  return "";
+  return providerId === "catalog.local_manifest" ? path.resolve(material.manifestPath) : material?.baseUrl ?? "";
 }
 
-function catalogProviderMaterialVaultRef(providerId) {
-  return `vault://ioi/model-catalog/${safeId(providerId)}/source`;
-}
+function catalogProviderMaterialVaultRef(providerId) { return `vault://ioi/model-catalog/${safeId(providerId)}/source`; }
 
-function catalogProviderMaterialPurpose(providerId) {
-  return `catalog.source:${providerId}`;
-}
+function catalogProviderMaterialPurpose(providerId) { return `catalog.source:${providerId}`; }
 
 function catalogProviderMaterialLabel(providerId) {
-  return providerId === "catalog.local_manifest" ? "Local manifest catalog source" : "Custom HTTP catalog source";
+  if (providerId === "catalog.local_manifest") return "Local manifest catalog source";
+  return providerId === "catalog.huggingface" ? "Hugging Face-compatible catalog source" : "Custom HTTP catalog source";
 }
 
 async function catalogProviderAuthHeaders(providerId, state) {
@@ -9191,10 +9623,11 @@ function ollamaCatalogProviderPort(state) {
 }
 
 function huggingFaceCatalogProviderPort(state) {
-  const baseUrl = huggingFaceCatalogBaseUrl();
+  const baseUrl = huggingFaceCatalogBaseUrl(state);
   const evidenceRefs = ["huggingface_catalog_adapter_boundary", "network_access_opt_in", "model_catalog_provider_port"];
   const config = state?.catalogProviderConfig?.("catalog.huggingface") ?? null;
-  const configFields = catalogProviderConfigHealthFields("catalog.huggingface", config, null);
+  const material = state?.catalogProviderRuntimeMaterial?.("catalog.huggingface") ?? null;
+  const configFields = catalogProviderConfigHealthFields("catalog.huggingface", config, material);
   return {
     id: "catalog.huggingface",
     label: "Hugging Face-compatible catalog",
@@ -9204,8 +9637,13 @@ function huggingFaceCatalogProviderPort(state) {
     evidenceRefs,
     health: () => ({
       ...configFields,
-      status: liveModelCatalogEnabled() ? "configured" : "gated",
+      status: config?.enabled === false ? "disabled" : liveModelCatalogEnabled() ? "configured" : "gated",
       baseUrlHash: stableHash(baseUrl),
+      gate: material?.baseUrl ? "vault-backed Hugging Face-compatible catalog setup" : "IOI_MODEL_CATALOG_HF_BASE_URL",
+      materialConfigured: Boolean(material?.baseUrl || configFields.materialConfigured),
+      runtimeMaterialStatus: material?.baseUrl ? material.runtimeMaterialStatus ?? "bound_runtime_session" : configFields.runtimeMaterialStatus,
+      materialVaultRefHash: material?.materialVaultRefHash ?? configFields.materialVaultRefHash,
+      vaultMaterialSource: material?.materialSource ?? configFields.vaultMaterialSource,
       liveDownloadStatus: liveModelDownloadEnabled() ? "configured" : "gated",
       evidenceRefs,
     }),
@@ -9290,8 +9728,11 @@ function liveModelDownloadEnabled() {
   return process.env.IOI_LIVE_MODEL_DOWNLOAD === "1";
 }
 
-function huggingFaceCatalogBaseUrl() {
-  return process.env.IOI_MODEL_CATALOG_HF_BASE_URL ?? "https://huggingface.co";
+function huggingFaceCatalogBaseUrl(state) {
+  const fallback = process.env.IOI_MODEL_CATALOG_HF_BASE_URL ?? "https://huggingface.co";
+  return state?.catalogProviderConfig?.("catalog.huggingface")?.enabled === false
+    ? fallback
+    : state?.catalogProviderRuntimeMaterial?.("catalog.huggingface")?.baseUrl ?? fallback;
 }
 
 function localManifestCatalogPath(state) {
@@ -9395,15 +9836,7 @@ function modelDownloadTimeoutMs() {
   return Number(process.env.IOI_MODEL_DOWNLOAD_TIMEOUT_MS ?? 30000) || 30000;
 }
 
-async function fetchWithTimeout(url, { timeoutMs, headers = {}, method = "GET", body = undefined } = {}) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs ?? 5000);
-  try {
-    return await fetch(url, { method, headers, body, signal: controller.signal });
-  } finally {
-    clearTimeout(timeout);
-  }
-}
+
 
 function huggingFaceCatalogEntries(record, { baseUrl, searchedAt }) {
   const repoId = String(record.modelId ?? record.id ?? record.repo_id ?? record.repoId ?? "").trim();
@@ -9839,458 +10272,4 @@ function listModelFiles(root) {
     }
   }
   return results.sort();
-}
-
-function fileSha256(filePath) {
-  const hash = crypto.createHash("sha256");
-  const fd = fs.openSync(filePath, "r");
-  try {
-    const buffer = Buffer.allocUnsafe(8 * 1024 * 1024);
-    while (true) {
-      const bytesRead = fs.readSync(fd, buffer, 0, buffer.length, null);
-      if (bytesRead === 0) break;
-      hash.update(buffer.subarray(0, bytesRead));
-    }
-  } finally {
-    fs.closeSync(fd);
-  }
-  return `sha256:${hash.digest("hex")}`;
-}
-
-function materializeFixtureDownload({ targetPath, fixtureContent }) {
-  fs.writeFileSync(targetPath, fixtureContent);
-  const bytesCompleted = fs.statSync(targetPath).size;
-  return {
-    bytesTotal: bytesCompleted,
-    bytesCompleted,
-    checksum: fileSha256(targetPath),
-    resumeOffset: 0,
-  };
-}
-
-async function materializeLiveDownload({
-  source,
-  targetPath,
-  expectedChecksum,
-  maxBytes,
-  resume,
-  bandwidthLimitBps,
-  retryLimit = 0,
-  timeoutMs,
-  headers = {},
-  onTransferEvent,
-}) {
-  const partialPath = `${targetPath}.part`;
-  const metadataPath = `${partialPath}.json`;
-  const maxAttempts = Math.max(1, normalizeNonNegativeInteger(retryLimit, 0) + 1);
-  const transferBase = {
-    sourceHash: stableHash(source),
-    partialPathHash: stableHash(partialPath),
-    targetPathHash: stableHash(targetPath),
-    resumeMetadataPathHash: stableHash(metadataPath),
-    retryLimit: maxAttempts - 1,
-    resume,
-    bandwidthLimitBps: bandwidthLimitBps ?? null,
-  };
-  let lastError;
-  for (let attemptIndex = 0; attemptIndex < maxAttempts; attemptIndex += 1) {
-    try {
-      const result = await materializeLiveDownloadAttempt({
-        source,
-        targetPath,
-        partialPath,
-        metadataPath,
-        expectedChecksum,
-        maxBytes,
-        resume,
-        bandwidthLimitBps,
-        timeoutMs,
-        headers,
-        attemptIndex,
-        maxAttempts,
-        transferBase,
-        onTransferEvent,
-      });
-      return {
-        ...result,
-        attemptCount: attemptIndex + 1,
-        retryCount: attemptIndex,
-        resumeMetadataPathHash: transferBase.resumeMetadataPathHash,
-        transfer: {
-          ...transferBase,
-          status: "completed",
-          attemptCount: attemptIndex + 1,
-          retryCount: attemptIndex,
-          bytesCompleted: result.bytesCompleted,
-          bytesTotal: result.bytesTotal,
-          resumed: result.resumeOffset > 0,
-        },
-      };
-    } catch (error) {
-      lastError = error;
-      const failureReason = downloadFailureReason(error);
-      const canRetry = attemptIndex + 1 < maxAttempts && isRetriableDownloadFailure(failureReason);
-      const transfer = {
-        ...transferBase,
-        status: canRetry ? "retry_pending" : "failed",
-        attemptCount: attemptIndex + 1,
-        retryCount: attemptIndex,
-        failureReason,
-        bytesCompleted: error?.downloadTransfer?.bytesCompleted ?? fileSizeIfExists(partialPath),
-        bytesTotal: error?.downloadTransfer?.bytesTotal ?? 0,
-        resumed: Boolean(error?.downloadTransfer?.resumeOffset),
-      };
-      writeDownloadResumeMetadata(metadataPath, transfer);
-      error.downloadTransfer = transfer;
-      if (!canRetry) break;
-      onTransferEvent?.("model_download_retry", {
-        attempt: attemptIndex + 1,
-        nextAttempt: attemptIndex + 2,
-        retryLimit: maxAttempts - 1,
-        failureReason,
-        bytesCompleted: transfer.bytesCompleted,
-        bytesTotal: transfer.bytesTotal,
-        partialPathHash: transferBase.partialPathHash,
-        resumeMetadataPathHash: transferBase.resumeMetadataPathHash,
-        resumeEnabled: resume,
-      });
-      if (!resume) fs.rmSync(partialPath, { force: true });
-      await sleep(downloadRetryBackoffMs(attemptIndex));
-    }
-  }
-  throw lastError;
-}
-
-async function materializeLiveDownloadAttempt({
-  source,
-  targetPath,
-  partialPath,
-  metadataPath,
-  expectedChecksum,
-  maxBytes,
-  resume,
-  bandwidthLimitBps,
-  timeoutMs,
-  headers = {},
-  attemptIndex,
-  maxAttempts,
-  transferBase,
-  onTransferEvent,
-}) {
-  const resumeOffset = resume && fs.existsSync(partialPath) ? fs.statSync(partialPath).size : 0;
-  const requestHeaders = { ...headers, ...(resumeOffset > 0 ? { Range: `bytes=${resumeOffset}-` } : {}) };
-  writeDownloadResumeMetadata(metadataPath, {
-    ...transferBase,
-    status: "running",
-    attemptCount: attemptIndex + 1,
-    retryLimit: maxAttempts - 1,
-    resumeOffset,
-    bytesCompleted: resumeOffset,
-  });
-  if (resumeOffset > 0) {
-    onTransferEvent?.("model_download_resume", {
-      attempt: attemptIndex + 1,
-      retryLimit: maxAttempts - 1,
-      resumeOffset,
-      partialPathHash: transferBase.partialPathHash,
-      resumeMetadataPathHash: transferBase.resumeMetadataPathHash,
-    });
-  }
-  const response = await fetchWithTimeout(source, { timeoutMs, headers: requestHeaders });
-  if (!response.ok) {
-    throw new Error(`live_download_http_${response.status}`);
-  }
-  const contentLength = Number(response.headers.get("content-length") ?? 0) || 0;
-  const bytesTotal = response.status === 206 ? resumeOffset + contentLength : contentLength || 0;
-  if (maxBytes && bytesTotal && bytesTotal > maxBytes) {
-    throw new Error("live_download_size_limit_exceeded");
-  }
-  const appending = resumeOffset > 0 && response.status === 206;
-  if (!appending) fs.rmSync(partialPath, { force: true });
-  const stream = fs.createWriteStream(partialPath, { flags: appending ? "a" : "w" });
-  let bytesCompleted = appending ? resumeOffset : 0;
-  let lastMetadataWrite = Date.now();
-  const startedAt = Date.now();
-  try {
-    for await (const chunk of response.body) {
-      const buffer = Buffer.from(chunk);
-      bytesCompleted += buffer.length;
-      if (maxBytes && bytesCompleted > maxBytes) {
-        throw new Error("live_download_size_limit_exceeded");
-      }
-      if (!stream.write(buffer)) {
-        await new Promise((resolve) => stream.once("drain", resolve));
-      }
-      if (Date.now() - lastMetadataWrite > 250) {
-        writeDownloadResumeMetadata(metadataPath, {
-          ...transferBase,
-          status: "running",
-          attemptCount: attemptIndex + 1,
-          retryLimit: maxAttempts - 1,
-          resumeOffset,
-          bytesCompleted,
-          bytesTotal,
-        });
-        lastMetadataWrite = Date.now();
-      }
-      if (bandwidthLimitBps) {
-        const elapsedMs = Math.max(1, Date.now() - startedAt);
-        const expectedElapsedMs = ((bytesCompleted - resumeOffset) / bandwidthLimitBps) * 1000;
-        if (expectedElapsedMs > elapsedMs) {
-          await sleep(Math.min(250, expectedElapsedMs - elapsedMs));
-        }
-      }
-    }
-  } catch (error) {
-    error.downloadTransfer = {
-      ...transferBase,
-      status: "attempt_failed",
-      attemptCount: attemptIndex + 1,
-      retryLimit: maxAttempts - 1,
-      resumeOffset,
-      bytesCompleted,
-      bytesTotal,
-    };
-    throw error;
-  } finally {
-    await new Promise((resolve, reject) => stream.end((error) => (error ? reject(error) : resolve())));
-  }
-  fs.renameSync(partialPath, targetPath);
-  const checksum = fileSha256(targetPath);
-  if (expectedChecksum && checksum !== expectedChecksum) {
-    fs.rmSync(targetPath, { force: true });
-    throw new Error("live_download_checksum_mismatch");
-  }
-  fs.rmSync(metadataPath, { force: true });
-  return {
-    bytesTotal: bytesTotal || bytesCompleted,
-    bytesCompleted,
-    checksum,
-    resumeOffset: appending ? resumeOffset : 0,
-  };
-}
-
-function writeDownloadResumeMetadata(metadataPath, metadata) {
-  const safeMetadata = {
-    schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-    status: metadata.status,
-    sourceHash: metadata.sourceHash,
-    partialPathHash: metadata.partialPathHash,
-    targetPathHash: metadata.targetPathHash,
-    resumeMetadataPathHash: metadata.resumeMetadataPathHash,
-    attemptCount: metadata.attemptCount ?? null,
-    retryCount: metadata.retryCount ?? null,
-    retryLimit: metadata.retryLimit ?? null,
-    resume: Boolean(metadata.resume),
-    resumeOffset: metadata.resumeOffset ?? null,
-    resumed: Boolean(metadata.resumed),
-    bytesCompleted: metadata.bytesCompleted ?? 0,
-    bytesTotal: metadata.bytesTotal ?? 0,
-    bandwidthLimitBps: metadata.bandwidthLimitBps ?? null,
-    failureReason: metadata.failureReason ?? null,
-    updatedAt: new Date().toISOString(),
-  };
-  fs.mkdirSync(path.dirname(metadataPath), { recursive: true });
-  writeJson(metadataPath, safeMetadata);
-}
-
-function isRetriableDownloadFailure(failureReason) {
-  if (failureReason === "network_download_failed" || failureReason === "network_timeout") return true;
-  const httpStatus = Number(String(failureReason).match(/^http_([0-9]+)$/)?.[1] ?? 0);
-  return httpStatus === 408 || httpStatus === 409 || httpStatus === 425 || httpStatus === 429 || httpStatus >= 500;
-}
-
-function downloadRetryBackoffMs(attemptIndex) {
-  const configured = Number(process.env.IOI_MODEL_DOWNLOAD_RETRY_BACKOFF_MS ?? 25);
-  return Math.max(0, configured || 0) * Math.max(1, attemptIndex + 1);
-}
-
-function shouldRetainFailedDownloadPartial(downloadPolicy, failureReason) {
-  if (!downloadPolicy?.resume) return false;
-  return isRetriableDownloadFailure(failureReason);
-}
-
-function failedDownloadCleanupState(targetPath, { retainPartial } = {}) {
-  if (!retainPartial) return cleanupPartialDownload(targetPath);
-  if (fs.existsSync(targetPath)) {
-    try {
-      fs.rmSync(targetPath, { force: true });
-    } catch {
-      return "cleanup_failed";
-    }
-  }
-  return fs.existsSync(`${targetPath}.part`) ? "retained_partial" : "not_needed";
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));
-}
-
-function cleanupPartialDownload(targetPath) {
-  let cleanupState = "not_needed";
-  for (const filePath of [targetPath, `${targetPath}.part`, `${targetPath}.part.json`]) {
-    if (!fs.existsSync(filePath)) continue;
-    try {
-      fs.rmSync(filePath, { force: true });
-      cleanupState = "removed_partial";
-    } catch {
-      cleanupState = "cleanup_failed";
-    }
-  }
-  return cleanupState;
-}
-
-function downloadFailureReason(error) {
-  const message = String(error?.message ?? error ?? "download_failed");
-  if (message.includes("checksum")) return "checksum_mismatch";
-  if (message.includes("size_limit_exceeded")) return "size_limit_exceeded";
-  if (message.includes("AbortError") || message.includes("aborted")) return "network_timeout";
-  const http = message.match(/live_download_http_([0-9]+)/)?.[1];
-  if (http) return `http_${http}`;
-  return "network_download_failed";
-}
-
-function publicDownloadSource(source) {
-  const text = String(source ?? "");
-  if (text.startsWith("fixture://")) return text.split("?")[0];
-  try {
-    const url = new URL(text);
-    url.username = "";
-    url.password = "";
-    url.search = "";
-    url.hash = "";
-    return url.toString();
-  } catch {
-    return text;
-  }
-}
-
-function matchesAny(scope, patterns) {
-  return patterns.some((pattern) => {
-    if (pattern === scope) return true;
-    if (pattern.endsWith("*")) return scope.startsWith(pattern.slice(0, -1));
-    return false;
-  });
-}
-
-function publicToken(token) {
-  return {
-    id: token.id,
-    audience: token.audience,
-    allowed: token.allowed,
-    denied: token.denied,
-    expiresAt: token.expiresAt,
-    revocationEpoch: token.revocationEpoch,
-    grantId: token.grantId,
-    createdAt: token.createdAt,
-    revokedAt: token.revokedAt,
-    lastUsedAt: token.lastUsedAt ?? null,
-    lastUsedScope: token.lastUsedScope ?? null,
-    vaultRefs: publicVaultRefs(token.vaultRefs ?? {}),
-    auditReceiptIds: Array.isArray(token.auditReceiptIds) ? token.auditReceiptIds : [],
-    receiptId: token.receiptId,
-  };
-}
-
-function publicMcpServer(server) {
-  return {
-    ...server,
-    secretRefs: Object.fromEntries(
-      Object.entries(server.secretRefs ?? {}).map(([key, vaultRef]) => [
-        key,
-        typeof vaultRef === "string" && vaultRef.startsWith("vault://")
-          ? { redacted: true, hash: stableHash(vaultRef) }
-          : SECRET_REDACTION,
-      ]),
-    ),
-    redactedHeaders: Object.fromEntries(Object.keys(server.redactedHeaders ?? {}).map((key) => [key, SECRET_REDACTION])),
-  };
-}
-
-function hashToken(tokenValue) {
-  return crypto.createHash("sha256").update(tokenValue).digest("hex");
-}
-
-function stableHash(value) {
-  return crypto.createHash("sha256").update(stableStringify(value)).digest("hex");
-}
-
-function emitRemoteBoundaryEvent(baseUrl, route, payload) {
-  if (!baseUrl || typeof fetch !== "function") return;
-  const url = `${String(baseUrl).replace(/\/+$/, "")}/${String(route).replace(/^\/+/, "")}`;
-  const body = JSON.stringify(redact(payload));
-  setTimeout(() => {
-    fetch(url, {
-      method: "POST",
-      headers: {
-        accept: "application/json",
-        "content-type": "application/json",
-      },
-      body,
-    }).catch(() => {
-      // Remote wallet/Agentgres boundaries are fail-closed at authorization time;
-      // audit mirroring is best-effort so local runtime progress is not blocked.
-    });
-  }, 0);
-}
-
-function stableStringify(value) {
-  if (typeof value === "string") return value;
-  if (!value || typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
-  return `{${Object.keys(value)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
-    .join(",")}}`;
-}
-
-function operationCount(stateDir) {
-  const logPath = path.join(stateDir, "operation-log.jsonl");
-  if (!fs.existsSync(logPath)) return 0;
-  const text = fs.readFileSync(logPath, "utf8").trim();
-  return text ? text.split(/\n/).length : 0;
-}
-
-function redact(value) {
-  if (typeof value === "string" && value.startsWith("vault://")) return SECRET_REDACTION;
-  if (!value || typeof value !== "object") return value;
-  if (Array.isArray(value)) return value.map(redact);
-  return Object.fromEntries(
-    Object.entries(value).map(([key, item]) => [
-      key,
-      shouldRedactKey(key) ? SECRET_REDACTION : redact(item),
-    ]),
-  );
-}
-
-function shouldRedactKey(key) {
-  if (
-    [
-      "tokenCount",
-      "toolReceiptIds",
-      "input_tokens",
-      "output_tokens",
-      "total_tokens",
-      "providerAuthHeaderNames",
-      "catalogAuth",
-      "catalogAuthConfigured",
-      "catalogAuthResolved",
-      "catalogAuthScheme",
-      "catalogAuthHeaderNameHash",
-      "catalogAuthEvidenceRefs",
-      "oauthBoundary",
-      "resolvedMaterial",
-      "runtimeBound",
-      "materialBound",
-      "materialSource",
-      "materialConfigured",
-      "materialPersistence",
-      "materialVaultRefHash",
-      "vaultMaterialSource",
-      "runtimeMaterialStatus",
-    ].includes(key)
-  ) {
-    return false;
-  }
-  return /tokenHash|tokenValue|secret|material|apiKey|authorization|header|privateKey|accessToken|refreshToken/i.test(key);
 }

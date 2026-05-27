@@ -1039,6 +1039,25 @@ fn compact_tool_history_entry_for_chat(current_tool_name: &str, history_entry: &
     }
 }
 
+fn tool_history_message_content(current_tool_name: &str, compact_entry: &str) -> String {
+    let compact_entry = compact_entry.trim();
+    if compact_entry.is_empty() {
+        return String::new();
+    }
+
+    let tool_name = current_tool_name.trim();
+    if tool_name.is_empty() {
+        return compact_entry.to_string();
+    }
+
+    let prefix = format!("Tool Output ({}):", tool_name);
+    if compact_entry.starts_with(&prefix) {
+        compact_entry.to_string()
+    } else {
+        format!("{} {}", prefix, compact_entry)
+    }
+}
+
 fn record_browser_marker_receipt(
     service: &RuntimeAgentService,
     agent_state: &mut AgentState,
@@ -2689,11 +2708,7 @@ pub(super) async fn handle_execution_success(
             };
             let compact_entry = compact_tool_history_entry_for_chat(current_tool_name, &entry);
             if !compact_entry.trim().is_empty() {
-                let content = if current_tool_name == "browser__inspect" {
-                    format!("Tool Output (browser__inspect): {}", compact_entry)
-                } else {
-                    compact_entry
-                };
+                let content = tool_history_message_content(current_tool_name, &compact_entry);
                 let tool_msg = ioi_types::app::agentic::ChatMessage {
                     role: "tool".to_string(),
                     content,

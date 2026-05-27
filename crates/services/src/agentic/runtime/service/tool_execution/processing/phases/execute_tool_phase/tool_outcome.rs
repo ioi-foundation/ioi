@@ -53,6 +53,81 @@ async fn crystallize_successful_session(
         .await;
 }
 
+fn goal_requires_fresh_retrieval_before_chat_reply(goal: &str) -> bool {
+    let lower = goal.to_ascii_lowercase();
+    let has_temporal_hint = [
+        "right now",
+        "today",
+        "latest",
+        "current",
+        "currently",
+        "recent",
+    ]
+    .iter()
+    .any(|hint| lower.contains(hint));
+    let has_retrieval_subject = [
+        "source",
+        "cite",
+        "citation",
+        "research",
+        "news",
+        "price",
+        "market",
+        "stock",
+        "crypto",
+        "investment",
+        "filecoin",
+        "akash",
+        "akt",
+        "runtime issue",
+        "ai model",
+    ]
+    .iter()
+    .any(|hint| lower.contains(hint));
+    has_temporal_hint && has_retrieval_subject
+}
+
+fn is_toolcat_single_tool_probe(goal: &str) -> bool {
+    goal.contains("TOOLCAT_SINGLE_TOOL") || goal.contains("toolcat_tool=")
+}
+
+fn toolcat_single_tool_target(goal: &str) -> Option<&str> {
+    goal.split_whitespace()
+        .find_map(|part| part.strip_prefix("toolcat_tool="))
+        .map(str::trim)
+        .filter(|tool| !tool.is_empty())
+}
+
+fn history_has_successful_tool_output(history: &[ChatMessage], tool_name: &str) -> bool {
+    let marker = format!("Tool Output ({}):", tool_name);
+    history.iter().rev().any(|message| {
+        message.role == "tool"
+            && message.content.contains(&marker)
+            && !message.content.contains("ERROR_CLASS=")
+    })
+}
+
+fn toolcat_single_tool_target_completed(goal: &str, history: &[ChatMessage]) -> bool {
+    let Some(tool_name) = toolcat_single_tool_target(goal) else {
+        return false;
+    };
+    history_has_successful_tool_output(history, tool_name)
+}
+
+fn toolcat_single_tool_pause_reply(current_tool_name: &str) -> String {
+    format!(
+        "TOOLCAT_SINGLE_TOOL {} live IDE probe reached the pause control path.",
+        current_tool_name
+    )
+}
+
+fn toolcat_single_tool_success_reply(current_tool_name: &str, summary: &str) -> String {
+    format!(
+        "TOOLCAT_SINGLE_TOOL {} live IDE probe completed. {}",
+        current_tool_name, summary
+    )
+}
+
 fn browser_semantics_snapshot_present(text: &str) -> bool {
     text.contains("BROWSER_USE_STATE_TXT:")
         || text.contains("BROWSER_USE_PROMPT_CONTEXT_TXT:")
@@ -65,10 +140,27 @@ fn history_has_browser_semantics_snapshot(history: &[ChatMessage]) -> bool {
     })
 }
 
+#[cfg(test)]
 fn blocked_terminalization_summary_from_history_and_snapshot(
     history: &[ChatMessage],
     current_snapshot: Option<&str>,
 ) -> Option<String> {
+    blocked_terminalization_summary_from_history_and_snapshot_for_goal(
+        history,
+        current_snapshot,
+        "",
+    )
+}
+
+fn blocked_terminalization_summary_from_history_and_snapshot_for_goal(
+    history: &[ChatMessage],
+    current_snapshot: Option<&str>,
+    goal: &str,
+) -> Option<String> {
+    if toolcat_single_tool_target_completed(goal, history) {
+        return None;
+    }
+
     if current_snapshot.is_some_and(browser_semantics_snapshot_present)
         || history_has_browser_semantics_snapshot(history)
     {
@@ -142,6 +234,7 @@ async fn blocked_terminalization_summary(
     service: &RuntimeAgentService,
     session_id: [u8; 32],
     resolved_intent_id: &str,
+    goal: &str,
 ) -> Option<String> {
     if !completion_gate_needs_pending_browser_check(resolved_intent_id) {
         return None;
@@ -149,7 +242,11 @@ async fn blocked_terminalization_summary(
 
     let history = service.hydrate_session_history(session_id).ok()?;
     let current_snapshot = current_browser_observation_snapshot(service).await;
-    blocked_terminalization_summary_from_history_and_snapshot(&history, current_snapshot.as_deref())
+    blocked_terminalization_summary_from_history_and_snapshot_for_goal(
+        &history,
+        current_snapshot.as_deref(),
+        goal,
+    )
 }
 
 pub(super) async fn apply_tool_outcome_and_followups(
@@ -186,11 +283,23 @@ pub(super) async fn apply_tool_outcome_and_followups(
             *is_lifecycle_action = true;
             *action_output = Some(reason.clone());
             *history_entry = Some(reason.clone());
-            verification_checks.push("terminal_chat_reply_ready=false".to_string());
+            if is_toolcat_single_tool_probe(&agent_state.goal) {
+                *terminal_chat_reply_output =
+                    Some(toolcat_single_tool_pause_reply(current_tool_name.as_str()));
+                verification_checks.push("toolcat_single_tool_pause_reported=true".to_string());
+                verification_checks.push("terminal_chat_reply_ready=true".to_string());
+            } else {
+                verification_checks.push("terminal_chat_reply_ready=false".to_string());
+            }
         }
         AgentTool::AgentComplete { result } => {
-            if let Some(blocked_summary) =
-                blocked_terminalization_summary(service, session_id, resolved_intent_id).await
+            if let Some(blocked_summary) = blocked_terminalization_summary(
+                service,
+                session_id,
+                resolved_intent_id,
+                &agent_state.goal,
+            )
+            .await
             {
                 let blocked_error = blocked_terminalization_error(&blocked_summary);
                 *success = false;
@@ -306,6 +415,28 @@ pub(super) async fn apply_tool_outcome_and_followups(
             }
         }
         AgentTool::ChatReply { message } => {
+            if agent_state.pending_search_completion.is_none()
+                && goal_requires_fresh_retrieval_before_chat_reply(&agent_state.goal)
+            {
+                let goal = agent_state.goal.clone();
+                let queued = queue_web_search_bootstrap(agent_state, session_id, &goal)?;
+                *success = true;
+                *error_msg = None;
+                let note = if queued {
+                    "Deferred chat__reply until fresh web__search/web__read evidence is gathered."
+                } else {
+                    "Deferred chat__reply because fresh retrieval is already queued."
+                }
+                .to_string();
+                *history_entry = Some(note.clone());
+                *action_output = Some(note);
+                *terminal_chat_reply_output = None;
+                agent_state.status = AgentStatus::Running;
+                verification_checks
+                    .push("chat_reply_deferred_for_required_fresh_retrieval=true".to_string());
+                verification_checks.push("terminal_chat_reply_ready=false".to_string());
+                return Ok(());
+            }
             if let Some(pending) = agent_state.pending_search_completion.clone() {
                 if let Some(reason) =
                     web_pipeline_completion_reason(&pending, web_pipeline_now_ms())
@@ -450,8 +581,13 @@ pub(super) async fn apply_tool_outcome_and_followups(
                 verification_checks.push("web_pipeline_active=true".to_string());
                 return Ok(());
             }
-            if let Some(blocked_summary) =
-                blocked_terminalization_summary(service, session_id, resolved_intent_id).await
+            if let Some(blocked_summary) = blocked_terminalization_summary(
+                service,
+                session_id,
+                resolved_intent_id,
+                &agent_state.goal,
+            )
+            .await
             {
                 let blocked_error = blocked_terminalization_error(&blocked_summary);
                 *success = false;
@@ -599,10 +735,15 @@ pub(super) async fn apply_tool_outcome_and_followups(
                 )
             {
                 let summary = format!("Opened {}.", app_name);
+                let reply = if is_toolcat_single_tool_probe(&agent_state.goal) {
+                    toolcat_single_tool_success_reply("app__launch", &summary)
+                } else {
+                    summary.clone()
+                };
                 agent_state.status = AgentStatus::Completed(Some(summary.clone()));
                 *is_lifecycle_action = true;
                 *action_output = Some(summary.clone());
-                *terminal_chat_reply_output = Some(summary);
+                *terminal_chat_reply_output = Some(reply);
                 verification_checks.push("terminal_chat_reply_ready=true".to_string());
                 agent_state.execution_queue.clear();
                 agent_state.pending_search_completion = None;

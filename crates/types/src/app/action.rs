@@ -221,8 +221,12 @@ struct ActionRequestHashMaterial<'a> {
 impl ActionRequest {
     /// Returns deterministic RFC 8785 JCS bytes for this request.
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, ActionHashError> {
-        let params_value = serde_json::from_slice(&self.params)
-            .map_err(|e| ActionHashError::InvalidParamsJson(e.to_string()))?;
+        let params_value = if self.params.iter().all(u8::is_ascii_whitespace) {
+            serde_json::Value::Object(serde_json::Map::new())
+        } else {
+            serde_json::from_slice(&self.params)
+                .map_err(|e| ActionHashError::InvalidParamsJson(e.to_string()))?
+        };
 
         let material = ActionRequestHashMaterial {
             target: self.target.canonical_label(),

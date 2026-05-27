@@ -1,5 +1,5 @@
 use super::{
-    compact_tool_history_entry_for_chat, transcript_context_excerpts,
+    compact_tool_history_entry_for_chat, tool_history_message_content, transcript_context_excerpts,
     workspace_edit_receipt_details, TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT,
     TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT,
 };
@@ -131,6 +131,23 @@ fn media_multimodal_history_is_compacted_for_chat_context() {
     assert!(compact.contains("visual_evidence[1]="));
     assert!(!compact.contains("\"transcript_text\""));
     assert!(compact.chars().count() < TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT * 2);
+}
+
+#[test]
+fn non_browser_tool_history_is_prefixed_for_next_model_turn() {
+    let content = tool_history_message_content("file__read", "hello from the repo");
+
+    assert_eq!(content, "Tool Output (file__read): hello from the repo");
+}
+
+#[test]
+fn tool_history_prefix_is_not_duplicated() {
+    let content = tool_history_message_content(
+        "browser__inspect",
+        "Tool Output (browser__inspect): <root />",
+    );
+
+    assert_eq!(content, "Tool Output (browser__inspect): <root />");
 }
 
 #[test]

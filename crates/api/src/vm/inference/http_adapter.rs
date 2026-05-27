@@ -70,6 +70,8 @@ struct OpenAiStrategy;
 #[derive(Serialize)]
 struct OpenAiRequest {
     model: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    route_id: Option<String>,
     messages: Vec<Message>,
     #[serde(skip_serializing_if = "Option::is_none")]
     tools: Option<Vec<Tool>>,
@@ -137,6 +139,22 @@ fn decode_openai_messages(input_context: &[u8]) -> Result<Vec<Message>, VmError>
     }
 }
 
+fn daemon_model_route_id_for_request(api_url: &str) -> Option<String> {
+    let route_id = std::env::var("IOI_RUNTIME_AGENT_SERVICE_ROUTE_ID")
+        .ok()
+        .or_else(|| std::env::var("IOI_RUNTIME_MODEL_ROUTE_ID").ok())
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())?;
+    if api_url.contains("/v1/chat/completions")
+        || api_url.contains("/v1/responses")
+        || api_url.contains("/v1/messages")
+    {
+        Some(route_id)
+    } else {
+        None
+    }
+}
+
 #[async_trait]
 impl ProviderStrategy for OpenAiStrategy {
     fn build_request(
@@ -187,10 +205,11 @@ impl ProviderStrategy for OpenAiStrategy {
         let max_tokens = (options.max_tokens > 0).then_some(options.max_tokens);
         let stop = (!options.stop_sequences.is_empty()).then(|| options.stop_sequences.clone());
         let local_runtime_options = ollama_request_options_for_api_url(api_url);
-        let reasoning_effort = local_openai_reasoning_effort_for_request(api_url, model_name);
+        let reasoning_effort = local_openai_reasoning_effort_for_request(api_url);
 
         let body = OpenAiRequest {
             model: model_name.to_string(),
+            route_id: daemon_model_route_id_for_request(api_url),
             messages,
             tools,
             tool_choice: has_tools.then(|| json!("required")),
@@ -723,8 +742,38 @@ struct OllamaNativeChatMessage {
     content: Option<String>,
 }
 
+fn local_ollama_native_chat_opt_in() -> bool {
+    [
+        "AUTOPILOT_OLLAMA_NATIVE_CHAT",
+        "IOI_OLLAMA_NATIVE_CHAT",
+        "OLLAMA_NATIVE_CHAT",
+    ]
+    .iter()
+    .any(|name| {
+        std::env::var(name)
+            .ok()
+            .map(|raw| {
+                matches!(
+                    raw.trim().to_ascii_lowercase().as_str(),
+                    "1" | "true" | "yes" | "on" | "ollama"
+                )
+            })
+            .unwrap_or(false)
+    })
+}
+
+fn api_url_looks_like_ollama(api_url: &str) -> bool {
+    let Ok(parsed) = reqwest::Url::parse(api_url) else {
+        return false;
+    };
+    matches!(parsed.port_or_known_default(), Some(11434))
+}
+
 fn local_ollama_native_chat_url(api_url: &str) -> Option<String> {
     if runtime_kind_for_api_url(api_url) != ChatRuntimeProvenanceKind::RealLocalRuntime {
+        return None;
+    }
+    if !local_ollama_native_chat_opt_in() && !api_url_looks_like_ollama(api_url) {
         return None;
     }
 
@@ -1272,15 +1321,12 @@ where
     }
 }
 
-fn local_openai_reasoning_effort_for_request(api_url: &str, model_name: &str) -> Option<String> {
-    local_openai_reasoning_effort_for_request_with_lookup(api_url, model_name, |key| {
-        std::env::var(key).ok()
-    })
+fn local_openai_reasoning_effort_for_request(api_url: &str) -> Option<String> {
+    local_openai_reasoning_effort_for_request_with_lookup(api_url, |key| std::env::var(key).ok())
 }
 
 fn local_openai_reasoning_effort_for_request_with_lookup<F>(
     api_url: &str,
-    model_name: &str,
     lookup: F,
 ) -> Option<String>
 where
@@ -1292,7 +1338,6 @@ where
 
     match local_openai_reasoning_effort_override_with_lookup(lookup) {
         Some(value) => value,
-        None if local_qwen_family_model(model_name) => None,
         None => Some("none".to_string()),
     }
 }

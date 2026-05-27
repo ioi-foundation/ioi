@@ -181,6 +181,26 @@ fn queue_maps_browser_screenshot_from_browser_interact_target() {
 }
 
 #[test]
+fn queue_preserves_explicit_browser_inspect_canvas_tool_name() {
+    let request = build_request(
+        ActionTarget::BrowserInspect,
+        224,
+        serde_json::json!({
+            "selector": "#toolcat-canvas",
+            "__ioi_tool_name": "browser__inspect_canvas"
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::BrowserCanvasSummary { selector } => {
+            assert_eq!(selector, "#toolcat-canvas");
+        }
+        other => panic!("expected BrowserCanvasSummary, got {:?}", other),
+    }
+}
+
+#[test]
 fn queue_maps_browser_upload_file_from_browser_interact_target() {
     let request = build_request(
         ActionTarget::BrowserInteract,
@@ -315,6 +335,39 @@ fn queue_uses_explicit_browser_tool_name_override_for_dropdown_options() {
             assert!(som_id.is_none());
         }
         other => panic!("expected BrowserDropdownOptions, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_uses_explicit_browser_tool_name_override_for_browser_subagent() {
+    let request = build_request(
+        ActionTarget::BrowserInteract,
+        27,
+        serde_json::json!({
+            "task_name": "tool catalogue browser fixture",
+            "task_summary": "Verify browser subagent packaging reaches the fixture page.",
+            "recording_name": "toolcat-browser-subagent",
+            "task": "Use browser__navigate to open http://127.0.0.1:12345/, then inspect the browser page.",
+            "__ioi_tool_name": "browser__subagent"
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::Dynamic(value) => {
+            assert_eq!(
+                value.get("name").and_then(|name| name.as_str()),
+                Some("browser__subagent")
+            );
+            let task = value
+                .get("arguments")
+                .and_then(|arguments| arguments.get("task"))
+                .and_then(|task| task.as_str())
+                .unwrap_or_default();
+            assert!(task.contains("browser__navigate"));
+            assert!(task.contains("http://127.0.0.1:12345/"));
+        }
+        other => panic!("expected browser subagent dynamic tool, got {:?}", other),
     }
 }
 
@@ -961,5 +1014,55 @@ fn queue_maps_custom_computer_cursor_alias_to_computer_tool() {
     match tool {
         AgentTool::Screen(ScreenAction::CursorPosition) => {}
         other => panic!("expected Screen CursorPosition, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_preserves_retained_shell_status_explicit_tool_name() {
+    let request = build_sys_exec_request(serde_json::json!({
+        "__ioi_tool_name": "shell__status",
+        "command_id": "shell__start:abc123"
+    }));
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::SysExecStatus { command_id } => {
+            assert_eq!(command_id, "shell__start:abc123");
+        }
+        other => panic!("expected SysExecStatus, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_preserves_retained_shell_input_explicit_tool_name() {
+    let request = build_sys_exec_request(serde_json::json!({
+        "__ioi_tool_name": "shell__input",
+        "command_id": "shell__start:abc123",
+        "stdin": "toolcat input\n"
+    }));
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::SysExecInput { command_id, stdin } => {
+            assert_eq!(command_id, "shell__start:abc123");
+            assert_eq!(stdin, "toolcat input\n");
+        }
+        other => panic!("expected SysExecInput, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_preserves_retained_shell_terminate_explicit_tool_name() {
+    let request = build_sys_exec_request(serde_json::json!({
+        "__ioi_tool_name": "shell__terminate",
+        "command_id": "shell__start:abc123"
+    }));
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::SysExecTerminate { command_id } => {
+            assert_eq!(command_id, "shell__start:abc123");
+        }
+        other => panic!("expected SysExecTerminate, got {:?}", other),
     }
 }

@@ -3,8 +3,11 @@ use super::{
     briefing_authority_seed_admission, defer_search_planning_failure_while_recovery_actions_remain,
     deterministic_local_business_expansion_alignment_urls, effective_semantic_alignment_urls,
     planning_bundle_after_surface_filter, pre_read_batch_urls, pre_read_candidate_inventory_target,
+    search_attempt_urls_from_bundle,
 };
-use crate::agentic::runtime::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
+use crate::agentic::runtime::types::{
+    AgentMode, AgentState, AgentStatus, ExecutionTier, PendingSearchReadSummary,
+};
 use ioi_types::app::agentic::WebRetrievalContract;
 use ioi_types::app::agentic::{WebEvidenceBundle, WebSource};
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
@@ -845,6 +848,56 @@ fn search_planning_failure_is_nonterminal_while_other_web_recovery_actions_remai
     assert!(verification_checks
         .iter()
         .any(|check| { check == "web_queued_web_recovery_actions_remaining=1" }));
+}
+
+#[test]
+fn search_attempt_urls_omits_bundle_url_when_it_is_a_selected_source() {
+    let bundle = WebEvidenceBundle {
+        schema_version: 1,
+        retrieved_at_ms: 0,
+        tool: "web__search".to_string(),
+        backend: "edge:search:parity-fixture".to_string(),
+        query: Some("Which is a better investment right now, Akash or Filecoin?".to_string()),
+        url: Some("https://example.com/crypto/akt-price-today-2026".to_string()),
+        sources: vec![],
+        source_observations: vec![],
+        documents: vec![],
+        provider_candidates: vec![],
+        retrieval_contract: None,
+    };
+    let candidate_urls = vec![
+        "https://example.com/crypto/akt-price-today-2026".to_string(),
+        "https://example.com/crypto/filecoin-price-today-2026".to_string(),
+    ];
+    let source_hints = vec![PendingSearchReadSummary {
+        url: "https://example.com/crypto/akt-price-today-2026".to_string(),
+        title: Some("AKT Price Today".to_string()),
+        excerpt: "AKT price today is $4.20 USD.".to_string(),
+    }];
+
+    assert!(search_attempt_urls_from_bundle(&bundle, &candidate_urls, &source_hints).is_empty());
+}
+
+#[test]
+fn search_attempt_urls_keeps_search_hub_url() {
+    let bundle = WebEvidenceBundle {
+        schema_version: 1,
+        retrieved_at_ms: 0,
+        tool: "web__search".to_string(),
+        backend: "edge:search:parity-fixture".to_string(),
+        query: Some("Which is a better investment right now, Akash or Filecoin?".to_string()),
+        url: Some("https://duckduckgo.com/html/?q=akt+filecoin".to_string()),
+        sources: vec![],
+        source_observations: vec![],
+        documents: vec![],
+        provider_candidates: vec![],
+        retrieval_contract: None,
+    };
+
+    assert_eq!(
+        search_attempt_urls_from_bundle(&bundle, &[], &[]),
+        vec!["https://duckduckgo.com/html/?q=akt+filecoin".to_string()]
+    );
 }
 
 #[test]

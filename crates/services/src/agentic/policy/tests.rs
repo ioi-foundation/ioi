@@ -281,6 +281,23 @@ fn workspace_filesystem_policy_adds_repo_scoped_read_and_write_rules() {
 }
 
 #[test]
+fn workspace_filesystem_boundary_classifies_absolute_escape_as_outside_workspace() {
+    let params = serde_json::to_vec(&serde_json::json!({
+        "path": "/etc/passwd"
+    }))
+    .expect("params should serialize");
+
+    assert_eq!(
+        super::filesystem::filesystem_request_stays_within_workspace(
+            &ActionTarget::FsRead,
+            &params,
+            Some("/workspace/repo"),
+        ),
+        Some(false)
+    );
+}
+
+#[test]
 fn allow_domains_allows_exact_and_subdomain_hosts() {
     let graph = EvidenceGraph {
         version: 1,

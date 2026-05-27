@@ -48,7 +48,7 @@ export class RuntimeAgentServiceCommandAdapter {
     this.command = command;
     this.args = normalizeArgs(options.args);
     this.cwd = options.cwd;
-    this.env = { ...process.env, ...(options.env ?? {}) };
+    this.env = { ...(options.env ?? {}) };
     this.timeoutMs = parsePositiveInteger(options.timeoutMs, DEFAULT_TIMEOUT_MS);
     this.maxOutputBytes = parsePositiveInteger(
       options.maxOutputBytes,
@@ -76,7 +76,7 @@ export class RuntimeAgentServiceCommandAdapter {
       command: this.command,
       args: this.args,
       cwd: this.cwd,
-      env: this.env,
+      env: { ...process.env, ...this.env },
       timeoutMs: this.timeoutMs,
       maxOutputBytes: this.maxOutputBytes,
       request,

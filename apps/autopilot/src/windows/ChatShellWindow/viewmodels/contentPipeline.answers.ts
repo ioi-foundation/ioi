@@ -13,15 +13,37 @@ import {
   extractUrls,
   normalizeOutputForHash,
 } from "./contentPipeline.helpers";
+import { humanizeOperationalTranscriptText } from "../utils/contextualIntent";
+
+function chatReplyMessageFromToolCall(text: string): string | null {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("{")) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(trimmed);
+    const name = String(parsed?.name || "").trim();
+    if (name !== "chat__reply") {
+      return null;
+    }
+    const args = parsed?.arguments || parsed?.args || {};
+    const message = String(args?.message || "").trim();
+    return message || null;
+  } catch {
+    return null;
+  }
+}
 
 export function buildAnswerPresentation(message: ChatMessage): AnswerPresentation {
   const text = message.text || "";
   const contractParse = parseChatContractEnvelope(text);
   const contract = contractParse.envelope;
-  const rejectedStructuredResponse = !contract && contractParse.issues.length > 0;
+  const directChatReplyText = chatReplyMessageFromToolCall(text);
+  const rejectedStructuredResponse =
+    !directChatReplyText && !contract && contractParse.issues.length > 0;
   const fallbackText = rejectedStructuredResponse
     ? "Structured response unavailable due to contract validation failure."
-    : text;
+    : humanizeOperationalTranscriptText(directChatReplyText || text, "assistant");
   const displayText =
     contract?.answer_markdown?.trim() && contract.answer_markdown.trim().length > 0
       ? contract.answer_markdown
@@ -29,7 +51,7 @@ export function buildAnswerPresentation(message: ChatMessage): AnswerPresentatio
         ? contract.outcome.summary || ""
         : fallbackText;
   const copyText = contract ? formatChatContractForClipboard(contract) : fallbackText;
-  const citationText = contract?.answer_markdown || (rejectedStructuredResponse ? "" : text);
+  const citationText = contract?.answer_markdown || (rejectedStructuredResponse ? "" : fallbackText);
   const sourceUrls = extractUrls(citationText);
   return {
     message,

@@ -4,18 +4,22 @@ Status: canonical architecture authority.
 Canonical owner: this file for aiagent.xyz marketplace doctrine; low-level worker endpoints live in [`aiagent-xyz-worker-and-inter-agent-endpoints.md`](./worker-endpoints.md).
 Supersedes: overlapping worker-marketplace plan prose when marketplace boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-05-25.
 
 ## Canonical Definition
 
-**aiagent.xyz is the canonical Web4 marketplace application for portable digital workers, managed worker/agent instances, benchmark profiles, Sparse Worker Categories, installs, and MoW routing eligibility.**
+**aiagent.xyz is the first-party Web4 marketplace application for portable digital workers, managed worker/agent instances, benchmark profiles, Sparse Worker Categories, installs, and MoW routing eligibility, built on AIIP and IOI settlement.**
 
 It discovers, compares, benchmarks, ranks, installs, invokes, meters, licenses,
 settles, and initializes worker packages. It is an application domain with its
-own kernel + Agentgres backend and IOI L1 smart-contract settlement rails. A
-user may consume a worker as an API/workflow primitive, install it into
-Autopilot, or initialize a managed web-accessible instance backed by hosted,
-provider, DePIN, TEE, customer, or local IOI daemon/runtime-node profiles.
+own kernel + Agentgres backend, AIIP worker/handoff surfaces, and IOI L1
+smart-contract settlement rails. A user may consume a worker as an API/workflow
+primitive, install it into Autopilot, route to it through AIIP, or initialize a
+managed web-accessible instance backed by hosted, provider, DePIN, TEE,
+customer, or local IOI daemon/runtime-node profiles.
+
+aiagent.xyz is not the protocol. It is a first-party protocol client, demand
+generator, and proof surface for AIIP and IOI autonomous-system settlement.
 
 aiagent.xyz is not only a catalog. It is the opt-in invocation and
 managed-instance market for workers: users may run a worker directly, route a
@@ -33,6 +37,7 @@ aiagent.xyz is:
 - a React/Web marketplace interface;
 - an Agentgres-backed application domain;
 - an IOI L1 contract user;
+- an AIIP marketplace-worker profile user;
 - a worker discovery and procurement surface;
 - a managed worker/agent instance initialization surface;
 - a Sparse Worker Category and benchmark profile surface;
@@ -44,7 +49,7 @@ aiagent.xyz is:
   Execution is carried by IOI daemon/runtime-node profiles, not by the
   marketplace or SDK itself.
 
-It is not a separate chain by default.
+It is not a separate chain by default and it is not the whole IOI protocol.
 
 ## What aiagent.xyz Owns
 
@@ -237,7 +242,7 @@ Autopilot is optional local execution, not required for all marketplace use.
 The web console is a client surface, not a private runtime. It can expose chat,
 forms, approvals, receipts, spend controls, pause/resume/archive, API keys, and
 webhooks over the same daemon/domain contracts used by Autopilot, CLI/TUI, SDK,
-and agent-ide.
+ADK, and agent-ide.
 
 ## Sparse Worker Categories
 

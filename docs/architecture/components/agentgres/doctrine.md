@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for high-level Agentgres doctrine; low-level runtime objects live in [`agentgres-api-and-object-model.md`](./api-object-model.md), and Postgres bridge/readiness guarantees live in [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md).
 Supersedes: overlapping plan prose when Agentgres state ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-20.
+Last alignment pass: 2026-05-25.
 
 ## Canonical Definition
 
@@ -18,6 +18,12 @@ In the Autopilot/daemon canon, the IOI daemon is the hypervisor/control plane
 for autonomous execution and Agentgres is the operational truth substrate behind
 that control plane. Autopilot Workbench may render Agentgres-backed projections,
 but it must not become the canonical state store.
+
+In the machine-economy canon, Agentgres is the local/domain operational truth
+substrate for governed autonomous-system chains and Autopilot-node settlement
+domains. It records proposals, module invocations, local settlement records,
+receipt roots, upgrade decisions, state roots, and replayable projections before
+selected commitments are anchored to IOI L1.
 
 Agentgres does not run on IOI L1. It runs inside application-domain kernel deployments.
 
@@ -66,6 +72,12 @@ Agentgres owns per-domain operational truth:
 - tasks;
 - worker installs;
 - managed worker/agent instances;
+- governed autonomous-system chain records;
+- Autopilot-node local settlement records;
+- service module manifests and registry roots;
+- module invocation records;
+- proposal queues;
+- upgrade decisions;
 - runtime subscription and usage state;
 - orders;
 - workflow state;
@@ -118,8 +130,11 @@ Agentgres does not own:
 - private working memory unless promoted.
 
 wallet.network owns authority. IOI daemon/runtime nodes own execution.
-Autopilot Desktop owns local UX/projections. Filecoin/CAS owns payload
-availability. IOI L1 owns public settlement and rights.
+Autopilot Desktop owns local UX/projections. AIIP owns autonomous-work interop
+semantics. Filecoin/CAS owns payload availability. IOI L1 owns public
+settlement and rights. Autopilot nodes coordinate local settlement and interop,
+but their operational truth is still recorded through Agentgres/domain
+operations rather than Workbench UI state.
 
 ## State And Payload Boundary
 
@@ -149,6 +164,7 @@ canonical truth =
   + object heads
   + state roots
   + receipts
+  + local settlement records
   + archive refs
 
 portable state format =
@@ -352,8 +368,8 @@ hot state in Agentgres domain storage
 ## Sealed State Archives And Rehydration
 
 Agentgres may export inactive, idle, suspended, or terminal runtime state into
-encrypted content-addressed archives. These archives are cold-state artifacts,
-not replacements for canonical Agentgres truth.
+encrypted content-addressed archives. These archives are portable sealed state
+artifacts, not replacements for canonical Agentgres truth.
 
 The lifecycle is:
 
@@ -398,6 +414,18 @@ projection checkpoints
 replay metadata
 large file snapshots
 evidence bundles
+```
+
+Supported archive profiles include:
+
+```text
+full snapshot
+snapshot plus incremental diffs
+operation-log segment archive
+projection checkpoint archive
+evidence bundle archive
+migration bundle
+zero-to-idle checkpoint
 ```
 
 Archive payloads must bind to the originating domain, schema version, state
@@ -2006,6 +2034,16 @@ Owned by Agentgres:
 - artifact manifests
 - promoted drafts
 - local/session/shared boundary state
+
+Local-first working state is pre-canonical. React state, IndexedDB, OPFS,
+SQLite/Turso-style local stores, CRDT document state, optimistic UI caches, and
+offline draft queues may make the product feel instant, but they do not become
+domain truth until admitted through Agentgres operation settlement.
+
+Canonicalization requires policy, authority, schema, constraint, invariant,
+expected-head, receipt, and state-root checks. Direct mutation helpers and sync
+engines are ergonomics over the patch/change lifecycle, not an alternate
+authority path.
 
 ## 11.2 Client Runtime Responsibilities
 

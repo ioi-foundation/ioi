@@ -52,7 +52,7 @@ const REQUIRED_SCREENSHOTS = [
   "workflow-route-unload-blocked.png",
   "model-remounted-ready.png",
   "model-server-api-logs.png",
-  "agent-studio-landing-polished.png",
+  "agent-studio-operational-chat-polished.png",
   "agent-studio-model-handoff.png",
   "workflow-model-binding-ready.png",
   "workflow-live-model-dry-run.png",
@@ -207,7 +207,9 @@ function checkSourceShape() {
       extensionSource.includes('data-testid="model-empty-state"') &&
       extensionSource.includes('data-testid="model-error-state"'),
     studioPromptSurface: extensionSource.includes('data-studio-prompt-form') &&
-      extensionSource.includes('requestType: "studio.promptSubmit"'),
+      extensionSource.includes('requestType: "chat.submit"') &&
+      extensionSource.includes('type: "studioSubmit"') &&
+      !extensionSource.includes("studio.promptSubmit"),
     composerRouteReadiness: composerSource.includes("daemonModelRouteReady") &&
       composerSource.includes("Daemon route blocked"),
     composerUsesConfiguredDaemonModel: runtimeSource.includes("daemonModelId") &&
@@ -740,6 +742,7 @@ async function runGuiValidation(outputRoot) {
         IOI_DAEMON_MODEL_ID: MODEL_ID,
         IOI_PROVIDER_HTTP_TIMEOUT_MS: "60000",
         IOI_AUTOPILOT_CANONICAL_SHELL: "vscode-electron-fork",
+        AUTOPILOT_SKIP_OVERVIEW: "1",
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -817,6 +820,7 @@ async function runGuiValidation(outputRoot) {
     );
 
     modelsFrame = await findFrameWithTestId(page, "autopilot-models-mode");
+    await modelsFrame.locator('[data-model-inspector-tab="load"]').click();
     await modelsFrame.locator('[data-testid="model-running-unload-button"]').click();
     await requireRequest(
       requests,
@@ -843,6 +847,8 @@ async function runGuiValidation(outputRoot) {
 
     queueCommand(commands, "ioi.models.open", { phase: "model-load-dialog" });
     modelsFrame = await findFrameWithTestId(page, "autopilot-models-mode");
+    await modelsFrame.locator('[data-model-row="stories260k"]').click();
+    await modelsFrame.locator('[data-model-inspector-tab="load"]').click();
     await modelsFrame.locator('[data-testid="model-load-confirm-button"]').click();
     await requireRequest(
       requests,
@@ -853,27 +859,33 @@ async function runGuiValidation(outputRoot) {
     await screenshot(page, outputDir, "model-remounted-ready.png", screenshots);
 
     modelsFrame = await findFrameWithTestId(page, "autopilot-models-mode");
+    await modelsFrame.locator('[data-model-inspector-tab="load"]').click();
+    await modelsFrame.locator('[data-testid="model-mount-drawer"]').evaluate((element) => {
+      element.open = true;
+    }).catch(() => undefined);
     await modelsFrame.locator('[data-testid="model-quick-loader-filter"]').fill("nomic");
-    await modelsFrame.locator('[data-model-inspector-tab="routes"]').click();
+    await modelsFrame.locator('[data-model-inspector-tab="inference"]').click();
     await screenshot(page, outputDir, "model-server-api-logs.png", screenshots);
 
-    queueCommand(commands, "ioi.studio.open", { phase: "landing" });
+    queueCommand(commands, "ioi.studio.open", { phase: "chat" });
     await requireRequest(
       requests,
       (request) => request?.requestType === "studio.open",
       "studio.open",
     );
-    const studioFrame = await findFrameWithTestId(page, "agent-studio-landing");
-    await screenshot(page, outputDir, "agent-studio-landing-polished.png", screenshots);
+    let studioFrame = await findFrameWithTestId(page, "agent-studio-operational-chat");
+    await screenshot(page, outputDir, "agent-studio-operational-chat-polished.png", screenshots);
+    studioFrame = await findFrameWithTestId(page, "agent-studio-operational-chat");
     await studioFrame.locator("[data-studio-prompt]").fill(
       "Build a local research agent using the mounted daemon model route.",
     );
     await studioFrame.locator("[data-studio-prompt-form]").evaluate((form) => form.requestSubmit());
     await requireRequest(
       requests,
-      (request) => request?.requestType === "studio.promptSubmit",
-      "studio.promptSubmit",
+      (request) => request?.requestType === "chat.submit",
+      "chat.submit",
     );
+    studioFrame = await findFrameWithTestId(page, "agent-studio-operational-chat");
     await studioFrame.locator('button[data-command="ioi.models.open"]').first().click();
     await requireRequest(
       requests,
@@ -983,7 +995,7 @@ async function runGuiValidation(outputRoot) {
         electronVsCodeForkCanonicalShell: true,
         daemonBackedCatalog: modelProofs.some((proof) => proof?.daemonBacked === true),
         studioPromptIntentObserved: requests.some(
-          (request) => request?.requestType === "studio.promptSubmit",
+          (request) => request?.requestType === "chat.submit",
         ),
         workflowDaemonRunObserved: requests.some(
           (request) => request?.requestType === "workflowCompositor.daemonRunProject",

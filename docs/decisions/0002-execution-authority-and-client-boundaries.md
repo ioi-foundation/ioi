@@ -2,14 +2,14 @@
 
 - Status: Accepted
 - Date: 2026-05-14
-- Owners: IOI runtime / Autopilot / SDK / CLI-TUI
+- Owners: IOI runtime / Autopilot / SDK / ADK / CLI-TUI
 
 ## Context
 
-IOI has many operator and developer surfaces: CLI, TUI, SDK, Autopilot Desktop,
-agent-ide, harnesses, benchmarks, and browser applications. All of them need to
-submit, inspect, control, or visualize work, but consequential Web4 work needs
-one execution authority boundary.
+IOI has many operator and developer surfaces: CLI, TUI, SDK, ADK, Autopilot
+Desktop, agent-ide, harnesses, benchmarks, and browser applications. All of
+them need to submit, inspect, scaffold, control, or visualize work, but
+consequential Web4 work needs one execution authority boundary.
 
 Without that boundary, client helpers can become private runtime truth paths
 and remote compute nodes can be mistaken for SDK-owned runtimes.
@@ -21,7 +21,9 @@ The IOI daemon is the universal execution endpoint for canonical Web4 work.
 Client surfaces are operators or projections over daemon/domain contracts:
 
 - CLI/TUI is a daemon-backed operator client.
-- SDK is a developer client over daemon/substrate contracts.
+- SDK is a low-level developer client over daemon/substrate contracts.
+- ADK is an autonomous-system builder framework over SDK and daemon/domain
+  contracts.
 - Autopilot Desktop is the local product/workbench and may manage a local
   daemon profile.
 - agent-ide, harnesses, benchmarks, and browser apps author or inspect work,
@@ -29,11 +31,13 @@ Client surfaces are operators or projections over daemon/domain contracts:
 
 Runtime and compute nodes initialize IOI daemon/runtime-node profiles. SDK code
 may submit, inspect, control, or embed client helpers, but the SDK is not the
-substrate booted on compute nodes.
+substrate booted on compute nodes. ADK code may scaffold workers, service
+modules, harnesses, evals, manifests, receipts, and deployment profiles, but it
+is not the daemon/runtime substrate.
 
 ## Consequences
 
-- No TUI-only, SDK-only, GUI-only, harness-only, or benchmark-only state
+- No TUI-only, SDK-only, ADK-only, GUI-only, harness-only, or benchmark-only state
   transition is canonical for consequential work.
 - Training, evaluation, benchmark, routing, delivery, data recipe, and
   transformation jobs run through daemon-compatible runtime paths.

@@ -76,6 +76,11 @@ const MODEL_SCREENSHOTS = [
     selector: "discoverView",
   },
   {
+    file: "model-catalog-sources.png",
+    phase: "model-catalog-sources-surface",
+    selector: "sourcesView",
+  },
+  {
     file: "model-running-instance.png",
     phase: "model-instance-ready",
     selector: "instanceReady",
@@ -800,6 +805,7 @@ async function runGuiValidation(outputRoot) {
         IOI_WORKSPACE_IDE_BRIDGE_URL: bridgeUrl,
         IOI_DAEMON_ENDPOINT: boot.daemon.endpoint,
         IOI_DAEMON_TOKEN: boot.token,
+        AUTOPILOT_SKIP_OVERVIEW: "1",
       },
       stdio: ["ignore", "pipe", "pipe"],
     });

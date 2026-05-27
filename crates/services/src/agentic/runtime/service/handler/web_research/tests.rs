@@ -129,3 +129,37 @@ fn normalize_web_research_tool_call_still_promotes_live_research_memory_search()
     };
     assert!(query.to_ascii_lowercase().contains("nist"), "query={query}");
 }
+
+#[test]
+fn normalize_web_research_tool_call_preserves_exact_tool_catalogue_browser_rows() {
+    let resolved =
+        resolved_intent_with_contract(IntentScopeProfile::WebResearch, "web.research", vec![]);
+    let mut tool = AgentTool::BrowserNavigate {
+        url: "http://127.0.0.1:41551/".to_string(),
+    };
+
+    normalize_web_research_tool_call(
+        &mut tool,
+        Some(&resolved),
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__navigate Run exactly this live IDE Rust/provider tool row.",
+    );
+
+    assert!(matches!(tool, AgentTool::BrowserNavigate { .. }));
+}
+
+#[test]
+fn normalize_web_research_tool_call_preserves_exact_tool_catalogue_memory_rows() {
+    let resolved =
+        resolved_intent_with_contract(IntentScopeProfile::WebResearch, "web.research", vec![]);
+    let mut tool = AgentTool::MemorySearch {
+        query: "tool catalogue canary".to_string(),
+    };
+
+    normalize_web_research_tool_call(
+        &mut tool,
+        Some(&resolved),
+        "TOOLCAT_STAGE8_MEMORY_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=memory__search Run exactly this live IDE Rust/provider tool row.",
+    );
+
+    assert!(matches!(tool, AgentTool::MemorySearch { .. }));
+}

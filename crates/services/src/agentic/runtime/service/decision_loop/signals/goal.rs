@@ -571,13 +571,23 @@ pub fn is_mail_connector_tool_name(tool_name: &str) -> bool {
         || normalized.starts_with("connector__google__gmail_")
 }
 
+fn interaction_target_alias_text(goal: &str) -> String {
+    goal.split_whitespace()
+        .filter(|part| {
+            let trimmed = part.trim();
+            !trimmed.contains('=') && !trimmed.starts_with("TOOLCAT_")
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 pub fn infer_interaction_target(goal: &str) -> Option<InteractionTarget> {
     let profile = analyze_goal_signals(goal);
     if profile.launch_hits == 0 {
         return None;
     }
 
-    let goal_lc = goal.to_ascii_lowercase();
+    let goal_lc = interaction_target_alias_text(goal).to_ascii_lowercase();
     let app_hint = [
         ("calculator", &["calculator", "calc"] as &[_]),
         ("code", &["code editor", "code", "editor"]),

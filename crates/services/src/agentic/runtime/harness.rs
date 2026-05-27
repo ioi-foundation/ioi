@@ -558,6 +558,7 @@ mod tests {
                 HarnessComponentKind::McpToolCall,
                 HarnessComponentKind::ToolCall,
                 HarnessComponentKind::ConnectorCall,
+                HarnessComponentKind::GithubPrCreate,
                 HarnessComponentKind::WalletCapability
             ]
         );

@@ -1,7 +1,7 @@
 use super::super::resilience;
 use super::super::resilience::locator::{LocalizationError, VisualLocator};
 use super::super::{ToolExecutionResult, ToolExecutor};
-use super::semantics::{find_semantic_ui_match, UiFindSemanticMatch};
+use super::semantics::{find_semantic_ui_match, find_semantic_xml_match, UiFindSemanticMatch};
 use super::tree::fetch_lensed_tree;
 use crate::agentic::runtime::types::ExecutionTier;
 use image::load_from_memory;
@@ -239,6 +239,23 @@ pub(super) async fn find_element_coordinates(
         }
         Err(err) => {
             tree_fetch_error = Some(err);
+        }
+    }
+
+    if let Ok(driver_xml) = exec.gui.capture_tree().await {
+        if !driver_xml.trim().is_empty() {
+            if let Some(found) = find_semantic_xml_match(&driver_xml, query) {
+                return build_ui_find_success(
+                    query,
+                    found,
+                    active_lens,
+                    exec.current_tier,
+                    "driver_capture_tree_success",
+                    "ToolFirst(screen__find.driver_capture_tree)",
+                    false,
+                );
+            }
+            hint_xml = Some(driver_xml);
         }
     }
 

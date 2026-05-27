@@ -249,20 +249,20 @@ async fn sync_system_core_memory(
         return Ok(());
     };
 
-    replace_core_memory_governed(
+    replace_system_core_memory_best_effort(
         memory_runtime,
         session_id,
         "goal.current",
         &agent_state.goal,
         "runtime_sync",
-    )?;
-    replace_core_memory_governed(
+    );
+    replace_system_core_memory_best_effort(
         memory_runtime,
         session_id,
         "environment.window.active",
         &perception.active_window_title,
         "runtime_sync",
-    )?;
+    );
 
     let resolved_intent = agent_state
         .resolved_intent
@@ -274,13 +274,13 @@ async fn sync_system_core_memory(
             )
         })
         .unwrap_or_default();
-    replace_core_memory_governed(
+    replace_system_core_memory_best_effort(
         memory_runtime,
         session_id,
         "intent.resolved",
         &resolved_intent,
         "runtime_sync",
-    )?;
+    );
 
     let failure_context = if perception.consecutive_failures > 0 {
         let reason = perception
@@ -294,23 +294,41 @@ async fn sync_system_core_memory(
     } else {
         String::new()
     };
-    replace_core_memory_governed(
+    replace_system_core_memory_best_effort(
         memory_runtime,
         session_id,
         "execution.last_failure",
         &failure_context,
         "runtime_sync",
-    )?;
+    );
 
     let active_url = service.browser.known_active_url().await.unwrap_or_default();
-    replace_core_memory_governed(
+    replace_system_core_memory_best_effort(
         memory_runtime,
         session_id,
         "environment.browser.url",
         &active_url,
         "runtime_sync",
-    )?;
+    );
     Ok(())
+}
+
+fn replace_system_core_memory_best_effort(
+    memory_runtime: &ioi_memory::MemoryRuntime,
+    session_id: [u8; 32],
+    section: &str,
+    content: &str,
+    source: &str,
+) {
+    if let Err(error) =
+        replace_core_memory_governed(memory_runtime, session_id, section, content, source)
+    {
+        log::warn!(
+            "Skipping runtime core-memory sync for '{}': {}",
+            section,
+            error
+        );
+    }
 }
 
 async fn persist_structured_ui_memory(

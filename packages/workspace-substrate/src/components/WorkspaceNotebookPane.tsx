@@ -48,6 +48,14 @@ export function WorkspaceNotebookPane({
       <div className="workspace-notebook-summary">
         <span className="workspace-chip">{notebook.cellCount} cells</span>
         <span className="workspace-chip">nbformat {notebook.nbformat}.{notebook.nbformatMinor}</span>
+        {notebook.readOnlyReplayMode ? (
+          <span className="workspace-chip">read-only replay</span>
+        ) : null}
+        {typeof notebook.receiptBackedCellCount === "number" ? (
+          <span className="workspace-chip">
+            {notebook.receiptBackedCellCount} receipted
+          </span>
+        ) : null}
         {notebook.language ? (
           <span className="workspace-chip">{notebook.language}</span>
         ) : null}
@@ -96,7 +104,7 @@ export function WorkspaceNotebookPane({
                   cell.cellType === "markdown" ? "is-markdown" : ""
                 }`}
                 value={cell.source}
-                readOnly={document.readOnly || document.saving}
+                readOnly={document.readOnly || document.saving || cell.readOnly}
                 spellCheck={cell.cellType === "markdown"}
                 onChange={(event) => {
                   const nextContent = updateWorkspaceNotebookCellSource(

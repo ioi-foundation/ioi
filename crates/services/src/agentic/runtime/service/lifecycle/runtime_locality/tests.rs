@@ -1,6 +1,6 @@
 use super::{
     compose_runtime_locality_scope, runtime_locality_scope_from_ip_discovery_payload,
-    timezone_identifier_from_device,
+    timezone_identifier_from_device_with_tz,
 };
 use serde_json::json;
 
@@ -51,15 +51,8 @@ fn compose_runtime_locality_scope_returns_city_when_region_matches_city() {
 
 #[test]
 fn timezone_identifier_from_device_prefers_tz_env_when_present() {
-    let previous = std::env::var("TZ").ok();
-    std::env::set_var("TZ", "America/New_York");
     assert_eq!(
-        timezone_identifier_from_device(),
+        timezone_identifier_from_device_with_tz(Some("America/New_York".to_string())),
         Some("America/New_York".to_string())
     );
-    if let Some(value) = previous {
-        std::env::set_var("TZ", value);
-    } else {
-        std::env::remove_var("TZ");
-    }
 }

@@ -4,13 +4,18 @@ Status: canonical architecture authority.
 Canonical owner: this file for model routing doctrine; low-level model-router API lives in [`model-router-api-byok-and-mounting.md`](./api-byok-mounting.md).
 Supersedes: overlapping model/provider prose when routing or BYOK boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-05-24.
 
 ## Canonical Definition
 
 **The Model Router is the IOI runtime subsystem that selects and invokes model routes according to task, privacy, cost, latency, quality, primitive capability constraints, authority scopes, and policy.**
 
 It should support foundational model APIs, local model mounting, BYOK, open-model serving, run-to-idle infrastructure, and decentralized/hosted compute providers.
+
+The model router belongs inside the runtime/node contract. Model weights,
+provider endpoints, local model servers, and hosted cognition backends are
+mounted by deployment profile. They are not part of the Autopilot node binary
+or architecture default.
 
 Model routing is not Worker routing. Model routing selects a cognition backend:
 OpenAI, Anthropic, Gemini, local open-weights, fine-tuned models, MoE systems,
@@ -29,6 +34,12 @@ model execution.
 
 > **Autopilot should not care whether a model is OpenAI, local LM Studio, tenant BYOK, vLLM on a sleeping GPU, or a decentralized cloud worker. It should call a model route through policy.**
 
+Node packaging doctrine:
+
+> **The node contains model routing and invocation boundaries. The model itself
+> is a mounted cognition backend unless a deployment profile explicitly bundles
+> local weights.**
+
 Workers may internally use model routes, including fine-tuned or MoE-backed
 routes, but benchmarks, authority scopes, receipts, ContributionReceipts,
 disputes, royalties, reputation, and MoW routing eligibility attach to the
@@ -43,6 +54,20 @@ adapters, and deterministic verifier models are cognition choices mounted
 behind workers or workflows.
 
 ## Model Surfaces
+
+Model availability is profile-dependent. Supported deployment shapes include:
+
+- bundled local model weights for small, offline, demo, or sovereign profiles;
+- mounted local files such as GGUF, MLX, ONNX, SafeTensors, or equivalent
+  model artifacts;
+- local servers such as LM Studio, Ollama, vLLM, llama.cpp, or
+  OpenAI-compatible endpoints;
+- BYOK provider APIs brokered through wallet.network;
+- hosted IOI or provider model pools;
+- TEE, customer VPC, or DePIN compute sessions;
+- specialized verifier, embedding, reranker, vision, code, or speech endpoints.
+
+Bundling model weights is a deployment profile, not the architecture default.
 
 Supported surfaces should include:
 
@@ -220,6 +245,10 @@ ModelInvocationReceipt:
 4. Provider fallback must be policy-aware.
 5. Runtime nodes should emit model routing explanations for audits.
 6. Run-to-idle serving must not break workflow determinism or receipt generation.
+7. The Autopilot node binary must not assume embedded model weights. Embedded or
+   bundled weights are allowed only when declared by a deployment profile.
+8. Service modules and workers invoke models through routes, not direct
+   assumptions about local files, provider names, or bundled binaries.
 
 ## One-Line Doctrine
 

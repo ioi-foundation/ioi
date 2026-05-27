@@ -18,3 +18,6 @@ explain the accepted decision when that history remains useful.
 - [ADR 0007: Adopt IDE-First Autopilot With Runtime And Workbench Substrates](./0007-autopilot-ide-first-two-substrate-architecture.md)
 - [ADR 0008: Adopt IOI Authority Gateway As The Sidecar Adoption Wedge](./0008-ioi-authority-gateway-sidecar-adoption-wedge.md)
 - [ADR 0009: Switch Autopilot IDE Shell From Tauri To The Electron/VS Code Fork](./0009-switch-autopilot-ide-shell-from-tauri-to-electron-vscode-fork.md)
+- [ADR 0010: Define Verifiable Bounded Agency As Execution-Boundary Alignment](./0010-verifiable-bounded-agency-and-execution-boundary-alignment.md)
+- [ADR 0011: Canonicalize Autopilot Nodes As Local Settlement Domains](./0011-autopilot-nodes-and-governed-autonomous-system-chains.md)
+- [ADR 0012: Define IOI As Autonomous-System Settlement Layer And AIIP As Work Interop](./0012-ioi-autonomous-system-settlement-and-aiip.md)

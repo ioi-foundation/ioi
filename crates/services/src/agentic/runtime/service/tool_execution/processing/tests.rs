@@ -1,9 +1,11 @@
-use super::{duplicate_command_completion_summary, should_fail_fast_web_timeout};
+use super::{
+    direct_tool_tier_override, duplicate_command_completion_summary, should_fail_fast_web_timeout,
+};
 use crate::agentic::runtime::service::recovery::anti_loop::FailureClass;
 use crate::agentic::runtime::service::tool_execution::command_contract::{
     execution_contract_violation_error, upsert_structured_field, TARGET_UTC_MARKER,
 };
-use crate::agentic::runtime::types::CommandExecution;
+use crate::agentic::runtime::types::{CommandExecution, ExecutionTier};
 use ioi_types::app::agentic::{
     AgentTool, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
 };
@@ -94,6 +96,15 @@ fn non_matching_cases_do_not_fail_fast() {
         FailureClass::UnexpectedState,
         false
     ));
+}
+
+#[test]
+fn coordinate_screen_clicks_start_in_visual_foreground_on_direct_path() {
+    let (tier, reason) = direct_tool_tier_override("screen__click_at")
+        .expect("coordinate screen click direct override");
+    assert_eq!(tier, ExecutionTier::VisualForeground);
+    assert_eq!(reason, "visual_last_coordinate_tool");
+    assert!(direct_tool_tier_override("screen__scroll").is_none());
 }
 
 #[test]

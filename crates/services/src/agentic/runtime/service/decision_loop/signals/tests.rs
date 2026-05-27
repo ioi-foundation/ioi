@@ -32,6 +32,14 @@ fn infers_interaction_target_from_launch_goal() {
 }
 
 #[test]
+fn infer_interaction_target_ignores_toolcat_fixture_metadata() {
+    let target = infer_interaction_target(
+        "TOOLCAT_STAGE6_DESKTOP_CLIPBOARD_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=screen__click Run exactly this live IDE Rust/provider tool row through Agent mode. browser_fixture_url=http://127.0.0.1:36669/",
+    );
+    assert_eq!(target, None);
+}
+
+#[test]
 fn infers_report_sections_from_query_signals() {
     let sections = infer_report_sections(
         "top incidents, what changed in last hour, user impact, workaround, eta confidence, citations",

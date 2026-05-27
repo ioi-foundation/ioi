@@ -19,14 +19,14 @@
   "activationEvents": [
     "*",
     "onStartupFinished",
-    "onView:ioi.chat",
+    "onView:ioi.overviewActivity",
     "onView:ioi.studio",
     "onView:ioi.workflows",
     "onView:ioi.models",
-    "onView:ioi.runs",
-    "onView:ioi.artifacts",
-    "onView:ioi.policy",
-    "onView:ioi.connections"
+    "onView:ioi.runsActivity",
+    "onView:ioi.policyActivity",
+    "onView:ioi.connectorsActivity",
+    "onView:ioi.codeActivity"
   ],
   "main": "./extension.js",
   "browser": "./extension.js",
@@ -36,14 +36,12 @@
   ],
   "contributes": {
     "viewsContainers": {
-      "secondarySidebar": [
-        {
-          "id": "ioi-chat",
-          "title": " ",
-          "icon": "media/ioi-activity.svg"
-        }
-      ],
       "activitybar": [
+        {
+          "id": "ioi-overview",
+          "title": "Autopilot Overview",
+          "icon": "$(home)"
+        },
         {
           "id": "ioi-studio",
           "title": "Autopilot Studio",
@@ -58,35 +56,35 @@
           "id": "ioi-models",
           "title": "Autopilot Models",
           "icon": "media/ioi-models.svg"
+        },
+        {
+          "id": "ioi-runs",
+          "title": "Autopilot Runs",
+          "icon": "$(pulse)"
+        },
+        {
+          "id": "ioi-policy",
+          "title": "Autopilot Policy",
+          "icon": "$(shield)"
+        },
+        {
+          "id": "ioi-connectors",
+          "title": "Autopilot Connectors",
+          "icon": "$(plug)"
+        },
+        {
+          "id": "ioi-code",
+          "title": "Code",
+          "icon": "$(code)"
         }
       ]
     },
     "views": {
-      "ioi-chat": [
+      "ioi-overview": [
         {
           "type": "webview",
-          "id": "ioi.chat",
-          "name": "Chat"
-        },
-        {
-          "type": "webview",
-          "id": "ioi.runs",
-          "name": "Runs"
-        },
-        {
-          "type": "webview",
-          "id": "ioi.artifacts",
-          "name": "Artifacts"
-        },
-        {
-          "type": "webview",
-          "id": "ioi.policy",
-          "name": "Policy"
-        },
-        {
-          "type": "webview",
-          "id": "ioi.connections",
-          "name": "Connections"
+          "id": "ioi.overviewActivity",
+          "name": "Overview"
         }
       ],
       "ioi-studio": [
@@ -109,6 +107,34 @@
           "id": "ioi.models",
           "name": "Models"
         }
+      ],
+      "ioi-runs": [
+        {
+          "type": "webview",
+          "id": "ioi.runsActivity",
+          "name": "Runs"
+        }
+      ],
+      "ioi-policy": [
+        {
+          "type": "webview",
+          "id": "ioi.policyActivity",
+          "name": "Policy"
+        }
+      ],
+      "ioi-connectors": [
+        {
+          "type": "webview",
+          "id": "ioi.connectorsActivity",
+          "name": "Connectors"
+        }
+      ],
+      "ioi-code": [
+        {
+          "type": "webview",
+          "id": "ioi.codeActivity",
+          "name": "Code"
+        }
       ]
     },
     "commands": [
@@ -119,10 +145,40 @@
         "icon": "$(search)"
       },
       {
+        "command": "ioi.code.open",
+        "title": "IOI: Open Code Mode",
+        "category": "IOI",
+        "icon": "$(code)"
+      },
+      {
+        "command": "ioi.autopilot.back",
+        "title": "IOI: Back to Autopilot",
+        "category": "IOI",
+        "icon": "$(arrow-left)"
+      },
+      {
+        "command": "ioi.overview.open",
+        "title": "IOI: Open Autopilot Overview",
+        "category": "IOI",
+        "icon": "$(home)"
+      },
+      {
         "command": "ioi.studio.open",
         "title": "IOI: Open Agent Studio",
         "category": "IOI",
         "icon": "$(sparkle)"
+      },
+      {
+        "command": "ioi.studio.openContextPicker",
+        "title": "IOI: Open Studio Context Picker",
+        "category": "IOI",
+        "icon": "$(paperclip)"
+      },
+      {
+        "command": "ioi.studio.openToolPicker",
+        "title": "IOI: Open Studio Tool Picker",
+        "category": "IOI",
+        "icon": "$(tools)"
       },
       {
         "command": "ioi.studio.agentBuilder",
@@ -232,6 +288,24 @@
         "category": "IOI"
       },
       {
+        "command": "ioi.models.searchCatalog",
+        "title": "IOI: Search Model Catalog",
+        "category": "IOI",
+        "icon": "$(search)"
+      },
+      {
+        "command": "ioi.models.configureCatalogProvider",
+        "title": "IOI: Configure Model Catalog Source",
+        "category": "IOI",
+        "icon": "$(server-environment)"
+      },
+      {
+        "command": "ioi.models.downloadCatalog",
+        "title": "IOI: Download Catalog Model",
+        "category": "IOI",
+        "icon": "$(cloud-download)"
+      },
+      {
         "command": "ioi.models.estimateNative",
         "title": "IOI: Estimate Native Model Load",
         "category": "IOI",
@@ -290,6 +364,48 @@
         "category": "IOI"
       },
       {
+        "command": "ioi.migration.openAssistant",
+        "title": "IOI: Open Migration Assistant",
+        "category": "IOI",
+        "icon": "$(repo-clone)"
+      },
+      {
+        "command": "ioi.migration.importVSCodeSettings",
+        "title": "IOI: Plan VS Code Settings Import",
+        "category": "IOI",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "ioi.migration.importCursorSettings",
+        "title": "IOI: Plan Cursor Settings Import",
+        "category": "IOI",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "ioi.migration.importWindsurfSettings",
+        "title": "IOI: Plan Windsurf Settings Import",
+        "category": "IOI",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "ioi.migration.importVSCodeExtensions",
+        "title": "IOI: Plan VS Code Extensions Import",
+        "category": "IOI",
+        "icon": "$(extensions)"
+      },
+      {
+        "command": "ioi.migration.importCursorExtensions",
+        "title": "IOI: Plan Cursor Extensions Import",
+        "category": "IOI",
+        "icon": "$(extensions)"
+      },
+      {
+        "command": "ioi.migration.importWindsurfExtensions",
+        "title": "IOI: Plan Windsurf Extensions Import",
+        "category": "IOI",
+        "icon": "$(extensions)"
+      },
+      {
         "command": "ioi.automation.browser",
         "title": "IOI: Start Browser / Computer-Use Validation",
         "category": "IOI"
@@ -299,6 +415,15 @@
       "commandPalette": [
         {
           "command": "ioi.studio.open"
+        },
+        {
+          "command": "ioi.code.open"
+        },
+        {
+          "command": "ioi.autopilot.back"
+        },
+        {
+          "command": "ioi.overview.open"
         },
         {
           "command": "ioi.studio.agentBuilder"
@@ -391,30 +516,31 @@
           "command": "ioi.connections.openConnector"
         },
         {
+          "command": "ioi.migration.openAssistant"
+        },
+        {
+          "command": "ioi.migration.importVSCodeSettings"
+        },
+        {
+          "command": "ioi.migration.importCursorSettings"
+        },
+        {
+          "command": "ioi.migration.importWindsurfSettings"
+        },
+        {
+          "command": "ioi.migration.importVSCodeExtensions"
+        },
+        {
+          "command": "ioi.migration.importCursorExtensions"
+        },
+        {
+          "command": "ioi.migration.importWindsurfExtensions"
+        },
+        {
           "command": "ioi.automation.browser"
         }
       ],
       "view/title": [
-        {
-          "command": "ioi.chat.new",
-          "when": "view == ioi.chat",
-          "group": "navigation@1"
-        },
-        {
-          "command": "ioi.chat.newOptions",
-          "when": "view == ioi.chat",
-          "group": "navigation@1.1"
-        },
-        {
-          "command": "ioi.chat.openSettings",
-          "when": "view == ioi.chat",
-          "group": "navigation@2"
-        },
-        {
-          "command": "ioi.chat.moreActions",
-          "when": "view == ioi.chat",
-          "group": "navigation@3"
-        },
         {
           "command": "ioi.studio.open",
           "when": "view == ioi.studio",

@@ -130,7 +130,10 @@ const withWorkspaceSources = buildAssistantTurnProcess({
   turnDurationLabel: "1m 8s",
 });
 assert.equal(withWorkspaceSources.sources.length, 0);
-assert.equal(withWorkspaceSources.summaryLine, "Worked for 1m 8s");
+assert.equal(
+  withWorkspaceSources.summaryLine,
+  "Worked for 1m 8s · read 2 files · inspected workspace",
+);
 assert.equal(withWorkspaceSources.items[0]?.kind, "source_read");
 assert.equal(withWorkspaceSources.items[0]?.label, "Read runtime_contracts.rs");
 assert.ok(

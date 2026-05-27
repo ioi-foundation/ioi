@@ -200,3 +200,22 @@ fn find_semantic_ui_match_recovers_visual_clause_query_from_semantic_hints() {
         found.confidence
     );
 }
+
+#[test]
+fn find_semantic_xml_match_uses_driver_capture_tree_rows() {
+    let xml = r#"
+<window id="win-1" name="IOI Autopilot" rect="0,0,1920,1080">
+  <button id="btn-1" name="Connect Wallet" rect="100,100,200,50" />
+</window>
+"#;
+
+    let found = find_semantic_xml_match(xml, "Connect Wallet")
+        .expect("driver capture XML should resolve the visible button");
+
+    assert_eq!(found.id.as_deref(), Some("btn-1"));
+    assert_eq!(found.role.as_deref(), Some("button"));
+    assert_eq!(found.label.as_deref(), Some("Connect Wallet"));
+    assert_eq!(found.x, 200);
+    assert_eq!(found.y, 125);
+    assert_eq!(found.source, "driver_capture_tree");
+}

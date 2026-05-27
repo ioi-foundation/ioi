@@ -28,6 +28,7 @@ pub(crate) use contract::{
     infer_query_matching_source_urls, infer_web_retrieval_contract,
     normalize_web_retrieval_contract, query_matching_source_urls, WEB_SOURCE_ALIGNMENT_MAX_SOURCES,
 };
+pub(crate) use media::kernel_media_synthesize_speech_with_options;
 pub(crate) use media::media_provider_candidate_receipt;
 pub(crate) use media::sample_local_video_preview;
 pub use media::{

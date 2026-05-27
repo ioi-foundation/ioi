@@ -112,6 +112,31 @@ fn browser_snapshot_completion_matches_update_success_criteria() {
 }
 
 #[test]
+fn browser_snapshot_completion_accepts_navigation_observation_output() {
+    let state = agent_state_with_resolved_intent(resolved_ui_interaction(
+        InstructionSideEffectMode::Update,
+        vec!["browser_snapshot.is_TOOLCAT_BROWSER_CANARY"],
+    ));
+    let output = r#"{
+      "tool": "web__read",
+      "backend": "edge:read:browser",
+      "documents": [
+        {
+          "content_text": "TOOLCAT_BROWSER_CANARY visible for find_text and copy tests.\n\nready"
+        }
+      ]
+    }"#;
+
+    let completion =
+        browser_snapshot_completion(&state, "browser__navigate", Some(output)).unwrap();
+    assert!(completion.summary.contains("operation=click"));
+    assert_eq!(
+        completion.matched_success_criteria,
+        vec!["browser_snapshot.is_TOOLCAT_BROWSER_CANARY".to_string()]
+    );
+}
+
+#[test]
 fn browser_snapshot_completion_rejects_read_only_contracts() {
     let state = agent_state_with_resolved_intent(resolved_ui_interaction(
         InstructionSideEffectMode::ReadOnly,

@@ -9,6 +9,7 @@ const packageJsonPath =
 const codiconSourcePath =
   "packages/workspace-substrate/src/components/Codicon.tsx";
 const desktopLauncherPath = "scripts/launch-autopilot-ide-fork.mjs";
+const shellPatchPath = "scripts/lib/autopilot-workbench-shell-patch.mjs";
 
 test("native IOI chat view renders the canonical operator chat pane shell", async () => {
   const source = await readFile(extensionSourcePath, "utf8");
@@ -42,11 +43,22 @@ test("native IOI chat composer uses canonical Autopilot icons and layout tokens"
   assert.ok(canonicalToolsPath);
   assert.match(source, /case "paperclip"/);
   assert.match(source, /case "device-desktop"/);
+  assert.match(source, /case "cube"/);
   assert.match(source, /case "symbol-operator"/);
   assert.match(source, /case "tools"/);
   assert.match(source, /case "send"/);
-  assert.match(source, /M7\.25 4\.75v5M4\.75 7\.25h5M14\.25 7\.25h5/);
-  assert.match(source, /M5 4\.5 20 12 5 19\.5v-15Z/);
+  assert.match(source, /data-tauri-icon="paperclip"/);
+  assert.match(source, /data-tauri-icon="cube"/);
+  assert.match(source, /data-tauri-icon="stop"/);
+  assert.match(source, /data-tauri-codicon="device-desktop"/);
+  assert.match(source, /data-tauri-codicon="symbol-operator"/);
+  assert.match(source, /data-tauri-codicon="chevron-down"/);
+  assert.match(source, /data-tauri-codicon="send"/);
+  assert.match(source, /data-tauri-codicon="tools"/);
+  assert.match(source, /M13\.013 1\.013L2\.987 1\.013/);
+  assert.match(source, /m21 16-9 5-9-5V8l9-5 9 5v8Z/);
+  assert.match(source, /M6\.987 4\.480/);
+  assert.match(source, /M1\.173 1\.120/);
   assert.ok(source.includes(canonicalToolsPath));
   assert.match(source, /class="operator-chat-icon-select"/);
   assert.match(source, /class="operator-chat-tool-toggle"/);
@@ -77,7 +89,331 @@ test("native IOI chat composer uses canonical Autopilot icons and layout tokens"
   assert.match(source, /dataset\.chatMode/);
   assert.match(source, /dataset\.chatModel/);
   assert.doesNotMatch(source, /var\(--vscode-focusBorder\)/);
-  assert.doesNotMatch(source, />▱<\/button>|>⌁<\/button>|>♮<\/button>|>▷<\/button>/);
+  assert.doesNotMatch(source, /data-testid="studio-add-context"[^>]*>⌕/);
+  assert.doesNotMatch(source, /data-testid="studio-target-toggle"[^>]*>▣⌄/);
+  assert.doesNotMatch(source, /data-testid="studio-model-toggle"[^>]*>◇⌄/);
+  assert.doesNotMatch(source, /data-testid="studio-tools-toggle"[^>]*>⚒/);
+  assert.doesNotMatch(source, /data-testid="studio-send-icon"[^>]*>▷/);
+});
+
+test("Agent Studio composer uses the Tauri chat source glyph vocabulary", async () => {
+  const source = await readFile(extensionSourcePath, "utf8");
+
+  assert.match(source, /data-testid="studio-add-context"[\s\S]*renderNativeChatIcon\("paperclip"\)/);
+  assert.match(source, /data-testid="studio-composer-context-row"[\s\S]*data-testid="studio-add-context"[\s\S]*data-testid="studio-composer-input"[\s\S]*data-testid="studio-composer-toggle-row"/);
+  assert.match(source, /\.studio-composer-context-row \.studio-context-btn \{[\s\S]*border-color: var\(--studio-border\)/);
+  assert.match(source, /\.studio-composer-context-row \.studio-context-btn:hover \{[\s\S]*border-color: var\(--studio-border-strong\)/);
+  assert.match(source, /data-testid="studio-target-toggle"[\s\S]*renderNativeChatIcon\("device-desktop"\)/);
+  assert.match(source, /data-testid="studio-target-toggle"[\s\S]*renderNativeChatIcon\("chevron-down"\)/);
+  assert.match(source, /data-testid="studio-model-toggle"[^>]*data-command="ioi\.quickInput\.modelRoute\.pick"/);
+  assert.match(source, /data-testid="studio-model-toggle"[\s\S]*renderNativeChatIcon\("cube"\)/);
+  assert.match(source, /mountedModelQuickInputRowsFromState\(state\)/);
+  assert.match(source, /const activeRouteId = studioRuntimeProjection\.modelRoute \|\| "route\.local-first"/);
+  assert.match(source, /score: 1_000 \+ modelRecordStatusScore\(activeEndpoint, activeRoute, activeArtifact\)/);
+  assert.match(source, /function studioReasoningControlForSelection/);
+  assert.match(source, /function studioReasoningEffortOptions/);
+  assert.match(source, /const STUDIO_MODE_ASK = "ask"/);
+  assert.match(source, /function normalizeStudioExecutionMode/);
+  assert.match(source, /normalized === "ask"/);
+  assert.match(source, /function studioExecutionModeLabel/);
+  assert.match(source, /STUDIO_MODE_ASK \? "Ask" : "Agent"/);
+  assert.match(source, /const STUDIO_PERMISSION_MODE_DEFAULT = "suggest"/);
+  assert.match(source, /const STUDIO_PERMISSION_MODE_AUTO_REVIEW = "auto_local"/);
+  assert.match(source, /const STUDIO_PERMISSION_MODE_FULL_ACCESS = "never_prompt"/);
+  assert.match(source, /function normalizeStudioPermissionMode/);
+  assert.match(source, /function studioPermissionDaemonMapping/);
+  assert.match(source, /function applyStudioPermissionModeSelection/);
+  assert.match(source, /function executionModeFromAgentModeResult/);
+  assert.match(source, /function applyAgentModeResult/);
+  assert.match(source, /function permissionModeFromResult/);
+  assert.match(source, /function applyPermissionModeResult/);
+  assert.match(source, /const selectedExecutionMode = result\.kind === "agentMode" \? applyAgentModeResult\(result\) : undefined/);
+  assert.match(source, /const selectedPermissionMode = result\.kind === "permissionMode" \? applyPermissionModeResult\(result\) : undefined/);
+  assert.match(source, /function studioModelIdForRouteInvocation/);
+  assert.match(source, /if \(route\.startsWith\("route\."\)\) \{\s*return "auto";\s*\}/);
+  assert.match(source, /const requestedModel = studioModelIdForRouteInvocation\(selectedRoute, selectedModelId\)/);
+  assert.match(source, /max_steps: 8/);
+  assert.match(source, /function normalizeStudioAssistantReplyText/);
+  assert.match(source, /function studioAssistantTextFromRuntimeToolEvents/);
+  assert.match(source, /studioAssistantTextFromRuntimeToolEvents\(events\)/);
+  assert.match(source, /String\(studioRuntimeEventToolName\(event\)\)\.toLowerCase\(\) !== "chat__reply"/);
+  assert.match(source, /event\.data\?\.tool_name/);
+  assert.match(source, /event\.data\?\.runtimeEventKind/);
+  assert.match(source, /event\.payload_summary\?\.output/);
+  assert.match(source, /function studioRuntimeEventsIncludeCompletedTool/);
+  assert.match(source, /function studioAssistantReplyTextIsDeferred/);
+  assert.match(source, /studioAssistantReplyTextIsDeferred\(text\)/);
+  assert.match(source, /function studioRetrievalFailClosedText/);
+  assert.match(source, /did not emit a final chat__reply/);
+  assert.match(source, /I will not choose or summarize from stale model memory/);
+  assert.match(source, /function studioResultTextLooksRetrievalGrounded/);
+  assert.match(source, /resultLooksRetrievalGrounded/);
+  assert.match(source, /needsRetrieval && !\(hasCompletedSearch && hasCompletedRead\) && !resultLooksRetrievalGrounded/);
+  assert.match(source, /function studioTextIndicatesApprovalPause/);
+  assert.match(source, /function studioApprovalPauseError/);
+  assert.match(source, /studioApprovalPause/);
+  assert.match(source, /Daemon turn waiting for approval/);
+  assert.match(source, /Agent turn waiting for approval/);
+  assert.match(source, /const STUDIO_AGENT_TURN_POST_TIMEOUT_MS = 130000/);
+  assert.match(source, /timeoutMs: STUDIO_AGENT_TURN_POST_TIMEOUT_MS/);
+  assert.match(source, /function recoverStudioAgentTurnAfterSubmitTimeout/);
+  assert.match(source, /fetchStudioThreadTurnEvents\(turn\.thread_id \|\| turn\.threadId \|\| threadId, output, \{\s*turnId: turn\.turn_id \|\| turn\.turnId,/);
+  assert.match(source, /agentTurnStatus = agentTurn\.status === "blocked" \? "blocked" : "completed"/);
+  assert.match(source, /label: "Blocked daemon thread released"/);
+  assert.match(source, /resetStudioDaemonThreadProjection\(\);\s*studioRuntimeProjection\.timeline\.push\(\{\s*label: "Blocked daemon thread released"/);
+  assert.match(source, /const explicitText = String\(payload\?\.text \|\| ""\)\.trim\(\)/);
+  assert.match(source, /data-testid="studio-reasoning-effort-picker"/);
+  assert.match(source, /reasoningEffort,\s*reasoning_effort: reasoningEffort/);
+  assert.doesNotMatch(source, /data-testid="studio-model-toggle"[\s\S]{0,500}renderNativeChatIcon\("symbol-operator"\)/);
+  assert.match(source, /data-testid="studio-tools-toggle"[\s\S]*renderNativeChatIcon\("tools"\)/);
+  assert.match(source, /data-testid="studio-send-button"[\s\S]*renderNativeChatIcon\("send"\)/);
+  assert.match(source, /data-testid="studio-stop-icon"[\s\S]*renderNativeChatIcon\("stop"\)/);
+  assert.match(source, /data-tauri-icon="paperclip"/);
+  assert.match(source, /data-tauri-icon="cube"/);
+  assert.match(source, /data-tauri-icon="stop"/);
+  assert.match(source, /data-tauri-codicon="device-desktop"/);
+  assert.match(source, /data-tauri-codicon="symbol-operator"/);
+  assert.match(source, /data-tauri-codicon="chevron-down"/);
+  assert.match(source, /data-tauri-codicon="send"/);
+  assert.match(source, /data-tauri-codicon="tools"/);
+  assert.match(source, /class="studio-icon-toggle__chevron"/);
+  assert.match(source, /class="studio-context-btn__icon"/);
+  assert.match(source, /\.studio-composer-context-row/);
+  assert.match(source, /\.studio-composer-context-row \.studio-context-btn \{[\s\S]*background: transparent/);
+  assert.match(source, /\.studio-composer-context-row \.studio-context-btn:hover \{[\s\S]*background: transparent/);
+  assert.match(source, /\.studio-composer-toolbar \.studio-icon-toggle,[\s\S]*border-color: transparent/);
+  assert.match(source, /\.studio-composer-toolbar \.studio-icon-toggle:hover,[\s\S]*background: rgba\(255, 255, 255, 0\.08\)/);
+  assert.match(source, /\.studio-composer \{\s*border-top: 0;\s*background: #191919;/);
+  assert.match(source, /\.studio-composer \{\s*border-top: 0;\s*background: #050505;/);
+  assert.doesNotMatch(source, /\.studio-composer \{\s*border-top: 1px/);
+  assert.match(source, /let studioPanelLastHtml = null;/);
+  assert.match(source, /let studioPanelNonce = null;/);
+  assert.match(source, /function updateStudioPanelHtml\(state\)/);
+  assert.match(source, /if \(html === studioPanelLastHtml\) \{\s*return;\s*\}/);
+  assert.match(source, /const pageNonce = studioPanelNonce \|\| \(studioPanelNonce = nonce\(\)\);/);
+  assert.doesNotMatch(source, /if \(studioPanel\) \{\s*studioPanel\.webview\.html = studioPanelHtml\(state\);/);
+  assert.match(source, /width: 28px;/);
+  assert.match(source, /height: 22px;/);
+  assert.match(source, /width: 28px;/);
+});
+
+test("Agent Studio renders browser and computer automation as managed live sessions", async () => {
+  const source = await readFile(extensionSourcePath, "utf8");
+
+  assert.match(source, /function studioManagedSessionFromRuntimeEvent/);
+  assert.match(source, /function studioManagedSessionRows/);
+  assert.match(source, /studioRuntimeProjection\.computerUseSessions/);
+  assert.match(source, /data-testid="studio-managed-session-card"/);
+  assert.match(source, /data-testid="studio-managed-session-compact-preview"/);
+  assert.match(source, /data-testid="studio-managed-session-expanded-view"/);
+  assert.match(source, /data-testid="studio-managed-session-mode-labels"/);
+  assert.match(source, /Sandbox browser/);
+  assert.match(source, /Local browser/);
+  assert.match(source, /Desktop/);
+  assert.match(source, /data-testid="studio-managed-session-observe"/);
+  assert.match(source, /data-testid="studio-managed-session-take-over"/);
+  assert.match(source, /data-testid="studio-managed-session-return"/);
+  assert.match(source, /data-managed-live-viewport-observed/);
+  assert.match(source, /data-managed-session-labels-observed/);
+  assert.doesNotMatch(source, /studio-managed-session-card[\s\S]{0,1200}receiptRefs/);
+});
+
+test("Agent Studio tools icon opens the VS Code substrate Configure Tools picker", async () => {
+  const source = await readFile(extensionSourcePath, "utf8");
+
+  assert.match(source, /function studioToolPaletteSections/);
+  assert.match(source, /function studioToolQuickPickItems/);
+  assert.match(source, /data-testid="studio-tools-toggle"[^>]*data-command="ioi\.quickInput\.tools\.configure"/);
+  assert.match(source, /vscode\.commands\.registerCommand\("ioi\.quickInput\.tools\.configure"/);
+  assert.match(source, /recordForkQuickInputCommand\("ioi\.quickInput\.tools\.configure"/);
+  assert.match(source, /extensionQuickInputFallbackEnabled\(\)/);
+  assert.match(source, /window\.parent\?\.postMessage\(message, "\*"\)/);
+  assert.match(source, /window\.top\.postMessage\(message, "\*"\)/);
+  assert.match(source, /source: "ioi-workbench-agent-studio"/);
+  assert.match(source, /type: "ioi\.quickInput\.open"/);
+  assert.match(source, /message\.source !== "ioi-autopilot-fork-quickinput"/);
+  assert.match(source, /nativeForkContributionUsed: true/);
+  assert.match(source, /extensionQuickPickFallbackUsed: false/);
+  assert.match(source, /buttonQuickInputPayload\(button\)/);
+  assert.match(source, /anchorRect: \{/);
+  assert.match(source, /vscode\.commands\.registerCommand\("ioi\.studio\.openToolPicker"/);
+  assert.match(source, /vscode\.window\.createQuickPick\(\)/);
+  assert.match(source, /picker\.title = "Configure Tools"/);
+  assert.match(source, /picker\.placeholder = "Select tools that are available to chat\."/);
+  assert.match(source, /picker\.canSelectMany = true/);
+  assert.match(source, /picker\.selectedItems = items\.filter/);
+  assert.match(source, /picker\.ignoreFocusOut = true/);
+  assert.match(source, /picker\.buttons = \[toolButtons\.context, toolButtons\.manage, toolButtons\.settings\]/);
+  assert.match(source, /new vscode\.ThemeIcon\("paperclip"\)/);
+  assert.match(source, /new vscode\.ThemeIcon\("extensions"\)/);
+  assert.match(source, /new vscode\.ThemeIcon\("settings-gear"\)/);
+  assert.match(source, /vscode\.commands\.executeCommand\("ioi\.studio\.openContextPicker"\)/);
+  assert.match(source, /writeBridgeRequest\("chat\.toolControls"/);
+  assert.match(source, /action: "configureTools"/);
+  assert.match(source, /selectedTools:/);
+  assert.match(source, /selectedCount:/);
+  assert.doesNotMatch(source, /function renderStudioToolPalette/);
+  assert.doesNotMatch(source, /data-studio-tool-palette/);
+  assert.doesNotMatch(source, /data-studio-tools-toggle/);
+  assert.doesNotMatch(
+    source,
+    /data-testid="studio-tools-toggle"[^>]*data-bridge-request="commandCenter\.open"/,
+  );
+  assert.match(source, /title: "agent"/);
+  assert.match(source, /title: "awaitTerminal"/);
+  assert.match(source, /title: "createAndRunTask"/);
+  assert.match(source, /title: "execute"/);
+  assert.match(source, /title: "extensions"/);
+  assert.match(source, /title: "getTerminalOutput"/);
+  assert.match(source, /title: "killTerminal"/);
+  assert.match(source, /title: "runInTerminal"/);
+  assert.match(source, /title: "runSubagent"/);
+  assert.match(source, /title: "terminalLastCommand"/);
+  assert.match(source, /title: "terminalSelection"/);
+  assert.match(source, /title: "todo"/);
+  assert.match(source, /title: "vscode"/);
+  assert.match(source, /title: "renderMermaidDiagram"/);
+  assert.match(source, /Mermaid Chat Features/);
+  assert.doesNotMatch(source, /title: "Go back"/);
+  assert.match(source, /Live Tools/);
+  assert.match(source, /Runtime Catalog/);
+  assert.match(source, /studioNativeQuickInputToolPicker: true/);
+});
+
+test("Agent Studio renders Mermaid chat outputs as interactive renderer cards", async () => {
+  const source = await readFile(extensionSourcePath, "utf8");
+
+  assert.match(source, /function studioMermaidSourcesFromText/);
+  assert.match(source, /function studioMermaidSummary/);
+  assert.match(source, /function studioChatOutputRendererRows/);
+  assert.match(source, /outputRenderers: \[\]/);
+  assert.match(source, /turn\.outputRenderers \|\| turn\.output_renderers/);
+  assert.match(source, /fencePattern = \/```\(\?:mermaid\|text\\\/vnd\\\.mermaid\)/);
+  assert.match(source, /data-testid="studio-chat-mermaid-renderer"/);
+  assert.match(source, /data-renderer-id="\$\{escapeHtml\(card\.rendererId\)\}"/);
+  assert.match(source, /data-mime-type="\$\{escapeHtml\(card\.mimeType\)\}"/);
+  assert.match(source, /data-testid="studio-chat-output-renderer-controls"/);
+  assert.match(source, /data-testid="studio-chat-renderer-zoom-in"/);
+  assert.match(source, /data-testid="studio-chat-renderer-zoom-out"/);
+  assert.match(source, /data-testid="studio-chat-renderer-fit"/);
+  assert.match(source, /data-testid="studio-mermaid-diagram-surface"/);
+  assert.match(source, /data-testid="studio-mermaid-clickable-node"/);
+  assert.match(source, /data-testid="studio-chat-output-renderer-source"/);
+  assert.match(source, /studioChatOutputRendererRows\(turn, index\)/);
+  assert.match(source, /turnCount: turns\.length/);
+  assert.match(source, /studio-chat-output-renderer--mermaid/);
+});
+
+test("Agent Studio mounts imported trajectory audit panels in Trace", async () => {
+  const source = await readFile(extensionSourcePath, "utf8");
+
+  assert.match(source, /parentTrajectoryLinkagePanels: \[\]/);
+  assert.match(source, /battleModePermissionImportPanels: \[\]/);
+  assert.match(source, /importedStopHookGatePanels: \[\]/);
+  assert.match(source, /importedBrowserActionEvidencePanels: \[\]/);
+  assert.match(source, /importedExecutorConfigPanels: \[\]/);
+  assert.match(source, /importedPolicyDraftPanels: \[\]/);
+  assert.match(source, /importedGenerationMetadataPanels: \[\]/);
+  assert.match(source, /importedErrorRenderInfoPanels: \[\]/);
+  assert.match(source, /studio-imported-parent-trajectory-linkage/);
+  assert.match(source, /studio-imported-battle-mode-permission/);
+  assert.match(source, /studio-imported-stop-hook-gates/);
+  assert.match(source, /studio-imported-browser-action-evidence/);
+  assert.match(source, /studio-imported-executor-config/);
+  assert.match(source, /studio-imported-policy-draft/);
+  assert.match(source, /studio-imported-generation-metadata/);
+  assert.match(source, /studio-imported-error-render-info/);
+  assert.match(source, /imported\.parent_trajectory_linkage/);
+  assert.match(source, /imported\.battle_mode_permission/);
+  assert.match(source, /imported\.stop_hook_gates/);
+  assert.match(source, /imported\.browser_action_evidence/);
+  assert.match(source, /imported\.executor_config/);
+  assert.match(source, /imported\.policy_draft/);
+  assert.match(source, /imported\.generation_metadata/);
+  assert.match(source, /imported\.error_render_info/);
+});
+
+test("Migration Assistant commands are visible and plan-only", async () => {
+  const source = await readFile(extensionSourcePath, "utf8");
+  const manifest = JSON.parse(await readFile(packageJsonPath, "utf8"));
+  const commandIds = new Set(manifest.contributes.commands.map((entry) => entry.command));
+  const commandPaletteIds = new Set(
+    manifest.contributes.menus.commandPalette.map((entry) => entry.command),
+  );
+
+  for (const commandId of [
+    "ioi.migration.openAssistant",
+    "ioi.migration.importVSCodeSettings",
+    "ioi.migration.importCursorSettings",
+    "ioi.migration.importWindsurfSettings",
+    "ioi.migration.importVSCodeExtensions",
+    "ioi.migration.importCursorExtensions",
+    "ioi.migration.importWindsurfExtensions",
+  ]) {
+    assert.ok(commandIds.has(commandId), `${commandId} contributed`);
+    assert.ok(commandPaletteIds.has(commandId), `${commandId} visible in command palette`);
+    assert.match(source, new RegExp(`registerCommand\\("${commandId.replace(/\./g, "\\.")}"`));
+  }
+
+  assert.match(source, /const planMigrationImport = async/);
+  assert.match(source, /writeBridgeRequest\("migration\.assistant\.open"/);
+  assert.match(source, /writeBridgeRequest\("migration\.import\.plan"/);
+  assert.match(source, /applyMode: "plan_only"/);
+  assert.match(source, /policyReviewRequired: true/);
+  assert.match(source, /sandboxBoundaryPreserved: true/);
+  assert.match(source, /autoApply: false/);
+  assert.match(source, /supportedSources: \["vscode", "cursor", "windsurf"\]/);
+});
+
+test("Agent Studio renders executable code blocks as sandbox plan cards", async () => {
+  const source = await readFile(extensionSourcePath, "utf8");
+
+  assert.match(source, /function studioExecutableCodeBlocksFromText/);
+  assert.match(source, /function studioCodeExecutionPolicy/);
+  assert.match(source, /function studioChatCodeExecutionRows/);
+  assert.match(source, /data-testid="studio-chat-code-execution-card"/);
+  assert.match(source, /data-network-policy="deny"/);
+  assert.match(source, /data-apply-mode="plan_only"/);
+  assert.match(source, /data-testid="studio-chat-code-execution-source"/);
+  assert.match(source, /data-testid="studio-chat-code-execute-plan"/);
+  assert.match(source, /data-bridge-request="chat\.executeCodeBlock\.plan"/);
+  assert.match(source, /receiptRequired: true/);
+  assert.match(source, /policy:code_execution\.sandbox\.network_deny/);
+  assert.match(source, /policy:code_execution\.block\.network/);
+  assert.match(source, /studioChatCodeExecutionRows\(turn, index\)/);
+});
+
+test("Agent Studio Add Context opens the native VS Code context picker", async () => {
+  const source = await readFile(extensionSourcePath, "utf8");
+  const shellPatchSource = await readFile(shellPatchPath, "utf8");
+
+  assert.match(source, /function studioContextQuickPickItems/);
+  assert.match(source, /data-testid="studio-add-context"[^>]*data-command="ioi\.quickInput\.context\.open"/);
+  assert.match(source, /vscode\.commands\.registerCommand\("ioi\.quickInput\.context\.open"/);
+  assert.match(source, /recordForkQuickInputCommand\("ioi\.quickInput\.context\.open"/);
+  assert.match(source, /isForkQuickInputCommand\(button\.dataset\.command\)/);
+  assert.match(source, /focusStudioComposer\(\)/);
+  assert.match(source, /vscode\.commands\.registerCommand\("ioi\.studio\.openContextPicker"/);
+  assert.match(source, /picker\.placeholder = "Search for files and context to add to your request"/);
+  assert.match(source, /title: "Files & Folders\.\.\."/);
+  assert.match(source, /title: "Instructions\.\.\."/);
+  assert.match(source, /title: "Problems\.\.\."/);
+  assert.match(source, /title: "Symbols\.\.\."/);
+  assert.match(source, /title: "Tools\.\.\."/);
+  assert.match(source, /new vscode\.ThemeIcon\(row\.icon\)/);
+  assert.match(source, /requestType: "chat\.attachFilesAndFolders"/);
+  assert.match(source, /requestType: "chat\.generateAgentInstructions"/);
+  assert.match(source, /requestType: "chat\.attachProblems"/);
+  assert.match(source, /requestType: "chat\.attachSymbols"/);
+  assert.match(source, /command: "ioi\.quickInput\.tools\.configure"/);
+  assert.match(source, /runtimeAuthority: "daemon-owned"/);
+  assert.match(source, /type: "ioi\.quickInput\.dismiss"/);
+  assert.match(shellPatchSource, /function focusForkQuickInputControl/);
+  assert.match(shellPatchSource, /message\.type === "ioi\.quickInput\.dismiss"/);
+  assert.match(shellPatchSource, /closeForkQuickInput\(\);/);
+  assert.doesNotMatch(source, /data-testid="studio-add-context-menu"/);
+  assert.doesNotMatch(source, /data-studio-context-toggle/);
+  assert.doesNotMatch(source, /studio-context-menu/);
 });
 
 test("native IOI chat view routes user actions through bridge requests", async () => {
@@ -93,24 +429,23 @@ test("native IOI chat view routes user actions through bridge requests", async (
   assert.doesNotMatch(source, /createRuntime|new Runtime|reactShadowStore/i);
 });
 
-test("native IOI chat title actions are contributed by the IOI extension", async () => {
+test("legacy IOI chat sidebar is not contributed to the primary Autopilot shell", async () => {
   const manifest = JSON.parse(await readFile(packageJsonPath, "utf8"));
   const commands = new Set(
     (manifest.contributes?.commands || []).map((command) => command.command),
   );
-  const chatContainer = manifest.contributes?.viewsContainers?.secondarySidebar?.find(
-    (container) => container.id === "ioi-chat",
-  );
+  const secondaryContainers = manifest.contributes?.viewsContainers?.secondarySidebar || [];
   const activityContainers = manifest.contributes?.viewsContainers?.activitybar || [];
-  const chatViews = manifest.contributes?.views?.["ioi-chat"] || [];
 
-  assert.equal(chatContainer?.title, " ");
-  assert.ok(chatViews.some((view) => view.id === "ioi.chat"));
-  assert.ok(chatViews.some((view) => view.id === "ioi.runs"));
-  assert.ok(chatViews.some((view) => view.id === "ioi.artifacts"));
-  assert.ok(chatViews.some((view) => view.id === "ioi.policy"));
-  assert.ok(chatViews.some((view) => view.id === "ioi.connections"));
+  assert.ok(!secondaryContainers.some((container) => container.id === "ioi-chat"));
+  assert.equal(manifest.contributes?.views?.["ioi-chat"], undefined);
   assert.ok(!activityContainers.some((container) => container.id === "ioi"));
+  assert.ok(
+    activityContainers.some(
+      (container) =>
+        container.id === "ioi-overview" && container.icon === "$(home)",
+    ),
+  );
   assert.ok(
     activityContainers.some(
       (container) =>
@@ -119,8 +454,16 @@ test("native IOI chat title actions are contributed by the IOI extension", async
   );
   assert.ok(activityContainers.some((container) => container.id === "ioi-workflows"));
   assert.ok(activityContainers.some((container) => container.id === "ioi-models"));
+  assert.ok(activityContainers.some((container) => container.id === "ioi-runs"));
+  assert.ok(activityContainers.some((container) => container.id === "ioi-policy"));
+  assert.ok(activityContainers.some((container) => container.id === "ioi-connectors"));
+  assert.ok(activityContainers.some((container) => container.id === "ioi-code"));
   assert.ok(commands.has("ioi.commandCenter.open"));
+  assert.ok(commands.has("ioi.code.open"));
+  assert.ok(commands.has("ioi.autopilot.back"));
   assert.ok(commands.has("ioi.studio.open"));
+  assert.ok(commands.has("ioi.studio.openContextPicker"));
+  assert.ok(commands.has("ioi.studio.openToolPicker"));
   assert.ok(commands.has("ioi.studio.agentBuilder"));
   assert.ok(commands.has("ioi.chat.new"));
   assert.ok(commands.has("ioi.chat.newOptions"));
@@ -128,39 +471,282 @@ test("native IOI chat title actions are contributed by the IOI extension", async
   assert.ok(commands.has("ioi.chat.focusComposer"));
   assert.ok(commands.has("ioi.chat.moreActions"));
 
-  const titleCommands = new Set(
-    (manifest.contributes?.menus?.["view/title"] || [])
-      .filter((item) => item.when === "view == ioi.chat")
-      .map((item) => item.command),
-  );
-  assert.ok(titleCommands.has("ioi.chat.new"));
-  assert.ok(titleCommands.has("ioi.chat.newOptions"));
-  assert.ok(titleCommands.has("ioi.chat.openSettings"));
-  assert.ok(titleCommands.has("ioi.chat.moreActions"));
-  assert.ok(!titleCommands.has("ioi.chat.focusComposer"));
+  assert.ok(commands.has("ioi.chat.submit"));
+  assert.ok(commands.has("ioi.chat.reviewFile"));
 });
 
-test("Agent Studio contributes a direct activity surface and landing panel", async () => {
+test("Agent Studio contributes an operational daemon-backed chat surface", async () => {
   const source = await readFile(extensionSourcePath, "utf8");
   const manifest = JSON.parse(await readFile(packageJsonPath, "utf8"));
   const studioViews = manifest.contributes?.views?.["ioi-studio"] || [];
 
   assert.ok(studioViews.some((view) => view.id === "ioi.studio"));
   assert.match(source, /function studioPanelHtml/);
-  assert.match(source, /data-testid="agent-studio-landing"/);
-  assert.match(source, /<h1>Agent Studio<\/h1>/);
-  assert.match(source, /Describe an agent, workflow, or app to build/);
+  assert.match(source, /data-testid="agent-studio-operational-chat"/);
+  assert.match(source, /data-testid="studio-transcript"/);
+  assert.match(source, /data-testid="studio-composer"/);
+  assert.match(source, /data-testid="studio-tool-timeline"/);
+  assert.match(source, /data-testid="studio-approval-gate"/);
+  assert.match(source, /data-testid="studio-receipts-replay"/);
+  assert.match(source, /data-testid="studio-inline-diff-hunks"/);
+  assert.match(source, /data-testid="studio-model-route-picker"/);
+  assert.match(source, /data-testid="studio-reasoning-effort-picker"/);
+  assert.match(source, /data-testid="studio-workflow-handoff"/);
+  assert.match(source, /data-testid="studio-tauri-session-rail"/);
+  assert.match(source, /data-testid="studio-session-search"/);
+  assert.match(source, /data-testid="studio-new-session"/);
+  assert.match(source, /data-testid="studio-artifacts-row"/);
+  assert.match(source, /data-testid="studio-current-session-row"/);
+  assert.match(source, /data-testid="studio-chat-transcript"/);
+  assert.match(source, /data-testid="studio-user-bubble"/);
+  assert.match(source, /data-testid="studio-assistant-answer-card"/);
+  assert.match(source, /data-testid="studio-run-status-bar"/);
+  assert.match(source, /if \(!lines\.length\) \{\s*return null;\s*\}/);
+  assert.match(source, /return Boolean\(record && firstArray\(record\.lines\)\.length\)/);
+  assert.match(source, /data-testid="studio-tauri-composer"/);
+  assert.match(source, /data-testid="studio-composer-context-row"/);
+  assert.match(source, /data-testid="studio-composer-toggle-row"/);
+  assert.match(source, /data-testid="studio-add-context"/);
+  assert.match(source, /data-testid="studio-target-toggle"/);
+  assert.match(source, /data-testid="studio-model-toggle"/);
+  assert.match(source, /data-testid="studio-mode-toggle"/);
+  assert.match(source, /data-testid="studio-permissions-toggle"/);
+  assert.match(source, /Default permissions/);
+  assert.match(source, /Auto-review/);
+  assert.match(source, /Full access/);
+  assert.match(source, /data-testid="studio-target-toggle"[^>]*data-command="ioi\.quickInput\.workflowTarget\.pick"/);
+  assert.match(source, /data-testid="studio-mode-toggle"[^>]*data-command="ioi\.quickInput\.agentMode\.pick"/);
+  assert.match(source, /data-testid="studio-permissions-toggle"[^>]*data-command="ioi\.quickInput\.permissionMode\.pick"/);
+  assert.match(source, /vscode\.commands\.registerCommand\("ioi\.quickInput\.agentMode\.pick"/);
+  assert.match(source, /vscode\.commands\.registerCommand\("ioi\.quickInput\.permissionMode\.pick"/);
+  assert.match(source, /requestType: result\.requestType \|\| \(result\.kind === "agentMode" \? "chat\.agentMode\.select" : result\.kind === "permissionMode" \? "chat\.permissionMode\.select" : "chat\.target\.select"\)/);
+  assert.match(source, /approvalMode,\s*approval_mode: approvalMode/);
+  assert.match(source, /threadMode,\s*thread_mode: threadMode/);
+  assert.doesNotMatch(source, /Daemon policy event projected/);
+  assert.match(source, /data-testid="studio-tools-toggle"/);
+  assert.match(source, /data-testid="studio-send-icon"/);
+  assert.match(source, /data-testid="studio-stop-icon"/);
+  assert.match(source, /data-testid="studio-utility-drawer"/);
+  assert.match(source, /data-testid="studio-utility-toggle"/);
+  assert.match(source, /data-testid="studio-approval-inline-card"/);
+  assert.doesNotMatch(source, /data-testid="studio-receipt-chip"/);
   assert.match(source, /data-command="ioi\.workflow\.openComposer"/);
   assert.match(source, /data-command="ioi\.models\.open"/);
-  assert.match(source, /data-command="ioi\.studio\.agentBuilder"/);
-  assert.match(source, /requestType: "studio\.promptSubmit"/);
+  assert.match(source, /type: "studioSubmit"/);
+  assert.match(source, /requestType: "chat\.submit"/);
+  assert.match(source, /"chat\.stop"/);
+  assert.match(source, /"chat\.hunkDecision"/);
   assert.match(source, /runtimeAuthority: "daemon-owned"/);
   assert.match(source, /projectionOwner: "ioi-workbench-agent-studio"/);
-  assert.match(source, /"ioi\.studio": \{\s*command: "ioi\.studio\.open"/);
-  assert.match(source, /"ioi\.workflows": \{\s*command: "ioi\.workflow\.openComposer"/);
-  assert.match(source, /"ioi\.models": \{\s*command: "ioi\.models\.open"/);
+  assert.match(source, /normalizeStudioReasoningEffort\(payload\.reasoningEffort \?\? payload\.reasoning_effort, "none"\)/);
+  assert.match(source, /reasoning_effort: selectedReasoningEffort/);
+  assert.match(source, /targetStudioOperationalChatAchieved: true/);
+  assert.match(source, /targetStudioTauriChatUxParityAchieved: true/);
+  assert.doesNotMatch(source, /studio\.promptSubmit/);
+  assert.match(source, /viewId: "ioi\.studio"[\s\S]*command: "ioi\.studio\.open"/);
+  assert.match(source, /viewId: "ioi\.workflows"[\s\S]*command: "ioi\.workflow\.openComposer"/);
+  assert.match(source, /viewId: "ioi\.models"[\s\S]*command: "ioi\.models\.open"/);
   assert.match(source, /function closePrimarySidebarAfterActivityLaunch/);
   assert.match(source, /ioi-studio\.svg/);
+});
+
+test("Agent Studio de-noises runtime truth into the Runs/Tracing surface", async () => {
+  const source = await readFile(extensionSourcePath, "utf8");
+
+  assert.match(source, /runtimeUx:\s*\{/);
+  assert.match(source, /denoised: true/);
+  assert.match(source, /tracingSeparationAchieved: true/);
+  assert.match(source, /modelProseNotAcceptedAsRuntimeTruth: true/);
+  assert.match(source, /verifiedBadgesRequireReceiptRefs: true/);
+  assert.match(source, /const STUDIO_RUNTIME_VISIBILITY = Object\.freeze/);
+  assert.match(source, /function classifyStudioRuntimeEvent/);
+  assert.match(source, /function studioTraceTarget/);
+  assert.match(source, /function studioTraceLink/);
+  assert.match(source, /function studioVerifiedBadge/);
+  assert.match(source, /function studioHumanizeOperationalTranscriptText/);
+  assert.match(source, /function studioDisplayTurnContent/);
+  assert.match(source, /function humanizeProjectedTurnText/);
+  assert.match(source, /function promptIsInternalHarnessProbe/);
+  assert.match(source, /promptIsInternalHarnessProbe\(prompt\)/);
+  assert.match(source, /STUDIO_TOOLCAT_MARKER_RE\.test\(text\)/);
+  assert.match(source, /workspace_fixture_\|daemon_endpoint=\|computer_use_providers_url=/);
+  assert.match(source, /studioDisplayTurnContent\(turn\)/);
+  assert.match(source, /paragraph\.textContent = humanizeProjectedTurnText\(role, content\)/);
+  assert.match(source, /prompt: prompt \|\| assistantTurn\?\.agentTurn\?\.prompt \|\| ""/);
+  assert.match(source, /function projectedAssistantAnchor\(transcript, content, options = \{\}\)/);
+  assert.match(source, /turn\.dataset\.studioPromptTool = projectedToolcatToolName\(content\)/);
+  assert.match(source, /appendProjectedTurn\("assistant", text, \{ prompt: String\(payload\?\.prompt \|\| ""\) \}\)/);
+  assert.match(source, /transcript\.insertBefore\(turn, anchor\.after\.nextSibling\)/);
+  assert.match(source, /TOOLCAT_MARKER_RE/);
+  assert.match(source, /Run live Rust tool catalogue verification for/);
+  assert.match(source, /The live Rust tool catalogue probe failed for/);
+  assert.match(source, /Permission is required before Agent can/);
+  assert.match(source, /Permission needed/);
+  assert.doesNotMatch(source, /Daemon policy event projected/);
+  assert.match(source, /function studioTurnHasDocumentedWork/);
+  assert.match(source, /function studioDocumentedWorkRecord/);
+  assert.match(source, /studioRuntimeProjection\.turns\.map\(\(turn, index\) =>/);
+  assert.match(source, /data-documented-work="\$\{hasDocumentedWork \? "true" : "false"\}"/);
+  assert.match(source, /function studioCompactRuntimeStatusRows/);
+  assert.match(source, /data-runtime-ux-denoised="\$\{studioRuntimeProjection\.runtimeUx\?\.denoised/);
+  assert.match(source, /data-tracing-separation-achieved="\$\{studioRuntimeProjection\.runtimeUx\?\.tracingSeparationAchieved/);
+  assert.match(source, /data-model-prose-runtime-truth="false"/);
+  assert.match(source, /data-verified-badges-require-receipts="\$\{studioRuntimeProjection\.runtimeUx\?\.verifiedBadgesRequireReceiptRefs/);
+  assert.match(source, /data-testid="studio-actionable-runtime-state"/);
+  assert.doesNotMatch(source, /data-testid="studio-compact-runtime-status"/);
+  assert.doesNotMatch(source, /data-testid="studio-tool-proposal-compact"/);
+  assert.match(source, /data-testid="studio-policy-prompt-actionable"/);
+  assert.match(source, /data-testid="studio-command-summary-not-log-wall"/);
+  assert.match(source, /data-testid="studio-diagnostics-summary"/);
+  assert.match(source, /data-testid="studio-native-hunk-review-inline"/);
+  assert.match(source, /function studioParityPlusPanelRows/);
+  assert.match(source, /engineReconnectBanners: \[\]/);
+  assert.match(source, /chatResponsibilityContracts: \[\]/);
+  assert.match(source, /securityScanPanels: \[\]/);
+  assert.match(source, /workerContributionTraces: \[\]/);
+  assert.match(source, /data-testid="studio-parity-plus-panels"/);
+  assert.match(source, /data-testid="\$\{escapeHtml\(spec\.testId\)\}"/);
+  assert.match(source, /studio-engine-reconnect-banner/);
+  assert.match(source, /studio-chat-responsibility-contract/);
+  assert.match(source, /studio-engine-guard-security-scan/);
+  assert.match(source, /studio-worker-contribution-trace/);
+  assert.match(source, /function applyStudioParityPlusEvent/);
+  assert.match(source, /function studioRuntimeEventPayload/);
+  assert.match(source, /studioRuntimeProjection\.engineReconnectBanners\.push/);
+  assert.match(source, /studioRuntimeProjection\.chatResponsibilityContracts\.push/);
+  assert.match(source, /studioRuntimeProjection\.securityScanPanels\.push/);
+  assert.match(source, /studioRuntimeProjection\.workerContributionTraces\.push/);
+  assert.match(source, /applyStudioParityPlusEvent\(event, \{ kind, status, summary, receiptRefs \}\)/);
+  assert.match(source, /ioi\.studio\.injectParityPlusEvents/);
+  assert.match(source, /IOI_AUTOPILOT_STUDIO_TEST_HOOKS/);
+  assert.match(source, /studio\.parityPlusEvents\.injected/);
+  assert.match(source, /for \(const item of firstArray\(studioRuntimeProjection\.engineReconnectBanners\)\)/);
+  assert.match(source, /for \(const item of firstArray\(studioRuntimeProjection\.securityScanPanels\)\)/);
+  assert.match(source, /data-testid="studio-view-trace-link"/);
+  assert.match(source, /function studioDocumentedWorkSummary/);
+  assert.doesNotMatch(source, /data-testid="studio-work-record"/);
+  assert.match(source, /data-testid="studio-verified-badge"/);
+  assert.match(source, /data-testid="studio-trace-handoff"/);
+  assert.match(source, /data-command="ioi\.runs\.refresh"/);
+  assert.match(source, /traceTarget: activeTraceTarget/);
+  assert.match(source, /writeBridgeRequest\("runs\.open"/);
+  assert.match(source, /data-testid="tracing-surface"/);
+  assert.match(source, /data-focused-trace-step="\$\{escapeHtml\(target\.stepId/);
+  assert.match(source, /data-tracing-separation-achieved="true"/);
+  assert.match(source, /data-testid="tracing-focused-step"/);
+  assert.match(source, /data-testid="tracing-timeline"/);
+  assert.match(source, /data-testid="tracing-receipt-detail"/);
+  assert.match(source, /data-testid="tracing-replay-step"/);
+  assert.match(source, /data-testid="tracing-policy-detail"/);
+  assert.match(source, /data-testid="tracing-command-log-detail"/);
+  assert.match(source, /data-testid="tracing-proof-export"/);
+  assert.match(source, /Model prose is never accepted as runtime proof/);
+  assert.match(source, /Verified badges require daemon receipt refs/);
+  assert.match(source, /runtimeAuthority: "daemon-owned"/);
+  assert.match(source, /function ensurePendingProjection/);
+  assert.match(source, /function hidePendingProjectionAfterMinimum/);
+  assert.match(source, /Thinking about your request · /);
+  assert.match(source, /data-testid="studio-pending-label"/);
+  assert.match(source, /message\.type === "assistantStreamStart"[\s\S]*showPendingProjection\(\);[\s\S]*return;/);
+  assert.match(source, /message\.type === "assistantStreamDelta"[\s\S]*hidePendingProjectionAfterMinimum\(\);/);
+  assert.doesNotMatch(source, /Daemon turn pending/);
+  assert.doesNotMatch(source, /Studio prompt stayed in a mock launcher/);
+  assert.doesNotMatch(source, /src-tauri|@tauri-apps|tauri:\/\/|tauri\./i);
+});
+
+test("Autopilot Overview is the IDE-native operator home surface", async () => {
+  const source = await readFile(extensionSourcePath, "utf8");
+  const manifest = JSON.parse(await readFile(packageJsonPath, "utf8"));
+  const commands = new Set(
+    (manifest.contributes?.commands || []).map((command) => command.command),
+  );
+  const overviewViews = manifest.contributes?.views?.["ioi-overview"] || [];
+
+  assert.ok(overviewViews.some((view) => view.id === "ioi.overviewActivity"));
+  assert.ok(commands.has("ioi.overview.open"));
+  assert.match(source, /function overviewPanelHtml/);
+  assert.match(source, /function renderOverviewActivityView/);
+  assert.match(source, /viewId: "ioi\.overviewActivity"[\s\S]*command: "ioi\.overview\.open"/);
+  assert.match(source, /data-testid="autopilot-overview-home"/);
+  assert.match(source, /Operator console for autonomous systems/);
+  assert.match(source, /Build, run, govern, and verify/);
+  assert.match(source, /data-runtime-authority="daemon-owned"/);
+  assert.match(source, /registerCommand\("ioi\.overview\.open"/);
+  assert.match(source, /writeBridgeRequest\("overview\.open"/);
+  assert.match(source, /AUTOPILOT_SKIP_OVERVIEW/);
+  assert.match(source, /statusItem\.command = "ioi\.overview\.open"/);
+  assert.match(source, /targetId: "ioi\.overview"/);
+  assert.match(source, /targetId: "activity\.overview"/);
+  assert.match(source, /commandId: "workbench\.view\.extension\.ioi-overview"/);
+  assert.match(source, /commandId: "ioi\.overview\.open"/);
+});
+
+test("Autopilot Workbench contributes the transitional mode rail and Code command path", async () => {
+  const source = await readFile(extensionSourcePath, "utf8");
+  const manifest = JSON.parse(await readFile(packageJsonPath, "utf8"));
+  const containers = new Set(
+    (manifest.contributes?.viewsContainers?.activitybar || []).map(
+      (container) => container.id,
+    ),
+  );
+  const commands = new Set(
+    (manifest.contributes?.commands || []).map((command) => command.command),
+  );
+
+  for (const containerId of [
+    "ioi-overview",
+    "ioi-studio",
+    "ioi-workflows",
+    "ioi-models",
+    "ioi-runs",
+    "ioi-policy",
+    "ioi-connectors",
+    "ioi-code",
+  ]) {
+    assert.ok(
+      containers.has(containerId),
+      `${containerId} should be contributed for the transitional Autopilot rail`,
+    );
+  }
+
+  assert.ok(commands.has("ioi.code.open"));
+  assert.ok(commands.has("ioi.autopilot.back"));
+  assert.ok(manifest.contributes?.views?.["ioi-runs"]?.some((view) => view.id === "ioi.runsActivity"));
+  assert.ok(manifest.contributes?.views?.["ioi-policy"]?.some((view) => view.id === "ioi.policyActivity"));
+  assert.ok(
+    manifest.contributes?.views?.["ioi-connectors"]?.some(
+      (view) => view.id === "ioi.connectorsActivity",
+    ),
+  );
+  assert.ok(manifest.contributes?.views?.["ioi-code"]?.some((view) => view.id === "ioi.codeActivity"));
+  assert.match(source, /const AUTOPILOT_MODES = \[/);
+  assert.match(source, /const AUTOPILOT_MODE_BY_PANEL_VIEW_ID/);
+  assert.match(source, /id: "code"[\s\S]*command: "ioi\.code\.open"/);
+  assert.match(source, /function renderAutopilotShellHeader/);
+  assert.match(source, /data-testid="autopilot-workbench-shell-header"/);
+  assert.match(source, /window"\)\s*\n\s*\.update\("menuBarVisibility", menuBarVisibility, vscode\.ConfigurationTarget\.Global\)/);
+  assert.match(source, /menuBarVisibility = modeId === "code" \? "classic" : "hidden"/);
+  assert.match(source, /function openGenericModePanel/);
+  assert.match(source, /const genericModePanels = new Map\(\)/);
+  assert.match(source, /function codeModePanelHtml/);
+  assert.match(source, /data-testid="autopilot-code-mode"/);
+  assert.match(source, /data-testid="code-repository-surface"/);
+  assert.match(source, /Code repositories/);
+  assert.match(source, /data-testid="code-repositories-gate"/);
+  assert.match(source, /Find pull requests\.\.\./);
+  assert.match(source, /No pull requests created by you/);
+  assert.match(source, /What's new\?/);
+  assert.match(source, /function codeRepositoryGateProjection/);
+  assert.match(source, /data-testid="code-mode-vscode-menu-tooling"/);
+  assert.match(source, /testId: "back-to-autopilot-from-code"/);
+  assert.match(source, /workbench\.view\.explorer/);
+  assert.match(source, /workbench\.view\.search/);
+  assert.match(source, /workbench\.view\.scm/);
+  assert.match(source, /workbench\.view\.extensions/);
+  assert.match(source, /viewId: "ioi\.runsActivity"[\s\S]*command: "ioi\.runs\.refresh"/);
+  assert.match(source, /viewId: "ioi\.policyActivity"[\s\S]*command: "ioi\.policy\.open"/);
+  assert.match(source, /viewId: "ioi\.connectorsActivity"[\s\S]*command: "ioi\.connections\.inspect"/);
+  assert.doesNotMatch(source, /src-tauri|@tauri-apps|tauri:\/\/|tauri\./i);
 });
 
 test("Autopilot Models renders the LM Studio-inspired operator surface", async () => {
@@ -175,12 +761,32 @@ test("Autopilot Models renders the LM Studio-inspired operator surface", async (
   assert.ok(commands.has("ioi.models.open"));
   assert.ok(commands.has("ioi.models.openLoader"));
   assert.ok(commands.has("ioi.models.selectForWorkflow"));
+  assert.ok(commands.has("ioi.models.searchCatalog"));
+  assert.ok(commands.has("ioi.models.configureCatalogProvider"));
+  assert.ok(commands.has("ioi.models.downloadCatalog"));
   assert.match(source, /models-lmstudio__primary/);
   assert.match(source, /data-testid="model-library-table"/);
   assert.match(source, /data-testid="model-selected-inspector"/);
   assert.match(source, /data-testid="model-quick-loader-popover"/);
   assert.match(source, /data-testid="model-load-dialog"/);
-  assert.match(source, /data-testid="model-discover-view"/);
+  assert.match(source, /data-testid="model-discovery-surface"/);
+  assert.match(source, /data-testid="model-discover-list"/);
+  assert.match(source, /data-testid="model-discover-staff-picks"/);
+  assert.match(source, /data-testid="model-discover-sort"/);
+  assert.match(source, /data-testid="model-discover-search-button"/);
+  assert.match(source, /data-testid="model-more-from-publisher"/);
+  assert.match(source, /data-testid="model-discover-capabilities"/);
+  assert.match(source, /data-testid="model-discover-stats"/);
+  assert.match(source, /data-testid="model-discover-readme-title"/);
+  assert.match(source, /Nemotron 3 Nano Omni/);
+  assert.match(source, /Partial GPU offload possible/);
+  assert.match(source, /data-testid="model-catalog-sources-surface"/);
+  assert.match(source, /data-testid="model-local-autodiscovery-sources"/);
+  assert.match(source, /data-testid="model-remote-registry-sources"/);
+  assert.match(source, /function runDaemonModelCatalogProviderConfig/);
+  assert.match(source, /function runDaemonModelCatalogSearch/);
+  assert.match(source, /\/api\/v1\/models\/catalog\/providers/);
+  assert.match(source, /\/api\/v1\/models\/catalog\/search/);
   assert.match(source, /data-testid="model-server-logs"/);
   assert.match(source, /data-testid="model-running-unload-button"/);
   assert.match(source, /data-testid="model-advanced-settings-panel"/);
@@ -271,9 +877,15 @@ test("native inspection target index prefers workbench refs before fallback", as
   assert.match(source, /targetId: "ioi\.chat\.action\.build-workspace"/);
   assert.match(source, /targetId: "command-center\.autopilot-header"/);
   assert.match(source, /targetId: "command-center\.openvscode-disabled"/);
+  assert.match(source, /targetId: "activity\.overview"/);
   assert.match(source, /targetId: "activity\.studio"/);
   assert.match(source, /targetId: "activity\.workflows"/);
   assert.match(source, /targetId: "activity\.models"/);
+  assert.match(source, /targetId: "activity\.runs"/);
+  assert.match(source, /targetId: "activity\.policy"/);
+  assert.match(source, /targetId: "activity\.connectors"/);
+  assert.match(source, /targetId: "activity\.code"/);
+  assert.match(source, /targetId: "activity\.back-to-autopilot"/);
   assert.doesNotMatch(source, /targetId: "activity\.ioi"/);
   assert.match(source, /targetId: "activity\.explorer"/);
   assert.match(source, /targetId: "activity\.search"/);
@@ -284,7 +896,8 @@ test("native inspection target index prefers workbench refs before fallback", as
   assert.match(source, /targetId: "workflow\.generate-code"/);
   assert.match(source, /targetId: "run\.evidence\.rows"/);
   assert.match(source, /targetId: "checks\.tasks"/);
-  assert.match(source, /commandId: "workbench\.view\.extension\.ioi-chat"/);
+  assert.doesNotMatch(source, /commandId: "workbench\.view\.extension\.ioi-chat"/);
+  assert.match(source, /commandId: "workbench\.view\.extension\.ioi-overview"/);
   assert.match(source, /commandId: "workbench\.view\.extension\.ioi-studio"/);
   assert.match(source, /commandId: "workbench\.view\.extension\.ioi-workflows"/);
   assert.match(source, /commandId: "workbench\.view\.extension\.ioi-models"/);

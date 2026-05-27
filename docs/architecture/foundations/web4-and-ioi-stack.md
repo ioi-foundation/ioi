@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for the Web4 category definition and IOI stack boundary.
 Supersedes: overlapping product or plan prose when the Web4 stack definition conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-05-25.
 
 ## Canonical Definition
 
@@ -15,6 +15,10 @@ Short form:
 > **Web4 = Read + Write + Own + Act, with proof.**
 
 IOI is the reference implementation of canonical Web4.
+
+Protocol thesis:
+
+> **Autonomous systems can execute anywhere. IOI settles what matters.**
 
 ## Web Evolution
 
@@ -33,6 +37,11 @@ capability surface, receipt obligations, and settlement identity. Models are
 cognition backends mounted by workers. Agents are product-facing or colloquial
 UX language.
 
+Models are deployment-profile resources, not architecture-default node
+binaries. An Autopilot node includes model routing and invocation boundaries;
+local weights, local servers, BYOK providers, hosted pools, TEE/DePIN sessions,
+or customer VPC endpoints are mounted by policy and deployment profile.
+
 ## IOI Reference Stack
 
 ```text
@@ -48,6 +57,15 @@ wallet.network
 Agentgres Domains
   application/domain state, runs, orders, receipts, projections, quality, contribution accounting
 
+Governed Autonomous-System Chains
+  local agents, workers, workflows, policies, modules, proposals, receipts, and upgrade paths
+
+Autopilot Nodes
+  local autonomous-system orchestration, interop, authority, state, replay, routing, and settlement domains
+
+AIIP
+  RPC-shaped, receipt-native interop for bounded autonomous work, handoffs, authority, receipts, settlement intents, disputes, and reputation queries
+
 Domain Ontologies and Data Recipes
   semantic data plane for ontology-bound sources, connector mappings, evals, and projections
 
@@ -58,16 +76,16 @@ Mixture of Workers
   labor routing across bounded workers by policy, benchmarks, receipts, cost, trust, and contribution quality
 
 Client Surfaces
-  Autopilot Desktop, IOI CLI/TUI, agent-ide, SDK, browser apps, harnesses, benchmarks
+  Autopilot Desktop, IOI CLI/TUI, SDK, ADK, agent-ide, browser apps, harnesses, benchmarks
 
 Filecoin / CAS / CDN
   immutable package, artifact, evidence, receipt, checkpoint, snapshot, sealed archive availability
 
 aiagent.xyz
-  worker marketplace, sparse categories, benchmarks, installs, managed instances, routing eligibility
+  first-party worker marketplace using AIIP and IOI settlement
 
 sas.xyz
-  service/outcome marketplace, including worker-training contracts
+  first-party service/outcome marketplace using AIIP and IOI settlement
 
 ioi.ai
   lightweight account, device, restore, publishing, entitlement, and runtime-discovery control plane
@@ -91,6 +109,12 @@ A canonical Web4 application should have:
     not merely model providers.
 12. **Trainable supply** — workflows, examples, corrections, data, and gates can
     become trained workers without collapsing IOI into a training-only platform.
+13. **Local autonomous-system settlement** — Autopilot nodes settle autonomous
+    work locally and anchor selected roots to IOI L1 only when public trust or
+    economic settlement requires it.
+14. **Work interop** — AIIP moves delegated work, authority leases, receipts,
+    settlement intents, disputes, reputation queries, and handoffs between
+    bounded execution domains.
 
 ## IOI System Boundary
 
@@ -100,12 +124,15 @@ IOI is not one monolithic chain and not one monolithic application. It is a laye
 IOI Kernel / L0 Substrate = reusable kernel/toolchain for domains and chains
 IOI L1                    = public coordination, settlement, governance, release commitments
 Application Domains       = per-app kernel + Agentgres state substrate
+Governed AS Chains        = local autonomous-system state machines with modules, proposals, receipts
+Autopilot Nodes           = local settlement and interop domains for many governed AS chains
+AIIP                      = semantic work interop for local and cross-system autonomous handoffs
 Semantic Data Plane       = ontologies, object models, recipes, mappings, policy-bound views
 Execution Nodes           = local/hosted/DePIN/TEE/customer runtime nodes
 Authority Plane           = wallet.network
 Payload Plane             = Filecoin/CAS/CDN
 Application Surfaces      = React/Web/native apps such as Autopilot, aiagent.xyz, sas.xyz
-Developer/Operator Clients = IOI CLI/TUI, @ioi/agent-sdk, agent-ide, harnesses
+Developer/Operator Clients = IOI CLI/TUI, @ioi/agent-sdk, IOI ADK, agent-ide, harnesses
 MoW Routing               = worker selection, sparse categories, contribution policy, benchmark eligibility
 ```
 
@@ -116,9 +143,11 @@ Agentgres = state machine and query substrate
 Domain Ontologies/Data Recipes = semantic data truth for training/evaluation/projections
 Filecoin/CAS = content-addressed payload, evidence, and sealed archive availability
 IOI L1 = trust, registry, rights, settlement, and sparse commitments
+Autopilot node = local orchestration, interop, authority, receipts, replay, and settlement
+AIIP = work interop protocol across bounded execution domains
 IOI daemon/runtime nodes = execution layer
 MoW = labor routing layer for bounded workers
-Autopilot/CLI/TUI/SDK/agent-ide = clients and projections over runtime/domain contracts
+Autopilot/CLI/TUI/SDK/ADK/agent-ide = clients, builder frameworks, and projections over runtime/domain contracts
 ```
 
 ## Edge-In Topology
@@ -177,18 +206,24 @@ A canonical Web4 app is a stateful, authority-aware, autonomous application doma
 | App | Canonical Web4 Role |
 |---|---|
 | Autopilot Desktop | Local Web4 app/workbench and workflow construction surface over a local IOI daemon. |
+| Autopilot Node | Local settlement, interop, authority, state, replay, and routing domain for governed autonomous systems. |
+| AIIP | RPC-shaped, receipt-native interop protocol for autonomous work across bounded execution domains. |
+| Bounded Execution Domain | Any local, hosted, enterprise, marketplace, robot, worker, service, microharness, or AS-L1 domain that performs scoped autonomous work under policy and receipts. |
+| Governed Autonomous-System Chain | Local stateful execution object with policy, modules, proposals, receipts, and governed upgrades. |
 | IOI CLI/TUI | Local operator client for daemon, domain, authority, receipt, and settlement workflows. |
+| IOI SDK | Low-level protocol/client library over daemon, Agentgres, wallet.network, AIIP, and IOI L1 contracts. |
+| IOI ADK | Autonomous development kit for building workers, service modules, harnesses, evals, manifests, receipts, deployment profiles, and governed autonomous systems. |
 | IOI Daemon | Portable runtime endpoint for local, hosted, provider, DePIN, TEE, and customer execution. |
 | IOI Kernel / L0 Substrate | Reusable substrate for creating application domains, sovereign domains, and intelligent or non-intelligent chains/state machines. |
 | MoW | Labor-routing layer for bounded workers, sparse categories, routing receipts, and contribution accounting. |
 | Domain Ontologies and Data Recipes | Semantic data plane for ontology-bound training, evaluation, connector mapping, and Agentgres projections. |
 | Autopilot Foundry | Product surface for capturing, training, evaluating, and deploying workers through Autopilot. |
-| aiagent.xyz | Marketplace for portable Web4 workers, benchmarks, sparse categories, installs, managed instances, and routing eligibility. |
-| sas.xyz | Marketplace for Web4 service outcomes, including Worker Training contracts. |
+| aiagent.xyz | First-party marketplace for portable Web4 workers, benchmarks, sparse categories, installs, managed instances, and routing eligibility, built on AIIP and IOI settlement. |
+| sas.xyz | First-party marketplace for Web4 service outcomes, including Worker Training contracts, built on AIIP and IOI settlement. |
 | ioi.ai | Lightweight user/control plane for accounts, devices, restore, publishing, sync metadata, and runtime discovery. |
 | wallet.network | Authority vault and scope control plane. |
 | Agentgres | State/change/provenance substrate for Web4 application domains. |
-| IOI L1 | Registry, rights, settlement, governance, and canonical kernel release-commitment layer for Web4. |
+| IOI L1 | Registry, rights, settlement, governance, and autonomous-system settlement layer for Web4. |
 
 ## Core Doctrine
 

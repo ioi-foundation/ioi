@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for daemon/CLI ownership boundaries and IOI CLI operator-surface positioning; low-level daemon endpoints live in [`ioi-daemon-runtime-api.md`](./api.md).
 Supersedes: older CLI/daemon wording that implies the CLI owns runtime semantics or is primarily a chain/domain generator.
 Superseded by: none.
-Last alignment pass: 2026-05-20.
+Last alignment pass: 2026-05-25.
 
 ## Canonical Definition
 
@@ -35,8 +35,21 @@ TEE, and enterprise environments.
 
 Autopilot Workbench is the IDE-grade operator console over this substrate. The
 Electron/VS Code fork is the canonical Autopilot app shell. The workbench,
-CLI/TUI, SDK, harnesses, benchmarks, and extension host are clients/projections;
-they do not become private runtimes.
+CLI/TUI, SDK, ADK, harnesses, benchmarks, and extension host are clients,
+builder frameworks, or projections; they do not become private runtimes.
+
+The CLI/TUI, SDK, and ADK are distinct:
+
+```text
+CLI/TUI = human/operator interface
+SDK     = low-level protocol/client library
+ADK     = autonomous-system builder framework
+```
+
+The SDK may submit, inspect, stream, and control work through daemon/domain
+contracts. The ADK may scaffold workers, service modules, harnesses, evals,
+manifests, receipts, and deployment profiles on top of SDK and daemon/domain
+contracts. Neither replaces the daemon/runtime substrate.
 
 IOI Authority Gateway is the compatibility sidecar/profile for existing IDEs,
 CLI agents, hosted-agent tools, browser automation, MCP ecosystems, shell
@@ -58,6 +71,38 @@ Compute-node rule:
 
 > **Runtime and compute nodes initialize IOI daemon/runtime-node profiles. The
 > SDK is a client over that substrate, not the substrate booted on the node.**
+
+## Autopilot Node Boundary
+
+An Autopilot node is the local autonomous-system settlement and interop domain
+composed around Autopilot Workbench, the IOI daemon, Agentgres, wallet.network
+authority paths, local registries, receipt/replay stores, and runtime profiles.
+
+The daemon is the execution and authority-enforcement substrate inside that
+node. The Workbench is the operator console. Agentgres is the local operational
+truth substrate. AIIP is the semantic interop protocol for local microharness
+routing and external autonomous-system handoffs. wallet.network owns authority.
+IOI L1 receives selected roots when public trust, economic settlement,
+reputation portability, dispute resolution, or cross-system handoff finality
+requires them.
+
+The daemon may execute an autonomous-system harness as a modular
+state-transition pipeline. Consequential harness steps are typed
+service-module invocations: they read state, apply policy, invoke workers,
+tools, models, or connectors, emit receipts, and propose or commit bounded
+state transitions through Agentgres-compatible operations.
+
+The daemon owns model routing and invocation boundaries, not implicit model
+possession. Model weights, local model files, model servers, BYOK provider
+access, hosted pools, TEE sessions, DePIN sessions, and customer VPC endpoints
+are deployment-profile resources. Bundled model weights are allowed only when a
+node/runtime profile explicitly declares them.
+
+Do not describe the Autopilot Workbench UI as the settlement layer. Do not
+describe the daemon as IOI L1. Local Autopilot-node settlement means local
+canonical acceptance of work, state transitions, proposals, receipts, authority
+outcomes, and AIIP interop messages; IOI L1 settlement means public registry,
+rights, dispute, reputation, handoff finality, and economic finality.
 
 ## CLI Operator Surface
 
@@ -205,6 +250,7 @@ It is responsible for:
 - starting runs;
 - pausing/resuming/canceling runs;
 - executing workflow nodes;
+- executing typed service-module invocations;
 - invoking model router;
 - calling tools/connectors;
 - producing artifacts;
@@ -247,8 +293,8 @@ POST /v1/runs/{id}/cancel
 GET  /v1/deliveries/{id}
 ```
 
-Interactive clients such as the TUI, SDK, agent-ide, and Autopilot Desktop also
-use the thread/turn control substrate:
+Interactive clients and builder frameworks such as the TUI, SDK, ADK,
+agent-ide, and Autopilot Desktop also use the thread/turn control substrate:
 
 ```http
 POST /v1/threads
@@ -320,9 +366,9 @@ These envelopes must be stable across local, hosted, marketplace, CLI, UI, workf
 
 The implementation may bridge the daemon API into a lower-level
 `RuntimeAgentService` or other runtime service loop. That bridge is behind the
-daemon/runtime-node profile. It does not change client ownership: SDK, CLI/TUI,
-agent-ide, Autopilot Desktop, harnesses, and benchmarks remain clients or
-projections.
+daemon/runtime-node profile. It does not change client ownership: SDK, ADK,
+CLI/TUI, agent-ide, Autopilot Desktop, harnesses, and benchmarks remain
+clients, builder frameworks, or projections.
 
 ## Event Model
 
@@ -359,7 +405,9 @@ The daemon writes/updates domain state through Agentgres-compatible APIs:
 - delivery bundles;
 - quality ledgers;
 - worker invocations;
-- contribution receipts.
+- contribution receipts;
+- governed autonomous-system chain transitions;
+- Autopilot-node local settlement records.
 
 The daemon must not maintain a separate canonical state store for application truth.
 

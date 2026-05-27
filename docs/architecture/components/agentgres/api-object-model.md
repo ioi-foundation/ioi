@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for Agentgres APIs, canonical object classes, runtime v0 state, operation logs, projection watermarks, and replay/export authority; bridge/readiness semantics live in [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md).
 Supersedes: older Agentgres-as-generic-store wording when runtime truth ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-15.
+Last alignment pass: 2026-05-25.
 
 ## Purpose
 
@@ -15,6 +15,11 @@ object heads, constraints, indexes, projections, subscriptions, receipt
 metadata, delivery state, and quality/contribution ledgers are canonical
 Agentgres state. Filecoin/CAS stores immutable payload bytes, sealed archive
 bytes, and large evidence objects that Agentgres references by hash/CID.
+
+For governed autonomous-system chains and Autopilot nodes, Agentgres records
+the local/domain operational truth: proposals, service-module invocations,
+local settlement records, state roots, receipt roots, upgrade decisions, and
+replayable projections.
 
 ## Core API
 
@@ -53,6 +58,13 @@ POST /v1/distilled-ontology-datasets
 POST /v1/evaluation-datasets
 POST /v1/ontology-projections
 POST /v1/ontology-to-worker-plans
+POST /v1/autopilot-nodes
+POST /v1/autonomous-system-chains
+POST /v1/service-modules
+POST /v1/module-invocations
+POST /v1/upgrade-proposals
+POST /v1/upgrade-proposals/{proposal_id}/decisions
+POST /v1/local-settlements
 POST /v1/worker-training
 POST /v1/worker-training/{training_id}/batch-plans
 POST /v1/worker-training/{training_id}/generation-batches
@@ -143,6 +155,13 @@ Role
 Policy
 PolicyDecision
 AuthorityGrantRef
+AutopilotNode
+AutonomousSystemChain
+ServiceModuleManifest
+ModuleInvocation
+UpgradeProposal
+UpgradeDecision
+LocalSettlementRecord
 SchemaDefinition
 SchemaMigration
 ConstraintDefinition
@@ -221,6 +240,11 @@ ContributionReceipt
 UsageReceipt
 ReputationRecord
 ProjectionDefinition
+ProjectionEngineAdapter
+ProjectionEngineCheckpoint
+ProjectionEngineHealth
+ProjectionFreshnessSLO
+ProjectionRebuildPlan
 ProjectionCheckpoint
 CommitLogSegment
 DomainSequenceCheckpoint
@@ -243,6 +267,73 @@ SettlementMirror
     "license_registry": "0x..."
   },
   "projections": ["worker_search", "quality_rankings", "install_state", "managed_instances"]
+}
+```
+
+## Autopilot Node and Autonomous-System Chain Shapes
+
+```json
+{
+  "object_class": "AutopilotNode",
+  "autopilot_node_id": "node://local-workbench",
+  "owner_id": "wallet://user_123",
+  "daemon_runtime_ref": "runtime://local",
+  "agentgres_domain_ref": "agentgres://domain/autopilot/local",
+  "wallet_authority_ref": "wallet://user_123",
+  "autonomous_system_chain_refs": ["system://customer-ops"],
+  "local_registry_refs": ["agentgres://registry/modules"],
+  "receipt_root": "sha256:...",
+  "latest_local_settlement_id": "transition://...",
+  "status": "local | hosted | hybrid | enterprise | archived"
+}
+```
+
+```json
+{
+  "object_class": "AutonomousSystemChain",
+  "autonomous_system_chain_id": "system://customer-ops",
+  "autopilot_node_id": "node://local-workbench",
+  "manifest_ref": "ai://systems/customer-ops",
+  "policy_root": "sha256:...",
+  "module_registry_root": "sha256:...",
+  "proposal_queue_root": "sha256:...",
+  "latest_state_root": "sha256:...",
+  "latest_receipt_root": "sha256:...",
+  "latest_transition_id": "transition://...",
+  "upgrade_policy_ref": "policy://...",
+  "status": "draft | active | paused | archived | revoked"
+}
+```
+
+```json
+{
+  "object_class": "ModuleInvocation",
+  "module_invocation_id": "invocation://123",
+  "module_id": "module://policy.evaluate.spend_limit.v3",
+  "autonomous_system_chain_id": "system://customer-ops",
+  "autopilot_node_id": "node://local-workbench",
+  "input_hash": "sha256:...",
+  "predecessor_state_root": "sha256:...",
+  "resulting_state_root": "sha256:...",
+  "policy_hash": "sha256:...",
+  "authority_grant_refs": ["grant://..."],
+  "receipt_refs": ["receipt://..."],
+  "status": "proposed | admitted | executed | verified | committed | rejected | failed"
+}
+```
+
+```json
+{
+  "object_class": "LocalSettlementRecord",
+  "local_settlement_id": "transition://123",
+  "autopilot_node_id": "node://local-workbench",
+  "autonomous_system_chain_id": "system://customer-ops",
+  "settlement_kind": "module_invocation | workflow_transition | authority_outcome | task_handoff | upgrade_decision | receipt_root | dispute_escalation",
+  "operation_ref": "agentgres://operation/op_123",
+  "predecessor_state_root": "sha256:...",
+  "resulting_state_root": "sha256:...",
+  "receipt_root": "sha256:...",
+  "l1_anchor_ref": "optional"
 }
 ```
 
@@ -774,11 +865,15 @@ and are referenced by hash/CID.
   "routing_decision_id": "route_123",
   "object_class": "MoWRoutingDecision",
   "task_id": "task://...",
-  "router_id": "runtime://...",
+  "router_id": "runtime://... | system://... | domain://...",
+  "intent_hash": "sha256:...",
   "candidate_set_commitment": "sha256:...",
   "routing_policy_hash": "sha256:...",
-  "selected_worker_id": "worker://...",
-  "selection_reason": "benchmark-leading within policy and budget",
+  "selected_domain_or_worker": "worker://...",
+  "authority_scope": ["scope:..."],
+  "cost_bound": "optional",
+  "reason_code": "benchmark_leading_within_policy_and_budget",
+  "fallback_policy": "optional",
   "contribution_policy_ref": "license://...",
   "receipt_obligations": ["contribution_receipt"]
 }
@@ -963,6 +1058,98 @@ Response includes metadata:
 }
 ```
 
+## Projection Engine Adapter Shapes
+
+Projection engine adapters describe how a named Agentgres projection is served
+by a particular external or embedded engine. These adapters are serving planes,
+not sources of truth.
+
+```json
+{
+  "object_class": "ProjectionEngineAdapter",
+  "adapter_id": "adapter://worker-search/typesense-primary",
+  "projection_id": "worker_search",
+  "engine_family": "relational | local_sync | search | vector | olap | stream | cache_lookup | time_series | ledger | graph",
+  "engine_name": "postgres | sqlite | typesense | meilisearch | qdrant | lancedb | clickhouse | duckdb | nats_jetstream | redpanda | valkey | dragonfly | questdb | tigerbeetle | custom",
+  "serving_role": "read_model | search_index | retrieval_index | analytics_table | stream_tail | materialized_lookup | accounting_projection | local_replica",
+  "write_policy": "read_only_projection | append_transport_only | write_to_operation_compiler",
+  "canonical_write_allowed": false,
+  "projection_definition_hash": "sha256:...",
+  "schema_version": 12,
+  "policy_hash": "sha256:...",
+  "status": "planned | building | active | degraded | stale | rebuilding | disabled"
+}
+```
+
+```json
+{
+  "object_class": "ProjectionEngineCheckpoint",
+  "checkpoint_id": "projection_checkpoint://worker-search/typesense/99182",
+  "adapter_id": "adapter://worker-search/typesense-primary",
+  "projection_id": "worker_search",
+  "engine_family": "search",
+  "source_operation_range": {
+    "from_domain_sequence": "domain_seq:98100",
+    "to_domain_sequence": "domain_seq:99182"
+  },
+  "domain_sequence_watermark": "domain_seq:99182",
+  "projection_watermark": "projection_seq:1234",
+  "schema_version": 12,
+  "policy_hash": "sha256:...",
+  "projection_definition_hash": "sha256:...",
+  "index_definition_hash": "sha256:...",
+  "freshness_slo_ref": "projection_slo://worker_search/search_default",
+  "verification_receipt_refs": ["receipt://projection_rebuild_123"],
+  "status": "active | stale | invalidated | rebuilding | failed"
+}
+```
+
+```json
+{
+  "object_class": "ProjectionEngineHealth",
+  "health_id": "projection_health://worker-search/typesense-primary",
+  "adapter_id": "adapter://worker-search/typesense-primary",
+  "projection_id": "worker_search",
+  "domain_sequence_watermark": "domain_seq:99182",
+  "freshness_lag_ms": 42,
+  "freshness_slo_ms": 500,
+  "rebuild_required": false,
+  "last_rebuild_plan_ref": "projection_rebuild://worker-search/2026-05-22",
+  "status": "healthy | degraded | stale | rebuilding | offline"
+}
+```
+
+```json
+{
+  "object_class": "ProjectionFreshnessSLO",
+  "freshness_slo_id": "projection_slo://worker_search/search_default",
+  "projection_id": "worker_search",
+  "engine_family": "search",
+  "target_freshness_ms": 500,
+  "max_stale_ms": 5000,
+  "consistency_floor": "cached_projection | projection_consistent | state_root_consistent",
+  "alert_policy_ref": "policy://projection-lag-alerts",
+  "status": "active | deprecated"
+}
+```
+
+```json
+{
+  "object_class": "ProjectionRebuildPlan",
+  "rebuild_plan_id": "projection_rebuild://worker-search/2026-05-22",
+  "projection_id": "worker_search",
+  "adapter_id": "adapter://worker-search/typesense-primary",
+  "reason": "schema_changed | policy_changed | index_definition_changed | checkpoint_missing | engine_recovery | operator_requested",
+  "source_operation_range": {
+    "from_domain_sequence": "domain_seq:0",
+    "to_domain_sequence": "domain_seq:99182"
+  },
+  "rebuild_mode": "full_rebuild | checkpoint_restore_plus_delta | delta_catchup | shadow_rebuild_then_swap",
+  "verification_receipt_refs": ["receipt://projection_rebuild_123"],
+  "status": "planned | running | verified | swapped | failed | cancelled"
+}
+```
+
 ## Settlement Mirror
 
 Agentgres mirrors L1 contract state but does not replace it.
@@ -989,7 +1176,11 @@ Agentgres mirrors L1 contract state but does not replace it.
 7. Filecoin/CAS payloads, checkpoints, snapshots, and evidence bundles are refs from Agentgres state, not replacements for Agentgres state.
 8. Agents draft in isolated patch branches over pinned workspace snapshots; canonical heads advance only through expected-head merge and settlement.
 9. Rollback after settlement is represented as a new canonical revert operation with receipts, not deletion or mutation of previous truth.
-10. Sealed state archives are encrypted cold-state artifacts; Agentgres retains
+10. Sealed state archives are encrypted portable state artifacts; Agentgres retains
     hot canonical refs, lifecycle metadata, roots, policy, and receipts.
 11. Restore rehydrates state through Agentgres operations after authority, hash,
     decryption, schema, policy, and state-root checks.
+12. External projection engines are serving planes only; they must be disposable,
+    invalidatable, checkpointed, and rebuildable from Agentgres truth.
+13. Local-first working state is pre-canonical until admitted through Agentgres
+    operation settlement.

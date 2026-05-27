@@ -24,6 +24,7 @@ import {
   discoverComputerUseBrowsers,
   discoverComputerUseBrowsersSync,
 } from "./browser-discovery.mjs";
+import { computerUseProviderRegistryReport } from "./computer-use-provider-registry.mjs";
 import {
   captureLocalVisualGuiObservation,
   visualGuiLocalCaptureRequested,
@@ -3409,7 +3410,7 @@ export class AgentgresRuntimeStateStore {
     const run = this.getRun(runId);
     const agent = this.getAgent(run.agentId);
     this.projectThreadEvents(agent);
-    return this.runtimeEventsForTurn(turnIdForRun(run.id), cursor);
+    return this.runtimeEventsForTurn(runtimeTurnIdForRun(run), cursor);
   }
 
   ensureThreadStartedEvent(agent) {
@@ -3670,7 +3671,8 @@ export class AgentgresRuntimeStateStore {
   turnForRun(run) {
     const agent = this.getAgent(run.agentId);
     this.projectRunEvents(run, agent);
-    const turnEvents = this.runtimeEventsForTurn(turnIdForRun(run.id));
+    const turnId = runtimeTurnIdForRun(run);
+    const turnEvents = this.runtimeEventsForTurn(turnId);
     const seqStart = turnEvents.at(0)?.seq ?? null;
     const status = run.turnStatus ?? lifecycleStatusForRun(run.status);
     const isOpen = status === "queued" || status === "running" || status === "waiting_for_approval" || status === "waiting_for_input";
@@ -3684,7 +3686,7 @@ export class AgentgresRuntimeStateStore {
       runtimeUsageTelemetryForRun({ run, agent, threadId: threadIdForAgent(run.agentId) });
     return {
       schema_version: RUNTIME_TURN_SCHEMA_VERSION,
-      turn_id: turnIdForRun(run.id),
+      turn_id: turnId,
       thread_id: threadIdForAgent(run.agentId),
       parent_turn_id: null,
       request_id: run.id,
@@ -3695,6 +3697,7 @@ export class AgentgresRuntimeStateStore {
       output_item_ids: turnEvents
         .filter((event) => event.event_kind !== "turn.started")
         .map((event) => event.item_id),
+      events: turnEvents,
       seq_start: seqStart,
       seq_end: seqEnd,
       started_at: run.createdAt,
@@ -3707,8 +3710,12 @@ export class AgentgresRuntimeStateStore {
       usageTelemetry,
       runtime_usage: usageTelemetry,
       runtimeUsage: usageTelemetry,
+      result: run.result ?? "",
+      output: run.result ?? "",
+      text: run.result ?? "",
       stop_reason: run.trace?.stopCondition?.reason ?? null,
       error: run.status === "failed" ? run.result : null,
+      conversation: Array.isArray(run.conversation) ? run.conversation : [],
       rollback_snapshot_id: null,
       quality_ledger_ref: run.trace?.qualityLedger?.ledgerId ?? null,
       workflow_execution_ref: null,
@@ -3962,6 +3969,14 @@ export class AgentgresRuntimeStateStore {
       null;
     const sourceEventId =
       optionalString(request.source_event_id ?? request.sourceEventId) ?? null;
+    const leaseMetadata = approvalLeaseMetadataForRequest({
+      request,
+      approvalId,
+      action,
+      scope,
+      now: new Date().toISOString(),
+      threadId,
+    });
     const receiptRefs = uniqueStrings([
       ...normalizeArray(request.receipt_refs ?? request.receiptRefs),
       `receipt_${runOrAgentId}_approval_required_${safeId(approvalId)}`,
@@ -3970,7 +3985,7 @@ export class AgentgresRuntimeStateStore {
       ...normalizeArray(request.policy_decision_refs ?? request.policyDecisionRefs),
       `policy_${runOrAgentId}_approval_required`,
     ]);
-    const now = new Date().toISOString();
+    const now = leaseMetadata.created_at;
     const event = this.appendRuntimeEvent({
       event_stream_id: eventStreamIdForThread(threadId),
       thread_id: threadId,
@@ -4011,6 +4026,20 @@ export class AgentgresRuntimeStateStore {
         authority_scope_requirements: normalizeArray(
           request.authority_scope_requirements ?? request.authorityScopeRequirements,
         ),
+        expected_receipt_refs: leaseMetadata.expected_receipt_refs,
+        expectedReceiptRefs: leaseMetadata.expectedReceiptRefs,
+        policy_hash: leaseMetadata.policy_hash,
+        policyHash: leaseMetadata.policyHash,
+        ttl_ms: leaseMetadata.ttl_ms,
+        ttlMs: leaseMetadata.ttlMs,
+        expires_at: leaseMetadata.expires_at,
+        expiresAt: leaseMetadata.expiresAt,
+        lease_id: leaseMetadata.lease_id,
+        leaseId: leaseMetadata.leaseId,
+        revoke_endpoint: leaseMetadata.revoke_endpoint,
+        revokeEndpoint: leaseMetadata.revokeEndpoint,
+        approval_lease: leaseMetadata,
+        approvalLease: leaseMetadata,
         approval_manifest: approvalManifest,
         approvalManifest,
         pressure: pressure ?? null,
@@ -4123,6 +4152,21 @@ export class AgentgresRuntimeStateStore {
     const decisionVerb = decision === "approve" ? "Approve" : "Reject";
     const approvalRequestEvent = this.latestApprovalRequestEvent(threadId, normalizedApprovalId);
     const approvalRequestPayload = approvalRequestEvent?.payload_summary ?? approvalRequestEvent?.payload ?? {};
+    const leaseMetadata = approvalLeaseMetadataFromPayload(
+      approvalRequestPayload,
+      normalizedApprovalId,
+      threadId,
+    );
+    const leaseStatus = decision === "approve" ? "active" : "denied";
+    const approvalLease = {
+      ...leaseMetadata,
+      status: leaseStatus,
+      decision,
+      approval_request_event_id: approvalRequestEvent?.event_id ?? null,
+      approvalRequestEventId: approvalRequestEvent?.event_id ?? null,
+      decided_at: now,
+      decidedAt: now,
+    };
     const decisionHash = crypto
       .createHash("sha256")
       .update(`${normalizedApprovalId}:${decision}:${reason ?? ""}:${requestedBy}`)
@@ -4172,6 +4216,24 @@ export class AgentgresRuntimeStateStore {
         riskDomain: approvalRequestPayload.riskDomain ?? approvalRequestPayload.risk_domain ?? null,
         approval_request_event_id: approvalRequestEvent?.event_id ?? null,
         approvalRequestEventId: approvalRequestEvent?.event_id ?? null,
+        lease_id: leaseMetadata.lease_id,
+        leaseId: leaseMetadata.leaseId,
+        lease_status: leaseStatus,
+        leaseStatus,
+        policy_hash: leaseMetadata.policy_hash,
+        policyHash: leaseMetadata.policyHash,
+        ttl_ms: leaseMetadata.ttl_ms,
+        ttlMs: leaseMetadata.ttlMs,
+        expires_at: leaseMetadata.expires_at,
+        expiresAt: leaseMetadata.expiresAt,
+        expected_receipt_refs: leaseMetadata.expected_receipt_refs,
+        expectedReceiptRefs: leaseMetadata.expectedReceiptRefs,
+        authority_scope_requirements: leaseMetadata.authority_scope_requirements,
+        authorityScopeRequirements: leaseMetadata.authorityScopeRequirements,
+        revoke_endpoint: leaseMetadata.revoke_endpoint,
+        revokeEndpoint: leaseMetadata.revokeEndpoint,
+        approval_lease: approvalLease,
+        approvalLease,
         approval_manifest:
           approvalRequestPayload.approval_manifest ?? approvalRequestPayload.approvalManifest ?? null,
         approvalManifest:
@@ -4192,6 +4254,8 @@ export class AgentgresRuntimeStateStore {
     const control = {
       control: "approval_decision",
       approvalId: normalizedApprovalId,
+      leaseId: leaseMetadata.leaseId,
+      leaseStatus,
       decision,
       status,
       source,
@@ -4220,6 +4284,12 @@ export class AgentgresRuntimeStateStore {
       return {
         ...this.turnForRun(updated),
         approval_id: normalizedApprovalId,
+        lease_id: leaseMetadata.lease_id,
+        leaseId: leaseMetadata.leaseId,
+        lease_status: leaseStatus,
+        leaseStatus,
+        approval_lease: approvalLease,
+        approvalLease,
         decision,
         event_id: event.event_id,
         seq: event.seq,
@@ -4233,7 +4303,243 @@ export class AgentgresRuntimeStateStore {
     return {
       ...this.threadForAgent(updatedAgent),
       approval_id: normalizedApprovalId,
+      lease_id: leaseMetadata.lease_id,
+      leaseId: leaseMetadata.leaseId,
+      lease_status: leaseStatus,
+      leaseStatus,
+      approval_lease: approvalLease,
+      approvalLease,
       decision,
+      event_id: event.event_id,
+      seq: event.seq,
+      receipt_refs: event.receipt_refs,
+      policy_decision_refs: event.policy_decision_refs,
+    };
+  }
+
+  revokeThreadApproval(threadId, approvalId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const normalizedApprovalId =
+      optionalString(approvalId ?? request.approval_id ?? request.approvalId) ??
+      (() => {
+        throw runtimeError({
+          status: 400,
+          code: "approval_id_required",
+          message: "Approval revocation requires an approval id.",
+          details: { threadId },
+        });
+      })();
+    const approvalRequestEvent = this.latestApprovalRequestEvent(threadId, normalizedApprovalId);
+    if (!approvalRequestEvent) {
+      throw notFound(`Approval request not found: ${normalizedApprovalId}`, {
+        threadId,
+        approvalId: normalizedApprovalId,
+      });
+    }
+    const approvalRequestPayload = approvalRequestEvent.payload_summary ?? approvalRequestEvent.payload ?? {};
+    const stream = this.runtimeEventStream(eventStreamIdForThread(threadId));
+    const priorDecisionEvent =
+      stream.events
+        .filter(
+          (event) =>
+            event.approval_id === normalizedApprovalId &&
+            event.seq > approvalRequestEvent.seq &&
+            (event.event_kind === "approval.approved" || event.event_kind === "approval.rejected"),
+        )
+        .at(-1) ?? null;
+    const source = operatorControlSource(request.source);
+    const requestedBy =
+      optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
+    const reason =
+      optionalString(request.reason ?? request.message ?? request.input) ??
+      "operator revoked approval lease";
+    const runs = this.listRuns(agent.id);
+    const requestedTurnId = optionalString(request.turn_id ?? request.turnId);
+    let turnId = requestedTurnId ?? approvalRequestEvent.turn_id ?? "";
+    let run = null;
+    if (turnId) {
+      run = this.getRun(runIdForTurn(turnId));
+      if (run.agentId !== agent.id) {
+        throw notFound(`Turn not found: ${turnId}`, { threadId, turnId, runId: run.id });
+      }
+    } else {
+      run = runs.at(-1) ?? null;
+      turnId = run ? turnIdForRun(run.id) : "";
+    }
+
+    const now = new Date().toISOString();
+    const leaseMetadata = approvalLeaseMetadataFromPayload(
+      approvalRequestPayload,
+      normalizedApprovalId,
+      threadId,
+    );
+    const approvalLease = {
+      ...leaseMetadata,
+      status: "revoked",
+      approval_request_event_id: approvalRequestEvent.event_id,
+      approvalRequestEventId: approvalRequestEvent.event_id,
+      approval_decision_event_id: priorDecisionEvent?.event_id ?? null,
+      approvalDecisionEventId: priorDecisionEvent?.event_id ?? null,
+      revoked_at: now,
+      revokedAt: now,
+    };
+    const revokeHash = crypto
+      .createHash("sha256")
+      .update(`${normalizedApprovalId}:revoke:${reason}:${requestedBy}`)
+      .digest("hex")
+      .slice(0, 16);
+    const workflowNodeId =
+      request.workflow_node_id ??
+      request.workflowNodeId ??
+      approvalRequestEvent.workflow_node_id ??
+      `runtime.approval.${safeId(normalizedApprovalId)}`;
+    const workflowGraphId =
+      request.workflow_graph_id ??
+      request.workflowGraphId ??
+      approvalRequestEvent.workflow_graph_id ??
+      null;
+    const runOrAgentId = run?.id ?? agent.id;
+    const event = this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turnId,
+      item_id: `${turnId || threadId}:item:approval-revoke:${safeId(normalizedApprovalId)}`,
+      idempotency_key:
+        request.idempotency_key ??
+        request.idempotencyKey ??
+        `thread:${threadId}:approval.revoke:${normalizedApprovalId}:${revokeHash}`,
+      source,
+      source_event_kind: "OperatorApproval.Revoke",
+      event_kind: "approval.revoked",
+      status: "revoked",
+      actor: "user",
+      created_at: now,
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      component_kind: "approval_gate",
+      approval_id: normalizedApprovalId,
+      payload_schema_version: "ioi.runtime.approval-revoke.v1",
+      payload: {
+        event_kind: "OperatorApproval.Revoke",
+        approval_id: normalizedApprovalId,
+        decision: "revoke",
+        status: "revoked",
+        reason,
+        requested_by: requestedBy,
+        control_surface: source,
+        action: approvalRequestPayload.action ?? null,
+        scope: approvalRequestPayload.scope ?? null,
+        tool_id: approvalRequestPayload.tool_id ?? approvalRequestPayload.toolId ?? null,
+        toolId: approvalRequestPayload.toolId ?? approvalRequestPayload.tool_id ?? null,
+        effect_class: approvalRequestPayload.effect_class ?? approvalRequestPayload.effectClass ?? null,
+        effectClass: approvalRequestPayload.effectClass ?? approvalRequestPayload.effect_class ?? null,
+        risk_domain: approvalRequestPayload.risk_domain ?? approvalRequestPayload.riskDomain ?? null,
+        riskDomain: approvalRequestPayload.riskDomain ?? approvalRequestPayload.risk_domain ?? null,
+        approval_request_event_id: approvalRequestEvent.event_id,
+        approvalRequestEventId: approvalRequestEvent.event_id,
+        approval_decision_event_id: priorDecisionEvent?.event_id ?? null,
+        approvalDecisionEventId: priorDecisionEvent?.event_id ?? null,
+        lease_id: leaseMetadata.lease_id,
+        leaseId: leaseMetadata.leaseId,
+        lease_status: "revoked",
+        leaseStatus: "revoked",
+        policy_hash: leaseMetadata.policy_hash,
+        policyHash: leaseMetadata.policyHash,
+        ttl_ms: leaseMetadata.ttl_ms,
+        ttlMs: leaseMetadata.ttlMs,
+        expires_at: leaseMetadata.expires_at,
+        expiresAt: leaseMetadata.expiresAt,
+        expected_receipt_refs: leaseMetadata.expected_receipt_refs,
+        expectedReceiptRefs: leaseMetadata.expectedReceiptRefs,
+        authority_scope_requirements: leaseMetadata.authority_scope_requirements,
+        authorityScopeRequirements: leaseMetadata.authorityScopeRequirements,
+        revoke_endpoint: leaseMetadata.revoke_endpoint,
+        revokeEndpoint: leaseMetadata.revokeEndpoint,
+        approval_lease: approvalLease,
+        approvalLease,
+        approval_manifest:
+          approvalRequestPayload.approval_manifest ?? approvalRequestPayload.approvalManifest ?? null,
+        approvalManifest:
+          approvalRequestPayload.approvalManifest ?? approvalRequestPayload.approval_manifest ?? null,
+        agent_id: agent.id,
+        thread_id: threadId,
+        turn_id: turnId || null,
+        run_id: run?.id ?? null,
+        session_id: runtimeSessionIdForAgent(agent),
+      },
+      receipt_refs: [
+        `receipt_${runOrAgentId}_approval_revoke_${safeId(normalizedApprovalId)}_${revokeHash}`,
+      ],
+      policy_decision_refs: [`policy_${runOrAgentId}_approval_revoke`],
+      artifact_refs: [],
+      rollback_refs: [],
+      redaction_profile: "internal",
+      fixture_profile: fixtureProfileForAgent(agent),
+    });
+    const control = {
+      control: "approval_revoke",
+      approvalId: normalizedApprovalId,
+      leaseId: leaseMetadata.leaseId,
+      leaseStatus: "revoked",
+      decision: "revoke",
+      status: "revoked",
+      source,
+      reason,
+      eventId: event.event_id,
+      seq: event.seq,
+      receiptRefs: event.receipt_refs,
+      policyDecisionRefs: event.policy_decision_refs,
+      createdAt: event.created_at,
+    };
+    if (run) {
+      const updated = {
+        ...run,
+        updatedAt: event.created_at,
+        turnStatus: "waiting_for_input",
+        trace: {
+          ...run.trace,
+          operatorControls: appendOperatorControl(run.trace?.operatorControls, control),
+          approvalDecisions: appendOperatorControl(run.trace?.approvalDecisions, control),
+          approvalRevocations: appendOperatorControl(run.trace?.approvalRevocations, control),
+        },
+        operatorControls: appendOperatorControl(run.operatorControls, control),
+        approvalDecisions: appendOperatorControl(run.approvalDecisions, control),
+        approvalRevocations: appendOperatorControl(run.approvalRevocations, control),
+      };
+      this.runs.set(run.id, updated);
+      this.writeRun(updated, "approval.revoke");
+      return {
+        ...this.turnForRun(updated),
+        approval_id: normalizedApprovalId,
+        lease_id: leaseMetadata.lease_id,
+        leaseId: leaseMetadata.leaseId,
+        lease_status: "revoked",
+        leaseStatus: "revoked",
+        approval_lease: approvalLease,
+        approvalLease,
+        decision: "revoke",
+        status: "revoked",
+        event_id: event.event_id,
+        seq: event.seq,
+        receipt_refs: event.receipt_refs,
+        policy_decision_refs: event.policy_decision_refs,
+      };
+    }
+    const updatedAgent = { ...agent, updatedAt: event.created_at };
+    this.agents.set(agent.id, updatedAgent);
+    this.writeAgent(updatedAgent, "approval.revoke");
+    return {
+      ...this.threadForAgent(updatedAgent),
+      approval_id: normalizedApprovalId,
+      lease_id: leaseMetadata.lease_id,
+      leaseId: leaseMetadata.leaseId,
+      lease_status: "revoked",
+      leaseStatus: "revoked",
+      approval_lease: approvalLease,
+      approvalLease,
+      decision: "revoke",
+      status: "revoked",
       event_id: event.event_id,
       seq: event.seq,
       receipt_refs: event.receipt_refs,
@@ -4250,7 +4556,9 @@ export class AgentgresRuntimeStateStore {
         .filter(
           (event) =>
             event.approval_id === normalizedApprovalId &&
-            (event.event_kind === "approval.approved" || event.event_kind === "approval.rejected"),
+            (event.event_kind === "approval.approved" ||
+              event.event_kind === "approval.rejected" ||
+              event.event_kind === "approval.revoked"),
         )
         .at(-1) ?? null
     );
@@ -4450,7 +4758,9 @@ export class AgentgresRuntimeStateStore {
         return codingToolBudgetRecoveryResult({
           action,
           status: "blocked",
-          reason: approvalDecisionEvent ? "approval_rejected" : "approval_decision_missing",
+          reason: approvalDecisionEvent
+            ? approvalReasonForDecisionEvent(approvalDecisionEvent)
+            : "approval_decision_missing",
           run,
           threadId,
           turnId,
@@ -4917,7 +5227,9 @@ export class AgentgresRuntimeStateStore {
         (event) =>
           event.approval_id === normalizedApprovalId &&
           event.seq > approvalRequestEvent.seq &&
-          (event.event_kind === "approval.approved" || event.event_kind === "approval.rejected"),
+          (event.event_kind === "approval.approved" ||
+            event.event_kind === "approval.rejected" ||
+            event.event_kind === "approval.revoked"),
       )
       .at(-1);
     if (!latestDecision) return { satisfied: false, approvalId: normalizedApprovalId, reason: "approval_decision_missing" };
@@ -4926,10 +5238,7 @@ export class AgentgresRuntimeStateStore {
       approvalId: normalizedApprovalId,
       decisionEventId: latestDecision.event_id,
       decisionSeq: latestDecision.seq,
-      reason:
-        latestDecision.event_kind === "approval.approved"
-          ? "approval_approved"
-          : "approval_rejected",
+      reason: approvalReasonForDecisionEvent(latestDecision),
     };
   }
 
@@ -8605,6 +8914,20 @@ export class AgentgresRuntimeStateStore {
       receipt_count: receiptRefs.length,
       artifact_count: artifactRefs.length,
     };
+    const commandStreamEvents = this.appendCodingToolCommandStreamEvents({
+      agent,
+      threadId,
+      turnId,
+      toolId: normalizedToolId,
+      toolCallId,
+      workflowGraphId,
+      workflowNodeId,
+      request,
+      result,
+      status,
+      receiptRefs,
+      artifactRefs,
+    });
     const event = this.appendRuntimeEvent({
       event_stream_id: eventStreamIdForThread(threadId),
       thread_id: threadId,
@@ -8672,9 +8995,125 @@ export class AgentgresRuntimeStateStore {
       workspaceSnapshotEvent,
       auto_diagnostics: autoDiagnostics,
       autoDiagnostics,
+      command_stream_events: commandStreamEvents,
+      commandStreamEvents,
       result,
       error,
     };
+  }
+
+  appendCodingToolCommandStreamEvents({
+    agent,
+    threadId,
+    turnId,
+    toolId,
+    toolCallId,
+    workflowGraphId,
+    workflowNodeId,
+    request = {},
+    result = {},
+    status = "completed",
+    receiptRefs = [],
+    artifactRefs = [],
+  } = {}) {
+    if (!codingToolCommandStreamRequested(request)) return [];
+    const streamId = `command_stream_${safeId(toolCallId)}`;
+    const chunks = codingToolCommandStreamChunks(result);
+    if (chunks.length === 0) return [];
+    const events = [];
+    let chunkSeq = 0;
+    for (const chunk of chunks) {
+      chunkSeq += 1;
+      events.push(this.appendRuntimeEvent({
+        event_stream_id: eventStreamIdForThread(threadId),
+        thread_id: threadId,
+        turn_id: turnId,
+        item_id: `${turnId || threadId}:item:command-stream:${doctorHash(`${toolCallId}:${chunk.channel}:${chunkSeq}`).slice(0, 12)}`,
+        idempotency_key: `thread:${threadId}:command-stream:${toolCallId}:${chunk.channel}:${chunkSeq}`,
+        source: operatorControlSource(request.source),
+        source_event_kind: "CodingTool.Stream",
+        event_kind: "COMMAND_STREAM",
+        status: "streaming",
+        actor: "runtime",
+        workspace_root: agent.cwd,
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: workflowNodeId,
+        component_kind: "terminal_stream",
+        tool_call_id: toolCallId,
+        tool_name: toolId,
+        artifact_refs: artifactRefs,
+        receipt_refs: uniqueStrings(receiptRefs),
+        rollback_refs: [],
+        payload_schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
+        payload_summary: {
+          schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
+          event_kind: "COMMAND_STREAM",
+          stream_id: streamId,
+          streamId,
+          stream_seq: chunkSeq,
+          streamSeq: chunkSeq,
+          channel: chunk.channel,
+          output_text: chunk.text,
+          outputText: chunk.text,
+          is_final: false,
+          isFinal: false,
+          command: optionalString(result?.command) ?? toolId,
+          tool_name: toolId,
+          tool_call_id: toolCallId,
+          truncated: Boolean(result?.truncated),
+          status,
+          artifact_refs: artifactRefs,
+          artifactRefs,
+          receipt_refs: uniqueStrings(receiptRefs),
+          receiptRefs: uniqueStrings(receiptRefs),
+        },
+      }));
+    }
+    events.push(this.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turnId,
+      item_id: `${turnId || threadId}:item:command-stream:${doctorHash(`${toolCallId}:final`).slice(0, 12)}`,
+      idempotency_key: `thread:${threadId}:command-stream:${toolCallId}:final`,
+      source: operatorControlSource(request.source),
+      source_event_kind: "CodingTool.Stream",
+      event_kind: "COMMAND_STREAM",
+      status: "completed",
+      actor: "runtime",
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      component_kind: "terminal_stream",
+      tool_call_id: toolCallId,
+      tool_name: toolId,
+      artifact_refs: artifactRefs,
+      receipt_refs: uniqueStrings(receiptRefs),
+      rollback_refs: [],
+      payload_schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
+      payload_summary: {
+        schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
+        event_kind: "COMMAND_STREAM",
+        stream_id: streamId,
+        streamId,
+        stream_seq: chunkSeq + 1,
+        streamSeq: chunkSeq + 1,
+        channel: "control",
+        output_text: "",
+        outputText: "",
+        is_final: true,
+        isFinal: true,
+        command: optionalString(result?.command) ?? toolId,
+        tool_name: toolId,
+        tool_call_id: toolCallId,
+        truncated: Boolean(result?.truncated),
+        status,
+        artifact_refs: artifactRefs,
+        artifactRefs,
+        receipt_refs: uniqueStrings(receiptRefs),
+        receiptRefs: uniqueStrings(receiptRefs),
+      },
+    }));
+    return events;
   }
 
   latestApprovalRequestEvent(threadId, approvalId) {
@@ -8710,7 +9149,9 @@ export class AgentgresRuntimeStateStore {
         (event) =>
           event.approval_id === approvalId &&
           event.seq > approvalRequestEvent.seq &&
-          (event.event_kind === "approval.approved" || event.event_kind === "approval.rejected"),
+          (event.event_kind === "approval.approved" ||
+            event.event_kind === "approval.rejected" ||
+            event.event_kind === "approval.revoked"),
       )
       .at(-1);
     if (!latestDecision) return { satisfied: false, approvalId, reason: "approval_decision_missing" };
@@ -8719,10 +9160,7 @@ export class AgentgresRuntimeStateStore {
       approvalId,
       decisionEventId: latestDecision.event_id,
       decisionSeq: latestDecision.seq,
-      reason:
-        latestDecision.event_kind === "approval.approved"
-          ? "approval_approved"
-          : "approval_rejected",
+      reason: approvalReasonForDecisionEvent(latestDecision),
     };
   }
 
@@ -8742,6 +9180,9 @@ export class AgentgresRuntimeStateStore {
     approvalManifest,
     toolContract,
   }) {
+    const approvalId = `approval_coding_tool_${safeId(toolId)}_${doctorHash(
+      `${threadId}:${turnId || "thread"}:${toolCallId}`,
+    ).slice(0, 16)}`;
     const error = {
       code: "coding_tool_approval_required",
       message: `${toolId} requires approval before execution in ${approvalManifest.thread_mode} mode.`,
@@ -8763,9 +9204,8 @@ export class AgentgresRuntimeStateStore {
       actor: "runtime",
       reason: error.message,
       scope: "coding_tool",
-      approvalId: `approval_coding_tool_${safeId(toolId)}_${doctorHash(
-        `${threadId}:${turnId || "thread"}:${toolCallId}`,
-      ).slice(0, 16)}`,
+      idempotencyKey: `thread:${threadId}:approval.required:${approvalId}`,
+      approvalId,
       toolId,
       effectClass: approvalManifest.effect_class,
       riskDomain: approvalManifest.risk_domain,
@@ -11029,6 +11469,10 @@ async function handleRequest({ request, response, store }) {
       );
       return;
     }
+    if (request.method === "GET" && url.pathname === "/v1/computer-use/providers") {
+      writeJsonResponse(response, computerUseProviderRegistryReport());
+      return;
+    }
     if (request.method === "GET" && url.pathname === "/v1/skills") {
       writeJsonResponse(response, store.listSkills());
       return;
@@ -12298,7 +12742,9 @@ async function writeAnthropicProviderMessageStream(response, streamInvocation, m
           for (const payload of dataPayloadsFromSseBlock(frame)) {
             if (payload === "[DONE]") continue;
             const parsed = parseJsonMaybe(payload);
-            const delta = parsed?.choices?.[0]?.delta?.content;
+            const delta =
+              parsed?.choices?.[0]?.delta?.content ??
+              parsed?.choices?.[0]?.delta?.reasoning_content;
             if (typeof delta === "string" && delta) {
               outputText += delta;
               writeEvent("content_block_delta", {
@@ -12326,7 +12772,7 @@ async function writeAnthropicProviderMessageStream(response, streamInvocation, m
         const delta =
           ["ollama_jsonl", "ioi_jsonl"].includes(streamInvocation.providerResult?.streamFormat)
             ? ollamaStreamDelta(parsed)
-            : parsed?.choices?.[0]?.delta?.content;
+            : parsed?.choices?.[0]?.delta?.content ?? parsed?.choices?.[0]?.delta?.reasoning_content;
         if (typeof delta === "string" && delta) {
           outputText += delta;
           writeEvent("content_block_delta", {
@@ -12476,7 +12922,9 @@ async function writeOpenAiProviderChatCompletionStream(request, response, stream
         for (const payload of dataPayloadsFromSseBlock(frame)) {
           if (payload === "[DONE]") continue;
           const parsed = parseJsonMaybe(payload);
-          const delta = parsed?.choices?.[0]?.delta?.content;
+          const delta =
+            parsed?.choices?.[0]?.delta?.content ??
+            parsed?.choices?.[0]?.delta?.reasoning_content;
           if (typeof delta === "string") outputText += delta;
           if (parsed?.usage) providerUsage = parsed.usage;
           const nextFinishReason = parsed?.choices?.[0]?.finish_reason;
@@ -12500,7 +12948,9 @@ async function writeOpenAiProviderChatCompletionStream(request, response, stream
       for (const payload of dataPayloadsFromSseBlock(frame)) {
         if (payload === "[DONE]") continue;
         const parsed = parseJsonMaybe(payload);
-        const delta = parsed?.choices?.[0]?.delta?.content;
+        const delta =
+          parsed?.choices?.[0]?.delta?.content ??
+          parsed?.choices?.[0]?.delta?.reasoning_content;
         if (typeof delta === "string") outputText += delta;
         if (parsed?.usage) providerUsage = parsed.usage;
         const nextFinishReason = parsed?.choices?.[0]?.finish_reason;
@@ -13520,6 +13970,10 @@ async function handleThreadRoute({ request, response, store, url, segments }) {
       ...body,
       decision: segments[5],
     }));
+    return;
+  }
+  if (request.method === "POST" && action === "approvals" && segments[4] && segments[5] === "revoke" && !segments[6]) {
+    writeJsonResponse(response, store.revokeThreadApproval(threadId, decodeURIComponent(segments[4]), await readBody(request)));
     return;
   }
   if (request.method === "POST" && action === "workflow-edit-proposals" && !segments[4]) {
@@ -19370,11 +19824,12 @@ function normalizeReasoningEffort(value, allowNull = false) {
   if (["provider_default", "default", "auto"].includes(effort)) {
     return allowNull ? null : "medium";
   }
-  if (["low", "medium", "high", "xhigh"].includes(effort)) return effort;
+  if (["off", "disabled"].includes(effort)) return "none";
+  if (["none", "low", "medium", "high", "xhigh"].includes(effort)) return effort;
   throw runtimeError({
     status: 400,
     code: "reasoning_effort_invalid",
-    message: "Thinking controls accept low, medium, high, or xhigh.",
+    message: "Thinking controls accept none, low, medium, high, or xhigh.",
     details: { reasoningEffort: value ?? null },
   });
 }
@@ -22136,6 +22591,126 @@ function operatorControlSource(value) {
   return ["cli_tui", "react_flow", "sdk_client", "runtime_auto", "mcp_serve"].includes(source) ? source : "sdk_client";
 }
 
+function approvalLeaseMetadataForRequest({ request = {}, approvalId, action, scope, now, threadId } = {}) {
+  const ttlMs = optionalPositiveInteger(
+    request.ttl_ms ?? request.ttlMs ?? request.lease_ttl_ms ?? request.leaseTtlMs,
+  );
+  const expiresAt =
+    optionalString(request.expires_at ?? request.expiresAt) ??
+    (ttlMs ? new Date(Date.parse(now) + ttlMs).toISOString() : null);
+  const expectedReceiptRefs = uniqueStrings(
+    normalizeArray(request.expected_receipt_refs ?? request.expectedReceiptRefs),
+  );
+  const authorityScopeRequirements = uniqueStrings(
+    normalizeArray(request.authority_scope_requirements ?? request.authorityScopeRequirements),
+  );
+  const leaseId =
+    optionalString(request.lease_id ?? request.leaseId) ??
+    `approval_lease_${safeId(approvalId)}`;
+  const policyHash =
+    optionalString(request.policy_hash ?? request.policyHash) ??
+    doctorHash(
+      JSON.stringify({
+        approvalId,
+        action,
+        scope,
+        threadId,
+        authorityScopeRequirements,
+        expectedReceiptRefs,
+        ttlMs,
+        expiresAt,
+      }),
+    );
+  return {
+    schema_version: "ioi.runtime.approval-lease.v1",
+    schemaVersion: "ioi.runtime.approval-lease.v1",
+    lease_id: leaseId,
+    leaseId,
+    approval_id: approvalId,
+    approvalId,
+    status: "pending",
+    action,
+    scope,
+    policy_hash: policyHash,
+    policyHash,
+    ttl_ms: ttlMs,
+    ttlMs,
+    expires_at: expiresAt,
+    expiresAt,
+    expected_receipt_refs: expectedReceiptRefs,
+    expectedReceiptRefs,
+    authority_scope_requirements: authorityScopeRequirements,
+    authorityScopeRequirements,
+    revoke_endpoint: `/v1/threads/${threadId}/approvals/${encodeURIComponent(approvalId)}/revoke`,
+    revokeEndpoint: `/v1/threads/${threadId}/approvals/${encodeURIComponent(approvalId)}/revoke`,
+    created_at: now,
+    createdAt: now,
+  };
+}
+
+function approvalLeaseMetadataFromPayload(payload = {}, approvalId, threadId) {
+  const lease =
+    payload.approval_lease && typeof payload.approval_lease === "object"
+      ? payload.approval_lease
+      : payload.approvalLease && typeof payload.approvalLease === "object"
+        ? payload.approvalLease
+        : {};
+  const leaseId =
+    optionalString(lease.lease_id ?? lease.leaseId ?? payload.lease_id ?? payload.leaseId) ??
+    `approval_lease_${safeId(approvalId)}`;
+  const policyHash =
+    optionalString(lease.policy_hash ?? lease.policyHash ?? payload.policy_hash ?? payload.policyHash) ??
+    null;
+  const ttlMs = optionalPositiveInteger(lease.ttl_ms ?? lease.ttlMs ?? payload.ttl_ms ?? payload.ttlMs);
+  const expiresAt =
+    optionalString(lease.expires_at ?? lease.expiresAt ?? payload.expires_at ?? payload.expiresAt) ??
+    null;
+  const expectedReceiptRefs = uniqueStrings(
+    normalizeArray(
+      lease.expected_receipt_refs ??
+        lease.expectedReceiptRefs ??
+        payload.expected_receipt_refs ??
+        payload.expectedReceiptRefs,
+    ),
+  );
+  const authorityScopeRequirements = uniqueStrings(
+    normalizeArray(
+      lease.authority_scope_requirements ??
+        lease.authorityScopeRequirements ??
+        payload.authority_scope_requirements ??
+        payload.authorityScopeRequirements,
+    ),
+  );
+  return {
+    schema_version: "ioi.runtime.approval-lease.v1",
+    schemaVersion: "ioi.runtime.approval-lease.v1",
+    lease_id: leaseId,
+    leaseId,
+    approval_id: approvalId,
+    approvalId,
+    action: optionalString(lease.action ?? payload.action) ?? null,
+    scope: optionalString(lease.scope ?? payload.scope) ?? "thread",
+    policy_hash: policyHash,
+    policyHash,
+    ttl_ms: ttlMs,
+    ttlMs,
+    expires_at: expiresAt,
+    expiresAt,
+    expected_receipt_refs: expectedReceiptRefs,
+    expectedReceiptRefs,
+    authority_scope_requirements: authorityScopeRequirements,
+    authorityScopeRequirements,
+    revoke_endpoint: `/v1/threads/${threadId}/approvals/${encodeURIComponent(approvalId)}/revoke`,
+    revokeEndpoint: `/v1/threads/${threadId}/approvals/${encodeURIComponent(approvalId)}/revoke`,
+  };
+}
+
+function approvalReasonForDecisionEvent(event) {
+  if (event?.event_kind === "approval.approved") return "approval_approved";
+  if (event?.event_kind === "approval.revoked") return "approval_revoked";
+  return "approval_rejected";
+}
+
 function approvalDecisionForRequest(value) {
   const decision = optionalString(value)?.toLowerCase();
   if (["approve", "approved", "accept", "accepted", "allow", "allowed"].includes(decision)) {
@@ -22670,6 +23245,11 @@ function fixtureProfileForAgent(agent) {
 
 function turnIdForRun(runId) {
   return runId.startsWith("run_") ? `turn_${runId.slice("run_".length)}` : `turn_${runId}`;
+}
+
+function runtimeTurnIdForRun(run = {}) {
+  const turnId = optionalString(run.runtimeTurnId ?? run.runtime_turn_id);
+  return turnId ?? turnIdForRun(run.id);
 }
 
 function runIdForTurn(turnId) {
@@ -23259,6 +23839,8 @@ function payloadSummaryForRunEvent(event) {
       subagent_name: event.data?.subagentName ?? null,
       subagent_inheritance_mode: event.data?.mode ?? null,
       inherited_memory_count: normalizeArray(event.data?.inheritedRecordIds).length,
+      write_allowed: event.data?.writeAllowed ?? null,
+      write_block_reason: event.data?.writeBlockReason ?? null,
       memory_scope: event.data?.scope ?? null,
       memory_thread_id: event.data?.threadId ?? null,
       workflow_node_id: event.data?.workflowNodeId ?? null,
@@ -24033,6 +24615,38 @@ function codingToolResultWithoutDrafts(result = {}, artifacts = []) {
     publicResult.artifacts = artifacts.map(codingToolArtifactMetadata);
   }
   return publicResult;
+}
+
+function codingToolCommandStreamRequested(request = {}) {
+  return (
+    request.streamOutput === true ||
+    request.stream_output === true ||
+    request.commandStream === true ||
+    request.command_stream === true ||
+    request.input?.streamOutput === true ||
+    request.input?.stream_output === true
+  );
+}
+
+function codingToolCommandStreamChunks(result = {}) {
+  const chunks = [];
+  for (const channel of ["stdout", "stderr"]) {
+    const text = optionalString(result?.[channel]);
+    if (!text) continue;
+    for (const chunk of splitCommandStreamText(text)) {
+      chunks.push({ channel, text: chunk });
+    }
+  }
+  return chunks;
+}
+
+function splitCommandStreamText(text) {
+  const maxChars = 800;
+  const chunks = [];
+  for (let offset = 0; offset < text.length; offset += maxChars) {
+    chunks.push(text.slice(offset, offset + maxChars));
+  }
+  return chunks;
 }
 
 function codingToolArtifactMetadata(artifactRecord = {}) {

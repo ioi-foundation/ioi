@@ -4,11 +4,18 @@ Status: canonical low-level reference.
 Canonical owner: this file for model provider, endpoint, route, invocation, BYOK, and run-to-idle API shapes.
 Supersedes: overlapping model-router API examples in plans/specs when route or invocation fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-05-24.
 
 ## Purpose
 
 The model router lets workflows, workers, and agents call models through primitive runtime capabilities, wallet authority scopes, and policy, not hardcoded providers. It supports foundational APIs, BYOK, local model mounting, run-to-idle serving, and future resource marketplaces.
+
+The router and invocation contract are part of the runtime/node API. Model
+weights and model servers are deployment-profile resources. A node profile may
+bundle local weights, mount local files, call a local server, broker BYOK
+provider calls, or allocate hosted/TEE/DePIN compute, but no profile should
+assume model weights are embedded in the node binary unless that is explicitly
+declared.
 
 ## API Surface
 
@@ -33,6 +40,9 @@ GET  /v1/models/receipts/{receipt_id}
 {
   "endpoint_id": "model_endpoint_local_qwen",
   "provider": "lmstudio | ollama | openai | anthropic | gemini | vllm | custom_http | depin_pool",
+  "mount_mode": "bundled_weights | local_file | local_server | external_api | hosted_pool | tee_session | depin_session | customer_vpc",
+  "deployment_profile_ref": "profile://local-private-qwen",
+  "model_artifact_ref": "optional cid://... | artifact://... | file://...",
   "base_url": "http://localhost:1234/v1",
   "api_format": "openai_compatible | anthropic | custom",
   "auth_mode": "none | byok | wallet_brokered | service_account",
@@ -135,3 +145,7 @@ BYOK keys are stored in wallet.network. Runtimes receive brokered authority gran
 3. Every model invocation can emit a receipt.
 4. Local model endpoints must be mountable through OpenAI-compatible APIs where possible.
 5. Run-to-idle should be a lifecycle primitive, not a deployment afterthought.
+6. Bundled model weights are a deployment profile, not the architecture
+   default.
+7. Node binaries own router and invocation contracts, not implicit model
+   possession.

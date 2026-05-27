@@ -574,6 +574,27 @@ test("runtime daemon exposes read-only browser discovery receipts", async () => 
   }
 });
 
+test("runtime daemon exposes computer-use provider registry through substrate client", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-provider-registry-cwd-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-provider-registry-state-"));
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    const report = await client.discoverComputerUseProviders();
+    assert.equal(report.schema_version, "ioi.computer-use.provider-registry.v1");
+    assert.equal(report.object, "ioi.computer_use.provider_registry_report");
+    assert.ok(report.available_provider_ids.includes("ioi.computer_use.sandboxed_hosted.local_fixture"));
+    assert.ok(report.unavailable_provider_ids.includes("ioi.computer_use.sandboxed_hosted.local_container"));
+    assert.equal(report.fail_closed_when_unavailable, true);
+    assert.equal(
+      report.providers.find((provider) => provider.provider_kind === "local_container")?.status,
+      "unavailable",
+    );
+  } finally {
+    await daemon.close();
+  }
+});
+
 test("runtime daemon invokes browser discovery through thread tool spine", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-browser-discovery-tool-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-browser-discovery-tool-state-"));
@@ -650,9 +671,20 @@ test("runtime daemon records coding-agent computer-use lease requests", async ()
     assert.equal(result.result.object, "ioi.coding_agent_computer_use_lease_request");
     assert.equal(result.result.leaseRequest.lane, "native_browser");
     assert.equal(result.result.leaseRequest.authorityScope, "computer_use.native_browser.act");
+    assert.equal(result.result.leaseRequest.providerId, "ioi.computer_use.native_browser.task_scoped_profile");
     assert.equal(result.result.approvalRequiredBeforeExecution, true);
     assert.equal(result.result.threadTool.toolName, "ioi.computer_use.native_browser");
     assert.equal(result.result.threadTool.input.actionKind, "click");
+    assert.equal(
+      result.result.providerRegistry.selected_provider_id,
+      "ioi.computer_use.native_browser.task_scoped_profile",
+    );
+    assert.ok(
+      result.result.providerRegistry.available_provider_ids.includes("ioi.computer_use.sandboxed_hosted.local_fixture"),
+    );
+    assert.ok(
+      result.result.providerRegistry.unavailable_provider_ids.includes("ioi.computer_use.sandboxed_hosted.local_container"),
+    );
 
     const runtimeEvents = [];
     for await (const event of thread.events()) {

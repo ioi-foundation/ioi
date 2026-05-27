@@ -42,6 +42,34 @@ fn tool_with_schema(name: &str, description: &str, parameters: &str) -> LlmToolD
     }
 }
 
+fn resolved_intent(intent_id: &str, scope: IntentScopeProfile) -> ResolvedIntentState {
+    ResolvedIntentState {
+        intent_id: intent_id.to_string(),
+        scope,
+        band: IntentConfidenceBand::High,
+        score: 1.0,
+        top_k: vec![],
+        required_capabilities: vec![],
+        required_evidence: vec![],
+        success_conditions: vec![],
+        risk_class: "low".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        intent_catalog_version: "test".to_string(),
+        embedding_model_id: "test".to_string(),
+        embedding_model_version: "test".to_string(),
+        similarity_function_id: "test".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "test".to_string(),
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: false,
+    }
+}
+
 fn chat_message(role: &str, content: &str, timestamp: u64) -> ChatMessage {
     ChatMessage {
         role: role.to_string(),
@@ -1001,6 +1029,109 @@ fn pure_conversation_reply_uses_reply_safe_tool_surface() {
             "agent__complete",
             "agent__pause",
             "agent__escalate"
+        ]
+    );
+}
+
+#[test]
+fn unresolved_non_browser_prompt_uses_compact_general_tool_surface() {
+    let filtered = filter_cognition_tools(
+        &[
+            tool("chat__reply"),
+            tool("web__search"),
+            tool("web__read"),
+            tool("memory__search"),
+            tool("shell__run"),
+            tool("connector__google__gmail_send_email"),
+            tool("media__generate_video"),
+            tool("model_registry__install"),
+        ],
+        None,
+        false,
+        "",
+        "",
+        "",
+    );
+    let names = filtered
+        .iter()
+        .map(|tool| tool.name.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        names,
+        vec![
+            "chat__reply",
+            "web__search",
+            "web__read",
+            "memory__search",
+            "shell__run"
+        ]
+    );
+}
+
+#[test]
+fn compact_general_tool_surface_strips_schema_prompt_metadata() {
+    let filtered = filter_cognition_tools(
+        &[tool_with_schema(
+            "web__search",
+            "Search public web sources with query planning and result ranking that has a long prompt-facing explanation.",
+            r#"{
+                "type":"object",
+                "title":"Search arguments",
+                "description":"Long schema description",
+                "properties":{
+                    "query":{
+                        "type":"string",
+                        "description":"The search query",
+                        "examples":["AKT Filecoin"]
+                    }
+                },
+                "required":["query"]
+            }"#,
+        )],
+        None,
+        false,
+        "",
+        "",
+        "",
+    );
+    let schema: serde_json::Value =
+        serde_json::from_str(&filtered[0].parameters).expect("compact schema");
+    assert!(schema.get("title").is_none());
+    assert!(schema.get("description").is_none());
+    assert!(schema.pointer("/properties/query/description").is_none());
+}
+
+#[test]
+fn web_research_prompt_excludes_heavy_diagnostic_tool_surface() {
+    let resolved = resolved_intent("web.research", IntentScopeProfile::WebResearch);
+    let filtered = filter_cognition_tools(
+        &[
+            tool("chat__reply"),
+            tool("web__search"),
+            tool("web__read"),
+            tool("memory__read"),
+            tool("agent__delegate"),
+            tool("shell__run"),
+            tool("connector__google__gmail_read_emails"),
+        ],
+        Some(&resolved),
+        false,
+        "",
+        "",
+        "",
+    );
+    let names = filtered
+        .iter()
+        .map(|tool| tool.name.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        names,
+        vec![
+            "chat__reply",
+            "web__search",
+            "web__read",
+            "memory__read",
+            "agent__delegate"
         ]
     );
 }

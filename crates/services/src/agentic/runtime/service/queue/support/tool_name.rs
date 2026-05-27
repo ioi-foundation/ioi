@@ -238,6 +238,7 @@ pub(super) enum QueueToolNameScope {
     SysExec,
     WebRetrieve,
     BrowserInteract,
+    BrowserInspect,
 }
 
 pub(super) fn explicit_queue_tool_name_scope(target: &ActionTarget) -> Option<QueueToolNameScope> {
@@ -250,6 +251,7 @@ pub(super) fn explicit_queue_tool_name_scope(target: &ActionTarget) -> Option<Qu
         ActionTarget::SysExec => Some(QueueToolNameScope::SysExec),
         ActionTarget::WebRetrieve => Some(QueueToolNameScope::WebRetrieve),
         ActionTarget::BrowserInteract => Some(QueueToolNameScope::BrowserInteract),
+        ActionTarget::BrowserInspect => Some(QueueToolNameScope::BrowserInspect),
         _ => None,
     }
 }
@@ -277,7 +279,14 @@ pub(super) fn is_explicit_tool_name_allowed_for_scope(
             matches!(tool_name, "screen__click_at" | "screen__click" | "screen")
         }
         QueueToolNameScope::SysExec => {
-            matches!(tool_name, "shell__start" | "shell__reset")
+            matches!(
+                tool_name,
+                "shell__start"
+                    | "shell__reset"
+                    | "shell__status"
+                    | "shell__input"
+                    | "shell__terminate"
+            )
         }
         QueueToolNameScope::WebRetrieve => {
             matches!(
@@ -313,6 +322,11 @@ pub(super) fn is_explicit_tool_name_allowed_for_scope(
                 | "browser__list_tabs"
                 | "browser__switch_tab"
                 | "browser__close_tab"
+                | "browser__subagent"
+        ),
+        QueueToolNameScope::BrowserInspect => matches!(
+            tool_name,
+            "browser__inspect" | "browser__screenshot" | "browser__inspect_canvas"
         ),
     }
 }

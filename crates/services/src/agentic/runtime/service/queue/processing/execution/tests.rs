@@ -25,6 +25,6 @@ fn browser_wait_timeout_honors_requested_duration_plus_grace() {
 
     assert_eq!(
         browser_queue_timeout_for_tool(&tool),
-        Duration::from_millis(20_000)
+        Duration::from_millis(30_000)
     );
 }

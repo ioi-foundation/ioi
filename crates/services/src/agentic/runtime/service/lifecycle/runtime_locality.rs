@@ -126,10 +126,12 @@ async fn cached_runtime_locality_scope() -> Option<String> {
 }
 
 fn timezone_identifier_from_device() -> Option<String> {
-    if let Ok(value) = std::env::var("TZ") {
-        if !value.trim().is_empty() {
-            return Some(value);
-        }
+    timezone_identifier_from_device_with_tz(std::env::var("TZ").ok())
+}
+
+fn timezone_identifier_from_device_with_tz(tz_env: Option<String>) -> Option<String> {
+    if let Some(value) = tz_env.filter(|value| !value.trim().is_empty()) {
+        return Some(value);
     }
     let link = std::fs::read_link("/etc/localtime").ok()?;
     let path = link.to_string_lossy();

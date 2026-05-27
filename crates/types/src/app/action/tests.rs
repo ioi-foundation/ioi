@@ -43,6 +43,25 @@ fn action_request_try_hash_rejects_non_json_params() {
 }
 
 #[test]
+fn action_request_empty_params_hash_as_empty_object() {
+    let mut empty = base_request(Some(5));
+    empty.params = Vec::new();
+
+    let mut whitespace = base_request(Some(5));
+    whitespace.params = b" \n\t".to_vec();
+
+    let mut object = base_request(Some(5));
+    object.params = b"{}".to_vec();
+
+    let object_hash = object.try_hash().expect("empty object hashes");
+    assert_eq!(empty.try_hash().expect("empty params hash"), object_hash);
+    assert_eq!(
+        whitespace.try_hash().expect("whitespace params hash"),
+        object_hash
+    );
+}
+
+#[test]
 fn committed_action_verify_rejects_policy_hash_mismatch() {
     let req = base_request(Some(1));
     let committed = CommittedAction::commit(&req, [1u8; 32], None).expect("commit");

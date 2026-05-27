@@ -4,16 +4,20 @@ Status: canonical architecture authority.
 Canonical owner: this file for sas.xyz service marketplace doctrine; low-level service endpoints live in [`sas-xyz-service-endpoints.md`](./service-endpoints.md).
 Supersedes: overlapping service-marketplace plan prose when outcome/service boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-05-25.
 
 ## Canonical Definition
 
-**sas.xyz is the canonical Web4 marketplace application for autonomous service outcomes, including Worker Training as Service-as-Software.**
+**sas.xyz is the first-party Web4 marketplace application for autonomous service outcomes, including Worker Training as Service-as-Software, built on AIIP and IOI settlement.**
 
 It lets users order outcomes produced by workers, workflows, providers, and
 runtime nodes under escrow, SLA, receipts, and delivery acceptance. Its first
 MoW-native wedge is training a specialized worker for a defined business
 outcome.
+
+sas.xyz is not the protocol. It is a first-party protocol client, demand
+generator, and proof surface for AIIP outcome-service profiles and IOI
+autonomous-system settlement.
 
 ## What sas.xyz Is
 
@@ -22,12 +26,13 @@ sas.xyz is:
 - a React/Web service marketplace interface;
 - an Agentgres-backed application domain;
 - an IOI L1 smart-contract user;
+- an AIIP outcome-service profile user;
 - an outcome-ordering and delivery system;
 - a workflow/worker composition surface;
 - a Worker Training contract surface;
 - a service escrow and SLA layer.
 
-It is not a separate chain by default.
+It is not a separate chain by default and it is not the whole IOI protocol.
 
 ## Difference From aiagent.xyz
 

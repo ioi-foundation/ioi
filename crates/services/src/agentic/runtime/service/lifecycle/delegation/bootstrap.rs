@@ -147,6 +147,70 @@ fn queue_delegated_child_web_search(
         return Ok(false);
     }
 
+    child_state.execution_queue.push(request);
+    Ok(true)
+}
+
+fn queue_delegated_child_browser_inspect(
+    child_state: &mut AgentState,
+    child_session_id: [u8; 32],
+) -> Result<bool, TransactionError> {
+    let params = serde_jcs::to_vec(&json!({}))
+        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    let request = ActionRequest {
+        target: ActionTarget::BrowserInspect,
+        params,
+        context: ActionContext {
+            agent_id: "desktop_agent".to_string(),
+            session_id: Some(child_session_id),
+            window_id: None,
+        },
+        nonce: child_state.step_count as u64 + child_state.execution_queue.len() as u64 + 1,
+    };
+    let duplicate = child_state
+        .execution_queue
+        .iter()
+        .any(|queued| queued.target == request.target && queued.params == request.params);
+    if duplicate {
+        return Ok(false);
+    }
+
+    child_state.execution_queue.push(request);
+    Ok(true)
+}
+
+fn queue_delegated_child_browser_navigate(
+    child_state: &mut AgentState,
+    child_session_id: [u8; 32],
+    url: &str,
+) -> Result<bool, TransactionError> {
+    let trimmed_url = url.trim();
+    if trimmed_url.is_empty() {
+        return Ok(false);
+    }
+    let params = serde_jcs::to_vec(&json!({
+        "__ioi_tool_name": "browser__navigate",
+        "url": trimmed_url,
+    }))
+    .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    let request = ActionRequest {
+        target: ActionTarget::BrowserInteract,
+        params,
+        context: ActionContext {
+            agent_id: "desktop_agent".to_string(),
+            session_id: Some(child_session_id),
+            window_id: None,
+        },
+        nonce: child_state.step_count as u64 + child_state.execution_queue.len() as u64 + 1,
+    };
+    let duplicate = child_state
+        .execution_queue
+        .iter()
+        .any(|queued| queued.target == request.target && queued.params == request.params);
+    if duplicate {
+        return Ok(false);
+    }
+
     child_state.execution_queue.insert(0, request);
     Ok(true)
 }
@@ -179,6 +243,14 @@ fn extract_http_url_candidates(text: &str) -> BTreeSet<String> {
         }
     }
     urls
+}
+
+fn delegated_browser_subagent_success_criteria(goal: &str) -> Vec<String> {
+    if goal.to_ascii_lowercase().contains("toolcat_browser_canary") {
+        return vec!["browser_snapshot.is_TOOLCAT_BROWSER_CANARY".to_string()];
+    }
+
+    vec![]
 }
 
 fn distinct_url_domain_count(urls: &BTreeSet<String>) -> usize {
@@ -500,6 +572,17 @@ pub(super) fn seed_delegated_child_execution_queue(
         return Ok(());
     }
 
+    if matches!(workflow_id, Some("browser_subagent_session")) {
+        if let Some(url) = extract_http_url_candidates(&assignment.goal)
+            .into_iter()
+            .next()
+        {
+            let _ = queue_delegated_child_browser_navigate(child_state, child_session_id, &url)?;
+            let _ = queue_delegated_child_browser_inspect(child_state, child_session_id)?;
+        }
+        return Ok(());
+    }
+
     if matches!(workflow_id, Some("citation_audit")) {
         if let Some(scorecard) = delegated_citation_audit_bootstrap_scorecard(&assignment.goal) {
             let _ = complete_delegated_child_immediately(child_state, &scorecard);
@@ -622,6 +705,46 @@ pub(super) fn delegated_child_preset_resolved_intent(
             }),
             constrained: false,
         }),
+        Some("browser_subagent_session") => {
+            let success_criteria = delegated_browser_subagent_success_criteria(&assignment.goal);
+            Some(ResolvedIntentState {
+                intent_id: "browser.interact".to_string(),
+                scope: IntentScopeProfile::UiInteraction,
+                band: IntentConfidenceBand::High,
+                score: 0.95,
+                top_k: vec![],
+                required_capabilities: vec![
+                    CapabilityId::from("browser.interact"),
+                    CapabilityId::from("browser.inspect"),
+                ],
+                required_evidence: vec![],
+                success_conditions: success_criteria.clone(),
+                risk_class: "medium".to_string(),
+                preferred_tier: "tool_first".to_string(),
+                intent_catalog_version: "delegated-child-bootstrap-v1".to_string(),
+                embedding_model_id: "delegated-child-bootstrap".to_string(),
+                embedding_model_version: "v1".to_string(),
+                similarity_function_id: "cosine".to_string(),
+                intent_set_hash: [0u8; 32],
+                tool_registry_hash: [0u8; 32],
+                capability_ontology_hash: [0u8; 32],
+                query_normalization_version: "v1".to_string(),
+                intent_catalog_source_hash: [1u8; 32],
+                evidence_requirements_hash: [2u8; 32],
+                provider_selection: None,
+                instruction_contract: Some(InstructionContract {
+                    operation: "browser.interact".to_string(),
+                    side_effect_mode: InstructionSideEffectMode::Update,
+                    slot_bindings,
+                    negative_constraints: vec![
+                        "Stay inside browser tools for this delegated session; do not inspect or mutate the workspace filesystem.".to_string(),
+                        "Return one final semantic browser report rather than raw fixture paths, JSON payloads, or trace receipts.".to_string(),
+                    ],
+                    success_criteria,
+                }),
+                constrained: false,
+            })
+        }
         Some("live_research_brief") => Some(ResolvedIntentState {
             intent_id: "web.research".to_string(),
             scope: IntentScopeProfile::WebResearch,

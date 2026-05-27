@@ -1,0 +1,266 @@
+#!/usr/bin/env node
+import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+const outputPath = process.argv[2];
+if (!outputPath) {
+  throw new Error("usage: workflow-crash-restart-timeline-resume-proof.mjs <output-path>");
+}
+
+const repoRoot = path.resolve(new URL("../..", import.meta.url).pathname);
+
+async function fetchJson(url, options) {
+  const response = await fetch(url, {
+    headers: { "content-type": "application/json" },
+    ...options,
+  });
+  const body = await response.json();
+  assert.ok(response.ok, `${response.status} ${response.statusText} for ${url}: ${JSON.stringify(body)}`);
+  return body;
+}
+
+async function fetchSseEvents(url, options = {}) {
+  const response = await fetch(url, options);
+  const text = await response.text();
+  assert.ok(response.ok, `${response.status} ${response.statusText} for ${url}: ${text}`);
+  return text
+    .trim()
+    .split(/\n\n+/)
+    .filter(Boolean)
+    .map((block) => {
+      const data = block
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.replace(/^data:\s?/, ""))
+        .join("\n");
+      return JSON.parse(data);
+    });
+}
+
+function terminalEvents(events) {
+  return events.filter((event) =>
+    ["turn.completed", "turn.failed", "turn.canceled", "turn.cancelled"].includes(event.event_kind),
+  );
+}
+
+function waitForExit(child) {
+  return new Promise((resolve) => {
+    child.once("exit", (code, signal) => resolve({ code, signal }));
+  });
+}
+
+function spawnDaemon({ cwd, stateDir, label }) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      process.execPath,
+      ["scripts/ioi-local-runtime-daemon.mjs", "--cwd", cwd, "--state-dir", stateDir],
+      {
+        cwd: repoRoot,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+    let stdout = "";
+    let stderr = "";
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error(`Timed out waiting for ${label} daemon readiness. stderr=${stderr}`));
+    }, 5000);
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+      const line = stdout.split(/\r?\n/).find(Boolean);
+      if (!line) return;
+      try {
+        const ready = JSON.parse(line);
+        clearTimeout(timer);
+        resolve({ child, ready, stderr: () => stderr });
+      } catch (error) {
+        clearTimeout(timer);
+        child.kill("SIGKILL");
+        reject(error);
+      }
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    child.once("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    child.once("exit", (code, signal) => {
+      if (!stdout.trim()) {
+        clearTimeout(timer);
+        reject(new Error(`${label} daemon exited before readiness: code=${code} signal=${signal} stderr=${stderr}`));
+      }
+    });
+  });
+}
+
+async function killChild(child, signal = "SIGKILL") {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return { code: child.exitCode, signal: child.signalCode };
+  }
+  child.kill(signal);
+  return waitForExit(child);
+}
+
+const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-stage12-workspace-"));
+const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-stage12-state-"));
+let firstDaemon = null;
+let secondDaemon = null;
+
+try {
+  firstDaemon = await spawnDaemon({ cwd, stateDir, label: "first" });
+  const firstDaemonReady = firstDaemon.ready;
+  const workflowGraphId = "workflow.react-flow.crash-restart-resume";
+  const thread = await fetchJson(`${firstDaemon.ready.endpoint}/v1/threads`, {
+    method: "POST",
+    body: JSON.stringify({
+      source: "react_flow",
+      goal: "Prove daemon crash restart timeline resume from durable event state.",
+      options: {
+        local: { cwd },
+        model: {
+          id: "auto",
+          routeId: "route.native-local",
+          reasoningEffort: "low",
+          workflowGraphId,
+          workflowNodeId: "workflow.model-router.crash-restart",
+        },
+      },
+    }),
+  });
+  const firstTurn = await fetchJson(`${firstDaemon.ready.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+    method: "POST",
+    body: JSON.stringify({
+      source: "react_flow",
+      workflowGraphId,
+      workflowNodeId: "workflow.turn.before-crash",
+      prompt: "Stage 12 first turn before daemon crash.",
+      mode: "send",
+    }),
+  });
+  const beforeCrashEvents = await fetchSseEvents(
+    `${firstDaemon.ready.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+  );
+  const beforeCrashIds = beforeCrashEvents.map((event) => event.event_id);
+  const beforeCrashLastSeq = beforeCrashEvents.at(-1).seq;
+  const firstTurnEvents = beforeCrashEvents.filter((event) => event.turn_id === firstTurn.turn_id);
+  assert.equal(terminalEvents(firstTurnEvents).length, 1);
+
+  const crashExit = await killChild(firstDaemon.child, "SIGKILL");
+  firstDaemon = null;
+  assert.equal(crashExit.signal, "SIGKILL");
+
+  secondDaemon = await spawnDaemon({ cwd, stateDir, label: "second" });
+  const reloadedThread = await fetchJson(`${secondDaemon.ready.endpoint}/v1/threads/${thread.thread_id}`);
+  const afterRestartEvents = await fetchSseEvents(
+    `${secondDaemon.ready.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+  );
+  assert.deepEqual(afterRestartEvents.map((event) => event.event_id), beforeCrashIds);
+  const replayFromLastSeq = await fetchSseEvents(
+    `${secondDaemon.ready.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=${beforeCrashLastSeq}`,
+  );
+  assert.deepEqual(replayFromLastSeq, []);
+  const firstRunReplay = await fetchSseEvents(
+    `${secondDaemon.ready.endpoint}/v1/runs/${firstTurn.request_id}/events`,
+  );
+  assert.deepEqual(firstRunReplay.map((event) => event.event_id), firstTurnEvents.map((event) => event.event_id));
+
+  const secondTurn = await fetchJson(`${secondDaemon.ready.endpoint}/v1/threads/${thread.thread_id}/turns`, {
+    method: "POST",
+    body: JSON.stringify({
+      source: "react_flow",
+      workflowGraphId,
+      workflowNodeId: "workflow.turn.after-restart",
+      prompt: "Stage 12 second turn after daemon restart.",
+      mode: "send",
+    }),
+  });
+  const finalEvents = await fetchSseEvents(
+    `${secondDaemon.ready.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+  );
+  const secondTurnEvents = finalEvents.filter((event) => event.turn_id === secondTurn.turn_id);
+  assert.deepEqual(finalEvents.slice(0, beforeCrashIds.length).map((event) => event.event_id), beforeCrashIds);
+  assert.ok(secondTurn.seq_start > beforeCrashLastSeq);
+  assert.equal(terminalEvents(secondTurnEvents).length, 1);
+  assert.deepEqual(
+    finalEvents.map((event) => event.seq),
+    Array.from({ length: finalEvents.length }, (_, index) => index + 1),
+  );
+
+  const checks = {
+    childDaemonWasActuallyKilled: crashExit.signal === "SIGKILL",
+    reloadedThreadPreservesLatestTurn: reloadedThread.latest_turn_id === firstTurn.turn_id,
+    eventIdsReplayExactlyAfterRestart:
+      JSON.stringify(afterRestartEvents.map((event) => event.event_id)) === JSON.stringify(beforeCrashIds),
+    replayFromLastSeqIsEmptyAfterRestart: replayFromLastSeq.length === 0,
+    runReplayMatchesOwningTurnAfterRestart:
+      JSON.stringify(firstRunReplay.map((event) => event.event_id)) ===
+      JSON.stringify(firstTurnEvents.map((event) => event.event_id)),
+    noDuplicateTerminalEventForFirstTurn: terminalEvents(firstTurnEvents).length === 1,
+    postRestartTurnContinuesSequence: secondTurn.seq_start > beforeCrashLastSeq,
+    noDuplicateTerminalEventForSecondTurn: terminalEvents(secondTurnEvents).length === 1,
+    monotonicFinalTimeline:
+      JSON.stringify(finalEvents.map((event) => event.seq)) ===
+      JSON.stringify(Array.from({ length: finalEvents.length }, (_, index) => index + 1)),
+  };
+
+  const proof = {
+    schemaVersion: "workflow.crash-restart-timeline-resume-proof.v1",
+    scenario: "daemon_sigkill_restart_timeline_resume",
+    passed: Object.values(checks).every(Boolean),
+    startedAt: new Date().toISOString(),
+    workspaceRoot: cwd,
+    stateDir,
+    firstDaemon: {
+      pid: firstDaemonReady.pid,
+      endpoint: firstDaemonReady.endpoint,
+      crashExit,
+    },
+    secondDaemon: {
+      pid: secondDaemon.ready.pid,
+      endpoint: secondDaemon.ready.endpoint,
+    },
+    threadId: thread.thread_id,
+    workflowGraphId,
+    firstTurn: {
+      turnId: firstTurn.turn_id,
+      runId: firstTurn.request_id,
+      status: firstTurn.status,
+      seqStart: firstTurn.seq_start,
+      seqEnd: firstTurn.seq_end,
+      terminalEvents: terminalEvents(firstTurnEvents).map((event) => event.event_id),
+    },
+    secondTurn: {
+      turnId: secondTurn.turn_id,
+      runId: secondTurn.request_id,
+      status: secondTurn.status,
+      seqStart: secondTurn.seq_start,
+      seqEnd: secondTurn.seq_end,
+      terminalEvents: terminalEvents(secondTurnEvents).map((event) => event.event_id),
+    },
+    replay: {
+      beforeCrashEventCount: beforeCrashEvents.length,
+      afterRestartEventCount: afterRestartEvents.length,
+      finalEventCount: finalEvents.length,
+      beforeCrashLastSeq,
+      replayFromLastSeqCount: replayFromLastSeq.length,
+      firstRunReplayCount: firstRunReplay.length,
+    },
+    checks,
+    sourceRefs: [
+      "scripts/ioi-local-runtime-daemon.mjs",
+      "packages/runtime-daemon/src/index.mjs:RuntimeStore",
+      "scripts/lib/workflow-crash-restart-timeline-resume-proof.mjs",
+    ],
+  };
+  fs.writeFileSync(outputPath, `${JSON.stringify(proof, null, 2)}\n`, "utf8");
+} finally {
+  if (firstDaemon) await killChild(firstDaemon.child, "SIGKILL").catch(() => {});
+  if (secondDaemon) await killChild(secondDaemon.child, "SIGKILL").catch(() => {});
+}

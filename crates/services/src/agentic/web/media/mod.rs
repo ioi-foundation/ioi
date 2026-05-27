@@ -79,6 +79,7 @@ include!("execution.rs");
 include!("transcript.rs");
 include!("visual.rs");
 
+pub(crate) use api::kernel_media_synthesize_speech_with_options;
 pub use api::{
     edge_media_extract_multimodal_evidence, edge_media_extract_transcript, kernel_media_edit_image,
     kernel_media_generate_image, kernel_media_generate_video, kernel_media_synthesize_speech,

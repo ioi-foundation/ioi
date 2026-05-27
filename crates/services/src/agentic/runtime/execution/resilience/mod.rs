@@ -84,12 +84,22 @@ pub async fn execute_reflexive_click(
 
     match verify_after_click(exec, &before, active_lens).await {
         Ok(v) if v.is_significant() => retry,
-        Ok(v) => ToolExecutionResult::failure(format!(
-            "ERROR_CLASS=NoEffectAfterAction UI state static after click (tree_changed={}, visual_distance={}).",
-            v.tree_changed, v.visual_distance
-        )),
+        Ok(v) => annotate_static_click_success(retry, &v),
         Err(_) => retry,
     }
+}
+
+fn annotate_static_click_success(
+    mut result: ToolExecutionResult,
+    verification: &VerificationResult,
+) -> ToolExecutionResult {
+    if let Some(history) = result.history_entry.as_mut() {
+        history.push_str(&format!(
+            " (post-click verification static: tree_changed={}, visual_distance={})",
+            verification.tree_changed, verification.visual_distance
+        ));
+    }
+    result
 }
 
 fn is_target_resolution_failure(error: Option<&str>) -> bool {
@@ -100,6 +110,32 @@ fn is_target_resolution_failure(error: Option<&str>) -> bool {
     lower.contains("error_class=targetnotfound")
         || lower.contains("target") && (lower.contains("not found") || lower.contains("unresolved"))
         || lower.contains("element") && lower.contains("not found")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn static_screen_click_verification_keeps_successful_input_result() {
+        let result = ToolExecutionResult::success("Input executed: Semantic target");
+        let verification = VerificationResult {
+            significant: false,
+            tree_changed: false,
+            visual_distance: 2,
+        };
+
+        let result = annotate_static_click_success(result, &verification);
+
+        assert!(result.success);
+        assert_eq!(
+            result.history_entry.as_deref(),
+            Some(
+                "Input executed: Semantic target (post-click verification static: tree_changed=false, visual_distance=2)"
+            )
+        );
+        assert!(result.error.is_none());
+    }
 }
 
 async fn verify_after_click(

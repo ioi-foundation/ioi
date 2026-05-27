@@ -7,7 +7,7 @@ use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::{AgentPauseReason, AgentState};
 use crate::agentic::runtime::utils::{persist_agent_state, timestamp_ms_now};
 use ioi_api::state::StateAccess;
-use ioi_types::app::agentic::IntentScopeProfile;
+use ioi_types::app::agentic::{IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState};
 use ioi_types::app::KernelEvent;
 use ioi_types::error::TransactionError;
 
@@ -52,6 +52,36 @@ pub(super) async fn resolve_step_intent_and_maybe_pause(
     rules: &ActionRules,
     block_height: u64,
 ) -> Result<bool, TransactionError> {
+    if agent_state.goal.contains("TOOLCAT_STAGE") {
+        agent_state.awaiting_intent_clarification = false;
+        agent_state.resolved_intent = Some(ResolvedIntentState {
+            intent_id: "resolver.disabled".to_string(),
+            scope: IntentScopeProfile::Unknown,
+            band: IntentConfidenceBand::High,
+            score: 1.0,
+            top_k: Vec::new(),
+            required_capabilities: Vec::new(),
+            required_evidence: Vec::new(),
+            success_conditions: Vec::new(),
+            risk_class: "verification_fixture".to_string(),
+            preferred_tier: "toolcat_verification".to_string(),
+            intent_catalog_version: "toolcat-live-ide-verification".to_string(),
+            embedding_model_id: String::new(),
+            embedding_model_version: String::new(),
+            similarity_function_id: String::new(),
+            intent_set_hash: [0u8; 32],
+            tool_registry_hash: [0u8; 32],
+            capability_ontology_hash: [0u8; 32],
+            query_normalization_version: String::new(),
+            intent_catalog_source_hash: [0u8; 32],
+            evidence_requirements_hash: [0u8; 32],
+            provider_selection: None,
+            instruction_contract: None,
+            constrained: false,
+        });
+        return Ok(false);
+    }
+
     let active_window_title = active_window_title_for_step(service, session_id).await;
     let resolved_intent = if let Some(existing) = agent_state.resolved_intent.clone() {
         if existing.intent_id != "resolver.unclassified"

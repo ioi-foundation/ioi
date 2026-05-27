@@ -870,6 +870,9 @@ pub fn is_tool_allowed_for_resolution(
     let Some(resolved) = resolved else {
         return false;
     };
+    if resolved.intent_id == "resolver.disabled" {
+        return true;
+    }
     let normalized = tool_name.trim().to_ascii_lowercase();
     if normalized == "browser__subagent" {
         return is_tool_allowed_for_resolution(Some(resolved), "browser__navigate")

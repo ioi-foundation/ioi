@@ -757,6 +757,77 @@ fn is_pure_conversation_reply_tool(name: &str) -> bool {
     )
 }
 
+fn is_general_compact_tool(name: &str) -> bool {
+    matches!(
+        name,
+        "chat__reply"
+            | "agent__complete"
+            | "agent__pause"
+            | "agent__escalate"
+            | "math__eval"
+            | "web__search"
+            | "web__read"
+            | "memory__search"
+            | "memory__read"
+            | "agent__delegate"
+            | "shell__run"
+    )
+}
+
+fn is_web_research_compact_tool(name: &str) -> bool {
+    matches!(
+        name,
+        "chat__reply"
+            | "agent__complete"
+            | "agent__pause"
+            | "agent__escalate"
+            | "web__search"
+            | "web__read"
+            | "memory__search"
+            | "memory__read"
+            | "agent__delegate"
+    )
+}
+
+fn truncate_tool_description(description: &str, max_chars: usize) -> String {
+    let trimmed = description.trim();
+    if trimmed.chars().count() <= max_chars {
+        return trimmed.to_string();
+    }
+
+    let mut truncated = trimmed.chars().take(max_chars).collect::<String>();
+    truncated.push_str("...");
+    truncated
+}
+
+fn compact_non_browser_cognition_tool(tool: &LlmToolDefinition) -> LlmToolDefinition {
+    let parameters = serde_json::from_str::<Value>(&tool.parameters)
+        .map(|mut schema| {
+            strip_tool_schema_prompt_metadata(&mut schema, true);
+            serde_json::to_string(&schema).unwrap_or_else(|_| tool.parameters.clone())
+        })
+        .unwrap_or_else(|_| tool.parameters.clone());
+
+    LlmToolDefinition {
+        name: tool.name.clone(),
+        description: truncate_tool_description(&tool.description, 180),
+        parameters,
+    }
+}
+
+fn compact_tool_subset<F>(tools: &[LlmToolDefinition], keep: F) -> Vec<LlmToolDefinition>
+where
+    F: Fn(&str) -> bool,
+{
+    let mut seen_tool_names = std::collections::BTreeSet::<String>::new();
+    tools
+        .iter()
+        .filter(|tool| keep(&tool.name))
+        .filter(|tool| seen_tool_names.insert(tool.name.clone()))
+        .map(compact_non_browser_cognition_tool)
+        .collect()
+}
+
 fn pending_state_has_visible_start_gate(pending_browser_state_context: &str) -> bool {
     pending_browser_state_context
         .to_ascii_lowercase()
@@ -771,10 +842,13 @@ pub(crate) fn filter_cognition_tools(
     browser_observation_context: &str,
     pending_browser_state_context: &str,
 ) -> Vec<LlmToolDefinition> {
+    let resolved_scope = resolved_intent
+        .map(|intent| intent.scope)
+        .unwrap_or(IntentScopeProfile::Unknown);
     if resolved_intent
         .map(|intent| intent.intent_id == "conversation.reply")
         .unwrap_or(false)
-        && !prefer_browser_semantics
+        || (matches!(resolved_scope, IntentScopeProfile::Conversation) && !prefer_browser_semantics)
     {
         return tools
             .iter()
@@ -784,6 +858,12 @@ pub(crate) fn filter_cognition_tools(
     }
 
     if !prefer_browser_semantics {
+        if matches!(resolved_scope, IntentScopeProfile::Unknown) {
+            return compact_tool_subset(tools, is_general_compact_tool);
+        }
+        if matches!(resolved_scope, IntentScopeProfile::WebResearch) {
+            return compact_tool_subset(tools, is_web_research_compact_tool);
+        }
         return tools.to_vec();
     }
 
@@ -1479,7 +1559,7 @@ fn build_browser_operating_rules(
         "2. Treat RECENT BROWSER OBSERVATION, RECENT PENDING BROWSER STATE, and RECENT SUCCESS SIGNAL as the grounded state. If they already name a visible control and the next action, do that instead of another `browser__inspect`, `browser__scroll`, or `browser__find_text`. When RECENT PENDING BROWSER STATE gives an exact tool call, emit that exact tool call unless the current browser observation proves it impossible. Preserve numeric arguments exactly as written; do not round, simplify, swap in a nearby id, or substitute alternate coordinates.".to_string(),
         "3. Only use `browser__click` ids that appear verbatim in RECENT BROWSER OBSERVATION or RECENT PENDING BROWSER STATE; never synthesize ids. Prefer numeric `som_id` values from tagged browser observations when available; otherwise use the grounded semantic id exactly as shown.".to_string(),
         "4. Prefer `browser__click` over GUI or desktop-wide input for standard page controls. When RECENT BROWSER OBSERVATION, RECENT PENDING BROWSER STATE, or RECENT SUCCESS SIGNAL already grounds a coordinate-style target or explicitly names `browser__click_at`, follow that tool instead of converting it to `browser__click`. `browser__find_text` is navigation evidence, not proof that a target row, item, or record is visible. If requested text appears in both instructions and the working area, the instruction copy is descriptive only.".to_string(),
-        "5. When a precise delay, wait condition, or coordinate-style action must be followed by an already grounded browser action, prefer `browser__wait` or `browser__click_at` with `continue_with` so the executor can act immediately without another inference turn. `browser__click_at` must include a grounded `id` from RECENT BROWSER OBSERVATION or RECENT PENDING BROWSER STATE; do not emit raw coordinate-only clicks. Use `continue_with` only when the follow-up tool name and every required argument are already fully grounded in RECENT BROWSER OBSERVATION, RECENT PENDING BROWSER STATE, or RECENT SUCCESS SIGNAL. If the follow-up action is only implied by the page instruction, take the first action alone and re-evaluate. Do not use `continue_with` for drag setup or pointer button state changes.".to_string(),
+        "5. When a precise delay, wait condition, or coordinate-style action must be followed by an already grounded browser action, prefer `browser__wait` or `browser__click_at` with `continue_with` so the executor can act immediately without another inference turn. `browser__click_at` must include a grounded `id` from RECENT BROWSER OBSERVATION or RECENT PENDING BROWSER STATE; do not emit raw coordinate-only clicks. Use `continue_with` only when the follow-up tool name and every required argument are already fully grounded in RECENT BROWSER OBSERVATION, RECENT PENDING BROWSER STATE, or RECENT SUCCESS SIGNAL. If the follow-up action is only implied by the page instruction, take the first action alone and re-evaluate. After a coordinate click's observable browser reaction is known, attach at most a single grounded follow-up control. Do not use `continue_with` for drag setup or pointer button state changes.".to_string(),
         "5b. For `browser__click_at`, use the grounded semantic `id` as the coordinate-space anchor. If explicit `x`/`y` are also supplied, they are viewport CSS pixels associated with that grounded id, not a route to guess raw screen positions.".to_string(),
         "5c. When a grounded editable field is already visible and the next action is to enter text, prefer one `browser__type` with `selector` over a separate focus click plus typing. If the field must be focused first because the click itself is the next grounded browser action, you may use `browser__click` with `continue_with` `browser__type` only when the field target and exact text are already fully grounded.".to_string(),
     ];
@@ -2425,9 +2505,20 @@ Do not claim success for actions you did not verify.";
         )
         .await?;
     let inference_timeout = cognition_inference_timeout();
+    let (tx, mut rx) = tokio::sync::mpsc::channel(1024);
+    let event_sender_clone = service.event_sender.clone();
+    tokio::spawn(async move {
+        if let Some(event_sender) = event_sender_clone {
+            while let Some(token) = rx.recv().await {
+                let _ = event_sender
+                    .send(ioi_types::app::KernelEvent::AgentThought { session_id, token });
+            }
+        }
+    });
+
     let output_bytes = match tokio::time::timeout(
         inference_timeout,
-        runtime.execute_inference(model_hash, &inference_input, options),
+        runtime.execute_inference_streaming(model_hash, &inference_input, options, Some(tx)),
     )
     .await
     {

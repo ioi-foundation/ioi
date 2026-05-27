@@ -222,6 +222,31 @@ fn browser_postcondition_pass_assignment(goal: &str) -> WorkerAssignment {
     }
 }
 
+fn browser_subagent_assignment(goal: &str) -> WorkerAssignment {
+    WorkerAssignment {
+        step_key: "delegate:7:b00f".to_string(),
+        budget: 96,
+        goal: goal.to_string(),
+        success_criteria: "Return a final semantic browser report.".to_string(),
+        max_retries: 1,
+        retries_used: 0,
+        assigned_session_id: Some([8u8; 32]),
+        status: "running".to_string(),
+        playbook_id: None,
+        template_id: Some("browser_specialist".to_string()),
+        workflow_id: Some("browser_subagent_session".to_string()),
+        role: Some("Browser Subagent".to_string()),
+        allowed_tools: vec![
+            "browser__navigate".to_string(),
+            "browser__inspect".to_string(),
+            "browser__click".to_string(),
+            "browser__find_text".to_string(),
+            "agent__complete".to_string(),
+        ],
+        completion_contract: Default::default(),
+    }
+}
+
 fn artifact_generate_repair_assignment(goal: &str) -> WorkerAssignment {
     WorkerAssignment {
         step_key: "delegate:6:face".to_string(),
@@ -689,8 +714,111 @@ fn live_research_worker_bootstraps_to_web_research_intent() {
     assert!(
         crate::agentic::runtime::service::decision_loop::intent_resolver::is_tool_allowed_for_resolution(
             Some(&resolved),
-            "memory__search",
+        "memory__search",
         )
+    );
+}
+
+#[test]
+fn browser_subagent_worker_bootstraps_to_browser_only_intent() {
+    let assignment = browser_subagent_assignment(
+        "Use browser__navigate to open http://127.0.0.1:38129, then inspect the page.",
+    );
+
+    let resolved =
+        delegated_child_preset_resolved_intent(&assignment).expect("intent should exist");
+
+    assert_eq!(resolved.intent_id, "browser.interact");
+    assert_eq!(resolved.scope, IntentScopeProfile::UiInteraction);
+    assert!(resolved
+        .required_capabilities
+        .contains(&CapabilityId::from("browser.interact")));
+    assert!(resolved
+        .required_capabilities
+        .contains(&CapabilityId::from("browser.inspect")));
+    let contract = resolved
+        .instruction_contract
+        .as_ref()
+        .expect("browser child contract should be seeded");
+    assert_eq!(contract.operation, "browser.interact");
+    assert_eq!(contract.side_effect_mode, InstructionSideEffectMode::Update);
+    assert_eq!(
+        contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "template_id")
+            .and_then(|binding| binding.value.as_deref()),
+        Some("browser_specialist")
+    );
+    assert_eq!(
+        contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "workflow_id")
+            .and_then(|binding| binding.value.as_deref()),
+        Some("browser_subagent_session")
+    );
+    assert!(
+        crate::agentic::runtime::service::decision_loop::intent_resolver::is_tool_allowed_for_resolution(
+            Some(&resolved),
+            "browser__navigate",
+        )
+    );
+    assert!(
+        crate::agentic::runtime::service::decision_loop::intent_resolver::is_tool_allowed_for_resolution(
+            Some(&resolved),
+            "browser__find_text",
+        )
+    );
+    assert!(
+        !crate::agentic::runtime::service::decision_loop::intent_resolver::is_tool_allowed_for_resolution(
+            Some(&resolved),
+            "file__read",
+        )
+    );
+}
+
+#[test]
+fn browser_subagent_worker_seeds_url_grounded_navigation() {
+    let goal = "Use browser__navigate to open http://127.0.0.1:38129, then inspect the browser page and report the TOOLCAT_BROWSER_CANARY text.";
+    let mut child_state = test_agent_state(goal);
+    let assignment = browser_subagent_assignment(goal);
+
+    seed_delegated_child_execution_queue(&mut child_state, [8u8; 32], &assignment)
+        .expect("seed should succeed");
+
+    assert_eq!(child_state.execution_queue.len(), 2);
+    assert_eq!(
+        child_state.execution_queue[0].target,
+        ActionTarget::BrowserInteract
+    );
+    let args: serde_json::Value = serde_json::from_slice(&child_state.execution_queue[0].params)
+        .expect("seeded browser params should decode");
+    assert_eq!(
+        args.get("__ioi_tool_name").and_then(|value| value.as_str()),
+        Some("browser__navigate")
+    );
+    assert_eq!(
+        args.get("url").and_then(|value| value.as_str()),
+        Some("http://127.0.0.1:38129/")
+    );
+    assert_eq!(
+        child_state.execution_queue[1].target,
+        ActionTarget::BrowserInspect
+    );
+    let inspect_args: serde_json::Value =
+        serde_json::from_slice(&child_state.execution_queue[1].params)
+            .expect("seeded browser inspect params should decode");
+    assert_eq!(inspect_args, serde_json::json!({}));
+    let resolved =
+        delegated_child_preset_resolved_intent(&assignment).expect("intent should exist");
+    let contract = resolved
+        .instruction_contract
+        .as_ref()
+        .expect("browser child contract should be seeded");
+    assert_eq!(
+        contract.success_criteria,
+        vec!["browser_snapshot.is_TOOLCAT_BROWSER_CANARY".to_string()]
     );
 }
 

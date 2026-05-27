@@ -6,7 +6,7 @@ use ioi_api::services::access::ServiceDirectory;
 use ioi_api::services::BlockchainService;
 use ioi_api::state::{StateAccess, StateManager};
 use ioi_api::transaction::context::TxContext;
-use ioi_api::vm::inference::{InferenceRuntime, UnavailableInferenceRuntime};
+use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime, UnavailableInferenceRuntime};
 use ioi_drivers::browser::computer_use::{
     action_proposal_from_affordance_graph, affordance_graph_from_target_index,
     commit_gate_for_action_proposal, observation_bundle_from_browser_artifacts,
@@ -17,11 +17,13 @@ use ioi_drivers::gui::IoiGuiDriver;
 use ioi_drivers::os::NativeOsDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
-use ioi_services::agentic::runtime::keys::get_state_key;
+use ioi_services::agentic::rules::{ActionRules, DefaultPolicy};
+use ioi_services::agentic::runtime::keys::{get_state_key, AGENT_POLICY_PREFIX};
 use ioi_services::agentic::runtime::{
     AgentMode, AgentState, AgentStatus, PostMessageParams, RuntimeAgentService, StartAgentParams,
     StepAgentParams,
 };
+use ioi_services::agentic::runtime::service::decision_loop::helpers::default_safe_policy;
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::flat::RedbFlatStore;
 use ioi_types::app::runtime::computer_use::COMPUTER_USE_CONTRACT_SCHEMA_VERSION_V1;
@@ -35,7 +37,7 @@ use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
@@ -45,6 +47,9 @@ mod runtime_bridge_events;
 const COMMAND_SCHEMA_VERSION: &str = "ioi.runtime.bridge.command.v1";
 const EVENT_SCHEMA_VERSION: &str = "ioi.runtime.event.v1";
 const THREAD_SCHEMA_VERSION: &str = "ioi.runtime.thread.v1";
+const DEFAULT_AGENT_STEP_TIMEOUT_MS: u64 = 75_000;
+const DEFAULT_AGENT_TURN_TIMEOUT_MS: u64 = 100_000;
+const DEFAULT_BROWSER_OBSERVATION_TIMEOUT_MS: u64 = 5_000;
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -139,6 +144,7 @@ async fn async_main(opts: BridgeOpts) -> Result<Value> {
             COMMAND_SCHEMA_VERSION
         ));
     }
+    std::env::set_var("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", &request.bridge_id);
     match request.operation.as_str() {
         "start_thread" => {
             let input: StartThreadInput = serde_json::from_value(request.input)
@@ -169,6 +175,106 @@ struct BridgeRuntime {
     height: u64,
 }
 
+fn non_empty_env(name: &str) -> Option<String> {
+    std::env::var(name)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn first_non_empty_env(names: &[&str]) -> Option<String> {
+    names.iter().find_map(|name| non_empty_env(name))
+}
+
+fn bridge_inference_runtime() -> Arc<dyn InferenceRuntime> {
+    let explicit_url = first_non_empty_env(&[
+        "IOI_RUNTIME_AGENT_SERVICE_INFERENCE_URL",
+        "IOI_RUNTIME_INFERENCE_URL",
+    ]);
+    let explicit_key = first_non_empty_env(&[
+        "IOI_RUNTIME_AGENT_SERVICE_INFERENCE_API_KEY",
+        "IOI_RUNTIME_INFERENCE_API_KEY",
+    ])
+    .unwrap_or_default();
+    let explicit_model =
+        first_non_empty_env(&["IOI_RUNTIME_AGENT_SERVICE_MODEL", "IOI_RUNTIME_MODEL"])
+            .unwrap_or_else(|| "auto".to_string());
+
+    if let Some(api_url) = explicit_url {
+        return Arc::new(HttpInferenceRuntime::new(
+            api_url,
+            explicit_key,
+            explicit_model,
+        ));
+    }
+
+    Arc::new(UnavailableInferenceRuntime::new(
+        "Runtime bridge inference is unavailable. Configure IOI_RUNTIME_AGENT_SERVICE_INFERENCE_URL/IOI_RUNTIME_AGENT_SERVICE_MODEL from a daemon-resolved model mounting route.",
+    ))
+}
+
+fn runtime_policy_key(session_id: [u8; 32]) -> Vec<u8> {
+    [AGENT_POLICY_PREFIX, session_id.as_slice()].concat()
+}
+
+fn normalize_runtime_control_value(value: &str) -> String {
+    value.trim().to_ascii_lowercase().replace(['-', ' '], "_")
+}
+
+fn runtime_control_string(value: &Value, keys: &[&str]) -> Option<String> {
+    for key in keys {
+        if let Some(control) = value
+            .get(*key)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|control| !control.is_empty())
+        {
+            return Some(control.to_string());
+        }
+    }
+    value
+        .get("options")
+        .and_then(|options| runtime_control_string(options, keys))
+}
+
+fn runtime_controls_present(request: &Value, options: &Value) -> bool {
+    runtime_control_string(
+        request,
+        &["approvalMode", "approval_mode", "threadMode", "thread_mode", "mode"],
+    )
+    .is_some()
+        || runtime_control_string(
+            options,
+            &["approvalMode", "approval_mode", "threadMode", "thread_mode", "mode"],
+        )
+        .is_some()
+}
+
+fn runtime_controls_request_full_access(request: &Value, options: &Value) -> bool {
+    let approval_mode = runtime_control_string(request, &["approvalMode", "approval_mode"])
+        .or_else(|| runtime_control_string(options, &["approvalMode", "approval_mode"]))
+        .map(|value| normalize_runtime_control_value(&value));
+    let thread_mode = runtime_control_string(request, &["threadMode", "thread_mode", "mode"])
+        .or_else(|| runtime_control_string(options, &["threadMode", "thread_mode", "mode"]))
+        .map(|value| normalize_runtime_control_value(&value));
+    matches!(approval_mode.as_deref(), Some("never_prompt"))
+        || matches!(thread_mode.as_deref(), Some("yolo") | Some("never_prompt"))
+}
+
+fn runtime_control_policy(request: &Value, options: &Value) -> Option<ActionRules> {
+    if !runtime_controls_present(request, options) {
+        return None;
+    }
+    if runtime_controls_request_full_access(request, options) {
+        return Some(ActionRules {
+            policy_id: "runtime-bridge-full-access".to_string(),
+            defaults: DefaultPolicy::AllowAll,
+            ..ActionRules::default()
+        });
+    }
+    Some(default_safe_policy())
+}
+
 impl BridgeRuntime {
     fn open(data_dir: Option<&Path>, workspace: &Path) -> Result<Self> {
         let data_dir = data_dir
@@ -183,9 +289,7 @@ impl BridgeRuntime {
             &data_dir.join("runtime-state.redb"),
             HashCommitmentScheme::new(),
         )?;
-        let inference: Arc<dyn InferenceRuntime> = Arc::new(UnavailableInferenceRuntime::new(
-            "Runtime bridge inference is unavailable until a model route is configured.",
-        ));
+        let inference = bridge_inference_runtime();
         let gui = Arc::new(IoiGuiDriver::new());
         let browser_driver = Arc::new(BrowserDriver::new());
         let (event_sender, event_receiver) = tokio::sync::broadcast::channel(1024);
@@ -211,8 +315,26 @@ impl BridgeRuntime {
         })
     }
 
+    fn apply_runtime_control_policy(
+        &mut self,
+        session_id: [u8; 32],
+        request: &Value,
+        options: &Value,
+    ) -> Result<()> {
+        let Some(policy) = runtime_control_policy(request, options) else {
+            return Ok(());
+        };
+        let encoded = codec::to_bytes_canonical(&policy)
+            .map_err(|error| anyhow!("failed to encode runtime control policy: {error}"))?;
+        self.state
+            .insert(&runtime_policy_key(session_id), &encoded)
+            .context("failed to persist runtime control policy")?;
+        Ok(())
+    }
+
     async fn start_thread(&mut self, bridge_id: &str, input: StartThreadInput) -> Result<Value> {
         let session_id = start_session_id(&input.request)?;
+        self.apply_runtime_control_policy(session_id, &input.request, &input.options)?;
         let goal = non_empty_string(&input.request, &["goal", "prompt", "message", "input"])
             .unwrap_or_else(|| "Runtime service thread started.".to_string());
         let max_steps = positive_u32(&input.request, &["max_steps", "maxSteps"])
@@ -282,6 +404,7 @@ impl BridgeRuntime {
 
     async fn submit_turn(&mut self, bridge_id: &str, input: SubmitTurnInput) -> Result<Value> {
         let session_id = parse_session_id(&input.session_id)?;
+        self.apply_runtime_control_policy(session_id, &input.request, &Value::Null)?;
         let session_hex = hex::encode(session_id);
         let prompt =
             non_empty_string(&input.request, &["prompt", "message", "input"]).unwrap_or_default();
@@ -319,13 +442,78 @@ impl BridgeRuntime {
             }),
         })];
 
-        let step_result = self
-            .call_service("step@v1", &StepAgentParams { session_id })
-            .await;
-        if step_result.is_ok() {
-            self.commit()?;
+        let state_before_steps = self.agent_state(session_id)?;
+        let turn_started_at = Instant::now();
+        let turn_timeout = runtime_bridge_turn_timeout();
+        let step_timeout_limit = runtime_bridge_step_timeout();
+        let max_steps =
+            positive_u32(&input.request, &["max_steps", "maxSteps"]).unwrap_or_else(|| {
+                state_before_steps
+                    .max_steps
+                    .saturating_sub(state_before_steps.step_count)
+                    .max(1)
+            });
+        let mut step_count = 0;
+        let mut step_result = Ok(());
+        let mut completed_after_chat_reply = false;
+        let mut kernel_events = Vec::new();
+        while step_count < max_steps {
+            let elapsed = turn_started_at.elapsed();
+            if elapsed >= turn_timeout {
+                step_result = Err(runtime_bridge_turn_timeout_error(turn_timeout));
+                break;
+            }
+            let remaining_turn_timeout = turn_timeout.saturating_sub(elapsed);
+            let step_timeout = std::cmp::min(step_timeout_limit, remaining_turn_timeout);
+            let step_uses_turn_deadline = remaining_turn_timeout <= step_timeout_limit;
+            let state_before_step = self.agent_state(session_id)?;
+            let res = self
+                .call_step_service(
+                    session_id,
+                    step_timeout,
+                    step_uses_turn_deadline,
+                    turn_timeout,
+                )
+                .await;
+            if res.is_ok() {
+                self.commit()?;
+            }
+            let mut step_events = self.drain_kernel_events();
+            let state = self.agent_state(session_id)?;
+            if let Err(error) = res {
+                step_result = Err(error);
+                kernel_events.append(&mut step_events);
+                break;
+            }
+            let step_emitted_chat_reply = step_events
+                .iter()
+                .any(kernel_event_is_successful_chat_reply);
+            if matches!(state.status, AgentStatus::Running)
+                && !bridge_agent_step_made_progress(&state_before_step, &state, &step_events)
+            {
+                step_result = Err(runtime_bridge_no_progress_error(
+                    &state_before_step,
+                    &state,
+                    step_events.len(),
+                ));
+                kernel_events.append(&mut step_events);
+                break;
+            }
+            step_result = Ok(());
+            kernel_events.append(&mut step_events);
+            if matches!(
+                state.status,
+                AgentStatus::Completed(_) | AgentStatus::Failed(_) | AgentStatus::Paused(_)
+            ) {
+                break;
+            }
+            if step_emitted_chat_reply && bridge_agent_can_complete_after_chat_reply(&state) {
+                completed_after_chat_reply = true;
+                break;
+            }
+            step_count += 1;
         }
-        let kernel_events = self.drain_kernel_events();
+        kernel_events.extend(self.drain_kernel_events());
         let state = self.agent_state(session_id)?;
         let completed_at = now_rfc3339();
         let (status, stop_reason, event_kind, event_status, summary) =
@@ -337,13 +525,16 @@ impl BridgeRuntime {
                     "failed",
                     reason.clone(),
                 ),
-                (_, Err(error)) => (
-                    "failed",
-                    "runtime_bridge_failed",
-                    "turn.failed",
-                    "failed",
-                    error.to_string(),
-                ),
+                (_, Err(error)) => {
+                    let stop_reason = runtime_bridge_stop_reason_for_error(&error);
+                    (
+                        "failed",
+                        stop_reason,
+                        "turn.failed",
+                        "failed",
+                        error.to_string(),
+                    )
+                }
                 (AgentStatus::Paused(reason), _) => (
                     "blocked",
                     "runtime_bridge_paused",
@@ -359,6 +550,13 @@ impl BridgeRuntime {
                     summary
                         .clone()
                         .unwrap_or_else(|| "Runtime turn completed.".to_string()),
+                ),
+                (_, _) if completed_after_chat_reply => (
+                    "completed",
+                    "runtime_bridge_chat_reply_completed",
+                    "turn.completed",
+                    "completed",
+                    "Runtime turn completed after chat__reply.".to_string(),
                 ),
                 (_, _) => (
                     "completed",
@@ -388,7 +586,7 @@ impl BridgeRuntime {
             let browser_tool_results = browser_tool_results(&kernel_events);
             if let Some((_, artifacts)) = self
                 .browser_driver
-                .recent_browser_observation_artifacts(Duration::from_secs(120))
+                .recent_browser_observation_artifacts(runtime_bridge_browser_observation_timeout())
                 .await
             {
                 let context = RuntimeBridgeComputerUseContext {
@@ -465,6 +663,30 @@ impl BridgeRuntime {
             .handle_service_call(&mut self.state, method, &encoded, &mut ctx)
             .await
             .map_err(|error| anyhow!("{method} failed: {error}"))
+    }
+
+    async fn call_step_service(
+        &mut self,
+        session_id: [u8; 32],
+        timeout: Duration,
+        timeout_uses_turn_deadline: bool,
+        turn_timeout: Duration,
+    ) -> Result<()> {
+        match tokio::time::timeout(
+            timeout,
+            self.call_service("step@v1", &StepAgentParams { session_id }),
+        )
+        .await
+        {
+            Ok(result) => result,
+            Err(_) if timeout_uses_turn_deadline => {
+                Err(runtime_bridge_turn_timeout_error(turn_timeout))
+            }
+            Err(_) => Err(anyhow!(
+                "runtime_bridge_step_timeout: step@v1 exceeded {}ms without returning an agent action",
+                timeout.as_millis()
+            )),
+        }
     }
 
     fn commit(&mut self) -> Result<()> {
@@ -598,6 +820,117 @@ fn positive_u64(value: &Value, keys: &[&str]) -> Option<u64> {
         }
     }
     None
+}
+
+fn runtime_bridge_step_timeout() -> Duration {
+    std::env::var("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_STEP_TIMEOUT_MS")
+        .ok()
+        .and_then(|raw| raw.trim().parse::<u64>().ok())
+        .filter(|millis| *millis > 0)
+        .map(Duration::from_millis)
+        .unwrap_or_else(|| Duration::from_millis(DEFAULT_AGENT_STEP_TIMEOUT_MS))
+}
+
+fn runtime_bridge_turn_timeout() -> Duration {
+    std::env::var("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_TURN_TIMEOUT_MS")
+        .ok()
+        .and_then(|raw| raw.trim().parse::<u64>().ok())
+        .filter(|millis| *millis > 0)
+        .map(Duration::from_millis)
+        .unwrap_or_else(|| Duration::from_millis(DEFAULT_AGENT_TURN_TIMEOUT_MS))
+}
+
+fn runtime_bridge_browser_observation_timeout() -> Duration {
+    std::env::var("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_BROWSER_OBSERVATION_TIMEOUT_MS")
+        .ok()
+        .and_then(|raw| raw.trim().parse::<u64>().ok())
+        .filter(|millis| *millis > 0)
+        .map(Duration::from_millis)
+        .unwrap_or_else(|| Duration::from_millis(DEFAULT_BROWSER_OBSERVATION_TIMEOUT_MS))
+}
+
+fn kernel_event_is_agent_output(event: &KernelEvent) -> bool {
+    match event {
+        KernelEvent::AgentActionResult { .. } => true,
+        KernelEvent::WorkloadReceipt(receipt) => {
+            !matches!(receipt.receipt, WorkloadReceipt::Inference(_))
+        }
+        KernelEvent::FirewallInterception { .. }
+        | KernelEvent::PiiDecisionReceipt(_)
+        | KernelEvent::PiiReviewRequested { .. } => true,
+        _ => false,
+    }
+}
+
+fn kernel_event_is_successful_chat_reply(event: &KernelEvent) -> bool {
+    matches!(
+        event,
+        KernelEvent::AgentActionResult {
+            tool_name,
+            error_class,
+            ..
+        } if tool_name == "chat__reply" && error_class.is_none()
+    )
+}
+
+fn bridge_agent_can_complete_after_chat_reply(state: &AgentState) -> bool {
+    matches!(state.status, AgentStatus::Running)
+        && state.execution_queue.is_empty()
+        && state.pending_approval.is_none()
+        && state.pending_tool_call.is_none()
+}
+
+fn bridge_agent_step_made_progress(
+    before: &AgentState,
+    after: &AgentState,
+    events: &[KernelEvent],
+) -> bool {
+    after.status != before.status
+        || after.step_count > before.step_count
+        || after.last_action_type != before.last_action_type
+        || after.recent_actions.len() > before.recent_actions.len()
+        || after.execution_queue.len() != before.execution_queue.len()
+        || after.pending_approval.is_some()
+        || after.pending_tool_call != before.pending_tool_call
+        || after.pending_tool_jcs != before.pending_tool_jcs
+        || events.iter().any(kernel_event_is_agent_output)
+}
+
+fn runtime_bridge_no_progress_error(
+    before: &AgentState,
+    after: &AgentState,
+    event_count: usize,
+) -> anyhow::Error {
+    anyhow!(
+        "runtime_bridge_no_progress: step@v1 returned while Agent Mode remained running without a tool action, queued action, status change, or step-count advance (step_count {} -> {}, queue_len {} -> {}, recent_actions {} -> {}, events={})",
+        before.step_count,
+        after.step_count,
+        before.execution_queue.len(),
+        after.execution_queue.len(),
+        before.recent_actions.len(),
+        after.recent_actions.len(),
+        event_count
+    )
+}
+
+fn runtime_bridge_turn_timeout_error(timeout: Duration) -> anyhow::Error {
+    anyhow!(
+        "runtime_bridge_turn_timeout: submit_turn exceeded {}ms before producing a terminal Agent Mode result",
+        timeout.as_millis()
+    )
+}
+
+fn runtime_bridge_stop_reason_for_error(error: &anyhow::Error) -> &'static str {
+    let message = error.to_string();
+    if message.contains("runtime_bridge_step_timeout") {
+        "runtime_bridge_step_timeout"
+    } else if message.contains("runtime_bridge_turn_timeout") {
+        "runtime_bridge_turn_timeout"
+    } else if message.contains("runtime_bridge_no_progress") {
+        "runtime_bridge_no_progress"
+    } else {
+        "runtime_bridge_failed"
+    }
 }
 
 struct RuntimeBridgeComputerUseContext<'a> {
@@ -1051,30 +1384,9 @@ fn stable_bridge_ref_fragment(value: &str) -> String {
 }
 
 fn request_indicates_computer_use(request: &Value, prompt: &str) -> bool {
+    let _ = prompt;
     bool_value(request, &["computerUse", "computer_use"]).unwrap_or(false)
         || non_empty_string(request, &["computerUseLane", "computer_use_lane"]).is_some()
-        || prompt_mentions_computer_use(prompt)
-}
-
-fn prompt_mentions_computer_use(prompt: &str) -> bool {
-    let normalized = prompt.to_ascii_lowercase();
-    [
-        "browser",
-        "chromium",
-        "website",
-        "web page",
-        "url",
-        "computer-use",
-        "computer use",
-        "cua",
-        "gui",
-        "desktop",
-        "click",
-        "selector",
-        "playwright",
-    ]
-    .iter()
-    .any(|needle| normalized.contains(needle))
 }
 
 fn bool_value(value: &Value, keys: &[&str]) -> Option<bool> {
@@ -1176,6 +1488,34 @@ mod tests {
     }
 
     #[test]
+    fn runtime_control_policy_maps_yolo_to_allow_all() {
+        let policy = runtime_control_policy(
+            &json!({
+                "approvalMode": "never_prompt",
+                "threadMode": "yolo"
+            }),
+            &Value::Null,
+        )
+        .expect("policy override");
+        assert_eq!(policy.policy_id, "runtime-bridge-full-access");
+        assert_eq!(policy.defaults, DefaultPolicy::AllowAll);
+    }
+
+    #[test]
+    fn runtime_control_policy_maps_default_permissions_to_safe_policy() {
+        let policy = runtime_control_policy(
+            &json!({
+                "approval_mode": "suggest",
+                "thread_mode": "agent"
+            }),
+            &Value::Null,
+        )
+        .expect("policy override");
+        assert_eq!(policy.policy_id, "default-safe");
+        assert_eq!(policy.defaults, DefaultPolicy::RequireApproval);
+    }
+
+    #[test]
     fn tti_event_preserves_runtime_service_source() {
         let event = tti_event(TtiEventInput {
             thread_id: "thread_a",
@@ -1196,6 +1536,77 @@ mod tests {
         assert_eq!(event["source"], "runtime_service");
         assert_eq!(event["fixture_profile"], Value::Null);
         assert_eq!(event["event_stream_id"], "thread_a:events");
+    }
+
+    fn test_agent_state() -> AgentState {
+        AgentState {
+            session_id: [1u8; 32],
+            goal: "test".to_string(),
+            runtime_route_frame: None,
+            transcript_root: [0u8; 32],
+            status: AgentStatus::Running,
+            step_count: 0,
+            max_steps: 8,
+            last_action_type: None,
+            parent_session_id: None,
+            child_session_ids: Vec::new(),
+            budget: 0,
+            tokens_used: 0,
+            consecutive_failures: 0,
+            pending_approval: None,
+            pending_tool_call: None,
+            pending_tool_jcs: None,
+            pending_tool_hash: None,
+            pending_request_nonce: None,
+            pending_visual_hash: None,
+            recent_actions: Vec::new(),
+            mode: AgentMode::Agent,
+            current_tier: Default::default(),
+            last_screen_phash: None,
+            execution_queue: Vec::new(),
+            pending_search_completion: None,
+            planner_state: None,
+            active_skill_hash: None,
+            tool_execution_log: Default::default(),
+            execution_ledger: Default::default(),
+            visual_som_map: None,
+            visual_semantic_map: None,
+            work_graph_context: None,
+            target: None,
+            resolved_intent: None,
+            awaiting_intent_clarification: false,
+            working_directory: ".".to_string(),
+            command_history: Default::default(),
+            active_lens: None,
+        }
+    }
+
+    #[test]
+    fn bridge_agent_step_progress_requires_state_change_or_agent_output() {
+        let before = test_agent_state();
+        let after = before.clone();
+        assert!(!bridge_agent_step_made_progress(&before, &after, &[]));
+
+        let mut stepped = before.clone();
+        stepped.step_count = 1;
+        assert!(bridge_agent_step_made_progress(&before, &stepped, &[]));
+
+        let mut completed = before.clone();
+        completed.status = AgentStatus::Completed(Some("done".to_string()));
+        assert!(bridge_agent_step_made_progress(&before, &completed, &[]));
+
+        assert!(bridge_agent_step_made_progress(
+            &before,
+            &after,
+            &[KernelEvent::AgentActionResult {
+                session_id: [1u8; 32],
+                step_index: 0,
+                tool_name: "chat__reply".to_string(),
+                output: "hello".to_string(),
+                error_class: None,
+                agent_status: "Completed".to_string(),
+            }],
+        ));
     }
 
     #[test]
@@ -1333,14 +1744,18 @@ mod tests {
     }
 
     #[test]
-    fn computer_use_detection_accepts_metadata_prompt_and_browser_tools() {
+    fn computer_use_detection_uses_explicit_request_or_browser_tools() {
         assert!(request_indicates_computer_use(
             &json!({"computerUse": true}),
             ""
         ));
-        assert!(request_indicates_computer_use(
+        assert!(!request_indicates_computer_use(
             &json!({}),
             "open the browser"
+        ));
+        assert!(!request_indicates_computer_use(
+            &json!({}),
+            "browser_fixture_url=http://127.0.0.1 computer_use_providers_url=http://127.0.0.1"
         ));
         assert!(kernel_event_mentions_browser_tool(
             &KernelEvent::AgentActionResult {

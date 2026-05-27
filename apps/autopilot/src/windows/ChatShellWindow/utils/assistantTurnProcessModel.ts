@@ -536,10 +536,10 @@ function summaryLine(
   input: BuildAssistantTurnProcessInput,
 ): string {
   const duration = compactDurationLabel(input.turnDurationLabel);
+  const workFragments = workSummaryFragments(items, sources);
   if (duration) {
-    return status === "complete"
-      ? `Worked for ${duration}`
-      : `Working for ${duration}`;
+    const prefix = status === "complete" ? "Worked" : "Working";
+    return `${prefix} for ${duration}${workFragments.length > 0 ? ` · ${workFragments.join(" · ")}` : ""}`;
   }
   if (status === "running" || status === "thinking") {
     return compactWhitespace(input.currentStep) || "Working";
@@ -551,30 +551,7 @@ function summaryLine(
     return "Run failed";
   }
 
-  const toolCount = items.filter((item) => item.kind === "tool_call").length;
-  const exploredFileCount = items.filter((item) => item.kind === "source_read").length;
-  const useful: string[] = [];
-  if (exploredFileCount > 0) {
-    useful.push(
-      `Explored ${exploredFileCount} ${exploredFileCount === 1 ? "file" : "files"}`,
-    );
-  }
-  if (toolCount > 0) {
-    useful.push(`${toolCount} ${toolCount === 1 ? "tool call" : "tool calls"}`);
-  }
-  if (sources.length > 0) {
-    useful.push(`${sources.length} ${sources.length === 1 ? "source" : "sources"}`);
-  }
-  const validationCount = items.filter(
-    (item) => item.kind === "validation_check",
-  ).length;
-  if (validationCount > 0) {
-    useful.push(`${validationCount} validation ${validationCount === 1 ? "check" : "checks"}`);
-  }
-  if (useful.length === 1 && exploredFileCount > 0) {
-    return useful[0] || "Ready";
-  }
-  return useful.length > 0 ? `Worked with ${useful.join(" · ")}` : "Ready";
+  return workFragments.length > 0 ? `Worked · ${workFragments.join(" · ")}` : "Ready";
 }
 
 function compactDurationLabel(value: string | null | undefined): string | null {
@@ -586,6 +563,37 @@ function compactDurationLabel(value: string | null | undefined): string | null {
     .replace(/^(?:thought|thinking|worked|working)\s+for\s+/i, "")
     .replace(/^for\s+/i, "")
     .trim() || null;
+}
+
+function workSummaryFragments(
+  items: AssistantProcessItem[],
+  sources: AssistantSourceRef[],
+): string[] {
+  const fragments: string[] = [];
+  const fileCount = items.filter((item) => item.kind === "source_read").length;
+  const toolCount = items.filter((item) => item.kind === "tool_call").length;
+  const sourceCount = sources.filter(
+    (source) => source.kind !== "receipt" && source.kind !== "trace",
+  ).length;
+  const validationCount = items.filter(
+    (item) => item.kind === "validation_check",
+  ).length;
+
+  if (fileCount > 0) {
+    fragments.push(`read ${fileCount} ${fileCount === 1 ? "file" : "files"}`);
+    fragments.push("inspected workspace");
+  }
+  if (toolCount > 0) {
+    fragments.push(`used ${toolCount} ${toolCount === 1 ? "tool" : "tools"}`);
+  }
+  if (sourceCount > 0) {
+    fragments.push(`checked ${sourceCount} ${sourceCount === 1 ? "source" : "sources"}`);
+  }
+  if (validationCount > 0) {
+    fragments.push(`ran ${validationCount} ${validationCount === 1 ? "check" : "checks"}`);
+  }
+
+  return fragments;
 }
 
 export function buildAssistantTurnProcess(

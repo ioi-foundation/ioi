@@ -3114,7 +3114,7 @@ mod tests {
         assert!(impact
             .affected_docs
             .iter()
-            .any(|path| path.contains("agent-runtime-parity-plus-master-guide.md")));
+            .any(|path| path.contains("autopilot-chat-agent-ux.md")));
         assert!(impact
             .generated_files_needing_refresh
             .iter()

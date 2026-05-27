@@ -4,16 +4,16 @@ Status: canonical low-level reference.
 Canonical owner: this file for public daemon/runtime API endpoints, event streaming, run lifecycle, structured errors, and client-vs-runtime ownership.
 Supersedes: older daemon/SDK/CLI endpoint lists when endpoint shape conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-20.
+Last alignment pass: 2026-05-25.
 
 ## Purpose
 
 The IOI daemon is the universal execution endpoint and hypervisor/control plane
-for canonical Web4 autonomous work. The IOI CLI/TUI, `@ioi/agent-sdk`,
-agent-ide, Autopilot Workbench, Autopilot Desktop, workflow compositor,
-harnesses, benchmarks, VS Code extension-host code, and IOI Authority Gateway
-adapters are clients over this public runtime API. They must not own separate
-execution semantics. Local
+for canonical Web4 autonomous work. The IOI CLI/TUI, `@ioi/agent-sdk`, future
+IOI ADK, agent-ide, Autopilot Workbench, Autopilot Desktop, workflow
+compositor, harnesses, benchmarks, VS Code extension-host code, and IOI
+Authority Gateway adapters are clients, builder frameworks, or projections over
+this public runtime API. They must not own separate execution semantics. Local
 Autopilot-managed daemons, hosted providers, DePIN nodes, TEE nodes, and
 customer VPC nodes run daemon-compatible runtime nodes to execute workers,
 workflows, model calls, tools, connectors, computer-use leases, worker-training
@@ -23,7 +23,9 @@ production.
 Compute nodes initialize daemon-compatible runtime-node profiles, optionally
 bridging into lower-level runtime services. The SDK may submit, inspect, stream,
 or control work through this API, but it is not the execution substrate booted
-on a compute node.
+on a compute node. The ADK may scaffold workers, service modules, harnesses,
+evals, manifests, receipts, and deployment profiles over this API, but it is
+not the daemon or the canonical runtime owner.
 
 Workers, models, tools, connectors, browsers, shells, and computer-use providers
 are guest workloads/capabilities from this API's point of view. Policy,
@@ -175,7 +177,7 @@ Response:
 ## Data Recipe, Worker Training, Benchmark, and MoW Routing API
 
 Data recipe, transformation, training, evaluation, benchmark, and routing
-endpoints are daemon execution surfaces. Autopilot, CLI/TUI, SDK, harnesses,
+endpoints are daemon execution surfaces. Autopilot, CLI/TUI, SDK, ADK, harnesses,
 and benchmarks can call them as clients; they must not implement a separate
 semantic-data or training runtime.
 
@@ -235,7 +237,7 @@ POST /v1/threads/{thread_id}/turns/{turn_id}/interrupt
 POST /v1/threads/{thread_id}/turns/{turn_id}/steer
 ```
 
-TUI, SDK, agent-ide, workflow-composer, and Autopilot Desktop clients may
+TUI, SDK, ADK, agent-ide, workflow-composer, and Autopilot Desktop clients may
 render these controls differently, but they must converge on these daemon
 contracts rather than maintaining private session loops.
 
@@ -397,7 +399,7 @@ POST /v1/connectors/{connector_id}/subscriptions
 ## MCP Manager API
 
 MCP manager endpoints expose tool/resource/prompt discovery and governed MCP
-tool invocation to TUI, SDK, agent-ide, and Autopilot Desktop surfaces. Global
+tool invocation to TUI, SDK, ADK, agent-ide, and Autopilot Desktop surfaces. Global
 endpoints describe runtime-wide MCP state; thread endpoints bind MCP activity
 to a specific operator/runtime session.
 
@@ -560,7 +562,7 @@ POST /v1/runtime/assignments/{assignment_id}/reject
 3. The daemon cannot receive raw secrets unless it is local/customer-controlled or Enterprise Secure mode with attestation.
 4. All effectful actions require policy decision persistence.
 5. Every exposed API must support redacted diagnostic export.
-6. SDK, CLI/TUI, GUI, workflow compositor, harness, and benchmark clients must observe the same run contracts rather than owning separate runtimes.
+6. SDK, ADK, CLI/TUI, GUI, workflow compositor, harness, and benchmark clients must observe the same run contracts rather than owning separate runtimes.
 7. TUI controls must be represented as daemon/domain API controls, not as hidden
    client-only state transitions.
 8. Compute/runtime nodes run daemon-compatible profiles; SDK helpers may be

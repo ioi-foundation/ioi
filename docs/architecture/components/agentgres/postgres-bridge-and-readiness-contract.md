@@ -357,6 +357,67 @@ Projection query support should cover:
 - index visibility;
 - projection freshness metadata.
 
+## Specialized Projection Engines and External Serving Planes
+
+Agentgres projections may be served by specialized engines when a dedicated
+serving plane is better than a generic relational projection. Postgres is one
+compatibility bridge, not the privileged long-term shape of every read path.
+
+Projection engine families may include:
+
+- relational projections: Postgres, SQLite, embedded SQL stores;
+- local replica and sync projections: IndexedDB, OPFS, SQLite/Turso,
+  CRDT-backed document stores, Zero-style partial sync, Electric-style
+  streams/sync;
+- search projections: Typesense, Meilisearch, or equivalent full-text/faceted
+  search engines;
+- vector and retrieval projections: Qdrant, LanceDB, or equivalent vector,
+  hybrid, and multimodal retrieval engines;
+- OLAP projections: ClickHouse, DuckDB, MotherDuck, Parquet/object-store
+  tables, or equivalent columnar analytics engines;
+- stream projections and hot transport: NATS JetStream, Redpanda, or
+  equivalent replayable stream systems;
+- cache and materialized lookup projections: Valkey, Dragonfly, embedded
+  key-value stores, or equivalent low-latency serving engines;
+- time-series projections: QuestDB, ClickHouse, or equivalent telemetry
+  engines;
+- ledger and accounting projections: TigerBeetle or equivalent purpose-built
+  accounting engines.
+
+These engines are projection accelerators and serving planes, not canonical
+truth. Any external projection engine must be:
+
+- rebuildable from Agentgres accepted operations, object heads, artifact refs,
+  receipt refs, projection definitions, and checkpoints;
+- checkpointed with a projection watermark and source operation range;
+- invalidatable when schema, policy, index, or projection definitions change;
+- incapable of accepting canonical writes directly;
+- annotated with consistency, freshness, and rebuild metadata.
+
+No external projection engine may bypass operation settlement. If a serving
+engine exposes a write-like interface for developer ergonomics, that write must
+compile into an Agentgres operation and pass policy, authority, schema,
+constraint, invariant, expected-head, and receipt checks before it changes
+domain truth.
+
+Projection engine checkpoints should expose:
+
+- projection id;
+- engine family and adapter id;
+- source operation range;
+- domain sequence watermark;
+- schema version;
+- policy hash where relevant;
+- projection/index definition hash;
+- rebuild status;
+- freshness SLO;
+- verification receipt refs where required.
+
+The operating rule is:
+
+> **Every fast serving plane may be stale, disposable, or rebuildable; no fast
+> serving plane may become the authority for domain truth.**
+
 ## Subscriptions
 
 Subscriptions are projection-native.

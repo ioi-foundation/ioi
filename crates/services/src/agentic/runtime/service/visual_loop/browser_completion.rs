@@ -7,6 +7,25 @@ pub(crate) struct BrowserSnapshotCompletion {
     pub(crate) matched_success_criteria: Vec<String>,
 }
 
+impl BrowserSnapshotCompletion {
+    pub(crate) fn append_contract_checks(&self, verification_checks: &mut Vec<String>) {
+        verification_checks
+            .push("browser_snapshot_success_criteria_auto_completed=true".to_string());
+        verification_checks.push(format!(
+            "browser_snapshot_success_criteria_count={}",
+            self.matched_success_criteria.len()
+        ));
+        verification_checks.push(format!(
+            "browser_snapshot_success_criteria={}",
+            self.matched_success_criteria.join(",")
+        ));
+        for criterion in &self.matched_success_criteria {
+            verification_checks.push(format!("success_condition::{}=true", criterion));
+        }
+        verification_checks.push("terminal_chat_reply_ready=true".to_string());
+    }
+}
+
 fn normalize_semantic_text(raw: &str) -> String {
     raw.chars()
         .map(|ch| {
@@ -59,7 +78,9 @@ pub(crate) fn browser_snapshot_completion(
     tool_name: &str,
     snapshot_output: Option<&str>,
 ) -> Option<BrowserSnapshotCompletion> {
-    if tool_name != "browser__inspect" || agent_state.pending_search_completion.is_some() {
+    if !matches!(tool_name, "browser__inspect" | "browser__navigate")
+        || agent_state.pending_search_completion.is_some()
+    {
         return None;
     }
 

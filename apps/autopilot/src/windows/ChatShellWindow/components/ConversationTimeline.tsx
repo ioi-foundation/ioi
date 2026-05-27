@@ -10,7 +10,10 @@ import type {
 import type { ConversationTurn, TurnContext } from "../hooks/useTurnContexts";
 import { normalizeVisualHash } from "../utils/visualHash";
 import { buildAssistantTurnProcess } from "../utils/assistantTurnProcessModel";
-import { extractUserRequestFromContextualIntent } from "../utils/contextualIntent";
+import {
+  extractUserRequestFromContextualIntent,
+  humanizeOperationalTranscriptText,
+} from "../utils/contextualIntent";
 import { operatorFacingCurrentStep } from "../viewmodels/runtimeStatusCopy";
 import { formatTurnDurationSeconds } from "./conversationTranscriptModel";
 import { AnswerCard } from "./AnswerCard";
@@ -262,7 +265,7 @@ export function ConversationTimeline({
             ? inlineArtifactReply
             : latestAnswerMatches && runPresentation.finalAnswer
               ? inlineAnswerText(runPresentation.finalAnswer)
-              : turn.answer?.text || null;
+              : humanizeOperationalTranscriptText(turn.answer?.text || null, "assistant") || null;
         const showArtifactReplyBubble =
           !turn.answer &&
           !!inlineArtifactReply &&

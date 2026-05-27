@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for runtime events, receipts, delivery bundles, trace bundles, and quality records.
 Supersedes: overlapping event/receipt examples in plans/specs when event, trace, or receipt fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-20.
+Last alignment pass: 2026-05-25.
 
 ## Purpose
 
@@ -14,7 +14,7 @@ across Autopilot Workbench, IOI daemon, Agentgres, aiagent.xyz, sas.xyz, and
 wallet.network.
 
 The IOI daemon emits these objects as the autonomous-execution
-hypervisor/control plane. Autopilot Workbench, CLI/TUI, SDK, harnesses,
+hypervisor/control plane. Autopilot Workbench, CLI/TUI, SDK, ADK, harnesses,
 benchmarks, and extension-host code may project or inspect them, but they must
 not mint private runtime truth for consequential work.
 
@@ -87,6 +87,15 @@ job.started
 job.completed
 job.failed
 job.cancelled
+module.invocation_proposed
+module.invocation_started
+module.invocation_completed
+module.invocation_committed
+upgrade.proposal_submitted
+upgrade.proposal_approved
+upgrade.proposal_rejected
+upgrade.proposal_committed
+local_settlement.committed
 ontology.bound
 ontology_projection.updated
 data_recipe.run_started
@@ -145,16 +154,20 @@ PolicyDecisionReceipt
 ApprovalReceipt
 ModelInvocationReceipt
 ToolExecutionReceipt
+ModuleInvocationReceipt
 ArtifactReceipt
 ValidationReceipt
 MergeReceipt
 SettlementReceipt
+LocalSettlementReceipt
 DeliveryReceipt
 ContributionReceipt
 QualityReceipt
 DataRecipeRunReceipt
 TransformationReceipt
 OntologyProjectionReceipt
+UpgradeProposalReceipt
+UpgradeDecisionReceipt
 TrainingTraceReceipt
 TrainingBatchPlanReceipt
 GenerationBatchReceipt
@@ -289,11 +302,15 @@ still apply.
   "receipt_type": "routing_decision",
   "routing_decision_id": "route_123",
   "task_id": "task://...",
-  "router_id": "runtime://...",
+  "router_id": "runtime://... | system://... | domain://...",
+  "intent_hash": "sha256:...",
   "candidate_set_commitment": "sha256:...",
   "routing_policy_hash": "sha256:...",
-  "selected_worker_id": "worker://...",
-  "selection_reason": "policy-compatible, benchmark-leading, within budget",
+  "selected_domain_or_worker": "worker://...",
+  "authority_scope": ["scope:..."],
+  "cost_bound": "optional",
+  "reason_code": "policy_compatible_benchmark_leading_within_budget",
+  "fallback_policy": "optional",
   "contribution_policy_ref": "license://...",
   "receipt_obligations": ["receipt://contribution_required"]
 }
@@ -306,6 +323,64 @@ evaluation, or package update passed or failed declared gates. Benchmark
 receipts prove performance under declared profiles. Routing receipts prove
 legible selection under a declared candidate set and policy. None of these
 receipts prove universal worker superiority.
+
+## Autonomous-System Module and Local Settlement Receipts
+
+Governed autonomous-system chains use service-module invocations as typed
+transition boundaries. The receipt proves the specific invocation; Agentgres
+records the accepted operation and state roots; IOI L1 anchors only selected
+roots when public trust, dispute, reputation, or economic settlement requires
+them.
+
+```json
+{
+  "receipt_id": "receipt_module_123",
+  "receipt_type": "module_invocation",
+  "module_id": "module://policy.evaluate.spend_limit.v3",
+  "invocation_id": "invocation://123",
+  "autonomous_system_chain_id": "system://customer-ops",
+  "autopilot_node_id": "node://local-workbench",
+  "input_hash": "sha256:...",
+  "predecessor_state_root": "sha256:...",
+  "resulting_state_root": "sha256:...",
+  "policy_hash": "sha256:...",
+  "authority_grant_refs": ["grant://..."],
+  "decision": "accepted | rejected | escalated",
+  "artifact_refs": [],
+  "signature": "optional"
+}
+```
+
+```json
+{
+  "receipt_id": "receipt_upgrade_123",
+  "receipt_type": "upgrade_proposal | upgrade_decision",
+  "proposal_id": "proposal://...",
+  "target_kind": "service_module | workflow_graph | policy_module | model_route | tool_binding | settlement_rule",
+  "target_ref": "module://...",
+  "diff_ref": "artifact://...",
+  "simulation_receipt_refs": ["receipt://..."],
+  "benchmark_receipt_refs": ["receipt://..."],
+  "decision": "approved | rejected | escalated | rolled_back",
+  "policy_hash": "sha256:...",
+  "l1_commitment": "optional"
+}
+```
+
+```json
+{
+  "receipt_id": "receipt_local_settlement_123",
+  "receipt_type": "local_settlement",
+  "autopilot_node_id": "node://...",
+  "autonomous_system_chain_id": "system://...",
+  "settlement_kind": "module_invocation | workflow_transition | authority_outcome | task_handoff | upgrade_decision | receipt_root | dispute_escalation",
+  "operation_ref": "agentgres://operation/...",
+  "predecessor_state_root": "sha256:...",
+  "resulting_state_root": "sha256:...",
+  "receipt_root": "sha256:...",
+  "l1_anchor_ref": "optional"
+}
+```
 
 ## DeliveryBundle
 
@@ -425,5 +500,5 @@ archival checkpoint files.
 3. Delivery requires outputs plus evidence, not just files.
 4. Quality/reputation roots should be aggregated before L1 commitment.
 5. Private traces must support redacted export.
-6. TUI, SDK, agent-ide, and Autopilot controls must leave the same event and
-   receipt trail when they mutate runtime state.
+6. TUI, SDK, ADK, agent-ide, and Autopilot controls must leave the same event
+   and receipt trail when they mutate runtime state.

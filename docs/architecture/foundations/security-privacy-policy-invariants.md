@@ -4,11 +4,26 @@ Status: canonical architecture authority.
 Canonical owner: this file for public security/privacy/policy invariants; hidden conformance details live in [`../../conformance/agentic-runtime/`](../../conformance/agentic-runtime/).
 Supersedes: overlapping plan prose when invariants conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-05-25.
 
 ## Canonical Definition
 
 This document defines the non-negotiable authority, security, privacy, and execution boundaries for canonical Web4.
+
+## Alignment-Security Invariants
+
+1. IOI's safety claim is execution-boundary alignment, not proof that every
+   model's private cognition or goals are safe.
+2. Models, agents, and workers may reason or propose; consequential effects
+   cross reality only through daemon-mediated policy, authority, receipts, and
+   verification.
+3. Worker self-improvement must not self-grant broader authority. Policy
+   widening requires an external authority path such as wallet.network,
+   organization policy, domain governance, or IOI L1 governance.
+4. Autonomous-system upgrades are proposal-mediated. Agents may propose changes
+   to governed modules, workflows, policies, tool bindings, model routes,
+   schemas, and settlement rules, but only policy-bound governance may commit
+   them.
 
 ## Authority Invariants
 
@@ -29,10 +44,10 @@ This document defines the non-negotiable authority, security, privacy, and execu
 4. Untrusted DePIN nodes cannot execute final effects directly.
 5. Enterprise-private plaintext requires local, customer VPC, trusted hosted, or TEE execution.
 6. Long-running operations require deadline, cancellation, and progress.
-7. Compute/runtime nodes run IOI daemon-compatible profiles; SDKs, GUIs, and
-   TUI clients do not replace the execution substrate.
-8. TUI, GUI, SDK, and harness controls must resolve to daemon/domain APIs for
-   consequential work.
+7. Compute/runtime nodes run IOI daemon-compatible profiles; SDKs, ADKs, GUIs,
+   and TUI clients do not replace the execution substrate.
+8. TUI, GUI, SDK, ADK, and harness controls must resolve to daemon/domain APIs
+   for consequential work.
 9. Training, evaluation, benchmark, routing, and delivery jobs run through
    IOI daemon-compatible runtime paths; product surfaces may initiate or
    inspect them but must not create private execution semantics.
@@ -47,6 +62,9 @@ This document defines the non-negotiable authority, security, privacy, and execu
 6. Receipts are bundled; only sparse roots may reach IOI L1.
 7. Sealed state archives are cold encrypted payloads; Agentgres owns archive
    refs and restore receipts, while wallet.network owns restore authority.
+8. Autopilot-node local settlement records are Agentgres/domain truth until a
+   selected root is anchored to IOI L1 for public trust, dispute, reputation, or
+   economic settlement.
 
 ## File and Artifact Invariants
 
@@ -132,6 +150,8 @@ This document defines the non-negotiable authority, security, privacy, and execu
 2. L2s/rollups are scaling contingencies, not default first-party architecture.
 3. Independent L1s register for discovery; they need not settle into IOI.
 4. Mainnet is the notary, not the notebook.
+5. Autopilot nodes settle autonomous work locally; IOI L1 settles machine labor
+   globally.
 
 ## Privacy Doctrine
 

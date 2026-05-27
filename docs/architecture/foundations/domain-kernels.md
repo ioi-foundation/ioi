@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for root/domain kernel boundaries and domain-kernel responsibilities.
 Supersedes: overlapping plan prose when kernel ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-05-24.
 
 ## Canonical Definition
 
@@ -40,6 +40,12 @@ Application-domain kernel deployments
   aiagent.xyz, sas.xyz, ioi.ai, Autopilot local domains, enterprise domains
   each with its own Agentgres state substrate
 
+Governed autonomous-system chains
+  local state machines with modules, proposals, receipts, upgrade paths
+
+Autopilot nodes
+  local settlement and interop domains coordinating many governed chains
+
 Semantic data plane
   Domain Ontologies, Data Recipes, connector mappings, policy-bound data views
 
@@ -48,8 +54,8 @@ Execution worker nodes
   run IOI daemon/runtime-node profiles and execute work
 
 Client surfaces
-  Autopilot Desktop, IOI CLI/TUI, @ioi/agent-sdk, agent-ide, browser apps
-  submit, inspect, and control work through stable domain/runtime contracts
+  Autopilot Desktop, IOI CLI/TUI, @ioi/agent-sdk, IOI ADK, agent-ide, browser apps
+  submit, inspect, scaffold, and control work through stable domain/runtime contracts
 ```
 
 This is an **edge-in topology**. Traditional blockchain applications usually
@@ -69,6 +75,11 @@ The same kernel pattern recurs at multiple grains: local Autopilot domains,
 hosted first-party domains, enterprise domains, sovereign third-party domains,
 and public L1 commitments. The responsibilities differ by layer, but the
 operation-log, policy, receipt, replay, and projection doctrine stays coherent.
+
+An Autopilot node is one such local domain composition: Workbench, daemon,
+Agentgres, wallet.network authority paths, local registries, receipts, replay,
+and runtime profiles. It may host many governed autonomous-system chains, but it
+does not become IOI L1.
 
 ## Root vs Domain
 
@@ -134,6 +145,8 @@ A domain kernel owns:
 - artifact indexing;
 - wallet authority integration;
 - IOI L1 contract synchronization.
+- Autopilot-node local settlement records when the domain hosts local
+  autonomous-system chains.
 
 ## Why Agentgres Requires a Domain Kernel
 
@@ -278,8 +291,9 @@ It synchronizes with IOI L1 only for:
 3. Execution nodes are interchangeable venues, not domain state owners by default.
 4. Domain kernels must not create split-brain state separate from Agentgres.
 5. All surfaces must use stable runtime/substrate envelopes.
-6. Client surfaces such as CLI/TUI, SDK, agent-ide, and Autopilot Desktop must
-   not bypass domain kernels or daemon runtime contracts for canonical work.
+6. Client surfaces such as CLI/TUI, SDK, ADK, agent-ide, and Autopilot Desktop
+   must not bypass domain kernels or daemon runtime contracts for canonical
+   work.
 
 ## One-Line Doctrine
 

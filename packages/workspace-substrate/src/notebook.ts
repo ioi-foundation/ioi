@@ -25,6 +25,50 @@ type NotebookRecord = {
   cells?: NotebookCellRecord[];
 };
 
+type AutopilotReplayCellRecord = {
+  id?: string;
+  cellKind?: string;
+  cell_kind?: string;
+  status?: string;
+  readOnlyReplay?: boolean;
+  read_only_replay?: boolean;
+  title?: string;
+  summary?: string | null;
+  toolName?: string | null;
+  tool_name?: string | null;
+  toolCallId?: string | null;
+  tool_call_id?: string | null;
+  snapshotId?: string | null;
+  snapshot_id?: string | null;
+  filePaths?: unknown;
+  file_paths?: unknown;
+  operationCount?: number;
+  operation_count?: number;
+  restorePreviewEndpoint?: string | null;
+  restore_preview_endpoint?: string | null;
+  restoreApplyEndpoint?: string | null;
+  restore_apply_endpoint?: string | null;
+  receiptRefs?: unknown;
+  receipt_refs?: unknown;
+  artifactRefs?: unknown;
+  artifact_refs?: unknown;
+  rollbackRefs?: unknown;
+  rollback_refs?: unknown;
+  policyDecisionRefs?: unknown;
+  policy_decision_refs?: unknown;
+};
+
+type AutopilotReplayRecord = {
+  schemaVersion?: string;
+  schema_version?: string;
+  status?: string;
+  readOnlyReplayMode?: boolean;
+  read_only_replay_mode?: boolean;
+  receiptBackedCellCount?: number;
+  receipt_backed_cell_count?: number;
+  cells?: AutopilotReplayCellRecord[];
+};
+
 function sourceToString(source: NotebookSource | undefined): string {
   if (Array.isArray(source)) {
     return source.join("");
@@ -88,8 +132,13 @@ function notebookCellId(cell: NotebookCellRecord, index: number): string {
   return explicit || `cell-${index + 1}`;
 }
 
+function isAutopilotReplayPath(path: string): boolean {
+  return path.trim().toLowerCase().endsWith(".autopilot");
+}
+
 export function isWorkspaceNotebookPath(path: string): boolean {
-  return path.trim().toLowerCase().endsWith(".ipynb");
+  const normalized = path.trim().toLowerCase();
+  return normalized.endsWith(".ipynb") || normalized.endsWith(".autopilot");
 }
 
 export function parseWorkspaceNotebookDocument(
@@ -98,6 +147,10 @@ export function parseWorkspaceNotebookDocument(
 ): WorkspaceNotebookDocument | null {
   if (!isWorkspaceNotebookPath(path)) {
     return null;
+  }
+
+  if (isAutopilotReplayPath(path)) {
+    return parseAutopilotReplayNotebookDocument(path, content);
   }
 
   let notebook: NotebookRecord;
@@ -134,6 +187,7 @@ export function parseWorkspaceNotebookDocument(
 
   return {
     path,
+    documentKind: "jupyter",
     nbformat: typeof notebook.nbformat === "number" ? notebook.nbformat : 4,
     nbformatMinor:
       typeof notebook.nbformat_minor === "number" ? notebook.nbformat_minor : 5,
@@ -155,13 +209,22 @@ export function updateWorkspaceNotebookCellSource(
   cellId: string,
   nextSource: string,
 ): string | null {
-  let notebook: NotebookRecord;
+  let parsed: unknown;
   try {
-    notebook = JSON.parse(content) as NotebookRecord;
+    parsed = JSON.parse(content) as unknown;
   } catch {
     return null;
   }
 
+  if (isAutopilotReplayNotebookRecord(parsed)) {
+    return null;
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+
+  const notebook = parsed as NotebookRecord;
   if (!Array.isArray(notebook.cells)) {
     return null;
   }
@@ -176,4 +239,163 @@ export function updateWorkspaceNotebookCellSource(
   const target = notebook.cells[cellIndex]!;
   target.source = sourceFromString(nextSource, sourceKind(target.source));
   return `${JSON.stringify(notebook, null, 2)}\n`;
+}
+
+function parseAutopilotReplayNotebookDocument(
+  path: string,
+  content: string,
+): WorkspaceNotebookDocument | null {
+  let replay: AutopilotReplayRecord;
+  try {
+    replay = JSON.parse(content) as AutopilotReplayRecord;
+  } catch {
+    return null;
+  }
+
+  if (!isAutopilotReplayNotebookRecord(replay)) {
+    return null;
+  }
+
+  const cells = (Array.isArray(replay.cells) ? replay.cells : []).map(
+    (cell, index): WorkspaceNotebookCell => {
+      const receiptRefs = stringArray(cell.receiptRefs ?? cell.receipt_refs);
+      const artifactRefs = stringArray(cell.artifactRefs ?? cell.artifact_refs);
+      const rollbackRefs = stringArray(cell.rollbackRefs ?? cell.rollback_refs);
+      const policyDecisionRefs = stringArray(
+        cell.policyDecisionRefs ?? cell.policy_decision_refs,
+      );
+      const outputPreview = [
+        receiptRefs.length ? `${receiptRefs.length} receipt refs` : null,
+        artifactRefs.length ? `${artifactRefs.length} artifact refs` : null,
+        rollbackRefs.length ? `${rollbackRefs.length} rollback refs` : null,
+        policyDecisionRefs.length
+          ? `${policyDecisionRefs.length} policy decision refs`
+          : null,
+      ].filter((entry): entry is string => Boolean(entry));
+
+      return {
+        id:
+          typeof cell.id === "string" && cell.id.trim()
+            ? cell.id.trim()
+            : `autopilot-cell-${index + 1}`,
+        index,
+        cellType:
+          stringField(cell.cellKind ?? cell.cell_kind) || "autopilot_replay",
+        source: autopilotReplayCellSource(cell, {
+          receiptRefs,
+          artifactRefs,
+          rollbackRefs,
+          policyDecisionRefs,
+        }),
+        sourceKind: "string",
+        executionCount: null,
+        outputCount: outputPreview.length,
+        outputPreview,
+        metadataEntryCount: Object.keys(cell).length,
+        readOnly: true,
+      };
+    },
+  );
+
+  return {
+    path,
+    documentKind: "autopilot_replay",
+    nbformat: 4,
+    nbformatMinor: 5,
+    language: "autopilot-replay",
+    kernelDisplayName: "Autopilot Signed Replay",
+    readOnlyReplayMode: Boolean(
+      replay.readOnlyReplayMode ?? replay.read_only_replay_mode,
+    ),
+    receiptBackedCellCount:
+      typeof replay.receiptBackedCellCount === "number"
+        ? replay.receiptBackedCellCount
+        : typeof replay.receipt_backed_cell_count === "number"
+          ? replay.receipt_backed_cell_count
+          : cells.filter((cell) =>
+              cell.outputPreview.some((preview) => preview.includes("receipt")),
+            ).length,
+    cellCount: cells.length,
+    cells,
+  };
+}
+
+function isAutopilotReplayNotebookRecord(
+  value: unknown,
+): value is AutopilotReplayRecord {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const record = value as AutopilotReplayRecord;
+  const schema = String(record.schemaVersion ?? record.schema_version ?? "");
+  return schema.includes("signed-replay-notebook");
+}
+
+function stringField(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter(
+        (entry): entry is string =>
+          typeof entry === "string" && Boolean(entry.trim()),
+      )
+    : [];
+}
+
+function autopilotReplayCellSource(
+  cell: AutopilotReplayCellRecord,
+  refs: {
+    receiptRefs: string[];
+    artifactRefs: string[];
+    rollbackRefs: string[];
+    policyDecisionRefs: string[];
+  },
+): string {
+  const title = stringField(cell.title) || "Autopilot replay cell";
+  const lines = [`# ${title}`];
+  const summary = stringField(cell.summary);
+  const status = stringField(cell.status);
+  const toolName = stringField(cell.toolName ?? cell.tool_name);
+  const toolCallId = stringField(cell.toolCallId ?? cell.tool_call_id);
+  const snapshotId = stringField(cell.snapshotId ?? cell.snapshot_id);
+  const filePaths = stringArray(cell.filePaths ?? cell.file_paths);
+  const restorePreviewEndpoint = stringField(
+    cell.restorePreviewEndpoint ?? cell.restore_preview_endpoint,
+  );
+  const restoreApplyEndpoint = stringField(
+    cell.restoreApplyEndpoint ?? cell.restore_apply_endpoint,
+  );
+
+  if (summary) lines.push("", summary);
+  if (status) lines.push("", `Status: ${status}`);
+  if (toolName) lines.push(`Tool: ${toolName}`);
+  if (toolCallId) lines.push(`Tool call: ${toolCallId}`);
+  if (snapshotId) lines.push(`Snapshot: ${snapshotId}`);
+  if (typeof cell.operationCount === "number") {
+    lines.push(`Operations: ${cell.operationCount}`);
+  } else if (typeof cell.operation_count === "number") {
+    lines.push(`Operations: ${cell.operation_count}`);
+  }
+  if (filePaths.length) lines.push(`Files: ${filePaths.join(", ")}`);
+  if (refs.receiptRefs.length) {
+    lines.push(`Receipts: ${refs.receiptRefs.join(", ")}`);
+  }
+  if (refs.artifactRefs.length) {
+    lines.push(`Artifacts: ${refs.artifactRefs.join(", ")}`);
+  }
+  if (refs.rollbackRefs.length) {
+    lines.push(`Rollback refs: ${refs.rollbackRefs.join(", ")}`);
+  }
+  if (refs.policyDecisionRefs.length) {
+    lines.push(`Policy decisions: ${refs.policyDecisionRefs.join(", ")}`);
+  }
+  if (restorePreviewEndpoint) {
+    lines.push(`Restore preview: ${restorePreviewEndpoint}`);
+  }
+  if (restoreApplyEndpoint) {
+    lines.push(`Restore apply: ${restoreApplyEndpoint}`);
+  }
+  return `${lines.join("\n")}\n`;
 }

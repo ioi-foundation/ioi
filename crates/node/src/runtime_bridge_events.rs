@@ -3,6 +3,7 @@ use serde_json::{json, Value};
 
 const EVENT_SCHEMA_VERSION: &str = "ioi.runtime.event.v1";
 const KERNEL_EVENT_PAYLOAD_SCHEMA_VERSION: &str = "ioi.runtime.kernel-event.v1";
+const BRIDGE_EVENT_TEXT_PREVIEW_BYTES: usize = 4096;
 
 pub struct RuntimeBridgeEventContext<'a> {
     pub thread_id: &'a str,
@@ -16,7 +17,7 @@ pub fn kernel_event_to_tti_event(
     event: &KernelEvent,
     context: &RuntimeBridgeEventContext<'_>,
 ) -> Option<Value> {
-    let kernel_payload = serde_json::to_value(event).ok()?;
+    let kernel_payload = compact_json_value(serde_json::to_value(event).ok()?);
     match event {
         KernelEvent::AgentStep(trace) => Some(runtime_kernel_event(
             context,
@@ -33,7 +34,7 @@ pub fn kernel_event_to_tti_event(
                 "step_index": trace.step_index,
                 "success": trace.success,
                 "error": trace.error,
-                "raw_output": trace.raw_output,
+                "raw_output": compact_text(&trace.raw_output),
                 "cost_incurred": trace.cost_incurred,
                 "fitness_score": trace.fitness_score,
                 "timestamp": trace.timestamp,
@@ -122,7 +123,7 @@ pub fn kernel_event_to_tti_event(
                     "session_id": hex::encode(session_id),
                     "step_index": step_index,
                     "tool_name": tool_name,
-                    "output": output,
+                    "output": compact_text(output),
                     "error_class": error_class,
                     "agent_status": agent_status,
                     "kernel_event": kernel_payload,
@@ -140,6 +141,38 @@ pub fn kernel_event_to_tti_event(
             kernel_payload,
         )),
         _ => None,
+    }
+}
+
+fn compact_text(text: &str) -> String {
+    if text.len() <= BRIDGE_EVENT_TEXT_PREVIEW_BYTES {
+        return text.to_string();
+    }
+    let mut end = BRIDGE_EVENT_TEXT_PREVIEW_BYTES;
+    while end > 0 && !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!(
+        "{}...[truncated {} bytes]",
+        &text[..end],
+        text.len().saturating_sub(end)
+    )
+}
+
+fn compact_json_value(value: Value) -> Value {
+    match value {
+        Value::String(text) if text.len() > BRIDGE_EVENT_TEXT_PREVIEW_BYTES => json!({
+            "preview": compact_text(&text),
+            "truncated": true,
+            "original_bytes": text.len(),
+        }),
+        Value::Array(items) => Value::Array(items.into_iter().map(compact_json_value).collect()),
+        Value::Object(map) => Value::Object(
+            map.into_iter()
+                .map(|(key, value)| (key, compact_json_value(value)))
+                .collect(),
+        ),
+        other => other,
     }
 }
 
@@ -398,6 +431,27 @@ mod tests {
         assert_eq!(
             mapped["payload"]["error_class"],
             "permission_or_approval_required"
+        );
+    }
+
+    #[test]
+    fn compacts_large_tool_output_in_bridge_events() {
+        let large_output = "x".repeat(BRIDGE_EVENT_TEXT_PREVIEW_BYTES * 3);
+        let event = KernelEvent::AgentActionResult {
+            session_id: [9u8; 32],
+            step_index: 1,
+            tool_name: "file__read".to_string(),
+            output: large_output,
+            error_class: None,
+            agent_status: "Running".to_string(),
+        };
+        let mapped = kernel_event_to_tti_event(&event, &context()).expect("mapped event");
+        let output = mapped["payload"]["output"].as_str().expect("string output");
+        assert!(output.len() < BRIDGE_EVENT_TEXT_PREVIEW_BYTES + 128);
+        assert!(output.contains("[truncated"));
+        assert_eq!(
+            mapped["payload"]["kernel_event"]["AgentActionResult"]["output"]["truncated"],
+            true
         );
     }
 

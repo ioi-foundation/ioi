@@ -1,6 +1,5 @@
 use super::*;
 use async_trait::async_trait;
-use std::env;
 use tempfile::tempdir;
 
 struct EchoRuntime;
@@ -85,38 +84,14 @@ impl InferenceRuntime for FailingInferenceRuntime {
     }
 }
 
-struct ScopedEnv {
-    key: &'static str,
-    previous: Option<String>,
-}
-
-impl ScopedEnv {
-    fn set(key: &'static str, value: impl AsRef<str>) -> Self {
-        let previous = env::var(key).ok();
-        env::set_var(key, value.as_ref());
-        Self { key, previous }
-    }
-}
-
-impl Drop for ScopedEnv {
-    fn drop(&mut self) {
-        if let Some(previous) = self.previous.as_ref() {
-            env::set_var(self.key, previous);
-        } else {
-            env::remove_var(self.key);
-        }
-    }
-}
-
 #[tokio::test]
 async fn synthesize_speech_uses_kernel_media_fallback_when_requested() {
     let temp_dir = tempdir().expect("tempdir");
-    let _tool_home = ScopedEnv::set(
-        "IOI_MEDIA_TOOL_HOME",
-        temp_dir.path().to_string_lossy().to_string(),
+    let runtime = KernelMediaRuntime::new_with_media_config(
+        Arc::new(EchoRuntime),
+        Some(temp_dir.path().to_path_buf()),
+        Some("fallback".to_string()),
     );
-    let _tts_backend = ScopedEnv::set("IOI_MEDIA_TTS_BACKEND", "fallback");
-    let runtime = KernelMediaRuntime::new(Arc::new(EchoRuntime));
 
     let result = runtime
         .synthesize_speech(SpeechSynthesisRequest {

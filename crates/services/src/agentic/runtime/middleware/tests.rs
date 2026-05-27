@@ -145,6 +145,43 @@ fn test_parameters_alias_is_rejected() {
 }
 
 #[test]
+fn test_browser_subagent_builtin_dynamic_call_is_allowed() {
+    let input = r#"{
+        "name":"browser__subagent",
+        "arguments":{
+            "task_name":"tool catalogue browser fixture",
+            "task_summary":"Verify browser subagent packaging reaches the fixture page.",
+            "recording_name":"toolcat-browser-subagent",
+            "task":"Inspect the local fixture and report the TOOLCAT_BROWSER_CANARY text without external actions."
+        }
+    }"#;
+    let result = normalize_tool_call_with_observation(input).unwrap();
+    match result.tool {
+        AgentTool::Dynamic(value) => {
+            assert_eq!(
+                value.get("name").and_then(|item| item.as_str()),
+                Some("browser__subagent")
+            );
+            assert_eq!(
+                value
+                    .pointer("/arguments/task_name")
+                    .and_then(|item| item.as_str()),
+                Some("tool catalogue browser fixture")
+            );
+        }
+        other => panic!("Expected Dynamic browser subagent, got {:?}", other),
+    }
+    assert_eq!(
+        result.observation.raw_name.as_deref(),
+        Some("browser__subagent")
+    );
+    assert_eq!(
+        result.observation.normalized_name.as_deref(),
+        Some("browser__subagent")
+    );
+}
+
+#[test]
 fn test_normalize_file_search_pattern_alias_with_observation() {
     let input = r#"{"name":"file__search","arguments":{"path":".","pattern":"package\\.json"}}"#;
     let result = normalize_tool_call_with_observation(input).unwrap();

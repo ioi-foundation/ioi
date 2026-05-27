@@ -356,6 +356,29 @@ async fn enforce_policy_and_record(
         return Err(exit);
     }
 
+    if let Some(false) = crate::agentic::policy::filesystem_request_stays_within_workspace(
+        &determinism.request.target,
+        &determinism.request.params,
+        Some(agent_state.working_directory.as_str()),
+    ) {
+        let exit = emit_policy_decision_and_exit(
+            service,
+            rules,
+            None,
+            execution_state,
+            session_id,
+            step_index,
+            &determinism.target_str,
+            determinism,
+            "BLOCK",
+            PolicyVerdict::Block("workspace_filesystem_boundary".to_string()),
+            TransactionError::Invalid(
+                "Blocked by Policy: filesystem path is outside workspace authority.".to_string(),
+            ),
+        )?;
+        return Err(exit);
+    }
+
     let matched_approval_grant = execution_state
         .as_deref_mut()
         .map(|state| {

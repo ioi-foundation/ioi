@@ -111,14 +111,18 @@ export interface WorkspaceNotebookCell {
   outputCount: number;
   outputPreview: string[];
   metadataEntryCount: number;
+  readOnly?: boolean;
 }
 
 export interface WorkspaceNotebookDocument {
   path: string;
+  documentKind?: "jupyter" | "autopilot_replay";
   nbformat: number;
   nbformatMinor: number;
   language: string | null;
   kernelDisplayName: string | null;
+  readOnlyReplayMode?: boolean;
+  receiptBackedCellCount?: number;
   cellCount: number;
   cells: WorkspaceNotebookCell[];
 }

@@ -37,7 +37,7 @@ DEFAULT_DEV_URL = DEFAULT_WEB_ROOT
 DEFAULT_OUTPUT_ROOT = (
     PROJECT_ROOT / "docs/evidence/route-hierarchy/live-workspace-workbench"
 )
-WINDOW_SEARCH_PATTERN = "Autopilot Chat"
+WINDOW_SEARCH_PATTERN = "Autopilot"
 BROWSER_CAPTURE_URL = f"{DEFAULT_WEB_ROOT}/?view=workspace"
 POLL_INTERVAL_SECS = 1.0
 WINDOW_WAIT_TIMEOUT_SECS = 90.0
@@ -87,6 +87,8 @@ def window_ids_from_wmctrl(window_pattern: str) -> list[int]:
         window_hex, _, _, title = parts
         if window_pattern.lower() not in title.lower():
             continue
+        if "overview" in title.lower() or "clipboard" in title.lower():
+            continue
         try:
             ids.append(int(window_hex, 16))
         except ValueError:
@@ -97,7 +99,18 @@ def window_ids_from_wmctrl(window_pattern: str) -> list[int]:
 def window_ids_from_xdotool(window_pattern: str) -> list[int]:
     result = run(["xdotool", "search", "--name", window_pattern], check=False)
     lines = list(result.stdout.splitlines()) + list(result.stderr.splitlines())
-    return [int(line.strip()) for line in lines if line.strip().isdigit()]
+    ids: list[int] = []
+    for line in lines:
+        line = line.strip()
+        if not line.isdigit():
+            continue
+        window_id = int(line)
+        title_result = run(["xdotool", "getwindowname", str(window_id)], check=False)
+        title = title_result.stdout.strip()
+        if "overview" in title.lower() or "clipboard" in title.lower():
+            continue
+        ids.append(window_id)
+    return ids
 
 
 def wait_for_window(window_pattern: str, *, timeout_secs: float) -> int | None:
@@ -125,16 +138,16 @@ def close_matching_windows(window_pattern: str) -> None:
 
 
 def terminate_existing_desktop_instances() -> None:
-    result = run(["pgrep", "-f", "/target/debug/autopilot"], check=False)
-    for line in result.stdout.splitlines():
-        line = line.strip()
-        if not line.isdigit():
-            continue
-        pid = int(line)
-        with contextlib.suppress(ProcessLookupError):
-            os.kill(pid, signal.SIGTERM)
-    if result.stdout.strip():
-        time.sleep(1.5)
+    for pattern in ["/target/debug/autopilot", "VSCode-linux-x64/autopilot"]:
+        result = run(["pgrep", "-f", pattern], check=False)
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if not line.isdigit():
+                continue
+            pid = int(line)
+            with contextlib.suppress(ProcessLookupError):
+                os.kill(pid, signal.SIGTERM)
+    time.sleep(1.5)
 
 
 def launch_dev_desktop(

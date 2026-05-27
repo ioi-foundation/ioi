@@ -1,10 +1,17 @@
 use super::{
-    browser_route_owns_dedicated_surface, duplicate_prior_success_noop,
-    install_already_satisfied_operator_reply, install_already_satisfied_terminal_reason,
-    install_resolution_terminal_block_reason, maybe_enqueue_workspace_package_manifest_recovery,
+    browser_route_owns_dedicated_surface, duplicate_after_prior_success,
+    duplicate_prior_success_noop, install_already_satisfied_operator_reply,
+    install_already_satisfied_terminal_reason, install_resolution_terminal_block_reason,
+    latest_browser_tab_id, latest_child_session_id_hex, latest_retained_shell_command_id,
+    maybe_enqueue_workspace_package_manifest_recovery,
     maybe_terminalize_workspace_package_manifest_read, observe_terminal_chat_reply_shape,
     select_manifest_script_recovery_candidate, should_release_browser_after_terminal_reply,
-    terminal_chat_reply_layout_profile, workspace_goal_prefers_package_manifest_recovery,
+    terminal_chat_reply_layout_profile, tool_to_action_request,
+    toolcat_single_tool_agent_await_followup, toolcat_single_tool_browser_setup_followup,
+    toolcat_single_tool_chat_reply_recovery_followup,
+    toolcat_single_tool_duplicate_after_success_reply, toolcat_single_tool_failure_reply,
+    toolcat_single_tool_reply_tool_name, toolcat_single_tool_retained_shell_followup,
+    toolcat_single_tool_success_followup, workspace_goal_prefers_package_manifest_recovery,
     FailureClass, ManifestScriptRecoveryCandidate, TerminalChatReplyLayoutProfile,
 };
 use crate::agentic::runtime::service::queue::queue_action_request_to_tool;
@@ -112,6 +119,583 @@ fn test_agent_state() -> AgentState {
         working_directory: ".".to_string(),
         command_history: VecDeque::new(),
         active_lens: None,
+    }
+}
+
+#[test]
+fn toolcat_single_tool_failure_reply_preserves_exact_row_identity() {
+    assert_eq!(
+        toolcat_single_tool_failure_reply("agent__await"),
+        "TOOLCAT_SINGLE_TOOL agent__await live IDE probe failed; concrete trace failure recorded."
+    );
+}
+
+#[test]
+fn toolcat_single_tool_invalid_call_reply_uses_requested_row_identity() {
+    assert_eq!(
+        toolcat_single_tool_reply_tool_name(
+            "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__subagent",
+            "system::invalid_tool_call",
+        ),
+        "browser__subagent"
+    );
+    assert_eq!(
+        toolcat_single_tool_failure_reply(&toolcat_single_tool_reply_tool_name(
+            "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__subagent",
+            "system::invalid_tool_call",
+        )),
+        "TOOLCAT_SINGLE_TOOL browser__subagent live IDE probe failed; concrete trace failure recorded."
+    );
+}
+
+#[test]
+fn toolcat_single_tool_duplicate_after_success_reply_preserves_completion_identity() {
+    assert_eq!(
+        toolcat_single_tool_duplicate_after_success_reply("file__read"),
+        "TOOLCAT_SINGLE_TOOL file__read live IDE probe completed; duplicate replay guard recorded in trace."
+    );
+}
+
+#[test]
+fn toolcat_single_tool_browser_copy_advances_after_selection_setup() {
+    let followup = toolcat_single_tool_browser_setup_followup(
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__copy",
+        "browser__select",
+        Some(r#"{"selection":{"selected_text":"TOOLCAT_BROWSER_CANARY"}}"#),
+    )
+    .expect("browser copy follow-up");
+    assert!(matches!(followup, AgentTool::BrowserCopySelection {}));
+}
+
+#[test]
+fn toolcat_single_tool_browser_paste_advances_through_clipboard_setup() {
+    let after_navigate = toolcat_single_tool_browser_setup_followup(
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__paste",
+        "browser__navigate",
+        Some(r#"{"browser_observation_receipt":{"title":"Tool Catalogue Fixture"}}"#),
+    )
+    .expect("browser paste clipboard setup");
+    match after_navigate {
+        AgentTool::OsCopy { content } => assert_eq!(content, "TOOLCAT_CLIPBOARD_CANARY"),
+        other => panic!("expected clipboard copy setup, got {:?}", other),
+    }
+
+    let after_clipboard_copy = toolcat_single_tool_browser_setup_followup(
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__paste",
+        "clipboard__copy",
+        Some(r#"{"content_length":25}"#),
+    )
+    .expect("browser paste target");
+    match after_clipboard_copy {
+        AgentTool::BrowserPasteClipboard { selector } => {
+            assert_eq!(selector.as_deref(), Some("#toolcat-input"));
+        }
+        other => panic!("expected browser paste follow-up, got {:?}", other),
+    }
+}
+
+#[test]
+fn toolcat_single_tool_browser_subagent_advances_after_navigation_setup() {
+    let followup = toolcat_single_tool_browser_setup_followup(
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__subagent browser_fixture_url=http://127.0.0.1:12345/",
+        "browser__navigate",
+        Some(r#"{"browser_observation_receipt":{"title":"Tool Catalogue Fixture"}}"#),
+    )
+    .expect("browser subagent follow-up");
+
+    match followup {
+        AgentTool::Dynamic(value) => {
+            assert_eq!(
+                value.get("name").and_then(|name| name.as_str()),
+                Some("browser__subagent")
+            );
+            let task = value
+                .get("arguments")
+                .and_then(|arguments| arguments.get("task"))
+                .and_then(|task| task.as_str())
+                .unwrap_or_default();
+            assert!(task.contains("browser__navigate"));
+            assert!(task.contains("http://127.0.0.1:12345/"));
+            assert!(task.contains("TOOLCAT_BROWSER_CANARY"));
+        }
+        other => panic!("expected browser subagent follow-up, got {:?}", other),
+    }
+}
+
+#[test]
+fn toolcat_single_tool_browser_pointer_rows_advance_after_move_setup() {
+    let move_setup = toolcat_single_tool_browser_setup_followup(
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__pointer_down",
+        "browser__navigate",
+        Some(r#"{"browser_observation_receipt":{"title":"Tool Catalogue Fixture"}}"#),
+    )
+    .expect("browser pointer move setup");
+    match move_setup {
+        AgentTool::BrowserMoveMouse {
+            observation_ref,
+            coordinate_space_id,
+            semantic_id,
+            x,
+            y,
+        } => {
+            assert_eq!(observation_ref, "toolcat-observation");
+            assert_eq!(coordinate_space_id, "viewport_css_px");
+            assert_eq!(semantic_id, "toolcat-canvas");
+            assert_eq!(x, 48.0);
+            assert_eq!(y, 48.0);
+        }
+        other => panic!("expected browser move pointer setup, got {:?}", other),
+    }
+
+    let pointer_down = toolcat_single_tool_browser_setup_followup(
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__pointer_down",
+        "browser__move_pointer",
+        Some(r#"{"pointer":{"x":48,"y":48}}"#),
+    )
+    .expect("browser pointer_down target");
+    match pointer_down {
+        AgentTool::BrowserMouseDown { button } => assert_eq!(button.as_deref(), Some("left")),
+        other => panic!("expected browser pointer_down follow-up, got {:?}", other),
+    }
+
+    let pointer_up_setup = toolcat_single_tool_browser_setup_followup(
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__pointer_up",
+        "browser__move_pointer",
+        Some(r#"{"pointer":{"x":48,"y":48}}"#),
+    )
+    .expect("browser pointer_up setup");
+    match pointer_up_setup {
+        AgentTool::BrowserMouseDown { button } => assert_eq!(button.as_deref(), Some("left")),
+        other => panic!(
+            "expected browser pointer_down setup before pointer_up, got {:?}",
+            other
+        ),
+    }
+
+    let pointer_up = toolcat_single_tool_browser_setup_followup(
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__pointer_up",
+        "browser__pointer_down",
+        Some(r#"{"button":"left"}"#),
+    )
+    .expect("browser pointer_up target");
+    match pointer_up {
+        AgentTool::BrowserMouseUp { button } => assert_eq!(button.as_deref(), Some("left")),
+        other => panic!("expected browser pointer_up follow-up, got {:?}", other),
+    }
+}
+
+#[test]
+fn toolcat_single_tool_browser_coordinate_rows_advance_after_navigation_setup() {
+    let click_inspect = toolcat_single_tool_browser_setup_followup(
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__click_at",
+        "browser__navigate",
+        Some(r#"{"browser_observation_receipt":{"title":"Tool Catalogue Fixture"}}"#),
+    )
+    .expect("browser click_at inspect setup");
+    assert!(matches!(click_inspect, AgentTool::BrowserSnapshot {}));
+
+    let click_at = toolcat_single_tool_browser_setup_followup(
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__click_at",
+        "browser__inspect",
+        Some(r#"{"elements":[{"id":"toolcat-canvas"}]}"#),
+    )
+    .expect("browser click_at target");
+    match click_at {
+        AgentTool::BrowserSyntheticClick { id, .. } => {
+            assert_eq!(id.as_deref(), Some("toolcat-canvas"));
+        }
+        other => panic!("expected browser click_at follow-up, got {:?}", other),
+    }
+
+    let scroll = toolcat_single_tool_browser_setup_followup(
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__scroll",
+        "browser__navigate",
+        Some(r#"{"browser_observation_receipt":{"title":"Tool Catalogue Fixture"}}"#),
+    )
+    .expect("browser scroll target");
+    match scroll {
+        AgentTool::BrowserScroll { delta_y, delta_x } => {
+            assert_eq!(delta_y, 180);
+            assert_eq!(delta_x, 0);
+        }
+        other => panic!("expected browser scroll follow-up, got {:?}", other),
+    }
+}
+
+#[test]
+fn toolcat_single_tool_browser_dom_rows_advance_after_navigation_setup() {
+    let goal = "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__list_options workspace_fixture_upload=/tmp/toolcat-upload.txt";
+    let list_options = toolcat_single_tool_browser_setup_followup(
+        goal,
+        "browser__navigate",
+        Some(r#"{"browser_observation_receipt":{"title":"Tool Catalogue Fixture"}}"#),
+    )
+    .expect("browser list_options target");
+    match list_options {
+        AgentTool::BrowserDropdownOptions { selector, .. } => {
+            assert_eq!(selector.as_deref(), Some("#toolcat-select"));
+        }
+        other => panic!("expected browser list_options follow-up, got {:?}", other),
+    }
+
+    let select_option = toolcat_single_tool_browser_setup_followup(
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__select_option",
+        "browser__navigate",
+        Some(r#"{"browser_observation_receipt":{"title":"Tool Catalogue Fixture"}}"#),
+    )
+    .expect("browser select_option target");
+    match select_option {
+        AgentTool::BrowserSelectDropdown {
+            selector, value, ..
+        } => {
+            assert_eq!(selector.as_deref(), Some("#toolcat-select"));
+            assert_eq!(value.as_deref(), Some("beta"));
+        }
+        other => panic!("expected browser select_option follow-up, got {:?}", other),
+    }
+
+    let copy_selection_setup = toolcat_single_tool_browser_setup_followup(
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__copy",
+        "browser__navigate",
+        Some(r#"{"browser_observation_receipt":{"title":"Tool Catalogue Fixture"}}"#),
+    )
+    .expect("browser copy selection setup");
+    match copy_selection_setup {
+        AgentTool::BrowserSelectText {
+            selector,
+            start_offset,
+            end_offset,
+        } => {
+            assert_eq!(selector.as_deref(), Some("#fixture-copy"));
+            assert_eq!(start_offset, Some(0));
+            assert_eq!(end_offset, Some(23));
+        }
+        other => panic!("expected browser select setup, got {:?}", other),
+    }
+
+    let upload = toolcat_single_tool_browser_setup_followup(
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__upload workspace_fixture_upload=/tmp/toolcat-upload.txt",
+        "browser__navigate",
+        Some(r#"{"browser_observation_receipt":{"title":"Tool Catalogue Fixture"}}"#),
+    )
+    .expect("browser upload target");
+    match upload {
+        AgentTool::BrowserUploadFile {
+            paths, selector, ..
+        } => {
+            assert_eq!(paths, vec!["/tmp/toolcat-upload.txt".to_string()]);
+            assert_eq!(selector.as_deref(), Some("#toolcat-file"));
+        }
+        other => panic!("expected browser upload follow-up, got {:?}", other),
+    }
+
+    let canvas = toolcat_single_tool_browser_setup_followup(
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__inspect_canvas",
+        "browser__navigate",
+        Some(r#"{"browser_observation_receipt":{"title":"Tool Catalogue Fixture"}}"#),
+    )
+    .expect("browser inspect_canvas target");
+    match canvas {
+        AgentTool::BrowserCanvasSummary { selector } => {
+            assert_eq!(selector, "#toolcat-canvas");
+        }
+        other => panic!("expected browser canvas follow-up, got {:?}", other),
+    }
+}
+
+#[test]
+fn toolcat_single_tool_browser_input_rows_advance_after_navigation_setup() {
+    let click = toolcat_single_tool_browser_setup_followup(
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__click",
+        "browser__navigate",
+        Some(r#"{"browser_observation_receipt":{"title":"Tool Catalogue Fixture"}}"#),
+    )
+    .expect("browser click target");
+    match click {
+        AgentTool::BrowserClick { selector, .. } => assert_eq!(selector, "#toolcat-input"),
+        other => panic!("expected browser click follow-up, got {:?}", other),
+    }
+
+    let type_text = toolcat_single_tool_browser_setup_followup(
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__type",
+        "browser__navigate",
+        Some(r#"{"browser_observation_receipt":{"title":"Tool Catalogue Fixture"}}"#),
+    )
+    .expect("browser type target");
+    match type_text {
+        AgentTool::BrowserType { selector, text } => {
+            assert_eq!(selector.as_deref(), Some("#toolcat-input"));
+            assert_eq!(text, "typed through browser__type");
+        }
+        other => panic!("expected browser type follow-up, got {:?}", other),
+    }
+
+    let press_key = toolcat_single_tool_browser_setup_followup(
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__press_key",
+        "browser__navigate",
+        Some(r#"{"browser_observation_receipt":{"title":"Tool Catalogue Fixture"}}"#),
+    )
+    .expect("browser press_key target");
+    match press_key {
+        AgentTool::BrowserKey {
+            key,
+            selector,
+            modifiers,
+            ..
+        } => {
+            assert_eq!(key, "a");
+            assert_eq!(selector.as_deref(), Some("#toolcat-input"));
+            assert_eq!(modifiers, Some(vec!["Control".to_string()]));
+        }
+        other => panic!("expected browser press_key follow-up, got {:?}", other),
+    }
+
+    let wait = toolcat_single_tool_browser_setup_followup(
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__wait",
+        "browser__navigate",
+        Some(r#"{"browser_observation_receipt":{"title":"Tool Catalogue Fixture"}}"#),
+    )
+    .expect("browser wait target");
+    match wait {
+        AgentTool::BrowserWait {
+            condition,
+            query,
+            scope,
+            timeout_ms,
+            ..
+        } => {
+            assert_eq!(condition.as_deref(), Some("text_present"));
+            assert_eq!(query.as_deref(), Some("TOOLCAT_BROWSER_CANARY"));
+            assert_eq!(scope.as_deref(), Some("document"));
+            assert_eq!(timeout_ms, Some(3000));
+        }
+        other => panic!("expected browser wait follow-up, got {:?}", other),
+    }
+
+    let hover = toolcat_single_tool_browser_setup_followup(
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__hover",
+        "browser__navigate",
+        Some(r#"{"browser_observation_receipt":{"title":"Tool Catalogue Fixture"}}"#),
+    )
+    .expect("browser hover target");
+    match hover {
+        AgentTool::BrowserHover {
+            selector,
+            duration_ms,
+            ..
+        } => {
+            assert_eq!(selector.as_deref(), Some("#toolcat-button"));
+            assert_eq!(duration_ms, Some(100));
+        }
+        other => panic!("expected browser hover follow-up, got {:?}", other),
+    }
+}
+
+#[test]
+fn latest_browser_tab_id_prefers_inactive_tab_for_switching() {
+    let output =
+        r#"{"tabs":[{"active":true,"tab_id":"ACTIVE"},{"active":false,"tab_id":"INACTIVE"}]}"#;
+    assert_eq!(latest_browser_tab_id(output), Some("INACTIVE".to_string()));
+}
+
+#[test]
+fn toolcat_single_tool_browser_tab_controls_use_list_tabs_output() {
+    let output =
+        r#"{"tabs":[{"active":true,"tab_id":"ACTIVE"},{"active":false,"tab_id":"INACTIVE"}]}"#;
+    let switch = toolcat_single_tool_browser_setup_followup(
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__switch_tab",
+        "browser__list_tabs",
+        Some(output),
+    )
+    .expect("browser switch follow-up");
+    match switch {
+        AgentTool::BrowserTabSwitch { tab_id } => assert_eq!(tab_id, "INACTIVE"),
+        other => panic!("expected tab switch follow-up, got {:?}", other),
+    }
+
+    let close = toolcat_single_tool_browser_setup_followup(
+        "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__close_tab",
+        "browser__list_tabs",
+        Some(output),
+    )
+    .expect("browser close follow-up");
+    match close {
+        AgentTool::BrowserTabClose { tab_id, close } => {
+            assert_eq!(tab_id, "INACTIVE");
+            assert!(close);
+        }
+        other => panic!("expected tab close follow-up, got {:?}", other),
+    }
+}
+
+#[test]
+fn retained_shell_command_id_parser_reads_plain_and_escaped_payloads() {
+    let command_id =
+        "shell__start:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+    assert_eq!(
+        latest_retained_shell_command_id(&format!(r#"{{"command_id":"{}"}}"#, command_id)),
+        Some(command_id.to_string()),
+    );
+    assert_eq!(
+        latest_retained_shell_command_id(&format!(
+            r#"Tool Output (shell__start): {{\"command_id\":\"{}\"}}"#,
+            command_id
+        )),
+        Some(command_id.to_string()),
+    );
+}
+
+#[test]
+fn child_session_id_parser_reads_plain_and_escaped_payloads() {
+    let child_id = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+    assert_eq!(
+        latest_child_session_id_hex(&format!(r#"{{"child_session_id_hex":"{}"}}"#, child_id)),
+        Some(child_id.to_string()),
+    );
+    assert_eq!(
+        latest_child_session_id_hex(&format!(
+            r#"Tool Output (agent__delegate): {{\"child_session_id_hex\":\"{}\"}}"#,
+            child_id
+        )),
+        Some(child_id.to_string()),
+    );
+}
+
+#[test]
+fn toolcat_retained_shell_setup_queues_requested_terminate_row() {
+    let command_id =
+        "shell__start:abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd";
+    let followup = toolcat_single_tool_retained_shell_followup(
+        "TOOLCAT_STAGE4_SHELL_SOFTWARE_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=shell__terminate",
+        "shell__start",
+        Some(&format!(r#"{{"command_id":"{}"}}"#, command_id)),
+    )
+    .expect("shell__terminate follow-up should be queued from shell__start output");
+
+    match followup {
+        AgentTool::SysExecTerminate { command_id: actual } => assert_eq!(actual, command_id),
+        other => panic!("expected shell__terminate follow-up, got {:?}", other),
+    }
+}
+
+#[test]
+fn toolcat_retained_shell_setup_queues_requested_reset_row_without_command_id() {
+    let followup = toolcat_single_tool_retained_shell_followup(
+        "TOOLCAT_STAGE4_SHELL_SOFTWARE_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=shell__reset",
+        "shell__start",
+        None,
+    )
+    .expect("shell__reset follow-up should be queued without a command id");
+
+    match followup {
+        AgentTool::SysExecSessionReset {} => {}
+        other => panic!("expected shell__reset follow-up, got {:?}", other),
+    }
+}
+
+#[test]
+fn toolcat_retained_shell_setup_queues_input_with_disposable_stdin() {
+    let command_id =
+        "shell__start:abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd";
+    let followup = toolcat_single_tool_retained_shell_followup(
+        "TOOLCAT_STAGE4_SHELL_SOFTWARE_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=shell__input",
+        "shell__start",
+        Some(&format!(r#"{{"commandId":"{}"}}"#, command_id)),
+    )
+    .expect("shell__input follow-up should be queued from shell__start output");
+
+    match followup {
+        AgentTool::SysExecInput {
+            command_id: actual,
+            stdin,
+        } => {
+            assert_eq!(actual, command_id);
+            assert_eq!(stdin, "toolcat input\n");
+        }
+        other => panic!("expected shell__input follow-up, got {:?}", other),
+    }
+}
+
+#[test]
+fn toolcat_agent_await_setup_queues_requested_await_row_from_delegate_output() {
+    let child_id = "abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd";
+    let followup = toolcat_single_tool_agent_await_followup(
+        "TOOLCAT_STAGE1_LIFECYCLE_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=agent__await",
+        "agent__delegate",
+        Some(&format!(r#"{{"child_session_id_hex":"{}"}}"#, child_id)),
+    )
+    .expect("agent__await follow-up should be queued from agent__delegate output");
+
+    match followup {
+        AgentTool::AgentAwait {
+            child_session_id_hex,
+        } => assert_eq!(child_session_id_hex, child_id),
+        other => panic!("expected agent__await follow-up, got {:?}", other),
+    }
+}
+
+#[test]
+fn toolcat_single_tool_success_followup_queues_terminal_reply_for_exact_row() {
+    let followup = toolcat_single_tool_success_followup(
+        "TOOLCAT_STAGE4_SHELL_SOFTWARE_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=shell__status",
+        "shell__status",
+    )
+    .expect("matching single-tool success should queue chat reply");
+
+    match followup {
+        AgentTool::ChatReply { message } => assert_eq!(
+            message,
+            "TOOLCAT_SINGLE_TOOL shell__status live IDE probe reached the post-tool final reply path."
+        ),
+        other => panic!("expected chat__reply follow-up, got {:?}", other),
+    }
+
+    assert!(toolcat_single_tool_success_followup(
+        "TOOLCAT_STAGE4_SHELL_SOFTWARE_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=shell__status",
+        "shell__start",
+    )
+    .is_none());
+}
+
+#[test]
+fn toolcat_single_tool_chat_reply_target_recovers_from_stale_non_chat_tool() {
+    let followup = toolcat_single_tool_chat_reply_recovery_followup(
+        "TOOLCAT_STAGE4_SHELL_SOFTWARE_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=chat__reply",
+        "shell__reset",
+    )
+    .expect("chat__reply target should queue the requested terminal reply");
+
+    match followup {
+        AgentTool::ChatReply { message } => assert_eq!(
+            message,
+            "TOOLCAT_SINGLE_TOOL chat__reply live IDE probe reached the post-tool final reply path."
+        ),
+        other => panic!("expected chat__reply recovery follow-up, got {:?}", other),
+    }
+
+    assert!(toolcat_single_tool_chat_reply_recovery_followup(
+        "TOOLCAT_STAGE4_SHELL_SOFTWARE_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=shell__reset",
+        "shell__reset",
+    )
+    .is_none());
+}
+
+#[test]
+fn retained_shell_followup_roundtrips_through_queue_mapping_with_tool_identity() {
+    let command_id = "shell__start:abcdef";
+    let request = tool_to_action_request(
+        &AgentTool::SysExecStatus {
+            command_id: command_id.to_string(),
+        },
+        [7u8; 32],
+        42,
+    )
+    .expect("retained shell status should map to queue request");
+
+    let tool = queue_action_request_to_tool(&request).expect("queue replay should preserve status");
+    match tool {
+        AgentTool::SysExecStatus { command_id: actual } => assert_eq!(actual, command_id),
+        other => panic!("expected retained shell status, got {:?}", other),
     }
 }
 
@@ -232,6 +816,20 @@ fn duplicate_prior_success_noop_detects_retry_boundary() {
     ]));
     assert!(!duplicate_prior_success_noop(&[
         "duplicate_action_fingerprint_non_command_noop=true".to_string(),
+    ]));
+}
+
+#[test]
+fn duplicate_after_prior_success_detects_strict_and_noop_guards() {
+    assert!(duplicate_after_prior_success(&[
+        "duplicate_action_fingerprint_non_command_skipped=true".to_string(),
+        "duplicate_action_fingerprint_prior_success=true".to_string(),
+    ]));
+    assert!(duplicate_after_prior_success(&[
+        "duplicate_action_fingerprint_prior_success_noop=true".to_string(),
+    ]));
+    assert!(!duplicate_after_prior_success(&[
+        "duplicate_action_fingerprint_non_command_skipped=true".to_string(),
     ]));
 }
 

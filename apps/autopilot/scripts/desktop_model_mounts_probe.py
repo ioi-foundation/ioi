@@ -47,7 +47,7 @@ from desktop_workspace_probe import (
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "docs/evidence/model-mounts-gui-validation"
 WINDOW_WAIT_TIMEOUT_SECS = 240.0
-POST_WINDOW_SETTLE_SECS = 8.0
+POST_WINDOW_SETTLE_SECS = 18.0
 TAB_SETTLE_SECS = 1.2
 CAPTURE_RETRY_INTERVAL_SECS = 1.5
 CAPTURE_READY_TIMEOUT_SECS = 18.0
@@ -489,7 +489,18 @@ def capture_looks_ready(diagnostics: dict[str, Any] | None) -> bool:
 def activate_tab(window_id: int, shortcut: str) -> None:
     run(["xdotool", "windowactivate", str(window_id)], check=False)
     time.sleep(0.15)
+    run(["xdotool", "mousemove", "--window", str(window_id), "380", "150"], check=False)
+    time.sleep(0.1)
+    run(["xdotool", "click", "1"], check=False)
+    time.sleep(0.1)
     press_action_shortcut(window_id, shortcut)
+    if shortcut == "F1":
+        time.sleep(0.15)
+        run(["xdotool", "key", "Escape"], check=False)
+        time.sleep(0.1)
+        run(["xdotool", "mousemove", "--window", str(window_id), "380", "150"], check=False)
+        time.sleep(0.1)
+        run(["xdotool", "click", "1"], check=False)
     time.sleep(TAB_SETTLE_SECS)
 
 

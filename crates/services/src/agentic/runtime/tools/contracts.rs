@@ -66,7 +66,9 @@ fn tool_credential_readiness(tool_name: &str, profile: &ToolContractProfile) -> 
         tool_name, profile.risk_domain, profile.effect_class, profile.policy_target
     )
     .to_ascii_lowercase();
-    if haystack.contains("connector") || haystack.contains("oauth") || haystack.contains("model_registry")
+    if haystack.contains("connector")
+        || haystack.contains("oauth")
+        || haystack.contains("model_registry")
     {
         "unknown".to_string()
     } else {

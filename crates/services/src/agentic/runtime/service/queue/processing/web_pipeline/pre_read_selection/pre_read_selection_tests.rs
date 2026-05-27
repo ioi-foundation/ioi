@@ -77,6 +77,80 @@ fn selected_url_resolution_preserves_deep_article_urls_when_metadata_points_to_r
 }
 
 #[test]
+fn lint_accepts_deterministic_currentness_parity_fixture_source() {
+    let query = "Find current sources for today's top local AI model runtime issue.";
+    let retrieval_contract =
+        crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).expect("contract");
+    let fixture_url = "https://www.nist.gov/news-events/news/2026/local-ai-model-runtime-issue";
+    let discovery_sources = vec![WebSource {
+        source_id: "local-ai-runtime-issue".to_string(),
+        rank: Some(1),
+        url: fixture_url.to_string(),
+        title: Some("Local AI Model Runtime Issue".to_string()),
+        snippet: Some(
+            "Deterministic current-source fixture for local AI model runtime issue retrieval."
+                .to_string(),
+        ),
+        domain: Some("www.nist.gov".to_string()),
+    }];
+
+    let selected = lint_pre_read_payload_urls(
+        Some(&retrieval_contract),
+        query,
+        &discovery_sources,
+        &[],
+        &PreReadSelectionMode::DirectDetail,
+        &[fixture_url.to_string()],
+        1,
+    )
+    .expect("currentness parity fixture should satisfy typed pre-read selection");
+
+    assert_eq!(selected, vec![fixture_url.to_string()]);
+}
+
+#[test]
+fn lint_accepts_deterministic_akt_filecoin_parity_sources() {
+    let query = "Which is a better investment right now, Akash or Filecoin?";
+    let retrieval_contract =
+        crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).expect("contract");
+    let akt_url = "https://example.com/crypto/akt-price-today-2026";
+    let filecoin_url = "https://example.com/crypto/filecoin-price-today-2026";
+    let discovery_sources = vec![
+        WebSource {
+            source_id: "akt-price".to_string(),
+            rank: Some(1),
+            url: akt_url.to_string(),
+            title: Some("AKT Price Today".to_string()),
+            snippet: Some("AKT price today is $4.20 USD with a +6.1% 24h change.".to_string()),
+            domain: Some("example.com".to_string()),
+        },
+        WebSource {
+            source_id: "filecoin-price".to_string(),
+            rank: Some(2),
+            url: filecoin_url.to_string(),
+            title: Some("Filecoin Price Today".to_string()),
+            snippet: Some(
+                "Filecoin price today is $3.10 USD with a -1.2% 24h change.".to_string(),
+            ),
+            domain: Some("example.com".to_string()),
+        },
+    ];
+
+    let selected = lint_pre_read_payload_urls(
+        Some(&retrieval_contract),
+        query,
+        &discovery_sources,
+        &[],
+        &PreReadSelectionMode::DirectDetail,
+        &[akt_url.to_string(), filecoin_url.to_string()],
+        2,
+    )
+    .expect("AKT/Filecoin parity fixtures should satisfy typed pre-read selection");
+
+    assert_eq!(selected, vec![akt_url.to_string(), filecoin_url.to_string()]);
+}
+
+#[test]
 fn lint_reserves_slot_for_independent_corroboration_when_domain_diversity_is_required() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";

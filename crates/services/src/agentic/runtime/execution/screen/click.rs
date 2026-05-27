@@ -1,7 +1,7 @@
 use super::super::{GroundingDebug, ToolExecutionResult, ToolExecutor};
 use super::semantics::{
     find_center_by_query, find_center_for_numeric_query, find_center_of_element,
-    find_closest_matches,
+    find_closest_matches, find_semantic_xml_match,
 };
 use super::tree::fetch_lensed_tree;
 use ioi_api::vm::drivers::gui::{InputEvent, MouseButton};
@@ -104,6 +104,38 @@ pub(super) async fn click_by_som_id(
     }
 }
 
+async fn click_exact_screen_point(
+    exec: &ToolExecutor,
+    button: MouseButton,
+    x: i32,
+    y: i32,
+) -> ToolExecutionResult {
+    let transform = NativeOperator::current_display_transform();
+    let target = ClickTarget::Exact(Point::new(
+        x as f64,
+        y as f64,
+        CoordinateSpace::ScreenLogical,
+    ));
+    let resolved = match NativeOperator::resolve_click_target(target, &transform) {
+        Ok(pt) => pt,
+        Err(e) => return ToolExecutionResult::failure(format!("Invalid click target: {}", e)),
+    };
+    exec_click(exec, button, target, resolved, transform, None).await
+}
+
+async fn click_driver_capture_tree_match(
+    exec: &ToolExecutor,
+    id: &str,
+    button: MouseButton,
+) -> Option<ToolExecutionResult> {
+    let driver_xml = exec.gui.capture_tree().await.ok()?;
+    if driver_xml.trim().is_empty() {
+        return None;
+    }
+    let found = find_semantic_xml_match(&driver_xml, id)?;
+    Some(click_exact_screen_point(exec, button, found.x, found.y).await)
+}
+
 pub(in super::super) async fn exec_click(
     exec: &ToolExecutor,
     button: MouseButton,
@@ -158,7 +190,12 @@ pub(in super::super) async fn click_element_by_id_with_button(
 ) -> ToolExecutionResult {
     let tree = match fetch_lensed_tree(exec, active_lens).await {
         Ok(tree) => tree,
-        Err(err) => return ToolExecutionResult::failure(err),
+        Err(err) => {
+            if let Some(result) = click_driver_capture_tree_match(exec, id, button).await {
+                return result;
+            }
+            return ToolExecutionResult::failure(err);
+        }
     };
 
     // Find center
@@ -204,6 +241,8 @@ pub(in super::super) async fn click_element_by_id_with_button(
                 }
             };
             exec_click(exec, button, target, resolved, transform, None).await
+        } else if let Some(result) = click_driver_capture_tree_match(exec, id, button).await {
+            result
         } else {
             let suggestions = find_closest_matches(&tree, id);
             let suggestion_text = if suggestions.is_empty() {

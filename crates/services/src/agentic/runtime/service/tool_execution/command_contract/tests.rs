@@ -3,9 +3,9 @@ use super::{
     contract_requires_success_condition_with_rules, enrich_command_scope_summary,
     execution_contract_violation_error, install_operator_completion_summary,
     is_command_execution_provider_tool, missing_completion_evidence_with_rules,
-    record_verification_evidence, synthesize_allowlisted_timer_notification_tool,
-    timer_payload_requires_allowlisted_scheduler, VERIFICATION_COMMIT_EVIDENCE,
-    WEB_PIPELINE_TERMINAL_EVIDENCE,
+    normalize_runtime_home_paths_with_home, record_verification_evidence,
+    synthesize_allowlisted_timer_notification_tool, timer_payload_requires_allowlisted_scheduler,
+    VERIFICATION_COMMIT_EVIDENCE, WEB_PIPELINE_TERMINAL_EVIDENCE,
 };
 use crate::agentic::rules::ActionRules;
 use crate::agentic::runtime::execution::system::software_install_plan_ref_for_request;
@@ -279,48 +279,20 @@ fn enrich_summary_preserves_non_terse_message() {
 
 #[test]
 fn enrich_summary_normalizes_runtime_home_paths_for_non_command_scope() {
-    let mut state = test_agent_state();
-    state.resolved_intent = Some(resolved_intent(
-        "workspace.ops",
-        IntentScopeProfile::WorkspaceOps,
-    ));
-    let previous_home = std::env::var("HOME").ok();
-    std::env::set_var("HOME", "/tmp/ioi-fixture/home");
-
-    let enriched = enrich_command_scope_summary(
+    let enriched = normalize_runtime_home_paths_with_home(
         "Moved files to ~/Downloads/ioi_lowercase_123 and /home/Downloads/ioi_lowercase_123",
-        &state,
+        Some("/tmp/ioi-fixture/home"),
     );
     let expected = "/tmp/ioi-fixture/home/Downloads/ioi_lowercase_123";
     assert_eq!(enriched.matches(expected).count(), 2);
     assert!(!enriched.contains("~/Downloads/ioi_lowercase_123"));
-
-    if let Some(value) = previous_home {
-        std::env::set_var("HOME", value);
-    } else {
-        std::env::remove_var("HOME");
-    }
 }
 
 #[test]
 fn enrich_summary_does_not_duplicate_existing_runtime_home_paths() {
-    let mut state = test_agent_state();
-    state.resolved_intent = Some(resolved_intent(
-        "workspace.ops",
-        IntentScopeProfile::WorkspaceOps,
-    ));
-    let previous_home = std::env::var("HOME").ok();
-    std::env::set_var("HOME", "/tmp/ioi-fixture/home");
-
     let input = "/tmp/ioi-fixture/home/Documents/report.pdf";
-    let enriched = enrich_command_scope_summary(input, &state);
+    let enriched = normalize_runtime_home_paths_with_home(input, Some("/tmp/ioi-fixture/home"));
     assert_eq!(enriched, input);
-
-    if let Some(value) = previous_home {
-        std::env::set_var("HOME", value);
-    } else {
-        std::env::remove_var("HOME");
-    }
 }
 
 #[test]

@@ -1,0 +1,10 @@
+{
+  "receiptVersion": 1,
+  "workflowId": "monitor_hacker_news_c7ec39be27cc",
+  "installedAtMs": 1779752960669,
+  "artifactHash": "e4669e489d1925fb7303a17e49eec51fa0cff2d6f9fb4ae43cc06b7ebf8fd683",
+  "policyHash": "ad810e7f4f163550029f42372f246f5bba705cad222d47b2a9f3522660b80700",
+  "authoringTool": "automation.create_monitor",
+  "triggerKind": "interval",
+  "valid": true
+}

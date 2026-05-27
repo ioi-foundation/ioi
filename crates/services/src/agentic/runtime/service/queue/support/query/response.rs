@@ -270,16 +270,22 @@ pub(crate) fn retrieval_contract_min_sources(
 ) -> u32 {
     contract
         .map(|contract| {
+            let citation_floor = contract
+                .citation_count_min
+                .max(1)
+                .clamp(1, WEB_PIPELINE_CONSTRAINT_SEARCH_LIMIT_MAX);
             let base_floor = contract
                 .source_independence_min
                 .max(contract.entity_cardinality_min.max(1))
                 .clamp(1, WEB_PIPELINE_CONSTRAINT_SEARCH_LIMIT_MAX);
             if retrieval_contract_prefers_single_fact_snapshot(Some(contract), query) {
                 base_floor
-                    .max(contract.citation_count_min.max(1))
+                    .max(citation_floor)
                     .clamp(1, WEB_PIPELINE_CONSTRAINT_SEARCH_LIMIT_MAX)
             } else {
                 base_floor
+                    .max(citation_floor)
+                    .clamp(1, WEB_PIPELINE_CONSTRAINT_SEARCH_LIMIT_MAX)
             }
         })
         .unwrap_or_else(|| web_pipeline_min_sources(query).max(1))

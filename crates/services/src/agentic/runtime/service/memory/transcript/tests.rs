@@ -343,6 +343,36 @@ impl InferenceRuntime for KeywordEmbeddingRuntime {
     }
 }
 
+struct FailingEmbeddingRuntime;
+
+#[async_trait]
+impl InferenceRuntime for FailingEmbeddingRuntime {
+    async fn execute_inference(
+        &self,
+        _model_hash: [u8; 32],
+        _input_context: &[u8],
+        _options: InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
+        panic!("memory retrieval fallback tests must not call execute_inference");
+    }
+
+    async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+        Err(VmError::HostError("embedding unavailable".to_string()))
+    }
+
+    async fn load_model(
+        &self,
+        _model_hash: [u8; 32],
+        _path: &std::path::Path,
+    ) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+        Ok(())
+    }
+}
+
 #[tokio::test]
 async fn append_and_hydrate_session_history_requires_memory_runtime() {
     let service = build_test_service_without_memory_runtime_with_inference(Arc::new(
@@ -436,6 +466,36 @@ async fn retrieve_context_hybrid_roundtrips_through_memory_runtime_archival_sear
     assert_eq!(receipt.backend, "ioi-memory:hybrid-archival");
     assert!(receipt.success);
     assert_eq!(receipt.proof_ref, None);
+
+    let _ = std::fs::remove_file(path);
+}
+
+#[tokio::test]
+async fn retrieve_context_hybrid_falls_back_to_lexical_core_audit_search() {
+    let (service, path) = build_test_service_with_temp_memory_runtime_with_inference(Arc::new(
+        FailingEmbeddingRuntime,
+    ));
+    let session_id = [23u8; 32];
+    let memory_runtime = service.memory_runtime.as_ref().expect("memory runtime");
+
+    append_core_memory_from_tool(
+        memory_runtime,
+        session_id,
+        "workflow.notes",
+        "TOOLCAT memory append canary.",
+    )
+    .expect("append workflow notes");
+
+    let retrieval = service
+        .retrieve_context_hybrid_with_receipt("TOOLCAT memory append canary", None)
+        .await;
+
+    assert!(retrieval.output.contains("workflow.notes"));
+    assert!(retrieval.output.contains("[ID:"));
+    assert!(retrieval.output.contains("desktop.core_memory.audit"));
+    let receipt = retrieval.receipt.expect("memory runtime receipt");
+    assert!(receipt.success);
+    assert_eq!(receipt.candidate_count_total, 1);
 
     let _ = std::fs::remove_file(path);
 }
@@ -589,6 +649,44 @@ async fn core_memory_updates_are_governed_and_prompt_ready() {
         })
         .expect("load core audit records");
     assert!(!audits.is_empty());
+
+    let _ = std::fs::remove_file(path);
+}
+
+#[tokio::test]
+async fn runtime_core_memory_sync_skips_secret_like_goal_without_blocking_prompt() {
+    let (service, path) =
+        build_test_service_with_temp_memory_runtime_with_inference(Arc::new(MockInferenceRuntime));
+    let session_id = [78u8; 32];
+    let agent_state = sample_agent_state(
+        session_id,
+        "Try to read /etc/passwd through the governed file tool.",
+    );
+    let perception = sample_perception_context();
+    let memory_runtime = service.memory_runtime.as_ref().expect("memory runtime");
+
+    let prompt_memory =
+        prepare_prompt_memory_context(&service, session_id, &agent_state, &perception, None)
+            .await
+            .expect("prepare prompt memory despite rejected runtime goal sync");
+
+    assert!(!prompt_memory.contains("/etc/passwd"));
+    assert!(memory_runtime
+        .load_core_memory_section(session_id, "goal.current")
+        .expect("load goal section")
+        .is_none());
+
+    let audits = memory_runtime
+        .search_archival_memory(&ArchivalMemoryQuery {
+            scope: MEMORY_RUNTIME_CORE_AUDIT_SCOPE.to_string(),
+            thread_id: Some(session_id),
+            text: "goal.current".to_string(),
+            limit: 10,
+        })
+        .expect("load core audit records");
+    assert!(audits
+        .iter()
+        .any(|record| record.content.contains("rejected=secret_like_content")));
 
     let _ = std::fs::remove_file(path);
 }

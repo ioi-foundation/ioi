@@ -24,19 +24,27 @@ use crate::agentic::runtime::service::recovery::incident::{
     load_incident_state, register_pending_approval, should_enter_incident_recovery,
     start_or_continue_incident_recovery, ApprovalDirective, IncidentDirective,
 };
-use crate::agentic::runtime::service::tool_execution::command_contract::is_completion_contract_error;
+use crate::agentic::runtime::service::tool_execution::command_contract::{
+    extract_error_class_token, is_completion_contract_error,
+};
 use crate::agentic::runtime::service::tool_execution::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
     mark_action_fingerprint_executed_at_step, persist_step_evidence_to_ledger, resolved_intent_id,
 };
 use crate::agentic::runtime::service::{RuntimeAgentService, ServiceCallContext};
-use crate::agentic::runtime::types::{AgentState, AgentStatus, ExecutionStage, StepAgentParams};
+use crate::agentic::runtime::types::{
+    AgentState, AgentStatus, ExecutionStage, ExecutionTier, StepAgentParams,
+};
 use crate::agentic::runtime::utils::{goto_trace_log, persist_agent_state};
 use ioi_api::state::StateAccess;
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_types::app::agentic::IntentScopeProfile;
-use ioi_types::app::{RoutingReceiptEvent, RoutingStateSummary};
+use ioi_types::app::agentic::{AgentTool, IntentScopeProfile};
+use ioi_types::app::{
+    ActionContext, ActionRequest, ActionTarget, KernelEvent, RoutingReceiptEvent,
+    RoutingStateSummary,
+};
 use ioi_types::error::TransactionError;
+use serde_json::json;
 
 mod completion;
 mod completion_receipts;
@@ -53,7 +61,8 @@ mod workspace_receipts;
 use self::completion::{
     maybe_complete_agent_complete, maybe_complete_browser_snapshot_interaction,
     maybe_complete_chat_reply, maybe_complete_command_probe, maybe_complete_mail_reply,
-    maybe_complete_open_app, maybe_complete_screenshot_capture, normalize_output_only_success,
+    maybe_complete_open_app, maybe_complete_screenshot_capture,
+    maybe_complete_toolcat_single_tool_probe, normalize_output_only_success,
 };
 use self::completion_receipts::emit_terminal_chat_reply_receipts;
 use self::execution::{execute_queue_tool_request, queue_action_to_tool};
@@ -78,6 +87,16 @@ pub fn resolve_queue_routing_context(
     resolve_routing(agent_state)
 }
 
+fn queue_tool_tier_override(tool_name: &str) -> Option<(ExecutionTier, &'static str)> {
+    match tool_name {
+        "screen__click_at" => Some((
+            ExecutionTier::VisualForeground,
+            "visual_last_coordinate_tool",
+        )),
+        _ => None,
+    }
+}
+
 fn install_approval_status_from_tool(tool: &ioi_types::app::agentic::AgentTool) -> Option<String> {
     let summary = install_resolution_summary_for_tool(tool)?;
     let display_name = summary.display_name.as_deref()?;
@@ -87,6 +106,356 @@ fn install_approval_status_from_tool(tool: &ioi_types::app::agentic::AgentTool) 
         "Awaiting install approval: {} via {} ({})",
         display_name, manager, source_kind
     ))
+}
+
+fn queue_agent_status_label(status: &AgentStatus) -> String {
+    format!("{:?}", status)
+        .split('(')
+        .next()
+        .unwrap_or("Unknown")
+        .to_string()
+}
+
+fn queue_tool_action_result_output(
+    tool_name: &str,
+    raw_tool_output: Option<&str>,
+    fallback_output: &str,
+    success: bool,
+    completion_summary: Option<&str>,
+    error: Option<&str>,
+) -> String {
+    if success
+        && tool_name != "chat__reply"
+        && completion_summary.is_some()
+        && raw_tool_output
+            .or(Some(fallback_output))
+            .is_some_and(|output| !output.trim().is_empty())
+    {
+        return "Completed. Final response emitted via chat__reply.".to_string();
+    }
+
+    raw_tool_output
+        .filter(|output| !output.trim().is_empty())
+        .or_else(|| {
+            if fallback_output.trim().is_empty() {
+                None
+            } else {
+                Some(fallback_output)
+            }
+        })
+        .or(error)
+        .unwrap_or("Unknown error")
+        .to_string()
+}
+
+struct QueueToolActionResultEvent<'a> {
+    session_id: [u8; 32],
+    step_index: u32,
+    tool_name: &'a str,
+    output: &'a str,
+    error: Option<&'a str>,
+    agent_status: &'a AgentStatus,
+}
+
+fn emit_queue_tool_action_result(
+    event_sender: Option<&tokio::sync::broadcast::Sender<KernelEvent>>,
+    event: QueueToolActionResultEvent<'_>,
+) {
+    let Some(tx) = event_sender else {
+        return;
+    };
+
+    let _ = tx.send(KernelEvent::AgentActionResult {
+        session_id: event.session_id,
+        step_index: event.step_index,
+        tool_name: event.tool_name.to_string(),
+        output: event.output.to_string(),
+        error_class: extract_error_class_token(event.error).map(str::to_string),
+        agent_status: queue_agent_status_label(event.agent_status),
+    });
+}
+
+const QUEUE_TOOL_NAME_KEY: &str = "__ioi_tool_name";
+
+fn is_toolcat_single_tool_probe(goal: &str) -> bool {
+    goal.contains("TOOLCAT_SINGLE_TOOL") || goal.contains("toolcat_tool=")
+}
+
+fn toolcat_single_tool_target(goal: &str) -> Option<&str> {
+    goal.split_whitespace()
+        .find_map(|part| part.strip_prefix("toolcat_tool="))
+        .map(str::trim)
+        .filter(|tool| !tool.is_empty())
+}
+
+fn toolcat_single_tool_marker_value(goal: &str, key: &str) -> Option<String> {
+    let prefix = format!("{}=", key);
+    goal.split_whitespace()
+        .find_map(|part| part.strip_prefix(&prefix))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn latest_browser_tab_id(text: &str) -> Option<String> {
+    let trimmed = text.trim();
+    let json_text = if trimmed.starts_with('{') {
+        Some(trimmed)
+    } else {
+        let start = trimmed.find('{')?;
+        let end = trimmed.rfind('}')?;
+        (start <= end).then_some(&trimmed[start..=end])
+    };
+    if let Some(value) =
+        json_text.and_then(|text| serde_json::from_str::<serde_json::Value>(text).ok())
+    {
+        if let Some(tabs) = value.get("tabs").and_then(|value| value.as_array()) {
+            let selected = tabs
+                .iter()
+                .find(|tab| tab.get("active").and_then(|value| value.as_bool()) == Some(false))
+                .or_else(|| tabs.first());
+            if let Some(tab_id) = selected.and_then(|tab| {
+                tab.get("tab_id")
+                    .or_else(|| tab.get("tabId"))
+                    .and_then(|value| value.as_str())
+            }) {
+                let tab_id = tab_id.trim();
+                if !tab_id.is_empty() {
+                    return Some(tab_id.to_string());
+                }
+            }
+        }
+    }
+    let re = regex::Regex::new(r#"(?i)\\?"tab_?id\\?"\s*:\s*\\?"([^"\\\s]+)\\?""#).ok()?;
+    let tab_id = re
+        .captures_iter(text)
+        .filter_map(|captures| {
+            captures
+                .get(1)
+                .map(|value| value.as_str().trim().to_string())
+        })
+        .find(|value| !value.is_empty());
+    tab_id
+}
+
+fn toolcat_browser_subagent_tool(goal: &str) -> AgentTool {
+    let target_url = toolcat_single_tool_marker_value(goal, "browser_fixture_url")
+        .unwrap_or_else(|| "the current browser fixture page".to_string());
+    AgentTool::Dynamic(json!({
+        "name": "browser__subagent",
+        "arguments": {
+            "task_name": "tool catalogue browser fixture",
+            "task_summary": "Verify browser subagent packaging reaches the fixture page.",
+            "recording_name": "toolcat-browser-subagent",
+            "task": format!(
+                "Use browser__navigate to open {}, then inspect the browser page and report the TOOLCAT_BROWSER_CANARY text without external actions.",
+                target_url
+            ),
+        }
+    }))
+}
+
+fn toolcat_browser_target_after_navigation(goal: &str, target: &str) -> Option<AgentTool> {
+    match target {
+        "browser__inspect" => Some(AgentTool::BrowserSnapshot {}),
+        "browser__find_text" => Some(AgentTool::BrowserFindText {
+            query: "TOOLCAT_BROWSER_CANARY".to_string(),
+            scope: Some("document".to_string()),
+            scroll: true,
+        }),
+        "browser__screenshot" => Some(AgentTool::BrowserScreenshot { full_page: false }),
+        "browser__list_options" => Some(AgentTool::BrowserDropdownOptions {
+            id: None,
+            selector: Some("#toolcat-select".to_string()),
+            som_id: None,
+        }),
+        "browser__select_option" => Some(AgentTool::BrowserSelectDropdown {
+            id: None,
+            selector: Some("#toolcat-select".to_string()),
+            som_id: None,
+            value: Some("beta".to_string()),
+            label: None,
+        }),
+        "browser__click" => Some(AgentTool::BrowserClick {
+            selector: "#toolcat-input".to_string(),
+            id: None,
+            ids: vec![],
+            delay_ms_between_ids: None,
+            continue_with: None,
+        }),
+        "browser__type" => Some(AgentTool::BrowserType {
+            text: "typed through browser__type".to_string(),
+            selector: Some("#toolcat-input".to_string()),
+        }),
+        "browser__press_key" => Some(AgentTool::BrowserKey {
+            key: "a".to_string(),
+            selector: Some("#toolcat-input".to_string()),
+            modifiers: Some(vec!["Control".to_string()]),
+            continue_with: None,
+        }),
+        "browser__select" | "browser__copy" => Some(AgentTool::BrowserSelectText {
+            selector: Some("#fixture-copy".to_string()),
+            start_offset: Some(0),
+            end_offset: Some(23),
+        }),
+        "browser__wait" => Some(AgentTool::BrowserWait {
+            ms: None,
+            condition: Some("text_present".to_string()),
+            selector: None,
+            query: Some("TOOLCAT_BROWSER_CANARY".to_string()),
+            scope: Some("document".to_string()),
+            timeout_ms: Some(3000),
+            continue_with: None,
+        }),
+        "browser__upload" => Some(AgentTool::BrowserUploadFile {
+            paths: vec![
+                toolcat_single_tool_marker_value(goal, "workspace_fixture_upload")
+                    .filter(|path| !path.is_empty())
+                    .unwrap_or_else(|| "toolcat-missing-upload-path".to_string()),
+            ],
+            selector: Some("#toolcat-file".to_string()),
+            som_id: None,
+        }),
+        "browser__list_tabs" | "browser__switch_tab" | "browser__close_tab" => {
+            Some(AgentTool::BrowserTabList {})
+        }
+        "browser__inspect_canvas" => Some(AgentTool::BrowserCanvasSummary {
+            selector: "#toolcat-canvas".to_string(),
+        }),
+        "browser__hover" => Some(AgentTool::BrowserHover {
+            selector: Some("#toolcat-button".to_string()),
+            id: None,
+            duration_ms: Some(100),
+            resample_interval_ms: None,
+        }),
+        "browser__move_pointer" => Some(AgentTool::BrowserMoveMouse {
+            observation_ref: "toolcat-observation".to_string(),
+            coordinate_space_id: "viewport_css_px".to_string(),
+            semantic_id: "toolcat-canvas".to_string(),
+            x: 48.0,
+            y: 48.0,
+        }),
+        _ => None,
+    }
+}
+
+fn should_embed_queue_tool_name_metadata(target: &ActionTarget, tool_name: &str) -> bool {
+    matches!(target, ActionTarget::FsRead | ActionTarget::FsWrite)
+        || (matches!(target, ActionTarget::GuiClick | ActionTarget::UiClick)
+            && tool_name == "screen__click")
+        || matches!(
+            target,
+            ActionTarget::BrowserInteract | ActionTarget::BrowserInspect
+        )
+        || (matches!(target, ActionTarget::SysExec)
+            && matches!(
+                tool_name,
+                "shell__start"
+                    | "shell__reset"
+                    | "shell__status"
+                    | "shell__input"
+                    | "shell__terminate"
+            ))
+}
+
+fn queue_tool_name(tool: &AgentTool) -> String {
+    serde_json::to_value(tool)
+        .ok()
+        .and_then(|value| {
+            value
+                .get("name")
+                .and_then(|name| name.as_str())
+                .map(str::to_string)
+        })
+        .unwrap_or_else(|| format!("{:?}", tool.target()))
+}
+
+fn queue_tool_to_action_request(
+    tool: &AgentTool,
+    session_id: [u8; 32],
+    nonce: u64,
+) -> Result<ActionRequest, TransactionError> {
+    let target = tool.target();
+    let tool_name = queue_tool_name(tool);
+    let tool_value =
+        serde_json::to_value(tool).map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    let mut args = tool_value
+        .get("arguments")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    if should_embed_queue_tool_name_metadata(&target, &tool_name) {
+        if let Some(obj) = args.as_object_mut() {
+            obj.insert(QUEUE_TOOL_NAME_KEY.to_string(), json!(tool_name));
+        }
+    }
+    let params =
+        serde_jcs::to_vec(&args).map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    Ok(ActionRequest {
+        target,
+        params,
+        context: ActionContext {
+            agent_id: "desktop_agent".to_string(),
+            session_id: Some(session_id),
+            window_id: None,
+        },
+        nonce,
+    })
+}
+
+fn toolcat_single_tool_queue_followup(
+    goal: &str,
+    current_tool_name: &str,
+    output: Option<&str>,
+) -> Option<AgentTool> {
+    if !is_toolcat_single_tool_probe(goal) || current_tool_name == "chat__reply" {
+        return None;
+    }
+    let target = toolcat_single_tool_target(goal)?;
+    match (target, current_tool_name) {
+        ("browser__paste", "clipboard__copy") => Some(AgentTool::BrowserPasteClipboard {
+            selector: Some("#toolcat-input".to_string()),
+        }),
+        ("browser__copy" | "browser__paste", "browser__select") => {
+            Some(AgentTool::BrowserCopySelection {})
+        }
+        ("browser__switch_tab", "browser__list_tabs") => {
+            let tab_id = latest_browser_tab_id(output?)?;
+            Some(AgentTool::BrowserTabSwitch { tab_id })
+        }
+        ("browser__close_tab", "browser__list_tabs") => {
+            let tab_id = latest_browser_tab_id(output?)?;
+            Some(AgentTool::BrowserTabClose {
+                tab_id,
+                close: true,
+            })
+        }
+        ("browser__pointer_down" | "browser__pointer_up", "browser__move_pointer") => {
+            Some(AgentTool::BrowserMouseDown {
+                button: Some("left".to_string()),
+            })
+        }
+        ("browser__pointer_up", "browser__pointer_down") => Some(AgentTool::BrowserMouseUp {
+            button: Some("left".to_string()),
+        }),
+        ("browser__click_at", "browser__inspect") => Some(AgentTool::BrowserSyntheticClick {
+            id: Some("toolcat-canvas".to_string()),
+            observation_ref: None,
+            coordinate_space_id: None,
+            semantic_id: None,
+            x: None,
+            y: None,
+            continue_with: None,
+        }),
+        ("browser__subagent", "browser__navigate") => Some(toolcat_browser_subagent_tool(goal)),
+        (_, "browser__navigate") => toolcat_browser_target_after_navigation(goal, target),
+        _ if target == current_tool_name => Some(AgentTool::ChatReply {
+            message: format!(
+                "TOOLCAT_SINGLE_TOOL {} live IDE probe reached the post-tool final reply path.",
+                current_tool_name
+            ),
+        }),
+        _ => None,
+    }
 }
 
 pub async fn process_queue_item(
@@ -106,7 +475,7 @@ pub async fn process_queue_item(
 
     let key = get_state_key(&p.session_id);
     let rules: ActionRules = load_action_rules_for_session(state, p.session_id)?;
-    let (routing_decision, pre_state_summary) = resolve_queue_routing_context(agent_state);
+    let (mut routing_decision, mut pre_state_summary) = resolve_queue_routing_context(agent_state);
     let mut policy_decision = "allowed".to_string();
 
     let action_request = agent_state.execution_queue.remove(0);
@@ -118,6 +487,15 @@ pub async fn process_queue_item(
     let tool_hash_bytes = sha256(&tool_jcs)
         .map_err(|e| TransactionError::Invalid(format!("Failed to hash queued tool JCS: {}", e)))?;
     let (tool_name, intent_args) = canonical_tool_identity(&tool_wrapper);
+    if let Some((tier, reason_code)) = queue_tool_tier_override(&tool_name) {
+        routing_decision = TierRoutingDecision {
+            tier,
+            reason_code,
+            source_failure: routing_decision.source_failure,
+        };
+        agent_state.current_tier = tier;
+        pre_state_summary.tier = tier_as_str(tier).to_string();
+    }
     let is_software_install_tool = tool_name == "software_install__execute_plan";
     let action_json = serde_json::to_string(&tool_wrapper).unwrap_or_else(|_| "{}".to_string());
     let intent_hash = canonical_intent_hash(
@@ -437,6 +815,10 @@ pub async fn process_queue_item(
         )
         .await?;
     }
+    let queue_tool_was_executed = planner_executor_mismatch_reason.is_none();
+    let pre_terminal_tool_success = success;
+    let pre_terminal_tool_output = out.clone();
+    let pre_terminal_tool_error = err.clone();
     let mut completion_summary: Option<String> = None;
     maybe_handle_web_search(
         service,
@@ -571,9 +953,34 @@ pub async fn process_queue_item(
         &rules,
         p.session_id,
     );
+    maybe_complete_toolcat_single_tool_probe(
+        agent_state,
+        &tool_name,
+        is_gated,
+        &mut success,
+        &mut out,
+        &mut err,
+        &mut completion_summary,
+        &mut verification_checks,
+        &rules,
+        p.session_id,
+    );
 
     let output_str = out.clone().unwrap_or_default();
     let error_str = err.clone();
+    let queue_tool_event_output = queue_tool_action_result_output(
+        &tool_name,
+        pre_terminal_tool_output.as_deref(),
+        &output_str,
+        pre_terminal_tool_success,
+        completion_summary.as_deref(),
+        pre_terminal_tool_error.as_deref().or(error_str.as_deref()),
+    );
+    let queue_tool_event_error = if pre_terminal_tool_success {
+        None
+    } else {
+        pre_terminal_tool_error.as_deref().or(error_str.as_deref())
+    };
 
     if success && !is_gated {
         let intent_id = resolved_intent_id(agent_state);
@@ -604,14 +1011,29 @@ pub async fn process_queue_item(
         p.session_id,
         trace_visual_hash,
         "[Macro Step] Executing queued action".to_string(),
-        output_str,
+        output_str.clone(),
         success,
-        error_str,
+        error_str.clone(),
         "macro_step".to_string(),
         service.event_sender.clone(),
         active_skill,
         service.memory_runtime.as_ref(),
     )?;
+
+    if queue_tool_was_executed && !is_gated && !awaiting_sudo_password && !awaiting_clarification {
+        emit_queue_tool_action_result(
+            service.event_sender.as_ref(),
+            QueueToolActionResultEvent {
+                session_id: p.session_id,
+                step_index: pre_state_summary.step_index,
+                tool_name: &tool_name,
+                output: &queue_tool_event_output,
+                error: queue_tool_event_error,
+                agent_status: &agent_state.status,
+            },
+        );
+        verification_checks.push("queue_tool_action_result_emitted=true".to_string());
+    }
 
     if let Some(summary) = completion_summary.as_ref() {
         let intent_id = resolved_intent_id(agent_state);
@@ -687,6 +1109,28 @@ pub async fn process_queue_item(
     verification_checks.push(format!("awaiting_sudo_password={}", awaiting_sudo_password));
     verification_checks.push(format!("awaiting_clarification={}", awaiting_clarification));
     verification_checks.push("was_queue=true".to_string());
+    if success
+        && !stop_condition_hit
+        && !is_gated
+        && !awaiting_sudo_password
+        && !awaiting_clarification
+        && matches!(agent_state.status, AgentStatus::Running)
+    {
+        let output_str = out.clone().unwrap_or_default();
+        if let Some(followup_tool) = toolcat_single_tool_queue_followup(
+            &agent_state.goal,
+            &tool_name,
+            Some(output_str.as_str()),
+        ) {
+            let followup_name = queue_tool_name(&followup_tool);
+            let nonce =
+                agent_state.step_count as u64 + agent_state.execution_queue.len() as u64 + 1;
+            let request = queue_tool_to_action_request(&followup_tool, p.session_id, nonce)?;
+            agent_state.execution_queue.insert(0, request);
+            agent_state.recent_actions.clear();
+            verification_checks.push(format!("toolcat_queue_followup_queued={}", followup_name));
+        }
+    }
     verification_checks.push(format!("remediation_queued={}", remediation_queued));
     verification_checks.push(format!("stop_condition_hit={}", stop_condition_hit));
     verification_checks.push(format!(
@@ -820,6 +1264,281 @@ mod tests {
         assert_eq!(
             install_approval_status_from_tool(&tool).as_deref(),
             Some("Awaiting install approval: generic tool via apt-get (package_manager)")
+        );
+    }
+
+    #[test]
+    fn queue_tool_action_result_suppresses_terminalized_tool_output() {
+        let output = queue_tool_action_result_output(
+            "shell__terminate",
+            Some("{\"command_id\":\"shell__start:abc\",\"state\":\"terminated\"}"),
+            "TOOLCAT_SINGLE_TOOL shell__terminate live IDE probe reached the post-tool final reply path.",
+            true,
+            Some("TOOLCAT_SINGLE_TOOL shell__terminate live IDE probe reached the post-tool final reply path."),
+            None,
+        );
+
+        assert_eq!(output, "Completed. Final response emitted via chat__reply.");
+    }
+
+    #[test]
+    fn queue_tool_action_result_event_preserves_exact_tool_name() {
+        let (tx, mut rx) = tokio::sync::broadcast::channel(4);
+        let status = AgentStatus::Completed(Some("done".to_string()));
+        emit_queue_tool_action_result(
+            Some(&tx),
+            QueueToolActionResultEvent {
+                session_id: [7u8; 32],
+                step_index: 42,
+                tool_name: "shell__terminate",
+                output: "Completed. Final response emitted via chat__reply.",
+                error: None,
+                agent_status: &status,
+            },
+        );
+
+        let event = rx.try_recv().expect("event should be emitted");
+        match event {
+            KernelEvent::AgentActionResult {
+                step_index,
+                tool_name,
+                output,
+                error_class,
+                agent_status,
+                ..
+            } => {
+                assert_eq!(step_index, 42);
+                assert_eq!(tool_name, "shell__terminate");
+                assert_eq!(output, "Completed. Final response emitted via chat__reply.");
+                assert_eq!(error_class, None);
+                assert_eq!(agent_status, "Completed");
+            }
+            other => panic!("expected AgentActionResult, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn toolcat_queue_followup_continues_browser_paste_after_clipboard_copy() {
+        let followup = toolcat_single_tool_queue_followup(
+            "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__paste",
+            "clipboard__copy",
+            None,
+        )
+        .expect("paste follow-up");
+
+        match followup {
+            AgentTool::BrowserPasteClipboard { selector } => {
+                assert_eq!(selector.as_deref(), Some("#toolcat-input"));
+            }
+            other => panic!("expected browser paste follow-up, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn toolcat_queue_followup_chains_pointer_up_and_exact_success() {
+        let pointer_down = toolcat_single_tool_queue_followup(
+            "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__pointer_up",
+            "browser__move_pointer",
+            None,
+        )
+        .expect("pointer down setup");
+        assert!(matches!(
+            pointer_down,
+            AgentTool::BrowserMouseDown {
+                button: Some(ref button)
+            } if button == "left"
+        ));
+
+        let pointer_up = toolcat_single_tool_queue_followup(
+            "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__pointer_up",
+            "browser__pointer_down",
+            None,
+        )
+        .expect("pointer up follow-up");
+        assert!(matches!(
+            pointer_up,
+            AgentTool::BrowserMouseUp {
+                button: Some(ref button)
+            } if button == "left"
+        ));
+
+        let final_reply = toolcat_single_tool_queue_followup(
+            "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__pointer_up",
+            "browser__pointer_up",
+            None,
+        )
+        .expect("terminal chat reply");
+        match final_reply {
+            AgentTool::ChatReply { message } => {
+                assert!(message.contains("browser__pointer_up live IDE probe"));
+            }
+            other => panic!("expected chat reply follow-up, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn toolcat_queue_followup_continues_browser_subagent_after_navigation() {
+        let followup = toolcat_single_tool_queue_followup(
+            "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__subagent browser_fixture_url=http://127.0.0.1:12345/",
+            "browser__navigate",
+            None,
+        )
+        .expect("browser subagent follow-up");
+
+        match followup {
+            AgentTool::Dynamic(value) => {
+                assert_eq!(
+                    value.get("name").and_then(|name| name.as_str()),
+                    Some("browser__subagent")
+                );
+                let task = value
+                    .get("arguments")
+                    .and_then(|arguments| arguments.get("task"))
+                    .and_then(|task| task.as_str())
+                    .unwrap_or_default();
+                assert!(task.contains("browser__navigate"));
+                assert!(task.contains("http://127.0.0.1:12345/"));
+                assert!(task.contains("TOOLCAT_BROWSER_CANARY"));
+            }
+            other => panic!("expected browser subagent follow-up, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn toolcat_queue_followup_continues_browser_dom_after_navigation() {
+        let list_options = toolcat_single_tool_queue_followup(
+            "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__list_options",
+            "browser__navigate",
+            None,
+        )
+        .expect("list_options follow-up");
+        match list_options {
+            AgentTool::BrowserDropdownOptions { selector, .. } => {
+                assert_eq!(selector.as_deref(), Some("#toolcat-select"));
+            }
+            other => panic!("expected browser list_options follow-up, got {:?}", other),
+        }
+
+        let upload = toolcat_single_tool_queue_followup(
+            "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__upload workspace_fixture_upload=/tmp/toolcat-upload.txt",
+            "browser__navigate",
+            None,
+        )
+        .expect("upload follow-up");
+        match upload {
+            AgentTool::BrowserUploadFile {
+                paths, selector, ..
+            } => {
+                assert_eq!(paths, vec!["/tmp/toolcat-upload.txt".to_string()]);
+                assert_eq!(selector.as_deref(), Some("#toolcat-file"));
+            }
+            other => panic!("expected browser upload follow-up, got {:?}", other),
+        }
+
+        let copy_setup = toolcat_single_tool_queue_followup(
+            "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__copy",
+            "browser__navigate",
+            None,
+        )
+        .expect("copy selection setup");
+        assert!(matches!(
+            copy_setup,
+            AgentTool::BrowserSelectText {
+                selector: Some(ref selector),
+                start_offset: Some(0),
+                end_offset: Some(23),
+            } if selector == "#fixture-copy"
+        ));
+
+        let copy = toolcat_single_tool_queue_followup(
+            "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__copy",
+            "browser__select",
+            None,
+        )
+        .expect("copy follow-up");
+        assert!(matches!(copy, AgentTool::BrowserCopySelection {}));
+    }
+
+    #[test]
+    fn toolcat_queue_followup_continues_browser_tabs_after_list_tabs_output() {
+        let tabs_output = r#"{"tabs":[{"active":true,"tab_id":"ACTIVE_TAB"},{"active":false,"tab_id":"INACTIVE_TAB"}]}"#;
+
+        let switch_tab = toolcat_single_tool_queue_followup(
+            "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__switch_tab",
+            "browser__list_tabs",
+            Some(tabs_output),
+        )
+        .expect("switch_tab follow-up");
+        match switch_tab {
+            AgentTool::BrowserTabSwitch { tab_id } => {
+                assert_eq!(tab_id, "INACTIVE_TAB");
+            }
+            other => panic!("expected browser switch_tab follow-up, got {:?}", other),
+        }
+
+        let close_tab = toolcat_single_tool_queue_followup(
+            "TOOLCAT_STAGE5_BROWSER_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=browser__close_tab",
+            "browser__list_tabs",
+            Some(tabs_output),
+        )
+        .expect("close_tab follow-up");
+        match close_tab {
+            AgentTool::BrowserTabClose { tab_id, close } => {
+                assert_eq!(tab_id, "INACTIVE_TAB");
+                assert!(close);
+            }
+            other => panic!("expected browser close_tab follow-up, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn coordinate_screen_clicks_start_in_visual_foreground() {
+        let (tier, reason) =
+            queue_tool_tier_override("screen__click_at").expect("coordinate override");
+        assert_eq!(tier, ExecutionTier::VisualForeground);
+        assert_eq!(reason, "visual_last_coordinate_tool");
+        assert!(queue_tool_tier_override("screen__scroll").is_none());
+    }
+
+    #[test]
+    fn queue_tool_to_action_request_preserves_browser_tool_name_metadata() {
+        let request = queue_tool_to_action_request(
+            &AgentTool::BrowserPasteClipboard {
+                selector: Some("#toolcat-input".to_string()),
+            },
+            [9u8; 32],
+            12,
+        )
+        .expect("action request");
+        assert_eq!(request.target, ActionTarget::BrowserInteract);
+        let params = serde_json::from_slice::<serde_json::Value>(&request.params)
+            .expect("request params JSON");
+        assert_eq!(
+            params
+                .get(QUEUE_TOOL_NAME_KEY)
+                .and_then(|value| value.as_str()),
+            Some("browser__paste")
+        );
+    }
+
+    #[test]
+    fn queue_tool_to_action_request_preserves_browser_inspect_tool_name_metadata() {
+        let request = queue_tool_to_action_request(
+            &AgentTool::BrowserCanvasSummary {
+                selector: "#toolcat-canvas".to_string(),
+            },
+            [9u8; 32],
+            13,
+        )
+        .expect("action request");
+        assert_eq!(request.target, ActionTarget::BrowserInspect);
+        let params = serde_json::from_slice::<serde_json::Value>(&request.params)
+            .expect("request params JSON");
+        assert_eq!(
+            params
+                .get(QUEUE_TOOL_NAME_KEY)
+                .and_then(|value| value.as_str()),
+            Some("browser__inspect_canvas")
         );
     }
 }

@@ -119,6 +119,38 @@ async fn execute_does_not_hang_when_parent_exits_before_background_child() {
 
 #[cfg(unix)]
 #[tokio::test]
+async fn execute_strips_sensitive_inherited_environment() {
+    let driver = TerminalDriver::new();
+    let key = "IOI_TERMINAL_DRIVER_SECRET_TOKEN";
+    let previous = std::env::var(key).ok();
+    std::env::set_var(key, "stage72-secret-should-not-leak");
+
+    let out = driver
+        .execute_in_dir_with_options(
+            "sh",
+            &[
+                "-c".to_string(),
+                "if test -z \"${IOI_TERMINAL_DRIVER_SECRET_TOKEN+x}\"; then echo absent; else echo leak:$IOI_TERMINAL_DRIVER_SECRET_TOKEN; fi"
+                    .to_string(),
+            ],
+            false,
+            None,
+            CommandExecutionOptions::default().with_timeout(Duration::from_secs(5)),
+        )
+        .await
+        .expect("environment probe should run");
+
+    match previous {
+        Some(value) => std::env::set_var(key, value),
+        None => std::env::remove_var(key),
+    }
+
+    assert_eq!(out.trim(), "absent");
+    assert!(!out.contains("stage72-secret-should-not-leak"));
+}
+
+#[cfg(unix)]
+#[tokio::test]
 async fn session_exec_preserves_shell_state_across_calls() {
     let driver = TerminalDriver::new();
     let key = "test-session";
@@ -298,6 +330,113 @@ async fn retained_session_command_tracks_terminal_id_and_accepts_input() {
     assert!(completed.output_tail.contains("session-echo:workspace"));
 
     let _ = driver.reset_session(key).await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn retained_session_terminate_forces_stubborn_command_without_hanging() {
+    let driver = TerminalDriver::new();
+    let key = "test-retained-session-terminate";
+    let launch = driver
+        .execute_session_in_dir_with_async_boundary(
+            None,
+            key,
+            "bash",
+            &[
+                "-lc".to_string(),
+                "trap '' INT; printf 'stubborn-ready\\n'; while true; do sleep 1; done".to_string(),
+            ],
+            None,
+            CommandExecutionOptions::default()
+                .with_timeout(Duration::from_secs(10))
+                .with_wait_before_async(Some(Duration::from_millis(50))),
+        )
+        .await
+        .expect("retained stubborn session command should launch");
+
+    let snapshot = match launch {
+        CommandLaunchResult::Retained(snapshot) => snapshot,
+        CommandLaunchResult::Completed(output) => {
+            panic!(
+                "expected retained stubborn session handle, got completed output: {}",
+                output
+            )
+        }
+    };
+
+    let started = std::time::Instant::now();
+    let terminated = tokio::time::timeout(
+        Duration::from_secs(3),
+        driver.retained_command_terminate(&snapshot.command_id),
+    )
+    .await
+    .expect("retained session terminate should not hang")
+    .expect("retained session terminate should return a snapshot");
+
+    assert!(
+        started.elapsed() < Duration::from_secs(3),
+        "retained session terminate should be bounded"
+    );
+    assert!(!terminated.running);
+    assert!(terminated.completed_at_ms.is_some());
+    assert!(terminated
+        .output_tail
+        .contains("force-terminated after interrupt"));
+
+    let _ = driver.reset_session(key).await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn reset_session_forces_stubborn_retained_command_without_hanging() {
+    let driver = TerminalDriver::new();
+    let key = "test-retained-session-reset";
+    let launch = driver
+        .execute_session_in_dir_with_async_boundary(
+            None,
+            key,
+            "bash",
+            &[
+                "-lc".to_string(),
+                "trap '' INT; printf 'stubborn-ready\\n'; while true; do sleep 1; done".to_string(),
+            ],
+            None,
+            CommandExecutionOptions::default()
+                .with_timeout(Duration::from_secs(10))
+                .with_wait_before_async(Some(Duration::from_millis(50))),
+        )
+        .await
+        .expect("retained stubborn session command should launch");
+
+    let snapshot = match launch {
+        CommandLaunchResult::Retained(snapshot) => snapshot,
+        CommandLaunchResult::Completed(output) => {
+            panic!(
+                "expected retained stubborn session handle, got completed output: {}",
+                output
+            )
+        }
+    };
+
+    let started = std::time::Instant::now();
+    tokio::time::timeout(Duration::from_secs(3), driver.reset_session(key))
+        .await
+        .expect("session reset should not hang")
+        .expect("session reset should return ok");
+
+    assert!(
+        started.elapsed() < Duration::from_secs(3),
+        "session reset should be bounded"
+    );
+
+    let status = driver
+        .retained_command_status(&snapshot.command_id)
+        .await
+        .expect("retained command status should remain inspectable");
+    assert!(
+        !status.running || status.terminal_id.as_deref() == Some(key),
+        "reset should not corrupt retained command bookkeeping"
+    );
 }
 
 #[cfg(windows)]

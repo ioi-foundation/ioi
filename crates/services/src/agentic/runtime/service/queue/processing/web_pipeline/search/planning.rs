@@ -109,6 +109,38 @@ fn ordered_source_hints_with_selected_urls_first(
     ordered
 }
 
+fn search_attempt_urls_from_bundle(
+    bundle: &WebEvidenceBundle,
+    candidate_urls: &[String],
+    source_hints: &[PendingSearchReadSummary],
+) -> Vec<String> {
+    let Some(trimmed) = bundle
+        .url
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return Vec::new();
+    };
+
+    let matches_candidate_source = candidate_urls
+        .iter()
+        .map(String::as_str)
+        .chain(source_hints.iter().map(|hint| hint.url.as_str()))
+        .map(str::trim)
+        .filter(|candidate| !candidate.is_empty())
+        .any(|candidate| {
+            candidate.eq_ignore_ascii_case(trimmed)
+                || url_structurally_equivalent(candidate, trimmed)
+        });
+
+    if matches_candidate_source && !is_search_hub_url(trimmed) {
+        Vec::new()
+    } else {
+        vec![trimmed.to_string()]
+    }
+}
+
 fn pre_read_selection_sources_from_planning_context(
     planning_bundle: &WebEvidenceBundle,
     prioritized_hints: &[PendingSearchReadSummary],
@@ -1703,14 +1735,11 @@ pub(crate) async fn maybe_handle_web_search(
     } else {
         deterministic_plan.candidate_urls.len() >= required_url_count
     };
-    let search_url_attempt = bundle
-        .url
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(|value| value.to_string())
-        .into_iter()
-        .collect::<Vec<_>>();
+    let search_url_attempt = search_attempt_urls_from_bundle(
+        bundle,
+        &deterministic_plan.candidate_urls,
+        &pre_read_payload_source_hints,
+    );
     let briefing_probe_recovery_required = briefing_grounded_recovery_required(
         &query_contract,
         &retrieval_contract,

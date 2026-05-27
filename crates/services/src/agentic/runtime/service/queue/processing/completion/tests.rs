@@ -6,7 +6,8 @@ use crate::agentic::runtime::types::{
     AgentMode, ExecutionAttemptStatus, ExecutionStage, ExecutionTier,
 };
 use ioi_types::app::agentic::{
-    CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+    CapabilityId, InstructionContract, InstructionSideEffectMode, IntentConfidenceBand,
+    IntentScopeProfile, ResolvedIntentState,
 };
 use std::collections::{BTreeMap, VecDeque};
 
@@ -81,6 +82,47 @@ fn agent_state_with_mail_reply() -> AgentState {
     }
 }
 
+fn browser_snapshot_resolved_intent() -> ResolvedIntentState {
+    ResolvedIntentState {
+        intent_id: "browser.interact".to_string(),
+        scope: IntentScopeProfile::UiInteraction,
+        band: IntentConfidenceBand::High,
+        score: 1.0,
+        top_k: vec![],
+        required_capabilities: vec![CapabilityId::from("browser.interact")],
+        required_evidence: vec![],
+        success_conditions: vec!["browser_snapshot.is_TOOLCAT_BROWSER_CANARY".to_string()],
+        risk_class: "low".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        intent_catalog_version: "test".to_string(),
+        embedding_model_id: String::new(),
+        embedding_model_version: String::new(),
+        similarity_function_id: String::new(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: String::new(),
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: Some(InstructionContract {
+            operation: "browser.interact".to_string(),
+            side_effect_mode: InstructionSideEffectMode::Update,
+            slot_bindings: vec![],
+            negative_constraints: vec![],
+            success_criteria: vec!["browser_snapshot.is_TOOLCAT_BROWSER_CANARY".to_string()],
+        }),
+        constrained: false,
+    }
+}
+
+fn agent_state_with_browser_snapshot_contract() -> AgentState {
+    let mut agent_state = agent_state_with_mail_reply();
+    agent_state.goal = "Verify TOOLCAT_BROWSER_CANARY in a delegated browser session.".to_string();
+    agent_state.resolved_intent = Some(browser_snapshot_resolved_intent());
+    agent_state
+}
+
 fn record_mail_reply_contract_evidence(agent_state: &mut AgentState) {
     let intent_id = Some("mail.reply".to_string());
     for receipt in [
@@ -108,6 +150,61 @@ fn record_mail_reply_contract_evidence(agent_state: &mut AgentState) {
         "mail_reply_provider_result",
         "completed",
     );
+}
+
+#[test]
+fn browser_snapshot_completion_records_typed_contract_evidence_before_gate() {
+    let mut agent_state = agent_state_with_browser_snapshot_contract();
+    let session_id = agent_state.session_id;
+    let mut success = true;
+    let mut out = Some(
+        r#"{
+          "tool": "web__read",
+          "backend": "edge:read:browser",
+          "documents": [
+            {
+              "content_text": "TOOLCAT_BROWSER_CANARY visible for find_text and copy tests."
+            }
+          ]
+        }"#
+        .to_string(),
+    );
+    let mut err = None;
+    let mut completion_summary = None;
+    let mut verification_checks = Vec::new();
+    let rules = crate::agentic::runtime::service::decision_loop::helpers::default_safe_policy();
+
+    maybe_complete_browser_snapshot_interaction(
+        &mut agent_state,
+        "browser__navigate",
+        false,
+        &mut success,
+        &mut out,
+        &mut err,
+        &mut completion_summary,
+        &mut verification_checks,
+        &rules,
+        session_id,
+    );
+
+    assert!(success);
+    assert!(err.is_none());
+    assert!(completion_summary
+        .as_deref()
+        .is_some_and(|summary| summary.contains("browser_snapshot.is_TOOLCAT_BROWSER_CANARY")));
+    assert!(verification_checks
+        .iter()
+        .any(|check| check == "browser_snapshot_success_criteria_auto_completed=true"));
+    assert!(
+        verification_checks
+            .iter()
+            .any(|check| check
+                == "success_condition::browser_snapshot.is_TOOLCAT_BROWSER_CANARY=true")
+    );
+    assert!(agent_state
+        .execution_ledger
+        .has_success_condition("browser_snapshot.is_TOOLCAT_BROWSER_CANARY"));
+    assert!(agent_state.execution_ledger.has_verification_evidence());
 }
 
 #[test]
@@ -268,6 +365,122 @@ fn completes_explicit_chat_reply_from_queue() {
     assert!(verification_checks
         .iter()
         .any(|check| check == "terminal_chat_reply_ready=true"));
+}
+
+#[test]
+fn completes_toolcat_single_tool_queue_row_after_exact_tool_success() {
+    let mut agent_state = agent_state_with_mail_reply();
+    agent_state.resolved_intent = None;
+    agent_state.goal =
+        "TOOLCAT_STAGE4_SHELL_SOFTWARE_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=shell__status"
+            .to_string();
+    let session_id = agent_state.session_id;
+    let mut success = true;
+    let mut out = Some("{\"state\":\"running\"}".to_string());
+    let mut err = None;
+    let mut completion_summary = None;
+    let mut verification_checks = Vec::new();
+    let rules = crate::agentic::runtime::service::decision_loop::helpers::default_safe_policy();
+
+    maybe_complete_toolcat_single_tool_probe(
+        &mut agent_state,
+        "shell__status",
+        false,
+        &mut success,
+        &mut out,
+        &mut err,
+        &mut completion_summary,
+        &mut verification_checks,
+        &rules,
+        session_id,
+    );
+
+    assert!(matches!(
+        agent_state.status,
+        AgentStatus::Completed(Some(_))
+    ));
+    assert_eq!(
+        completion_summary.as_deref(),
+        Some("TOOLCAT_SINGLE_TOOL shell__status live IDE probe reached the post-tool final reply path.")
+    );
+    assert!(agent_state.execution_queue.is_empty());
+    assert!(verification_checks
+        .iter()
+        .any(|check| check == "toolcat_single_tool_queue_terminalized=true"));
+}
+
+#[test]
+fn toolcat_single_tool_queue_completion_waits_for_exact_target_tool() {
+    let mut agent_state = agent_state_with_mail_reply();
+    agent_state.goal =
+        "TOOLCAT_STAGE4_SHELL_SOFTWARE_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=shell__status"
+            .to_string();
+    let session_id = agent_state.session_id;
+    let mut success = true;
+    let mut out = Some("{\"command_id\":\"shell__start:abc\"}".to_string());
+    let mut err = None;
+    let mut completion_summary = None;
+    let mut verification_checks = Vec::new();
+    let rules = crate::agentic::runtime::service::decision_loop::helpers::default_safe_policy();
+
+    maybe_complete_toolcat_single_tool_probe(
+        &mut agent_state,
+        "shell__start",
+        false,
+        &mut success,
+        &mut out,
+        &mut err,
+        &mut completion_summary,
+        &mut verification_checks,
+        &rules,
+        session_id,
+    );
+
+    assert!(matches!(agent_state.status, AgentStatus::Running));
+    assert!(completion_summary.is_none());
+    assert!(verification_checks.is_empty());
+}
+
+#[test]
+fn completes_toolcat_single_tool_reset_row_after_exact_tool_success() {
+    let mut agent_state = agent_state_with_mail_reply();
+    agent_state.resolved_intent = None;
+    agent_state.goal =
+        "TOOLCAT_STAGE4_SHELL_SOFTWARE_SINGLE TOOLCAT_SINGLE_TOOL toolcat_tool=shell__reset"
+            .to_string();
+    let session_id = agent_state.session_id;
+    let mut success = true;
+    let mut out = Some("{\"status\":\"reset\"}".to_string());
+    let mut err = None;
+    let mut completion_summary = None;
+    let mut verification_checks = Vec::new();
+    let rules = crate::agentic::runtime::service::decision_loop::helpers::default_safe_policy();
+
+    maybe_complete_toolcat_single_tool_probe(
+        &mut agent_state,
+        "shell__reset",
+        false,
+        &mut success,
+        &mut out,
+        &mut err,
+        &mut completion_summary,
+        &mut verification_checks,
+        &rules,
+        session_id,
+    );
+
+    assert!(matches!(
+        agent_state.status,
+        AgentStatus::Completed(Some(_))
+    ));
+    assert_eq!(
+        completion_summary.as_deref(),
+        Some("TOOLCAT_SINGLE_TOOL shell__reset live IDE probe reached the post-tool final reply path.")
+    );
+    assert!(agent_state.execution_queue.is_empty());
+    assert!(verification_checks
+        .iter()
+        .any(|check| check == "toolcat_single_tool_queue_terminalized=true"));
 }
 
 #[test]

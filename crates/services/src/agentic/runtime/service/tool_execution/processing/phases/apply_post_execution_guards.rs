@@ -410,6 +410,7 @@ pub(crate) async fn apply_post_execution_guards(
             &current_tool_name,
             history_entry.as_deref().or(action_output.as_deref()),
         ) {
+            completion.append_contract_checks(&mut verification_checks);
             let summary = completion.summary;
             history_entry = Some(summary.clone());
             action_output = Some(summary.clone());
@@ -421,17 +422,6 @@ pub(crate) async fn apply_post_execution_guards(
             agent_state.execution_queue.clear();
             agent_state.recent_actions.clear();
             agent_state.pending_search_completion = None;
-            verification_checks
-                .push("browser_snapshot_success_criteria_auto_completed=true".to_string());
-            verification_checks.push(format!(
-                "browser_snapshot_success_criteria_count={}",
-                completion.matched_success_criteria.len()
-            ));
-            verification_checks.push(format!(
-                "browser_snapshot_success_criteria={}",
-                completion.matched_success_criteria.join(",")
-            ));
-            verification_checks.push("terminal_chat_reply_ready=true".to_string());
         }
     }
 

@@ -210,6 +210,21 @@ pub fn augment_workspace_filesystem_policy(
     effective
 }
 
+pub fn filesystem_request_stays_within_workspace(
+    target: &ActionTarget,
+    params: &[u8],
+    working_directory: Option<&str>,
+) -> Option<bool> {
+    filesystem_scope_for_target(target)?;
+    let workspace_root = resolve_workspace_root(working_directory)?;
+    Some(validate_allow_paths_condition(
+        &[workspace_root],
+        target,
+        params,
+        working_directory,
+    ))
+}
+
 pub(super) fn validate_allow_paths_condition(
     allowed_paths: &[String],
     target: &ActionTarget,

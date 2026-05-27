@@ -53,6 +53,10 @@ const thoughtsViewSource = fs.readFileSync(
   new URL("./views/ThoughtsView.tsx", import.meta.url),
   "utf8",
 );
+const assistantTurnSource = fs.readFileSync(
+  new URL("./AssistantTurn.tsx", import.meta.url),
+  "utf8",
+);
 
 assert.equal(
   fs.existsSync(new URL("./RuntimeFactsStrip.tsx", import.meta.url)),
@@ -154,6 +158,18 @@ assert.doesNotMatch(
   timelineSource,
   /Worklog|steps captured|Open thinking artifacts/,
   "default conversation timeline must not surface retained worklog or trace controls",
+);
+
+assert.match(
+  assistantTurnSource,
+  /source\.kind !== "receipt" && source\.kind !== "trace"/,
+  "receipts and trace references should stay in tracing/runs surfaces, not chat-side source pills",
+);
+
+assert.doesNotMatch(
+  assistantTurnSource,
+  /Sources and evidence/,
+  "chat source pills should not frame receipts/tracing as product-side evidence cards",
 );
 
 assert.doesNotMatch(

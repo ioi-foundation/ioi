@@ -786,6 +786,231 @@ async fn direct_inline_authoring_generates_chat_reply_for_conversation_route() {
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn direct_inline_authoring_fast_paths_lightweight_conversation_without_model_call() {
+    let fast_runtime = Arc::new(RecordingInferenceRuntime::with_outputs([
+        "This should never be used.",
+        "This should never be used.",
+        "This should never be used.",
+        "This should never be used.",
+    ]));
+    let service = build_test_service_hybrid(fast_runtime.clone(), fast_runtime.clone());
+    let state = MockState::default();
+    let cases = [
+        ("hiya bot", "Hello! How can I help you today?"),
+        ("thanks dearie", "You're welcome."),
+        ("sounds good", "Got it."),
+        (
+            "how are you?",
+            "I'm here and ready. What would you like to work on?",
+        ),
+    ];
+
+    for (idx, (goal, expected_message)) in cases.iter().enumerate() {
+        let mut agent_state = test_agent_state();
+        let session_byte = 0x67_u8 + idx as u8;
+        agent_state.session_id = [session_byte; 32];
+        agent_state.goal = (*goal).to_string();
+        agent_state.resolved_intent = Some(resolved_conversation_intent());
+
+        let tool_call = maybe_direct_inline_author_tool_call(
+            &service,
+            &state,
+            &agent_state,
+            agent_state.session_id,
+            ExecutionTier::DomHeadless,
+        )
+        .await
+        .expect("lightweight conversation should evaluate")
+        .expect("lightweight conversation should synthesize chat reply");
+
+        let payload: serde_json::Value =
+            serde_json::from_str(&tool_call).expect("tool call should decode");
+        assert_eq!(
+            payload.get("name").and_then(|value| value.as_str()),
+            Some("chat__reply")
+        );
+        assert_eq!(
+            payload
+                .get("arguments")
+                .and_then(|arguments| arguments.get("message"))
+                .and_then(|value| value.as_str()),
+            Some(*expected_message)
+        );
+    }
+
+    let mut unknown_agent_state = test_agent_state();
+    unknown_agent_state.session_id = [0x6c; 32];
+    unknown_agent_state.goal = "thanks".to_string();
+    let mut intent = resolved_conversation_intent();
+    intent.intent_id = "unknown".to_string();
+    intent.scope = IntentScopeProfile::Unknown;
+    intent.required_capabilities.clear();
+    unknown_agent_state.resolved_intent = Some(intent);
+    let tool_call = maybe_direct_inline_author_tool_call(
+        &service,
+        &state,
+        &unknown_agent_state,
+        unknown_agent_state.session_id,
+        ExecutionTier::DomHeadless,
+    )
+    .await
+    .expect("unknown lightweight conversation should evaluate")
+    .expect("unknown lightweight conversation should synthesize chat reply");
+    let payload: serde_json::Value =
+        serde_json::from_str(&tool_call).expect("tool call should decode");
+    assert_eq!(
+        payload
+            .get("arguments")
+            .and_then(|arguments| arguments.get("message"))
+            .and_then(|value| value.as_str()),
+        Some("You're welcome.")
+    );
+
+    assert!(fast_runtime
+        .seen_inputs
+        .lock()
+        .expect("seen_inputs mutex poisoned")
+        .is_empty());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn direct_inline_authoring_handles_plain_unknown_chat_utterance() {
+    let fast_runtime = Arc::new(RecordingInferenceRuntime::with_outputs([
+        "Mm. They can only ignore it for so long.",
+    ]));
+    let service = build_test_service_hybrid(fast_runtime.clone(), fast_runtime.clone());
+    let state = MockState::default();
+    let mut agent_state = test_agent_state();
+    agent_state.session_id = [0x64; 32];
+    agent_state.goal = "they can only ignore it for so long".to_string();
+    let mut intent = resolved_conversation_intent();
+    intent.intent_id = "unknown".to_string();
+    intent.scope = IntentScopeProfile::Unknown;
+    intent.required_capabilities.clear();
+    agent_state.resolved_intent = Some(intent);
+
+    let tool_call = maybe_direct_inline_author_tool_call(
+        &service,
+        &state,
+        &agent_state,
+        agent_state.session_id,
+        ExecutionTier::DomHeadless,
+    )
+    .await
+    .expect("plain unknown utterance should evaluate");
+
+    let payload: serde_json::Value =
+        serde_json::from_str(&tool_call.expect("plain utterance should synthesize chat reply"))
+            .expect("tool call should decode");
+    assert_eq!(
+        payload
+            .get("arguments")
+            .and_then(|arguments| arguments.get("message"))
+            .and_then(|value| value.as_str()),
+        Some("Mm. They can only ignore it for so long.")
+    );
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn direct_inline_authoring_skips_unknown_file_or_repo_requests() {
+    let fast_runtime = Arc::new(RecordingInferenceRuntime::with_outputs([
+        "This should never be used.",
+    ]));
+    let service = build_test_service_hybrid(fast_runtime.clone(), fast_runtime.clone());
+    let state = MockState::default();
+    let mut agent_state = test_agent_state();
+    agent_state.session_id = [0x65; 32];
+    agent_state.goal =
+        "what does progress look like per .internal/plans/runtime-guide.md".to_string();
+    let mut intent = resolved_conversation_intent();
+    intent.intent_id = "unknown".to_string();
+    intent.scope = IntentScopeProfile::Unknown;
+    intent.required_capabilities.clear();
+    agent_state.resolved_intent = Some(intent);
+
+    let tool_call = maybe_direct_inline_author_tool_call(
+        &service,
+        &state,
+        &agent_state,
+        agent_state.session_id,
+        ExecutionTier::DomHeadless,
+    )
+    .await
+    .expect("unknown repo-like request should evaluate");
+
+    assert!(tool_call.is_none());
+    assert!(fast_runtime
+        .seen_inputs
+        .lock()
+        .expect("seen_inputs mutex poisoned")
+        .is_empty());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn direct_inline_authoring_skips_unknown_currentness_requests() {
+    let fast_runtime = Arc::new(RecordingInferenceRuntime::with_outputs([
+        "This should never be used.",
+    ]));
+    let service = build_test_service_hybrid(fast_runtime.clone(), fast_runtime.clone());
+    let state = MockState::default();
+    let mut agent_state = test_agent_state();
+    agent_state.session_id = [0x66; 32];
+    agent_state.goal = "Is AKT or Filecoin a better investment right now?".to_string();
+    let mut intent = resolved_conversation_intent();
+    intent.intent_id = "unknown".to_string();
+    intent.scope = IntentScopeProfile::Unknown;
+    intent.required_capabilities.clear();
+    agent_state.resolved_intent = Some(intent);
+
+    let tool_call = maybe_direct_inline_author_tool_call(
+        &service,
+        &state,
+        &agent_state,
+        agent_state.session_id,
+        ExecutionTier::DomHeadless,
+    )
+    .await
+    .expect("unknown currentness request should evaluate");
+
+    assert!(tool_call.is_none());
+    assert!(fast_runtime
+        .seen_inputs
+        .lock()
+        .expect("seen_inputs mutex poisoned")
+        .is_empty());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn direct_inline_authoring_skips_conversation_currentness_requests() {
+    let fast_runtime = Arc::new(RecordingInferenceRuntime::with_outputs([
+        "This should never be used.",
+    ]));
+    let service = build_test_service_hybrid(fast_runtime.clone(), fast_runtime.clone());
+    let state = MockState::default();
+    let mut agent_state = test_agent_state();
+    agent_state.session_id = [0x67; 32];
+    agent_state.goal = "Which is a better investment right now, Akash or Filecoin?".to_string();
+    agent_state.resolved_intent = Some(resolved_conversation_intent());
+
+    let tool_call = maybe_direct_inline_author_tool_call(
+        &service,
+        &state,
+        &agent_state,
+        agent_state.session_id,
+        ExecutionTier::DomHeadless,
+    )
+    .await
+    .expect("conversation currentness request should evaluate");
+
+    assert!(tool_call.is_none());
+    assert!(fast_runtime
+        .seen_inputs
+        .lock()
+        .expect("seen_inputs mutex poisoned")
+        .is_empty());
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn direct_inline_authoring_skips_research_routes() {
     let fast_runtime = Arc::new(RecordingInferenceRuntime::with_outputs([
         "This should never be used.",

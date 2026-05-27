@@ -66,22 +66,13 @@ pub async fn retrieve_context_hybrid_with_receipt(
     };
 
     let embedding = match service.reasoning_inference.embed_text(query).await {
-        Ok(vec) => vec,
+        Ok(vec) => Some(vec),
         Err(e) => {
             log::warn!(
-                "Failed to generate embedding for memory runtime retrieval: {}",
+                "Failed to generate embedding for memory runtime retrieval; falling back to lexical search: {}",
                 e
             );
-            return HybridRetrievalResult {
-                output: String::new(),
-                receipt: Some(empty_failure_receipt(
-                    "ioi-memory:hybrid-archival",
-                    "hybrid_lexical_semantic",
-                    false,
-                    Some("none"),
-                    Some("UnexpectedState".to_string()),
-                )),
-            };
+            None
         }
     };
 
@@ -93,10 +84,11 @@ pub async fn retrieve_context_hybrid_with_receipt(
             MEMORY_RUNTIME_ENTITY_SCOPE.to_string(),
             MEMORY_RUNTIME_PROCEDURE_SCOPE.to_string(),
             MEMORY_RUNTIME_UI_SCOPE.to_string(),
+            MEMORY_RUNTIME_CORE_AUDIT_SCOPE.to_string(),
         ],
         thread_id: None,
         text: query.to_string(),
-        embedding: Some(embedding),
+        embedding,
         limit: default_policy.k as usize,
         candidate_limit: default_policy.candidate_limit as usize,
         allowed_trust_levels: vec![
@@ -128,7 +120,8 @@ pub async fn retrieve_context_hybrid_with_receipt(
     let mut diagnostic_hits = Vec::new();
 
     for (i, hit) in matches.iter().enumerate() {
-        if hit.score < MEMORY_RUNTIME_RETRIEVAL_SCORE_THRESHOLD {
+        let lexical_only_hit = hit.lexical_score >= 1.0 && hit.semantic_score.is_none();
+        if hit.score < MEMORY_RUNTIME_RETRIEVAL_SCORE_THRESHOLD && !lexical_only_hit {
             continue;
         }
 
@@ -139,7 +132,11 @@ pub async fn retrieve_context_hybrid_with_receipt(
             .get("role")
             .and_then(Value::as_str)
             .unwrap_or(hit.record.kind.as_str());
-        let confidence = (hit.score.clamp(0.0, 1.0)) * 100.0;
+        let confidence = if lexical_only_hit {
+            70.0
+        } else {
+            (hit.score.clamp(0.0, 1.0)) * 100.0
+        };
         let scope = hit.record.scope.as_str();
         let trust_level = hit.trust_level.as_str();
 
@@ -210,4 +207,3 @@ pub async fn retrieve_context_hybrid_with_receipt(
         }),
     }
 }
-

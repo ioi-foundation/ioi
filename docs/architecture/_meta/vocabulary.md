@@ -4,7 +4,7 @@ Status: canonical vocabulary reference.
 Canonical owner: this file for runtime, audit, substrate, projection, and legacy naming vocabulary.
 Supersedes: overlapping runtime vocabulary in plans/specs when names conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-20.
+Last alignment pass: 2026-05-25.
 
 The agent harness uses behavior-first names in runtime code and reserves
 compliance acronyms for hidden audit material.
@@ -16,6 +16,45 @@ compliance acronyms for hidden audit material.
   supervises workflows/workers/tools/models/connectors/computer-use leases,
   writes through Agentgres-compatible envelopes, emits receipts/replay records,
   and requests wallet.network authority.
+- `GovernedAutonomousSystemChain`: a system-local execution chain with state,
+  policy, service modules, proposals, receipts, state roots, and governed
+  upgrades. It is "L1-like" in the local state-machine sense, but it is not
+  necessarily a public blockchain, global validator network, or IOI L1.
+- `IntelligentExecutionNode`: a product-facing agent or worker-backed node
+  inside a governed autonomous-system chain. It may reason, plan, diagnose,
+  route work, and propose upgrades, but consequential transitions must pass the
+  deterministic authority boundary.
+- `AutopilotNode`: the local autonomous-system settlement domain for a user,
+  organization, project, or deployment. It composes Autopilot Workbench,
+  IOI daemon, Agentgres, wallet.network authority paths, local registries,
+  receipts, replay, and runtime profiles. It is not the Workbench UI by itself.
+- `LocalSettlementDomain`: an Autopilot-node domain that locally accepts work,
+  proposals, authority outcomes, receipts, interop messages, and state
+  transitions for many governed autonomous-system chains. Public economic
+  finality still belongs to IOI L1 when required.
+- `AIIP`: IOI's RPC-shaped, receipt-native interop protocol for bounded
+  autonomous work. It carries task offers, handoffs, authority leases, receipt
+  commitments, settlement intents, disputes, reputation queries, and
+  cross-system handoff finality across bounded execution domains.
+- `BoundedExecutionDomain`: a local, hosted, enterprise, marketplace, robot,
+  worker, service, microharness, third-party, or AS-L1 domain that performs
+  scoped autonomous work under declared capabilities, policy, authority
+  requirements, receipt schemas, runtime boundaries, and settlement behavior.
+- `AIIPEnvelope`: the signed, sequenced packet envelope for AIIP messages. It
+  binds sender/receiver systems, channel, profile, policy hash, authority ref,
+  payload hash, receipt obligations, settlement terms, and signature.
+- `AIIPProfile`: a standard AIIP mode such as local, installed worker,
+  marketplace worker, outcome service, autonomous system, or enterprise. The
+  profile changes trust boundary, transport, privacy, and settlement depth
+  without changing the semantic protocol.
+- `AIIPChannel`: a registered or local channel binding two bounded execution
+  domains to an AIIP profile, schema/version set, relay/router policy,
+  authority posture, privacy posture, and settlement mode.
+- `ServiceModule`: a reusable governed capability, code unit, contract,
+  workflow component, worker service, adapter, verifier, policy module, or
+  economic module that can be invoked by an autonomous-system harness.
+- `ModuleInvocation`: one execution of a service module under specific input,
+  state root, module version, policy, authority, and receipt obligations.
 - `DeterminismBoundary`: the trust boundary where a model, worker, agent,
   adapter, or operator proposal becomes a daemon-authorized effect. Models and
   agents may reason or propose; the daemon decides what crosses this boundary.
@@ -31,11 +70,19 @@ compliance acronyms for hidden audit material.
   non-intelligent chains/state machines, and intelligent blockchains. It is not
   one live global chain and it is not the CLI.
 - `IOIL1`: the public registry, rights, settlement, dispute, sparse-commitment,
-  and governance layer. It may approve canonical L0/kernel release roots, but
-  it does not execute the L0 substrate or own ordinary repository management.
+  autonomous-system settlement, and governance layer. It may approve canonical
+  L0/kernel release roots, but it does not execute the L0 substrate or own
+  ordinary repository management.
 - `EdgeInTopology`: IOI's topology inversion in which work starts at the local
   or remote runtime edge, becomes operational truth in a domain kernel +
   Agentgres, and settles upward to IOI L1 only when public trust is required.
+- `VerifiableBoundedAgency`: IOI's alignment-security thesis that autonomous
+  workers may reason, propose, and improve probabilistically, but consequential
+  effects cross into reality only through bounded authority, policy, receipts,
+  and verification.
+- `ExecutionBoundaryAlignment`: the precise claim that IOI aligns autonomous
+  action at the effect boundary. It is not a claim that IOI proves every model's
+  private cognition, latent goals, or future reasoning are safe.
 - `RuntimeNode`: a machine, container, TEE, DePIN node, local process, or
   customer environment running an IOI daemon profile. Runtime nodes execute
   workers and task capsules; they are not application domains by default.
@@ -53,7 +100,9 @@ compliance acronyms for hidden audit material.
   identity.
 - `Agent`: product-facing or colloquial language for an autonomous assistant,
   delegated actor, or user-facing worker experience. New protocol prose should
-  use `Worker` when referring to the accountable execution actor.
+  use `Worker` when referring to the accountable execution actor. When an agent
+  is treated as durable system architecture, prefer `IntelligentExecutionNode`
+  or `GovernedAutonomousSystemChain` to avoid implying a stateless chatbot.
 - `ManagedWorkerInstance`: a user-, org-, or project-bound initialization of a
   worker package. Product UX may call this an agent instance, but canonical
   state should bind it to a worker manifest, install/license right, runtime
@@ -64,7 +113,14 @@ compliance acronyms for hidden audit material.
   zero-to-idle restore policy. It does not make aiagent.xyz or ioi.ai the
   execution runtime.
 - `Model`: a cognition backend mounted or invoked by a worker. Models are not
-  the economic actor by themselves.
+  the economic actor by themselves. Model routing belongs to the runtime/node
+  contract; model weights or provider endpoints are mounted by deployment
+  profile and are not part of the Autopilot node binary by default.
+- `ModelDeploymentProfile`: the deployment-specific choice for how a model is
+  supplied to a node or runtime: bundled weights, local file, local server,
+  BYOK external API, hosted pool, TEE session, DePIN session, or customer VPC.
+  Bundled weights are allowed only when declared by profile; they are not the
+  architecture default.
 - `MixtureOfWorkers` or `MoW`: protocol-level labor routing across bounded
   workers. MoW selects accountable workers, not merely cognition providers.
 - `MixtureOfExperts` or `MoE`: model-internal or provider-side expert routing.
@@ -141,7 +197,9 @@ compliance acronyms for hidden audit material.
 - `AutopilotWorkbench`: the IDE-grade operator console for autonomous systems. It
   observes, requests, approves, interrupts, debugs, explains, and replays
   daemon-governed work. It is not an execution authority and it must not become a
-  second runtime inside the VS Code extension host.
+  second runtime inside the VS Code extension host. It is also not the full
+  Autopilot node; the node includes daemon, Agentgres, wallet.network authority
+  paths, local registries, receipts, replay, and runtime profiles.
 - `AutopilotGuard`: developer-facing packaging for IOI Authority Gateway
   adapters. It can describe "bring IOI alignment security to Cursor, VS Code,
   Codex, Claude Code, JetBrains, OpenHands, hosted agents, and similar tools,"
@@ -156,9 +214,15 @@ compliance acronyms for hidden audit material.
 - `IOICliTui`: the terminal/TUI operator client over daemon/public runtime APIs.
   It can render plans, controls, traces, approvals, and receipts, but it does
   not own execution semantics.
-- `IOISdk`: a developer client facade over daemon/substrate contracts. It may
-  provide typed helpers and explicit test mocks; it is not the execution
-  substrate initialized on compute nodes.
+- `IOISdk`: a low-level protocol/client library over daemon, Agentgres,
+  wallet.network, AIIP, and IOI L1 contracts. It may provide typed helpers,
+  transports, generated clients, and explicit test mocks; it is not the
+  execution substrate initialized on compute nodes and not the full autonomous
+  development kit.
+- `IOIAdk`: the autonomous development kit for building governed autonomous
+  systems, workers, service modules, harnesses, evals, manifests, receipts, and
+  deployment profiles. It may be built on top of SDK clients, but it is a
+  builder framework, not an operator shell and not the daemon/runtime owner.
 - `AgentIde`: the GUI/workbench/workflow-composer projection over shared
   contracts. It authors and inspects workflows, but canonical run/session/task
   truth remains in daemon/Agentgres state.

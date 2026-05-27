@@ -157,6 +157,138 @@ fn normalize_direct_inline_author_output(raw_output: &str) -> Option<String> {
     Some(trimmed.to_string())
 }
 
+fn chat_reply_tool_call(message: &str) -> Result<Option<String>, TransactionError> {
+    serde_json::to_string(&json!({
+        "name": "chat__reply",
+        "arguments": {
+            "message": message,
+        }
+    }))
+    .map(Some)
+    .map_err(|error| TransactionError::Serialization(error.to_string()))
+}
+
+fn normalize_lightweight_conversation_phrase(text: &str) -> String {
+    let normalized = text
+        .trim()
+        .to_ascii_lowercase()
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { ' ' })
+        .collect::<String>();
+    normalized.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn words_are_greeting(words: &[&str]) -> bool {
+    if words.is_empty() || words.len() > 3 {
+        return false;
+    }
+
+    const GREETING_HEADS: &[&str] = &["hi", "hello", "hey", "hiya", "heya", "yo"];
+    const GREETING_TAILS: &[&str] = &[
+        "there",
+        "bot",
+        "codex",
+        "assistant",
+        "agent",
+        "dear",
+        "dearie",
+        "friend",
+    ];
+
+    GREETING_HEADS.contains(&words[0])
+        && words[1..].iter().all(|word| GREETING_TAILS.contains(word))
+}
+
+fn deterministic_lightweight_conversation_reply(text: &str) -> Option<&'static str> {
+    let trimmed = text.trim();
+    if trimmed.is_empty() || trimmed.chars().count() > 80 {
+        return None;
+    }
+
+    let phrase = normalize_lightweight_conversation_phrase(trimmed);
+    if phrase.is_empty() {
+        return None;
+    }
+    let words = phrase.split_whitespace().collect::<Vec<_>>();
+    if words.len() > 8 {
+        return None;
+    }
+
+    const SOCIAL_CHECK_INS: &[&str] = &[
+        "sup",
+        "whats up",
+        "how are you",
+        "how are you doing",
+        "how is it going",
+        "hows it going",
+    ];
+    if SOCIAL_CHECK_INS.contains(&phrase.as_str()) {
+        return Some("I'm here and ready. What would you like to work on?");
+    }
+
+    if trimmed.contains('?') {
+        return None;
+    }
+
+    if words_are_greeting(&words)
+        || matches!(
+            phrase.as_str(),
+            "good morning" | "good afternoon" | "good evening"
+        )
+    {
+        return Some("Hello! How can I help you today?");
+    }
+
+    if matches!(
+        phrase.as_str(),
+        "thanks"
+            | "thank you"
+            | "thank you bot"
+            | "thank you dearie"
+            | "thanks bot"
+            | "thanks dearie"
+            | "thx"
+            | "ty"
+            | "appreciate it"
+            | "much appreciated"
+    ) {
+        return Some("You're welcome.");
+    }
+
+    if matches!(
+        phrase.as_str(),
+        "ok" | "okay"
+            | "k"
+            | "kk"
+            | "cool"
+            | "nice"
+            | "got it"
+            | "sounds good"
+            | "alright"
+            | "all right"
+            | "understood"
+            | "roger"
+            | "fair"
+            | "fair enough"
+            | "bet"
+    ) {
+        return Some("Got it.");
+    }
+
+    if matches!(phrase.as_str(), "sorry" | "my bad" | "oops") {
+        return Some("All good.");
+    }
+
+    if matches!(
+        phrase.as_str(),
+        "lol" | "lmao" | "haha" | "hahaha" | "heh" | "hehe"
+    ) {
+        return Some("Heh. I'm with you.");
+    }
+
+    None
+}
+
 async fn run_direct_inline_author_inference(
     service: &RuntimeAgentService,
     runtime: Arc<dyn InferenceRuntime>,
@@ -224,11 +356,122 @@ fn direct_inline_authoring_eligible(route_decision: &RoutingRouteDecision) -> bo
             .output_intent
             .eq_ignore_ascii_case("direct_inline")
         && route_decision.route_family.eq_ignore_ascii_case("general")
-        && route_decision
-            .effective_tool_surface
-            .projected_tools
-            .iter()
-            .any(|tool_name: &String| tool_name.eq_ignore_ascii_case("chat__reply"))
+}
+
+fn looks_like_plain_inline_utterance(text: &str) -> bool {
+    let trimmed = text.trim();
+    if trimmed.is_empty() || trimmed.chars().count() > 240 {
+        return false;
+    }
+
+    let lower = trimmed.to_ascii_lowercase();
+    if lower.contains("://")
+        || lower.contains('/')
+        || lower.contains('\\')
+        || lower.contains('`')
+        || lower.contains(".rs")
+        || lower.contains(".js")
+        || lower.contains(".ts")
+        || lower.contains(".json")
+        || lower.contains(".md")
+    {
+        return false;
+    }
+
+    const RETRIEVAL_HINTS: &[&str] = &[
+        "right now",
+        "today",
+        "latest",
+        "current",
+        "currently",
+        "recent",
+        "news",
+        "search",
+        "look up",
+        "source",
+        "cite",
+        "citation",
+        "research",
+        "price",
+        "market",
+        "stock",
+        "crypto",
+        "investment",
+        "invest",
+        "better buy",
+        "should i buy",
+        "weather",
+    ];
+    if RETRIEVAL_HINTS.iter().any(|hint| lower.contains(hint)) {
+        return false;
+    }
+
+    const ACTION_PREFIXES: &[&str] = &[
+        "open ",
+        "click ",
+        "press ",
+        "type ",
+        "search ",
+        "find ",
+        "look up ",
+        "browse ",
+        "go to ",
+        "navigate ",
+        "proceed",
+        "proceed ",
+        "continue",
+        "continue ",
+        "keep going",
+        "go ahead",
+        "do it",
+        "run ",
+        "execute ",
+        "install ",
+        "build ",
+        "test ",
+        "fix ",
+        "edit ",
+        "write ",
+        "create ",
+        "delete ",
+        "remove ",
+        "read ",
+        "list ",
+        "show ",
+        "summarize ",
+        "use ",
+        "select ",
+    ];
+    if ACTION_PREFIXES
+        .iter()
+        .any(|prefix| lower.starts_with(prefix))
+    {
+        return false;
+    }
+
+    true
+}
+
+fn direct_inline_scope_candidate(
+    agent_state: &AgentState,
+    target_tier: ExecutionTier,
+    latest_user_message: &str,
+) -> bool {
+    if !looks_like_plain_inline_utterance(latest_user_message) {
+        return false;
+    }
+    match agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|resolved| resolved.scope)
+    {
+        Some(IntentScopeProfile::Conversation) => true,
+        Some(IntentScopeProfile::Unknown) | None => {
+            matches!(target_tier, ExecutionTier::DomHeadless)
+                && looks_like_plain_inline_utterance(latest_user_message)
+        }
+        _ => false,
+    }
 }
 
 pub(crate) async fn maybe_direct_inline_author_tool_call(
@@ -238,13 +481,9 @@ pub(crate) async fn maybe_direct_inline_author_tool_call(
     session_id: [u8; 32],
     target_tier: ExecutionTier,
 ) -> Result<Option<String>, TransactionError> {
-    if !matches!(
-        agent_state
-            .resolved_intent
-            .as_ref()
-            .map(|resolved| resolved.scope),
-        Some(IntentScopeProfile::Conversation)
-    ) {
+    let (latest_user_message, recent_conversation) =
+        latest_user_message_for_direct_inline_authoring(service, session_id, agent_state);
+    if !direct_inline_scope_candidate(agent_state, target_tier, &latest_user_message) {
         return Ok(None);
     }
 
@@ -260,10 +499,12 @@ pub(crate) async fn maybe_direct_inline_author_tool_call(
         return Ok(None);
     }
 
-    let (latest_user_message, recent_conversation) =
-        latest_user_message_for_direct_inline_authoring(service, session_id, agent_state);
     if latest_user_message.trim().is_empty() {
         return Ok(None);
+    }
+
+    if let Some(message) = deterministic_lightweight_conversation_reply(&latest_user_message) {
+        return chat_reply_tool_call(message);
     }
 
     let prompt =
@@ -294,12 +535,5 @@ pub(crate) async fn maybe_direct_inline_author_tool_call(
         return Ok(None);
     };
 
-    serde_json::to_string(&json!({
-        "name": "chat__reply",
-        "arguments": {
-            "message": message,
-        }
-    }))
-    .map(Some)
-    .map_err(|error| TransactionError::Serialization(error.to_string()))
+    chat_reply_tool_call(&message)
 }

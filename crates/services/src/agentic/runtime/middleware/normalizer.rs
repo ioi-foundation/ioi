@@ -41,6 +41,13 @@ fn rejected_legacy_tool_name(name: &str) -> bool {
         || normalized == retired_install_tool
 }
 
+fn allowed_dynamic_builtin_name(name: &str) -> bool {
+    matches!(
+        name.trim().to_ascii_lowercase().as_str(),
+        "browser__subagent"
+    )
+}
+
 impl ToolNormalizer {
     /// The boundary function.
     /// Input: Raw, potentially hallucinated JSON from LLM.
@@ -398,7 +405,7 @@ impl ToolNormalizer {
                 ));
             }
 
-            if is_deterministic_tool_name(name) {
+            if is_deterministic_tool_name(name) && !allowed_dynamic_builtin_name(name) {
                 return Err(anyhow!(
                     "Schema Validation Error: '{}' is a built-in tool but arguments did not match its typed schema.",
                     name

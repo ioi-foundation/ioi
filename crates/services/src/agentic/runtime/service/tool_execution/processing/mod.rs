@@ -71,7 +71,7 @@ use crate::agentic::runtime::service::recovery::incident::{
 };
 use crate::agentic::runtime::service::{RuntimeAgentService, ServiceCallContext};
 use crate::agentic::runtime::types::{
-    AgentState, AgentStatus, ExecutionStage, ToolCallStatus, MAX_COMMAND_HISTORY,
+    AgentState, AgentStatus, ExecutionStage, ExecutionTier, ToolCallStatus, MAX_COMMAND_HISTORY,
 };
 use crate::agentic::runtime::utils::{goto_trace_log, persist_agent_state};
 use ioi_api::state::StateAccess;
@@ -131,6 +131,16 @@ pub fn resolve_action_routing_context(
     agent_state.current_tier = routing_decision.tier;
     let pre_state_summary = build_state_summary(agent_state);
     (routing_decision, pre_state_summary)
+}
+
+fn direct_tool_tier_override(tool_name: &str) -> Option<(ExecutionTier, &'static str)> {
+    match tool_name {
+        "screen__click_at" => Some((
+            ExecutionTier::VisualForeground,
+            "visual_last_coordinate_tool",
+        )),
+        _ => None,
+    }
 }
 
 fn extract_system_refusal_reason(tool_call_result: &str) -> Option<String> {
@@ -217,7 +227,7 @@ pub async fn process_tool_output(
 ) -> Result<(), TransactionError> {
     let key = get_state_key(&session_id);
     let rules: ActionRules = load_action_rules_for_session(state, session_id)?;
-    let (routing_decision, pre_state_summary) = resolve_action_routing_context(agent_state);
+    let (mut routing_decision, mut pre_state_summary) = resolve_action_routing_context(agent_state);
     let tool_version = env!("CARGO_PKG_VERSION");
     let mut processing_state = ActionProcessingState::new(&tool_call_result);
     let refusal_reason = extract_system_refusal_reason(&tool_call_result);
@@ -488,6 +498,18 @@ pub async fn process_tool_output(
                 processing_state.tool_normalization_observation.as_ref(),
             );
             let (tool_name, tool_args) = canonical_tool_identity(&tool);
+            if let Some((tier, reason_code)) = direct_tool_tier_override(&tool_name) {
+                routing_decision = TierRoutingDecision {
+                    tier,
+                    reason_code,
+                    source_failure: routing_decision.source_failure,
+                };
+                agent_state.current_tier = tier;
+                pre_state_summary.tier = tier_as_str(tier).to_string();
+                processing_state
+                    .verification_checks
+                    .push(format!("direct_tool_tier_override={}", tool_name));
+            }
             processing_state.current_tool_name = tool_name;
             processing_state.executed_tool_jcs = Some(
                 serde_jcs::to_vec(&tool)

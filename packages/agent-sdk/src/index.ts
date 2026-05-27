@@ -82,6 +82,8 @@ export type {
   RuntimeComputerUseBrowserDiscoveryOptions,
   RuntimeComputerUseBrowserDiscoveryProcess,
   RuntimeComputerUseBrowserDiscoveryReport,
+  RuntimeComputerUseProviderRegistryEntry,
+  RuntimeComputerUseProviderRegistryReport,
   RuntimeMemoryStatusOptions,
   RuntimeMemoryValidationInput,
   RuntimeMcpJsonRpcRequest,

@@ -4,7 +4,7 @@ Status: canonical documentation ownership map.
 Canonical owner: this file for where architecture subjects should be edited first.
 Supersedes: informal subject ownership scattered across plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-05-20.
+Last alignment pass: 2026-05-25.
 
 ## Purpose
 
@@ -24,11 +24,15 @@ Conflict rule:
    Current canonical defaults:
    - `prim:*` means primitive execution capability;
    - `scope:*` means wallet/provider authority scope;
-	   - daemon/public runtime APIs own execution semantics;
-	   - IOI daemon/runtime nodes are the hypervisor/control plane for
-	     autonomous execution;
-	   - Autopilot Workbench is the IDE-grade operator console, not runtime truth;
-	   - the Electron/VS Code fork is the canonical Autopilot app shell;
+   - daemon/public runtime APIs own execution semantics;
+   - IOI daemon/runtime nodes are the hypervisor/control plane for
+     autonomous execution;
+   - the IOI Runtime Daemon is the deterministic execution substrate for
+     portable, verifiable autonomous systems;
+   - Autopilot Workbench is the IDE-grade operator console, not runtime truth;
+   - Autopilot is the flagship product surface for building, deploying, and
+     governing autonomous systems through daemon/runtime contracts;
+   - the Electron/VS Code fork is the canonical Autopilot app shell;
    - IOI Authority Gateway is the daemon sidecar/compatibility profile for
      existing IDE, CLI, browser, hosted-agent, and MCP/tool ecosystems; it is
      not a separate runtime;
@@ -36,13 +40,38 @@ Conflict rule:
    - Filecoin/CAS is payload, evidence, archive-byte, and package availability;
    - IOI kernel is the L0 substrate;
    - IOI L1 is the public settlement, registry, dispute, and governance root;
+   - autonomous systems can execute anywhere; IOI settles what matters;
+   - AIIP moves delegated autonomous work, authority leases, receipts,
+     settlement intents, disputes, reputation queries, and handoffs across
+     bounded execution domains;
+   - AIIP uses the same semantic protocol for local Autopilot microharness
+     routing and external autonomous-system handoffs, while transport and
+     settlement mode vary by profile;
+   - governed autonomous-system chains are system-local execution chains with
+     policy, modules, proposals, receipts, state roots, and governed upgrades;
+   - an Autopilot node is a local settlement, orchestration, authority, state,
+     replay, routing, and interop domain for many governed autonomous-system
+     chains;
+   - Autopilot Workbench is not the Autopilot node; the Workbench is the
+     operator console, while the node is the local settlement domain composed
+     around daemon, Agentgres, wallet.network authority paths, local registries,
+     receipts, and replay;
+   - Autopilot nodes settle autonomous work locally; IOI L1 settles machine
+     labor globally;
    - IOI topology is edge-in and fractal;
-	   - workers, models, tools, connectors, browsers, shells, and computer-use
-	     providers are guest workloads/capabilities leased through daemon
-	     authority;
-	   - policy, receipts, replay, approvals, authority scopes, and settlement
-	     hooks are the shared trust/audit substrate;
-	   - clients are projections or operators, not private runtime truth;
+   - verifiable bounded agency is IOI's execution-boundary alignment thesis:
+     workers may reason or propose probabilistically, but consequential effects
+     cross reality only through bounded authority, policy, receipts, and
+     verification;
+   - workers, models, tools, connectors, browsers, shells, and computer-use
+     providers are guest workloads/capabilities leased through daemon
+     authority;
+   - policy, receipts, replay, approvals, authority scopes, and settlement hooks
+     are the shared trust/audit substrate;
+   - clients are projections or operators, not private runtime truth;
+   - CLI/TUI, SDK, and ADK are separate surfaces: CLI/TUI is the operator
+     interface, SDK is the low-level protocol/client library, and ADK is the
+     autonomous-system builder framework;
    - IDE/CLI/browser/hosted-agent adapters mediate through available control
      points only and must not claim total interception of opaque tools;
    - models and agents may reason or propose; the daemon authorizes anything
@@ -70,6 +99,9 @@ Conflict rule:
 | Subject | Canonical Owner | Low-Level Reference | Supporting Context |
 | --- | --- | --- | --- |
 | Web4 category and IOI stack | [`web4-and-ioi-stack.md`](../foundations/web4-and-ioi-stack.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | architectural-improvements plans |
+| AIIP, bounded execution domains, work interop, and cross-system handoffs | [`aiip.md`](../foundations/aiip.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) | autonomous-system settlement layer synthesis, IBC comparison notes, marketplace interop docs |
+| Governed autonomous-system chains, Autopilot nodes, and machine-economy stack | [`governed-autonomous-systems.md`](../foundations/governed-autonomous-systems.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`agentgres-state-substrate.md`](../components/agentgres/doctrine.md), [`ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) | Autopilot node, local settlement, interop, and machine-economy strategy docs |
+| Verifiable bounded agency and execution-boundary alignment | [`verifiable-bounded-agency.md`](../foundations/verifiable-bounded-agency.md) | [`security-privacy-and-policy-invariants.md`](../foundations/security-privacy-policy-invariants.md), [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md) | bounded-agency thesis, conformance contracts, investor/product framing |
 | Mixture of Workers and worker routing | [`mixture-of-workers.md`](../foundations/mixture-of-workers.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`marketplace-neutrality-and-contribution-accounting.md`](../domains/marketplace-neutrality.md) | aiagent/sas routing docs |
 | Worker Training lifecycle and training profiles | [`worker-training-lifecycle.md`](../foundations/worker-training-lifecycle.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`model-router-api-byok-and-mounting.md`](../components/model-router/api-byok-mounting.md) | Autopilot Foundry, aiagent categories, sas worker-training contracts |
 | Domain Ontologies and Data Recipes | [`domain-ontologies-and-data-recipes.md`](../foundations/domain-ontologies-and-data-recipes.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`connector-and-tool-contracts.md`](../components/connectors-tools/contracts.md) | Autopilot Foundry, Worker Training, connector mappings, distilled ontology datasets, ontology-aware projections |
@@ -80,7 +112,9 @@ Conflict rule:
 | Autopilot Workbench, Electron/VS Code shell, shared builder substrate, and workflow compositor | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | internal product context, IDE-first Tauri retirement guide, and workflow-compositor specs |
 | IOI Authority Gateway, Autopilot Guard, and compatibility adapters | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`connector-and-tool-contracts.md`](../components/connectors-tools/contracts.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | IDE/CLI/browser adapter specs, MCP gateways, shell wrappers, Git hooks, hosted-agent gateways |
 | Daemon and public runtime API | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | Cursor SDK parity guide |
-| SDK, CLI, GUI, harness, benchmark, compositor boundaries | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | internal package-boundary docs |
+| CLI/TUI operator surface | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | CLI product context, operator workflows |
+| SDK and ADK boundaries | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | agent-sdk package docs, future ADK docs, internal package-boundary docs |
+| SDK, CLI, GUI, harness, benchmark, compositor boundaries | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | Compatibility row for shared client-surface validation; use the split CLI/TUI and SDK/ADK rows above for ownership. |
 | wallet.network authority | [`wallet-network-authority-layer.md`](../components/wallet-network/doctrine.md) | [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md) | CIRC/CEC |
 | Capability and authority ontology | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | [`conformance/CIRC.md`](../../conformance/agentic-runtime/CIRC.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md) | agent tool vocabulary plan |
 | aiagent.xyz worker marketplace and managed instances | [`aiagent-xyz-worker-marketplace.md`](../domains/aiagent/worker-marketplace.md) | [`aiagent-xyz-worker-and-inter-agent-endpoints.md`](../domains/aiagent/worker-endpoints.md) | product context module inside canonical owner, marketplace neutrality doc |
@@ -100,6 +134,22 @@ Conflict rule:
 - Add new runtime/client/package ownership language to the public daemon,
   event, and common-object contracts first. Internal package-boundary plans may
   track implementation sequencing, but they do not own canonical doctrine.
+- Add new AIIP packet, profile, channel, bounded-execution-domain, handoff,
+  relay/router, settlement-intent, or inter-autonomous-system protocol language
+  to [`aiip.md`](../foundations/aiip.md) first. Do not create separate bespoke
+  interop protocols for Autopilot, aiagent.xyz, sas.xyz, or external systems
+  when AIIP semantics apply.
+- Add new governed-autonomous-system-chain, Autopilot-node, local settlement,
+  autonomous-system interop, service-module invocation, or machine-economy stack
+  language to
+  [`governed-autonomous-systems.md`](../foundations/governed-autonomous-systems.md)
+  first. Do not collapse Autopilot Workbench, Autopilot node, Agentgres domain,
+  and IOI L1 into one layer.
+- Add new alignment-security, bounded-agency, process-containment,
+  self-upgrade, or execution-boundary proof language to
+  [`verifiable-bounded-agency.md`](../foundations/verifiable-bounded-agency.md)
+  first. Do not canonize claims that IOI proves every model's private cognition
+  or goals are safe; route such wording through explicit non-claims or ADRs.
 - Add new Autopilot shell, workbench, extension-host, or GUI authority language
   to daemon/runtime ownership docs and Autopilot product architecture docs before
   implementation plans rely on it. Workbench surfaces are operator consoles and
@@ -126,10 +176,16 @@ Conflict rule:
   ontology-to-worker doctrine to
   [`domain-ontologies-and-data-recipes.md`](../foundations/domain-ontologies-and-data-recipes.md)
   before product, connector, Agentgres, or Worker Training docs rely on it.
-- Add new operator-facing TUI control or SDK client behavior to
-  [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) and
+- Add new operator-facing CLI/TUI control language to
+  [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md),
+  [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), and
   [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)
   before product-surface docs rely on it.
+- Add new SDK client behavior or ADK builder-framework behavior to
+  [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) and
+  [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)
+  before product-surface docs rely on it. SDK language should mean low-level
+  client library. ADK language should mean autonomous-system builder framework.
 - Add new shared object fields to
   [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md)
   before copying examples into endpoint docs.

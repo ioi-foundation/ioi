@@ -8,7 +8,6 @@ exclude = [
     "crates/plugins/sp1-guests" 
 ]
 members = [
-    "apps/autopilot/src-tauri",
     "crates/node",
     "crates/cli",
     "crates/execution",

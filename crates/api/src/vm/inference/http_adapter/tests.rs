@@ -320,7 +320,6 @@ fn local_non_qwen_ollama_requests_default_reasoning_effort_to_none() {
 fn local_reasoning_effort_policy_can_be_explicitly_omitted() {
     let effort = local_openai_reasoning_effort_for_request_with_lookup(
         "http://127.0.0.1:11434/v1/chat/completions",
-        "qwen3.5:9b",
         |key| match key {
             "AUTOPILOT_LOCAL_OPENAI_REASONING_EFFORT" => Some("omit".to_string()),
             _ => None,
@@ -331,7 +330,7 @@ fn local_reasoning_effort_policy_can_be_explicitly_omitted() {
 }
 
 #[test]
-fn local_qwen_requests_omit_reasoning_effort_and_prefix_no_think() {
+fn local_qwen_requests_disable_reasoning_effort_and_prefix_no_think() {
     let request = OpenAiStrategy
         .build_request(
             &Client::new(),
@@ -355,7 +354,7 @@ fn local_qwen_requests_omit_reasoning_effort_and_prefix_no_think() {
         .expect("request body");
     let parsed: Value = serde_json::from_slice(body).expect("json body");
 
-    assert!(parsed.get("reasoning_effort").is_none());
+    assert_eq!(parsed["reasoning_effort"], "none");
     assert_eq!(
         parsed["messages"][0]["content"],
         "/no_think\nReturn only one HTML document."
@@ -508,6 +507,7 @@ async fn openai_parse_response_does_not_wait_for_chunked_connection_close() {
 
 #[tokio::test]
 async fn local_qwen_raw_text_requests_use_native_ollama_chat_streaming() {
+    let _guard = ollama_context_env_lock();
     let listener = TcpListener::bind("127.0.0.1:0")
         .await
         .expect("bind local listener");
@@ -544,6 +544,7 @@ async fn local_qwen_raw_text_requests_use_native_ollama_chat_streaming() {
         String::new(),
         "qwen3.5:9b".to_string(),
     );
+    std::env::set_var("AUTOPILOT_OLLAMA_NATIVE_CHAT", "1");
     let expected_url = format!("http://{address}/api/chat");
     assert_eq!(
         local_ollama_native_chat_url(&format!("http://{address}/v1/chat/completions")).as_deref(),
@@ -562,6 +563,7 @@ async fn local_qwen_raw_text_requests_use_native_ollama_chat_streaming() {
         )
         .await
         .expect("inference result");
+    std::env::remove_var("AUTOPILOT_OLLAMA_NATIVE_CHAT");
 
     assert_eq!(
         String::from_utf8(output).unwrap(),
@@ -571,6 +573,7 @@ async fn local_qwen_raw_text_requests_use_native_ollama_chat_streaming() {
 
 #[tokio::test]
 async fn local_qwen_native_chat_stream_idle_timeout_fails_stalled_streams() {
+    let _guard = ollama_context_env_lock();
     let listener = TcpListener::bind("127.0.0.1:0")
         .await
         .expect("bind local listener");
@@ -612,6 +615,7 @@ async fn local_qwen_native_chat_stream_idle_timeout_fails_stalled_streams() {
         stream_idle_timeout: Duration::from_millis(250),
     };
 
+    std::env::set_var("AUTOPILOT_OLLAMA_NATIVE_CHAT", "1");
     let error = runtime
         .execute_inference(
             [0u8; 32],
@@ -624,6 +628,7 @@ async fn local_qwen_native_chat_stream_idle_timeout_fails_stalled_streams() {
         )
         .await
         .expect_err("stalled stream should fail");
+    std::env::remove_var("AUTOPILOT_OLLAMA_NATIVE_CHAT");
 
     assert!(
         error
@@ -631,6 +636,16 @@ async fn local_qwen_native_chat_stream_idle_timeout_fails_stalled_streams() {
             .contains("Local Ollama native chat stream stalled after 250ms"),
         "unexpected error: {error}"
     );
+}
+
+#[test]
+fn daemon_openai_compatible_route_is_not_rewritten_to_ollama_native_chat() {
+    let _guard = ollama_context_env_lock();
+    std::env::remove_var("AUTOPILOT_OLLAMA_NATIVE_CHAT");
+    std::env::remove_var("IOI_OLLAMA_NATIVE_CHAT");
+    std::env::remove_var("OLLAMA_NATIVE_CHAT");
+
+    assert!(local_ollama_native_chat_url("http://127.0.0.1:38861/v1/chat/completions").is_none());
 }
 
 #[test]

@@ -347,6 +347,16 @@ pub async fn kernel_media_synthesize_speech(
     voice: Option<&str>,
     preferred_mime_type: Option<&str>,
 ) -> Result<KernelMediaSpeechSynthesis> {
+    kernel_media_synthesize_speech_with_options(text, voice, preferred_mime_type, None, None).await
+}
+
+pub(crate) async fn kernel_media_synthesize_speech_with_options(
+    text: &str,
+    voice: Option<&str>,
+    preferred_mime_type: Option<&str>,
+    forced_tts_backend: Option<&str>,
+    tool_home_override: Option<&Path>,
+) -> Result<KernelMediaSpeechSynthesis> {
     let text = compact_ws(text);
     if text.is_empty() {
         return Err(anyhow!(
@@ -354,7 +364,17 @@ pub async fn kernel_media_synthesize_speech(
         ));
     }
 
-    let tool_home = ensure_media_tool_home()?;
+    let tool_home = if let Some(tool_home) = tool_home_override {
+        fs::create_dir_all(tool_home).with_context(|| {
+            format!(
+                "ERROR_CLASS=ExecutionFailedTerminal failed to create media tool home {}",
+                tool_home.display()
+            )
+        })?;
+        tool_home.to_path_buf()
+    } else {
+        ensure_media_tool_home()?
+    };
     let runtime_dir = tool_home.join("runtime").join("speech");
     fs::create_dir_all(&runtime_dir).with_context(|| {
         format!(
@@ -368,7 +388,11 @@ pub async fn kernel_media_synthesize_speech(
         .filter(|value| !value.is_empty())
         .map(|value| value.to_ascii_lowercase());
 
-    if let Some(forced_backend) = configured_tts_backend() {
+    let configured_backend = forced_tts_backend
+        .map(|backend| backend.trim().to_ascii_lowercase())
+        .filter(|backend| !backend.is_empty())
+        .or_else(configured_tts_backend);
+    if let Some(forced_backend) = configured_backend {
         if forced_backend == "fallback" {
             return Ok(fallback_speech_synthesis(&text));
         }
@@ -384,8 +408,14 @@ pub async fn kernel_media_synthesize_speech(
 
     let mut failures = Vec::new();
     for backend in auto_tts_backends() {
-        match run_tts_backend(backend, &text, voice, normalized_preference.as_deref(), &runtime_dir)
-            .await
+        match run_tts_backend(
+            backend,
+            &text,
+            voice,
+            normalized_preference.as_deref(),
+            &runtime_dir,
+        )
+        .await
         {
             Ok(Some(result)) => return Ok(result),
             Ok(None) => continue,
@@ -426,7 +456,8 @@ pub async fn kernel_media_vision_read(
         .unwrap_or_else(|| "Describe the visible image literally. Include readable text, interface layout, objects, and notable colors without speculation.".to_string());
     let (encoded_bytes, encoded_mime_type, fallback_summary) =
         prepare_vision_image_payload(image_bytes, mime_type, requested_prompt.as_deref())?;
-    let messages = build_kernel_vision_messages(&encoded_bytes, &encoded_mime_type, &normalized_prompt);
+    let messages =
+        build_kernel_vision_messages(&encoded_bytes, &encoded_mime_type, &normalized_prompt);
     let payload = serde_json::to_vec(&messages)
         .context("ERROR_CLASS=SynthesisFailed failed to serialize kernel vision prompt")?;
     let options = InferenceOptions {
@@ -735,10 +766,7 @@ fn generate_fallback_image(
     })
 }
 
-fn generate_fallback_video(
-    prompt: &str,
-    duration_ms: u64,
-) -> Result<KernelMediaVideoGeneration> {
+fn generate_fallback_video(prompt: &str, duration_ms: u64) -> Result<KernelMediaVideoGeneration> {
     let prompt_lower = prompt.to_ascii_lowercase();
     let scene = classify_fallback_image_scene(&prompt_lower);
     let seed = Sha256::digest(prompt.as_bytes());
@@ -841,7 +869,8 @@ fn build_fallback_video_frame(
             ((theta * 1.3).cos() * 4.0).round() as i32,
         ),
     };
-    let pulse = 0.94 + 0.10 * ((theta + f32::from(seed[10]) / 255.0 * std::f32::consts::TAU).sin() * 0.5 + 0.5);
+    let pulse = 0.94
+        + 0.10 * ((theta + f32::from(seed[10]) / 255.0 * std::f32::consts::TAU).sin() * 0.5 + 0.5);
     let mut frame = RgbaImage::from_pixel(width, height, Rgba([0, 0, 0, 255]));
 
     for y in 0..height {
@@ -931,7 +960,14 @@ fn overlay_fallback_video_motion(
         FallbackImageScene::Orbital => {
             let orbit_x = width * 0.5 + theta.cos() * width * 0.18;
             let orbit_y = height * 0.45 + theta.sin() * height * 0.1;
-            fill_circle_rgba(frame, orbit_x, orbit_y, height * 0.03, palette.accent_primary, 0.58);
+            fill_circle_rgba(
+                frame,
+                orbit_x,
+                orbit_y,
+                height * 0.03,
+                palette.accent_primary,
+                0.58,
+            );
             fill_circle_rgba(
                 frame,
                 width * 0.28 + (theta * 0.7).sin() * width * 0.05,
@@ -1050,25 +1086,57 @@ fn draw_line_rgba(
 fn classify_fallback_image_scene(prompt_lower: &str) -> FallbackImageScene {
     if contains_any(
         prompt_lower,
-        &["diagram", "wireframe", "blueprint", "dashboard", "ui", "interface", "schematic"],
+        &[
+            "diagram",
+            "wireframe",
+            "blueprint",
+            "dashboard",
+            "ui",
+            "interface",
+            "schematic",
+        ],
     ) {
         FallbackImageScene::Diagram
     } else if contains_any(
         prompt_lower,
         &[
-            "landscape", "mountain", "forest", "ocean", "sea", "sunset", "skyline", "desert",
-            "river", "valley", "city",
+            "landscape",
+            "mountain",
+            "forest",
+            "ocean",
+            "sea",
+            "sunset",
+            "skyline",
+            "desert",
+            "river",
+            "valley",
+            "city",
         ],
     ) {
         FallbackImageScene::Landscape
     } else if contains_any(
         prompt_lower,
-        &["portrait", "face", "person", "character", "avatar", "headshot"],
+        &[
+            "portrait",
+            "face",
+            "person",
+            "character",
+            "avatar",
+            "headshot",
+        ],
     ) {
         FallbackImageScene::Portrait
     } else if contains_any(
         prompt_lower,
-        &["space", "galaxy", "nebula", "planet", "cosmic", "orbital", "starfield"],
+        &[
+            "space",
+            "galaxy",
+            "nebula",
+            "planet",
+            "cosmic",
+            "orbital",
+            "starfield",
+        ],
     ) {
         FallbackImageScene::Orbital
     } else {
@@ -1081,10 +1149,15 @@ fn contains_any(prompt_lower: &str, needles: &[&str]) -> bool {
 }
 
 fn fallback_image_dimensions(prompt_lower: &str) -> (u32, u32) {
-    if contains_any(prompt_lower, &["portrait", "poster", "phone", "vertical", "headshot"]) {
+    if contains_any(
+        prompt_lower,
+        &["portrait", "poster", "phone", "vertical", "headshot"],
+    ) {
         (896, 1_152)
-    } else if contains_any(prompt_lower, &["landscape", "panorama", "wide", "banner", "skyline"])
-    {
+    } else if contains_any(
+        prompt_lower,
+        &["landscape", "panorama", "wide", "banner", "skyline"],
+    ) {
         (1_280, 768)
     } else {
         (1_024, 1_024)
@@ -1110,7 +1183,10 @@ fn fallback_image_palette(prompt_lower: &str, seed: &[u8]) -> FallbackImagePalet
             accent_tertiary: [10, 35, 84],
             ink: [7, 24, 48],
         }
-    } else if contains_any(prompt_lower, &["forest", "nature", "garden", "moss", "jungle"]) {
+    } else if contains_any(
+        prompt_lower,
+        &["forest", "nature", "garden", "moss", "jungle"],
+    ) {
         FallbackImagePalette {
             background_top: [166, 216, 151],
             background_bottom: [35, 82, 62],
@@ -1119,7 +1195,10 @@ fn fallback_image_palette(prompt_lower: &str, seed: &[u8]) -> FallbackImagePalet
             accent_tertiary: [28, 56, 49],
             ink: [16, 32, 29],
         }
-    } else if contains_any(prompt_lower, &["space", "galaxy", "nebula", "night", "cosmic"]) {
+    } else if contains_any(
+        prompt_lower,
+        &["space", "galaxy", "nebula", "night", "cosmic"],
+    ) {
         FallbackImagePalette {
             background_top: [27, 23, 65],
             background_bottom: [4, 7, 24],
@@ -1128,8 +1207,10 @@ fn fallback_image_palette(prompt_lower: &str, seed: &[u8]) -> FallbackImagePalet
             accent_tertiary: [44, 209, 223],
             ink: [235, 236, 255],
         }
-    } else if contains_any(prompt_lower, &["mono", "monochrome", "black and white", "grayscale"])
-    {
+    } else if contains_any(
+        prompt_lower,
+        &["mono", "monochrome", "black and white", "grayscale"],
+    ) {
         FallbackImagePalette {
             background_top: [235, 236, 240],
             background_bottom: [87, 92, 102],
@@ -1138,7 +1219,10 @@ fn fallback_image_palette(prompt_lower: &str, seed: &[u8]) -> FallbackImagePalet
             accent_tertiary: [42, 46, 56],
             ink: [21, 24, 31],
         }
-    } else if contains_any(prompt_lower, &["diagram", "wireframe", "dashboard", "blueprint"]) {
+    } else if contains_any(
+        prompt_lower,
+        &["diagram", "wireframe", "dashboard", "blueprint"],
+    ) {
         FallbackImagePalette {
             background_top: [228, 241, 255],
             background_bottom: [173, 201, 238],
@@ -1456,7 +1540,8 @@ fn clamp_color_component(value: f32) -> u8 {
 }
 
 fn perturb_color(color: [u8; 3], seed: u8, amplitude: i16) -> [u8; 3] {
-    let delta = i16::from(seed % ((amplitude as u8).saturating_mul(2).saturating_add(1))) - amplitude;
+    let delta =
+        i16::from(seed % ((amplitude as u8).saturating_mul(2).saturating_add(1))) - amplitude;
     [
         clamp_channel(i16::from(color[0]) + delta / 2),
         clamp_channel(i16::from(color[1]) + delta),
@@ -1944,8 +2029,8 @@ fn stroke_ellipse(
         for x in min_x..=max_x {
             let dx = x as f32 - center_x;
             let dy = y as f32 - center_y;
-            let distance = ((dx * dx) / radius_x.powi(2).max(1.0))
-                + ((dy * dy) / radius_y.powi(2).max(1.0));
+            let distance =
+                ((dx * dx) / radius_x.powi(2).max(1.0)) + ((dy * dy) / radius_y.powi(2).max(1.0));
             let edge = (distance - 1.0).abs();
             if edge <= (thickness / radius_x.max(radius_y).max(1.0)) {
                 blend_pixel(canvas, x, y, color, alpha * (1.0 - edge.min(1.0)));
@@ -2092,9 +2177,7 @@ async fn run_tts_backend(
     runtime_dir: &Path,
 ) -> Result<Option<KernelMediaSpeechSynthesis>> {
     match backend {
-        "espeak-ng" | "espeak" => {
-            run_espeak_backend(backend, text, voice, runtime_dir).await
-        }
+        "espeak-ng" | "espeak" => run_espeak_backend(backend, text, voice, runtime_dir).await,
         "say" => run_say_backend(text, voice, preferred_mime_type, runtime_dir).await,
         "powershell" | "pwsh" => run_powershell_backend(backend, text, voice, runtime_dir).await,
         other => Err(anyhow!(
@@ -2292,8 +2375,11 @@ async fn run_powershell_backend(
     script.push_str(&escape_powershell_single_quoted(text));
     script.push_str("');$s.Dispose();");
 
-    match run_tts_command(program, &["-NoProfile".to_string(), "-Command".to_string(), script])
-        .await
+    match run_tts_command(
+        program,
+        &["-NoProfile".to_string(), "-Command".to_string(), script],
+    )
+    .await
     {
         Ok(CommandExecution::Succeeded) => {}
         Ok(CommandExecution::MissingBinary) => return Ok(None),
@@ -2357,10 +2443,15 @@ enum CommandExecution {
 
 async fn run_tts_command(program: &str, args: &[String]) -> Result<CommandExecution> {
     let mut command = Command::new(program);
-    command.args(args).stdout(Stdio::null()).stderr(Stdio::piped());
+    command
+        .args(args)
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped());
     let child = match command.spawn() {
         Ok(child) => child,
-        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(CommandExecution::MissingBinary),
+        Err(error) if error.kind() == ErrorKind::NotFound => {
+            return Ok(CommandExecution::MissingBinary)
+        }
         Err(error) => {
             return Err(anyhow!(
                 "ERROR_CLASS=ExecutionFailedTerminal failed to spawn {}: {}",
@@ -2369,7 +2460,11 @@ async fn run_tts_command(program: &str, args: &[String]) -> Result<CommandExecut
             ));
         }
     };
-    let output = match timeout(Duration::from_secs(MEDIA_TTS_TIMEOUT_SECS), child.wait_with_output()).await
+    let output = match timeout(
+        Duration::from_secs(MEDIA_TTS_TIMEOUT_SECS),
+        child.wait_with_output(),
+    )
+    .await
     {
         Ok(result) => result.map_err(|error| {
             anyhow!(
@@ -2482,11 +2577,7 @@ fn escape_powershell_single_quoted(input: &str) -> String {
     input.replace('\'', "''")
 }
 
-fn build_kernel_vision_messages(
-    image_bytes: &[u8],
-    mime_type: &str,
-    prompt: &str,
-) -> Value {
+fn build_kernel_vision_messages(image_bytes: &[u8], mime_type: &str, prompt: &str) -> Value {
     json!([
         {
             "role": "system",
@@ -2614,9 +2705,7 @@ fn build_local_vision_fallback_summary(
     } else {
         "moderate contrast"
     };
-    let color_spread = f64::from(
-        avg_r.max(avg_g).max(avg_b) - avg_r.min(avg_g).min(avg_b)
-    );
+    let color_spread = f64::from(avg_r.max(avg_g).max(avg_b) - avg_r.min(avg_g).min(avg_b));
     let colorfulness = if color_spread < 18.0 {
         "near-monochrome"
     } else if color_spread > 80.0 {

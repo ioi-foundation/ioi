@@ -4,6 +4,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import {
+  computerUseProviderForLane,
+  computerUseProviderRegistryReport,
+  computerUseThreadToolNameForProvider,
+} from "./computer-use-provider-registry.mjs";
+
 export const CODING_TOOL_PACK_SCHEMA_VERSION = "ioi.runtime.coding-tool-pack.v1";
 export const CODING_TOOL_RESULT_SCHEMA_VERSION = "ioi.runtime.coding-tool-result.v1";
 export const CODING_TOOL_PACK_ID = "coding";
@@ -785,6 +791,19 @@ function computerUseLeaseRequestTool(workspaceRoot, input = {}) {
   const sessionMode = computerUseSessionModeForInput(input);
   const actionKind = computerUseActionKindForInput(input);
   const approvalRef = optionalString(input.approvalRef ?? input.approval_ref) ?? null;
+  const providerHint = optionalString(
+    input.providerId ??
+      input.provider_id ??
+      input.providerKind ??
+      input.provider_kind ??
+      input.sandboxProvider ??
+      input.sandbox_provider,
+  );
+  const selectedProvider = computerUseProviderForLane(lane, {
+    providerHint,
+    sessionMode,
+  });
+  const providerRegistry = computerUseProviderRegistryReport();
   const requestSeed = JSON.stringify({
     workspaceRoot,
     prompt,
@@ -800,11 +819,7 @@ function computerUseLeaseRequestTool(workspaceRoot, input = {}) {
     actionKind === "inspect" || actionKind === "hover" || actionKind === "wait" || actionKind === "scroll"
       ? `computer_use.${lane}.read`
       : `computer_use.${lane}.act`;
-  const threadToolName = lane === "native_browser"
-    ? "ioi.computer_use.native_browser"
-    : lane === "sandboxed_hosted"
-      ? "ioi.computer_use.sandboxed_hosted"
-      : null;
+  const threadToolName = computerUseThreadToolNameForProvider(selectedProvider);
   const threadToolInput = {
     prompt,
     url: optionalString(input.url) ?? null,
@@ -838,21 +853,30 @@ function computerUseLeaseRequestTool(workspaceRoot, input = {}) {
       artifactPolicy: "redacted_trace_artifacts_only",
       approvalRef,
       failClosedWhenUnavailable: true,
+      providerId: selectedProvider?.provider_id ?? null,
+      providerKind: selectedProvider?.provider_kind ?? null,
     },
     threadTool: {
       toolPack: "computer_use",
       toolName: threadToolName,
       unavailableReason: threadToolName
         ? null
-        : "Requested lane is recorded as a governed lease request; concrete visual execution adapter is not mounted yet.",
+        : selectedProvider?.unavailable_reason ??
+          "Requested lane is recorded as a governed lease request; no concrete provider adapter is mounted yet.",
       input: threadToolInput,
+    },
+    providerRegistry: {
+      ...providerRegistry,
+      selected_provider_id: selectedProvider?.provider_id ?? null,
+      selected_provider_kind: selectedProvider?.provider_kind ?? null,
     },
     approvalRequiredBeforeExecution: authorityScope.endsWith(".act") && !approvalRef,
     evidenceRefs: [
       requestRef,
+      selectedProvider?.provider_id,
       "computer_use_lease_request_receipt",
       "coding_tool_receipt",
-    ],
+    ].filter(Boolean),
     shellFallbackUsed: false,
   };
 }
@@ -1769,6 +1793,7 @@ function codingToolPathList(value) {
 
 function resolveWorkspacePath(workspaceRoot, selectedPath) {
   const root = path.resolve(workspaceRoot);
+  const realRoot = fs.realpathSync(root);
   const absolutePath = path.isAbsolute(selectedPath)
     ? path.resolve(selectedPath)
     : path.resolve(root, selectedPath);
@@ -1778,6 +1803,18 @@ function resolveWorkspacePath(workspaceRoot, selectedPath) {
       workspaceRoot: root,
       path: selectedPath,
     });
+  }
+  const boundaryPath = nearestExistingPath(absolutePath);
+  if (boundaryPath) {
+    const realBoundaryPath = fs.realpathSync(boundaryPath);
+    const realRelativePath = path.relative(realRoot, realBoundaryPath) || ".";
+    if (realRelativePath.startsWith("..") || path.isAbsolute(realRelativePath)) {
+      throw codingToolError(403, "policy", "Coding tool path must stay inside the workspace root.", {
+        workspaceRoot: root,
+        path: selectedPath,
+        resolvedPath: realBoundaryPath,
+      });
+    }
   }
   return { absolutePath, relativePath };
 }
@@ -1791,6 +1828,16 @@ function resolveWorkspaceDirectory(workspaceRoot, selectedPath) {
     });
   }
   return target;
+}
+
+function nearestExistingPath(absolutePath) {
+  let current = absolutePath;
+  while (!fs.existsSync(current)) {
+    const parent = path.dirname(current);
+    if (parent === current) return null;
+    current = parent;
+  }
+  return current;
 }
 
 function execGitReadOnly(workspaceRoot, args) {
@@ -1995,7 +2042,7 @@ function execFileReadOnly(command, args) {
 }
 
 function execFileCaptured(command, args, options = {}) {
-  const env = { ...process.env, ...(options.env ?? {}) };
+  const env = safeSubprocessEnv(options.env);
   for (const key of Object.keys(env)) {
     if (key.startsWith("NODE_TEST")) delete env[key];
   }
@@ -2067,6 +2114,23 @@ function sanitizeTestEnv(value) {
     Object.entries(value)
       .filter(([key, item]) => /^[A-Z_][A-Z0-9_]*$/i.test(key) && typeof item === "string")
       .slice(0, 40),
+  );
+}
+
+function safeSubprocessEnv(overrides = {}) {
+  const env = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (!isSensitiveEnvKey(key)) env[key] = value;
+  }
+  for (const [key, value] of Object.entries(overrides ?? {})) {
+    if (!isSensitiveEnvKey(key)) env[key] = String(value);
+  }
+  return env;
+}
+
+function isSensitiveEnvKey(key) {
+  return /token|secret|password|credential|authorization|api[-_]?key|private[-_]?key|cookie|session|vault/i.test(
+    key,
   );
 }
 

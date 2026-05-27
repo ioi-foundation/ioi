@@ -3,6 +3,8 @@ import React from "react";
 import { writeFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 
+globalThis.React = React;
+
 import { WorkflowRunsPanel } from "../../packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx";
 import { workflowRunHistoryModel } from "../../packages/agent-ide/src/runtime/workflow-run-history-model.ts";
 

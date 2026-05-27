@@ -1,96 +1,62 @@
-# IOI Runtime
+# Autopilot Workbench
 
-A native desktop agent runtime built with Tauri. Provides a non-blocking UX for autonomous agent execution with policy gates and cryptographic receipts.
+Autopilot Workbench is the canonical Electron/VS Code fork for IOI-governed
+autonomous systems. It is the IDE-grade operator console over the IOI daemon,
+not the runtime authority itself.
+
+The daemon owns execution, policy, approvals, model mounting, connector calls,
+secrets, receipts, replay, and workspace mutation. The Workbench projects state,
+sends typed requests, and gives the operator first-class surfaces for Agent
+Studio, Models, Workflow Composer, runs, policy, receipts, and evidence.
 
 ## Architecture
 
 ```
-IOI Runtime (Tauri)
+Autopilot Workbench
 │
-├── System Tray
-│   └── Menu: Open Chat Session, Open Chat, Quit
+├── Electron/VS Code fork
+│   ├── canonical app shell
+│   ├── Activity Bar surfaces
+│   ├── editor tabs, webviews, commands, menus, keybindings
+│   └── native shell affordances and daemon supervision
 │
-├── Windows (Multi-window architecture)
-│   │
-│   ├── Chat Session Window (⌘+Space)
-│   │   ├── Transparent overlay
-│   │   ├── Intent input
-│   │   └── Quick suggestions
-│   │
-│   ├── Pill Window (floating)
-│   │   ├── Task progress indicator
-│   │   ├── Non-blocking (user continues working)
-│   │   ├── Expandable for details
-│   │   └── Positioned bottom-right
-│   │
-│   ├── Gate Window (modal)
-│   │   ├── Policy gate approval
-│   │   ├── Risk level indicator
-│   │   ├── Approve/Deny actions
-│   │   └── Blocks until resolved
-│   │
-│   └── Chat Window (full IDE)
-│       ├── Agent Builder (intent → workflow)
-│       ├── Compose (manual canvas)
-│       ├── My Agents / Templates
-│       └── Observability (tracing)
+├── ioi-workbench
+│   ├── Agent Studio
+│   ├── Autopilot Models
+│   ├── Workflow Composer
+│   ├── policy, runs, receipts, replay, and evidence projections
+│   └── daemon request bridge
 │
-└── State Management
-    ├── Zustand store (React)
-    ├── Tauri events (cross-window sync)
-    └── Rust backend state
+└── IOI daemon
+    ├── runtime authority and durable execution boundary
+    ├── model artifact/catalog/backend/endpoint/route authority
+    ├── workflow execution, patch apply, policy, approvals, receipts, replay
+    └── connector calls, secrets, and workspace mutation
 ```
 
-## User Flow
+## Runtime Boundary
 
-1. **Idle State**
-   - IOI icon in system tray
-   - Press `⌘+Space` (or click tray) to invoke
+Canonical framing:
 
-2. **Chat Session**
-   - Type intent: "Book a flight to NYC under $400"
-   - Press Enter to start agent
+```text
+IOI daemon = hypervisor/control plane for autonomous execution
+Autopilot Workbench = IDE-grade operator console
+Electron/VS Code fork = canonical app shell
+Workers/models/tools/connectors = guest workloads/capabilities
+Policy/receipts/replay = trust and audit substrate
+```
 
-3. **Execution**
-   - Chat Session closes
-   - Floating pill appears in corner
-   - User continues normal work
-   - Pill shows: agent name, current step, progress
-
-4. **Policy Gate** (when triggered)
-   - Modal appears, demands attention
-   - Shows: action description, risk level
-   - User must Approve or Deny
-   - If denied, task cancelled
-
-5. **Completion**
-   - Pill shows checkmark
-   - Click to expand receipt details
-   - System notification sent
-   - Dismiss to clear
+Tauri/OpenVSCode embedding is legacy extraction inventory. Do not add new
+runtime, shell, or validation work to the retired Tauri path.
 
 ## Development
 
 ### Prerequisites
 
-- [Rust](https://rustup.rs/)
 - [Node.js](https://nodejs.org/) (v20+ LTS recommended)
-- [Tauri CLI](https://tauri.app/v1/guides/getting-started/prerequisites)
-
-On Ubuntu/Pop!_OS, install the desktop build dependencies required by Tauri:
-
-```bash
-sudo apt update
-sudo apt install -y \
-  build-essential \
-  pkg-config \
-  libssl-dev \
-  libgtk-3-dev \
-  libayatana-appindicator3-dev \
-  librsvg2-dev \
-  libsoup-3.0-dev \
-  libwebkit2gtk-4.1-dev
-```
+- Packaged Electron/VS Code app at `ide/builds/VSCode-linux-x64`, or set
+  `AUTOPILOT_VSCODE_PACKAGED_ROOT`
+- Optional VS Code source checkout at `ide/vscode` for fork development
 
 ### Setup
 
@@ -123,59 +89,40 @@ the required runtime artifact is the packaged Electron app at
 ### Project Structure
 
 ```
-ioi-runtime/
-├── src/                    # React frontend
-│   ├── main.tsx           # Entry point with routing
-│   ├── store/             # Zustand state management
-│   │   └── agentStore.ts  # Agent task state
-│   ├── styles/            # Global styles
-│   │   └── global.css
-│   └── windows/           # Window components
-│       ├── ChatShellWindow/index.tsx
-│       ├── PillWindow.tsx
-│       ├── GateWindow.tsx
-│       └── ChatWindow.tsx
-│
-├── src-tauri/             # Rust backend
-│   ├── Cargo.toml         # Rust dependencies
-│   ├── tauri.conf.json    # Tauri configuration
-│   ├── icons/             # App icons
-│   └── src/
-│       └── main.rs        # Window management, tray, shortcuts
-│
-├── package.json
-├── vite.config.ts
-└── tsconfig.json
+apps/autopilot/
+├── openvscode-extension/ioi-workbench/  # built-in Workbench extension/API layer
+├── scripts/                             # launchers, probes, validation harnesses
+├── package.json                         # Autopilot scripts
+└── README.md
+
+ide/
+├── builds/VSCode-linux-x64/             # packaged runnable Electron app
+└── vscode/                              # optional VS Code fork source checkout
+
+packages/
+├── runtime-daemon/                      # IOI daemon authority boundary
+└── agent-ide/                           # Workflow Composer and agent-IDE surfaces
 ```
 
 ## Key Features
 
-### Multi-Window Architecture
-Each UI surface is a separate Tauri window:
-- **Transparent**: Chat Session, Pill, Gate windows have transparent backgrounds
-- **Always on Top**: Overlay windows stay above other apps
-- **Frameless**: No window decorations for overlay windows
-- **Skip Taskbar**: Overlay windows don't appear in taskbar
+### IDE-First Workbench
+- Agent Studio for agent/workflow intent.
+- Autopilot Models for daemon-owned local model discovery, load, unload, route,
+  server, log, receipt, and replay state.
+- Workflow Composer for IDE-native graph composition, readiness, timeline,
+  model binding, approvals, and evidence.
 
-### Global Shortcut
-- `⌘+Space` (macOS) / `Ctrl+Space` (Windows/Linux) toggles Chat Session
-- Registered at OS level, works from any app
+### Daemon-Owned Authority
+- The Workbench must not directly execute durable runtime work.
+- Extension-host and webview code are projection/request surfaces.
+- All consequential actions resolve through daemon/domain APIs.
 
-### Cross-Window Communication
-- Tauri events broadcast state changes to all windows
-- Zustand store syncs state within each window
-- Rust backend maintains authoritative state
-
-### Policy Gates
-- IOI's core safety primitive
-- Agent pauses at defined checkpoints
-- User must approve before high-risk actions
-- Risk levels: LOW (green), MEDIUM (amber), HIGH (red)
-
-### Receipts
-- Cryptographic proof of execution
-- Records: duration, action count, cost
-- Audit trail for all agent actions
+### Validation
+- `npm run dev:desktop` launches the canonical Electron/VS Code fork with a
+  supervised daemon sidecar by default.
+- GUI probes and goal scripts should target the Electron/VS Code fork path and
+  retain screenshots, logs, receipts, and proof JSON.
 
 ## License
 

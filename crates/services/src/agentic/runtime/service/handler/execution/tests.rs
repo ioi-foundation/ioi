@@ -468,6 +468,56 @@ async fn cec_requires_explicit_approval_for_install_even_under_allow_all_policy(
     );
 }
 
+#[tokio::test(flavor = "current_thread")]
+async fn filesystem_read_outside_workspace_is_denied_not_prompted_for_approval() {
+    let runtime = Arc::new(RecordingInferenceRuntime::default());
+    let service = build_test_service(runtime, None);
+    let rules = ActionRules {
+        policy_id: "interactive-dev-policy".to_string(),
+        defaults: DefaultPolicy::RequireApproval,
+        ..ActionRules::default()
+    };
+    let os_driver: Arc<dyn OsDriver> = Arc::new(SlowWindowOsDriver);
+    let mut agent_state = test_agent_state();
+    agent_state.working_directory = std::env::current_dir()
+        .expect("current dir")
+        .to_string_lossy()
+        .to_string();
+    let tool = AgentTool::FsRead {
+        path: "/etc/passwd".to_string(),
+    };
+
+    let result = super::handle_action_execution(
+        &service,
+        tool,
+        [5u8; 32],
+        1,
+        [0u8; 32],
+        &rules,
+        &agent_state,
+        &os_driver,
+        None,
+        None,
+        None,
+    )
+    .await;
+
+    let Err(error) = result else {
+        panic!("outside-workspace read should fail closed, got {result:?}");
+    };
+    assert!(
+        !matches!(
+            error,
+            ioi_types::error::TransactionError::PendingApproval(_)
+        ),
+        "outside-workspace read must not become an approval prompt"
+    );
+    assert!(
+        error.to_string().contains("outside workspace authority"),
+        "unexpected error: {error}"
+    );
+}
+
 #[test]
 fn pending_request_nonce_is_reused_for_canonical_resume() {
     let mut state = test_agent_state();

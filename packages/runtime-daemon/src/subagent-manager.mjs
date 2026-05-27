@@ -407,6 +407,8 @@ export function subagentManagerEventPayload({ record = {}, operation, status }) 
     parentThreadId: record.parentThreadId ?? record.parent_thread_id ?? null,
     parent_turn_id: record.parent_turn_id ?? record.parentTurnId ?? null,
     parentTurnId: record.parentTurnId ?? record.parent_turn_id ?? null,
+    child_thread_id: record.child_thread_id ?? record.childThreadId ?? null,
+    childThreadId: record.childThreadId ?? record.child_thread_id ?? null,
     subagent_id: record.subagent_id ?? record.subagentId ?? null,
     subagentId: record.subagentId ?? record.subagent_id ?? null,
     agent_id: record.agent_id ?? record.agentId ?? null,

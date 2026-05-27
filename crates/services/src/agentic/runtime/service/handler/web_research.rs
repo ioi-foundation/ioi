@@ -440,6 +440,9 @@ pub(crate) fn normalize_web_research_tool_call(
     resolved_intent: Option<&ResolvedIntentState>,
     fallback_query: &str,
 ) {
+    if is_exact_tool_catalogue_verification_goal(fallback_query) {
+        return;
+    }
     let mailbox_connector_goal = is_mailbox_connector_goal(fallback_query);
     if mailbox_connector_goal {
         return;
@@ -620,6 +623,12 @@ pub(crate) fn normalize_web_research_tool_call(
         }
         _ => {}
     }
+}
+
+fn is_exact_tool_catalogue_verification_goal(value: &str) -> bool {
+    value.contains("TOOLCAT_SINGLE_TOOL")
+        || value.contains("TOOLCAT_STAGE")
+        || value.contains("toolcat_tool=")
 }
 
 #[cfg(test)]

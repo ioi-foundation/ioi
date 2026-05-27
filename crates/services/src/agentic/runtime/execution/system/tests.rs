@@ -946,3 +946,106 @@ async fn shell_terminate_stops_retained_command() {
         Some(false)
     );
 }
+
+#[cfg(unix)]
+#[tokio::test(flavor = "current_thread")]
+async fn tool_executor_routes_retained_shell_controls_to_system_domain() {
+    let exec = build_tool_executor(None);
+    let session_id = [6u8; 32];
+    let visual_hash = [0u8; 32];
+    let result = exec
+        .execute(
+            AgentTool::SysExec {
+                command: "bash".to_string(),
+                args: vec![
+                    "-lc".to_string(),
+                    "printf 'router-ready\\n'; read line; printf 'router-echo:%s\\n' \"$line\""
+                        .to_string(),
+                ],
+                stdin: None,
+                wait_ms_before_async: Some(50),
+                detach: false,
+            },
+            session_id,
+            1,
+            visual_hash,
+            None,
+            None,
+            None,
+        )
+        .await;
+
+    assert!(result.success);
+    let launch_payload = retained_payload(&result);
+    let command_id = launch_payload
+        .get("command_id")
+        .and_then(Value::as_str)
+        .expect("command id should be present")
+        .to_string();
+
+    let status_result = exec
+        .execute(
+            AgentTool::SysExecStatus {
+                command_id: command_id.clone(),
+            },
+            session_id,
+            2,
+            visual_hash,
+            None,
+            None,
+            None,
+        )
+        .await;
+    assert!(
+        status_result.success,
+        "status should route through system domain"
+    );
+    assert!(!status_result
+        .error
+        .as_deref()
+        .unwrap_or_default()
+        .contains("not handled by executor"));
+
+    let input_result = exec
+        .execute(
+            AgentTool::SysExecInput {
+                command_id: command_id.clone(),
+                stdin: "hello\n".to_string(),
+            },
+            session_id,
+            3,
+            visual_hash,
+            None,
+            None,
+            None,
+        )
+        .await;
+    assert!(
+        input_result.success,
+        "input should route through system domain"
+    );
+
+    let completed = wait_for_completed_status(&exec, &command_id).await;
+    let output_tail = completed
+        .get("output_tail")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    assert!(output_tail.contains("router-ready"));
+    assert!(output_tail.contains("router-echo:hello"));
+
+    let terminate_result = exec
+        .execute(
+            AgentTool::SysExecTerminate { command_id },
+            session_id,
+            4,
+            visual_hash,
+            None,
+            None,
+            None,
+        )
+        .await;
+    assert!(
+        terminate_result.success,
+        "terminate should route through system domain"
+    );
+}

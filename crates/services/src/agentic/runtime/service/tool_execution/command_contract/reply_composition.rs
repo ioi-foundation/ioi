@@ -375,7 +375,11 @@ pub fn enrich_command_scope_summary(summary: &str, agent_state: &AgentState) -> 
 }
 
 fn normalize_runtime_home_paths(summary: &str) -> String {
-    let Some(runtime_home_dir) = runtime_home_directory() else {
+    normalize_runtime_home_paths_with_home(summary, runtime_home_directory().as_deref())
+}
+
+fn normalize_runtime_home_paths_with_home(summary: &str, runtime_home_dir: Option<&str>) -> String {
+    let Some(runtime_home_dir) = runtime_home_dir else {
         return summary.to_string();
     };
     let runtime_home_dir = runtime_home_dir.trim_end_matches('/').to_string();

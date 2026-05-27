@@ -1,6 +1,7 @@
 use crate::agentic::web::{
     kernel_media_edit_image, kernel_media_generate_image, kernel_media_generate_video,
-    kernel_media_synthesize_speech, kernel_media_transcribe_audio, kernel_media_vision_read,
+    kernel_media_synthesize_speech_with_options, kernel_media_transcribe_audio,
+    kernel_media_vision_read,
 };
 use async_trait::async_trait;
 use ioi_api::vm::inference::{
@@ -14,7 +15,7 @@ use ioi_api::vm::inference::{
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::app::ChatRuntimeProvenance;
 use ioi_types::error::VmError;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
 
@@ -24,11 +25,36 @@ use tokio::sync::mpsc::Sender;
 /// while absorbing audio transcription and speech synthesis into the shared substrate.
 pub struct KernelMediaRuntime {
     inner: Arc<dyn InferenceRuntime>,
+    media_config: KernelMediaRuntimeConfig,
+}
+
+#[derive(Default)]
+struct KernelMediaRuntimeConfig {
+    tool_home: Option<PathBuf>,
+    tts_backend: Option<String>,
 }
 
 impl KernelMediaRuntime {
     pub fn new(inner: Arc<dyn InferenceRuntime>) -> Self {
-        Self { inner }
+        Self {
+            inner,
+            media_config: KernelMediaRuntimeConfig::default(),
+        }
+    }
+
+    #[cfg(test)]
+    fn new_with_media_config(
+        inner: Arc<dyn InferenceRuntime>,
+        tool_home: Option<PathBuf>,
+        tts_backend: Option<String>,
+    ) -> Self {
+        Self {
+            inner,
+            media_config: KernelMediaRuntimeConfig {
+                tool_home,
+                tts_backend,
+            },
+        }
     }
 }
 
@@ -112,10 +138,12 @@ impl InferenceRuntime for KernelMediaRuntime {
         &self,
         request: SpeechSynthesisRequest,
     ) -> Result<SpeechSynthesisResult, VmError> {
-        let result = kernel_media_synthesize_speech(
+        let result = kernel_media_synthesize_speech_with_options(
             &request.text,
             request.voice.as_deref(),
             request.mime_type.as_deref(),
+            self.media_config.tts_backend.as_deref(),
+            self.media_config.tool_home.as_deref(),
         )
         .await
         .map_err(|error| VmError::HostError(error.to_string()))?;

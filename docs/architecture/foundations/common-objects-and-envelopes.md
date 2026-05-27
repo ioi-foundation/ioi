@@ -4,17 +4,34 @@ Status: canonical low-level reference.
 Canonical owner: this file for shared envelope names, ID namespaces, primitive capability tiers, authority grants, and receipt/run/event envelope fields.
 Supersedes: older flattened capability-tier examples in plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-05-15.
+Last alignment pass: 2026-05-25.
 
 ## Purpose
 
-This file defines the shared low-level objects that every IOI/Web4 component must understand. The goal is to prevent split-brain API design between `@ioi/agent-sdk`, IOI CLI/TUI, agent-ide, Autopilot, IOI daemon, Agentgres, wallet.network, aiagent.xyz, sas.xyz, workflow compositor, harnesses, benchmarks, hosted/self-hosted workers, and IOI L1 contracts.
+This file defines the shared low-level objects that every IOI/Web4 component must understand. The goal is to prevent split-brain API design between `@ioi/agent-sdk`, IOI ADK, IOI CLI/TUI, agent-ide, Autopilot, IOI daemon, Agentgres, wallet.network, aiagent.xyz, sas.xyz, workflow compositor, harnesses, benchmarks, hosted/self-hosted workers, and IOI L1 contracts.
 
 ## Canonical Envelope Types
 
 ```text
 ManifestEnvelope
 AutonomousSystemManifestEnvelope
+AutonomousSystemChainEnvelope
+AutopilotNodeEnvelope
+BoundedExecutionDomainEnvelope
+ServiceModuleManifestEnvelope
+ModuleInvocationEnvelope
+UpgradeProposalEnvelope
+UpgradeDecisionEnvelope
+LocalSettlementEnvelope
+AIIPChannelEnvelope
+AIIPEnvelope
+CapabilityDescriptorEnvelope
+TaskOfferEnvelope
+TaskAcceptanceEnvelope
+HandoffEnvelope
+ReceiptCommitmentEnvelope
+SettlementIntentEnvelope
+ReputationEventEnvelope
 AuthorityScopeRequestEnvelope
 AuthorityGrantEnvelope
 TaskEnvelope
@@ -43,6 +60,7 @@ EvaluationDatasetEnvelope
 OntologyProjectionEnvelope
 OntologyToWorkerPlanEnvelope
 ModelCapacityProfileEnvelope
+ModelDeploymentProfileEnvelope
 TrainingBatchPlanEnvelope
 GenerationBatchEnvelope
 RawBatchArchiveEnvelope
@@ -61,6 +79,15 @@ RoutingDecisionEnvelope
 ```text
 ai://...                global intelligence/app/worker/service namespace
 system://...            Autonomous System Package namespace
+domain://...            bounded execution domain, application domain, or sovereign domain namespace
+node://...              Autopilot node or runtime node namespace
+module://...            governed service-module namespace
+invocation://...        module invocation namespace
+proposal://...          upgrade, policy, module, workflow, or settlement proposal namespace
+transition://...        accepted local state-transition namespace
+aiip://channel/...      AIIP channel namespace
+packet://...            AIIP packet namespace
+settlement-intent://... AIIP settlement intent namespace
 ioi://publisher/...     publisher identity
 agent://...             product-facing agent instance or compatibility worker instance
 worker://...            worker package or worker type
@@ -129,7 +156,7 @@ Provider names, fixture names, tool availability, and authority scopes must neve
 ```yaml
 ManifestEnvelope:
   manifest_id: ai://...
-  manifest_type: app | autonomous_system | worker | service | runtime | domain | tool | connector
+  manifest_type: app | autonomous_system | autonomous_system_chain | bounded_execution_domain | service_module | worker | service | runtime | domain | tool | connector
   version: semver_or_hash
   publisher_id: ioi://publisher/...
   manifest_root: hash
@@ -185,6 +212,11 @@ ManifestEnvelope:
     connector_mapping_refs: []
     distilled_dataset_refs: []
     evaluation_dataset_refs: []
+  model_deployment:
+    profile_ref: optional
+    mount_mode: bundled_weights | local_file | local_server | external_api | hosted_pool | tee_session | depin_session | customer_vpc | none
+    model_artifact_refs: []
+    endpoint_refs: []
 ```
 
 ## Autonomous System Package Lifecycle
@@ -199,8 +231,8 @@ deployment profiles, and receipts into one packageable object.
 
 Implementation may represent the package as a strict `ManifestEnvelope` profile,
 as `AutonomousSystemManifestEnvelope`, or as both. That implementation choice
-must not make the package concept invisible in product, SDK, CLI/TUI, workflow,
-or documentation surfaces.
+must not make the package concept invisible in product, SDK, ADK, CLI/TUI,
+workflow, or documentation surfaces.
 
 The canonical lifecycle loop is:
 
@@ -274,6 +306,7 @@ AutonomousSystemManifestEnvelope:
     topology_hash: string
   capabilities:
     model_capability_refs: []
+    model_deployment_profile_refs: []
     tool_capability_refs: []
     connector_refs: []
     primitive_capabilities_required: []
@@ -313,6 +346,307 @@ AutonomousSystemManifestEnvelope:
 The envelope is a package/readiness and portability contract. It must compile
 to daemon/runtime, wallet.network, Agentgres, workflow, connector/tool, and
 receipt contracts; it must not bypass them.
+
+## Governed Autonomous-System Chain Envelopes
+
+Governed autonomous-system chains are local stateful execution objects. They
+are not necessarily standalone public blockchains or IOI L1s. Their accepted
+operations and receipts live in Agentgres/domain state, while IOI L1 anchors
+only selected roots when public trust or economic settlement requires it.
+
+```yaml
+AutonomousSystemChainEnvelope:
+  chain_id: system://...
+  owning_autopilot_node_id: node://...
+  manifest_ref: ai://...
+  worker_instance_refs: []
+  workflow_refs: []
+  policy_root: hash
+  module_registry_root: hash
+  proposal_queue_root: hash
+  operation_log_ref: agentgres://...
+  latest_state_root: hash
+  latest_receipt_root: hash
+  latest_transition_id: transition://...
+  upgrade_policy_ref: policy://...
+  l1_anchor_policy:
+    anchor_identity: boolean
+    anchor_policy_roots: boolean
+    anchor_upgrade_roots: boolean
+    anchor_receipt_roots: on_dispute | on_settlement | periodic | never
+  status: draft | active | paused | archived | revoked
+```
+
+```yaml
+AutopilotNodeEnvelope:
+  node_id: node://...
+  owner_id: wallet://... | org://... | project://...
+  workbench_ref: optional
+  daemon_runtime_ref: runtime://...
+  agentgres_domain_ref: agentgres://domain/...
+  wallet_authority_ref: wallet://...
+  local_registry_refs:
+    workers: []
+    modules: []
+    workflows: []
+    manifests: []
+  autonomous_system_chain_refs: []
+  receipt_store_ref: agentgres://...
+  replay_store_ref: agentgres://...
+  l1_anchor_policy_ref: optional
+  status: local | hosted | hybrid | enterprise | archived
+```
+
+## AIIP and Bounded Execution Domain Envelopes
+
+AIIP is the shared semantic protocol for local microharness routing and
+external autonomous-system handoffs. Transports and settlement depth may vary,
+but consequential work packets must compile into typed envelopes with policy,
+authority, receipt, and settlement semantics.
+
+```yaml
+BoundedExecutionDomainEnvelope:
+  domain_id: domain://...
+  owner_ref: wallet://... | org://... | project://... | ioi://publisher/...
+  domain_kind: local_microharness | installed_worker | marketplace_worker | outcome_provider | enterprise_runtime | robot_fleet | dao_operator | autonomous_system | as_l1 | appchain | sovereign_domain
+  manifest_ref: ai://...
+  capabilities: []
+  policies:
+    policy_root: hash
+    dispute_policy_ref: optional
+    privacy_policy_ref: optional
+  authority_requirements:
+    authority_scope_requirements: []
+    grant_requirements: []
+  receipt_schema_refs: []
+  state_boundary:
+    state_root: optional_hash
+    state_ref: optional agentgres://... | cid://...
+    public_commitment_mode: local_only | optional_anchor | mainnet_required | dispute_only | reputation_only
+  runtime_profile:
+    kind: local_daemon | in_process | local_http | grpc | json_rpc | nats | hosted_daemon | cloud_vm | tee | depin | customer_vpc | robot_controller | external_api
+    endpoint_ref: optional
+  settlement_behavior:
+    settlement_account_ref: optional
+    default_mode: local_only | optional_anchor | mainnet_required | dispute_only | reputation_only
+    escrow_supported: boolean
+  aiip_profiles_supported: []
+  status: draft | active | suspended | revoked | archived
+```
+
+```yaml
+AIIPChannelEnvelope:
+  channel_id: aiip://channel/...
+  system_id_from: system://... | domain://...
+  system_id_to: system://... | domain://...
+  profile: local | installed_worker | marketplace_worker | outcome_service | autonomous_system | enterprise
+  transport: in_process | daemon_ipc | unix_socket | local_http | grpc | json_rpc | nats | https | queue | chain_relay
+  schema_version: semver_or_hash
+  relay_policy_ref: optional
+  authority_policy_ref: optional
+  privacy_mode: public | private | encrypted | redacted | permissioned_evidence
+  settlement_mode: local_only | optional_anchor | mainnet_required | dispute_only | reputation_only
+  sequence_root: optional_hash
+  status: opening | active | paused | closing | closed | disputed
+```
+
+```yaml
+AIIPEnvelope:
+  packet_id: packet://...
+  message_type: capability_discovery | task_offer | task_acceptance | handoff | authority_query | authority_grant | receipt_commitment | settlement_intent | dispute | reputation_query
+  system_id_from: system://... | domain://...
+  system_id_to: system://... | domain://...
+  channel_id: aiip://channel/...
+  sequence_or_nonce: string
+  timestamp_or_slot: string
+  profile: local | installed_worker | marketplace_worker | outcome_service | autonomous_system | enterprise
+  policy_hash: hash
+  authority_ref: optional grant://...
+  payload_hash: hash
+  payload_ref: optional artifact://... | cid://... | encrypted_ref
+  receipt_obligations: []
+  settlement_terms:
+    mode: local_only | optional_anchor | mainnet_required | dispute_only | reputation_only
+    settlement_account_ref: optional
+    escrow_ref: optional
+    dispute_window: optional
+  signature:
+    scheme: ed25519 | secp256k1 | ml-dsa | hybrid
+    public_key_ref: string
+    signature: base64
+```
+
+```yaml
+CapabilityDescriptorEnvelope:
+  descriptor_id: artifact://... | ai://...
+  domain_id: domain://... | system://... | worker://...
+  capabilities: []
+  sparse_worker_category_refs: []
+  receipt_schema_refs: []
+  authority_scope_requirements: []
+  runtime_profile_refs: []
+  pricing_ref: optional
+  reputation_context_refs: []
+  signature: optional
+```
+
+```yaml
+TaskOfferEnvelope:
+  offer_id: packet://...
+  task_id: task://...
+  offered_by: system://... | domain://...
+  offered_to: system://... | domain://... | worker://... | service://...
+  task_payload_hash: hash
+  constraints_ref: optional
+  authority_requirements: []
+  receipt_obligations: []
+  settlement_terms_ref: optional
+  expires_at: timestamp
+```
+
+```yaml
+TaskAcceptanceEnvelope:
+  acceptance_id: packet://...
+  offer_id: packet://...
+  accepted_by: system://... | domain://... | worker://... | service://...
+  price_quote_ref: optional
+  sla_ref: optional
+  authority_requirements: []
+  receipt_obligations: []
+  settlement_terms_ref: optional
+  status: accepted | rejected | counteroffered | expired
+```
+
+```yaml
+HandoffEnvelope:
+  handoff_id: packet://...
+  task_id: task://...
+  from_domain: system://... | domain://...
+  to_domain: system://... | domain://...
+  predecessor_receipt_root: optional_hash
+  authority_ref: optional grant://...
+  handoff_policy_hash: hash
+  settlement_intent_ref: optional settlement-intent://...
+  status: proposed | accepted | in_progress | completed | rejected | disputed
+```
+
+```yaml
+ReceiptCommitmentEnvelope:
+  receipt_commitment_id: packet://...
+  task_id: task://...
+  domain_id: system://... | domain://... | worker://...
+  receipt_root: hash
+  inclusion_proof_ref: optional
+  artifact_commitment_refs: []
+  policy_hash: hash
+  authority_ref: optional grant://...
+  disclosure_mode: public_root | private_body | encrypted_body | dispute_gated
+```
+
+```yaml
+SettlementIntentEnvelope:
+  settlement_intent_id: settlement-intent://...
+  task_id: task://...
+  claimant_ref: system://... | domain://... | worker://... | service://... | wallet://...
+  settlement_account_ref: optional
+  receipt_condition_refs: []
+  payment_terms_ref: optional
+  reputation_event_refs: []
+  dispute_window: optional
+  l1_anchor_policy: local_only | optional_anchor | mainnet_required | dispute_only | reputation_only
+  status: drafted | submitted | accepted | challenged | settled | rejected | expired
+```
+
+```yaml
+ReputationEventEnvelope:
+  reputation_event_id: receipt://...
+  subject_ref: system://... | domain://... | worker://... | service://...
+  context_ref: benchmark://... | rubric://... | service://... | sparse_category | custom
+  event_type: delivery_accepted | delivery_rejected | dispute_opened | dispute_resolved | slash | refund | benchmark_result | reliability_update | routing_quality
+  score_commitment: optional_hash
+  receipt_ref: receipt://...
+  policy_hash: hash
+  l1_anchor_ref: optional
+```
+
+AIIP envelopes may reference private or encrypted payload bodies. IOI L1 should
+anchor only the roots or commitments needed for shared trust, settlement,
+reputation, or disputes.
+
+```yaml
+ServiceModuleManifestEnvelope:
+  module_id: module://...
+  manifest_ref: ai://...
+  module_type: classifier | planner | router | policy | authority | execution_adapter | mutation | verifier | observer | evidence | settlement | projection | upgrade_proposal | other
+  version: semver_or_hash
+  publisher_id: ioi://publisher/...
+  input_schema_ref: cid://... | artifact://...
+  output_schema_ref: cid://... | artifact://...
+  primitive_capabilities_required: []
+  authority_scopes_required: []
+  policy_profile_ref: optional
+  receipt_obligations: []
+  benchmark_profile_refs: []
+  upgrade_policy_ref: optional
+  status: draft | active | deprecated | revoked
+```
+
+```yaml
+ModuleInvocationEnvelope:
+  invocation_id: invocation://...
+  module_id: module://...
+  module_version: semver_or_hash
+  autonomous_system_chain_id: system://...
+  autopilot_node_id: node://...
+  input_hash: hash
+  predecessor_state_root: hash
+  resulting_state_root: optional_hash
+  policy_hash: hash
+  authority_grant_refs: []
+  receipt_refs: []
+  transition_id: optional transition://...
+  status: proposed | admitted | executed | verified | committed | rejected | failed
+```
+
+```yaml
+UpgradeProposalEnvelope:
+  proposal_id: proposal://...
+  autonomous_system_chain_id: system://...
+  target_kind: policy_module | service_module | workflow_graph | contract | tool_binding | model_route | memory_schema | projection_schema | settlement_rule | dispute_rule | authority_envelope
+  target_ref: string
+  proposed_by: agent://... | worker://... | wallet://... | org://...
+  diff_ref: artifact://... | cid://...
+  expected_effects_ref: optional
+  simulation_receipt_refs: []
+  benchmark_receipt_refs: []
+  policy_hash: hash
+  status: drafted | submitted | approved | rejected | escalated | committed | rolled_back
+```
+
+```yaml
+UpgradeDecisionEnvelope:
+  decision_id: receipt://...
+  proposal_id: proposal://...
+  decision: approve | reject | escalate | rollback
+  decided_by: wallet://... | org://... | policy://... | governance://...
+  approval_grant_ref: optional
+  policy_hash: hash
+  receipt_refs: []
+  l1_commitment: optional
+```
+
+```yaml
+LocalSettlementEnvelope:
+  local_settlement_id: transition://...
+  autopilot_node_id: node://...
+  autonomous_system_chain_id: optional system://...
+  settlement_kind: module_invocation | workflow_transition | authority_outcome | task_handoff | upgrade_decision | receipt_root | dispute_escalation
+  operation_ref: agentgres://...
+  predecessor_state_root: optional_hash
+  resulting_state_root: hash
+  receipt_root: hash
+  l1_anchor_ref: optional
+```
 
 ## WorkerInstanceEnvelope
 
@@ -512,7 +846,7 @@ RuntimeEventEnvelope:
 ```yaml
 ReceiptEnvelope:
   receipt_id: receipt_...
-  receipt_type: policy | approval | model_invocation | tool_execution | artifact | validation | delivery | settlement | contribution | quality | data_recipe_run | transformation | dataset_distillation | ontology_projection | training_batch_plan | generation_batch | quality_gate_report | training_cost_ledger | training_trace | dataset_curation | context_mutation | post_training_cycle | promotion_decision | benchmark_run | evaluation_verdict | routing_decision
+  receipt_type: policy | approval | model_invocation | tool_execution | module_invocation | artifact | validation | delivery | settlement | local_settlement | contribution | quality | data_recipe_run | transformation | dataset_distillation | ontology_projection | upgrade_proposal | upgrade_decision | training_batch_plan | generation_batch | quality_gate_report | training_cost_ledger | training_trace | dataset_curation | context_mutation | post_training_cycle | promotion_decision | benchmark_run | evaluation_verdict | routing_decision
   run_id: optional
   task_id: optional
   actor_id: string
@@ -881,6 +1215,33 @@ ModelCapacityProfileEnvelope:
   status: draft | active | superseded
 ```
 
+## ModelDeploymentProfileEnvelope
+
+Model deployment profiles describe how cognition backends are supplied to a
+node or runtime. The router and invocation contract live in the node/runtime;
+model weights and endpoints are profile resources.
+
+```yaml
+ModelDeploymentProfileEnvelope:
+  model_deployment_profile_id: profile://...
+  owner_id: wallet://... | org://... | project://...
+  mount_mode: bundled_weights | local_file | local_server | external_api | hosted_pool | tee_session | depin_session | customer_vpc
+  model_artifact_refs:
+    - cid://... | artifact://... | file://...
+  endpoint_refs:
+    - model_endpoint://...
+  provider_refs: []
+  authority_scope_requirements:
+    - scope:model.invoke.external
+  privacy_class: local | external_api | tenant_private | tee_private | regulated
+  run_to_idle_policy_ref: optional
+  receipt_mode: hash_only | full_redacted | full_private
+  status: draft | active | unavailable | revoked
+```
+
+Bundled local weights are valid for offline, demo, small sovereign, or
+deployment-specific profiles. They are not the architecture default.
+
 ## TrainingBatchPlanEnvelope
 
 ```yaml
@@ -1136,11 +1497,15 @@ BenchmarkEnvelope:
 RoutingDecisionEnvelope:
   routing_decision_id: route_...
   task_id: task://...
-  router_id: worker://... | runtime://...
+  router_id: worker://... | runtime://... | system://... | domain://...
+  intent_hash: hash
   candidate_set_commitment: hash
   routing_policy_hash: hash
-  selected_worker_id: worker://...
-  selection_reason: string
+  selected_domain_or_worker: system://... | domain://... | worker://... | service://... | runtime://...
+  authority_scope: []
+  cost_bound: optional
+  reason_code: string
+  fallback_policy: optional
   contribution_policy_ref: optional
   receipt_obligations: []
   signature: optional

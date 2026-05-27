@@ -242,6 +242,68 @@ pub(super) fn maybe_complete_chat_reply(
     );
 }
 
+fn is_toolcat_single_tool_probe(goal: &str) -> bool {
+    goal.contains("TOOLCAT_SINGLE_TOOL") || goal.contains("toolcat_tool=")
+}
+
+fn toolcat_single_tool_target(goal: &str) -> Option<&str> {
+    goal.split_whitespace()
+        .find_map(|part| part.strip_prefix("toolcat_tool="))
+        .map(str::trim)
+        .filter(|tool| !tool.is_empty())
+}
+
+pub(super) fn maybe_complete_toolcat_single_tool_probe(
+    agent_state: &mut AgentState,
+    tool_name: &str,
+    is_gated: bool,
+    success: &mut bool,
+    out: &mut Option<String>,
+    err: &mut Option<String>,
+    completion_summary: &mut Option<String>,
+    verification_checks: &mut Vec<String>,
+    rules: &ActionRules,
+    session_id: [u8; 32],
+) {
+    if is_gated || !*success || completion_summary.is_some() {
+        return;
+    }
+    if !is_toolcat_single_tool_probe(&agent_state.goal) {
+        return;
+    }
+    if toolcat_single_tool_target(&agent_state.goal) != Some(tool_name) {
+        return;
+    }
+    if completion_gate_blocks(agent_state, success, out, err, verification_checks, rules) {
+        return;
+    }
+
+    let summary = format!(
+        "TOOLCAT_SINGLE_TOOL {} live IDE probe reached the post-tool final reply path.",
+        tool_name
+    );
+    complete_with_summary(
+        agent_state,
+        summary,
+        success,
+        out,
+        err,
+        completion_summary,
+        false,
+    );
+    let intent_id = terminal_contract_intent_id(agent_state);
+    agent_state
+        .execution_ledger
+        .record_terminal_success(intent_id);
+    verification_checks.push("toolcat_single_tool_queue_terminalized=true".to_string());
+    verification_checks.push("terminal_chat_reply_ready=true".to_string());
+    log::info!(
+        "Auto-completed TOOLCAT_SINGLE_TOOL queue flow after {} for session {}.",
+        tool_name,
+        hex::encode(&session_id[..4])
+    );
+}
+
 pub(super) fn maybe_complete_command_probe(
     agent_state: &mut AgentState,
     tool_wrapper: &AgentTool,
@@ -414,6 +476,7 @@ pub(super) fn maybe_complete_browser_snapshot_interaction(
     else {
         return;
     };
+    completion.append_contract_checks(verification_checks);
     if completion_gate_blocks(agent_state, success, out, err, verification_checks, rules) {
         return;
     }
@@ -431,16 +494,6 @@ pub(super) fn maybe_complete_browser_snapshot_interaction(
     agent_state
         .execution_ledger
         .record_terminal_success(intent_id);
-    verification_checks.push("browser_snapshot_success_criteria_auto_completed=true".to_string());
-    verification_checks.push(format!(
-        "browser_snapshot_success_criteria_count={}",
-        completion.matched_success_criteria.len()
-    ));
-    verification_checks.push(format!(
-        "browser_snapshot_success_criteria={}",
-        completion.matched_success_criteria.join(",")
-    ));
-    verification_checks.push("terminal_chat_reply_ready=true".to_string());
     log::info!(
         "Auto-completed browser snapshot interaction for session {}.",
         hex::encode(&session_id[..4])

@@ -47,13 +47,13 @@ replayable, and settleable.
 
 | Not | Is |
 |---|---|
-| A chatbot | Policy-bound execution |
+| A chatbot | Execution-boundary alignment and verifiable bounded agency |
 | A model marketplace | Worker routing through receipts and benchmarks |
 | A wallet bolted to an LLM | Authority-scoped credentials and approvals |
 | A workflow toy | Canonical operational state and replay |
 | A chain with AI bolted on | Settlement for completed machine labor |
 
-## Web4
+## Web4: The Action Layer
 
 IOI is the reference implementation of canonical Web4:
 
@@ -66,10 +66,15 @@ IOI is the reference implementation of canonical Web4:
 Web1 made information readable. Web2 made it writable. Web3 made it ownable.
 Web4 makes authority executable.
 
-Act inherits the guarantees of Own. A worker may reason creatively, but the
-moment it attempts to spend, sign, deploy, read private data, mutate state, or
-invoke another worker, the runtime collapses that intent into a deterministic
-action: allowed, denied, escalated, receipted, and replayable.
+Because unconstrained machine agency is structurally indistinguishable from
+system failure or a cyberattack, Web4 is the alignment, containment, and
+liability infrastructure that makes autonomous action safe.
+
+Under this model, Act inherits the guarantees of Own. A worker may reason
+creatively, but the moment it attempts to spend, sign, deploy, read private
+data, mutate state, or invoke another worker, the runtime collapses that intent
+into a deterministic action: allowed, denied, escalated, receipted, and
+replayable.
 
 ## The Stack
 
@@ -77,8 +82,17 @@ The IOI stack is edge-in. Work starts near the user, device, data, and runtime
 boundary, then projects only the commitments that need public trust into
 settlement.
 
-- The **IOI daemon** executes workflows, tools, models, workers, connectors, and
-  artifacts.
+- The **IOI daemon** is the hypervisor and deterministic runtime boundary for
+  workflows, tools, models, workers, connectors, and artifacts. It is consumed
+  by separate product and adoption surfaces:
+  - **Autopilot Workbench:** the native operator console and cockpit in the
+    Electron / VS Code fork.
+  - **IOI Authority Gateway, packaged as Autopilot Guard:** compatibility
+    sidecar/adapters for third-party developer interfaces such as Cursor, VS
+    Code, Claude Code, and CLI agents. It routes proposed actions through daemon
+    policy, authority, receipts, and replay where integration points allow.
+  The daemon is the trust substrate; Autopilot is the user-facing autonomous
+  workbench.
 - **wallet.network** authorizes identity, secrets, authority scopes, approvals,
   payments, data use, and decryption.
 - **Agentgres** records canonical operational truth: accepted operations,
@@ -103,13 +117,13 @@ Clients compose.
 Evidence proves.
 ```
 
-## Mixture Of Workers
+## Mixture of Workers
 
 The Internet of Intelligence is not a single monolithic model. It is a routed
 supply chain of specialized, bounded workers.
 
 Mixture of Experts routes inference across model experts. Mixture of Workers
-routes consequential labor across accountable workers.
+routes consequential labor across independently accountable workers.
 
 ```text
 Intent
@@ -122,8 +136,9 @@ Intent
   -> settlement
 ```
 
-Models are mounted. Workers are installed. Services are hired. MoW is routed.
-Receipts pay contributors.
+Models are mounted as cognition backends. Workers are installed as accountable
+actors. Services are hired for defined outcomes. MoW is routed. Receipts pay
+contributors.
 
 ## Worker Training
 
@@ -144,7 +159,7 @@ fine-tuning. Training improves capability; authority grants power.
 
 | Surface | Role |
 |---|---|
-| **Autopilot** | Local desktop runtime, operator shell, workflow canvas, and Worker Training Workbench. |
+| **Autopilot** | Local desktop workbench, operator shell, workflow composer, and Worker Training environment. |
 | **ioi.ai** | Lightweight control plane for accounts, devices, restore, publishing, sync metadata, and remote-runtime access. |
 | **aiagent.xyz** | Worker marketplace for manifests, benchmark profiles, Sparse Worker Categories, managed instances, installs, and routing. |
 | **sas.xyz** | Outcome marketplace for Service-as-Software contracts, including Worker Training contracts and worker-composed services. |
@@ -152,10 +167,10 @@ fine-tuning. Training improves capability; authority grants power.
 
 Stop renting tools. Hire workers.
 
-## Rules Of The Runtime
+## Rules of the Runtime
 
-- **Action-safe alignment.** IOI shifts alignment from filtering model text to
-  governing model consequences.
+- **Action-safe alignment.** IOI shifts alignment from filtering model text,
+  which is breakable, to governing model consequences, which is deterministic.
 - **One execution substrate.** No separate SDK, GUI, CLI, TUI, benchmark,
   harness, or workflow runtime owns consequential execution semantics.
 - **Authority is explicit.** `prim:*` describes what the runtime may execute.
@@ -174,9 +189,9 @@ Stop renting tools. Hire workers.
   receipted domain truth.
 - **Settlement is last, not first.** IOI L1 anchors the commitments that need
   public trust. The runtime stays edge-in.
-- **AFT breaks the 40-year BFT ceiling** IOI's Asymptote Fault Tolerance work explores
-  omission-dominant ordering, deterministic collapse, and proof-carrying
-  continuation to break the classical lower-bound shape that has constrained Byzantine agreement since the 1980s.
+- **AFT (Asymptote Fault Tolerance).** Explores omission-dominant ordering,
+  deterministic collapse, and proof-carrying continuation to scale Byzantine
+  agreement beyond classical thresholds under high-assurance profiles.
 
 ## Repository Map
 
@@ -187,7 +202,7 @@ Stop renting tools. Hire workers.
 | [`packages/runtime-daemon`](packages/runtime-daemon) | TypeScript daemon-facing runtime API surface and validation harnesses. |
 | [`packages/agent-ide`](packages/agent-ide) | Workbench and workflow-composition client over shared contracts. |
 | [`packages/workspace-substrate`](packages/workspace-substrate) | Shared workspace substrate for app and workbench surfaces. |
-| [`apps/autopilot`](apps/autopilot) | Local desktop operator shell for chat, workflows, artifacts, approvals, and runtime UX. |
+| [`apps/autopilot`](apps/autopilot) | Local desktop operator shell (Electron-first / VS Code fork) for chat, workflows, artifacts, approvals, and runtime UX. |
 | [`apps/aiagent-xyz`](apps/aiagent-xyz) | Marketplace for bounded workers, manifests, benchmark profiles, managed instances, and autonomous capabilities. |
 | [`apps/sas-xyz`](apps/sas-xyz) | Marketplace for verified autonomous service outcomes and Worker Training contracts. |
 | [`apps/developers-ioi-ai`](apps/developers-ioi-ai) | Developer-facing documentation and onboarding surface. |
@@ -217,12 +232,13 @@ npm run test:agent-sdk
 ```
 
 Rust uses the pinned toolchain in [`rust-toolchain.toml`](rust-toolchain.toml).
-Desktop builds require the usual Tauri system dependencies for your platform.
+Desktop builds require the usual Electron system dependencies for your platform.
 
 ## Read Next
 
 - [`docs/architecture/README.md`](docs/architecture/README.md) - architecture navigation and source-of-authority index.
 - [`docs/architecture/foundations/web4-and-ioi-stack.md`](docs/architecture/foundations/web4-and-ioi-stack.md) - the canonical Web4 definition.
+- [`docs/architecture/foundations/verifiable-bounded-agency.md`](docs/architecture/foundations/verifiable-bounded-agency.md) - bounded agency and execution-boundary alignment.
 - [`docs/architecture/foundations/mixture-of-workers.md`](docs/architecture/foundations/mixture-of-workers.md) - MoW labor-routing doctrine.
 - [`docs/architecture/foundations/worker-training-lifecycle.md`](docs/architecture/foundations/worker-training-lifecycle.md) - Worker Training lifecycle and Autopilot Foundry doctrine.
 - [`docs/architecture/foundations/domain-ontologies-and-data-recipes.md`](docs/architecture/foundations/domain-ontologies-and-data-recipes.md) - semantic data plane.
@@ -240,7 +256,7 @@ IOI is active alpha research and engineering. Some surfaces are
 production-shaped; others are research prototypes or environment-dependent.
 The architecture is intentionally strict:
 
-> **The daemon executes. wallet.network authorizes. Agentgres remembers. MoW routes. IOI L1 settles. Clients compose. Evidence proves.**
+> **The daemon executes. wallet.network authorizes. Agentgres remembers. Filecoin/CAS preserves. MoW routes. IOI L1 settles. Clients compose. Evidence proves.**
 
 ## License
 

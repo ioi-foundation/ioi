@@ -561,6 +561,7 @@ async function runGuiValidation(outputRoot) {
       env: {
         ...process.env,
         IOI_WORKSPACE_IDE_BRIDGE_URL: bridgeUrl,
+        AUTOPILOT_SKIP_OVERVIEW: "1",
       },
       stdio: ["ignore", "pipe", "pipe"],
     });

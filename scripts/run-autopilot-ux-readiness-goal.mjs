@@ -43,6 +43,8 @@ function parseArgs(argv) {
     else if (arg === "--run") args.run = true;
     else if (arg === "--output-root") {
       args.outputRoot = argv[++index] ?? args.outputRoot;
+    } else if (arg === "--window-timeout-ms") {
+      index += 1; // Skip the value
     } else {
       throw new Error(`Unknown argument: ${arg}`);
     }

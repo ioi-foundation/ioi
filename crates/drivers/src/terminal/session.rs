@@ -157,7 +157,10 @@ impl ShellSession {
 
     pub(crate) async fn terminate(self: &Arc<Self>) -> Result<()> {
         let _guard = self.exec_lock.lock().await;
+        self.force_terminate().await
+    }
 
+    pub(crate) async fn force_terminate(self: &Arc<Self>) -> Result<()> {
         #[cfg(unix)]
         {
             let session = Arc::clone(self);

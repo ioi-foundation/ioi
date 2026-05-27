@@ -115,6 +115,60 @@ fn semantic_confidence_from_score(score: i32) -> f32 {
     (normalized * 100.0).round() / 100.0
 }
 
+fn unescape_xml_attr(value: &str) -> String {
+    value
+        .replace("&quot;", "\"")
+        .replace("&apos;", "'")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&amp;", "&")
+}
+
+fn xml_attr_value(line: &str, key: &str) -> Option<String> {
+    let needle = format!("{}=\"", key);
+    let start = line.find(&needle)? + needle.len();
+    let value = line.get(start..)?;
+    let end = value.find('"')?;
+    Some(unescape_xml_attr(&value[..end]))
+}
+
+fn xml_tag_role(line: &str) -> Option<String> {
+    let trimmed = line.trim_start();
+    if !trimmed.starts_with('<') || trimmed.starts_with("</") || trimmed.starts_with("<!--") {
+        return None;
+    }
+
+    let tag = trimmed
+        .trim_start_matches('<')
+        .chars()
+        .take_while(|ch| !ch.is_whitespace() && *ch != '>' && *ch != '/')
+        .collect::<String>();
+    if tag.is_empty() {
+        None
+    } else {
+        Some(tag.replace('_', " "))
+    }
+}
+
+fn xml_rect_value(line: &str) -> Option<Rect> {
+    let rect = xml_attr_value(line, "rect")?;
+    let parts = rect
+        .split(',')
+        .map(str::trim)
+        .map(str::parse::<i32>)
+        .collect::<Result<Vec<_>, _>>()
+        .ok()?;
+    if parts.len() != 4 {
+        return None;
+    }
+    Some(Rect {
+        x: parts[0],
+        y: parts[1],
+        width: parts[2],
+        height: parts[3],
+    })
+}
+
 fn score_ui_find_candidate(
     query_lc: &str,
     query_norm: &str,
@@ -314,6 +368,69 @@ pub fn find_semantic_ui_match(
     }
 
     None
+}
+
+pub(super) fn find_semantic_xml_match(xml: &str, query: &str) -> Option<UiFindSemanticMatch> {
+    let query = query.trim();
+    if query.is_empty() {
+        return None;
+    }
+
+    let query_lc = query.to_ascii_lowercase();
+    let query_norm = normalize_semantic_key(query);
+    let query_terms = tokenize_query_terms(query);
+    let mut best: Option<(i32, UiFindSemanticMatch)> = None;
+
+    for line in xml.lines() {
+        let Some(id) = xml_attr_value(line, "id").filter(|value| !value.trim().is_empty()) else {
+            continue;
+        };
+        let Some(rect) = xml_rect_value(line) else {
+            continue;
+        };
+        let role = xml_attr_value(line, "role")
+            .or_else(|| xml_tag_role(line))
+            .unwrap_or_else(|| "element".to_string());
+        let label = xml_attr_value(line, "name")
+            .or_else(|| xml_attr_value(line, "value"))
+            .unwrap_or_else(|| role.clone());
+        let semantic_hints = SEMANTIC_HINT_ATTR_KEYS
+            .iter()
+            .filter_map(|key| xml_attr_value(line, key))
+            .filter(|value| !value.trim().is_empty())
+            .map(|value| value.to_ascii_lowercase())
+            .collect::<Vec<_>>();
+        let score = score_ui_find_candidate(
+            &query_lc,
+            &query_norm,
+            &query_terms,
+            &id,
+            &role,
+            &label,
+            &semantic_hints,
+            rect,
+        );
+        if score == i32::MIN {
+            continue;
+        }
+
+        let candidate = UiFindSemanticMatch {
+            id: Some(id),
+            role: Some(role),
+            label: Some(label),
+            x: rect.x + (rect.width / 2),
+            y: rect.y + (rect.height / 2),
+            source: "driver_capture_tree",
+            confidence: semantic_confidence_from_score(score),
+        };
+
+        match &best {
+            Some((best_score, _)) if *best_score >= score => {}
+            _ => best = Some((score, candidate)),
+        }
+    }
+
+    best.and_then(|(score, candidate)| (score >= 25).then_some(candidate))
 }
 
 fn has_node_content(node: &AccessibilityNode) -> bool {
