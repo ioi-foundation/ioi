@@ -133,6 +133,9 @@ test("Agent Studio composer uses the Tauri chat source glyph vocabulary", async 
   assert.match(source, /if \(route\.startsWith\("route\."\)\) \{\s*return "auto";\s*\}/);
   assert.match(source, /const requestedModel = studioModelIdForRouteInvocation\(selectedRoute, selectedModelId\)/);
   assert.match(source, /max_steps: 8/);
+  assert.match(source, /function shouldProjectStudioRuntimeCockpit/);
+  assert.match(source, /function projectStudioRuntimeCockpit/);
+  assert.match(source, /if \(shouldProjectStudioRuntimeCockpit\(prompt\)\) \{\s*await projectStudioRuntimeCockpit\(prompt, agentTurn, output\);/);
   assert.match(source, /function normalizeStudioAssistantReplyText/);
   assert.match(source, /function studioAssistantTextFromRuntimeToolEvents/);
   assert.match(source, /studioAssistantTextFromRuntimeToolEvents\(events\)/);

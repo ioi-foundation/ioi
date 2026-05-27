@@ -46,6 +46,8 @@
     "goal:autopilot-agent-studio-runtime-ux-denoising:run": "node scripts/run-autopilot-agent-studio-runtime-ux-denoising-goal.mjs --run",
     "goal:autopilot-agent-studio-rust-agentic-runtime-parity": "node scripts/run-autopilot-agent-studio-rust-agentic-runtime-parity-goal.mjs --preflight",
     "goal:autopilot-agent-studio-rust-agentic-runtime-parity:run": "node scripts/run-autopilot-agent-studio-rust-agentic-runtime-parity-goal.mjs --run",
+    "goal:autopilot-antigravity-harness-parity-plus": "node scripts/run-autopilot-antigravity-harness-parity-plus-goal.mjs --preflight",
+    "goal:autopilot-antigravity-harness-parity-plus:run": "node scripts/run-autopilot-antigravity-harness-parity-plus-goal.mjs --run",
     "goal:autopilot-fork-quickinput-parity": "node scripts/run-autopilot-fork-quickinput-parity-goal.mjs --preflight",
     "goal:autopilot-fork-quickinput-parity:run": "node scripts/run-autopilot-fork-quickinput-parity-goal.mjs --run",
     "test:autopilot-gui-harness": "node --test scripts/lib/autopilot-gui-harness-contract.test.mjs",

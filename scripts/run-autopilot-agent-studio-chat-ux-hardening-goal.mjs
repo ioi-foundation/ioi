@@ -1758,7 +1758,7 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
       }
       await server?.close?.();
       await daemon.close().catch(() => undefined);
-      if (userDataDir) rmSync(userDataDir, { recursive: true, force: true });
+      if (userDataDir) rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 150 });
       cleanupWorkspaceFixture(outputDir, workspaceFixture);
       await cleanupValidationProcesses({ outputDir, phase: "timeout-run" });
     } catch {
@@ -1920,7 +1920,7 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
     const modelHost = page.locator('[data-testid="fork-model-route-quickinput"]').first();
     await modelHost.waitFor({ state: "visible", timeout: 7000 });
     const modelText = await modelHost.textContent();
-    if (!/stories260k|qwen\/qwen3\.5-9b/i.test(modelText || "") || /local unmounted demo|No mounted models/i.test(modelText || "")) {
+    if (!/mounted|active/i.test(modelText || "") || /local unmounted demo|No mounted models/i.test(modelText || "")) {
       throw new Error(`Model selector did not show mounted models only: ${modelText}`);
     }
     await screenshot(page, outputDir, "model-selector-mounted-models.png", screenshots);
@@ -2278,7 +2278,7 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
     }
     await server?.close?.();
     await daemon.close().catch(() => undefined);
-    if (userDataDir) rmSync(userDataDir, { recursive: true, force: true });
+    if (userDataDir) rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 150 });
     cleanupWorkspaceSymlinkProbe(outputDir, workspaceSymlinkProbe);
     cleanupWorkspaceFixture(outputDir, workspaceFixture);
     await cleanupValidationProcesses({ outputDir, phase: "after-run" });

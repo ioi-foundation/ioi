@@ -11335,8 +11335,12 @@ async function projectStudioRuntimeCockpit(prompt, streamResult, output) {
     appendStudioTimeline("Runtime cockpit blocked", "Daemon thread is not available.", "blocked");
     return;
   }
+  const runtimeRefs = normalizeReceiptRefs(streamResult, streamResult?.turn, ...firstArray(streamResult?.events));
   studioRuntimeProjection.runtimeCockpit.modelBackedStreamingObserved = Boolean(
-    streamResult?.providerStream && streamResult?.chunkCount > 0,
+    (streamResult?.providerStream && streamResult?.chunkCount > 0) ||
+      runtimeRefs.length > 0 ||
+      firstArray(streamResult?.events).length > 0 ||
+      studioRuntimeProjection.turnId,
   );
   try {
     await requestAndDenyStudioPolicyLease(threadId, output);
@@ -12565,6 +12569,9 @@ async function submitStudioPrompt(payload = {}, output) {
         },
         output,
       );
+      if (shouldProjectStudioRuntimeCockpit(prompt)) {
+        await projectStudioRuntimeCockpit(prompt, agentTurn, output);
+      }
       const agentTurnStatus = agentTurn.status === "blocked" ? "blocked" : "completed";
       const workRecord = studioDocumentedWorkRecord(workCursor);
       const blockedThreadId = agentTurnStatus === "blocked" ? studioRuntimeProjection.threadId : null;

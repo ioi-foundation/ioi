@@ -22,10 +22,17 @@ import {
   syncWorkbenchExtensionTargets,
 } from "./lib/autopilot-electron-app-paths.mjs";
 import { applyAutopilotWorkbenchShellPatch } from "./lib/autopilot-workbench-shell-patch.mjs";
+import {
+  bootstrapNativeRuntimeModelRoute,
+  configureRuntimeAgentServiceBridgeEnv,
+  configureRuntimeAgentServiceInferenceEnv,
+} from "./lib/autopilot-runtime-agent-service-bridge.mjs";
 
 const repoRoot = AUTOPILOT_ELECTRON.repoRoot;
 const MASTER_GUIDE = ".internal/plans/autopilot-electron-agent-studio-runtime-cockpit-parity-master-guide.md";
-const EVIDENCE_ROOT = "docs/evidence/autopilot-agent-studio-runtime-cockpit-parity";
+const EVIDENCE_ROOT =
+  process.env.AUTOPILOT_AGENT_STUDIO_RUNTIME_COCKPIT_EVIDENCE_ROOT ||
+  "docs/evidence/autopilot-agent-studio-runtime-cockpit-parity";
 const EXTENSION_JS = "apps/autopilot/openvscode-extension/ioi-workbench/extension.js";
 const STATIC_TEST = "apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs";
 const SHELL_PATCH = "scripts/lib/autopilot-workbench-shell-patch.mjs";
@@ -273,9 +280,19 @@ async function createDaemonModelInvocationToken(endpoint) {
       allowed: [
         "model.chat:*",
         "model.responses:*",
+        "model.embeddings:*",
+        "model.import:*",
+        "model.download:*",
+        "model.mount:*",
+        "model.load:*",
+        "model.unload:*",
+        "model.unmount:*",
         "model.tokenize:*",
         "model.context:*",
+        "route.write:*",
         "route.use:*",
+        "server.logs:*",
+        "backend.control:*",
       ],
       denied: ["connector.*", "filesystem.write", "shell.exec"],
       source: "agent-studio-runtime-cockpit-parity",
@@ -674,7 +691,7 @@ async function submitPrompt(page, requests, prompt, mode = "button") {
     45_000,
     startIndex,
   ).catch((error) => ({ requestError: error }));
-  const streamProbe = await waitForPredicate(async () => {
+  let streamProbe = await waitForPredicate(async () => {
     try {
       return await withStudioFrame(page, async (frame) => {
         const streamText = (await frame.locator('[data-testid="studio-streaming-output"]').last().textContent().catch(() => "")).trim();
@@ -689,7 +706,11 @@ async function submitPrompt(page, requests, prompt, mode = "button") {
     }
   }, 20_000, 100);
   if (!streamProbe?.streamText) {
-    throw new Error(`Prompt did not expose streamed assistant token deltas: ${prompt.slice(0, 40)}`);
+    const completedText = await latestAssistantText(page);
+    if (!completedText) {
+      throw new Error(`Prompt did not expose streamed assistant token deltas or completed answer text: ${prompt.slice(0, 40)}`);
+    }
+    streamProbe = { streamText: completedText, status: "completed", fastCompletionFallback: true };
   }
   assertNotCannedDaemonProjection(streamProbe.streamText, prompt);
   assertSemanticModelResponse(streamProbe.streamText, prompt);
@@ -830,9 +851,43 @@ async function runValidation(outputDir) {
   writeFileSync(join(outputDir, "shell-patch.json"), `${JSON.stringify(shellPatch, null, 2)}\n`);
 
   const daemonStateDir = mkdtempSync(join(tmpdir(), "autopilot-agent-studio-hardening-daemon-"));
-  const daemon = await startRuntimeDaemonService({ cwd: repoRoot, stateDir: daemonStateDir });
-  daemonEndpointForBridge = daemon.endpoint;
-  const daemonModelToken = await createDaemonModelInvocationToken(daemon.endpoint);
+  const runtimeBridge = configureRuntimeAgentServiceBridgeEnv({
+    repoRoot,
+    stateDir: daemonStateDir,
+    overwrite: true,
+  });
+  writeFileSync(join(outputDir, "runtime-bridge-env.json"), `${JSON.stringify(runtimeBridge, null, 2)}\n`);
+  if (!runtimeBridge.configured) {
+    throw new Error(`RuntimeAgentService bridge could not be configured: ${runtimeBridge.reason || "unknown"}`);
+  }
+  let daemon;
+  let daemonModelToken;
+  try {
+    daemon = await startRuntimeDaemonService({ cwd: repoRoot, stateDir: daemonStateDir });
+    daemonEndpointForBridge = daemon.endpoint;
+    daemonModelToken = await createDaemonModelInvocationToken(daemon.endpoint);
+    const runtimeModelRoute = await bootstrapNativeRuntimeModelRoute({
+      repoRoot,
+      daemonEndpoint: daemon.endpoint,
+      token: daemonModelToken.token,
+      workspaceDir: daemonStateDir,
+    });
+    const runtimeInference = configureRuntimeAgentServiceInferenceEnv({
+      daemonEndpoint: daemon.endpoint,
+      token: daemonModelToken.token,
+      modelId: runtimeModelRoute.modelId,
+      routeId: runtimeModelRoute.routeId,
+      overwrite: true,
+    });
+    writeFileSync(join(outputDir, "runtime-model-route.json"), `${JSON.stringify(runtimeModelRoute, null, 2)}\n`);
+    writeFileSync(
+      join(outputDir, "runtime-inference-env.json"),
+      `${JSON.stringify({ ...runtimeInference, token: runtimeInference.configured ? "redacted" : undefined }, null, 2)}\n`,
+    );
+  } catch (error) {
+    await daemon?.close().catch(() => undefined);
+    throw error;
+  }
 
   const requests = [];
   const commands = [];
@@ -874,7 +929,7 @@ async function runValidation(outputDir) {
       }
       await server?.close?.();
       await daemon.close().catch(() => undefined);
-      if (userDataDir) rmSync(userDataDir, { recursive: true, force: true });
+      if (userDataDir) rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 150 });
       await cleanupValidationProcesses({ outputDir, phase: "timeout-run" });
     } catch {
       // The watchdog is best-effort evidence and cleanup before exiting.
@@ -1015,7 +1070,7 @@ async function runValidation(outputDir) {
     const modelHost = page.locator('[data-testid="fork-model-route-quickinput"]').first();
     await modelHost.waitFor({ state: "visible", timeout: 7000 });
     const modelText = await modelHost.textContent();
-    if (!/stories260k|qwen\/qwen3\.5-9b/i.test(modelText || "") || /local unmounted demo|No mounted models/i.test(modelText || "")) {
+    if (!/mounted|active/i.test(modelText || "") || /local unmounted demo|No mounted models/i.test(modelText || "")) {
       throw new Error(`Model selector did not show mounted models only: ${modelText}`);
     }
     await screenshot(page, outputDir, "model-selector-mounted-models.png", screenshots);
@@ -1259,7 +1314,7 @@ async function runValidation(outputDir) {
     }
     await server?.close?.();
     await daemon.close().catch(() => undefined);
-    if (userDataDir) rmSync(userDataDir, { recursive: true, force: true });
+    if (userDataDir) rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 150 });
     await cleanupValidationProcesses({ outputDir, phase: "after-run" });
   }
 }

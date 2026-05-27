@@ -500,7 +500,7 @@ async function run(outputDir) {
     }
     await closeServer(server);
     await daemon.close().catch(() => undefined);
-    if (userDataDir) rmSync(userDataDir, { recursive: true, force: true });
+    if (userDataDir) rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 150 });
   }
 }
 
