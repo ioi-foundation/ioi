@@ -2,7 +2,7 @@ import type { Node, NodeLogic } from "../types/graph";
 import {
   workflowRuntimeTelemetrySummaryToUsageTelemetry,
   type WorkflowRuntimeTelemetrySummary,
-} from "./workflow-runtime-telemetry-summary";
+} from "./workflow-runtime-telemetry-summary.ts";
 
 export const WORKFLOW_RUNTIME_CODING_TOOL_CONTROL_SCHEMA_VERSION =
   "ioi.workflow.runtime-coding-tool-control.v1" as const;

@@ -1,8 +1,8 @@
 import {
   createRuntimeCodingToolControlRequest,
   type RuntimeCodingToolControlRequest,
-} from "./workflow-runtime-coding-tool-control-nodes";
-import { stableContentHash } from "./harness-workflow/hashing";
+} from "./workflow-runtime-coding-tool-control-nodes.ts";
+import { stableContentHash } from "./harness-workflow/hashing.ts";
 
 export const WORKFLOW_STRUCTURED_POLICY_COMPOSER_SCHEMA_VERSION =
   "ioi.workflow.structured-policy-composer.v1" as const;
