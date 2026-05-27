@@ -24,6 +24,7 @@ const finalVerdictPath = join(evidenceRoot, "final-antigravity-harness-parity-pl
 const args = new Set(process.argv.slice(2));
 const runMode = args.has("--run");
 const preflightMode = args.has("--preflight") || !runMode;
+const resumeFromFinalManifest = args.has("--resume-from-final-manifest");
 
 const proofPlan = [
   proof("stage1-trajectory-sqlite", 1, ["AG-HARNESS-001", "AG-HARNESS-018"], "supporting", [
@@ -322,6 +323,21 @@ function maybeReadJson(path) {
   } catch {
     return null;
   }
+}
+
+function resumePassedScenarioVerdicts() {
+  if (!resumeFromFinalManifest) return [];
+  const previousManifest = maybeReadJson(finalManifestPath);
+  if (!previousManifest || !Array.isArray(previousManifest.scenarioVerdicts)) return [];
+  const knownScenarioIds = new Set(proofPlan.map((scenario) => scenario.id));
+  const seen = new Set();
+  return previousManifest.scenarioVerdicts
+    .filter((verdict) => verdict?.status === "passed" && knownScenarioIds.has(verdict.id))
+    .filter((verdict) => {
+      if (seen.has(verdict.id)) return false;
+      seen.add(verdict.id);
+      return true;
+    });
 }
 
 function listDirectories(path) {
@@ -669,9 +685,19 @@ async function runCampaign() {
   ensureDir(evidenceRoot);
   const campaignDir = join(evidenceRoot, `${timestamp()}-antigravity-harness-parity-plus-campaign`);
   ensureDir(campaignDir);
-  const scenarioVerdicts = [];
+  const scenarioVerdicts = resumePassedScenarioVerdicts();
+  const resumedScenarioIds = new Set(scenarioVerdicts.map((verdict) => verdict.id));
+  if (scenarioVerdicts.length > 0) {
+    writeFileSync(
+      join(campaignDir, "resume-source.json"),
+      `${JSON.stringify({ finalManifestPath, resumedScenarioIds: [...resumedScenarioIds] }, null, 2)}\n`,
+    );
+  }
   await cleanupAutopilotCampaignProcesses({ outputDir: campaignDir, phase: "before-campaign" });
   for (const scenario of proofPlan) {
+    if (resumedScenarioIds.has(scenario.id)) {
+      continue;
+    }
     const verdict = await runProofScenario(campaignDir, scenario);
     scenarioVerdicts.push(verdict);
     writeFileSync(
