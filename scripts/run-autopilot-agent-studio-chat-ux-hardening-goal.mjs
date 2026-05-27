@@ -758,7 +758,7 @@ async function findFrameWithTestId(page, testId, timeoutMs = 45_000) {
 
 function isFrameLifecycleError(error) {
   const message = String(error?.message || error);
-  return /Frame was detached|Execution context was destroyed|Target page, context or browser has been closed/i.test(message);
+  return /Frame was detached|Execution context was destroyed|Target page, context or browser has been closed|Cannot find context with specified id|DOM\.scrollIntoViewIfNeeded/i.test(message);
 }
 
 async function withStudioFrame(page, action, attempts = 12) {
