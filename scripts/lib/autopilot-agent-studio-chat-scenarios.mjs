@@ -338,6 +338,20 @@ const TOOLCAT_STAGE4_RETAINED_SHELL_THREADED_PROMPTS = toolcatProbes("TOOLCAT_ST
     "Keep this probe in the same Agent Studio thread; for retained shell controls, reuse the most recent shell__start command_id from the current trace history.",
 });
 
+const RETAINED_SHELL_REALISTIC_TASK_PROMPTS = [
+  {
+    kind: "retained shell helper lifecycle",
+    executionMode: "agent",
+    prompt: [
+      "Start a disposable retained Node.js helper that waits for stdin and echoes a status line.",
+      "Check the helper status, send the input `compile-once`, terminate the helper, reset retained shell state, and then answer in one clean sentence.",
+      "Keep command ids, raw receipts, and trace details out of the chat answer.",
+    ].join(" "),
+    mustMentionAny: ["Retained shell", "terminated", "reset"],
+    assistantVisibleTimeoutMs: 180_000,
+  },
+];
+
 const TOOLCAT_STAGE5_BROWSER_PROMPTS = toolcatProbes("TOOLCAT_STAGE5_BROWSER_SINGLE", [
   "browser__navigate",
   "browser__inspect",
@@ -390,6 +404,20 @@ const TOOLCAT_STAGE5_BROWSER_CORE_TAIL_PROMPTS = toolcatProbes("TOOLCAT_STAGE5_B
 const TOOLCAT_BROWSER_COMPUTER_LIVE_VIEWPORT_PROMPTS = toolcatProbes("TOOLCAT_STAGE5_BROWSER_SINGLE", [
   "browser__click_at",
 ], { assistantVisibleTimeoutMs: 120_000 });
+
+const BROWSER_COMPUTER_REALISTIC_VIEWPORT_PROMPTS = [
+  {
+    kind: "browser canvas click task",
+    executionMode: "agent",
+    prompt: [
+      "Open the local browser fixture at {{browserFixtureUrl}}.",
+      "Inspect the page, click the blue canvas target using the browser coordinate/target action, and report whether the browser session stayed observable.",
+      "Keep raw fixture URLs, coordinates, receipts, and trace details out of the final answer.",
+    ].join(" "),
+    mustMentionAny: ["browser session", "observable"],
+    assistantVisibleTimeoutMs: 180_000,
+  },
+];
 
 const TOOLCAT_STAGE5_BROWSER_DOM_CONTROLS_FOCUSED_PROMPTS = toolcatProbes("TOOLCAT_STAGE5_BROWSER_SINGLE", [
   "browser__list_options",
@@ -776,7 +804,7 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
   "toolcat-stage4-retained-shell-threaded-controls": {
     id: "toolcat-stage4-retained-shell-threaded-controls",
     label: "Tool catalogue Stage 4 retained shell lifecycle through one thread",
-    promptCases: TOOLCAT_STAGE4_RETAINED_SHELL_THREADED_PROMPTS,
+    promptCases: RETAINED_SHELL_REALISTIC_TASK_PROMPTS,
     minUniqueAssistantResponses: 1,
     maxFirstPromptMs: 180_000,
     assistantVisibleTimeoutMs: 180_000,
@@ -841,7 +869,7 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
   "browser-computer-live-viewport-ux-focused": {
     id: "browser-computer-live-viewport-ux-focused",
     label: "Focused browser/computer managed live viewport UX proof",
-    promptCases: TOOLCAT_BROWSER_COMPUTER_LIVE_VIEWPORT_PROMPTS,
+    promptCases: BROWSER_COMPUTER_REALISTIC_VIEWPORT_PROMPTS,
     minUniqueAssistantResponses: 1,
     maxFirstPromptMs: 180_000,
     assistantVisibleTimeoutMs: 180_000,

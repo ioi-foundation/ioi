@@ -58,6 +58,41 @@ function ensureDir(path) {
   mkdirSync(path, { recursive: true });
 }
 
+function setupRuntimeCockpitCodeFixture(outputDir) {
+  const fixtureId = `run-${Date.now().toString(36)}-${process.pid.toString(36)}`;
+  const relativeRoot = join(".tmp", "autopilot-runtime-cockpit-code", fixtureId);
+  const fixtureRoot = join(repoRoot, relativeRoot);
+  const relativePath = join(relativeRoot, "status-labels.mjs");
+  const absolutePath = join(repoRoot, relativePath);
+  rmSync(fixtureRoot, { recursive: true, force: true });
+  ensureDir(fixtureRoot);
+  writeFileSync(
+    absolutePath,
+    [
+      "export function statusLabel(status) {",
+      "  return String(status);",
+      "}",
+      "",
+    ].join("\n"),
+  );
+  const fixture = { fixtureId, relativeRoot, fixtureRoot, relativePath, absolutePath };
+  writeFileSync(join(outputDir, "runtime-cockpit-code-fixture.json"), `${JSON.stringify(fixture, null, 2)}\n`);
+  return fixture;
+}
+
+function cleanupRuntimeCockpitCodeFixture(outputDir, fixture) {
+  if (!fixture?.fixtureRoot) return;
+  rmSync(fixture.fixtureRoot, { recursive: true, force: true });
+  writeFileSync(
+    join(outputDir, "runtime-cockpit-code-fixture-cleanup.json"),
+    `${JSON.stringify({
+      fixtureRoot: fixture.fixtureRoot,
+      fixtureExistsAfterCleanup: existsSync(fixture.fixtureRoot),
+      timestamp: new Date().toISOString(),
+    }, null, 2)}\n`,
+  );
+}
+
 function read(path) {
   try {
     return readFileSync(join(repoRoot, path), "utf8");
@@ -847,6 +882,7 @@ async function runValidation(outputDir) {
   await cleanupValidationProcesses({ outputDir, phase: "before-launch" });
   const sync = syncWorkbenchExtensionTargets();
   const shellPatch = applyAutopilotWorkbenchShellPatch();
+  const runtimeCodeFixture = setupRuntimeCockpitCodeFixture(outputDir);
   writeFileSync(join(outputDir, "extension-sync.json"), `${JSON.stringify(sync, null, 2)}\n`);
   writeFileSync(join(outputDir, "shell-patch.json"), `${JSON.stringify(shellPatch, null, 2)}\n`);
 
@@ -929,6 +965,7 @@ async function runValidation(outputDir) {
       }
       await server?.close?.();
       await daemon.close().catch(() => undefined);
+      cleanupRuntimeCockpitCodeFixture(outputDir, runtimeCodeFixture);
       if (userDataDir) rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 150 });
       await cleanupValidationProcesses({ outputDir, phase: "timeout-run" });
     } catch {
@@ -1104,9 +1141,11 @@ async function runValidation(outputDir) {
     await assertComposerFocused(page, "empty prompt");
 
     const prompt = [
-      "Exercise the Agent Studio runtime cockpit.",
-      "Use daemon-owned model streaming, propose a safe patch preview, run diagnostics, show policy lease behavior, receipts, replay, browser status, and worker status.",
-      "Do not call external connectors.",
+      `Update the disposable status-label helper at ${runtimeCodeFixture.relativePath}.`,
+      "Add a normalizeRunStatusLabel(status) export that turns snake_case run states into title-case labels.",
+      "Prepare a dry-run patch hunk, run diagnostics, leave the hunk for review, and keep non-disposable files unchanged.",
+      "If an elevated action would be required, surface the policy gate and continue with a safe denial summary.",
+      "Also check the browser status and worker status before the final answer. Do not call external connectors.",
     ].join(" ");
     const promptResult = await submitPrompt(page, requests, prompt, "button");
     const promptResults = [{
@@ -1228,6 +1267,8 @@ async function runValidation(outputDir) {
       targetStudioOperationalChatAchieved: true,
       targetStudioTauriChatUxParityStillPasses: true,
       rootCause: "The previous harness stopped at chat focus and model stream. This proof drives daemon-backed runtime cockpit surfaces: tool proposal, policy lease denial, diagnostics command output, native diff/hunk controls, receipts/replay, browser status, worker status, and stop/resume.",
+      realisticTaskObjective: "Prepare a dry-run code patch for a disposable status-label helper, run diagnostics, route approval/hunk review, and summarize the result without raw trace details in chat.",
+      runtimeCodeFixture,
       textareaKeepsFocusOnClick: true,
       textareaKeepsFocusAcrossBridgePoll: true,
       typingTargetsComposer: true,
@@ -1314,6 +1355,7 @@ async function runValidation(outputDir) {
     }
     await server?.close?.();
     await daemon.close().catch(() => undefined);
+    cleanupRuntimeCockpitCodeFixture(outputDir, runtimeCodeFixture);
     if (userDataDir) rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 150 });
     await cleanupValidationProcesses({ outputDir, phase: "after-run" });
   }

@@ -19,6 +19,7 @@ import {
 import {
   nativeFixtureConversationReply,
   nativeFixtureQueryNeedsCommand,
+  nativeFixtureQueryNeedsUiInteraction,
   nativeFixtureQueryNeedsWeb,
   nativeFixtureQueryWorkspaceConstrained,
 } from "./model-mounting/native-fixture-intent.mjs";
@@ -8304,6 +8305,7 @@ function nativeLocalOutput({ kind, input, modelId }) {
   ) {
     const workspaceConstrained = nativeFixtureQueryWorkspaceConstrained(querySignalText);
     const commandDirected = nativeFixtureQueryNeedsCommand(querySignalText);
+    const directUiInput = nativeFixtureQueryNeedsUiInteraction(querySignalText);
     const currentExternalFact = nativeFixtureQueryNeedsWeb(querySignalText) && !workspaceConstrained;
     return JSON.stringify({
       remote_public_fact_required: currentExternalFact,
@@ -8312,7 +8314,7 @@ function nativeLocalOutput({ kind, input, modelId }) {
       durable_automation_requested: false,
       model_registry_control_requested: false,
       app_launch_directed: false,
-      direct_ui_input: false,
+      direct_ui_input: directUiInput,
       desktop_screenshot_requested: false,
       temporal_filesystem_filter: false,
     });
@@ -8322,13 +8324,15 @@ function nativeLocalOutput({ kind, input, modelId }) {
     const intentIds = [...new Set([...inputStr.matchAll(/"intent_id"\s*:\s*"([^"]+)"/g)].map((match) => match[1]))];
     const workspaceConstrained = nativeFixtureQueryWorkspaceConstrained(querySignalText);
     const preferCommand = nativeFixtureQueryNeedsCommand(querySignalText);
+    const preferUi = nativeFixtureQueryNeedsUiInteraction(querySignalText) && !preferCommand;
     const preferWeb = nativeFixtureQueryNeedsWeb(querySignalText) && !workspaceConstrained;
-    const preferWorkspace = workspaceConstrained && !preferWeb && !preferCommand;
-    const preferConversation = /\b(humans|hello|hi|chat|conversation|thanks|thank you|how are you)\b/i.test(queryText) && !preferWeb && !preferWorkspace && !preferCommand;
+    const preferWorkspace = workspaceConstrained && !preferWeb && !preferCommand && !preferUi;
+    const preferConversation = /\b(humans|hello|hi|chat|conversation|thanks|thank you|how are you)\b/i.test(queryText) && !preferWeb && !preferWorkspace && !preferCommand && !preferUi;
     const isRustBridgeTest = /\b(Rust|RuntimeAgentService|bridge|KernelEvent|interrupt|validation|operator|cross-surface|react-flow)\b/i.test(querySignalText);
     const scores = intentIds.map((intentId) => {
       let score = isRustBridgeTest ? 0.0 : 0.05;
       if (preferCommand && intentId === "command.exec") score = 0.98;
+      if (preferUi && intentId === "ui.interaction") score = 0.98;
       if (preferWeb && intentId === "web.research") score = 0.98;
       if (preferWorkspace && intentId === "workspace.ops") score = 0.94;
       if (preferConversation && intentId === "conversation.reply") score = 0.96;

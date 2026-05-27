@@ -82,6 +82,115 @@ test("repo-aware fixture routes sanitized env probes through shell", () => {
   assert.match(first.arguments.args.join(" "), /IOI_STAGE72_SECRET_TOKEN/);
 });
 
+test("repo-aware fixture routes realistic runtime cockpit code tasks through file evidence", () => {
+  const prompt = [
+    "Update the disposable status-label helper at .tmp/autopilot-runtime-cockpit-code/run-1/status-labels.mjs.",
+    "Add a normalizeRunStatusLabel(status) export, prepare a dry-run patch hunk, run diagnostics, and leave the hunk for review.",
+  ].join(" ");
+  const first = parseToolCall(
+    nativeFixtureRepoAwareResponse({
+      cwd: "/workspace",
+      expectsJsonToolCall: true,
+      inputText: prompt,
+      promptContextText: "",
+      queryText: prompt,
+    }),
+  );
+
+  assert.equal(first.name, "file__read");
+  assert.equal(first.arguments.path, ".tmp/autopilot-runtime-cockpit-code/run-1/status-labels.mjs");
+
+  const reply = parseToolCall(
+    nativeFixtureRepoAwareResponse({
+      cwd: "/workspace",
+      expectsJsonToolCall: true,
+      inputText: `${prompt}\nTool Output (file__read): export const statusLabels = {};`,
+      promptContextText: "",
+      queryText: prompt,
+    }),
+  );
+  assert.equal(reply.name, "chat__reply");
+  assert.match(reply.arguments.message, /dry-run patch/);
+  assert.doesNotMatch(reply.arguments.message, /TOOLCAT/);
+});
+
+test("repo-aware fixture recovers realistic code task from raw prompt context when query is generic", () => {
+  const prompt = [
+    "Update the disposable status-label helper at .tmp/autopilot-runtime-cockpit-code/run-2/status-labels.mjs.",
+    "Add a normalizeRunStatusLabel(status) export that turns snake_case run states into title-case labels.",
+    "Prepare a dry-run patch hunk, run diagnostics, leave the hunk for review, and keep non-disposable files unchanged.",
+    "If an elevated action would be required, surface the policy gate and continue with a safe denial summary.",
+    "Also check the browser status and worker status before the final answer. Do not call external connectors.",
+  ].join(" ");
+  const first = parseToolCall(
+    nativeFixtureRepoAwareResponse({
+      cwd: "/workspace",
+      expectsJsonToolCall: true,
+      inputText: `system: route through workspace ops\nuser: ${prompt}`,
+      promptContextText: "Summarize workspace context",
+      queryText: "Summarize workspace context",
+    }),
+  );
+
+  assert.equal(first.name, "file__read");
+  assert.equal(first.arguments.path, ".tmp/autopilot-runtime-cockpit-code/run-2/status-labels.mjs");
+});
+
+test("repo-aware fixture routes realistic retained shell lifecycle tasks", () => {
+  const prompt =
+    "Start a disposable retained Node.js helper that waits for stdin, check status, send compile-once, terminate it, and reset retained shell state.";
+  const first = parseToolCall(
+    nativeFixtureRepoAwareResponse({
+      cwd: "/workspace",
+      expectsJsonToolCall: true,
+      inputText: prompt,
+      promptContextText: "",
+      queryText: prompt,
+    }),
+  );
+  assert.equal(first.name, "shell__start");
+
+  const status = parseToolCall(
+    nativeFixtureRepoAwareResponse({
+      cwd: "/workspace",
+      expectsJsonToolCall: true,
+      inputText: `${prompt}\nTool Output (shell__start): {"command_id":"shell__start:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}`,
+      promptContextText: "",
+      queryText: prompt,
+    }),
+  );
+  assert.equal(status.name, "shell__status");
+  assert.equal(status.arguments.command_id, "shell__start:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+});
+
+test("repo-aware fixture routes realistic browser canvas viewport tasks", () => {
+  const prompt =
+    "Open the local browser fixture at http://127.0.0.1:4567/. Inspect the page, click the blue canvas target using the browser coordinate action, and report whether the browser session stayed observable.";
+  const first = parseToolCall(
+    nativeFixtureRepoAwareResponse({
+      cwd: "/workspace",
+      expectsJsonToolCall: true,
+      inputText: prompt,
+      promptContextText: "",
+      queryText: prompt,
+    }),
+  );
+  assert.equal(first.name, "browser__navigate");
+  assert.equal(first.arguments.url, "http://127.0.0.1:4567/");
+
+  const click = parseToolCall(
+    nativeFixtureRepoAwareResponse({
+      cwd: "/workspace",
+      expectsJsonToolCall: true,
+      inputText: `${prompt}\nTool Output (browser__navigate): ok\nTool Output (browser__inspect): ok`,
+      promptContextText: "",
+      queryText: prompt,
+    }),
+  );
+  assert.equal(click.name, "browser__click_at");
+  assert.equal(click.arguments.id, "toolcat-canvas");
+});
+
 test("repo-aware fixture summarizes sanitized env absence without leaking secret values", () => {
   const prompt =
     "Run a governed shell probe that checks whether IOI_STAGE72_SECRET_TOKEN is visible to subprocesses, and summarize whether the daemon strips it.";

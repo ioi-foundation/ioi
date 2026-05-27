@@ -399,6 +399,21 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             capabilities: vec![capability("command.exec"), capability("command.probe")],
         },
         ToolCapabilityBinding {
+            tool_name: "shell__status".to_string(),
+            action_target: ActionTarget::SysExec,
+            capabilities: vec![capability("command.exec"), capability("command.probe")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "shell__input".to_string(),
+            action_target: ActionTarget::SysExec,
+            capabilities: vec![capability("command.exec")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "shell__terminate".to_string(),
+            action_target: ActionTarget::SysExec,
+            capabilities: vec![capability("command.exec")],
+        },
+        ToolCapabilityBinding {
             tool_name: "shell__reset".to_string(),
             action_target: ActionTarget::SysExec,
             capabilities: vec![capability("command.exec")],
@@ -725,7 +740,7 @@ pub(super) fn tool_capabilities(tool_name: &str) -> Vec<CapabilityId> {
 fn is_unconditional_resolution_tool(tool_name: &str) -> bool {
     matches!(
         tool_name,
-        "agent__escalate" | "agent__complete" | "agent__pause" | "agent__await"
+        "agent__escalate" | "agent__complete" | "agent__pause" | "agent__await" | "chat__reply"
     )
 }
 

@@ -160,6 +160,60 @@ function stage7ShellPolicyCommandForQuery(queryText) {
   return null;
 }
 
+function retainedShellCommandIdFromText(text) {
+  const raw = String(text || "");
+  const candidates = [
+    ...Array.from(raw.matchAll(/"command_id"\s*:\s*"([^"]+)"/gi), (match) => match[1]),
+    ...Array.from(raw.matchAll(/\\"command_id\\"\s*:\s*\\"([^"\\]+)\\"/gi), (match) => match[1]),
+    ...Array.from(raw.matchAll(/"commandId"\s*:\s*"([^"]+)"/gi), (match) => match[1]),
+    ...Array.from(raw.matchAll(/\\"commandId\\"\s*:\s*\\"([^"\\]+)\\"/gi), (match) => match[1]),
+    ...Array.from(raw.matchAll(/\bcommand_id[=:]\s*([A-Za-z0-9_.:-]+)/gi), (match) => match[1]),
+  ];
+  return (
+    candidates.findLast((candidate) => /^shell__(?:start|run):[A-Fa-f0-9]{64}$/.test(candidate)) ??
+    candidates.findLast((candidate) => /^[A-Za-z0-9_.:-]{1,160}$/.test(candidate)) ??
+    "retained-shell-missing-command-id"
+  );
+}
+
+function browserFixtureUrlFromText(text) {
+  return (String(text || "").match(/https?:\/\/127\.0\.0\.1:\d+\/?[^\s`]*/i)?.[0] ?? "")
+    .replace(/[).,;]+$/g, "");
+}
+
+function runtimeCockpitFixturePathFromText(text) {
+  return (
+    String(text || "").match(/\.tmp\/autopilot-runtime-cockpit-code\/[A-Za-z0-9_.-]+\/status-labels\.mjs/i)?.[0] ??
+    ""
+  );
+}
+
+function isRuntimeCockpitCodeTask(queryText) {
+  return (
+    /\bnormalizeRunStatusLabel\b/i.test(queryText) ||
+    (
+      /\b(status[- ]label helper|status label helper|patch hunk|dry-run patch|diagnostics?)\b/i.test(queryText) &&
+      /\b(disposable|code|helper|review)\b/i.test(queryText)
+    )
+  );
+}
+
+function isRetainedShellLifecycleTask(queryText) {
+  return (
+    /\bretained\b/i.test(queryText) &&
+    /\b(Node\.js|node|helper|process|shell)\b/i.test(queryText) &&
+    /\b(status|stdin|terminate|reset)\b/i.test(queryText)
+  );
+}
+
+function isBrowserCanvasViewportTask(queryText) {
+  return (
+    /\bbrowser fixture\b/i.test(queryText) &&
+    /\b(canvas|blue canvas|coordinate|target action|click)\b/i.test(queryText) &&
+    /\b(observable|session|viewport)\b/i.test(queryText)
+  );
+}
+
 function latestRepoPromptContext(queryText, promptContextText, rawInput) {
   const raw = String(rawInput || "");
   const surface = `${queryText}\n${String(promptContextText || "")}`;
@@ -169,6 +223,21 @@ function latestRepoPromptContext(queryText, promptContextText, rawInput) {
     return {
       surface,
       rawCurrentTurn: raw.slice(latestToolcatPrompt.index ?? 0),
+    };
+  }
+  const naturalHarnessMatches = [
+    ...raw.matchAll(/Update the disposable status-label helper[\s\S]*?(?:Do not call external connectors\.|$)/gi),
+    ...raw.matchAll(/Start a disposable retained Node\.js helper[\s\S]*?(?:chat answer\.|$)/gi),
+    ...raw.matchAll(/Open the local browser fixture at http:\/\/127\.0\.0\.1:\d+\/?[\s\S]*?(?:final answer\.|$)/gi),
+  ];
+  const latestNaturalHarnessPrompt = naturalHarnessMatches
+    .filter((match) => match?.[0]?.trim())
+    .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+    .at(-1);
+  if (latestNaturalHarnessPrompt) {
+    return {
+      surface: `${surface}\n${latestNaturalHarnessPrompt[0]}`,
+      rawCurrentTurn: raw.slice(latestNaturalHarnessPrompt.index ?? 0),
     };
   }
   const knownPromptMatches = [...String(rawInput || "").matchAll(KNOWN_REPO_PROMPT_PATTERN)];
@@ -227,6 +296,77 @@ export function nativeFixtureRepoAwareResponse({
     jsonTool,
   });
   if (toolCatalogueResponse) return toolCatalogueResponse;
+
+  if (isRuntimeCockpitCodeTask(surface)) {
+    const fixturePath = runtimeCockpitFixturePathFromText(surface) || "package.json";
+    if (called("chat__reply")) {
+      return jsonTool("agent__complete", {
+        result: "Disposable status-label helper patch review was delivered.",
+      });
+    }
+    if (called("file__read")) {
+      return jsonTool("chat__reply", {
+        message:
+          "I prepared the status-label helper as a dry-run patch, ran the diagnostics gate, and left the hunk for review without mutating non-disposable files.",
+      });
+    }
+    return jsonTool("file__read", { path: fixturePath });
+  }
+
+  if (isRetainedShellLifecycleTask(surface)) {
+    const commandId = retainedShellCommandIdFromText(rawCurrentTurn);
+    if (called("chat__reply")) {
+      return jsonTool("agent__complete", {
+        result: "Retained shell lifecycle answer was delivered.",
+      });
+    }
+    if (!called("shell__start")) {
+      return jsonTool("shell__start", {
+        command: "node",
+        args: [
+          "-e",
+          "process.stdin.resume(); process.stdin.on('data', d => { console.log('status:' + d.toString().trim()); });",
+        ],
+        wait_ms_before_async: 100,
+      });
+    }
+    if (!called("shell__status")) {
+      return jsonTool("shell__status", { command_id: commandId });
+    }
+    if (!called("shell__input")) {
+      return jsonTool("shell__input", { command_id: commandId, stdin: "compile-once\n" });
+    }
+    if (!called("shell__terminate")) {
+      return jsonTool("shell__terminate", { command_id: commandId });
+    }
+    if (!called("shell__reset")) {
+      return jsonTool("shell__reset", {});
+    }
+    return jsonTool("chat__reply", {
+      message: "Retained shell helper was started, checked, given input, terminated, and reset; details are in Tracing.",
+    });
+  }
+
+  if (isBrowserCanvasViewportTask(surface)) {
+    const browserUrl = browserFixtureUrlFromText(surface);
+    if (called("chat__reply")) {
+      return jsonTool("agent__complete", {
+        result: "Browser canvas viewport answer was delivered.",
+      });
+    }
+    if (!called("browser__navigate")) {
+      return jsonTool("browser__navigate", { url: browserUrl });
+    }
+    if (!called("browser__inspect")) {
+      return jsonTool("browser__inspect", {});
+    }
+    if (!called("browser__click_at")) {
+      return jsonTool("browser__click_at", { id: "toolcat-canvas" });
+    }
+    return jsonTool("chat__reply", {
+      message: "The browser fixture stayed observable while the canvas target was inspected and clicked; details are in Tracing.",
+    });
+  }
 
   if (isProgressGuideQuery(surface)) {
     const planPath = extractedPlanPath(surface);

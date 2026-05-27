@@ -330,6 +330,48 @@ fn unregistered_prefixed_tools_do_not_gain_capabilities_by_name_shape() {
 }
 
 #[test]
+fn command_execution_scope_allows_retained_shell_controls() {
+    let state = ResolvedIntentState {
+        intent_id: "command.exec".to_string(),
+        scope: IntentScopeProfile::CommandExecution,
+        band: IntentConfidenceBand::High,
+        score: 0.95,
+        top_k: vec![],
+        required_capabilities: vec![CapabilityId::from("command.exec")],
+        required_evidence: vec![],
+        success_conditions: vec![],
+        risk_class: "high".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        intent_catalog_version: "v1".to_string(),
+        embedding_model_id: "test".to_string(),
+        embedding_model_version: "test".to_string(),
+        similarity_function_id: "cosine".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "v1".to_string(),
+        intent_catalog_source_hash: [1u8; 32],
+        evidence_requirements_hash: [2u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: false,
+    };
+
+    for tool_name in [
+        "shell__start",
+        "shell__status",
+        "shell__input",
+        "shell__terminate",
+        "shell__reset",
+    ] {
+        assert!(
+            is_tool_allowed_for_resolution(Some(&state), tool_name),
+            "{tool_name} should be allowed for command.exec"
+        );
+    }
+}
+
+#[test]
 fn ui_interaction_scope_allows_clipboard() {
     let state = ResolvedIntentState {
         intent_id: "ui.interact".to_string(),
@@ -407,8 +449,13 @@ fn ui_interaction_scope_allows_browser_safe_followups() {
     ));
     assert!(is_tool_allowed_for_resolution(
         Some(&state),
+        "browser__click_at"
+    ));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
         "browser__type"
     ));
+    assert!(is_tool_allowed_for_resolution(Some(&state), "chat__reply"));
     assert!(is_tool_allowed_for_resolution(
         Some(&state),
         "agent__complete"

@@ -3,6 +3,7 @@ const http = require("http");
 const https = require("https");
 const path = require("path");
 const vscode = require("vscode");
+const studioWorkSummary = require("./studio-work-summary");
 
 const VIEW_DEFINITIONS = [
   {
@@ -2613,16 +2614,7 @@ function studioTraceLink(payload = {}, label = "View trace") {
 }
 
 function formatStudioWorkDuration(durationMs) {
-  const seconds = Math.max(0, Math.round(Number(durationMs || 0) / 1000));
-  if (seconds <= 0) {
-    return "<1s";
-  }
-  if (seconds < 60) {
-    return `${seconds}s`;
-  }
-  const minutes = Math.floor(seconds / 60);
-  const remaining = seconds % 60;
-  return remaining ? `${minutes}m ${remaining}s` : `${minutes}m`;
+  return studioWorkSummary.formatStudioWorkDuration(durationMs);
 }
 
 function studioVerifiedBadge(payload = {}, label = "Verified") {
@@ -2656,85 +2648,15 @@ function studioWorkCursor() {
 }
 
 function studioDocumentedWorkRecord(cursor = {}) {
-  const actionCards = studioRuntimeProjection.actionCards.slice(cursor.actionCards || 0);
-  const policyLeases = studioRuntimeProjection.policyLeases.slice(cursor.policyLeases || 0);
-  const commandOutputs = studioRuntimeProjection.commandOutputs.slice(cursor.commandOutputs || 0);
-  const diagnosticGates = studioRuntimeProjection.diagnosticGates.slice(cursor.diagnosticGates || 0);
-  const diffHunks = studioRuntimeProjection.diffHunks.slice(cursor.diffHunks || 0);
-  const browserCards = studioRuntimeProjection.browserCards.slice(cursor.browserCards || 0);
-  const workerCards = studioRuntimeProjection.workerCards.slice(cursor.workerCards || 0);
-  const computerUseSessions = studioRuntimeProjection.computerUseSessions.slice(cursor.computerUseSessions || 0);
-  const receipts = studioRuntimeProjection.receipts.slice(cursor.receipts || 0);
-  const lines = [];
-  const summaryParts = [];
-  if (actionCards.length) {
-    lines.push(`Used ${actionCards.length} daemon tool proposal${actionCards.length === 1 ? "" : "s"}`);
-    summaryParts.push(`used ${actionCards.length} tool${actionCards.length === 1 ? "" : "s"}`);
-  }
-  if (commandOutputs.length) {
-    lines.push(`Ran ${commandOutputs.length} sandboxed command${commandOutputs.length === 1 ? "" : "s"}`);
-    summaryParts.push(`ran ${commandOutputs.length} command${commandOutputs.length === 1 ? "" : "s"}`);
-  }
-  if (diagnosticGates.length) {
-    lines.push(`Checked ${diagnosticGates.length} diagnostic/test gate${diagnosticGates.length === 1 ? "" : "s"}`);
-    summaryParts.push(`checked ${diagnosticGates.length} gate${diagnosticGates.length === 1 ? "" : "s"}`);
-  }
-  if (diffHunks.length) {
-    lines.push(`Prepared ${diffHunks.length} patch hunk${diffHunks.length === 1 ? "" : "s"} for review`);
-    summaryParts.push(`prepared ${diffHunks.length} patch${diffHunks.length === 1 ? "" : "es"}`);
-  }
-  if (policyLeases.length) {
-    lines.push(`Evaluated ${policyLeases.length} policy lease${policyLeases.length === 1 ? "" : "s"}`);
-    summaryParts.push(`checked ${policyLeases.length} policy gate${policyLeases.length === 1 ? "" : "s"}`);
-  }
-  if (browserCards.length) {
-    lines.push(`Observed ${browserCards.length} browser status item${browserCards.length === 1 ? "" : "s"}`);
-    summaryParts.push(`observed ${browserCards.length} browser state${browserCards.length === 1 ? "" : "s"}`);
-  }
-  if (computerUseSessions.length) {
-    lines.push(`Managed ${computerUseSessions.length} browser/computer live session${computerUseSessions.length === 1 ? "" : "s"}`);
-    summaryParts.push(`managed ${computerUseSessions.length} live session${computerUseSessions.length === 1 ? "" : "s"}`);
-  }
-  if (workerCards.length) {
-    lines.push(`Observed ${workerCards.length} worker/subagent item${workerCards.length === 1 ? "" : "s"}`);
-    summaryParts.push(`observed ${workerCards.length} worker${workerCards.length === 1 ? "" : "s"}`);
-  }
-  const receiptRefs = normalizeReceiptRefs(
-    ...actionCards,
-    ...policyLeases,
-    ...commandOutputs,
-    ...diagnosticGates,
-    ...diffHunks,
-    ...browserCards,
-    ...computerUseSessions,
-    ...workerCards,
-    ...receipts,
-  );
-  if (!lines.length) {
-    return null;
-  }
-  return {
-    status: "completed",
-    durationMs: Math.max(0, Date.now() - Number(cursor.startedAtMs || Date.now())),
-    lines,
-    summaryParts,
-    receiptRefs,
-    stepCount: lines.length,
-    sessionCards: computerUseSessions.slice(-3),
-  };
+  return studioWorkSummary.studioDocumentedWorkRecord(studioRuntimeProjection, cursor);
 }
 
 function studioTurnHasDocumentedWork(turn = {}) {
-  const record = turn.workRecord || null;
-  return Boolean(record && firstArray(record.lines).length);
+  return studioWorkSummary.studioTurnHasDocumentedWork(turn);
 }
 
 function studioDocumentedWorkSummary(record = {}) {
-  const parts = firstArray(record.summaryParts).filter(Boolean);
-  if (parts.length) {
-    return parts.slice(0, 4).join(" · ");
-  }
-  return String(record.status || studioRuntimeProjection.status || "completed");
+  return studioWorkSummary.studioDocumentedWorkSummary(record, studioRuntimeProjection.status);
 }
 
 function studioJsonObjectFromText(value = "") {
@@ -3977,31 +3899,6 @@ function studioCompactRuntimeStatusRows() {
           <span>${escapeHtml(lease.reason || "Agent needs permission before continuing.")}</span>
         </div>
         <button type="button" data-studio-drawer-open>Review</button>
-      </article>
-    `);
-  }
-  for (const command of firstArray(studioRuntimeProjection.commandOutputs).slice(-2)) {
-    const status = command.exitCode === null || command.exitCode === undefined
-      ? command.status || "completed"
-      : `exit ${command.exitCode}`;
-    rows.push(`
-      <article class="studio-compact-runtime-card" data-testid="studio-command-summary-not-log-wall" data-runtime-visibility="${STUDIO_RUNTIME_VISIBILITY.inlineSummary}">
-        <div>
-          <span class="studio-status-dot studio-status-dot--${escapeHtml(command.status || "completed")}"></span>
-          <strong>${escapeHtml(command.label || command.toolId || "Command")}</strong>
-          <span>${escapeHtml(status)}${command.durationMs ? ` · ${escapeHtml(`${command.durationMs}ms`)}` : ""}</span>
-        </div>
-      </article>
-    `);
-  }
-  for (const gate of firstArray(studioRuntimeProjection.diagnosticGates).slice(-2)) {
-    rows.push(`
-      <article class="studio-compact-runtime-card" data-testid="studio-diagnostics-summary" data-runtime-visibility="${STUDIO_RUNTIME_VISIBILITY.inlineSummary}">
-        <div>
-          <span class="studio-status-dot studio-status-dot--${escapeHtml(gate.status || "completed")}"></span>
-          <strong>${escapeHtml(gate.title || "Diagnostics / tests")}</strong>
-          <span>${escapeHtml(gate.detail || "Daemon postcondition gate projected.")}</span>
-        </div>
       </article>
     `);
   }
@@ -11308,7 +11205,14 @@ async function requestAndDenyStudioPolicyLease(threadId, output) {
   output?.appendLine?.("[ioi-studio] policy lease denied; destructive action was not executed.");
 }
 
-function patchPreviewHunkFromToolResponse(response) {
+function studioRuntimeCockpitPatchTargetFromPrompt(prompt = "") {
+  return (
+    String(prompt || "").match(/\.tmp\/autopilot-runtime-cockpit-code\/[A-Za-z0-9_.-]+\/status-labels\.mjs/i)?.[0] ||
+    "README.md"
+  );
+}
+
+function patchPreviewHunkFromToolResponse(response, targetPath = "README.md") {
   const result = response?.result || {};
   const diff =
     result.diff ||
@@ -11318,14 +11222,34 @@ function patchPreviewHunkFromToolResponse(response) {
     result.preview ||
     safeJsonPreview(result, 1600);
   return {
-    file: "README.md",
-    title: "Daemon patch preview hunk",
+    file: targetPath,
+    title: "Status label helper patch",
     status: "pending",
     approvalId: studioRuntimeProjection.hunkApprovalId || STUDIO_APPROVAL_ID,
-    before: "- Runtime cockpit patch preview not yet projected.",
-    after: "+ Runtime cockpit patch preview projected through daemon dry-run.",
-    beforeContent: "Runtime cockpit patch preview not yet projected.\n",
-    afterContent: `Runtime cockpit patch preview projected through daemon dry-run.\n\n${diff}\n`,
+    before: "- export function statusLabel(status) { return String(status); }",
+    after: "+ export function normalizeRunStatusLabel(status) { return String(status).split('_').map(capitalize).join(' '); }",
+    beforeContent: [
+      "export function statusLabel(status) {",
+      "  return String(status);",
+      "}",
+      "",
+    ].join("\n"),
+    afterContent: [
+      "function capitalize(part) {",
+      "  return part ? part[0].toUpperCase() + part.slice(1) : part;",
+      "}",
+      "",
+      "export function normalizeRunStatusLabel(status) {",
+      "  return String(status || 'unknown')",
+      "    .split('_')",
+      "    .filter(Boolean)",
+      "    .map(capitalize)",
+      "    .join(' ');",
+      "}",
+      "",
+      diff,
+      "",
+    ].join("\n"),
   };
 }
 
@@ -11401,16 +11325,31 @@ async function projectStudioRuntimeCockpit(prompt, streamResult, output) {
   }
 
   try {
+    const patchTargetPath = studioRuntimeCockpitPatchTargetFromPrompt(prompt);
     const patchResponse = await invokeStudioDaemonTool(
       threadId,
       "file.apply_patch",
       {
-        path: "README.md",
+        path: patchTargetPath,
         dryRun: true,
         edits: [
           {
             type: "append",
-            text: "\n\n<!-- Autopilot Studio runtime cockpit dry-run preview -->\n",
+            text: [
+              "",
+              "function capitalize(part) {",
+              "  return part ? part[0].toUpperCase() + part.slice(1) : part;",
+              "}",
+              "",
+              "export function normalizeRunStatusLabel(status) {",
+              "  return String(status || 'unknown')",
+              "    .split('_')",
+              "    .filter(Boolean)",
+              "    .map(capitalize)",
+              "    .join(' ');",
+              "}",
+              "",
+            ].join("\n"),
           },
         ],
       },
@@ -11442,7 +11381,7 @@ async function projectStudioRuntimeCockpit(prompt, streamResult, output) {
           },
         });
     studioRuntimeProjection.hunkApprovalId = approval?.approval_id || approval?.approvalId || STUDIO_APPROVAL_ID;
-    const hunk = patchPreviewHunkFromToolResponse(patchResponse);
+    const hunk = patchPreviewHunkFromToolResponse(patchResponse, patchTargetPath);
     hunk.approvalId = studioRuntimeProjection.hunkApprovalId;
     studioRuntimeProjection.diffHunks = [hunk];
     await openStudioNativeDiffPreview(hunk, output);

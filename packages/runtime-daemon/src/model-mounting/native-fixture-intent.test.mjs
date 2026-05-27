@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   nativeFixtureConversationReply,
   nativeFixtureQueryNeedsCommand,
+  nativeFixtureQueryNeedsUiInteraction,
   nativeFixtureQueryNeedsWeb,
   nativeFixtureQueryTargetsWorkspace,
   nativeFixtureQueryWorkspaceConstrained,
@@ -28,6 +29,24 @@ test("native fixture detects command-directed prompts", () => {
   assert.equal(
     nativeFixtureQueryNeedsCommand(
       "Run `node --check scripts/lib/autopilot-agent-studio-chat-scenarios.mjs` and summarize the exit code.",
+    ),
+    true,
+  );
+});
+
+test("native fixture detects retained process lifecycle prompts as command-directed", () => {
+  assert.equal(
+    nativeFixtureQueryNeedsCommand(
+      "Start a disposable retained Node.js helper that waits for stdin and echoes a status line. Check the helper status, send input, terminate it, and reset retained shell state.",
+    ),
+    true,
+  );
+});
+
+test("native fixture detects browser viewport prompts as UI interaction", () => {
+  assert.equal(
+    nativeFixtureQueryNeedsUiInteraction(
+      "Open the local browser fixture, inspect the page, click the blue canvas target, and report whether the browser session stayed observable.",
     ),
     true,
   );

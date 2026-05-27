@@ -18,9 +18,20 @@ export function nativeFixtureQueryWorkspaceConstrained(queryText) {
 export function nativeFixtureQueryNeedsCommand(queryText) {
   const text = String(queryText || "");
   const commandLiteral = /`[^`]*(?:cargo|node|npm|pnpm|yarn|python3?|bash|sh|git|rg|make)[^`]*`/i.test(text);
-  const commandPhrase = /\b(run|execute|launch)\b/i.test(text) &&
+  const commandPhrase = /\b(run|execute|launch|start)\b/i.test(text) &&
     /\b(command|shell|terminal|exit code|test|node --check|cargo test|npm test|pnpm test|yarn test)\b/i.test(text);
-  return commandLiteral || commandPhrase;
+  const retainedProcessLifecycle = /\b(retained|persistent|long[- ]running|background|stdin|stdout|terminate|reset)\b/i.test(text) &&
+    /\b(node(?:\.js)?|python|bash|shell|helper|process|command)\b/i.test(text);
+  return commandLiteral || commandPhrase || retainedProcessLifecycle;
+}
+
+export function nativeFixtureQueryNeedsUiInteraction(queryText) {
+  const text = String(queryText || "");
+  const browserInteraction = /\b(browser|page|canvas|viewport|fixture|dom)\b/i.test(text) &&
+    /\b(open|navigate|inspect|click|scroll|type|select|press|hover|pointer)\b/i.test(text);
+  const directInteraction = /\b(click|scroll|type|select|press|hover|drag|pointer)\b/i.test(text) &&
+    /\b(button|field|input|canvas|target|page|screen|viewport|browser|desktop|app)\b/i.test(text);
+  return browserInteraction || directInteraction;
 }
 
 export function nativeFixtureConversationReply(queryText) {

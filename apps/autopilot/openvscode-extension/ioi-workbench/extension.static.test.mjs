@@ -480,6 +480,10 @@ test("legacy IOI chat sidebar is not contributed to the primary Autopilot shell"
 
 test("Agent Studio contributes an operational daemon-backed chat surface", async () => {
   const source = await readFile(extensionSourcePath, "utf8");
+  const workSummarySource = await readFile(
+    new URL("./studio-work-summary.js", import.meta.url),
+    "utf8",
+  );
   const manifest = JSON.parse(await readFile(packageJsonPath, "utf8"));
   const studioViews = manifest.contributes?.views?.["ioi-studio"] || [];
 
@@ -504,8 +508,11 @@ test("Agent Studio contributes an operational daemon-backed chat surface", async
   assert.match(source, /data-testid="studio-user-bubble"/);
   assert.match(source, /data-testid="studio-assistant-answer-card"/);
   assert.match(source, /data-testid="studio-run-status-bar"/);
-  assert.match(source, /if \(!lines\.length\) \{\s*return null;\s*\}/);
-  assert.match(source, /return Boolean\(record && firstArray\(record\.lines\)\.length\)/);
+  assert.match(source, /const studioWorkSummary = require\("\.\/studio-work-summary"\)/);
+  assert.match(source, /function studioDocumentedWorkRecord\(cursor = \{\}\)/);
+  assert.match(source, /studioWorkSummary\.studioDocumentedWorkRecord\(studioRuntimeProjection, cursor\)/);
+  assert.match(workSummarySource, /if \(!lines\.length\) \{\s*return null;\s*\}/);
+  assert.match(workSummarySource, /return Boolean\(record && firstArray\(record\.lines\)\.length\)/);
   assert.match(source, /data-testid="studio-tauri-composer"/);
   assert.match(source, /data-testid="studio-composer-context-row"/);
   assert.match(source, /data-testid="studio-composer-toggle-row"/);
@@ -599,8 +606,8 @@ test("Agent Studio de-noises runtime truth into the Runs/Tracing surface", async
   assert.doesNotMatch(source, /data-testid="studio-compact-runtime-status"/);
   assert.doesNotMatch(source, /data-testid="studio-tool-proposal-compact"/);
   assert.match(source, /data-testid="studio-policy-prompt-actionable"/);
-  assert.match(source, /data-testid="studio-command-summary-not-log-wall"/);
-  assert.match(source, /data-testid="studio-diagnostics-summary"/);
+  assert.doesNotMatch(source, /data-testid="studio-command-summary-not-log-wall"/);
+  assert.doesNotMatch(source, /data-testid="studio-diagnostics-summary"/);
   assert.match(source, /data-testid="studio-native-hunk-review-inline"/);
   assert.match(source, /function studioParityPlusPanelRows/);
   assert.match(source, /engineReconnectBanners: \[\]/);
