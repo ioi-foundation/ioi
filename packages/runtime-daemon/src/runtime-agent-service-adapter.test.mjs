@@ -48,3 +48,48 @@ console.log(JSON.stringify({
     }
   }
 });
+
+test("RuntimeAgentService command adapter projects streaming runtime event lines separately from final result", async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-adapter-stream-"));
+  const bridgeScript = path.join(tempDir, "bridge-stream-probe.mjs");
+  fs.writeFileSync(
+    bridgeScript,
+    `
+console.log(JSON.stringify({
+  type: "runtime_event",
+  event: {
+    event_stream_id: "thread_stream:events",
+    thread_id: "thread_stream",
+    turn_id: "turn_stream",
+    event_kind: "tool.completed",
+    payload: { tool_name: "file__read" }
+  }
+}));
+console.log(JSON.stringify({
+  ok: true,
+  result: {
+    bridge_id: "stream-test",
+    source: "runtime_service",
+    turn_id: "turn_stream",
+    events: []
+  }
+}));
+`,
+  );
+
+  const adapter = createRuntimeAgentServiceCommandAdapter({
+    command: process.execPath,
+    args: [bridgeScript],
+    bridgeId: "stream-test",
+  });
+  const events = [];
+  const result = await adapter.submitTurn(
+    { threadId: "thread_stream" },
+    { onRuntimeEvent: (event) => events.push(event) },
+  );
+
+  assert.equal(result.bridge_id, "stream-test");
+  assert.equal(result.turn_id, "turn_stream");
+  assert.deepEqual(events.map((event) => event.event_kind), ["tool.completed"]);
+  assert.equal(events[0].payload.tool_name, "file__read");
+});

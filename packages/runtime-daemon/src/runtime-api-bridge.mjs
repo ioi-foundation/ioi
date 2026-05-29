@@ -56,13 +56,13 @@ export class RuntimeApiBridge {
     return this.adapter.startThread(input);
   }
 
-  async submitTurn(input) {
+  async submitTurn(input, options = {}) {
     if (!this.canSubmitTurn) {
       throw new RuntimeApiBridgeUnavailableError("RuntimeApiBridge submitTurn is not configured.", {
         operation: "submit_turn",
       });
     }
-    return this.adapter.submitTurn(input);
+    return this.adapter.submitTurn(input, options);
   }
 }
 

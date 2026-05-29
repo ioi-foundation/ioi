@@ -4,6 +4,10 @@ const https = require("https");
 const path = require("path");
 const vscode = require("vscode");
 const studioWorkSummary = require("./studio-work-summary");
+const { createStudioPanelHtml } = require("./studio/studio-panel-html");
+const { createStudioModelCompletion } = require("./studio/model-completion");
+const { createStudioOperationalSurface } = require("./studio/operational-surface");
+const { createModelSurfaceRenderer } = require("./studio/model-surface");
 
 const VIEW_DEFINITIONS = [
   {
@@ -407,7 +411,9 @@ async function readDaemonModelSnapshot() {
   }
 
   try {
-    const snapshot = await requestJson(endpoint, "/api/v1/models");
+    const snapshot = await requestJson(endpoint, "/api/v1/models", {
+      timeoutMs: STUDIO_MODEL_SNAPSHOT_TIMEOUT_MS,
+    });
     return {
       configured: true,
       endpoint,
@@ -448,7 +454,7 @@ let overviewPanelLastHtml = null;
 let overviewPanelNonce = null;
 let studioPanel = null;
 let studioPanelLastHtml = null;
-let studioPanelNonce = null;
+let studioPanelPageNonce = null;
 let workflowComposerPanel = null;
 let modelsPanel = null;
 const genericModePanels = new Map();
@@ -478,6 +484,21 @@ const STUDIO_DIRECT_MODEL_RUNTIME_PROFILE = "chat_only";
 const STUDIO_AGENT_TURN_POST_TIMEOUT_MS = 130000;
 const STUDIO_AGENT_TURN_RECOVERY_POLL_MS = 1000;
 const STUDIO_AGENT_TURN_RECOVERY_ATTEMPTS = 4;
+const STUDIO_MODEL_COMPLETION_TIMEOUT_MS = Number.isFinite(Number(process.env.IOI_STUDIO_MODEL_COMPLETION_TIMEOUT_MS))
+  ? Math.max(30_000, Math.floor(Number(process.env.IOI_STUDIO_MODEL_COMPLETION_TIMEOUT_MS)))
+  : 300_000;
+const STUDIO_REFRESH_STATE_TIMEOUT_MS = Number.isFinite(Number(process.env.IOI_STUDIO_REFRESH_STATE_TIMEOUT_MS))
+  ? Math.max(500, Math.floor(Number(process.env.IOI_STUDIO_REFRESH_STATE_TIMEOUT_MS)))
+  : 2_500;
+const STUDIO_MODEL_SNAPSHOT_TIMEOUT_MS = Number.isFinite(Number(process.env.IOI_STUDIO_MODEL_SNAPSHOT_TIMEOUT_MS))
+  ? Math.max(500, Math.floor(Number(process.env.IOI_STUDIO_MODEL_SNAPSHOT_TIMEOUT_MS)))
+  : 5_000;
+const STUDIO_ARTIFACT_REQUEST_TIMEOUT_MS = Number.isFinite(Number(process.env.IOI_STUDIO_ARTIFACT_REQUEST_TIMEOUT_MS))
+  ? Math.max(1_000, Math.floor(Number(process.env.IOI_STUDIO_ARTIFACT_REQUEST_TIMEOUT_MS)))
+  : 30_000;
+const STUDIO_DEFAULT_MAX_OUTPUT_TOKENS = 4096;
+const STUDIO_DEFAULT_ARTIFACT_MAX_OUTPUT_TOKENS = 4096;
+const STUDIO_PRODUCT_MODEL_UNAVAILABLE = "__product_model_unavailable__";
 let studioRuntimeProjection = createInitialStudioRuntimeProjection();
 let studioDiffProviderDisposable = null;
 const studioDiffDocuments = new Map();
@@ -1379,7 +1400,7 @@ function defaultBridgeState() {
   };
 }
 
-function requestBridge(method, bridgePath, payload) {
+function requestBridge(method, bridgePath, payload, { timeoutMs } = {}) {
   const base = bridgeUrl();
   if (!base) {
     return Promise.reject(new Error("IOI workspace bridge URL is not configured."));
@@ -1419,6 +1440,12 @@ function requestBridge(method, bridgePath, payload) {
       },
     );
 
+    if (timeoutMs && Number.isFinite(Number(timeoutMs))) {
+      const boundedTimeoutMs = Math.max(500, Math.floor(Number(timeoutMs)));
+      request.setTimeout(boundedTimeoutMs, () => {
+        request.destroy(new Error(`Bridge request timed out after ${boundedTimeoutMs}ms.`));
+      });
+    }
     request.on("error", reject);
     if (body) {
       request.write(body);
@@ -1430,7 +1457,9 @@ function requestBridge(method, bridgePath, payload) {
 async function readBridgeState() {
   const daemonModelMounting = await readDaemonModelSnapshot();
   try {
-    const raw = await requestBridge("GET", "state");
+    const raw = await requestBridge("GET", "state", undefined, {
+      timeoutMs: STUDIO_REFRESH_STATE_TIMEOUT_MS,
+    });
     return {
       ...defaultBridgeState(),
       ...JSON.parse(raw || "{}"),
@@ -1683,6 +1712,20 @@ function renderCommandButton(action) {
       : "";
   return `<button class="action" data-command="${escapeHtml(action.command)}"${payload}>${escapeHtml(action.label)}</button>`;
 }
+
+const {
+  modelDisplayName,
+  modelEndpointForArtifact,
+  modelInstanceForEndpoint,
+  renderModelsPanelBody,
+} = createModelSurfaceRenderer({
+  commandPayloadAttr,
+  daemonEndpoint,
+  escapeHtml,
+  formatBytes,
+  modelSnapshotFromState,
+  renderCommandButton,
+});
 
 function commandPayloadAttr(payload) {
   return payload ? ` data-payload="${escapeHtml(JSON.stringify(payload))}"` : "";
@@ -1982,8 +2025,11 @@ function createInitialStudioRuntimeProjection() {
     immediateSubmitSeen: false,
     pendingSeen: false,
     pendingStartedAtMs: null,
+    pendingWorklog: [],
+    runtimeEventSeenIds: [],
     lastError: null,
     lastModelStream: null,
+    lastIntentFrame: null,
     executionMode: STUDIO_MODE_AGENT,
     runtimeProfile: STUDIO_AGENT_RUNTIME_PROFILE,
     modelRoute: "route.local-first",
@@ -2014,6 +2060,7 @@ function createInitialStudioRuntimeProjection() {
       workerStatusObserved: false,
       managedLiveViewportObserved: false,
       managedSessionLabelsObserved: false,
+      conversationArtifactObserved: false,
     },
     runtimeUx: {
       denoised: true,
@@ -2048,6 +2095,7 @@ function createInitialStudioRuntimeProjection() {
     browserCards: [],
     workerCards: [],
     computerUseSessions: [],
+    conversationArtifacts: [],
     turns: [
       {
         role: "assistant",
@@ -2268,7 +2316,44 @@ function studioPermissionDaemonMapping(value) {
 function promptTargetsLocalWorkspace(prompt = "") {
   const text = stringValue(prompt).toLowerCase();
   return /\b(repository|repo|workspace|project|codebase|source tree|current workspace|local source|inspect\b.*workspace|files?)\b/.test(text) ||
+    /(?:^|\s|["'`])(?:\.\/|\.\.\/|\/)?(?:\.internal|apps|crates|docs|examples|ide|packages|scripts|src|tests?)\//.test(text) ||
     /workspace_fixture_|daemon_endpoint=|computer_use_providers_url=|current trace history/.test(text);
+}
+
+function workspaceTargetsForPrompt(prompt = "") {
+  const raw = compactText(prompt);
+  const targets = [];
+  const pathPattern = /(?:^|\s|["'`])((?:\.\/|\.\.\/|\/)?(?:\.internal|apps|crates|docs|examples|ide|packages|scripts|src|tests?)\/[^\s"'`),;:]+)(?=$|\s|["'`),;:])/gi;
+  for (const match of raw.matchAll(pathPattern)) {
+    const path = compactText(match?.[1] || "").replace(/[.!?]+$/g, "");
+    if (path && !targets.some((target) => target.kind === "path" && target.path === path)) {
+      targets.push({ kind: "path", path, reason: "explicit_workspace_path" });
+    }
+  }
+  if (targets.length > 0) {
+    return targets;
+  }
+  const stopWords = new Set([
+    "about", "and", "are", "between", "codebase", "does", "explain", "find", "first",
+    "from", "how", "inspect", "into", "look", "or", "per", "project", "read",
+    "repo", "repository", "search", "should", "summarize", "the", "this", "what", "where", "which",
+    "workspace",
+  ]);
+  const seenTerms = new Set();
+  const terms = raw
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, " ")
+    .split(/\s+/)
+    .map((term) => term.replace(/^[-./_]+|[-./_]+$/g, ""))
+    .filter((term) => term.length >= 3 && !stopWords.has(term))
+    .filter((term) => {
+      if (seenTerms.has(term)) return false;
+      seenTerms.add(term);
+      return true;
+    })
+    .slice(0, 8);
+  const query = terms.length > 0 ? terms.join(" ") : raw.slice(0, 120);
+  return query ? [{ kind: "search", query, reason: "workspace_context_query" }] : [];
 }
 
 function promptIsInternalHarnessProbe(prompt = "") {
@@ -2283,7 +2368,7 @@ function promptRequiresRetrieval(prompt = "") {
   }
   const text = stringValue(prompt).toLowerCase();
   const targetsLocalWorkspace = promptTargetsLocalWorkspace(text);
-  const asksForExternalFact = /\b(today|right now|latest|recent|news|price|market|market cap|investment|invest|compare|better|akt|akash|filecoin|fil|crypto|stock|exchange rate|weather)\b/.test(text);
+  const asksForExternalFact = /\b(today|right now|latest|recent|news|price|market|market cap|investment|invest|better|akt|akash|filecoin|fil|crypto|stock|exchange rate|weather)\b/.test(text);
   const asksForPublicSource = /\b(cite|citation|sources?|web|internet|online|public)\b/.test(text);
   const asksForCurrentExternalState =
     /\b(current|currently)\b/.test(text) &&
@@ -2294,12 +2379,135 @@ function promptRequiresRetrieval(prompt = "") {
   return asksForExternalFact || asksForPublicSource || asksForCurrentExternalState;
 }
 
+function promptRequiresWorkspaceContext(prompt = "", executionMode = STUDIO_MODE_AGENT) {
+  if (promptIsInternalHarnessProbe(prompt) || normalizeStudioExecutionMode(executionMode) !== STUDIO_MODE_AGENT) {
+    return false;
+  }
+  const text = stringValue(prompt).toLowerCase();
+  if (!promptTargetsLocalWorkspace(text)) {
+    return false;
+  }
+  return /\b(audit|check|decides?|explain|explore|find|how|inspect|list|locate|look like|progress|read|review|scan|search|summari[sz]e|where|which|what)\b/.test(text) ||
+    /(?:^|\s|["'`])(?:\.\/|\.\.\/|\/)?(?:\.internal|apps|crates|docs|examples|ide|packages|scripts|src|tests?)\//.test(text);
+}
+
 function firstArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
 function uniqueStrings(values) {
   return [...new Set(firstArray(values).map((value) => String(value)).filter(Boolean))];
+}
+
+function isAbstractStudioPendingWorkStep(label, detail) {
+  const text = `${label || ""}\n${detail || ""}`.toLowerCase();
+  if (!text.trim()) {
+    return true;
+  }
+  return [
+    "governed agent run",
+    "governed agent harness",
+    "daemon session",
+    "model route",
+    "policy context",
+    "daemon-owned",
+    "tool calls, policy checks",
+    "receipts and traces",
+    "receipts stay",
+    "traces stay",
+    "prepare artifact run",
+    "preparing artifact",
+    "drafting website artifact",
+    "drafted custom website",
+    "creating sandboxed artifact",
+    "created artifact preview",
+    "gathering source context",
+    "gathered source context",
+  ].some((phrase) => text.includes(phrase));
+}
+
+function studioPendingWorkToolName(payload = {}) {
+  const explicit = stringValue(
+    payload.toolName ||
+      payload.tool_name ||
+      payload.toolId ||
+      payload.tool_id ||
+      payload.name ||
+      payload.tool,
+  );
+  if (explicit) {
+    return explicit;
+  }
+  const label = stringValue(payload.label);
+  return label.match(/\b[a-z][a-z0-9]*__[a-z0-9_]+\b/i)?.[0] || "";
+}
+
+function studioPendingWorkStepIsConcrete(payload = {}) {
+  const toolName = studioPendingWorkToolName(payload);
+  if (!toolName || toolName === "chat__reply") {
+    return false;
+  }
+  const kind = stringValue(payload.kind || payload.eventKind || payload.event_kind).toLowerCase();
+  const concreteTool = /(?:^|__)(?:agent|artifact|browser|computer|editor|file|mcp|memory|model|screen|shell|terminal|web|workspace)__?/i.test(toolName) ||
+    /\b[a-z][a-z0-9]*__[a-z0-9_]+\b/i.test(toolName);
+  if (!concreteTool) {
+    return false;
+  }
+  if (kind && !/tool|receipt|command|shell|browser|file|web|turn\.step|agent\.step/.test(kind)) {
+    return false;
+  }
+  return true;
+}
+
+function normalizeStudioPendingWorkStep(payload = {}) {
+  const label = stringValue(payload.label);
+  if (!label) {
+    return null;
+  }
+  const detail = stringValue(payload.detail);
+  if (isAbstractStudioPendingWorkStep(label, detail)) {
+    return null;
+  }
+  if (!studioPendingWorkStepIsConcrete(payload)) {
+    return null;
+  }
+  return {
+    id: stringValue(payload.id || payload.stepId || payload.eventId || payload.event_id || payload.toolCallId || payload.tool_call_id),
+    label,
+    detail,
+    status: stringValue(payload.status, "running"),
+    at: stringValue(payload.at) || new Date().toISOString(),
+    toolName: studioPendingWorkToolName(payload),
+  };
+}
+
+function appendStudioPendingWorkStep(payload = {}) {
+  const step = normalizeStudioPendingWorkStep(payload);
+  if (!step) {
+    return null;
+  }
+  const rows = firstArray(studioRuntimeProjection.pendingWorklog).slice();
+  const existingIndex = rows.findIndex((row) =>
+    (step.id && row.id === step.id) ||
+    (step.toolName && row.toolName === step.toolName) ||
+    row.label === step.label
+  );
+  if (existingIndex >= 0) {
+    rows[existingIndex] = {
+      ...rows[existingIndex],
+      ...step,
+    };
+  } else {
+    rows.push(step);
+  }
+  studioRuntimeProjection.pendingWorklog = rows.slice(-12);
+  return step;
+}
+
+function studioPendingWorklogLastAtMs() {
+  const latest = firstArray(studioRuntimeProjection.pendingWorklog).slice(-1)[0];
+  const parsed = Date.parse(latest?.at || "");
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function nestedPayloadValue(value, keys = []) {
@@ -2356,6 +2564,108 @@ function studioRuntimeEventKind(event = {}) {
       event.payload?.eventKind ||
       "",
   );
+}
+
+function studioRuntimeEventIdentity(event = {}) {
+  return stringValue(
+    event.event_id ||
+      event.eventId ||
+      event.id ||
+      (event.event_stream_id && event.seq ? `${event.event_stream_id}:${event.seq}` : "") ||
+      (event.eventStreamId && event.seq ? `${event.eventStreamId}:${event.seq}` : ""),
+  );
+}
+
+function studioRuntimeEventSeen(event = {}) {
+  const id = studioRuntimeEventIdentity(event);
+  if (!id) {
+    return false;
+  }
+  return firstArray(studioRuntimeProjection.runtimeEventSeenIds).includes(id);
+}
+
+function markStudioRuntimeEventSeen(event = {}) {
+  const id = studioRuntimeEventIdentity(event);
+  if (!id) {
+    return true;
+  }
+  if (studioRuntimeEventSeen(event)) {
+    return false;
+  }
+  studioRuntimeProjection.runtimeEventSeenIds = [
+    ...firstArray(studioRuntimeProjection.runtimeEventSeenIds),
+    id,
+  ].slice(-300);
+  return true;
+}
+
+function parseStudioMaybeJsonObject(value) {
+  const text = stringValue(value);
+  if (!text || !/^\s*[\[{]/.test(text)) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(text);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function studioRuntimeToolEventDetail(event = {}, toolName = "", summary = "") {
+  const payload = event.payload_summary || event.payloadSummary || event.payload || event.data || {};
+  const parsedSummary = parseStudioMaybeJsonObject(summary);
+  const source = parsedSummary || payload;
+  const args = source.arguments || source.args || payload.arguments || payload.args || {};
+  const query = stringValue(source.query || args.query || payload.query || payload.input_query);
+  if (query) {
+    return `query: ${compactStudioWhitespace(query).slice(0, 140)}`;
+  }
+  const pathValue = stringValue(source.path || args.path || source.file || args.file || payload.path);
+  if (pathValue) {
+    return pathValue;
+  }
+  const url = stringValue(source.url || args.url || firstArray(source.sources)[0]?.url || payload.url);
+  if (url) {
+    try {
+      const parsed = new URL(url);
+      return parsed.hostname || url;
+    } catch {
+      return compactStudioWhitespace(url).slice(0, 140);
+    }
+  }
+  const title = stringValue(firstArray(source.sources)[0]?.title || source.title || payload.title);
+  if (title) {
+    return compactStudioWhitespace(title).slice(0, 140);
+  }
+  if (/shell|command|terminal/.test(toolName)) {
+    const command = stringValue(source.command || args.command || payload.command);
+    if (command) {
+      return compactStudioWhitespace(command).slice(0, 140);
+    }
+  }
+  return "";
+}
+
+function studioPendingStepFromRuntimeEvent(event = {}, { kind = "", toolName = "", status = "", summary = "" } = {}) {
+  const normalizedTool = stringValue(toolName || studioRuntimeEventToolName(event));
+  if (!normalizedTool || normalizedTool === "chat__reply") {
+    return null;
+  }
+  const normalizedKind = stringValue(kind || studioRuntimeEventKind(event)).toLowerCase();
+  if (!/tool\.(call|started|completed|result)|receipt\.emitted|command|shell|browser|file|web|turn\.step|agent\.step/.test(normalizedKind)) {
+    return null;
+  }
+  const completed = /completed|result|succeeded|failed|error/.test(`${normalizedKind} ${status}`.toLowerCase());
+  return normalizeStudioPendingWorkStep({
+    id: normalizedTool,
+    label: `Used tool: ${normalizedTool}`,
+    detail: studioRuntimeToolEventDetail(event, normalizedTool, summary),
+    status: completed ? "completed" : "running",
+    at: event.created_at || event.createdAt || new Date().toISOString(),
+    kind: normalizedKind,
+    toolName: normalizedTool,
+  });
 }
 
 function studioRuntimeEventsIncludeTool(events = [], pattern) {
@@ -2455,6 +2765,9 @@ function resetStudioDaemonThreadProjection() {
   studioRuntimeProjection.turnId = null;
   studioRuntimeProjection.runId = null;
   studioRuntimeProjection.lastModelStream = null;
+  studioRuntimeProjection.lastIntentFrame = null;
+  studioRuntimeProjection.pendingWorklog = [];
+  studioRuntimeProjection.runtimeEventSeenIds = [];
 }
 
 function startNewStudioSession(reason = "New Studio session") {
@@ -2553,6 +2866,33 @@ function normalizeReceiptRefs(...sources) {
   return uniqueStrings(refs);
 }
 
+function studioFixtureModelUsageAllowed() {
+  return /^(1|true|yes|on)$/i.test(String(process.env.IOI_STUDIO_ALLOW_FIXTURE_MODELS || process.env.IOI_STUDIO_FIXTURE_MODE || ""));
+}
+
+function studioDenyFixtureModelPolicy() {
+  return studioFixtureModelUsageAllowed()
+    ? {}
+    : {
+        deny_fixture_models: true,
+        denyFixtureModels: true,
+      };
+}
+
+function studioTextContainsProductFixtureMarker(text = "") {
+  const haystack = stringValue(text).toLowerCase();
+  return (
+    haystack.includes("ioi model router fixture response") ||
+    haystack.includes("input_hash=") ||
+    haystack.includes("autopilot:native-fixture") ||
+    haystack.includes("local:auto") ||
+    haystack.includes("stories260k") ||
+    haystack.includes("deterministic native-local model fixture") ||
+    haystack.includes("native_local.fixture") ||
+    haystack.includes("backend.fixture")
+  );
+}
+
 const STUDIO_RUNTIME_VISIBILITY = Object.freeze({
   inlineAction: "inline-action",
   inlineProgress: "inline-progress",
@@ -2617,6 +2957,140 @@ function formatStudioWorkDuration(durationMs) {
   return studioWorkSummary.formatStudioWorkDuration(durationMs);
 }
 
+function studioNumberOrNull(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function studioFormatMetricNumber(value, digits = 0) {
+  const number = studioNumberOrNull(value);
+  if (number === null) return "";
+  return number.toLocaleString(undefined, {
+    maximumFractionDigits: digits,
+    minimumFractionDigits: 0,
+  });
+}
+
+function studioEstimatedTokenCount(text = "") {
+  const value = stringValue(text).trim();
+  if (!value) return null;
+  return Math.max(1, Math.ceil(value.length / 4));
+}
+
+function studioPositiveNumberOrNull(value) {
+  const number = studioNumberOrNull(value);
+  return number !== null && number > 0 ? number : null;
+}
+
+function studioResponseMetricsFromUsage({
+  usage = {},
+  routeId = "",
+  model = "",
+  provider = "",
+  reasoningEffort = "",
+  elapsedMs = null,
+  timeToFirstTokenMs = null,
+  stopReason = "",
+  requestedModel = "",
+  promptText = "",
+  generatedText = "",
+} = {}) {
+  const usagePromptTokens = studioPositiveNumberOrNull(usage.prompt_tokens ?? usage.input_tokens);
+  const usageGeneratedTokens = studioPositiveNumberOrNull(usage.completion_tokens ?? usage.output_tokens);
+  const promptTokens = usagePromptTokens ?? studioEstimatedTokenCount(promptText);
+  const generatedTokens = usageGeneratedTokens ?? studioEstimatedTokenCount(generatedText);
+  const totalTokens = studioPositiveNumberOrNull(usage.total_tokens) ?? (
+    promptTokens !== null && generatedTokens !== null ? promptTokens + generatedTokens : null
+  );
+  const elapsedSeconds = studioNumberOrNull(elapsedMs) !== null ? Math.max(0.001, Number(elapsedMs) / 1000) : null;
+  const tokensPerSecond =
+    elapsedSeconds && generatedTokens !== null ? generatedTokens / elapsedSeconds : studioNumberOrNull(usage.tokens_per_second ?? usage.tokensPerSecond);
+  return {
+    model: stringValue(model || usage.model || requestedModel),
+    requestedModel: stringValue(requestedModel),
+    provider: stringValue(provider || usage.provider || ""),
+    routeId: stringValue(routeId),
+    reasoningEffort: normalizeStudioReasoningEffort(reasoningEffort, "none"),
+    promptTokens,
+    generatedTokens,
+    totalTokens,
+    elapsedMs: studioNumberOrNull(elapsedMs),
+    timeToFirstTokenMs: studioNumberOrNull(timeToFirstTokenMs),
+    tokensPerSecond,
+    stopReason: stringValue(stopReason || usage.stop_reason || usage.stopReason || ""),
+    estimatedTokens: !usagePromptTokens || !usageGeneratedTokens,
+  };
+}
+
+function studioResponseMetricsFromResponse(response = {}, options = {}) {
+  return studioResponseMetricsFromUsage({
+    usage: response.usage || response.tokenCount || response.token_count || {},
+    routeId: response.route_id || response.routeId || options.routeId,
+    model: response.model || options.model,
+    provider: response.provider || response.providerId || options.provider,
+    reasoningEffort: options.reasoningEffort,
+    elapsedMs: options.elapsedMs,
+    timeToFirstTokenMs: options.timeToFirstTokenMs,
+    stopReason: response.choices?.[0]?.finish_reason || response.stop_reason || response.stopReason || options.stopReason,
+    requestedModel: response.request_model || response.requestModel || options.requestedModel,
+  });
+}
+
+function studioResponseMetricsRows(turn = {}) {
+  const metrics = turn.modelMetrics || turn.modelStream?.metrics || turn.generator?.metrics || null;
+  if (!metrics || typeof metrics !== "object") {
+    return "";
+  }
+  const rows = [
+    ["Model", metrics.model],
+    ["Provider", metrics.provider],
+    ["Route", metrics.routeId],
+    ["Reasoning", metrics.reasoningEffort && metrics.reasoningEffort !== "none" ? metrics.reasoningEffort : "off"],
+    ["Prompt", metrics.promptTokens !== null && metrics.promptTokens !== undefined ? `${metrics.estimatedTokens ? "~" : ""}${studioFormatMetricNumber(metrics.promptTokens)}` : ""],
+    ["Generated", metrics.generatedTokens !== null && metrics.generatedTokens !== undefined ? `${metrics.estimatedTokens ? "~" : ""}${studioFormatMetricNumber(metrics.generatedTokens)}` : ""],
+    ["Total", metrics.totalTokens !== null && metrics.totalTokens !== undefined ? `${metrics.estimatedTokens ? "~" : ""}${studioFormatMetricNumber(metrics.totalTokens)}` : ""],
+    ["Elapsed", metrics.elapsedMs !== null && metrics.elapsedMs !== undefined ? `${studioFormatMetricNumber(Number(metrics.elapsedMs) / 1000, 1)}s` : ""],
+    ["Tok/s", studioFormatMetricNumber(metrics.tokensPerSecond, 1)],
+    ["TTFT", metrics.timeToFirstTokenMs !== null && metrics.timeToFirstTokenMs !== undefined ? `${studioFormatMetricNumber(Number(metrics.timeToFirstTokenMs), 0)}ms` : ""],
+    ["Stop", metrics.stopReason],
+  ].filter(([, value]) => stringValue(value));
+  if (!rows.length) {
+    return "";
+  }
+  return `
+    <footer class="studio-response-metrics" data-testid="studio-response-metrics">
+      ${rows.map(([label, value]) => `
+        <span><strong>${escapeHtml(label)}</strong>${escapeHtml(value)}</span>
+      `).join("")}
+    </footer>
+  `;
+}
+
+function studioSplitReasoningFromText(text = "") {
+  const raw = stringValue(text);
+  const match = raw.match(/<think>\s*([\s\S]*?)\s*<\/think>\s*/i);
+  if (!match) {
+    return { thinkingText: "", answerText: raw };
+  }
+  return {
+    thinkingText: match[1].trim(),
+    answerText: raw.replace(match[0], "").trim(),
+  };
+}
+
+function studioThinkingRows(turn = {}) {
+  const thinkingText = stringValue(turn.thinkingText || turn.modelStream?.thinkingText);
+  if (!thinkingText) {
+    return "";
+  }
+  return `
+    <details class="studio-thinking-block" data-testid="studio-thinking-block">
+      <summary>Thinking</summary>
+      <p>${escapeHtml(thinkingText)}</p>
+    </details>
+  `;
+}
+
 function studioVerifiedBadge(payload = {}, label = "Verified") {
   const receiptRefs = normalizeReceiptRefs(payload);
   const hasReceipt = receiptRefs.length > 0;
@@ -2643,6 +3117,8 @@ function studioWorkCursor() {
     browserCards: studioRuntimeProjection.browserCards.length,
     workerCards: studioRuntimeProjection.workerCards.length,
     computerUseSessions: studioRuntimeProjection.computerUseSessions.length,
+    conversationArtifacts: studioRuntimeProjection.conversationArtifacts.length,
+    pendingWorklog: studioRuntimeProjection.pendingWorklog.length,
     receipts: studioRuntimeProjection.receipts.length,
   };
 }
@@ -2909,6 +3385,173 @@ function studioManagedSessionRows(cards = []) {
   `;
 }
 
+function studioArtifactClassLabel(artifact = {}) {
+  const value = stringValue(artifact.artifactClass || artifact.artifact_class || artifact.class, "artifact");
+  if (value === "static_html_js") {
+    return studioArtifactIsWebsite(artifact) ? "Website" : "HTML report";
+  }
+  if (value === "react_vite_app") return "App preview";
+  if (value === "imported_document") return "Document";
+  if (value === "pdf_preview") return "PDF";
+  if (value === "diff_patch") return "Patch";
+  if (value === "dataset_chart") return "Dataset";
+  if (value === "browser_observation") return "Browser capture";
+  return value
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b[a-z]/g, (char) => char.toUpperCase());
+}
+
+function studioArtifactOutputModality(artifact = {}) {
+  return stringValue(
+    artifact.outputModality ||
+      artifact.output_modality ||
+      artifact.generatedFiles?.outputModality ||
+      artifact.generated_files?.output_modality ||
+      artifact.generatedFiles?.output_modality ||
+      artifact.generated_files?.outputModality,
+  );
+}
+
+function studioArtifactIsWebsite(artifact = {}) {
+  if ((artifact.artifactClass || artifact.artifact_class) !== "static_html_js") return false;
+  const modality = studioArtifactOutputModality(artifact);
+  if (/\b(website|web\s*site|webpage|web\s*page|landing\s+page|site)\b/i.test(modality)) return true;
+  return /\b(website|web\s*site|webpage|web\s*page|landing\s+page|site)\b/i.test(
+    `${artifact.title || ""} ${artifact.summary || ""} ${artifact.generatedFiles?.summary || ""} ${artifact.generated_files?.summary || ""}`,
+  );
+}
+
+function studioArtifactPreviewLabel(artifact = {}) {
+  const previewRefs = firstArray(artifact.previewRefs || artifact.preview_refs);
+  if (!previewRefs.length) {
+    return "Preview pending";
+  }
+  const firstPreview = previewRefs[0] || {};
+  const mediaType = stringValue(firstPreview.mediaType || firstPreview.media_type, "preview");
+  if (/html/i.test(mediaType)) {
+    return studioArtifactIsWebsite(artifact) ? "Website preview" : "HTML preview";
+  }
+  if (/pdf/i.test(mediaType)) return "PDF preview";
+  if (/csv|json/i.test(mediaType)) return "Data preview";
+  return "Preview ready";
+}
+
+function studioArtifactPreviewSrcdoc(text, pageNonce = "") {
+  const nonceAttr = pageNonce ? ` nonce="${escapeHtml(pageNonce)}"` : "";
+  return stringValue(text)
+    .replace(/<style(?![^>]*\bnonce=)/gi, `<style${nonceAttr}`)
+    .replace(/<script(?![^>]*\bnonce=)/gi, `<script${nonceAttr}`);
+}
+
+function studioArtifactInlinePreview(artifact = {}) {
+  const inline = studioRecordValue(artifact.previewInline || artifact.preview_inline);
+  const text = stringValue(inline.text);
+  if (!text) {
+    return "";
+  }
+  const mediaType = stringValue(inline.mediaType || inline.media_type);
+  if (/html/i.test(mediaType)) {
+    const previewHtml = studioArtifactPreviewSrcdoc(text, studioPanelPageNonce || "");
+    return `
+      <iframe
+        class="studio-conversation-artifact-frame"
+        data-testid="studio-conversation-artifact-preview-frame"
+        sandbox="allow-scripts"
+        title="${escapeHtml(artifact.title || "Artifact preview")}"
+        srcdoc="${escapeHtml(previewHtml)}"
+      ></iframe>
+    `;
+  }
+  return `
+    <pre class="studio-conversation-artifact-source-preview" data-testid="studio-conversation-artifact-source-preview">${escapeHtml(text.slice(0, 6000))}</pre>
+  `;
+}
+
+function studioArtifactPreviewShell(artifact = {}, { expanded = false } = {}) {
+  const inlinePreview = studioArtifactInlinePreview(artifact);
+  const stateLabel = stringValue(artifact.stateLabel || artifact.state_label || artifact.status, "Preview ready");
+  if (inlinePreview) {
+    return `
+      <div class="studio-conversation-artifact-preview studio-conversation-artifact-preview--${expanded ? "expanded" : "compact"}" data-testid="studio-conversation-artifact-preview">
+        ${inlinePreview}
+      </div>
+    `;
+  }
+  return `
+    <div class="studio-conversation-artifact-preview studio-conversation-artifact-preview--placeholder" data-testid="studio-conversation-artifact-preview">
+      <strong>${escapeHtml(studioArtifactPreviewLabel(artifact))}</strong>
+      <span>${escapeHtml(stateLabel)}</span>
+    </div>
+  `;
+}
+
+function studioConversationArtifactRows(cards = []) {
+  const artifacts = firstArray(cards).filter(Boolean);
+  if (!artifacts.length) {
+    return "";
+  }
+  return `
+    <section class="studio-conversation-artifacts" data-testid="studio-conversation-artifacts" aria-label="Conversation artifacts">
+      ${artifacts.map((artifact) => {
+        const artifactId = stringValue(artifact.id || artifact.artifactId || artifact.artifact_id, "artifact");
+        const stateLabel = stringValue(artifact.stateLabel || artifact.state_label || artifact.status, "Preview ready");
+        const actions = firstArray(artifact.actions).slice(0, 6);
+        const revisionCount = firstArray(artifact.revisions).length || 1;
+        return `
+          <article
+            class="studio-conversation-artifact-card"
+            data-testid="studio-conversation-artifact-card"
+            data-artifact-id="${escapeHtml(artifactId)}"
+            data-artifact-class="${escapeHtml(artifact.artifactClass || artifact.artifact_class || "")}"
+            data-artifact-status="${escapeHtml(artifact.status || "")}"
+            data-artifact-expanded="false"
+          >
+            <header class="studio-conversation-artifact-card__header">
+              <div>
+                <span data-testid="studio-conversation-artifact-type">${escapeHtml(studioArtifactClassLabel(artifact))}</span>
+                <strong data-testid="studio-conversation-artifact-title">${escapeHtml(artifact.title || "Conversation artifact")}</strong>
+              </div>
+              <button type="button" data-testid="studio-conversation-artifact-expand" data-studio-artifact-expand aria-expanded="false">Open</button>
+            </header>
+            <div class="studio-conversation-artifact-compact" data-testid="studio-conversation-artifact-compact">
+              <div class="studio-conversation-artifact-compact__status">
+                <strong>${escapeHtml(stateLabel)}</strong>
+                <span>${escapeHtml(studioArtifactPreviewLabel(artifact))} · ${escapeHtml(String(revisionCount))} revision${revisionCount === 1 ? "" : "s"}</span>
+              </div>
+              ${studioArtifactPreviewShell(artifact, { expanded: false })}
+            </div>
+            <div class="studio-conversation-artifact-expanded" data-testid="studio-conversation-artifact-expanded-view">
+              <div class="studio-conversation-artifact-meta studio-visually-hidden" data-testid="studio-conversation-artifact-renderer-meta">
+                <span>Renderer: ${escapeHtml(artifact.renderer?.label || artifact.renderer?.kind || "sandboxed preview")}</span>
+                <span>Sandbox: network denied · no ambient filesystem</span>
+              </div>
+              ${studioArtifactPreviewShell(artifact, { expanded: true })}
+              ${artifact.fidelity?.message ? `
+                <div class="studio-conversation-artifact-fidelity" data-testid="studio-conversation-artifact-fidelity">
+                  ${escapeHtml(artifact.fidelity.message)}
+                </div>
+              ` : ""}
+              ${/(compare|document|diff|patch)/i.test(`${artifact.status || ""} ${artifact.artifactClass || artifact.artifact_class || ""}`) ? `
+                <div class="studio-conversation-artifact-compare" data-testid="studio-conversation-artifact-compare-state">
+                  <strong>Compare ready</strong>
+                  <span>Original, projection, and latest revision are preserved by the daemon.</span>
+                </div>
+              ` : ""}
+              <div class="studio-conversation-artifact-actions" data-testid="studio-conversation-artifact-actions">
+                ${actions.map((action) => `
+                  <button type="button" data-testid="studio-conversation-artifact-action" data-studio-artifact-action="${escapeHtml(action)}" data-artifact-id="${escapeHtml(artifactId)}">${escapeHtml(String(action).replace(/[_-]+/g, " "))}</button>
+                `).join("")}
+              </div>
+            </div>
+          </article>
+        `;
+      }).join("")}
+    </section>
+  `;
+}
+
 function studioTraceItems() {
   const items = [];
   const push = (item = {}) => {
@@ -2936,6 +3579,7 @@ function studioTraceItems() {
   for (const item of firstArray(studioRuntimeProjection.diffHunks)) push({ ...item, kind: "patch.hunk", summary: `${item.file || "workspace"} · ${item.status || "pending"}` });
   for (const item of firstArray(studioRuntimeProjection.browserCards)) push({ ...item, kind: "browser.status" });
   for (const item of firstArray(studioRuntimeProjection.workerCards)) push({ ...item, kind: "worker.status" });
+  for (const item of firstArray(studioRuntimeProjection.conversationArtifacts)) push({ ...item, kind: "conversation.artifact" });
   for (const item of firstArray(studioRuntimeProjection.engineReconnectBanners)) push({ ...item, kind: "engine.reconnect" });
   for (const item of firstArray(studioRuntimeProjection.chatResponsibilityContracts)) push({ ...item, kind: "chat.responsibility" });
   for (const item of firstArray(studioRuntimeProjection.securityScanPanels)) push({ ...item, kind: "engine.guard.security" });
@@ -3237,23 +3881,163 @@ function isFixtureStudioModelRecord(record = {}) {
   const haystack = [
     record.id,
     record.modelId,
+    record.model_id,
     record.providerId,
+    record.provider_id,
+    record.backendId,
+    record.backend_id,
+    record.artifactId,
+    record.artifact_id,
+    record.name,
+    record.label,
+    record.displayName,
+    record.display_name,
+    record.description,
     record.family,
     record.source,
     record.quantization,
     record.driver,
+    record.apiFormat,
+    record.api_format,
+    record.baseUrl,
+    record.base_url,
+    record.status,
+    record.state,
   ].map((value) => String(value || "").toLowerCase()).join(" ");
   return (
     /\bfixture\b/.test(haystack) ||
     haystack.includes("local:auto") ||
     haystack.includes("autopilot:native-fixture") ||
-    haystack.includes("endpoint.local.auto")
+    haystack.includes("endpoint.local.auto") ||
+    haystack.includes("endpoint.autopilot.native-fixture") ||
+    haystack.includes("lmstudio:detected") ||
+    haystack.includes("lmstudio.detected") ||
+    haystack.includes("detected model slot") ||
+    haystack.includes("lm_studio_public_discovery") ||
+    haystack.includes("provider_stopped")
+  );
+}
+
+function studioExternalModelProviderUsageAllowed() {
+  return /^(1|true|yes|on)$/i.test(String(process.env.IOI_STUDIO_ALLOW_EXTERNAL_MODEL_PROVIDERS || ""));
+}
+
+function isExternalStudioModelRecord(record = {}) {
+  if (studioExternalModelProviderUsageAllowed()) {
+    return false;
+  }
+  const haystack = [
+    record.id,
+    record.modelId,
+    record.model_id,
+    record.providerId,
+    record.provider_id,
+    record.backendId,
+    record.backend_id,
+    record.family,
+    record.source,
+    record.driver,
+    record.apiFormat,
+    record.api_format,
+    record.baseUrl,
+    record.base_url,
+    record.description,
+  ].map((value) => String(value || "").toLowerCase()).join(" ");
+  return (
+    haystack.includes("provider.lmstudio") ||
+    haystack.includes("backend.lmstudio") ||
+    haystack.includes("lm_studio") ||
+    haystack.includes("lm-studio") ||
+    haystack.includes("provider.ollama") ||
+    haystack.includes("backend.ollama")
   );
 }
 
 function modelRecordSupportsChat(record = {}) {
   const capabilities = Array.isArray(record.capabilities) ? record.capabilities : [];
   return capabilities.length === 0 || capabilities.some((capability) => /chat|responses/i.test(String(capability || "")));
+}
+
+function modelRecordIsEmbeddingOnly(record = {}) {
+  const capabilities = Array.isArray(record.capabilities) ? record.capabilities : [];
+  return capabilities.length > 0 &&
+    capabilities.some((capability) => /embed/i.test(String(capability || ""))) &&
+    !capabilities.some((capability) => /chat|responses/i.test(String(capability || "")));
+}
+
+function studioSelectionSupportsChat({ artifact = {}, endpoint = {} } = {}) {
+  if ([artifact, endpoint].some((record) => modelRecordIsEmbeddingOnly(record))) {
+    return false;
+  }
+  return [artifact, endpoint].some((record) => modelRecordSupportsChat(record));
+}
+
+function studioSelectionModelId({ artifact = {}, endpoint = {}, route = {} } = {}) {
+  return stringValue(
+    artifact.modelId ||
+      artifact.model_id ||
+      artifact.id ||
+      endpoint.modelId ||
+      endpoint.model_id ||
+      route.modelId ||
+      route.model_id ||
+      route.lastSelectedModel ||
+      route.last_selected_model,
+  );
+}
+
+function isProductStudioModelSelection({ artifact = {}, endpoint = {}, route = {} } = {}) {
+  const selectedModel = studioSelectionModelId({ artifact, endpoint, route });
+  if (!selectedModel || isAutoStudioModelSelector(selectedModel) || selectedModel === STUDIO_PRODUCT_MODEL_UNAVAILABLE) {
+    return false;
+  }
+  if (studioTextContainsProductFixtureMarker(selectedModel)) {
+    return false;
+  }
+  if (!studioSelectionSupportsChat({ artifact, endpoint })) {
+    return false;
+  }
+  return ![artifact, endpoint, route, { modelId: selectedModel }].some(
+    (record) => isFixtureStudioModelRecord(record) || isExternalStudioModelRecord(record),
+  );
+}
+
+function studioProductModelSelectionError(selectedRoute, selectedModelId) {
+  if (studioFixtureModelUsageAllowed()) {
+    return null;
+  }
+  const selectedModel = stringValue(selectedModelId);
+  const routeOrModel = stringValue(selectedRoute);
+  const haystack = `${selectedModel} ${routeOrModel}`.toLowerCase();
+  if (
+    !selectedModel ||
+    selectedModel === STUDIO_PRODUCT_MODEL_UNAVAILABLE ||
+    haystack.includes("no product model") ||
+    haystack.includes("product model mounted") ||
+    haystack.includes("local:auto") ||
+    haystack.includes("lmstudio:detected") ||
+    haystack.includes("lmstudio.detected") ||
+    haystack.includes("detected model slot") ||
+    haystack.includes("autopilot:native-fixture") ||
+    haystack.includes("stories260k") ||
+    haystack.includes("provider.lmstudio") ||
+    haystack.includes("backend.lmstudio") ||
+    /\bfixture\b/.test(haystack)
+  ) {
+    const error = new Error(
+      "No product model is mounted for this route. Open Manage models and load a real local model.",
+    );
+    error.code = "product_model_unavailable";
+    return error;
+  }
+  return null;
+}
+
+function assertStudioProductModelSelector(selectedRoute, selectedModelId) {
+  const error = studioProductModelSelectionError(selectedRoute, selectedModelId);
+  if (error) {
+    throw error;
+  }
 }
 
 function normalizeStudioReasoningEffort(value, fallback = "none") {
@@ -3336,6 +4120,43 @@ function studioReasoningEffortOptions(selected = "none") {
     .join("");
 }
 
+function studioMaxOutputTokens() {
+  const configured = Number(process.env.IOI_STUDIO_MAX_OUTPUT_TOKENS ?? "");
+  if (Number.isFinite(configured) && configured >= 64) {
+    return Math.min(8192, Math.floor(configured));
+  }
+  return STUDIO_DEFAULT_MAX_OUTPUT_TOKENS;
+}
+
+function studioArtifactMaxOutputTokens() {
+  const configured = Number(process.env.IOI_STUDIO_ARTIFACT_MAX_OUTPUT_TOKENS ?? "");
+  if (Number.isFinite(configured) && configured >= 512) {
+    return Math.min(4096, Math.floor(configured));
+  }
+  return STUDIO_DEFAULT_ARTIFACT_MAX_OUTPUT_TOKENS;
+}
+
+function studioCleanProductErrorMessage(error) {
+  const text = stringValue(error?.message || error?.code || error);
+  if (/timed out|timeout/i.test(text)) {
+    return "The selected model route took too long to respond. Details are in Tracing.";
+  }
+  if (/product_model_unavailable|No product model is mounted|product model route/i.test(text)) {
+    return "No product model is mounted for this route. Open Manage models and load a real local model.";
+  }
+  if (/OpenAI-compatible provider stream failed|Daemon stream failed|provider stream failed|external_blocker/i.test(text)) {
+    return "The selected model route failed while streaming. Details are in Tracing.";
+  }
+  if (/fixture|deterministic/i.test(text)) {
+    return "The selected product route refused fixture output. Details are in Tracing.";
+  }
+  return text
+    .replace(/\{[\s\S]*\}/g, "Details are in Tracing.")
+    .replace(/\[[^\]]+\]\s*/g, "")
+    .trim()
+    .slice(0, 320) || "Studio could not complete the turn. Details are in Tracing.";
+}
+
 function modelRecordStatusScore(...records) {
   const status = records.map((record) => String(record?.status || record?.state || "").toLowerCase()).join(" ");
   if (/loaded|running|active/.test(status)) return 50;
@@ -3345,28 +4166,49 @@ function modelRecordStatusScore(...records) {
   return 0;
 }
 
+function studioSameNonEmptyId(left, right) {
+  return Boolean(left && right && String(left) === String(right));
+}
+
 function studioPreferredModelSelection(snapshot = {}) {
   const activeRouteId = studioRuntimeProjection.modelRoute || "route.local-first";
   const activeRoute = snapshot.routes.find((candidate) =>
     candidate.id === activeRouteId || candidate.routeId === activeRouteId,
   );
   if (activeRoute) {
+    const activeRouteFallback = firstArray(activeRoute.fallback || activeRoute.fallbackEndpoints || activeRoute.fallback_endpoints);
+    const activeRouteModelId = stringValue(activeRoute.modelId || activeRoute.model_id || activeRoute.lastSelectedModel || activeRoute.last_selected_model);
+    const activeEndpointId = activeRoute.endpointId || activeRoute.endpoint_id || activeRouteFallback[0] || "";
     const activeEndpoint =
       snapshot.endpoints.find((candidate) =>
-        candidate.id === activeRoute.endpointId ||
-        candidate.routeId === activeRoute.routeId ||
-        candidate.routeId === activeRoute.id,
+        studioSameNonEmptyId(candidate.id, activeEndpointId) ||
+        studioSameNonEmptyId(candidate.id, activeRoute.endpointId) ||
+        activeRouteFallback.includes(candidate.id) ||
+        studioSameNonEmptyId(candidate.routeId, activeRoute.routeId) ||
+        studioSameNonEmptyId(candidate.routeId, activeRoute.id),
+      ) ||
+      snapshot.endpoints.find((candidate) =>
+        studioSameNonEmptyId(candidate.modelId, activeRouteModelId) ||
+        studioSameNonEmptyId(candidate.model_id, activeRouteModelId),
       ) ||
       {};
     const activeArtifact =
       snapshot.artifacts.find((candidate) =>
+        studioSameNonEmptyId(candidate.id, activeEndpoint.artifactId) ||
+        studioSameNonEmptyId(candidate.id, activeEndpoint.artifact_id) ||
         candidate.id === activeEndpoint.modelId ||
         candidate.modelId === activeEndpoint.modelId ||
         candidate.id === activeRoute.modelId ||
-        candidate.modelId === activeRoute.modelId,
+        candidate.modelId === activeRoute.modelId ||
+        candidate.id === activeRouteModelId ||
+        candidate.modelId === activeRouteModelId,
       ) ||
       {};
-    if (modelRecordSupportsChat(activeArtifact)) {
+    if (modelRecordSupportsChat(activeArtifact) && isProductStudioModelSelection({
+      artifact: activeArtifact,
+      endpoint: activeEndpoint,
+      route: activeRoute,
+    })) {
       return {
         artifact: activeArtifact,
         endpoint: activeEndpoint,
@@ -3383,24 +4225,28 @@ function studioPreferredModelSelection(snapshot = {}) {
       const endpoint = modelEndpointForArtifact(snapshot, artifact) || {};
       const route =
         snapshot.routes.find((candidate) =>
-          candidate.endpointId === endpoint.id ||
-          candidate.modelId === modelId ||
-          candidate.id === endpoint.routeId ||
-          candidate.routeId === endpoint.routeId,
+          studioSameNonEmptyId(candidate.endpointId, endpoint.id) ||
+          firstArray(candidate.fallback || candidate.fallbackEndpoints || candidate.fallback_endpoints).includes(endpoint.id) ||
+          studioSameNonEmptyId(candidate.modelId, modelId) ||
+          studioSameNonEmptyId(candidate.id, endpoint.routeId) ||
+          studioSameNonEmptyId(candidate.routeId, endpoint.routeId),
         ) ||
         {};
-      const providerWeight = /lmstudio|lm_studio/i.test(String(artifact.providerId || ""))
-        ? 100
-        : /ollama|vllm|openai_compatible|local\.folder/i.test(String(artifact.providerId || ""))
+      const providerSignal = String(`${artifact.providerId || ""} ${endpoint.providerId || ""} ${artifact.source || ""} ${endpoint.driver || ""}`);
+      const providerWeight = /llama-cpp|llama_cpp|provider\.llama/i.test(providerSignal)
+        ? 130
+        : /ollama|vllm|openai_compatible|local\.folder/i.test(providerSignal)
           ? 80
           : 10;
-      return {
+      const selection = {
         artifact,
         endpoint,
         route,
         score: providerWeight + modelRecordStatusScore(endpoint, route, artifact),
       };
+      return isProductStudioModelSelection(selection) ? selection : null;
     })
+    .filter(Boolean)
     .sort((left, right) => right.score - left.score);
   return candidates[0] || null;
 }
@@ -3408,38 +4254,34 @@ function studioPreferredModelSelection(snapshot = {}) {
 function studioSnapshotFromState(state = {}) {
   const snapshot = modelSnapshotFromState(state);
   const preferred = studioPreferredModelSelection(snapshot);
-  const route =
-    preferred?.route ||
-    snapshot.routes.find((candidate) => String(candidate.status || "").match(/ready|active|mounted/i)) ||
-    snapshot.routes[0] ||
-    {};
-  const endpoint =
-    preferred?.endpoint ||
-    snapshot.endpoints.find((candidate) => candidate.id === route.endpointId) ||
-    snapshot.endpoints.find((candidate) => String(candidate.status || "").match(/ready|loaded|active/i)) ||
-    snapshot.endpoints[0] ||
-    {};
-  const artifact =
-    preferred?.artifact ||
-    snapshot.artifacts.find((candidate) => candidate.id === endpoint.modelId || candidate.modelId === endpoint.modelId) ||
-    snapshot.artifacts.find((candidate) => candidate.id === route.modelId || candidate.modelId === route.modelId) ||
-    snapshot.artifacts[0] ||
-    {};
-  const selectedModel =
-    artifact.modelId ||
-    artifact.id ||
-    endpoint.modelId ||
-    route.modelId ||
-    studioRuntimeProjection.selectedModel ||
-    "auto";
-  const modelLabel =
-    artifact.name ||
-    artifact.label ||
-    artifact.modelId ||
-    artifact.id ||
-    endpoint.modelId ||
-    route.modelId ||
-    "auto";
+  const route = preferred?.route || snapshot.routes.find((candidate) =>
+    candidate.id === studioRuntimeProjection.modelRoute || candidate.routeId === studioRuntimeProjection.modelRoute,
+  ) || {};
+  const endpoint = preferred?.endpoint || {};
+  const artifact = preferred?.artifact || {};
+  const staleSelectedModel = stringValue(studioRuntimeProjection.selectedModel);
+  const staleProductSelectionAvailable = Boolean(
+    !preferred &&
+      staleSelectedModel &&
+      !isAutoStudioModelSelector(staleSelectedModel) &&
+      !studioProductModelSelectionError(studioRuntimeProjection.modelRoute || "route.local-first", staleSelectedModel),
+  );
+  const productModelAvailable = Boolean(preferred) || staleProductSelectionAvailable;
+  const selectedModel = productModelAvailable
+    ? (preferred ? studioSelectionModelId({ artifact, endpoint, route }) : staleSelectedModel)
+    : STUDIO_PRODUCT_MODEL_UNAVAILABLE;
+  const modelLabel = productModelAvailable
+    ? (preferred ? (
+        artifact.name ||
+        artifact.label ||
+        artifact.displayName ||
+        artifact.modelId ||
+        artifact.id ||
+        endpoint.modelId ||
+        route.modelId ||
+        selectedModel
+      ) : staleSelectedModel)
+    : "No product model mounted";
   const reasoningControl = studioReasoningControlForSelection({
     artifact,
     endpoint,
@@ -3454,6 +4296,7 @@ function studioSnapshotFromState(state = {}) {
     endpointId: endpoint.id || route.endpointId || "",
     selectedModel,
     modelLabel,
+    modelUnavailable: !productModelAvailable,
     reasoningControlSupported: reasoningControl.supported,
     reasoningEffort: reasoningControl.effort,
   };
@@ -3477,13 +4320,20 @@ function mountedModelQuickInputRowsFromState(state = {}) {
       const route =
         snapshot.routes.find((candidate) =>
           candidate.endpointId === endpoint.id ||
+          firstArray(candidate.fallback || candidate.fallbackEndpoints || candidate.fallback_endpoints).includes(endpoint.id) ||
           candidate.modelId === modelId ||
           candidate.id === endpoint.routeId ||
           candidate.routeId === endpoint.routeId,
         ) ||
         {};
       const status = instance.status || endpoint.status || route.status || artifact.status || "";
-      if (!modelId || seen.has(modelId) || !mountedStatus(status)) {
+      const selection = { artifact, endpoint, route };
+      if (
+        !modelId ||
+        seen.has(modelId) ||
+        !mountedStatus(status) ||
+        !isProductStudioModelSelection(selection)
+      ) {
         return null;
       }
       seen.add(modelId);
@@ -3684,6 +4534,40 @@ function studioChatCodeExecutionRows(turn = {}, turnIndex = 0) {
   }).join("");
 }
 
+function studioPendingWorklogRows() {
+  return firstArray(studioRuntimeProjection.pendingWorklog).map((step) => `
+    <li data-status="${escapeHtml(step.status || "running")}">
+      <p>${escapeHtml(step.label || "")}</p>
+      ${step.detail ? `<span>${escapeHtml(step.detail)}</span>` : ""}
+    </li>
+  `).join("");
+}
+
+function studioPendingProjectionRows() {
+  if (!studioRuntimeProjection.pending) {
+    return "";
+  }
+  const startedAt = Number(studioRuntimeProjection.pendingStartedAtMs || Date.now());
+  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+  return `
+    <article
+      class="studio-chat-turn studio-chat-turn--assistant studio-pending"
+      data-testid="studio-pending-state"
+      data-studio-turn-role="assistant"
+      data-documented-work="false"
+      data-pending-started-at-ms="${escapeHtml(String(startedAt))}"
+    >
+      <div class="studio-pending__line">
+        <span class="studio-pending__dots" aria-hidden="true"><span></span><span></span><span></span></span>
+        <strong data-testid="studio-pending-label">Thinking about your request · ${escapeHtml(String(elapsedSeconds))}s</strong>
+      </div>
+      <ol class="studio-pending__worklog" data-testid="studio-pending-worklog">
+        ${studioPendingWorklogRows()}
+      </ol>
+    </article>
+  `;
+}
+
 function studioTurnRows() {
   return studioRuntimeProjection.turns.map((turn, index) => {
     const hasDocumentedWork = turn.role === "assistant" && studioTurnHasDocumentedWork(turn);
@@ -3692,11 +4576,16 @@ function studioTurnRows() {
     return `
     <article class="studio-chat-turn studio-chat-turn--${escapeHtml(turn.role || "system")}" data-studio-turn-role="${escapeHtml(turn.role || "system")}" data-testid="${turn.role === "user" ? "studio-user-turn-immediate" : index === studioRuntimeProjection.turns.length - 1 ? "studio-latest-turn" : "studio-chat-turn"}"${turn.modelStream?.streamId ? ` data-studio-stream-turn="${escapeHtml(turn.modelStream.streamId)}"` : ""} data-documented-work="${hasDocumentedWork ? "true" : "false"}">
       ${hasDocumentedWork ? `
-        <div class="studio-run-status-bar" data-testid="studio-run-status-bar">
-          <span class="studio-run-status-bar__check" aria-hidden="true">✓</span>
-          <strong>${studioRuntimeProjection.status === "interrupted" ? "Stopped by operator" : `Worked for ${formatStudioWorkDuration(workRecord.durationMs)}`}</strong>
-          <span>${escapeHtml(studioDocumentedWorkSummary(workRecord))}</span>
-        </div>
+        <details class="studio-run-status-bar" data-testid="studio-run-status-bar">
+          <summary>
+            <span class="studio-run-status-bar__check" aria-hidden="true">✓</span>
+            <strong>${studioRuntimeProjection.status === "interrupted" ? "Stopped by operator" : `Worked for ${formatStudioWorkDuration(workRecord.durationMs)}`}</strong>
+            <span>${escapeHtml(studioDocumentedWorkSummary(workRecord))}</span>
+          </summary>
+          <ul class="studio-run-status-bar__details" data-testid="studio-work-summary-lines">
+            ${firstArray(workRecord.activityLines || workRecord.lines).slice(0, 8).map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
+          </ul>
+        </details>
         ${studioManagedSessionRows(workRecord.sessionCards)}
       ` : ""}
       <div class="studio-chat-turn__avatar" aria-hidden="true">${escapeHtml(turn.role === "user" ? "hi" : (turn.role || "S").slice(0, 1).toUpperCase())}</div>
@@ -3705,9 +4594,12 @@ function studioTurnRows() {
           <strong>${escapeHtml(turn.role === "user" ? "You" : turn.role === "assistant" ? "Autopilot" : "System")}</strong>
           <span>${escapeHtml(turn.createdAt || "")}</span>
         </div>
-        <p${turn.modelStream?.streamId ? ' data-testid="studio-streaming-output"' : ""}>${escapeHtml(displayContent)}</p>
+        ${turn.role === "assistant" ? studioThinkingRows(turn) : ""}
+        <p${turn.modelStream?.streamId ? ' data-testid="studio-streaming-output"' : turn.role === "assistant" ? ' data-testid="studio-assistant-answer-text"' : ""}>${escapeHtml(displayContent)}</p>
+        ${turn.role === "assistant" ? studioConversationArtifactRows(turn.artifacts || workRecord?.artifactCards || []) : ""}
         ${turn.role === "assistant" ? studioChatOutputRendererRows(turn, index) : ""}
         ${turn.role === "assistant" ? studioChatCodeExecutionRows(turn, index) : ""}
+        ${turn.role === "assistant" ? studioResponseMetricsRows(turn) : ""}
       </div>
     </article>
   `;
@@ -4353,194 +5245,6 @@ function studioContextQuickPickItems() {
   }));
 }
 
-function renderStudioOperationalSurface(state, { standalone = false } = {}) {
-  const workspace = state.workspace || workspaceSummary();
-  const snapshot = studioSnapshotFromState(state);
-  const status = studioRuntimeProjection.pending ? "pending" : studioRuntimeProjection.status;
-  const daemonConnected = snapshot.daemonStatus === "connected";
-  const artifactCount = Math.max(1, studioRuntimeProjection.receipts.length || studioRuntimeProjection.diffHunks.length || 1);
-  const lastModelStream = studioRuntimeProjection.lastModelStream || {};
-  const executionMode = normalizeStudioExecutionMode(studioRuntimeProjection.executionMode);
-  const executionModeLabel = studioExecutionModeLabel(executionMode);
-  const approvalMode = normalizeStudioPermissionMode(studioRuntimeProjection.approvalMode);
-  const permissionLabel = studioPermissionModeLabel(approvalMode);
-  return `
-    <main
-      class="studio-operational-shell studio-tauri-chat-shell${standalone ? " studio-operational-shell--standalone" : ""}"
-      data-testid="agent-studio-operational-chat"
-      data-runtime-authority="daemon-owned"
-      data-extension-host-authority="projection-only"
-      data-studio-ux="tauri-chat-parity"
-      data-runtime-ux-denoised="${studioRuntimeProjection.runtimeUx?.denoised ? "true" : "false"}"
-      data-tracing-separation-achieved="${studioRuntimeProjection.runtimeUx?.tracingSeparationAchieved ? "true" : "false"}"
-      data-model-prose-runtime-truth="false"
-      data-verified-badges-require-receipts="${studioRuntimeProjection.runtimeUx?.verifiedBadgesRequireReceiptRefs ? "true" : "false"}"
-      data-daemon-backed="${daemonConnected ? "true" : "false"}"
-      data-studio-status="${escapeHtml(status || "idle")}"
-      data-thread-id="${escapeHtml(studioRuntimeProjection.threadId || "")}"
-      data-session-id="${escapeHtml(studioRuntimeProjection.sessionId || "")}"
-      data-model-stream-id="${escapeHtml(lastModelStream.streamId || "")}"
-      data-model-stream-chunks="${escapeHtml(String(lastModelStream.chunkCount || 0))}"
-      data-model-stream-receipts="${escapeHtml(String(firstArray(lastModelStream.receiptIds).length))}"
-      data-runtime-cockpit-achieved="${studioRuntimeProjection.runtimeCockpit?.achieved ? "true" : "false"}"
-      data-studio-execution-mode="${escapeHtml(executionMode)}"
-      data-runtime-profile="${escapeHtml(studioRuntimeProjection.runtimeProfile || "")}"
-      data-model-backed-streaming-observed="${studioRuntimeProjection.runtimeCockpit?.modelBackedStreamingObserved ? "true" : "false"}"
-      data-real-daemon-tool-proposal-observed="${studioRuntimeProjection.runtimeCockpit?.realDaemonToolProposalObserved ? "true" : "false"}"
-      data-policy-lease-dialog-observed="${studioRuntimeProjection.runtimeCockpit?.policyLeaseDialogObserved ? "true" : "false"}"
-      data-managed-live-viewport-observed="${studioRuntimeProjection.runtimeCockpit?.managedLiveViewportObserved ? "true" : "false"}"
-      data-managed-session-labels-observed="${studioRuntimeProjection.runtimeCockpit?.managedSessionLabelsObserved ? "true" : "false"}"
-      data-managed-session-count="${escapeHtml(String(studioRuntimeProjection.computerUseSessions.length || 0))}"
-      data-immediate-submit-seen="${studioRuntimeProjection.immediateSubmitSeen ? "true" : "false"}"
-      data-pending-state-seen="${studioRuntimeProjection.pendingSeen ? "true" : "false"}"
-      data-pending-started-at-ms="${escapeHtml(String(studioRuntimeProjection.pendingStartedAtMs || ""))}"
-    >
-      <aside class="studio-operational-rail studio-session-rail" data-testid="studio-tauri-session-rail" aria-label="Studio session context">
-        <header class="studio-session-rail__header">
-          <span class="studio-eyebrow">Sessions</span>
-          <h2>Codebase chat history</h2>
-          <button type="button" data-testid="studio-new-session-icon" data-bridge-request="chat.newSession" aria-label="New Session">+</button>
-        </header>
-        <label class="studio-session-search">
-          <span class="studio-search-icon" aria-hidden="true">⌕</span>
-          <input data-testid="studio-session-search" type="search" placeholder="Search sessions" />
-        </label>
-        <nav class="studio-session-actions" aria-label="Session actions">
-          <button type="button" data-testid="studio-new-session" data-bridge-request="chat.newSession">+ <span>New Session</span></button>
-          <button type="button" data-testid="studio-artifacts-row" data-studio-drawer-open>
-            <span>Artifacts</span>
-            <mark>${artifactCount}</mark>
-          </button>
-        </nav>
-        <section class="studio-control-group studio-history-group" data-testid="studio-session-history">
-          <h3>Recent</h3>
-          <span class="studio-history-date">Today</span>
-          <button type="button" class="studio-history-item studio-history-item--current" data-testid="studio-current-session-row">
-            <strong>${escapeHtml(studioDisplayTurnContent(studioRuntimeProjection.turns.find((turn) => turn.role === "user") || {}).slice(0, 36) || "Current daemon session")}</strong>
-            <span>${escapeHtml([studioRuntimeProjection.status || "idle", studioRuntimeProjection.sessionId || "studio-session-current"].filter(Boolean).join(" · "))}</span>
-          </button>
-          <div data-testid="studio-recent-sessions">
-          ${studioHistoryRows()}
-          </div>
-        </section>
-        <section class="studio-control-group studio-rail-secondary">
-          <h3>Context</h3>
-          <button type="button" data-bridge-request="chat.attachEditorContext">Current editor</button>
-          <button type="button" data-command="ioi.code.open">Repository</button>
-          <button type="button" data-command="ioi.policy.open">Policy</button>
-        </section>
-        <section class="studio-control-group studio-rail-secondary">
-          <h3>Handoffs</h3>
-          <button type="button" data-testid="studio-workflow-handoff" data-command="ioi.workflow.openComposer">Workflow Composer</button>
-          <button type="button" data-testid="studio-models-handoff-chip" data-command="ioi.models.open">Models</button>
-        </section>
-      </aside>
-
-      <section class="studio-chat-main">
-        <header class="studio-chat-header">
-          <button type="button" class="studio-chat-tab is-active">Chat</button>
-          <div class="studio-route-controls">
-            <select data-testid="studio-model-route-picker" data-testid-proxy="studio-model-toggle" data-selected-model-id="${escapeHtml(snapshot.selectedModel)}" data-selected-endpoint-id="${escapeHtml(snapshot.endpointId)}" aria-label="Model route picker">
-              <option value="${escapeHtml(snapshot.routeId)}" data-model-id="${escapeHtml(snapshot.selectedModel)}" data-endpoint-id="${escapeHtml(snapshot.endpointId)}">${escapeHtml(snapshot.routeId)} · ${escapeHtml(snapshot.modelLabel)}</option>
-            </select>
-            ${snapshot.reasoningControlSupported ? `
-              <select data-testid="studio-reasoning-effort-picker" data-reasoning-supported="true" aria-label="Reasoning effort">
-                ${studioReasoningEffortOptions(snapshot.reasoningEffort)}
-              </select>
-            ` : ""}
-            <button type="button" data-command="ioi.models.open">Manage models</button>
-            ${studioRuntimeProjection.status === "interrupted" ? `
-              <button type="button" class="studio-stop-icon-button" data-studio-resume data-testid="studio-resume-icon" title="Resume" aria-label="Resume">${renderNativeChatIcon("send")}</button>
-            ` : `
-              <button type="button" class="studio-stop-icon-button" data-studio-stop data-testid="studio-stop-icon" title="Stop" aria-label="Stop">${renderNativeChatIcon("stop")}</button>
-            `}
-          </div>
-        </header>
-        <section class="studio-transcript" data-testid="studio-transcript" aria-live="polite">
-          <div class="studio-chat-transcript" data-testid="studio-chat-transcript">
-            ${studioTurnRows()}
-          </div>
-          ${studioCompactRuntimeStatusRows()}
-        </section>
-        <form class="studio-composer" data-testid="studio-composer" data-studio-prompt-form>
-          <div class="studio-tauri-composer" data-testid="studio-tauri-composer">
-            <div class="studio-composer-context-row" data-testid="studio-composer-context-row">
-              <button type="button" data-testid="studio-add-context" class="studio-context-btn" data-command="ioi.quickInput.context.open">
-                <span class="studio-context-btn__icon" aria-hidden="true">${renderNativeChatIcon("paperclip")}</span>
-                <span>Add Context...</span>
-              </button>
-            </div>
-            <textarea data-testid="studio-composer-input" data-studio-prompt rows="3" placeholder="Describe what to build next"></textarea>
-            <div class="studio-composer-toolbar" data-testid="studio-composer-toggle-row">
-              <button type="button" data-testid="studio-target-toggle" class="studio-icon-toggle" data-command="ioi.quickInput.workflowTarget.pick" title="Set session target" aria-label="Set session target">
-                <span class="studio-icon-toggle__glyph" aria-hidden="true">${renderNativeChatIcon("device-desktop")}</span>
-                <span class="studio-icon-toggle__chevron" aria-hidden="true">${renderNativeChatIcon("chevron-down")}</span>
-              </button>
-              <button type="button" data-testid="studio-model-toggle" class="studio-icon-toggle" data-command="ioi.quickInput.modelRoute.pick"${commandPayloadAttr({ mountedModels: mountedModelQuickInputRowsFromState(state) })} title="Choose mounted model - ${escapeHtml(snapshot.modelLabel)}" aria-label="Choose mounted model - ${escapeHtml(snapshot.modelLabel)}">
-                <span class="studio-icon-toggle__glyph" aria-hidden="true">${renderNativeChatIcon("cube")}</span>
-                <span class="studio-icon-toggle__chevron" aria-hidden="true">${renderNativeChatIcon("chevron-down")}</span>
-              </button>
-              <button type="button" data-testid="studio-mode-toggle" class="studio-mode-toggle" data-command="ioi.quickInput.agentMode.pick" data-studio-mode="${escapeHtml(executionMode)}" title="Choose agent mode" aria-label="Choose agent mode">
-                <span>${escapeHtml(executionModeLabel)}</span>
-                <span class="studio-icon-toggle__chevron" aria-hidden="true">${renderNativeChatIcon("chevron-down")}</span>
-              </button>
-              <button type="button" data-testid="studio-permissions-toggle" class="studio-mode-toggle studio-permissions-toggle" data-command="ioi.quickInput.permissionMode.pick" data-approval-mode="${escapeHtml(approvalMode)}" title="Permissions - ${escapeHtml(permissionLabel)}" aria-label="Permissions - ${escapeHtml(permissionLabel)}">
-                <span>${escapeHtml(permissionLabel)}</span>
-                <span class="studio-icon-toggle__chevron" aria-hidden="true">${renderNativeChatIcon("chevron-down")}</span>
-              </button>
-              <button type="button" data-testid="studio-tools-toggle" class="studio-icon-toggle" data-command="ioi.quickInput.tools.configure" title="Tools" aria-label="Select tools">
-                <span class="studio-icon-toggle__glyph" aria-hidden="true">${renderNativeChatIcon("tools")}</span>
-              </button>
-              <button type="submit" data-testid="studio-send-button" class="studio-send-icon" title="Send" aria-label="Send">
-                <span data-testid="studio-send-icon" aria-hidden="true">${renderNativeChatIcon("send")}</span>
-              </button>
-            </div>
-          </div>
-        </form>
-      </section>
-
-      <aside class="studio-operator-context studio-utility-drawer" data-testid="studio-utility-drawer" aria-label="Runtime context">
-        <button type="button" class="studio-utility-toggle" data-testid="studio-utility-toggle" data-studio-drawer-toggle title="Toggle compact trace preview">Trace</button>
-        <div class="studio-utility-drawer__content">
-        <section data-testid="studio-trace-handoff">
-          <h3>Tracing</h3>
-          <p>Receipts, replay, logs, policy internals, and raw daemon events live in Runs/Tracing.</p>
-          ${studioTraceLink({ kind: "session.summary", id: "studio-current-session" }, "Open Tracing")}
-        </section>
-        <section data-testid="studio-runtime-cockpit">
-          <h3>Runtime cockpit</h3>
-          ${studioActionCardRows()}
-          ${studioPolicyLeaseRows()}
-          ${studioCommandOutputRows()}
-          ${studioDiagnosticsRows()}
-          ${studioBrowserWorkerRows()}
-          <section data-testid="studio-parity-plus-panels">
-            ${studioParityPlusPanelRows()}
-          </section>
-        </section>
-        <section data-testid="studio-tool-timeline">
-          <h3><span data-testid="studio-tool-timeline-collapsed">Tool timeline</span></h3>
-          <ol>${studioTimelineRows()}</ol>
-        </section>
-        ${studioApprovalRows()}
-        <section data-testid="studio-inline-diff-drawer">
-          <h3>Inline diff</h3>
-          ${studioDiffRows()}
-        </section>
-        <section data-testid="studio-receipts-replay">
-          <h3>Receipts / replay</h3>
-          <ul>${studioReceiptRows()}</ul>
-          <ol class="studio-replay-steps">${studioReplayRows()}</ol>
-        </section>
-        <section data-testid="studio-terminal-output">
-          <h3>Terminal / tests</h3>
-          <ul>${studioTerminalRows()}</ul>
-        </section>
-        </div>
-      </aside>
-    </main>
-  `;
-}
 
 function renderStudioView(state) {
   return `
@@ -4602,6 +5306,56 @@ function modelSnapshotFromState(state) {
     runtimePreference: snapshot.runtimePreference || {},
     generatedAt: snapshot.generatedAt || snapshot.server?.generatedAt || null,
   };
+}
+
+function productStudioModelSelectionsFromSnapshot(snapshot = {}) {
+  const seen = new Set();
+  return (Array.isArray(snapshot.artifacts) ? snapshot.artifacts : [])
+    .map((artifact) => {
+      const modelId = studioSelectionModelId({ artifact });
+      const endpoint = modelEndpointForArtifact(snapshot, artifact) || {};
+      const route =
+        (Array.isArray(snapshot.routes) ? snapshot.routes : []).find((candidate) =>
+          studioSameNonEmptyId(candidate.endpointId, endpoint.id) ||
+          firstArray(candidate.fallback || candidate.fallbackEndpoints || candidate.fallback_endpoints).includes(endpoint.id) ||
+          studioSameNonEmptyId(candidate.modelId, modelId) ||
+          studioSameNonEmptyId(candidate.id, endpoint.routeId) ||
+          studioSameNonEmptyId(candidate.routeId, endpoint.routeId),
+        ) ||
+        {};
+      const selection = { artifact, endpoint, route };
+      if (!isProductStudioModelSelection(selection)) {
+        return null;
+      }
+      const key = studioSelectionModelId(selection);
+      if (!key || seen.has(key)) {
+        return null;
+      }
+      seen.add(key);
+      return selection;
+    })
+    .filter(Boolean);
+}
+
+function loadedProductStudioModelInstances(snapshot = {}, selections = []) {
+  const endpointIds = new Set(selections.map((selection) => selection.endpoint?.id).filter(Boolean));
+  const modelIds = new Set(selections.map((selection) => studioSelectionModelId(selection)).filter(Boolean));
+  const seen = new Set();
+  return (Array.isArray(snapshot.instances) ? snapshot.instances : [])
+    .filter((instance) => {
+      if (!/loaded|ready|running/i.test(String(instance.status || ""))) {
+        return false;
+      }
+      return endpointIds.has(instance.endpointId) || modelIds.has(instance.modelId);
+    })
+    .filter((instance) => {
+      const key = instance.id || `${instance.endpointId || ""}:${instance.modelId || ""}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
 }
 
 function modeIdForViewId(viewId) {
@@ -4853,1227 +5607,6 @@ function renderAutopilotShellHeader(state, modeId, options = {}) {
   `;
 }
 
-function modelReceiptKind(receipt) {
-  return receipt?.details?.operation || receipt?.kind || "receipt";
-}
-
-function modelStatusPill(value) {
-  const normalized = String(value || "unknown").toLowerCase();
-  const tone = /loaded|ready|available|running|mounted|connected|pass|active/.test(normalized)
-    ? "ready"
-    : /blocked|failed|error|absent|denied/.test(normalized)
-      ? "blocked"
-      : /loading|starting|degraded|warning|stopped/.test(normalized)
-        ? "warn"
-        : "muted";
-  return `<span class="model-status is-${tone}">${escapeHtml(value || "unknown")}</span>`;
-}
-
-function modelEndpointForArtifact(snapshot, artifact) {
-  return snapshot.endpoints.find(
-    (endpoint) =>
-      endpoint.artifactId === artifact.id || endpoint.modelId === artifact.modelId,
-  );
-}
-
-function modelInstanceForEndpoint(snapshot, endpoint) {
-  return snapshot.instances.find(
-    (instance) => instance.endpointId === endpoint?.id && instance.status === "loaded",
-  );
-}
-
-function modelDisplayName(artifact = {}) {
-  return artifact.displayName || artifact.name || artifact.modelId || artifact.id || "Model";
-}
-
-function modelPublisher(artifact = {}) {
-  const modelId = String(artifact.modelId || artifact.id || "");
-  return (
-    artifact.publisher ||
-    artifact.providerId ||
-    artifact.registry ||
-    (modelId.includes("/") ? modelId.split("/")[0] : "") ||
-    "local"
-  );
-}
-
-function modelArch(artifact = {}) {
-  return artifact.arch || artifact.architecture || artifact.family || artifact.metadata?.arch || "llama";
-}
-
-function modelParams(artifact = {}) {
-  const explicit = artifact.params || artifact.parameterCount || artifact.metadata?.params;
-  if (explicit) {
-    return String(explicit);
-  }
-  const source = `${artifact.modelId || ""} ${artifact.name || ""}`;
-  const match = source.match(/\b\d+(?:\.\d+)?\s?[bBmM]\b/);
-  return match ? match[0].replace(/\s+/g, "").toUpperCase() : "local";
-}
-
-function modelDomain(artifact = {}) {
-  const capabilities = Array.isArray(artifact.capabilities) ? artifact.capabilities : [];
-  if (capabilities.some((capability) => /embed/i.test(String(capability)))) {
-    return "embedding";
-  }
-  if (capabilities.some((capability) => /vision|image|video/i.test(String(capability)))) {
-    return "vlm";
-  }
-  return artifact.domain || "llm";
-}
-
-function renderModelTags(values, { max = 4 } = {}) {
-  const tags = Array.from(new Set(values.filter(Boolean).map((value) => String(value))));
-  if (!tags.length) {
-    return `<span class="model-chip is-muted">chat</span>`;
-  }
-  return tags
-    .slice(0, max)
-    .map((value) => `<span class="model-chip">${escapeHtml(value)}</span>`)
-    .join("");
-}
-
-function modelCapabilityText(artifact = {}) {
-  const capabilities = Array.isArray(artifact.capabilities) ? artifact.capabilities : [];
-  return Array.from(new Set(capabilities.filter(Boolean).map((value) => String(value)))).join(", ") || "chat";
-}
-
-function modelSelectedLoadOptions(instance = {}, engine = {}) {
-  const defaults = engine.defaultLoadOptions || {};
-  const instanceLoadOptions = instance.loadOptions || {};
-  return {
-    identifier: instance.identifier || instance.modelId || "local-model",
-    contextLength: instance.contextLength || instanceLoadOptions.contextLength || defaults.contextLength || 2048,
-    gpuOffload:
-      instance.gpuOffload ??
-      instanceLoadOptions.gpuOffload ??
-      instanceLoadOptions.gpu ??
-      defaults.gpuOffload ??
-      defaults.gpu ??
-      "auto",
-    parallelism: instance.parallelism || instanceLoadOptions.parallel || defaults.parallel || 1,
-    idleTtlSeconds: instance.loadPolicy?.idleTtlSeconds || defaults.idleTtlSeconds || 900,
-  };
-}
-
-function renderModelLibraryRows(snapshot) {
-  if (!snapshot.artifacts.length) {
-    return `
-      <tr>
-        <td colspan="7">
-          <div class="model-empty" data-testid="model-empty-state">No daemon model artifacts are projected yet.</div>
-        </td>
-      </tr>
-    `;
-  }
-  const loadedModelIds = new Set(
-    snapshot.instances
-      .filter((instance) => instance.status === "loaded")
-      .map((instance) => instance.modelId)
-      .filter(Boolean),
-  );
-  const selectedId =
-    snapshot.artifacts.find((artifact) => loadedModelIds.has(artifact.modelId))?.id ||
-    snapshot.artifacts[0]?.id ||
-    snapshot.artifacts[0]?.modelId;
-  return snapshot.artifacts
-    .map((artifact, index) => {
-      const endpoint = modelEndpointForArtifact(snapshot, artifact);
-      const instance = modelInstanceForEndpoint(snapshot, endpoint);
-      const capabilities = Array.isArray(artifact.capabilities) ? artifact.capabilities : [];
-      const modelId = artifact.modelId || artifact.id;
-      const rowStatus = instance?.status || endpoint?.status || artifact.status || "installed";
-      const actionPayload = {
-        modelId,
-        endpointId: endpoint?.id,
-      };
-      const isSelected =
-        artifact.id === selectedId ||
-        artifact.modelId === selectedId ||
-        (index === 0 && !selectedId);
-      return `
-        <tr
-          class="${isSelected ? "is-selected" : ""}"
-          data-model-row="${escapeHtml(artifact.modelId || artifact.id)}"
-          data-model-label="${escapeHtml(modelDisplayName(artifact))}"
-          data-model-publisher="${escapeHtml(modelPublisher(artifact))}"
-          data-model-domain="${escapeHtml(modelDomain(artifact))}"
-          data-model-status="${escapeHtml(rowStatus)}"
-          data-model-file="${escapeHtml(artifact.fileName || artifact.path || "daemon artifact")}"
-          data-model-format="${escapeHtml(artifact.format || "GGUF")}"
-          data-model-quantization="${escapeHtml(artifact.quantization || "unknown")}"
-          data-model-arch="${escapeHtml(modelArch(artifact))}"
-          data-model-params="${escapeHtml(modelParams(artifact))}"
-          data-model-capabilities="${escapeHtml(modelCapabilityText(artifact))}"
-          data-model-size="${escapeHtml(formatBytes(artifact.sizeBytes ?? artifact.size_bytes))}"
-          data-model-endpoint-id="${escapeHtml(endpoint?.id || "")}"
-          data-model-instance-id="${escapeHtml(instance?.id || "")}"
-          data-model-backend-id="${escapeHtml(instance?.backendId || endpoint?.backendId || "")}"
-          tabindex="0"
-          role="button"
-          data-testid="${isSelected ? "model-library-row-selected" : "model-library-row"}"
-        >
-          <td class="model-table__name">
-            <strong>${escapeHtml(modelDisplayName(artifact))}</strong>
-            <small>${escapeHtml(artifact.modelId || artifact.id)}</small>
-          </td>
-          <td>${renderModelTags([modelArch(artifact)])}</td>
-          <td>${renderModelTags([modelParams(artifact)])}</td>
-          <td>${escapeHtml(modelPublisher(artifact))}</td>
-          <td>${renderModelTags([modelDomain(artifact), artifact.format || "GGUF"])}</td>
-          <td>${modelStatusPill(rowStatus)}</td>
-          <td class="model-actions-cell">
-            <button class="model-icon-button" type="button" data-command="ioi.models.openLoader"${commandPayloadAttr(actionPayload)} title="Open loader" aria-label="Open loader">Load</button>
-            <button class="model-icon-button" type="button" data-command="ioi.models.estimateNative"${commandPayloadAttr(actionPayload)} title="Estimate load" aria-label="Estimate load">Estimate</button>
-          </td>
-        </tr>
-      `;
-    })
-    .join("");
-}
-
-function renderModelQuickLoaderRows(snapshot) {
-  if (!snapshot.artifacts.length) {
-    return `<div class="model-empty">Open the daemon model catalog to populate the loader.</div>`;
-  }
-  return snapshot.artifacts
-    .slice(0, 5)
-    .map((artifact, index) => {
-      const endpoint = modelEndpointForArtifact(snapshot, artifact);
-      const instance = modelInstanceForEndpoint(snapshot, endpoint);
-      const capabilities = Array.isArray(artifact.capabilities) ? artifact.capabilities : [];
-      return `
-        <button
-          class="model-loader-row ${index === 0 ? "is-selected" : ""}"
-          type="button"
-          data-model-label="${escapeHtml(modelDisplayName(artifact))}"
-          data-model-publisher="${escapeHtml(modelPublisher(artifact))}"
-          data-model-domain="${escapeHtml(modelDomain(artifact))}"
-          data-testid="${index === 0 ? "model-quick-loader-selected-row" : "model-quick-loader-row"}"
-          data-command="ioi.models.openLoader"
-          ${commandPayloadAttr({ modelId: artifact.modelId || artifact.id, endpointId: endpoint?.id })}
-        >
-          <span>
-            <strong>${escapeHtml(modelDisplayName(artifact))}</strong>
-            <small>${escapeHtml(modelPublisher(artifact))}</small>
-          </span>
-          <span>${renderModelTags([modelArch(artifact), artifact.format || "GGUF", ...capabilities], { max: 3 })}</span>
-          <span>${escapeHtml(formatBytes(artifact.sizeBytes ?? artifact.size_bytes))}</span>
-          <span>${modelStatusPill(instance?.status || endpoint?.status || artifact.status || "installed")}</span>
-        </button>
-      `;
-    })
-    .join("");
-}
-
-function renderModelReceiptRows(snapshot, limit = 7) {
-  const receipts = snapshot.receipts.slice(-limit).reverse();
-  if (!receipts.length) {
-    return `<div class="model-empty">No model receipts have been emitted yet.</div>`;
-  }
-  return receipts
-    .map(
-      (receipt) => `
-        <article class="model-log-row">
-          <strong>${escapeHtml(modelReceiptKind(receipt))}</strong>
-          <span>${escapeHtml(receipt.id || receipt.receiptId || "receipt")}</span>
-          <small>${escapeHtml(receipt.summary || receipt.details?.summary || "daemon receipt")}</small>
-        </article>
-      `,
-    )
-    .join("");
-}
-
-function modelCatalogFallbackEntries(snapshot) {
-  return snapshot.artifacts.slice(0, 8).map((artifact) => ({
-    id: `local.${artifact.id || artifact.modelId}`,
-    providerId: artifact.providerId || "provider.local-folder",
-    catalogProviderId: "catalog.local-installed",
-    modelId: artifact.modelId || artifact.id,
-    family: artifact.family || artifact.arch || modelDomain(artifact),
-    architecture: modelArch(artifact),
-    parameterCount: modelParams(artifact),
-    format: String(artifact.format || "gguf").toLowerCase(),
-    quantization: artifact.quantization || "installed",
-    sizeBytes: artifact.sizeBytes ?? artifact.size_bytes,
-    contextWindow: artifact.contextWindow ?? artifact.context_window ?? null,
-    sourceLabel: `Installed artifact / ${modelDisplayName(artifact)}`,
-    license: artifact.license || "local",
-    compatibility: ["installed", modelDomain(artifact), artifact.format || "gguf"],
-    tags: Array.isArray(artifact.capabilities) ? artifact.capabilities : [modelDomain(artifact)],
-    variantPath: artifact.path || artifact.fileName || null,
-    description:
-      artifact.description ||
-      "This model is already projected by the daemon. Run a catalog search to discover remote or provider-backed variants.",
-    downloadRisk: { status: "already_installed" },
-  }));
-}
-
-function modelCatalogReferenceEntries() {
-  return [
-    {
-      id: "reference.nvidia.nemotron-3-nano-omni",
-      catalogProviderId: "catalog.huggingface",
-      modelId: "nvidia/nemotron-3-nano-omni",
-      displayName: "Nemotron 3 Nano Omni",
-      publisher: "NVIDIA",
-      family: "Nemotron Nano V3 Omni",
-      architecture: "nemotron_h_moe",
-      parameterCount: "30B",
-      domain: "llm",
-      format: "GGUF",
-      quantization: "Q4_K_M",
-      sizeBytes: 26.1 * 1024 * 1024 * 1024,
-      downloads: 149_861,
-      stars: 22,
-      updatedLabel: "23 days ago",
-      sourceLabel: "Staff pick / Hugging Face-compatible catalog",
-      sourceUrl: "https://huggingface.co/nvidia/nemotron-3-nano-omni",
-      license: "model card",
-      staffPick: true,
-      verified: true,
-      compatibility: ["vision", "tool use", "reasoning"],
-      tags: ["vision", "tool use", "reasoning", "llm", "gguf"],
-      description:
-        "Nemotron Nano V3 Omni is a multi-modal large language model designed to integrate image and text understanding, enabling workflows such as Q&A, summarization, and document intelligence.",
-      readme:
-        "Nemotron 3 Nano Omni by NVIDIA supports long-context, multi-modal workflows with reasoning, tool use, and partial GPU offload options surfaced through the daemon catalog.",
-      moreFromPublisher: [
-        { label: "nemotron-3-nano-4b", downloads: 155_000, stars: 14 },
-        { label: "nemotron-3-super", downloads: 169_000, stars: 45 },
-        { label: "nemotron-3-nano", downloads: 148_000, stars: 59 },
-      ],
-    },
-    {
-      id: "reference.qwen.qwen3.6-27b",
-      catalogProviderId: "catalog.huggingface",
-      modelId: "qwen/qwen3.6-27b",
-      displayName: "Qwen3.6 27B",
-      publisher: "Qwen",
-      family: "Qwen3.6",
-      architecture: "qwen3",
-      parameterCount: "27B",
-      domain: "llm",
-      format: "GGUF",
-      quantization: "Q4_K_M",
-      sizeBytes: 16.4 * 1024 * 1024 * 1024,
-      downloads: 94_820,
-      stars: 18,
-      updatedLabel: "29 days ago",
-      sourceLabel: "Staff pick / Hugging Face-compatible catalog",
-      sourceUrl: "https://huggingface.co/qwen/qwen3.6-27b",
-      license: "model card",
-      staffPick: true,
-      verified: true,
-      compatibility: ["reasoning", "tool use", "llm"],
-      tags: ["reasoning", "tool use", "llm", "gguf"],
-      description:
-        "Dense Qwen reasoning model for local planning, tool use, and workflow-backed coding tasks.",
-      readme:
-        "Qwen3.6 27B is a practical local reasoning candidate for Autopilot routes where the daemon needs predictable model lifecycle, receipts, and replay.",
-      moreFromPublisher: [
-        { label: "qwen3.6-35b-a3b", downloads: 86_000, stars: 33 },
-        { label: "qwen3-coder-next", downloads: 71_000, stars: 31 },
-        { label: "qwen3.5-9b", downloads: 64_000, stars: 21 },
-      ],
-    },
-    {
-      id: "reference.google.gemma-4-31b",
-      catalogProviderId: "catalog.huggingface",
-      modelId: "google/gemma-4-31b",
-      displayName: "Gemma 4 31B",
-      publisher: "Google",
-      family: "Gemma 4",
-      architecture: "gemma4",
-      parameterCount: "31B",
-      domain: "llm",
-      format: "GGUF",
-      quantization: "Q4_K_M",
-      sizeBytes: 18.7 * 1024 * 1024 * 1024,
-      downloads: 88_630,
-      stars: 27,
-      updatedLabel: "40 days ago",
-      sourceLabel: "Staff pick / Hugging Face-compatible catalog",
-      sourceUrl: "https://huggingface.co/google/gemma-4-31b",
-      license: "model card",
-      verified: true,
-      compatibility: ["vision", "tool use", "llm"],
-      tags: ["vision", "tool use", "llm", "gguf"],
-      description:
-        "General-purpose model family candidate for on-device assistants and document workflows.",
-      readme:
-        "Gemma 4 31B is shown as a discovery candidate so Autopilot can route users from model selection into daemon-owned estimate, download, and load flows.",
-      moreFromPublisher: [
-        { label: "gemma-4-e4b", downloads: 73_000, stars: 19 },
-        { label: "gemma-4-e2b", downloads: 67_000, stars: 15 },
-        { label: "gemma-4-26b-a4b", downloads: 61_000, stars: 17 },
-      ],
-    },
-    {
-      id: "reference.mistral.devstral-small-2-2512",
-      catalogProviderId: "catalog.huggingface",
-      modelId: "mistral/devstral-small-2-2512",
-      displayName: "Devstral Small 2 2512",
-      publisher: "Mistral",
-      family: "Devstral",
-      architecture: "mistral",
-      parameterCount: "24B",
-      domain: "llm",
-      format: "GGUF",
-      quantization: "Q4_K_M",
-      sizeBytes: 14.9 * 1024 * 1024 * 1024,
-      downloads: 57_430,
-      stars: 16,
-      updatedLabel: "161 days ago",
-      sourceLabel: "Staff pick / Hugging Face-compatible catalog",
-      sourceUrl: "https://huggingface.co/mistral/devstral-small-2-2512",
-      license: "model card",
-      verified: true,
-      compatibility: ["tool use", "coding", "llm"],
-      tags: ["tool use", "coding", "llm", "gguf"],
-      description:
-        "Second-generation coding model candidate for local repository work and agentic code proposal loops.",
-      readme:
-        "Devstral is a coding-focused local model candidate for Workflow Composer dry-runs and code proposal routes once daemon download/load APIs are enabled.",
-      moreFromPublisher: [
-        { label: "ministral-3-14b-reasoning", downloads: 42_000, stars: 11 },
-        { label: "mistral-small-instruct", downloads: 98_000, stars: 39 },
-      ],
-    },
-    {
-      id: "reference.ollama.nomic-embed-text",
-      catalogProviderId: "catalog.custom_http",
-      modelId: "nomic-ai/nomic-embed-text-v1.5",
-      displayName: "Nomic Embed Text v1.5",
-      publisher: "Nomic AI",
-      family: "Nomic Embed",
-      architecture: "nomic-bert",
-      parameterCount: "local",
-      domain: "embedding",
-      format: "GGUF",
-      quantization: "Q4_K_M",
-      sizeBytes: 80.2 * 1024 * 1024,
-      downloads: 214_000,
-      stars: 52,
-      updatedLabel: "local registry",
-      sourceLabel: "Embedding pick / configurable endpoint",
-      sourceUrl: "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5",
-      license: "model card",
-      verified: true,
-      compatibility: ["embedding", "retrieval"],
-      tags: ["embedding", "retrieval", "gguf"],
-      description:
-        "Small text embedding model candidate for retrieval, memory, and workflow evidence search.",
-      readme:
-        "Nomic Embed Text is useful when Autopilot needs local retrieval indexes without giving the model direct authority over files or receipts.",
-      moreFromPublisher: [
-        { label: "nomic-embed-code", downloads: 76_000, stars: 18 },
-        { label: "nomic-bert", downloads: 112_000, stars: 29 },
-      ],
-    },
-  ];
-}
-
-function modelCatalogResults(snapshot) {
-  const results = Array.isArray(snapshot.catalog?.results) ? snapshot.catalog.results : [];
-  const remoteResults = results.filter((entry) => {
-    const provider = `${entry.catalogProviderId || ""} ${entry.providerId || ""} ${entry.sourceLabel || ""}`;
-    const summary = `${entry.description || ""} ${entry.summary || ""}`;
-    return (
-      !/local-installed|local-folder|provider\.local|daemon catalog/i.test(provider) &&
-      !/already projected by the daemon/i.test(summary)
-    );
-  });
-  return remoteResults.length ? remoteResults : modelCatalogReferenceEntries();
-}
-
-function modelCatalogLocalProjectionEntries(snapshot) {
-  return modelCatalogFallbackEntries(snapshot);
-}
-
-function formatCatalogMetric(value, fallback = "unknown") {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric < 0) {
-    return fallback;
-  }
-  return numeric.toLocaleString("en-US");
-}
-
-function catalogSizeLabel(entry = {}) {
-  return entry.sizeLabel || formatBytes(entry.sizeBytes ?? entry.size_bytes);
-}
-
-function catalogUpdatedLabel(entry = {}) {
-  if (entry.updatedLabel) {
-    return String(entry.updatedLabel);
-  }
-  const timestamp =
-    entry.updatedAt ||
-    entry.updated_at ||
-    entry.modifiedAt ||
-    entry.modified_at ||
-    entry.discoveredAt ||
-    entry.discovered_at;
-  return timestamp ? formatRelativeTime(Date.parse(timestamp)) : "registry";
-}
-
-function catalogReadme(entry = {}) {
-  return entry.readme || entry.card || catalogSummary(entry);
-}
-
-function catalogPublisherLogo(entry = {}) {
-  const publisher = catalogPublisher(entry);
-  if (/nvidia/i.test(publisher)) return "NV";
-  if (/google/i.test(publisher)) return "G";
-  if (/qwen/i.test(publisher)) return "Q";
-  if (/mistral/i.test(publisher)) return "MI";
-  if (/nomic/i.test(publisher)) return "NO";
-  return publisher.slice(0, 2).toUpperCase();
-}
-
-function catalogMoreFromPublisher(results, selected) {
-  if (Array.isArray(selected.moreFromPublisher) && selected.moreFromPublisher.length) {
-    return selected.moreFromPublisher.slice(0, 4);
-  }
-  return results
-    .filter((entry) => catalogPublisher(entry) === catalogPublisher(selected) && entry.id !== selected.id)
-    .slice(0, 4)
-    .map((entry) => ({
-      label: entry.modelId || entry.id,
-      downloads: entry.downloads,
-      stars: entry.stars,
-      sizeBytes: entry.sizeBytes ?? entry.size_bytes,
-    }));
-}
-
-function catalogDisplayName(entry = {}) {
-  const raw = entry.displayName || entry.name || entry.modelId || entry.id || "Catalog model";
-  return String(raw).split("/").pop() || raw;
-}
-
-function catalogPublisher(entry = {}) {
-  const explicit = entry.publisher || entry.author || entry.providerLabel || entry.catalogProviderId || entry.providerId;
-  if (explicit) {
-    return String(explicit).replace(/^catalog\./, "").replace(/^provider\./, "");
-  }
-  const modelId = String(entry.modelId || "");
-  return modelId.includes("/") ? modelId.split("/")[0] : "daemon catalog";
-}
-
-function catalogSummary(entry = {}) {
-  return (
-    entry.description ||
-    entry.summary ||
-    `${entry.family || "Model"} ${entry.parameterCount || ""} ${entry.format || ""} candidate discovered through ${catalogPublisher(entry)}.`
-  )
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function catalogCapabilities(entry = {}) {
-  return Array.from(
-    new Set(
-      [
-        ...(Array.isArray(entry.tags) ? entry.tags : []),
-        ...(Array.isArray(entry.compatibility) ? entry.compatibility : []),
-        entry.format,
-        entry.quantization,
-      ]
-        .filter(Boolean)
-        .map((value) => String(value)),
-    ),
-  );
-}
-
-function catalogDownloadBlocked(snapshot, entry = {}) {
-  const providers = Array.isArray(snapshot.catalog?.providers) ? snapshot.catalog.providers : [];
-  const provider = providers.find(
-    (candidate) => candidate.id === entry.catalogProviderId || candidate.providerId === entry.providerId,
-  );
-  const liveDownloadConfigured = providers.some((candidate) =>
-    /configured|available|enabled/i.test(String(candidate.liveDownloadStatus || candidate.downloadStatus || "")),
-  );
-  const isInstalled = String(entry.catalogProviderId || "").includes("local-installed");
-  return {
-    blocked: isInstalled || !liveDownloadConfigured,
-    reason: isInstalled
-      ? "Already installed"
-      : provider?.downloadGate
-        ? "Download gated"
-        : "Daemon gated",
-  };
-}
-
-function renderModelDiscoveryRows(snapshot) {
-  const results = modelCatalogResults(snapshot);
-  if (!results.length) {
-    return `<div class="model-empty" data-testid="model-discover-empty-state">Search the daemon catalog to discover models.</div>`;
-  }
-  return results
-    .map((entry, index) => {
-      const capabilities = catalogCapabilities(entry);
-      const isSelected = index === 0;
-      const badges = [entry.parameterCount, entry.architecture || entry.arch, entry.format, ...capabilities]
-        .filter(Boolean)
-        .slice(0, 4);
-      return `
-        <button
-          class="model-discover-result ${isSelected ? "is-selected" : ""}"
-          type="button"
-          data-catalog-row="${escapeHtml(entry.id || entry.modelId || `catalog-${index}`)}"
-          data-catalog-label="${escapeHtml(catalogDisplayName(entry))}"
-          data-catalog-model-id="${escapeHtml(entry.modelId || entry.id || "")}"
-          data-catalog-publisher="${escapeHtml(catalogPublisher(entry))}"
-          data-catalog-summary="${escapeHtml(catalogSummary(entry))}"
-          data-catalog-params="${escapeHtml(entry.parameterCount || "local")}"
-          data-catalog-arch="${escapeHtml(entry.architecture || entry.arch || "unknown")}"
-          data-catalog-domain="${escapeHtml(entry.domain || "llm")}"
-          data-catalog-format="${escapeHtml(entry.format || "gguf")}"
-          data-catalog-quantization="${escapeHtml(entry.quantization || "unknown")}"
-          data-catalog-size="${escapeHtml(catalogSizeLabel(entry))}"
-          data-catalog-license="${escapeHtml(entry.license || "unknown")}"
-          data-catalog-downloads="${escapeHtml(formatCatalogMetric(entry.downloads, "registry"))}"
-          data-catalog-stars="${escapeHtml(formatCatalogMetric(entry.stars, "score"))}"
-          data-catalog-updated="${escapeHtml(catalogUpdatedLabel(entry))}"
-          data-catalog-capabilities="${escapeHtml(catalogCapabilities(entry).slice(0, 5).join(" / "))}"
-          data-catalog-source-label="${escapeHtml(entry.sourceLabel || catalogPublisher(entry))}"
-          data-catalog-source-url="${escapeHtml(entry.sourceUrl || "")}"
-          data-catalog-download-label="${escapeHtml(entry.downloadRisk?.status === "already_installed" ? "Already installed" : "Download")}"
-          data-catalog-readme-title="${escapeHtml(`${catalogDisplayName(entry)} by ${catalogPublisher(entry)}`)}"
-          data-catalog-readme="${escapeHtml(catalogReadme(entry))}"
-          data-testid="${isSelected ? "model-discover-result-selected" : "model-discover-result-row"}"
-        >
-          <span class="model-discover-result__logo">${escapeHtml(catalogPublisherLogo(entry))}</span>
-          <span class="model-discover-result__body">
-            <strong>${escapeHtml(catalogDisplayName(entry))}${entry.verified ? `<span class="model-discover-result__verified">verified</span>` : ""}</strong>
-            <small>${escapeHtml(catalogSummary(entry))}</small>
-            <span class="model-discover-result__age">${escapeHtml(catalogUpdatedLabel(entry))}</span>
-          </span>
-          <span class="model-discover-result__tags">${renderModelTags(badges, { max: 4 })}</span>
-        </button>
-      `;
-    })
-    .join("");
-}
-
-function renderModelDiscoverySurface(snapshot) {
-  const results = modelCatalogResults(snapshot);
-  const localProjectionCount = modelCatalogLocalProjectionEntries(snapshot).length;
-  const selected = results[0] || {};
-  const providers = Array.isArray(snapshot.catalog?.providers) ? snapshot.catalog.providers : [];
-  const lastSearch = snapshot.catalog?.lastSearch || null;
-  const downloadState = catalogDownloadBlocked(snapshot, selected);
-  const moreFromPublisher = catalogMoreFromPublisher(results, selected);
-  const selectedCapabilities = catalogCapabilities(selected).slice(0, 5);
-  return `
-    <section class="models-lmstudio__discover" data-model-surface-panel="discover" data-testid="model-discovery-surface" data-catalog-needs-search="${lastSearch ? "false" : "true"}" hidden>
-      <section class="model-discovery-list" data-testid="model-discover-list">
-        <header class="model-discovery-toolbar">
-          <label class="models-lmstudio__search">
-            <span aria-hidden="true">Find</span>
-            <input data-testid="model-discover-search-input" type="search" placeholder="Search registry models by name or author..." value="${escapeHtml(lastSearch?.query || "")}" />
-          </label>
-          <button class="model-icon-button" type="button" data-testid="model-discover-search-button">Search</button>
-        </header>
-        <div class="model-discovery-meta" data-testid="model-discover-staff-picks">
-          <span>Staff picks</span>
-          <button class="model-icon-button" type="button" data-testid="model-discover-refresh-button" title="Refresh catalog search">Refresh</button>
-          <label class="model-discovery-sort" data-testid="model-discover-sort">
-            <span>Sort</span>
-            <select aria-label="Sort registry models">
-              <option>Best Match</option>
-              <option>Recently Updated</option>
-              <option>Downloads</option>
-              <option>Smallest</option>
-            </select>
-          </label>
-        </div>
-        <div class="model-discovery-results">${renderModelDiscoveryRows(snapshot)}</div>
-        <footer class="model-discovery-provider-strip" data-testid="model-catalog-provider-strip">
-          <span>${escapeHtml(lastSearch ? `${lastSearch.resultCount ?? results.length} daemon results` : "reference staff picks")}</span>
-          <span>${escapeHtml(String(localProjectionCount))} local artifacts available in My Models</span>
-          ${providers
-            .slice(0, 3)
-            .map((provider) => `<span>${escapeHtml(provider.label || provider.id)} · ${escapeHtml(provider.status || "unknown")}</span>`)
-            .join("") || "<span>Default endpoint: Hugging Face-compatible</span>"}
-        </footer>
-      </section>
-      <section class="model-discovery-detail" data-testid="model-discover-detail">
-        <header>
-          <div>
-            <span class="model-icon-label" aria-hidden="true">AI</span>
-            <h2 data-catalog-field="title">${escapeHtml(catalogDisplayName(selected))}</h2>
-            <small data-catalog-field="modelId">${escapeHtml(selected.modelId || selected.id || "daemon catalog")}</small>
-          </div>
-          <button class="model-icon-button model-discovery-close" type="button" data-model-surface-tab="library" data-testid="model-discover-close-button" title="Close discovery">X</button>
-        </header>
-        <section class="model-discovery-stats" data-testid="model-discover-stats">
-          <span><strong data-catalog-field="downloads">${escapeHtml(formatCatalogMetric(selected.downloads, "registry"))}</strong> downloads</span>
-          <span><strong data-catalog-field="stars">${escapeHtml(formatCatalogMetric(selected.stars, "score"))}</strong> stars</span>
-          <span>Updated <strong data-catalog-field="updated">${escapeHtml(catalogUpdatedLabel(selected))}</strong></span>
-          ${selected.staffPick ? "<span>Staff Pick</span>" : ""}
-        </section>
-        <p class="model-discovery-summary" data-catalog-field="summary">${escapeHtml(catalogSummary(selected))}</p>
-        <dl class="model-discovery-facts">
-          <div><dt>Params</dt><dd data-catalog-field="params">${escapeHtml(selected.parameterCount || "local")}</dd></div>
-          <div><dt>Arch</dt><dd data-catalog-field="arch">${escapeHtml(selected.architecture || selected.arch || "unknown")}</dd></div>
-          <div><dt>Domain</dt><dd data-catalog-field="domain">${escapeHtml(selected.domain || "llm")}</dd></div>
-          <div><dt>Format</dt><dd data-catalog-field="format">${escapeHtml(selected.format || "gguf")}</dd></div>
-        </dl>
-        <section class="model-download-options model-discovery-download" data-testid="model-download-options">
-          <header>
-            <strong>Download Options</strong>
-            <small data-catalog-field="sourceLabel">${escapeHtml(selected.sourceLabel || catalogPublisher(selected))}</small>
-          </header>
-          <div>
-            <span>GGUF</span>
-            <span data-catalog-field="downloadTitle">${escapeHtml(`${catalogDisplayName(selected)} ${selected.parameterCount || ""} ${selected.quantization || "Q4_K_M"}`.trim())}</span>
-            <span data-catalog-field="quantization">${escapeHtml(selected.quantization || "Q4_K_M")}</span>
-            <span data-catalog-field="size">${escapeHtml(catalogSizeLabel(selected))}</span>
-            <button
-              class="action"
-              type="button"
-              data-testid="model-download-button"
-              data-command="ioi.models.downloadCatalog"
-              ${commandPayloadAttr({ catalogEntryId: selected.id, sourceUrl: selected.sourceUrl, modelId: selected.modelId })}
-              ${downloadState.blocked ? "disabled" : ""}
-            >${downloadState.blocked ? escapeHtml(downloadState.reason) : "Download"}</button>
-          </div>
-          <small>Partial GPU offload possible when the daemon exposes a compatible backend estimate.</small>
-        </section>
-        <section class="model-discovery-capabilities" data-testid="model-discover-capabilities">
-          <strong>Capabilities</strong>
-          <span data-catalog-field="capabilities">${escapeHtml(selectedCapabilities.join(" / ") || "metadata pending")}</span>
-        </section>
-        <section class="model-readme-panel" data-testid="model-readme-panel">
-          <h3 data-testid="model-discover-readme-title" data-catalog-field="readmeTitle">${escapeHtml(`${catalogDisplayName(selected)} by ${catalogPublisher(selected)}`)}</h3>
-          <p data-catalog-field="readme">${escapeHtml(catalogReadme(selected))}</p>
-        </section>
-        <section class="model-more-from" data-testid="model-more-from-publisher">
-          <h3>More from <span data-catalog-field="publisher">${escapeHtml(catalogPublisher(selected))}</span></h3>
-          ${
-            moreFromPublisher.length
-              ? moreFromPublisher
-                  .map((entry) => `<span>${escapeHtml(entry.label || entry.modelId || entry.id)} · ${escapeHtml(entry.sizeBytes ? formatBytes(entry.sizeBytes) : formatCatalogMetric(entry.downloads, "registry"))} · ${escapeHtml(formatCatalogMetric(entry.stars, "score"))}</span>`)
-                  .join("")
-              : "<span>No additional daemon-projected variants yet.</span>"
-          }
-        </section>
-      </section>
-    </section>
-  `;
-}
-
-function catalogProviderById(snapshot, providerId) {
-  const providers = [
-    ...(Array.isArray(snapshot.catalog?.providers) ? snapshot.catalog.providers : []),
-    ...(Array.isArray(snapshot.providers) ? snapshot.providers : []),
-  ];
-  const configs = Array.isArray(snapshot.catalogProviderConfigs) ? snapshot.catalogProviderConfigs : [];
-  return {
-    provider: providers.find((candidate) => candidate.id === providerId) || {},
-    config: configs.find((candidate) => candidate.id === providerId) || {},
-  };
-}
-
-function renderCatalogSourceRow(snapshot, providerId, label, description, testId) {
-  const { provider, config } = catalogProviderById(snapshot, providerId);
-  const status = provider.status || config.runtimeMaterialStatus || (config.materialConfigured ? "configured" : "unconfigured");
-  const configured = Boolean(config.materialConfigured || provider.materialConfigured || provider.baseUrlHash || provider.manifestPathHash);
-  return `
-    <article class="model-source-row" data-testid="${escapeHtml(testId)}">
-      <div>
-        <strong>${escapeHtml(label)}</strong>
-        <span>${escapeHtml(description)}</span>
-      </div>
-      <dl>
-        <div><dt>Status</dt><dd>${escapeHtml(status)}</dd></div>
-        <div><dt>Configured</dt><dd>${configured ? "yes" : "default"}</dd></div>
-        <div><dt>Boundary</dt><dd>${escapeHtml(provider.gate || "daemon provider config")}</dd></div>
-      </dl>
-    </article>
-  `;
-}
-
-function renderModelSourcesSurface(snapshot) {
-  const providers = Array.isArray(snapshot.providers) ? snapshot.providers : [];
-  const lmStudio = providers.find((provider) => provider.id === "provider.lmstudio" || provider.providerId === "provider.lmstudio") || {};
-  const ollama = providers.find((provider) => provider.id === "provider.ollama" || provider.providerId === "provider.ollama") || {};
-  return `
-    <section class="models-lmstudio__sources" data-model-surface-panel="sources" data-testid="model-catalog-sources-surface" hidden>
-      <section class="model-sources-grid">
-        <header class="model-sources-header">
-          <div>
-            <h2>Catalog Sources</h2>
-            <p>Local autodiscovery plus configurable daemon-owned remote registries. The webview only submits source configuration requests.</p>
-          </div>
-          <button class="model-icon-button" type="button" data-model-surface-tab="discover" data-testid="model-sources-open-discover-button">Open Discover</button>
-        </header>
-        <section class="model-sources-card" data-testid="model-local-autodiscovery-sources">
-          <h3>Local Autodiscovery</h3>
-          ${renderCatalogSourceRow({ catalog: {}, catalogProviderConfigs: [], providers: [lmStudio] }, "provider.lmstudio", "LM Studio", "Find local LM Studio models and mounted local server routes.", "model-source-lmstudio")}
-          ${renderCatalogSourceRow({ catalog: {}, catalogProviderConfigs: [], providers: [ollama] }, "provider.ollama", "Ollama", "Find local Ollama models without copying artifacts into Autopilot.", "model-source-ollama")}
-          <p class="model-source-note">Local providers are discovered on startup and remain daemon-owned; Autopilot mounts routes as projections.</p>
-        </section>
-        <section class="model-sources-card" data-testid="model-remote-registry-sources">
-          <h3>Remote Registries</h3>
-          ${renderCatalogSourceRow(snapshot, "catalog.huggingface", "Hugging Face-compatible", "Default public registry, or a sovereign HF-compatible endpoint.", "model-source-huggingface")}
-          ${renderCatalogSourceRow(snapshot, "catalog.custom_http", "Custom HTTP catalog", "Private or ecosystem catalogs exposing /catalog/search.", "model-source-custom-http")}
-          ${renderCatalogSourceRow(snapshot, "catalog.local_manifest", "Local manifest", "Offline JSON catalog for internal or air-gapped model indexes.", "model-source-local-manifest")}
-        </section>
-        <section class="model-sources-card model-source-config" data-testid="model-catalog-source-config">
-          <h3>Configure Source</h3>
-          <label>
-            <span>Provider</span>
-            <select data-testid="model-catalog-provider-select">
-              <option value="catalog.huggingface">Hugging Face-compatible</option>
-              <option value="catalog.custom_http">Custom HTTP catalog</option>
-              <option value="catalog.local_manifest">Local manifest</option>
-            </select>
-          </label>
-          <label data-model-source-field="baseUrl">
-            <span>Endpoint</span>
-            <input data-testid="model-catalog-source-url-input" type="url" placeholder="https://huggingface.co" value="https://huggingface.co" />
-          </label>
-          <label data-model-source-field="manifestPath" hidden>
-            <span>Manifest path</span>
-            <input data-testid="model-catalog-manifest-path-input" type="text" placeholder="/path/to/model-catalog.json" />
-          </label>
-          <label>
-            <span>Search after configure</span>
-            <input data-testid="model-catalog-source-search-input" type="search" placeholder="qwen, llama, embedding..." value="qwen" />
-          </label>
-          <div class="model-source-actions">
-            <button class="action" type="button" data-testid="model-catalog-source-configure-button">Save source</button>
-            <button class="model-icon-button" type="button" data-model-surface-tab="discover">Skip to Discover</button>
-          </div>
-          <p class="model-source-note">Credentials stay out of the webview. Auth and OAuth remain daemon/vault concerns.</p>
-        </section>
-      </section>
-    </section>
-  `;
-}
-
-function renderModelsPanelBody(state, { compact = false } = {}) {
-  const snapshot = modelSnapshotFromState(state);
-  const modelStatus = state.modelMountingStatus || {};
-  const loadedModelIds = new Set(
-    snapshot.instances
-      .filter((instance) => instance.status === "loaded")
-      .map((instance) => instance.modelId)
-      .filter(Boolean),
-  );
-  const selectedArtifact =
-    snapshot.artifacts.find((artifact) => loadedModelIds.has(artifact.modelId)) ||
-    snapshot.artifacts[0] ||
-    {};
-  const selectedEndpoint = modelEndpointForArtifact(snapshot, selectedArtifact) || snapshot.endpoints[0] || {};
-  const selectedInstance =
-    modelInstanceForEndpoint(snapshot, selectedEndpoint) || snapshot.instances.find((item) => item.status === "loaded") || {};
-  const selectedRoute =
-    snapshot.routes.find((route) => route.id === "route.native-local") || snapshot.routes[0] || {};
-  const selectedBackend =
-    snapshot.backends.find((backend) => backend.id === selectedInstance.backendId) ||
-    snapshot.backends[0] ||
-    {};
-  const selectedEngine =
-    snapshot.runtimeEngines.find(
-      (engine) =>
-        engine.id === selectedBackend.id ||
-        engine.kind === selectedBackend.kind ||
-        engine.kind === `${selectedBackend.kind}_runtime`,
-    ) ||
-    snapshot.runtimeEngines.find((engine) => engine.selected) ||
-    snapshot.runtimeEngines[0] ||
-    {};
-  const loadReceipt = snapshot.receipts
-    .slice()
-    .reverse()
-    .find((receipt) => modelReceiptKind(receipt) === "model_load_estimate");
-  const invokeReceipt = snapshot.receipts
-    .slice()
-    .reverse()
-    .find((receipt) => receipt.kind === "model_invocation");
-  const routeReceipt = snapshot.receipts
-    .slice()
-    .reverse()
-    .find((receipt) => receipt.kind === "model_route_selection");
-  const loadedCount = snapshot.instances.filter((instance) => instance.status === "loaded").length;
-  const loadOptions = modelSelectedLoadOptions(selectedInstance, selectedEngine);
-  const localSizeBytes = snapshot.artifacts.reduce(
-    (total, artifact) => total + Number(artifact.sizeBytes ?? artifact.size_bytes ?? 0),
-    0,
-  );
-  const artifactCapabilities = Array.isArray(selectedArtifact.capabilities)
-    ? selectedArtifact.capabilities
-    : [];
-      const serverBaseUrl =
-    snapshot.server.openAiCompatibleBaseUrl ||
-      snapshot.server.openAiCompatibleApi ||
-      snapshot.server.nativeBaseUrl ||
-      snapshot.server.nativeApi ||
-      "/v1";
-
-  return `
-      <section
-        class="model-workbench models-lmstudio ${compact ? "is-compact" : ""}"
-      data-testid="autopilot-models-mode"
-      data-inspection-target="autopilot-models-mode"
-      data-daemon-backed="${modelStatus.status === "connected" ? "true" : "false"}"
-      data-active-model-surface="library"
-      >
-      ${
-        modelStatus.status === "degraded"
-          ? `<section class="model-state-banner is-error" data-testid="model-error-state"><strong>Daemon model runtime degraded</strong><span>${escapeHtml(modelStatus.error || "The model daemon is configured but not reachable.")}</span></section>`
-          : ""
-      }
-      <section class="models-lmstudio__primary" data-testid="models-lmstudio-shell">
-        <aside class="models-lmstudio__rail" data-testid="models-left-rail" aria-label="Model categories">
-          <strong>My Models</strong>
-          <button class="is-active" type="button" data-model-surface-tab="library">View All</button>
-          <button type="button">LLMs <span>${escapeHtml(String(snapshot.artifacts.filter((artifact) => modelDomain(artifact) === "llm").length))}</span></button>
-          <button type="button">Text Embedding <span>${escapeHtml(String(snapshot.artifacts.filter((artifact) => modelDomain(artifact) === "embedding").length))}</span></button>
-          <button type="button">Vision / Tools <span>${escapeHtml(String(snapshot.artifacts.filter((artifact) => modelDomain(artifact) === "vlm").length))}</span></button>
-          <strong>Discover</strong>
-          <button type="button" data-model-surface-tab="discover" data-testid="model-discover-open-button">Catalog <span>${escapeHtml(String(modelCatalogResults(snapshot).length))}</span></button>
-          <button type="button" data-model-surface-tab="sources" data-testid="model-sources-open-button">Sources <span>${escapeHtml(String(snapshot.catalogProviderConfigs.length || 3))}</span></button>
-          <div class="models-lmstudio__rail-status">
-            <span>Daemon</span>
-            ${modelStatusPill(modelStatus.status || "not_configured")}
-          </div>
-          <div class="models-lmstudio__rail-status">
-            <span>Loaded</span>
-            <strong>${escapeHtml(String(loadedCount))}</strong>
-          </div>
-        </aside>
-
-        <main class="models-lmstudio__library model-surface" data-testid="model-library">
-          <section class="models-lmstudio__local is-active" data-model-surface-panel="library" data-testid="model-local-library-surface">
-            <header class="models-lmstudio__library-header">
-              <h2>My Models</h2>
-              <label class="models-lmstudio__search">
-                <span aria-hidden="true">Find</span>
-                <input data-testid="model-library-filter" type="search" placeholder="Filter models... (Ctrl + F)" />
-              </label>
-            </header>
-            <div class="models-lmstudio__table-wrap" data-testid="model-library-table">
-              <table class="model-table">
-                <thead>
-                  <tr>
-                    <th>Model</th>
-                    <th>Arch</th>
-                    <th>Params</th>
-                    <th>Publisher</th>
-                    <th>Domain</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>${renderModelLibraryRows(snapshot)}</tbody>
-              </table>
-            </div>
-            <footer class="models-lmstudio__status-strip" data-testid="model-library-footer" data-role="model-bottom-status-strip">
-              <span>You have ${escapeHtml(String(snapshot.artifacts.length))} local models, taking up ${escapeHtml(formatBytes(localSizeBytes))} of disk space</span>
-              <code>${escapeHtml(snapshot.server.modelRoot || "~/.ioi/models")}</code>
-            </footer>
-          </section>
-          ${renderModelDiscoverySurface(snapshot)}
-          ${renderModelSourcesSurface(snapshot)}
-        </main>
-
-        <aside class="models-lmstudio__inspector model-surface" data-testid="model-selected-inspector">
-          <header class="models-lmstudio__inspector-header">
-            <div>
-              <span class="model-icon-label" aria-hidden="true">AI</span>
-              <h2 data-testid="model-inspector-title">${escapeHtml(modelDisplayName(selectedArtifact))}</h2>
-              <small data-testid="model-inspector-subtitle">${escapeHtml(selectedArtifact.modelId || selectedEndpoint.modelId || "Select a model")}</small>
-            </div>
-            ${modelStatusPill(selectedInstance.status || selectedEndpoint.status || selectedArtifact.status || "installed")}
-          </header>
-          <div class="models-lmstudio__inspector-actions">
-            <button
-              class="action"
-              type="button"
-              data-model-action="workflow"
-              data-command="ioi.models.selectForWorkflow"
-              ${commandPayloadAttr({ modelId: selectedArtifact.modelId || selectedEndpoint.modelId || selectedArtifact.id, endpointId: selectedEndpoint.id })}
-            >Use in Workflow</button>
-            <button
-              class="action"
-              type="button"
-              data-model-action="load"
-              data-command="ioi.models.openLoader"
-              ${commandPayloadAttr({ modelId: selectedArtifact.modelId || selectedEndpoint.modelId || selectedArtifact.id, endpointId: selectedEndpoint.id })}
-            >Load Model</button>
-          </div>
-          <nav class="models-lmstudio__tabs" aria-label="Model inspector tabs">
-            <button class="is-active" type="button" data-model-inspector-tab="info" data-testid="model-inspector-info-tab">Info</button>
-            <button type="button" data-model-inspector-tab="load" data-testid="model-inspector-load-tab">Load</button>
-            <button type="button" data-model-inspector-tab="inference" data-testid="model-inspector-inference-tab">Inference</button>
-            <button type="button" data-model-inspector-tab="policy" data-testid="model-inspector-policy-tab">Policy</button>
-            <button type="button" data-model-inspector-tab="routes" data-testid="model-inspector-routes-tab">Routes</button>
-            <button type="button" data-model-inspector-tab="receipts" data-testid="model-inspector-receipts-tab">Receipts</button>
-          </nav>
-          <section class="models-lmstudio__tab-panel is-active" data-model-inspector-panel="info" data-testid="model-inspector-info-panel">
-            <h3>Model Information</h3>
-            <dl>
-              <div><dt>Model</dt><dd data-model-field="model">${escapeHtml(selectedArtifact.modelId || selectedArtifact.id || "none")}</dd></div>
-              <div><dt>File</dt><dd data-model-field="file">${escapeHtml(selectedArtifact.fileName || selectedArtifact.path || "daemon artifact")}</dd></div>
-              <div><dt>Format</dt><dd data-model-field="format">${escapeHtml(selectedArtifact.format || "GGUF")}</dd></div>
-              <div><dt>Quantization</dt><dd data-model-field="quantization">${escapeHtml(selectedArtifact.quantization || "unknown")}</dd></div>
-              <div><dt>Arch</dt><dd data-model-field="arch">${escapeHtml(modelArch(selectedArtifact))}</dd></div>
-              <div><dt>Capabilities</dt><dd data-model-field="capabilities">${renderModelTags(artifactCapabilities)}</dd></div>
-              <div><dt>Size on disk</dt><dd data-model-field="size">${escapeHtml(formatBytes(selectedArtifact.sizeBytes ?? selectedArtifact.size_bytes))}</dd></div>
-            </dl>
-          </section>
-          <section class="models-lmstudio__tab-panel" data-model-inspector-panel="load" data-testid="model-inspector-load-panel">
-            <details class="model-side-section model-quick-loader" data-testid="model-mount-drawer">
-              <summary>Quick Loader</summary>
-              <p class="model-muted">Search mounted daemon catalog entries without leaving the selected model context.</p>
-              <label class="models-lmstudio__search">
-                <span aria-hidden="true">Find</span>
-                <input data-testid="model-quick-loader-filter" type="search" placeholder="Type to filter models..." />
-              </label>
-              <div data-testid="model-quick-loader-popover">
-                <div class="model-loader-list" data-testid="model-quick-loader-list">
-                  ${renderModelQuickLoaderRows(snapshot)}
-                </div>
-              </div>
-              <label class="model-toggle-row">
-                <input type="checkbox" data-testid="model-loader-manual-toggle" />
-                <span>Manually choose model load parameters</span>
-              </label>
-            </details>
-
-            <section class="model-side-section model-load-dialog" data-testid="model-load-dialog">
-              <header class="models-lmstudio__dialog-title">
-                <h3>${escapeHtml(modelDisplayName(selectedArtifact))}</h3>
-              </header>
-              <section class="models-lmstudio__estimate" data-testid="model-load-estimate">
-                <strong>Estimated Memory Usage</strong>
-                <span data-testid="model-load-estimated-memory">GPU ${escapeHtml(formatBytes(loadReceipt?.details?.estimate?.estimatedVramBytes))}</span>
-                <span>Total ${escapeHtml(formatBytes(loadReceipt?.details?.estimate?.estimatedSizeBytes || selectedArtifact.sizeBytes || selectedArtifact.size_bytes))}</span>
-              </section>
-              <label class="model-field">
-                <span>API Identifier</span>
-                <input data-testid="model-api-identifier-input" type="text" value="${escapeHtml(loadOptions.identifier)}" />
-              </label>
-              <label class="model-toggle-row">
-                <input data-testid="model-auto-unload-toggle" type="checkbox" />
-                <span>Auto Unload If Idle (TTL)</span>
-              </label>
-              <label class="model-range-row">
-                <span>Context Length</span>
-                <input data-testid="model-context-length-slider" type="range" min="1024" max="131072" value="${escapeHtml(String(loadOptions.contextLength))}" />
-                <output>${escapeHtml(String(loadOptions.contextLength))}</output>
-              </label>
-              <label class="model-range-row">
-                <span>GPU Offload</span>
-                <input data-testid="model-gpu-offload-slider" type="range" min="0" max="99" value="${escapeHtml(String(Number(loadOptions.gpuOffload) || 0))}" />
-                <output>${escapeHtml(String(loadOptions.gpuOffload))}</output>
-              </label>
-              <div class="model-dialog-options">
-                <label><input data-testid="model-remember-settings-toggle" type="checkbox" /> Remember settings for ${escapeHtml(modelDisplayName(selectedArtifact))}</label>
-                <label><input data-testid="model-advanced-settings-toggle" type="checkbox" /> Show advanced settings</label>
-              </div>
-              <section class="model-advanced-panel" data-testid="model-advanced-settings-panel" hidden>
-                <dl>
-                  <div><dt>Parallelism</dt><dd>${escapeHtml(String(loadOptions.parallelism))}</dd></div>
-                  <div><dt>Idle TTL</dt><dd>${escapeHtml(String(loadOptions.idleTtlSeconds))}s</dd></div>
-                  <div><dt>Engine</dt><dd>${escapeHtml(selectedEngine.id || "daemon-selected")}</dd></div>
-                </dl>
-              </section>
-              <div class="model-workbench__actions">
-                <button
-                  class="action"
-                  type="button"
-                  data-testid="model-estimate-button"
-                  data-model-action="estimate"
-                  data-command="ioi.models.estimateNative"
-                  ${commandPayloadAttr({ modelId: selectedArtifact.modelId || selectedArtifact.id, endpointId: selectedEndpoint.id, contextLength: loadOptions.contextLength, gpuOffload: loadOptions.gpuOffload })}
-                >Estimate</button>
-                <button
-                  class="action"
-                  type="button"
-                  data-testid="model-load-confirm-button"
-                  data-model-action="loadNative"
-                  data-command="ioi.models.loadNative"
-                  ${commandPayloadAttr({ modelId: selectedArtifact.modelId || selectedArtifact.id, endpointId: selectedEndpoint.id, contextLength: loadOptions.contextLength, gpuOffload: loadOptions.gpuOffload })}
-                >Load Model</button>
-              </div>
-            </section>
-
-            <section class="model-side-section" data-testid="model-instance-ready">
-              <div class="model-surface__head">
-                <div>
-                  <span>Running Models</span>
-                  <strong data-model-field="running-model">${escapeHtml(selectedInstance.modelId || selectedEndpoint.modelId || "No loaded instance")}</strong>
-                </div>
-                ${modelStatusPill(selectedInstance.status || "empty")}
-              </div>
-              <div class="model-progress" data-testid="model-load-progress"><span style="width: ${selectedInstance.status === "loaded" ? "100" : "18"}%"></span></div>
-              <dl>
-                <div><dt>Instance</dt><dd data-model-field="instance">${escapeHtml(selectedInstance.id || "none")}</dd></div>
-                <div><dt>Identifier</dt><dd>${escapeHtml(selectedInstance.identifier || "none")}</dd></div>
-                <div><dt>Backend</dt><dd data-model-field="backend">${escapeHtml(selectedInstance.backendId || selectedBackend.id || "none")}</dd></div>
-                <div><dt>Receipt evidence</dt><dd>${escapeHtml(selectedInstance.providerEvidenceRefs?.join(", ") || "pending")}</dd></div>
-              </dl>
-              <button
-                class="action"
-                type="button"
-                data-testid="model-running-unload-button"
-                data-model-action="unload"
-                data-command="ioi.models.unloadNative"
-                ${commandPayloadAttr({ instanceId: selectedInstance.id })}
-                ${selectedInstance.id ? "" : "disabled"}
-              >Unload</button>
-            </section>
-
-          </section>
-          <section class="models-lmstudio__tab-panel" data-model-inspector-panel="inference" data-testid="model-inspector-inference-panel">
-            <h3>Inference</h3>
-            <details class="model-accordion" open>
-              <summary>System Prompt</summary>
-              <p class="model-muted">Prompt policy and defaults are projected from the daemon route. The webview never executes inference directly.</p>
-            </details>
-            <details class="model-accordion" open>
-              <summary>Settings</summary>
-              <label class="model-range-row">
-                <span>Temperature</span>
-                <input type="range" min="0" max="2" step="0.1" value="0.8" />
-                <output>0.8</output>
-              </label>
-              <label class="model-toggle-row"><input type="checkbox" /> Limit Response Length</label>
-              <label class="model-field"><span>Stop Strings</span><input type="text" placeholder="Enter a string and press Enter" /></label>
-            </details>
-            <details class="model-accordion">
-              <summary>Reasoning Parsing</summary>
-              <label class="model-toggle-row"><input type="checkbox" checked /> Reasoning section parsing</label>
-              <label class="model-field"><span>Start String</span><input type="text" value="&lt;think&gt;" /></label>
-              <label class="model-field"><span>End String</span><input type="text" value="&lt;/think&gt;" /></label>
-            </details>
-            <details class="model-accordion">
-              <summary>Sampling</summary>
-              <label class="model-range-row"><span>Top K Sampling</span><input type="range" min="1" max="100" value="40" /><output>40</output></label>
-              <label class="model-range-row"><span>Top P Sampling</span><input type="range" min="0" max="1" step="0.01" value="0.95" /><output>0.95</output></label>
-            </details>
-            <details class="model-accordion">
-              <summary>Structured Output</summary>
-              <label class="model-toggle-row"><input type="checkbox" /> Structured output</label>
-            </details>
-            <details class="model-accordion">
-              <summary>Speculative Decoding</summary>
-              <label class="model-field"><span>Draft Model</span><input type="text" placeholder="Select a compatible draft model" /></label>
-            </details>
-            <details class="model-accordion">
-              <summary>Prompt Template</summary>
-              <label class="model-field"><span>Template</span><input type="text" value="Alpaca" /></label>
-            </details>
-            <section class="model-side-section" data-testid="model-server-api">
-              <div data-testid="model-server-view">
-                <div class="model-surface__head">
-                  <div>
-                    <span>Developer / Local Server</span>
-                    <strong data-testid="model-server-status">${escapeHtml(snapshot.server.status || "unknown")}</strong>
-                  </div>
-                  ${modelStatusPill(snapshot.server.gatewayStatus || snapshot.server.status || "unknown")}
-                </div>
-                <dl data-testid="model-server-endpoints">
-                  <div><dt>Native API</dt><dd>${escapeHtml(snapshot.server.nativeApi || snapshot.server.nativeBaseUrl || "/api/v1")}</dd></div>
-                  <div><dt>OpenAI API</dt><dd>${escapeHtml(serverBaseUrl)}</dd></div>
-                  <div><dt>Loaded</dt><dd data-testid="model-server-loaded-models">${escapeHtml(String(snapshot.server.loadedInstances ?? loadedCount))}</dd></div>
-                  <div><dt>Daemon</dt><dd>${escapeHtml(modelStatus.endpoint || daemonEndpoint() || "not configured")}</dd></div>
-                </dl>
-                <div class="model-log-list" data-testid="model-server-logs">
-                  <article class="model-log-row" data-testid="model-server-backend-logs"><strong>gateway</strong><span>${escapeHtml(snapshot.server.gatewayStatus || "pending")}</span><small>Server/API state is projected from daemon model runtime state.</small></article>
-                  <article class="model-log-row" data-testid="model-server-request-log"><strong>requests</strong><span>${escapeHtml(invokeReceipt?.id || "no invocation receipt yet")}</span><small>No webview or extension-host model execution.</small></article>
-                  <article class="model-log-row" data-testid="model-server-receipts"><strong>receipts</strong><span>${escapeHtml(routeReceipt?.id || invokeReceipt?.id || "pending")}</span><small>Server activity links to daemon receipt/replay state.</small></article>
-                </div>
-              </div>
-            </section>
-          </section>
-          <section class="models-lmstudio__tab-panel" data-model-inspector-panel="policy" data-testid="model-inspector-policy-panel">
-            <h3>Policy</h3>
-            <dl>
-              <div><dt>Authority</dt><dd>daemon-owned</dd></div>
-              <div><dt>Privacy</dt><dd>${escapeHtml(selectedRoute.privacy || selectedEndpoint.privacyClass || "local_first")}</dd></div>
-              <div><dt>Approvals</dt><dd>${escapeHtml(selectedRoute.approvalPolicy || "route policy")}</dd></div>
-              <div><dt>Mutation path</dt><dd>receipted daemon request</dd></div>
-            </dl>
-            <section class="model-side-section" data-testid="model-runtime-backend">
-              <div class="model-surface__head">
-                <div>
-                  <span>Runtime / Backend</span>
-                  <strong>${escapeHtml(selectedBackend.label || selectedBackend.id || selectedEngine.id || "Backend")}</strong>
-                </div>
-                ${modelStatusPill(selectedBackend.status || selectedEngine.status || "unknown")}
-              </div>
-              <dl>
-                <div><dt>Kind</dt><dd>${escapeHtml(selectedBackend.kind || selectedEngine.kind || "unknown")}</dd></div>
-                <div><dt>Process</dt><dd>${escapeHtml(selectedBackend.processStatus || selectedBackend.process?.status || "stateless")}</dd></div>
-                <div><dt>Selected engine</dt><dd>${escapeHtml(selectedEngine.id || snapshot.runtimePreference.selectedEngineId || "none")}</dd></div>
-                <div><dt>Evidence</dt><dd>${escapeHtml(selectedBackend.evidenceRefs?.join(", ") || "daemon backend registry")}</dd></div>
-              </dl>
-            </section>
-          </section>
-          <section class="models-lmstudio__tab-panel" data-model-inspector-panel="routes" data-testid="model-inspector-routes-panel">
-            <h3>Routes</h3>
-            <dl>
-              <div><dt>Route</dt><dd>${escapeHtml(selectedRoute.id || "none")}</dd></div>
-              <div><dt>Selected model</dt><dd data-model-field="route-model">${escapeHtml(routeReceipt?.details?.selectedModel || selectedEndpoint.modelId || selectedArtifact.modelId || "none")}</dd></div>
-              <div><dt>Backend</dt><dd>${escapeHtml(selectedBackend.id || selectedEngine.id || "pending")}</dd></div>
-              <div><dt>Receipt</dt><dd>${escapeHtml(routeReceipt?.id || "pending")}</dd></div>
-            </dl>
-            <section class="model-side-section" data-testid="workflow-node-live-model-binding">
-              <div class="model-surface__head">
-                <div>
-                  <span>Workflow Binding</span>
-                  <strong>${escapeHtml(selectedRoute.id || "route pending")}</strong>
-                </div>
-                ${modelStatusPill(routeReceipt ? "route receipted" : "ready")}
-              </div>
-              <dl>
-                <div><dt>Route</dt><dd>${escapeHtml(selectedRoute.id || "none")}</dd></div>
-                <div><dt>Selected model</dt><dd data-model-field="workflow-model">${escapeHtml(routeReceipt?.details?.selectedModel || selectedEndpoint.modelId || selectedArtifact.modelId || "none")}</dd></div>
-                <div><dt>Policy</dt><dd>${escapeHtml(selectedRoute.privacy || "local_first")}</dd></div>
-                <div><dt>Receipt</dt><dd>${escapeHtml(routeReceipt?.id || "pending")}</dd></div>
-              </dl>
-              ${renderCommandButton({ label: "Bind in Composer", command: "ioi.workflow.openComposer", payload: { scenarioId: "model-backed-dry-run", phase: "model-binding" } })}
-            </section>
-            <section class="model-side-section" data-testid="workflow-live-model-dry-run-timeline">
-              <div class="model-surface__head">
-                <div>
-                  <span>Workflow Dry-run Timeline</span>
-                  <strong>${escapeHtml(invokeReceipt ? "model invocation complete" : "ready for daemon dry-run")}</strong>
-                </div>
-                ${modelStatusPill(invokeReceipt ? "receipted" : "pending")}
-              </div>
-              <ol class="model-timeline">
-                <li>route selected: ${escapeHtml(routeReceipt?.details?.routeId || selectedRoute.id || "route")}</li>
-                <li>model invoked: <span data-model-field="timeline-model">${escapeHtml(invokeReceipt?.details?.selectedModel || selectedEndpoint.modelId || selectedArtifact.modelId || "model")}</span></li>
-                <li>runtime evidence: ${escapeHtml(invokeReceipt?.details?.backendId || selectedBackend.id || selectedEngine.id || "backend")}</li>
-              </ol>
-            </section>
-          </section>
-          <section class="models-lmstudio__tab-panel" data-model-inspector-panel="receipts" data-testid="model-inspector-receipts-panel">
-            <h3>Receipts</h3>
-            <section class="model-side-section model-surface--wide" data-testid="model-invocation-receipts-replay">
-              <div class="model-surface__head">
-                <div>
-                  <span>Receipts / Replay</span>
-                  <strong>${escapeHtml(snapshot.receipts.length)} daemon receipts</strong>
-                </div>
-                ${modelStatusPill("daemon-owned")}
-              </div>
-              <div class="model-log-list">${renderModelReceiptRows(snapshot)}</div>
-            </section>
-          </section>
-        </aside>
-      </section>
-    </section>
-  `;
-}
-
 function overviewTone(value) {
   const normalized = String(value || "unknown").toLowerCase();
   if (/connected|ready|loaded|running|active|pass|available/.test(normalized)) {
@@ -6138,9 +5671,9 @@ function overviewPanelHtml(state) {
       : daemonStatus === "degraded"
         ? state.modelMountingStatus?.error || "daemon endpoint degraded"
         : "daemon endpoint not configured";
-  const loadedModels = snapshot.instances.filter((instance) =>
-    /loaded|ready|running/i.test(String(instance.status || "")),
-  );
+  const productModelSelections = productStudioModelSelectionsFromSnapshot(snapshot);
+  const loadedModels = loadedProductStudioModelInstances(snapshot, productModelSelections);
+  const productModelCount = productModelSelections.length;
   const activeRuns = runs.filter((run) =>
     /active|running|queued|pending/i.test(String(run.status || "")),
   );
@@ -6417,7 +5950,7 @@ function overviewPanelHtml(state) {
         </div>
         <div class="overview-status" aria-label="Runtime status">
           ${overviewPill("Daemon", daemonStatus, overviewTone(daemonStatus))}
-          ${overviewPill("Models", `${loadedModels.length}/${snapshot.artifacts.length} loaded`, loadedModels.length ? "ready" : "muted")}
+          ${overviewPill("Models", `${loadedModels.length}/${productModelCount} loaded`, loadedModels.length ? "ready" : "muted")}
           ${overviewPill("Runs", `${activeRuns.length} active`, activeRuns.length ? "warn" : "ready")}
           ${overviewPill("Policy", `${policyIssueCount} issues`, policyIssueCount ? "warn" : "ready")}
         </div>
@@ -6455,7 +5988,7 @@ function overviewPanelHtml(state) {
             <p><code>${escapeHtml(workspaceLabel)}</code></p>
             <div class="overview-board">
               ${renderOverviewRow("Daemon", daemonStatus, daemonDetail, overviewTone(daemonStatus))}
-              ${renderOverviewRow("Models", `${snapshot.artifacts.length} artifacts`, `${loadedModels.length} loaded instances`, loadedModels.length ? "ready" : "muted")}
+              ${renderOverviewRow("Models", `${productModelCount} product model${productModelCount === 1 ? "" : "s"}`, `${loadedModels.length} loaded instance${loadedModels.length === 1 ? "" : "s"}`, loadedModels.length ? "ready" : "muted")}
               ${renderOverviewRow("Workflows", `${workflows.length || summary.workflowCount || 0} indexed`, recentWorkflow?.name || recentWorkflow?.id || "Open composer to create one", workflows.length ? "ready" : "muted")}
               ${renderOverviewRow("Connectors", `${connectorReadyCount}/${connectorCount} ready`, "dry-run only for sprint readiness", connectorReadyCount ? "ready" : "muted")}
             </div>
@@ -7280,7 +6813,7 @@ function renderHtml(view, state) {
         height: 100%;
         min-height: 0;
         display: grid;
-        grid-template-rows: auto minmax(0, 1fr) auto;
+        grid-template-rows: auto auto minmax(0, 1fr) auto;
       }
       .models-lmstudio__local:not(.is-active),
       .models-lmstudio__discover[hidden] {
@@ -7319,6 +6852,34 @@ function renderHtml(view, state) {
         outline: 0;
         background: transparent;
         color: inherit;
+      }
+      .model-onboarding {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(240px, 0.8fr) auto;
+        gap: 12px;
+        align-items: center;
+        margin: 10px;
+        padding: 12px;
+        border: 1px solid var(--vscode-panel-border);
+        border-radius: 6px;
+        background: color-mix(in srgb, var(--vscode-editor-background) 88%, var(--vscode-textLink-foreground));
+      }
+      .model-onboarding h3,
+      .model-onboarding p,
+      .model-onboarding ul {
+        margin: 0;
+      }
+      .model-onboarding p,
+      .model-onboarding li span {
+        color: var(--vscode-descriptionForeground);
+      }
+      .model-onboarding ul {
+        display: grid;
+        gap: 4px;
+        padding-left: 18px;
+      }
+      .model-onboarding__actions {
+        white-space: nowrap;
       }
       .models-lmstudio__table-wrap {
         min-height: 0;
@@ -9058,1832 +8619,59 @@ function workflowComposerHtml(context, webview) {
 </html>`;
 }
 
-function studioPanelHtml(state) {
-  const pageNonce = studioPanelNonce || (studioPanelNonce = nonce());
-  const workspace = state.workspace || workspaceSummary();
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'none'; img-src data:; style-src 'nonce-${pageNonce}'; script-src 'nonce-${pageNonce}';"
-    />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Agent Studio</title>
-    <style nonce="${pageNonce}">
-      :root {
-        color-scheme: dark;
-        --studio-bg: #171717;
-        --studio-panel: #202020;
-        --studio-panel-strong: #272727;
-        --studio-border: rgba(255, 255, 255, 0.12);
-        --studio-border-strong: rgba(255, 255, 255, 0.2);
-        --studio-text: #e8e8e8;
-        --studio-muted: #aaaeb5;
-        --studio-dim: #7c828b;
-        --studio-accent: #7aa2ff;
-        --studio-good: #7fd1a5;
-        --studio-warn: #e7bf62;
-        --studio-danger: #ff7b8a;
-      }
-      * {
-        box-sizing: border-box;
-      }
-      body {
-        margin: 0;
-        min-height: 100vh;
-        overflow: hidden;
-        font-family: var(--vscode-font-family, ui-sans-serif, system-ui, sans-serif);
-        color: var(--studio-text);
-        background: var(--studio-bg);
-      }
-      button,
-      select,
-      textarea {
-        font: inherit;
-      }
-      button,
-      select {
-        border: 1px solid var(--studio-border);
-        border-radius: 4px;
-        background: #2d2d2d;
-        color: var(--studio-text);
-      }
-      button {
-        min-height: 30px;
-        padding: 5px 10px;
-        cursor: pointer;
-      }
-      button:hover,
-      select:hover {
-        border-color: var(--studio-border-strong);
-        background: #353535;
-      }
-      .studio-operational-shell {
-        height: 100vh;
-        display: grid;
-        grid-template-columns: minmax(230px, 280px) minmax(420px, 1fr) minmax(320px, 380px);
-        grid-template-rows: minmax(0, 1fr);
-        overflow: hidden;
-      }
-      .studio-operational-rail,
-      .studio-chat-main,
-      .studio-operator-context {
-        min-width: 0;
-        min-height: 0;
-      }
-      .studio-operational-rail,
-      .studio-operator-context {
-        border-right: 1px solid var(--studio-border);
-        background: #181818;
-        padding: 18px;
-        overflow: auto;
-      }
-      .studio-operator-context {
-        border-right: 0;
-        border-left: 1px solid var(--studio-border);
-      }
-      .studio-eyebrow,
-      .studio-control-group h3,
-      .studio-operator-context h3 {
-        margin: 0 0 9px;
-        color: var(--studio-muted);
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: .08em;
-        text-transform: uppercase;
-      }
-      h1,
-      h2 {
-        margin: 3px 0 4px;
-        letter-spacing: 0;
-      }
-      h1 {
-        font-size: 22px;
-      }
-      h2 {
-        font-size: 18px;
-      }
-      p {
-        margin: 0;
-        color: var(--studio-muted);
-        line-height: 1.45;
-      }
-      .studio-control-group,
-      .studio-operator-context section,
-      .studio-approval,
-      .studio-diff-hunk {
-        border: 1px solid var(--studio-border);
-        border-radius: 6px;
-        background: var(--studio-panel);
-        padding: 12px;
-      }
-      .studio-control-group,
-      .studio-operator-context section,
-      .studio-approval {
-        margin-top: 14px;
-      }
-      .studio-control-group button,
-      .studio-history-item {
-        width: 100%;
-        margin-top: 7px;
-        text-align: left;
-      }
-      .studio-history-item {
-        display: grid;
-        gap: 2px;
-      }
-      .studio-history-item span,
-      .studio-operator-context li span,
-      .studio-approval span {
-        color: var(--studio-muted);
-        font-size: 12px;
-      }
-      .studio-chat-main {
-        display: grid;
-        grid-template-rows: auto minmax(0, 1fr) auto;
-        overflow: hidden;
-        background: #1c1c1c;
-      }
-      .studio-chat-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        padding: 16px 18px;
-        border-bottom: 1px solid var(--studio-border);
-        background: #191919;
-      }
-      .studio-route-controls {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-      .studio-route-controls select {
-        max-width: 230px;
-        min-height: 30px;
-        padding: 0 8px;
-      }
-      .studio-transcript {
-        min-height: 0;
-        padding: 18px;
-        overflow: auto;
-        display: grid;
-        align-content: start;
-        gap: 12px;
-      }
-      .studio-chat-turn {
-        display: grid;
-        grid-template-columns: 34px minmax(0, 1fr);
-        gap: 10px;
-      }
-      .studio-chat-turn__avatar {
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        display: grid;
-        place-items: center;
-        background: #303030;
-        color: #fff;
-        font-weight: 700;
-      }
-      .studio-chat-turn--user .studio-chat-turn__avatar {
-        background: #125ea8;
-      }
-      .studio-chat-turn__body {
-        border: 1px solid var(--studio-border);
-        border-radius: 7px;
-        padding: 10px 12px;
-        background: var(--studio-panel);
-      }
-      .studio-chat-turn__meta {
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        margin-bottom: 6px;
-        color: var(--studio-muted);
-        font-size: 12px;
-      }
-      .studio-chat-turn__body p {
-        color: var(--studio-text);
-        white-space: pre-wrap;
-      }
-      .studio-chat-output-renderer {
-        display: grid;
-        gap: 10px;
-        margin: 12px 0 0;
-        border: 1px solid #4d4d4d;
-        border-radius: 7px;
-        padding: 12px;
-        background: #101010;
-      }
-      .studio-chat-output-renderer figcaption,
-      .studio-chat-renderer-toolbar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-      .studio-chat-output-renderer figcaption span,
-      .studio-mermaid-source summary {
-        color: var(--studio-muted);
-        font-size: 12px;
-      }
-      .studio-chat-renderer-toolbar button {
-        min-height: 26px;
-        border-radius: 999px;
-        padding: 2px 9px;
-      }
-      .studio-mermaid-diagram {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        align-items: center;
-        padding: 10px;
-        border: 1px dashed #4a4a4a;
-        border-radius: 6px;
-      }
-      .studio-mermaid-node {
-        border: 1px solid #6a6a6a;
-        border-radius: 999px;
-        background: #1f1f1f;
-        color: var(--studio-text);
-        padding: 4px 10px;
-      }
-      .studio-mermaid-source pre {
-        max-height: 180px;
-        overflow: auto;
-        margin: 8px 0 0;
-        white-space: pre-wrap;
-      }
-      .studio-chat-code-execution-card {
-        display: grid;
-        gap: 10px;
-        margin: 12px 0 0;
-        border: 1px solid #4d4d4d;
-        border-radius: 7px;
-        padding: 12px;
-        background: #0d0d0d;
-      }
-      .studio-chat-code-execution-card header,
-      .studio-chat-code-execution-card footer {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-      .studio-chat-code-execution-card header span,
-      .studio-chat-code-execution-card footer span {
-        color: var(--studio-muted);
-        font-size: 12px;
-      }
-      .studio-chat-code-execution-card pre {
-        max-height: 180px;
-        overflow: auto;
-        margin: 0;
-        white-space: pre-wrap;
-      }
-      .studio-chat-code-execution-card[data-execution-status="blocked"] {
-        border-color: #8a5b38;
-      }
-      .studio-chat-code-execution-card button {
-        min-height: 28px;
-        border-radius: 999px;
-        padding: 3px 10px;
-      }
-      .studio-pending {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        width: fit-content;
-        color: var(--studio-muted);
-        font-size: 14px;
-        line-height: 1.55;
-        padding: 2px 0;
-      }
-      .studio-pending[hidden] {
-        display: none;
-      }
-      .studio-pending__dots {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        color: var(--studio-muted);
-      }
-      .studio-pending__dots span {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        background: currentColor;
-        animation: studioPulse 1s infinite ease-in-out;
-      }
-      .studio-pending__dots span:nth-child(2) {
-        animation-delay: .12s;
-      }
-      .studio-pending__dots span:nth-child(3) {
-        animation-delay: .24s;
-      }
-      .studio-pending strong {
-        font: inherit;
-        font-weight: 400;
-        color: inherit;
-      }
-      @keyframes studioPulse {
-        0%, 80%, 100% { opacity: .35; transform: translateY(0); }
-        40% { opacity: 1; transform: translateY(-2px); }
-      }
-      .studio-composer {
-        border-top: 0;
-        background: #191919;
-        padding: 12px 14px;
-      }
-      .studio-composer textarea {
-        width: 100%;
-        min-height: 76px;
-        resize: vertical;
-        border: 1px solid var(--studio-border);
-        border-radius: 7px;
-        outline: 0;
-        background: #121212;
-        color: var(--studio-text);
-        line-height: 1.5;
-        padding: 10px 12px;
-      }
-      .studio-composer textarea::placeholder {
-        color: var(--studio-muted);
-      }
-      .studio-composer-toolbar {
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        gap: 8px;
-        margin-top: 8px;
-      }
-      .studio-composer-toolbar button[type="submit"] {
-        margin-left: auto;
-        background: #0e639c;
-        border-color: #0e639c;
-      }
-      .studio-tauri-chat-shell {
-        grid-template-columns: minmax(240px, 300px) minmax(520px, 1fr) 52px;
-        background: #050505;
-      }
-      .studio-tauri-chat-shell:has(.studio-utility-drawer.is-expanded),
-      .studio-tauri-chat-shell.has-expanded-utility {
-        grid-template-columns: minmax(240px, 300px) minmax(520px, 1fr) minmax(340px, 390px);
-      }
-      .studio-session-rail {
-        background: #141414;
-        border-right-color: #303030;
-        padding: 16px 12px;
-      }
-      .studio-session-rail__header {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 32px;
-        align-items: center;
-        gap: 10px;
-      }
-      .studio-session-rail__header h2 {
-        grid-column: 1 / 2;
-        margin-top: 0;
-        color: var(--studio-muted);
-        font-size: 13px;
-        font-weight: 500;
-      }
-      .studio-session-rail__header button {
-        grid-column: 2 / 3;
-        grid-row: 1 / 3;
-        width: 30px;
-        min-height: 30px;
-        padding: 0;
-        font-size: 18px;
-      }
-      .studio-session-search {
-        position: relative;
-        display: block;
-        margin: 14px 0 10px;
-      }
-      .studio-session-search input {
-        width: 100%;
-        height: 30px;
-        border: 1px solid var(--studio-border-strong);
-        border-radius: 6px;
-        background: #050505;
-        color: var(--studio-text);
-        padding: 0 10px 0 30px;
-      }
-      .studio-search-icon {
-        position: absolute;
-        left: 10px;
-        top: 6px;
-        color: var(--studio-muted);
-      }
-      .studio-session-actions {
-        display: grid;
-        gap: 6px;
-        margin-bottom: 18px;
-      }
-      .studio-session-actions button,
-      .studio-rail-secondary button {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-      }
-      .studio-history-group {
-        border: 0;
-        background: transparent;
-        padding: 0;
-      }
-      .studio-history-date {
-        display: block;
-        margin: 4px 0 8px;
-        color: var(--studio-muted);
-        font-size: 11px;
-        font-weight: 700;
-        text-transform: uppercase;
-      }
-      .studio-history-item--current {
-        background: #050505;
-        border-color: #050505;
-      }
-      .studio-chat-main {
-        position: relative;
-        background: #050505;
-      }
-      .studio-chat-header {
-        min-height: 48px;
-        padding: 0 16px;
-        background: #070707;
-      }
-      .studio-chat-tab {
-        min-height: 48px;
-        border: 0;
-        border-radius: 0;
-        border-bottom: 2px solid var(--studio-accent);
-        background: transparent;
-        font-size: 12px;
-        font-weight: 700;
-        text-transform: uppercase;
-      }
-      .studio-transcript {
-        padding: 42px 54px 26px;
-        gap: 20px;
-      }
-      .studio-chat-transcript {
-        display: grid;
-        gap: 22px;
-      }
-      .studio-chat-turn {
-        grid-template-columns: minmax(0, 1fr);
-        max-width: 1040px;
-      }
-      .studio-chat-turn__avatar {
-        display: none;
-      }
-      .studio-chat-turn--user {
-        justify-self: end;
-        max-width: min(560px, 80%);
-      }
-      .studio-chat-turn--assistant,
-      .studio-chat-turn--system {
-        max-width: min(1040px, 100%);
-      }
-      .studio-user-bubble {
-        border-color: #5a5a5a;
-        border-radius: 999px;
-        background: #3b3b3b;
-        padding: 13px 18px;
-      }
-      .studio-user-bubble .studio-chat-turn__meta {
-        display: none;
-      }
-      .studio-assistant-answer-card {
-        border: 0;
-        background: transparent;
-        padding: 8px 0 0;
-      }
-      .studio-assistant-answer-card .studio-chat-turn__meta {
-        display: none;
-      }
-      .studio-run-status-bar {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        width: 100%;
-        min-height: 38px;
-        border: 1px solid #7b7b7b;
-        border-radius: 7px;
-        background: #080808;
-        padding: 0 12px;
-        color: var(--studio-text);
-      }
-      .studio-run-status-bar__check {
-        color: #4fa3ff;
-      }
-      .studio-run-status-bar button {
-        margin-left: auto;
-        border: 0;
-        background: transparent;
-        color: var(--studio-muted);
-      }
-      .studio-run-status-bar .studio-verified-badge {
-        margin-left: auto;
-      }
-      .studio-run-status-bar .studio-verified-badge + button {
-        margin-left: 0;
-      }
-      .studio-managed-sessions {
-        display: grid;
-        gap: 10px;
-        margin-top: 10px;
-      }
-      .studio-managed-session-card {
-        display: grid;
-        gap: 10px;
-        width: min(100%, 620px);
-        border: 1px solid #3e5f7e;
-        border-radius: 7px;
-        background: #050607;
-        padding: 10px;
-        color: var(--studio-text);
-      }
-      .studio-managed-session-card__header {
-        display: grid;
-        grid-template-columns: auto minmax(0, 1fr) auto;
-        align-items: center;
-        gap: 10px;
-      }
-      .studio-managed-session-card__header div {
-        display: grid;
-        gap: 2px;
-        min-width: 0;
-      }
-      .studio-managed-session-card__header strong,
-      .studio-managed-session-preview__body strong {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .studio-managed-session-card__header span,
-      .studio-managed-session-preview__body span {
-        overflow: hidden;
-        color: var(--studio-muted);
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .studio-managed-session-card__header button,
-      .studio-managed-session-controls button {
-        min-height: 28px;
-        border: 1px solid #4e4e4e;
-        border-radius: 6px;
-        background: #151515;
-        color: var(--studio-text);
-      }
-      .studio-managed-session-preview {
-        display: grid;
-        overflow: hidden;
-        min-height: 118px;
-        border: 1px solid #2a2a2a;
-        border-radius: 6px;
-        background: #101417;
-      }
-      .studio-managed-session-preview__chrome {
-        display: flex;
-        gap: 5px;
-        align-items: center;
-        height: 24px;
-        border-bottom: 1px solid #2d353c;
-        background: #171d22;
-        padding: 0 9px;
-      }
-      .studio-managed-session-preview__chrome span {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        background: #66727c;
-      }
-      .studio-managed-session-preview__body {
-        display: grid;
-        align-content: center;
-        gap: 8px;
-        min-width: 0;
-        min-height: 90px;
-        padding: 12px 14px;
-        background:
-          linear-gradient(90deg, rgba(79, 163, 255, 0.12) 1px, transparent 1px),
-          linear-gradient(rgba(79, 163, 255, 0.08) 1px, transparent 1px),
-          #080b0e;
-        background-size: 18px 18px;
-      }
-      .studio-managed-session-preview__body mark {
-        width: fit-content;
-        border: 1px solid #a47620;
-        border-radius: 999px;
-        background: rgba(164, 118, 32, 0.16);
-        color: #ffcf77;
-        padding: 2px 8px;
-      }
-      .studio-managed-session-expanded {
-        display: none;
-        gap: 10px;
-      }
-      .studio-managed-session-card.is-expanded .studio-managed-session-expanded {
-        display: grid;
-      }
-      .studio-managed-session-expanded p {
-        margin: 0;
-        color: var(--studio-muted);
-      }
-      .studio-managed-session-mode-labels,
-      .studio-managed-session-controls {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        align-items: center;
-      }
-      .studio-managed-session-mode-labels span {
-        border: 1px solid #3e3e3e;
-        border-radius: 999px;
-        color: var(--studio-muted);
-        padding: 3px 9px;
-      }
-      .studio-managed-session-mode-labels span.is-active,
-      .studio-managed-session-controls button.is-active {
-        border-color: #4fa3ff;
-        color: #ffffff;
-      }
-      .studio-answer-actions {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 12px;
-      }
-      .studio-answer-actions button {
-        min-height: 28px;
-        border-radius: 999px;
-        padding: 3px 10px;
-      }
-      .studio-work-record {
-        display: grid;
-        gap: 8px;
-        margin: 12px 0 0;
-        padding: 0;
-        list-style: none;
-        color: var(--studio-muted);
-      }
-      .studio-work-record li {
-        position: relative;
-        padding-left: 18px;
-      }
-      .studio-work-record li::before {
-        content: "";
-        position: absolute;
-        left: 2px;
-        top: .65em;
-        width: 5px;
-        height: 5px;
-        border-radius: 999px;
-        background: #6ea8fe;
-      }
-      .studio-view-trace-link {
-        color: #9dc6ff;
-      }
-      .studio-verified-badge {
-        display: inline-flex;
-        align-items: center;
-        min-height: 22px;
-        border-radius: 999px;
-        padding: 0 8px;
-        background: rgba(127, 209, 165, .12);
-        color: var(--studio-good);
-        font-size: 12px;
-        font-weight: 600;
-        white-space: nowrap;
-      }
-      .studio-verified-badge--unverified {
-        background: rgba(231, 191, 98, .12);
-        color: var(--studio-warn);
-      }
-      .studio-compact-runtime-list {
-        display: grid;
-        gap: 8px;
-        max-width: min(1040px, 100%);
-      }
-      .studio-compact-runtime-card {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto auto;
-        align-items: center;
-        gap: 10px;
-        border: 1px solid rgba(255, 255, 255, .18);
-        border-radius: 7px;
-        background: rgba(255, 255, 255, .035);
-        padding: 8px 10px;
-      }
-      .studio-compact-runtime-card--blocking {
-        border-color: rgba(231, 191, 98, .45);
-      }
-      .studio-compact-runtime-card > div {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        min-width: 0;
-      }
-      .studio-compact-runtime-card strong,
-      .studio-compact-runtime-card span:not(.studio-status-dot):not(.studio-verified-badge) {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .studio-compact-runtime-card span:not(.studio-status-dot):not(.studio-verified-badge) {
-        color: var(--studio-muted);
-      }
-      .studio-compact-runtime-card button {
-        min-height: 26px;
-        padding: 2px 9px;
-      }
-      .studio-composer {
-        border-top: 0;
-        background: #050505;
-        padding: 10px 24px 14px;
-      }
-      .studio-tauri-composer {
-        width: min(760px, 100%);
-        margin: 0 auto;
-        border: 1px solid #6a6a6a;
-        border-radius: 4px;
-        background: #121212;
-        padding: 8px 10px 10px;
-      }
-      .studio-composer-context-row {
-        display: flex;
-        align-items: center;
-        justify-content: flex-start;
-        min-height: 24px;
-        margin-bottom: 6px;
-      }
-      .studio-tauri-composer textarea {
-        min-height: 48px;
-        max-height: 170px;
-        border: 0;
-        border-radius: 0;
-        background: transparent;
-        padding: 0;
-      }
-      .studio-composer-toolbar {
-        display: flex;
-        align-items: center;
-        gap: 2px;
-        justify-content: flex-start;
-        margin-top: 8px;
-      }
-      .studio-icon-toggle,
-      .studio-mode-toggle,
-      .studio-send-icon,
-      .studio-stop-icon-button {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 5px;
-        min-height: 24px;
-        border-radius: 3px;
-        line-height: 1;
-      }
-      .studio-context-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 5px;
-        min-height: 24px;
-        padding: 0 8px;
-        border-radius: 3px;
-        line-height: 1;
-      }
-      .studio-composer-context-row .studio-context-btn {
-        min-height: 18px;
-        padding: 0 2px;
-        border-color: var(--studio-border);
-        background: transparent;
-        color: var(--studio-muted);
-      }
-      .studio-composer-context-row .studio-context-btn:hover {
-        border-color: var(--studio-border-strong);
-        background: transparent;
-        color: var(--studio-text);
-      }
-      .studio-composer-toolbar .studio-icon-toggle,
-      .studio-composer-toolbar .studio-mode-toggle {
-        border-color: transparent;
-        background: transparent;
-        color: var(--studio-muted);
-      }
-      .studio-composer-toolbar .studio-icon-toggle:hover,
-      .studio-composer-toolbar .studio-mode-toggle:hover,
-      .studio-composer-toolbar .studio-icon-toggle:focus-visible,
-      .studio-composer-toolbar .studio-mode-toggle:focus-visible {
-        border-color: transparent;
-        background: rgba(255, 255, 255, 0.08);
-        color: var(--studio-text);
-        outline: none;
-      }
-      .studio-context-btn__icon,
-      .studio-icon-toggle__glyph {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 13px;
-        height: 13px;
-        flex: 0 0 auto;
-      }
-      .studio-icon-toggle__chevron {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 9px;
-        height: 9px;
-        flex: 0 0 auto;
-        color: var(--studio-muted);
-      }
-      .studio-source-icon {
-        display: block;
-        width: 13px;
-        height: 13px;
-      }
-      .studio-source-icon--lucide {
-        width: 13px;
-        height: 13px;
-      }
-      .studio-source-icon[data-tauri-codicon="chevron-down"] {
-        width: 9px;
-        height: 9px;
-      }
-      .studio-icon-toggle {
-        width: 28px;
-        min-width: 28px;
-        height: 22px;
-        min-height: 22px;
-        padding: 0 4px;
-      }
-      .studio-mode-toggle {
-        min-width: 48px;
-        height: 22px;
-        min-height: 22px;
-        padding: 0 5px;
-      }
-      .studio-permissions-toggle {
-        min-width: 136px;
-        max-width: 180px;
-      }
-      .studio-permissions-toggle > span:first-child {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .studio-send-icon {
-        width: 28px;
-        min-width: 28px;
-        height: 28px;
-        padding: 0;
-        border-color: #1f6feb;
-        background: #0e639c;
-      }
-      .studio-stop-icon-button {
-        width: 30px;
-        min-width: 30px;
-        height: 30px;
-        padding: 0;
-      }
-      .studio-utility-drawer {
-        position: relative;
-        overflow: hidden;
-        padding: 0;
-        background: #151515;
-      }
-      .studio-utility-toggle {
-        width: 100%;
-        height: 100%;
-        min-height: 100vh;
-        border: 0;
-        border-radius: 0;
-        writing-mode: vertical-rl;
-        text-orientation: mixed;
-        background: #111;
-        color: var(--studio-muted);
-      }
-      .studio-utility-drawer__content {
-        display: none;
-        height: 100%;
-        overflow: auto;
-        padding: 16px;
-      }
-      .studio-utility-drawer.is-expanded {
-        overflow: auto;
-      }
-      .studio-utility-drawer.is-expanded .studio-utility-toggle {
-        position: sticky;
-        top: 0;
-        z-index: 2;
-        width: 100%;
-        height: 34px;
-        min-height: 34px;
-        writing-mode: horizontal-tb;
-        text-align: left;
-      }
-      .studio-utility-drawer.is-expanded .studio-utility-drawer__content {
-        display: grid;
-        gap: 14px;
-      }
-      .studio-utility-drawer section,
-      .studio-utility-drawer .studio-approval,
-      .studio-utility-drawer .studio-diff-hunk {
-        margin-top: 0;
-      }
-      .studio-operator-context ol,
-      .studio-operator-context ul {
-        margin: 0;
-        padding: 0;
-        list-style: none;
-        display: grid;
-        gap: 9px;
-      }
-      .studio-operator-context li {
-        display: grid;
-        gap: 3px;
-      }
-      .studio-status-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        display: inline-block;
-        margin-right: 7px;
-        background: var(--studio-accent);
-      }
-      .studio-status-dot--pending {
-        background: var(--studio-warn);
-      }
-      .studio-status-dot--blocked,
-      .studio-status-dot--failed {
-        background: var(--studio-danger);
-      }
-      .studio-status-dot--completed,
-      .studio-status-dot--ready {
-        background: var(--studio-good);
-      }
-      .studio-approval {
-        display: flex;
-        justify-content: space-between;
-        gap: 10px;
-      }
-      mark {
-        border-radius: 999px;
-        padding: 2px 7px;
-        background: rgba(127, 209, 165, .12);
-        color: var(--studio-good);
-      }
-      code {
-        color: #b7d4ff;
-        word-break: break-all;
-      }
-      .studio-diff-hunk {
-        margin-top: 10px;
-      }
-      .studio-diff-hunk header,
-      .studio-diff-hunk footer {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-      .studio-diff-hunk pre {
-        margin: 10px 0;
-        overflow: auto;
-        padding: 10px;
-        border-radius: 5px;
-        background: #111;
-        white-space: pre-wrap;
-      }
-      .studio-diff-remove {
-        display: block;
-        color: #ffb1b9;
-      }
-      .studio-diff-add {
-        display: block;
-        color: #a3e6bd;
-      }
-      .studio-cockpit-card {
-        display: grid;
-        gap: 8px;
-        border: 1px solid var(--studio-border);
-        border-radius: 6px;
-        background: #202020;
-        padding: 10px;
-      }
-      .studio-cockpit-card + .studio-cockpit-card {
-        margin-top: 8px;
-      }
-      .studio-cockpit-card header,
-      .studio-cockpit-card footer {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        min-width: 0;
-      }
-      .studio-cockpit-card header mark {
-        margin-left: auto;
-      }
-      .studio-cockpit-card dl {
-        display: grid;
-        grid-template-columns: max-content minmax(0, 1fr);
-        gap: 5px 10px;
-        margin: 0;
-      }
-      .studio-cockpit-card dt {
-        color: var(--studio-muted);
-        font-size: 12px;
-      }
-      .studio-cockpit-card dd {
-        margin: 0;
-        min-width: 0;
-      }
-      .studio-command-output-card pre {
-        max-height: 180px;
-        margin: 0;
-        overflow: auto;
-        border-radius: 5px;
-        background: #0c0c0c;
-        padding: 9px;
-        color: #d6e4ff;
-        white-space: pre-wrap;
-      }
-      .studio-command-output-card .studio-command-stderr {
-        color: #ffb1b9;
-      }
-      .studio-replay-steps {
-        margin-top: 12px;
-        padding-top: 12px;
-        border-top: 1px solid var(--studio-border);
-      }
-      @media (max-width: 980px) {
-        .studio-operational-shell {
-          grid-template-columns: minmax(0, 1fr);
-          overflow: auto;
-        }
-        .studio-operational-rail,
-        .studio-operator-context,
-        .studio-chat-main {
-          min-height: auto;
-          overflow: visible;
-        }
-      }
-    </style>
-  </head>
-  <body>
-	    ${renderStudioOperationalSurface(state, { standalone: true })}
-	    <script nonce="${pageNonce}">
-	      const vscode = acquireVsCodeApi();
-	      const ioiBridgeUrl = ${JSON.stringify(bridgeUrl() || "")};
-      function parsePayload(raw) {
-        if (!raw) return undefined;
-        try {
-          return JSON.parse(raw);
-        } catch (error) {
-          console.error("[IOI Studio] Failed to parse payload", error);
-          return undefined;
-        }
-      }
-      function isForkQuickInputCommand(command) {
-        return command === "ioi.quickInput.context.open" ||
-          command === "ioi.quickInput.tools.configure" ||
-          command === "ioi.quickInput.modelRoute.pick" ||
-          command === "ioi.quickInput.workflowTarget.pick" ||
-          command === "ioi.quickInput.agentMode.pick" ||
-          command === "ioi.quickInput.permissionMode.pick";
-      }
-      function focusStudioComposer() {
-        const focus = () => {
-          const input = document.querySelector("[data-studio-prompt]");
-          if (!input) {
-            return;
-          }
-          try {
-            window.focus();
-          } catch {
-            // Best-effort only; Electron/VS Code may already own focus at the host window.
-          }
-          input.focus({ preventScroll: true });
-          try {
-            const length = String(input.value || "").length;
-            input.setSelectionRange(length, length);
-          } catch {
-            // Some focus targets may not support text selection.
-          }
-        };
-        focus();
-        for (const delay of [40, 80, 160, 320, 650, 1000, 1500]) {
-          window.setTimeout(focus, delay);
-        }
-      }
-      function openForkQuickInput(command, payload) {
-        const message = {
-          source: "ioi-workbench-agent-studio",
-          type: "ioi.quickInput.open",
-          command,
-          payload: {
-            ...(payload || {}),
-            bridgeUrl: ioiBridgeUrl,
-            runtimeAuthority: "daemon-owned",
-            projectionOwner: "ioi-workbench-agent-studio",
-            composerTestId: "studio-composer-input"
-          }
-        };
-        window.parent?.postMessage(message, "*");
-        if (window.top && window.top !== window.parent) {
-          window.top.postMessage(message, "*");
-        }
-      }
-      function buttonQuickInputPayload(button) {
-        const payload = parsePayload(button.dataset.payload) || {};
-        const rect = button.getBoundingClientRect();
-        return {
-          ...payload,
-          controlTestId: button.dataset.testid || "",
-          anchorRect: {
-            left: rect.left,
-            top: rect.top,
-            right: rect.right,
-            bottom: rect.bottom,
-            width: rect.width,
-            height: rect.height
-          }
-        };
-      }
-      function executionModeFromAgentModeResult(result) {
-        const normalized = String(result?.selectionId || result?.mode || result?.label || "agent")
-          .toLowerCase()
-          .replace(/[\\s-]+/g, "_");
-        return ["ask", "chat", "chat_only", "chatonly", "direct_chat", "direct_model"].includes(normalized)
-          ? "ask"
-          : "agent";
-      }
-      function applyAgentModeResult(result) {
-        const mode = executionModeFromAgentModeResult(result);
-        const modeButton = document.querySelector("[data-testid='studio-mode-toggle']");
-        if (modeButton) {
-          modeButton.dataset.studioMode = mode;
-          const label = modeButton.querySelector("span");
-          if (label) label.textContent = mode === "ask" ? "Ask" : "Agent";
-        }
-        return mode;
-      }
-      function permissionModeFromResult(result) {
-        const normalized = String(result?.approvalMode || result?.approval_mode || result?.selectionId || result?.mode || result?.label || "suggest")
-          .toLowerCase()
-          .replace(/[\\s-]+/g, "_");
-        if (["auto_review", "auto_local", "autolocal", "auto"].includes(normalized)) {
-          return "auto_local";
-        }
-        if (["full_access", "fullaccess", "never_prompt", "neverprompt", "yolo"].includes(normalized)) {
-          return "never_prompt";
-        }
-        return "suggest";
-      }
-      function permissionModeLabel(mode) {
-        if (mode === "auto_local") return "Auto-review";
-        if (mode === "never_prompt") return "Full access";
-        return "Default permissions";
-      }
-      function permissionThreadMode(mode) {
-        return mode === "never_prompt" ? "yolo" : "agent";
-      }
-      function applyPermissionModeResult(result) {
-        const approvalMode = permissionModeFromResult(result);
-        const permissionButton = document.querySelector("[data-testid='studio-permissions-toggle']");
-        if (permissionButton) {
-          permissionButton.dataset.approvalMode = approvalMode;
-          permissionButton.title = "Permissions - " + permissionModeLabel(approvalMode);
-          permissionButton.setAttribute("aria-label", permissionButton.title);
-          const label = permissionButton.querySelector("span");
-          if (label) label.textContent = permissionModeLabel(approvalMode);
-        }
-        return approvalMode;
-      }
-      function updateStreamRunBar(turn, status, label) {
-        const runBar = turn?.querySelector("[data-testid='studio-run-status-bar']");
-        if (!runBar) return;
-        const strong = runBar.querySelector("strong");
-        const statusNode = runBar.querySelector("span:last-child");
-        if (strong) strong.textContent = label || (status === "completed" ? "Worked" : "Working...");
-        if (statusNode) statusNode.textContent = status || "streaming";
-      }
-      function ensureStreamingAssistantTurn(streamId) {
-        const transcript =
-          document.querySelector("[data-testid='studio-chat-transcript']") ||
-          document.querySelector("[data-testid='studio-transcript']");
-        if (!transcript) return null;
-        let turn = transcript.querySelector("[data-studio-stream-turn='" + streamId + "']");
-        if (!turn) {
-          turn = appendProjectedTurn("assistant", "");
-          turn.dataset.studioStreamTurn = streamId;
-          turn.setAttribute("data-testid", "studio-streaming-assistant-turn");
-        }
-        let text = turn.querySelector("[data-testid='studio-streaming-output']");
-        if (!text) {
-          text = turn.querySelector("[data-testid='studio-assistant-answer-card'] p") || turn.querySelector("p");
-          text?.setAttribute("data-testid", "studio-streaming-output");
-        }
-        return { turn, text };
-      }
-      function handleStudioRuntimeMessage(message) {
-        const payload = message.payload || {};
-        if (!payload.streamId) return;
-        if (message.type === "assistantStreamStart") {
-          showPendingProjection();
-          return;
-        }
-        if (message.type === "assistantStreamDelta") {
-          const target = ensureStreamingAssistantTurn(payload.streamId);
-          if (target?.text) {
-            target.text.textContent = (target.text.textContent || "") + (payload.delta || "");
-          }
-          updateStreamRunBar(target?.turn, "streaming", "Working...");
-          document.querySelector("[data-testid='agent-studio-operational-chat']")?.setAttribute("data-studio-status", "streaming");
-          hidePendingProjectionAfterMinimum();
-          return;
-        }
-        if (message.type === "assistantStreamComplete") {
-          const target = ensureStreamingAssistantTurn(payload.streamId);
-          if (target?.text && payload.text) {
-            target.text.textContent = payload.text;
-          }
-          updateStreamRunBar(target?.turn, "completed", "Worked");
-          document.querySelector("[data-testid='agent-studio-operational-chat']")?.setAttribute("data-studio-status", "completed");
-          hidePendingProjectionAfterMinimum();
-          return;
-        }
-        if (message.type === "assistantStreamError") {
-          const target = ensureStreamingAssistantTurn(payload.streamId);
-          if (target?.text) {
-            target.text.textContent = payload.error || "Daemon model stream failed.";
-          }
-          updateStreamRunBar(target?.turn, "blocked", "Blocked");
-          hidePendingProjectionAfterMinimum();
-          document.querySelector("[data-testid='agent-studio-operational-chat']")?.setAttribute("data-studio-status", "blocked");
-        }
-      }
-      function projectStudioAgentTurnComplete(payload) {
-        const text = String(payload?.text || "").trim() || "Agent Mode completed without additional assistant text.";
-        const turn = appendProjectedTurn("assistant", text, { prompt: String(payload?.prompt || "") });
-        if (turn) {
-          turn.dataset.studioAgentTurnId = String(payload?.turnId || "");
-          turn.dataset.studioRuntimeEventCount = String(payload?.eventCount || 0);
-          turn.dataset.studioReceiptRefs = Array.isArray(payload?.receiptRefs) ? payload.receiptRefs.join(",") : "";
-          turn.scrollIntoView({ block: "end", inline: "nearest" });
-        }
-        const root = document.querySelector("[data-testid='agent-studio-operational-chat']");
-        root?.setAttribute("data-studio-status", "completed");
-        hidePendingProjectionAfterMinimum();
-        focusStudioComposer();
-      }
-      function projectStudioAgentTurnBlocked(payload) {
-        const explicitText = String(payload?.text || "").trim();
-        const text = explicitText || "Studio could not complete the daemon turn: " + (String(payload?.error || "").trim() || "runtime_bridge_failed");
-        const turn = appendProjectedTurn("assistant", text, { prompt: String(payload?.prompt || "") });
-        if (turn) {
-          turn.scrollIntoView({ block: "end", inline: "nearest" });
-        }
-        const root = document.querySelector("[data-testid='agent-studio-operational-chat']");
-        root?.setAttribute("data-studio-status", "blocked");
-        hidePendingProjectionAfterMinimum();
-        focusStudioComposer();
-      }
-      window.addEventListener("message", (event) => {
-        const message = event.data || {};
-        if (message.source === "ioi-studio-control" && message.type === "focusComposer") {
-          focusStudioComposer();
-          return;
-        }
-        if (message.source === "ioi-studio-control" && message.type === "agentTurnComplete") {
-          projectStudioAgentTurnComplete(message.payload || {});
-          return;
-        }
-        if (message.source === "ioi-studio-control" && message.type === "agentTurnBlocked") {
-          projectStudioAgentTurnBlocked(message.payload || {});
-          return;
-        }
-        if (message.source === "ioi-studio-runtime") {
-          handleStudioRuntimeMessage(message);
-          return;
-        }
-        if (message.source !== "ioi-autopilot-fork-quickinput" || message.type !== "ioi.quickInput.result") {
-          return;
-        }
-        const result = message.result || {};
-        if (result.kind === "focusComposer") {
-          focusStudioComposer();
-          return;
-        }
-        if (result.kind === "context") {
-          if (result.bridgeRequestAlreadyWritten) {
-            focusStudioComposer();
-            return;
-          }
-          vscode.postMessage({
-            type: "bridgeRequest",
-            requestType: result.requestType || "chat.contextPicker.select",
-            payload: {
-              contextId: result.contextId,
-              label: result.label,
-              source: "fork-native-quickinput",
-              nativeForkContributionUsed: true,
-              extensionQuickPickFallbackUsed: false,
-              runtimeAuthority: "daemon-owned",
-              projectionOwner: "ioi-workbench-agent-studio"
-            }
-          });
-          focusStudioComposer();
-          return;
-        }
-        if (result.kind === "tools") {
-          if (result.bridgeRequestAlreadyWritten) {
-            focusStudioComposer();
-            return;
-          }
-          vscode.postMessage({
-            type: "bridgeRequest",
-            requestType: "chat.toolControls",
-            payload: {
-              action: result.action || "configureTools",
-              selectedTools: result.selectedTools || [],
-              selectedCount: result.selectedCount || 0,
-              source: "fork-native-quickinput",
-              nativeForkContributionUsed: true,
-              extensionQuickPickFallbackUsed: false,
-              runtimeAuthority: "daemon-owned",
-              projectionOwner: "ioi-workbench-agent-studio"
-            }
-          });
-          focusStudioComposer();
-          return;
-        }
-        if (result.kind === "target" || result.kind === "agentMode" || result.kind === "permissionMode" || result.kind === "modelRoute") {
-          const selectedExecutionMode = result.kind === "agentMode" ? applyAgentModeResult(result) : undefined;
-          const selectedPermissionMode = result.kind === "permissionMode" ? applyPermissionModeResult(result) : undefined;
-          if (result.bridgeRequestAlreadyWritten) {
-            focusStudioComposer();
-            return;
-          }
-          vscode.postMessage({
-            type: "bridgeRequest",
-            requestType: result.requestType || (result.kind === "agentMode" ? "chat.agentMode.select" : result.kind === "permissionMode" ? "chat.permissionMode.select" : "chat.target.select"),
-            payload: {
-              selectionId: result.selectionId,
-              executionMode: selectedExecutionMode,
-              approvalMode: selectedPermissionMode,
-              approval_mode: selectedPermissionMode,
-              threadMode: selectedPermissionMode ? permissionThreadMode(selectedPermissionMode) : undefined,
-              thread_mode: selectedPermissionMode ? permissionThreadMode(selectedPermissionMode) : undefined,
-              label: result.label,
-              source: "fork-native-quickinput",
-              nativeForkContributionUsed: true,
-              extensionQuickPickFallbackUsed: false,
-              runtimeAuthority: "daemon-owned",
-              projectionOwner: "ioi-workbench-agent-studio"
-            }
-          });
-          focusStudioComposer();
-        }
-      });
-      document.addEventListener("keydown", (event) => {
-        if (event.key !== "Escape") {
-          return;
-        }
-        window.parent?.postMessage({
-          source: "ioi-workbench-agent-studio",
-          type: "ioi.quickInput.dismiss",
-          payload: {
-            reason: "escape",
-            restoreComposer: true
-          }
-        }, "*");
-        if (window.top && window.top !== window.parent) {
-          window.top.postMessage({
-            source: "ioi-workbench-agent-studio",
-            type: "ioi.quickInput.dismiss",
-            payload: {
-              reason: "escape",
-              restoreComposer: true
-            }
-          }, "*");
-        }
-      }, true);
-      document.querySelectorAll("[data-command]").forEach((button) => {
-        button.addEventListener("click", () => {
-          if (isForkQuickInputCommand(button.dataset.command)) {
-            openForkQuickInput(button.dataset.command, buttonQuickInputPayload(button));
-            return;
-          }
-          vscode.postMessage({
-            type: "command",
-            command: button.dataset.command,
-            payload: parsePayload(button.dataset.payload)
-          });
-        });
-      });
-      document.querySelectorAll("[data-bridge-request]").forEach((button) => {
-        button.addEventListener("click", () => {
-          vscode.postMessage({
-            type: "bridgeRequest",
-            requestType: button.dataset.bridgeRequest,
-            payload: parsePayload(button.dataset.payload)
-          });
-        });
-      });
-      const TOOLCAT_MARKER_RE = /\\bTOOLCAT_(?:SINGLE_TOOL|STAGE\\d+_[A-Z0-9_]+)\\b/i;
-      const TOOLCAT_TOOL_RE = /\\btoolcat_tool=([a-z0-9_.]+(?:__[a-z0-9_]+)?)/i;
-      const TOOLCAT_SINGLE_TOOL_RE = /\\bTOOLCAT_SINGLE_TOOL\\s+([a-z0-9_.]+(?:__[a-z0-9_]+)?)/i;
-      function compactProjectedText(value) {
-        return String(value || "").replace(/\\s+/g, " ").trim();
-      }
-      function humanizeProjectedToolName(value) {
-        return compactProjectedText(value)
-          .replace(/\\./g, " ")
-          .replace(/__+/g, " ")
-          .replace(/_+/g, " ")
-          .replace(/\\s+/g, " ")
-          .trim()
-          .toLowerCase();
-      }
-      function projectedToolcatToolName(text) {
-        const value = String(text || "");
-        const match = value.match(TOOLCAT_TOOL_RE) || value.match(TOOLCAT_SINGLE_TOOL_RE);
-        return humanizeProjectedToolName(match?.[1] || "");
-      }
-      function projectedApprovalToolName(text) {
-        const match = String(text || "").match(/\\btools?:\\s*([a-z0-9_.]+(?:__[a-z0-9_]+)?)/i);
-        return humanizeProjectedToolName(match?.[1] || "");
-      }
-      function humanizeProjectedTurnText(role, content) {
-        const raw = String(content || "").trim();
-        const compact = compactProjectedText(raw);
-        if (!compact) return "";
-        if (TOOLCAT_MARKER_RE.test(compact)) {
-          const toolName = projectedToolcatToolName(compact);
-          if (role === "user") {
-            return toolName
-              ? "Run live Rust tool catalogue verification for " + toolName + "."
-              : "Run live Rust tool catalogue verification.";
-          }
-          if (/\\bfailed\\b|\\bfailure\\b/i.test(compact)) {
-            return toolName
-              ? "The live Rust tool catalogue probe failed for " + toolName + ". Details are in Tracing."
-              : "The live Rust tool catalogue verification step failed. Details are in Tracing.";
-          }
-          return toolName
-            ? "The live Rust tool catalogue probe completed for " + toolName + "."
-            : "The live Rust tool catalogue verification step completed.";
-        }
-        if (role === "assistant" && /\\b(waiting for approval|awaiting .*approval|approval required|requires approval|pending approval|policy gate)\\b/i.test(compact)) {
-          const toolName = projectedApprovalToolName(compact);
-          return toolName
-            ? "Permission is required before Agent can use " + toolName + "."
-            : "Permission is required before Agent can continue.";
-        }
-        if (role === "assistant" && /Daemon agent turn completed but did not emit a final chat__reply/i.test(compact)) {
-          return "Agent reached the runtime but did not produce a chat reply. Details are in Tracing.";
-        }
-        return raw;
-      }
-      function projectedTurnText(turn) {
-        return compactProjectedText(turn?.querySelector("p")?.textContent || "");
-      }
-      function projectedAssistantNearUser(userTurn, content, toolName) {
-        const expectedText = compactProjectedText(humanizeProjectedTurnText("assistant", content));
-        let cursor = userTurn?.nextElementSibling || null;
-        while (cursor) {
-          if (cursor.getAttribute("data-studio-turn-role") === "user") break;
-          if (cursor.getAttribute("data-studio-turn-role") === "assistant") {
-            const assistantTool = cursor.dataset.studioAssistantTool || "";
-            if ((toolName && assistantTool === toolName) || (expectedText && projectedTurnText(cursor) === expectedText)) {
-              return cursor;
-            }
-          }
-          cursor = cursor.nextElementSibling;
-        }
-        return null;
-      }
-      function projectedAssistantAnchor(transcript, content, options = {}) {
-        if (!transcript) return null;
-        const promptText = compactProjectedText(options.prompt || "");
-        const promptTool = projectedToolcatToolName(promptText);
-        const contentTool = projectedToolcatToolName(content);
-        const toolName = promptTool || contentTool;
-        if (!toolName && !promptText) return null;
-        const userTurns = Array.from(transcript.querySelectorAll("[data-studio-turn-role='user']"));
-        for (let index = userTurns.length - 1; index >= 0; index -= 1) {
-          const userTurn = userTurns[index];
-          const userTool = userTurn.dataset.studioPromptTool || "";
-          const userPrompt = userTurn.dataset.studioPromptText || "";
-          const matchesTool = toolName && userTool === toolName;
-          const matchesPrompt = promptText && userPrompt === promptText;
-          if (!matchesTool && !matchesPrompt) continue;
-          const duplicate = projectedAssistantNearUser(userTurn, content, toolName);
-          return { after: userTurn, duplicate };
-        }
-        return null;
-      }
-      function appendProjectedTurn(role, content, options = {}) {
-        const transcript =
-          document.querySelector("[data-testid='studio-chat-transcript']") ||
-          document.querySelector("[data-testid='studio-transcript']");
-        if (!transcript) return;
-        const anchor = role === "assistant" ? projectedAssistantAnchor(transcript, content, options) : null;
-        if (anchor?.duplicate) return anchor.duplicate;
-        const turn = document.createElement("article");
-        turn.className = "studio-chat-turn studio-chat-turn--" + role;
-        turn.dataset.studioTurnRole = role;
-        turn.setAttribute("data-testid", role === "user" ? "studio-user-turn-immediate" : "studio-chat-turn");
-        if (role === "assistant") {
-          turn.dataset.documentedWork = "false";
-          turn.dataset.studioAssistantTool = projectedToolcatToolName(options.prompt || content);
-        }
-        if (role === "user") {
-          turn.dataset.studioPromptText = compactProjectedText(content);
-          turn.dataset.studioPromptTool = projectedToolcatToolName(content);
-        }
-        const body = document.createElement("div");
-        body.className =
-          "studio-chat-turn__body" +
-          (role === "user" ? " studio-user-bubble" : role === "assistant" ? " studio-assistant-answer-card" : "");
-        if (role === "user") {
-          body.setAttribute("data-testid", "studio-user-bubble");
-        }
-        if (role === "assistant") {
-          body.setAttribute("data-testid", "studio-assistant-answer-card");
-        }
-        const meta = document.createElement("div");
-        meta.className = "studio-chat-turn__meta";
-        const name = document.createElement("strong");
-        name.textContent = role === "user" ? "You" : "Autopilot";
-        const time = document.createElement("span");
-        time.textContent = new Date().toISOString();
-        const paragraph = document.createElement("p");
-        if (role === "assistant") {
-          paragraph.setAttribute("data-testid", "studio-assistant-answer-text");
-        }
-        paragraph.textContent = humanizeProjectedTurnText(role, content);
-        meta.append(name, time);
-        body.append(meta, paragraph);
-        turn.append(body);
-        if (anchor?.after?.nextSibling) {
-          transcript.insertBefore(turn, anchor.after.nextSibling);
-        } else {
-          transcript.append(turn);
-        }
-        return turn;
-      }
-      let studioPendingProjectionTimer = null;
-      function studioPendingProjectionLabel(startedAt) {
-        const elapsedSeconds = Math.max(0, Math.floor((performance.now() - Number(startedAt || performance.now())) / 1000));
-        return "Thinking about your request · " + elapsedSeconds + "s";
-      }
-      function updatePendingProjectionLabel(pending) {
-        const label = pending?.querySelector("[data-testid='studio-pending-label']");
-        if (!label) return;
-        label.textContent = studioPendingProjectionLabel(pending.dataset.pendingStartedAtMs);
-      }
-      function ensurePendingProjection() {
-        const transcript =
-          document.querySelector("[data-testid='studio-chat-transcript']") ||
-          document.querySelector("[data-testid='studio-transcript']");
-        if (!transcript) return null;
-        let pending = transcript.querySelector("[data-testid='studio-pending-state']");
-        if (!pending) {
-          pending = document.createElement("article");
-          pending.className = "studio-chat-turn studio-chat-turn--assistant studio-pending";
-          pending.setAttribute("data-testid", "studio-pending-state");
-          pending.setAttribute("data-studio-turn-role", "assistant");
-          pending.setAttribute("data-documented-work", "false");
-          pending.innerHTML =
-            '<span class="studio-pending__dots" aria-hidden="true"><span></span><span></span><span></span></span>' +
-            '<strong data-testid="studio-pending-label">Thinking about your request · 0s</strong>';
-          transcript.append(pending);
-        }
-        if (pending.hasAttribute("hidden")) {
-          pending.removeAttribute("hidden");
-        }
-        if (!pending.dataset.pendingStartedAtMs) {
-          pending.dataset.pendingStartedAtMs = String(performance.now());
-        }
-        updatePendingProjectionLabel(pending);
-        if (!studioPendingProjectionTimer) {
-          studioPendingProjectionTimer = window.setInterval(() => {
-            const currentPending = document.querySelector("[data-testid='studio-pending-state']");
-            if (!currentPending || currentPending.hasAttribute("hidden")) {
-              window.clearInterval(studioPendingProjectionTimer);
-              studioPendingProjectionTimer = null;
-              return;
-            }
-            updatePendingProjectionLabel(currentPending);
-          }, 500);
-        }
-        return pending;
-      }
-      function showPendingProjection() {
-        const root = document.querySelector("[data-testid='agent-studio-operational-chat']");
-        root?.setAttribute("data-studio-status", "pending");
-        root?.setAttribute("data-immediate-submit-seen", "true");
-        root?.setAttribute("data-pending-state-seen", "true");
-        if (root && !root.getAttribute("data-pending-started-at-ms")) {
-          root.setAttribute("data-pending-started-at-ms", String(performance.now()));
-        }
-        ensurePendingProjection();
-      }
-      function hidePendingProjectionAfterMinimum() {
-        const root = document.querySelector("[data-testid='agent-studio-operational-chat']");
-        const pending = document.querySelector("[data-testid='studio-pending-state']");
-        const startedAt = Number(pending?.dataset.pendingStartedAtMs || root?.getAttribute("data-pending-started-at-ms") || "0");
-        const elapsed = startedAt > 0 ? performance.now() - startedAt : 0;
-        const hide = () => {
-          pending?.remove();
-          root?.removeAttribute("data-pending-started-at-ms");
-          if (studioPendingProjectionTimer) {
-            window.clearInterval(studioPendingProjectionTimer);
-            studioPendingProjectionTimer = null;
-          }
-        };
-        const remaining = Math.max(0, 650 - elapsed);
-        if (remaining > 0) {
-          window.setTimeout(hide, remaining);
-        } else {
-          hide();
-        }
-      }
-      document.querySelector("[data-studio-prompt-form]")?.addEventListener("submit", (event) => {
-        event.preventDefault();
-        const prompt = document.querySelector("[data-studio-prompt]")?.value?.trim();
-        if (!prompt) {
-          focusStudioComposer();
-          return;
-        }
-        appendProjectedTurn("user", prompt);
-        showPendingProjection();
-        const routePicker = document.querySelector("[data-testid='studio-model-route-picker']");
-        const selectedOption = routePicker?.selectedOptions?.[0] || null;
-        const routeId = routePicker?.value || "route.local-first";
-        const modelId =
-          selectedOption?.dataset?.modelId ||
-          routePicker?.dataset?.selectedModelId ||
-          "auto";
-        const endpointId =
-          selectedOption?.dataset?.endpointId ||
-          routePicker?.dataset?.selectedEndpointId ||
-          "";
-        const reasoningPicker = document.querySelector("[data-testid='studio-reasoning-effort-picker']");
-        const reasoningEffort = reasoningPicker?.value || "none";
-        const modeButton = document.querySelector("[data-testid='studio-mode-toggle']");
-        const executionMode = modeButton?.dataset?.studioMode || "agent";
-        const permissionButton = document.querySelector("[data-testid='studio-permissions-toggle']");
-        const approvalMode = permissionButton?.dataset?.approvalMode || "suggest";
-        const threadMode = permissionThreadMode(approvalMode);
-        const studioMessage = {
-          type: "studioSubmit",
-          requestType: "chat.submit",
-          payload: {
-            prompt,
-            routeId,
-            model: routeId,
-            modelId,
-            endpointId,
-            reasoningEffort,
-            reasoning_effort: reasoningEffort,
-            executionMode,
-            approvalMode,
-            approval_mode: approvalMode,
-            threadMode,
-            thread_mode: threadMode,
-            workspaceRoot: ${JSON.stringify(workspace.path || workspace.rootPath || "")},
-            runtimeAuthority: "daemon-owned",
-            projectionOwner: "ioi-workbench-agent-studio"
-          }
-        };
-        document.querySelector("[data-studio-prompt]").value = "";
-        requestAnimationFrame(() => {
-          window.setTimeout(() => vscode.postMessage(studioMessage), 0);
-        });
-      });
-      document.querySelector("[data-studio-prompt]")?.addEventListener("keydown", (event) => {
-        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
-          event.preventDefault();
-          document.querySelector("[data-studio-prompt-form]")?.requestSubmit();
-        }
-      });
-      document.querySelectorAll("[data-studio-hunk-decision]").forEach((button) => {
-        button.addEventListener("click", () => {
-          vscode.postMessage({
-            type: "studioHunkDecision",
-            decision: button.dataset.studioHunkDecision,
-            payload: {
-              approvalId: button.dataset.approvalId || ${JSON.stringify(STUDIO_APPROVAL_ID)},
-              file: button.dataset.hunkFile || "docs/evidence/agent-studio-preview.md",
-              runtimeAuthority: "daemon-owned",
-              projectionOwner: "ioi-workbench-agent-studio"
-            }
-          });
-        });
-      });
-      document.querySelectorAll("[data-studio-hunk-nav]").forEach((button) => {
-        button.addEventListener("click", () => {
-          vscode.postMessage({
-            type: "studioHunkNavigate",
-            direction: button.dataset.studioHunkNav || "next",
-            payload: {
-              runtimeAuthority: "daemon-owned",
-              projectionOwner: "ioi-workbench-agent-studio"
-            }
-          });
-        });
-      });
-      document.querySelector("[data-studio-stop]")?.addEventListener("click", () => {
-        vscode.postMessage({ type: "studioStop" });
-      });
-      document.querySelector("[data-studio-resume]")?.addEventListener("click", () => {
-        vscode.postMessage({ type: "studioResume" });
-      });
-      function setUtilityDrawerExpanded(expanded) {
-        const drawer = document.querySelector("[data-testid='studio-utility-drawer']");
-        const shell = document.querySelector("[data-testid='agent-studio-operational-chat']");
-        if (!drawer) return;
-        drawer.classList.toggle("is-expanded", expanded);
-        drawer.setAttribute("aria-expanded", String(expanded));
-        shell?.classList.toggle("has-expanded-utility", expanded);
-      }
-      document.querySelectorAll("[data-studio-drawer-toggle]").forEach((button) => {
-        button.addEventListener("click", () => {
-          const drawer = document.querySelector("[data-testid='studio-utility-drawer']");
-          setUtilityDrawerExpanded(!drawer?.classList.contains("is-expanded"));
-        });
-      });
-      document.querySelectorAll("[data-studio-drawer-open]").forEach((button) => {
-        button.addEventListener("click", () => setUtilityDrawerExpanded(true));
-      });
-      document.querySelectorAll("[data-studio-managed-session-expand]").forEach((button) => {
-        button.addEventListener("click", () => {
-          const card = button.closest("[data-testid='studio-managed-session-card']");
-          const expanded = !card?.classList.contains("is-expanded");
-          card?.classList.toggle("is-expanded", expanded);
-          card?.setAttribute("data-session-expanded", String(expanded));
-          button.setAttribute("aria-expanded", String(expanded));
-          button.textContent = expanded ? "Collapse" : "Expand";
-        });
-      });
-      document.querySelectorAll("[data-studio-managed-session-control]").forEach((button) => {
-        button.addEventListener("click", () => {
-          const card = button.closest("[data-testid='studio-managed-session-card']");
-          const control = button.dataset.studioManagedSessionControl || "observe";
-          card?.setAttribute("data-control-state", control);
-          card?.querySelectorAll("[data-studio-managed-session-control]").forEach((candidate) => {
-            const active = candidate === button;
-            candidate.classList.toggle("is-active", active);
-            candidate.setAttribute("aria-pressed", String(active));
-          });
-        });
-      });
-      document.querySelectorAll("[data-studio-copy-answer]").forEach((button) => {
-        button.addEventListener("click", async () => {
-          const card = button.closest("[data-testid='studio-assistant-answer-card']");
-          const text = card?.querySelector("p")?.textContent || "";
-          await navigator.clipboard?.writeText?.(text).catch(() => undefined);
-        });
-      });
-      setTimeout(() => {
-        vscode.postMessage({
-          type: "studioOperationalProof",
-          proof: {
-            targetStudioOperationalChatAchieved: true,
-            targetStudioTauriChatUxParityAchieved: true,
-            sessionRailVisible: true,
-            chatFirstTranscript: true,
-            bottomComposerVisible: true,
-            studioNativeQuickInputToolPicker: true,
-            utilityEvidenceDrawerProgressive: true,
-            runtimeAuthority: "daemon-owned",
-            projectionOwner: "ioi-workbench-agent-studio",
-            tauriUsed: false,
-            webviewOwnsRuntimeState: false,
-            externalConnectorAction: false
-          }
-        });
-      }, 250);
-    </script>
-  </body>
-</html>`;
+const renderStudioOperationalSurface = createStudioOperationalSurface({
+  commandPayloadAttr,
+  escapeHtml,
+  firstArray,
+  getStudioRuntimeProjection: () => studioRuntimeProjection,
+  mountedModelQuickInputRowsFromState,
+  normalizeStudioExecutionMode,
+  normalizeStudioPermissionMode,
+  renderNativeChatIcon,
+  studioActionCardRows,
+  studioApprovalRows,
+  studioBrowserWorkerRows,
+  studioCommandOutputRows,
+  studioCompactRuntimeStatusRows,
+  studioDiagnosticsRows,
+  studioDiffRows,
+  studioDisplayTurnContent,
+  studioExecutionModeLabel,
+  studioHistoryRows,
+  studioParityPlusPanelRows,
+  studioPendingProjectionRows,
+  studioPermissionModeLabel,
+  studioPolicyLeaseRows,
+  studioReasoningEffortOptions,
+  studioReceiptRows,
+  studioReplayRows,
+  studioSnapshotFromState,
+  studioTerminalRows,
+  studioTimelineRows,
+  studioTraceLink,
+  studioTurnRows,
+  workspaceSummary,
+});
+
+const renderStudioPanelHtml = createStudioPanelHtml({
+  nonce,
+  getPageNonce: currentStudioPanelPageNonce,
+  workspaceSummary,
+  renderStudioOperationalSurface,
+  bridgeUrl,
+  STUDIO_APPROVAL_ID,
+});
+
+function currentStudioPanelPageNonce() {
+  if (!studioPanelPageNonce) {
+    studioPanelPageNonce = nonce();
+  }
+  return studioPanelPageNonce;
 }
 
+function studioPanelHtml(state) {
+  return renderStudioPanelHtml(state);
+}
 async function openOverviewPanel(context, output) {
   const state = await readBridgeState();
   if (overviewPanel) {
@@ -11479,23 +9267,608 @@ function shouldProjectStudioRuntimeCockpit(prompt) {
   return /runtime cockpit|tool proposal|policy lease|sandbox(?:ed)? command|inline diff|hunk|diagnostics?|test gate|browser status|worker status|subagent|receipt timeline|replay/i.test(value);
 }
 
+function studioPromptRequestsGeneratedWebArtifact(prompt = "") {
+  const value = String(prompt || "");
+  return /\b(create|build|make|generate|draft|design|prototype)\b[\s\S]{0,100}\b(website|web\s*site|webpage|web\s*page|landing\s+page|microsite|static\s+site)\b/i.test(value);
+}
+
+function shouldProjectConversationArtifactCanvas(prompt) {
+  return studioPromptRequestsGeneratedWebArtifact(prompt) || /\bartifact|embedded document|odt|docx|pdf|standalone html|html\/css\/js|react|vite|dashboard|csv|chart|dataset|patch artifact|diff artifact|browser session result|capture this browser/i.test(String(prompt || ""));
+}
+
+function studioIntentFrameRouteDirective(intentFrame = {}) {
+  return stringValue(intentFrame?.routeDirective || intentFrame?.route_directive);
+}
+
+function studioIntentFrameProjectsArtifact(intentFrame = {}) {
+  return studioIntentFrameRouteDirective(intentFrame) === "artifact" ||
+    Boolean(intentFrame?.artifact?.required);
+}
+
+function studioIntentFrameProjectsRuntimeCockpit(intentFrame = {}) {
+  return studioIntentFrameRouteDirective(intentFrame) === "runtime_cockpit" ||
+    stringValue(intentFrame?.intentId || intentFrame?.intent_id) === "runtime.inspect";
+}
+
+function studioIntentFrameRequiresRetrieval(intentFrame = {}, prompt = "") {
+  if (intentFrame?.retrieval && typeof intentFrame.retrieval === "object") {
+    return Boolean(intentFrame.retrieval.required);
+  }
+  return promptRequiresRetrieval(prompt);
+}
+
+function studioIntentFrameArtifactClass(intentFrame = {}, prompt = "") {
+  return stringValue(
+    intentFrame?.artifact?.class ||
+      intentFrame?.artifact?.artifactClass ||
+      intentFrame?.artifact?.artifact_class,
+    studioArtifactClassFromPrompt(prompt),
+  );
+}
+
+function studioIntentFrameArtifactTitle(intentFrame = {}, artifactClass, prompt = "") {
+  return stringValue(intentFrame?.artifact?.title, studioArtifactTitleFromClass(artifactClass, prompt));
+}
+
+function studioIntentFrameArtifactSummary(intentFrame = {}, prompt = "") {
+  return stringValue(
+    intentFrame?.artifact?.summary,
+    studioPromptRequestsGeneratedWebArtifact(prompt)
+      ? "Sandboxed website preview generated through the daemon-owned artifact lifecycle."
+      : "Agent Studio conversation artifact created through the daemon-owned artifact lifecycle.",
+  );
+}
+
+function studioPromptExplicitlyRequiresSources(prompt = "") {
+  return /\b(cite|citation|sources?|with sources?|using sources?|web|internet|online|references?)\b/i.test(
+    stringValue(prompt),
+  );
+}
+
+function studioResearchIntentFrameForArtifact(intentFrame = {}) {
+  const retrieval = intentFrame?.retrieval && typeof intentFrame.retrieval === "object"
+    ? intentFrame.retrieval
+    : { required: true, requirements: ["source_grounding"] };
+  return {
+    ...studioIntentFramePayload(intentFrame),
+    intentId: "retrieval.answer",
+    intent_id: "retrieval.answer",
+    routeDirective: "agent",
+    route_directive: "agent",
+    artifact: {
+      required: false,
+      class: null,
+      artifactClass: null,
+      outputModality: null,
+      title: null,
+      summary: null,
+    },
+    retrieval: {
+      ...retrieval,
+      required: true,
+      requirements: uniqueStrings([
+        ...firstArray(retrieval.requirements),
+        ...firstArray(retrieval.requiredCapabilities),
+        "source_grounding",
+      ]),
+    },
+    effectContract: {
+      applicabilityClass: "remote_retrieval",
+      effectLevel: "read_only_external",
+      sandbox: null,
+      typedActionsOnly: false,
+      receiptsRequired: ["retrieval_search", "retrieval_read", "chat_reply"],
+    },
+  };
+}
+
+function fallbackStudioPromptIntentFrame(prompt = "", { executionMode = STUDIO_MODE_AGENT } = {}) {
+  const normalizedExecutionMode = normalizeStudioExecutionMode(executionMode);
+  const artifactClass = shouldProjectConversationArtifactCanvas(prompt)
+    ? studioArtifactClassFromPrompt(prompt)
+    : null;
+  const projectsRuntime = !artifactClass && shouldProjectStudioRuntimeCockpit(prompt);
+  const requiresRetrieval = promptRequiresRetrieval(prompt);
+  const requiresWorkspaceContext = promptRequiresWorkspaceContext(prompt, normalizedExecutionMode);
+  const routeDirective = normalizedExecutionMode === STUDIO_MODE_ASK
+    ? "ask"
+    : artifactClass
+      ? "artifact"
+      : projectsRuntime
+        ? "runtime_cockpit"
+        : "agent";
+  const intentId = artifactClass
+    ? "artifact.create"
+    : projectsRuntime
+      ? "runtime.inspect"
+      : requiresRetrieval
+        ? "retrieval.answer"
+        : requiresWorkspaceContext
+          ? "workspace.context"
+          : "conversation.reply";
+  const requiredCapabilities = [
+    "prim:conversation.reply",
+    ...(artifactClass ? ["prim:artifact.write", "prim:artifact.render"] : []),
+    ...(requiresRetrieval ? ["prim:web.search", "prim:web.read"] : []),
+    ...(requiresWorkspaceContext ? ["prim:file.search", "prim:file.read", "prim:workspace.read"] : []),
+    ...(projectsRuntime ? ["prim:runtime.trace.read"] : []),
+  ];
+  const receiptsRequired = artifactClass
+    ? ["artifact_record", "artifact_revision", "artifact_policy"]
+    : requiresRetrieval
+      ? ["retrieval_search", "retrieval_read", "chat_reply"]
+      : requiresWorkspaceContext
+        ? ["file_search", "file_read", "chat_reply"]
+        : ["chat_reply"];
+  return {
+    schemaVersion: "ioi.studio.intent-frame.fallback.v1",
+    object: "ioi.studio_intent_frame",
+    intentId,
+    routeDirective,
+    executionMode: normalizedExecutionMode,
+    decision: "selected",
+    confidence: artifactClass || projectsRuntime || requiresRetrieval || requiresWorkspaceContext ? 0.76 : 0.42,
+    requiredCapabilities,
+    retrieval: {
+      required: requiresRetrieval,
+      requirements: requiresRetrieval ? ["source_grounding"] : [],
+    },
+    workspace: {
+      required: requiresWorkspaceContext,
+      requirements: requiresWorkspaceContext ? ["workspace_context"] : [],
+      targets: requiresWorkspaceContext ? workspaceTargetsForPrompt(prompt) : [],
+    },
+    artifact: {
+      required: Boolean(artifactClass),
+      class: artifactClass,
+      artifactClass,
+      title: artifactClass ? studioArtifactTitleFromClass(artifactClass, prompt) : null,
+      summary: artifactClass ? studioIntentFrameArtifactSummary({}, prompt) : null,
+    },
+    effectContract: {
+      applicabilityClass: artifactClass ? "deterministic_local" : requiresRetrieval ? "remote_retrieval" : requiresWorkspaceContext ? "workspace_context" : "conversation",
+      effectLevel: artifactClass ? "sandboxed_generation" : requiresRetrieval ? "read_only_external" : requiresWorkspaceContext ? "read_only_workspace" : "none",
+      sandbox: artifactClass ? "artifact_renderer" : requiresWorkspaceContext ? "workspace_readonly" : null,
+      typedActionsOnly: Boolean(artifactClass),
+      receiptsRequired,
+    },
+    decisionMaterial: {
+      source: "local_fallback_feature_resolver",
+      matchedFeatures: [
+        ...(artifactClass ? ["artifact_deliverable"] : []),
+        ...(projectsRuntime ? ["runtime_inspection"] : []),
+        ...(requiresRetrieval ? ["retrieval_required"] : []),
+        ...(requiresWorkspaceContext ? ["workspace_context_required"] : []),
+      ],
+    },
+  };
+}
+
+function studioIntentFramePayload(intentFrame = {}) {
+  if (!intentFrame || typeof intentFrame !== "object") {
+    return null;
+  }
+  return {
+    schemaVersion: intentFrame.schemaVersion || intentFrame.schema_version || null,
+    intentId: intentFrame.intentId || intentFrame.intent_id || null,
+    routeDirective: intentFrame.routeDirective || intentFrame.route_directive || null,
+    executionMode: intentFrame.executionMode || intentFrame.execution_mode || null,
+    confidence: intentFrame.confidence ?? null,
+    requiredCapabilities: firstArray(intentFrame.requiredCapabilities || intentFrame.required_capabilities),
+    retrieval: intentFrame.retrieval || null,
+    workspace: intentFrame.workspace || null,
+    artifact: intentFrame.artifact || null,
+    effectContract: intentFrame.effectContract || intentFrame.effect_contract || null,
+    decisionMaterial: intentFrame.decisionMaterial
+      ? {
+          source: intentFrame.decisionMaterial.source || null,
+          matchedFeatures: firstArray(intentFrame.decisionMaterial.matchedFeatures),
+          promptHash: intentFrame.decisionMaterial.promptHash || null,
+        }
+      : null,
+  };
+}
+
+async function resolveStudioPromptIntentFrame(prompt = "", options = {}, output) {
+  const endpoint = daemonEndpoint();
+  if (!endpoint) {
+    return fallbackStudioPromptIntentFrame(prompt, options);
+  }
+  try {
+    const frame = await requestJson(endpoint, "/v1/studio/intent-frame", {
+      method: "POST",
+      token: daemonRequestToken(),
+      timeoutMs: 1500,
+      payload: {
+        prompt,
+        executionMode: normalizeStudioExecutionMode(options.executionMode || options.execution_mode),
+        routeId: options.selectedRoute || options.routeId || studioRuntimeProjection.modelRoute || "route.local-first",
+        modelId: options.selectedModelId || options.modelId || studioRuntimeProjection.selectedModel || "auto",
+        approvalMode: options.approvalMode || studioRuntimeProjection.approvalMode,
+        workspaceRoot: options.workspacePath || workspaceSummary().path,
+        source: "agent-studio-submit",
+      },
+    });
+    if (frame && typeof frame === "object") {
+      return frame;
+    }
+  } catch (error) {
+    output?.appendLine?.(`[ioi-studio] intent frame route unavailable; using local fallback: ${error?.message || String(error)}`);
+  }
+  return fallbackStudioPromptIntentFrame(prompt, options);
+}
+
+function studioArtifactClassFromPrompt(prompt = "") {
+  const value = String(prompt || "").toLowerCase();
+  if (/\b(odt|docx|document artifact|editable projection)\b/.test(value)) return "imported_document";
+  if (/\b(pdf|read-only document|readonly document)\b/.test(value)) return "pdf_preview";
+  if (/\b(react|vite|dashboard app|mini app)\b/.test(value)) return "react_vite_app";
+  if (studioPromptRequestsGeneratedWebArtifact(prompt)) return "static_html_js";
+  if (/\b(report|markdown report|html report)\b/.test(value) && !/\b(standalone html\/css\/js|html\/css\/js|static html|html css js)\b/.test(value)) return "markdown_html_report";
+  if (/\b(standalone html|html\/css\/js|static html|html css js)\b/.test(value)) return "static_html_js";
+  if (/\b(diff|patch|reviewable patch)\b/.test(value)) return "diff_patch";
+  if (/\b(csv|dataset|chart|table)\b/.test(value)) return "dataset_chart";
+  if (/\b(browser session|computer session|capture this browser|observation)\b/.test(value)) return "browser_observation";
+  return "markdown_html_report";
+}
+
+function studioTopicFromGeneratedWebPrompt(prompt = "") {
+  const text = String(prompt || "").replace(/\s+/g, " ").trim();
+  const match = text.match(/\b(?:explains?|about|for|on)\s+([^.!?\n]{3,90})/i);
+  const topic = (match?.[1] || "")
+    .replace(/\b(?:as|with|using|and)\b.*$/i, "")
+    .replace(/^["'`]+|["'`]+$/g, "")
+    .trim();
+  return topic || "";
+}
+
+function studioTitleCaseArtifactTopic(value = "") {
+  const cleaned = String(value || "").replace(/\s+/g, " ").trim();
+  if (!cleaned) return "";
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
+function studioArtifactTitleFromClass(classId, prompt = "") {
+  switch (classId) {
+    case "imported_document":
+      return "Launch memo document";
+    case "pdf_preview":
+      return "Read-only PDF artifact";
+    case "react_vite_app":
+      return "CSV dashboard app";
+    case "static_html_js":
+      if (studioPromptRequestsGeneratedWebArtifact(prompt)) {
+        const topic = studioTitleCaseArtifactTopic(studioTopicFromGeneratedWebPrompt(prompt));
+        return topic ? `${topic} website` : "Generated website";
+      }
+      return "Standalone HTML report";
+    case "diff_patch":
+      return "Reviewable patch";
+    case "dataset_chart":
+      return "Test results dataset";
+    case "browser_observation":
+      return "Browser session capture";
+    default:
+      return "Test results report";
+  }
+}
+
+function studioArtifactAnswerText(artifacts = []) {
+  const artifact = artifacts[0] || {};
+  const label = studioArtifactClassLabel(artifact).toLowerCase();
+  if (studioArtifactIsWebsite(artifact)) {
+    return "I made the website artifact. You can preview it below, then ask me to revise the copy, layout, or visuals.";
+  }
+  if ((artifact.artifactClass || artifact.artifact_class) === "imported_document") {
+    return "I turned the document into an artifact, preserved the original, prepared the tightened projection, and staged compare/export actions.";
+  }
+  if ((artifact.artifactClass || artifact.artifact_class) === "react_vite_app") {
+    return "I built the app artifact in a sandboxed preview. You can inspect it below and send me the next edit.";
+  }
+  if ((artifact.artifactClass || artifact.artifact_class) === "diff_patch") {
+    return "I prepared the patch as an approval-gated artifact so it can be reviewed, applied, or rolled back.";
+  }
+  if ((artifact.artifactClass || artifact.artifact_class) === "browser_observation") {
+    return "I captured the managed browser session as an artifact so you can inspect it and ask follow-up questions without exposing trace details in chat.";
+  }
+  return `I created the ${label} artifact and attached the clean preview below.`;
+}
+
+async function recoverStudioConversationArtifactAfterTimeout(threadId, { title, artifactClass, startedAtMs } = {}, output) {
+  if (!threadId) {
+    return null;
+  }
+  try {
+    const artifacts = await requestJson(daemonEndpoint(), `/v1/threads/${encodeURIComponent(threadId)}/artifacts`, {
+      method: "GET",
+      token: daemonRequestToken(),
+      timeoutMs: 5_000,
+    });
+    const normalizedTitle = stringValue(title).toLowerCase();
+    const normalizedClass = stringValue(artifactClass);
+    const candidate = firstArray(artifacts)
+      .filter((artifact) => {
+        const createdAtMs = Date.parse(artifact?.created_at || artifact?.createdAt || artifact?.updated_at || artifact?.updatedAt || "");
+        const recentEnough = !startedAtMs || !Number.isFinite(createdAtMs) || createdAtMs >= startedAtMs - 2_000;
+        const titleMatches = !normalizedTitle || stringValue(artifact?.title).toLowerCase() === normalizedTitle;
+        const classMatches = !normalizedClass || stringValue(artifact?.artifact_class || artifact?.artifactClass) === normalizedClass;
+        return recentEnough && titleMatches && classMatches;
+      })
+      .sort((left, right) =>
+        Date.parse(right?.updated_at || right?.updatedAt || right?.created_at || right?.createdAt || "") -
+        Date.parse(left?.updated_at || left?.updatedAt || left?.created_at || left?.createdAt || ""),
+      )[0];
+    if (candidate) {
+      output?.appendLine?.(`[ioi-studio] recovered conversation artifact after bounded request timeout: ${candidate.id}`);
+      appendStudioTimeline("Conversation artifact recovered", candidate.title || candidate.id, "completed", {
+        artifactId: candidate.id,
+      });
+      return candidate;
+    }
+  } catch (error) {
+    output?.appendLine?.(`[ioi-studio] conversation artifact recovery unavailable: ${error?.message || String(error)}`);
+  }
+  return null;
+}
+
+async function createStudioConversationArtifact(threadId, prompt, output, intentFrame = {}, options = {}) {
+  const artifactClass = studioIntentFrameArtifactClass(intentFrame, prompt);
+  const generatedFiles = options.generatedFiles || options.generated_files || null;
+  const title = generatedFiles?.title || studioIntentFrameArtifactTitle(intentFrame, artifactClass, prompt);
+  const summary = generatedFiles?.summary || studioIntentFrameArtifactSummary(intentFrame, prompt);
+  const createStartedAtMs = Date.now();
+  let response;
+  try {
+    response = await requestJson(daemonEndpoint(), `/v1/threads/${encodeURIComponent(threadId)}/artifacts`, {
+      method: "POST",
+      token: daemonRequestToken(),
+      timeoutMs: STUDIO_ARTIFACT_REQUEST_TIMEOUT_MS,
+      payload: {
+        prompt,
+        artifactClass,
+        title,
+        summary,
+        outputModality: intentFrame?.artifact?.outputModality || intentFrame?.artifact?.output_modality || null,
+        ...(generatedFiles ? { generatedFiles } : {}),
+        intentFrame: studioIntentFramePayload(intentFrame),
+        source: "agent-studio-conversation-artifact",
+        turnId: studioRuntimeProjection.turnId || null,
+      },
+    });
+  } catch (error) {
+    if (!/timed out|timeout/i.test(error?.message || String(error))) {
+      throw error;
+    }
+    const recovered = await recoverStudioConversationArtifactAfterTimeout(
+      threadId,
+      { title, artifactClass, startedAtMs: createStartedAtMs },
+      output,
+    );
+    if (!recovered) {
+      throw error;
+    }
+    response = { artifact: recovered };
+  }
+  let artifact = response?.artifact || response;
+  appendStudioReceipts(firstArray([response?.receipt]), "conversation_artifact");
+  const applyArtifactAction = async (action, payload = {}) => {
+    const result = await runStudioConversationArtifactAction(artifact.id, action, output, payload);
+    if (result?.artifact) {
+      artifact = result.artifact;
+    }
+    return result;
+  };
+  if (artifactClass === "imported_document") {
+    await applyArtifactAction("edit", {
+      instruction: "Tighten the intro while preserving the original document bytes.",
+    });
+    await applyArtifactAction("compare");
+    await applyArtifactAction("export");
+  } else if (artifactClass === "react_vite_app") {
+    await applyArtifactAction("rebuild");
+    await applyArtifactAction("edit", {
+      instruction: "Make the sidebar denser.",
+    });
+    await applyArtifactAction("rebuild");
+  } else if (artifactClass === "static_html_js") {
+    if (!generatedFiles) {
+      await applyArtifactAction("rebuild");
+    }
+  } else if (artifactClass === "pdf_preview") {
+    await applyArtifactAction("summarize");
+  } else if (artifactClass === "diff_patch") {
+    await applyArtifactAction("approve");
+    await applyArtifactAction("rollback");
+  } else if (artifactClass === "browser_observation") {
+    await applyArtifactAction("capture");
+  }
+  return artifact;
+}
+
+async function runStudioConversationArtifactAction(artifactId, action, output, payload = {}) {
+  try {
+    const result = await requestJson(daemonEndpoint(), `/v1/conversation-artifacts/${encodeURIComponent(artifactId)}/actions`, {
+      method: "POST",
+      token: daemonRequestToken(),
+      timeoutMs: STUDIO_ARTIFACT_REQUEST_TIMEOUT_MS,
+      payload: {
+        action,
+        ...payload,
+        source: "agent-studio-conversation-artifact-action",
+        runtimeAuthority: "daemon-owned",
+        projectionOwner: "ioi-workbench-agent-studio",
+      },
+    });
+    appendStudioReceipts(firstArray([result?.receipt]), "conversation_artifact_action");
+    return result;
+  } catch (error) {
+    output?.appendLine?.(`[ioi-studio] artifact action ${action} blocked: ${error?.message || String(error)}`);
+    appendStudioTimeline("Artifact action blocked", `${action}: ${error?.message || String(error)}`, "blocked");
+    return null;
+  }
+}
+
+async function collectStudioArtifactResearchContext(prompt, output, intentFrame = {}) {
+  const explicitSourceRequirement = studioPromptExplicitlyRequiresSources(prompt);
+  const promptNeedsRetrieval = promptRequiresRetrieval(prompt);
+  if (!explicitSourceRequirement && !promptNeedsRetrieval) {
+    return "";
+  }
+  if (!studioIntentFrameRequiresRetrieval(intentFrame, prompt) && !promptNeedsRetrieval) {
+    return "";
+  }
+  try {
+    const result = await submitStudioAgentTurn({
+      prompt: [
+        "Gather concise source context for a generated artifact.",
+        "Return only short factual notes and source hints that will help write the artifact.",
+        "Do not write the final artifact yet.",
+        "",
+        "Artifact request:",
+        prompt,
+      ].join("\n"),
+      selectedRoute: studioRuntimeProjection.modelRoute || "route.local-first",
+      selectedModelId: studioRuntimeProjection.selectedModel || "auto",
+      reasoningEffort: studioRuntimeProjection.reasoningEffort || "none",
+      workspacePath: workspaceSummary().path,
+      intentFrame: studioResearchIntentFrameForArtifact(intentFrame),
+    }, output);
+    const text = stringValue(result?.text);
+    return text;
+  } catch (error) {
+    output?.appendLine?.(`[ioi-studio] artifact source context unavailable: ${error?.message || String(error)}`);
+    if (explicitSourceRequirement) {
+      throw error;
+    }
+    return "";
+  }
+}
+
+async function projectStudioConversationArtifactCanvas(prompt, output, intentFrame = {}) {
+  await ensureStudioDaemonThread({
+    model: studioRuntimeProjection.modelRoute || "route.local-first",
+    selectedModelId: studioRuntimeProjection.selectedModel || "auto",
+    reasoningEffort: studioRuntimeProjection.reasoningEffort || "none",
+    executionMode: STUDIO_MODE_AGENT,
+    approvalMode: studioRuntimeProjection.approvalMode,
+  }, output);
+  const threadId = studioRuntimeProjection.threadId;
+  studioRuntimeProjection.turnId = studioRuntimeProjection.turnId || `turn_artifact_${Date.now().toString(36)}`;
+  studioRuntimeProjection.runId = studioRuntimeProjection.runId || studioRuntimeProjection.turnId;
+  const artifactClass = studioIntentFrameArtifactClass(intentFrame, prompt);
+  let generatedFiles = null;
+  let generatedFilesError = null;
+  let researchContext = "";
+  if (artifactClass === "static_html_js" && studioPromptRequestsGeneratedWebArtifact(prompt)) {
+    try {
+      researchContext = await collectStudioArtifactResearchContext(prompt, output, intentFrame);
+    } catch (error) {
+      const detail = error?.message || "Required source context was unavailable.";
+      appendStudioTimeline("Website artifact source context blocked", detail, "blocked");
+      return {
+        status: "blocked",
+        events: [],
+        receiptRefs: [],
+        text: "I could not create the website artifact because required source research did not complete. Details are in Tracing.",
+        artifacts: [],
+      };
+    }
+  }
+  if (artifactClass === "static_html_js" && studioPromptRequestsGeneratedWebArtifact(prompt)) {
+    try {
+      generatedFiles = await generateStudioStaticWebsiteDraft({
+        prompt,
+        title: studioIntentFrameArtifactTitle(intentFrame, artifactClass, prompt),
+        selectedRoute: studioRuntimeProjection.modelRoute || "route.local-first",
+        selectedModelId: studioRuntimeProjection.selectedModel || "auto",
+        reasoningEffort: studioRuntimeProjection.reasoningEffort || "none",
+        workspacePath: workspaceSummary().path,
+        researchContext,
+      }, output);
+    } catch (error) {
+      generatedFilesError = error;
+      output?.appendLine?.(`[ioi-studio] website artifact model draft rejected: ${error?.message || String(error)}`);
+    }
+  }
+  if (artifactClass === "static_html_js" && studioPromptRequestsGeneratedWebArtifact(prompt) && !generatedFiles) {
+    const detail = generatedFilesError?.message || "The selected model did not return usable website content.";
+    const cleanDetail = generatedFilesError
+      ? studioCleanProductErrorMessage(generatedFilesError)
+      : "The selected model did not return usable website content.";
+    appendStudioTimeline("Website artifact blocked", detail, "blocked");
+    return {
+      status: "blocked",
+      events: [],
+      receiptRefs: [],
+      text: /No product model is mounted/i.test(cleanDetail)
+        ? cleanDetail
+        : "I could not create the website artifact because the selected model did not return usable website content. " +
+          "I did not create a canned fallback page; details are in Tracing.",
+      artifacts: [],
+    };
+  }
+  const artifact = await createStudioConversationArtifact(threadId, prompt, output, intentFrame, { generatedFiles });
+  studioRuntimeProjection.conversationArtifacts.push(artifact);
+  studioRuntimeProjection.runtimeCockpit.conversationArtifactObserved = true;
+  if ((artifact.artifactClass || artifact.artifact_class) === "browser_observation") {
+    upsertStudioManagedSession({
+      id: `artifact-session:${artifact.id}`,
+      kind: "sandbox_browser",
+      surfaceLabel: "Sandbox browser",
+      status: "complete",
+      statusLabel: "Complete",
+      title: "Browser session",
+      detail: "Managed browser observation captured into a conversation artifact.",
+      url: "http://127.0.0.1/fixture",
+      pageTitle: "Tool Catalogue Fixture",
+      lastTool: "browser_observation",
+      waitingForUser: false,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+  appendStudioTimeline("Conversation artifact ready", artifact.title || artifact.id, "completed", {
+    artifactId: artifact.id,
+  });
+  return {
+    status: "completed",
+    events: [],
+    receiptRefs: normalizeReceiptRefs(artifact),
+    text: studioArtifactAnswerText([artifact]),
+    artifacts: [artifact],
+    modelMetrics: generatedFiles?.generator?.metrics || null,
+  };
+}
+
 function studioPostRuntimeMessage(type, payload = {}) {
+  let normalizedPayload = payload;
+  if (type === "agentWorkStep") {
+    normalizedPayload = appendStudioPendingWorkStep(payload);
+    if (!normalizedPayload) {
+      return;
+    }
+  }
   if (!studioPanel) {
     return;
   }
   studioPanel.webview.postMessage({
     source: "ioi-studio-runtime",
     type,
-    payload,
+    payload: normalizedPayload,
   });
 }
 
 function studioModelIdForRouteInvocation(selectedRoute, selectedModelId) {
-  const route = String(selectedRoute || "").trim();
-  if (route.startsWith("route.")) {
-    return "auto";
+  const explicitModelId = stringValue(selectedModelId);
+  assertStudioProductModelSelector(selectedRoute, explicitModelId);
+  if (!isAutoStudioModelSelector(explicitModelId)) {
+    return explicitModelId;
   }
-  return isAutoStudioModelSelector(selectedModelId) ? "auto" : selectedModelId;
+  const routeOrModel = stringValue(selectedRoute);
+  assertStudioProductModelSelector(routeOrModel, explicitModelId);
+  if (routeOrModel && !routeOrModel.startsWith("route.") && !isAutoStudioModelSelector(routeOrModel)) {
+    return routeOrModel;
+  }
+  return "auto";
 }
 
 async function ensureStudioModelInvocationToken(output) {
@@ -11559,9 +9932,6 @@ function studioDeltaFromSsePayload(payload) {
   if (typeof choice.delta?.content === "string") {
     return choice.delta.content;
   }
-  if (typeof choice.delta?.reasoning_content === "string") {
-    return choice.delta.reasoning_content;
-  }
   if (payload.type === "response.output_text.delta" && typeof payload.delta === "string") {
     return payload.delta;
   }
@@ -11572,6 +9942,35 @@ function studioDeltaFromSsePayload(payload) {
     return payload.response.output_text;
   }
   return "";
+}
+
+function studioReasoningDeltaFromSsePayload(payload) {
+  if (!payload || typeof payload !== "object") {
+    return "";
+  }
+  const choice = payload.choices?.[0] || {};
+  return stringValue(choice.delta?.reasoning_content || choice.delta?.reasoningContent || payload.delta?.reasoning_content || payload.reasoning_delta);
+}
+
+function studioUsageFromProviderTimings(timings = {}, previousUsage = null) {
+  if (!timings || typeof timings !== "object") return previousUsage;
+  const promptTokens = studioNumberOrNull(timings.prompt_n ?? previousUsage?.prompt_tokens ?? previousUsage?.input_tokens) ?? 0;
+  const completionTokens =
+    studioNumberOrNull(timings.predicted_n ?? previousUsage?.completion_tokens ?? previousUsage?.output_tokens) ?? 0;
+  const usage = {
+    ...(previousUsage && typeof previousUsage === "object" ? previousUsage : {}),
+    prompt_tokens: promptTokens,
+    completion_tokens: completionTokens,
+    total_tokens: studioNumberOrNull(previousUsage?.total_tokens) ?? promptTokens + completionTokens,
+  };
+  const tokensPerSecond = studioNumberOrNull(timings.predicted_per_second);
+  const promptMs = studioNumberOrNull(timings.prompt_ms);
+  const completionMs = studioNumberOrNull(timings.predicted_ms);
+  if (tokensPerSecond !== null) usage.tokens_per_second = tokensPerSecond;
+  if (promptMs !== null) usage.prompt_ms = promptMs;
+  if (completionMs !== null) usage.completion_ms = completionMs;
+  if (promptMs !== null || completionMs !== null) usage.elapsed_ms = (promptMs || 0) + (completionMs || 0);
+  return usage;
 }
 
 function collectStudioStreamMetadata(target, payload) {
@@ -11591,6 +9990,13 @@ function collectStudioStreamMetadata(target, payload) {
   target.routeId = payload.route_id || payload.routeId || target.routeId;
   target.model = payload.model || target.model;
   target.providerStream = payload.provider_stream || payload.providerStream || target.providerStream;
+  target.usage = payload.usage || payload.tokenCount || payload.token_count || target.usage;
+  if (payload.timings) {
+    target.usage = studioUsageFromProviderTimings(payload.timings, target.usage);
+  }
+  target.provider = payload.provider_id || payload.providerId || payload.provider || target.provider;
+  const finishReason = payload.choices?.[0]?.finish_reason || payload.finish_reason || payload.stop_reason || payload.stopReason;
+  target.stopReason = finishReason || target.stopReason;
 }
 
 function requestSseJson(baseUrl, routePath, { method = "POST", payload, token, onPayload, timeoutMs = 90_000 } = {}) {
@@ -11652,10 +10058,17 @@ function requestSseJson(baseUrl, routePath, { method = "POST", payload, token, o
           for (const frame of frames) {
             for (const data of ssePayloadsFromBlock(frame)) {
               if (data === "[DONE]") {
-                continue;
+                finishResolve({ statusCode, raw });
+                request.destroy();
+                return;
               }
               try {
-                onPayload?.(JSON.parse(data), data);
+                const shouldContinue = onPayload?.(JSON.parse(data), data);
+                if (shouldContinue === false) {
+                  finishResolve({ statusCode, raw, stoppedByClient: true });
+                  request.destroy();
+                  return;
+                }
               } catch (error) {
                 finishReject(error);
                 request.destroy();
@@ -11673,7 +10086,14 @@ function requestSseJson(baseUrl, routePath, { method = "POST", payload, token, o
             try {
               for (const data of ssePayloadsFromBlock(`${buffer}\n\n`)) {
                 if (data !== "[DONE]") {
-                  onPayload?.(JSON.parse(data), data);
+                  const shouldContinue = onPayload?.(JSON.parse(data), data);
+                  if (shouldContinue === false) {
+                    finishResolve({ statusCode, raw, stoppedByClient: true });
+                    return;
+                  }
+                } else {
+                  finishResolve({ statusCode, raw });
+                  return;
                 }
               }
             } catch (error) {
@@ -11699,133 +10119,55 @@ function requestSseJson(baseUrl, routePath, { method = "POST", payload, token, o
   });
 }
 
-async function streamStudioModelCompletion({ prompt, selectedRoute, selectedModelId, reasoningEffort = "none", workspacePath }, output) {
-  const endpoint = daemonEndpoint();
-  const token = await ensureStudioModelInvocationToken(output);
-  const streamId = `studio-stream-${crypto.randomUUID()}`;
-  const requestedModel = studioModelIdForRouteInvocation(selectedRoute, selectedModelId);
-  const selectedReasoningEffort = normalizeStudioReasoningEffort(reasoningEffort, "none");
-  const metadata = {
-    receiptIds: new Set(),
-    routeId: selectedRoute,
-    model: requestedModel,
-    providerStream: null,
-  };
-  const result = {
-    streamId,
-    text: "",
-    chunkCount: 0,
-    receiptIds: [],
-    routeId: selectedRoute,
-    model: requestedModel,
-    providerStream: null,
-  };
-  studioPostRuntimeMessage("assistantStreamStart", {
-    streamId,
-    routeId: selectedRoute,
-    startedAt: new Date().toISOString(),
-  });
-  studioRuntimeProjection.timeline.push({
-    label: "Model stream started",
-    detail: `${selectedRoute} via /v1/chat/completions`,
-    status: "streaming",
-  });
+const studioModelCompletion = createStudioModelCompletion({
+  crypto,
+  STUDIO_MODEL_COMPLETION_TIMEOUT_MS,
+  requestSseJson,
+  requestJson,
+  daemonEndpoint,
+  ensureStudioModelInvocationToken,
+  getStudioRuntimeProjection: () => studioRuntimeProjection,
+  studioModelIdForRouteInvocation,
+  normalizeStudioReasoningEffort,
+  studioPostRuntimeMessage,
+  firstArray,
+  studioDenyFixtureModelPolicy,
+  studioMaxOutputTokens,
+  studioArtifactMaxOutputTokens,
+  collectStudioStreamMetadata,
+  studioReasoningDeltaFromSsePayload,
+  studioDeltaFromSsePayload,
+  studioSplitReasoningFromText,
+  stringValue,
+  studioResponseMetricsFromUsage,
+  studioTextContainsProductFixtureMarker,
+  studioFixtureModelUsageAllowed,
+  appendStudioReceipts,
+});
 
-  try {
-    const workspaceName = path.basename(workspacePath || workspaceSummary().path || "workspace");
-    const workspaceContext = [
-      "Current Studio workspace context:",
-      `- repository_name: ${workspaceName}`,
-      `- workspace_root: ${workspacePath || workspaceSummary().path || "unknown"}`,
-      `- daemon_route: ${selectedRoute}`,
-      `- selected_model: ${requestedModel}`,
-      "- execution_boundary: IOI daemon owns tool execution, patch mutation, terminal jobs, receipts, approvals, and replay.",
-      "- Studio may project UI state and request daemon actions, but must not claim it executed tools unless a daemon receipt/tool event is present.",
-      "- When asked about the repository or workspace, use the repository_name and workspace_root above. Do not invent another repository name or claim the workspace is missing.",
-    ].join("\n");
-    await requestSseJson(endpoint, "/v1/chat/completions", {
-      method: "POST",
-      token,
-      payload: {
-        route_id: selectedRoute,
-        model: requestedModel,
-        stream: true,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are Autopilot Agent Studio. Answer through the IOI daemon model route. Be concise and specific to the operator request.",
-          },
-          {
-            role: "system",
-            content: workspaceContext,
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        metadata: {
-          source: "agent-studio-operational-chat",
-          workspaceRoot: workspacePath,
-          runtimeAuthority: "daemon-owned",
-          projectionOwner: "ioi-workbench-agent-studio",
-        },
-        max_tokens: 768,
-        temperature: 0.2,
-        reasoning_effort: selectedReasoningEffort,
-        reasoningEffort: selectedReasoningEffort,
-      },
-      onPayload: (payload) => {
-        collectStudioStreamMetadata(metadata, payload);
-        const delta = studioDeltaFromSsePayload(payload);
-        if (!delta) {
-          return;
-        }
-        result.text += delta;
-        result.chunkCount += 1;
-        studioPostRuntimeMessage("assistantStreamDelta", {
-          streamId,
-          delta,
-          chunkCount: result.chunkCount,
-        });
-      },
-    });
-  } catch (error) {
-    studioPostRuntimeMessage("assistantStreamError", {
-      streamId,
-      error: error?.message || String(error),
-    });
-    throw error;
-  }
-
-  result.receiptIds = [...metadata.receiptIds];
-  result.routeId = metadata.routeId || selectedRoute;
-  result.model = metadata.model;
-  result.providerStream = metadata.providerStream;
-  if (!result.text.trim()) {
-    throw new Error("Daemon model stream completed without assistant text.");
-  }
-  appendStudioReceipts(
-    result.receiptIds.map((id) => ({
-      id,
-      kind: id.includes("stream") ? "model_invocation_stream_completed" : "model_invocation",
-      summary: "Daemon model stream receipt projected into Studio.",
-    })),
-    "model_invocation",
-  );
-  studioPostRuntimeMessage("assistantStreamComplete", {
-    streamId,
-    text: result.text,
-    chunkCount: result.chunkCount,
-    receiptIds: result.receiptIds,
-    routeId: result.routeId,
-    model: result.model,
-    providerStream: result.providerStream,
-  });
-  return result;
+async function streamStudioModelCompletion(args, output) {
+  return studioModelCompletion.streamStudioModelCompletion(args, output);
 }
 
+function studioChatCompletionText(response = {}) {
+  return studioModelCompletion.studioChatCompletionText(response);
+}
+
+function parseStudioJsonObject(text = "") {
+  return studioModelCompletion.parseStudioJsonObject(text);
+}
+
+function extractStudioHtmlDocument(text = "") {
+  return studioModelCompletion.extractStudioHtmlDocument(text);
+}
+
+function studioWebsiteDraftRejectReason(args = {}) {
+  return studioModelCompletion.studioWebsiteDraftRejectReason(args);
+}
+
+async function generateStudioStaticWebsiteDraft(args, output) {
+  return studioModelCompletion.generateStudioStaticWebsiteDraft(args, output);
+}
 function collectStudioAgentEventsFromResponse(turn = {}) {
   return [
     ...firstArray(turn.events),
@@ -11856,9 +10198,12 @@ function uniqueStudioRuntimeEvents(events = []) {
   return unique;
 }
 
-function applyStudioAgentTurnEvents(events = []) {
+function applyStudioAgentTurnEvents(events = [], { projectPending = true } = {}) {
   const appliedEvents = [];
   for (const event of firstArray(events)) {
+    if (!markStudioRuntimeEventSeen(event)) {
+      continue;
+    }
     appendStudioRuntimeEvent(event, studioRuntimeEventKind(event) || "agent.runtime.event");
     appliedEvents.push(event);
     const kind = studioRuntimeEventKind(event).toLowerCase();
@@ -11874,6 +10219,20 @@ function applyStudioAgentTurnEvents(events = []) {
       event.payload?.message ||
       "";
     const receiptRefs = normalizeReceiptRefs(event);
+    if (projectPending && studioRuntimeProjection.pending) {
+      const pendingStep = studioPendingStepFromRuntimeEvent(event, {
+        kind,
+        toolName,
+        status,
+        summary,
+      });
+      if (pendingStep) {
+        const appendedStep = appendStudioPendingWorkStep(pendingStep);
+        if (appendedStep) {
+          studioPostRuntimeMessage("agentWorkStep", appendedStep);
+        }
+      }
+    }
     applyStudioParityPlusEvent(event, { kind, status, summary, receiptRefs });
     upsertStudioManagedSession(
       studioManagedSessionFromRuntimeEvent(event, { kind, toolName, status, summary }),
@@ -11926,18 +10285,25 @@ function applyStudioAgentTurnEvents(events = []) {
   return appliedEvents;
 }
 
-async function fetchStudioThreadEvents(threadId, output, { timeoutMs = 1500 } = {}) {
+function studioMaxRuntimeEventSeq(events = []) {
+  return firstArray(events).reduce((max, event) => {
+    const seq = Number(event?.seq || 0);
+    return Number.isFinite(seq) && seq > max ? seq : max;
+  }, 0);
+}
+
+async function fetchStudioThreadEvents(threadId, output, { timeoutMs = 1500, sinceSeq = 0 } = {}) {
   if (!threadId) {
     return [];
   }
   const events = [];
   try {
-    await requestSseJson(daemonEndpoint(), `/v1/threads/${encodeURIComponent(threadId)}/events?since_seq=0`, {
+    await requestSseJson(daemonEndpoint(), `/v1/threads/${encodeURIComponent(threadId)}/events?since_seq=${encodeURIComponent(String(Math.max(0, Number(sinceSeq) || 0)))}`, {
       method: "GET",
       token: daemonRequestToken(),
       timeoutMs,
       onPayload: (payload) => {
-        if (payload && payload.event) {
+        if (payload && payload.event && typeof payload.event === "object") {
           events.push(payload.event);
         } else if (payload) {
           events.push(payload);
@@ -11948,6 +10314,39 @@ async function fetchStudioThreadEvents(threadId, output, { timeoutMs = 1500 } = 
     output?.appendLine?.(`[ioi-studio] daemon thread event stream unavailable: ${error?.message || String(error)}`);
   }
   return events;
+}
+
+async function pollStudioThreadEventsDuringTurn(threadId, output, completionPromise, { sinceSeq = 0 } = {}) {
+  if (!threadId) {
+    return [];
+  }
+  let settled = false;
+  let latestSeq = Math.max(0, Number(sinceSeq) || 0);
+  const collected = [];
+  completionPromise.finally(() => {
+    settled = true;
+  }).catch(() => {
+    settled = true;
+  });
+  while (!settled) {
+    const events = await fetchStudioThreadEvents(threadId, output, {
+      timeoutMs: 1000,
+      sinceSeq: latestSeq,
+    });
+    if (events.length) {
+      latestSeq = Math.max(latestSeq, studioMaxRuntimeEventSeq(events));
+      collected.push(...applyStudioAgentTurnEvents(events, { projectPending: true }));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  const tailEvents = await fetchStudioThreadEvents(threadId, output, {
+    timeoutMs: 1000,
+    sinceSeq: latestSeq,
+  });
+  if (tailEvents.length) {
+    collected.push(...applyStudioAgentTurnEvents(tailEvents, { projectPending: true }));
+  }
+  return collected;
 }
 
 async function fetchStudioThreadTurns(threadId, output, { timeoutMs = 5000 } = {}) {
@@ -12083,7 +10482,7 @@ function studioRunResultText({ prompt, run, conversation }) {
   return `Daemon turn completed for: ${prompt}`;
 }
 
-async function ensureStudioDaemonThread({ model = "route.local-first", selectedModelId = "auto", executionMode = studioRuntimeProjection.executionMode, reasoningEffort = studioRuntimeProjection.reasoningEffort || "none", approvalMode = studioRuntimeProjection.approvalMode } = {}, output) {
+async function ensureStudioDaemonThread({ model = "route.local-first", selectedModelId = "auto", executionMode = studioRuntimeProjection.executionMode, reasoningEffort = studioRuntimeProjection.reasoningEffort || "none", approvalMode = studioRuntimeProjection.approvalMode, intentFrame = null } = {}, output) {
   const endpoint = daemonEndpoint();
   if (!endpoint) {
     throw new Error("IOI daemon endpoint is not configured.");
@@ -12097,6 +10496,13 @@ async function ensureStudioDaemonThread({ model = "route.local-first", selectedM
     studioRuntimeProjection.threadId &&
     studioRuntimeProjection.executionMode &&
     normalizeStudioExecutionMode(studioRuntimeProjection.executionMode) !== normalizedMode
+  ) {
+    resetStudioDaemonThreadProjection();
+  }
+  if (
+    studioRuntimeProjection.threadId &&
+    studioRuntimeProjection.runtimeProfile &&
+    studioRuntimeProjection.runtimeProfile !== runtimeProfile
   ) {
     resetStudioDaemonThreadProjection();
   }
@@ -12131,6 +10537,7 @@ async function ensureStudioDaemonThread({ model = "route.local-first", selectedM
             routeId: model || "route.local-first",
             reasoningEffort: normalizeStudioReasoningEffort(reasoningEffort, "none"),
           },
+          ...(intentFrame ? { intentFrame: studioIntentFramePayload(intentFrame) } : {}),
           source: normalizedMode === STUDIO_MODE_AGENT ? "agent-studio-agent-mode" : "agent-studio-ask-mode",
         },
       },
@@ -12168,13 +10575,14 @@ async function ensureStudioDaemonThread({ model = "route.local-first", selectedM
   return studioRuntimeProjection;
 }
 
-async function submitStudioAgentTurn({ prompt, selectedRoute, selectedModelId, reasoningEffort = "none", workspacePath }, output) {
+async function submitStudioAgentTurn({ prompt, selectedRoute, selectedModelId, reasoningEffort = "none", workspacePath, intentFrame }, output) {
   await ensureStudioDaemonThread({
     model: selectedRoute,
     selectedModelId,
     reasoningEffort,
     executionMode: STUDIO_MODE_AGENT,
     approvalMode: studioRuntimeProjection.approvalMode,
+    intentFrame,
   }, output);
   const threadId = studioRuntimeProjection.threadId;
   if (!threadId) {
@@ -12209,6 +10617,7 @@ async function submitStudioAgentTurn({ prompt, selectedRoute, selectedModelId, r
         reasoningEffort: normalizeStudioReasoningEffort(reasoningEffort, "none"),
       },
       source: "agent-studio-agent-mode",
+      intentFrame: studioIntentFramePayload(intentFrame),
     },
     metadata: {
       source: "agent-studio-agent-mode",
@@ -12216,15 +10625,29 @@ async function submitStudioAgentTurn({ prompt, selectedRoute, selectedModelId, r
       ...permissionMapping,
       runtimeAuthority: "daemon-owned",
       projectionOwner: "ioi-workbench-agent-studio",
+      intentFrame: studioIntentFramePayload(intentFrame),
     },
   };
   let turn;
   try {
-    turn = await requestJson(daemonEndpoint(), `/v1/threads/${encodeURIComponent(threadId)}/turns`, {
+    const preTurnEvents = await fetchStudioThreadEvents(threadId, output, { timeoutMs: 1000, sinceSeq: 0 });
+    for (const event of preTurnEvents) {
+      markStudioRuntimeEventSeen(event);
+    }
+    const preTurnSeq = studioMaxRuntimeEventSeq(preTurnEvents);
+    const turnRequest = requestJson(daemonEndpoint(), `/v1/threads/${encodeURIComponent(threadId)}/turns`, {
       method: "POST",
       token: daemonRequestToken(),
       timeoutMs: STUDIO_AGENT_TURN_POST_TIMEOUT_MS,
       payload: turnPayload,
+    });
+    const liveEvents = pollStudioThreadEventsDuringTurn(threadId, output, turnRequest, {
+      sinceSeq: preTurnSeq,
+    });
+    turn = await turnRequest;
+    await liveEvents.catch((error) => {
+      output?.appendLine?.(`[ioi-studio] live daemon event projection ended early: ${error?.message || String(error)}`);
+      return [];
     });
   } catch (error) {
     if (!/timed out|timeout/i.test(error?.message || String(error))) {
@@ -12257,7 +10680,7 @@ async function submitStudioAgentTurn({ prompt, selectedRoute, selectedModelId, r
     : await fetchStudioThreadEvents(turn.thread_id || turn.threadId || threadId, output, { timeoutMs: 5000 });
   const events = uniqueStudioRuntimeEvents([...responseEvents, ...refreshEvents, ...streamedEvents]);
   applyStudioAgentTurnEvents(events);
-  const needsRetrieval = promptRequiresRetrieval(prompt);
+  const needsRetrieval = studioIntentFrameRequiresRetrieval(intentFrame, prompt);
   const hasSearch = studioRuntimeEventsIncludeTool(events, /web(::|__)search|search_web|web_search/);
   const hasRead = studioRuntimeEventsIncludeTool(events, /web(::|__)read|read_web|web_read/);
   const hasCompletedSearch = studioRuntimeEventsIncludeCompletedTool(events, /web(::|__)search|search_web|web_search/);
@@ -12406,6 +10829,7 @@ async function submitStudioPrompt(payload = {}, output) {
   studioRuntimeProjection.immediateSubmitSeen = true;
   studioRuntimeProjection.pendingSeen = true;
   studioRuntimeProjection.pendingStartedAtMs = Date.now();
+  studioRuntimeProjection.pendingWorklog = [];
   studioRuntimeProjection.lastError = null;
   studioRuntimeProjection.modelRoute = selectedRoute;
   studioRuntimeProjection.selectedModel = selectedModelId;
@@ -12426,6 +10850,31 @@ async function submitStudioPrompt(payload = {}, output) {
     detail: "chat.submit typed request routed to IOI daemon",
     status: "pending",
   });
+  const modelSelectionError = studioProductModelSelectionError(selectedRoute, selectedModelId);
+  if (modelSelectionError) {
+    const cleanMessage = studioCleanProductErrorMessage(modelSelectionError);
+    studioRuntimeProjection.pending = false;
+    studioRuntimeProjection.status = "blocked";
+    studioRuntimeProjection.lastError = cleanMessage;
+    studioRuntimeProjection.timeline.push({
+      label: "Product model route unavailable",
+      detail: cleanMessage,
+      status: "blocked",
+    });
+    studioRuntimeProjection.turns.push({
+      role: "assistant",
+      content: cleanMessage,
+      createdAt: new Date().toISOString(),
+      agentTurn: {
+        status: "blocked",
+        eventCount: 0,
+        receiptRefs: [],
+        prompt,
+      },
+    });
+    await refreshStudioPanelHtml(output);
+    return;
+  }
   void writeBridgeRequest(
     "chat.submit",
     {
@@ -12486,29 +10935,49 @@ async function submitStudioPrompt(payload = {}, output) {
       assistantTurn = {
         role: "assistant",
         content: streamResult.text,
+        thinkingText: streamResult.thinkingText,
         createdAt: new Date().toISOString(),
         modelStream: {
           streamId: streamResult.streamId,
           chunkCount: streamResult.chunkCount,
           receiptIds: streamResult.receiptIds,
+          routeId: streamResult.routeId,
+          model: streamResult.model,
+          provider: streamResult.provider,
+          providerStream: streamResult.providerStream,
+          thinkingText: streamResult.thinkingText,
+          metrics: streamResult.metrics,
           askMode: true,
           directModelAnswer: true,
           chatOnlyMode: true,
         },
       };
     } else {
+      const intentFrame = await resolveStudioPromptIntentFrame(prompt, {
+        executionMode,
+        selectedRoute,
+        selectedModelId,
+        approvalMode,
+        workspacePath: workspace.path,
+      }, output);
+      studioRuntimeProjection.lastIntentFrame = studioIntentFramePayload(intentFrame);
       const workCursor = studioWorkCursor();
-      const agentTurn = await submitStudioAgentTurn(
-        {
-          prompt,
-          selectedRoute,
-          selectedModelId,
-          reasoningEffort,
-          workspacePath: workspace.path,
-        },
-        output,
-      );
-      if (shouldProjectStudioRuntimeCockpit(prompt)) {
+      const projectsArtifact = studioIntentFrameProjectsArtifact(intentFrame) ||
+        shouldProjectConversationArtifactCanvas(prompt);
+      const agentTurn = projectsArtifact
+        ? await projectStudioConversationArtifactCanvas(prompt, output, intentFrame)
+        : await submitStudioAgentTurn(
+            {
+              prompt,
+              selectedRoute,
+              selectedModelId,
+              reasoningEffort,
+              workspacePath: workspace.path,
+              intentFrame,
+            },
+            output,
+          );
+      if (!projectsArtifact && (studioIntentFrameProjectsRuntimeCockpit(intentFrame) || shouldProjectStudioRuntimeCockpit(prompt))) {
         await projectStudioRuntimeCockpit(prompt, agentTurn, output);
       }
       const agentTurnStatus = agentTurn.status === "blocked" ? "blocked" : "completed";
@@ -12526,6 +10995,8 @@ async function submitStudioPrompt(payload = {}, output) {
           status: agentTurnStatus,
           approvalPause: Boolean(agentTurn.approvalPause),
         },
+        ...(agentTurn.artifacts ? { artifacts: agentTurn.artifacts } : {}),
+        ...(agentTurn.modelMetrics ? { modelMetrics: agentTurn.modelMetrics } : {}),
         ...(workRecord ? { workRecord } : {}),
       };
       studioRuntimeProjection.lastModelStream = null;
@@ -12541,8 +11012,16 @@ async function submitStudioPrompt(payload = {}, output) {
     }
     studioRuntimeProjection.turns.push(assistantTurn);
     const pendingElapsedMs = Date.now() - (studioRuntimeProjection.pendingStartedAtMs || Date.now());
-    if (pendingElapsedMs < 1400) {
-      await new Promise((resolve) => setTimeout(resolve, 1400 - pendingElapsedMs));
+    const latestWorkStepElapsedMs = studioPendingWorklogLastAtMs()
+      ? Date.now() - studioPendingWorklogLastAtMs()
+      : 0;
+    const pendingMinimumWaitMs = Math.max(
+      0,
+      1400 - pendingElapsedMs,
+      firstArray(studioRuntimeProjection.pendingWorklog).length > 0 ? 1200 - latestWorkStepElapsedMs : 0,
+    );
+    if (pendingMinimumWaitMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, pendingMinimumWaitMs));
     }
     studioRuntimeProjection.pending = false;
     studioRuntimeProjection.status = assistantTurn?.agentTurn?.status === "blocked" ? "blocked" : "completed";
@@ -12573,19 +11052,22 @@ async function submitStudioPrompt(payload = {}, output) {
     }
   } catch (error) {
     const isApprovalPause = Boolean(error?.studioApprovalPause || error?.code === "studio_approval_pause");
+    const rawErrorMessage = error?.message || String(error);
+    const cleanErrorMessage = studioCleanProductErrorMessage(error);
     studioRuntimeProjection.pending = false;
     studioRuntimeProjection.status = "blocked";
-    studioRuntimeProjection.lastError = error?.message || String(error);
+    studioRuntimeProjection.lastError = cleanErrorMessage;
     studioRuntimeProjection.timeline.push({
       label: isApprovalPause ? "Daemon turn waiting for approval" : "Daemon turn blocked",
-      detail: studioRuntimeProjection.lastError,
+      detail: cleanErrorMessage,
       status: "blocked",
     });
+    output?.appendLine?.(`[ioi-studio] raw daemon turn error kept in Trace/evidence: ${rawErrorMessage}`);
     studioRuntimeProjection.turns.push({
       role: "assistant",
       content: isApprovalPause
-        ? studioRuntimeProjection.lastError
-        : `Studio could not complete the daemon turn: ${studioRuntimeProjection.lastError}`,
+        ? cleanErrorMessage
+        : cleanErrorMessage,
       createdAt: new Date().toISOString(),
     });
     if (executionMode === STUDIO_MODE_AGENT && studioRuntimeProjection.threadId) {
@@ -12682,6 +11164,39 @@ async function handleStudioHunkDecision(decision, payload = {}, output) {
       status: "blocked",
     });
   }
+  await refreshStudioPanelHtml(output);
+}
+
+async function handleStudioArtifactAction(payload = {}, output) {
+  const artifactId = stringValue(payload.artifactId || payload.artifact_id);
+  const action = stringValue(payload.action, "ask");
+  if (!artifactId) {
+    appendStudioTimeline("Artifact action blocked", "Missing artifact id.", "blocked");
+    await refreshStudioPanelHtml(output);
+    return;
+  }
+  const result = await runStudioConversationArtifactAction(artifactId, action, output, payload);
+  if (result?.artifact) {
+    studioRuntimeProjection.conversationArtifacts = studioRuntimeProjection.conversationArtifacts.map((artifact) =>
+      (artifact.id || artifact.artifactId || artifact.artifact_id) === artifactId ? result.artifact : artifact,
+    );
+    appendStudioTimeline("Artifact action completed", `${action} · ${result.artifact.title || artifactId}`, "completed", {
+      artifactId,
+    });
+  }
+  await writeBridgeRequest(
+    "chat.artifactAction",
+    {
+      artifactId,
+      action,
+      runtimeAuthority: "daemon-owned",
+      projectionOwner: "ioi-workbench-agent-studio",
+      ownsRuntimeState: false,
+    },
+    buildWorkspaceActionContext("agent-studio-conversation-artifact"),
+  ).catch((error) => {
+    output?.appendLine?.(`[ioi-studio] bridge artifact action route unavailable: ${error?.message || String(error)}`);
+  });
   await refreshStudioPanelHtml(output);
 }
 
@@ -12809,6 +11324,10 @@ async function openStudioPanel(context, output) {
         await handleStudioHunkDecision(message.decision, message.payload || {}, output);
         return;
       }
+      if (message?.type === "studioArtifactAction") {
+        await handleStudioArtifactAction(message.payload || {}, output);
+        return;
+      }
       if (message?.type === "studioHunkNavigate") {
         await navigateStudioHunk(message.direction || "next", output);
         return;
@@ -12877,7 +11396,7 @@ async function openStudioPanel(context, output) {
     studioPanel.onDidDispose(() => {
       studioPanel = null;
       studioPanelLastHtml = null;
-      studioPanelNonce = null;
+      studioPanelPageNonce = null;
     });
   }
   updateStudioPanelHtml(state, { force: true });

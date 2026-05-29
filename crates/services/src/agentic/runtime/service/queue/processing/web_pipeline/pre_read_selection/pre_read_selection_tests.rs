@@ -77,18 +77,18 @@ fn selected_url_resolution_preserves_deep_article_urls_when_metadata_points_to_r
 }
 
 #[test]
-fn lint_accepts_deterministic_currentness_parity_fixture_source() {
+fn lint_accepts_currentness_parity_source() {
     let query = "Find current sources for today's top local AI model runtime issue.";
     let retrieval_contract =
         crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).expect("contract");
-    let fixture_url = "https://www.nist.gov/news-events/news/2026/local-ai-model-runtime-issue";
+    let source_url = "https://www.nist.gov/news-events/news/2026/local-ai-model-runtime-issue";
     let discovery_sources = vec![WebSource {
         source_id: "local-ai-runtime-issue".to_string(),
         rank: Some(1),
-        url: fixture_url.to_string(),
+        url: source_url.to_string(),
         title: Some("Local AI Model Runtime Issue".to_string()),
         snippet: Some(
-            "Deterministic current-source fixture for local AI model runtime issue retrieval."
+            "Current-source retrieval item for local AI model runtime issue diagnosis."
                 .to_string(),
         ),
         domain: Some("www.nist.gov".to_string()),
@@ -100,12 +100,12 @@ fn lint_accepts_deterministic_currentness_parity_fixture_source() {
         &discovery_sources,
         &[],
         &PreReadSelectionMode::DirectDetail,
-        &[fixture_url.to_string()],
+        &[source_url.to_string()],
         1,
     )
-    .expect("currentness parity fixture should satisfy typed pre-read selection");
+    .expect("currentness parity source should satisfy typed pre-read selection");
 
-    assert_eq!(selected, vec![fixture_url.to_string()]);
+    assert_eq!(selected, vec![source_url.to_string()]);
 }
 
 #[test]

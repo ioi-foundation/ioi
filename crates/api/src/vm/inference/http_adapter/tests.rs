@@ -29,7 +29,7 @@ fn ollama_context_env_lock() -> std::sync::MutexGuard<'static, ()> {
 }
 
 #[test]
-fn openai_stream_accumulator_returns_complete_tool_call_before_done() {
+fn openai_stream_accumulator_waits_for_tool_call_finish_before_returning() {
     let mut accumulator = OpenAiStreamAccumulator::default();
 
     let first = json!({
@@ -61,9 +61,17 @@ fn openai_stream_accumulator_returns_complete_tool_call_before_done() {
         }]
     })
     .to_string();
+    let done = json!({
+        "choices": [{
+            "delta": {},
+            "finish_reason": "tool_calls"
+        }]
+    })
+    .to_string();
 
     assert!(accumulator.apply_data_line(&first).unwrap().is_none());
-    let output = accumulator.apply_data_line(&second).unwrap().unwrap();
+    assert!(accumulator.apply_data_line(&second).unwrap().is_none());
+    let output = accumulator.apply_data_line(&done).unwrap().unwrap();
     let parsed: Value = serde_json::from_slice(&output).unwrap();
     assert_eq!(parsed["name"], "browser__hover");
     assert_eq!(parsed["arguments"]["duration_ms"], 10000);

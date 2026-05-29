@@ -217,8 +217,15 @@ fn search_files_prioritizes_literal_filename_matches() {
 #[test]
 fn search_files_excludes_noisy_hidden_build_dirs_from_content_matches() {
     let dir = make_temp_dir("search-excluded-hidden");
+    fs::create_dir_all(dir.join(".agents/workflow-code-proposals"))
+        .expect("agent scratch dir should exist");
     fs::create_dir_all(dir.join(".artifacts/cache")).expect("artifact cache dir should exist");
     fs::create_dir_all(dir.join(".tmp/cache")).expect("tmp cache dir should exist");
+    fs::write(
+        dir.join(".agents/workflow-code-proposals/noisy.txt"),
+        "needle in agent scratch",
+    )
+    .expect("agent scratch file should be written");
     fs::write(
         dir.join(".artifacts/cache/noisy.txt"),
         "needle in artifact cache",
@@ -233,6 +240,144 @@ fn search_files_excludes_noisy_hidden_build_dirs_from_content_matches() {
 
     assert_eq!(lines.len(), 1);
     assert!(lines[0].contains("src.txt:1: needle in source"));
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn search_files_ranks_multi_term_source_matches_before_config_noise() {
+    let dir = make_temp_dir("search-relevance");
+    fs::create_dir_all(dir.join(".github/scripts")).expect("github dir should exist");
+    fs::create_dir_all(dir.join("packages/runtime-daemon/src"))
+        .expect("runtime daemon dir should exist");
+    fs::write(
+        dir.join(".github/scripts/run_checks.sh"),
+        "local model_dir=\"$1\"\nrun_model \"$model_dir\"\n",
+    )
+    .expect("script should be written");
+    fs::write(
+        dir.join("packages/runtime-daemon/src/model-mounting.mjs"),
+        "const provider = \"provider.autopilot.local\";\nfunction defaultBackendForProvider(provider) { return provider; }\n",
+    )
+    .expect("source file should be written");
+
+    let output = search_files(&dir, "local|model|provider", None).expect("search should succeed");
+    let lines: Vec<&str> = output.lines().collect();
+
+    assert!(lines[0].contains("model-mounting.mjs"), "{output}");
+    assert!(lines[0].contains("provider.autopilot.local"), "{output}");
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn search_files_ranks_source_matches_even_after_many_internal_hits() {
+    let dir = make_temp_dir("search-relevance-no-cap");
+    fs::create_dir_all(dir.join(".internal/exports")).expect("internal exports dir should exist");
+    fs::create_dir_all(dir.join("packages/runtime-daemon/src"))
+        .expect("runtime daemon dir should exist");
+
+    let noisy = (0..6000)
+        .map(|idx| format!("provider local model noisy export line {idx}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    fs::write(dir.join(".internal/exports/noise.md"), noisy).expect("noise file should be written");
+    fs::write(
+        dir.join("packages/runtime-daemon/src/model-mounting.mjs"),
+        "const provider = \"provider.autopilot.local\";\nfunction defaultBackendForProvider(provider) { return provider; }\n",
+    )
+    .expect("source file should be written");
+
+    let output = search_files(&dir, "local|model|provider", None).expect("search should succeed");
+    let lines: Vec<&str> = output.lines().collect();
+
+    assert!(lines[0].contains("model-mounting.mjs"), "{output}");
+    assert!(lines[0].contains("provider.autopilot.local"), "{output}");
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn search_files_skips_generated_maps_and_prioritizes_registry_over_fixture_prompts() {
+    let dir = make_temp_dir("search-provider-registry-noise");
+    fs::create_dir_all(dir.join("packages/runtime-daemon/src/model-mounting"))
+        .expect("runtime fixture dir should exist");
+    fs::create_dir_all(dir.join("packages/agent-sdk/dist"))
+        .expect("generated dist dir should exist");
+    fs::create_dir_all(dir.join("crates/services/src/agentic/runtime/execution/filesystem"))
+        .expect("rust test source dir should exist");
+    fs::create_dir_all(dir.join("examples/cursor")).expect("vendored examples dir should exist");
+    fs::create_dir_all(dir.join("scripts/lib")).expect("scenario dir should exist");
+
+    fs::write(
+        dir.join("packages/runtime-daemon/src/model-mounting.mjs"),
+        concat!(
+            "const provider = { id: \"provider.autopilot.local\", kind: \"ioi_native_local\" };\n",
+            "function defaultBackendForProvider(provider) { return provider.kind; }\n",
+            "// registered local native model providers live in this registry surface\n"
+        ),
+    )
+    .expect("registry source should be written");
+    fs::write(
+        dir.join("packages/runtime-daemon/src/model-mounting/native-fixture-repo-aware.mjs"),
+        concat!(
+            "export const prompt = \"Where are local/native model providers registered in this repo?\";\n",
+            "export const answer = \"provider.autopilot.local ioi_native_local defaultBackendForProvider\";\n"
+        ),
+    )
+    .expect("native fixture source should be written");
+    fs::write(
+        dir.join("packages/agent-sdk/dist/quickstart-local.js.map"),
+        "{\"sourcesContent\":[\"local native model providers registered provider.autopilot.local\"]}",
+    )
+    .expect("generated source map should be written");
+    fs::write(
+        dir.join("crates/services/src/agentic/runtime/execution/filesystem/tests.rs"),
+        "assert!(\"registered local native model providers live in this registry surface\");",
+    )
+    .expect("test noise source should be written");
+    fs::write(
+        dir.join("examples/cursor/noisy.js"),
+        "const prompt = 'Where are local/native model providers registered in this repo?';",
+    )
+    .expect("vendored example noise should be written");
+    fs::write(
+        dir.join("scripts/lib/autopilot-agent-studio-chat-scenarios.mjs"),
+        "prompt: \"Where are local/native model providers registered in this repo?\"",
+    )
+    .expect("scenario fixture should be written");
+
+    let output = search_files(&dir, "local|native|model|providers|registered", None)
+        .expect("search should succeed");
+    let lines: Vec<&str> = output.lines().collect();
+
+    assert!(
+        lines[0].contains("packages/runtime-daemon/src/model-mounting.mjs"),
+        "{output}"
+    );
+    assert!(!output.contains(".map"), "{output}");
+
+    let registry_position = lines
+        .iter()
+        .position(|line| line.contains("packages/runtime-daemon/src/model-mounting.mjs"))
+        .expect("registry source should be present");
+    let fixture_position = lines
+        .iter()
+        .position(|line| line.contains("native-fixture-repo-aware.mjs"))
+        .unwrap_or(usize::MAX);
+    let scenario_position = lines
+        .iter()
+        .position(|line| line.contains("autopilot-agent-studio-chat-scenarios.mjs"))
+        .unwrap_or(usize::MAX);
+    let rust_test_position = lines
+        .iter()
+        .position(|line| line.contains("filesystem/tests.rs"))
+        .unwrap_or(usize::MAX);
+
+    assert!(registry_position < fixture_position, "{output}");
+    assert!(registry_position < scenario_position, "{output}");
+    assert!(registry_position < rust_test_position, "{output}");
+    assert!(!output.contains("examples/cursor"), "{output}");
 
     let _ = fs::remove_dir_all(&dir);
 }

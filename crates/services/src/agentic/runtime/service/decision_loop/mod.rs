@@ -56,6 +56,92 @@ const RUNTIME_ROUTE_INSTALL_RESOLVE_MARKER: &str =
 const RUNTIME_ROUTE_BROWSER_NAVIGATE_MARKER: &str =
     "runtime_route_frame_dispatch:browser__navigate";
 const RUNTIME_ROUTE_SHELL_RUN_MARKER: &str = "runtime_route_frame_dispatch:shell__run";
+const RUNTIME_ROUTE_WORKSPACE_CONTEXT_MARKER: &str =
+    "runtime_route_frame_dispatch:workspace_context";
+
+fn runtime_route_evidence_value(frame: &RuntimeRouteFrame, evidence_kind: &str) -> Option<String> {
+    frame
+        .typed_evidence
+        .iter()
+        .find(|evidence| evidence.evidence_kind.eq_ignore_ascii_case(evidence_kind))
+        .map(|evidence| evidence.value.trim())
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn workspace_search_regex(query: &str) -> String {
+    let stop_words = [
+        "about",
+        "and",
+        "are",
+        "between",
+        "codebase",
+        "does",
+        "explain",
+        "find",
+        "from",
+        "how",
+        "inspect",
+        "look",
+        "or",
+        "per",
+        "project",
+        "read",
+        "repo",
+        "repository",
+        "search",
+        "the",
+        "this",
+        "what",
+        "where",
+        "which",
+        "workspace",
+    ];
+    let mut seen_terms = std::collections::BTreeSet::<String>::new();
+    let terms = query
+        .split(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '_' || ch == '-'))
+        .map(str::trim)
+        .filter(|term| term.len() >= 3)
+        .filter(|term| {
+            !stop_words
+                .iter()
+                .any(|stop| term.eq_ignore_ascii_case(stop))
+        })
+        .filter(|term| seen_terms.insert(term.to_ascii_lowercase()))
+        .map(regex::escape)
+        .take(8)
+        .collect::<Vec<_>>();
+    if terms.is_empty() {
+        regex::escape(query.trim())
+    } else {
+        terms.join("|")
+    }
+}
+
+fn workspace_context_marker(tool: &str, target: &str) -> String {
+    format!("{RUNTIME_ROUTE_WORKSPACE_CONTEXT_MARKER}:{tool}:{target}")
+}
+
+fn workspace_context_evidence_matches_frame(
+    agent_state: &AgentState,
+    frame: &RuntimeRouteFrame,
+) -> bool {
+    let Some(evidence) =
+        tool_execution::execution_evidence_value(&agent_state.tool_execution_log, "file_context")
+    else {
+        return false;
+    };
+    if let Some(path) = runtime_route_evidence_value(frame, "workspace_path") {
+        return (evidence.contains("tool=file__read") || evidence.contains("tool=file__view"))
+            && evidence.contains(&format!("path={path}"));
+    }
+    let query = runtime_route_evidence_value(frame, "workspace_search")
+        .unwrap_or_else(|| frame.target.clone());
+    let regex = workspace_search_regex(&query);
+    !regex.trim().is_empty()
+        && evidence.contains("tool=file__search")
+        && evidence.contains(&format!("regex={regex}"))
+}
 
 fn maybe_typed_runtime_install_resolve_tool_call(agent_state: &mut AgentState) -> Option<String> {
     if agent_state
@@ -96,6 +182,79 @@ fn maybe_typed_runtime_install_resolve_tool_call(agent_state: &mut AgentState) -
         "name": "software_install__resolve",
         "arguments": {
             "request": request,
+        }
+    }))
+    .ok()
+}
+
+fn maybe_typed_runtime_workspace_context_tool_call(agent_state: &mut AgentState) -> Option<String> {
+    if agent_state
+        .pending_tool_call
+        .as_deref()
+        .is_some_and(|raw| raw.contains("file__read") || raw.contains("file__search"))
+    {
+        return None;
+    }
+
+    let frame = agent_state.runtime_route_frame.clone()?;
+    if !frame.output_intent.eq_ignore_ascii_case("tool_execution")
+        || !runtime_route_frame_requires_workspace_context(&frame)
+    {
+        return None;
+    }
+    if workspace_context_evidence_matches_frame(agent_state, &frame) {
+        return None;
+    }
+
+    if let Some(path) = runtime_route_evidence_value(&frame, "workspace_path") {
+        let marker = workspace_context_marker("file__read", &path);
+        if agent_state
+            .recent_actions
+            .iter()
+            .any(|action| action == &marker)
+        {
+            return None;
+        }
+        log::info!(
+            "TypedRuntimeWorkspaceContext dispatching file read path={} session={}",
+            path,
+            hex::encode(&agent_state.session_id[..4])
+        );
+        agent_state.recent_actions.push(marker);
+        return serde_json::to_string(&json!({
+            "name": "file__read",
+            "arguments": {
+                "path": path,
+            }
+        }))
+        .ok();
+    }
+
+    let query =
+        runtime_route_evidence_value(&frame, "workspace_search").unwrap_or_else(|| frame.target);
+    let regex = workspace_search_regex(&query);
+    if regex.trim().is_empty() {
+        return None;
+    }
+    let marker = workspace_context_marker("file__search", &regex);
+    if agent_state
+        .recent_actions
+        .iter()
+        .any(|action| action == &marker)
+    {
+        return None;
+    }
+    log::info!(
+        "TypedRuntimeWorkspaceContext dispatching file search regex={} session={}",
+        regex,
+        hex::encode(&agent_state.session_id[..4])
+    );
+    agent_state.recent_actions.push(marker);
+    serde_json::to_string(&json!({
+        "name": "file__search",
+        "arguments": {
+            "path": ".",
+            "regex": regex,
         }
     }))
     .ok()
@@ -293,7 +452,140 @@ fn typed_runtime_shell_command_resolved_intent() -> ResolvedIntentState {
     }
 }
 
+fn typed_runtime_conversation_reply_resolved_intent(
+    _frame: &RuntimeRouteFrame,
+) -> ResolvedIntentState {
+    ResolvedIntentState {
+        intent_id: "conversation.reply".to_string(),
+        scope: IntentScopeProfile::Conversation,
+        band: IntentConfidenceBand::High,
+        score: 1.0,
+        top_k: vec![],
+        required_capabilities: vec![
+            CapabilityId::from("agent.lifecycle"),
+            CapabilityId::from("conversation.reply"),
+        ],
+        required_evidence: vec![],
+        success_conditions: vec![],
+        risk_class: "low".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        intent_catalog_version: "typed-runtime-route-frame".to_string(),
+        embedding_model_id: "typed-runtime-route-frame".to_string(),
+        embedding_model_version: "v1".to_string(),
+        similarity_function_id: "typed_runtime_route_frame".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "typed-runtime-route-frame-v1".to_string(),
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: true,
+    }
+}
+
+fn runtime_route_frame_has_capability(frame: &RuntimeRouteFrame, needles: &[&str]) -> bool {
+    frame.required_capabilities.iter().any(|capability| {
+        let normalized = capability.to_ascii_lowercase();
+        needles.iter().any(|needle| normalized.contains(needle))
+    })
+}
+
+fn runtime_route_frame_requires_web_research(frame: &RuntimeRouteFrame) -> bool {
+    frame.intent_id.eq_ignore_ascii_case("retrieval.answer")
+        || frame.route_family.eq_ignore_ascii_case("web_research")
+        || runtime_route_frame_has_capability(frame, &["web.", "web_", "retrieval_"])
+}
+
+fn runtime_route_frame_requires_workspace_context(frame: &RuntimeRouteFrame) -> bool {
+    frame.intent_id.eq_ignore_ascii_case("workspace.context")
+        || frame.route_family.eq_ignore_ascii_case("workspace")
+        || runtime_route_frame_has_capability(frame, &["file.", "file_", "workspace."])
+}
+
+fn typed_runtime_web_research_resolved_intent() -> ResolvedIntentState {
+    ResolvedIntentState {
+        intent_id: "retrieval.answer".to_string(),
+        scope: IntentScopeProfile::WebResearch,
+        band: IntentConfidenceBand::High,
+        score: 1.0,
+        top_k: vec![],
+        required_capabilities: vec![
+            CapabilityId::from("agent.lifecycle"),
+            CapabilityId::from("conversation.reply"),
+            CapabilityId::from("web.retrieve"),
+            CapabilityId::from("sys.time.read"),
+        ],
+        required_evidence: vec!["retrieval".to_string(), "source_grounding".to_string()],
+        success_conditions: vec!["grounded_answer".to_string()],
+        risk_class: "low".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        intent_catalog_version: "typed-runtime-route-frame".to_string(),
+        embedding_model_id: "typed-runtime-route-frame".to_string(),
+        embedding_model_version: "v1".to_string(),
+        similarity_function_id: "typed_runtime_route_frame".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "typed-runtime-route-frame-v1".to_string(),
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: true,
+    }
+}
+
+fn typed_runtime_workspace_context_resolved_intent() -> ResolvedIntentState {
+    ResolvedIntentState {
+        intent_id: "workspace.context".to_string(),
+        scope: IntentScopeProfile::WorkspaceOps,
+        band: IntentConfidenceBand::High,
+        score: 1.0,
+        top_k: vec![],
+        required_capabilities: vec![
+            CapabilityId::from("agent.lifecycle"),
+            CapabilityId::from("conversation.reply"),
+            CapabilityId::from("filesystem.read"),
+            CapabilityId::from("workspace.read"),
+            CapabilityId::from("file.search"),
+            CapabilityId::from("file.read"),
+        ],
+        required_evidence: vec!["workspace_read".to_string(), "file_context".to_string()],
+        success_conditions: vec!["contextual_answer".to_string()],
+        risk_class: "low".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        intent_catalog_version: "typed-runtime-route-frame".to_string(),
+        embedding_model_id: "typed-runtime-route-frame".to_string(),
+        embedding_model_version: "v1".to_string(),
+        similarity_function_id: "typed_runtime_route_frame".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "typed-runtime-route-frame-v1".to_string(),
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: true,
+    }
+}
+
 fn typed_runtime_route_resolved_intent(frame: &RuntimeRouteFrame) -> Option<ResolvedIntentState> {
+    if runtime_route_frame_requires_web_research(frame) {
+        return Some(typed_runtime_web_research_resolved_intent());
+    }
+    if runtime_route_frame_requires_workspace_context(frame) {
+        return Some(typed_runtime_workspace_context_resolved_intent());
+    }
+    if frame.intent_id.eq_ignore_ascii_case("conversation.reply")
+        || frame
+            .output_intent
+            .eq_ignore_ascii_case("conversation_reply")
+    {
+        return Some(typed_runtime_conversation_reply_resolved_intent(frame));
+    }
     if frame.direct_answer_allowed || !frame.output_intent.eq_ignore_ascii_case("tool_execution") {
         return None;
     }
@@ -622,6 +914,7 @@ async fn maybe_process_runtime_route_frame_dispatch(
     call_context: ServiceCallContext<'_>,
 ) -> Result<bool, TransactionError> {
     let Some(tool_call) = maybe_typed_runtime_install_resolve_tool_call(agent_state)
+        .or_else(|| maybe_typed_runtime_workspace_context_tool_call(agent_state))
         .or_else(|| maybe_typed_runtime_browser_navigate_tool_call(agent_state))
         .or_else(|| maybe_typed_runtime_shell_run_tool_call(agent_state))
     else {

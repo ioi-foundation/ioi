@@ -4,6 +4,14 @@ import test from "node:test";
 
 const extensionSourcePath =
   "apps/autopilot/openvscode-extension/ioi-workbench/extension.js";
+const studioPanelHtmlPath =
+  "apps/autopilot/openvscode-extension/ioi-workbench/studio/studio-panel-html.js";
+const studioModelCompletionPath =
+  "apps/autopilot/openvscode-extension/ioi-workbench/studio/model-completion.js";
+const studioOperationalSurfacePath =
+  "apps/autopilot/openvscode-extension/ioi-workbench/studio/operational-surface.js";
+const studioModelSurfacePath =
+  "apps/autopilot/openvscode-extension/ioi-workbench/studio/model-surface.js";
 const packageJsonPath =
   "apps/autopilot/openvscode-extension/ioi-workbench/package.json";
 const codiconSourcePath =
@@ -11,8 +19,23 @@ const codiconSourcePath =
 const desktopLauncherPath = "scripts/launch-autopilot-ide-fork.mjs";
 const shellPatchPath = "scripts/lib/autopilot-workbench-shell-patch.mjs";
 
+async function readExtensionCompositeSource() {
+  const parts = await Promise.all([
+    readFile(extensionSourcePath, "utf8"),
+    readFile(studioPanelHtmlPath, "utf8"),
+    readFile(studioModelCompletionPath, "utf8"),
+    readFile(studioOperationalSurfacePath, "utf8"),
+    readFile(studioModelSurfacePath, "utf8"),
+  ]);
+  return parts.join("\n");
+}
+
+function lineCount(source) {
+  return source.split("\n").length;
+}
+
 test("native IOI chat view renders the canonical operator chat pane shell", async () => {
-  const source = await readFile(extensionSourcePath, "utf8");
+  const source = await readExtensionCompositeSource();
 
   assert.match(source, /data-operator-chat-pane="native-openvscode"/);
   assert.match(source, /data-inspection-target="native-ioi-chat-pane"/);
@@ -33,7 +56,7 @@ test("native IOI chat view renders the canonical operator chat pane shell", asyn
 });
 
 test("native IOI chat composer uses canonical Autopilot icons and layout tokens", async () => {
-  const source = await readFile(extensionSourcePath, "utf8");
+  const source = await readExtensionCompositeSource();
   const codiconSource = await readFile(codiconSourcePath, "utf8");
   const canonicalToolsPath = codiconSource.match(
     /<path d="([^"]*M5\.66901[^"]*)"/,
@@ -97,7 +120,7 @@ test("native IOI chat composer uses canonical Autopilot icons and layout tokens"
 });
 
 test("Agent Studio composer uses the Tauri chat source glyph vocabulary", async () => {
-  const source = await readFile(extensionSourcePath, "utf8");
+  const source = await readExtensionCompositeSource();
 
   assert.match(source, /data-testid="studio-add-context"[\s\S]*renderNativeChatIcon\("paperclip"\)/);
   assert.match(source, /data-testid="studio-composer-context-row"[\s\S]*data-testid="studio-add-context"[\s\S]*data-testid="studio-composer-input"[\s\S]*data-testid="studio-composer-toggle-row"/);
@@ -130,12 +153,63 @@ test("Agent Studio composer uses the Tauri chat source glyph vocabulary", async 
   assert.match(source, /const selectedExecutionMode = result\.kind === "agentMode" \? applyAgentModeResult\(result\) : undefined/);
   assert.match(source, /const selectedPermissionMode = result\.kind === "permissionMode" \? applyPermissionModeResult\(result\) : undefined/);
   assert.match(source, /function studioModelIdForRouteInvocation/);
-  assert.match(source, /if \(route\.startsWith\("route\."\)\) \{\s*return "auto";\s*\}/);
+  assert.match(source, /const STUDIO_PRODUCT_MODEL_UNAVAILABLE = "__product_model_unavailable__"/);
+  assert.match(source, /function isProductStudioModelSelection/);
+  assert.match(source, /function isExternalStudioModelRecord/);
+  assert.match(source, /IOI_STUDIO_ALLOW_EXTERNAL_MODEL_PROVIDERS/);
+  assert.match(source, /function studioProductModelSelectionError/);
+  assert.match(source, /function assertStudioProductModelSelector/);
+  assert.match(source, /assertStudioProductModelSelector\(selectedRoute, explicitModelId\)/);
+  assert.match(source, /Product model route unavailable/);
+  assert.match(source, /No product model is mounted for this route/);
+  assert.match(source, /record\.backendId/);
+  assert.match(source, /record\.artifactId/);
+  assert.match(source, /record\.displayName/);
+  assert.match(source, /lmstudio:detected/);
+  assert.match(source, /lmstudio\.detected/);
+  assert.match(source, /detected model slot/);
+  assert.match(source, /provider\.lmstudio/);
+  assert.match(source, /backend\.lmstudio/);
+  assert.match(source, /modelUnavailable: !productModelAvailable/);
+  assert.match(source, /data-model-unavailable="\$\{snapshot\.modelUnavailable \? "true" : "false"\}"/);
+  assert.match(source, /if \(!isAutoStudioModelSelector\(explicitModelId\)\) \{\s*return explicitModelId;\s*\}/);
   assert.match(source, /const requestedModel = studioModelIdForRouteInvocation\(selectedRoute, selectedModelId\)/);
+  assert.match(source, /const STUDIO_MODEL_COMPLETION_TIMEOUT_MS = Number\.isFinite/);
+  assert.match(source, /const STUDIO_DEFAULT_MAX_OUTPUT_TOKENS = 4096/);
+  assert.match(source, /function studioMaxOutputTokens/);
+  assert.match(source, /function studioAskMaxOutputTokens/);
+  assert.match(source, /max_tokens: studioAskMaxOutputTokens\(selectedReasoningEffort, prompt\)/);
+  assert.match(source, /function studioAskReasoningNeedsAnswerHandoff/);
+  assert.match(source, /stoppedForReasoningHandoff/);
+  assert.match(source, /function studioCleanProductErrorMessage/);
+  assert.match(source, /Details are in Tracing/);
+  assert.match(source, /const activeRouteFallback = firstArray\(activeRoute\.fallback \|\| activeRoute\.fallbackEndpoints \|\| activeRoute\.fallback_endpoints\)/);
+  assert.match(source, /const activeRouteModelId = stringValue\(activeRoute\.modelId \|\| activeRoute\.model_id \|\| activeRoute\.lastSelectedModel \|\| activeRoute\.last_selected_model\)/);
+  assert.match(source, /const activeEndpointId = activeRoute\.endpointId \|\| activeRoute\.endpoint_id \|\| activeRouteFallback\[0\]/);
+  assert.match(source, /function studioSameNonEmptyId/);
+  assert.match(source, /studioSameNonEmptyId\(candidate\.modelId, activeRouteModelId\)/);
+  assert.match(source, /studioSameNonEmptyId\(candidate\.id, activeEndpointId\)/);
+  assert.match(source, /modelRecordSupportsChat\(activeArtifact\) && isProductStudioModelSelection/);
+  assert.match(source, /return isProductStudioModelSelection\(selection\) \? selection : null/);
+  assert.doesNotMatch(source, /candidate\.routeId === activeRoute\.routeId/);
+  assert.match(source, /firstArray\(candidate\.fallback \|\| candidate\.fallbackEndpoints \|\| candidate\.fallback_endpoints\)\.includes\(endpoint\.id\)/);
+  assert.match(source, /const providerSignal = String\(`\$\{artifact\.providerId \|\| ""\} \$\{endpoint\.providerId \|\| ""\} \$\{artifact\.source \|\| ""\} \$\{endpoint\.driver \|\| ""\}`\)/);
+  assert.match(source, /llama-cpp\|llama_cpp\|provider\\\.llama/);
+  assert.doesNotMatch(source, /lmstudio\|lm_studio\/i\.test\(providerSignal\)[\s\S]*\? 100/);
   assert.match(source, /max_steps: 8/);
+  assert.match(source, /function resolveStudioPromptIntentFrame/);
+  assert.match(source, /\/v1\/studio\/intent-frame/);
+  assert.match(source, /function studioIntentFrameProjectsArtifact/);
+  assert.match(source, /function studioIntentFrameProjectsRuntimeCockpit/);
+  assert.match(source, /function studioIntentFrameRequiresRetrieval/);
   assert.match(source, /function shouldProjectStudioRuntimeCockpit/);
   assert.match(source, /function projectStudioRuntimeCockpit/);
-  assert.match(source, /if \(shouldProjectStudioRuntimeCockpit\(prompt\)\) \{\s*await projectStudioRuntimeCockpit\(prompt, agentTurn, output\);/);
+  assert.match(source, /function shouldProjectConversationArtifactCanvas/);
+  assert.match(source, /function studioPromptRequestsGeneratedWebArtifact/);
+  assert.match(source, /website\|web\\s\*site\|webpage\|web\\s\*page\|landing\\s\+page/);
+  assert.match(source, /function projectStudioConversationArtifactCanvas/);
+  assert.match(source, /studioIntentFrameProjectsArtifact\(intentFrame\)[\s\S]*projectStudioConversationArtifactCanvas\(prompt, output, intentFrame\)/);
+  assert.match(source, /studioIntentFrameProjectsRuntimeCockpit\(intentFrame\)[\s\S]*await projectStudioRuntimeCockpit\(prompt, agentTurn, output\);/);
   assert.match(source, /function normalizeStudioAssistantReplyText/);
   assert.match(source, /function studioAssistantTextFromRuntimeToolEvents/);
   assert.match(source, /studioAssistantTextFromRuntimeToolEvents\(events\)/);
@@ -145,6 +219,7 @@ test("Agent Studio composer uses the Tauri chat source glyph vocabulary", async 
   assert.match(source, /event\.payload_summary\?\.output/);
   assert.match(source, /function studioRuntimeEventsIncludeCompletedTool/);
   assert.match(source, /function studioAssistantReplyTextIsDeferred/);
+  assert.match(source, /payload && payload\.event && typeof payload\.event === "object"/);
   assert.match(source, /studioAssistantReplyTextIsDeferred\(text\)/);
   assert.match(source, /function studioRetrievalFailClosedText/);
   assert.match(source, /did not emit a final chat__reply/);
@@ -193,7 +268,7 @@ test("Agent Studio composer uses the Tauri chat source glyph vocabulary", async 
   assert.match(source, /let studioPanelNonce = null;/);
   assert.match(source, /function updateStudioPanelHtml\(state\)/);
   assert.match(source, /if \(html === studioPanelLastHtml\) \{\s*return;\s*\}/);
-  assert.match(source, /const pageNonce = studioPanelNonce \|\| \(studioPanelNonce = nonce\(\)\);/);
+  assert.match(source, /const pageNonce = getPageNonce \? getPageNonce\(\) : \(studioPanelNonce \|\| \(studioPanelNonce = nonce\(\)\)\);/);
   assert.doesNotMatch(source, /if \(studioPanel\) \{\s*studioPanel\.webview\.html = studioPanelHtml\(state\);/);
   assert.match(source, /width: 28px;/);
   assert.match(source, /height: 22px;/);
@@ -201,7 +276,7 @@ test("Agent Studio composer uses the Tauri chat source glyph vocabulary", async 
 });
 
 test("Agent Studio renders browser and computer automation as managed live sessions", async () => {
-  const source = await readFile(extensionSourcePath, "utf8");
+  const source = await readExtensionCompositeSource();
 
   assert.match(source, /function studioManagedSessionFromRuntimeEvent/);
   assert.match(source, /function studioManagedSessionRows/);
@@ -221,8 +296,59 @@ test("Agent Studio renders browser and computer automation as managed live sessi
   assert.doesNotMatch(source, /studio-managed-session-card[\s\S]{0,1200}receiptRefs/);
 });
 
+test("Agent Studio product model selection is endpoint-first and fails closed when unavailable", async () => {
+  const extensionSource = await readFile(extensionSourcePath, "utf8");
+  const studioPanelSource = await readFile(studioPanelHtmlPath, "utf8");
+  const modelSurfaceSource = await readFile(studioModelSurfacePath, "utf8");
+  const shellPatchSource = await readFile(shellPatchPath, "utf8");
+  const preferredModelBlock = extensionSource.slice(
+    extensionSource.indexOf("function studioPreferredModelSelection"),
+    extensionSource.indexOf("function studioSnapshotFromState"),
+  );
+  const quickInputRowsBlock = extensionSource.slice(
+    extensionSource.indexOf("function mountedModelQuickInputRowsFromState"),
+    extensionSource.indexOf("function studioIcon"),
+  );
+  const endpointFirstIndex = preferredModelBlock.indexOf("studioSameNonEmptyId(candidate.id, activeEndpointId)");
+  const fallbackIndex = preferredModelBlock.indexOf("activeRouteFallback.includes(candidate.id)");
+  const looseModelIndex = preferredModelBlock.indexOf("studioSameNonEmptyId(candidate.modelId, activeRouteModelId)");
+  const artifactEndpointIndex = preferredModelBlock.indexOf("studioSameNonEmptyId(candidate.id, activeEndpoint.artifactId)");
+  const modelSurfaceResolverBlock = modelSurfaceSource.slice(
+    modelSurfaceSource.indexOf("function modelEndpointForArtifact"),
+    modelSurfaceSource.indexOf("function modelInstanceForEndpoint"),
+  );
+  const artifactIdResolverIndex = modelSurfaceResolverBlock.indexOf("endpoint.artifactId === artifact.id");
+  const looseModelResolverIndex = modelSurfaceResolverBlock.indexOf("endpoint.modelId === artifact.modelId");
+
+  assert.ok(endpointFirstIndex >= 0, "active route selection should inspect the concrete endpoint id");
+  assert.ok(fallbackIndex > endpointFirstIndex, "active route selection should honor fallback endpoints");
+  assert.ok(looseModelIndex > endpointFirstIndex, "loose model-id matching must not beat route endpoint matching");
+  assert.ok(artifactEndpointIndex > 0, "active artifact selection should bind through endpoint.artifactId");
+  assert.ok(artifactIdResolverIndex >= 0, "model surface should prefer endpoint.artifactId");
+  assert.ok(
+    looseModelResolverIndex > artifactIdResolverIndex,
+    "model surface loose model-id matching must not beat artifact endpoint matching",
+  );
+  assert.match(extensionSource, /haystack\.includes\("no product model"\)/);
+  assert.match(extensionSource, /haystack\.includes\("product model mounted"\)/);
+  assert.match(extensionSource, /function modelRecordIsEmbeddingOnly/);
+  assert.match(extensionSource, /function studioSelectionSupportsChat/);
+  assert.match(quickInputRowsBlock, /firstArray\(candidate\.fallback \|\| candidate\.fallbackEndpoints \|\| candidate\.fallback_endpoints\)\.includes\(endpoint\.id\)/);
+  assert.match(quickInputRowsBlock, /!isProductStudioModelSelection\(selection\)/);
+  assert.match(studioPanelSource, /routePicker\?\.dataset\?\.modelUnavailable === "true"/);
+  assert.match(studioPanelSource, /"__product_model_unavailable__"/);
+  assert.match(studioPanelSource, /result\.kind === "modelRoute" && result\.requestType === "models\.open"/);
+  assert.match(shellPatchSource, /label: "Set up recommended models"/);
+  assert.match(shellPatchSource, /requestType: "models\.open"/);
+  assert.doesNotMatch(shellPatchSource, /label: "No mounted models"/);
+  assert.match(shellPatchSource, /kind === "modelroute" \? "modelRoute"/);
+  assert.match(modelSurfaceSource, /data-testid="model-recommended-setup"/);
+  assert.match(modelSurfaceSource, /Qwen 3\.5/);
+  assert.match(modelSurfaceSource, /Text embedding/);
+});
+
 test("Agent Studio tools icon opens the VS Code substrate Configure Tools picker", async () => {
-  const source = await readFile(extensionSourcePath, "utf8");
+  const source = await readExtensionCompositeSource();
 
   assert.match(source, /function studioToolPaletteSections/);
   assert.match(source, /function studioToolQuickPickItems/);
@@ -284,7 +410,7 @@ test("Agent Studio tools icon opens the VS Code substrate Configure Tools picker
 });
 
 test("Agent Studio renders Mermaid chat outputs as interactive renderer cards", async () => {
-  const source = await readFile(extensionSourcePath, "utf8");
+  const source = await readExtensionCompositeSource();
 
   assert.match(source, /function studioMermaidSourcesFromText/);
   assert.match(source, /function studioMermaidSummary/);
@@ -308,7 +434,7 @@ test("Agent Studio renders Mermaid chat outputs as interactive renderer cards", 
 });
 
 test("Agent Studio mounts imported trajectory audit panels in Trace", async () => {
-  const source = await readFile(extensionSourcePath, "utf8");
+  const source = await readExtensionCompositeSource();
 
   assert.match(source, /parentTrajectoryLinkagePanels: \[\]/);
   assert.match(source, /battleModePermissionImportPanels: \[\]/);
@@ -337,7 +463,7 @@ test("Agent Studio mounts imported trajectory audit panels in Trace", async () =
 });
 
 test("Migration Assistant commands are visible and plan-only", async () => {
-  const source = await readFile(extensionSourcePath, "utf8");
+  const source = await readExtensionCompositeSource();
   const manifest = JSON.parse(await readFile(packageJsonPath, "utf8"));
   const commandIds = new Set(manifest.contributes.commands.map((entry) => entry.command));
   const commandPaletteIds = new Set(
@@ -369,7 +495,7 @@ test("Migration Assistant commands are visible and plan-only", async () => {
 });
 
 test("Agent Studio renders executable code blocks as sandbox plan cards", async () => {
-  const source = await readFile(extensionSourcePath, "utf8");
+  const source = await readExtensionCompositeSource();
 
   assert.match(source, /function studioExecutableCodeBlocksFromText/);
   assert.match(source, /function studioCodeExecutionPolicy/);
@@ -387,7 +513,7 @@ test("Agent Studio renders executable code blocks as sandbox plan cards", async 
 });
 
 test("Agent Studio Add Context opens the native VS Code context picker", async () => {
-  const source = await readFile(extensionSourcePath, "utf8");
+  const source = await readExtensionCompositeSource();
   const shellPatchSource = await readFile(shellPatchPath, "utf8");
 
   assert.match(source, /function studioContextQuickPickItems/);
@@ -420,7 +546,7 @@ test("Agent Studio Add Context opens the native VS Code context picker", async (
 });
 
 test("native IOI chat view routes user actions through bridge requests", async () => {
-  const source = await readFile(extensionSourcePath, "utf8");
+  const source = await readExtensionCompositeSource();
 
   assert.match(source, /message\?\.type === "bridgeRequest"/);
   assert.match(source, /writeBridgeRequest\(\s*message\.requestType/);
@@ -479,7 +605,7 @@ test("legacy IOI chat sidebar is not contributed to the primary Autopilot shell"
 });
 
 test("Agent Studio contributes an operational daemon-backed chat surface", async () => {
-  const source = await readFile(extensionSourcePath, "utf8");
+  const source = await readExtensionCompositeSource();
   const workSummarySource = await readFile(
     new URL("./studio-work-summary.js", import.meta.url),
     "utf8",
@@ -498,16 +624,54 @@ test("Agent Studio contributes an operational daemon-backed chat surface", async
   assert.match(source, /data-testid="studio-inline-diff-hunks"/);
   assert.match(source, /data-testid="studio-model-route-picker"/);
   assert.match(source, /data-testid="studio-reasoning-effort-picker"/);
-  assert.match(source, /data-testid="studio-workflow-handoff"/);
   assert.match(source, /data-testid="studio-tauri-session-rail"/);
+  assert.match(source, /Conversation history/);
   assert.match(source, /data-testid="studio-session-search"/);
   assert.match(source, /data-testid="studio-new-session"/);
-  assert.match(source, /data-testid="studio-artifacts-row"/);
+  assert.doesNotMatch(source, /data-testid="studio-artifacts-row"/);
+  assert.doesNotMatch(source, /data-testid="studio-workflow-handoff"/);
   assert.match(source, /data-testid="studio-current-session-row"/);
   assert.match(source, /data-testid="studio-chat-transcript"/);
   assert.match(source, /data-testid="studio-user-bubble"/);
   assert.match(source, /data-testid="studio-assistant-answer-card"/);
   assert.match(source, /data-testid="studio-run-status-bar"/);
+  assert.match(source, /data-testid="studio-conversation-artifact-preview-frame"/);
+  assert.match(source, /function studioArtifactPreviewSrcdoc/);
+  assert.match(source, /studioArtifactPreviewSrcdoc\(text, studioPanelPageNonce \|\| ""\)/);
+  assert.match(source, /getPageNonce: currentStudioPanelPageNonce/);
+  assert.match(source, /function currentStudioPanelPageNonce/);
+  assert.match(source, /sandbox="allow-scripts"/);
+  assert.doesNotMatch(source, /studio-conversation-artifact-expanded[\s\S]{0,900}Open Tracing/);
+  assert.match(source, /function studioArtifactOutputModality/);
+  assert.match(source, /function studioArtifactIsWebsite/);
+  assert.match(source, /return studioArtifactIsWebsite\(artifact\) \? "Website preview" : "HTML preview"/);
+  assert.match(source, /outputModality: intentFrame\?\.artifact\?\.outputModality/);
+  assert.match(source, /function studioWebsiteDraftRejectReason/);
+  assert.match(source, /website HTML was truncated before the closing <\/html> tag/);
+  assert.match(source, /roughly 70-110 lines, concise copy, at most five visible sections/);
+  assert.match(source, /End the response immediately after the closing <\/html> tag/);
+  assert.match(source, /represent the ambiguity in the page instead of silently substituting an adjacent topic/);
+  assert.match(source, /model returned tool-call envelope/);
+  assert.match(source, /model output came from a deterministic fixture route/);
+  assert.match(source, /studioTextContainsProductFixtureMarker/);
+  assert.match(source, /studioDenyFixtureModelPolicy/);
+  assert.match(source, /data-testid="studio-response-metrics"/);
+  assert.match(source, /function studioThinkingRows/);
+  assert.match(source, /function ensureStreamingThinkingBlock/);
+  assert.match(source, /message\.type === "assistantThinkingDelta"/);
+  assert.match(source, /studioPostRuntimeMessage\("assistantThinkingDelta"/);
+  assert.match(source, /function studioUsageFromProviderTimings/);
+  assert.match(source, /payload\.timings[\s\S]*studioUsageFromProviderTimings/);
+  assert.match(source, /Autopilot Ask mode presentation boundary/);
+  assert.match(source, /function studioAskNeedsFreshRetrievalGuard/);
+  assert.match(source, /fresh_retrieval_required/);
+  assert.match(source, /Ask cannot safely choose or summarize from stale model memory/);
+  assert.match(source, /fresh retrieval is required/);
+  assert.match(source, /briefly acknowledge the likely meanings and make a clear, useful interpretation/);
+  assert.match(source, /keep the thinking stream brief, then move into the final answer promptly/);
+  assert.match(source, /Do not mention internal workspace paths, daemon routes, receipts, trace ids, runtime scaffolding, or selected-model plumbing/);
+  assert.doesNotMatch(source, /ask_mode_boundary: provide direct answers/);
+  assert.match(source, /I did not create a canned fallback page/);
   assert.match(source, /const studioWorkSummary = require\("\.\/studio-work-summary"\)/);
   assert.match(source, /function studioDocumentedWorkRecord\(cursor = \{\}\)/);
   assert.match(source, /studioWorkSummary\.studioDocumentedWorkRecord\(studioRuntimeProjection, cursor\)/);
@@ -540,7 +704,7 @@ test("Agent Studio contributes an operational daemon-backed chat surface", async
   assert.match(source, /data-testid="studio-utility-toggle"/);
   assert.match(source, /data-testid="studio-approval-inline-card"/);
   assert.doesNotMatch(source, /data-testid="studio-receipt-chip"/);
-  assert.match(source, /data-command="ioi\.workflow\.openComposer"/);
+  assert.doesNotMatch(source, /data-testid="studio-workflow-handoff"[\s\S]{0,200}data-command="ioi\.workflow\.openComposer"/);
   assert.match(source, /data-command="ioi\.models\.open"/);
   assert.match(source, /type: "studioSubmit"/);
   assert.match(source, /requestType: "chat\.submit"/);
@@ -560,8 +724,43 @@ test("Agent Studio contributes an operational daemon-backed chat surface", async
   assert.match(source, /ioi-studio\.svg/);
 });
 
+test("Agent Studio keeps heavyweight panel and model completion code outside the extension facade", async () => {
+  const extensionSource = await readFile(extensionSourcePath, "utf8");
+  const panelSource = await readFile(studioPanelHtmlPath, "utf8");
+  const modelCompletionSource = await readFile(studioModelCompletionPath, "utf8");
+  const operationalSurfaceSource = await readFile(studioOperationalSurfacePath, "utf8");
+  const modelSurfaceSource = await readFile(studioModelSurfacePath, "utf8");
+
+  assert.match(extensionSource, /createStudioPanelHtml/);
+  assert.match(extensionSource, /createStudioModelCompletion/);
+  assert.match(extensionSource, /createStudioOperationalSurface/);
+  assert.match(extensionSource, /createModelSurfaceRenderer/);
+  assert.ok(
+    (extensionSource.match(/getStudioRuntimeProjection: \(\) => studioRuntimeProjection/g) || []).length >= 2,
+    "extracted Studio helpers must read the live projection through a getter",
+  );
+  assert.doesNotMatch(extensionSource, /<title>Agent Studio<\/title>/);
+  assert.doesNotMatch(extensionSource, /class="studio-operational-shell studio-tauri-chat-shell/);
+  assert.doesNotMatch(extensionSource, /Autopilot Ask mode presentation boundary:[\s\S]*Return one complete HTML document only/);
+  assert.match(panelSource, /function createStudioPanelHtml/);
+  assert.match(panelSource, /return function studioPanelHtml/);
+  assert.match(modelCompletionSource, /function createStudioModelCompletion/);
+  assert.match(modelCompletionSource, /getStudioRuntimeProjection/);
+  assert.doesNotMatch(modelCompletionSource, /^\s*studioRuntimeProjection,\s*$/m);
+  assert.match(modelCompletionSource, /streamStudioModelCompletion/);
+  assert.match(operationalSurfaceSource, /function createStudioOperationalSurface/);
+  assert.match(operationalSurfaceSource, /getStudioRuntimeProjection/);
+  assert.doesNotMatch(operationalSurfaceSource, /^\s*studioRuntimeProjection,\s*$/m);
+  assert.match(operationalSurfaceSource, /function renderStudioOperationalSurface/);
+  assert.match(modelSurfaceSource, /function createModelSurfaceRenderer/);
+  assert.match(modelSurfaceSource, /function renderModelsPanelBody/);
+  assert.doesNotMatch(extensionSource, /function renderModelsPanelBody/);
+  assert.doesNotMatch(extensionSource, /function modelReceiptKind/);
+  assert.ok(lineCount(extensionSource) < 14_000, "extension.js should stay below the post-extraction facade checkpoint");
+});
+
 test("Agent Studio de-noises runtime truth into the Runs/Tracing surface", async () => {
-  const source = await readFile(extensionSourcePath, "utf8");
+  const source = await readExtensionCompositeSource();
 
   assert.match(source, /runtimeUx:\s*\{/);
   assert.match(source, /denoised: true/);
@@ -657,15 +856,51 @@ test("Agent Studio de-noises runtime truth into the Runs/Tracing surface", async
   assert.match(source, /function hidePendingProjectionAfterMinimum/);
   assert.match(source, /Thinking about your request · /);
   assert.match(source, /data-testid="studio-pending-label"/);
+  assert.match(source, /data-testid="studio-pending-worklog"/);
+  assert.match(source, /pendingWorklog: \[\]/);
+  assert.match(source, /function isAbstractStudioPendingWorkStep/);
+  assert.match(source, /function studioPendingWorkStepIsConcrete/);
+  assert.match(source, /function appendStudioPendingWorkStep/);
+  assert.match(source, /if \(!studioPendingWorkStepIsConcrete\(payload\)\) \{\s*return null;\s*\}/);
+  assert.match(source, /turn\\\.step\|agent\\\.step/);
+  assert.match(source, /const appendedStep = appendStudioPendingWorkStep\(pendingStep\);/);
+  assert.match(source, /if \(!concreteTool\) return;/);
+  assert.match(source, /toolName === "chat__reply"/);
+  assert.match(source, /if \(!normalizedPayload\) \{\s*return;\s*\}/);
+  assert.match(source, /const abstractPendingText = \[label, detail\]\.join\(" "\)\.toLowerCase\(\);/);
+  assert.match(source, /function studioPendingWorklogLastAtMs/);
+  assert.match(source, /1200 - latestWorkStepElapsedMs/);
+  assert.match(source, /data-pending-worklog-count/);
+  assert.match(source, /data-pending-worklog="\$\{escapeHtml\(JSON\.stringify\(firstArray\(studioRuntimeProjection\.pendingWorklog\)\)\)\}"/);
+  assert.doesNotMatch(source, /data-testid="studio-pending-progress"/);
+  assert.doesNotMatch(source, /data-studio-pending-step/);
+  assert.doesNotMatch(source, />Using tools</);
+  assert.doesNotMatch(source, />Preparing response</);
+  assert.doesNotMatch(source, /Preparing governed Agent run/);
+  assert.doesNotMatch(source, /Starting the daemon session, model route, and policy context/);
+  assert.doesNotMatch(source, /I'll run this through the governed Agent harness/);
+  assert.doesNotMatch(source, /Tool calls, policy checks, receipts, and traces stay daemon-owned/);
+  assert.doesNotMatch(source, /Preparing artifact run/);
+  assert.doesNotMatch(source, /Gathering source context/);
+  assert.doesNotMatch(source, /Gathered source context/);
+  assert.doesNotMatch(source, /I'll draft a custom website with the selected model/);
+  assert.doesNotMatch(source, /The preview will be created as a sandboxed artifact/);
+  assert.doesNotMatch(source, /Drafted custom website content/);
+  assert.doesNotMatch(source, /Drafting website artifact/);
+  assert.doesNotMatch(source, /Model draft was rejected/);
+  assert.doesNotMatch(source, /Creating sandboxed artifact preview/);
+  assert.doesNotMatch(source, /Created artifact preview/);
+  assert.doesNotMatch(source, /Used \$\{projectedToolNames\.length\} daemon tool/);
   assert.match(source, /message\.type === "assistantStreamStart"[\s\S]*showPendingProjection\(\);[\s\S]*return;/);
   assert.match(source, /message\.type === "assistantStreamDelta"[\s\S]*hidePendingProjectionAfterMinimum\(\);/);
+  assert.match(source, /message\.type === "assistantThinkingDelta"[\s\S]*hidePendingProjectionAfterMinimum\(\);/);
   assert.doesNotMatch(source, /Daemon turn pending/);
   assert.doesNotMatch(source, /Studio prompt stayed in a mock launcher/);
   assert.doesNotMatch(source, /src-tauri|@tauri-apps|tauri:\/\/|tauri\./i);
 });
 
 test("Autopilot Overview is the IDE-native operator home surface", async () => {
-  const source = await readFile(extensionSourcePath, "utf8");
+  const source = await readExtensionCompositeSource();
   const manifest = JSON.parse(await readFile(packageJsonPath, "utf8"));
   const commands = new Set(
     (manifest.contributes?.commands || []).map((command) => command.command),
@@ -681,6 +916,12 @@ test("Autopilot Overview is the IDE-native operator home surface", async () => {
   assert.match(source, /Operator console for autonomous systems/);
   assert.match(source, /Build, run, govern, and verify/);
   assert.match(source, /data-runtime-authority="daemon-owned"/);
+  assert.match(source, /function productStudioModelSelectionsFromSnapshot/);
+  assert.match(source, /function loadedProductStudioModelInstances/);
+  assert.match(source, /const productModelCount = productModelSelections\.length/);
+  assert.match(source, /`\$\{loadedModels\.length\}\/\$\{productModelCount\} loaded`/);
+  assert.match(source, /`\$\{productModelCount\} product model\$\{productModelCount === 1 \? "" : "s"\}`/);
+  assert.doesNotMatch(source, /overviewPill\("Models", `\$\{loadedModels\.length\}\/\$\{snapshot\.artifacts\.length\} loaded`/);
   assert.match(source, /registerCommand\("ioi\.overview\.open"/);
   assert.match(source, /writeBridgeRequest\("overview\.open"/);
   assert.match(source, /AUTOPILOT_SKIP_OVERVIEW/);
@@ -692,7 +933,7 @@ test("Autopilot Overview is the IDE-native operator home surface", async () => {
 });
 
 test("Autopilot Workbench contributes the transitional mode rail and Code command path", async () => {
-  const source = await readFile(extensionSourcePath, "utf8");
+  const source = await readExtensionCompositeSource();
   const manifest = JSON.parse(await readFile(packageJsonPath, "utf8"));
   const containers = new Set(
     (manifest.contributes?.viewsContainers?.activitybar || []).map(
@@ -760,7 +1001,7 @@ test("Autopilot Workbench contributes the transitional mode rail and Code comman
 });
 
 test("Autopilot Models renders the LM Studio-inspired operator surface", async () => {
-  const source = await readFile(extensionSourcePath, "utf8");
+  const source = await readExtensionCompositeSource();
   const manifest = JSON.parse(await readFile(packageJsonPath, "utf8"));
   const commands = new Set(
     (manifest.contributes?.commands || []).map((command) => command.command),
@@ -853,7 +1094,7 @@ test("Workflow Composer reflects live daemon model route readiness", async () =>
 });
 
 test("native workbench context snapshots are projected to IOI runtime bridge", async () => {
-  const source = await readFile(extensionSourcePath, "utf8");
+  const source = await readExtensionCompositeSource();
 
   assert.match(source, /function buildWorkbenchContextSnapshot/);
   assert.match(source, /schemaVersion: "ioi\.workbench-integration\.v1"/);
@@ -878,7 +1119,7 @@ test("native workbench context snapshots are projected to IOI runtime bridge", a
 });
 
 test("native inspection target index prefers workbench refs before fallback", async () => {
-  const source = await readFile(extensionSourcePath, "utf8");
+  const source = await readExtensionCompositeSource();
 
   assert.match(source, /function buildWorkbenchInspectionTargetIndex/);
   assert.match(source, /indexId: "workbench-target-index:latest"/);
@@ -922,7 +1163,7 @@ test("native inspection target index prefers workbench refs before fallback", as
 });
 
 test("workflow code generation requests are proposal-first runtime projections", async () => {
-  const source = await readFile(extensionSourcePath, "utf8");
+  const source = await readExtensionCompositeSource();
   const manifest = JSON.parse(await readFile(packageJsonPath, "utf8"));
   const commands = new Set(
     (manifest.contributes?.commands || []).map((command) => command.command),
@@ -942,7 +1183,7 @@ test("workflow code generation requests are proposal-first runtime projections",
 });
 
 test("native command routing emits IOI route receipts", async () => {
-  const source = await readFile(extensionSourcePath, "utf8");
+  const source = await readExtensionCompositeSource();
 
   assert.match(source, /function buildWorkbenchCommandRouteReceipt/);
   assert.match(source, /requestType: "workbench\.commandRouteReceipt"/);
@@ -954,4 +1195,75 @@ test("native command routing emits IOI route receipts", async () => {
   assert.match(source, /ownsRuntimeState: false/);
   assert.match(source, /isRuntimeActionRequestType\(requestType\)/);
   assert.match(source, /writeWorkbenchCommandRouteReceipt/);
+});
+
+test("Agent Studio streams website artifact drafting before rendering the final artifact", async () => {
+  const source = await readExtensionCompositeSource();
+
+  assert.match(source, /function generateStudioStaticWebsiteDraft/);
+  assert.match(source, /presentation: "artifact_generation"/);
+  assert.doesNotMatch(source, /label: "Drafting website artifact"/);
+  assert.match(source, /const promptNeedsRetrieval = promptRequiresRetrieval\(prompt\);/);
+  assert.match(source, /if \(!explicitSourceRequirement && !promptNeedsRetrieval\) \{\s*return "";\s*\}/);
+  assert.match(source, /fileName: "index.html"/);
+  assert.match(source, /requestSseJson\(endpoint, "\/v1\/chat\/completions"/);
+  assert.match(source, /stream: true/);
+  assert.match(source, /const STUDIO_DEFAULT_ARTIFACT_MAX_OUTPUT_TOKENS = 4096/);
+  assert.match(source, /function studioArtifactMaxOutputTokens/);
+  assert.match(source, /max_tokens: studioArtifactMaxOutputTokens\(\)/);
+  assert.match(source, /assistantThinkingDelta/);
+  assert.match(source, /assistantStreamDelta/);
+  assert.match(source, /assistantStreamComplete/);
+  assert.match(source, /htmlCloseMatch = streamResult\.text\.match\(\/<\\\/html>\/i\)/);
+  assert.match(source, /return false;/);
+  assert.match(source, /stoppedByClient: true/);
+  assert.match(source, /function studioEstimatedTokenCount/);
+  assert.match(source, /generatedText: text/);
+  assert.match(source, /metrics\.estimatedTokens \? "~" : ""/);
+  assert.match(source, /studioArtifactAnswerText\(\[artifact\]\)/);
+  assert.doesNotMatch(source, /generateStudioStaticWebsiteDraft[\s\S]*stream: false[\s\S]*studioWebsiteDraftRejectReason/);
+});
+
+test("Agent Studio renders assistant chat answers as sanitized Markdown", async () => {
+  const source = await readExtensionCompositeSource();
+
+  assert.match(source, /function escapeMarkdownHtml/);
+  assert.match(source, /function sanitizeMarkdownUrl/);
+  assert.match(source, /function renderMarkdownBlocks/);
+  assert.match(source, /function renderMarkdownInto/);
+  assert.match(source, /function appendMarkdownDelta/);
+  assert.match(source, /const STUDIO_MARKDOWN_FENCE = String\.fromCharCode\(96, 96, 96\)/);
+  assert.match(source, /protocol === "http:" \|\| protocol === "https:" \|\| protocol === "mailto:"/);
+  assert.match(source, /if \(!safeUrl\) return label;/);
+  assert.match(source, /target="_blank" rel="noreferrer noopener"/);
+  assert.match(source, /document\.createElement\(role === "assistant" \? "div" : "p"\)/);
+  assert.match(source, /paragraph\.className = "studio-markdown"/);
+  assert.match(source, /renderMarkdownInto\(paragraph, humanizeProjectedTurnText\(role, content\)\)/);
+  assert.match(source, /appendMarkdownDelta\(target\.text, payload\.delta \|\| ""\)/);
+  assert.match(source, /renderMarkdownInto\(target\.text, payload\.text\)/);
+  assert.match(source, /\.studio-markdown pre code/);
+  assert.match(source, /\.studio-markdown table/);
+});
+
+test("Agent Studio final refresh is bounded so artifact turns cannot remain visually pending forever", async () => {
+  const source = await readExtensionCompositeSource();
+  const extensionSource = await readFile(extensionSourcePath, "utf8");
+
+  assert.match(source, /const STUDIO_REFRESH_STATE_TIMEOUT_MS = Number\.isFinite/);
+  assert.match(source, /const STUDIO_MODEL_SNAPSHOT_TIMEOUT_MS = Number\.isFinite/);
+  assert.match(source, /const STUDIO_ARTIFACT_REQUEST_TIMEOUT_MS = Number\.isFinite/);
+  assert.match(source, /requestJson\(endpoint, "\/api\/v1\/models", \{[\s\S]*timeoutMs: STUDIO_MODEL_SNAPSHOT_TIMEOUT_MS/);
+  assert.match(source, /function requestBridge\(method, bridgePath, payload, \{ timeoutMs \} = \{\}\)/);
+  assert.match(source, /Bridge request timed out after \$\{boundedTimeoutMs\}ms/);
+  assert.match(source, /requestBridge\("GET", "state", undefined, \{[\s\S]*timeoutMs: STUDIO_REFRESH_STATE_TIMEOUT_MS/);
+  assert.match(source, /if \(data === "\[DONE\]"\) \{[\s\S]*finishResolve\(\{ statusCode, raw \}\);[\s\S]*request\.destroy\(\);/);
+  assert.match(source, /timeoutMs: STUDIO_ARTIFACT_REQUEST_TIMEOUT_MS/);
+  assert.match(source, /recoverStudioConversationArtifactAfterTimeout/);
+  assert.match(source, /recovered conversation artifact after bounded request timeout/);
+  assert.match(source, /const applyArtifactAction = async \(action, payload = \{\}\) =>/);
+  assert.match(source, /if \(result\?\.artifact\) \{[\s\S]*artifact = result\.artifact/);
+  assert.match(source, /if \(!generatedFiles\) \{[\s\S]*await applyArtifactAction\("rebuild"\)/);
+  assert.match(source, /const staleProductSelectionAvailable = Boolean/);
+  assert.doesNotMatch(source, /return requestJson\(daemonEndpoint\(\), `\/v1\/conversation-artifacts\/\$\{encodeURIComponent\(artifact\.id\)\}`/);
+  assert.doesNotMatch(extensionSource, /studioPanelNonce/);
 });

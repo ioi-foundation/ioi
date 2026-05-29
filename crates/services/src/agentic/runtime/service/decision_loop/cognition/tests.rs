@@ -6,12 +6,14 @@ use super::{
     build_operating_rules, build_recent_command_history_context, build_standard_prompt_assembly,
     build_strategy_instruction, build_tool_routing_contract,
     compact_browser_action_prompt_eligible, compact_browser_action_prompt_tools,
-    encode_browser_prompt_screenshot, filter_cognition_tools, format_prompt_assembly_report,
-    has_meaningful_visual_context, inference_error_system_fail_reason,
-    mailbox_connector_instruction, preflight_missing_capability, render_active_worker_instruction,
+    encode_browser_prompt_screenshot, filter_cognition_tools, filter_cognition_tools_with_recovery,
+    format_prompt_assembly_report, has_meaningful_visual_context,
+    inference_error_system_fail_reason, mailbox_connector_instruction,
+    preflight_missing_capability, render_active_worker_instruction,
     render_selected_parent_playbook_instruction, render_workspace_scope_instruction,
     reply_safe_browser_semantics_enabled, top_edge_jump_name, top_edge_jump_tool_call,
-    top_edge_jump_tool_call_with_grounded_selector, workspace_reference_context, PromptSection,
+    top_edge_jump_tool_call_with_grounded_selector, workspace_reference_context,
+    CognitionToolRecovery, PromptSection,
 };
 use crate::agentic::runtime::service::visual_loop::perception::PerceptionContext;
 use crate::agentic::runtime::types::{
@@ -1134,6 +1136,222 @@ fn web_research_prompt_excludes_heavy_diagnostic_tool_surface() {
             "agent__delegate"
         ]
     );
+}
+
+#[test]
+fn workspace_ops_prompt_excludes_connector_catalogue_from_local_cognition() {
+    let resolved = resolved_intent("workspace.context", IntentScopeProfile::WorkspaceOps);
+    let filtered = filter_cognition_tools(
+        &[
+            tool("chat__reply"),
+            tool("agent__complete"),
+            tool("file__read"),
+            tool("file__search"),
+            tool("file__info"),
+            tool("shell__run"),
+            tool("connector__google__gmail_read_emails"),
+            tool("browser__click"),
+            tool("media__generate_video"),
+        ],
+        Some(&resolved),
+        false,
+        "Where are local/native model providers registered in this repo?",
+        "",
+        "",
+    );
+    let names = filtered
+        .iter()
+        .map(|tool| tool.name.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        names,
+        vec![
+            "chat__reply",
+            "agent__complete",
+            "file__read",
+            "file__search",
+            "file__info",
+            "shell__run"
+        ]
+    );
+}
+
+#[test]
+fn workspace_ops_no_effect_file_recovery_forces_reply_only_surface() {
+    let resolved = resolved_intent("workspace.context", IntentScopeProfile::WorkspaceOps);
+    let filtered = filter_cognition_tools_with_recovery(
+        &[
+            tool("chat__reply"),
+            tool("agent__complete"),
+            tool("file__read"),
+            tool("file__search"),
+            tool("shell__run"),
+        ],
+        Some(&resolved),
+        false,
+        "Where are local/native model providers registered in this repo?",
+        "",
+        "",
+        CognitionToolRecovery {
+            consecutive_failures: 1,
+            last_failure_reason: Some(
+                "ERROR_CLASS=NoEffectAfterAction incident_skip_root_tool=file__search",
+            ),
+            workspace_context_ready_for_reply: false,
+        },
+    );
+    let names = filtered
+        .iter()
+        .map(|tool| tool.name.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(names, vec!["chat__reply"]);
+}
+
+#[test]
+fn workspace_ops_no_effect_fingerprint_recovery_forces_reply_only_surface() {
+    let resolved = resolved_intent("workspace.context", IntentScopeProfile::WorkspaceOps);
+    let filtered = filter_cognition_tools_with_recovery(
+        &[
+            tool("chat__reply"),
+            tool("agent__complete"),
+            tool("file__read"),
+            tool("file__search"),
+        ],
+        Some(&resolved),
+        false,
+        "What does progress look like per .internal/plans/example.md?",
+        "",
+        "",
+        CognitionToolRecovery {
+            consecutive_failures: 1,
+            last_failure_reason: Some("NoEffectAfterAction (fingerprint: attempt::abc123)"),
+            workspace_context_ready_for_reply: false,
+        },
+    );
+    let names = filtered
+        .iter()
+        .map(|tool| tool.name.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(names, vec!["chat__reply"]);
+}
+
+#[test]
+fn workspace_ops_ready_context_forces_reply_only_surface() {
+    let resolved = resolved_intent("workspace.context", IntentScopeProfile::WorkspaceOps);
+    let filtered = filter_cognition_tools_with_recovery(
+        &[
+            tool("chat__reply"),
+            tool("agent__complete"),
+            tool("file__read"),
+            tool("file__search"),
+            tool("shell__run"),
+        ],
+        Some(&resolved),
+        false,
+        "Where are local/native model providers registered in this repo?",
+        "",
+        "",
+        CognitionToolRecovery {
+            consecutive_failures: 0,
+            last_failure_reason: None,
+            workspace_context_ready_for_reply: true,
+        },
+    );
+    let names = filtered
+        .iter()
+        .map(|tool| tool.name.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(names, vec!["chat__reply"]);
+}
+
+#[test]
+fn direct_chat_reply_sanitizer_removes_think_blocks() {
+    let cleaned = super::sanitize_direct_chat_reply_output(
+        "<think>I should not show this.</think>\nHere is the final answer.",
+    );
+
+    assert_eq!(cleaned, "Here is the final answer.");
+}
+
+#[test]
+fn final_reply_evidence_context_prefers_successful_relevant_tool_output() {
+    let history = vec![
+        chat_message(
+            "tool",
+            "Tool Output (file__read):\nline one\n### Stage 3: Retrieval\nNext step: Stage 4 repo-aware read/search.\n",
+            1,
+        ),
+        chat_message(
+            "tool",
+            "Tool Output (file__read): ERROR_CLASS=NoEffectAfterAction skipped replay",
+            2,
+        ),
+    ];
+
+    let context = super::final_reply_evidence_context(
+        &history,
+        "What does progress look like per .internal/plans/example.md?",
+        "fallback",
+    );
+
+    assert!(context.contains("Stage 3"), "{context}");
+    assert!(context.contains("Stage 4"), "{context}");
+    assert!(!context.contains("NoEffectAfterAction"), "{context}");
+}
+
+#[test]
+fn final_reply_evidence_context_keeps_markdown_stage_outline_for_progress_questions() {
+    let history = vec![chat_message(
+        "tool",
+        concat!(
+            "Tool Output (file__read):\n",
+            "# Example Guide\n",
+            "Intro with progress words only.\n",
+            "### Stage 3: Currentness And Retrieval Gate\n",
+            "Stage body.\n",
+            "### Stage 4: Repo-Aware Read/Search\n",
+            "Stage body.\n",
+        ),
+        1,
+    )];
+
+    let context = super::final_reply_evidence_context(
+        &history,
+        "What does progress look like per .internal/plans/example-guide.md?",
+        "fallback",
+    );
+
+    assert!(context.contains("Markdown heading outline"), "{context}");
+    assert!(context.contains("Stage 3"), "{context}");
+    assert!(context.contains("Stage 4"), "{context}");
+}
+
+#[test]
+fn workspace_recent_context_preserves_long_plan_stage_outline() {
+    let long_intro = "Intro line about progress.\n".repeat(180);
+    let history = vec![chat_message(
+        "tool",
+        &format!(
+            "Tool Output (file__read):\n{}### Stage 3: Currentness And Retrieval Gate\nStage body.\n### Stage 4: Repo-Aware Read/Search\nStage body.\n",
+            long_intro
+        ),
+        1,
+    )];
+
+    let context = super::contextual_recent_session_events_context(
+        &history,
+        false,
+        IntentScopeProfile::WorkspaceOps,
+        "What does progress look like per .internal/plans/example-guide.md?",
+    );
+
+    assert!(
+        context.starts_with("Relevant workspace evidence"),
+        "{context}"
+    );
+    assert!(context.contains("Markdown heading outline"), "{context}");
+    assert!(context.contains("Stage 3"), "{context}");
+    assert!(context.contains("Stage 4"), "{context}");
 }
 
 #[test]

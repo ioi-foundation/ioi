@@ -185,6 +185,130 @@ export async function bootstrapNativeRuntimeModelRoute({
   providerId = DEFAULT_RUNTIME_PROVIDER_ID,
   backendId = DEFAULT_RUNTIME_BACKEND_ID,
 } = {}) {
+  const configuredLlamaCppModelPath = firstNonEmptyEnv(process.env, [
+    "IOI_LLAMA_CPP_MODEL_PATH",
+  ]);
+  if (configuredLlamaCppModelPath) {
+    if (!existsSync(configuredLlamaCppModelPath)) {
+      throw new Error(`Configured llama.cpp model path does not exist: ${configuredLlamaCppModelPath}`);
+    }
+    const llamaModelId =
+      firstNonEmptyEnv(process.env, [
+        "IOI_LLAMA_CPP_MODEL_ID",
+        "IOI_DAEMON_MODEL_ID",
+        "IOI_RUNTIME_MODEL",
+      ]) ?? modelId;
+    const llamaEndpointId =
+      firstNonEmptyEnv(process.env, ["IOI_LLAMA_CPP_ENDPOINT_ID"]) ?? "endpoint.electron.model-gui";
+    const llamaRouteId =
+      firstNonEmptyEnv(process.env, [
+        "IOI_LLAMA_CPP_ROUTE_ID",
+        "IOI_RUNTIME_MODEL_ROUTE_ID",
+      ]) ?? routeId;
+    const contextLength = Number(firstNonEmptyEnv(process.env, ["IOI_LLAMA_CPP_CONTEXT_LENGTH"]) ?? 4096);
+    const parallel = Number(firstNonEmptyEnv(process.env, ["IOI_LLAMA_CPP_PARALLEL"]) ?? 1);
+    const gpu = firstNonEmptyEnv(process.env, ["IOI_LLAMA_CPP_GPU"]) ?? "auto";
+
+    const imported = await requestJson(daemonEndpoint, "/api/v1/models/import", {
+      method: "POST",
+      token,
+      body: {
+        model_id: llamaModelId,
+        provider_id: "provider.llama-cpp",
+        path: configuredLlamaCppModelPath,
+        import_mode: "reference",
+        capabilities: ["chat", "responses", "structured_output", "code"],
+      },
+    });
+    const mounted = await requestJson(daemonEndpoint, "/api/v1/models/mount", {
+      method: "POST",
+      token,
+      body: {
+        id: llamaEndpointId,
+        model_id: llamaModelId,
+        provider_id: "provider.llama-cpp",
+        backend_id: "backend.llama-cpp",
+        load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: false },
+      },
+    });
+    const loaded = await requestJson(daemonEndpoint, "/api/v1/models/load", {
+      method: "POST",
+      token,
+      body: {
+        endpoint_id: mounted.id,
+        load_policy: { mode: "manual", autoEvict: false },
+        load_options: {
+          gpu,
+          contextLength,
+          parallel,
+          ttlSeconds: 900,
+          identifier: "autopilot-native-llama-cpp-validation",
+          embeddings: process.env.IOI_LLAMA_CPP_ENABLE_EMBEDDINGS === "1",
+        },
+      },
+    });
+    const route = await requestJson(daemonEndpoint, "/api/v1/routes", {
+      method: "POST",
+      token,
+      body: {
+        id: llamaRouteId,
+        role: "agent",
+        description: "Autopilot-native local route backed by configured llama.cpp runtime.",
+        privacy: "local_only",
+        quality: "local_native",
+        max_cost_usd: 0,
+        fallback: [mounted.id],
+        provider_eligibility: ["llama_cpp"],
+        denied_providers: [
+          "lm_studio",
+          "ollama",
+          "openai",
+          "anthropic",
+          "gemini",
+          "vllm",
+          "custom_http",
+          "openai_compatible",
+          "ioi_fixture",
+          "ioi_native_local",
+        ],
+      },
+    });
+    const routeTest = await requestJson(daemonEndpoint, `/api/v1/routes/${llamaRouteId}/test`, {
+      method: "POST",
+      token,
+      body: {
+        capability: "chat",
+        model: llamaModelId,
+        model_policy: {
+          privacy: "local_only",
+          deny_fixture_models: true,
+          denied_backends: ["fixture", "ioi_fixture"],
+          denied_providers: ["provider.autopilot.local", "provider.local.folder"],
+        },
+      },
+    });
+
+    return {
+      modelId: llamaModelId,
+      endpointId: mounted.id,
+      routeId: route.id,
+      providerId: "provider.llama-cpp",
+      backendId: "backend.llama-cpp",
+      artifactPath: configuredLlamaCppModelPath,
+      importedId: imported.id,
+      mountedEndpointId: mounted.id,
+      loadInstanceId: loaded.id,
+      loadStatus: loaded.status,
+      loadedBackendId: loaded.backendId,
+      routeProviderEligibility: route.provider_eligibility || route.providerEligibility,
+      routeDeniedProviders: route.denied_providers || route.deniedProviders,
+      routeTestEndpointId: routeTest.selection?.endpoint?.id,
+      routeTestBackendId: routeTest.selection?.backend?.id,
+      runtimeEngine: "autopilot_native_llama_cpp",
+      fixtureFree: true,
+    };
+  }
+
   const artifactDir = workspaceDir || join(repoRoot, ".ioi", "autopilot-runtime-fixtures");
   mkdirSync(artifactDir, { recursive: true });
   const artifactPath = join(artifactDir, `${modelId.replace(/[^a-zA-Z0-9_.-]+/g, "-")}.Q4_K_M.gguf`);

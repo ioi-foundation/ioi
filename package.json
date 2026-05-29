@@ -38,6 +38,8 @@
     "goal:autopilot-workbench-mode-shell:run": "node scripts/run-autopilot-workbench-mode-shell-goal.mjs --run",
     "goal:autopilot-agent-studio-operational-chat": "node scripts/run-autopilot-agent-studio-operational-chat-goal.mjs --preflight",
     "goal:autopilot-agent-studio-operational-chat:run": "node scripts/run-autopilot-agent-studio-operational-chat-goal.mjs --run",
+    "goal:autopilot-agent-studio-live-gui-validation": "node scripts/run-autopilot-agent-studio-live-gui-validation.mjs --preflight",
+    "goal:autopilot-agent-studio-live-gui-validation:run": "node scripts/run-autopilot-agent-studio-live-gui-validation.mjs --run",
     "goal:autopilot-agent-studio-chat-ux-hardening": "node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --preflight",
     "goal:autopilot-agent-studio-chat-ux-hardening:run": "node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run",
     "goal:autopilot-agent-studio-runtime-cockpit-parity": "node scripts/run-autopilot-agent-studio-runtime-cockpit-parity-goal.mjs --preflight",

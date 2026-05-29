@@ -2,10 +2,13 @@ use super::{
     ensure_agent_running_or_resume_retry_pause, handle_step, maybe_direct_inline_author_tool_call,
     maybe_run_optimizer_recovery, maybe_typed_runtime_browser_navigate_tool_call,
     maybe_typed_runtime_install_resolve_tool_call, maybe_typed_runtime_shell_run_tool_call,
-    queue_parent_playbook_await_request, queue_root_playbook_delegate_request,
-    should_clear_stale_canonical_pending, typed_runtime_route_resolved_intent,
+    maybe_typed_runtime_workspace_context_tool_call, queue_parent_playbook_await_request,
+    queue_root_playbook_delegate_request, should_clear_stale_canonical_pending,
+    typed_runtime_route_resolved_intent,
 };
 use crate::agentic::runtime::keys::{get_parent_playbook_run_key, get_state_key};
+use crate::agentic::runtime::service::decision_loop::intent_resolver::is_tool_allowed_for_resolution;
+use crate::agentic::runtime::service::tool_execution::record_execution_evidence_with_value;
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::{
     AgentMode, AgentState, AgentStatus, ExecutionTier, ParentPlaybookRun, ParentPlaybookStatus,
@@ -186,6 +189,34 @@ fn typed_runtime_action_frame(intent_id: &str, target_kind: &str) -> RuntimeRout
     }
 }
 
+fn typed_workspace_frame_with_evidence(evidence_kind: &str, value: &str) -> RuntimeRouteFrame {
+    RuntimeRouteFrame {
+        intent_id: "workspace.context".to_string(),
+        route_family: "workspace".to_string(),
+        output_intent: "tool_execution".to_string(),
+        direct_answer_allowed: true,
+        target: value.to_string(),
+        target_kind: Some("workspace_context".to_string()),
+        host_mutation: false,
+        required_capabilities: vec![
+            "prim:file.search".to_string(),
+            "prim:file.read".to_string(),
+            "prim:workspace.read".to_string(),
+        ],
+        typed_evidence: vec![RuntimeIntentEvidence {
+            evidence_kind: evidence_kind.to_string(),
+            value: value.to_string(),
+            source: "test".to_string(),
+            confidence: Some(92),
+        }],
+        typed_required_capabilities: Vec::new(),
+        host_mutation_scope: None,
+        runtime_action: None,
+        install_request: None,
+        provenance: Some("test".to_string()),
+    }
+}
+
 #[test]
 fn typed_runtime_install_route_dispatches_resolver_from_structured_frame() {
     let mut state = test_agent_state();
@@ -228,6 +259,89 @@ fn typed_runtime_action_frames_seed_tool_scoped_intents() {
 }
 
 #[test]
+fn typed_runtime_studio_context_frames_seed_tool_scoped_intents() {
+    let web = typed_runtime_route_resolved_intent(&RuntimeRouteFrame {
+        intent_id: "retrieval.answer".to_string(),
+        route_family: "web_research".to_string(),
+        output_intent: "tool_execution".to_string(),
+        direct_answer_allowed: false,
+        target: "post-quantum computers".to_string(),
+        target_kind: Some("source_grounding".to_string()),
+        host_mutation: false,
+        required_capabilities: vec![
+            "prim:conversation.reply".to_string(),
+            "prim:web.search".to_string(),
+            "prim:web.read".to_string(),
+        ],
+        typed_evidence: vec![RuntimeIntentEvidence {
+            evidence_kind: "studio_intent_frame".to_string(),
+            value: "agent".to_string(),
+            source: "test".to_string(),
+            confidence: Some(92),
+        }],
+        typed_required_capabilities: Vec::new(),
+        host_mutation_scope: None,
+        runtime_action: None,
+        install_request: None,
+        provenance: Some("test".to_string()),
+    })
+    .expect("retrieval route frame should seed web research intent");
+    assert_eq!(web.intent_id, "retrieval.answer");
+    assert_eq!(web.scope, IntentScopeProfile::WebResearch);
+    assert!(web
+        .required_capabilities
+        .contains(&CapabilityId::from("web.retrieve")));
+    assert!(is_tool_allowed_for_resolution(Some(&web), "web__search"));
+    assert!(is_tool_allowed_for_resolution(Some(&web), "web__read"));
+    assert!(!is_tool_allowed_for_resolution(Some(&web), "file__read"));
+
+    let workspace = typed_runtime_route_resolved_intent(&RuntimeRouteFrame {
+        intent_id: "workspace.context".to_string(),
+        route_family: "workspace".to_string(),
+        output_intent: "tool_execution".to_string(),
+        direct_answer_allowed: true,
+        target: "local/native model providers".to_string(),
+        target_kind: Some("workspace_context".to_string()),
+        host_mutation: false,
+        required_capabilities: vec![
+            "prim:conversation.reply".to_string(),
+            "prim:file.search".to_string(),
+            "prim:file.read".to_string(),
+            "prim:workspace.read".to_string(),
+        ],
+        typed_evidence: vec![RuntimeIntentEvidence {
+            evidence_kind: "studio_intent_frame".to_string(),
+            value: "agent".to_string(),
+            source: "test".to_string(),
+            confidence: Some(92),
+        }],
+        typed_required_capabilities: Vec::new(),
+        host_mutation_scope: None,
+        runtime_action: None,
+        install_request: None,
+        provenance: Some("test".to_string()),
+    })
+    .expect("workspace route frame should seed workspace intent despite direct flag");
+    assert_eq!(workspace.intent_id, "workspace.context");
+    assert_eq!(workspace.scope, IntentScopeProfile::WorkspaceOps);
+    assert!(workspace
+        .required_capabilities
+        .contains(&CapabilityId::from("file.read")));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&workspace),
+        "file__read"
+    ));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&workspace),
+        "file__search"
+    ));
+    assert!(!is_tool_allowed_for_resolution(
+        Some(&workspace),
+        "file__write"
+    ));
+}
+
+#[test]
 fn typed_runtime_browser_frame_dispatches_explicit_url_navigation() {
     let mut state = test_agent_state();
     state.runtime_route_frame = Some(typed_runtime_action_frame(
@@ -263,6 +377,122 @@ fn typed_runtime_shell_frame_dispatches_explicit_command_plan() {
         .any(|action| { action.starts_with("runtime_route_frame_dispatch:shell__run") }));
 
     assert!(maybe_typed_runtime_shell_run_tool_call(&mut state).is_none());
+}
+
+#[test]
+fn typed_runtime_workspace_frame_dispatches_explicit_path_read() {
+    let mut state = test_agent_state();
+    state.runtime_route_frame = Some(typed_workspace_frame_with_evidence(
+        "workspace_path",
+        ".internal/plans/example-master-guide.md",
+    ));
+
+    let tool_call = maybe_typed_runtime_workspace_context_tool_call(&mut state)
+        .expect("workspace path route frame should dispatch file__read");
+    assert!(tool_call.contains("\"name\":\"file__read\""));
+    assert!(tool_call.contains(".internal/plans/example-master-guide.md"));
+    assert!(state
+        .recent_actions
+        .iter()
+        .any(|action| action.starts_with("runtime_route_frame_dispatch:workspace_context")));
+
+    assert!(maybe_typed_runtime_workspace_context_tool_call(&mut state).is_none());
+}
+
+#[test]
+fn typed_runtime_workspace_frame_stops_after_context_evidence() {
+    let mut state = test_agent_state();
+    state.runtime_route_frame = Some(typed_workspace_frame_with_evidence(
+        "workspace_search",
+        "Where are local/native model providers registered in this repo?",
+    ));
+    record_execution_evidence_with_value(
+        &mut state.tool_execution_log,
+        "file_context",
+        "step=1;tool=file__search;path=.;regex=local|native|model|providers|registered;file_pattern=*"
+            .to_string(),
+    );
+
+    assert!(maybe_typed_runtime_workspace_context_tool_call(&mut state).is_none());
+}
+
+#[test]
+fn typed_runtime_workspace_frame_does_not_reuse_previous_path_context_for_search() {
+    let mut state = test_agent_state();
+    state.runtime_route_frame = Some(typed_workspace_frame_with_evidence(
+        "workspace_search",
+        "Where are local/native model providers registered in this repo?",
+    ));
+    record_execution_evidence_with_value(
+        &mut state.tool_execution_log,
+        "file_context",
+        "step=1;tool=file__read;path=.internal/plans/example-master-guide.md".to_string(),
+    );
+    state.recent_actions.push(
+        "runtime_route_frame_dispatch:workspace_context:file__read:.internal/plans/example-master-guide.md"
+            .to_string(),
+    );
+
+    let tool_call = maybe_typed_runtime_workspace_context_tool_call(&mut state)
+        .expect("a new workspace search target should not be suppressed by previous path context");
+    assert!(tool_call.contains("\"name\":\"file__search\""));
+    assert!(tool_call.contains("local|native|model|providers|registered"));
+}
+
+#[test]
+fn typed_runtime_workspace_frame_does_not_reuse_previous_search_context_for_new_target() {
+    let mut state = test_agent_state();
+    state.runtime_route_frame = Some(typed_workspace_frame_with_evidence(
+        "workspace_search",
+        "Explain how Agent Studio decides between Ask and Agent mode in this repo.",
+    ));
+    record_execution_evidence_with_value(
+        &mut state.tool_execution_log,
+        "file_context",
+        "step=1;tool=file__search;path=.;regex=local|native|model|providers|registered;file_pattern=*"
+            .to_string(),
+    );
+    state.recent_actions.push(
+        "runtime_route_frame_dispatch:workspace_context:file__search:local|native|model|providers|registered"
+            .to_string(),
+    );
+
+    let tool_call = maybe_typed_runtime_workspace_context_tool_call(&mut state)
+        .expect("a different workspace search target should get its own search");
+    assert!(tool_call.contains("\"name\":\"file__search\""));
+    assert!(tool_call.contains("Agent|Studio|decides|Ask|mode"));
+}
+
+#[test]
+fn typed_runtime_workspace_frame_dispatches_bounded_search() {
+    let mut state = test_agent_state();
+    state.runtime_route_frame = Some(typed_workspace_frame_with_evidence(
+        "workspace_search",
+        "Where are local/native model providers registered in this repo?",
+    ));
+
+    let tool_call = maybe_typed_runtime_workspace_context_tool_call(&mut state)
+        .expect("workspace search route frame should dispatch file__search");
+    assert!(tool_call.contains("\"name\":\"file__search\""));
+    assert!(tool_call.contains("local|native|model|providers|registered"));
+    assert!(tool_call.contains("\"path\":\".\""));
+
+    assert!(maybe_typed_runtime_workspace_context_tool_call(&mut state).is_none());
+}
+
+#[test]
+fn typed_runtime_workspace_frame_keeps_code_domain_search_terms() {
+    let mut state = test_agent_state();
+    state.runtime_route_frame = Some(typed_workspace_frame_with_evidence(
+        "workspace_search",
+        "Explain how Agent Studio decides between Ask and Agent mode in this repo.",
+    ));
+
+    let tool_call = maybe_typed_runtime_workspace_context_tool_call(&mut state)
+        .expect("workspace search route frame should dispatch file__search");
+    assert!(tool_call.contains("\"name\":\"file__search\""));
+    assert!(tool_call.contains("Agent|Studio|decides|Ask|mode"));
+    assert!(!tool_call.contains("and|"));
 }
 
 #[test]

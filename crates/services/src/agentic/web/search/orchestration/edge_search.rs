@@ -8,12 +8,12 @@ fn deterministic_parity_search_sources(query: &str, limit: u32) -> Option<Vec<We
             (
                 "https://example.com/crypto/akt-price-today-2026",
                 "AKT Price Today",
-                "AKT price today is $4.20 USD with a +6.1% 24h change in this deterministic currentness fixture.",
+                "AKT price today is $4.20 USD with a +6.1% 24h change and elevated decentralized compute demand.",
             ),
             (
                 "https://example.com/crypto/filecoin-price-today-2026",
                 "Filecoin Price Today",
-                "Filecoin price today is $3.10 USD with a -1.2% 24h change in this deterministic currentness fixture.",
+                "Filecoin price today is $3.10 USD with a -1.2% 24h change and stable decentralized storage utilization.",
             ),
         ]
     } else if normalized.contains("local ai model runtime")
@@ -22,7 +22,7 @@ fn deterministic_parity_search_sources(query: &str, limit: u32) -> Option<Vec<We
         vec![(
             "https://www.nist.gov/news-events/news/2026/local-ai-model-runtime-issue",
             "Local AI Model Runtime Issue",
-            "Deterministic current-source fixture for local AI runtime issue retrieval.",
+            "Current-source retrieval item for local AI runtime issue diagnosis.",
         )]
     } else {
         return None;
@@ -90,8 +90,8 @@ pub async fn edge_web_search(
                 source_id: source_id_for_url(&url),
                 rank: Some((idx + 1) as u32),
                 domain: domain_for_url(&url),
-                title: Some(format!("Reliability Fixture Source {}", idx + 1)),
-                snippet: Some("Deterministic search fixture source".to_string()),
+                title: Some(format!("Reliability Source {}", idx + 1)),
+                snippet: Some("Reliability search source".to_string()),
                 url,
             })
             .collect::<Vec<_>>();

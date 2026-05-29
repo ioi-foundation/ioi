@@ -55,6 +55,33 @@ function studioCanonicalRuntimeNames(items = [], fields = ["toolId", "label"]) {
   ));
 }
 
+function humanToolName(value = "") {
+  return String(value || "")
+    .replace(/^browser__/, "browser ")
+    .replace(/^file__/, "file ")
+    .replace(/^shell__/, "shell ")
+    .replace(/^agent__/, "agent ")
+    .replace(/__+/g, " ")
+    .replace(/[_./-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function artifactLabel(artifact = {}) {
+  const classId = String(artifact.artifactClass || artifact.artifact_class || "");
+  const title = String(artifact.title || "artifact");
+  if (classId === "static_html_js" && /\b(website|site|webpage|landing page)\b/i.test(title)) {
+    return `Created website artifact: ${title}`;
+  }
+  if (classId === "react_vite_app") return `Created app preview artifact: ${title}`;
+  if (classId === "imported_document") return `Prepared document artifact: ${title}`;
+  if (classId === "diff_patch") return `Prepared patch artifact: ${title}`;
+  if (classId === "dataset_chart") return `Prepared dataset artifact: ${title}`;
+  if (classId === "browser_observation") return `Captured browser session artifact: ${title}`;
+  return `Created artifact: ${title}`;
+}
+
 function studioDocumentedWorkRecord(projection = {}, cursor = {}) {
   const actionCards = firstArray(projection.actionCards).slice(cursor.actionCards || 0);
   const policyLeases = firstArray(projection.policyLeases).slice(cursor.policyLeases || 0);
@@ -64,50 +91,80 @@ function studioDocumentedWorkRecord(projection = {}, cursor = {}) {
   const browserCards = firstArray(projection.browserCards).slice(cursor.browserCards || 0);
   const workerCards = firstArray(projection.workerCards).slice(cursor.workerCards || 0);
   const computerUseSessions = firstArray(projection.computerUseSessions).slice(cursor.computerUseSessions || 0);
+  const conversationArtifacts = firstArray(projection.conversationArtifacts).slice(cursor.conversationArtifacts || 0);
+  const pendingWorklog = firstArray(projection.pendingWorklog).slice(cursor.pendingWorklog || 0);
   const receipts = firstArray(projection.receipts).slice(cursor.receipts || 0);
   const lines = [];
   const summaryParts = [];
+  const activityLines = [];
   const actionToolNames = studioCanonicalRuntimeNames(actionCards).filter((name) => name.toLowerCase() !== "chat__reply");
   const commandToolNames = studioCanonicalRuntimeNames(commandOutputs);
+  const pendingLabels = uniqueStrings(pendingWorklog.map((step) => step?.label || step?.title || ""));
+  const pendingRenderCount = pendingLabels.filter((label) => /\b(preview|render|artifact)\b/i.test(label)).length;
   const retainedShellLifecycle = ["shell__start", "shell__status", "shell__input", "shell__terminate", "shell__reset"]
     .every((toolName) => commandToolNames.includes(toolName));
   if (actionToolNames.length) {
     lines.push(`Used ${actionToolNames.length} daemon tool${actionToolNames.length === 1 ? "" : "s"}`);
     summaryParts.push(`used ${actionToolNames.length} tool${actionToolNames.length === 1 ? "" : "s"}`);
+    for (const name of actionToolNames.slice(0, 6)) {
+      activityLines.push(`Used ${humanToolName(name)}.`);
+    }
   }
   if (commandOutputs.length) {
     if (retainedShellLifecycle) {
       lines.push("Controlled 1 retained shell session");
       summaryParts.push("controlled 1 shell session");
+      activityLines.push("Controlled a retained shell session.");
     } else {
       const commandCount = commandToolNames.length || commandOutputs.length;
       lines.push(`Ran ${commandCount} sandboxed command${commandCount === 1 ? "" : "s"}`);
       summaryParts.push(`ran ${commandCount} command${commandCount === 1 ? "" : "s"}`);
+      for (const command of commandOutputs.slice(0, 4)) {
+        activityLines.push(`Ran ${command.label || command.toolId || "sandboxed command"}.`);
+      }
     }
   }
   if (diagnosticGates.length) {
     lines.push(`Checked ${diagnosticGates.length} diagnostic/test gate${diagnosticGates.length === 1 ? "" : "s"}`);
     summaryParts.push(`checked ${diagnosticGates.length} gate${diagnosticGates.length === 1 ? "" : "s"}`);
+    activityLines.push(`Checked ${diagnosticGates.length} diagnostic/test gate${diagnosticGates.length === 1 ? "" : "s"}.`);
   }
   if (diffHunks.length) {
     lines.push(`Prepared ${diffHunks.length} patch hunk${diffHunks.length === 1 ? "" : "s"} for review`);
     summaryParts.push(`prepared ${diffHunks.length} patch${diffHunks.length === 1 ? "" : "es"}`);
+    activityLines.push(`Prepared ${diffHunks.length} reviewable patch hunk${diffHunks.length === 1 ? "" : "s"}.`);
   }
   if (policyLeases.length) {
     lines.push(`Evaluated ${policyLeases.length} policy lease${policyLeases.length === 1 ? "" : "s"}`);
     summaryParts.push(`checked ${policyLeases.length} policy gate${policyLeases.length === 1 ? "" : "s"}`);
+    activityLines.push(`Checked ${policyLeases.length} policy gate${policyLeases.length === 1 ? "" : "s"}.`);
   }
   if (browserCards.length) {
     lines.push(`Observed ${browserCards.length} browser status item${browserCards.length === 1 ? "" : "s"}`);
     summaryParts.push(`observed ${browserCards.length} browser state${browserCards.length === 1 ? "" : "s"}`);
+    activityLines.push(`Observed ${browserCards.length} browser state update${browserCards.length === 1 ? "" : "s"}.`);
   }
   if (computerUseSessions.length) {
     lines.push(`Managed ${computerUseSessions.length} browser/computer live session${computerUseSessions.length === 1 ? "" : "s"}`);
     summaryParts.push(`managed ${computerUseSessions.length} live session${computerUseSessions.length === 1 ? "" : "s"}`);
+    activityLines.push(`Managed ${computerUseSessions.length} live browser/computer session${computerUseSessions.length === 1 ? "" : "s"}.`);
+  }
+  if (conversationArtifacts.length) {
+    lines.push(`Created ${conversationArtifacts.length} conversation artifact${conversationArtifacts.length === 1 ? "" : "s"}`);
+    summaryParts.push(`created ${conversationArtifacts.length} artifact${conversationArtifacts.length === 1 ? "" : "s"}`);
+    for (const artifact of conversationArtifacts.slice(0, 4)) {
+      activityLines.push(artifactLabel(artifact));
+    }
+  }
+  if (pendingRenderCount && !conversationArtifacts.length) {
+    lines.push("Rendered artifact preview");
+    summaryParts.push("rendered preview");
+    activityLines.push("Rendered an artifact preview.");
   }
   if (workerCards.length) {
     lines.push(`Observed ${workerCards.length} worker/subagent item${workerCards.length === 1 ? "" : "s"}`);
     summaryParts.push(`observed ${workerCards.length} worker${workerCards.length === 1 ? "" : "s"}`);
+    activityLines.push(`Observed ${workerCards.length} worker/subagent update${workerCards.length === 1 ? "" : "s"}.`);
   }
   const receiptRefs = normalizeReceiptRefs(
     ...actionCards,
@@ -117,7 +174,9 @@ function studioDocumentedWorkRecord(projection = {}, cursor = {}) {
     ...diffHunks,
     ...browserCards,
     ...computerUseSessions,
+    ...conversationArtifacts,
     ...workerCards,
+    ...pendingWorklog,
     ...receipts,
   );
   if (!lines.length) {
@@ -128,9 +187,11 @@ function studioDocumentedWorkRecord(projection = {}, cursor = {}) {
     durationMs: Math.max(0, Date.now() - Number(cursor.startedAtMs || Date.now())),
     lines,
     summaryParts,
+    activityLines,
     receiptRefs,
     stepCount: lines.length,
     sessionCards: computerUseSessions.slice(-3),
+    artifactCards: conversationArtifacts.slice(-6),
   };
 }
 

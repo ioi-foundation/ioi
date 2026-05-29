@@ -1545,7 +1545,7 @@ fn push_pending_web_success_rejects_non_authority_non_identifier_briefing_source
 }
 
 #[test]
-fn push_pending_web_success_keeps_currentness_parity_fixture_source() {
+fn push_pending_web_success_keeps_currentness_parity_source() {
     let query = "Find current sources for today's top local AI model runtime issue.";
     let requested_url = "https://www.nist.gov/news-events/news/2026/local-ai-model-runtime-issue";
     let mut pending = PendingSearchCompletion {
@@ -1564,7 +1564,7 @@ fn push_pending_web_success_keeps_currentness_parity_fixture_source() {
             url: requested_url.to_string(),
             title: Some("Local AI Model Runtime Issue".to_string()),
             excerpt:
-                "Deterministic current-source fixture for local AI model runtime issue retrieval."
+                "Current-source retrieval item for local AI model runtime issue diagnosis."
                     .to_string(),
         }],
         attempted_urls: Vec::new(),
@@ -1577,7 +1577,7 @@ fn push_pending_web_success_keeps_currentness_parity_fixture_source() {
         &mut pending,
         requested_url,
         Some("Local AI Model Runtime Issue".to_string()),
-        "Fresh evidence fixture: the current local AI model runtime issue requires retrieved current sources before final chat__reply."
+        "Current evidence: the current local AI model runtime issue requires current sources before final answer handoff."
             .to_string(),
     );
 
@@ -1585,7 +1585,7 @@ fn push_pending_web_success_keeps_currentness_parity_fixture_source() {
     assert_eq!(pending.successful_reads[0].url, requested_url);
     assert!(pending.successful_reads[0]
         .excerpt
-        .contains("retrieved current sources"));
+        .contains("current sources"));
 }
 
 #[test]

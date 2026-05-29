@@ -61,11 +61,11 @@ export class RuntimeAgentServiceCommandAdapter {
     return this.callBridge("start_thread", input);
   }
 
-  async submitTurn(input) {
-    return this.callBridge("submit_turn", input);
+  async submitTurn(input, options = {}) {
+    return this.callBridge("submit_turn", input, options);
   }
 
-  async callBridge(operation, input) {
+  async callBridge(operation, input, options = {}) {
     const request = {
       schema_version: COMMAND_SCHEMA_VERSION,
       bridge_id: this.bridgeId,
@@ -80,6 +80,7 @@ export class RuntimeAgentServiceCommandAdapter {
       timeoutMs: this.timeoutMs,
       maxOutputBytes: this.maxOutputBytes,
       request,
+      onRuntimeEvent: options.onRuntimeEvent,
     });
     if (response?.ok === false) {
       throw new RuntimeAgentServiceCommandAdapterError(
@@ -125,6 +126,7 @@ function invokeJsonCommand({
   timeoutMs,
   maxOutputBytes,
   request,
+  onRuntimeEvent,
 }) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -134,6 +136,7 @@ function invokeJsonCommand({
       windowsHide: true,
     });
     let stdout = "";
+    let stdoutLineBuffer = "";
     let stderr = "";
     let timedOut = false;
     let settled = false;
@@ -167,8 +170,28 @@ function invokeJsonCommand({
         ),
       );
     });
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString("utf8");
+    const appendStdoutLine = (line, { final = false } = {}) => {
+      if (!line && !final) return;
+      const streamEvent = bridgeRuntimeEventFromLine(line);
+      if (streamEvent) {
+        try {
+          onRuntimeEvent?.(streamEvent);
+        } catch (error) {
+          child.kill("SIGKILL");
+          finish(
+            new RuntimeAgentServiceCommandAdapterError(
+              "RuntimeAgentService bridge runtime event callback failed.",
+              {
+                operation,
+                bridgeId,
+                error: String(error?.message ?? error),
+              },
+            ),
+          );
+        }
+        return;
+      }
+      stdout += `${line}${final ? "" : "\n"}`;
       if (Buffer.byteLength(stdout, "utf8") > maxOutputBytes) {
         child.kill("SIGKILL");
         finish(
@@ -177,6 +200,14 @@ function invokeJsonCommand({
             { operation, bridgeId, maxOutputBytes },
           ),
         );
+      }
+    };
+    child.stdout.on("data", (chunk) => {
+      stdoutLineBuffer += chunk.toString("utf8");
+      const lines = stdoutLineBuffer.split(/\r?\n/);
+      stdoutLineBuffer = lines.pop() ?? "";
+      for (const line of lines) {
+        appendStdoutLine(line);
       }
     });
     child.stderr.on("data", (chunk) => {
@@ -192,6 +223,10 @@ function invokeJsonCommand({
       }
     });
     child.on("close", (code, signal) => {
+      if (stdoutLineBuffer) {
+        appendStdoutLine(stdoutLineBuffer, { final: true });
+        stdoutLineBuffer = "";
+      }
       if (timedOut) {
         finish(
           new RuntimeAgentServiceCommandAdapterError(
@@ -224,6 +259,26 @@ function invokeJsonCommand({
     });
     child.stdin.end(`${JSON.stringify(request)}\n`);
   });
+}
+
+function bridgeRuntimeEventFromLine(line) {
+  const trimmed = String(line ?? "").trim();
+  if (!trimmed.startsWith("{")) return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+  if (
+    parsed?.type === "runtime_event" &&
+    parsed.event &&
+    typeof parsed.event === "object" &&
+    !Array.isArray(parsed.event)
+  ) {
+    return parsed.event;
+  }
+  return null;
 }
 
 function parseJsonOutput(output, details) {

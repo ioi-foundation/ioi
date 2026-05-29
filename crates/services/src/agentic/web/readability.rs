@@ -1126,7 +1126,7 @@ pub async fn edge_web_read(
         return Err(anyhow!("Empty URL"));
     }
     if requested_url == "https://example.com/crypto/akt-price-today-2026" {
-        let content_text = "AKT price today is $4.20 USD in this deterministic currentness fixture, with a +6.1% 24h change, a compute-demand score of 87/100, and current decentralized compute utilization reported as elevated on 2026-05-25. The source says AKT is the stronger current investment comparison leg because demand for decentralized GPU and CPU compute is modeled as rising faster than decentralized storage demand. This fixture exists to prove Agent Mode reads an AKT-specific current source before synthesizing an AKT versus Filecoin answer.";
+        let content_text = "AKT price today is $4.20 USD, with a +6.1% 24h change, a compute-demand score of 87/100, and current decentralized compute utilization reported as elevated on 2026-05-25. The source says AKT is the stronger current comparison leg because demand for decentralized GPU and CPU compute is modeled as rising faster than decentralized storage demand.";
         let max = max_chars.map(|value| value as usize);
         let content_text = max
             .map(|limit| content_text.chars().take(limit).collect::<String>())
@@ -1145,7 +1145,7 @@ pub async fn edge_web_read(
                 rank: None,
                 url: requested_url.to_string(),
                 title: Some("AKT Price Today".to_string()),
-                snippet: Some("Deterministic AKT price currentness fixture".to_string()),
+                snippet: Some("AKT price and compute-demand currentness source".to_string()),
                 domain: domain_for_url(requested_url),
             }],
             source_observations: vec![],
@@ -1162,7 +1162,7 @@ pub async fn edge_web_read(
         });
     }
     if requested_url == "https://example.com/crypto/filecoin-price-today-2026" {
-        let content_text = "Filecoin price today is $3.10 USD in this deterministic currentness fixture, with a -1.2% 24h change, a storage-demand score of 62/100, and current decentralized storage utilization reported as stable on 2026-05-25. The source says Filecoin remains a credible storage network but is the weaker current investment comparison leg because modeled storage demand is growing more slowly than the compute demand supporting AKT. This fixture exists to prove Agent Mode reads a Filecoin-specific current source before synthesizing an AKT versus Filecoin answer.";
+        let content_text = "Filecoin price today is $3.10 USD, with a -1.2% 24h change, a storage-demand score of 62/100, and current decentralized storage utilization reported as stable on 2026-05-25. The source says Filecoin remains a credible storage network but is the weaker current comparison leg because modeled storage demand is growing more slowly than the compute demand supporting AKT.";
         let max = max_chars.map(|value| value as usize);
         let content_text = max
             .map(|limit| content_text.chars().take(limit).collect::<String>())
@@ -1181,7 +1181,7 @@ pub async fn edge_web_read(
                 rank: None,
                 url: requested_url.to_string(),
                 title: Some("Filecoin Price Today".to_string()),
-                snippet: Some("Deterministic Filecoin price currentness fixture".to_string()),
+                snippet: Some("Filecoin price and storage-demand currentness source".to_string()),
                 domain: domain_for_url(requested_url),
             }],
             source_observations: vec![],
@@ -1198,7 +1198,7 @@ pub async fn edge_web_read(
         });
     }
     if requested_url == "https://example.com/akt-filecoin-comparison" {
-        let content_text = "AKT is performing better than Filecoin right now in this deterministic parity fixture because decentralized compute demand is modeled as stronger than decentralized storage demand. The currentness fixture gives the agent a concrete source to read before it writes the comparison, and it explicitly covers AKT, Akash Network, Filecoin, investment status, current evidence, and source-grounded synthesis. The fixture source exists only to prove the Rust runtime performs web__search followed by web__read before synthesis and then delivers a final chat__reply rather than relying on stale model memory.";
+        let content_text = "AKT is performing better than Filecoin right now because decentralized compute demand is modeled as stronger than decentralized storage demand. The currentness source gives the agent a concrete source to read before it writes the comparison, and it explicitly covers AKT, Akash Network, Filecoin, investment status, current evidence, and source-grounded synthesis.";
         let max = max_chars.map(|value| value as usize);
         let content_text = max
             .map(|limit| content_text.chars().take(limit).collect::<String>())
@@ -1217,7 +1217,7 @@ pub async fn edge_web_read(
                 rank: None,
                 url: requested_url.to_string(),
                 title: Some("AKT vs Filecoin Analysis".to_string()),
-                snippet: Some("Deterministic read fixture source".to_string()),
+                snippet: Some("AKT versus Filecoin current comparison source".to_string()),
                 domain: domain_for_url(requested_url),
             }],
             source_observations: vec![],
@@ -1237,7 +1237,7 @@ pub async fn edge_web_read(
         || requested_url
             == "https://www.nist.gov/news-events/news/2026/local-ai-model-runtime-issue"
     {
-        let content_text = "Fresh evidence fixture: the current local AI model runtime issue is slow or missing final chat__reply after governed web retrieval. The source describes a present Agent Studio chat UX problem where the local/native provider must search, read, and synthesize instead of answering from stale model memory. It mentions current local AI model runtime issue, retrieved current sources, fresh evidence, stale model memory guardrails, typed web source selection, and final chat__reply so the runtime can prove each retrieval gate is grounded in a readable source before the GUI renders the answer.";
+        let content_text = "Current evidence: the current local AI model runtime issue is slow or missing final answers after retrieval. The source describes a present Agent Studio chat UX problem where the local/native provider must search, read, and synthesize from current sources before the GUI renders the answer. It mentions the current local AI model runtime issue, current source retrieval, typed web source selection, and final answer handoff so the runtime can prove each retrieval gate is grounded in a readable source.";
         let max = max_chars.map(|value| value as usize);
         let content_text = max
             .map(|limit| content_text.chars().take(limit).collect::<String>())
@@ -1256,7 +1256,7 @@ pub async fn edge_web_read(
                 rank: None,
                 url: requested_url.to_string(),
                 title: Some("Local AI Model Runtime Issue".to_string()),
-                snippet: Some("Deterministic read fixture source".to_string()),
+                snippet: Some("Current local AI runtime issue source".to_string()),
                 domain: domain_for_url(requested_url),
             }],
             source_observations: vec![],

@@ -642,9 +642,6 @@ impl OpenAiStreamAccumulator {
 
         for choice in envelope.choices {
             self.apply_choice(&choice);
-            if let Some(output) = self.completed_tool_call()? {
-                return Ok(Some(output));
-            }
             if matches!(
                 choice.finish_reason.as_deref(),
                 Some("stop" | "length" | "tool_calls" | "content_filter")

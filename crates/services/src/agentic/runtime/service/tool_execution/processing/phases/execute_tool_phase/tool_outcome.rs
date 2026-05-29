@@ -87,6 +87,44 @@ fn goal_requires_fresh_retrieval_before_chat_reply(goal: &str) -> bool {
     has_temporal_hint && has_retrieval_subject
 }
 
+fn workspace_contextual_answer_candidate(agent_state: &AgentState, message: &str) -> bool {
+    if !agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|resolved| resolved.scope == IntentScopeProfile::WorkspaceOps)
+        .unwrap_or(false)
+    {
+        return false;
+    }
+    if !has_execution_evidence(&agent_state.tool_execution_log, "workspace_read")
+        || !has_execution_evidence(&agent_state.tool_execution_log, "file_context")
+    {
+        return false;
+    }
+    workspace_chat_reply_looks_terminal(message)
+}
+
+fn workspace_chat_reply_looks_terminal(message: &str) -> bool {
+    let compact = message.split_whitespace().collect::<Vec<_>>().join(" ");
+    if compact.split_whitespace().count() < 8 {
+        return false;
+    }
+    let lower = compact.to_ascii_lowercase();
+    const NON_TERMINAL_PREFIXES: &[&str] = &[
+        "i need to ",
+        "i need ",
+        "i'm analyzing",
+        "i am analyzing",
+        "i'm going to ",
+        "i am going to ",
+        "let me ",
+        "i should ",
+    ];
+    !NON_TERMINAL_PREFIXES
+        .iter()
+        .any(|prefix| lower.starts_with(prefix))
+}
+
 fn is_toolcat_single_tool_probe(goal: &str) -> bool {
     goal.contains("TOOLCAT_SINGLE_TOOL") || goal.contains("toolcat_tool=")
 }
@@ -607,6 +645,10 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     "chat_reply_blocked_on_pending_browser_state",
                 );
                 return Ok(());
+            }
+            if workspace_contextual_answer_candidate(agent_state, message) {
+                record_success_condition(&mut agent_state.tool_execution_log, "contextual_answer");
+                verification_checks.push(success_condition_key("contextual_answer"));
             }
             let missing_completion_evidence = evaluate_completion_requirements(
                 agent_state,

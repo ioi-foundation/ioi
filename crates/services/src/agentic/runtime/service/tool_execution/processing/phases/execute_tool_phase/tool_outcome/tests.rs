@@ -5,7 +5,7 @@ use super::{
     browser_observation_receipt_from_navigation_output,
     completion_gate_needs_pending_browser_check, is_toolcat_single_tool_probe,
     toolcat_single_tool_pause_reply, toolcat_single_tool_success_reply, toolcat_single_tool_target,
-    toolcat_single_tool_target_completed,
+    toolcat_single_tool_target_completed, workspace_chat_reply_looks_terminal,
 };
 use ioi_types::app::agentic::ChatMessage;
 
@@ -16,6 +16,19 @@ fn chat_message(role: &str, content: &str, timestamp: u64) -> ChatMessage {
         timestamp,
         trace_hash: None,
     }
+}
+
+#[test]
+fn workspace_chat_reply_terminality_rejects_planning_status() {
+    assert!(!workspace_chat_reply_looks_terminal(
+        "I need to read the master guide file before I can answer."
+    ));
+    assert!(!workspace_chat_reply_looks_terminal(
+        "I'm analyzing the workspace and need to search for provider registration."
+    ));
+    assert!(workspace_chat_reply_looks_terminal(
+        "Local and native providers are registered through the daemon model mounting catalog and exposed through the workbench route selector."
+    ));
 }
 
 #[test]

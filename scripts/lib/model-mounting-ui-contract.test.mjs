@@ -454,7 +454,12 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
 
 test("Mounts OAuth callback is daemon-owned and not packaged as a Tauri deep link", () => {
   const srcTauriPath = path.join(root, "apps", "autopilot", "src-tauri");
-  const daemonSource = fs.readFileSync(path.join(root, "packages", "runtime-daemon", "src", "index.mjs"), "utf8");
+  const daemonSource = [
+    "index.mjs",
+    "runtime-route-handlers.mjs",
+  ].map((fileName) =>
+    fs.readFileSync(path.join(root, "packages", "runtime-daemon", "src", fileName), "utf8"),
+  ).join("\n");
   const liveGate = fs.readFileSync(path.join(root, "scripts", "live-model-mounting-gate.mjs"), "utf8");
   const workbenchExtension = fs.readFileSync(
     path.join(root, "apps", "autopilot", "openvscode-extension", "ioi-workbench", "extension.js"),
@@ -688,6 +693,22 @@ test("model mounting live-provider gates are explicit and opt-in", () => {
   ]) {
     assert.match(source, new RegExp(token.replaceAll("/", "\\/")));
   }
+});
+
+test("Autopilot desktop bootstrap keeps product Studio routes on native llama.cpp", () => {
+  const source = fs.readFileSync(path.join(root, "scripts", "launch-autopilot-ide-fork.mjs"), "utf8");
+  assert.match(source, /function isProductRuntimeEndpoint/);
+  assert.match(source, /function discoverNativeLlamaServerPath/);
+  assert.match(source, /function discoverNativeGgufModelPath/);
+  assert.match(source, /function inferNativeModelId/);
+  assert.match(source, /IOI_LLAMA_CPP_SERVER_PATH/);
+  assert.match(source, /\.lmstudio", "models"/);
+  assert.match(source, /providerId === "provider\.llama-cpp" && mountedCount \+ mounted\.length === 0/);
+  assert.match(source, /provider_eligibility: \["llama_cpp"\]/);
+  assert.match(source, /denied_providers: \["lm_studio", "ollama", "ioi_native_local", "openai", "anthropic", "gemini"\]/);
+  assert.match(source, /isProductRuntimeEndpoint\(endpointRecord\)/);
+  assert.match(source, /lmstudio:detected/);
+  assert.match(source, /endpoint\.electron\.model-gui/);
 });
 
 test("model mounting CLI exposes vault-backed provider configuration flags", () => {

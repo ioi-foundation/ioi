@@ -23,7 +23,40 @@ import {
   nativeFixtureQueryNeedsWeb,
   nativeFixtureQueryWorkspaceConstrained,
 } from "./model-mounting/native-fixture-intent.mjs";
+import { nativeFixtureStaticWebsiteJson } from "./model-mounting/native-fixture-artifacts.mjs";
 import { nativeFixtureRepoAwareResponse } from "./model-mounting/native-fixture-repo-aware.mjs";
+import { isFixtureEndpointCandidate } from "./model-mounting/fixture-policy.mjs";
+import {
+  assertDownloadPolicyAllowed,
+  catalogApprovalDecision,
+  catalogBackendCompatibility,
+  catalogBenchmarkReadiness,
+  catalogCompatibilityForFormat,
+  catalogDownloadRisk,
+  catalogRecommendation,
+  huggingFaceResolveUrl,
+  destructiveConfirmationState,
+  inferModelArchitecture,
+  inferParameterCount,
+  importTargetPath,
+  listModelFiles,
+  materializeImportArtifact,
+  modelFileScore,
+  modelCatalogFileFormat,
+  modelIdFromSourceUrl,
+  normalizeDownloadPolicy,
+  normalizeImportMode,
+  sourceLabelForUrl,
+} from "./model-mounting/catalog-helpers.mjs";
+import { backendBindAddress, discoverAutopilotLlamaServer, llamaCppGpuLayersArg, llamaCppLibraryPathEnv } from "./model-mounting/local-runtime-engines.mjs";
+import {
+  providerHealthFailureStatus,
+  providerOpenRetryDelayMs,
+  providerRequestTimeoutMs,
+  providerStreamRequestTimeoutMs,
+  responsesFallbackStatus,
+  shouldRetryProviderOpen,
+} from "./model-mounting/provider-transport-policy.mjs";
 import {
   isExecutable,
   listJson,
@@ -69,8 +102,15 @@ import {
   publicDownloadSource,
 } from "./model-mounting/download-helpers.mjs";
 
-const MODEL_MOUNT_SCHEMA_VERSION = "ioi.model-mounting.runtime.v1";
-const SECRET_REDACTION = "[REDACTED]";
+const MODEL_MOUNT_SCHEMA_VERSION = "ioi.model-mounting.runtime.v1", SECRET_REDACTION = "[REDACTED]";
+
+function lmStudioPublicCliEnabled() {
+  return truthy(process.env.IOI_ENABLE_LM_STUDIO_PUBLIC_CLI) || truthy(process.env.IOI_ENABLE_LM_STUDIO_REFERENCE_PROVIDER);
+}
+
+function lmStudioRuntimeDiscoveryEnabled() {
+  return lmStudioPublicCliEnabled() || truthy(process.env.IOI_ENABLE_LM_STUDIO_PUBLIC_RUNTIME_DISCOVERY);
+}
 
 class AgentgresWalletAuthority {
   constructor({ now, appendOperation }) {
@@ -2510,8 +2550,16 @@ export class ModelMountingState {
     this.upsertDefault(this.providers, nativeLocalProvider);
 
     const lmStudioProvider = this.discoverLmStudioProvider(checkedAt);
-    this.upsertDefault(this.providers, lmStudioProvider);
+    if (lmStudioProvider.discovery?.disabledByDefault) {
+      this.pruneLmStudioPublicProjectionRecords();
+    }
+    this.providers.set(lmStudioProvider.id, {
+      ...this.providers.get(lmStudioProvider.id),
+      ...lmStudioProvider,
+      discovery: lmStudioProvider.discovery,
+    });
 
+    const llamaBinary = process.env.IOI_LLAMA_CPP_SERVER_PATH ?? discoverAutopilotLlamaServer(this.homeDir) ?? findExecutable("llama-server");
     const vllmBinary = process.env.IOI_VLLM_BINARY ?? findExecutable("vllm");
     for (const provider of [
       {
@@ -2533,10 +2581,18 @@ export class ModelMountingState {
         apiFormat: "openai_compatible",
         driver: "llama_cpp",
         baseUrl: process.env.IOI_LLAMA_CPP_BASE_URL ?? "http://127.0.0.1:8080/v1",
-        status: process.env.IOI_LLAMA_CPP_BASE_URL || process.env.IOI_LLAMA_CPP_SERVER_PATH ? "configured" : "blocked",
+        status: process.env.IOI_LLAMA_CPP_BASE_URL || llamaBinary ? "configured" : "blocked",
         privacyClass: "local_private",
         capabilities: ["chat", "responses", "embeddings"],
-        discovery: { checkedAt, evidenceRefs: ["IOI_LLAMA_CPP_BASE_URL", "IOI_LLAMA_CPP_SERVER_PATH"] },
+        discovery: {
+          checkedAt,
+          evidenceRefs: [
+            "IOI_LLAMA_CPP_BASE_URL",
+            "IOI_LLAMA_CPP_SERVER_PATH",
+            ...(llamaBinary ? ["autopilot_llama_cpp_runtime_engine_detected"] : []),
+          ],
+          binaryPathHash: llamaBinary ? stableHash(llamaBinary) : null,
+        },
       },
       {
         id: "provider.vllm",
@@ -2649,7 +2705,6 @@ export class ModelMountingState {
         discoveredAt: checkedAt,
       });
     }
-
     this.upsertDefault(this.endpoints, {
       id: "endpoint.local.auto",
       providerId: localProvider.id,
@@ -2764,6 +2819,26 @@ export class ModelMountingState {
   }
 
   discoverLmStudioProvider(checkedAt) {
+    const publicCliEnabled = lmStudioPublicCliEnabled();
+    if (!publicCliEnabled && !process.env.LM_STUDIO_BASE_URL && !process.env.LM_STUDIO_URL) {
+      return {
+        id: "provider.lmstudio",
+        kind: "lm_studio",
+        label: "LM Studio",
+        apiFormat: "openai_compatible",
+        driver: "lm_studio",
+        baseUrl: "http://127.0.0.1:1234/v1",
+        status: "absent",
+        privacyClass: "local_private",
+        capabilities: ["chat", "responses", "embeddings"],
+        discovery: {
+          checkedAt,
+          evidenceRefs: ["lm_studio_public_cli_discovery_disabled"],
+          publicCli: null,
+          disabledByDefault: true,
+        },
+      };
+    }
     const candidates = [
       process.env.IOI_LMS_PATH,
       path.join(this.homeDir, ".local/bin/lm-studio"),
@@ -2772,7 +2847,7 @@ export class ModelMountingState {
     ].filter(Boolean);
     const executables = candidates.filter((candidate) => isExecutable(candidate));
     const lmsPath = candidates.find((candidate) => path.basename(candidate) === "lms" && isExecutable(candidate));
-    const serverStatus = lmsPath ? runPublicCommand(lmsPath, ["server", "status"]) : null;
+    const serverStatus = publicCliEnabled && lmsPath ? runPublicCommand(lmsPath, ["server", "status"]) : null;
     const serverStatusText = serverStatus?.stdout ?? serverStatus?.stderr ?? "";
     const baseUrl = process.env.LM_STUDIO_BASE_URL ?? process.env.LM_STUDIO_URL ?? "http://127.0.0.1:1234/v1";
     const status = serverStatusText.match(/\b(ON|RUNNING|STARTED)\b/i)
@@ -2794,10 +2869,12 @@ export class ModelMountingState {
       capabilities: ["chat", "responses", "embeddings"],
       discovery: {
         checkedAt,
-        evidenceRefs: ["lm_studio_public_cli_or_server_probe"],
+        evidenceRefs: [
+          publicCliEnabled ? "lm_studio_public_cli_or_server_probe" : "lm_studio_public_cli_discovery_disabled",
+        ],
         executableCandidates: candidates,
-        foundExecutables: executables,
-        publicCli: lmsPath
+        foundExecutables: publicCliEnabled ? executables : [],
+        publicCli: publicCliEnabled && lmsPath
           ? {
               path: lmsPath,
               serverStatus: truncate(serverStatusText),
@@ -2809,11 +2886,36 @@ export class ModelMountingState {
   }
 
   discoverLmStudioArtifacts(provider, checkedAt) {
+    if (!lmStudioPublicCliEnabled()) return [];
     const lmsPath = provider.discovery?.publicCli?.path;
     if (!lmsPath) return [];
     const result = runPublicCommand(lmsPath, ["ls"]);
     if (!result || result.status !== 0) return [];
     return parseLmStudioList(result.stdout).map((model) => lmStudioArtifact(provider, model, checkedAt));
+  }
+
+  pruneLmStudioPublicProjectionRecords() {
+    for (const [id, artifact] of this.artifacts.entries()) {
+      if (
+        artifact.providerId === "provider.lmstudio" ||
+        String(id).startsWith("lmstudio.") ||
+        String(artifact.source ?? "").startsWith("lm_studio_public")
+      ) {
+        this.artifacts.delete(id);
+      }
+    }
+    const removedEndpointIds = new Set();
+    for (const [id, endpoint] of this.endpoints.entries()) {
+      if (endpoint.providerId === "provider.lmstudio" || String(id).includes("provider.lmstudio")) {
+        removedEndpointIds.add(id);
+        this.endpoints.delete(id);
+      }
+    }
+    for (const [id, instance] of this.instances.entries()) {
+      if (instance.providerId === "provider.lmstudio" || removedEndpointIds.has(instance.endpointId)) {
+        this.instances.delete(id);
+      }
+    }
   }
 
   writeAll() {
@@ -2848,6 +2950,7 @@ export class ModelMountingState {
 
   serverStatus(baseUrl) {
     this.evictExpiredInstances();
+    this.coalesceLoadedInstances();
     const runningInstances = [...this.instances.values()].filter((instance) => instance.status === "loaded");
     const degradedProviders = [...this.providers.values()].filter((provider) =>
       ["blocked", "absent", "stopped"].includes(provider.status),
@@ -3083,6 +3186,7 @@ export class ModelMountingState {
 
   listInstances() {
     this.evictExpiredInstances();
+    this.coalesceLoadedInstances();
     return [...this.instances.values()].sort((left, right) => left.loadedAt.localeCompare(right.loadedAt));
   }
 
@@ -4104,7 +4208,7 @@ export class ModelMountingState {
     const endpoint = this.resolveEndpoint(body.endpoint_id ?? body.endpointId, body.model_id ?? body.modelId);
     const provider = this.provider(endpoint.providerId);
     const loadPolicy = normalizeLoadPolicy(body.load_policy ?? body.loadPolicy ?? endpoint.loadPolicy);
-    const runtimePreference = this.runtimePreference();
+    const runtimePreference = this.runtimePreferenceForEndpoint(endpoint);
     const requestLoadOptions = body.load_options ?? body.loadOptions ?? {};
     const runtimeDefaults = { ...this.runtimeDefaultLoadOptions(runtimePreference.selectedEngineId) };
     if ((body.load_policy ?? body.loadPolicy) && !hasExplicitTtlOption(body) && !hasExplicitTtlOption(requestLoadOptions)) {
@@ -4179,6 +4283,7 @@ export class ModelMountingState {
       providerEvidenceRefs: driverResult.evidenceRefs ?? [],
     };
     this.instances.set(instance.id, instance);
+    this.supersedeLoadedInstances(endpoint.id, instance.id);
     this.writeMap("model-instances", this.instances);
     this.lifecycleReceipt("model_load", {
       instanceId: instance.id,
@@ -5613,6 +5718,15 @@ export class ModelMountingState {
     const instance = await this.ensureLoaded(selection.endpoint);
     const ephemeralMcp = this.compileEphemeralMcpIntegrations({ authorization, body, input });
     const providerBody = routeDecision.providerRequestBodyForRoute(body, selection.endpoint);
+    this.appendOperation?.("model.provider_stream_request_shape", {
+      providerId: selection.provider.id,
+      providerKind: selection.provider.kind,
+      endpointId: selection.endpoint.id,
+      routeId: selection.route.id,
+      capability,
+      requestShape: summarizeProviderRequestBodyForTrace(providerBody),
+      evidenceRefs: ["model_provider_stream_request_shape"],
+    });
     const providerResult = await driver.streamInvoke({
       state: this,
       provider: selection.provider,
@@ -6151,11 +6265,26 @@ export class ModelMountingState {
     return this.endpoint("endpoint.local.auto");
   }
 
+  endpointIdsForExplicitModel(route, modelId) {
+    const matchingEndpoints = [...this.endpoints.values()].filter(
+      (candidate) => candidate.status !== "unmounted" && candidate.modelId === modelId,
+    );
+    const routeFallbackMatches = normalizeScopes(route.fallback, []).filter((endpointId) =>
+      matchingEndpoints.some((endpoint) => endpoint.id === endpointId),
+    );
+    const ordered = [...routeFallbackMatches];
+    for (const endpoint of matchingEndpoints) {
+      if (!ordered.includes(endpoint.id)) ordered.push(endpoint.id);
+    }
+    if (ordered.length > 0) return ordered;
+    return [this.mountEndpoint({ model_id: modelId }).id];
+  }
+
   selectRoute({ modelId, routeId, capability, policy }) {
     const route = this.routes.get(routeId ?? "route.local-first") ?? this.route("route.local-first");
     const explicitModelId = routeDecision.isAutoModelSelector(modelId) ? null : modelId;
     const fallback = explicitModelId
-      ? [this.resolveEndpoint(undefined, explicitModelId).id]
+      ? this.endpointIdsForExplicitModel(route, explicitModelId)
       : route.fallback.length > 0
         ? route.fallback
         : ["endpoint.local.auto"];
@@ -6178,6 +6307,11 @@ export class ModelMountingState {
       }
       if (route.providerEligibility.length > 0 && !route.providerEligibility.includes(provider.kind)) {
         candidate.reason = "provider_not_eligible_for_route";
+        evaluatedCandidates.push(candidate);
+        continue;
+      }
+      if (truthy(policy?.deny_fixture_models ?? policy?.denyFixtureModels) && isFixtureEndpointCandidate(endpoint, provider)) {
+        candidate.reason = "fixture_model_denied_by_product_policy";
         evaluatedCandidates.push(candidate);
         continue;
       }
@@ -6271,13 +6405,58 @@ export class ModelMountingState {
     }
   }
 
+  coalesceLoadedInstances() {
+    const loadedByEndpoint = new Map();
+    for (const instance of this.instances.values()) {
+      if (instance.status !== "loaded" || !instance.endpointId) continue;
+      const current = loadedByEndpoint.get(instance.endpointId);
+      if (!current || String(instance.loadedAt ?? "") > String(current.loadedAt ?? "")) {
+        loadedByEndpoint.set(instance.endpointId, instance);
+      }
+    }
+    let changed = false;
+    for (const instance of this.instances.values()) {
+      if (instance.status !== "loaded" || !instance.endpointId) continue;
+      const keeper = loadedByEndpoint.get(instance.endpointId);
+      if (!keeper || keeper.id === instance.id) continue;
+      this.instances.set(instance.id, {
+        ...instance,
+        status: "superseded",
+        supersededAt: this.nowIso(),
+        supersededBy: keeper.id,
+        supersededReason: "endpoint_reload",
+      });
+      changed = true;
+    }
+    if (changed) {
+      this.writeMap("model-instances", this.instances);
+    }
+  }
+
+  supersedeLoadedInstances(endpointId, keepInstanceId) {
+    let changed = false;
+    for (const instance of this.instances.values()) {
+      if (instance.id === keepInstanceId || instance.endpointId !== endpointId || instance.status !== "loaded") continue;
+      this.instances.set(instance.id, {
+        ...instance,
+        status: "superseded",
+        supersededAt: this.nowIso(),
+        supersededBy: keepInstanceId,
+        supersededReason: "endpoint_reload",
+      });
+      changed = true;
+    }
+    return changed;
+  }
+
   nowIso() {
     return this.now().toISOString();
   }
 
   seedBackends(checkedAt) {
     for (const backend of this.deriveBackendRegistry(checkedAt)) {
-      this.upsertDefault(this.backends, backend);
+      const previous = this.backends.get(backend.id);
+      this.backends.set(backend.id, previous ? { ...previous, ...backend } : backend);
     }
   }
 
@@ -6324,7 +6503,7 @@ export class ModelMountingState {
 
   deriveBackendRegistry(checkedAt) {
     const hardware = hardwareSnapshot();
-    const llamaBinary = process.env.IOI_LLAMA_CPP_SERVER_PATH ?? findExecutable("llama-server");
+    const llamaBinary = process.env.IOI_LLAMA_CPP_SERVER_PATH ?? discoverAutopilotLlamaServer(this.homeDir) ?? findExecutable("llama-server");
     const ollamaBinary = process.env.IOI_OLLAMA_BINARY ?? findExecutable("ollama");
     const vllmBinary = process.env.IOI_VLLM_BINARY ?? findExecutable("vllm");
     return [
@@ -6480,6 +6659,20 @@ export class ModelMountingState {
     return {
       ...preference,
       defaultLoadOptions: this.runtimeDefaultLoadOptions(preference.selectedEngineId),
+    };
+  }
+
+  runtimePreferenceForEndpoint(endpoint = {}) {
+    const preference = this.runtimePreference();
+    const endpointBackendId = endpoint.backendId ?? null;
+    if (!endpointBackendId || endpointBackendId === preference.selectedEngineId) return preference;
+    if (!this.backendRegistry().some((backend) => backend.id === endpointBackendId)) return preference;
+    return {
+      ...preference,
+      selectedEngineId: endpointBackendId,
+      source: "endpoint_backend_runtime",
+      endpointBackendId,
+      defaultLoadOptions: this.runtimeDefaultLoadOptions(endpointBackendId),
     };
   }
 
@@ -6771,6 +6964,7 @@ export class ModelMountingState {
   }
 
   lmStudioRuntimeEngines(checkedAt) {
+    if (!lmStudioRuntimeDiscoveryEnabled()) return [];
     const provider = this.providers.get("provider.lmstudio");
     const lmsPath =
       provider?.discovery?.publicCli?.path ??
@@ -6789,6 +6983,13 @@ export class ModelMountingState {
   }
 
   lmStudioRuntimeSurvey(checkedAt) {
+    if (!lmStudioRuntimeDiscoveryEnabled()) {
+      return {
+        status: "absent",
+        checkedAt,
+        evidenceRefs: ["lm_studio_public_runtime_discovery_disabled"],
+      };
+    }
     const provider = this.providers.get("provider.lmstudio");
     const lmsPath =
       provider?.discovery?.publicCli?.path ??
@@ -6864,7 +7065,7 @@ export class ModelMountingState {
       args.push("llama-server", "--model", artifactPathHash ? `artifact:${artifactPathHash}` : modelArg);
       if (contextLength) args.push("--ctx-size", String(contextLength));
       if (parallel) args.push("--parallel", String(parallel));
-      if (gpu) args.push("--gpu-layers", gpu === "max" ? "999" : String(gpu));
+      if (gpu) args.push("--gpu-layers", llamaCppGpuLayersArg(gpu));
     } else if (backend.kind === "vllm") {
       args.push("vllm", "serve", artifactPathHash ? `artifact:${artifactPathHash}` : modelArg);
       if (contextLength) args.push("--max-model-len", String(contextLength));
@@ -6909,8 +7110,8 @@ export class ModelMountingState {
     const gpu = loadOptions.gpu ?? this.runtimeDefaultLoadOptions(backend.id).gpu ?? null;
     if (contextLength) args.push("--ctx-size", String(contextLength));
     if (parallel) args.push("--parallel", String(parallel));
-    if (gpu) args.push("--n-gpu-layers", gpu === "max" ? "999" : gpu === "off" ? "0" : String(gpu));
-    const embeddingEnabled = loadOptions.embeddings ?? endpoint?.capabilities?.includes?.("embeddings") ?? true;
+    if (gpu) args.push("--n-gpu-layers", llamaCppGpuLayersArg(gpu));
+    const embeddingEnabled = loadOptions.embeddings ?? loadOptions.embedding ?? false;
     if (embeddingEnabled) args.push("--embedding");
     const bind = backendBindAddress(backend.baseUrl);
     if (bind.host) args.push("--host", bind.host);
@@ -7038,6 +7239,7 @@ export class ModelMountingState {
           ...process.env,
           IOI_MODEL_BACKEND_BASE_URL: backend.baseUrl ?? "",
           IOI_MODEL_BACKEND_REASON: reason,
+          ...(backend.kind === "llama_cpp" ? { LD_LIBRARY_PATH: llamaCppLibraryPathEnv(backend.binaryPath, process.env.LD_LIBRARY_PATH) } : {}),
           ...(backend.kind === "ollama" ? { OLLAMA_HOST: backend.baseUrl ?? "http://127.0.0.1:11434" } : {}),
         },
         stdio: ["ignore", "pipe", "pipe"],
@@ -7446,6 +7648,8 @@ function runPublicCommand(command, args, options = {}) {
     const result = childProcess.spawnSync(command, args, {
       encoding: "utf8",
       timeout: options.timeout ?? 1500,
+      killSignal: "SIGKILL",
+      maxBuffer: options.maxBuffer ?? 1024 * 1024,
       windowsHide: true,
     });
     return {
@@ -7564,43 +7768,73 @@ async function fetchProviderJson(provider, route, { method = "GET", body, tolera
       details: { providerId: provider.id, providerKind: provider.kind },
     });
   }
-  const controller = new AbortController();
-  const timeoutMs = providerRequestTimeoutMs();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const timeoutMs = providerRequestTimeoutMs(provider);
   const url = `${String(provider.baseUrl).replace(/\/+$/, "")}/${route.replace(/^\/+/, "")}`;
   const auth = providerAuthHeaders(provider, state);
-  try {
-    const response = await fetch(url, {
-      method,
-      signal: controller.signal,
-      headers: {
-        accept: "application/json",
-        ...auth.headers,
-        ...(body === undefined ? {} : { "content-type": "application/json" }),
-      },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    const text = await response.text();
-    const parsed = text.trim() ? parseJsonMaybe(text) : null;
-    const result = { ok: response.ok, status: response.status, body: parsed, authEvidence: auth.evidence };
-    if (!response.ok && !tolerateHttpError) {
-      throw providerHttpError(provider, "OpenAI-compatible provider request failed.", result);
+  const startedAt = Date.now();
+  for (let attempt = 0; ; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, {
+        method,
+        signal: controller.signal,
+        headers: {
+          accept: "application/json",
+          ...auth.headers,
+          ...(body === undefined ? {} : { "content-type": "application/json" }),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      clearTimeout(timeout);
+      const text = await response.text();
+      const parsed = text.trim() ? parseJsonMaybe(text) : null;
+      const result = { ok: response.ok, status: response.status, body: parsed, authEvidence: auth.evidence };
+      if (
+        !response.ok &&
+        !tolerateHttpError &&
+        shouldRetryProviderOpen(provider, response.status, attempt, Date.now() - startedAt)
+      ) {
+        await retryProviderOpen(provider, route, {
+          state,
+          mode: "json",
+          attempt,
+          status: response.status,
+          body: parsed,
+          startedAt,
+        });
+        continue;
+      }
+      if (!response.ok && !tolerateHttpError) {
+        throw providerHttpError(provider, "OpenAI-compatible provider request failed.", result);
+      }
+      return result;
+    } catch (error) {
+      clearTimeout(timeout);
+      if (error?.status || error?.code === "external_blocker") throw error;
+      if (shouldRetryProviderOpen(provider, "network", attempt, Date.now() - startedAt)) {
+        await retryProviderOpen(provider, route, {
+          state,
+          mode: "json",
+          attempt,
+          status: "network",
+          error,
+          startedAt,
+        });
+        continue;
+      }
+      throw runtimeError({
+        status: 424,
+        code: "external_blocker",
+        message: "OpenAI-compatible provider request failed.",
+        details: {
+          providerId: provider.id,
+          providerKind: provider.kind,
+          error: String(error?.name ?? error?.message ?? error),
+          timeoutMs,
+        },
+      });
     }
-    return result;
-  } catch (error) {
-    if (error?.status || error?.code === "external_blocker") throw error;
-    throw runtimeError({
-      status: 424,
-      code: "external_blocker",
-      message: "OpenAI-compatible provider request failed.",
-      details: {
-        providerId: provider.id,
-        providerKind: provider.kind,
-        error: String(error?.name ?? error?.message ?? error),
-      },
-    });
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -7614,91 +7848,106 @@ async function fetchProviderStream(provider, route, { method = "GET", body, stat
       details: { providerId: provider.id, providerKind: provider.kind },
     });
   }
-  const controller = new AbortController();
-  const timeoutMs = providerRequestTimeoutMs();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const timeoutMs = providerStreamRequestTimeoutMs(provider);
   const url = `${String(provider.baseUrl).replace(/\/+$/, "")}/${route.replace(/^\/+/, "")}`;
   const auth = providerAuthHeaders(provider, state);
-  try {
-    const response = await fetch(url, {
-      method,
-      signal: controller.signal,
-      headers: {
-        accept: "text/event-stream",
-        ...auth.headers,
-        ...(body === undefined ? {} : { "content-type": "application/json" }),
-      },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    clearTimeout(timeout);
-    if (!response.ok) {
-      const text = await response.text();
-      const parsed = text.trim() ? parseJsonMaybe(text) : null;
-      throw providerHttpError(provider, "OpenAI-compatible provider stream failed.", {
-        ok: false,
-        status: response.status,
-        body: parsed,
-        authEvidence: auth.evidence,
+  const startedAt = Date.now();
+  for (let attempt = 0; ; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, {
+        method,
+        signal: controller.signal,
+        headers: {
+          accept: "text/event-stream",
+          ...auth.headers,
+          ...(body === undefined ? {} : { "content-type": "application/json" }),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
       });
-    }
-    if (!response.body) {
+      clearTimeout(timeout);
+      if (!response.ok) {
+        const text = await response.text();
+        const parsed = text.trim() ? parseJsonMaybe(text) : null;
+        if (shouldRetryProviderOpen(provider, response.status, attempt, Date.now() - startedAt)) {
+          await retryProviderOpen(provider, route, {
+            state,
+            mode: "stream",
+            attempt,
+            status: response.status,
+            body: parsed,
+            startedAt,
+          });
+          continue;
+        }
+        throw providerHttpError(provider, "OpenAI-compatible provider stream failed.", {
+          ok: false,
+          status: response.status,
+          body: parsed,
+          authEvidence: auth.evidence,
+        });
+      }
+      if (!response.body) {
+        throw runtimeError({
+          status: 424,
+          code: "external_blocker",
+          message: "OpenAI-compatible provider did not return a stream body.",
+          details: { providerId: provider.id, providerKind: provider.kind },
+        });
+      }
+      return {
+        ok: true,
+        status: response.status,
+        stream: response.body,
+        abort: () => controller.abort(),
+        authEvidence: auth.evidence,
+      };
+    } catch (error) {
+      clearTimeout(timeout);
+      if (error?.status || error?.code === "external_blocker") throw error;
+      if (shouldRetryProviderOpen(provider, "network", attempt, Date.now() - startedAt)) {
+        await retryProviderOpen(provider, route, {
+          state,
+          mode: "stream",
+          attempt,
+          status: "network",
+          error,
+          startedAt,
+        });
+        continue;
+      }
       throw runtimeError({
         status: 424,
         code: "external_blocker",
-        message: "OpenAI-compatible provider did not return a stream body.",
-        details: { providerId: provider.id, providerKind: provider.kind },
+        message: "OpenAI-compatible provider stream failed.",
+        details: {
+          providerId: provider.id,
+          providerKind: provider.kind,
+          error: String(error?.name ?? error?.message ?? error),
+          timeoutMs,
+        },
       });
     }
-    return {
-      ok: true,
-      status: response.status,
-      stream: response.body,
-      abort: () => controller.abort(),
-      authEvidence: auth.evidence,
-    };
-  } catch (error) {
-    if (error?.status || error?.code === "external_blocker") throw error;
-    throw runtimeError({
-      status: 424,
-      code: "external_blocker",
-      message: "OpenAI-compatible provider stream failed.",
-      details: {
-        providerId: provider.id,
-        providerKind: provider.kind,
-        error: String(error?.name ?? error?.message ?? error),
-      },
-    });
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
-function providerRequestTimeoutMs() {
-  const configured = Number(process.env.IOI_PROVIDER_HTTP_TIMEOUT_MS ?? "");
-  if (Number.isFinite(configured) && configured >= 1000) return configured;
-  return 30000;
-}
-
-function responsesFallbackStatus(status) {
-  return [400, 404, 405, 501].includes(Number(status));
-}
-
-function backendBindAddress(baseUrl) {
-  try {
-    const parsed = new URL(baseUrl ?? "http://127.0.0.1:8080/v1");
-    return {
-      host: parsed.hostname || "127.0.0.1",
-      port: parsed.port ? Number(parsed.port) : parsed.protocol === "https:" ? 443 : 80,
-    };
-  } catch {
-    return { host: null, port: null };
-  }
-}
-
-function providerHealthFailureStatus(error) {
-  if (error?.status === 403 || error?.code === "policy") return "blocked";
-  if (error?.status === 404) return "absent";
-  return "degraded";
+async function retryProviderOpen(provider, route, { state, mode, attempt = 0, status, body, error, startedAt } = {}) {
+  const delayMs = providerOpenRetryDelayMs(attempt);
+  state?.appendOperation?.("model.provider_open_retry", {
+    providerId: provider.id,
+    providerKind: provider.kind,
+    route,
+    mode,
+    attempt: attempt + 1,
+    status,
+    delayMs,
+    elapsedMs: Math.max(0, Date.now() - (startedAt ?? Date.now())),
+    providerErrorHash: body ? stableHash(body) : null,
+    error: error ? String(error?.name ?? error?.message ?? error) : null,
+    evidenceRefs: ["provider_open_retry", `${provider.kind}_transient_backend_readiness`],
+  });
+  await new Promise((resolve) => setTimeout(resolve, delayMs));
 }
 
 function configuredVaultMaterialAdapter({ now }) {
@@ -7713,6 +7962,7 @@ function configuredVaultMaterialAdapter({ now }) {
 }
 
 function providerHttpError(provider, message, result) {
+  const providerError = summarizeProviderErrorBody(result.body);
   return runtimeError({
     status: 424,
     code: "external_blocker",
@@ -7722,8 +7972,65 @@ function providerHttpError(provider, message, result) {
       providerKind: provider.kind,
       httpStatus: result.status ?? null,
       providerErrorHash: stableHash(result.body ?? {}),
+      providerErrorCode: providerError.code,
+      providerErrorType: providerError.type,
+      providerErrorMessage: providerError.message,
+      providerErrorText: providerError.text,
     },
   });
+}
+
+function summarizeProviderErrorBody(body) {
+  if (!body || typeof body !== "object") {
+    return { code: null, type: null, message: null, text: null };
+  }
+  const error = body.error && typeof body.error === "object" ? body.error : body;
+  return {
+    code: optionalErrorString(error.code),
+    type: optionalErrorString(error.type),
+    message: optionalErrorString(error.message),
+    text: optionalErrorString(body.text),
+  };
+}
+
+function optionalErrorString(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? truncate(trimmed, 500) : null;
+}
+
+function summarizeProviderRequestBodyForTrace(body = {}) {
+  const messages = Array.isArray(body.messages) ? body.messages : [];
+  return {
+    model: typeof body.model === "string" ? body.model : null,
+    stream: body.stream === true,
+    messageCount: messages.length,
+    messageRoles: messages.map((message) => String(message?.role ?? "unknown")),
+    messageContentChars: messages.map((message) => messageContentLength(message?.content)),
+    toolCount: Array.isArray(body.tools) ? body.tools.length : 0,
+    toolChoice: typeof body.tool_choice === "string" ? body.tool_choice : body.tool_choice ? "object" : null,
+    parallelToolCalls: body.parallel_tool_calls ?? null,
+    responseFormat: body.response_format?.type ?? null,
+    reasoningEffort: typeof body.reasoning_effort === "string" ? body.reasoning_effort : null,
+    chatTemplateKwargs: body.chat_template_kwargs && typeof body.chat_template_kwargs === "object"
+      ? Object.keys(body.chat_template_kwargs).sort()
+      : [],
+    maxTokens: Number.isFinite(Number(body.max_tokens)) ? Number(body.max_tokens) : null,
+    stopCount: Array.isArray(body.stop) ? body.stop.length : 0,
+    hasRouteId: body.route_id !== undefined || body.routeId !== undefined,
+    hasAutopilotMetadata: body.metadata !== undefined || body.model_policy !== undefined || body.modelPolicy !== undefined,
+  };
+}
+
+function messageContentLength(content) {
+  if (typeof content === "string") return content.length;
+  if (Array.isArray(content)) {
+    return content.reduce((total, item) => total + messageContentLength(item?.text ?? item?.content ?? ""), 0);
+  }
+  if (content && typeof content === "object") {
+    return messageContentLength(content.text ?? content.content ?? "");
+  }
+  return 0;
 }
 
 function providerCommandError(provider, message, result) {
@@ -7782,11 +8089,24 @@ function outputTextFromResponse(body) {
 
 function normalizeUsage(usage, fallback) {
   if (!usage || typeof usage !== "object") return fallback;
-  return {
+  const normalized = {
     prompt_tokens: Number(usage.prompt_tokens ?? usage.input_tokens ?? fallback.prompt_tokens),
     completion_tokens: Number(usage.completion_tokens ?? usage.output_tokens ?? fallback.completion_tokens),
     total_tokens: Number(usage.total_tokens ?? fallback.total_tokens),
   };
+  for (const [sourceKey, targetKey] of [
+    ["tokens_per_second", "tokens_per_second"],
+    ["tokensPerSecond", "tokens_per_second"],
+    ["time_to_first_token_ms", "time_to_first_token_ms"],
+    ["timeToFirstTokenMs", "time_to_first_token_ms"],
+    ["prompt_ms", "prompt_ms"],
+    ["completion_ms", "completion_ms"],
+    ["elapsed_ms", "elapsed_ms"],
+  ]) {
+    const value = Number(usage[sourceKey]);
+    if (Number.isFinite(value)) normalized[targetKey] = value;
+  }
+  return normalized;
 }
 
 function truncate(value, limit = 1000) {
@@ -8088,10 +8408,6 @@ function vaultRefEnvironmentAlias(vaultRef) {
   return aliases.get(vaultRef) ?? null;
 }
 
-
-
-
-
 function requiredString(value, field) {
   if (typeof value !== "string" || value.trim() === "") {
     throw runtimeError({
@@ -8234,6 +8550,9 @@ function nativeLocalOutput({ kind, input, modelId }) {
   if (kind === "embeddings") return `native-local-embedding:${modelId}:${digest}`;
 
   const inputStr = String(input);
+  const staticWebsiteJson = nativeFixtureStaticWebsiteJson(inputStr);
+  if (staticWebsiteJson) return staticWebsiteJson;
+
   const queryText = extractedUserQuery(inputStr);
   const currentTurnText = nativeFixtureCurrentTurnText(inputStr, queryText);
   const promptContextText = `${queryText}\n${currentTurnText}`;
@@ -8480,6 +8799,8 @@ function nativeLocalOutput({ kind, input, modelId }) {
     });
   }
 
+  if (!expectsJsonToolCall && modelId && String(modelId).startsWith("native:")) return "Autopilot native local model response";
+
   const conversationReply = nativeFixtureConversationReply(queryText);
   if (conversationReply) {
     if (!expectsJsonToolCall) {
@@ -8549,7 +8870,6 @@ function nativeLocalOutput({ kind, input, modelId }) {
   if (
     !expectsJsonToolCall &&
     (
-      (modelId && String(modelId).startsWith("native:")) ||
       inputStr.toLowerCase().includes("native") ||
       inputStr.toLowerCase().includes("e2e")
     )
@@ -8741,13 +9061,6 @@ function firstModelFile(dir) {
   return candidates[0];
 }
 
-function modelFileScore(filePath) {
-  const name = path.basename(filePath).toLowerCase();
-  if (name.endsWith(".gguf")) return 3;
-  if (name.endsWith(".safetensors")) return 2;
-  if (name.endsWith(".onnx") || name.endsWith(".bin")) return 1;
-  return 0;
-}
 
 function parseLocalModelMetadata(filePath) {
   const name = path.basename(String(filePath));
@@ -9960,30 +10273,8 @@ function catalogEntryMatches(entry, { query, format, quantization }) {
   return true;
 }
 
-function modelCatalogFileFormat(filePath) {
-  const lower = String(filePath ?? "").toLowerCase();
-  if (lower.endsWith(".gguf")) return "gguf";
-  if (lower.includes("mlx")) return "mlx";
-  if (lower.endsWith(".safetensors")) return "safetensors";
-  return null;
-}
 
-function catalogCompatibilityForFormat(format) {
-  if (format === "gguf") return ["native_local_fixture", "llama_cpp"];
-  if (format === "mlx") return ["mlx", "local_import"];
-  if (format === "safetensors") return ["vllm", "openai_compatible"];
-  if (format === "ollama") return ["ollama"];
-  return ["local_import"];
-}
 
-function huggingFaceResolveUrl(baseUrl, repoId, filePath) {
-  const base = String(baseUrl).replace(/\/+$/, "");
-  const pathPart = String(filePath)
-    .split("/")
-    .map((part) => encodeURIComponent(part))
-    .join("/");
-  return `${base}/${repoId}/resolve/main/${pathPart}`;
-}
 
 function catalogVariantForSource(source, body = {}) {
   const catalogEntry = fixtureModelCatalog(new Date(0).toISOString()).find((entry) => entry.sourceUrl === source);
@@ -10039,241 +10330,4 @@ function enrichCatalogEntry(entry, { storage = {}, artifacts = [], maxBytes = nu
       "approval_decision",
     ],
   };
-}
-
-function catalogBackendCompatibility(entry) {
-  const format = String(entry.format ?? "").toLowerCase();
-  const compatibility = new Set(normalizeScopes(entry.compatibility, []));
-  const rows = [
-    backendCompatibilityRow("native_local_fixture", compatibility.has("native_local_fixture") || format === "gguf", format === "gguf" ? 92 : 70, "Autopilot native-local can import deterministic local artifacts."),
-    backendCompatibilityRow("llama_cpp", compatibility.has("llama_cpp") || format === "gguf", format === "gguf" ? 90 : 25, "llama.cpp expects GGUF artifacts."),
-    backendCompatibilityRow("ollama", compatibility.has("ollama") || format === "gguf", format === "ollama" ? 88 : format === "gguf" ? 62 : 20, "Ollama can run catalog-listed Ollama models and local GGUF through import/create workflows when configured."),
-    backendCompatibilityRow("vllm", compatibility.has("vllm") || format === "safetensors", format === "safetensors" ? 88 : 18, "vLLM expects Hugging Face/safetensors-style artifacts."),
-  ];
-  return rows;
-}
-
-function backendCompatibilityRow(backendKind, compatible, score, reason) {
-  return {
-    backendKind,
-    score: compatible ? score : Math.min(score, 20),
-    status: compatible ? (score >= 80 ? "ready" : "compatible") : "unsupported",
-    reason,
-  };
-}
-
-function catalogBenchmarkReadiness(entry) {
-  const text = [entry.modelId, entry.family, entry.sourceLabel, ...(entry.tags ?? []), ...(entry.compatibility ?? [])].join(" ").toLowerCase();
-  const embeddings = /embed|embedding|nomic|bge|e5/.test(text);
-  const rerank = /rerank|cross-encoder/.test(text);
-  const vision = /vision|llava|vlm|multimodal|image/.test(text);
-  const chat = !embeddings && !rerank;
-  return {
-    chat,
-    embeddings,
-    rerank,
-    vision,
-    structuredOutput: chat,
-    hints: [
-      chat ? "chat-ready" : null,
-      embeddings ? "embedding-ready" : null,
-      rerank ? "rerank-ready" : null,
-      vision ? "vision-ready" : null,
-      entry.format === "gguf" ? "local-gguf-benchmark" : null,
-      entry.format === "safetensors" ? "vllm-benchmark" : null,
-    ].filter(Boolean),
-  };
-}
-
-function catalogDownloadRisk(entry, { storage = {}, artifacts = [], maxBytes = null } = {}) {
-  const reasons = [];
-  const sizeBytes = Number(entry.sizeBytes ?? 0);
-  const byteCap = normalizeOptionalBytes(maxBytes);
-  const existingArtifactCollision = artifacts.some((artifact) => artifact.modelId === entry.modelId || artifact.displayName === entry.modelId || artifact.id === entry.id);
-  const quotaBytes = Number(storage.quotaBytes ?? 0) || null;
-  const totalBytes = Number(storage.totalBytes ?? 0) || 0;
-  let score = 10;
-  let byteCapStatus = "not_set";
-  if (byteCap) {
-    byteCapStatus = sizeBytes && sizeBytes > byteCap ? "over_cap" : "within_cap";
-    if (byteCapStatus === "over_cap") {
-      score += 80;
-      reasons.push("variant exceeds configured byte cap");
-    }
-  }
-  if (quotaBytes && sizeBytes && totalBytes + sizeBytes > quotaBytes) {
-    score += 55;
-    reasons.push("download would exceed storage quota");
-  }
-  if (existingArtifactCollision) {
-    score += 20;
-    reasons.push("model id collides with an existing artifact");
-  }
-  if (!sizeBytes) {
-    score += 15;
-    reasons.push("variant size is unknown");
-  }
-  if (String(storage.quotaStatus ?? "") === "over_quota") {
-    score += 40;
-    reasons.push("storage is already over quota");
-  }
-  if (reasons.length === 0) reasons.push("size and storage projection are acceptable");
-  const bounded = Math.min(100, score);
-  return {
-    score: bounded,
-    status: bounded >= 85 ? "blocked" : bounded >= 55 ? "high" : bounded >= 30 ? "medium" : "low",
-    reasons,
-    existingArtifactCollision,
-    byteCapStatus,
-    storageStatus: String(storage.quotaStatus ?? "unknown"),
-  };
-}
-
-function catalogRecommendation({ backendCompatibility, benchmarkReadiness, downloadRisk }) {
-  const primary = [...backendCompatibility].sort((left, right) => right.score - left.score)[0] ?? null;
-  const readinessBoost = benchmarkReadiness.chat || benchmarkReadiness.embeddings ? 8 : 0;
-  const riskPenalty = downloadRisk.status === "blocked" ? 80 : downloadRisk.status === "high" ? 35 : downloadRisk.status === "medium" ? 15 : 0;
-  const score = Math.max(0, Math.min(100, (primary?.score ?? 0) + readinessBoost - riskPenalty));
-  const label = downloadRisk.status === "blocked" ? "blocked" : score >= 80 ? "recommended" : "review";
-  return {
-    score,
-    label,
-    primaryBackend: primary?.backendKind ?? null,
-    reasons: [
-      primary ? `${primary.backendKind} ${primary.status}` : "no compatible backend",
-      ...downloadRisk.reasons.slice(0, 2),
-      ...benchmarkReadiness.hints.slice(0, 2),
-    ],
-  };
-}
-
-function catalogApprovalDecision({ isFixture, body = {} }) {
-  const approved = Boolean(body.transfer_approved ?? body.transferApproved ?? isFixture);
-  return {
-    required: !isFixture,
-    approved,
-    source: approved ? "operator_or_fixture" : "not_provided",
-  };
-}
-
-function normalizeDownloadPolicy(body = {}, { isFixture, maxBytes, source } = {}) {
-  const bandwidthLimitBps = normalizeOptionalBytes(
-    body.bandwidth_bps ??
-      body.bandwidthBps ??
-      body.bandwidth_limit_bps ??
-      body.bandwidthLimitBps ??
-      process.env.IOI_MODEL_DOWNLOAD_BANDWIDTH_BPS,
-  );
-  const retryLimit = normalizeNonNegativeInteger(body.retry_limit ?? body.retryLimit ?? body.retries ?? 0, 0);
-  const resume = truthy(body.resume ?? body.resume_download ?? body.resumeDownload ?? true);
-  const cleanupPartialOnCancel = truthy(body.cleanup_partial ?? body.cleanupPartial ?? true);
-  const approvalDecision = catalogApprovalDecision({ isFixture, body });
-  return {
-    maxBytes,
-    bandwidthLimitBps,
-    retryLimit,
-    resume,
-    cleanupPartialOnCancel,
-    externalTransferRequired: approvalDecision.required,
-    externalTransferApproved: approvalDecision.approved,
-    approvalDecision,
-    sourceHash: stableHash(source),
-    status: approvalDecision.required && !approvalDecision.approved ? "blocked_approval_required" : "ready",
-    evidenceRefs: ["model_download_transfer_policy", "external_transfer_approval_receipt"],
-  };
-}
-
-function assertDownloadPolicyAllowed(policy, source) {
-  if (!policy.externalTransferRequired || policy.externalTransferApproved) return;
-  throw runtimeError({
-    status: 403,
-    code: "external_transfer_approval_required",
-    message: "External model transfers require explicit operator approval.",
-    details: {
-      sourceHash: stableHash(source),
-      approvalDecision: policy.approvalDecision,
-      evidenceRefs: policy.evidenceRefs,
-    },
-  });
-}
-
-function destructiveConfirmationState(body = {}, { required = true, action = "destructive_action" } = {}) {
-  const confirmed = Boolean(body.confirm_destructive ?? body.confirmDestructive ?? body.destructive_confirmed ?? body.destructiveConfirmed ?? false);
-  return {
-    required,
-    confirmed: required ? confirmed : true,
-    action,
-    source: confirmed ? "operator_confirmation" : required ? "not_provided" : "not_required",
-  };
-}
-
-function inferModelArchitecture(value) {
-  const text = String(value ?? "").toLowerCase();
-  if (/qwen/.test(text)) return "qwen";
-  if (/llama|mistral|mixtral|vicuna|alpaca/.test(text)) return "llama";
-  if (/nomic/.test(text)) return "nomic";
-  if (/bge/.test(text)) return "bge";
-  if (/gemma/.test(text)) return "gemma";
-  if (/phi/.test(text)) return "phi";
-  if (/bert|e5/.test(text)) return "bert";
-  return "unknown";
-}
-
-function inferParameterCount(value) {
-  const match = String(value ?? "").match(/(?:^|[^a-z0-9])(\d+(?:\.\d+)?)\s?([bBmMkK])(?:[^a-z0-9]|$)/);
-  if (!match) return null;
-  return `${match[1]}${match[2].toUpperCase()}`;
-}
-
-function modelIdFromSourceUrl(sourceUrl) {
-  return safeId(String(sourceUrl).split(/[/?#]/).filter(Boolean).at(-1) ?? "catalog-model").replaceAll(".", "-");
-}
-
-function sourceLabelForUrl(source) {
-  if (String(source).startsWith("fixture://")) return "Fixture catalog";
-  if (String(source).includes("huggingface.co")) return "Hugging Face";
-  return "Model catalog";
-}
-
-function normalizeImportMode(value) {
-  const mode = String(value ?? "reference").toLowerCase().replaceAll("-", "_");
-  if (["reference", "operator"].includes(mode)) return mode;
-  if (["copy", "move", "hardlink", "symlink", "dry_run"].includes(mode)) return mode;
-  throw runtimeError({
-    status: 400,
-    code: "bad_request",
-    message: "Import mode must be copy, move, hardlink, symlink, dry_run, or reference.",
-    details: { importMode: mode },
-  });
-}
-
-function importTargetPath(modelRoot, modelId, sourcePath) {
-  const extension = path.extname(sourcePath) || ".gguf";
-  return path.join(modelRoot, "imports", safeFileName(modelId), `${safeFileName(modelId)}${extension}`);
-}
-
-function materializeImportArtifact(modelRoot, modelId, sourcePath, importMode) {
-  if (["reference", "operator"].includes(importMode)) return sourcePath;
-  const targetPath = importTargetPath(modelRoot, modelId, sourcePath);
-  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-  fs.rmSync(targetPath, { force: true });
-  if (importMode === "copy") fs.copyFileSync(sourcePath, targetPath);
-  if (importMode === "move") fs.renameSync(sourcePath, targetPath);
-  if (importMode === "hardlink") fs.linkSync(sourcePath, targetPath);
-  if (importMode === "symlink") fs.symlinkSync(sourcePath, targetPath);
-  return targetPath;
-}
-
-function listModelFiles(root) {
-  if (!fs.existsSync(root)) return [];
-  const results = [];
-  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
-    const entryPath = path.join(root, entry.name);
-    if (entry.isDirectory()) {
-      results.push(...listModelFiles(entryPath));
-    } else if (entry.isFile() && modelFileScore(entryPath) > 0) {
-      results.push(entryPath);
-    }
-  }
-  return results.sort();
 }

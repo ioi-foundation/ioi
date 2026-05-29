@@ -84,6 +84,29 @@ fn duplicate_prior_success_noop(verification_checks: &[String]) -> bool {
         .any(|check| check == "duplicate_action_fingerprint_prior_success_noop=true")
 }
 
+fn read_only_workspace_context_duplicate_noop(
+    agent_state: &AgentState,
+    current_tool_name: &str,
+) -> bool {
+    if !matches!(
+        current_tool_name,
+        "file__read" | "file__search" | "file__info" | "file__list"
+    ) {
+        return false;
+    }
+    if agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|intent| intent.scope)
+        != Some(IntentScopeProfile::WorkspaceOps)
+    {
+        return false;
+    }
+
+    has_execution_evidence(&agent_state.tool_execution_log, "workspace_read")
+        && has_execution_evidence(&agent_state.tool_execution_log, "file_context")
+}
+
 fn duplicate_after_prior_success(verification_checks: &[String]) -> bool {
     verification_checks.iter().any(|check| {
         check == "duplicate_action_fingerprint_prior_success=true"
@@ -749,7 +772,12 @@ pub(crate) async fn finalize_action_processing(
     let trace_visual_hash = trace_visual_hash.unwrap_or(final_visual_phash);
     let prior_consecutive_failures = agent_state.consecutive_failures;
     let duplicate_prior_success_noop = duplicate_prior_success_noop(&verification_checks);
-    if duplicate_prior_success_noop && failure_class.is_none() {
+    let benign_workspace_context_duplicate =
+        read_only_workspace_context_duplicate_noop(agent_state, &current_tool_name);
+    if duplicate_prior_success_noop
+        && !benign_workspace_context_duplicate
+        && failure_class.is_none()
+    {
         success = false;
         if error_msg.is_none() {
             error_msg = Some(

@@ -18,12 +18,30 @@ pub(super) fn cognition_inference_timeout() -> Duration {
     cognition_inference_timeout_from_env(|name| std::env::var(name).ok())
 }
 
+pub(super) fn cognition_inference_timeout_for_reply_mode(chat_reply_only: bool) -> Duration {
+    cognition_inference_timeout_for_reply_mode_from_base(
+        cognition_inference_timeout(),
+        chat_reply_only,
+    )
+}
+
+fn cognition_inference_timeout_for_reply_mode_from_base(
+    base: Duration,
+    chat_reply_only: bool,
+) -> Duration {
+    if chat_reply_only {
+        base.max(Duration::from_secs(60))
+    } else {
+        base
+    }
+}
+
 fn cognition_inference_timeout_from_env<F>(get_env: F) -> Duration
 where
     F: Fn(&str) -> Option<String>,
 {
-    const DEFAULT_TIMEOUT_SECS: u64 = 15;
-    const LOCAL_GPU_DEV_DEFAULT_TIMEOUT_SECS: u64 = 60;
+    const DEFAULT_TIMEOUT_SECS: u64 = 30;
+    const LOCAL_GPU_DEV_DEFAULT_TIMEOUT_SECS: u64 = 90;
     let default_timeout_secs = if env_var_truthy_from(|| get_env("AUTOPILOT_LOCAL_GPU_DEV")) {
         LOCAL_GPU_DEV_DEFAULT_TIMEOUT_SECS
     } else {

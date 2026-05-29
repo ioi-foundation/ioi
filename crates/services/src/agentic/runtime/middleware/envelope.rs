@@ -80,6 +80,13 @@ pub(super) fn unwrap_tool_envelope(raw_val: Value) -> Result<Value> {
 
 pub(super) fn sanitize_json(input: &str) -> String {
     let trimmed = input.trim();
+    // If the entire model output is already JSON, keep it intact. Tool
+    // arguments can legitimately contain fenced markdown/code snippets; those
+    // fences are payload text, not a wrapper to peel.
+    if serde_json::from_str::<Value>(trimmed).is_ok() {
+        return trimmed.to_string();
+    }
+
     // Prefer the first fenced code block anywhere in the output so we can
     // recover tool JSON that follows a short explanation.
     if let Some(fence_start) = trimmed.find("```") {

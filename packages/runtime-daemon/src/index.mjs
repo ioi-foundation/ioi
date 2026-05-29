@@ -5,14 +5,7 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 
-import {
-  ModelMountingState,
-  anthropicMessage,
-  openAiChatCompletion,
-  openAiCompletion,
-  openAiEmbedding,
-  openAiResponse,
-} from "./model-mounting.mjs";
+import { ModelMountingState } from "./model-mounting.mjs";
 import * as routeDecision from "./model-mounting/route-decision.mjs";
 import {
   COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
@@ -114,6 +107,35 @@ import {
   runtimeUsageTelemetrySummary,
 } from "./usage-telemetry.mjs";
 import { authorityEvidenceSummaryForEvents } from "./authority-evidence-summary.mjs";
+import { ConversationArtifactStore } from "./conversation-artifacts.mjs";
+import { resolveStudioIntentFrame } from "./studio-intent-frame.mjs";
+import { createRuntimeRouteHandlers } from "./runtime-route-handlers.mjs";
+import { createRuntimeRecordProjections } from "./runtime-record-projections.mjs";
+import {
+  handleOpenAiCompatibilityRoute,
+  isOpenAiCompatibilityRoute,
+  nativeEmbeddingResponse,
+  nativeInvocationResponse,
+} from "./openai-compat-routes.mjs";
+import {
+  readBody,
+  writeSse,
+  writeJsonResponse,
+  writeMcpJsonRpcResponse,
+  writeError,
+  notFound,
+  policyError,
+  externalBlocker,
+  runtimeError,
+  redact,
+  writeJson,
+  readJson,
+  listJson,
+  readJsonl,
+  listJsonl,
+  runtimeEventStreamFileName,
+  relative,
+} from "./runtime-http-utils.mjs";
 
 export {
   RuntimeAgentServiceCommandAdapter,
@@ -122,162 +144,112 @@ export {
   createRuntimeAgentServiceCommandAdapterFromEnv,
 } from "./runtime-agent-service-adapter.mjs";
 
-const TERMINAL_EVENT_TYPES = new Set(["completed", "canceled", "failed", "error"]);
-const JOB_TERMINAL_EVENT_TYPES = new Set(["job_completed", "job_failed", "job_canceled"]);
-const RUNTIME_THREAD_SCHEMA_VERSION = "ioi.runtime.thread.v1";
-const RUNTIME_TURN_SCHEMA_VERSION = "ioi.runtime.turn.v1";
-const RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION = "ioi.runtime.event.v1";
-const RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION = "ioi.runtime.thread-controls.v1";
-const RUNTIME_THREAD_MODE_CONTROL_SCHEMA_VERSION = "ioi.runtime.thread-mode-control.v1";
-const RUNTIME_MODEL_ROUTE_CONTROL_SCHEMA_VERSION = "ioi.runtime.model-route-control.v1";
-const WORKSPACE_TRUST_WARNING_SCHEMA_VERSION = "ioi.runtime.workspace-trust-warning.v1";
-const WORKSPACE_TRUST_ACKNOWLEDGEMENT_SCHEMA_VERSION = "ioi.runtime.workspace-trust-acknowledgement.v1";
-const WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION =
-  "ioi.workflow.coding-tool-budget-recovery.v1";
-const WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION =
-  "ioi.workflow.coding-tool-budget-recovery-policy.v1";
-const WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON =
-  "coding_tool_budget_preflight_blocked";
-const CODING_TOOL_ARTIFACT_SCHEMA_VERSION = "ioi.runtime.coding-tool-artifact.v1";
-const COMPUTER_USE_VISUAL_ARTIFACT_MAX_BYTES = 5 * 1024 * 1024;
-const RUNTIME_MCP_SERVE_SCHEMA_VERSION = "ioi.runtime.mcp-serve.v1";
-const RUNTIME_MCP_SERVE_PROTOCOL_VERSION = "2024-11-05";
-const RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS = [
-  "workspace.status",
-  "git.diff",
-  "file.inspect",
-];
-const RUNTIME_MCP_TOOL_SEARCH_SCHEMA_VERSION = "ioi.runtime.mcp-tool-search.v1";
-const RUNTIME_USAGE_DELTA_SCHEMA_VERSION = "ioi.runtime.usage-delta.v1";
-const RUNTIME_CONTEXT_PRESSURE_DELTA_SCHEMA_VERSION = "ioi.runtime.context-pressure-delta.v1";
-const RUNTIME_CONTEXT_PRESSURE_ALERT_SCHEMA_VERSION = "ioi.runtime.context-pressure-alert.v1";
-const RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION = "ioi.runtime.context-budget-policy.v1";
-const RUNTIME_COMPACTION_POLICY_SCHEMA_VERSION = "ioi.runtime.compaction-policy.v1";
-const MCP_LIVE_CATALOG_DEFAULT_PREVIEW_LIMIT = 50;
-const MCP_LIVE_CATALOG_MAX_PREVIEW_LIMIT = 200;
-const WORKSPACE_SNAPSHOT_SCHEMA_VERSION = "ioi.runtime.workspace-snapshot.v1";
-const WORKSPACE_SNAPSHOT_NODE_ID = "runtime.workspace-snapshot";
-const WORKSPACE_RESTORE_PREVIEW_SCHEMA_VERSION = "ioi.runtime.workspace-restore-preview.v1";
-const WORKSPACE_RESTORE_APPLY_SCHEMA_VERSION = "ioi.runtime.workspace-restore-apply.v1";
-const WORKSPACE_RESTORE_PREVIEW_NODE_ID = "runtime.restore-gate";
-const LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION = "ioi.runtime.lsp-diagnostics-injection.v1";
-const LSP_DIAGNOSTICS_BLOCKING_GATE_SCHEMA_VERSION = "ioi.runtime.lsp-diagnostics-blocking-gate.v1";
-const DIAGNOSTICS_ROLLBACK_REPAIR_CONTEXT_SCHEMA_VERSION = "ioi.runtime.diagnostics-rollback-repair-context.v1";
-const DIAGNOSTICS_ROLLBACK_REPAIR_POLICY_SCHEMA_VERSION = "ioi.runtime.diagnostics-rollback-repair-policy.v1";
-const DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION = "ioi.runtime.diagnostics-repair-decision-execution.v1";
-const LSP_DIAGNOSTICS_AUTO_NODE_ID = "runtime.coding-tool.lsp-diagnostics.auto";
-const LSP_DIAGNOSTICS_INJECTION_NODE_ID = "runtime.lsp-diagnostics.injected";
-const LSP_DIAGNOSTICS_BLOCKING_GATE_NODE_ID = "runtime.lsp-diagnostics.blocking-gate";
-const LSP_DIAGNOSTICS_REPAIR_RETRY_NODE_ID = "runtime.lsp-diagnostics.repair.retry";
-const LSP_DIAGNOSTICS_OPERATOR_OVERRIDE_NODE_ID = "runtime.lsp-diagnostics.repair.operator-override";
-const LSP_DIAGNOSTICS_REPAIR_RESTORE_PREVIEW_NODE_ID = "runtime.lsp-diagnostics.repair.restore-preview";
-const LSP_DIAGNOSTICS_REPAIR_RESTORE_APPLY_NODE_ID = "runtime.lsp-diagnostics.repair.restore-apply";
-const LSP_DIAGNOSTICS_MAX_INJECTED_FINDINGS = 10;
-const LSP_DIAGNOSTICS_MAX_INJECTED_MESSAGE_CHARS = 240;
-const DAEMON_FIXTURE_PROFILE = "local_daemon_agentgres_projection";
-const RUN_EVENT_TO_TTI_EVENT = {
-  run_started: "turn.started",
-  runtime_task: "item.completed",
-  job_queued: "item.created",
-  job_started: "item.started",
-  runtime_checklist: "item.completed",
-  job_completed: "item.completed",
-  job_failed: "item.failed",
-  job_canceled: "item.canceled",
-  repository_context: "item.completed",
-  branch_policy: "item.completed",
-  github_context: "item.completed",
-  issue_context: "item.completed",
-  pr_attempt: "item.completed",
-  review_gate: "item.completed",
-  github_pr_create_plan: "item.completed",
-  model_route_decision: "item.completed",
-  computer_use_environment_selected: "computer_use.environment_selected",
-  computer_use_environment_unavailable: "computer_use.environment_unavailable",
-  computer_use_lease_acquired: "computer_use.lease_acquired",
-  computer_use_run_state: "computer_use.run_state",
-  computer_use_observation: "computer_use.observation",
-  computer_use_affordance_graph: "computer_use.affordance_graph",
-  computer_use_browser_discovery: "computer_use.browser_discovery",
-  computer_use_action_proposed: "computer_use.action_proposed",
-  computer_use_action_executed: "computer_use.action_executed",
-  computer_use_verification: "computer_use.verification",
-  computer_use_commit_gate: "computer_use.commit_gate",
-  computer_use_trajectory_written: "computer_use.trajectory_written",
-  computer_use_cleanup: "computer_use.cleanup",
-  computer_use_control: "computer_use.control",
-  skill_hook_manifest: "item.completed",
-  hook_dry_run_plan: "item.completed",
-  hook_invocation_ledger: "item.completed",
-  memory_update: "item.completed",
-  lsp_diagnostics_injected: "lsp.diagnostics.injected",
-  policy_blocked: "policy.blocked",
-  task_state: "item.completed",
-  uncertainty: "item.completed",
-  probe: "item.completed",
-  postcondition_synthesized: "item.completed",
-  semantic_impact: "item.completed",
-  delta: "item.delta",
-  usage_delta: "usage.delta",
-  context_pressure_delta: "context.pressure_delta",
-  context_pressure_alert: "context.pressure_alert",
-  usage_final: "item.completed",
-  stop_condition: "item.completed",
-  quality_ledger: "item.completed",
-  artifact: "item.completed",
-  completed: "turn.completed",
-  canceled: "turn.canceled",
-  failed: "turn.failed",
-  error: "turn.failed",
-};
-const COMPUTER_USE_BROWSER_DISCOVERY_TOOL_IDS = new Set([
-  "ioi.computer_use.browser_discovery",
-  "computer_use.browser_discovery",
-]);
-const COMPUTER_USE_NATIVE_BROWSER_TOOL_IDS = new Set([
-  "ioi.computer_use.native_browser",
-  "computer_use.native_browser",
-]);
-const COMPUTER_USE_VISUAL_GUI_TOOL_IDS = new Set([
-  "ioi.computer_use.visual_gui",
-  "computer_use.visual_gui",
-]);
-const COMPUTER_USE_SANDBOXED_HOSTED_TOOL_IDS = new Set([
-  "ioi.computer_use.sandboxed_hosted",
-  "computer_use.sandboxed_hosted",
-  "ioi.computer_use.sandboxed",
-  "computer_use.sandboxed",
-]);
-const COMPUTER_USE_VISUAL_GUI_OBSERVE_TOOL_IDS = new Set([
-  "ioi.computer_use.visual_gui.observe",
-  "computer_use.visual_gui.observe",
-  "ioi.computer_use.visual_gui_observe",
-  "computer_use.visual_gui_observe",
-]);
-const COMPUTER_USE_CONTROL_TOOL_IDS = new Set([
-  "ioi.computer_use.control",
-  "computer_use.control",
-]);
-const HOOK_INVOCATION_RUNTIME_EVENTS = [
-  {
-    eventKind: "workflow_activation",
-    runtimeEventType: "run_started",
-    phase: "activation",
-    workflowNodeId: "runtime.runtime-thread",
-  },
-  {
-    eventKind: "pre_model",
-    runtimeEventType: "model_route_decision",
-    phase: "before_model",
-    workflowNodeId: "runtime.model-router",
-  },
-  {
-    eventKind: "post_model",
-    runtimeEventType: "delta",
-    phase: "after_model",
-    workflowNodeId: "runtime.output-writer",
-  },
-];
+import {
+  TERMINAL_EVENT_TYPES,
+  JOB_TERMINAL_EVENT_TYPES,
+  RUNTIME_THREAD_SCHEMA_VERSION,
+  RUNTIME_TURN_SCHEMA_VERSION,
+  RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION,
+  RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION,
+  RUNTIME_THREAD_MODE_CONTROL_SCHEMA_VERSION,
+  RUNTIME_MODEL_ROUTE_CONTROL_SCHEMA_VERSION,
+  WORKSPACE_TRUST_WARNING_SCHEMA_VERSION,
+  WORKSPACE_TRUST_ACKNOWLEDGEMENT_SCHEMA_VERSION,
+  WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
+  WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION,
+  WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON,
+  CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
+  COMPUTER_USE_VISUAL_ARTIFACT_MAX_BYTES,
+  RUNTIME_MCP_SERVE_SCHEMA_VERSION,
+  RUNTIME_MCP_SERVE_PROTOCOL_VERSION,
+  RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS,
+  RUNTIME_MCP_TOOL_SEARCH_SCHEMA_VERSION,
+  RUNTIME_USAGE_DELTA_SCHEMA_VERSION,
+  RUNTIME_CONTEXT_PRESSURE_DELTA_SCHEMA_VERSION,
+  RUNTIME_CONTEXT_PRESSURE_ALERT_SCHEMA_VERSION,
+  RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION,
+  RUNTIME_COMPACTION_POLICY_SCHEMA_VERSION,
+  MCP_LIVE_CATALOG_DEFAULT_PREVIEW_LIMIT,
+  MCP_LIVE_CATALOG_MAX_PREVIEW_LIMIT,
+  WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
+  WORKSPACE_SNAPSHOT_NODE_ID,
+  WORKSPACE_RESTORE_PREVIEW_SCHEMA_VERSION,
+  WORKSPACE_RESTORE_APPLY_SCHEMA_VERSION,
+  WORKSPACE_RESTORE_PREVIEW_NODE_ID,
+  LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION,
+  LSP_DIAGNOSTICS_BLOCKING_GATE_SCHEMA_VERSION,
+  DIAGNOSTICS_ROLLBACK_REPAIR_CONTEXT_SCHEMA_VERSION,
+  DIAGNOSTICS_ROLLBACK_REPAIR_POLICY_SCHEMA_VERSION,
+  DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
+  LSP_DIAGNOSTICS_AUTO_NODE_ID,
+  LSP_DIAGNOSTICS_INJECTION_NODE_ID,
+  LSP_DIAGNOSTICS_BLOCKING_GATE_NODE_ID,
+  LSP_DIAGNOSTICS_REPAIR_RETRY_NODE_ID,
+  LSP_DIAGNOSTICS_OPERATOR_OVERRIDE_NODE_ID,
+  LSP_DIAGNOSTICS_REPAIR_RESTORE_PREVIEW_NODE_ID,
+  LSP_DIAGNOSTICS_REPAIR_RESTORE_APPLY_NODE_ID,
+  LSP_DIAGNOSTICS_MAX_INJECTED_FINDINGS,
+  LSP_DIAGNOSTICS_MAX_INJECTED_MESSAGE_CHARS,
+  DAEMON_FIXTURE_PROFILE,
+  RUN_EVENT_TO_TTI_EVENT,
+  COMPUTER_USE_BROWSER_DISCOVERY_TOOL_IDS,
+  COMPUTER_USE_NATIVE_BROWSER_TOOL_IDS,
+  COMPUTER_USE_VISUAL_GUI_TOOL_IDS,
+  COMPUTER_USE_SANDBOXED_HOSTED_TOOL_IDS,
+  COMPUTER_USE_VISUAL_GUI_OBSERVE_TOOL_IDS,
+  COMPUTER_USE_CONTROL_TOOL_IDS,
+  HOOK_INVOCATION_RUNTIME_EVENTS,
+} from "./runtime-contract-constants.mjs";
+
+const {
+  handleAgentRoute,
+  handleModelMountingNativeRoute,
+  handleRunRoute,
+  handleThreadRoute,
+} = createRuntimeRouteHandlers({
+  baseUrlForRequest,
+  nativeEmbeddingResponse,
+  nativeInvocationResponse,
+  notFound,
+  readBody,
+  resolveRunArtifact,
+  runtimeEventCursorFromRequest,
+  usageRequestMetadataFromUrl,
+  usageTelemetryWithRequestMetadata,
+  writeJsonResponse,
+  writeMcpJsonRpcResponse,
+  writeSse,
+});
+
+const {
+  attachChecklistToRuntimeJob,
+  runtimeBridgeComputerUseTrace,
+  runtimeBridgeMessagesForProjection,
+  runtimeBridgeRunRecord,
+  runtimeChecklistRecord,
+  runtimeChecklistRecordForRun,
+  runtimeJobRecord,
+  runtimeJobRecordForRun,
+  runtimeTaskRecord,
+  runtimeTaskRecordForRun,
+} = createRuntimeRecordProjections({
+  COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+  artifact,
+  doctorHash,
+  eventStreamIdForThread,
+  isComputerUseRunEventType,
+  normalizeArray,
+  optionalString,
+  runtimeSessionIdForAgent,
+  runtimeUsageTelemetryForRun,
+  safeId,
+  strategyForMode,
+  taskFamilyForMode,
+  terminalCount,
+  threadIdForAgent,
+  turnIdForRun,
+  uniqueStrings,
+});
 
 export async function startRuntimeDaemonService(options = {}) {
   const stateDir = path.resolve(options.stateDir ?? path.join(process.cwd(), ".ioi", "agentgres"));
@@ -332,6 +304,7 @@ export class AgentgresRuntimeStateStore {
     this.subagents = new Map();
     this.runtimeEventStreams = new Map();
     this.codingArtifacts = new Map();
+    this.conversationArtifacts = new ConversationArtifactStore(this.stateDir);
     this.runtimeBridge = createRuntimeApiBridge(options.runtimeBridge);
     this.schemaVersion = "ioi.agentgres.runtime.v0";
     this.ensureDirs();
@@ -351,6 +324,10 @@ export class AgentgresRuntimeStateStore {
 
   close() {
     this.modelMounting.close();
+  }
+
+  resolveStudioIntentFrame(input = {}) {
+    return resolveStudioIntentFrame(input);
   }
 
   createAgent(options = {}) {
@@ -3051,6 +3028,27 @@ export class AgentgresRuntimeStateStore {
     };
   }
 
+  normalizeRuntimeBridgeLiveEvent({ event, agent, threadId }) {
+    const turnId = optionalString(event?.turn_id ?? event?.turnId) ?? "";
+    const runId = turnId ? runIdForTurn(turnId) : null;
+    return {
+      ...event,
+      event_stream_id: event?.event_stream_id ?? eventStreamIdForThread(threadId),
+      thread_id: event?.thread_id ?? threadId,
+      turn_id: turnId || (event?.turn_id ?? event?.turnId ?? ""),
+      workspace_root: event?.workspace_root ?? agent.cwd,
+      source: event?.source ?? "runtime_service",
+      source_event_kind: event?.source_event_kind ?? "RuntimeAgentService",
+      fixture_profile: Object.hasOwn(event ?? {}, "fixture_profile") ? event.fixture_profile : null,
+      payload: {
+        agent_id: agent.id,
+        ...(runId ? { run_id: runId } : {}),
+        session_id: runtimeSessionIdForAgent(agent),
+        ...(event?.payload ?? event?.payload_summary ?? {}),
+      },
+    };
+  }
+
   doctorReport({ baseUrl = null } = {}) {
     const generatedAt = new Date().toISOString();
     const modelProjection = this.modelMounting.projection();
@@ -3326,6 +3324,25 @@ export class AgentgresRuntimeStateStore {
         diagnosticsFeedback,
       });
     }
+    const requestedRuntimeProfile = runtimeProfileForRequest(
+      controlledRequest,
+      controlledRequest.options ?? {},
+    );
+    if (isRuntimeServiceProfile(requestedRuntimeProfile)) {
+      throw runtimeError({
+        status: 409,
+        code: "runtime_thread_profile_mismatch",
+        message:
+          "Agent requested runtime_service execution on a non-runtime thread. Start a runtime_service thread before submitting governed Agent work.",
+        details: {
+          threadId,
+          agentId: agent.id,
+          agentRuntimeProfile: agent.runtimeProfile ?? "fixture",
+          requestedRuntimeProfile,
+          syntheticFallbackAllowed: false,
+        },
+      });
+    }
     const prompt = controlledRequest.prompt ?? controlledRequest.message ?? controlledRequest.input ?? "";
     const run = this.createRun(agent.id, {
       mode: controlledRequest.mode ?? "send",
@@ -3352,8 +3369,42 @@ export class AgentgresRuntimeStateStore {
     };
     let bridgeResult;
     try {
-      bridgeResult = await this.runtimeBridge.submitTurn(input);
+      bridgeResult = await this.runtimeBridge.submitTurn(input, {
+        onRuntimeEvent: (event) => {
+          this.appendRuntimeEvent(
+            this.normalizeRuntimeBridgeLiveEvent({ event, agent, threadId }),
+          );
+        },
+      });
     } catch (error) {
+      this.appendOperation("turn.runtime_bridge.submit_error", {
+        objectId: agent.id,
+        agentId: agent.id,
+        threadId,
+        runtimeProfile: agent.runtimeProfile,
+        operation: "submit_turn",
+        errorName: error?.name ?? null,
+        errorCode: error?.code ?? error?.details?.adapterErrorCode ?? null,
+        errorMessage: String(error?.message ?? error),
+        errorStatus: error?.status ?? null,
+        bridgeId: this.runtimeBridge.bridgeId,
+        requestIntentId: request?.intentFrame?.intentId ?? request?.intentFrame?.intent_id ?? null,
+        requestRouteDirective: request?.intentFrame?.routeDirective ?? request?.intentFrame?.route_directive ?? null,
+        requestRequiredCapabilities: Array.isArray(request?.intentFrame?.requiredCapabilities)
+          ? request.intentFrame.requiredCapabilities
+          : [],
+        details: error?.details
+          ? {
+              operation: error.details.operation ?? null,
+              bridgeId: error.details.bridgeId ?? null,
+              adapterErrorCode: error.details.adapterErrorCode ?? null,
+              exitCode: error.details.exitCode ?? null,
+              signal: error.details.signal ?? null,
+              stderr: error.details.stderr ?? null,
+              error: error.details.error ?? null,
+            }
+          : null,
+      });
       if (error instanceof RuntimeApiBridgeUnavailableError) {
         throw this.runtimeBridgeUnavailable({
           runtimeProfile: agent.runtimeProfile,
@@ -11210,6 +11261,46 @@ export class AgentgresRuntimeStateStore {
     };
   }
 
+  createConversationArtifact(threadId, input = {}) {
+    return this.conversationArtifacts.create({
+      ...input,
+      threadId,
+    });
+  }
+
+  listConversationArtifacts(query = {}) {
+    return this.conversationArtifacts.list(query);
+  }
+
+  getConversationArtifact(artifactId) {
+    const artifact = this.conversationArtifacts.get(artifactId);
+    if (!artifact) throw notFound(`Conversation artifact not found: ${artifactId}`, { artifactId });
+    return artifact;
+  }
+
+  listConversationArtifactRevisions(artifactId) {
+    this.getConversationArtifact(artifactId);
+    return this.conversationArtifacts.revisions(artifactId);
+  }
+
+  performConversationArtifactAction(artifactId, input = {}) {
+    const result = this.conversationArtifacts.action(artifactId, input);
+    if (!result) throw notFound(`Conversation artifact not found: ${artifactId}`, { artifactId });
+    return result;
+  }
+
+  exportConversationArtifact(artifactId, input = {}) {
+    const result = this.conversationArtifacts.exportArtifact(artifactId, input);
+    if (!result) throw notFound(`Conversation artifact not found: ${artifactId}`, { artifactId });
+    return result;
+  }
+
+  promoteConversationArtifact(artifactId, input = {}) {
+    const result = this.conversationArtifacts.promoteArtifact(artifactId, input);
+    if (!result) throw notFound(`Conversation artifact not found: ${artifactId}`, { artifactId });
+    return result;
+  }
+
   ensureDirs() {
     for (const dir of [
       "agents",
@@ -11218,6 +11309,7 @@ export class AgentgresRuntimeStateStore {
       "jobs",
       "checklists",
       "artifacts",
+      "conversation-artifacts",
       "receipts",
       "quality",
       "policy-decisions",
@@ -11252,6 +11344,7 @@ export class AgentgresRuntimeStateStore {
         jobs: ["jobId", "taskId", "runId", "agentId", "status", "createdAt", "updatedAt"],
         checklists: ["checklistId", "taskId", "jobId", "runId", "status", "itemCount", "completedItemCount"],
         artifacts: ["id", "runId", "name", "mediaType", "redaction", "receiptId"],
+        conversationArtifacts: ["id", "threadId", "artifactClass", "status", "latestRevisionId"],
         receipts: ["id", "runId", "kind", "summary", "redaction", "evidenceRefs"],
         memoryRecords: ["id", "scope", "threadId", "agentId", "workspace", "createdAt"],
         memoryPolicies: ["id", "targetType", "targetId", "disabled", "readOnly", "writeRequiresApproval", "updatedAt"],
@@ -11553,6 +11646,46 @@ async function handleRequest({ request, response, store }) {
       );
       return;
     }
+    if (request.method === "POST" && url.pathname === "/v1/studio/intent-frame") {
+      writeJsonResponse(response, store.resolveStudioIntentFrame(await readBody(request)));
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/conversation-artifacts") {
+      writeJsonResponse(response, store.listConversationArtifacts(Object.fromEntries(url.searchParams.entries())));
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/v1/conversation-artifacts") {
+      const body = await readBody(request);
+      writeJsonResponse(
+        response,
+        store.createConversationArtifact(optionalString(body.thread_id ?? body.threadId) ?? "thread_standalone", body),
+        201,
+      );
+      return;
+    }
+    if (segments[0] === "v1" && segments[1] === "conversation-artifacts" && segments[2]) {
+      const artifactId = decodeURIComponent(segments[2]);
+      if (request.method === "GET" && !segments[3]) {
+        writeJsonResponse(response, store.getConversationArtifact(artifactId));
+        return;
+      }
+      if (request.method === "GET" && segments[3] === "revisions" && !segments[4]) {
+        writeJsonResponse(response, store.listConversationArtifactRevisions(artifactId));
+        return;
+      }
+      if (request.method === "POST" && segments[3] === "actions" && !segments[4]) {
+        writeJsonResponse(response, store.performConversationArtifactAction(artifactId, await readBody(request)));
+        return;
+      }
+      if (request.method === "POST" && segments[3] === "export" && !segments[4]) {
+        writeJsonResponse(response, store.exportConversationArtifact(artifactId, await readBody(request)));
+        return;
+      }
+      if (request.method === "POST" && segments[3] === "promote" && !segments[4]) {
+        writeJsonResponse(response, store.promoteConversationArtifact(artifactId, await readBody(request)));
+        return;
+      }
+    }
     if (segments[0] === "v1" && segments[1] === "threads" && segments[2]) {
       await handleThreadRoute({ request, response, store, url, segments });
       return;
@@ -11784,1842 +11917,6 @@ async function handleRequest({ request, response, store }) {
   }
 }
 
-async function handleModelMountingNativeRoute({ request, response, store, url, segments }) {
-  const mounts = store.modelMounting;
-  const authorization = request.headers.authorization;
-  const baseUrl = baseUrlForRequest(request);
-  if (request.method === "GET" && url.pathname === "/api/v1/server/status") {
-    writeJsonResponse(response, mounts.serverStatus(baseUrl));
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/server/start") {
-    mounts.authorize(authorization, "server.control:*");
-    writeJsonResponse(response, mounts.serverStart(baseUrl));
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/server/stop") {
-    mounts.authorize(authorization, "server.control:*");
-    writeJsonResponse(response, mounts.serverStop(baseUrl));
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/server/restart") {
-    mounts.authorize(authorization, "server.control:*");
-    writeJsonResponse(response, mounts.serverRestart(baseUrl));
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/server/logs") {
-    mounts.authorize(authorization, "server.logs:*");
-    writeJsonResponse(response, mounts.serverLogs(Object.fromEntries(url.searchParams.entries())));
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/server/events") {
-    mounts.authorize(authorization, "server.logs:*");
-    writeJsonResponse(response, mounts.serverEvents(Object.fromEntries(url.searchParams.entries())));
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/models/server") {
-    writeJsonResponse(response, mounts.serverStatus(baseUrl));
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/models/server/start") {
-    mounts.authorize(authorization, "server.control:*");
-    writeJsonResponse(response, mounts.serverStart(baseUrl));
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/models/server/stop") {
-    mounts.authorize(authorization, "server.control:*");
-    writeJsonResponse(response, mounts.serverStop(baseUrl));
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/backends") {
-    writeJsonResponse(response, mounts.listBackends());
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/models/backends") {
-    writeJsonResponse(response, mounts.listBackends());
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/runtime/engines") {
-    writeJsonResponse(response, mounts.listRuntimeEngines());
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/models/runtime-engines") {
-    writeJsonResponse(response, mounts.listRuntimeEngines());
-    return;
-  }
-  if (request.method === "GET" && segments[2] === "runtime" && segments[3] === "engines" && segments[4]) {
-    writeJsonResponse(response, mounts.runtimeEngine(decodeURIComponent(segments[4])));
-    return;
-  }
-  if (request.method === "POST" && segments[2] === "runtime" && segments[3] === "engines" && segments[4] && segments[5] === "select") {
-    writeJsonResponse(response, mounts.selectRuntimeEngine({ engine_id: decodeURIComponent(segments[4]), ...(await readBody(request)) }));
-    return;
-  }
-  if (request.method === "PATCH" && segments[2] === "runtime" && segments[3] === "engines" && segments[4]) {
-    writeJsonResponse(response, mounts.updateRuntimeEngine(decodeURIComponent(segments[4]), await readBody(request)));
-    return;
-  }
-  if (request.method === "DELETE" && segments[2] === "runtime" && segments[3] === "engines" && segments[4]) {
-    writeJsonResponse(response, mounts.removeRuntimeEngineOverride(decodeURIComponent(segments[4])));
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/runtime/survey") {
-    writeJsonResponse(response, mounts.runtimeSurvey());
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/runtime/select") {
-    writeJsonResponse(response, mounts.selectRuntimeEngine(await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && segments[2] === "backends" && segments[3] && segments[4] === "health") {
-    writeJsonResponse(response, mounts.backendHealth(decodeURIComponent(segments[3])));
-    return;
-  }
-  if (request.method === "POST" && segments[2] === "backends" && segments[3] && segments[4] === "start") {
-    mounts.authorize(authorization, `backend.control:${decodeURIComponent(segments[3])}`);
-    writeJsonResponse(response, mounts.startBackend(decodeURIComponent(segments[3]), await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && segments[2] === "backends" && segments[3] && segments[4] === "stop") {
-    mounts.authorize(authorization, `backend.control:${decodeURIComponent(segments[3])}`);
-    writeJsonResponse(response, mounts.stopBackend(decodeURIComponent(segments[3])));
-    return;
-  }
-  if (request.method === "GET" && segments[2] === "backends" && segments[3] && segments[4] === "logs") {
-    writeJsonResponse(response, mounts.backendLogs(decodeURIComponent(segments[3])));
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/models") {
-    writeJsonResponse(response, mounts.snapshot(baseUrl));
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/authority") {
-    writeJsonResponse(response, mounts.authoritySnapshot(baseUrl));
-    return;
-  }
-  if (
-    request.method === "GET" &&
-    (url.pathname === "/api/v1/authority-evidence" ||
-      url.pathname === "/api/v1/authority-evidence-summaries" ||
-      url.pathname === "/api/v1/workflow-capability-preflight-evidence" ||
-      url.pathname === "/api/v1/workflow-capability-preflight")
-  ) {
-    writeJsonResponse(
-      response,
-      store.authorityEvidenceSummary(Object.fromEntries(url.searchParams.entries())),
-    );
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/model-capabilities") {
-    writeJsonResponse(response, mounts.listModelCapabilities());
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/models/catalog/search") {
-    writeJsonResponse(response, await mounts.catalogSearch(Object.fromEntries(url.searchParams.entries())));
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/models/catalog/import-url") {
-    mounts.authorize(authorization, "model.download:*");
-    mounts.authorize(authorization, "model.import:*");
-    writeJsonResponse(response, await mounts.catalogImportUrl(await readBody(request)), 202);
-    return;
-  }
-  if (request.method === "GET" && segments[2] === "models" && segments[3] === "catalog" && segments[4] === "providers" && segments[5]) {
-    writeJsonResponse(response, mounts.getCatalogProviderConfig(decodeURIComponent(segments[5])));
-    return;
-  }
-  if (request.method === "PATCH" && segments[2] === "models" && segments[3] === "catalog" && segments[4] === "providers" && segments[5]) {
-    const providerId = decodeURIComponent(segments[5]);
-    mounts.authorize(authorization, `provider.write:${providerId}`);
-    writeJsonResponse(response, mounts.configureCatalogProvider(providerId, await readBody(request)));
-    return;
-  }
-  if (
-    request.method === "POST" &&
-    segments[2] === "models" &&
-    segments[3] === "catalog" &&
-    segments[4] === "providers" &&
-    segments[5] &&
-    segments[6] === "oauth" &&
-    segments[7] === "start"
-  ) {
-    const providerId = decodeURIComponent(segments[5]);
-    mounts.authorize(authorization, `provider.write:${providerId}`);
-    mounts.authorize(authorization, "vault.write:*");
-    writeJsonResponse(response, mounts.startCatalogProviderOAuth(providerId, await readBody(request)), 201);
-    return;
-  }
-  if (
-    request.method === "POST" &&
-    segments[2] === "models" &&
-    segments[3] === "catalog" &&
-    segments[4] === "providers" &&
-    segments[5] &&
-    segments[6] === "oauth" &&
-    segments[7] === "callback"
-  ) {
-    const providerId = decodeURIComponent(segments[5]);
-    mounts.authorize(authorization, `provider.write:${providerId}`);
-    mounts.authorize(authorization, "vault.write:*");
-    writeJsonResponse(response, await mounts.completeCatalogProviderOAuth(providerId, await readBody(request)), 201);
-    return;
-  }
-  if (
-    request.method === "POST" &&
-    segments[2] === "models" &&
-    segments[3] === "catalog" &&
-    segments[4] === "providers" &&
-    segments[5] &&
-    segments[6] === "oauth" &&
-    segments[7] === "exchange"
-  ) {
-    const providerId = decodeURIComponent(segments[5]);
-    mounts.authorize(authorization, `provider.write:${providerId}`);
-    mounts.authorize(authorization, "vault.write:*");
-    writeJsonResponse(response, await mounts.exchangeCatalogProviderOAuth(providerId, await readBody(request)), 201);
-    return;
-  }
-  if (
-    request.method === "POST" &&
-    segments[2] === "models" &&
-    segments[3] === "catalog" &&
-    segments[4] === "providers" &&
-    segments[5] &&
-    segments[6] === "oauth" &&
-    segments[7] === "refresh"
-  ) {
-    const providerId = decodeURIComponent(segments[5]);
-    mounts.authorize(authorization, `provider.write:${providerId}`);
-    mounts.authorize(authorization, "vault.write:*");
-    writeJsonResponse(response, await mounts.refreshCatalogProviderOAuth(providerId));
-    return;
-  }
-  if (
-    request.method === "POST" &&
-    segments[2] === "models" &&
-    segments[3] === "catalog" &&
-    segments[4] === "providers" &&
-    segments[5] &&
-    segments[6] === "oauth" &&
-    segments[7] === "revoke"
-  ) {
-    const providerId = decodeURIComponent(segments[5]);
-    mounts.authorize(authorization, `provider.write:${providerId}`);
-    mounts.authorize(authorization, "vault.delete:*");
-    writeJsonResponse(response, mounts.revokeCatalogProviderOAuth(providerId));
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/models/storage/cleanup") {
-    mounts.authorize(authorization, "model.delete:*");
-    writeJsonResponse(response, mounts.cleanupModelStorage(await readBody(request)));
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/models/artifacts") {
-    writeJsonResponse(response, mounts.listArtifacts());
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/models/instances") {
-    writeJsonResponse(response, mounts.listInstances());
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/models/routes") {
-    writeJsonResponse(response, mounts.listRoutes());
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/models/events") {
-    writeJsonResponse(response, mounts.projection().lifecycleEvents);
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/models/estimate-load") {
-    mounts.authorize(authorization, "model.load:*");
-    writeJsonResponse(response, await mounts.loadModel({ ...(await readBody(request)), estimate_only: true }));
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/models/mounts") {
-    mounts.authorize(authorization, "model.mount:*");
-    writeJsonResponse(response, mounts.mountEndpoint(await readBody(request)), 201);
-    return;
-  }
-  if (
-    request.method === "POST" &&
-    segments[2] === "models" &&
-    segments[3] === "mounts" &&
-    segments[4] &&
-    segments[5] === "load"
-  ) {
-    mounts.authorize(authorization, "model.load:*");
-    writeJsonResponse(response, await mounts.loadModel({ ...(await readBody(request)), endpoint_id: decodeURIComponent(segments[4]) }), 201);
-    return;
-  }
-  if (
-    request.method === "POST" &&
-    segments[2] === "models" &&
-    segments[3] === "mounts" &&
-    segments[4] &&
-    segments[5] === "unload"
-  ) {
-    mounts.authorize(authorization, "model.unload:*");
-    writeJsonResponse(response, await mounts.unloadModel({ ...(await readBody(request)), endpoint_id: decodeURIComponent(segments[4]) }));
-    return;
-  }
-  if (
-    request.method === "DELETE" &&
-    segments[2] === "models" &&
-    segments[3] === "mounts" &&
-    segments[4] &&
-    !segments[5]
-  ) {
-    mounts.authorize(authorization, "model.unmount:*");
-    writeJsonResponse(response, mounts.unmountEndpoint({ endpoint_id: decodeURIComponent(segments[4]) }));
-    return;
-  }
-  if (
-    request.method === "POST" &&
-    segments[2] === "models" &&
-    segments[3] === "instances" &&
-    segments[4] &&
-    segments[5] === "unload"
-  ) {
-    mounts.authorize(authorization, "model.unload:*");
-    writeJsonResponse(response, await mounts.unloadModel({ instance_id: decodeURIComponent(segments[4]), ...(await readBody(request)) }));
-    return;
-  }
-  if (
-    request.method === "GET" &&
-    segments[2] === "models" &&
-    segments[3] &&
-    !["download", "loaded"].includes(segments[3])
-  ) {
-    writeJsonResponse(response, mounts.getModel(decodeURIComponent(segments[3])));
-    return;
-  }
-  if (request.method === "DELETE" && segments[2] === "models" && segments[3]) {
-    mounts.authorize(authorization, "model.delete:*");
-    writeJsonResponse(response, mounts.deleteModelArtifact(decodeURIComponent(segments[3]), await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/models/download") {
-    mounts.authorize(authorization, "model.download:*");
-    writeJsonResponse(response, await mounts.downloadModel(await readBody(request)), 202);
-    return;
-  }
-  if (
-    request.method === "GET" &&
-    segments[2] === "models" &&
-    segments[3] === "download" &&
-    segments[4] === "status" &&
-    segments[5]
-  ) {
-    writeJsonResponse(response, mounts.downloadStatus(decodeURIComponent(segments[5])));
-    return;
-  }
-  if (
-    request.method === "POST" &&
-    segments[2] === "models" &&
-    segments[3] === "download" &&
-    segments[4] === "cancel" &&
-    segments[5]
-  ) {
-    mounts.authorize(authorization, "model.download:*");
-    writeJsonResponse(response, mounts.cancelDownload(decodeURIComponent(segments[5]), await readBody(request)));
-    return;
-  }
-  if (
-    request.method === "POST" &&
-    segments[2] === "models" &&
-    segments[3] === "download" &&
-    segments[4] &&
-    segments[5] === "cancel"
-  ) {
-    mounts.authorize(authorization, "model.download:*");
-    writeJsonResponse(response, mounts.cancelDownload(decodeURIComponent(segments[4]), await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/models/import") {
-    mounts.authorize(authorization, "model.import:*");
-    writeJsonResponse(response, mounts.importModel(await readBody(request)), 201);
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/models/mount") {
-    mounts.authorize(authorization, "model.mount:*");
-    writeJsonResponse(response, mounts.mountEndpoint(await readBody(request)), 201);
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/models/unmount") {
-    mounts.authorize(authorization, "model.unmount:*");
-    writeJsonResponse(response, mounts.unmountEndpoint(await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/models/load") {
-    mounts.authorize(authorization, "model.load:*");
-    writeJsonResponse(response, await mounts.loadModel(await readBody(request)), 201);
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/models/unload") {
-    mounts.authorize(authorization, "model.unload:*");
-    writeJsonResponse(response, await mounts.unloadModel(await readBody(request)));
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/models/loaded") {
-    writeJsonResponse(response, mounts.listInstances().filter((instance) => instance.status === "loaded"));
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/providers") {
-    writeJsonResponse(response, mounts.listProviders());
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/vault/refs") {
-    mounts.authorize(authorization, "vault.read:*");
-    writeJsonResponse(response, mounts.listVaultRefs());
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/vault/status") {
-    mounts.authorize(authorization, "vault.read:*");
-    writeJsonResponse(response, mounts.vaultStatus());
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/vault/health/latest") {
-    mounts.authorize(authorization, "vault.read:*");
-    writeJsonResponse(response, mounts.latestVaultHealth());
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/vault/health") {
-    mounts.authorize(authorization, "vault.read:*");
-    writeJsonResponse(response, mounts.vaultHealth());
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/vault/refs") {
-    mounts.authorize(authorization, "vault.write:*");
-    writeJsonResponse(response, mounts.bindVaultRef(await readBody(request)), 201);
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/vault/refs/meta") {
-    mounts.authorize(authorization, "vault.read:*");
-    writeJsonResponse(response, mounts.vaultRefMetadata(await readBody(request)));
-    return;
-  }
-  if (request.method === "DELETE" && url.pathname === "/api/v1/vault/refs") {
-    mounts.authorize(authorization, "vault.delete:*");
-    writeJsonResponse(response, mounts.removeVaultRef(await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/providers") {
-    mounts.authorize(authorization, "provider.write:*");
-    writeJsonResponse(response, mounts.upsertProvider(await readBody(request)), 201);
-    return;
-  }
-  if (request.method === "PATCH" && segments[2] === "providers" && segments[3]) {
-    mounts.authorize(authorization, `provider.write:${decodeURIComponent(segments[3])}`);
-    writeJsonResponse(response, mounts.upsertProvider({ ...(await readBody(request)), id: decodeURIComponent(segments[3]) }));
-    return;
-  }
-  if (request.method === "GET" && segments[2] === "providers" && segments[3] && segments[4] === "health" && segments[5] === "latest") {
-    writeJsonResponse(response, mounts.latestProviderHealth(decodeURIComponent(segments[3])));
-    return;
-  }
-  if (request.method === "POST" && segments[2] === "providers" && segments[3] && segments[4] === "health") {
-    writeJsonResponse(response, await mounts.providerHealth(decodeURIComponent(segments[3])));
-    return;
-  }
-  if (request.method === "GET" && segments[2] === "providers" && segments[3] && segments[4] === "models") {
-    writeJsonResponse(response, await mounts.listProviderModels(decodeURIComponent(segments[3])));
-    return;
-  }
-  if (request.method === "GET" && segments[2] === "providers" && segments[3] && segments[4] === "loaded") {
-    writeJsonResponse(response, await mounts.listProviderLoaded(decodeURIComponent(segments[3])));
-    return;
-  }
-  if (request.method === "POST" && segments[2] === "providers" && segments[3] && segments[4] === "start") {
-    mounts.authorize(authorization, `provider.control:${decodeURIComponent(segments[3])}`);
-    writeJsonResponse(response, await mounts.startProvider(decodeURIComponent(segments[3])));
-    return;
-  }
-  if (request.method === "POST" && segments[2] === "providers" && segments[3] && segments[4] === "stop") {
-    mounts.authorize(authorization, `provider.control:${decodeURIComponent(segments[3])}`);
-    writeJsonResponse(response, await mounts.stopProvider(decodeURIComponent(segments[3])));
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/routes") {
-    writeJsonResponse(response, mounts.listRoutes());
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/routes") {
-    mounts.authorize(authorization, "route.write:*");
-    writeJsonResponse(response, mounts.upsertRoute(await readBody(request)), 201);
-    return;
-  }
-  if (request.method === "POST" && segments[2] === "routes" && segments[3] && segments[4] === "test") {
-    mounts.authorize(authorization, `route.use:${decodeURIComponent(segments[3])}`);
-    writeJsonResponse(response, mounts.testRoute(decodeURIComponent(segments[3]), await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/chat") {
-    const invocation = await mounts.invokeModel({
-      authorization,
-      requiredScope: "model.chat:*",
-      kind: "chat",
-      body: await readBody(request),
-    });
-    writeJsonResponse(response, nativeInvocationResponse(invocation));
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/responses") {
-    const invocation = await mounts.invokeModel({
-      authorization,
-      requiredScope: "model.responses:*",
-      kind: "responses",
-      body: await readBody(request),
-    });
-    writeJsonResponse(response, nativeInvocationResponse(invocation));
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/embeddings") {
-    const body = await readBody(request);
-    const invocation = await mounts.invokeModel({
-      authorization,
-      requiredScope: "model.embeddings:*",
-      kind: "embeddings",
-      body,
-    });
-    writeJsonResponse(response, {
-      ...nativeInvocationResponse(invocation),
-      embeddings: openAiEmbedding(invocation, body).data,
-    });
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/rerank") {
-    const invocation = await mounts.invokeModel({
-      authorization,
-      requiredScope: "model.rerank:*",
-      kind: "rerank",
-      body: await readBody(request),
-    });
-    writeJsonResponse(response, nativeInvocationResponse(invocation));
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/tokenize") {
-    writeJsonResponse(
-      response,
-      mounts.tokenizeModel({
-        authorization,
-        requiredScope: "model.tokenize:*",
-        body: await readBody(request),
-      }),
-    );
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/tokens/count") {
-    writeJsonResponse(
-      response,
-      mounts.countModelTokens({
-        authorization,
-        requiredScope: "model.tokenize:*",
-        body: await readBody(request),
-      }),
-    );
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/context/fit") {
-    writeJsonResponse(
-      response,
-      mounts.fitModelContext({
-        authorization,
-        requiredScope: "model.context:*",
-        body: await readBody(request),
-      }),
-    );
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/tokens") {
-    writeJsonResponse(response, mounts.listTokens());
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/tokens") {
-    writeJsonResponse(response, mounts.createToken(await readBody(request)), 201);
-    return;
-  }
-  if (request.method === "DELETE" && segments[2] === "tokens" && segments[3]) {
-    writeJsonResponse(response, mounts.revokeToken(decodeURIComponent(segments[3])));
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/receipts") {
-    writeJsonResponse(response, mounts.listReceipts());
-    return;
-  }
-  if (request.method === "GET" && segments[2] === "receipts" && segments[3] && segments[4] === "replay") {
-    writeJsonResponse(response, mounts.receiptReplay(decodeURIComponent(segments[3])));
-    return;
-  }
-  if (request.method === "GET" && segments[2] === "receipts" && segments[3]) {
-    writeJsonResponse(response, mounts.getReceipt(decodeURIComponent(segments[3])));
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/projections/model-mounting") {
-    writeJsonResponse(response, mounts.projection());
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/workflows/nodes/execute") {
-    writeJsonResponse(response, await mounts.executeWorkflowNode({ authorization, body: await readBody(request) }));
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/workflows/receipt-gate") {
-    writeJsonResponse(response, mounts.validateReceiptGate(await readBody(request)));
-    return;
-  }
-  if (request.method === "GET" && url.pathname === "/api/v1/mcp") {
-    writeJsonResponse(response, mounts.listMcpServers());
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/mcp/import") {
-    mounts.authorize(authorization, "mcp.import:*");
-    writeJsonResponse(response, mounts.importMcpJson(await readBody(request)), 201);
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/api/v1/mcp/invoke") {
-    writeJsonResponse(response, mounts.invokeMcpTool({ authorization, body: await readBody(request) }));
-    return;
-  }
-  throw notFound("Model mounting route not found.", {
-    method: request.method,
-    path: url.pathname,
-  });
-}
-
-async function handleOpenAiCompatibilityRoute({ request, response, store, url }) {
-  const mounts = store.modelMounting;
-  const authorization = compatibilityAuthorization(request);
-  if (request.method === "GET" && url.pathname === "/v1/models") {
-    writeJsonResponse(response, mounts.openAiModelList());
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/v1/chat/completions") {
-    const body = await readBody(request);
-    if (body.stream === true) {
-      const stream = await mounts.startModelStream({
-        authorization,
-        requiredScope: "model.chat:*",
-        kind: "chat.completions",
-        body,
-      });
-      if (stream.native) {
-        await writeOpenAiProviderChatCompletionStream(request, response, stream, mounts);
-        return;
-      }
-      await writeOpenAiChatCompletionStream(response, stream.invocation, mounts);
-      return;
-    }
-    const invocation = await mounts.invokeModel({
-      authorization,
-      requiredScope: "model.chat:*",
-      kind: "chat.completions",
-      body,
-    });
-    writeJsonResponse(response, openAiChatCompletion(invocation, body));
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/v1/responses") {
-    const body = await readBody(request);
-    if (body.stream === true) {
-      const stream = await mounts.startModelStream({
-        authorization,
-        requiredScope: "model.responses:*",
-        kind: "responses",
-        body,
-      });
-      if (stream.native) {
-        await writeOpenAiProviderResponseStream(response, stream, mounts);
-        return;
-      }
-      await writeOpenAiResponseStream(response, stream.invocation, mounts);
-      return;
-    }
-    const invocation = await mounts.invokeModel({
-      authorization,
-      requiredScope: "model.responses:*",
-      kind: "responses",
-      body,
-    });
-    writeJsonResponse(response, openAiResponse(invocation));
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/v1/embeddings") {
-    const body = await readBody(request);
-    const invocation = await mounts.invokeModel({
-      authorization,
-      requiredScope: "model.embeddings:*",
-      kind: "embeddings",
-      body,
-    });
-    writeJsonResponse(response, openAiEmbedding(invocation, body));
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/v1/completions") {
-    const body = await readBody(request);
-    const invocation = await mounts.invokeModel({
-      authorization,
-      requiredScope: "model.chat:*",
-      kind: "completions",
-      body,
-    });
-    writeJsonResponse(response, openAiCompletion(invocation));
-    return;
-  }
-  if (request.method === "POST" && url.pathname === "/v1/messages") {
-    const body = await readBody(request);
-    const canonicalBody = anthropicMessagesToCanonicalBody(body);
-    if (body.stream === true) {
-      const stream = await mounts.startModelStream({
-        authorization,
-        requiredScope: "model.chat:*",
-        kind: "chat.completions",
-        body: canonicalBody,
-      });
-      if (stream.native) {
-        await writeAnthropicProviderMessageStream(response, stream, mounts);
-        return;
-      }
-      await writeAnthropicMessageStream(response, stream.invocation, mounts);
-      return;
-    }
-    const invocation = await mounts.invokeModel({
-      authorization,
-      requiredScope: "model.chat:*",
-      kind: "messages",
-      body: canonicalBody,
-    });
-    writeJsonResponse(response, anthropicMessage(invocation));
-    return;
-  }
-  throw notFound("OpenAI-compatible route not found.", {
-    method: request.method,
-    path: url.pathname,
-  });
-}
-
-function isOpenAiCompatibilityRoute(request, url) {
-  if (request.method === "GET" && url.pathname === "/v1/models") {
-    return Boolean(compatibilityAuthorization(request));
-  }
-  return [
-    "/v1/chat/completions",
-    "/v1/responses",
-    "/v1/embeddings",
-    "/v1/completions",
-    "/v1/messages",
-  ].includes(url.pathname);
-}
-
-function compatibilityAuthorization(request) {
-  const authorization = firstHeader(request.headers.authorization);
-  if (authorization) return authorization;
-  const apiKey = firstHeader(request.headers["x-api-key"]);
-  if (!apiKey) return undefined;
-  return apiKey.startsWith("Bearer ") ? apiKey : `Bearer ${apiKey}`;
-}
-
-function firstHeader(value) {
-  if (Array.isArray(value)) return value[0];
-  return value;
-}
-
-function anthropicMessagesToCanonicalBody(body = {}) {
-  return {
-    ...body,
-    messages: canonicalAnthropicMessages(body),
-    max_tokens: body.max_tokens ?? body.maxTokens,
-    stream: false,
-  };
-}
-
-function canonicalAnthropicMessages(body = {}) {
-  const messages = [];
-  if (body.system !== undefined) {
-    messages.push({ role: "system", content: anthropicContentToText(body.system) });
-  }
-  for (const message of Array.isArray(body.messages) ? body.messages : []) {
-    messages.push({
-      role: message?.role ?? "user",
-      content: anthropicContentToText(message?.content ?? ""),
-    });
-  }
-  return messages.length > 0 ? messages : [{ role: "user", content: anthropicContentToText(body.input ?? "") }];
-}
-
-function anthropicContentToText(content) {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return content
-      .map((item) => {
-        if (typeof item === "string") return item;
-        if (typeof item?.text === "string") return item.text;
-        if (typeof item?.content === "string") return item.content;
-        if (item?.type === "image" || item?.type === "image_url") return "[image]";
-        return JSON.stringify(redact(item ?? {}));
-      })
-      .join("\n");
-  }
-  if (content && typeof content === "object") {
-    if (typeof content.text === "string") return content.text;
-    return JSON.stringify(redact(content));
-  }
-  return String(content ?? "");
-}
-
-async function writeAnthropicMessageStream(response, invocation, mounts) {
-  const message = anthropicMessage(invocation);
-  const text = String(message.content?.[0]?.text ?? "");
-  const chunks = textChunksForSse(text);
-  const usage = message.usage ?? { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0 };
-  const events = [
-    {
-      event: "message_start",
-      data: {
-        type: "message_start",
-        message: {
-          id: message.id,
-          type: "message",
-          role: "assistant",
-          content: [],
-          model: message.model,
-          stop_reason: null,
-          stop_sequence: null,
-          usage: {
-            input_tokens: usage.input_tokens,
-            output_tokens: 0,
-            cache_read_input_tokens: usage.cache_read_input_tokens ?? 0,
-          },
-        },
-      },
-    },
-    {
-      event: "content_block_start",
-      data: {
-        type: "content_block_start",
-        index: 0,
-        content_block: { type: "text", text: "" },
-      },
-    },
-    ...chunks.map((chunk) => ({
-      event: "content_block_delta",
-      data: {
-        type: "content_block_delta",
-        index: 0,
-        delta: { type: "text_delta", text: chunk },
-      },
-    })),
-    {
-      event: "content_block_stop",
-      data: {
-        type: "content_block_stop",
-        index: 0,
-      },
-    },
-    {
-      event: "message_delta",
-      data: {
-        type: "message_delta",
-        delta: {
-          stop_reason: message.stop_reason,
-          stop_sequence: message.stop_sequence,
-        },
-        usage: {
-          output_tokens: usage.output_tokens,
-        },
-      },
-    },
-    {
-      event: "message_stop",
-      data: {
-        type: "message_stop",
-        receipt_id: message.receipt_id,
-        response_id: message.response_id,
-        previous_response_id: message.previous_response_id,
-        route_id: message.route_id,
-        tool_receipt_ids: message.tool_receipt_ids,
-      },
-    },
-  ];
-  await writeModelSseFrames({
-    response,
-    invocation,
-    mounts,
-    streamKind: "anthropic_messages",
-    frames: events.map((event) => `event: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`),
-  });
-}
-
-async function writeAnthropicProviderMessageStream(response, streamInvocation, mounts) {
-  const invocation = streamInvocation.invocation;
-  const streamKind = "anthropic_messages_provider_native";
-  const reader = streamInvocation.providerStream.getReader();
-  const decoder = new TextDecoder();
-  const messageId = invocation.responseId?.startsWith("msg_") ? invocation.responseId : `msg_${crypto.randomUUID()}`;
-  const startUsage = invocation.tokenCount ?? { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
-  let completed = false;
-  let canceled = false;
-  let written = 0;
-  let outputText = "";
-  let providerUsage = null;
-  let finishReason = "end_turn";
-  let buffer = "";
-  const writeEvent = (event, data) => {
-    response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-    written += 1;
-  };
-  const markCanceled = () => {
-    if (completed || canceled) return;
-    canceled = true;
-    streamInvocation.abort?.();
-    recordModelStreamCanceled({ mounts, invocation, streamKind, framesWritten: written });
-  };
-  const onClose = () => markCanceled();
-  response.statusCode = 200;
-  response.setHeader("content-type", "text/event-stream");
-  response.setHeader("cache-control", "no-cache");
-  response.setHeader("x-ioi-receipt-id", invocation.receipt.id);
-  response.setHeader("x-ioi-stream-source", "provider_native");
-  response.on("close", onClose);
-  try {
-    writeEvent("message_start", {
-      type: "message_start",
-      message: {
-        id: messageId,
-        type: "message",
-        role: "assistant",
-        content: [],
-        model: invocation.model,
-        stop_reason: null,
-        stop_sequence: null,
-        usage: {
-          input_tokens: startUsage.prompt_tokens ?? startUsage.input_tokens ?? 0,
-          output_tokens: 0,
-          cache_read_input_tokens: 0,
-        },
-      },
-    });
-    writeEvent("content_block_start", {
-      type: "content_block_start",
-      index: 0,
-      content_block: { type: "text", text: "" },
-    });
-    while (!canceled) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value ?? new Uint8Array(), { stream: true });
-      if (["ollama_jsonl", "ioi_jsonl"].includes(streamInvocation.providerResult?.streamFormat)) {
-        const lines = takeLineBlocks(buffer);
-        buffer = lines.remainder;
-        for (const line of lines.blocks) {
-          if (canceled) break;
-          if (response.destroyed || response.writableEnded) {
-            markCanceled();
-            break;
-          }
-          const parsed = parseJsonMaybe(line);
-          const delta = ollamaStreamDelta(parsed);
-          if (delta) {
-            outputText += delta;
-            writeEvent("content_block_delta", {
-              type: "content_block_delta",
-              index: 0,
-              delta: { type: "text_delta", text: delta },
-            });
-          }
-          if (parsed?.done) {
-            providerUsage = ollamaUsage(parsed);
-            finishReason = parsed.done_reason ?? "end_turn";
-          }
-        }
-      } else {
-        const frames = takeSseFrameBlocks(buffer);
-        buffer = frames.remainder;
-        for (const frame of frames.blocks) {
-          if (canceled) break;
-          if (response.destroyed || response.writableEnded) {
-            markCanceled();
-            break;
-          }
-          for (const payload of dataPayloadsFromSseBlock(frame)) {
-            if (payload === "[DONE]") continue;
-            const parsed = parseJsonMaybe(payload);
-            const delta =
-              parsed?.choices?.[0]?.delta?.content ??
-              parsed?.choices?.[0]?.delta?.reasoning_content;
-            if (typeof delta === "string" && delta) {
-              outputText += delta;
-              writeEvent("content_block_delta", {
-                type: "content_block_delta",
-                index: 0,
-                delta: { type: "text_delta", text: delta },
-              });
-            }
-            if (parsed?.usage) providerUsage = parsed.usage;
-            const nextFinishReason = parsed?.choices?.[0]?.finish_reason;
-            if (nextFinishReason) finishReason = nextFinishReason;
-          }
-        }
-      }
-    }
-    if (canceled) return;
-    const tail = decoder.decode();
-    if (tail) buffer += tail;
-    if (buffer.trim()) {
-      const tailLines = ["ollama_jsonl", "ioi_jsonl"].includes(streamInvocation.providerResult?.streamFormat)
-        ? takeLineBlocks(`${buffer}\n`).blocks
-        : takeSseFrameBlocks(`${buffer}\n\n`).blocks.flatMap((block) => dataPayloadsFromSseBlock(block));
-      for (const item of tailLines) {
-        const parsed = parseJsonMaybe(item);
-        const delta =
-          ["ollama_jsonl", "ioi_jsonl"].includes(streamInvocation.providerResult?.streamFormat)
-            ? ollamaStreamDelta(parsed)
-            : parsed?.choices?.[0]?.delta?.content ?? parsed?.choices?.[0]?.delta?.reasoning_content;
-        if (typeof delta === "string" && delta) {
-          outputText += delta;
-          writeEvent("content_block_delta", {
-            type: "content_block_delta",
-            index: 0,
-            delta: { type: "text_delta", text: delta },
-          });
-        }
-        if (parsed?.usage) providerUsage = parsed.usage;
-        if (parsed?.done) providerUsage = ollamaUsage(parsed);
-        const nextFinishReason = parsed?.choices?.[0]?.finish_reason ?? parsed?.done_reason;
-        if (nextFinishReason) finishReason = nextFinishReason;
-      }
-    }
-    const completionReceipt = mounts.recordModelStreamCompleted({
-      invocation,
-      streamKind,
-      outputText,
-      providerUsage,
-      chunksForwarded: written,
-      finishReason,
-      providerResult: streamInvocation.providerResult,
-    });
-    const usage = providerUsage ?? invocation.tokenCount ?? { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
-    if (!response.destroyed && !response.writableEnded) {
-      writeEvent("content_block_stop", { type: "content_block_stop", index: 0 });
-      writeEvent("message_delta", {
-        type: "message_delta",
-        delta: {
-          stop_reason: finishReason || "end_turn",
-          stop_sequence: null,
-        },
-        usage: {
-          output_tokens: usage.completion_tokens ?? usage.output_tokens ?? 0,
-        },
-      });
-      writeEvent("message_stop", {
-        type: "message_stop",
-        receipt_id: invocation.receipt.id,
-        stream_receipt_id: completionReceipt.id,
-        response_id: invocation.responseId ?? null,
-        previous_response_id: invocation.previousResponseId ?? null,
-        route_id: invocation.route.id,
-        tool_receipt_ids: invocation.toolReceiptIds ?? [],
-        provider_stream: "native",
-      });
-      completed = true;
-      response.end();
-    }
-  } finally {
-    response.off("close", onClose);
-    try {
-      reader.releaseLock();
-    } catch {
-      // Some runtime streams close the reader before release.
-    }
-  }
-}
-
-function textChunksForSse(text) {
-  if (!text) return [""];
-  const chunks = text.match(/.{1,96}(?:\s+|$)/gs);
-  return chunks?.length ? chunks : [text];
-}
-
-async function writeOpenAiChatCompletionStream(response, invocation, mounts) {
-  const id = `chatcmpl_${crypto.randomUUID()}`;
-  const created = Math.floor(Date.now() / 1000);
-  const chunks = textChunksForSse(invocation.outputText);
-  const base = {
-    id,
-    object: "chat.completion.chunk",
-    created,
-    model: invocation.model,
-    receipt_id: invocation.receipt.id,
-    route_id: invocation.route.id,
-    tool_receipt_ids: invocation.toolReceiptIds ?? [],
-  };
-  const payloads = [
-    {
-      ...base,
-      choices: [{ index: 0, delta: { role: "assistant" }, finish_reason: null }],
-    },
-    ...chunks.map((chunk) => ({
-      ...base,
-      choices: [{ index: 0, delta: { content: chunk }, finish_reason: null }],
-    })),
-    {
-      ...base,
-      choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
-    },
-  ];
-  await writeModelSseFrames({
-    response,
-    invocation,
-    mounts,
-    streamKind: "openai_chat_completions",
-    frames: [...payloads.map((payload) => `data: ${JSON.stringify(payload)}\n\n`), "data: [DONE]\n\n"],
-  });
-}
-
-async function writeOpenAiProviderChatCompletionStream(request, response, streamInvocation, mounts) {
-  if (["ollama_jsonl", "ioi_jsonl"].includes(streamInvocation.providerResult?.streamFormat)) {
-    await writeOllamaChatCompletionStream(request, response, streamInvocation, mounts);
-    return;
-  }
-  const invocation = streamInvocation.invocation;
-  const streamKind = "openai_chat_completions_provider_native";
-  const reader = streamInvocation.providerStream.getReader();
-  const decoder = new TextDecoder();
-  const forwardDelayMs = providerStreamForwardDelayMs();
-  let completed = false;
-  let canceled = false;
-  let written = 0;
-  let outputText = "";
-  let providerUsage = null;
-  let finishReason = null;
-  let buffer = "";
-  const markCanceled = () => {
-    if (completed || canceled) return;
-    canceled = true;
-    streamInvocation.abort?.();
-    recordModelStreamCanceled({ mounts, invocation, streamKind, framesWritten: written });
-  };
-  const onClose = () => markCanceled();
-  response.statusCode = 200;
-  response.setHeader("content-type", "text/event-stream");
-  response.setHeader("cache-control", "no-cache");
-  response.setHeader("x-ioi-receipt-id", invocation.receipt.id);
-  response.setHeader("x-ioi-stream-source", "provider_native");
-  response.on("close", onClose);
-  request.on("aborted", onClose);
-  request.on("close", onClose);
-  try {
-    while (!canceled) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value ?? new Uint8Array(), { stream: true });
-      const frames = takeSseFrameBlocks(buffer);
-      buffer = frames.remainder;
-      for (const frame of frames.blocks) {
-        if (canceled) break;
-        if (response.destroyed || response.writableEnded) {
-          markCanceled();
-          break;
-        }
-        for (const payload of dataPayloadsFromSseBlock(frame)) {
-          if (payload === "[DONE]") continue;
-          const parsed = parseJsonMaybe(payload);
-          const delta =
-            parsed?.choices?.[0]?.delta?.content ??
-            parsed?.choices?.[0]?.delta?.reasoning_content;
-          if (typeof delta === "string") outputText += delta;
-          if (parsed?.usage) providerUsage = parsed.usage;
-          const nextFinishReason = parsed?.choices?.[0]?.finish_reason;
-          if (nextFinishReason) finishReason = nextFinishReason;
-          try {
-            response.write(`data: ${payload}\n\n`);
-          } catch {
-            markCanceled();
-            break;
-          }
-          written += 1;
-          if (forwardDelayMs > 0) await delay(forwardDelayMs);
-        }
-      }
-    }
-    if (canceled) return;
-    const tail = decoder.decode();
-    if (tail) buffer += tail;
-    const trailingBlocks = buffer.trim() ? [buffer] : [];
-    for (const frame of trailingBlocks) {
-      for (const payload of dataPayloadsFromSseBlock(frame)) {
-        if (payload === "[DONE]") continue;
-        const parsed = parseJsonMaybe(payload);
-        const delta =
-          parsed?.choices?.[0]?.delta?.content ??
-          parsed?.choices?.[0]?.delta?.reasoning_content;
-        if (typeof delta === "string") outputText += delta;
-        if (parsed?.usage) providerUsage = parsed.usage;
-        const nextFinishReason = parsed?.choices?.[0]?.finish_reason;
-        if (nextFinishReason) finishReason = nextFinishReason;
-        response.write(`data: ${payload}\n\n`);
-        written += 1;
-        if (forwardDelayMs > 0) await delay(forwardDelayMs);
-      }
-    }
-    const completionReceipt = mounts.recordModelStreamCompleted({
-      invocation,
-      streamKind,
-      outputText,
-      providerUsage,
-      chunksForwarded: written,
-      finishReason,
-      providerResult: streamInvocation.providerResult,
-    });
-    const metadata = {
-      id: `chatcmpl_${crypto.randomUUID()}`,
-      object: "chat.completion.chunk",
-      created: Math.floor(Date.now() / 1000),
-      model: invocation.model,
-      receipt_id: invocation.receipt.id,
-      stream_receipt_id: completionReceipt.id,
-      response_id: invocation.responseId ?? null,
-      previous_response_id: invocation.previousResponseId ?? null,
-      route_id: invocation.route.id,
-      tool_receipt_ids: invocation.toolReceiptIds ?? [],
-      provider_stream: "native",
-      choices: [{ index: 0, delta: {}, finish_reason: null }],
-    };
-    if (!response.destroyed && !response.writableEnded) {
-      response.write(`data: ${JSON.stringify(metadata)}\n\n`);
-      response.write("data: [DONE]\n\n");
-      completed = true;
-      response.end();
-    }
-  } finally {
-    response.off("close", onClose);
-    request.off("aborted", onClose);
-    request.off("close", onClose);
-    try {
-      reader.releaseLock();
-    } catch {
-      // Some runtime streams close the reader before release.
-    }
-  }
-}
-
-async function writeOllamaChatCompletionStream(request, response, streamInvocation, mounts) {
-  const invocation = streamInvocation.invocation;
-  const streamKind = streamInvocation.providerResult?.streamKind ?? "openai_chat_completions_ollama_native";
-  const reader = streamInvocation.providerStream.getReader();
-  const decoder = new TextDecoder();
-  const forwardDelayMs = providerStreamForwardDelayMs();
-  const id = `chatcmpl_${crypto.randomUUID()}`;
-  const created = Math.floor(Date.now() / 1000);
-  const base = {
-    id,
-    object: "chat.completion.chunk",
-    created,
-    model: invocation.model,
-    receipt_id: invocation.receipt.id,
-    route_id: invocation.route.id,
-    tool_receipt_ids: invocation.toolReceiptIds ?? [],
-    response_id: invocation.responseId ?? null,
-    previous_response_id: invocation.previousResponseId ?? null,
-    provider_stream: "native",
-  };
-  let completed = false;
-  let canceled = false;
-  let written = 0;
-  let outputText = "";
-  let providerUsage = null;
-  let finishReason = "stop";
-  let buffer = "";
-  const markCanceled = () => {
-    if (completed || canceled) return;
-    canceled = true;
-    streamInvocation.abort?.();
-    recordModelStreamCanceled({ mounts, invocation, streamKind, framesWritten: written });
-  };
-  const onClose = () => markCanceled();
-  response.statusCode = 200;
-  response.setHeader("content-type", "text/event-stream");
-  response.setHeader("cache-control", "no-cache");
-  response.setHeader("x-ioi-receipt-id", invocation.receipt.id);
-  response.setHeader("x-ioi-stream-source", "provider_native");
-  response.on("close", onClose);
-  request.on("aborted", onClose);
-  request.on("close", onClose);
-  try {
-    response.write(`data: ${JSON.stringify({ ...base, choices: [{ index: 0, delta: { role: "assistant" }, finish_reason: null }] })}\n\n`);
-    written += 1;
-    if (forwardDelayMs > 0) await delay(forwardDelayMs);
-    while (!canceled) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value ?? new Uint8Array(), { stream: true });
-      const lines = takeLineBlocks(buffer);
-      buffer = lines.remainder;
-      for (const line of lines.blocks) {
-        if (canceled) break;
-        if (response.destroyed || response.writableEnded) {
-          markCanceled();
-          break;
-        }
-        const parsed = parseJsonMaybe(line);
-        const delta = ollamaStreamDelta(parsed);
-        if (delta) {
-          outputText += delta;
-          response.write(
-            `data: ${JSON.stringify({ ...base, choices: [{ index: 0, delta: { content: delta }, finish_reason: null }] })}\n\n`,
-          );
-          written += 1;
-          if (forwardDelayMs > 0) await delay(forwardDelayMs);
-        }
-        if (parsed?.done) {
-          providerUsage = ollamaUsage(parsed);
-          finishReason = parsed.done_reason ?? "stop";
-        }
-      }
-    }
-    if (canceled) return;
-    const tail = decoder.decode();
-    if (tail) buffer += tail;
-    for (const line of buffer.trim() ? [buffer.trim()] : []) {
-      const parsed = parseJsonMaybe(line);
-      const delta = ollamaStreamDelta(parsed);
-      if (delta) outputText += delta;
-      if (parsed?.done) {
-        providerUsage = ollamaUsage(parsed);
-        finishReason = parsed.done_reason ?? "stop";
-      }
-    }
-    const completionReceipt = mounts.recordModelStreamCompleted({
-      invocation,
-      streamKind,
-      outputText,
-      providerUsage,
-      chunksForwarded: written,
-      finishReason,
-      providerResult: streamInvocation.providerResult,
-    });
-    response.write(
-      `data: ${JSON.stringify({
-        ...base,
-        stream_receipt_id: completionReceipt.id,
-        choices: [{ index: 0, delta: {}, finish_reason: finishReason }],
-      })}\n\n`,
-    );
-    response.write("data: [DONE]\n\n");
-    completed = true;
-    response.end();
-  } finally {
-    response.off("close", onClose);
-    request.off("aborted", onClose);
-    request.off("close", onClose);
-    try {
-      reader.releaseLock();
-    } catch {
-      // Some runtime streams close the reader before release.
-    }
-  }
-}
-
-async function writeOpenAiProviderResponseStream(response, streamInvocation, mounts) {
-  if (["ollama_jsonl", "ioi_jsonl"].includes(streamInvocation.providerResult?.streamFormat)) {
-    await writeOllamaResponseStream(response, streamInvocation, mounts);
-    return;
-  }
-  const invocation = streamInvocation.invocation;
-  const streamKind = "openai_responses_provider_native";
-  const reader = streamInvocation.providerStream.getReader();
-  const decoder = new TextDecoder();
-  let completed = false;
-  let canceled = false;
-  let written = 0;
-  let outputText = "";
-  let providerUsage = null;
-  let finishReason = null;
-  let buffer = "";
-  const markCanceled = () => {
-    if (completed || canceled) return;
-    canceled = true;
-    streamInvocation.abort?.();
-    recordModelStreamCanceled({ mounts, invocation, streamKind, framesWritten: written });
-  };
-  const onClose = () => markCanceled();
-  response.statusCode = 200;
-  response.setHeader("content-type", "text/event-stream");
-  response.setHeader("cache-control", "no-cache");
-  response.setHeader("x-ioi-receipt-id", invocation.receipt.id);
-  response.setHeader("x-ioi-stream-source", "provider_native");
-  response.on("close", onClose);
-  try {
-    while (!canceled) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value ?? new Uint8Array(), { stream: true });
-      const frames = takeSseFrameBlocks(buffer);
-      buffer = frames.remainder;
-      for (const frame of frames.blocks) {
-        if (canceled) break;
-        if (response.destroyed || response.writableEnded) {
-          markCanceled();
-          break;
-        }
-        const parsedPayloads = responseStreamPayloads(frame);
-        for (const payload of parsedPayloads) {
-          if (payload.raw === "[DONE]") continue;
-          if (payload.delta) outputText += payload.delta;
-          if (!outputText && payload.completionText) outputText = payload.completionText;
-          if (payload.usage) providerUsage = payload.usage;
-          if (payload.finishReason) finishReason = payload.finishReason;
-        }
-        try {
-          response.write(`${frame}\n\n`);
-        } catch {
-          markCanceled();
-          break;
-        }
-        written += 1;
-      }
-    }
-    if (canceled) return;
-    const tail = decoder.decode();
-    if (tail) buffer += tail;
-    const trailingBlocks = buffer.trim() ? [buffer] : [];
-    for (const frame of trailingBlocks) {
-      const parsedPayloads = responseStreamPayloads(frame);
-      if (parsedPayloads.every((payload) => payload.raw === "[DONE]")) continue;
-      for (const payload of parsedPayloads) {
-        if (payload.raw === "[DONE]") continue;
-        if (payload.delta) outputText += payload.delta;
-        if (!outputText && payload.completionText) outputText = payload.completionText;
-        if (payload.usage) providerUsage = payload.usage;
-        if (payload.finishReason) finishReason = payload.finishReason;
-      }
-      response.write(`${frame}\n\n`);
-      written += 1;
-    }
-    const completionReceipt = mounts.recordModelStreamCompleted({
-      invocation,
-      streamKind,
-      outputText,
-      providerUsage,
-      chunksForwarded: written,
-      finishReason,
-      providerResult: streamInvocation.providerResult,
-    });
-    const metadata = {
-      type: "response.ioi.receipt",
-      receipt_id: invocation.receipt.id,
-      stream_receipt_id: completionReceipt.id,
-      response_id: invocation.responseId ?? null,
-      previous_response_id: invocation.previousResponseId ?? null,
-      route_id: invocation.route.id,
-      model: invocation.model,
-      tool_receipt_ids: invocation.toolReceiptIds ?? [],
-      provider_stream: "native",
-    };
-    if (!response.destroyed && !response.writableEnded) {
-      response.write(`event: response.ioi.receipt\ndata: ${JSON.stringify(metadata)}\n\n`);
-      completed = true;
-      response.end();
-    }
-  } finally {
-    response.off("close", onClose);
-    try {
-      reader.releaseLock();
-    } catch {
-      // Some runtime streams close the reader before release.
-    }
-  }
-}
-
-async function writeOllamaResponseStream(response, streamInvocation, mounts) {
-  const invocation = streamInvocation.invocation;
-  const streamKind = streamInvocation.providerResult?.streamKind ?? "openai_responses_ollama_native";
-  const reader = streamInvocation.providerStream.getReader();
-  const decoder = new TextDecoder();
-  const responseId = invocation.responseId ?? `resp_${crypto.randomUUID()}`;
-  const outputItemId = `msg_${crypto.randomUUID()}`;
-  const createdAt = Math.floor(Date.now() / 1000);
-  let completed = false;
-  let canceled = false;
-  let written = 0;
-  let outputText = "";
-  let providerUsage = null;
-  let finishReason = "stop";
-  let buffer = "";
-  const markCanceled = () => {
-    if (completed || canceled) return;
-    canceled = true;
-    streamInvocation.abort?.();
-    recordModelStreamCanceled({ mounts, invocation, streamKind, framesWritten: written });
-  };
-  const onClose = () => markCanceled();
-  const baseResponse = {
-    id: responseId,
-    object: "response",
-    created_at: createdAt,
-    model: invocation.model,
-    status: "in_progress",
-    output: [],
-    usage: null,
-    receipt_id: invocation.receipt.id,
-    route_id: invocation.route.id,
-    tool_receipt_ids: invocation.toolReceiptIds ?? [],
-    previous_response_id: invocation.previousResponseId ?? null,
-    provider_stream: "native",
-  };
-  const outputItem = {
-    id: outputItemId,
-    type: "message",
-    status: "in_progress",
-    role: "assistant",
-    content: [],
-  };
-  response.statusCode = 200;
-  response.setHeader("content-type", "text/event-stream");
-  response.setHeader("cache-control", "no-cache");
-  response.setHeader("x-ioi-receipt-id", invocation.receipt.id);
-  response.setHeader("x-ioi-stream-source", "provider_native");
-  response.on("close", onClose);
-  try {
-    response.write(`event: response.created\ndata: ${JSON.stringify({ type: "response.created", response: baseResponse })}\n\n`);
-    response.write(`event: response.output_item.added\ndata: ${JSON.stringify({ type: "response.output_item.added", output_index: 0, item: outputItem })}\n\n`);
-    response.write(
-      `event: response.content_part.added\ndata: ${JSON.stringify({
-        type: "response.content_part.added",
-        item_id: outputItemId,
-        output_index: 0,
-        content_index: 0,
-        part: { type: "output_text", text: "" },
-      })}\n\n`,
-    );
-    written += 3;
-    while (!canceled) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value ?? new Uint8Array(), { stream: true });
-      const lines = takeLineBlocks(buffer);
-      buffer = lines.remainder;
-      for (const line of lines.blocks) {
-        if (canceled) break;
-        if (response.destroyed || response.writableEnded) {
-          markCanceled();
-          break;
-        }
-        const parsed = parseJsonMaybe(line);
-        const delta = ollamaStreamDelta(parsed);
-        if (delta) {
-          outputText += delta;
-          response.write(
-            `event: response.output_text.delta\ndata: ${JSON.stringify({
-              type: "response.output_text.delta",
-              item_id: outputItemId,
-              output_index: 0,
-              content_index: 0,
-              delta,
-            })}\n\n`,
-          );
-          written += 1;
-        }
-        if (parsed?.done) {
-          providerUsage = ollamaUsage(parsed);
-          finishReason = parsed.done_reason ?? "stop";
-        }
-      }
-    }
-    if (canceled) return;
-    const tail = decoder.decode();
-    if (tail) buffer += tail;
-    for (const line of buffer.trim() ? [buffer.trim()] : []) {
-      const parsed = parseJsonMaybe(line);
-      const delta = ollamaStreamDelta(parsed);
-      if (delta) outputText += delta;
-      if (parsed?.done) {
-        providerUsage = ollamaUsage(parsed);
-        finishReason = parsed.done_reason ?? "stop";
-      }
-    }
-    const completionReceipt = mounts.recordModelStreamCompleted({
-      invocation,
-      streamKind,
-      outputText,
-      providerUsage,
-      chunksForwarded: written,
-      finishReason,
-      providerResult: streamInvocation.providerResult,
-    });
-    const completedOutputItem = {
-      ...outputItem,
-      status: "completed",
-      content: [{ type: "output_text", text: outputText }],
-    };
-    const completedResponse = {
-      ...baseResponse,
-      status: "completed",
-      output: [completedOutputItem],
-      output_text: outputText,
-      usage: providerUsage,
-      stream_receipt_id: completionReceipt.id,
-    };
-    response.write(
-      `event: response.content_part.done\ndata: ${JSON.stringify({
-        type: "response.content_part.done",
-        item_id: outputItemId,
-        output_index: 0,
-        content_index: 0,
-        part: { type: "output_text", text: outputText },
-      })}\n\n`,
-    );
-    response.write(`event: response.output_item.done\ndata: ${JSON.stringify({ type: "response.output_item.done", output_index: 0, item: completedOutputItem })}\n\n`);
-    response.write(`event: response.completed\ndata: ${JSON.stringify({ type: "response.completed", response: completedResponse })}\n\n`);
-    completed = true;
-    response.end();
-  } finally {
-    response.off("close", onClose);
-    try {
-      reader.releaseLock();
-    } catch {
-      // Some runtime streams close the reader before release.
-    }
-  }
-}
-
-async function writeOpenAiResponseStream(response, invocation, mounts) {
-  const responseId = invocation.responseId ?? `resp_${crypto.randomUUID()}`;
-  const outputItemId = `msg_${crypto.randomUUID()}`;
-  const createdAt = Math.floor(Date.now() / 1000);
-  const chunks = textChunksForSse(invocation.outputText);
-  const baseResponse = {
-    id: responseId,
-    object: "response",
-    created_at: createdAt,
-    model: invocation.model,
-    status: "in_progress",
-    output: [],
-    usage: null,
-    receipt_id: invocation.receipt.id,
-    route_id: invocation.route.id,
-    tool_receipt_ids: invocation.toolReceiptIds ?? [],
-    previous_response_id: invocation.previousResponseId ?? null,
-  };
-  const outputItem = {
-    id: outputItemId,
-    type: "message",
-    status: "in_progress",
-    role: "assistant",
-    content: [],
-  };
-  const completedOutputItem = {
-    ...outputItem,
-    status: "completed",
-    content: [{ type: "output_text", text: invocation.outputText }],
-  };
-  const completedResponse = {
-    ...baseResponse,
-    status: "completed",
-    output: [completedOutputItem],
-    output_text: invocation.outputText,
-    usage: invocation.tokenCount,
-  };
-  const events = [
-    { event: "response.created", data: { type: "response.created", response: baseResponse } },
-    {
-      event: "response.output_item.added",
-      data: { type: "response.output_item.added", output_index: 0, item: outputItem },
-    },
-    {
-      event: "response.content_part.added",
-      data: {
-        type: "response.content_part.added",
-        item_id: outputItemId,
-        output_index: 0,
-        content_index: 0,
-        part: { type: "output_text", text: "" },
-      },
-    },
-    ...chunks.map((chunk) => ({
-      event: "response.output_text.delta",
-      data: {
-        type: "response.output_text.delta",
-        item_id: outputItemId,
-        output_index: 0,
-        content_index: 0,
-        delta: chunk,
-      },
-    })),
-    {
-      event: "response.content_part.done",
-      data: {
-        type: "response.content_part.done",
-        item_id: outputItemId,
-        output_index: 0,
-        content_index: 0,
-        part: { type: "output_text", text: invocation.outputText },
-      },
-    },
-    {
-      event: "response.output_item.done",
-      data: { type: "response.output_item.done", output_index: 0, item: completedOutputItem },
-    },
-    { event: "response.completed", data: { type: "response.completed", response: completedResponse } },
-  ];
-  await writeModelSseFrames({
-    response,
-    invocation,
-    mounts,
-    streamKind: "openai_responses",
-    frames: events.map((event) => `event: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`),
-  });
-}
-
-async function writeModelSseFrames({ response, invocation, mounts, streamKind, frames }) {
-  let completed = false;
-  let canceled = false;
-  const onClose = () => {
-    if (completed || canceled) return;
-    canceled = true;
-    recordModelStreamCanceled({ mounts, invocation, streamKind, framesWritten: written });
-  };
-  let written = 0;
-  response.statusCode = 200;
-  response.setHeader("content-type", "text/event-stream");
-  response.setHeader("cache-control", "no-cache");
-  response.setHeader("x-ioi-receipt-id", invocation.receipt.id);
-  response.on("close", onClose);
-  try {
-    for (const frame of frames) {
-      if (canceled || response.destroyed || response.writableEnded) break;
-      response.write(frame);
-      written += 1;
-      await delay(streamFrameDelayMs());
-    }
-    if (!canceled && !response.destroyed && !response.writableEnded) {
-      completed = true;
-      response.end();
-    }
-  } finally {
-    response.off("close", onClose);
-  }
-}
-
-function recordModelStreamCanceled({ mounts, invocation, streamKind, framesWritten }) {
-  mounts.receipt("model_invocation_stream_canceled", {
-    summary: `${streamKind} stream canceled for ${invocation.model}.`,
-    redaction: "redacted",
-    evidenceRefs: ["model_stream", streamKind, invocation.receipt.id, invocation.route.id, invocation.endpoint.id],
-    details: {
-      streamKind,
-      invocationReceiptId: invocation.receipt.id,
-      routeId: invocation.route.id,
-      selectedModel: invocation.model,
-      endpointId: invocation.endpoint.id,
-      providerId: invocation.endpoint.providerId,
-      instanceId: invocation.instance.id,
-      backendId: invocation.instance.backendId ?? invocation.receipt.details?.backendId ?? null,
-      selectedBackend: invocation.receipt.details?.selectedBackend ?? null,
-      streamSource: invocation.receipt.details?.streamSource ?? null,
-      providerResponseKind: invocation.providerResponseKind ?? invocation.receipt.details?.providerResponseKind ?? null,
-      backendEvidenceRefs: invocation.receipt.details?.backendEvidenceRefs ?? [],
-      toolReceiptIds: invocation.toolReceiptIds ?? [],
-      framesWritten,
-      status: "aborted",
-      reason: "client_disconnect",
-    },
-  });
-}
-
-function streamFrameDelayMs() {
-  const configured = Number(process.env.IOI_DETERMINISTIC_SSE_FRAME_DELAY_MS ?? "");
-  if (Number.isFinite(configured) && configured >= 0) return Math.min(configured, 1000);
-  return 5;
-}
-
-function providerStreamForwardDelayMs() {
-  const configured = Number(process.env.IOI_PROVIDER_SSE_FRAME_DELAY_MS ?? "");
-  if (Number.isFinite(configured) && configured >= 0) return Math.min(configured, 1000);
-  return 0;
-}
-
-function takeSseFrameBlocks(buffer) {
-  const parts = String(buffer).split(/\r?\n\r?\n/);
-  const remainder = parts.pop() ?? "";
-  return { blocks: parts.filter(Boolean), remainder };
-}
-
-function takeLineBlocks(buffer) {
-  const parts = String(buffer).split(/\r?\n/);
-  const remainder = parts.pop() ?? "";
-  return { blocks: parts.map((part) => part.trim()).filter(Boolean), remainder };
-}
-
-function dataPayloadsFromSseBlock(block) {
-  const payload = String(block)
-    .split(/\r?\n/)
-    .filter((line) => line.startsWith("data:"))
-    .map((line) => line.replace(/^data:\s?/, ""))
-    .join("\n");
-  return payload ? [payload] : [];
-}
-
-function responseStreamPayloads(block) {
-  return dataPayloadsFromSseBlock(block).map((raw) => {
-    if (raw === "[DONE]") return { raw };
-    const parsed = parseJsonMaybe(raw);
-    return {
-      raw,
-      parsed,
-      delta: typeof parsed?.delta === "string" && parsed?.type === "response.output_text.delta" ? parsed.delta : "",
-      completionText: typeof parsed?.response?.output_text === "string" ? parsed.response.output_text : "",
-      usage: parsed?.response?.usage ?? parsed?.usage ?? null,
-      finishReason: parsed?.response?.status ?? parsed?.status ?? parsed?.type ?? null,
-    };
-  });
-}
-
-function ollamaStreamDelta(payload) {
-  if (!payload || typeof payload !== "object") return "";
-  return String(payload.delta ?? payload.message?.content ?? payload.response ?? "");
-}
-
-function ollamaUsage(payload) {
-  const promptTokens = Number(payload?.prompt_eval_count ?? 0) || 0;
-  const completionTokens = Number(payload?.eval_count ?? 0) || 0;
-  return {
-    prompt_tokens: promptTokens,
-    completion_tokens: completionTokens,
-    total_tokens: promptTokens + completionTokens,
-  };
-}
-
-function parseJsonMaybe(text) {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
-
-function delay(milliseconds) {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
-function nativeInvocationResponse(invocation) {
-  return {
-    id: `model_invocation_${crypto.randomUUID()}`,
-    object: "ioi.model_invocation",
-    model: invocation.model,
-    route_id: invocation.route.id,
-    endpoint_id: invocation.endpoint.id,
-    instance_id: invocation.instance.id,
-    backend_id: invocation.instance.backendId ?? invocation.receipt.details?.backendId ?? null,
-    receipt_id: invocation.receipt.id,
-    route_receipt_id: invocation.routeReceipt?.id ?? null,
-    route_decision: invocation.routeReceipt?.details?.modelRouteDecision ?? null,
-    response_id: invocation.responseId ?? null,
-    previous_response_id: invocation.previousResponseId ?? null,
-    compat_translation: invocation.compatTranslation ?? null,
-    tool_receipt_ids: invocation.toolReceiptIds ?? [],
-    output_text: invocation.outputText,
-    usage: invocation.tokenCount,
-  };
-}
 
 function baseUrlForRequest(request) {
   const host = request.headers.host;
@@ -13639,438 +11936,7 @@ function runtimeEventCursorFromRequest({ request, url }) {
   };
 }
 
-async function handleAgentRoute({ request, response, store, url, segments }) {
-  const agentId = decodeURIComponent(segments[2]);
-  const action = segments[3];
-  if (request.method === "GET" && !action) {
-    writeJsonResponse(response, store.getAgent(agentId));
-    return;
-  }
-  if (request.method === "DELETE" && !action) {
-    store.deleteAgent(agentId);
-    writeJsonResponse(response, undefined, 204);
-    return;
-  }
-  if (request.method === "POST" && action === "archive") {
-    writeJsonResponse(response, store.updateAgent(agentId, "archived", "agent.archive"));
-    return;
-  }
-  if (request.method === "POST" && action === "unarchive") {
-    writeJsonResponse(response, store.updateAgent(agentId, "active", "agent.unarchive"));
-    return;
-  }
-  if (request.method === "POST" && action === "resume") {
-    writeJsonResponse(response, store.updateAgent(agentId, "active", "agent.resume"));
-    return;
-  }
-  if (request.method === "POST" && action === "close") {
-    writeJsonResponse(response, store.updateAgent(agentId, "closed", "agent.close"));
-    return;
-  }
-  if (request.method === "POST" && action === "reload") {
-    writeJsonResponse(response, store.updateAgent(agentId, store.getAgent(agentId).status, "agent.reload"));
-    return;
-  }
-  if (request.method === "POST" && action === "runs") {
-    writeJsonResponse(response, store.createRun(agentId, await readBody(request)));
-    return;
-  }
-  if (request.method === "GET" && action === "runs") {
-    writeJsonResponse(response, store.listRuns(agentId));
-    return;
-  }
-  if (request.method === "GET" && action === "memory" && segments[4] === "policy") {
-    writeJsonResponse(response, store.memoryPolicyForAgent(agentId, Object.fromEntries(url.searchParams.entries())));
-    return;
-  }
-  if ((request.method === "PUT" || request.method === "PATCH") && action === "memory" && segments[4] === "policy") {
-    writeJsonResponse(response, store.setMemoryPolicyForAgent(agentId, await readBody(request)));
-    return;
-  }
-  if (request.method === "GET" && action === "memory" && segments[4] === "path") {
-    writeJsonResponse(response, store.memoryPathForAgent(agentId, Object.fromEntries(url.searchParams.entries())));
-    return;
-  }
-  if ((request.method === "PATCH" || request.method === "PUT") && action === "memory" && segments[4]) {
-    writeJsonResponse(response, store.updateMemoryForAgentId(agentId, decodeURIComponent(segments[4]), await readBody(request)));
-    return;
-  }
-  if (request.method === "DELETE" && action === "memory" && segments[4]) {
-    writeJsonResponse(response, store.deleteMemoryForAgentId(agentId, decodeURIComponent(segments[4]), await readBody(request)));
-    return;
-  }
-  if (request.method === "GET" && action === "memory") {
-    writeJsonResponse(response, store.listMemoryForAgent(agentId, Object.fromEntries(new URL(request.url ?? "/", "http://127.0.0.1").searchParams.entries())));
-    return;
-  }
-  if (request.method === "POST" && action === "memory") {
-    writeJsonResponse(response, store.rememberForAgentId(agentId, await readBody(request)));
-    return;
-  }
-  throw notFound("Agent route not found.", { agentId, action, method: request.method });
-}
 
-async function handleThreadRoute({ request, response, store, url, segments }) {
-  const threadId = decodeURIComponent(segments[2]);
-  const action = segments[3];
-  if (request.method === "GET" && !action) {
-    writeJsonResponse(response, {
-      ...store.getThread(threadId),
-      turns: store.listTurns(threadId),
-    });
-    return;
-  }
-  if (request.method === "GET" && action === "usage" && !segments[4]) {
-    writeJsonResponse(
-      response,
-      usageTelemetryWithRequestMetadata(
-        store.usageForThread(threadId),
-        usageRequestMetadataFromUrl(url, { defaultScope: "thread" }),
-      ),
-    );
-    return;
-  }
-  if (request.method === "POST" && action === "context-budget" && !segments[4]) {
-    writeJsonResponse(
-      response,
-      store.evaluateContextBudget({ threadId, request: await readBody(request) }),
-    );
-    return;
-  }
-  if (request.method === "POST" && action === "compaction-policy" && !segments[4]) {
-    writeJsonResponse(
-      response,
-      store.evaluateCompactionPolicy({ threadId, request: await readBody(request) }),
-    );
-    return;
-  }
-  if (request.method === "POST" && action === "resume") {
-    writeJsonResponse(response, store.resumeThread(threadId));
-    return;
-  }
-  if (request.method === "POST" && action === "fork") {
-    writeJsonResponse(response, store.forkThread(threadId, await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && action === "compact") {
-    writeJsonResponse(response, store.compactThread(threadId, await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && action === "mode" && !segments[4]) {
-    writeJsonResponse(response, store.updateThreadMode(threadId, await readBody(request)));
-    return;
-  }
-  if (
-    request.method === "POST" &&
-    action === "workspace-trust" &&
-    segments[4] &&
-    segments[5] === "acknowledge" &&
-    !segments[6]
-  ) {
-    writeJsonResponse(
-      response,
-      store.acknowledgeWorkspaceTrustWarning(
-        threadId,
-        decodeURIComponent(segments[4]),
-        await readBody(request),
-      ),
-    );
-    return;
-  }
-  if (request.method === "POST" && action === "model" && !segments[4]) {
-    writeJsonResponse(response, store.updateThreadModel(threadId, await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && action === "thinking" && !segments[4]) {
-    writeJsonResponse(response, store.updateThreadThinking(threadId, await readBody(request)));
-    return;
-  }
-  if (request.method === "GET" && action === "subagents" && !segments[4]) {
-    writeJsonResponse(response, store.listSubagents(threadId, Object.fromEntries(url.searchParams.entries())));
-    return;
-  }
-  if (request.method === "POST" && action === "subagents" && !segments[4]) {
-    writeJsonResponse(response, store.spawnSubagent(threadId, await readBody(request)), 201);
-    return;
-  }
-  if (request.method === "POST" && action === "subagents" && segments[4] === "cancel" && !segments[5]) {
-    writeJsonResponse(response, store.propagateSubagentCancellation(threadId, await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && action === "subagents" && segments[4] && segments[5] === "wait" && !segments[6]) {
-    writeJsonResponse(response, store.waitSubagent(threadId, decodeURIComponent(segments[4]), await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && action === "subagents" && segments[4] && segments[5] === "input" && !segments[6]) {
-    writeJsonResponse(response, store.sendSubagentInput(threadId, decodeURIComponent(segments[4]), await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && action === "subagents" && segments[4] && segments[5] === "cancel" && !segments[6]) {
-    writeJsonResponse(response, store.cancelSubagent(threadId, decodeURIComponent(segments[4]), await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && action === "subagents" && segments[4] && segments[5] === "resume" && !segments[6]) {
-    writeJsonResponse(response, store.resumeSubagent(threadId, decodeURIComponent(segments[4]), await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && action === "subagents" && segments[4] && segments[5] === "assign" && !segments[6]) {
-    writeJsonResponse(response, store.assignSubagent(threadId, decodeURIComponent(segments[4]), await readBody(request)));
-    return;
-  }
-  if (request.method === "GET" && action === "subagents" && segments[4] && segments[5] === "result" && !segments[6]) {
-    writeJsonResponse(response, store.getSubagentResult(threadId, decodeURIComponent(segments[4])));
-    return;
-  }
-  if (request.method === "POST" && action === "mcp" && segments[4] === "import" && !segments[5]) {
-    writeJsonResponse(response, store.importThreadMcp(threadId, await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && action === "mcp" && segments[4] === "servers" && !segments[5]) {
-    writeJsonResponse(response, store.addThreadMcpServer(threadId, await readBody(request)), 201);
-    return;
-  }
-  if (
-    (request.method === "DELETE" || request.method === "POST") &&
-    action === "mcp" &&
-    segments[4] === "servers" &&
-    segments[5] &&
-    (request.method === "DELETE" ? !segments[6] : segments[6] === "remove" && !segments[7])
-  ) {
-    writeJsonResponse(
-      response,
-      store.removeThreadMcpServer(threadId, decodeURIComponent(segments[5]), await readBody(request)),
-    );
-    return;
-  }
-  if (
-    request.method === "POST" &&
-    action === "mcp" &&
-    segments[4] === "servers" &&
-    segments[5] &&
-    (segments[6] === "enable" || segments[6] === "disable") &&
-    !segments[7]
-  ) {
-    writeJsonResponse(
-      response,
-      store.setThreadMcpServerEnabled(
-        threadId,
-        decodeURIComponent(segments[5]),
-        segments[6] === "enable",
-        await readBody(request),
-      ),
-    );
-    return;
-  }
-  if (
-    request.method === "GET" &&
-    action === "mcp" &&
-    segments[4] === "tools" &&
-    segments[5] === "search" &&
-    !segments[6]
-  ) {
-    writeJsonResponse(
-      response,
-      await store.searchThreadMcpTools(threadId, {
-        ...Object.fromEntries(url.searchParams.entries()),
-        source: "sdk_client",
-      }),
-    );
-    return;
-  }
-  if (
-    request.method === "GET" &&
-    action === "mcp" &&
-    segments[4] === "tools" &&
-    segments[5] &&
-    !segments[6]
-  ) {
-    writeJsonResponse(
-      response,
-      await store.getThreadMcpTool(threadId, decodeURIComponent(segments[5]), {
-        ...Object.fromEntries(url.searchParams.entries()),
-        source: "sdk_client",
-      }),
-    );
-    return;
-  }
-  if (
-    request.method === "POST" &&
-    action === "mcp" &&
-    segments[4] === "tools" &&
-    segments[5] &&
-    segments[6] === "invoke" &&
-    !segments[7]
-  ) {
-    writeJsonResponse(
-      response,
-      await store.invokeThreadMcpTool(threadId, decodeURIComponent(segments[5]), await readBody(request)),
-    );
-    return;
-  }
-  if (request.method === "POST" && action === "mcp" && segments[4] === "invoke" && !segments[5]) {
-    writeJsonResponse(response, await store.invokeThreadMcpTool(threadId, null, await readBody(request)));
-    return;
-  }
-  if (request.method === "GET" && action === "mcp" && segments[4] === "serve" && !segments[5]) {
-    writeJsonResponse(response, store.mcpServeStatus({
-      ...Object.fromEntries(url.searchParams.entries()),
-      thread_id: threadId,
-    }));
-    return;
-  }
-  if (request.method === "POST" && action === "mcp" && segments[4] === "serve" && !segments[5]) {
-    writeMcpJsonRpcResponse(
-      response,
-      await store.handleMcpServeJsonRpc(threadId, await readBody(request), {
-        ...Object.fromEntries(url.searchParams.entries()),
-        thread_id: threadId,
-      }),
-    );
-    return;
-  }
-  if (request.method === "POST" && action === "mcp" && (!segments[4] || segments[4] === "status") && !segments[5]) {
-    writeJsonResponse(response, await store.recordThreadMcpStatus(threadId, await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && action === "mcp" && segments[4] === "validate" && !segments[5]) {
-    writeJsonResponse(response, store.validateThreadMcp(threadId, await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && action === "memory" && segments[4] === "status" && !segments[5]) {
-    writeJsonResponse(response, store.recordThreadMemoryStatus(threadId, await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && action === "memory" && segments[4] === "validate" && !segments[5]) {
-    writeJsonResponse(response, store.validateThreadMemory(threadId, await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && action === "turns" && !segments[4]) {
-    writeJsonResponse(response, await store.createTurn(threadId, await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && action === "turns" && segments[4] && segments[5] === "interrupt" && !segments[6]) {
-    writeJsonResponse(response, store.interruptTurn(threadId, decodeURIComponent(segments[4]), await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && action === "turns" && segments[4] && segments[5] === "steer" && !segments[6]) {
-    writeJsonResponse(response, store.steerTurn(threadId, decodeURIComponent(segments[4]), await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && action === "approvals" && !segments[4]) {
-    writeJsonResponse(response, store.requestThreadApproval(threadId, await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && action === "approvals" && segments[4] && segments[5] === "decision" && !segments[6]) {
-    writeJsonResponse(response, store.decideThreadApproval(threadId, decodeURIComponent(segments[4]), await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && action === "approvals" && segments[4] && ["approve", "reject"].includes(segments[5]) && !segments[6]) {
-    const body = await readBody(request);
-    writeJsonResponse(response, store.decideThreadApproval(threadId, decodeURIComponent(segments[4]), {
-      ...body,
-      decision: segments[5],
-    }));
-    return;
-  }
-  if (request.method === "POST" && action === "approvals" && segments[4] && segments[5] === "revoke" && !segments[6]) {
-    writeJsonResponse(response, store.revokeThreadApproval(threadId, decodeURIComponent(segments[4]), await readBody(request)));
-    return;
-  }
-  if (request.method === "POST" && action === "workflow-edit-proposals" && !segments[4]) {
-    writeJsonResponse(response, store.proposeWorkflowEdit(threadId, await readBody(request)));
-    return;
-  }
-  if (
-    request.method === "POST" &&
-    action === "workflow-edit-proposals" &&
-    segments[4] &&
-    segments[5] === "apply" &&
-    !segments[6]
-  ) {
-    writeJsonResponse(
-      response,
-      store.applyWorkflowEditProposal(threadId, decodeURIComponent(segments[4]), await readBody(request)),
-    );
-    return;
-  }
-  if (request.method === "POST" && action === "tools" && segments[4] && segments[5] === "invoke" && !segments[6]) {
-    writeJsonResponse(response, await store.invokeThreadToolAsync(threadId, decodeURIComponent(segments[4]), await readBody(request)));
-    return;
-  }
-  if (
-    request.method === "POST" &&
-    action === "diagnostics" &&
-    segments[4] === "repair-decisions" &&
-    segments[5] &&
-    segments[6] === "execute" &&
-    !segments[7]
-  ) {
-    writeJsonResponse(
-      response,
-      store.executeDiagnosticsRepairDecision(threadId, decodeURIComponent(segments[5]), await readBody(request)),
-    );
-    return;
-  }
-  if (request.method === "GET" && action === "snapshots" && !segments[4]) {
-    writeJsonResponse(response, store.listWorkspaceSnapshots(threadId));
-    return;
-  }
-  if (request.method === "POST" && action === "snapshots" && segments[4] && segments[5] === "restore-preview" && !segments[6]) {
-    writeJsonResponse(
-      response,
-      store.previewWorkspaceSnapshotRestore(threadId, decodeURIComponent(segments[4]), await readBody(request)),
-    );
-    return;
-  }
-  if (request.method === "POST" && action === "snapshots" && segments[4] && segments[5] === "restore-apply" && !segments[6]) {
-    writeJsonResponse(
-      response,
-      store.applyWorkspaceSnapshotRestore(threadId, decodeURIComponent(segments[4]), await readBody(request)),
-    );
-    return;
-  }
-  if (request.method === "GET" && action === "turns" && !segments[4]) {
-    writeJsonResponse(response, store.listTurns(threadId));
-    return;
-  }
-  if (request.method === "GET" && action === "turns" && segments[4] && !segments[5]) {
-    writeJsonResponse(response, store.getTurn(threadId, decodeURIComponent(segments[4])));
-    return;
-  }
-  if (request.method === "GET" && action === "events" && (!segments[4] || segments[4] === "stream")) {
-    writeSse(response, store.eventsForThread(threadId, runtimeEventCursorFromRequest({ request, url })));
-    return;
-  }
-  if (request.method === "GET" && action === "memory" && segments[4] === "policy") {
-    writeJsonResponse(response, store.memoryPolicyForThread(threadId));
-    return;
-  }
-  if ((request.method === "PUT" || request.method === "PATCH") && action === "memory" && segments[4] === "policy") {
-    writeJsonResponse(response, store.setMemoryPolicyForThread(threadId, await readBody(request)));
-    return;
-  }
-  if (request.method === "GET" && action === "memory" && segments[4] === "path") {
-    writeJsonResponse(response, store.memoryPathForThread(threadId));
-    return;
-  }
-  if ((request.method === "PATCH" || request.method === "PUT") && action === "memory" && segments[4]) {
-    writeJsonResponse(response, store.updateMemoryForThread(threadId, decodeURIComponent(segments[4]), await readBody(request)));
-    return;
-  }
-  if (request.method === "DELETE" && action === "memory" && segments[4]) {
-    writeJsonResponse(response, store.deleteMemoryForThread(threadId, decodeURIComponent(segments[4]), await readBody(request)));
-    return;
-  }
-  if (request.method === "GET" && action === "memory") {
-    writeJsonResponse(response, store.listMemoryForThread(threadId, Object.fromEntries(url.searchParams.entries())));
-    return;
-  }
-  if (request.method === "POST" && action === "memory") {
-    writeJsonResponse(response, store.rememberForThread(threadId, await readBody(request)));
-    return;
-  }
-  throw notFound("Thread route not found.", { threadId, action, method: request.method });
-}
 
 function usageRequestMetadataFromUrl(url, { defaultScope = "workflow" } = {}) {
   const params = url?.searchParams;
@@ -14762,113 +12628,6 @@ function booleanFromSearchParams(params, key, fallback = false) {
   return value !== "false" && value !== "0";
 }
 
-async function handleRunRoute({ request, response, store, url, segments }) {
-  const runId = decodeURIComponent(segments[2]);
-  const action = segments[3];
-  if (request.method === "GET" && !action) {
-    writeJsonResponse(response, store.getRun(runId));
-    return;
-  }
-  if (request.method === "GET" && action === "usage" && !segments[4]) {
-    writeJsonResponse(
-      response,
-      usageTelemetryWithRequestMetadata(
-        store.usageForRun(runId),
-        usageRequestMetadataFromUrl(url, { defaultScope: "run" }),
-      ),
-    );
-    return;
-  }
-  if (request.method === "POST" && action === "context-budget" && !segments[4]) {
-    writeJsonResponse(
-      response,
-      store.evaluateContextBudget({ runId, request: await readBody(request) }),
-    );
-    return;
-  }
-  if (request.method === "POST" && action === "coding-tool-budget-recovery" && !segments[4]) {
-    writeJsonResponse(
-      response,
-      store.codingToolBudgetRecoveryForRun(runId, await readBody(request)),
-    );
-    return;
-  }
-  if (request.method === "POST" && action === "cancel") {
-    writeJsonResponse(response, store.cancelRun(runId));
-    return;
-  }
-  if (request.method === "GET" && action === "wait") {
-    const run = store.getRun(runId);
-    writeJsonResponse(response, {
-      id: run.id,
-      agentId: run.agentId,
-      status: run.status,
-      result: run.result,
-      stopCondition: run.trace.stopCondition,
-      routeDecision: run.modelRouteDecision ?? run.trace.modelRouteDecision ?? null,
-      usage: store.usageForRun(run.id),
-      trace: run.trace,
-      scorecard: run.trace.scorecard,
-    });
-    return;
-  }
-  if (request.method === "GET" && action === "conversation") {
-    writeJsonResponse(response, store.getRun(runId).conversation);
-    return;
-  }
-  if (request.method === "GET" && action === "events") {
-    writeSse(
-      response,
-      store.eventsForRun(
-        runId,
-        runtimeEventCursorFromRequest({ request, url }),
-      ),
-    );
-    return;
-  }
-  if (request.method === "GET" && action === "replay") {
-    writeSse(
-      response,
-      store.replayFromCanonicalState(
-        runId,
-        runtimeEventCursorFromRequest({ request, url }),
-      ),
-    );
-    return;
-  }
-  if (request.method === "GET" && (action === "trace" || action === "inspect")) {
-    const trace = store.traceFromCanonicalState(runId);
-    writeJsonResponse(response, {
-      ...trace,
-      canonicalState: store.canonicalProjection(runId),
-    });
-    return;
-  }
-  if (request.method === "GET" && action === "computer-use" && segments[4] === "trace" && !segments[5]) {
-    writeJsonResponse(response, store.getRun(runId).trace?.computerUse ?? null);
-    return;
-  }
-  if (request.method === "GET" && action === "computer-use" && segments[4] === "trajectory" && !segments[5]) {
-    writeJsonResponse(response, store.getRun(runId).trace?.computerUse?.trajectory ?? null);
-    return;
-  }
-  if (request.method === "GET" && action === "scorecard") {
-    writeJsonResponse(response, store.getRun(runId).trace.scorecard);
-    return;
-  }
-  if (request.method === "GET" && action === "artifacts" && !segments[4]) {
-    writeJsonResponse(response, store.getRun(runId).artifacts);
-    return;
-  }
-  if (request.method === "GET" && action === "artifacts" && segments[4]) {
-    const artifactRef = decodeURIComponent(segments[4]);
-    const artifact = resolveRunArtifact(store.getRun(runId), artifactRef);
-    if (!artifact) throw notFound(`Artifact not found: ${artifactRef}`, { runId, artifactRef });
-    writeJsonResponse(response, artifact);
-    return;
-  }
-  throw notFound("Run route not found.", { runId, action, method: request.method });
-}
 
 function buildRun({
   agent,
@@ -16301,970 +14060,6 @@ function buildRun({
     subagentMemoryInheritance,
     result,
   };
-}
-
-function runtimeTaskRecord({
-  runId,
-  agent,
-  prompt,
-  mode,
-  taskFamily,
-  selectedStrategy,
-  modelRouteDecision,
-  activeSkillHookManifest,
-  createdAt,
-  updatedAt,
-  status,
-} = {}) {
-  const id = runId ?? `run_${doctorHash(String(prompt ?? "task")).slice(0, 12)}`;
-  const agentId = agent?.id ?? null;
-  const promptHash = doctorHash(String(prompt ?? ""));
-  return {
-    schemaVersion: "ioi.agent-runtime.task-record.v1",
-    object: "ioi.runtime_task",
-    taskId: `task_${id}`,
-    runId: id,
-    agentId,
-    threadId: agentId ? threadIdForAgent(agentId) : null,
-    turnId: turnIdForRun(id),
-    status: status ?? "completed",
-    mode: mode ?? "send",
-    taskFamily: taskFamily ?? taskFamilyForMode(mode ?? "send"),
-    selectedStrategy: selectedStrategy ?? strategyForMode(mode ?? "send"),
-    summary: `Runtime task for ${taskFamily ?? taskFamilyForMode(mode ?? "send")} is ${status ?? "completed"}.`,
-    promptHash,
-    promptIncluded: false,
-    objectivePreviewIncluded: false,
-    modelRouteDecisionId: modelRouteDecision?.decisionId ?? null,
-    activeSkillHookManifestId: activeSkillHookManifest?.manifestId ?? null,
-    createdAt: createdAt ?? new Date().toISOString(),
-    updatedAt: updatedAt ?? createdAt ?? new Date().toISOString(),
-    durable: true,
-    replayable: true,
-    cancelable: status !== "canceled",
-    cancelEndpoint: `/v1/tasks/task_${id}/cancel`,
-    endpoints: {
-      self: `/v1/tasks/task_${id}`,
-      cancel: `/v1/tasks/task_${id}/cancel`,
-      run: `/v1/runs/${id}`,
-      job: `/v1/jobs/job_${id}`,
-      events: `/v1/runs/${id}/events`,
-      trace: `/v1/runs/${id}/trace`,
-    },
-    workflowNodeId: "runtime.runtime-task",
-    redaction: {
-      profile: "runtime_task_safe",
-      promptIncluded: false,
-      secretValuesIncluded: false,
-    },
-    evidenceRefs: [
-      "runtime_task",
-      "runtime.tasks.durable_projection",
-      "RuntimeTaskNode",
-      `run:${id}`,
-      activeSkillHookManifest?.manifestId,
-    ].filter(Boolean),
-  };
-}
-
-function runtimeBridgeRunRecord({ agent, request, projection }) {
-  const bridgeEvents = runtimeBridgeMessagesForProjection({ agent, projection });
-  const computerUseTrace = runtimeBridgeComputerUseTrace({
-    projection,
-    events: bridgeEvents,
-  });
-  const receipts = [
-    ...(computerUseTrace
-      ? [
-          {
-            id: `receipt_${projection.runId}_runtime_bridge_computer_use_trace`,
-            kind: "computer_use_trace",
-            summary:
-              "RuntimeAgentService bridge computer-use events were projected into a durable trace artifact.",
-            redaction: "redacted",
-            evidenceRefs: uniqueStrings([
-              "RuntimeAgentService",
-              "ComputerUseHarnessContract",
-              ...computerUseTrace.events.map((event) => event.runtimeEventId).filter(Boolean),
-              computerUseTrace.observation?.observation_ref,
-              computerUseTrace.targetIndex?.target_index_ref,
-              computerUseTrace.affordanceGraph?.graph_ref,
-            ]),
-          },
-        ]
-      : []),
-    {
-      id: `receipt_${projection.runId}_runtime_bridge_trace`,
-      kind: "trace_export",
-      summary: "RuntimeAgentService bridge run trace was persisted from canonical runtime events.",
-      redaction: "redacted",
-      evidenceRefs: uniqueStrings([
-        "RuntimeAgentService",
-        ...bridgeEvents.map((event) => event.data?.runtimeEventId).filter(Boolean),
-      ]),
-    },
-  ];
-  const taskFamily = taskFamilyForMode(projection.mode);
-  const selectedStrategy = strategyForMode(projection.mode);
-  const stopCondition = {
-    reason: projection.stopReason,
-    evidenceSufficient: true,
-    rationale: "RuntimeAgentService bridge supplied the terminal turn event projection.",
-  };
-  const qualityLedger = {
-    ledgerId: `quality_${projection.runId}`,
-    taskFamily,
-    selectedStrategy,
-    toolSequence: [],
-    scorecardMetrics: {
-      task_pass_rate: 100,
-      recovery_success: 100,
-      memory_relevance: 100,
-      tool_quality: 100,
-      strategy_roi: 100,
-      operator_interventions: 0,
-      verifier_independence: 100,
-    },
-    failureOntologyLabels: [],
-  };
-  const scorecard = {
-    taskPassRate: 1,
-    recoverySuccess: 1,
-    memoryRelevance: 1,
-    toolQuality: 1,
-    strategyRoi: 1,
-    operatorInterventionRate: 0,
-    verifierIndependence: 1,
-  };
-  const trace = {
-    schemaVersion: "ioi.agent-sdk.trace.v1",
-    traceBundleId: `trace_${projection.runId}`,
-    runId: projection.runId,
-    agentId: agent.id,
-    status: projection.status,
-    source: "runtime_service",
-    eventStreamId: eventStreamIdForThread(threadIdForAgent(agent.id)),
-    events: bridgeEvents,
-    receipts,
-    artifacts: [],
-    taskState: null,
-    uncertainty: null,
-    probe: null,
-    postconditions: null,
-    semanticImpact: null,
-    memoryPolicy: null,
-    memoryRecords: [],
-    memoryWrites: [],
-    computerUse: computerUseTrace,
-    stopCondition,
-    qualityLedger,
-    scorecard,
-  };
-  const usageTelemetry = runtimeUsageTelemetryForRun({
-    run: {
-      id: projection.runId,
-      agentId: agent.id,
-      mode: projection.mode,
-      objective: projection.prompt,
-      result: projection.result,
-      createdAt: projection.createdAt,
-      updatedAt: projection.updatedAt,
-      modelRouteDecision: agent.modelRouteDecision ?? null,
-      usage: projection.usage,
-    },
-    agent,
-    threadId: threadIdForAgent(agent.id),
-  });
-  const traceWithUsage = {
-    ...trace,
-    usage: usageTelemetry,
-    usage_telemetry: usageTelemetry,
-    usageTelemetry,
-    runtimeUsage: usageTelemetry,
-  };
-  const artifacts = [
-    artifact(
-      projection.runId,
-      "trace.json",
-      "application/json",
-      `receipt_${projection.runId}_runtime_bridge_trace`,
-      traceWithUsage,
-      "redacted",
-    ),
-    ...(computerUseTrace
-      ? [
-          artifact(
-            projection.runId,
-            "computer-use-trace.json",
-            "application/json",
-            `receipt_${projection.runId}_runtime_bridge_computer_use_trace`,
-            computerUseTrace,
-            "redacted",
-          ),
-        ]
-      : []),
-    artifact(
-      projection.runId,
-      "scorecard.json",
-      "application/json",
-      `receipt_${projection.runId}_runtime_bridge_trace`,
-      scorecard,
-      "none",
-    ),
-  ];
-  const traceWithArtifacts = {
-    ...traceWithUsage,
-    artifacts: artifacts.map((item) => ({
-      id: item.id,
-      name: item.name,
-      mediaType: item.mediaType,
-      redaction: item.redaction,
-      receiptId: item.receiptId,
-    })),
-  };
-  artifacts[0] = artifact(
-    projection.runId,
-    "trace.json",
-    "application/json",
-    `receipt_${projection.runId}_runtime_bridge_trace`,
-    traceWithArtifacts,
-    "redacted",
-  );
-  return {
-    id: projection.runId,
-    agentId: agent.id,
-    mode: projection.mode,
-    objective: projection.prompt,
-    status: projection.status,
-    createdAt: projection.createdAt,
-    updatedAt: projection.updatedAt,
-    source: "runtime_service",
-    runtimeProfile: agent.runtimeProfile,
-    runtimeSessionId: runtimeSessionIdForAgent(agent),
-    runtimeTurnId: projection.turnId,
-    result: projection.result,
-    usage: usageTelemetry,
-    usage_telemetry: usageTelemetry,
-    usageTelemetry,
-    runtimeUsage: usageTelemetry,
-    events: bridgeEvents,
-    conversation: [
-      { role: "user", content: projection.prompt, createdAt: projection.createdAt },
-      ...(projection.result ? [{ role: "assistant", content: projection.result, createdAt: projection.updatedAt }] : []),
-    ],
-    trace: traceWithArtifacts,
-    artifacts,
-    receipts,
-    modelRouteDecision: agent.modelRouteDecision ?? null,
-    modelRouteReceiptId: agent.modelRouteReceiptId ?? null,
-    activeSkillHookManifest: null,
-    memoryRecords: [],
-    memoryWriteReceipts: [],
-  };
-}
-
-function runtimeBridgeMessagesForProjection({ agent, projection }) {
-  return normalizeArray(projection.events).map((event, index) =>
-    runtimeBridgeMessageForEvent({ agent, projection, event, index }),
-  );
-}
-
-function runtimeBridgeMessageForEvent({ agent, projection, event, index }) {
-  const payload = runtimeBridgeEventPayload(event);
-  const type = runtimeBridgeRunEventType(event);
-  const summary =
-    optionalString(payload.summary) ??
-    optionalString(event.summary) ??
-    optionalString(event.source_event_kind) ??
-    optionalString(event.event_kind) ??
-    type;
-  return {
-    id: `${projection.runId}:bridge:${String(index).padStart(3, "0")}:${type}`,
-    runId: projection.runId,
-    agentId: agent.id,
-    type,
-    cursor: `${projection.runId}:${index}`,
-    createdAt: event.created_at ?? projection.updatedAt ?? projection.createdAt,
-    summary,
-    data: {
-      ...payload,
-      eventKind: payload.event_kind ?? event.source_event_kind ?? event.event_kind ?? type,
-      workflowGraphId: event.workflow_graph_id ?? payload.workflow_graph_id ?? null,
-      workflow_graph_id: event.workflow_graph_id ?? payload.workflow_graph_id ?? null,
-      workflowNodeId: event.workflow_node_id ?? payload.workflow_node_id ?? null,
-      workflow_node_id: event.workflow_node_id ?? payload.workflow_node_id ?? null,
-      componentKind: event.component_kind ?? payload.component_kind ?? null,
-      component_kind: event.component_kind ?? payload.component_kind ?? null,
-      payloadSchemaVersion: event.payload_schema_version ?? payload.schema_version ?? null,
-      payload_schema_version: event.payload_schema_version ?? payload.schema_version ?? null,
-      runtimeEventId: event.event_id ?? null,
-      runtime_event_id: event.event_id ?? null,
-      runtimeEventKind: event.event_kind ?? null,
-      runtime_event_kind: event.event_kind ?? null,
-      sourceEventKind: event.source_event_kind ?? null,
-      source_event_kind: event.source_event_kind ?? null,
-      receiptRefs: normalizeArray(event.receipt_refs),
-      receipt_refs: normalizeArray(event.receipt_refs),
-      artifactRefs: normalizeArray(event.artifact_refs),
-      artifact_refs: normalizeArray(event.artifact_refs),
-      policyDecisionRefs: normalizeArray(event.policy_decision_refs),
-      policy_decision_refs: normalizeArray(event.policy_decision_refs),
-    },
-  };
-}
-
-function runtimeBridgeEventPayload(event = {}) {
-  const payloadSummary = objectRecord(event.payload_summary);
-  const payload = objectRecord(event.payload);
-  return Object.keys(payloadSummary).length > 0 ? payloadSummary : payload;
-}
-
-function objectRecord(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
-
-function runtimeBridgeRunEventType(event = {}) {
-  const kind = String(event.event_kind ?? "").trim();
-  if (kind.startsWith("computer_use.")) {
-    return kind.replace(/\./g, "_");
-  }
-  switch (kind) {
-    case "turn.started":
-      return "run_started";
-    case "turn.completed":
-      return "completed";
-    case "turn.failed":
-      return "error";
-    case "turn.canceled":
-      return "canceled";
-    case "item.delta":
-    case "reasoning.delta":
-      return "delta";
-    case "usage.delta":
-      return "usage_delta";
-    case "context.pressure_delta":
-      return "context_pressure_delta";
-    case "context.pressure_alert":
-      return "context_pressure_alert";
-    case "policy.blocked":
-      return "policy_blocked";
-    default:
-      return kind ? kind.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "").toLowerCase() : "runtime_step";
-  }
-}
-
-function runtimeBridgeComputerUseTrace({ projection, events }) {
-  const computerUseEvents = events.filter((event) => isComputerUseRunEventType(event.type));
-  if (!computerUseEvents.length) return null;
-  const payloads = computerUseEvents.map((event) => event.data ?? {});
-  const value = (...keys) => {
-    for (const payload of payloads) {
-      for (const key of keys) {
-        if (payload[key] !== undefined && payload[key] !== null) return payload[key];
-      }
-    }
-    return null;
-  };
-  const observation = value("observation_bundle");
-  const targetIndex = value("target_index");
-  const affordanceGraph = value("affordance_graph");
-  const action = value("computer_action");
-  const cleanup = value("cleanup_receipt");
-  const environmentSelection =
-    value("environment_selection_receipt") ??
-    runtimeBridgeEnvironmentSelectionFromObservation({ projection, observation });
-  const lease =
-    value("lease") ??
-    runtimeBridgeLeaseFromObservation({ projection, observation, environmentSelection });
-  const actionProposal =
-    value("action_proposal") ??
-    runtimeBridgeActionProposalFromAffordanceGraph({
-      projection,
-      affordanceGraph,
-    });
-  const outcomeContract =
-    value("outcome_contract") ??
-    runtimeBridgeOutcomeContractFromProposal({ projection, actionProposal });
-  const commitGate =
-    value("commit_gate") ??
-    runtimeBridgeCommitGateFromProposal({
-      projection,
-      actionProposal,
-      outcomeContract,
-      environmentSelection,
-    });
-  const runState =
-    value("computer_use_run_state") ??
-    runtimeBridgeRunStateFromTrace({
-      projection,
-      lease,
-      observation,
-      targetIndex,
-      actionProposal,
-      action,
-      commitGate,
-    });
-  const trajectory =
-    value("trajectory_bundle") ??
-    runtimeBridgeTrajectoryFromComputerUseEvents({
-      projection,
-      events: computerUseEvents,
-      observation,
-    });
-  return {
-    schemaVersion: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
-    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
-    source: "runtime_service_bridge",
-    runId: projection.runId,
-    run_id: projection.runId,
-    turnId: projection.turnId,
-    turn_id: projection.turnId,
-    eventCount: computerUseEvents.length,
-    event_count: computerUseEvents.length,
-    events: computerUseEvents.map((event) => ({
-      id: event.id,
-      type: event.type,
-      summary: event.summary,
-      runtimeEventId: event.data?.runtimeEventId ?? null,
-      runtimeEventKind: event.data?.runtimeEventKind ?? null,
-      workflowNodeId: event.data?.workflowNodeId ?? null,
-      componentKind: event.data?.componentKind ?? null,
-      receiptRefs: normalizeArray(event.data?.receiptRefs),
-      artifactRefs: normalizeArray(event.data?.artifactRefs),
-    })),
-    environmentSelection,
-    environment_selection: environmentSelection,
-    lease,
-    runState,
-    run_state: runState,
-    observation,
-    observationBundle: observation,
-    observation_bundle: observation,
-    targetIndex,
-    target_index: targetIndex,
-    affordanceGraph,
-    affordance_graph: affordanceGraph,
-    actionProposal,
-    action_proposal: actionProposal,
-    action,
-    computer_action: action,
-    actionReceipt: value("action_receipt"),
-    action_receipt: value("action_receipt"),
-    verification: value("verification_receipt"),
-    verification_receipt: value("verification_receipt"),
-    outcomeContract,
-    outcome_contract: outcomeContract,
-    commitGate,
-    commit_gate: commitGate,
-    trajectory,
-    trajectory_bundle: trajectory,
-    cleanup,
-    cleanup_receipt: cleanup,
-    recoveryPolicy: value("recovery_policy"),
-    recovery_policy: value("recovery_policy"),
-    humanHandoffState: value("human_handoff_state"),
-    human_handoff_state: value("human_handoff_state"),
-    contractIngest: value("computer_use_contract_ingest"),
-    contract_ingest: value("computer_use_contract_ingest"),
-    retentionMode:
-      value("observation_retention_mode") ??
-      observation?.retention_mode ??
-      null,
-    retention_mode:
-      value("observation_retention_mode") ??
-      observation?.retention_mode ??
-      null,
-    evidenceRefs: uniqueStrings([
-      ...computerUseEvents.map((event) => event.data?.runtimeEventId).filter(Boolean),
-      observation?.observation_ref,
-      targetIndex?.target_index_ref,
-      affordanceGraph?.graph_ref,
-      value("computer_use_proposal_ref"),
-      action?.action_ref,
-      value("computer_use_verification_ref"),
-      value("computer_use_cleanup_ref"),
-    ]),
-  };
-}
-
-function runtimeBridgeRunStateFromTrace({
-  projection,
-  lease,
-  observation,
-  targetIndex,
-  actionProposal,
-  action,
-  commitGate,
-}) {
-  const requiresConfirmation = Boolean(commitGate?.user_confirmation_required);
-  return {
-    run_id: projection.runId,
-    lease_id: lease?.lease_id ?? observation?.lease_id ?? null,
-    user_goal: projection.prompt ?? "",
-    current_subgoal: actionProposal
-      ? "Policy-gate the bridge-derived action proposal before execution."
-      : "Observe the runtime-service computer-use surface and preserve grounding evidence.",
-    plan_graph_ref: `plan_graph_${projection.runId}_runtime_bridge_computer_use`,
-    current_observation_ref: observation?.observation_ref ?? null,
-    current_target_index_ref: targetIndex?.target_index_ref ?? observation?.target_index_ref ?? null,
-    active_hypotheses: [
-      "RuntimeAgentService remains the environment owner for this bridge turn.",
-      actionProposal
-        ? "The top affordance is a candidate only; execution requires a grounded ComputerAction and policy approval."
-        : "Observation and target evidence should be inspected before proposing an action.",
-    ],
-    expected_postcondition:
-      actionProposal?.predicted_postcondition ??
-      "Computer-use observation evidence is preserved in the run trace.",
-    last_action_ref: action?.action_ref ?? null,
-    verification_status: requiresConfirmation
-      ? "requires_human"
-      : action
-        ? "passed"
-        : "unknown",
-    blocker_state: requiresConfirmation ? "commit_gate_requires_confirmation" : null,
-    retry_budget: requiresConfirmation ? 0 : 1,
-    risk_posture: commitGate?.status ?? "bridge_observation",
-    user_handoff_ref: requiresConfirmation ? commitGate?.commit_gate_ref ?? null : null,
-    cleanup_state: lease?.cleanup_required ? "cleanup_required" : "external_runtime_owned",
-  };
-}
-
-function runtimeBridgeOutcomeContractFromProposal({ projection, actionProposal }) {
-  if (!actionProposal) return null;
-  const confirmationRequired = Boolean(actionProposal.confirmation_required);
-  return {
-    outcome_ref: `outcome_${projection.runId}_runtime_bridge`,
-    requested_outcome: projection.prompt ?? "Runtime service computer-use run",
-    success_criteria: [
-      actionProposal.predicted_postcondition ??
-        "A policy gate decides whether the bridge proposal can become an executable ComputerAction.",
-    ],
-    acceptable_side_effects: [
-      "Persist redacted computer-use trace, target, affordance, and proposal evidence.",
-    ],
-    prohibited_side_effects: [
-      "Execute the bridge-derived proposal without a grounded ComputerAction and policy approval.",
-    ],
-    evidence_required: ["computer_use_trace", "action_proposal", "commit_gate"],
-    rollback_or_cleanup_required: false,
-    external_effect_policy: confirmationRequired ? "confirmation_required" : "not_required",
-  };
-}
-
-function runtimeBridgeCommitGateFromProposal({
-  projection,
-  actionProposal,
-  outcomeContract,
-  environmentSelection,
-}) {
-  if (!actionProposal || !outcomeContract) return null;
-  const confirmationRequired =
-    Boolean(actionProposal.confirmation_required) ||
-    !["read_only", "inspect", "none"].includes(String(actionProposal.risk_assessment ?? ""));
-  return {
-    commit_gate_ref: `commit_gate_${projection.runId}_runtime_bridge`,
-    final_action_ref: null,
-    outcome_ref: outcomeContract.outcome_ref,
-    external_effect: confirmationRequired,
-    user_confirmation_required: confirmationRequired,
-    authority_required:
-      environmentSelection?.authority_required ??
-      `computer_use.${environmentSelection?.selected_lane ?? "native_browser"}.read`,
-    pre_commit_summary:
-      "Runtime bridge projected a candidate action but did not execute it; execution requires a grounded ComputerAction and policy approval.",
-    post_commit_verification: outcomeContract.success_criteria.join("; "),
-    policy_decision_ref: actionProposal.policy_decision_ref,
-    status: confirmationRequired ? "requires_confirmation_before_execution" : "proposal_only",
-  };
-}
-
-function runtimeBridgeActionProposalFromAffordanceGraph({ projection, affordanceGraph }) {
-  const affordance = normalizeArray(affordanceGraph?.affordances)[0];
-  if (!affordance) return null;
-  const actionKind = affordance.possible_action ?? "inspect";
-  const targetRef = affordance.target_ref ?? null;
-  return {
-    proposal_ref: `proposal_${projection.runId}_runtime_bridge_${safeId(targetRef ?? actionKind)}`,
-    proposed_by: "runtime_service_bridge_affordance_projection",
-    model_role: "grounder",
-    raw_model_output_ref: null,
-    normalized_action_candidate: targetRef
-      ? `${actionKind} ${targetRef}`
-      : String(actionKind),
-    target_ref: targetRef,
-    confidence: Number.isFinite(Number(affordance.confidence))
-      ? Number(affordance.confidence)
-      : 0,
-    rationale_summary:
-      "Projected from the RuntimeAgentService bridge affordance graph; no action was executed by this projection.",
-    predicted_postcondition:
-      affordance.expected_state_transition ??
-      "A policy gate can decide whether this affordance should become an executable ComputerAction.",
-    risk_assessment: affordance.risk_class ?? "unknown",
-    policy_decision_ref: `policy_${projection.runId}_runtime_bridge_action_proposal_required`,
-    confirmation_required: Boolean(affordance.confirmation_required),
-  };
-}
-
-function runtimeBridgeEnvironmentSelectionFromObservation({ projection, observation }) {
-  if (!observation) return null;
-  const selectedLane = observation.lane ?? "native_browser";
-  const selectedSessionMode = observation.session_mode ?? "owned_hermetic_browser";
-  return {
-    receipt_ref: `receipt_${projection.runId}_runtime_bridge_environment`,
-    run_id: projection.runId,
-    selected_lane: selectedLane,
-    selected_session_mode: selectedSessionMode,
-    rejected_options: [],
-    reasons: [
-      "RuntimeAgentService emitted canonical computer-use observation evidence.",
-      "The daemon preserved bridge-provided lane/session as projection data instead of selecting a second runtime.",
-    ],
-    risk_posture: "bridge_observation",
-    authority_required: `computer_use.${selectedLane}.read`,
-    privacy_impact: observation.retention_mode ?? "local_redacted_artifacts",
-    expected_cleanup: "runtime_service_adapter_owns_environment_cleanup; daemon_retains_redacted_trace",
-  };
-}
-
-function runtimeBridgeLeaseFromObservation({ projection, observation, environmentSelection }) {
-  if (!observation && !environmentSelection) return null;
-  const lane = observation?.lane ?? environmentSelection?.selected_lane ?? "native_browser";
-  const sessionMode =
-    observation?.session_mode ??
-    environmentSelection?.selected_session_mode ??
-    "owned_hermetic_browser";
-  return {
-    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
-    lease_id: observation?.lease_id ?? `lease_${projection.runId}_runtime_bridge`,
-    lane,
-    session_mode: sessionMode,
-    status: "active",
-    authority_scope: environmentSelection?.authority_required ?? `computer_use.${lane}.read`,
-    consent_scope: "runtime_service_bridge",
-    target_hint: observation?.url ?? projection.prompt ?? "runtime service computer-use surface",
-    environment_ref: `${lane}:runtime_service_bridge`,
-    profile_provenance: "runtime_service_bridge",
-    retention_mode:
-      observation?.retention_mode ??
-      environmentSelection?.privacy_impact ??
-      "local_redacted_artifacts",
-    cleanup_required: false,
-    evidence_refs: [
-      environmentSelection?.receipt_ref,
-      observation?.observation_ref,
-      observation?.target_index_ref,
-    ].filter(Boolean),
-  };
-}
-
-function runtimeBridgeTrajectoryFromComputerUseEvents({ projection, events, observation }) {
-  return {
-    schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
-    trajectory_ref: `trajectory_${projection.runId}_runtime_bridge`,
-    run_id: projection.runId,
-    lease_id:
-      events.find((event) => event.data?.computer_use_lease_id)?.data?.computer_use_lease_id ??
-      observation?.lease_id ??
-      null,
-    retention_mode:
-      events.find((event) => event.data?.observation_retention_mode)?.data?.observation_retention_mode ??
-      observation?.retention_mode ??
-      "local_redacted_artifacts",
-    entries: events.map((event, index) => ({
-      sequence: index + 1,
-      event_kind:
-        event.data?.computer_use_step ??
-        event.type.replace(/^computer_use_/, ""),
-      observation_ref:
-        event.data?.computer_use_observation_ref ??
-        event.data?.observation_bundle?.observation_ref ??
-        null,
-      target_index_ref:
-        event.data?.computer_use_target_index_ref ??
-        event.data?.target_index?.target_index_ref ??
-        null,
-      affordance_graph_ref:
-        event.data?.computer_use_affordance_graph_ref ??
-        event.data?.affordance_graph?.graph_ref ??
-        null,
-      proposal_ref: event.data?.computer_use_proposal_ref ?? null,
-      action_ref: event.data?.computer_use_action_ref ?? null,
-      verification_ref: event.data?.computer_use_verification_ref ?? null,
-      cleanup_ref: event.data?.computer_use_cleanup_ref ?? null,
-      runtime_event_ref: event.data?.runtimeEventId ?? null,
-      workflow_node_id: event.data?.workflowNodeId ?? null,
-      summary: event.summary,
-    })),
-  };
-}
-
-function runtimeTaskRecordForRun(run) {
-  if (run?.runtimeTask) return run.runtimeTask;
-  return runtimeTaskRecord({
-    runId: run?.id,
-    agent: { id: run?.agentId },
-    prompt: run?.objective,
-    mode: run?.mode,
-    taskFamily: run?.trace?.qualityLedger?.taskFamily ?? taskFamilyForMode(run?.mode ?? "send"),
-    selectedStrategy: run?.trace?.qualityLedger?.selectedStrategy ?? strategyForMode(run?.mode ?? "send"),
-    modelRouteDecision: run?.modelRouteDecision ?? run?.trace?.modelRouteDecision,
-    activeSkillHookManifest: run?.activeSkillHookManifest ?? run?.trace?.activeSkillHookManifest,
-    createdAt: run?.createdAt,
-    updatedAt: run?.updatedAt,
-    status: jobStatusForRunStatus(run?.status),
-  });
-}
-
-function runtimeJobRecord({
-  runtimeTask,
-  runtimeChecklist,
-  agent,
-  status,
-  createdAt,
-  updatedAt,
-  queuedAt,
-  startedAt,
-  completedAt,
-  lifecycle,
-  eventCount,
-  terminalEventCount,
-  artifactNames,
-  receiptKinds,
-} = {}) {
-  const task = runtimeTask ?? runtimeTaskRecord();
-  const jobStatus = status ?? "completed";
-  const jobId = `job_${task.runId}`;
-  return {
-    schemaVersion: "ioi.agent-runtime.job-record.v1",
-    object: "ioi.runtime_job",
-    jobId,
-    taskId: task.taskId,
-    runId: task.runId,
-    agentId: task.agentId ?? agent?.id ?? null,
-    threadId: task.threadId,
-    turnId: task.turnId,
-    status: jobStatus,
-    lifecycle: lifecycle ?? jobLifecycleForStatus(jobStatus),
-    summary: `Runtime job ${jobId} is ${jobStatus}.`,
-    queueName: "local-agentgres",
-    runner: "local-daemon-agentgres",
-    jobType: "agent_run",
-    priority: "normal",
-    background: true,
-    durable: true,
-    replayable: true,
-    createdAt: createdAt ?? task.createdAt,
-    updatedAt: updatedAt ?? task.updatedAt,
-    queuedAt: queuedAt ?? createdAt ?? task.createdAt,
-    startedAt: startedAt ?? createdAt ?? task.createdAt,
-    completedAt: completedAt ?? (["completed", "failed", "canceled"].includes(jobStatus) ? updatedAt ?? task.updatedAt : null),
-    progress: {
-      completedSteps: ["completed", "failed", "canceled"].includes(jobStatus) ? 1 : jobStatus === "running" ? 0 : 0,
-      totalSteps: 1,
-      percent: ["completed", "failed", "canceled"].includes(jobStatus) ? 100 : jobStatus === "running" ? 50 : 0,
-    },
-    eventCount: eventCount ?? null,
-    terminalEventCount: terminalEventCount ?? null,
-    artifactNames: artifactNames ?? ["runtime-task.json", "runtime-job.json", "runtime-checklist.json", "trace.json", "agentgres-projection.json"],
-    receiptKinds: receiptKinds ?? ["runtime_task", "runtime_job", "runtime_checklist", "agentgres_canonical_write"],
-    checklistId: runtimeChecklist?.checklistId ?? null,
-    checklistStatus: runtimeChecklist?.status ?? null,
-    checklistItemCount: runtimeChecklist?.itemCount ?? null,
-    checklistCompletedItemCount: runtimeChecklist?.completedItemCount ?? null,
-    failure: jobStatus === "failed" ? { reason: "runtime_failed", message: "Runtime job failed." } : null,
-    cancellation: jobStatus === "canceled" ? { reason: "operator_cancel" } : null,
-    retryCount: 0,
-    cancelable: jobStatus !== "canceled",
-    cancelEndpoint: `/v1/jobs/${jobId}/cancel`,
-    endpoints: {
-      self: `/v1/jobs/${jobId}`,
-      cancel: `/v1/jobs/${jobId}/cancel`,
-      run: `/v1/runs/${task.runId}`,
-      events: `/v1/runs/${task.runId}/events`,
-      trace: `/v1/runs/${task.runId}/trace`,
-    },
-    workflowNodeId: "runtime.runtime-job",
-    redaction: {
-      profile: "runtime_job_safe",
-      promptIncluded: false,
-      secretValuesIncluded: false,
-    },
-    evidenceRefs: [
-      "runtime_job",
-      "runtime.jobs.durable_projection",
-      "RuntimeJobNode",
-      task.taskId,
-      `run:${task.runId}`,
-    ],
-  };
-}
-
-function runtimeChecklistRecord({
-  runtimeTask,
-  runtimeJob,
-  status,
-  createdAt,
-  updatedAt,
-} = {}) {
-  const task = runtimeTask ?? runtimeTaskRecord();
-  const job = runtimeJob ?? runtimeJobRecord({ runtimeTask: task });
-  const checklistStatus = status ?? job.status ?? task.status ?? "completed";
-  const checklistId = `checklist_${task.runId}`;
-  const terminalLabel =
-    checklistStatus === "canceled"
-      ? "Job canceled event emitted"
-      : checklistStatus === "failed"
-        ? "Job failed event emitted"
-        : checklistStatus === "blocked"
-          ? "Job blocked by policy gate"
-        : "Job completed event emitted";
-  const terminalEventKind =
-    checklistStatus === "canceled"
-      ? "JobCanceled"
-      : checklistStatus === "failed"
-        ? "JobFailed"
-        : checklistStatus === "blocked"
-          ? "PolicyBlocked"
-        : "JobCompleted";
-  const terminalItemStatus =
-    checklistStatus === "canceled"
-      ? "canceled"
-      : checklistStatus === "failed"
-        ? "failed"
-        : checklistStatus === "blocked"
-          ? "blocked"
-        : "passed";
-  const item = (suffix, label, itemStatus, evidenceRefs) => ({
-    itemId: `${checklistId}:${suffix}`,
-    label,
-    status: itemStatus,
-    evidenceRefs: uniqueStrings(evidenceRefs),
-  });
-  const items = [
-    item("task_record", "Runtime task record durable", "passed", [
-      task.taskId,
-      "RuntimeTaskNode",
-      "runtime.tasks.durable_projection",
-    ]),
-    item("job_record", "Runtime job record durable", "passed", [
-      job.jobId,
-      "RuntimeJobNode",
-      "runtime.jobs.durable_projection",
-    ]),
-    item("job_queued", "Job queued event emitted", "passed", ["JobQueued"]),
-    item("job_started", "Job started event emitted", "passed", ["JobStarted"]),
-    item("job_terminal", terminalLabel, terminalItemStatus, [terminalEventKind]),
-    item("artifacts", "Runtime task/job/checklist artifacts attached", "passed", [
-      "runtime-task.json",
-      "runtime-job.json",
-      "runtime-checklist.json",
-    ]),
-  ];
-  return {
-    schemaVersion: "ioi.agent-runtime.checklist-record.v1",
-    object: "ioi.runtime_checklist",
-    checklistId,
-    taskId: task.taskId,
-    jobId: job.jobId,
-    runId: task.runId,
-    agentId: task.agentId,
-    threadId: task.threadId,
-    turnId: task.turnId,
-    status: checklistStatus,
-    summary: `Runtime checklist for ${job.jobId} is ${checklistStatus}.`,
-    durable: true,
-    replayable: true,
-    readOnly: true,
-    itemCount: items.length,
-    completedItemCount: items.filter((entry) => entry.status === "passed").length,
-    canceledItemCount: items.filter((entry) => entry.status === "canceled").length,
-    failedItemCount: items.filter((entry) => entry.status === "failed").length,
-    blockedItemCount: items.filter((entry) => entry.status === "blocked").length,
-    items,
-    requiredItemIds: items.map((entry) => entry.itemId),
-    createdAt: createdAt ?? task.createdAt,
-    updatedAt: updatedAt ?? task.updatedAt,
-    workflowNodeId: "runtime.runtime-checklist",
-    redaction: {
-      profile: "runtime_checklist_safe",
-      promptIncluded: false,
-      secretValuesIncluded: false,
-    },
-    evidenceRefs: [
-      "runtime_checklist",
-      "runtime.checklists.durable_projection",
-      "RuntimeChecklistNode",
-      task.taskId,
-      job.jobId,
-      `run:${task.runId}`,
-    ],
-  };
-}
-
-function attachChecklistToRuntimeJob(job, checklist) {
-  return {
-    ...job,
-    checklistId: checklist.checklistId,
-    checklistStatus: checklist.status,
-    checklistItemCount: checklist.itemCount,
-    checklistCompletedItemCount: checklist.completedItemCount,
-    artifactNames: uniqueStrings([...normalizeArray(job.artifactNames), "runtime-checklist.json"]),
-    receiptKinds: uniqueStrings([...normalizeArray(job.receiptKinds), "runtime_checklist"]),
-    evidenceRefs: uniqueStrings([...normalizeArray(job.evidenceRefs), checklist.checklistId, "runtime_checklist"]),
-  };
-}
-
-function runtimeJobRecordForRun(run) {
-  if (run?.runtimeJob) return run.runtimeJob;
-  const task = runtimeTaskRecordForRun(run);
-  const status = jobStatusForRunStatus(run?.status);
-  return runtimeJobRecord({
-    runtimeTask: task,
-    status,
-    createdAt: run?.createdAt,
-    updatedAt: run?.updatedAt,
-    queuedAt: run?.createdAt,
-    startedAt: run?.createdAt,
-    completedAt: ["completed", "failed", "canceled"].includes(status) ? run?.updatedAt : null,
-    lifecycle: jobLifecycleForStatus(status),
-    eventCount: normalizeArray(run?.events).length || null,
-    terminalEventCount: terminalCount(normalizeArray(run?.events)) || null,
-    artifactNames: normalizeArray(run?.artifacts).map((artifactItem) => artifactItem.name).filter(Boolean),
-    receiptKinds: normalizeArray(run?.receipts).map((receipt) => receipt.kind).filter(Boolean),
-  });
-}
-
-function runtimeChecklistRecordForRun(run) {
-  if (run?.runtimeChecklist) return run.runtimeChecklist;
-  const task = runtimeTaskRecordForRun(run);
-  const job = runtimeJobRecordForRun(run);
-  return runtimeChecklistRecord({
-    runtimeTask: task,
-    runtimeJob: job,
-    status: job.status,
-    createdAt: run?.createdAt,
-    updatedAt: run?.updatedAt,
-  });
-}
-
-function jobStatusForRunStatus(status) {
-  if (status === "canceled") return "canceled";
-  if (status === "failed" || status === "error") return "failed";
-  if (status === "blocked") return "blocked";
-  if (status === "running" || status === "active") return "running";
-  if (status === "queued" || status === "pending") return "queued";
-  return "completed";
-}
-
-function jobLifecycleForStatus(status) {
-  if (status === "queued") return ["queued"];
-  if (status === "running") return ["queued", "started"];
-  if (status === "failed") return ["queued", "started", "failed"];
-  if (status === "canceled") return ["queued", "started", "canceled"];
-  if (status === "blocked") return ["queued", "started", "blocked"];
-  return ["queued", "started", "completed"];
 }
 
 function repositoryContextForWorkspace({ cwd, contextId, generatedAt } = {}) {
@@ -24694,134 +21489,4 @@ function codingToolArtifactReadResult(artifactRecord = {}, range = {}) {
 
 function terminalCount(events) {
   return events.filter((event) => TERMINAL_EVENT_TYPES.has(event.type)).length;
-}
-
-async function readBody(request) {
-  const chunks = [];
-  for await (const chunk of request) chunks.push(chunk);
-  const text = Buffer.concat(chunks).toString("utf8");
-  return text.trim() ? JSON.parse(text) : {};
-}
-
-function writeSse(response, events) {
-  response.statusCode = 200;
-  response.setHeader("content-type", "text/event-stream");
-  response.setHeader("cache-control", "no-cache");
-  response.end(
-    events
-      .map((event) => `id: ${event.id ?? event.seq}\nevent: runtime.event\ndata: ${JSON.stringify(event)}\n\n`)
-      .join(""),
-  );
-}
-
-function writeJsonResponse(response, value, status = 200) {
-  response.statusCode = status;
-  response.setHeader("content-type", "application/json");
-  response.end(status === 204 ? "" : JSON.stringify(value));
-}
-
-function writeMcpJsonRpcResponse(response, value) {
-  if (value === null || (Array.isArray(value) && value.length === 0)) {
-    writeJsonResponse(response, null, 204);
-    return;
-  }
-  writeJsonResponse(response, value);
-}
-
-function writeError(response, error) {
-  if (response.destroyed || response.writableEnded) return;
-  if (response.headersSent) {
-    try {
-      response.end();
-    } catch {
-      // Streaming clients may disconnect while the handler is unwinding.
-    }
-    return;
-  }
-  const status = error?.status ?? 500;
-  response.statusCode = status;
-  response.setHeader("content-type", "application/json");
-  response.end(
-    JSON.stringify({
-      error: {
-        code: error?.code ?? "runtime",
-        message: error?.message ?? "Local daemon request failed.",
-        retryable: status >= 500,
-        requestId: response.getHeader("x-request-id"),
-        details: redact(error?.details ?? {}),
-      },
-    }),
-  );
-}
-
-function notFound(message, details) {
-  return runtimeError({ status: 404, code: "not_found", message, details });
-}
-
-function policyError(message, details) {
-  return runtimeError({ status: 403, code: "policy", message, details });
-}
-
-function externalBlocker(message, details) {
-  return runtimeError({ status: 424, code: "external_blocker", message, details });
-}
-
-function runtimeError({ status, code, message, details }) {
-  const error = new Error(message);
-  error.status = status;
-  error.code = code;
-  error.details = details;
-  return error;
-}
-
-function redact(value) {
-  if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(
-    Object.entries(value).map(([key, item]) => [
-      key,
-      /token|secret|key|authorization/i.test(key) ? "[REDACTED]" : item,
-    ]),
-  );
-}
-
-function writeJson(filePath, value) {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
-}
-
-function readJson(filePath) {
-  return JSON.parse(fs.readFileSync(filePath, "utf8"));
-}
-
-function listJson(dir) {
-  if (!fs.existsSync(dir)) return [];
-  return fs
-    .readdirSync(dir)
-    .filter((file) => file.endsWith(".json"))
-    .map((file) => path.join(dir, file));
-}
-
-function readJsonl(filePath) {
-  if (!fs.existsSync(filePath)) return [];
-  return fs
-    .readFileSync(filePath, "utf8")
-    .split(/\r?\n/)
-    .filter(Boolean)
-    .map((line) => JSON.parse(line));
-}
-
-function listJsonl(dir) {
-  if (!fs.existsSync(dir)) return [];
-  return fs
-    .readdirSync(dir)
-    .filter((file) => file.endsWith(".jsonl"))
-    .map((file) => path.join(dir, file));
-}
-
-function runtimeEventStreamFileName(eventStreamId) {
-  return crypto.createHash("sha256").update(String(eventStreamId)).digest("hex");
-}
-
-function relative(from, to) {
-  return path.relative(from, to) || ".";
 }

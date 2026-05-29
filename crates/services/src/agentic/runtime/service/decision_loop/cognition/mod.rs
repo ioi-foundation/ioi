@@ -14,6 +14,7 @@ use crate::agentic::runtime::service::memory::{
 use crate::agentic::runtime::service::tool_execution::command_contract::{
     runtime_desktop_directory, runtime_home_directory, runtime_host_environment_evidence,
 };
+use crate::agentic::runtime::service::tool_execution::has_execution_evidence;
 use crate::agentic::runtime::service::visual_loop::perception::PerceptionContext;
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::{
@@ -39,7 +40,7 @@ pub(crate) use history::{
     latest_recent_pending_browser_state_context,
 };
 use image::{codecs::jpeg::JpegEncoder, GenericImageView};
-use inference::{cognition_inference_timeout, inference_error_system_fail_reason};
+use inference::{cognition_inference_timeout_for_reply_mode, inference_error_system_fail_reason};
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_drivers::gui::accessibility::serialize_tree_to_xml;
 use ioi_drivers::gui::lenses::{auto::AutoLens, AppLens};
@@ -789,6 +790,26 @@ fn is_web_research_compact_tool(name: &str) -> bool {
     )
 }
 
+fn is_workspace_compact_tool(name: &str) -> bool {
+    matches!(
+        name,
+        "chat__reply"
+            | "agent__complete"
+            | "agent__pause"
+            | "agent__escalate"
+            | "agent__delegate"
+            | "file__read"
+            | "file__view"
+            | "file__list"
+            | "file__search"
+            | "file__info"
+            | "file__edit"
+            | "file__write"
+            | "shell__run"
+            | "shell__start"
+    )
+}
+
 fn truncate_tool_description(description: &str, max_chars: usize) -> String {
     let trimmed = description.trim();
     if trimmed.chars().count() <= max_chars {
@@ -834,6 +855,13 @@ fn pending_state_has_visible_start_gate(pending_browser_state_context: &str) -> 
         .contains("visible start gate")
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct CognitionToolRecovery<'a> {
+    pub consecutive_failures: u32,
+    pub last_failure_reason: Option<&'a str>,
+    pub workspace_context_ready_for_reply: bool,
+}
+
 pub(crate) fn filter_cognition_tools(
     tools: &[LlmToolDefinition],
     resolved_intent: Option<&ResolvedIntentState>,
@@ -841,6 +869,26 @@ pub(crate) fn filter_cognition_tools(
     goal: &str,
     browser_observation_context: &str,
     pending_browser_state_context: &str,
+) -> Vec<LlmToolDefinition> {
+    filter_cognition_tools_with_recovery(
+        tools,
+        resolved_intent,
+        prefer_browser_semantics,
+        goal,
+        browser_observation_context,
+        pending_browser_state_context,
+        CognitionToolRecovery::default(),
+    )
+}
+
+pub(crate) fn filter_cognition_tools_with_recovery(
+    tools: &[LlmToolDefinition],
+    resolved_intent: Option<&ResolvedIntentState>,
+    prefer_browser_semantics: bool,
+    goal: &str,
+    browser_observation_context: &str,
+    pending_browser_state_context: &str,
+    recovery: CognitionToolRecovery<'_>,
 ) -> Vec<LlmToolDefinition> {
     let resolved_scope = resolved_intent
         .map(|intent| intent.scope)
@@ -863,6 +911,14 @@ pub(crate) fn filter_cognition_tools(
         }
         if matches!(resolved_scope, IntentScopeProfile::WebResearch) {
             return compact_tool_subset(tools, is_web_research_compact_tool);
+        }
+        if matches!(resolved_scope, IntentScopeProfile::WorkspaceOps) {
+            if recovery.workspace_context_ready_for_reply
+                || workspace_no_effect_recovery_requires_reply_only(recovery)
+            {
+                return compact_tool_subset(tools, |name| name == "chat__reply");
+            }
+            return compact_tool_subset(tools, is_workspace_compact_tool);
         }
         return tools.to_vec();
     }
@@ -892,6 +948,250 @@ pub(crate) fn filter_cognition_tools(
         })
         .filter(|tool| seen_tool_names.insert(tool.name.clone()))
         .map(|tool| compact_cognition_tool(tool, prefer_browser_semantics))
+        .collect()
+}
+
+fn workspace_no_effect_recovery_requires_reply_only(recovery: CognitionToolRecovery<'_>) -> bool {
+    if recovery.consecutive_failures == 0 {
+        return false;
+    }
+    let Some(reason) = recovery.last_failure_reason else {
+        return false;
+    };
+    reason.contains("NoEffectAfterAction")
+}
+
+fn workspace_capability_requires_more_than_reply(capability: &str) -> bool {
+    let capability = capability.to_ascii_lowercase();
+    [
+        "write", "edit", "patch", "delete", "create", "move", "rename", "shell", "command",
+        "browser", "computer", "delegate", "subagent",
+    ]
+    .iter()
+    .any(|needle| capability.contains(needle))
+}
+
+fn workspace_context_ready_for_reply(
+    agent_state: &AgentState,
+    resolved_scope: IntentScopeProfile,
+) -> bool {
+    if !matches!(resolved_scope, IntentScopeProfile::WorkspaceOps) {
+        return false;
+    }
+    if !has_execution_evidence(&agent_state.tool_execution_log, "workspace_read")
+        || !has_execution_evidence(&agent_state.tool_execution_log, "file_context")
+    {
+        return false;
+    }
+
+    agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|intent| {
+            !intent.required_capabilities.iter().any(|capability| {
+                workspace_capability_requires_more_than_reply(capability.as_str())
+            })
+        })
+        .unwrap_or(true)
+}
+
+fn sanitize_direct_chat_reply_output(raw_output: &str) -> String {
+    let mut text = raw_output.to_string();
+    loop {
+        let lower = text.to_ascii_lowercase();
+        let Some(start) = lower.find("<think") else {
+            break;
+        };
+        let after_open = lower[start..]
+            .find('>')
+            .map(|offset| start + offset + 1)
+            .unwrap_or(start);
+        let end = lower[after_open..]
+            .find("</think>")
+            .map(|offset| after_open + offset + "</think>".len())
+            .unwrap_or_else(|| text.len());
+        text.replace_range(start..end, "");
+    }
+    text.trim().to_string()
+}
+
+fn final_reply_evidence_context(
+    history: &[ChatMessage],
+    goal: &str,
+    fallback_context: &str,
+) -> String {
+    let mut entries = Vec::<String>::new();
+    for message in history.iter().rev() {
+        if message.role != "tool" {
+            continue;
+        }
+        let content = message.content.trim();
+        if content.is_empty()
+            || content.contains("ERROR_CLASS=")
+            || content.contains("Skipped immediate replay")
+        {
+            continue;
+        }
+        entries.push(extract_goal_relevant_evidence(content, goal, 8_000));
+        if entries.len() >= 4 {
+            break;
+        }
+    }
+    entries.reverse();
+    if entries.is_empty() {
+        fallback_context.to_string()
+    } else {
+        entries.join("\n\n---\n\n")
+    }
+}
+
+fn contextual_recent_session_events_context(
+    history: &[ChatMessage],
+    prefer_browser_semantics: bool,
+    resolved_scope: IntentScopeProfile,
+    goal: &str,
+) -> String {
+    let recent_events = build_recent_session_events_context(history, prefer_browser_semantics);
+    if prefer_browser_semantics || !matches!(resolved_scope, IntentScopeProfile::WorkspaceOps) {
+        return recent_events;
+    }
+
+    let evidence = final_reply_evidence_context(history, goal, "");
+    if evidence.trim().is_empty() {
+        return recent_events;
+    }
+
+    format!(
+        "Relevant workspace evidence for answering the user's request:\n{}\n\nRecent session events:\n{}",
+        evidence.trim(),
+        recent_events.trim()
+    )
+}
+
+fn truncate_final_reply_evidence(text: &str, max_chars: usize) -> String {
+    if text.chars().count() <= max_chars {
+        return text.trim().to_string();
+    }
+    let kept = max_chars.saturating_sub(3);
+    let truncated = text.chars().take(kept).collect::<String>();
+    format!("{}...", truncated.trim_end())
+}
+
+fn extract_goal_relevant_evidence(content: &str, goal: &str, max_chars: usize) -> String {
+    let terms = significant_goal_terms(goal);
+    let heading_outline = markdown_heading_outline_for_goal(content, goal, 80);
+    if terms.is_empty() {
+        let rendered = if heading_outline.is_empty() {
+            content.to_string()
+        } else {
+            format!("{heading_outline}\n\n{content}")
+        };
+        return truncate_final_reply_evidence(&rendered, max_chars);
+    }
+
+    let lines = content.lines().collect::<Vec<_>>();
+    let mut selected = std::collections::BTreeSet::<usize>::new();
+    for (line_idx, line) in lines.iter().enumerate() {
+        let lower = line.to_ascii_lowercase();
+        if terms.iter().any(|term| lower.contains(term)) {
+            let start = line_idx.saturating_sub(3);
+            let end = (line_idx + 4).min(lines.len());
+            for idx in start..end {
+                selected.insert(idx);
+            }
+        }
+    }
+
+    if selected.is_empty() {
+        let rendered = if heading_outline.is_empty() {
+            content.to_string()
+        } else {
+            format!("{heading_outline}\n\n{content}")
+        };
+        return truncate_final_reply_evidence(&rendered, max_chars);
+    }
+
+    let mut rendered = String::new();
+    if !heading_outline.is_empty() {
+        rendered.push_str(&heading_outline);
+        rendered.push_str("\n...\n");
+    }
+    let mut previous = None::<usize>;
+    for idx in selected {
+        if previous.is_some_and(|prev| idx > prev + 1) {
+            rendered.push_str("\n...\n");
+        }
+        previous = Some(idx);
+        rendered.push_str(lines[idx]);
+        rendered.push('\n');
+        if rendered.chars().count() >= max_chars {
+            break;
+        }
+    }
+    truncate_final_reply_evidence(rendered.trim(), max_chars)
+}
+
+fn markdown_heading_outline_for_goal(content: &str, goal: &str, max_headings: usize) -> String {
+    let lower_goal = goal.to_ascii_lowercase();
+    if !lower_goal.contains("guide")
+        && !lower_goal.contains("plan")
+        && !lower_goal.contains("progress")
+        && !lower_goal.contains("stage")
+    {
+        return String::new();
+    }
+
+    let headings = content
+        .lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            if !trimmed.starts_with('#') {
+                return None;
+            }
+            let level = trimmed.chars().take_while(|ch| *ch == '#').count();
+            if level == 0
+                || level > 4
+                || !trimmed.chars().nth(level).is_some_and(char::is_whitespace)
+            {
+                return None;
+            }
+            Some(trimmed.to_string())
+        })
+        .take(max_headings)
+        .collect::<Vec<_>>();
+
+    if headings.is_empty() {
+        String::new()
+    } else {
+        format!("Markdown heading outline:\n{}", headings.join("\n"))
+    }
+}
+
+fn significant_goal_terms(goal: &str) -> Vec<String> {
+    let stop_words = [
+        "about",
+        "agent",
+        "are",
+        "between",
+        "does",
+        "explain",
+        "from",
+        "how",
+        "look",
+        "mode",
+        "per",
+        "repo",
+        "repository",
+        "studio",
+        "this",
+        "what",
+        "where",
+    ];
+    goal.split(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '_' || ch == '-'))
+        .map(|term| term.trim().to_ascii_lowercase())
+        .filter(|term| term.len() >= 4)
+        .filter(|term| !stop_words.iter().any(|stop| term == stop))
+        .take(12)
         .collect()
 }
 
@@ -2036,7 +2336,11 @@ pub async fn think(
             .last_failure_reason
             .as_deref()
             .unwrap_or("UnknownFailure");
-        let recovery_hint = if failure_reason.contains("TargetNotFound")
+        let recovery_hint = if matches!(resolved_scope, IntentScopeProfile::WorkspaceOps)
+            && failure_reason.contains("NoEffectAfterAction")
+        {
+            "Recovery hint: workspace context was already gathered and repeated probing was blocked. Use `chat__reply` now with a direct final answer from the observed file/search evidence. Do not announce a plan, say you need to search, or call another filesystem tool."
+        } else if failure_reason.contains("TargetNotFound")
             || failure_reason.contains("VisionTargetNotFound")
         {
             "Recovery hint: run `screen__find` or `browser__inspect` first to reacquire the target before clicking."
@@ -2082,7 +2386,12 @@ pub async fn think(
     } else {
         &full_history[..]
     };
-    let hist_str = build_recent_session_events_context(recent_history, prefer_browser_semantics);
+    let hist_str = contextual_recent_session_events_context(
+        recent_history,
+        prefer_browser_semantics,
+        resolved_scope,
+        &agent_state.goal,
+    );
     let current_browser_snapshot = if prefer_browser_semantics {
         current_browser_observation_snapshot(service).await
     } else {
@@ -2149,13 +2458,19 @@ pub async fn think(
     }
     let has_prompt_visual_context =
         has_meaningful_visual_context(prompt_screenshot_base64.as_deref());
-    let cognition_tools = filter_cognition_tools(
+    let workspace_reply_ready = workspace_context_ready_for_reply(agent_state, resolved_scope);
+    let cognition_tools = filter_cognition_tools_with_recovery(
         &perception.available_tools,
         agent_state.resolved_intent.as_ref(),
         prefer_browser_semantics,
         &agent_state.goal,
         &browser_observation_context,
         &pending_browser_state_context,
+        CognitionToolRecovery {
+            consecutive_failures: u32::from(perception.consecutive_failures),
+            last_failure_reason: perception.last_failure_reason.as_deref(),
+            workspace_context_ready_for_reply: workspace_reply_ready,
+        },
     );
     let strategy_instruction = build_strategy_instruction(
         perception.tier,
@@ -2177,6 +2492,8 @@ pub async fn think(
     } else {
         cognition_tools
     };
+    let chat_reply_only_cognition =
+        cognition_tools.len() == 1 && cognition_tools[0].name == "chat__reply";
     let cognition_tool_desc = format_tool_desc(
         &cognition_tools,
         prefer_browser_semantics,
@@ -2401,7 +2718,31 @@ Do not claim success for actions you did not verify.";
     let include_screenshot =
         has_prompt_visual_context && matches!(mode, AttentionMode::VisualAction);
 
-    let messages = if include_screenshot {
+    let messages = if chat_reply_only_cognition {
+        let evidence_context = if recent_session_events_section.trim().is_empty() {
+            "No structured tool evidence was retained.".to_string()
+        } else {
+            final_reply_evidence_context(
+                recent_history,
+                &agent_state.goal,
+                &recent_session_events_section,
+            )
+        };
+        json!([
+            {
+                "role": "system",
+                "content": "FINAL RESPONSE MODE:\nUse the gathered tool evidence to answer the user's request directly in concise Markdown.\nDo not call tools. Do not output JSON. Do not expose hidden chain-of-thought, trace ids, receipt ids, raw payloads, or daemon scaffolding.\nPreserve concrete source anchors that matter to the user's question, including file paths, symbol names, and markdown heading labels from the evidence. If the user asks about progress, stages, a plan, or a guide and the evidence includes a Markdown heading outline, explicitly name the relevant headings or stage labels instead of flattening them into generic prose.\nIf the evidence is incomplete, say what is known and state the limitation plainly."
+            },
+            {
+                "role": "user",
+                "content": format!(
+                    "Original user request:\n{}\n\nGathered evidence:\n{}\n\nWrite the final user-facing answer now.",
+                    agent_state.goal,
+                    evidence_context
+                )
+            }
+        ])
+    } else if include_screenshot {
         let b64 = prompt_screenshot_base64
             .as_ref()
             .expect("include_screenshot implies screenshot data");
@@ -2445,16 +2786,24 @@ Do not claim success for actions you did not verify.";
     let options = InferenceOptions {
         temperature: if compact_browser_action_prompt {
             0.0
+        } else if chat_reply_only_cognition {
+            0.2
         } else {
             0.1
         },
-        json_mode: true,
+        json_mode: !chat_reply_only_cognition,
         max_tokens: if compact_browser_action_prompt {
             96
+        } else if chat_reply_only_cognition {
+            256
         } else {
             256
         },
-        tools: cognition_tools.clone(),
+        tools: if chat_reply_only_cognition {
+            Vec::new()
+        } else {
+            cognition_tools.clone()
+        },
         ..Default::default()
     };
     let messages_payload = serde_json::to_string(&messages)
@@ -2504,7 +2853,7 @@ Do not claim success for actions you did not verify.";
             &input_bytes,
         )
         .await?;
-    let inference_timeout = cognition_inference_timeout();
+    let inference_timeout = cognition_inference_timeout_for_reply_mode(chat_reply_only_cognition);
     let (tx, mut rx) = tokio::sync::mpsc::channel(1024);
     let event_sender_clone = service.event_sender.clone();
     tokio::spawn(async move {
@@ -2577,6 +2926,36 @@ Do not claim success for actions you did not verify.";
     };
 
     let raw_output = String::from_utf8_lossy(&output_bytes).to_string();
+    if chat_reply_only_cognition {
+        let message = sanitize_direct_chat_reply_output(&raw_output);
+        if message.trim().is_empty() {
+            log::error!(
+                "CRITICAL: Agent final reply synthesis returned empty output session={}",
+                session_prefix
+            );
+            return Ok(CognitionResult {
+                raw_output: json!({
+                    "name": "agent__escalate",
+                    "arguments": {
+                        "reason": "ERROR_CLASS=UserInterventionNeeded Final reply synthesis returned empty output. Verify provider health and resume."
+                    }
+                })
+                .to_string(),
+                strategy_used: "FinalReplySynthesisEmptyOutput".to_string(),
+            });
+        }
+        return Ok(CognitionResult {
+            raw_output: json!({
+                "name": "chat__reply",
+                "arguments": {
+                    "message": message
+                }
+            })
+            .to_string(),
+            strategy_used: "FinalReplySynthesis".to_string(),
+        });
+    }
+
     if raw_output.trim().is_empty() {
         log::error!(
             "CRITICAL: Agent Inference Returned Empty Output session={}",

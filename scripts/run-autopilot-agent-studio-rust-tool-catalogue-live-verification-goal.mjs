@@ -10,7 +10,7 @@ const MASTER_GUIDE =
   ".internal/plans/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification-12h-master-guide.md";
 const EVIDENCE_ROOT =
   "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification";
-const RUNNER = "scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs";
+const RUNNER = "scripts/run-autopilot-agent-studio-live-gui-validation.mjs";
 const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
 
 const SCENARIOS = [

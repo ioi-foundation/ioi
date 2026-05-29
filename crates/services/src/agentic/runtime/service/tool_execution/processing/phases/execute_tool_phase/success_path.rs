@@ -1171,6 +1171,25 @@ fn workspace_read_receipt_details(tool: &AgentTool, step_index: u32) -> Option<S
             }
             Some(format!("step={step_index};tool=file__view;path={path}"))
         }
+        AgentTool::FsSearch {
+            path,
+            regex,
+            file_pattern,
+        } => {
+            let path = path.trim();
+            let regex = regex.trim();
+            if path.is_empty() || regex.is_empty() {
+                return None;
+            }
+            let file_pattern = file_pattern
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .unwrap_or("*");
+            Some(format!(
+                "step={step_index};tool=file__search;path={path};regex={regex};file_pattern={file_pattern}"
+            ))
+        }
         _ => None,
     }
 }
@@ -1299,6 +1318,16 @@ fn record_workspace_read_receipt(agent_state: &mut AgentState, tool: &AgentTool,
     record_execution_evidence_with_value(
         &mut agent_state.tool_execution_log,
         "workspace_read_observed",
+        evidence.clone(),
+    );
+    record_execution_evidence_with_value(
+        &mut agent_state.tool_execution_log,
+        "workspace_read",
+        evidence.clone(),
+    );
+    record_execution_evidence_with_value(
+        &mut agent_state.tool_execution_log,
+        "file_context",
         evidence,
     );
     record_file_read_observation(

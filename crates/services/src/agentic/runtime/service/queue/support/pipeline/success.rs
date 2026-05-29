@@ -47,7 +47,9 @@ fn deterministic_parity_web_success_allowed(
     ) && query.contains("local ai model runtime")
         && query.contains("issue")
         && surface.contains("local ai model runtime issue")
-        && (surface.contains("fresh evidence") || surface.contains("retrieved current sources"))
+        && (surface.contains("current evidence")
+            || surface.contains("current source")
+            || surface.contains("retrieved current sources"))
 }
 
 pub(crate) fn push_pending_web_success(

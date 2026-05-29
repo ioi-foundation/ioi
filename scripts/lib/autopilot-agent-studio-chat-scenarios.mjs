@@ -1,3 +1,8 @@
+import {
+  LM_STUDIO_PARITY_PLUS_PROMPTS,
+  LM_STUDIO_REASONING_PARITY_PROMPTS,
+} from "./agent-studio-scenarios/lm-studio-parity-prompts.mjs";
+
 export const DEFAULT_AGENT_STUDIO_CHAT_SCENARIO = "stage0-hardening";
 
 const STAGE0_HARDENING_PROMPTS = [
@@ -27,16 +32,16 @@ const STAGE1_LIGHTWEIGHT_CONVERSATION_PROMPTS = [
 
 const STAGE2_SIMPLE_MODEL_AUTHORED_PROMPTS = [
   {
-    kind: "agent conversational stance",
+    kind: "agent evidence-backed issue response",
     executionMode: "agent",
-    prompt: "they can only ignore it for so long",
-    mustMentionAny: ["evidence", "dismiss"],
+    prompt: "Answer in one sentence: use evidence to turn a repeatedly dismissed product issue into a concrete fix.",
+    mustMentionAny: ["evidence", "data", "fix", "solution"],
   },
   {
     kind: "ask direct theorem",
     executionMode: "ask",
     prompt: "what is the Pythagorean theorem?",
-    mustMentionAny: ["right triangle", "a squared", "c squared"],
+    mustMentionAny: ["right triangle", "right-angled", "hypotenuse", "a^2"],
   },
   {
     kind: "agent run-evidence explanation",
@@ -70,7 +75,8 @@ const STAGE3_CURRENTNESS_RETRIEVAL_PROMPTS = [
     kind: "agent current runtime issue retrieval",
     executionMode: "agent",
     prompt: "Find current sources for today's top local AI model runtime issue.",
-    mustMentionAny: ["retrieved current sources", "fresh evidence", "stale model memory"],
+    mustMentionAny: ["current evidence", "current source", "current local AI model runtime issue"],
+    mustNotMentionAny: ["chat__reply", "fresh evidence fixture", "deterministic currentness fixture"],
   },
 ];
 
@@ -205,14 +211,14 @@ const STAGE62_LIVE_ASK_AGENT_BOUNDARY_PROMPTS = [
     kind: "ask direct pythagorean theorem",
     executionMode: "ask",
     prompt: "what is the Pythagorean theorem?",
-    mustMentionAny: ["right triangle", "a squared", "c squared"],
+    mustMentionAny: ["right triangle", "right-angled", "hypotenuse", "a^2"],
     mustNotMentionAny: ["chat__reply", "\"name\""],
   },
   {
-    kind: "agent conversational evidence reply",
+    kind: "agent concrete product issue reply",
     executionMode: "agent",
-    prompt: "they can only ignore it for so long",
-    mustMentionAny: ["evidence", "dismiss"],
+    prompt: "Answer in one sentence: use concrete user-visible evidence to prioritize a product issue that keeps getting dismissed.",
+    mustMentionAny: ["evidence", "data", "visible", "prioritize"],
     mustNotMentionAny: ["Hello! I am a local assistant", "\"name\""],
   },
 ];
@@ -419,6 +425,79 @@ const BROWSER_COMPUTER_REALISTIC_VIEWPORT_PROMPTS = [
   },
 ];
 
+const CONVERSATION_ARTIFACT_CORE_PROMPTS = [
+  {
+    kind: "markdown report artifact",
+    executionMode: "agent",
+    prompt: "Generate a Markdown/HTML report artifact from these test results and show it as an artifact.",
+    mustMentionAny: ["artifact", "preview"],
+    assistantVisibleTimeoutMs: 45_000,
+  },
+  {
+    kind: "imported odt artifact",
+    executionMode: "agent",
+    prompt: "Turn this ODT into an artifact, tighten the intro, compare changes, and export a clean copy.",
+    mustMentionAny: ["document", "artifact", "compare"],
+    assistantVisibleTimeoutMs: 45_000,
+  },
+  {
+    kind: "react vite artifact",
+    executionMode: "agent",
+    prompt: "Build a small React dashboard artifact from this CSV, then make the sidebar denser.",
+    mustMentionAny: ["dashboard", "artifact", "sandboxed"],
+    assistantVisibleTimeoutMs: 45_000,
+  },
+];
+
+const CONVERSATION_ARTIFACT_WEBSITE_PROMPTS = [
+  {
+    kind: "generated website artifact",
+    executionMode: "agent",
+    prompt: "Create a website that explains post-quantum computers",
+    mustMentionAny: ["website", "artifact", "preview"],
+    mustNotMentionAny: ["Agent reached the runtime but did not produce a chat reply"],
+    assistantVisibleTimeoutMs: 45_000,
+  },
+];
+
+const CONVERSATION_ARTIFACT_LONG_TAIL_PROMPTS = [
+  {
+    kind: "static html artifact",
+    executionMode: "agent",
+    prompt: "Create a standalone HTML/CSS/JS artifact for a compact release status page.",
+    mustMentionAny: ["artifact", "preview"],
+    assistantVisibleTimeoutMs: 45_000,
+  },
+  {
+    kind: "pdf readonly artifact",
+    executionMode: "agent",
+    prompt: "Render this PDF as a read-only artifact and create an editable summary artifact.",
+    mustMentionAny: ["PDF", "artifact", "summary"],
+    assistantVisibleTimeoutMs: 45_000,
+  },
+  {
+    kind: "patch artifact",
+    executionMode: "agent",
+    prompt: "Show this code change as a reviewable patch artifact and apply it only after approval.",
+    mustMentionAny: ["patch", "artifact", "approval"],
+    assistantVisibleTimeoutMs: 45_000,
+  },
+  {
+    kind: "dataset chart artifact",
+    executionMode: "agent",
+    prompt: "Turn this CSV into a dataset and chart artifact with a table preview.",
+    mustMentionAny: ["dataset", "chart", "artifact"],
+    assistantVisibleTimeoutMs: 45_000,
+  },
+  {
+    kind: "browser observation artifact",
+    executionMode: "agent",
+    prompt: "Capture this browser session result as an artifact and let me ask a follow-up question.",
+    mustMentionAny: ["browser", "artifact"],
+    assistantVisibleTimeoutMs: 45_000,
+  },
+];
+
 const TOOLCAT_STAGE5_BROWSER_DOM_CONTROLS_FOCUSED_PROMPTS = toolcatProbes("TOOLCAT_STAGE5_BROWSER_SINGLE", [
   "browser__list_options",
   "browser__select_option",
@@ -605,6 +684,8 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
     minUniqueAssistantResponses: 3,
     maxFirstPromptMs: 30_000,
     assistantVisibleTimeoutMs: 45_000,
+    pendingWorklogTimeoutMs: 30_000,
+    requirePendingWorklog: true,
     requireNoDocumentedWorkForAgent: false,
     requireAgentModeReply: true,
     requireAgentTraceToolNames: ["file__read", "file__search", "chat__reply"],
@@ -883,6 +964,87 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
     requireAgentTraceToolNames: ["browser__navigate", "browser__inspect", "browser__click_at", "chat__reply"],
     requireAgentTraceToolSuccessNames: ["browser__click_at", "chat__reply"],
     requireNoAgentTraceToolFailuresFor: ["browser__click_at"],
+  },
+  "conversation-artifact-core": {
+    id: "conversation-artifact-core",
+    label: "Conversation artifact core embedded document and generated app UX",
+    promptCases: CONVERSATION_ARTIFACT_CORE_PROMPTS,
+    minUniqueAssistantResponses: 2,
+    maxFirstPromptMs: 45_000,
+    assistantVisibleTimeoutMs: 45_000,
+    workspaceFixture: true,
+    approvalMode: "never_prompt",
+    allowApprovalPause: true,
+    requireNoDocumentedWorkForAgent: false,
+    requireAgentModeReply: true,
+    requireConversationArtifactProof: true,
+    allowNoModelInvocationReceipt: true,
+  },
+  "conversation-artifact-website": {
+    id: "conversation-artifact-website",
+    label: "Conversation artifact natural website generation UX regression",
+    promptCases: CONVERSATION_ARTIFACT_WEBSITE_PROMPTS,
+    minUniqueAssistantResponses: 1,
+    maxFirstPromptMs: 240_000,
+    assistantVisibleTimeoutMs: 240_000,
+    streamProbeTimeoutMs: 45_000,
+    agentArtifactCompletionTimeoutMs: 240_000,
+    workspaceFixture: true,
+    approvalMode: "never_prompt",
+    allowApprovalPause: true,
+    requireNoDocumentedWorkForAgent: false,
+    requireAgentModeReply: true,
+    allowAgentArtifactSourceStream: true,
+    requireAgentArtifactSourceStream: true,
+    requireConversationArtifactProof: true,
+    allowNoModelInvocationReceipt: true,
+  },
+  "lm-studio-quality-routing-chat-ux-parity-plus-focused": {
+    id: "lm-studio-quality-routing-chat-ux-parity-plus-focused",
+    label: "LM Studio quality, routing, and chat UX parity plus focused proof",
+    promptCases: LM_STUDIO_PARITY_PLUS_PROMPTS,
+    minUniqueAssistantResponses: 5,
+    maxFirstPromptMs: 240_000,
+    assistantVisibleTimeoutMs: 240_000,
+    streamProbeTimeoutMs: 45_000,
+    workspaceFixture: true,
+    approvalMode: "never_prompt",
+    allowApprovalPause: true,
+    requireNoDocumentedWorkForAgent: false,
+    requireAskModeStream: true,
+    requireAgentModeReply: true,
+    requireConversationArtifactProof: true,
+  },
+  "lm-studio-reasoning-stream-focused": {
+    id: "lm-studio-reasoning-stream-focused",
+    label: "LM Studio reasoning/thinking stream focused proof",
+    promptCases: LM_STUDIO_REASONING_PARITY_PROMPTS,
+    minUniqueAssistantResponses: 1,
+    maxFirstPromptMs: 240_000,
+    assistantVisibleTimeoutMs: 240_000,
+    streamProbeTimeoutMs: 90_000,
+    workspaceFixture: true,
+    approvalMode: "never_prompt",
+    allowApprovalPause: true,
+    requireNoDocumentedWorkForAgent: false,
+    requireAskModeStream: true,
+  },
+  "conversation-artifact-long-tail": {
+    id: "conversation-artifact-long-tail",
+    label: "Conversation artifact long-tail previews, patches, datasets, and browser observation",
+    promptCases: CONVERSATION_ARTIFACT_LONG_TAIL_PROMPTS,
+    minUniqueAssistantResponses: 2,
+    maxFirstPromptMs: 45_000,
+    assistantVisibleTimeoutMs: 45_000,
+    workspaceFixture: true,
+    browserFixture: true,
+    approvalMode: "never_prompt",
+    allowApprovalPause: true,
+    requireNoDocumentedWorkForAgent: false,
+    requireAgentModeReply: true,
+    requireConversationArtifactProof: true,
+    requireManagedSessionViewportProof: true,
+    allowNoModelInvocationReceipt: true,
   },
   "toolcat-stage5-browser-dom-controls-focused": {
     id: "toolcat-stage5-browser-dom-controls-focused",

@@ -68,7 +68,7 @@ const proofPlan = [
   proof("stage10-browser-computer-live-gui", 10, ["CC-HARNESS-011"], "live_gui", [
     "node",
     [
-      "scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs",
+      "scripts/run-autopilot-agent-studio-live-gui-validation.mjs",
       "--run",
       "--scenario",
       "browser-computer-live-viewport-ux-focused",
@@ -478,11 +478,11 @@ function implementationRefsFor(rowId) {
     ],
     "CC-HARNESS-007": [
       "scripts/lib/autopilot-agent-studio-chat-scenarios.mjs",
-      "scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs",
+      "scripts/run-autopilot-agent-studio-live-gui-validation.mjs",
     ],
     "CC-HARNESS-011": [
       "packages/runtime-daemon/src/computer-use-projection.mjs",
-      "scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs",
+      "scripts/run-autopilot-agent-studio-live-gui-validation.mjs",
     ],
   };
   return refs[rowId] || [
@@ -636,7 +636,7 @@ function preflight() {
     "scripts/lib/claude-code-substrate/common.mjs",
     "scripts/lib/claude-code-substrate/support-proofs.mjs",
     "scripts/run-autopilot-claude-code-substrate-absorption-parity-goal.mjs",
-    "scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs",
+    "scripts/run-autopilot-agent-studio-live-gui-validation.mjs",
   ].map((script) => {
     const result = spawnSync("node", ["--check", script], { cwd: repoRoot, encoding: "utf8" });
     return {

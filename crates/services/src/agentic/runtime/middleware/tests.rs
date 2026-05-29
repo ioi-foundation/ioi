@@ -49,6 +49,25 @@ fn test_normalize_explanatory_prefix_with_fenced_json() {
 }
 
 #[test]
+fn test_normalize_chat_reply_preserves_fenced_markdown_inside_json_argument() {
+    let input = r#"{
+        "name":"chat__reply",
+        "arguments":{
+            "message":"Provider registration lives in `packages/runtime-daemon/src/model-mounting.mjs`.\n```javascript\nthis.upsertDefault(this.providers, nativeLocalProvider);\n```\nThat route is then exposed to Agent Studio."
+        }
+    }"#;
+    let result = normalize_tool_call_with_observation(input).unwrap();
+    match result.tool {
+        AgentTool::ChatReply { message } => {
+            assert!(message.contains("upsertDefault"));
+            assert!(message.contains("```javascript"));
+        }
+        other => panic!("Expected ChatReply, got {:?}", other),
+    }
+    assert_eq!(result.observation.raw_name.as_deref(), Some("chat__reply"));
+}
+
+#[test]
 fn test_flat_top_level_arguments_for_file_read_are_rejected() {
     let input = r#"{
         "tool":"file__read",

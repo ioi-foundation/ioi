@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { startRuntimeDaemonService } from "../packages/runtime-daemon/src/index.mjs";
@@ -88,12 +88,149 @@ function setRuntimeEnvDefault(primaryName, aliasNames, value) {
 function firstMountedModelId(discovery) {
   const mounted = Array.isArray(discovery?.mounted) ? discovery.mounted : [];
   for (const endpoint of mounted) {
+    if (!isProductRuntimeEndpoint(endpoint)) {
+      continue;
+    }
     const modelId = endpoint?.modelId ?? endpoint?.model_id ?? endpoint?.model;
     if (typeof modelId === "string" && modelId.trim()) {
       return modelId.trim();
     }
   }
   return null;
+}
+
+function isProductRuntimeEndpoint(endpoint = {}) {
+  const haystack = [
+    endpoint.id,
+    endpoint.modelId,
+    endpoint.model_id,
+    endpoint.providerId,
+    endpoint.provider_id,
+    endpoint.backendId,
+    endpoint.backend_id,
+    endpoint.driver,
+    endpoint.apiFormat,
+    endpoint.api_format,
+    endpoint.artifactId,
+    endpoint.artifact_id,
+    endpoint.baseUrl,
+    endpoint.base_url,
+  ]
+    .map((value) => String(value || "").toLowerCase())
+    .join(" ");
+  if (
+    !haystack.trim() ||
+    haystack.includes("lmstudio:detected") ||
+    haystack.includes("lmstudio.detected") ||
+    haystack.includes("local:auto") ||
+    haystack.includes("autopilot:native-fixture") ||
+    haystack.includes("endpoint.local.auto") ||
+    haystack.includes("endpoint.autopilot.native-fixture") ||
+    /\bfixture\b/.test(haystack)
+  ) {
+    return false;
+  }
+  return /provider\.llama-cpp|backend\.llama-cpp|llama_cpp|llama-cpp/.test(haystack);
+}
+
+function walkFiles(rootDir, { maxDepth = 5, match } = {}) {
+  const results = [];
+  const seen = new Set();
+  function visit(dir, depth) {
+    if (!dir || depth > maxDepth || seen.has(dir)) return;
+    seen.add(dir);
+    let entries = [];
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const fullPath = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        visit(fullPath, depth + 1);
+      } else if (!match || match(fullPath, entry.name)) {
+        results.push(fullPath);
+      }
+    }
+  }
+  visit(rootDir, 0);
+  return results;
+}
+
+function fileMtimeMs(filePath) {
+  try {
+    return statSync(filePath).mtimeMs;
+  } catch {
+    return 0;
+  }
+}
+
+function discoverNativeLlamaServerPath() {
+  const configured = firstNonEmptyEnv(["IOI_LLAMA_CPP_SERVER_PATH"]);
+  if (configured) return configured;
+  const home = process.env.HOME;
+  const roots = [
+    home ? join(home, ".cache", "ioi", "llama-cpp-live") : null,
+    home ? join(home, ".unsloth", "llama.cpp", "build", "bin") : null,
+  ].filter(Boolean);
+  const candidates = roots.flatMap((rootDir) =>
+    walkFiles(rootDir, {
+      maxDepth: 4,
+      match: (_fullPath, name) => name === "llama-server",
+    }),
+  );
+  return candidates
+    .sort((left, right) => {
+      const leftVulkan = /vulkan/i.test(left) ? 1 : 0;
+      const rightVulkan = /vulkan/i.test(right) ? 1 : 0;
+      if (leftVulkan !== rightVulkan) return rightVulkan - leftVulkan;
+      return fileMtimeMs(right) - fileMtimeMs(left);
+    })[0] || null;
+}
+
+function discoverNativeGgufModelPath() {
+  const configured = firstNonEmptyEnv(["IOI_LLAMA_CPP_MODEL_PATH"]);
+  if (configured) return configured;
+  const home = process.env.HOME;
+  const roots = [
+    home ? join(home, ".lmstudio", "models") : null,
+    home ? join(home, ".cache", "ioi", "models") : null,
+    home ? join(home, ".cache", "huggingface", "hub") : null,
+  ].filter(Boolean);
+  const candidates = roots.flatMap((rootDir) =>
+    walkFiles(rootDir, {
+      maxDepth: 7,
+      match: (fullPath, name) => /\.gguf$/i.test(name) && !/mmproj/i.test(fullPath),
+    }),
+  );
+  return candidates
+    .sort((left, right) => {
+      const leftQwen = /qwen/i.test(left) ? 1 : 0;
+      const rightQwen = /qwen/i.test(right) ? 1 : 0;
+      if (leftQwen !== rightQwen) return rightQwen - leftQwen;
+      return fileMtimeMs(right) - fileMtimeMs(left);
+    })[0] || null;
+}
+
+function inferNativeModelId(modelPath) {
+  const configured = firstNonEmptyEnv(["IOI_LLAMA_CPP_MODEL_ID", "IOI_DAEMON_MODEL_ID", "IOI_RUNTIME_MODEL"]);
+  if (configured) return configured;
+  const normalized = basename(modelPath || "").replace(/\.gguf$/i, "");
+  if (/qwen3\.?5.*9b/i.test(normalized)) return "qwen/qwen3.5-9b";
+  return normalized || "native:local-gguf";
+}
+
+function configureNativeLlamaCppEnvDefaults() {
+  const serverPath = discoverNativeLlamaServerPath();
+  const modelPath = discoverNativeGgufModelPath();
+  if (serverPath && !firstNonEmptyEnv(["IOI_LLAMA_CPP_SERVER_PATH"])) {
+    process.env.IOI_LLAMA_CPP_SERVER_PATH = serverPath;
+  }
+  if (modelPath && !firstNonEmptyEnv(["IOI_LLAMA_CPP_MODEL_PATH"])) {
+    process.env.IOI_LLAMA_CPP_MODEL_PATH = modelPath;
+  }
+  return { serverPath, modelPath };
 }
 
 function ensureDefaultRuntimeBridgeBinary(command) {
@@ -286,7 +423,7 @@ async function mountDiscoveredModels(endpoint, token, providerId, models, mounte
     const modelId = model?.modelId || model?.id;
     if (!modelId) continue;
     const endpointId =
-      mountedCount + mounted.length === 0
+      providerId === "provider.llama-cpp" && mountedCount + mounted.length === 0
         ? "endpoint.electron.model-gui"
         : `endpoint.autodiscovered.${safeId(providerId)}.${safeId(modelId)}`;
     try {
@@ -310,14 +447,118 @@ async function mountDiscoveredModels(endpoint, token, providerId, models, mounte
   return mounted;
 }
 
+async function bootstrapConfiguredLlamaCppModel(endpoint, token, mountedCount) {
+  configureNativeLlamaCppEnvDefaults();
+  const modelPath = discoverNativeGgufModelPath();
+  if (!modelPath) {
+    return { mounted: [], route: null, loaded: null, reason: "No local GGUF model discovered for llama.cpp" };
+  }
+  if (!existsSync(modelPath)) {
+    console.warn(`[Autopilot IDE] llama.cpp model path does not exist: ${modelPath}`);
+    return { mounted: [], route: null, loaded: null, reason: "model_path_missing" };
+  }
+  if (!firstNonEmptyEnv(["IOI_LLAMA_CPP_MODEL_PATH"])) {
+    process.env.IOI_LLAMA_CPP_MODEL_PATH = modelPath;
+  }
+
+  const modelId = inferNativeModelId(modelPath);
+  const endpointId =
+    mountedCount === 0
+      ? "endpoint.electron.model-gui"
+      : `endpoint.autodiscovered.provider.llama-cpp.${safeId(modelId)}`;
+  const contextLength = Number(firstNonEmptyEnv(["IOI_LLAMA_CPP_CONTEXT_LENGTH"]) ?? 4096);
+  const parallel = Number(firstNonEmptyEnv(["IOI_LLAMA_CPP_PARALLEL"]) ?? 1);
+  const gpu = firstNonEmptyEnv(["IOI_LLAMA_CPP_GPU"]) ?? "auto";
+
+  await requestJson(endpoint, "/api/v1/models/import", {
+    method: "POST",
+    token,
+    body: {
+      model_id: modelId,
+      provider_id: "provider.llama-cpp",
+      path: modelPath,
+      import_mode: "reference",
+      capabilities: ["chat", "responses"],
+    },
+  });
+  const mounted = await requestJson(endpoint, "/api/v1/models/mount", {
+    method: "POST",
+    token,
+    body: {
+      id: endpointId,
+      model_id: modelId,
+      provider_id: "provider.llama-cpp",
+      backend_id: "backend.llama-cpp",
+      load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: false },
+    },
+  });
+  const route = await requestJson(endpoint, "/api/v1/routes", {
+    method: "POST",
+    token,
+    body: {
+      id: "route.local-first",
+      role: "default",
+      description: "Autopilot IDE native local model route from configured llama.cpp runtime.",
+      privacy: "local_only",
+      quality: "local_native",
+      fallback: [mounted.id],
+      provider_eligibility: ["llama_cpp"],
+      denied_providers: ["lm_studio", "ollama", "openai", "anthropic", "gemini"],
+      max_cost_usd: 0,
+    },
+  });
+  await requestJson(endpoint, "/api/v1/routes", {
+    method: "POST",
+    token,
+    body: {
+      id: "route.native-local",
+      role: "default",
+      description: "Autopilot-native local route backed by configured llama.cpp runtime.",
+      privacy: "local_only",
+      quality: "local_native",
+      fallback: [mounted.id],
+      provider_eligibility: ["llama_cpp"],
+      denied_providers: ["lm_studio", "ollama", "openai", "anthropic", "gemini"],
+      max_cost_usd: 0,
+    },
+  });
+  const loaded = await requestJson(endpoint, "/api/v1/models/load", {
+    method: "POST",
+    token,
+    body: {
+      endpoint_id: mounted.id,
+      load_policy: { mode: "manual", autoEvict: false },
+      load_options: {
+        gpu,
+        contextLength,
+        parallel,
+        ttlSeconds: 900,
+        identifier: "autopilot-ide-configured-llama-cpp",
+        embeddings: process.env.IOI_LLAMA_CPP_ENABLE_EMBEDDINGS === "1",
+      },
+    },
+  }).catch((error) => {
+    console.warn(`[Autopilot IDE] configured llama.cpp pre-load skipped: ${error?.message || String(error)}`);
+    return null;
+  });
+
+  return { mounted: [mounted], route, loaded, reason: "configured_llama_cpp" };
+}
+
 async function bootstrapLocalModelDiscovery(endpoint, token) {
   if (!localModelDiscoveryEnabled) {
     return { providers: [], models: [], mounted: [], route: null };
   }
 
-  const providerIds = ["provider.lmstudio", "provider.ollama"];
+  const configuredLlamaCpp = await bootstrapConfiguredLlamaCppModel(endpoint, token, 0);
+  const referenceProviderDiscoveryEnabled =
+    configuredLlamaCpp.mounted.length === 0 ||
+    envFlag("AUTOPILOT_INCLUDE_REFERENCE_MODEL_DISCOVERY");
+  const providerIds = referenceProviderDiscoveryEnabled
+    ? ["provider.lmstudio", "provider.ollama"]
+    : [];
   const discovered = [];
-  const mounted = [];
+  const mounted = [...configuredLlamaCpp.mounted];
   for (const providerId of providerIds) {
     const models = await discoverProviderModels(endpoint, token, providerId);
     discovered.push({ providerId, modelCount: models.length });
@@ -326,8 +567,9 @@ async function bootstrapLocalModelDiscovery(endpoint, token) {
     );
   }
 
-  let route = null;
-  if (mounted[0]?.id) {
+  let route = configuredLlamaCpp.route;
+  const productMounted = mounted.find((endpointRecord) => isProductRuntimeEndpoint(endpointRecord));
+  if (productMounted?.id && configuredLlamaCpp.mounted.length === 0) {
     route = await requestJson(endpoint, "/api/v1/routes", {
       method: "POST",
       token,
@@ -336,9 +578,9 @@ async function bootstrapLocalModelDiscovery(endpoint, token) {
         role: "default",
         description: "Autopilot IDE local model route from startup discovery.",
         privacy: "local_only",
-        provider_eligibility: ["lm_studio", "ollama", "ioi_native_local"],
-        fallback: [mounted[0].id],
-        denied_providers: ["openai", "anthropic", "gemini"],
+        provider_eligibility: ["llama_cpp"],
+        fallback: [productMounted.id],
+        denied_providers: ["lm_studio", "ollama", "ioi_native_local", "openai", "anthropic", "gemini"],
       },
     }).catch((error) => {
       console.warn(
@@ -348,7 +590,7 @@ async function bootstrapLocalModelDiscovery(endpoint, token) {
     });
   }
 
-  return { providers: discovered, models: discovered, mounted, route };
+  return { providers: discovered, models: discovered, mounted, route, configuredLlamaCpp };
 }
 
 async function startManagedDaemon() {
@@ -365,6 +607,7 @@ async function startManagedDaemon() {
     process.env.AUTOPILOT_DAEMON_STATE_DIR || resolve(repoRoot, ".ioi", "autopilot-daemon"),
   );
   mkdirSync(stateDir, { recursive: true });
+  configureNativeLlamaCppEnvDefaults();
   const runtimeBridge = configureRuntimeBridgeEnv(stateDir);
   const daemon = await startRuntimeDaemonService({ cwd: repoRoot, stateDir });
   const grant = await requestJson(daemon.endpoint, "/api/v1/tokens", {

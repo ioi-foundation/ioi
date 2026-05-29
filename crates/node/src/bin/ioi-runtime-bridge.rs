@@ -19,13 +19,14 @@ use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy};
 use ioi_services::agentic::runtime::keys::{get_state_key, AGENT_POLICY_PREFIX};
+use ioi_services::agentic::runtime::service::decision_loop::helpers::default_safe_policy;
 use ioi_services::agentic::runtime::{
     AgentMode, AgentState, AgentStatus, PostMessageParams, RuntimeAgentService, StartAgentParams,
     StepAgentParams,
 };
-use ioi_services::agentic::runtime::service::decision_loop::helpers::default_safe_policy;
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::flat::RedbFlatStore;
+use ioi_types::app::agentic::{RuntimeIntentEvidence, RuntimeRouteFrame};
 use ioi_types::app::runtime::computer_use::COMPUTER_USE_CONTRACT_SCHEMA_VERSION_V1;
 use ioi_types::app::{AccountId, ChainId, KernelEvent, WorkloadReceipt};
 use ioi_types::codec;
@@ -34,7 +35,7 @@ use rand::RngCore;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::fs;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -240,12 +241,24 @@ fn runtime_control_string(value: &Value, keys: &[&str]) -> Option<String> {
 fn runtime_controls_present(request: &Value, options: &Value) -> bool {
     runtime_control_string(
         request,
-        &["approvalMode", "approval_mode", "threadMode", "thread_mode", "mode"],
+        &[
+            "approvalMode",
+            "approval_mode",
+            "threadMode",
+            "thread_mode",
+            "mode",
+        ],
     )
     .is_some()
         || runtime_control_string(
             options,
-            &["approvalMode", "approval_mode", "threadMode", "thread_mode", "mode"],
+            &[
+                "approvalMode",
+                "approval_mode",
+                "threadMode",
+                "thread_mode",
+                "mode",
+            ],
         )
         .is_some()
 }
@@ -273,6 +286,280 @@ fn runtime_control_policy(request: &Value, options: &Value) -> Option<ActionRule
         });
     }
     Some(default_safe_policy())
+}
+
+fn bridge_object_field<'a>(value: &'a Value, keys: &[&str]) -> Option<&'a Value> {
+    keys.iter().find_map(|key| {
+        let candidate = value.get(*key)?;
+        candidate.as_object().map(|_| candidate)
+    })
+}
+
+fn bridge_nested_object_field<'a>(value: &'a Value, path: &[&str]) -> Option<&'a Value> {
+    let mut current = value;
+    for key in path {
+        current = current.get(*key)?;
+    }
+    current.as_object().map(|_| current)
+}
+
+fn bridge_string_field(value: &Value, keys: &[&str]) -> Option<String> {
+    keys.iter().find_map(|key| {
+        value
+            .get(*key)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|text| !text.is_empty())
+            .map(ToOwned::to_owned)
+    })
+}
+
+fn bridge_bool_field(value: &Value, keys: &[&str]) -> Option<bool> {
+    keys.iter()
+        .find_map(|key| value.get(*key).and_then(Value::as_bool))
+}
+
+fn bridge_string_array(value: &Value, keys: &[&str]) -> Vec<String> {
+    keys.iter()
+        .find_map(|key| value.get(*key).and_then(Value::as_array))
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::trim)
+                .filter(|text| !text.is_empty())
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn workspace_target_evidence(value: &Value) -> Vec<RuntimeIntentEvidence> {
+    let Some(workspace) = bridge_object_field(value, &["workspace"]) else {
+        return Vec::new();
+    };
+    let Some(targets) = workspace.get("targets").and_then(Value::as_array) else {
+        return Vec::new();
+    };
+    targets
+        .iter()
+        .filter_map(|target| {
+            let kind = bridge_string_field(target, &["kind", "targetKind", "target_kind"])
+                .unwrap_or_else(|| "search".to_string());
+            let (evidence_kind, value) = if kind.eq_ignore_ascii_case("path") {
+                (
+                    "workspace_path",
+                    bridge_string_field(target, &["path", "target", "value"])?,
+                )
+            } else {
+                (
+                    "workspace_search",
+                    bridge_string_field(target, &["query", "regex", "target", "value"])?,
+                )
+            };
+            Some(RuntimeIntentEvidence {
+                evidence_kind: evidence_kind.to_string(),
+                value,
+                source: "autopilot_studio_workspace_target".to_string(),
+                confidence: Some(92),
+            })
+        })
+        .collect()
+}
+
+fn runtime_route_frame_candidates<'a>(
+    request: &'a Value,
+    options: Option<&'a Value>,
+) -> Vec<&'a Value> {
+    let mut candidates = Vec::new();
+    if let Some(frame) = bridge_object_field(request, &["runtimeRouteFrame", "runtime_route_frame"])
+    {
+        candidates.push(frame);
+    }
+    if let Some(frame) = bridge_object_field(request, &["intentFrame", "intent_frame"]) {
+        candidates.push(frame);
+    }
+    if let Some(frame) = bridge_nested_object_field(request, &["options", "runtimeRouteFrame"]) {
+        candidates.push(frame);
+    }
+    if let Some(frame) = bridge_nested_object_field(request, &["options", "runtime_route_frame"]) {
+        candidates.push(frame);
+    }
+    if let Some(frame) = bridge_nested_object_field(request, &["options", "intentFrame"]) {
+        candidates.push(frame);
+    }
+    if let Some(frame) = bridge_nested_object_field(request, &["options", "intent_frame"]) {
+        candidates.push(frame);
+    }
+    if let Some(frame) = bridge_nested_object_field(request, &["metadata", "intentFrame"]) {
+        candidates.push(frame);
+    }
+    if let Some(frame) = bridge_nested_object_field(request, &["metadata", "intent_frame"]) {
+        candidates.push(frame);
+    }
+    if let Some(options) = options {
+        if let Some(frame) =
+            bridge_object_field(options, &["runtimeRouteFrame", "runtime_route_frame"])
+        {
+            candidates.push(frame);
+        }
+        if let Some(frame) = bridge_object_field(options, &["intentFrame", "intent_frame"]) {
+            candidates.push(frame);
+        }
+    }
+    candidates
+}
+
+fn runtime_route_frame_for_bridge_input(
+    request: &Value,
+    options: Option<&Value>,
+) -> Option<RuntimeRouteFrame> {
+    runtime_route_frame_candidates(request, options)
+        .into_iter()
+        .find_map(runtime_route_frame_from_value)
+}
+
+fn runtime_route_frame_from_value(value: &Value) -> Option<RuntimeRouteFrame> {
+    if let Ok(frame) = serde_json::from_value::<RuntimeRouteFrame>(value.clone()) {
+        return Some(frame);
+    }
+
+    let intent_id = bridge_string_field(value, &["intentId", "intent_id"])?;
+    let route_directive = bridge_string_field(value, &["routeDirective", "route_directive"])
+        .unwrap_or_else(|| "agent".to_string());
+    let execution_mode = bridge_string_field(value, &["executionMode", "execution_mode"])
+        .unwrap_or_else(|| "agent".to_string());
+    let artifact = bridge_object_field(value, &["artifact"]);
+    let artifact_required = artifact
+        .and_then(|artifact| bridge_bool_field(artifact, &["required"]))
+        .unwrap_or(false);
+    let artifact_class = artifact
+        .and_then(|artifact| {
+            bridge_string_field(
+                artifact,
+                &[
+                    "artifactClass",
+                    "artifact_class",
+                    "class",
+                    "outputModality",
+                    "output_modality",
+                ],
+            )
+        })
+        .unwrap_or_default();
+    let effect_contract = bridge_object_field(value, &["effectContract", "effect_contract"]);
+    let host_mutation = effect_contract
+        .and_then(|contract| bridge_bool_field(contract, &["hostMutation", "host_mutation"]))
+        .unwrap_or(false);
+    let retrieval_required = bridge_object_field(value, &["retrieval"])
+        .and_then(|retrieval| bridge_bool_field(retrieval, &["required"]))
+        .unwrap_or(false);
+    let workspace_required = bridge_object_field(value, &["workspace"])
+        .and_then(|workspace| bridge_bool_field(workspace, &["required"]))
+        .unwrap_or(false);
+    let mut required_capabilities =
+        bridge_string_array(value, &["requiredCapabilities", "required_capabilities"]);
+    if let Some(contract) = effect_contract {
+        required_capabilities.extend(bridge_string_array(
+            contract,
+            &[
+                "requiredCapabilities",
+                "required_capabilities",
+                "receiptsRequired",
+                "receipts_required",
+            ],
+        ));
+    }
+    required_capabilities.sort();
+    required_capabilities.dedup();
+    let required_capability_text = required_capabilities
+        .iter()
+        .map(|value| value.to_ascii_lowercase())
+        .collect::<Vec<_>>()
+        .join(" ");
+    let requires_web_tools = retrieval_required
+        || intent_id.eq_ignore_ascii_case("retrieval.answer")
+        || required_capability_text.contains("web.")
+        || required_capability_text.contains("retrieval_");
+    let requires_workspace_tools = workspace_required
+        || intent_id.eq_ignore_ascii_case("workspace.context")
+        || required_capability_text.contains("file.")
+        || required_capability_text.contains("file_")
+        || required_capability_text.contains("workspace.");
+    let direct_answer_allowed = route_directive == "ask"
+        || (intent_id.eq_ignore_ascii_case("conversation.reply")
+            && !artifact_required
+            && !requires_web_tools
+            && !requires_workspace_tools
+            && !host_mutation);
+    let output_intent = if artifact_required || route_directive == "artifact" {
+        "artifact_generation"
+    } else if requires_web_tools || requires_workspace_tools || host_mutation {
+        "tool_execution"
+    } else if direct_answer_allowed {
+        "conversation_reply"
+    } else {
+        "tool_execution"
+    };
+    if required_capabilities.is_empty() {
+        required_capabilities.push(if artifact_required {
+            "artifact.create".to_string()
+        } else if requires_web_tools {
+            "web.research".to_string()
+        } else if requires_workspace_tools {
+            "workspace.read".to_string()
+        } else {
+            "conversation.reply".to_string()
+        });
+    }
+    let mut typed_evidence = vec![RuntimeIntentEvidence {
+        evidence_kind: "studio_intent_frame".to_string(),
+        value: route_directive.clone(),
+        source: "autopilot_studio".to_string(),
+        confidence: value
+            .get("confidence")
+            .and_then(Value::as_f64)
+            .map(|score| (score.clamp(0.0, 1.0) * 100.0).round() as u8),
+    }];
+    typed_evidence.extend(workspace_target_evidence(value));
+
+    Some(RuntimeRouteFrame {
+        intent_id,
+        route_family: if artifact_required {
+            "artifact".to_string()
+        } else if route_directive == "ask" {
+            "direct_model".to_string()
+        } else if requires_web_tools {
+            "web_research".to_string()
+        } else if requires_workspace_tools {
+            "workspace".to_string()
+        } else {
+            "conversation".to_string()
+        },
+        output_intent: output_intent.to_string(),
+        direct_answer_allowed,
+        target: artifact
+            .and_then(|artifact| bridge_string_field(artifact, &["title", "summary"]))
+            .or_else(|| bridge_string_field(value, &["target", "goal", "prompt", "message"]))
+            .unwrap_or_else(|| route_directive.clone()),
+        target_kind: if artifact_required {
+            Some(if artifact_class.is_empty() {
+                "artifact".to_string()
+            } else {
+                artifact_class
+            })
+        } else {
+            Some(execution_mode)
+        },
+        host_mutation,
+        required_capabilities,
+        typed_evidence,
+        typed_required_capabilities: vec![],
+        host_mutation_scope: None,
+        runtime_action: None,
+        install_request: None,
+        provenance: Some("autopilot_studio_intent_frame".to_string()),
+    })
 }
 
 impl BridgeRuntime {
@@ -335,6 +622,8 @@ impl BridgeRuntime {
     async fn start_thread(&mut self, bridge_id: &str, input: StartThreadInput) -> Result<Value> {
         let session_id = start_session_id(&input.request)?;
         self.apply_runtime_control_policy(session_id, &input.request, &input.options)?;
+        let runtime_route_frame =
+            runtime_route_frame_for_bridge_input(&input.request, Some(&input.options));
         let goal = non_empty_string(&input.request, &["goal", "prompt", "message", "input"])
             .unwrap_or_else(|| "Runtime service thread started.".to_string());
         let max_steps = positive_u32(&input.request, &["max_steps", "maxSteps"])
@@ -343,7 +632,7 @@ impl BridgeRuntime {
         let params = StartAgentParams {
             session_id,
             goal,
-            runtime_route_frame: None,
+            runtime_route_frame,
             max_steps,
             parent_session_id: None,
             initial_budget: positive_u64(&input.request, &["initial_budget", "initialBudget"])
@@ -417,6 +706,12 @@ impl BridgeRuntime {
             self.call_service("post_message@v1", &params).await?;
             self.commit()?;
         }
+        if let Some(runtime_route_frame) =
+            runtime_route_frame_for_bridge_input(&input.request, None)
+        {
+            self.apply_runtime_route_frame(session_id, runtime_route_frame)?;
+            self.commit()?;
+        }
         let created_at = input.created_at.unwrap_or_else(now_rfc3339);
         let turn_suffix = format!("{}_{}", session_hex_short(&session_hex), unix_millis());
         let turn_id = format!("turn_runtime_service_{turn_suffix}");
@@ -441,8 +736,10 @@ impl BridgeRuntime {
                 "prompt": prompt,
             }),
         })];
+        emit_runtime_bridge_event(&events[0]);
 
         let state_before_steps = self.agent_state(session_id)?;
+        let mut latest_state = state_before_steps.clone();
         let turn_started_at = Instant::now();
         let turn_timeout = runtime_bridge_turn_timeout();
         let step_timeout_limit = runtime_bridge_step_timeout();
@@ -457,6 +754,7 @@ impl BridgeRuntime {
         let mut step_result = Ok(());
         let mut completed_after_chat_reply = false;
         let mut kernel_events = Vec::new();
+        let mut kernel_event_next_ordinal = 0usize;
         while step_count < max_steps {
             let elapsed = turn_started_at.elapsed();
             if elapsed >= turn_timeout {
@@ -479,12 +777,21 @@ impl BridgeRuntime {
                 self.commit()?;
             }
             let mut step_events = self.drain_kernel_events();
-            let state = self.agent_state(session_id)?;
+            emit_runtime_bridge_kernel_events(
+                &input.thread_id,
+                &turn_id,
+                input.workspace_root.as_deref(),
+                kernel_event_next_ordinal,
+                &step_events,
+            );
+            kernel_event_next_ordinal += step_events.len();
             if let Err(error) = res {
                 step_result = Err(error);
                 kernel_events.append(&mut step_events);
                 break;
             }
+            let state = self.agent_state(session_id)?;
+            latest_state = state.clone();
             let step_emitted_chat_reply = step_events
                 .iter()
                 .any(kernel_event_is_successful_chat_reply);
@@ -513,8 +820,24 @@ impl BridgeRuntime {
             }
             step_count += 1;
         }
-        kernel_events.extend(self.drain_kernel_events());
-        let state = self.agent_state(session_id)?;
+        let mut tail_events = self.drain_kernel_events();
+        emit_runtime_bridge_kernel_events(
+            &input.thread_id,
+            &turn_id,
+            input.workspace_root.as_deref(),
+            kernel_event_next_ordinal,
+            &tail_events,
+        );
+        kernel_events.append(&mut tail_events);
+        let state = match self.agent_state(session_id) {
+            Ok(state) => state,
+            Err(error) => {
+                if step_result.is_ok() {
+                    step_result = Err(error);
+                }
+                latest_state
+            }
+        };
         let completed_at = now_rfc3339();
         let (status, stop_reason, event_kind, event_status, summary) =
             match (&state.status, step_result) {
@@ -708,6 +1031,31 @@ impl BridgeRuntime {
         codec::from_bytes_canonical(&bytes)
             .map_err(|error| anyhow!("failed to decode agent state: {error}"))
     }
+
+    fn apply_runtime_route_frame(
+        &mut self,
+        session_id: [u8; 32],
+        runtime_route_frame: RuntimeRouteFrame,
+    ) -> Result<()> {
+        let key = get_state_key(&session_id);
+        let Some(bytes) = self.state.get(&key)? else {
+            return Err(anyhow!(
+                "agent state missing for session {}",
+                hex::encode(session_id)
+            ));
+        };
+        let mut agent_state: AgentState = codec::from_bytes_canonical(&bytes)
+            .map_err(|error| anyhow!("failed to decode agent state: {error}"))?;
+        agent_state.runtime_route_frame = Some(runtime_route_frame);
+        agent_state.resolved_intent = None;
+        agent_state.awaiting_intent_clarification = false;
+        let encoded = codec::to_bytes_canonical(&agent_state)
+            .map_err(|error| anyhow!("failed to encode agent state: {error}"))?;
+        self.state
+            .insert(&key, &encoded)
+            .context("failed to persist runtime route frame")?;
+        Ok(())
+    }
 }
 
 struct TtiEventInput<'a> {
@@ -747,6 +1095,42 @@ fn tti_event(input: TtiEventInput<'_>) -> Value {
         "payload": input.payload,
         "fixture_profile": Value::Null,
     })
+}
+
+fn emit_runtime_bridge_event(event: &Value) {
+    println!(
+        "{}",
+        serde_json::to_string(&json!({
+            "type": "runtime_event",
+            "event": event,
+        }))
+        .unwrap()
+    );
+    let _ = io::stdout().flush();
+}
+
+fn emit_runtime_bridge_kernel_events(
+    thread_id: &str,
+    turn_id: &str,
+    workspace_root: Option<&str>,
+    start_ordinal: usize,
+    events: &[KernelEvent],
+) {
+    let created_at = now_rfc3339();
+    for (offset, event) in events.iter().enumerate() {
+        if let Some(mapped) = runtime_bridge_events::kernel_event_to_tti_event(
+            event,
+            &runtime_bridge_events::RuntimeBridgeEventContext {
+                thread_id,
+                turn_id,
+                workspace_root,
+                created_at: &created_at,
+                ordinal: start_ordinal + offset,
+            },
+        ) {
+            emit_runtime_bridge_event(&mapped);
+        }
+    }
 }
 
 fn read_bridge_request() -> Result<BridgeRequest> {

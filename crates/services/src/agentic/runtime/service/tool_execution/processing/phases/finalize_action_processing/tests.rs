@@ -5,16 +5,17 @@ use super::{
     latest_browser_tab_id, latest_child_session_id_hex, latest_retained_shell_command_id,
     maybe_enqueue_workspace_package_manifest_recovery,
     maybe_terminalize_workspace_package_manifest_read, observe_terminal_chat_reply_shape,
-    select_manifest_script_recovery_candidate, should_release_browser_after_terminal_reply,
-    terminal_chat_reply_layout_profile, tool_to_action_request,
-    toolcat_single_tool_agent_await_followup, toolcat_single_tool_browser_setup_followup,
-    toolcat_single_tool_chat_reply_recovery_followup,
+    read_only_workspace_context_duplicate_noop, select_manifest_script_recovery_candidate,
+    should_release_browser_after_terminal_reply, terminal_chat_reply_layout_profile,
+    tool_to_action_request, toolcat_single_tool_agent_await_followup,
+    toolcat_single_tool_browser_setup_followup, toolcat_single_tool_chat_reply_recovery_followup,
     toolcat_single_tool_duplicate_after_success_reply, toolcat_single_tool_failure_reply,
     toolcat_single_tool_reply_tool_name, toolcat_single_tool_retained_shell_followup,
     toolcat_single_tool_success_followup, workspace_goal_prefers_package_manifest_recovery,
     FailureClass, ManifestScriptRecoveryCandidate, TerminalChatReplyLayoutProfile,
 };
 use crate::agentic::runtime::service::queue::queue_action_request_to_tool;
+use crate::agentic::runtime::service::tool_execution::record_execution_evidence;
 use crate::agentic::runtime::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
 use ioi_types::app::agentic::{
     AgentTool, CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
@@ -817,6 +818,27 @@ fn duplicate_prior_success_noop_detects_retry_boundary() {
     assert!(!duplicate_prior_success_noop(&[
         "duplicate_action_fingerprint_non_command_noop=true".to_string(),
     ]));
+}
+
+#[test]
+fn workspace_read_context_duplicate_noop_is_not_terminal_failure() {
+    let mut agent_state = test_agent_state();
+    agent_state.resolved_intent = Some(workspace_ops_intent());
+    record_execution_evidence(&mut agent_state.tool_execution_log, "workspace_read");
+    record_execution_evidence(&mut agent_state.tool_execution_log, "file_context");
+
+    assert!(read_only_workspace_context_duplicate_noop(
+        &agent_state,
+        "file__read",
+    ));
+    assert!(read_only_workspace_context_duplicate_noop(
+        &agent_state,
+        "file__search",
+    ));
+    assert!(!read_only_workspace_context_duplicate_noop(
+        &agent_state,
+        "shell__run",
+    ));
 }
 
 #[test]

@@ -63,6 +63,85 @@ export interface RuntimeArtifact {
   content: string;
 }
 
+export interface ConversationArtifactRef {
+  ref: string;
+  role: string;
+  path?: string;
+  fileName?: string;
+  mediaType?: string;
+}
+
+export interface ConversationArtifactRevision {
+  id: string;
+  revision_id?: string;
+  revisionId?: string;
+  artifact_id?: string;
+  artifactId?: string;
+  status: string;
+  summary?: string;
+  source_refs?: ConversationArtifactRef[];
+  sourceRefs?: ConversationArtifactRef[];
+  original_refs?: ConversationArtifactRef[];
+  originalRefs?: ConversationArtifactRef[];
+  projection_refs?: ConversationArtifactRef[];
+  projectionRefs?: ConversationArtifactRef[];
+  preview_refs?: ConversationArtifactRef[];
+  previewRefs?: ConversationArtifactRef[];
+  log_refs?: ConversationArtifactRef[];
+  logRefs?: ConversationArtifactRef[];
+  created_at?: string;
+  createdAt?: string;
+}
+
+export interface ConversationArtifactRecord {
+  id: string;
+  artifact_id?: string;
+  artifactId?: string;
+  thread_id?: string | null;
+  threadId?: string | null;
+  artifact_class?: string;
+  artifactClass?: string;
+  title: string;
+  status: string;
+  state_label?: string;
+  stateLabel?: string;
+  summary?: string;
+  renderer?: Record<string, unknown>;
+  source_refs?: ConversationArtifactRef[];
+  sourceRefs?: ConversationArtifactRef[];
+  original_refs?: ConversationArtifactRef[];
+  originalRefs?: ConversationArtifactRef[];
+  projection_refs?: ConversationArtifactRef[];
+  projectionRefs?: ConversationArtifactRef[];
+  preview_refs?: ConversationArtifactRef[];
+  previewRefs?: ConversationArtifactRef[];
+  trace_refs?: string[];
+  traceRefs?: string[];
+  policy_refs?: string[];
+  policyRefs?: string[];
+  receipt_refs?: string[];
+  receiptRefs?: string[];
+  actions?: string[];
+  revisions?: ConversationArtifactRevision[];
+  latest_revision_id?: string;
+  latestRevisionId?: string;
+  export_refs?: ConversationArtifactRef[];
+  exportRefs?: ConversationArtifactRef[];
+  promotion_refs?: Record<string, unknown>[];
+  promotionRefs?: Record<string, unknown>[];
+  created_at?: string;
+  createdAt?: string;
+  updated_at?: string;
+  updatedAt?: string;
+}
+
+export interface ConversationArtifactActionResult {
+  action: string;
+  status: string;
+  artifact: ConversationArtifactRecord;
+  receipt?: RuntimeReceipt;
+}
+
 export interface RuntimeAgentRecord {
   id: string;
   status: "active" | "archived" | "closed";
@@ -1406,6 +1485,14 @@ export interface RuntimeSubstrateClient {
   conversation(runId: string): Promise<ConversationMessage[]>;
   listArtifacts(runId: string): Promise<RuntimeArtifact[]>;
   downloadArtifact(runId: string, artifactId: string): Promise<RuntimeArtifact>;
+  listConversationArtifacts(input?: { threadId?: string; thread_id?: string }): Promise<ConversationArtifactRecord[]>;
+  createConversationArtifact(threadId: string, input: Record<string, unknown>): Promise<{
+    artifact: ConversationArtifactRecord;
+    receipt?: RuntimeReceipt;
+  }>;
+  getConversationArtifact(artifactId: string): Promise<ConversationArtifactRecord>;
+  listConversationArtifactRevisions(artifactId: string): Promise<ConversationArtifactRevision[]>;
+  performConversationArtifactAction(artifactId: string, input: Record<string, unknown>): Promise<ConversationArtifactActionResult>;
   exportTrace(runId: string): Promise<RuntimeTraceBundle>;
   replayTrace(runId: string): AsyncIterable<IOISDKMessage>;
   inspectRun(runId: string): Promise<RuntimeTraceBundle>;
@@ -1978,6 +2065,48 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       "downloadArtifact",
       "GET",
       `/v1/runs/${encodePath(runId)}/artifacts/${encodePath(artifactId)}`,
+    );
+  }
+
+  async listConversationArtifacts(input: { threadId?: string; thread_id?: string } = {}): Promise<ConversationArtifactRecord[]> {
+    const threadId = input.threadId ?? input.thread_id;
+    const query = threadId ? `?threadId=${encodeURIComponent(threadId)}` : "";
+    return this.request("listConversationArtifacts", "GET", `/v1/conversation-artifacts${query}`);
+  }
+
+  async createConversationArtifact(threadId: string, input: Record<string, unknown>): Promise<{
+    artifact: ConversationArtifactRecord;
+    receipt?: RuntimeReceipt;
+  }> {
+    return this.request(
+      "createConversationArtifact",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/artifacts`,
+      input,
+    );
+  }
+
+  async getConversationArtifact(artifactId: string): Promise<ConversationArtifactRecord> {
+    return this.request("getConversationArtifact", "GET", `/v1/conversation-artifacts/${encodePath(artifactId)}`);
+  }
+
+  async listConversationArtifactRevisions(artifactId: string): Promise<ConversationArtifactRevision[]> {
+    return this.request(
+      "listConversationArtifactRevisions",
+      "GET",
+      `/v1/conversation-artifacts/${encodePath(artifactId)}/revisions`,
+    );
+  }
+
+  async performConversationArtifactAction(
+    artifactId: string,
+    input: Record<string, unknown>,
+  ): Promise<ConversationArtifactActionResult> {
+    return this.request(
+      "performConversationArtifactAction",
+      "POST",
+      `/v1/conversation-artifacts/${encodePath(artifactId)}/actions`,
+      input,
     );
   }
 

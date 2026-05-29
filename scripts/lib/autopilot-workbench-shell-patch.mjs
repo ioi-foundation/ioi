@@ -1699,7 +1699,7 @@ function workbenchShellJs() {
         };
         const bridgeRequestAlreadyWritten = await writeForkQuickInputBridgeRequest(row.requestType, selectionPayload);
         postForkQuickInputResult({
-          kind: kind === "agentmode" ? "agentMode" : kind === "permissionmode" ? "permissionMode" : kind,
+          kind: kind === "agentmode" ? "agentMode" : kind === "permissionmode" ? "permissionMode" : kind === "modelroute" ? "modelRoute" : kind,
           command,
           selectionId: row.id,
           executionMode,
@@ -2066,13 +2066,12 @@ function workbenchShellJs() {
         }))
         : [
           {
-            id: "no-mounted-models",
-            label: "No mounted models",
-            detail: "Open Models to mount a local model.",
-            meta: "",
-            codicon: "package",
-            disabled: true,
-            requestType: "chat.modelRoute.select",
+            id: "setup-recommended-models",
+            label: "Set up recommended models",
+            detail: "Open Models to download a hardware-appropriate chat model, plus optional story and embedding models.",
+            meta: "setup",
+            codicon: "cloud-download",
+            requestType: "models.open",
           },
         ];
       renderForkSimpleQuickInput("modelroute", "fork-model-route-quickinput", modelRows, command);

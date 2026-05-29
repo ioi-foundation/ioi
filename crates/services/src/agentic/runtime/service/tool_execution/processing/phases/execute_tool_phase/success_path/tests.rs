@@ -1,7 +1,7 @@
 use super::{
     compact_tool_history_entry_for_chat, tool_history_message_content, transcript_context_excerpts,
-    workspace_edit_receipt_details, TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT,
-    TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT,
+    workspace_edit_receipt_details, workspace_read_receipt_details,
+    TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT, TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT,
 };
 use ioi_types::app::agentic::AgentTool;
 use serde_json::json;
@@ -424,4 +424,23 @@ fn workspace_edit_receipt_details_distinguish_write_edit_and_patch_tools() {
     .expect("patch receipt details should exist");
     assert_eq!(patch.0, "file__edit");
     assert_eq!(patch.1, "step=9;tool=file__edit;path=path_utils.py");
+}
+
+#[test]
+fn workspace_read_receipt_details_include_search_as_file_context() {
+    let search = workspace_read_receipt_details(
+        &AgentTool::FsSearch {
+            path: ".".to_string(),
+            regex: "local|native|provider".to_string(),
+            file_pattern: Some("*.mjs".to_string()),
+        },
+        11,
+    )
+    .expect("search receipt details should exist");
+
+    assert!(search.contains("step=11"), "{search}");
+    assert!(search.contains("tool=file__search"), "{search}");
+    assert!(search.contains("path=."), "{search}");
+    assert!(search.contains("regex=local|native|provider"), "{search}");
+    assert!(search.contains("file_pattern=*.mjs"), "{search}");
 }
