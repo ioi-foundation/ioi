@@ -47,6 +47,7 @@ fn standard_prompt_assembly_omits_empty_sections_and_keeps_specialized_sections(
         "RECENT SESSION EVENTS:\nclicked checkout",
         "",
         "WORKSPACE CONTEXT:\nrepo=ioi",
+        "WORKSPACE CHANGE HANDLES:\n- change_id=workspace_change:123 lifecycle=applied tool=file__edit path=src/lib.rs edits=1 rollback_available=true",
         "OPERATING RULES:\n- verify success",
         Some("MAILBOX CONNECTOR RULE:\n- stay mailbox-local"),
         Some("SELECTED EXECUTION ROUTE:\n- Parent playbook: `evidence_audited_patch`"),
@@ -81,6 +82,9 @@ fn standard_prompt_assembly_omits_empty_sections_and_keeps_specialized_sections(
         .contains("WORKSPACE OPS CONTRACT"));
     assert!(assembly
         .system_instructions
+        .contains("WORKSPACE CHANGE HANDLES"));
+    assert!(assembly
+        .system_instructions
         .contains("TOOL ROUTING CONTRACT"));
     assert!(!assembly.system_instructions.contains("automation.monitor"));
 
@@ -95,6 +99,7 @@ fn standard_prompt_assembly_omits_empty_sections_and_keeps_specialized_sections(
     assert!(included_sections.contains(&"selected_parent_playbook_instruction"));
     assert!(included_sections.contains(&"active_worker_instruction"));
     assert!(included_sections.contains(&"workspace_scope_contract"));
+    assert!(included_sections.contains(&"workspace_change_context"));
     assert!(included_sections.contains(&"tool_routing_contract"));
     assert!(!included_sections.contains(&"automation_monitor_contract"));
 }

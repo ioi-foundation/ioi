@@ -273,6 +273,10 @@ fn tool_events_for_state(state: &AgentState) -> Vec<TrajectoryToolEvent> {
     tool_events
 }
 
+pub(crate) fn workspace_change_records_for_state(state: &AgentState) -> Vec<WorkspaceChangeRecord> {
+    workspace_changes_for_state(state)
+}
+
 fn workspace_changes_for_state(state: &AgentState) -> Vec<WorkspaceChangeRecord> {
     let mut changes = Vec::new();
     if let Some(pending_change) = pending_workspace_change_for_state(state) {

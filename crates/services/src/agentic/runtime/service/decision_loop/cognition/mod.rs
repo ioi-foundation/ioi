@@ -6,6 +6,7 @@ mod inference;
 mod router;
 mod tool_prompting;
 mod worker_context;
+mod workspace_changes;
 
 use crate::agentic::runtime::agent_playbooks::{
     playbook_decision_record, render_agent_playbook_catalog,
@@ -96,6 +97,7 @@ use worker_context::{
     build_strategy_instruction, render_active_worker_instruction,
     render_workspace_scope_instruction, workspace_reference_context,
 };
+use workspace_changes::render_workspace_change_context;
 
 const CURRENT_BROWSER_OBSERVATION_TIMEOUT: Duration = Duration::from_millis(1_500);
 const CURRENT_BROWSER_OBSERVATION_CACHE_MAX_AGE: Duration = Duration::from_secs(12);
@@ -480,6 +482,7 @@ Do not replace it with search snippets, stale model memory, or deterministic sum
     let tool_routing_contract =
         build_tool_routing_contract(prefer_browser_semantics, resolved_scope);
     let workspace_context = workspace_reference_context(prefer_browser_semantics, &perception);
+    let workspace_change_context = render_workspace_change_context(agent_state);
     let kernel_guidance = "IMPORTANT: Use only the available tools and grounded evidence from this step.\n\
 If an action requires approval, escalation, or missing capability handling, choose the corresponding tool path and let the runtime mediate it.\n\
 Do not claim success for actions you did not verify.";
@@ -638,6 +641,7 @@ Do not claim success for actions you did not verify.";
             &recent_session_events_section,
             &command_history_section,
             &workspace_context,
+            &workspace_change_context,
             &operating_rules,
             mailbox_instruction.as_deref(),
             selected_parent_playbook_instruction.as_deref(),

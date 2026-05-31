@@ -15,6 +15,7 @@ pub(crate) const PROMPT_SECTION_PENDING_WEB_EVIDENCE_MAX_CHARS: usize = 3_200;
 pub(crate) const PROMPT_SECTION_RECENT_EVENTS_MAX_CHARS: usize = 1_800;
 pub(crate) const PROMPT_SECTION_COMMAND_HISTORY_MAX_CHARS: usize = 1_600;
 pub(crate) const PROMPT_SECTION_WORKSPACE_CONTEXT_MAX_CHARS: usize = 1_200;
+pub(crate) const PROMPT_SECTION_WORKSPACE_CHANGE_CONTEXT_MAX_CHARS: usize = 1_000;
 pub(crate) const PROMPT_SECTION_OPERATING_RULES_MAX_CHARS: usize = 3_200;
 pub(crate) const PROMPT_SECTION_SPECIALIZED_INSTRUCTION_MAX_CHARS: usize = 1_200;
 pub(crate) const FINAL_REPLY_MAX_TOKENS: u32 = 2_400;
@@ -169,6 +170,7 @@ pub(crate) fn stable_prompt_cache_section(section_name: &str) -> bool {
             | "success_signal"
             | "recent_session_events"
             | "command_history"
+            | "workspace_change_context"
             | "urgent_feedback"
             | "failure_block"
     )
@@ -248,6 +250,7 @@ pub(crate) fn build_standard_prompt_assembly(
     recent_session_events_section: &str,
     command_history_section: &str,
     workspace_context: &str,
+    workspace_change_context: &str,
     operating_rules: &str,
     mailbox_instruction: Option<&str>,
     selected_parent_playbook_instruction: Option<&str>,
@@ -313,6 +316,8 @@ Only take actions that directly advance the USER GOAL.\n\n{}",
             .with_budget(PROMPT_SECTION_COMMAND_HISTORY_MAX_CHARS),
         PromptSection::new("workspace_context", workspace_context)
             .with_budget(PROMPT_SECTION_WORKSPACE_CONTEXT_MAX_CHARS),
+        PromptSection::new("workspace_change_context", workspace_change_context)
+            .with_budget(PROMPT_SECTION_WORKSPACE_CHANGE_CONTEXT_MAX_CHARS),
         PromptSection::new("operating_rules", operating_rules)
             .with_budget(PROMPT_SECTION_OPERATING_RULES_MAX_CHARS),
     ];
