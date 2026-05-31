@@ -129,7 +129,7 @@ pub use domain_topology::{
 use html::*;
 use html_registry::*;
 pub use intent_context::extract_user_request_from_contextualized_intent;
-pub use intent_signals::ChatIntentContext;
+pub use intent_signals::{ChatIntentContext, LocalRuntimeActionIntent};
 pub use specialized_policy::{
     chat_normalized_request_clarification_slots, chat_normalized_request_missing_slots,
     chat_specialized_domain_kind, chat_specialized_domain_kind_for_frame,

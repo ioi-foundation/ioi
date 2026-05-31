@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn document_briefing_quality_observation_does_not_require_identifier_bearing_sources() {
+fn document_report_quality_observation_does_not_require_identifier_bearing_sources() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let contract = crate::agentic::web::derive_web_retrieval_contract(query, None)
@@ -45,7 +45,45 @@ fn document_briefing_quality_observation_does_not_require_identifier_bearing_sou
 }
 
 #[test]
-fn document_briefing_quality_observation_requires_evidence_backed_identifier_inventory() {
+fn source_finding_quality_observation_accepts_citable_runtime_sources_without_metric_payload() {
+    let query = "Find current sources for today's top local AI model runtime issue.";
+    let contract =
+        crate::agentic::web::derive_web_retrieval_contract(query, None).expect("retrieval contract");
+    let selected_urls = vec![
+        "https://localai.io/basics/troubleshooting/".to_string(),
+        "https://localai.io/advanced/vram-management/index.html".to_string(),
+    ];
+    let source_hints = vec![
+        PendingSearchReadSummary {
+            url: selected_urls[0].clone(),
+            title: Some("Troubleshooting - LocalAI".to_string()),
+            excerpt: "Troubleshooting guide covering common issues when using LocalAI runtimes."
+                .to_string(),
+        },
+        PendingSearchReadSummary {
+            url: selected_urls[1].clone(),
+            title: Some("VRAM and Memory Management - LocalAI".to_string()),
+            excerpt: "LocalAI describes model loading failures when systems run out of VRAM."
+                .to_string(),
+        },
+    ];
+
+    let observation = selected_source_quality_observation_with_contract_and_locality_hint(
+        Some(&contract),
+        query,
+        2,
+        &selected_urls,
+        &source_hints,
+        None,
+    );
+
+    assert_eq!(observation.compatible_sources, 2);
+    assert_eq!(observation.locality_compatible_sources, 2);
+    assert!(observation.quality_floor_met);
+}
+
+#[test]
+fn document_report_quality_observation_requires_evidence_backed_identifier_inventory() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let contract = crate::agentic::web::derive_web_retrieval_contract(query, None)
@@ -90,7 +128,7 @@ fn document_briefing_quality_observation_requires_evidence_backed_identifier_inv
 }
 
 #[test]
-fn document_briefing_quality_observation_rejects_grounded_same_authority_selection_when_distinct_domain_floor_is_required(
+fn document_report_quality_observation_rejects_grounded_same_authority_selection_when_distinct_domain_floor_is_required(
 ) {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
@@ -135,7 +173,7 @@ fn document_briefing_quality_observation_rejects_grounded_same_authority_selecti
 }
 
 #[test]
-fn document_briefing_quality_observation_rejects_duplicate_ir_authority_family_fill() {
+fn document_report_quality_observation_rejects_duplicate_ir_authority_family_fill() {
     let query = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
     let contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
         .expect("retrieval contract");
@@ -185,7 +223,7 @@ fn document_briefing_quality_observation_rejects_duplicate_ir_authority_family_f
 }
 
 #[test]
-fn document_briefing_quality_observation_rejects_empty_snippet_duplicate_authority_family_fill() {
+fn document_report_quality_observation_rejects_empty_snippet_duplicate_authority_family_fill() {
     let query = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
     let contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
         .expect("retrieval contract");
@@ -228,7 +266,7 @@ fn document_briefing_quality_observation_rejects_empty_snippet_duplicate_authori
 }
 
 #[test]
-fn document_briefing_quality_observation_accepts_grounded_external_pdf_support_with_authority_pairing(
+fn document_report_quality_observation_accepts_grounded_external_pdf_support_with_authority_pairing(
 ) {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";

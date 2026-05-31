@@ -8,309 +8,25 @@ const { createStudioPanelHtml } = require("./studio/studio-panel-html");
 const { createStudioModelCompletion } = require("./studio/model-completion");
 const { createStudioOperationalSurface } = require("./studio/operational-surface");
 const { createModelSurfaceRenderer } = require("./studio/model-surface");
-
-const VIEW_DEFINITIONS = [
-  {
-    id: "ioi.chat",
-    title: "Chat",
-    eyebrow: "Outcome control plane",
-    description:
-      "Use Chat as a native workbench surface for code-aware prompting, patch review, and outcome shaping.",
-    actions: [
-      {
-        label: "Review current file",
-        command: "ioi.chat.reviewFile",
-      },
-      {
-        label: "Explain selected code",
-        command: "ioi.chat.explainSelection",
-      },
-    ],
-  },
-  {
-    id: "ioi.overviewActivity",
-    title: "Overview",
-    eyebrow: "Autopilot Home",
-    description:
-      "Open the IDE-native operator console for Build, Run, Govern, and Verify.",
-    actions: [],
-  },
-  {
-    id: "ioi.studio",
-    title: "Studio",
-    eyebrow: "Agent Studio",
-    description:
-      "Open the build surface for agents, workflows, model routes, and connector-safe applications.",
-    actions: [],
-  },
-  {
-    id: "ioi.workflows",
-    title: "Workflows",
-    eyebrow: "Agent orchestration",
-    description:
-      "Open the rich IDE-grade workflow compositor without an intermediate launcher pane.",
-    actions: [],
-  },
-  {
-    id: "ioi.models",
-    title: "Models",
-    eyebrow: "Daemon model runtime",
-    description:
-      "Mount, load, inspect, and bind local model routes through the IOI daemon.",
-    actions: [
-      {
-        label: "Open Models mode",
-        command: "ioi.models.open",
-      },
-      {
-        label: "Estimate native load",
-        command: "ioi.models.estimateNative",
-      },
-      {
-        label: "Load native model",
-        command: "ioi.models.loadNative",
-      },
-      {
-        label: "Open workflow binding",
-        command: "ioi.workflow.openComposer",
-        payload: {
-          scenarioId: "model-backed-dry-run",
-          phase: "model-binding",
-        },
-      },
-    ],
-  },
-  {
-    id: "ioi.runs",
-    title: "Runs",
-    eyebrow: "Runtime evidence",
-    description:
-      "Track active runs, surface receipts, and jump back to impacted files and artifacts.",
-    actions: [
-      {
-        label: "Open runs surface",
-        command: "ioi.runs.refresh",
-      },
-      {
-        label: "Review latest run in Chat",
-        command: "ioi.runs.review",
-      },
-      {
-        label: "Run browser remediation",
-        command: "ioi.automation.browser",
-      },
-      {
-        label: "Open terminal",
-        command: "workbench.action.terminal.toggleTerminal",
-      },
-      {
-        label: "Open output",
-        command: "workbench.action.output.toggleOutput",
-      },
-    ],
-  },
-  {
-    id: "ioi.runsActivity",
-    title: "Runs",
-    eyebrow: "Runtime evidence",
-    description:
-      "Open the persistent execution timeline and receipt surface directly.",
-    actions: [],
-  },
-  {
-    id: "ioi.artifacts",
-    title: "Artifacts",
-    eyebrow: "Evidence and receipts",
-    description:
-      "Inspect generated artifacts, provenance, and receipt-linked surfaces as a first-class workbench concern.",
-    actions: [
-      {
-        label: "Open evidence session",
-        command: "ioi.artifacts.openEvidence",
-      },
-      {
-        label: "Review latest artifact in Chat",
-        command: "ioi.artifacts.review",
-      },
-      {
-        label: "Open connector policy",
-        command: "ioi.artifacts.openPolicy",
-      },
-      {
-        label: "Review current file",
-        command: "ioi.chat.reviewFile",
-      },
-      {
-        label: "Open explorer",
-        command: "workbench.view.explorer",
-      },
-      {
-        label: "Reveal outline",
-        command: "outline.focus",
-      },
-    ],
-  },
-  {
-    id: "ioi.policy",
-    title: "Policy",
-    eyebrow: "Governed execution",
-    description:
-      "Keep approvals, authority, and policy context visible while acting from the workspace.",
-    actions: [
-      {
-        label: "Open policy context",
-        command: "ioi.policy.open",
-      },
-      {
-        label: "Show problems",
-        command: "workbench.actions.view.problems",
-      },
-      {
-        label: "Open settings",
-        command: "workbench.action.openSettings",
-      },
-    ],
-  },
-  {
-    id: "ioi.policyActivity",
-    title: "Policy",
-    eyebrow: "Governed execution",
-    description:
-      "Open the persistent approvals, policy, and authority surface directly.",
-    actions: [],
-  },
-  {
-    id: "ioi.connections",
-    title: "Connections",
-    eyebrow: "Services and integrations",
-    description:
-      "Inspect available services, runtime bindings, and connection posture from inside the workspace.",
-    actions: [
-      {
-        label: "Open connections surface",
-        command: "ioi.connections.inspect",
-      },
-      {
-        label: "Open connector overview",
-        command: "ioi.connections.openConnector",
-      },
-      {
-        label: "Show source control",
-        command: "workbench.view.scm",
-      },
-      {
-        label: "Open extensions",
-        command: "workbench.view.extensions",
-      },
-    ],
-  },
-  {
-    id: "ioi.connectorsActivity",
-    title: "Connectors",
-    eyebrow: "Services and integrations",
-    description:
-      "Open the persistent connector posture and dry-run binding surface directly.",
-    actions: [],
-  },
-  {
-    id: "ioi.codeActivity",
-    title: "Code",
-    eyebrow: "IDE substrate",
-    description:
-      "Drill into the VS Code substrate: files, search, source control, run/debug, extensions, and terminal tooling.",
-    actions: [],
-  },
-];
-
-const AUTOPILOT_MODES = [
-  {
-    id: "home",
-    title: "Home",
-    viewId: "ioi.overviewActivity",
-    panelViewType: "ioi.overview",
-    command: "ioi.overview.open",
-    activityContainer: "ioi-overview",
-    phase: "home",
-  },
-  {
-    id: "studio",
-    title: "Studio",
-    viewId: "ioi.studio",
-    panelViewType: "ioi.studio",
-    command: "ioi.studio.open",
-    activityContainer: "ioi-studio",
-    phase: "landing",
-  },
-  {
-    id: "workflows",
-    title: "Workflows",
-    viewId: "ioi.workflows",
-    panelViewType: "ioi.workflowComposer",
-    command: "ioi.workflow.openComposer",
-    activityContainer: "ioi-workflows",
-    phase: "canvas",
-  },
-  {
-    id: "models",
-    title: "Models",
-    viewId: "ioi.models",
-    panelViewType: "ioi.models",
-    command: "ioi.models.open",
-    activityContainer: "ioi-models",
-    phase: "model-library",
-  },
-  {
-    id: "runs",
-    title: "Runs",
-    viewId: "ioi.runsActivity",
-    panelViewId: "ioi.runs",
-    panelViewType: "ioi.runsMode",
-    command: "ioi.runs.refresh",
-    activityContainer: "ioi-runs",
-    phase: "timeline",
-  },
-  {
-    id: "policy",
-    title: "Policy",
-    viewId: "ioi.policyActivity",
-    panelViewId: "ioi.policy",
-    panelViewType: "ioi.policyMode",
-    command: "ioi.policy.open",
-    activityContainer: "ioi-policy",
-    phase: "approvals",
-  },
-  {
-    id: "connectors",
-    title: "Connectors",
-    viewId: "ioi.connectorsActivity",
-    panelViewId: "ioi.connections",
-    panelViewType: "ioi.connectorsMode",
-    command: "ioi.connections.inspect",
-    activityContainer: "ioi-connectors",
-    phase: "posture",
-  },
-  {
-    id: "code",
-    title: "Code",
-    viewId: "ioi.codeActivity",
-    panelViewType: "ioi.codeMode",
-    command: "ioi.code.open",
-    activityContainer: "ioi-code",
-    phase: "substrate",
-  },
-];
-
-const AUTOPILOT_MODE_BY_ID = Object.fromEntries(
-  AUTOPILOT_MODES.map((mode) => [mode.id, mode]),
-);
-const AUTOPILOT_MODE_BY_VIEW_ID = Object.fromEntries(
-  AUTOPILOT_MODES.map((mode) => [mode.viewId, mode]),
-);
-const AUTOPILOT_MODE_BY_PANEL_VIEW_ID = Object.fromEntries(
-  AUTOPILOT_MODES
-    .filter((mode) => mode.panelViewId)
-    .map((mode) => [mode.panelViewId, mode]),
-);
+const { createStudioAgentAnswerStreamProjector } = require("./studio/agent-answer-stream");
+const { createStudioAgentFinalHandoffStreamer } = require("./studio/agent-final-handoff-stream");
+const { createStudioAgentTurnEvents } = require("./studio/agent-turn-events");
+const { createStudioAgentTurnResultText } = require("./studio/agent-turn-result-text");
+const { createStudioAgentTurnRecovery } = require("./studio/agent-turn-recovery");
+const { createStudioProductErrorMessage } = require("./studio/product-error-message");
+const { studioRuntimeEventToolName, studioRuntimeEventKind, studioRuntimeEventIsRunningStepCompletion, studioRuntimeEventIdentity, studioRuntimeToolEventDetail } = require("./studio/runtime-event-utils");
+const {
+  studioArtifactResearchQuery,
+  studioArtifactShouldGatherResearch,
+  studioResearchIntentFrameForArtifact,
+} = require("./studio/artifact-research-routing");
+const {
+  AUTOPILOT_MODE_BY_ID,
+  AUTOPILOT_MODE_BY_PANEL_VIEW_ID,
+  AUTOPILOT_MODE_BY_VIEW_ID,
+  AUTOPILOT_MODES,
+  VIEW_DEFINITIONS,
+} = require("./workbench-surfaces");
 
 function bridgeUrl() {
   return process.env.IOI_WORKSPACE_IDE_BRIDGE_URL || null;
@@ -2205,7 +1921,7 @@ function studioHumanizeOperationalTranscriptText(value, role = "assistant") {
   }
   if (
     role === "assistant" &&
-    /Daemon agent turn completed but did not emit a final chat__reply/i.test(compact)
+    /Daemon agent turn completed but did not emit a final chat__reply|did not emit a final chat__reply|final chat__reply/i.test(compact)
   ) {
     return "Agent reached the runtime but did not produce a chat reply. Details are in Tracing.";
   }
@@ -2510,72 +2226,6 @@ function studioPendingWorklogLastAtMs() {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function nestedPayloadValue(value, keys = []) {
-  let current = value;
-  for (const key of keys) {
-    if (!current || typeof current !== "object") {
-      return undefined;
-    }
-    current = current[key];
-  }
-  return current;
-}
-
-function studioRuntimeEventToolName(event = {}) {
-  return (
-    event.tool_name ||
-    event.toolName ||
-    event.tool_id ||
-    event.toolId ||
-    event.data?.tool_name ||
-    event.data?.toolName ||
-    event.data?.tool_id ||
-    event.data?.toolId ||
-    event.payload?.tool_name ||
-    event.payload?.toolName ||
-    event.payload?.tool_id ||
-    event.payload?.toolId ||
-    event.payload_summary?.tool_name ||
-    event.payload_summary?.toolName ||
-    event.data?.payload?.tool_name ||
-    event.data?.payload?.toolName ||
-    event.data?.payload_summary?.tool_name ||
-    event.data?.payload_summary?.toolName ||
-    event.data?.kernel_event?.RoutingReceipt?.tool_name ||
-    event.data?.kernel_event?.ToolCall?.tool_name ||
-    event.data?.kernel_event?.ToolResult?.tool_name ||
-    nestedPayloadValue(event, ["raw", "payload", "tool_name"]) ||
-    nestedPayloadValue(event, ["raw", "payload", "toolName"]) ||
-    ""
-  );
-}
-
-function studioRuntimeEventKind(event = {}) {
-  return String(
-    event.event_kind ||
-      event.eventKind ||
-      event.kind ||
-      event.type ||
-      event.data?.runtime_event_kind ||
-      event.data?.runtimeEventKind ||
-      event.data?.event_kind ||
-      event.data?.eventKind ||
-      event.payload?.event_kind ||
-      event.payload?.eventKind ||
-      "",
-  );
-}
-
-function studioRuntimeEventIdentity(event = {}) {
-  return stringValue(
-    event.event_id ||
-      event.eventId ||
-      event.id ||
-      (event.event_stream_id && event.seq ? `${event.event_stream_id}:${event.seq}` : "") ||
-      (event.eventStreamId && event.seq ? `${event.eventStreamId}:${event.seq}` : ""),
-  );
-}
-
 function studioRuntimeEventSeen(event = {}) {
   const id = studioRuntimeEventIdentity(event);
   if (!id) {
@@ -2597,54 +2247,6 @@ function markStudioRuntimeEventSeen(event = {}) {
     id,
   ].slice(-300);
   return true;
-}
-
-function parseStudioMaybeJsonObject(value) {
-  const text = stringValue(value);
-  if (!text || !/^\s*[\[{]/.test(text)) {
-    return null;
-  }
-  try {
-    const parsed = JSON.parse(text);
-    return parsed && typeof parsed === "object" ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function studioRuntimeToolEventDetail(event = {}, toolName = "", summary = "") {
-  const payload = event.payload_summary || event.payloadSummary || event.payload || event.data || {};
-  const parsedSummary = parseStudioMaybeJsonObject(summary);
-  const source = parsedSummary || payload;
-  const args = source.arguments || source.args || payload.arguments || payload.args || {};
-  const query = stringValue(source.query || args.query || payload.query || payload.input_query);
-  if (query) {
-    return `query: ${compactStudioWhitespace(query).slice(0, 140)}`;
-  }
-  const pathValue = stringValue(source.path || args.path || source.file || args.file || payload.path);
-  if (pathValue) {
-    return pathValue;
-  }
-  const url = stringValue(source.url || args.url || firstArray(source.sources)[0]?.url || payload.url);
-  if (url) {
-    try {
-      const parsed = new URL(url);
-      return parsed.hostname || url;
-    } catch {
-      return compactStudioWhitespace(url).slice(0, 140);
-    }
-  }
-  const title = stringValue(firstArray(source.sources)[0]?.title || source.title || payload.title);
-  if (title) {
-    return compactStudioWhitespace(title).slice(0, 140);
-  }
-  if (/shell|command|terminal/.test(toolName)) {
-    const command = stringValue(source.command || args.command || payload.command);
-    if (command) {
-      return compactStudioWhitespace(command).slice(0, 140);
-    }
-  }
-  return "";
 }
 
 function studioPendingStepFromRuntimeEvent(event = {}, { kind = "", toolName = "", status = "", summary = "" } = {}) {
@@ -2686,79 +2288,6 @@ function studioRuntimeToolEventCount(events = [], pattern) {
   return firstArray(events).filter((event) => pattern.test(String(studioRuntimeEventToolName(event)).toLowerCase())).length;
 }
 
-function normalizeStudioAssistantReplyText(value) {
-  const text = stringValue(value);
-  if (!text) {
-    return "";
-  }
-  return text.replace(/^Replied:\s*/i, "").trim();
-}
-
-function studioAssistantReplyTextIsDeferred(text = "") {
-  return /\bdeferred\s+chat__reply\b|\bfresh\s+web__search\/web__read\s+evidence\b/i.test(stringValue(text));
-}
-
-function normalizeStudioAgentResultText(value) {
-  const text = normalizeStudioAssistantReplyText(value);
-  if (!text || studioAssistantReplyTextIsDeferred(text) || /^Runtime step completed\.?$/i.test(text)) {
-    return "";
-  }
-  return text;
-}
-
-function studioAssistantTextFromRuntimeToolEvents(events = []) {
-  for (const event of firstArray(events).slice().reverse()) {
-    if (String(studioRuntimeEventToolName(event)).toLowerCase() !== "chat__reply") {
-      continue;
-    }
-    const text = normalizeStudioAssistantReplyText(
-      event.payload?.output ||
-        event.payload?.message ||
-        event.payload?.text ||
-        event.payload_summary?.output ||
-        event.payload_summary?.message ||
-        event.payload_summary?.text ||
-        event.payload_summary?.result_summary ||
-        event.payload_summary?.summary ||
-        event.summary,
-    );
-    if (text && !studioAssistantReplyTextIsDeferred(text)) {
-      return text;
-    }
-  }
-  return "";
-}
-
-function studioAgentTurnResultText(turn = {}, events = []) {
-  const toolReply = studioAssistantTextFromRuntimeToolEvents(events);
-  if (toolReply) {
-    return toolReply;
-  }
-  const direct =
-    turn.result ||
-    turn.output ||
-    turn.text ||
-    turn.message ||
-    turn.summary ||
-    turn.payload_summary?.result_summary ||
-    "";
-  const directText = normalizeStudioAgentResultText(direct);
-  if (directText) {
-    return directText;
-  }
-  const completed = firstArray(events)
-    .slice()
-    .reverse()
-    .find((event) => /turn\.completed|completed/.test(studioRuntimeEventKind(event).toLowerCase()));
-  return normalizeStudioAgentResultText(
-    completed?.summary ||
-      completed?.payload_summary?.result_summary ||
-      completed?.payload?.summary ||
-      completed?.payload?.result ||
-      completed?.payload?.message,
-  );
-}
-
 function resetStudioDaemonThreadProjection() {
   studioRuntimeProjection.threadId = null;
   studioRuntimeProjection.sessionId = null;
@@ -2768,6 +2297,7 @@ function resetStudioDaemonThreadProjection() {
   studioRuntimeProjection.lastIntentFrame = null;
   studioRuntimeProjection.pendingWorklog = [];
   studioRuntimeProjection.runtimeEventSeenIds = [];
+  studioAgentAnswerStreamProjector.reset();
 }
 
 function startNewStudioSession(reason = "New Studio session") {
@@ -2805,16 +2335,30 @@ function studioRetrievalFailClosedText({ prompt = "", events = [], blockedReason
   const promptClause = promptText ? ` for "${promptText.slice(0, 160)}"` : "";
   const reasonClause = blockedReason ? ` Runtime stop reason: ${blockedReason}` : "";
   return [
-    `Fresh retrieval ran through Agent Mode${promptClause} (${searchCount} search event${searchCount === 1 ? "" : "s"}, ${readCount} read event${readCount === 1 ? "" : "s"}), but the runtime did not emit a final chat__reply.`,
-    "I will not choose or summarize from stale model memory.",
+    `Fresh retrieval ran through Agent Mode${promptClause} (${searchCount} search event${searchCount === 1 ? "" : "s"}, ${readCount} read event${readCount === 1 ? "" : "s"}), but the runtime did not emit a clean final answer.`,
+    "I need fresh sources before answering this.",
     reasonClause,
   ].filter(Boolean).join(" ");
 }
 
 function studioResultTextLooksRetrievalGrounded(text = "") {
-  return /\b(web retrieval summary|current snapshot|citations?:|retrieved_utc|fresh evidence|retrieved current sources|stale model memory)\b/i.test(
+  return /\b(web retrieval summary|current snapshot|citations?:|retrieved_utc|fresh evidence|retrieved current sources)\b/i.test(
     stringValue(text),
   );
+}
+
+function studioAgentMaxStepsForIntent(intentFrame = {}, prompt = "") {
+  const intentText = `${stringValue(prompt)} ${JSON.stringify(studioIntentFramePayload(intentFrame))}`.toLowerCase();
+  if (
+    studioIntentFrameRequiresRetrieval(intentFrame, prompt) ||
+    /\b(latest|current|today|now|price|investment|sources?|citations?|cite|web|search)\b/.test(intentText)
+  ) {
+    return 24;
+  }
+  if (/\b(repository|repo|codebase|workspace|files?|tests?|debug|fix|implement|refactor)\b/.test(intentText)) {
+    return 16;
+  }
+  return 12;
 }
 
 function studioTextIndicatesApprovalPause(text = "") {
@@ -2833,6 +2377,44 @@ function studioApprovalPauseErrorMessage({ resultText, events = [] } = {}) {
     "Details are in Tracing.",
     resultText && !/^waiting for approval\.?$/i.test(resultText) ? `Runtime status: ${resultText}.` : "",
   ].filter(Boolean).join(" ");
+}
+
+function studioPolicyBlockedRuntimeMessage({ prompt = "", resultText = "", events = [] } = {}) {
+  const combined = [
+    prompt,
+    resultText,
+    ...firstArray(events).map((event) =>
+      [
+        event?.summary,
+        event?.payload?.output,
+        event?.payload?.message,
+        event?.payload_summary?.output,
+        event?.payload_summary?.message,
+        event?.payload_summary?.summary,
+      ].filter(Boolean).join(" "),
+    ),
+  ].join(" ");
+  if (!/\b(Blocked by Policy|PolicyBlocked|policy blocking|outside workspace authority|outside the workspace boundary|symlink paths? must be resolved)\b/i.test(combined)) {
+    return "";
+  }
+  const observedTools = uniqueStrings(firstArray(events).map((event) => studioRuntimeEventToolName(event)).filter(Boolean));
+  const fileReadBlocked = observedTools.some((tool) => String(tool).toLowerCase() === "file__read") ||
+    /\bfile__read\b/i.test(combined);
+  if (!fileReadBlocked) {
+    return "";
+  }
+  const path = (
+    String(prompt || "").match(/`([^`]+)`/) ||
+    String(resultText || "").match(/\bread\s+(\/\S+)/i) ||
+    []
+  )[1];
+  const reason = /\bsymlink paths? must be resolved\b|\bsymlink\b/i.test(combined)
+    ? "because symlink targets require an explicit governed workflow"
+    : "because the target is outside the workspace boundary";
+  return [
+    `The daemon blocked the file read${path ? ` for \`${path}\`` : ""} ${reason}.`,
+    "I did not expose the file contents. Details are in Tracing.",
+  ].join(" ");
 }
 
 function studioApprovalPauseError({ resultText, events = [] } = {}) {
@@ -3091,6 +2673,7 @@ function studioThinkingRows(turn = {}) {
   `;
 }
 
+function studioTurnContentRows(turn = {}, displayContent = "") { return turn.role === "assistant" ? `<div class="studio-markdown" data-testid="${turn.modelStream?.streamId ? "studio-streaming-output" : "studio-assistant-answer-text"}">${escapeHtml(displayContent)}</div>` : `<p>${escapeHtml(displayContent)}</p>`; }
 function studioVerifiedBadge(payload = {}, label = "Verified") {
   const receiptRefs = normalizeReceiptRefs(payload);
   const hasReceipt = receiptRefs.length > 0;
@@ -4136,26 +3719,7 @@ function studioArtifactMaxOutputTokens() {
   return STUDIO_DEFAULT_ARTIFACT_MAX_OUTPUT_TOKENS;
 }
 
-function studioCleanProductErrorMessage(error) {
-  const text = stringValue(error?.message || error?.code || error);
-  if (/timed out|timeout/i.test(text)) {
-    return "The selected model route took too long to respond. Details are in Tracing.";
-  }
-  if (/product_model_unavailable|No product model is mounted|product model route/i.test(text)) {
-    return "No product model is mounted for this route. Open Manage models and load a real local model.";
-  }
-  if (/OpenAI-compatible provider stream failed|Daemon stream failed|provider stream failed|external_blocker/i.test(text)) {
-    return "The selected model route failed while streaming. Details are in Tracing.";
-  }
-  if (/fixture|deterministic/i.test(text)) {
-    return "The selected product route refused fixture output. Details are in Tracing.";
-  }
-  return text
-    .replace(/\{[\s\S]*\}/g, "Details are in Tracing.")
-    .replace(/\[[^\]]+\]\s*/g, "")
-    .trim()
-    .slice(0, 320) || "Studio could not complete the turn. Details are in Tracing.";
-}
+const { studioCleanProductErrorMessage } = createStudioProductErrorMessage({ stringValue });
 
 function modelRecordStatusScore(...records) {
   const status = records.map((record) => String(record?.status || record?.state || "").toLowerCase()).join(" ");
@@ -4595,7 +4159,7 @@ function studioTurnRows() {
           <span>${escapeHtml(turn.createdAt || "")}</span>
         </div>
         ${turn.role === "assistant" ? studioThinkingRows(turn) : ""}
-        <p${turn.modelStream?.streamId ? ' data-testid="studio-streaming-output"' : turn.role === "assistant" ? ' data-testid="studio-assistant-answer-text"' : ""}>${escapeHtml(displayContent)}</p>
+        ${studioTurnContentRows(turn, displayContent)}
         ${turn.role === "assistant" ? studioConversationArtifactRows(turn.artifacts || workRecord?.artifactCards || []) : ""}
         ${turn.role === "assistant" ? studioChatOutputRendererRows(turn, index) : ""}
         ${turn.role === "assistant" ? studioChatCodeExecutionRows(turn, index) : ""}
@@ -8697,24 +8261,7 @@ async function openOverviewPanel(context, output) {
         typeof message.requestType === "string"
       ) {
         if (message.requestType === "chat.agentMode.select") {
-          const previousMode = normalizeStudioExecutionMode(studioRuntimeProjection.executionMode);
-          const previousRuntimeProfile = studioRuntimeProjection.runtimeProfile;
-          studioRuntimeProjection.executionMode = normalizeStudioExecutionMode(
-            message.payload?.executionMode || message.payload?.selectionId || message.payload?.label,
-          );
-          studioRuntimeProjection.runtimeProfile =
-            studioRuntimeProjection.executionMode === STUDIO_MODE_AGENT
-              ? STUDIO_AGENT_RUNTIME_PROFILE
-              : STUDIO_DIRECT_MODEL_RUNTIME_PROFILE;
-          if (
-            studioRuntimeProjection.threadId &&
-            (
-              previousMode !== studioRuntimeProjection.executionMode ||
-              previousRuntimeProfile !== studioRuntimeProjection.runtimeProfile
-            )
-          ) {
-            resetStudioDaemonThreadProjection();
-          }
+          applyStudioAgentModeSelection(message.payload || {});
           await refreshStudioPanelHtml(output);
           await focusStudioPanelComposer();
         }
@@ -8723,15 +8270,17 @@ async function openOverviewPanel(context, output) {
           await refreshStudioPanelHtml(output);
           await focusStudioPanelComposer();
         }
-        await writeBridgeRequest(
-          message.requestType,
-          message.payload || {},
-          buildWorkspaceActionContext("overview-panel-webview"),
-        ).catch((error) => {
-          output.appendLine(
-            `[ioi-overview] bridge request unavailable: ${error?.message || String(error)}`,
-          );
-        });
+        if (!message.payload?.bridgeRequestAlreadyWritten) {
+          await writeBridgeRequest(
+            message.requestType,
+            message.payload || {},
+            buildWorkspaceActionContext("overview-panel-webview"),
+          ).catch((error) => {
+            output.appendLine(
+              `[ioi-overview] bridge request unavailable: ${error?.message || String(error)}`,
+            );
+          });
+        }
         return;
       }
       if (message?.type !== "command" || typeof message.command !== "string") {
@@ -9281,13 +8830,11 @@ function studioIntentFrameRouteDirective(intentFrame = {}) {
 }
 
 function studioIntentFrameProjectsArtifact(intentFrame = {}) {
-  return studioIntentFrameRouteDirective(intentFrame) === "artifact" ||
-    Boolean(intentFrame?.artifact?.required);
+  return studioIntentFrameRouteDirective(intentFrame) === "artifact" || Boolean(intentFrame?.artifact?.required);
 }
 
 function studioIntentFrameProjectsRuntimeCockpit(intentFrame = {}) {
-  return studioIntentFrameRouteDirective(intentFrame) === "runtime_cockpit" ||
-    stringValue(intentFrame?.intentId || intentFrame?.intent_id) === "runtime.inspect";
+  return studioIntentFrameRouteDirective(intentFrame) === "runtime_cockpit" || stringValue(intentFrame?.intentId || intentFrame?.intent_id) === "runtime.inspect";
 }
 
 function studioIntentFrameRequiresRetrieval(intentFrame = {}, prompt = "") {
@@ -9298,10 +8845,7 @@ function studioIntentFrameRequiresRetrieval(intentFrame = {}, prompt = "") {
 }
 
 function studioIntentFrameArtifactClass(intentFrame = {}, prompt = "") {
-  return stringValue(
-    intentFrame?.artifact?.class ||
-      intentFrame?.artifact?.artifactClass ||
-      intentFrame?.artifact?.artifact_class,
+  return stringValue(intentFrame?.artifact?.class || intentFrame?.artifact?.artifactClass || intentFrame?.artifact?.artifact_class,
     studioArtifactClassFromPrompt(prompt),
   );
 }
@@ -9319,56 +8863,15 @@ function studioIntentFrameArtifactSummary(intentFrame = {}, prompt = "") {
   );
 }
 
-function studioPromptExplicitlyRequiresSources(prompt = "") {
-  return /\b(cite|citation|sources?|with sources?|using sources?|web|internet|online|references?)\b/i.test(
-    stringValue(prompt),
-  );
-}
-
-function studioResearchIntentFrameForArtifact(intentFrame = {}) {
-  const retrieval = intentFrame?.retrieval && typeof intentFrame.retrieval === "object"
-    ? intentFrame.retrieval
-    : { required: true, requirements: ["source_grounding"] };
-  return {
-    ...studioIntentFramePayload(intentFrame),
-    intentId: "retrieval.answer",
-    intent_id: "retrieval.answer",
-    routeDirective: "agent",
-    route_directive: "agent",
-    artifact: {
-      required: false,
-      class: null,
-      artifactClass: null,
-      outputModality: null,
-      title: null,
-      summary: null,
-    },
-    retrieval: {
-      ...retrieval,
-      required: true,
-      requirements: uniqueStrings([
-        ...firstArray(retrieval.requirements),
-        ...firstArray(retrieval.requiredCapabilities),
-        "source_grounding",
-      ]),
-    },
-    effectContract: {
-      applicabilityClass: "remote_retrieval",
-      effectLevel: "read_only_external",
-      sandbox: null,
-      typedActionsOnly: false,
-      receiptsRequired: ["retrieval_search", "retrieval_read", "chat_reply"],
-    },
-  };
-}
-
 function fallbackStudioPromptIntentFrame(prompt = "", { executionMode = STUDIO_MODE_AGENT } = {}) {
   const normalizedExecutionMode = normalizeStudioExecutionMode(executionMode);
   const artifactClass = shouldProjectConversationArtifactCanvas(prompt)
     ? studioArtifactClassFromPrompt(prompt)
     : null;
   const projectsRuntime = !artifactClass && shouldProjectStudioRuntimeCockpit(prompt);
-  const requiresRetrieval = promptRequiresRetrieval(prompt);
+  const requiresRetrieval =
+    promptRequiresRetrieval(prompt) ||
+    studioArtifactShouldGatherResearch(prompt, artifactClass);
   const requiresWorkspaceContext = promptRequiresWorkspaceContext(prompt, normalizedExecutionMode);
   const routeDirective = normalizedExecutionMode === STUDIO_MODE_ASK
     ? "ask"
@@ -9403,6 +8906,7 @@ function fallbackStudioPromptIntentFrame(prompt = "", { executionMode = STUDIO_M
   return {
     schemaVersion: "ioi.studio.intent-frame.fallback.v1",
     object: "ioi.studio_intent_frame",
+    target: prompt, query: requiresRetrieval ? prompt : null,
     intentId,
     routeDirective,
     executionMode: normalizedExecutionMode,
@@ -9426,7 +8930,7 @@ function fallbackStudioPromptIntentFrame(prompt = "", { executionMode = STUDIO_M
       summary: artifactClass ? studioIntentFrameArtifactSummary({}, prompt) : null,
     },
     effectContract: {
-      applicabilityClass: artifactClass ? "deterministic_local" : requiresRetrieval ? "remote_retrieval" : requiresWorkspaceContext ? "workspace_context" : "conversation",
+      applicabilityClass: artifactClass ? "local_artifact_generation" : requiresRetrieval ? "remote_retrieval" : requiresWorkspaceContext ? "workspace_context" : "conversation",
       effectLevel: artifactClass ? "sandboxed_generation" : requiresRetrieval ? "read_only_external" : requiresWorkspaceContext ? "read_only_workspace" : "none",
       sandbox: artifactClass ? "artifact_renderer" : requiresWorkspaceContext ? "workspace_readonly" : null,
       typedActionsOnly: Boolean(artifactClass),
@@ -9450,6 +8954,7 @@ function studioIntentFramePayload(intentFrame = {}) {
   }
   return {
     schemaVersion: intentFrame.schemaVersion || intentFrame.schema_version || null,
+    target: intentFrame.target || null, query: intentFrame.query || null,
     intentId: intentFrame.intentId || intentFrame.intent_id || null,
     routeDirective: intentFrame.routeDirective || intentFrame.route_directive || null,
     executionMode: intentFrame.executionMode || intentFrame.execution_mode || null,
@@ -9464,6 +8969,7 @@ function studioIntentFramePayload(intentFrame = {}) {
           source: intentFrame.decisionMaterial.source || null,
           matchedFeatures: firstArray(intentFrame.decisionMaterial.matchedFeatures),
           promptHash: intentFrame.decisionMaterial.promptHash || null,
+          promptPreview: intentFrame.decisionMaterial.promptPreview || null,
         }
       : null,
   };
@@ -9482,11 +8988,11 @@ async function resolveStudioPromptIntentFrame(prompt = "", options = {}, output)
       payload: {
         prompt,
         executionMode: normalizeStudioExecutionMode(options.executionMode || options.execution_mode),
-        routeId: options.selectedRoute || options.routeId || studioRuntimeProjection.modelRoute || "route.local-first",
-        modelId: options.selectedModelId || options.modelId || studioRuntimeProjection.selectedModel || "auto",
-        approvalMode: options.approvalMode || studioRuntimeProjection.approvalMode,
-        workspaceRoot: options.workspacePath || workspaceSummary().path,
-        source: "agent-studio-submit",
+    routeId: options.selectedRoute || options.routeId || studioRuntimeProjection.modelRoute || "route.local-first",
+    modelId: options.selectedModelId || options.modelId || studioRuntimeProjection.selectedModel || "auto",
+    approvalMode: options.approvalMode || studioRuntimeProjection.approvalMode,
+    workspaceRoot: options.workspacePath || workspaceSummary().path,
+    source: "agent-studio-submit",
       },
     });
     if (frame && typeof frame === "object") {
@@ -9551,27 +9057,6 @@ function studioArtifactTitleFromClass(classId, prompt = "") {
     default:
       return "Test results report";
   }
-}
-
-function studioArtifactAnswerText(artifacts = []) {
-  const artifact = artifacts[0] || {};
-  const label = studioArtifactClassLabel(artifact).toLowerCase();
-  if (studioArtifactIsWebsite(artifact)) {
-    return "I made the website artifact. You can preview it below, then ask me to revise the copy, layout, or visuals.";
-  }
-  if ((artifact.artifactClass || artifact.artifact_class) === "imported_document") {
-    return "I turned the document into an artifact, preserved the original, prepared the tightened projection, and staged compare/export actions.";
-  }
-  if ((artifact.artifactClass || artifact.artifact_class) === "react_vite_app") {
-    return "I built the app artifact in a sandboxed preview. You can inspect it below and send me the next edit.";
-  }
-  if ((artifact.artifactClass || artifact.artifact_class) === "diff_patch") {
-    return "I prepared the patch as an approval-gated artifact so it can be reviewed, applied, or rolled back.";
-  }
-  if ((artifact.artifactClass || artifact.artifact_class) === "browser_observation") {
-    return "I captured the managed browser session as an artifact so you can inspect it and ask follow-up questions without exposing trace details in chat.";
-  }
-  return `I created the ${label} artifact and attached the clean preview below.`;
 }
 
 async function recoverStudioConversationArtifactAfterTimeout(threadId, { title, artifactClass, startedAtMs } = {}, output) {
@@ -9708,42 +9193,6 @@ async function runStudioConversationArtifactAction(artifactId, action, output, p
   }
 }
 
-async function collectStudioArtifactResearchContext(prompt, output, intentFrame = {}) {
-  const explicitSourceRequirement = studioPromptExplicitlyRequiresSources(prompt);
-  const promptNeedsRetrieval = promptRequiresRetrieval(prompt);
-  if (!explicitSourceRequirement && !promptNeedsRetrieval) {
-    return "";
-  }
-  if (!studioIntentFrameRequiresRetrieval(intentFrame, prompt) && !promptNeedsRetrieval) {
-    return "";
-  }
-  try {
-    const result = await submitStudioAgentTurn({
-      prompt: [
-        "Gather concise source context for a generated artifact.",
-        "Return only short factual notes and source hints that will help write the artifact.",
-        "Do not write the final artifact yet.",
-        "",
-        "Artifact request:",
-        prompt,
-      ].join("\n"),
-      selectedRoute: studioRuntimeProjection.modelRoute || "route.local-first",
-      selectedModelId: studioRuntimeProjection.selectedModel || "auto",
-      reasoningEffort: studioRuntimeProjection.reasoningEffort || "none",
-      workspacePath: workspaceSummary().path,
-      intentFrame: studioResearchIntentFrameForArtifact(intentFrame),
-    }, output);
-    const text = stringValue(result?.text);
-    return text;
-  } catch (error) {
-    output?.appendLine?.(`[ioi-studio] artifact source context unavailable: ${error?.message || String(error)}`);
-    if (explicitSourceRequirement) {
-      throw error;
-    }
-    return "";
-  }
-}
-
 async function projectStudioConversationArtifactCanvas(prompt, output, intentFrame = {}) {
   await ensureStudioDaemonThread({
     model: studioRuntimeProjection.modelRoute || "route.local-first",
@@ -9758,32 +9207,16 @@ async function projectStudioConversationArtifactCanvas(prompt, output, intentFra
   const artifactClass = studioIntentFrameArtifactClass(intentFrame, prompt);
   let generatedFiles = null;
   let generatedFilesError = null;
-  let researchContext = "";
   if (artifactClass === "static_html_js" && studioPromptRequestsGeneratedWebArtifact(prompt)) {
     try {
-      researchContext = await collectStudioArtifactResearchContext(prompt, output, intentFrame);
-    } catch (error) {
-      const detail = error?.message || "Required source context was unavailable.";
-      appendStudioTimeline("Website artifact source context blocked", detail, "blocked");
-      return {
-        status: "blocked",
-        events: [],
-        receiptRefs: [],
-        text: "I could not create the website artifact because required source research did not complete. Details are in Tracing.",
-        artifacts: [],
-      };
-    }
-  }
-  if (artifactClass === "static_html_js" && studioPromptRequestsGeneratedWebArtifact(prompt)) {
-    try {
-      generatedFiles = await generateStudioStaticWebsiteDraft({
+      generatedFiles = await generateStudioStaticWebsiteDraftThroughAgentTurn({
         prompt,
         title: studioIntentFrameArtifactTitle(intentFrame, artifactClass, prompt),
         selectedRoute: studioRuntimeProjection.modelRoute || "route.local-first",
         selectedModelId: studioRuntimeProjection.selectedModel || "auto",
         reasoningEffort: studioRuntimeProjection.reasoningEffort || "none",
         workspacePath: workspaceSummary().path,
-        researchContext,
+        intentFrame,
       }, output);
     } catch (error) {
       generatedFilesError = error;
@@ -9791,19 +9224,32 @@ async function projectStudioConversationArtifactCanvas(prompt, output, intentFra
     }
   }
   if (artifactClass === "static_html_js" && studioPromptRequestsGeneratedWebArtifact(prompt) && !generatedFiles) {
-    const detail = generatedFilesError?.message || "The selected model did not return usable website content.";
+    const detail = generatedFilesError?.message || "Artifact boundary rejected generated website draft.";
     const cleanDetail = generatedFilesError
       ? studioCleanProductErrorMessage(generatedFilesError)
-      : "The selected model did not return usable website content.";
+      : "Artifact boundary rejected generated website draft.";
     appendStudioTimeline("Website artifact blocked", detail, "blocked");
+    let blockedText = /No product model is mounted/i.test(cleanDetail) ? cleanDetail : "";
+    if (!blockedText) {
+      try {
+        const handoff = await studioModelCompletion.streamStudioArtifactBlockedHandoff({
+          prompt,
+          selectedRoute: studioRuntimeProjection.modelRoute || "route.local-first",
+          selectedModelId: studioRuntimeProjection.selectedModel || "auto",
+          reasoningEffort: studioRuntimeProjection.reasoningEffort || "none",
+          workspacePath: workspaceSummary().path,
+          handoffContext: `Artifact class: static HTML website.\nBoundary result: selected model draft did not pass artifact validation.\nArtifact created: no.\nProduct-safe detail: ${cleanDetail}`,
+        }, output);
+        blockedText = handoff.text;
+      } catch (handoffError) {
+        output?.appendLine?.(`[ioi-studio] website artifact blocked handoff failed: ${handoffError?.message || String(handoffError)}`);
+      }
+    }
     return {
       status: "blocked",
       events: [],
       receiptRefs: [],
-      text: /No product model is mounted/i.test(cleanDetail)
-        ? cleanDetail
-        : "I could not create the website artifact because the selected model did not return usable website content. " +
-          "I did not create a canned fallback page; details are in Tracing.",
+      text: blockedText,
       artifacts: [],
     };
   }
@@ -9829,13 +9275,35 @@ async function projectStudioConversationArtifactCanvas(prompt, output, intentFra
   appendStudioTimeline("Conversation artifact ready", artifact.title || artifact.id, "completed", {
     artifactId: artifact.id,
   });
+  let handoffText = "";
+  let handoffMetrics = null;
+  if (artifactClass === "static_html_js" && generatedFiles) {
+    const artifactTitle = stringValue(artifact.title || generatedFiles.title || studioIntentFrameArtifactTitle(intentFrame, artifactClass, prompt), "website");
+    const artifactLabel = /\bwebsite\b/i.test(artifactTitle) ? artifactTitle : `${artifactTitle} website`;
+    handoffText = `Created the ${artifactLabel} artifact. The preview is below.`;
+  } else {
+    try {
+      const handoff = await studioModelCompletion.streamStudioArtifactHandoffText({
+        prompt,
+        selectedRoute: studioRuntimeProjection.modelRoute || "route.local-first",
+        selectedModelId: studioRuntimeProjection.selectedModel || "auto",
+        reasoningEffort: studioRuntimeProjection.reasoningEffort || "none",
+        workspacePath: workspaceSummary().path,
+        handoffContext: `Artifact title: ${artifact.title || artifact.id}\nArtifact class: ${artifact.artifactClass || artifact.artifact_class || artifactClass}\nArtifact created: yes.\nPreview is attached in Agent Studio as a sandboxed conversation artifact.\nAvailable actions: open preview, revise, export, promote, or roll back when supported.`,
+      }, output);
+      handoffText = handoff.text;
+      handoffMetrics = handoff.metrics || null;
+    } catch (handoffError) {
+      output?.appendLine?.(`[ioi-studio] artifact handoff model stream failed: ${handoffError?.message || String(handoffError)}`);
+    }
+  }
   return {
     status: "completed",
     events: [],
     receiptRefs: normalizeReceiptRefs(artifact),
-    text: studioArtifactAnswerText([artifact]),
+    text: handoffText,
     artifacts: [artifact],
-    modelMetrics: generatedFiles?.generator?.metrics || null,
+    modelMetrics: handoffMetrics || generatedFiles?.generator?.metrics || null,
   };
 }
 
@@ -9843,19 +9311,14 @@ function studioPostRuntimeMessage(type, payload = {}) {
   let normalizedPayload = payload;
   if (type === "agentWorkStep") {
     normalizedPayload = appendStudioPendingWorkStep(payload);
-    if (!normalizedPayload) {
-      return;
-    }
+    if (!normalizedPayload) return;
   }
-  if (!studioPanel) {
-    return;
-  }
-  studioPanel.webview.postMessage({
-    source: "ioi-studio-runtime",
-    type,
-    payload: normalizedPayload,
-  });
+  if (!studioPanel) return;
+  studioPanel.webview.postMessage({ source: "ioi-studio-runtime", type, payload: normalizedPayload });
 }
+
+const studioAgentFinalHandoffStreamer = createStudioAgentFinalHandoffStreamer({ crypto, studioPostRuntimeMessage, stringValue });
+const studioAgentAnswerStreamProjector = createStudioAgentAnswerStreamProjector({ getStudioRuntimeProjection: () => studioRuntimeProjection, studioPostRuntimeMessage, stringValue });
 
 function studioModelIdForRouteInvocation(selectedRoute, selectedModelId) {
   const explicitModelId = stringValue(selectedModelId);
@@ -10144,29 +9607,78 @@ const studioModelCompletion = createStudioModelCompletion({
   studioFixtureModelUsageAllowed,
   appendStudioReceipts,
 });
+const {
+  normalizeStudioAssistantReplyText,
+  studioAssistantReplyTextIsDeferred,
+  normalizeStudioAgentResultText,
+  studioAssistantTextFromRuntimeToolEvents,
+  studioAgentTurnResultText,
+  studioArtifactSourceTextFromAgentTurn,
+} = createStudioAgentTurnResultText({
+  stringValue,
+  firstArray,
+  studioRuntimeEventKind,
+  studioRuntimeEventToolName,
+  extractHtmlDocument: studioModelCompletion.extractStudioHtmlDocument,
+});
 
 async function streamStudioModelCompletion(args, output) {
   return studioModelCompletion.streamStudioModelCompletion(args, output);
 }
 
-function studioChatCompletionText(response = {}) {
-  return studioModelCompletion.studioChatCompletionText(response);
-}
-
-function parseStudioJsonObject(text = "") {
-  return studioModelCompletion.parseStudioJsonObject(text);
-}
-
-function extractStudioHtmlDocument(text = "") {
-  return studioModelCompletion.extractStudioHtmlDocument(text);
-}
-
-function studioWebsiteDraftRejectReason(args = {}) {
-  return studioModelCompletion.studioWebsiteDraftRejectReason(args);
-}
-
 async function generateStudioStaticWebsiteDraft(args, output) {
   return studioModelCompletion.generateStudioStaticWebsiteDraft(args, output);
+}
+
+async function generateStudioStaticWebsiteDraftThroughAgentTurn({
+  prompt,
+  title,
+  selectedRoute,
+  selectedModelId,
+  reasoningEffort = "none",
+  workspacePath,
+  intentFrame = {},
+}, output) {
+  const researchQuery = studioArtifactResearchQuery(prompt);
+  const artifactPrompt = [
+    `Create one complete self-contained HTML document for this request: ${prompt}`,
+    `Research topic: ${researchQuery || prompt}`,
+    "",
+    "Use the governed tool loop before writing the page.",
+    "Call web__search with exactly the research topic above as the query.",
+    "Call web__read on one relevant result if a readable result is available.",
+    "Then call chat__reply; the chat__reply message must contain the final HTML document only.",
+    "The chat__reply message must start with <!DOCTYPE html> and end immediately after </html>.",
+    "Do not return markdown fences, JSON, source notes, receipts, file paths, or explanations.",
+    "Do not use external network assets, remote fonts, CDNs, or filesystem references.",
+  ].join("\n");
+  const agentTurn = await submitStudioAgentTurn({
+    prompt: artifactPrompt,
+    selectedRoute,
+    selectedModelId,
+    reasoningEffort,
+    workspacePath,
+    intentFrame: studioResearchIntentFrameForArtifact(studioIntentFramePayload(intentFrame), researchQuery),
+    projectAnswerStream: true,
+    answerStreamPresentation: "artifact_generation",
+    answerStreamFileName: "index.html",
+    maxStepsOverride: 8,
+  }, output);
+  const artifactSourceText = studioArtifactSourceTextFromAgentTurn(agentTurn);
+  const sourceStream = studioAgentAnswerStreamProjector.complete(artifactSourceText, {
+    presentation: "artifact_generation",
+    fileName: "index.html",
+  });
+  return studioModelCompletion.studioStaticWebsiteDraftFromRuntimeText({
+    prompt,
+    title,
+    text: artifactSourceText,
+    selectedRoute,
+    selectedModelId,
+    metrics: agentTurn.modelMetrics || null,
+    receiptRefs: agentTurn.receiptRefs || [],
+    streamId: sourceStream?.streamId || "",
+  });
 }
 function collectStudioAgentEventsFromResponse(turn = {}) {
   return [
@@ -10198,7 +9710,12 @@ function uniqueStudioRuntimeEvents(events = []) {
   return unique;
 }
 
-function applyStudioAgentTurnEvents(events = [], { projectPending = true } = {}) {
+function applyStudioAgentTurnEvents(events = [], {
+  projectPending = true,
+  projectAnswerStream = true,
+  answerStreamPresentation = "agent_final_handoff",
+  answerStreamFileName = "",
+} = {}) {
   const appliedEvents = [];
   for (const event of firstArray(events)) {
     if (!markStudioRuntimeEventSeen(event)) {
@@ -10219,6 +9736,27 @@ function applyStudioAgentTurnEvents(events = [], { projectPending = true } = {})
       event.payload?.message ||
       "";
     const receiptRefs = normalizeReceiptRefs(event);
+    if (kind === "answer.delta") {
+      if (!projectAnswerStream) continue;
+      studioAgentAnswerStreamProjector.projectDelta(event, {
+        presentation: answerStreamPresentation,
+        fileName: answerStreamFileName,
+      });
+      continue;
+    }
+    if (
+      projectAnswerStream &&
+      answerStreamPresentation === "artifact_generation" &&
+      /turn\.(completed|failed|blocked)/.test(kind)
+    ) {
+      const terminalArtifactSource = studioArtifactSourceTextFromAgentTurn({ events: [event] });
+      if (terminalArtifactSource) {
+        studioAgentAnswerStreamProjector.complete(terminalArtifactSource, {
+          presentation: answerStreamPresentation,
+          fileName: answerStreamFileName,
+        });
+      }
+    }
     if (projectPending && studioRuntimeProjection.pending) {
       const pendingStep = studioPendingStepFromRuntimeEvent(event, {
         kind,
@@ -10292,7 +9830,7 @@ function studioMaxRuntimeEventSeq(events = []) {
   }, 0);
 }
 
-async function fetchStudioThreadEvents(threadId, output, { timeoutMs = 1500, sinceSeq = 0 } = {}) {
+async function fetchStudioThreadEvents(threadId, output, { timeoutMs = 1500, sinceSeq = 0, stopOnTerminal = false } = {}) {
   if (!threadId) {
     return [];
   }
@@ -10303,10 +9841,19 @@ async function fetchStudioThreadEvents(threadId, output, { timeoutMs = 1500, sin
       token: daemonRequestToken(),
       timeoutMs,
       onPayload: (payload) => {
+        let event = null;
         if (payload && payload.event && typeof payload.event === "object") {
-          events.push(payload.event);
+          event = payload.event;
+          events.push(event);
         } else if (payload) {
-          events.push(payload);
+          event = payload;
+          events.push(event);
+        }
+        if (stopOnTerminal && event) {
+          const kind = studioRuntimeEventKind(event).toLowerCase();
+          if (/turn\.(completed|failed|blocked)/.test(kind)) {
+            return false;
+          }
         }
       },
     });
@@ -10316,38 +9863,7 @@ async function fetchStudioThreadEvents(threadId, output, { timeoutMs = 1500, sin
   return events;
 }
 
-async function pollStudioThreadEventsDuringTurn(threadId, output, completionPromise, { sinceSeq = 0 } = {}) {
-  if (!threadId) {
-    return [];
-  }
-  let settled = false;
-  let latestSeq = Math.max(0, Number(sinceSeq) || 0);
-  const collected = [];
-  completionPromise.finally(() => {
-    settled = true;
-  }).catch(() => {
-    settled = true;
-  });
-  while (!settled) {
-    const events = await fetchStudioThreadEvents(threadId, output, {
-      timeoutMs: 1000,
-      sinceSeq: latestSeq,
-    });
-    if (events.length) {
-      latestSeq = Math.max(latestSeq, studioMaxRuntimeEventSeq(events));
-      collected.push(...applyStudioAgentTurnEvents(events, { projectPending: true }));
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  const tailEvents = await fetchStudioThreadEvents(threadId, output, {
-    timeoutMs: 1000,
-    sinceSeq: latestSeq,
-  });
-  if (tailEvents.length) {
-    collected.push(...applyStudioAgentTurnEvents(tailEvents, { projectPending: true }));
-  }
-  return collected;
-}
+const studioAgentTurnEvents = createStudioAgentTurnEvents({ fetchStudioThreadEvents, applyStudioAgentTurnEvents, studioMaxRuntimeEventSeq, studioAssistantTextFromRuntimeToolEvents, studioAgentTurnResultText, studioRuntimeEventKind, firstArray });
 
 async function fetchStudioThreadTurns(threadId, output, { timeoutMs = 5000 } = {}) {
   if (!threadId) {
@@ -10432,36 +9948,54 @@ function studioTurnLooksTerminal(turn = {}) {
   const events = collectStudioAgentEventsFromResponse(turn);
   const statusText = stringValue(turn.status || turn.state || "").toLowerCase();
   const resultText = studioAgentTurnResultText(turn, events);
-  if (resultText || /blocked|failed|error|completed|paused|approval|waiting_for_approval/.test(statusText)) {
+  if (resultText) {
+    return true;
+  }
+  if (events.some(studioRuntimeEventIsRunningStepCompletion)) {
+    return false;
+  }
+  if (/blocked|failed|error|completed|paused|approval|waiting_for_approval/.test(statusText)) {
     return true;
   }
   return events.some((event) => /turn\.(completed|failed)|completed|failed|blocked/.test(studioRuntimeEventKind(event).toLowerCase()));
 }
 
-async function recoverStudioAgentTurnAfterSubmitTimeout({ threadId, prompt, submittedAtMs, output }) {
-  for (let attempt = 0; attempt < STUDIO_AGENT_TURN_RECOVERY_ATTEMPTS; attempt += 1) {
-    const turns = await fetchStudioThreadTurns(threadId, output, { timeoutMs: 5000 });
-    const turn = turns
-      .slice()
-      .reverse()
-      .find((candidate) =>
-        studioTurnMatchesSubmittedPrompt(candidate, prompt, submittedAtMs) &&
-        studioTurnLooksTerminal(candidate),
-      );
-    if (turn) {
-      output?.appendLine?.("[ioi-studio] recovered completed daemon turn after Agent POST timeout.");
-      return turn;
-    }
-    if (attempt < STUDIO_AGENT_TURN_RECOVERY_ATTEMPTS - 1) {
-      await new Promise((resolve) => setTimeout(resolve, STUDIO_AGENT_TURN_RECOVERY_POLL_MS));
-    }
-  }
-  return null;
-}
+const studioAgentTurnRecovery = createStudioAgentTurnRecovery({
+  fetchStudioThreadTurns,
+  studioTurnMatchesSubmittedPrompt,
+  studioTurnLooksTerminal,
+  studioAgentTurnResultText,
+  normalizeStudioAgentResultText,
+  getStudioRuntimeProjection: () => studioRuntimeProjection,
+  firstArray,
+  recoveryAttempts: STUDIO_AGENT_TURN_RECOVERY_ATTEMPTS,
+  recoveryPollMs: STUDIO_AGENT_TURN_RECOVERY_POLL_MS,
+});
 
 function studioApprovalTurnPayload() {
   const turnId = stringValue(studioRuntimeProjection.turnId);
   return turnId.startsWith("turn_") ? { turn_id: turnId } : {};
+}
+
+function applyStudioAgentModeSelection(payload = {}) {
+  const previousMode = normalizeStudioExecutionMode(studioRuntimeProjection.executionMode);
+  const previousRuntimeProfile = studioRuntimeProjection.runtimeProfile;
+  const executionMode = normalizeStudioExecutionMode(
+    payload.executionMode || payload.selectionId || payload.mode || payload.label,
+  );
+  const runtimeProfile =
+    executionMode === STUDIO_MODE_AGENT
+      ? STUDIO_AGENT_RUNTIME_PROFILE
+      : STUDIO_DIRECT_MODEL_RUNTIME_PROFILE;
+  studioRuntimeProjection.executionMode = executionMode;
+  studioRuntimeProjection.runtimeProfile = runtimeProfile;
+  if (
+    studioRuntimeProjection.threadId &&
+    (previousMode !== executionMode || previousRuntimeProfile !== runtimeProfile)
+  ) {
+    resetStudioDaemonThreadProjection();
+  }
+  return { executionMode, runtimeProfile };
 }
 
 function studioRunResultText({ prompt, run, conversation }) {
@@ -10575,7 +10109,18 @@ async function ensureStudioDaemonThread({ model = "route.local-first", selectedM
   return studioRuntimeProjection;
 }
 
-async function submitStudioAgentTurn({ prompt, selectedRoute, selectedModelId, reasoningEffort = "none", workspacePath, intentFrame }, output) {
+async function submitStudioAgentTurn({
+  prompt,
+  selectedRoute,
+  selectedModelId,
+  reasoningEffort = "none",
+  workspacePath,
+  intentFrame,
+  projectAnswerStream = true,
+  answerStreamPresentation = "agent_final_handoff",
+  answerStreamFileName = "",
+  maxStepsOverride = null,
+}, output) {
   await ensureStudioDaemonThread({
     model: selectedRoute,
     selectedModelId,
@@ -10597,17 +10142,23 @@ async function submitStudioAgentTurn({ prompt, selectedRoute, selectedModelId, r
   });
   const submittedAtMs = Date.now();
   const permissionMapping = studioPermissionDaemonMapping(studioRuntimeProjection.approvalMode);
+  const maxSteps = Number.isFinite(Number(maxStepsOverride))
+    ? Math.max(1, Math.floor(Number(maxStepsOverride)))
+    : studioAgentMaxStepsForIntent(intentFrame, prompt);
   const turnPayload = {
     prompt,
     input: prompt,
     ...permissionMapping,
     runtime_profile: STUDIO_AGENT_RUNTIME_PROFILE,
     runtimeProfile: STUDIO_AGENT_RUNTIME_PROFILE,
-    max_steps: 8,
+    max_steps: maxSteps,
+    maxSteps,
     options: {
       ...permissionMapping,
       runtime_profile: STUDIO_AGENT_RUNTIME_PROFILE,
       runtimeProfile: STUDIO_AGENT_RUNTIME_PROFILE,
+      max_steps: maxSteps,
+      maxSteps,
       local: {
         cwd: workspacePath || workspaceSummary().path,
       },
@@ -10629,6 +10180,8 @@ async function submitStudioAgentTurn({ prompt, selectedRoute, selectedModelId, r
     },
   };
   let turn;
+  let liveEventsPromise = null;
+  let liveObservedEvents = [];
   try {
     const preTurnEvents = await fetchStudioThreadEvents(threadId, output, { timeoutMs: 1000, sinceSeq: 0 });
     for (const event of preTurnEvents) {
@@ -10641,33 +10194,139 @@ async function submitStudioAgentTurn({ prompt, selectedRoute, selectedModelId, r
       timeoutMs: STUDIO_AGENT_TURN_POST_TIMEOUT_MS,
       payload: turnPayload,
     });
-    const liveEvents = pollStudioThreadEventsDuringTurn(threadId, output, turnRequest, {
+    liveEventsPromise = studioAgentTurnEvents.pollStudioThreadEventsDuringTurn(threadId, output, turnRequest, {
       sinceSeq: preTurnSeq,
+      resolveOnTerminal: true,
+      projectAnswerStream,
+      answerStreamPresentation,
+      answerStreamFileName,
     });
-    turn = await turnRequest;
-    await liveEvents.catch((error) => {
-      output?.appendLine?.(`[ioi-studio] live daemon event projection ended early: ${error?.message || String(error)}`);
-      return [];
-    });
-  } catch (error) {
-    if (!/timed out|timeout/i.test(error?.message || String(error))) {
-      throw error;
-    }
-    output?.appendLine?.(`[ioi-studio] Agent turn POST exceeded ${STUDIO_AGENT_TURN_POST_TIMEOUT_MS}ms; checking daemon turn projection.`);
-    turn = await recoverStudioAgentTurnAfterSubmitTimeout({
+    const projectionRecoveryAttempts = Math.ceil(Math.max(STUDIO_AGENT_TURN_POST_TIMEOUT_MS, 300_000) / STUDIO_AGENT_TURN_RECOVERY_POLL_MS);
+    const turnProjectionRecoveryPromise = studioAgentTurnRecovery.recoverStudioAgentTurnAfterSubmitTimeout({
       threadId,
       prompt,
       submittedAtMs,
       output,
+      attempts: projectionRecoveryAttempts,
+      pollMs: STUDIO_AGENT_TURN_RECOVERY_POLL_MS,
+      timeoutMs: 2500,
+      reasonLabel: "live projection polling",
     });
-    if (!turn) {
+    let terminalRecoveryActive = true;
+    const terminalEventsRecoveryPromise = (async () => {
+      const deadline = Date.now() + Math.max(STUDIO_AGENT_TURN_POST_TIMEOUT_MS, 300_000);
+      let terminalRecoverySeq = preTurnSeq;
+      while (terminalRecoveryActive && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const events = await fetchStudioThreadEvents(threadId, output, {
+          timeoutMs: 2500,
+          sinceSeq: terminalRecoverySeq,
+          stopOnTerminal: true,
+        });
+        if (!events.length) {
+          continue;
+        }
+        terminalRecoverySeq = Math.max(terminalRecoverySeq, studioMaxRuntimeEventSeq(events));
+        applyStudioAgentTurnEvents(events, {
+          projectAnswerStream,
+          answerStreamPresentation,
+          answerStreamFileName,
+        });
+        if (studioAgentTurnEvents.studioRuntimeEventsHaveTerminalAssistantResult(events)) {
+          return events;
+        }
+      }
+      return null;
+    })();
+    const firstCompletion = await Promise.race([
+      turnRequest.then((completedTurn) => ({ kind: "turn", turn: completedTurn })),
+      liveEventsPromise.then((events) => ({ kind: "live_events", events })),
+      turnProjectionRecoveryPromise.then((recoveredTurn) => recoveredTurn ? ({ kind: "turn_projection", turn: recoveredTurn }) : null),
+      terminalEventsRecoveryPromise.then((events) => events ? ({ kind: "terminal_events", events }) : null),
+    ]);
+    terminalRecoveryActive = false;
+    if (!firstCompletion) {
+      turn = await turnRequest;
+    } else if (firstCompletion.kind === "turn") {
+      turn = firstCompletion.turn;
+      liveObservedEvents = await Promise.race([
+        liveEventsPromise.catch((error) => {
+          output?.appendLine?.(`[ioi-studio] live daemon event projection ended early: ${error?.message || String(error)}`);
+          return [];
+        }),
+        new Promise((resolve) => setTimeout(() => resolve([]), 1000)),
+      ]);
+    } else if (firstCompletion.kind === "turn_projection") {
+      turn = firstCompletion.turn;
+      liveEventsPromise.catch((error) => {
+        output?.appendLine?.(`[ioi-studio] live daemon event projection ended after turn projection recovery: ${error?.message || String(error)}`);
+      });
+      turnRequest.catch((error) => {
+        output?.appendLine?.(`[ioi-studio] Agent turn POST settled after turn projection recovery: ${error?.message || String(error)}`);
+      });
+    } else {
+      liveObservedEvents = firstArray(firstCompletion.events);
+      turn = studioAgentTurnRecovery.recoverStudioAgentTurnFromLiveEventsAfterSubmitTimeout({
+        threadId,
+        prompt,
+        submittedAtMs,
+        events: liveObservedEvents,
+      });
+      if (!turn) {
+        turn = await turnRequest;
+      } else {
+        turnRequest.catch((error) => {
+          output?.appendLine?.(`[ioi-studio] Agent turn POST settled after live event completion: ${error?.message || String(error)}`);
+        });
+      }
+    }
+    if (!liveObservedEvents.length && liveEventsPromise) {
+      liveObservedEvents = await liveEventsPromise.catch((error) => {
+        output?.appendLine?.(`[ioi-studio] live daemon event projection ended early: ${error?.message || String(error)}`);
+        return [];
+      });
+    }
+  } catch (error) {
+    if (!/timed out|timeout/i.test(error?.message || String(error))) {
       throw error;
     }
-    studioRuntimeProjection.timeline.push({
-      label: "Agent turn recovered",
-      detail: "Daemon turn projection was recovered after a bounded POST timeout.",
-      status: "completed",
+    liveObservedEvents = await Promise.resolve(liveEventsPromise).catch((liveError) => {
+      output?.appendLine?.(`[ioi-studio] live daemon event recovery after Agent POST timeout ended early: ${liveError?.message || String(liveError)}`);
+      return [];
+    }) || [];
+    turn = studioAgentTurnRecovery.recoverStudioAgentTurnFromLiveEventsAfterSubmitTimeout({
+      threadId,
+      prompt,
+      submittedAtMs,
+      events: liveObservedEvents,
     });
+    if (turn) {
+      output?.appendLine?.("[ioi-studio] recovered daemon turn from live streamed runtime events after Agent POST timeout.");
+      studioRuntimeProjection.timeline.push({
+        label: "Agent turn recovered",
+        detail: "Live daemon runtime events completed after the POST transport timed out.",
+        status: "completed",
+      });
+    }
+    if (turn) {
+      // Keep the streamed model answer as the product handoff; trace keeps the transport timeout.
+    } else {
+      output?.appendLine?.(`[ioi-studio] Agent turn POST exceeded ${STUDIO_AGENT_TURN_POST_TIMEOUT_MS}ms; checking daemon turn projection.`);
+      turn = await studioAgentTurnRecovery.recoverStudioAgentTurnAfterSubmitTimeout({
+        threadId,
+        prompt,
+        submittedAtMs,
+        output,
+      });
+      if (!turn) {
+        throw error;
+      }
+      studioRuntimeProjection.timeline.push({
+        label: "Agent turn recovered",
+        detail: "Daemon turn projection was recovered after a bounded POST timeout.",
+        status: "completed",
+      });
+    }
   }
   const responseEvents = collectStudioAgentEventsFromResponse(turn);
   const refreshEvents = studioAssistantTextFromRuntimeToolEvents(responseEvents)
@@ -10679,7 +10338,11 @@ async function submitStudioAgentTurn({ prompt, selectedRoute, selectedModelId, r
     ? []
     : await fetchStudioThreadEvents(turn.thread_id || turn.threadId || threadId, output, { timeoutMs: 5000 });
   const events = uniqueStudioRuntimeEvents([...responseEvents, ...refreshEvents, ...streamedEvents]);
-  applyStudioAgentTurnEvents(events);
+  applyStudioAgentTurnEvents(events, {
+    projectAnswerStream,
+    answerStreamPresentation,
+    answerStreamFileName,
+  });
   const needsRetrieval = studioIntentFrameRequiresRetrieval(intentFrame, prompt);
   const hasSearch = studioRuntimeEventsIncludeTool(events, /web(::|__)search|search_web|web_search/);
   const hasRead = studioRuntimeEventsIncludeTool(events, /web(::|__)read|read_web|web_read/);
@@ -10687,6 +10350,7 @@ async function submitStudioAgentTurn({ prompt, selectedRoute, selectedModelId, r
   const hasCompletedRead = studioRuntimeEventsIncludeCompletedTool(events, /web(::|__)read|read_web|web_read/);
   const chatReplyText = studioAssistantTextFromRuntimeToolEvents(events);
   const resultText = studioAgentTurnResultText(turn, events);
+  const policyBlockedRuntimeText = studioPolicyBlockedRuntimeMessage({ prompt, resultText, events });
   const resultLooksRetrievalGrounded = studioResultTextLooksRetrievalGrounded(resultText);
   const statusText = stringValue(turn.status || turn.state || "", "completed").toLowerCase();
   const approvalPaused = studioTextIndicatesApprovalPause(resultText) || /waiting_for_approval|approval/.test(statusText);
@@ -10700,10 +10364,14 @@ async function submitStudioAgentTurn({ prompt, selectedRoute, selectedModelId, r
   const retrievalFailClosedText = needsRetrieval && !resultText
     ? studioRetrievalFailClosedText({ prompt, events, blockedReason })
     : "";
-  if (needsRetrieval && !(hasCompletedSearch && hasCompletedRead) && !resultLooksRetrievalGrounded) {
+  if (
+    needsRetrieval &&
+    !(hasCompletedSearch && hasCompletedRead) &&
+    !resultLooksRetrievalGrounded
+  ) {
     throw new Error(
       [
-        "Agent Mode failed closed: this prompt requires current/source retrieval, but the Rust runtime did not complete web__search and web__read events.",
+        "Agent Mode failed closed: this prompt requires current/source retrieval, but the Rust runtime did not complete the required retrieval evidence.",
         blockedReason ? `Runtime stop reason: ${blockedReason}.` : "",
         resultText ? `Runtime result: ${resultText}` : "",
         `Observed retrieval events: search=${hasSearch}, read=${hasRead}, completedSearch=${hasCompletedSearch}, completedRead=${hasCompletedRead}.`,
@@ -10724,7 +10392,7 @@ async function submitStudioAgentTurn({ prompt, selectedRoute, selectedModelId, r
   studioRuntimeProjection.turnId = turn.turn_id || turn.turnId || studioRuntimeProjection.turnId || `turn.${Date.now()}`;
   studioRuntimeProjection.runId =
     turn.run_id || turn.runId || receiptRefs[receiptRefs.length - 1] || studioRuntimeProjection.turnId;
-  if (!chatReplyText && !retrievalFailClosedText) {
+  if (!resultText && !retrievalFailClosedText) {
     const observedTools = uniqueStrings(events.map((event) => studioRuntimeEventToolName(event)).filter(Boolean));
     if (approvalPaused) {
       studioRuntimeProjection.timeline.push({
@@ -10741,9 +10409,24 @@ async function submitStudioAgentTurn({ prompt, selectedRoute, selectedModelId, r
         approvalPause: true,
       };
     }
+    if (policyBlockedRuntimeText) {
+      studioRuntimeProjection.timeline.push({
+        label: "Agent turn blocked",
+        detail: `${events.length} runtime event${events.length === 1 ? "" : "s"} projected`,
+        status: "blocked",
+      });
+      return {
+        turn,
+        events,
+        text: policyBlockedRuntimeText,
+        receiptRefs,
+        status: "blocked",
+        policyBlocked: true,
+      };
+    }
     throw new Error(
       [
-        "Daemon agent turn completed but did not emit a final chat__reply.",
+        "Daemon agent turn completed but did not emit a clean final answer.",
         resultText ? `Runtime result was ignored as non-visible completion proof: ${resultText}` : "",
         `Observed ${events.length} runtime event${events.length === 1 ? "" : "s"}${observedTools.length ? ` with tools: ${observedTools.join(", ")}` : ""}.`,
       ].filter(Boolean).join(" "),
@@ -10830,6 +10513,7 @@ async function submitStudioPrompt(payload = {}, output) {
   studioRuntimeProjection.pendingSeen = true;
   studioRuntimeProjection.pendingStartedAtMs = Date.now();
   studioRuntimeProjection.pendingWorklog = [];
+  studioAgentAnswerStreamProjector.reset();
   studioRuntimeProjection.lastError = null;
   studioRuntimeProjection.modelRoute = selectedRoute;
   studioRuntimeProjection.selectedModel = selectedModelId;
@@ -10983,6 +10667,15 @@ async function submitStudioPrompt(payload = {}, output) {
       const agentTurnStatus = agentTurn.status === "blocked" ? "blocked" : "completed";
       const workRecord = studioDocumentedWorkRecord(workCursor);
       const blockedThreadId = agentTurnStatus === "blocked" ? studioRuntimeProjection.threadId : null;
+      const daemonAnswerStream = agentTurnStatus === "completed"
+        ? studioAgentAnswerStreamProjector.complete(agentTurn.text)
+        : null;
+      const finalHandoffStream = agentTurnStatus === "completed" && !daemonAnswerStream
+        ? await studioAgentFinalHandoffStreamer.streamStudioAgentFinalHandoff(agentTurn.text, { prompt, turnId: studioRuntimeProjection.turnId })
+        : null;
+      const modelStream = daemonAnswerStream || (finalHandoffStream
+        ? { streamId: finalHandoffStream.streamId, chunkCount: finalHandoffStream.chunkCount, agentFinalHandoff: true, runtimeAuthority: "daemon-owned" }
+        : null);
       assistantTurn = {
         role: "assistant",
         content: agentTurn.text,
@@ -10997,6 +10690,7 @@ async function submitStudioPrompt(payload = {}, output) {
         },
         ...(agentTurn.artifacts ? { artifacts: agentTurn.artifacts } : {}),
         ...(agentTurn.modelMetrics ? { modelMetrics: agentTurn.modelMetrics } : {}),
+        ...(modelStream ? { modelStream } : {}),
         ...(workRecord ? { workRecord } : {}),
       };
       studioRuntimeProjection.lastModelStream = null;
@@ -11349,42 +11043,31 @@ async function openStudioPanel(context, output) {
         typeof message.requestType === "string"
       ) {
         if (message.requestType === "chat.agentMode.select") {
-          const previousMode = normalizeStudioExecutionMode(studioRuntimeProjection.executionMode);
-          const previousRuntimeProfile = studioRuntimeProjection.runtimeProfile;
-          studioRuntimeProjection.executionMode = normalizeStudioExecutionMode(
-            message.payload?.executionMode || message.payload?.selectionId || message.payload?.label,
-          );
-          studioRuntimeProjection.runtimeProfile =
-            studioRuntimeProjection.executionMode === STUDIO_MODE_AGENT
-              ? STUDIO_AGENT_RUNTIME_PROFILE
-              : STUDIO_DIRECT_MODEL_RUNTIME_PROFILE;
-          if (
-            studioRuntimeProjection.threadId &&
-            (
-              previousMode !== studioRuntimeProjection.executionMode ||
-              previousRuntimeProfile !== studioRuntimeProjection.runtimeProfile
-            )
-          ) {
-            resetStudioDaemonThreadProjection();
-          }
+          applyStudioAgentModeSelection(message.payload || {});
+          await refreshStudioPanelHtml(output);
+          await focusStudioPanelComposer();
         }
         if (message.requestType === "chat.permissionMode.select") {
           await applyStudioPermissionModeSelection(message.payload || {}, output);
+          await refreshStudioPanelHtml(output);
+          await focusStudioPanelComposer();
         }
         if (message.requestType === "chat.newSession") {
           startNewStudioSession("Operator started a fresh Studio chat session.");
           await refreshStudioPanelHtml(output);
           await focusStudioPanelComposer();
         }
-        await writeBridgeRequest(
-          message.requestType,
-          message.payload || {},
-          buildWorkspaceActionContext("studio-panel-webview"),
-        ).catch((error) => {
-          output.appendLine(
-            `[ioi-studio] bridge request unavailable: ${error?.message || String(error)}`,
-          );
-        });
+        if (!message.payload?.bridgeRequestAlreadyWritten) {
+          await writeBridgeRequest(
+            message.requestType,
+            message.payload || {},
+            buildWorkspaceActionContext("studio-panel-webview"),
+          ).catch((error) => {
+            output.appendLine(
+              `[ioi-studio] bridge request unavailable: ${error?.message || String(error)}`,
+            );
+          });
+        }
         return;
       }
       if (message?.type !== "command" || typeof message.command !== "string") {
@@ -13417,6 +13100,18 @@ function registerNativeCommands(context, output) {
         });
       }
       status("Focused Agent Studio composer.");
+    }),
+    vscode.commands.registerCommand("ioi.studio.applyAgentMode", async (payload = {}) => {
+      const applied = applyStudioAgentModeSelection(payload);
+      await refreshStudioPanelHtml(output);
+      await focusStudioPanelComposer();
+      status(`Agent Studio mode set to ${studioExecutionModeLabel(applied.executionMode)}.`);
+    }),
+    vscode.commands.registerCommand("ioi.studio.applyPermissionMode", async (payload = {}) => {
+      const mapping = await applyStudioPermissionModeSelection(payload, output);
+      await refreshStudioPanelHtml(output);
+      await focusStudioPanelComposer();
+      status(`Agent Studio permissions set to ${studioPermissionModeLabel(mapping.approvalMode)}.`);
     }),
     vscode.commands.registerCommand("ioi.chat.submit", async (payload = {}) => {
       const prompt =

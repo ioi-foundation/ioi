@@ -361,9 +361,13 @@ fn local_price_quote_context(tokens: &[String], idx: usize) -> bool {
     marker_hit || currency_window_hit
 }
 
-fn secondary_valuation_context(tokens: &[String], idx: usize) -> bool {
+fn secondary_valuation_context(tokens: &[String], idx: usize, next_currency: bool) -> bool {
     let start = idx.saturating_sub(4);
-    let end = (idx + 5).min(tokens.len());
+    let end = if next_currency {
+        (idx + 2).min(tokens.len())
+    } else {
+        (idx + 5).min(tokens.len())
+    };
     let window = tokens[start..end]
         .iter()
         .map(|token| token_normalized(token))
@@ -427,7 +431,7 @@ pub fn has_price_quote_payload(text: &str) -> bool {
         let has_magnitude_shape = digit_count >= 3;
         if (has_precision_shape || has_magnitude_shape)
             && local_price_quote_context(&tokens, idx)
-            && !secondary_valuation_context(&tokens, idx)
+            && !secondary_valuation_context(&tokens, idx, next_currency)
         {
             quote_token_present = true;
             break;

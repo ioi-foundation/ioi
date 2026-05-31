@@ -52,7 +52,7 @@ export function catalogBackendCompatibility(entry) {
   const format = String(entry.format ?? "").toLowerCase();
   const compatibility = new Set(normalizeScopes(entry.compatibility, []));
   const rows = [
-    backendCompatibilityRow("native_local_fixture", compatibility.has("native_local_fixture") || format === "gguf", format === "gguf" ? 92 : 70, "Autopilot native-local can import deterministic local artifacts."),
+    backendCompatibilityRow("native_local_fixture", compatibility.has("native_local_fixture") || format === "gguf", format === "gguf" ? 92 : 70, "Autopilot native-local can import local model artifacts."),
     backendCompatibilityRow("llama_cpp", compatibility.has("llama_cpp") || format === "gguf", format === "gguf" ? 90 : 25, "llama.cpp expects GGUF artifacts."),
     backendCompatibilityRow("ollama", compatibility.has("ollama") || format === "gguf", format === "ollama" ? 88 : format === "gguf" ? 62 : 20, "Ollama can run catalog-listed Ollama models and local GGUF through import/create workflows when configured."),
     backendCompatibilityRow("vllm", compatibility.has("vllm") || format === "safetensors", format === "safetensors" ? 88 : 18, "vLLM expects Hugging Face/safetensors-style artifacts."),

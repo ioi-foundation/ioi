@@ -1,7 +1,7 @@
 use super::*;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
-fn nist_briefing_contract() -> ioi_types::app::agentic::WebRetrievalContract {
+fn nist_answer_contract() -> ioi_types::app::agentic::WebRetrievalContract {
     crate::agentic::web::derive_web_retrieval_contract(
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
         None,
@@ -10,7 +10,7 @@ fn nist_briefing_contract() -> ioi_types::app::agentic::WebRetrievalContract {
 }
 
 #[test]
-fn gated_document_briefing_read_is_absorbed_as_blocked_candidate() {
+fn gated_document_report_read_is_absorbed_as_blocked_candidate() {
     let gated_url = "https://csrc.nist.gov/News/2024/postquantum-cryptography-fips-approved";
     let fallback_url = "https://qramm.org/learn/nist-pqc-standards.html";
     let mut pending = PendingSearchCompletion {
@@ -18,7 +18,7 @@ fn gated_document_briefing_read_is_absorbed_as_blocked_candidate() {
         query_contract:
             "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."
                 .to_string(),
-        retrieval_contract: Some(nist_briefing_contract()),
+        retrieval_contract: Some(nist_answer_contract()),
         url: "https://www.bing.com/search?q=nist+post+quantum+cryptography+standards"
             .to_string(),
         started_step: 1,
@@ -80,7 +80,7 @@ fn gated_document_briefing_read_is_absorbed_as_blocked_candidate() {
 }
 
 #[test]
-fn document_briefing_selected_source_alignment_uses_final_successful_reads() {
+fn document_report_selected_source_alignment_uses_final_successful_reads() {
     let query_contract =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
     let selected_urls = vec![
@@ -136,7 +136,7 @@ fn document_briefing_selected_source_alignment_uses_final_successful_reads() {
 
     let mut aligned_urls = selected_source_alignment_urls_from_successful_reads(
         query_contract,
-        Some(&nist_briefing_contract()),
+        Some(&nist_answer_contract()),
         &selected_urls,
         &successful_reads,
     );
@@ -148,7 +148,7 @@ fn document_briefing_selected_source_alignment_uses_final_successful_reads() {
 }
 
 #[test]
-fn document_briefing_selected_source_alignment_accepts_grounded_external_pdf_support() {
+fn document_report_selected_source_alignment_accepts_grounded_external_pdf_support() {
     let query_contract =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let selected_urls = vec![
@@ -178,13 +178,13 @@ fn document_briefing_selected_source_alignment_accepts_grounded_external_pdf_sup
 
     let aligned_urls = selected_source_alignment_urls_from_successful_reads(
         query_contract,
-        Some(&nist_briefing_contract()),
+        Some(&nist_answer_contract()),
         &selected_urls,
         &successful_reads,
     );
     let support_urls = selected_source_support_artifact_urls_from_successful_reads(
         query_contract,
-        Some(&nist_briefing_contract()),
+        Some(&nist_answer_contract()),
         &selected_urls,
         &successful_reads,
     );

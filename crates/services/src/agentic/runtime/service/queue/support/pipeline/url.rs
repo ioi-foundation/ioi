@@ -67,6 +67,74 @@ pub(crate) fn url_structural_query_overlap(
     left.query_tokens.intersection(&right.query_tokens).count()
 }
 
+fn url_identity_query_key(key: &str) -> bool {
+    matches!(
+        key.trim().to_ascii_lowercase().as_str(),
+        "asset"
+            | "assets"
+            | "coin"
+            | "coins"
+            | "id"
+            | "ids"
+            | "keyword"
+            | "keywords"
+            | "q"
+            | "query"
+            | "s"
+            | "search"
+            | "slug"
+            | "slugs"
+            | "symbol"
+            | "symbols"
+            | "ticker"
+            | "tickers"
+    )
+}
+
+fn normalized_url_identity_query_value(value: &str) -> String {
+    value
+        .trim()
+        .to_ascii_lowercase()
+        .split(|ch: char| ch.is_whitespace())
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn url_identity_query_values(url: &str) -> Option<BTreeMap<String, BTreeSet<String>>> {
+    let parsed = Url::parse(url.trim()).ok()?;
+    let mut values = BTreeMap::<String, BTreeSet<String>>::new();
+    for (key, value) in parsed.query_pairs() {
+        if !url_identity_query_key(key.as_ref()) {
+            continue;
+        }
+        let normalized = normalized_url_identity_query_value(value.as_ref());
+        if normalized.is_empty() {
+            continue;
+        }
+        values
+            .entry(key.trim().to_ascii_lowercase())
+            .or_default()
+            .insert(normalized);
+    }
+    Some(values)
+}
+
+fn url_identity_query_params_conflict(left: &str, right: &str) -> bool {
+    let (Some(left_values), Some(right_values)) = (
+        url_identity_query_values(left),
+        url_identity_query_values(right),
+    ) else {
+        return false;
+    };
+    left_values.iter().any(|(key, left_set)| {
+        right_values
+            .get(key)
+            .map(|right_set| left_set != right_set)
+            .unwrap_or(false)
+    })
+}
+
 pub(crate) fn url_structurally_equivalent(left: &str, right: &str) -> bool {
     let left_trimmed = left.trim();
     let right_trimmed = right.trim();
@@ -83,6 +151,9 @@ pub(crate) fn url_structurally_equivalent(left: &str, right: &str) -> bool {
     ) {
         (Some(left_key), Some(right_key)) => {
             if left_key.host != right_key.host || left_key.path != right_key.path {
+                return false;
+            }
+            if url_identity_query_params_conflict(left_trimmed, right_trimmed) {
                 return false;
             }
             if left_key.query_tokens.is_empty() || right_key.query_tokens.is_empty() {
@@ -145,4 +216,33 @@ pub(crate) fn hint_for_url<'a>(
     url: &str,
 ) -> Option<&'a PendingSearchReadSummary> {
     source_hint_for_url(&pending.candidate_source_hints, url)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn url_equivalence_keeps_different_quote_identities_distinct() {
+        let akash = "https://api.coingecko.com/api/v3/simple/price?ids=akash-network&vs_currencies=usd&include_market_cap=true";
+        let filecoin = "https://api.coingecko.com/api/v3/simple/price?ids=filecoin&vs_currencies=usd&include_market_cap=true";
+
+        assert!(!url_structurally_equivalent(akash, filecoin));
+    }
+
+    #[test]
+    fn url_equivalence_allows_same_quote_identity_with_reordered_params() {
+        let left = "https://api.coingecko.com/api/v3/simple/price?ids=filecoin&vs_currencies=usd&include_market_cap=true";
+        let right = "https://api.coingecko.com/api/v3/simple/price?include_market_cap=true&vs_currencies=usd&ids=filecoin";
+
+        assert!(url_structurally_equivalent(left, right));
+    }
+
+    #[test]
+    fn url_equivalence_keeps_different_search_queries_distinct() {
+        let left = "https://www.google.com/search?q=akash%20network%20price";
+        let right = "https://www.google.com/search?q=filecoin%20price";
+
+        assert!(!url_structurally_equivalent(left, right));
+    }
 }

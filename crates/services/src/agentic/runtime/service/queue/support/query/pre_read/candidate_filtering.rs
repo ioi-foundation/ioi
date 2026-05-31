@@ -16,7 +16,7 @@ pub(crate) fn projection_candidate_url_allowed(raw: &str) -> bool {
         && looks_like_deep_article_url(trimmed)
 }
 
-fn grounded_document_briefing_authority_direct_citation_allowed_with_contract_and_projection(
+fn grounded_document_report_authority_direct_citation_allowed_with_contract_and_projection(
     retrieval_contract: Option<&WebRetrievalContract>,
     query_contract: &str,
     projection: &QueryConstraintProjection,
@@ -24,7 +24,7 @@ fn grounded_document_briefing_authority_direct_citation_allowed_with_contract_an
     title: &str,
     excerpt: &str,
 ) -> bool {
-    if !query_prefers_document_briefing_layout(query_contract)
+    if !query_prefers_document_report_layout(query_contract)
         || query_requests_comparison(query_contract)
         || !analyze_query_facets(query_contract).grounded_external_required
         || !retrieval_contract
@@ -143,6 +143,42 @@ fn single_snapshot_metric_detail_candidate_allowed_with_projection(
         title,
         excerpt,
     )
+}
+
+fn market_quote_detail_candidate_allowed_with_contract_and_projection(
+    query_contract: &str,
+    projection: &QueryConstraintProjection,
+    raw: &str,
+    title: &str,
+    excerpt: &str,
+) -> bool {
+    if !query_requires_market_quote_grounding(query_contract) {
+        return false;
+    }
+
+    let trimmed = raw.trim();
+    if trimmed.is_empty()
+        || !is_citable_web_url(trimmed)
+        || is_search_hub_url(trimmed)
+        || title.trim().is_empty() && excerpt.trim().is_empty()
+        || source_has_human_challenge_signal(trimmed, title, excerpt)
+    {
+        return false;
+    }
+
+    let observed_text = format!("{} {}", title, excerpt);
+    if !candidate_time_sensitive_resolvable_payload(trimmed, title, excerpt)
+        && !has_price_quote_payload(&observed_text)
+    {
+        return false;
+    }
+
+    let source_tokens = source_anchor_tokens(trimmed, title, excerpt);
+    projection
+        .query_native_tokens
+        .intersection(&source_tokens)
+        .next()
+        .is_some()
 }
 
 fn local_business_detail_root_candidate_allowed_with_contract(
@@ -525,6 +561,13 @@ fn grounded_direct_citation_source_allowed_with_contract_and_projection(
     let primary_authority_override =
         retrieval_contract_requires_primary_authority_source(retrieval_contract, query_contract)
             && source_counts_as_primary_authority(query_contract, trimmed, title, excerpt);
+    let market_quote_override = market_quote_detail_candidate_allowed_with_contract_and_projection(
+        query_contract,
+        projection,
+        trimmed,
+        title,
+        excerpt,
+    );
     let local_business_grounded_override =
         local_business_detail_surface_candidate_allowed_with_contract_and_projection(
             retrieval_contract,
@@ -543,22 +586,23 @@ fn grounded_direct_citation_source_allowed_with_contract_and_projection(
         );
     if !compatibility_passes_projection(projection, &compatibility)
         && !primary_authority_override
+        && !market_quote_override
         && !local_business_grounded_override
     {
         return false;
     }
 
-    if retrieval_contract_requires_document_briefing_identifier_evidence(
+    if retrieval_contract_requires_document_report_identifier_evidence(
         retrieval_contract,
         query_contract,
-    ) && !source_has_briefing_standard_identifier_signal(query_contract, trimmed, title, excerpt)
+    ) && !source_has_evidence_standard_identifier_signal(query_contract, trimmed, title, excerpt)
         && !source_has_document_authority(query_contract, trimmed, title, excerpt)
     {
         return false;
     }
 
-    let grounded_document_briefing_requires_authority_first =
-        query_prefers_document_briefing_layout(query_contract)
+    let grounded_document_report_requires_authority_first =
+        query_prefers_document_report_layout(query_contract)
             && !query_requests_comparison(query_contract)
             && projection.query_facets.grounded_external_required
             && retrieval_contract
@@ -569,9 +613,9 @@ fn grounded_direct_citation_source_allowed_with_contract_and_projection(
             .ok()
             .map(|parsed| parsed.path().to_ascii_lowercase().ends_with(".pdf"))
             .unwrap_or(false);
-    if grounded_document_briefing_requires_authority_first
+    if grounded_document_report_requires_authority_first
         && !source_has_public_authority_host(trimmed)
-        && !source_has_briefing_standard_identifier_signal(query_contract, trimmed, title, excerpt)
+        && !source_has_evidence_standard_identifier_signal(query_contract, trimmed, title, excerpt)
         && !grounded_external_publication_artifact
     {
         return false;
@@ -623,7 +667,7 @@ pub(crate) fn projection_candidate_url_allowed_with_contract_and_projection(
         return false;
     }
     let candidate_allowed = projection_candidate_url_allowed(raw)
-        || grounded_document_briefing_authority_direct_citation_allowed_with_contract_and_projection(
+        || grounded_document_report_authority_direct_citation_allowed_with_contract_and_projection(
             retrieval_contract,
             query_contract,
             projection,
@@ -633,6 +677,13 @@ pub(crate) fn projection_candidate_url_allowed_with_contract_and_projection(
         )
         || single_snapshot_metric_detail_candidate_allowed_with_contract_and_projection(
             retrieval_contract,
+            query_contract,
+            projection,
+            raw,
+            title,
+            excerpt,
+        )
+        || market_quote_detail_candidate_allowed_with_contract_and_projection(
             query_contract,
             projection,
             raw,
@@ -822,7 +873,7 @@ pub(crate) fn retrieval_affordances_with_contract_and_locality_hint(
             raw,
             title,
             excerpt,
-        ) || grounded_document_briefing_authority_direct_citation_allowed_with_contract_and_projection(
+        ) || grounded_document_report_authority_direct_citation_allowed_with_contract_and_projection(
             retrieval_contract,
             query_contract,
             &projection,

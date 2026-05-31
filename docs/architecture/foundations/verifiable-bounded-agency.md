@@ -107,7 +107,7 @@ operational truth
   Agentgres operations, object heads, receipts, projections, quality ledgers
 
 payload/evidence availability
-  Filecoin/CAS/CDN payloads, packages, evidence bundles, checkpoints, archives
+  storage backend payloads, packages, evidence bundles, checkpoints, archives
 
 public trust and settlement
   IOI L1 registries, rights, escrows, disputes, roots, governance

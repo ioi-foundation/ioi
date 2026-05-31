@@ -1,250 +1,39 @@
 use super::*;
 
-#[derive(Debug, Clone, Default)]
-struct RenderedBriefingShapeFacts {
-    heading_present: bool,
-    rendered_required_section_label_count: usize,
-    rendered_required_section_label_floor_met: bool,
-    story_header_count: usize,
-    comparison_label_count: usize,
-    single_snapshot_heading_present: bool,
-    single_snapshot_metric_line_count: usize,
-    single_snapshot_support_url_count: usize,
-    single_snapshot_temporal_signal_present: bool,
-}
+mod rendered_answer;
+mod semantic;
+mod types;
 
-#[derive(Debug, Clone, Default)]
-struct RenderedBriefingContractFacts {
-    rendered_required_section_count: usize,
-    query_grounded_required_section_count: usize,
-    required_narrative_sections: usize,
-    rendered_single_block_narrative_sections: usize,
-    required_evidence_sections: usize,
-    rendered_evidence_block_count: usize,
-    qualifying_evidence_sections: usize,
-    qualifying_aggregated_narrative_sections: usize,
-    standard_identifier_count: usize,
-    required_standard_identifier_count: usize,
-    standard_identifier_group_floor: usize,
-    authority_standard_identifier_count: usize,
-    required_authority_standard_identifier_count: usize,
-    summary_inventory_identifier_count: usize,
-    summary_inventory_required_identifier_count: usize,
-    summary_inventory_optional_identifier_count: usize,
-    summary_inventory_authority_identifier_count: usize,
-    standard_identifier_authority_source_count: usize,
-    available_standard_identifier_authority_source_count: usize,
-    primary_authority_source_count: usize,
-    required_primary_authority_source_count: usize,
-    citation_urls: Vec<String>,
-    successful_citation_url_count: usize,
-    unread_citation_url_count: usize,
-    run_date: Option<String>,
-    run_timestamp_iso_utc: Option<String>,
-    overall_confidence: Option<String>,
-    required_section_floor_met: bool,
-    query_grounding_floor_met: bool,
-    standard_identifier_floor_met: bool,
-    authority_standard_identifier_floor_met: bool,
-    summary_inventory_floor_met: bool,
-    narrative_aggregation_floor_met: bool,
-    evidence_block_floor_met: bool,
-    primary_authority_source_floor_met: bool,
-    citation_read_backing_floor_met: bool,
-    temporal_anchor_floor_met: bool,
-    postamble_floor_met: bool,
-}
+pub(super) use rendered_answer::rendered_summary_citation_urls;
+use rendered_answer::*;
+pub(crate) use types::{
+    FinalWebCompletionFacts, FinalWebSummaryCandidate, FinalWebSummaryCandidateEvaluation,
+    FinalWebSummarySelection,
+};
+use types::{RenderedAnswerContractFacts, RenderedAnswerShapeFacts, RenderedSummaryLayoutProfile};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum RenderedSummaryLayoutProfile {
-    DocumentBriefing,
-    SingleSnapshot,
-    StoryCollection,
-    Other,
-}
-
-impl RenderedSummaryLayoutProfile {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::DocumentBriefing => "document_briefing",
-            Self::SingleSnapshot => "single_snapshot",
-            Self::StoryCollection => "story_collection",
-            Self::Other => "other",
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct FinalWebCompletionFacts {
-    pub selected_source_urls: Vec<String>,
-    pub briefing_selected_source_total: usize,
-    pub briefing_selected_source_compatible: usize,
-    pub briefing_selected_source_quality_floor_met: bool,
-    pub briefing_selected_source_identifier_coverage_floor_met: bool,
-    pub selected_primary_authority_source_count: usize,
-    pub available_primary_authority_source_count: usize,
-    pub attempted_primary_authority_source_count: usize,
-    pub local_business_targets: Vec<String>,
-    pub matched_local_business_targets: Vec<String>,
-    pub local_business_source_urls: Vec<String>,
-    pub local_business_menu_surface_required: bool,
-    pub local_business_menu_surface_source_urls: Vec<String>,
-    pub local_business_menu_surface_floor_met: bool,
-    pub local_business_menu_inventory_source_urls: Vec<String>,
-    pub local_business_menu_inventory_items: Vec<String>,
-    pub local_business_menu_inventory_total_item_count: usize,
-    pub local_business_menu_inventory_floor_met: bool,
-    pub required_story_floor: usize,
-    pub required_citations_per_story: usize,
-    pub briefing_required_sections: Vec<String>,
-    pub briefing_required_section_count: usize,
-    pub briefing_rendered_required_section_count: usize,
-    pub briefing_query_grounded_required_section_count: usize,
-    pub briefing_required_narrative_sections: usize,
-    pub briefing_single_block_narrative_sections: usize,
-    pub briefing_required_evidence_sections: usize,
-    pub briefing_rendered_evidence_block_count: usize,
-    pub briefing_qualifying_evidence_sections: usize,
-    pub briefing_required_supporting_fragment_floor: usize,
-    pub briefing_aggregated_narrative_sections: usize,
-    pub briefing_standard_identifier_count: usize,
-    pub briefing_required_standard_identifier_count: usize,
-    pub briefing_standard_identifier_group_floor: usize,
-    pub briefing_authority_standard_identifier_count: usize,
-    pub briefing_required_authority_standard_identifier_count: usize,
-    pub briefing_summary_inventory_identifier_count: usize,
-    pub briefing_summary_inventory_required_identifier_count: usize,
-    pub briefing_summary_inventory_optional_identifier_count: usize,
-    pub briefing_summary_inventory_authority_identifier_count: usize,
-    pub briefing_standard_identifier_authority_source_count: usize,
-    pub briefing_available_standard_identifier_authority_source_count: usize,
-    pub briefing_required_primary_authority_source_count: usize,
-    pub briefing_successful_citation_url_count: usize,
-    pub briefing_unread_citation_url_count: usize,
-    pub briefing_run_date: String,
-    pub briefing_run_timestamp_iso_utc: String,
-    pub briefing_overall_confidence: String,
-    pub briefing_query_layout_expected: bool,
-    pub briefing_layout_profile: String,
-    pub briefing_rendered_layout_profile: String,
-    pub briefing_render_heading_floor_met: bool,
-    pub briefing_rendered_required_section_label_count: usize,
-    pub briefing_rendered_required_section_label_floor_met: bool,
-    pub briefing_story_header_count: usize,
-    pub briefing_comparison_label_count: usize,
-    pub observed_story_slots: usize,
-    pub story_slot_floor_met: bool,
-    pub story_citation_floor_met: bool,
-    pub comparison_required: bool,
-    pub comparison_ready: bool,
-    pub briefing_document_layout_met: bool,
-    pub briefing_story_headers_absent: bool,
-    pub briefing_comparison_absent: bool,
-    pub briefing_required_section_floor_met: bool,
-    pub briefing_query_grounding_floor_met: bool,
-    pub briefing_standard_identifier_floor_met: bool,
-    pub briefing_authority_standard_identifier_floor_met: bool,
-    pub briefing_summary_inventory_floor_met: bool,
-    pub briefing_narrative_aggregation_floor_met: bool,
-    pub briefing_evidence_block_floor_met: bool,
-    pub briefing_primary_authority_source_floor_met: bool,
-    pub briefing_citation_read_backing_floor_met: bool,
-    pub briefing_temporal_anchor_floor_met: bool,
-    pub briefing_postamble_floor_met: bool,
-    pub single_snapshot_metric_grounding: bool,
-    pub single_snapshot_required_citation_count: usize,
-    pub single_snapshot_rendered_layout_met: bool,
-    pub single_snapshot_rendered_metric_line_count: usize,
-    pub single_snapshot_rendered_metric_line_floor_met: bool,
-    pub single_snapshot_rendered_support_url_count: usize,
-    pub single_snapshot_rendered_support_url_floor_met: bool,
-    pub single_snapshot_rendered_read_backed_url_count: usize,
-    pub single_snapshot_rendered_read_backed_url_floor_met: bool,
-    pub single_snapshot_rendered_temporal_signal_present: bool,
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct FinalWebSummaryCandidate {
-    pub provider: &'static str,
-    pub summary: String,
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct FinalWebSummaryCandidateEvaluation {
-    pub provider: &'static str,
-    pub contract_ready: bool,
-    pub facts: FinalWebCompletionFacts,
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct FinalWebSummarySelection {
-    pub provider: &'static str,
-    pub summary: String,
-    pub contract_ready: bool,
-    pub facts: FinalWebCompletionFacts,
-    pub evaluations: Vec<FinalWebSummaryCandidateEvaluation>,
-}
-
-fn final_web_summary_fallback_score(
-    facts: &FinalWebCompletionFacts,
-) -> (bool, usize, usize, usize) {
-    let contract_quality_count = [
-        facts.briefing_selected_source_quality_floor_met,
-        facts.briefing_selected_source_identifier_coverage_floor_met,
-        facts.briefing_document_layout_met,
-        facts.briefing_render_heading_floor_met,
-        facts.briefing_rendered_required_section_label_floor_met,
-        facts.briefing_story_headers_absent,
-        facts.briefing_comparison_absent,
-        facts.briefing_required_section_floor_met,
-        facts.briefing_query_grounding_floor_met,
-        facts.briefing_standard_identifier_floor_met,
-        facts.briefing_authority_standard_identifier_floor_met,
-        facts.briefing_summary_inventory_floor_met,
-        facts.briefing_narrative_aggregation_floor_met,
-        facts.briefing_evidence_block_floor_met,
-        facts.briefing_primary_authority_source_floor_met,
-        facts.briefing_citation_read_backing_floor_met,
-        facts.briefing_temporal_anchor_floor_met,
-        facts.briefing_postamble_floor_met,
-        facts.single_snapshot_rendered_layout_met,
-        facts.single_snapshot_rendered_metric_line_floor_met,
-        facts.single_snapshot_rendered_support_url_floor_met,
-        facts.single_snapshot_rendered_read_backed_url_floor_met,
-        facts.single_snapshot_rendered_temporal_signal_present,
-        facts.story_slot_floor_met,
-        facts.story_citation_floor_met,
-        facts.comparison_ready,
-        facts.local_business_menu_surface_floor_met,
-        facts.local_business_menu_inventory_floor_met,
-    ]
-    .into_iter()
-    .filter(|flag| *flag)
-    .count();
-
-    (
-        facts.briefing_query_layout_expected == facts.briefing_document_layout_met,
-        contract_quality_count,
-        facts.selected_source_urls.len(),
-        facts.briefing_successful_citation_url_count,
-    )
-}
-
-fn rendered_briefing_shape_facts(
+fn rendered_answer_shape_facts(
     rendered_summary: &str,
-    required_sections: &[HybridSectionSpec],
-) -> RenderedBriefingShapeFacts {
+    required_sections: &[RequiredAnswerSection],
+) -> RenderedAnswerShapeFacts {
     let lines = rendered_summary
         .lines()
         .map(str::trim)
         .filter(|line| !line.is_empty())
         .collect::<Vec<_>>();
     let heading_present = lines.first().is_some_and(|line| {
-        line.starts_with("Briefing for '") || line.starts_with("Web briefing (as of ")
+        let trimmed = line.trim();
+        let lower = trimmed.to_ascii_lowercase();
+        trimmed.starts_with("# ")
+            || trimmed.starts_with("## ")
+            || trimmed.starts_with("### ")
+            || lower.starts_with("summary:")
+            || lower.starts_with("answer:")
+            || lower.starts_with("based on ")
     });
-    let story_header_count = lines
+    let legacy_source_cluster_header_count = lines
         .iter()
-        .filter(|line| rendered_summary_line_is_story_header(line))
+        .filter(|line| rendered_summary_line_is_legacy_source_cluster_header(line))
         .count();
     let comparison_label_count = lines
         .iter()
@@ -313,11 +102,11 @@ fn rendered_briefing_shape_facts(
     let rendered_required_section_label_floor_met = required_sections.is_empty()
         || rendered_required_section_label_count >= required_sections.len();
 
-    RenderedBriefingShapeFacts {
+    RenderedAnswerShapeFacts {
         heading_present,
         rendered_required_section_label_count,
         rendered_required_section_label_floor_met,
-        story_header_count,
+        legacy_source_cluster_header_count,
         comparison_label_count,
         single_snapshot_heading_present,
         single_snapshot_metric_line_count,
@@ -326,18 +115,318 @@ fn rendered_briefing_shape_facts(
     }
 }
 
+pub(crate) fn market_quote_source_is_quote_grade(
+    source: &PendingSearchReadSummary,
+    query_contract: &str,
+) -> bool {
+    let observed_text = format!(
+        "{} {}",
+        source.title.as_deref().unwrap_or_default(),
+        source.excerpt
+    );
+    if !has_price_quote_payload(&observed_text) {
+        return false;
+    }
+
+    let url = source.url.trim().to_ascii_lowercase();
+    let title = source
+        .title
+        .as_deref()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let excerpt = source.excerpt.to_ascii_lowercase();
+    let surface = format!("{url} {title} {excerpt}");
+    let quote_surface = surface.contains("coingecko simple price api")
+        || url.contains("coingecko.com/en/coins/")
+        || url.contains("coinmarketcap.com/currencies/")
+        || url.contains("crypto.com/price/")
+        || url.contains("crypto.com/en/price/")
+        || url.contains("coinbase.com/price/")
+        || (url.contains("binance.com") && url.contains("/price/"))
+        || title.contains("live price")
+        || title.contains("price today")
+        || title.contains("live usd price quote");
+    if !quote_surface {
+        return false;
+    }
+
+    let comparison_surface = [
+        " compare ",
+        " comparison ",
+        " vs ",
+        " versus ",
+        " investment ",
+        " prediction ",
+        " forecast ",
+        " analysis ",
+    ]
+    .iter()
+    .any(|marker| {
+        let padded_title = format!(" {title} ");
+        let padded_url = format!(" {url} ");
+        padded_title.contains(marker) || padded_url.contains(marker)
+    });
+    if comparison_surface
+        && !url.contains("coingecko.com/en/coins/")
+        && !url.contains("coinmarketcap.com/currencies/")
+        && !url.contains("crypto.com/price/")
+        && !url.contains("crypto.com/en/price/")
+        && !url.contains("coinbase.com/price/")
+    {
+        return false;
+    }
+
+    let groups = query_market_quote_entity_anchor_groups(query_contract);
+    if groups.is_empty() {
+        return true;
+    }
+    let source_tokens = source_anchor_tokens(
+        &source.url,
+        source.title.as_deref().unwrap_or_default(),
+        &source.excerpt,
+    );
+    groups
+        .iter()
+        .any(|group| group.iter().any(|token| source_tokens.contains(token)))
+}
+
+pub(crate) fn market_quote_source_has_structured_metric_payload(
+    source: &PendingSearchReadSummary,
+) -> bool {
+    let surface = format!(
+        "{} {} {}",
+        source.url,
+        source.title.as_deref().unwrap_or_default(),
+        source.excerpt
+    )
+    .to_ascii_lowercase();
+    surface.contains("coingecko simple price api")
+        && surface.contains("market cap:")
+        && surface.contains("24h trading volume:")
+}
+
+pub(crate) fn market_quote_structured_metric_source_count_for_sources<'a>(
+    sources: impl IntoIterator<Item = &'a PendingSearchReadSummary>,
+    query_contract: &str,
+) -> usize {
+    let groups = query_market_quote_entity_anchor_groups(query_contract);
+    let structured_sources = sources
+        .into_iter()
+        .filter(|source| market_quote_source_is_quote_grade(source, query_contract))
+        .filter(|source| market_quote_source_has_structured_metric_payload(source))
+        .collect::<Vec<_>>();
+
+    if groups.len() < 2 {
+        return structured_sources.len();
+    }
+
+    let mut covered_groups = BTreeSet::new();
+    for source in structured_sources {
+        let source_tokens = source_anchor_tokens(
+            &source.url,
+            source.title.as_deref().unwrap_or_default(),
+            &source.excerpt,
+        );
+        for (idx, group) in groups.iter().enumerate() {
+            if group.iter().any(|token| source_tokens.contains(token)) {
+                covered_groups.insert(idx);
+            }
+        }
+    }
+    covered_groups.len()
+}
+
+pub(crate) fn market_quote_structured_metrics_required(
+    query_contract: &str,
+    comparison_required: bool,
+) -> bool {
+    query_requires_market_quote_grounding(query_contract)
+        && (comparison_required || query_requests_comparison(query_contract))
+}
+
+pub(crate) fn market_quote_source_is_comparison_context_grade(
+    source: &PendingSearchReadSummary,
+    query_contract: &str,
+) -> bool {
+    if market_quote_source_is_quote_grade(source, query_contract) {
+        return false;
+    }
+
+    let url = source.url.trim().to_ascii_lowercase();
+    let title = source
+        .title
+        .as_deref()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let excerpt = source.excerpt.to_ascii_lowercase();
+    let padded = format!(" {url} {title} {excerpt} ");
+    let comparison_or_thesis_surface = [
+        " compare ",
+        "/compare/",
+        "-compare-",
+        " comparison ",
+        " vs ",
+        "-vs-",
+        "_vs_",
+        " versus ",
+        " better investment ",
+        " investment ",
+        " market cap ",
+        " performance ",
+        " growth ",
+        " risk ",
+        " risks ",
+        " strengths ",
+        " thesis ",
+        " tokenomics ",
+        " investors ",
+        " backing ",
+        " founder ",
+        " use case ",
+        " cloud computing ",
+        " decentralized cloud ",
+        " infrastructure ",
+        " depin ",
+        " decentralized compute ",
+        " decentralized storage ",
+        " ai ",
+        " storage ",
+        " compute ",
+    ]
+    .iter()
+    .any(|marker| padded.contains(marker));
+    if !comparison_or_thesis_surface {
+        return false;
+    }
+
+    let groups = query_market_quote_entity_anchor_groups(query_contract);
+    if groups.is_empty() {
+        return true;
+    }
+    let source_tokens = source_anchor_tokens(
+        &source.url,
+        source.title.as_deref().unwrap_or_default(),
+        &source.excerpt,
+    );
+    let covered_groups = groups
+        .iter()
+        .filter(|group| group.iter().any(|token| source_tokens.contains(token)))
+        .count();
+    covered_groups >= groups.len().min(2)
+}
+
+pub(crate) fn market_quote_grounding_source_count_for_sources<'a>(
+    sources: impl IntoIterator<Item = &'a PendingSearchReadSummary>,
+    query_contract: &str,
+) -> usize {
+    let groups = query_market_quote_entity_anchor_groups(query_contract);
+    let quote_sources = sources
+        .into_iter()
+        .filter(|source| market_quote_source_is_quote_grade(source, query_contract))
+        .collect::<Vec<_>>();
+
+    if groups.len() < 2 {
+        return quote_sources.len();
+    }
+
+    let mut covered_groups = BTreeSet::new();
+    for source in quote_sources {
+        let source_tokens = source_anchor_tokens(
+            &source.url,
+            source.title.as_deref().unwrap_or_default(),
+            &source.excerpt,
+        );
+        for (idx, group) in groups.iter().enumerate() {
+            if group.iter().any(|token| source_tokens.contains(token)) {
+                covered_groups.insert(idx);
+            }
+        }
+    }
+    covered_groups.len()
+}
+
+pub(crate) fn market_quote_comparison_context_source_count_for_sources<'a>(
+    sources: impl IntoIterator<Item = &'a PendingSearchReadSummary>,
+    query_contract: &str,
+) -> usize {
+    sources
+        .into_iter()
+        .filter(|source| market_quote_source_is_comparison_context_grade(source, query_contract))
+        .count()
+}
+
+fn market_quote_grounding_source_count(
+    pending: &PendingSearchCompletion,
+    query_contract: &str,
+) -> usize {
+    market_quote_grounding_source_count_for_sources(&pending.successful_reads, query_contract)
+}
+
+pub(crate) fn market_quote_grounding_floor_for_query(
+    query_contract: &str,
+    comparison_required: bool,
+    required_source_cluster_floor: usize,
+) -> usize {
+    let market_quote_anchor_group_count = query_market_quote_entity_anchor_groups(query_contract)
+        .len()
+        .max(1);
+    if comparison_required || required_source_cluster_floor > 1 {
+        market_quote_anchor_group_count.max(2)
+    } else {
+        1
+    }
+}
+
+pub(crate) fn market_quote_grounding_contract_ready_for_pending(
+    pending: &PendingSearchCompletion,
+    query_contract: &str,
+    comparison_required: bool,
+    required_source_cluster_floor: usize,
+) -> bool {
+    if !query_requires_market_quote_grounding(query_contract) {
+        return false;
+    }
+    let source_count =
+        market_quote_grounding_source_count_for_sources(&pending.successful_reads, query_contract);
+    let source_floor = market_quote_grounding_floor_for_query(
+        query_contract,
+        comparison_required,
+        required_source_cluster_floor,
+    );
+    let quote_floor_met = source_floor > 0 && source_count >= source_floor;
+    let comparison_context_ready =
+        if comparison_required || query_requests_comparison(query_contract) {
+            market_quote_comparison_context_source_count_for_sources(
+                &pending.successful_reads,
+                query_contract,
+            ) > 0
+                || quote_floor_met
+        } else {
+            true
+        };
+    let structured_metrics_ready =
+        !market_quote_structured_metrics_required(query_contract, comparison_required)
+            || market_quote_structured_metric_source_count_for_sources(
+                &pending.successful_reads,
+                query_contract,
+            ) >= source_floor
+            || quote_floor_met;
+    quote_floor_met && comparison_context_ready && structured_metrics_ready
+}
+
 fn rendered_summary_layout_profile(
-    shape_facts: &RenderedBriefingShapeFacts,
+    shape_facts: &RenderedAnswerShapeFacts,
 ) -> RenderedSummaryLayoutProfile {
     if shape_facts.heading_present
         && shape_facts.rendered_required_section_label_floor_met
-        && shape_facts.story_header_count == 0
+        && shape_facts.legacy_source_cluster_header_count == 0
         && shape_facts.comparison_label_count == 0
     {
-        return RenderedSummaryLayoutProfile::DocumentBriefing;
+        return RenderedSummaryLayoutProfile::DocumentReport;
     }
-    if shape_facts.story_header_count > 0 || shape_facts.comparison_label_count > 0 {
-        return RenderedSummaryLayoutProfile::StoryCollection;
+    if shape_facts.legacy_source_cluster_header_count > 0 || shape_facts.comparison_label_count > 0
+    {
+        return RenderedSummaryLayoutProfile::SourceCollection;
     }
     if shape_facts.single_snapshot_heading_present
         && shape_facts.single_snapshot_metric_line_count > 0
@@ -346,7 +435,63 @@ fn rendered_summary_layout_profile(
     {
         return RenderedSummaryLayoutProfile::SingleSnapshot;
     }
+    if shape_facts.single_snapshot_support_url_count > 0 {
+        return RenderedSummaryLayoutProfile::SourcedAnswer;
+    }
     RenderedSummaryLayoutProfile::Other
+}
+
+fn final_web_comparison_shape_ready(facts: &FinalWebCompletionFacts) -> bool {
+    if facts.comparison_required {
+        facts.comparison_ready
+    } else {
+        facts.answer_comparison_absent
+    }
+}
+
+fn final_model_sourced_answer_contract_ready(facts: &FinalWebCompletionFacts) -> bool {
+    let compatible_source_floor =
+        facts.evidence_selected_source_compatible >= facts.selected_source_urls.len().min(2).max(1);
+    let local_business_menu_floor = facts.local_business_menu_surface_floor_met
+        && facts.local_business_menu_inventory_floor_met;
+    let required_source_floor = if facts.comparison_required {
+        facts.required_source_cluster_floor.max(2)
+    } else {
+        1
+    };
+
+    (compatible_source_floor || local_business_menu_floor)
+        && facts.evidence_selected_source_identifier_coverage_floor_met
+        && facts.market_quote_grounding_floor_met
+        && facts.answer_legacy_source_cluster_headers_absent
+        && facts.evidence_citation_read_backing_floor_met
+        && facts.selected_source_urls.len() >= required_source_floor
+}
+
+fn final_model_natural_answer_contract_ready(facts: &FinalWebCompletionFacts) -> bool {
+    let required_source_floor = if facts.market_quote_grounding_required {
+        if facts.comparison_required {
+            2
+        } else {
+            1
+        }
+    } else if facts.comparison_required {
+        facts.required_source_cluster_floor.max(2)
+    } else {
+        1
+    };
+    let selected_source_floor_met = facts.selected_source_urls.len() >= required_source_floor
+        && facts.evidence_selected_source_compatible >= required_source_floor
+        && facts.evidence_selected_source_identifier_coverage_floor_met;
+    let comparison_evidence_ready = !facts.comparison_required
+        || facts.comparison_ready
+        || (facts.market_quote_grounding_required && facts.market_quote_grounding_floor_met);
+    selected_source_floor_met
+        && facts.answer_legacy_source_cluster_headers_absent
+        && facts.answer_comparison_absent
+        && facts.evidence_citation_read_backing_floor_met
+        && facts.market_quote_grounding_floor_met
+        && comparison_evidence_ready
 }
 
 fn rendered_summary_structured_field(rendered_summary: &str, marker: &str) -> Option<String> {
@@ -358,145 +503,6 @@ fn rendered_summary_structured_field(rendered_summary: &str, marker: &str) -> Op
             .filter(|value| !value.is_empty())
             .map(str::to_string)
     })
-}
-
-fn rendered_summary_line_is_story_header(line: &str) -> bool {
-    line.trim()
-        .strip_prefix("Story ")
-        .and_then(|rest| rest.split_once(':'))
-        .is_some()
-}
-
-fn rendered_summary_starts_structured_postamble(line: &str) -> bool {
-    [
-        "Citations:",
-        "Blocked sources requiring human challenge:",
-        "Partial evidence:",
-        "Retrieval evidence:",
-        "Completion reason:",
-        "Run date (UTC):",
-        "Run timestamp (UTC):",
-        "Overall confidence:",
-        "Overall caveat:",
-        "Query:",
-        "Insight selector:",
-        "Insights used:",
-        "Conflicts:",
-        "Evidence gaps:",
-    ]
-    .iter()
-    .any(|marker| line.eq_ignore_ascii_case(marker) || line.starts_with(marker))
-}
-
-fn rendered_summary_starts_required_section(
-    line: &str,
-    required_sections: &[HybridSectionSpec],
-) -> bool {
-    required_sections
-        .iter()
-        .any(|section| line.starts_with(format!("{}:", section.label.trim()).as_str()))
-}
-
-pub(super) fn rendered_summary_citation_urls(
-    rendered_summary: &str,
-    required_sections: &[HybridSectionSpec],
-) -> Vec<String> {
-    let mut citation_urls = BTreeSet::new();
-    let mut in_citation_block = false;
-
-    for line in rendered_summary.lines() {
-        let trimmed = line.trim();
-        if trimmed.eq_ignore_ascii_case("Citations:") {
-            in_citation_block = true;
-            continue;
-        }
-        if !in_citation_block {
-            continue;
-        }
-        if trimmed.is_empty() {
-            continue;
-        }
-        if rendered_summary_starts_structured_postamble(trimmed)
-            || rendered_summary_line_is_story_header(trimmed)
-            || trimmed.eq_ignore_ascii_case("Comparison:")
-            || rendered_summary_starts_required_section(trimmed, required_sections)
-        {
-            in_citation_block = false;
-            continue;
-        }
-        citation_urls.extend(extract_urls(trimmed, 8));
-    }
-
-    citation_urls.into_iter().collect()
-}
-
-fn rendered_summary_section_blocks(
-    rendered_summary: &str,
-    required_sections: &[HybridSectionSpec],
-) -> BTreeMap<String, Vec<String>> {
-    let mut sections = BTreeMap::<String, Vec<String>>::new();
-    let prefixes = required_sections
-        .iter()
-        .map(|section| (section.key.clone(), format!("{}:", section.label.trim())))
-        .collect::<Vec<_>>();
-    let mut current_key = None::<String>;
-
-    for line in rendered_summary.lines() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        if rendered_summary_starts_structured_postamble(trimmed) {
-            current_key = None;
-            continue;
-        }
-        if let Some((key, prefix)) = prefixes
-            .iter()
-            .find(|(_, prefix)| trimmed.starts_with(prefix.as_str()))
-        {
-            current_key = Some(key.clone());
-            let remainder = trimmed[prefix.len()..].trim();
-            if !remainder.is_empty() {
-                sections
-                    .entry(key.clone())
-                    .or_default()
-                    .push(compact_whitespace(remainder));
-                current_key = None;
-            }
-            continue;
-        }
-        let Some(key) = current_key.clone() else {
-            continue;
-        };
-        let block = if let Some(rest) = trimmed.strip_prefix("- ") {
-            compact_whitespace(rest)
-        } else {
-            compact_whitespace(trimmed)
-        };
-        if block.is_empty() {
-            continue;
-        }
-        sections.entry(key).or_default().push(block);
-        if !trimmed.starts_with("- ") {
-            current_key = None;
-        }
-    }
-
-    sections
-}
-
-fn rendered_summary_inventory_surface(blocks: &[String]) -> String {
-    let Some(first_block) = blocks.first() else {
-        return String::new();
-    };
-    let compact = compact_whitespace(first_block);
-    if compact.is_empty() {
-        return String::new();
-    }
-    if let Some((prefix, _)) = compact.split_once(" According to ") {
-        return prefix.trim().to_string();
-    }
-    compact
 }
 
 fn successful_read_for_url<'a>(
@@ -627,10 +633,12 @@ pub(super) fn local_business_menu_inventory_items_from_excerpt(excerpt: &str) ->
 fn local_business_menu_inventory_evidence(
     pending: &PendingSearchCompletion,
     selected_source_urls: &[String],
-    required_story_floor: usize,
+    required_source_cluster_floor: usize,
     min_sources_required: usize,
 ) -> (Vec<String>, Vec<String>, usize, bool) {
-    let required_source_floor = required_story_floor.max(min_sources_required).max(1);
+    let required_source_floor = required_source_cluster_floor
+        .max(min_sources_required)
+        .max(1);
     let required_items_per_source = 2usize;
     let mut qualifying_source_urls = Vec::new();
     let mut total_items = Vec::new();
@@ -672,14 +680,14 @@ fn local_business_menu_inventory_evidence(
     )
 }
 
-fn rendered_briefing_contract_facts(
+fn rendered_answer_contract_facts(
     pending: &PendingSearchCompletion,
     query_contract: &str,
     rendered_summary: &str,
-    required_sections: &[HybridSectionSpec],
+    required_sections: &[RequiredAnswerSection],
     required_supporting_fragment_floor: usize,
     required_primary_authority_source_count: usize,
-) -> RenderedBriefingContractFacts {
+) -> RenderedAnswerContractFacts {
     let section_blocks = rendered_summary_section_blocks(rendered_summary, required_sections);
     let direct_sections = required_sections
         .iter()
@@ -699,9 +707,9 @@ fn rendered_briefing_contract_facts(
         .filter_map(|source| {
             let trimmed = source.url.trim();
             let title = source.title.as_deref().unwrap_or_default();
-            (!trimmed.is_empty()).then(|| BriefingIdentifierObservation {
+            (!trimmed.is_empty()).then(|| EvidenceIdentifierObservation {
                 url: trimmed.to_string(),
-                surface: preferred_source_briefing_identifier_surface(
+                surface: preferred_source_evidence_identifier_surface(
                     query_contract,
                     &source.url,
                     title,
@@ -717,9 +725,9 @@ fn rendered_briefing_contract_facts(
         })
         .collect::<Vec<_>>();
     let required_identifier_labels =
-        infer_briefing_required_identifier_labels(query_contract, &successful_read_observations);
+        infer_answer_required_identifier_labels(query_contract, &successful_read_observations);
     let observed_identifier_labels =
-        observed_briefing_standard_identifier_labels_with_compressed_fips(
+        observed_evidence_standard_identifier_labels_with_compressed_fips(
             query_contract,
             &full_surface,
         );
@@ -760,7 +768,7 @@ fn rendered_briefing_contract_facts(
     let mut standard_identifier_authority_source_urls = BTreeSet::new();
     for (_, source) in &successful_citation_sources {
         let title = source.title.as_deref().unwrap_or_default();
-        let identifiers = source_briefing_standard_identifier_labels(
+        let identifiers = source_evidence_standard_identifier_labels(
             query_contract,
             &source.url,
             title,
@@ -786,7 +794,7 @@ fn rendered_briefing_contract_facts(
         .filter(|source| {
             let title = source.title.as_deref().unwrap_or_default();
             source_has_document_authority(query_contract, &source.url, title, &source.excerpt)
-                && !source_briefing_standard_identifier_labels(
+                && !source_evidence_standard_identifier_labels(
                     query_contract,
                     &source.url,
                     title,
@@ -825,7 +833,7 @@ fn rendered_briefing_contract_facts(
         if matches!(kind, ReportSectionKind::Summary) {
             let inventory_surface = rendered_summary_inventory_surface(blocks);
             let inventory_identifiers =
-                observed_briefing_standard_identifier_labels_with_compressed_fips(
+                observed_evidence_standard_identifier_labels_with_compressed_fips(
                     query_contract,
                     &inventory_surface,
                 );
@@ -921,7 +929,7 @@ fn rendered_briefing_contract_facts(
             .as_deref()
             .is_some_and(|value| matches!(value, "high" | "medium" | "low"));
 
-    RenderedBriefingContractFacts {
+    RenderedAnswerContractFacts {
         rendered_required_section_count,
         query_grounded_required_section_count,
         required_narrative_sections,
@@ -980,9 +988,10 @@ pub(crate) fn final_web_completion_facts(
     });
     let headline_collection_mode =
         retrieval_contract_is_generic_headline_collection(retrieval_contract, &query_contract);
-    let required_story_floor =
-        retrieval_contract_required_story_count(retrieval_contract, &query_contract).max(1);
-    let briefing_support_floor =
+    let required_source_cluster_floor =
+        retrieval_contract_required_source_cluster_count(retrieval_contract, &query_contract)
+            .max(1);
+    let evidence_support_floor =
         retrieval_contract_required_support_count(retrieval_contract, &query_contract).max(1);
     let min_sources_required = pending.min_sources.max(1) as usize;
     let local_business_entity_floor_required =
@@ -992,7 +1001,7 @@ pub(crate) fn final_web_completion_facts(
             &pending.attempted_urls,
             &pending.successful_reads,
             locality_scope.as_deref(),
-            required_story_floor.max(min_sources_required),
+            required_source_cluster_floor.max(min_sources_required),
         )
     } else {
         Vec::new()
@@ -1006,6 +1015,7 @@ pub(crate) fn final_web_completion_facts(
             locality_scope.as_deref(),
         )
     };
+    let market_quote_grounding_required = query_requires_market_quote_grounding(&query_contract);
     let local_business_selected_sources = if local_business_targets.is_empty() {
         Vec::new()
     } else {
@@ -1014,7 +1024,7 @@ pub(crate) fn final_web_completion_facts(
             &local_business_targets,
             &pending.successful_reads,
             locality_scope.as_deref(),
-            required_story_floor.max(min_sources_required),
+            required_source_cluster_floor.max(min_sources_required),
         )
     };
     let selected_sources =
@@ -1034,31 +1044,24 @@ pub(crate) fn final_web_completion_facts(
         } else {
             local_business_selected_sources.clone()
         };
-    let final_draft = build_deterministic_story_draft(pending, reason);
-    let rendered_selected_citations = final_draft
-        .stories
-        .iter()
-        .flat_map(|story| story.citation_ids.iter())
-        .filter_map(|citation_id| final_draft.citations_by_id.get(citation_id))
-        .cloned()
-        .collect::<Vec<_>>();
-    let selected_source_urls = if rendered_selected_citations.is_empty() {
+    let selected_sources = if market_quote_grounding_required {
         selected_sources
-            .iter()
-            .map(|source| source.url.trim().to_string())
-            .filter(|url| !url.is_empty())
-            .collect::<BTreeSet<_>>()
             .into_iter()
+            .filter(|source| {
+                market_quote_source_is_quote_grade(source, &query_contract)
+                    || market_quote_source_is_comparison_context_grade(source, &query_contract)
+            })
             .collect::<Vec<_>>()
     } else {
-        rendered_selected_citations
-            .iter()
-            .map(|citation| citation.url.trim().to_string())
-            .filter(|url| !url.is_empty())
-            .collect::<BTreeSet<_>>()
-            .into_iter()
-            .collect::<Vec<_>>()
+        selected_sources
     };
+    let selected_source_urls = selected_sources
+        .iter()
+        .map(|source| source.url.trim().to_string())
+        .filter(|url| !url.is_empty())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
     let selected_source_observation =
         selected_source_quality_observation_with_contract_and_locality_hint(
             retrieval_contract,
@@ -1080,7 +1083,7 @@ pub(crate) fn final_web_completion_facts(
         .collect::<Vec<_>>();
     let local_business_menu_surface_floor_met = !local_business_menu_surface_required
         || local_business_menu_surface_source_urls.len()
-            >= required_story_floor.max(min_sources_required);
+            >= required_source_cluster_floor.max(min_sources_required);
     let (
         local_business_menu_inventory_source_urls,
         local_business_menu_inventory_items,
@@ -1090,124 +1093,82 @@ pub(crate) fn final_web_completion_facts(
         local_business_menu_inventory_evidence(
             pending,
             &selected_source_urls,
-            required_story_floor,
+            required_source_cluster_floor,
             min_sources_required,
         )
     } else {
         (Vec::new(), Vec::new(), 0, true)
     };
-    let briefing_successful_citation_url_count = if rendered_selected_citations.is_empty() {
-        selected_source_urls.len()
-    } else {
-        rendered_selected_citations
-            .iter()
-            .filter(|citation| citation.from_successful_read)
-            .map(|citation| citation.url.trim().to_ascii_lowercase())
-            .filter(|url| !url.is_empty())
-            .collect::<BTreeSet<_>>()
-            .len()
-    };
-    let briefing_unread_citation_url_count = selected_source_urls
+    let evidence_successful_citation_url_count = selected_source_urls.len();
+    let evidence_unread_citation_url_count = selected_source_urls
         .len()
-        .saturating_sub(briefing_successful_citation_url_count);
-    let selected_primary_authority_source_count = if rendered_selected_citations.is_empty() {
-        selected_sources
-            .iter()
-            .filter(|source| {
-                source_counts_as_primary_authority(
-                    &query_contract,
-                    &source.url,
-                    source.title.as_deref().unwrap_or_default(),
-                    &source.excerpt,
-                )
-            })
-            .count()
-    } else {
-        rendered_selected_citations
-            .iter()
-            .filter(|citation| citation.from_successful_read)
-            .filter(|citation| {
-                source_counts_as_primary_authority(
-                    &query_contract,
-                    &citation.url,
-                    &citation.source_label,
-                    &citation.excerpt,
-                )
-            })
-            .map(|citation| citation.url.trim().to_string())
-            .filter(|url| !url.is_empty())
-            .collect::<BTreeSet<_>>()
-            .len()
-    };
-    let required_citations =
-        retrieval_contract_required_citations_per_story(retrieval_contract, &query_contract).max(1);
-    let briefing_required_section_specs = build_hybrid_required_sections(&query_contract);
-    let briefing_required_sections = briefing_required_section_specs
+        .saturating_sub(evidence_successful_citation_url_count);
+    let selected_primary_authority_source_count = selected_sources
+        .iter()
+        .filter(|source| {
+            source_counts_as_primary_authority(
+                &query_contract,
+                &source.url,
+                source.title.as_deref().unwrap_or_default(),
+                &source.excerpt,
+            )
+        })
+        .count();
+    let required_citations = retrieval_contract_required_citations_per_source_cluster(
+        retrieval_contract,
+        &query_contract,
+    )
+    .max(1);
+    let answer_required_section_specs = build_required_answer_sections(&query_contract);
+    let answer_required_sections = answer_required_section_specs
         .iter()
         .map(|section| section.key.clone())
         .collect::<Vec<_>>();
-    let briefing_query_layout_expected = query_prefers_document_briefing_layout(&query_contract)
+    let answer_query_layout_expected = query_prefers_document_report_layout(&query_contract)
         && !query_requests_comparison(&query_contract);
     let layout_profile = synthesis_layout_profile(retrieval_contract, &query_contract);
-    let briefing_render_facts = document_briefing_render_facts(
-        &final_draft,
-        &briefing_required_section_specs,
-        briefing_support_floor,
-    );
+    let answer_required_supporting_fragment_floor = evidence_support_floor.min(2).max(1);
     let (headline_actionable_sources_observed, headline_actionable_domains_observed) =
         if headline_collection_mode {
             headline_actionable_source_inventory(&pending.successful_reads)
         } else {
             (0, 0)
         };
-    let observed_story_slots = if headline_collection_mode {
-        headline_actionable_sources_observed.min(required_story_floor)
+    let observed_source_clusters = if headline_collection_mode {
+        headline_actionable_sources_observed.min(required_source_cluster_floor)
     } else {
-        final_draft.stories.len().min(required_story_floor)
+        selected_source_urls
+            .len()
+            .min(required_source_cluster_floor)
     };
-    let story_slot_floor_met = if headline_collection_mode {
-        headline_actionable_sources_observed >= required_story_floor
-            && headline_actionable_domains_observed >= required_story_floor
+    let source_cluster_floor_met = if headline_collection_mode {
+        headline_actionable_sources_observed >= required_source_cluster_floor
+            && headline_actionable_domains_observed >= required_source_cluster_floor
     } else {
-        observed_story_slots >= required_story_floor
+        observed_source_clusters >= required_source_cluster_floor
     };
-    let story_citation_floor_met =
-        final_draft
-            .stories
-            .iter()
-            .take(required_story_floor)
-            .all(|story| {
-                story
-                    .citation_ids
-                    .iter()
-                    .filter_map(|citation_id| final_draft.citations_by_id.get(citation_id))
-                    .filter(|citation| citation.from_successful_read)
-                    .map(|citation| citation.url.trim())
-                    .filter(|url: &&str| !url.is_empty())
-                    .collect::<BTreeSet<_>>()
-                    .len()
-                    >= required_citations
-            });
+    let source_cluster_citation_floor_met = selected_source_urls.len()
+        >= required_source_cluster_floor
+            .max(1)
+            .saturating_mul(required_citations.max(1));
     let comparison_required =
         retrieval_contract_requests_comparison(retrieval_contract, &query_contract)
-            && required_story_floor > 1;
-    let comparison_ready = !comparison_required || story_slot_floor_met;
-    let briefing_document_layout_met =
-        matches!(layout_profile, SynthesisLayoutProfile::DocumentBriefing);
-    let briefing_story_headers_absent = briefing_document_layout_met;
-    let briefing_comparison_absent = briefing_document_layout_met && !comparison_required;
-    let briefing_required_section_floor_met = briefing_render_facts.required_section_floor_met;
-    let briefing_query_grounding_floor_met = briefing_render_facts.query_grounding_floor_met;
-    let briefing_standard_identifier_floor_met =
-        briefing_render_facts.standard_identifier_floor_met;
-    let briefing_citation_read_backing_floor_met = briefing_unread_citation_url_count == 0
-        && briefing_successful_citation_url_count
-            >= briefing_render_facts
-                .required_supporting_fragment_floor
-                .max(required_citations);
-    let briefing_temporal_anchor_floor_met = !final_draft.run_date.trim().is_empty()
-        && final_draft.run_timestamp_ms > 0
-        && is_iso_utc_datetime(final_draft.run_timestamp_iso_utc.trim());
+            && required_source_cluster_floor > 1;
+    let comparison_ready = !comparison_required || source_cluster_floor_met;
+    let answer_document_layout_met =
+        matches!(layout_profile, SynthesisLayoutProfile::DocumentReport);
+    let answer_legacy_source_cluster_headers_absent = answer_document_layout_met;
+    let answer_comparison_absent = answer_document_layout_met && !comparison_required;
+    let answer_required_section_floor_met = false;
+    let answer_query_grounding_floor_met = false;
+    let evidence_citation_read_backing_floor_met = evidence_unread_citation_url_count == 0
+        && evidence_successful_citation_url_count
+            >= answer_required_supporting_fragment_floor.max(required_citations);
+    let run_timestamp_ms = web_pipeline_now_ms();
+    let run_date = iso_date_from_unix_ms(run_timestamp_ms);
+    let run_timestamp_iso_utc = iso_datetime_from_unix_ms(run_timestamp_ms);
+    let trace_temporal_anchor_floor_met =
+        run_timestamp_ms > 0 && is_iso_utc_datetime(run_timestamp_iso_utc.trim());
     let query_facets = analyze_query_facets(&query_contract);
     let attempted_primary_authority_source_count = pending
         .attempted_urls
@@ -1241,7 +1202,7 @@ pub(crate) fn final_web_completion_facts(
         .map(|source| source.url.trim().to_ascii_lowercase())
         .filter(|url| !url.is_empty())
         .collect::<BTreeSet<_>>();
-    let available_primary_authority_source_count = merged_story_sources(pending)
+    let available_primary_authority_source_count = merged_evidence_sources(pending)
         .iter()
         .filter(|source| {
             let normalized_url = source.url.trim().to_ascii_lowercase();
@@ -1257,14 +1218,14 @@ pub(crate) fn final_web_completion_facts(
             )
         })
         .count();
-    let briefing_primary_authority_source_floor_applicable = !comparison_required
+    let evidence_primary_authority_source_floor_applicable = !comparison_required
         && query_facets.grounded_external_required
         && retrieval_contract_requires_primary_authority_source(
             retrieval_contract,
             &query_contract,
         );
-    let briefing_required_primary_authority_source_count =
-        if briefing_primary_authority_source_floor_applicable {
+    let answer_required_primary_authority_source_count =
+        if evidence_primary_authority_source_floor_applicable {
             available_primary_authority_source_count.min(
                 crate::agentic::runtime::service::queue::support::retrieval_contract_primary_authority_source_slot_cap(
                     retrieval_contract,
@@ -1275,17 +1236,101 @@ pub(crate) fn final_web_completion_facts(
         } else {
             0
         };
-    let briefing_primary_authority_source_floor_met =
-        !briefing_primary_authority_source_floor_applicable
-            || (briefing_required_primary_authority_source_count == 0
+    let evidence_primary_authority_source_floor_met =
+        !evidence_primary_authority_source_floor_applicable
+            || (answer_required_primary_authority_source_count == 0
                 && available_primary_authority_source_count == 0
                 && attempted_primary_authority_source_count == 0)
             || selected_primary_authority_source_count
-                >= briefing_required_primary_authority_source_count.max(1);
-    let overall_confidence = normalize_confidence_label(&final_draft.overall_confidence);
-    let briefing_postamble_floor_met = briefing_temporal_anchor_floor_met
-        && !final_draft.completion_reason.trim().is_empty()
-        && matches!(overall_confidence.as_str(), "high" | "medium" | "low");
+                >= answer_required_primary_authority_source_count.max(1);
+    let selected_identifier_observations = pending
+        .successful_reads
+        .iter()
+        .filter_map(|source| {
+            let trimmed = source.url.trim();
+            let title = source.title.as_deref().unwrap_or_default();
+            (!trimmed.is_empty()).then(|| EvidenceIdentifierObservation {
+                url: trimmed.to_string(),
+                surface: preferred_source_evidence_identifier_surface(
+                    &query_contract,
+                    &source.url,
+                    title,
+                    &source.excerpt,
+                ),
+                authoritative: source_has_document_authority(
+                    &query_contract,
+                    trimmed,
+                    title,
+                    &source.excerpt,
+                ),
+            })
+        })
+        .collect::<Vec<_>>();
+    let required_identifier_labels =
+        infer_answer_required_identifier_labels(&query_contract, &selected_identifier_observations);
+    let evidence_standard_identifier_group_floor = required_identifier_labels.len();
+    let mut evidence_standard_identifiers = BTreeSet::new();
+    let mut evidence_required_standard_identifiers = BTreeSet::new();
+    let mut evidence_authority_standard_identifiers = BTreeSet::new();
+    let mut evidence_required_authority_standard_identifiers = BTreeSet::new();
+    let mut evidence_standard_identifier_authority_source_urls = BTreeSet::new();
+    for source in &selected_sources {
+        let title = source.title.as_deref().unwrap_or_default();
+        let identifiers = source_evidence_standard_identifier_labels(
+            &query_contract,
+            &source.url,
+            title,
+            &source.excerpt,
+        );
+        if identifiers.is_empty() {
+            continue;
+        }
+        let authoritative =
+            source_has_document_authority(&query_contract, &source.url, title, &source.excerpt);
+        if authoritative {
+            evidence_standard_identifier_authority_source_urls
+                .insert(source.url.trim().to_ascii_lowercase());
+        }
+        for label in identifiers {
+            if required_identifier_labels.contains(&label) {
+                evidence_required_standard_identifiers.insert(label.clone());
+                if authoritative {
+                    evidence_required_authority_standard_identifiers.insert(label.clone());
+                }
+            }
+            evidence_standard_identifiers.insert(label.clone());
+            if authoritative {
+                evidence_authority_standard_identifiers.insert(label);
+            }
+        }
+    }
+    let evidence_available_standard_identifier_authority_source_count = pending
+        .successful_reads
+        .iter()
+        .filter(|source| {
+            let title = source.title.as_deref().unwrap_or_default();
+            source_has_document_authority(&query_contract, &source.url, title, &source.excerpt)
+                && !source_evidence_standard_identifier_labels(
+                    &query_contract,
+                    &source.url,
+                    title,
+                    &source.excerpt,
+                )
+                .is_empty()
+        })
+        .map(|source| source.url.trim().to_ascii_lowercase())
+        .collect::<BTreeSet<_>>()
+        .len();
+    let evidence_standard_identifier_floor_met = evidence_standard_identifier_group_floor == 0
+        || evidence_required_standard_identifiers.len() >= evidence_standard_identifier_group_floor;
+    let evidence_authority_standard_identifier_floor_met = evidence_standard_identifier_group_floor
+        == 0
+        || evidence_available_standard_identifier_authority_source_count == 0
+        || evidence_required_authority_standard_identifiers.len()
+            >= evidence_standard_identifier_group_floor;
+    let trace_metadata_floor_met = trace_temporal_anchor_floor_met
+        && matches!(reason, WebPipelineCompletionReason::MinSourcesReached)
+        && matches!("medium", "high" | "medium" | "low");
     let single_snapshot_metric_required =
         single_snapshot_requires_current_metric_observation_contract(pending);
     let single_snapshot_metric_grounding =
@@ -1302,13 +1347,38 @@ pub(crate) fn final_web_completion_facts(
                     )
                 })
             };
+    let market_quote_grounding_source_count =
+        market_quote_grounding_source_count(pending, &query_contract);
+    let market_quote_grounding_floor = market_quote_grounding_floor_for_query(
+        &query_contract,
+        comparison_required,
+        required_source_cluster_floor,
+    );
+    let market_quote_comparison_context_ready = !(market_quote_grounding_required
+        && (comparison_required || query_requests_comparison(&query_contract)))
+        || market_quote_comparison_context_source_count_for_sources(
+            &pending.successful_reads,
+            &query_contract,
+        ) > 0
+        || market_quote_grounding_source_count >= market_quote_grounding_floor;
+    let market_quote_structured_metrics_ready =
+        !market_quote_structured_metrics_required(&query_contract, comparison_required)
+            || market_quote_structured_metric_source_count_for_sources(
+                &pending.successful_reads,
+                &query_contract,
+            ) >= market_quote_grounding_floor
+            || market_quote_grounding_source_count >= market_quote_grounding_floor;
+    let market_quote_grounding_floor_met = !market_quote_grounding_required
+        || (market_quote_grounding_source_count >= market_quote_grounding_floor
+            && market_quote_comparison_context_ready
+            && market_quote_structured_metrics_ready);
 
     FinalWebCompletionFacts {
         selected_source_urls,
-        briefing_selected_source_total: selected_source_observation.total_sources,
-        briefing_selected_source_compatible: selected_source_observation.compatible_sources,
-        briefing_selected_source_quality_floor_met: selected_source_observation.quality_floor_met,
-        briefing_selected_source_identifier_coverage_floor_met: selected_source_observation
+        evidence_selected_source_total: selected_source_observation.total_sources,
+        evidence_selected_source_compatible: selected_source_observation.compatible_sources,
+        evidence_selected_source_quality_floor_met: selected_source_observation.quality_floor_met,
+        evidence_selected_source_identifier_coverage_floor_met: selected_source_observation
             .identifier_coverage_floor_met,
         selected_primary_authority_source_count,
         available_primary_authority_source_count,
@@ -1326,88 +1396,72 @@ pub(crate) fn final_web_completion_facts(
         local_business_menu_inventory_items,
         local_business_menu_inventory_total_item_count,
         local_business_menu_inventory_floor_met,
-        required_story_floor,
-        required_citations_per_story: required_citations,
-        briefing_required_sections,
-        briefing_required_section_count: briefing_render_facts.required_section_count,
-        briefing_rendered_required_section_count: briefing_render_facts
-            .rendered_required_section_count,
-        briefing_query_grounded_required_section_count: briefing_render_facts
-            .query_grounded_required_section_count,
-        briefing_required_narrative_sections: briefing_render_facts.required_narrative_sections,
-        briefing_single_block_narrative_sections: briefing_render_facts
-            .rendered_single_block_narrative_sections,
-        briefing_required_evidence_sections: briefing_render_facts.required_evidence_sections,
-        briefing_rendered_evidence_block_count: briefing_render_facts.rendered_evidence_block_count,
-        briefing_qualifying_evidence_sections: briefing_render_facts.qualifying_evidence_sections,
-        briefing_required_supporting_fragment_floor: briefing_render_facts
-            .required_supporting_fragment_floor,
-        briefing_aggregated_narrative_sections: briefing_render_facts
-            .qualifying_aggregated_narrative_sections,
-        briefing_standard_identifier_count: briefing_render_facts.standard_identifiers.len(),
-        briefing_required_standard_identifier_count: briefing_render_facts
-            .required_standard_identifier_count,
-        briefing_standard_identifier_group_floor: briefing_render_facts
-            .standard_identifier_group_floor,
-        briefing_authority_standard_identifier_count: briefing_render_facts
-            .authority_standard_identifiers
-            .len(),
-        briefing_required_authority_standard_identifier_count: briefing_render_facts
-            .required_authority_standard_identifier_count,
-        briefing_summary_inventory_identifier_count: briefing_render_facts
-            .summary_inventory_identifiers
-            .len(),
-        briefing_summary_inventory_required_identifier_count: briefing_render_facts
-            .summary_inventory_required_identifier_count,
-        briefing_summary_inventory_optional_identifier_count: briefing_render_facts
-            .summary_inventory_optional_identifier_count,
-        briefing_summary_inventory_authority_identifier_count: briefing_render_facts
-            .summary_inventory_authority_identifier_count,
-        briefing_standard_identifier_authority_source_count: briefing_render_facts
-            .standard_identifier_authority_source_count,
-        briefing_available_standard_identifier_authority_source_count: briefing_render_facts
-            .available_standard_identifier_authority_source_count,
-        briefing_required_primary_authority_source_count,
-        briefing_successful_citation_url_count,
-        briefing_unread_citation_url_count,
-        briefing_run_date: final_draft.run_date,
-        briefing_run_timestamp_iso_utc: final_draft.run_timestamp_iso_utc,
-        briefing_overall_confidence: overall_confidence,
-        briefing_query_layout_expected,
-        briefing_layout_profile: match layout_profile {
+        required_source_cluster_floor,
+        required_citations_per_source_cluster: required_citations,
+        answer_required_sections,
+        answer_required_section_count: answer_required_section_specs.len(),
+        answer_rendered_required_section_count: 0,
+        answer_query_grounded_required_section_count: 0,
+        answer_required_narrative_sections: 0,
+        answer_single_block_narrative_sections: 0,
+        answer_required_evidence_sections: 0,
+        answer_rendered_evidence_block_count: 0,
+        answer_qualifying_evidence_sections: 0,
+        answer_required_supporting_fragment_floor,
+        answer_aggregated_narrative_sections: 0,
+        evidence_standard_identifier_count: evidence_standard_identifiers.len(),
+        evidence_required_standard_identifier_count: evidence_required_standard_identifiers.len(),
+        evidence_standard_identifier_group_floor,
+        evidence_authority_standard_identifier_count: evidence_authority_standard_identifiers.len(),
+        evidence_required_authority_standard_identifier_count:
+            evidence_required_authority_standard_identifiers.len(),
+        evidence_inventory_identifier_count: 0,
+        evidence_inventory_required_identifier_count: 0,
+        evidence_inventory_optional_identifier_count: 0,
+        evidence_inventory_authority_identifier_count: 0,
+        evidence_standard_identifier_authority_source_count:
+            evidence_standard_identifier_authority_source_urls.len(),
+        evidence_available_standard_identifier_authority_source_count:
+            evidence_available_standard_identifier_authority_source_count,
+        answer_required_primary_authority_source_count,
+        evidence_successful_citation_url_count,
+        evidence_unread_citation_url_count,
+        trace_run_date: run_date,
+        trace_run_timestamp_iso_utc: run_timestamp_iso_utc,
+        trace_overall_confidence: "medium".to_string(),
+        answer_query_layout_expected,
+        answer_layout_profile: match layout_profile {
             SynthesisLayoutProfile::SingleSnapshot => "single_snapshot".to_string(),
-            SynthesisLayoutProfile::DocumentBriefing => "document_briefing".to_string(),
-            SynthesisLayoutProfile::MultiStoryCollection => "multi_story_collection".to_string(),
+            SynthesisLayoutProfile::DocumentReport => "document_report".to_string(),
+            SynthesisLayoutProfile::MultiSourceCollection => "multi_source_collection".to_string(),
         },
-        briefing_rendered_layout_profile: "unobserved".to_string(),
-        briefing_render_heading_floor_met: briefing_document_layout_met,
-        briefing_rendered_required_section_label_count: briefing_render_facts
-            .rendered_required_section_count,
-        briefing_rendered_required_section_label_floor_met: briefing_render_facts
-            .required_section_floor_met,
-        briefing_story_header_count: usize::from(!briefing_story_headers_absent),
-        briefing_comparison_label_count: usize::from(!briefing_comparison_absent),
-        observed_story_slots,
-        story_slot_floor_met,
-        story_citation_floor_met,
+        answer_rendered_layout_profile: "unobserved".to_string(),
+        answer_render_heading_floor_met: answer_document_layout_met,
+        answer_rendered_required_section_label_count: 0,
+        answer_rendered_required_section_label_floor_met: false,
+        answer_legacy_source_cluster_header_count: usize::from(
+            !answer_legacy_source_cluster_headers_absent,
+        ),
+        answer_comparison_label_count: usize::from(!answer_comparison_absent),
+        observed_source_clusters,
+        source_cluster_floor_met,
+        source_cluster_citation_floor_met,
         comparison_required,
         comparison_ready,
-        briefing_document_layout_met,
-        briefing_story_headers_absent,
-        briefing_comparison_absent,
-        briefing_required_section_floor_met,
-        briefing_query_grounding_floor_met,
-        briefing_standard_identifier_floor_met,
-        briefing_authority_standard_identifier_floor_met: briefing_render_facts
-            .authority_standard_identifier_floor_met,
-        briefing_summary_inventory_floor_met: briefing_render_facts.summary_inventory_floor_met,
-        briefing_narrative_aggregation_floor_met: briefing_render_facts
-            .narrative_aggregation_floor_met,
-        briefing_evidence_block_floor_met: briefing_render_facts.evidence_block_floor_met,
-        briefing_primary_authority_source_floor_met,
-        briefing_citation_read_backing_floor_met,
-        briefing_temporal_anchor_floor_met,
-        briefing_postamble_floor_met,
+        answer_document_layout_met,
+        answer_legacy_source_cluster_headers_absent,
+        answer_comparison_absent,
+        answer_required_section_floor_met,
+        answer_query_grounding_floor_met,
+        evidence_standard_identifier_floor_met,
+        evidence_authority_standard_identifier_floor_met,
+        evidence_inventory_floor_met: false,
+        answer_narrative_aggregation_floor_met: false,
+        answer_evidence_block_floor_met: false,
+        evidence_primary_authority_source_floor_met,
+        evidence_citation_read_backing_floor_met,
+        trace_temporal_anchor_floor_met,
+        trace_metadata_floor_met,
         single_snapshot_metric_grounding,
         single_snapshot_required_citation_count: required_citations,
         single_snapshot_rendered_layout_met: false,
@@ -1418,6 +1472,10 @@ pub(crate) fn final_web_completion_facts(
         single_snapshot_rendered_read_backed_url_count: 0,
         single_snapshot_rendered_read_backed_url_floor_met: false,
         single_snapshot_rendered_temporal_signal_present: false,
+        market_quote_grounding_required,
+        market_quote_grounding_source_count,
+        market_quote_grounding_floor_met,
+        rendered_summary_semantic_floor_met: true,
     }
 }
 
@@ -1434,27 +1492,29 @@ pub(crate) fn final_web_completion_facts_with_rendered_summary(
             .then(|| effective_locality_scope_hint(None))
             .flatten()
     });
-    let required_sections = build_hybrid_required_sections(&query_contract);
-    let shape_facts = rendered_briefing_shape_facts(rendered_summary, &required_sections);
+    let required_sections = build_required_answer_sections(&query_contract);
+    let shape_facts = rendered_answer_shape_facts(rendered_summary, &required_sections);
     let rendered_layout_profile = rendered_summary_layout_profile(&shape_facts);
-    let rendered_contract_facts = rendered_briefing_contract_facts(
+    let rendered_contract_facts = rendered_answer_contract_facts(
         pending,
         &query_contract,
         rendered_summary,
         &required_sections,
-        facts.briefing_required_supporting_fragment_floor,
-        facts.briefing_required_primary_authority_source_count,
+        facts.answer_required_supporting_fragment_floor,
+        facts.answer_required_primary_authority_source_count,
     );
-    facts.briefing_render_heading_floor_met = shape_facts.heading_present;
-    facts.briefing_rendered_required_section_label_count =
+    facts.answer_render_heading_floor_met = shape_facts.heading_present;
+    facts.answer_rendered_required_section_label_count =
         shape_facts.rendered_required_section_label_count;
-    facts.briefing_rendered_required_section_label_floor_met =
+    facts.answer_rendered_required_section_label_floor_met =
         shape_facts.rendered_required_section_label_floor_met;
-    facts.briefing_story_header_count = shape_facts.story_header_count;
-    facts.briefing_comparison_label_count = shape_facts.comparison_label_count;
-    facts.briefing_story_headers_absent = shape_facts.story_header_count == 0;
-    facts.briefing_comparison_absent = shape_facts.comparison_label_count == 0;
-    facts.briefing_rendered_layout_profile = rendered_layout_profile.as_str().to_string();
+    facts.answer_legacy_source_cluster_header_count =
+        shape_facts.legacy_source_cluster_header_count;
+    facts.answer_comparison_label_count = shape_facts.comparison_label_count;
+    facts.answer_legacy_source_cluster_headers_absent =
+        shape_facts.legacy_source_cluster_header_count == 0;
+    facts.answer_comparison_absent = shape_facts.comparison_label_count == 0;
+    facts.answer_rendered_layout_profile = rendered_layout_profile.as_str().to_string();
     facts.single_snapshot_rendered_metric_line_count =
         shape_facts.single_snapshot_metric_line_count;
     facts.single_snapshot_rendered_metric_line_floor_met =
@@ -1483,8 +1543,41 @@ pub(crate) fn final_web_completion_facts_with_rendered_summary(
         rendered_layout_profile,
         RenderedSummaryLayoutProfile::SingleSnapshot
     );
+    let rendered_market_quote_citations_valid = if facts.market_quote_grounding_required
+        && !rendered_contract_facts.citation_urls.is_empty()
+    {
+        rendered_contract_facts.citation_urls.iter().all(|url| {
+            successful_read_for_url(pending, url)
+                .map(|source| {
+                    market_quote_source_is_quote_grade(source, &query_contract)
+                        || market_quote_source_is_comparison_context_grade(source, &query_contract)
+                })
+                .unwrap_or(false)
+        })
+    } else {
+        true
+    };
     if !rendered_contract_facts.citation_urls.is_empty() {
-        facts.selected_source_urls = rendered_contract_facts.citation_urls.clone();
+        facts.selected_source_urls = if facts.market_quote_grounding_required {
+            rendered_contract_facts
+                .citation_urls
+                .iter()
+                .filter(|url| {
+                    successful_read_for_url(pending, url)
+                        .map(|source| {
+                            market_quote_source_is_quote_grade(source, &query_contract)
+                                || market_quote_source_is_comparison_context_grade(
+                                    source,
+                                    &query_contract,
+                                )
+                        })
+                        .unwrap_or(false)
+                })
+                .cloned()
+                .collect()
+        } else {
+            rendered_contract_facts.citation_urls.clone()
+        };
         facts.selected_primary_authority_source_count =
             rendered_contract_facts.primary_authority_source_count;
     }
@@ -1497,150 +1590,214 @@ pub(crate) fn final_web_completion_facts_with_rendered_summary(
             &pending.successful_reads,
             locality_scope.as_deref(),
         );
-    facts.briefing_selected_source_total = selected_source_observation.total_sources;
-    facts.briefing_selected_source_compatible = selected_source_observation.compatible_sources;
-    facts.briefing_selected_source_quality_floor_met =
+    facts.evidence_selected_source_total = selected_source_observation.total_sources;
+    facts.evidence_selected_source_compatible = selected_source_observation.compatible_sources;
+    facts.evidence_selected_source_quality_floor_met =
         selected_source_observation.quality_floor_met;
-    facts.briefing_selected_source_identifier_coverage_floor_met =
+    facts.evidence_selected_source_identifier_coverage_floor_met =
         selected_source_observation.identifier_coverage_floor_met;
     if let Some(run_date) = rendered_contract_facts.run_date.as_ref() {
-        facts.briefing_run_date = run_date.clone();
+        facts.trace_run_date = run_date.clone();
     }
     if let Some(run_timestamp_iso_utc) = rendered_contract_facts.run_timestamp_iso_utc.as_ref() {
-        facts.briefing_run_timestamp_iso_utc = run_timestamp_iso_utc.clone();
+        facts.trace_run_timestamp_iso_utc = run_timestamp_iso_utc.clone();
     }
     if let Some(overall_confidence) = rendered_contract_facts.overall_confidence.as_ref() {
-        facts.briefing_overall_confidence = overall_confidence.clone();
+        facts.trace_overall_confidence = overall_confidence.clone();
     }
-    facts.briefing_document_layout_met = facts.briefing_query_layout_expected
+    facts.answer_document_layout_met = facts.answer_query_layout_expected
         && matches!(
             rendered_layout_profile,
-            RenderedSummaryLayoutProfile::DocumentBriefing
+            RenderedSummaryLayoutProfile::DocumentReport
         );
-    facts.briefing_rendered_required_section_count =
+    facts.answer_rendered_required_section_count =
         rendered_contract_facts.rendered_required_section_count;
-    facts.briefing_query_grounded_required_section_count =
+    facts.answer_query_grounded_required_section_count =
         rendered_contract_facts.query_grounded_required_section_count;
-    facts.briefing_required_narrative_sections =
-        rendered_contract_facts.required_narrative_sections;
-    facts.briefing_single_block_narrative_sections =
+    facts.answer_required_narrative_sections = rendered_contract_facts.required_narrative_sections;
+    facts.answer_single_block_narrative_sections =
         rendered_contract_facts.rendered_single_block_narrative_sections;
-    facts.briefing_required_evidence_sections = rendered_contract_facts.required_evidence_sections;
-    facts.briefing_rendered_evidence_block_count =
+    facts.answer_required_evidence_sections = rendered_contract_facts.required_evidence_sections;
+    facts.answer_rendered_evidence_block_count =
         rendered_contract_facts.rendered_evidence_block_count;
-    facts.briefing_qualifying_evidence_sections =
+    facts.answer_qualifying_evidence_sections =
         rendered_contract_facts.qualifying_evidence_sections;
-    facts.briefing_aggregated_narrative_sections =
+    facts.answer_aggregated_narrative_sections =
         rendered_contract_facts.qualifying_aggregated_narrative_sections;
-    facts.briefing_standard_identifier_count = rendered_contract_facts.standard_identifier_count;
-    facts.briefing_required_standard_identifier_count =
+    facts.evidence_standard_identifier_count = rendered_contract_facts.standard_identifier_count;
+    facts.evidence_required_standard_identifier_count =
         rendered_contract_facts.required_standard_identifier_count;
-    facts.briefing_standard_identifier_group_floor =
+    facts.evidence_standard_identifier_group_floor =
         rendered_contract_facts.standard_identifier_group_floor;
-    facts.briefing_authority_standard_identifier_count =
+    facts.evidence_authority_standard_identifier_count =
         rendered_contract_facts.authority_standard_identifier_count;
-    facts.briefing_required_authority_standard_identifier_count =
+    facts.evidence_required_authority_standard_identifier_count =
         rendered_contract_facts.required_authority_standard_identifier_count;
-    facts.briefing_summary_inventory_identifier_count =
+    facts.evidence_inventory_identifier_count =
         rendered_contract_facts.summary_inventory_identifier_count;
-    facts.briefing_summary_inventory_required_identifier_count =
+    facts.evidence_inventory_required_identifier_count =
         rendered_contract_facts.summary_inventory_required_identifier_count;
-    facts.briefing_summary_inventory_optional_identifier_count =
+    facts.evidence_inventory_optional_identifier_count =
         rendered_contract_facts.summary_inventory_optional_identifier_count;
-    facts.briefing_summary_inventory_authority_identifier_count =
+    facts.evidence_inventory_authority_identifier_count =
         rendered_contract_facts.summary_inventory_authority_identifier_count;
-    facts.briefing_standard_identifier_authority_source_count =
+    facts.evidence_standard_identifier_authority_source_count =
         rendered_contract_facts.standard_identifier_authority_source_count;
-    facts.briefing_available_standard_identifier_authority_source_count =
+    facts.evidence_available_standard_identifier_authority_source_count =
         rendered_contract_facts.available_standard_identifier_authority_source_count;
-    facts.briefing_required_primary_authority_source_count =
+    facts.answer_required_primary_authority_source_count =
         rendered_contract_facts.required_primary_authority_source_count;
-    facts.briefing_successful_citation_url_count =
+    facts.evidence_successful_citation_url_count =
         rendered_contract_facts.successful_citation_url_count;
-    facts.briefing_unread_citation_url_count = rendered_contract_facts.unread_citation_url_count;
-    facts.briefing_required_section_floor_met =
-        facts.briefing_document_layout_met && rendered_contract_facts.required_section_floor_met;
-    facts.briefing_query_grounding_floor_met =
-        facts.briefing_document_layout_met && rendered_contract_facts.query_grounding_floor_met;
-    facts.briefing_standard_identifier_floor_met =
-        facts.briefing_document_layout_met && rendered_contract_facts.standard_identifier_floor_met;
-    facts.briefing_authority_standard_identifier_floor_met = facts.briefing_document_layout_met
+    facts.evidence_unread_citation_url_count = rendered_contract_facts.unread_citation_url_count;
+    facts.answer_required_section_floor_met =
+        facts.answer_document_layout_met && rendered_contract_facts.required_section_floor_met;
+    facts.answer_query_grounding_floor_met =
+        facts.answer_document_layout_met && rendered_contract_facts.query_grounding_floor_met;
+    facts.evidence_standard_identifier_floor_met =
+        facts.answer_document_layout_met && rendered_contract_facts.standard_identifier_floor_met;
+    facts.evidence_authority_standard_identifier_floor_met = facts.answer_document_layout_met
         && rendered_contract_facts.authority_standard_identifier_floor_met;
-    facts.briefing_summary_inventory_floor_met =
-        facts.briefing_document_layout_met && rendered_contract_facts.summary_inventory_floor_met;
-    facts.briefing_narrative_aggregation_floor_met = facts.briefing_document_layout_met
-        && rendered_contract_facts.narrative_aggregation_floor_met;
-    facts.briefing_evidence_block_floor_met =
-        facts.briefing_document_layout_met && rendered_contract_facts.evidence_block_floor_met;
-    facts.briefing_primary_authority_source_floor_met =
+    facts.evidence_inventory_floor_met =
+        facts.answer_document_layout_met && rendered_contract_facts.summary_inventory_floor_met;
+    facts.answer_narrative_aggregation_floor_met =
+        facts.answer_document_layout_met && rendered_contract_facts.narrative_aggregation_floor_met;
+    facts.answer_evidence_block_floor_met =
+        facts.answer_document_layout_met && rendered_contract_facts.evidence_block_floor_met;
+    facts.evidence_primary_authority_source_floor_met =
         if !rendered_contract_facts.citation_urls.is_empty() {
             rendered_contract_facts.primary_authority_source_floor_met
         } else {
-            facts.briefing_primary_authority_source_floor_met
+            facts.evidence_primary_authority_source_floor_met
         };
-    facts.briefing_citation_read_backing_floor_met = facts.briefing_document_layout_met
-        && rendered_contract_facts.citation_read_backing_floor_met;
-    facts.briefing_temporal_anchor_floor_met = rendered_contract_facts.temporal_anchor_floor_met;
-    facts.briefing_postamble_floor_met = rendered_contract_facts.postamble_floor_met;
+    facts.evidence_citation_read_backing_floor_met = if matches!(
+        rendered_layout_profile,
+        RenderedSummaryLayoutProfile::DocumentReport
+    ) {
+        facts.answer_document_layout_met && rendered_contract_facts.citation_read_backing_floor_met
+    } else if !rendered_contract_facts.citation_urls.is_empty() {
+        rendered_contract_facts.citation_read_backing_floor_met
+    } else {
+        facts.evidence_citation_read_backing_floor_met
+    };
+    if facts.market_quote_grounding_required && !rendered_market_quote_citations_valid {
+        facts.evidence_citation_read_backing_floor_met = false;
+    }
+    facts.trace_temporal_anchor_floor_met = rendered_contract_facts.temporal_anchor_floor_met;
+    facts.trace_metadata_floor_met = rendered_contract_facts.postamble_floor_met;
+    if facts.market_quote_grounding_required && !rendered_contract_facts.citation_urls.is_empty() {
+        let selected_quote_sources = facts
+            .selected_source_urls
+            .iter()
+            .filter_map(|url| successful_read_for_url(pending, url))
+            .collect::<Vec<_>>();
+        facts.market_quote_grounding_source_count = market_quote_grounding_source_count_for_sources(
+            selected_quote_sources.iter().copied(),
+            &query_contract,
+        );
+        let market_quote_grounding_floor = market_quote_grounding_floor_for_query(
+            &query_contract,
+            facts.comparison_required,
+            facts.required_source_cluster_floor,
+        );
+        let structured_metrics_ready =
+            !market_quote_structured_metrics_required(&query_contract, facts.comparison_required)
+                || market_quote_structured_metric_source_count_for_sources(
+                    selected_quote_sources.iter().copied(),
+                    &query_contract,
+                ) >= market_quote_grounding_floor;
+        facts.market_quote_grounding_floor_met = rendered_market_quote_citations_valid
+            && facts.market_quote_grounding_source_count >= market_quote_grounding_floor
+            && structured_metrics_ready
+            && (!(facts.comparison_required || query_requests_comparison(&query_contract))
+                || market_quote_comparison_context_source_count_for_sources(
+                    selected_quote_sources.iter().copied(),
+                    &query_contract,
+                ) > 0);
+    }
+    facts.rendered_summary_semantic_floor_met =
+        semantic::rendered_summary_semantic_floor_met(pending, rendered_summary);
     facts
 }
 
 pub(crate) fn final_web_completion_contract_ready(facts: &FinalWebCompletionFacts) -> bool {
-    if facts.briefing_query_layout_expected {
-        return facts.briefing_selected_source_quality_floor_met
-            && facts.briefing_selected_source_identifier_coverage_floor_met
-            && facts.briefing_document_layout_met
-            && facts.briefing_render_heading_floor_met
-            && facts.briefing_rendered_required_section_label_floor_met
-            && facts.briefing_story_headers_absent
-            && facts.briefing_comparison_absent
-            && facts.briefing_required_section_floor_met
-            && facts.briefing_query_grounding_floor_met
-            && facts.briefing_standard_identifier_floor_met
-            && facts.briefing_authority_standard_identifier_floor_met
-            && facts.briefing_summary_inventory_floor_met
-            && facts.briefing_narrative_aggregation_floor_met
-            && facts.briefing_evidence_block_floor_met
-            && facts.briefing_primary_authority_source_floor_met
-            && facts.briefing_citation_read_backing_floor_met
-            && facts.briefing_temporal_anchor_floor_met
-            && facts.briefing_postamble_floor_met
+    if !facts.rendered_summary_semantic_floor_met {
+        return false;
+    }
+    let comparison_shape_ready = final_web_comparison_shape_ready(facts);
+    if facts.answer_rendered_layout_profile == "sourced_answer" {
+        return final_model_sourced_answer_contract_ready(facts);
+    }
+    if facts.answer_rendered_layout_profile == "other"
+        && final_model_natural_answer_contract_ready(facts)
+    {
+        return true;
+    }
+    if facts.answer_query_layout_expected {
+        return facts.evidence_selected_source_quality_floor_met
+            && facts.evidence_selected_source_identifier_coverage_floor_met
+            && facts.answer_document_layout_met
+            && facts.answer_render_heading_floor_met
+            && facts.answer_rendered_required_section_label_floor_met
+            && facts.answer_legacy_source_cluster_headers_absent
+            && comparison_shape_ready
+            && facts.answer_required_section_floor_met
+            && facts.answer_query_grounding_floor_met
+            && facts.evidence_standard_identifier_floor_met
+            && facts.evidence_authority_standard_identifier_floor_met
+            && facts.evidence_inventory_floor_met
+            && facts.answer_narrative_aggregation_floor_met
+            && facts.answer_evidence_block_floor_met
+            && facts.evidence_primary_authority_source_floor_met
+            && facts.evidence_citation_read_backing_floor_met
+            && facts.trace_temporal_anchor_floor_met
+            && facts.trace_metadata_floor_met
+            && facts.market_quote_grounding_floor_met
             && (!facts.comparison_required || facts.comparison_ready);
     }
-    if facts.briefing_layout_profile == "single_snapshot" {
+    if facts.answer_layout_profile == "single_snapshot" {
         return facts.single_snapshot_metric_grounding
             && facts.single_snapshot_rendered_layout_met
             && facts.single_snapshot_rendered_metric_line_floor_met
             && facts.single_snapshot_rendered_support_url_floor_met
             && facts.single_snapshot_rendered_read_backed_url_floor_met
             && facts.single_snapshot_rendered_temporal_signal_present
-            && facts.briefing_primary_authority_source_floor_met
-            && facts.briefing_story_headers_absent
-            && facts.briefing_comparison_absent
+            && facts.evidence_primary_authority_source_floor_met
+            && facts.market_quote_grounding_floor_met
+            && facts.answer_legacy_source_cluster_headers_absent
+            && comparison_shape_ready
             && !facts.selected_source_urls.is_empty()
             && (!facts.comparison_required || facts.comparison_ready);
     }
-    if facts.briefing_document_layout_met {
-        return facts.briefing_selected_source_quality_floor_met
-            && facts.briefing_selected_source_identifier_coverage_floor_met
-            && facts.briefing_required_section_floor_met
-            && facts.briefing_query_grounding_floor_met
-            && facts.briefing_standard_identifier_floor_met
-            && facts.briefing_authority_standard_identifier_floor_met
-            && facts.briefing_summary_inventory_floor_met
-            && facts.briefing_narrative_aggregation_floor_met
-            && facts.briefing_evidence_block_floor_met
-            && facts.briefing_primary_authority_source_floor_met
-            && facts.briefing_citation_read_backing_floor_met
-            && facts.briefing_temporal_anchor_floor_met
-            && facts.briefing_postamble_floor_met
+    if facts.answer_document_layout_met {
+        return facts.evidence_selected_source_quality_floor_met
+            && facts.evidence_selected_source_identifier_coverage_floor_met
+            && facts.answer_required_section_floor_met
+            && facts.answer_query_grounding_floor_met
+            && facts.evidence_standard_identifier_floor_met
+            && facts.evidence_authority_standard_identifier_floor_met
+            && facts.evidence_inventory_floor_met
+            && facts.answer_narrative_aggregation_floor_met
+            && facts.answer_evidence_block_floor_met
+            && facts.evidence_primary_authority_source_floor_met
+            && facts.market_quote_grounding_floor_met
+            && facts.evidence_citation_read_backing_floor_met
+            && facts.trace_temporal_anchor_floor_met
+            && facts.trace_metadata_floor_met
             && (!facts.comparison_required || facts.comparison_ready);
     }
-    facts.story_slot_floor_met
-        && facts.story_citation_floor_met
+    if matches!(
+        facts.answer_rendered_layout_profile.as_str(),
+        "other" | "source_collection"
+    ) {
+        return false;
+    }
+    facts.source_cluster_floor_met
+        && facts.source_cluster_citation_floor_met
         && facts.local_business_menu_surface_floor_met
         && facts.local_business_menu_inventory_floor_met
-        && facts.observed_story_slots >= facts.required_story_floor
+        && facts.market_quote_grounding_floor_met
+        && facts.observed_source_clusters >= facts.required_source_cluster_floor
         && (!facts.comparison_required || facts.comparison_ready)
 }
 
@@ -1653,12 +1810,16 @@ where
     I: IntoIterator<Item = FinalWebSummaryCandidate>,
 {
     let mut evaluations = Vec::new();
-    let mut fallback = None::<FinalWebSummarySelection>;
-    let mut fallback_score = None::<(bool, usize, usize, usize)>;
+    let mut first_allowed_non_ready: Option<FinalWebSummarySelection> = None;
     for candidate in candidates {
         let facts =
             final_web_completion_facts_with_rendered_summary(pending, reason, &candidate.summary);
-        let contract_ready = final_web_completion_contract_ready(&facts);
+        let provider_key = candidate.provider.to_ascii_lowercase();
+        let provider_allowed = matches!(
+            provider_key.as_str(),
+            "model_direct_sourced_answer" | "model_chat_reply"
+        );
+        let contract_ready = provider_allowed && final_web_completion_contract_ready(&facts);
         evaluations.push(FinalWebSummaryCandidateEvaluation {
             provider: candidate.provider,
             contract_ready,
@@ -1676,17 +1837,12 @@ where
             selected.evaluations = evaluations;
             return Some(selected);
         }
-        let selection_score = final_web_summary_fallback_score(&selection.facts);
-        if fallback_score
-            .as_ref()
-            .is_none_or(|existing| selection_score > *existing)
-        {
-            fallback_score = Some(selection_score);
-            fallback = Some(selection);
+        if provider_allowed && first_allowed_non_ready.is_none() {
+            first_allowed_non_ready = Some(selection);
         }
     }
 
-    fallback.map(|mut selection| {
+    first_allowed_non_ready.map(|mut selection| {
         selection.evaluations = evaluations;
         selection
     })

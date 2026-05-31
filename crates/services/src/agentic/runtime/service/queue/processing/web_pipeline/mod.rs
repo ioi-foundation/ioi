@@ -2,27 +2,27 @@
 
 #[allow(unused_imports)]
 use super::super::support::{
-    append_final_web_completion_receipts,
-    append_final_web_completion_receipts_with_rendered_summary,
-    append_pending_web_success_fallback, append_pending_web_success_from_bundle,
-    build_query_constraint_projection_with_locality_hint, candidate_constraint_compatibility,
-    candidate_source_hints_from_bundle,
+    append_final_web_completion_receipts, append_pending_web_success_fallback,
+    append_pending_web_success_from_bundle, build_query_constraint_projection_with_locality_hint,
+    candidate_constraint_compatibility, candidate_source_hints_from_bundle,
     collect_projection_candidate_urls_with_contract_and_locality_hint,
     collect_projection_candidate_urls_with_locality_hint, compact_whitespace,
     compatibility_passes_projection,
     constraint_grounded_probe_query_with_contract_and_hints_and_locality_hint,
     constraint_grounded_probe_query_with_hints_and_locality_hint, constraint_grounded_search_limit,
     constraint_grounded_search_query_with_contract_and_hints_and_locality_hint,
-    constraint_grounded_search_query_with_hints_and_locality_hint, effective_locality_scope_hint,
-    explicit_query_scope_hint, extract_json_object, fallback_search_summary,
-    final_web_completion_facts, final_web_completion_facts_with_rendered_summary,
-    has_primary_status_authority, is_citable_web_url, is_human_challenge_error,
-    is_multi_item_listing_url, is_search_hub_url, local_business_detail_display_name,
-    local_business_discovery_source_allowed_with_projection, local_business_entity_name_allowed,
-    local_business_expansion_query, local_business_search_entity_anchor_tokens,
+    constraint_grounded_search_query_with_hints_and_locality_hint,
+    drain_queued_web_retrieve_actions, effective_locality_scope_hint, explicit_query_scope_hint,
+    extract_json_object, final_web_completion_facts,
+    final_web_completion_facts_with_rendered_summary, has_primary_status_authority,
+    is_citable_web_url, is_human_challenge_error, is_multi_item_listing_url, is_search_hub_url,
+    local_business_detail_display_name, local_business_discovery_source_allowed_with_projection,
+    local_business_entity_name_allowed, local_business_expansion_query,
+    local_business_search_entity_anchor_tokens,
     local_business_search_entity_anchor_tokens_with_contract,
     local_business_target_name_from_source, local_business_target_names_from_attempted_urls,
     local_business_target_names_from_sources, mark_pending_web_attempted, mark_pending_web_blocked,
+    market_quote_grounding_direct_source_hints, market_quote_grounding_search_query,
     merge_pending_search_completion, normalized_local_business_target_name,
     parse_web_evidence_bundle, pre_read_candidate_plan_from_bundle_with_contract_and_locality_hint,
     pre_read_candidate_plan_from_bundle_with_contract_and_locality_hint_and_recovery_mode,
@@ -30,8 +30,9 @@ use super::super::support::{
     preferred_pre_read_action_count_with_contract_and_locality_hint,
     preferred_pre_read_action_count_with_locality_hint,
     projection_candidate_url_allowed_with_projection, query_is_generic_headline_collection,
-    query_prefers_document_briefing_layout, query_requests_comparison,
-    query_requires_local_business_entity_diversity, query_requires_local_business_menu_surface,
+    query_market_quote_entity_anchor_groups, query_prefers_document_report_layout,
+    query_requests_comparison, query_requires_local_business_entity_diversity,
+    query_requires_local_business_menu_surface, query_requires_market_quote_grounding,
     query_requires_runtime_locality_scope, queue_web_read_from_pipeline,
     queue_web_search_from_pipeline, remaining_pending_web_candidates,
     retrieval_affordances_with_contract_and_locality_hint,
@@ -44,17 +45,17 @@ use super::super::support::{
     semantic_retrieval_query_contract_with_contract_and_locality_hint,
     semantic_retrieval_query_contract_with_locality_hint, source_anchor_tokens,
     source_has_terminal_error_signal, source_host,
-    source_matches_local_business_search_entity_anchor, summarize_search_results,
-    synthesize_web_pipeline_reply, synthesize_web_pipeline_reply_hybrid,
-    url_structurally_equivalent, web_pipeline_can_queue_probe_search_latency_aware,
-    web_pipeline_completion_reason, web_pipeline_grounded_probe_attempt_available,
-    web_pipeline_min_sources, web_pipeline_now_ms, FinalWebSummaryCandidate,
+    source_matches_local_business_search_entity_anchor, url_structurally_equivalent,
+    web_pipeline_can_queue_probe_search_latency_aware, web_pipeline_completion_reason,
+    web_pipeline_grounded_probe_attempt_available, web_pipeline_min_sources, web_pipeline_now_ms,
     FinalWebSummarySelection, RetrievalAffordanceKind, WebPipelineCompletionReason,
     LOCAL_BUSINESS_EXPANSION_QUERY_MARKER_PREFIX, WEB_PIPELINE_BUDGET_MS,
 };
-use super::completion::complete_with_summary;
 use super::routing::is_web_research_scope;
-use crate::agentic::runtime::service::decision_loop::signals::analyze_source_record_signals;
+use crate::agentic::runtime::service::decision_loop::signals::{
+    analyze_source_record_signals, has_price_quote_payload,
+};
+#[cfg(test)]
 use crate::agentic::runtime::service::tool_execution::command_contract::execution_contract_violation_error;
 use crate::agentic::runtime::service::tool_execution::{
     emit_completion_gate_status_event, emit_execution_contract_receipt_event_with_observation,
@@ -209,48 +210,6 @@ fn admitted_provider_ids_from_backend(backend: &str) -> Vec<String> {
         .collect()
 }
 
-async fn synthesize_summary(
-    service: &RuntimeAgentService,
-    pending: &PendingSearchCompletion,
-    reason: WebPipelineCompletionReason,
-) -> FinalWebSummarySelection {
-    let mut candidates = Vec::new();
-    if let Some(hybrid_summary) =
-        synthesize_web_pipeline_reply_hybrid(service, pending, reason).await
-    {
-        candidates.push(FinalWebSummaryCandidate {
-            provider: "hybrid",
-            summary: hybrid_summary,
-        });
-    }
-    candidates.push(FinalWebSummaryCandidate {
-        provider: "deterministic",
-        summary: synthesize_web_pipeline_reply(pending, reason),
-    });
-    select_final_web_summary_from_candidates(pending, reason, candidates)
-        .expect("web summary selection requires at least one candidate")
-}
-
-fn append_summary_selection_checks(
-    selection: &FinalWebSummarySelection,
-    verification_checks: &mut Vec<String>,
-) {
-    verification_checks.push(format!("web_final_summary_provider={}", selection.provider));
-    verification_checks.push(format!(
-        "web_final_summary_contract_ready={}",
-        selection.contract_ready
-    ));
-    for evaluation in &selection.evaluations {
-        verification_checks.push(format!(
-            "web_final_summary_candidate={}::contract_ready={}::rendered_layout={}::document_layout_met={}",
-            evaluation.provider,
-            evaluation.contract_ready,
-            evaluation.facts.briefing_rendered_layout_profile,
-            evaluation.facts.briefing_document_layout_met
-        ));
-    }
-}
-
 fn web_pipeline_completion_reason_label(reason: WebPipelineCompletionReason) -> &'static str {
     match reason {
         WebPipelineCompletionReason::MinSourcesReached => "min_sources_reached",
@@ -259,6 +218,50 @@ fn web_pipeline_completion_reason_label(reason: WebPipelineCompletionReason) -> 
     }
 }
 
+fn mark_web_pipeline_waiting_for_model_answer(
+    service: &RuntimeAgentService,
+    agent_state: &mut AgentState,
+    session_id: [u8; 32],
+    step_index: u32,
+    intent_id: &str,
+    pending: PendingSearchCompletion,
+    reason: WebPipelineCompletionReason,
+    out: &mut Option<String>,
+    err: &mut Option<String>,
+    completion_summary: &mut Option<String>,
+    verification_checks: &mut Vec<String>,
+) {
+    emit_completion_gate_status_event(
+        service,
+        session_id,
+        step_index,
+        intent_id,
+        true,
+        "web_pipeline_evidence_ready_for_model_answer",
+    );
+    verification_checks.push("cec_completion_gate_emitted=true".to_string());
+    verification_checks.push(format!(
+        "web_pipeline_model_answer_ready_reason={}",
+        web_pipeline_completion_reason_label(reason)
+    ));
+    verification_checks.push("web_pipeline_waiting_for_model_authored_answer=true".to_string());
+    verification_checks.push("web_pipeline_active=true".to_string());
+    verification_checks.push("terminal_chat_reply_ready=false".to_string());
+    let drained = drain_queued_web_retrieve_actions(agent_state);
+    verification_checks.push(format!(
+        "web_pipeline_queued_retrievals_drained_for_model_answer={}",
+        drained
+    ));
+    agent_state.pending_search_completion = Some(pending);
+    agent_state.status = AgentStatus::Running;
+    if out.as_deref().unwrap_or_default().trim().is_empty() {
+        *out = Some("Web evidence is ready for a model-authored final answer.".to_string());
+    }
+    *err = None;
+    *completion_summary = None;
+}
+
+#[cfg(test)]
 fn terminalized_web_pipeline_contract_error(
     pending: &PendingSearchCompletion,
     reason: WebPipelineCompletionReason,
@@ -283,20 +286,24 @@ fn terminalized_web_pipeline_contract_error(
     )
 }
 
+#[cfg(test)]
 fn terminalize_failed_web_pipeline_completion(
     agent_state: &mut AgentState,
     pending: PendingSearchCompletion,
     reason: WebPipelineCompletionReason,
-    summary: String,
+    summary: Option<String>,
     success: &mut bool,
     out: &mut Option<String>,
     err: &mut Option<String>,
     completion_summary: &mut Option<String>,
     verification_checks: &mut Vec<String>,
 ) {
-    let error = terminalized_web_pipeline_contract_error(&pending, reason, &summary);
+    let summary_for_error = summary
+        .as_deref()
+        .unwrap_or("model_authored_answer_missing");
+    let error = terminalized_web_pipeline_contract_error(&pending, reason, summary_for_error);
     *success = false;
-    *out = Some(summary);
+    *out = summary;
     *err = Some(error);
     *completion_summary = None;
     verification_checks.push("web_pipeline_terminalized_on_contract_failure=true".to_string());
@@ -572,7 +579,7 @@ fn pending_web_read_allows_browser_fallback(pending: &PendingSearchCompletion) -
         .as_ref()
         .map(|contract| contract.browser_fallback_allowed)
         .unwrap_or_else(|| {
-            !(query_prefers_document_briefing_layout(&pending.query_contract)
+            !(query_prefers_document_report_layout(&pending.query_contract)
                 && !query_requests_comparison(&pending.query_contract))
         })
 }

@@ -462,6 +462,37 @@ fn recent_session_events_context_compacts_verbose_web_read_payloads_for_non_brow
 }
 
 #[test]
+fn recent_session_events_context_preserves_quote_grade_market_metrics_for_non_browser_work() {
+    let history = vec![chat_message(
+        "tool",
+        r#"{
+            "schema_version": 1,
+            "tool": "web__read",
+            "url": "https://api.coingecko.com/api/v3/simple/price?ids=akash-network",
+            "sources": [{
+                "url": "https://www.coingecko.com/en/coins/akash-network",
+                "title": "Akash Network live USD price quote - CoinGecko",
+                "snippet": "Akash Network (akash-network) live USD quote from CoinGecko simple price API: price $0.787880 USD. Market cap: $230.06M. 24h trading volume: $4.33M. 24h price change: 0.47%. This trailing prose is long and should be bounded without losing the metrics."
+            }],
+            "documents": [{
+                "url": "https://www.coingecko.com/en/coins/akash-network",
+                "title": "Akash Network live USD price quote - CoinGecko",
+                "content_text": "Akash Network (akash-network) live USD quote from provider-supplied market data: price $0.787880 USD. Market cap: $230.06M. 24h trading volume: $4.33M. 24h price change: 0.47%. Extra context repeats the market quote and must not displace the typed facts."
+            }]
+        }"#,
+        1,
+    )];
+
+    let context = build_recent_session_events_context(&history, false);
+    assert!(context.contains("price $0.787880 USD"), "{context}");
+    assert!(context.contains("Market cap: $230.06M"), "{context}");
+    assert!(context.contains("24h trading volume: $4.33M"), "{context}");
+    assert!(context.contains("24h price change: 0.47%"), "{context}");
+    assert!(!context.contains("\"schema_version\""), "{context}");
+    assert!(context.chars().count() < 1_500, "{context}");
+}
+
+#[test]
 fn recent_session_events_context_compacts_verbose_web_search_payloads_for_non_browser_work() {
     let history = vec![chat_message(
         "tool",
@@ -965,4 +996,3 @@ fn success_signal_context_prefers_new_surface_targets_after_start_gate_clears() 
         "{context}"
     );
 }
-

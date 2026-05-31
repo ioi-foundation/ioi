@@ -56,6 +56,7 @@ const RUNTIME_ROUTE_INSTALL_RESOLVE_MARKER: &str =
 const RUNTIME_ROUTE_BROWSER_NAVIGATE_MARKER: &str =
     "runtime_route_frame_dispatch:browser__navigate";
 const RUNTIME_ROUTE_SHELL_RUN_MARKER: &str = "runtime_route_frame_dispatch:shell__run";
+const RUNTIME_ROUTE_WEB_SEARCH_MARKER: &str = "runtime_route_frame_dispatch:web__search";
 const RUNTIME_ROUTE_WORKSPACE_CONTEXT_MARKER: &str =
     "runtime_route_frame_dispatch:workspace_context";
 
@@ -69,7 +70,26 @@ fn runtime_route_evidence_value(frame: &RuntimeRouteFrame, evidence_kind: &str) 
         .map(ToOwned::to_owned)
 }
 
+fn runtime_route_value_is_mode_label(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "agent" | "ask" | "edit" | "chat" | "runtime_action" | "studio" | "studio_intent_frame"
+    )
+}
+
+fn runtime_route_query_evidence_value(
+    frame: &RuntimeRouteFrame,
+    evidence_kind: &str,
+) -> Option<String> {
+    runtime_route_evidence_value(frame, evidence_kind)
+        .filter(|value| !runtime_route_value_is_mode_label(value))
+}
+
 fn workspace_search_regex(query: &str) -> String {
+    if workspace_overview_query(query) {
+        return workspace_overview_search_regex().to_string();
+    }
+
     let stop_words = [
         "about",
         "and",
@@ -118,6 +138,28 @@ fn workspace_search_regex(query: &str) -> String {
     }
 }
 
+fn workspace_overview_query(query: &str) -> bool {
+    let normalized = query.to_ascii_lowercase();
+    [
+        "architecture",
+        "codebase structure",
+        "explore",
+        "project structure",
+        "repo structure",
+        "repository structure",
+        "summarize this repo",
+        "summarize the repo",
+        "summarize the repository",
+        "what is in this repo",
+    ]
+    .iter()
+    .any(|needle| normalized.contains(needle))
+}
+
+fn workspace_overview_search_regex() -> &'static str {
+    "README|package|Cargo|pyproject|go\\.mod|src|app|lib|crates|packages|export|import|function|class|test|config|script|dependency"
+}
+
 fn workspace_context_marker(tool: &str, target: &str) -> String {
     format!("{RUNTIME_ROUTE_WORKSPACE_CONTEXT_MARKER}:{tool}:{target}")
 }
@@ -138,9 +180,14 @@ fn workspace_context_evidence_matches_frame(
     let query = runtime_route_evidence_value(frame, "workspace_search")
         .unwrap_or_else(|| frame.target.clone());
     let regex = workspace_search_regex(&query);
-    !regex.trim().is_empty()
+    let has_search = !regex.trim().is_empty()
         && evidence.contains("tool=file__search")
-        && evidence.contains(&format!("regex={regex}"))
+        && evidence.contains(&format!("regex={regex}"));
+    if workspace_overview_query(&query) {
+        return (evidence.contains("tool=file__read") || evidence.contains("tool=file__view"))
+            && evidence.contains("path=README.md");
+    }
+    has_search
 }
 
 fn maybe_typed_runtime_install_resolve_tool_call(agent_state: &mut AgentState) -> Option<String> {
@@ -182,6 +229,69 @@ fn maybe_typed_runtime_install_resolve_tool_call(agent_state: &mut AgentState) -
         "name": "software_install__resolve",
         "arguments": {
             "request": request,
+        }
+    }))
+    .ok()
+}
+
+fn runtime_route_web_search_query(frame: &RuntimeRouteFrame) -> String {
+    runtime_route_query_evidence_value(frame, "web_search")
+        .or_else(|| runtime_route_query_evidence_value(frame, "retrieval_query"))
+        .or_else(|| runtime_route_query_evidence_value(frame, "query"))
+        .or_else(|| {
+            let target = frame.target.trim();
+            (!target.is_empty() && !runtime_route_value_is_mode_label(target))
+                .then(|| target.to_string())
+        })
+        .or_else(|| runtime_route_query_evidence_value(frame, "normalized_request"))
+        .unwrap_or_else(|| frame.target.clone())
+}
+
+fn maybe_typed_runtime_web_search_tool_call(agent_state: &mut AgentState) -> Option<String> {
+    if agent_state.pending_search_completion.is_some() {
+        return None;
+    }
+    if agent_state
+        .pending_tool_call
+        .as_deref()
+        .is_some_and(|raw| raw.contains("web__search") || raw.contains("web__read"))
+    {
+        return None;
+    }
+
+    let frame = agent_state.runtime_route_frame.clone()?;
+    if frame.direct_answer_allowed
+        || !frame.output_intent.eq_ignore_ascii_case("tool_execution")
+        || !runtime_route_frame_requires_web_research(&frame)
+    {
+        return None;
+    }
+
+    let query = runtime_route_web_search_query(&frame);
+    let query = query.trim();
+    if query.is_empty() {
+        return None;
+    }
+    let marker = format!("{RUNTIME_ROUTE_WEB_SEARCH_MARKER}:{query}");
+    if agent_state
+        .recent_actions
+        .iter()
+        .any(|action| action == &marker)
+    {
+        return None;
+    }
+
+    log::info!(
+        "TypedRuntimeWebSearch dispatching web search query={} session={}",
+        query,
+        hex::encode(&agent_state.session_id[..4])
+    );
+    agent_state.recent_actions.push(marker);
+    serde_json::to_string(&json!({
+        "name": "web__search",
+        "arguments": {
+            "query": query,
+            "limit": 10u32,
         }
     }))
     .ok()
@@ -235,6 +345,39 @@ fn maybe_typed_runtime_workspace_context_tool_call(agent_state: &mut AgentState)
     let regex = workspace_search_regex(&query);
     if regex.trim().is_empty() {
         return None;
+    }
+    if workspace_overview_query(&query) {
+        let evidence = tool_execution::execution_evidence_value(
+            &agent_state.tool_execution_log,
+            "file_context",
+        )
+        .unwrap_or_default();
+        let has_search =
+            evidence.contains("tool=file__search") && evidence.contains(&format!("regex={regex}"));
+        let has_readme = (evidence.contains("tool=file__read")
+            || evidence.contains("tool=file__view"))
+            && evidence.contains("path=README.md");
+        let marker = workspace_context_marker("file__read", "README.md");
+        if has_search
+            && !has_readme
+            && !agent_state
+                .recent_actions
+                .iter()
+                .any(|action| action == &marker)
+        {
+            log::info!(
+                "TypedRuntimeWorkspaceContext dispatching repo overview README read session={}",
+                hex::encode(&agent_state.session_id[..4])
+            );
+            agent_state.recent_actions.push(marker);
+            return serde_json::to_string(&json!({
+                "name": "file__read",
+                "arguments": {
+                    "path": "README.md",
+                }
+            }))
+            .ok();
+        }
     }
     let marker = workspace_context_marker("file__search", &regex);
     if agent_state
@@ -495,7 +638,11 @@ fn runtime_route_frame_has_capability(frame: &RuntimeRouteFrame, needles: &[&str
 fn runtime_route_frame_requires_web_research(frame: &RuntimeRouteFrame) -> bool {
     frame.intent_id.eq_ignore_ascii_case("retrieval.answer")
         || frame.route_family.eq_ignore_ascii_case("web_research")
-        || runtime_route_frame_has_capability(frame, &["web.", "web_", "retrieval_"])
+        || frame.route_family.eq_ignore_ascii_case("research")
+        || runtime_route_frame_has_capability(
+            frame,
+            &["web.", "web_", "web__", "retrieval_", "source_grounding"],
+        )
 }
 
 fn runtime_route_frame_requires_workspace_context(frame: &RuntimeRouteFrame) -> bool {
@@ -914,6 +1061,7 @@ async fn maybe_process_runtime_route_frame_dispatch(
     call_context: ServiceCallContext<'_>,
 ) -> Result<bool, TransactionError> {
     let Some(tool_call) = maybe_typed_runtime_install_resolve_tool_call(agent_state)
+        .or_else(|| maybe_typed_runtime_web_search_tool_call(agent_state))
         .or_else(|| maybe_typed_runtime_workspace_context_tool_call(agent_state))
         .or_else(|| maybe_typed_runtime_browser_navigate_tool_call(agent_state))
         .or_else(|| maybe_typed_runtime_shell_run_tool_call(agent_state))

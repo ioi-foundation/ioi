@@ -147,6 +147,32 @@ pub(crate) fn build_recent_session_events_context(
             .map(|value| safe_truncate(&value, max_chars))
     }
 
+    fn recent_session_web_quote_grade_text(value: &str) -> bool {
+        let lower = value.to_ascii_lowercase();
+        lower.contains("simple price api")
+            || lower.contains("provider-supplied market data")
+            || lower.contains("live usd quote")
+            || (lower.contains("price")
+                && lower.contains("market cap")
+                && (lower.contains("24h trading volume") || lower.contains("volume")))
+    }
+
+    fn compact_recent_session_web_evidence_scalar(
+        value: Option<&Value>,
+        max_chars: usize,
+    ) -> Option<String> {
+        let compact = value
+            .and_then(Value::as_str)
+            .map(compact_ws_for_prompt)
+            .filter(|value| !value.is_empty())?;
+        let budget = if recent_session_web_quote_grade_text(&compact) {
+            max_chars.max(640)
+        } else {
+            max_chars
+        };
+        Some(safe_truncate(&compact, budget))
+    }
+
     fn compact_recent_session_web_source_summaries(payload: &Value) -> Vec<String> {
         payload
             .get("sources")
@@ -159,7 +185,7 @@ pub(crate) fn build_recent_session_events_context(
                     .unwrap_or_default();
                 let url =
                     compact_recent_session_event_scalar(source.get("url"), 120).unwrap_or_default();
-                let snippet = compact_recent_session_event_scalar(source.get("snippet"), 140)
+                let snippet = compact_recent_session_web_evidence_scalar(source.get("snippet"), 140)
                     .unwrap_or_default();
 
                 if title.is_empty() && url.is_empty() && snippet.is_empty() {
@@ -200,7 +226,7 @@ pub(crate) fn build_recent_session_events_context(
                 let url = compact_recent_session_event_scalar(document.get("url"), 120)
                     .unwrap_or_default();
                 let excerpt =
-                    compact_recent_session_event_scalar(document.get("content_text"), 220)
+                    compact_recent_session_web_evidence_scalar(document.get("content_text"), 220)
                         .unwrap_or_default();
 
                 if title.is_empty() && url.is_empty() && excerpt.is_empty() {

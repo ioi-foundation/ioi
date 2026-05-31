@@ -44,3 +44,21 @@ fn time_sensitive_resolvable_payload_accepts_named_current_role_holder() {
         "António Guterres is the current Secretary-General of the United Nations."
     ));
 }
+
+#[test]
+fn time_sensitive_resolvable_payload_accepts_quote_pages_without_snippet_price() {
+    assert!(candidate_time_sensitive_resolvable_payload(
+        "https://www.binance.com/en-US/price/akash-network",
+        "Akash Network Price Today in United States | AKT to USD Live Price & Chart - Binance",
+        "Binance | source_url=https://www.binance.com",
+    ));
+}
+
+#[test]
+fn time_sensitive_resolvable_payload_accepts_structured_market_quote_api() {
+    assert!(candidate_time_sensitive_resolvable_payload(
+        "https://api.coingecko.com/api/v3/simple/price?ids=akash-network&vs_currencies=usd&include_market_cap=true",
+        "Akash Network live price quote",
+        "Akash Network price today, live price chart, market cap, and USD quote.",
+    ));
+}

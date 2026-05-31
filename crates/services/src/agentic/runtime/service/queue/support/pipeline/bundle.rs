@@ -210,7 +210,7 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
         bundle.retrieval_contract.as_ref(),
         query_contract,
     );
-    let document_briefing_layout = query_prefers_document_briefing_layout(query_contract)
+    let document_report_layout = query_prefers_document_report_layout(query_contract)
         && !query_requests_comparison(query_contract);
     let subject_identity_required =
         crate::agentic::runtime::service::queue::support::query_requires_subject_currentness_identity(
@@ -220,17 +220,17 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
         bundle.retrieval_contract.as_ref(),
         query_contract,
     );
-    let authority_source_required_for_briefing =
-        document_briefing_layout && primary_authority_source_required;
+    let authority_source_required_for_report =
+        document_report_layout && primary_authority_source_required;
     let constraints = &projection.constraints;
     let policy = ResolutionPolicy::default();
     let min_required = min_sources.max(1) as usize;
-    let briefing_identifier_observations = candidate_hints
+    let evidence_identifier_observations = candidate_hints
         .iter()
         .filter_map(|hint| {
             let trimmed = hint.url.trim();
             let title = hint.title.as_deref().unwrap_or_default();
-            (!trimmed.is_empty()).then(|| BriefingIdentifierObservation {
+            (!trimmed.is_empty()).then(|| EvidenceIdentifierObservation {
                 url: trimmed.to_string(),
                 surface: format!("{} {} {}", hint.url, title, hint.excerpt),
                 authoritative: source_has_document_authority(
@@ -242,11 +242,9 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
             })
         })
         .collect::<Vec<_>>();
-    let required_briefing_identifier_labels = infer_briefing_required_identifier_labels(
-        query_contract,
-        &briefing_identifier_observations,
-    );
-    let optional_briefing_identifier_labels = BTreeSet::<String>::new();
+    let required_evidence_identifier_labels =
+        infer_answer_required_identifier_labels(query_contract, &evidence_identifier_observations);
+    let optional_evidence_identifier_labels = BTreeSet::<String>::new();
 
     let mut ranked = candidate_hints
         .into_iter()
@@ -278,7 +276,7 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
                 candidate_time_sensitive_resolvable_payload(&hint.url, title, &hint.excerpt);
             let document_authority_score =
                 source_document_authority_score(query_contract, &hint.url, title, &hint.excerpt);
-            let identifier_bearing = source_has_briefing_standard_identifier_signal(
+            let identifier_bearing = source_has_evidence_standard_identifier_signal(
                 query_contract,
                 &hint.url,
                 title,
@@ -291,17 +289,17 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
                 .query_native_tokens
                 .intersection(&source_tokens)
                 .count();
-            let briefing_subject_overlap = query_native_overlap >= 3
+            let evidence_subject_overlap = query_native_overlap >= 3
                 || (query_native_overlap >= 2 && temporal_recency_score > 0);
             let primary_authority = if !primary_authority_source_required {
                 false
-            } else if authority_source_required_for_briefing {
+            } else if authority_source_required_for_report {
                 source_counts_as_primary_authority(query_contract, &hint.url, title, &hint.excerpt)
-                    && (briefing_subject_overlap || identifier_bearing)
+                    && (evidence_subject_overlap || identifier_bearing)
             } else {
                 source_counts_as_primary_authority(query_contract, &hint.url, title, &hint.excerpt)
             };
-            let observed_identifier_labels = source_briefing_standard_identifier_labels(
+            let observed_identifier_labels = source_evidence_standard_identifier_labels(
                 query_contract,
                 &hint.url,
                 title,
@@ -347,11 +345,11 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
                 observed_identifier_label_count: observed_identifier_labels.len(),
                 required_identifier_label_count: observed_identifier_labels
                     .iter()
-                    .filter(|label| required_briefing_identifier_labels.contains(*label))
+                    .filter(|label| required_evidence_identifier_labels.contains(*label))
                     .count(),
                 optional_identifier_label_count: observed_identifier_labels
                     .iter()
-                    .filter(|label| optional_briefing_identifier_labels.contains(*label))
+                    .filter(|label| optional_evidence_identifier_labels.contains(*label))
                     .count(),
                 query_grounding_signal,
                 current_holder_grounded,
@@ -364,7 +362,7 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
     ranked.sort_by(|left, right| {
         let right_passes = compatibility_passes_projection(&projection, &right.compatibility);
         let left_passes = compatibility_passes_projection(&projection, &left.compatibility);
-        let briefing_order = if document_briefing_layout {
+        let answer_order = if document_report_layout {
             (right.primary_authority && right.identifier_bearing)
                 .cmp(&(left.primary_authority && left.identifier_bearing))
                 .then_with(|| right.identifier_bearing.cmp(&left.identifier_bearing))
@@ -471,7 +469,7 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
             .headline_actionable
             .cmp(&left.headline_actionable)
             .then_with(|| left.headline_low_quality.cmp(&right.headline_low_quality))
-            .then_with(|| briefing_order)
+            .then_with(|| answer_order)
             .then_with(|| subject_identity_order)
             .then_with(|| primary_authority_order)
             .then_with(|| {

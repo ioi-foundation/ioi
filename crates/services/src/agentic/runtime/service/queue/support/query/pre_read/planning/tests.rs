@@ -2,7 +2,68 @@ use super::*;
 use ioi_types::app::agentic::WebSource;
 
 #[test]
-fn document_briefing_plan_preserves_authority_candidates_while_enforcing_domain_diversity() {
+fn current_investment_comparison_plan_canonicalizes_bare_akash_quote_slug() {
+    let query = "Which is a better investment right now, Akash or Filecoin?";
+    let retrieval_contract =
+        crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).ok();
+
+    let plan = pre_read_candidate_plan_with_contract(
+        retrieval_contract.as_ref(),
+        query,
+        2,
+        Vec::new(),
+        Vec::new(),
+        None,
+        false,
+    );
+
+    assert!(
+        plan.candidate_urls.iter().any(|url| {
+            url.starts_with("https://api.coingecko.com/api/v3/simple/price")
+                && url.contains("ids=akash-network")
+        }),
+        "{:?}",
+        plan.candidate_urls
+    );
+    assert!(
+        !plan
+            .candidate_urls
+            .iter()
+            .any(|url| url.contains("ids=akash&")),
+        "{:?}",
+        plan.candidate_urls
+    );
+    assert!(
+        plan.candidate_urls.iter().any(|url| {
+            url.starts_with("https://api.coingecko.com/api/v3/simple/price")
+                && url.contains("ids=filecoin")
+        }),
+        "{:?}",
+        plan.candidate_urls
+    );
+    let first_two = plan
+        .candidate_urls
+        .iter()
+        .take(2)
+        .cloned()
+        .collect::<Vec<_>>();
+    assert!(
+        first_two
+            .iter()
+            .all(|url| url.starts_with("https://api.coingecko.com/api/v3/simple/price")),
+        "{:?}",
+        plan.candidate_urls
+    );
+    assert!(
+        first_two.iter().any(|url| url.contains("ids=akash-network"))
+            && first_two.iter().any(|url| url.contains("ids=filecoin")),
+        "{:?}",
+        plan.candidate_urls
+    );
+}
+
+#[test]
+fn document_report_plan_preserves_authority_candidates_while_enforcing_domain_diversity() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
@@ -67,7 +128,7 @@ fn document_briefing_plan_preserves_authority_candidates_while_enforcing_domain_
 }
 
 #[test]
-fn document_briefing_plan_prioritizes_current_authority_documents() {
+fn document_report_plan_prioritizes_current_authority_documents() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
@@ -115,7 +176,267 @@ fn document_briefing_plan_prioritizes_current_authority_documents() {
 }
 
 #[test]
-fn document_briefing_plan_demotes_generic_authority_pages_without_query_grounding() {
+fn current_investment_comparison_plan_prioritizes_live_quote_pages() {
+    let query = "Which is a better investment right now, Akash or Filecoin?";
+    let retrieval_contract =
+        crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).ok();
+    let akash_quote = "https://www.coingecko.com/en/coins/akash-network";
+    let filecoin_quote = "https://crypto.com/price/filecoin";
+    let akash_api = "https://api.coingecko.com/api/v3/simple/price?ids=akash-network";
+    let filecoin_api = "https://api.coingecko.com/api/v3/simple/price?ids=filecoin";
+    let walletinvestor =
+        "https://walletinvestor.com/compare/filecoin-vs-akash-network/interval/6m";
+    let cryptonium =
+        "https://cryptonium.cloud/articles/depin-decentralized-compute-wars-filecoin-akash-infrastructure-race-ai-web3";
+
+    let plan = pre_read_candidate_plan_with_contract(
+        retrieval_contract.as_ref(),
+        query,
+        2,
+        vec![
+            walletinvestor.to_string(),
+            cryptonium.to_string(),
+            akash_quote.to_string(),
+            filecoin_quote.to_string(),
+        ],
+        vec![
+            PendingSearchReadSummary {
+                url: walletinvestor.to_string(),
+                title: Some("Filecoin Vs Akash Network Comparison".to_string()),
+                excerpt:
+                    "Six-month comparison with sentiment and investment risk indicators."
+                        .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: cryptonium.to_string(),
+                title: Some("DePIN Compute Wars: Filecoin vs. Akash for AI & Web3".to_string()),
+                excerpt:
+                    "Editorial comparison of Filecoin and Akash infrastructure narratives."
+                        .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: akash_quote.to_string(),
+                title: Some("Akash Network Price: AKT Live Price Chart".to_string()),
+                excerpt:
+                    "Akash Network price today is $0.81 USD with live market data, 24h volume, and market cap."
+                        .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: filecoin_quote.to_string(),
+                title: Some("Filecoin Price: FIL Live Price, Chart and News".to_string()),
+                excerpt:
+                    "Filecoin price today is $2.34 USD with live market data, 24h volume, and market cap."
+                        .to_string(),
+            },
+        ],
+        None,
+        false,
+    );
+
+    assert!(
+        plan.candidate_urls
+            .iter()
+            .take(2)
+            .any(|url| url.starts_with(akash_api)),
+        "{:?}",
+        plan.candidate_urls
+    );
+    assert!(
+        plan.candidate_urls
+            .iter()
+            .take(2)
+            .any(|url| url.starts_with(filecoin_api)),
+        "{:?}",
+        plan.candidate_urls
+    );
+    assert!(
+        !plan
+            .candidate_urls
+            .iter()
+            .take(2)
+            .any(|url| url.eq_ignore_ascii_case(walletinvestor)
+                || url.eq_ignore_ascii_case(cryptonium)),
+        "{:?}",
+        plan.candidate_urls
+    );
+}
+
+#[test]
+fn current_investment_comparison_plan_reads_quote_pages_before_snippet_price_is_visible() {
+    let query = "Which is a better investment right now, Akash or Filecoin?";
+    let retrieval_contract =
+        crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).ok();
+    let akash_quote = "https://www.binance.com/en-US/price/akash-network";
+    let filecoin_quote = "https://www.coingecko.com/en/coins/filecoin";
+    let akash_api = "https://api.coingecko.com/api/v3/simple/price?ids=akash-network";
+    let filecoin_api = "https://api.coingecko.com/api/v3/simple/price?ids=filecoin";
+    let walletinvestor =
+        "https://walletinvestor.com/compare/filecoin-vs-akash-network/interval/6m";
+
+    let plan = pre_read_candidate_plan_with_contract(
+        retrieval_contract.as_ref(),
+        query,
+        2,
+        vec![
+            walletinvestor.to_string(),
+            akash_quote.to_string(),
+            filecoin_quote.to_string(),
+        ],
+        vec![
+            PendingSearchReadSummary {
+                url: walletinvestor.to_string(),
+                title: Some("Filecoin Vs Akash Network Comparison".to_string()),
+                excerpt: "Six-month comparison with sentiment and risk indicators.".to_string(),
+            },
+            PendingSearchReadSummary {
+                url: akash_quote.to_string(),
+                title: Some(
+                    "Akash Network Price Today in United States | AKT to USD Live Price & Chart - Binance"
+                        .to_string(),
+                ),
+                excerpt: "Binance | source_url=https://www.binance.com".to_string(),
+            },
+            PendingSearchReadSummary {
+                url: filecoin_quote.to_string(),
+                title: Some("Filecoin Price: FIL Live Price Chart".to_string()),
+                excerpt: "CoinGecko | source_url=https://www.coingecko.com".to_string(),
+            },
+        ],
+        None,
+        false,
+    );
+
+    assert!(
+        plan.candidate_urls
+            .iter()
+            .take(2)
+            .any(|url| url.starts_with(akash_api)),
+        "{:?}",
+        plan.candidate_urls
+    );
+    assert!(
+        plan.candidate_urls
+            .iter()
+            .take(2)
+            .any(|url| url.starts_with(filecoin_api)),
+        "{:?}",
+        plan.candidate_urls
+    );
+    assert!(
+        !plan
+            .candidate_urls
+            .iter()
+            .take(2)
+            .any(|url| url.eq_ignore_ascii_case(walletinvestor)),
+        "{:?}",
+        plan.candidate_urls
+    );
+}
+
+#[test]
+fn current_investment_comparison_plan_rejects_numeric_quote_aliases_and_covers_both_assets() {
+    let query = "Which is a better investment right now, Akash or Filecoin?";
+    let retrieval_contract =
+        crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).ok();
+    let comparison = "https://coinswitch.co/crypto-compare/akt-fil";
+    let stale_tail =
+        "https://www.ainvest.com/news/hoskinson-decentralized-compute-vision-flow-analysis-akash-filecoin-2603/";
+    let filecoin_quote = "https://www.coingecko.com/en/coins/filecoin";
+    let cmc_filecoin = "https://coinmarketcap.com/currencies/filecoin/";
+
+    let plan = pre_read_candidate_plan_with_contract(
+        retrieval_contract.as_ref(),
+        query,
+        3,
+        vec![
+            comparison.to_string(),
+            stale_tail.to_string(),
+            filecoin_quote.to_string(),
+            cmc_filecoin.to_string(),
+        ],
+        vec![
+            PendingSearchReadSummary {
+                url: comparison.to_string(),
+                title: Some("Compare Akash Network (AKT) Vs Filecoin (FIL)".to_string()),
+                excerpt: "Compare Akash Network (AKT) vs Filecoin (FIL) pricing, market cap, trade volume, and supply."
+                    .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: stale_tail.to_string(),
+                title: Some(
+                    "Hoskinson's Decentralized Compute Vision: A Flow Analysis of Akash and Filecoin"
+                        .to_string(),
+                ),
+                excerpt:
+                    "The core investment question is whether platforms like Akash and Filecoin are gaining traction."
+                        .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: filecoin_quote.to_string(),
+                title: Some("Filecoin Price : FIL/USD Live Price Chart".to_string()),
+                excerpt:
+                    "Track the latest Filecoin price, market cap, trading volume, news and more."
+                        .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: cmc_filecoin.to_string(),
+                title: Some("Filecoin price today, FIL to USD live price".to_string()),
+                excerpt: "Live Filecoin market cap, volume, and USD quote.".to_string(),
+            },
+        ],
+        None,
+        false,
+    );
+
+    let selected = plan
+        .candidate_urls
+        .iter()
+        .take(3)
+        .cloned()
+        .collect::<Vec<_>>();
+    assert!(
+        selected.iter().any(|url| url.contains("akash-network")),
+        "{:?}",
+        plan.candidate_urls
+    );
+    assert!(
+        selected
+            .iter()
+            .any(|url| url.contains("api.coingecko.com") && url.contains("akash-network")),
+        "{:?}",
+        plan.candidate_urls
+    );
+    assert!(
+        selected
+            .iter()
+            .any(|url| url.contains("/filecoin") && !url.contains("filecoin-2603")),
+        "{:?}",
+        plan.candidate_urls
+    );
+    assert!(
+        selected
+            .iter()
+            .any(|url| url.contains("api.coingecko.com") && url.contains("filecoin")),
+        "{:?}",
+        plan.candidate_urls
+    );
+    assert!(
+        plan.candidate_urls
+            .iter()
+            .filter(|url| {
+                url.contains("coingecko.com")
+                    || url.contains("coinmarketcap.com")
+                    || url.contains("crypto.com/price")
+                    || url.contains("coinbase.com")
+            })
+            .all(|url| !url.contains("filecoin-2603")),
+        "{:?}",
+        plan.candidate_urls
+    );
+}
+
+#[test]
+fn document_report_plan_demotes_generic_authority_pages_without_query_grounding() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
@@ -185,7 +506,7 @@ fn document_briefing_plan_demotes_generic_authority_pages_without_query_groundin
 }
 
 #[test]
-fn document_briefing_plan_does_not_append_static_authority_seed_urls() {
+fn document_report_plan_does_not_append_static_authority_seed_urls() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
@@ -214,7 +535,7 @@ fn document_briefing_plan_does_not_append_static_authority_seed_urls() {
 }
 
 #[test]
-fn document_briefing_plan_keeps_identifier_backed_nist_detail_candidates_from_pending_inventory(
+fn document_report_plan_keeps_identifier_backed_nist_detail_candidates_from_pending_inventory(
 ) {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
@@ -308,7 +629,7 @@ fn document_briefing_plan_keeps_identifier_backed_nist_detail_candidates_from_pe
 }
 
 #[test]
-fn document_briefing_plan_prunes_off_subject_brand_matched_top_up_candidates() {
+fn document_report_plan_prunes_off_subject_brand_matched_top_up_candidates() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
@@ -350,7 +671,7 @@ fn document_briefing_plan_prunes_off_subject_brand_matched_top_up_candidates() {
 }
 
 #[test]
-fn document_briefing_plan_keeps_two_authority_candidates_from_nist_pqc_bundle() {
+fn document_report_plan_keeps_two_authority_candidates_from_nist_pqc_bundle() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
@@ -444,7 +765,7 @@ fn document_briefing_plan_keeps_two_authority_candidates_from_nist_pqc_bundle() 
 }
 
 #[test]
-fn document_briefing_plan_preserves_distinct_official_news_support_from_run_shaped_bundle() {
+fn document_report_plan_preserves_distinct_official_news_support_from_run_shaped_bundle() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
@@ -548,7 +869,7 @@ fn document_briefing_plan_preserves_distinct_official_news_support_from_run_shap
 }
 
 #[test]
-fn document_briefing_plan_keeps_grounded_external_publication_artifact_from_run_shaped_bundle()
+fn document_report_plan_keeps_grounded_external_publication_artifact_from_run_shaped_bundle()
 {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
@@ -637,7 +958,7 @@ fn document_briefing_plan_keeps_grounded_external_publication_artifact_from_run_
 }
 
 #[test]
-fn document_briefing_plan_keeps_probe_required_for_same_host_authority_only_inventory() {
+fn document_report_plan_keeps_probe_required_for_same_host_authority_only_inventory() {
     let query = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
     let retrieval_contract =
         crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).ok();

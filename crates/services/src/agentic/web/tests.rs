@@ -575,6 +575,29 @@ fn provider_admission_uses_structural_requirements_for_local_multi_entity_querie
 }
 
 #[test]
+fn provider_admission_rejects_top_stories_for_specific_current_comparisons() {
+    let mut contract = headline_contract();
+    contract.comparison_required = true;
+    contract.ordered_collection_preferred = false;
+    contract.discovery_surface_required = true;
+
+    let requirements = search_provider_requirements_from_contract(&contract, None);
+    let brave = descriptor_for(SearchProviderStage::BraveHttp);
+    let google_news = descriptor_for(SearchProviderStage::GoogleNewsRss);
+    let google_news_top_stories = descriptor_for(SearchProviderStage::GoogleNewsTopStoriesRss);
+
+    assert!(provider_descriptor_is_admissible(&requirements, &brave));
+    assert!(provider_descriptor_is_admissible(
+        &requirements,
+        &google_news
+    ));
+    assert!(
+        !provider_descriptor_is_admissible(&requirements, &google_news_top_stories),
+        "subject-specific current searches must not admit the generic top-stories feed"
+    );
+}
+
+#[test]
 fn probe_priority_prefers_locality_directory_provider_for_local_multi_entity_queries() {
     let contract = locality_comparison_contract();
     let requirements = search_provider_requirements_from_contract(&contract, Some("Anderson, SC"));
@@ -1247,6 +1270,35 @@ fn read_extract_ignores_inline_markup_noise_blocks() {
         blocks[0],
         "127 E Shockley Ferry Rd, Anderson, SC 29624 (864) 225-0070"
     );
+}
+
+#[test]
+fn read_extract_skips_hidden_descendants_without_serializing_markup() {
+    let html = r#"
+        <html>
+          <head><title>Akash Network live USD price quote</title></head>
+          <body>
+            <main>
+              <section>
+                <p>Akash Network live USD quote: price $0.78 and market cap $231M.</p>
+                <div>
+                  <span>Ignore this rendered shell</span>
+                  <template><span>client-side template payload</span></template>
+                </div>
+              </section>
+            </main>
+          </body>
+        </html>
+        "#;
+
+    let (_title, blocks) = extract_read_blocks(html);
+
+    assert!(blocks
+        .iter()
+        .any(|block| block.contains("price $0.78") && block.contains("market cap $231M")));
+    assert!(!blocks
+        .iter()
+        .any(|block| block.contains("client-side template payload")));
 }
 
 #[test]

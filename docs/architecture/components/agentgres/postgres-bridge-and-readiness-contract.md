@@ -69,7 +69,7 @@ Agentgres should not be positioned as the only storage plane.
 Non-replacements:
 
 - blob/object storage for payload bytes;
-- Filecoin/CAS for content-addressed artifact availability;
+- storage backends such as Filecoin/CAS for content-addressed artifact availability;
 - wallet.network for authority, secrets, key leases, and approvals;
 - IOI L1 for public settlement and rights;
 - OLAP warehouses for heavy analytical scans;
@@ -115,6 +115,8 @@ Storage plane:
   local disk
   S3
   Filecoin/CAS
+  object stores
+  provider/customer blob stores
   Postgres
   SQLite
   RocksDB

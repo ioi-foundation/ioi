@@ -4,14 +4,14 @@ use super::shared::{
 };
 use super::*;
 
-pub(crate) fn merged_story_sources(
+pub(crate) fn merged_evidence_sources(
     pending: &PendingSearchCompletion,
 ) -> Vec<PendingSearchReadSummary> {
     let query_contract = synthesis_query_contract(pending);
     let retrieval_contract = pending.retrieval_contract.as_ref();
     let headline_lookup_mode =
         retrieval_contract_is_generic_headline_collection(retrieval_contract, &query_contract);
-    let document_briefing_layout = query_prefers_document_briefing_layout(&query_contract)
+    let document_report_layout = query_prefers_document_report_layout(&query_contract)
         && !retrieval_contract_requests_comparison(retrieval_contract, &query_contract);
     let local_business_entity_diversity_required =
         retrieval_contract_entity_diversity_required(retrieval_contract, &query_contract);
@@ -46,7 +46,7 @@ pub(crate) fn merged_story_sources(
     };
     let successful_urls = successful_source_url_set(pending);
     let blocked_unverified_urls = blocked_unverified_url_set(pending, &successful_urls);
-    let preserve_successful_reads = (document_briefing_layout && !headline_lookup_mode)
+    let preserve_successful_reads = (document_report_layout && !headline_lookup_mode)
         || local_business_entity_diversity_required
         || host_anchored_primary_authority_required
         || subject_identity_required;
@@ -75,8 +75,8 @@ pub(crate) fn merged_story_sources(
                 continue;
             }
         }
-        // Deterministic document briefings should synthesize from read-backed evidence
-        // that already cleared the web pipeline, then let briefing selection/finalization
+        // Model-authored document reports should synthesize from read-backed evidence
+        // that already cleared the web pipeline, then let evidence selection/finalization
         // prune weak or duplicative sources. Reapplying the grounded projection here can
         // drop all successful reads for execution-suffixed research contracts.
         if !seen.insert(trimmed.to_string()) {
@@ -160,7 +160,7 @@ pub(crate) fn merged_story_sources(
         let right_signals = source_evidence_signals(right);
         let left_success = successful_urls.contains(left.url.trim());
         let right_success = successful_urls.contains(right.url.trim());
-        let left_document_authority_score = if document_briefing_layout {
+        let left_document_authority_score = if document_report_layout {
             source_document_authority_score(
                 &query_contract,
                 &left.url,
@@ -170,7 +170,7 @@ pub(crate) fn merged_story_sources(
         } else {
             0
         };
-        let right_document_authority_score = if document_briefing_layout {
+        let right_document_authority_score = if document_report_layout {
             source_document_authority_score(
                 &query_contract,
                 &right.url,
@@ -183,7 +183,7 @@ pub(crate) fn merged_story_sources(
         let left_key = (
             left_document_authority_score > 0,
             left_document_authority_score,
-            !is_low_priority_coverage_story(left),
+            !is_low_priority_coverage_source(left),
             left_signals.official_status_host_hits > 0,
             left_signals.official_status_host_hits,
             left_signals.primary_status_surface_hits > 0,
@@ -200,7 +200,7 @@ pub(crate) fn merged_story_sources(
         let right_key = (
             right_document_authority_score > 0,
             right_document_authority_score,
-            !is_low_priority_coverage_story(right),
+            !is_low_priority_coverage_source(right),
             right_signals.official_status_host_hits > 0,
             right_signals.official_status_host_hits,
             right_signals.primary_status_surface_hits > 0,
@@ -238,7 +238,7 @@ pub(crate) fn grounded_source_evidence_count(pending: &PendingSearchCompletion) 
     let retrieval_contract = pending.retrieval_contract.as_ref();
     let headline_lookup_mode =
         retrieval_contract_is_generic_headline_collection(retrieval_contract, &query_contract);
-    let document_briefing_layout = query_prefers_document_briefing_layout(&query_contract)
+    let document_report_layout = query_prefers_document_report_layout(&query_contract)
         && !retrieval_contract_requests_comparison(retrieval_contract, &query_contract);
     let locality_scope = explicit_query_scope_hint(&query_contract).or_else(|| {
         retrieval_contract_requires_runtime_locality(retrieval_contract, &query_contract)
@@ -246,7 +246,7 @@ pub(crate) fn grounded_source_evidence_count(pending: &PendingSearchCompletion) 
             .flatten()
     });
     let required_local_business_sources =
-        retrieval_contract_required_story_count(retrieval_contract, &query_contract)
+        retrieval_contract_required_source_cluster_count(retrieval_contract, &query_contract)
             .max(1)
             .max(pending.min_sources.max(1) as usize);
     let local_business_target_sources =
@@ -299,8 +299,7 @@ pub(crate) fn grounded_source_evidence_count(pending: &PendingSearchCompletion) 
     let envelope_policy = ResolutionPolicy::default();
     let successful_urls = successful_source_url_set(pending);
     let blocked_unverified_urls = blocked_unverified_url_set(pending, &successful_urls);
-    let preserve_document_briefing_successful_reads =
-        document_briefing_layout && !headline_lookup_mode;
+    let preserve_document_report_successful_reads = document_report_layout && !headline_lookup_mode;
 
     let mut grounded_urls: BTreeSet<String> = BTreeSet::new();
 
@@ -316,7 +315,7 @@ pub(crate) fn grounded_source_evidence_count(pending: &PendingSearchCompletion) 
         if !source_url_allowed(trimmed) {
             continue;
         }
-        if enforce_grounded_compatibility && !preserve_document_briefing_successful_reads {
+        if enforce_grounded_compatibility && !preserve_document_report_successful_reads {
             let compatibility = candidate_constraint_compatibility(
                 &projection.constraints,
                 &projection.query_facets,
@@ -332,7 +331,7 @@ pub(crate) fn grounded_source_evidence_count(pending: &PendingSearchCompletion) 
                 continue;
             }
         }
-        if has_constraint_objective && !preserve_document_briefing_successful_reads {
+        if has_constraint_objective && !preserve_document_report_successful_reads {
             let title = source.title.as_deref().unwrap_or_default();
             let score = single_snapshot_candidate_envelope_score(
                 envelope_constraints,

@@ -112,6 +112,45 @@ fn queue_web_search_deduplicates_identical_search_requests() {
 }
 
 #[test]
+fn drain_queued_web_retrieve_actions_preserves_non_web_work() {
+    let mut agent_state = test_agent_state();
+
+    assert!(queue_web_read_from_pipeline(
+        &mut agent_state,
+        [3u8; 32],
+        "https://example.com/one",
+        false
+    )
+    .expect("queue first web read"));
+    assert!(queue_web_search_from_pipeline(
+        &mut agent_state,
+        [3u8; 32],
+        "example query",
+        Some("example query"),
+        None,
+        2,
+    )
+    .expect("queue web search"));
+    agent_state.execution_queue.push(ActionRequest {
+        target: ActionTarget::FsRead,
+        params: br#"{"path":"README.md"}"#.to_vec(),
+        context: ActionContext {
+            agent_id: "desktop_agent".to_string(),
+            session_id: Some([3u8; 32]),
+            window_id: None,
+        },
+        nonce: 99,
+    });
+
+    assert_eq!(drain_queued_web_retrieve_actions(&mut agent_state), 2);
+    assert_eq!(agent_state.execution_queue.len(), 1);
+    assert!(matches!(
+        agent_state.execution_queue[0].target,
+        ActionTarget::FsRead
+    ));
+}
+
+#[test]
 fn human_challenge_detection_matches_common_provider_surfaces() {
     assert!(is_human_challenge_error(
         "recaptcha required before continuing"

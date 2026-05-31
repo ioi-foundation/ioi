@@ -28,7 +28,8 @@ const localModelDiscoveryEnabled =
 const runtimeBridgeEnabled =
   !envFlag("AUTOPILOT_SKIP_RUNTIME_BRIDGE");
 const RUNTIME_BRIDGE_ID = "autopilot-ide-runtime-agent-service";
-const RUNTIME_BRIDGE_TIMEOUT_MS = "120000";
+const RUNTIME_BRIDGE_TIMEOUT_MS = "300000";
+const RUNTIME_COGNITION_INFERENCE_TIMEOUT_SECS = "140";
 const RUNTIME_BRIDGE_ROUTE_ID = "route.local-first";
 
 if (process.env.IOI_LIVE_MODEL_CATALOG === undefined) {
@@ -299,6 +300,11 @@ function configureRuntimeBridgeEnv(stateDir) {
     ["IOI_RUNTIME_BRIDGE_TIMEOUT_MS"],
     RUNTIME_BRIDGE_TIMEOUT_MS,
   );
+  setRuntimeEnvDefault(
+    "IOI_COGNITION_INFERENCE_TIMEOUT_SECS",
+    [],
+    RUNTIME_COGNITION_INFERENCE_TIMEOUT_SECS,
+  );
 
   return {
     configured: true,
@@ -316,6 +322,10 @@ function configureRuntimeBridgeEnv(stateDir) {
         "IOI_RUNTIME_AGENT_SERVICE_BRIDGE_TIMEOUT_MS",
         "IOI_RUNTIME_BRIDGE_TIMEOUT_MS",
       ]) ?? RUNTIME_BRIDGE_TIMEOUT_MS,
+    ),
+    cognitionTimeoutSecs: Number(
+      firstNonEmptyEnv(["IOI_COGNITION_INFERENCE_TIMEOUT_SECS"]) ??
+        RUNTIME_COGNITION_INFERENCE_TIMEOUT_SECS,
     ),
   };
 }

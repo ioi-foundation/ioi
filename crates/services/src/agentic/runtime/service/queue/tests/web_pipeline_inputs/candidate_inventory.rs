@@ -184,7 +184,7 @@ fn web_pipeline_source_hints_prioritize_operational_status_hosts_over_documentat
 }
 
 #[test]
-fn web_pipeline_pre_read_promotes_primary_authority_sources_for_grounded_document_briefings() {
+fn web_pipeline_pre_read_promotes_primary_authority_sources_for_grounded_document_reports() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
@@ -647,7 +647,7 @@ fn web_pipeline_pre_read_does_not_learn_facets_from_incompatible_candidates() {
 }
 
 #[test]
-fn web_pipeline_pre_read_prioritizes_direct_authoritative_sources_for_document_briefings() {
+fn web_pipeline_pre_read_prioritizes_direct_authoritative_sources_for_document_reports() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =

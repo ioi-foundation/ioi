@@ -2,9 +2,9 @@ use super::{
     ensure_agent_running_or_resume_retry_pause, handle_step, maybe_direct_inline_author_tool_call,
     maybe_run_optimizer_recovery, maybe_typed_runtime_browser_navigate_tool_call,
     maybe_typed_runtime_install_resolve_tool_call, maybe_typed_runtime_shell_run_tool_call,
-    maybe_typed_runtime_workspace_context_tool_call, queue_parent_playbook_await_request,
-    queue_root_playbook_delegate_request, should_clear_stale_canonical_pending,
-    typed_runtime_route_resolved_intent,
+    maybe_typed_runtime_web_search_tool_call, maybe_typed_runtime_workspace_context_tool_call,
+    queue_parent_playbook_await_request, queue_root_playbook_delegate_request,
+    should_clear_stale_canonical_pending, typed_runtime_route_resolved_intent,
 };
 use crate::agentic::runtime::keys::{get_parent_playbook_run_key, get_state_key};
 use crate::agentic::runtime::service::decision_loop::intent_resolver::is_tool_allowed_for_resolution;
@@ -217,6 +217,39 @@ fn typed_workspace_frame_with_evidence(evidence_kind: &str, value: &str) -> Runt
     }
 }
 
+fn typed_web_research_frame(
+    route_family: &str,
+    evidence_kind: &str,
+    value: &str,
+) -> RuntimeRouteFrame {
+    RuntimeRouteFrame {
+        intent_id: "retrieval.answer".to_string(),
+        route_family: route_family.to_string(),
+        output_intent: "tool_execution".to_string(),
+        direct_answer_allowed: false,
+        target: value.to_string(),
+        target_kind: Some("source_grounding".to_string()),
+        host_mutation: false,
+        required_capabilities: vec![
+            "prim:conversation.reply".to_string(),
+            "prim:web.search".to_string(),
+            "prim:web.read".to_string(),
+            "prim:source_grounding".to_string(),
+        ],
+        typed_evidence: vec![RuntimeIntentEvidence {
+            evidence_kind: evidence_kind.to_string(),
+            value: value.to_string(),
+            source: "test".to_string(),
+            confidence: Some(92),
+        }],
+        typed_required_capabilities: Vec::new(),
+        host_mutation_scope: None,
+        runtime_action: None,
+        install_request: None,
+        provenance: Some("test".to_string()),
+    }
+}
+
 #[test]
 fn typed_runtime_install_route_dispatches_resolver_from_structured_frame() {
     let mut state = test_agent_state();
@@ -339,6 +372,78 @@ fn typed_runtime_studio_context_frames_seed_tool_scoped_intents() {
         Some(&workspace),
         "file__write"
     ));
+}
+
+#[test]
+fn typed_runtime_web_research_frame_dispatches_web_search_before_cognition() {
+    let mut state = test_agent_state();
+    state.runtime_route_frame = Some(typed_web_research_frame(
+        "web_research",
+        "web_search",
+        "Which is a better investment right now, Akash or Filecoin?",
+    ));
+
+    let tool_call = maybe_typed_runtime_web_search_tool_call(&mut state)
+        .expect("web research route frame should dispatch web__search");
+    assert!(tool_call.contains("\"name\":\"web__search\""));
+    assert!(tool_call.contains("Akash or Filecoin"));
+    assert!(state
+        .recent_actions
+        .iter()
+        .any(|action| action.starts_with("runtime_route_frame_dispatch:web__search")));
+
+    assert!(maybe_typed_runtime_web_search_tool_call(&mut state).is_none());
+}
+
+#[test]
+fn typed_runtime_web_research_frame_ignores_studio_mode_labels_for_query() {
+    let mut state = test_agent_state();
+    let mut frame = typed_web_research_frame(
+        "web_research",
+        "normalized_request",
+        "Which is a better investment right now, Akash or Filecoin?",
+    );
+    frame.typed_evidence.insert(
+        0,
+        RuntimeIntentEvidence {
+            evidence_kind: "web_search".to_string(),
+            value: "agent".to_string(),
+            source: "test".to_string(),
+            confidence: Some(95),
+        },
+    );
+    frame.typed_evidence.insert(
+        1,
+        RuntimeIntentEvidence {
+            evidence_kind: "query".to_string(),
+            value: "studio_intent_frame".to_string(),
+            source: "test".to_string(),
+            confidence: Some(95),
+        },
+    );
+    state.runtime_route_frame = Some(frame);
+
+    let tool_call = maybe_typed_runtime_web_search_tool_call(&mut state)
+        .expect("web research route frame should dispatch web__search");
+    assert!(tool_call.contains("\"name\":\"web__search\""));
+    assert!(tool_call.contains("Akash or Filecoin"));
+    assert!(!tool_call.contains("\"query\":\"agent\""));
+    assert!(!tool_call.contains("studio_intent_frame"));
+}
+
+#[test]
+fn typed_runtime_research_family_frame_dispatches_web_search() {
+    let mut state = test_agent_state();
+    state.runtime_route_frame = Some(typed_web_research_frame(
+        "research",
+        "retrieval_query",
+        "Find current sources for today's top local AI model runtime issue.",
+    ));
+
+    let tool_call = maybe_typed_runtime_web_search_tool_call(&mut state)
+        .expect("generic research route family should still dispatch web__search");
+    assert!(tool_call.contains("\"name\":\"web__search\""));
+    assert!(tool_call.contains("local AI model runtime issue"));
 }
 
 #[test]
@@ -496,6 +601,38 @@ fn typed_runtime_workspace_frame_keeps_code_domain_search_terms() {
 }
 
 #[test]
+fn typed_runtime_workspace_overview_frame_reads_readme_after_structure_search() {
+    let mut state = test_agent_state();
+    state.runtime_route_frame = Some(typed_workspace_frame_with_evidence(
+        "workspace_search",
+        "Explore this repository and summarize the architecture.",
+    ));
+
+    let search = maybe_typed_runtime_workspace_context_tool_call(&mut state)
+        .expect("repo overview should begin with a structure search");
+    assert!(search.contains("\"name\":\"file__search\""));
+    assert!(search.contains("README|package"));
+    record_execution_evidence_with_value(
+        &mut state.tool_execution_log,
+        "file_context",
+        "step=1;tool=file__search;path=.;regex=README|package|Cargo|pyproject|go\\.mod|src|app|lib|crates|packages|export|import|function|class|test|config|script|dependency;file_pattern=*"
+            .to_string(),
+    );
+
+    let read = maybe_typed_runtime_workspace_context_tool_call(&mut state)
+        .expect("repo overview should read the README after the structure search");
+    assert!(read.contains("\"name\":\"file__read\""));
+    assert!(read.contains("README.md"));
+    record_execution_evidence_with_value(
+        &mut state.tool_execution_log,
+        "file_context",
+        "step=2;tool=file__read;path=README.md".to_string(),
+    );
+
+    assert!(maybe_typed_runtime_workspace_context_tool_call(&mut state).is_none());
+}
+
+#[test]
 fn typed_runtime_install_route_does_not_parse_user_text_without_frame() {
     let mut state = test_agent_state();
     state.goal = "CHAT ARTIFACT ROUTE CONTRACT:\n- selected_route: install lmstudio\n- route_family: command_execution\n- output_intent: tool_execution\n- direct_answer_allowed: false\n- primary_tools: host_discovery, software_install_resolver, software_install__execute_plan, app__launch\nRUNTIME_ROUTE_FRAME_JSON:{\"intent_id\":\"software.install\"}\nUSER REQUEST:\ninstall lmstudio".to_string();
@@ -586,6 +723,17 @@ fn source_invariant_legacy_file_line_alias_is_not_advertised_or_executable() {
             path.display()
         );
     }
+}
+
+#[test]
+fn workspace_search_regex_uses_project_structure_terms_for_broad_repo_summaries() {
+    let regex =
+        super::workspace_search_regex("Explore this repository and summarize the architecture.");
+
+    assert!(regex.contains("README"), "{regex}");
+    assert!(regex.contains("package"), "{regex}");
+    assert!(regex.contains("export"), "{regex}");
+    assert!(!regex.contains("explore|architecture"), "{regex}");
 }
 
 #[derive(Default)]
@@ -1016,23 +1164,21 @@ async fn direct_inline_authoring_generates_chat_reply_for_conversation_route() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn direct_inline_authoring_fast_paths_lightweight_conversation_without_model_call() {
+async fn direct_inline_authoring_routes_lightweight_conversation_through_model() {
     let fast_runtime = Arc::new(RecordingInferenceRuntime::with_outputs([
-        "This should never be used.",
-        "This should never be used.",
-        "This should never be used.",
-        "This should never be used.",
+        "Hi. What would you like to work on?",
+        "You're welcome.",
+        "Got it.",
+        "I'm doing fine and ready to help.",
+        "You're welcome.",
     ]));
     let service = build_test_service_hybrid(fast_runtime.clone(), fast_runtime.clone());
     let state = MockState::default();
     let cases = [
-        ("hiya bot", "Hello! How can I help you today?"),
+        ("hiya bot", "Hi. What would you like to work on?"),
         ("thanks dearie", "You're welcome."),
         ("sounds good", "Got it."),
-        (
-            "how are you?",
-            "I'm here and ready. What would you like to work on?",
-        ),
+        ("how are you?", "I'm doing fine and ready to help."),
     ];
 
     for (idx, (goal, expected_message)) in cases.iter().enumerate() {
@@ -1096,11 +1242,18 @@ async fn direct_inline_authoring_fast_paths_lightweight_conversation_without_mod
         Some("You're welcome.")
     );
 
-    assert!(fast_runtime
+    let seen_inputs = fast_runtime
         .seen_inputs
         .lock()
-        .expect("seen_inputs mutex poisoned")
-        .is_empty());
+        .expect("seen_inputs mutex poisoned");
+    assert_eq!(seen_inputs.len(), 5);
+    for (goal, _) in cases {
+        assert!(
+            seen_inputs.iter().any(|input| input.contains(goal)),
+            "expected model prompt for lightweight utterance: {goal}"
+        );
+    }
+    assert!(seen_inputs.iter().any(|input| input.contains("thanks")));
 }
 
 #[tokio::test(flavor = "current_thread")]

@@ -21,6 +21,7 @@ export type IOISDKMessageType =
   | "computer_use_control"
   | "step"
   | "delta"
+  | "answer_delta"
   | "tool_call"
   | "tool_result"
   | "task_state"
@@ -113,6 +114,7 @@ export const RUNTIME_ITEM_KINDS = [
   "user_message",
   "agent_message",
   "reasoning_delta",
+  "answer_delta",
   "tool_call",
   "tool_result",
   "file_change",
@@ -183,6 +185,7 @@ export const RUNTIME_THREAD_EVENT_TYPES = [
   "workflow_edit_proposed",
   "workflow_edit_applied",
   "reasoning_delta",
+  "answer_delta",
   "tool_completed",
   "tool_failed",
   "approval_required",

@@ -17,6 +17,7 @@ const CREATION_VERB_RE = /\b(create|build|make|generate|draft|design|prototype|t
 const WEB_DELIVERABLE_RE = /\b(website|web\s*site|webpage|web\s*page|landing\s+page|microsite|static\s+site|standalone\s+site)\b/i;
 const RUNTIME_INSPECTION_RE = /\b(runtime cockpit|tool proposal|policy lease|sandbox(?:ed)? command|inline diff|hunk|diagnostics?|test gate|browser status|worker status|subagent|receipt timeline|replay)\b/i;
 const INTERNAL_PROBE_RE = /\bTOOLCAT_(?:SINGLE_TOOL|STAGE\d+_[A-Z0-9_]+)\b|workspace_fixture_|daemon_endpoint=|computer_use_providers_url=|live IDE Rust\/provider tool row/i;
+const INLINE_COMMAND_REQUEST_RE = /\b(run|execute|start|launch)\b[\s\S]{0,80}`([^`]+)`/i;
 
 function compactText(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -28,6 +29,41 @@ function lowerText(value = "") {
 
 function has(text, pattern) {
   return pattern.test(text);
+}
+
+function shellCommandLiteral(prompt = "") {
+  const match = String(prompt || "").match(INLINE_COMMAND_REQUEST_RE);
+  return compactText(match?.[2] || "");
+}
+
+function shellCommandLiteralLooksExecutable(command = "") {
+  const value = compactText(command);
+  if (!value) return false;
+  const [firstToken = "", ...rest] = value.split(/\s+/);
+  const hasArguments = rest.length > 0;
+  const hasShellOperator = /(?:&&|\|\||[;|<>])/.test(value);
+  const pathLike = /^(?:\.{0,2}\/|~\/|[A-Za-z]:\\|\/)/.test(firstToken);
+  return hasArguments || hasShellOperator || pathLike;
+}
+
+function localRuntimeActionForPrompt(prompt = "") {
+  const command = shellCommandLiteral(prompt);
+  if (!shellCommandLiteralLooksExecutable(command)) {
+    return null;
+  }
+  return {
+    required: true,
+    intentClass: "local_runtime_action",
+    intent_class: "local_runtime_action",
+    actionFamily: "shell",
+    action_family: "shell",
+    targetKind: "shell_command",
+    target_kind: "shell_command",
+    targetCommand: command,
+    target_command: command,
+    hostMutation: true,
+    host_mutation: true,
+  };
 }
 
 function titleCaseFirst(value = "") {
@@ -196,10 +232,19 @@ function retrievalRequirementsForPrompt(prompt = "", context = {}) {
   return [...new Set(requirements)];
 }
 
-function effectContractFor({ artifactRequired, artifactClass, retrievalRequired, workspaceRequired, routeDirective }) {
+function effectContractFor({ artifactRequired, artifactClass, retrievalRequired, workspaceRequired, routeDirective, runtimeAction }) {
+  if (runtimeAction?.required) {
+    return {
+      applicabilityClass: "local_runtime_action",
+      effectLevel: "command_execution",
+      sandbox: "workspace_command_policy",
+      typedActionsOnly: true,
+      receiptsRequired: ["shell_run", "chat_reply"],
+    };
+  }
   if (artifactRequired) {
     return {
-      applicabilityClass: "deterministic_local",
+      applicabilityClass: "local_artifact_generation",
       effectLevel: artifactClass === "diff_patch" ? "approval_gated_mutation" : "sandboxed_generation",
       sandbox: artifactClass === "diff_patch" ? null : "artifact_renderer",
       typedActionsOnly: true,
@@ -254,14 +299,16 @@ export function resolveStudioIntentFrame(input = {}) {
     : "agent";
   const promptHash = crypto.createHash("sha256").update(prompt).digest("hex").slice(0, 16);
   const matchedFeatures = [];
-  const artifactClass = artifactClassForPrompt(prompt);
+  const runtimeAction = executionMode === "agent" ? localRuntimeActionForPrompt(prompt) : null;
+  const artifactClass = runtimeAction ? null : artifactClassForPrompt(prompt);
   const artifactRequired = Boolean(artifactClass && ARTIFACT_CLASSES.has(artifactClass));
-  const retrievalRequirements = retrievalRequirementsForPrompt(prompt, { artifactClass, executionMode });
+  const retrievalRequirements = runtimeAction ? [] : retrievalRequirementsForPrompt(prompt, { artifactClass, executionMode });
   const retrievalRequired = retrievalRequirements.length > 0;
-  const workspaceRequirements = workspaceRequirementsForPrompt(prompt, { executionMode });
+  const workspaceRequirements = runtimeAction ? [] : workspaceRequirementsForPrompt(prompt, { executionMode });
   const workspaceRequired = workspaceRequirements.length > 0;
   const workspaceTargets = workspaceRequired ? workspaceTargetsForPrompt(prompt) : [];
   const runtimeInspect = !artifactRequired && RUNTIME_INSPECTION_RE.test(prompt);
+  if (runtimeAction) matchedFeatures.push("local_runtime_action");
   if (artifactRequired) matchedFeatures.push("artifact_deliverable");
   if (retrievalRequired) matchedFeatures.push("retrieval_required");
   if (workspaceRequired) matchedFeatures.push("workspace_context_required");
@@ -270,12 +317,16 @@ export function resolveStudioIntentFrame(input = {}) {
 
   const routeDirective = executionMode === "ask"
     ? "ask"
-    : artifactRequired
+    : runtimeAction
+      ? "runtime_action"
+      : artifactRequired
       ? "artifact"
       : runtimeInspect
         ? "runtime_cockpit"
         : "agent";
-  const intentId = artifactRequired
+  const intentId = runtimeAction
+    ? "command.exec"
+    : artifactRequired
     ? "artifact.create"
     : runtimeInspect
       ? "runtime.inspect"
@@ -284,7 +335,7 @@ export function resolveStudioIntentFrame(input = {}) {
         : workspaceRequired
           ? "workspace.context"
           : "conversation.reply";
-  const confidence = artifactRequired || runtimeInspect || retrievalRequired || workspaceRequired ? 0.92 : 0.56;
+  const confidence = runtimeAction || artifactRequired || runtimeInspect || retrievalRequired || workspaceRequired ? 0.92 : 0.56;
   const artifact = artifactRequired
     ? {
         required: true,
@@ -309,6 +360,8 @@ export function resolveStudioIntentFrame(input = {}) {
     schemaVersion: STUDIO_INTENT_FRAME_SCHEMA_VERSION,
     schema_version: STUDIO_INTENT_FRAME_SCHEMA_VERSION,
     object: "ioi.studio_intent_frame",
+    target: prompt,
+    query: retrievalRequired ? prompt : null,
     intentId,
     intent_id: intentId,
     routeDirective,
@@ -319,6 +372,7 @@ export function resolveStudioIntentFrame(input = {}) {
     decision: prompt ? "selected" : "abstain",
     requiredCapabilities: [
       "prim:conversation.reply",
+      ...(runtimeAction ? ["prim:shell.run", "command.exec"] : []),
       ...(artifactRequired ? ["prim:artifact.write", "prim:artifact.render"] : []),
       ...(retrievalRequired ? ["prim:web.search", "prim:web.read"] : []),
       ...(workspaceRequired ? ["prim:file.search", "prim:file.read", "prim:workspace.read"] : []),
@@ -326,6 +380,7 @@ export function resolveStudioIntentFrame(input = {}) {
     ],
     required_capabilities: [
       "prim:conversation.reply",
+      ...(runtimeAction ? ["prim:shell.run", "command.exec"] : []),
       ...(artifactRequired ? ["prim:artifact.write", "prim:artifact.render"] : []),
       ...(retrievalRequired ? ["prim:web.search", "prim:web.read"] : []),
       ...(workspaceRequired ? ["prim:file.search", "prim:file.read", "prim:workspace.read"] : []),
@@ -341,7 +396,10 @@ export function resolveStudioIntentFrame(input = {}) {
       targets: workspaceTargets,
     },
     artifact,
+    runtimeAction,
+    runtime_action: runtimeAction,
     effectContract: effectContractFor({
+      runtimeAction,
       artifactRequired,
       artifactClass,
       retrievalRequired,
@@ -349,6 +407,7 @@ export function resolveStudioIntentFrame(input = {}) {
       routeDirective,
     }),
     effect_contract: effectContractFor({
+      runtimeAction,
       artifactRequired,
       artifactClass,
       retrievalRequired,
@@ -356,13 +415,13 @@ export function resolveStudioIntentFrame(input = {}) {
       routeDirective,
     }),
     decisionMaterial: {
-      source: "deterministic_feature_resolver",
+      source: "studio_intent_router",
       matchedFeatures,
       promptHash,
       promptPreview: prompt.slice(0, 120),
     },
     decision_material: {
-      source: "deterministic_feature_resolver",
+      source: "studio_intent_router",
       matched_features: matchedFeatures,
       prompt_hash: promptHash,
       prompt_preview: prompt.slice(0, 120),

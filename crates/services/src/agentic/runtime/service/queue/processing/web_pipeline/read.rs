@@ -1,17 +1,16 @@
 use super::*;
 use crate::agentic::runtime::service::queue::support::{
-    append_final_web_completion_receipts_with_rendered_summary,
     append_pending_web_success_from_hint, compact_excerpt, explicit_query_scope_hint,
     headline_actionable_source_inventory, headline_source_is_actionable,
     local_business_menu_surface_url, matched_local_business_target_names,
     merged_local_business_target_names, query_requires_local_business_menu_surface,
     retrieval_contract_entity_diversity_required,
-    retrieval_contract_is_generic_headline_collection, retrieval_contract_required_story_count,
-    retrieval_contract_requires_runtime_locality, selected_local_business_target_sources,
+    retrieval_contract_is_generic_headline_collection,
+    retrieval_contract_required_source_cluster_count, retrieval_contract_requires_runtime_locality,
+    selected_local_business_target_sources, source_cluster_completion_contract_ready,
     source_is_grounded_external_publication_support_artifact,
-    source_matches_local_business_target_name, story_completion_contract_ready,
-    synthesis_query_contract, web_pipeline_completion_terminalization_allowed,
-    WEB_PIPELINE_EXCERPT_CHARS,
+    source_matches_local_business_target_name, synthesis_query_contract,
+    web_pipeline_completion_terminalization_allowed, WEB_PIPELINE_EXCERPT_CHARS,
 };
 use ioi_types::app::agentic::WebSource;
 
@@ -175,17 +174,18 @@ pub(in super::super) async fn maybe_handle_web_read(
     });
     let headline_collection_mode =
         retrieval_contract_is_generic_headline_collection(retrieval_contract, &query_contract);
-    let required_story_floor =
-        retrieval_contract_required_story_count(retrieval_contract, &query_contract).max(1);
+    let required_source_cluster_floor =
+        retrieval_contract_required_source_cluster_count(retrieval_contract, &query_contract)
+            .max(1);
     let (headline_actionable_sources_observed, headline_actionable_domains_observed) =
         if headline_collection_mode {
             headline_actionable_source_inventory(&pending.successful_reads)
         } else {
             (0, 0)
         };
-    let story_floor_met = !headline_collection_mode
-        || (headline_actionable_sources_observed >= required_story_floor
-            && headline_actionable_domains_observed >= required_story_floor);
+    let source_cluster_floor_met = !headline_collection_mode
+        || (headline_actionable_sources_observed >= required_source_cluster_floor
+            && headline_actionable_domains_observed >= required_source_cluster_floor);
     let min_sources_required = pending.min_sources.max(1) as usize;
     let local_business_entity_floor_required =
         retrieval_contract_entity_diversity_required(retrieval_contract, &query_contract);
@@ -194,7 +194,7 @@ pub(in super::super) async fn maybe_handle_web_read(
             &pending.attempted_urls,
             &pending.successful_reads,
             locality_scope.as_deref(),
-            required_story_floor.max(min_sources_required),
+            required_source_cluster_floor.max(min_sources_required),
         )
     } else {
         Vec::new()
@@ -216,13 +216,13 @@ pub(in super::super) async fn maybe_handle_web_read(
             &local_business_targets,
             &pending.successful_reads,
             locality_scope.as_deref(),
-            required_story_floor.max(min_sources_required),
+            required_source_cluster_floor.max(min_sources_required),
         )
     };
     let local_business_entity_floor_met = !local_business_entity_floor_required
         || (!local_business_targets.is_empty()
             && matched_local_business_targets.len()
-                >= required_story_floor.max(min_sources_required));
+                >= required_source_cluster_floor.max(min_sources_required));
     let selected_quality_urls = if local_business_selected_sources.is_empty() {
         if headline_collection_mode {
             pending
@@ -330,24 +330,36 @@ pub(in super::super) async fn maybe_handle_web_read(
     };
     let floor_unmet = pending.successful_reads.len() < min_sources_required;
     let source_floor_met = !floor_unmet;
-    let completion_contract_ready = story_completion_contract_ready(&pending, required_story_floor);
+    let completion_contract_ready =
+        source_cluster_completion_contract_ready(&pending, required_source_cluster_floor);
     let completion_facts =
         final_web_completion_facts(&pending, WebPipelineCompletionReason::MinSourcesReached);
     let quality_floor_unmet = floor_unmet
-        || !story_floor_met
+        || !source_cluster_floor_met
         || !local_business_entity_floor_met
         || !selected_source_quality_floor_met
         || !completion_contract_ready;
     let next_viable_candidate_available =
         crate::agentic::runtime::service::queue::support::next_pending_web_candidate(&pending)
             .is_some();
+    let queued_read_count = queued_web_read_count(agent_state);
+    let model_answer_ready_reason = if local_business_expansion_queued
+        || local_business_menu_followup_queued
+    {
+        None
+    } else {
+        web_pipeline_completion_reason(&pending, now_ms).filter(|reason| {
+            web_pipeline_completion_terminalization_allowed(&pending, *reason, queued_read_count)
+        })
+    };
     let probe_marker_prefix = "ioi://constraint-probe/";
-    let probe_allowed = grounded_probe_search_allowed(
-        local_business_expansion_queued,
-        next_viable_candidate_available,
-        quality_floor_unmet,
-        web_pipeline_grounded_probe_attempt_available(&pending),
-    );
+    let probe_allowed = model_answer_ready_reason.is_none()
+        && grounded_probe_search_allowed(
+            local_business_expansion_queued,
+            next_viable_candidate_available,
+            quality_floor_unmet,
+            web_pipeline_grounded_probe_attempt_available(&pending),
+        );
     let mut probe_budget_ok = true;
     let mut probe_queued = false;
     if probe_allowed {
@@ -399,21 +411,10 @@ pub(in super::super) async fn maybe_handle_web_read(
         }
     }
 
-    let queued_read_count = queued_web_read_count(agent_state);
     let completion_reason = if probe_queued {
         None
     } else {
-        if local_business_expansion_queued || local_business_menu_followup_queued {
-            None
-        } else {
-            web_pipeline_completion_reason(&pending, now_ms).filter(|reason| {
-                web_pipeline_completion_terminalization_allowed(
-                    &pending,
-                    *reason,
-                    queued_read_count,
-                )
-            })
-        }
+        model_answer_ready_reason
     };
     let intent_id = resolved_intent_id(agent_state);
 
@@ -519,26 +520,26 @@ pub(in super::super) async fn maybe_handle_web_read(
         "web_completion_contract_ready={}",
         completion_contract_ready
     ));
-    if completion_facts.briefing_layout_profile == "single_snapshot" {
+    if completion_facts.answer_layout_profile == "single_snapshot" {
         verification_checks.push(format!(
             "web_single_snapshot_metric_grounding={}",
             completion_facts.single_snapshot_metric_grounding
         ));
         verification_checks.push(format!(
-            "web_single_snapshot_story_slot_floor_met={}",
-            completion_facts.story_slot_floor_met
+            "web_single_snapshot_source_cluster_floor_met={}",
+            completion_facts.source_cluster_floor_met
         ));
         verification_checks.push(format!(
-            "web_single_snapshot_story_citation_floor_met={}",
-            completion_facts.story_citation_floor_met
+            "web_single_snapshot_source_cluster_citation_floor_met={}",
+            completion_facts.source_cluster_citation_floor_met
         ));
         verification_checks.push(format!(
             "web_single_snapshot_primary_authority_floor_met={}",
-            completion_facts.briefing_primary_authority_source_floor_met
+            completion_facts.evidence_primary_authority_source_floor_met
         ));
         verification_checks.push(format!(
             "web_single_snapshot_citation_read_backing_floor_met={}",
-            completion_facts.briefing_citation_read_backing_floor_met
+            completion_facts.evidence_citation_read_backing_floor_met
         ));
         verification_checks.push(format!(
             "web_single_snapshot_selected_primary_authority_source_count={}",
@@ -550,7 +551,7 @@ pub(in super::super) async fn maybe_handle_web_read(
         ));
         verification_checks.push(format!(
             "web_single_snapshot_required_primary_authority_source_count={}",
-            completion_facts.briefing_required_primary_authority_source_count
+            completion_facts.answer_required_primary_authority_source_count
         ));
     }
     if !selected_source_low_priority_urls.is_empty() {
@@ -590,18 +591,21 @@ pub(in super::super) async fn maybe_handle_web_read(
     ));
     verification_checks.push(format!("web_source_floor_met={}", source_floor_met));
     verification_checks.push(format!(
-        "web_headline_story_floor_required={}",
-        required_story_floor
+        "web_headline_source_floor_required={}",
+        required_source_cluster_floor
     ));
     verification_checks.push(format!(
-        "web_headline_story_floor_observed={}",
+        "web_headline_source_floor_observed={}",
         headline_actionable_sources_observed
     ));
     verification_checks.push(format!(
-        "web_headline_story_floor_distinct_domains={}",
+        "web_headline_source_floor_distinct_domains={}",
         headline_actionable_domains_observed
     ));
-    verification_checks.push(format!("web_headline_story_floor_met={}", story_floor_met));
+    verification_checks.push(format!(
+        "web_headline_source_floor_met={}",
+        source_cluster_floor_met
+    ));
     verification_checks.push(format!(
         "web_local_business_entity_floor_required={}",
         local_business_entity_floor_required
@@ -612,7 +616,7 @@ pub(in super::super) async fn maybe_handle_web_read(
     ));
     verification_checks.push(format!(
         "web_local_business_entity_required_count={}",
-        required_story_floor.max(min_sources_required)
+        required_source_cluster_floor.max(min_sources_required)
     ));
     verification_checks.push(format!(
         "web_local_business_entity_target_total={}",
@@ -902,84 +906,20 @@ pub(in super::super) async fn maybe_handle_web_read(
     }
 
     if let Some(reason) = completion_reason {
-        let selection = synthesize_summary(service, &pending, reason).await;
-        append_summary_selection_checks(&selection, verification_checks);
-        let summary = selection.summary;
-        let final_facts = selection.facts;
-        crate::agentic::runtime::service::queue::emit_final_web_completion_contract_receipts(
+        *success = true;
+        mark_web_pipeline_waiting_for_model_answer(
             service,
+            agent_state,
             session_id,
             pre_state_step_index,
             intent_id.as_str(),
-            &final_facts,
-        );
-        append_final_web_completion_receipts_with_rendered_summary(
-            &pending,
+            pending,
             reason,
-            &summary,
-            verification_checks,
-        );
-        if !selection.contract_ready {
-            emit_completion_gate_status_event(
-                service,
-                session_id,
-                pre_state_step_index,
-                intent_id.as_str(),
-                false,
-                "evidence::final_output_contract_ready=true",
-            );
-            verification_checks.push("cec_completion_gate_emitted=true".to_string());
-            verification_checks.push("execution_contract_gate_blocked=true".to_string());
-            verification_checks.push(
-                "execution_contract_missing_keys=evidence::final_output_contract_ready=true"
-                    .to_string(),
-            );
-            if matches!(
-                reason,
-                WebPipelineCompletionReason::ExhaustedCandidates
-                    | WebPipelineCompletionReason::DeadlineReached
-            ) {
-                terminalize_failed_web_pipeline_completion(
-                    agent_state,
-                    pending,
-                    reason,
-                    summary,
-                    success,
-                    out,
-                    err,
-                    completion_summary,
-                    verification_checks,
-                );
-                return Ok(());
-            }
-            verification_checks
-                .push("web_pipeline_terminalization_blocked_on_rendered_output=true".to_string());
-            verification_checks.push("web_pipeline_active=true".to_string());
-            verification_checks.push("terminal_chat_reply_ready=false".to_string());
-            agent_state.pending_search_completion = Some(pending);
-            agent_state.status = AgentStatus::Running;
-            return Ok(());
-        }
-        complete_with_summary(
-            agent_state,
-            summary,
-            success,
             out,
             err,
             completion_summary,
-            true,
+            verification_checks,
         );
-        emit_completion_gate_status_event(
-            service,
-            session_id,
-            pre_state_step_index,
-            intent_id.as_str(),
-            true,
-            "web_pipeline_read_completion_gate_passed",
-        );
-        verification_checks.push("cec_completion_gate_emitted=true".to_string());
-        verification_checks.push("web_pipeline_active=false".to_string());
-        verification_checks.push("terminal_chat_reply_ready=true".to_string());
         return Ok(());
     }
 

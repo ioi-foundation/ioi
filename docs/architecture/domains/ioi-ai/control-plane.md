@@ -45,7 +45,7 @@ ioi.ai must not become:
 - the service-order operational truth source;
 - the final settlement authority.
 
-Those roles belong to wallet.network, Agentgres domains, Filecoin/CAS, aiagent.xyz, sas.xyz, runtime nodes, and IOI L1.
+Those roles belong to wallet.network, Agentgres domains, storage backends, aiagent.xyz, sas.xyz, runtime nodes, and IOI L1.
 
 ## Control-Plane Flow
 
@@ -127,7 +127,7 @@ Heavy state belongs elsewhere:
 Agentgres:
   canonical operations, object heads, receipts, archive refs, restore receipts
 
-Filecoin/CAS/blob storage:
+Storage backends:
   sealed encrypted archive bytes, traces, evidence bundles, artifact payloads, training datasets
 
 wallet.network:
@@ -207,7 +207,7 @@ selected IOI daemon/runtime-node profile.
 1. ioi.ai must stay thin enough that users can remain local-first and sovereign.
 2. Restore must require wallet.network authority verification and Agentgres restore receipts.
 3. ioi.ai stores archive refs and metadata, not raw sealed-state bytes by default.
-4. ioi.ai does not replace aiagent.xyz, sas.xyz, wallet.network, Agentgres, Filecoin/CAS, or IOI daemon runtime nodes.
+4. ioi.ai does not replace aiagent.xyz, sas.xyz, wallet.network, Agentgres, storage backends, or IOI daemon runtime nodes.
 5. Remote compute entitlement must resolve to explicit runtime assignments, not ambient execution authority.
 
 ## One-Line Doctrine

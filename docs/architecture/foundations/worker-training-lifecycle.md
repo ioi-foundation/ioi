@@ -377,7 +377,7 @@ Worker Training connects the IOI stack; it does not replace it:
 - MoW routes trained workers;
 - workflow/service composition turns workers into outcomes;
 - wallet.network grants authority;
-- Filecoin/CAS stores large payloads and sealed archives;
+- storage backends store large payloads and sealed archives;
 - Agentgres records operational truth;
 - IOI L1 anchors commitments, settlement, registry roots, and disputes.
 

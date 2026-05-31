@@ -98,11 +98,12 @@ pub(super) fn emit_terminal_chat_reply_receipts(
         None,
         None,
     );
-    let story_header_count = shape_facts.story_header_count.to_string();
+    let legacy_source_cluster_header_count =
+        shape_facts.legacy_source_cluster_header_count.to_string();
     emit_postcondition_receipt(
-        "terminal_chat_reply_story_headers_absent",
-        shape_facts.story_header_count == 0,
-        story_header_count.as_str(),
+        "terminal_chat_reply_legacy_source_cluster_headers_absent",
+        shape_facts.legacy_source_cluster_header_count == 0,
+        legacy_source_cluster_header_count.as_str(),
         "scalar",
     );
     let comparison_label_count = shape_facts.comparison_label_count.to_string();
@@ -141,8 +142,8 @@ pub(super) fn emit_terminal_chat_reply_receipts(
         layout_profile.as_str()
     ));
     verification_checks.push(format!(
-        "terminal_chat_reply_story_header_count={}",
-        shape_facts.story_header_count
+        "terminal_chat_reply_legacy_source_cluster_header_count={}",
+        shape_facts.legacy_source_cluster_header_count
     ));
     verification_checks.push(format!(
         "terminal_chat_reply_comparison_label_count={}",

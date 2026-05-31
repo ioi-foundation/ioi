@@ -139,6 +139,47 @@ fn explicit_query_scope_hint_trims_post_scope_comparison_tail() {
 }
 
 #[test]
+fn local_ai_runtime_queries_do_not_request_geographic_scope() {
+    assert!(!query_requires_runtime_locality_scope(
+        "Find current sources for today's top local AI model runtime issue."
+    ));
+    assert!(!query_requires_runtime_locality_scope(
+        "Why is my local LLM runtime failing to load a GGUF?"
+    ));
+    assert!(!query_requires_runtime_locality_scope(
+        "Compare local model inference troubleshooting for llama.cpp and Ollama."
+    ));
+
+    let projection = build_query_constraint_projection(
+        "Find current sources for today's top local AI model runtime issue.",
+        2,
+        &[
+            PendingSearchReadSummary {
+                url: "https://localai.io/basics/troubleshooting/".to_string(),
+                title: Some("Troubleshooting - LocalAI".to_string()),
+                excerpt: "Diagnostic steps and solutions for LocalAI runtime issues.".to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://insiderllm.com/guides/local-ai-troubleshooting-guide/".to_string(),
+                title: Some("Local AI Troubleshooting Guide".to_string()),
+                excerpt: "Common issues and fixes for running local AI model runtimes.".to_string(),
+            },
+        ],
+    );
+    assert!(projection.locality_scope.is_none());
+}
+
+#[test]
+fn real_local_public_queries_still_request_geographic_scope() {
+    assert!(query_requires_runtime_locality_scope(
+        "Find current sources for restaurant health scores near me."
+    ));
+    assert!(query_requires_runtime_locality_scope(
+        "Find the best-reviewed Italian restaurants near me."
+    ));
+}
+
+#[test]
 fn local_business_entity_discovery_query_contract_uses_entity_class_not_comparison_axis() {
     let query =
         "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.";

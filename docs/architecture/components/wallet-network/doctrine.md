@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for wallet.network authority doctrine; low-level scope APIs live in [`wallet-network-api-and-authority-scopes.md`](./api-authority-scopes.md).
 Supersedes: older generic capability-grant wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-05-20.
+Last alignment pass: 2026-05-30.
 
 ## Canonical Definition
 
@@ -334,6 +334,44 @@ Appropriate claims:
 - authenticated encryption such as XChaCha20-Poly1305 for vault storage;
 - legacy-chain custody remains constrained by the legacy chain's own
   cryptographic limits.
+
+## Anti-Patterns
+
+Do not model wallet.network as:
+
+```text
+the execution runtime
+the application database
+the worker marketplace
+the Agentgres state store
+the L1 settlement chain
+a place where agents receive raw root secrets
+a generic login provider with no autonomous-work semantics
+a blanket claim that legacy systems become post-quantum safe
+```
+
+Correct model:
+
+```text
+wallet.network owns authority, secrets, approvals, payment scopes,
+decryption leases, revocation, and audit lineage
+daemon executes work
+Agentgres records operational truth
+IOI L1 settles public/economic commitments
+```
+
+## Related Canon
+
+- [`api-authority-scopes.md`](./api-authority-scopes.md): scope API and grant
+  shapes.
+- [`../daemon-runtime/default-harness-profile.md`](../daemon-runtime/default-harness-profile.md):
+  daemon-executed action proposal, gate, and execution path.
+- [`../daemon-runtime/api.md`](../daemon-runtime/api.md): action mediation and
+  approval API.
+- [`../agentgres/doctrine.md`](../agentgres/doctrine.md): where authority
+  outcomes become operational truth.
+- [`../../foundations/security-privacy-policy-invariants.md`](../../foundations/security-privacy-policy-invariants.md):
+  broader security and policy invariants.
 
 ## Non-Negotiables
 

@@ -21,6 +21,19 @@ fn restaurant_retrieval_contract() -> ioi_types::app::agentic::WebRetrievalContr
         .expect("retrieval contract")
 }
 
+#[test]
+fn pre_read_uses_model_selection_when_source_observations_exist() {
+    assert!(
+        !pre_read_should_use_direct_candidate_recovery_selection(true, 3),
+        "available candidate recovery candidates must not bypass model selection when source observations exist"
+    );
+    assert!(
+        pre_read_should_use_direct_candidate_recovery_selection(true, 0),
+        "candidate recovery candidates remain recovery-only when there is no source observation payload"
+    );
+    assert!(!pre_read_should_use_direct_candidate_recovery_selection(false, 0));
+}
+
 fn restaurant_source_hints() -> Vec<PendingSearchReadSummary> {
     vec![
         PendingSearchReadSummary {
@@ -95,7 +108,7 @@ fn append_missing_query_terms_appends_publication_scope_once() {
 }
 
 #[test]
-fn deterministic_local_business_direct_selection_requires_distinct_entities() {
+fn candidate_recovery_local_business_direct_selection_requires_distinct_entities() {
     let query_contract = restaurant_query_contract();
     let retrieval_contract = restaurant_retrieval_contract();
     let source_hints = restaurant_source_hints();
@@ -104,7 +117,7 @@ fn deterministic_local_business_direct_selection_requires_distinct_entities() {
         .map(|hint| hint.url.clone())
         .collect::<Vec<_>>();
 
-    let selected = deterministic_local_business_direct_detail_urls(
+    let selected = candidate_recovery_local_business_direct_detail_urls(
         &retrieval_contract,
         &query_contract,
         3,
@@ -118,12 +131,12 @@ fn deterministic_local_business_direct_selection_requires_distinct_entities() {
 }
 
 #[test]
-fn deterministic_local_business_seed_selection_finds_listing_surface() {
+fn candidate_recovery_local_business_seed_selection_finds_listing_surface() {
     let query_contract = restaurant_query_contract();
     let retrieval_contract = restaurant_retrieval_contract();
     let source_hints = restaurant_source_hints();
 
-    let seed_url = deterministic_local_business_discovery_seed_url(
+    let seed_url = candidate_recovery_local_business_discovery_seed_url(
         &retrieval_contract,
         &query_contract,
         3,
@@ -167,7 +180,7 @@ fn deterministic_local_business_seed_selection_finds_listing_surface() {
 }
 
 #[test]
-fn briefing_grounded_recovery_does_not_block_when_selection_ready() {
+fn evidence_grounded_recovery_does_not_block_when_selection_ready() {
     let query_contract = research_query_contract();
     let retrieval_contract = research_retrieval_contract();
     let plan = PreReadCandidatePlan {
@@ -181,7 +194,7 @@ fn briefing_grounded_recovery_does_not_block_when_selection_ready() {
         ..PreReadCandidatePlan::default()
     };
 
-    assert!(!briefing_grounded_recovery_required(
+    assert!(!evidence_grounded_recovery_required(
         &query_contract,
         &retrieval_contract,
         &plan,
@@ -191,7 +204,7 @@ fn briefing_grounded_recovery_does_not_block_when_selection_ready() {
 }
 
 #[test]
-fn briefing_grounded_recovery_still_requires_probe_when_selection_sparse() {
+fn evidence_grounded_recovery_still_requires_probe_when_selection_sparse() {
     let query_contract = research_query_contract();
     let retrieval_contract = research_retrieval_contract();
     let plan = PreReadCandidatePlan {
@@ -203,7 +216,7 @@ fn briefing_grounded_recovery_still_requires_probe_when_selection_sparse() {
         ..PreReadCandidatePlan::default()
     };
 
-    assert!(briefing_grounded_recovery_required(
+    assert!(evidence_grounded_recovery_required(
         &query_contract,
         &retrieval_contract,
         &plan,
@@ -213,25 +226,24 @@ fn briefing_grounded_recovery_still_requires_probe_when_selection_sparse() {
 }
 
 #[test]
-fn briefing_grounded_recovery_attempt_marker_prevents_repeat_queue() {
-    let recovery_query =
-        "nist post quantum cryptography standards web UTC timestamp site:nist.gov";
+fn evidence_grounded_recovery_attempt_marker_prevents_repeat_queue() {
+    let recovery_query = "nist post quantum cryptography standards web UTC timestamp site:nist.gov";
     let mut pending = PendingSearchCompletion::default();
 
-    assert!(!briefing_grounded_recovery_attempted(
+    assert!(!evidence_grounded_recovery_attempted(
         Some(&pending),
         recovery_query,
     ));
 
-    mark_briefing_grounded_recovery_attempt(&mut pending, recovery_query);
+    mark_evidence_grounded_recovery_attempt(&mut pending, recovery_query);
 
-    assert!(briefing_grounded_recovery_attempted(
+    assert!(evidence_grounded_recovery_attempted(
         Some(&pending),
         recovery_query,
     ));
     assert_eq!(pending.attempted_urls.len(), 1);
 
-    mark_briefing_grounded_recovery_attempt(&mut pending, recovery_query);
+    mark_evidence_grounded_recovery_attempt(&mut pending, recovery_query);
 
     assert_eq!(pending.attempted_urls.len(), 1);
 }
@@ -276,7 +288,7 @@ fn semantic_alignment_recovery_query_escalates_away_from_off_topic_authority_nei
 }
 
 #[test]
-fn merge_deterministic_plan_with_pending_inventory_reuses_prior_authority_candidates_when_current_turn_is_sparse(
+fn merge_candidate_recovery_plan_with_pending_inventory_reuses_prior_authority_candidates_when_current_turn_is_sparse(
 ) {
     let query_contract = research_query_contract();
     let retrieval_contract = research_retrieval_contract();
@@ -332,7 +344,7 @@ fn merge_deterministic_plan_with_pending_inventory_reuses_prior_authority_candid
     };
     let mut checks = Vec::new();
 
-    let merged = merge_deterministic_plan_with_pending_inventory(
+    let merged = merge_candidate_recovery_plan_with_pending_inventory(
         &retrieval_contract,
         &query_contract,
         2,
@@ -353,9 +365,7 @@ fn merge_deterministic_plan_with_pending_inventory_reuses_prior_authority_candid
         .iter()
         .any(|url| url.eq_ignore_ascii_case("https://csrc.nist.gov/pubs/ir/8413/upd1/final")));
     assert!(merged.candidate_urls.iter().any(|url| {
-        url.eq_ignore_ascii_case(
-            "https://nvlpubs.nist.gov/nistpubs/ir/2022/NIST.IR.8413-upd1.pdf",
-        )
+        url.eq_ignore_ascii_case("https://nvlpubs.nist.gov/nistpubs/ir/2022/NIST.IR.8413-upd1.pdf")
     }));
     assert!(checks
         .iter()
@@ -363,7 +373,7 @@ fn merge_deterministic_plan_with_pending_inventory_reuses_prior_authority_candid
 }
 
 #[test]
-fn merge_deterministic_plan_with_pending_inventory_does_not_reuse_on_query_contract_mismatch() {
+fn merge_candidate_recovery_plan_with_pending_inventory_does_not_reuse_on_query_contract_mismatch() {
     let query_contract = research_query_contract();
     let retrieval_contract = research_retrieval_contract();
     let pending = PendingSearchCompletion {
@@ -378,15 +388,14 @@ fn merge_deterministic_plan_with_pending_inventory_does_not_reuse_on_query_contr
     };
     let sparse_plan = PreReadCandidatePlan {
         candidate_urls: vec![
-            "https://www.ibm.com/es-es/think/insights/nist-cybersecurity-framework-2"
-                .to_string(),
+            "https://www.ibm.com/es-es/think/insights/nist-cybersecurity-framework-2".to_string(),
         ],
         requires_constraint_search_probe: true,
         ..PreReadCandidatePlan::default()
     };
     let mut checks = Vec::new();
 
-    let merged = merge_deterministic_plan_with_pending_inventory(
+    let merged = merge_candidate_recovery_plan_with_pending_inventory(
         &retrieval_contract,
         &query_contract,
         2,
@@ -403,8 +412,8 @@ fn merge_deterministic_plan_with_pending_inventory_does_not_reuse_on_query_contr
 }
 
 #[test]
-fn merge_deterministic_plan_with_pending_inventory_reconstructs_candidate_urls_from_pending_hints(
-) {
+fn merge_candidate_recovery_plan_with_pending_inventory_reconstructs_candidate_urls_from_pending_hints()
+{
     let query_contract = research_query_contract();
     let retrieval_contract = research_retrieval_contract();
     let pending = PendingSearchCompletion {
@@ -456,7 +465,7 @@ fn merge_deterministic_plan_with_pending_inventory_reconstructs_candidate_urls_f
     };
     let mut checks = Vec::new();
 
-    let merged = merge_deterministic_plan_with_pending_inventory(
+    let merged = merge_candidate_recovery_plan_with_pending_inventory(
         &retrieval_contract,
         &query_contract,
         2,
@@ -477,9 +486,7 @@ fn merge_deterministic_plan_with_pending_inventory_reconstructs_candidate_urls_f
         .iter()
         .any(|url| url.eq_ignore_ascii_case("https://csrc.nist.gov/pubs/ir/8413/upd1/final")));
     assert!(merged.candidate_urls.iter().any(|url| {
-        url.eq_ignore_ascii_case(
-            "https://nvlpubs.nist.gov/nistpubs/ir/2022/NIST.IR.8413-upd1.pdf",
-        )
+        url.eq_ignore_ascii_case("https://nvlpubs.nist.gov/nistpubs/ir/2022/NIST.IR.8413-upd1.pdf")
     }));
     assert!(checks
         .iter()
@@ -493,14 +500,12 @@ fn merge_deterministic_plan_with_pending_inventory_reconstructs_candidate_urls_f
 }
 
 #[test]
-fn merge_deterministic_plan_with_pending_inventory_preserves_distinct_official_support_from_run_shaped_research_inventory(
+fn merge_candidate_recovery_plan_with_pending_inventory_preserves_distinct_official_support_from_run_shaped_research_inventory(
 ) {
     let query_contract = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.".to_string();
-    let retrieval_contract = crate::agentic::web::derive_web_retrieval_contract(
-        &query_contract,
-        Some(&query_contract),
-    )
-    .unwrap();
+    let retrieval_contract =
+        crate::agentic::web::derive_web_retrieval_contract(&query_contract, Some(&query_contract))
+            .unwrap();
     let pending = PendingSearchCompletion {
         query: "nist post quantum cryptography standards".to_string(),
         query_contract: query_contract.clone(),
@@ -609,7 +614,7 @@ fn merge_deterministic_plan_with_pending_inventory_preserves_distinct_official_s
     };
     let mut checks = Vec::new();
 
-    let merged = merge_deterministic_plan_with_pending_inventory(
+    let merged = merge_candidate_recovery_plan_with_pending_inventory(
         &retrieval_contract,
         &query_contract,
         2,
@@ -879,7 +884,7 @@ fn seed_pending_inventory_from_pre_read_payload_hints_preserves_expanded_support
 }
 
 #[test]
-fn merge_deterministic_plan_with_pending_inventory_reuses_successful_read_hints_for_probe_grounding(
+fn merge_candidate_recovery_plan_with_pending_inventory_reuses_successful_read_hints_for_probe_grounding(
 ) {
     let query_contract = research_query_contract();
     let retrieval_contract = research_retrieval_contract();
@@ -918,7 +923,7 @@ fn merge_deterministic_plan_with_pending_inventory_reuses_successful_read_hints_
     };
     let mut checks = Vec::new();
 
-    let merged = merge_deterministic_plan_with_pending_inventory(
+    let merged = merge_candidate_recovery_plan_with_pending_inventory(
         &retrieval_contract,
         &query_contract,
         2,
@@ -960,13 +965,13 @@ fn merge_deterministic_plan_with_pending_inventory_reuses_successful_read_hints_
 }
 
 #[test]
-fn briefing_authority_hint_read_recovery_urls_preserve_one_authority_slot_and_one_distinct_support_slot(
+fn evidence_authority_hint_read_recovery_urls_preserve_one_authority_slot_and_one_distinct_support_slot(
 ) {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
         crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).unwrap();
-    let deterministic_plan = PreReadCandidatePlan {
+    let candidate_recovery_plan = PreReadCandidatePlan {
         candidate_urls: vec!["https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string()],
         candidate_source_hints: vec![PendingSearchReadSummary {
             url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
@@ -1037,11 +1042,11 @@ fn briefing_authority_hint_read_recovery_urls_preserve_one_authority_slot_and_on
         },
     ];
 
-    let urls = briefing_authority_hint_read_recovery_urls(
+    let urls = evidence_authority_hint_read_recovery_urls(
         &retrieval_contract,
         query,
         2,
-        &deterministic_plan,
+        &candidate_recovery_plan,
         &[],
         &discovery_hints,
         None,
@@ -1073,13 +1078,12 @@ fn briefing_authority_hint_read_recovery_urls_preserve_one_authority_slot_and_on
 }
 
 #[test]
-fn briefing_authority_hint_read_recovery_urls_choose_official_news_when_no_pdf_domain_available(
-) {
+fn evidence_authority_hint_read_recovery_urls_choose_official_news_when_no_pdf_domain_available() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
         crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).unwrap();
-    let deterministic_plan = PreReadCandidatePlan {
+    let candidate_recovery_plan = PreReadCandidatePlan {
         candidate_urls: vec!["https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string()],
         candidate_source_hints: vec![PendingSearchReadSummary {
             url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
@@ -1123,11 +1127,11 @@ fn briefing_authority_hint_read_recovery_urls_choose_official_news_when_no_pdf_d
         },
     ];
 
-    let urls = briefing_authority_hint_read_recovery_urls(
+    let urls = evidence_authority_hint_read_recovery_urls(
         &retrieval_contract,
         query,
         2,
-        &deterministic_plan,
+        &candidate_recovery_plan,
         &[],
         &discovery_hints,
         None,
@@ -1151,13 +1155,12 @@ fn briefing_authority_hint_read_recovery_urls_choose_official_news_when_no_pdf_d
 }
 
 #[test]
-fn briefing_authority_hint_read_recovery_urls_fill_recovery_batch_after_single_authority_slot()
-{
+fn evidence_authority_hint_read_recovery_urls_fill_recovery_batch_after_single_authority_slot() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
     let retrieval_contract =
         crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).unwrap();
-    let deterministic_plan = PreReadCandidatePlan {
+    let candidate_recovery_plan = PreReadCandidatePlan {
         candidate_urls: vec![
             "https://www.nist.gov/cybersecurity-and-privacy".to_string(),
             "https://www.nist.gov/about-nist".to_string(),
@@ -1219,13 +1222,13 @@ fn briefing_authority_hint_read_recovery_urls_fill_recovery_batch_after_single_a
         ..PreReadCandidatePlan::default()
     };
 
-    let urls = briefing_authority_hint_read_recovery_urls(
+    let urls = evidence_authority_hint_read_recovery_urls(
         &retrieval_contract,
         query,
         2,
-        &deterministic_plan,
+        &candidate_recovery_plan,
         &[],
-        &deterministic_plan.candidate_source_hints,
+        &candidate_recovery_plan.candidate_source_hints,
         None,
         2,
     );
@@ -1242,8 +1245,8 @@ fn briefing_authority_hint_read_recovery_urls_fill_recovery_batch_after_single_a
 }
 
 #[test]
-fn distinct_domain_preserving_selected_urls_promotes_official_support_into_initial_briefing_batch(
-) {
+fn distinct_domain_preserving_selected_urls_promotes_official_support_into_initial_answer_batch()
+{
     let query = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
     let retrieval_contract =
         crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).unwrap();
@@ -1255,12 +1258,8 @@ fn distinct_domain_preserving_selected_urls_promotes_official_support_into_initi
         "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards".to_string(),
     ];
 
-    let selected = distinct_domain_preserving_selected_urls(
-        &retrieval_contract,
-        query,
-        &candidate_urls,
-        2,
-    );
+    let selected =
+        distinct_domain_preserving_selected_urls(&retrieval_contract, query, &candidate_urls, 2);
 
     assert_eq!(
         selected,
@@ -1273,7 +1272,7 @@ fn distinct_domain_preserving_selected_urls_promotes_official_support_into_initi
 }
 
 #[test]
-fn merged_candidate_urls_promote_semantic_distinct_host_support_into_initial_briefing_batch() {
+fn merged_candidate_urls_promote_semantic_distinct_host_support_into_initial_answer_batch() {
     let query = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
     let retrieval_contract =
         crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).unwrap();
@@ -1282,7 +1281,7 @@ fn merged_candidate_urls_promote_semantic_distinct_host_support_into_initial_bri
         "https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization"
             .to_string(),
     ];
-    let deterministic_candidate_urls = selected_urls.clone();
+    let candidate_recovery_candidate_urls = selected_urls.clone();
     let semantic_aligned_discovery_urls = vec![
         "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
         "https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization"
@@ -1293,11 +1292,10 @@ fn merged_candidate_urls_promote_semantic_distinct_host_support_into_initial_bri
 
     let merged = merge_candidate_urls_preserving_order(
         &selected_urls,
-        &deterministic_candidate_urls,
+        &candidate_recovery_candidate_urls,
         &semantic_aligned_discovery_urls,
     );
-    let promoted =
-        distinct_domain_preserving_selected_urls(&retrieval_contract, query, &merged, 2);
+    let promoted = distinct_domain_preserving_selected_urls(&retrieval_contract, query, &merged, 2);
 
     assert_eq!(
         promoted,
@@ -1310,7 +1308,7 @@ fn merged_candidate_urls_promote_semantic_distinct_host_support_into_initial_bri
 }
 
 #[test]
-fn selected_source_alignment_uses_selected_surface_hints_for_document_briefings() {
+fn selected_source_alignment_uses_selected_surface_hints_for_document_reports() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
@@ -1321,8 +1319,7 @@ fn selected_source_alignment_uses_selected_surface_hints_for_document_briefings(
         "https://csrc.nist.gov/pubs/fips/204/final".to_string(),
         "https://csrc.nist.gov/pubs/fips/205/final".to_string(),
     ];
-    let discovery_aligned_urls =
-        vec!["https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string()];
+    let discovery_aligned_urls = vec!["https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string()];
     let source_hints = vec![
         PendingSearchReadSummary {
             url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
@@ -1382,13 +1379,13 @@ fn selected_source_alignment_uses_selected_surface_hints_for_document_briefings(
 }
 
 #[test]
-fn briefing_authority_hint_read_recovery_urls_prefer_grounded_support_over_generic_same_host_neighbors(
+fn evidence_authority_hint_read_recovery_urls_prefer_grounded_support_over_generic_same_host_neighbors(
 ) {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
     let retrieval_contract =
         crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).unwrap();
-    let deterministic_plan = PreReadCandidatePlan {
+    let candidate_recovery_plan = PreReadCandidatePlan {
         candidate_urls: vec![
             "https://www.nist.gov/cybersecurity-and-privacy".to_string(),
             "https://www.nist.gov/about-nist".to_string(),
@@ -1448,13 +1445,13 @@ fn briefing_authority_hint_read_recovery_urls_prefer_grounded_support_over_gener
         ..PreReadCandidatePlan::default()
     };
 
-    let urls = briefing_authority_hint_read_recovery_urls(
+    let urls = evidence_authority_hint_read_recovery_urls(
         &retrieval_contract,
         query,
         2,
-        &deterministic_plan,
+        &candidate_recovery_plan,
         &[],
-        &deterministic_plan.candidate_source_hints,
+        &candidate_recovery_plan.candidate_source_hints,
         None,
         2,
     );

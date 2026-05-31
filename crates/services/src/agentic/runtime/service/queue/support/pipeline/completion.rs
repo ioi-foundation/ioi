@@ -75,12 +75,20 @@ pub(crate) fn single_snapshot_has_viable_followup_candidate(
     pending: &PendingSearchCompletion,
     query_contract: &str,
 ) -> bool {
-    let required_story_floor = retrieval_contract_required_story_count(
+    let required_source_cluster_floor = retrieval_contract_required_source_cluster_count(
         pending.retrieval_contract.as_ref(),
         query_contract,
     )
     .max(1);
-    if story_completion_contract_ready(pending, required_story_floor) {
+    if market_quote_grounding_contract_ready_for_pending(
+        pending,
+        query_contract,
+        query_requests_comparison(query_contract),
+        required_source_cluster_floor,
+    ) {
+        return false;
+    }
+    if source_cluster_completion_contract_ready(pending, required_source_cluster_floor) {
         return false;
     }
     let projection =
@@ -221,9 +229,9 @@ fn grounded_probe_query_available(
         pending.retrieval_contract.as_ref(),
         locality_scope,
     );
-    let document_briefing_authority_recovery_exhausted = pending.candidate_source_hints.is_empty()
+    let document_report_authority_recovery_exhausted = pending.candidate_source_hints.is_empty()
         && !pending.successful_reads.is_empty()
-        && query_prefers_document_briefing_layout(&query_contract)
+        && query_prefers_document_report_layout(&query_contract)
         && !query_requests_comparison(&query_contract)
         && pending.successful_reads.iter().any(|source| {
             source_has_document_authority(
@@ -233,7 +241,7 @@ fn grounded_probe_query_available(
                 &source.excerpt,
             )
         });
-    if document_briefing_authority_recovery_exhausted {
+    if document_report_authority_recovery_exhausted {
         return false;
     }
     let prior_query_owned = if !local_business_menu_surface_recovery
@@ -372,57 +380,47 @@ pub(crate) fn web_pipeline_requires_subject_identity_probe_followup(
     true
 }
 
-pub(crate) fn story_completion_contract_ready(
+pub(crate) fn source_cluster_completion_contract_ready(
     pending: &PendingSearchCompletion,
-    required_story_floor: usize,
+    required_source_cluster_floor: usize,
 ) -> bool {
-    if required_story_floor == 0 {
+    if required_source_cluster_floor == 0 {
         return true;
     }
-    let raw_facts =
-        final_web_completion_facts(pending, WebPipelineCompletionReason::MinSourcesReached);
-    let facts = if raw_facts.briefing_layout_profile == "document_briefing" {
-        let rendered_summary =
-            synthesize_web_pipeline_reply(pending, WebPipelineCompletionReason::MinSourcesReached);
-        final_web_completion_facts_with_rendered_summary(
+    let facts = final_web_completion_facts(pending, WebPipelineCompletionReason::MinSourcesReached);
+    if facts.market_quote_grounding_required {
+        let query_contract = synthesis_query_contract(pending);
+        return market_quote_grounding_contract_ready_for_pending(
             pending,
-            WebPipelineCompletionReason::MinSourcesReached,
-            &rendered_summary,
-        )
-    } else {
-        raw_facts
-    };
-    if facts.briefing_layout_profile == "single_snapshot" {
+            &query_contract,
+            query_requests_comparison(&query_contract),
+            required_source_cluster_floor.max(1),
+        );
+    }
+    if facts.answer_layout_profile == "single_snapshot" {
         return facts.single_snapshot_metric_grounding
-            && facts.briefing_selected_source_quality_floor_met
-            && facts.briefing_selected_source_identifier_coverage_floor_met
-            && facts.briefing_primary_authority_source_floor_met
-            && facts.briefing_citation_read_backing_floor_met
-            && facts.story_slot_floor_met
+            && facts.evidence_selected_source_quality_floor_met
+            && facts.evidence_selected_source_identifier_coverage_floor_met
+            && facts.evidence_primary_authority_source_floor_met
+            && facts.evidence_citation_read_backing_floor_met
+            && facts.source_cluster_floor_met
             && !facts.selected_source_urls.is_empty()
             && (!facts.comparison_required || facts.comparison_ready);
     }
-    if facts.briefing_document_layout_met {
-        return facts.briefing_selected_source_quality_floor_met
-            && facts.briefing_selected_source_identifier_coverage_floor_met
-            && facts.briefing_required_section_floor_met
-            && facts.briefing_query_grounding_floor_met
-            && facts.briefing_standard_identifier_floor_met
-            && facts.briefing_authority_standard_identifier_floor_met
-            && facts.briefing_summary_inventory_floor_met
-            && facts.briefing_narrative_aggregation_floor_met
-            && facts.briefing_evidence_block_floor_met
-            && facts.briefing_primary_authority_source_floor_met
-            && facts.briefing_citation_read_backing_floor_met
-            && facts.briefing_temporal_anchor_floor_met
-            && facts.briefing_postamble_floor_met
+    if facts.answer_document_layout_met {
+        return facts.evidence_selected_source_quality_floor_met
+            && facts.evidence_selected_source_identifier_coverage_floor_met
+            && facts.evidence_standard_identifier_floor_met
+            && facts.evidence_authority_standard_identifier_floor_met
+            && facts.evidence_primary_authority_source_floor_met
+            && facts.evidence_citation_read_backing_floor_met
             && (!facts.comparison_required || facts.comparison_ready);
     }
-    facts.story_slot_floor_met
-        && facts.story_citation_floor_met
+    facts.source_cluster_floor_met
+        && facts.source_cluster_citation_floor_met
         && facts.local_business_menu_surface_floor_met
         && facts.local_business_menu_inventory_floor_met
-        && facts.observed_story_slots >= required_story_floor
+        && facts.observed_source_clusters >= required_source_cluster_floor
         && (!facts.comparison_required || facts.comparison_ready)
 }
 
@@ -451,14 +449,8 @@ pub(crate) fn web_pipeline_completion_terminalization_allowed(
     ) {
         return false;
     }
-    if !matches!(
-        synthesis_layout_profile(pending.retrieval_contract.as_ref(), &query_contract),
-        SynthesisLayoutProfile::DocumentBriefing
-    ) {
-        return true;
-    }
 
-    next_pending_web_candidate(pending).is_none()
+    true
 }
 
 pub(crate) fn web_pipeline_completion_reason(
@@ -479,17 +471,18 @@ pub(crate) fn web_pipeline_completion_reason(
     let headline_collection_mode =
         retrieval_contract_is_generic_headline_collection(retrieval_contract, &query_contract);
     let layout_profile = synthesis_layout_profile(retrieval_contract, &query_contract);
-    let required_story_floor =
-        retrieval_contract_required_story_count(retrieval_contract, &query_contract).max(1);
+    let required_source_cluster_floor =
+        retrieval_contract_required_source_cluster_count(retrieval_contract, &query_contract)
+            .max(1);
     let (headline_actionable_sources_observed, headline_actionable_domains_observed) =
         if headline_collection_mode {
             headline_actionable_source_inventory(&pending.successful_reads)
         } else {
             (0, 0)
         };
-    let story_floor_met = !headline_collection_mode
-        || (headline_actionable_sources_observed >= required_story_floor
-            && headline_actionable_domains_observed >= required_story_floor);
+    let source_cluster_floor_met = !headline_collection_mode
+        || (headline_actionable_sources_observed >= required_source_cluster_floor
+            && headline_actionable_domains_observed >= required_source_cluster_floor);
     let query_facets = analyze_query_facets(&query_contract);
     let remaining_candidates = remaining_pending_web_candidates(pending);
     let has_viable_followup_candidate =
@@ -512,7 +505,7 @@ pub(crate) fn web_pipeline_completion_reason(
             &pending.attempted_urls,
             &pending.successful_reads,
             locality_scope.as_deref(),
-            required_story_floor.max(min_sources),
+            required_source_cluster_floor.max(min_sources),
         )
     } else {
         Vec::new()
@@ -528,7 +521,8 @@ pub(crate) fn web_pipeline_completion_reason(
     };
     let local_business_entity_floor_met = !local_business_entity_floor_required
         || (!local_business_targets.is_empty()
-            && matched_local_business_targets.len() >= required_story_floor.max(min_sources));
+            && matched_local_business_targets.len()
+                >= required_source_cluster_floor.max(min_sources));
     let grounded_sources = grounded_source_evidence_count(pending);
     let required_grounded_source_floor = required_distinct_source_floor.max(min_sources);
     let grounded_floor_met = if headline_collection_mode {
@@ -539,6 +533,33 @@ pub(crate) fn web_pipeline_completion_reason(
     } else {
         grounded_sources >= required_grounded_source_floor && local_business_entity_floor_met
     };
+
+    let market_quote_grounding_required = query_requires_market_quote_grounding(&query_contract);
+    let market_quote_grounding_ready = market_quote_grounding_contract_ready_for_pending(
+        pending,
+        &query_contract,
+        query_requests_comparison(&query_contract),
+        required_source_cluster_floor,
+    );
+    if market_quote_grounding_ready {
+        return Some(WebPipelineCompletionReason::MinSourcesReached);
+    }
+
+    let local_business_menu_surface_required = query_requires_local_business_menu_surface(
+        &query_contract,
+        retrieval_contract,
+        locality_scope.as_deref(),
+    );
+    if grounded_floor_met
+        && !single_snapshot_mode
+        && pending.successful_reads.len() >= min_sources
+        && source_cluster_floor_met
+        && local_business_entity_floor_met
+        && (!market_quote_grounding_required || candidate_inventory_exhausted)
+        && !local_business_menu_surface_required
+    {
+        return Some(WebPipelineCompletionReason::MinSourcesReached);
+    }
 
     if single_snapshot_mode
         && pending.successful_reads.len() >= 1
@@ -561,7 +582,7 @@ pub(crate) fn web_pipeline_completion_reason(
         {
             return Some(WebPipelineCompletionReason::MinSourcesReached);
         }
-        if headline_collection_mode && !story_floor_met {
+        if headline_collection_mode && !source_cluster_floor_met {
             let grounded_probe_budget_allows = if pending.deadline_ms == 0 {
                 true
             } else {
@@ -576,8 +597,8 @@ pub(crate) fn web_pipeline_completion_reason(
             }
             return Some(WebPipelineCompletionReason::ExhaustedCandidates);
         }
-        if matches!(layout_profile, SynthesisLayoutProfile::DocumentBriefing)
-            && !story_completion_contract_ready(pending, required_story_floor)
+        if matches!(layout_profile, SynthesisLayoutProfile::DocumentReport)
+            && !source_cluster_completion_contract_ready(pending, required_source_cluster_floor)
         {
             let grounded_probe_budget_allows = if pending.deadline_ms == 0 {
                 true
@@ -634,7 +655,7 @@ pub(crate) fn web_pipeline_completion_reason(
             return Some(WebPipelineCompletionReason::ExhaustedCandidates);
         }
         if single_snapshot_mode {
-            if !story_completion_contract_ready(pending, required_story_floor) {
+            if !source_cluster_completion_contract_ready(pending, required_source_cluster_floor) {
                 let grounded_probe_budget_allows = if pending.deadline_ms == 0 {
                     true
                 } else {
@@ -655,7 +676,7 @@ pub(crate) fn web_pipeline_completion_reason(
         }
         if !single_snapshot_mode
             && !headline_collection_mode
-            && !story_completion_contract_ready(pending, required_story_floor)
+            && !source_cluster_completion_contract_ready(pending, required_source_cluster_floor)
         {
             let grounded_probe_budget_allows = if pending.deadline_ms == 0 {
                 true
@@ -678,7 +699,7 @@ pub(crate) fn web_pipeline_completion_reason(
     }
     if !single_snapshot_mode
         && pending.successful_reads.len() >= min_sources
-        && story_completion_contract_ready(pending, required_story_floor)
+        && source_cluster_completion_contract_ready(pending, required_source_cluster_floor)
     {
         return Some(WebPipelineCompletionReason::MinSourcesReached);
     }

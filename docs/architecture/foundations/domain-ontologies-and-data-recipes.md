@@ -47,9 +47,10 @@ raw sources
 
 Agentgres stores ontology state, recipe definitions, transformation runs,
 object heads, projection definitions, distilled dataset refs, evaluation
-dataset refs, receipts, and lineage. Filecoin/CAS stores large payload bytes by
-hash/CID. wallet.network controls source access, training-data use, evaluation
-use, export, decryption, and connector authority.
+dataset refs, receipts, lineage, and artifact refs. Storage backends such as
+Filecoin/CAS store large payload bytes by hash/CID. wallet.network controls
+source access, training-data use, evaluation use, export, decryption, and
+connector authority.
 
 ## What This Layer Is
 
@@ -241,9 +242,10 @@ data recipes need permission
 
 ## Storage Boundary
 
-Filecoin/CAS may store ontology packs, recipe payloads, source snapshots,
-transformation outputs, distilled ontology datasets, evaluation datasets, trace
-bundles, projection checkpoints, and sealed archives by hash/CID.
+Storage backends such as Filecoin/CAS may store ontology packs, recipe payloads,
+source snapshots, transformation outputs, distilled ontology datasets,
+evaluation datasets, trace bundles, projection checkpoints, and sealed archives
+by hash/CID.
 
 Those bytes are not the canonical live database. Agentgres stores the
 operation-backed truth that says what the bytes are, which recipe produced
@@ -270,8 +272,8 @@ trained on, published, or challenged.
 8. OntologyToWorkerPlan can propose workers, tools, schemas, evals, and
    manifests, but it cannot grant authority.
 9. The semantic data plane connects Worker Training to the IOI stack; it does
-   not replace compute markets, Agentgres, wallet.network, Filecoin/CAS, MoW,
-   service composition, settlement, or disputes.
+   not replace compute markets, Agentgres, wallet.network, storage backends,
+   MoW, service composition, settlement, or disputes.
 
 ## One-Line Doctrine
 

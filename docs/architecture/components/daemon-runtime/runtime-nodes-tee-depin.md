@@ -141,10 +141,10 @@ TaskCapsule:
 marketplace/app creates RunRequest
 → domain kernel/router selects venue
 → RuntimeAssignment binds daemon profile, compute session, package refs, policy, and payment quote
-→ runtime node fetches package/capsule from Filecoin/CAS
+→ runtime node fetches package/capsule from selected storage backend
 → wallet.network grants scoped authority if allowed
 → node executes
-→ artifacts stored to Filecoin/CAS
+→ artifacts stored to selected storage backend behind Agentgres refs
 → receipts/results returned to Agentgres
 → trusted verifier/settlement path accepts or rejects
 → IOI L1 contract updates only if economic boundary requires it
@@ -157,7 +157,7 @@ aiagent.xyz creates install + WorkerInstance
 → runtime router selects hosted/provider/DePIN/TEE/customer/local daemon
 → subscription or zero-to-idle policy is attached
 → browser/API/workflow clients control the instance through daemon APIs
-→ idle state checkpoints to Agentgres refs and sealed Filecoin/CAS archives
+→ idle state checkpoints to Agentgres refs and sealed archive bytes in storage backends
 → runtime resumes or rehydrates when the user returns or a schedule fires
 ```
 

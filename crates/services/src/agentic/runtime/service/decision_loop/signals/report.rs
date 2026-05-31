@@ -112,7 +112,7 @@ pub fn infer_report_sections(query: &str) -> Vec<ReportSectionKind> {
 
 pub fn report_section_label(kind: ReportSectionKind, query: &str) -> String {
     match kind {
-        ReportSectionKind::Summary => "What happened".to_string(),
+        ReportSectionKind::Summary => "Summary".to_string(),
         ReportSectionKind::RecentChange => {
             let query_lc = query.to_ascii_lowercase();
             if marker_hits(&query_lc, &REPORT_HOURLY_SCOPE_MARKERS) > 0 {
@@ -126,7 +126,7 @@ pub fn report_section_label(kind: ReportSectionKind, query: &str) -> String {
         ReportSectionKind::Mitigation => "Workaround".to_string(),
         ReportSectionKind::EtaConfidence => "ETA confidence".to_string(),
         ReportSectionKind::Caveat => "Caveat".to_string(),
-        ReportSectionKind::Evidence => "Key evidence".to_string(),
+        ReportSectionKind::Evidence => "Evidence".to_string(),
     }
 }
 

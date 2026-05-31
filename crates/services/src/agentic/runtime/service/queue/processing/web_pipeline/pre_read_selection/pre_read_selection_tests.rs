@@ -78,20 +78,17 @@ fn selected_url_resolution_preserves_deep_article_urls_when_metadata_points_to_r
 
 #[test]
 fn lint_accepts_currentness_parity_source() {
-    let query = "Find current sources for today's top local AI model runtime issue.";
+    let query = "Who is the current CEO of OpenAI?";
     let retrieval_contract =
         crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).expect("contract");
-    let source_url = "https://www.nist.gov/news-events/news/2026/local-ai-model-runtime-issue";
+    let source_url = "https://openai.com/leadership/";
     let discovery_sources = vec![WebSource {
-        source_id: "local-ai-runtime-issue".to_string(),
+        source_id: "openai-leadership".to_string(),
         rank: Some(1),
         url: source_url.to_string(),
-        title: Some("Local AI Model Runtime Issue".to_string()),
-        snippet: Some(
-            "Current-source retrieval item for local AI model runtime issue diagnosis."
-                .to_string(),
-        ),
-        domain: Some("www.nist.gov".to_string()),
+        title: Some("OpenAI Leadership".to_string()),
+        snippet: Some("Sam Altman is the current CEO of OpenAI.".to_string()),
+        domain: Some("openai.com".to_string()),
     }];
 
     let selected = lint_pre_read_payload_urls(
@@ -109,30 +106,30 @@ fn lint_accepts_currentness_parity_source() {
 }
 
 #[test]
-fn lint_accepts_deterministic_akt_filecoin_parity_sources() {
+fn lint_accepts_quote_backed_akt_filecoin_sources() {
     let query = "Which is a better investment right now, Akash or Filecoin?";
     let retrieval_contract =
         crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).expect("contract");
-    let akt_url = "https://example.com/crypto/akt-price-today-2026";
-    let filecoin_url = "https://example.com/crypto/filecoin-price-today-2026";
+    let akt_url = "https://www.coingecko.com/en/coins/akash-network";
+    let filecoin_url = "https://www.coingecko.com/en/coins/filecoin";
     let discovery_sources = vec![
         WebSource {
             source_id: "akt-price".to_string(),
             rank: Some(1),
             url: akt_url.to_string(),
-            title: Some("AKT Price Today".to_string()),
-            snippet: Some("AKT price today is $4.20 USD with a +6.1% 24h change.".to_string()),
-            domain: Some("example.com".to_string()),
+            title: Some("Akash Network Price: AKT Live Price Chart".to_string()),
+            snippet: Some("Akash Network price today is $0.81 USD with live market data.".to_string()),
+            domain: Some("www.coingecko.com".to_string()),
         },
         WebSource {
             source_id: "filecoin-price".to_string(),
             rank: Some(2),
             url: filecoin_url.to_string(),
-            title: Some("Filecoin Price Today".to_string()),
+            title: Some("Filecoin Price: FIL Live Price Chart".to_string()),
             snippet: Some(
-                "Filecoin price today is $3.10 USD with a -1.2% 24h change.".to_string(),
+                "Filecoin price today is $2.34 USD with live market data.".to_string(),
             ),
-            domain: Some("example.com".to_string()),
+            domain: Some("www.coingecko.com".to_string()),
         },
     ];
 
@@ -145,7 +142,7 @@ fn lint_accepts_deterministic_akt_filecoin_parity_sources() {
         &[akt_url.to_string(), filecoin_url.to_string()],
         2,
     )
-    .expect("AKT/Filecoin parity fixtures should satisfy typed pre-read selection");
+    .expect("quote-backed AKT/Filecoin sources should satisfy typed pre-read selection");
 
     assert_eq!(selected, vec![akt_url.to_string(), filecoin_url.to_string()]);
 }
@@ -215,7 +212,7 @@ fn lint_reserves_slot_for_independent_corroboration_when_domain_diversity_is_req
 }
 
 #[test]
-fn deterministic_pre_read_selection_rejects_generic_authority_neighbor_fill() {
+fn candidate_recovery_pre_read_selection_rejects_generic_authority_neighbor_fill() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
@@ -255,20 +252,20 @@ fn deterministic_pre_read_selection_rejects_generic_authority_neighbor_fill() {
         },
     ];
 
-    let err = deterministic_pre_read_selection(
+    let err = candidate_recovery_pre_read_selection(
         Some(&retrieval_contract),
         query,
         2,
         &discovery_sources,
         &[],
     )
-    .expect_err("generic authority-neighbor fill should not satisfy deterministic selection");
+    .expect_err("generic authority-neighbor fill should not satisfy candidate recovery selection");
 
     assert!(err.contains("could not satisfy 2 typed source(s)"));
 }
 
 #[test]
-fn deterministic_pre_read_selection_keeps_on_topic_secondary_fill() {
+fn candidate_recovery_pre_read_selection_keeps_on_topic_secondary_fill() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
@@ -298,14 +295,14 @@ fn deterministic_pre_read_selection_keeps_on_topic_secondary_fill() {
         },
     ];
 
-    let selection = deterministic_pre_read_selection(
+    let selection = candidate_recovery_pre_read_selection(
         Some(&retrieval_contract),
         query,
         2,
         &discovery_sources,
         &[],
     )
-    .expect("deterministic selection");
+    .expect("candidate recovery selection");
 
     assert_eq!(selection.selection_mode, PreReadSelectionMode::DirectDetail);
     assert_eq!(selection.urls.len(), 2);
@@ -321,7 +318,7 @@ fn deterministic_pre_read_selection_keeps_on_topic_secondary_fill() {
 }
 
 #[test]
-fn deterministic_pre_read_selection_prefers_grounded_external_publication_artifact_over_same_host_authority_tail(
+fn candidate_recovery_pre_read_selection_prefers_grounded_external_publication_artifact_over_same_host_authority_tail(
 ) {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
@@ -367,14 +364,14 @@ fn deterministic_pre_read_selection_prefers_grounded_external_publication_artifa
         },
     ];
 
-    let selection = deterministic_pre_read_selection(
+    let selection = candidate_recovery_pre_read_selection(
         Some(&retrieval_contract),
         query,
         2,
         &discovery_sources,
         &[],
     )
-    .expect("deterministic selection");
+    .expect("candidate recovery selection");
 
     assert_eq!(selection.selection_mode, PreReadSelectionMode::DirectDetail);
     assert_eq!(selection.urls.len(), 2);
@@ -388,7 +385,7 @@ fn deterministic_pre_read_selection_prefers_grounded_external_publication_artifa
 }
 
 #[test]
-fn lint_allows_grounded_same_authority_fill_for_document_briefing() {
+fn lint_allows_grounded_same_authority_fill_for_document_report() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
@@ -481,7 +478,7 @@ fn lint_allows_grounded_same_authority_fill_for_document_briefing() {
 }
 
 #[test]
-fn deterministic_pre_read_selection_allows_grounded_same_authority_fill() {
+fn candidate_recovery_pre_read_selection_allows_grounded_same_authority_fill() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
@@ -517,14 +514,14 @@ fn deterministic_pre_read_selection_allows_grounded_same_authority_fill() {
         },
     ];
 
-    let selection = deterministic_pre_read_selection(
+    let selection = candidate_recovery_pre_read_selection(
         Some(&retrieval_contract),
         query,
         2,
         &discovery_sources,
         &[],
     )
-    .expect("grounded same-authority fill should satisfy deterministic selection");
+    .expect("grounded same-authority fill should satisfy candidate recovery selection");
 
     assert_eq!(selection.selection_mode, PreReadSelectionMode::DirectDetail);
     assert_eq!(
@@ -676,7 +673,7 @@ fn lint_pre_read_payload_urls_requires_primary_authority_for_latest_pricing_quer
 }
 
 #[test]
-fn lint_rejects_duplicate_authority_family_fill_for_document_briefing() {
+fn lint_rejects_duplicate_authority_family_fill_for_document_report() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
@@ -731,7 +728,7 @@ fn lint_rejects_duplicate_authority_family_fill_for_document_briefing() {
 }
 
 #[test]
-fn deterministic_pre_read_selection_avoids_duplicate_authority_family_fill() {
+fn candidate_recovery_pre_read_selection_avoids_duplicate_authority_family_fill() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
@@ -782,14 +779,14 @@ fn deterministic_pre_read_selection_avoids_duplicate_authority_family_fill() {
         },
     ];
 
-    let selection = deterministic_pre_read_selection(
+    let selection = candidate_recovery_pre_read_selection(
         Some(&retrieval_contract),
         query,
         2,
         &discovery_sources,
         &[],
     )
-    .expect("deterministic selection should avoid duplicate authority-family fill");
+    .expect("candidate recovery selection should avoid duplicate authority-family fill");
 
     assert_eq!(selection.selection_mode, PreReadSelectionMode::DirectDetail);
     assert_eq!(selection.urls.len(), 2);
@@ -871,7 +868,7 @@ fn lint_pre_read_payload_urls_rejects_same_authority_fill_when_cross_domain_opti
 }
 
 #[test]
-fn deterministic_pre_read_selection_prefers_cross_domain_authority_fill_when_available() {
+fn candidate_recovery_pre_read_selection_prefers_cross_domain_authority_fill_when_available() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
@@ -921,14 +918,14 @@ fn deterministic_pre_read_selection_prefers_cross_domain_authority_fill_when_ava
         },
     ];
 
-    let selection = deterministic_pre_read_selection(
+    let selection = candidate_recovery_pre_read_selection(
         Some(&retrieval_contract),
         query,
         2,
         &discovery_sources,
         &[],
     )
-    .expect("cross-domain authority fill should satisfy deterministic selection");
+    .expect("cross-domain authority fill should satisfy candidate recovery selection");
 
     assert_eq!(selection.selection_mode, PreReadSelectionMode::DirectDetail);
     assert_eq!(selection.urls.len(), 2);

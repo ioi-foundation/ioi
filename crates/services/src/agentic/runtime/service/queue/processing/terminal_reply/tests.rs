@@ -1,36 +1,34 @@
-use super::{
-    observe_terminal_chat_reply_shape, terminal_chat_reply_layout_profile,
-    TerminalChatReplyLayoutProfile,
-};
+use super::{observe_terminal_chat_reply_shape, terminal_chat_reply_layout_profile};
+use crate::agentic::runtime::service::output::terminal_reply_shape::TerminalChatReplyLayoutProfile;
 
 #[test]
-fn terminal_chat_reply_shape_detects_story_collection_output() {
+fn terminal_chat_reply_shape_detects_source_collection_output() {
     let output = "Web retrieval summary for 'Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.'\n\nStory 1: Example\nWhat happened: Example.\nKey evidence: Example.\n\nComparison:\nExample.\n\nRun date (UTC): 2026-03-10\nRun timestamp (UTC): 2026-03-10T12:19:24Z\nOverall confidence: high";
     let facts = observe_terminal_chat_reply_shape(output);
 
     assert!(!facts.heading_present);
-    assert_eq!(facts.story_header_count, 1);
+    assert_eq!(facts.legacy_source_cluster_header_count, 1);
     assert_eq!(facts.comparison_label_count, 1);
     assert_eq!(
         terminal_chat_reply_layout_profile(&facts),
-        TerminalChatReplyLayoutProfile::StoryCollection
+        TerminalChatReplyLayoutProfile::SourceCollection
     );
 }
 
 #[test]
-fn terminal_chat_reply_shape_detects_document_briefing_output() {
+fn terminal_chat_reply_shape_detects_document_report_output() {
     let output = "Briefing for 'Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.'\n\nWhat happened:\n- NIST finalized FIPS 203, FIPS 204, and FIPS 205.\n\nKey evidence:\n- NIST states the standards are mandatory for federal systems.\n\nCitations:\n- Post-quantum cryptography | NIST | https://www.nist.gov/pqc | 2026-03-10T12:19:24Z | retrieved_utc\n\nRun date (UTC): 2026-03-10\nRun timestamp (UTC): 2026-03-10T12:19:24Z\nOverall confidence: high";
     let facts = observe_terminal_chat_reply_shape(output);
 
     assert!(facts.heading_present);
-    assert_eq!(facts.story_header_count, 0);
+    assert_eq!(facts.legacy_source_cluster_header_count, 0);
     assert_eq!(facts.comparison_label_count, 0);
     assert!(facts.run_date_present);
     assert!(facts.run_timestamp_present);
     assert!(facts.overall_confidence_present);
     assert_eq!(
         terminal_chat_reply_layout_profile(&facts),
-        TerminalChatReplyLayoutProfile::DocumentBriefing
+        TerminalChatReplyLayoutProfile::DocumentReport
     );
 }
 
@@ -41,7 +39,7 @@ fn terminal_chat_reply_shape_detects_single_snapshot_output() {
 
     assert!(!facts.heading_present);
     assert!(facts.single_snapshot_heading_present);
-    assert_eq!(facts.story_header_count, 0);
+    assert_eq!(facts.legacy_source_cluster_header_count, 0);
     assert_eq!(facts.comparison_label_count, 0);
     assert!(facts.run_date_present);
     assert!(facts.run_timestamp_present);

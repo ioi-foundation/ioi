@@ -40,17 +40,17 @@ fn web_pipeline_explicit_query_scope_hint_truncates_follow_on_comparison_clause(
 #[test]
 fn web_pipeline_query_shape_detects_explicit_count_for_restaurant_comparison() {
     let query = "Find the three best-reviewed Italian restaurants near me and compare their menus.";
-    assert_eq!(required_story_count(query), 3);
+    assert_eq!(required_source_cluster_count(query), 3);
     assert!(query_prefers_multi_item_cardinality(query));
     assert!(query_requests_comparison(query));
     assert!(query_requires_structured_synthesis(query));
 }
 
 #[test]
-fn web_pipeline_query_shape_detects_plural_briefing_research_without_headline_mode() {
+fn web_pipeline_query_shape_detects_plural_answer_research_without_headline_mode() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
-    assert_eq!(required_story_count(query), 1);
+    assert_eq!(required_source_cluster_count(query), 1);
     assert!(!query_prefers_multi_item_cardinality(query));
     assert!(!prefers_single_fact_snapshot(query));
     assert!(query_requires_structured_synthesis(query));

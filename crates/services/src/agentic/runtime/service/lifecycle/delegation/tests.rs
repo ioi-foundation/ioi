@@ -337,7 +337,7 @@ fn delegated_research_bootstrap_query_strips_worker_template_suffixes() {
 }
 
 #[test]
-fn delegated_research_bootstrap_query_ignores_parent_context_and_briefing_clause() {
+fn delegated_research_bootstrap_query_ignores_parent_context_and_answer_clause() {
     let query = delegated_research_bootstrap_query(
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.\n\n[PARENT PLAYBOOK CONTEXT]\n- prep_summary: Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
     )

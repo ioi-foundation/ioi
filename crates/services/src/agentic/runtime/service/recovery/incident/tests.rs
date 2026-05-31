@@ -104,6 +104,25 @@ fn file_task_no_effect_failures_skip_incident_recovery() {
 }
 
 #[test]
+fn web_research_no_effect_failures_stay_in_cognition_loop() {
+    assert!(should_skip_incident_recovery_for_intent(
+        IntentClass::BrowserTask,
+        "web__search",
+        FailureClass::NoEffectAfterAction
+    ));
+    assert!(should_skip_incident_recovery_for_intent(
+        IntentClass::BrowserTask,
+        "web__read",
+        FailureClass::UnexpectedState
+    ));
+    assert!(!should_skip_incident_recovery_for_intent(
+        IntentClass::BrowserTask,
+        "browser__click",
+        FailureClass::NoEffectAfterAction
+    ));
+}
+
+#[test]
 fn conversation_mail_reply_no_effect_skips_incident_recovery() {
     assert!(should_skip_incident_recovery_for_intent(
         IntentClass::ConversationTask,

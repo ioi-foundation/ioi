@@ -356,7 +356,7 @@ pub(crate) fn resolve_worker_assignment(
 
     if completion_contract.success_criteria.trim().is_empty() {
         completion_contract.success_criteria =
-            "Complete the delegated goal and return a deterministic handoff.".to_string();
+            "Complete the delegated goal and return an evidence-backed handoff.".to_string();
     }
     if completion_contract.expected_output.trim().is_empty() {
         completion_contract.expected_output =

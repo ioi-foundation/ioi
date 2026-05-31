@@ -535,7 +535,7 @@ async fn citation_grounded_brief_merges_child_pending_search_inventory_into_pare
     let mut parent_state = build_parent_state_with_goal(topic, 128);
     parent_state.pending_search_completion = Some(PendingSearchCompletion {
         query: topic.to_string(),
-        query_contract: "document_briefing".to_string(),
+        query_contract: "document_report".to_string(),
         url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
         started_step: 1,
         started_at_ms: 10,
@@ -587,7 +587,7 @@ async fn citation_grounded_brief_merges_child_pending_search_inventory_into_pare
         codec::from_bytes_canonical(&research_bytes).expect("research state should decode");
     research_state.pending_search_completion = Some(PendingSearchCompletion {
             query: topic.to_string(),
-            query_contract: "document_briefing".to_string(),
+            query_contract: "document_report".to_string(),
             url: "https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization".to_string(),
             started_step: 3,
             started_at_ms: 30,

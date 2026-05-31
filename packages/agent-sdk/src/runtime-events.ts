@@ -258,6 +258,8 @@ function runtimeThreadEventTypeFromKind(kind: string): RuntimeThreadEvent["type"
       return "workflow_edit_proposed";
     case "workflow.edit_applied":
       return "workflow_edit_applied";
+    case "answer.delta":
+      return "answer_delta";
     case "reasoning.delta":
     case "item.delta":
       return "reasoning_delta";
@@ -300,6 +302,8 @@ function runtimeEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
       return "turn.started";
     case "delta":
       return "reasoning.delta";
+    case "answer_delta":
+      return "answer.delta";
     case "tool_result":
       return "tool.completed";
     case "model_route_decision":
@@ -372,6 +376,7 @@ function runtimeEventStatusForSdkMessage(type: IOISDKMessage["type"]): string {
   if (
     type === "run_started" ||
     type === "delta" ||
+    type === "answer_delta" ||
     type === "computer_use_environment_selected" ||
     type === "computer_use_lease_acquired" ||
     type === "computer_use_run_state" ||
@@ -407,6 +412,7 @@ function componentKindForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "model_route_decision") return "model_router";
   if (type.startsWith("computer_use_")) return "computer_use_harness";
   if (type === "tool_result") return "tool_result";
+  if (type === "answer_delta") return "answer_delta";
   if (type === "delta") return "reasoning_delta";
   return type;
 }
@@ -440,6 +446,7 @@ function workflowNodeIdForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "computer_use_cleanup") return "computer-use.cleanup";
   if (type === "computer_use_control") return "computer-use.control";
   if (type === "tool_result") return "runtime.tool-result";
+  if (type === "answer_delta") return "runtime.answer";
   if (type === "delta") return "runtime.reasoning";
   return `runtime.${type.replaceAll("_", "-")}`;
 }
@@ -459,6 +466,7 @@ function sourceEventKindForSdkMessage(type: IOISDKMessage["type"]): string {
   if (type === "workflow_edit_proposed") return "WorkflowEdit.Proposed";
   if (type === "workflow_edit_applied") return "WorkflowEdit.Applied";
   if (type === "approval_decision") return "OperatorApproval.Decision";
+  if (type === "answer_delta") return "RuntimeAnswer.Delta";
   if (type === "computer_use_environment_selected") return "ComputerUse.EnvironmentSelected";
   if (type === "computer_use_environment_unavailable") return "ComputerUse.EnvironmentUnavailable";
   if (type === "computer_use_lease_acquired") return "ComputerUse.LeaseAcquired";

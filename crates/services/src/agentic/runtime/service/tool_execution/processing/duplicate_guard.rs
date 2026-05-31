@@ -1,5 +1,5 @@
 use crate::agentic::runtime::service::tool_execution::command_contract::{
-    format_utc_rfc3339, parse_sleep_seconds, render_command_preview, target_utc_from_run_and_sleep,
+    parse_sleep_seconds, render_command_preview, target_utc_from_run_and_sleep,
 };
 use crate::agentic::runtime::service::tool_execution::summarize_structured_command_receipt_output;
 use crate::agentic::runtime::types::CommandExecution;
@@ -53,7 +53,6 @@ pub(super) fn duplicate_command_completion_summary(
     if entry.exit_code != 0 {
         return None;
     }
-    let run_timestamp_utc = format_utc_rfc3339(entry.timestamp_ms)?;
     let target_utc = target_utc_from_run_and_sleep(entry.timestamp_ms, sleep_seconds)?;
     let mechanism = if let Some(pid) = extract_background_pid(&entry.stdout) {
         format!(
@@ -67,8 +66,8 @@ pub(super) fn duplicate_command_completion_summary(
         )
     };
     Some(format!(
-        "Timer scheduled.\nMechanism: {}\nRun timestamp (UTC): {}\nTarget UTC: {}",
-        mechanism, run_timestamp_utc, target_utc
+        "Timer scheduled.\nMechanism: {}\nTarget UTC: {}",
+        mechanism, target_utc
     ))
 }
 
@@ -106,12 +105,11 @@ pub(super) fn duplicate_command_cached_success_summary(
         return None;
     }
 
-    let run_timestamp_utc = format_utc_rfc3339(entry.timestamp_ms)?;
     let stdout = entry.stdout.trim();
     let stderr = entry.stderr.trim();
     let mut summary = format!(
-        "Reused prior successful command result for '{}'.\nRun timestamp (UTC): {}",
-        command_preview, run_timestamp_utc
+        "Reused prior successful command result for '{}'.",
+        command_preview
     );
     if !stdout.is_empty() {
         summary.push_str(&format!("\nStdout: {}", stdout));

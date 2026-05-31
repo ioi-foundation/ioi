@@ -14,7 +14,7 @@ fn candidate_source_hints_resolve_wrapper_source_url_metadata() {
             source_id: "google-item-1".to_string(),
             rank: Some(1),
             url: "https://news.google.com/rss/articles/CBMiUkFVX3lxTE0x?oc=5".to_string(),
-            title: Some("Sample Story".to_string()),
+            title: Some("Sample source_cluster".to_string()),
             snippet: Some(
                 "Reuters | source_url=https://www.reuters.com/world/europe/example-story-2026-03-01/"
                     .to_string(),
@@ -36,7 +36,7 @@ fn candidate_source_hints_resolve_wrapper_source_url_metadata() {
 }
 
 #[test]
-fn constrained_inventory_preserves_primary_authority_sources_for_document_briefings() {
+fn constrained_inventory_preserves_primary_authority_sources_for_document_reports() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =

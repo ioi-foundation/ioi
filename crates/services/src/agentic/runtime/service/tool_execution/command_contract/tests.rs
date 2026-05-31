@@ -207,38 +207,26 @@ fn install_completion_summary_hides_raw_resolution_receipt() {
     }"#;
 
     let summary = install_operator_completion_summary(raw)
-        .expect("install receipt should produce an operator-facing completion summary");
+        .expect("install receipt should preserve typed tool summary");
 
-    assert!(summary.contains("Installed LM Studio as `LM-Studio.AppImage` via appimage."));
-    assert!(summary.contains("Verification passed with `sh -lc test -x"));
-    assert!(summary.contains("Source: https://lmstudio.ai."));
+    assert_eq!(summary, "Installed LM Studio.");
     assert!(!summary.contains("install_final_receipt"));
     assert!(!summary.contains("unknown error"));
 }
 
 #[test]
-fn terminal_reply_composer_formats_dense_pdf_path_output() {
+fn terminal_reply_composer_leaves_model_authored_output_untouched() {
     let summary = "/home/heathledger/Documents/ioi/one.pdf/home/heathledger/Documents/ioi/two.pdf /home/heathledger/Pictures/news at DuckDuckGo.pdf Run timestamp (UTC): 2026-02-27T17:55:09.632Z";
     let outcome = compose_terminal_chat_reply(summary);
 
-    assert!(outcome.applied);
+    assert!(!outcome.applied);
     assert!(outcome.validator_passed);
-    assert!(outcome
-        .output
-        .contains("- `/home/heathledger/Documents/ioi/one.pdf`"));
-    assert!(outcome
-        .output
-        .contains("- `/home/heathledger/Documents/ioi/two.pdf`"));
-    assert!(outcome
-        .output
-        .contains("- `/home/heathledger/Pictures/news at DuckDuckGo.pdf`"));
-    assert!(outcome
-        .output
-        .contains("Run timestamp (UTC): 2026-02-27T17:55:09.632Z"));
+    assert_eq!(outcome.template_id, "model_passthrough");
+    assert_eq!(outcome.output, summary);
 }
 
 #[test]
-fn enrich_summary_preserves_terse_message_and_appends_timestamp() {
+fn enrich_summary_preserves_terse_message_without_product_timestamp_for_non_timer_commands() {
     let mut state = test_agent_state();
     state.resolved_intent = Some(command_scope_intent("command.exec"));
     record_execution_evidence(&mut state.tool_execution_log, "execution");
@@ -254,7 +242,7 @@ fn enrich_summary_preserves_terse_message_and_appends_timestamp() {
 
     let enriched = enrich_command_scope_summary("phone-preview.mp4", &state);
     assert!(enriched.contains("phone-preview.mp4"));
-    assert!(enriched.contains("Run timestamp (UTC):"));
+    assert!(!enriched.contains("Run timestamp (UTC):"));
 }
 
 #[test]

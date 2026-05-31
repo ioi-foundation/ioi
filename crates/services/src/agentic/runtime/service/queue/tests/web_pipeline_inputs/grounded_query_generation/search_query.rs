@@ -532,7 +532,7 @@ fn web_pipeline_constraint_grounded_search_query_adds_status_surface_terms_for_i
 }
 
 #[test]
-fn web_pipeline_constraint_grounded_search_query_adds_grounding_anchor_for_document_briefings()
+fn web_pipeline_constraint_grounded_search_query_adds_grounding_anchor_for_document_reports()
 {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";

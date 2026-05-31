@@ -114,7 +114,7 @@ fn success_signal_context_keeps_submit_follow_up_when_target_still_visible() {
 fn success_signal_context_uses_duplicate_success_noop_guidance() {
     let history = vec![chat_message(
             "tool",
-            "Skipped immediate replay of 'browser__click' because the identical action already succeeded on the previous step. Do not repeat it. Verify the updated state once or finish with the gathered evidence.",
+            "Skipped immediate replay of 'browser__click' because the identical action already succeeded on the previous step. Do not repeat it. Verify the updated state or choose a different action.",
             1,
         )];
 
@@ -796,4 +796,3 @@ fn pending_browser_state_context_guides_alternate_tab_exploration_when_target_mi
     assert!(context.contains("`tab_section_3`"), "{context}");
     assert!(context.contains("another `browser__inspect`"), "{context}");
 }
-

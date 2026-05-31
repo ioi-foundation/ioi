@@ -22,19 +22,19 @@ fn append_final_web_completion_receipts_from_facts(
     }
     verification_checks.push(format!(
         "web_final_selected_source_total={}",
-        facts.briefing_selected_source_total
+        facts.evidence_selected_source_total
     ));
     verification_checks.push(format!(
         "web_final_selected_source_compatible={}",
-        facts.briefing_selected_source_compatible
+        facts.evidence_selected_source_compatible
     ));
     verification_checks.push(format!(
         "web_final_selected_source_quality_floor_met={}",
-        facts.briefing_selected_source_quality_floor_met
+        facts.evidence_selected_source_quality_floor_met
     ));
     verification_checks.push(format!(
         "web_final_selected_source_identifier_coverage_floor_met={}",
-        facts.briefing_selected_source_identifier_coverage_floor_met
+        facts.evidence_selected_source_identifier_coverage_floor_met
     ));
     if !facts.local_business_targets.is_empty() {
         verification_checks.push(format!(
@@ -88,24 +88,24 @@ fn append_final_web_completion_receipts_from_facts(
             facts.local_business_menu_inventory_items.join(" | ")
         ));
     }
-    if !facts.briefing_required_sections.is_empty() {
+    if !facts.answer_required_sections.is_empty() {
         verification_checks.push(format!(
-            "web_final_briefing_required_section_keys={}",
-            facts.briefing_required_sections.join(" | ")
+            "web_final_answer_required_section_keys={}",
+            facts.answer_required_sections.join(" | ")
         ));
     }
-    if !facts.briefing_document_layout_met {
+    if !facts.answer_document_layout_met {
         verification_checks.push(format!(
-            "web_final_story_slots_observed={}",
-            facts.observed_story_slots
+            "web_final_source_clusters_observed={}",
+            facts.observed_source_clusters
         ));
         verification_checks.push(format!(
-            "web_final_story_slot_floor_met={}",
-            facts.story_slot_floor_met
+            "web_final_source_cluster_floor_met={}",
+            facts.source_cluster_floor_met
         ));
         verification_checks.push(format!(
-            "web_final_story_citation_floor_met={}",
-            facts.story_citation_floor_met
+            "web_final_source_cluster_citation_floor_met={}",
+            facts.source_cluster_citation_floor_met
         ));
     }
     verification_checks.push(format!(
@@ -117,176 +117,176 @@ fn append_final_web_completion_receipts_from_facts(
         facts.comparison_ready
     ));
     verification_checks.push(format!(
-        "web_final_briefing_layout_profile={}",
-        facts.briefing_layout_profile
+        "web_final_answer_layout_profile={}",
+        facts.answer_layout_profile
     ));
     verification_checks.push(format!(
-        "web_final_briefing_query_layout_expected={}",
-        facts.briefing_query_layout_expected
+        "web_final_answer_query_layout_expected={}",
+        facts.answer_query_layout_expected
     ));
     verification_checks.push(format!(
-        "web_final_briefing_rendered_layout_profile={}",
-        facts.briefing_rendered_layout_profile
+        "web_final_answer_rendered_layout_profile={}",
+        facts.answer_rendered_layout_profile
     ));
     verification_checks.push(format!(
-        "web_final_briefing_document_layout_met={}",
-        facts.briefing_document_layout_met
+        "web_final_answer_document_layout_met={}",
+        facts.answer_document_layout_met
     ));
     verification_checks.push(format!(
-        "web_final_briefing_render_heading_floor_met={}",
-        facts.briefing_render_heading_floor_met
+        "web_final_answer_render_heading_floor_met={}",
+        facts.answer_render_heading_floor_met
     ));
     verification_checks.push(format!(
-        "web_final_briefing_rendered_required_section_label_count={}",
-        facts.briefing_rendered_required_section_label_count
+        "web_final_answer_rendered_required_section_label_count={}",
+        facts.answer_rendered_required_section_label_count
     ));
     verification_checks.push(format!(
-        "web_final_briefing_rendered_required_section_label_floor_met={}",
-        facts.briefing_rendered_required_section_label_floor_met
+        "web_final_answer_rendered_required_section_label_floor_met={}",
+        facts.answer_rendered_required_section_label_floor_met
     ));
     verification_checks.push(format!(
-        "web_final_briefing_story_header_count={}",
-        facts.briefing_story_header_count
+        "web_final_answer_legacy_source_cluster_header_count={}",
+        facts.answer_legacy_source_cluster_header_count
     ));
     verification_checks.push(format!(
-        "web_final_briefing_story_headers_absent={}",
-        facts.briefing_story_headers_absent
+        "web_final_answer_legacy_source_cluster_headers_absent={}",
+        facts.answer_legacy_source_cluster_headers_absent
     ));
     verification_checks.push(format!(
-        "web_final_briefing_comparison_label_count={}",
-        facts.briefing_comparison_label_count
+        "web_final_answer_comparison_label_count={}",
+        facts.answer_comparison_label_count
     ));
     verification_checks.push(format!(
-        "web_final_briefing_comparison_absent={}",
-        facts.briefing_comparison_absent
+        "web_final_answer_comparison_absent={}",
+        facts.answer_comparison_absent
     ));
     verification_checks.push(format!(
-        "web_final_briefing_required_section_count={}",
-        facts.briefing_required_section_count
+        "web_final_answer_required_section_count={}",
+        facts.answer_required_section_count
     ));
     verification_checks.push(format!(
-        "web_final_briefing_rendered_required_section_count={}",
-        facts.briefing_rendered_required_section_count
+        "web_final_answer_rendered_required_section_count={}",
+        facts.answer_rendered_required_section_count
     ));
     verification_checks.push(format!(
-        "web_final_briefing_required_narrative_sections={}",
-        facts.briefing_required_narrative_sections
+        "web_final_answer_required_narrative_sections={}",
+        facts.answer_required_narrative_sections
     ));
     verification_checks.push(format!(
-        "web_final_briefing_single_block_narrative_sections={}",
-        facts.briefing_single_block_narrative_sections
+        "web_final_answer_single_block_narrative_sections={}",
+        facts.answer_single_block_narrative_sections
     ));
     verification_checks.push(format!(
-        "web_final_briefing_required_evidence_sections={}",
-        facts.briefing_required_evidence_sections
+        "web_final_answer_required_evidence_sections={}",
+        facts.answer_required_evidence_sections
     ));
     verification_checks.push(format!(
-        "web_final_briefing_rendered_evidence_block_count={}",
-        facts.briefing_rendered_evidence_block_count
+        "web_final_answer_rendered_evidence_block_count={}",
+        facts.answer_rendered_evidence_block_count
     ));
     verification_checks.push(format!(
-        "web_final_briefing_qualifying_evidence_sections={}",
-        facts.briefing_qualifying_evidence_sections
+        "web_final_answer_qualifying_evidence_sections={}",
+        facts.answer_qualifying_evidence_sections
     ));
     verification_checks.push(format!(
-        "web_final_briefing_required_supporting_fragment_floor={}",
-        facts.briefing_required_supporting_fragment_floor
+        "web_final_answer_required_supporting_fragment_floor={}",
+        facts.answer_required_supporting_fragment_floor
     ));
     verification_checks.push(format!(
-        "web_final_briefing_aggregated_narrative_sections={}",
-        facts.briefing_aggregated_narrative_sections
+        "web_final_answer_aggregated_narrative_sections={}",
+        facts.answer_aggregated_narrative_sections
     ));
     verification_checks.push(format!(
-        "web_final_briefing_query_grounded_required_section_count={}",
-        facts.briefing_query_grounded_required_section_count
+        "web_final_answer_query_grounded_required_section_count={}",
+        facts.answer_query_grounded_required_section_count
     ));
     verification_checks.push(format!(
-        "web_final_briefing_standard_identifier_count={}",
-        facts.briefing_standard_identifier_count
+        "web_final_evidence_standard_identifier_count={}",
+        facts.evidence_standard_identifier_count
     ));
     verification_checks.push(format!(
-        "web_final_briefing_required_standard_identifier_count={}",
-        facts.briefing_required_standard_identifier_count
+        "web_final_evidence_required_standard_identifier_count={}",
+        facts.evidence_required_standard_identifier_count
     ));
     verification_checks.push(format!(
-        "web_final_briefing_standard_identifier_group_floor={}",
-        facts.briefing_standard_identifier_group_floor
+        "web_final_evidence_standard_identifier_group_floor={}",
+        facts.evidence_standard_identifier_group_floor
     ));
     verification_checks.push(format!(
-        "web_final_briefing_authority_standard_identifier_count={}",
-        facts.briefing_authority_standard_identifier_count
+        "web_final_evidence_authority_standard_identifier_count={}",
+        facts.evidence_authority_standard_identifier_count
     ));
     verification_checks.push(format!(
-        "web_final_briefing_required_authority_standard_identifier_count={}",
-        facts.briefing_required_authority_standard_identifier_count
+        "web_final_evidence_required_authority_standard_identifier_count={}",
+        facts.evidence_required_authority_standard_identifier_count
     ));
     verification_checks.push(format!(
-        "web_final_briefing_summary_inventory_identifier_count={}",
-        facts.briefing_summary_inventory_identifier_count
+        "web_final_evidence_inventory_identifier_count={}",
+        facts.evidence_inventory_identifier_count
     ));
     verification_checks.push(format!(
-        "web_final_briefing_summary_inventory_required_identifier_count={}",
-        facts.briefing_summary_inventory_required_identifier_count
+        "web_final_evidence_inventory_required_identifier_count={}",
+        facts.evidence_inventory_required_identifier_count
     ));
     verification_checks.push(format!(
-        "web_final_briefing_summary_inventory_optional_identifier_count={}",
-        facts.briefing_summary_inventory_optional_identifier_count
+        "web_final_evidence_inventory_optional_identifier_count={}",
+        facts.evidence_inventory_optional_identifier_count
     ));
     verification_checks.push(format!(
-        "web_final_briefing_summary_inventory_authority_identifier_count={}",
-        facts.briefing_summary_inventory_authority_identifier_count
+        "web_final_evidence_inventory_authority_identifier_count={}",
+        facts.evidence_inventory_authority_identifier_count
     ));
     verification_checks.push(format!(
-        "web_final_briefing_required_section_floor_met={}",
-        facts.briefing_required_section_floor_met
+        "web_final_answer_required_section_floor_met={}",
+        facts.answer_required_section_floor_met
     ));
     verification_checks.push(format!(
-        "web_final_briefing_query_grounding_floor_met={}",
-        facts.briefing_query_grounding_floor_met
+        "web_final_answer_query_grounding_floor_met={}",
+        facts.answer_query_grounding_floor_met
     ));
     verification_checks.push(format!(
-        "web_final_briefing_standard_identifier_floor_met={}",
-        facts.briefing_standard_identifier_floor_met
+        "web_final_evidence_standard_identifier_floor_met={}",
+        facts.evidence_standard_identifier_floor_met
     ));
     verification_checks.push(format!(
-        "web_final_briefing_authority_standard_identifier_floor_met={}",
-        facts.briefing_authority_standard_identifier_floor_met
+        "web_final_evidence_authority_standard_identifier_floor_met={}",
+        facts.evidence_authority_standard_identifier_floor_met
     ));
     verification_checks.push(format!(
-        "web_final_briefing_summary_inventory_floor_met={}",
-        facts.briefing_summary_inventory_floor_met
+        "web_final_evidence_inventory_floor_met={}",
+        facts.evidence_inventory_floor_met
     ));
     verification_checks.push(format!(
-        "web_final_briefing_narrative_aggregation_floor_met={}",
-        facts.briefing_narrative_aggregation_floor_met
+        "web_final_answer_narrative_aggregation_floor_met={}",
+        facts.answer_narrative_aggregation_floor_met
     ));
     verification_checks.push(format!(
-        "web_final_briefing_evidence_block_floor_met={}",
-        facts.briefing_evidence_block_floor_met
+        "web_final_answer_evidence_block_floor_met={}",
+        facts.answer_evidence_block_floor_met
     ));
     verification_checks.push(format!(
         "web_final_selected_primary_authority_source_count={}",
         facts.selected_primary_authority_source_count
     ));
     verification_checks.push(format!(
-        "web_final_briefing_standard_identifier_authority_source_count={}",
-        facts.briefing_standard_identifier_authority_source_count
+        "web_final_evidence_standard_identifier_authority_source_count={}",
+        facts.evidence_standard_identifier_authority_source_count
     ));
     verification_checks.push(format!(
-        "web_final_briefing_successful_citation_url_count={}",
-        facts.briefing_successful_citation_url_count
+        "web_final_evidence_successful_citation_url_count={}",
+        facts.evidence_successful_citation_url_count
     ));
     verification_checks.push(format!(
-        "web_final_briefing_unread_citation_url_count={}",
-        facts.briefing_unread_citation_url_count
+        "web_final_evidence_unread_citation_url_count={}",
+        facts.evidence_unread_citation_url_count
     ));
     verification_checks.push(format!(
-        "web_final_briefing_citation_read_backing_floor_met={}",
-        facts.briefing_citation_read_backing_floor_met
+        "web_final_evidence_citation_read_backing_floor_met={}",
+        facts.evidence_citation_read_backing_floor_met
     ));
     verification_checks.push(format!(
-        "web_final_briefing_available_standard_identifier_authority_source_count={}",
-        facts.briefing_available_standard_identifier_authority_source_count
+        "web_final_evidence_available_standard_identifier_authority_source_count={}",
+        facts.evidence_available_standard_identifier_authority_source_count
     ));
     verification_checks.push(format!(
         "web_final_available_primary_authority_source_count={}",
@@ -297,16 +297,16 @@ fn append_final_web_completion_receipts_from_facts(
         facts.attempted_primary_authority_source_count
     ));
     verification_checks.push(format!(
-        "web_final_briefing_primary_authority_source_floor_met={}",
-        facts.briefing_primary_authority_source_floor_met
+        "web_final_evidence_primary_authority_source_floor_met={}",
+        facts.evidence_primary_authority_source_floor_met
     ));
     verification_checks.push(format!(
-        "web_final_briefing_temporal_anchor_floor_met={}",
-        facts.briefing_temporal_anchor_floor_met
+        "web_final_trace_temporal_anchor_floor_met={}",
+        facts.trace_temporal_anchor_floor_met
     ));
     verification_checks.push(format!(
-        "web_final_briefing_postamble_floor_met={}",
-        facts.briefing_postamble_floor_met
+        "web_final_trace_metadata_floor_met={}",
+        facts.trace_metadata_floor_met
     ));
     verification_checks.push(format!(
         "web_final_single_snapshot_metric_grounding={}",
@@ -417,26 +417,26 @@ pub(crate) fn emit_final_web_completion_contract_receipts(
             }
         };
 
-    if !facts.briefing_document_layout_met {
+    if !facts.answer_document_layout_met {
         emit_receipt(
-            "story_slots_observed",
+            "source_clusters_observed",
             true,
-            "web.pipeline.completion.story_slots_observed.v1",
-            &facts.observed_story_slots.to_string(),
+            "web.pipeline.completion.source_clusters_observed.v1",
+            &facts.observed_source_clusters.to_string(),
             "scalar",
         );
         emit_receipt(
-            "story_slot_floor",
-            facts.story_slot_floor_met,
-            "web.pipeline.completion.story_slots.v1",
-            &facts.observed_story_slots.to_string(),
+            "source_cluster_floor",
+            facts.source_cluster_floor_met,
+            "web.pipeline.completion.source_clusters.v1",
+            &facts.observed_source_clusters.to_string(),
             "scalar",
         );
         emit_receipt(
-            "story_citation_floor",
-            facts.story_citation_floor_met,
-            "web.pipeline.completion.story_citations.v1",
-            &facts.observed_story_slots.to_string(),
+            "source_cluster_citation_floor",
+            facts.source_cluster_citation_floor_met,
+            "web.pipeline.completion.source_cluster_citations.v1",
+            &facts.observed_source_clusters.to_string(),
             "scalar",
         );
     }
@@ -452,10 +452,10 @@ pub(crate) fn emit_final_web_completion_contract_receipts(
         facts.local_business_menu_surface_floor_met,
         "web.pipeline.completion.local_business_menu_surface.v1",
         &format!(
-            "required={};selected_menu_surface_sources={};required_story_floor={}",
+            "required={};selected_menu_surface_sources={};required_source_cluster_floor={}",
             facts.local_business_menu_surface_required,
             facts.local_business_menu_surface_source_urls.len(),
-            facts.required_story_floor
+            facts.required_source_cluster_floor
         ),
         "summary",
     );
@@ -470,10 +470,10 @@ pub(crate) fn emit_final_web_completion_contract_receipts(
         facts.local_business_menu_inventory_floor_met,
         "web.pipeline.completion.local_business_menu_inventory.v1",
         &format!(
-            "selected_menu_inventory_sources={};total_menu_inventory_items={};required_story_floor={};required_items_per_source={}",
+            "selected_menu_inventory_sources={};total_menu_inventory_items={};required_source_cluster_floor={};required_items_per_source={}",
             facts.local_business_menu_inventory_source_urls.len(),
             facts.local_business_menu_inventory_total_item_count,
-            facts.required_story_floor,
+            facts.required_source_cluster_floor,
             2
         ),
         "summary",
@@ -504,43 +504,44 @@ pub(crate) fn emit_final_web_completion_contract_receipts(
         final_web_completion_contract_ready(facts),
         "web.pipeline.completion.final_output.v1",
         &format!(
-            "query_requires_document_briefing={};rendered_layout={};document_layout_met={};required_section_floor_met={};query_grounding_floor_met={};standard_identifier_floor_met={};authority_standard_identifier_floor_met={};summary_inventory_floor_met={};evidence_block_floor_met={};citation_read_backing_floor_met={};standard_identifier_count={};required_standard_identifier_count={};required_standard_identifier_group_floor={};authority_standard_identifier_count={};required_authority_standard_identifier_count={};summary_inventory_identifier_count={};summary_inventory_required_identifier_count={};summary_inventory_optional_identifier_count={};summary_inventory_authority_identifier_count={};rendered_evidence_block_count={};required_evidence_sections={};standard_identifier_authority_source_count={};successful_citation_url_count={};unread_citation_url_count={};narrative_aggregation_floor_met={};primary_authority_source_floor_met={};temporal_anchor_floor_met={};postamble_floor_met={};story_slot_floor_met={};story_citation_floor_met={};local_business_menu_surface_floor_met={};local_business_menu_inventory_floor_met={};local_business_menu_inventory_total_item_count={};single_snapshot_required_citation_count={};single_snapshot_rendered_support_url_count={};single_snapshot_rendered_read_backed_url_count={}",
-            facts.briefing_query_layout_expected,
-            facts.briefing_rendered_layout_profile,
-            facts.briefing_document_layout_met,
-            facts.briefing_required_section_floor_met,
-            facts.briefing_query_grounding_floor_met,
-            facts.briefing_standard_identifier_floor_met,
-            facts.briefing_authority_standard_identifier_floor_met,
-            facts.briefing_summary_inventory_floor_met,
-            facts.briefing_evidence_block_floor_met,
-            facts.briefing_citation_read_backing_floor_met,
-            facts.briefing_standard_identifier_count,
-            facts.briefing_required_standard_identifier_count,
-            facts.briefing_standard_identifier_group_floor,
-            facts.briefing_authority_standard_identifier_count,
-            facts.briefing_required_authority_standard_identifier_count,
-            facts.briefing_summary_inventory_identifier_count,
-            facts.briefing_summary_inventory_required_identifier_count,
-            facts.briefing_summary_inventory_optional_identifier_count,
-            facts.briefing_summary_inventory_authority_identifier_count,
-            facts.briefing_rendered_evidence_block_count,
-            facts.briefing_required_evidence_sections,
-            facts.briefing_standard_identifier_authority_source_count,
-            facts.briefing_successful_citation_url_count,
-            facts.briefing_unread_citation_url_count,
-            facts.briefing_narrative_aggregation_floor_met,
-            facts.briefing_primary_authority_source_floor_met,
-            facts.briefing_temporal_anchor_floor_met,
-            facts.briefing_postamble_floor_met,
-            facts.story_slot_floor_met,
-            facts.story_citation_floor_met,
+            "query_requires_document_report={};rendered_layout={};document_layout_met={};required_section_floor_met={};query_grounding_floor_met={};standard_identifier_floor_met={};authority_standard_identifier_floor_met={};summary_inventory_floor_met={};evidence_block_floor_met={};citation_read_backing_floor_met={};standard_identifier_count={};required_standard_identifier_count={};required_standard_identifier_group_floor={};authority_standard_identifier_count={};required_authority_standard_identifier_count={};summary_inventory_identifier_count={};summary_inventory_required_identifier_count={};summary_inventory_optional_identifier_count={};summary_inventory_authority_identifier_count={};rendered_evidence_block_count={};required_evidence_sections={};standard_identifier_authority_source_count={};successful_citation_url_count={};unread_citation_url_count={};narrative_aggregation_floor_met={};primary_authority_source_floor_met={};temporal_anchor_floor_met={};postamble_floor_met={};source_cluster_floor_met={};source_cluster_citation_floor_met={};local_business_menu_surface_floor_met={};local_business_menu_inventory_floor_met={};local_business_menu_inventory_total_item_count={};single_snapshot_required_citation_count={};single_snapshot_rendered_support_url_count={};single_snapshot_rendered_read_backed_url_count={};semantic_floor_met={}",
+            facts.answer_query_layout_expected,
+            facts.answer_rendered_layout_profile,
+            facts.answer_document_layout_met,
+            facts.answer_required_section_floor_met,
+            facts.answer_query_grounding_floor_met,
+            facts.evidence_standard_identifier_floor_met,
+            facts.evidence_authority_standard_identifier_floor_met,
+            facts.evidence_inventory_floor_met,
+            facts.answer_evidence_block_floor_met,
+            facts.evidence_citation_read_backing_floor_met,
+            facts.evidence_standard_identifier_count,
+            facts.evidence_required_standard_identifier_count,
+            facts.evidence_standard_identifier_group_floor,
+            facts.evidence_authority_standard_identifier_count,
+            facts.evidence_required_authority_standard_identifier_count,
+            facts.evidence_inventory_identifier_count,
+            facts.evidence_inventory_required_identifier_count,
+            facts.evidence_inventory_optional_identifier_count,
+            facts.evidence_inventory_authority_identifier_count,
+            facts.answer_rendered_evidence_block_count,
+            facts.answer_required_evidence_sections,
+            facts.evidence_standard_identifier_authority_source_count,
+            facts.evidence_successful_citation_url_count,
+            facts.evidence_unread_citation_url_count,
+            facts.answer_narrative_aggregation_floor_met,
+            facts.evidence_primary_authority_source_floor_met,
+            facts.trace_temporal_anchor_floor_met,
+            facts.trace_metadata_floor_met,
+            facts.source_cluster_floor_met,
+            facts.source_cluster_citation_floor_met,
             facts.local_business_menu_surface_floor_met,
             facts.local_business_menu_inventory_floor_met,
             facts.local_business_menu_inventory_total_item_count,
             facts.single_snapshot_required_citation_count,
             facts.single_snapshot_rendered_support_url_count,
-            facts.single_snapshot_rendered_read_backed_url_count
+            facts.single_snapshot_rendered_read_backed_url_count,
+            facts.rendered_summary_semantic_floor_met
         ),
         "summary",
     );
@@ -552,206 +553,204 @@ pub(crate) fn emit_final_web_completion_contract_receipts(
         "summary",
     );
     emit_receipt(
-        "briefing_document_layout",
-        facts.briefing_document_layout_met,
-        "web.pipeline.completion.briefing.layout.v1",
+        "answer_document_layout",
+        facts.answer_document_layout_met,
+        "web.pipeline.completion.document_report.layout.v1",
         &format!(
-            "query_requires_document_briefing={};contract_layout={};rendered_layout={};heading_present={};rendered_required_section_label_count={};story_header_count={};comparison_label_count={}",
-            facts.briefing_query_layout_expected,
-            facts.briefing_layout_profile,
-            facts.briefing_rendered_layout_profile,
-            facts.briefing_render_heading_floor_met,
-            facts.briefing_rendered_required_section_label_count,
-            facts.briefing_story_header_count,
-            facts.briefing_comparison_label_count
+            "query_requires_document_report={};contract_layout={};rendered_layout={};heading_present={};rendered_required_section_label_count={};legacy_source_cluster_header_count={};comparison_label_count={}",
+            facts.answer_query_layout_expected,
+            facts.answer_layout_profile,
+            facts.answer_rendered_layout_profile,
+            facts.answer_render_heading_floor_met,
+            facts.answer_rendered_required_section_label_count,
+            facts.answer_legacy_source_cluster_header_count,
+            facts.answer_comparison_label_count
         ),
         "summary",
     );
     emit_receipt(
-        "briefing_render_heading_floor",
-        facts.briefing_render_heading_floor_met,
-        "web.pipeline.completion.briefing.heading.v1",
+        "answer_render_heading_floor",
+        facts.answer_render_heading_floor_met,
+        "web.pipeline.completion.document_report.heading.v1",
         &format!(
             "contract_layout={};rendered_layout={};heading_present={}",
-            facts.briefing_layout_profile,
-            facts.briefing_rendered_layout_profile,
-            facts.briefing_render_heading_floor_met
+            facts.answer_layout_profile,
+            facts.answer_rendered_layout_profile,
+            facts.answer_render_heading_floor_met
         ),
         "summary",
     );
     emit_receipt(
-        "briefing_rendered_required_section_label_floor",
-        facts.briefing_rendered_required_section_label_floor_met,
-        "web.pipeline.completion.briefing.rendered_sections.v1",
+        "answer_rendered_required_section_label_floor",
+        facts.answer_rendered_required_section_label_floor_met,
+        "web.pipeline.completion.document_report.rendered_sections.v1",
         &format!(
             "rendered_required_section_label_count={};required_section_count={}",
-            facts.briefing_rendered_required_section_label_count,
-            facts.briefing_required_section_count
+            facts.answer_rendered_required_section_label_count, facts.answer_required_section_count
         ),
         "summary",
     );
     emit_receipt(
-        "briefing_story_headers_absent",
-        facts.briefing_story_headers_absent,
-        "web.pipeline.completion.briefing.story_headers.v1",
+        "answer_legacy_source_cluster_headers_absent",
+        facts.answer_legacy_source_cluster_headers_absent,
+        "web.pipeline.completion.document_report.legacy_source_cluster_headers.v1",
         &format!(
-            "contract_layout={};rendered_layout={};story_headers_rendered={};story_header_count={}",
-            facts.briefing_layout_profile,
-            facts.briefing_rendered_layout_profile,
-            !facts.briefing_story_headers_absent,
-            facts.briefing_story_header_count
+            "contract_layout={};rendered_layout={};legacy_source_cluster_headers_rendered={};legacy_source_cluster_header_count={}",
+            facts.answer_layout_profile,
+            facts.answer_rendered_layout_profile,
+            !facts.answer_legacy_source_cluster_headers_absent,
+            facts.answer_legacy_source_cluster_header_count
         ),
         "summary",
     );
     emit_receipt(
-        "briefing_comparison_absent",
-        facts.briefing_comparison_absent,
-        "web.pipeline.completion.briefing.comparison.v1",
+        "answer_comparison_absent",
+        facts.answer_comparison_absent,
+        "web.pipeline.completion.document_report.comparison.v1",
         &format!(
             "contract_layout={};rendered_layout={};comparison_required={};comparison_rendered={};comparison_label_count={}",
-            facts.briefing_layout_profile,
-            facts.briefing_rendered_layout_profile,
+            facts.answer_layout_profile,
+            facts.answer_rendered_layout_profile,
             facts.comparison_required,
-            !facts.briefing_comparison_absent,
-            facts.briefing_comparison_label_count
+            !facts.answer_comparison_absent,
+            facts.answer_comparison_label_count
         ),
         "summary",
     );
     emit_receipt(
-        "briefing_required_section_floor",
-        facts.briefing_required_section_floor_met,
-        "web.pipeline.completion.briefing.sections.v2",
+        "answer_required_section_floor",
+        facts.answer_required_section_floor_met,
+        "web.pipeline.completion.document_report.sections.v2",
         &format!(
             "rendered_required_sections={};required_section_count={};required_sections={}",
-            facts.briefing_rendered_required_section_count,
-            facts.briefing_required_section_count,
-            facts.briefing_required_sections.join("|")
+            facts.answer_rendered_required_section_count,
+            facts.answer_required_section_count,
+            facts.answer_required_sections.join("|")
         ),
         "summary",
     );
     emit_receipt(
-        "briefing_query_grounding_floor",
-        facts.briefing_query_grounding_floor_met,
-        "web.pipeline.completion.briefing.query_grounding.v1",
+        "answer_query_grounding_floor",
+        facts.answer_query_grounding_floor_met,
+        "web.pipeline.completion.document_report.query_grounding.v1",
         &format!(
             "grounded_required_sections={};required_section_count={}",
-            facts.briefing_query_grounded_required_section_count,
-            facts.briefing_required_section_count
+            facts.answer_query_grounded_required_section_count, facts.answer_required_section_count
         ),
         "summary",
     );
     emit_receipt(
-        "briefing_standard_identifier_floor",
-        facts.briefing_standard_identifier_floor_met,
-        "web.pipeline.completion.briefing.standard_identifiers.v1",
+        "evidence_standard_identifier_floor",
+        facts.evidence_standard_identifier_floor_met,
+        "web.pipeline.completion.document_report.standard_identifiers.v1",
         &format!(
             "standard_identifier_count={};required_standard_identifier_count={};required_standard_identifier_group_floor={};standard_identifier_authority_source_count={};available_standard_identifier_authority_source_count={}",
-            facts.briefing_standard_identifier_count,
-            facts.briefing_required_standard_identifier_count,
-            facts.briefing_standard_identifier_group_floor,
-            facts.briefing_standard_identifier_authority_source_count,
-            facts.briefing_available_standard_identifier_authority_source_count
+            facts.evidence_standard_identifier_count,
+            facts.evidence_required_standard_identifier_count,
+            facts.evidence_standard_identifier_group_floor,
+            facts.evidence_standard_identifier_authority_source_count,
+            facts.evidence_available_standard_identifier_authority_source_count
         ),
         "summary",
     );
     emit_receipt(
-        "briefing_authority_standard_identifier_floor",
-        facts.briefing_authority_standard_identifier_floor_met,
-        "web.pipeline.completion.briefing.authority_standard_identifiers.v1",
+        "evidence_authority_standard_identifier_floor",
+        facts.evidence_authority_standard_identifier_floor_met,
+        "web.pipeline.completion.document_report.authority_standard_identifiers.v1",
         &format!(
             "authority_standard_identifier_count={};required_authority_standard_identifier_count={};required_standard_identifier_group_floor={};standard_identifier_authority_source_count={};available_standard_identifier_authority_source_count={}",
-            facts.briefing_authority_standard_identifier_count,
-            facts.briefing_required_authority_standard_identifier_count,
-            facts.briefing_standard_identifier_group_floor,
-            facts.briefing_standard_identifier_authority_source_count,
-            facts.briefing_available_standard_identifier_authority_source_count
+            facts.evidence_authority_standard_identifier_count,
+            facts.evidence_required_authority_standard_identifier_count,
+            facts.evidence_standard_identifier_group_floor,
+            facts.evidence_standard_identifier_authority_source_count,
+            facts.evidence_available_standard_identifier_authority_source_count
         ),
         "summary",
     );
     emit_receipt(
-        "briefing_summary_inventory_floor",
-        facts.briefing_summary_inventory_floor_met,
-        "web.pipeline.completion.briefing.summary_inventory.v1",
+        "evidence_inventory_floor",
+        facts.evidence_inventory_floor_met,
+        "web.pipeline.completion.document_report.summary_inventory.v1",
         &format!(
             "summary_inventory_identifier_count={};summary_inventory_required_identifier_count={};summary_inventory_optional_identifier_count={};summary_inventory_authority_identifier_count={};required_standard_identifier_group_floor={}",
-            facts.briefing_summary_inventory_identifier_count,
-            facts.briefing_summary_inventory_required_identifier_count,
-            facts.briefing_summary_inventory_optional_identifier_count,
-            facts.briefing_summary_inventory_authority_identifier_count,
-            facts.briefing_standard_identifier_group_floor
+            facts.evidence_inventory_identifier_count,
+            facts.evidence_inventory_required_identifier_count,
+            facts.evidence_inventory_optional_identifier_count,
+            facts.evidence_inventory_authority_identifier_count,
+            facts.evidence_standard_identifier_group_floor
         ),
         "summary",
     );
     emit_receipt(
-        "briefing_narrative_aggregation_floor",
-        facts.briefing_narrative_aggregation_floor_met,
-        "web.pipeline.completion.briefing.narrative_aggregation.v1",
+        "answer_narrative_aggregation_floor",
+        facts.answer_narrative_aggregation_floor_met,
+        "web.pipeline.completion.document_report.narrative_aggregation.v1",
         &format!(
             "required_narrative_sections={};single_block_narrative_sections={};aggregated_narrative_sections={};required_supporting_fragment_floor={}",
-            facts.briefing_required_narrative_sections,
-            facts.briefing_single_block_narrative_sections,
-            facts.briefing_aggregated_narrative_sections,
-            facts.briefing_required_supporting_fragment_floor
+            facts.answer_required_narrative_sections,
+            facts.answer_single_block_narrative_sections,
+            facts.answer_aggregated_narrative_sections,
+            facts.answer_required_supporting_fragment_floor
         ),
         "summary",
     );
     emit_receipt(
-        "briefing_evidence_block_floor",
-        facts.briefing_evidence_block_floor_met,
-        "web.pipeline.completion.briefing.evidence_blocks.v1",
+        "answer_evidence_block_floor",
+        facts.answer_evidence_block_floor_met,
+        "web.pipeline.completion.document_report.evidence_blocks.v1",
         &format!(
             "rendered_evidence_block_count={};required_supporting_fragment_floor={};required_evidence_sections={};qualifying_evidence_sections={}",
-            facts.briefing_rendered_evidence_block_count,
-            facts.briefing_required_supporting_fragment_floor,
-            facts.briefing_required_evidence_sections,
-            facts.briefing_qualifying_evidence_sections
+            facts.answer_rendered_evidence_block_count,
+            facts.answer_required_supporting_fragment_floor,
+            facts.answer_required_evidence_sections,
+            facts.answer_qualifying_evidence_sections
         ),
         "summary",
     );
     emit_receipt(
-        "briefing_primary_authority_source_floor",
-        facts.briefing_primary_authority_source_floor_met,
-        "web.pipeline.completion.briefing.primary_authority.v1",
+        "evidence_primary_authority_source_floor",
+        facts.evidence_primary_authority_source_floor_met,
+        "web.pipeline.completion.document_report.primary_authority.v1",
         &format!(
             "selected_primary_authority_sources={};required_primary_authority_sources={};available_primary_authority_sources={};attempted_primary_authority_sources={}",
             facts.selected_primary_authority_source_count,
-            facts.briefing_required_primary_authority_source_count,
+            facts.answer_required_primary_authority_source_count,
             facts.available_primary_authority_source_count,
             facts.attempted_primary_authority_source_count
         ),
         "summary",
     );
     emit_receipt(
-        "briefing_citation_read_backing_floor",
-        facts.briefing_citation_read_backing_floor_met,
-        "web.pipeline.completion.briefing.citation_backing.v1",
+        "evidence_citation_read_backing_floor",
+        facts.evidence_citation_read_backing_floor_met,
+        "web.pipeline.completion.document_report.citation_backing.v1",
         &format!(
             "successful_citation_url_count={};unread_citation_url_count={};required_supporting_fragment_floor={}",
-            facts.briefing_successful_citation_url_count,
-            facts.briefing_unread_citation_url_count,
-            facts.briefing_required_supporting_fragment_floor
+            facts.evidence_successful_citation_url_count,
+            facts.evidence_unread_citation_url_count,
+            facts.answer_required_supporting_fragment_floor
         ),
         "summary",
     );
     emit_receipt(
-        "briefing_temporal_anchor_floor",
-        facts.briefing_temporal_anchor_floor_met,
-        "web.pipeline.completion.briefing.temporal_anchor.v1",
+        "trace_temporal_anchor_floor",
+        facts.trace_temporal_anchor_floor_met,
+        "web.pipeline.completion.document_report.temporal_anchor.v1",
         &format!(
             "run_date={};run_timestamp_iso_utc={}",
-            facts.briefing_run_date, facts.briefing_run_timestamp_iso_utc
+            facts.trace_run_date, facts.trace_run_timestamp_iso_utc
         ),
         "summary",
     );
     emit_receipt(
-        "briefing_postamble_floor",
-        facts.briefing_postamble_floor_met,
-        "web.pipeline.completion.briefing.postamble.v1",
+        "trace_metadata_floor",
+        facts.trace_metadata_floor_met,
+        "web.pipeline.completion.document_report.postamble.v1",
         &format!(
-            "temporal_anchor={};overall_confidence={};required_citations_per_story={}",
-            facts.briefing_temporal_anchor_floor_met,
-            facts.briefing_overall_confidence,
-            facts.required_citations_per_story
+            "temporal_anchor={};overall_confidence={};required_citations_per_source_cluster={}",
+            facts.trace_temporal_anchor_floor_met,
+            facts.trace_overall_confidence,
+            facts.required_citations_per_source_cluster
         ),
         "summary",
     );
@@ -767,10 +766,10 @@ pub(crate) fn emit_final_web_completion_contract_receipts(
         facts.single_snapshot_rendered_layout_met,
         "web.pipeline.completion.single_snapshot.layout.v1",
         &format!(
-            "rendered_layout={};story_header_count={};comparison_label_count={}",
-            facts.briefing_rendered_layout_profile,
-            facts.briefing_story_header_count,
-            facts.briefing_comparison_label_count
+            "rendered_layout={};legacy_source_cluster_header_count={};comparison_label_count={}",
+            facts.answer_rendered_layout_profile,
+            facts.answer_legacy_source_cluster_header_count,
+            facts.answer_comparison_label_count
         ),
         "summary",
     );

@@ -7,6 +7,11 @@ fn summarize_kernel_event(kernel_event: &ioi_types::app::KernelEvent) -> String 
             prefix_hex_4(session_id),
             text_fingerprint(token)
         ),
+        Ev::AgentAnswerDelta { session_id, token } => format!(
+            "AgentAnswerDelta session={} {}",
+            prefix_hex_4(session_id),
+            text_fingerprint(token)
+        ),
         Ev::AgentStep(step) => format!(
             "AgentStep session={} step_index={} visual_hash={} raw_output_{} full_prompt_{}",
             prefix_hex_4(&step.session_id),

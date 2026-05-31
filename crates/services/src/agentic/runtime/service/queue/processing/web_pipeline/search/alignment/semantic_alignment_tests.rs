@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn briefing_subject_guard_rejects_off_topic_authority_neighbor_article() {
+fn evidence_subject_guard_rejects_off_topic_authority_neighbor_article() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
@@ -31,14 +31,14 @@ fn briefing_subject_guard_rejects_off_topic_authority_neighbor_article() {
     };
 
     assert!(
-        semantically_aligned_discovery_source_passes_briefing_subject_guard(
+        semantically_aligned_discovery_source_passes_evidence_subject_guard(
             &retrieval_contract,
             query,
             &good,
         )
     );
     assert!(
-        !semantically_aligned_discovery_source_passes_briefing_subject_guard(
+        !semantically_aligned_discovery_source_passes_evidence_subject_guard(
             &retrieval_contract,
             query,
             &bad,
@@ -47,7 +47,7 @@ fn briefing_subject_guard_rejects_off_topic_authority_neighbor_article() {
 }
 
 #[test]
-fn briefing_subject_guard_keeps_direct_fips_publication_pages() {
+fn evidence_subject_guard_keeps_direct_fips_publication_pages() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
@@ -66,7 +66,7 @@ fn briefing_subject_guard_keeps_direct_fips_publication_pages() {
     };
 
     assert!(
-        semantically_aligned_discovery_source_passes_briefing_subject_guard(
+        semantically_aligned_discovery_source_passes_evidence_subject_guard(
             &retrieval_contract,
             query,
             &source,

@@ -68,7 +68,7 @@ export function computerUseContractsFromSandboxFixture({
     lane: "sandboxed_hosted",
     session_mode: sessionMode,
     url: null,
-    title: "IOI deterministic sandbox fixture",
+    title: "IOI sandbox fixture",
     app_name: "IOI Local Sandbox Fixture",
     window_title: "Deterministic sandbox computer session",
     screenshot_ref: `artifact:${runId}:sandbox_fixture_screen_redacted`,
@@ -120,7 +120,7 @@ export function computerUseContractsFromSandboxFixture({
         confidence: actionKind === "inspect" || actionKind === "wait" ? 95 : 86,
         expected_state_transition:
           actionKind === "inspect" || actionKind === "wait"
-            ? "The sandbox fixture yields deterministic observation and target evidence without external side effects."
+            ? "The sandbox fixture yields stable observation and target evidence without external side effects."
             : "The sandbox fixture records the proposed action and requires policy authority before side effects.",
         risk_class: actionKind === "inspect" || actionKind === "wait" ? "read_only" : "possible_external_effect",
         required_authority:

@@ -26,13 +26,13 @@ pub(super) fn apply_web_research_followups(
                 verification_checks
                     .push(format!("web_search_bootstrap_from_browser_serp={}", queued));
                 if queued {
-                    let note = "Search-engine browser navigation was converted into deterministic web__search bootstrap."
+                    let note = "Search-engine browser navigation queued a typed web__search step."
                         .to_string();
                     *history_entry = Some(note.clone());
                     *action_output = Some(note);
                 }
                 log::info!(
-                    "Search intent detected after browser__navigate. Queued deterministic web__search bootstrap."
+                    "Search intent detected after browser__navigate. Queued typed web__search bootstrap."
                 );
             }
         }
@@ -54,7 +54,7 @@ pub(super) fn apply_web_research_followups(
         ));
         if queued {
             let note =
-                "Browser snapshot recovery was transient; queued deterministic web__search to continue."
+                "Browser snapshot recovery was transient; queued typed web__search to continue."
                     .to_string();
             *history_entry = Some(note.clone());
             *action_output = Some(note);

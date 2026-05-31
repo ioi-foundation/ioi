@@ -1,9 +1,9 @@
 use super::{
-    browser_route_owns_dedicated_surface, duplicate_after_prior_success,
-    duplicate_prior_success_noop, install_already_satisfied_operator_reply,
-    install_already_satisfied_terminal_reason, install_resolution_terminal_block_reason,
-    latest_browser_tab_id, latest_child_session_id_hex, latest_retained_shell_command_id,
-    maybe_enqueue_workspace_package_manifest_recovery,
+    active_web_pipeline_chat_reply_duplicate_noop, browser_route_owns_dedicated_surface,
+    duplicate_after_prior_success, duplicate_prior_success_noop,
+    install_already_satisfied_operator_reply, install_already_satisfied_terminal_reason,
+    install_resolution_terminal_block_reason, latest_browser_tab_id, latest_child_session_id_hex,
+    latest_retained_shell_command_id, maybe_enqueue_workspace_package_manifest_recovery,
     maybe_terminalize_workspace_package_manifest_read, observe_terminal_chat_reply_shape,
     read_only_workspace_context_duplicate_noop, select_manifest_script_recovery_candidate,
     should_release_browser_after_terminal_reply, terminal_chat_reply_layout_profile,
@@ -12,8 +12,9 @@ use super::{
     toolcat_single_tool_duplicate_after_success_reply, toolcat_single_tool_failure_reply,
     toolcat_single_tool_reply_tool_name, toolcat_single_tool_retained_shell_followup,
     toolcat_single_tool_success_followup, workspace_goal_prefers_package_manifest_recovery,
-    FailureClass, ManifestScriptRecoveryCandidate, TerminalChatReplyLayoutProfile,
+    FailureClass, ManifestScriptRecoveryCandidate,
 };
+use crate::agentic::runtime::service::output::terminal_reply_shape::TerminalChatReplyLayoutProfile;
 use crate::agentic::runtime::service::queue::queue_action_request_to_tool;
 use crate::agentic::runtime::service::tool_execution::record_execution_evidence;
 use crate::agentic::runtime::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
@@ -758,35 +759,35 @@ fn non_browser_terminal_reply_does_not_release_browser_surface() {
 }
 
 #[test]
-fn terminal_chat_reply_shape_detects_story_collection_output() {
+fn terminal_chat_reply_shape_detects_source_collection_output() {
     let facts = observe_terminal_chat_reply_shape(
-        "Web retrieval summary for 'Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.'\n\nStory 1: Example\nWhat happened: Example.\nKey evidence: Example.\n\nComparison:\n- Example\n\nRun date (UTC): 2026-03-10\nRun timestamp (UTC): 2026-03-10T12:19:24Z\nOverall confidence: high",
+        "Legacy collection output\n\nItem 1: Example\nWhat happened: Example.\nKey evidence: Example.\n\nComparison:\n- Example\n\nRun date (UTC): 2026-03-10\nRun timestamp (UTC): 2026-03-10T12:19:24Z\nOverall confidence: high",
     );
 
     assert!(!facts.heading_present);
-    assert_eq!(facts.story_header_count, 1);
+    assert_eq!(facts.legacy_source_cluster_header_count, 0);
     assert_eq!(facts.comparison_label_count, 1);
     assert_eq!(
         terminal_chat_reply_layout_profile(&facts),
-        TerminalChatReplyLayoutProfile::StoryCollection
+        TerminalChatReplyLayoutProfile::SourceCollection
     );
 }
 
 #[test]
-fn terminal_chat_reply_shape_detects_document_briefing_output() {
+fn terminal_chat_reply_shape_detects_document_report_output() {
     let facts = observe_terminal_chat_reply_shape(
         "Briefing for 'Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.' (as of 2026-03-10T12:19:24Z UTC)\n\nWhat happened: NIST finalized FIPS 203, FIPS 204, and FIPS 205.\n\nKey evidence:\n- NIST finalized the first three standards.\n\nCitations:\n- Post-quantum cryptography | NIST | https://www.nist.gov/pqc | 2026-03-10T12:19:24Z | retrieved_utc\n\nRun date (UTC): 2026-03-10\nRun timestamp (UTC): 2026-03-10T12:19:24Z\nOverall confidence: high",
     );
 
     assert!(facts.heading_present);
-    assert_eq!(facts.story_header_count, 0);
+    assert_eq!(facts.legacy_source_cluster_header_count, 0);
     assert_eq!(facts.comparison_label_count, 0);
     assert!(facts.run_date_present);
     assert!(facts.run_timestamp_present);
     assert!(facts.overall_confidence_present);
     assert_eq!(
         terminal_chat_reply_layout_profile(&facts),
-        TerminalChatReplyLayoutProfile::DocumentBriefing
+        TerminalChatReplyLayoutProfile::DocumentReport
     );
 }
 
@@ -798,7 +799,7 @@ fn terminal_chat_reply_shape_detects_single_snapshot_output() {
 
     assert!(!facts.heading_present);
     assert!(facts.single_snapshot_heading_present);
-    assert_eq!(facts.story_header_count, 0);
+    assert_eq!(facts.legacy_source_cluster_header_count, 0);
     assert_eq!(facts.comparison_label_count, 0);
     assert!(facts.run_date_present);
     assert!(facts.run_timestamp_present);
@@ -817,6 +818,21 @@ fn duplicate_prior_success_noop_detects_retry_boundary() {
     ]));
     assert!(!duplicate_prior_success_noop(&[
         "duplicate_action_fingerprint_non_command_noop=true".to_string(),
+    ]));
+}
+
+#[test]
+fn active_web_pipeline_chat_reply_duplicate_noop_stays_in_model_loop() {
+    assert!(active_web_pipeline_chat_reply_duplicate_noop(&[
+        "duplicate_action_fingerprint_non_command_noop=true".to_string(),
+        "duplicate_action_fingerprint_prior_success_noop=true".to_string(),
+        "terminal_chat_reply_deferred_for_active_web_pipeline=true".to_string(),
+    ]));
+    assert!(active_web_pipeline_chat_reply_duplicate_noop(&[
+        "web_model_chat_reply_duplicate_suppressed=true".to_string(),
+    ]));
+    assert!(!active_web_pipeline_chat_reply_duplicate_noop(&[
+        "duplicate_action_fingerprint_prior_success_noop=true".to_string(),
     ]));
 }
 

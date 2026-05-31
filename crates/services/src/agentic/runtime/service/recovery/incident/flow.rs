@@ -120,6 +120,7 @@ pub(crate) fn should_skip_incident_recovery_for_intent(
     root_tool_name: &str,
     root_failure_class: FailureClass,
 ) -> bool {
+    let root_tool = root_tool_name.trim().to_ascii_lowercase();
     if matches!(intent, IntentClass::CommandTask) {
         return true;
     }
@@ -134,6 +135,14 @@ pub(crate) fn should_skip_incident_recovery_for_intent(
                 | FailureClass::ContextDrift
                 | FailureClass::UnexpectedState
         )
+        || (root_tool.starts_with("web__")
+            && matches!(intent, IntentClass::BrowserTask)
+            && matches!(
+                root_failure_class,
+                FailureClass::NoEffectAfterAction
+                    | FailureClass::ContextDrift
+                    | FailureClass::UnexpectedState
+            ))
         || (matches!(intent, IntentClass::ConversationTask)
             && matches!(
                 root_failure_class,

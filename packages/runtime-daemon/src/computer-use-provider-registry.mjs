@@ -34,7 +34,7 @@ const PROVIDERS = [
     provider_kind: "local_fixture",
     lane: "sandboxed_hosted",
     status: "available",
-    implementation_status: "deterministic_fixture",
+    implementation_status: "fixture_adapter",
     thread_tool_name: "ioi.computer_use.sandboxed_hosted",
     supported_session_modes: ["local_sandbox"],
     capabilities: ["observation", "target_index", "action_proposal", "verification", "cleanup"],

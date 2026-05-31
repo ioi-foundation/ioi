@@ -8,6 +8,7 @@ pub(crate) fn synthesis_query_contract(pending: &PendingSearchCompletion) -> Str
     pending.query.trim().to_string()
 }
 
+#[cfg(test)]
 pub(crate) fn fallback_search_summary(query: &str, url: &str) -> String {
     format!(
         "Searched '{}' at {}, but structured extraction failed. Retry refinement if needed.",
@@ -38,7 +39,12 @@ pub(crate) fn compact_whitespace(input: &str) -> String {
 
 pub(crate) fn extract_urls(input: &str, limit: usize) -> Vec<String> {
     let mut urls = Vec::new();
-    for raw in input.split_whitespace() {
+    for raw in input.split_whitespace().flat_map(|token| {
+        token
+            .split('(')
+            .chain(token.split('['))
+            .chain(token.split('<'))
+    }) {
         let trimmed = raw
             .trim_matches(|ch: char| ",.;:!?)]}\"'".contains(ch))
             .trim();
@@ -82,6 +88,7 @@ pub(crate) fn extract_finding_lines(input: &str, limit: usize) -> Vec<String> {
     findings
 }
 
+#[cfg(test)]
 pub(crate) fn summarize_search_results(query: &str, url: &str, extract_text: &str) -> String {
     let capped = extract_text
         .chars()

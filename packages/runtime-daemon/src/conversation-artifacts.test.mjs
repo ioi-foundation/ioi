@@ -6,30 +6,18 @@ import test from "node:test";
 
 import { ConversationArtifactStore } from "./conversation-artifacts.mjs";
 
-test("static website artifacts return a renderable inline preview", async () => {
+test("static website artifacts require model-authored source", async () => {
   const stateDir = await mkdtemp(path.join(tmpdir(), "ioi-conversation-artifact-"));
   try {
     const store = new ConversationArtifactStore(stateDir);
-    const { artifact } = store.create({
-      artifactClass: "static_html_js",
-      title: "Post-quantum computers website",
-      prompt: "Create a website that explains post-quantum computers",
-    });
-
-    assert.equal(artifact.artifactClass, "static_html_js");
-    assert.equal(artifact.previewInline.mediaType, "text/html");
-    assert.match(artifact.previewInline.text, /Post-quantum computers website/);
-    assert.match(artifact.previewInline.text, /What it means/);
-    assert.match(artifact.previewInline.text, /How to start/);
-
-    const fetched = store.get(artifact.id);
-    assert.match(fetched.previewInline.text, /Ask Agent for edits/);
-
-    store.action(artifact.id, { action: "export" });
-    store.action(artifact.id, { action: "promote" });
-    const promoted = store.list().find((entry) => entry.id === artifact.id);
-    assert.equal(promoted.status, "promoted");
-    assert.equal(promoted.promotionRefs.length, 1);
+    assert.throws(
+      () => store.create({
+        artifactClass: "static_html_js",
+        title: "Post-quantum computers website",
+        prompt: "Create a website that explains post-quantum computers",
+      }),
+      /require model-authored HTML\/CSS\/JS source/
+    );
 
     const imported = store.create({
       artifactClass: "imported_document",
@@ -78,6 +66,17 @@ test("static website artifacts can use model-authored HTML/CSS/JS", async () => 
     assert.match(artifact.previewInline.text, /<style>\.hero/);
     assert.match(artifact.previewInline.text, /document\.body\.dataset\.ready/);
     assert.doesNotMatch(artifact.previewInline.text, /What it means/);
+
+    assert.throws(
+      () => store.action(artifact.id, {
+        action: "rebuild",
+        generatedFiles: {
+          title: "Neighborhood bakery website",
+          html: "",
+        },
+      }),
+      /require model-authored HTML\/CSS\/JS source/
+    );
   } finally {
     await rm(stateDir, { recursive: true, force: true });
   }

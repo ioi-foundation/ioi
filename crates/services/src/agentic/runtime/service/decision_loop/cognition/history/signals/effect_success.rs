@@ -162,7 +162,7 @@ pub(super) fn browser_effect_success_signal_for_message(
                 }
             }
         } else {
-            signal.push_str(" Verify the updated state or finish with the gathered evidence.");
+            signal.push_str(" Verify the updated state or choose a different action.");
         }
         return Some(signal);
     }

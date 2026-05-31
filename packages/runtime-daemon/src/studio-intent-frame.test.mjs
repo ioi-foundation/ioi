@@ -93,6 +93,43 @@ test("routes explicit local plan paths to workspace context", () => {
   assert.equal(frame.retrieval.required, false);
 });
 
+test("routes explicit inline command prompts to local runtime action", () => {
+  const frame = resolveStudioIntentFrame({
+    prompt: "Run `node --check scripts/lib/autopilot-agent-studio-chat-scenarios.mjs` and summarize the exit code.",
+    executionMode: "agent",
+  });
+
+  assert.equal(frame.intentId, "command.exec");
+  assert.equal(frame.routeDirective, "runtime_action");
+  assert.deepEqual(frame.runtimeAction, {
+    required: true,
+    intentClass: "local_runtime_action",
+    intent_class: "local_runtime_action",
+    actionFamily: "shell",
+    action_family: "shell",
+    targetKind: "shell_command",
+    target_kind: "shell_command",
+    targetCommand: "node --check scripts/lib/autopilot-agent-studio-chat-scenarios.mjs",
+    target_command: "node --check scripts/lib/autopilot-agent-studio-chat-scenarios.mjs",
+    hostMutation: true,
+    host_mutation: true,
+  });
+  assert.equal(frame.workspace.required, false);
+  assert.equal(frame.retrieval.required, false);
+  assert.ok(frame.requiredCapabilities.includes("command.exec"));
+  assert.equal(frame.effectContract.effectLevel, "command_execution");
+});
+
+test("does not treat inline code symbols as local runtime actions", () => {
+  const frame = resolveStudioIntentFrame({
+    prompt: "Explain how `formatOrderTotal` is used in this repo.",
+    executionMode: "agent",
+  });
+
+  assert.notEqual(frame.intentId, "command.exec");
+  assert.equal(frame.runtimeAction, null);
+});
+
 test("routes runtime inspection prompts to the runtime cockpit projection", () => {
   const frame = resolveStudioIntentFrame({
     prompt: "Show runtime cockpit policy lease and worker status for this run.",

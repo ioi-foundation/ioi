@@ -402,6 +402,21 @@ fn provider_query_has_unique_probe_recovery_signal(
 
     let raw_lower = raw_trimmed.to_ascii_lowercase();
     let grounded_lower = grounded_trimmed.to_ascii_lowercase();
+    let market_quote_probe = retrieval_contract.currentness_required
+        && retrieval_contract.scalar_measure_required
+        && [" live ", " today ", " current ", " currently ", " now "]
+            .iter()
+            .any(|marker| format!(" {raw_lower} ").contains(marker))
+        && [" price ", " quote ", " market cap ", " usd ", " trading "]
+            .iter()
+            .any(|marker| format!(" {raw_lower} ").contains(marker))
+        && [" price ", " quote ", " market cap ", " usd ", " trading "]
+            .iter()
+            .any(|marker| !format!(" {grounded_lower} ").contains(marker));
+    if market_quote_probe {
+        return true;
+    }
+
     [
         "\"observed now\"",
         "\"latest measured data\"",
@@ -424,6 +439,11 @@ fn provider_request_query(
     retrieval_contract: &WebRetrievalContract,
     locality_scope: Option<&str>,
 ) -> String {
+    let explicit_query = provider_search_query_with_locality_hint(query, locality_scope);
+    if !explicit_query.trim().is_empty() {
+        return explicit_query;
+    }
+
     let selection_query_contract = query_contract
         .map(str::trim)
         .filter(|value| !value.is_empty())

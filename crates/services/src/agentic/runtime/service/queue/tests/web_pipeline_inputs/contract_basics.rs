@@ -40,15 +40,15 @@ fn retrieval_contract_min_sources_preserves_single_snapshot_floor_without_search
 }
 
 #[test]
-fn web_pipeline_required_citations_per_story_honors_for_each_clause() {
+fn web_pipeline_required_citations_per_source_cluster_honors_for_each_clause() {
     let query = "As of now (UTC), what are the top 3 U.S. breaking stories from the last 6 hours? For each: what happened, what changed in the last hour, why it matters, and 2 source citations with absolute dates/times.";
-    assert_eq!(required_citations_per_story(query), 2);
+    assert_eq!(required_citations_per_source_cluster(query), 2);
 }
 
 #[test]
-fn web_pipeline_required_citations_per_story_defaults_to_one_for_generic_headlines() {
+fn web_pipeline_required_citations_per_source_cluster_defaults_to_one_for_generic_headlines() {
     assert_eq!(
-        required_citations_per_story("Tell me today's top news headlines."),
+        required_citations_per_source_cluster("Tell me today's top news headlines."),
         1
     );
 }
@@ -68,23 +68,29 @@ fn web_pipeline_treats_google_news_article_wrappers_as_redirectable_sources() {
 }
 
 #[test]
-fn web_pipeline_required_story_count_defaults_to_one_for_single_fact_queries() {
+fn web_pipeline_required_source_cluster_count_defaults_to_one_for_single_fact_queries() {
     let query = "Who is the latest OpenAI CEO?";
-    assert_eq!(required_story_count(query), 1);
+    assert_eq!(required_source_cluster_count(query), 1);
     assert!(!query_requires_structured_synthesis(query));
 }
 
 #[test]
-fn web_pipeline_required_story_count_preserves_collection_queries() {
+fn web_pipeline_required_source_cluster_count_preserves_collection_queries() {
     let query = "top active cloud incidents";
-    assert_eq!(required_story_count(query), WEB_PIPELINE_REQUIRED_STORIES);
+    assert_eq!(
+        required_source_cluster_count(query),
+        WEB_PIPELINE_REQUIRED_STORIES
+    );
     assert!(query_requires_structured_synthesis(query));
 }
 
 #[test]
-fn web_pipeline_required_story_count_handles_headline_punctuation() {
+fn web_pipeline_required_source_cluster_count_handles_headline_punctuation() {
     let query = "Tell me today's top news headlines.";
-    assert_eq!(required_story_count(query), WEB_PIPELINE_REQUIRED_STORIES);
+    assert_eq!(
+        required_source_cluster_count(query),
+        WEB_PIPELINE_REQUIRED_STORIES
+    );
     assert!(query_requires_structured_synthesis(query));
 }
 

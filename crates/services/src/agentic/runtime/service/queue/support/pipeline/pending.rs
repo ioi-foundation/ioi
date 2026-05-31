@@ -12,7 +12,7 @@ struct RankedGroundedPendingCandidate {
     url: String,
     domain_key: String,
     grounded_viable: bool,
-    briefing_support_viable: bool,
+    evidence_support_viable: bool,
     grounded_external_publication_artifact: bool,
     identifier_priority_viable: bool,
     canonical_publication_detail: bool,
@@ -68,7 +68,7 @@ fn canonical_publication_detail_candidate(
         return false;
     }
     let observed_labels =
-        source_briefing_standard_identifier_labels(query_contract, trimmed, title, excerpt);
+        source_evidence_standard_identifier_labels(query_contract, trimmed, title, excerpt);
 
     title_lower.contains("federal information processing standard")
         || (!observed_labels.is_empty() && title_lower.starts_with("fips "))
@@ -79,7 +79,7 @@ fn grounded_external_publication_artifact_candidate(
     query_contract: &str,
     url: &str,
 ) -> bool {
-    if !query_prefers_document_briefing_layout(query_contract)
+    if !query_prefers_document_report_layout(query_contract)
         || query_requests_comparison(query_contract)
         || !crate::agentic::runtime::service::decision_loop::signals::analyze_query_facets(
             query_contract,
@@ -309,19 +309,19 @@ fn next_pending_headline_article_candidate(
         return None;
     }
 
-    let required_story_floor =
-        retrieval_contract_required_story_count(retrieval_contract, query_contract).max(1);
+    let required_source_cluster_floor =
+        retrieval_contract_required_source_cluster_count(retrieval_contract, query_contract).max(1);
     let min_sources_required = pending.min_sources.max(1) as usize;
     let (actionable_sources_observed, actionable_domains_observed) =
         headline_actionable_source_inventory(&pending.successful_reads);
-    if actionable_sources_observed >= required_story_floor
-        && actionable_domains_observed >= required_story_floor
+    if actionable_sources_observed >= required_source_cluster_floor
+        && actionable_domains_observed >= required_source_cluster_floor
     {
         return None;
     }
 
     let observed_domains = observed_pending_domain_keys(pending);
-    let preferred_distinct_domain_floor = required_story_floor.max(min_sources_required);
+    let preferred_distinct_domain_floor = required_source_cluster_floor.max(min_sources_required);
     let prefer_new_domain = observed_domains.len() < preferred_distinct_domain_floor;
     let mut ranked_candidates = pending_candidate_inventory(pending)
         .iter()
@@ -354,8 +354,8 @@ fn next_pending_headline_article_candidate(
             let deep_article = looks_like_deep_article_url(trimmed);
             let title_specific = !title.trim().is_empty()
                 && !is_low_signal_title(title)
-                && headline_story_title_has_specificity(title)
-                && !headline_title_is_multi_story_roundup_surface(title);
+                && headline_source_title_has_specificity(title)
+                && !headline_title_is_multi_source_roundup_surface(title);
             let claim_signal = excerpt_has_claim_signal(title) || excerpt_has_claim_signal(excerpt);
             if !(actionable || deep_article || title_specific || claim_signal) {
                 return None;
@@ -421,20 +421,20 @@ fn next_pending_grounded_candidate(
     let reject_search_hub = projection.reject_search_hub_candidates();
     let enforce_grounded_compatibility = projection.enforce_grounded_compatibility();
     let has_constraint_objective = projection.has_constraint_objective();
-    let document_briefing_layout = query_prefers_document_briefing_layout(query_contract)
+    let document_report_layout = query_prefers_document_report_layout(query_contract)
         && !query_requests_comparison(query_contract);
     let envelope_constraints = &projection.constraints;
     let envelope_policy = ResolutionPolicy::default();
     let min_sources_required = pending.min_sources.max(1) as usize;
     let required_distinct_domains =
         retrieval_contract_required_distinct_domain_floor(retrieval_contract, query_contract);
-    let briefing_identifier_observations = pending
+    let evidence_identifier_observations = pending
         .successful_reads
         .iter()
         .filter_map(|source| {
             let trimmed = source.url.trim();
             let title = source.title.as_deref().unwrap_or_default();
-            (!trimmed.is_empty()).then(|| BriefingIdentifierObservation {
+            (!trimmed.is_empty()).then(|| EvidenceIdentifierObservation {
                 url: trimmed.to_string(),
                 surface: format!("{} {} {}", source.url, title, source.excerpt),
                 authoritative: source_has_document_authority(
@@ -446,12 +446,10 @@ fn next_pending_grounded_candidate(
             })
         })
         .collect::<Vec<_>>();
-    let required_identifier_labels = infer_briefing_required_identifier_labels(
-        query_contract,
-        &briefing_identifier_observations,
-    );
+    let required_identifier_labels =
+        infer_answer_required_identifier_labels(query_contract, &evidence_identifier_observations);
     let required_identifier_labels_for_surface = |url: &str, title: &str, excerpt: &str| {
-        observed_briefing_standard_identifier_labels(
+        observed_evidence_standard_identifier_labels(
             query_contract,
             &format!("{url} {title} {excerpt}"),
         )
@@ -561,7 +559,7 @@ fn next_pending_grounded_candidate(
             let document_authority_score =
                 source_document_authority_score(query_contract, trimmed, title, excerpt);
             let identifier_labels =
-                source_briefing_standard_identifier_labels(query_contract, trimmed, title, excerpt);
+                source_evidence_standard_identifier_labels(query_contract, trimmed, title, excerpt);
             let required_identifier_hits =
                 required_identifier_labels_for_surface(trimmed, title, excerpt);
             let required_identifier_label_count = identifier_labels
@@ -599,16 +597,16 @@ fn next_pending_grounded_candidate(
                 title,
                 excerpt,
             );
-            let authoritative_current_briefing_followup =
-                query_prefers_document_briefing_layout(query_contract)
+            let authoritative_current_answer_followup =
+                query_prefers_document_report_layout(query_contract)
                     && retrieval_contract
                         .map(|contract| contract.currentness_required)
                         .unwrap_or(false)
                     && document_authority_score > 0
                     && temporal_recency_score > 0
                     && (query_grounding_signal || strong_subject_overlap);
-            let briefing_support_viable = !low_priority
-                && (!document_briefing_layout
+            let evidence_support_viable = !low_priority
+                && (!document_report_layout
                     || document_authority_score > 0
                     || identifier_signal
                     || grounded_external_publication_artifact
@@ -616,7 +614,7 @@ fn next_pending_grounded_candidate(
                     || strong_subject_overlap);
             let grounded_viable = ((!enforce_grounded_compatibility || compatibility_passes)
                 && resolves_constraint)
-                || authoritative_current_briefing_followup;
+                || authoritative_current_answer_followup;
             let canonical_publication_detail = canonical_publication_detail_candidate(
                 query_contract,
                 trimmed,
@@ -632,8 +630,8 @@ fn next_pending_grounded_candidate(
                 domain_key: source_host(trimmed)
                     .map(|host| host.strip_prefix("www.").unwrap_or(&host).to_string())
                     .unwrap_or_else(|| trimmed.to_ascii_lowercase()),
-                grounded_viable: grounded_viable && briefing_support_viable,
-                briefing_support_viable,
+                grounded_viable: grounded_viable && evidence_support_viable,
+                evidence_support_viable,
                 grounded_external_publication_artifact,
                 identifier_priority_viable,
                 canonical_publication_detail,
@@ -672,8 +670,8 @@ fn next_pending_grounded_candidate(
             .cmp(&left.identifier_priority_viable)
             .then_with(|| {
                 right
-                    .briefing_support_viable
-                    .cmp(&left.briefing_support_viable)
+                    .evidence_support_viable
+                    .cmp(&left.evidence_support_viable)
             })
             .then_with(|| {
                 right
@@ -766,7 +764,7 @@ fn next_pending_grounded_candidate(
         observed_domains.len() < required_distinct_domains
             && !observed_domains.contains(&candidate.domain_key)
             && !candidate.blocked_domain_repeat
-            && candidate.briefing_support_viable
+            && candidate.evidence_support_viable
             && (candidate.grounded_external_publication_artifact
                 || candidate.document_authority_score > 0
                 || candidate.identifier_signal
@@ -785,7 +783,7 @@ fn next_pending_grounded_candidate(
     if !identifier_priority_required && source_floor_unmet {
         if let Some(candidate) = ranked_candidates.iter().find(|candidate| {
             !candidate.reuses_authority_family
-                && candidate.briefing_support_viable
+                && candidate.evidence_support_viable
                 && !candidate.canonical_publication_detail
         }) {
             return (
@@ -811,7 +809,7 @@ fn next_pending_grounded_candidate(
             PendingGroundedCandidateSelection::Applicable,
             ranked_candidates
                 .iter()
-                .find(|candidate| candidate.briefing_support_viable)
+                .find(|candidate| candidate.evidence_support_viable)
                 .or_else(|| ranked_candidates.first())
                 .map(|candidate| candidate.url.clone()),
         );
@@ -837,12 +835,121 @@ pub(crate) fn next_pending_web_candidate(pending: &PendingSearchCompletion) -> O
 
     let query_contract = synthesis_query_contract(pending);
     let retrieval_contract = pending.retrieval_contract.as_ref();
+    let required_source_cluster_floor =
+        retrieval_contract_required_source_cluster_count(retrieval_contract, &query_contract)
+            .max(1);
+    if market_quote_grounding_contract_ready_for_pending(
+        pending,
+        &query_contract,
+        query_requests_comparison(&query_contract),
+        required_source_cluster_floor,
+    ) {
+        return None;
+    }
+    let quote_floor = market_quote_grounding_floor_for_query(
+        &query_contract,
+        query_requests_comparison(&query_contract),
+        required_source_cluster_floor,
+    );
+    if query_requires_market_quote_grounding(&query_contract)
+        && market_quote_structured_metrics_required(
+            &query_contract,
+            query_requests_comparison(&query_contract),
+        )
+        && market_quote_structured_metric_source_count_for_sources(
+            &pending.successful_reads,
+            &query_contract,
+        ) < quote_floor
+    {
+        let groups = query_market_quote_entity_anchor_groups(&query_contract);
+        let mut covered_groups = BTreeSet::new();
+        for source in pending
+            .successful_reads
+            .iter()
+            .filter(|source| market_quote_source_has_structured_metric_payload(source))
+        {
+            let source_tokens = source_anchor_tokens(
+                &source.url,
+                source.title.as_deref().unwrap_or_default(),
+                &source.excerpt,
+            );
+            for (idx, group) in groups.iter().enumerate() {
+                if group.iter().any(|token| source_tokens.contains(token)) {
+                    covered_groups.insert(idx);
+                }
+            }
+        }
+
+        for candidate in pending_candidate_inventory(pending) {
+            let trimmed = candidate.trim();
+            let structured_candidate_already_seen = attempted
+                .iter()
+                .any(|existing| existing.eq_ignore_ascii_case(trimmed))
+                || pending
+                    .successful_reads
+                    .iter()
+                    .any(|source| source.url.trim().eq_ignore_ascii_case(trimmed));
+            if trimmed.is_empty()
+                || structured_candidate_already_seen
+                || is_search_hub_url(trimmed)
+                || !market_quote_structured_metric_candidate(trimmed)
+            {
+                continue;
+            }
+            if groups.len() >= 2 {
+                let source_tokens = source_anchor_tokens(trimmed, "", "");
+                let covers_missing_group = groups.iter().enumerate().any(|(idx, group)| {
+                    !covered_groups.contains(&idx)
+                        && group.iter().any(|token| source_tokens.contains(token))
+                });
+                if !covers_missing_group {
+                    continue;
+                }
+            }
+            return Some(trimmed.to_string());
+        }
+    }
+    if query_requires_market_quote_grounding(&query_contract)
+        && query_requests_comparison(&query_contract)
+        && market_quote_grounding_source_count_for_sources(
+            &pending.successful_reads,
+            &query_contract,
+        ) >= market_quote_grounding_floor_for_query(
+            &query_contract,
+            true,
+            required_source_cluster_floor,
+        )
+        && market_quote_comparison_context_source_count_for_sources(
+            &pending.successful_reads,
+            &query_contract,
+        ) == 0
+    {
+        for candidate in pending_candidate_inventory(pending) {
+            let trimmed = candidate.trim();
+            if trimmed.is_empty()
+                || attempted.contains(trimmed)
+                || pending_url_already_observed(pending, trimmed)
+                || is_search_hub_url(trimmed)
+            {
+                continue;
+            }
+            let hint = hint_for_url(pending, trimmed);
+            let probe = PendingSearchReadSummary {
+                url: trimmed.to_string(),
+                title: hint.and_then(|entry| entry.title.clone()),
+                excerpt: hint.map(|entry| entry.excerpt.clone()).unwrap_or_default(),
+            };
+            if market_quote_source_is_comparison_context_grade(&probe, &query_contract) {
+                return Some(trimmed.to_string());
+            }
+        }
+    }
     let headline_lookup_mode =
         retrieval_or_query_is_generic_headline_collection(retrieval_contract, &query_contract);
     if headline_lookup_mode {
         let observed_domains = observed_pending_domain_keys(pending);
         let preferred_distinct_domain_floor =
-            retrieval_contract_required_story_count(retrieval_contract, &query_contract)
+            retrieval_contract_required_source_cluster_count(retrieval_contract, &query_contract)
                 .max(pending.min_sources.max(1) as usize);
         if observed_domains.len() < preferred_distinct_domain_floor {
             let has_new_domain_candidate =
@@ -1053,7 +1160,7 @@ pub(crate) fn next_pending_web_candidate(pending: &PendingSearchCompletion) -> O
     if headline_lookup_mode {
         let observed_domains = observed_pending_domain_keys(pending);
         let preferred_distinct_domain_floor =
-            retrieval_contract_required_story_count(retrieval_contract, &query_contract)
+            retrieval_contract_required_source_cluster_count(retrieval_contract, &query_contract)
                 .max(pending.min_sources.max(1) as usize);
         if observed_domains.len() < preferred_distinct_domain_floor {
             let has_new_domain_candidate = candidate_inventory.iter().any(|candidate| {
@@ -1175,6 +1282,17 @@ pub(crate) fn prefer_title(existing: Option<String>, incoming: Option<String>) -
     }
 }
 
+fn market_quote_structured_metric_candidate(url: &str) -> bool {
+    let Ok(parsed) = ::url::Url::parse(url.trim()) else {
+        return false;
+    };
+    parsed
+        .host_str()
+        .map(|host| host.eq_ignore_ascii_case("api.coingecko.com"))
+        .unwrap_or(false)
+        && parsed.path() == "/api/v3/simple/price"
+}
+
 pub(crate) fn prefer_excerpt(existing: String, incoming: String) -> String {
     prefer_excerpt_for_query("", existing, incoming)
 }
@@ -1193,8 +1311,8 @@ pub(crate) fn prefer_excerpt_for_query(
         return left;
     }
 
-    let left_groups = observed_briefing_standard_identifier_groups(query_contract, &left);
-    let right_groups = observed_briefing_standard_identifier_groups(query_contract, &right);
+    let left_groups = observed_evidence_standard_identifier_groups(query_contract, &left);
+    let right_groups = observed_evidence_standard_identifier_groups(query_contract, &right);
     let left_required = left_groups.iter().filter(|group| group.required).count();
     let right_required = right_groups.iter().filter(|group| group.required).count();
     if right_required != left_required {

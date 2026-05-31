@@ -163,7 +163,7 @@ fn provider_request_query_prefers_entity_discovery_basis_for_geo_scoped_comparis
 }
 
 #[test]
-fn provider_request_query_uses_query_contract_even_when_search_query_is_already_grounded() {
+fn provider_request_query_preserves_explicit_search_query_even_when_contract_is_broader() {
     let query_contract =
         "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.";
     let retrieval_contract = crate::agentic::web::derive_web_retrieval_contract(
@@ -179,14 +179,33 @@ fn provider_request_query_uses_query_contract_even_when_search_query_is_already_
     );
     let normalized = query.to_ascii_lowercase();
     assert!(
-        normalized.contains("italian restaurants in anderson")
-            || normalized.contains("restaurants in anderson"),
-        "expected query_contract to remain the discovery basis, got: {query}"
+        normalized.contains("italian restaurants")
+            && normalized.contains("menus")
+            && normalized.contains("anderson"),
+        "expected explicit query to remain the provider basis, got: {query}"
     );
     assert!(
-        !normalized.contains("\"italian restaurants menus\""),
-        "already-grounded menu phrases must not become the provider discovery basis: {query}"
+        normalized.contains("\"italian restaurants menus\""),
+        "explicit tool query terms must not be replaced by the broader query contract: {query}"
     );
+}
+
+#[test]
+fn provider_request_query_preserves_artifact_research_topic_over_instruction_contract() {
+    let query_contract = "Research topic: post-quantum computers. Call web__search with exactly the research topic above as the query, then use web__read on relevant results.";
+    let retrieval_contract = crate::agentic::web::derive_web_retrieval_contract(
+        "post-quantum computers",
+        Some(query_contract),
+    )
+    .expect("contract should derive");
+    let query = provider_request_query(
+        "post-quantum computers",
+        Some(query_contract),
+        &retrieval_contract,
+        None,
+    );
+
+    assert_eq!(query, "post-quantum computers");
 }
 
 #[test]
@@ -217,6 +236,21 @@ fn provider_request_query_preserves_explicit_grounded_recovery_probe_query() {
         normalized.contains("-site:ibm.com"),
         "recovery host exclusion should survive provider query reconstruction: {query}"
     );
+}
+
+#[test]
+fn provider_request_query_preserves_market_quote_recovery_probe_query() {
+    let query_contract = "Which is a better investment right now, Akash or Filecoin?";
+    let retrieval_contract =
+        crate::agentic::web::derive_web_retrieval_contract(query_contract, Some(query_contract))
+            .expect("contract should derive");
+    let query = provider_request_query(
+        "akash live price quote market cap USD today",
+        Some(query_contract),
+        &retrieval_contract,
+        None,
+    );
+    assert_eq!(query, "akash live price quote market cap USD today");
 }
 
 #[test]

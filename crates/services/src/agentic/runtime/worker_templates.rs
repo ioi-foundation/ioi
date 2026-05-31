@@ -62,7 +62,7 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
-                        "Return a deterministic repo context brief with likely files, selected skills, targeted verification ideas, and explicit unknowns."
+                        "Return a model-authored repo context brief grounded in tool results, with likely files, selected skills, targeted verification ideas, and explicit unknowns."
                             .to_string(),
                     expected_output:
                         "Repo context brief with likely files, skill cues, targeted checks, and open questions."
@@ -98,7 +98,7 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
-                        "Return a deterministic artifact context brief with artifact_goal, likely_output_files, selected_skills, verification_plan, and open questions."
+                        "Return an evidence-backed artifact context brief with artifact_goal, likely_output_files, selected_skills, verification_plan, and open questions."
                             .to_string(),
                     expected_output:
                         "Artifact context brief using markdown bullets for artifact_goal, likely_output_files, selected_skills, verification_plan, and notes."
@@ -131,7 +131,7 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
             ],
             completion_contract: WorkerCompletionContract {
                 success_criteria:
-                    "Return a compact evidence-backed summary with cited sources or a deterministic explanation of what blocked the research pass."
+                    "Return a compact evidence-backed summary with cited sources or a clear explanation of what blocked the research pass."
                         .to_string(),
                 expected_output:
                     "Markdown research brief with findings, citations, and open questions."
@@ -192,7 +192,7 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
             ],
             completion_contract: WorkerCompletionContract {
                 success_criteria:
-                    "Return a deterministic UI-state brief with the observed surface, likely target, approval risk, and next safe action."
+                    "Return an evidence-backed UI-state brief with the observed surface, likely target, approval risk, and next safe action."
                         .to_string(),
                 expected_output:
                     "UI-state brief using markdown bullets for surface_status, ui_state, target, approval_risk, next_action, and notes."
@@ -221,7 +221,7 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
-                        "Return a deterministic UI-state brief with the observed surface, likely target, approval risk, and next safe action."
+                        "Return an evidence-backed UI-state brief with the observed surface, likely target, approval risk, and next safe action."
                             .to_string(),
                     expected_output:
                         "UI-state brief using markdown bullets for surface_status, ui_state, target, approval_risk, next_action, and notes."
@@ -239,7 +239,7 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
             label: "Verification Worker".to_string(),
             role: "Verification Worker".to_string(),
             summary:
-                "Bounded child worker for checking success_conditions, validating outputs, and reporting deterministic gaps."
+                "Bounded child worker for checking success_conditions, validating outputs, and reporting evidence-backed gaps."
                     .to_string(),
             default_budget: 80,
             max_retries: 1,
@@ -285,7 +285,7 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
-                        "Return a deterministic verification audit with an explicit verdict, supporting evidence, and clearly named gaps or blockers."
+                        "Return an evidence-backed verification audit with an explicit verdict, supporting evidence, and clearly named gaps or blockers."
                             .to_string(),
                     expected_output:
                         "Verification audit with verdict, evidence, postcondition status, and unresolved risks."
@@ -320,7 +320,7 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
-                        "Return a deterministic citation-verifier scorecard from the inherited cited brief, with verdict, freshness status, quote-grounding status, and clearly named evidence gaps or blockers."
+                        "Return an evidence-backed citation-verifier scorecard from the inherited cited brief, with verdict, freshness status, quote-grounding status, and clearly named evidence gaps or blockers."
                             .to_string(),
                     expected_output:
                         "Citation verifier scorecard using markdown bullets for verdict, freshness_status, quote_grounding_status, notes, and supporting evidence."
@@ -353,7 +353,7 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
-                        "Return a deterministic artifact validation scorecard with verdict, fidelity status, presentation status, repair status, and clearly named blockers."
+                        "Return an evidence-backed artifact validation scorecard with verdict, fidelity status, presentation status, repair status, and clearly named blockers."
                             .to_string(),
                     expected_output:
                         "Artifact quality scorecard using markdown bullets for verdict, fidelity_status, presentation_status, repair_status, notes, and next_repair_step."
@@ -386,7 +386,7 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
-                        "Return a deterministic computer-use verifier scorecard with verdict, postcondition state, approval state, recovery state, and clearly named blockers."
+                        "Return an evidence-backed computer-use verifier scorecard with verdict, postcondition state, approval state, recovery state, and clearly named blockers."
                             .to_string(),
                     expected_output:
                         "Computer-use verifier scorecard using markdown bullets for verdict, postcondition_status, approval_state, recovery_status, notes, and supporting evidence."
@@ -423,7 +423,7 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
-                        "Return a deterministic coding verifier scorecard with verdict, targeted command coverage, widening status, regression status, and clearly named blockers."
+                        "Return an evidence-backed coding verifier scorecard with verdict, targeted command coverage, widening status, regression status, and clearly named blockers."
                             .to_string(),
                     expected_output:
                         "Coding verifier scorecard using markdown bullets for verdict, targeted_command_status, widening_status, regression_status, notes, and supporting command evidence."
@@ -441,7 +441,7 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
             label: "Coding Worker".to_string(),
             role: "Coding Worker".to_string(),
             summary:
-                "Bounded child worker for narrow implementation slices and deterministic handoff back to the parent."
+                "Bounded child worker for narrow implementation slices and evidence-backed handoff back to the parent."
                     .to_string(),
             default_budget: 160,
             max_retries: 1,
@@ -492,7 +492,7 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
-                        "Return a deterministic implementation handoff that names the patch, the focused verification commands that ran, their outcomes, and any residual blockers or risks."
+                        "Return an evidence-backed implementation handoff that names the patch, the focused verification commands that ran, their outcomes, and any residual blockers or risks."
                             .to_string(),
                     expected_output:
                         "Patch/build/test handoff with touched files, command results, and residual risk."
@@ -559,7 +559,7 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
-                        "Return a deterministic patch synthesis summary with status, touched files, verification readiness, and residual risk."
+                        "Return an evidence-backed patch synthesis summary with status, touched files, verification readiness, and residual risk."
                             .to_string(),
                     expected_output:
                         "Patch synthesis summary using markdown bullets for status, touched_files, verification_ready, notes, and residual risk."
@@ -656,7 +656,7 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
-                        "Return a deterministic final browser-session report with executed steps, observed state, goal status, approval state, and blocker summary."
+                        "Return an evidence-backed final browser-session report with executed steps, observed state, goal status, approval state, and blocker summary."
                             .to_string(),
                     expected_output:
                         "Browser specialist report using markdown bullets for executed_steps, observed_state, goal_status, blocker_summary, approval_state, and notes."
@@ -729,7 +729,7 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
-                        "Return a deterministic browser execution handoff with the observed postcondition, approval state, recovery status, and the next safe recovery step when blocked."
+                        "Return an evidence-backed browser execution handoff with the observed postcondition, approval state, recovery status, and the next safe recovery step when blocked."
                             .to_string(),
                     expected_output:
                         "Browser execution handoff using markdown bullets for executed_steps, observed_postcondition, approval_state, recovery_status, next_recovery_step, blocker_summary, and notes."
@@ -800,7 +800,7 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
-                        "Return a deterministic artifact handoff with produced files, retained verification signals, presentation status, repair status, and any unresolved design or rendering blockers."
+                        "Return an evidence-backed artifact handoff with produced files, retained verification signals, presentation status, repair status, and any unresolved design or rendering blockers."
                             .to_string(),
                     expected_output:
                         "Artifact handoff using markdown bullets for produced_files, verification_signals, presentation_status, repair_status, and notes."

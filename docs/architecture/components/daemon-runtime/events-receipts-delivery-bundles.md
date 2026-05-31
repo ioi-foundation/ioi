@@ -431,7 +431,7 @@ them.
 Agentgres owns the delivery state: whether the delivery happened, what state
 changed, which receipts are required, which artifacts exist, which
 quality/contribution ledgers update, and which projections/subscriptions should
-advance. Filecoin/CAS owns the heavy immutable payloads: artifact bytes,
+advance. Storage backends hold the heavy immutable payloads: artifact bytes,
 receipt/evidence bundles, trace bundles, screenshots/videos, reports, and
 archival checkpoint files.
 

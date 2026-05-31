@@ -56,7 +56,7 @@ This document defines the non-negotiable authority, security, privacy, and execu
 
 1. Agentgres is per-domain and does not run on IOI L1.
 2. IOI L1 stores commitments and economic state, not operational traces.
-3. Filecoin/CAS stores payloads, not Agentgres state authority.
+3. Storage backends such as Filecoin/CAS store payload bytes, not Agentgres state authority.
 4. Local speculative state must be labeled speculative.
 5. Projection state must expose freshness and source watermark.
 6. Receipts are bundled; only sparse roots may reach IOI L1.

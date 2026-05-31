@@ -136,7 +136,7 @@ pub async fn handle_start(
         target,
         resolved_intent: None,
         awaiting_intent_clarification: false,
-        working_directory: ".".to_string(),
+        working_directory: initial_working_directory(service),
         active_lens: None,
         pending_search_completion: None,
         planner_state: None,
@@ -181,4 +181,31 @@ pub async fn handle_start(
     state.insert(&history_key, &codec::to_bytes_canonical(&history)?)?;
 
     Ok(())
+}
+
+fn initial_working_directory(service: &RuntimeAgentService) -> String {
+    initial_working_directory_path(&service.workspace_path)
+}
+
+fn initial_working_directory_path(workspace_path: &str) -> String {
+    let trimmed = workspace_path.trim();
+    if trimmed.is_empty() {
+        ".".to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::initial_working_directory_path;
+
+    #[test]
+    fn start_agent_initial_working_directory_uses_service_workspace_path() {
+        assert_eq!(
+            initial_working_directory_path("/tmp/autopilot-user-workspace"),
+            "/tmp/autopilot-user-workspace"
+        );
+        assert_eq!(initial_working_directory_path("   "), ".");
+    }
 }

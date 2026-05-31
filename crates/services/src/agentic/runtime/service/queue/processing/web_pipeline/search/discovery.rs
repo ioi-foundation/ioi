@@ -63,26 +63,26 @@ fn structural_seed_expansion_from_html(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct BriefingAuthoritySeedAdmission {
+struct EvidenceAuthoritySeedAdmission {
     query_grounded: bool,
     identifier_bearing: bool,
     document_authority: bool,
 }
 
-impl BriefingAuthoritySeedAdmission {
+impl EvidenceAuthoritySeedAdmission {
     fn admitted(self) -> bool {
         self.query_grounded || self.identifier_bearing || self.document_authority
     }
 }
 
-fn briefing_authority_seed_admission(
+fn evidence_authority_seed_admission(
     retrieval_contract: &ioi_types::app::agentic::WebRetrievalContract,
     query_contract: &str,
     min_sources: usize,
     url: &str,
     title: &str,
     excerpt: &str,
-) -> BriefingAuthoritySeedAdmission {
+) -> EvidenceAuthoritySeedAdmission {
     let query_grounded = crate::agentic::runtime::service::queue::support::excerpt_has_query_grounding_signal_with_contract(
         Some(retrieval_contract),
         query_contract,
@@ -91,7 +91,7 @@ fn briefing_authority_seed_admission(
         title,
         excerpt,
     );
-    let identifier_bearing = crate::agentic::runtime::service::queue::support::source_has_briefing_standard_identifier_signal(
+    let identifier_bearing = crate::agentic::runtime::service::queue::support::source_has_evidence_standard_identifier_signal(
         query_contract,
         url,
         title,
@@ -105,21 +105,21 @@ fn briefing_authority_seed_admission(
             excerpt,
         );
 
-    BriefingAuthoritySeedAdmission {
+    EvidenceAuthoritySeedAdmission {
         query_grounded,
         identifier_bearing,
         document_authority,
     }
 }
 
-fn briefing_authority_link_expansion_required(
+fn evidence_authority_link_expansion_required(
     retrieval_contract: &ioi_types::app::agentic::WebRetrievalContract,
     query_contract: &str,
     discovery_sources: &[WebSource],
     required_url_count: usize,
 ) -> bool {
     let required_url_count = required_url_count.max(1);
-    let authority_expansion_applicable = query_prefers_document_briefing_layout(query_contract)
+    let authority_expansion_applicable = query_prefers_document_report_layout(query_contract)
         && !query_requests_comparison(query_contract)
         && crate::agentic::runtime::service::decision_loop::signals::analyze_query_facets(query_contract)
             .grounded_external_required
@@ -137,7 +137,7 @@ fn briefing_authority_link_expansion_required(
         .iter()
         .map(|source| source.url.clone())
         .collect::<Vec<_>>();
-    let deterministic_plan = pre_read_candidate_plan_with_contract(
+    let candidate_recovery_plan = pre_read_candidate_plan_with_contract(
         Some(retrieval_contract),
         query_contract,
         required_url_count as u32,
@@ -146,7 +146,7 @@ fn briefing_authority_link_expansion_required(
         None,
         false,
     );
-    let selected_urls = pre_read_batch_urls(&deterministic_plan.candidate_urls, required_url_count);
+    let selected_urls = pre_read_batch_urls(&candidate_recovery_plan.candidate_urls, required_url_count);
     if selected_urls.len() < required_url_count {
         return true;
     }
@@ -157,13 +157,13 @@ fn briefing_authority_link_expansion_required(
             query_contract,
             required_url_count as u32,
             &selected_urls,
-            &deterministic_plan.candidate_source_hints,
+            &candidate_recovery_plan.candidate_source_hints,
             None,
         );
     !selection_quality.quality_floor_met
 }
 
-fn briefing_authority_link_out_sources_from_html(
+fn evidence_authority_link_out_sources_from_html(
     retrieval_contract: &ioi_types::app::agentic::WebRetrievalContract,
     query_contract: &str,
     seed_url: &str,
@@ -403,7 +403,7 @@ fn briefing_authority_link_out_sources_from_html(
             // marketing/opinion rhetoric so independent support candidates stay admissible later.
             format!("{} | linked from {}", title, external_page_context)
         };
-        let admission = briefing_authority_seed_admission(
+        let admission = evidence_authority_seed_admission(
             retrieval_contract,
             query_contract,
             min_sources,
@@ -451,7 +451,7 @@ fn briefing_authority_link_out_sources_from_html(
                 external_grounding_surface,
             );
         let external_link_locally_identifier_bearing = !same_host
-            && crate::agentic::runtime::service::queue::support::source_has_briefing_standard_identifier_signal(
+            && crate::agentic::runtime::service::queue::support::source_has_evidence_standard_identifier_signal(
                 query_contract,
                 &final_url,
                 title,
@@ -616,21 +616,21 @@ fn briefing_authority_link_out_sources_from_html(
         .collect()
 }
 
-async fn expand_briefing_authority_link_out_sources(
+async fn expand_evidence_authority_link_out_sources(
     retrieval_contract: &ioi_types::app::agentic::WebRetrievalContract,
     query_contract: &str,
     discovery_sources: Vec<WebSource>,
     required_url_count: usize,
     verification_checks: &mut Vec<String>,
 ) -> Result<Vec<WebSource>, String> {
-    let authority_expansion_applicable = briefing_authority_link_expansion_required(
+    let authority_expansion_applicable = evidence_authority_link_expansion_required(
         retrieval_contract,
         query_contract,
         &discovery_sources,
         required_url_count,
     );
     verification_checks.push(format!(
-        "web_briefing_authority_link_expansion_attempted={}",
+        "web_evidence_authority_link_expansion_attempted={}",
         authority_expansion_applicable
     ));
     if !authority_expansion_applicable {
@@ -674,7 +674,7 @@ async fn expand_briefing_authority_link_out_sources(
         candidate_seed_urls.push(source_url.to_string());
         let source_title = source.title.as_deref().unwrap_or_default();
         let source_excerpt = source.snippet.as_deref().unwrap_or_default();
-        let seed_admission = briefing_authority_seed_admission(
+        let seed_admission = evidence_authority_seed_admission(
             retrieval_contract,
             query_contract,
             required_url_count,
@@ -708,7 +708,7 @@ async fn expand_briefing_authority_link_out_sources(
             continue;
         }
         fetched_seed_urls.push(source_url.to_string());
-        let expanded_sources = briefing_authority_link_out_sources_from_html(
+        let expanded_sources = evidence_authority_link_out_sources_from_html(
             retrieval_contract,
             query_contract,
             source_url,
@@ -733,104 +733,104 @@ async fn expand_briefing_authority_link_out_sources(
     }
 
     verification_checks.push(format!(
-        "web_briefing_authority_link_expansion_candidate_seed_count={}",
+        "web_evidence_authority_link_expansion_candidate_seed_count={}",
         candidate_seed_urls.len()
     ));
     verification_checks.push(format!(
-        "web_briefing_authority_link_expansion_admitted_seed_count={}",
+        "web_evidence_authority_link_expansion_admitted_seed_count={}",
         admitted_seed_urls.len()
     ));
     verification_checks.push(format!(
-        "web_briefing_authority_link_expansion_query_grounded_seed_count={}",
+        "web_evidence_authority_link_expansion_query_grounded_seed_count={}",
         query_grounded_seed_urls.len()
     ));
     verification_checks.push(format!(
-        "web_briefing_authority_link_expansion_identifier_seed_count={}",
+        "web_evidence_authority_link_expansion_identifier_seed_count={}",
         identifier_seed_urls.len()
     ));
     verification_checks.push(format!(
-        "web_briefing_authority_link_expansion_authority_seed_count={}",
+        "web_evidence_authority_link_expansion_authority_seed_count={}",
         authority_seed_urls.len()
     ));
     verification_checks.push(format!(
-        "web_briefing_authority_link_expansion_skipped_seed_count={}",
+        "web_evidence_authority_link_expansion_skipped_seed_count={}",
         skipped_seed_urls.len()
     ));
     verification_checks.push(format!(
-        "web_briefing_authority_link_expansion_fetched_seed_count={}",
+        "web_evidence_authority_link_expansion_fetched_seed_count={}",
         fetched_seed_urls.len()
     ));
     verification_checks.push(format!(
-        "web_briefing_authority_link_expansion_fetch_error_seed_count={}",
+        "web_evidence_authority_link_expansion_fetch_error_seed_count={}",
         fetch_error_seed_urls.len()
     ));
     verification_checks.push(format!(
-        "web_briefing_authority_link_expansion_challenge_seed_count={}",
+        "web_evidence_authority_link_expansion_challenge_seed_count={}",
         challenge_seed_urls.len()
     ));
     verification_checks.push(format!(
-        "web_briefing_authority_link_expansion_zero_candidate_seed_count={}",
+        "web_evidence_authority_link_expansion_zero_candidate_seed_count={}",
         zero_candidate_seed_urls.len()
     ));
     verification_checks.push(format!(
-        "web_briefing_authority_link_expansion_seed_count={}",
+        "web_evidence_authority_link_expansion_seed_count={}",
         expanded_seed_urls.len()
     ));
     verification_checks.push(format!(
-        "web_briefing_authority_link_expansion_source_count={}",
+        "web_evidence_authority_link_expansion_source_count={}",
         expanded_urls.len()
     ));
     if !expanded_seed_urls.is_empty() {
         verification_checks.push(format!(
-            "web_briefing_authority_link_expansion_seed_url_values={}",
+            "web_evidence_authority_link_expansion_seed_url_values={}",
             expanded_seed_urls.join(" | ")
         ));
     }
     if !admitted_seed_urls.is_empty() {
         verification_checks.push(format!(
-            "web_briefing_authority_link_expansion_admitted_seed_url_values={}",
+            "web_evidence_authority_link_expansion_admitted_seed_url_values={}",
             admitted_seed_urls.join(" | ")
         ));
     }
     if !query_grounded_seed_urls.is_empty() {
         verification_checks.push(format!(
-            "web_briefing_authority_link_expansion_query_grounded_seed_url_values={}",
+            "web_evidence_authority_link_expansion_query_grounded_seed_url_values={}",
             query_grounded_seed_urls.join(" | ")
         ));
     }
     if !authority_seed_urls.is_empty() {
         verification_checks.push(format!(
-            "web_briefing_authority_link_expansion_authority_seed_url_values={}",
+            "web_evidence_authority_link_expansion_authority_seed_url_values={}",
             authority_seed_urls.join(" | ")
         ));
     }
     if !skipped_seed_urls.is_empty() {
         verification_checks.push(format!(
-            "web_briefing_authority_link_expansion_skipped_seed_url_values={}",
+            "web_evidence_authority_link_expansion_skipped_seed_url_values={}",
             skipped_seed_urls.join(" | ")
         ));
     }
     if !fetch_error_seed_urls.is_empty() {
         verification_checks.push(format!(
-            "web_briefing_authority_link_expansion_fetch_error_seed_url_values={}",
+            "web_evidence_authority_link_expansion_fetch_error_seed_url_values={}",
             fetch_error_seed_urls.join(" | ")
         ));
     }
     if !challenge_seed_urls.is_empty() {
         verification_checks.push(format!(
-            "web_briefing_authority_link_expansion_challenge_seed_url_values={}",
+            "web_evidence_authority_link_expansion_challenge_seed_url_values={}",
             challenge_seed_urls.join(" | ")
         ));
     }
     if !zero_candidate_seed_urls.is_empty() {
         verification_checks.push(format!(
-            "web_briefing_authority_link_expansion_zero_candidate_seed_url_values={}",
+            "web_evidence_authority_link_expansion_zero_candidate_seed_url_values={}",
             zero_candidate_seed_urls.join(" | ")
         ));
     }
     if !expanded_urls.is_empty() {
         verification_checks.push(format!(
-            "web_briefing_authority_link_expansion_url_values={}",
+            "web_evidence_authority_link_expansion_url_values={}",
             expanded_urls.join(" | ")
         ));
     }
@@ -838,7 +838,7 @@ async fn expand_briefing_authority_link_out_sources(
     Ok(merged_sources)
 }
 
-fn deterministic_local_business_expansion_alignment_urls(
+fn candidate_recovery_local_business_expansion_alignment_urls(
     query_contract: &str,
     locality_hint: Option<&str>,
     expanded_sources: &[WebSource],
@@ -1059,23 +1059,23 @@ async fn expand_geo_scoped_discovery_seed_sources(
         &expanded_sources,
     )
     .await?;
-    let deterministic_expanded_urls = deterministic_local_business_expansion_alignment_urls(
+    let candidate_recovery_expanded_urls = candidate_recovery_local_business_expansion_alignment_urls(
         query_contract,
         locality_hint.as_deref(),
         &expanded_sources,
         expansion_limit,
     );
     verification_checks.push(format!(
-        "web_geo_scoped_seed_expansion_alignment_deterministic_count={}",
-        deterministic_expanded_urls.len()
+        "web_geo_scoped_seed_expansion_alignment_candidate_recovery_count={}",
+        candidate_recovery_expanded_urls.len()
     ));
-    if !deterministic_expanded_urls.is_empty() {
+    if !candidate_recovery_expanded_urls.is_empty() {
         verification_checks.push(format!(
-            "web_geo_scoped_seed_expansion_alignment_deterministic_url_values={}",
-            deterministic_expanded_urls.join(" | ")
+            "web_geo_scoped_seed_expansion_alignment_candidate_recovery_url_values={}",
+            candidate_recovery_expanded_urls.join(" | ")
         ));
     }
-    for url in deterministic_expanded_urls {
+    for url in candidate_recovery_expanded_urls {
         if url_in_alignment_set(&url, &aligned_expanded_urls) {
             continue;
         }

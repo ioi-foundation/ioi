@@ -272,6 +272,15 @@ impl ChatIntentContext {
     }
 
     fn explicit_shell_command_request(&self) -> bool {
+        if self.contains_any_term(&["run", "execute", "start", "launch"])
+            && self
+                .shell_command_literal()
+                .as_deref()
+                .is_some_and(shell_command_literal_looks_executable)
+        {
+            return true;
+        }
+
         if self.contains_any_phrase(&[
             "in a terminal",
             "in the terminal",
@@ -1512,4 +1521,58 @@ fn title_case_phrase(value: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+fn shell_command_literal_looks_executable(command: &str) -> bool {
+    let trimmed = command.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    let Some(first_token) = trimmed.split_whitespace().next() else {
+        return false;
+    };
+    let first_token = first_token.trim_matches(|ch| matches!(ch, '"' | '\''));
+    let has_arguments = trimmed.split_whitespace().nth(1).is_some();
+    let has_shell_operator = ["&&", "||", ";", "|", ">", "<"]
+        .iter()
+        .any(|operator| trimmed.contains(operator));
+    has_arguments
+        || has_shell_operator
+        || first_token.starts_with("./")
+        || first_token.starts_with("/")
+        || first_token.starts_with("~/")
+        || first_token.contains('/')
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn inline_run_command_literal_maps_to_shell_runtime_action() {
+        let context = ChatIntentContext::new(
+            "Run `node --check scripts/lib/autopilot-agent-studio-chat-scenarios.mjs` and summarize the exit code.",
+        );
+
+        let intent = context
+            .local_runtime_action_intent()
+            .expect("inline executable command should route to shell");
+        assert_eq!(intent.action_family, "shell");
+        assert_eq!(intent.target_kind, "shell_command");
+        assert_eq!(
+            intent.target_command.as_deref(),
+            Some("node --check scripts/lib/autopilot-agent-studio-chat-scenarios.mjs")
+        );
+    }
+
+    #[test]
+    fn inline_code_symbol_without_command_shape_stays_conversational() {
+        let context =
+            ChatIntentContext::new("Explain how `formatOrderTotal` is used in this repo.");
+        assert!(context.local_runtime_action_intent().is_none());
+
+        let context =
+            ChatIntentContext::new("Run `formatOrderTotal` through the architecture summary.");
+        assert!(context.local_runtime_action_intent().is_none());
+    }
 }

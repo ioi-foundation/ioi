@@ -4,7 +4,7 @@ Status: taxonomy reference; Agentgres state doctrine remains owned by [`agentgre
 Context owner: this file for the generic Canonical State and Projection System category above Agentgres/FQF-style state systems.
 Supersedes: `docs/specs/formal/canonical-state-and-projection-system-whitepaper.md`.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-30.
 
 **Status:** Working taxonomy  
 **Scope:** Category definition, not product spec  
@@ -230,18 +230,23 @@ Within IOI, this taxonomy should be applied as follows:
 
 - `CSPS` = the category
 - `FQF` = IOI’s architecture/spec for a `CSPS`
-- `SCS` = adjacent context plane, not the `CSPS` itself
+- Agent Wiki / `ioi-memory` = adjacent context-memory plane, not the `CSPS` itself
 - `wallet.network` = authority and capability-control plane that constrains access to `CSPS` surfaces
 
 For IOI specifically:
 
 - canonical chain/object state provides the deepest truth layer
 - `FQF` is the proposed canonical state and projection fabric over that truth
-- `SCS` remains separate because context memory and general application state are not the same problem
+- Agent Wiki / `ioi-memory` remains separate because context memory and general
+  application state are not the same problem
+
+`SCS` is legacy terminology for a broad context substrate. ADR 0001 removed it
+as the product-memory architecture, so new architecture prose should use Agent
+Wiki, `ioi-memory`, or context-memory plane instead.
 
 This separation is important:
 
-> `SCS` governs what an agent can know.  
+> Agent Wiki / `ioi-memory` governs what an agent can know.
 > `CSPS` governs what the system can store, derive, query, and serve as canonical application truth.
 
 ## 10. Local-First and Distributed Serving
@@ -282,7 +287,7 @@ Recommended naming stack:
 - **taxonomy:** `Canonical State and Projection System` (`CSPS`)
 - **architecture/spec:** `Fractal Query Fabric` (`FQF`)
 - **implementation/crate:** `fqf`
-- **context plane:** `SCS`
+- **context plane:** Agent Wiki / `ioi-memory`
 - **compatibility layer:** optional SQL or Postgres-facing bridge if desired
 
 That separation matters because it allows the category to remain stable even if one implementation changes names later.

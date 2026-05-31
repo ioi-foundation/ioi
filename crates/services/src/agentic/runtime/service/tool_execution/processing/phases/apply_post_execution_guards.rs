@@ -1,4 +1,5 @@
 use super::*;
+use crate::agentic::runtime::service::queue::web_pipeline::WebPipelineCompletionReason;
 use crate::agentic::runtime::service::visual_loop::browser_completion::browser_snapshot_completion;
 
 const BROWSER_SNAPSHOT_CONTENT_HASH_RECEIPT: &str = "browser_snapshot_content_hash";
@@ -16,6 +17,37 @@ fn blocked_web_read_note(read_url: &str, challenged: bool) -> String {
         "Source read failed in fixed payload (no fallback retries): {}",
         read_url
     )
+}
+
+fn web_pipeline_completion_reason_label(reason: WebPipelineCompletionReason) -> &'static str {
+    match reason {
+        WebPipelineCompletionReason::MinSourcesReached => "min_sources_reached",
+        WebPipelineCompletionReason::ExhaustedCandidates => "exhausted_candidates",
+        WebPipelineCompletionReason::DeadlineReached => "deadline_reached",
+    }
+}
+
+fn preserve_tool_history_or_fill_ready_note(
+    history_entry: &mut Option<String>,
+    action_output: &mut Option<String>,
+) {
+    const READY_NOTE: &str = "Web evidence is ready for a model-authored final answer.";
+    if history_entry
+        .as_deref()
+        .unwrap_or_default()
+        .trim()
+        .is_empty()
+    {
+        *history_entry = Some(READY_NOTE.to_string());
+    }
+    if action_output
+        .as_deref()
+        .unwrap_or_default()
+        .trim()
+        .is_empty()
+    {
+        *action_output = history_entry.clone();
+    }
 }
 
 fn normalize_blocked_web_read_for_continuation(
@@ -139,7 +171,7 @@ pub(crate) async fn apply_post_execution_guards(
         agent_state,
         session_id,
         block_height,
-        block_timestamp_ns,
+        block_timestamp_ns: _block_timestamp_ns,
         tool_call_result,
         final_visual_phash,
     } = ctx;
@@ -337,30 +369,32 @@ pub(crate) async fn apply_post_execution_guards(
         && !awaiting_sudo_password
         && !awaiting_clarification
     {
-        let summary = if invalid_tool_call_fail_fast_mailbox {
-            format!(
-                "Mailbox connector action executed, but response synthesis failed due schema validation. Please retry the request. Run timestamp (UTC ms): {}.",
-                block_timestamp_ns / 1_000_000
+        let feedback = if invalid_tool_call_fail_fast_mailbox {
+            concat!(
+                "Tool result: mailbox connector action returned an invalid tool payload. ",
+                "Return this typed failure to the model loop so it can retry the connector action ",
+                "or produce a model-authored blocker."
             )
+            .to_string()
         } else {
-            "Invalid tool call generated during web research. Stopping early to avoid recovery churn."
+            "Tool result: invalid tool call generated during web research; return this typed failure to the model loop for retry, narrowing, or a model-authored blocker."
                 .to_string()
         };
         success = true;
         error_msg = None;
-        stop_condition_hit = true;
-        escalation_path = Some("invalid_tool_call_fail_fast".to_string());
-        is_lifecycle_action = true;
-        action_output = Some(summary.clone());
+        stop_condition_hit = false;
+        escalation_path = None;
+        is_lifecycle_action = false;
+        history_entry = Some(feedback.clone());
+        action_output = Some(feedback);
         if invalid_tool_call_fail_fast_mailbox {
-            terminal_chat_reply_output = Some(summary.clone());
-            verification_checks.push("mailbox_invalid_tool_call_fail_fast=true".to_string());
-            verification_checks.push("terminal_chat_reply_ready=true".to_string());
+            terminal_chat_reply_output = None;
+            verification_checks
+                .push("mailbox_invalid_tool_call_returned_to_model_loop=true".to_string());
+            verification_checks.push("terminal_chat_reply_ready=false".to_string());
         }
-        agent_state.status = AgentStatus::Completed(Some(summary));
-        agent_state.execution_queue.clear();
-        agent_state.pending_search_completion = None;
-        verification_checks.push("invalid_tool_call_fail_fast=true".to_string());
+        agent_state.status = AgentStatus::Running;
+        verification_checks.push("invalid_tool_call_returned_to_model_loop=true".to_string());
     }
 
     if invalid_tool_call_bootstrap_web
@@ -376,7 +410,7 @@ pub(crate) async fn apply_post_execution_guards(
         escalation_path = None;
         is_lifecycle_action = true;
         let note = if queued {
-            "Model returned empty tool output; bootstrapped deterministic web__search.".to_string()
+            "Model returned empty tool output; queued typed web__search.".to_string()
         } else {
             "Model returned empty tool output; web__search bootstrap already queued.".to_string()
         };
@@ -470,105 +504,40 @@ pub(crate) async fn apply_post_execution_guards(
             verification_checks.push(format!("web_constraint_search_probe_queued={}", false));
 
             if let Some(reason) = completion_reason {
-                let mut summary_candidates = Vec::new();
-                if let Some(hybrid_summary) =
-                    synthesize_web_pipeline_reply_hybrid(service, &pending, reason).await
-                {
-                    summary_candidates.push(
-                        crate::agentic::runtime::service::queue::web_pipeline::FinalWebSummaryCandidate {
-                            provider: "hybrid",
-                            summary: hybrid_summary,
-                        },
-                    );
-                }
-                summary_candidates.push(
-                    crate::agentic::runtime::service::queue::web_pipeline::FinalWebSummaryCandidate {
-                        provider: "deterministic",
-                        summary: synthesize_web_pipeline_reply(&pending, reason),
-                    },
-                );
-                let selection =
-                    crate::agentic::runtime::service::queue::web_pipeline::select_final_web_summary_from_candidates(
-                        &pending,
-                        reason,
-                        summary_candidates,
-                    )
-                    .expect("web summary selection requires at least one candidate");
-                verification_checks
-                    .push(format!("web_final_summary_provider={}", selection.provider));
-                verification_checks.push(format!(
-                    "web_final_summary_contract_ready={}",
-                    selection.contract_ready
-                ));
-                for evaluation in &selection.evaluations {
-                    verification_checks.push(format!(
-                        "web_final_summary_candidate={}::contract_ready={}::rendered_layout={}::document_layout_met={}",
-                        evaluation.provider,
-                        evaluation.contract_ready,
-                        evaluation.facts.briefing_rendered_layout_profile,
-                        evaluation.facts.briefing_document_layout_met
-                    ));
-                }
-                let summary = selection.summary;
-                let final_facts =
-                    final_web_completion_facts_with_rendered_summary(&pending, reason, &summary);
                 let intent_id = resolved_intent_id(agent_state);
-                crate::agentic::runtime::service::queue::emit_final_web_completion_contract_receipts(
+                emit_completion_gate_status_event(
                     service,
                     session_id,
                     agent_state.step_count,
                     intent_id.as_str(),
-                    &final_facts,
+                    true,
+                    "web_pipeline_evidence_ready_for_model_answer",
                 );
-                append_final_web_completion_receipts_with_rendered_summary(
-                    &pending,
-                    reason,
-                    &summary,
-                    &mut verification_checks,
-                );
-                if !crate::agentic::runtime::service::queue::web_pipeline::final_web_completion_contract_ready(&final_facts) {
-                    agent_state.pending_search_completion = Some(pending);
-                    verification_checks.push("execution_contract_gate_blocked=true".to_string());
-                    verification_checks.push(
-                        "execution_contract_missing_keys=evidence::final_output_contract_ready=true"
-                            .to_string(),
+                verification_checks.push("cec_completion_gate_emitted=true".to_string());
+                verification_checks.push(format!(
+                    "web_pipeline_model_answer_ready_reason={}",
+                    web_pipeline_completion_reason_label(reason)
+                ));
+                verification_checks
+                    .push("web_pipeline_waiting_for_model_authored_answer=true".to_string());
+                verification_checks.push("web_pipeline_active=true".to_string());
+                verification_checks.push("terminal_chat_reply_ready=false".to_string());
+                let drained =
+                    crate::agentic::runtime::service::queue::drain_queued_web_retrieve_actions(
+                        agent_state,
                     );
-                    verification_checks.push(
-                        "web_pipeline_terminalization_blocked_on_rendered_output=true"
-                            .to_string(),
-                    );
-                    verification_checks.push("web_pipeline_active=true".to_string());
-                    verification_checks.push("terminal_chat_reply_ready=false".to_string());
-                    let blocked_by_challenge =
-                        is_human_challenge_error(error_msg.as_deref().unwrap_or(""));
-                    normalize_blocked_web_read_for_continuation(
-                        &mut success,
-                        &mut error_msg,
-                        &mut history_entry,
-                        &mut action_output,
-                        &mut stop_condition_hit,
-                        &mut escalation_path,
-                        &mut verification_checks,
-                        &read_url,
-                        blocked_by_challenge,
-                    );
-                    if success {
-                        agent_state.status = AgentStatus::Running;
-                    }
-                } else {
-                    success = true;
-                    error_msg = None;
-                    action_output = Some(summary.clone());
-                    history_entry = Some(summary.clone());
-                    terminal_chat_reply_output = Some(summary.clone());
-                    is_lifecycle_action = true;
-                    agent_state.status = AgentStatus::Completed(Some(summary));
-                    agent_state.pending_search_completion = None;
-                    agent_state.execution_queue.clear();
-                    agent_state.recent_actions.clear();
-                    verification_checks.push("web_pipeline_active=false".to_string());
-                    verification_checks.push("terminal_chat_reply_ready=true".to_string());
-                }
+                verification_checks.push(format!(
+                    "web_pipeline_queued_retrievals_drained_for_model_answer={}",
+                    drained
+                ));
+                success = true;
+                error_msg = None;
+                preserve_tool_history_or_fill_ready_note(&mut history_entry, &mut action_output);
+                stop_condition_hit = false;
+                terminal_chat_reply_output = None;
+                is_lifecycle_action = false;
+                agent_state.status = AgentStatus::Running;
+                agent_state.pending_search_completion = Some(pending);
             } else {
                 let challenge = is_human_challenge_error(error_msg.as_deref().unwrap_or(""));
                 agent_state.pending_search_completion = Some(pending);

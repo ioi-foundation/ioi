@@ -124,6 +124,38 @@ fn ensure_safe_regular_file_read(path: &Path, operation: &str) -> Result<(), Str
     Ok(())
 }
 
+fn ensure_read_within_workspace(
+    path: &Path,
+    cwd: Option<&str>,
+    operation: &str,
+) -> Result<(), String> {
+    let Some(cwd) = cwd else {
+        return Ok(());
+    };
+    let workspace_root = Path::new(cwd).canonicalize().map_err(|error| {
+        format!(
+            "Failed to inspect workspace boundary before {}: {}",
+            operation, error
+        )
+    })?;
+    let canonical_path = path.canonicalize().map_err(|error| {
+        format!(
+            "Failed to inspect {} before {}: {}",
+            path.display(),
+            operation,
+            error
+        )
+    })?;
+    if !canonical_path.starts_with(&workspace_root) {
+        return Err(format!(
+            "ERROR_CLASS=PolicyBlocked Refusing to {} {}: path is outside the workspace boundary.",
+            operation,
+            path.display()
+        ));
+    }
+    Ok(())
+}
+
 fn ensure_safe_regular_file_write_target(path: &Path, operation: &str) -> Result<(), String> {
     match fs::symlink_metadata(path) {
         Ok(metadata) => {
@@ -321,6 +353,9 @@ pub async fn handle(
             if let Err(e) = ensure_safe_regular_file_read(&resolved_path, "read") {
                 return ToolExecutionResult::failure(e);
             }
+            if let Err(e) = ensure_read_within_workspace(&resolved_path, cwd, "read") {
+                return ToolExecutionResult::failure(e);
+            }
 
             match fs::read_to_string(&resolved_path) {
                 Ok(content) => ToolExecutionResult::success(content),
@@ -343,6 +378,9 @@ pub async fn handle(
                 }
             };
             if let Err(e) = ensure_safe_regular_file_read(&resolved_path, "view") {
+                return ToolExecutionResult::failure(e);
+            }
+            if let Err(e) = ensure_read_within_workspace(&resolved_path, cwd, "view") {
                 return ToolExecutionResult::failure(e);
             }
 

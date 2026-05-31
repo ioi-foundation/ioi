@@ -200,7 +200,7 @@ pub(crate) fn candidate_constraint_compatibility(
         && semantic_anchor_overlap_count * QUERY_COMPATIBILITY_STRONG_COVERAGE_DENOMINATOR
             >= semantic_anchor_token_count * QUERY_COMPATIBILITY_STRONG_COVERAGE_NUMERATOR;
     let time_sensitive_scope = constraints.scopes.contains(&ConstraintScope::TimeSensitive);
-    let grounded_briefing_requires_stronger_semantic_overlap = query_facets
+    let grounded_report_requires_stronger_semantic_overlap = query_facets
         .grounded_external_required
         && semantic_anchor_token_count > QUERY_COMPATIBILITY_MIN_GROUNDED_MULTI_ANCHOR_OVERLAP
         && axis_overlap_count == 0
@@ -229,7 +229,7 @@ pub(crate) fn candidate_constraint_compatibility(
         // Search-hub URLs are intermediary navigation surfaces, not evidence pages.
         is_compatible = false;
     }
-    if grounded_briefing_requires_stronger_semantic_overlap && !strong_semantic_anchor_coverage {
+    if grounded_report_requires_stronger_semantic_overlap && !strong_semantic_anchor_coverage {
         is_compatible = false;
     }
     let mut compatibility_score = anchor_overlap_count * QUERY_COMPATIBILITY_ANCHOR_WEIGHT;

@@ -187,6 +187,7 @@ pub(crate) fn candidate_time_sensitive_resolvable_payload(
             return false;
         };
 
+        let host = parsed.host_str().unwrap_or_default().to_ascii_lowercase();
         let path = parsed.path().to_ascii_lowercase();
         let combined = compact_whitespace(&format!("{} {}", title, excerpt)).to_ascii_lowercase();
         let explicit_price_surface = combined.contains(" price today ")
@@ -195,15 +196,12 @@ pub(crate) fn candidate_time_sensitive_resolvable_payload(
             || combined.contains(" live btc usd rate ")
             || combined.contains(" btc to usd ")
             || combined.contains(" currently at ");
-        let quote_context = combined.contains('$')
-            || combined.contains(" usd ")
-            || combined.contains(" btc usd ")
-            || combined.contains(" to usd ")
-            || combined.contains(" rate ");
-        let path_detail_surface = path.contains("/price/") || path.contains("/crypto/");
-        let numeric_signal = combined.chars().any(|ch| ch.is_ascii_digit());
-
-        path_detail_surface && explicit_price_surface && quote_context && numeric_signal
+        let structured_quote_api =
+            host == "api.coingecko.com" && path == "/api/v3/simple/price";
+        let path_detail_surface =
+            path.contains("/price/") || path.contains("/crypto/") || path.contains("/coins/")
+                || path.contains("/currencies/");
+        structured_quote_api || (path_detail_surface && explicit_price_surface)
     }
 
     fn weather_detail_surface_signal(url: &str, title: &str, excerpt: &str) -> bool {

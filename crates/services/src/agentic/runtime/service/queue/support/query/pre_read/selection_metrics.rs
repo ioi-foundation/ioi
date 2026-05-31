@@ -39,14 +39,14 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
     let headline_lookup_mode =
         retrieval_contract_is_generic_headline_collection(retrieval_contract, query_contract);
     let required_source_count = min_sources.max(1) as usize;
-    let briefing_identifier_observations = source_hints
+    let evidence_identifier_observations = source_hints
         .iter()
         .filter_map(|hint| {
             let trimmed = hint.url.trim();
             let title = hint.title.as_deref().unwrap_or_default();
-            (!trimmed.is_empty()).then(|| BriefingIdentifierObservation {
+            (!trimmed.is_empty()).then(|| EvidenceIdentifierObservation {
                 url: trimmed.to_string(),
-                surface: preferred_source_briefing_identifier_surface(
+                surface: preferred_source_evidence_identifier_surface(
                     query_contract,
                     &hint.url,
                     title,
@@ -61,15 +61,15 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
             })
         })
         .collect::<Vec<_>>();
-    let required_identifier_labels = infer_briefing_required_identifier_labels(
+    let required_identifier_labels = infer_answer_required_identifier_labels(
         query_contract,
-        &briefing_identifier_observations,
+        &evidence_identifier_observations,
     );
     let required_identifier_group_floor = required_identifier_labels.len();
     let optional_identifier_labels = BTreeSet::<String>::new();
     let identifier_evidence_required = !required_identifier_labels.is_empty()
         && retrieval_contract
-            .is_some_and(|_| query_prefers_document_briefing_layout(query_contract));
+            .is_some_and(|_| query_prefers_document_report_layout(query_contract));
     let local_business_entity_selection_flow =
         query_requires_local_business_entity_diversity(query_contract);
     let local_business_menu_surface_required = query_requires_local_business_menu_surface(
@@ -77,6 +77,7 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
         retrieval_contract,
         locality_hint,
     );
+    let source_finding_mode = query_asks_to_find_sources(query_contract);
     let entity_anchor_required = !local_business_search_entity_anchor_tokens_with_contract(
         query_contract,
         retrieval_contract,
@@ -159,7 +160,7 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
             entity_anchor_mismatched_urls.push(selected_trimmed.to_string());
         }
 
-        let identifier_labels = source_briefing_standard_identifier_labels(
+        let identifier_labels = source_evidence_standard_identifier_labels(
             query_contract,
             selected_trimmed,
             title,
@@ -200,7 +201,7 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
             missing_identifier_urls.push(selected_trimmed.to_string());
         }
 
-        let admissible_for_document_briefing =
+        let admissible_for_document_report =
             !identifier_evidence_required || identifier_bearing || authoritative;
         let compatibility = if headline_lookup_mode {
             None
@@ -231,7 +232,7 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
             || local_business_menu_surface_url(selected_trimmed)
             || local_business_menu_inventory_excerpt(excerpt, excerpt.chars().count()).is_some()
             || menu_bearing_detail_excerpt;
-        let local_business_entity_compatible = admissible_for_document_briefing
+        let local_business_entity_compatible = admissible_for_document_report
             && entity_anchor_compatible
             && local_business_menu_surface_compatible;
         let local_business_locality_compatible = !projection.locality_scope.is_some()
@@ -247,12 +248,12 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
                 excerpt: excerpt.trim().to_string(),
             };
             if headline_source_is_actionable(&headline_source)
-                && admissible_for_document_briefing
+                && admissible_for_document_report
                 && entity_anchor_compatible
             {
                 compatible_sources = compatible_sources.saturating_add(1);
             }
-            if admissible_for_document_briefing && entity_anchor_compatible {
+            if admissible_for_document_report && entity_anchor_compatible {
                 locality_compatible_sources = locality_compatible_sources.saturating_add(1);
             }
         } else if local_business_entity_selection_flow {
@@ -264,7 +265,7 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
             }
         } else {
             let compatibility = compatibility.expect("non-headline compatibility");
-            let authority_aligned = source_has_document_briefing_authority_alignment_with_contract(
+            let authority_aligned = source_has_document_report_authority_alignment_with_contract(
                 retrieval_contract,
                 query_contract,
                 required_source_count,
@@ -291,12 +292,20 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
                 );
             let subject_identity_aligned = query_requires_subject_currentness_identity(query_contract)
                 && first_subject_currentness_sentence(&format!("{} {}", title, excerpt)).is_some();
-            let quality_compatible = (compatibility_passes_projection(&projection, &compatibility)
+            let source_finding_compatible = source_finding_mode
+                && is_citable_web_url(selected_trimmed)
+                && !is_search_hub_url(selected_trimmed)
+                && !is_multi_item_listing_url(selected_trimmed)
+                && !crate::agentic::web::is_google_news_article_wrapper_url(selected_trimmed)
+                && ((!title.trim().is_empty() && !is_low_signal_title(title))
+                    || (!excerpt.trim().is_empty() && !is_low_signal_excerpt(excerpt)));
+            let quality_compatible = (source_finding_compatible
+                || compatibility_passes_projection(&projection, &compatibility)
                 || authority_aligned
                 || host_anchored_primary_authority_aligned
                 || grounded_external_publication_support
                 || subject_identity_aligned)
-                && admissible_for_document_briefing
+                && admissible_for_document_report
                 && entity_anchor_compatible;
             if quality_compatible {
                 compatible_sources = compatible_sources.saturating_add(1);
@@ -309,8 +318,8 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
                 authority_backed_compatible_sources =
                     authority_backed_compatible_sources.saturating_add(1);
             }
-            if compatibility.locality_compatible
-                && admissible_for_document_briefing
+            if (source_finding_compatible || compatibility.locality_compatible)
+                && admissible_for_document_report
                 && entity_anchor_compatible
             {
                 locality_compatible_sources = locality_compatible_sources.saturating_add(1);
@@ -345,8 +354,8 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
     let identifier_coverage_floor_met = !identifier_evidence_required
         || (identifier_bearing_sources >= required_source_count
             && required_identifier_coverage.len() >= required_identifier_group_floor);
-    let grounded_document_briefing_support_mode =
-        query_prefers_document_briefing_layout(query_contract)
+    let grounded_document_report_support_mode =
+        query_prefers_document_report_layout(query_contract)
             && !query_requests_comparison(query_contract)
             && analyze_query_facets(query_contract).grounded_external_required
             && retrieval_contract
@@ -360,7 +369,7 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
         && distinct_domain_floor_met
         && low_priority_sources == 0
         && entity_anchor_floor_met
-        && (!grounded_document_briefing_support_mode || authority_backed_compatible_sources > 0)
+        && (!grounded_document_report_support_mode || authority_backed_compatible_sources > 0)
         && identifier_coverage_floor_met;
 
     SelectedSourceQualityObservation {

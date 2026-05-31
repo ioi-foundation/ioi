@@ -7,6 +7,11 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
     locality_hint: Option<&str>,
     allow_floor_recovery_exploration: bool,
 ) -> PreReadCandidatePlan {
+    let (candidate_urls, candidate_source_hints) = augment_market_quote_candidate_inventory(
+        query_contract,
+        candidate_urls,
+        candidate_source_hints,
+    );
     let total_candidates = candidate_urls.len();
     if total_candidates == 0 {
         let projection = build_query_constraint_projection_with_locality_hint(
@@ -41,7 +46,7 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
     );
     let headline_lookup_mode =
         retrieval_contract_is_generic_headline_collection(retrieval_contract, query_contract);
-    let document_briefing_layout = query_prefers_document_briefing_layout(query_contract)
+    let document_report_layout = query_prefers_document_report_layout(query_contract)
         && !query_requests_comparison(query_contract);
     let subject_identity_required =
         crate::agentic::runtime::service::queue::support::query_requires_subject_currentness_identity(
@@ -49,19 +54,25 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
         );
     let primary_authority_source_required =
         retrieval_contract_requires_primary_authority_source(retrieval_contract, query_contract);
-    let authority_source_required_for_briefing =
-        document_briefing_layout && primary_authority_source_required;
+    let market_quote_grounding_required = query_requires_market_quote_grounding(query_contract);
+    let market_quote_entity_groups = if market_quote_grounding_required {
+        query_market_quote_entity_anchor_groups(query_contract)
+    } else {
+        Vec::new()
+    };
+    let authority_source_required_for_report =
+        document_report_layout && primary_authority_source_required;
     let probe_source_hints = candidate_source_hints.clone();
     let constraints = &projection.constraints;
     let policy = ResolutionPolicy::default();
-    let briefing_identifier_observations = candidate_source_hints
+    let evidence_identifier_observations = candidate_source_hints
         .iter()
         .filter_map(|hint| {
             let trimmed = hint.url.trim();
             let title = hint.title.as_deref().unwrap_or_default();
-            (!trimmed.is_empty()).then(|| BriefingIdentifierObservation {
+            (!trimmed.is_empty()).then(|| EvidenceIdentifierObservation {
                 url: trimmed.to_string(),
-                surface: preferred_source_briefing_identifier_surface(
+                surface: preferred_source_evidence_identifier_surface(
                     query_contract,
                     &hint.url,
                     title,
@@ -76,11 +87,11 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
             })
         })
         .collect::<Vec<_>>();
-    let required_briefing_identifier_labels = infer_briefing_required_identifier_labels(
+    let required_evidence_identifier_labels = infer_answer_required_identifier_labels(
         query_contract,
-        &briefing_identifier_observations,
+        &evidence_identifier_observations,
     );
-    let optional_briefing_identifier_labels = BTreeSet::<String>::new();
+    let optional_evidence_identifier_labels = BTreeSet::<String>::new();
     let hints_by_url = candidate_source_hints
         .iter()
         .filter_map(|hint| {
@@ -106,6 +117,9 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
         primary_status_surface_hits: usize,
         document_authority_score: usize,
         primary_authority: bool,
+        market_quote_grounding_candidate: bool,
+        market_quote_group_indices: Vec<usize>,
+        structured_market_quote_api: bool,
         identifier_bearing: bool,
         query_native_overlap: usize,
         temporal_recency_score: usize,
@@ -141,7 +155,7 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
         let normalized_path = parsed.path().trim_matches('/').to_ascii_lowercase();
         let title_lower = title.trim().to_ascii_lowercase();
         let observed_labels =
-            source_briefing_standard_identifier_labels(query_contract, trimmed, title, excerpt);
+            source_evidence_standard_identifier_labels(query_contract, trimmed, title, excerpt);
 
         (!normalized_path.is_empty()
             && normalized_path.starts_with("pubs/")
@@ -222,7 +236,7 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
                     excerpt,
                 );
             let identifier_bearing =
-                crate::agentic::runtime::service::queue::support::source_has_briefing_standard_identifier_signal(
+                crate::agentic::runtime::service::queue::support::source_has_evidence_standard_identifier_signal(
                     query_contract,
                     trimmed,
                     title,
@@ -234,7 +248,7 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
                     title,
                     excerpt,
                 );
-            let observed_identifier_labels = source_briefing_standard_identifier_labels(
+            let observed_identifier_labels = source_evidence_standard_identifier_labels(
                 query_contract,
                 trimmed,
                 title,
@@ -244,12 +258,12 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
             .collect::<BTreeSet<_>>();
             let required_identifier_labels = observed_identifier_labels
                 .iter()
-                .filter(|label| required_briefing_identifier_labels.contains(*label))
+                .filter(|label| required_evidence_identifier_labels.contains(*label))
                 .cloned()
                 .collect::<BTreeSet<_>>();
             let optional_identifier_label_count = observed_identifier_labels
                 .iter()
-                .filter(|label| optional_briefing_identifier_labels.contains(*label))
+                .filter(|label| optional_evidence_identifier_labels.contains(*label))
                 .count();
             let query_grounding_signal =
                 crate::agentic::runtime::service::queue::support::excerpt_has_query_grounding_signal_with_contract(
@@ -270,20 +284,37 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
                     format!("{} {}", title, excerpt).as_str(),
                 )
                 .is_some();
+            let structured_market_quote_api = market_quote_structured_api_url(trimmed);
             let source_tokens = source_anchor_tokens(trimmed, title, excerpt);
             let query_native_overlap =
                 projection.query_native_tokens.intersection(&source_tokens).count();
-            let briefing_subject_overlap = query_native_overlap >= 3
+            let market_quote_group_indices = if market_quote_grounding_required {
+                let url_lower = trimmed.to_ascii_lowercase();
+                market_quote_entity_groups
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(group_idx, group)| {
+                        group.iter().any(|token| {
+                            source_tokens.contains(token)
+                                || (structured_market_quote_api && url_lower.contains(token))
+                        })
+                        .then_some(group_idx)
+                    })
+                    .collect::<Vec<_>>()
+            } else {
+                Vec::new()
+            };
+            let evidence_subject_overlap = query_native_overlap >= 3
                 || (query_native_overlap >= 2 && temporal_recency_score > 0);
             let primary_authority = if !primary_authority_source_required {
                 false
-            } else if authority_source_required_for_briefing {
+            } else if authority_source_required_for_report {
                 crate::agentic::runtime::service::queue::support::source_counts_as_primary_authority(
                     query_contract,
                     trimmed,
                     title,
                     excerpt,
-                ) && (briefing_subject_overlap || identifier_bearing)
+                ) && (evidence_subject_overlap || identifier_bearing)
             } else {
                 crate::agentic::runtime::service::queue::support::source_counts_as_primary_authority(
                     query_contract,
@@ -300,6 +331,10 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
                 primary_authority,
                 identifier_bearing,
             );
+            let market_quote_grounding_candidate = market_quote_grounding_required
+                && resolvable_payload
+                && (query_native_overlap > 0
+                    || (structured_market_quote_api && !market_quote_group_indices.is_empty()));
             RankedCandidate {
                 idx,
                 url: trimmed.to_string(),
@@ -316,6 +351,9 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
                 primary_status_surface_hits: source_signals.primary_status_surface_hits,
                 document_authority_score,
                 primary_authority,
+                market_quote_grounding_candidate,
+                market_quote_group_indices,
+                structured_market_quote_api,
                 identifier_bearing,
                 query_native_overlap,
                 temporal_recency_score,
@@ -342,7 +380,7 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
             .headline_actionable
             .cmp(&left.headline_actionable)
             .then_with(|| right.headline_low_quality.cmp(&left.headline_low_quality));
-        let briefing_order = if document_briefing_layout {
+        let answer_order = if document_report_layout {
             left.intermediary_wrapper
                 .cmp(&right.intermediary_wrapper)
                 .then_with(|| {
@@ -454,10 +492,25 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
         } else {
             std::cmp::Ordering::Equal
         };
+        let market_quote_order = if market_quote_grounding_required {
+            right
+                .market_quote_grounding_candidate
+                .cmp(&left.market_quote_grounding_candidate)
+                .then_with(|| {
+                    right
+                        .structured_market_quote_api
+                        .cmp(&left.structured_market_quote_api)
+                })
+                .then_with(|| right.query_native_overlap.cmp(&left.query_native_overlap))
+                .then_with(|| compare_candidate_evidence_scores_desc(&left.score, &right.score))
+        } else {
+            std::cmp::Ordering::Equal
+        };
         base_order
-            .then_with(|| briefing_order)
+            .then_with(|| answer_order)
             .then_with(|| subject_identity_order)
             .then_with(|| primary_authority_order)
+            .then_with(|| market_quote_order)
             .then_with(|| right.resolvable_payload.cmp(&left.resolvable_payload))
             .then_with(|| right_passes.cmp(&left_passes))
             .then_with(|| {
@@ -566,22 +619,30 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
             && !candidate.listing_disallowed
             && candidate.primary_authority
     };
-    let briefing_query_grounded_candidate = |candidate: &RankedCandidate| {
+    let market_quote_grounding_candidate = |candidate: &RankedCandidate| {
+        market_quote_grounding_required
+            && candidate
+                .affordances
+                .contains(&RetrievalAffordanceKind::DirectCitationRead)
+            && !candidate.listing_disallowed
+            && candidate.market_quote_grounding_candidate
+    };
+    let answer_query_grounded_candidate = |candidate: &RankedCandidate| {
         let strong_subject_overlap = candidate.query_native_overlap >= 3
             || (candidate.query_native_overlap >= 2 && candidate.temporal_recency_score > 0);
         candidate.query_grounding_signal && (strong_subject_overlap || candidate.identifier_bearing)
     };
-    let briefing_grounded_candidate_for_selection = |candidate: &RankedCandidate| {
+    let evidence_grounded_candidate_for_selection = |candidate: &RankedCandidate| {
         primary_authority_candidate(candidate)
-            || briefing_query_grounded_candidate(candidate)
+            || answer_query_grounded_candidate(candidate)
             || candidate.identifier_bearing
             || candidate.query_native_overlap >= 3
             || (candidate.query_native_overlap >= 2 && candidate.temporal_recency_score > 0)
     };
-    let can_prune_off_subject_briefing_candidates = authority_source_required_for_briefing
+    let can_prune_off_subject_answer_candidates = authority_source_required_for_report
         && ranked
             .iter()
-            .filter(|candidate| briefing_grounded_candidate_for_selection(candidate))
+            .filter(|candidate| evidence_grounded_candidate_for_selection(candidate))
             .count()
             > 0;
     let can_prune_off_subject_identity_candidates = subject_identity_required
@@ -620,8 +681,8 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
             if can_prune_headline_low_quality && candidate.headline_low_quality {
                 return None;
             }
-            if can_prune_off_subject_briefing_candidates
-                && !briefing_grounded_candidate_for_selection(candidate)
+            if can_prune_off_subject_answer_candidates
+                && !evidence_grounded_candidate_for_selection(candidate)
             {
                 return None;
             }
@@ -643,18 +704,21 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
             if can_prune
                 && !envelope_score_resolves_constraint(constraints, &candidate.score)
                 && !primary_authority_candidate(candidate)
+                && !market_quote_grounding_candidate(candidate)
             {
                 return None;
             }
             if must_require_compatibility
                 && !compatibility_passes_projection(&projection, &candidate.compatibility)
                 && !primary_authority_candidate(candidate)
+                && !market_quote_grounding_candidate(candidate)
             {
                 return None;
             }
             if can_prune_by_compatibility
                 && !compatibility_passes_projection(&projection, &candidate.compatibility)
                 && !primary_authority_candidate(candidate)
+                && !market_quote_grounding_candidate(candidate)
             {
                 return None;
             }
@@ -667,6 +731,7 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
             if can_prune_by_positive_compatibility
                 && candidate.compatibility.compatibility_score == 0
                 && !primary_authority_candidate(candidate)
+                && !market_quote_grounding_candidate(candidate)
             {
                 return None;
             }
@@ -711,8 +776,8 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
             if candidate.affordances.is_empty() {
                 continue;
             }
-            if can_prune_off_subject_briefing_candidates
-                && !briefing_grounded_candidate_for_selection(candidate)
+            if can_prune_off_subject_answer_candidates
+                && !evidence_grounded_candidate_for_selection(candidate)
             {
                 continue;
             }
@@ -737,22 +802,27 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
             let compatibility_relevant = if must_require_compatibility {
                 compatibility_passes_projection(&projection, &candidate.compatibility)
                     || primary_authority_candidate(candidate)
+                    || market_quote_grounding_candidate(candidate)
             } else {
                 candidate.compatibility.compatibility_score > 0
                     || compatibility_passes_projection(&projection, &candidate.compatibility)
                     || primary_authority_candidate(candidate)
+                    || market_quote_grounding_candidate(candidate)
                     || (allow_floor_recovery_exploration && compatible_candidates == 0)
             };
             if !compatibility_relevant {
                 continue;
             }
             let payload_relevant = if must_require_compatibility && time_sensitive_scope {
-                candidate.resolvable_payload || primary_authority_candidate(candidate)
+                candidate.resolvable_payload
+                    || primary_authority_candidate(candidate)
+                    || market_quote_grounding_candidate(candidate)
             } else {
                 headline_lookup_mode
                     || !time_sensitive_scope
                     || candidate.resolvable_payload
                     || primary_authority_candidate(candidate)
+                    || market_quote_grounding_candidate(candidate)
                     || candidate_urls.len() < min_required
                     || (allow_floor_recovery_exploration && compatible_candidates == 0)
             };
@@ -813,7 +883,7 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
                 if candidate.document_authority_score == 0 {
                     return false;
                 }
-                let coverage_labels = if required_briefing_identifier_labels.is_empty()
+                let coverage_labels = if required_evidence_identifier_labels.is_empty()
                     || candidate.canonical_publication_detail
                 {
                     &candidate.observed_identifier_labels
@@ -829,7 +899,7 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
             if seen_domains.insert(domain_key) || adds_required_identifier_coverage {
                 distinct_domain_urls.push(trimmed.to_string());
                 if let Some(candidate) = candidate {
-                    if required_briefing_identifier_labels.is_empty()
+                    if required_evidence_identifier_labels.is_empty()
                         || candidate.canonical_publication_detail
                     {
                         seen_required_identifier_labels
@@ -865,6 +935,68 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
             if headline_lookup_mode && seen_domains.len() <= 1 {
                 candidate_urls.clear();
             }
+        }
+    }
+    if market_quote_grounding_required && market_quote_entity_groups.len() > 1 {
+        for group_idx in 0..market_quote_entity_groups.len() {
+            let Some(candidate) = ranked.iter().find(|candidate| {
+                candidate.structured_market_quote_api
+                    && candidate.market_quote_group_indices.contains(&group_idx)
+                    && candidate
+                        .affordances
+                        .contains(&RetrievalAffordanceKind::DirectCitationRead)
+                    && !candidate.listing_disallowed
+                    && !is_search_hub_url(&candidate.url)
+            }) else {
+                continue;
+            };
+            if let Some(existing_idx) = candidate_urls
+                .iter()
+                .position(|url| url.eq_ignore_ascii_case(candidate.url.as_str()))
+            {
+                let url = candidate_urls.remove(existing_idx);
+                candidate_urls.insert(group_idx.min(candidate_urls.len()), url);
+            } else {
+                candidate_urls.insert(group_idx.min(candidate_urls.len()), candidate.url.clone());
+                requires_constraint_search_probe = true;
+            }
+        }
+        let mut covered_groups = BTreeSet::new();
+        for url in &candidate_urls {
+            if let Some(candidate) = ranked_by_url.get(&url.trim().to_ascii_lowercase()) {
+                covered_groups.extend(candidate.market_quote_group_indices.iter().cloned());
+            }
+        }
+        let mut inserted_group_candidate = false;
+        for group_idx in 0..market_quote_entity_groups.len() {
+            if covered_groups.contains(&group_idx) {
+                continue;
+            }
+            let Some(candidate) = ranked.iter().find(|candidate| {
+                candidate.market_quote_grounding_candidate
+                    && candidate.market_quote_group_indices.contains(&group_idx)
+                    && candidate
+                        .affordances
+                        .contains(&RetrievalAffordanceKind::DirectCitationRead)
+                    && !candidate.listing_disallowed
+                    && !is_search_hub_url(&candidate.url)
+            }) else {
+                continue;
+            };
+            if let Some(existing_idx) = candidate_urls
+                .iter()
+                .position(|url| url.eq_ignore_ascii_case(candidate.url.as_str()))
+            {
+                let url = candidate_urls.remove(existing_idx);
+                candidate_urls.insert(group_idx.min(candidate_urls.len()), url);
+            } else {
+                candidate_urls.insert(group_idx.min(candidate_urls.len()), candidate.url.clone());
+                inserted_group_candidate = true;
+            }
+            covered_groups.extend(candidate.market_quote_group_indices.iter().cloned());
+        }
+        if inserted_group_candidate {
+            requires_constraint_search_probe = true;
         }
     }
     if candidate_urls.is_empty()
@@ -908,8 +1040,8 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
         if can_prune_headline_low_quality && candidate.headline_low_quality {
             continue;
         }
-        if can_prune_off_subject_briefing_candidates
-            && !briefing_grounded_candidate_for_selection(candidate)
+        if can_prune_off_subject_answer_candidates
+            && !evidence_grounded_candidate_for_selection(candidate)
         {
             continue;
         }
@@ -1096,6 +1228,216 @@ pub(crate) fn pre_read_candidate_plan_from_bundle_with_recovery_mode(
         None,
         allow_floor_recovery_exploration,
     )
+}
+
+fn augment_market_quote_candidate_inventory(
+    query_contract: &str,
+    candidate_urls: Vec<String>,
+    candidate_source_hints: Vec<PendingSearchReadSummary>,
+) -> (Vec<String>, Vec<PendingSearchReadSummary>) {
+    if !query_requires_market_quote_grounding(query_contract) {
+        return (candidate_urls, candidate_source_hints);
+    }
+
+    let aliases = market_quote_provider_slug_candidates(query_contract, &candidate_source_hints);
+    if aliases.is_empty() {
+        return (candidate_urls, candidate_source_hints);
+    }
+
+    let mut augmented_urls = candidate_urls;
+    let mut augmented_hints = candidate_source_hints;
+    let mut seen_urls = augmented_urls
+        .iter()
+        .map(|url| crate::agentic::web::normalize_url_for_id(url))
+        .collect::<BTreeSet<_>>();
+
+    for (label, slug) in aliases {
+        for url in market_quote_provider_urls(&slug) {
+            let key = crate::agentic::web::normalize_url_for_id(&url);
+            if !seen_urls.insert(key) {
+                continue;
+            }
+            augmented_urls.push(url.clone());
+            augmented_hints.push(PendingSearchReadSummary {
+                url,
+                title: Some(format!("{label} live price quote")),
+                excerpt: format!("{label} price today, live price chart, market cap, and USD quote."),
+            });
+        }
+    }
+
+    (augmented_urls, augmented_hints)
+}
+
+fn market_quote_provider_urls(slug: &str) -> Vec<String> {
+    let trimmed = slug.trim().trim_matches('-');
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+    vec![
+        format!(
+            "https://api.coingecko.com/api/v3/simple/price?ids={trimmed}&vs_currencies=usd&include_market_cap=true&include_24hr_vol=true&include_24hr_change=true&precision=full"
+        ),
+        format!("https://www.coingecko.com/en/coins/{trimmed}"),
+        format!("https://coinmarketcap.com/currencies/{trimmed}/"),
+        format!("https://crypto.com/price/{trimmed}"),
+        format!("https://www.coinbase.com/price/{trimmed}"),
+    ]
+}
+
+fn market_quote_structured_api_url(url: &str) -> bool {
+    let Ok(parsed) = Url::parse(url.trim()) else {
+        return false;
+    };
+    parsed
+        .host_str()
+        .map(|host| host.eq_ignore_ascii_case("api.coingecko.com"))
+        .unwrap_or(false)
+        && parsed.path() == "/api/v3/simple/price"
+}
+
+fn market_quote_provider_slug_candidates(
+    query_contract: &str,
+    source_hints: &[PendingSearchReadSummary],
+) -> Vec<(String, String)> {
+    let mut aliases = Vec::new();
+    let mut seen_slugs = BTreeSet::new();
+    let groups = query_market_quote_entity_anchor_groups(query_contract);
+    for group in &groups {
+        let other_group_tokens = groups
+            .iter()
+            .filter(|other| *other != group)
+            .flat_map(|other| other.iter().cloned())
+            .collect::<BTreeSet<_>>();
+        let base_terms = group
+            .iter()
+            .filter(|token| token.len() >= 3)
+            .cloned()
+            .collect::<Vec<_>>();
+        if base_terms.is_empty() {
+            continue;
+        }
+        for alias_terms in market_quote_alias_terms_from_hints(&group, source_hints) {
+            if alias_terms
+                .iter()
+                .any(|term| other_group_tokens.contains(term))
+            {
+                continue;
+            }
+            push_market_quote_slug_alias(&mut aliases, &mut seen_slugs, &alias_terms);
+        }
+        push_market_quote_slug_alias(&mut aliases, &mut seen_slugs, &base_terms);
+    }
+    aliases
+}
+
+fn push_market_quote_slug_alias(
+    aliases: &mut Vec<(String, String)>,
+    seen_slugs: &mut BTreeSet<String>,
+    terms: &[String],
+) {
+    let cleaned_terms = terms
+        .iter()
+        .map(|term| {
+            term.chars()
+                .filter(|ch| ch.is_ascii_alphanumeric())
+                .collect::<String>()
+                .to_ascii_lowercase()
+        })
+        .filter(|term| term.len() >= 3 && term.chars().any(|ch| ch.is_ascii_alphabetic()))
+        .collect::<Vec<_>>();
+    if cleaned_terms.is_empty() {
+        return;
+    }
+    let raw_slug = cleaned_terms.join("-");
+    let slug = canonical_market_quote_provider_slug(&raw_slug);
+    if !seen_slugs.insert(slug.clone()) {
+        return;
+    }
+    let label = slug
+        .split('-')
+        .map(|term| {
+            let mut chars = term.chars();
+            match chars.next() {
+                Some(first) => format!("{}{}", first.to_ascii_uppercase(), chars.as_str()),
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    aliases.push((label, slug));
+}
+
+fn canonical_market_quote_provider_slug(slug: &str) -> String {
+    match slug.trim().trim_matches('-') {
+        "akt" | "akash" | "akashnetwork" | "akash-network" => "akash-network".to_string(),
+        "fil" | "filecoin" => "filecoin".to_string(),
+        other => other.to_string(),
+    }
+}
+
+fn market_quote_alias_terms_from_hints(
+    group: &BTreeSet<String>,
+    source_hints: &[PendingSearchReadSummary],
+) -> Vec<Vec<String>> {
+    let suffix_allowlist = ["network", "protocol", "finance", "chain", "dao"];
+    let suffix_denylist = [
+        "analysis",
+        "chart",
+        "charts",
+        "comparison",
+        "crypto",
+        "cryptocurrency",
+        "investment",
+        "live",
+        "market",
+        "news",
+        "price",
+        "quote",
+        "today",
+        "token",
+        "usd",
+    ];
+    let mut aliases = Vec::new();
+    let mut seen = BTreeSet::new();
+    for hint in source_hints {
+        let surface = format!(
+            "{} {} {}",
+            hint.url,
+            hint.title.as_deref().unwrap_or_default(),
+            hint.excerpt
+        )
+        .to_ascii_lowercase();
+        let words = surface
+            .split(|ch: char| !ch.is_ascii_alphanumeric())
+            .filter(|word| !word.is_empty())
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        if words.is_empty() {
+            continue;
+        }
+        for (idx, word) in words.iter().enumerate() {
+            if !group.contains(word) {
+                continue;
+            }
+            let mut alias = vec![word.clone()];
+            if let Some(next) = words.get(idx + 1) {
+                if suffix_allowlist.contains(&next.as_str())
+                    || (!suffix_denylist.contains(&next.as_str())
+                        && next.chars().any(|ch| ch.is_ascii_alphabetic())
+                        && next.len() >= 4
+                        && !group.contains(next))
+                {
+                    alias.push(next.clone());
+                }
+            }
+            let key = alias.join("-");
+            if seen.insert(key) {
+                aliases.push(alias);
+            }
+        }
+    }
+    aliases
 }
 
 #[cfg(test)]

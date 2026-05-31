@@ -5,7 +5,7 @@ fn projection_for_query(query: &str) -> QueryConstraintProjection {
 }
 
 #[test]
-fn grounded_briefing_rejects_off_topic_authority_neighbor_fill() {
+fn grounded_report_rejects_off_topic_authority_neighbor_fill() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let projection = projection_for_query(query);
@@ -23,13 +23,13 @@ fn grounded_briefing_rejects_off_topic_authority_neighbor_fill() {
 
     assert!(
         !compatibility_passes_projection(&projection, &compatibility),
-        "off-topic authority-neighbor fill should not satisfy grounded briefing compatibility: {:?}",
+        "off-topic authority-neighbor fill should not satisfy grounded report compatibility: {:?}",
         compatibility
     );
 }
 
 #[test]
-fn grounded_briefing_keeps_on_topic_secondary_sources_compatible() {
+fn grounded_report_keeps_on_topic_secondary_sources_compatible() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let projection = projection_for_query(query);
@@ -53,7 +53,7 @@ fn grounded_briefing_keeps_on_topic_secondary_sources_compatible() {
 }
 
 #[test]
-fn grounded_briefing_contract_rejects_off_topic_authority_neighbor_with_execution_suffix() {
+fn grounded_report_contract_rejects_off_topic_authority_neighbor_with_execution_suffix() {
     let query_contract =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
     let projection = projection_for_query(query_contract);

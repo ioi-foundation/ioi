@@ -52,9 +52,7 @@ use crate::agentic::runtime::service::queue::web_pipeline::{
     append_pending_web_success_fallback, append_pending_web_success_from_bundle,
     final_web_completion_facts_with_rendered_summary, is_human_challenge_error,
     mark_pending_web_attempted, mark_pending_web_blocked, parse_web_evidence_bundle,
-    remaining_pending_web_candidates, render_mailbox_access_limited_reply,
-    synthesize_web_pipeline_reply, synthesize_web_pipeline_reply_hybrid,
-    web_pipeline_completion_reason, web_pipeline_now_ms,
+    remaining_pending_web_candidates, web_pipeline_completion_reason, web_pipeline_now_ms,
 };
 use crate::agentic::runtime::service::recovery::anti_loop::{
     build_attempt_key, build_post_state_summary, build_state_summary, choose_routing_tier,
@@ -537,18 +535,20 @@ pub async fn process_tool_output(
             let mailbox_connector_tool =
                 is_mail_connector_tool_name(&processing_state.current_tool_name);
             if mailbox_intent && attempted_web_path_tool && !mailbox_connector_tool {
-                let run_timestamp_ms = block_timestamp_ns / 1_000_000;
-                let summary =
-                    render_mailbox_access_limited_reply(&agent_state.goal, run_timestamp_ms);
                 processing_state.success = true;
                 processing_state.error_msg = None;
-                processing_state.history_entry = Some(summary.clone());
-                processing_state.action_output = Some(summary.clone());
-                processing_state.terminal_chat_reply_output = Some(summary.clone());
-                processing_state.is_lifecycle_action = true;
-                agent_state.status = AgentStatus::Completed(Some(summary));
-                agent_state.pending_search_completion = None;
-                agent_state.execution_queue.clear();
+                let feedback = concat!(
+                    "Tool result: mailbox content requires a mailbox connector tool. ",
+                    "Public web/browser/memory tools cannot verify personal mailbox contents; ",
+                    "return this typed limitation to the model loop so it can choose an allowed ",
+                    "mail connector action or produce a model-authored blocker."
+                )
+                .to_string();
+                processing_state.history_entry = Some(feedback.clone());
+                processing_state.action_output = Some(feedback);
+                processing_state.terminal_chat_reply_output = None;
+                processing_state.is_lifecycle_action = false;
+                agent_state.status = AgentStatus::Running;
                 agent_state.recent_actions.clear();
                 processing_state
                     .verification_checks
@@ -558,7 +558,10 @@ pub async fn process_tool_output(
                     .push("mailbox_non_connector_tool_blocked=true".to_string());
                 processing_state
                     .verification_checks
-                    .push("terminal_chat_reply_ready=true".to_string());
+                    .push("mailbox_web_path_returned_to_model_loop=true".to_string());
+                processing_state
+                    .verification_checks
+                    .push("terminal_chat_reply_ready=false".to_string());
             } else {
                 processing_state = execute_tool_phase(
                     ExecuteToolPhaseContext {

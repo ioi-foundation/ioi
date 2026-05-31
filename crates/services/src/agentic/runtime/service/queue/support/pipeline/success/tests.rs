@@ -136,7 +136,7 @@ fn push_pending_web_success_upgrades_duplicate_url_with_identifier_bearing_excer
 }
 
 #[test]
-fn push_pending_web_success_prefers_hint_identifier_excerpt_for_document_briefing_queries() {
+fn push_pending_web_success_prefers_hint_identifier_excerpt_for_document_report_queries() {
     let requested_url =
         "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards";
     let mut pending = PendingSearchCompletion {
@@ -346,6 +346,144 @@ fn append_pending_web_success_from_bundle_prefers_query_aligned_quote_span_for_l
 }
 
 #[test]
+fn append_pending_web_success_from_bundle_preserves_quote_grade_market_rows_for_final_model_turn() {
+    let query = "Which is a better investment right now, Akash or Filecoin?";
+    let akash_url = "https://api.coingecko.com/api/v3/simple/price?ids=akash-network&vs_currencies=usd&include_market_cap=true&include_24hr_vol=true&include_24hr_change=true";
+    let filecoin_url = "https://api.coingecko.com/api/v3/simple/price?ids=filecoin&vs_currencies=usd&include_market_cap=true&include_24hr_vol=true&include_24hr_change=true";
+    let mut pending = PendingSearchCompletion {
+        query: query.to_string(),
+        query_contract: query.to_string(),
+        retrieval_contract: Some(
+            crate::agentic::web::derive_web_retrieval_contract(query, None)
+                .expect("retrieval contract"),
+        ),
+        url: "https://search.brave.com/search?q=akash+filecoin+market+data".to_string(),
+        started_step: 1,
+        started_at_ms: 1_777_000_000_000,
+        deadline_ms: 1_777_000_120_000,
+        candidate_urls: vec![akash_url.to_string(), filecoin_url.to_string()],
+        candidate_source_hints: vec![
+            PendingSearchReadSummary {
+                url: akash_url.to_string(),
+                title: Some("Akash Network market quote".to_string()),
+                excerpt: "Akash Network (AKT) live USD price and market data.".to_string(),
+            },
+            PendingSearchReadSummary {
+                url: filecoin_url.to_string(),
+                title: Some("Filecoin market quote".to_string()),
+                excerpt: "Filecoin (FIL) live USD price and market data.".to_string(),
+            },
+        ],
+        attempted_urls: Vec::new(),
+        blocked_urls: Vec::new(),
+        successful_reads: Vec::new(),
+        min_sources: 2,
+    };
+
+    let akash_quote = concat!(
+        "Akash Network (AKT) has current price $0.787165 USD. ",
+        "Market cap: $228.85M. ",
+        "24h trading volume: $4.12M. ",
+        "24h price change: 0.25%. ",
+        "Provider-supplied market data from CoinGecko Simple Price API."
+    );
+    let filecoin_quote = concat!(
+        "Filecoin (FIL) has current price $0.968632 USD. ",
+        "Market cap: $762.33M. ",
+        "24h trading volume: $69.93M. ",
+        "24h price change: -1.75%. ",
+        "Provider-supplied market data from CoinGecko Simple Price API."
+    );
+
+    for (url, source_id, title, quote) in [
+        (
+            akash_url,
+            "akash-quote",
+            "Akash Network market quote",
+            akash_quote,
+        ),
+        (
+            filecoin_url,
+            "filecoin-quote",
+            "Filecoin market quote",
+            filecoin_quote,
+        ),
+    ] {
+        let bundle = WebEvidenceBundle {
+            schema_version: 1,
+            retrieved_at_ms: 1_777_000_001_000,
+            tool: "web__read".to_string(),
+            backend: "edge:read:http".to_string(),
+            query: None,
+            url: Some(url.to_string()),
+            sources: vec![WebSource {
+                source_id: source_id.to_string(),
+                rank: Some(1),
+                url: url.to_string(),
+                title: Some(title.to_string()),
+                snippet: Some(quote.to_string()),
+                domain: Some("api.coingecko.com".to_string()),
+            }],
+            source_observations: vec![],
+            documents: vec![WebDocument {
+                source_id: source_id.to_string(),
+                url: url.to_string(),
+                title: Some(title.to_string()),
+                content_text: quote.to_string(),
+                content_hash: source_id.to_string(),
+                quote_spans: vec![
+                    WebQuoteSpan {
+                        start_byte: 0,
+                        end_byte: 64,
+                        quote: quote
+                            .split(". Market cap:")
+                            .next()
+                            .unwrap_or_default()
+                            .to_string(),
+                    },
+                    WebQuoteSpan {
+                        start_byte: 65,
+                        end_byte: 128,
+                        quote: quote
+                            .split("Provider-supplied")
+                            .next()
+                            .unwrap_or_default()
+                            .to_string(),
+                    },
+                ],
+            }],
+            provider_candidates: vec![],
+            retrieval_contract: None,
+        };
+
+        append_pending_web_success_from_bundle(&mut pending, &bundle, url);
+    }
+
+    assert_eq!(pending.successful_reads.len(), 2);
+    let combined = pending
+        .successful_reads
+        .iter()
+        .map(|read| read.excerpt.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    for expected in [
+        "$0.787165 USD",
+        "Market cap: $228.85M",
+        "24h trading volume: $4.12M",
+        "24h price change: 0.25%",
+        "$0.968632 USD",
+        "Market cap: $762.33M",
+        "24h trading volume: $69.93M",
+        "24h price change: -1.75%",
+    ] {
+        assert!(
+            combined.contains(expected),
+            "expected quote-grade market row to preserve {expected}, got: {combined}"
+        );
+    }
+}
+
+#[test]
 fn append_pending_web_success_from_bundle_blocks_security_checkpoint_documents() {
     let requested_url =
         "https://www.hashicorp.com/en/blog/nist-s-post-quantum-cryptography-standards-our-plans";
@@ -418,8 +556,7 @@ fn append_pending_web_success_from_bundle_blocks_security_checkpoint_documents()
 }
 
 #[test]
-fn append_pending_web_success_from_bundle_prefers_identifier_bearing_excerpt_for_briefing_queries()
-{
+fn append_pending_web_success_from_bundle_prefers_identifier_bearing_excerpt_for_answer_queries() {
     let requested_url = "https://www.nist.gov/pqc";
     let mut pending = PendingSearchCompletion {
         query: "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."
@@ -1499,7 +1636,7 @@ fn push_pending_web_success_preserves_inventory_excerpt_when_hint_is_more_generi
 }
 
 #[test]
-fn push_pending_web_success_rejects_non_authority_non_identifier_briefing_source() {
+fn push_pending_web_success_rejects_non_authority_non_identifier_answer_source() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let requested_url = "https://www.ibm.com/think/insights/post-quantum-cryptography-transition";
@@ -1563,9 +1700,8 @@ fn push_pending_web_success_keeps_currentness_parity_source() {
         candidate_source_hints: vec![PendingSearchReadSummary {
             url: requested_url.to_string(),
             title: Some("Local AI Model Runtime Issue".to_string()),
-            excerpt:
-                "Current-source retrieval item for local AI model runtime issue diagnosis."
-                    .to_string(),
+            excerpt: "Current-source retrieval item for local AI model runtime issue diagnosis."
+                .to_string(),
         }],
         attempted_urls: Vec::new(),
         blocked_urls: Vec::new(),
@@ -1586,6 +1722,46 @@ fn push_pending_web_success_keeps_currentness_parity_source() {
     assert!(pending.successful_reads[0]
         .excerpt
         .contains("current sources"));
+}
+
+#[test]
+fn push_pending_web_success_keeps_source_finding_reads_without_metric_payload() {
+    let query = "Find current sources for today's top local AI model runtime issue.";
+    let requested_url = "https://localai.io/basics/troubleshooting/";
+    let mut pending = PendingSearchCompletion {
+        query: query.to_string(),
+        query_contract: query.to_string(),
+        retrieval_contract: Some(
+            crate::agentic::web::derive_web_retrieval_contract(query, None)
+                .expect("retrieval contract"),
+        ),
+        url: "https://www.bing.com/search?q=local+AI+model+runtime+issue".to_string(),
+        started_step: 1,
+        started_at_ms: 1_779_682_000_000,
+        deadline_ms: 1_779_682_060_000,
+        candidate_urls: vec![requested_url.to_string()],
+        candidate_source_hints: vec![PendingSearchReadSummary {
+            url: requested_url.to_string(),
+            title: Some("Troubleshooting - LocalAI".to_string()),
+            excerpt: "Troubleshooting guide covering common issues when using LocalAI runtimes."
+                .to_string(),
+        }],
+        attempted_urls: Vec::new(),
+        blocked_urls: Vec::new(),
+        successful_reads: Vec::new(),
+        min_sources: 2,
+    };
+
+    push_pending_web_success(
+        &mut pending,
+        requested_url,
+        Some("Troubleshooting - LocalAI".to_string()),
+        "This guide covers common issues you may encounter when using LocalAI, organized by category."
+            .to_string(),
+    );
+
+    assert_eq!(pending.successful_reads.len(), 1);
+    assert_eq!(pending.successful_reads[0].url, requested_url);
 }
 
 #[test]

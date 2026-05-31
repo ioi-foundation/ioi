@@ -111,7 +111,7 @@
             },
             "merge_mode": {
                 "type": "string",
-                "description": "Optional deterministic parent merge mode such as 'append_summary_to_parent'."
+                "description": "Optional parent merge mode such as 'append_summary_to_parent'."
             },
             "expected_output": {
                 "type": "string",

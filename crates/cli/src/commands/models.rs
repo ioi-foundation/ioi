@@ -185,8 +185,14 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
             daemon_request(endpoint, token, Method::GET, "/api/v1/models", None).await?
         }
         ModelsCommands::Capabilities => {
-            daemon_request(endpoint, token, Method::GET, "/api/v1/model-capabilities", None)
-                .await?
+            daemon_request(
+                endpoint,
+                token,
+                Method::GET,
+                "/api/v1/model-capabilities",
+                None,
+            )
+            .await?
         }
         ModelsCommands::Get { id } => {
             daemon_request(

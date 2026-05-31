@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn probe_host_exclusions_preserve_discovered_authority_hosts_for_identifier_briefings() {
+fn probe_host_exclusions_preserve_discovered_authority_hosts_for_identifier_reports() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let projection = build_query_constraint_projection(query, 2, &[]);
@@ -29,7 +29,7 @@ fn probe_host_exclusions_preserve_discovered_authority_hosts_for_identifier_brie
 }
 
 #[test]
-fn probe_host_exclusions_preserve_grounded_public_authority_hosts_for_document_briefings() {
+fn probe_host_exclusions_preserve_grounded_public_authority_hosts_for_document_reports() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let projection = build_query_constraint_projection(query, 2, &[]);
@@ -74,7 +74,7 @@ fn probe_host_exclusions_preserve_grounded_public_authority_hosts_for_document_b
 }
 
 #[test]
-fn document_briefing_probe_terms_add_public_authority_site_when_only_secondary_hints_exist() {
+fn document_report_probe_terms_add_public_authority_site_when_only_secondary_hints_exist() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
@@ -117,7 +117,7 @@ fn document_briefing_probe_terms_add_public_authority_site_when_only_secondary_h
 }
 
 #[test]
-fn document_briefing_probe_terms_skip_public_authority_site_when_authority_slot_is_satisfied() {
+fn document_report_probe_terms_skip_public_authority_site_when_authority_slot_is_satisfied() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
@@ -156,7 +156,7 @@ fn document_briefing_probe_terms_skip_public_authority_site_when_authority_slot_
 }
 
 #[test]
-fn document_briefing_probe_terms_keep_authority_site_expansion_when_floor_is_still_unmet() {
+fn document_report_probe_terms_keep_authority_site_expansion_when_floor_is_still_unmet() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
@@ -200,7 +200,7 @@ fn document_briefing_probe_terms_keep_authority_site_expansion_when_floor_is_sti
 }
 
 #[test]
-fn document_briefing_probe_terms_skip_publication_path_scope_once_grounded_authority_is_present(
+fn document_report_probe_terms_skip_publication_path_scope_once_grounded_authority_is_present(
 ) {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
@@ -228,7 +228,7 @@ fn document_briefing_probe_terms_skip_publication_path_scope_once_grounded_autho
 }
 
 #[test]
-fn document_briefing_probe_terms_skip_publication_path_scope_without_uppercase_authority_token_once_grounded_authority_is_present(
+fn document_report_probe_terms_skip_publication_path_scope_without_uppercase_authority_token_once_grounded_authority_is_present(
 ) {
     let query =
         "research the latest nist post-quantum cryptography standards and write me a one-page briefing.";
@@ -256,7 +256,7 @@ fn document_briefing_probe_terms_skip_publication_path_scope_without_uppercase_a
 }
 
 #[test]
-fn document_briefing_probe_terms_exclude_grounded_authority_hosts_when_domain_diversity_is_unmet(
+fn document_report_probe_terms_exclude_grounded_authority_hosts_when_domain_diversity_is_unmet(
 ) {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";

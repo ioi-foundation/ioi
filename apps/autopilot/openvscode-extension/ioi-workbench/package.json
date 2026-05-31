@@ -211,6 +211,18 @@
         "icon": "$(comment-discussion)"
       },
       {
+        "command": "ioi.studio.applyAgentMode",
+        "title": "IOI: Apply Studio Agent Mode",
+        "category": "IOI",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "ioi.studio.applyPermissionMode",
+        "title": "IOI: Apply Studio Permission Mode",
+        "category": "IOI",
+        "icon": "$(shield)"
+      },
+      {
         "command": "ioi.chat.submit",
         "title": "IOI: Submit Chat Request",
         "category": "IOI",

@@ -159,20 +159,19 @@ pub(super) async fn apply_queue_failure_policies(
                 if is_web_research_scope(agent_state)
                     && matches!(class, FailureClass::TimeoutOrHang)
                 {
-                    let summary = format!(
-                        "Web retrieval timed out while executing '{}'. Retry later or narrow the query/sources.",
+                    let tool_feedback = format!(
+                        "Tool result: web retrieval timed out while executing '{}'. Return this typed failure to the model loop so it can retry, narrow sources, or explain the limitation.",
                         tool_name
                     );
-                    outcome.stop_condition_hit = true;
-                    outcome.escalation_path = Some("web_timeout_fail_fast".to_string());
+                    outcome.stop_condition_hit = false;
+                    outcome.escalation_path = None;
                     outcome.remediation_queued = false;
                     *success = true;
                     *err = None;
-                    *out = Some(summary.clone());
-                    agent_state.execution_queue.clear();
-                    agent_state.pending_search_completion = None;
-                    agent_state.status = AgentStatus::Completed(Some(summary));
-                    verification_checks.push("web_timeout_fail_fast=true".to_string());
+                    *out = Some(tool_feedback);
+                    agent_state.status = AgentStatus::Running;
+                    agent_state.recent_actions.clear();
+                    verification_checks.push("web_timeout_returned_to_model_loop=true".to_string());
                 } else {
                     let incident_state = load_incident_state(state, &p.session_id)?;
                     if should_enter_incident_recovery(

@@ -1,9 +1,14 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import {
+  configureNativeLlamaCppEnvDefaults,
+  inferNativeModelId,
+} from "./native-llama-cpp-discovery.mjs";
 
 export const DEFAULT_RUNTIME_BRIDGE_ID = "autopilot-ide-runtime-agent-service";
-export const DEFAULT_RUNTIME_BRIDGE_TIMEOUT_MS = 120_000;
+export const DEFAULT_RUNTIME_BRIDGE_TIMEOUT_MS = 300_000;
+export const DEFAULT_RUNTIME_COGNITION_TIMEOUT_SECS = 140;
 export const DEFAULT_RUNTIME_MODEL_ID = "stories260k";
 export const DEFAULT_RUNTIME_ENDPOINT_ID = "endpoint.stories260k";
 export const DEFAULT_RUNTIME_ROUTE_ID = "route.local-first";
@@ -43,7 +48,7 @@ export function ensureDefaultRuntimeBridgeBinary({
   build = true,
   stdio = "inherit",
 } = {}) {
-  if (existsSync(command)) {
+  if (!build && existsSync(command)) {
     return { ok: true, built: false, command };
   }
   if (!build) {
@@ -78,6 +83,7 @@ export function ensureDefaultRuntimeBridgeBinary({
 export function configureRuntimeAgentServiceBridgeEnv({
   repoRoot,
   stateDir,
+  workspaceRoot = repoRoot,
   env = process.env,
   bridgeId = DEFAULT_RUNTIME_BRIDGE_ID,
   timeoutMs = DEFAULT_RUNTIME_BRIDGE_TIMEOUT_MS,
@@ -103,7 +109,7 @@ export function configureRuntimeAgentServiceBridgeEnv({
     env,
     "IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS",
     ["IOI_RUNTIME_BRIDGE_ARGS"],
-    JSON.stringify(["--data-dir", dataDir, "--workspace", repoRoot]),
+    JSON.stringify(["--data-dir", dataDir, "--workspace", workspaceRoot]),
     { overwrite },
   );
   setEnvValue(env, "IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", ["IOI_RUNTIME_BRIDGE_ID"], bridgeId, { overwrite });
@@ -114,17 +120,29 @@ export function configureRuntimeAgentServiceBridgeEnv({
     String(timeoutMs),
     { overwrite },
   );
+  setEnvValue(
+    env,
+    "IOI_COGNITION_INFERENCE_TIMEOUT_SECS",
+    [],
+    String(DEFAULT_RUNTIME_COGNITION_TIMEOUT_SECS),
+    { overwrite: false },
+  );
 
   return {
     configured: true,
     command: firstNonEmptyEnv(env, ["IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", "IOI_RUNTIME_BRIDGE_COMMAND"]),
     dataDir,
+    workspaceRoot,
     bridgeId: firstNonEmptyEnv(env, ["IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", "IOI_RUNTIME_BRIDGE_ID"]),
     timeoutMs: Number(
       firstNonEmptyEnv(env, [
         "IOI_RUNTIME_AGENT_SERVICE_BRIDGE_TIMEOUT_MS",
         "IOI_RUNTIME_BRIDGE_TIMEOUT_MS",
       ]) ?? timeoutMs,
+    ),
+    cognitionTimeoutSecs: Number(
+      firstNonEmptyEnv(env, ["IOI_COGNITION_INFERENCE_TIMEOUT_SECS"]) ??
+        DEFAULT_RUNTIME_COGNITION_TIMEOUT_SECS,
     ),
     binary,
   };
@@ -185,6 +203,7 @@ export async function bootstrapNativeRuntimeModelRoute({
   providerId = DEFAULT_RUNTIME_PROVIDER_ID,
   backendId = DEFAULT_RUNTIME_BACKEND_ID,
 } = {}) {
+  configureNativeLlamaCppEnvDefaults({ env: process.env });
   const configuredLlamaCppModelPath = firstNonEmptyEnv(process.env, [
     "IOI_LLAMA_CPP_MODEL_PATH",
   ]);
@@ -197,7 +216,7 @@ export async function bootstrapNativeRuntimeModelRoute({
         "IOI_LLAMA_CPP_MODEL_ID",
         "IOI_DAEMON_MODEL_ID",
         "IOI_RUNTIME_MODEL",
-      ]) ?? modelId;
+      ]) ?? inferNativeModelId(configuredLlamaCppModelPath, { env: process.env, fallback: modelId });
     const llamaEndpointId =
       firstNonEmptyEnv(process.env, ["IOI_LLAMA_CPP_ENDPOINT_ID"]) ?? "endpoint.electron.model-gui";
     const llamaRouteId =

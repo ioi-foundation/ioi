@@ -184,6 +184,11 @@ pub(crate) fn provider_descriptor_is_admissible(
     requirements: &SearchProviderRequirements,
     descriptor: &SearchProviderDescriptor,
 ) -> bool {
+    if descriptor.stage == SearchProviderStage::GoogleNewsTopStoriesRss
+        && !requirements.ordered_collection_preferred
+    {
+        return false;
+    }
     if descriptor.locality_binding_required && !requirements.locality_scope_required {
         return false;
     }

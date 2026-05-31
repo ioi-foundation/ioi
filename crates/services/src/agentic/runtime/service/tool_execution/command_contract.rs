@@ -20,7 +20,6 @@ mod history;
 
 pub const TARGET_UTC_MARKER: &str = "Target UTC:";
 pub const RUN_TIMESTAMP_UTC_MARKER: &str = "Run timestamp (UTC):";
-pub const MECHANISM_MARKER: &str = "Mechanism:";
 pub const TIMER_SLEEP_BACKEND_SUCCESS_CONDITION: &str = "timer_sleep_backend";
 pub const TIMER_NOTIFICATION_PATH_SUCCESS_CONDITION: &str = "notification_path_armed";
 pub const TIMER_NOTIFICATION_CONTRACT_REQUIRED_EVIDENCE: &str =
@@ -187,10 +186,6 @@ pub fn upsert_structured_field(summary: &str, marker: &str, value: &str) -> Stri
 }
 
 include!("command_contract/reply_composition.rs");
-
-fn is_path_token_char(ch: char) -> bool {
-    ch.is_ascii_alphanumeric() || matches!(ch, '/' | '_' | '-' | '.' | ':')
-}
 
 pub fn parse_sleep_seconds(command: &str) -> Option<i64> {
     let tokens: Vec<&str> = command.split_whitespace().collect();

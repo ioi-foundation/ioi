@@ -699,7 +699,7 @@ pub(super) fn delegated_child_preset_resolved_intent(
                         .to_string(),
                 ],
                 success_criteria: vec![
-                    "Return a deterministic patch/build/test handoff with touched files, focused command results, and residual risk."
+                    "Return an evidence-backed patch/build/test handoff with touched files, focused command results, and residual risk."
                         .to_string(),
                 ],
             }),
@@ -814,7 +814,7 @@ pub(super) fn delegated_child_preset_resolved_intent(
                     "Do not issue `memory__search` or raw web retrieval from the verifier lane; audit the inherited cited brief from receipt-bound context first and use `memory__read` only for a named evidence gap.".to_string(),
                 ],
                 success_criteria: vec![
-                    "Return a deterministic citation-verifier scorecard with verdict, freshness_status, quote_grounding_status, notes, and supporting evidence.".to_string(),
+                    "Return an evidence-backed citation-verifier scorecard with verdict, freshness_status, quote_grounding_status, notes, and supporting evidence.".to_string(),
                 ],
             }),
             constrained: false,
@@ -854,7 +854,7 @@ pub(super) fn delegated_child_preset_resolved_intent(
                     "Do not write files in the verifier lane; run the named targeted checks first, widen only if the evidence requires it, and keep regression risk separate from executor summaries.".to_string(),
                 ],
                 success_criteria: vec![
-                    "Return a deterministic coding verifier scorecard with verdict, targeted command coverage, widening status, regression status, and clearly named blockers.".to_string(),
+                    "Return an evidence-backed coding verifier scorecard with verdict, targeted command coverage, widening status, regression status, and clearly named blockers.".to_string(),
                 ],
             }),
             constrained: false,
@@ -892,7 +892,7 @@ pub(super) fn delegated_child_preset_resolved_intent(
                     "Do not request clarification or rerun executor or verifier work when inherited parent evidence already names touched files, verification state, and residual risk; synthesize from the inherited handoff first and only inspect named files if a specific evidence gap remains.".to_string(),
                 ],
                 success_criteria: vec![
-                    "Return a deterministic patch synthesis summary with status, touched files, verification readiness, notes, and residual risk.".to_string(),
+                    "Return an evidence-backed patch synthesis summary with status, touched files, verification readiness, notes, and residual risk.".to_string(),
                 ],
             }),
             constrained: false,

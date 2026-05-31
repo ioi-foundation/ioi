@@ -108,7 +108,7 @@ fn coordinate_screen_clicks_start_in_visual_foreground_on_direct_path() {
 }
 
 #[test]
-fn duplicate_timer_exec_terminalizes_with_structured_evidence() {
+fn duplicate_timer_exec_terminalizes_without_product_run_timestamp() {
     let tool = AgentTool::SysExec {
         command: "sleep".to_string(),
         args: vec!["900".to_string()],
@@ -126,15 +126,15 @@ fn duplicate_timer_exec_terminalizes_with_structured_evidence() {
     };
 
     let summary = duplicate_command_completion_summary(&tool, Some(&history))
-        .expect("expected deterministic duplicate completion");
+        .expect("expected duplicate timer completion");
     assert!(summary.contains("Timer scheduled."));
     assert!(summary.contains("Mechanism: Detached shell__run command 'sleep 900'"));
-    assert!(summary.contains("Run timestamp (UTC):"));
     assert!(summary.contains("Target UTC:"));
+    assert!(!summary.contains("Run timestamp (UTC):"));
 }
 
 #[test]
-fn duplicate_timer_exec_terminalizes_with_script_command_and_redacted_history() {
+fn duplicate_timer_exec_terminalizes_script_command_without_product_run_timestamp() {
     let tool = AgentTool::SysExec {
         command: "bash".to_string(),
         args: vec![
@@ -155,11 +155,11 @@ fn duplicate_timer_exec_terminalizes_with_script_command_and_redacted_history() 
     };
 
     let summary = duplicate_command_completion_summary(&tool, Some(&history))
-        .expect("expected deterministic duplicate completion for script timer");
+        .expect("expected duplicate timer completion for script timer");
     assert!(summary.contains("Timer scheduled."));
     assert!(summary.contains("Mechanism: Detached shell__run command 'bash -lc"));
-    assert!(summary.contains("Run timestamp (UTC):"));
     assert!(summary.contains("Target UTC:"));
+    assert!(!summary.contains("Run timestamp (UTC):"));
 }
 
 #[test]

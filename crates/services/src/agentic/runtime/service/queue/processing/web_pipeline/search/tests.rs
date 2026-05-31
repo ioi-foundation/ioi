@@ -1,14 +1,19 @@
 use super::{
-    briefing_authority_link_expansion_required, briefing_authority_link_out_sources_from_html,
-    briefing_authority_seed_admission, defer_search_planning_failure_while_recovery_actions_remain,
-    deterministic_local_business_expansion_alignment_urls, effective_semantic_alignment_urls,
-    planning_bundle_after_surface_filter, pre_read_batch_urls, pre_read_candidate_inventory_target,
-    search_attempt_urls_from_bundle,
+    candidate_recovery_local_business_expansion_alignment_urls,
+    defer_search_planning_failure_while_recovery_actions_remain, effective_semantic_alignment_urls,
+    evidence_authority_link_expansion_required, evidence_authority_link_out_sources_from_html,
+    evidence_authority_seed_admission, planning_bundle_after_surface_filter, pre_read_batch_urls,
+    pre_read_candidate_inventory_target, recovered_pre_read_selection_after_payload_error,
+    search_attempt_urls_from_bundle, should_complete_web_search_after_duplicate_no_effect,
+    source_list_request_allows_search_result_terminalization,
 };
 use crate::agentic::runtime::types::{
     AgentMode, AgentState, AgentStatus, ExecutionTier, PendingSearchReadSummary,
 };
-use ioi_types::app::agentic::WebRetrievalContract;
+use ioi_types::app::agentic::{
+    CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+    WebRetrievalContract,
+};
 use ioi_types::app::agentic::{WebEvidenceBundle, WebSource};
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
 use std::collections::{BTreeMap, VecDeque};
@@ -56,6 +61,271 @@ fn test_agent_state() -> AgentState {
     }
 }
 
+fn web_research_resolved_intent() -> ResolvedIntentState {
+    ResolvedIntentState {
+        intent_id: "web.research".to_string(),
+        scope: IntentScopeProfile::WebResearch,
+        band: IntentConfidenceBand::High,
+        score: 1.0,
+        top_k: vec![],
+        required_capabilities: vec![CapabilityId::from("web.retrieve")],
+        required_evidence: vec![],
+        success_conditions: vec![],
+        risk_class: "low".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        intent_catalog_version: "test".to_string(),
+        embedding_model_id: String::new(),
+        embedding_model_version: String::new(),
+        similarity_function_id: String::new(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: String::new(),
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: false,
+    }
+}
+
+#[test]
+fn duplicate_web_search_no_effect_can_finalize_from_successful_reads() {
+    let mut agent_state = test_agent_state();
+    agent_state.goal =
+        "Find current sources for today's top local AI model runtime issue.".to_string();
+    agent_state.resolved_intent = Some(web_research_resolved_intent());
+    agent_state.pending_search_completion =
+        Some(crate::agentic::runtime::types::PendingSearchCompletion {
+            query: "local model runtime issue".to_string(),
+            query_contract: agent_state.goal.clone(),
+            retrieval_contract: None,
+            url: "https://example.com/local-model-runtime".to_string(),
+            started_step: 1,
+            started_at_ms: 1,
+            deadline_ms: 60_000,
+            candidate_urls: vec![],
+            candidate_source_hints: vec![],
+            attempted_urls: vec!["https://example.com/local-model-runtime".to_string()],
+            blocked_urls: vec![],
+            successful_reads: vec![PendingSearchReadSummary {
+                url: "https://example.com/local-model-runtime".to_string(),
+                title: Some("Local model runtime issue".to_string()),
+                excerpt: "A current local AI runtime issue discusses model loading failures, provider routing, and recovery steps.".to_string(),
+            }],
+            min_sources: 1,
+        });
+
+    assert!(should_complete_web_search_after_duplicate_no_effect(
+        &agent_state,
+        "web__search",
+        false,
+        false,
+        Some("ERROR_CLASS=NoEffectAfterAction Skipped immediate replay")
+    ));
+}
+
+#[test]
+fn duplicate_web_search_no_effect_does_not_finalize_without_reads() {
+    let mut agent_state = test_agent_state();
+    agent_state.resolved_intent = Some(web_research_resolved_intent());
+    agent_state.pending_search_completion =
+        Some(crate::agentic::runtime::types::PendingSearchCompletion {
+            query: "local model runtime issue".to_string(),
+            query_contract: "Find current sources".to_string(),
+            retrieval_contract: None,
+            url: "https://example.com/local-model-runtime".to_string(),
+            started_step: 1,
+            started_at_ms: 1,
+            deadline_ms: 60_000,
+            candidate_urls: vec![],
+            candidate_source_hints: vec![],
+            attempted_urls: vec!["https://example.com/local-model-runtime".to_string()],
+            blocked_urls: vec![],
+            successful_reads: vec![],
+            min_sources: 1,
+        });
+
+    assert!(!should_complete_web_search_after_duplicate_no_effect(
+        &agent_state,
+        "web__search",
+        false,
+        false,
+        Some("ERROR_CLASS=NoEffectAfterAction Skipped immediate replay")
+    ));
+}
+
+#[test]
+fn current_source_list_does_not_terminalize_from_search_results_after_pre_read_failure() {
+    let mut agent_state = test_agent_state();
+    agent_state.goal =
+        "Find current sources for today's top local AI model runtime issue.".to_string();
+    let pending = crate::agentic::runtime::types::PendingSearchCompletion {
+        query: "local model runtime issue".to_string(),
+        query_contract: agent_state.goal.clone(),
+        candidate_source_hints: vec![
+            PendingSearchReadSummary {
+                url: "https://insiderllm.com/guides/local-ai-troubleshooting-guide/".to_string(),
+                title: Some("Local AI Troubleshooting Guide".to_string()),
+                excerpt: "Common problems and fixes for running AI locally.".to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://localai.io/basics/troubleshooting/".to_string(),
+                title: Some("Troubleshooting - LocalAI".to_string()),
+                excerpt: "Diagnostic steps and solutions for LocalAI runtime issues.".to_string(),
+            },
+        ],
+        min_sources: 2,
+        ..Default::default()
+    };
+
+    assert!(!source_list_request_allows_search_result_terminalization(
+        &agent_state,
+        &pending,
+        None
+    ));
+    assert!(!source_list_request_allows_search_result_terminalization(
+        &agent_state,
+        &pending,
+        Some("pre-read selection inference failed: host unavailable")
+    ));
+    assert!(!source_list_request_allows_search_result_terminalization(
+        &agent_state,
+        &pending,
+        Some(
+            "selected URL did not satisfy the typed retrieval contract: https://localai.io/basics/troubleshooting/"
+        )
+    ));
+}
+
+#[test]
+fn pre_read_payload_error_uses_ranked_candidate_recovery_before_deferring() {
+    let query = "Find current sources for today's top local AI model runtime issue.";
+    let retrieval_contract =
+        crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).expect("contract");
+    let candidate_urls = vec![
+        "https://insiderllm.com/guides/local-ai-troubleshooting-guide/".to_string(),
+        "https://mljourney.com/why-local-llms-feel-slow/".to_string(),
+    ];
+    let candidate_source_hints = vec![
+        PendingSearchReadSummary {
+            url: candidate_urls[0].clone(),
+            title: Some("Local AI Troubleshooting Guide".to_string()),
+            excerpt: "Current source for local model runtime troubleshooting.".to_string(),
+        },
+        PendingSearchReadSummary {
+            url: candidate_urls[1].clone(),
+            title: Some("Why Local LLMs Feel Slow".to_string()),
+            excerpt: "Current source discussing local model runtime bottlenecks.".to_string(),
+        },
+    ];
+    let candidate_recovery_plan =
+        crate::agentic::runtime::service::queue::support::PreReadCandidatePlan {
+            candidate_urls: candidate_urls.clone(),
+            candidate_source_hints,
+            probe_source_hints: Vec::new(),
+            total_candidates: 2,
+            pruned_candidates: 0,
+            resolvable_candidates: 2,
+            scoreable_candidates: 2,
+            requires_constraint_search_probe: false,
+        };
+
+    let selection = recovered_pre_read_selection_after_payload_error(
+        &retrieval_contract,
+        query,
+        2,
+        &[],
+        &candidate_recovery_plan,
+        &[],
+    )
+    .expect("ranked discovery payload should recover from a bad synthesized URL");
+
+    assert_eq!(
+        selection.selection_mode,
+        super::PreReadSelectionMode::DirectDetail
+    );
+    assert_eq!(selection.urls, candidate_urls);
+}
+
+#[test]
+fn pre_read_payload_error_recovers_from_payload_source_hints_when_plan_is_empty() {
+    let query = "Find current sources for today's top local AI model runtime issue.";
+    let retrieval_contract =
+        crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).expect("contract");
+    let candidate_recovery_plan =
+        crate::agentic::runtime::service::queue::support::PreReadCandidatePlan {
+            candidate_urls: Vec::new(),
+            candidate_source_hints: Vec::new(),
+            probe_source_hints: Vec::new(),
+            total_candidates: 0,
+            pruned_candidates: 0,
+            resolvable_candidates: 0,
+            scoreable_candidates: 0,
+            requires_constraint_search_probe: false,
+        };
+    let payload_hints = vec![
+        PendingSearchReadSummary {
+            url: "https://localai.io/basics/troubleshooting/".to_string(),
+            title: Some("Troubleshooting - LocalAI".to_string()),
+            excerpt: "Diagnostic steps and solutions for LocalAI runtime issues.".to_string(),
+        },
+        PendingSearchReadSummary {
+            url: "https://github.com/mudler/LocalAI/issues/317".to_string(),
+            title: Some("LocalAI model loading issue".to_string()),
+            excerpt: "Current issue thread discussing local runtime model failures.".to_string(),
+        },
+    ];
+
+    let selection = recovered_pre_read_selection_after_payload_error(
+        &retrieval_contract,
+        query,
+        2,
+        &[],
+        &candidate_recovery_plan,
+        &payload_hints,
+    )
+    .expect("payload source hints should keep web acquisition moving");
+
+    assert_eq!(
+        selection.selection_mode,
+        super::PreReadSelectionMode::DirectDetail
+    );
+    assert_eq!(selection.urls.len(), 2);
+    assert!(selection
+        .urls
+        .iter()
+        .any(|url| url.contains("localai.io/basics/troubleshooting")));
+}
+
+#[test]
+fn non_source_prompt_does_not_terminalize_from_search_results_after_pre_read_failure() {
+    let mut agent_state = test_agent_state();
+    agent_state.goal = "Explain local AI model runtime issues.".to_string();
+    let pending = crate::agentic::runtime::types::PendingSearchCompletion {
+        query: "local model runtime issue".to_string(),
+        query_contract: agent_state.goal.clone(),
+        candidate_source_hints: vec![PendingSearchReadSummary {
+            url: "https://localai.io/basics/troubleshooting/".to_string(),
+            title: Some("Troubleshooting - LocalAI".to_string()),
+            excerpt: "Diagnostic steps and solutions for LocalAI runtime issues.".to_string(),
+        }],
+        min_sources: 1,
+        ..Default::default()
+    };
+
+    assert!(!source_list_request_allows_search_result_terminalization(
+        &agent_state,
+        &pending,
+        None
+    ));
+    assert!(!source_list_request_allows_search_result_terminalization(
+        &agent_state,
+        &pending,
+        Some("pre-read selection inference failed: host unavailable")
+    ));
+}
+
 #[test]
 fn pre_read_candidate_inventory_target_preserves_multisource_headroom() {
     assert_eq!(
@@ -93,7 +363,7 @@ fn pre_read_batch_urls_limits_execution_batch_without_discarding_order() {
 }
 
 #[test]
-fn briefing_authority_link_expansion_required_when_count_meets_floor_but_selection_is_not_quality_ready(
+fn evidence_authority_link_expansion_required_when_count_meets_floor_but_selection_is_not_quality_ready(
 ) {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
@@ -127,7 +397,7 @@ fn briefing_authority_link_expansion_required_when_count_meets_floor_but_selecti
         },
     ];
 
-    assert!(briefing_authority_link_expansion_required(
+    assert!(evidence_authority_link_expansion_required(
         &retrieval_contract,
         query,
         &discovery_sources,
@@ -136,7 +406,7 @@ fn briefing_authority_link_expansion_required_when_count_meets_floor_but_selecti
 }
 
 #[test]
-fn briefing_authority_link_expansion_skips_when_query_is_not_document_briefing() {
+fn evidence_authority_link_expansion_skips_when_query_is_not_document_report() {
     let query =
         "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.";
     let retrieval_contract =
@@ -174,7 +444,7 @@ fn briefing_authority_link_expansion_skips_when_query_is_not_document_briefing()
         },
     ];
 
-    assert!(!briefing_authority_link_expansion_required(
+    assert!(!evidence_authority_link_expansion_required(
         &retrieval_contract,
         query,
         &discovery_sources,
@@ -236,7 +506,7 @@ fn planning_bundle_preserves_empty_surface_filter_result() {
 }
 
 #[test]
-fn briefing_authority_link_out_sources_surface_public_authority_links_from_external_article() {
+fn evidence_authority_link_out_sources_surface_public_authority_links_from_external_article() {
     let html = r#"
         <html>
           <head><title>IBM overview of NIST standards</title></head>
@@ -252,7 +522,7 @@ fn briefing_authority_link_out_sources_surface_public_authority_links_from_exter
         </html>
     "#;
 
-    let sources = briefing_authority_link_out_sources_from_html(
+    let sources = evidence_authority_link_out_sources_from_html(
         &crate::agentic::web::derive_web_retrieval_contract(
             "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
             Some("Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."),
@@ -295,7 +565,7 @@ fn briefing_authority_link_out_sources_surface_public_authority_links_from_exter
 }
 
 #[test]
-fn briefing_authority_link_expansion_keeps_same_host_deep_authority_documents() {
+fn evidence_authority_link_expansion_keeps_same_host_deep_authority_documents() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
@@ -317,7 +587,7 @@ fn briefing_authority_link_expansion_keeps_same_host_deep_authority_documents() 
         </html>
     "#;
 
-    let sources = briefing_authority_link_out_sources_from_html(
+    let sources = evidence_authority_link_out_sources_from_html(
         &retrieval_contract,
         query,
         seed_url,
@@ -345,7 +615,7 @@ fn briefing_authority_link_expansion_keeps_same_host_deep_authority_documents() 
 }
 
 #[test]
-fn briefing_authority_link_expansion_uses_page_context_for_minimal_same_host_titles() {
+fn evidence_authority_link_expansion_uses_page_context_for_minimal_same_host_titles() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
@@ -366,7 +636,7 @@ fn briefing_authority_link_expansion_uses_page_context_for_minimal_same_host_tit
         </html>
     "#;
 
-    let sources = briefing_authority_link_out_sources_from_html(
+    let sources = evidence_authority_link_out_sources_from_html(
         &retrieval_contract,
         query,
         seed_url,
@@ -389,7 +659,7 @@ fn briefing_authority_link_expansion_uses_page_context_for_minimal_same_host_tit
 }
 
 #[test]
-fn briefing_authority_link_expansion_ranks_publication_docs_ahead_of_navigation_links() {
+fn evidence_authority_link_expansion_ranks_publication_docs_ahead_of_navigation_links() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
@@ -414,7 +684,7 @@ fn briefing_authority_link_expansion_ranks_publication_docs_ahead_of_navigation_
         </html>
     "#;
 
-    let sources = briefing_authority_link_out_sources_from_html(
+    let sources = evidence_authority_link_out_sources_from_html(
         &retrieval_contract,
         query,
         seed_url,
@@ -455,7 +725,7 @@ fn briefing_authority_link_expansion_ranks_publication_docs_ahead_of_navigation_
 }
 
 #[test]
-fn briefing_authority_link_expansion_preserves_domain_diversity_when_required() {
+fn evidence_authority_link_expansion_preserves_domain_diversity_when_required() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
@@ -479,7 +749,7 @@ fn briefing_authority_link_expansion_preserves_domain_diversity_when_required() 
         </html>
     "#;
 
-    let sources = briefing_authority_link_out_sources_from_html(
+    let sources = evidence_authority_link_out_sources_from_html(
         &retrieval_contract,
         query,
         seed_url,
@@ -509,7 +779,7 @@ fn briefing_authority_link_expansion_preserves_domain_diversity_when_required() 
 }
 
 #[test]
-fn briefing_authority_link_expansion_rejects_external_policy_links_grounded_only_by_page_context() {
+fn evidence_authority_link_expansion_rejects_external_policy_links_grounded_only_by_page_context() {
     let query = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
     let retrieval_contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
         .expect("retrieval contract");
@@ -531,7 +801,7 @@ fn briefing_authority_link_expansion_rejects_external_policy_links_grounded_only
         </html>
     "#;
 
-    let sources = briefing_authority_link_out_sources_from_html(
+    let sources = evidence_authority_link_out_sources_from_html(
         &retrieval_contract,
         query,
         seed_url,
@@ -568,7 +838,7 @@ fn briefing_authority_link_expansion_rejects_external_policy_links_grounded_only
 }
 
 #[test]
-fn briefing_authority_link_expansion_keeps_external_support_snippet_clean_from_low_priority_seed() {
+fn evidence_authority_link_expansion_keeps_external_support_snippet_clean_from_low_priority_seed() {
     let query = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
     let retrieval_contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
         .expect("retrieval contract");
@@ -591,7 +861,7 @@ fn briefing_authority_link_expansion_keeps_external_support_snippet_clean_from_l
         </html>
     "#;
 
-    let sources = briefing_authority_link_out_sources_from_html(
+    let sources = evidence_authority_link_out_sources_from_html(
         &retrieval_contract,
         query,
         seed_url,
@@ -629,7 +899,7 @@ fn briefing_authority_link_expansion_keeps_external_support_snippet_clean_from_l
 }
 
 #[test]
-fn briefing_authority_link_expansion_keeps_same_host_query_grounded_project_seed() {
+fn evidence_authority_link_expansion_keeps_same_host_query_grounded_project_seed() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
@@ -652,7 +922,7 @@ fn briefing_authority_link_expansion_keeps_same_host_query_grounded_project_seed
         </html>
     "#;
 
-    let sources = briefing_authority_link_out_sources_from_html(
+    let sources = evidence_authority_link_out_sources_from_html(
         &retrieval_contract,
         query,
         seed_url,
@@ -683,13 +953,13 @@ fn briefing_authority_link_expansion_keeps_same_host_query_grounded_project_seed
 }
 
 #[test]
-fn briefing_authority_seed_admission_accepts_authority_seed_without_snippet_grounding() {
+fn evidence_authority_seed_admission_accepts_authority_seed_without_snippet_grounding() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
         .expect("retrieval contract");
 
-    let admission = briefing_authority_seed_admission(
+    let admission = evidence_authority_seed_admission(
         &retrieval_contract,
         query,
         2,
@@ -717,13 +987,13 @@ fn briefing_authority_seed_admission_accepts_authority_seed_without_snippet_grou
 }
 
 #[test]
-fn briefing_authority_seed_admission_rejects_non_authority_seed() {
+fn evidence_authority_seed_admission_rejects_non_authority_seed() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
         .expect("retrieval contract");
 
-    let admission = briefing_authority_seed_admission(
+    let admission = evidence_authority_seed_admission(
         &retrieval_contract,
         query,
         2,
@@ -739,7 +1009,7 @@ fn briefing_authority_seed_admission_rejects_non_authority_seed() {
 }
 
 #[test]
-fn briefing_authority_link_out_sources_skip_off_topic_public_authority_links() {
+fn evidence_authority_link_out_sources_skip_off_topic_public_authority_links() {
     let html = r#"
         <html>
           <head><title>IBM overview of the NIST Cybersecurity Framework</title></head>
@@ -758,7 +1028,7 @@ fn briefing_authority_link_out_sources_skip_off_topic_public_authority_links() {
         Some("Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."),
     )
     .expect("contract");
-    let sources = briefing_authority_link_out_sources_from_html(
+    let sources = evidence_authority_link_out_sources_from_html(
         &retrieval_contract,
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
         "https://www.ibm.com/es-es/think/insights/nist-cybersecurity-framework-2",
@@ -856,9 +1126,9 @@ fn search_attempt_urls_omits_bundle_url_when_it_is_a_selected_source() {
         schema_version: 1,
         retrieved_at_ms: 0,
         tool: "web__search".to_string(),
-        backend: "edge:search:parity-fixture".to_string(),
+        backend: "edge:bing:http".to_string(),
         query: Some("Which is a better investment right now, Akash or Filecoin?".to_string()),
-        url: Some("https://example.com/crypto/akt-price-today-2026".to_string()),
+        url: Some("https://www.coingecko.com/en/coins/akash-network".to_string()),
         sources: vec![],
         source_observations: vec![],
         documents: vec![],
@@ -866,13 +1136,13 @@ fn search_attempt_urls_omits_bundle_url_when_it_is_a_selected_source() {
         retrieval_contract: None,
     };
     let candidate_urls = vec![
-        "https://example.com/crypto/akt-price-today-2026".to_string(),
-        "https://example.com/crypto/filecoin-price-today-2026".to_string(),
+        "https://www.coingecko.com/en/coins/akash-network".to_string(),
+        "https://www.coingecko.com/en/coins/filecoin".to_string(),
     ];
     let source_hints = vec![PendingSearchReadSummary {
-        url: "https://example.com/crypto/akt-price-today-2026".to_string(),
-        title: Some("AKT Price Today".to_string()),
-        excerpt: "AKT price today is $4.20 USD.".to_string(),
+        url: "https://www.coingecko.com/en/coins/akash-network".to_string(),
+        title: Some("Akash Network Price: AKT Live Price Chart".to_string()),
+        excerpt: "Akash Network price today is $0.81 USD.".to_string(),
     }];
 
     assert!(search_attempt_urls_from_bundle(&bundle, &candidate_urls, &source_hints).is_empty());
@@ -884,7 +1154,7 @@ fn search_attempt_urls_keeps_search_hub_url() {
         schema_version: 1,
         retrieved_at_ms: 0,
         tool: "web__search".to_string(),
-        backend: "edge:search:parity-fixture".to_string(),
+        backend: "edge:bing:http".to_string(),
         query: Some("Which is a better investment right now, Akash or Filecoin?".to_string()),
         url: Some("https://duckduckgo.com/html/?q=akt+filecoin".to_string()),
         sources: vec![],
@@ -901,7 +1171,7 @@ fn search_attempt_urls_keeps_search_hub_url() {
 }
 
 #[test]
-fn deterministic_local_business_expansion_alignment_keeps_grounded_detail_pages() {
+fn candidate_recovery_local_business_expansion_alignment_keeps_grounded_detail_pages() {
     let query_contract =
         "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.";
     let expanded_sources = vec![
@@ -940,7 +1210,7 @@ fn deterministic_local_business_expansion_alignment_keeps_grounded_detail_pages(
         },
     ];
 
-    let aligned_urls = deterministic_local_business_expansion_alignment_urls(
+    let aligned_urls = candidate_recovery_local_business_expansion_alignment_urls(
         query_contract,
         Some("Anderson, SC"),
         &expanded_sources,

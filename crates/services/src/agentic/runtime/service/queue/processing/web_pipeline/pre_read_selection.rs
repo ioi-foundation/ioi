@@ -30,32 +30,6 @@ struct PreReadSelectionResponse {
     urls: Vec<String>,
 }
 
-fn deterministic_parity_pre_read_source_allowed(
-    query_contract: &str,
-    url: &str,
-    title: &str,
-    excerpt: &str,
-) -> bool {
-    let query = query_contract.to_ascii_lowercase();
-    let surface = format!("{} {} {}", url, title, excerpt).to_ascii_lowercase();
-    let is_akt_fixture = matches!(
-        url,
-        "https://example.com/akt-filecoin-comparison"
-            | "https://example.com/crypto/akt-price-today-2026"
-            | "https://example.com/crypto/filecoin-price-today-2026"
-    )
-        && (query.contains("akt") || query.contains("akash"))
-        && query.contains("filecoin")
-        && (surface.contains("akt") || surface.contains("akash") || surface.contains("filecoin"));
-    let is_local_runtime_fixture = url.eq_ignore_ascii_case(
-        "https://www.nist.gov/news-events/news/2026/local-ai-model-runtime-issue",
-    ) && query.contains("local ai model runtime")
-        && query.contains("issue")
-        && surface.contains("local ai model runtime issue");
-
-    is_akt_fixture || is_local_runtime_fixture
-}
-
 fn pre_read_url_has_allowed_affordance(
     retrieval_contract: Option<&WebRetrievalContract>,
     query_contract: &str,
@@ -66,9 +40,6 @@ fn pre_read_url_has_allowed_affordance(
     title: &str,
     excerpt: &str,
 ) -> bool {
-    if deterministic_parity_pre_read_source_allowed(query_contract, url, title, excerpt) {
-        return true;
-    }
     let affordances = discovery_source_affordances(
         retrieval_contract,
         query_contract,
@@ -130,7 +101,7 @@ fn pre_read_on_topic_secondary_support_allowed(
     excerpt: &str,
 ) -> bool {
     if min_sources < 2
-        || !query_prefers_document_briefing_layout(query_contract)
+        || !query_prefers_document_report_layout(query_contract)
         || query_requests_comparison(query_contract)
         || !pre_read_authority_source_required(retrieval_contract, query_contract)
         || !retrieval_contract
@@ -223,9 +194,6 @@ fn pre_read_candidate_url_allowed_for_query(
     title: &str,
     excerpt: &str,
 ) -> bool {
-    if deterministic_parity_pre_read_source_allowed(query_contract, url, title, excerpt) {
-        return true;
-    }
     let projection = build_query_constraint_projection_with_locality_hint(
         query_contract,
         min_sources.max(1),
@@ -600,9 +568,10 @@ fn lint_pre_read_payload_urls(
         };
     let entity_diversity_required =
         retrieval_contract_entity_diversity_required(retrieval_contract, query_contract);
+    let market_quote_grounding_required = query_requires_market_quote_grounding(query_contract);
     let authority_source_required =
         pre_read_authority_source_required(retrieval_contract, query_contract);
-    let required_domain_floor = if entity_diversity_required {
+    let required_domain_floor = if entity_diversity_required || market_quote_grounding_required {
         0
     } else {
         retrieval_contract_required_distinct_domain_floor(retrieval_contract, query_contract)
@@ -991,7 +960,8 @@ fn pre_read_selection_mode_permitted(
     }
 }
 
-fn deterministic_pre_read_selection(
+#[cfg(test)]
+fn candidate_recovery_pre_read_selection(
     retrieval_contract: Option<&WebRetrievalContract>,
     query_contract: &str,
     required_url_count: usize,
@@ -999,7 +969,7 @@ fn deterministic_pre_read_selection(
     source_observations: &[WebSourceObservation],
 ) -> Result<PreReadSelectionResponse, String> {
     #[derive(Clone)]
-    struct DeterministicCandidate {
+    struct CandidateRecoveryCandidate {
         url: String,
         domain_key: Option<String>,
         primary_authority: bool,
@@ -1017,7 +987,8 @@ fn deterministic_pre_read_selection(
         };
     let entity_diversity_required =
         retrieval_contract_entity_diversity_required(retrieval_contract, query_contract);
-    let required_domain_floor = if entity_diversity_required {
+    let market_quote_grounding_required = query_requires_market_quote_grounding(query_contract);
+    let required_domain_floor = if entity_diversity_required || market_quote_grounding_required {
         0
     } else {
         retrieval_contract_required_distinct_domain_floor(retrieval_contract, query_contract)
@@ -1062,7 +1033,7 @@ fn deterministic_pre_read_selection(
                 source.title.as_deref().unwrap_or_default(),
                 source.snippet.as_deref().unwrap_or_default(),
             );
-            Some(DeterministicCandidate {
+            Some(CandidateRecoveryCandidate {
                 url: trimmed.to_string(),
                 domain_key: selected_url_domain_key(&source_hints, trimmed),
                 primary_authority,
@@ -1101,7 +1072,7 @@ fn deterministic_pre_read_selection(
         selected: &mut Vec<String>,
         selected_domains: &mut std::collections::BTreeSet<String>,
         selected_authority_families: &mut std::collections::BTreeSet<String>,
-        candidate: &DeterministicCandidate,
+        candidate: &CandidateRecoveryCandidate,
     ) -> bool {
         if selected.iter().any(|existing: &String| {
             existing.eq_ignore_ascii_case(&candidate.url)
@@ -1264,7 +1235,7 @@ fn deterministic_pre_read_selection(
     }
 
     Err(format!(
-        "deterministic pre-read selection could not satisfy {} typed source(s)",
+        "candidate recovery pre-read selection could not satisfy {} typed source(s)",
         expected_count
     ))
 }
@@ -1446,14 +1417,7 @@ async fn synthesize_pre_read_selection(
         }
     }
 
-    deterministic_pre_read_selection(
-        retrieval_contract,
-        query_contract,
-        required_url_count,
-        discovery_sources,
-        source_observations,
-    )
-    .map_err(|fallback_error| format!("{}; fallback failed: {}", last_error, fallback_error))
+    Err(last_error)
 }
 
 fn selected_source_hints_for_urls(

@@ -8,8 +8,7 @@ use crate::agentic::runtime::service::tool_execution::support::action_fingerprin
 use ioi_api::state::StateAccess;
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
 use serde_json::json;
-use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub(super) struct DuplicateExecutionContext<'a> {
     pub service: &'a RuntimeAgentService,
@@ -320,17 +319,23 @@ pub(super) fn handle_duplicate_command_execution(
             active_web_pipeline_chat_reply,
         ) && !worker_duplicate_requires_recovery_error;
         let mut summary = if active_web_pipeline_chat_reply {
-            "Deferred final reply while web research continues gathering evidence.".to_string()
+            concat!(
+                "Rejected duplicate final reply while web research continues. ",
+                "Do not repeat the same answer. Rewrite from the typed web__read results, ",
+                "preserving observed prices, market caps, 24h volumes, and percentage changes ",
+                "for each compared asset when those fields are present."
+            )
+            .to_string()
         } else if tool_name.eq_ignore_ascii_case("browser__inspect") {
             browser_snapshot_immediate_replay_summary()
         } else if prior_successful_duplicate {
             format!(
-                "Skipped immediate replay of '{}' because the identical action already succeeded on the previous step. Do not repeat it. Verify the updated state once or finish with the gathered evidence.",
+                "Skipped immediate replay of '{}' because the identical action already succeeded on the previous step. Do not repeat it. Verify the updated state or choose a different action.",
                 tool_name
             )
         } else {
             format!(
-                "Skipped immediate replay of '{}' because the same action fingerprint was already executed on the previous step. This fingerprint is now cooled down at the current step; choose a different action or finish with the gathered evidence.",
+                "Skipped immediate replay of '{}' because the same action fingerprint was already executed on the previous step. This fingerprint is now cooled down at the current step; choose a different action or verify the updated state.",
                 tool_name
             )
         };
@@ -347,11 +352,16 @@ pub(super) fn handle_duplicate_command_execution(
             verification_checks
                 .push("duplicate_action_fingerprint_worker_recovery_error=true".to_string());
         }
+        let duplicate_label = if active_web_pipeline_chat_reply {
+            "web_chat_reply_deferred"
+        } else {
+            duplicate_skip_execution_label(prior_successful_duplicate, noop_duplicate_allowed)
+        };
         mark_action_fingerprint_executed_at_step(
             &mut agent_state.tool_execution_log,
             action_fingerprint,
             step_index,
-            duplicate_skip_execution_label(prior_successful_duplicate, noop_duplicate_allowed),
+            duplicate_label,
         );
         if noop_duplicate_allowed {
             success = true;
@@ -404,7 +414,11 @@ pub(super) fn handle_duplicate_command_execution(
                     "duplicate_repo_context_worker_completion",
                 );
             } else {
-                action_output = Some(summary.clone());
+                action_output = if active_web_pipeline_chat_reply {
+                    Some(String::new())
+                } else {
+                    Some(summary.clone())
+                };
             }
             verification_checks
                 .push("duplicate_action_fingerprint_non_command_noop=true".to_string());
@@ -422,6 +436,8 @@ pub(super) fn handle_duplicate_command_execution(
                 verification_checks
                     .push("terminal_chat_reply_deferred_for_active_web_pipeline=true".to_string());
                 verification_checks.push("web_pipeline_active=true".to_string());
+                verification_checks
+                    .push("web_model_chat_reply_duplicate_suppressed=true".to_string());
             }
         } else {
             let duplicate_error = format!("ERROR_CLASS=NoEffectAfterAction {}", summary);
@@ -491,15 +507,10 @@ fn maybe_terminalize_duplicate_worker_noop(
         return None;
     }
 
-    let completion = synthesize_repo_context_brief_from_duplicate(&assignment.goal, tool)?;
-    agent_state.status = AgentStatus::Completed(Some(completion.clone()));
-    agent_state
-        .execution_ledger
-        .record_terminal_success(Some(resolved_intent_id));
-    agent_state.execution_queue.clear();
-    agent_state.pending_search_completion = None;
-    verification_checks.push("duplicate_repo_context_worker_terminalized=true".to_string());
-    Some(completion)
+    let _ = tool;
+    verification_checks.push("duplicate_repo_context_worker_requires_model_reply=true".to_string());
+    verification_checks.push("terminal_chat_reply_ready=false".to_string());
+    None
 }
 
 fn first_goal_command_literal(goal: &str) -> Option<String> {
@@ -771,41 +782,6 @@ fn first_goal_likely_file(goal: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-fn normalize_goal_path_candidate(candidate: &str) -> Option<PathBuf> {
-    let trimmed = candidate
-        .trim()
-        .trim_matches(|ch: char| matches!(ch, '"' | '\'' | '`' | ',' | ';' | ')'));
-    if trimmed.is_empty() {
-        return None;
-    }
-
-    let path = PathBuf::from(trimmed);
-    let metadata = std::fs::metadata(&path).ok()?;
-    if metadata.is_dir() {
-        Some(path)
-    } else {
-        path.parent().map(Path::to_path_buf)
-    }
-}
-
-fn repo_root_from_duplicate_tool(goal: &str, tool: &AgentTool) -> Option<PathBuf> {
-    let tool_path = match tool {
-        AgentTool::FsStat { path }
-        | AgentTool::FsList { path }
-        | AgentTool::FsRead { path }
-        | AgentTool::FsSearch { path, .. } => Some(path.as_str()),
-        _ => None,
-    };
-
-    if let Some(path) = tool_path.and_then(normalize_goal_path_candidate) {
-        return Some(path);
-    }
-
-    collect_goal_literals(goal)
-        .into_iter()
-        .find_map(|candidate| normalize_goal_path_candidate(&candidate))
-}
-
 fn looks_like_command_literal(literal: &str) -> bool {
     let trimmed = literal.trim();
     if trimmed.is_empty() || !trimmed.contains(' ') {
@@ -834,161 +810,6 @@ fn looks_like_command_literal(literal: &str) -> bool {
             | "make"
             | "just"
     )
-}
-
-fn looks_like_file_hint(literal: &str) -> bool {
-    let trimmed = literal.trim();
-    if trimmed.is_empty() || trimmed.contains('\n') {
-        return false;
-    }
-    if looks_like_command_literal(trimmed) {
-        return false;
-    }
-
-    trimmed.contains('/')
-        || trimmed.contains('\\')
-        || trimmed
-            .rsplit_once('.')
-            .map(|(_, ext)| !ext.is_empty() && ext.chars().all(|ch| ch.is_ascii_alphanumeric()))
-            .unwrap_or(false)
-}
-
-fn repo_relative_display(root: &Path, candidate: &Path) -> Option<String> {
-    let display = candidate
-        .strip_prefix(root)
-        .ok()
-        .unwrap_or(candidate)
-        .to_string_lossy()
-        .replace('\\', "/");
-    let trimmed = display.trim_matches('/');
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
-}
-
-fn extract_goal_file_hints(repo_root: &Path, goal: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut seen = BTreeSet::new();
-
-    for literal in collect_goal_literals(goal) {
-        if !looks_like_file_hint(&literal) {
-            continue;
-        }
-
-        let candidate = PathBuf::from(literal.trim());
-        let resolved = if candidate.is_absolute() {
-            Some(candidate)
-        } else {
-            Some(repo_root.join(&candidate))
-        };
-        let Some(resolved) = resolved.filter(|path| path.exists() && path.is_file()) else {
-            continue;
-        };
-        let Some(display) = repo_relative_display(repo_root, &resolved) else {
-            continue;
-        };
-        if seen.insert(display.clone()) {
-            out.push(display);
-        }
-    }
-
-    out
-}
-
-fn fallback_repo_files(repo_root: &Path) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut seen = BTreeSet::new();
-
-    for relative in ["README.md", "src", "tests"] {
-        let path = repo_root.join(relative);
-        if !path.exists() {
-            continue;
-        }
-        if path.is_file() {
-            let display = relative.replace('\\', "/");
-            if seen.insert(display.clone()) {
-                out.push(display);
-            }
-            continue;
-        }
-
-        let entries = match std::fs::read_dir(&path) {
-            Ok(entries) => entries,
-            Err(_) => continue,
-        };
-        for entry in entries.flatten() {
-            let entry_path = entry.path();
-            if !entry_path.is_file() {
-                continue;
-            }
-            let Some(display) = repo_relative_display(repo_root, &entry_path) else {
-                continue;
-            };
-            if seen.insert(display.clone()) {
-                out.push(display);
-            }
-            if out.len() >= 4 {
-                return out;
-            }
-        }
-    }
-
-    out
-}
-
-fn extract_goal_commands(goal: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut seen = BTreeSet::new();
-
-    for literal in collect_goal_literals(goal) {
-        if !looks_like_command_literal(&literal) {
-            continue;
-        }
-        let normalized = literal.trim().to_string();
-        if seen.insert(normalized.clone()) {
-            out.push(normalized);
-        }
-    }
-
-    out
-}
-
-fn synthesize_repo_context_brief_from_duplicate(goal: &str, tool: &AgentTool) -> Option<String> {
-    let repo_root = repo_root_from_duplicate_tool(goal, tool)?;
-    let mut likely_files = extract_goal_file_hints(&repo_root, goal);
-    if likely_files.is_empty() {
-        likely_files = fallback_repo_files(&repo_root);
-    }
-
-    let targeted_checks = extract_goal_commands(goal);
-    let open_question = if goal.to_ascii_lowercase().contains("widen only if needed") {
-        "Widen only if the focused verification command fails or produces contradictory evidence."
-            .to_string()
-    } else if likely_files.is_empty() {
-        "Confirm the exact patch surface if the repo contains more than one plausible candidate."
-            .to_string()
-    } else {
-        "Confirm hidden success_conditions once the focused verification passes.".to_string()
-    };
-
-    let likely_files_text = if likely_files.is_empty() {
-        format!("repo root: {}", repo_root.to_string_lossy())
-    } else {
-        likely_files.join("; ")
-    };
-    let targeted_checks_text = if targeted_checks.is_empty() {
-        "No explicit focused command was quoted; verify the smallest named test or probe first."
-            .to_string()
-    } else {
-        targeted_checks.join("; ")
-    };
-
-    Some(format!(
-        "- likely_files: {}\n- selected_skills: reuse parent-selected coding prep cues; no extra child-local skills were added during fallback.\n- targeted_checks: {}\n- open_questions: {}",
-        likely_files_text, targeted_checks_text, open_question
-    ))
 }
 
 fn is_non_command_duplicate_noop_tool(tool_name: &str) -> bool {

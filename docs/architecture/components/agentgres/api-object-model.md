@@ -1,10 +1,10 @@
 # Agentgres API and Object Model
 
 Status: canonical low-level reference.
-Canonical owner: this file for Agentgres APIs, canonical object classes, runtime v0 state, operation logs, projection watermarks, and replay/export authority; bridge/readiness semantics live in [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md).
+Canonical owner: this file for Agentgres APIs, canonical object classes, runtime v0 state, operation logs, projection watermarks, and replay/export authority; artifact-ref authority lives in [`artifact-ref-plane.md`](./artifact-ref-plane.md), and bridge/readiness semantics live in [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md).
 Supersedes: older Agentgres-as-generic-store wording when runtime truth ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-25.
+Last alignment pass: 2026-05-30.
 
 ## Purpose
 
@@ -13,8 +13,9 @@ Agentgres is the per-domain state substrate. It stores operational truth, not IO
 Agentgres is also not a thin index over Filecoin/CAS blobs. Its operation log,
 object heads, constraints, indexes, projections, subscriptions, receipt
 metadata, delivery state, and quality/contribution ledgers are canonical
-Agentgres state. Filecoin/CAS stores immutable payload bytes, sealed archive
-bytes, and large evidence objects that Agentgres references by hash/CID.
+Agentgres state. Storage backends such as Filecoin/CAS store immutable payload
+bytes, sealed archive bytes, and large evidence objects that Agentgres
+references through Agentgres-governed artifact refs.
 
 For governed autonomous-system chains and Autopilot nodes, Agentgres records
 the local/domain operational truth: proposals, service-module invocations,
@@ -83,8 +84,8 @@ POST /v1/sealed-state-archives/{archive_id}/restore
 
 Sealed state archives are cold-state artifacts, not canonical live state. Hot
 Agentgres keeps the authoritative archive refs, lifecycle status, roots, policy,
-schema, authority, and receipt metadata. Filecoin/CAS, S3, local disk, or other
-durable stores hold the encrypted bytes by CID/hash.
+schema, authority, and receipt metadata. Storage backends such as Filecoin/CAS,
+S3, local disk, or other durable stores hold the encrypted bytes by CID/hash.
 
 ## Patch/Change API
 
@@ -525,8 +526,8 @@ compute provider.
 ## Domain Ontology and Data Recipe Object Shapes
 
 Agentgres records ontology and data recipe state as canonical operational
-truth. Source bytes and large transformed payloads remain in Filecoin/CAS or
-another blob store by hash/CID.
+truth. Source bytes and large transformed payloads remain in storage backends
+such as Filecoin/CAS by hash/CID.
 
 ```json
 {
@@ -640,8 +641,8 @@ another blob store by hash/CID.
 ## Worker Training and MoW Object Shapes
 
 Agentgres records the operational truth for Worker Training, benchmark, and
-MoW routing objects. Payload bytes remain in Filecoin/CAS or another blob store
-and are referenced by hash/CID.
+MoW routing objects. Payload bytes remain in storage backends such as
+Filecoin/CAS and are referenced by hash/CID.
 
 ```json
 {
@@ -818,15 +819,27 @@ and are referenced by hash/CID.
 {
   "mutation_id": "ctxmut_123",
   "object_class": "ContextMutation",
+  "wiki_ref": "wiki://user-or-project-memory",
   "worker_id": "worker://...",
+  "project_ref": "agentgres://project/...",
   "mutation_type": "fact | preference | doctrine | route | procedure | eval | failure",
-  "operation": "add | supersede | contradict | deprecate | activate | archive",
+  "operation": "add | supersede | contradict | deprecate | activate | archive | forget",
+  "scope": "user | org | project | worker | service | domain",
+  "visibility": "private | shared | org | public",
+  "validity_window": "optional",
+  "claim_ref": "artifact://... | hash://...",
   "prior_claim_refs": [],
   "evidence_refs": ["receipt://..."],
   "policy_hash": "sha256:...",
   "receipt_ref": "receipt://context_mutation_123"
 }
 ```
+
+`ContextMutation` is the Agentgres admission object for durable Agent Wiki /
+`ioi-memory` changes. Draft, task-local, speculative, and fuzzy memory may stay
+in the context-memory plane. A memory change should become a `ContextMutation`
+when it affects durable behavior, policy, routing, training, sharing,
+portability, restore, retention, export, or user-visible doctrine.
 
 ```json
 {
@@ -1173,7 +1186,7 @@ Agentgres mirrors L1 contract state but does not replace it.
 4. Every consequential operation must bind to actor, policy, schema, and receipts when required.
 5. Projections must be rebuildable and checkpointable.
 6. Worker runtime truth lives in Agentgres operation logs; client checkpoints are non-authoritative caches or exports.
-7. Filecoin/CAS payloads, checkpoints, snapshots, and evidence bundles are refs from Agentgres state, not replacements for Agentgres state.
+7. Storage backend payloads, checkpoints, snapshots, and evidence bundles are refs from Agentgres state, not replacements for Agentgres state.
 8. Agents draft in isolated patch branches over pinned workspace snapshots; canonical heads advance only through expected-head merge and settlement.
 9. Rollback after settlement is represented as a new canonical revert operation with receipts, not deletion or mutation of previous truth.
 10. Sealed state archives are encrypted portable state artifacts; Agentgres retains

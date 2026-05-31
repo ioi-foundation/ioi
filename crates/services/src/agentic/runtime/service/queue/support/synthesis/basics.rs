@@ -1336,65 +1336,6 @@ pub(crate) fn axis_specific_metric_line(axis: MetricAxis, text: &str) -> Option<
     Some(concise)
 }
 
-pub(crate) fn single_snapshot_structured_metric_lines(
-    story: &StoryDraft,
-    draft: &SynthesisDraft,
-    required_axes: &BTreeSet<MetricAxis>,
-) -> Vec<(MetricAxis, String)> {
-    let mut axes = required_axes.clone();
-    if axes.is_empty() {
-        let mut inferred = BTreeSet::new();
-        inferred.extend(analyze_metric_schema(&story.what_happened).axis_hits);
-        for citation_id in &story.citation_ids {
-            if let Some(citation) = draft.citations_by_id.get(citation_id) {
-                let combined = format!("{} {}", citation.source_label, citation.excerpt);
-                inferred.extend(analyze_metric_schema(&combined).axis_hits);
-            }
-        }
-        axes = inferred;
-    }
-
-    let mut axis_list = axes.into_iter().collect::<Vec<_>>();
-    axis_list.sort_by(|left, right| {
-        metric_axis_display_priority(*left)
-            .cmp(&metric_axis_display_priority(*right))
-            .then_with(|| left.cmp(right))
-    });
-
-    let mut lines = Vec::new();
-    let mut seen = BTreeSet::new();
-    for axis in axis_list {
-        let mut candidate = axis_specific_metric_line(axis, &story.what_happened);
-        if candidate.is_none() {
-            for citation_id in &story.citation_ids {
-                let Some(citation) = draft.citations_by_id.get(citation_id) else {
-                    continue;
-                };
-                candidate = axis_specific_metric_line(axis, &citation.excerpt);
-                if candidate.is_none() {
-                    let combined = format!("{} {}", citation.source_label, citation.excerpt);
-                    candidate = axis_specific_metric_line(axis, &combined);
-                }
-                if candidate.is_some() {
-                    break;
-                }
-            }
-        }
-        let Some(value) = candidate else {
-            continue;
-        };
-        if !seen.insert(value.to_ascii_lowercase()) {
-            continue;
-        }
-        lines.push((axis, value));
-        if lines.len() >= 5 {
-            break;
-        }
-    }
-
-    lines
-}
-
 pub(crate) fn query_scope_hint(
     query: &str,
     candidate_hints: &[PendingSearchReadSummary],
@@ -1451,31 +1392,4 @@ pub(crate) fn compact_source_label(source_label: &str) -> String {
         }
     }
     trimmed.to_string()
-}
-
-pub(crate) fn source_consistency_note(
-    story: &StoryDraft,
-    draft: &SynthesisDraft,
-) -> Option<String> {
-    let labels = story
-        .citation_ids
-        .iter()
-        .filter_map(|id| draft.citations_by_id.get(id))
-        .map(|citation| compact_source_label(&citation.source_label))
-        .filter(|label| !label.is_empty())
-        .collect::<Vec<_>>();
-
-    if labels.is_empty() {
-        return None;
-    }
-    if labels.len() == 1 {
-        return Some(format!(
-            "(From {} — structured against available observed facets.)",
-            labels[0]
-        ));
-    }
-    Some(format!(
-        "(From {} + {} — consistent on available observed facets.)",
-        labels[0], labels[1]
-    ))
 }

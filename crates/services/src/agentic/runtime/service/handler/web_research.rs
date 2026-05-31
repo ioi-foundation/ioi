@@ -5,9 +5,10 @@ use crate::agentic::runtime::service::queue::web_pipeline::{
     constraint_grounded_search_query_with_contract_and_hints_and_locality_hint,
     explicit_query_scope_hint, local_business_discovery_query_contract,
     local_business_entity_discovery_query_contract, next_pending_web_candidate,
-    query_native_anchor_tokens, query_prefers_document_briefing_layout, query_requests_comparison,
-    query_requires_local_business_menu_surface, resolved_query_contract_with_locality_hint,
-    select_web_pipeline_query_contract,
+    query_market_quote_entity_anchor_groups, query_native_anchor_tokens,
+    query_prefers_document_report_layout, query_requests_comparison,
+    query_requires_local_business_menu_surface, query_requires_market_quote_grounding,
+    resolved_query_contract_with_locality_hint, select_web_pipeline_query_contract,
     semantic_retrieval_query_contract_with_contract_and_locality_hint, url_structurally_equivalent,
     web_pipeline_min_sources, WEB_PIPELINE_SEARCH_LIMIT,
 };
@@ -25,7 +26,19 @@ fn normalized_web_query_contract(fallback_query: &str, retrieval_query: &str) ->
     (!trimmed.is_empty()).then(|| trimmed.to_string())
 }
 
+fn web_research_query_value_is_mode_label(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "agent" | "ask" | "edit" | "chat" | "runtime_action" | "studio" | "studio_intent_frame"
+    )
+}
+
 fn normalized_web_search_query(fallback_query: &str, retrieval_query: &str) -> Option<String> {
+    if web_research_query_value_is_mode_label(retrieval_query) {
+        let fallback = fallback_query.trim();
+        return (!fallback.is_empty()).then(|| fallback.to_string());
+    }
+
     let retrieval_scope = explicit_query_scope_hint(retrieval_query);
     let mut contract = normalized_web_query_contract(fallback_query, retrieval_query)?;
     if explicit_query_scope_hint(&contract).is_none() {
@@ -207,7 +220,42 @@ fn should_preserve_explicit_web_query(
         return true;
     }
 
+    if retrieval_contract
+        .map(|contract| {
+            contract.currentness_required
+                && contract.scalar_measure_required
+                && query_requires_market_quote_grounding(fallback_query)
+        })
+        .unwrap_or(false)
+    {
+        return explicit_market_quote_probe_query(fallback_query, trimmed);
+    }
+
     !query_has_redundant_quoted_phrases(trimmed)
+}
+
+fn explicit_market_quote_probe_query(query_contract: &str, retrieval_query: &str) -> bool {
+    let surface = format!(" {} ", retrieval_query.to_ascii_lowercase());
+    let has_current_signal = [" live ", " today ", " current ", " currently ", " now "]
+        .iter()
+        .any(|marker| surface.contains(marker));
+    let has_quote_signal = [" price ", " quote ", " market cap ", " usd ", " trading "]
+        .iter()
+        .filter(|marker| surface.contains(**marker))
+        .count()
+        >= 2;
+    if !has_current_signal || !has_quote_signal {
+        return false;
+    }
+
+    let groups = query_market_quote_entity_anchor_groups(query_contract);
+    groups.is_empty()
+        || groups.iter().any(|group| {
+            group
+                .iter()
+                .filter(|token| token.len() >= 3)
+                .any(|token| surface.contains(&format!(" {token} ")))
+        })
 }
 
 fn normalized_local_business_explicit_query(
@@ -335,7 +383,7 @@ fn strict_pending_web_read_fallback_contract(pending: &PendingSearchCompletion) 
 
     let query_contract = pending.query_contract.trim();
     !query_contract.is_empty()
-        && query_prefers_document_briefing_layout(query_contract)
+        && query_prefers_document_report_layout(query_contract)
         && !query_requests_comparison(query_contract)
         && query_requests_synthesized_output(query_contract)
 }

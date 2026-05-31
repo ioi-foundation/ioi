@@ -98,10 +98,16 @@ fn web_pipeline_uses_source_hints_when_read_output_is_low_signal() {
         "https://example.com/news/storm-delays",
         Some("Google News"),
     );
-    let reply =
-        synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
-    assert!(reply.contains("Major storm causes widespread flight delays"));
-    assert!(reply.contains("Airports across the U.S."));
+    let retained = pending
+        .successful_reads
+        .iter()
+        .find(|source| source.url == "https://example.com/news/storm-delays")
+        .expect("fallback should retain the source hint as evidence");
+    assert_eq!(
+        retained.title.as_deref(),
+        Some("Major storm causes widespread flight delays")
+    );
+    assert!(retained.excerpt.contains("Airports across the U.S."));
 }
 
 #[test]

@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for shared envelope names, ID namespaces, primitive capability tiers, authority grants, and receipt/run/event envelope fields.
 Supersedes: older flattened capability-tier examples in plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-05-25.
+Last alignment pass: 2026-05-30.
 
 ## Purpose
 
@@ -49,6 +49,7 @@ SettlementEnvelope
 ContributionEnvelope
 QualityEnvelope
 DisputeEnvelope
+AgentWikiEnvelope
 DomainOntologyEnvelope
 CanonicalObjectModelEnvelope
 DataRecipeEnvelope
@@ -115,10 +116,12 @@ profile://...           training/model capacity profile identity
 batch://...             training batch plan or generation batch identity
 gate://...              quality gate report or promotion gate identity
 ledger://...            usage, token, cost, or contribution ledger identity
-cid://...               Filecoin/CAS content ref
+wiki://...              Agent Wiki or durable semantic-memory surface identity
+memory://...            context-memory record or local memory-plane identity
+cid://...               content-addressed payload ref, commonly Filecoin/CAS/IPFS
 wallet://...            wallet.network account or authority ref
-prim://...              primitive execution capability ref
-scope://...             wallet.network authority scope ref
+prim:*                  primitive execution capability ref
+scope:*                 wallet.network authority scope ref
 grant://...             authority grant or lease ref
 ```
 
@@ -1438,15 +1441,47 @@ PostTrainingCycleEnvelope:
   status: proposed | training | evaluating | promoted | rejected | rolled_back
 ```
 
+## AgentWikiEnvelope
+
+Agent Wiki is the user-facing and agent-facing semantic memory surface for
+preferences, procedures, doctrine, route notes, failure lessons, source-backed
+claims, and project knowledge. It is backed by the `ioi-memory` context plane
+for product memory and retrieval. It is not itself Agentgres canonical truth.
+
+Agentgres admits authoritative wiki changes through operations such as
+`ContextMutationEnvelope`, stores provenance and policy refs, and serves
+rebuildable projections over accepted wiki state.
+
+```yaml
+AgentWikiEnvelope:
+  wiki_id: wiki://...
+  owner_ref: wallet://... | org://... | project://... | worker://...
+  agentgres_domain_ref: agentgres://domain/...
+  memory_plane_ref: memory://... | optional
+  scope: user | org | project | worker | service | domain
+  visibility: private | shared | org | public
+  policy_ref: policy://...
+  default_retention_policy_ref: policy://...
+  page_index_ref: projection://... | optional
+  retrieval_projection_refs: []
+  latest_context_mutation_ref: ctxmut_... | optional
+  archive_ref: cid://... | artifact://... | optional
+  status: active | archived | restoring | deprecated
+```
+
 ## ContextMutationEnvelope
 
 ```yaml
 ContextMutationEnvelope:
   mutation_id: ctxmut_...
+  wiki_ref: wiki://... | optional
   worker_id: worker://...
   project_ref: agentgres://project/... | optional
   mutation_type: fact | preference | doctrine | route | procedure | eval | failure
-  operation: add | supersede | contradict | deprecate | activate | archive
+  operation: add | supersede | contradict | deprecate | activate | archive | forget
+  scope: user | org | project | worker | service | domain | optional
+  visibility: private | shared | org | public | optional
+  validity_window: optional
   claim_ref: artifact://... | hash://... | optional
   prior_claim_refs: []
   evidence_refs: []

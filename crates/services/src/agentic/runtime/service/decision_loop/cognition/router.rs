@@ -41,7 +41,7 @@ pub(super) async fn determine_attention_mode(
         LATEST USER MESSAGE: \"{}\"\n\
         Classify the immediate next execution mode and respond with strict JSON:\n\
         {{ \"mode\": \"Chat\" | \"Blind\" | \"Visual\" }}.\n\
-        Choose Visual when perception/browser/UI state is needed, Blind for deterministic non-visual actions, Chat for conversational-only responses.\n\
+        Choose Visual when perception/browser/UI state is needed, Blind for governed non-visual actions, Chat for conversational-only responses.\n\
         Respond JSON: {{ \"mode\": \"Chat\" | \"Blind\" | \"Visual\" }}",
         goal, latest_input
     );

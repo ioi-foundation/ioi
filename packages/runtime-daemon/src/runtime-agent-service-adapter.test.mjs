@@ -93,3 +93,53 @@ console.log(JSON.stringify({
   assert.deepEqual(events.map((event) => event.event_kind), ["tool.completed"]);
   assert.equal(events[0].payload.tool_name, "file__read");
 });
+
+test("RuntimeAgentService command adapter treats runtime event streaming as timeout activity", async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-adapter-activity-"));
+  const bridgeScript = path.join(tempDir, "bridge-activity-probe.mjs");
+  fs.writeFileSync(
+    bridgeScript,
+    `
+import { setTimeout as delay } from "node:timers/promises";
+
+await delay(70);
+console.log(JSON.stringify({
+  type: "runtime_event",
+  event: {
+    event_stream_id: "thread_activity:events",
+    thread_id: "thread_activity",
+    turn_id: "turn_activity",
+    event_kind: "answer.delta",
+    payload: { delta: "still streaming" }
+  }
+}));
+await delay(70);
+console.log(JSON.stringify({
+  ok: true,
+  result: {
+    bridge_id: "activity-timeout-test",
+    source: "runtime_service",
+    turn_id: "turn_activity",
+    events: [{ event_kind: "turn.started" }],
+    status: "completed"
+  }
+}));
+`,
+  );
+
+  const adapter = createRuntimeAgentServiceCommandAdapter({
+    command: process.execPath,
+    args: [bridgeScript],
+    bridgeId: "activity-timeout-test",
+    timeoutMs: 100,
+  });
+  const events = [];
+  const result = await adapter.submitTurn(
+    { threadId: "thread_activity" },
+    { onRuntimeEvent: (event) => events.push(event) },
+  );
+
+  assert.equal(result.bridge_id, "activity-timeout-test");
+  assert.equal(result.turn_id, "turn_activity");
+  assert.deepEqual(events.map((event) => event.event_kind), ["answer.delta"]);
+});

@@ -162,39 +162,22 @@ fn prep_workload_id(
     )
 }
 
-fn fallback_prep_summary(mode: DelegatedPrepMode, retrieval_succeeded: bool) -> String {
-    match (mode, retrieval_succeeded) {
-        (DelegatedPrepMode::Research, true) => {
-            "No matching local memory retrieved before spawn.".to_string()
-        }
-        (DelegatedPrepMode::Research, false) => {
-            "Local memory retrieval unavailable before spawn.".to_string()
-        }
-        (DelegatedPrepMode::Coding, true) => {
-            "No matching repo memory retrieved before spawn; context worker will inspect the workspace directly."
-                .to_string()
-        }
-        (DelegatedPrepMode::Coding, false) => {
-            "Repo memory retrieval unavailable before spawn; context worker will rely on direct workspace inspection."
-                .to_string()
-        }
-        (DelegatedPrepMode::Artifact, true) => {
-            "No matching artifact memory retrieved before spawn; the context worker will shape the brief directly."
-                .to_string()
-        }
-        (DelegatedPrepMode::Artifact, false) => {
-            "Artifact memory retrieval unavailable before spawn; the context worker will rely on direct brief inspection."
-                .to_string()
-        }
-        (DelegatedPrepMode::ComputerUse, true) => {
-            "No matching UI-state memory retrieved before spawn; the perception worker will inspect the live surface directly."
-                .to_string()
-        }
-        (DelegatedPrepMode::ComputerUse, false) => {
-            "UI-state memory retrieval unavailable before spawn; the perception worker will rely on direct surface inspection."
-                .to_string()
-        }
-    }
+fn prep_status_context(mode: DelegatedPrepMode, retrieval_succeeded: bool) -> String {
+    let mode_label = prep_log_label(mode);
+    let retrieval_status = if retrieval_succeeded {
+        "no_match"
+    } else {
+        "unavailable"
+    };
+    let next_context_source = match mode {
+        DelegatedPrepMode::Research => "fresh_research_tools",
+        DelegatedPrepMode::Coding => "workspace_inspection",
+        DelegatedPrepMode::Artifact => "brief_inspection",
+        DelegatedPrepMode::ComputerUse => "live_surface_inspection",
+    };
+    format!(
+        "prep_mode={mode_label}; memory_retrieval_status={retrieval_status}; next_context_source={next_context_source}"
+    )
 }
 
 fn prep_log_label(mode: DelegatedPrepMode) -> &'static str {
@@ -253,7 +236,7 @@ pub(super) async fn build_delegated_child_prep_bundle(
     }
 
     let prep_summary = summarize_prep_output(&retrieval.output).or_else(|| {
-        Some(fallback_prep_summary(
+        Some(prep_status_context(
             mode,
             retrieval
                 .receipt

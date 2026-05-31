@@ -2,6 +2,7 @@
 
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
+use ioi_api::chat::ChatIntentContext;
 use ioi_api::services::access::ServiceDirectory;
 use ioi_api::services::BlockchainService;
 use ioi_api::state::{StateAccess, StateManager};
@@ -26,7 +27,10 @@ use ioi_services::agentic::runtime::{
 };
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::flat::RedbFlatStore;
-use ioi_types::app::agentic::{RuntimeIntentEvidence, RuntimeRouteFrame};
+use ioi_types::app::agentic::{
+    CommandExecutionPlanRef, RequiredCapability, RuntimeActionFrame, RuntimeIntentEvidence,
+    RuntimeRouteFrame,
+};
 use ioi_types::app::runtime::computer_use::COMPUTER_USE_CONTRACT_SCHEMA_VERSION_V1;
 use ioi_types::app::{AccountId, ChainId, KernelEvent, WorkloadReceipt};
 use ioi_types::codec;
@@ -49,7 +53,8 @@ const COMMAND_SCHEMA_VERSION: &str = "ioi.runtime.bridge.command.v1";
 const EVENT_SCHEMA_VERSION: &str = "ioi.runtime.event.v1";
 const THREAD_SCHEMA_VERSION: &str = "ioi.runtime.thread.v1";
 const DEFAULT_AGENT_STEP_TIMEOUT_MS: u64 = 75_000;
-const DEFAULT_AGENT_TURN_TIMEOUT_MS: u64 = 100_000;
+const DEFAULT_LOCAL_GPU_AGENT_STEP_TIMEOUT_MS: u64 = 180_000;
+const DEFAULT_AGENT_TURN_IDLE_TIMEOUT_MS: u64 = 100_000;
 const DEFAULT_BROWSER_OBSERVATION_TIMEOUT_MS: u64 = 5_000;
 
 #[derive(Parser, Debug)]
@@ -107,6 +112,14 @@ struct SubmitTurnInput {
     workspace_root: Option<String>,
     #[serde(rename = "createdAt", alias = "created_at")]
     created_at: Option<String>,
+    #[serde(
+        default,
+        rename = "streamedEventsOnly",
+        alias = "streamed_events_only",
+        alias = "streamEventsOnly",
+        alias = "stream_events_only"
+    )]
+    streamed_events_only: bool,
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -334,6 +347,131 @@ fn bridge_string_array(value: &Value, keys: &[&str]) -> Vec<String> {
         .unwrap_or_default()
 }
 
+fn bridge_nested_string_field(value: &Value, path: &[&str]) -> Option<String> {
+    let mut current = value;
+    for key in path {
+        current = current.get(*key)?;
+    }
+    current
+        .as_str()
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn command_line_has_shell_operators(command: &str) -> bool {
+    command.contains("&&")
+        || command.contains("||")
+        || command
+            .chars()
+            .any(|ch| matches!(ch, ';' | '|' | '<' | '>'))
+}
+
+fn split_command_line_to_argv(command: &str) -> Option<Vec<String>> {
+    let mut argv = Vec::new();
+    let mut current = String::new();
+    let mut chars = command.trim().chars().peekable();
+    let mut quote: Option<char> = None;
+    let mut escaped = false;
+
+    while let Some(ch) = chars.next() {
+        if escaped {
+            current.push(ch);
+            escaped = false;
+            continue;
+        }
+        if ch == '\\' {
+            escaped = true;
+            continue;
+        }
+        if let Some(active_quote) = quote {
+            if ch == active_quote {
+                quote = None;
+            } else {
+                current.push(ch);
+            }
+            continue;
+        }
+        if ch == '\'' || ch == '"' {
+            quote = Some(ch);
+            continue;
+        }
+        if ch.is_whitespace() {
+            if !current.is_empty() {
+                argv.push(std::mem::take(&mut current));
+            }
+            while chars.peek().is_some_and(|next| next.is_whitespace()) {
+                chars.next();
+            }
+            continue;
+        }
+        current.push(ch);
+    }
+
+    if escaped || quote.is_some() {
+        return None;
+    }
+    if !current.is_empty() {
+        argv.push(current);
+    }
+    (!argv.is_empty()).then_some(argv)
+}
+
+fn runtime_command_argv_for_prompt(command: &str) -> Vec<String> {
+    if !command_line_has_shell_operators(command) {
+        if let Some(argv) = split_command_line_to_argv(command) {
+            return argv;
+        }
+    }
+    vec!["bash".to_string(), "-lc".to_string(), command.to_string()]
+}
+
+fn prompt_backtick_literals(prompt: &str) -> Vec<String> {
+    let mut literals = Vec::new();
+    let mut rest = prompt;
+    while let Some(start) = rest.find('`') {
+        let after_start = &rest[start + 1..];
+        let Some(end) = after_start.find('`') else {
+            break;
+        };
+        let literal = after_start[..end].trim();
+        if !literal.is_empty() {
+            literals.push(literal.to_string());
+        }
+        rest = &after_start[end + 1..];
+    }
+    literals
+}
+
+fn literal_looks_like_file_path(literal: &str) -> bool {
+    let trimmed = literal.trim();
+    let relative_dotfile_path = trimmed
+        .strip_prefix('.')
+        .and_then(|rest| rest.chars().next())
+        .is_some_and(|next| next.is_ascii_alphanumeric() || next == '_' || next == '-');
+    !trimmed.is_empty()
+        && (trimmed.starts_with('/')
+            || trimmed.starts_with("./")
+            || trimmed.starts_with("../")
+            || trimmed.contains('/')
+            || relative_dotfile_path)
+        && !command_line_has_shell_operators(trimmed)
+}
+
+fn prompt_file_read_path(prompt: &str) -> Option<String> {
+    let normalized = prompt.to_ascii_lowercase();
+    if !(normalized.contains("read")
+        || normalized.contains("view")
+        || normalized.contains("open")
+        || normalized.contains("inspect"))
+    {
+        return None;
+    }
+    prompt_backtick_literals(prompt)
+        .into_iter()
+        .find(|literal| literal_looks_like_file_path(literal))
+}
+
 fn workspace_target_evidence(value: &Value) -> Vec<RuntimeIntentEvidence> {
     let Some(workspace) = bridge_object_field(value, &["workspace"]) else {
         return Vec::new();
@@ -417,6 +555,114 @@ fn runtime_route_frame_for_bridge_input(
     runtime_route_frame_candidates(request, options)
         .into_iter()
         .find_map(runtime_route_frame_from_value)
+}
+
+fn runtime_route_frame_for_prompt(prompt: &str) -> Option<RuntimeRouteFrame> {
+    let context = ChatIntentContext::new(prompt);
+    if let Some(intent) = context.local_runtime_action_intent() {
+        if !intent.action_family.eq_ignore_ascii_case("shell") {
+            return None;
+        }
+        let command = intent.target_command.as_deref()?.trim();
+        if command.is_empty() {
+            return None;
+        }
+        let required_capability = RequiredCapability {
+            capability_id: "command.exec".to_string(),
+            reason: Some(
+                "explicit command execution request must run through shell tools".to_string(),
+            ),
+        };
+        return Some(RuntimeRouteFrame {
+            intent_id: "command.exec".to_string(),
+            route_family: "command_execution".to_string(),
+            output_intent: "tool_execution".to_string(),
+            direct_answer_allowed: false,
+            target: prompt.replace(['\r', '\n'], " "),
+            target_kind: Some("shell_command".to_string()),
+            host_mutation: intent.requires_host_mutation,
+            required_capabilities: vec!["command.exec".to_string()],
+            typed_evidence: vec![RuntimeIntentEvidence {
+                evidence_kind: "normalized_request".to_string(),
+                value: "shell_command".to_string(),
+                source: "runtime_bridge_prompt_intent".to_string(),
+                confidence: Some(intent.confidence),
+            }],
+            typed_required_capabilities: vec![required_capability.clone()],
+            host_mutation_scope: None,
+            runtime_action: Some(RuntimeActionFrame {
+                intent_class: intent.intent_class.to_string(),
+                action_family: "shell".to_string(),
+                target_text: intent.target_text.replace(['\r', '\n'], " "),
+                target_kind: "shell_command".to_string(),
+                host_mutation: intent.requires_host_mutation,
+                required_capabilities: vec![required_capability],
+                browser_plan: None,
+                command_plan: Some(CommandExecutionPlanRef {
+                    plan_ref: format!("command.exec:runtime-bridge-inline:{}", command.len()),
+                    argv: runtime_command_argv_for_prompt(command),
+                    shell_policy: "bounded".to_string(),
+                    cwd: Some(".".to_string()),
+                    env: Vec::new(),
+                    approval_scope: None,
+                    expected_receipt: Some("command_receipt".to_string()),
+                }),
+                file_plan: None,
+                provenance: Some("runtime_bridge_prompt_intent".to_string()),
+            }),
+            install_request: None,
+            provenance: Some("runtime_bridge_prompt_intent".to_string()),
+        });
+    }
+
+    let path = prompt_file_read_path(prompt)?;
+    Some(RuntimeRouteFrame {
+        intent_id: "workspace.context".to_string(),
+        route_family: "workspace".to_string(),
+        output_intent: "tool_execution".to_string(),
+        direct_answer_allowed: false,
+        target: path.clone(),
+        target_kind: Some("workspace_path".to_string()),
+        host_mutation: false,
+        required_capabilities: vec!["workspace.read".to_string(), "file.read".to_string()],
+        typed_evidence: vec![RuntimeIntentEvidence {
+            evidence_kind: "workspace_path".to_string(),
+            value: path,
+            source: "runtime_bridge_prompt_intent".to_string(),
+            confidence: Some(95),
+        }],
+        typed_required_capabilities: vec![RequiredCapability {
+            capability_id: "file.read".to_string(),
+            reason: Some(
+                "explicit path read request must use the governed file reader".to_string(),
+            ),
+        }],
+        host_mutation_scope: None,
+        runtime_action: None,
+        install_request: None,
+        provenance: Some("runtime_bridge_prompt_intent".to_string()),
+    })
+}
+
+fn runtime_route_frame_for_prompt_or_bridge_input(
+    request: &Value,
+    options: Option<&Value>,
+    prompt: &str,
+) -> Option<RuntimeRouteFrame> {
+    let bridge_frame = runtime_route_frame_for_bridge_input(request, options);
+    if let Some(frame) = bridge_frame.as_ref() {
+        if runtime_route_frame_from_bridge_should_own_prompt(frame) {
+            return bridge_frame;
+        }
+    }
+    runtime_route_frame_for_prompt(prompt).or(bridge_frame)
+}
+
+fn runtime_route_frame_from_bridge_should_own_prompt(frame: &RuntimeRouteFrame) -> bool {
+    let generic_conversation_intent = frame.intent_id.eq_ignore_ascii_case("conversation.reply")
+        && (frame.route_family.eq_ignore_ascii_case("conversation")
+            || frame.route_family.eq_ignore_ascii_case("direct_model"));
+    !generic_conversation_intent
 }
 
 fn runtime_route_frame_from_value(value: &Value) -> Option<RuntimeRouteFrame> {
@@ -540,7 +786,11 @@ fn runtime_route_frame_from_value(value: &Value) -> Option<RuntimeRouteFrame> {
         direct_answer_allowed,
         target: artifact
             .and_then(|artifact| bridge_string_field(artifact, &["title", "summary"]))
-            .or_else(|| bridge_string_field(value, &["target", "goal", "prompt", "message"]))
+            .or_else(|| {
+                bridge_string_field(value, &["target", "query", "goal", "prompt", "message"])
+            })
+            .or_else(|| bridge_nested_string_field(value, &["decisionMaterial", "promptPreview"]))
+            .or_else(|| bridge_nested_string_field(value, &["decision_material", "prompt_preview"]))
             .unwrap_or_else(|| route_directive.clone()),
         target_kind: if artifact_required {
             Some(if artifact_class.is_empty() {
@@ -622,10 +872,13 @@ impl BridgeRuntime {
     async fn start_thread(&mut self, bridge_id: &str, input: StartThreadInput) -> Result<Value> {
         let session_id = start_session_id(&input.request)?;
         self.apply_runtime_control_policy(session_id, &input.request, &input.options)?;
-        let runtime_route_frame =
-            runtime_route_frame_for_bridge_input(&input.request, Some(&input.options));
         let goal = non_empty_string(&input.request, &["goal", "prompt", "message", "input"])
             .unwrap_or_else(|| "Runtime service thread started.".to_string());
+        let runtime_route_frame = runtime_route_frame_for_prompt_or_bridge_input(
+            &input.request,
+            Some(&input.options),
+            &goal,
+        );
         let max_steps = positive_u32(&input.request, &["max_steps", "maxSteps"])
             .or_else(|| positive_u32(&input.options, &["max_steps", "maxSteps"]))
             .unwrap_or(20);
@@ -707,7 +960,7 @@ impl BridgeRuntime {
             self.commit()?;
         }
         if let Some(runtime_route_frame) =
-            runtime_route_frame_for_bridge_input(&input.request, None)
+            runtime_route_frame_for_prompt_or_bridge_input(&input.request, None, &prompt)
         {
             self.apply_runtime_route_frame(session_id, runtime_route_frame)?;
             self.commit()?;
@@ -740,8 +993,8 @@ impl BridgeRuntime {
 
         let state_before_steps = self.agent_state(session_id)?;
         let mut latest_state = state_before_steps.clone();
-        let turn_started_at = Instant::now();
-        let turn_timeout = runtime_bridge_turn_timeout();
+        let mut last_progress_at = Instant::now();
+        let turn_idle_timeout = runtime_bridge_turn_idle_timeout();
         let step_timeout_limit = runtime_bridge_step_timeout();
         let max_steps =
             positive_u32(&input.request, &["max_steps", "maxSteps"]).unwrap_or_else(|| {
@@ -756,23 +1009,14 @@ impl BridgeRuntime {
         let mut kernel_events = Vec::new();
         let mut kernel_event_next_ordinal = 0usize;
         while step_count < max_steps {
-            let elapsed = turn_started_at.elapsed();
-            if elapsed >= turn_timeout {
-                step_result = Err(runtime_bridge_turn_timeout_error(turn_timeout));
+            let idle_elapsed = last_progress_at.elapsed();
+            if idle_elapsed >= turn_idle_timeout {
+                step_result = Err(runtime_bridge_turn_idle_timeout_error(turn_idle_timeout));
                 break;
             }
-            let remaining_turn_timeout = turn_timeout.saturating_sub(elapsed);
-            let step_timeout = std::cmp::min(step_timeout_limit, remaining_turn_timeout);
-            let step_uses_turn_deadline = remaining_turn_timeout <= step_timeout_limit;
+            let step_timeout = step_timeout_limit;
             let state_before_step = self.agent_state(session_id)?;
-            let res = self
-                .call_step_service(
-                    session_id,
-                    step_timeout,
-                    step_uses_turn_deadline,
-                    turn_timeout,
-                )
-                .await;
+            let res = self.call_step_service(session_id, step_timeout).await;
             if res.is_ok() {
                 self.commit()?;
             }
@@ -807,6 +1051,7 @@ impl BridgeRuntime {
                 break;
             }
             step_result = Ok(());
+            last_progress_at = Instant::now();
             kernel_events.append(&mut step_events);
             if matches!(
                 state.status,
@@ -839,6 +1084,12 @@ impl BridgeRuntime {
             }
         };
         let completed_at = now_rfc3339();
+        let exhausted_step_budget = runtime_bridge_step_budget_exhausted(
+            step_result.is_ok(),
+            &state.status,
+            step_count,
+            max_steps,
+        );
         let (status, stop_reason, event_kind, event_status, summary) =
             match (&state.status, step_result) {
                 (AgentStatus::Failed(reason), _) => (
@@ -881,12 +1132,22 @@ impl BridgeRuntime {
                     "completed",
                     "Runtime turn completed after chat__reply.".to_string(),
                 ),
+                (_, _) if exhausted_step_budget => (
+                    "failed",
+                    "runtime_bridge_step_budget_exhausted",
+                    "turn.failed",
+                    "failed",
+                    format!(
+                        "Runtime Agent turn exhausted the step budget before producing a final answer (step_count={}, max_steps={}).",
+                        state.step_count, max_steps
+                    ),
+                ),
                 (_, _) => (
-                    "completed",
-                    "runtime_bridge_step_completed",
-                    "turn.completed",
-                    "completed",
-                    "Runtime step completed.".to_string(),
+                    "running",
+                    "runtime_bridge_step_pending",
+                    "turn.step",
+                    "running",
+                    "Runtime step completed; Agent is still running.".to_string(),
                 ),
             };
         for (ordinal, event) in kernel_events.iter().enumerate() {
@@ -951,6 +1212,12 @@ impl BridgeRuntime {
             }),
         }));
 
+        let result_events = if input.streamed_events_only {
+            compact_streamed_turn_result_events(&events)
+        } else {
+            events
+        };
+
         Ok(json!({
             "bridge_id": bridge_id,
             "run_id": run_id,
@@ -961,7 +1228,7 @@ impl BridgeRuntime {
             "stop_reason": stop_reason,
             "created_at": created_at,
             "updated_at": completed_at,
-            "events": events,
+            "events": result_events,
         }))
     }
 
@@ -988,13 +1255,7 @@ impl BridgeRuntime {
             .map_err(|error| anyhow!("{method} failed: {error}"))
     }
 
-    async fn call_step_service(
-        &mut self,
-        session_id: [u8; 32],
-        timeout: Duration,
-        timeout_uses_turn_deadline: bool,
-        turn_timeout: Duration,
-    ) -> Result<()> {
+    async fn call_step_service(&mut self, session_id: [u8; 32], timeout: Duration) -> Result<()> {
         match tokio::time::timeout(
             timeout,
             self.call_service("step@v1", &StepAgentParams { session_id }),
@@ -1002,9 +1263,6 @@ impl BridgeRuntime {
         .await
         {
             Ok(result) => result,
-            Err(_) if timeout_uses_turn_deadline => {
-                Err(runtime_bridge_turn_timeout_error(turn_timeout))
-            }
             Err(_) => Err(anyhow!(
                 "runtime_bridge_step_timeout: step@v1 exceeded {}ms without returning an agent action",
                 timeout.as_millis()
@@ -1133,6 +1391,33 @@ fn emit_runtime_bridge_kernel_events(
     }
 }
 
+fn compact_streamed_turn_result_events(events: &[Value]) -> Vec<Value> {
+    let mut result = Vec::new();
+    if let Some(started) = events
+        .iter()
+        .find(|event| {
+            bridge_string_field(event, &["event_kind"]).as_deref() == Some("turn.started")
+        })
+        .cloned()
+    {
+        result.push(started);
+    }
+    if let Some(last) = events.last().cloned() {
+        let duplicate = result.iter().any(|event| {
+            bridge_string_field(event, &["idempotency_key"])
+                == bridge_string_field(&last, &["idempotency_key"])
+        });
+        if !duplicate {
+            result.push(last);
+        }
+    }
+    if result.is_empty() {
+        events.first().cloned().into_iter().collect()
+    } else {
+        result
+    }
+}
+
 fn read_bridge_request() -> Result<BridgeRequest> {
     let mut raw = String::new();
     io::stdin()
@@ -1207,21 +1492,66 @@ fn positive_u64(value: &Value, keys: &[&str]) -> Option<u64> {
 }
 
 fn runtime_bridge_step_timeout() -> Duration {
-    std::env::var("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_STEP_TIMEOUT_MS")
-        .ok()
-        .and_then(|raw| raw.trim().parse::<u64>().ok())
-        .filter(|millis| *millis > 0)
-        .map(Duration::from_millis)
-        .unwrap_or_else(|| Duration::from_millis(DEFAULT_AGENT_STEP_TIMEOUT_MS))
+    runtime_bridge_step_timeout_from_env(|name| std::env::var(name).ok())
 }
 
-fn runtime_bridge_turn_timeout() -> Duration {
-    std::env::var("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_TURN_TIMEOUT_MS")
+fn runtime_bridge_step_timeout_from_env<F>(get_env: F) -> Duration
+where
+    F: Fn(&str) -> Option<String>,
+{
+    if let Some(configured) = runtime_bridge_positive_duration_millis(get_env(
+        "IOI_RUNTIME_AGENT_SERVICE_BRIDGE_STEP_TIMEOUT_MS",
+    )) {
+        return configured;
+    }
+    let default_millis = if runtime_bridge_env_truthy(get_env("AUTOPILOT_LOCAL_GPU_DEV")) {
+        DEFAULT_LOCAL_GPU_AGENT_STEP_TIMEOUT_MS
+    } else {
+        DEFAULT_AGENT_STEP_TIMEOUT_MS
+    };
+    let cognition_timeout =
+        runtime_bridge_positive_duration_secs(get_env("IOI_COGNITION_INFERENCE_TIMEOUT_SECS"))
+            .unwrap_or_else(|| {
+                if runtime_bridge_env_truthy(get_env("AUTOPILOT_LOCAL_GPU_DEV")) {
+                    Duration::from_secs(90)
+                } else {
+                    Duration::from_secs(30)
+                }
+            });
+    Duration::from_millis(default_millis)
+        .max(cognition_timeout.saturating_add(Duration::from_secs(30)))
+}
+
+fn runtime_bridge_turn_idle_timeout() -> Duration {
+    std::env::var("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_TURN_IDLE_TIMEOUT_MS")
         .ok()
+        .or_else(|| std::env::var("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_TURN_TIMEOUT_MS").ok())
         .and_then(|raw| raw.trim().parse::<u64>().ok())
         .filter(|millis| *millis > 0)
         .map(Duration::from_millis)
-        .unwrap_or_else(|| Duration::from_millis(DEFAULT_AGENT_TURN_TIMEOUT_MS))
+        .unwrap_or_else(|| Duration::from_millis(DEFAULT_AGENT_TURN_IDLE_TIMEOUT_MS))
+}
+
+fn runtime_bridge_positive_duration_millis(raw: Option<String>) -> Option<Duration> {
+    raw.and_then(|raw| raw.trim().parse::<u64>().ok())
+        .filter(|millis| *millis > 0)
+        .map(Duration::from_millis)
+}
+
+fn runtime_bridge_positive_duration_secs(raw: Option<String>) -> Option<Duration> {
+    raw.and_then(|raw| raw.trim().parse::<u64>().ok())
+        .filter(|secs| *secs > 0)
+        .map(Duration::from_secs)
+}
+
+fn runtime_bridge_env_truthy(raw: Option<String>) -> bool {
+    raw.map(|value| {
+        matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        )
+    })
+    .unwrap_or(false)
 }
 
 fn runtime_bridge_browser_observation_timeout() -> Duration {
@@ -1251,9 +1581,21 @@ fn kernel_event_is_successful_chat_reply(event: &KernelEvent) -> bool {
         event,
         KernelEvent::AgentActionResult {
             tool_name,
+            output,
             error_class,
+            agent_status,
             ..
-        } if tool_name == "chat__reply" && error_class.is_none()
+        } if tool_name == "chat__reply"
+            && error_class.is_none()
+            && agent_status.eq_ignore_ascii_case("completed")
+            && !output.trim().is_empty()
+            && !runtime_bridge_chat_reply_is_deferred(output)
+    )
+}
+
+fn runtime_bridge_chat_reply_is_deferred(output: &str) -> bool {
+    output.trim().eq_ignore_ascii_case(
+        "Deferred final reply while web research continues gathering evidence.",
     )
 }
 
@@ -1297,9 +1639,9 @@ fn runtime_bridge_no_progress_error(
     )
 }
 
-fn runtime_bridge_turn_timeout_error(timeout: Duration) -> anyhow::Error {
+fn runtime_bridge_turn_idle_timeout_error(timeout: Duration) -> anyhow::Error {
     anyhow!(
-        "runtime_bridge_turn_timeout: submit_turn exceeded {}ms before producing a terminal Agent Mode result",
+        "runtime_bridge_turn_idle_timeout: submit_turn exceeded {}ms without completed-step progress toward a terminal Agent Mode result",
         timeout.as_millis()
     )
 }
@@ -1308,8 +1650,10 @@ fn runtime_bridge_stop_reason_for_error(error: &anyhow::Error) -> &'static str {
     let message = error.to_string();
     if message.contains("runtime_bridge_step_timeout") {
         "runtime_bridge_step_timeout"
-    } else if message.contains("runtime_bridge_turn_timeout") {
-        "runtime_bridge_turn_timeout"
+    } else if message.contains("runtime_bridge_turn_idle_timeout")
+        || message.contains("runtime_bridge_turn_timeout")
+    {
+        "runtime_bridge_turn_idle_timeout"
     } else if message.contains("runtime_bridge_no_progress") {
         "runtime_bridge_no_progress"
     } else {
@@ -1837,6 +2181,17 @@ fn thread_status(status: &AgentStatus) -> &'static str {
     }
 }
 
+fn runtime_bridge_step_budget_exhausted(
+    step_result_ok: bool,
+    status: &AgentStatus,
+    completed_loop_steps: u32,
+    requested_max_steps: u32,
+) -> bool {
+    step_result_ok
+        && matches!(status, AgentStatus::Running)
+        && completed_loop_steps >= requested_max_steps
+}
+
 fn session_hex_short(session_hex: &str) -> &str {
     session_hex.get(..16).unwrap_or(session_hex)
 }
@@ -1922,6 +2277,33 @@ mod tests {
         assert_eq!(event["event_stream_id"], "thread_a:events");
     }
 
+    #[test]
+    fn compact_streamed_turn_result_events_keeps_start_and_terminal_only() {
+        let started = json!({
+            "event_kind": "turn.started",
+            "idempotency_key": "started",
+            "payload": { "prompt": "long prompt" }
+        });
+        let streamed_delta = json!({
+            "event_kind": "answer.delta",
+            "idempotency_key": "delta",
+            "payload": { "delta": "<!DOCTYPE html>".repeat(2000) }
+        });
+        let terminal = json!({
+            "event_kind": "turn.completed",
+            "idempotency_key": "completed",
+            "payload": { "summary": "done" }
+        });
+
+        let compacted = compact_streamed_turn_result_events(&[
+            started.clone(),
+            streamed_delta,
+            terminal.clone(),
+        ]);
+
+        assert_eq!(compacted, vec![started, terminal]);
+    }
+
     fn test_agent_state() -> AgentState {
         AgentState {
             session_id: [1u8; 32],
@@ -1991,6 +2373,55 @@ mod tests {
                 agent_status: "Completed".to_string(),
             }],
         ));
+    }
+
+    #[test]
+    fn runtime_bridge_budget_exhaustion_does_not_mark_running_agent_completed() {
+        assert!(runtime_bridge_step_budget_exhausted(
+            true,
+            &AgentStatus::Running,
+            8,
+            8,
+        ));
+        assert!(!runtime_bridge_step_budget_exhausted(
+            true,
+            &AgentStatus::Completed(Some("done".to_string())),
+            8,
+            8,
+        ));
+        assert!(!runtime_bridge_step_budget_exhausted(
+            false,
+            &AgentStatus::Running,
+            8,
+            8,
+        ));
+        assert!(!runtime_bridge_step_budget_exhausted(
+            true,
+            &AgentStatus::Running,
+            7,
+            8,
+        ));
+    }
+
+    #[test]
+    fn runtime_bridge_step_timeout_does_not_undercut_local_model_inference() {
+        let timeout = runtime_bridge_step_timeout_from_env(|name| match name {
+            "AUTOPILOT_LOCAL_GPU_DEV" => Some("1".to_string()),
+            "IOI_COGNITION_INFERENCE_TIMEOUT_SECS" => Some("140".to_string()),
+            _ => None,
+        });
+        assert!(timeout >= Duration::from_secs(170));
+    }
+
+    #[test]
+    fn runtime_bridge_step_timeout_honors_explicit_bridge_override() {
+        let timeout = runtime_bridge_step_timeout_from_env(|name| match name {
+            "AUTOPILOT_LOCAL_GPU_DEV" => Some("1".to_string()),
+            "IOI_COGNITION_INFERENCE_TIMEOUT_SECS" => Some("140".to_string()),
+            "IOI_RUNTIME_AGENT_SERVICE_BRIDGE_STEP_TIMEOUT_MS" => Some("45000".to_string()),
+            _ => None,
+        });
+        assert_eq!(timeout, Duration::from_millis(45_000));
     }
 
     #[test]
@@ -2151,5 +2582,228 @@ mod tests {
                 agent_status: "Running".to_string(),
             }
         ));
+    }
+
+    #[test]
+    fn deferred_web_research_chat_reply_is_not_terminal_bridge_reply() {
+        let event = KernelEvent::AgentActionResult {
+            session_id: [1u8; 32],
+            step_index: 0,
+            tool_name: "chat__reply".to_string(),
+            output: "Deferred final reply while web research continues gathering evidence."
+                .to_string(),
+            error_class: None,
+            agent_status: "Running".to_string(),
+        };
+        assert!(!kernel_event_is_successful_chat_reply(&event));
+
+        let rejected_retry_feedback = KernelEvent::AgentActionResult {
+            session_id: [1u8; 32],
+            step_index: 1,
+            tool_name: "chat__reply".to_string(),
+            output: String::new(),
+            error_class: None,
+            agent_status: "Running".to_string(),
+        };
+        assert!(!kernel_event_is_successful_chat_reply(
+            &rejected_retry_feedback
+        ));
+
+        let terminal = KernelEvent::AgentActionResult {
+            session_id: [1u8; 32],
+            step_index: 2,
+            tool_name: "chat__reply".to_string(),
+            output: "Here are the current sources I found.".to_string(),
+            error_class: None,
+            agent_status: "Completed".to_string(),
+        };
+        assert!(kernel_event_is_successful_chat_reply(&terminal));
+    }
+
+    #[test]
+    fn bridge_prompt_intent_projects_inline_run_command_to_shell_route_frame() {
+        let frame = runtime_route_frame_for_prompt(
+            "Run `node --check scripts/lib/autopilot-agent-studio-chat-scenarios.mjs` and summarize the exit code.",
+        )
+        .expect("inline executable command should synthesize a shell route frame");
+
+        assert_eq!(frame.intent_id, "command.exec");
+        assert_eq!(frame.route_family, "command_execution");
+        assert_eq!(frame.output_intent, "tool_execution");
+        assert!(!frame.direct_answer_allowed);
+        let action = frame.runtime_action.expect("runtime action");
+        assert_eq!(action.action_family, "shell");
+        let command_plan = action.command_plan.expect("command plan");
+        assert_eq!(
+            command_plan.argv,
+            vec![
+                "node".to_string(),
+                "--check".to_string(),
+                "scripts/lib/autopilot-agent-studio-chat-scenarios.mjs".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn bridge_prompt_intent_keeps_shell_operator_commands_bounded() {
+        let frame =
+            runtime_route_frame_for_prompt("Run `echo ok | cat` and summarize the exit code.")
+                .expect("inline shell pipeline should synthesize a shell route frame");
+        let action = frame.runtime_action.expect("runtime action");
+        let command_plan = action.command_plan.expect("command plan");
+        assert_eq!(
+            command_plan.argv,
+            vec![
+                "bash".to_string(),
+                "-lc".to_string(),
+                "echo ok | cat".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn bridge_prompt_intent_does_not_project_inline_code_symbol_to_shell() {
+        assert!(runtime_route_frame_for_prompt(
+            "Explain how `formatOrderTotal` is used in this repo."
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn bridge_prompt_intent_projects_inline_path_read_to_file_route_frame() {
+        let frame = runtime_route_frame_for_prompt(
+            "Try to read `/etc/passwd` through the governed file tool and summarize whether the daemon blocks it.",
+        )
+        .expect("inline path read should synthesize a governed file route frame");
+
+        assert_eq!(frame.intent_id, "workspace.context");
+        assert_eq!(frame.route_family, "workspace");
+        assert_eq!(frame.output_intent, "tool_execution");
+        assert_eq!(frame.target, "/etc/passwd");
+        assert_eq!(frame.target_kind.as_deref(), Some("workspace_path"));
+        assert!(frame.runtime_action.is_none());
+        assert!(frame
+            .typed_evidence
+            .iter()
+            .any(|item| item.evidence_kind == "workspace_path" && item.value == "/etc/passwd"));
+    }
+
+    #[test]
+    fn bridge_prompt_intent_projects_inline_dotfile_path_read_to_file_route_frame() {
+        let frame = runtime_route_frame_for_prompt(
+            "Try to read `.autopilot-stage73-outside-link` through the governed file tool and summarize whether the daemon blocks it.",
+        )
+        .expect("inline dotfile path read should synthesize a governed file route frame");
+
+        assert_eq!(frame.intent_id, "workspace.context");
+        assert_eq!(frame.route_family, "workspace");
+        assert_eq!(frame.output_intent, "tool_execution");
+        assert_eq!(frame.target, ".autopilot-stage73-outside-link");
+        assert_eq!(frame.target_kind.as_deref(), Some("workspace_path"));
+        assert!(frame.runtime_action.is_none());
+        assert!(frame.typed_evidence.iter().any(|item| {
+            item.evidence_kind == "workspace_path"
+                && item.value == ".autopilot-stage73-outside-link"
+        }));
+    }
+
+    #[test]
+    fn bridge_prompt_runtime_action_beats_generic_studio_intent_frame() {
+        let request = json!({
+            "prompt": "Run `node --check scripts/lib/autopilot-agent-studio-chat-scenarios.mjs` and summarize the exit code.",
+            "intentFrame": {
+                "schemaVersion": "ioi.studio.intent-frame.v1",
+                "intentId": "conversation.reply",
+                "routeDirective": "agent",
+                "executionMode": "agent",
+                "artifact": { "required": false },
+                "retrieval": { "required": false },
+                "workspace": { "required": false },
+                "requiredCapabilities": ["prim:conversation.reply"]
+            }
+        });
+        let prompt = request
+            .get("prompt")
+            .and_then(Value::as_str)
+            .expect("prompt");
+        let frame = runtime_route_frame_for_prompt_or_bridge_input(&request, None, prompt)
+            .expect("explicit shell prompt should override generic intent frame");
+
+        assert_eq!(frame.intent_id, "command.exec");
+        assert_eq!(frame.route_family, "command_execution");
+        assert!(!frame.direct_answer_allowed);
+        assert!(frame.runtime_action.is_some());
+    }
+
+    #[test]
+    fn bridge_studio_retrieval_frame_preserves_prompt_as_web_query_target() {
+        let request = json!({
+            "prompt": "Which is a better investment right now, Akash or Filecoin?",
+            "intentFrame": {
+                "schemaVersion": "ioi.studio.intent-frame.v1",
+                "intentId": "retrieval.answer",
+                "routeDirective": "agent",
+                "executionMode": "agent",
+                "target": "Which is a better investment right now, Akash or Filecoin?",
+                "query": "Which is a better investment right now, Akash or Filecoin?",
+                "artifact": { "required": false },
+                "retrieval": { "required": true, "requirements": ["current_external_state", "source_grounding"] },
+                "workspace": { "required": false },
+                "requiredCapabilities": ["prim:conversation.reply", "prim:web.search", "prim:web.read"]
+            }
+        });
+        let prompt = request
+            .get("prompt")
+            .and_then(Value::as_str)
+            .expect("prompt");
+        let frame = runtime_route_frame_for_prompt_or_bridge_input(&request, None, prompt)
+            .expect("retrieval intent frame should become a typed web route");
+
+        assert_eq!(frame.intent_id, "retrieval.answer");
+        assert_eq!(frame.route_family, "web_research");
+        assert_eq!(frame.output_intent, "tool_execution");
+        assert!(!frame.direct_answer_allowed);
+        assert_eq!(
+            frame.target,
+            "Which is a better investment right now, Akash or Filecoin?"
+        );
+    }
+
+    #[test]
+    fn bridge_studio_retrieval_frame_beats_internal_html_artifact_prompt() {
+        let request = json!({
+            "prompt": concat!(
+                "Create one complete self-contained HTML document for this request: Create a website that explains post-quantum computers\n",
+                "Research topic: post-quantum computers\n\n",
+                "Call web__search with exactly the research topic above as the query.\n",
+                "Then call chat__reply with the final HTML document only.\n",
+                "The final answer must start with <!DOCTYPE html> and end immediately after </html>."
+            ),
+            "intentFrame": {
+                "schemaVersion": "ioi.studio.intent-frame.v1",
+                "intentId": "retrieval.answer",
+                "routeDirective": "agent",
+                "executionMode": "agent",
+                "target": "post-quantum computers",
+                "query": "post-quantum computers",
+                "artifact": { "required": false },
+                "retrieval": { "required": true, "requirements": ["source_grounding"] },
+                "workspace": { "required": false },
+                "requiredCapabilities": ["prim:conversation.reply", "prim:web.search", "prim:web.read"]
+            }
+        });
+        let prompt = request
+            .get("prompt")
+            .and_then(Value::as_str)
+            .expect("prompt");
+        let frame = runtime_route_frame_for_prompt_or_bridge_input(&request, None, prompt)
+            .expect("retrieval intent frame should own internal artifact prompts");
+
+        assert_eq!(frame.intent_id, "retrieval.answer");
+        assert_eq!(frame.route_family, "web_research");
+        assert_eq!(frame.output_intent, "tool_execution");
+        assert!(!frame.direct_answer_allowed);
+        assert_eq!(frame.target, "post-quantum computers");
+        assert!(frame.runtime_action.is_none());
     }
 }

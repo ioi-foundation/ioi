@@ -470,7 +470,7 @@ pub(crate) fn materialize_worker_result(
             step_key: format!("delegate:{}", hex::encode(&child_session_id[..4])),
             budget: child_state.budget,
             goal: child_state.goal.clone(),
-            success_criteria: "Complete the delegated goal and return a deterministic handoff."
+            success_criteria: "Complete the delegated goal and return an evidence-backed handoff."
                 .to_string(),
             max_retries: 1,
             retries_used: 0,
@@ -482,7 +482,7 @@ pub(crate) fn materialize_worker_result(
             role: Some("Sub-Worker".to_string()),
             allowed_tools: Vec::new(),
             completion_contract: WorkerCompletionContract {
-                success_criteria: "Complete the delegated goal and return a deterministic handoff."
+                success_criteria: "Complete the delegated goal and return an evidence-backed handoff."
                     .to_string(),
                 expected_output: "Delegated worker handoff summarizing the completed slice."
                     .to_string(),

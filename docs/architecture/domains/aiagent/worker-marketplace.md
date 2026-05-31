@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for aiagent.xyz marketplace doctrine; low-level worker endpoints live in [`aiagent-xyz-worker-and-inter-agent-endpoints.md`](./worker-endpoints.md).
 Supersedes: overlapping worker-marketplace plan prose when marketplace boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-25.
+Last alignment pass: 2026-05-30.
 
 ## Canonical Definition
 
@@ -84,7 +84,7 @@ aiagent.xyz does not own:
 - the user's raw secrets;
 - all worker execution;
 - IOI L1 itself;
-- Filecoin/CAS payload bytes;
+- storage backend payload bytes;
 - local Autopilot state;
 - the IOI daemon/runtime nodes that execute managed instances;
 - raw long-running instance memory outside Agentgres refs and policy;
@@ -118,7 +118,8 @@ subscription profiles, when warm or ongoing runtime is supported
 deployment profile and compatibility constraints
 ```
 
-Package payloads may live on Filecoin/CAS/CDN and be referenced by signed manifests.
+Package payloads may live in storage backends such as Filecoin/CAS/CDN and be
+referenced by signed manifests and Agentgres-governed artifact refs.
 
 ## Package vs Instance
 
@@ -189,7 +190,7 @@ When a user invokes or initializes a worker:
 1. **Ephemeral invocation** — one task/run, no durable agent instance.
 2. **Local Autopilot install** — package is downloaded and run through a local IOI daemon managed by Autopilot Desktop.
 3. **Managed hosted/provider instance** — aiagent.xyz initializes a worker instance on a hosted or provider IOI daemon and mounts a web console over daemon thread/run APIs.
-4. **DePIN zero-to-idle or persistent instance** — minimized or encrypted state runs on decentralized compute, then checkpoints and rehydrates through Agentgres/Filecoin/CAS/wallet.network.
+4. **DePIN zero-to-idle or persistent instance** — minimized or encrypted state runs on decentralized compute, then checkpoints and rehydrates through Agentgres, storage backend payloads, and wallet.network.
 5. **Enterprise secure instance** — TEE, customer VPC, or local IOI daemon runtime required by policy.
 6. **API/inter-agent call** — external app, worker, or workflow invokes a governed worker endpoint.
 
@@ -234,8 +235,8 @@ browser UI
 → wallet.network grants scoped authority and payment/subscription approvals
 → runtime node initializes worker package as ephemeral, zero-to-idle, or persistent instance
 → browser console mounts chat/thread/form/API controls over daemon APIs
-→ Agentgres records events, receipts, usage, memory refs, and archive refs
-→ Filecoin/CAS stores large artifacts, traces, checkpoints, and sealed archives
+→ Agentgres records events, receipts, usage, memory refs, artifact refs, and archive refs
+→ storage backends such as Filecoin/CAS store large artifacts, traces, checkpoints, and sealed archive bytes
 ```
 
 Autopilot is optional local execution, not required for all marketplace use.
@@ -310,7 +311,7 @@ aiagent.xyz must not become a worker cannibalization mechanism.
 
 Required rules:
 
-1. No silent cloning of worker internals into the default harness.
+1. No silent cloning of worker internals into the Default Harness Profile.
 2. Worker packages declare license and visibility rights.
 3. Worker usage emits contribution receipts.
 4. Routing decisions are explainable and user-controllable.
@@ -334,6 +335,29 @@ Workers should accumulate measurable records:
 - sparse category eligibility;
 - training lineage completeness;
 - contribution value.
+
+## Anti-Patterns
+
+Do not model aiagent.xyz as:
+
+```text
+the only source of workers
+the execution runtime
+the service-outcome marketplace
+a required dependency for every service package
+a place to silently absorb private worker internals
+a ranking surface that can privilege first-party workers by fiat
+```
+
+Correct model:
+
+```text
+aiagent.xyz lists and supplies portable worker capability
+the daemon executes workers under authority
+Agentgres records installs, invocations, receipts, and contribution state
+MoW routing remains policy, benchmark, receipt, cost, privacy, and trust based
+service packages may use aiagent.xyz workers but do not depend on them
+```
 
 ## One-Line Doctrine
 

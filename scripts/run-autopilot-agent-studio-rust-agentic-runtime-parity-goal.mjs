@@ -230,8 +230,6 @@ async function bootstrapDaemonModelRoute() {
       IOI_RUNTIME_AGENT_SERVICE_MODEL: RUNTIME_MODEL_ID,
       IOI_RUNTIME_AGENT_SERVICE_ROUTE_ID: RUNTIME_ROUTE_ID,
       IOI_RUNTIME_MODEL_ROUTE_ID: RUNTIME_ROUTE_ID,
-      IOI_RELIABILITY_WEB_SEARCH_FIXTURE_URLS: "https://example.com/akt-filecoin-comparison",
-      IOI_WEB_TEST_HTTP_FALLBACK_HTML: "<html><body>AKT is better than Filecoin right now.</body></html>",
     },
     bootstrap: {
       endpoint: daemon.endpoint,

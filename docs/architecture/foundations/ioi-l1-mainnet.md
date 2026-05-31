@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for IOI L1, root contracts, gas boundaries, settlement, and public commitments.
 Supersedes: overlapping plan prose when L1 ownership or gas boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-25.
+Last alignment pass: 2026-05-30.
 
 ## Canonical Definition
 
@@ -302,6 +302,32 @@ Eventually, IOI L1 governance may govern:
 Governance should not micromanage ordinary commits, pull requests,
 application-domain state, every worker package, or private runtime execution.
 
+## Anti-Patterns
+
+Do not model IOI L1 as:
+
+```text
+the Agentgres database
+the default execution runtime
+the default trace store
+the artifact byte store
+the Autopilot node
+the worker marketplace itself
+the service marketplace itself
+the place where every local run must settle
+```
+
+Correct model:
+
+```text
+daemons execute
+Agentgres records operational truth
+storage backends hold payload bytes
+AIIP moves bounded work
+IOI L1 settles selected public, economic, registry, rights, dispute,
+reputation, governance, and cross-domain commitments
+```
+
 ## Non-Negotiables
 
 1. IOI L1 is not the Agentgres database.
@@ -319,4 +345,4 @@ application-domain state, every worker package, or private runtime execution.
 
 ## One-Line Doctrine
 
-> **Put public rights, money, registry, settlement, and kernel release commitments on L1. Put operational truth in Agentgres. Put execution in daemons. Put payloads in Filecoin/CAS.**
+> **Put public rights, money, registry, settlement, and kernel release commitments on L1. Put operational truth in Agentgres. Put execution in daemons. Put payload bytes in storage backends.**

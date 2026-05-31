@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for AIIP, bounded-execution-domain interop, work packets, AIIP profiles, and cross-system handoff semantics.
 Supersedes: product prose that treats Autopilot, aiagent.xyz, sas.xyz, or third-party autonomous systems as separate bespoke interop protocols.
 Superseded by: none.
-Last alignment pass: 2026-05-25.
+Last alignment pass: 2026-05-30.
 
 ## Canonical Definition
 
@@ -345,6 +345,42 @@ Canonical line:
 
 > **IBC moved tokens and messages. AIIP moves delegated work, authority,
 > receipts, and settlement claims.**
+
+## Anti-Patterns
+
+Do not model AIIP as:
+
+```text
+a separate bespoke interop API per app
+a raw message bus with no authority or receipts
+a requirement that every handoff settles on L1
+a way to bypass daemon policy or wallet.network authority
+a marketplace-only protocol
+a public-disclosure default for private execution data
+```
+
+Correct model:
+
+```text
+same semantic protocol across local and external handoffs
+different transport and settlement mode by profile
+authority leases travel with work
+receipts prove what happened
+settlement intents promote only what needs public trust
+```
+
+## Related Canon
+
+- [`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md):
+  shared AIIP envelope and ID vocabulary.
+- [`ioi-l1-mainnet.md`](./ioi-l1-mainnet.md): public settlement layer for
+  consequential records.
+- [`../components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md):
+  authority leases and approval scopes.
+- [`../components/daemon-runtime/default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md):
+  local daemon profile that can route work through AIIP.
+- [`../components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md):
+  receipt and event shapes used by handoffs.
 
 ## Non-Negotiables
 

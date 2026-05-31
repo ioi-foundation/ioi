@@ -487,7 +487,7 @@ fn web_pipeline_next_candidate_ignores_search_hub_attempts_for_host_diversity() 
 }
 
 #[test]
-fn web_pipeline_next_candidate_prefers_official_grounded_source_for_latest_multi_story_briefing() {
+fn web_pipeline_next_candidate_prefers_official_grounded_source_for_latest_document_report() {
     let pending = PendingSearchCompletion {
         query: "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.".to_string(),
         query_contract:
@@ -582,8 +582,7 @@ fn web_pipeline_next_candidate_prefers_official_grounded_source_for_latest_multi
 }
 
 #[test]
-fn web_pipeline_next_candidate_returns_none_when_grounded_briefing_only_has_generic_residual_reads()
-{
+fn web_pipeline_next_candidate_returns_none_when_grounded_report_only_has_generic_residual_reads() {
     let pending = PendingSearchCompletion {
         query: "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.".to_string(),
         query_contract:
@@ -667,6 +666,6 @@ fn web_pipeline_next_candidate_returns_none_when_grounded_briefing_only_has_gene
 
     assert!(
         next_pending_web_candidate(&pending).is_none(),
-        "generic residual NIST-adjacent pages should not keep grounded briefing loops alive"
+        "generic residual NIST-adjacent pages should not keep grounded report loops alive"
     );
 }

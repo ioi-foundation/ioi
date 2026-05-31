@@ -25,7 +25,10 @@ import {
 } from "./model-mounting/native-fixture-intent.mjs";
 import { nativeFixtureStaticWebsiteJson } from "./model-mounting/native-fixture-artifacts.mjs";
 import { nativeFixtureRepoAwareResponse } from "./model-mounting/native-fixture-repo-aware.mjs";
-import { isFixtureEndpointCandidate } from "./model-mounting/fixture-policy.mjs";
+import {
+  isFixtureEndpointCandidate,
+  isFixtureModelRecord,
+} from "./model-mounting/fixture-policy.mjs";
 import {
   assertDownloadPolicyAllowed,
   catalogApprovalDecision,
@@ -110,6 +113,14 @@ function lmStudioPublicCliEnabled() {
 
 function lmStudioRuntimeDiscoveryEnabled() {
   return lmStudioPublicCliEnabled() || truthy(process.env.IOI_ENABLE_LM_STUDIO_PUBLIC_RUNTIME_DISCOVERY);
+}
+
+function exposeInternalFixtureModels() {
+  return truthy(process.env.IOI_EXPOSE_INTERNAL_FIXTURE_MODELS);
+}
+
+function internalFixtureModelsEnabled() {
+  return exposeInternalFixtureModels() || truthy(process.env.IOI_ENABLE_INTERNAL_FIXTURE_MODELS);
 }
 
 class AgentgresWalletAuthority {
@@ -2553,6 +2564,9 @@ export class ModelMountingState {
     if (lmStudioProvider.discovery?.disabledByDefault) {
       this.pruneLmStudioPublicProjectionRecords();
     }
+    if (!internalFixtureModelsEnabled()) {
+      this.pruneInternalFixtureProjectionRecords();
+    }
     this.providers.set(lmStudioProvider.id, {
       ...this.providers.get(lmStudioProvider.id),
       ...lmStudioProvider,
@@ -2651,38 +2665,41 @@ export class ModelMountingState {
 
     this.seedBackends(checkedAt);
 
-    this.upsertDefault(this.artifacts, {
-      id: "local.auto",
-      providerId: localProvider.id,
-      modelId: "local:auto",
-      displayName: "IOI local fixture model",
-      family: "fixture",
-      quantization: "fixture",
-      sizeBytes: 0,
-      contextWindow: 8192,
-      capabilities: ["chat", "responses", "embeddings", "structured_output", "rerank"],
-      privacyClass: "local_private",
-      source: "deterministic_fixture",
-      state: "installed",
-      discoveredAt: checkedAt,
-    });
-    this.upsertDefault(this.artifacts, {
-      id: "local.embedding.fixture",
-      providerId: localProvider.id,
-      modelId: "local:embedding-fixture",
-      displayName: "IOI local embedding fixture",
-      family: "fixture",
-      quantization: "fixture",
-      sizeBytes: 0,
-      contextWindow: 2048,
-      capabilities: ["embeddings"],
-      privacyClass: "local_private",
-      source: "deterministic_fixture",
-      state: "installed",
-      discoveredAt: checkedAt,
-    });
-    const nativeArtifact = this.ensureNativeLocalFixtureArtifact(checkedAt);
-    this.upsertDefault(this.artifacts, nativeArtifact);
+    let nativeFixtureArtifact = null;
+    if (internalFixtureModelsEnabled()) {
+      this.upsertDefault(this.artifacts, {
+        id: "local.auto",
+        providerId: localProvider.id,
+        modelId: "local:auto",
+        displayName: "IOI local fixture model",
+        family: "fixture",
+        quantization: "fixture",
+        sizeBytes: 0,
+        contextWindow: 8192,
+        capabilities: ["chat", "responses", "embeddings", "structured_output", "rerank"],
+        privacyClass: "local_private",
+        source: "deterministic_fixture",
+        state: "installed",
+        discoveredAt: checkedAt,
+      });
+      this.upsertDefault(this.artifacts, {
+        id: "local.embedding.fixture",
+        providerId: localProvider.id,
+        modelId: "local:embedding-fixture",
+        displayName: "IOI local embedding fixture",
+        family: "fixture",
+        quantization: "fixture",
+        sizeBytes: 0,
+        contextWindow: 2048,
+        capabilities: ["embeddings"],
+        privacyClass: "local_private",
+        source: "deterministic_fixture",
+        state: "installed",
+        discoveredAt: checkedAt,
+      });
+      nativeFixtureArtifact = this.ensureNativeLocalFixtureArtifact(checkedAt);
+      this.upsertDefault(this.artifacts, nativeFixtureArtifact);
+    }
     const lmStudioArtifacts = this.discoverLmStudioArtifacts(lmStudioProvider, checkedAt);
     if (lmStudioArtifacts.length > 0) {
       for (const artifact of lmStudioArtifacts) {
@@ -2705,41 +2722,43 @@ export class ModelMountingState {
         discoveredAt: checkedAt,
       });
     }
-    this.upsertDefault(this.endpoints, {
-      id: "endpoint.local.auto",
-      providerId: localProvider.id,
-      modelId: "local:auto",
-      apiFormat: "ioi_fixture",
-      driver: "fixture",
-      baseUrl: "local://ioi-daemon/model-fixture",
-      capabilities: ["chat", "responses", "embeddings", "structured_output", "rerank"],
-      privacyClass: "local_private",
-      loadPolicy: {
-        mode: "on_demand",
-        idleTtlSeconds: 900,
-        autoEvict: true,
-      },
-      status: "mounted",
-      mountedAt: checkedAt,
-    });
-    this.upsertDefault(this.endpoints, {
-      id: "endpoint.autopilot.native-fixture",
-      providerId: nativeLocalProvider.id,
-      modelId: nativeArtifact.modelId,
-      apiFormat: "ioi_native",
-      driver: "native_local",
-      baseUrl: "local://ioi-native/model-server",
-      capabilities: ["chat", "responses", "embeddings", "structured_output", "rerank"],
-      privacyClass: "local_private",
-      loadPolicy: {
-        mode: "on_demand",
-        idleTtlSeconds: 900,
-        autoEvict: true,
-      },
-      status: "mounted",
-      mountedAt: checkedAt,
-      backendRegistry: this.backendRegistry(),
-    });
+    if (internalFixtureModelsEnabled()) {
+      this.upsertDefault(this.endpoints, {
+        id: "endpoint.local.auto",
+        providerId: localProvider.id,
+        modelId: "local:auto",
+        apiFormat: "ioi_fixture",
+        driver: "fixture",
+        baseUrl: "local://ioi-daemon/model-fixture",
+        capabilities: ["chat", "responses", "embeddings", "structured_output", "rerank"],
+        privacyClass: "local_private",
+        loadPolicy: {
+          mode: "on_demand",
+          idleTtlSeconds: 900,
+          autoEvict: true,
+        },
+        status: "mounted",
+        mountedAt: checkedAt,
+      });
+      this.upsertDefault(this.endpoints, {
+        id: "endpoint.autopilot.native-fixture",
+        providerId: nativeLocalProvider.id,
+        modelId: nativeFixtureArtifact.modelId,
+        apiFormat: "ioi_native",
+        driver: "native_local",
+        baseUrl: "local://ioi-native/model-server",
+        capabilities: ["chat", "responses", "embeddings", "structured_output", "rerank"],
+        privacyClass: "local_private",
+        loadPolicy: {
+          mode: "on_demand",
+          idleTtlSeconds: 900,
+          autoEvict: true,
+        },
+        status: "mounted",
+        mountedAt: checkedAt,
+        backendRegistry: this.backendRegistry(),
+      });
+    }
 
     this.upsertDefault(this.routes, {
       id: "route.local-first",
@@ -2750,7 +2769,7 @@ export class ModelMountingState {
       maxCostUsd: 0.25,
       maxLatencyMs: 30000,
       providerEligibility: ["local_folder", "lm_studio", "ollama", "vllm", "openai_compatible"],
-      fallback: ["endpoint.local.auto"],
+      fallback: [],
       deniedProviders: ["openai", "anthropic", "gemini"],
       status: "active",
       lastSelectedModel: null,
@@ -2761,11 +2780,11 @@ export class ModelMountingState {
       role: "default",
       description: "Autopilot-native local route that does not require LM Studio.",
       privacy: "local_only",
-      quality: "deterministic",
+      quality: "native_local",
       maxCostUsd: 0,
       maxLatencyMs: 30000,
       providerEligibility: ["ioi_native_local"],
-      fallback: ["endpoint.autopilot.native-fixture"],
+      fallback: [],
       deniedProviders: ["openai", "anthropic", "gemini", "lm_studio"],
       status: "active",
       lastSelectedModel: null,
@@ -2913,6 +2932,37 @@ export class ModelMountingState {
     }
     for (const [id, instance] of this.instances.entries()) {
       if (instance.providerId === "provider.lmstudio" || removedEndpointIds.has(instance.endpointId)) {
+        this.instances.delete(id);
+      }
+    }
+  }
+
+  pruneInternalFixtureProjectionRecords() {
+    const removedEndpointIds = new Set();
+    const removedModelIds = new Set();
+    for (const [id, artifact] of this.artifacts.entries()) {
+      if (isFixtureModelRecord(artifact) || String(id).includes("fixture") || String(artifact.modelId ?? "").includes("local:auto")) {
+        removedModelIds.add(artifact.modelId);
+        this.artifacts.delete(id);
+      }
+    }
+    for (const [id, endpoint] of this.endpoints.entries()) {
+      if (
+        isFixtureEndpointCandidate(endpoint, this.providers.get(endpoint.providerId)) ||
+        String(id).includes("fixture") ||
+        String(endpoint.modelId ?? "").includes("local:auto")
+      ) {
+        removedEndpointIds.add(id);
+        removedModelIds.add(endpoint.modelId);
+        this.endpoints.delete(id);
+      }
+    }
+    for (const [id, instance] of this.instances.entries()) {
+      if (
+        removedEndpointIds.has(instance.endpointId) ||
+        removedModelIds.has(instance.modelId) ||
+        isFixtureModelRecord(instance)
+      ) {
         this.instances.delete(id);
       }
     }
@@ -3138,12 +3188,8 @@ export class ModelMountingState {
   }
 
   legacyModelList() {
-    return this.listArtifacts()
-      .sort((left, right) => {
-        if (left.modelId === "local:auto") return -1;
-        if (right.modelId === "local:auto") return 1;
-        return left.modelId.localeCompare(right.modelId);
-      })
+    return this.listProductArtifacts()
+      .sort((left, right) => left.modelId.localeCompare(right.modelId))
       .map((artifact) => ({
       id: artifact.modelId,
       provider: artifact.providerId === "provider.local.folder" ? "ioi-daemon-local" : artifact.providerId,
@@ -3158,7 +3204,7 @@ export class ModelMountingState {
   openAiModelList() {
     return {
       object: "list",
-      data: this.listArtifacts().map((artifact) => ({
+      data: this.listProductArtifacts().map((artifact) => ({
         id: artifact.modelId,
         object: "model",
         created: Math.floor(Date.parse(artifact.discoveredAt ?? this.nowIso()) / 1000),
@@ -3172,6 +3218,14 @@ export class ModelMountingState {
 
   listArtifacts() {
     return [...this.artifacts.values()].sort((left, right) => left.id.localeCompare(right.id));
+  }
+
+  listProductArtifacts() {
+    const artifacts = this.listArtifacts();
+    if (internalFixtureModelsEnabled()) {
+      return artifacts;
+    }
+    return artifacts.filter((artifact) => !isFixtureModelRecord(artifact));
   }
 
   listProviders() {
@@ -4153,7 +4207,14 @@ export class ModelMountingState {
 
   mountEndpoint(body = {}) {
     const now = this.nowIso();
-    const modelId = body.model_id ?? body.modelId ?? "local:auto";
+    const modelId = body.model_id ?? body.modelId;
+    if (!modelId) {
+      throw runtimeError({
+        status: 400,
+        code: "model_id_required",
+        message: "Mounting a model endpoint requires an explicit model id.",
+      });
+    }
     const explicitProviderId = body.provider_id ?? body.providerId;
     const artifact = explicitProviderId ? null : this.getModel(modelId);
     const providerId = explicitProviderId ?? artifact.providerId;
@@ -4165,7 +4226,13 @@ export class ModelMountingState {
       modelId: resolvedArtifact.modelId,
       apiFormat: body.api_format ?? body.apiFormat ?? provider.apiFormat,
       driver: body.driver ?? provider.driver ?? driverForProviderKind(provider.kind),
-      baseUrl: body.base_url ?? body.baseUrl ?? provider.baseUrl ?? "local://ioi-daemon/model-fixture",
+      baseUrl:
+        body.base_url ??
+        body.baseUrl ??
+        provider.baseUrl ??
+        ((body.driver ?? provider.driver ?? driverForProviderKind(provider.kind)) === "fixture"
+          ? "local://ioi-daemon/model-fixture"
+          : null),
       capabilities: normalizeScopes(body.capabilities, resolvedArtifact.capabilities),
       privacyClass: body.privacy_class ?? body.privacyClass ?? provider.privacyClass,
       artifactId: resolvedArtifact.id,
@@ -5227,7 +5294,7 @@ export class ModelMountingState {
       maxCostUsd: Number(body.max_cost_usd ?? body.maxCostUsd ?? 0.25),
       maxLatencyMs: Number(body.max_latency_ms ?? body.maxLatencyMs ?? 30000),
       providerEligibility: normalizeScopes(body.provider_eligibility ?? body.providerEligibility, []),
-      fallback: normalizeScopes(body.fallback, ["endpoint.local.auto"]),
+      fallback: normalizeScopes(body.fallback, []),
       deniedProviders: normalizeScopes(body.denied_providers ?? body.deniedProviders, []),
       status: body.status ?? "active",
       lastSelectedModel: body.last_selected_model ?? body.lastSelectedModel ?? null,
@@ -6262,7 +6329,12 @@ export class ModelMountingState {
       if (endpoint) return endpoint;
       return this.mountEndpoint({ model_id: modelId });
     }
-    return this.endpoint("endpoint.local.auto");
+    throw runtimeError({
+      status: 424,
+      code: "product_model_unavailable",
+      message: "No model endpoint was specified and no product model route fallback is configured.",
+      details: { required: "endpoint_id_or_model_id" },
+    });
   }
 
   endpointIdsForExplicitModel(route, modelId) {
@@ -6287,7 +6359,7 @@ export class ModelMountingState {
       ? this.endpointIdsForExplicitModel(route, explicitModelId)
       : route.fallback.length > 0
         ? route.fallback
-        : ["endpoint.local.auto"];
+        : [];
     const evaluatedCandidates = [];
     for (const endpointId of fallback) {
       const endpoint = this.endpoint(endpointId);
@@ -8529,15 +8601,8 @@ function nativeFixturePreReadSelection(inputStr) {
   const urls = [...inputStr.matchAll(/"url"\s*:\s*"([^"]+)"/g)]
     .map((match) => match[1])
     .filter((url, index, all) => /^https?:\/\//i.test(url) && all.indexOf(url) === index);
-  const fixtureUrls = urls.filter((url) => (
-    url === "https://example.com/akt-filecoin-comparison" ||
-    url === "https://example.com/crypto/akt-price-today-2026" ||
-    url === "https://example.com/crypto/filecoin-price-today-2026" ||
-    url === "https://example.com/local-ai-runtime-issue" ||
-    url === "https://www.nist.gov/news-events/news/2026/local-ai-model-runtime-issue"
-  ));
   const nonSearchHubUrls = urls.filter((url) => !/duckduckgo\.com|google\.com\/search/i.test(url));
-  const selected = (fixtureUrls.length > 0 ? fixtureUrls : nonSearchHubUrls).slice(0, requiredUrlCount);
+  const selected = nonSearchHubUrls.slice(0, requiredUrlCount);
 
   return JSON.stringify({
     selection_mode: "direct_detail",
@@ -8567,56 +8632,11 @@ function nativeLocalOutput({ kind, input, modelId }) {
     });
   }
 
-  if (inputStr.includes("ontology incident resolver")) {
-    return JSON.stringify({
-      name: "web__read",
-      arguments: {
-        url: "https://example.com/akt-filecoin-comparison",
-        max_chars: 1000,
-        allow_browser_fallback: false
-      }
-    });
-  }
-
   const preReadSelection = nativeFixturePreReadSelection(inputStr);
   if (preReadSelection) {
     return preReadSelection;
   }
 
-  if (inputStr.includes("Return JSON only with schema:")) {
-    let citationId = "https://example.com/akt-filecoin-comparison";
-    const match = inputStr.match(/"id":\s*"([^"]+)"/);
-    if (match) {
-      citationId = match[1];
-    }
-    return JSON.stringify({
-      heading: "Investment Comparison: AKT vs Filecoin",
-      items: [
-        {
-          title: "AKT vs Filecoin Analysis",
-          sections: [
-            {
-              label: "Summary",
-              content: "AKT is performing better than Filecoin right now due to stronger utility and demand."
-            },
-            {
-              label: "Recent Change",
-              content: "AKT has seen positive price action while Filecoin remains consolidated."
-            },
-            {
-              label: "Significance",
-              content: "This represents a shift in decentralized storage and compute preferences."
-            }
-          ],
-          citation_ids: [citationId],
-          confidence: "high",
-          caveat: "This is a deterministic test response."
-        }
-      ],
-      overall_confidence: "high",
-      overall_caveat: "No advice is given."
-    });
-  }
   if (
     inputStr.includes("remote_public_fact_required") &&
     inputStr.includes("host_local_clock_targeted") &&
@@ -8703,45 +8723,6 @@ function nativeLocalOutput({ kind, input, modelId }) {
     queryText,
   });
   if (repoAwareResponse) return repoAwareResponse;
-
-  if (/\b(AKT|Akash|Filecoin|FIL)\b/i.test(queryText)) {
-    if (!expectsJsonToolCall) {
-      return "Fresh retrieval is required for current AKT or Filecoin investment comparisons; I should not guess from stale model memory.";
-    }
-    if (hasToolCalled("chat__reply")) {
-      return JSON.stringify({
-        name: "agent__complete",
-        arguments: {
-          result: "Successfully completed task and compared AKT vs Filecoin."
-        }
-      });
-    }
-    if (hasToolCalled("web__read")) {
-      return JSON.stringify({
-        name: "chat__reply",
-        arguments: {
-          message: "Based on web research, AKT is performing better than Filecoin right now."
-        }
-      });
-    }
-    if (hasToolCalled("web__search")) {
-      return JSON.stringify({
-        name: "web__read",
-        arguments: {
-          url: "https://example.com/crypto/akt-price-today-2026",
-          max_chars: 1000,
-          allow_browser_fallback: false
-        }
-      });
-    }
-    return JSON.stringify({
-      name: "web__search",
-      arguments: {
-        query: "AKT or Filecoin investment status 2026",
-        limit: 5
-      }
-    });
-  }
 
   if (nativeFixtureQueryNeedsWeb(promptContextText)) {
     if (!expectsJsonToolCall) {

@@ -3,6 +3,7 @@ use ioi_types::app::agentic::{WebDocument, WebRetrievalContract};
 
 const HUMAN_CHALLENGE_DOCUMENT_PROBE_CHARS: usize = 600;
 const AUTHORITY_IDENTIFIER_DISCOVERY_CHARS: usize = 2400;
+const MARKET_QUOTE_EXCERPT_CHARS: usize = 900;
 
 fn preserve_retrieved_excerpt_over_hint(
     query_contract: &str,
@@ -17,16 +18,16 @@ fn preserve_retrieved_excerpt_over_hint(
 
     has_quantitative_metric_payload(trimmed, false)
         || local_business_menu_inventory_excerpt(trimmed, trimmed.chars().count()).is_some()
-        || source_has_briefing_standard_identifier_signal(query_contract, url, title, trimmed)
+        || source_has_evidence_standard_identifier_signal(query_contract, url, title, trimmed)
 }
 
-fn grounded_document_briefing_source_quality_required(
+fn grounded_document_report_source_quality_required(
     retrieval_contract: Option<&WebRetrievalContract>,
     query_contract: &str,
 ) -> bool {
     matches!(
         synthesis_layout_profile(retrieval_contract, query_contract),
-        SynthesisLayoutProfile::DocumentBriefing
+        SynthesisLayoutProfile::DocumentReport
     ) && !retrieval_contract_requests_comparison(retrieval_contract, query_contract)
         && crate::agentic::runtime::service::decision_loop::signals::analyze_query_facets(
             query_contract,
@@ -34,22 +35,19 @@ fn grounded_document_briefing_source_quality_required(
         .grounded_external_required
 }
 
-fn deterministic_parity_web_success_allowed(
-    query_contract: &str,
-    url: &str,
-    title: &str,
-    excerpt: &str,
-) -> bool {
-    let query = query_contract.to_ascii_lowercase();
-    let surface = format!("{} {} {}", url, title, excerpt).to_ascii_lowercase();
-    url.eq_ignore_ascii_case(
-        "https://www.nist.gov/news-events/news/2026/local-ai-model-runtime-issue",
-    ) && query.contains("local ai model runtime")
-        && query.contains("issue")
-        && surface.contains("local ai model runtime issue")
-        && (surface.contains("current evidence")
-            || surface.contains("current source")
-            || surface.contains("retrieved current sources"))
+fn source_finding_candidate_has_usable_surface(url: &str, title: &str, excerpt: &str) -> bool {
+    let trimmed_url = url.trim();
+    if !is_citable_web_url(trimmed_url)
+        || is_search_hub_url(trimmed_url)
+        || is_multi_item_listing_url(trimmed_url)
+        || crate::agentic::web::is_google_news_article_wrapper_url(trimmed_url)
+    {
+        return false;
+    }
+
+    let title_usable = !title.trim().is_empty() && !is_low_signal_title(title);
+    let excerpt_usable = !excerpt.trim().is_empty() && !is_low_signal_excerpt(excerpt);
+    title_usable || excerpt_usable
 }
 
 pub(crate) fn push_pending_web_success(
@@ -119,23 +117,7 @@ pub(crate) fn push_pending_web_success(
     }
 
     let retrieval_contract = pending.retrieval_contract.as_ref();
-    if deterministic_parity_web_success_allowed(
-        &query_contract,
-        trimmed,
-        resolved_title.as_deref().unwrap_or_default(),
-        &resolved_excerpt,
-    ) {
-        upsert_pending_web_success_record(
-            pending,
-            &query_contract,
-            PendingSearchReadSummary {
-                url: trimmed.to_string(),
-                title: resolved_title,
-                excerpt: resolved_excerpt,
-            },
-        );
-        return;
-    }
+    let source_finding_mode = query_asks_to_find_sources(&query_contract);
     let preserve_retrieved_excerpt = preserve_retrieved_excerpt_over_hint(
         &query_contract,
         trimmed,
@@ -252,6 +234,16 @@ pub(crate) fn push_pending_web_success(
         );
         let mut compatibility_passes = compatibility_passes_projection(&projection, &compatibility);
         if !compatibility_passes
+            && source_finding_mode
+            && source_finding_candidate_has_usable_surface(
+                trimmed,
+                resolved_title.as_deref().unwrap_or_default(),
+                &resolved_excerpt,
+            )
+        {
+            compatibility_passes = true;
+        }
+        if !compatibility_passes
             && (menu_inventory_grounded_excerpt || host_anchored_primary_authority_alignment)
         {
             compatibility_passes = true;
@@ -329,8 +321,8 @@ pub(crate) fn push_pending_web_success(
             }
         }
 
-        if grounded_document_briefing_source_quality_required(retrieval_contract, &query_contract)
-            && !source_has_briefing_standard_identifier_signal(
+        if grounded_document_report_source_quality_required(retrieval_contract, &query_contract)
+            && !source_has_evidence_standard_identifier_signal(
                 &query_contract,
                 trimmed,
                 resolved_title.as_deref().unwrap_or_default(),
@@ -346,7 +338,7 @@ pub(crate) fn push_pending_web_success(
             return;
         }
 
-        if time_sensitive {
+        if time_sensitive && !source_finding_mode {
             let mut resolved_payload = candidate_time_sensitive_resolvable_payload(
                 trimmed,
                 resolved_title.as_deref().unwrap_or_default(),
@@ -438,15 +430,19 @@ pub(crate) fn push_pending_web_success(
     }
 
     if single_snapshot_contract || time_sensitive {
-        let focused_excerpt = prioritized_success_excerpt_for_query(
-            pending,
-            trimmed,
-            resolved_title.as_deref().unwrap_or_default(),
-            &resolved_excerpt,
-            WEB_PIPELINE_EXCERPT_CHARS,
-        );
-        if !focused_excerpt.is_empty() {
-            resolved_excerpt = focused_excerpt;
+        if let Some(market_excerpt) = quote_grade_market_excerpt(&resolved_excerpt) {
+            resolved_excerpt = market_excerpt;
+        } else {
+            let focused_excerpt = prioritized_success_excerpt_for_query(
+                pending,
+                trimmed,
+                resolved_title.as_deref().unwrap_or_default(),
+                &resolved_excerpt,
+                WEB_PIPELINE_EXCERPT_CHARS,
+            );
+            if !focused_excerpt.is_empty() {
+                resolved_excerpt = focused_excerpt;
+            }
         }
     }
 
@@ -502,20 +498,20 @@ fn upsert_pending_web_success_record(
             normalized,
         );
         pending.successful_reads[existing_idx] = merged;
-        augment_pending_document_briefing_authority_candidates(pending, query_contract);
+        augment_pending_document_report_authority_candidates(pending, query_contract);
         return;
     }
 
     pending.successful_reads.push(normalized);
-    augment_pending_document_briefing_authority_candidates(pending, query_contract);
+    augment_pending_document_report_authority_candidates(pending, query_contract);
 }
 
-fn augment_pending_document_briefing_authority_candidates(
+fn augment_pending_document_report_authority_candidates(
     pending: &mut PendingSearchCompletion,
     query_contract: &str,
 ) {
     let retrieval_contract = pending.retrieval_contract.as_ref();
-    if !query_prefers_document_briefing_layout(query_contract)
+    if !query_prefers_document_report_layout(query_contract)
         || query_requests_comparison(query_contract)
         || !analyze_query_facets(query_contract).grounded_external_required
         || !retrieval_contract
@@ -597,9 +593,9 @@ fn extend_identifier_backed_nist_authority_candidates(
     };
     let authority_surface_excerpt = compact_whitespace(&surface);
     let inferred_labels =
-        crate::agentic::runtime::service::queue::support::infer_briefing_required_identifier_labels(
+        crate::agentic::runtime::service::queue::support::infer_answer_required_identifier_labels(
             query_contract,
-            &[crate::agentic::runtime::service::queue::support::BriefingIdentifierObservation {
+            &[crate::agentic::runtime::service::queue::support::EvidenceIdentifierObservation {
                 url: source_url.trim().to_string(),
                 surface: surface.clone(),
                 authoritative:
@@ -660,13 +656,16 @@ fn merge_bundle_source_surface_into_success(
         return;
     };
 
-    let excerpt = prioritized_success_excerpt_for_query(
-        pending,
-        source.url.as_str(),
-        source.title.as_deref().unwrap_or_default(),
-        source.snippet.as_deref().unwrap_or_default(),
-        180,
-    );
+    let source_snippet = source.snippet.as_deref().unwrap_or_default();
+    let excerpt = quote_grade_market_excerpt(source_snippet).unwrap_or_else(|| {
+        prioritized_success_excerpt_for_query(
+            pending,
+            source.url.as_str(),
+            source.title.as_deref().unwrap_or_default(),
+            source_snippet,
+            180,
+        )
+    });
     let title = source
         .title
         .clone()
@@ -819,6 +818,23 @@ fn prioritized_success_excerpt_for_query(
     prioritized_signal_excerpt(input, max_chars)
 }
 
+fn quote_grade_market_excerpt(input: &str) -> Option<String> {
+    let compact = compact_whitespace(input);
+    if compact.is_empty() {
+        return None;
+    }
+    let lower = compact.to_ascii_lowercase();
+    let has_price_surface =
+        lower.contains("price") && (lower.contains(" usd") || lower.contains("$"));
+    let has_market_matrix = lower.contains("market cap:")
+        && lower.contains("24h trading volume:")
+        && lower.contains("24h price change:");
+    if !(has_price_surface && has_market_matrix) {
+        return None;
+    }
+    Some(compact.chars().take(MARKET_QUOTE_EXCERPT_CHARS).collect())
+}
+
 fn prioritized_document_quote_excerpt_for_query(
     pending: &PendingSearchCompletion,
     doc: &WebDocument,
@@ -834,6 +850,9 @@ fn prioritized_document_quote_excerpt_for_query(
         .collect::<Vec<_>>()
         .join(" ");
     if !joined_quotes.is_empty() {
+        if let Some(market_excerpt) = quote_grade_market_excerpt(&joined_quotes) {
+            return market_excerpt;
+        }
         let joined_excerpt = prioritized_success_excerpt_for_query(
             pending,
             doc.url.as_str(),
@@ -844,6 +863,9 @@ fn prioritized_document_quote_excerpt_for_query(
         if !joined_excerpt.is_empty() {
             return joined_excerpt;
         }
+    }
+    if let Some(market_excerpt) = quote_grade_market_excerpt(&doc.content_text) {
+        return market_excerpt;
     }
 
     let query_contract = synthesis_query_contract(pending);
@@ -884,13 +906,16 @@ fn supporting_bundle_success_excerpt(
         if url_structurally_equivalent(source.url.as_str(), primary_url) {
             continue;
         }
-        let candidate = prioritized_success_excerpt_for_query(
-            pending,
-            source.url.as_str(),
-            source.title.as_deref().unwrap_or_default(),
-            source.snippet.as_deref().unwrap_or_default(),
-            WEB_PIPELINE_EXCERPT_CHARS,
-        );
+        let source_snippet = source.snippet.as_deref().unwrap_or_default();
+        let candidate = quote_grade_market_excerpt(source_snippet).unwrap_or_else(|| {
+            prioritized_success_excerpt_for_query(
+                pending,
+                source.url.as_str(),
+                source.title.as_deref().unwrap_or_default(),
+                source_snippet,
+                WEB_PIPELINE_EXCERPT_CHARS,
+            )
+        });
         if candidate.is_empty() {
             continue;
         }
@@ -904,13 +929,16 @@ pub(crate) fn append_pending_web_success_fallback(
     url: &str,
     raw_output: Option<&str>,
 ) {
-    let raw_excerpt = prioritized_success_excerpt_for_query(
-        pending,
-        url,
-        "",
-        raw_output.unwrap_or_default(),
-        WEB_PIPELINE_EXCERPT_CHARS,
-    );
+    let raw_input = raw_output.unwrap_or_default();
+    let raw_excerpt = quote_grade_market_excerpt(raw_input).unwrap_or_else(|| {
+        prioritized_success_excerpt_for_query(
+            pending,
+            url,
+            "",
+            raw_input,
+            WEB_PIPELINE_EXCERPT_CHARS,
+        )
+    });
     let excerpt = if raw_excerpt.is_empty()
         || is_low_signal_excerpt(&raw_excerpt)
         || raw_excerpt.contains("Final response emitted via chat__reply")
@@ -953,7 +981,7 @@ pub(crate) fn append_pending_web_success_from_hint(
     };
     let candidate_title = canonical_source_title(&candidate_source);
     if is_low_signal_title(&candidate_title)
-        || !headline_story_title_has_specificity(&candidate_title)
+        || !headline_source_title_has_specificity(&candidate_title)
         || headline_source_is_low_quality(&candidate_url, &candidate_title, &excerpt)
     {
         return false;
@@ -1028,13 +1056,16 @@ pub(crate) fn append_pending_web_success_from_bundle(
 
         if !appended {
             for source in bundle.sources.iter().take(8) {
-                let excerpt = prioritized_success_excerpt_for_query(
-                    pending,
-                    source.url.as_str(),
-                    source.title.as_deref().unwrap_or_default(),
-                    source.snippet.as_deref().unwrap_or_default(),
-                    180,
-                );
+                let source_snippet = source.snippet.as_deref().unwrap_or_default();
+                let excerpt = quote_grade_market_excerpt(source_snippet).unwrap_or_else(|| {
+                    prioritized_success_excerpt_for_query(
+                        pending,
+                        source.url.as_str(),
+                        source.title.as_deref().unwrap_or_default(),
+                        source_snippet,
+                        180,
+                    )
+                });
                 if try_append_headline_bundle_success(
                     pending,
                     fallback_trimmed,
@@ -1108,13 +1139,16 @@ pub(crate) fn append_pending_web_success_from_bundle(
     }
 
     if let Some(source) = bundle.sources.first() {
-        let excerpt = prioritized_success_excerpt_for_query(
-            pending,
-            source.url.as_str(),
-            source.title.as_deref().unwrap_or_default(),
-            source.snippet.as_deref().unwrap_or_default(),
-            180,
-        );
+        let source_snippet = source.snippet.as_deref().unwrap_or_default();
+        let excerpt = quote_grade_market_excerpt(source_snippet).unwrap_or_else(|| {
+            prioritized_success_excerpt_for_query(
+                pending,
+                source.url.as_str(),
+                source.title.as_deref().unwrap_or_default(),
+                source_snippet,
+                180,
+            )
+        });
         let before = pending.successful_reads.len();
         push_pending_web_success(pending, &source.url, source.title.clone(), excerpt.clone());
         if pending.successful_reads.len() > before {

@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for sas.xyz service marketplace doctrine; low-level service endpoints live in [`sas-xyz-service-endpoints.md`](./service-endpoints.md).
 Supersedes: overlapping service-marketplace plan prose when outcome/service boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-25.
+Last alignment pass: 2026-05-30.
 
 ## Canonical Definition
 
@@ -75,7 +75,7 @@ sas.xyz does not own:
 - all runtime compute;
 - local Autopilot execution;
 - IOI L1 itself;
-- Filecoin/CAS payload bytes;
+- storage backend payload bytes;
 - aiagent.xyz worker marketplace state except through refs/integrations;
 - training datasets, traces, or artifacts as raw payload bytes.
 
@@ -224,6 +224,31 @@ quality summary
 acceptance/dispute metadata
 ```
 
+## Anti-Patterns
+
+Do not model sas.xyz as:
+
+```text
+the execution runtime
+the only place service packages can exist
+a mandatory wrapper around aiagent.xyz workers
+a raw software-tool marketplace
+a model-checkpoint storefront
+a replacement for daemon authority, Agentgres truth, or wallet.network approvals
+```
+
+Correct model:
+
+```text
+sas.xyz contracts and lists verifiable service outcomes
+service packages can run locally, privately, hosted, in VPCs, through TEEs, or
+through marketplace orders
+the daemon executes service engines under the Default Harness Profile
+Agentgres records delivery, evidence, receipts, and settlement state
+L1 settlement appears when contracts, escrow, rights, disputes, or public trust
+require it
+```
+
 ## One-Line Doctrine
 
 > **sas.xyz does not sell software tools or raw model checkpoints. It sells verifiable autonomous outcomes, including trained workers delivered under acceptance rubrics.**
@@ -295,7 +320,9 @@ Publicly, `sas.xyz` should lead with one primary truth:
 
 > **Providers use `sas.xyz` to productize repeatable worker delivery.**
 
-Everything deeper, including multi-plane scaling, trust classes, coordinators, and SCS modes, exists to support that product truth rather than replace it.
+Everything deeper, including multi-plane scaling, trust classes, coordinators,
+and context-memory modes, exists to support that product truth rather than
+replace it.
 
 ---
 
@@ -515,7 +542,7 @@ The core website story should move in this order:
 These remain important, but should live in docs, deep dives, or enterprise/security pages rather than lead the landing page:
 
 * the full four-plane deployment architecture,
-* SCS modes in depth,
+* context-memory modes in depth,
 * principal / sponsor / guardian identity nuance,
 * AIIP and install token internals,
 * detailed lane derivation,
@@ -1251,7 +1278,7 @@ The **Coordinator** is the always-on runtime control role. It holds:
 * tenant config
 * receipts
 * secrets references
-* SCS strategy selection
+* context-memory strategy selection
 * worker dispatch state
 
 It is the **execution control role**, not the SaaS UI. In canonical terms it is
@@ -1364,13 +1391,16 @@ For proprietary hosted models, `sas.xyz` does not need raw weights. It stores:
 
 ---
 
-# 16. Sovereign Context Strategy
+# 16. Context Memory Strategy
 
-SCS is for worker/operator considerations and execution context, not the same thing as product/control-plane storage.
+Agent Wiki / `ioi-memory` context profiles are for worker/operator
+considerations and execution context. They are not the same thing as
+product/control-plane storage, and they are not Agentgres canonical truth until
+durable changes are admitted as Agentgres operations.
 
 Three modes are supported.
 
-## 16.1 Local SCS
+## 16.1 Local Agent Wiki / ioi-memory
 
 Used by:
 
@@ -1378,7 +1408,7 @@ Used by:
 * boundary/private deployments
 * local GPU/private assistants
 
-## 16.2 Tethered SCS / TFEC
+## 16.2 Tethered context / TFEC
 
 Default for private remote execution.
 
@@ -1390,9 +1420,9 @@ Workers receive:
 
 This is the private-remote default.
 
-## 16.3 Managed Tenant SCS
+## 16.3 Managed tenant context memory
 
-Provider-hosted tenant-scoped SCS for low-latency recurring services.
+Provider-hosted tenant-scoped context memory for low-latency recurring services.
 
 Used by:
 
@@ -1403,9 +1433,9 @@ Used by:
 
 ### Default posture
 
-* Fast hosted: managed tenant SCS
+* Fast hosted: managed tenant context memory
 * Private remote: tethered slices / TFEC
-* Local: local SCS
+* Local: local Agent Wiki / ioi-memory
 
 ---
 
@@ -1970,9 +2000,9 @@ Must support:
 
 ## 26.4 Context
 
-* local preset: local SCS
+* local preset: local Agent Wiki / ioi-memory
 * private remote: tethered slices / TFEC
-* fast hosted: managed tenant SCS
+* fast hosted: managed tenant context memory
 
 ## 26.5 Builder
 

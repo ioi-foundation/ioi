@@ -1,17 +1,17 @@
 use ioi_types::app::agentic::WebRetrievalContract;
 
 use super::{
-    required_citations_per_story, retrieval_contract_min_sources,
+    required_citations_per_source_cluster, retrieval_contract_min_sources,
     retrieval_contract_primary_authority_source_slot_cap,
     retrieval_contract_required_distinct_citations,
-    retrieval_contract_required_document_briefing_citation_count,
+    retrieval_contract_required_document_report_citation_count,
     retrieval_contract_required_support_count,
-    retrieval_contract_requires_document_briefing_identifier_evidence,
+    retrieval_contract_requires_document_report_identifier_evidence,
     retrieval_contract_requires_primary_authority_source, retrieval_or_query_requests_comparison,
 };
 
 #[test]
-fn document_briefing_support_count_follows_structural_source_independence_floor() {
+fn document_report_support_count_follows_structural_source_independence_floor() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
@@ -25,14 +25,14 @@ fn document_briefing_support_count_follows_structural_source_independence_floor(
 }
 
 #[test]
-fn document_briefing_distinct_citations_follow_structural_support_floor() {
+fn document_report_distinct_citations_follow_structural_support_floor() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
         .expect("retrieval contract");
 
     assert_eq!(
-        retrieval_contract_required_document_briefing_citation_count(Some(&contract), query),
+        retrieval_contract_required_document_report_citation_count(Some(&contract), query),
         2
     );
     assert_eq!(
@@ -42,14 +42,14 @@ fn document_briefing_distinct_citations_follow_structural_support_floor() {
 }
 
 #[test]
-fn document_briefing_identifier_evidence_is_not_required_without_generic_identifier_model() {
+fn document_report_identifier_evidence_is_not_required_without_generic_identifier_model() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
         .expect("retrieval contract");
 
     assert!(
-        !retrieval_contract_requires_document_briefing_identifier_evidence(Some(&contract), query)
+        !retrieval_contract_requires_document_report_identifier_evidence(Some(&contract), query)
     );
 }
 
@@ -112,24 +112,24 @@ fn comparison_requests_fall_back_to_query_when_contract_is_absent() {
 }
 
 #[test]
-fn generic_headline_collections_default_to_one_citation_per_story() {
+fn generic_headline_collections_default_to_one_citation_per_source_cluster() {
     let query = "Tell me today's top news headlines.";
     let contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
         .expect("retrieval contract");
 
-    assert_eq!(required_citations_per_story(query), 1);
+    assert_eq!(required_citations_per_source_cluster(query), 1);
     assert_eq!(contract.citation_count_min, 1);
     assert!(contract.ordered_collection_preferred);
 }
 
 #[test]
-fn single_snapshot_queries_default_to_one_citation_per_story() {
+fn single_snapshot_queries_default_to_one_citation_per_source_cluster() {
     let query = "What's the weather like right now in Anderson, SC?";
     let contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
         .expect("retrieval contract");
 
     assert!(super::prefers_single_fact_snapshot(query));
-    assert_eq!(required_citations_per_story(query), 1);
+    assert_eq!(required_citations_per_source_cluster(query), 1);
     assert_eq!(contract.citation_count_min, 1);
 }
 

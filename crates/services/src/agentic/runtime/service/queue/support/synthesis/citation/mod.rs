@@ -1,20 +1,9 @@
 use super::*;
 
-mod candidate_build;
 mod merge;
-mod ranking;
-mod selection;
 mod shared;
 
-pub(crate) use candidate_build::build_citation_candidates;
-pub(crate) use merge::{grounded_source_evidence_count, merged_story_sources};
-pub(crate) use ranking::{
-    citation_current_condition_metric_signal, citation_metric_signal, citation_relevance_score,
-    citation_single_snapshot_evidence_score, citation_source_signals,
-    is_low_priority_coverage_candidate,
-};
-pub(crate) use selection::citation_ids_for_story;
-pub(crate) use shared::preferred_citation_excerpt_with_contract;
+pub(crate) use merge::{grounded_source_evidence_count, merged_evidence_sources};
 
 pub(crate) fn title_tokens(input: &str) -> BTreeSet<String> {
     input
@@ -96,7 +85,7 @@ pub(crate) fn is_primary_status_surface_source(source: &PendingSearchReadSummary
 #[path = "tests.rs"]
 mod tests;
 
-pub(crate) fn why_it_matters_from_story(source: &PendingSearchReadSummary) -> String {
+pub(crate) fn why_it_matters_from_source(source: &PendingSearchReadSummary) -> String {
     let text = format!(
         "{} {}",
         source.title.as_deref().unwrap_or_default(),
@@ -131,11 +120,11 @@ pub(crate) fn why_it_matters_from_story(source: &PendingSearchReadSummary) -> St
         .to_string()
 }
 
-pub(crate) fn user_impact_from_story(source: &PendingSearchReadSummary) -> String {
-    why_it_matters_from_story(source)
+pub(crate) fn user_impact_from_source(source: &PendingSearchReadSummary) -> String {
+    why_it_matters_from_source(source)
 }
 
-pub(crate) fn workaround_from_story(source: &PendingSearchReadSummary) -> String {
+pub(crate) fn workaround_from_source(source: &PendingSearchReadSummary) -> String {
     let signals = source_evidence_signals(source);
     if signals.mitigation_hits > 0 {
         return "Follow mitigation guidance published by the source (retry/failover/alternate path where available).".to_string();
@@ -149,20 +138,23 @@ pub(crate) fn workaround_from_story(source: &PendingSearchReadSummary) -> String
     "Workaround not explicitly published in retrieved evidence; use standard resilience fallback patterns and continue monitoring updates.".to_string()
 }
 
-pub(crate) fn eta_confidence_from_story(
+pub(crate) fn eta_confidence_from_source(
     source: &PendingSearchReadSummary,
     confident_reads: usize,
     citation_count: usize,
-    required_citations_per_story: usize,
+    required_citations_per_source_cluster: usize,
 ) -> String {
     let signals = source_evidence_signals(source);
     let explicit_eta = signals.timeline_hits > 0;
     let status_provenance = signals.provenance_hits > 0 || has_primary_status_authority(signals);
 
-    if explicit_eta && confident_reads >= required_citations_per_story {
+    if explicit_eta && confident_reads >= required_citations_per_source_cluster {
         return "high".to_string();
     }
-    if status_provenance || confident_reads >= 1 || citation_count >= required_citations_per_story {
+    if status_provenance
+        || confident_reads >= 1
+        || citation_count >= required_citations_per_source_cluster
+    {
         return "medium".to_string();
     }
     "low".to_string()

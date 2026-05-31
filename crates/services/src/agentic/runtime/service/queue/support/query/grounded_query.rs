@@ -1,7 +1,7 @@
 use super::*;
 
-fn briefing_identifier_search_terms(query_contract: &str, include_optional: bool) -> Vec<String> {
-    briefing_standard_identifier_groups_for_query(query_contract)
+fn evidence_identifier_search_terms(query_contract: &str, include_optional: bool) -> Vec<String> {
+    evidence_standard_identifier_groups_for_query(query_contract)
         .iter()
         .filter(|group| group.required || include_optional)
         .filter_map(|group| group.needles.first())
@@ -9,12 +9,12 @@ fn briefing_identifier_search_terms(query_contract: &str, include_optional: bool
         .collect()
 }
 
-fn should_expand_optional_briefing_identifier_terms(
+fn should_expand_optional_evidence_identifier_terms(
     query_contract: &str,
     retrieval_contract: Option<&ioi_types::app::agentic::WebRetrievalContract>,
 ) -> bool {
     let facets = analyze_query_facets(query_contract);
-    query_prefers_document_briefing_layout(query_contract)
+    query_prefers_document_report_layout(query_contract)
         && !query_requests_comparison(query_contract)
         && facets.grounded_external_required
         && (retrieval_contract
@@ -23,7 +23,7 @@ fn should_expand_optional_briefing_identifier_terms(
             || facets.goal.recency_hits > 0)
 }
 
-fn inferred_briefing_identifier_probe_terms(
+fn inferred_evidence_identifier_probe_terms(
     query_contract: &str,
     candidate_hints: &[PendingSearchReadSummary],
 ) -> Vec<String> {
@@ -36,7 +36,7 @@ fn inferred_briefing_identifier_probe_terms(
         .filter_map(|hint| {
             let trimmed = hint.url.trim();
             let title = hint.title.as_deref().unwrap_or_default();
-            (!trimmed.is_empty()).then(|| BriefingIdentifierObservation {
+            (!trimmed.is_empty()).then(|| EvidenceIdentifierObservation {
                 url: trimmed.to_string(),
                 surface: compact_whitespace(&format!("{} {} {}", hint.url, title, hint.excerpt)),
                 authoritative: source_has_document_authority(
@@ -48,7 +48,7 @@ fn inferred_briefing_identifier_probe_terms(
             })
         })
         .collect::<Vec<_>>();
-    let mut labels = infer_briefing_required_identifier_labels(query_contract, &observations)
+    let mut labels = infer_answer_required_identifier_labels(query_contract, &observations)
         .into_iter()
         .collect::<Vec<_>>();
     labels.sort();
@@ -119,6 +119,12 @@ pub(crate) fn constraint_grounded_search_query_with_contract_and_hints_and_local
         candidate_hints,
         locality_hint,
     );
+    let bootstrap_without_hints = candidate_hints.is_empty();
+    if bootstrap_without_hints && query_requires_market_quote_grounding(&resolved) {
+        if let Some(query) = market_quote_grounding_search_query(&resolved) {
+            return query;
+        }
+    }
     let mut constraint_terms = projection_constraint_search_terms(&projection);
     if projection.query_facets.grounded_external_required
         && projection.query_facets.service_status_lookup
@@ -133,15 +139,14 @@ pub(crate) fn constraint_grounded_search_query_with_contract_and_hints_and_local
             }
         }
     }
-    let bootstrap_without_hints = candidate_hints.is_empty();
     let authority_site_terms = if bootstrap_without_hints {
         query_document_authority_site_terms(&resolved, retrieval_contract, candidate_hints, false)
     } else {
         Vec::new()
     };
-    constraint_terms.extend(briefing_identifier_search_terms(
+    constraint_terms.extend(evidence_identifier_search_terms(
         &resolved,
-        should_expand_optional_briefing_identifier_terms(&resolved, retrieval_contract),
+        should_expand_optional_evidence_identifier_terms(&resolved, retrieval_contract),
     ));
     if bootstrap_without_hints {
         constraint_terms.extend(authority_site_terms.clone());
@@ -294,7 +299,7 @@ pub(crate) fn constraint_grounded_probe_query_with_contract_and_hints_and_locali
         retrieval_contract,
         candidate_hints,
     ));
-    escalation_terms.extend(inferred_briefing_identifier_probe_terms(
+    escalation_terms.extend(inferred_evidence_identifier_probe_terms(
         query,
         candidate_hints,
     ));

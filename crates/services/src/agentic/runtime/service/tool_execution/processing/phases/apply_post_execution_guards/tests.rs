@@ -1,7 +1,7 @@
 use super::{
     blocked_web_read_note, maybe_normalize_unchanged_browser_snapshot,
-    normalize_blocked_web_read_for_continuation, BROWSER_SNAPSHOT_CONTENT_HASH_RECEIPT,
-    BROWSER_SNAPSHOT_CONTENT_STEP_RECEIPT,
+    normalize_blocked_web_read_for_continuation, preserve_tool_history_or_fill_ready_note,
+    BROWSER_SNAPSHOT_CONTENT_HASH_RECEIPT, BROWSER_SNAPSHOT_CONTENT_STEP_RECEIPT,
 };
 use crate::agentic::runtime::service::recovery::anti_loop::FailureClass;
 use crate::agentic::runtime::service::tool_execution::support::{
@@ -102,6 +102,37 @@ fn normalize_blocked_web_read_for_continuation_preserves_failure_state() {
     assert!(verification_checks
         .iter()
         .any(|check| check == "web_blocked_read_requires_remediation=true"));
+}
+
+#[test]
+fn web_model_ready_note_does_not_replace_typed_tool_history() {
+    let mut history_entry = Some(
+        r#"{"tool":"web__read","documents":[{"title":"Akash Network live USD price quote - CoinGecko","url":"https://www.coingecko.com/en/coins/akash-network","content_text":"Akash Network (akash-network) live USD quote from CoinGecko simple price API: price $0.792617 USD. Market cap: $231.39M. 24h trading volume: $4.24M. 24h price change: 1.11%."}]}"#
+            .to_string(),
+    );
+    let mut action_output = history_entry.clone();
+
+    preserve_tool_history_or_fill_ready_note(&mut history_entry, &mut action_output);
+
+    let history = history_entry.as_deref().unwrap_or_default();
+    assert!(history.contains("\"tool\":\"web__read\""));
+    assert!(history.contains("price $0.792617 USD"));
+    assert!(!history.eq("Web evidence is ready for a model-authored final answer."));
+    assert_eq!(action_output, history_entry);
+}
+
+#[test]
+fn web_model_ready_note_backfills_empty_tool_history() {
+    let mut history_entry = Some("  ".to_string());
+    let mut action_output = None;
+
+    preserve_tool_history_or_fill_ready_note(&mut history_entry, &mut action_output);
+
+    assert_eq!(
+        history_entry.as_deref(),
+        Some("Web evidence is ready for a model-authored final answer.")
+    );
+    assert_eq!(action_output, history_entry);
 }
 
 #[test]

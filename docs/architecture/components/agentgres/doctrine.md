@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for high-level Agentgres doctrine; low-level runtime objects live in [`agentgres-api-and-object-model.md`](./api-object-model.md), and Postgres bridge/readiness guarantees live in [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md).
 Supersedes: overlapping plan prose when Agentgres state ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-25.
+Last alignment pass: 2026-05-30.
 
 ## Canonical Definition
 
@@ -41,7 +41,7 @@ Postgres bridge doctrine:
 
 State/payload doctrine:
 
-> **Agentgres is the ledger of what is true; Filecoin/CAS is the warehouse of what proves it.**
+> **Agentgres is the ledger of what is true; storage backends are warehouses for the bytes that prove it.**
 
 Portable state doctrine:
 
@@ -121,20 +121,92 @@ Agentgres does not own:
 - payment keys;
 - connector refresh tokens;
 - IOI L1 smart-contract settlement;
-- Filecoin/CAS payload bytes;
+- storage backend payload bytes;
 - sealed archive bytes;
 - raw source-system payload authority;
 - connector mapping authority without wallet grants;
 - the physical compute resource;
 - every local UI hover/draft state;
-- private working memory unless promoted.
+- private working memory unless promoted;
+- draft, fuzzy, local, or speculative memory that has not crossed an admission boundary;
+- retrieval candidates, embeddings, full-text indexes, or wiki projections as canonical truth.
 
 wallet.network owns authority. IOI daemon/runtime nodes own execution.
 Autopilot Desktop owns local UX/projections. AIIP owns autonomous-work interop
-semantics. Filecoin/CAS owns payload availability. IOI L1 owns public
+semantics. Storage backends own payload byte availability. IOI L1 owns public
 settlement and rights. Autopilot nodes coordinate local settlement and interop,
 but their operational truth is still recorded through Agentgres/domain
 operations rather than Workbench UI state.
+
+## Memory And Agent Wiki Boundary
+
+Agentgres is not the whole agent brain. It is the canonical state substrate for
+admitted truth.
+
+The long-term memory architecture has four distinct planes:
+
+```text
+Harness/runtime hot state
+  active cognition, scratch state, temporary observations, in-flight plans
+
+Agent Wiki / ioi-memory context plane
+  durable semantic memory, wiki pages, preferences, procedures, doctrine,
+  route notes, known failures, retrieval surfaces, and local recall policy
+
+Agentgres
+  accepted memory mutations, wiki commits, provenance, policy decisions,
+  receipts, object heads, projections, archives, and restore metadata
+
+Artifact/storage and projection planes
+  wiki source documents, long traces, screenshots, datasets, model artifacts,
+  embeddings, full-text indexes, graph views, and archive bytes
+```
+
+The live product-memory name is `ioi-memory` and the user-facing/product
+surface should be called **Agent Wiki** or **memory**. `SCS` is legacy
+vocabulary removed as the product-memory architecture by ADR 0001; do not use
+`SCS` for new live architecture except when describing historical context.
+
+The Agent Wiki governs what agents can know, retrieve, and remember. Agentgres
+governs which memory changes become canonical, authorized, versioned,
+replayable, portable, projected, auditable, or settlement-relevant.
+
+Memory should cross into Agentgres when it becomes:
+
+- user-approved or admin-approved;
+- durable across sessions;
+- behavior-affecting;
+- shared across devices, workers, projects, orgs, or domains;
+- policy-relevant;
+- training-, evaluation-, benchmark-, or routing-relevant;
+- package-, deployment-, promotion-, or restore-relevant;
+- supported by evidence, provenance, or receipts;
+- subject to supersession, contradiction, deletion, retention, or export rules.
+
+The canonical admission object for semantic memory updates is
+`ContextMutation` or an equivalent Agentgres operation. A memory mutation may
+add, supersede, contradict, deprecate, activate, archive, or forget a fact,
+preference, doctrine item, route rule, procedure, evaluation lesson, or failure
+lesson. The mutation should bind evidence refs, authority, policy, receipt refs,
+scope, visibility, validity window, and any artifact refs for large wiki
+payloads.
+
+Do not model the system as:
+
+```text
+all memory = Agentgres rows
+```
+
+Model it as:
+
+```text
+the agent thinks in the harness
+the agent remembers through Agent Wiki / ioi-memory
+the agent commits durable memory through Agentgres operations
+the agent retrieves through rebuildable projections
+the agent stores large memory payloads in artifact storage
+wallet.network authorizes memory read, mutation, export, forget, and restore
+```
 
 ## State And Payload Boundary
 
@@ -142,18 +214,19 @@ Encrypted blob-backed state bundles are a defining Agentgres format. Agentgres
 should make them first-class without making blob storage the canonical live
 database.
 
-Agentgres state MUST NOT be reduced to opaque Filecoin blobs, and Agentgres
-must not store agent state in Filecoin/CAS as canonical live state.
+Agentgres state MUST NOT be reduced to opaque storage blobs, and Agentgres must
+not store agent state in Filecoin/CAS, S3, local disk, or any other storage
+backend as canonical live state.
 
 Agentgres stores canonical state in its own domain-local state-engine substrate.
-Filecoin/CAS stores large immutable payloads, artifacts, evidence bundles,
-checkpoints, snapshots, packages, and archival data. Agentgres stores refs and
-commitments to those payloads.
+Storage backends such as Filecoin/CAS store large immutable payloads,
+artifacts, evidence bundles, checkpoints, snapshots, packages, and archival
+data. Agentgres stores refs and commitments to those payloads.
 
 Do not model the system as:
 
 ```text
-state = Filecoin blobs
+state = storage blobs
 ```
 
 Model it as:
@@ -183,15 +256,16 @@ serving layer =
   + subscriptions
   + SQL bridge
 
-storage plane =
+storage backends =
   local disk
   + S3
   + Filecoin/CAS
   + Postgres/SQLite/RocksDB/custom log
 ```
 
-Agentgres remains the state machine and query substrate. Filecoin/CAS remains
-the content-addressed payload, archive-byte, and evidence availability layer.
+Agentgres remains the state machine, query substrate, and artifact-ref
+authority. Storage backends remain the payload-byte, archive-byte, and evidence
+availability layer.
 
 ## Storage Engine and SQL Bridge Posture
 
@@ -233,8 +307,8 @@ routing inside each domain. It records:
 - payout, royalty, and dispute state derived from ContributionReceipts.
 
 Agentgres does not own the large dataset bytes, trace bundle bytes, model
-checkpoint bytes, or sealed archive bytes. Those remain Filecoin/CAS or other
-blob payloads referenced by hash/CID. Agentgres also does not grant training
+checkpoint bytes, or sealed archive bytes. Those remain storage backend
+payloads referenced by hash/CID. Agentgres also does not grant training
 authority; wallet.network owns the authority, secret, key lease, and data
 permission layer.
 
@@ -252,10 +326,11 @@ source refs
 ```
 
 Agentgres records this path as operations, object heads, lineage refs,
-projection checkpoints, and transformation receipts. Filecoin/CAS stores large
-source snapshots, transformed payloads, datasets, and projection checkpoint
-bytes. wallet.network decides whether a worker, runtime, or service may read,
-transform, train on, evaluate with, export, publish, or route over the data.
+projection checkpoints, and transformation receipts. Storage backends store
+large source snapshots, transformed payloads, datasets, and projection
+checkpoint bytes. wallet.network decides whether a worker, runtime, or service
+may read, transform, train on, evaluate with, export, publish, or route over the
+data.
 
 Training improves a worker's capability record. It does not expand the worker's
 authority. Any trained worker still needs a manifest, policy envelope, and
@@ -266,7 +341,7 @@ For runtime and agent state, the correct model is:
 ```text
 hot Agentgres state
 -> sealed encrypted snapshot/export
--> Filecoin/CAS, S3, local disk, or another durable blob store
+-> storage backend payload bytes
 -> verified rehydration/import back into hot Agentgres when needed
 ```
 
@@ -296,7 +371,7 @@ sealed state archive refs
 restore policy and receipt metadata
 ```
 
-### Filecoin/CAS Owns
+### Storage Backends Own
 
 ```text
 worker packages
@@ -312,10 +387,10 @@ encrypted archives
 sealed state archive bytes
 ```
 
-## Why State Is Not Filecoin Blobs
+## Why State Is Not Storage Blobs
 
-Filecoin/CAS is optimized for immutable object availability. Agentgres needs to
-manage mutable logical state over immutable evidence.
+Storage backends such as Filecoin/CAS are optimized for byte availability.
+Agentgres needs to manage mutable logical state over immutable evidence.
 
 Agentgres requires:
 
@@ -332,7 +407,7 @@ Agentgres requires:
 - small frequent state transitions;
 - ordering-domain semantics.
 
-If every state mutation becomes "write a new blob to Filecoin," the system loses
+If every state mutation becomes "write a new blob to storage," the system loses
 the database properties that make Agentgres useful.
 
 ## Layered Storage Path
@@ -346,7 +421,7 @@ The scalable path is layered:
 2. Warm Agentgres log/checkpoint store
    Operation segments, projection deltas, receipt metadata, snapshots.
 
-3. Cold durable artifact plane
+3. Cold durable storage backend plane
    Large immutable payloads, sealed encrypted bundles, checkpoint files, trace
    archives, evidence bundles.
 
@@ -360,7 +435,7 @@ Operational flow:
 hot state in Agentgres domain storage
 -> periodic checkpoints/snapshots to cold artifact storage
 -> sealed state archives to Filecoin/CAS or equivalent durable blob stores
--> receipt/evidence bundles to Filecoin/CAS
+-> receipt/evidence bundles to storage backends
 -> selected economic/trust commitments to IOI L1
 -> local/client projections for read scale
 ```
@@ -466,7 +541,7 @@ This preserves the split:
 ```text
 Agentgres = canonical hot state, archive refs, receipts
 wallet.network = authority, secrets, restore/key leases
-Filecoin/CAS = encrypted durable bytes
+storage backends = encrypted durable bytes
 dcrypt = hybrid/PQ sealing layer
 ```
 
@@ -646,6 +721,51 @@ Agentgres synchronizes with IOI L1 contracts for:
 
 Agentgres does not post every event or receipt to IOI L1.
 
+## Anti-Patterns
+
+Do not model Agentgres as:
+
+```text
+all memory
+all payload bytes
+a mutable Postgres table pile
+a thin index over storage backend blobs
+an IOI L1 contract
+a replacement for wallet.network authority
+a replacement for daemon execution
+a retrieval/vector index as canonical truth
+a silent local-file restore mechanism
+```
+
+Correct model:
+
+```text
+Agentgres owns admitted operational truth
+Agent Wiki / ioi-memory owns semantic memory and retrieval surfaces
+accepted operations define truth
+object heads and state roots make truth replayable
+artifact refs define payload meaning
+storage backends hold bytes
+wallet.network authorizes read, write, decrypt, export, forget, and restore
+```
+
+## Related Canon
+
+- [`api-object-model.md`](./api-object-model.md): low-level Agentgres APIs,
+  object classes, operation logs, runtime state, and archives.
+- [`artifact-ref-plane.md`](./artifact-ref-plane.md): ArtifactRef,
+  PayloadRef, EvidenceBundle, DeliveryBundle, AgentStateArchive refs,
+  lifecycle, policy, authority, receipts, replay/import metadata, and restore
+  validity.
+- [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md):
+  Postgres bridge, storage-engine posture, durability, and recovery.
+- [`projection-system-reference.md`](./projection-system-reference.md):
+  canonical-state/projection taxonomy and legacy terminology boundary.
+- [`../daemon-runtime/default-harness-profile.md`](../daemon-runtime/default-harness-profile.md):
+  daemon-executed profile that admits runtime truth through Agentgres.
+- [`../../_meta/implementation-matrix.md`](../../_meta/implementation-matrix.md):
+  concept-to-durable-form implementation index.
+
 ## Invariants
 
 1. No model output directly mutates canonical truth.
@@ -654,10 +774,15 @@ Agentgres does not post every event or receipt to IOI L1.
 4. No raw secret storage in Agentgres.
 5. No split-brain app state outside the domain Agentgres authority.
 6. No marketplace contribution without attribution when used materially.
+7. No durable behavior-affecting memory mutation without an Agentgres operation
+   such as `ContextMutation` and a policy/authority/receipt path.
+8. No retrieval, embedding, full-text, graph, or wiki projection is canonical
+   memory truth unless it is rebuildable from accepted Agentgres operations and
+   artifact refs.
 
 ## One-Line Doctrine
 
-> **Agentgres gives intelligence memory: it makes autonomous work durable, queryable, composable, auditable, and settleable.**
+> **Agentgres gives autonomous work admitted memory: it makes durable truth queryable, composable, auditable, portable, and settleable.**
 
 ## Detailed Agentgres Reference Module
 

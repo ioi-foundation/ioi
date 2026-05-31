@@ -234,7 +234,7 @@ fn terminalize_failed_web_pipeline_completion_marks_agent_for_terminal_contract_
         &mut agent_state,
         pending.clone(),
         WebPipelineCompletionReason::ExhaustedCandidates,
-        "Standards briefing\n\nSummary inventory\n- FIPS 203".to_string(),
+        Some("Standards briefing\n\nSummary inventory\n- FIPS 203".to_string()),
         &mut success,
         &mut out,
         &mut err,

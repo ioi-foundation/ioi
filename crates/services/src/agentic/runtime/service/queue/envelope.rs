@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::agentic::runtime::service::decision_loop::signals::{
     analyze_metric_schema, analyze_query_facets, has_price_quote_payload, MetricAxis,
 };

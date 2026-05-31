@@ -1,7 +1,8 @@
 use super::{
-    compact_tool_history_entry_for_chat, tool_history_message_content, transcript_context_excerpts,
-    workspace_edit_receipt_details, workspace_read_receipt_details,
-    TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT, TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT,
+    compact_tool_history_entry_for_chat, should_record_success_idempotence_for_tool_result,
+    tool_history_message_content, transcript_context_excerpts, workspace_edit_receipt_details,
+    workspace_read_receipt_details, TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT,
+    TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT,
 };
 use ioi_types::app::agentic::AgentTool;
 use serde_json::json;
@@ -138,6 +139,63 @@ fn non_browser_tool_history_is_prefixed_for_next_model_turn() {
     let content = tool_history_message_content("file__read", "hello from the repo");
 
     assert_eq!(content, "Tool Output (file__read): hello from the repo");
+}
+
+#[test]
+fn deferred_chat_reply_is_not_recorded_as_success_idempotence() {
+    assert!(!should_record_success_idempotence_for_tool_result(&[
+        "terminal_chat_reply_deferred_for_active_web_pipeline=true".to_string()
+    ]));
+    assert!(should_record_success_idempotence_for_tool_result(&[
+        "terminal_chat_reply_ready=true".to_string()
+    ]));
+}
+
+#[test]
+fn file_read_history_preserves_tail_context_for_large_documents() {
+    let long_file = format!(
+        "# Campaign Guide\n\n{}\n\n## Stage 12: Integrated Soak\nCleanup proof and soak manifest remain.",
+        "middle section ".repeat(800)
+    );
+
+    let compact = compact_tool_history_entry_for_chat("file__read", &long_file);
+
+    assert!(compact.contains("# Campaign Guide"), "{compact}");
+    assert!(compact.contains("Markdown heading outline"), "{compact}");
+    assert!(compact.contains("middle omitted"), "{compact}");
+    assert!(
+        compact.contains("## Stage 12: Integrated Soak"),
+        "{compact}"
+    );
+    assert!(
+        compact.contains("Cleanup proof and soak manifest remain"),
+        "{compact}"
+    );
+    assert!(compact.chars().count() <= TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT);
+}
+
+#[test]
+fn file_read_history_preserves_late_markdown_outline_for_long_plans() {
+    let long_plan = format!(
+        "# Product Guide\n\n{}\n\n## Stage 9: Refactor And Modularization Checkpoint\n{}\n\n## Stage 10: User-Like Repository Fixture Suite\nbody\n\n## Stage 11: Evidence, Tracing, And Cleanup\ncleanup proof belongs here\n\n## Stage 12: Integrated Soak\nsoak manifest belongs here\n\n## Final Deliverables\nfinish",
+        "intro body ".repeat(1_200),
+        "stage nine body ".repeat(300)
+    );
+
+    let compact = compact_tool_history_entry_for_chat("file__read", &long_plan);
+
+    assert!(compact.contains("Markdown heading outline"), "{compact}");
+    assert!(
+        compact.contains("## Stage 11: Evidence, Tracing, And Cleanup"),
+        "{compact}"
+    );
+    assert!(
+        compact.contains("## Stage 12: Integrated Soak"),
+        "{compact}"
+    );
+    assert!(compact.contains("cleanup proof belongs here"), "{compact}");
+    assert!(compact.contains("soak manifest belongs here"), "{compact}");
+    assert!(compact.chars().count() <= TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT);
 }
 
 #[test]

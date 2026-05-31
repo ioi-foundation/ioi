@@ -1,6 +1,6 @@
 use super::{
-    ensure_safe_regular_file_read, ensure_safe_regular_file_write_target,
-    patch_apply_failure_message,
+    ensure_read_within_workspace, ensure_safe_regular_file_read,
+    ensure_safe_regular_file_write_target, patch_apply_failure_message,
 };
 use std::fs;
 #[cfg(unix)]
@@ -67,6 +67,22 @@ fn file_read_policy_rejects_symlink_targets() {
     assert!(error.contains("ERROR_CLASS=PolicyBlocked"));
     assert!(error.contains("symlink"));
     let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn file_read_policy_rejects_paths_outside_workspace_boundary() {
+    let workspace = make_temp_dir("read-boundary-workspace");
+    let outside = make_temp_dir("read-boundary-outside").join("secret.txt");
+    fs::write(&outside, "secret").expect("outside file should be written");
+
+    let error = ensure_read_within_workspace(&outside, workspace.to_str(), "read")
+        .expect_err("outside workspace read should be blocked");
+    assert!(error.contains("ERROR_CLASS=PolicyBlocked"));
+    assert!(error.contains("outside the workspace boundary"));
+    let _ = fs::remove_dir_all(&workspace);
+    if let Some(parent) = outside.parent() {
+        let _ = fs::remove_dir_all(parent);
+    }
 }
 
 #[cfg(unix)]

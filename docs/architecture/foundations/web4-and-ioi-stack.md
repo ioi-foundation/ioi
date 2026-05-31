@@ -78,8 +78,8 @@ Mixture of Workers
 Client Surfaces
   Autopilot Desktop, IOI CLI/TUI, SDK, ADK, agent-ide, browser apps, harnesses, benchmarks
 
-Filecoin / CAS / CDN
-  immutable package, artifact, evidence, receipt, checkpoint, snapshot, sealed archive availability
+Storage Backends
+  immutable package, artifact, evidence, receipt, checkpoint, snapshot, sealed archive byte availability
 
 aiagent.xyz
   first-party worker marketplace using AIIP and IOI settlement
@@ -130,7 +130,8 @@ AIIP                      = semantic work interop for local and cross-system aut
 Semantic Data Plane       = ontologies, object models, recipes, mappings, policy-bound views
 Execution Nodes           = local/hosted/DePIN/TEE/customer runtime nodes
 Authority Plane           = wallet.network
-Payload Plane             = Filecoin/CAS/CDN
+Artifact-Ref Plane        = Agentgres artifact refs
+Storage Backends          = local disk, S3/object stores, Filecoin, CAS/IPFS, provider blobs
 Application Surfaces      = React/Web/native apps such as Autopilot, aiagent.xyz, sas.xyz
 Developer/Operator Clients = IOI CLI/TUI, @ioi/agent-sdk, IOI ADK, agent-ide, harnesses
 MoW Routing               = worker selection, sparse categories, contribution policy, benchmark eligibility
@@ -139,9 +140,9 @@ MoW Routing               = worker selection, sparse categories, contribution po
 Storage/state split:
 
 ```text
-Agentgres = state machine and query substrate
+Agentgres = state machine, query substrate, and artifact-ref authority
 Domain Ontologies/Data Recipes = semantic data truth for training/evaluation/projections
-Filecoin/CAS = content-addressed payload, evidence, and sealed archive availability
+Storage backends = payload bytes, evidence bytes, and sealed archive bytes
 IOI L1 = trust, registry, rights, settlement, and sparse commitments
 Autopilot node = local orchestration, interop, authority, receipts, replay, and settlement
 AIIP = work interop protocol across bounded execution domains
@@ -178,8 +179,8 @@ still giving consequential commitments a global settlement and governance root.
 
 Agentgres state is not Filecoin blobs. Agentgres records canonical operations,
 object heads, indexes, projections, subscriptions, delivery state, receipts
-metadata, and artifact refs. Filecoin/CAS stores the bulky immutable payloads
-those refs point to.
+metadata, artifact refs, archive refs, and restore validity. Storage backends
+such as Filecoin/CAS store the bulky immutable payloads those refs point to.
 
 Raw source data is not domain truth by itself. Domain Ontologies define what the
 work means; Data Recipes prove how documents, traces, connector payloads, and

@@ -58,6 +58,23 @@ pub fn kernel_event_to_tti_event(
                 "kernel_event": kernel_payload,
             }),
         )),
+        KernelEvent::AgentAnswerDelta { session_id, token } => Some(runtime_kernel_event(
+            context,
+            "KernelEvent::AgentAnswerDelta",
+            "answer.delta",
+            "running",
+            "assistant",
+            "answer_delta",
+            "runtime.answer",
+            format!("answer:{}", context.ordinal),
+            json!({
+                "event_kind": "KernelEvent::AgentAnswerDelta",
+                "session_id": hex::encode(session_id),
+                "delta": token,
+                "token": token,
+                "kernel_event": kernel_payload,
+            }),
+        )),
         KernelEvent::FirewallInterception {
             verdict,
             target,
@@ -406,6 +423,23 @@ mod tests {
         assert_eq!(mapped["workflow_node_id"], "runtime.reasoning");
         assert_eq!(mapped["payload"]["session_id"], hex::encode(session_id));
         assert_eq!(mapped["payload"]["delta"], "thinking");
+        assert_eq!(mapped["fixture_profile"], Value::Null);
+    }
+
+    #[test]
+    fn maps_agent_answer_delta_to_answer_delta() {
+        let session_id = [9u8; 32];
+        let event = KernelEvent::AgentAnswerDelta {
+            session_id,
+            token: "final answer".to_string(),
+        };
+        let mapped = kernel_event_to_tti_event(&event, &context()).expect("mapped event");
+        assert_eq!(mapped["source_event_kind"], "KernelEvent::AgentAnswerDelta");
+        assert_eq!(mapped["event_kind"], "answer.delta");
+        assert_eq!(mapped["component_kind"], "answer_delta");
+        assert_eq!(mapped["workflow_node_id"], "runtime.answer");
+        assert_eq!(mapped["payload"]["session_id"], hex::encode(session_id));
+        assert_eq!(mapped["payload"]["delta"], "final answer");
         assert_eq!(mapped["fixture_profile"], Value::Null);
     }
 

@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for public daemon/runtime API endpoints, event streaming, run lifecycle, structured errors, and client-vs-runtime ownership.
 Supersedes: older daemon/SDK/CLI endpoint lists when endpoint shape conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-25.
+Last alignment pass: 2026-05-30.
 
 ## Purpose
 
@@ -57,6 +57,7 @@ GET /v1/runtime/nodes
   "runtime_id": "runtime://node_abc",
   "runtime_type": "local_autopilot | hosted_ioi | provider | depin | tee | customer_vpc",
   "daemon_version": "0.8.0",
+  "default_harness_profile": "2026.05.default-harness-profile.v1",
   "agentgres_version": "0.2.0",
   "supported_execution_profiles": ["local", "hosted", "provider", "depin_mutual_blind", "tee_enterprise", "customer_vpc"],
   "supported_interfaces": ["agents", "managed_instances", "threads", "runs", "workers", "training", "benchmarks", "routing", "tools", "models", "connectors", "authority_gateway", "action_requests", "artifacts", "receipts", "trace", "replay", "scorecards"],
@@ -438,8 +439,16 @@ requirements, authority scopes, or receipts.
 ## Memory API
 
 Memory endpoints expose daemon-governed memory status, validation, policy,
-paths, and records. Durable memory state belongs in Agentgres-compatible state
-or explicit wallet/connector-backed stores; UI caches remain projections.
+paths, and records for the Agent Wiki / `ioi-memory` context plane. The daemon
+may read, validate, propose, or project memory records, but authoritative
+behavior-affecting memory changes must compile into Agentgres-compatible
+operations such as `ContextMutation` with policy, authority, evidence, and
+receipts.
+
+Draft, fuzzy, task-local, and speculative memory may remain in the memory plane
+or runtime hot state. Durable memory state belongs in Agentgres-compatible state
+or explicit wallet/connector-backed stores; UI caches, retrieval indexes,
+embeddings, and wiki views remain projections.
 
 ```http
 GET  /v1/memory
@@ -563,12 +572,14 @@ POST /v1/runtime/assignments/{assignment_id}/reject
 4. All effectful actions require policy decision persistence.
 5. Every exposed API must support redacted diagnostic export.
 6. SDK, ADK, CLI/TUI, GUI, workflow compositor, harness, and benchmark clients must observe the same run contracts rather than owning separate runtimes.
-7. TUI controls must be represented as daemon/domain API controls, not as hidden
+7. The Default Harness Profile is a daemon-executed orchestration profile, not a
+   peer runtime beside the daemon.
+8. TUI controls must be represented as daemon/domain API controls, not as hidden
    client-only state transitions.
-8. Compute/runtime nodes run daemon-compatible profiles; SDK helpers may be
+9. Compute/runtime nodes run daemon-compatible profiles; SDK helpers may be
    present inside worker or client code, but they are not the execution owner.
-9. Training, evaluation, benchmark, and MoW routing paths are daemon/runtime
+10. Training, evaluation, benchmark, and MoW routing paths are daemon/runtime
    jobs with receipts, not product-surface private loops.
-10. Authority Gateway adapters submit action requests and observations; they do
+11. Authority Gateway adapters submit action requests and observations; they do
     not own policy, effects, secrets, receipts, replay, or durable runtime
     state, and they must not overclaim control over opaque third-party agents.

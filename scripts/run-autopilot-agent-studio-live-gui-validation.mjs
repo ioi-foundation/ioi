@@ -21,6 +21,15 @@ import { chromium } from "playwright";
 import { startRuntimeDaemonService } from "../packages/runtime-daemon/src/index.mjs";
 import { createSubmitPrompt } from "./lib/agent-studio-live-gui-validation/prompt-submit.mjs";
 import {
+  approvalPauseSummary,
+  assertNotCannedDaemonProjection,
+  assertPromptForbiddenTermsAbsent,
+  assertPromptSpecificResponse,
+  assertSemanticModelResponse,
+  isApprovalPauseText,
+  promptResultToolName,
+} from "./lib/agent-studio-live-gui-validation/response-assertions.mjs";
+import {
   DEFAULT_AGENT_STUDIO_CHAT_SCENARIO,
   resolveAgentStudioChatScenario,
 } from "./lib/autopilot-agent-studio-chat-scenarios.mjs";
@@ -213,6 +222,99 @@ function cleanupWorkspaceFixture(outputDir, setup) {
   rmSync(setup.fixtureRoot, { recursive: true, force: true });
   writeFileSync(
     join(outputDir, "workspace-fixture-cleanup.json"),
+    `${JSON.stringify({
+      fixtureRoot: setup.fixtureRoot,
+      fixtureExistsAfterCleanup: existsSync(setup.fixtureRoot),
+      timestamp: new Date().toISOString(),
+    }, null, 2)}\n`,
+  );
+}
+
+function setupUserWorkspaceFixture(outputDir, scenario) {
+  if (!scenario.userWorkspaceFixture) return null;
+  const fixtureRoot = mkdtempSync(join(tmpdir(), "autopilot-agent-studio-user-repo-"));
+  ensureDir(join(fixtureRoot, "src"));
+  ensureDir(join(fixtureRoot, "tests"));
+  writeFileSync(join(fixtureRoot, "README.md"), [
+    "# Pawprint Orders",
+    "",
+    "Pawprint Orders is a small customer-order dashboard used for Agent Studio product reliability tests.",
+    "It fetches order data through a typed API client, formats totals for the UI, and includes a deliberately failing unit test.",
+    "",
+    "Key files:",
+    "",
+    "- `src/apiClient.mjs` configures the API base URL.",
+    "- `src/format.mjs` formats order totals.",
+    "- `tests/format.test.mjs` verifies the formatter.",
+    "",
+  ].join("\n"));
+  writeFileSync(join(fixtureRoot, "package.json"), `${JSON.stringify({
+    type: "module",
+    scripts: {
+      test: "node --test tests/*.test.mjs",
+    },
+    dependencies: {},
+    devDependencies: {},
+  }, null, 2)}\n`);
+  writeFileSync(join(fixtureRoot, "src", "apiClient.mjs"), [
+    "export const API_BASE_URL = \"https://api.pawprint-orders.example/v1\";",
+    "",
+    "export async function fetchOrders(fetchImpl = fetch) {",
+    "  const response = await fetchImpl(`${API_BASE_URL}/orders`);",
+    "  if (!response.ok) throw new Error(`Order API failed: ${response.status}`);",
+    "  return response.json();",
+    "}",
+    "",
+  ].join("\n"));
+  writeFileSync(join(fixtureRoot, "src", "format.mjs"), [
+    "export function formatOrderTotal(cents) {",
+    "  return (Number(cents) / 100).toFixed(2);",
+    "}",
+    "",
+  ].join("\n"));
+  writeFileSync(join(fixtureRoot, "src", "orders.mjs"), [
+    "import { formatOrderTotal } from \"./format.mjs\";",
+    "",
+    "export function summarizeOrder(order) {",
+    "  return `${order.customer}: ${formatOrderTotal(order.totalCents)}`;",
+    "}",
+    "",
+  ].join("\n"));
+  writeFileSync(join(fixtureRoot, "tests", "format.test.mjs"), [
+    "import test from \"node:test\";",
+    "import assert from \"node:assert/strict\";",
+    "import { formatOrderTotal } from \"../src/format.mjs\";",
+    "",
+    "test(\"formats order totals as dollars\", () => {",
+    "  assert.equal(formatOrderTotal(1299), \"$12.99\");",
+    "});",
+    "",
+  ].join("\n"));
+  const gitInit = spawnSync("git", ["init"], {
+    cwd: fixtureRoot,
+    encoding: "utf8",
+    maxBuffer: 1024 * 1024,
+  });
+  const setup = {
+    fixtureRoot,
+    readmePath: join(fixtureRoot, "README.md"),
+    apiClientPath: join(fixtureRoot, "src", "apiClient.mjs"),
+    formatPath: join(fixtureRoot, "src", "format.mjs"),
+    testPath: join(fixtureRoot, "tests", "format.test.mjs"),
+    gitInit: {
+      status: gitInit.status,
+      stderrTail: String(gitInit.stderr || "").slice(-1000),
+    },
+  };
+  writeFileSync(join(outputDir, "user-workspace-fixture-setup.json"), `${JSON.stringify(setup, null, 2)}\n`);
+  return setup;
+}
+
+function cleanupUserWorkspaceFixture(outputDir, setup) {
+  if (!setup) return;
+  rmSync(setup.fixtureRoot, { recursive: true, force: true });
+  writeFileSync(
+    join(outputDir, "user-workspace-fixture-cleanup.json"),
     `${JSON.stringify({
       fixtureRoot: setup.fixtureRoot,
       fixtureExistsAfterCleanup: existsSync(setup.fixtureRoot),
@@ -574,10 +676,11 @@ function bridgeState() {
         id: "qwen/qwen3.5-9b",
         modelId: "qwen/qwen3.5-9b",
         name: "qwen/qwen3.5-9b",
-        publisher: "provider.lmstudio",
+        publisher: "provider.llama-cpp",
         family: "llm",
         format: "GGUF",
         status: "mounted",
+        capabilities: ["chat", "responses"],
       },
       {
         id: "local:unmounted-demo",
@@ -593,13 +696,16 @@ function bridgeState() {
       {
         id: "endpoint.stories260k",
         modelId: "stories260k",
-        routeId: "route.local-first",
+        routeId: "route.fixture",
         status: "ready",
       },
       {
         id: "endpoint.qwen35",
         modelId: "qwen/qwen3.5-9b",
-        routeId: "route.qwen-mounted",
+        routeId: "route.local-first",
+        providerId: "provider.llama-cpp",
+        backendId: "backend.llama-cpp",
+        capabilities: ["chat", "responses"],
         status: "ready",
       },
       {
@@ -627,15 +733,15 @@ function bridgeState() {
       {
         id: "route.local-first",
         routeId: "route.local-first",
-        endpointId: "endpoint.stories260k",
-        modelId: "stories260k",
+        endpointId: "endpoint.qwen35",
+        modelId: "qwen/qwen3.5-9b",
         status: "ready",
       },
       {
-        id: "route.qwen-mounted",
-        routeId: "route.qwen-mounted",
-        endpointId: "endpoint.qwen35",
-        modelId: "qwen/qwen3.5-9b",
+        id: "route.fixture",
+        routeId: "route.fixture",
+        endpointId: "endpoint.stories260k",
+        modelId: "stories260k",
         status: "ready",
       },
       {
@@ -717,6 +823,30 @@ function createBridge({ requests, commands, deliveredCommands }) {
             }],
           });
         }
+        if (body?.requestType === "chat.agentMode.select") {
+          commands.push({
+            commandId: `ioi.studio.applyAgentMode:${Date.now()}:${commands.length}`,
+            command: "ioi.studio.applyAgentMode",
+            args: [{
+              ...(body.payload && typeof body.payload === "object" ? body.payload : {}),
+              source: "fork-native-quickinput",
+              runtimeAuthority: "daemon-owned",
+              projectionOwner: "autopilot-workbench-fork-quickinput",
+            }],
+          });
+        }
+        if (body?.requestType === "chat.permissionMode.select") {
+          commands.push({
+            commandId: `ioi.studio.applyPermissionMode:${Date.now()}:${commands.length}`,
+            command: "ioi.studio.applyPermissionMode",
+            args: [{
+              ...(body.payload && typeof body.payload === "object" ? body.payload : {}),
+              source: "fork-native-quickinput",
+              runtimeAuthority: "daemon-owned",
+              projectionOwner: "autopilot-workbench-fork-quickinput",
+            }],
+          });
+        }
         sendJson(response, 200, { ok: true });
         return;
       }
@@ -766,7 +896,7 @@ async function findFrameWithTestId(page, testId, timeoutMs = 45_000) {
 
 function isFrameLifecycleError(error) {
   const message = String(error?.message || error);
-  return /Frame was detached|Execution context was destroyed|Target page, context or browser has been closed|Cannot find context with specified id|DOM\.scrollIntoViewIfNeeded/i.test(message);
+  return /Frame (was|has been) detached|Execution context was destroyed|Target page, context or browser has been closed|Cannot find context with specified id|DOM\.scrollIntoViewIfNeeded/i.test(message);
 }
 
 async function withStudioFrame(page, action, attempts = 12) {
@@ -868,6 +998,9 @@ async function captureManagedSessionViewportProof(page, outputDir, screenshots, 
 async function captureConversationArtifactProof(page, outputDir, screenshots, { required = false } = {}) {
   return withStudioFrame(page, async (frame) => {
     const cards = frame.locator('[data-testid="studio-conversation-artifact-card"]');
+    if (required) {
+      await cards.first().waitFor({ state: "visible", timeout: 240_000 });
+    }
     const cardCount = await cards.count();
     if (cardCount === 0) {
       if (required) {
@@ -1045,86 +1178,46 @@ async function setComposerValue(page, value) {
     await input.fill(value);
     await input.click();
   });
-  return assertComposerFocused(page, "set value");
-}
-
-const CANNED_DAEMON_RESPONSE_PATTERNS = [
-  /IOI daemon run completed/i,
-  /Source=local_daemon_agentgres/i,
-  /Agentgres canonical projection/i,
-  /Daemon turn completed for:/i,
-];
-
-const NON_SEMANTIC_MODEL_RESPONSE_PATTERNS = [
-  /IOI model router fixture response/i,
-  /Autopilot native local model response/i,
-  /^Hello! I am a local assistant\.?$/i,
-  /\binput_hash=[0-9a-f]{8,}\b/i,
-];
-
-function assertNotCannedDaemonProjection(text, prompt) {
-  const matched = CANNED_DAEMON_RESPONSE_PATTERNS.find((pattern) => pattern.test(text || ""));
-  if (matched) {
-    throw new Error(`Assistant response for "${prompt.slice(0, 40)}" used canned daemon projection: ${matched}`);
+  const stableState = await waitForPredicate(async () => {
+    try {
+      const state = await withStudioFrame(page, async (frame) => {
+        const input = frame.locator('[data-testid="studio-composer-input"]').first();
+        const currentValue = await input.inputValue({ timeout: 100 }).catch(() => "");
+        return { ...(await activeComposerState(frame)), value: currentValue };
+      }, 3);
+      return state?.activeIsComposer && state.value === value ? state : null;
+    } catch {
+      return null;
+    }
+  }, 1200, 100);
+  if (stableState) return stableState;
+  await withStudioFrame(page, async (frame) => {
+    await frame.evaluate((nextValue) => {
+      const input = document.querySelector('[data-testid="studio-composer-input"]');
+      if (!input) return;
+      input.value = nextValue;
+      input.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: nextValue }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      input.focus();
+    }, value);
+  });
+  const fallbackState = await waitForPredicate(async () => {
+    try {
+      const state = await withStudioFrame(page, async (frame) => {
+        const input = frame.locator('[data-testid="studio-composer-input"]').first();
+        const currentValue = await input.inputValue({ timeout: 100 }).catch(() => "");
+        return { ...(await activeComposerState(frame)), value: currentValue };
+      }, 3);
+      return state?.activeIsComposer && state.value === value ? state : null;
+    } catch {
+      return null;
+    }
+  }, 1200, 100);
+  if (!fallbackState) {
+    const state = await assertComposerFocused(page, "set value");
+    throw new Error(`Composer value did not stick after setting prompt: expected ${value.length} chars, observed ${state.value.length}`);
   }
-}
-
-function assertSemanticModelResponse(text, prompt) {
-  const matched = NON_SEMANTIC_MODEL_RESPONSE_PATTERNS.find((pattern) => pattern.test(text || ""));
-  if (matched) {
-    throw new Error(`Assistant response for "${prompt.slice(0, 40)}" used fixture/non-semantic model output: ${matched}`);
-  }
-}
-
-function isApprovalPauseText(text) {
-  return /\b(waiting for approval|awaiting .*approval|approval required|requires approval|pending approval|policy gate)\b/i.test(String(text || ""));
-}
-
-function promptResultToolName(item) {
-  return (
-    String(item?.prompt || "").match(/\btoolcat_tool=([A-Za-z0-9_.:-]+)/)?.[1] ||
-    String(item?.kind || "").match(/\b([A-Za-z]+__[A-Za-z0-9_:-]+|computer_use\.[A-Za-z0-9_:-]+)\b/)?.[1] ||
-    ""
-  );
-}
-
-function approvalPauseSummary(promptResults = []) {
-  return promptResults
-    .filter((item) => isApprovalPauseText(item.assistantText) || /blocked|paused|approval/i.test(String(item.completionStatusObserved || "")))
-    .map((item) => ({
-      kind: item.kind,
-      prompt: String(item.prompt || "").slice(0, 160),
-      completionStatus: item.completionStatusObserved,
-      assistantText: String(item.assistantText || "").slice(0, 240),
-    }));
-}
-
-function assertPromptSpecificResponse(text, promptCase) {
-  const requiredTerms = Array.isArray(promptCase.mustMentionAny)
-    ? promptCase.mustMentionAny.map((term) => String(term || "").trim()).filter(Boolean)
-    : [];
-  if (requiredTerms.length === 0) return;
-  const lowerText = String(text || "").toLowerCase();
-  const matched = requiredTerms.some((term) => lowerText.includes(term.toLowerCase()));
-  if (!matched) {
-    throw new Error(
-      `Assistant response for "${String(promptCase.prompt || promptCase.kind).slice(0, 40)}" was not prompt-specific; expected one of: ${requiredTerms.join(", ")}`,
-    );
-  }
-}
-
-function assertPromptForbiddenTermsAbsent(text, promptCase) {
-  const forbiddenTerms = Array.isArray(promptCase.mustNotMentionAny)
-    ? promptCase.mustNotMentionAny.map((term) => String(term || "").trim()).filter(Boolean)
-    : [];
-  if (forbiddenTerms.length === 0) return;
-  const lowerText = String(text || "").toLowerCase();
-  const matched = forbiddenTerms.find((term) => lowerText.includes(term.toLowerCase()));
-  if (matched) {
-    throw new Error(
-      `Assistant response for "${String(promptCase.prompt || promptCase.kind).slice(0, 40)}" included forbidden direct-tool text: ${matched}`,
-    );
-  }
+  return fallbackState;
 }
 
 async function latestAssistantText(page) {
@@ -1409,7 +1502,9 @@ const submitPrompt = createSubmitPrompt({
   waitForPredicate,
   withStudioFrame,
   writePromptTiming,
-});async function openAndDismissQuickInput(page, frameButtonSelector, expectedTestId, dismiss = "escape") {
+});
+
+async function openAndDismissQuickInput(page, frameButtonSelector, expectedTestId, dismiss = "escape") {
   await withStudioFrame(page, async (frame) => {
     await frame.locator(frameButtonSelector).click();
   });
@@ -1668,6 +1763,13 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
   const daemonStateDir = mkdtempSync(join(tmpdir(), "autopilot-agent-studio-hardening-daemon-"));
   writeFileSync(join(outputDir, "daemon-state-dir"), `${daemonStateDir}\n`);
   const workspaceSymlinkProbe = setupWorkspaceSymlinkProbe(outputDir, daemonStateDir, scenario);
+  let userWorkspaceFixture = null;
+  let openWorkspaceRoot = repoRoot;
+  userWorkspaceFixture = setupUserWorkspaceFixture(outputDir, scenario);
+  if (userWorkspaceFixture?.fixtureRoot) {
+    openWorkspaceRoot = userWorkspaceFixture.fixtureRoot;
+  }
+  writeFileSync(join(outputDir, "opened-workspace-root"), `${openWorkspaceRoot}\n`);
   const runtimeBridgeAllowCommands = Array.isArray(scenario.runtimeBridgeAllowCommands)
     ? scenario.runtimeBridgeAllowCommands.map((value) => String(value || "").trim()).filter(Boolean)
     : [];
@@ -1687,6 +1789,7 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
   const runtimeBridge = configureRuntimeAgentServiceBridgeEnv({
     repoRoot,
     stateDir: daemonStateDir,
+    workspaceRoot: openWorkspaceRoot,
     overwrite: true,
   });
   writeFileSync(
@@ -1770,6 +1873,7 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
       await server?.close?.();
       await daemon.close().catch(() => undefined);
       if (userDataDir) rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 150 });
+      cleanupUserWorkspaceFixture(outputDir, userWorkspaceFixture);
       cleanupWorkspaceFixture(outputDir, workspaceFixture);
       await cleanupValidationProcesses({ outputDir, phase: "timeout-run" });
     } catch {
@@ -1801,6 +1905,11 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
       workspaceFixtureUploadPath: workspaceFixture?.uploadPath || "",
       workspaceFixtureModelPath: workspaceFixture?.modelPath || "",
       workspaceFixtureImagePath: workspaceFixture?.imagePath || "",
+      userWorkspaceRoot: userWorkspaceFixture?.fixtureRoot || "",
+      userWorkspaceReadmePath: userWorkspaceFixture?.readmePath || "",
+      userWorkspaceApiClientPath: userWorkspaceFixture?.apiClientPath || "",
+      userWorkspaceFormatPath: userWorkspaceFixture?.formatPath || "",
+      userWorkspaceTestPath: userWorkspaceFixture?.testPath || "",
       browserFixtureUrl: browserFixture?.url || "",
       browserFixtureStatusUrl: browserFixture?.statusUrl || "",
       browserFixtureSecondUrl: browserFixture?.secondUrl || "",
@@ -1819,7 +1928,7 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
         "--disable-updates",
         "--disable-workspace-trust",
         "--new-window",
-        repoRoot,
+        openWorkspaceRoot,
       ],
       {
         cwd: repoRoot,
@@ -1994,8 +2103,13 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
             streamProbeTimeoutMs: item.streamProbeTimeoutMs || scenario.streamProbeTimeoutMs,
             pendingWorklogTimeoutMs: item.pendingWorklogTimeoutMs || scenario.pendingWorklogTimeoutMs,
             requirePendingWorklog: Boolean(item.requirePendingWorklog || scenario.requirePendingWorklog),
+            requireAgentFinalStream: Boolean(item.requireAgentFinalStream || scenario.requireAgentFinalStream),
+            requireAgentArtifactSourceStream: Boolean(item.requireAgentArtifactSourceStream || scenario.requireAgentArtifactSourceStream),
+            requireConversationArtifactProof: Boolean(item.requireConversationArtifactProof || scenario.requireConversationArtifactProof),
             capturePendingProjection: index === 0,
             expectedExecutionMode,
+            mustMentionAny: item.mustMentionAny || [],
+            mustMentionAll: item.mustMentionAll || [],
             outputDir,
             screenshots,
           },
@@ -2039,6 +2153,7 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
         prompt: promptText,
         promptTemplate: item.prompt,
         mustMentionAny: item.mustMentionAny || [],
+        mustMentionAll: item.mustMentionAll || [],
         mustNotMentionAny: item.mustNotMentionAny || [],
         requestType: result.request?.requestType,
         executionMode: result.executionMode || "agent",
@@ -2054,8 +2169,10 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
         completionStatusObserved: result.completionStatus,
         firstStreamText: (result.streamProbe?.streamText || result.streamProbe?.thinkingText || "").slice(0, 180),
         firstStreamKind: result.streamProbe?.streamKind || null,
+        artifactSourceStreamObserved: Boolean(result.artifactSourceStreamObserved),
         assistantText: result.assistantText,
         modelBackedStreamObserved: result.modelBackedStreamObserved,
+        agentFinalStreamObserved: result.agentFinalStreamObserved,
         newDocumentedWorkVisible: result.newDocumentedWorkVisible,
         documentedWorkCount: result.documentedWorkCount,
         pendingProjectionProof: result.pendingProjectionProof || null,
@@ -2093,8 +2210,17 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
     if ((promptResults[0]?.durationMs ?? 0) > scenario.maxFirstPromptMs) {
       throw new Error(`Simple Agent Studio prompt exceeded latency budget: ${promptResults[0].durationMs}ms.`);
     }
+    for (const item of promptResults) {
+      if (item.promptFailureError) {
+        continue;
+      }
+      assertNotCannedDaemonProjection(item.assistantText, item.kind);
+      assertSemanticModelResponse(item.assistantText, item.kind);
+      assertPromptSpecificResponse(item.assistantText, item);
+      assertPromptForbiddenTermsAbsent(item.assistantText, item);
+    }
     const approvalPauses = approvalPauseSummary(promptResults);
-    if (approvalPauses.length > 0 && !scenario.allowApprovalPause) {
+    if (approvalPauses.length > 0 && !scenario.allowApprovalPause && !scenario.allowBlockedResult) {
       throw new Error(`Agent turns paused for approval before satisfying the scenario contract: ${JSON.stringify(approvalPauses)}`);
     }
     const controlledFailureToolNames = new Set(scenario.allowControlledFailureToolNames || []);
@@ -2102,6 +2228,7 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
       !item.promptFailureError &&
       /blocked|failed|error|paused/i.test(String(item.completionStatusObserved || "")) &&
       !(scenario.allowApprovalPause && isApprovalPauseText(item.assistantText)) &&
+      !scenario.allowBlockedResult &&
       !controlledFailureToolNames.has(promptResultToolName(item)),
     );
     if (unexpectedBlockedResults.length > 0) {
@@ -2121,14 +2248,20 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
     const askPromptResults = promptResults.filter((item) => item.expectedExecutionMode === "ask");
     const agentPromptResults = promptResults.filter((item) => item.expectedExecutionMode === "agent");
     const isAllowedAgentStream = (item) =>
-      Boolean(scenario.allowAgentArtifactSourceStream) &&
       item.modelBackedStreamObserved &&
-      item.firstStreamKind === "artifact_source";
+      (
+        (Boolean(scenario.allowAgentArtifactSourceStream) && (item.firstStreamKind === "artifact_source" || item.artifactSourceStreamObserved)) ||
+        (Boolean(scenario.requireAgentFinalStream || scenario.allowAgentFinalHandoffStream) &&
+          (item.firstStreamKind === "answer" || item.agentFinalStreamObserved))
+      );
     if (scenario.requireAskModeStream && askPromptResults.some((item) => !item.modelBackedStreamObserved)) {
       throw new Error("Ask Mode did not expose direct model token streaming.");
     }
-    if (scenario.requireAgentArtifactSourceStream && agentPromptResults.some((item) => !item.promptFailureError && item.firstStreamKind !== "artifact_source")) {
+    if (scenario.requireAgentArtifactSourceStream && agentPromptResults.some((item) => !item.promptFailureError && item.firstStreamKind !== "artifact_source" && !item.artifactSourceStreamObserved)) {
       throw new Error("Agent artifact generation did not expose a streamed source artifact.");
+    }
+    if (scenario.requireAgentFinalStream && agentPromptResults.some((item) => !item.promptFailureError && !item.agentFinalStreamObserved)) {
+      throw new Error("Agent final handoff did not expose streamed answer deltas.");
     }
     if (scenario.requireAgentModeReply && agentPromptResults.some((item) => !item.promptFailureError && (!item.assistantText || (item.modelBackedStreamObserved && !isAllowedAgentStream(item))))) {
       throw new Error("Agent Mode did not stay on the governed final-reply path.");
@@ -2138,15 +2271,6 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
     }
     if (scenario.requireNoDocumentedWorkForAgent && agentPromptResults.some((item) => item.newDocumentedWorkVisible)) {
       throw new Error("Lightweight conversation rendered a documented-work card.");
-    }
-    for (const item of promptResults) {
-      if (item.promptFailureError) {
-        continue;
-      }
-      assertNotCannedDaemonProjection(item.assistantText, item.kind);
-      assertSemanticModelResponse(item.assistantText, item.kind);
-      assertPromptSpecificResponse(item.assistantText, item);
-      assertPromptForbiddenTermsAbsent(item.assistantText, item);
     }
     const daemonRuntimeTraceSummary = collectDaemonRuntimeTraceSummary({ daemonStateDir, outputDir });
     const requiredAgentTraceToolNames = Array.isArray(scenario.requireAgentTraceToolNames)
@@ -2236,7 +2360,8 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
         ? askPromptResults.every((item) => item.executionMode === "ask" && item.modelBackedStreamObserved && item.assistantText)
         : true,
       agentFinalReplyAcceptedWithoutStreaming: agentPromptResults.every((item) => item.assistantText && (!item.modelBackedStreamObserved || isAllowedAgentStream(item))),
-      agentArtifactSourceStreamingObserved: agentPromptResults.some((item) => item.firstStreamKind === "artifact_source"),
+      agentFinalHandoffStreamingObserved: agentPromptResults.some((item) => item.agentFinalStreamObserved),
+      agentArtifactSourceStreamingObserved: agentPromptResults.some((item) => item.firstStreamKind === "artifact_source" || item.artifactSourceStreamObserved),
       askModeDidNotRenderDocumentedWork: askPromptResults.every((item) => !item.newDocumentedWorkVisible),
       modelInvocationReceiptObserved: modelInvocationReceipts.length > 0,
       modelInvocationReceiptCount: modelInvocationReceipts.length,
@@ -2317,6 +2442,7 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
     await daemon.close().catch(() => undefined);
     if (userDataDir) rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 150 });
     cleanupWorkspaceSymlinkProbe(outputDir, workspaceSymlinkProbe);
+    cleanupUserWorkspaceFixture(outputDir, userWorkspaceFixture);
     cleanupWorkspaceFixture(outputDir, workspaceFixture);
     await cleanupValidationProcesses({ outputDir, phase: "after-run" });
   }

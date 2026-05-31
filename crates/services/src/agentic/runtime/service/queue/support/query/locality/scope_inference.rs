@@ -471,13 +471,49 @@ pub(crate) fn explicit_query_scope_hint(query: &str) -> Option<String> {
 
 pub(crate) fn query_requires_locality_scope(query: &str, facets: &QueryFacetProfile) -> bool {
     facets.locality_sensitive_public_fact
+        && !query_mentions_local_compute_runtime(query)
         && !facets.workspace_constrained
         && explicit_query_scope_hint(query).is_none()
+}
+
+fn query_mentions_local_compute_runtime(query: &str) -> bool {
+    let lower = compact_whitespace(query).to_ascii_lowercase();
+    if lower.is_empty() {
+        return false;
+    }
+
+    const LOCAL_COMPUTE_PHRASES: &[&str] = &[
+        "local ai",
+        "localai",
+        "local llm",
+        "local llama",
+        "local model",
+        "local models",
+        "local inference",
+        "local runtime",
+        "local gpu",
+        "local rag",
+        "local embedding",
+        "local embeddings",
+        "locally hosted model",
+        "locally hosted llm",
+        "running ai locally",
+        "run ai locally",
+        "running models locally",
+        "run models locally",
+    ];
+
+    LOCAL_COMPUTE_PHRASES
+        .iter()
+        .any(|phrase| lower.contains(phrase))
 }
 
 pub(crate) fn query_requires_runtime_locality_scope(query: &str) -> bool {
     let compact = compact_whitespace(query);
     if compact.trim().is_empty() {
+        return false;
+    }
+    if query_mentions_local_compute_runtime(&compact) {
         return false;
     }
     let facets = analyze_query_facets(&compact);
@@ -562,7 +598,7 @@ pub(crate) fn semantic_retrieval_query_contract_with_locality_hint(
     semantic_retrieval_query_contract_with_contract_and_locality_hint(query, None, locality_hint)
 }
 
-const DOCUMENT_BRIEFING_SEARCH_SCAFFOLD_TOKENS: &[&str] = &[
+const DOCUMENT_REPORT_SEARCH_SCAFFOLD_TOKENS: &[&str] = &[
     "using",
     "local",
     "memory",
@@ -594,12 +630,12 @@ const DOCUMENT_BRIEFING_SEARCH_SCAFFOLD_TOKENS: &[&str] = &[
 
 fn semantic_search_structural_tokens(query: &str) -> BTreeSet<String> {
     let mut structural_tokens = query_structural_directive_tokens(query);
-    if query_prefers_document_briefing_layout(query)
+    if query_prefers_document_report_layout(query)
         && !query_requests_comparison(query)
         && analyze_query_facets(query).grounded_external_required
     {
         structural_tokens.extend(
-            DOCUMENT_BRIEFING_SEARCH_SCAFFOLD_TOKENS
+            DOCUMENT_REPORT_SEARCH_SCAFFOLD_TOKENS
                 .iter()
                 .map(|token| token.to_string()),
         );

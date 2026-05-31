@@ -3,9 +3,9 @@ use super::{
     is_active_web_pipeline_chat_reply_duplicate, is_duplicate_non_command_noop_allowed,
     is_mail_read_latest_tool, is_mail_reply_tool, is_non_command_duplicate_noop_tool,
     is_read_only_filesystem_tool, maybe_terminalize_duplicate_worker_noop,
-    queue_browser_snapshot_verification, synthesize_repo_context_brief_from_duplicate,
-    worker_duplicate_noop_summary, worker_duplicate_refresh_read_allowed,
-    worker_duplicate_requires_recovery_error, workspace_duplicate_noop_summary,
+    queue_browser_snapshot_verification, worker_duplicate_noop_summary,
+    worker_duplicate_refresh_read_allowed, worker_duplicate_requires_recovery_error,
+    workspace_duplicate_noop_summary,
 };
 use crate::agentic::runtime::service::decision_loop::helpers::default_safe_policy;
 use crate::agentic::runtime::service::lifecycle::persist_worker_assignment;
@@ -181,6 +181,12 @@ fn prior_successful_duplicate_action_is_detected() {
         4,
         "success_duplicate_skip",
     );
+    mark_action_fingerprint_executed_at_step(
+        &mut agent_state.tool_execution_log,
+        "fp-web-deferred",
+        5,
+        "web_chat_reply_deferred",
+    );
 
     assert!(has_prior_successful_duplicate_action(&agent_state, "fp"));
     assert!(has_prior_successful_duplicate_action(
@@ -190,6 +196,10 @@ fn prior_successful_duplicate_action_is_detected() {
     assert!(!has_prior_successful_duplicate_action(
         &agent_state,
         "missing"
+    ));
+    assert!(!has_prior_successful_duplicate_action(
+        &agent_state,
+        "fp-web-deferred"
     ));
 }
 
@@ -227,39 +237,7 @@ fn browser_snapshot_duplicate_is_not_noop_safe_after_prior_success() {
 }
 
 #[test]
-fn synthesized_repo_context_brief_uses_goal_files_and_targeted_command() {
-    let temp = tempdir().expect("tempdir should exist");
-    let repo_root = temp.path().join("path-normalizer-fixture");
-    let tests_dir = repo_root.join("tests");
-    std::fs::create_dir_all(&tests_dir).expect("tests dir should exist");
-    std::fs::write(
-        repo_root.join("path_utils.py"),
-        "def normalize_fixture_path():\n    pass\n",
-    )
-    .expect("source file should exist");
-    std::fs::write(
-        tests_dir.join("test_path_utils.py"),
-        "def test_normalize_fixture_path():\n    pass\n",
-    )
-    .expect("test file should exist");
-
-    let goal = format!(
-        "Inspect repo context for the patch in \"{}\". Patch only `path_utils.py`, keep `tests/test_path_utils.py` unchanged, and run `python3 -m unittest tests.test_path_utils -v` first.",
-        repo_root.display()
-    );
-    let tool = AgentTool::FsStat {
-        path: repo_root.to_string_lossy().to_string(),
-    };
-
-    let summary = synthesize_repo_context_brief_from_duplicate(&goal, &tool)
-        .expect("repo context brief should synthesize");
-    assert!(summary.contains("path_utils.py"));
-    assert!(summary.contains("tests/test_path_utils.py"));
-    assert!(summary.contains("python3 -m unittest tests.test_path_utils -v"));
-}
-
-#[test]
-fn duplicate_repo_context_worker_noop_terminalizes_with_fallback_brief() {
+fn duplicate_repo_context_worker_noop_requires_model_authored_reply() {
     let temp = tempdir().expect("tempdir should exist");
     let repo_root = temp.path().join("path-normalizer-fixture");
     let tests_dir = repo_root.join("tests");
@@ -284,7 +262,7 @@ fn duplicate_repo_context_worker_noop_terminalizes_with_fallback_brief() {
             "Inspect repo context for the patch in \"{}\". Patch only `path_utils.py`, keep `tests/test_path_utils.py` unchanged, and run `python3 -m unittest tests.test_path_utils -v` first.",
             repo_root.display()
         ),
-        success_criteria: "Return a deterministic repo context brief.".to_string(),
+        success_criteria: "Return a repo context brief.".to_string(),
         max_retries: 1,
         retries_used: 0,
         assigned_session_id: Some(session_id),
@@ -300,7 +278,7 @@ fn duplicate_repo_context_worker_noop_terminalizes_with_fallback_brief() {
             "agent__complete".to_string(),
         ],
         completion_contract: WorkerCompletionContract {
-            success_criteria: "Return a deterministic repo context brief.".to_string(),
+            success_criteria: "Return a repo context brief.".to_string(),
             expected_output: "Repo context brief.".to_string(),
             merge_mode: WorkerMergeMode::AppendAsEvidence,
             verification_hint: None,
@@ -324,15 +302,16 @@ fn duplicate_repo_context_worker_noop_terminalizes_with_fallback_brief() {
         &tool,
         session_id,
         &mut verification_checks,
-    )
-    .expect("duplicate repo-context noop should terminalize");
+    );
 
-    assert!(matches!(agent_state.status, AgentStatus::Completed(_)));
-    assert!(completion.contains("path_utils.py"));
-    assert!(completion.contains("tests/test_path_utils.py"));
+    assert!(completion.is_none());
+    assert!(!matches!(agent_state.status, AgentStatus::Completed(_)));
     assert!(verification_checks
         .iter()
-        .any(|check| check == "duplicate_repo_context_worker_terminalized=true"));
+        .any(|check| check == "duplicate_repo_context_worker_requires_model_reply=true"));
+    assert!(verification_checks
+        .iter()
+        .any(|check| check == "terminal_chat_reply_ready=false"));
 }
 
 #[test]

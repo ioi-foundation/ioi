@@ -54,7 +54,7 @@ assert.match(agentQueries[0].assistantText, /Filecoin/i);
 assert.match(agentQueries[0].assistantText, /Citations?:/i);
 assert.match(agentQueries[1].assistantText, /Current snapshot|retrieved current sources|Fresh evidence/i);
 assert.match(askQueries[0].assistantText, /fresh retrieval/i);
-assert.match(askQueries[0].assistantText, /stale model memory/i);
+assert.match(askQueries[0].assistantText, /should not guess/i);
 assert.ok(includesAll(observedToolNames, ["web__search", "web__read", "chat__reply"]));
 assert.deepEqual(failedToolNames, []);
 assert.equal(hardeningAfterCleanup.ok, true);
@@ -75,7 +75,8 @@ const proof = {
     askModeFailedClosedWithoutTools:
       askQueries[0].executionMode === "ask" &&
       askQueries[0].modelBackedStreamObserved === true &&
-      /stale model memory/i.test(askQueries[0].assistantText),
+      /fresh retrieval/i.test(askQueries[0].assistantText) &&
+      /should not guess/i.test(askQueries[0].assistantText),
     agentRetrievalTraceObserved: includesAll(observedToolNames, ["web__search", "web__read", "chat__reply"]),
     noTraceToolFailures: failedToolNames.length === 0,
     maxPromptUnderThirtySeconds: maxPromptDurationMs <= 30_000,

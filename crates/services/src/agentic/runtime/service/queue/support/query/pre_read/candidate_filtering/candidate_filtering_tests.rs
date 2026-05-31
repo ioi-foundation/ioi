@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn document_briefing_direct_citation_rejects_non_authority_source_without_identifier_signal() {
+fn document_report_direct_citation_rejects_non_authority_source_without_identifier_signal() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let contract = crate::agentic::web::derive_web_retrieval_contract(query, None)
@@ -19,7 +19,7 @@ fn document_briefing_direct_citation_rejects_non_authority_source_without_identi
 }
 
 #[test]
-fn document_briefing_direct_citation_allows_authority_overview_without_identifier_signal() {
+fn document_report_direct_citation_allows_authority_overview_without_identifier_signal() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let contract = crate::agentic::web::derive_web_retrieval_contract(query, None)
@@ -37,7 +37,7 @@ fn document_briefing_direct_citation_allows_authority_overview_without_identifie
 }
 
 #[test]
-fn document_briefing_direct_citation_allows_public_authority_publication_with_late_grounding_context(
+fn document_report_direct_citation_allows_public_authority_publication_with_late_grounding_context(
 ) {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
@@ -60,7 +60,7 @@ fn document_briefing_direct_citation_allows_public_authority_publication_with_la
 }
 
 #[test]
-fn document_briefing_direct_citation_allows_grounded_external_publication_artifact_without_identifier_signal(
+fn document_report_direct_citation_allows_grounded_external_publication_artifact_without_identifier_signal(
 ) {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";

@@ -130,7 +130,7 @@ fn headline_actionable_inventory_counts_specific_articles_with_sparse_snippets()
 }
 
 #[test]
-fn headline_source_is_not_actionable_for_multi_story_roundup_surface() {
+fn headline_source_is_not_actionable_for_multi_source_roundup_surface() {
     let source = PendingSearchReadSummary {
         url: "https://www.channel3000.com/video/morning-sprint-march-6-mornings-top-news-and-weather-headlines/video_ae4a4a71-9eb5-5c14-a70a-908f6377ceaa.html".to_string(),
         title: Some(
@@ -190,10 +190,10 @@ fn prioritized_query_grounding_excerpt_combines_identifier_segments_when_needed(
 }
 
 #[test]
-fn observed_briefing_standard_identifier_labels_do_not_expand_query_specific_fips_sets() {
+fn observed_evidence_standard_identifier_labels_do_not_expand_query_specific_fips_sets() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
-    let labels = observed_briefing_standard_identifier_labels(
+    let labels = observed_evidence_standard_identifier_labels(
         query,
         "NIST released FIPS 203, 204, and 205 as finalized post-quantum cryptography standards.",
     );
@@ -202,18 +202,18 @@ fn observed_briefing_standard_identifier_labels_do_not_expand_query_specific_fip
 }
 
 #[test]
-fn preferred_briefing_identifier_alias_ignores_trailing_match_when_raw_tokens_are_shorter() {
+fn preferred_evidence_identifier_alias_ignores_trailing_match_when_raw_tokens_are_shorter() {
     assert_eq!(
-        preferred_briefing_identifier_alias("FIPS 204", "PQC ML-DSA FIPS 204 ML-KEM"),
+        preferred_evidence_identifier_alias("FIPS 204", "PQC ML-DSA FIPS 204 ML-KEM"),
         None
     );
 }
 
 #[test]
-fn observed_briefing_standard_identifier_labels_capture_ir_publication_numbers() {
+fn observed_evidence_standard_identifier_labels_capture_ir_publication_numbers() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
-    let labels = observed_briefing_standard_identifier_labels(
+    let labels = observed_evidence_standard_identifier_labels(
         query,
         "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC",
     );
@@ -222,11 +222,11 @@ fn observed_briefing_standard_identifier_labels_capture_ir_publication_numbers()
 }
 
 #[test]
-fn source_briefing_standard_identifier_labels_prefer_primary_publication_id_over_excerpt_reference()
+fn source_evidence_standard_identifier_labels_prefer_primary_publication_id_over_excerpt_reference()
 {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
-    let labels = source_briefing_standard_identifier_labels(
+    let labels = source_evidence_standard_identifier_labels(
         query,
         "https://csrc.nist.gov/pubs/ir/8413/upd1/final",
         "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC",
@@ -237,10 +237,10 @@ fn source_briefing_standard_identifier_labels_prefer_primary_publication_id_over
 }
 
 #[test]
-fn source_briefing_standard_identifier_labels_ignore_year_path_component_for_ir_publications() {
+fn source_evidence_standard_identifier_labels_ignore_year_path_component_for_ir_publications() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
-    let labels = source_briefing_standard_identifier_labels(
+    let labels = source_evidence_standard_identifier_labels(
         query,
         "https://nvlpubs.nist.gov/nistpubs/ir/2022/NIST.IR.8413-upd1.pdf",
         "NIST IR 8413 Update 1 (PDF)",
@@ -495,7 +495,7 @@ fn prioritized_query_grounding_excerpt_prefers_metric_surface_for_current_pricin
 }
 
 #[test]
-fn document_briefing_authority_alignment_accepts_empty_snippet_identifier_pages() {
+fn document_report_authority_alignment_accepts_empty_snippet_identifier_pages() {
     let query = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
     let contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
         .expect("retrieval contract");
@@ -505,10 +505,10 @@ fn document_briefing_authority_alignment_accepts_empty_snippet_identifier_pages(
     let excerpt = "";
 
     assert!(source_has_public_authority_host(url));
-    assert!(source_has_briefing_standard_identifier_signal(
+    assert!(source_has_evidence_standard_identifier_signal(
         query, url, title, excerpt
     ));
-    assert!(query_prefers_document_briefing_layout(query));
+    assert!(query_prefers_document_report_layout(query));
     assert!(analyze_query_facets(query).grounded_external_required);
     assert!(
         query_native_anchor_tokens(query)
@@ -518,7 +518,7 @@ fn document_briefing_authority_alignment_accepts_empty_snippet_identifier_pages(
     );
 
     assert!(
-        source_has_document_briefing_authority_alignment_with_contract(
+        source_has_document_report_authority_alignment_with_contract(
             Some(&contract),
             query,
             2,

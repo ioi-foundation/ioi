@@ -2578,9 +2578,11 @@ fn tui_truncate_large_json(val: &Value) -> Value {
                 Value::String(s.clone())
             }
         }
-        Value::Array(arr) => {
-            Value::Array(arr.iter().map(|item| tui_truncate_large_json(item)).collect())
-        }
+        Value::Array(arr) => Value::Array(
+            arr.iter()
+                .map(|item| tui_truncate_large_json(item))
+                .collect(),
+        ),
         Value::Object(obj) => {
             let mut new_obj = Map::new();
             for (k, v) in obj {
@@ -2809,7 +2811,10 @@ fn tui_coding_tool_row(event: &Value, fallback_thread_id: Option<&str>) -> Value
         dry_run.map(Value::Bool).unwrap_or(Value::Null),
     );
     row.insert("input".to_string(), tui_truncate_large_json(&input));
-    row.insert("result_summary".to_string(), tui_truncate_large_json(&result_summary));
+    row.insert(
+        "result_summary".to_string(),
+        tui_truncate_large_json(&result_summary),
+    );
     row.insert("receipt_refs".to_string(), receipt_refs);
     row.insert("artifact_refs".to_string(), artifact_refs);
     row.insert("policy_decision_refs".to_string(), policy_decision_refs);

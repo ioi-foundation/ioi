@@ -27,6 +27,14 @@ fn queue_web_retrieve_request(
     true
 }
 
+pub(crate) fn drain_queued_web_retrieve_actions(agent_state: &mut AgentState) -> usize {
+    let before = agent_state.execution_queue.len();
+    agent_state
+        .execution_queue
+        .retain(|request| !matches!(request.target, ActionTarget::WebRetrieve));
+    before.saturating_sub(agent_state.execution_queue.len())
+}
+
 pub(crate) fn queue_web_read_from_pipeline(
     agent_state: &mut AgentState,
     session_id: [u8; 32],

@@ -227,7 +227,7 @@ fn live_external_research_detects_time_sensitive_public_fact_lookups() {
 }
 
 #[test]
-fn live_external_research_detects_latest_plural_briefing_queries() {
+fn live_external_research_detects_latest_plural_answer_queries() {
     assert!(is_live_external_research_goal(
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."
     ));
@@ -282,6 +282,9 @@ fn price_quote_signal_requires_explicit_quote_shape() {
     assert!(has_price_quote_payload(
         "Bitcoin price right now: $86,743.63 USD as of 17:23 UTC."
     ));
+    assert!(has_price_quote_payload(
+        "Akash Network live USD quote from CoinGecko simple price API: price $0.806303 USD. Market cap: $235.94M."
+    ));
     assert!(!has_price_quote_payload(
         "2 million BTC valued at about $36 billion at the current price."
     ));
@@ -334,7 +337,7 @@ fn query_facets_capture_latest_pricing_contract() {
 }
 
 #[test]
-fn query_facets_capture_latest_plural_briefing_contract() {
+fn query_facets_capture_latest_plural_answer_contract() {
     let facets = analyze_query_facets(
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
     );
@@ -415,7 +418,7 @@ fn semantic_anchor_tokens_keep_local_business_entities_but_drop_control_terms() 
 }
 
 #[test]
-fn semantic_anchor_tokens_drop_research_and_briefing_control_terms() {
+fn semantic_anchor_tokens_drop_research_and_answer_control_terms() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let structural = query_structural_directive_tokens(query);

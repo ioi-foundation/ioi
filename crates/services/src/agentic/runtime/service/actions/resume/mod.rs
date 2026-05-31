@@ -35,7 +35,7 @@ use crate::agentic::runtime::service::tool_execution::command_contract::{
     append_command_history_entry, capability_route_label, command_arms_deferred_notification_path,
     command_history_entry, command_history_exit_code, compose_terminal_chat_reply,
     enrich_command_scope_summary, evaluate_completion_requirements,
-    execution_contract_violation_error, extract_error_class_token, format_utc_rfc3339,
+    execution_contract_violation_error, extract_error_class_token,
     install_operator_completion_summary, is_command_execution_provider_tool,
     is_completion_contract_error, parse_sleep_seconds, record_provider_selection_evidence,
     record_timer_notification_contract_requirement, record_verification_evidence,
@@ -168,7 +168,6 @@ fn timer_completion_summary(
     if entry.exit_code != 0 {
         return None;
     }
-    let run_timestamp_utc = format_utc_rfc3339(entry.timestamp_ms)?;
     let target_utc = target_utc_from_run_and_sleep(entry.timestamp_ms, sleep_seconds)?;
     let mechanism = if let Some(pid) = extract_background_pid(&entry.stdout) {
         format!(
@@ -182,8 +181,8 @@ fn timer_completion_summary(
         )
     };
     Some(format!(
-        "Timer scheduled.\nMechanism: {}\nRun timestamp (UTC): {}\nTarget UTC: {}",
-        mechanism, run_timestamp_utc, target_utc
+        "Timer scheduled.\nMechanism: {}\nTarget UTC: {}",
+        mechanism, target_utc
     ))
 }
 

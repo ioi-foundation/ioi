@@ -10,10 +10,11 @@ use crate::agentic::runtime::service::queue::web_pipeline::{
     candidate_time_sensitive_resolvable_payload, compatibility_passes_projection,
     explicit_query_scope_hint, is_search_hub_url,
     local_business_search_entity_anchor_tokens_with_contract, prefers_single_fact_snapshot,
-    query_is_generic_headline_collection, query_metric_axes,
-    query_prefers_document_briefing_layout, query_requests_comparison,
-    query_requires_runtime_locality_scope, required_citations_per_story, required_story_count,
-    retrieval_contract_min_sources, source_has_document_briefing_authority_alignment_with_contract,
+    query_is_generic_headline_collection, query_metric_axes, query_prefers_document_report_layout,
+    query_requests_comparison, query_requires_market_quote_grounding,
+    query_requires_runtime_locality_scope, required_citations_per_source_cluster,
+    required_source_cluster_count, retrieval_contract_min_sources,
+    source_has_document_report_authority_alignment_with_contract,
     source_matches_local_business_search_entity_anchor,
 };
 
@@ -133,15 +134,14 @@ fn lint_web_retrieval_contract(
     let normalized_query_contract = normalized_query_contract(query, query_contract);
     let facets = analyze_query_facets(normalized_query_contract);
     let comparison_required = query_requests_comparison(normalized_query_contract);
-    let document_briefing_layout =
-        query_prefers_document_briefing_layout(normalized_query_contract);
-    let explicit_entity_cardinality = if document_briefing_layout && !comparison_required {
+    let document_report_layout = query_prefers_document_report_layout(normalized_query_contract);
+    let explicit_entity_cardinality = if document_report_layout && !comparison_required {
         1
     } else {
-        required_story_count(normalized_query_contract).clamp(1, 6) as u32
+        required_source_cluster_count(normalized_query_contract).clamp(1, 6) as u32
     };
     let structural_citation_count_min =
-        required_citations_per_story(normalized_query_contract).clamp(1, 4) as u32;
+        required_citations_per_source_cluster(normalized_query_contract).clamp(1, 4) as u32;
     let explicit_locality_scope_present =
         crate::agentic::runtime::service::queue::web_pipeline::explicit_query_scope_hint(raw_query)
             .is_some()
@@ -152,7 +152,10 @@ fn lint_web_retrieval_contract(
     let runtime_locality_required = query_requires_runtime_locality_scope(raw_query)
         || (raw_query.is_empty()
             && query_requires_runtime_locality_scope(normalized_query_contract));
-    let scalar_measure_required = !query_metric_axes(normalized_query_contract).is_empty();
+    let market_quote_grounding_required =
+        query_requires_market_quote_grounding(normalized_query_contract);
+    let scalar_measure_required =
+        market_quote_grounding_required || !query_metric_axes(normalized_query_contract).is_empty();
     let single_fact_snapshot = prefers_single_fact_snapshot(normalized_query_contract)
         || (explicit_entity_cardinality <= 1 && scalar_measure_required && !comparison_required);
     let direct_single_record_snapshot = contract.entity_cardinality_min <= 1
@@ -169,7 +172,9 @@ fn lint_web_retrieval_contract(
         .clamp(1, 6)
         .max(explicit_entity_cardinality);
     contract.comparison_required = contract.comparison_required || comparison_required;
-    contract.currentness_required &= facets.time_sensitive_public_fact;
+    contract.currentness_required = (contract.currentness_required
+        || market_quote_grounding_required)
+        && (facets.time_sensitive_public_fact || market_quote_grounding_required);
     contract.runtime_locality_required =
         contract.runtime_locality_required || runtime_locality_required;
     contract.scalar_measure_required = contract.scalar_measure_required || scalar_measure_required;
@@ -188,9 +193,8 @@ fn lint_web_retrieval_contract(
         contract.structured_record_preferred = false;
     }
 
-    if !facets.time_sensitive_public_fact {
-        contract.ordered_collection_preferred &=
-            query_is_generic_headline_collection(normalized_query_contract);
+    if !query_is_generic_headline_collection(normalized_query_contract) {
+        contract.ordered_collection_preferred = false;
     }
 
     if contract.ordered_collection_preferred
@@ -201,7 +205,7 @@ fn lint_web_retrieval_contract(
         contract.geo_scoped_detail_required = false;
     }
 
-    if document_briefing_layout && !comparison_required && !contract.runtime_locality_required {
+    if document_report_layout && !comparison_required && !contract.runtime_locality_required {
         contract.entity_cardinality_min = 1;
         contract.entity_diversity_required = false;
         contract.comparison_required = false;
@@ -306,12 +310,12 @@ fn deterministic_web_retrieval_contract(
     let runtime_locality_required = query_requires_runtime_locality_scope(query.trim())
         || (query.trim().is_empty() && query_requires_runtime_locality_scope(structural_query));
     let comparison_required = query_requests_comparison(structural_query);
-    let document_briefing_layout =
-        query_prefers_document_briefing_layout(structural_query) && !comparison_required;
-    let entity_cardinality_min = if document_briefing_layout {
+    let document_report_layout =
+        query_prefers_document_report_layout(structural_query) && !comparison_required;
+    let entity_cardinality_min = if document_report_layout {
         1
     } else {
-        required_story_count(structural_query).clamp(1, 6) as u32
+        required_source_cluster_count(structural_query).clamp(1, 6) as u32
     };
     let explicit_locality_scope_present =
         crate::agentic::runtime::service::queue::web_pipeline::explicit_query_scope_hint(
@@ -322,8 +326,9 @@ fn deterministic_web_retrieval_contract(
                 structural_query,
             )
             .is_some();
+    let market_quote_grounding_required = query_requires_market_quote_grounding(structural_query);
     let scalar_measure_required =
-        entity_cardinality_min <= 1 && !query_metric_axes(structural_query).is_empty();
+        market_quote_grounding_required || !query_metric_axes(structural_query).is_empty();
     let generic_headline_collection = query_is_generic_headline_collection(structural_query);
     let single_fact_snapshot = prefers_single_fact_snapshot(structural_query)
         || (entity_cardinality_min <= 1 && scalar_measure_required && !comparison_required);
@@ -336,23 +341,24 @@ fn deterministic_web_retrieval_contract(
         contract_version: WEB_RETRIEVAL_CONTRACT_VERSION.to_string(),
         entity_cardinality_min,
         comparison_required,
-        currentness_required: facets.time_sensitive_public_fact,
+        currentness_required: facets.time_sensitive_public_fact || market_quote_grounding_required,
         runtime_locality_required,
         source_independence_min: 1,
-        citation_count_min: required_citations_per_story(structural_query).clamp(1, 4) as u32,
+        citation_count_min: required_citations_per_source_cluster(structural_query).clamp(1, 4)
+            as u32,
         structured_record_preferred: direct_snapshot_surface_preferred,
         ordered_collection_preferred: generic_headline_collection,
         link_collection_preferred: entity_diversity_required,
         canonical_link_out_preferred: entity_diversity_required,
         geo_scoped_detail_required: (runtime_locality_required || explicit_locality_scope_present)
             && (single_fact_snapshot || entity_diversity_required),
-        discovery_surface_required: document_briefing_layout
+        discovery_surface_required: document_report_layout
             || generic_headline_collection
             || entity_diversity_required
             || (entity_cardinality_min > 1 && !single_fact_snapshot),
         entity_diversity_required,
         scalar_measure_required,
-        browser_fallback_allowed: !document_briefing_layout,
+        browser_fallback_allowed: !document_report_layout,
     };
     contract.source_independence_min = structural_source_independence_floor(&contract);
     contract
@@ -532,7 +538,7 @@ pub(crate) fn query_matching_source_urls(
             title,
             snippet,
         );
-        let authority_aligned = source_has_document_briefing_authority_alignment_with_contract(
+        let authority_aligned = source_has_document_report_authority_alignment_with_contract(
             Some(retrieval_contract),
             normalized_query_contract,
             grounding_min_sources,

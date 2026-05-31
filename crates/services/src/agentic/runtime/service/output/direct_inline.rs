@@ -168,127 +168,6 @@ fn chat_reply_tool_call(message: &str) -> Result<Option<String>, TransactionErro
     .map_err(|error| TransactionError::Serialization(error.to_string()))
 }
 
-fn normalize_lightweight_conversation_phrase(text: &str) -> String {
-    let normalized = text
-        .trim()
-        .to_ascii_lowercase()
-        .chars()
-        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { ' ' })
-        .collect::<String>();
-    normalized.split_whitespace().collect::<Vec<_>>().join(" ")
-}
-
-fn words_are_greeting(words: &[&str]) -> bool {
-    if words.is_empty() || words.len() > 3 {
-        return false;
-    }
-
-    const GREETING_HEADS: &[&str] = &["hi", "hello", "hey", "hiya", "heya", "yo"];
-    const GREETING_TAILS: &[&str] = &[
-        "there",
-        "bot",
-        "codex",
-        "assistant",
-        "agent",
-        "dear",
-        "dearie",
-        "friend",
-    ];
-
-    GREETING_HEADS.contains(&words[0])
-        && words[1..].iter().all(|word| GREETING_TAILS.contains(word))
-}
-
-fn deterministic_lightweight_conversation_reply(text: &str) -> Option<&'static str> {
-    let trimmed = text.trim();
-    if trimmed.is_empty() || trimmed.chars().count() > 80 {
-        return None;
-    }
-
-    let phrase = normalize_lightweight_conversation_phrase(trimmed);
-    if phrase.is_empty() {
-        return None;
-    }
-    let words = phrase.split_whitespace().collect::<Vec<_>>();
-    if words.len() > 8 {
-        return None;
-    }
-
-    const SOCIAL_CHECK_INS: &[&str] = &[
-        "sup",
-        "whats up",
-        "how are you",
-        "how are you doing",
-        "how is it going",
-        "hows it going",
-    ];
-    if SOCIAL_CHECK_INS.contains(&phrase.as_str()) {
-        return Some("I'm here and ready. What would you like to work on?");
-    }
-
-    if trimmed.contains('?') {
-        return None;
-    }
-
-    if words_are_greeting(&words)
-        || matches!(
-            phrase.as_str(),
-            "good morning" | "good afternoon" | "good evening"
-        )
-    {
-        return Some("Hello! How can I help you today?");
-    }
-
-    if matches!(
-        phrase.as_str(),
-        "thanks"
-            | "thank you"
-            | "thank you bot"
-            | "thank you dearie"
-            | "thanks bot"
-            | "thanks dearie"
-            | "thx"
-            | "ty"
-            | "appreciate it"
-            | "much appreciated"
-    ) {
-        return Some("You're welcome.");
-    }
-
-    if matches!(
-        phrase.as_str(),
-        "ok" | "okay"
-            | "k"
-            | "kk"
-            | "cool"
-            | "nice"
-            | "got it"
-            | "sounds good"
-            | "alright"
-            | "all right"
-            | "understood"
-            | "roger"
-            | "fair"
-            | "fair enough"
-            | "bet"
-    ) {
-        return Some("Got it.");
-    }
-
-    if matches!(phrase.as_str(), "sorry" | "my bad" | "oops") {
-        return Some("All good.");
-    }
-
-    if matches!(
-        phrase.as_str(),
-        "lol" | "lmao" | "haha" | "hahaha" | "heh" | "hehe"
-    ) {
-        return Some("Heh. I'm with you.");
-    }
-
-    None
-}
-
 async fn run_direct_inline_author_inference(
     service: &RuntimeAgentService,
     runtime: Arc<dyn InferenceRuntime>,
@@ -501,10 +380,6 @@ pub(crate) async fn maybe_direct_inline_author_tool_call(
 
     if latest_user_message.trim().is_empty() {
         return Ok(None);
-    }
-
-    if let Some(message) = deterministic_lightweight_conversation_reply(&latest_user_message) {
-        return chat_reply_tool_call(message);
     }
 
     let prompt =

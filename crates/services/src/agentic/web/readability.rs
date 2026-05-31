@@ -3,8 +3,10 @@ use anyhow::{anyhow, Result};
 use ioi_drivers::browser::BrowserDriver;
 use ioi_types::app::agentic::{WebDocument, WebEvidenceBundle, WebQuoteSpan, WebSource};
 use scraper::{ElementRef, Html, Selector};
+use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
+use url::Url;
 
 use super::constants::{
     READ_BLOCK_LOW_SIGNAL_CHAR_THRESHOLD, READ_BLOCK_STRUCTURED_SCRIPT_MAX,
@@ -150,10 +152,14 @@ fn looks_like_inline_markup_noise(text: &str) -> bool {
 }
 
 fn element_contains_hidden_markup(elem: ElementRef<'_>) -> bool {
-    let lower = elem.html().to_ascii_lowercase();
-    ["<script", "<style", "<noscript", "<template"]
-        .iter()
-        .any(|marker| lower.contains(marker))
+    let tag_name = elem.value().name();
+    if matches!(tag_name, "script" | "style" | "noscript" | "template") {
+        return true;
+    }
+
+    elem.children()
+        .filter_map(ElementRef::wrap)
+        .any(element_contains_hidden_markup)
 }
 
 const READ_BLOCK_CANDIDATE_LIMIT: usize = 192;
@@ -162,6 +168,150 @@ const READ_BLOCK_STRONG_CHAR_FLOOR: usize = 80;
 const READ_BLOCK_REPEATING_LABEL_MIN_ITEMS: usize = 3;
 const READ_BLOCK_REPEATING_LABEL_MAX_ITEMS: usize = 12;
 const READ_BLOCK_REPEATING_LABEL_GROUP_LIMIT: usize = 2;
+
+fn coingecko_simple_price_id(read_url: &str) -> Option<String> {
+    let parsed = Url::parse(read_url.trim()).ok()?;
+    let host = parsed.host_str()?.to_ascii_lowercase();
+    if host != "api.coingecko.com" || parsed.path() != "/api/v3/simple/price" {
+        return None;
+    }
+    parsed
+        .query_pairs()
+        .find_map(|(key, value)| (key == "ids").then(|| value.into_owned()))
+        .map(|ids| ids.split(',').next().unwrap_or_default().trim().to_string())
+        .map(|id| match id.as_str() {
+            "akt" | "akash" | "akashnetwork" | "akash-network" => "akash-network".to_string(),
+            "fil" | "filecoin" => "filecoin".to_string(),
+            _ => id,
+        })
+        .filter(|id| !id.is_empty())
+}
+
+fn market_slug_label(slug: &str) -> String {
+    slug.split('-')
+        .filter(|part| !part.trim().is_empty())
+        .map(|part| {
+            let mut chars = part.chars();
+            match chars.next() {
+                Some(first) => format!("{}{}", first.to_ascii_uppercase(), chars.as_str()),
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn number_field(value: &Value, key: &str) -> Option<f64> {
+    value.get(key).and_then(Value::as_f64)
+}
+
+fn format_usd(value: f64) -> String {
+    if value.abs() >= 100.0 {
+        format!("${value:.2}")
+    } else if value.abs() >= 1.0 {
+        format!("${value:.4}")
+    } else {
+        format!("${value:.6}")
+    }
+}
+
+fn format_large_usd(value: f64) -> String {
+    if value.abs() >= 1_000_000_000.0 {
+        format!("${:.2}B", value / 1_000_000_000.0)
+    } else if value.abs() >= 1_000_000.0 {
+        format!("${:.2}M", value / 1_000_000.0)
+    } else if value.abs() >= 1_000.0 {
+        format!("${:.2}K", value / 1_000.0)
+    } else {
+        format_usd(value)
+    }
+}
+
+async fn read_coingecko_simple_price(
+    read_url: &str,
+    max_chars: Option<u32>,
+) -> Result<WebEvidenceBundle> {
+    let slug = coingecko_simple_price_id(read_url)
+        .ok_or_else(|| anyhow!("invalid CoinGecko simple price URL"))?;
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::limited(8))
+        .timeout(Duration::from_millis(5_000))
+        .user_agent("Mozilla/5.0 (compatible; ioi-web-retriever/1.0; +https://ioi.local/web)")
+        .build()?;
+    let payload: Value = client
+        .get(read_url)
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+    let Some(entry) = payload.get(&slug) else {
+        return Err(anyhow!(
+            "ERROR_CLASS=LowSignalReadInsufficient CoinGecko simple price response missing asset {}",
+            slug
+        ));
+    };
+    let Some(price) = number_field(entry, "usd") else {
+        return Err(anyhow!(
+            "ERROR_CLASS=LowSignalReadInsufficient CoinGecko simple price response missing USD price for {}",
+            slug
+        ));
+    };
+
+    let label = market_slug_label(&slug);
+    let mut blocks = vec![format!(
+        "{label} ({slug}) live USD quote from CoinGecko simple price API: price {} USD.",
+        format_usd(price)
+    )];
+    if let Some(market_cap) = number_field(entry, "usd_market_cap") {
+        blocks.push(format!("Market cap: {}.", format_large_usd(market_cap)));
+    }
+    if let Some(volume) = number_field(entry, "usd_24h_vol") {
+        blocks.push(format!("24h trading volume: {}.", format_large_usd(volume)));
+    }
+    if let Some(change) = number_field(entry, "usd_24h_change") {
+        blocks.push(format!("24h price change: {change:.2}%."));
+    }
+    blocks.push(
+        "Use this quote as provider-supplied market data; do not infer investment quality from nominal token price alone."
+            .to_string(),
+    );
+
+    let max = max_chars.map(|v| v as usize);
+    let (content_text, quote_spans) = build_document_text_and_spans(&blocks, max);
+    let content_hash = sha256_hex(content_text.as_bytes());
+    let source_url = format!("https://www.coingecko.com/en/coins/{slug}");
+    let source_id = source_id_for_url(&source_url);
+    let title = Some(format!("{label} live USD price quote - CoinGecko"));
+
+    Ok(WebEvidenceBundle {
+        schema_version: 1,
+        retrieved_at_ms: now_ms(),
+        tool: "web__read".to_string(),
+        backend: "edge:read:http:coingecko-simple-price".to_string(),
+        query: None,
+        url: Some(read_url.to_string()),
+        sources: vec![WebSource {
+            source_id: source_id.clone(),
+            rank: None,
+            url: source_url.clone(),
+            title: title.clone(),
+            snippet: Some(content_text.clone()),
+            domain: domain_for_url(&source_url),
+        }],
+        source_observations: vec![],
+        documents: vec![WebDocument {
+            source_id,
+            url: source_url,
+            title,
+            content_text,
+            content_hash,
+            quote_spans,
+        }],
+        provider_candidates: vec![],
+        retrieval_contract: None,
+    })
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ReadSurfaceKind {
@@ -1125,153 +1275,6 @@ pub async fn edge_web_read(
     if requested_url.is_empty() {
         return Err(anyhow!("Empty URL"));
     }
-    if requested_url == "https://example.com/crypto/akt-price-today-2026" {
-        let content_text = "AKT price today is $4.20 USD, with a +6.1% 24h change, a compute-demand score of 87/100, and current decentralized compute utilization reported as elevated on 2026-05-25. The source says AKT is the stronger current comparison leg because demand for decentralized GPU and CPU compute is modeled as rising faster than decentralized storage demand.";
-        let max = max_chars.map(|value| value as usize);
-        let content_text = max
-            .map(|limit| content_text.chars().take(limit).collect::<String>())
-            .unwrap_or_else(|| content_text.to_string());
-        let source_id = source_id_for_url(requested_url);
-
-        return Ok(WebEvidenceBundle {
-            schema_version: 1,
-            retrieved_at_ms: now_ms(),
-            tool: "web__read".to_string(),
-            backend: "edge:read:fixture".to_string(),
-            query: None,
-            url: Some(requested_url.to_string()),
-            sources: vec![WebSource {
-                source_id: source_id.clone(),
-                rank: None,
-                url: requested_url.to_string(),
-                title: Some("AKT Price Today".to_string()),
-                snippet: Some("AKT price and compute-demand currentness source".to_string()),
-                domain: domain_for_url(requested_url),
-            }],
-            source_observations: vec![],
-            documents: vec![WebDocument {
-                source_id,
-                url: requested_url.to_string(),
-                title: Some("AKT Price Today".to_string()),
-                content_hash: sha256_hex(content_text.as_bytes()),
-                content_text,
-                quote_spans: Vec::<WebQuoteSpan>::new(),
-            }],
-            provider_candidates: vec![],
-            retrieval_contract: None,
-        });
-    }
-    if requested_url == "https://example.com/crypto/filecoin-price-today-2026" {
-        let content_text = "Filecoin price today is $3.10 USD, with a -1.2% 24h change, a storage-demand score of 62/100, and current decentralized storage utilization reported as stable on 2026-05-25. The source says Filecoin remains a credible storage network but is the weaker current comparison leg because modeled storage demand is growing more slowly than the compute demand supporting AKT.";
-        let max = max_chars.map(|value| value as usize);
-        let content_text = max
-            .map(|limit| content_text.chars().take(limit).collect::<String>())
-            .unwrap_or_else(|| content_text.to_string());
-        let source_id = source_id_for_url(requested_url);
-
-        return Ok(WebEvidenceBundle {
-            schema_version: 1,
-            retrieved_at_ms: now_ms(),
-            tool: "web__read".to_string(),
-            backend: "edge:read:fixture".to_string(),
-            query: None,
-            url: Some(requested_url.to_string()),
-            sources: vec![WebSource {
-                source_id: source_id.clone(),
-                rank: None,
-                url: requested_url.to_string(),
-                title: Some("Filecoin Price Today".to_string()),
-                snippet: Some("Filecoin price and storage-demand currentness source".to_string()),
-                domain: domain_for_url(requested_url),
-            }],
-            source_observations: vec![],
-            documents: vec![WebDocument {
-                source_id,
-                url: requested_url.to_string(),
-                title: Some("Filecoin Price Today".to_string()),
-                content_hash: sha256_hex(content_text.as_bytes()),
-                content_text,
-                quote_spans: Vec::<WebQuoteSpan>::new(),
-            }],
-            provider_candidates: vec![],
-            retrieval_contract: None,
-        });
-    }
-    if requested_url == "https://example.com/akt-filecoin-comparison" {
-        let content_text = "AKT is performing better than Filecoin right now because decentralized compute demand is modeled as stronger than decentralized storage demand. The currentness source gives the agent a concrete source to read before it writes the comparison, and it explicitly covers AKT, Akash Network, Filecoin, investment status, current evidence, and source-grounded synthesis.";
-        let max = max_chars.map(|value| value as usize);
-        let content_text = max
-            .map(|limit| content_text.chars().take(limit).collect::<String>())
-            .unwrap_or_else(|| content_text.to_string());
-        let source_id = source_id_for_url(requested_url);
-
-        return Ok(WebEvidenceBundle {
-            schema_version: 1,
-            retrieved_at_ms: now_ms(),
-            tool: "web__read".to_string(),
-            backend: "edge:read:fixture".to_string(),
-            query: None,
-            url: Some(requested_url.to_string()),
-            sources: vec![WebSource {
-                source_id: source_id.clone(),
-                rank: None,
-                url: requested_url.to_string(),
-                title: Some("AKT vs Filecoin Analysis".to_string()),
-                snippet: Some("AKT versus Filecoin current comparison source".to_string()),
-                domain: domain_for_url(requested_url),
-            }],
-            source_observations: vec![],
-            documents: vec![WebDocument {
-                source_id,
-                url: requested_url.to_string(),
-                title: Some("AKT vs Filecoin Analysis".to_string()),
-                content_hash: sha256_hex(content_text.as_bytes()),
-                content_text,
-                quote_spans: Vec::<WebQuoteSpan>::new(),
-            }],
-            provider_candidates: vec![],
-            retrieval_contract: None,
-        });
-    }
-    if requested_url == "https://example.com/local-ai-runtime-issue"
-        || requested_url
-            == "https://www.nist.gov/news-events/news/2026/local-ai-model-runtime-issue"
-    {
-        let content_text = "Current evidence: the current local AI model runtime issue is slow or missing final answers after retrieval. The source describes a present Agent Studio chat UX problem where the local/native provider must search, read, and synthesize from current sources before the GUI renders the answer. It mentions the current local AI model runtime issue, current source retrieval, typed web source selection, and final answer handoff so the runtime can prove each retrieval gate is grounded in a readable source.";
-        let max = max_chars.map(|value| value as usize);
-        let content_text = max
-            .map(|limit| content_text.chars().take(limit).collect::<String>())
-            .unwrap_or_else(|| content_text.to_string());
-        let source_id = source_id_for_url(requested_url);
-
-        return Ok(WebEvidenceBundle {
-            schema_version: 1,
-            retrieved_at_ms: now_ms(),
-            tool: "web__read".to_string(),
-            backend: "edge:read:fixture".to_string(),
-            query: None,
-            url: Some(requested_url.to_string()),
-            sources: vec![WebSource {
-                source_id: source_id.clone(),
-                rank: None,
-                url: requested_url.to_string(),
-                title: Some("Local AI Model Runtime Issue".to_string()),
-                snippet: Some("Current local AI runtime issue source".to_string()),
-                domain: domain_for_url(requested_url),
-            }],
-            source_observations: vec![],
-            documents: vec![WebDocument {
-                source_id,
-                url: requested_url.to_string(),
-                title: Some("Local AI Model Runtime Issue".to_string()),
-                content_hash: sha256_hex(content_text.as_bytes()),
-                content_text,
-                quote_spans: Vec::<WebQuoteSpan>::new(),
-            }],
-            provider_candidates: vec![],
-            retrieval_contract: None,
-        });
-    }
     let resolved_google_news_url = if is_google_news_article_wrapper_url(requested_url) {
         let client = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::limited(8))
@@ -1287,6 +1290,10 @@ pub async fn edge_web_read(
         None
     };
     let read_url = resolved_google_news_url.as_deref().unwrap_or(requested_url);
+
+    if coingecko_simple_price_id(read_url).is_some() {
+        return read_coingecko_simple_price(read_url, max_chars).await;
+    }
 
     if url_has_pdf_hint(read_url) {
         let (final_url, content_type, body_bytes) =

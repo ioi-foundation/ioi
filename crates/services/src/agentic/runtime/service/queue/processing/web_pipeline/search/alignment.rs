@@ -148,7 +148,7 @@ fn semantically_aligned_discovery_source_priority(
     let primary_authority = authority_required
         && pre_read_source_has_primary_authority(query_contract, url, title, snippet);
     let authority_identifier = primary_authority
-        && crate::agentic::runtime::service::queue::support::source_has_briefing_standard_identifier_signal(
+        && crate::agentic::runtime::service::queue::support::source_has_evidence_standard_identifier_signal(
             query_contract,
             url,
             title,
@@ -165,11 +165,11 @@ fn semantically_aligned_discovery_source_priority(
     )
 }
 
-fn briefing_subject_overlap_guard_required(
+fn evidence_subject_overlap_guard_required(
     retrieval_contract: &ioi_types::app::agentic::WebRetrievalContract,
     query_contract: &str,
 ) -> bool {
-    query_prefers_document_briefing_layout(query_contract)
+    query_prefers_document_report_layout(query_contract)
         && !query_requests_comparison(query_contract)
         && crate::agentic::runtime::service::decision_loop::signals::analyze_query_facets(query_contract)
             .grounded_external_required
@@ -177,12 +177,12 @@ fn briefing_subject_overlap_guard_required(
             || retrieval_contract.source_independence_min > 1)
 }
 
-fn semantically_aligned_discovery_source_passes_briefing_subject_guard(
+fn semantically_aligned_discovery_source_passes_evidence_subject_guard(
     retrieval_contract: &ioi_types::app::agentic::WebRetrievalContract,
     query_contract: &str,
     source: &WebSource,
 ) -> bool {
-    if !briefing_subject_overlap_guard_required(retrieval_contract, query_contract) {
+    if !evidence_subject_overlap_guard_required(retrieval_contract, query_contract) {
         return true;
     }
 
@@ -209,7 +209,7 @@ fn semantically_aligned_discovery_source_passes_briefing_subject_guard(
         .count();
 
     query_native_overlap >= overlap_floor
-        || crate::agentic::runtime::service::queue::support::source_has_briefing_standard_identifier_signal(
+        || crate::agentic::runtime::service::queue::support::source_has_evidence_standard_identifier_signal(
             query_contract,
             trimmed_url,
             title,
@@ -379,11 +379,11 @@ async fn filter_discovery_sources_by_semantic_alignment(
         return Err("semantic source alignment removed all discovery sources".to_string());
     }
     let structural_guard_required =
-        briefing_subject_overlap_guard_required(retrieval_contract, query_contract);
+        evidence_subject_overlap_guard_required(retrieval_contract, query_contract);
     let structural_filtered_sources = aligned_sources
         .into_iter()
         .filter(|source| {
-            semantically_aligned_discovery_source_passes_briefing_subject_guard(
+            semantically_aligned_discovery_source_passes_evidence_subject_guard(
                 retrieval_contract,
                 query_contract,
                 source,

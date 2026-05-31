@@ -91,6 +91,59 @@ fn lint_preserves_geo_scoped_entity_expansion_over_ordered_collection() {
 }
 
 #[test]
+fn lint_demotes_ordered_collection_for_subject_specific_current_comparisons() {
+    let mut contract = direct_snapshot_contract();
+    contract.entity_cardinality_min = 3;
+    contract.comparison_required = false;
+    contract.currentness_required = true;
+    contract.runtime_locality_required = false;
+    contract.structured_record_preferred = false;
+    contract.ordered_collection_preferred = true;
+    contract.discovery_surface_required = true;
+
+    let query = "Which is a better investment right now, Akash or Filecoin?";
+    let normalized = lint_web_retrieval_contract(query, Some(query), contract)
+        .expect("specific comparison contract should lint");
+
+    assert!(normalized.comparison_required);
+    assert!(
+        !normalized.ordered_collection_preferred,
+        "specific current comparisons must use queryable search, not top-stories collections"
+    );
+    assert!(normalized.discovery_surface_required);
+    assert!(
+        normalized.scalar_measure_required,
+        "current investment comparisons require quote/market metric grounding"
+    );
+    assert!(
+        normalized.currentness_required,
+        "current investment comparisons must stay currentness-gated"
+    );
+}
+
+#[test]
+fn lint_demotes_ordered_collection_for_subject_specific_current_source_requests() {
+    let mut contract = direct_snapshot_contract();
+    contract.entity_cardinality_min = 3;
+    contract.currentness_required = true;
+    contract.structured_record_preferred = false;
+    contract.ordered_collection_preferred = true;
+    contract.discovery_surface_required = true;
+
+    let query = "Find current sources for today's top local AI model runtime issue.";
+    let normalized = lint_web_retrieval_contract(query, Some(query), contract)
+        .expect("subject-specific current source contract should lint");
+
+    assert!(
+        !normalized.ordered_collection_preferred,
+        "subject-specific source requests must not use generic top-stories collections"
+    );
+    assert!(normalized.discovery_surface_required);
+    assert_eq!(normalized.entity_cardinality_min, 3);
+    assert_eq!(normalized.source_independence_min, 3);
+}
+
+#[test]
 fn lint_demotes_document_briefing_comparison_scaffolding_without_explicit_compare() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";

@@ -3,7 +3,8 @@ use super::{
     blocked_terminalization_summary_from_history_and_snapshot,
     blocked_terminalization_summary_from_history_and_snapshot_for_goal,
     browser_observation_receipt_from_navigation_output,
-    completion_gate_needs_pending_browser_check, is_toolcat_single_tool_probe,
+    chat_reply_looks_like_source_candidate_list, completion_gate_needs_pending_browser_check,
+    is_toolcat_single_tool_probe, source_candidate_chat_reply_blocker,
     toolcat_single_tool_pause_reply, toolcat_single_tool_success_reply, toolcat_single_tool_target,
     toolcat_single_tool_target_completed, workspace_chat_reply_looks_terminal,
 };
@@ -28,6 +29,27 @@ fn workspace_chat_reply_terminality_rejects_planning_status() {
     ));
     assert!(workspace_chat_reply_looks_terminal(
         "Local and native providers are registered through the daemon model mounting catalog and exposed through the workbench route selector."
+    ));
+}
+
+#[test]
+fn source_candidate_chat_reply_is_not_terminal_product_output() {
+    let candidate_list = concat!(
+        "Current source candidates for today's top local AI model runtime issue:\n",
+        "- llama.cpp Vulkan regression | https://example.test/llama | retrieved current sources\n",
+        "- Qwen runtime issue | https://example.test/qwen | retrieved current sources\n",
+    );
+
+    assert!(chat_reply_looks_like_source_candidate_list(candidate_list));
+    let blocker = source_candidate_chat_reply_blocker(candidate_list)
+        .expect("source candidate lists should be treated as intermediate evidence");
+    assert!(
+        blocker.starts_with("ERROR_CLASS=NoEffectAfterAction "),
+        "{blocker}"
+    );
+    assert!(blocker.contains("not a final answer"), "{blocker}");
+    assert!(!chat_reply_looks_like_source_candidate_list(
+        "Based on the sources, the main runtime issue is template handling in local Qwen routes."
     ));
 }
 

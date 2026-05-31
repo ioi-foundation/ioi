@@ -12,6 +12,14 @@ fn map_kernel_event(
                 visual_hash: String::new(),
             }))
         }
+        ioi_types::app::KernelEvent::AgentAnswerDelta { session_id, token } => {
+            Some(ChainEventEnum::Thought(ioi_ipc::public::AgentThought {
+                session_id: hex::encode(session_id),
+                content: token,
+                is_final: true,
+                visual_hash: String::new(),
+            }))
+        }
         ioi_types::app::KernelEvent::AgentStep(step) => {
             Some(ChainEventEnum::Thought(ioi_ipc::public::AgentThought {
                 session_id: hex::encode(step.session_id),

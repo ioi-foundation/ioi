@@ -20,7 +20,7 @@ fn authority_link_expansion_prefers_official_publication_artifact_over_stale_new
         </html>
     "#;
 
-    let sources = briefing_authority_link_out_sources_from_html(
+    let sources = evidence_authority_link_out_sources_from_html(
         &retrieval_contract,
         query,
         "https://csrc.nist.gov/pubs/ir/8413/upd1/final",
@@ -38,7 +38,7 @@ fn authority_link_expansion_prefers_official_publication_artifact_over_stale_new
 }
 
 #[test]
-fn authority_link_expansion_filters_generic_same_host_authority_pages_for_semantic_briefings() {
+fn authority_link_expansion_filters_generic_same_host_authority_pages_for_semantic_reports() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let retrieval_contract =
@@ -64,7 +64,7 @@ fn authority_link_expansion_filters_generic_same_host_authority_pages_for_semant
         </html>
     "#;
 
-    let sources = briefing_authority_link_out_sources_from_html(
+    let sources = evidence_authority_link_out_sources_from_html(
         &retrieval_contract,
         query,
         "https://www.nist.gov/cybersecurity-and-privacy",

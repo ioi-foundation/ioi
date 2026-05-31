@@ -4,7 +4,7 @@ Status: canonical vocabulary reference.
 Canonical owner: this file for runtime, audit, substrate, projection, and legacy naming vocabulary.
 Supersedes: overlapping runtime vocabulary in plans/specs when names conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-25.
+Last alignment pass: 2026-05-30.
 
 The agent harness uses behavior-first names in runtime code and reserves
 compliance acronyms for hidden audit material.
@@ -16,6 +16,52 @@ compliance acronyms for hidden audit material.
   supervises workflows/workers/tools/models/connectors/computer-use leases,
   writes through Agentgres-compatible envelopes, emits receipts/replay records,
   and requests wallet.network authority.
+- `DefaultHarnessProfile`: the standard daemon-executed, wallet-authorized,
+  Agentgres-backed, loop-native orchestration profile for bounded autonomous
+  work. It is not a peer runtime beside the daemon; it configures how daemon
+  runs move through intent contracts, context topology, action proposals,
+  policy/authority gates, execution, normalization, receipts, Agentgres state,
+  artifact refs, verification, and output ownership.
+- `LoopNativeExecution`: the Default Harness Profile execution discipline in which
+  scoped work advances by model pass, action proposal, authority/policy gate,
+  execution, result normalization, receipt/Agentgres/context update, and model
+  re-entry until completion, blocker, budget, verification, or delivery state
+  resolves the task.
+- `ContextTopology`: the planning and repair surface that partitions a run into
+  context-resolution boundaries such as semantic domain, authority, privacy,
+  verification, service step, loop depth, artifact locality, or Agentgres
+  domain boundary. It may start as a projection and should become canonical
+  only when replay, repartition, or cross-actor routing needs object identity.
+- `ContextChamber`: a bounded context scope for one task, actor, service step,
+  or verifier. It carries local goal, constraints, authority, evidence refs,
+  receipt refs, observations, uncertainty, loop policy, and output policy
+  without dumping global context into every actor.
+- `OutputOwnershipPass`: the final cognitive ownership step in which the
+  accountable worker, service engine, or runtime synthesizes output after
+  evidence, normalized observations, receipts, artifact refs, verification
+  state, blockers, and unresolved uncertainty have been ingested. It may begin
+  as completion receipts and terminal events, and promote to an Agentgres object
+  when delivery, dispute, replay, or settlement needs require it.
+- `AgentgresArtifactRefPlane`: the Agentgres-governed reference, lifecycle,
+  policy, authority, receipt, replay/import, archive/restore, and state-root
+  validity layer for payload bytes. It owns `ArtifactRef`, `PayloadRef`,
+  `EvidenceBundle`, `DeliveryBundle` artifact linkage, and `AgentStateArchive`
+  refs; storage backends hold the bytes.
+- `StorageBackend`: a payload byte store below Agentgres-governed artifact refs,
+  such as local disk, S3/object stores, Filecoin, CAS/IPFS, provider blob
+  stores, customer VPC blob stores, or storage engines used as payload engines.
+  A storage backend is not an authority layer.
+- `FilecoinCASBackend`: a content-addressed storage backend profile for payload
+  availability. It may hold packages, evidence, traces, checkpoints, delivery
+  payloads, datasets, and sealed archive bytes, but Agentgres owns their
+  meaning and wallet.network owns authority/decryption.
+- `CanonImplementationMatrix`: the meta index that maps architecture concepts
+  to canonical owner docs, current durable forms, object/event/receipt/projection
+  status, code anchors, and conformance hooks. It is a build map, not a
+  competing source of doctrine.
+- `CanonReadabilityAudit`: the meta workplan for keeping architecture docs
+  enterable, terminology-clean, and implementation-oriented without weakening
+  precision.
 - `GovernedAutonomousSystemChain`: a system-local execution chain with state,
   policy, service modules, proposals, receipts, state roots, and governed
   upgrades. It is "L1-like" in the local state-machine sense, but it is not
@@ -108,6 +154,21 @@ compliance acronyms for hidden audit material.
   state should bind it to a worker manifest, install/license right, runtime
   assignment, persistence profile, authority policy, memory/archive policy, and
   subscription or entitlement.
+- `AgentWiki`: the user-facing and agent-facing semantic memory surface for
+  preferences, procedures, doctrine, route notes, failure lessons, source-backed
+  claims, and project knowledge. It may hold draft or local memory, but durable
+  behavior-affecting wiki changes become canonical only when admitted through
+  Agentgres operations such as `ContextMutation` with policy, authority,
+  provenance, and receipts.
+- `ioi-memory`: the live product-memory implementation boundary for runtime
+  memory, thread checkpoints, core and archival memory, local evidence blobs,
+  and enrichment jobs. It is a context-memory plane, not Agentgres and not IOI
+  L1. `SCS` is legacy terminology removed as the product-memory architecture by
+  ADR 0001.
+- `ContextMemoryPlane`: the adjacent memory/retrieval plane that governs what
+  agents can know, remember, and retrieve. Agentgres governs which context
+  changes are canonical, replayable, portable, shared, policy-relevant, or
+  settlement-relevant.
 - `RuntimeSubscription`: an entitlement or billing object that keeps a managed
   worker instance available by per-invocation use, warm runtime allocation, or
   zero-to-idle restore policy. It does not make aiagent.xyz or ioi.ai the
@@ -243,7 +304,8 @@ compliance acronyms for hidden audit material.
   state. It is a first-class Agentgres format, but not canonical live state by
   itself. Agentgres keeps canonical operation refs, state roots, object heads,
   lifecycle metadata, archive refs, authority metadata, and receipts;
-  Filecoin/CAS or another blob store keeps bytes.
+  storage backends such as Filecoin/CAS, S3, local disk, or another blob store
+  keep bytes.
 - `AgentgresPostgresBridge`: a Postgres-compatible read/query surface over
   named Agentgres projections. Canonical writes still go through Agentgres
   operations unless a bridge write explicitly compiles into an operation with

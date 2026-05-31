@@ -205,11 +205,11 @@ pub(crate) fn projection_probe_host_exclusion_terms(
         out.into_iter().collect()
     }
 
-    let protect_document_briefing_authority_hosts =
-        query_prefers_document_briefing_layout(query_contract)
+    let protect_document_report_authority_hosts =
+        query_prefers_document_report_layout(query_contract)
             && !query_requests_comparison(query_contract)
             && analyze_query_facets(query_contract).grounded_external_required;
-    let protected_host_keys = if protect_document_briefing_authority_hosts {
+    let protected_host_keys = if protect_document_report_authority_hosts {
         let mut protected = BTreeSet::new();
         for hint in candidate_hints {
             let title = hint.title.as_deref().unwrap_or_default();
@@ -226,7 +226,7 @@ pub(crate) fn projection_probe_host_exclusion_terms(
             );
             let grounded_authority_host =
                 source_has_document_authority(query_contract, &hint.url, title, &hint.excerpt)
-                    && (source_has_briefing_standard_identifier_signal(
+                    && (source_has_evidence_standard_identifier_signal(
                         query_contract,
                         &hint.url,
                         title,
@@ -435,7 +435,7 @@ pub(crate) fn query_probe_grounded_authority_host_exclusion_terms(
         }
     }
 
-    let authority_recovery_applicable = query_prefers_document_briefing_layout(query_contract)
+    let authority_recovery_applicable = query_prefers_document_report_layout(query_contract)
         && !query_requests_comparison(query_contract)
         && analyze_query_facets(query_contract).grounded_external_required
         && retrieval_contract
@@ -446,7 +446,7 @@ pub(crate) fn query_probe_grounded_authority_host_exclusion_terms(
     }
 
     let expected_count =
-        retrieval_contract_required_citations_per_story(retrieval_contract, query_contract).max(1);
+        retrieval_contract_required_citations_per_source_cluster(retrieval_contract, query_contract).max(1);
     let required_domain_floor =
         retrieval_contract_required_distinct_domain_floor(retrieval_contract, query_contract)
             .min(expected_count);
@@ -464,7 +464,7 @@ pub(crate) fn query_probe_grounded_authority_host_exclusion_terms(
     }
 
     let semantic_tokens = query_semantic_anchor_tokens(query_contract);
-    let identifier_floor_required = briefing_standard_identifier_group_floor(query_contract) > 0
+    let identifier_floor_required = evidence_standard_identifier_group_floor(query_contract) > 0
         || semantic_tokens.contains("standard")
         || semantic_tokens.contains("standards");
     let mut observed_domains = BTreeSet::new();
@@ -481,7 +481,7 @@ pub(crate) fn query_probe_grounded_authority_host_exclusion_terms(
             continue;
         }
         authority_source_count = authority_source_count.saturating_add(1);
-        if source_has_briefing_standard_identifier_signal(
+        if source_has_evidence_standard_identifier_signal(
             query_contract,
             &hint.url,
             title,
@@ -494,7 +494,7 @@ pub(crate) fn query_probe_grounded_authority_host_exclusion_terms(
             if !normalized.is_empty() {
                 // Only suppress the exact authority host we already exhausted.
                 // Do not widen the exclusion to the registrable authority domain
-                // (for example `nist.gov`), because document briefings often need
+                // (for example `nist.gov`), because document reports often need
                 // corroboration from a sibling public host such as `www.nist.gov`
                 // after reading an initial `csrc.nist.gov` authority page.
                 authority_hosts.insert(normalized);
@@ -521,7 +521,7 @@ pub(crate) fn query_document_authority_site_terms(
     candidate_hints: &[PendingSearchReadSummary],
     require_surface_hit: bool,
 ) -> Vec<String> {
-    let authority_recovery_applicable = query_prefers_document_briefing_layout(query_contract)
+    let authority_recovery_applicable = query_prefers_document_report_layout(query_contract)
         && !query_requests_comparison(query_contract)
         && analyze_query_facets(query_contract).grounded_external_required
         && retrieval_contract
@@ -532,7 +532,7 @@ pub(crate) fn query_document_authority_site_terms(
     }
 
     let expected_count =
-        retrieval_contract_required_citations_per_story(retrieval_contract, query_contract).max(1);
+        retrieval_contract_required_citations_per_source_cluster(retrieval_contract, query_contract).max(1);
     let required_authority_floor = retrieval_contract_primary_authority_source_slot_cap(
         retrieval_contract,
         query_contract,
@@ -547,7 +547,7 @@ pub(crate) fn query_document_authority_site_terms(
             continue;
         }
         authority_source_count = authority_source_count.saturating_add(1);
-        if source_has_briefing_standard_identifier_signal(
+        if source_has_evidence_standard_identifier_signal(
             query_contract,
             &hint.url,
             title,
@@ -556,7 +556,7 @@ pub(crate) fn query_document_authority_site_terms(
             authority_identifier_sources = authority_identifier_sources.saturating_add(1);
         }
     }
-    let identifier_floor_required = briefing_standard_identifier_group_floor(query_contract) > 0
+    let identifier_floor_required = evidence_standard_identifier_group_floor(query_contract) > 0
         || semantic_tokens.contains("standard")
         || semantic_tokens.contains("standards");
     let authority_floor_satisfied = authority_source_count >= required_authority_floor

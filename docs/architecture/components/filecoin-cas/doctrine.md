@@ -1,235 +1,36 @@
-# Filecoin / CAS / CDN Artifact Plane Specification
+# Deprecated: Filecoin/CAS Component Doctrine
 
-Status: canonical architecture authority.
-Canonical owner: this file for artifact/payload availability doctrine; low-level artifact APIs live in [`filecoin-cas-api-and-artifact-refs.md`](./api-artifact-refs.md).
-Supersedes: overlapping artifact-storage prose when payload authority conflicts.
-Superseded by: none.
-Last alignment pass: 2026-05-14.
+Status: deprecated redirect.
+Canonical owner: none; this path is retained for historical links only.
+Superseded by: [`../storage-backends/filecoin-cas.md`](../storage-backends/filecoin-cas.md) and [`../agentgres/artifact-ref-plane.md`](../agentgres/artifact-ref-plane.md).
+Last alignment pass: 2026-05-30.
 
-## Canonical Definition
+This file used to describe Filecoin/CAS as the artifact plane. That wording is
+now deprecated because it can make Filecoin/CAS look like a peer authority
+component beside Agentgres.
 
-**The Filecoin/CAS/CDN plane provides immutable payload availability for canonical Web4 packages, artifacts, evidence, receipts, ontology packs, data recipes, transformation outputs, checkpoints, delivery bundles, training payloads, benchmark payloads, and sealed state archive bytes.**
+Use the current canon instead:
 
-It stores bytes. It does not define truth by itself.
+- [`../agentgres/artifact-ref-plane.md`](../agentgres/artifact-ref-plane.md)
+  owns `ArtifactRef`, `PayloadRef`, `EvidenceBundle`, `DeliveryBundle`,
+  `AgentStateArchive`, artifact lifecycle, policy/authority/receipt linkage,
+  replay/import metadata, restore validity, state-root validity, and
+  content-addressed commitments.
+- [`../storage-backends/doctrine.md`](../storage-backends/doctrine.md)
+  defines storage backends as payload byte stores only.
+- [`../storage-backends/filecoin-cas.md`](../storage-backends/filecoin-cas.md)
+  defines Filecoin/CAS/IPFS as one storage backend profile.
 
-Trust comes from:
-
-- content hashes;
-- signed manifests;
-- Agentgres refs;
-- receipt bundles;
-- IOI L1 commitments when applicable.
-
-## Relationship To Agentgres
-
-Filecoin/CAS is not the live Agentgres database. It is the
-content-addressed payload and evidence availability layer.
-
-Agentgres stores canonical operational state in its own domain-local state
-engine: operations, object heads, constraints, indexes, projections,
-subscriptions, receipt metadata, delivery state, and quality/contribution
-ledgers. Filecoin/CAS stores immutable payload bytes and large bundles that
-Agentgres references by hash/CID.
-
-The boundary is:
+Correct boundary:
 
 ```text
-Agentgres:
-  hot operational state
-  canonical operation log
-  object heads
-  indexes
-  constraints
-  projections
-  subscriptions
-  receipt metadata
-  artifact refs
-  delivery state
-  quality/contribution ledgers
-
-Filecoin / CAS / CDN:
-  worker packages
-  model artifacts
-  ontology packs
-  data recipes
-  canonical object model payloads
-  connector mapping payloads
-  transformation outputs
-  training datasets
-  evaluation datasets
-  curated example corpora
-  benchmark suites
-  evaluation artifacts
-  model checkpoints
-  large files
-  reports
-  screenshots/videos
-  evidence bundles
-  trace bundles
-  projection checkpoints
-  historical snapshots
-  sealed encrypted state archives
+Agentgres artifact-ref plane = meaning, refs, lifecycle, policy, receipts, restore validity
+Storage backends              = payload bytes
+Filecoin/CAS/IPFS             = one content-addressed storage backend profile
 ```
 
-Snapshots and projection checkpoints stored here are immutable evidence/export
-objects. They can accelerate repair, replay, audit, cold storage, or client
-hydration, but they do not replace the Agentgres operation log or live object
-state.
-
-## What It Stores
-
-The artifact plane may store:
-
-- worker packages;
-- service packages;
-- encrypted capsules;
-- workflow packages;
-- model artifacts;
-- ontology packs;
-- data recipes;
-- canonical object model payloads;
-- connector mapping payloads;
-- transformation outputs;
-- training datasets;
-- evaluation datasets;
-- curated example corpora;
-- benchmark suites;
-- evaluation reports;
-- model checkpoints;
-- reports;
-- screenshots;
-- generated files;
-- notebooks;
-- CAD/Blender artifacts;
-- delivery bundles;
-- evidence bundles;
-- trace bundles;
-- projection checkpoints;
-- receipt bundles;
-- sealed state archive bytes;
-- dormant run archives;
-- manifests;
-- static app bundles.
-
-## What It Does Not Store as Authority
-
-It does not own:
-
-- canonical application state;
-- Agentgres object heads;
-- Agentgres indexes or projections;
-- Agentgres subscription state;
-- Agentgres transaction admission;
-- wallet authority;
-- IOI L1 settlement;
-- worker license rights;
-- service escrow state;
-- policy approval decisions;
-- runtime execution truth.
-
-Those belong to Agentgres, wallet.network, IOI L1, and runtimes.
-
-## File vs Artifact
-
-- **File**: user-facing payload someone opens, exports, attaches, or receives.
-- **Artifact**: protocol-level immutable payload, bundle member, checkpoint, receipt, manifest, or generated output.
-
-Both should be content-addressed.
-
-## Artifact Reference
-
-Agentgres should store refs, not bytes:
-
-```yaml
-ArtifactRef:
-  id: artifact_123
-  cid: bafy...
-  sha256: ...
-  media_type: application/pdf
-  size: 1048576
-  privacy_class: scoped_private
-  provenance:
-    run_id: run_123
-    worker_id: ai://workers.foo
-  access_policy: policy_hash
-  receipt_refs:
-    - receipt_abc
-```
-
-## Privacy Classes
+Anti-pattern:
 
 ```text
-public_plaintext
-shared_encrypted
-scoped_private
-local_ephemeral
+Filecoin/CAS = artifact authority layer
 ```
-
-Rules:
-
-1. Availability and readability are separate.
-2. Public ciphertext is not public plaintext.
-3. Key release is wallet/policy controlled.
-4. Sensitive plaintext should not be stored in public artifact systems unencrypted.
-
-## CDN Role
-
-A CDN/gateway may serve content for latency, but it is not trusted.
-
-Autopilot or browser clients must verify:
-
-- CID/hash;
-- manifest signature;
-- expected size/media type;
-- privacy policy;
-- receipt linkage when applicable.
-
-## Worker Package Flow
-
-```text
-publisher uploads signed/encrypted package to Filecoin/CAS
-→ manifest root committed via aiagent.xyz / IOI L1 contract
-→ Autopilot Desktop or an IOI daemon downloads through CDN/gateway
-→ runtime verifies hash/signature
-→ wallet.network approves authority grants
-→ package executes if policy permits
-```
-
-## Delivery Artifact Flow
-
-```text
-worker/service produces artifact
-→ daemon hashes/encrypts payload
-→ stores payload in Filecoin/CAS/CDN
-→ Agentgres records ArtifactRef and receipt
-→ sas.xyz/aiagent.xyz displays delivery state
-→ user verifies/downloads artifact
-```
-
-## Sealed State Archive Flow
-
-```text
-Agentgres identifies idle/inactive/terminal runtime state
-→ daemon/domain kernel requests sealed export
-→ dcrypt or equivalent sealing layer encrypts archive to authorized recipients
-→ archive bytes are stored in Filecoin/CAS/CDN/blob storage by CID/hash
-→ Agentgres records archive ref, state root, policy hash, object heads, and receipts
-→ wallet.network controls restore/decryption authority
-→ daemon rehydrates through Agentgres restore/import operations
-```
-
-The archive bytes are cold durable payloads. The Agentgres archive record and
-restore receipts remain canonical state.
-
-## Invariants
-
-1. No artifact is trusted by URL alone.
-2. No package installs without manifest/hash verification.
-3. No private plaintext without policy-controlled key release.
-4. No deletion assumption for public/shared storage; design privacy accordingly.
-5. Bulky evidence belongs here, not on IOI L1.
-6. Sealed state archives stored here are not live Agentgres state authority.
-
-## One-Line Doctrine
-
-> **Filecoin/CAS makes Web4 payloads available; Agentgres and IOI commitments make them meaningful.**

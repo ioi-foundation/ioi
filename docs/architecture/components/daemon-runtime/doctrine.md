@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for daemon/CLI ownership boundaries and IOI CLI operator-surface positioning; low-level daemon endpoints live in [`ioi-daemon-runtime-api.md`](./api.md).
 Supersedes: older CLI/daemon wording that implies the CLI owns runtime semantics or is primarily a chain/domain generator.
 Superseded by: none.
-Last alignment pass: 2026-05-25.
+Last alignment pass: 2026-05-30.
 
 ## Canonical Definition
 
@@ -71,6 +71,17 @@ Compute-node rule:
 
 > **Runtime and compute nodes initialize IOI daemon/runtime-node profiles. The
 > SDK is a client over that substrate, not the substrate booted on the node.**
+
+Default harness rule:
+
+> **The Default Harness Profile is the daemon-executed orchestration profile for
+> bounded autonomous work. It is not a peer runtime beside the daemon.**
+
+The implementation-grade profile contract lives in
+[`default-harness-profile.md`](./default-harness-profile.md). It defines the
+loop-native lifecycle, context topology, action proposal and gate path,
+Agentgres admission rules, artifact/ref boundary, output ownership pass, and
+conformance phases used by the Default Harness Profile.
 
 ## Autopilot Node Boundary
 
@@ -258,7 +269,7 @@ It is responsible for:
 - enforcing policy/firewall gates;
 - requesting wallet authority scopes;
 - syncing outputs to Agentgres;
-- fetching packages from Filecoin/CAS;
+- fetching packages from selected storage backends through Agentgres-governed refs;
 - streaming status to apps.
 
 ## Deployment Targets
@@ -348,9 +359,14 @@ execution semantics, policy gates, receipts, replay, and canonical state updates
 The daemon should use stable envelopes:
 
 ```text
+IntentContract
+RuntimePlan
 RunRequest
 TaskCapsule
 RuntimeToolContract
+ActionProposal
+GateResult
+NormalizedObservation
 AgentRuntimeEvent
 AuthorityScopeRequest
 PolicyDecision
@@ -358,6 +374,7 @@ ModelInvocationReceipt
 ToolExecutionReceipt
 ArtifactRef
 ReceiptBundle
+OutputOwnershipPass
 DeliveryBundle
 QualityRecord
 ```
@@ -432,6 +449,44 @@ Sensitive actions require:
 2. **Mutual Blind** — no TEE; redacted/minimized capsules, no final authority.
 3. **Enterprise Secure** — TEE-attested node; sealed secret release.
 4. **Hosted trusted** — IOI/provider-managed runtime under contractual trust.
+
+## Anti-Patterns
+
+Do not model the daemon/runtime layer as:
+
+```text
+SDK = runtime substrate
+CLI/TUI = private execution loop
+Autopilot Workbench = runtime truth
+Default Harness Profile = peer daemon
+Authority Gateway adapter = total control over opaque third-party agents
+runtime node = application-domain truth store
+model reply = completed run proof
+```
+
+Correct model:
+
+```text
+daemon owns execution semantics
+clients request, inspect, steer, and approve
+profiles configure daemon-executed behavior
+Agentgres records operational truth
+wallet.network authorizes effects
+receipts and replay make work accountable
+```
+
+## Related Canon
+
+- [`default-harness-profile.md`](./default-harness-profile.md): default
+  daemon-executed loop-native orchestration profile.
+- [`api.md`](./api.md): public daemon/runtime API endpoints and action
+  mediation.
+- [`events-receipts-delivery-bundles.md`](./events-receipts-delivery-bundles.md):
+  runtime event, receipt, trace, replay, and delivery objects.
+- [`../wallet-network/doctrine.md`](../wallet-network/doctrine.md): authority
+  and approval substrate.
+- [`../agentgres/doctrine.md`](../agentgres/doctrine.md): operational truth
+  substrate behind daemon execution.
 
 ## Invariants
 

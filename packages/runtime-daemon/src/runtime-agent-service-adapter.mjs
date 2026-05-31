@@ -140,8 +140,16 @@ function invokeJsonCommand({
     let stderr = "";
     let timedOut = false;
     let settled = false;
+    let timer = null;
     const operation = request.operation;
     const bridgeId = request.bridge_id;
+    const armActivityTimeout = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        timedOut = true;
+        child.kill("SIGKILL");
+      }, timeoutMs);
+    };
     const finish = (error, value) => {
       if (settled) return;
       settled = true;
@@ -152,10 +160,7 @@ function invokeJsonCommand({
         resolve(value);
       }
     };
-    const timer = setTimeout(() => {
-      timedOut = true;
-      child.kill("SIGKILL");
-    }, timeoutMs);
+    armActivityTimeout();
 
     child.on("error", (error) => {
       finish(
@@ -174,6 +179,7 @@ function invokeJsonCommand({
       if (!line && !final) return;
       const streamEvent = bridgeRuntimeEventFromLine(line);
       if (streamEvent) {
+        armActivityTimeout();
         try {
           onRuntimeEvent?.(streamEvent);
         } catch (error) {

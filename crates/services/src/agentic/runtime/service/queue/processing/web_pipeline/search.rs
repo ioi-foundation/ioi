@@ -4,7 +4,9 @@ use crate::agentic::runtime::service::queue::support::{
     retrieval_contract_is_generic_headline_collection, retrieval_contract_min_sources,
     retrieval_contract_required_distinct_domain_floor,
 };
-use crate::agentic::runtime::service::queue::web_pipeline::resolved_query_contract_with_locality_hint;
+use crate::agentic::runtime::service::queue::web_pipeline::{
+    candidate_time_sensitive_resolvable_payload, resolved_query_contract_with_locality_hint,
+};
 
 include!("search/alignment.rs");
 

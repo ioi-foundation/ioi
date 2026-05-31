@@ -3372,6 +3372,8 @@ function sdkMessageTypeFromRuntimeEvent(event: RuntimeEventEnvelope): IOISDKMess
     case "thread.started":
     case "turn.started":
       return "run_started";
+    case "answer.delta":
+      return "answer_delta";
     case "reasoning.delta":
     case "item.delta":
       return "delta";

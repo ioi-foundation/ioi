@@ -355,6 +355,8 @@ function runtimeBridgeRunEventType(event = {}) {
     case "item.delta":
     case "reasoning.delta":
       return "delta";
+    case "answer.delta":
+      return "answer_delta";
     case "usage.delta":
       return "usage_delta";
     case "context.pressure_delta":

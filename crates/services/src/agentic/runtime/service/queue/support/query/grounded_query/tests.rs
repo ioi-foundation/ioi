@@ -22,7 +22,7 @@ fn grounded_search_query_does_not_inject_subject_specific_standard_identifiers()
 }
 
 #[test]
-fn grounded_search_query_strips_document_briefing_output_scaffolding() {
+fn grounded_search_query_strips_document_report_output_scaffolding() {
     let query = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
     let contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).unwrap();
 
@@ -71,7 +71,7 @@ fn grounded_search_query_uses_local_business_discovery_basis_for_menu_comparison
 }
 
 #[test]
-fn grounded_probe_query_adds_public_authority_site_for_document_briefing_recovery() {
+fn grounded_probe_query_adds_public_authority_site_for_document_report_recovery() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let contract =
@@ -372,7 +372,7 @@ fn grounded_probe_query_omits_legacy_excerpt_fips_reference_for_ir_publication()
 }
 
 #[test]
-fn grounded_search_query_bootstraps_public_authority_site_for_document_briefings() {
+fn grounded_search_query_bootstraps_public_authority_site_for_document_reports() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
     let contract =

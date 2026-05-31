@@ -1,50 +1,3 @@
-fn deterministic_parity_search_sources(query: &str, limit: u32) -> Option<Vec<WebSource>> {
-    let normalized = query.to_ascii_lowercase();
-    let sources = if normalized.contains("akt")
-        || normalized.contains("akash")
-        || normalized.contains("filecoin")
-    {
-        vec![
-            (
-                "https://example.com/crypto/akt-price-today-2026",
-                "AKT Price Today",
-                "AKT price today is $4.20 USD with a +6.1% 24h change and elevated decentralized compute demand.",
-            ),
-            (
-                "https://example.com/crypto/filecoin-price-today-2026",
-                "Filecoin Price Today",
-                "Filecoin price today is $3.10 USD with a -1.2% 24h change and stable decentralized storage utilization.",
-            ),
-        ]
-    } else if normalized.contains("local ai model runtime")
-        || (normalized.contains("runtime issue") && normalized.contains("model"))
-    {
-        vec![(
-            "https://www.nist.gov/news-events/news/2026/local-ai-model-runtime-issue",
-            "Local AI Model Runtime Issue",
-            "Current-source retrieval item for local AI runtime issue diagnosis.",
-        )]
-    } else {
-        return None;
-    };
-
-    let effective_limit = limit.max(1) as usize;
-    let mut sources = sources
-        .into_iter()
-        .enumerate()
-        .map(|(idx, source)| WebSource {
-            source_id: source_id_for_url(source.0),
-            rank: Some((idx + 1) as u32),
-            domain: domain_for_url(source.0),
-            title: Some(source.1.to_string()),
-            snippet: Some(source.2.to_string()),
-            url: source.0.to_string(),
-        })
-        .collect::<Vec<_>>();
-    sources.truncate(effective_limit);
-    Some(sources)
-}
-
 pub async fn edge_web_search(
     browser: &BrowserDriver,
     query: &str,
@@ -52,34 +5,6 @@ pub async fn edge_web_search(
     retrieval_contract: &WebRetrievalContract,
     limit: u32,
 ) -> Result<WebEvidenceBundle> {
-    if let Some(sources) = deterministic_parity_search_sources(query, limit) {
-        let source_url = sources
-            .first()
-            .map(|source| source.url.clone())
-            .unwrap_or_else(|| build_ddg_serp_url(query.trim()));
-        return Ok(WebEvidenceBundle {
-            schema_version: 1,
-            retrieved_at_ms: now_ms(),
-            tool: "web__search".to_string(),
-            backend: "edge:search:parity-fixture".to_string(),
-            query: Some(query.trim().to_string()),
-            url: Some(source_url),
-            sources,
-            source_observations: vec![],
-            documents: vec![],
-            provider_candidates: vec![WebProviderCandidate {
-                provider_id: "edge:search:parity-fixture".to_string(),
-                affordances: vec![SearchStructuralAffordance::QueryableIndex],
-                request_url: Some(build_ddg_serp_url(query.trim())),
-                source_count: 1,
-                success: true,
-                selected: true,
-                challenge_reason: None,
-            }],
-            retrieval_contract: Some(retrieval_contract.clone()),
-        });
-    }
-
     if let Some(fixture_urls) = reliability_fixture_sources() {
         let effective_limit = limit.max(1) as usize;
         let sources = fixture_urls

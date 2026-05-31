@@ -4,13 +4,17 @@ Status: canonical navigation and source-of-authority index.
 Canonical owner: this file for architecture navigation; see [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) for subject ownership.
 Supersedes: ad hoc architecture navigation in plans/specs when links or ownership disagree.
 Superseded by: none.
-Last alignment pass: 2026-05-25.
+Last alignment pass: 2026-05-30.
 
 ## Purpose
 
 This pack distills the IOI / canonical Web4 architecture into separate
 authority documents so each facet has a clear role, boundary, and dependency
 surface.
+
+If you are new to the canon, start with [`START_HERE.md`](./START_HERE.md). It
+gives the five-minute stack model, role-based reading paths, common boundary
+mistakes, and links to the implementation matrix.
 
 The core doctrine is:
 
@@ -26,6 +30,7 @@ The Autopilot/autonomous-execution canon is:
 
 ```text
 IOI daemon = hypervisor/control plane for autonomous execution
+Default Harness Profile = daemon-executed loop-native orchestration profile
 Autopilot Node = local autonomous-system settlement and interop domain
 Autopilot Workbench = IDE-grade operator console
 Electron/VS Code fork = canonical app shell
@@ -71,8 +76,11 @@ Read the stack this way:
   enterprises, third-party autonomous systems, and AS-L1s;
 - wallet.network authorizes identity, secrets, approvals, payments, data use,
   and decryption;
-- Filecoin/CAS stores payload bytes, packages, artifacts, evidence bundles,
-  checkpoints, and sealed archive bytes;
+- Agentgres artifact refs define payload meaning, lifecycle, policy, authority,
+  receipts, replay/import metadata, archive/restore validity, and state-root
+  validity;
+- storage backends such as local disk, S3/object stores, Filecoin, CAS/IPFS, and
+  provider/customer blob stores hold payload bytes;
 - MoW routes bounded workers by policy, benchmarks, receipts, cost, trust, and
   contribution quality;
 - Autopilot Workbench is the IDE-grade operator console for autonomous systems,
@@ -95,8 +103,8 @@ Read the stack this way:
   remote-runtime access.
 
 Agentgres should not be read as "state stored as Filecoin blobs." Agentgres is
-the state machine and query substrate; Filecoin/CAS is the content-addressed
-payload and evidence availability layer.
+the state machine, query substrate, and artifact-ref authority; storage backends
+are payload byte stores beneath Agentgres-governed refs.
 
 These documents should be treated as architectural authority prose. They are
 not implementation tickets, but they should constrain implementation choices,
@@ -132,13 +140,15 @@ distilled back into this architecture pack or into an accepted decision record.
 - [`ioi-l1-mainnet.md`](./foundations/ioi-l1-mainnet.md) — IOI L1 duties, L0/L1 boundary, smart contracts, gas boundaries.
 - [`domain-kernels.md`](./foundations/domain-kernels.md) — L0 substrate, fractal/edge-in topology, application-domain kernels, and Agentgres hosting.
 - [`agentgres/doctrine.md`](./components/agentgres/doctrine.md) — per-domain state substrate for canonical operational truth.
+- [`agentgres/artifact-ref-plane.md`](./components/agentgres/artifact-ref-plane.md) — ArtifactRef, PayloadRef, EvidenceBundle, DeliveryBundle, AgentStateArchive refs, lifecycle, authority, receipts, and restore validity.
 - [`agentgres/postgres-bridge-and-readiness-contract.md`](./components/agentgres/postgres-bridge-and-readiness-contract.md) — Postgres bridge posture, consistency levels, durability/readiness contract.
 - [`daemon-runtime/doctrine.md`](./components/daemon-runtime/doctrine.md) — universal execution endpoint for local, hosted, and DePIN nodes.
 - [`wallet-network/doctrine.md`](./components/wallet-network/doctrine.md) — identity, secrets, authority scopes, approvals, payments.
 - [`domains/aiagent/worker-marketplace.md`](./domains/aiagent/worker-marketplace.md) — worker marketplace, managed instances, and routing application domain.
 - [`domains/sas/service-marketplace.md`](./domains/sas/service-marketplace.md) — Service-as-Software outcome marketplace application domain.
 - [`domains/ioi-ai/control-plane.md`](./domains/ioi-ai/control-plane.md) — lightweight account, device, restore, publishing, and remote-runtime control plane.
-- [`filecoin-cas/doctrine.md`](./components/filecoin-cas/doctrine.md) — package, artifact, evidence, checkpoint availability.
+- [`storage-backends/doctrine.md`](./components/storage-backends/doctrine.md) — storage backends as payload byte stores below Agentgres-governed artifact refs.
+- [`storage-backends/filecoin-cas.md`](./components/storage-backends/filecoin-cas.md) — Filecoin/CAS/IPFS as one content-addressed storage backend profile.
 - [`daemon-runtime/runtime-nodes-tee-depin.md`](./components/daemon-runtime/runtime-nodes-tee-depin.md) — local/hosted/DePIN/TEE execution modes.
 - [`model-router/doctrine.md`](./components/model-router/doctrine.md) — model registry, BYOK, local mounting, run-to-idle compute.
 - [`connectors-tools/doctrine.md`](./components/connectors-tools/doctrine.md) — typed tools, connector authority, risk classes.
@@ -156,7 +166,7 @@ distilled back into this architecture pack or into an accepted decision record.
 - [`wallet-network/api-authority-scopes.md`](./components/wallet-network/api-authority-scopes.md) — wallet.network authority scopes, grants, approvals, brokerage, revocation.
 - [`ioi-l1-contract-interfaces.md`](./foundations/ioi-l1-contract-interfaces.md) — IOI L1 contract interfaces.
 - [`daemon-runtime/task-capsule-protocol.md`](./components/daemon-runtime/task-capsule-protocol.md) — runtime assignment, task capsules, privacy modes, attestation.
-- [`filecoin-cas/api-artifact-refs.md`](./components/filecoin-cas/api-artifact-refs.md) — artifact/package refs, bundles, verification.
+- [`agentgres/artifact-ref-plane.md`](./components/agentgres/artifact-ref-plane.md) — artifact/package refs, bundles, archive refs, verification, and restore validity.
 - [`model-router/api-byok-mounting.md`](./components/model-router/api-byok-mounting.md) — model provider, endpoint, route, invocation, BYOK, mounting.
 - [`connectors-tools/contracts.md`](./components/connectors-tools/contracts.md) — RuntimeToolContract, connector/tool APIs, risk classes.
 - [`daemon-runtime/events-receipts-delivery-bundles.md`](./components/daemon-runtime/events-receipts-delivery-bundles.md) — runtime events, receipts, delivery bundles, traces, quality.
@@ -205,7 +215,8 @@ supporting file.
 | sas.xyz | Canonical Web4 marketplace for autonomous service outcomes, including Worker Training as Service-as-Software. |
 | ioi.ai | Lightweight account/control plane for devices, restore routing, publishing, sync metadata, and remote-runtime entitlement. |
 | ai:// | Naming and manifest resolution protocol for intelligence, workers, services, apps, and domains. |
-| Filecoin/CAS | Immutable payload availability for packages, artifacts, evidence, receipts, and checkpoints. |
+| Agentgres Artifact-Ref Plane | Artifact identity, payload refs, evidence/delivery/archive refs, lifecycle, policy, authority, receipts, replay/import metadata, restore validity, and state-root validity. |
+| Storage Backends | Payload byte stores such as local disk, S3/object stores, Filecoin, CAS/IPFS, provider blob stores, and customer VPC blob stores. |
 | DePIN/TEE Nodes | Execution venues that run IOI daemon profiles, not the Web4 apps themselves. |
 
 ## Core Layering
@@ -240,7 +251,7 @@ Client Surfaces
   Autopilot Workbench, Autopilot Desktop, agent-ide, IOI Authority Gateway adapters, IOI CLI/TUI, @ioi/agent-sdk, IOI ADK, browser apps, harnesses, benchmarks
 
 Storage Plane
-  Filecoin/CAS/CDN for packages, artifacts, evidence bundles, checkpoints, sealed state archive bytes
+  local disk, S3/object stores, Filecoin, CAS/IPFS, provider/customer blob stores for payload bytes
 
 Authority Plane
   wallet.network for identity, secrets, authority scopes, payments, approvals, revocation
@@ -252,11 +263,11 @@ Authority Plane
 2. aiagent.xyz and sas.xyz are not separate chains by default. They are canonical Web4 application domains with their own Agentgres backends and IOI L1 smart-contract settlement rails.
 3. IOI L1 is not the operational notebook. It stores registry, rights, economic commitments, disputes, and sparse roots.
 4. IOI gas is consumed at coordination and settlement boundaries, not per model thought, tool call, or workflow node.
-5. The default harness must be marketplace-neutral and must not cannibalize worker/service markets through silent appropriation.
+5. The Default Harness Profile must be daemon-executed, marketplace-neutral, and must not cannibalize worker/service markets through silent appropriation.
 6. wallet.network is the authority plane. Agents and runtimes receive authority scopes, not raw secrets.
 7. DePIN nodes are execution venues; Web4 apps define state, rights, UX, contracts, and outcomes.
-8. Filecoin/CAS stores payloads; trust comes from manifests, hashes, signatures, receipts, and settlement roots.
-9. Agentgres state MUST NOT be reduced to opaque Filecoin blobs. Agentgres owns canonical operations, object heads, indexes, constraints, projections, subscriptions, delivery state, receipt metadata, and artifact refs.
+8. Storage backends store payloads; trust comes from Agentgres refs, manifests, hashes, signatures, receipts, policy, authority, and settlement roots when applicable.
+9. Agentgres state MUST NOT be reduced to opaque Filecoin blobs. Agentgres owns canonical operations, object heads, indexes, constraints, projections, subscriptions, delivery state, receipt metadata, artifact refs, archive refs, replay/import metadata, and restore validity.
 10. Compute nodes initialize IOI daemon/runtime-node profiles, optionally bridging into runtime services; the SDK is a client over that substrate, not the substrate itself.
 11. CLI/TUI, SDK, and ADK are separate surfaces: CLI/TUI is the operator interface, SDK is the low-level client library, and ADK is the autonomous-system builder framework.
 12. CLI/TUI, agent-ide, SDK, ADK, Autopilot Desktop, harnesses, and benchmarks must share daemon/domain contracts rather than creating private runtime truth paths.

@@ -462,7 +462,7 @@ export class AgentgresRuntimeStateStore {
 
   resolveModelRoute(options = {}, context = {}) {
     const model = options.model ?? {};
-    const requestedModel = model.id ?? model.model ?? model.modelId ?? "local:auto";
+    const requestedModel = model.id ?? model.model ?? model.modelId ?? "auto";
     const routeId = model.routeId ?? model.route_id ?? model.route ?? options.routeId ?? options.route_id ?? "route.local-first";
     const capability = model.capability ?? options.capability ?? "chat";
     const policy = modelPolicyForOptions(options);
@@ -3366,6 +3366,7 @@ export class AgentgresRuntimeStateStore {
       sessionId: runtimeSessionIdForAgent(agent),
       workspaceRoot: agent.cwd,
       createdAt: new Date().toISOString(),
+      streamedEventsOnly: true,
     };
     let bridgeResult;
     try {
@@ -15830,7 +15831,7 @@ function initialThreadRuntimeControls(options = {}, modelRoute = {}, now = new D
     approvalMode,
     approval_mode: approvalMode,
     model: {
-      id: modelRoute.requestedModelId ?? options.model?.id ?? options.model?.model ?? "local:auto",
+      id: modelRoute.requestedModelId ?? options.model?.id ?? options.model?.model ?? "auto",
       routeId: modelRoute.routeId ?? options.model?.routeId ?? options.routeId ?? "route.local-first",
       selectedModel: modelRoute.selectedModel ?? null,
       endpointId: modelRoute.endpointId ?? null,
@@ -15863,7 +15864,7 @@ function normalizedAgentRuntimeControls(agent = {}) {
     approvalMode,
     approval_mode: approvalMode,
     model: {
-      id: model.id ?? agent.requestedModelId ?? agent.modelId ?? "local:auto",
+      id: model.id ?? agent.requestedModelId ?? agent.modelId ?? "auto",
       routeId: model.routeId ?? model.route_id ?? agent.modelRouteId ?? "route.local-first",
       selectedModel: model.selectedModel ?? model.selected_model ?? agent.modelId ?? null,
       endpointId: model.endpointId ?? model.endpoint_id ?? agent.modelRouteEndpointId ?? null,
@@ -15906,7 +15907,7 @@ function requestWithThreadRuntimeControls(agent, request = {}) {
 
 function threadRuntimeControlModelForOptions(model = {}) {
   return {
-    id: model.id ?? "local:auto",
+    id: model.id ?? "auto",
     routeId: model.routeId ?? model.route_id ?? "route.local-first",
     reasoningEffort: model.reasoningEffort ?? model.reasoning_effort ?? undefined,
     privacy: model.privacy ?? undefined,
@@ -15956,7 +15957,7 @@ function threadRuntimeControlModelInput(request = {}, controls = {}, agent = {})
     existingModel.id ??
     agent.requestedModelId ??
     agent.modelId ??
-    "local:auto";
+    "auto";
   const routeId =
     optionalString(bodyModel.routeId ?? bodyModel.route_id ?? bodyModel.route) ??
     optionalString(request.routeId ?? request.route_id ?? request.route) ??
@@ -16072,8 +16073,8 @@ function modelWorkflowContext({ model = {}, options = {}, context = {} } = {}) {
 function modelRouteBindingFromReceipt(receipt, requestedModelId) {
   const decision = routeDecision.routeDecisionProjectionFromReceipt(receipt);
   return {
-    requestedModelId: decision?.requestedModel ?? requestedModelId ?? "local:auto",
-    selectedModel: decision?.selectedModel ?? requestedModelId ?? "local:auto",
+    requestedModelId: decision?.requestedModel ?? requestedModelId ?? "auto",
+    selectedModel: decision?.selectedModel ?? requestedModelId ?? null,
     routeId: decision?.routeId ?? null,
     endpointId: decision?.endpointId ?? null,
     providerId: decision?.providerId ?? null,

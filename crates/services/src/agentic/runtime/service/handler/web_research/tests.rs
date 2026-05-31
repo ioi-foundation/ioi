@@ -88,6 +88,48 @@ fn normalized_web_search_query_keeps_generic_local_business_discovery_queries_ge
 }
 
 #[test]
+fn normalized_web_search_query_replaces_studio_mode_labels_with_user_goal() {
+    let goal = "Which is a better investment right now, Akash or Filecoin?";
+
+    let normalized = normalized_web_search_query(goal, "agent").expect("normalized query");
+
+    assert_eq!(normalized, goal);
+}
+
+#[test]
+fn normalized_web_search_query_rejects_vague_market_comparison_queries() {
+    let goal = "Which is a better investment right now, Akash or Filecoin?";
+    let retrieval_query =
+        "Which is a better investment right now, Akash or Filecoin? price values 3 independent sources";
+
+    let normalized = normalized_web_search_query(goal, retrieval_query).expect("normalized query");
+    let lower = normalized.to_ascii_lowercase();
+
+    assert!(
+        lower.contains("akash") && lower.contains("filecoin"),
+        "normalized query should keep asset anchors: {normalized}"
+    );
+    assert!(
+        lower.contains("price") || lower.contains("quote"),
+        "normalized query should request market quote evidence: {normalized}"
+    );
+    assert!(
+        !lower.contains("which is a better investment"),
+        "vague synthesis phrasing should not be sent to search providers: {normalized}"
+    );
+}
+
+#[test]
+fn normalized_web_search_query_preserves_symbol_specific_market_probe_queries() {
+    let goal = "Which is a better investment right now, Akash or Filecoin?";
+    let retrieval_query = "akash live price quote market cap USD today";
+
+    let normalized = normalized_web_search_query(goal, retrieval_query).expect("normalized query");
+
+    assert_eq!(normalized, retrieval_query);
+}
+
+#[test]
 fn normalize_web_research_tool_call_preserves_memory_search_for_citation_audit_verifier() {
     let resolved = resolved_intent_with_contract(
         IntentScopeProfile::Conversation,

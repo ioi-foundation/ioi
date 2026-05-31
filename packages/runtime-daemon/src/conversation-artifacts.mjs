@@ -147,6 +147,23 @@ function generatedWebFilesFromInput(value = {}) {
   };
 }
 
+function generatedArtifactInput(input = {}) {
+  return input.generatedFiles || input.generated_files || input.generatedWeb || input.generated_web || null;
+}
+
+function artifactSourceRequiredError(message) {
+  const error = new Error(message);
+  error.code = "artifact_source_required";
+  error.status = 422;
+  return error;
+}
+
+function assertStaticWebsiteGeneratedSource(classId, generatedFiles) {
+  if (classId !== "static_html_js") return;
+  if (generatedWebFilesFromInput(generatedFiles)) return;
+  throw artifactSourceRequiredError("Static website artifacts require model-authored HTML/CSS/JS source.");
+}
+
 function htmlPage(title, body, { script = "", style = "" } = {}) {
   return `<!doctype html>
 <html lang="en">
@@ -176,16 +193,6 @@ function htmlPage(title, body, { script = "", style = "" } = {}) {
     ${script ? `<script>${script}</script>` : ""}
   </body>
 </html>`;
-}
-
-function topicFromPrompt(prompt = "", fallback = "the requested topic") {
-  const text = String(prompt || "").replace(/\s+/g, " ").trim();
-  const match = text.match(/\b(?:explains?|about|for|on)\s+([^.!?\n]{3,90})/i);
-  const topic = String(match?.[1] || "")
-    .replace(/\b(?:as|with|using|and)\b.*$/i, "")
-    .replace(/^["'`]+|["'`]+$/g, "")
-    .trim();
-  return topic || fallback;
 }
 
 function escapeHtml(value) {
@@ -233,75 +240,25 @@ function staticWebFiles({ dir, title, prompt, generatedFiles }) {
   const css = path.join(dir, "style.css");
   const js = path.join(dir, "app.js");
   const generated = generatedWebFilesFromInput(generatedFiles);
-  if (generated) {
-    let htmlText = /<html[\s>]/i.test(generated.html)
-      ? generated.html
-      : `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(generated.title || title)}</title></head><body>${generated.html}</body></html>`;
-    if (generated.css && !/<style[\s>]/i.test(htmlText)) {
-      htmlText = /<\/head>/i.test(htmlText)
-        ? htmlText.replace(/<\/head>/i, `<style>${generated.css}</style></head>`)
-        : htmlText.replace(/<body[^>]*>/i, (match) => `${match}<style>${generated.css}</style>`);
-    }
-    if (generated.js && !/<script[\s>]/i.test(htmlText)) {
-      htmlText = /<\/body>/i.test(htmlText)
-        ? htmlText.replace(/<\/body>/i, `<script>${generated.js}</script></body>`)
-        : `${htmlText}<script>${generated.js}</script>`;
-    }
-    writeText(css, generated.css);
-    writeText(js, generated.js);
-    writeText(html, htmlText);
-    return { sources: [html, css, js], projections: [html, css, js], previews: [html] };
+  if (!generated) {
+    throw artifactSourceRequiredError("Static website artifacts require model-authored HTML/CSS/JS source.");
   }
-  const topic = topicFromPrompt(prompt, title.replace(/\s+website$/i, ""));
-  const cssText = `:root{color-scheme:light;--ink:#132033;--muted:#536173;--line:#d8e1ef;--panel:#ffffff;--wash:#f3f7fb;--accent:#0f7a8a}*{box-sizing:border-box}body{margin:0;font-family:Inter,ui-sans-serif,system-ui,sans-serif;background:var(--wash);color:var(--ink)}header{padding:42px 42px 30px;background:linear-gradient(135deg,#082b36,#0f7a8a);color:white}nav{display:flex;gap:16px;font-size:13px;text-transform:uppercase;letter-spacing:.08em;opacity:.82}h1{max-width:780px;margin:46px 0 14px;font-size:44px;line-height:1.05;letter-spacing:0}header p{max-width:720px;font-size:18px;line-height:1.55;color:#dff7fb}.shell{max-width:1040px;margin:0 auto;padding:34px 24px 48px}.lead{display:grid;grid-template-columns:1.1fr .9fr;gap:22px;align-items:stretch}.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:22px}.panel h2,.panel h3{margin:0 0 10px}.panel p,.panel li{color:var(--muted);line-height:1.6}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}.callout{border-left:4px solid var(--accent)}button{border:0;border-radius:6px;background:var(--accent);color:white;padding:10px 14px;font-weight:700}@media(max-width:760px){header{padding:28px 22px}h1{font-size:32px}.lead,.grid{grid-template-columns:1fr}}`;
-  const jsText = "document.querySelector('[data-artifact-action]')?.addEventListener('click',()=>window.parent.postMessage({type:'artifactActionRequest',action:'ask'},'*'));";
-  writeText(css, cssText);
-  writeText(js, jsText);
-  writeText(html, `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>${escapeHtml(title)}</title>
-    <style>${cssText}</style>
-  </head>
-  <body>
-    <header>
-      <nav><span>Overview</span><span>Risks</span><span>Action plan</span></nav>
-      <h1>${escapeHtml(title)}</h1>
-      <p>A clear guide to ${escapeHtml(topic)}: what it is, why it matters, and how people can prepare without hype.</p>
-    </header>
-    <main class="shell">
-      <section class="lead">
-        <article class="panel">
-          <h2>What it means</h2>
-          <p>${escapeHtml(topic)} sits at the edge of computing and security. The core idea is simple: tomorrow's machines may solve some math problems faster than today's cryptography expects.</p>
-          <p>This page explains the topic in plain language and turns the technical risk into practical next steps.</p>
-        </article>
-        <aside class="panel callout">
-          <h3>Plain-English takeaway</h3>
-          <p>Post-quantum planning is less about panic and more about inventory, migration paths, and choosing algorithms designed for a quantum-capable future.</p>
-          <button data-artifact-action>Ask Agent for edits</button>
-        </aside>
-      </section>
-      <section class="grid" aria-label="Key sections">
-        <article class="panel">
-          <h3>Why now</h3>
-          <p>Systems created today may need to protect data for years. Long-lived secrets should be evaluated before quantum-capable attacks are practical.</p>
-        </article>
-        <article class="panel">
-          <h3>What changes</h3>
-          <p>Teams move from vulnerable public-key schemes toward post-quantum algorithms, hybrid handshakes, and audited dependency paths.</p>
-        </article>
-        <article class="panel">
-          <h3>How to start</h3>
-          <p>Map cryptographic assets, identify upgrade owners, test supported libraries, and create a phased migration plan.</p>
-        </article>
-      </section>
-    </main>
-    <script>${jsText}</script>
-  </body>
-</html>`);
+  let htmlText = /<html[\s>]/i.test(generated.html)
+    ? generated.html
+    : `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(generated.title || title)}</title></head><body>${generated.html}</body></html>`;
+  if (generated.css && !/<style[\s>]/i.test(htmlText)) {
+    htmlText = /<\/head>/i.test(htmlText)
+      ? htmlText.replace(/<\/head>/i, `<style>${generated.css}</style></head>`)
+      : htmlText.replace(/<body[^>]*>/i, (match) => `${match}<style>${generated.css}</style>`);
+  }
+  if (generated.js && !/<script[\s>]/i.test(htmlText)) {
+    htmlText = /<\/body>/i.test(htmlText)
+      ? htmlText.replace(/<\/body>/i, `<script>${generated.js}</script></body>`)
+      : `${htmlText}<script>${generated.js}</script>`;
+  }
+  writeText(css, generated.css);
+  writeText(js, generated.js);
+  writeText(html, htmlText);
   return { sources: [html, css, js], projections: [html, css, js], previews: [html] };
 }
 
@@ -426,13 +383,15 @@ export class ConversationArtifactStore {
   create(input = {}) {
     const classId = artifactClass(input.artifactClass ?? input.artifact_class ?? input.class);
     const title = String(input.title || defaultTitleForClass(classId));
+    const generatedFiles = generatedArtifactInput(input);
+    assertStaticWebsiteGeneratedSource(classId, generatedFiles);
     const artifactId = `artifact_${slug(classId)}_${hash(`${title}:${Date.now()}:${crypto.randomUUID()}`)}`;
     const revision = this.#createRevisionFiles({
       artifactId,
       classId,
       title,
       prompt: input.prompt || input.summary || "",
-      generatedFiles: input.generatedFiles || input.generated_files || input.generatedWeb || input.generated_web,
+      generatedFiles,
       revisionIndex: 1,
       summary: input.summary || "Initial artifact revision.",
     });
@@ -464,8 +423,8 @@ export class ConversationArtifactStore {
       state_label: classId === "diff_patch" ? "Approval required" : "Preview ready",
       stateLabel: classId === "diff_patch" ? "Approval required" : "Preview ready",
       summary: input.summary || `${renderer.label} is ready.`,
-      generated_files: input.generatedFiles || input.generated_files || input.generatedWeb || input.generated_web || null,
-      generatedFiles: input.generatedFiles || input.generated_files || input.generatedWeb || input.generated_web || null,
+      generated_files: generatedFiles,
+      generatedFiles,
       renderer: {
         ...renderer,
         sandboxed: true,
@@ -501,7 +460,7 @@ export class ConversationArtifactStore {
         ? {
             status: "projection_ready",
             exactLayoutFidelity: "not_claimed",
-            message: "Original bytes are preserved; editable projection, compare, and export are deterministic.",
+            message: "Original bytes are preserved; editable projection, compare, and export use a reproducible converter path.",
           }
         : null,
       created_at: createdAt,
@@ -573,6 +532,11 @@ export class ConversationArtifactStore {
         receipt,
       };
     }
+    const suppliedGeneratedFiles = generatedArtifactInput(input);
+    const generatedFilesForRevision = suppliedGeneratedFiles || record.generated_files || record.generatedFiles;
+    if (["edit", "rebuild", "compare"].includes(action)) {
+      assertStaticWebsiteGeneratedSource(record.artifact_class, generatedFilesForRevision);
+    }
     const receipt = this.#receipt({
       artifactId,
       action,
@@ -586,12 +550,12 @@ export class ConversationArtifactStore {
         classId: record.artifact_class,
         title: record.title,
         prompt: input.instruction || input.prompt || record.summary,
-        generatedFiles: input.generatedFiles || input.generated_files || input.generatedWeb || input.generated_web || record.generated_files || record.generatedFiles,
+        generatedFiles: generatedFilesForRevision,
         revisionIndex: record.revisions.length + 1,
         summary: action === "rebuild" ? "Rebuilt preview after Agent edit." : "Prepared editable revision and compare preview.",
       });
-      if (input.generatedFiles || input.generated_files || input.generatedWeb || input.generated_web) {
-        record.generated_files = input.generatedFiles || input.generated_files || input.generatedWeb || input.generated_web;
+      if (suppliedGeneratedFiles) {
+        record.generated_files = suppliedGeneratedFiles;
         record.generatedFiles = record.generated_files;
       }
       record.revisions.push(revision);
@@ -616,7 +580,7 @@ export class ConversationArtifactStore {
         writeBuffer(exportFile, Buffer.from(`ODT_FIXTURE_REVISED_BYTES\n${record.title}\n${record.latest_revision_id}\n`));
       } else if (record.artifact_class === "pdf_preview" || action === "export_summary") {
         exportFile = path.join(exportDir, `${slug(record.title)}-summary-${hash(now)}.md`);
-        writeText(exportFile, `# ${record.title} summary\n\nDeterministic editable summary export.\n`);
+        writeText(exportFile, `# ${record.title} summary\n\nEditable summary export.\n`);
       } else if (record.artifact_class === "diff_patch") {
         exportFile = path.join(exportDir, `${slug(record.title)}-${hash(now)}.patch`);
         writeText(exportFile, "diff --git a/status.js b/status.js\n@@\n-export const label = 'old';\n+export const label = 'reviewed';\n");
@@ -631,7 +595,7 @@ export class ConversationArtifactStore {
           controls: ["observe", "take_over", "return_agent"],
         });
       } else {
-        writeText(exportFile, htmlPage(`${record.title} export`, `<h1>${escapeHtml(record.title)}</h1><p>Deterministic exported artifact revision.</p>`));
+        writeText(exportFile, htmlPage(`${record.title} export`, `<h1>${escapeHtml(record.title)}</h1><p>Exported artifact revision.</p>`));
       }
       const ref = dataRef({ artifactId, revisionId: record.latest_revision_id, role: "export", filePath: exportFile, root: this.rootDir });
       record.export_refs.push(ref);

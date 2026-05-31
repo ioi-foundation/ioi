@@ -300,6 +300,6 @@ every local projection update
 ## Non-Negotiables
 
 1. Contracts hold rights, release roots, and economic commitments, not rich operational state.
-2. Every contract root must be resolvable to Agentgres/Filecoin/CAS evidence when required.
+2. Every contract root must be resolvable to Agentgres refs and storage-backend evidence when required.
 3. Contracts should accept roots and commitments, not bulky payloads.
 4. L2/rollup is optional scaling, not base architecture.

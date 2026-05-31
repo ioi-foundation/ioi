@@ -4,7 +4,7 @@ Status: canonical documentation ownership map.
 Canonical owner: this file for where architecture subjects should be edited first.
 Supersedes: informal subject ownership scattered across plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-05-25.
+Last alignment pass: 2026-05-30.
 
 ## Purpose
 
@@ -15,6 +15,11 @@ Internal master guides are private execution scaffolding, not doctrine. They may
 carry raw comparisons, sensitive sequencing, and transitional language; any
 durable architectural decision they produce must be distilled into the canonical
 owner below or into an accepted ADR before other docs or code treat it as canon.
+
+New readers should start with [`../START_HERE.md`](../START_HERE.md). Builders
+who already know the stack can use [`implementation-matrix.md`](./implementation-matrix.md)
+to map each concept to its durable form, owner doc, code anchor, and conformance
+hook.
 
 Conflict rule:
 
@@ -27,6 +32,9 @@ Conflict rule:
    - daemon/public runtime APIs own execution semantics;
    - IOI daemon/runtime nodes are the hypervisor/control plane for
      autonomous execution;
+   - the Default Harness Profile is the daemon-executed, wallet-authorized,
+     Agentgres-backed, loop-native orchestration profile for bounded
+     autonomous work; it is not a peer runtime beside the daemon;
    - the IOI Runtime Daemon is the deterministic execution substrate for
      portable, verifiable autonomous systems;
    - Autopilot Workbench is the IDE-grade operator console, not runtime truth;
@@ -37,7 +45,19 @@ Conflict rule:
      existing IDE, CLI, browser, hosted-agent, and MCP/tool ecosystems; it is
      not a separate runtime;
    - Agentgres is operation-backed domain truth with a Postgres bridge;
-   - Filecoin/CAS is payload, evidence, archive-byte, and package availability;
+   - Agent Wiki / `ioi-memory` is the adjacent context-memory plane for what
+     agents can know, retrieve, and remember; Agentgres admits and proves
+     durable memory mutations when they become canonical, shared, portable,
+     replayable, policy-relevant, routing-relevant, training-relevant, or
+     restore-relevant;
+   - `SCS` is legacy terminology removed as the product-memory architecture by
+     ADR 0001; do not use it for new live architecture except as historical
+     context;
+   - Agentgres artifact refs own payload meaning, lifecycle, policy,
+     authority, receipts, replay/import metadata, archive/restore validity, and
+     state-root validity;
+   - storage backends such as Filecoin/CAS, S3, local disk, and object stores
+     hold payload bytes only;
    - IOI kernel is the L0 substrate;
    - IOI L1 is the public settlement, registry, dispute, and governance root;
    - autonomous systems can execute anywhere; IOI settles what matters;
@@ -98,6 +118,9 @@ Conflict rule:
 
 | Subject | Canonical Owner | Low-Level Reference | Supporting Context |
 | --- | --- | --- | --- |
+| First-read architecture path | [`START_HERE.md`](../START_HERE.md) | [`source-of-truth-map.md`](./source-of-truth-map.md), [`implementation-matrix.md`](./implementation-matrix.md), [`vocabulary.md`](./vocabulary.md) | role-based onboarding paths |
+| Concept implementation status and durable form | [`implementation-matrix.md`](./implementation-matrix.md) | subject owner docs listed per row | code anchors, conformance hooks, promotion guidance |
+| Canon readability and enterability workplan | [`canon-readability-audit.md`](./canon-readability-audit.md) | [`START_HERE.md`](../START_HERE.md), [`implementation-matrix.md`](./implementation-matrix.md) | cleanup backlog and terminology watchlist |
 | Web4 category and IOI stack | [`web4-and-ioi-stack.md`](../foundations/web4-and-ioi-stack.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | architectural-improvements plans |
 | AIIP, bounded execution domains, work interop, and cross-system handoffs | [`aiip.md`](../foundations/aiip.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) | autonomous-system settlement layer synthesis, IBC comparison notes, marketplace interop docs |
 | Governed autonomous-system chains, Autopilot nodes, and machine-economy stack | [`governed-autonomous-systems.md`](../foundations/governed-autonomous-systems.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`agentgres-state-substrate.md`](../components/agentgres/doctrine.md), [`ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) | Autopilot node, local settlement, interop, and machine-economy strategy docs |
@@ -109,6 +132,9 @@ Conflict rule:
 | Kernel/domain architecture and edge-in topology | [`domain-kernels.md`](../foundations/domain-kernels.md) | [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md) | runtime package boundaries |
 | Autonomous System Package lifecycle | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`connector-and-tool-contracts.md`](../components/connectors-tools/contracts.md) | Autopilot lifecycle clarity master guide, autonomous systems shape audit, workflow compositor docs |
 | Agentgres canonical state and Postgres bridge | [`agentgres-state-substrate.md`](../components/agentgres/doctrine.md) | [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`agentgres-postgres-bridge-and-readiness-contract.md`](../components/agentgres/postgres-bridge-and-readiness-contract.md), [`canonical-state-and-projection-system-whitepaper.md`](../components/agentgres/projection-system-reference.md) | detailed Agentgres reference module inside canonical owner, evidence/architectural-improvements-broad |
+| Agentgres artifact refs, payload refs, evidence bundles, delivery bundles, archive refs, and restore/import validity | [`agentgres-artifact-ref-plane.md`](../components/agentgres/artifact-ref-plane.md) | [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | storage backend docs, delivery/evidence docs |
+| Agent Wiki, `ioi-memory`, and context-memory admission boundary | [`agentgres-state-substrate.md`](../components/agentgres/doctrine.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`canonical-state-and-projection-system-whitepaper.md`](../components/agentgres/projection-system-reference.md) | ADR 0001, roadmap memory notes, Autopilot product context |
+| Default Harness Profile, loop-native orchestration, context topology, and output ownership | [`default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md) | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | CIRC/CEC, runtime harness code, default-harness projection/shadow/gated/live activation |
 | Autopilot Workbench, Electron/VS Code shell, shared builder substrate, and workflow compositor | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | internal product context, IDE-first Tauri retirement guide, and workflow-compositor specs |
 | IOI Authority Gateway, Autopilot Guard, and compatibility adapters | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`connector-and-tool-contracts.md`](../components/connectors-tools/contracts.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | IDE/CLI/browser adapter specs, MCP gateways, shell wrappers, Git hooks, hosted-agent gateways |
 | Daemon and public runtime API | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | Cursor SDK parity guide |
@@ -120,12 +146,13 @@ Conflict rule:
 | aiagent.xyz worker marketplace and managed instances | [`aiagent-xyz-worker-marketplace.md`](../domains/aiagent/worker-marketplace.md) | [`aiagent-xyz-worker-and-inter-agent-endpoints.md`](../domains/aiagent/worker-endpoints.md) | product context module inside canonical owner, marketplace neutrality doc |
 | sas.xyz service marketplace | [`sas-xyz-service-marketplace.md`](../domains/sas/service-marketplace.md) | [`sas-xyz-service-endpoints.md`](../domains/sas/service-endpoints.md) | product context module inside canonical owner, service settlement docs |
 | ioi.ai control plane | [`ioi-ai-control-plane.md`](../domains/ioi-ai/control-plane.md) | [`runtime-nodes-depin-tee-and-execution-privacy.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md), [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md) | product context in marketplace/CLI/litepaper docs |
-| Filecoin/CAS artifacts | [`filecoin-cas-artifact-plane.md`](../components/filecoin-cas/doctrine.md) | [`filecoin-cas-api-and-artifact-refs.md`](../components/filecoin-cas/api-artifact-refs.md) | delivery/evidence docs |
+| Storage backends | [`storage-backends-doctrine.md`](../components/storage-backends/doctrine.md) | [`filecoin-cas-backend-profile.md`](../components/storage-backends/filecoin-cas.md), [`agentgres-artifact-ref-plane.md`](../components/agentgres/artifact-ref-plane.md) | deprecated `components/filecoin-cas/*` redirect stubs |
+| Filecoin/CAS/IPFS backend profile | [`filecoin-cas-backend-profile.md`](../components/storage-backends/filecoin-cas.md) | [`storage-backends-doctrine.md`](../components/storage-backends/doctrine.md), [`agentgres-artifact-ref-plane.md`](../components/agentgres/artifact-ref-plane.md) | historical `components/filecoin-cas/*` paths |
 | Runtime nodes, hosted workers, TEE, DePIN | [`runtime-nodes-depin-tee-and-execution-privacy.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md) | [`runtime-node-and-task-capsule-protocol.md`](../components/daemon-runtime/task-capsule-protocol.md) | hosted/self-hosted proof plans |
 | Model routing, BYOK, run-to-idle | [`model-router-byok-run-to-idle.md`](../components/model-router/doctrine.md) | [`model-router-api-byok-and-mounting.md`](../components/model-router/api-byok-mounting.md) | model-router specs |
 | Connectors, tools, MCP | [`connectors-tools-and-authority-registry.md`](../components/connectors-tools/doctrine.md) | [`connector-and-tool-contracts.md`](../components/connectors-tools/contracts.md) | MCP/skills/hooks guides |
 | Events, receipts, traces, replay | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md) | runtime evidence specs |
-| Smarter-agent runtime loop | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | internal runtime loop plans |
+| Smarter-agent runtime loop | [`default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | internal runtime loop plans |
 | Marketplace neutrality and contribution accounting | [`marketplace-neutrality-and-contribution-accounting.md`](../domains/marketplace-neutrality.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | aiagent/sas docs |
 | Security/privacy/policy invariants | [`security-privacy-and-policy-invariants.md`](../foundations/security-privacy-policy-invariants.md) | [`conformance/CIRC.md`](../../conformance/agentic-runtime/CIRC.md), [`conformance/CEC.md`](../../conformance/agentic-runtime/CEC.md) | runtime invariant specs |
 

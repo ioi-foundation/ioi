@@ -7,8 +7,8 @@
 //! always-on runtime surface.
 
 use super::envelope::{
-    compile_constraint_set, score_evidence_candidate, verify_claim_envelope,
-    CandidateEvidenceScore, ConstraintScope, ConstraintSet, EnvelopeStatus, ResolutionPolicy,
+    compile_constraint_set, score_evidence_candidate, CandidateEvidenceScore, ConstraintScope,
+    ConstraintSet, ResolutionPolicy,
 };
 use crate::agentic::runtime::middleware;
 use crate::agentic::runtime::service::decision_loop::signals::{
@@ -16,7 +16,7 @@ use crate::agentic::runtime::service::decision_loop::signals::{
     has_price_quote_payload, infer_report_sections, is_mailbox_connector_intent,
     query_semantic_anchor_tokens, query_structural_directive_tokens, report_section_aliases,
     report_section_key, report_section_label, MetricAxis, MetricSchemaProfile, QueryFacetProfile,
-    ReportSectionKind, SourceSignalProfile, WEB_EVIDENCE_SIGNAL_VERSION,
+    ReportSectionKind, SourceSignalProfile,
 };
 use crate::agentic::runtime::types::{
     AgentState, PendingSearchCompletion, PendingSearchReadSummary,
@@ -24,7 +24,7 @@ use crate::agentic::runtime::types::{
 use ioi_types::app::agentic::{AgentTool, InferenceOptions, WebEvidenceBundle};
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
 use ioi_types::error::TransactionError;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::json;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
