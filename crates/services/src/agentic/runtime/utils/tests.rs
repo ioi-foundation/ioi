@@ -11,14 +11,16 @@ use crate::agentic::runtime::keys::{
     get_runtime_substrate_key,
 };
 use crate::agentic::runtime::substrate::RuntimeSubstrateSnapshot;
-use crate::agentic::runtime::trajectory::{AgentBrainRecord, AgentTrajectoryStepRecord};
+use crate::agentic::runtime::trajectory::{
+    workspace_change_record_from_tool, AgentBrainRecord, AgentTrajectoryStepRecord,
+};
 use crate::agentic::runtime::types::{
     AgentMode, AgentState, AgentStatus, ExecutionTier, ParentPlaybookRun, ParentPlaybookStatus,
 };
 use ioi_api::state::{StateAccess, StateScanIter};
 use ioi_memory::MemoryRuntime;
 use ioi_types::app::agentic::{
-    ArgumentOrigin, InstructionBindingKind, InstructionContract, InstructionSlotBinding,
+    AgentTool, ArgumentOrigin, InstructionBindingKind, InstructionContract, InstructionSlotBinding,
     IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
 };
 use ioi_types::codec;
@@ -229,6 +231,23 @@ fn persist_agent_state_writes_trajectory_and_brain_records() {
             "step=3;tool=file__edit;path=src/lib.rs".to_string(),
         ),
     );
+    let applied_change = workspace_change_record_from_tool(
+        &AgentTool::FsPatch {
+            path: "src/lib.rs".to_string(),
+            search: "old_call()".to_string(),
+            replace: "new_call()".to_string(),
+        },
+        "applied",
+        Some("pending_tool_hash:abc123".to_string()),
+        Some("step=3;tool=file__edit;path=src/lib.rs".to_string()),
+    )
+    .expect("workspace change record");
+    agent_state.tool_execution_log.insert(
+        "evidence::workspace_change_applied".to_string(),
+        crate::agentic::runtime::types::ToolCallStatus::Executed(
+            serde_json::to_string(&applied_change).expect("encode workspace change record"),
+        ),
+    );
     let mut state = MockState::default();
     let runtime = Arc::new(MemoryRuntime::open_sqlite_in_memory().expect("memory runtime"));
 
@@ -264,6 +283,10 @@ fn persist_agent_state_writes_trajectory_and_brain_records() {
         change.lifecycle == "applied"
             && change.tool_name == "file__edit"
             && change.path.as_deref() == Some("src/lib.rs")
+            && change.hunks.len() == 1
+            && change.hunks[0].search_hash.is_some()
+            && change.hunks[0].replace_hash.is_some()
+            && change.authority_ref.as_deref() == Some("pending_tool_hash:abc123")
     }));
 
     let brain_bytes = state

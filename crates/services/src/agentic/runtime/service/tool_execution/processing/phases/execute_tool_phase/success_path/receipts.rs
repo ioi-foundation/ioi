@@ -4,6 +4,7 @@ use crate::agentic::runtime::connectors::{
     connector_id_for_tool_name, connector_success_condition_verifier_bindings,
 };
 use crate::agentic::runtime::service::tool_execution::command_contract::contract_requires_success_condition_with_rules;
+use crate::agentic::runtime::trajectory::workspace_change_record_from_tool;
 
 fn record_browser_marker_receipt(
     service: &RuntimeAgentService,
@@ -311,6 +312,41 @@ pub(super) fn record_workspace_edit_receipt(
         "workspace_edit_applied",
         evidence.clone(),
     );
+    if let Some(change_record) = workspace_change_record_from_tool(
+        tool,
+        "applied",
+        agent_state
+            .pending_tool_hash
+            .map(|hash| format!("pending_tool_hash:{}", hex::encode(hash)))
+            .or_else(|| {
+                synthesized_payload_hash
+                    .clone()
+                    .map(|hash| format!("payload_hash:{hash}"))
+            }),
+        Some(evidence.clone()),
+    ) {
+        if let Ok(change_evidence) = serde_json::to_string(&change_record) {
+            record_execution_evidence_with_value(
+                &mut agent_state.tool_execution_log,
+                "workspace_change_applied",
+                change_evidence.clone(),
+            );
+            verification_checks.push(execution_evidence_key("workspace_change_applied"));
+            emit_execution_contract_receipt_event(
+                service,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                "execution",
+                "workspace_change_applied",
+                true,
+                &change_evidence,
+                None,
+                Some(tool_name.clone()),
+                synthesized_payload_hash.clone(),
+            );
+        }
+    }
     verification_checks.push(execution_evidence_key("workspace_edit_applied"));
     emit_execution_contract_receipt_event(
         service,

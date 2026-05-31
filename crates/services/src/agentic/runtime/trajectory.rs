@@ -1,5 +1,7 @@
 use crate::agentic::runtime::substrate::RuntimeSubstrateSnapshot;
 use crate::agentic::runtime::types::{AgentState, AgentStatus, ToolCallStatus};
+use ioi_crypto::algorithms::hash::sha256;
+use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::{AgentRuntimeEvent, AgentTurnPhase, EvidenceRef, StopReason};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
@@ -68,12 +70,31 @@ impl Default for AgentTrajectoryStepRecord {
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
 #[serde(default)]
 pub struct WorkspaceChangeRecord {
+    pub change_id: String,
     pub tool_name: String,
     pub path: Option<String>,
     pub lifecycle: String,
     pub edit_count: u32,
+    pub hunks: Vec<WorkspaceHunkRecord>,
+    pub before_hash: Option<String>,
+    pub after_hash: Option<String>,
     pub authority_ref: Option<String>,
+    pub receipt_ref: Option<String>,
     pub evidence_ref: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct WorkspaceHunkRecord {
+    pub hunk_index: u32,
+    pub kind: String,
+    pub line_start: Option<u32>,
+    pub line_end: Option<u32>,
+    pub search_hash: Option<String>,
+    pub replace_hash: Option<String>,
+    pub content_hash: Option<String>,
+    pub search_len: u32,
+    pub replace_len: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
@@ -266,7 +287,19 @@ fn workspace_changes_for_state(state: &AgentState) -> Vec<WorkspaceChangeRecord>
 
 fn pending_workspace_change_for_state(state: &AgentState) -> Option<WorkspaceChangeRecord> {
     let tool = pending_agent_tool(state)?;
-    workspace_change_from_tool(&tool, state.pending_tool_hash).map(|mut change| {
+    workspace_change_record_from_tool(
+        &tool,
+        if state.pending_tool_hash.is_some() {
+            "awaiting_approval"
+        } else {
+            "proposed"
+        },
+        state
+            .pending_tool_hash
+            .map(|hash| format!("pending_tool_hash:{}", hex::encode(hash))),
+        None,
+    )
+    .map(|mut change| {
         change.lifecycle = if state.pending_tool_hash.is_some() {
             "awaiting_approval".to_string()
         } else {
@@ -276,89 +309,214 @@ fn pending_workspace_change_for_state(state: &AgentState) -> Option<WorkspaceCha
     })
 }
 
-fn pending_agent_tool(state: &AgentState) -> Option<ioi_types::app::agentic::AgentTool> {
+fn pending_agent_tool(state: &AgentState) -> Option<AgentTool> {
     state
         .pending_tool_call
         .as_deref()
         .and_then(|raw| serde_json::from_str(raw).ok())
 }
 
-fn workspace_change_from_tool(
-    tool: &ioi_types::app::agentic::AgentTool,
-    tool_hash: Option<[u8; 32]>,
+pub fn workspace_change_record_from_tool(
+    tool: &AgentTool,
+    lifecycle: &str,
+    authority_ref: Option<String>,
+    receipt_ref: Option<String>,
 ) -> Option<WorkspaceChangeRecord> {
-    use ioi_types::app::agentic::AgentTool;
-
-    let (tool_name, path, edit_count) = match tool {
-        AgentTool::FsWrite { path, .. } => ("file__write", path.as_str(), 1),
-        AgentTool::FsPatch { path, .. } => ("file__edit", path.as_str(), 1),
-        AgentTool::FsMultiPatch { path, edits } => {
-            ("file__multi_edit", path.as_str(), edits.len() as u32)
+    let (tool_name, path, hunks) = match tool {
+        AgentTool::FsWrite {
+            path,
+            content,
+            line_number,
+        } => {
+            let kind = if line_number.is_some() {
+                "line_write"
+            } else {
+                "write"
+            };
+            (
+                "file__write",
+                path.as_str(),
+                vec![WorkspaceHunkRecord {
+                    hunk_index: 0,
+                    kind: kind.to_string(),
+                    line_start: *line_number,
+                    line_end: *line_number,
+                    content_hash: Some(hash_text(content)),
+                    replace_hash: Some(hash_text(content)),
+                    replace_len: content.chars().count() as u32,
+                    ..WorkspaceHunkRecord::default()
+                }],
+            )
         }
-        AgentTool::FsDelete { path, .. } => ("file__delete", path.as_str(), 1),
+        AgentTool::FsPatch {
+            path,
+            search,
+            replace,
+        } => (
+            "file__edit",
+            path.as_str(),
+            vec![WorkspaceHunkRecord {
+                hunk_index: 0,
+                kind: "replace".to_string(),
+                search_hash: Some(hash_text(search)),
+                replace_hash: Some(hash_text(replace)),
+                search_len: search.chars().count() as u32,
+                replace_len: replace.chars().count() as u32,
+                ..WorkspaceHunkRecord::default()
+            }],
+        ),
+        AgentTool::FsMultiPatch { path, edits } => (
+            "file__multi_edit",
+            path.as_str(),
+            edits
+                .iter()
+                .enumerate()
+                .map(|(index, edit)| WorkspaceHunkRecord {
+                    hunk_index: index as u32,
+                    kind: "replace".to_string(),
+                    search_hash: Some(hash_text(&edit.search)),
+                    replace_hash: Some(hash_text(&edit.replace)),
+                    search_len: edit.search.chars().count() as u32,
+                    replace_len: edit.replace.chars().count() as u32,
+                    ..WorkspaceHunkRecord::default()
+                })
+                .collect(),
+        ),
+        AgentTool::FsDelete { path, .. } => (
+            "file__delete",
+            path.as_str(),
+            vec![WorkspaceHunkRecord {
+                hunk_index: 0,
+                kind: "delete".to_string(),
+                ..WorkspaceHunkRecord::default()
+            }],
+        ),
         _ => return None,
     };
+    let path = path.trim();
+    if path.is_empty() {
+        return None;
+    }
+    let before_hash = combined_hunk_hash(&hunks, |hunk| hunk.search_hash.as_deref());
+    let after_hash = combined_hunk_hash(&hunks, |hunk| {
+        hunk.replace_hash
+            .as_deref()
+            .or(hunk.content_hash.as_deref())
+    });
+    let edit_count = hunks.len() as u32;
+    let change_seed = format!(
+        "{tool_name}\n{path}\n{lifecycle}\n{}\n{}",
+        before_hash.as_deref().unwrap_or_default(),
+        after_hash.as_deref().unwrap_or_default()
+    );
     Some(WorkspaceChangeRecord {
+        change_id: format!("workspace_change:{}", hash_text(&change_seed)),
         tool_name: tool_name.to_string(),
         path: Some(path.to_string()),
-        lifecycle: "proposed".to_string(),
+        lifecycle: lifecycle.to_string(),
         edit_count,
-        authority_ref: tool_hash.map(|hash| format!("pending_tool_hash:{}", hex::encode(hash))),
-        evidence_ref: None,
+        hunks,
+        before_hash,
+        after_hash,
+        authority_ref,
+        receipt_ref: receipt_ref.clone(),
+        evidence_ref: receipt_ref,
     })
 }
 
 fn applied_workspace_changes_for_state(state: &AgentState) -> Vec<WorkspaceChangeRecord> {
-    state
-        .tool_execution_log
-        .get("evidence::workspace_edit_applied")
-        .and_then(executed_status_value)
-        .map(|evidence| {
-            let fields = receipt_fields(evidence);
-            WorkspaceChangeRecord {
-                tool_name: fields
-                    .get("tool")
-                    .cloned()
-                    .unwrap_or_else(|| "file__edit".to_string()),
-                path: fields.get("path").cloned(),
-                lifecycle: "applied".to_string(),
-                edit_count: 1,
-                authority_ref: None,
-                evidence_ref: Some(evidence.to_string()),
-            }
-        })
-        .into_iter()
-        .collect()
+    let mut changes =
+        workspace_change_records_from_log_value(state, "evidence::workspace_change_applied");
+    if !changes.is_empty() {
+        return changes;
+    }
+    changes.extend(
+        state
+            .tool_execution_log
+            .get("evidence::workspace_edit_applied")
+            .and_then(executed_status_value)
+            .map(|evidence| {
+                let fields = receipt_fields(evidence);
+                WorkspaceChangeRecord {
+                    change_id: format!("workspace_change:{}", hash_text(evidence)),
+                    tool_name: fields
+                        .get("tool")
+                        .cloned()
+                        .unwrap_or_else(|| "file__edit".to_string()),
+                    path: fields.get("path").cloned(),
+                    lifecycle: "applied".to_string(),
+                    edit_count: 1,
+                    hunks: Vec::new(),
+                    before_hash: None,
+                    after_hash: None,
+                    authority_ref: None,
+                    receipt_ref: Some(evidence.to_string()),
+                    evidence_ref: Some(evidence.to_string()),
+                }
+            })
+            .into_iter(),
+    );
+    changes
 }
 
 fn failed_workspace_changes_for_state(state: &AgentState) -> Vec<WorkspaceChangeRecord> {
+    let mut changes =
+        workspace_change_records_from_log_value(state, "evidence::workspace_change_failed");
+    changes.extend(workspace_change_records_from_log_value(
+        state,
+        "evidence::workspace_change_rejected",
+    ));
+    changes.extend(workspace_change_records_from_log_value(
+        state,
+        "evidence::workspace_change_rolled_back",
+    ));
+    changes.extend(
+        state
+            .tool_execution_log
+            .iter()
+            .filter_map(|(tool_name, status)| {
+                let evidence = failed_or_executed_status_value(status)?;
+                if !evidence.contains("workspace_edit_applied")
+                    && !evidence.contains("search_block_not_found")
+                    && !matches!(
+                        tool_name.as_str(),
+                        "file__write" | "file__edit" | "file__multi_edit" | "file__delete"
+                    )
+                {
+                    return None;
+                }
+                let fields = receipt_fields(evidence);
+                Some(WorkspaceChangeRecord {
+                    change_id: format!("workspace_change:{}", hash_text(evidence)),
+                    tool_name: fields
+                        .get("tool")
+                        .cloned()
+                        .unwrap_or_else(|| tool_name.clone()),
+                    path: fields.get("path").cloned(),
+                    lifecycle: "failed".to_string(),
+                    edit_count: 1,
+                    hunks: Vec::new(),
+                    before_hash: None,
+                    after_hash: None,
+                    authority_ref: None,
+                    receipt_ref: Some(evidence.to_string()),
+                    evidence_ref: Some(evidence.to_string()),
+                })
+            }),
+    );
+    changes
+}
+
+fn workspace_change_records_from_log_value(
+    state: &AgentState,
+    key: &str,
+) -> Vec<WorkspaceChangeRecord> {
     state
         .tool_execution_log
-        .iter()
-        .filter_map(|(tool_name, status)| {
-            let evidence = failed_or_executed_status_value(status)?;
-            if !evidence.contains("workspace_edit_applied")
-                && !evidence.contains("search_block_not_found")
-                && !matches!(
-                    tool_name.as_str(),
-                    "file__write" | "file__edit" | "file__multi_edit" | "file__delete"
-                )
-            {
-                return None;
-            }
-            let fields = receipt_fields(evidence);
-            Some(WorkspaceChangeRecord {
-                tool_name: fields
-                    .get("tool")
-                    .cloned()
-                    .unwrap_or_else(|| tool_name.clone()),
-                path: fields.get("path").cloned(),
-                lifecycle: "failed".to_string(),
-                edit_count: 1,
-                authority_ref: None,
-                evidence_ref: Some(evidence.to_string()),
-            })
-        })
+        .get(key)
+        .and_then(executed_status_value)
+        .and_then(|value| serde_json::from_str::<WorkspaceChangeRecord>(value).ok())
+        .into_iter()
         .collect()
 }
 
@@ -389,6 +547,23 @@ fn receipt_fields(value: &str) -> std::collections::BTreeMap<String, String> {
             Some((key.to_string(), value.to_string()))
         })
         .collect()
+}
+
+fn hash_text(value: &str) -> String {
+    sha256(value.as_bytes())
+        .map(|digest| format!("sha256:{}", hex::encode(digest)))
+        .unwrap_or_else(|_| "sha256:unavailable".to_string())
+}
+
+fn combined_hunk_hash<'a>(
+    hunks: &'a [WorkspaceHunkRecord],
+    select: impl Fn(&'a WorkspaceHunkRecord) -> Option<&'a str>,
+) -> Option<String> {
+    let selected = hunks.iter().filter_map(select).collect::<Vec<_>>();
+    if selected.is_empty() {
+        return None;
+    }
+    Some(hash_text(&selected.join("\n")))
 }
 
 fn stop_gate_for_state(
