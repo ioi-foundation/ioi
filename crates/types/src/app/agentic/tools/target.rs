@@ -17,6 +17,13 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
         AgentTool::FsCreateZip { .. } => ActionTarget::Custom("file__zip".into()),
         AgentTool::FsMove { .. } => ActionTarget::Custom("file__move".into()),
         AgentTool::FsCopy { .. } => ActionTarget::Custom("file__copy".into()),
+        AgentTool::WorkspaceChangeStatus { .. } => {
+            ActionTarget::Custom("workspace_change__status".into())
+        }
+        AgentTool::WorkspaceChangeReject { .. } => {
+            ActionTarget::Custom("workspace_change__reject".into())
+        }
+        AgentTool::WorkspaceChangeRollback { .. } => ActionTarget::FsWrite,
 
         AgentTool::SysExec { .. }
         | AgentTool::SysExecSession { .. }

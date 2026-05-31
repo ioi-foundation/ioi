@@ -379,7 +379,10 @@ impl ToolExecutor {
             | AgentTool::FsCreateZip { .. }
             | AgentTool::FsMove { .. }
             | AgentTool::FsCopy { .. }
-            | AgentTool::FsDelete { .. } => {
+            | AgentTool::FsDelete { .. }
+            | AgentTool::WorkspaceChangeStatus { .. }
+            | AgentTool::WorkspaceChangeReject { .. }
+            | AgentTool::WorkspaceChangeRollback { .. } => {
                 filesystem::handle(self, tool, session_id, step_index).await
             }
 

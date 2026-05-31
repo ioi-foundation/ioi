@@ -4,7 +4,9 @@ use crate::agentic::runtime::connectors::{
     connector_id_for_tool_name, connector_success_condition_verifier_bindings,
 };
 use crate::agentic::runtime::service::tool_execution::command_contract::contract_requires_success_condition_with_rules;
-use crate::agentic::runtime::trajectory::workspace_change_record_from_tool;
+use crate::agentic::runtime::trajectory::{
+    workspace_change_record_from_tool, WorkspaceChangeRecord,
+};
 
 fn record_browser_marker_receipt(
     service: &RuntimeAgentService,
@@ -143,6 +145,36 @@ pub(super) fn workspace_read_receipt_details(tool: &AgentTool, step_index: u32) 
         }
         _ => None,
     }
+}
+
+pub(crate) fn workspace_change_lifecycle_receipt_details(
+    tool: &AgentTool,
+    history_entry: Option<&str>,
+) -> Option<(&'static str, &'static str, String)> {
+    let (receipt_name, tool_name) = match tool {
+        AgentTool::WorkspaceChangeStatus { .. } => {
+            ("workspace_change_status", "workspace_change__status")
+        }
+        AgentTool::WorkspaceChangeReject { .. } => {
+            ("workspace_change_rejected", "workspace_change__reject")
+        }
+        AgentTool::WorkspaceChangeRollback { .. } => {
+            ("workspace_change_rolled_back", "workspace_change__rollback")
+        }
+        _ => return None,
+    };
+    let evidence = history_entry?.trim();
+    if evidence.is_empty() {
+        return None;
+    }
+    if matches!(
+        tool,
+        AgentTool::WorkspaceChangeReject { .. } | AgentTool::WorkspaceChangeRollback { .. }
+    ) && serde_json::from_str::<WorkspaceChangeRecord>(evidence).is_err()
+    {
+        return None;
+    }
+    Some((receipt_name, tool_name, evidence.to_string()))
 }
 
 fn install_resolution_receipt_evidence(verification_checks: &[String]) -> Option<String> {
@@ -359,6 +391,43 @@ pub(super) fn record_workspace_edit_receipt(
         &evidence,
         None,
         Some(tool_name),
+        synthesized_payload_hash,
+    );
+}
+
+pub(super) fn record_workspace_change_lifecycle_receipt(
+    service: &RuntimeAgentService,
+    agent_state: &mut AgentState,
+    verification_checks: &mut Vec<String>,
+    session_id: [u8; 32],
+    step_index: u32,
+    resolved_intent_id: &str,
+    synthesized_payload_hash: Option<String>,
+    tool: &AgentTool,
+    history_entry: Option<&str>,
+) {
+    let Some((receipt_name, tool_name, evidence)) =
+        workspace_change_lifecycle_receipt_details(tool, history_entry)
+    else {
+        return;
+    };
+    record_execution_evidence_with_value(
+        &mut agent_state.tool_execution_log,
+        receipt_name,
+        evidence.clone(),
+    );
+    verification_checks.push(execution_evidence_key(receipt_name));
+    emit_execution_contract_receipt_event(
+        service,
+        session_id,
+        step_index,
+        resolved_intent_id,
+        "execution",
+        receipt_name,
+        true,
+        &evidence,
+        None,
+        Some(tool_name.to_string()),
         synthesized_payload_hash,
     );
 }

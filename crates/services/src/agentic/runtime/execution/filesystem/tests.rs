@@ -2,8 +2,9 @@ use super::{
     apply_patch, copy_path_deterministic, create_directory_deterministic,
     create_zip_from_directory_deterministic, delete_path_deterministic, edit_line_content,
     fuzzy_find_indices, list_directory_entries, move_path_deterministic, resolve_home_directory,
-    resolve_tool_path, search_files, stat_path_deterministic,
+    resolve_tool_path, search_files, stat_path_deterministic, workspace_change_status_output,
 };
+use serde_json::json;
 use std::fs;
 use std::io::Read;
 #[cfg(unix)]
@@ -151,6 +152,34 @@ fn resolve_tool_path_expands_tilde_working_directory() {
     let resolved = resolve_tool_path("workspace/file.txt", Some("~"))
         .expect("path should resolve against home");
     assert_eq!(resolved, home.join("workspace/file.txt"));
+}
+
+#[test]
+fn workspace_change_status_output_summarizes_lifecycle_rows() {
+    let output = workspace_change_status_output(vec![
+        json!({
+            "change_id": "workspace_change:one",
+            "tool_name": "file__edit",
+            "path": "src/lib.rs",
+            "lifecycle": "applied",
+            "edit_count": 1,
+            "hunks": []
+        }),
+        json!({
+            "change_id": "workspace_change:two",
+            "tool_name": "file__edit",
+            "path": "src/main.rs",
+            "lifecycle": "rejected",
+            "edit_count": 1,
+            "hunks": []
+        }),
+    ])
+    .expect("status should encode");
+    let payload: serde_json::Value = serde_json::from_str(&output).expect("status json");
+
+    assert_eq!(payload["total"], 2);
+    assert_eq!(payload["applied"], 1);
+    assert_eq!(payload["rejected"], 1);
 }
 
 #[test]

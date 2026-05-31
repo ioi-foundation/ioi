@@ -23,6 +23,8 @@ pub(crate) use path::resolve_tool_path;
 use search::search_files;
 
 pub use handler::handle;
+#[cfg(test)]
+use handler::workspace_change_status_output;
 
 #[cfg(test)]
 mod tests;

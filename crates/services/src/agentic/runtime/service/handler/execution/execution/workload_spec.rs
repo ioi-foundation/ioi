@@ -31,7 +31,10 @@ fn runtime_target_for_tool(tool: &AgentTool) -> RuntimeTarget {
         | AgentTool::FsCreateZip { .. }
         | AgentTool::FsMove { .. }
         | AgentTool::FsCopy { .. }
-        | AgentTool::FsDelete { .. } => RuntimeTarget::Filesystem,
+        | AgentTool::FsDelete { .. }
+        | AgentTool::WorkspaceChangeStatus { .. }
+        | AgentTool::WorkspaceChangeReject { .. }
+        | AgentTool::WorkspaceChangeRollback { .. } => RuntimeTarget::Filesystem,
         AgentTool::SysExec { .. }
         | AgentTool::SysExecSession { .. }
         | AgentTool::SysExecStatus { .. }

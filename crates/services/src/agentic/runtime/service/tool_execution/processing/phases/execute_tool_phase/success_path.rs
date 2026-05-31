@@ -15,10 +15,13 @@ mod receipts;
 use chat_context::{compact_tool_history_entry_for_chat, tool_history_message_content};
 use receipts::{
     record_browser_success_markers, record_install_success_contract_receipts,
-    record_workspace_edit_receipt, record_workspace_read_receipt,
+    record_workspace_change_lifecycle_receipt, record_workspace_edit_receipt,
+    record_workspace_read_receipt,
 };
 
 pub(crate) use receipts::record_non_command_success_receipts;
+#[cfg(test)]
+pub(super) use receipts::workspace_change_lifecycle_receipt_details;
 
 #[cfg(test)]
 use chat_context::{
@@ -487,6 +490,17 @@ pub(super) async fn handle_execution_success(
             resolved_intent_id,
             synthesized_payload_hash.clone(),
             tool,
+        );
+        record_workspace_change_lifecycle_receipt(
+            service,
+            agent_state,
+            verification_checks,
+            session_id,
+            step_index,
+            resolved_intent_id,
+            synthesized_payload_hash.clone(),
+            tool,
+            history_entry.as_deref(),
         );
 
         record_browser_success_markers(

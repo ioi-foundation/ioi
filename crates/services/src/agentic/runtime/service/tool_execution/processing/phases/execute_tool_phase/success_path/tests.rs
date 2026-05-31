@@ -1,6 +1,7 @@
 use super::{
     compact_tool_history_entry_for_chat, should_record_success_idempotence_for_tool_result,
-    tool_history_message_content, transcript_context_excerpts, workspace_edit_receipt_details,
+    tool_history_message_content, transcript_context_excerpts,
+    workspace_change_lifecycle_receipt_details, workspace_edit_receipt_details,
     workspace_read_receipt_details, TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT,
     TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT,
 };
@@ -501,4 +502,58 @@ fn workspace_read_receipt_details_include_search_as_file_context() {
     assert!(search.contains("path=."), "{search}");
     assert!(search.contains("regex=local|native|provider"), "{search}");
     assert!(search.contains("file_pattern=*.mjs"), "{search}");
+}
+
+#[test]
+fn workspace_change_lifecycle_receipt_details_accept_reject_and_rollback_records() {
+    let rejected_record = json!({
+        "change_id": "workspace_change:test",
+        "tool_name": "file__edit",
+        "path": "src/lib.rs",
+        "lifecycle": "rejected",
+        "edit_count": 1,
+        "hunks": []
+    })
+    .to_string();
+    let reject = workspace_change_lifecycle_receipt_details(
+        &AgentTool::WorkspaceChangeReject {
+            change: json!({"change_id": "workspace_change:test"}),
+            reason: "operator declined".to_string(),
+        },
+        Some(&rejected_record),
+    )
+    .expect("reject lifecycle receipt should parse");
+    assert_eq!(reject.0, "workspace_change_rejected");
+    assert_eq!(reject.1, "workspace_change__reject");
+
+    let rolled_back_record = json!({
+        "change_id": "workspace_change:test",
+        "tool_name": "file__edit",
+        "path": "src/lib.rs",
+        "lifecycle": "rolled_back",
+        "edit_count": 1,
+        "hunks": []
+    })
+    .to_string();
+    let rollback = workspace_change_lifecycle_receipt_details(
+        &AgentTool::WorkspaceChangeRollback {
+            change: json!({"change_id": "workspace_change:test"}),
+        },
+        Some(&rolled_back_record),
+    )
+    .expect("rollback lifecycle receipt should parse");
+    assert_eq!(rollback.0, "workspace_change_rolled_back");
+    assert_eq!(rollback.1, "workspace_change__rollback");
+}
+
+#[test]
+fn workspace_change_lifecycle_receipt_details_reject_invalid_transition_payloads() {
+    let details = workspace_change_lifecycle_receipt_details(
+        &AgentTool::WorkspaceChangeRollback {
+            change: json!({"change_id": "workspace_change:test"}),
+        },
+        Some("not-json"),
+    );
+
+    assert!(details.is_none());
 }

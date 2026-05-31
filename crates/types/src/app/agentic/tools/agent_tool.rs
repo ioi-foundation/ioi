@@ -536,6 +536,30 @@ pub enum AgentTool {
         overwrite: bool,
     },
 
+    /// Returns lifecycle counts for workspace changes already known to the runtime.
+    #[serde(rename = "workspace_change__status")]
+    WorkspaceChangeStatus {
+        /// Workspace change records to summarize.
+        #[serde(default)]
+        changes: Vec<serde_json::Value>,
+    },
+
+    /// Rejects a proposed or approval-waiting workspace change without mutating files.
+    #[serde(rename = "workspace_change__reject")]
+    WorkspaceChangeReject {
+        /// Workspace change record to transition.
+        change: serde_json::Value,
+        /// Operator or policy reason for rejection.
+        reason: String,
+    },
+
+    /// Rolls back an applied workspace change when exact reverse material is available.
+    #[serde(rename = "workspace_change__rollback")]
+    WorkspaceChangeRollback {
+        /// Applied workspace change record to roll back.
+        change: serde_json::Value,
+    },
+
     /// Executes a system command.
     #[serde(rename = "shell__run")]
     SysExec {
@@ -1310,6 +1334,9 @@ impl AgentTool {
                 | "file__delete"
                 | "file__create_dir"
                 | "file__zip"
+                | "workspace_change__status"
+                | "workspace_change__reject"
+                | "workspace_change__rollback"
                 | "shell__run"
                 | "shell__start"
                 | "shell__reset"

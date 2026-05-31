@@ -28,6 +28,9 @@ fn is_expected_egress_tool_exhaustive(tool: &AgentTool) -> bool {
         | AgentTool::FsDelete { .. }
         | AgentTool::FsCreateDirectory { .. }
         | AgentTool::FsCreateZip { .. }
+        | AgentTool::WorkspaceChangeStatus { .. }
+        | AgentTool::WorkspaceChangeReject { .. }
+        | AgentTool::WorkspaceChangeRollback { .. }
         | AgentTool::SysExec { .. }
         | AgentTool::SysExecSession { .. }
         | AgentTool::SysExecStatus { .. }
@@ -242,6 +245,29 @@ fn filesystem_delete_target_maps_to_fs_write_scope() {
         ignore_missing: false,
     };
     assert_eq!(tool.target(), crate::app::ActionTarget::FsWrite);
+}
+
+#[test]
+fn workspace_change_tools_map_to_runtime_scopes() {
+    let status = AgentTool::WorkspaceChangeStatus { changes: vec![] };
+    assert_eq!(
+        status.target(),
+        crate::app::ActionTarget::Custom("workspace_change__status".into())
+    );
+
+    let reject = AgentTool::WorkspaceChangeReject {
+        change: json!({"change_id": "workspace_change:test"}),
+        reason: "operator declined".to_string(),
+    };
+    assert_eq!(
+        reject.target(),
+        crate::app::ActionTarget::Custom("workspace_change__reject".into())
+    );
+
+    let rollback = AgentTool::WorkspaceChangeRollback {
+        change: json!({"change_id": "workspace_change:test"}),
+    };
+    assert_eq!(rollback.target(), crate::app::ActionTarget::FsWrite);
 }
 
 #[test]
@@ -958,4 +984,13 @@ fn media_extract_tools_are_reserved_native_names() {
         "media__extract_transcript"
     ));
     assert!(AgentTool::is_reserved_tool_name("media__extract_evidence"));
+}
+
+#[test]
+fn workspace_change_tools_are_reserved_native_names() {
+    assert!(AgentTool::is_reserved_tool_name("workspace_change__status"));
+    assert!(AgentTool::is_reserved_tool_name("workspace_change__reject"));
+    assert!(AgentTool::is_reserved_tool_name(
+        "workspace_change__rollback"
+    ));
 }

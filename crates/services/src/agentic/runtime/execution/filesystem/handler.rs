@@ -5,6 +5,11 @@ use super::{
     stat_path_deterministic, AgentTool, ToolExecutionResult, ToolExecutor,
 };
 use crate::agentic::runtime::execution::workload;
+use crate::agentic::runtime::trajectory::{AgentTrajectoryStepRecord, WorkspaceChangeRecord};
+use crate::agentic::runtime::workspace_change::{
+    reject_workspace_change, rollback_workspace_change, workspace_change_status,
+    WorkspaceChangeLifecycleError,
+};
 use crate::agentic::web::sample_local_video_preview;
 use image::ImageFormat;
 use ioi_api::chat::extract_searchable_pdf_text;
@@ -334,6 +339,59 @@ async fn emit_fs_write_receipt(
     );
 }
 
+fn workspace_change_tool_failure(
+    prefix: &str,
+    error: WorkspaceChangeLifecycleError,
+) -> ToolExecutionResult {
+    let error_class = match error.code.as_str() {
+        "path_outside_workspace" => "PolicyBlocked",
+        "invalid_lifecycle" | "missing_path" | "missing_rollback_material" => "UnexpectedState",
+        "unsupported_rollback_tool"
+        | "empty_rollback_search"
+        | "rollback_search_not_found"
+        | "ambiguous_rollback_search" => "NoEffectAfterAction",
+        _ => "UnexpectedState",
+    };
+    ToolExecutionResult::failure(format!(
+        "ERROR_CLASS={error_class} {prefix} failed: {}",
+        error.message
+    ))
+}
+
+fn parse_workspace_change_record(
+    change: serde_json::Value,
+) -> Result<WorkspaceChangeRecord, ToolExecutionResult> {
+    serde_json::from_value(change).map_err(|error| {
+        ToolExecutionResult::failure(format!(
+            "ERROR_CLASS=UnexpectedState workspace change payload is invalid: {error}"
+        ))
+    })
+}
+
+fn parse_workspace_change_records(
+    changes: Vec<serde_json::Value>,
+) -> Result<Vec<WorkspaceChangeRecord>, ToolExecutionResult> {
+    changes
+        .into_iter()
+        .map(parse_workspace_change_record)
+        .collect::<Result<Vec<_>, _>>()
+}
+
+pub(super) fn workspace_change_status_output(
+    changes: Vec<serde_json::Value>,
+) -> Result<String, ToolExecutionResult> {
+    let changes = parse_workspace_change_records(changes)?;
+    let record = AgentTrajectoryStepRecord {
+        workspace_changes: changes,
+        ..AgentTrajectoryStepRecord::default()
+    };
+    serde_json::to_string(&workspace_change_status(&record)).map_err(|error| {
+        ToolExecutionResult::failure(format!(
+            "ERROR_CLASS=UnexpectedState failed to encode workspace change status: {error}"
+        ))
+    })
+}
+
 pub async fn handle(
     exec: &ToolExecutor,
     tool: AgentTool,
@@ -343,6 +401,59 @@ pub async fn handle(
     let cwd = exec.working_directory.as_deref();
 
     match tool {
+        AgentTool::WorkspaceChangeStatus { changes } => {
+            match workspace_change_status_output(changes) {
+                Ok(output) => ToolExecutionResult::success(output),
+                Err(result) => result,
+            }
+        }
+        AgentTool::WorkspaceChangeReject { change, reason } => {
+            let change = match parse_workspace_change_record(change) {
+                Ok(change) => change,
+                Err(result) => return result,
+            };
+            match reject_workspace_change(&change, &reason) {
+                Ok(rejected) => match serde_json::to_string(&rejected) {
+                    Ok(output) => ToolExecutionResult::success(output),
+                    Err(error) => ToolExecutionResult::failure(format!(
+                        "ERROR_CLASS=UnexpectedState failed to encode rejected workspace change: {error}"
+                    )),
+                },
+                Err(error) => workspace_change_tool_failure("Workspace change reject", error),
+            }
+        }
+        AgentTool::WorkspaceChangeRollback { change } => {
+            let change = match parse_workspace_change_record(change) {
+                Ok(change) => change,
+                Err(result) => return result,
+            };
+            let workspace_root = cwd.unwrap_or(".");
+            let rollback = rollback_workspace_change(workspace_root, &change);
+            let target_path = change.path.as_deref().unwrap_or("");
+            let result = match rollback {
+                Ok(rolled_back) => match serde_json::to_string(&rolled_back) {
+                    Ok(output) => ToolExecutionResult::success(output),
+                    Err(error) => ToolExecutionResult::failure(format!(
+                        "ERROR_CLASS=UnexpectedState failed to encode rolled back workspace change: {error}"
+                    )),
+                },
+                Err(error) => workspace_change_tool_failure("Workspace change rollback", error),
+            };
+            emit_fs_write_receipt(
+                exec,
+                session_id,
+                step_index,
+                "workspace_change__rollback",
+                "rollback",
+                target_path,
+                None,
+                None,
+                result.success,
+                result.error.as_deref(),
+            )
+            .await;
+            result
+        }
         AgentTool::FsRead { path } => {
             let resolved_path = match resolve_tool_path(&path, cwd) {
                 Ok(path) => path,
