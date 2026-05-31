@@ -587,6 +587,7 @@ pub async fn handle_action_execution(
     )
     .with_expected_visual_hash(Some(visual_phash))
     .with_workload_spec(Some(determinism.workload_spec.clone()))
+    .with_memory_runtime(service.memory_runtime.clone())
     .with_working_directory(Some(agent_state.working_directory.clone()));
 
     // Explicitly acquire lease for browser tools

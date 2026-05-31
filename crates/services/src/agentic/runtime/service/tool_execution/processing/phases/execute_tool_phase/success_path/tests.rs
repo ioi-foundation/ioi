@@ -517,7 +517,9 @@ fn workspace_change_lifecycle_receipt_details_accept_reject_and_rollback_records
     .to_string();
     let reject = workspace_change_lifecycle_receipt_details(
         &AgentTool::WorkspaceChangeReject {
-            change: json!({"change_id": "workspace_change:test"}),
+            change_id: Some("workspace_change:test".to_string()),
+            change: None,
+            changes: vec![],
             reason: "operator declined".to_string(),
         },
         Some(&rejected_record),
@@ -537,7 +539,9 @@ fn workspace_change_lifecycle_receipt_details_accept_reject_and_rollback_records
     .to_string();
     let rollback = workspace_change_lifecycle_receipt_details(
         &AgentTool::WorkspaceChangeRollback {
-            change: json!({"change_id": "workspace_change:test"}),
+            change_id: Some("workspace_change:test".to_string()),
+            change: None,
+            changes: vec![],
         },
         Some(&rolled_back_record),
     )
@@ -550,7 +554,9 @@ fn workspace_change_lifecycle_receipt_details_accept_reject_and_rollback_records
 fn workspace_change_lifecycle_receipt_details_reject_invalid_transition_payloads() {
     let details = workspace_change_lifecycle_receipt_details(
         &AgentTool::WorkspaceChangeRollback {
-            change: json!({"change_id": "workspace_change:test"}),
+            change_id: Some("workspace_change:test".to_string()),
+            change: None,
+            changes: vec![],
         },
         Some("not-json"),
     );

@@ -5,10 +5,11 @@ use super::{
     stat_path_deterministic, AgentTool, ToolExecutionResult, ToolExecutor,
 };
 use crate::agentic::runtime::execution::workload;
-use crate::agentic::runtime::trajectory::{AgentTrajectoryStepRecord, WorkspaceChangeRecord};
+use crate::agentic::runtime::trajectory::WorkspaceChangeRecord;
+use crate::agentic::runtime::utils::load_agent_trajectory_latest_checkpoint;
 use crate::agentic::runtime::workspace_change::{
-    reject_workspace_change, rollback_workspace_change, workspace_change_status,
-    WorkspaceChangeLifecycleError,
+    find_workspace_change_by_id, reject_workspace_change, rollback_workspace_change,
+    workspace_change_status_from_changes, WorkspaceChangeLifecycleError,
 };
 use crate::agentic::web::sample_local_video_preview;
 use image::ImageFormat;
@@ -377,19 +378,92 @@ fn parse_workspace_change_records(
         .collect::<Result<Vec<_>, _>>()
 }
 
-pub(super) fn workspace_change_status_output(
-    changes: Vec<serde_json::Value>,
-) -> Result<String, ToolExecutionResult> {
-    let changes = parse_workspace_change_records(changes)?;
-    let record = AgentTrajectoryStepRecord {
-        workspace_changes: changes,
-        ..AgentTrajectoryStepRecord::default()
+fn load_workspace_changes_from_checkpoint(
+    exec: &ToolExecutor,
+    session_id: [u8; 32],
+) -> Result<Vec<WorkspaceChangeRecord>, ToolExecutionResult> {
+    let Some(memory_runtime) = exec.memory_runtime.as_ref() else {
+        return Ok(Vec::new());
     };
-    serde_json::to_string(&workspace_change_status(&record)).map_err(|error| {
+    let Some(record) = load_agent_trajectory_latest_checkpoint(memory_runtime.as_ref(), session_id)
+        .map_err(|error| {
+            ToolExecutionResult::failure(format!(
+                "ERROR_CLASS=UnexpectedState failed to load workspace change checkpoint: {error}"
+            ))
+        })?
+    else {
+        return Ok(Vec::new());
+    };
+    Ok(record.workspace_changes)
+}
+
+fn workspace_change_status_output_from_records(
+    changes: &[WorkspaceChangeRecord],
+) -> Result<String, ToolExecutionResult> {
+    serde_json::to_string(&workspace_change_status_from_changes(changes)).map_err(|error| {
         ToolExecutionResult::failure(format!(
             "ERROR_CLASS=UnexpectedState failed to encode workspace change status: {error}"
         ))
     })
+}
+
+pub(super) fn workspace_change_status_output(
+    changes: Vec<serde_json::Value>,
+) -> Result<String, ToolExecutionResult> {
+    let changes = parse_workspace_change_records(changes)?;
+    workspace_change_status_output_from_records(&changes)
+}
+
+fn resolve_workspace_change_record(
+    exec: &ToolExecutor,
+    session_id: [u8; 32],
+    change_id: Option<String>,
+    change: Option<serde_json::Value>,
+    changes: Vec<serde_json::Value>,
+) -> Result<WorkspaceChangeRecord, ToolExecutionResult> {
+    let change_id = change_id
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    if let Some(change) = change {
+        let record = parse_workspace_change_record(change)?;
+        if let Some(change_id) = change_id.as_deref() {
+            if record.change_id != change_id {
+                return Err(workspace_change_tool_failure(
+                    "Workspace change lookup",
+                    WorkspaceChangeLifecycleError::new(
+                        "change_id_mismatch",
+                        format!(
+                            "requested change_id '{}' but payload contains '{}'",
+                            change_id, record.change_id
+                        ),
+                    ),
+                ));
+            }
+        }
+        return Ok(record);
+    }
+
+    let Some(change_id) = change_id else {
+        return Err(workspace_change_tool_failure(
+            "Workspace change lookup",
+            WorkspaceChangeLifecycleError::new(
+                "missing_change_selector",
+                "workspace change lifecycle tools require change_id or an explicit change record",
+            ),
+        ));
+    };
+
+    let mut available_changes = load_workspace_changes_from_checkpoint(exec, session_id)?;
+    if !changes.is_empty() {
+        available_changes.extend(parse_workspace_change_records(changes)?);
+    }
+    match find_workspace_change_by_id(&available_changes, &change_id) {
+        Ok(record) => Ok(record),
+        Err(error) => Err(workspace_change_tool_failure(
+            "Workspace change lookup",
+            error,
+        )),
+    }
 }
 
 pub async fn handle(
@@ -402,16 +476,31 @@ pub async fn handle(
 
     match tool {
         AgentTool::WorkspaceChangeStatus { changes } => {
-            match workspace_change_status_output(changes) {
+            let status = if changes.is_empty() {
+                match load_workspace_changes_from_checkpoint(exec, session_id) {
+                    Ok(changes) => workspace_change_status_output_from_records(&changes),
+                    Err(result) => return result,
+                }
+            } else {
+                workspace_change_status_output(changes)
+            };
+            match status {
                 Ok(output) => ToolExecutionResult::success(output),
                 Err(result) => result,
             }
         }
-        AgentTool::WorkspaceChangeReject { change, reason } => {
-            let change = match parse_workspace_change_record(change) {
-                Ok(change) => change,
-                Err(result) => return result,
-            };
+        AgentTool::WorkspaceChangeReject {
+            change_id,
+            change,
+            changes,
+            reason,
+        } => {
+            let change =
+                match resolve_workspace_change_record(exec, session_id, change_id, change, changes)
+                {
+                    Ok(change) => change,
+                    Err(result) => return result,
+                };
             match reject_workspace_change(&change, &reason) {
                 Ok(rejected) => match serde_json::to_string(&rejected) {
                     Ok(output) => ToolExecutionResult::success(output),
@@ -422,11 +511,17 @@ pub async fn handle(
                 Err(error) => workspace_change_tool_failure("Workspace change reject", error),
             }
         }
-        AgentTool::WorkspaceChangeRollback { change } => {
-            let change = match parse_workspace_change_record(change) {
-                Ok(change) => change,
-                Err(result) => return result,
-            };
+        AgentTool::WorkspaceChangeRollback {
+            change_id,
+            change,
+            changes,
+        } => {
+            let change =
+                match resolve_workspace_change_record(exec, session_id, change_id, change, changes)
+                {
+                    Ok(change) => change,
+                    Err(result) => return result,
+                };
             let workspace_root = cwd.unwrap_or(".");
             let rollback = rollback_workspace_change(workspace_root, &change);
             let target_path = change.path.as_deref().unwrap_or("");

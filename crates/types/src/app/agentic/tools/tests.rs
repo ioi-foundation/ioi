@@ -256,7 +256,9 @@ fn workspace_change_tools_map_to_runtime_scopes() {
     );
 
     let reject = AgentTool::WorkspaceChangeReject {
-        change: json!({"change_id": "workspace_change:test"}),
+        change_id: Some("workspace_change:test".to_string()),
+        change: None,
+        changes: vec![],
         reason: "operator declined".to_string(),
     };
     assert_eq!(
@@ -265,7 +267,9 @@ fn workspace_change_tools_map_to_runtime_scopes() {
     );
 
     let rollback = AgentTool::WorkspaceChangeRollback {
-        change: json!({"change_id": "workspace_change:test"}),
+        change_id: Some("workspace_change:test".to_string()),
+        change: None,
+        changes: vec![],
     };
     assert_eq!(rollback.target(), crate::app::ActionTarget::FsWrite);
 }

@@ -32,7 +32,7 @@ pub struct WorkspaceChangeLifecycleError {
 }
 
 impl WorkspaceChangeLifecycleError {
-    fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
+    pub(crate) fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
             code: code.into(),
             message: message.into(),
@@ -49,11 +49,17 @@ impl std::fmt::Display for WorkspaceChangeLifecycleError {
 impl std::error::Error for WorkspaceChangeLifecycleError {}
 
 pub fn workspace_change_status(record: &AgentTrajectoryStepRecord) -> WorkspaceChangeStatus {
+    workspace_change_status_from_changes(&record.workspace_changes)
+}
+
+pub fn workspace_change_status_from_changes(
+    changes: &[WorkspaceChangeRecord],
+) -> WorkspaceChangeStatus {
     let mut status = WorkspaceChangeStatus {
-        total: record.workspace_changes.len(),
+        total: changes.len(),
         ..WorkspaceChangeStatus::default()
     };
-    for change in &record.workspace_changes {
+    for change in changes {
         *status
             .by_lifecycle
             .entry(change.lifecycle.clone())
@@ -69,6 +75,36 @@ pub fn workspace_change_status(record: &AgentTrajectoryStepRecord) -> WorkspaceC
         }
     }
     status
+}
+
+pub fn find_workspace_change_by_id(
+    changes: &[WorkspaceChangeRecord],
+    change_id: &str,
+) -> Result<WorkspaceChangeRecord, WorkspaceChangeLifecycleError> {
+    let change_id = change_id.trim();
+    if change_id.is_empty() {
+        return Err(WorkspaceChangeLifecycleError::new(
+            "missing_change_id",
+            "workspace change lookup requires a non-empty change_id",
+        ));
+    }
+
+    let mut matches = changes
+        .iter()
+        .filter(|change| change.change_id == change_id)
+        .cloned()
+        .collect::<Vec<_>>();
+    match matches.len() {
+        0 => Err(WorkspaceChangeLifecycleError::new(
+            "change_not_found",
+            format!("workspace change '{change_id}' was not found"),
+        )),
+        1 => Ok(matches.remove(0)),
+        _ => Err(WorkspaceChangeLifecycleError::new(
+            "ambiguous_change_id",
+            format!("workspace change id '{change_id}' matched multiple records"),
+        )),
+    }
 }
 
 pub fn reject_workspace_change(
@@ -279,6 +315,29 @@ mod tests {
         assert_eq!(status.rolled_back, 1);
         assert_eq!(status.failed, 1);
         assert_eq!(status.by_lifecycle.get("applied"), Some(&1));
+    }
+
+    #[test]
+    fn finds_workspace_change_by_exact_id() {
+        let changes = vec![test_change("applied"), test_change("proposed")];
+
+        let found = find_workspace_change_by_id(&changes, "workspace_change:proposed")
+            .expect("change should resolve by exact id");
+
+        assert_eq!(found.lifecycle, "proposed");
+    }
+
+    #[test]
+    fn find_workspace_change_by_id_denies_missing_and_ambiguous_ids() {
+        let changes = vec![test_change("applied"), test_change("applied")];
+
+        let missing =
+            find_workspace_change_by_id(&changes, "workspace_change:missing").expect_err("miss");
+        assert_eq!(missing.code, "change_not_found");
+
+        let ambiguous =
+            find_workspace_change_by_id(&changes, "workspace_change:applied").expect_err("dup");
+        assert_eq!(ambiguous.code, "ambiguous_change_id");
     }
 
     #[test]

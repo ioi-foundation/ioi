@@ -539,7 +539,10 @@ pub enum AgentTool {
     /// Returns lifecycle counts for workspace changes already known to the runtime.
     #[serde(rename = "workspace_change__status")]
     WorkspaceChangeStatus {
-        /// Workspace change records to summarize.
+        /// Compatibility escape hatch for summarizing explicit workspace change records.
+        ///
+        /// Product/runtime callers should normally omit this so the daemon resolves the
+        /// current session checkpoint.
         #[serde(default)]
         changes: Vec<serde_json::Value>,
     },
@@ -547,8 +550,15 @@ pub enum AgentTool {
     /// Rejects a proposed or approval-waiting workspace change without mutating files.
     #[serde(rename = "workspace_change__reject")]
     WorkspaceChangeReject {
-        /// Workspace change record to transition.
-        change: serde_json::Value,
+        /// Daemon-owned workspace change id to transition.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        change_id: Option<String>,
+        /// Compatibility escape hatch for callers that already hold a change record.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        change: Option<serde_json::Value>,
+        /// Compatibility escape hatch for resolving change_id from explicit rows.
+        #[serde(default)]
+        changes: Vec<serde_json::Value>,
         /// Operator or policy reason for rejection.
         reason: String,
     },
@@ -556,8 +566,15 @@ pub enum AgentTool {
     /// Rolls back an applied workspace change when exact reverse material is available.
     #[serde(rename = "workspace_change__rollback")]
     WorkspaceChangeRollback {
-        /// Applied workspace change record to roll back.
-        change: serde_json::Value,
+        /// Daemon-owned workspace change id to roll back.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        change_id: Option<String>,
+        /// Compatibility escape hatch for callers that already hold a change record.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        change: Option<serde_json::Value>,
+        /// Compatibility escape hatch for resolving change_id from explicit rows.
+        #[serde(default)]
+        changes: Vec<serde_json::Value>,
     },
 
     /// Executes a system command.

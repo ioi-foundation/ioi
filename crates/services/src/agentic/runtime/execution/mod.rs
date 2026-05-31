@@ -26,6 +26,7 @@ use ioi_drivers::gui::lenses::LensRegistry;
 use ioi_drivers::gui::operator::ClickTarget;
 use ioi_drivers::mcp::McpManager;
 use ioi_drivers::terminal::TerminalDriver;
+use ioi_memory::MemoryRuntime;
 use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::{KernelEvent, WorkloadSpec};
 use serde::{Deserialize, Serialize};
@@ -194,6 +195,7 @@ pub struct ToolExecutor {
     pub(crate) inference: Arc<dyn InferenceRuntime>,
     pub(crate) pii_scrubber: Option<PiiScrubber>,
     pub(crate) workload_spec: Option<WorkloadSpec>,
+    pub(crate) memory_runtime: Option<Arc<MemoryRuntime>>,
 
     // Context fields populated via builder pattern
     pub(crate) active_window: Option<WindowInfo>,
@@ -226,6 +228,7 @@ impl ToolExecutor {
             inference,
             pii_scrubber,
             workload_spec: None,
+            memory_runtime: None,
             active_window: None,
             target_app_hint: None,
             current_tier: None,
@@ -258,6 +261,11 @@ impl ToolExecutor {
 
     pub fn with_workload_spec(mut self, workload_spec: Option<WorkloadSpec>) -> Self {
         self.workload_spec = workload_spec;
+        self
+    }
+
+    pub fn with_memory_runtime(mut self, memory_runtime: Option<Arc<MemoryRuntime>>) -> Self {
+        self.memory_runtime = memory_runtime;
         self
     }
 
