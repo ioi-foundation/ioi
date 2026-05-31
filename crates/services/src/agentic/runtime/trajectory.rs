@@ -93,6 +93,9 @@ pub struct WorkspaceHunkRecord {
     pub search_hash: Option<String>,
     pub replace_hash: Option<String>,
     pub content_hash: Option<String>,
+    pub search_text: Option<String>,
+    pub replace_text: Option<String>,
+    pub content_text: Option<String>,
     pub search_len: u32,
     pub replace_len: u32,
 }
@@ -343,6 +346,8 @@ pub fn workspace_change_record_from_tool(
                     line_end: *line_number,
                     content_hash: Some(hash_text(content)),
                     replace_hash: Some(hash_text(content)),
+                    replace_text: Some(content.clone()),
+                    content_text: Some(content.clone()),
                     replace_len: content.chars().count() as u32,
                     ..WorkspaceHunkRecord::default()
                 }],
@@ -360,6 +365,8 @@ pub fn workspace_change_record_from_tool(
                 kind: "replace".to_string(),
                 search_hash: Some(hash_text(search)),
                 replace_hash: Some(hash_text(replace)),
+                search_text: Some(search.clone()),
+                replace_text: Some(replace.clone()),
                 search_len: search.chars().count() as u32,
                 replace_len: replace.chars().count() as u32,
                 ..WorkspaceHunkRecord::default()
@@ -376,6 +383,8 @@ pub fn workspace_change_record_from_tool(
                     kind: "replace".to_string(),
                     search_hash: Some(hash_text(&edit.search)),
                     replace_hash: Some(hash_text(&edit.replace)),
+                    search_text: Some(edit.search.clone()),
+                    replace_text: Some(edit.replace.clone()),
                     search_len: edit.search.chars().count() as u32,
                     replace_len: edit.replace.chars().count() as u32,
                     ..WorkspaceHunkRecord::default()

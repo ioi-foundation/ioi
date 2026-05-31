@@ -20,6 +20,7 @@ pub mod utils;
 pub(crate) mod work_graph_goal;
 pub(crate) mod worker_context;
 pub mod worker_templates;
+pub mod workspace_change;
 
 pub use service::RuntimeAgentService;
 pub use types::{
