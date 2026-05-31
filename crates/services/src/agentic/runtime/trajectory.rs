@@ -5,6 +5,7 @@ use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::{AgentRuntimeEvent, AgentTurnPhase, EvidenceRef, StopReason};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 pub const AGENT_TRAJECTORY_STEP_SCHEMA_VERSION: &str = "ioi.agent.trajectory.step.v1";
 pub const AGENT_BRAIN_SCHEMA_VERSION: &str = "ioi.agent.brain.v1";
@@ -279,6 +280,7 @@ fn workspace_changes_for_state(state: &AgentState) -> Vec<WorkspaceChangeRecord>
     }
     changes.extend(applied_workspace_changes_for_state(state));
     changes.extend(failed_workspace_changes_for_state(state));
+    let mut changes = collapse_workspace_change_lifecycle(changes);
     changes.sort_by(|left, right| {
         left.lifecycle
             .cmp(&right.lifecycle)
@@ -286,6 +288,41 @@ fn workspace_changes_for_state(state: &AgentState) -> Vec<WorkspaceChangeRecord>
             .then_with(|| left.tool_name.cmp(&right.tool_name))
     });
     changes
+}
+
+fn workspace_change_lifecycle_priority(lifecycle: &str) -> u8 {
+    match lifecycle {
+        "rolled_back" => 60,
+        "rejected" => 50,
+        "failed" => 40,
+        "applied" => 30,
+        "awaiting_approval" => 20,
+        "proposed" => 10,
+        _ => 0,
+    }
+}
+
+fn collapse_workspace_change_lifecycle(
+    changes: Vec<WorkspaceChangeRecord>,
+) -> Vec<WorkspaceChangeRecord> {
+    let mut collapsed: BTreeMap<String, WorkspaceChangeRecord> = BTreeMap::new();
+    let mut unkeyed = Vec::new();
+    for change in changes {
+        if change.change_id.trim().is_empty() {
+            unkeyed.push(change);
+            continue;
+        }
+        match collapsed.get(&change.change_id) {
+            Some(existing)
+                if workspace_change_lifecycle_priority(&existing.lifecycle)
+                    > workspace_change_lifecycle_priority(&change.lifecycle) => {}
+            _ => {
+                collapsed.insert(change.change_id.clone(), change);
+            }
+        }
+    }
+    unkeyed.extend(collapsed.into_values());
+    unkeyed
 }
 
 fn pending_workspace_change_for_state(state: &AgentState) -> Option<WorkspaceChangeRecord> {

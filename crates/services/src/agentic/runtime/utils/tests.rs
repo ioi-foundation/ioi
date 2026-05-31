@@ -248,6 +248,16 @@ fn persist_agent_state_writes_trajectory_and_brain_records() {
             serde_json::to_string(&applied_change).expect("encode workspace change record"),
         ),
     );
+    let mut rolled_back_change = applied_change.clone();
+    rolled_back_change.lifecycle = "rolled_back".to_string();
+    rolled_back_change.receipt_ref = Some("workspace_change_rolled_back:path=src/lib.rs".into());
+    rolled_back_change.evidence_ref = rolled_back_change.receipt_ref.clone();
+    agent_state.tool_execution_log.insert(
+        "evidence::workspace_change_rolled_back".to_string(),
+        crate::agentic::runtime::types::ToolCallStatus::Executed(
+            serde_json::to_string(&rolled_back_change).expect("encode rolled back change record"),
+        ),
+    );
     let mut state = MockState::default();
     let runtime = Arc::new(MemoryRuntime::open_sqlite_in_memory().expect("memory runtime"));
 
@@ -280,13 +290,16 @@ fn persist_agent_state_writes_trajectory_and_brain_records() {
         .iter()
         .any(|event| event.tool_name == "file__read" && event.status == "executed"));
     assert!(trajectory.workspace_changes.iter().any(|change| {
-        change.lifecycle == "applied"
+        change.lifecycle == "rolled_back"
             && change.tool_name == "file__edit"
             && change.path.as_deref() == Some("src/lib.rs")
             && change.hunks.len() == 1
             && change.hunks[0].search_hash.is_some()
             && change.hunks[0].replace_hash.is_some()
             && change.authority_ref.as_deref() == Some("pending_tool_hash:abc123")
+    }));
+    assert!(!trajectory.workspace_changes.iter().any(|change| {
+        change.change_id == applied_change.change_id && change.lifecycle == "applied"
     }));
 
     let brain_bytes = state
