@@ -1,11 +1,17 @@
 use super::{
     await_child_session_status_for_inspection, delete_agent_state_checkpoint, get_state_key,
-    load_agent_state_checkpoint, persist_agent_state,
-    should_terminalize_running_agent_after_max_steps, AGENT_RUNTIME_SUBSTRATE_CHECKPOINT_NAME,
-    AGENT_STATE_CHECKPOINT_NAME,
+    load_agent_brain_checkpoint, load_agent_state_checkpoint,
+    load_agent_trajectory_latest_checkpoint, persist_agent_state,
+    should_terminalize_running_agent_after_max_steps, AGENT_BRAIN_CHECKPOINT_NAME,
+    AGENT_RUNTIME_SUBSTRATE_CHECKPOINT_NAME, AGENT_STATE_CHECKPOINT_NAME,
+    AGENT_TRAJECTORY_LATEST_CHECKPOINT_NAME,
 };
-use crate::agentic::runtime::keys::{get_parent_playbook_run_key, get_runtime_substrate_key};
+use crate::agentic::runtime::keys::{
+    get_agent_brain_key, get_agent_trajectory_step_key, get_parent_playbook_run_key,
+    get_runtime_substrate_key,
+};
 use crate::agentic::runtime::substrate::RuntimeSubstrateSnapshot;
+use crate::agentic::runtime::trajectory::{AgentBrainRecord, AgentTrajectoryStepRecord};
 use crate::agentic::runtime::types::{
     AgentMode, AgentState, AgentStatus, ExecutionTier, ParentPlaybookRun, ParentPlaybookStatus,
 };
@@ -206,6 +212,107 @@ fn persist_agent_state_mirrors_runtime_checkpoint_blob() {
 }
 
 #[test]
+fn persist_agent_state_writes_trajectory_and_brain_records() {
+    let session_id = [0x12; 32];
+    let checkpoint_key = b"agent::state::test".to_vec();
+    let mut agent_state = test_agent_state(session_id);
+    agent_state.pending_tool_call = Some("file__read".to_string());
+    agent_state.tool_execution_log.insert(
+        "file__read".to_string(),
+        crate::agentic::runtime::types::ToolCallStatus::Executed(
+            "receipt://workspace-read".to_string(),
+        ),
+    );
+    agent_state.tool_execution_log.insert(
+        "evidence::workspace_edit_applied".to_string(),
+        crate::agentic::runtime::types::ToolCallStatus::Executed(
+            "step=3;tool=file__edit;path=src/lib.rs".to_string(),
+        ),
+    );
+    let mut state = MockState::default();
+    let runtime = Arc::new(MemoryRuntime::open_sqlite_in_memory().expect("memory runtime"));
+
+    persist_agent_state(&mut state, &checkpoint_key, &agent_state, Some(&runtime))
+        .expect("persist agent state");
+
+    let trajectory_bytes = state
+        .get(&get_agent_trajectory_step_key(
+            &session_id,
+            agent_state.step_count,
+        ))
+        .expect("read trajectory step")
+        .expect("trajectory step should be present");
+    let trajectory: AgentTrajectoryStepRecord =
+        codec::from_bytes_canonical(&trajectory_bytes).expect("decode trajectory step");
+    assert_eq!(trajectory.session_id, hex::encode(session_id));
+    assert_eq!(trajectory.step_index, agent_state.step_count);
+    assert_eq!(
+        trajectory.phase,
+        ioi_types::app::AgentTurnPhase::ToolProposed
+    );
+    assert_eq!(trajectory.pending_tool.as_deref(), Some("file__read"));
+    assert!(trajectory.append_only);
+    assert!(trajectory
+        .event_kinds
+        .iter()
+        .any(|kind| kind == "turn_state_recorded"));
+    assert!(trajectory
+        .tool_events
+        .iter()
+        .any(|event| event.tool_name == "file__read" && event.status == "executed"));
+    assert!(trajectory.workspace_changes.iter().any(|change| {
+        change.lifecycle == "applied"
+            && change.tool_name == "file__edit"
+            && change.path.as_deref() == Some("src/lib.rs")
+    }));
+
+    let brain_bytes = state
+        .get(&get_agent_brain_key(&session_id))
+        .expect("read brain")
+        .expect("brain record should be present");
+    let brain: AgentBrainRecord =
+        codec::from_bytes_canonical(&brain_bytes).expect("decode brain record");
+    assert_eq!(brain.session_id, hex::encode(session_id));
+    assert_eq!(brain.objective, agent_state.goal);
+    assert!(brain.implementation_plan_md.contains("Implementation Plan"));
+    assert!(brain.task_md.contains("Tool/action boundary recorded"));
+    assert!(brain.task_md.contains("Stop gate recorded"));
+    assert!(brain.walkthrough_md.contains("Recorded runtime events"));
+    assert!(!brain.read_only);
+    assert_eq!(trajectory.stop_gate.continuation, "continue_tool_boundary");
+    assert!(!trajectory.stop_gate.terminal_state);
+    assert!(trajectory.stop_gate.replayable);
+
+    assert_eq!(
+        runtime
+            .load_checkpoint_blob(session_id, AGENT_TRAJECTORY_LATEST_CHECKPOINT_NAME)
+            .expect("read latest trajectory checkpoint"),
+        Some(trajectory_bytes)
+    );
+    assert_eq!(
+        runtime
+            .load_checkpoint_blob(session_id, AGENT_BRAIN_CHECKPOINT_NAME)
+            .expect("read brain checkpoint"),
+        Some(brain_bytes)
+    );
+
+    let loaded_trajectory = load_agent_trajectory_latest_checkpoint(&runtime, session_id)
+        .expect("load typed trajectory")
+        .expect("typed trajectory should load");
+    assert_eq!(loaded_trajectory.step_index, agent_state.step_count);
+    assert_eq!(
+        loaded_trajectory.stop_gate.continuation,
+        "continue_tool_boundary"
+    );
+
+    let loaded_brain = load_agent_brain_checkpoint(&runtime, session_id)
+        .expect("load typed brain")
+        .expect("typed brain should load");
+    assert_eq!(loaded_brain.step_index, agent_state.step_count);
+    assert_eq!(loaded_brain.status, "running");
+}
+
+#[test]
 fn delete_agent_state_checkpoint_removes_runtime_blob() {
     let session_id = [4u8; 32];
     let checkpoint_key = b"agent::state::test".to_vec();
@@ -228,6 +335,18 @@ fn delete_agent_state_checkpoint_removes_runtime_blob() {
         runtime
             .load_checkpoint_blob(session_id, AGENT_RUNTIME_SUBSTRATE_CHECKPOINT_NAME)
             .expect("load substrate checkpoint"),
+        None,
+    );
+    assert_eq!(
+        runtime
+            .load_checkpoint_blob(session_id, AGENT_TRAJECTORY_LATEST_CHECKPOINT_NAME)
+            .expect("load trajectory checkpoint"),
+        None,
+    );
+    assert_eq!(
+        runtime
+            .load_checkpoint_blob(session_id, AGENT_BRAIN_CHECKPOINT_NAME)
+            .expect("load brain checkpoint"),
         None,
     );
 }

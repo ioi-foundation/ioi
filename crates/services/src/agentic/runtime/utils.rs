@@ -1,9 +1,14 @@
 // Path: crates/services/src/agentic/runtime/utils.rs
 
 use crate::agentic::runtime::keys::{
-    get_parent_playbook_run_key, get_runtime_substrate_key, get_state_key, TRACE_PREFIX,
+    get_agent_brain_key, get_agent_trajectory_step_key, get_parent_playbook_run_key,
+    get_runtime_substrate_key, get_state_key, TRACE_PREFIX,
 };
 use crate::agentic::runtime::substrate::runtime_substrate_snapshot_for_state;
+use crate::agentic::runtime::trajectory::{
+    brain_record_for_state, trajectory_step_record_for_state, AgentBrainRecord,
+    AgentTrajectoryStepRecord,
+};
 use crate::agentic::runtime::types::{AgentState, AgentStatus, ParentPlaybookRun};
 use ioi_api::state::StateAccess;
 use ioi_memory::MemoryRuntime;
@@ -19,6 +24,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const AGENT_STATE_CHECKPOINT_NAME: &str = "desktop.agent_state.v1";
 pub const AGENT_RUNTIME_SUBSTRATE_CHECKPOINT_NAME: &str = "desktop.agent_runtime_substrate.v1";
+pub const AGENT_TRAJECTORY_LATEST_CHECKPOINT_NAME: &str = "desktop.agent_trajectory.latest.v1";
+pub const AGENT_BRAIN_CHECKPOINT_NAME: &str = "desktop.agent_brain.v1";
 
 pub fn timestamp_ms_now() -> u64 {
     SystemTime::now()
@@ -78,6 +85,18 @@ pub fn persist_agent_state(
     let snapshot_key = get_runtime_substrate_key(&agent_state.session_id, agent_state.step_count);
     state.insert(&snapshot_key, &snapshot_bytes)?;
 
+    let now_ms = timestamp_ms_now();
+    let trajectory_record = trajectory_step_record_for_state(agent_state, &snapshot, now_ms);
+    let trajectory_bytes = codec::to_bytes_canonical(&trajectory_record)?;
+    let trajectory_key =
+        get_agent_trajectory_step_key(&agent_state.session_id, agent_state.step_count);
+    state.insert(&trajectory_key, &trajectory_bytes)?;
+
+    let brain_record = brain_record_for_state(agent_state, &snapshot, now_ms);
+    let brain_bytes = codec::to_bytes_canonical(&brain_record)?;
+    let brain_key = get_agent_brain_key(&agent_state.session_id);
+    state.insert(&brain_key, &brain_bytes)?;
+
     if let Some(memory_runtime) = memory_runtime {
         memory_runtime
             .upsert_checkpoint_blob(agent_state.session_id, AGENT_STATE_CHECKPOINT_NAME, &bytes)
@@ -96,6 +115,30 @@ pub fn persist_agent_state(
             .map_err(|error| {
                 TransactionError::Invalid(format!(
                     "Failed to persist runtime substrate checkpoint: {}",
+                    error
+                ))
+            })?;
+        memory_runtime
+            .upsert_checkpoint_blob(
+                agent_state.session_id,
+                AGENT_TRAJECTORY_LATEST_CHECKPOINT_NAME,
+                &trajectory_bytes,
+            )
+            .map_err(|error| {
+                TransactionError::Invalid(format!(
+                    "Failed to persist agent trajectory checkpoint: {}",
+                    error
+                ))
+            })?;
+        memory_runtime
+            .upsert_checkpoint_blob(
+                agent_state.session_id,
+                AGENT_BRAIN_CHECKPOINT_NAME,
+                &brain_bytes,
+            )
+            .map_err(|error| {
+                TransactionError::Invalid(format!(
+                    "Failed to persist agent brain checkpoint: {}",
                     error
                 ))
             })?;
@@ -125,6 +168,22 @@ pub fn delete_agent_state_checkpoint(
         .map_err(|error| {
             TransactionError::Invalid(format!(
                 "Failed to delete runtime substrate checkpoint: {}",
+                error
+            ))
+        })?;
+    memory_runtime
+        .delete_checkpoint_blob(session_id, AGENT_TRAJECTORY_LATEST_CHECKPOINT_NAME)
+        .map_err(|error| {
+            TransactionError::Invalid(format!(
+                "Failed to delete agent trajectory checkpoint: {}",
+                error
+            ))
+        })?;
+    memory_runtime
+        .delete_checkpoint_blob(session_id, AGENT_BRAIN_CHECKPOINT_NAME)
+        .map_err(|error| {
+            TransactionError::Invalid(format!(
+                "Failed to delete agent brain checkpoint: {}",
                 error
             ))
         })?;
@@ -158,6 +217,64 @@ pub fn load_agent_state_checkpoint(
     }
 
     Ok(Some(agent_state))
+}
+
+pub fn load_agent_trajectory_latest_checkpoint(
+    memory_runtime: &MemoryRuntime,
+    session_id: [u8; 32],
+) -> Result<Option<AgentTrajectoryStepRecord>, TransactionError> {
+    let Some(bytes) = memory_runtime
+        .load_checkpoint_blob(session_id, AGENT_TRAJECTORY_LATEST_CHECKPOINT_NAME)
+        .map_err(|error| {
+            TransactionError::Invalid(format!(
+                "Failed to load agent trajectory checkpoint: {}",
+                error
+            ))
+        })?
+    else {
+        return Ok(None);
+    };
+
+    let record =
+        codec::from_bytes_canonical::<AgentTrajectoryStepRecord>(&bytes).map_err(|error| {
+            TransactionError::Invalid(format!(
+                "Failed to decode agent trajectory checkpoint: {}",
+                error
+            ))
+        })?;
+    if record.session_id != hex::encode(session_id) {
+        return Err(TransactionError::Invalid(
+            "Agent trajectory checkpoint session mismatch".to_string(),
+        ));
+    }
+    Ok(Some(record))
+}
+
+pub fn load_agent_brain_checkpoint(
+    memory_runtime: &MemoryRuntime,
+    session_id: [u8; 32],
+) -> Result<Option<AgentBrainRecord>, TransactionError> {
+    let Some(bytes) = memory_runtime
+        .load_checkpoint_blob(session_id, AGENT_BRAIN_CHECKPOINT_NAME)
+        .map_err(|error| {
+            TransactionError::Invalid(format!("Failed to load agent brain checkpoint: {}", error))
+        })?
+    else {
+        return Ok(None);
+    };
+
+    let record = codec::from_bytes_canonical::<AgentBrainRecord>(&bytes).map_err(|error| {
+        TransactionError::Invalid(format!(
+            "Failed to decode agent brain checkpoint: {}",
+            error
+        ))
+    })?;
+    if record.session_id != hex::encode(session_id) {
+        return Err(TransactionError::Invalid(
+            "Agent brain checkpoint session mismatch".to_string(),
+        ));
+    }
+    Ok(Some(record))
 }
 
 fn agent_state_resolution_priority(status: &AgentStatus) -> u8 {

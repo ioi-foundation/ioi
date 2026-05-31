@@ -14,6 +14,7 @@ pub mod runtime_secret;
 pub mod service;
 pub mod substrate;
 pub mod tools;
+pub mod trajectory;
 pub mod types;
 pub mod utils;
 pub(crate) mod work_graph_goal;
