@@ -5,8 +5,12 @@ use super::{
     stat_path_deterministic, AgentTool, ToolExecutionResult, ToolExecutor,
 };
 use crate::agentic::runtime::execution::workload;
-use crate::agentic::runtime::trajectory::WorkspaceChangeRecord;
-use crate::agentic::runtime::utils::load_agent_trajectory_latest_checkpoint;
+use crate::agentic::runtime::trajectory::{
+    workspace_change_records_for_state, WorkspaceChangeRecord,
+};
+use crate::agentic::runtime::utils::{
+    load_agent_state_checkpoint, load_agent_trajectory_latest_checkpoint,
+};
 use crate::agentic::runtime::workspace_change::{
     find_workspace_change_by_id, reject_workspace_change, rollback_workspace_change,
     workspace_change_status_from_changes, WorkspaceChangeLifecycleError,
@@ -42,11 +46,20 @@ fn patch_apply_failure_message(path: &Path, error: &str) -> String {
     let normalized = error.trim();
     let deterministic_search_miss = normalized.contains("search block not found in file")
         || normalized.contains("search block is ambiguous");
+    let no_effect_patch = normalized.contains("replacement must differ from search block");
     let malformed_patch_payload = normalized.contains("search block must");
+
+    if no_effect_patch {
+        return format!(
+            "ERROR_CLASS=NoEffectAfterAction Patch failed for {}: {}. Submit a changed `replace` block that implements the user's requested behavior; do not retry identical search and replace arguments.",
+            path.display(),
+            normalized
+        );
+    }
 
     if deterministic_search_miss {
         return format!(
-            "ERROR_CLASS=NoEffectAfterAction Patch failed for {}: {}. Use the exact latest `file__read` block for `search`, or prefer `file__write` with line_number for one-line fixes.",
+            "ERROR_CLASS=NoEffectAfterAction Patch failed for {}: {}. Use the exact latest `file__read` block for `search`, or preserve a uniquely matching whitespace-collapsed block and submit a changed `replace` block.",
             path.display(),
             normalized
         );
@@ -385,16 +398,28 @@ fn load_workspace_changes_from_checkpoint(
     let Some(memory_runtime) = exec.memory_runtime.as_ref() else {
         return Ok(Vec::new());
     };
-    let Some(record) = load_agent_trajectory_latest_checkpoint(memory_runtime.as_ref(), session_id)
-        .map_err(|error| {
-            ToolExecutionResult::failure(format!(
+    let trajectory_changes =
+        load_agent_trajectory_latest_checkpoint(memory_runtime.as_ref(), session_id)
+            .map_err(|error| {
+                ToolExecutionResult::failure(format!(
                 "ERROR_CLASS=UnexpectedState failed to load workspace change checkpoint: {error}"
             ))
+            })?
+            .map(|record| record.workspace_changes)
+            .unwrap_or_default();
+    if !trajectory_changes.is_empty() {
+        return Ok(trajectory_changes);
+    }
+
+    let agent_state_changes = load_agent_state_checkpoint(memory_runtime.as_ref(), session_id)
+        .map_err(|error| {
+            ToolExecutionResult::failure(format!(
+                "ERROR_CLASS=UnexpectedState failed to load workspace change state checkpoint: {error}"
+            ))
         })?
-    else {
-        return Ok(Vec::new());
-    };
-    Ok(record.workspace_changes)
+        .map(|agent_state| workspace_change_records_for_state(&agent_state))
+        .unwrap_or_default();
+    Ok(agent_state_changes)
 }
 
 fn workspace_change_status_output_from_records(

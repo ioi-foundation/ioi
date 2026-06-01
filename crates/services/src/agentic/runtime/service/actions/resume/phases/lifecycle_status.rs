@@ -348,6 +348,19 @@ async fn crystallize_successful_session(
         .await;
 }
 
+async fn record_terminal_chat_success_without_model_crystallization(
+    service: &RuntimeAgentService,
+    state: &mut dyn StateAccess,
+    session_id: [u8; 32],
+    block_height: u64,
+    verification_checks: &mut Vec<String>,
+) {
+    let _ = service
+        .update_skill_reputation(state, session_id, true, block_height)
+        .await;
+    verification_checks.push("post_terminal_model_crystallization_deferred=true".to_string());
+}
+
 pub(crate) async fn run_lifecycle_status_phase(
     ctx: LifecycleStatusPhaseContext<'_, '_>,
 ) -> Result<(), TransactionError> {
@@ -688,12 +701,12 @@ pub(crate) async fn run_lifecycle_status_phase(
                         verification_checks.push("cec_completion_gate_emitted=true".to_string());
                         verification_checks.push("mail_reply_terminalized=true".to_string());
                         verification_checks.push("terminal_chat_reply_ready=true".to_string());
-                        crystallize_successful_session(
+                        record_terminal_chat_success_without_model_crystallization(
                             service,
                             state,
-                            agent_state,
                             session_id,
                             block_height,
+                            verification_checks,
                         )
                         .await;
                         if let Some(tx) = &service.event_sender {
@@ -752,12 +765,16 @@ pub(crate) async fn run_lifecycle_status_phase(
                         agent_state
                             .execution_ledger
                             .record_terminal_success(Some(intent_id));
-                        crystallize_successful_session(
+                        stop_condition_hit = true;
+                        agent_state.execution_queue.clear();
+                        verification_checks
+                            .push("terminal_chat_reply_stop_condition_hit=true".to_string());
+                        record_terminal_chat_success_without_model_crystallization(
                             service,
                             state,
-                            agent_state,
                             session_id,
                             block_height,
+                            verification_checks,
                         )
                         .await;
 
@@ -800,12 +817,16 @@ pub(crate) async fn run_lifecycle_status_phase(
                         agent_state
                             .execution_ledger
                             .record_terminal_success(Some(intent_id));
-                        crystallize_successful_session(
+                        stop_condition_hit = true;
+                        agent_state.execution_queue.clear();
+                        verification_checks
+                            .push("terminal_chat_reply_stop_condition_hit=true".to_string());
+                        record_terminal_chat_success_without_model_crystallization(
                             service,
                             state,
-                            agent_state,
                             session_id,
                             block_height,
+                            verification_checks,
                         )
                         .await;
 

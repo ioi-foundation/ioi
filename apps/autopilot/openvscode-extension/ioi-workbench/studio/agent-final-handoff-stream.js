@@ -58,6 +58,7 @@ function createStudioAgentFinalHandoffStreamer({
       streamId,
       chunkCount: chunks.length,
       text: content,
+      completed: true,
     };
   }
 

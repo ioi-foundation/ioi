@@ -199,6 +199,76 @@ fn model_authored_natural_answer_accepts_two_quote_sources_without_source_cluste
 }
 
 #[test]
+fn model_authored_market_answer_accepts_based_on_preamble_with_sources_section() {
+    let pending = PendingSearchCompletion {
+        query: "Which is a better investment right now, Akash or Filecoin?".to_string(),
+        query_contract: "Which is a better investment right now, Akash or Filecoin?".to_string(),
+        retrieval_contract: crate::agentic::web::derive_web_retrieval_contract(
+            "Which is a better investment right now, Akash or Filecoin?",
+            None,
+        )
+        .ok(),
+        url: "https://www.bing.com/search?q=akash+filecoin+investment".to_string(),
+        started_step: 1,
+        started_at_ms: 1_780_081_552_000,
+        deadline_ms: 1_780_081_612_000,
+        candidate_urls: vec![],
+        candidate_source_hints: vec![],
+        attempted_urls: vec![],
+        blocked_urls: vec![],
+        successful_reads: vec![
+            PendingSearchReadSummary {
+                url: "https://www.coingecko.com/en/coins/akash-network".to_string(),
+                title: Some("Akash Network live USD price quote - CoinGecko".to_string()),
+                excerpt: "Akash Network (akash-network) live USD quote from CoinGecko simple price API: price $0.757127 USD. Market cap: $219.86M. 24h trading volume: $4.79M. 24h price change: -1.76%.".to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://www.coingecko.com/en/coins/filecoin".to_string(),
+                title: Some("Filecoin live USD price quote - CoinGecko".to_string()),
+                excerpt: "Filecoin (filecoin) live USD quote from CoinGecko simple price API: price $0.920088 USD. Market cap: $723.14M. 24h trading volume: $89.24M. 24h price change: -3.91%.".to_string(),
+            },
+        ],
+        min_sources: 2,
+    };
+    let rendered_summary = "Based on current market data, **Filecoin (FIL)** appears to be the larger and more liquid investment compared to Akash Network (AKT), though both are currently experiencing short-term price declines.\n\nHere is the direct comparison of their current market metrics:\n\n* Filecoin: Price ~$0.92, Market Cap ~$723M, 24h volume ~$89M, 24h change -3.91%, Use Case: decentralized storage.\n* Akash: Price ~$0.76, Market Cap ~$220M, 24h volume ~$4.8M, 24h change -1.76%, Use Case: decentralized compute/cloud.\n\nKey Takeaways:\n\n* Filecoin has a larger market cap and much higher liquidity, which generally makes it the more established and lower-volatility choice.\n* Akash is smaller and more directly tied to decentralized compute demand, so it may offer more upside but also more volatility and execution risk.\n\nThis is not financial advice.\n\nSources:\n* [Akash Network live USD price quote - CoinGecko](https://www.coingecko.com/en/coins/akash-network)\n* [Filecoin live USD price quote - CoinGecko](https://www.coingecko.com/en/coins/filecoin)";
+
+    assert_eq!(
+        market_quote_grounding_source_count_for_sources(
+            &pending.successful_reads,
+            &pending.query_contract
+        ),
+        2
+    );
+    assert_eq!(
+        market_quote_structured_metric_source_count_for_sources(
+            &pending.successful_reads,
+            &pending.query_contract
+        ),
+        2
+    );
+
+    let facts = final_web_completion_facts_with_rendered_summary(
+        &pending,
+        WebPipelineCompletionReason::MinSourcesReached,
+        rendered_summary,
+    );
+
+    assert_eq!(facts.answer_rendered_layout_profile, "sourced_answer");
+    assert!(!facts.answer_query_layout_expected);
+    assert_eq!(facts.selected_source_urls.len(), 2);
+    assert!(facts.market_quote_grounding_required);
+    assert_eq!(facts.market_quote_grounding_source_count, 2);
+    assert!(facts.market_quote_grounding_floor_met);
+    assert!(facts.rendered_summary_semantic_floor_met);
+    assert_eq!(facts.evidence_selected_source_compatible, 2);
+    assert!(facts.evidence_selected_source_identifier_coverage_floor_met);
+    assert!(facts.evidence_citation_read_backing_floor_met);
+    assert!(facts.answer_legacy_source_cluster_headers_absent);
+    assert_eq!(facts.required_source_cluster_floor, 3);
+    assert!(final_web_completion_contract_ready(&facts));
+}
+
+#[test]
 fn model_authored_market_answer_rejects_nominal_price_axis_and_missing_market_caps() {
     let pending = PendingSearchCompletion {
         query: "Which is a better investment right now, Akash or Filecoin?".to_string(),
@@ -575,4 +645,3 @@ fn current_investment_answer_rejects_rendered_summary_that_drops_quote_grade_ass
         "the rendered answer must cite quote-grade sources for both compared assets"
     );
 }
-

@@ -30,8 +30,18 @@ fn patch_search_miss_maps_to_no_effect_after_action() {
         "search block not found in file",
     );
     assert!(message.starts_with("ERROR_CLASS=NoEffectAfterAction"));
-    assert!(message.contains("file__write"));
-    assert!(message.contains("line_number"));
+    assert!(message.contains("whitespace-collapsed block"));
+    assert!(message.contains("changed `replace`"));
+}
+
+#[test]
+fn patch_noop_maps_to_no_effect_after_action() {
+    let message = patch_apply_failure_message(
+        Path::new("/tmp/example.py"),
+        "replacement must differ from search block",
+    );
+    assert!(message.starts_with("ERROR_CLASS=NoEffectAfterAction"));
+    assert!(message.contains("do not retry identical search and replace"));
 }
 
 #[test]

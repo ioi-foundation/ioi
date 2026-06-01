@@ -103,6 +103,7 @@ fn effective_tool_surface_prefers_selected_provider_and_keeps_fallbacks() {
         ],
         Some(&resolved),
         "google_gmail__draft_email",
+        "Draft a reply to this Gmail thread.",
     );
 
     assert_eq!(surface.primary_tools, vec!["google_gmail__draft_email"]);
@@ -118,6 +119,84 @@ fn effective_tool_surface_prefers_selected_provider_and_keeps_fallbacks() {
             "memory__search".to_string()
         ]
     );
+}
+
+#[test]
+fn command_workspace_surface_promotes_file_edit_and_shell_tools() {
+    let mut resolved = resolved(IntentScopeProfile::CommandExecution);
+    resolved.intent_id = "workspace.edit_and_test".to_string();
+    resolved.required_capabilities = vec![
+        CapabilityId::from("filesystem.read"),
+        CapabilityId::from("filesystem.write"),
+        CapabilityId::from("command.exec"),
+    ];
+
+    let surface = build_effective_tool_surface(
+        &[
+            tool("file__read"),
+            tool("file__edit"),
+            tool("workspace_change__rollback"),
+            tool("shell__run"),
+            tool("chat__reply"),
+            tool("connector__google__gmail_read_emails"),
+            tool("media__generate_video"),
+        ],
+        Some(&resolved),
+        "shell__run",
+        "Fix src/format.mjs and run node --test tests/*.test.mjs.",
+    );
+
+    assert_eq!(
+        surface.primary_tools,
+        vec![
+            "file__read",
+            "file__edit",
+            "workspace_change__rollback",
+            "shell__run",
+            "chat__reply",
+        ]
+    );
+    assert_eq!(
+        surface.diagnostic_tools,
+        vec![
+            "connector__google__gmail_read_emails",
+            "media__generate_video",
+        ]
+    );
+}
+
+#[test]
+fn workspace_change_lifecycle_goal_projects_rollback_surface() {
+    let mut resolved = resolved(IntentScopeProfile::WorkspaceOps);
+    resolved.intent_id = "workspace.rollback".to_string();
+    resolved.required_capabilities = vec![CapabilityId::from("filesystem.read")];
+
+    let surface = build_effective_tool_surface(
+        &[
+            tool("chat__reply"),
+            tool("agent__complete"),
+            tool("file__read"),
+            tool("file__edit"),
+            tool("workspace_change__status"),
+            tool("workspace_change__rollback"),
+            tool("shell__run"),
+        ],
+        Some(&resolved),
+        "file__read",
+        "Roll back the formatter edit using the workspace change lifecycle handle, then read src/format.mjs.",
+    );
+
+    assert_eq!(
+        surface.primary_tools,
+        vec![
+            "chat__reply",
+            "agent__complete",
+            "file__read",
+            "workspace_change__status",
+            "workspace_change__rollback",
+        ]
+    );
+    assert_eq!(surface.diagnostic_tools, vec!["file__edit", "shell__run"]);
 }
 
 #[test]

@@ -1,5 +1,6 @@
 use crate::agentic::runtime::service::decision_loop::signals::infer_interaction_target;
-use crate::agentic::runtime::types::AgentState;
+use crate::agentic::runtime::types::{AgentState, ToolCallStatus};
+use std::collections::BTreeMap;
 
 mod approval_authority;
 mod operator_control;
@@ -18,6 +19,7 @@ pub use session_delete::handle_delete_session;
 pub use start::handle_start;
 
 fn reset_for_new_user_goal(agent_state: &mut AgentState, goal: &str) {
+    let retained_workspace_changes = retained_workspace_change_lifecycle_evidence(agent_state);
     agent_state.goal = goal.to_string();
     agent_state.target = infer_interaction_target(goal);
     agent_state.resolved_intent = None;
@@ -32,8 +34,19 @@ fn reset_for_new_user_goal(agent_state: &mut AgentState, goal: &str) {
     agent_state.pending_visual_hash = None;
     agent_state.recent_actions.clear();
     agent_state.execution_queue.clear();
-    agent_state.tool_execution_log.clear();
+    agent_state.tool_execution_log = retained_workspace_changes;
     agent_state.pending_search_completion = None;
+}
+
+fn retained_workspace_change_lifecycle_evidence(
+    agent_state: &AgentState,
+) -> BTreeMap<String, ToolCallStatus> {
+    agent_state
+        .tool_execution_log
+        .iter()
+        .filter(|(key, _)| key.starts_with("evidence::workspace_change_"))
+        .map(|(key, status)| (key.clone(), status.clone()))
+        .collect()
 }
 
 #[cfg(test)]

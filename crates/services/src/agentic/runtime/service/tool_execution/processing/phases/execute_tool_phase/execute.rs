@@ -1,7 +1,6 @@
 use super::contracts::{bootstrap_contract, duplicate_execution_state};
 use super::duplicate::{
-    handle_duplicate_command_execution, worker_duplicate_refresh_read_allowed,
-    DuplicateExecutionContext,
+    duplicate_refresh_read_allowed, handle_duplicate_command_execution, DuplicateExecutionContext,
 };
 use super::pending_approval::{handle_pending_approval, PendingApprovalContext};
 use super::precheck::run_execution_prechecks;
@@ -101,7 +100,7 @@ pub(crate) async fn execute_tool_phase(
             &mut verification_checks,
         );
     if duplicate_command_execution
-        && worker_duplicate_refresh_read_allowed(state, agent_state, session_id, &tool)
+        && duplicate_refresh_read_allowed(state, agent_state, session_id, &tool)
     {
         duplicate_command_execution = false;
         verification_checks

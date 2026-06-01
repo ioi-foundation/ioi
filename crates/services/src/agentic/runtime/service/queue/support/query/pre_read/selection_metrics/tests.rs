@@ -51,7 +51,7 @@ fn source_finding_quality_observation_accepts_citable_runtime_sources_without_me
         crate::agentic::web::derive_web_retrieval_contract(query, None).expect("retrieval contract");
     let selected_urls = vec![
         "https://localai.io/basics/troubleshooting/".to_string(),
-        "https://localai.io/advanced/vram-management/index.html".to_string(),
+        "https://docs.vllm.ai/en/latest/serving/engine_args.html".to_string(),
     ];
     let source_hints = vec![
         PendingSearchReadSummary {
@@ -62,8 +62,8 @@ fn source_finding_quality_observation_accepts_citable_runtime_sources_without_me
         },
         PendingSearchReadSummary {
             url: selected_urls[1].clone(),
-            title: Some("VRAM and Memory Management - LocalAI".to_string()),
-            excerpt: "LocalAI describes model loading failures when systems run out of VRAM."
+            title: Some("Engine arguments - vLLM".to_string()),
+            excerpt: "vLLM documents GPU memory utilization settings for serving language models."
                 .to_string(),
         },
     ];

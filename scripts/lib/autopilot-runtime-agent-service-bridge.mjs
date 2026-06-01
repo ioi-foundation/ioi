@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import {
   configureNativeLlamaCppEnvDefaults,
   inferNativeModelId,
+  nativeLlamaCppContextLength,
 } from "./native-llama-cpp-discovery.mjs";
 
 export const DEFAULT_RUNTIME_BRIDGE_ID = "autopilot-ide-runtime-agent-service";
@@ -224,7 +225,7 @@ export async function bootstrapNativeRuntimeModelRoute({
         "IOI_LLAMA_CPP_ROUTE_ID",
         "IOI_RUNTIME_MODEL_ROUTE_ID",
       ]) ?? routeId;
-    const contextLength = Number(firstNonEmptyEnv(process.env, ["IOI_LLAMA_CPP_CONTEXT_LENGTH"]) ?? 4096);
+    const contextLength = nativeLlamaCppContextLength({ env: process.env });
     const parallel = Number(firstNonEmptyEnv(process.env, ["IOI_LLAMA_CPP_PARALLEL"]) ?? 1);
     const gpu = firstNonEmptyEnv(process.env, ["IOI_LLAMA_CPP_GPU"]) ?? "auto";
 
@@ -236,6 +237,7 @@ export async function bootstrapNativeRuntimeModelRoute({
         provider_id: "provider.llama-cpp",
         path: configuredLlamaCppModelPath,
         import_mode: "reference",
+        context_window: contextLength,
         capabilities: ["chat", "responses", "structured_output", "code"],
       },
     });

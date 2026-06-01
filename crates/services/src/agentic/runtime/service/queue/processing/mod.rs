@@ -1050,7 +1050,7 @@ pub async fn process_queue_item(
 
     let QueueFailureHandlingOutcome {
         failure_class,
-        stop_condition_hit,
+        mut stop_condition_hit,
         escalation_path,
         remediation_queued,
     } = apply_queue_failure_policies(
@@ -1130,6 +1130,17 @@ pub async fn process_queue_item(
             agent_state.recent_actions.clear();
             verification_checks.push(format!("toolcat_queue_followup_queued={}", followup_name));
         }
+    }
+    if success
+        && tool_name == "chat__reply"
+        && !is_gated
+        && !awaiting_sudo_password
+        && !awaiting_clarification
+        && matches!(agent_state.status, AgentStatus::Completed(_))
+    {
+        stop_condition_hit = true;
+        agent_state.execution_queue.clear();
+        verification_checks.push("terminal_chat_reply_stop_condition_hit=true".to_string());
     }
     verification_checks.push(format!("remediation_queued={}", remediation_queued));
     verification_checks.push(format!("stop_condition_hit={}", stop_condition_hit));

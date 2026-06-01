@@ -3,11 +3,11 @@ use crate::agentic::runtime::service::output::terminal_reply_shape::TerminalChat
 
 #[test]
 fn terminal_chat_reply_shape_detects_source_collection_output() {
-    let output = "Web retrieval summary for 'Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.'\n\nStory 1: Example\nWhat happened: Example.\nKey evidence: Example.\n\nComparison:\nExample.\n\nRun date (UTC): 2026-03-10\nRun timestamp (UTC): 2026-03-10T12:19:24Z\nOverall confidence: high";
+    let output = "Legacy collection output\n\nItem 1: Example\nWhat happened: Example.\nKey evidence: Example.\n\nComparison:\nExample.\n\nRun date (UTC): 2026-03-10\nRun timestamp (UTC): 2026-03-10T12:19:24Z\nOverall confidence: high";
     let facts = observe_terminal_chat_reply_shape(output);
 
     assert!(!facts.heading_present);
-    assert_eq!(facts.legacy_source_cluster_header_count, 1);
+    assert_eq!(facts.legacy_source_cluster_header_count, 0);
     assert_eq!(facts.comparison_label_count, 1);
     assert_eq!(
         terminal_chat_reply_layout_profile(&facts),

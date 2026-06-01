@@ -39,6 +39,7 @@ fn standard_prompt_assembly_omits_empty_sections_and_keeps_specialized_sections(
         "",
         "",
         "COMMAND EXECUTION CONTRACT:\n- Use terminal evidence.",
+        "WORKSPACE CHANGE LIFECYCLE CONTRACT:\n- Roll back before reading.",
         "browser__inspect",
         "CURRENT BROWSER OBSERVATION:\n<button id=\"checkout\" />",
         "",
@@ -68,6 +69,9 @@ fn standard_prompt_assembly_omits_empty_sections_and_keeps_specialized_sections(
     assert!(assembly
         .system_instructions
         .contains("PENDING WEB TOOL EVIDENCE"));
+    assert!(assembly
+        .system_instructions
+        .contains("WORKSPACE CHANGE LIFECYCLE CONTRACT"));
     assert!(assembly
         .system_instructions
         .contains("MAILBOX CONNECTOR RULE"));

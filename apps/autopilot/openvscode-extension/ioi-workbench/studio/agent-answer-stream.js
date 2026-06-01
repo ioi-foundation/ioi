@@ -111,10 +111,12 @@ function createStudioAgentAnswerStreamProjector({
     if (state.daemonAnswerStreamCompleted) return null;
 
     const streamId = state.daemonAnswerStreamId || "agent-answer-current";
-    const text = stringValue(state.daemonAnswerStreamText, stringValue(textFallback));
+    const fallbackText = stringValue(textFallback);
+    const text = fallbackText || stringValue(state.daemonAnswerStreamText);
     const presentation = stringValue(options.presentation, "agent_final_handoff");
     const fileName = stringValue(options.fileName);
-    if (!state.daemonAnswerStreamObserved && !text) return null;
+    const allowFallbackStart = options.allowFallbackStart !== false;
+    if (!state.daemonAnswerStreamObserved && (!text || !allowFallbackStart)) return null;
     if (!state.daemonAnswerStreamObserved) {
       state.daemonAnswerStreamId = streamId;
       studioPostRuntimeMessage("assistantStreamStart", {
@@ -139,12 +141,17 @@ function createStudioAgentAnswerStreamProjector({
       agentFinalHandoff: true,
       runtimeAuthority: "daemon-owned",
       daemonAnswerDeltaStream: true,
+      completed: true,
       presentation,
       ...(fileName ? { fileName } : {}),
     };
   }
 
-  return { complete, projectDelta, reset };
+  function hasObservedStream() {
+    return Boolean(projection().daemonAnswerStreamObserved);
+  }
+
+  return { complete, hasObservedStream, projectDelta, reset };
 }
 
 module.exports = {

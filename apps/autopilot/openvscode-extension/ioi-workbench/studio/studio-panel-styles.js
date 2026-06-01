@@ -236,6 +236,34 @@ function studioPanelStyles() {
         color: var(--studio-text);
         font-weight: 600;
       }
+      .studio-answer-sources {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        margin-top: 12px;
+        color: var(--studio-muted);
+        font-size: 12px;
+      }
+      .studio-answer-sources span {
+        color: var(--studio-muted);
+      }
+      .studio-answer-sources a {
+        max-width: 260px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        border: 1px solid #343434;
+        border-radius: 999px;
+        padding: 2px 8px;
+        background: #101010;
+        color: var(--studio-accent);
+        text-decoration: none;
+      }
+      .studio-answer-sources a:hover {
+        border-color: var(--studio-border-strong);
+        text-decoration: underline;
+      }
       .studio-chat-output-renderer {
         display: grid;
         gap: 10px;

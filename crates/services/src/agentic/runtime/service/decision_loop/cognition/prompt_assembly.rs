@@ -11,14 +11,14 @@ pub(crate) const PROMPT_SECTION_AVAILABLE_TOOLS_MAX_CHARS: usize = 4_000;
 pub(crate) const PROMPT_SECTION_BROWSER_CONTEXT_MAX_CHARS: usize = 2_400;
 pub(crate) const PROMPT_SECTION_PENDING_BROWSER_STATE_MAX_CHARS: usize = 1_200;
 pub(crate) const PROMPT_SECTION_SUCCESS_SIGNAL_MAX_CHARS: usize = 600;
-pub(crate) const PROMPT_SECTION_PENDING_WEB_EVIDENCE_MAX_CHARS: usize = 3_200;
+pub(crate) const PROMPT_SECTION_PENDING_WEB_EVIDENCE_MAX_CHARS: usize = 4_800;
 pub(crate) const PROMPT_SECTION_RECENT_EVENTS_MAX_CHARS: usize = 1_800;
 pub(crate) const PROMPT_SECTION_COMMAND_HISTORY_MAX_CHARS: usize = 1_600;
 pub(crate) const PROMPT_SECTION_WORKSPACE_CONTEXT_MAX_CHARS: usize = 1_200;
 pub(crate) const PROMPT_SECTION_WORKSPACE_CHANGE_CONTEXT_MAX_CHARS: usize = 1_000;
 pub(crate) const PROMPT_SECTION_OPERATING_RULES_MAX_CHARS: usize = 3_200;
 pub(crate) const PROMPT_SECTION_SPECIALIZED_INSTRUCTION_MAX_CHARS: usize = 1_200;
-pub(crate) const FINAL_REPLY_MAX_TOKENS: u32 = 2_400;
+pub(crate) const FINAL_REPLY_MAX_TOKENS: u32 = 3_200;
 pub(crate) const FINAL_REPLY_REPAIR_MAX_TOKENS: u32 = 3_200;
 pub(crate) const FINAL_REPLY_REPAIR_ATTEMPTS: usize = 2;
 pub(crate) const FINAL_REPLY_SOURCE_DOCUMENT_TIMEOUT_SECS: u64 = 240;
@@ -242,6 +242,7 @@ pub(crate) fn build_standard_prompt_assembly(
     som_instruction: &str,
     verify_instruction: &str,
     command_scope_instruction: &str,
+    workspace_change_lifecycle_instruction: &str,
     cognition_tool_desc: &str,
     browser_observation_context: &str,
     pending_browser_state_context: &str,
@@ -297,6 +298,11 @@ Only take actions that directly advance the USER GOAL.\n\n{}",
             .with_budget(PROMPT_SECTION_VERIFY_MAX_CHARS),
         PromptSection::new("command_scope_contract", command_scope_instruction)
             .with_budget(PROMPT_SECTION_SCOPE_CONTRACT_MAX_CHARS),
+        PromptSection::new(
+            "workspace_change_lifecycle_contract",
+            workspace_change_lifecycle_instruction,
+        )
+        .with_budget(PROMPT_SECTION_SCOPE_CONTRACT_MAX_CHARS),
         PromptSection::new(
             "available_tools",
             format!("[AVAILABLE TOOLS]\n{}", cognition_tool_desc),

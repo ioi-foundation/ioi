@@ -15,6 +15,90 @@ export function createSubmitPrompt(deps) {
     writePromptTiming,
   } = deps;
 
+  async function captureLatestMarkdownRenderProof(page) {
+    return withStudioFrame(page, async (frame) => frame.evaluate(() => {
+      const nodes = Array.from(document.querySelectorAll(
+        '[data-testid="studio-assistant-answer-text"], [data-testid="studio-streaming-output"]',
+      ));
+      const node = nodes[nodes.length - 1] || null;
+      if (!node) {
+        return {
+          observed: false,
+          reason: "missing-assistant-answer-node",
+        };
+      }
+      const turn = node.closest("[data-studio-turn-role='assistant']");
+      const composer = document.querySelector("[data-testid='studio-composer']");
+      const turnRect = turn?.getBoundingClientRect?.() || null;
+      const composerRect = composer?.getBoundingClientRect?.() || null;
+      const text = String(node.textContent || "");
+      const proof = {
+        observed: true,
+        markdownHydrated: node.dataset.markdownHydrated === "true" || node.dataset.rawMarkdown !== undefined,
+        headingCount: node.querySelectorAll("h1,h2,h3,h4").length,
+        listCount: node.querySelectorAll("ul,ol").length,
+        inlineCodeCount: Array.from(node.querySelectorAll("code")).filter((code) => !code.closest("pre")).length,
+        fencedCodeBlockCount: node.querySelectorAll("pre code").length,
+        tableCount: node.querySelectorAll("table").length,
+        linkCount: node.querySelectorAll("a[href]").length,
+        strongCount: node.querySelectorAll("strong").length,
+        rawMarkdownSyntaxVisible:
+          /(^|\n)\s{0,3}#{1,4}\s+\S/.test(text) ||
+          /(^|\n)\s*[-*+]\s+\S/.test(text) ||
+          /```/.test(text) ||
+          /\*\*[^*\n]+\*\*/.test(text) ||
+          /`[^`\n]+`/.test(text),
+        answerTextSample: text.replace(/\s+/g, " ").trim().slice(0, 600),
+        turnBottom: turnRect ? Math.round(turnRect.bottom) : null,
+        composerTop: composerRect ? Math.round(composerRect.top) : null,
+        overlappedByComposer: Boolean(turnRect && composerRect && turnRect.bottom > composerRect.top + 4),
+      };
+      return proof;
+    }));
+  }
+
+  async function captureLatestSourceRowsProof(page) {
+    return withStudioFrame(page, async (frame) => frame.evaluate(() => {
+      const turns = Array.from(document.querySelectorAll("[data-studio-turn-role='assistant']"));
+      const turn = turns[turns.length - 1] || null;
+      const sourceRoot = turn?.querySelector?.("[data-testid='studio-answer-sources']") || null;
+      const links = sourceRoot ? Array.from(sourceRoot.querySelectorAll("a[href]")) : [];
+      return {
+        observed: Boolean(sourceRoot),
+        sourceCount: links.length,
+        labels: links.map((link) => String(link.textContent || "").replace(/\s+/g, " ").trim()).filter(Boolean),
+        hrefs: links.map((link) => link.getAttribute("href") || "").filter(Boolean),
+      };
+    }));
+  }
+
+  function markdownElementMissing(proof, elementName) {
+    const normalized = String(elementName || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
+    if (!normalized) return false;
+    if (["heading", "headings", "h1", "h2", "h3", "h4"].includes(normalized)) {
+      return Number(proof?.headingCount || 0) === 0;
+    }
+    if (["list", "lists", "bullet", "bullets", "orderedlist", "unorderedlist"].includes(normalized)) {
+      return Number(proof?.listCount || 0) === 0;
+    }
+    if (["inlinecode", "code"].includes(normalized)) {
+      return Number(proof?.inlineCodeCount || 0) === 0;
+    }
+    if (["fencedcode", "codeblock", "pre", "precode"].includes(normalized)) {
+      return Number(proof?.fencedCodeBlockCount || 0) === 0;
+    }
+    if (["table", "tables"].includes(normalized)) {
+      return Number(proof?.tableCount || 0) === 0;
+    }
+    if (["link", "links"].includes(normalized)) {
+      return Number(proof?.linkCount || 0) === 0;
+    }
+    if (["strong", "bold"].includes(normalized)) {
+      return Number(proof?.strongCount || 0) === 0;
+    }
+    return false;
+  }
+
   async function submitPrompt(page, requests, prompt, mode = "button", timingPath = null, options = {}) {
   const startedAtMs = Date.now();
   const timing = {
@@ -29,18 +113,27 @@ export function createSubmitPrompt(deps) {
   let pendingProjectionProof = null;
   let artifactSourceStreamObserved = false;
   let phaseStartedAtMs = Date.now();
-  const initialCounts = await withStudioFrame(page, async (frame) => ({
-    assistantCount: await frame.locator('[data-testid="studio-assistant-answer-card"]').count(),
-    documentedWorkCount: await frame.locator('[data-studio-turn-role="assistant"][data-documented-work="true"]').count(),
-    streamOutputCount: await frame.locator('[data-testid="studio-streaming-output"]').count(),
-    thinkingBlockCount: await frame.locator('[data-testid="studio-thinking-block"] p').count(),
-    artifactSourceCount: await frame.locator('[data-testid="studio-artifact-source-output"]').count(),
-  }));
+  const normalizeObservedAnswerText = (value) => String(value || "").replace(/\s+/g, " ").trim();
+  const initialCounts = await withStudioFrame(page, async (frame) => {
+    const initialAnswerTexts = await frame
+      .locator('[data-testid="studio-assistant-answer-text"], [data-testid="studio-streaming-output"]')
+      .allTextContents()
+      .catch(() => []);
+    return {
+      assistantCount: await frame.locator('[data-testid="studio-assistant-answer-card"]').count(),
+      documentedWorkCount: await frame.locator('[data-studio-turn-role="assistant"][data-documented-work="true"]').count(),
+      streamOutputCount: await frame.locator('[data-testid="studio-streaming-output"]').count(),
+      thinkingBlockCount: await frame.locator('[data-testid="studio-thinking-block"] p').count(),
+      artifactSourceCount: await frame.locator('[data-testid="studio-artifact-source-output"]').count(),
+      answerTextKeys: initialAnswerTexts.map(normalizeObservedAnswerText).filter(Boolean),
+    };
+  });
   const initialAssistantCount = initialCounts.assistantCount;
   const initialDocumentedWorkCount = initialCounts.documentedWorkCount;
   const initialStreamOutputCount = initialCounts.streamOutputCount;
   const initialThinkingBlockCount = initialCounts.thinkingBlockCount;
   const initialArtifactSourceCount = initialCounts.artifactSourceCount;
+  const initialAnswerTextKeys = new Set(initialCounts.answerTextKeys || []);
   markPromptPhase(timing, "initial-assistant-count", phaseStartedAtMs, {
     initialAssistantCount,
     initialDocumentedWorkCount,
@@ -354,18 +447,38 @@ export function createSubmitPrompt(deps) {
       : Math.max(assistantVisibleTimeoutMs, 180_000);
     agentFinalStreamProbe = await waitForPredicate(async () => {
       try {
-        return await withStudioFrame(page, async (frame) => {
-          const streamOutput = frame.locator('[data-testid="studio-streaming-output"]');
-          const streamOutputCount = await streamOutput.count();
-          const status = await frame.locator('[data-testid="agent-studio-operational-chat"]').first().getAttribute("data-studio-status");
-          const streamText = streamOutputCount > initialStreamOutputCount
-            ? (await streamOutput.nth(streamOutputCount - 1).textContent({ timeout: 50 }).catch(() => "")).trim()
-            : "";
-          if (streamText && ["pending", "streaming", "completed"].includes(status || "")) {
-            return { streamText, thinkingText: "", streamKind: "answer", status };
-          }
-          return null;
-        }, 3);
+            return await withStudioFrame(page, async (frame) => {
+              const streamOutput = frame.locator('[data-testid="studio-streaming-output"]');
+              const streamOutputCount = await streamOutput.count();
+              const root = frame.locator('[data-testid="agent-studio-operational-chat"]').first();
+              const status = await root.getAttribute("data-studio-status");
+              const finalHandoffComplete = (await root.getAttribute("data-agent-final-handoff-stream-complete").catch(() => "false")) === "true";
+              const streamText = streamOutputCount > initialStreamOutputCount
+                ? (await streamOutput.nth(streamOutputCount - 1).textContent({ timeout: 50 }).catch(() => "")).trim()
+                : "";
+              if (streamText && ["pending", "streaming", "completed"].includes(status || "")) {
+                return { streamText, thinkingText: "", streamKind: "answer", status };
+              }
+              const answerTexts = await frame
+                .locator('[data-testid="studio-assistant-answer-text"], [data-testid="studio-streaming-output"]')
+                .allTextContents()
+                .catch(() => []);
+              const latestText = String(answerTexts[answerTexts.length - 1] || "").trim();
+              const normalizedLatestText = normalizeObservedAnswerText(latestText);
+              if (
+                latestText &&
+                !initialAnswerTextKeys.has(normalizedLatestText) &&
+                (status === "completed" || finalHandoffComplete)
+              ) {
+                return {
+                  streamText: latestText,
+                  thinkingText: "",
+                  streamKind: finalHandoffComplete ? "answer_completed_handoff" : "answer_completed",
+                  status,
+                };
+              }
+              return null;
+            }, 3);
       } catch {
         return null;
       }
@@ -397,7 +510,9 @@ export function createSubmitPrompt(deps) {
   const completed = await waitForPredicate(async () => {
     try {
       return await withStudioFrame(page, async (frame) => {
-        const status = await frame.locator('[data-testid="agent-studio-operational-chat"]').first().getAttribute("data-studio-status");
+        const root = frame.locator('[data-testid="agent-studio-operational-chat"]').first();
+        const status = await root.getAttribute("data-studio-status");
+        const agentFinalHandoffComplete = (await root.getAttribute("data-agent-final-handoff-stream-complete")) === "true";
         const answerCount = await frame.locator('[data-testid="studio-assistant-answer-card"]').count();
         const documentedWorkCount = await frame.locator('[data-studio-turn-role="assistant"][data-documented-work="true"]').count();
         const finalizedAnswers = frame.locator('[data-testid="studio-assistant-answer-text"]');
@@ -417,11 +532,16 @@ export function createSubmitPrompt(deps) {
         };
         const expectedAnswer = [...finalizedTexts, ...streamingTexts].map((text) => String(text || "").trim()).filter(Boolean).reverse().find(matchesExpectedTerms);
         const latestAnswer = expectedAnswer || latestFinalizedAnswer || latestStreamingAnswer;
-        const newAnswerVisible = answerCount > initialAssistantCount
-          && latestAnswer.length > 0
-          && assistantTextMatchesPrompt(prompt, latestAnswer);
+        const answerMatchesPrompt = latestAnswer.length > 0 && assistantTextMatchesPrompt(prompt, latestAnswer);
+        const latestAnswerKey = normalizeObservedAnswerText(latestAnswer);
+        const answerTextIsNew = Boolean(latestAnswerKey) && !initialAnswerTextKeys.has(latestAnswerKey);
+        const newAnswerVisible = answerMatchesPrompt && (answerCount > initialAssistantCount || answerTextIsNew);
+        const streamCompletionObserved = Boolean(agentFinalStreamProbe?.streamText);
+        const completionSatisfied = status === "completed" ||
+          agentFinalHandoffComplete ||
+          (!requiresCompletedStatus && streamCompletionObserved && newAnswerVisible);
         if (requiresCompletedStatus) {
-          return status === "completed" && newAnswerVisible
+          return completionSatisfied && (newAnswerVisible || answerMatchesPrompt)
             ? { status, answerCount, assistantText: latestAnswer, documentedWorkCount }
             : false;
         }
@@ -444,6 +564,35 @@ export function createSubmitPrompt(deps) {
   assertNotCannedDaemonProjection(assistantText, prompt);
   assertSemanticModelResponse(assistantText, prompt);
   assertNoDeterministicSourceLeak(assistantText, prompt);
+  const markdownRenderProof = (options.requireMarkdownRenderProof || options.captureMarkdownRenderProof)
+    ? await captureLatestMarkdownRenderProof(page)
+    : null;
+  if (options.requireMarkdownRenderProof) {
+    const requiredMarkdownElements = Array.isArray(options.requiredMarkdownElements)
+      ? options.requiredMarkdownElements
+      : [];
+    const missingMarkdownElements = requiredMarkdownElements.filter((element) =>
+      markdownElementMissing(markdownRenderProof, element)
+    );
+    if (!markdownRenderProof?.observed || !markdownRenderProof?.markdownHydrated) {
+      throw new Error(`Markdown proof did not observe hydrated assistant Markdown for prompt: ${prompt.slice(0, 40)}`);
+    }
+    if (markdownRenderProof.rawMarkdownSyntaxVisible) {
+      throw new Error(`Markdown proof still sees raw Markdown syntax in product chat: ${markdownRenderProof.answerTextSample}`);
+    }
+    if (markdownRenderProof.overlappedByComposer) {
+      throw new Error("Markdown answer is visually overlapped by the composer.");
+    }
+    if (missingMarkdownElements.length > 0) {
+      throw new Error(`Markdown proof is missing rendered elements: ${missingMarkdownElements.join(", ")}`);
+    }
+  }
+  const sourceRowsProof = (options.requireSourceRowsProof || options.captureSourceRowsProof)
+    ? await captureLatestSourceRowsProof(page)
+    : null;
+  if (options.requireSourceRowsProof && (!sourceRowsProof?.observed || sourceRowsProof.sourceCount < 1)) {
+    throw new Error(`Source proof did not observe product-facing source chips for prompt: ${prompt.slice(0, 40)}`);
+  }
   timing.finishedAt = new Date().toISOString();
   timing.durationMs = Date.now() - startedAtMs;
   writePromptTiming(timingPath, timing);
@@ -464,6 +613,8 @@ export function createSubmitPrompt(deps) {
     documentedWorkCount: Number(completed.documentedWorkCount || 0),
     durationMs: Date.now() - startedAtMs,
     pendingProjectionProof,
+    markdownRenderProof,
+    sourceRowsProof,
     timing,
   };
 }

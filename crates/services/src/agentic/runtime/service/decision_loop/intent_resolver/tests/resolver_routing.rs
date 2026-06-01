@@ -147,6 +147,21 @@ impl InferenceRuntime for WorkspaceCreationVsMailRuntime {
             .to_string()
             .into_bytes());
         }
+        if query.contains("fix the failing formatter test") {
+            return Ok(serde_json::json!({
+                "remote_public_fact_required": false,
+                "host_local_clock_targeted": false,
+                "command_directed": true,
+                "durable_automation_requested": false,
+                "model_registry_control_requested": false,
+                "app_launch_directed": false,
+                "direct_ui_input": false,
+                "desktop_screenshot_requested": false,
+                "temporal_filesystem_filter": false
+            })
+            .to_string()
+            .into_bytes());
+        }
         Err(VmError::HostError("inference unavailable".to_string()))
     }
 
@@ -170,6 +185,9 @@ impl InferenceRuntime for WorkspaceCreationVsMailRuntime {
         }
         if lower.contains("execute local shell or terminal commands") {
             return Ok(vec![0.0, 0.0, 1.0]);
+        }
+        if lower.contains("fix the failing formatter test") {
+            return Ok(vec![0.0, 0.80, 0.95]);
         }
         if lower.contains("create an html page for a tennis company") {
             return Ok(vec![0.15, 1.0, 0.55]);
@@ -606,6 +624,77 @@ async fn resolver_routes_workspace_creation_queries_to_workspace_ops_via_semanti
         &resolved,
         &rules.ontology_policy.intent_routing
     ));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolver_expands_code_edit_verification_to_workspace_and_command_capabilities() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(WorkspaceCreationVsMailRuntime);
+    let service = RuntimeAgentService::new(gui, terminal, browser, inference.clone());
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal = "fix the failing formatter test by editing src/format.mjs, read the file first, then run node --test tests/*.test.mjs".to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v18-composite-workspace-command-capability-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog = rules
+        .ontology_policy
+        .intent_routing
+        .intent_catalog
+        .iter()
+        .filter(|entry| matches!(entry.intent_id.as_str(), "workspace.ops" | "command.exec"))
+        .cloned()
+        .collect();
+
+    let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+        .await
+        .unwrap();
+
+    assert_eq!(resolved.intent_id, "command.exec");
+    assert_eq!(resolved.scope, IntentScopeProfile::CommandExecution);
+    for capability in [
+        "command.exec",
+        "filesystem.read",
+        "filesystem.write",
+        "conversation.reply",
+        "agent.lifecycle",
+    ] {
+        assert!(
+            resolved
+                .required_capabilities
+                .iter()
+                .any(|required| required.as_str() == capability),
+            "missing composite capability {capability}"
+        );
+    }
+
+    let state = IAVLTree::new(HashCommitmentScheme::new());
+    let tools = crate::agentic::runtime::tools::discover_tools(
+        &state,
+        None,
+        None,
+        &agent_state.goal,
+        inference,
+        ExecutionTier::DomHeadless,
+        "terminal",
+        Some(&resolved),
+    )
+    .await;
+    for tool_name in [
+        "file__read",
+        "file__edit",
+        "workspace_change__rollback",
+        "shell__run",
+        "chat__reply",
+    ] {
+        assert!(
+            tools.iter().any(|tool| tool.name == tool_name),
+            "missing composite tool {tool_name}"
+        );
+    }
 }
 
 #[tokio::test(flavor = "current_thread")]

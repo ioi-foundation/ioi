@@ -119,7 +119,7 @@
     tools.push(LlmToolDefinition {
         name: "file__edit".to_string(),
         description:
-            "Replace a unique text block in a file. Copy the search block exactly from the latest read, including newlines and indentation; this fails if the search block is missing or ambiguous. For one-line or escape-heavy edits, prefer file__write with line_number."
+            "Replace a unique text block in a file. `search` is the old block; `replace` must be the new changed block and must not equal `search`. Copy `search` exactly from the latest read, including newlines and indentation."
                 .to_string(),
         parameters: fs_patch_params.to_string(),
     });
@@ -155,6 +155,58 @@
             "Atomically apply multiple exact-match edits to one file. Every search block must match when applied in order or the whole call fails without writing anything."
                 .to_string(),
         parameters: fs_multi_patch_params.to_string(),
+    });
+
+    let workspace_change_status_params = json!({
+        "type": "object",
+        "properties": {}
+    });
+    tools.push(LlmToolDefinition {
+        name: "workspace_change__status".to_string(),
+        description:
+            "Summarize workspace change handles known to the current daemon session. Use this only when you need to inspect available change lifecycle handles."
+                .to_string(),
+        parameters: workspace_change_status_params.to_string(),
+    });
+
+    let workspace_change_reject_params = json!({
+        "type": "object",
+        "properties": {
+            "change_id": {
+                "type": "string",
+                "description": "Daemon-owned change_id from the workspace change handles context."
+            },
+            "reason": {
+                "type": "string",
+                "description": "Short reason for rejecting the proposed or approval-waiting change."
+            }
+        },
+        "required": ["change_id", "reason"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "workspace_change__reject".to_string(),
+        description:
+            "Reject a proposed or approval-waiting workspace change by change_id without mutating files. Do not pass full change JSON."
+                .to_string(),
+        parameters: workspace_change_reject_params.to_string(),
+    });
+
+    let workspace_change_rollback_params = json!({
+        "type": "object",
+        "properties": {
+            "change_id": {
+                "type": "string",
+                "description": "Daemon-owned change_id from the workspace change handles context."
+            }
+        },
+        "required": ["change_id"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "workspace_change__rollback".to_string(),
+        description:
+            "Roll back an applied file__edit or file__multi_edit workspace change by change_id when reverse material is available. Do not pass full change JSON."
+                .to_string(),
+        parameters: workspace_change_rollback_params.to_string(),
     });
 
     let fs_read_params = json!({

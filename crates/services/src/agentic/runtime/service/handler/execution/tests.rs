@@ -8,6 +8,7 @@ use crate::agentic::rules::{ActionRules, DefaultPolicy};
 use crate::agentic::runtime::execution::system::software_install_plan_ref_for_request;
 use crate::agentic::runtime::runtime_secret;
 use crate::agentic::runtime::service::RuntimeAgentService;
+use crate::agentic::runtime::trajectory::workspace_change_record_from_tool;
 use crate::agentic::runtime::types::{
     AgentMode, AgentState, AgentStatus, CommandExecution, ExecutionTier, PendingSearchCompletion,
     PendingSearchReadSummary, WorkerAssignment,
@@ -516,6 +517,66 @@ async fn filesystem_read_outside_workspace_is_denied_not_prompted_for_approval()
         error.to_string().contains("outside workspace authority"),
         "unexpected error: {error}"
     );
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn workspace_change_rollback_binds_policy_path_from_change_record() {
+    let runtime = Arc::new(RecordingInferenceRuntime::default());
+    let service = build_test_service(runtime, None);
+    let rules = ActionRules {
+        policy_id: "interactive-dev-policy".to_string(),
+        defaults: DefaultPolicy::RequireApproval,
+        ..ActionRules::default()
+    };
+    let os_driver: Arc<dyn OsDriver> = Arc::new(SlowWindowOsDriver);
+    let workspace = std::env::temp_dir().join(format!(
+        "ioi-workspace-change-policy-test-{}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&workspace);
+    std::fs::create_dir_all(&workspace).expect("create workspace");
+    let target = workspace.join("src.txt");
+    std::fs::write(&target, "new\n").expect("write target");
+
+    let applied_edit = AgentTool::FsPatch {
+        path: "src.txt".to_string(),
+        search: "old\n".to_string(),
+        replace: "new\n".to_string(),
+    };
+    let change = workspace_change_record_from_tool(&applied_edit, "applied", None, None)
+        .expect("workspace change record");
+    let tool = AgentTool::WorkspaceChangeRollback {
+        change_id: Some(change.change_id.clone()),
+        change: Some(serde_json::to_value(change).expect("encode change")),
+        changes: Vec::new(),
+    };
+    let mut agent_state = test_agent_state();
+    agent_state.working_directory = workspace.to_string_lossy().to_string();
+
+    let result = super::handle_action_execution(
+        &service,
+        tool,
+        [6u8; 32],
+        1,
+        [0u8; 32],
+        &rules,
+        &agent_state,
+        &os_driver,
+        None,
+        None,
+        None,
+    )
+    .await;
+
+    assert!(
+        result.is_ok(),
+        "rollback inside workspace should pass policy and execute, got {result:?}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&target).expect("read target"),
+        "old\n"
+    );
+    let _ = std::fs::remove_dir_all(&workspace);
 }
 
 #[test]

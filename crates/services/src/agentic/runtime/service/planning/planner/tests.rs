@@ -167,9 +167,9 @@ fn planner_hash_is_stable_across_serde_roundtrip() {
 fn planner_validation_rejects_disallowed_tools_for_resolved_intent() {
     let resolved = resolved_command_intent();
     let mut state = base_planner_state();
-    state.steps[0].tool_name = Some("chat__reply".to_string());
+    state.steps[0].tool_name = Some("browser__navigate".to_string());
     let err = validate_planner_state(&state, Some(&resolved))
-        .expect_err("chat__reply should be blocked for command.exec required capabilities");
+        .expect_err("browser navigation should be blocked for command.exec required capabilities");
     assert!(err.to_string().contains("ERROR_CLASS=PolicyBlocked"));
 }
 

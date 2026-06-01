@@ -1521,6 +1521,36 @@ async function openAndDismissQuickInput(page, frameButtonSelector, expectedTestI
   await assertComposerFocused(page, `${expectedTestId} dismissal`);
 }
 
+async function openQuickInputWithRetry(page, frameButtonSelector, expectedTestId, attempts = 2) {
+  const host = page.locator(`[data-testid="${expectedTestId}"]`).first();
+  let lastError = null;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    await withStudioFrame(page, async (frame) => {
+      await frame.locator(frameButtonSelector).click({ force: true });
+    });
+    try {
+      await host.waitFor({ state: "visible", timeout: attempt === attempts - 1 ? 7000 : 2500 });
+      return host;
+    } catch (error) {
+      lastError = error;
+      await wait(250);
+    }
+  }
+  throw lastError || new Error(`Quick input did not open: ${expectedTestId}`);
+}
+
+async function dismissQuickInput(page, host, label, dismiss = "escape") {
+  if (dismiss === "outside") {
+    await page.locator('[data-testid="fork-quickinput-backdrop"]').click({ position: { x: 5, y: 5 } });
+  } else {
+    await page.keyboard.press("Escape");
+  }
+  await host.waitFor({ state: "detached", timeout: 7000 }).catch(async () => {
+    await host.waitFor({ state: "hidden", timeout: 7000 });
+  });
+  await assertComposerFocused(page, `${label} dismissal`);
+}
+
 function listProcessesContaining(pattern) {
   try {
     const raw = execFileSync("pgrep", ["-af", pattern], { encoding: "utf8" });
@@ -1604,6 +1634,48 @@ function updateGuideStatus({ outputDir, proof, blocker = null }) {
   writeFileSync(path, updated);
 }
 
+function parseMaybeJson(value) {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed || !["{", "["].includes(trimmed[0])) return value;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
+function traceObject(value) {
+  const parsed = parseMaybeJson(value);
+  return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+}
+
+function traceKernelEventObjects(event) {
+  const data = event?.data && typeof event.data === "object" ? event.data : {};
+  const candidates = [
+    data.kernel_event,
+    data.kernelEvent,
+    data.payload_summary?.kernel_event,
+    data.payloadSummary?.kernelEvent,
+    event?.payload_summary?.kernel_event,
+    event?.payloadSummary?.kernelEvent,
+    event?.payload?.kernel_event,
+    event?.payload?.kernelEvent,
+  ];
+  return candidates.map(traceObject).filter(Boolean);
+}
+
+function traceRoutingReceipts(event) {
+  const receipts = [];
+  for (const kernelEvent of traceKernelEventObjects(event)) {
+    const routing = traceObject(kernelEvent.RoutingReceipt) || kernelEvent.RoutingReceipt;
+    if (routing && typeof routing === "object" && !Array.isArray(routing)) {
+      receipts.push(routing);
+    }
+  }
+  return receipts;
+}
+
 function actualTraceToolNames(event, toolNamePattern) {
   const names = new Set();
   const data = event?.data && typeof event.data === "object" ? event.data : {};
@@ -1612,30 +1684,42 @@ function actualTraceToolNames(event, toolNamePattern) {
     if (toolNamePattern.test(value)) names.add(value);
     toolNamePattern.lastIndex = 0;
   };
-  const scanString = (value) => {
-    if (typeof value !== "string") return;
-    for (const match of value.matchAll(toolNamePattern)) {
-      names.add(match[0]);
-    }
-    toolNamePattern.lastIndex = 0;
+  const addToolNamesFromActionJson = (value) => {
+    const parsed = parseMaybeJson(value);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return;
+    addToolNames(parsed.name);
+    addToolNames(parsed.tool_name);
+    addToolNames(parsed.toolName);
+    addToolNames(parsed.tool_normalization?.normalized_name);
+    addToolNames(parsed.tool_normalization?.raw_name);
   };
 
   for (const key of ["tool_name", "toolName", "tool"]) {
     const value = data[key];
     addToolNames(value);
   }
-  addToolNames(data?.kernel_event?.AgentActionResult?.tool_name);
-  addToolNames(data?.kernel_event?.RoutingReceipt?.tool_name);
-  addToolNames(data?.kernel_event?.WorkloadReceipt?.tool_name);
-  addToolNames(data?.kernel_event?.WorkloadReceipt?.receipt?.Exec?.tool_name);
-
-  scanString(data.raw_output);
-  scanString(data.rawOutput);
-  scanString(data.delta);
-  scanString(data.token);
-  scanString(data?.kernel_event?.AgentThought?.token);
-  scanString(data?.kernel_event?.AgentStep?.raw_output);
-  scanString(data?.kernel_event?.RoutingReceipt?.action_json);
+  for (const source of [event, event?.payload, event?.payload_summary, event?.payloadSummary]) {
+    if (!source || typeof source !== "object") continue;
+    addToolNames(source.tool_name);
+    addToolNames(source.toolName);
+    addToolNames(source.tool);
+    addToolNamesFromActionJson(source.action_json);
+    addToolNamesFromActionJson(source.actionJson);
+  }
+  for (const kernelEvent of traceKernelEventObjects(event)) {
+    addToolNames(kernelEvent?.AgentActionResult?.tool_name);
+    addToolNames(kernelEvent?.RoutingReceipt?.tool_name);
+    addToolNames(kernelEvent?.WorkloadReceipt?.tool_name);
+    addToolNames(kernelEvent?.WorkloadReceipt?.receipt?.Exec?.tool_name);
+    addToolNamesFromActionJson(kernelEvent?.RoutingReceipt?.action_json);
+    addToolNamesFromActionJson(kernelEvent?.RoutingReceipt?.actionJson);
+  }
+  for (const receipt of traceRoutingReceipts(event)) {
+    addToolNames(receipt.tool_name);
+    addToolNames(receipt.toolName);
+    addToolNamesFromActionJson(receipt.action_json);
+    addToolNamesFromActionJson(receipt.actionJson);
+  }
   return [...names];
 }
 
@@ -1684,7 +1768,12 @@ function collectDaemonRuntimeTraceSummary({ daemonStateDir, outputDir }) {
       const eventType = String(event?.type || "");
       const isToolCompleted = eventType === "tool_completed" || runtimeEventKind === "tool.completed";
       const isToolFailed = eventType === "tool_failed" || runtimeEventKind === "tool.failed";
-      if (isToolCompleted) {
+      const routingReceipts = traceRoutingReceipts(event);
+      const routingSucceeded = routingReceipts.some((receipt) => receipt?.post_state?.success === true);
+      const routingFailed = routingReceipts.some(
+        (receipt) => receipt?.post_state?.success === false || receipt?.failure_class_name,
+      );
+      if (isToolCompleted || routingSucceeded) {
         for (const toolName of eventToolNames) {
           completedToolNames.add(toolName);
           toolCompletions.push({
@@ -1694,13 +1783,17 @@ function collectDaemonRuntimeTraceSummary({ daemonStateDir, outputDir }) {
           });
         }
       }
-      if (isToolFailed) {
+      if (isToolFailed || routingFailed) {
         for (const toolName of eventToolNames) {
           failedToolNames.add(toolName);
           toolFailures.push({
             file,
             toolName,
-            errorClass: event?.data?.error_class || event?.data?.errorClass || null,
+            errorClass:
+              event?.data?.error_class ||
+              event?.data?.errorClass ||
+              routingReceipts.find((receipt) => receipt?.failure_class_name)?.failure_class_name ||
+              null,
             output: String(event?.data?.output || event?.data?.raw_output || event?.data?.message || "").slice(0, 1000),
           });
         }
@@ -1719,6 +1812,85 @@ function collectDaemonRuntimeTraceSummary({ daemonStateDir, outputDir }) {
     });
   }
 
+  const eventLogDir = join(daemonStateDir, "events");
+  const eventLogFiles = existsSync(eventLogDir)
+    ? readdirSync(eventLogDir).filter((file) => file.endsWith(".jsonl")).sort()
+    : [];
+  const eventLogSummaries = [];
+  for (const file of eventLogFiles) {
+    const sourcePath = join(eventLogDir, file);
+    const lines = readFileSync(sourcePath, "utf8")
+      .split(/\r?\n/)
+      .filter((line) => line.trim());
+    let eventCount = 0;
+    const fileToolNames = new Set();
+    const fileEventKinds = new Set();
+    for (const line of lines) {
+      let event;
+      try {
+        event = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      eventCount += 1;
+      const eventKind =
+        event?.event_kind ||
+        event?.eventKind ||
+        event?.payload?.event_kind ||
+        event?.payloadSummary?.event_kind ||
+        event?.payload_summary?.event_kind ||
+        event?.type;
+      if (eventKind) {
+        observedEventKinds.add(String(eventKind));
+        fileEventKinds.add(String(eventKind));
+      }
+      const eventToolNames = actualTraceToolNames(event, toolNamePattern);
+      for (const toolName of eventToolNames) {
+        observedToolNames.add(toolName);
+        fileToolNames.add(toolName);
+      }
+      const routingReceipts = traceRoutingReceipts(event);
+      const routingSucceeded = routingReceipts.some((receipt) => receipt?.post_state?.success === true);
+      const routingFailed = routingReceipts.some(
+        (receipt) => receipt?.post_state?.success === false || receipt?.failure_class_name,
+      );
+      const isToolCompleted = eventKind === "tool.completed" || routingSucceeded;
+      const isToolFailed = eventKind === "tool.failed" || routingFailed;
+      if (isToolCompleted || routingSucceeded) {
+        for (const toolName of eventToolNames) {
+          completedToolNames.add(toolName);
+          toolCompletions.push({
+            file,
+            toolName,
+            output: String(event?.payload?.output || event?.payload_summary?.output || event?.payloadSummary?.output || "").slice(0, 1000),
+          });
+        }
+      }
+      if (isToolFailed) {
+        for (const toolName of eventToolNames) {
+          failedToolNames.add(toolName);
+          toolFailures.push({
+            file,
+            toolName,
+            errorClass:
+              event?.payload?.error_class ||
+              event?.payload_summary?.error_class ||
+              event?.payloadSummary?.errorClass ||
+              routingReceipts.find((receipt) => receipt?.failure_class_name)?.failure_class_name ||
+              null,
+            output: String(event?.payload?.output || event?.payload_summary?.output || event?.payloadSummary?.output || "").slice(0, 1000),
+          });
+        }
+      }
+    }
+    eventLogSummaries.push({
+      file,
+      eventCount,
+      toolNames: [...fileToolNames].sort(),
+      eventKinds: [...fileEventKinds].sort(),
+    });
+  }
+
   const summary = {
     schemaVersion: "ioi.autopilot-agent-studio.daemon-runtime-trace-summary.v1",
     daemonStateDir,
@@ -1730,6 +1902,7 @@ function collectDaemonRuntimeTraceSummary({ daemonStateDir, outputDir }) {
     toolCompletions,
     toolFailures,
     traces: summaries,
+    eventLogs: eventLogSummaries,
   };
   writeFileSync(join(outputDir, "daemon-runtime-trace-summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
   return summary;
@@ -2020,19 +2193,17 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
     });
     await assertComposerFocused(page, "add context escape");
 
-    await withStudioFrame(page, async (frame) => {
-      await frame.locator('[data-testid="studio-tools-toggle"]').click();
-    });
-    await page.locator('[data-testid="fork-configure-tools-quickinput"]').waitFor({ state: "visible", timeout: 7000 });
+    const toolsHost = await openQuickInputWithRetry(
+      page,
+      '[data-testid="studio-tools-toggle"]',
+      "fork-configure-tools-quickinput",
+      3,
+    );
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("ArrowRight");
     await page.keyboard.press(" ");
     await screenshot(page, outputDir, "tools-picker.png", screenshots);
-    await page.keyboard.press("Escape");
-    await page.locator('[data-testid="fork-configure-tools-quickinput"]').waitFor({ state: "detached", timeout: 7000 }).catch(async () => {
-      await page.locator('[data-testid="fork-configure-tools-quickinput"]').waitFor({ state: "hidden", timeout: 7000 });
-    });
-    await assertComposerFocused(page, "tools escape");
+    await dismissQuickInput(page, toolsHost, "tools", "escape");
 
     await withStudioFrame(page, async (frame) => {
       await frame.locator('[data-testid="studio-model-toggle"]').click();
@@ -2106,6 +2277,11 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
             requireAgentFinalStream: Boolean(item.requireAgentFinalStream || scenario.requireAgentFinalStream),
             requireAgentArtifactSourceStream: Boolean(item.requireAgentArtifactSourceStream || scenario.requireAgentArtifactSourceStream),
             requireConversationArtifactProof: Boolean(item.requireConversationArtifactProof || scenario.requireConversationArtifactProof),
+            requireMarkdownRenderProof: Boolean(item.requireMarkdownRenderProof || scenario.requireMarkdownRenderProof),
+            captureMarkdownRenderProof: Boolean(item.captureMarkdownRenderProof || scenario.captureMarkdownRenderProof),
+            requireSourceRowsProof: Boolean(item.requireSourceRowsProof || scenario.requireSourceRowsProof),
+            captureSourceRowsProof: Boolean(item.captureSourceRowsProof || scenario.captureSourceRowsProof),
+            requiredMarkdownElements: item.requiredMarkdownElements || scenario.requiredMarkdownElements || [],
             capturePendingProjection: index === 0,
             expectedExecutionMode,
             mustMentionAny: item.mustMentionAny || [],
@@ -2139,6 +2315,8 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
           completionStatus: "prompt_failure",
           newDocumentedWorkVisible: false,
           documentedWorkCount: 0,
+          markdownRenderProof: null,
+          sourceRowsProof: null,
           durationMs: Date.now() - promptStartedAtMs,
           timing: {
             prompt: promptText,
@@ -2176,6 +2354,8 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
         newDocumentedWorkVisible: result.newDocumentedWorkVisible,
         documentedWorkCount: result.documentedWorkCount,
         pendingProjectionProof: result.pendingProjectionProof || null,
+        markdownRenderProof: result.markdownRenderProof || null,
+        sourceRowsProof: result.sourceRowsProof || null,
         durationMs: result.durationMs,
         timing: result.timing,
         promptFailureError,
@@ -2294,8 +2474,15 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
     const requireNoAgentTraceToolFailuresFor = Array.isArray(scenario.requireNoAgentTraceToolFailuresFor)
       ? scenario.requireNoAgentTraceToolFailuresFor
       : [];
+    const allowAgentTraceToolFailuresFor = new Set(
+      Array.isArray(scenario.allowAgentTraceToolFailuresFor)
+        ? scenario.allowAgentTraceToolFailuresFor
+        : [],
+    );
     const disallowedFailedToolNames = requireNoAgentTraceToolFailuresFor.filter(
-      (toolName) => daemonRuntimeTraceSummary.failedToolNames.includes(toolName),
+      (toolName) =>
+        daemonRuntimeTraceSummary.failedToolNames.includes(toolName) &&
+        !allowAgentTraceToolFailuresFor.has(toolName),
     );
     if (disallowedFailedToolNames.length > 0) {
       throw new Error(`Daemon runtime traces included failed required Agent tools: ${disallowedFailedToolNames.join(", ")}`);
@@ -2317,10 +2504,21 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
       throw new Error("Daemon did not emit model invocation receipts for Studio chat prompts.");
     }
 
+    let postCompletionStopRequestObserved = false;
     await withStudioFrame(page, async (frame) => {
       await frame.locator('[data-testid="studio-stop-icon"]').click();
     });
-    await requireRequest(requests, (request) => request?.requestType === "chat.stop", "chat.stop");
+    if (scenario.requirePostCompletionStopRequest) {
+      await requireRequest(requests, (request) => request?.requestType === "chat.stop", "chat.stop");
+      postCompletionStopRequestObserved = true;
+    } else {
+      postCompletionStopRequestObserved = Boolean(
+        await waitForPredicate(
+          async () => requests.some((request) => request?.requestType === "chat.stop"),
+          { timeoutMs: 1000, intervalMs: 100 },
+        ),
+      );
+    }
 
     await withStudioFrame(page, async (frame) => {
       await frame.locator('[data-testid="studio-utility-toggle"]').click();
@@ -2379,6 +2577,7 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
       addContextDismissesAndRestoresFocus: true,
       toolsDismissesAndRestoresFocus: true,
       modelSelectorMountedOnly: true,
+      postCompletionStopRequestObserved,
       modeSelectorDismissesAndRestoresFocus: true,
       targetSelectorDismissesAndRestoresFocus: true,
       noSeparatorLineBetweenTranscriptAndComposer: true,

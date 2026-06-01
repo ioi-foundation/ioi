@@ -193,12 +193,102 @@ fn capability_matches_required(tool_name: &str, required_capabilities: &[Capabil
         .any(|capability| tool_has_capability(tool_name, capability.as_str()))
 }
 
+fn command_workspace_resolved_intent(resolved_intent: Option<&ResolvedIntentState>) -> bool {
+    let Some(resolved) = resolved_intent else {
+        return false;
+    };
+    if !matches!(resolved.scope, IntentScopeProfile::CommandExecution) {
+        return false;
+    }
+    let has_command = resolved
+        .required_capabilities
+        .iter()
+        .any(|capability| capability.as_str() == "command.exec");
+    let has_workspace = resolved.required_capabilities.iter().any(|capability| {
+        matches!(
+            capability.as_str(),
+            "filesystem.read" | "filesystem.write" | "filesystem.metadata"
+        )
+    });
+    has_command && has_workspace
+}
+
+fn command_workspace_capability_surface(tool_name: &str) -> bool {
+    matches!(
+        tool_name.trim().to_ascii_lowercase().as_str(),
+        "file__read"
+            | "file__view"
+            | "file__list"
+            | "file__search"
+            | "file__info"
+            | "file__edit"
+            | "file__write"
+            | "file__multi_edit"
+            | "workspace_change__status"
+            | "workspace_change__reject"
+            | "workspace_change__rollback"
+            | "shell__run"
+            | "shell__start"
+            | "shell__status"
+            | "shell__input"
+            | "shell__terminate"
+            | "shell__reset"
+            | "chat__reply"
+    )
+}
+
+fn goal_suggests_workspace_change_lifecycle(goal: &str) -> bool {
+    let normalized = goal.to_ascii_lowercase();
+    let requests_lifecycle = ["roll back", "rollback", "revert", "reject change"]
+        .iter()
+        .any(|needle| normalized.contains(needle));
+    let mentions_workspace_change = [
+        "workspace change",
+        "change lifecycle",
+        "change_id",
+        "change id",
+        "src/",
+        ".js",
+        ".jsx",
+        ".ts",
+        ".tsx",
+        ".mjs",
+        ".rs",
+        ".py",
+        "repository",
+        "repo",
+        "workspace",
+    ]
+    .iter()
+    .any(|needle| normalized.contains(needle));
+    requests_lifecycle && mentions_workspace_change
+}
+
+fn workspace_change_lifecycle_surface(tool_name: &str) -> bool {
+    matches!(
+        tool_name.trim().to_ascii_lowercase().as_str(),
+        "workspace_change__status"
+            | "workspace_change__reject"
+            | "workspace_change__rollback"
+            | "file__read"
+            | "chat__reply"
+            | "agent__pause"
+            | "agent__complete"
+    )
+}
+
 fn route_primary_tool(
     tool_name: &str,
     current_tool_name: &str,
     selected_provider_family: Option<&str>,
+    resolved_intent: Option<&ResolvedIntentState>,
     required_capabilities: &[CapabilityId],
+    workspace_change_lifecycle_requested: bool,
 ) -> bool {
+    if workspace_change_lifecycle_requested {
+        return workspace_change_lifecycle_surface(tool_name);
+    }
+
     if tool_name.eq_ignore_ascii_case(current_tool_name) {
         return true;
     }
@@ -209,6 +299,10 @@ fn route_primary_tool(
             .unwrap_or(false)
     }) {
         return true;
+    }
+
+    if command_workspace_resolved_intent(resolved_intent) {
+        return command_workspace_capability_surface(tool_name);
     }
 
     if capability_matches_required(tool_name, required_capabilities) {
@@ -224,6 +318,7 @@ fn build_effective_tool_surface(
     tools: &[LlmToolDefinition],
     resolved_intent: Option<&ResolvedIntentState>,
     current_tool_name: &str,
+    goal: &str,
 ) -> RoutingEffectiveToolSurface {
     let selected_provider_family = resolved_intent
         .and_then(|intent| intent.provider_selection.as_ref())
@@ -231,6 +326,7 @@ fn build_effective_tool_surface(
     let required_capabilities = resolved_intent
         .map(|intent| intent.required_capabilities.as_slice())
         .unwrap_or(&[]);
+    let workspace_change_lifecycle_requested = goal_suggests_workspace_change_lifecycle(goal);
 
     let mut primary_tools = Vec::new();
     let mut broad_fallback_tools = Vec::new();
@@ -245,12 +341,18 @@ fn build_effective_tool_surface(
             tool_name,
             current_tool_name,
             selected_provider_family,
+            resolved_intent,
             required_capabilities,
+            workspace_change_lifecycle_requested,
         ) {
             primary_tools.push(tool_name.to_string());
             continue;
         }
         if broad_fallback_tool(tool_name) {
+            if workspace_change_lifecycle_requested {
+                diagnostic_tools.push(tool_name.to_string());
+                continue;
+            }
             broad_fallback_tools.push(tool_name.to_string());
             continue;
         }
@@ -422,6 +524,7 @@ pub(crate) async fn project_route_decision(
         &cognition_tools,
         agent_state.resolved_intent.as_ref(),
         current_tool_name,
+        &agent_state.goal,
     );
     let provider_selection = agent_state
         .resolved_intent

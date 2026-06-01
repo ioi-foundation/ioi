@@ -1,5 +1,6 @@
 use crate::agentic::runtime::types::{AgentState, PendingSearchCompletion};
 use ioi_types::app::agentic::{ChatMessage, IntentScopeProfile};
+use ioi_types::app::ActionTarget;
 use serde_json::{json, Value};
 
 use super::history::build_recent_session_events_context;
@@ -12,6 +13,9 @@ pub(super) fn web_context_ready_for_reply(
     let Some(pending) = agent_state.pending_search_completion.as_ref() else {
         return false;
     };
+    if queued_web_retrieve_count(agent_state) > 0 {
+        return false;
+    }
     if final_reply_pending_market_quote_ready(pending, &agent_state.goal) {
         return true;
     }
@@ -39,6 +43,14 @@ pub(super) fn web_context_ready_for_reply(
         ) && !pending.successful_reads.is_empty())
 }
 
+fn queued_web_retrieve_count(agent_state: &AgentState) -> usize {
+    agent_state
+        .execution_queue
+        .iter()
+        .filter(|request| request.target == ActionTarget::WebRetrieve)
+        .count()
+}
+
 pub(super) fn final_reply_pending_market_quote_ready(
     pending: &PendingSearchCompletion,
     goal: &str,
@@ -49,7 +61,7 @@ pub(super) fn final_reply_pending_market_quote_ready(
     final_reply_market_quote_context_metric_score(&context) >= 4
 }
 
-pub(super) fn sanitize_direct_chat_reply_output(raw_output: &str) -> String {
+pub(crate) fn sanitize_direct_chat_reply_output(raw_output: &str) -> String {
     let mut text = raw_output.to_string();
     loop {
         let lower = text.to_ascii_lowercase();
@@ -67,7 +79,8 @@ pub(super) fn sanitize_direct_chat_reply_output(raw_output: &str) -> String {
         text.replace_range(start..end, "");
     }
     let text = text.trim().to_string();
-    unwrap_direct_chat_reply_json(&text).unwrap_or(text)
+    let unwrapped = unwrap_direct_chat_reply_json(&text).unwrap_or(text);
+    collapse_repeated_final_reply_cycles(&unwrapped)
 }
 
 fn unwrap_direct_chat_reply_json(text: &str) -> Option<String> {
@@ -83,6 +96,63 @@ fn unwrap_direct_chat_reply_json(text: &str) -> Option<String> {
         .map(str::trim)
         .filter(|message| !message.is_empty())
         .map(str::to_string)
+}
+
+fn collapse_repeated_final_reply_cycles(text: &str) -> String {
+    let mut current = text.trim().to_string();
+    for _ in 0..4 {
+        let char_count = current.chars().count();
+        if char_count < 500 {
+            break;
+        }
+        let Some(cut_at) = repeated_final_reply_cycle_cut_index(&current) else {
+            break;
+        };
+        if cut_at < 240 || cut_at >= current.len() {
+            break;
+        }
+        current.truncate(cut_at);
+        current = current.trim_end().to_string();
+    }
+    current
+}
+
+fn repeated_final_reply_cycle_cut_index(text: &str) -> Option<usize> {
+    let exact_prefix: String = text.chars().take(180).collect();
+    if exact_prefix.chars().count() >= 80 {
+        let search_start = exact_prefix.len();
+        if let Some(offset) = text[search_start..].find(&exact_prefix) {
+            let cut_at = search_start + offset;
+            if cut_at + exact_prefix.len() < text.len() {
+                return Some(cut_at);
+            }
+        }
+    }
+
+    let anchor = repeated_final_reply_cycle_anchor(text)?;
+    let search_start = anchor.len();
+    let lower_text = text.to_ascii_lowercase();
+    let lower_anchor = anchor.to_ascii_lowercase();
+    let offset = lower_text[search_start..].find(&lower_anchor)?;
+    Some(search_start + offset)
+}
+
+fn repeated_final_reply_cycle_anchor(text: &str) -> Option<String> {
+    let mut anchor = String::new();
+    for ch in text.chars() {
+        anchor.push(ch);
+        if anchor.chars().count() >= 120 {
+            break;
+        }
+        if matches!(ch, '.' | '!' | '?') && anchor.chars().count() >= 72 {
+            break;
+        }
+    }
+    let anchor = anchor.trim();
+    if anchor.chars().count() < 72 {
+        return None;
+    }
+    Some(anchor.to_string())
 }
 
 pub(super) fn final_reply_incomplete_reason(message: &str) -> Option<&'static str> {
@@ -205,7 +275,7 @@ pub(super) fn final_reply_evidence_contradiction_reason(
         return None;
     }
     let evidence_lower = evidence_context.to_ascii_lowercase();
-    if !evidence_lower.contains("typed market quote evidence from tool results") {
+    if !market_quote_context_present(&evidence_lower) {
         return None;
     }
 
@@ -333,6 +403,68 @@ pub(super) fn final_reply_evidence_contract_reason(
         .or_else(|| final_reply_evidence_omission_reason(message, evidence_context, goal))
 }
 
+pub(super) fn final_reply_product_handoff_reason(
+    message: &str,
+    goal: &str,
+) -> Option<&'static str> {
+    if final_reply_goal_requests_raw_tool_output(goal) {
+        return None;
+    }
+
+    let trimmed = message.trim();
+    let lower = trimmed.to_ascii_lowercase();
+    if lower.is_empty() {
+        return None;
+    }
+
+    if lower.contains("tool output (")
+        || lower.contains("tool output:")
+        || lower.contains("raw_output")
+        || (lower.starts_with('{') && lower.contains("\"name\"") && lower.contains("\"arguments\""))
+    {
+        return Some("raw_tool_payload");
+    }
+
+    if lower.contains("tap version")
+        && (lower.contains("# subtest")
+            || lower.contains("# tests")
+            || lower.contains("# pass")
+            || lower.contains("duration_ms"))
+    {
+        return Some("raw_test_log_dump");
+    }
+
+    if (lower.contains("stdout:") || lower.contains("stderr:"))
+        && (lower.contains("exited with code") || lower.starts_with("command "))
+    {
+        return Some("raw_command_output_dump");
+    }
+
+    None
+}
+
+fn final_reply_goal_requests_raw_tool_output(goal: &str) -> bool {
+    let lower = goal.to_ascii_lowercase();
+    [
+        "raw stdout",
+        "raw stderr",
+        "raw output",
+        "full stdout",
+        "full stderr",
+        "full output",
+        "paste stdout",
+        "paste stderr",
+        "show stdout",
+        "show stderr",
+        "show the log",
+        "full log",
+        "verbatim output",
+        "tap output",
+    ]
+    .iter()
+    .any(|marker| lower.contains(marker))
+}
+
 fn final_reply_evidence_omission_reason(
     message: &str,
     evidence_context: &str,
@@ -355,7 +487,7 @@ fn final_reply_evidence_omission_reason(
         return None;
     }
     let evidence_lower = evidence_context.to_ascii_lowercase();
-    if !evidence_lower.contains("typed market quote evidence from tool results") {
+    if !market_quote_context_present(&evidence_lower) {
         return None;
     }
     let message_lower = message.to_ascii_lowercase();
@@ -387,7 +519,7 @@ pub(super) fn final_reply_market_quote_context_metric_score(context: &str) -> us
 }
 
 fn contains_unsupported_market_scale_metric(evidence_lower: &str, message_lower: &str) -> bool {
-    if !evidence_lower.contains("typed market quote evidence from tool results") {
+    if !market_quote_context_present(&evidence_lower) {
         return false;
     }
 
@@ -578,7 +710,7 @@ pub(super) fn final_reply_repair_messages(
     json!([
         {
             "role": "system",
-            "content": "FINAL RESPONSE REPAIR MODE:\nWrite a fresh user-facing answer from the gathered evidence only. Do not call tools. Do not output JSON. Do not expose hidden chain-of-thought, trace ids, receipt ids, raw payloads, or daemon scaffolding.\nPreserve source anchors and typed measurements that matter. If typed market quote evidence is present for multiple assets, include the observed price, market cap, 24h trading volume, and 24h price change for each asset. Do not say those fields are missing when they are present in the gathered evidence.\nFor investment comparisons, synthesize a cautious comparison from the observed metrics and the gathered use-case/risk context. Treat per-token price only as a quote, not as an investment advantage by itself. If the evidence is incomplete, say exactly which non-observed dimensions remain uncertain."
+            "content": "FINAL RESPONSE REPAIR MODE:\nWrite a fresh user-facing answer from the gathered evidence only. Do not call tools. Do not output JSON. Do not expose hidden chain-of-thought, trace ids, receipt ids, raw payloads, raw stdout/stderr, raw test logs, or daemon scaffolding.\nFor command, test, and workspace-change tasks, summarize what changed or was inspected and whether verification passed; keep full logs in tracing unless the user explicitly requested raw logs. If you cite the final contents of a changed file or a short command-created source snippet, put it in a fenced code block with a language tag instead of appending it inline to a sentence. When gathered evidence contains repeated observations of the same file or state, use the latest/highest-numbered observation as authoritative for the current state.\nPreserve source anchors and observed measurements that matter. If current market quote observations are present for multiple assets, include the observed price, market cap, 24h trading volume, and 24h price change for each asset. Do not say those fields are missing when they are present in the gathered evidence.\nFor investment comparisons, synthesize a cautious comparison from the observed metrics and the gathered use-case/risk context. Treat per-token price only as a quote, not as an investment advantage by itself. If the evidence is incomplete, say exactly which non-observed dimensions remain uncertain. Do not copy internal evidence labels into the final answer."
         },
         {
             "role": "user",
@@ -596,14 +728,22 @@ pub(super) fn final_reply_evidence_context(
 ) -> String {
     let mut candidates = Vec::<FinalReplyEvidenceCandidate>::new();
     let terms = significant_goal_terms(goal);
+    let workspace_rollback_boundary = workspace_rollback_evidence_boundary(history);
     for (order, message) in history.iter().enumerate() {
         if message.role != "tool" {
+            continue;
+        }
+        if workspace_rollback_boundary
+            .map(|boundary| order <= boundary)
+            .unwrap_or(false)
+        {
             continue;
         }
         let content = message.content.trim();
         if content.is_empty()
             || content.contains("ERROR_CLASS=")
             || content.contains("Skipped immediate replay")
+            || raw_workspace_change_payload(content)
         {
             continue;
         }
@@ -663,13 +803,26 @@ pub(super) fn final_reply_evidence_context(
         entries.push(market_quote_context);
     }
     for candidate in selected {
-        let evidence_chars = candidate.evidence.chars().count();
+        let evidence = if candidate.is_web_evidence {
+            format!(
+                "Source observation #{}:\n{}",
+                candidate.order.saturating_add(1),
+                candidate.evidence
+            )
+        } else {
+            format!(
+                "Tool observation #{} (chronological; higher observation numbers are newer):\n{}",
+                candidate.order.saturating_add(1),
+                candidate.evidence
+            )
+        };
+        let evidence_chars = evidence.chars().count();
         let evidence_budget = 24_000;
         if total_chars.saturating_add(evidence_chars) > evidence_budget && !entries.is_empty() {
             continue;
         }
         total_chars = total_chars.saturating_add(evidence_chars);
-        entries.push(candidate.evidence);
+        entries.push(evidence);
     }
     if entries.is_empty() {
         fallback_context.to_string()
@@ -824,13 +977,13 @@ pub(super) fn final_reply_pending_web_evidence_context(
         let excerpt = compact_relevant_excerpt(excerpt, &terms, excerpt_budget);
         let mut parts = Vec::new();
         if !title.is_empty() {
-            parts.push(format!("title={title}"));
+            parts.push(format!("Source: {title}"));
         }
         if !url.is_empty() {
-            parts.push(format!("url={url}"));
+            parts.push(format!("URL: {url}"));
         }
         if !excerpt.is_empty() {
-            parts.push(format!("excerpt={excerpt}"));
+            parts.push(format!("Observation: {excerpt}"));
         }
         if parts.is_empty() {
             continue;
@@ -845,7 +998,7 @@ pub(super) fn final_reply_pending_web_evidence_context(
         None
     } else {
         Some(format!(
-            "Typed web evidence from tool results:\n{}",
+            "Web observations from tool results:\n{}",
             lines.join("\n")
         ))
     };
@@ -903,10 +1056,15 @@ fn final_reply_market_quote_context_from_text(context: &str, goal: &str) -> Opti
 
 fn render_typed_market_quote_context(lines: &[String]) -> String {
     format!(
-        "Typed market quote evidence from tool results:\n\
-Required current market facts from typed `web__read` outputs. If answering, include these observed metrics and do not say market cap, 24h volume, or 24h change are missing:\n{}",
+        "Current market quote observations from tool results:\n\
+These observations came from quote-grade web tool outputs. If answering, include the observed metrics and do not say market cap, 24h volume, or 24h change are missing when they are present:\n{}",
         lines.join("\n")
     )
+}
+
+fn market_quote_context_present(evidence_lower: &str) -> bool {
+    evidence_lower.contains("current market quote observations from tool results")
+        || evidence_lower.contains("typed market quote evidence from tool results")
 }
 
 fn market_quote_line_from_text_segment(segment: &str, terms: &[String]) -> Option<String> {
@@ -976,7 +1134,7 @@ fn market_quote_line_from_text_segment(segment: &str, terms: &[String]) -> Optio
     }
     parts.push(evidence);
     if !url.is_empty() {
-        parts.push(format!("source={url}"));
+        parts.push(format!("source: {url}"));
     }
     Some(format!("- {}", parts.join(" | ")))
 }
@@ -1065,7 +1223,7 @@ fn market_quote_line_from_json_source(value: &Value, terms: &[String]) -> Option
     }
     parts.push(evidence);
     if !url.is_empty() {
-        parts.push(format!("source={url}"));
+        parts.push(format!("source: {url}"));
     }
     Some(format!("- {}", parts.join(" | ")))
 }
@@ -1086,9 +1244,9 @@ fn normalized_market_quote_line(title: &str, url: &str, text: &str) -> Option<St
     let asset = market_quote_asset_label(title, text);
 
     let mut parts = vec![
-        format!("asset: {asset}"),
+        asset,
         format!("price: {price}"),
-        format!("Market cap: {market_cap}"),
+        format!("market cap: {market_cap}"),
         format!("24h trading volume: {volume}"),
     ];
     if let Some(change) = change {
@@ -1197,6 +1355,35 @@ struct FinalReplyEvidenceCandidate {
     score: i32,
 }
 
+fn raw_workspace_change_payload(content: &str) -> bool {
+    content.contains("\"change_id\"")
+        && content.contains("\"lifecycle\"")
+        && (content.contains("\"hunks\"")
+            || content.contains("\"search_text\"")
+            || content.contains("\"replace_text\""))
+}
+
+fn workspace_rollback_evidence_boundary(history: &[ChatMessage]) -> Option<usize> {
+    history
+        .iter()
+        .enumerate()
+        .rev()
+        .find_map(|(order, message)| {
+            if message.role != "tool" {
+                return None;
+            }
+            let content = message.content.trim();
+            if raw_workspace_change_payload(content)
+                && content.contains("\"workspace_change:")
+                && content.contains("\"rolled_back\"")
+            {
+                Some(order)
+            } else {
+                None
+            }
+        })
+}
+
 fn final_reply_evidence_score(evidence: &str, terms: &[String], is_web_evidence: bool) -> i32 {
     let lower = evidence.to_ascii_lowercase();
     if final_reply_evidence_is_low_signal(&lower) {
@@ -1273,9 +1460,9 @@ fn web_tool_result_source_notes(content: &str, goal: &str) -> Option<String> {
         .unwrap_or("")
         .trim();
     if !query.is_empty() {
-        notes.push(format!("Tool result: {tool} for {query}"));
+        notes.push(format!("Web observation from {tool} for {query}:"));
     } else {
-        notes.push(format!("Tool result: {tool}"));
+        notes.push(format!("Web observation from {tool}:"));
     }
 
     let terms = significant_goal_terms(goal);
@@ -1413,15 +1600,15 @@ fn source_note_from_json(source: &Value, terms: &[String]) -> Option<String> {
     let evidence = compact_relevant_excerpt(snippet, terms, 900);
     let mut parts = Vec::new();
     if !title.is_empty() {
-        parts.push(format!("title={title}"));
+        parts.push(format!("Source: {title}"));
     }
     if !url.is_empty() {
-        parts.push(format!("url={url}"));
+        parts.push(format!("URL: {url}"));
     } else if !domain.is_empty() {
-        parts.push(format!("domain={domain}"));
+        parts.push(format!("Domain: {domain}"));
     }
     if !evidence.is_empty() {
-        parts.push(format!("evidence={evidence}"));
+        parts.push(format!("Observation: {evidence}"));
     }
     Some(format!("- {}", parts.join(" | ")))
 }
@@ -1453,13 +1640,13 @@ fn document_note_from_json(document: &Value, terms: &[String]) -> Option<String>
     }
     let mut parts = Vec::new();
     if !title.is_empty() {
-        parts.push(format!("document={title}"));
+        parts.push(format!("Document: {title}"));
     }
     if !url.is_empty() {
-        parts.push(format!("url={url}"));
+        parts.push(format!("URL: {url}"));
     }
     if !evidence.is_empty() {
-        parts.push(format!("excerpt={evidence}"));
+        parts.push(format!("Observation: {evidence}"));
     }
     Some(format!("- {}", parts.join(" | ")))
 }

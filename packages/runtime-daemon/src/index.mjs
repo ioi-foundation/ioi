@@ -251,6 +251,8 @@ const {
   uniqueStrings,
 });
 
+const RUNTIME_BRIDGE_AGENT_TURN_MIN_STEPS = 8;
+
 export async function startRuntimeDaemonService(options = {}) {
   const stateDir = path.resolve(options.stateDir ?? path.join(process.cwd(), ".ioi", "agentgres"));
   const host = options.host ?? "127.0.0.1";
@@ -3359,8 +3361,33 @@ export class AgentgresRuntimeStateStore {
 
   async createRuntimeBridgeTurn({ agent, threadId, request, diagnosticsFeedback = null }) {
     this.assertRuntimeBridgeAvailable({ runtimeProfile: agent.runtimeProfile, operation: "submit_turn" });
+    const submitOptions = request?.options && typeof request.options === "object"
+      ? request.options
+      : {};
+    const requestMaxSteps = optionalPositiveInteger(request?.max_steps ?? request?.maxSteps);
+    const optionsMaxSteps = optionalPositiveInteger(submitOptions.max_steps ?? submitOptions.maxSteps);
+    const explicitStepBudgets = [requestMaxSteps, optionsMaxSteps].filter((value) => Number.isFinite(value));
+    const requestedMaxSteps = explicitStepBudgets.length ? Math.max(...explicitStepBudgets) : null;
+    const normalizedMaxSteps = requestedMaxSteps
+      ? Math.max(RUNTIME_BRIDGE_AGENT_TURN_MIN_STEPS, requestedMaxSteps)
+      : null;
+    const bridgeRequest = normalizedMaxSteps
+      ? {
+          ...request,
+          max_steps: normalizedMaxSteps,
+          maxSteps: normalizedMaxSteps,
+        }
+      : request;
+    const bridgeOptions = normalizedMaxSteps
+      ? {
+          ...submitOptions,
+          max_steps: normalizedMaxSteps,
+          maxSteps: normalizedMaxSteps,
+        }
+      : submitOptions;
     const input = {
-      request,
+      request: bridgeRequest,
+      options: bridgeOptions,
       agentId: agent.id,
       threadId,
       sessionId: runtimeSessionIdForAgent(agent),
@@ -3438,6 +3465,19 @@ export class AgentgresRuntimeStateStore {
     const run = runtimeBridgeRunRecord({ agent, request, projection });
     this.runs.set(run.id, run);
     this.writeRun(run, "turn.runtime_bridge.submit");
+    this.appendOperation("turn.runtime_bridge.submit_budget", {
+      objectId: run.id,
+      runId: run.id,
+      agentId: agent.id,
+      threadId,
+      runtimeProfile: agent.runtimeProfile,
+      requestedMaxSteps,
+      normalizedMaxSteps,
+      clampedMaxSteps: requestedMaxSteps !== null && normalizedMaxSteps !== requestedMaxSteps,
+      requestMaxSteps,
+      optionsMaxSteps,
+      bridgeId: this.runtimeBridge.bridgeId,
+    });
     return this.turnForRun(run);
   }
 

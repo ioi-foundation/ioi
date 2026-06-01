@@ -79,6 +79,129 @@ fn openai_stream_accumulator_waits_for_tool_call_finish_before_returning() {
 }
 
 #[test]
+fn openai_stream_accumulator_accepts_final_message_tool_calls() {
+    let mut accumulator = OpenAiStreamAccumulator::default();
+
+    let line = json!({
+        "choices": [{
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": Value::Null,
+                "tool_calls": [{
+                    "id": "call_123",
+                    "type": "function",
+                    "function": {
+                        "name": "file__read",
+                        "arguments": "{\"path\":\"src/format.mjs\"}"
+                    }
+                }]
+            },
+            "finish_reason": "tool_calls"
+        }]
+    })
+    .to_string();
+
+    let output = accumulator.apply_data_line(&line).unwrap().unwrap();
+    let parsed: Value = serde_json::from_slice(&output).unwrap();
+    assert_eq!(parsed["name"], "file__read");
+    assert_eq!(parsed["arguments"]["path"], "src/format.mjs");
+}
+
+#[test]
+fn openai_stream_accumulator_accepts_object_arguments_from_message_tool_calls() {
+    let mut accumulator = OpenAiStreamAccumulator::default();
+
+    let line = json!({
+        "choices": [{
+            "message": {
+                "tool_calls": [{
+                    "function": {
+                        "name": "workspace_change__rollback",
+                        "arguments": { "change_id": "change_demo" }
+                    }
+                }]
+            },
+            "finish_reason": "tool_calls"
+        }]
+    })
+    .to_string();
+
+    let output = accumulator.apply_data_line(&line).unwrap().unwrap();
+    let parsed: Value = serde_json::from_slice(&output).unwrap();
+    assert_eq!(parsed["name"], "workspace_change__rollback");
+    assert_eq!(parsed["arguments"]["change_id"], "change_demo");
+}
+
+#[test]
+fn openai_stream_accumulator_accepts_legacy_delta_function_call() {
+    let mut accumulator = OpenAiStreamAccumulator::default();
+
+    let first = json!({
+        "choices": [{
+            "delta": {
+                "function_call": {
+                    "name": "file__read",
+                    "arguments": ""
+                }
+            },
+            "finish_reason": Value::Null
+        }]
+    })
+    .to_string();
+    let second = json!({
+        "choices": [{
+            "delta": {
+                "function_call": {
+                    "arguments": "{\"path\":\"src/format.mjs\"}"
+                }
+            },
+            "finish_reason": Value::Null
+        }]
+    })
+    .to_string();
+    let done = json!({
+        "choices": [{
+            "delta": {},
+            "finish_reason": "function_call"
+        }]
+    })
+    .to_string();
+
+    assert!(accumulator.apply_data_line(&first).unwrap().is_none());
+    assert!(accumulator.apply_data_line(&second).unwrap().is_none());
+    let output = accumulator.apply_data_line(&done).unwrap().unwrap();
+    let parsed: Value = serde_json::from_slice(&output).unwrap();
+    assert_eq!(parsed["name"], "file__read");
+    assert_eq!(parsed["arguments"]["path"], "src/format.mjs");
+}
+
+#[test]
+fn openai_stream_accumulator_accepts_final_message_function_call() {
+    let mut accumulator = OpenAiStreamAccumulator::default();
+
+    let line = json!({
+        "choices": [{
+            "message": {
+                "role": "assistant",
+                "content": Value::Null,
+                "function_call": {
+                    "name": "workspace_change__rollback",
+                    "arguments": "{\"change_id\":\"change_demo\"}"
+                }
+            },
+            "finish_reason": "function_call"
+        }]
+    })
+    .to_string();
+
+    let output = accumulator.apply_data_line(&line).unwrap().unwrap();
+    let parsed: Value = serde_json::from_slice(&output).unwrap();
+    assert_eq!(parsed["name"], "workspace_change__rollback");
+    assert_eq!(parsed["arguments"]["change_id"], "change_demo");
+}
+
+#[test]
 fn openai_stream_accumulator_collects_text_until_stop() {
     let mut accumulator = OpenAiStreamAccumulator::default();
 

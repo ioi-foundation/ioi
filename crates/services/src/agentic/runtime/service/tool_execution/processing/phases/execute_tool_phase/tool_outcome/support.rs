@@ -11,6 +11,19 @@ async fn crystallize_successful_session(
         .await;
 }
 
+async fn record_terminal_chat_success_without_model_crystallization(
+    service: &RuntimeAgentService,
+    state: &mut dyn StateAccess,
+    session_id: [u8; 32],
+    block_height: u64,
+    verification_checks: &mut Vec<String>,
+) {
+    let _ = service
+        .update_skill_reputation(state, session_id, true, block_height)
+        .await;
+    verification_checks.push("post_terminal_model_crystallization_deferred=true".to_string());
+}
+
 fn goal_requires_fresh_retrieval_before_chat_reply(goal: &str) -> bool {
     let lower = goal.to_ascii_lowercase();
     let has_temporal_hint = [
@@ -412,21 +425,13 @@ async fn handle_sys_exec_tool_outcome(
         return Ok(());
     }
 
-    let summary = if let Some(summary) = history_entry.as_deref().and_then(|raw| {
-        summarize_structured_command_receipt_output(
-            raw,
-            agent_state
-                .command_history
-                .back()
-                .map(|entry| entry.timestamp_ms),
-        )
-    }) {
-        Some((
-            enrich_command_scope_summary(&summary, agent_state),
-            "structured_command_receipt_terminalized=true",
-            "command_scope_structured_receipt_completion_gate_passed",
-        ))
-    } else if let Some(summary) =
+    if command_failure_should_stay_in_model_loop(verification_checks) {
+        verification_checks.push("command_failure_terminalization_deferred=true".to_string());
+        verification_checks.push("terminal_chat_reply_ready=false".to_string());
+        return Ok(());
+    }
+
+    let summary = if let Some(summary) =
         duplicate_command_completion_summary(tool, agent_state.command_history.back())
     {
         Some((
@@ -495,4 +500,26 @@ async fn handle_sys_exec_tool_outcome(
     }
 
     Ok(())
+}
+
+fn command_failure_should_stay_in_model_loop(verification_checks: &[String]) -> bool {
+    verification_checks
+        .iter()
+        .any(|check| check == "command_failure_observed_as_tool_result=true")
+}
+
+#[cfg(test)]
+mod command_failure_terminalization_tests {
+    use super::command_failure_should_stay_in_model_loop;
+
+    #[test]
+    fn observed_command_failure_does_not_become_terminal_chat_reply() {
+        assert!(command_failure_should_stay_in_model_loop(&[
+            "command_failure_observed_as_tool_result=true".to_string(),
+            "capability_execution_last_exit_code=1".to_string(),
+        ]));
+        assert!(!command_failure_should_stay_in_model_loop(&[
+            "capability_execution_last_exit_code=0".to_string(),
+        ]));
+    }
 }

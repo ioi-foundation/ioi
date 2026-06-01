@@ -157,6 +157,26 @@ impl ToolContractProfile {
                 &["path_scope", "before_hash", "after_hash"],
                 "deterministic_mutation",
             ),
+            "workspace_change__status" => Self::read_only(
+                "filesystem",
+                "workspace_change::status",
+                &["change_id"],
+                "session_checkpoint",
+            ),
+            "workspace_change__reject" => Self::write(
+                "filesystem",
+                "workspace_change::reject",
+                &["change_id", "reason"],
+                &["policy_verdict", "change_lifecycle", "trace_ref"],
+                "session_lifecycle_transition",
+            ),
+            "workspace_change__rollback" => Self::write(
+                "filesystem",
+                "workspace_change::rollback",
+                &["change_id"],
+                &["path_scope", "before_hash", "after_hash", "diff_summary"],
+                "deterministic_mutation",
+            ),
             "file__delete" => Self::destructive(
                 "filesystem",
                 "fs::write",
@@ -567,6 +587,8 @@ fn primitive_capabilities_for(policy_target: &str) -> Vec<String> {
         "fs::read" => Some("prim:fs.read"),
         "fs::write" => Some("prim:fs.write"),
         _ if policy_target.starts_with("file__") => Some("prim:fs.write"),
+        "workspace_change::rollback" => Some("prim:fs.write"),
+        "workspace_change::reject" => Some("prim:runtime.control"),
         "sys::exec" | "software::install_execute" => Some("prim:sys.exec"),
         "browser::inspect" | "web::retrieve" | "net::fetch" => Some("prim:net.request"),
         "browser::interact" => Some("prim:browser.interact"),
@@ -729,6 +751,22 @@ mod tests {
         assert_eq!(contract.idempotency_behavior, "runtime_key");
         assert_eq!(contract.receipt_behavior, "receipt_required");
         assert_eq!(contract.workflow_availability, "ToolCapabilityNode");
+    }
+
+    #[test]
+    fn workspace_change_rollback_contract_is_filesystem_mutation_by_handle() {
+        let contract = runtime_tool_contract_for_definition(&tool("workspace_change__rollback"));
+        assert_eq!(contract.policy_target, "workspace_change::rollback");
+        assert!(contract.is_effectful());
+        assert_eq!(contract.primitive_capabilities, vec!["prim:fs.write"]);
+        assert!(contract
+            .approval_scope_fields
+            .iter()
+            .any(|item| item == "change_id"));
+        assert!(contract
+            .evidence_requirements
+            .iter()
+            .any(|item| item == "diff_summary"));
     }
 
     #[test]

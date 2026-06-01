@@ -17,32 +17,25 @@ pub(super) fn rendered_summary_semantic_floor_met(
     }
 
     let rendered_lower = rendered_summary.to_ascii_lowercase();
-    let nominal_price_markers = [
-        "nominal price",
-        "lower entry price",
-        "lower price point",
-        "higher price point",
-        "lower per-token price",
-        "higher per-token price",
-        "lower price per token",
-        "higher price per token",
-        "lower price per unit",
-        "higher price per unit",
-    ];
-    if nominal_price_markers
-        .iter()
-        .any(|marker| rendered_lower.contains(marker))
+    let required_metric_groups = if query_requests_comparison(&query_contract) {
+        2
+    } else {
+        1
+    };
+
+    let market_cap_markers = market_quote_market_cap_markers(pending, &query_contract);
+    if market_cap_markers.len() < required_metric_groups
+        || market_quote_metric_marker_groups_represented(&market_cap_markers, &rendered_lower)
+            < required_metric_groups
     {
         return false;
     }
 
-    let market_cap_markers = market_quote_market_cap_markers(pending, &query_contract);
-    if market_quote_metric_marker_groups_represented(&market_cap_markers, &rendered_lower) < 2 {
-        return false;
-    }
-
     let volume_markers = market_quote_volume_markers(pending, &query_contract);
-    if market_quote_metric_marker_groups_represented(&volume_markers, &rendered_lower) < 2 {
+    if volume_markers.len() < required_metric_groups
+        || market_quote_metric_marker_groups_represented(&volume_markers, &rendered_lower)
+            < required_metric_groups
+    {
         return false;
     }
 

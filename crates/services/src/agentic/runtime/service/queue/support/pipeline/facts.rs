@@ -454,7 +454,14 @@ fn final_model_sourced_answer_contract_ready(facts: &FinalWebCompletionFacts) ->
         facts.evidence_selected_source_compatible >= facts.selected_source_urls.len().min(2).max(1);
     let local_business_menu_floor = facts.local_business_menu_surface_floor_met
         && facts.local_business_menu_inventory_floor_met;
-    let required_source_floor = if facts.comparison_required {
+    let market_quote_grounding_ready = final_model_market_quote_grounding_ready(facts);
+    let required_source_floor = if facts.market_quote_grounding_required {
+        if facts.comparison_required {
+            2
+        } else {
+            1
+        }
+    } else if facts.comparison_required {
         facts.required_source_cluster_floor.max(2)
     } else {
         1
@@ -462,10 +469,16 @@ fn final_model_sourced_answer_contract_ready(facts: &FinalWebCompletionFacts) ->
 
     (compatible_source_floor || local_business_menu_floor)
         && facts.evidence_selected_source_identifier_coverage_floor_met
-        && facts.market_quote_grounding_floor_met
+        && market_quote_grounding_ready
         && facts.answer_legacy_source_cluster_headers_absent
         && facts.evidence_citation_read_backing_floor_met
         && facts.selected_source_urls.len() >= required_source_floor
+}
+
+fn final_model_market_quote_grounding_ready(facts: &FinalWebCompletionFacts) -> bool {
+    !facts.market_quote_grounding_required
+        || facts.market_quote_grounding_floor_met
+        || facts.rendered_summary_semantic_floor_met
 }
 
 fn final_model_natural_answer_contract_ready(facts: &FinalWebCompletionFacts) -> bool {
@@ -485,12 +498,13 @@ fn final_model_natural_answer_contract_ready(facts: &FinalWebCompletionFacts) ->
         && facts.evidence_selected_source_identifier_coverage_floor_met;
     let comparison_evidence_ready = !facts.comparison_required
         || facts.comparison_ready
-        || (facts.market_quote_grounding_required && facts.market_quote_grounding_floor_met);
+        || (facts.market_quote_grounding_required
+            && final_model_market_quote_grounding_ready(facts));
     selected_source_floor_met
         && facts.answer_legacy_source_cluster_headers_absent
         && facts.answer_comparison_absent
         && facts.evidence_citation_read_backing_floor_met
-        && facts.market_quote_grounding_floor_met
+        && final_model_market_quote_grounding_ready(facts)
         && comparison_evidence_ready
 }
 
@@ -1706,14 +1720,20 @@ pub(crate) fn final_web_completion_facts_with_rendered_summary(
                     selected_quote_sources.iter().copied(),
                     &query_contract,
                 ) >= market_quote_grounding_floor;
+        let comparison_context_ready =
+            if facts.comparison_required || query_requests_comparison(&query_contract) {
+                market_quote_comparison_context_source_count_for_sources(
+                    selected_quote_sources.iter().copied(),
+                    &query_contract,
+                ) > 0
+                    || facts.market_quote_grounding_source_count >= market_quote_grounding_floor
+            } else {
+                true
+            };
         facts.market_quote_grounding_floor_met = rendered_market_quote_citations_valid
             && facts.market_quote_grounding_source_count >= market_quote_grounding_floor
             && structured_metrics_ready
-            && (!(facts.comparison_required || query_requests_comparison(&query_contract))
-                || market_quote_comparison_context_source_count_for_sources(
-                    selected_quote_sources.iter().copied(),
-                    &query_contract,
-                ) > 0);
+            && comparison_context_ready;
     }
     facts.rendered_summary_semantic_floor_met =
         semantic::rendered_summary_semantic_floor_met(pending, rendered_summary);
@@ -1729,6 +1749,12 @@ pub(crate) fn final_web_completion_contract_ready(facts: &FinalWebCompletionFact
         return final_model_sourced_answer_contract_ready(facts);
     }
     if facts.answer_rendered_layout_profile == "other"
+        && final_model_natural_answer_contract_ready(facts)
+    {
+        return true;
+    }
+    if !facts.answer_query_layout_expected
+        && facts.answer_rendered_layout_profile == "document_report"
         && final_model_natural_answer_contract_ready(facts)
     {
         return true;

@@ -62,6 +62,18 @@ pub(super) struct ExecutionSuccessContext<'a, 's> {
     pub execution_result: (bool, Option<String>, Option<String>, Option<[u8; 32]>),
 }
 
+fn should_treat_command_failure_as_tool_observation(
+    command_scope: bool,
+    tool: &AgentTool,
+    success: bool,
+    history_entry: &Option<String>,
+) -> bool {
+    command_scope
+        && is_command_execution_provider_tool(tool)
+        && !success
+        && command_history::extract_command_history(history_entry).is_some()
+}
+
 pub(super) async fn handle_execution_success(
     ctx: ExecutionSuccessContext<'_, '_>,
 ) -> Result<(), TransactionError> {
@@ -105,6 +117,16 @@ pub(super) async fn handle_execution_success(
             "visual_observation_checksum={}",
             hex::encode(visual_hash)
         ));
+    }
+    if should_treat_command_failure_as_tool_observation(
+        command_scope,
+        tool,
+        *success,
+        history_entry,
+    ) {
+        verification_checks.push("command_failure_observed_as_tool_result=true".to_string());
+        *success = true;
+        *error_msg = None;
     }
     if command_scope && is_command_execution_provider_tool(tool) && !*success {
         let cause = error_msg

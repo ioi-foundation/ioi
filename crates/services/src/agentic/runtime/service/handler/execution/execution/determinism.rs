@@ -80,6 +80,156 @@ fn resolved_intent_id(agent_state: &AgentState) -> String {
         .unwrap_or_else(|| "resolver.unclassified".to_string())
 }
 
+fn parse_workspace_change_for_policy(
+    value: serde_json::Value,
+) -> Result<crate::agentic::runtime::trajectory::WorkspaceChangeRecord, TransactionError> {
+    serde_json::from_value(value).map_err(|error| {
+        TransactionError::Invalid(format!(
+            "ERROR_CLASS=DeterminismBoundary Workspace change policy payload is invalid: {error}"
+        ))
+    })
+}
+
+fn load_workspace_changes_for_policy(
+    service: &RuntimeAgentService,
+    session_id: [u8; 32],
+) -> Result<Vec<crate::agentic::runtime::trajectory::WorkspaceChangeRecord>, TransactionError> {
+    let Some(memory_runtime) = service.memory_runtime.as_ref() else {
+        return Ok(Vec::new());
+    };
+
+    let trajectory_changes =
+        crate::agentic::runtime::utils::load_agent_trajectory_latest_checkpoint(
+            memory_runtime.as_ref(),
+            session_id,
+        )
+        .map_err(|error| {
+            TransactionError::Invalid(format!(
+                "ERROR_CLASS=DeterminismBoundary Failed to load workspace change checkpoint for policy: {error}"
+            ))
+        })?
+        .map(|record| record.workspace_changes)
+        .unwrap_or_default();
+    if !trajectory_changes.is_empty() {
+        return Ok(trajectory_changes);
+    }
+
+    crate::agentic::runtime::utils::load_agent_state_checkpoint(memory_runtime.as_ref(), session_id)
+        .map_err(|error| {
+            TransactionError::Invalid(format!(
+                "ERROR_CLASS=DeterminismBoundary Failed to load workspace change state checkpoint for policy: {error}"
+            ))
+        })?
+        .map(|agent_state| {
+            crate::agentic::runtime::trajectory::workspace_change_records_for_state(&agent_state)
+        })
+        .map(Ok)
+        .unwrap_or_else(|| Ok(Vec::new()))
+}
+
+fn resolve_workspace_change_for_policy(
+    service: &RuntimeAgentService,
+    session_id: [u8; 32],
+    change_id: Option<&str>,
+    change: Option<&serde_json::Value>,
+    changes: &[serde_json::Value],
+) -> Result<Option<crate::agentic::runtime::trajectory::WorkspaceChangeRecord>, TransactionError> {
+    let change_id = change_id
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+
+    if let Some(change) = change {
+        let record = parse_workspace_change_for_policy(change.clone())?;
+        if let Some(change_id) = change_id.as_deref() {
+            if record.change_id != change_id {
+                return Err(TransactionError::Invalid(format!(
+                    "ERROR_CLASS=DeterminismBoundary Workspace change policy change_id mismatch: requested '{}' but payload contains '{}'",
+                    change_id, record.change_id
+                )));
+            }
+        }
+        return Ok(Some(record));
+    }
+
+    let Some(change_id) = change_id else {
+        return Ok(None);
+    };
+
+    let mut available_changes = load_workspace_changes_for_policy(service, session_id)?;
+    for change in changes {
+        available_changes.push(parse_workspace_change_for_policy(change.clone())?);
+    }
+
+    match crate::agentic::runtime::workspace_change::find_workspace_change_by_id(
+        &available_changes,
+        &change_id,
+    ) {
+        Ok(record) => Ok(Some(record)),
+        Err(error) if error.code == "change_not_found" => Ok(None),
+        Err(error) => Err(TransactionError::Invalid(format!(
+            "ERROR_CLASS=DeterminismBoundary Workspace change policy lookup failed: {error}"
+        ))),
+    }
+}
+
+fn request_args_for_policy(
+    service: &RuntimeAgentService,
+    session_id: [u8; 32],
+    tool: &AgentTool,
+    mut args_value: serde_json::Value,
+) -> Result<serde_json::Value, TransactionError> {
+    let AgentTool::WorkspaceChangeRollback {
+        change_id,
+        change,
+        changes,
+    } = tool
+    else {
+        return Ok(args_value);
+    };
+
+    let Some(record) = resolve_workspace_change_for_policy(
+        service,
+        session_id,
+        change_id.as_deref(),
+        change.as_ref(),
+        changes,
+    )?
+    else {
+        return Ok(args_value);
+    };
+    let Some(path) = record
+        .path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return Ok(args_value);
+    };
+
+    let Some(object) = args_value.as_object_mut() else {
+        return Err(TransactionError::Invalid(
+            "ERROR_CLASS=DeterminismBoundary Workspace change rollback policy args must be an object"
+                .to_string(),
+        ));
+    };
+
+    if let Some(existing_path) = object.get("path").and_then(|value| value.as_str()) {
+        if existing_path.trim() != path {
+            return Err(TransactionError::Invalid(format!(
+                "ERROR_CLASS=DeterminismBoundary Workspace change rollback path mismatch: policy args '{}' but record '{}'",
+                existing_path, path
+            )));
+        }
+    } else {
+        object.insert(
+            "path".to_string(),
+            serde_json::Value::String(path.to_string()),
+        );
+    }
+    Ok(args_value)
+}
+
 fn unix_timestamp_ms_now() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -104,6 +254,7 @@ async fn build_determinism_context(
         .get("arguments")
         .cloned()
         .unwrap_or_else(|| json!({}));
+    let args_value = request_args_for_policy(_service, session_id, tool, args_value)?;
     let request_params = serde_jcs::to_vec(&args_value)
         .map_err(|e| TransactionError::Serialization(e.to_string()))?;
 

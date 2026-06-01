@@ -66,8 +66,12 @@ fn web_pipeline_constraint_grounded_search_query_anchor_phrase_ignores_output_co
     let normalized = query.to_ascii_lowercase();
     let utc_phrase_count = normalized.match_indices("utc timestamp").count();
     assert_eq!(
-        utc_phrase_count, 1,
-        "expected deduped output-contract term in query: {query}"
+        utc_phrase_count, 0,
+        "output-contract term should stay out of retrieval query: {query}"
+    );
+    assert!(
+        !normalized.contains("sources"),
+        "source-display directive should stay out of retrieval query: {query}"
     );
     assert!(
         !normalized.contains("\"anderson sources"),
@@ -88,7 +92,7 @@ fn web_pipeline_constraint_grounded_search_query_projects_semantic_target_when_p
     );
     let normalized = query.to_ascii_lowercase();
     assert!(
-        normalized.starts_with("weather current conditions"),
+        normalized.starts_with("weather in anderson"),
         "expected semantic retrieval projection: {query}"
     );
     assert!(normalized.contains("anderson"), "query={query}");
@@ -123,7 +127,7 @@ fn web_pipeline_constraint_grounded_search_query_bootstrap_keeps_scoped_time_sen
     );
     let normalized = query.to_ascii_lowercase();
     assert!(
-        normalized.starts_with("weather current conditions"),
+        normalized.starts_with("weather in anderson"),
         "query={}",
         query
     );

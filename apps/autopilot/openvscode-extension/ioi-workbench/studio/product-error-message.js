@@ -10,6 +10,9 @@ function createStudioProductErrorMessage({ stringValue }) {
     if (/OpenAI-compatible provider stream failed|Daemon stream failed|provider stream failed|external_blocker/i.test(text)) {
       return "The selected model route failed while streaming. Details are in Tracing.";
     }
+    if (/exceeds the available context size|exceed_context_size/i.test(text)) {
+      return "The selected model route ran out of context while preparing the turn. Details are in Tracing.";
+    }
     if (/fixture|deterministic .*fixture/i.test(text)) {
       return "The selected product route refused fixture output. Details are in Tracing.";
     }

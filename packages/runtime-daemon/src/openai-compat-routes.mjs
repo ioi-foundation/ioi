@@ -14,6 +14,8 @@ import {
   writeJsonResponse,
 } from "./runtime-http-utils.mjs";
 
+const STREAM_SHAPE_SAMPLE_LIMIT = 8;
+
 export async function handleOpenAiCompatibilityRoute({ request, response, store, url }) {
   const mounts = store.modelMounting;
   const authorization = compatibilityAuthorization(request);
@@ -505,6 +507,226 @@ export async function writeOpenAiChatCompletionStream(response, invocation, moun
   });
 }
 
+function createOpenAiProviderStreamShapeSummary() {
+  return {
+    schemaVersion: "ioi.model.provider_stream_shape.v1",
+    jsonPayloads: 0,
+    nonJsonPayloads: 0,
+    payloadKeySamples: [],
+    choiceKeySamples: [],
+    deltaKeySamples: [],
+    messageKeySamples: [],
+    finishReasons: {},
+    topLevelFinishReasons: {},
+    usageFrames: 0,
+    timingFrames: 0,
+    delta: {
+      contentChunks: 0,
+      contentChars: 0,
+      reasoningChunks: 0,
+      reasoningChars: 0,
+      toolCallChunks: 0,
+      toolCallItems: 0,
+      toolCallIdDeltas: 0,
+      toolCallTypeDeltas: 0,
+      toolCallNameDeltas: 0,
+      toolCallArgumentDeltas: 0,
+      toolCallArgumentChars: 0,
+      toolCallIndexes: [],
+      toolNameRefs: [],
+      functionCallChunks: 0,
+      functionCallNameDeltas: 0,
+      functionCallArgumentDeltas: 0,
+      functionCallArgumentChars: 0,
+    },
+    message: {
+      contentFrames: 0,
+      contentChars: 0,
+      toolCallFrames: 0,
+      toolCallItems: 0,
+      toolCallNameCount: 0,
+      toolCallArgumentChars: 0,
+      toolNameRefs: [],
+      functionCallFrames: 0,
+      functionCallNamePresent: false,
+      functionCallArgumentChars: 0,
+    },
+    _deltaToolArgumentBuffers: Object.create(null),
+    _deltaFunctionArgumentBuffer: "",
+    _messageToolArguments: [],
+    _messageFunctionArgument: "",
+  };
+}
+
+function observeOpenAiProviderStreamShape(summary, parsed) {
+  if (!parsed || typeof parsed !== "object") {
+    summary.nonJsonPayloads += 1;
+    return;
+  }
+  summary.jsonPayloads += 1;
+  sampleKeys(summary.payloadKeySamples, parsed);
+  if (parsed.usage) summary.usageFrames += 1;
+  if (parsed.timings) summary.timingFrames += 1;
+  countValue(summary.topLevelFinishReasons, parsed.finish_reason);
+  const choices = Array.isArray(parsed.choices) ? parsed.choices : [];
+  for (const choice of choices) {
+    if (!choice || typeof choice !== "object") continue;
+    sampleKeys(summary.choiceKeySamples, choice);
+    countValue(summary.finishReasons, choice.finish_reason);
+    observeOpenAiProviderDeltaShape(summary, choice.delta);
+    observeOpenAiProviderMessageShape(summary, choice.message);
+  }
+}
+
+function observeOpenAiProviderDeltaShape(summary, delta) {
+  if (!delta || typeof delta !== "object") return;
+  sampleKeys(summary.deltaKeySamples, delta);
+  if (typeof delta.content === "string" && delta.content.length > 0) {
+    summary.delta.contentChunks += 1;
+    summary.delta.contentChars += delta.content.length;
+  }
+  if (typeof delta.reasoning_content === "string" && delta.reasoning_content.length > 0) {
+    summary.delta.reasoningChunks += 1;
+    summary.delta.reasoningChars += delta.reasoning_content.length;
+  }
+  if (Array.isArray(delta.tool_calls)) {
+    summary.delta.toolCallChunks += 1;
+    summary.delta.toolCallItems += delta.tool_calls.length;
+    for (let fallbackIndex = 0; fallbackIndex < delta.tool_calls.length; fallbackIndex += 1) {
+      const call = delta.tool_calls[fallbackIndex];
+      if (!call || typeof call !== "object") continue;
+      if (typeof call.id === "string" && call.id.length > 0) summary.delta.toolCallIdDeltas += 1;
+      if (typeof call.type === "string" && call.type.length > 0) summary.delta.toolCallTypeDeltas += 1;
+      const index = Number.isFinite(call.index) ? call.index : fallbackIndex;
+      sampleValue(summary.delta.toolCallIndexes, index);
+      const fn = call.function;
+      if (fn && typeof fn === "object") {
+        if (typeof fn.name === "string" && fn.name.length > 0) {
+          summary.delta.toolCallNameDeltas += 1;
+          sampleValue(summary.delta.toolNameRefs, redactedStreamHash(fn.name));
+        }
+        if (typeof fn.arguments === "string" && fn.arguments.length > 0) {
+          summary.delta.toolCallArgumentDeltas += 1;
+          summary.delta.toolCallArgumentChars += fn.arguments.length;
+          const key = String(index);
+          summary._deltaToolArgumentBuffers[key] = `${summary._deltaToolArgumentBuffers[key] ?? ""}${fn.arguments}`;
+        }
+      }
+    }
+  }
+  if (delta.function_call && typeof delta.function_call === "object") {
+    summary.delta.functionCallChunks += 1;
+    if (typeof delta.function_call.name === "string" && delta.function_call.name.length > 0) {
+      summary.delta.functionCallNameDeltas += 1;
+      sampleValue(summary.delta.toolNameRefs, redactedStreamHash(delta.function_call.name));
+    }
+    if (typeof delta.function_call.arguments === "string" && delta.function_call.arguments.length > 0) {
+      summary.delta.functionCallArgumentDeltas += 1;
+      summary.delta.functionCallArgumentChars += delta.function_call.arguments.length;
+      summary._deltaFunctionArgumentBuffer += delta.function_call.arguments;
+    }
+  }
+}
+
+function observeOpenAiProviderMessageShape(summary, message) {
+  if (!message || typeof message !== "object") return;
+  sampleKeys(summary.messageKeySamples, message);
+  if (typeof message.content === "string" && message.content.length > 0) {
+    summary.message.contentFrames += 1;
+    summary.message.contentChars += message.content.length;
+  }
+  if (Array.isArray(message.tool_calls)) {
+    summary.message.toolCallFrames += 1;
+    summary.message.toolCallItems += message.tool_calls.length;
+    for (const call of message.tool_calls) {
+      const fn = call?.function;
+      if (!fn || typeof fn !== "object") continue;
+      if (typeof fn.name === "string" && fn.name.length > 0) {
+        summary.message.toolCallNameCount += 1;
+        sampleValue(summary.message.toolNameRefs, redactedStreamHash(fn.name));
+      }
+      if (typeof fn.arguments === "string" && fn.arguments.length > 0) {
+        summary.message.toolCallArgumentChars += fn.arguments.length;
+        summary._messageToolArguments.push(fn.arguments);
+      }
+    }
+  }
+  if (message.function_call && typeof message.function_call === "object") {
+    summary.message.functionCallFrames += 1;
+    if (typeof message.function_call.name === "string" && message.function_call.name.length > 0) {
+      summary.message.functionCallNamePresent = true;
+      sampleValue(summary.message.toolNameRefs, redactedStreamHash(message.function_call.name));
+    }
+    if (typeof message.function_call.arguments === "string" && message.function_call.arguments.length > 0) {
+      summary.message.functionCallArgumentChars += message.function_call.arguments.length;
+      summary._messageFunctionArgument += message.function_call.arguments;
+    }
+  }
+}
+
+function finalizeOpenAiProviderStreamShape(summary, { framesForwarded, finishReason }) {
+  const deltaToolArgumentBuffers = Object.values(summary._deltaToolArgumentBuffers ?? {});
+  const messageToolArguments = summary._messageToolArguments ?? [];
+  const result = {
+    ...summary,
+    framesForwarded,
+    finishReason,
+    deltaToolArgumentBuffers: summarizeJsonArgumentBuffers(deltaToolArgumentBuffers),
+    deltaFunctionArgumentBuffer: summarizeJsonArgumentBuffers([summary._deltaFunctionArgumentBuffer].filter(Boolean)),
+    messageToolArguments: summarizeJsonArgumentBuffers(messageToolArguments),
+    messageFunctionArgument: summarizeJsonArgumentBuffers([summary._messageFunctionArgument].filter(Boolean)),
+    evidenceRefs: ["model_provider_stream_shape_summary"],
+  };
+  delete result._deltaToolArgumentBuffers;
+  delete result._deltaFunctionArgumentBuffer;
+  delete result._messageToolArguments;
+  delete result._messageFunctionArgument;
+  return result;
+}
+
+function summarizeJsonArgumentBuffers(buffers) {
+  let validJson = 0;
+  let invalidJson = 0;
+  let empty = 0;
+  let totalChars = 0;
+  const hashes = [];
+  for (const buffer of buffers) {
+    const text = typeof buffer === "string" ? buffer : "";
+    if (!text.trim()) {
+      empty += 1;
+      continue;
+    }
+    totalChars += text.length;
+    sampleValue(hashes, redactedStreamHash(text));
+    try {
+      JSON.parse(text);
+      validJson += 1;
+    } catch {
+      invalidJson += 1;
+    }
+  }
+  return { buffers: buffers.length, validJson, invalidJson, empty, totalChars, argumentHashes: hashes };
+}
+
+function sampleKeys(target, value) {
+  if (!value || typeof value !== "object") return;
+  sampleValue(target, Object.keys(value).sort().join(","));
+}
+
+function sampleValue(target, value) {
+  if (target.length >= STREAM_SHAPE_SAMPLE_LIMIT) return;
+  if (!target.includes(value)) target.push(value);
+}
+
+function countValue(target, value) {
+  if (typeof value !== "string" || value.length === 0) return;
+  target[value] = (target[value] ?? 0) + 1;
+}
+
+function redactedStreamHash(value) {
+  return crypto.createHash("sha256").update(String(value)).digest("hex").slice(0, 16);
+}
+
 export async function writeOpenAiProviderChatCompletionStream(request, response, streamInvocation, mounts) {
   if (["ollama_jsonl", "ioi_jsonl"].includes(streamInvocation.providerResult?.streamFormat)) {
     await writeOllamaChatCompletionStream(request, response, streamInvocation, mounts);
@@ -522,6 +744,7 @@ export async function writeOpenAiProviderChatCompletionStream(request, response,
   let providerUsage = null;
   let finishReason = null;
   let buffer = "";
+  const streamShape = createOpenAiProviderStreamShapeSummary();
   const markCanceled = () => {
     if (completed || canceled) return;
     canceled = true;
@@ -553,6 +776,7 @@ export async function writeOpenAiProviderChatCompletionStream(request, response,
         for (const payload of dataPayloadsFromSseBlock(frame)) {
           if (payload === "[DONE]") continue;
           const parsed = parseJsonMaybe(payload);
+          observeOpenAiProviderStreamShape(streamShape, parsed);
           const delta =
             parsed?.choices?.[0]?.delta?.content ??
             parsed?.choices?.[0]?.delta?.reasoning_content;
@@ -580,6 +804,7 @@ export async function writeOpenAiProviderChatCompletionStream(request, response,
       for (const payload of dataPayloadsFromSseBlock(frame)) {
         if (payload === "[DONE]") continue;
         const parsed = parseJsonMaybe(payload);
+        observeOpenAiProviderStreamShape(streamShape, parsed);
         const delta =
           parsed?.choices?.[0]?.delta?.content ??
           parsed?.choices?.[0]?.delta?.reasoning_content;
@@ -602,6 +827,10 @@ export async function writeOpenAiProviderChatCompletionStream(request, response,
       finishReason,
       providerResult: streamInvocation.providerResult,
     });
+    mounts.appendOperation?.(
+      "model.provider_stream_shape_summary",
+      finalizeOpenAiProviderStreamShape(streamShape, { framesForwarded: written, finishReason }),
+    );
     const metadata = {
       id: `chatcmpl_${crypto.randomUUID()}`,
       object: "chat.completion.chunk",

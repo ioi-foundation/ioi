@@ -71,10 +71,10 @@ fn web_pipeline_constraint_grounded_search_limit_tracks_time_sensitive_constrain
 }
 
 #[test]
-fn web_pipeline_uses_source_hints_when_read_output_is_low_signal() {
+fn web_pipeline_uses_explicit_source_hints_when_read_output_is_low_signal() {
     let mut pending = PendingSearchCompletion {
-        query: "latest breaking news".to_string(),
-        query_contract: "latest breaking news".to_string(),
+        query: "top news stories today".to_string(),
+        query_contract: "top news stories today".to_string(),
         retrieval_contract: None,
         url: "https://example.com/news".to_string(),
         started_step: 1,
@@ -93,16 +93,15 @@ fn web_pipeline_uses_source_hints_when_read_output_is_low_signal() {
         min_sources: 1,
     };
 
-    append_pending_web_success_fallback(
+    assert!(append_pending_web_success_from_hint(
         &mut pending,
         "https://example.com/news/storm-delays",
-        Some("Google News"),
-    );
+    ));
     let retained = pending
         .successful_reads
         .iter()
         .find(|source| source.url == "https://example.com/news/storm-delays")
-        .expect("fallback should retain the source hint as evidence");
+        .expect("source hint recovery should retain the candidate as evidence");
     assert_eq!(
         retained.title.as_deref(),
         Some("Major storm causes widespread flight delays")

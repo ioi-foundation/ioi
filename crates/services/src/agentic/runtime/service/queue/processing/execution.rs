@@ -84,7 +84,17 @@ pub(super) async fn execute_queue_tool_request(
         .clone()
         .ok_or(TransactionError::Invalid("OS driver missing".into()))?;
 
-    if !is_tool_allowed_for_resolution(agent_state.resolved_intent.as_ref(), tool_name) {
+    let tool_allowed = is_tool_allowed_for_resolution(
+        agent_state.resolved_intent.as_ref(),
+        tool_name,
+    )
+        || (crate::agentic::runtime::workspace_change::workspace_change_lifecycle_goal_requested(
+            &agent_state.goal,
+        )
+            && crate::agentic::runtime::workspace_change::workspace_change_lifecycle_control_tool(
+                tool_name,
+            ));
+    if !tool_allowed {
         return Err(TransactionError::Invalid(format!(
             "ERROR_CLASS=PolicyBlocked Tool '{}' blocked by global intent scope.",
             tool_name

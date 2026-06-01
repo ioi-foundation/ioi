@@ -481,30 +481,31 @@ fn applied_workspace_changes_for_state(state: &AgentState) -> Vec<WorkspaceChang
         return changes;
     }
     changes.extend(
-        state
-            .tool_execution_log
-            .get("evidence::workspace_edit_applied")
-            .and_then(executed_status_value)
-            .map(|evidence| {
-                let fields = receipt_fields(evidence);
-                WorkspaceChangeRecord {
-                    change_id: format!("workspace_change:{}", hash_text(evidence)),
-                    tool_name: fields
-                        .get("tool")
-                        .cloned()
-                        .unwrap_or_else(|| "file__edit".to_string()),
-                    path: fields.get("path").cloned(),
-                    lifecycle: "applied".to_string(),
-                    edit_count: 1,
-                    hunks: Vec::new(),
-                    before_hash: None,
-                    after_hash: None,
-                    authority_ref: None,
-                    receipt_ref: Some(evidence.to_string()),
-                    evidence_ref: Some(evidence.to_string()),
-                }
-            })
-            .into_iter(),
+        tool_execution_log_get(
+            &state.tool_execution_log,
+            "evidence::workspace_edit_applied",
+        )
+        .and_then(executed_status_value)
+        .map(|evidence| {
+            let fields = receipt_fields(evidence);
+            WorkspaceChangeRecord {
+                change_id: format!("workspace_change:{}", hash_text(evidence)),
+                tool_name: fields
+                    .get("tool")
+                    .cloned()
+                    .unwrap_or_else(|| "file__edit".to_string()),
+                path: fields.get("path").cloned(),
+                lifecycle: "applied".to_string(),
+                edit_count: 1,
+                hunks: Vec::new(),
+                before_hash: None,
+                after_hash: None,
+                authority_ref: None,
+                receipt_ref: Some(evidence.to_string()),
+                evidence_ref: Some(evidence.to_string()),
+            }
+        })
+        .into_iter(),
     );
     changes
 }
@@ -561,13 +562,24 @@ fn workspace_change_records_from_log_value(
     state: &AgentState,
     key: &str,
 ) -> Vec<WorkspaceChangeRecord> {
-    state
-        .tool_execution_log
-        .get(key)
+    tool_execution_log_get(&state.tool_execution_log, key)
         .and_then(executed_status_value)
         .and_then(|value| serde_json::from_str::<WorkspaceChangeRecord>(value).ok())
         .into_iter()
         .collect()
+}
+
+fn tool_execution_log_get<'a>(
+    log: &'a BTreeMap<String, ToolCallStatus>,
+    key: &str,
+) -> Option<&'a ToolCallStatus> {
+    log.get(key).or_else(|| {
+        if key.ends_with("=true") {
+            None
+        } else {
+            log.get(&format!("{key}=true"))
+        }
+    })
 }
 
 fn executed_status_value(status: &ToolCallStatus) -> Option<&str> {

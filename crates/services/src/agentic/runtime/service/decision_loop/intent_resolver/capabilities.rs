@@ -308,6 +308,21 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             capabilities: vec![capability("filesystem.write")],
         },
         ToolCapabilityBinding {
+            tool_name: "workspace_change__status".to_string(),
+            action_target: ActionTarget::Custom("workspace_change__status".to_string()),
+            capabilities: vec![capability("filesystem.read")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "workspace_change__reject".to_string(),
+            action_target: ActionTarget::Custom("workspace_change__reject".to_string()),
+            capabilities: vec![capability("filesystem.write")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "workspace_change__rollback".to_string(),
+            action_target: ActionTarget::FsWrite,
+            capabilities: vec![capability("filesystem.write")],
+        },
+        ToolCapabilityBinding {
             tool_name: "wallet_network__mail_read_latest".to_string(),
             action_target: ActionTarget::Custom("wallet_network__mail_read_latest".to_string()),
             capabilities: vec![capability("mail.read.latest")],
@@ -904,6 +919,20 @@ pub fn is_tool_allowed_for_resolution(
     let tool_caps = tool_capabilities(tool_name);
     if tool_caps.is_empty() {
         return false;
+    }
+    if matches!(resolved.scope, IntentScopeProfile::CommandExecution)
+        && resolved
+            .required_capabilities
+            .iter()
+            .any(|required| required.as_str() == "command.exec")
+        && tool_caps.iter().any(|tool_cap| {
+            matches!(
+                tool_cap.as_str(),
+                "filesystem.read" | "filesystem.write" | "filesystem.metadata"
+            )
+        })
+    {
+        return true;
     }
     if resolved.required_capabilities.is_empty() {
         return false;

@@ -87,6 +87,26 @@ pub(super) fn sanitize_json(input: &str) -> String {
         return trimmed.to_string();
     }
 
+    // llama.cpp/Qwen-style OpenAI-compatible tool streams can surface the model's
+    // native tool-call block as text while the provider still reports
+    // finish_reason=tool_calls. Treat the explicit provider wrapper as protocol
+    // normalization only; the enclosed JSON must still satisfy the strict tool
+    // schema below.
+    for (open, close) in [
+        ("<tool_call>", "</tool_call>"),
+        ("<tool_calls>", "</tool_calls>"),
+    ] {
+        if let Some(start) = trimmed.find(open) {
+            let body_start = start + open.len();
+            if let Some(end_rel) = trimmed[body_start..].find(close) {
+                let body = trimmed[body_start..body_start + end_rel].trim();
+                if !body.is_empty() {
+                    return body.to_string();
+                }
+            }
+        }
+    }
+
     // Prefer the first fenced code block anywhere in the output so we can
     // recover tool JSON that follows a short explanation.
     if let Some(fence_start) = trimmed.find("```") {

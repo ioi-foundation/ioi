@@ -22,8 +22,16 @@ pub(super) fn run_execution_prechecks(
     history_entry: &mut Option<String>,
     action_output: &mut Option<String>,
 ) -> bool {
-    let tool_allowed =
-        is_tool_allowed_for_resolution(agent_state.resolved_intent.as_ref(), current_tool_name);
+    let tool_allowed = is_tool_allowed_for_resolution(
+        agent_state.resolved_intent.as_ref(),
+        current_tool_name,
+    )
+        || (crate::agentic::runtime::workspace_change::workspace_change_lifecycle_goal_requested(
+            &agent_state.goal,
+        )
+            && crate::agentic::runtime::workspace_change::workspace_change_lifecycle_control_tool(
+                current_tool_name,
+            ));
     if !tool_allowed {
         *policy_decision = "denied".to_string();
         *success = false;

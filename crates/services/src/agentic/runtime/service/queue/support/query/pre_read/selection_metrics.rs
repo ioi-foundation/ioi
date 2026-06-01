@@ -367,9 +367,11 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
         && compatible_sources >= required_source_count
         && locality_floor_met
         && distinct_domain_floor_met
-        && low_priority_sources == 0
+        && (low_priority_sources == 0 || source_finding_mode)
         && entity_anchor_floor_met
-        && (!grounded_document_report_support_mode || authority_backed_compatible_sources > 0)
+        && (!grounded_document_report_support_mode
+            || source_finding_mode
+            || authority_backed_compatible_sources > 0)
         && identifier_coverage_floor_met;
 
     SelectedSourceQualityObservation {

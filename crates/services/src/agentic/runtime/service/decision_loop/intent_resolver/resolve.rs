@@ -371,6 +371,64 @@ pub async fn resolve_step_intent_with_state(
         }
     }
 
+    fn candidate_score_bps(
+        selection_top_k: &[IntentCandidateScore],
+        intent_id: &str,
+    ) -> Option<u16> {
+        selection_top_k
+            .iter()
+            .find(|candidate| candidate.intent_id == intent_id)
+            .map(|candidate| score_to_bps(candidate.score))
+            .filter(|score| *score > 0)
+    }
+
+    fn catalog_capabilities_for_intent(
+        intent_catalog: &[IntentCatalogEntry],
+        intent_id: &str,
+    ) -> Vec<CapabilityId> {
+        intent_catalog
+            .iter()
+            .find(|entry| entry.intent_id == intent_id)
+            .map(|entry| entry.required_capabilities.clone())
+            .unwrap_or_default()
+    }
+
+    fn merge_capabilities(
+        mut base: Vec<CapabilityId>,
+        extra: Vec<CapabilityId>,
+    ) -> Vec<CapabilityId> {
+        let mut seen = base.iter().cloned().collect::<BTreeSet<_>>();
+        for capability in extra {
+            if seen.insert(capability.clone()) {
+                base.push(capability);
+            }
+        }
+        base
+    }
+
+    fn expand_composite_workspace_command_capabilities(
+        winner: &IntentCandidateScore,
+        selection_top_k: &[IntentCandidateScore],
+        intent_catalog: &[IntentCatalogEntry],
+        required_capabilities: Vec<CapabilityId>,
+    ) -> Vec<CapabilityId> {
+        let winner_id = winner.intent_id.as_str();
+        let counterpart_id = match winner_id {
+            "workspace.ops" => "command.exec",
+            "command.exec" => "workspace.ops",
+            _ => return required_capabilities,
+        };
+
+        if candidate_score_bps(selection_top_k, counterpart_id).is_none() {
+            return required_capabilities;
+        }
+
+        merge_capabilities(
+            required_capabilities,
+            catalog_capabilities_for_intent(intent_catalog, counterpart_id),
+        )
+    }
+
     let (
         scope,
         preferred_tier,
@@ -463,6 +521,12 @@ pub async fn resolve_step_intent_with_state(
         provider_selection.as_ref(),
     )
     .await;
+    let required_capabilities = expand_composite_workspace_command_capabilities(
+        &winner,
+        &selection_top_k,
+        &intent_catalog,
+        required_capabilities,
+    );
     let required_capabilities = required_capabilities_with_instruction_contract(
         &required_capabilities,
         instruction_contract.as_ref(),

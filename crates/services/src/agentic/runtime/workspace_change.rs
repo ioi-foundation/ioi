@@ -31,6 +31,49 @@ pub struct WorkspaceChangeLifecycleError {
     pub message: String,
 }
 
+pub fn workspace_change_lifecycle_goal_requested(goal: &str) -> bool {
+    let normalized = goal.to_ascii_lowercase();
+    let requests_lifecycle = ["roll back", "rollback", "revert", "reject change"]
+        .iter()
+        .any(|needle| normalized.contains(needle));
+    let mentions_workspace_change = [
+        "workspace change",
+        "change lifecycle",
+        "change_id",
+        "change id",
+        "src/",
+        ".js",
+        ".jsx",
+        ".ts",
+        ".tsx",
+        ".mjs",
+        ".rs",
+        ".py",
+        "repository",
+        "repo",
+        "workspace",
+        "file",
+        "edit",
+    ]
+    .iter()
+    .any(|needle| normalized.contains(needle));
+    requests_lifecycle && mentions_workspace_change
+}
+
+pub fn workspace_change_lifecycle_control_tool(tool_name: &str) -> bool {
+    matches!(
+        tool_name.trim().to_ascii_lowercase().as_str(),
+        "workspace_change__status"
+            | "workspace_change__reject"
+            | "workspace_change__rollback"
+            | "file__read"
+            | "chat__reply"
+            | "agent__pause"
+            | "agent__complete"
+            | "agent__escalate"
+    )
+}
+
 impl WorkspaceChangeLifecycleError {
     pub(crate) fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
@@ -292,6 +335,21 @@ mod tests {
     use crate::agentic::runtime::trajectory::workspace_change_record_from_tool;
     use ioi_types::app::agentic::{AgentFileEditOperation, AgentTool};
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn lifecycle_goal_detection_targets_workspace_change_controls() {
+        assert!(workspace_change_lifecycle_goal_requested(
+            "Roll back the formatter edit using the workspace change lifecycle handle."
+        ));
+        assert!(workspace_change_lifecycle_control_tool(
+            "workspace_change__rollback"
+        ));
+        assert!(workspace_change_lifecycle_control_tool("file__read"));
+        assert!(!workspace_change_lifecycle_control_tool("shell__run"));
+        assert!(!workspace_change_lifecycle_goal_requested(
+            "Tell me a short story about rollback netcode."
+        ));
+    }
 
     #[test]
     fn status_groups_changes_by_lifecycle() {

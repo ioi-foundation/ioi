@@ -125,9 +125,9 @@ pub(crate) fn should_skip_incident_recovery_for_intent(
         return true;
     }
 
-    // File-task retry loops with no-effect/context-drift style failures should stay in the
-    // main cognition loop; incident remediation planners can otherwise select unrelated
-    // side-effect actions.
+    // Read-only/tool-result retry loops with no-effect/context-drift style failures should stay
+    // in the main cognition loop; incident remediation planners can otherwise select unrelated
+    // side-effect actions or surface recovery scaffolding as product copy.
     matches!(intent, IntentClass::FileTask)
         && matches!(
             root_failure_class,
@@ -136,6 +136,14 @@ pub(crate) fn should_skip_incident_recovery_for_intent(
                 | FailureClass::UnexpectedState
         )
         || (root_tool.starts_with("web__")
+            && matches!(intent, IntentClass::BrowserTask)
+            && matches!(
+                root_failure_class,
+                FailureClass::NoEffectAfterAction
+                    | FailureClass::ContextDrift
+                    | FailureClass::UnexpectedState
+            ))
+        || (root_tool == "chat__reply"
             && matches!(intent, IntentClass::BrowserTask)
             && matches!(
                 root_failure_class,
@@ -579,7 +587,7 @@ pub async fn start_or_continue_incident_recovery(
             verification_checks.push("incident_recovery_skipped_for_command_task=true".to_string());
         } else {
             verification_checks
-                .push("incident_recovery_skipped_for_file_read_no_effect=true".to_string());
+                .push("incident_recovery_skipped_for_model_loop_retry=true".to_string());
             verification_checks.push(format!("incident_skip_root_tool={}", root_tool_name));
             verification_checks.push(format!(
                 "incident_skip_failure_class={}",
@@ -777,11 +785,11 @@ pub async fn start_or_continue_incident_recovery(
             incident_state.pending_remedy_tool_jcs = None;
             incident_state.retry_enqueued = false;
             incident_state.root_error = Some(format!(
-                "Deterministic BrowserTask recovery unavailable for failure class {}.",
+                "BrowserTask recovery tool unavailable for failure class {}.",
                 root_failure_class.as_str()
             ));
             agent_state.status = AgentStatus::Paused(
-                "Browser recovery requires deterministic remedy, but none was available."
+                "I need your help to recover this browser step. Details are in Tracing."
                     .to_string(),
             );
             persist_incident_state(state, &session_id, &incident_state)?;
@@ -790,7 +798,7 @@ pub async fn start_or_continue_incident_recovery(
                 session_id,
                 block_height,
                 format!(
-                    "System: BrowserTask incident '{}' has no deterministic remedy. Pausing for user guidance.",
+                    "System: BrowserTask incident '{}' has no eligible recovery tool. Pausing for user guidance.",
                     incident_state.incident_id
                 ),
             )

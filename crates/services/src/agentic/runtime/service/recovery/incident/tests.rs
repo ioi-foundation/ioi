@@ -115,6 +115,11 @@ fn web_research_no_effect_failures_stay_in_cognition_loop() {
         "web__read",
         FailureClass::UnexpectedState
     ));
+    assert!(should_skip_incident_recovery_for_intent(
+        IntentClass::BrowserTask,
+        "chat__reply",
+        FailureClass::NoEffectAfterAction
+    ));
     assert!(!should_skip_incident_recovery_for_intent(
         IntentClass::BrowserTask,
         "browser__click",

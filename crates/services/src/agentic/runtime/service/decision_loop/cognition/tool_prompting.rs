@@ -66,9 +66,222 @@ fn is_workspace_compact_tool(name: &str) -> bool {
             | "file__info"
             | "file__edit"
             | "file__write"
+            | "workspace_change__status"
+            | "workspace_change__reject"
+            | "workspace_change__rollback"
             | "shell__run"
             | "shell__start"
     )
+}
+
+fn is_command_workspace_compact_tool(name: &str) -> bool {
+    matches!(
+        name,
+        "chat__reply"
+            | "agent__complete"
+            | "agent__pause"
+            | "agent__escalate"
+            | "agent__delegate"
+            | "file__read"
+            | "file__view"
+            | "file__list"
+            | "file__search"
+            | "file__info"
+            | "file__edit"
+            | "file__write"
+            | "file__multi_edit"
+            | "workspace_change__status"
+            | "workspace_change__reject"
+            | "workspace_change__rollback"
+            | "shell__run"
+            | "shell__start"
+            | "shell__status"
+            | "shell__input"
+            | "shell__terminate"
+            | "shell__reset"
+    )
+}
+
+fn is_command_workspace_mutation_phase_tool(name: &str) -> bool {
+    matches!(name, "file__edit")
+}
+
+fn is_command_workspace_refresh_after_failed_edit_tool(name: &str) -> bool {
+    matches!(name, "file__read")
+}
+
+fn is_command_workspace_verification_phase_tool(name: &str) -> bool {
+    matches!(name, "shell__run")
+}
+
+fn is_command_workspace_lifecycle_phase_tool(name: &str) -> bool {
+    matches!(
+        name,
+        "workspace_change__status" | "workspace_change__rollback"
+    )
+}
+
+fn is_command_workspace_post_rollback_read_tool(name: &str) -> bool {
+    matches!(name, "file__read")
+}
+
+fn goal_suggests_command_workspace_edit(goal: &str) -> bool {
+    let normalized = goal.to_ascii_lowercase();
+    let mentions_workspace_target = [
+        "src/",
+        "tests/",
+        "test/",
+        ".js",
+        ".jsx",
+        ".ts",
+        ".tsx",
+        ".mjs",
+        ".rs",
+        ".py",
+        ".go",
+        ".java",
+        ".md",
+        "repository",
+        "repo",
+        "workspace",
+        "codebase",
+    ]
+    .iter()
+    .any(|needle| normalized.contains(needle));
+    let requests_mutation = [
+        "fix ", "edit ", "update ", "change ", "patch ", "write ", "modify ", "repair ",
+    ]
+    .iter()
+    .any(|needle| normalized.contains(needle));
+    let requests_verification = [
+        "test", "run ", "node ", "cargo ", "npm ", "pnpm ", "yarn ", "pytest", "verify",
+    ]
+    .iter()
+    .any(|needle| normalized.contains(needle));
+
+    mentions_workspace_target && requests_mutation && requests_verification
+}
+
+pub(super) fn goal_suggests_command_workspace_rollback(goal: &str) -> bool {
+    let normalized = goal.to_ascii_lowercase();
+    let requests_rollback = ["roll back", "rollback", "revert"]
+        .iter()
+        .any(|needle| normalized.contains(needle));
+    let mentions_workspace_change = [
+        "workspace change",
+        "change lifecycle",
+        "change_id",
+        "change id",
+        "src/",
+        ".js",
+        ".jsx",
+        ".ts",
+        ".tsx",
+        ".mjs",
+        ".rs",
+        ".py",
+        "repository",
+        "repo",
+        "workspace",
+    ]
+    .iter()
+    .any(|needle| normalized.contains(needle));
+    requests_rollback && mentions_workspace_change
+}
+
+fn command_execution_workspace_surface(
+    resolved_intent: Option<&ResolvedIntentState>,
+    goal: &str,
+) -> bool {
+    if goal_suggests_command_workspace_rollback(goal) {
+        return true;
+    }
+    let Some(resolved) = resolved_intent else {
+        return goal_suggests_command_workspace_edit(goal);
+    };
+    if !matches!(resolved.scope, IntentScopeProfile::CommandExecution) {
+        return false;
+    }
+    let has_command = resolved
+        .required_capabilities
+        .iter()
+        .any(|capability| capability.as_str() == "command.exec");
+    let has_workspace = resolved.required_capabilities.iter().any(|capability| {
+        matches!(
+            capability.as_str(),
+            "filesystem.read" | "filesystem.write" | "filesystem.metadata"
+        )
+    });
+    has_command && has_workspace || goal_suggests_command_workspace_edit(goal)
+}
+
+fn command_workspace_failed_edit_needs_observation_refresh(agent_state: &AgentState) -> bool {
+    agent_state.last_action_type.as_deref() == Some("file__edit")
+        && agent_state
+            .recent_actions
+            .iter()
+            .rev()
+            .take(3)
+            .any(|entry| entry.contains("NoEffectAfterAction"))
+}
+
+pub(super) fn command_workspace_action_phase_tools(
+    agent_state: &AgentState,
+    tools: &[LlmToolDefinition],
+) -> Option<Vec<LlmToolDefinition>> {
+    if !command_execution_workspace_surface(agent_state.resolved_intent.as_ref(), &agent_state.goal)
+    {
+        return None;
+    }
+
+    if goal_suggests_command_workspace_rollback(&agent_state.goal) {
+        if !has_execution_evidence(
+            &agent_state.tool_execution_log,
+            "workspace_change_rolled_back",
+        ) {
+            return Some(compact_tool_subset(
+                tools,
+                is_command_workspace_lifecycle_phase_tool,
+            ));
+        }
+        if agent_state.last_action_type.as_deref() != Some("file__read") {
+            return Some(compact_tool_subset(
+                tools,
+                is_command_workspace_post_rollback_read_tool,
+            ));
+        }
+        return Some(compact_tool_subset(tools, |name| name == "chat__reply"));
+    }
+
+    if has_execution_evidence(&agent_state.tool_execution_log, "verification") {
+        return Some(compact_tool_subset(tools, |name| name == "chat__reply"));
+    }
+
+    if has_execution_evidence(&agent_state.tool_execution_log, "workspace_edit_applied") {
+        return Some(compact_tool_subset(
+            tools,
+            is_command_workspace_verification_phase_tool,
+        ));
+    }
+
+    if command_workspace_failed_edit_needs_observation_refresh(agent_state) {
+        return Some(compact_tool_subset(
+            tools,
+            is_command_workspace_refresh_after_failed_edit_tool,
+        ));
+    }
+
+    if has_execution_evidence(&agent_state.tool_execution_log, "file_context")
+        || has_execution_evidence(&agent_state.tool_execution_log, "workspace_read")
+        || has_execution_evidence(&agent_state.tool_execution_log, "workspace_read_observed")
+    {
+        return Some(compact_tool_subset(
+            tools,
+            is_command_workspace_mutation_phase_tool,
+        ));
+    }
+
+    None
 }
 
 fn truncate_tool_description(description: &str, max_chars: usize) -> String {
@@ -117,9 +330,7 @@ fn pending_state_has_visible_start_gate(pending_browser_state_context: &str) -> 
 }
 
 #[derive(Debug, Clone, Copy, Default)]
-pub(crate) struct CognitionToolRecovery<'a> {
-    pub consecutive_failures: u32,
-    pub last_failure_reason: Option<&'a str>,
+pub(crate) struct CognitionToolRecovery {
     pub workspace_context_ready_for_reply: bool,
     pub web_context_ready_for_reply: bool,
 }
@@ -150,7 +361,7 @@ pub(crate) fn filter_cognition_tools_with_recovery(
     goal: &str,
     browser_observation_context: &str,
     pending_browser_state_context: &str,
-    recovery: CognitionToolRecovery<'_>,
+    recovery: CognitionToolRecovery,
 ) -> Vec<LlmToolDefinition> {
     let resolved_scope = resolved_intent
         .map(|intent| intent.scope)
@@ -171,19 +382,17 @@ pub(crate) fn filter_cognition_tools_with_recovery(
     }
 
     if !prefer_browser_semantics {
+        if command_execution_workspace_surface(resolved_intent, goal) {
+            return compact_tool_subset(tools, is_command_workspace_compact_tool);
+        }
         if matches!(resolved_scope, IntentScopeProfile::Unknown) {
             return compact_tool_subset(tools, is_general_compact_tool);
         }
         if matches!(resolved_scope, IntentScopeProfile::WebResearch) {
-            if web_research_no_effect_recovery_requires_reply_only(recovery) {
-                return compact_tool_subset(tools, |name| name == "chat__reply");
-            }
             return compact_tool_subset(tools, is_web_research_compact_tool);
         }
         if matches!(resolved_scope, IntentScopeProfile::WorkspaceOps) {
-            if recovery.workspace_context_ready_for_reply
-                || workspace_no_effect_recovery_requires_reply_only(recovery)
-            {
+            if recovery.workspace_context_ready_for_reply {
                 return compact_tool_subset(tools, |name| name == "chat__reply");
             }
             return compact_tool_subset(tools, is_workspace_compact_tool);
@@ -217,28 +426,6 @@ pub(crate) fn filter_cognition_tools_with_recovery(
         .filter(|tool| seen_tool_names.insert(tool.name.clone()))
         .map(|tool| compact_cognition_tool(tool, prefer_browser_semantics))
         .collect()
-}
-
-fn workspace_no_effect_recovery_requires_reply_only(recovery: CognitionToolRecovery<'_>) -> bool {
-    if recovery.consecutive_failures == 0 {
-        return false;
-    }
-    let Some(reason) = recovery.last_failure_reason else {
-        return false;
-    };
-    reason.contains("NoEffectAfterAction")
-}
-
-fn web_research_no_effect_recovery_requires_reply_only(
-    recovery: CognitionToolRecovery<'_>,
-) -> bool {
-    if recovery.consecutive_failures == 0 {
-        return false;
-    }
-    let Some(reason) = recovery.last_failure_reason else {
-        return false;
-    };
-    reason.contains("NoEffectAfterAction")
 }
 
 fn workspace_capability_requires_more_than_reply(capability: &str) -> bool {
@@ -320,7 +507,10 @@ pub(super) fn compact_browser_action_prompt_tools(
 }
 
 fn preserve_compact_tool_property_description(property_name: &str) -> bool {
-    matches!(property_name, "id" | "ids" | "selector")
+    matches!(
+        property_name,
+        "id" | "ids" | "selector" | "path" | "search" | "replace" | "content" | "line_number"
+    )
 }
 
 fn strip_tool_schema_prompt_metadata(value: &mut Value, strip_descriptions: bool) {

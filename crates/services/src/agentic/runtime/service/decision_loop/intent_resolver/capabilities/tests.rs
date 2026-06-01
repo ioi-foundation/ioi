@@ -177,6 +177,10 @@ fn filesystem_edit_line_inherits_filesystem_write_capability() {
         Some(&resolved),
         "file__edit",
     ));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&resolved),
+        "workspace_change__rollback",
+    ));
 }
 
 #[test]

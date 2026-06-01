@@ -3,11 +3,45 @@ use crate::agentic::runtime::trajectory::{
 };
 use crate::agentic::runtime::types::AgentState;
 
+use super::tool_prompting::goal_suggests_command_workspace_rollback;
+
 const MAX_WORKSPACE_CHANGE_ROWS: usize = 8;
 const MAX_WORKSPACE_CHANGE_PATH_CHARS: usize = 120;
 
 pub(crate) fn render_workspace_change_context(agent_state: &AgentState) -> String {
     render_workspace_change_context_from_records(workspace_change_records_for_state(agent_state))
+}
+
+pub(crate) fn render_workspace_change_lifecycle_instruction(agent_state: &AgentState) -> String {
+    if !goal_suggests_command_workspace_rollback(&agent_state.goal) {
+        return String::new();
+    }
+
+    if agent_state.last_action_type.as_deref() == Some("workspace_change__rollback") {
+        return "WORKSPACE CHANGE LIFECYCLE CONTRACT:\n\
+                - The rollback action has just run. The next action must verify the target file with `file__read` before replying.\n\
+                - Do not repeat the rollback unless the tool result explicitly says it failed."
+            .to_string();
+    }
+
+    let actionable_change_count = workspace_change_records_for_state(agent_state)
+        .into_iter()
+        .filter(|change| change.lifecycle == "applied" && rollback_supported(change))
+        .count();
+    if actionable_change_count > 0 {
+        return "WORKSPACE CHANGE LIFECYCLE CONTRACT:\n\
+                - The user asked to roll back a previously applied workspace change.\n\
+                - The next action must be `workspace_change__rollback` using one listed daemon-owned `change_id`.\n\
+                - Do not read or edit files before the rollback action succeeds.\n\
+                - After rollback succeeds, read the target file and then answer cleanly."
+            .to_string();
+    }
+
+    "WORKSPACE CHANGE LIFECYCLE CONTRACT:\n\
+     - The user asked to roll back a workspace change, but no actionable handle is visible in prompt context.\n\
+     - The next action must be `workspace_change__status` to recover daemon-owned change handles.\n\
+     - Do not pass full workspace change JSON in product-visible text."
+        .to_string()
 }
 
 fn render_workspace_change_context_from_records(changes: Vec<WorkspaceChangeRecord>) -> String {

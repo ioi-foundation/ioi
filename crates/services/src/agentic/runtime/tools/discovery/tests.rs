@@ -209,6 +209,66 @@ async fn workspace_ops_scope_exposes_clipboard_tools_in_headless_discovery() {
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn command_exec_discovery_exposes_typed_filesystem_before_shell() {
+    let intent = resolved_with_capability("command.exec", "command.exec");
+    let state = IAVLTree::new(HashCommitmentScheme::new());
+    let runtime: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
+    let tools = discover_tools(
+        &state,
+        None,
+        None,
+        "fix the failing formatter test, edit the source, then run node --test",
+        runtime,
+        ExecutionTier::DomHeadless,
+        "terminal",
+        Some(&intent),
+    )
+    .await;
+
+    let tool_index = |name: &str| tools.iter().position(|tool| tool.name == name);
+    let file_read_index = tool_index("file__read").expect("file__read should be discovered");
+    let file_edit_index = tool_index("file__edit").expect("file__edit should be discovered");
+    let rollback_index = tool_index("workspace_change__rollback")
+        .expect("workspace_change__rollback should be discovered");
+    let shell_index = tool_index("shell__run").expect("shell__run should be discovered");
+
+    assert!(file_read_index < shell_index);
+    assert!(file_edit_index < shell_index);
+    assert!(rollback_index < shell_index);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn workspace_lifecycle_query_exposes_rollback_even_when_resolver_is_read_biased() {
+    let mut intent = resolved(IntentScopeProfile::WorkspaceOps);
+    intent.required_capabilities = vec![CapabilityId::from("filesystem.read")];
+    let state = IAVLTree::new(HashCommitmentScheme::new());
+    let runtime: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
+    let tools = discover_tools(
+        &state,
+        None,
+        None,
+        "Roll back the formatter edit using the workspace change lifecycle handle, then read src/format.mjs",
+        runtime,
+        ExecutionTier::DomHeadless,
+        "terminal",
+        Some(&intent),
+    )
+    .await;
+
+    for tool_name in [
+        "workspace_change__status",
+        "workspace_change__rollback",
+        "file__read",
+        "chat__reply",
+    ] {
+        assert!(
+            tools.iter().any(|tool| tool.name == tool_name),
+            "missing lifecycle tool {tool_name}"
+        );
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn web_research_scope_keeps_browser_tools_in_discovery() {
     let intent = resolved(IntentScopeProfile::WebResearch);
     let state = IAVLTree::new(HashCommitmentScheme::new());

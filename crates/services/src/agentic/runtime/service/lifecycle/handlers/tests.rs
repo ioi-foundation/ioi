@@ -92,6 +92,14 @@ fn reset_for_new_user_goal_refreshes_target_and_intent_state() {
         "software_install__execute_plan".to_string(),
         ToolCallStatus::Pending,
     );
+    state.tool_execution_log.insert(
+        "evidence::workspace_change_applied".to_string(),
+        ToolCallStatus::Executed("change record".to_string()),
+    );
+    state.tool_execution_log.insert(
+        "evidence::workspace_change_rolled_back".to_string(),
+        ToolCallStatus::Executed("rolled back record".to_string()),
+    );
     reset_for_new_user_goal(&mut state, "open calculator");
 
     assert_eq!(state.goal, "open calculator");
@@ -113,6 +121,21 @@ fn reset_for_new_user_goal_refreshes_target_and_intent_state() {
     assert!(state.pending_visual_hash.is_none());
     assert!(state.recent_actions.is_empty());
     assert!(state.execution_queue.is_empty());
-    assert!(state.tool_execution_log.is_empty());
+    assert!(!state
+        .tool_execution_log
+        .contains_key("software_install__execute_plan"));
+    assert_eq!(state.tool_execution_log.len(), 2);
+    assert_eq!(
+        state
+            .tool_execution_log
+            .get("evidence::workspace_change_applied"),
+        Some(&ToolCallStatus::Executed("change record".to_string()))
+    );
+    assert_eq!(
+        state
+            .tool_execution_log
+            .get("evidence::workspace_change_rolled_back"),
+        Some(&ToolCallStatus::Executed("rolled back record".to_string()))
+    );
     assert!(state.pending_search_completion.is_none());
 }

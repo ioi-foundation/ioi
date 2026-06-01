@@ -1,10 +1,11 @@
 use super::{
     compact_tool_history_entry_for_chat, should_record_success_idempotence_for_tool_result,
-    tool_history_message_content, transcript_context_excerpts,
-    workspace_change_lifecycle_receipt_details, workspace_edit_receipt_details,
-    workspace_read_receipt_details, TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT,
-    TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT,
+    should_treat_command_failure_as_tool_observation, tool_history_message_content,
+    transcript_context_excerpts, workspace_change_lifecycle_receipt_details,
+    workspace_edit_receipt_details, workspace_read_receipt_details,
+    TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT, TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT,
 };
+use crate::agentic::runtime::types::CommandExecution;
 use ioi_types::app::agentic::AgentTool;
 use serde_json::json;
 
@@ -140,6 +141,48 @@ fn non_browser_tool_history_is_prefixed_for_next_model_turn() {
     let content = tool_history_message_content("file__read", "hello from the repo");
 
     assert_eq!(content, "Tool Output (file__read): hello from the repo");
+}
+
+#[test]
+fn command_exit_failure_is_a_tool_observation_for_model_repair() {
+    let tool = AgentTool::SysExec {
+        command: "node".to_string(),
+        args: vec!["--test".to_string(), "tests/*.test.mjs".to_string()],
+        stdin: None,
+        wait_ms_before_async: None,
+        detach: false,
+    };
+    let history_entry = Some(format!(
+        "COMMAND_HISTORY:{}",
+        serde_json::to_string(&CommandExecution {
+            command: "node --test tests/*.test.mjs".to_string(),
+            exit_code: 1,
+            stdout: "not ok 1 format.test.mjs".to_string(),
+            stderr: "Expected values to be strictly equal".to_string(),
+            timestamp_ms: 1_780_000_000_000,
+            step_index: 0,
+        })
+        .expect("command history serializes"),
+    ));
+
+    assert!(should_treat_command_failure_as_tool_observation(
+        true,
+        &tool,
+        false,
+        &history_entry,
+    ));
+    assert!(!should_treat_command_failure_as_tool_observation(
+        false,
+        &tool,
+        false,
+        &history_entry,
+    ));
+    assert!(!should_treat_command_failure_as_tool_observation(
+        true,
+        &tool,
+        true,
+        &history_entry,
+    ));
 }
 
 #[test]

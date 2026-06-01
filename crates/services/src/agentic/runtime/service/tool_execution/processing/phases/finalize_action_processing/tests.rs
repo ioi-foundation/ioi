@@ -53,6 +53,38 @@ fn workspace_ops_intent() -> ResolvedIntentState {
     }
 }
 
+fn command_workspace_intent() -> ResolvedIntentState {
+    ResolvedIntentState {
+        intent_id: "workspace.edit_and_test".to_string(),
+        scope: IntentScopeProfile::CommandExecution,
+        band: IntentConfidenceBand::High,
+        score: 0.98,
+        top_k: vec![],
+        required_capabilities: vec![
+            CapabilityId::from("filesystem.read"),
+            CapabilityId::from("filesystem.write"),
+            CapabilityId::from("command.exec"),
+        ],
+        required_evidence: vec![],
+        success_conditions: vec![],
+        risk_class: "low".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        intent_catalog_version: "v1".to_string(),
+        embedding_model_id: "test".to_string(),
+        embedding_model_version: "test".to_string(),
+        similarity_function_id: "cosine".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "v1".to_string(),
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: false,
+    }
+}
+
 fn browser_interact_intent() -> ResolvedIntentState {
     ResolvedIntentState {
         intent_id: "browser.interact".to_string(),
@@ -850,6 +882,53 @@ fn workspace_read_context_duplicate_noop_is_not_terminal_failure() {
     assert!(read_only_workspace_context_duplicate_noop(
         &agent_state,
         "file__search",
+    ));
+    assert!(!read_only_workspace_context_duplicate_noop(
+        &agent_state,
+        "shell__run",
+    ));
+}
+
+#[test]
+fn command_workspace_read_context_duplicate_noop_is_not_terminal_failure() {
+    let mut agent_state = test_agent_state();
+    agent_state.resolved_intent = Some(command_workspace_intent());
+
+    assert!(read_only_workspace_context_duplicate_noop(
+        &agent_state,
+        "file__read",
+    ));
+
+    record_execution_evidence(&mut agent_state.tool_execution_log, "workspace_read");
+    record_execution_evidence(&mut agent_state.tool_execution_log, "file_context");
+
+    assert!(read_only_workspace_context_duplicate_noop(
+        &agent_state,
+        "file__read",
+    ));
+    assert!(read_only_workspace_context_duplicate_noop(
+        &agent_state,
+        "file__info",
+    ));
+    assert!(!read_only_workspace_context_duplicate_noop(
+        &agent_state,
+        "shell__run",
+    ));
+}
+
+#[test]
+fn command_workspace_read_context_duplicate_noop_survives_missing_resolved_intent() {
+    let mut agent_state = test_agent_state();
+    agent_state.goal = "Fix src/format.mjs, then run `node --test tests/*.test.mjs`.".to_string();
+    agent_state.resolved_intent = None;
+
+    assert!(read_only_workspace_context_duplicate_noop(
+        &agent_state,
+        "file__read",
+    ));
+    assert!(read_only_workspace_context_duplicate_noop(
+        &agent_state,
+        "file__info",
     ));
     assert!(!read_only_workspace_context_duplicate_noop(
         &agent_state,

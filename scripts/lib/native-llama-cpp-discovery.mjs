@@ -1,6 +1,8 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 
+export const DEFAULT_NATIVE_LLAMA_CPP_CONTEXT_LENGTH = 16384;
+
 function firstNonEmptyEnv(env, names) {
   for (const name of names) {
     const value = env?.[name];
@@ -97,6 +99,14 @@ export function inferNativeModelId(modelPath, { env = process.env, fallback = "n
   const normalized = basename(modelPath || "").replace(/\.gguf$/i, "");
   if (/qwen3\.?5.*9b/i.test(normalized)) return "qwen/qwen3.5-9b";
   return normalized || fallback;
+}
+
+export function nativeLlamaCppContextLength({ env = process.env, fallback = DEFAULT_NATIVE_LLAMA_CPP_CONTEXT_LENGTH } = {}) {
+  const configured = firstNonEmptyEnv(env, ["IOI_LLAMA_CPP_CONTEXT_LENGTH"]);
+  const parsed = Number(configured ?? fallback);
+  return Number.isFinite(parsed) && parsed > 0
+    ? Math.floor(parsed)
+    : DEFAULT_NATIVE_LLAMA_CPP_CONTEXT_LENGTH;
 }
 
 export function configureNativeLlamaCppEnvDefaults({ env = process.env } = {}) {

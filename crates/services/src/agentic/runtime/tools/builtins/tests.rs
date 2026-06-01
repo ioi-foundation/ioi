@@ -72,6 +72,42 @@ fn browser_text_and_clipboard_tools_surface_selector_targeting() {
 }
 
 #[test]
+fn workspace_change_lifecycle_tools_surface_handle_only_contracts() {
+    let resolved = resolved_ui_intent();
+    let mut tools = Vec::new();
+    push_builtin_tools(
+        &mut tools,
+        ExecutionTier::DomHeadless,
+        false,
+        false,
+        false,
+        false,
+        Some(&resolved),
+    );
+
+    let rollback = tools
+        .iter()
+        .find(|tool| tool.name == "workspace_change__rollback")
+        .expect("workspace_change__rollback should be available");
+    assert!(rollback.description.contains("change_id"));
+    assert!(rollback
+        .description
+        .contains("Do not pass full change JSON"));
+    assert!(rollback.parameters.contains(r#""required":["change_id"]"#));
+    assert!(!rollback.parameters.contains("changes"));
+
+    let reject = tools
+        .iter()
+        .find(|tool| tool.name == "workspace_change__reject")
+        .expect("workspace_change__reject should be available");
+    assert!(reject.description.contains("without mutating files"));
+    assert!(reject
+        .parameters
+        .contains(r#""required":["change_id","reason"]"#));
+    assert!(!reject.parameters.contains("change\":"));
+}
+
+#[test]
 fn browser_synthetic_click_surfaces_in_dom_headless_tier() {
     let resolved = resolved_ui_intent();
     let mut tools = Vec::new();

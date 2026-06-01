@@ -51,6 +51,7 @@ mod runtime_bridge_events;
 
 const COMMAND_SCHEMA_VERSION: &str = "ioi.runtime.bridge.command.v1";
 const EVENT_SCHEMA_VERSION: &str = "ioi.runtime.event.v1";
+const DEFAULT_RUNTIME_BRIDGE_SUBMIT_TURN_MAX_STEPS: u32 = 20;
 const THREAD_SCHEMA_VERSION: &str = "ioi.runtime.thread.v1";
 const DEFAULT_AGENT_STEP_TIMEOUT_MS: u64 = 75_000;
 const DEFAULT_LOCAL_GPU_AGENT_STEP_TIMEOUT_MS: u64 = 180_000;
@@ -102,6 +103,8 @@ struct StartThreadInput {
 struct SubmitTurnInput {
     #[serde(default)]
     request: Value,
+    #[serde(default)]
+    options: Value,
     #[serde(rename = "agentId", alias = "agent_id")]
     agent_id: Option<String>,
     #[serde(rename = "threadId", alias = "thread_id")]
@@ -185,8 +188,23 @@ struct BridgeRuntime {
     service: RuntimeAgentService,
     services: ServiceDirectory,
     browser_driver: Arc<BrowserDriver>,
+    event_sender: tokio::sync::broadcast::Sender<KernelEvent>,
     event_receiver: tokio::sync::broadcast::Receiver<KernelEvent>,
     height: u64,
+}
+
+struct LiveKernelEventPump {
+    stop_tx: Option<tokio::sync::oneshot::Sender<()>>,
+    handle: tokio::task::JoinHandle<()>,
+}
+
+impl LiveKernelEventPump {
+    async fn stop(mut self) {
+        if let Some(stop_tx) = self.stop_tx.take() {
+            let _ = stop_tx.send(());
+        }
+        let _ = self.handle.await;
+    }
 }
 
 fn non_empty_env(name: &str) -> Option<String> {
@@ -840,13 +858,14 @@ impl BridgeRuntime {
         .with_memory_runtime(memory_runtime)
         .with_workspace_path(workspace.to_string_lossy().to_string())
         .with_os_driver(Arc::new(NativeOsDriver::new()))
-        .with_event_sender(event_sender)
+        .with_event_sender(event_sender.clone())
         .with_som(true);
         Ok(Self {
             state,
             service,
             services: ServiceDirectory::new(vec![]),
             browser_driver,
+            event_sender,
             event_receiver,
             height: unix_millis(),
         })
@@ -946,7 +965,7 @@ impl BridgeRuntime {
 
     async fn submit_turn(&mut self, bridge_id: &str, input: SubmitTurnInput) -> Result<Value> {
         let session_id = parse_session_id(&input.session_id)?;
-        self.apply_runtime_control_policy(session_id, &input.request, &Value::Null)?;
+        self.apply_runtime_control_policy(session_id, &input.request, &input.options)?;
         let session_hex = hex::encode(session_id);
         let prompt =
             non_empty_string(&input.request, &["prompt", "message", "input"]).unwrap_or_default();
@@ -996,13 +1015,11 @@ impl BridgeRuntime {
         let mut last_progress_at = Instant::now();
         let turn_idle_timeout = runtime_bridge_turn_idle_timeout();
         let step_timeout_limit = runtime_bridge_step_timeout();
-        let max_steps =
-            positive_u32(&input.request, &["max_steps", "maxSteps"]).unwrap_or_else(|| {
-                state_before_steps
-                    .max_steps
-                    .saturating_sub(state_before_steps.step_count)
-                    .max(1)
-            });
+        let max_steps = runtime_bridge_submit_turn_max_steps(
+            &input.request,
+            &input.options,
+            &state_before_steps,
+        );
         let mut step_count = 0;
         let mut step_result = Ok(());
         let mut completed_after_chat_reply = false;
@@ -1016,18 +1033,33 @@ impl BridgeRuntime {
             }
             let step_timeout = step_timeout_limit;
             let state_before_step = self.agent_state(session_id)?;
+            let live_event_pump = if input.streamed_events_only {
+                Some(self.spawn_live_kernel_event_pump(
+                    input.thread_id.clone(),
+                    turn_id.clone(),
+                    input.workspace_root.clone(),
+                    kernel_event_next_ordinal,
+                ))
+            } else {
+                None
+            };
             let res = self.call_step_service(session_id, step_timeout).await;
+            if let Some(pump) = live_event_pump {
+                pump.stop().await;
+            }
             if res.is_ok() {
                 self.commit()?;
             }
             let mut step_events = self.drain_kernel_events();
-            emit_runtime_bridge_kernel_events(
-                &input.thread_id,
-                &turn_id,
-                input.workspace_root.as_deref(),
-                kernel_event_next_ordinal,
-                &step_events,
-            );
+            if !input.streamed_events_only {
+                emit_runtime_bridge_kernel_events(
+                    &input.thread_id,
+                    &turn_id,
+                    input.workspace_root.as_deref(),
+                    kernel_event_next_ordinal,
+                    &step_events,
+                );
+            }
             kernel_event_next_ordinal += step_events.len();
             if let Err(error) = res {
                 step_result = Err(error);
@@ -1053,6 +1085,18 @@ impl BridgeRuntime {
             step_result = Ok(());
             last_progress_at = Instant::now();
             kernel_events.append(&mut step_events);
+            let retry_blocked_pause = match &state.status {
+                AgentStatus::Paused(reason) => runtime_bridge_retry_blocked_pause_reason(reason),
+                _ => false,
+            };
+            if retry_blocked_pause {
+                if step_count.saturating_add(1) >= max_steps {
+                    step_result = Err(runtime_bridge_retry_recovery_exhausted_error(max_steps));
+                    break;
+                }
+                step_count += 1;
+                continue;
+            }
             if matches!(
                 state.status,
                 AgentStatus::Completed(_) | AgentStatus::Failed(_) | AgentStatus::Paused(_)
@@ -1245,6 +1289,66 @@ impl BridgeRuntime {
         events
     }
 
+    fn spawn_live_kernel_event_pump(
+        &self,
+        thread_id: String,
+        turn_id: String,
+        workspace_root: Option<String>,
+        start_ordinal: usize,
+    ) -> LiveKernelEventPump {
+        let mut receiver = self.event_sender.subscribe();
+        let (stop_tx, mut stop_rx) = tokio::sync::oneshot::channel::<()>();
+        let handle = tokio::spawn(async move {
+            let mut ordinal = start_ordinal;
+            loop {
+                tokio::select! {
+                    _ = &mut stop_rx => {
+                        loop {
+                            match receiver.try_recv() {
+                                Ok(event) => {
+                                    if emit_runtime_bridge_kernel_event(
+                                        &thread_id,
+                                        &turn_id,
+                                        workspace_root.as_deref(),
+                                        ordinal,
+                                        &event,
+                                    ) {
+                                        ordinal = ordinal.saturating_add(1);
+                                    }
+                                }
+                                Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) => continue,
+                                Err(tokio::sync::broadcast::error::TryRecvError::Empty)
+                                | Err(tokio::sync::broadcast::error::TryRecvError::Closed) => break,
+                            }
+                        }
+                        break;
+                    }
+                    received = receiver.recv() => {
+                        match received {
+                            Ok(event) => {
+                                if emit_runtime_bridge_kernel_event(
+                                    &thread_id,
+                                    &turn_id,
+                                    workspace_root.as_deref(),
+                                    ordinal,
+                                    &event,
+                                ) {
+                                    ordinal = ordinal.saturating_add(1);
+                                }
+                            }
+                            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                            Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                        }
+                    }
+                }
+            }
+        });
+        LiveKernelEventPump {
+            stop_tx: Some(stop_tx),
+            handle,
+        }
+    }
+
     async fn call_service<T: Encode>(&mut self, method: &str, params: &T) -> Result<()> {
         let encoded = codec::to_bytes_canonical(params)
             .map_err(|error| anyhow!("failed to encode {method} params: {error}"))?;
@@ -1374,20 +1478,39 @@ fn emit_runtime_bridge_kernel_events(
     start_ordinal: usize,
     events: &[KernelEvent],
 ) {
-    let created_at = now_rfc3339();
     for (offset, event) in events.iter().enumerate() {
-        if let Some(mapped) = runtime_bridge_events::kernel_event_to_tti_event(
+        emit_runtime_bridge_kernel_event(
+            thread_id,
+            turn_id,
+            workspace_root,
+            start_ordinal + offset,
             event,
-            &runtime_bridge_events::RuntimeBridgeEventContext {
-                thread_id,
-                turn_id,
-                workspace_root,
-                created_at: &created_at,
-                ordinal: start_ordinal + offset,
-            },
-        ) {
-            emit_runtime_bridge_event(&mapped);
-        }
+        );
+    }
+}
+
+fn emit_runtime_bridge_kernel_event(
+    thread_id: &str,
+    turn_id: &str,
+    workspace_root: Option<&str>,
+    ordinal: usize,
+    event: &KernelEvent,
+) -> bool {
+    let created_at = now_rfc3339();
+    if let Some(mapped) = runtime_bridge_events::kernel_event_to_tti_event(
+        event,
+        &runtime_bridge_events::RuntimeBridgeEventContext {
+            thread_id,
+            turn_id,
+            workspace_root,
+            created_at: &created_at,
+            ordinal,
+        },
+    ) {
+        emit_runtime_bridge_event(&mapped);
+        true
+    } else {
+        false
     }
 }
 
@@ -1646,6 +1769,18 @@ fn runtime_bridge_turn_idle_timeout_error(timeout: Duration) -> anyhow::Error {
     )
 }
 
+fn runtime_bridge_retry_blocked_pause_reason(reason: &str) -> bool {
+    reason.starts_with("Retry blocked: unchanged AttemptKey for")
+        || reason.starts_with("Retry guard tripped after repeated")
+}
+
+fn runtime_bridge_retry_recovery_exhausted_error(max_steps: u32) -> anyhow::Error {
+    anyhow!(
+        "runtime_bridge_retry_recovery_exhausted: internal retry recovery exhausted the submit_turn step budget before a final verified answer (max_steps={})",
+        max_steps
+    )
+}
+
 fn runtime_bridge_stop_reason_for_error(error: &anyhow::Error) -> &'static str {
     let message = error.to_string();
     if message.contains("runtime_bridge_step_timeout") {
@@ -1656,6 +1791,8 @@ fn runtime_bridge_stop_reason_for_error(error: &anyhow::Error) -> &'static str {
         "runtime_bridge_turn_idle_timeout"
     } else if message.contains("runtime_bridge_no_progress") {
         "runtime_bridge_no_progress"
+    } else if message.contains("runtime_bridge_retry_recovery_exhausted") {
+        "runtime_bridge_retry_recovery_exhausted"
     } else {
         "runtime_bridge_failed"
     }
@@ -2192,6 +2329,29 @@ fn runtime_bridge_step_budget_exhausted(
         && completed_loop_steps >= requested_max_steps
 }
 
+fn runtime_bridge_submit_turn_max_steps(
+    request: &Value,
+    options: &Value,
+    state_before_steps: &AgentState,
+) -> u32 {
+    let requested = [
+        positive_u32(request, &["max_steps", "maxSteps"]),
+        positive_u32(options, &["max_steps", "maxSteps"]),
+        bridge_nested_object_field(request, &["options"])
+            .and_then(|value| positive_u32(value, &["max_steps", "maxSteps"])),
+    ]
+    .into_iter()
+    .flatten()
+    .max();
+
+    requested.unwrap_or_else(|| {
+        state_before_steps
+            .max_steps
+            .saturating_sub(state_before_steps.step_count)
+            .max(DEFAULT_RUNTIME_BRIDGE_SUBMIT_TURN_MAX_STEPS)
+    })
+}
+
 fn session_hex_short(session_hex: &str) -> &str {
     session_hex.get(..16).unwrap_or(session_hex)
 }
@@ -2252,6 +2412,35 @@ mod tests {
         .expect("policy override");
         assert_eq!(policy.policy_id, "default-safe");
         assert_eq!(policy.defaults, DefaultPolicy::RequireApproval);
+    }
+
+    #[test]
+    fn submit_turn_step_budget_reads_nested_runtime_options() {
+        let state = test_agent_state();
+        let request = json!({
+            "prompt": "fix the failing test",
+            "max_steps": 1,
+            "options": {
+                "maxSteps": 16
+            }
+        });
+        let max_steps = runtime_bridge_submit_turn_max_steps(&request, &Value::Null, &state);
+        assert_eq!(max_steps, 16);
+    }
+
+    #[test]
+    fn submit_turn_step_budget_defaults_to_multi_step_model_tool_loop() {
+        let mut state = test_agent_state();
+        state.max_steps = 1;
+        state.step_count = 0;
+
+        let max_steps = runtime_bridge_submit_turn_max_steps(
+            &json!({"prompt": "fix the failing test"}),
+            &Value::Null,
+            &state,
+        );
+
+        assert_eq!(max_steps, DEFAULT_RUNTIME_BRIDGE_SUBMIT_TURN_MAX_STEPS);
     }
 
     #[test]
@@ -2401,6 +2590,25 @@ mod tests {
             7,
             8,
         ));
+    }
+
+    #[test]
+    fn runtime_bridge_retry_blocked_pause_is_internal_recovery_signal() {
+        assert!(runtime_bridge_retry_blocked_pause_reason(
+            "Retry blocked: unchanged AttemptKey for NoEffectAfterAction"
+        ));
+        assert!(runtime_bridge_retry_blocked_pause_reason(
+            "Retry guard tripped after repeated NoEffectAfterAction"
+        ));
+        assert!(!runtime_bridge_retry_blocked_pause_reason(
+            "Waiting for human approval"
+        ));
+
+        let error = runtime_bridge_retry_recovery_exhausted_error(8);
+        assert_eq!(
+            runtime_bridge_stop_reason_for_error(&error),
+            "runtime_bridge_retry_recovery_exhausted"
+        );
     }
 
     #[test]

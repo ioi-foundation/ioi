@@ -10,6 +10,7 @@ use crate::agentic::runtime::keys::{
     get_agent_brain_key, get_agent_trajectory_step_key, get_parent_playbook_run_key,
     get_runtime_substrate_key,
 };
+use crate::agentic::runtime::service::tool_execution::execution_evidence_key;
 use crate::agentic::runtime::substrate::RuntimeSubstrateSnapshot;
 use crate::agentic::runtime::trajectory::{
     workspace_change_record_from_tool, AgentBrainRecord, AgentTrajectoryStepRecord,
@@ -226,7 +227,7 @@ fn persist_agent_state_writes_trajectory_and_brain_records() {
         ),
     );
     agent_state.tool_execution_log.insert(
-        "evidence::workspace_edit_applied".to_string(),
+        execution_evidence_key("workspace_edit_applied"),
         crate::agentic::runtime::types::ToolCallStatus::Executed(
             "step=3;tool=file__edit;path=src/lib.rs".to_string(),
         ),
@@ -243,7 +244,7 @@ fn persist_agent_state_writes_trajectory_and_brain_records() {
     )
     .expect("workspace change record");
     agent_state.tool_execution_log.insert(
-        "evidence::workspace_change_applied".to_string(),
+        execution_evidence_key("workspace_change_applied"),
         crate::agentic::runtime::types::ToolCallStatus::Executed(
             serde_json::to_string(&applied_change).expect("encode workspace change record"),
         ),
@@ -253,7 +254,7 @@ fn persist_agent_state_writes_trajectory_and_brain_records() {
     rolled_back_change.receipt_ref = Some("workspace_change_rolled_back:path=src/lib.rs".into());
     rolled_back_change.evidence_ref = rolled_back_change.receipt_ref.clone();
     agent_state.tool_execution_log.insert(
-        "evidence::workspace_change_rolled_back".to_string(),
+        execution_evidence_key("workspace_change_rolled_back"),
         crate::agentic::runtime::types::ToolCallStatus::Executed(
             serde_json::to_string(&rolled_back_change).expect("encode rolled back change record"),
         ),

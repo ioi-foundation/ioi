@@ -372,6 +372,49 @@ fn command_execution_scope_allows_retained_shell_controls() {
 }
 
 #[test]
+fn command_execution_scope_allows_typed_filesystem_companions() {
+    let state = ResolvedIntentState {
+        intent_id: "command.exec".to_string(),
+        scope: IntentScopeProfile::CommandExecution,
+        band: IntentConfidenceBand::High,
+        score: 0.95,
+        top_k: vec![],
+        required_capabilities: vec![CapabilityId::from("command.exec")],
+        required_evidence: vec![],
+        success_conditions: vec![],
+        risk_class: "high".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        intent_catalog_version: "v1".to_string(),
+        embedding_model_id: "test".to_string(),
+        embedding_model_version: "test".to_string(),
+        similarity_function_id: "cosine".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "v1".to_string(),
+        intent_catalog_source_hash: [1u8; 32],
+        evidence_requirements_hash: [2u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: false,
+    };
+
+    for tool_name in [
+        "file__read",
+        "file__edit",
+        "file__write",
+        "workspace_change__status",
+        "workspace_change__rollback",
+        "shell__run",
+    ] {
+        assert!(
+            is_tool_allowed_for_resolution(Some(&state), tool_name),
+            "{tool_name} should be allowed for command.exec code/test turns"
+        );
+    }
+}
+
+#[test]
 fn ui_interaction_scope_allows_clipboard() {
     let state = ResolvedIntentState {
         intent_id: "ui.interact".to_string(),

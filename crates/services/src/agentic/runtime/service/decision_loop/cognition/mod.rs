@@ -45,13 +45,14 @@ pub(crate) use browser_context::{
     current_browser_observation_snapshot, reply_safe_browser_semantics_enabled,
 };
 use capability::{mailbox_connector_instruction, preflight_missing_capability};
+pub(crate) use final_reply::sanitize_direct_chat_reply_output;
 use final_reply::{
     contextual_recent_session_events_context, final_reply_evidence_context,
     final_reply_evidence_contract_reason, final_reply_goal_requests_html_document,
     final_reply_html_document_reason, final_reply_html_document_repair_messages,
     final_reply_incomplete_reason, final_reply_market_quote_context_metric_score,
-    final_reply_pending_web_evidence_context, final_reply_repair_messages,
-    sanitize_direct_chat_reply_output, web_context_ready_for_reply,
+    final_reply_pending_web_evidence_context, final_reply_product_handoff_reason,
+    final_reply_repair_messages, web_context_ready_for_reply,
 };
 #[cfg(test)]
 use final_reply::{
@@ -86,9 +87,9 @@ use std::io::Cursor;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tool_prompting::{
-    compact_allowed_tool_list, compact_browser_action_prompt_tools, format_tool_desc,
-    instruction_contract_slot_value, render_selected_parent_playbook_instruction,
-    workspace_context_ready_for_reply,
+    command_workspace_action_phase_tools, compact_allowed_tool_list,
+    compact_browser_action_prompt_tools, format_tool_desc, instruction_contract_slot_value,
+    render_selected_parent_playbook_instruction, workspace_context_ready_for_reply,
 };
 pub(crate) use tool_prompting::{
     filter_cognition_tools, filter_cognition_tools_with_recovery, CognitionToolRecovery,
@@ -97,7 +98,9 @@ use worker_context::{
     build_strategy_instruction, render_active_worker_instruction,
     render_workspace_scope_instruction, workspace_reference_context,
 };
-use workspace_changes::render_workspace_change_context;
+use workspace_changes::{
+    render_workspace_change_context, render_workspace_change_lifecycle_instruction,
+};
 
 const CURRENT_BROWSER_OBSERVATION_TIMEOUT: Duration = Duration::from_millis(1_500);
 const CURRENT_BROWSER_OBSERVATION_CACHE_MAX_AGE: Duration = Duration::from_secs(12);
@@ -252,6 +255,8 @@ pub async fn think(
         String::new()
     };
 
+    let workspace_reply_ready = workspace_context_ready_for_reply(agent_state, resolved_scope);
+    let web_reply_ready = web_context_ready_for_reply(agent_state, resolved_scope);
     let failure_block = if perception.consecutive_failures > 0 {
         let failure_reason = perception
             .last_failure_reason
@@ -260,11 +265,19 @@ pub async fn think(
         let recovery_hint = if matches!(resolved_scope, IntentScopeProfile::WorkspaceOps)
             && failure_reason.contains("NoEffectAfterAction")
         {
-            "Recovery hint: workspace context was already gathered and repeated probing was blocked. Use `chat__reply` now with a direct final answer from the observed file/search evidence. Do not announce a plan, say you need to search, or call another filesystem tool."
+            if workspace_reply_ready {
+                "Recovery hint: workspace evidence is already available. Use `chat__reply` only if the observed file/search/test evidence is sufficient to answer the user. Do not claim success for an edit or command that is not verified."
+            } else {
+                "Recovery hint: repeated workspace probing was blocked before enough evidence was gathered. Switch to a concrete alternate workspace action such as reading the target file, editing with the latest observed content, checking workspace-change status, running the verification command, or escalating if no available tool can satisfy the request. Do not finalize without observed file/test evidence."
+            }
         } else if matches!(resolved_scope, IntentScopeProfile::WebResearch)
             && failure_reason.contains("NoEffectAfterAction")
         {
-            "Recovery hint: web evidence was already gathered and a repeated retrieval action was blocked. Use `chat__reply` now with a direct final answer grounded only in the selected web evidence. Do not repeat `web__search` or `web__read` unless the previous evidence explicitly lacked the requested source."
+            if web_reply_ready {
+                "Recovery hint: web evidence is already available. Use `chat__reply` only if the selected sources are sufficient to answer the user. Do not invent missing facts."
+            } else {
+                "Recovery hint: repeated web retrieval was blocked before enough evidence was gathered. Switch to a distinct query/source/read path, or escalate if fresh evidence cannot be obtained. Do not finalize without grounded web evidence."
+            }
         } else if failure_reason.contains("TargetNotFound")
             || failure_reason.contains("VisionTargetNotFound")
         {
@@ -383,8 +396,6 @@ pub async fn think(
     }
     let has_prompt_visual_context =
         has_meaningful_visual_context(prompt_screenshot_base64.as_deref());
-    let workspace_reply_ready = workspace_context_ready_for_reply(agent_state, resolved_scope);
-    let web_reply_ready = web_context_ready_for_reply(agent_state, resolved_scope);
     let cognition_tools = filter_cognition_tools_with_recovery(
         &perception.available_tools,
         agent_state.resolved_intent.as_ref(),
@@ -393,8 +404,6 @@ pub async fn think(
         &browser_observation_context,
         &pending_browser_state_context,
         CognitionToolRecovery {
-            consecutive_failures: u32::from(perception.consecutive_failures),
-            last_failure_reason: perception.last_failure_reason.as_deref(),
             workspace_context_ready_for_reply: workspace_reply_ready,
             web_context_ready_for_reply: web_reply_ready,
         },
@@ -414,11 +423,16 @@ pub async fn think(
         &pending_browser_state_context,
         &success_signal_context,
     );
-    let cognition_tools = if compact_browser_action_prompt {
+    let mut cognition_tools = if compact_browser_action_prompt {
         compact_browser_action_prompt_tools(&cognition_tools)
     } else {
         cognition_tools
     };
+    if let Some(action_phase_tools) =
+        command_workspace_action_phase_tools(agent_state, &cognition_tools)
+    {
+        cognition_tools = action_phase_tools;
+    }
     let chat_reply_only_cognition =
         cognition_tools.len() == 1 && cognition_tools[0].name == "chat__reply";
     let cognition_tool_desc = format_tool_desc(
@@ -483,6 +497,8 @@ Do not replace it with search snippets, stale model memory, or deterministic sum
         build_tool_routing_contract(prefer_browser_semantics, resolved_scope);
     let workspace_context = workspace_reference_context(prefer_browser_semantics, &perception);
     let workspace_change_context = render_workspace_change_context(agent_state);
+    let workspace_change_lifecycle_instruction =
+        render_workspace_change_lifecycle_instruction(agent_state);
     let kernel_guidance = "IMPORTANT: Use only the available tools and grounded evidence from this step.\n\
 If an action requires approval, escalation, or missing capability handling, choose the corresponding tool path and let the runtime mediate it.\n\
 Do not claim success for actions you did not verify.";
@@ -633,6 +649,7 @@ Do not claim success for actions you did not verify.";
             som_instruction,
             &verify_instruction,
             &command_scope_instruction,
+            &workspace_change_lifecycle_instruction,
             &cognition_tool_desc,
             &browser_observation_context,
             &pending_browser_state_context,
@@ -701,11 +718,11 @@ Do not claim success for actions you did not verify.";
                 };
             } else if pending_score > evidence_score {
                 evidence_context = pending_web_context;
-            } else if evidence_score == 0
-                && !evidence_context
-                    .to_ascii_lowercase()
-                    .contains("typed market quote evidence from tool results")
-            {
+            } else if evidence_score == 0 && {
+                let evidence_lower = evidence_context.to_ascii_lowercase();
+                !evidence_lower.contains("current market quote observations from tool results")
+                    && !evidence_lower.contains("typed market quote evidence from tool results")
+            } {
                 evidence_context = if evidence_context.trim().is_empty()
                     || evidence_context.trim() == "No structured tool evidence was retained."
                 {
@@ -735,7 +752,7 @@ Do not claim success for actions you did not verify.";
     let final_reply_system_content = if final_reply_html_document_mode {
         "FINAL RESPONSE MODE:\nUse the gathered tool evidence to satisfy the user's request directly.\nThe user is asking for a source document artifact. Return the complete source document only. Do not call tools. Do not output JSON. Do not expose hidden chain-of-thought, trace ids, receipt ids, raw payloads, or daemon scaffolding.\nFor HTML website/page requests, start exactly with <!DOCTYPE html>, include the full html/head/body structure, and end exactly with </html>. Do not wrap the document in Markdown fences. Do not add explanatory prose before or after the document.\nUse source facts from gathered evidence where helpful, but keep the document concise enough to finish in one pass."
     } else {
-        "FINAL RESPONSE MODE:\nUse the gathered tool evidence to answer the user's request directly in natural Markdown.\nDo not call tools. Do not output JSON. Do not expose hidden chain-of-thought, trace ids, receipt ids, raw payloads, or daemon scaffolding.\nPreserve concrete source anchors that matter to the user's question, including file paths, symbol names, markdown heading labels, source titles, URLs, observed prices, market caps, volumes, percentages, and other measurements from the evidence.\nFor comparison or recommendation questions, synthesize the evidence into a direct answer with tradeoffs; do not merely list sources. Do not invent project adoption, investors, institutional interest, market leadership, enterprise use, competitive displacement, or performance claims unless those facts are present in the gathered evidence.\nFor finance or investment questions, be cautious and note that it is not financial advice. Treat the typed market quote evidence block as authoritative for current market values. Ignore conflicting current-price, market-cap, volume, or percentage snippets from broader search results. If typed market quote evidence includes price, market cap, 24h trading volume, and 24h price change for compared assets, include those observed dimensions for each compared asset in compact bullets or a comparison table and do not say they are missing. Treat per-token price only as a quoted measurement; do not treat lower or higher nominal token price, entry price, affordability, cheapness, expensiveness, or price point as an investment advantage by itself.\nIf the user asks to find or provide sources, include the source titles and URLs that support the answer.\nIf the user asks about progress, stages, a plan, or a guide and the evidence includes a Markdown heading outline, explicitly name the relevant headings or stage labels instead of flattening them into generic prose.\nIf the evidence is incomplete, say what is known and state the limitation plainly."
+        "FINAL RESPONSE MODE:\nUse the gathered tool evidence to answer the user's request directly in natural Markdown.\nDo not call tools. Do not output JSON. Do not expose hidden chain-of-thought, trace ids, receipt ids, raw payloads, raw stdout/stderr, raw test logs, or daemon scaffolding. Do not copy internal observation labels, run dates, timestamps, confidence labels, fixture markers, or evidence-packet wording into the final answer.\nFor command, test, and workspace-change tasks, give a concise handoff: what changed or was inspected, whether verification passed, and any remaining blocker. Do not paste TAP output, full stdout/stderr, or raw logs unless the user explicitly requested raw logs. If you cite the final contents of a changed file or a short command-created source snippet, put it in a fenced code block with a language tag instead of appending it inline to a sentence. When gathered evidence contains repeated observations of the same file or state, use the latest/highest-numbered observation as authoritative for the current state.\nFor research, current-events, web, source-backed, comparison, recommendation, and investment questions, produce a substantive model-authored synthesis instead of a terse source list. Use tables, bullets, and sections only when they naturally improve clarity; do not follow a fixed template.\nPreserve concrete source anchors that matter to the user's question, including file paths, symbol names, markdown heading labels, source titles, URLs, observed prices, market caps, volumes, percentages, and other measurements from the evidence.\nFor comparison or recommendation questions, synthesize the evidence into a direct answer with tradeoffs. Do not invent project adoption, investors, institutional interest, market leadership, enterprise use, competitive displacement, or performance claims unless those facts are present in the gathered evidence.\nFor finance or investment questions, be cautious and note that it is not financial advice. Treat current market quote observations from tool results as authoritative for current market values. Ignore conflicting current-price, market-cap, volume, or percentage snippets from broader search results. If current market quote observations include price, market cap, 24h trading volume, and 24h price change for compared assets, include those observed dimensions for each compared asset in compact bullets or a comparison table and do not say they are missing. Treat per-token price only as a quoted measurement; do not treat lower or higher nominal token price, entry price, affordability, cheapness, expensiveness, or price point as an investment advantage by itself.\nIf the user asks to find or provide sources, include source titles and URLs that support the answer. For source-backed web answers, include sources at the bottom in a short readable list when useful.\nIf the user asks about progress, stages, a plan, or a guide and the evidence includes a Markdown heading outline, explicitly name the relevant headings or stage labels instead of flattening them into generic prose.\nIf the evidence is incomplete, say what is known and state the limitation plainly."
     };
     let messages = if chat_reply_only_cognition {
         json!([
@@ -769,7 +786,7 @@ Do not claim success for actions you did not verify.";
             ]}
         ])
     } else {
-        let user_instruction = if agent_state
+        let action_instruction = if agent_state
             .resolved_intent
             .as_ref()
             .map(|resolved| resolved.intent_id == "automation.monitor")
@@ -785,6 +802,24 @@ Do not claim success for actions you did not verify.";
         } else {
             "Execute the next step based on the goal and history."
         };
+        let recent_tool_observations = recent_session_events_section.trim();
+        let latest_failure_observation = failure_block.trim();
+        let mut user_instruction = format!(
+            "Goal:\n{}\n\nNext action:\n{}",
+            agent_state.goal.trim(),
+            action_instruction
+        );
+        if !recent_tool_observations.is_empty() {
+            user_instruction.push_str("\n\nRecent tool observations:\n");
+            user_instruction.push_str(recent_tool_observations);
+        }
+        if !latest_failure_observation.is_empty() {
+            user_instruction.push_str("\n\nLatest failed action boundary:\n");
+            user_instruction.push_str(latest_failure_observation);
+        }
+        user_instruction.push_str(
+            "\n\nContinue the model -> tool -> result loop. Use the latest tool result as authoritative. Output exactly one valid JSON tool call; do not explain the plan in prose.",
+        );
         json!([
             { "role": "system", "content": system_instructions },
             { "role": "user", "content": user_instruction }
@@ -876,7 +911,7 @@ Do not claim success for actions you did not verify.";
     let stream_html_document = final_reply_html_document_mode;
     let streamed_final_answer_buffer = Arc::new(Mutex::new(String::new()));
     let streamed_final_answer_buffer_clone = Arc::clone(&streamed_final_answer_buffer);
-    tokio::spawn(async move {
+    let stream_forwarder = tokio::spawn(async move {
         let mut held_source_prefix = String::new();
         let mut source_prefix_forwarding = false;
         let mut source_prefix_suppressed = false;
@@ -1119,7 +1154,27 @@ Do not claim success for actions you did not verify.";
         },
     };
 
-    let raw_output = String::from_utf8_lossy(&output_bytes).to_string();
+    if chat_reply_only_cognition {
+        let _ = tokio::time::timeout(Duration::from_millis(500), stream_forwarder).await;
+    }
+
+    let raw_output_from_bytes = String::from_utf8_lossy(&output_bytes).to_string();
+    let raw_output = if chat_reply_only_cognition {
+        let streamed_output = streamed_final_answer_buffer
+            .lock()
+            .map(|buffer| buffer.clone())
+            .unwrap_or_default();
+        if !streamed_output.trim().is_empty()
+            && (raw_output_from_bytes.trim().is_empty()
+                || streamed_output.chars().count() >= raw_output_from_bytes.chars().count())
+        {
+            streamed_output
+        } else {
+            raw_output_from_bytes
+        }
+    } else {
+        raw_output_from_bytes
+    };
     if chat_reply_only_cognition {
         let mut message = sanitize_direct_chat_reply_output(&raw_output);
         let mut strategy_used = "FinalReplySynthesis";
@@ -1142,6 +1197,7 @@ Do not claim success for actions you did not verify.";
         if let Some(mut repair_reason) =
             final_reply_html_document_reason(&message, &agent_state.goal)
                 .or_else(|| final_reply_incomplete_reason(&message))
+                .or_else(|| final_reply_product_handoff_reason(&message, &agent_state.goal))
                 .or_else(|| {
                     final_reply_evidence_contract_reason(
                         &message,
@@ -1293,6 +1349,9 @@ Do not claim success for actions you did not verify.";
                 if let Some(retry_reason) =
                     final_reply_html_document_reason(&retry_message, &agent_state.goal)
                         .or_else(|| final_reply_incomplete_reason(&retry_message))
+                        .or_else(|| {
+                            final_reply_product_handoff_reason(&retry_message, &agent_state.goal)
+                        })
                         .or_else(|| {
                             final_reply_evidence_contract_reason(
                                 &retry_message,

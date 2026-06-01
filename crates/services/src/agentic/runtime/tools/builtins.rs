@@ -35,12 +35,12 @@ pub(super) fn push_builtin_tools(
     include!("builtins/media.rs");
     include!("builtins/model_registry.rs");
     include!("builtins/screen.rs");
+    include!("builtins/filesystem_chat.rs");
     include!("builtins/system.rs");
     include!("builtins/system_tier13.rs");
     include!("builtins/shell_continuity.rs");
     include!("builtins/os_control.rs");
     include!("builtins/clipboard.rs");
-    include!("builtins/filesystem_chat.rs");
     include!("builtins/workflow_monitor.rs");
     include!("builtins/meta_failure.rs");
 }

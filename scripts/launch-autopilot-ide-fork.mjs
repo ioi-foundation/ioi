@@ -31,6 +31,7 @@ const RUNTIME_BRIDGE_ID = "autopilot-ide-runtime-agent-service";
 const RUNTIME_BRIDGE_TIMEOUT_MS = "300000";
 const RUNTIME_COGNITION_INFERENCE_TIMEOUT_SECS = "140";
 const RUNTIME_BRIDGE_ROUTE_ID = "route.local-first";
+const DEFAULT_NATIVE_LLAMA_CPP_CONTEXT_LENGTH = 16384;
 
 if (process.env.IOI_LIVE_MODEL_CATALOG === undefined) {
   process.env.IOI_LIVE_MODEL_CATALOG = "1";
@@ -220,6 +221,13 @@ function inferNativeModelId(modelPath) {
   const normalized = basename(modelPath || "").replace(/\.gguf$/i, "");
   if (/qwen3\.?5.*9b/i.test(normalized)) return "qwen/qwen3.5-9b";
   return normalized || "native:local-gguf";
+}
+
+function nativeLlamaCppContextLength() {
+  const parsed = Number(firstNonEmptyEnv(["IOI_LLAMA_CPP_CONTEXT_LENGTH"]) ?? DEFAULT_NATIVE_LLAMA_CPP_CONTEXT_LENGTH);
+  return Number.isFinite(parsed) && parsed > 0
+    ? Math.floor(parsed)
+    : DEFAULT_NATIVE_LLAMA_CPP_CONTEXT_LENGTH;
 }
 
 function configureNativeLlamaCppEnvDefaults() {
@@ -476,7 +484,7 @@ async function bootstrapConfiguredLlamaCppModel(endpoint, token, mountedCount) {
     mountedCount === 0
       ? "endpoint.electron.model-gui"
       : `endpoint.autodiscovered.provider.llama-cpp.${safeId(modelId)}`;
-  const contextLength = Number(firstNonEmptyEnv(["IOI_LLAMA_CPP_CONTEXT_LENGTH"]) ?? 4096);
+  const contextLength = nativeLlamaCppContextLength();
   const parallel = Number(firstNonEmptyEnv(["IOI_LLAMA_CPP_PARALLEL"]) ?? 1);
   const gpu = firstNonEmptyEnv(["IOI_LLAMA_CPP_GPU"]) ?? "auto";
 
@@ -488,6 +496,7 @@ async function bootstrapConfiguredLlamaCppModel(endpoint, token, mountedCount) {
       provider_id: "provider.llama-cpp",
       path: modelPath,
       import_mode: "reference",
+      context_window: contextLength,
       capabilities: ["chat", "responses"],
     },
   });

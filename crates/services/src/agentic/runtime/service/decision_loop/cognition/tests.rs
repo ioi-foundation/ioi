@@ -4,7 +4,7 @@ use super::{
     browser_surface_requires_visual_grounding, build_browser_operating_rules,
     build_compact_browser_action_prompt_assembly, build_compact_browser_action_system_instructions,
     build_operating_rules, build_recent_command_history_context, build_standard_prompt_assembly,
-    build_strategy_instruction, build_tool_routing_contract,
+    build_strategy_instruction, build_tool_routing_contract, command_workspace_action_phase_tools,
     compact_browser_action_prompt_eligible, compact_browser_action_prompt_tools,
     encode_browser_prompt_screenshot, filter_cognition_tools, filter_cognition_tools_with_recovery,
     format_prompt_assembly_report, has_meaningful_visual_context,
@@ -17,7 +17,7 @@ use super::{
 };
 use crate::agentic::runtime::service::visual_loop::perception::PerceptionContext;
 use crate::agentic::runtime::types::{
-    CommandExecution, ExecutionTier, PendingSearchCompletion, PendingSearchReadSummary,
+    AgentState, CommandExecution, ExecutionTier, PendingSearchCompletion, PendingSearchReadSummary,
     WorkerAssignment, WorkerCompletionContract, WorkerMergeMode,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};

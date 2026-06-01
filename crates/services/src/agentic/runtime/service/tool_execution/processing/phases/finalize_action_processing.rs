@@ -32,17 +32,76 @@ fn read_only_workspace_context_duplicate_noop(
     ) {
         return false;
     }
-    if agent_state
-        .resolved_intent
-        .as_ref()
-        .map(|intent| intent.scope)
-        != Some(IntentScopeProfile::WorkspaceOps)
-    {
-        return false;
+    let goal_workspace_edit_verification =
+        goal_suggests_workspace_edit_and_verification(&agent_state.goal);
+    let Some(resolved) = agent_state.resolved_intent.as_ref() else {
+        return goal_workspace_edit_verification;
+    };
+    let workspace_or_command_workspace = matches!(resolved.scope, IntentScopeProfile::WorkspaceOps)
+        || matches!(resolved.scope, IntentScopeProfile::CommandExecution)
+            && resolved
+                .required_capabilities
+                .iter()
+                .any(|capability| capability.as_str() == "command.exec")
+            && resolved.required_capabilities.iter().any(|capability| {
+                matches!(
+                    capability.as_str(),
+                    "filesystem.read" | "filesystem.write" | "filesystem.metadata"
+                )
+            });
+    if !workspace_or_command_workspace {
+        return goal_workspace_edit_verification;
+    }
+
+    if matches!(resolved.scope, IntentScopeProfile::CommandExecution) {
+        return true;
     }
 
     has_execution_evidence(&agent_state.tool_execution_log, "workspace_read")
         && has_execution_evidence(&agent_state.tool_execution_log, "file_context")
+}
+
+fn goal_suggests_workspace_edit_and_verification(goal: &str) -> bool {
+    let lower = goal.to_ascii_lowercase();
+    let wants_change = [
+        "fix", "edit", "change", "update", "modify", "repair", "patch",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle));
+    let has_workspace_target = [
+        "src/",
+        "test",
+        "tests/",
+        ".js",
+        ".mjs",
+        ".ts",
+        ".tsx",
+        ".rs",
+        ".py",
+        ".json",
+        ".md",
+        "file",
+        "repo",
+        "workspace",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle));
+    let has_verification = [
+        "`",
+        "run test",
+        "run the test",
+        "run tests",
+        "verify",
+        "verification",
+        "node --test",
+        "npm test",
+        "cargo test",
+        "pytest",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle));
+
+    wants_change && has_workspace_target && has_verification
 }
 
 fn duplicate_after_prior_success(verification_checks: &[String]) -> bool {
@@ -345,6 +404,9 @@ pub(crate) async fn finalize_action_processing(
         active_web_pipeline_chat_reply_duplicate_noop(&verification_checks);
     let benign_workspace_context_duplicate =
         read_only_workspace_context_duplicate_noop(agent_state, &current_tool_name);
+    if benign_workspace_context_duplicate {
+        verification_checks.push("benign_workspace_context_duplicate_noop=true".to_string());
+    }
     if duplicate_prior_success_noop
         && !active_web_pipeline_chat_reply_duplicate_noop
         && !benign_workspace_context_duplicate
@@ -900,6 +962,18 @@ pub(crate) async fn finalize_action_processing(
                 ));
             }
         }
+    }
+
+    if success
+        && current_tool_name == "chat__reply"
+        && !is_gated
+        && !awaiting_sudo_password
+        && !awaiting_clarification
+        && matches!(agent_state.status, AgentStatus::Completed(_))
+    {
+        stop_condition_hit = true;
+        agent_state.execution_queue.clear();
+        verification_checks.push("terminal_chat_reply_stop_condition_hit=true".to_string());
     }
 
     verification_checks.push(format!("remediation_queued={}", remediation_queued));

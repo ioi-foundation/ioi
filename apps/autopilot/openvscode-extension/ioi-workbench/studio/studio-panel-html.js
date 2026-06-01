@@ -216,7 +216,25 @@ function createStudioPanelHtml({
         if (!node) return;
         const source = String(value || "");
         node.dataset.rawMarkdown = source;
+        node.dataset.markdownHydrated = "true";
         node.innerHTML = renderMarkdownBlocks(source);
+      }
+      function studioProjectedSourceRows(sourceRefs) {
+        const refs = Array.isArray(sourceRefs) ? sourceRefs.filter(Boolean).slice(0, 6) : [];
+        if (!refs.length) return "";
+        return '<div class="studio-answer-sources" data-testid="studio-answer-sources" aria-label="Sources">' +
+          '<span>Sources</span>' +
+          refs.map((source) => {
+            const url = sanitizeMarkdownUrl(source && source.url);
+            if (!url) return "";
+            const title = String((source && (source.title || source.domain || source.url)) || url).replace(/\\s+/g, " ").trim();
+            const domain = String((source && source.domain) || "").replace(/^www\\./i, "").replace(/\\s+/g, " ").trim();
+            const label = title || domain || url;
+            return '<a href="' + escapeMarkdownHtml(url) + '" target="_blank" rel="noreferrer noopener">' +
+              escapeMarkdownHtml(label.slice(0, 96)) +
+              '</a>';
+          }).join("") +
+          '</div>';
       }
       function appendMarkdownDelta(node, delta) {
         if (!node) return;
@@ -228,6 +246,26 @@ function createStudioPanelHtml({
           if (!turn || node.dataset.rawMarkdown !== undefined) return;
           node.classList.add("studio-markdown");
           renderMarkdownInto(node, node.textContent || "");
+        });
+      }
+      function studioTranscriptNode() {
+        return document.querySelector("[data-testid='studio-transcript']");
+      }
+      function shouldAutoScrollStudioTranscript(transcript) {
+        if (!transcript) return false;
+        const distanceFromBottom = transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight;
+        return distanceFromBottom < 180;
+      }
+      function scrollStudioTranscriptToLatest(target) {
+        const transcript = studioTranscriptNode();
+        if (!transcript || !shouldAutoScrollStudioTranscript(transcript)) return;
+        window.requestAnimationFrame(() => {
+          const node = target && typeof target.scrollIntoView === "function" ? target : null;
+          if (node) {
+            node.scrollIntoView({ block: "end", inline: "nearest" });
+            return;
+          }
+          transcript.scrollTop = transcript.scrollHeight;
         });
       }
       function parsePayload(raw) {
@@ -405,6 +443,7 @@ function createStudioPanelHtml({
       }
       const studioRuntimeStreamKinds = new Map();
       const studioRuntimeStreamPresentations = new Map();
+      const studioRuntimeCompletedStreams = new Set();
       function studioStreamKind(streamId) {
         return studioRuntimeStreamKinds.get(String(streamId || "")) || "assistant";
       }
@@ -459,6 +498,7 @@ function createStudioPanelHtml({
         const output = ensureArtifactSourceStream(payload);
         if (!output) return;
         output.textContent = (output.textContent || "") + (payload.delta || "");
+        scrollStudioTranscriptToLatest(output.closest("[data-studio-turn-role='assistant']") || output);
       }
       function handleStudioRuntimeMessage(message) {
         const payload = message.payload || {};
@@ -469,6 +509,7 @@ function createStudioPanelHtml({
         if (!payload.streamId) return;
         if (message.type === "assistantStreamStart") {
           const kind = setStudioStreamKind(payload);
+          studioRuntimeCompletedStreams.delete(String(payload.streamId || ""));
           showPendingProjection();
           if (kind === "artifact_source") {
             ensureArtifactSourceStream(payload);
@@ -476,6 +517,9 @@ function createStudioPanelHtml({
           return;
         }
         if (message.type === "assistantStreamDelta") {
+          if (studioRuntimeCompletedStreams.has(String(payload.streamId || ""))) {
+            return;
+          }
           if (studioStreamKind(payload.streamId) === "artifact_source") {
             appendArtifactSourceStreamDelta(payload);
             document.querySelector("[data-testid='agent-studio-operational-chat']")?.setAttribute("data-studio-status", "streaming");
@@ -486,16 +530,21 @@ function createStudioPanelHtml({
             appendMarkdownDelta(target.text, payload.delta || "");
           }
           updateStreamRunBar(target?.turn, "streaming", "Working...");
+          scrollStudioTranscriptToLatest(target?.turn);
           document.querySelector("[data-testid='agent-studio-operational-chat']")?.setAttribute("data-studio-status", "streaming");
           hidePendingProjectionAfterMinimum();
           return;
         }
         if (message.type === "assistantThinkingDelta") {
+          if (studioRuntimeCompletedStreams.has(String(payload.streamId || ""))) {
+            return;
+          }
           if (studioStreamKind(payload.streamId) === "artifact_source") {
             const thinking = ensurePendingThinkingBlock();
             if (thinking) {
               thinking.textContent = (thinking.textContent || "") + (payload.delta || "");
             }
+            scrollStudioTranscriptToLatest(thinking?.closest("[data-studio-turn-role='assistant']") || thinking);
             document.querySelector("[data-testid='agent-studio-operational-chat']")?.setAttribute("data-studio-status", "streaming");
             return;
           }
@@ -505,11 +554,13 @@ function createStudioPanelHtml({
             thinking.textContent = (thinking.textContent || "") + (payload.delta || "");
           }
           updateStreamRunBar(target?.turn, "streaming", "Working...");
+          scrollStudioTranscriptToLatest(target?.turn);
           document.querySelector("[data-testid='agent-studio-operational-chat']")?.setAttribute("data-studio-status", "streaming");
           hidePendingProjectionAfterMinimum();
           return;
         }
         if (message.type === "assistantStreamComplete") {
+          studioRuntimeCompletedStreams.add(String(payload.streamId || ""));
           if (studioStreamKind(payload.streamId) === "artifact_source") {
             const source = ensureArtifactSourceStream(payload);
             if (source && payload.text) {
@@ -519,6 +570,7 @@ function createStudioPanelHtml({
               const thinking = ensurePendingThinkingBlock();
               if (thinking) thinking.textContent = payload.thinkingText;
             }
+            scrollStudioTranscriptToLatest(source?.closest("[data-studio-turn-role='assistant']") || source);
             document.querySelector("[data-testid='agent-studio-operational-chat']")?.setAttribute("data-studio-status", "streaming");
             studioRuntimeStreamKinds.delete(String(payload.streamId || ""));
             return;
@@ -537,6 +589,7 @@ function createStudioPanelHtml({
             renderMarkdownInto(target.text, payload.text);
           }
           updateStreamRunBar(target?.turn, "completed", "Worked");
+          scrollStudioTranscriptToLatest(target?.turn);
           const root = document.querySelector("[data-testid='agent-studio-operational-chat']");
           if (isAgentFinalHandoff) {
             root?.setAttribute("data-agent-final-handoff-stream-complete", "true");
@@ -566,8 +619,13 @@ function createStudioPanelHtml({
       }
       function projectStudioAgentTurnComplete(payload) {
         const text = String(payload?.text || "").trim() || "Agent Mode completed without additional assistant text.";
-        const turn = appendProjectedTurn("assistant", text, { prompt: String(payload?.prompt || "") });
+        const status = String(payload?.status || "completed").trim() || "completed";
+        const turn = appendProjectedTurn("assistant", text, {
+          prompt: String(payload?.prompt || ""),
+          sourceRefs: Array.isArray(payload?.sourceRefs) ? payload.sourceRefs : [],
+        });
         if (turn) {
+          updateStreamRunBar(turn, status === "blocked" ? "blocked" : "completed", status === "blocked" ? "Blocked" : "Worked");
           turn.dataset.studioAgentTurnId = String(payload?.turnId || "");
           turn.dataset.studioRuntimeEventCount = String(payload?.eventCount || 0);
           turn.dataset.studioReceiptRefs = Array.isArray(payload?.receiptRefs) ? payload.receiptRefs.join(",") : "";
@@ -855,6 +913,7 @@ function createStudioPanelHtml({
               renderMarkdownInto(text, humanizeProjectedTurnText(role, content));
             }
           }
+          scrollStudioTranscriptToLatest(anchor.duplicate);
           return anchor.duplicate;
         }
         const turn = document.createElement("article");
@@ -895,12 +954,19 @@ function createStudioPanelHtml({
         }
         meta.append(name, time);
         body.append(meta, paragraph);
+        if (role === "assistant") {
+          const sourceRows = studioProjectedSourceRows(options.sourceRefs);
+          if (sourceRows) {
+            body.insertAdjacentHTML("beforeend", sourceRows);
+          }
+        }
         turn.append(body);
         if (anchor?.after?.nextSibling) {
           transcript.insertBefore(turn, anchor.after.nextSibling);
         } else {
           transcript.append(turn);
         }
+        scrollStudioTranscriptToLatest(turn);
         return turn;
       }
       let studioPendingProjectionTimer = null;
@@ -952,6 +1018,7 @@ function createStudioPanelHtml({
           pending.dataset.pendingStartedAtMs = rootStartedAt || String(performance.now());
         }
         updatePendingProjectionLabel(pending);
+        scrollStudioTranscriptToLatest(pending);
         if (!studioPendingProjectionTimer) {
           studioPendingProjectionTimer = window.setInterval(() => {
             const currentPending = document.querySelector("[data-testid='studio-pending-state']");
@@ -1039,6 +1106,7 @@ function createStudioPanelHtml({
           item.append(meta);
         }
         list.append(item);
+        scrollStudioTranscriptToLatest(item);
       }
       function hydratePendingWorkStepsFromRoot() {
         for (const step of pendingWorkStepsFromRoot()) {

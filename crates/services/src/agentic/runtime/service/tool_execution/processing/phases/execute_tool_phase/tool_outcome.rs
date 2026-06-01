@@ -8,6 +8,7 @@ use super::*;
 use crate::agentic::runtime::service::decision_loop::cognition::{
     build_browser_snapshot_pending_state_context_with_history,
     build_recent_pending_browser_state_context_with_snapshot, current_browser_observation_snapshot,
+    sanitize_direct_chat_reply_output,
 };
 use crate::agentic::runtime::service::queue::handle_web_search_result;
 use crate::agentic::runtime::service::tool_execution::command_contract::{
@@ -144,7 +145,9 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     } else {
                         result.clone()
                     };
-                let completed_result = enrich_command_scope_summary(&completed_result, agent_state);
+                let completed_result = sanitize_direct_chat_reply_output(
+                    &enrich_command_scope_summary(&completed_result, agent_state),
+                );
                 agent_state.status = AgentStatus::Completed(Some(completed_result.clone()));
                 agent_state
                     .execution_ledger
@@ -261,7 +264,9 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     let model_authored_candidate =
                         crate::agentic::runtime::service::queue::web_pipeline::FinalWebSummaryCandidate {
                             provider: "model_chat_reply",
-                            summary: enrich_command_scope_summary(message, agent_state),
+                            summary: sanitize_direct_chat_reply_output(
+                                &enrich_command_scope_summary(message, agent_state),
+                            ),
                         };
                     if let Some(selection) =
                         crate::agentic::runtime::service::queue::web_pipeline::select_final_web_summary_from_candidates(
@@ -302,9 +307,32 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             verification_checks,
                         );
                         if !contract_ready {
-                            verification_checks.push(
-                                "web_model_chat_reply_contract_observation_only=true".to_string(),
+                            let contract_error = concat!(
+                                "ERROR_CLASS=NoEffectAfterAction Final web answer is not ready. ",
+                                "Use the gathered web evidence to write a substantive model-authored answer; ",
+                                "do not terminalize with an intermediate source list, missing required metrics, ",
+                                "or an incomplete document layout."
                             );
+                            *success = false;
+                            *error_msg = Some(contract_error.to_string());
+                            *history_entry = Some(contract_error.to_string());
+                            *action_output = Some(contract_error.to_string());
+                            *terminal_chat_reply_output = None;
+                            agent_state.status = AgentStatus::Running;
+                            verification_checks.push(
+                                "web_model_chat_reply_contract_rejected_for_retry=true"
+                                    .to_string(),
+                            );
+                            verification_checks.push("terminal_chat_reply_ready=false".to_string());
+                            emit_completion_gate_status_event(
+                                service,
+                                session_id,
+                                step_index,
+                                resolved_intent_id,
+                                false,
+                                "chat_reply_model_authored_web_pipeline_answer_rejected_for_retry",
+                            );
+                            return Ok(());
                         }
                         record_execution_evidence(
                             &mut agent_state.tool_execution_log,
@@ -323,12 +351,12 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         *history_entry = Some(summary.clone());
                         *action_output = Some(summary.clone());
                         *terminal_chat_reply_output = Some(summary.clone());
-                        crystallize_successful_session(
+                        record_terminal_chat_success_without_model_crystallization(
                             service,
                             state,
-                            agent_state,
                             session_id,
                             block_height,
+                            verification_checks,
                         )
                         .await;
                         emit_completion_gate_status_event(
@@ -379,52 +407,27 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         &rejected_summary,
                         verification_checks,
                     );
-                    record_execution_evidence(
-                        &mut agent_state.tool_execution_log,
-                        WEB_PIPELINE_TERMINAL_EVIDENCE,
+                    let contract_error = concat!(
+                        "ERROR_CLASS=NoEffectAfterAction Final web answer was not selected by the ",
+                        "completion contract. Continue the model -> tool -> result loop or write a ",
+                        "substantive model-authored answer grounded in the gathered evidence."
                     );
+                    *success = false;
+                    *error_msg = Some(contract_error.to_string());
+                    *history_entry = Some(contract_error.to_string());
+                    *action_output = Some(contract_error.to_string());
+                    *terminal_chat_reply_output = None;
+                    agent_state.status = AgentStatus::Running;
                     verification_checks
-                        .push(execution_evidence_key(WEB_PIPELINE_TERMINAL_EVIDENCE));
-                    verification_checks
-                        .push("web_model_chat_reply_contract_observation_only=true".to_string());
-                    verification_checks.push("web_pipeline_active=false".to_string());
-                    verification_checks.push("terminal_chat_reply_ready=true".to_string());
-                    agent_state.status = AgentStatus::Completed(Some(rejected_summary.clone()));
-                    agent_state.pending_search_completion = None;
-                    *is_lifecycle_action = true;
-                    *success = true;
-                    *error_msg = None;
-                    *history_entry = Some(rejected_summary.clone());
-                    *action_output = Some(rejected_summary.clone());
-                    *terminal_chat_reply_output = Some(rejected_summary);
-                    crystallize_successful_session(
-                        service,
-                        state,
-                        agent_state,
-                        session_id,
-                        block_height,
-                    )
-                    .await;
+                        .push("web_model_chat_reply_contract_rejected_for_retry=true".to_string());
+                    verification_checks.push("terminal_chat_reply_ready=false".to_string());
                     emit_completion_gate_status_event(
                         service,
                         session_id,
                         step_index,
                         resolved_intent_id,
-                        true,
-                        "chat_reply_model_authored_web_pipeline_answer_accepted_without_layout_contract",
-                    );
-                    emit_execution_contract_receipt_event(
-                        service,
-                        session_id,
-                        step_index,
-                        resolved_intent_id,
-                        "completion_gate",
-                        WEB_PIPELINE_TERMINAL_EVIDENCE,
-                        true,
-                        "pending_web_pipeline_terminalized_from_model_authored_reply",
-                        None,
-                        None,
-                        synthesized_payload_hash.clone(),
+                        false,
+                        "chat_reply_model_authored_web_pipeline_answer_unselected_for_retry",
                     );
                     return Ok(());
                 }
@@ -514,7 +517,10 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     &missing,
                 );
             } else {
-                let message = enrich_command_scope_summary(message, agent_state);
+                let message = sanitize_direct_chat_reply_output(&enrich_command_scope_summary(
+                    message,
+                    agent_state,
+                ));
                 agent_state.status = AgentStatus::Completed(Some(message.clone()));
                 agent_state
                     .execution_ledger

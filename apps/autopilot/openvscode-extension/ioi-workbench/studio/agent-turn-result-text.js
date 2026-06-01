@@ -35,9 +35,18 @@ function createStudioAgentTurnResultText({
     return /\bdeferred\s+chat__reply\b|\bfresh\s+web__search\/web__read\s+evidence\b/i.test(stringValue(text));
   }
 
+  function studioAgentResultTextIsRuntimePayload(text = "") {
+    return /\b(?:Agent Failure:\s*)?ERROR_CLASS=|\bProvider Error\s+\d+|\bexternal_blocker\b|OpenAI-compatible provider stream failed/i.test(stringValue(text));
+  }
+
   function normalizeStudioAgentResultText(value) {
     const text = normalizeStudioAssistantReplyText(decodeStudioRustOptionalText(value) || value);
-    if (!text || studioAssistantReplyTextIsDeferred(text) || /^Runtime step completed\.?$/i.test(text)) {
+    if (
+      !text ||
+      studioAssistantReplyTextIsDeferred(text) ||
+      studioAgentResultTextIsRuntimePayload(text) ||
+      /^Runtime step completed\.?$/i.test(text)
+    ) {
       return "";
     }
     return text;
@@ -59,7 +68,7 @@ function createStudioAgentTurnResultText({
           event.payload_summary?.summary ||
           event.summary,
       );
-      if (/^ERROR_CLASS=/i.test(text)) {
+      if (studioAgentResultTextIsRuntimePayload(text)) {
         continue;
       }
       if (text && !studioAssistantReplyTextIsDeferred(text)) {
@@ -138,6 +147,7 @@ function createStudioAgentTurnResultText({
     normalizeStudioAssistantReplyText,
     decodeStudioRustOptionalText,
     studioAssistantReplyTextIsDeferred,
+    studioAgentResultTextIsRuntimePayload,
     normalizeStudioAgentResultText,
     studioAssistantTextFromRuntimeToolEvents,
     studioAgentTurnResultText,

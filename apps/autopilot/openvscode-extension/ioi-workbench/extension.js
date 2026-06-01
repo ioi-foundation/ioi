@@ -197,6 +197,7 @@ const STUDIO_PERMISSION_MODE_AUTO_REVIEW = "auto_local";
 const STUDIO_PERMISSION_MODE_FULL_ACCESS = "never_prompt";
 const STUDIO_AGENT_RUNTIME_PROFILE = "runtime_service";
 const STUDIO_DIRECT_MODEL_RUNTIME_PROFILE = "chat_only";
+const STUDIO_AGENT_MIN_TURN_STEPS = 8;
 const STUDIO_AGENT_TURN_POST_TIMEOUT_MS = 130000;
 const STUDIO_AGENT_TURN_RECOVERY_POLL_MS = 1000;
 const STUDIO_AGENT_TURN_RECOVERY_ATTEMPTS = 4;
@@ -2197,6 +2198,46 @@ function normalizeStudioPendingWorkStep(payload = {}) {
   };
 }
 
+function studioPendingWorkLabelForTool(toolName = "", detail = "") {
+  const normalizedTool = stringValue(toolName).toLowerCase();
+  const compactDetail = compactStudioWhitespace(detail);
+  const domainLike = compactDetail && !/^query:/i.test(compactDetail);
+  if (normalizedTool === "web__search") {
+    return "Searched web";
+  }
+  if (normalizedTool === "web__read") {
+    return domainLike ? `Read ${compactDetail}` : "Read source";
+  }
+  if (normalizedTool === "file__search") {
+    return "Searched files";
+  }
+  if (normalizedTool === "file__read" || normalizedTool === "file__view") {
+    return domainLike ? `Read ${compactDetail}` : "Read file";
+  }
+  if (normalizedTool === "file__write") {
+    return domainLike ? `Wrote ${compactDetail}` : "Wrote file";
+  }
+  if (normalizedTool === "file__edit" || normalizedTool === "file__multi_edit") {
+    return domainLike ? `Edited ${compactDetail}` : "Edited file";
+  }
+  if (/^shell__|^terminal__/.test(normalizedTool)) {
+    return compactDetail ? `Ran ${compactDetail}` : "Ran command";
+  }
+  if (/^browser__/.test(normalizedTool)) {
+    return "Used browser";
+  }
+  if (/^screen__|^computer__/.test(normalizedTool)) {
+    return "Used computer";
+  }
+  if (/^memory__/.test(normalizedTool)) {
+    return "Used memory";
+  }
+  if (/^mcp__/.test(normalizedTool)) {
+    return "Used connector";
+  }
+  return humanizeStudioToolName(normalizedTool) || "Used tool";
+}
+
 function appendStudioPendingWorkStep(payload = {}) {
   const step = normalizeStudioPendingWorkStep(payload);
   if (!step) {
@@ -2259,10 +2300,11 @@ function studioPendingStepFromRuntimeEvent(event = {}, { kind = "", toolName = "
     return null;
   }
   const completed = /completed|result|succeeded|failed|error/.test(`${normalizedKind} ${status}`.toLowerCase());
+  const detail = studioRuntimeToolEventDetail(event, normalizedTool, summary);
   return normalizeStudioPendingWorkStep({
     id: normalizedTool,
-    label: `Used tool: ${normalizedTool}`,
-    detail: studioRuntimeToolEventDetail(event, normalizedTool, summary),
+    label: studioPendingWorkLabelForTool(normalizedTool, detail),
+    detail,
     status: completed ? "completed" : "running",
     at: event.created_at || event.createdAt || new Date().toISOString(),
     kind: normalizedKind,
@@ -2673,7 +2715,7 @@ function studioThinkingRows(turn = {}) {
   `;
 }
 
-function studioTurnContentRows(turn = {}, displayContent = "") { return turn.role === "assistant" ? `<div class="studio-markdown" data-testid="${turn.modelStream?.streamId ? "studio-streaming-output" : "studio-assistant-answer-text"}">${escapeHtml(displayContent)}</div>` : `<p>${escapeHtml(displayContent)}</p>`; }
+function studioTurnContentRows(turn = {}, displayContent = "") { return turn.role === "assistant" ? `<div class="studio-markdown" data-testid="${turn.modelStream?.streamId && !turn.modelStream?.completed ? "studio-streaming-output" : "studio-assistant-answer-text"}">${escapeHtml(displayContent)}</div>` : `<p>${escapeHtml(displayContent)}</p>`; }
 function studioVerifiedBadge(payload = {}, label = "Verified") {
   const receiptRefs = normalizeReceiptRefs(payload);
   const hasReceipt = receiptRefs.length > 0;
@@ -2731,8 +2773,116 @@ function studioJsonObjectFromText(value = "") {
   }
 }
 
+function studioJsonValueFromText(value = "") {
+  const text = String(value || "").trim();
+  if (!text || !/^[{\[]/.test(text)) {
+    return null;
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
 function studioRecordValue(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function studioSourceRefFromRecord(record = {}) {
+  if (!record || typeof record !== "object" || Array.isArray(record)) {
+    return null;
+  }
+  const url = stringValue(record.url || record.href || record.link);
+  if (!/^https?:\/\//i.test(url)) {
+    return null;
+  }
+  let domain = stringValue(record.domain || record.hostname);
+  try {
+    domain ||= new URL(url).hostname;
+  } catch {
+    domain ||= url;
+  }
+  const title = compactStudioWhitespace(
+    record.title ||
+      record.name ||
+      record.label ||
+      domain ||
+      url,
+  ).slice(0, 96);
+  return {
+    title: title || domain || url,
+    url,
+    domain: compactStudioWhitespace(domain).replace(/^www\./i, ""),
+  };
+}
+
+function collectStudioSourceRefs(value, refs, depth = 0) {
+  if (depth > 5 || refs.length >= 8 || value == null) {
+    return;
+  }
+  const parsed = typeof value === "string" ? studioJsonValueFromText(value) : value;
+  if (!parsed) {
+    return;
+  }
+  if (Array.isArray(parsed)) {
+    for (const item of parsed) {
+      collectStudioSourceRefs(item, refs, depth + 1);
+      if (refs.length >= 8) break;
+    }
+    return;
+  }
+  if (typeof parsed !== "object") {
+    return;
+  }
+  const sourceRef = studioSourceRefFromRecord(parsed);
+  if (sourceRef) {
+    refs.push(sourceRef);
+  }
+  for (const key of [
+    "sources",
+    "source",
+    "documents",
+    "document",
+    "payload",
+    "payload_summary",
+    "payloadSummary",
+    "kernel_event",
+    "kernelEvent",
+    "AgentActionResult",
+    "WorkloadReceipt",
+    "WebRetrieve",
+    "receipt",
+    "data",
+    "result",
+    "output",
+    "preview",
+    "raw_output",
+    "rawOutput",
+  ]) {
+    if (parsed[key] !== undefined) {
+      collectStudioSourceRefs(parsed[key], refs, depth + 1);
+    }
+    if (refs.length >= 8) break;
+  }
+}
+
+function studioSourceRefsFromRuntimeEvents(events = []) {
+  const refs = [];
+  for (const event of firstArray(events)) {
+    collectStudioSourceRefs(event?.payload, refs);
+    collectStudioSourceRefs(event?.payload_summary, refs);
+    collectStudioSourceRefs(event?.payloadSummary, refs);
+    collectStudioSourceRefs(event?.data, refs);
+    if (refs.length >= 8) break;
+  }
+  const seen = new Set();
+  return refs.filter((ref) => {
+    const key = `${ref.url} ${ref.title}`.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 6);
 }
 
 function studioComputerUseSurfaceKind({ lane = "", sessionMode = "", toolName = "" } = {}) {
@@ -4084,10 +4234,9 @@ function studioChatCodeExecutionRows(turn = {}, turnIndex = 0) {
     return `
       <article class="studio-chat-code-execution-card" data-testid="studio-chat-code-execution-card" data-language="${escapeHtml(block.language)}" data-execution-status="${escapeHtml(policy.status)}" data-network-policy="deny" data-apply-mode="plan_only">
         <header>
-          <strong>Sandbox code block</strong>
-          <span>${escapeHtml(block.language)} · network denied · workspace writes only · receipt required</span>
+          <strong>Run code in sandbox</strong>
+          <span>${escapeHtml(block.language)} · plan only · network denied</span>
         </header>
-        <pre data-testid="studio-chat-code-execution-source">${escapeHtml(block.source)}</pre>
         ${policy.blockReason ? `<p data-testid="studio-chat-code-execution-block-reason">${escapeHtml(policy.blockReason)}</p>` : ""}
         <footer>
           <button type="button" data-testid="studio-chat-code-execute-plan" data-bridge-request="chat.executeCodeBlock.plan"${commandPayloadAttr(payload)} ${policy.status === "blocked" ? "disabled" : ""}>Prepare run</button>
@@ -4132,13 +4281,32 @@ function studioPendingProjectionRows() {
   `;
 }
 
+function studioTurnSourceRows(turn = {}) {
+  const sourceRefs = firstArray(turn.sourceRefs || turn.source_refs)
+    .map((source) => studioRecordValue(source))
+    .filter((source) => /^https?:\/\//i.test(stringValue(source.url)));
+  if (!sourceRefs.length) {
+    return "";
+  }
+  return `
+    <footer class="studio-answer-sources" data-testid="studio-answer-sources">
+      <span>Sources</span>
+      ${sourceRefs.slice(0, 6).map((source) => `
+        <a href="${escapeHtml(source.url)}" title="${escapeHtml(source.title || source.domain || source.url)}" rel="noreferrer noopener">
+          ${escapeHtml(source.title || source.domain || source.url)}
+        </a>
+      `).join("")}
+    </footer>
+  `;
+}
+
 function studioTurnRows() {
   return studioRuntimeProjection.turns.map((turn, index) => {
     const hasDocumentedWork = turn.role === "assistant" && studioTurnHasDocumentedWork(turn);
     const workRecord = hasDocumentedWork ? turn.workRecord : null;
     const displayContent = studioDisplayTurnContent(turn);
     return `
-    <article class="studio-chat-turn studio-chat-turn--${escapeHtml(turn.role || "system")}" data-studio-turn-role="${escapeHtml(turn.role || "system")}" data-testid="${turn.role === "user" ? "studio-user-turn-immediate" : index === studioRuntimeProjection.turns.length - 1 ? "studio-latest-turn" : "studio-chat-turn"}"${turn.modelStream?.streamId ? ` data-studio-stream-turn="${escapeHtml(turn.modelStream.streamId)}"` : ""} data-documented-work="${hasDocumentedWork ? "true" : "false"}">
+    <article class="studio-chat-turn studio-chat-turn--${escapeHtml(turn.role || "system")}" data-studio-turn-role="${escapeHtml(turn.role || "system")}" data-testid="${turn.role === "user" ? "studio-user-turn-immediate" : index === studioRuntimeProjection.turns.length - 1 ? "studio-latest-turn" : "studio-chat-turn"}"${turn.modelStream?.streamId && !turn.modelStream?.completed ? ` data-studio-stream-turn="${escapeHtml(turn.modelStream.streamId)}"` : ""} data-documented-work="${hasDocumentedWork ? "true" : "false"}">
       ${hasDocumentedWork ? `
         <details class="studio-run-status-bar" data-testid="studio-run-status-bar">
           <summary>
@@ -4160,6 +4328,7 @@ function studioTurnRows() {
         </div>
         ${turn.role === "assistant" ? studioThinkingRows(turn) : ""}
         ${studioTurnContentRows(turn, displayContent)}
+        ${turn.role === "assistant" ? studioTurnSourceRows(turn) : ""}
         ${turn.role === "assistant" ? studioConversationArtifactRows(turn.artifacts || workRecord?.artifactCards || []) : ""}
         ${turn.role === "assistant" ? studioChatOutputRendererRows(turn, index) : ""}
         ${turn.role === "assistant" ? studioChatCodeExecutionRows(turn, index) : ""}
@@ -8333,7 +8502,9 @@ async function projectStudioAgentTurnToWebview({ assistantTurn, status = "comple
     turnId: assistantTurn?.agentTurn?.turnId || studioRuntimeProjection.turnId || "",
     eventCount: assistantTurn?.agentTurn?.eventCount || 0,
     receiptRefs: firstArray(assistantTurn?.agentTurn?.receiptRefs),
+    sourceRefs: firstArray(assistantTurn?.sourceRefs),
     prompt: prompt || assistantTurn?.agentTurn?.prompt || "",
+    status,
     error,
   };
   try {
@@ -10142,9 +10313,10 @@ async function submitStudioAgentTurn({
   });
   const submittedAtMs = Date.now();
   const permissionMapping = studioPermissionDaemonMapping(studioRuntimeProjection.approvalMode);
-  const maxSteps = Number.isFinite(Number(maxStepsOverride))
-    ? Math.max(1, Math.floor(Number(maxStepsOverride)))
+  const requestedMaxSteps = Number.isFinite(Number(maxStepsOverride))
+    ? Math.floor(Number(maxStepsOverride))
     : studioAgentMaxStepsForIntent(intentFrame, prompt);
+  const maxSteps = Math.max(STUDIO_AGENT_MIN_TURN_STEPS, requestedMaxSteps);
   const turnPayload = {
     prompt,
     input: prompt,
@@ -10382,6 +10554,7 @@ async function submitStudioAgentTurn({
     output?.appendLine?.(`[ioi-studio] ${retrievalFailClosedText}`);
   }
   const receiptRefs = normalizeReceiptRefs(turn, ...events);
+  const sourceRefs = studioSourceRefsFromRuntimeEvents(events);
   appendStudioReceipts(
     receiptRefs.map((id) => ({
       id,
@@ -10446,6 +10619,7 @@ async function submitStudioAgentTurn({
     events,
     text: resultText || retrievalFailClosedText || "Agent Mode completed without additional assistant text.",
     receiptRefs,
+    sourceRefs,
     status: finalStatus,
     approvalPause: false,
   };
@@ -10634,6 +10808,7 @@ async function submitStudioPrompt(payload = {}, output) {
           askMode: true,
           directModelAnswer: true,
           chatOnlyMode: true,
+          completed: true,
         },
       };
     } else {
@@ -10667,14 +10842,14 @@ async function submitStudioPrompt(payload = {}, output) {
       const agentTurnStatus = agentTurn.status === "blocked" ? "blocked" : "completed";
       const workRecord = studioDocumentedWorkRecord(workCursor);
       const blockedThreadId = agentTurnStatus === "blocked" ? studioRuntimeProjection.threadId : null;
-      const daemonAnswerStream = agentTurnStatus === "completed"
-        ? studioAgentAnswerStreamProjector.complete(agentTurn.text)
+      const daemonAnswerStream = agentTurnStatus === "completed" && studioAgentAnswerStreamProjector.hasObservedStream()
+        ? studioAgentAnswerStreamProjector.complete(agentTurn.text, { allowFallbackStart: false })
         : null;
       const finalHandoffStream = agentTurnStatus === "completed" && !daemonAnswerStream
         ? await studioAgentFinalHandoffStreamer.streamStudioAgentFinalHandoff(agentTurn.text, { prompt, turnId: studioRuntimeProjection.turnId })
         : null;
       const modelStream = daemonAnswerStream || (finalHandoffStream
-        ? { streamId: finalHandoffStream.streamId, chunkCount: finalHandoffStream.chunkCount, agentFinalHandoff: true, runtimeAuthority: "daemon-owned" }
+        ? { streamId: finalHandoffStream.streamId, chunkCount: finalHandoffStream.chunkCount, agentFinalHandoff: true, runtimeAuthority: "daemon-owned", completed: true }
         : null);
       assistantTurn = {
         role: "assistant",
@@ -10688,6 +10863,7 @@ async function submitStudioPrompt(payload = {}, output) {
           status: agentTurnStatus,
           approvalPause: Boolean(agentTurn.approvalPause),
         },
+        ...(agentTurn.sourceRefs ? { sourceRefs: agentTurn.sourceRefs } : {}),
         ...(agentTurn.artifacts ? { artifacts: agentTurn.artifacts } : {}),
         ...(agentTurn.modelMetrics ? { modelMetrics: agentTurn.modelMetrics } : {}),
         ...(modelStream ? { modelStream } : {}),
@@ -10719,6 +10895,13 @@ async function submitStudioPrompt(payload = {}, output) {
     }
     studioRuntimeProjection.pending = false;
     studioRuntimeProjection.status = assistantTurn?.agentTurn?.status === "blocked" ? "blocked" : "completed";
+    if (executionMode === STUDIO_MODE_AGENT) {
+      await projectStudioAgentTurnToWebview({
+        assistantTurn,
+        status: studioRuntimeProjection.status,
+        prompt,
+      }, output);
+    }
     studioRuntimeProjection.timeline.push({
       label: studioRuntimeProjection.status === "blocked" ? "Blocked answer visible" : "Final answer visible",
       detail: executionMode === STUDIO_MODE_ASK

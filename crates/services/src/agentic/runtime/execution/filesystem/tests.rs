@@ -122,6 +122,41 @@ fn apply_patch_recovers_multiline_python_function_from_single_line_reference() {
 }
 
 #[test]
+fn apply_patch_recovers_multiline_js_block_from_single_line_reference() {
+    let original = concat!(
+        "export function formatOrderTotal(cents) {\n",
+        "  return (Number(cents) / 100).toFixed(2);\n",
+        "}\n"
+    );
+    let summarized_search =
+        "export function formatOrderTotal(cents) { return (Number(cents) / 100).toFixed(2); }";
+    let replace = concat!(
+        "export function formatOrderTotal(cents) {\n",
+        "  return `$${Number(cents) / 100}`;\n",
+        "}\n"
+    );
+
+    let updated =
+        apply_patch(original, summarized_search, replace).expect("collapsed patch should succeed");
+
+    assert!(updated.contains("return `$${Number(cents) / 100}`;"));
+    assert!(!updated.contains("return (Number(cents) / 100).toFixed(2);"));
+}
+
+#[test]
+fn apply_patch_rejects_exact_noop_replacement() {
+    let original = "export const value = 1;\n";
+    let err = apply_patch(
+        original,
+        "export const value = 1;",
+        "export const value = 1;",
+    )
+    .expect_err("no-op edit should be rejected");
+
+    assert!(err.contains("replacement must differ"));
+}
+
+#[test]
 fn resolve_tool_path_uses_working_directory_for_relative_paths() {
     let cwd = std::env::current_dir().expect("current dir should resolve");
     let cwd_str = cwd.to_string_lossy().to_string();

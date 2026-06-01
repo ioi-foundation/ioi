@@ -8,6 +8,28 @@ fn direct_chat_reply_sanitizer_removes_think_blocks() {
 }
 
 #[test]
+fn direct_chat_reply_sanitizer_collapses_repeated_model_answer_cycles() {
+    let answer = "Based on current market data and project fundamentals, **Filecoin** appears more established.\n\n### Current Market Metrics\n* **Filecoin:** price and liquidity\n* **Akash:** smaller cap, higher risk\n\n### Conclusion\nFilecoin is steadier; Akash is higher risk.";
+    let repeated = format!("{answer}\n\nSources:\n- CoinGecko\n\n{answer}\n\n{answer}");
+    let cleaned = super::sanitize_direct_chat_reply_output(&repeated);
+
+    assert_eq!(cleaned.matches("Based on current market data").count(), 1);
+    assert!(cleaned.contains("### Conclusion"));
+    assert!(!cleaned.contains("\n\nSources:\n- CoinGecko\n\nBased on current market data"));
+}
+
+#[test]
+fn direct_chat_reply_sanitizer_collapses_dense_repeated_model_answer_cycles() {
+    let answer = "Based on current market data, Filecoin appears to be the larger and more established investment compared to Akash Network, though both are currently experiencing short-term price declines.Here is the comparison of their current market metrics:Filecoin (FIL)Price: ~$0.92Market Cap: ~$721.48M24h Trading Volume: ~$84.39M24h Price Change: -4.66%Use Case: Decentralized storage network focused on long-term data retention and enterprise-grade storage solutions.Akash Network (AKT)Price: ~$0.75Market Cap: ~$218.61M24h Trading Volume: ~$4.10M24h Price Change: -3.69%Use Case: Decentralized cloud marketplace focusing on compute power and containerized applications.Key Takeaways:Market Size: Filecoin has a significantly larger market capitalization.Liquidity: Filecoin's trading volume is substantially higher.Disclaimer: This is not financial advice.";
+    let repeated = format!("{answer}{answer}{answer}");
+    let cleaned = super::sanitize_direct_chat_reply_output(&repeated);
+
+    assert_eq!(cleaned.matches("Based on current market data").count(), 1);
+    assert!(cleaned.contains("Akash Network (AKT)"));
+    assert!(cleaned.len() < repeated.len() / 2);
+}
+
+#[test]
 fn final_reply_incomplete_reason_flags_cut_off_markdown() {
     assert_eq!(
         super::final_reply_incomplete_reason(
@@ -62,7 +84,7 @@ fn final_reply_repair_messages_focus_on_evidence_context_without_invalid_draft()
         "unclosed_markdown_bold",
         1,
         "Which is a better investment right now, Akash or Filecoin?",
-        "Typed market quote evidence from tool results:\n- asset: Akash Network; price: $0.78; Market cap: $230M; 24h trading volume: $4M; 24h price change: 1%",
+        "Current market quote observations from tool results:\n- Akash Network; price: $0.78; market cap: $230M; 24h trading volume: $4M; 24h price change: 1%",
     );
     let retry_messages = retry.as_array().expect("retry array");
 
@@ -79,11 +101,50 @@ fn final_reply_repair_messages_focus_on_evidence_context_without_invalid_draft()
     assert!(retry_messages[1]["content"]
         .as_str()
         .unwrap()
-        .contains("Typed market quote evidence"));
+        .contains("Current market quote observations"));
     assert!(retry_messages[0]["content"]
         .as_str()
         .unwrap()
         .contains("24h trading volume"));
+}
+
+#[test]
+fn final_reply_product_handoff_reason_flags_raw_test_log_dumps() {
+    let message = "Command `node --test tests/*.test.mjs` exited with code 0.\n\nstdout:\nTAP version 13\n# Subtest: formats order total\nok 1 - formats order total\n# tests 1\n# pass 1\n# duration_ms 42";
+
+    assert_eq!(
+        super::final_reply_product_handoff_reason(
+            message,
+            "Fix the formatter and run the focused test."
+        ),
+        Some("raw_test_log_dump")
+    );
+}
+
+#[test]
+fn final_reply_product_handoff_reason_allows_user_requested_raw_output() {
+    let message = "Command `node --test tests/*.test.mjs` exited with code 0.\n\nstdout:\nTAP version 13\n# Subtest: formats order total\nok 1 - formats order total";
+
+    assert_eq!(
+        super::final_reply_product_handoff_reason(
+            message,
+            "Show me the raw stdout from the focused test."
+        ),
+        None
+    );
+}
+
+#[test]
+fn final_reply_product_handoff_reason_accepts_clean_test_handoff() {
+    let message = "Updated `src/format.mjs` so `formatOrderTotal(1299)` now returns `$12.99`. The focused formatter test passed.";
+
+    assert_eq!(
+        super::final_reply_product_handoff_reason(
+            message,
+            "Fix the formatter and run the focused test."
+        ),
+        None
+    );
 }
 
 #[test]
@@ -113,6 +174,39 @@ fn final_reply_evidence_context_prefers_successful_relevant_tool_output() {
 }
 
 #[test]
+fn final_reply_evidence_context_excludes_raw_workspace_change_payloads() {
+    let history = vec![
+        chat_message(
+            "tool",
+            "export function formatOrderTotal(cents) { return '$' + (Number(cents) / 100).toFixed(2); }",
+            1,
+        ),
+        chat_message(
+            "tool",
+            r#"{"change_id":"workspace_change:sha256:abc","lifecycle":"rolled_back","hunks":[{"search_text":"export function formatOrderTotal(cents) { return (Number(cents) / 100).toFixed(2); }","replace_text":"export function formatOrderTotal(cents) { return `$${Number(cents) / 100}`; }"}]}"#,
+            2,
+        ),
+        chat_message(
+            "tool",
+            "export function formatOrderTotal(cents) { return (Number(cents) / 100).toFixed(2); }",
+            3,
+        ),
+    ];
+
+    let context = super::final_reply_evidence_context(
+        &history,
+        "Roll back the formatter edit and confirm it is without a dollar sign.",
+        "fallback",
+    );
+
+    assert!(context.contains("formatOrderTotal"), "{context}");
+    assert!(!context.contains("workspace_change:"), "{context}");
+    assert!(!context.contains("replace_text"), "{context}");
+    assert!(!context.contains("`$${"), "{context}");
+    assert!(!context.contains("return '$' +"), "{context}");
+}
+
+#[test]
 fn final_reply_evidence_context_normalizes_web_tool_results_for_model_handoff() {
     let history = vec![chat_message(
         "tool",
@@ -126,7 +220,7 @@ fn final_reply_evidence_context_normalizes_web_tool_results_for_model_handoff() 
     {
       "url": "https://www.coingecko.com/en/coins/akash-network",
       "title": "Akash Network live USD price quote - CoinGecko",
-      "snippet": "Akash Network (akash-network) live USD quote from CoinGecko simple price API: price $0.787649 USD.\n\nMarket cap: $230.06M.\n\n24h trading volume: $5.04M.\n\n24h price change: -2.40%."
+      "snippet": "Akash Network (akash-network) live USD quote from CoinGecko simple price API: price $0.787649 USD.\n\nmarket cap: $230.06M.\n\n24h trading volume: $5.04M.\n\n24h price change: -2.40%."
     }
   ],
   "documents": [
@@ -147,11 +241,11 @@ fn final_reply_evidence_context_normalizes_web_tool_results_for_model_handoff() 
     );
 
     assert!(
-        context.contains("Typed market quote evidence from tool results"),
+        context.contains("Current market quote observations from tool results"),
         "{context}"
     );
     assert!(context.contains("price $0.787649 USD"), "{context}");
-    assert!(context.contains("Market cap: $230.06M"), "{context}");
+    assert!(context.contains("market cap: $230.06M"), "{context}");
     assert!(
         context.contains("https://www.coingecko.com/en/coins/akash-network"),
         "{context}"
@@ -170,7 +264,7 @@ fn final_reply_evidence_context_unwraps_nested_agent_action_web_output() {
             {
                 "url": "https://www.coingecko.com/en/coins/akash-network",
                 "title": "Akash Network live USD price quote - CoinGecko",
-                "snippet": "Akash Network (akash-network) live USD quote from CoinGecko simple price API: price $0.781608 USD. Market cap: $228.38M. 24h price change: -2.52%."
+                "snippet": "Akash Network (akash-network) live USD quote from CoinGecko simple price API: price $0.781608 USD. market cap: $228.38M. 24h price change: -2.52%."
             }
         ],
         "documents": [
@@ -200,11 +294,11 @@ fn final_reply_evidence_context_unwraps_nested_agent_action_web_output() {
     );
 
     assert!(
-        context.contains("Typed market quote evidence from tool results"),
+        context.contains("Current market quote observations from tool results"),
         "{context}"
     );
     assert!(context.contains("price $0.781608 USD"), "{context}");
-    assert!(context.contains("Market cap: $228.38M"), "{context}");
+    assert!(context.contains("market cap: $228.38M"), "{context}");
     assert!(
         context.contains("https://www.coingecko.com/en/coins/akash-network"),
         "{context}"
@@ -273,7 +367,7 @@ fn final_reply_evidence_context_keeps_older_web_evidence_beyond_recent_prompt_wi
     {
       "title": "Akash Network live USD price quote - CoinGecko",
       "url": "https://www.coingecko.com/en/coins/akash-network",
-      "snippet": "Akash Network live USD quote: price $0.783 USD. Market cap: $228.65M. 24h price change: -2.75%."
+      "snippet": "Akash Network live USD quote: price $0.783 USD. market cap: $228.65M. 24h price change: -2.75%."
     }
   ]
 }"#;
@@ -311,7 +405,7 @@ fn final_reply_evidence_context_ranks_quote_evidence_above_later_weak_web_reads(
     {
       "title": "Akash Network live USD price quote - CoinGecko",
       "url": "https://www.coingecko.com/en/coins/akash-network",
-      "snippet": "Akash Network live USD quote: price $0.783 USD. Market cap: $229.15M. 24h trading volume: $4.95M."
+      "snippet": "Akash Network live USD quote: price $0.783 USD. market cap: $229.15M. 24h trading volume: $4.95M."
     }
   ]
 }"#;
@@ -349,7 +443,7 @@ fn final_reply_evidence_context_ranks_quote_evidence_above_later_weak_web_reads(
         "{context}"
     );
     assert!(context.contains("price: $0.783"), "{context}");
-    assert!(context.contains("Market cap: $229.15M"), "{context}");
+    assert!(context.contains("market cap: $229.15M"), "{context}");
     assert!(!context.contains("General crypto page"), "{context}");
     assert!(!context.contains("weak-"), "{context}");
 }
@@ -366,7 +460,7 @@ fn final_reply_evidence_context_preserves_comparison_quote_matrix_for_model_hand
     {
       "title": "Akash Network live USD price quote - CoinGecko",
       "url": "https://www.coingecko.com/en/coins/akash-network",
-      "snippet": "Akash Network (akash-network) live USD quote from CoinGecko simple price API: price $0.783364 USD.\n\nMarket cap: $228.32M.\n\n24h trading volume: $4.88M.\n\n24h price change: -2.80%."
+      "snippet": "Akash Network (akash-network) live USD quote from CoinGecko simple price API: price $0.783364 USD.\n\nmarket cap: $228.32M.\n\n24h trading volume: $4.88M.\n\n24h price change: -2.80%."
     }
   ]
 }"#;
@@ -380,7 +474,7 @@ fn final_reply_evidence_context_preserves_comparison_quote_matrix_for_model_hand
     {
       "title": "Filecoin live USD price quote - CoinGecko",
       "url": "https://www.coingecko.com/en/coins/filecoin",
-      "snippet": "Filecoin (filecoin) live USD quote from CoinGecko simple price API: price $0.969088 USD.\n\nMarket cap: $765.06M.\n\n24h trading volume: $95.70M.\n\n24h price change: 1.18%."
+      "snippet": "Filecoin (filecoin) live USD quote from CoinGecko simple price API: price $0.969088 USD.\n\nmarket cap: $765.06M.\n\n24h trading volume: $95.70M.\n\n24h price change: 1.18%."
     }
   ]
 }"#;
@@ -396,11 +490,11 @@ fn final_reply_evidence_context_preserves_comparison_quote_matrix_for_model_hand
     );
 
     assert!(
-        context.contains("Typed market quote evidence from tool results"),
+        context.contains("Current market quote observations from tool results"),
         "{context}"
     );
     assert!(
-        context.contains("Required current market facts from typed `web__read` outputs"),
+        context.contains("These observations came from quote-grade web tool outputs"),
         "{context}"
     );
     assert!(
@@ -436,13 +530,13 @@ fn final_reply_pending_context_preserves_comparison_quote_matrix_for_model_hando
             PendingSearchReadSummary {
                 url: "https://www.coingecko.com/en/coins/akash-network".to_string(),
                 title: Some("Akash Network live USD price quote - CoinGecko".to_string()),
-                excerpt: "Akash Network (akash-network) live USD quote from CoinGecko simple price API: price $0.792457 USD.\n\nMarket cap: $232.40M.\n\n24h trading volume: $5.12M.\n\n24h price change: -1.09%."
+                excerpt: "Akash Network (akash-network) live USD quote from CoinGecko simple price API: price $0.792457 USD.\n\nmarket cap: $232.40M.\n\n24h trading volume: $5.12M.\n\n24h price change: -1.09%."
                     .to_string(),
             },
             PendingSearchReadSummary {
                 url: "https://www.coingecko.com/en/coins/filecoin".to_string(),
                 title: Some("Filecoin live USD price quote - CoinGecko".to_string()),
-                excerpt: "Filecoin (filecoin) live USD quote from CoinGecko simple price API: price $0.970942 USD.\n\nMarket cap: $764.19M.\n\n24h trading volume: $95.20M.\n\n24h price change: -1.03%."
+                excerpt: "Filecoin (filecoin) live USD quote from CoinGecko simple price API: price $0.970942 USD.\n\nmarket cap: $764.19M.\n\n24h trading volume: $95.20M.\n\n24h price change: -1.03%."
                     .to_string(),
             },
         ],
@@ -456,7 +550,7 @@ fn final_reply_pending_context_preserves_comparison_quote_matrix_for_model_hando
     .expect("pending quote context");
 
     assert!(
-        context.contains("Typed market quote evidence from tool results"),
+        context.contains("Current market quote observations from tool results"),
         "{context}"
     );
     assert!(
@@ -485,13 +579,13 @@ fn final_reply_pending_context_preserves_quote_and_supporting_web_evidence() {
             PendingSearchReadSummary {
                 url: "https://www.coingecko.com/en/coins/akash-network".to_string(),
                 title: Some("Akash Network live USD price quote - CoinGecko".to_string()),
-                excerpt: "Akash Network (akash-network) live USD quote from CoinGecko simple price API: price $0.792457 USD.\n\nMarket cap: $232.40M.\n\n24h trading volume: $5.12M.\n\n24h price change: -1.09%."
+                excerpt: "Akash Network (akash-network) live USD quote from CoinGecko simple price API: price $0.792457 USD.\n\nmarket cap: $232.40M.\n\n24h trading volume: $5.12M.\n\n24h price change: -1.09%."
                     .to_string(),
             },
             PendingSearchReadSummary {
                 url: "https://www.coingecko.com/en/coins/filecoin".to_string(),
                 title: Some("Filecoin live USD price quote - CoinGecko".to_string()),
-                excerpt: "Filecoin (filecoin) live USD quote from CoinGecko simple price API: price $0.970942 USD.\n\nMarket cap: $764.19M.\n\n24h trading volume: $95.20M.\n\n24h price change: -1.03%."
+                excerpt: "Filecoin (filecoin) live USD quote from CoinGecko simple price API: price $0.970942 USD.\n\nmarket cap: $764.19M.\n\n24h trading volume: $95.20M.\n\n24h price change: -1.03%."
                     .to_string(),
             },
             PendingSearchReadSummary {
@@ -511,7 +605,7 @@ fn final_reply_pending_context_preserves_quote_and_supporting_web_evidence() {
     .expect("pending web context");
 
     assert!(
-        context.contains("Typed market quote evidence from tool results"),
+        context.contains("Current market quote observations from tool results"),
         "{context}"
     );
     assert!(
@@ -522,7 +616,7 @@ fn final_reply_pending_context_preserves_quote_and_supporting_web_evidence() {
         "{context}"
     );
     assert!(
-        context.contains("Typed web evidence from tool results"),
+        context.contains("Web observations from tool results"),
         "{context}"
     );
     assert!(context.contains("$232.40M"), "{context}");
@@ -544,7 +638,7 @@ fn final_reply_evidence_context_keeps_supporting_web_evidence_with_market_quotes
     {
       "title": "Akash Network live USD price quote - CoinGecko",
       "url": "https://www.coingecko.com/en/coins/akash-network",
-      "snippet": "Akash Network (akash-network) live USD quote from CoinGecko simple price API: price $0.790464 USD. Market cap: $232.04M. 24h trading volume: $5.25M. 24h price change: 0.79%."
+      "snippet": "Akash Network (akash-network) live USD quote from CoinGecko simple price API: price $0.790464 USD. market cap: $232.04M. 24h trading volume: $5.25M. 24h price change: 0.79%."
     }
   ]
 }"#;
@@ -573,7 +667,7 @@ fn final_reply_evidence_context_keeps_supporting_web_evidence_with_market_quotes
     );
 
     assert!(context.contains("price: $0.790464"), "{context}");
-    assert!(context.contains("Market cap: $232.04M"), "{context}");
+    assert!(context.contains("market cap: $232.04M"), "{context}");
     assert!(context.contains("decentralized compute"), "{context}");
     assert!(context.contains("decentralized storage"), "{context}");
 }
@@ -589,7 +683,7 @@ fn final_reply_evidence_context_does_not_import_market_quotes_for_generic_curren
     {
       "title": "Filecoin live USD price quote - CoinGecko",
       "url": "https://www.coingecko.com/en/coins/filecoin",
-      "snippet": "Filecoin live quote: price $0.96 USD. Market cap: $758M."
+      "snippet": "Filecoin live quote: price $0.96 USD. market cap: $758M."
     }
   ]
 }"#;
@@ -602,7 +696,7 @@ fn final_reply_evidence_context_does_not_import_market_quotes_for_generic_curren
     );
 
     assert!(
-        !context.contains("Typed market quote evidence from tool results"),
+        !context.contains("Current market quote observations from tool results"),
         "{context}"
     );
 }
@@ -615,13 +709,13 @@ fn final_reply_evidence_context_extracts_quote_matrix_from_recent_events_fallbac
         "sources=Akash Network live USD price quote - CoinGecko | ",
         "https://www.coingecko.com/en/coins/akash-network | ",
         "Akash Network (akash-network) live USD quote from CoinGecko simple price API: ",
-        "price $0.787880 USD. Market cap: $230.06M. 24h trading volume: $4.33M. ",
+        "price $0.787880 USD. market cap: $230.06M. 24h trading volume: $4.33M. ",
         "24h price change: 0.47%.\n",
         "tool: web__read ; https://api.coingecko.com/api/v3/simple/price?ids=filecoin ; ",
         "sources=Filecoin live USD price quote - CoinGecko | ",
         "https://www.coingecko.com/en/coins/filecoin | ",
         "Filecoin (filecoin) live USD quote from CoinGecko simple price API: ",
-        "price $0.977923 USD. Market cap: $770.06M. 24h trading volume: $73.27M. ",
+        "price $0.977923 USD. market cap: $770.06M. 24h trading volume: $73.27M. ",
         "24h price change: 0.54%.\n"
     );
 
@@ -632,24 +726,24 @@ fn final_reply_evidence_context_extracts_quote_matrix_from_recent_events_fallbac
     );
 
     assert!(
-        context.contains("Typed market quote evidence from tool results"),
+        context.contains("Current market quote observations from tool results"),
         "{context}"
     );
-    assert!(context.contains("asset: Akash Network"), "{context}");
+    assert!(context.contains("Akash Network"), "{context}");
     assert!(context.contains("price: $0.787880"), "{context}");
-    assert!(context.contains("Market cap: $230.06M"), "{context}");
+    assert!(context.contains("market cap: $230.06M"), "{context}");
     assert!(context.contains("24h trading volume: $4.33M"), "{context}");
-    assert!(context.contains("asset: Filecoin"), "{context}");
+    assert!(context.contains("Filecoin"), "{context}");
     assert!(context.contains("price: $0.977923"), "{context}");
-    assert!(context.contains("Market cap: $770.06M"), "{context}");
+    assert!(context.contains("market cap: $770.06M"), "{context}");
     assert!(context.contains("24h trading volume: $73.27M"), "{context}");
 }
 
 #[test]
 fn final_reply_evidence_contradiction_detects_missing_market_quote_claim() {
-    let evidence = "Typed market quote evidence from tool results:\n\
-- Akash Network live USD price quote - CoinGecko | Akash Network live USD quote: price $0.790155 USD. Market cap: $229.87M. 24h price change: -1.17%. | source=https://www.coingecko.com/en/coins/akash-network\n\
-- Filecoin live USD price quote - CoinGecko | Filecoin live USD quote: price $0.972307 USD. Market cap: $764.91M. 24h price change: 1.26%. | source=https://www.coingecko.com/en/coins/filecoin";
+    let evidence = "Current market quote observations from tool results:\n\
+- Akash Network live USD price quote - CoinGecko | Akash Network live USD quote: price $0.790155 USD. market cap: $229.87M. 24h price change: -1.17%. | source: https://www.coingecko.com/en/coins/akash-network\n\
+- Filecoin live USD price quote - CoinGecko | Filecoin live USD quote: price $0.972307 USD. market cap: $764.91M. 24h price change: 1.26%. | source: https://www.coingecko.com/en/coins/filecoin";
     let message = "The evidence provides specific live pricing and market metrics for Filecoin, while no comparable data was retrieved for Akash.";
 
     assert_eq!(
@@ -664,9 +758,9 @@ fn final_reply_evidence_contradiction_detects_missing_market_quote_claim() {
 
 #[test]
 fn final_reply_evidence_contradiction_detects_live_quote_missing_search_result_claim() {
-    let evidence = "Typed market quote evidence from tool results:\n\
-- Akash Network live USD price quote - CoinGecko | Akash Network live USD quote: price $0.791100 USD. Market cap: $231.15M. 24h price change: -1.87%. | source=https://www.coingecko.com/en/coins/akash-network\n\
-- Filecoin live USD price quote - CoinGecko | Filecoin live USD quote: price $0.969536 USD. Market cap: $762.95M. 24h price change: 1.02%. | source=https://www.coingecko.com/en/coins/filecoin";
+    let evidence = "Current market quote observations from tool results:\n\
+- Akash Network live USD price quote - CoinGecko | Akash Network live USD quote: price $0.791100 USD. market cap: $231.15M. 24h price change: -1.87%. | source: https://www.coingecko.com/en/coins/akash-network\n\
+- Filecoin live USD price quote - CoinGecko | Filecoin live USD quote: price $0.969536 USD. market cap: $762.95M. 24h price change: 1.02%. | source: https://www.coingecko.com/en/coins/filecoin";
     let message = "The provided search results do not contain specific live price quotes or market cap data for Akash. Without specific price data for Akash, the lack of current price data in the evidence means a definitive comparison cannot be made.";
 
     assert_eq!(
@@ -681,9 +775,9 @@ fn final_reply_evidence_contradiction_detects_live_quote_missing_search_result_c
 
 #[test]
 fn final_reply_evidence_contradiction_detects_missing_akash_metrics_claim() {
-    let evidence = "Typed market quote evidence from tool results:\n\
-- Akash Network live USD price quote - CoinGecko | Akash Network live USD quote: price $0.792457 USD. Market cap: $232.40M. 24h price change: -1.09%. | source=https://www.coingecko.com/en/coins/akash-network\n\
-- Filecoin live USD price quote - CoinGecko | Filecoin live USD quote: price $0.970942 USD. Market cap: $764.19M. 24h price change: -1.03%. | source=https://www.coingecko.com/en/coins/filecoin";
+    let evidence = "Current market quote observations from tool results:\n\
+- Akash Network live USD price quote - CoinGecko | Akash Network live USD quote: price $0.792457 USD. market cap: $232.40M. 24h price change: -1.09%. | source: https://www.coingecko.com/en/coins/akash-network\n\
+- Filecoin live USD price quote - CoinGecko | Filecoin live USD quote: price $0.970942 USD. market cap: $764.19M. 24h price change: -1.03%. | source: https://www.coingecko.com/en/coins/filecoin";
     let message = "Akash: No price, market cap, or performance data was found in the search results. Without this data, it is impossible to determine if Akash is currently better than Filecoin.";
 
     assert_eq!(
@@ -698,9 +792,9 @@ fn final_reply_evidence_contradiction_detects_missing_akash_metrics_claim() {
 
 #[test]
 fn final_reply_evidence_contradiction_detects_nominal_price_investment_claim() {
-    let evidence = "Typed market quote evidence from tool results:\n\
-- Akash Network live USD price quote - CoinGecko | Akash Network live USD quote: price $0.790155 USD. Market cap: $229.87M. 24h price change: -1.17%. | source=https://www.coingecko.com/en/coins/akash-network\n\
-- Filecoin live USD price quote - CoinGecko | Filecoin live USD quote: price $0.972307 USD. Market cap: $764.91M. 24h price change: 1.26%. | source=https://www.coingecko.com/en/coins/filecoin";
+    let evidence = "Current market quote observations from tool results:\n\
+- Akash Network live USD price quote - CoinGecko | Akash Network live USD quote: price $0.790155 USD. market cap: $229.87M. 24h price change: -1.17%. | source: https://www.coingecko.com/en/coins/akash-network\n\
+- Filecoin live USD price quote - CoinGecko | Filecoin live USD quote: price $0.972307 USD. market cap: $764.91M. 24h price change: 1.26%. | source: https://www.coingecko.com/en/coins/filecoin";
     let message = "Filecoin appears to be the stronger investment primarily due to its higher price point and established market presence.";
 
     assert_eq!(
@@ -715,9 +809,9 @@ fn final_reply_evidence_contradiction_detects_nominal_price_investment_claim() {
 
 #[test]
 fn final_reply_evidence_contradiction_detects_lower_entry_price_investment_claim() {
-    let evidence = "Typed market quote evidence from tool results:\n\
-- Akash Network live USD price quote - CoinGecko | Akash Network live USD quote: price $0.790155 USD. Market cap: $229.87M. 24h price change: -1.17%. | source=https://www.coingecko.com/en/coins/akash-network\n\
-- Filecoin live USD price quote - CoinGecko | Filecoin live USD quote: price $0.972307 USD. Market cap: $764.91M. 24h price change: 1.26%. | source=https://www.coingecko.com/en/coins/filecoin";
+    let evidence = "Current market quote observations from tool results:\n\
+- Akash Network live USD price quote - CoinGecko | Akash Network live USD quote: price $0.790155 USD. market cap: $229.87M. 24h price change: -1.17%. | source: https://www.coingecko.com/en/coins/akash-network\n\
+- Filecoin live USD price quote - CoinGecko | Filecoin live USD quote: price $0.972307 USD. market cap: $764.91M. 24h price change: 1.26%. | source: https://www.coingecko.com/en/coins/filecoin";
     let message = "Choose Akash if you prefer a lower per-token price and an accessible entry point for investors.";
 
     assert_eq!(
@@ -732,9 +826,9 @@ fn final_reply_evidence_contradiction_detects_lower_entry_price_investment_claim
 
 #[test]
 fn final_reply_evidence_contract_allows_nominal_price_disclaimer_without_using_it_as_thesis() {
-    let evidence = "Typed market quote evidence from tool results:\n\
-- Akash Network live USD price quote - CoinGecko | Akash Network live USD quote: price $0.788207 USD. Market cap: $230.21M. 24h trading volume: $4.65M. 24h price change: -1.60%. | source=https://www.coingecko.com/en/coins/akash-network\n\
-- Filecoin live USD price quote - CoinGecko | Filecoin live USD quote: price $0.976086 USD. Market cap: $768.08M. 24h trading volume: $83.59M. 24h price change: -2.82%. | source=https://www.coingecko.com/en/coins/filecoin";
+    let evidence = "Current market quote observations from tool results:\n\
+- Akash Network live USD price quote - CoinGecko | Akash Network live USD quote: price $0.788207 USD. market cap: $230.21M. 24h trading volume: $4.65M. 24h price change: -1.60%. | source: https://www.coingecko.com/en/coins/akash-network\n\
+- Filecoin live USD price quote - CoinGecko | Filecoin live USD quote: price $0.976086 USD. market cap: $768.08M. 24h trading volume: $83.59M. 24h price change: -2.82%. | source: https://www.coingecko.com/en/coins/filecoin";
     let message = "Akash is quoted around $0.788, with a market cap near $230.21M and 24h volume around $4.65M. Filecoin is quoted around $0.976, with a market cap near $768.08M and 24h volume around $83.59M. While Filecoin currently trades at a higher nominal price, token price alone is not a definitive indicator of investment quality.";
 
     assert_eq!(
@@ -749,9 +843,9 @@ fn final_reply_evidence_contract_allows_nominal_price_disclaimer_without_using_i
 
 #[test]
 fn final_reply_evidence_contract_detects_omitted_market_quote_metrics() {
-    let evidence = "Typed market quote evidence from tool results:\n\
-- Akash Network live USD price quote - CoinGecko | Akash Network live USD quote: price $0.788207 USD. Market cap: $230.21M. 24h trading volume: $4.65M. 24h price change: -1.60%. | source=https://www.coingecko.com/en/coins/akash-network\n\
-- Filecoin live USD price quote - CoinGecko | Filecoin live USD quote: price $0.976086 USD. Market cap: $768.08M. 24h trading volume: $83.59M. 24h price change: -2.82%. | source=https://www.coingecko.com/en/coins/filecoin";
+    let evidence = "Current market quote observations from tool results:\n\
+- Akash Network live USD price quote - CoinGecko | Akash Network live USD quote: price $0.788207 USD. market cap: $230.21M. 24h trading volume: $4.65M. 24h price change: -1.60%. | source: https://www.coingecko.com/en/coins/akash-network\n\
+- Filecoin live USD price quote - CoinGecko | Filecoin live USD quote: price $0.976086 USD. market cap: $768.08M. 24h trading volume: $83.59M. 24h price change: -2.82%. | source: https://www.coingecko.com/en/coins/filecoin";
     let message = "The observed live USD prices are $0.788207 for Akash and $0.976086 for Filecoin. Price alone does not determine investment quality.";
 
     assert_eq!(
@@ -766,9 +860,9 @@ fn final_reply_evidence_contract_detects_omitted_market_quote_metrics() {
 
 #[test]
 fn final_reply_evidence_contract_accepts_preserved_market_quote_metrics() {
-    let evidence = "Typed market quote evidence from tool results:\n\
-- Akash Network live USD price quote - CoinGecko | Akash Network live USD quote: price $0.788207 USD. Market cap: $230.21M. 24h trading volume: $4.65M. 24h price change: -1.60%. | source=https://www.coingecko.com/en/coins/akash-network\n\
-- Filecoin live USD price quote - CoinGecko | Filecoin live USD quote: price $0.976086 USD. Market cap: $768.08M. 24h trading volume: $83.59M. 24h price change: -2.82%. | source=https://www.coingecko.com/en/coins/filecoin";
+    let evidence = "Current market quote observations from tool results:\n\
+- Akash Network live USD price quote - CoinGecko | Akash Network live USD quote: price $0.788207 USD. market cap: $230.21M. 24h trading volume: $4.65M. 24h price change: -1.60%. | source: https://www.coingecko.com/en/coins/akash-network\n\
+- Filecoin live USD price quote - CoinGecko | Filecoin live USD quote: price $0.976086 USD. market cap: $768.08M. 24h trading volume: $83.59M. 24h price change: -2.82%. | source: https://www.coingecko.com/en/coins/filecoin";
     let message = "Akash is quoted around $0.788, with a market cap near $230.21M and 24h volume around $4.65M. Filecoin is quoted around $0.976, with a market cap near $768.08M and 24h volume around $83.59M. Filecoin is larger and more liquid, while Akash is the smaller-cap compute play.";
 
     assert_eq!(
@@ -783,9 +877,9 @@ fn final_reply_evidence_contract_accepts_preserved_market_quote_metrics() {
 
 #[test]
 fn final_reply_evidence_contract_rejects_stale_market_scale_metrics() {
-    let evidence = "Typed market quote evidence from tool results:\n\
-- Akash Network live USD price quote - CoinGecko | Akash Network live USD quote: price $0.788207 USD. Market cap: $230.21M. 24h trading volume: $4.65M. 24h price change: -1.60%. | source=https://www.coingecko.com/en/coins/akash-network\n\
-- Filecoin live USD price quote - CoinGecko | Filecoin live USD quote: price $0.976086 USD. Market cap: $768.08M. 24h trading volume: $83.59M. 24h price change: -2.82%. | source=https://www.coingecko.com/en/coins/filecoin";
+    let evidence = "Current market quote observations from tool results:\n\
+- Akash Network live USD price quote - CoinGecko | Akash Network live USD quote: price $0.788207 USD. market cap: $230.21M. 24h trading volume: $4.65M. 24h price change: -1.60%. | source: https://www.coingecko.com/en/coins/akash-network\n\
+- Filecoin live USD price quote - CoinGecko | Filecoin live USD quote: price $0.976086 USD. market cap: $768.08M. 24h trading volume: $83.59M. 24h price change: -2.82%. | source: https://www.coingecko.com/en/coins/filecoin";
     let message = "Akash is quoted around $0.788, with a market cap near $230.21M and 24h volume around $4.65M. Filecoin is quoted around $0.976, with a market cap near $768.08M and 24h volume around $168M.";
 
     assert_eq!(
@@ -826,9 +920,83 @@ fn final_reply_evidence_context_unwraps_preview_wrapped_web_payload() {
         "fallback",
     );
 
-    assert!(context.contains("Tool result: web__read"), "{context}");
+    assert!(context.contains("Web observation from web__read"), "{context}");
     assert!(context.contains("Akash Network price today"), "{context}");
     assert!(context.contains("$0.7809 USD"), "{context}");
     assert!(!context.contains("original_bytes"), "{context}");
 }
 
+#[test]
+fn final_reply_waits_while_web_reads_remain_queued() {
+    let mut agent_state = AgentState {
+        session_id: [0u8; 32],
+        goal: "Which is a better investment right now, Akash or Filecoin?".to_string(),
+        runtime_route_frame: None,
+        transcript_root: [0u8; 32],
+        status: crate::agentic::runtime::types::AgentStatus::Running,
+        step_count: 0,
+        max_steps: 8,
+        last_action_type: None,
+        parent_session_id: None,
+        child_session_ids: vec![],
+        budget: 1,
+        tokens_used: 0,
+        consecutive_failures: 0,
+        pending_approval: None,
+        pending_tool_call: None,
+        pending_tool_jcs: None,
+        pending_tool_hash: None,
+        pending_request_nonce: None,
+        pending_visual_hash: None,
+        recent_actions: vec![],
+        mode: crate::agentic::runtime::types::AgentMode::Agent,
+        current_tier: crate::agentic::runtime::types::ExecutionTier::DomHeadless,
+        last_screen_phash: None,
+        execution_queue: vec![],
+        pending_search_completion: Some(PendingSearchCompletion {
+            query: "akash filecoin investment".to_string(),
+            query_contract: "Which is a better investment right now, Akash or Filecoin?"
+                .to_string(),
+            successful_reads: vec![PendingSearchReadSummary {
+                url: "https://example.com/source".to_string(),
+                title: Some("Source".to_string()),
+                excerpt: "Akash and Filecoin comparison evidence.".to_string(),
+            }],
+            min_sources: 1,
+            ..PendingSearchCompletion::default()
+        }),
+        planner_state: None,
+        active_skill_hash: None,
+        tool_execution_log: Default::default(),
+        execution_ledger: Default::default(),
+        visual_som_map: None,
+        visual_semantic_map: None,
+        work_graph_context: None,
+        target: None,
+        resolved_intent: None,
+        awaiting_intent_clarification: false,
+        working_directory: ".".to_string(),
+        command_history: Default::default(),
+        active_lens: None,
+    };
+    agent_state.execution_queue.push(ioi_types::app::ActionRequest {
+        target: ioi_types::app::ActionTarget::WebRetrieve,
+        params: b"{}".to_vec(),
+        context: ioi_types::app::ActionContext {
+            agent_id: "test-agent".to_string(),
+            session_id: Some([0u8; 32]),
+            window_id: None,
+        },
+        nonce: 1,
+    });
+
+    assert!(!super::web_context_ready_for_reply(
+        &agent_state,
+        IntentScopeProfile::WebResearch
+    ));
+    agent_state.execution_queue.clear();
+    assert!(super::web_context_ready_for_reply(
+        &agent_state,
+        IntentScopeProfile::WebResearch
+    ));
+}

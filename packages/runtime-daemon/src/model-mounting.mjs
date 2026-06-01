@@ -2380,6 +2380,7 @@ export class ModelMountingState {
     this.vaultRefs = new Map();
     this.mcpServers = new Map();
     this.conversations = new Map();
+    this.inflightModelInvocations = new Map();
     this.ensureDirs();
     this.load();
     this.vault.loadMetadata([...this.vaultRefs.values()]);
@@ -5390,27 +5391,59 @@ export class ModelMountingState {
     });
     const continuationSafety = this.validateContinuationSafety({ previousState, selection, body });
     const routeReceipt = this.routeSelectionReceipt(selection, { body, capability, responseId, previousResponseId });
-    const instance = await this.ensureLoaded(selection.endpoint);
-    const ephemeralMcp = this.compileEphemeralMcpIntegrations({ authorization, body, input });
     const providerBody = routeDecision.providerRequestBodyForRoute(body, selection.endpoint);
-    const providerResult = await this.driverForProvider(selection.provider).invoke({
-      state: this,
-      provider: selection.provider,
-      endpoint: selection.endpoint,
-      instance,
+    const coalesceKey = modelInvocationCoalesceKey({
       kind,
-      body: providerBody,
+      body,
+      providerBody,
       input,
       token,
+      selection,
+      previousResponseId,
     });
+    let providerExecution = coalesceKey ? this.inflightModelInvocations.get(coalesceKey) : null;
+    const coalesced = Boolean(providerExecution);
+    if (!providerExecution) {
+      providerExecution = (async () => {
+        const instance = await this.ensureLoaded(selection.endpoint);
+        const ephemeralMcp = this.compileEphemeralMcpIntegrations({ authorization, body, input });
+        const providerResult = await this.driverForProvider(selection.provider).invoke({
+          state: this,
+          provider: selection.provider,
+          endpoint: selection.endpoint,
+          instance,
+          kind,
+          body: providerBody,
+          input,
+          token,
+        });
+        return { instance, ephemeralMcp, providerResult };
+      })();
+      if (coalesceKey) {
+        this.inflightModelInvocations.set(coalesceKey, providerExecution);
+      }
+    }
+    let execution;
+    try {
+      execution = await providerExecution;
+    } finally {
+      if (coalesceKey && !coalesced) {
+        this.inflightModelInvocations.delete(coalesceKey);
+      }
+    }
+    const { instance, ephemeralMcp, providerResult } = execution;
     const outputText = providerResult.outputText;
     const latencyMs = Math.max(1, this.now().getTime() - started);
     const tokenCount = providerResult.tokenCount ?? estimateTokens(input, outputText);
-    const receipt = this.receipt("model_invocation", {
-      summary: `${kind} invocation routed through ${selection.route.id} to ${selection.endpoint.modelId}.`,
+    const receiptKind = coalesced ? "model_invocation_coalesced" : "model_invocation";
+    const receipt = this.receipt(receiptKind, {
+      summary: coalesced
+        ? `${kind} invocation reused an identical in-flight request for ${selection.endpoint.modelId}.`
+        : `${kind} invocation routed through ${selection.route.id} to ${selection.endpoint.modelId}.`,
       redaction: "redacted",
       evidenceRefs: [
         "model_router",
+        ...(coalesced ? ["model_invocation_inflight_coalesced"] : []),
         routeReceipt.id,
         selection.route.id,
         selection.endpoint.id,
@@ -5451,6 +5484,8 @@ export class ModelMountingState {
         responseId,
         previousResponseId,
         continuation: continuationSafety,
+        coalesced,
+        coalesceKeyHash: coalesceKey ? stableHash(coalesceKey) : null,
       },
     });
     const conversationState = statefulInvocation
@@ -8500,6 +8535,77 @@ function optionalString(value) {
 
 function supportsResponseState(kind) {
   return ["chat", "chat.completions", "responses", "messages", "completions"].includes(kind);
+}
+
+function modelInvocationCoalesceKey({
+  kind,
+  body = {},
+  providerBody = {},
+  input = "",
+  token,
+  selection,
+  previousResponseId = null,
+}) {
+  if (body.stream === true || providerBody.stream === true) return null;
+  if (previousResponseId) return null;
+  if (kind === "embeddings" || kind === "rerank") return null;
+  if (!modelInvocationIsLowVariance(body, providerBody)) return null;
+  const toolCount =
+    Array.isArray(providerBody.tools)
+      ? providerBody.tools.length
+      : Array.isArray(body.tools)
+        ? body.tools.length
+        : 0;
+  if (toolCount > 0) return null;
+  return stableStringify({
+    kind,
+    grantId: token?.grantId ?? null,
+    routeId: selection?.route?.id ?? null,
+    endpointId: selection?.endpoint?.id ?? null,
+    providerId: selection?.provider?.id ?? selection?.endpoint?.providerId ?? null,
+    selectedModel: selection?.endpoint?.modelId ?? body.model ?? null,
+    inputHash: stableHash(input),
+    providerBodyHash: stableHash(providerBodyWithoutGeneratedResponseIds(providerBody)),
+    policyHash: stableHash(body.model_policy ?? body.modelPolicy ?? {}),
+  });
+}
+
+function modelInvocationIsLowVariance(body = {}, providerBody = {}) {
+  const temperature = firstFiniteNumber([
+    providerBody.temperature,
+    body.temperature,
+    body.options?.temperature,
+    body.send_options?.temperature,
+    body.sendOptions?.temperature,
+  ]);
+  if (temperature !== null && temperature > 0.2) return false;
+  const topP = firstFiniteNumber([
+    providerBody.top_p,
+    providerBody.topP,
+    body.top_p,
+    body.topP,
+  ]);
+  if (topP !== null && topP < 0.95) return false;
+  return true;
+}
+
+function firstFiniteNumber(values) {
+  for (const value of values) {
+    if (value === undefined || value === null || value === "") continue;
+    const number = Number(value);
+    if (Number.isFinite(number)) return number;
+  }
+  return null;
+}
+
+function providerBodyWithoutGeneratedResponseIds(providerBody = {}) {
+  if (!providerBody || typeof providerBody !== "object" || Array.isArray(providerBody)) {
+    return providerBody;
+  }
+  const copy = { ...providerBody };
+  delete copy.response_id;
+  delete copy.responseId;
+  return copy;
 }
 
 function messageContentText(content) {

@@ -34,12 +34,16 @@ pub(super) struct DuplicateExecutionOutcome {
     pub is_lifecycle_action: bool,
 }
 
-pub(super) fn worker_duplicate_refresh_read_allowed(
+pub(super) fn duplicate_refresh_read_allowed(
     state: &dyn StateAccess,
     agent_state: &AgentState,
     session_id: [u8; 32],
     tool: &AgentTool,
 ) -> bool {
+    if root_workspace_duplicate_refresh_read_allowed(agent_state, tool) {
+        return true;
+    }
+
     let Some(assignment) = load_worker_assignment(state, session_id).ok().flatten() else {
         return false;
     };
@@ -68,6 +72,20 @@ pub(super) fn worker_duplicate_refresh_read_allowed(
         latest_failure_class(agent_state),
         Some(FailureClass::UnexpectedState)
     )
+}
+
+fn root_workspace_duplicate_refresh_read_allowed(
+    agent_state: &AgentState,
+    tool: &AgentTool,
+) -> bool {
+    agent_state.parent_session_id.is_none()
+        && matches!(tool, AgentTool::FsRead { .. })
+        && goal_suggests_workspace_edit_and_verification(&agent_state.goal)
+        && agent_state.last_action_type.as_deref() == Some("file__edit")
+        && matches!(
+            latest_failure_class(agent_state),
+            Some(FailureClass::NoEffectAfterAction)
+        )
 }
 
 fn parse_receipt_step(value: &str) -> Option<u32> {
@@ -313,11 +331,22 @@ pub(super) fn handle_duplicate_command_execution(
         }
         let worker_duplicate_requires_recovery_error =
             worker_duplicate_requires_recovery_error(state, session_id, tool);
+        let command_workspace_read_requires_action_change =
+            command_workspace_read_duplicate_requires_action_change(
+                agent_state,
+                tool,
+                prior_successful_duplicate,
+            );
         let noop_duplicate_allowed = is_duplicate_non_command_noop_allowed(
             &tool_name,
             prior_successful_duplicate,
             active_web_pipeline_chat_reply,
-        ) && !worker_duplicate_requires_recovery_error;
+        ) && !worker_duplicate_requires_recovery_error
+            && !command_workspace_read_requires_action_change;
+        if command_workspace_read_requires_action_change {
+            verification_checks
+                .push("duplicate_command_workspace_read_requires_action_change=true".to_string());
+        }
         let mut summary = if active_web_pipeline_chat_reply {
             concat!(
                 "Rejected duplicate final reply while web research continues. ",
@@ -538,6 +567,59 @@ fn first_goal_command_literal(goal: &str) -> Option<String> {
         .find(|literal| looks_like_command_literal(literal))
 }
 
+fn goal_suggests_workspace_edit_and_verification(goal: &str) -> bool {
+    let lower = goal.to_ascii_lowercase();
+    let wants_change = [
+        "fix", "edit", "change", "update", "modify", "repair", "patch",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle));
+    let has_workspace_target = [
+        "src/",
+        "test",
+        "tests/",
+        ".js",
+        ".mjs",
+        ".ts",
+        ".tsx",
+        ".rs",
+        ".py",
+        ".json",
+        ".md",
+        "file",
+        "repo",
+        "workspace",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle));
+    let has_verification = first_goal_command_literal(goal).is_some()
+        || [
+            "run test",
+            "run the test",
+            "run tests",
+            "verify",
+            "verification",
+            "node --test",
+            "npm test",
+            "cargo test",
+            "pytest",
+        ]
+        .iter()
+        .any(|needle| lower.contains(needle));
+
+    wants_change && has_workspace_target && has_verification
+}
+
+fn command_workspace_read_duplicate_requires_action_change(
+    agent_state: &AgentState,
+    tool: &AgentTool,
+    _prior_successful_duplicate: bool,
+) -> bool {
+    agent_state.parent_session_id.is_none()
+        && matches!(tool, AgentTool::FsRead { .. })
+        && goal_suggests_workspace_edit_and_verification(&agent_state.goal)
+}
+
 fn worker_duplicate_requires_recovery_error(
     state: &dyn StateAccess,
     session_id: [u8; 32],
@@ -660,11 +742,32 @@ fn workspace_duplicate_noop_summary(
     if agent_state.parent_session_id.is_some() {
         return default_summary;
     }
-    if agent_state
+    let resolved_scope = agent_state
         .resolved_intent
         .as_ref()
-        .map(|resolved| resolved.scope)
-        != Some(ioi_types::app::agentic::IntentScopeProfile::WorkspaceOps)
+        .map(|resolved| resolved.scope);
+    let command_workspace = agent_state
+        .resolved_intent
+        .as_ref()
+        .is_some_and(|resolved| {
+            matches!(
+                resolved.scope,
+                ioi_types::app::agentic::IntentScopeProfile::CommandExecution
+            ) && resolved
+                .required_capabilities
+                .iter()
+                .any(|capability| capability.as_str() == "command.exec")
+                && resolved.required_capabilities.iter().any(|capability| {
+                    matches!(
+                        capability.as_str(),
+                        "filesystem.read" | "filesystem.write" | "filesystem.metadata"
+                    )
+                })
+        });
+    let goal_command_workspace = goal_suggests_workspace_edit_and_verification(&agent_state.goal);
+    if resolved_scope != Some(ioi_types::app::agentic::IntentScopeProfile::WorkspaceOps)
+        && !command_workspace
+        && !goal_command_workspace
     {
         return default_summary;
     }
@@ -676,7 +779,22 @@ fn workspace_duplicate_noop_summary(
                 .and_then(|value| value.to_str())
                 .unwrap_or(path.as_str());
             let mut summary = default_summary;
-            if target.eq_ignore_ascii_case("package.json") {
+            if command_workspace || goal_command_workspace {
+                summary.push_str(&format!(
+                    " `{}` is already in context. Choose `file__edit`, `file__write`, or `file__multi_edit` for the requested change instead of rereading it.",
+                    target
+                ));
+                if let Some(command) = first_goal_command_literal(&agent_state.goal) {
+                    summary.push_str(&format!(
+                        " After editing, run the focused verification command with `shell__run`: `{}`.",
+                        command
+                    ));
+                } else {
+                    summary.push_str(
+                        " After editing, run the focused verification command with `shell__run`.",
+                    );
+                }
+            } else if target.eq_ignore_ascii_case("package.json") {
                 summary.push_str(
                     " If the answer is already present in this file, your next action must be `chat__reply` citing the relevant script entry instead of rereading `package.json`.",
                 );

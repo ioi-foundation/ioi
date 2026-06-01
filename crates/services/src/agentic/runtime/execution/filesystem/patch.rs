@@ -256,6 +256,42 @@ fn source_line_ranges(source: &str) -> Vec<Range<usize>> {
     ranges
 }
 
+fn collapse_ascii_whitespace(value: &str) -> String {
+    value.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn whitespace_collapsed_find_indices(source: &str, search: &str) -> Result<Range<usize>, String> {
+    let source_ranges = source_line_ranges(source);
+    if source_ranges.is_empty() {
+        return Err("search block not found in file".to_string());
+    }
+
+    let normalized_search = collapse_ascii_whitespace(search);
+    if normalized_search.is_empty() {
+        return Err("search block must contain non-whitespace content".to_string());
+    }
+
+    let search_line_count = search.lines().count().max(1);
+    let max_window = source_ranges.len().min(search_line_count.saturating_add(6));
+    let mut found = None;
+
+    for start in 0..source_ranges.len() {
+        for end in start..source_ranges.len().min(start + max_window) {
+            let range = source_ranges[start].start..source_ranges[end].end;
+            if collapse_ascii_whitespace(&source[range.clone()]) == normalized_search {
+                if found.replace(range).is_some() {
+                    return Err(
+                        "search block is ambiguous: found multiple whitespace-collapsed matches; provide more context"
+                            .to_string(),
+                    );
+                }
+            }
+        }
+    }
+
+    found.ok_or_else(|| "search block not found in file".to_string())
+}
+
 pub(super) fn fuzzy_find_indices(source: &str, search: &str) -> Result<Range<usize>, String> {
     let source_ranges = source_line_ranges(source);
     let search_lines: Vec<_> = search.lines().map(normalize_line).collect();
@@ -338,6 +374,9 @@ pub(super) fn apply_patch(original: &str, search: &str, replace: &str) -> Result
     if search.is_empty() {
         return Err("search block must be non-empty".to_string());
     }
+    if search == replace {
+        return Err("replacement must differ from search block".to_string());
+    }
 
     let mut exact_matches = original.match_indices(search);
     let range = match exact_matches.next() {
@@ -352,12 +391,19 @@ pub(super) fn apply_patch(original: &str, search: &str, replace: &str) -> Result
         }
         None => match fuzzy_find_indices(original, search) {
             Ok(range) => range,
-            Err(error) => {
-                if let Some(updated) = structural_python_function_replacement(original, replace) {
-                    return Ok(updated);
+            Err(fuzzy_error) => match whitespace_collapsed_find_indices(original, search) {
+                Ok(range) => range,
+                Err(error) => {
+                    if let Some(updated) = structural_python_function_replacement(original, replace)
+                    {
+                        return Ok(updated);
+                    }
+                    if fuzzy_error.contains("ambiguous") {
+                        return Err(fuzzy_error);
+                    }
+                    return Err(error);
                 }
-                return Err(error);
-            }
+            },
         },
     };
 

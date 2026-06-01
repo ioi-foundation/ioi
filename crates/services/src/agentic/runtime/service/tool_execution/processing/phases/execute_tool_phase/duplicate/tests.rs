@@ -1,11 +1,11 @@
 use super::{
+    command_workspace_read_duplicate_requires_action_change, duplicate_refresh_read_allowed,
     duplicate_skip_execution_label, has_prior_successful_duplicate_action,
     is_active_web_pipeline_chat_reply_duplicate, is_duplicate_non_command_noop_allowed,
     is_mail_read_latest_tool, is_mail_reply_tool, is_non_command_duplicate_noop_tool,
     is_read_only_filesystem_tool, maybe_terminalize_duplicate_worker_noop,
     queue_browser_snapshot_verification, worker_duplicate_noop_summary,
-    worker_duplicate_refresh_read_allowed, worker_duplicate_requires_recovery_error,
-    workspace_duplicate_noop_summary,
+    worker_duplicate_requires_recovery_error, workspace_duplicate_noop_summary,
 };
 use crate::agentic::runtime::service::decision_loop::helpers::default_safe_policy;
 use crate::agentic::runtime::service::lifecycle::persist_worker_assignment;
@@ -19,7 +19,9 @@ use crate::agentic::runtime::types::{
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::agentic::AgentTool;
-use ioi_types::app::agentic::{IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState};
+use ioi_types::app::agentic::{
+    CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+};
 use ioi_types::app::ActionTarget;
 use std::collections::BTreeMap;
 use tempfile::tempdir;
@@ -65,6 +67,50 @@ fn test_agent_state() -> AgentState {
         command_history: Default::default(),
         active_lens: None,
     }
+}
+
+#[test]
+fn root_workspace_refresh_read_is_allowed_after_no_effect_edit() {
+    let state = IAVLTree::new(HashCommitmentScheme::new());
+    let session_id = [0x51; 32];
+    let mut agent_state = test_agent_state();
+    agent_state.parent_session_id = None;
+    agent_state.goal =
+        "Fix src/format.mjs so the formatter test passes, then run node --test tests/*.test.mjs."
+            .to_string();
+    agent_state.last_action_type = Some("file__edit".to_string());
+    agent_state.recent_actions = vec!["attempt::NoEffectAfterAction::first".to_string()];
+
+    assert!(duplicate_refresh_read_allowed(
+        &state,
+        &agent_state,
+        session_id,
+        &AgentTool::FsRead {
+            path: "/tmp/repo/src/format.mjs".to_string(),
+        }
+    ));
+}
+
+#[test]
+fn root_workspace_refresh_read_is_not_allowed_without_failed_edit_boundary() {
+    let state = IAVLTree::new(HashCommitmentScheme::new());
+    let session_id = [0x52; 32];
+    let mut agent_state = test_agent_state();
+    agent_state.parent_session_id = None;
+    agent_state.goal =
+        "Fix src/format.mjs so the formatter test passes, then run node --test tests/*.test.mjs."
+            .to_string();
+    agent_state.last_action_type = Some("file__read".to_string());
+    agent_state.recent_actions = vec!["attempt::NoEffectAfterAction::first".to_string()];
+
+    assert!(!duplicate_refresh_read_allowed(
+        &state,
+        &agent_state,
+        session_id,
+        &AgentTool::FsRead {
+            path: "/tmp/repo/src/format.mjs".to_string(),
+        }
+    ));
 }
 
 #[test]
@@ -154,6 +200,103 @@ fn workspace_package_read_duplicate_summary_requires_chat_reply() {
 
     assert!(summary.contains("chat__reply"));
     assert!(summary.contains("package.json"));
+}
+
+#[test]
+fn command_workspace_duplicate_read_summary_points_toward_edit_then_test() {
+    let mut agent_state = test_agent_state();
+    agent_state.goal = "Fix src/format.mjs, then run `node --test tests/*.test.mjs`.".to_string();
+    agent_state.resolved_intent = Some(ResolvedIntentState {
+        intent_id: "workspace.edit_and_test".to_string(),
+        scope: IntentScopeProfile::CommandExecution,
+        band: IntentConfidenceBand::High,
+        score: 0.95,
+        top_k: vec![],
+        required_capabilities: vec![
+            CapabilityId::from("filesystem.read"),
+            CapabilityId::from("filesystem.write"),
+            CapabilityId::from("command.exec"),
+        ],
+        required_evidence: vec![],
+        success_conditions: vec![],
+        risk_class: "low".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        intent_catalog_version: "test".to_string(),
+        embedding_model_id: "test".to_string(),
+        embedding_model_version: "test".to_string(),
+        similarity_function_id: "cosine".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "v1".to_string(),
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: false,
+    });
+
+    let summary = workspace_duplicate_noop_summary(
+        &agent_state,
+        &AgentTool::FsRead {
+            path: "./src/format.mjs".to_string(),
+        },
+        "Skipped immediate replay of 'file__read'.".to_string(),
+    );
+
+    assert!(summary.contains("file__edit"));
+    assert!(summary.contains("shell__run"));
+    assert!(summary.contains("node --test tests/*.test.mjs"));
+}
+
+#[test]
+fn command_workspace_duplicate_read_summary_survives_missing_resolved_intent() {
+    let mut agent_state = test_agent_state();
+    agent_state.goal = "Fix src/format.mjs, then run `node --test tests/*.test.mjs`.".to_string();
+    agent_state.resolved_intent = None;
+
+    let summary = workspace_duplicate_noop_summary(
+        &agent_state,
+        &AgentTool::FsRead {
+            path: "./src/format.mjs".to_string(),
+        },
+        "Skipped immediate replay of 'file__read'.".to_string(),
+    );
+
+    assert!(summary.contains("file__edit"));
+    assert!(summary.contains("shell__run"));
+    assert!(summary.contains("node --test tests/*.test.mjs"));
+}
+
+#[test]
+fn command_workspace_repeated_read_requires_action_change() {
+    let mut agent_state = test_agent_state();
+    agent_state.goal = "Fix src/format.mjs, then run `node --test tests/*.test.mjs`.".to_string();
+    agent_state.resolved_intent = None;
+
+    assert!(command_workspace_read_duplicate_requires_action_change(
+        &agent_state,
+        &AgentTool::FsRead {
+            path: "./src/format.mjs".to_string(),
+        },
+        true,
+    ));
+    assert!(command_workspace_read_duplicate_requires_action_change(
+        &agent_state,
+        &AgentTool::FsRead {
+            path: "./src/format.mjs".to_string(),
+        },
+        false,
+    ));
+    assert!(!command_workspace_read_duplicate_requires_action_change(
+        &agent_state,
+        &AgentTool::FsPatch {
+            path: "./src/format.mjs".to_string(),
+            search: "cents".to_string(),
+            replace: "amount".to_string(),
+        },
+        true,
+    ));
 }
 
 #[test]
@@ -494,7 +637,7 @@ fn patch_build_verify_refresh_read_stays_blocked_before_command_history() {
         "attempt::UnexpectedState::second".to_string(),
     ];
 
-    assert!(!worker_duplicate_refresh_read_allowed(
+    assert!(!duplicate_refresh_read_allowed(
         &state,
         &agent_state,
         session_id,
@@ -561,7 +704,7 @@ fn patch_build_verify_refresh_read_is_allowed_after_command_history_unexpected_s
         step_index: 0,
     });
 
-    assert!(worker_duplicate_refresh_read_allowed(
+    assert!(duplicate_refresh_read_allowed(
         &state,
         &agent_state,
         session_id,
@@ -627,7 +770,7 @@ fn patch_build_verify_refresh_read_is_allowed_after_workspace_edit_receipt() {
         format!("step=3;tool=file__read;path={}", source_path.display()),
     );
 
-    assert!(worker_duplicate_refresh_read_allowed(
+    assert!(duplicate_refresh_read_allowed(
         &state,
         &agent_state,
         session_id,
@@ -696,7 +839,7 @@ fn patch_build_verify_refresh_read_is_allowed_after_patch_miss_receipt() {
         format!("step=3;tool=file__read;path={}", source_path.display()),
     );
 
-    assert!(worker_duplicate_refresh_read_allowed(
+    assert!(duplicate_refresh_read_allowed(
         &state,
         &agent_state,
         session_id,
@@ -762,7 +905,7 @@ fn patch_build_verify_refresh_read_stays_blocked_after_post_edit_refresh_read() 
         format!("step=8;tool=file__read;path={}", source_path.display()),
     );
 
-    assert!(!worker_duplicate_refresh_read_allowed(
+    assert!(!duplicate_refresh_read_allowed(
         &state,
         &agent_state,
         session_id,
@@ -836,7 +979,7 @@ fn patch_build_verify_refresh_read_stays_blocked_when_post_edit_verifier_rerun_i
         format!("step=3;tool=file__read;path={}", source_path.display()),
     );
 
-    assert!(!worker_duplicate_refresh_read_allowed(
+    assert!(!duplicate_refresh_read_allowed(
         &state,
         &agent_state,
         session_id,
@@ -918,7 +1061,7 @@ fn patch_build_verify_refresh_read_stays_blocked_after_patch_miss_refresh_read()
         format!("step=8;tool=file__read;path={}", source_path.display()),
     );
 
-    assert!(!worker_duplicate_refresh_read_allowed(
+    assert!(!duplicate_refresh_read_allowed(
         &state,
         &agent_state,
         session_id,

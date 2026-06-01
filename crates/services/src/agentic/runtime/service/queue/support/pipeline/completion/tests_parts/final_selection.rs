@@ -217,7 +217,7 @@ fn comparison_sourced_answer_allows_natural_comparison_section() {
         ],
         min_sources: 2,
     };
-    let rendered_summary = "Based on live quote evidence, Akash has the higher-beta compute thesis while Filecoin is the larger, more established storage network. This is not financial advice.\n\n## Key Comparison Summary\n- Akash: smaller cap, decentralized compute exposure, higher volatility.\n- Filecoin: larger storage network, more mature ecosystem, lower growth torque.\n\nSources:\n- [Akash Network live USD price quote - CoinGecko](https://www.coingecko.com/en/coins/akash-network)\n- [Filecoin live USD price quote - CoinGecko](https://www.coingecko.com/en/coins/filecoin)\n- [Filecoin Vs Akash Network Comparison](https://walletinvestor.com/compare/filecoin-vs-akash-network/interval/6m)";
+    let rendered_summary = "Based on live quote evidence, Akash has the higher-beta compute thesis while Filecoin is the larger, more established storage network. This is not financial advice.\n\n## Key Comparison Summary\n- Akash: about $0.806, market cap about $235.94M, and 24h trading volume about $6.65M.\n- Filecoin: about $0.954, market cap about $654.12M, and 24h trading volume about $124.96M.\n- Akash: smaller cap, decentralized compute exposure, higher volatility.\n- Filecoin: larger storage network, more mature ecosystem, lower growth torque.\n\nSources:\n- [Akash Network live USD price quote - CoinGecko](https://www.coingecko.com/en/coins/akash-network)\n- [Filecoin live USD price quote - CoinGecko](https://www.coingecko.com/en/coins/filecoin)\n- [Filecoin Vs Akash Network Comparison](https://walletinvestor.com/compare/filecoin-vs-akash-network/interval/6m)";
 
     let facts = final_web_completion_facts_with_rendered_summary(
         &pending,
@@ -228,6 +228,80 @@ fn comparison_sourced_answer_allows_natural_comparison_section() {
     assert_eq!(facts.answer_rendered_layout_profile, "sourced_answer");
     assert!(facts.comparison_required);
     assert!(facts.comparison_ready);
+    assert!(final_web_completion_contract_ready(&facts));
+}
+
+#[test]
+fn comparison_model_answer_accepts_natural_market_metrics_without_visible_urls() {
+    let query = "Which is a better investment right now, Akash or Filecoin?";
+    let pending = PendingSearchCompletion {
+        query: query.to_string(),
+        query_contract: query.to_string(),
+        retrieval_contract: crate::agentic::web::derive_web_retrieval_contract(query, None).ok(),
+        url: "https://search.example/akt-fil".to_string(),
+        started_step: 1,
+        started_at_ms: 1_780_304_870_000,
+        deadline_ms: 1_780_304_930_000,
+        candidate_urls: vec![],
+        candidate_source_hints: vec![],
+        attempted_urls: vec![],
+        blocked_urls: vec![],
+        successful_reads: vec![
+            PendingSearchReadSummary {
+                url: "https://www.coingecko.com/en/coins/akash-network".to_string(),
+                title: Some("Akash Network live USD price quote - CoinGecko".to_string()),
+                excerpt: "Akash Network (akash-network) live USD quote from CoinGecko simple price API: price $0.754621 USD. Market cap: $220.31M. 24h trading volume: $4.87M. 24h price change: -2.92%."
+                    .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://www.coingecko.com/en/coins/filecoin".to_string(),
+                title: Some("Filecoin live USD price quote - CoinGecko".to_string()),
+                excerpt: "Filecoin (filecoin) live USD quote from CoinGecko simple price API: price $0.921671 USD. Market cap: $725.31M. 24h trading volume: $84.64M. 24h price change: -4.07%."
+                    .to_string(),
+            },
+        ],
+        min_sources: 2,
+    };
+    let rendered_summary = r#"Based on current market data and project fundamentals, here is a comparison of Akash Network (AKT) and Filecoin (FIL) to help you assess which might be a better investment right now.
+
+### Current Market Metrics
+As of the latest quote observations, the two tokens show the following metrics:
+
+*   **Akash Network (AKT)**
+    *   **Price:** ~$0.75
+    *   **Market Cap:** ~$220.31M
+    *   **24h Trading Volume:** ~$4.87M
+    *   **24h Price Change:** -2.92%
+    *   **Source:** CoinGecko
+
+*   **Filecoin (FIL)**
+    *   **Price:** ~$0.92
+    *   **Market Cap:** ~$725.31M
+    *   **24h Trading Volume:** ~$84.64M
+    *   **24h Price Change:** -4.07%
+    *   **Source:** CoinGecko
+
+### Fundamental Comparison
+
+| Feature | Akash Network (AKT) | Filecoin (FIL) |
+| :--- | :--- | :--- |
+| **Primary Use Case** | **Decentralized Cloud Computing.** Focuses on compute power for applications. | **Decentralized Storage.** Focuses on storing data files securely and cheaply. |
+| **Risk Profile** | **Higher Risk / Higher Growth Potential.** Smaller market cap implies more volatility but potential for outsized gains if compute adoption accelerates. | **Lower Risk / Steady Growth.** Larger market cap and liquidity suggest stability, though less explosive upside. |
+
+Right now, **Filecoin** appears to be the safer, more established investment due to its superior liquidity and larger market cap. However, **Akash** offers a higher-risk, higher-reward profile if you are bullish on decentralized compute.
+
+*Disclaimer: This is not financial advice. Cryptocurrency investments are volatile and carry significant risk.*"#;
+
+    let facts = final_web_completion_facts_with_rendered_summary(
+        &pending,
+        WebPipelineCompletionReason::MinSourcesReached,
+        rendered_summary,
+    );
+
+    assert_eq!(facts.answer_rendered_layout_profile, "other");
+    assert!(facts.market_quote_grounding_required);
+    assert!(facts.market_quote_grounding_floor_met);
+    assert!(facts.rendered_summary_semantic_floor_met);
     assert!(final_web_completion_contract_ready(&facts));
 }
 

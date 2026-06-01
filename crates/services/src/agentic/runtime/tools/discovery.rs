@@ -4,6 +4,9 @@ use crate::agentic::runtime::service::decision_loop::intent_resolver::{
 };
 use crate::agentic::runtime::service::decision_loop::signals::is_browser_surface;
 use crate::agentic::runtime::types::ExecutionTier;
+use crate::agentic::runtime::workspace_change::{
+    workspace_change_lifecycle_control_tool, workspace_change_lifecycle_goal_requested,
+};
 use ioi_api::state::StateAccess;
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_drivers::mcp::McpManager;
@@ -56,6 +59,7 @@ pub async fn discover_tools(
         is_tool_allowed_for_resolution(resolved_intent, "browser__navigate");
     let allow_web_search = is_tool_allowed_for_resolution(resolved_intent, "web__search");
     let allow_web_read = is_tool_allowed_for_resolution(resolved_intent, "web__read");
+    let workspace_change_lifecycle_requested = workspace_change_lifecycle_goal_requested(query);
 
     let (mut adapter_tools, adapter_tool_names) =
         adapters::discover_adapter_tools(state, mcp, active_window_title, resolved_intent).await;
@@ -85,7 +89,9 @@ pub async fn discover_tools(
         if resolved_intent.is_none() {
             return true;
         }
-        let allowed = is_tool_allowed_for_resolution(resolved_intent, &tool.name);
+        let allowed = is_tool_allowed_for_resolution(resolved_intent, &tool.name)
+            || (workspace_change_lifecycle_requested
+                && workspace_change_lifecycle_control_tool(&tool.name));
         let provider_allowed = is_tool_allowed_for_selected_provider(resolved_intent, &tool.name);
         if !allowed && mcp_tool_names.contains(&tool.name) {
             tracing::debug!(

@@ -126,6 +126,18 @@ fn test_normalize_openai_tool_calls_wrapper_with_string_arguments() {
 }
 
 #[test]
+fn test_normalize_qwen_tool_call_text_wrapper() {
+    let input = r#"<tool_call>
+{"name":"file__read","arguments":{"path":"src/format.mjs"}}
+</tool_call>"#;
+    let tool = ToolNormalizer::normalize(input).unwrap();
+    match tool {
+        AgentTool::FsRead { path } => assert_eq!(path, "src/format.mjs"),
+        other => panic!("Expected FsRead, got {:?}", other),
+    }
+}
+
+#[test]
 fn test_normalize_openai_function_wrapper_with_object_arguments() {
     let input = r#"{
           "type": "function",

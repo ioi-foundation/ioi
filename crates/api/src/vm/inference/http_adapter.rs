@@ -604,6 +604,7 @@ struct OpenAiStreamEnvelope {
 struct OpenAiStreamChoice {
     #[serde(default)]
     delta: OpenAiStreamDelta,
+    message: Option<OpenAiStreamMessage>,
     finish_reason: Option<String>,
 }
 
@@ -611,6 +612,7 @@ struct OpenAiStreamChoice {
 struct OpenAiStreamDelta {
     content: Option<String>,
     refusal: Option<String>,
+    function_call: Option<OpenAiStreamFunctionDelta>,
     tool_calls: Option<Vec<OpenAiStreamToolCallDelta>>,
 }
 
@@ -625,6 +627,26 @@ struct OpenAiStreamToolCallDelta {
 struct OpenAiStreamFunctionDelta {
     name: Option<String>,
     arguments: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct OpenAiStreamMessage {
+    content: Option<String>,
+    refusal: Option<String>,
+    function_call: Option<OpenAiStreamMessageFunctionCall>,
+    tool_calls: Option<Vec<OpenAiStreamMessageToolCall>>,
+}
+
+#[derive(Deserialize)]
+struct OpenAiStreamMessageToolCall {
+    index: Option<usize>,
+    function: Option<OpenAiStreamMessageFunctionCall>,
+}
+
+#[derive(Deserialize)]
+struct OpenAiStreamMessageFunctionCall {
+    name: Option<String>,
+    arguments: Option<Value>,
 }
 
 impl OpenAiStreamAccumulator {
@@ -644,7 +666,7 @@ impl OpenAiStreamAccumulator {
             self.apply_choice(&choice);
             if matches!(
                 choice.finish_reason.as_deref(),
-                Some("stop" | "length" | "tool_calls" | "content_filter")
+                Some("stop" | "length" | "tool_calls" | "function_call" | "content_filter")
             ) {
                 return self.finalize(choice.finish_reason.as_deref());
             }
@@ -660,17 +682,63 @@ impl OpenAiStreamAccumulator {
         if let Some(content) = &choice.delta.content {
             self.content.push_str(content);
         }
+        if let Some(function) = &choice.delta.function_call {
+            self.apply_delta_function_call(0, function);
+        }
         if let Some(tool_calls) = &choice.delta.tool_calls {
             for delta in tool_calls {
-                let entry = self.tool_calls.entry(delta.index).or_default();
                 if let Some(function) = &delta.function {
-                    if let Some(name) = &function.name {
-                        entry.name = Some(name.clone());
-                    }
-                    if let Some(arguments) = &function.arguments {
-                        entry.arguments.push_str(arguments);
+                    self.apply_delta_function_call(delta.index, function);
+                }
+            }
+        }
+        if let Some(message) = &choice.message {
+            if let Some(refusal) = &message.refusal {
+                self.refusal = Some(refusal.clone());
+            }
+            if self.content.is_empty() {
+                if let Some(content) = &message.content {
+                    self.content.push_str(content);
+                }
+            }
+            if let Some(function) = &message.function_call {
+                self.apply_message_function_call(0, function);
+            }
+            if let Some(tool_calls) = &message.tool_calls {
+                for (fallback_index, call) in tool_calls.iter().enumerate() {
+                    let index = call.index.unwrap_or(fallback_index);
+                    if let Some(function) = &call.function {
+                        self.apply_message_function_call(index, function);
                     }
                 }
+            }
+        }
+    }
+
+    fn apply_delta_function_call(&mut self, index: usize, function: &OpenAiStreamFunctionDelta) {
+        let entry = self.tool_calls.entry(index).or_default();
+        if let Some(name) = &function.name {
+            entry.name = Some(name.clone());
+        }
+        if let Some(arguments) = &function.arguments {
+            entry.arguments.push_str(arguments);
+        }
+    }
+
+    fn apply_message_function_call(
+        &mut self,
+        index: usize,
+        function: &OpenAiStreamMessageFunctionCall,
+    ) {
+        let entry = self.tool_calls.entry(index).or_default();
+        if let Some(name) = &function.name {
+            entry.name = Some(name.clone());
+        }
+        if let Some(arguments) = &function.arguments {
+            match arguments {
+                Value::String(text) => entry.arguments = text.clone(),
+                Value::Null => {}
+                value => entry.arguments = value.to_string(),
             }
         }
     }
