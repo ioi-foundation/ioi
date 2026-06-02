@@ -4,6 +4,7 @@ pub mod adapters;
 pub mod agent_playbooks;
 pub mod cloud_airlock;
 pub mod connectors;
+pub mod delegation_snapshot;
 pub mod execution; // Points to execution/mod.rs now
 pub mod harness;
 pub mod kernel;

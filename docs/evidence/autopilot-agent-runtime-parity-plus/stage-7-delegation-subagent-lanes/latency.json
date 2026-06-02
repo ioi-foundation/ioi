@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.latency.v1",
+  "stage": 7,
+  "measurements": [
+    {
+      "command": "cargo test -p ioi-services delegation_snapshot --lib -- --nocapture",
+      "elapsedSeconds": 15.74,
+      "source": "final serial cargo output after status cleanup"
+    },
+    {
+      "command": "cargo build -p ioi-node --features local-mode --bin ioi-runtime-bridge",
+      "elapsedSeconds": 21.92,
+      "source": "final serial cargo output after status cleanup"
+    },
+    {
+      "command": "headless bridge start_thread plus inspect_thread",
+      "elapsedSeconds": 0.27,
+      "source": "shell command wall time"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.runtime-events.v1",
+  "stage": 7,
+  "events": [
+    {
+      "event": "headless_bridge.start_thread",
+      "status": "active",
+      "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-7-delegation-subagent-lanes/start-response.jsonl"
+    },
+    {
+      "event": "headless_bridge.inspect_thread",
+      "status": "ok",
+      "delegationSchema": "ioi.runtime.delegation.v1",
+      "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-7-delegation-subagent-lanes/inspect-response.jsonl"
+    },
+    {
+      "event": "unit.parent_child_snapshot",
+      "status": "passed",
+      "tests": 2,
+      "command": "cargo test -p ioi-services delegation_snapshot --lib -- --nocapture"
+    },
+    {
+      "event": "build.runtime_bridge",
+      "status": "passed",
+      "command": "cargo build -p ioi-node --features local-mode --bin ioi-runtime-bridge"
+    }
+  ]
+}

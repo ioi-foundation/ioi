@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.cleanup-proof.v1",
+  "workspace": "/tmp/ioi-stage7-workspace.UuWfmW",
+  "dataDir": "/tmp/ioi-stage7-data.t8sbOb",
+  "workspaceExistsAfterCleanup": false,
+  "dataDirExistsAfterCleanup": false,
+  "processProbe": "not_started_long_running",
+  "checkedAt": "2026-06-02T02:32:29.551Z"
+}

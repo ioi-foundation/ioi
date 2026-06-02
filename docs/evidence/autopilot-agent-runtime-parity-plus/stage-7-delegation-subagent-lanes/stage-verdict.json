@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.stage-verdict.v1",
+  "stage": 7,
+  "name": "Delegation and subagent lanes",
+  "classification": "headless_pass",
+  "verdict": "delegation_runtime_contract_headless_proven_live_gui_pending",
+  "achieved": false,
+  "p0Rows": [
+    {
+      "id": "ARP-P0-012",
+      "classification": "headless_pass",
+      "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-7-delegation-subagent-lanes/headless-inspect-verdict.json",
+      "remaining": "Live Agent Studio delegated worker, failed-child recovery, browser subagent, and restart/recover proof."
+    }
+  ],
+  "evidence": [
+    "docs/evidence/autopilot-agent-runtime-parity-plus/stage-7-delegation-subagent-lanes/scenario.json",
+    "docs/evidence/autopilot-agent-runtime-parity-plus/stage-7-delegation-subagent-lanes/source-requirements.json",
+    "docs/evidence/autopilot-agent-runtime-parity-plus/stage-7-delegation-subagent-lanes/implementation-refs.json",
+    "docs/evidence/autopilot-agent-runtime-parity-plus/stage-7-delegation-subagent-lanes/runtime-events.json",
+    "docs/evidence/autopilot-agent-runtime-parity-plus/stage-7-delegation-subagent-lanes/receipts.jsonl",
+    "docs/evidence/autopilot-agent-runtime-parity-plus/stage-7-delegation-subagent-lanes/headless-inspect-verdict.json",
+    "docs/evidence/autopilot-agent-runtime-parity-plus/stage-7-delegation-subagent-lanes/cleanup-proof.json"
+  ],
+  "leakAudit": {
+    "rawPayloadLeak": false,
+    "traceLeak": false,
+    "fixtureLeak": false,
+    "hiddenCotLeak": false
+  },
+  "remaining": [
+    "Live GUI delegated repo verification task.",
+    "Live failed child feedback into parent model loop.",
+    "Live browser subagent managed artifact proof.",
+    "Kill/restart recovery proof for parent/child linkage."
+  ],
+  "generatedAtUtc": "2026-06-02T02:33:43.460Z"
+}

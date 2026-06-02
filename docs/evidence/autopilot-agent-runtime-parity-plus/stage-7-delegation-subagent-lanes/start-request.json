@@ -1,0 +1,1 @@
+{"schema_version":"ioi.runtime.bridge.command.v1","bridge_id":"stage7-bridge","operation":"start_thread","input":{"thread_id":"thread_stage7_delegation_contract","workspace_root":"/tmp/ioi-stage7-workspace.UuWfmW","request":{"goal":"Stage 7 delegation runtime snapshot proof","max_steps":4},"options":{"permissionMode":"default_permissions"}}}

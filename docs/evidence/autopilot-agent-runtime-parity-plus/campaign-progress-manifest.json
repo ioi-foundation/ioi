@@ -3,7 +3,7 @@
   "campaign": "autopilot-agent-runtime-parity-plus",
   "target": "agent_runtime_parity_plus_proven",
   "status": "in_progress",
-  "generatedAtUtc": "2026-06-02T02:15:10Z",
+  "generatedAtUtc": "2026-06-02T02:34:02.909Z",
   "stageRows": [
     {
       "stage": 0,
@@ -53,24 +53,91 @@
       "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-6-typed-stream-contract-glass-box-work-lane/stage-verdict.json",
       "supportingEvidence": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/glass-box-work-lane-final-manifest.json",
       "remainingProof": "Live GUI reload-from-persisted-events proof can be hardened during integrated soak."
+    },
+    {
+      "stage": 7,
+      "name": "Delegation and subagent lanes",
+      "classification": "headless_pass",
+      "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-7-delegation-subagent-lanes/stage-verdict.json",
+      "remainingProof": "Live GUI delegated repo verification, failed-child recovery, browser subagent, and restart/recover proof before P0 live_pass closure."
     }
   ],
   "p0Rows": [
-    {"id":"ARP-P0-001","classification":"headless_pass","remaining":"live GUI replay/reconnect proof"},
-    {"id":"ARP-P0-002","classification":"headless_pass","remaining":"live run-brain artifact display/replay proof"},
-    {"id":"ARP-P0-003","classification":"supporting_pass","remaining":"live Agent Studio repair-loop proof for rejected web final answer"},
-    {"id":"ARP-P0-004","classification":"supporting_pass","remaining":"editor hunk proposal live proof"},
-    {"id":"ARP-P0-005","classification":"supporting_pass","remaining":"accept/reject/rollback/stale live proof"},
-    {"id":"ARP-P0-006","classification":"headless_pass","remaining":"live GUI stop/cancel/recover across model stream, retained shell, browser session, and process-tree cleanup"},
-    {"id":"ARP-P0-007","classification":"headless_pass","remaining":"live Agent Studio failing-test repair loop with stop-hook feedback and passing rerun"},
-    {"id":"ARP-P0-008","classification":"headless_pass","remaining":"live GUI proof for allow-once, deny, revoke, and expiry"},
-    {"id":"ARP-P0-009","classification":"supporting_pass","remaining":"live sandbox effect probes for symlink/sibling escape, ignored files, network deny, env redaction, timeout, and output caps"},
-    {"id":"ARP-P0-010","classification":"partial_unproven","remaining":"retained shell lifecycle proof"},
-    {"id":"ARP-P0-011","classification":"partial_unproven","remaining":"managed browser/computer replay proof"},
-    {"id":"ARP-P0-012","classification":"partial_unproven","remaining":"delegation trajectory recovery proof"},
-    {"id":"ARP-P0-013","classification":"supporting_pass","remaining":"resume/replay cursor proof after process restart and side-effect replay avoidance"},
-    {"id":"ARP-P0-014","classification":"live_pass","remaining":"monitor during integrated soak; no current product boundary leak blocker"},
-    {"id":"ARP-P0-015","classification":"cross_client_pass","remaining":"harden CLI/TUI display adapters during integrated soak if those surfaces are enabled"}
+    {
+      "id": "ARP-P0-001",
+      "classification": "headless_pass",
+      "remaining": "live GUI replay/reconnect proof"
+    },
+    {
+      "id": "ARP-P0-002",
+      "classification": "headless_pass",
+      "remaining": "live run-brain artifact display/replay proof"
+    },
+    {
+      "id": "ARP-P0-003",
+      "classification": "supporting_pass",
+      "remaining": "live Agent Studio repair-loop proof for rejected web final answer"
+    },
+    {
+      "id": "ARP-P0-004",
+      "classification": "supporting_pass",
+      "remaining": "editor hunk proposal live proof"
+    },
+    {
+      "id": "ARP-P0-005",
+      "classification": "supporting_pass",
+      "remaining": "accept/reject/rollback/stale live proof"
+    },
+    {
+      "id": "ARP-P0-006",
+      "classification": "headless_pass",
+      "remaining": "live GUI stop/cancel/recover across model stream, retained shell, browser session, and process-tree cleanup"
+    },
+    {
+      "id": "ARP-P0-007",
+      "classification": "headless_pass",
+      "remaining": "live Agent Studio failing-test repair loop with stop-hook feedback and passing rerun"
+    },
+    {
+      "id": "ARP-P0-008",
+      "classification": "headless_pass",
+      "remaining": "live GUI proof for allow-once, deny, revoke, and expiry"
+    },
+    {
+      "id": "ARP-P0-009",
+      "classification": "supporting_pass",
+      "remaining": "live sandbox effect probes for symlink/sibling escape, ignored files, network deny, env redaction, timeout, and output caps"
+    },
+    {
+      "id": "ARP-P0-010",
+      "classification": "partial_unproven",
+      "remaining": "retained shell lifecycle proof"
+    },
+    {
+      "id": "ARP-P0-011",
+      "classification": "partial_unproven",
+      "remaining": "managed browser/computer replay proof"
+    },
+    {
+      "id": "ARP-P0-012",
+      "classification": "headless_pass",
+      "remaining": "live Agent Studio delegated worker, failed-child recovery, browser subagent, and restart/recover proof"
+    },
+    {
+      "id": "ARP-P0-013",
+      "classification": "supporting_pass",
+      "remaining": "resume/replay cursor proof after process restart and side-effect replay avoidance"
+    },
+    {
+      "id": "ARP-P0-014",
+      "classification": "live_pass",
+      "remaining": "monitor during integrated soak; no current product boundary leak blocker"
+    },
+    {
+      "id": "ARP-P0-015",
+      "classification": "cross_client_pass",
+      "remaining": "harden CLI/TUI display adapters during integrated soak if those surfaces are enabled"
+    }
   ],
   "currentBlockers": [
     {
@@ -81,5 +148,5 @@
       "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-5-stop-cancel-recover-stop-hook/failure-analysis.md"
     }
   ],
-  "nextStage": "Stage 7 delegation and subagent lanes."
+  "nextStage": "Stage 8 browser and computer session runtime polish."
 }

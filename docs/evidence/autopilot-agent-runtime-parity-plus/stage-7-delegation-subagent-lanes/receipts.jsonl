@@ -1,0 +1,4 @@
+{"schemaVersion":"ioi.agent-runtime-parity-plus.receipt.v1","kind":"implementation","receipt":"delegation_snapshot module added","evidence":"crates/services/src/agentic/runtime/delegation_snapshot.rs"}
+{"schemaVersion":"ioi.agent-runtime-parity-plus.receipt.v1","kind":"test","receipt":"2 delegation snapshot unit tests passed","command":"cargo test -p ioi-services delegation_snapshot --lib -- --nocapture"}
+{"schemaVersion":"ioi.agent-runtime-parity-plus.receipt.v1","kind":"bridge_build","receipt":"runtime bridge built with delegation inspect projection","command":"cargo build -p ioi-node --features local-mode --bin ioi-runtime-bridge"}
+{"schemaVersion":"ioi.agent-runtime-parity-plus.receipt.v1","kind":"cleanup","receipt":"disposable bridge workspace and data dir removed","evidence":"docs/evidence/autopilot-agent-runtime-parity-plus/stage-7-delegation-subagent-lanes/cleanup-proof.json"}

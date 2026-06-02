@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.scenario.v1",
+  "stage": 7,
+  "name": "Delegation and subagent runtime linkage",
+  "objective": "Expose daemon-owned parent/child delegation state as a typed, recoverable, product-safe runtime contract.",
+  "classification": "headless_pass",
+  "createdAtUtc": "2026-06-02T02:33:43.460Z",
+  "scenarios": [
+    {
+      "id": "stage7-headless-parent-child-snapshot",
+      "promptShape": "Delegate repo verification task; child fails validation and parent receives typed feedback.",
+      "proofMode": "focused Rust unit proof with persisted parent/child state, worker assignment/result, trajectory, and brain records",
+      "evidence": [
+        "docs/evidence/autopilot-agent-runtime-parity-plus/stage-7-delegation-subagent-lanes/stage-verdict.json",
+        "docs/evidence/autopilot-agent-runtime-parity-plus/stage-7-delegation-subagent-lanes/headless-inspect-verdict.json"
+      ]
+    },
+    {
+      "id": "stage7-bridge-inspect-contract",
+      "promptShape": "Inspect a disposable runtime thread through the headless bridge.",
+      "proofMode": "real ioi-runtime-bridge start_thread plus inspect_thread replay",
+      "evidence": [
+        "docs/evidence/autopilot-agent-runtime-parity-plus/stage-7-delegation-subagent-lanes/start-response.jsonl",
+        "docs/evidence/autopilot-agent-runtime-parity-plus/stage-7-delegation-subagent-lanes/inspect-response.jsonl",
+        "docs/evidence/autopilot-agent-runtime-parity-plus/stage-7-delegation-subagent-lanes/cleanup-proof.json"
+      ]
+    }
+  ],
+  "remainingLiveProof": "Run a real Agent Studio delegated worker scenario, browser subagent scenario, and restart/recover scenario during integrated product soak."
+}

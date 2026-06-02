@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.implementation-refs.v1",
+  "stage": 7,
+  "refs": [
+    {
+      "path": "crates/services/src/agentic/runtime/delegation_snapshot.rs",
+      "summary": "Adds schemaed RuntimeDelegationSnapshot, child summaries, parent playbook step summaries, failed-child feedback, and recovery state derived from persisted runtime records."
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/mod.rs",
+      "summary": "Exports the delegation snapshot runtime contract."
+    },
+    {
+      "path": "crates/node/src/bin/ioi-runtime-bridge.rs",
+      "summary": "Projects delegation snapshot through inspect_thread beside trajectory, policy leases, stop hooks, brain, and runtime substrate."
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/service/lifecycle/worker_results/state.rs",
+      "summary": "Existing persisted worker assignment/result/harness session records consumed by the new snapshot."
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/service/lifecycle/browser_subagent.rs",
+      "summary": "Existing browser subagent child-session wrapper remains source for managed browser delegation; live artifact polish is Stage 8."
+    }
+  ]
+}

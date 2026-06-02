@@ -1,0 +1,6 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.screenshots.v1",
+  "stage": 7,
+  "captured": [],
+  "notCapturedReason": "This was the daemon/headless contract proof slice. Live GUI delegated-worker and browser-subagent screenshots remain required during integrated product soak before P0 closure."
+}

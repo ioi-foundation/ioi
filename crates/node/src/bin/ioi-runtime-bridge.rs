@@ -19,6 +19,7 @@ use ioi_drivers::os::NativeOsDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy};
+use ioi_services::agentic::runtime::delegation_snapshot::delegation_snapshot_for_state;
 use ioi_services::agentic::runtime::keys::{
     get_agent_brain_key, get_agent_run_brain_artifact_index_key, get_agent_trajectory_step_key,
     get_runtime_substrate_key, get_state_key, AGENT_POLICY_PREFIX,
@@ -1791,6 +1792,8 @@ impl BridgeRuntime {
         )
         .map_err(|error| anyhow!("failed to derive runtime policy lease snapshot: {error}"))?;
         let stop_hooks = stop_hook_snapshot_for_state(session_id, &state);
+        let delegation = delegation_snapshot_for_state(&self.state, &state)
+            .map_err(|error| anyhow!("failed to derive runtime delegation snapshot: {error}"))?;
 
         Ok(json!({
             "bridge_id": bridge_id,
@@ -1814,6 +1817,7 @@ impl BridgeRuntime {
             "workspace_change_reviews": workspace_change_reviews,
             "policy_leases": policy_leases,
             "stop_hooks": stop_hooks,
+            "delegation": delegation,
             "brain": brain,
             "run_brain_artifact_index": run_brain_artifact_index,
             "runtime_substrate": runtime_substrate,
