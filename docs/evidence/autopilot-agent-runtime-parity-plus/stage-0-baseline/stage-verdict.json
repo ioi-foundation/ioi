@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.stage-verdict.v1",
+  "stage": 0,
+  "status": "supporting_pass",
+  "summary": "Baseline tracker seeded from current runtime and product evidence. No runtime parity row is closed solely from prior UI/catalogue evidence.",
+  "rowStatus": [
+    {
+      "id": "ARP-P0-001",
+      "classification": "partial_unproven",
+      "owner": "runtime-daemon",
+      "nextProof": "Headless checkpoint/restart proof plus live GUI replay proof."
+    },
+    {
+      "id": "ARP-P0-002",
+      "classification": "partial_unproven",
+      "owner": "runtime-daemon",
+      "nextProof": "Persist and load explicit run-brain artifact index; then live GUI replay."
+    },
+    {
+      "id": "ARP-P0-003",
+      "classification": "partial_unproven",
+      "owner": "runtime-cognition",
+      "nextProof": "Audit and remove product answer authoring from deterministic queue/web paths."
+    }
+  ],
+  "openP0Rows": [
+    "ARP-P0-001",
+    "ARP-P0-002",
+    "ARP-P0-003",
+    "ARP-P0-004",
+    "ARP-P0-005",
+    "ARP-P0-006",
+    "ARP-P0-007",
+    "ARP-P0-008",
+    "ARP-P0-009",
+    "ARP-P0-010",
+    "ARP-P0-011",
+    "ARP-P0-012",
+    "ARP-P0-013",
+    "ARP-P0-014",
+    "ARP-P0-015"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.scenario.v1",
+  "scenarioId": "arp-stage-1-run-brain-artifact-index-support",
+  "stage": 1,
+  "title": "Trajectory and brain substrate support proof",
+  "capturedAtUtc": "2026-06-02T00:49:51Z",
+  "objective": "Prove the daemon persists state, substrate, trajectory, brain, and explicit run-brain artifact index records through the same checkpoint utility.",
+  "mode": "headless_support",
+  "limitations": [
+    "This proof does not yet close the required live GUI replay/reconnect scenario.",
+    "This proof uses an in-memory runtime checkpoint to validate typed persistence and cleanup symmetry."
+  ]
+}

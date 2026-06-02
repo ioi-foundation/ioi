@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.stage-verdict.v1",
+  "campaign": "autopilot-agent-runtime-parity-plus",
+  "stage": 3,
+  "name": "Editor hunk workflow",
+  "classification": "supporting_pass",
+  "status": "in_progress",
+  "createdAtUtc": "2026-06-02T01:22:13Z",
+  "summary": "Workspace hunk review state is now derived by the Rust runtime from durable workspace change records and current file content. The runtime can tell clients whether a hunk is acceptable, rejectable, rollbackable, or stale without changing the persisted WorkspaceChangeRecord encoding.",
+  "proof": {
+    "tests": [
+      {
+        "command": "cargo test -p ioi-services hunk_review_state_tracks_accept_reject_stale_and_rollback --lib",
+        "result": "pass"
+      },
+      {
+        "command": "cargo test -p ioi-services agentic::runtime::workspace_change::tests --lib",
+        "result": "pass"
+      },
+      {
+        "command": "cargo test -p ioi-node --features local-mode --bin ioi-runtime-bridge inspect -- --nocapture",
+        "result": "pass"
+      },
+      {
+        "command": "git diff --check",
+        "result": "pass"
+      }
+    ],
+    "implementationRefs": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-3-editor-hunk-workflow/implementation-refs.json",
+    "runtimeEvents": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-3-editor-hunk-workflow/runtime-events.jsonl"
+  },
+  "remainingProof": [
+    "live GUI hunk proposal, accept, reject, rollback, and stale mutation screenshot sequence",
+    "headless fixture that inspects a thread with workspace_change_reviews populated from persisted trajectory state",
+    "cross-client proof that GUI/CLI/TUI consume the same bridge review state"
+  ],
+  "productBoundary": {
+    "uiPresentation": "not changed in this slice",
+    "rawPayloadLeak": "not product-proven yet",
+    "fixtureLeak": "not observed"
+  }
+}

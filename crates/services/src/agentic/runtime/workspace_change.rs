@@ -31,6 +31,20 @@ pub struct WorkspaceChangeLifecycleError {
     pub message: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct HunkProposalReviewState {
+    pub change_id: String,
+    pub lifecycle: String,
+    pub path: Option<String>,
+    pub hunk_count: usize,
+    pub accept_available: bool,
+    pub reject_available: bool,
+    pub rollback_available: bool,
+    pub stale: bool,
+    pub stale_reason: Option<String>,
+}
+
 pub fn workspace_change_lifecycle_goal_requested(goal: &str) -> bool {
     let normalized = goal.to_ascii_lowercase();
     let requests_lifecycle = ["roll back", "rollback", "revert", "reject change"]
@@ -231,6 +245,99 @@ pub fn rollback_workspace_change(
     ));
     rolled_back.evidence_ref = rolled_back.receipt_ref.clone();
     Ok(rolled_back)
+}
+
+pub fn hunk_proposal_review_state(
+    workspace_root: impl AsRef<Path>,
+    change: &WorkspaceChangeRecord,
+) -> HunkProposalReviewState {
+    let mut state = HunkProposalReviewState {
+        change_id: change.change_id.clone(),
+        lifecycle: change.lifecycle.clone(),
+        path: change.path.clone(),
+        hunk_count: change.hunks.len(),
+        reject_available: matches!(
+            change.lifecycle.as_str(),
+            LIFECYCLE_PROPOSED | LIFECYCLE_AWAITING_APPROVAL
+        ),
+        ..HunkProposalReviewState::default()
+    };
+
+    let stale_reason = workspace_change_stale_reason(workspace_root.as_ref(), change);
+    state.stale = stale_reason.is_some();
+    state.stale_reason = stale_reason;
+    state.accept_available = state.reject_available && !state.stale;
+    state.rollback_available = change.lifecycle == LIFECYCLE_APPLIED && !state.stale;
+    state
+}
+
+fn workspace_change_stale_reason(
+    workspace_root: &Path,
+    change: &WorkspaceChangeRecord,
+) -> Option<String> {
+    let path = change.path.as_deref()?.trim();
+    if path.is_empty() {
+        return Some("missing_path".to_string());
+    }
+
+    if change.lifecycle == LIFECYCLE_REJECTED || change.lifecycle == LIFECYCLE_ROLLED_BACK {
+        return None;
+    }
+
+    if matches!(
+        change.lifecycle.as_str(),
+        LIFECYCLE_PROPOSED | LIFECYCLE_AWAITING_APPROVAL
+    ) && change
+        .hunks
+        .iter()
+        .all(|hunk| matches!(hunk.kind.as_str(), "write" | "line_write"))
+    {
+        return None;
+    }
+
+    let target = match resolve_existing_workspace_path(workspace_root, path) {
+        Ok(target) => target,
+        Err(error) => return Some(error.code),
+    };
+    let content = match fs::read_to_string(&target) {
+        Ok(content) => content,
+        Err(_) => return Some("read_failed".to_string()),
+    };
+
+    for hunk in &change.hunks {
+        let expected = match change.lifecycle.as_str() {
+            LIFECYCLE_PROPOSED | LIFECYCLE_AWAITING_APPROVAL => match hunk.kind.as_str() {
+                "replace" => hunk.search_text.as_deref(),
+                "delete" => Some(""),
+                "write" | "line_write" => return None,
+                _ => hunk.search_text.as_deref(),
+            },
+            LIFECYCLE_APPLIED => hunk
+                .replace_text
+                .as_deref()
+                .or(hunk.content_text.as_deref()),
+            _ => return None,
+        };
+
+        if hunk.kind == "delete" {
+            continue;
+        }
+        let Some(expected) = expected else {
+            return Some(format!(
+                "hunk_{}_missing_boundary_material",
+                hunk.hunk_index
+            ));
+        };
+        if expected.is_empty() {
+            return Some(format!("hunk_{}_empty_boundary_material", hunk.hunk_index));
+        }
+        match content.match_indices(expected).take(2).count() {
+            0 => return Some(format!("hunk_{}_boundary_not_found", hunk.hunk_index)),
+            1 => {}
+            _ => return Some(format!("hunk_{}_boundary_ambiguous", hunk.hunk_index)),
+        }
+    }
+    None
 }
 
 fn reverse_hunk_once(
@@ -458,6 +565,61 @@ mod tests {
             fs::read_to_string(&file).expect("read rolled back file"),
             "alpha\nold_call()\nomega\n"
         );
+        cleanup_workspace(workspace);
+    }
+
+    #[test]
+    fn hunk_review_state_tracks_accept_reject_stale_and_rollback() {
+        let workspace = temp_workspace("hunk_review_state");
+        let file = workspace.join("src.txt");
+        fs::write(&file, "alpha\nold_call()\nomega\n").expect("write test file");
+        let proposed = workspace_change_record_from_tool(
+            &AgentTool::FsPatch {
+                path: "src.txt".to_string(),
+                search: "old_call()".to_string(),
+                replace: "new_call()".to_string(),
+            },
+            "proposed",
+            None,
+            None,
+        )
+        .expect("proposed hunk");
+
+        let review = hunk_proposal_review_state(&workspace, &proposed);
+        assert!(review.accept_available);
+        assert!(review.reject_available);
+        assert!(!review.rollback_available);
+        assert!(!review.stale);
+
+        fs::write(&file, "alpha\nsomeone_else_changed_it()\nomega\n")
+            .expect("mutate outside proposal");
+        let stale = hunk_proposal_review_state(&workspace, &proposed);
+        assert!(!stale.accept_available);
+        assert!(stale.reject_available);
+        assert!(stale.stale);
+        assert_eq!(
+            stale.stale_reason.as_deref(),
+            Some("hunk_0_boundary_not_found")
+        );
+
+        fs::write(&file, "alpha\nnew_call()\nomega\n").expect("apply hunk");
+        let applied = workspace_change_record_from_tool(
+            &AgentTool::FsPatch {
+                path: "src.txt".to_string(),
+                search: "old_call()".to_string(),
+                replace: "new_call()".to_string(),
+            },
+            "applied",
+            None,
+            None,
+        )
+        .expect("applied hunk");
+        let rollback = hunk_proposal_review_state(&workspace, &applied);
+        assert!(!rollback.accept_available);
+        assert!(!rollback.reject_available);
+        assert!(rollback.rollback_available);
+        assert!(!rollback.stale);
+
         cleanup_workspace(workspace);
     }
 

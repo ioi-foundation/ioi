@@ -341,16 +341,18 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             verification_checks,
                         );
                         if !contract_ready {
-                            let contract_error = concat!(
-                                "ERROR_CLASS=NoEffectAfterAction Final web answer is not ready. ",
-                                "Use the gathered web evidence to write a substantive model-authored answer; ",
-                                "do not terminalize with an intermediate source list, missing required metrics, ",
-                                "or an incomplete document layout."
+                            let feedback =
+                                final_web_completion_retry_feedback(&final_facts).join("; ");
+                            let contract_error = format!(
+                                "ERROR_CLASS=NoEffectAfterAction Final web answer is not ready. \
+Validator feedback: {feedback}. Continue the model -> tool -> typed result -> model loop. \
+Use only gathered evidence, gather another source if the feedback says evidence is missing, \
+then call the terminal reply tool with a complete model-authored Markdown answer."
                             );
                             *success = false;
-                            *error_msg = Some(contract_error.to_string());
-                            *history_entry = Some(contract_error.to_string());
-                            *action_output = Some(contract_error.to_string());
+                            *error_msg = Some(contract_error.clone());
+                            *history_entry = Some(contract_error.clone());
+                            *action_output = Some(contract_error);
                             *terminal_chat_reply_output = None;
                             agent_state.status = AgentStatus::Running;
                             verification_checks.push(
@@ -441,15 +443,17 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         &rejected_summary,
                         verification_checks,
                     );
-                    let contract_error = concat!(
-                        "ERROR_CLASS=NoEffectAfterAction Final web answer was not selected by the ",
-                        "completion contract. Continue the model -> tool -> result loop or write a ",
-                        "substantive model-authored answer grounded in the gathered evidence."
+                    let feedback = final_web_completion_retry_feedback(&final_facts).join("; ");
+                    let contract_error = format!(
+                        "ERROR_CLASS=NoEffectAfterAction Final web answer was not selected by the \
+completion contract. Validator feedback: {feedback}. Continue the model -> tool -> typed result \
+-> model loop. Use only gathered evidence, gather another source if the feedback says evidence is \
+missing, then call the terminal reply tool with a complete model-authored Markdown answer."
                     );
                     *success = false;
-                    *error_msg = Some(contract_error.to_string());
-                    *history_entry = Some(contract_error.to_string());
-                    *action_output = Some(contract_error.to_string());
+                    *error_msg = Some(contract_error.clone());
+                    *history_entry = Some(contract_error.clone());
+                    *action_output = Some(contract_error);
                     *terminal_chat_reply_output = None;
                     agent_state.status = AgentStatus::Running;
                     verification_checks

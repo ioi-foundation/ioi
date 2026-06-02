@@ -1,4 +1,33 @@
 #[test]
+fn final_web_completion_retry_feedback_reports_actionable_gaps_without_answering() {
+    let pending = weather_snapshot_pending();
+    let rendered_summary = "I found one weather source, but I do not have a final answer yet.";
+    let mut facts = final_web_completion_facts_with_rendered_summary(
+        &pending,
+        WebPipelineCompletionReason::MinSourcesReached,
+        rendered_summary,
+    );
+    facts.answer_legacy_source_cluster_headers_absent = false;
+    facts.evidence_citation_read_backing_floor_met = false;
+    facts.evidence_selected_source_identifier_coverage_floor_met = false;
+    facts.market_quote_grounding_required = true;
+    facts.market_quote_grounding_floor_met = false;
+    facts.comparison_required = true;
+    facts.comparison_ready = false;
+    facts.rendered_summary_semantic_floor_met = false;
+
+    let feedback = final_web_completion_retry_feedback(&facts).join("\n");
+
+    assert!(feedback.contains("remove retrieval scaffolding"));
+    assert!(feedback.contains("cite read-backed sources"));
+    assert!(feedback.contains("ground every live price or market claim"));
+    assert!(feedback.contains("make the comparison directly"));
+    assert!(!feedback.contains("Briefing for"));
+    assert!(!feedback.contains("Story"));
+    assert!(!feedback.contains("Run date"));
+}
+
+#[test]
 fn rendered_summary_requires_read_backed_citations_for_document_report() {
     let pending = PendingSearchCompletion {
         query: "nist post quantum cryptography standards".to_string(),

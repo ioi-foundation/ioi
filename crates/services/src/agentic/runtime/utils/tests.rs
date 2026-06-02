@@ -1,19 +1,20 @@
 use super::{
     await_child_session_status_for_inspection, delete_agent_state_checkpoint, get_state_key,
-    load_agent_brain_checkpoint, load_agent_state_checkpoint,
-    load_agent_trajectory_latest_checkpoint, persist_agent_state,
+    load_agent_brain_checkpoint, load_agent_run_brain_artifact_index_checkpoint,
+    load_agent_state_checkpoint, load_agent_trajectory_latest_checkpoint, persist_agent_state,
     should_terminalize_running_agent_after_max_steps, AGENT_BRAIN_CHECKPOINT_NAME,
-    AGENT_RUNTIME_SUBSTRATE_CHECKPOINT_NAME, AGENT_STATE_CHECKPOINT_NAME,
-    AGENT_TRAJECTORY_LATEST_CHECKPOINT_NAME,
+    AGENT_RUNTIME_SUBSTRATE_CHECKPOINT_NAME, AGENT_RUN_BRAIN_ARTIFACT_INDEX_CHECKPOINT_NAME,
+    AGENT_STATE_CHECKPOINT_NAME, AGENT_TRAJECTORY_LATEST_CHECKPOINT_NAME,
 };
 use crate::agentic::runtime::keys::{
-    get_agent_brain_key, get_agent_trajectory_step_key, get_parent_playbook_run_key,
-    get_runtime_substrate_key,
+    get_agent_brain_key, get_agent_run_brain_artifact_index_key, get_agent_trajectory_step_key,
+    get_parent_playbook_run_key, get_runtime_substrate_key,
 };
 use crate::agentic::runtime::service::tool_execution::execution_evidence_key;
 use crate::agentic::runtime::substrate::RuntimeSubstrateSnapshot;
 use crate::agentic::runtime::trajectory::{
-    workspace_change_record_from_tool, AgentBrainRecord, AgentTrajectoryStepRecord,
+    workspace_change_record_from_tool, AgentBrainRecord, AgentRunBrainArtifactIndexRecord,
+    AgentTrajectoryStepRecord,
 };
 use crate::agentic::runtime::types::{
     AgentMode, AgentState, AgentStatus, ExecutionTier, ParentPlaybookRun, ParentPlaybookStatus,
@@ -316,6 +317,34 @@ fn persist_agent_state_writes_trajectory_and_brain_records() {
     assert!(brain.task_md.contains("Stop gate recorded"));
     assert!(brain.walkthrough_md.contains("Recorded runtime events"));
     assert!(!brain.read_only);
+
+    let brain_artifact_index_bytes = state
+        .get(&get_agent_run_brain_artifact_index_key(&session_id))
+        .expect("read run-brain artifact index")
+        .expect("run-brain artifact index should be present");
+    let brain_artifact_index: AgentRunBrainArtifactIndexRecord =
+        codec::from_bytes_canonical(&brain_artifact_index_bytes)
+            .expect("decode run-brain artifact index");
+    assert_eq!(brain_artifact_index.session_id, hex::encode(session_id));
+    assert_eq!(brain_artifact_index.step_index, agent_state.step_count);
+    assert_eq!(brain_artifact_index.objective, agent_state.goal);
+    assert!(brain_artifact_index
+        .implementation_plan_ref
+        .ends_with(":implementation_plan"));
+    assert!(brain_artifact_index
+        .task_checklist_ref
+        .ends_with(":task_checklist"));
+    assert!(brain_artifact_index
+        .walkthrough_ref
+        .ends_with(":walkthrough"));
+    assert!(brain_artifact_index
+        .replay_cursor
+        .contains(&format!(":{}", agent_state.step_count)));
+    assert!(brain_artifact_index
+        .artifact_refs
+        .iter()
+        .any(|artifact_ref| artifact_ref == &rolled_back_change.change_id));
+
     assert_eq!(trajectory.stop_gate.continuation, "continue_tool_boundary");
     assert!(!trajectory.stop_gate.terminal_state);
     assert!(trajectory.stop_gate.replayable);
@@ -332,6 +361,12 @@ fn persist_agent_state_writes_trajectory_and_brain_records() {
             .expect("read brain checkpoint"),
         Some(brain_bytes)
     );
+    assert_eq!(
+        runtime
+            .load_checkpoint_blob(session_id, AGENT_RUN_BRAIN_ARTIFACT_INDEX_CHECKPOINT_NAME)
+            .expect("read run-brain artifact index checkpoint"),
+        Some(brain_artifact_index_bytes)
+    );
 
     let loaded_trajectory = load_agent_trajectory_latest_checkpoint(&runtime, session_id)
         .expect("load typed trajectory")
@@ -347,6 +382,19 @@ fn persist_agent_state_writes_trajectory_and_brain_records() {
         .expect("typed brain should load");
     assert_eq!(loaded_brain.step_index, agent_state.step_count);
     assert_eq!(loaded_brain.status, "running");
+
+    let loaded_brain_artifact_index =
+        load_agent_run_brain_artifact_index_checkpoint(&runtime, session_id)
+            .expect("load typed run-brain artifact index")
+            .expect("typed run-brain artifact index should load");
+    assert_eq!(
+        loaded_brain_artifact_index.replay_cursor,
+        brain_artifact_index.replay_cursor
+    );
+    assert_eq!(
+        loaded_brain_artifact_index.artifact_refs,
+        brain_artifact_index.artifact_refs
+    );
 }
 
 #[test]
@@ -384,6 +432,12 @@ fn delete_agent_state_checkpoint_removes_runtime_blob() {
         runtime
             .load_checkpoint_blob(session_id, AGENT_BRAIN_CHECKPOINT_NAME)
             .expect("load brain checkpoint"),
+        None,
+    );
+    assert_eq!(
+        runtime
+            .load_checkpoint_blob(session_id, AGENT_RUN_BRAIN_ARTIFACT_INDEX_CHECKPOINT_NAME)
+            .expect("load run-brain artifact index checkpoint"),
         None,
     );
 }

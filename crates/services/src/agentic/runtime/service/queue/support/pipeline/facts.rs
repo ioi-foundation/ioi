@@ -1824,6 +1824,64 @@ pub(crate) fn final_web_completion_contract_ready(facts: &FinalWebCompletionFact
         && (!facts.comparison_required || facts.comparison_ready)
 }
 
+pub(crate) fn final_web_completion_retry_feedback(facts: &FinalWebCompletionFacts) -> Vec<String> {
+    let mut feedback = Vec::new();
+    if !facts.answer_legacy_source_cluster_headers_absent {
+        feedback.push(
+            "remove retrieval scaffolding, source-inventory prose, and intermediate labels"
+                .to_string(),
+        );
+    }
+    if matches!(
+        facts.answer_rendered_layout_profile.as_str(),
+        "source_collection"
+    ) {
+        feedback.push("do not terminalize as a source list alone".to_string());
+    }
+    if facts.answer_rendered_layout_profile == "other"
+        && !final_model_natural_answer_contract_ready(facts)
+    {
+        feedback.push("write a complete natural answer instead of a thin handoff".to_string());
+    }
+    if facts.answer_query_layout_expected && !facts.answer_document_layout_met {
+        feedback.push(
+            "complete the requested document/report shape with substantive sections".to_string(),
+        );
+    }
+    if !facts.answer_query_grounding_floor_met {
+        feedback.push("answer the user's actual question using the gathered evidence".to_string());
+    }
+    if !facts.evidence_citation_read_backing_floor_met
+        || !facts.single_snapshot_rendered_read_backed_url_floor_met
+    {
+        feedback.push("cite read-backed sources that directly support the claims".to_string());
+    }
+    if !facts.evidence_selected_source_identifier_coverage_floor_met {
+        feedback.push(
+            "connect cited sources to the named subject, company, asset, or place they support"
+                .to_string(),
+        );
+    }
+    if facts.market_quote_grounding_required && !facts.market_quote_grounding_floor_met {
+        feedback.push(
+            "ground every live price or market claim in same-subject evidence; gather more evidence if needed"
+                .to_string(),
+        );
+    }
+    if facts.comparison_required && !facts.comparison_ready {
+        feedback.push("make the comparison directly, then explain the tradeoffs".to_string());
+    }
+    if !facts.rendered_summary_semantic_floor_met {
+        feedback.push(
+            "replace generic output with substantive synthesis from the evidence".to_string(),
+        );
+    }
+    if feedback.is_empty() {
+        feedback.push("rewrite naturally using only the supplied evidence".to_string());
+    }
+    feedback
+}
+
 pub(crate) fn select_final_web_summary_from_candidates<I>(
     pending: &PendingSearchCompletion,
     reason: WebPipelineCompletionReason,

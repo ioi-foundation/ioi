@@ -6,6 +6,7 @@ pub const TRACE_PREFIX: &[u8] = b"agent::trace::";
 pub const RUNTIME_SUBSTRATE_PREFIX: &[u8] = b"agent::runtime_substrate::";
 pub const AGENT_TRAJECTORY_STEP_PREFIX: &[u8] = b"agent::trajectory_step::";
 pub const AGENT_BRAIN_PREFIX: &[u8] = b"agent::brain::";
+pub const AGENT_RUN_BRAIN_ARTIFACT_INDEX_PREFIX: &[u8] = b"agent::run_brain_artifact_index::";
 pub const AGENT_POLICY_PREFIX: &[u8] = b"agent::policy::";
 // [NEW] Prefix for mutable skill statistics
 pub const SKILL_STATS_PREFIX: &[u8] = b"skills::stats::";
@@ -76,6 +77,10 @@ pub fn get_agent_trajectory_step_key(session_id: &[u8; 32], step: u32) -> Vec<u8
 
 pub fn get_agent_brain_key(session_id: &[u8; 32]) -> Vec<u8> {
     [AGENT_BRAIN_PREFIX, session_id.as_slice()].concat()
+}
+
+pub fn get_agent_run_brain_artifact_index_key(session_id: &[u8; 32]) -> Vec<u8> {
+    [AGENT_RUN_BRAIN_ARTIFACT_INDEX_PREFIX, session_id.as_slice()].concat()
 }
 
 pub fn get_skill_stats_key(skill_hash: &[u8; 32]) -> Vec<u8> {

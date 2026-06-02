@@ -19,8 +19,15 @@ use ioi_drivers::os::NativeOsDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy};
-use ioi_services::agentic::runtime::keys::{get_state_key, AGENT_POLICY_PREFIX};
+use ioi_services::agentic::runtime::keys::{
+    get_agent_brain_key, get_agent_run_brain_artifact_index_key, get_agent_trajectory_step_key,
+    get_runtime_substrate_key, get_state_key, AGENT_POLICY_PREFIX,
+};
 use ioi_services::agentic::runtime::service::decision_loop::helpers::default_safe_policy;
+use ioi_services::agentic::runtime::trajectory::{
+    AgentBrainRecord, AgentRunBrainArtifactIndexRecord, AgentTrajectoryStepRecord,
+};
+use ioi_services::agentic::runtime::workspace_change::hunk_proposal_review_state;
 use ioi_services::agentic::runtime::{
     AgentMode, AgentState, AgentStatus, PostMessageParams, RuntimeAgentService, StartAgentParams,
     StepAgentParams,
@@ -34,7 +41,7 @@ use ioi_types::app::agentic::{
 use ioi_types::app::runtime::computer_use::COMPUTER_USE_CONTRACT_SCHEMA_VERSION_V1;
 use ioi_types::app::{AccountId, ChainId, KernelEvent, WorkloadReceipt};
 use ioi_types::codec;
-use parity_scale_codec::Encode;
+use parity_scale_codec::{Decode, Encode};
 use rand::RngCore;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -125,6 +132,16 @@ struct SubmitTurnInput {
     streamed_events_only: bool,
 }
 
+#[derive(Debug, Deserialize)]
+struct InspectThreadInput {
+    #[serde(rename = "sessionId", alias = "session_id")]
+    session_id: String,
+    #[serde(rename = "threadId", alias = "thread_id")]
+    thread_id: Option<String>,
+    #[serde(rename = "workspaceRoot", alias = "workspace_root")]
+    workspace_root: Option<String>,
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     let opts = BridgeOpts::parse();
@@ -178,6 +195,14 @@ async fn async_main(opts: BridgeOpts) -> Result<Value> {
                 workspace_root(opts.workspace.as_deref(), input.workspace_root.as_deref())?;
             let mut runtime = BridgeRuntime::open(opts.data_dir.as_deref(), &workspace)?;
             runtime.submit_turn(&request.bridge_id, input).await
+        }
+        "inspect_thread" => {
+            let input: InspectThreadInput = serde_json::from_value(request.input)
+                .context("failed to decode inspect_thread input")?;
+            let workspace =
+                workspace_root(opts.workspace.as_deref(), input.workspace_root.as_deref())?;
+            let runtime = BridgeRuntime::open(opts.data_dir.as_deref(), &workspace)?;
+            runtime.inspect_thread(&request.bridge_id, input)
         }
         other => Err(anyhow!("unsupported bridge operation '{other}'")),
     }
@@ -1642,6 +1667,75 @@ impl BridgeRuntime {
         }))
     }
 
+    fn inspect_thread(&self, bridge_id: &str, input: InspectThreadInput) -> Result<Value> {
+        let session_id = parse_session_id(&input.session_id)?;
+        let state = self.agent_state(session_id)?;
+        let session_hex = hex::encode(session_id);
+        let trajectory: Option<AgentTrajectoryStepRecord> = self.decode_optional_state_record(
+            get_agent_trajectory_step_key(&session_id, state.step_count),
+            "agent trajectory step",
+        )?;
+        let brain: Option<AgentBrainRecord> =
+            self.decode_optional_state_record(get_agent_brain_key(&session_id), "agent brain")?;
+        let run_brain_artifact_index: Option<AgentRunBrainArtifactIndexRecord> = self
+            .decode_optional_state_record(
+                get_agent_run_brain_artifact_index_key(&session_id),
+                "agent run-brain artifact index",
+            )?;
+        let runtime_substrate = self
+            .state
+            .get(&get_runtime_substrate_key(&session_id, state.step_count))
+            .context("failed to read runtime substrate state")?
+            .map(|bytes| {
+                serde_json::from_slice::<Value>(&bytes)
+                    .context("failed to decode runtime substrate snapshot")
+            })
+            .transpose()?;
+        let working_directory = state.working_directory.trim();
+        let review_workspace_root = input
+            .workspace_root
+            .as_deref()
+            .or_else(|| (!working_directory.is_empty()).then_some(working_directory));
+        let workspace_change_reviews = review_workspace_root
+            .and_then(|workspace_root| {
+                let trajectory = trajectory.as_ref()?;
+                Some(
+                    trajectory
+                        .workspace_changes
+                        .iter()
+                        .map(|change| hunk_proposal_review_state(workspace_root, change))
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .unwrap_or_default();
+
+        Ok(json!({
+            "bridge_id": bridge_id,
+            "source": "runtime_service",
+            "thread_id": input.thread_id,
+            "session_id": session_hex,
+            "status": thread_status(&state.status),
+            "runtime_state": {
+                "session_id": session_hex,
+                "goal": state.goal,
+                "status": thread_status(&state.status),
+                "step_count": state.step_count,
+                "max_steps": state.max_steps,
+                "parent_session_id": state.parent_session_id.map(hex::encode),
+                "child_session_ids": state.child_session_ids.iter().map(hex::encode).collect::<Vec<_>>(),
+                "last_action_type": state.last_action_type,
+                "pending_tool": state.pending_tool_call,
+                "working_directory": state.working_directory,
+            },
+            "latest_trajectory": trajectory,
+            "workspace_change_reviews": workspace_change_reviews,
+            "brain": brain,
+            "run_brain_artifact_index": run_brain_artifact_index,
+            "runtime_substrate": runtime_substrate,
+            "inspected_at": now_rfc3339(),
+        }))
+    }
+
     fn drain_kernel_events(&mut self) -> Vec<KernelEvent> {
         let mut events = Vec::new();
         loop {
@@ -1758,6 +1852,21 @@ impl BridgeRuntime {
         };
         codec::from_bytes_canonical(&bytes)
             .map_err(|error| anyhow!("failed to decode agent state: {error}"))
+    }
+
+    fn decode_optional_state_record<T: Decode>(
+        &self,
+        key: Vec<u8>,
+        label: &str,
+    ) -> Result<Option<T>> {
+        self.state
+            .get(&key)
+            .with_context(|| format!("failed to read {label}"))?
+            .map(|bytes| {
+                codec::from_bytes_canonical::<T>(&bytes)
+                    .map_err(|error| anyhow!("failed to decode {label}: {error}"))
+            })
+            .transpose()
     }
 
     fn apply_runtime_route_frame(

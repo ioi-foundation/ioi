@@ -1,13 +1,13 @@
 // Path: crates/services/src/agentic/runtime/utils.rs
 
 use crate::agentic::runtime::keys::{
-    get_agent_brain_key, get_agent_trajectory_step_key, get_parent_playbook_run_key,
-    get_runtime_substrate_key, get_state_key, TRACE_PREFIX,
+    get_agent_brain_key, get_agent_run_brain_artifact_index_key, get_agent_trajectory_step_key,
+    get_parent_playbook_run_key, get_runtime_substrate_key, get_state_key, TRACE_PREFIX,
 };
 use crate::agentic::runtime::substrate::runtime_substrate_snapshot_for_state;
 use crate::agentic::runtime::trajectory::{
-    brain_record_for_state, trajectory_step_record_for_state, AgentBrainRecord,
-    AgentTrajectoryStepRecord,
+    brain_record_for_state, run_brain_artifact_index_for_state, trajectory_step_record_for_state,
+    AgentBrainRecord, AgentRunBrainArtifactIndexRecord, AgentTrajectoryStepRecord,
 };
 use crate::agentic::runtime::types::{AgentState, AgentStatus, ParentPlaybookRun};
 use ioi_api::state::StateAccess;
@@ -26,6 +26,8 @@ pub const AGENT_STATE_CHECKPOINT_NAME: &str = "desktop.agent_state.v1";
 pub const AGENT_RUNTIME_SUBSTRATE_CHECKPOINT_NAME: &str = "desktop.agent_runtime_substrate.v1";
 pub const AGENT_TRAJECTORY_LATEST_CHECKPOINT_NAME: &str = "desktop.agent_trajectory.latest.v1";
 pub const AGENT_BRAIN_CHECKPOINT_NAME: &str = "desktop.agent_brain.v1";
+pub const AGENT_RUN_BRAIN_ARTIFACT_INDEX_CHECKPOINT_NAME: &str =
+    "desktop.agent_run_brain_artifact_index.v1";
 
 pub fn timestamp_ms_now() -> u64 {
     SystemTime::now()
@@ -97,6 +99,11 @@ pub fn persist_agent_state(
     let brain_key = get_agent_brain_key(&agent_state.session_id);
     state.insert(&brain_key, &brain_bytes)?;
 
+    let brain_artifact_index = run_brain_artifact_index_for_state(agent_state, &snapshot, now_ms);
+    let brain_artifact_index_bytes = codec::to_bytes_canonical(&brain_artifact_index)?;
+    let brain_artifact_index_key = get_agent_run_brain_artifact_index_key(&agent_state.session_id);
+    state.insert(&brain_artifact_index_key, &brain_artifact_index_bytes)?;
+
     if let Some(memory_runtime) = memory_runtime {
         memory_runtime
             .upsert_checkpoint_blob(agent_state.session_id, AGENT_STATE_CHECKPOINT_NAME, &bytes)
@@ -142,6 +149,18 @@ pub fn persist_agent_state(
                     error
                 ))
             })?;
+        memory_runtime
+            .upsert_checkpoint_blob(
+                agent_state.session_id,
+                AGENT_RUN_BRAIN_ARTIFACT_INDEX_CHECKPOINT_NAME,
+                &brain_artifact_index_bytes,
+            )
+            .map_err(|error| {
+                TransactionError::Invalid(format!(
+                    "Failed to persist agent run-brain artifact index checkpoint: {}",
+                    error
+                ))
+            })?;
     }
 
     Ok(())
@@ -184,6 +203,14 @@ pub fn delete_agent_state_checkpoint(
         .map_err(|error| {
             TransactionError::Invalid(format!(
                 "Failed to delete agent brain checkpoint: {}",
+                error
+            ))
+        })?;
+    memory_runtime
+        .delete_checkpoint_blob(session_id, AGENT_RUN_BRAIN_ARTIFACT_INDEX_CHECKPOINT_NAME)
+        .map_err(|error| {
+            TransactionError::Invalid(format!(
+                "Failed to delete agent run-brain artifact index checkpoint: {}",
                 error
             ))
         })?;
@@ -272,6 +299,38 @@ pub fn load_agent_brain_checkpoint(
     if record.session_id != hex::encode(session_id) {
         return Err(TransactionError::Invalid(
             "Agent brain checkpoint session mismatch".to_string(),
+        ));
+    }
+    Ok(Some(record))
+}
+
+pub fn load_agent_run_brain_artifact_index_checkpoint(
+    memory_runtime: &MemoryRuntime,
+    session_id: [u8; 32],
+) -> Result<Option<AgentRunBrainArtifactIndexRecord>, TransactionError> {
+    let Some(bytes) = memory_runtime
+        .load_checkpoint_blob(session_id, AGENT_RUN_BRAIN_ARTIFACT_INDEX_CHECKPOINT_NAME)
+        .map_err(|error| {
+            TransactionError::Invalid(format!(
+                "Failed to load agent run-brain artifact index checkpoint: {}",
+                error
+            ))
+        })?
+    else {
+        return Ok(None);
+    };
+
+    let record = codec::from_bytes_canonical::<AgentRunBrainArtifactIndexRecord>(&bytes).map_err(
+        |error| {
+            TransactionError::Invalid(format!(
+                "Failed to decode agent run-brain artifact index checkpoint: {}",
+                error
+            ))
+        },
+    )?;
+    if record.session_id != hex::encode(session_id) {
+        return Err(TransactionError::Invalid(
+            "Agent run-brain artifact index checkpoint session mismatch".to_string(),
         ));
     }
     Ok(Some(record))

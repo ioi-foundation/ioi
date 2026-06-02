@@ -1,0 +1,2 @@
+{"event":"cargo_test_started","command":"cargo test -p ioi-services agentic::runtime::utils::tests --lib","capturedAtUtc":"2026-06-02T00:49:51Z"}
+{"event":"cargo_test_finished","status":"passed","testsPassed":9,"testsFailed":0,"filteredOut":2440}

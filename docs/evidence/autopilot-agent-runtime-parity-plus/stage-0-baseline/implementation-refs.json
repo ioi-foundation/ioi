@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.implementation-refs.v1",
+  "stage": 0,
+  "refs": [
+    "crates/services/src/agentic/runtime/trajectory.rs",
+    "crates/services/src/agentic/runtime/utils.rs",
+    "crates/services/src/agentic/runtime/keys.rs",
+    "crates/services/src/agentic/runtime/workspace_change.rs",
+    "crates/services/src/agentic/runtime/service/decision_loop/cognition/mod.rs",
+    "crates/services/src/agentic/runtime/service/queue/processing/web_pipeline/",
+    "apps/autopilot/openvscode-extension/ioi-workbench/extension.js",
+    "apps/autopilot/openvscode-extension/ioi-workbench/studio/operational-surface.js"
+  ],
+  "monolithAudit": [
+    {
+      "path": "apps/autopilot/openvscode-extension/ioi-workbench/extension.js",
+      "lines": 14253,
+      "classification": "refactor_required_when_touched",
+      "note": "Still the largest UI integration file; no new core harness semantics should be added here."
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/service/decision_loop/cognition/mod.rs",
+      "lines": 1534,
+      "classification": "watch",
+      "note": "Below the 2000-line campaign threshold but still dense; split when touching loop orchestration/finalization."
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/service/queue/processing/web_pipeline/search/planning/support.rs",
+      "lines": 1441,
+      "classification": "watch",
+      "note": "Candidate/source recovery naming should stay clearly non-answer-authoring."
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/trajectory.rs",
+      "lines": 866,
+      "classification": "acceptable_after_stage_1_patch",
+      "note": "Contains trajectory, workspace change records, brain record, and run-brain artifact index; split if it grows beyond roughly 1200 LOC."
+    }
+  ]
+}

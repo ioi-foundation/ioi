@@ -9,6 +9,8 @@ use std::collections::BTreeMap;
 
 pub const AGENT_TRAJECTORY_STEP_SCHEMA_VERSION: &str = "ioi.agent.trajectory.step.v1";
 pub const AGENT_BRAIN_SCHEMA_VERSION: &str = "ioi.agent.brain.v1";
+pub const AGENT_RUN_BRAIN_ARTIFACT_INDEX_SCHEMA_VERSION: &str =
+    "ioi.agent.run_brain_artifact_index.v1";
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 #[serde(default)]
@@ -181,6 +183,54 @@ impl Default for AgentBrainRecord {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+#[serde(default)]
+pub struct AgentRunBrainArtifactIndexRecord {
+    pub schema_version: String,
+    pub session_id: String,
+    pub objective: String,
+    pub step_index: u32,
+    pub status: String,
+    pub implementation_plan_ref: String,
+    pub task_checklist_ref: String,
+    pub walkthrough_ref: String,
+    pub scratch_refs: Vec<String>,
+    pub artifact_refs: Vec<String>,
+    pub replay_cursor: String,
+    pub trajectory_ref: String,
+    pub substrate_ref: String,
+    pub state_ref: String,
+    pub transcript_root: String,
+    pub evidence_refs: Vec<EvidenceRef>,
+    pub updated_at_ms: u64,
+    pub read_only: bool,
+}
+
+impl Default for AgentRunBrainArtifactIndexRecord {
+    fn default() -> Self {
+        Self {
+            schema_version: AGENT_RUN_BRAIN_ARTIFACT_INDEX_SCHEMA_VERSION.to_string(),
+            session_id: String::new(),
+            objective: String::new(),
+            step_index: 0,
+            status: String::new(),
+            implementation_plan_ref: String::new(),
+            task_checklist_ref: String::new(),
+            walkthrough_ref: String::new(),
+            scratch_refs: Vec::new(),
+            artifact_refs: Vec::new(),
+            replay_cursor: String::new(),
+            trajectory_ref: String::new(),
+            substrate_ref: String::new(),
+            state_ref: String::new(),
+            transcript_root: String::new(),
+            evidence_refs: Vec::new(),
+            updated_at_ms: 0,
+            read_only: false,
+        }
+    }
+}
+
 pub fn trajectory_step_record_for_state(
     state: &AgentState,
     snapshot: &RuntimeSubstrateSnapshot,
@@ -240,6 +290,44 @@ pub fn brain_record_for_state(
             AgentStatus::Completed(_) | AgentStatus::Failed(_) | AgentStatus::Terminated
         ),
         ..AgentBrainRecord::default()
+    }
+}
+
+pub fn run_brain_artifact_index_for_state(
+    state: &AgentState,
+    snapshot: &RuntimeSubstrateSnapshot,
+    updated_at_ms: u64,
+) -> AgentRunBrainArtifactIndexRecord {
+    let session_id = hex::encode(state.session_id);
+    let step_index = state.step_count;
+    let artifact_refs = workspace_changes_for_state(state)
+        .into_iter()
+        .map(|change| change.change_id)
+        .filter(|change_id| !change_id.trim().is_empty())
+        .collect::<Vec<_>>();
+
+    AgentRunBrainArtifactIndexRecord {
+        session_id: session_id.clone(),
+        objective: state.goal.clone(),
+        step_index,
+        status: status_name(&state.status),
+        implementation_plan_ref: format!("agent_brain:{session_id}:implementation_plan"),
+        task_checklist_ref: format!("agent_brain:{session_id}:task_checklist"),
+        walkthrough_ref: format!("agent_brain:{session_id}:walkthrough"),
+        scratch_refs: vec![format!("agent_scratch:{session_id}:step:{step_index}")],
+        artifact_refs,
+        replay_cursor: format!("{session_id}:{step_index}:{}", snapshot.turn_state.turn_id),
+        trajectory_ref: format!("agent_trajectory:{session_id}:{step_index}"),
+        substrate_ref: format!("agent_runtime_substrate:{session_id}:{step_index}"),
+        state_ref: format!("agent_state:{session_id}"),
+        transcript_root: hex::encode(state.transcript_root),
+        evidence_refs: snapshot.turn_state.evidence_refs.clone(),
+        updated_at_ms,
+        read_only: matches!(
+            state.status,
+            AgentStatus::Completed(_) | AgentStatus::Failed(_) | AgentStatus::Terminated
+        ),
+        ..AgentRunBrainArtifactIndexRecord::default()
     }
 }
 

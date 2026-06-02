@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.implementation-refs.v1",
+  "stage": 2,
+  "refs": [
+    {
+      "path": "crates/services/src/agentic/runtime/service/queue/support/pipeline/facts.rs",
+      "symbols": [
+        "final_web_completion_retry_feedback",
+        "final_web_completion_contract_ready",
+        "select_final_web_summary_from_candidates"
+      ],
+      "reason": "Shared answer-boundary facts now produce retry feedback from contract observations without authoring product answers."
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs",
+      "symbols": [
+        "AgentTool::ChatReply pending_search_completion branch"
+      ],
+      "reason": "Rejected model-authored web replies now return validator feedback into the model/tool/result/model loop and keep the agent running."
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/service/queue/support/synthesis/grounded_answer.rs",
+      "symbols": [
+        "synthesize_web_pipeline_reply_direct_contract_retry"
+      ],
+      "reason": "Direct retry synthesis uses the shared answer-boundary feedback helper instead of a private duplicate."
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/service/queue/support/pipeline/completion/tests_parts/rendered_summary_quality.rs",
+      "symbols": [
+        "final_web_completion_retry_feedback_reports_actionable_gaps_without_answering"
+      ],
+      "reason": "Focused guardrail proves retry feedback is actionable and does not include legacy product-answer scaffolding."
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.scenario.v1",
+  "campaign": "autopilot-agent-runtime-parity-plus",
+  "stage": 3,
+  "name": "Editor hunk workflow",
+  "createdAtUtc": "2026-06-02T01:22:13Z",
+  "objective": "Make hunk review state daemon-derived and cross-client consumable without mutating the durable WorkspaceChangeRecord encoding.",
+  "scope": [
+    "derive accept/reject availability for proposed and approval-pending hunks",
+    "derive rollback availability for applied hunks",
+    "detect stale hunks when current workspace content no longer matches recorded hunk material",
+    "expose derived review state through the runtime bridge inspect contract"
+  ],
+  "nonGoals": [
+    "no GUI hunk review closure in this support slice",
+    "no change to persisted WorkspaceChangeRecord SCALE layout",
+    "no broad filesystem catalogue retest"
+  ]
+}

@@ -1,0 +1,4 @@
+{"timestampUtc":"2026-06-02T01:22:13Z","event":"support_proof","command":"cargo test -p ioi-services hunk_review_state_tracks_accept_reject_stale_and_rollback --lib","result":"pass","testsPassed":1}
+{"timestampUtc":"2026-06-02T01:22:13Z","event":"support_proof","command":"cargo test -p ioi-services agentic::runtime::workspace_change::tests --lib","result":"pass","testsPassed":13}
+{"timestampUtc":"2026-06-02T01:22:13Z","event":"support_proof","command":"cargo test -p ioi-node --features local-mode --bin ioi-runtime-bridge inspect -- --nocapture","result":"pass","testsPassed":0,"filteredTests":35}
+{"timestampUtc":"2026-06-02T01:22:13Z","event":"support_proof","command":"git diff --check","result":"pass"}

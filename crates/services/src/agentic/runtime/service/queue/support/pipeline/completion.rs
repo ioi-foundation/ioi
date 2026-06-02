@@ -3,9 +3,9 @@ use super::*;
 #[allow(unused_imports)]
 pub(crate) use super::facts::{
     final_web_completion_contract_ready, final_web_completion_facts,
-    final_web_completion_facts_with_rendered_summary, select_final_web_summary_from_candidates,
-    FinalWebCompletionFacts, FinalWebSummaryCandidate, FinalWebSummaryCandidateEvaluation,
-    FinalWebSummarySelection,
+    final_web_completion_facts_with_rendered_summary, final_web_completion_retry_feedback,
+    select_final_web_summary_from_candidates, FinalWebCompletionFacts, FinalWebSummaryCandidate,
+    FinalWebSummaryCandidateEvaluation, FinalWebSummarySelection,
 };
 #[cfg(test)]
 use super::facts::{

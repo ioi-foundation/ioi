@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.progress-manifest.v1",
+  "campaign": "autopilot-agent-runtime-parity-plus",
+  "target": "agent_runtime_parity_plus_proven",
+  "status": "in_progress",
+  "generatedAtUtc": "2026-06-02T01:22:13Z",
+  "stageRows": [
+    {
+      "stage": 0,
+      "name": "Baseline import and gap tracker",
+      "classification": "supporting_pass",
+      "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-0-baseline/stage-verdict.json"
+    },
+    {
+      "stage": 1,
+      "name": "Trajectory and brain substrate",
+      "classification": "headless_pass",
+      "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-1-trajectory-brain/stage-verdict.json",
+      "remainingProof": "Live GUI replay/restart proof before P0 closure."
+    },
+    {
+      "stage": 2,
+      "name": "Model/tool/result/model loop native",
+      "classification": "supporting_pass",
+      "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-2-model-tool-result-loop/stage-verdict.json",
+      "remainingProof": "Live Agent Studio repair-loop proof before P0 closure."
+    },
+    {
+      "stage": 3,
+      "name": "Editor hunk workflow",
+      "classification": "supporting_pass",
+      "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-3-editor-hunk-workflow/stage-verdict.json",
+      "remainingProof": "Live GUI hunk accept/reject/rollback/stale proof before P0 closure."
+    }
+  ],
+  "p0Rows": [
+    {"id":"ARP-P0-001","classification":"headless_pass","remaining":"live GUI replay/reconnect proof"},
+    {"id":"ARP-P0-002","classification":"headless_pass","remaining":"live run-brain artifact display/replay proof"},
+    {"id":"ARP-P0-003","classification":"supporting_pass","remaining":"live Agent Studio repair-loop proof for rejected web final answer"},
+    {"id":"ARP-P0-004","classification":"supporting_pass","remaining":"editor hunk proposal live proof"},
+    {"id":"ARP-P0-005","classification":"supporting_pass","remaining":"accept/reject/rollback/stale live proof"},
+    {"id":"ARP-P0-006","classification":"partial_unproven","remaining":"cancel/recover live and headless proof"},
+    {"id":"ARP-P0-007","classification":"partial_unproven","remaining":"stop-hook failing test repair proof"},
+    {"id":"ARP-P0-008","classification":"partial_unproven","remaining":"policy lease proof"},
+    {"id":"ARP-P0-009","classification":"partial_unproven","remaining":"sandbox hardening proof"},
+    {"id":"ARP-P0-010","classification":"partial_unproven","remaining":"retained shell lifecycle proof"},
+    {"id":"ARP-P0-011","classification":"partial_unproven","remaining":"managed browser/computer replay proof"},
+    {"id":"ARP-P0-012","classification":"partial_unproven","remaining":"delegation trajectory recovery proof"},
+    {"id":"ARP-P0-013","classification":"partial_unproven","remaining":"replay/reconnect proof"},
+    {"id":"ARP-P0-014","classification":"partial_unproven","remaining":"product boundary leak audit"},
+    {"id":"ARP-P0-015","classification":"partial_unproven","remaining":"cross-client daemon ownership proof"}
+  ],
+  "currentBlockers": [],
+  "nextStage": "Stage 4 policy lease and sandbox runtime."
+}

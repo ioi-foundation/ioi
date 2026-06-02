@@ -779,31 +779,6 @@ async fn run_visible_direct_synthesis(
     visible_direct_answer_from_raw(&answer, pending)
 }
 
-fn direct_contract_retry_feedback(facts: &FinalWebCompletionFacts) -> Vec<&'static str> {
-    let mut feedback = Vec::new();
-    if !facts.answer_legacy_source_cluster_headers_absent {
-        feedback.push("remove retrieval scaffolding and story-style labels");
-    }
-    if !facts.evidence_citation_read_backing_floor_met
-        || !facts.single_snapshot_rendered_read_backed_url_floor_met
-    {
-        feedback.push("cite the read sources that support the answer");
-    }
-    if !facts.evidence_selected_source_identifier_coverage_floor_met {
-        feedback.push("tie cited sources to the named subject or asset they support");
-    }
-    if facts.market_quote_grounding_required && !facts.market_quote_grounding_floor_met {
-        feedback.push("use explicit live market values only from evidence text for the same asset");
-    }
-    if facts.comparison_required && !facts.comparison_ready {
-        feedback.push("answer the comparison directly instead of listing sources only");
-    }
-    if feedback.is_empty() {
-        feedback.push("rewrite the answer naturally using only the supplied evidence");
-    }
-    feedback
-}
-
 async fn synthesize_web_pipeline_reply_direct_contract_retry(
     service: &RuntimeAgentService,
     pending: &PendingSearchCompletion,
@@ -813,7 +788,7 @@ async fn synthesize_web_pipeline_reply_direct_contract_retry(
 ) -> Option<String> {
     let query = synthesis_query_contract(pending);
     let source_context = direct_source_context_from_pending(pending)?;
-    let feedback = direct_contract_retry_feedback(facts).join("; ");
+    let feedback = final_web_completion_retry_feedback(facts).join("; ");
     let prompt = format!(
         "/no_think\n\
 The previous final answer reached the runtime answer boundary but did not pass it. \

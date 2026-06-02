@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.source-requirements.v1",
+  "stage": 0,
+  "requirements": [
+    {
+      "id": "ARP-P0-001",
+      "source": "internal-docs/reverse-engineering/antigravity/clean-room/trajectory-schema.md",
+      "requirement": "Durable trajectory state must survive restart/reconnect and replay without duplicate side effects."
+    },
+    {
+      "id": "ARP-P0-002",
+      "source": "internal-docs/reverse-engineering/antigravity/antigravity-brain-memory-architecture.md",
+      "requirement": "Active run brain must include implementation plan, task checklist, walkthrough, scratch references, artifact references, and replay cursor."
+    },
+    {
+      "id": "ARP-P0-003",
+      "source": ".internal/plans/autopilot-agent-runtime-parity-plus-master-guide.md",
+      "requirement": "Model/tool/result/model loops own cognition; deterministic code may enforce, normalize, receipt, replay, and validate but may not author product answers."
+    }
+  ]
+}

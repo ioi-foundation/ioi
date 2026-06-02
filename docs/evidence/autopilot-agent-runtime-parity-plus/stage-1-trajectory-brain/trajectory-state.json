@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.trajectory-state.v1",
+  "supportProof": {
+    "stateCheckpoint": "desktop.agent_state.v1",
+    "substrateCheckpoint": "desktop.agent_runtime_substrate.v1",
+    "trajectoryCheckpoint": "desktop.agent_trajectory.latest.v1",
+    "brainCheckpoint": "desktop.agent_brain.v1",
+    "runBrainArtifactIndexCheckpoint": "desktop.agent_run_brain_artifact_index.v1"
+  },
+  "validatedFields": [
+    "AgentTrajectoryStepRecord.session_id",
+    "AgentTrajectoryStepRecord.step_index",
+    "AgentTrajectoryStepRecord.phase",
+    "AgentTrajectoryStepRecord.pending_tool",
+    "AgentTrajectoryStepRecord.tool_events",
+    "AgentTrajectoryStepRecord.workspace_changes",
+    "AgentTrajectoryStepRecord.stop_gate.continuation",
+    "AgentTrajectoryStepRecord.stop_gate.replayable",
+    "AgentBrainRecord.implementation_plan_md",
+    "AgentBrainRecord.task_md",
+    "AgentBrainRecord.walkthrough_md",
+    "AgentRunBrainArtifactIndexRecord.implementation_plan_ref",
+    "AgentRunBrainArtifactIndexRecord.task_checklist_ref",
+    "AgentRunBrainArtifactIndexRecord.walkthrough_ref",
+    "AgentRunBrainArtifactIndexRecord.replay_cursor",
+    "AgentRunBrainArtifactIndexRecord.artifact_refs"
+  ]
+}

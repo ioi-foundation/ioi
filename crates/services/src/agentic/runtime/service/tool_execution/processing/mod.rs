@@ -49,9 +49,10 @@ use crate::agentic::runtime::service::policy::load_action_rules_for_session;
 use crate::agentic::runtime::service::queue::web_pipeline::{
     append_final_web_completion_receipts_with_rendered_summary,
     append_pending_web_success_fallback, append_pending_web_success_from_bundle,
-    final_web_completion_facts_with_rendered_summary, is_human_challenge_error,
-    mark_pending_web_attempted, mark_pending_web_blocked, parse_web_evidence_bundle,
-    remaining_pending_web_candidates, web_pipeline_completion_reason, web_pipeline_now_ms,
+    final_web_completion_facts_with_rendered_summary, final_web_completion_retry_feedback,
+    is_human_challenge_error, mark_pending_web_attempted, mark_pending_web_blocked,
+    parse_web_evidence_bundle, remaining_pending_web_candidates, web_pipeline_completion_reason,
+    web_pipeline_now_ms,
 };
 use crate::agentic::runtime::service::recovery::anti_loop::{
     build_attempt_key, build_post_state_summary, build_state_summary, choose_routing_tier,
