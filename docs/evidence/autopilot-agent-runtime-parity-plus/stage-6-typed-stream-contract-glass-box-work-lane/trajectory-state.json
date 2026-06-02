@@ -1,0 +1,53 @@
+{
+  "append_only": true,
+  "brain_ref": "agent_brain:48b1adf662c022099927e355b6824f3aa32526aa0cc47cf9144758e9d34c9d66",
+  "child_session_ids": [],
+  "created_at_ms": 1780366496598,
+  "event_kinds": [
+    "decision_loop_recorded",
+    "prompt_assembly_recorded",
+    "session_trace_bundle_recorded",
+    "stop_condition_recorded",
+    "strategy_decision_recorded",
+    "task_state_projected",
+    "turn_state_recorded",
+    "uncertainty_assessed"
+  ],
+  "last_action_type": null,
+  "objective": "Call one safe runtime step and report the typed stream contract state.",
+  "parent_session_id": null,
+  "pending_tool": null,
+  "phase": "context_prepared",
+  "policy_ref": "65b62a73f1f084083c68787ad811d1825b8c325d5ea7169b1b50d04aeb95a31d",
+  "redaction_profile": "internal_summary",
+  "schema_version": "ioi.agent.trajectory.step.v1",
+  "session_id": "48b1adf662c022099927e355b6824f3aa32526aa0cc47cf9144758e9d34c9d66",
+  "state_ref": "agent_state:48b1adf662c022099927e355b6824f3aa32526aa0cc47cf9144758e9d34c9d66",
+  "status": "paused",
+  "step_index": 0,
+  "stop_gate": {
+    "continuation": "await_operator_or_policy",
+    "created_at_ms": 1780366496598,
+    "evidence_refs": [
+      {
+        "kind": "agent_status",
+        "reference": "paused:48b1adf662c022099927e355b6824f3aa32526aa0cc47cf9144758e9d34c9d66",
+        "summary": ""
+      }
+    ],
+    "evidence_sufficient": false,
+    "rationale": "Waiting for intent clarification",
+    "reason": "uncertainty_requires_human",
+    "replayable": true,
+    "schema_version": "ioi.agent.stop_gate.v1",
+    "session_id": "48b1adf662c022099927e355b6824f3aa32526aa0cc47cf9144758e9d34c9d66",
+    "step_index": 0,
+    "terminal_state": false,
+    "turn_id": "step:0"
+  },
+  "substrate_ref": "agent_runtime_substrate:48b1adf662c022099927e355b6824f3aa32526aa0cc47cf9144758e9d34c9d66:0",
+  "tool_events": [],
+  "transcript_root": "c5ccf033ac760e395e298c230a40132d93e91d91812f10dea7a582bca8dc50ef",
+  "turn_id": "step:0",
+  "workspace_changes": []
+}

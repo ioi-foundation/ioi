@@ -1,0 +1,9 @@
+{
+  "completion_blocked": false,
+  "feedback": [],
+  "latest_validation": null,
+  "replay_cursor_step": 0,
+  "schema_version": "ioi.runtime.stop_hook.v1",
+  "session_id": "48b1adf662c022099927e355b6824f3aa32526aa0cc47cf9144758e9d34c9d66",
+  "status": "not_applicable"
+}

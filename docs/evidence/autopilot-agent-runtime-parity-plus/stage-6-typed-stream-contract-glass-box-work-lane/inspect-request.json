@@ -1,0 +1,1 @@
+{"schema_version":"ioi.runtime.bridge.command.v1","bridge_id":"stage6-bridge","operation":"inspect_thread","input":{"thread_id":"thread_stage6_stream_contract","session_id":"48b1adf662c022099927e355b6824f3aa32526aa0cc47cf9144758e9d34c9d66","workspace_root":"/tmp/ioi-stage6-workspace.z3pLy1"}}

@@ -1,0 +1,1 @@
+{"schemaVersion":"ioi.agent-runtime-parity-plus.latency.v1","capturedAt":"2026-06-02T02:17:06Z","headlessReplayEventCount":5,"notes":"The headless probe was bounded to a small runtime step and used persisted bridge state only."}

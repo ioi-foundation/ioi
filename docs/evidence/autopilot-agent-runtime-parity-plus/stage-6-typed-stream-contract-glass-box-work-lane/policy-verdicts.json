@@ -1,0 +1,34 @@
+{
+  "default_policy": "require_approval",
+  "leases": [
+    {
+      "authority_status": null,
+      "expires_at_ms": null,
+      "kind": "default_permissions",
+      "lease_id": "policy:48b1adf662c022099927e355b6824f3aa32526aa0cc47cf9144758e9d34c9d66:default-safe",
+      "max_usages": null,
+      "notes": [
+        "default_policy=require_approval"
+      ],
+      "remaining_ms": null,
+      "scope": "session_effective_policy",
+      "source": "action_rules",
+      "status": "active"
+    }
+  ],
+  "pending_gate": null,
+  "permission_mode": "default_permissions",
+  "policy_id": "default-safe",
+  "sandbox": {
+    "env_log_policy": "redact_sensitive_values",
+    "filesystem_boundary": "workspace_scoped",
+    "ignored_file_policy": "protect_ignored_files",
+    "network_policy": "approval_required_by_default",
+    "output_policy": "bounded_and_redacted_output",
+    "symlink_policy": "reject_escape",
+    "timeout_policy": "bounded_action_timeout",
+    "workspace_root": "/tmp/ioi-stage6-workspace.z3pLy1"
+  },
+  "schema_version": "ioi.runtime.policy_lease.v1",
+  "session_id": "48b1adf662c022099927e355b6824f3aa32526aa0cc47cf9144758e9d34c9d66"
+}

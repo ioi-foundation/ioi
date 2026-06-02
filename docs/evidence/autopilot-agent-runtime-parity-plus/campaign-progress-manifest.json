@@ -3,7 +3,7 @@
   "campaign": "autopilot-agent-runtime-parity-plus",
   "target": "agent_runtime_parity_plus_proven",
   "status": "in_progress",
-  "generatedAtUtc": "2026-06-02T02:00:45Z",
+  "generatedAtUtc": "2026-06-02T02:15:10Z",
   "stageRows": [
     {
       "stage": 0,
@@ -45,6 +45,14 @@
       "classification": "headless_pass",
       "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-5-stop-cancel-recover-stop-hook/stage-verdict.json",
       "remainingProof": "Live GUI stop/cancel/recover, process-tree cleanup, and failing-test repair-loop proof before P0 closure."
+    },
+    {
+      "stage": 6,
+      "name": "Typed stream contract and glass-box work lane",
+      "classification": "cross_client_pass",
+      "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-6-typed-stream-contract-glass-box-work-lane/stage-verdict.json",
+      "supportingEvidence": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/glass-box-work-lane-final-manifest.json",
+      "remainingProof": "Live GUI reload-from-persisted-events proof can be hardened during integrated soak."
     }
   ],
   "p0Rows": [
@@ -61,8 +69,8 @@
     {"id":"ARP-P0-011","classification":"partial_unproven","remaining":"managed browser/computer replay proof"},
     {"id":"ARP-P0-012","classification":"partial_unproven","remaining":"delegation trajectory recovery proof"},
     {"id":"ARP-P0-013","classification":"supporting_pass","remaining":"resume/replay cursor proof after process restart and side-effect replay avoidance"},
-    {"id":"ARP-P0-014","classification":"partial_unproven","remaining":"product boundary leak audit"},
-    {"id":"ARP-P0-015","classification":"partial_unproven","remaining":"cross-client daemon ownership proof"}
+    {"id":"ARP-P0-014","classification":"live_pass","remaining":"monitor during integrated soak; no current product boundary leak blocker"},
+    {"id":"ARP-P0-015","classification":"cross_client_pass","remaining":"harden CLI/TUI display adapters during integrated soak if those surfaces are enabled"}
   ],
   "currentBlockers": [
     {
@@ -73,5 +81,5 @@
       "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-5-stop-cancel-recover-stop-hook/failure-analysis.md"
     }
   ],
-  "nextStage": "Stage 6 typed stream contract and glass-box work lane."
+  "nextStage": "Stage 7 delegation and subagent lanes."
 }

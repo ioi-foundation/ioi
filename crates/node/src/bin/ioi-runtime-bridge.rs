@@ -2080,6 +2080,13 @@ struct TtiEventInput<'a> {
 }
 
 fn tti_event(input: TtiEventInput<'_>) -> Value {
+    let payload_summary = runtime_bridge_events::product_projection_for_event(
+        input.event_kind,
+        input.status,
+        input.actor,
+        input.component_kind,
+        &input.payload,
+    );
     json!({
         "event_stream_id": format!("{}:events", input.thread_id),
         "thread_id": input.thread_id,
@@ -2096,6 +2103,9 @@ fn tti_event(input: TtiEventInput<'_>) -> Value {
         "component_kind": input.component_kind,
         "workflow_node_id": input.workflow_node_id,
         "payload_schema_version": input.payload_schema_version,
+        "product_projection_schema_version": runtime_bridge_events::PRODUCT_EVENT_PROJECTION_SCHEMA_VERSION,
+        "payload_detail_visibility": "runs_tracing",
+        "payload_summary": payload_summary,
         "payload": input.payload,
         "fixture_profile": Value::Null,
     })
@@ -3163,6 +3173,16 @@ mod tests {
         assert_eq!(event["source"], "runtime_service");
         assert_eq!(event["fixture_profile"], Value::Null);
         assert_eq!(event["event_stream_id"], "thread_a:events");
+        assert_eq!(
+            event["product_projection_schema_version"],
+            runtime_bridge_events::PRODUCT_EVENT_PROJECTION_SCHEMA_VERSION
+        );
+        assert_eq!(event["payload_detail_visibility"], "runs_tracing");
+        assert_eq!(event["payload_summary"]["visibility"], "work_lane");
+        assert_eq!(
+            event["payload_summary"]["schema_version"],
+            runtime_bridge_events::PRODUCT_EVENT_PROJECTION_SCHEMA_VERSION
+        );
     }
 
     #[test]

@@ -1,0 +1,102 @@
+[
+  {
+    "event_kind": "turn.started",
+    "status": "running",
+    "component_kind": "runtime_turn",
+    "product_projection_schema_version": "ioi.runtime.event.product_projection.v1",
+    "payload_detail_visibility": "runs_tracing",
+    "payload_summary": {
+      "actor": "user",
+      "component_kind": "runtime_turn",
+      "event_kind": "turn.started",
+      "headline": "turn started",
+      "payload_detail_visibility": "runs_tracing",
+      "schema_version": "ioi.runtime.event.product_projection.v1",
+      "source_refs": [],
+      "status": "running",
+      "summary": "Call one safe runtime step and report the typed stream contract state.",
+      "tool_name": null,
+      "visibility": "work_lane"
+    }
+  },
+  {
+    "event_kind": "tool.completed",
+    "status": "completed",
+    "component_kind": "tool_result",
+    "product_projection_schema_version": "ioi.runtime.event.product_projection.v1",
+    "payload_detail_visibility": "runs_tracing",
+    "payload_summary": {
+      "actor": "tool",
+      "component_kind": "tool_result",
+      "event_kind": "tool.completed",
+      "headline": "Used system::intent clarification",
+      "payload_detail_visibility": "runs_tracing",
+      "schema_version": "ioi.runtime.event.product_projection.v1",
+      "source_refs": [],
+      "status": "completed",
+      "summary": "System: WAIT_FOR_INTENT_CLARIFICATION. Intent confidence is too low to proceed safely. Please clarify the requested outcome.",
+      "tool_name": "system::intent_clarification",
+      "visibility": "product_chat"
+    }
+  },
+  {
+    "event_kind": "turn.started",
+    "status": "running",
+    "component_kind": "runtime_turn",
+    "product_projection_schema_version": "ioi.runtime.event.product_projection.v1",
+    "payload_detail_visibility": "runs_tracing",
+    "payload_summary": {
+      "actor": "user",
+      "component_kind": "runtime_turn",
+      "event_kind": "turn.started",
+      "headline": "turn started",
+      "payload_detail_visibility": "runs_tracing",
+      "schema_version": "ioi.runtime.event.product_projection.v1",
+      "source_refs": [],
+      "status": "running",
+      "summary": "Call one safe runtime step and report the typed stream contract state.",
+      "tool_name": null,
+      "visibility": "work_lane"
+    }
+  },
+  {
+    "event_kind": "turn.completed",
+    "status": "blocked",
+    "component_kind": "runtime_turn",
+    "product_projection_schema_version": "ioi.runtime.event.product_projection.v1",
+    "payload_detail_visibility": "runs_tracing",
+    "payload_summary": {
+      "actor": "runtime",
+      "component_kind": "runtime_turn",
+      "event_kind": "turn.completed",
+      "headline": "turn completed",
+      "payload_detail_visibility": "runs_tracing",
+      "schema_version": "ioi.runtime.event.product_projection.v1",
+      "source_refs": [],
+      "status": "blocked",
+      "summary": "Waiting for intent clarification",
+      "tool_name": null,
+      "visibility": "work_lane"
+    }
+  },
+  {
+    "event_kind": "tool.completed",
+    "status": "completed",
+    "component_kind": "tool_result",
+    "product_projection_schema_version": "ioi.runtime.event.product_projection.v1",
+    "payload_detail_visibility": "runs_tracing",
+    "payload_summary": {
+      "actor": "tool",
+      "component_kind": "tool_result",
+      "event_kind": "tool.completed",
+      "headline": "Used system::intent clarification",
+      "payload_detail_visibility": "runs_tracing",
+      "schema_version": "ioi.runtime.event.product_projection.v1",
+      "source_refs": [],
+      "status": "completed",
+      "summary": "System: WAIT_FOR_INTENT_CLARIFICATION. Intent confidence is too low to proceed safely. Please clarify the requested outcome.",
+      "tool_name": "system::intent_clarification",
+      "visibility": "product_chat"
+    }
+  }
+]

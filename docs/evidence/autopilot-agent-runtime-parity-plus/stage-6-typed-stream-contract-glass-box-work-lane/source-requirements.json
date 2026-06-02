@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.requirements.v1",
+  "stage": 6,
+  "requirements": [
+    {"id":"S6-R1","source":"master-guide","requirement":"Events are versioned and typed for thinking/reasoning, answer deltas, tool lifecycle, policy, browser/computer, artifacts, metrics, cleanup, and final answer."},
+    {"id":"S6-R2","source":"master-guide","requirement":"Product chat receives a safe projection; Runs/Tracing receives full detail."},
+    {"id":"S6-R3","source":"master-guide","requirement":"Replay uses the same event stream."},
+    {"id":"S6-R4","source":"master-guide","requirement":"Collapsed work lane remains Worked for Xs; expanded lane is glass-boxed and source-rich."},
+    {"id":"S6-R5","source":"master-guide","requirement":"ARP-P0-014 and ARP-P0-015 reach live_pass or cross_client_pass."}
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.trace_refs.v1",
+  "refs": [
+    "docs/evidence/autopilot-agent-runtime-parity-plus/stage-6-typed-stream-contract-glass-box-work-lane/submit-stream-response.jsonl",
+    "docs/evidence/autopilot-agent-runtime-parity-plus/stage-6-typed-stream-contract-glass-box-work-lane/headless-replay-events.json",
+    "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/proof.json"
+  ],
+  "productBoundary": "payload_summary is product-safe; payload remains runs/tracing detail."
+}

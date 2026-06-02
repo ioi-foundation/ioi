@@ -3,7 +3,9 @@ use serde_json::{json, Value};
 
 const EVENT_SCHEMA_VERSION: &str = "ioi.runtime.event.v1";
 const KERNEL_EVENT_PAYLOAD_SCHEMA_VERSION: &str = "ioi.runtime.kernel-event.v1";
+pub const PRODUCT_EVENT_PROJECTION_SCHEMA_VERSION: &str = "ioi.runtime.event.product_projection.v1";
 const BRIDGE_EVENT_TEXT_PREVIEW_BYTES: usize = 4096;
+const PRODUCT_TEXT_PREVIEW_BYTES: usize = 640;
 
 pub struct RuntimeBridgeEventContext<'a> {
     pub thread_id: &'a str,
@@ -176,6 +178,21 @@ fn compact_text(text: &str) -> String {
     )
 }
 
+fn compact_product_text(text: &str) -> String {
+    compact_text_to_bytes(text, PRODUCT_TEXT_PREVIEW_BYTES)
+}
+
+fn compact_text_to_bytes(text: &str, max_bytes: usize) -> String {
+    if text.len() <= max_bytes {
+        return text.to_string();
+    }
+    let mut end = max_bytes;
+    while end > 0 && !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}...[truncated]", &text[..end])
+}
+
 fn compact_json_value(value: Value) -> Value {
     match value {
         Value::String(text) if text.len() > BRIDGE_EVENT_TEXT_PREVIEW_BYTES => json!({
@@ -191,6 +208,212 @@ fn compact_json_value(value: Value) -> Value {
         ),
         other => other,
     }
+}
+
+fn string_field<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
+    value
+        .get(key)?
+        .as_str()
+        .filter(|text| !text.trim().is_empty())
+}
+
+fn tool_label(tool_name: &str) -> String {
+    tool_name
+        .trim()
+        .trim_start_matches("agent__")
+        .trim_start_matches("browser__")
+        .trim_start_matches("file__")
+        .trim_start_matches("shell__")
+        .replace("__", " ")
+        .replace(['_', '-'], " ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn product_visibility(event_kind: &str, component_kind: &str) -> &'static str {
+    let kind = event_kind.to_ascii_lowercase();
+    let component = component_kind.to_ascii_lowercase();
+    if kind.starts_with("answer.")
+        || kind.starts_with("reasoning.")
+        || kind.starts_with("tool.")
+        || kind.starts_with("approval.")
+        || kind.starts_with("policy.")
+        || kind.starts_with("browser.")
+        || kind.starts_with("computer.")
+        || kind.starts_with("artifact.")
+    {
+        return "product_chat";
+    }
+    if component.contains("receipt")
+        || kind.starts_with("receipt.")
+        || kind.ends_with(".route_decision")
+    {
+        return "runs_tracing";
+    }
+    "work_lane"
+}
+
+fn source_refs_from_payload(payload: &Value) -> Vec<Value> {
+    let mut refs = Vec::new();
+    collect_source_refs(payload, &mut refs, 0);
+    refs.truncate(6);
+    refs
+}
+
+fn collect_source_refs(value: &Value, refs: &mut Vec<Value>, depth: usize) {
+    if depth > 8 || refs.len() >= 6 {
+        return;
+    }
+    match value {
+        Value::String(text) => {
+            if text.trim_start().starts_with('{') || text.trim_start().starts_with('[') {
+                if let Ok(parsed) = serde_json::from_str::<Value>(text) {
+                    collect_source_refs(&parsed, refs, depth + 1);
+                }
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                collect_source_refs(item, refs, depth + 1);
+                if refs.len() >= 6 {
+                    break;
+                }
+            }
+        }
+        Value::Object(map) => {
+            let url = map
+                .get("url")
+                .or_else(|| map.get("href"))
+                .or_else(|| map.get("link"))
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .trim();
+            let title = map
+                .get("title")
+                .or_else(|| map.get("name"))
+                .or_else(|| map.get("label"))
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .trim();
+            if !url.is_empty() || !title.is_empty() {
+                let domain = map
+                    .get("domain")
+                    .or_else(|| map.get("hostname"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .trim()
+                    .trim_start_matches("www.");
+                let excerpt = map
+                    .get("excerpt")
+                    .or_else(|| map.get("snippet"))
+                    .or_else(|| map.get("summary"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .trim();
+                refs.push(json!({
+                    "title": compact_product_text(title),
+                    "domain": compact_product_text(domain),
+                    "url": url,
+                    "excerpt": compact_product_text(excerpt),
+                    "state": "used",
+                }));
+            }
+            for key in [
+                "sources",
+                "source_refs",
+                "sourceRefs",
+                "documents",
+                "results",
+                "citations",
+                "items",
+                "payload",
+                "output",
+                "preview",
+            ] {
+                if let Some(next) = map.get(key) {
+                    collect_source_refs(next, refs, depth + 1);
+                }
+                if refs.len() >= 6 {
+                    break;
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+pub fn product_projection_for_event(
+    event_kind: &str,
+    status: &str,
+    actor: &str,
+    component_kind: &str,
+    payload: &Value,
+) -> Value {
+    let tool_name = string_field(payload, "tool_name").unwrap_or("");
+    let readable_tool = if tool_name.is_empty() {
+        String::new()
+    } else {
+        tool_label(tool_name)
+    };
+    let headline = match event_kind {
+        "reasoning.delta" => "Thinking".to_string(),
+        "answer.delta" => "Streaming final answer".to_string(),
+        "tool.completed" => {
+            if readable_tool.is_empty() {
+                "Tool completed".to_string()
+            } else {
+                format!("Used {}", readable_tool)
+            }
+        }
+        "tool.failed" => {
+            if readable_tool.is_empty() {
+                "Tool failed".to_string()
+            } else {
+                format!("{} failed", readable_tool)
+            }
+        }
+        "approval.required" => "Approval required".to_string(),
+        "policy.blocked" => "Policy blocked an action".to_string(),
+        "receipt.emitted" => "Runtime receipt recorded".to_string(),
+        "model.route_decision" => "Model route selected".to_string(),
+        "tool.route_decision" => "Tool route selected".to_string(),
+        _ => event_kind.replace(['.', '_'], " "),
+    };
+    let mut summary = String::new();
+    if let Some(query) = string_field(payload, "query") {
+        summary = format!("query: {}", compact_product_text(query));
+    } else if let Some(url) = string_field(payload, "url") {
+        summary = compact_product_text(url);
+    } else if let Some(output) = string_field(payload, "output") {
+        summary = compact_product_text(output);
+    } else if let Some(result) = string_field(payload, "result") {
+        summary = compact_product_text(result);
+    } else if let Some(message) = string_field(payload, "message") {
+        summary = compact_product_text(message);
+    } else if let Some(existing_summary) = string_field(payload, "summary") {
+        summary = compact_product_text(existing_summary);
+    } else if let Some(prompt) = string_field(payload, "prompt") {
+        summary = compact_product_text(prompt);
+    } else if let Some(error) = string_field(payload, "error_class") {
+        summary = compact_product_text(error);
+    } else if let Some(delta) = string_field(payload, "delta") {
+        summary = compact_product_text(delta);
+    }
+    let source_refs = source_refs_from_payload(payload);
+    json!({
+        "schema_version": PRODUCT_EVENT_PROJECTION_SCHEMA_VERSION,
+        "visibility": product_visibility(event_kind, component_kind),
+        "event_kind": event_kind,
+        "status": status,
+        "actor": actor,
+        "component_kind": component_kind,
+        "tool_name": if tool_name.is_empty() { Value::Null } else { Value::String(tool_name.to_string()) },
+        "headline": headline,
+        "summary": summary,
+        "source_refs": source_refs,
+        "payload_detail_visibility": "runs_tracing",
+    })
 }
 
 fn workload_receipt_to_tti_event(
@@ -289,6 +512,8 @@ fn runtime_kernel_event(
     event_key: String,
     payload: Value,
 ) -> Value {
+    let payload_summary =
+        product_projection_for_event(event_kind, status, actor, component_kind, &payload);
     json!({
         "event_stream_id": format!("{}:events", context.thread_id),
         "thread_id": context.thread_id,
@@ -310,6 +535,9 @@ fn runtime_kernel_event(
         "component_kind": component_kind,
         "workflow_node_id": workflow_node_id,
         "payload_schema_version": KERNEL_EVENT_PAYLOAD_SCHEMA_VERSION,
+        "product_projection_schema_version": PRODUCT_EVENT_PROJECTION_SCHEMA_VERSION,
+        "payload_detail_visibility": "runs_tracing",
+        "payload_summary": payload_summary,
         "payload": payload,
         "schema_version": EVENT_SCHEMA_VERSION,
         "fixture_profile": Value::Null,
@@ -441,6 +669,16 @@ mod tests {
         assert_eq!(mapped["payload"]["session_id"], hex::encode(session_id));
         assert_eq!(mapped["payload"]["delta"], "final answer");
         assert_eq!(mapped["fixture_profile"], Value::Null);
+        assert_eq!(
+            mapped["payload_summary"]["schema_version"],
+            PRODUCT_EVENT_PROJECTION_SCHEMA_VERSION
+        );
+        assert_eq!(mapped["payload_summary"]["visibility"], "product_chat");
+        assert_eq!(
+            mapped["payload_summary"]["headline"],
+            "Streaming final answer"
+        );
+        assert_eq!(mapped["payload_detail_visibility"], "runs_tracing");
     }
 
     #[test]
@@ -466,6 +704,33 @@ mod tests {
             mapped["payload"]["error_class"],
             "permission_or_approval_required"
         );
+        assert_eq!(mapped["payload_summary"]["tool_name"], "shell__run");
+        assert_eq!(mapped["payload_summary"]["headline"], "run failed");
+    }
+
+    #[test]
+    fn product_projection_extracts_source_refs_without_kernel_payload() {
+        let event = KernelEvent::AgentActionResult {
+            session_id: [8u8; 32],
+            step_index: 2,
+            tool_name: "web__search".to_string(),
+            output: r#"{"sources":[{"title":"Akash price today","url":"https://example.test/akt","snippet":"AKT market data excerpt"}]}"#.to_string(),
+            error_class: None,
+            agent_status: "Running".to_string(),
+        };
+        let mapped = kernel_event_to_tti_event(&event, &context()).expect("mapped event");
+        let projection = &mapped["payload_summary"];
+        assert_eq!(projection["visibility"], "product_chat");
+        assert_eq!(projection["tool_name"], "web__search");
+        assert_eq!(projection["source_refs"][0]["title"], "Akash price today");
+        assert_eq!(
+            projection["source_refs"][0]["excerpt"],
+            "AKT market data excerpt"
+        );
+        let projection_text = serde_json::to_string(projection).expect("projection json");
+        assert!(!projection_text.contains("kernel_event"));
+        assert!(!projection_text.contains("session_id"));
+        assert!(!projection_text.contains("receipt_ref"));
     }
 
     #[test]
@@ -542,5 +807,10 @@ mod tests {
         assert_eq!(mapped["payload"]["receipt_kind"], "exec");
         assert_eq!(mapped["payload"]["tool_name"], "shell__run");
         assert_eq!(mapped["payload"]["success"], true);
+        assert_eq!(mapped["payload_summary"]["visibility"], "runs_tracing");
+        assert_eq!(
+            mapped["payload_summary"]["headline"],
+            "Runtime receipt recorded"
+        );
     }
 }
