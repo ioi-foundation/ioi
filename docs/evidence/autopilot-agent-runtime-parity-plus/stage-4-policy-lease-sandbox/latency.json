@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.latency.v1",
+  "stage": 4,
+  "bridgeProbe": {
+    "startThread": "subsecond",
+    "inspectThread": "subsecond"
+  },
+  "notes": "No model inference was invoked for this support proof."
+}

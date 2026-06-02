@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.scenario.v1",
+  "stage": 4,
+  "name": "Policy lease and sandbox runtime support proof",
+  "classification": "headless_pass",
+  "createdAtUtc": "2026-06-02T01:39:00Z",
+  "objective": "Expose daemon-owned policy lease, pending gate, approval grant, and sandbox posture state through the shared runtime bridge without changing product answer behavior.",
+  "mode": "headless_support",
+  "disposableFixtures": {
+    "workspace": "/tmp/ioi-agent-runtime-policy-lease.*",
+    "dataDir": "/tmp/ioi-agent-runtime-policy-lease.*/data",
+    "cleanup": "removed after bridge inspect probe"
+  },
+  "remainingLiveProof": [
+    "Agent Studio GUI policy menu proof for Default permissions, Auto-review, and Full access.",
+    "Approval allow-once, deny, revoke, and expiry proof through live Agent run.",
+    "Sandbox symlink, sibling escape, ignored-file, default network deny, env redaction, timeout, and output cap live proof."
+  ]
+}

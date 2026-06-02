@@ -1,0 +1,7 @@
+{"schemaVersion":"ioi.agent-runtime-parity-plus.receipts.v1","receipt":"cargo fmt --package ioi-services --package ioi-node","status":"passed"}
+{"schemaVersion":"ioi.agent-runtime-parity-plus.receipts.v1","receipt":"cargo test -p ioi-services policy_lease_snapshot --lib","status":"passed","tests":"2/2"}
+{"schemaVersion":"ioi.agent-runtime-parity-plus.receipts.v1","receipt":"cargo test -p ioi-node --features local-mode runtime_control_policy --bin ioi-runtime-bridge -- --nocapture","status":"passed","tests":"2/2"}
+{"schemaVersion":"ioi.agent-runtime-parity-plus.receipts.v1","receipt":"cargo test -p ioi-services workspace_filesystem --lib","status":"passed","tests":"2/2"}
+{"schemaVersion":"ioi.agent-runtime-parity-plus.receipts.v1","receipt":"cargo test -p ioi-node --features local-mode inspect --bin ioi-runtime-bridge -- --nocapture","status":"passed","tests":"0/0 compiled"}
+{"schemaVersion":"ioi.agent-runtime-parity-plus.receipts.v1","receipt":"cargo build -p ioi-node --features local-mode --bin ioi-runtime-bridge","status":"passed"}
+{"schemaVersion":"ioi.agent-runtime-parity-plus.receipts.v1","receipt":"git diff --check","status":"passed"}

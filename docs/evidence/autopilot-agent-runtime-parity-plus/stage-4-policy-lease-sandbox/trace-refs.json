@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.trace-refs.v1",
+  "stage": 4,
+  "refs": [
+    "headless_bridge:policy-lease-proof:start_thread",
+    "headless_bridge:policy-lease-proof:inspect_thread",
+    "cargo_test:ioi_services:policy_lease_snapshot",
+    "cargo_test:ioi_services:workspace_filesystem",
+    "cargo_test:ioi_node:runtime_control_policy"
+  ]
+}

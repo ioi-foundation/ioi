@@ -3,7 +3,7 @@
   "campaign": "autopilot-agent-runtime-parity-plus",
   "target": "agent_runtime_parity_plus_proven",
   "status": "in_progress",
-  "generatedAtUtc": "2026-06-02T01:22:13Z",
+  "generatedAtUtc": "2026-06-02T01:39:00Z",
   "stageRows": [
     {
       "stage": 0,
@@ -31,6 +31,13 @@
       "classification": "supporting_pass",
       "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-3-editor-hunk-workflow/stage-verdict.json",
       "remainingProof": "Live GUI hunk accept/reject/rollback/stale proof before P0 closure."
+    },
+    {
+      "stage": 4,
+      "name": "Policy lease and sandbox runtime",
+      "classification": "headless_pass",
+      "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-4-policy-lease-sandbox/stage-verdict.json",
+      "remainingProof": "Live GUI policy lease proof and live sandbox effect probes before P0 closure."
     }
   ],
   "p0Rows": [
@@ -41,8 +48,8 @@
     {"id":"ARP-P0-005","classification":"supporting_pass","remaining":"accept/reject/rollback/stale live proof"},
     {"id":"ARP-P0-006","classification":"partial_unproven","remaining":"cancel/recover live and headless proof"},
     {"id":"ARP-P0-007","classification":"partial_unproven","remaining":"stop-hook failing test repair proof"},
-    {"id":"ARP-P0-008","classification":"partial_unproven","remaining":"policy lease proof"},
-    {"id":"ARP-P0-009","classification":"partial_unproven","remaining":"sandbox hardening proof"},
+    {"id":"ARP-P0-008","classification":"headless_pass","remaining":"live GUI proof for allow-once, deny, revoke, and expiry"},
+    {"id":"ARP-P0-009","classification":"supporting_pass","remaining":"live sandbox effect probes for symlink/sibling escape, ignored files, network deny, env redaction, timeout, and output caps"},
     {"id":"ARP-P0-010","classification":"partial_unproven","remaining":"retained shell lifecycle proof"},
     {"id":"ARP-P0-011","classification":"partial_unproven","remaining":"managed browser/computer replay proof"},
     {"id":"ARP-P0-012","classification":"partial_unproven","remaining":"delegation trajectory recovery proof"},
@@ -51,5 +58,5 @@
     {"id":"ARP-P0-015","classification":"partial_unproven","remaining":"cross-client daemon ownership proof"}
   ],
   "currentBlockers": [],
-  "nextStage": "Stage 4 policy lease and sandbox runtime."
+  "nextStage": "Stage 5 stop, cancel, recover, and stop hook."
 }

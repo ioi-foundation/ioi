@@ -1,0 +1,7 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.side-effects.v1",
+  "stage": 4,
+  "workspaceFixture": "removed",
+  "dataFixture": "removed",
+  "hostMutation": "none outside disposable /tmp fixture and build artifacts"
+}

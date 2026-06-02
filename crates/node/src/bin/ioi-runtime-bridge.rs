@@ -23,6 +23,7 @@ use ioi_services::agentic::runtime::keys::{
     get_agent_brain_key, get_agent_run_brain_artifact_index_key, get_agent_trajectory_step_key,
     get_runtime_substrate_key, get_state_key, AGENT_POLICY_PREFIX,
 };
+use ioi_services::agentic::runtime::policy_lease::policy_lease_snapshot_for_state;
 use ioi_services::agentic::runtime::service::decision_loop::helpers::default_safe_policy;
 use ioi_services::agentic::runtime::trajectory::{
     AgentBrainRecord, AgentRunBrainArtifactIndexRecord, AgentTrajectoryStepRecord,
@@ -330,6 +331,22 @@ fn runtime_controls_request_full_access(request: &Value, options: &Value) -> boo
         || matches!(thread_mode.as_deref(), Some("yolo") | Some("never_prompt"))
 }
 
+fn runtime_controls_request_auto_review(request: &Value, options: &Value) -> bool {
+    let approval_mode = runtime_control_string(request, &["approvalMode", "approval_mode"])
+        .or_else(|| runtime_control_string(options, &["approvalMode", "approval_mode"]))
+        .map(|value| normalize_runtime_control_value(&value));
+    let thread_mode = runtime_control_string(request, &["threadMode", "thread_mode", "mode"])
+        .or_else(|| runtime_control_string(options, &["threadMode", "thread_mode", "mode"]))
+        .map(|value| normalize_runtime_control_value(&value));
+    matches!(
+        approval_mode.as_deref(),
+        Some("suggest") | Some("auto_review") | Some("auto-review")
+    ) || matches!(
+        thread_mode.as_deref(),
+        Some("suggest") | Some("auto_review") | Some("auto-review")
+    )
+}
+
 fn runtime_control_policy(request: &Value, options: &Value) -> Option<ActionRules> {
     if !runtime_controls_present(request, options) {
         return None;
@@ -341,7 +358,13 @@ fn runtime_control_policy(request: &Value, options: &Value) -> Option<ActionRule
             ..ActionRules::default()
         });
     }
-    Some(default_safe_policy())
+    let mut policy = default_safe_policy();
+    policy.policy_id = if runtime_controls_request_auto_review(request, options) {
+        "runtime-bridge-auto-review".to_string()
+    } else {
+        "runtime-bridge-default-permissions".to_string()
+    };
+    Some(policy)
 }
 
 fn bridge_object_field<'a>(value: &'a Value, keys: &[&str]) -> Option<&'a Value> {
@@ -1252,6 +1275,28 @@ impl BridgeRuntime {
         Ok(())
     }
 
+    fn load_runtime_policy_for_session(&self, session_id: [u8; 32]) -> Result<ActionRules> {
+        if let Some(bytes) = self
+            .state
+            .get(&runtime_policy_key(session_id))
+            .context("failed to read session runtime policy")?
+        {
+            return codec::from_bytes_canonical::<ActionRules>(&bytes)
+                .map_err(|error| anyhow!("failed to decode session runtime policy: {error}"));
+        }
+
+        if let Some(bytes) = self
+            .state
+            .get(&runtime_policy_key([0u8; 32]))
+            .context("failed to read global runtime policy")?
+        {
+            return codec::from_bytes_canonical::<ActionRules>(&bytes)
+                .map_err(|error| anyhow!("failed to decode global runtime policy: {error}"));
+        }
+
+        Ok(default_safe_policy())
+    }
+
     async fn start_thread(&mut self, bridge_id: &str, input: StartThreadInput) -> Result<Value> {
         let session_id = start_session_id(&input.request)?;
         self.apply_runtime_control_policy(session_id, &input.request, &input.options)?;
@@ -1708,6 +1753,17 @@ impl BridgeRuntime {
                 )
             })
             .unwrap_or_default();
+        let effective_policy = self.load_runtime_policy_for_session(session_id)?;
+        let policy_leases = policy_lease_snapshot_for_state(
+            &self.state,
+            session_id,
+            &effective_policy,
+            &state.status,
+            &state.working_directory,
+            &state.pending_action_state(),
+            unix_millis(),
+        )
+        .map_err(|error| anyhow!("failed to derive runtime policy lease snapshot: {error}"))?;
 
         Ok(json!({
             "bridge_id": bridge_id,
@@ -1729,6 +1785,7 @@ impl BridgeRuntime {
             },
             "latest_trajectory": trajectory,
             "workspace_change_reviews": workspace_change_reviews,
+            "policy_leases": policy_leases,
             "brain": brain,
             "run_brain_artifact_index": run_brain_artifact_index,
             "runtime_substrate": runtime_substrate,
@@ -2929,7 +2986,7 @@ mod tests {
             &Value::Null,
         )
         .expect("policy override");
-        assert_eq!(policy.policy_id, "default-safe");
+        assert_eq!(policy.policy_id, "runtime-bridge-auto-review");
         assert_eq!(policy.defaults, DefaultPolicy::RequireApproval);
     }
 

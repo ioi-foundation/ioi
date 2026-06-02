@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.stage-verdict.v1",
+  "stage": 4,
+  "name": "Policy lease and sandbox runtime",
+  "classification": "headless_pass",
+  "p0Rows": [
+    {
+      "id": "ARP-P0-008",
+      "classification": "headless_pass",
+      "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-4-policy-lease-sandbox/",
+      "remaining": "live GUI proof for allow-once, deny, revoke, and expiry"
+    },
+    {
+      "id": "ARP-P0-009",
+      "classification": "supporting_pass",
+      "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-4-policy-lease-sandbox/",
+      "remaining": "live sandbox effect probes for symlink/sibling escape, ignored files, network deny, env redaction, timeout, and output caps"
+    }
+  ],
+  "verdict": "Stage 4 now has daemon/headless policy lease observability and focused sandbox-boundary support tests. It does not yet close the live GUI and live effect proof required for final parity-plus."
+}

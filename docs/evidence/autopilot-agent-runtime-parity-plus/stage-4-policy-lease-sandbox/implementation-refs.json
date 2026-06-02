@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.implementation-refs.v1",
+  "stage": 4,
+  "refs": [
+    {
+      "path": "crates/services/src/agentic/runtime/policy_lease.rs",
+      "summary": "New daemon/shared runtime policy lease snapshot: effective permission mode, base policy lease, approval grant/allow-once lease, pending gate, and sandbox posture."
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/mod.rs",
+      "summary": "Exports the policy_lease module to shared runtime consumers."
+    },
+    {
+      "path": "crates/node/src/bin/ioi-runtime-bridge.rs",
+      "summary": "Preserves auto-review/default/full-access policy provenance, reloads effective runtime policy, and emits policy_leases from inspect_thread."
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/service/handler/execution/execution/firewall_policy.rs",
+      "summary": "Existing action boundary enforces approval grant and workspace filesystem boundary before effects."
+    },
+    {
+      "path": "crates/services/src/agentic/policy/filesystem.rs",
+      "summary": "Existing workspace boundary and policy augmentation logic covered by focused tests."
+    }
+  ]
+}
