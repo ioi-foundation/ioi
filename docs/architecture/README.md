@@ -4,7 +4,7 @@ Status: canonical navigation and source-of-authority index.
 Canonical owner: this file for architecture navigation; see [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) for subject ownership.
 Supersedes: ad hoc architecture navigation in plans/specs when links or ownership disagree.
 Superseded by: none.
-Last alignment pass: 2026-05-30.
+Last alignment pass: 2026-06-01.
 
 ## Purpose
 
@@ -35,6 +35,7 @@ Autopilot Node = local autonomous-system settlement and interop domain
 Autopilot Workbench = IDE-grade operator console
 Electron/VS Code fork = canonical app shell
 IOI Authority Gateway = compatibility adapter profile for existing IDEs/agents
+Private Workspace backed by cTEE = user-facing private workspace for persistent untrusted GPU nodes; Plaintext-Free Runtime Mounting is the daemon boundary; CLPD is the default protected-agency strategy
 Workers/models/tools/connectors = guest workloads/capabilities
 Policy/receipts/replay = trust and audit substrate
 ```
@@ -68,6 +69,14 @@ Read the stack this way:
 - IOI daemon/runtime nodes act as the autonomous-execution hypervisor/control
   plane, supervising workers, workflows, tools, models, connectors, computer-use
   leases, artifacts, policy, receipts, and replay;
+- Private Workspace backed by cTEE lets remote/persistent rented GPU nodes
+  provide Autopilot compute and persistence while private files, PII, strategy
+  logic, credentials, and action authority stay out of provider-readable
+  plaintext by default; Candidate-Lattice Private Decoding lets the node
+  generate candidates while private heads select or deny outside node custody;
+  Plaintext-Free Runtime Mounting keeps tools and models limited to
+  public/redacted projections, encrypted refs, private handles, and capability
+  exits;
 - Autopilot nodes coordinate many governed autonomous-system chains, route work
   between them, manage local authority and receipts, and anchor selected roots
   upward when public trust or settlement requires it;
@@ -106,6 +115,15 @@ Agentgres should not be read as "state stored as Filecoin blobs." Agentgres is
 the state machine, query substrate, and artifact-ref authority; storage backends
 are payload byte stores beneath Agentgres-governed refs.
 
+Private state should not be read as "agent state only." Private user/app state
+such as profile metadata, app preferences, workspace snapshots, service intake
+forms, private outputs, and non-public managed-instance metadata may be stored
+as encrypted payload bytes in storage backends, while Agentgres owns refs,
+policy, receipts, state roots, and restore/import validity. wallet.network
+authorizes viewing/decryption/mutation. IOI L1 receives selected public,
+economic, rights, dispute, registry, and cross-domain commitments, not private
+application databases.
+
 These documents should be treated as architectural authority prose. They are
 not implementation tickets, but they should constrain implementation choices,
 naming, product boundaries, and future specs.
@@ -143,13 +161,14 @@ distilled back into this architecture pack or into an accepted decision record.
 - [`agentgres/artifact-ref-plane.md`](./components/agentgres/artifact-ref-plane.md) — ArtifactRef, PayloadRef, EvidenceBundle, DeliveryBundle, AgentStateArchive refs, lifecycle, authority, receipts, and restore validity.
 - [`agentgres/postgres-bridge-and-readiness-contract.md`](./components/agentgres/postgres-bridge-and-readiness-contract.md) — Postgres bridge posture, consistency levels, durability/readiness contract.
 - [`daemon-runtime/doctrine.md`](./components/daemon-runtime/doctrine.md) — universal execution endpoint for local, hosted, and DePIN nodes.
+- [`daemon-runtime/private-workspace-ctee.md`](./components/daemon-runtime/private-workspace-ctee.md) — Private Workspace backed by cTEE for persistent rented GPU Autopilot nodes, Candidate-Lattice Private Decoding, private files/folders, private strategy execution, autonomy leases, declassification gates, and no-plaintext protected classes.
+- [`daemon-runtime/runtime-nodes-tee-depin.md`](./components/daemon-runtime/runtime-nodes-tee-depin.md) — local/hosted/DePIN/TEE execution modes.
 - [`wallet-network/doctrine.md`](./components/wallet-network/doctrine.md) — identity, secrets, authority scopes, approvals, payments.
 - [`domains/aiagent/worker-marketplace.md`](./domains/aiagent/worker-marketplace.md) — worker marketplace, managed instances, and routing application domain.
 - [`domains/sas/service-marketplace.md`](./domains/sas/service-marketplace.md) — Service-as-Software outcome marketplace application domain.
 - [`domains/ioi-ai/control-plane.md`](./domains/ioi-ai/control-plane.md) — lightweight account, device, restore, publishing, and remote-runtime control plane.
 - [`storage-backends/doctrine.md`](./components/storage-backends/doctrine.md) — storage backends as payload byte stores below Agentgres-governed artifact refs.
 - [`storage-backends/filecoin-cas.md`](./components/storage-backends/filecoin-cas.md) — Filecoin/CAS/IPFS as one content-addressed storage backend profile.
-- [`daemon-runtime/runtime-nodes-tee-depin.md`](./components/daemon-runtime/runtime-nodes-tee-depin.md) — local/hosted/DePIN/TEE execution modes.
 - [`model-router/doctrine.md`](./components/model-router/doctrine.md) — model registry, BYOK, local mounting, run-to-idle compute.
 - [`connectors-tools/doctrine.md`](./components/connectors-tools/doctrine.md) — typed tools, connector authority, risk classes.
 - [`domains/marketplace-neutrality.md`](./domains/marketplace-neutrality.md) — anti-cannibalization doctrine, contribution receipts, attribution.
@@ -201,6 +220,7 @@ supporting file.
 | Domain Kernel | Application-domain authority/runtime deployment for Agentgres and routing. |
 | Agentgres | Per-domain canonical operational state, receipts, projections, quality, and contribution accounting. |
 | IOI Daemon / Runtime Node | Hypervisor/control plane for autonomous execution across workflows, workers, tools, models, connectors, computer-use leases, artifacts, policy, receipts, and replay. |
+| Private Workspace backed by cTEE | User-facing private workspace and daemon execution profile for persistent rented GPU nodes that run useful compute without receiving protected plaintext by default; Plaintext-Free Runtime Mounting is the daemon boundary, CLPD is the default protected-agency strategy, and deterrence/detection receipts support canaries, watermarks, and disputes. |
 | IOI CLI/TUI | Human terminal and TUI operator client over daemon/public runtime APIs. |
 | IOI SDK | Low-level protocol/client library over daemon, Agentgres, wallet.network, AIIP, and IOI L1 contracts; never the canonical execution owner. |
 | IOI ADK | Autonomous development kit for building workers, service modules, harnesses, evals, manifests, receipts, deployment profiles, and governed autonomous systems. |

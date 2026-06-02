@@ -329,6 +329,64 @@ fn pending_state_has_visible_start_gate(pending_browser_state_context: &str) -> 
         .contains("visible start gate")
 }
 
+fn browser_observation_has_page_snapshot(browser_observation_context: &str) -> bool {
+    browser_observation_context.contains("RECENT BROWSER OBSERVATION:")
+        && (browser_observation_context.contains("IMPORTANT TARGETS:")
+            || browser_observation_context.contains(" tag=")
+            || browser_observation_context.contains(" tag_name=")
+            || browser_observation_context.contains(" selector=")
+            || browser_observation_context.contains(" dom_id="))
+}
+
+fn browser_context_ready_for_reply(
+    resolved_intent: Option<&ResolvedIntentState>,
+    browser_observation_context: &str,
+) -> bool {
+    if !browser_observation_has_page_snapshot(browser_observation_context) {
+        return false;
+    }
+
+    let Some(resolved) = resolved_intent else {
+        return false;
+    };
+    if !matches!(
+        resolved.scope,
+        IntentScopeProfile::UiInteraction | IntentScopeProfile::Unknown
+    ) {
+        return false;
+    }
+
+    if resolved
+        .instruction_contract
+        .as_ref()
+        .map(|contract| {
+            matches!(
+                contract.side_effect_mode,
+                ioi_types::app::agentic::InstructionSideEffectMode::None
+                    | ioi_types::app::agentic::InstructionSideEffectMode::ReadOnly
+            )
+        })
+        .unwrap_or(false)
+    {
+        return true;
+    }
+
+    let has_inspect_capability = resolved.required_capabilities.iter().any(|capability| {
+        matches!(
+            capability.as_str(),
+            "browser.inspect" | "ui.inspect" | "computer.inspect"
+        )
+    });
+    let has_mutating_browser_capability = resolved.required_capabilities.iter().any(|capability| {
+        matches!(
+            capability.as_str(),
+            "browser.interact" | "ui.interact" | "computer.use"
+        )
+    });
+
+    has_inspect_capability && !has_mutating_browser_capability
+}
+
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct CognitionToolRecovery {
     pub workspace_context_ready_for_reply: bool,
@@ -367,6 +425,11 @@ pub(crate) fn filter_cognition_tools_with_recovery(
         .map(|intent| intent.scope)
         .unwrap_or(IntentScopeProfile::Unknown);
     if !prefer_browser_semantics && recovery.web_context_ready_for_reply {
+        return compact_tool_subset(tools, |name| name == "chat__reply");
+    }
+    if prefer_browser_semantics
+        && browser_context_ready_for_reply(resolved_intent, browser_observation_context)
+    {
         return compact_tool_subset(tools, |name| name == "chat__reply");
     }
     if resolved_intent

@@ -279,6 +279,69 @@ impl InferenceRuntime for CurrentPublicFactRuntime {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+struct SourceBackedArtifactRuntime;
+
+#[async_trait]
+impl InferenceRuntime for SourceBackedArtifactRuntime {
+    async fn execute_inference(
+        &self,
+        _model_hash: [u8; 32],
+        input_context: &[u8],
+        _options: InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
+        let prompt = String::from_utf8_lossy(input_context).to_ascii_lowercase();
+        let query = query_from_input_context(input_context);
+        if prompt.contains("remote_public_fact_required")
+            && query.contains("photonic quantum computing")
+        {
+            return Ok(serde_json::json!({
+                "remote_public_fact_required": false,
+                "host_local_clock_targeted": false,
+                "command_directed": false,
+                "durable_automation_requested": false,
+                "model_registry_control_requested": false,
+                "app_launch_directed": false,
+                "direct_ui_input": false,
+                "desktop_screenshot_requested": false,
+                "temporal_filesystem_filter": false
+            })
+            .to_string()
+            .into_bytes());
+        }
+        Err(VmError::HostError("inference unavailable".to_string()))
+    }
+
+    async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
+        let lower = text.to_ascii_lowercase();
+        if lower.contains("create an html file about photonic quantum computing") {
+            return Ok(vec![1.0, 0.0, 0.0]);
+        }
+        if lower.contains("respond conversationally without executing external side effects") {
+            return Ok(vec![1.0, 0.0, 0.0]);
+        }
+        if lower.contains("inspect create and modify files in the local workspace") {
+            return Ok(vec![0.65, 0.35, 0.0]);
+        }
+        if lower.contains("research live information on the web") {
+            return Ok(vec![0.55, 0.0, 0.45]);
+        }
+        Ok(vec![0.0, 0.0, 0.0])
+    }
+
+    async fn load_model(
+        &self,
+        _model_hash: [u8; 32],
+        _path: &std::path::Path,
+    ) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+        Ok(())
+    }
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn resolver_never_emits_constrained_true() {
     let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
@@ -305,6 +368,66 @@ async fn resolver_never_emits_constrained_true() {
         .await
         .unwrap();
     assert!(!resolved.constrained);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolver_expands_source_backed_artifact_capabilities_even_when_ranker_prefers_reply() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(SourceBackedArtifactRuntime);
+    let service = RuntimeAgentService::new(gui, terminal, browser, inference);
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal =
+        "Create an HTML file about photonic quantum computing and use sources.".to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v18-source-backed-artifact-contract-capabilities".into();
+    rules.ontology_policy.intent_routing.intent_catalog = rules
+        .ontology_policy
+        .intent_routing
+        .intent_catalog
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry.intent_id.as_str(),
+                "conversation.reply" | "workspace.ops" | "web.research"
+            )
+        })
+        .cloned()
+        .collect();
+
+    let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+        .await
+        .unwrap();
+
+    assert_eq!(resolved.intent_id, "conversation.reply");
+    for capability in [
+        "conversation.reply",
+        "web.retrieve",
+        "sys.time.read",
+        "filesystem.read",
+        "filesystem.write",
+    ] {
+        assert!(
+            resolved
+                .required_capabilities
+                .iter()
+                .any(|required| required.as_str() == capability),
+            "missing query-contract capability {capability}"
+        );
+    }
+    assert!(is_tool_allowed_for_resolution(
+        Some(&resolved),
+        "web__search"
+    ));
+    assert!(is_tool_allowed_for_resolution(Some(&resolved), "web__read"));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&resolved),
+        "file__write"
+    ));
 }
 
 #[tokio::test(flavor = "current_thread")]

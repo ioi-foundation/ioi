@@ -4,7 +4,7 @@ Status: canonical reader entry point.
 Canonical owner: this file for first-read architecture orientation and role-based reading paths.
 Supersedes: ad hoc onboarding paths across architecture docs.
 Superseded by: none.
-Last alignment pass: 2026-05-30.
+Last alignment pass: 2026-06-01.
 
 ## Five-Minute Mental Model
 
@@ -30,16 +30,25 @@ wallet.network
   authorizes identity, secrets, approvals, payments, scopes, and decryption
 
 Agentgres
-  admits and proves operational truth
+  admits and proves operational truth for app, user, agent, and run state
 
 Agent Wiki / ioi-memory
   governs semantic memory, recall, wiki surfaces, and retrieval
 
 Agentgres artifact refs
-  define what payload bytes mean and how they bind to receipts, policy, and state
+  define what payload bytes mean and how they bind to receipts, policy,
+  authority, and state roots
 
 Storage backends
-  hold bytes: local disk, S3, Filecoin, CAS/IPFS, object stores, provider blobs
+  hold bytes: local disk, S3, Filecoin, CAS/IPFS, object stores, provider blobs;
+  private payloads are encrypted before storage
+
+Private Workspace backed by cTEE
+  lets users open a normal private workspace on persistent rented GPU
+  Autopilot nodes without exposing protected plaintext to the node by default;
+  Plaintext-Free Runtime Mounting is the daemon boundary for tools and models,
+  Candidate-Lattice Private Decoding is the default protected-agency strategy, and
+  deterrence/detection receipts support canaries, watermarks, and disputes
 
 AIIP
   moves bounded autonomous work across local, marketplace, enterprise, and
@@ -48,6 +57,22 @@ AIIP
 IOI L1 / compatible L1s
   settle selected public, economic, rights, dispute, registry, and cross-domain
   commitments
+```
+
+Private user/app state follows the same split as private agent state:
+
+```text
+wallet.network
+  authenticates, authorizes, and controls viewing/decryption leases
+
+Agentgres
+  records canonical meaning, refs, policy, receipts, and state roots
+
+storage backends
+  hold encrypted private profile, workspace, app, service, and metadata bytes
+
+IOI L1
+  receives only selected public/economic/cross-domain commitments
 ```
 
 The short version:
@@ -60,9 +85,11 @@ wallet.network authorizes.
 Agentgres admits truth.
 Agent Wiki remembers.
 Artifact refs define payload meaning.
-Storage holds bytes.
+Storage holds encrypted bytes.
+Private Workspace keeps protected plaintext off rented nodes.
+CLPD lets rented GPUs generate candidates while private heads select.
 AIIP moves work.
-L1 settles what matters.
+L1 settles selected public/economic commitments.
 ```
 
 ## Core Boundary Diagram
@@ -90,15 +117,23 @@ daemon-executed profiles.
 Start here:
 
 1. [`components/daemon-runtime/default-harness-profile.md`](./components/daemon-runtime/default-harness-profile.md)
-2. [`components/daemon-runtime/doctrine.md`](./components/daemon-runtime/doctrine.md)
-3. [`components/daemon-runtime/api.md`](./components/daemon-runtime/api.md)
-4. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](./components/daemon-runtime/events-receipts-delivery-bundles.md)
-5. [`../conformance/agentic-runtime/CIRC.md`](../conformance/agentic-runtime/CIRC.md)
-6. [`../conformance/agentic-runtime/CEC.md`](../conformance/agentic-runtime/CEC.md)
+2. [`components/daemon-runtime/private-workspace-ctee.md`](./components/daemon-runtime/private-workspace-ctee.md)
+3. [`components/daemon-runtime/runtime-nodes-tee-depin.md`](./components/daemon-runtime/runtime-nodes-tee-depin.md)
+4. [`components/daemon-runtime/doctrine.md`](./components/daemon-runtime/doctrine.md)
+5. [`components/daemon-runtime/api.md`](./components/daemon-runtime/api.md)
+6. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](./components/daemon-runtime/events-receipts-delivery-bundles.md)
+7. [`../conformance/agentic-runtime/CIRC.md`](../conformance/agentic-runtime/CIRC.md)
+8. [`../conformance/agentic-runtime/CEC.md`](../conformance/agentic-runtime/CEC.md)
 
 Build for: intent resolution, action proposals, policy/authority gates,
 execution, normalized observations, receipts, context topology, output
 ownership, and terminal-state conformance.
+
+For persistent cloud Autopilot on rented GPUs, build for Open Private
+Workspace, private workspace capsules, encrypted patches/blobs, no-plaintext
+protected classes, autonomy leases, cTEE guardians, declassification receipts,
+capability exits, and Candidate-Lattice Private Decoding as the default
+protected-agency path.
 
 ### Implementing Agentgres
 
@@ -207,9 +242,12 @@ Avoid these models:
 ```text
 Default Harness Profile = a peer runtime beside the daemon
 Autopilot Workbench = runtime truth
+Persistent rented GPU node = trusted private machine
 Agentgres = all memory or all payload bytes
 Agent Wiki / ioi-memory = canonical admitted truth
 Filecoin/CAS/S3/local disk = authority layer
+Boot measurement = consumer GPU privacy guarantee
+strategy source on rented node = protected strategy
 AIIP = separate bespoke protocol per app
 IOI L1 = execution database for every run
 aiagent.xyz -> sas.xyz = mandatory supply chain
@@ -227,6 +265,8 @@ Agentgres admits operational truth
 Agent Wiki / ioi-memory remembers and retrieves
 artifact refs bind payload meaning
 storage backends hold bytes
+Private Workspace backed by cTEE forbids protected plaintext on rented nodes
+Plaintext-Free Runtime Mounting exposes only public/redacted refs and private handles
 wallet.network authorizes
 AIIP moves bounded autonomous work
 L1 settles selected public/economic/cross-domain commitments

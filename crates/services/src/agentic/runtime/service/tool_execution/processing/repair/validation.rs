@@ -9,7 +9,11 @@ pub(crate) fn invalid_tool_repair_supported(
             .resolved_intent
             .as_ref()
             .map(|resolved| resolved.scope),
-        Some(IntentScopeProfile::WorkspaceOps | IntentScopeProfile::CommandExecution)
+        Some(
+            IntentScopeProfile::WorkspaceOps
+                | IntentScopeProfile::CommandExecution
+                | IntentScopeProfile::UiInteraction
+        )
     ) || worker_assignment
         .and_then(|assignment| assignment.workflow_id.as_deref())
         .map(str::trim)

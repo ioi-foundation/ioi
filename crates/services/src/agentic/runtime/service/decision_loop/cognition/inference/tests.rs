@@ -47,3 +47,19 @@ fn reply_only_cognition_gets_generation_budget_floor() {
         Duration::from_secs(30)
     );
 }
+
+#[test]
+fn no_content_stream_errors_are_retryable_runtime_conditions() {
+    assert!(inference_error_is_retryable_no_content(
+        "Host function error: OpenAI streaming response ended without content",
+    ));
+    assert!(inference_error_is_retryable_no_content(
+        "Local Ollama native chat ended without content",
+    ));
+
+    let reason = inference_error_system_fail_reason(
+        "Host function error: OpenAI streaming response ended without content",
+    );
+    assert!(reason.contains("ERROR_CLASS=RuntimeRetryable"));
+    assert!(!reason.contains("UserInterventionNeeded"));
+}

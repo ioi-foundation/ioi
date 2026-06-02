@@ -148,6 +148,51 @@ fn final_reply_product_handoff_reason_accepts_clean_test_handoff() {
 }
 
 #[test]
+fn final_reply_product_handoff_reason_flags_fixture_markers() {
+    let message = "The sandbox page contains TOOLCAT_BROWSER_CANARY content and a Tool Catalogue Fixture heading.";
+
+    assert_eq!(
+        super::final_reply_product_handoff_reason(
+            message,
+            "Open a sandbox browser, inspect this fixture page, and summarize what changed."
+        ),
+        Some("product_forbidden_marker")
+    );
+}
+
+#[test]
+fn product_handoff_sanitizer_strips_internal_browser_fixture_markers() {
+    let cleaned = super::sanitize_product_handoff_internal_markers(
+        "Sandbox browser opened and navigated to http://127.0.0.1:40027/ (Tool Catalogue Fixture). Page contains a TOOLCAT_BROWSER_CANARY marker, a toolcat file input, and a ready status.",
+    );
+
+    assert!(cleaned.contains("the disposable browser page"), "{cleaned}");
+    assert!(cleaned.contains("ready status"), "{cleaned}");
+    assert!(!cleaned.to_ascii_lowercase().contains("toolcat"), "{cleaned}");
+    assert!(!cleaned.contains("127.0.0.1"), "{cleaned}");
+    assert_eq!(
+        super::final_reply_product_handoff_reason(
+            &cleaned,
+            "Open a sandbox browser, inspect this fixture page, and summarize what changed."
+        ),
+        None
+    );
+}
+
+#[test]
+fn final_reply_product_handoff_reason_flags_temp_fixture_paths_even_for_raw_requests() {
+    let message = "Patched /tmp/autopilot-agent-studio-user-repo-abc/src/format.mjs and the raw stdout is below.";
+
+    assert_eq!(
+        super::final_reply_product_handoff_reason(
+            message,
+            "Show me the raw stdout from the focused test."
+        ),
+        Some("product_forbidden_marker")
+    );
+}
+
+#[test]
 fn final_reply_evidence_context_prefers_successful_relevant_tool_output() {
     let history = vec![
         chat_message(
@@ -171,6 +216,54 @@ fn final_reply_evidence_context_prefers_successful_relevant_tool_output() {
     assert!(context.contains("Stage 3"), "{context}");
     assert!(context.contains("Stage 4"), "{context}");
     assert!(!context.contains("NoEffectAfterAction"), "{context}");
+}
+
+#[test]
+fn final_reply_evidence_context_scopes_to_current_user_turn_first() {
+    let history = vec![
+        chat_message(
+            "user",
+            "Which is a better investment right now, Akash or Filecoin?",
+            1,
+        ),
+        chat_message(
+            "tool",
+            "Tool Output (web__read): Akash Network and Filecoin investment comparison with market data.",
+            2,
+        ),
+        chat_message(
+            "agent",
+            "Prior answer about Akash Network and Filecoin.",
+            3,
+        ),
+        chat_message(
+            "user",
+            "Call some tools and explore this repository, then summarize what you learned.",
+            4,
+        ),
+        chat_message(
+            "tool",
+            "/tmp/workspace/src/apiClient.mjs:1: export const API_BASE_URL = \"https://api.pawprint-orders.example/v1\";\n/tmp/workspace/src/format.mjs:1: export function formatOrderTotal(cents) {\n/tmp/workspace/tests/format.test.mjs:5: test(\"formats order totals as dollars\", () => {",
+            5,
+        ),
+        chat_message(
+            "tool",
+            "# Pawprint Orders\n\nPawprint Orders is a small customer-order dashboard.\n\n- `src/apiClient.mjs` configures the API base URL.\n- `src/format.mjs` formats order totals.\n- `tests/format.test.mjs` verifies the formatter.",
+            6,
+        ),
+    ];
+
+    let context = super::final_reply_evidence_context(
+        &history,
+        "Call some tools and explore this repository, then summarize what you learned.",
+        "fallback",
+    );
+
+    assert!(context.contains("Pawprint Orders"), "{context}");
+    assert!(context.contains("src/apiClient.mjs"), "{context}");
+    assert!(context.contains("formatOrderTotal"), "{context}");
+    assert!(!context.contains("Akash Network"), "{context}");
+    assert!(!context.contains("Filecoin"), "{context}");
 }
 
 #[test]
@@ -876,7 +969,7 @@ fn final_reply_evidence_contract_accepts_preserved_market_quote_metrics() {
 }
 
 #[test]
-fn final_reply_evidence_contract_rejects_stale_market_scale_metrics() {
+fn final_reply_evidence_contract_keeps_metric_coverage_without_scaled_dollar_veto() {
     let evidence = "Current market quote observations from tool results:\n\
 - Akash Network live USD price quote - CoinGecko | Akash Network live USD quote: price $0.788207 USD. market cap: $230.21M. 24h trading volume: $4.65M. 24h price change: -1.60%. | source: https://www.coingecko.com/en/coins/akash-network\n\
 - Filecoin live USD price quote - CoinGecko | Filecoin live USD quote: price $0.976086 USD. market cap: $768.08M. 24h trading volume: $83.59M. 24h price change: -2.82%. | source: https://www.coingecko.com/en/coins/filecoin";
@@ -888,7 +981,7 @@ fn final_reply_evidence_contract_rejects_stale_market_scale_metrics() {
             evidence,
             "Which is a better investment right now, Akash or Filecoin?",
         ),
-        Some("unsupported_market_quote_metric")
+        Some("omits_typed_market_quote_volumes")
     );
 }
 

@@ -1,0 +1,252 @@
+{
+  "schemaVersion": "ioi.autopilot-agent-studio.glass-box-work-lane.final-manifest.v1",
+  "campaign": "autopilot-agent-studio-glass-box-work-lane",
+  "target": "glass_box_work_lane_target_proven",
+  "status": "glass_box_work_lane_target_proven",
+  "generatedAt": "2026-06-01T20:06:24-04:00",
+  "primaryEvidenceRun": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z",
+  "primaryProof": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/proof.json",
+  "cleanupProof": [
+    "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/process-cleanup-after-run.json",
+    "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/user-workspace-fixture-cleanup.json",
+    "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/workspace-fixture-cleanup.json"
+  ],
+  "supportingEvidenceRuns": [
+    {
+      "run": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T22-34-05-573Z",
+      "classification": "fixed_then_pass",
+      "finding": "Managed browser/computer live session card was not rendered in the live projection path."
+    },
+    {
+      "run": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T22-49-16-425Z",
+      "classification": "fixed_then_pass",
+      "finding": "Managed session data existed in runtime state but was not preserved through public work-record projection."
+    },
+    {
+      "run": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-01-42-799Z",
+      "classification": "fixed_then_pass",
+      "finding": "Browser tool rows were visible but the streaming work-lane renderer did not synthesize the managed session artifact."
+    },
+    {
+      "run": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-23-03-610Z",
+      "classification": "fixed_then_pass",
+      "finding": "Managed session card and controls passed, then the run exposed missing live conversation-artifact projection."
+    },
+    {
+      "run": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-40-55-224Z",
+      "classification": "fixed_then_pass",
+      "finding": "Extension-host source-chip favicon rendering referenced a webview-only URL sanitizer and starved later streaming proof."
+    }
+  ],
+  "validatedScenarios": [
+    {
+      "id": "glass-box-current-investment-with-source-chips",
+      "prompt": "Which is a better investment right now, Akash or Filecoin?",
+      "classification": "source_rich_pass",
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/work-lane-expanded-00.png",
+        "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/agent-final-handoff-stream-live.png"
+      ]
+    },
+    {
+      "id": "glass-box-website-artifact",
+      "prompt": "Create a website that explains post-quantum computers.",
+      "classification": "artifact_pass",
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/conversation-artifact-compact.png",
+        "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/conversation-artifact-expanded.png",
+        "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/conversation-artifact-action-state.png",
+        "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/conversation-artifact-promoted-state.png"
+      ]
+    },
+    {
+      "id": "glass-box-sourced-html-artifact",
+      "prompt": "Create an HTML file about photonic quantum computing and use sources.",
+      "classification": "source_rich_pass",
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/work-lane-expanded-02.png"
+      ]
+    },
+    {
+      "id": "glass-box-user-repo-exploration",
+      "prompt": "Call some tools and explore this repository, then summarize what you learned.",
+      "classification": "streaming_pass",
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/work-lane-expanded-03.png"
+      ]
+    },
+    {
+      "id": "glass-box-disposable-test-repair",
+      "prompt": "Fix this failing test in the disposable repo and show me the patch.",
+      "classification": "ux_parity_pass",
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/work-lane-expanded-04.png"
+      ]
+    },
+    {
+      "id": "glass-box-browser-fixture-observation",
+      "prompt": "Open a sandbox browser, inspect this fixture page, and summarize what changed.",
+      "classification": "browser_session_pass",
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/work-lane-expanded-05.png",
+        "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/managed-session-compact.png",
+        "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/managed-session-expanded-observe.png",
+        "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/managed-session-take-over.png",
+        "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/managed-session-returned-to-agent.png"
+      ]
+    }
+  ],
+  "stageRows": [
+    {
+      "stage": 1,
+      "name": "Baseline inventory",
+      "classification": "supporting_pass",
+      "evidence": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/proof.json"
+    },
+    {
+      "stage": 2,
+      "name": "Event schema and runtime boundary",
+      "classification": "headless_pass",
+      "evidence": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/daemon-runtime-trace-summary.json"
+    },
+    {
+      "stage": 3,
+      "name": "Minimal collapsed summary",
+      "classification": "ux_parity_pass",
+      "evidence": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/work-lane-expanded-00.png"
+    },
+    {
+      "stage": 4,
+      "name": "Expanded tool timeline",
+      "classification": "ux_parity_pass",
+      "evidence": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/work-lane-expanded-03.png"
+    },
+    {
+      "stage": 5,
+      "name": "Source-rich web rows",
+      "classification": "source_rich_pass",
+      "evidence": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/work-lane-expanded-00.png"
+    },
+    {
+      "stage": 6,
+      "name": "Thought preview stream",
+      "classification": "thought_preview_pass",
+      "evidence": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/pending-worklog-live.png"
+    },
+    {
+      "stage": 7,
+      "name": "Final answer streaming and markdown",
+      "classification": "markdown_pass",
+      "evidence": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/agent-final-handoff-stream-live.png"
+    },
+    {
+      "stage": 8,
+      "name": "Artifact and source streaming",
+      "classification": "artifact_pass",
+      "evidence": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/conversation-artifact-expanded.png"
+    },
+    {
+      "stage": 9,
+      "name": "Browser and computer rows",
+      "classification": "browser_session_pass",
+      "evidence": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/managed-session-expanded-observe.png"
+    },
+    {
+      "stage": 10,
+      "name": "Metrics and footer actions",
+      "classification": "ux_parity_pass",
+      "evidence": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/assistant-response.png"
+    },
+    {
+      "stage": 11,
+      "name": "Visual parity and hardening",
+      "classification": "live_pass",
+      "evidence": "apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs"
+    },
+    {
+      "stage": 12,
+      "name": "Product proof matrix",
+      "classification": "live_pass",
+      "evidence": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/proof.json"
+    },
+    {
+      "stage": 13,
+      "name": "Regression guard",
+      "classification": "supporting_pass",
+      "evidence": "apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs"
+    }
+  ],
+  "leakAudit": {
+    "hiddenCotLeak": false,
+    "traceLeak": false,
+    "rawPayloadLeak": false,
+    "fixtureLeak": false,
+    "rawLeakSamples": [],
+    "consoleErrorCount": 0,
+    "evidence": [
+      "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/proof.json",
+      "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z/console-logs.json"
+    ]
+  },
+  "fixes": [
+    {
+      "summary": "Preserved and projected managed browser/computer session cards through the public work-record boundary.",
+      "files": [
+        "apps/autopilot/openvscode-extension/ioi-workbench/studio-work-summary.js",
+        "apps/autopilot/openvscode-extension/ioi-workbench/studio/operational-surface.js",
+        "apps/autopilot/openvscode-extension/ioi-workbench/extension.js",
+        "apps/autopilot/openvscode-extension/ioi-workbench/studio/studio-panel-html.js"
+      ]
+    },
+    {
+      "summary": "Added live conversation artifact card projection so streaming turns expose compact and expanded deliverables without refresh.",
+      "files": [
+        "apps/autopilot/openvscode-extension/ioi-workbench/studio/studio-panel-html.js"
+      ]
+    },
+    {
+      "summary": "Added source-chip favicon support with host-side and webview-side URL sanitizers.",
+      "files": [
+        "apps/autopilot/openvscode-extension/ioi-workbench/extension.js",
+        "apps/autopilot/openvscode-extension/ioi-workbench/studio/studio-panel-html.js",
+        "apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs"
+      ]
+    },
+    {
+      "summary": "Sanitized product handoff text so fixture labels and internal tool-call wording stay in trace/evidence instead of chat.",
+      "files": [
+        "crates/services/src/agentic/runtime/service/decision_loop/cognition/final_reply.rs",
+        "crates/services/src/agentic/runtime/service/decision_loop/cognition/mod.rs",
+        "crates/services/src/agentic/runtime/service/queue/processing/completion.rs",
+        "crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs",
+        "crates/services/src/agentic/runtime/service/tool_execution/processing/phases/finalize_action_processing.rs"
+      ]
+    }
+  ],
+  "verification": [
+    {
+      "command": "cargo fmt --package ioi-services",
+      "classification": "supporting_pass"
+    },
+    {
+      "command": "cargo test -p ioi-services product_handoff --lib",
+      "classification": "supporting_pass"
+    },
+    {
+      "command": "cargo test -p ioi-services sanitizes_queue_agent_complete_product_fixture_labels --lib",
+      "classification": "supporting_pass"
+    },
+    {
+      "command": "node --test apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs",
+      "classification": "supporting_pass"
+    },
+    {
+      "command": "AUTOPILOT_AGENT_STUDIO_MASTER_GUIDE=.internal/plans/autopilot-agent-studio-glass-box-work-lane-master-guide.md AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-glass-box-work-lane AUTOPILOT_AGENT_STUDIO_UPDATE_GUIDE=0 node scripts/run-autopilot-agent-studio-live-gui-validation.mjs --run --scenario glass-box-work-lane-live",
+      "classification": "live_pass",
+      "evidence": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/2026-06-01T23-50-01-529Z"
+    }
+  ],
+  "stageRowCount": 13,
+  "badFinalRows": [],
+  "remainingBlockers": []
+}

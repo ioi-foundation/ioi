@@ -62,14 +62,93 @@ export function createSubmitPrompt(deps) {
       const turns = Array.from(document.querySelectorAll("[data-studio-turn-role='assistant']"));
       const turn = turns[turns.length - 1] || null;
       const sourceRoot = turn?.querySelector?.("[data-testid='studio-answer-sources']") || null;
+      const chips = sourceRoot ? Array.from(sourceRoot.querySelectorAll(".studio-source-chip")) : [];
       const links = sourceRoot ? Array.from(sourceRoot.querySelectorAll("a[href]")) : [];
       return {
         observed: Boolean(sourceRoot),
-        sourceCount: links.length,
-        labels: links.map((link) => String(link.textContent || "").replace(/\s+/g, " ").trim()).filter(Boolean),
+        sourceCount: chips.length,
+        linkCount: links.length,
+        labels: chips.map((chip) => String(chip.textContent || "").replace(/\s+/g, " ").trim()).filter(Boolean),
         hrefs: links.map((link) => link.getAttribute("href") || "").filter(Boolean),
       };
     }));
+  }
+
+  async function waitForLatestSourceRowsProof(page, timeoutMs = 5000) {
+    return waitForPredicate(async () => {
+      const proof = await captureLatestSourceRowsProof(page);
+      return proof?.observed && Number(proof.sourceCount || 0) > 0 ? proof : false;
+    }, timeoutMs, 250).catch(async () => captureLatestSourceRowsProof(page));
+  }
+
+  async function captureLatestWorkLaneProof(page, options = {}) {
+    const preOpen = await withStudioFrame(page, async (frame) => frame.evaluate(() => {
+      const bars = Array.from(document.querySelectorAll("[data-testid='studio-run-status-bar']"));
+      const bar = bars[bars.length - 1] || null;
+      const summary = bar?.querySelector?.("summary") || null;
+      const summaryStrong = summary?.querySelector?.("strong") || null;
+      const extraSummarySpanCount = summary
+        ? Array.from(summary.querySelectorAll("span")).filter((node) => !node.classList.contains("studio-run-status-bar__check")).length
+        : 0;
+      return {
+        observed: Boolean(bar),
+        wasOpen: Boolean(bar?.hasAttribute?.("open")),
+        collapsedHeadline: String(summaryStrong?.textContent || "").replace(/\s+/g, " ").trim(),
+        extraSummarySpanCount,
+      };
+    }));
+    if (!preOpen?.observed) {
+      return { observed: false, reason: "missing-work-status-bar" };
+    }
+    await withStudioFrame(page, async (frame) => {
+      const bars = frame.locator('[data-testid="studio-run-status-bar"]');
+      const count = await bars.count();
+      if (count < 1) return;
+      const bar = bars.nth(count - 1);
+      const open = await bar.evaluate((node) => node.hasAttribute("open")).catch(() => false);
+      if (!open) {
+        await bar.locator("summary").click();
+      }
+    });
+    if (options.outputDir && options.screenshots) {
+      const indexPart = Number.isFinite(Number(options.promptIndex))
+        ? String(Number(options.promptIndex)).padStart(2, "0")
+        : "latest";
+      await screenshot(page, options.outputDir, `work-lane-expanded-${indexPart}.png`, options.screenshots).catch(() => {});
+    }
+    const expanded = await withStudioFrame(page, async (frame) => frame.evaluate(() => {
+      const bars = Array.from(document.querySelectorAll("[data-testid='studio-run-status-bar']"));
+      const bar = bars[bars.length - 1] || null;
+      const rows = bar ? Array.from(bar.querySelectorAll(".studio-work-row")) : [];
+      const chips = bar ? Array.from(bar.querySelectorAll(".studio-source-chip")) : [];
+      const excerpts = bar ? Array.from(bar.querySelectorAll(".studio-work-row__excerpt, .studio-pending-step__excerpt")) : [];
+      const text = String(bar?.textContent || "");
+      const rawLeakPatterns = [
+        /\breceipt_[a-z0-9_]+/i,
+        /\breq_[a-z0-9-]+/i,
+        /\{\\?"(?:payload|event|receipt|trace|tool_name)\\?"/i,
+        /\/home\/[^<\s]+/i,
+        /\bTOOLCAT_/i,
+        /\binput_hash=/i,
+        /\blocal:auto\b/i,
+        /\bautopilot:native-fixture\b/i,
+      ];
+      return {
+        rowCount: rows.length,
+        sourceChipCount: chips.length,
+        excerptCount: excerpts.length,
+        rowLabels: rows.map((row) => String(row.querySelector("strong")?.textContent || "").replace(/\s+/g, " ").trim()).filter(Boolean),
+        sourceLabels: chips.map((chip) => String(chip.textContent || "").replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 8),
+        excerptSamples: excerpts.map((node) => String(node.textContent || "").replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 4),
+        rawLeaks: rawLeakPatterns.filter((pattern) => pattern.test(text)).map(String),
+      };
+    }));
+    return {
+      ...preOpen,
+      ...expanded,
+      collapsedMinimal: /^Worked for \S+/.test(preOpen.collapsedHeadline || "") && Number(preOpen.extraSummarySpanCount || 0) === 0,
+      openedForProof: true,
+    };
   }
 
   function markdownElementMissing(proof, elementName) {
@@ -468,6 +547,7 @@ export function createSubmitPrompt(deps) {
               if (
                 latestText &&
                 !initialAnswerTextKeys.has(normalizedLatestText) &&
+                assistantTextMatchesPrompt(prompt, latestText) &&
                 (status === "completed" || finalHandoffComplete)
               ) {
                 return {
@@ -541,7 +621,7 @@ export function createSubmitPrompt(deps) {
           agentFinalHandoffComplete ||
           (!requiresCompletedStatus && streamCompletionObserved && newAnswerVisible);
         if (requiresCompletedStatus) {
-          return completionSatisfied && (newAnswerVisible || answerMatchesPrompt)
+          return completionSatisfied && newAnswerVisible
             ? { status, answerCount, assistantText: latestAnswer, documentedWorkCount }
             : false;
         }
@@ -588,10 +668,27 @@ export function createSubmitPrompt(deps) {
     }
   }
   const sourceRowsProof = (options.requireSourceRowsProof || options.captureSourceRowsProof)
-    ? await captureLatestSourceRowsProof(page)
+    ? await waitForLatestSourceRowsProof(page)
     : null;
   if (options.requireSourceRowsProof && (!sourceRowsProof?.observed || sourceRowsProof.sourceCount < 1)) {
     throw new Error(`Source proof did not observe product-facing source chips for prompt: ${prompt.slice(0, 40)}`);
+  }
+  const workLaneProof = (options.requireGlassBoxWorkLaneProof || options.captureGlassBoxWorkLaneProof)
+    ? await captureLatestWorkLaneProof(page, options)
+    : null;
+  if (options.requireGlassBoxWorkLaneProof) {
+    if (!workLaneProof?.observed) {
+      throw new Error(`Work lane proof did not observe a completed work bar for prompt: ${prompt.slice(0, 40)}`);
+    }
+    if (!workLaneProof.collapsedMinimal) {
+      throw new Error(`Work lane collapsed summary is not minimal: ${JSON.stringify(workLaneProof)}`);
+    }
+    if (Number(workLaneProof.rowCount || 0) < 1) {
+      throw new Error(`Work lane proof did not observe expanded chronological rows for prompt: ${prompt.slice(0, 40)}`);
+    }
+    if (Array.isArray(workLaneProof.rawLeaks) && workLaneProof.rawLeaks.length > 0) {
+      throw new Error(`Work lane leaked raw runtime details: ${workLaneProof.rawLeaks.join(", ")}`);
+    }
   }
   timing.finishedAt = new Date().toISOString();
   timing.durationMs = Date.now() - startedAtMs;
@@ -615,6 +712,7 @@ export function createSubmitPrompt(deps) {
     pendingProjectionProof,
     markdownRenderProof,
     sourceRowsProof,
+    workLaneProof,
     timing,
   };
 }

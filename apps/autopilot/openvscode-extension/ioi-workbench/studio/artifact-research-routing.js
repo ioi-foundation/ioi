@@ -41,6 +41,7 @@ function studioArtifactShouldGatherResearch(prompt = "", artifactClass = "") {
 
 function cleanResearchQuery(value = "") {
   return stringValue(value)
+    .replace(/\band\s+(?:use|using|cite|include)\s+(?:sources?|citations?|references?)\b.*$/i, "")
     .replace(/\b(with|using)\s+(sources?|citations?|references?)\b.*$/i, "")
     .replace(/\b(as|like)\s+(an?\s+)?(?:artifact|website|web\s*page|html\s+file)\b.*$/i, "")
     .replace(/[“”"'`]/g, "")

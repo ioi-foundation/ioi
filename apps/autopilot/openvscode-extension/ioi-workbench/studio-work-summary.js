@@ -82,6 +82,91 @@ function artifactLabel(artifact = {}) {
   return `Created artifact: ${title}`;
 }
 
+function normalizeSourceChips(value) {
+  return firstArray(value)
+    .map((source) => {
+      if (!source || typeof source !== "object" || Array.isArray(source)) return null;
+      const url = String(source.url || source.href || source.link || "").trim();
+      const domain = String(source.domain || source.hostname || "").replace(/^www\./i, "").trim();
+      const title = String(source.title || source.name || source.label || domain || url).replace(/\s+/g, " ").trim();
+      const excerpt = String(source.excerpt || source.snippet || source.summary || "").replace(/\s+/g, " ").trim();
+      if (!url && !title && !domain) return null;
+      return {
+        title: title.slice(0, 110),
+        domain: domain.slice(0, 80),
+        url,
+        excerpt: excerpt.slice(0, 220),
+        state: String(source.state || source.status || source.sourceHealth || "used").trim() || "used",
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
+function workRowsFromPendingWorklog(pendingWorklog = []) {
+  return firstArray(pendingWorklog)
+    .map((step) => {
+      const label = String(step?.label || step?.title || "").replace(/\s+/g, " ").trim();
+      if (!label) return null;
+      const detail = String(step?.detail || step?.summary || "").replace(/\s+/g, " ").trim();
+      const sourceChips = normalizeSourceChips(step?.sourceChips || step?.source_chips || step?.sources);
+      const excerptPreview = String(step?.excerptPreview || step?.excerpt_preview || sourceChips[0]?.excerpt || "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 280);
+      return {
+        id: String(step?.id || step?.stepId || step?.toolName || label).trim(),
+        kind: String(step?.publicKind || step?.kind || step?.toolName || "tool").trim(),
+        status: String(step?.status || "completed").trim(),
+        headline: label,
+        summary: detail,
+        sourceChips,
+        excerptPreview,
+      };
+    })
+    .filter(Boolean);
+}
+
+function synthesizeManagedSessionCards({ computerUseSessions = [], browserCards = [], workRows = [], actionToolNames = [], cursor = {} } = {}) {
+  if (firstArray(computerUseSessions).length) {
+    return firstArray(computerUseSessions);
+  }
+  const browserRows = firstArray(workRows).filter((row) =>
+    /\bbrowser\b|^browser__/.test(String(`${row?.kind || ""} ${row?.headline || ""} ${row?.summary || ""}`).toLowerCase())
+  );
+  const browserToolName = firstArray(actionToolNames).find((name) => /^browser__/.test(String(name || "")));
+  if (!browserRows.length && !firstArray(browserCards).length && !browserToolName) {
+    return [];
+  }
+  const primaryRow = browserRows[browserRows.length - 1] || {};
+  const primaryCard = firstArray(browserCards)[firstArray(browserCards).length - 1] || {};
+  const detail = String(
+    primaryRow.excerptPreview ||
+      primaryRow.summary ||
+      primaryCard.excerptPreview ||
+      primaryCard.summary ||
+      primaryCard.detail ||
+      "Managed sandbox browser session.",
+  )
+    .replace(/\s+/g, " ")
+    .trim();
+  return [
+    {
+      id: `sandbox-browser:${String(primaryRow.id || primaryCard.id || browserToolName || cursor.startedAtMs || Date.now()).slice(0, 96)}`,
+      kind: "sandbox_browser",
+      surfaceLabel: "Sandbox browser",
+      status: "complete",
+      statusLabel: "Complete",
+      title: "Browser session",
+      detail: detail.slice(0, 220) || "Managed sandbox browser session.",
+      lastTool: browserToolName || primaryRow.kind || primaryCard.toolId || "browser",
+      actionCount: Math.max(1, browserRows.length || firstArray(browserCards).length || 1),
+      waitingForUser: false,
+      updatedAt: new Date().toISOString(),
+    },
+  ];
+}
+
 function studioDocumentedWorkRecord(projection = {}, cursor = {}) {
   const actionCards = firstArray(projection.actionCards).slice(cursor.actionCards || 0);
   const policyLeases = firstArray(projection.policyLeases).slice(cursor.policyLeases || 0);
@@ -101,6 +186,14 @@ function studioDocumentedWorkRecord(projection = {}, cursor = {}) {
   const commandToolNames = studioCanonicalRuntimeNames(commandOutputs);
   const pendingLabels = uniqueStrings(pendingWorklog.map((step) => step?.label || step?.title || ""));
   const pendingRenderCount = pendingLabels.filter((label) => /\b(preview|render|artifact)\b/i.test(label)).length;
+  const workRows = workRowsFromPendingWorklog(pendingWorklog);
+  const managedSessionCards = synthesizeManagedSessionCards({
+    computerUseSessions,
+    browserCards,
+    workRows,
+    actionToolNames,
+    cursor,
+  });
   const retainedShellLifecycle = ["shell__start", "shell__status", "shell__input", "shell__terminate", "shell__reset"]
     .every((toolName) => commandToolNames.includes(toolName));
   if (actionToolNames.length) {
@@ -144,10 +237,10 @@ function studioDocumentedWorkRecord(projection = {}, cursor = {}) {
     summaryParts.push(`observed ${browserCards.length} browser state${browserCards.length === 1 ? "" : "s"}`);
     activityLines.push(`Observed ${browserCards.length} browser state update${browserCards.length === 1 ? "" : "s"}.`);
   }
-  if (computerUseSessions.length) {
-    lines.push(`Managed ${computerUseSessions.length} browser/computer live session${computerUseSessions.length === 1 ? "" : "s"}`);
-    summaryParts.push(`managed ${computerUseSessions.length} live session${computerUseSessions.length === 1 ? "" : "s"}`);
-    activityLines.push(`Managed ${computerUseSessions.length} live browser/computer session${computerUseSessions.length === 1 ? "" : "s"}.`);
+  if (managedSessionCards.length) {
+    lines.push(`Managed ${managedSessionCards.length} browser/computer live session${managedSessionCards.length === 1 ? "" : "s"}`);
+    summaryParts.push(`managed ${managedSessionCards.length} live session${managedSessionCards.length === 1 ? "" : "s"}`);
+    activityLines.push(`Managed ${managedSessionCards.length} live browser/computer session${managedSessionCards.length === 1 ? "" : "s"}.`);
   }
   if (conversationArtifacts.length) {
     lines.push(`Created ${conversationArtifacts.length} conversation artifact${conversationArtifacts.length === 1 ? "" : "s"}`);
@@ -188,9 +281,10 @@ function studioDocumentedWorkRecord(projection = {}, cursor = {}) {
     lines,
     summaryParts,
     activityLines,
+    workRows,
     receiptRefs,
     stepCount: lines.length,
-    sessionCards: computerUseSessions.slice(-3),
+    sessionCards: managedSessionCards.slice(-3),
     artifactCards: conversationArtifacts.slice(-6),
   };
 }

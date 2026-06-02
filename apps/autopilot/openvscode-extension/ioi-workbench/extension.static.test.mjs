@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+
+const require = createRequire(import.meta.url);
 
 const paths = {
   extension: "apps/autopilot/openvscode-extension/ioi-workbench/extension.js",
@@ -136,11 +139,58 @@ test("Agent Studio streams model text, tool work, final handoff, and artifact de
     /function normalizeStudioAssistantReplyText/,
     /function studioRetrievalFailClosedText/,
     /did not emit a clean final answer/,
+    /const hasMaxStepsOverride = maxStepsOverride !== null/,
+    /studioAgentMaxStepsForIntent\(intentFrame, prompt\)/,
   ]);
   assertLacks(source, [
     /function studioPromptRequestsSourceCandidates/,
     /function studioResultTextLooksSearchCandidateList/,
     /searchOnlySourceCandidateAnswer/,
+    /const requestedMaxSteps = Number\.isFinite\(Number\(maxStepsOverride\)\)/,
+  ]);
+});
+
+test("Agent Studio keeps the work lane glass-boxed without cluttering the collapsed summary", async () => {
+  const source = await readStudioComposite();
+
+  assertHas(source, [
+    /function studioSourceRefsFromRuntimeEvent/,
+    /function collectStudioSourceRefsFromPartialJsonText/,
+    /studioUnescapeJsonStringFragment/,
+    /function studioSourceChipRows/,
+    /function sanitizeStudioSourceUrl/,
+    /function studioSourceChipFaviconUrl/,
+    /function studioProjectedSourceChipRows/,
+    /function syncProjectedSourceRows/,
+    /function studioWorkSummaryRows/,
+    /source_url/,
+    /source_observations/,
+    /\.\.\.liveObservedEvents/,
+    /studioSourceRefsFromRuntimeEvents\(generatedRuntimeEvents\)/,
+    /artifactSourceRefs/,
+    /artifactForTurn/,
+    /sourceRefs: generatedSourceRefs/,
+    /sourceRefs,\n    workRecord: studioPublicWorkRecordForWebview\(assistantTurn\?\.workRecord\),\n    prompt: prompt/,
+    /sourceRefs: firstArray\(agentTurn\.sourceRefs\)/,
+    /workRecord: studioPublicWorkRecordForWebview\(workRecord\)/,
+    /syncProjectedSourceRows\(target\.turn, payload\.sourceRefs\)/,
+    /function ensureProjectedWorkRunBar/,
+    /ensureProjectedWorkRunBar\(target\.turn, payload\.workRecord, "completed"\)/,
+    /ensureProjectedWorkRunBar\(turn, payload\?\.workRecord, status\)/,
+    /rootStatus.*completed.*blocked/s,
+    /removeAttribute\("data-agent-final-handoff-stream-complete"\)/,
+    /removeAttribute\("data-artifact-handoff-stream-complete"\)/,
+    /data-artifact-source-retained/,
+    /!\["completed", "blocked"\]\.includes\(rootStatus\)/,
+    /sourceChips/,
+    /excerptPreview/,
+    /\.studio-source-chip-list/,
+    /\.studio-work-row/,
+    /\.studio-pending-step__excerpt/,
+  ]);
+  assertLacks(source, [
+    /<span>\$\{escapeHtml\(studioDocumentedWorkSummary\(workRecord\)\)\}<\/span>/,
+    /<span>\$\{studioDocumentedWorkSummary\(workRecord\)\}<\/span>/,
   ]);
 });
 
@@ -161,6 +211,34 @@ test("Agent Studio keeps managed browser and computer sessions as live artifacts
     /data-testid="studio-managed-session-take-over"/,
     /data-testid="studio-managed-session-return"/,
   ]);
+});
+
+test("Agent Studio normalizes daemon kernel tool events into product work rows", () => {
+  const { studioRuntimeEventToolName, studioRuntimeToolEventDetail } = require(`./studio/runtime-event-utils.js`);
+  const event = {
+    event_kind: "tool.completed",
+    payload: {
+      kernel_event: JSON.stringify({
+        AgentActionResult: {
+          output: {
+            preview: JSON.stringify({
+              tool: "web__search",
+              query: "photonic quantum computing",
+              sources: [
+                {
+                  title: "Photonic quantum source",
+                  url: "https://example.com/photonic",
+                },
+              ],
+            }),
+          },
+        },
+      }),
+    },
+  };
+
+  assert.equal(studioRuntimeEventToolName(event), "web__search");
+  assert.match(studioRuntimeToolEventDetail(event, studioRuntimeEventToolName(event)), /photonic quantum computing/);
 });
 
 test("Model setup remains native and product-scoped", async () => {

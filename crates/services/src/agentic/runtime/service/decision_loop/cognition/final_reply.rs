@@ -83,6 +83,81 @@ pub(crate) fn sanitize_direct_chat_reply_output(raw_output: &str) -> String {
     collapse_repeated_final_reply_cycles(&unwrapped)
 }
 
+pub(crate) fn sanitize_product_handoff_internal_markers(raw_output: &str) -> String {
+    let mut text = raw_output.to_string();
+
+    for marker in [
+        "(Tool Catalogue Fixture)",
+        "Tool Catalogue Fixture",
+        "TOOLCAT_BROWSER_CANARY",
+        "TOOLCAT_SINGLE_TOOL",
+        "TOOLCAT",
+        "toolcat",
+        "native-fixture",
+        "fixture response",
+        "fixture marker",
+    ] {
+        text = text.replace(marker, "");
+    }
+
+    for marker in [
+        "Autopilot Agent Studio",
+        "autopilot_agent_studio",
+        "autopilot-agent-studio",
+    ] {
+        text = text.replace(marker, "the workbench");
+    }
+
+    replace_local_disposable_urls(&text)
+        .lines()
+        .map(|line| {
+            line.split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
+                .replace(" .", ".")
+                .replace(" ,", ",")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        .trim()
+        .to_string()
+}
+
+fn replace_local_disposable_urls(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut index = 0usize;
+    while index < input.len() {
+        let http = input[index..]
+            .find("http://127.0.0.1:")
+            .map(|offset| (index + offset, "http://127.0.0.1:"));
+        let https = input[index..]
+            .find("https://127.0.0.1:")
+            .map(|offset| (index + offset, "https://127.0.0.1:"));
+        let Some((start, marker)) = [http, https]
+            .into_iter()
+            .flatten()
+            .min_by_key(|(start, _)| *start)
+        else {
+            break;
+        };
+        out.push_str(&input[index..start]);
+        out.push_str("the disposable browser page");
+        let mut end = start + marker.len();
+        while end < input.len() {
+            let Some(ch) = input[end..].chars().next() else {
+                break;
+            };
+            if ch.is_whitespace() || matches!(ch, ')' | ']' | '}' | '"' | '\'' | '<') {
+                break;
+            }
+            end += ch.len_utf8();
+        }
+        index = end;
+    }
+    out.push_str(&input[index..]);
+    out
+}
+
 fn unwrap_direct_chat_reply_json(text: &str) -> Option<String> {
     let value = serde_json::from_str::<Value>(text).ok()?;
     let name = value.get("name").and_then(Value::as_str).unwrap_or("");
@@ -330,10 +405,6 @@ pub(super) fn final_reply_evidence_contradiction_reason(
         return Some("infers_investment_quality_from_nominal_token_price");
     }
 
-    if contains_unsupported_market_scale_metric(&evidence_lower, &message_lower) {
-        return Some("unsupported_market_quote_metric");
-    }
-
     None
 }
 
@@ -403,17 +474,21 @@ pub(super) fn final_reply_evidence_contract_reason(
         .or_else(|| final_reply_evidence_omission_reason(message, evidence_context, goal))
 }
 
-pub(super) fn final_reply_product_handoff_reason(
+pub(crate) fn final_reply_product_handoff_reason(
     message: &str,
     goal: &str,
 ) -> Option<&'static str> {
-    if final_reply_goal_requests_raw_tool_output(goal) {
-        return None;
-    }
-
     let trimmed = message.trim();
     let lower = trimmed.to_ascii_lowercase();
     if lower.is_empty() {
+        return None;
+    }
+
+    if final_reply_contains_product_forbidden_marker(trimmed) {
+        return Some("product_forbidden_marker");
+    }
+
+    if final_reply_goal_requests_raw_tool_output(goal) {
         return None;
     }
 
@@ -441,6 +516,25 @@ pub(super) fn final_reply_product_handoff_reason(
     }
 
     None
+}
+
+fn final_reply_contains_product_forbidden_marker(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    [
+        "toolcat",
+        "toolcat_",
+        "tool catalogue fixture",
+        "autopilot_agent_studio",
+        "autopilot-agent-studio",
+        "/tmp/autopilot",
+        "/tmp/ioi",
+        ".tmp/autopilot",
+        "native-fixture",
+        "fixture response",
+        "fixture marker",
+    ]
+    .iter()
+    .any(|marker| lower.contains(marker))
 }
 
 fn final_reply_goal_requests_raw_tool_output(goal: &str) -> bool {
@@ -516,80 +610,6 @@ pub(super) fn final_reply_market_quote_context_metric_score(context: &str) -> us
     let lower = context.to_ascii_lowercase();
     final_reply_metric_marker_groups(&lower, "market cap:").len()
         + final_reply_metric_marker_groups(&lower, "24h trading volume:").len()
-}
-
-fn contains_unsupported_market_scale_metric(evidence_lower: &str, message_lower: &str) -> bool {
-    if !market_quote_context_present(&evidence_lower) {
-        return false;
-    }
-
-    let mut supported = final_reply_metric_marker_groups(evidence_lower, "market cap:")
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>();
-    supported.extend(
-        final_reply_metric_marker_groups(evidence_lower, "24h trading volume:")
-            .into_iter()
-            .flatten(),
-    );
-    supported.sort();
-    supported.dedup();
-    if supported.is_empty() {
-        return false;
-    }
-
-    unsupported_market_scale_metrics(message_lower)
-        .into_iter()
-        .any(|metric| !supported.iter().any(|marker| marker == &metric))
-}
-
-fn unsupported_market_scale_metrics(message_lower: &str) -> Vec<String> {
-    let mut metrics = Vec::new();
-    let bytes = message_lower.as_bytes();
-    let mut index = 0usize;
-    while index < bytes.len() {
-        if bytes[index] != b'$' {
-            index += 1;
-            continue;
-        }
-        let start = index;
-        index += 1;
-        while index < bytes.len()
-            && (bytes[index].is_ascii_digit() || bytes[index] == b'.' || bytes[index] == b',')
-        {
-            index += 1;
-        }
-        if index == start + 1 {
-            continue;
-        }
-        while index < bytes.len() && bytes[index].is_ascii_whitespace() {
-            index += 1;
-        }
-        let unit_start = index;
-        while index < bytes.len() && bytes[index].is_ascii_alphabetic() {
-            index += 1;
-        }
-        let unit = &message_lower[unit_start..index];
-        let Some(normalized_unit) = normalize_market_scale_unit(unit) else {
-            continue;
-        };
-        let number = message_lower[start + 1..unit_start].trim().replace(',', "");
-        if number.is_empty() {
-            continue;
-        }
-        metrics.push(format!("${number}{normalized_unit}"));
-    }
-    metrics.sort();
-    metrics.dedup();
-    metrics
-}
-
-fn normalize_market_scale_unit(unit: &str) -> Option<&'static str> {
-    match unit {
-        "m" | "mn" | "mil" | "million" => Some("m"),
-        "b" | "bn" | "bil" | "billion" => Some("b"),
-        _ => None,
-    }
 }
 
 fn final_reply_metric_marker_groups(evidence_lower: &str, label: &str) -> Vec<Vec<String>> {
@@ -710,7 +730,7 @@ pub(super) fn final_reply_repair_messages(
     json!([
         {
             "role": "system",
-            "content": "FINAL RESPONSE REPAIR MODE:\nWrite a fresh user-facing answer from the gathered evidence only. Do not call tools. Do not output JSON. Do not expose hidden chain-of-thought, trace ids, receipt ids, raw payloads, raw stdout/stderr, raw test logs, or daemon scaffolding.\nFor command, test, and workspace-change tasks, summarize what changed or was inspected and whether verification passed; keep full logs in tracing unless the user explicitly requested raw logs. If you cite the final contents of a changed file or a short command-created source snippet, put it in a fenced code block with a language tag instead of appending it inline to a sentence. When gathered evidence contains repeated observations of the same file or state, use the latest/highest-numbered observation as authoritative for the current state.\nPreserve source anchors and observed measurements that matter. If current market quote observations are present for multiple assets, include the observed price, market cap, 24h trading volume, and 24h price change for each asset. Do not say those fields are missing when they are present in the gathered evidence.\nFor investment comparisons, synthesize a cautious comparison from the observed metrics and the gathered use-case/risk context. Treat per-token price only as a quote, not as an investment advantage by itself. If the evidence is incomplete, say exactly which non-observed dimensions remain uncertain. Do not copy internal evidence labels into the final answer."
+            "content": "FINAL RESPONSE REPAIR MODE:\nWrite a fresh user-facing answer from the gathered evidence only. Do not call tools. Do not output JSON. Do not expose hidden chain-of-thought, trace ids, receipt ids, raw payloads, raw stdout/stderr, raw test logs, fixture/probe identifiers, or daemon scaffolding.\nFor command, test, and workspace-change tasks, summarize what changed or was inspected and whether verification passed; keep full logs in tracing unless the user explicitly requested raw logs. If you cite the final contents of a changed file or a short command-created source snippet, put it in a fenced code block with a language tag instead of appending it inline to a sentence. When gathered evidence contains repeated observations of the same file or state, use the latest/highest-numbered observation as authoritative for the current state.\nPreserve source anchors and observed measurements that matter. If current market quote observations are present for multiple assets, include the observed price, market cap, 24h trading volume, and 24h price change for each asset. Do not say those fields are missing when they are present in the gathered evidence.\nFor investment comparisons, synthesize a cautious comparison from the observed metrics and the gathered use-case/risk context. Treat per-token price only as a quote, not as an investment advantage by itself. If the evidence is incomplete, say exactly which non-observed dimensions remain uncertain. Do not copy internal evidence labels, fixture labels, probe markers, or scenario identifiers into the final answer."
         },
         {
             "role": "user",
@@ -726,6 +746,36 @@ pub(super) fn final_reply_evidence_context(
     goal: &str,
     fallback_context: &str,
 ) -> String {
+    if let Some(current_turn_start) = current_turn_evidence_start_index(history) {
+        if let Some(context) = final_reply_evidence_context_from_history(
+            &history[current_turn_start..],
+            goal,
+            None,
+            current_turn_start,
+        ) {
+            return context;
+        }
+    }
+
+    final_reply_evidence_context_from_history(history, goal, Some(fallback_context), 0)
+        .unwrap_or_else(|| fallback_context.to_string())
+}
+
+fn current_turn_evidence_start_index(history: &[ChatMessage]) -> Option<usize> {
+    history
+        .iter()
+        .enumerate()
+        .rev()
+        .find(|(_, message)| message.role.trim().eq_ignore_ascii_case("user"))
+        .map(|(index, _)| index.saturating_add(1))
+}
+
+fn final_reply_evidence_context_from_history(
+    history: &[ChatMessage],
+    goal: &str,
+    fallback_context: Option<&str>,
+    order_offset: usize,
+) -> Option<String> {
     let mut candidates = Vec::<FinalReplyEvidenceCandidate>::new();
     let terms = significant_goal_terms(goal);
     let workspace_rollback_boundary = workspace_rollback_evidence_boundary(history);
@@ -765,15 +815,17 @@ pub(super) fn final_reply_evidence_context(
             continue;
         }
         candidates.push(FinalReplyEvidenceCandidate {
-            order,
+            order: order_offset.saturating_add(order),
             evidence,
             is_web_evidence,
             score,
         });
     }
 
-    let market_quote_context = final_reply_market_quote_context(history, goal)
-        .or_else(|| final_reply_market_quote_context_from_text(fallback_context, goal));
+    let market_quote_context = final_reply_market_quote_context(history, goal).or_else(|| {
+        fallback_context
+            .and_then(|context| final_reply_market_quote_context_from_text(context, goal))
+    });
     let has_market_quote_context = market_quote_context.is_some();
 
     let mut web_candidates = candidates
@@ -824,11 +876,7 @@ pub(super) fn final_reply_evidence_context(
         total_chars = total_chars.saturating_add(evidence_chars);
         entries.push(evidence);
     }
-    if entries.is_empty() {
-        fallback_context.to_string()
-    } else {
-        entries.join("\n\n---\n\n")
-    }
+    (!entries.is_empty()).then(|| entries.join("\n\n---\n\n"))
 }
 
 fn final_reply_market_quote_context(history: &[ChatMessage], goal: &str) -> Option<String> {

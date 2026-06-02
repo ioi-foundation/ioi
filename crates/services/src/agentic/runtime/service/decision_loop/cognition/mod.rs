@@ -45,19 +45,22 @@ pub(crate) use browser_context::{
     current_browser_observation_snapshot, reply_safe_browser_semantics_enabled,
 };
 use capability::{mailbox_connector_instruction, preflight_missing_capability};
-pub(crate) use final_reply::sanitize_direct_chat_reply_output;
 use final_reply::{
     contextual_recent_session_events_context, final_reply_evidence_context,
     final_reply_evidence_contract_reason, final_reply_goal_requests_html_document,
     final_reply_html_document_reason, final_reply_html_document_repair_messages,
     final_reply_incomplete_reason, final_reply_market_quote_context_metric_score,
-    final_reply_pending_web_evidence_context, final_reply_product_handoff_reason,
-    final_reply_repair_messages, web_context_ready_for_reply,
+    final_reply_pending_web_evidence_context, final_reply_repair_messages,
+    web_context_ready_for_reply,
 };
 #[cfg(test)]
 use final_reply::{
     final_reply_evidence_contradiction_reason, final_reply_market_quote_context_from_pending,
     final_reply_pending_market_quote_ready,
+};
+pub(crate) use final_reply::{
+    final_reply_product_handoff_reason, sanitize_direct_chat_reply_output,
+    sanitize_product_handoff_internal_markers,
 };
 use hex;
 use history::{
@@ -73,7 +76,10 @@ pub(crate) use history::{
     latest_recent_pending_browser_state_context,
 };
 use image::{codecs::jpeg::JpegEncoder, GenericImageView};
-use inference::{cognition_inference_timeout_for_reply_mode, inference_error_system_fail_reason};
+use inference::{
+    cognition_inference_timeout_for_reply_mode, inference_error_is_retryable_no_content,
+    inference_error_system_fail_reason,
+};
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_drivers::gui::accessibility::serialize_tree_to_xml;
 use ioi_drivers::gui::lenses::{auto::AutoLens, AppLens};
@@ -1072,7 +1078,9 @@ Do not claim success for actions you did not verify.";
                     },
                 };
                 let retry_raw_output = String::from_utf8_lossy(&retry_output_bytes).to_string();
-                let retry_message = sanitize_direct_chat_reply_output(&retry_raw_output);
+                let retry_message = sanitize_product_handoff_internal_markers(
+                    &sanitize_direct_chat_reply_output(&retry_raw_output),
+                );
                 if let Some(reason) =
                     final_reply_html_document_reason(&retry_message, &agent_state.goal)
                         .or_else(|| final_reply_incomplete_reason(&retry_message))
@@ -1139,17 +1147,102 @@ Do not claim success for actions you did not verify.";
                         strategy_used: "Refusal".to_string(),
                     });
                 }
-                log::error!("CRITICAL: Agent Inference Failed: {}", e);
-                return Ok(CognitionResult {
-                    raw_output: json!({
-                        "name": "agent__escalate",
-                        "arguments": {
-                            "reason": inference_error_system_fail_reason(&err_msg),
+                if inference_error_is_retryable_no_content(&err_msg) {
+                    log::warn!(
+                        "Cognition inference stream returned no content session={} retry=1",
+                        session_prefix
+                    );
+                    let retry_inference_input = service
+                        .prepare_cloud_inference_input(
+                            Some(session_id),
+                            "desktop_agent",
+                            &format!("model_hash:{}", hex::encode(model_hash)),
+                            &input_bytes,
+                        )
+                        .await?;
+                    let retry_result = tokio::time::timeout(
+                        inference_timeout,
+                        runtime.execute_inference_streaming(
+                            model_hash,
+                            &retry_inference_input,
+                            options.clone(),
+                            None,
+                        ),
+                    )
+                    .await;
+                    match retry_result {
+                        Ok(Ok(bytes)) if !String::from_utf8_lossy(&bytes).trim().is_empty() => {
+                            bytes
                         }
-                    })
-                    .to_string(),
-                    strategy_used: "InferenceError".to_string(),
-                });
+                        Ok(Ok(_)) => {
+                            log::error!(
+                                "Cognition no-content retry returned empty output session={}",
+                                session_prefix
+                            );
+                            return Ok(CognitionResult {
+                                raw_output: json!({
+                                    "name": "agent__escalate",
+                                    "arguments": {
+                                        "reason": "ERROR_CLASS=RuntimeRetryable Cognition inference returned empty output after one retry. Provider health is unstable; retry the turn or switch model."
+                                    }
+                                })
+                                .to_string(),
+                                strategy_used: "InferenceNoContentRetryEmpty".to_string(),
+                            });
+                        }
+                        Ok(Err(retry_error)) => {
+                            let retry_err_msg = retry_error.to_string();
+                            log::error!(
+                                "Cognition no-content retry failed session={} error={}",
+                                session_prefix,
+                                retry_err_msg
+                            );
+                            return Ok(CognitionResult {
+                                raw_output: json!({
+                                    "name": "agent__escalate",
+                                    "arguments": {
+                                        "reason": inference_error_system_fail_reason(&retry_err_msg),
+                                    }
+                                })
+                                .to_string(),
+                                strategy_used: "InferenceNoContentRetryError".to_string(),
+                            });
+                        }
+                        Err(_) => {
+                            let timeout_ms = inference_timeout.as_millis();
+                            log::warn!(
+                                "Cognition no-content retry timed out session={} timeout_ms={}",
+                                session_prefix,
+                                timeout_ms
+                            );
+                            return Ok(CognitionResult {
+                                raw_output: json!({
+                                    "name": "agent__escalate",
+                                    "arguments": {
+                                        "reason": format!(
+                                            "ERROR_CLASS=TimeoutOrHang Cognition inference no-content retry timed out after {}ms.",
+                                            timeout_ms
+                                        )
+                                    }
+                                })
+                                .to_string(),
+                                strategy_used: "InferenceNoContentRetryTimeout".to_string(),
+                            });
+                        }
+                    }
+                } else {
+                    log::error!("CRITICAL: Agent Inference Failed: {}", e);
+                    return Ok(CognitionResult {
+                        raw_output: json!({
+                            "name": "agent__escalate",
+                            "arguments": {
+                                "reason": inference_error_system_fail_reason(&err_msg),
+                            }
+                        })
+                        .to_string(),
+                        strategy_used: "InferenceError".to_string(),
+                    });
+                }
             }
         },
     };
@@ -1176,7 +1269,9 @@ Do not claim success for actions you did not verify.";
         raw_output_from_bytes
     };
     if chat_reply_only_cognition {
-        let mut message = sanitize_direct_chat_reply_output(&raw_output);
+        let mut message = sanitize_product_handoff_internal_markers(
+            &sanitize_direct_chat_reply_output(&raw_output),
+        );
         let mut strategy_used = "FinalReplySynthesis";
         if message.trim().is_empty() {
             log::error!(
@@ -1328,7 +1423,9 @@ Do not claim success for actions you did not verify.";
                     },
                 };
                 let retry_raw_output = String::from_utf8_lossy(&retry_output_bytes).to_string();
-                let retry_message = sanitize_direct_chat_reply_output(&retry_raw_output);
+                let retry_message = sanitize_product_handoff_internal_markers(
+                    &sanitize_direct_chat_reply_output(&retry_raw_output),
+                );
                 if retry_message.trim().is_empty() {
                     log::error!(
                         "CRITICAL: Agent final reply repair returned empty output session={} attempt={}",

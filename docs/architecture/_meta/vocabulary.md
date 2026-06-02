@@ -4,7 +4,7 @@ Status: canonical vocabulary reference.
 Canonical owner: this file for runtime, audit, substrate, projection, and legacy naming vocabulary.
 Supersedes: overlapping runtime vocabulary in plans/specs when names conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-30.
+Last alignment pass: 2026-06-01.
 
 The agent harness uses behavior-first names in runtime code and reserves
 compliance acronyms for hidden audit material.
@@ -42,6 +42,70 @@ compliance acronyms for hidden audit material.
   state, blockers, and unresolved uncertainty have been ingested. It may begin
   as completion receipts and terminal events, and promote to an Agentgres object
   when delivery, dispute, replay, or settlement needs require it.
+- `PrivateWorkspaceCtee`: IOI's daemon-owned binding of the generic cTEE
+  systems pattern for persistent rented GPU Autopilot nodes and other
+  untrusted remote compute where protected files, folders, PII, credentials,
+  strategy logic, and action authority must not be present on the
+  provider-controlled node as plaintext by default. Candidate-Lattice Private
+  Decoding is the default protected-agency strategy: the rented node generates
+  candidates at speed while AlphaSeal, wallet.network policy,
+  guardian/client evaluation, or private operators select, deny, declassify, or
+  sign. It uses encrypted workspace objects, encrypted patches, redaction,
+  secret-sharing, masks, sealed strategy capsules, wallet-controlled
+  declassification, and capability exits rather than trusting consumer GPU
+  memory.
+- `cTEE`: Cryptographic Trusted Execution Envelope. A portable systems pattern
+  for private agency on untrusted compute. It is not a hardware TEE claim and
+  is not IOI-specific; it is an execution and workspace contract in which
+  sensitive state is represented as ciphertext, secret shares, masked tensors,
+  committed witnesses, encrypted refs, sealed capsules, or guardian-gated
+  outputs. IOI binds this generic pattern through the daemon, wallet.network,
+  Agentgres, the Agentgres Artifact Plane, and optional IOI L1 settlement.
+- `CandidateLatticePrivateDecoding`: the default cTEE protected-agency
+  strategy. The untrusted node expands public/redacted candidate continuations,
+  plans, simulations, reports, patches, or trade intents; private state then
+  selects, filters, reranks, denies, or declassifies without entering node
+  plaintext custody.
+- `PlaintextFreeRuntimeMounting`: the daemon/cTEE runtime mount discipline that
+  presents private workspaces to untrusted tools, shells, filesystems, model
+  servers, and model calls as public content, redacted projections, encrypted
+  refs, commitments, private-function handles, declassification requests, and
+  capability handles rather than provider-readable plaintext.
+- `PlaintextFreeModelMount`: the daemon/cTEE model mount contract that presents
+  private workspaces to untrusted model runtimes as public content, redacted
+  projections, encrypted refs, commitments, candidate lattices,
+  private-function handles, declassification requests, and capability handles.
+  It is the model-facing specialization of Plaintext-Free Runtime Mounting.
+- `DeterrenceDetectionProfile`: the cTEE attribution and abuse-detection layer
+  for high-value private workspaces. It uses synthetic canaries, honeytokens,
+  provider-bound watermarks, leak scans, replay detection, and receipts to make
+  theft or leakage more attributable. It is not a privacy primitive and does
+  not justify mounting protected plaintext on a node.
+- `PrivateWorkspaceNode`: a rented or hosted runtime node that runs an IOI
+  daemon and Autopilot node shell persistently while protected workspace state
+  is stored and processed only through private workspace representations unless
+  explicitly declassified. `PersistentShieldedAutopilotNode` is a deprecated
+  compatibility alias.
+- `PrivateWorkspaceCapsule`: the task/workspace capsule sent to an untrusted
+  rented node. It carries visible public/redacted context, encrypted refs,
+  sealed private heads, allowed remote ops, forbidden plaintext classes, leakage
+  profile, and required receipts. `ShieldedTaskCapsule` is a deprecated
+  compatibility alias.
+- `AlphaSeal`: a sealed private strategy capsule for quantitative strategies or
+  similar high-value logic. It binds a public compute trunk, private strategy
+  head, leakage profile, policy, wallet authority, and receipts.
+- `AutonomyLease`: a wallet.network authority lease that allows a persistent
+  node to act while the user is away within bounded policy, without receiving
+  durable raw secrets or unrestricted authority.
+- `DeclassificationGate`: the policy and authority boundary where protected
+  outputs become visible or actionable. It emits a receipt and routes external
+  effects through wallet.network capability exits.
+- `PrivateUserAppStateRef`: an Agentgres-governed private user/app state ref
+  for encrypted profile metadata, preferences, service intake payloads,
+  workspace snapshots, non-public app outputs, managed-instance metadata, or
+  meaningful local app checkpoints. Storage backends hold encrypted bytes;
+  wallet.network controls viewing/decryption/mutation authority; IOI L1 stores
+  only selected public/economic/cross-domain commitments.
 - `AgentgresArtifactRefPlane`: the Agentgres-governed reference, lifecycle,
   policy, authority, receipt, replay/import, archive/restore, and state-root
   validity layer for payload bytes. It owns `ArtifactRef`, `PayloadRef`,

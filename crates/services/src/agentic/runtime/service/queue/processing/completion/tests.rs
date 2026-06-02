@@ -534,6 +534,54 @@ fn completes_explicit_agent_complete_result_from_queue() {
 }
 
 #[test]
+fn sanitizes_queue_agent_complete_product_fixture_labels() {
+    let mut agent_state = agent_state_with_mail_reply();
+    agent_state.resolved_intent = None;
+    agent_state.goal =
+        "Open a sandbox browser, inspect this fixture page, and summarize what changed."
+            .to_string();
+    let session_id = agent_state.session_id;
+    let mut success = true;
+    let mut out = None;
+    let mut err = None;
+    let mut completion_summary = None;
+    let mut verification_checks = Vec::new();
+    let rules = crate::agentic::runtime::service::decision_loop::helpers::default_safe_policy();
+
+    maybe_complete_agent_complete(
+        &mut agent_state,
+        &AgentTool::AgentComplete {
+            result: "The sandbox browser opened the Tool Catalogue Fixture and found a visible TOOLCAT_BROWSER_CANARY.".to_string(),
+        },
+        false,
+        &mut success,
+        &mut out,
+        &mut err,
+        &mut completion_summary,
+        &mut verification_checks,
+        &rules,
+        session_id,
+    );
+
+    assert!(success);
+    assert!(matches!(agent_state.status, AgentStatus::Completed(_)));
+    let summary = completion_summary
+        .as_deref()
+        .expect("agent__complete should produce sanitized terminal summary");
+    assert!(summary.contains("sandbox browser"), "{summary}");
+    assert!(
+        !summary.to_ascii_lowercase().contains("toolcat"),
+        "{summary}"
+    );
+    assert!(!summary.contains("Tool Catalogue Fixture"), "{summary}");
+    assert_eq!(out, completion_summary);
+    assert!(err.is_none());
+    assert!(verification_checks
+        .iter()
+        .any(|check| check == "terminal_agent_complete_ready=true"));
+}
+
+#[test]
 fn blocks_explicit_agent_complete_until_execution_contract_is_satisfied() {
     let mut agent_state = agent_state_with_mail_reply();
     let session_id = agent_state.session_id;

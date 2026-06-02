@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for sas.xyz service marketplace doctrine; low-level service endpoints live in [`sas-xyz-service-endpoints.md`](./service-endpoints.md).
 Supersedes: overlapping service-marketplace plan prose when outcome/service boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-30.
+Last alignment pass: 2026-06-01.
 
 ## Canonical Definition
 
@@ -73,6 +73,7 @@ sas.xyz does not own:
 
 - user raw secrets;
 - all runtime compute;
+- Private Workspace cTEE execution semantics;
 - local Autopilot execution;
 - IOI L1 itself;
 - storage backend payload bytes;
@@ -177,12 +178,18 @@ Users can interact directly with sas.xyz in a browser:
 
 ```text
 browser order
-→ hosted/provider/DePIN/TEE IOI runtime executes
+→ hosted/provider/DePIN/Private-Workspace-cTEE/TEE IOI runtime executes
 → delivery bundle appears in sas.xyz UI
 → wallet.network handles approvals/payment
 ```
 
-Autopilot is optional for users who want local/private execution, local workflow editing, or local connector/model control.
+Autopilot is optional for users who want local/private execution, local
+workflow editing, or local connector/model control. Sensitive managed outcomes
+may also request Private Workspace backed by cTEE when a persistent rented GPU
+should do public or redacted work without receiving protected plaintext. In
+that profile, Candidate-Lattice Private Decoding is the default protected-agency
+strategy: the service node expands candidates, while the private head,
+guardian, or wallet policy selects, denies, declassifies, or signs.
 
 ## Managed vs Local Service
 
@@ -235,6 +242,7 @@ a mandatory wrapper around aiagent.xyz workers
 a raw software-tool marketplace
 a model-checkpoint storefront
 a replacement for daemon authority, Agentgres truth, or wallet.network approvals
+a privacy authority layer for rented GPU nodes
 ```
 
 Correct model:
@@ -242,7 +250,7 @@ Correct model:
 ```text
 sas.xyz contracts and lists verifiable service outcomes
 service packages can run locally, privately, hosted, in VPCs, through TEEs, or
-through marketplace orders
+through Private Workspace cTEE nodes or marketplace orders
 the daemon executes service engines under the Default Harness Profile
 Agentgres records delivery, evidence, receipts, and settlement state
 L1 settlement appears when contracts, escrow, rights, disputes, or public trust
@@ -678,6 +686,15 @@ Receipts must be first-class because they power:
 ## 5.6 Privacy claims are execution-dependent
 
 The same service may offer multiple privacy classes depending on execution target and trust posture. This must be explicit.
+
+For rented GPU or DePIN persistence, `private_workspace_ctee` is a separate
+claim: the node may run public/generic compute, public trunk files, redacted
+workspace projections, and encrypted persistence, but protected plaintext stays
+sealed, masked, client-held, guardian-mediated, or declassified through
+wallet.network under Private Workspace backed by cTEE. CLPD is the default
+shape for private agency over that compute. Plaintext-Free Runtime Mounting,
+model-mount receipts, and deterrence/detection receipts may be required for
+service disputes, canary evidence, watermark evidence, or provider-abuse claims.
 
 ## 5.7 Productized digital labor
 
@@ -1170,6 +1187,16 @@ IOI governs tools, secrets, and side effects, but the hosted model provider/oper
 ## P1 — Confidential remote
 
 Customer data is protected from infrastructure operators, and possibly service operators, via confidential execution.
+
+## P1S — Private Workspace cTEE
+
+Persistent rented/provider/DePIN GPU execution where public or redacted compute
+may run at node speed and users can open a private workspace, but protected
+classes are not present as plaintext on the node by default. Declassification
+and capability exits are wallet.network authority events with receipts.
+Plaintext-Free Runtime Mounting is the daemon boundary for tools and models;
+deterrence/detection receipts provide canary, watermark, replay, and dispute
+evidence.
 
 ## P2 — Boundary-private
 

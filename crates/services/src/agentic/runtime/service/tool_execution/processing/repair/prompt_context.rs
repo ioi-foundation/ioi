@@ -36,6 +36,19 @@ Rules:\n\
 10. If you use `file__write` for a code edit, omit `line_number` and provide the full updated file contents grounded in the current file snapshot.\n",
         );
     }
+    if agent_state
+        .resolved_intent
+        .as_ref()
+        .is_some_and(|resolved| resolved.scope == IntentScopeProfile::UiInteraction)
+    {
+        prompt.push_str(
+            "Browser/UI recovery rules:\n\
+6. If the latest browser observation already contains enough visible page state to satisfy the request, use `agent__complete` with a concise user-facing summary.\n\
+7. If more page evidence is needed after a `NoEffectAfterAction` boundary, use `browser__wait`, `browser__screenshot`, or another grounded browser action; do not immediately repeat the same no-effect inspection.\n\
+8. Do not include raw URLs, coordinates, trace ids, receipt ids, probe labels, fixture labels, model/runtime identifiers, or DOM element ids in `agent__complete`.\n\
+9. Phrase browser findings as observable page content and controls, not as internal tool output.\n",
+        );
+    }
     prompt.push_str(&format!(
         "Allowed tools now: {}\n",
         allowed_tool_names

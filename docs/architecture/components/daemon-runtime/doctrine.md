@@ -443,7 +443,7 @@ Sensitive actions require:
 - expiry;
 - revocation epoch.
 
-## Runtime Privacy Modes
+## Runtime Privacy Profiles
 
 1. **Local/private** — local Autopilot, customer machine.
 2. **Mutual Blind** — no TEE; redacted/minimized capsules, no final authority.

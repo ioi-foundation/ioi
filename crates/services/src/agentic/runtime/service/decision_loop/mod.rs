@@ -55,6 +55,8 @@ const RUNTIME_ROUTE_INSTALL_RESOLVE_MARKER: &str =
     "runtime_route_frame_dispatch:software_install__resolve";
 const RUNTIME_ROUTE_BROWSER_NAVIGATE_MARKER: &str =
     "runtime_route_frame_dispatch:browser__navigate";
+const RUNTIME_ROUTE_BROWSER_NAVIGATE_EVIDENCE: &str =
+    "runtime_route_frame_dispatch.browser_navigate_url";
 const RUNTIME_ROUTE_SHELL_RUN_MARKER: &str = "runtime_route_frame_dispatch:shell__run";
 const RUNTIME_ROUTE_WEB_SEARCH_MARKER: &str = "runtime_route_frame_dispatch:web__search";
 const RUNTIME_ROUTE_WORKSPACE_CONTEXT_MARKER: &str =
@@ -432,6 +434,14 @@ fn maybe_typed_runtime_browser_navigate_tool_call(agent_state: &mut AgentState) 
         return None;
     }
     let url = browser_plan.url.clone();
+    if tool_execution::execution_evidence_value(
+        &agent_state.tool_execution_log,
+        RUNTIME_ROUTE_BROWSER_NAVIGATE_EVIDENCE,
+    )
+    .is_some_and(|recorded| recorded == url)
+    {
+        return None;
+    }
     log::info!(
         "TypedRuntimeBrowserNavigate dispatching browser navigation url={} session={}",
         url,
@@ -440,6 +450,11 @@ fn maybe_typed_runtime_browser_navigate_tool_call(agent_state: &mut AgentState) 
     agent_state
         .recent_actions
         .push(format!("{RUNTIME_ROUTE_BROWSER_NAVIGATE_MARKER}:{url}"));
+    tool_execution::record_execution_evidence_with_value(
+        &mut agent_state.tool_execution_log,
+        RUNTIME_ROUTE_BROWSER_NAVIGATE_EVIDENCE,
+        url.clone(),
+    );
 
     serde_json::to_string(&json!({
         "name": "browser__navigate",
@@ -651,19 +666,74 @@ fn runtime_route_frame_requires_workspace_context(frame: &RuntimeRouteFrame) -> 
         || runtime_route_frame_has_capability(frame, &["file.", "file_", "workspace."])
 }
 
-fn typed_runtime_web_research_resolved_intent() -> ResolvedIntentState {
+fn typed_runtime_frame_capability_ids(frame: &RuntimeRouteFrame) -> Vec<CapabilityId> {
+    let mut ids = Vec::new();
+    for raw in &frame.required_capabilities {
+        let capability = raw.to_ascii_lowercase();
+        if capability.contains("conversation.reply") {
+            ids.push(CapabilityId::from("conversation.reply"));
+        }
+        if capability.contains("web.")
+            || capability.contains("web_")
+            || capability.contains("retrieval")
+            || capability.contains("source_grounding")
+        {
+            ids.push(CapabilityId::from("web.retrieve"));
+            ids.push(CapabilityId::from("sys.time.read"));
+        }
+        if capability.contains("filesystem.read")
+            || capability.contains("file.read")
+            || capability.contains("file.search")
+            || capability.contains("workspace.read")
+            || capability.contains("workspace.")
+        {
+            ids.push(CapabilityId::from("filesystem.read"));
+            ids.push(CapabilityId::from("file.read"));
+            ids.push(CapabilityId::from("file.search"));
+            ids.push(CapabilityId::from("workspace.read"));
+        }
+        if capability.contains("filesystem.write")
+            || capability.contains("file.write")
+            || capability.contains("artifact.write")
+            || capability.contains("artifact.render")
+        {
+            ids.push(CapabilityId::from("filesystem.write"));
+        }
+    }
+    for typed in &frame.typed_required_capabilities {
+        ids.push(CapabilityId::from(typed.capability_id.as_str()));
+    }
+    let mut unique = Vec::new();
+    for id in ids {
+        if !unique.iter().any(|existing| existing == &id) {
+            unique.push(id);
+        }
+    }
+    unique
+}
+
+fn typed_runtime_web_research_resolved_intent(frame: &RuntimeRouteFrame) -> ResolvedIntentState {
+    let mut required_capabilities = vec![
+        CapabilityId::from("agent.lifecycle"),
+        CapabilityId::from("conversation.reply"),
+        CapabilityId::from("web.retrieve"),
+        CapabilityId::from("sys.time.read"),
+    ];
+    for capability in typed_runtime_frame_capability_ids(frame) {
+        if !required_capabilities
+            .iter()
+            .any(|existing| existing == &capability)
+        {
+            required_capabilities.push(capability);
+        }
+    }
     ResolvedIntentState {
         intent_id: "retrieval.answer".to_string(),
         scope: IntentScopeProfile::WebResearch,
         band: IntentConfidenceBand::High,
         score: 1.0,
         top_k: vec![],
-        required_capabilities: vec![
-            CapabilityId::from("agent.lifecycle"),
-            CapabilityId::from("conversation.reply"),
-            CapabilityId::from("web.retrieve"),
-            CapabilityId::from("sys.time.read"),
-        ],
+        required_capabilities,
         required_evidence: vec!["retrieval".to_string(), "source_grounding".to_string()],
         success_conditions: vec!["grounded_answer".to_string()],
         risk_class: "low".to_string(),
@@ -721,7 +791,7 @@ fn typed_runtime_workspace_context_resolved_intent() -> ResolvedIntentState {
 
 fn typed_runtime_route_resolved_intent(frame: &RuntimeRouteFrame) -> Option<ResolvedIntentState> {
     if runtime_route_frame_requires_web_research(frame) {
-        return Some(typed_runtime_web_research_resolved_intent());
+        return Some(typed_runtime_web_research_resolved_intent(frame));
     }
     if runtime_route_frame_requires_workspace_context(frame) {
         return Some(typed_runtime_workspace_context_resolved_intent());

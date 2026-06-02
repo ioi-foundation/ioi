@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for aiagent.xyz marketplace doctrine; low-level worker endpoints live in [`aiagent-xyz-worker-and-inter-agent-endpoints.md`](./worker-endpoints.md).
 Supersedes: overlapping worker-marketplace plan prose when marketplace boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-30.
+Last alignment pass: 2026-06-01.
 
 ## Canonical Definition
 
@@ -15,8 +15,8 @@ settles, and initializes worker packages. It is an application domain with its
 own kernel + Agentgres backend, AIIP worker/handoff surfaces, and IOI L1
 smart-contract settlement rails. A user may consume a worker as an API/workflow
 primitive, install it into Autopilot, route to it through AIIP, or initialize a
-managed web-accessible instance backed by hosted, provider, DePIN, TEE,
-customer, or local IOI daemon/runtime-node profiles.
+managed web-accessible instance backed by hosted, provider, DePIN, Private
+Workspace cTEE, TEE, customer, or local IOI daemon/runtime-node profiles.
 
 aiagent.xyz is not the protocol. It is a first-party protocol client, demand
 generator, and proof surface for AIIP and IOI autonomous-system settlement.
@@ -45,7 +45,8 @@ aiagent.xyz is:
 - a trained-worker publication and routing-eligibility surface;
 - a web-native console surface for installed instances, including chat,
   threads, approvals, receipts, usage, pause/resume, and runtime status;
-- a gateway to local, hosted, DePIN, and TEE worker execution.
+- a gateway to local, hosted, DePIN, Private Workspace cTEE, and TEE worker
+  execution.
   Execution is carried by IOI daemon/runtime-node profiles, not by the
   marketplace or SDK itself.
 
@@ -87,6 +88,7 @@ aiagent.xyz does not own:
 - storage backend payload bytes;
 - local Autopilot state;
 - the IOI daemon/runtime nodes that execute managed instances;
+- Private Workspace cTEE execution semantics;
 - raw long-running instance memory outside Agentgres refs and policy;
 - every service outcome delivery;
 - wallet authority.
@@ -112,7 +114,7 @@ artifact schema
 receipt policy
 pricing/license terms
 interaction surfaces: chat | form | api | workflow_node | scheduler | background_service
-runtime profiles: local | hosted | provider | depin | tee | customer_vpc
+runtime profiles: local | hosted | provider | depin | private_workspace_ctee | tee | customer_vpc
 persistence profiles: ephemeral | session | zero_to_idle | persistent
 subscription profiles, when warm or ongoing runtime is supported
 deployment profile and compatibility constraints
@@ -191,8 +193,9 @@ When a user invokes or initializes a worker:
 2. **Local Autopilot install** — package is downloaded and run through a local IOI daemon managed by Autopilot Desktop.
 3. **Managed hosted/provider instance** — aiagent.xyz initializes a worker instance on a hosted or provider IOI daemon and mounts a web console over daemon thread/run APIs.
 4. **DePIN zero-to-idle or persistent instance** — minimized or encrypted state runs on decentralized compute, then checkpoints and rehydrates through Agentgres, storage backend payloads, and wallet.network.
-5. **Enterprise secure instance** — TEE, customer VPC, or local IOI daemon runtime required by policy.
-6. **API/inter-agent call** — external app, worker, or workflow invokes a governed worker endpoint.
+5. **Private Workspace cTEE instance** — a rented/provider/DePIN GPU node runs the daemon shell, public inference, encrypted state, public trunk files, redacted workspace projections, Plaintext-Free Runtime Mounting, and Candidate-Lattice Private Decoding while protected classes stay sealed, masked, client-held, guardian-mediated, or declassified through wallet.network.
+6. **Enterprise secure instance** — TEE, customer VPC, or local IOI daemon runtime required by policy.
+7. **API/inter-agent call** — external app, worker, or workflow invokes a governed worker endpoint.
 
 The SDK may be used by clients or workers to call these surfaces. The runtime
 node itself is still an IOI daemon-compatible execution venue.
@@ -208,7 +211,7 @@ combination of:
 - API or workflow-node invocation;
 - local Autopilot install;
 - persistent, warm, zero-to-idle, or scheduled runtime;
-- enterprise, TEE, DePIN, or customer runtime placement.
+- enterprise, TEE, DePIN, Private Workspace cTEE, or customer runtime placement.
 
 User opt-ins should be equally explicit. A user may choose to:
 
@@ -231,7 +234,7 @@ A user can still use aiagent.xyz directly:
 browser UI
 → marketplace install or initialize request
 → aiagent.xyz domain kernel records install/instance intent
-→ runtime router selects hosted/provider/DePIN/TEE/customer/local IOI daemon node
+→ runtime router selects hosted/provider/DePIN/Private-Workspace-cTEE/TEE/customer/local IOI daemon node
 → wallet.network grants scoped authority and payment/subscription approvals
 → runtime node initializes worker package as ephemeral, zero-to-idle, or persistent instance
 → browser console mounts chat/thread/form/API controls over daemon APIs
@@ -347,6 +350,7 @@ the service-outcome marketplace
 a required dependency for every service package
 a place to silently absorb private worker internals
 a ranking surface that can privilege first-party workers by fiat
+a place that owns cTEE or receives protected plaintext because a user rented a GPU node
 ```
 
 Correct model:
@@ -357,6 +361,11 @@ the daemon executes workers under authority
 Agentgres records installs, invocations, receipts, and contribution state
 MoW routing remains policy, benchmark, receipt, cost, privacy, and trust based
 service packages may use aiagent.xyz workers but do not depend on them
+Private Workspace workers follow the daemon Private Workspace backed by cTEE canon
+Plaintext-Free Runtime Mounting is the cTEE daemon boundary for tools and models
+PlaintextFreeModelMount is the model-facing specialization
+CLPD is the default protected-agency strategy for private worker state
+deterrence/detection receipts may support canary, watermark, replay, and dispute evidence
 ```
 
 ## One-Line Doctrine

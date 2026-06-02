@@ -28,8 +28,8 @@ use ioi_services::agentic::runtime::{
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::flat::RedbFlatStore;
 use ioi_types::app::agentic::{
-    CommandExecutionPlanRef, RequiredCapability, RuntimeActionFrame, RuntimeIntentEvidence,
-    RuntimeRouteFrame,
+    BrowserActionPlanRef, CommandExecutionPlanRef, RequiredCapability, RuntimeActionFrame,
+    RuntimeIntentEvidence, RuntimeRouteFrame,
 };
 use ioi_types::app::runtime::computer_use::COMPUTER_USE_CONTRACT_SCHEMA_VERSION_V1;
 use ioi_types::app::{AccountId, ChainId, KernelEvent, WorkloadReceipt};
@@ -578,59 +578,66 @@ fn runtime_route_frame_for_bridge_input(
 fn runtime_route_frame_for_prompt(prompt: &str) -> Option<RuntimeRouteFrame> {
     let context = ChatIntentContext::new(prompt);
     if let Some(intent) = context.local_runtime_action_intent() {
-        if !intent.action_family.eq_ignore_ascii_case("shell") {
-            return None;
-        }
-        let command = intent.target_command.as_deref()?.trim();
-        if command.is_empty() {
-            return None;
-        }
-        let required_capability = RequiredCapability {
-            capability_id: "command.exec".to_string(),
-            reason: Some(
-                "explicit command execution request must run through shell tools".to_string(),
-            ),
-        };
-        return Some(RuntimeRouteFrame {
-            intent_id: "command.exec".to_string(),
-            route_family: "command_execution".to_string(),
-            output_intent: "tool_execution".to_string(),
-            direct_answer_allowed: false,
-            target: prompt.replace(['\r', '\n'], " "),
-            target_kind: Some("shell_command".to_string()),
-            host_mutation: intent.requires_host_mutation,
-            required_capabilities: vec!["command.exec".to_string()],
-            typed_evidence: vec![RuntimeIntentEvidence {
-                evidence_kind: "normalized_request".to_string(),
-                value: "shell_command".to_string(),
-                source: "runtime_bridge_prompt_intent".to_string(),
-                confidence: Some(intent.confidence),
-            }],
-            typed_required_capabilities: vec![required_capability.clone()],
-            host_mutation_scope: None,
-            runtime_action: Some(RuntimeActionFrame {
-                intent_class: intent.intent_class.to_string(),
-                action_family: "shell".to_string(),
-                target_text: intent.target_text.replace(['\r', '\n'], " "),
-                target_kind: "shell_command".to_string(),
+        if intent.action_family.eq_ignore_ascii_case("shell") {
+            let command = intent.target_command.as_deref()?.trim();
+            if command.is_empty() {
+                return None;
+            }
+            let required_capability = RequiredCapability {
+                capability_id: "command.exec".to_string(),
+                reason: Some(
+                    "explicit command execution request must run through shell tools".to_string(),
+                ),
+            };
+            return Some(RuntimeRouteFrame {
+                intent_id: "command.exec".to_string(),
+                route_family: "command_execution".to_string(),
+                output_intent: "tool_execution".to_string(),
+                direct_answer_allowed: false,
+                target: prompt.replace(['\r', '\n'], " "),
+                target_kind: Some("shell_command".to_string()),
                 host_mutation: intent.requires_host_mutation,
-                required_capabilities: vec![required_capability],
-                browser_plan: None,
-                command_plan: Some(CommandExecutionPlanRef {
-                    plan_ref: format!("command.exec:runtime-bridge-inline:{}", command.len()),
-                    argv: runtime_command_argv_for_prompt(command),
-                    shell_policy: "bounded".to_string(),
-                    cwd: Some(".".to_string()),
-                    env: Vec::new(),
-                    approval_scope: None,
-                    expected_receipt: Some("command_receipt".to_string()),
+                required_capabilities: vec!["command.exec".to_string()],
+                typed_evidence: vec![RuntimeIntentEvidence {
+                    evidence_kind: "normalized_request".to_string(),
+                    value: "shell_command".to_string(),
+                    source: "runtime_bridge_prompt_intent".to_string(),
+                    confidence: Some(intent.confidence),
+                }],
+                typed_required_capabilities: vec![required_capability.clone()],
+                host_mutation_scope: None,
+                runtime_action: Some(RuntimeActionFrame {
+                    intent_class: intent.intent_class.to_string(),
+                    action_family: "shell".to_string(),
+                    target_text: intent.target_text.replace(['\r', '\n'], " "),
+                    target_kind: "shell_command".to_string(),
+                    host_mutation: intent.requires_host_mutation,
+                    required_capabilities: vec![required_capability],
+                    browser_plan: None,
+                    command_plan: Some(CommandExecutionPlanRef {
+                        plan_ref: format!("command.exec:runtime-bridge-inline:{}", command.len()),
+                        argv: runtime_command_argv_for_prompt(command),
+                        shell_policy: "bounded".to_string(),
+                        cwd: Some(".".to_string()),
+                        env: Vec::new(),
+                        approval_scope: None,
+                        expected_receipt: Some("command_receipt".to_string()),
+                    }),
+                    file_plan: None,
+                    provenance: Some("runtime_bridge_prompt_intent".to_string()),
                 }),
-                file_plan: None,
+                install_request: None,
                 provenance: Some("runtime_bridge_prompt_intent".to_string()),
-            }),
-            install_request: None,
-            provenance: Some("runtime_bridge_prompt_intent".to_string()),
-        });
+            });
+        }
+    }
+
+    if let Some(frame) = runtime_browser_action_frame_for_prompt(prompt) {
+        return Some(frame);
+    }
+
+    if let Some(frame) = runtime_source_backed_artifact_or_retrieval_frame_for_prompt(prompt) {
+        return Some(frame);
     }
 
     let path = prompt_file_read_path(prompt)?;
@@ -660,6 +667,338 @@ fn runtime_route_frame_for_prompt(prompt: &str) -> Option<RuntimeRouteFrame> {
         install_request: None,
         provenance: Some("runtime_bridge_prompt_intent".to_string()),
     })
+}
+
+fn runtime_browser_action_frame_for_prompt(prompt: &str) -> Option<RuntimeRouteFrame> {
+    let text = prompt.trim();
+    if text.is_empty() {
+        return None;
+    }
+    let lower = text.to_ascii_lowercase();
+    if !prompt_requests_runtime_browser_action(&lower) {
+        return None;
+    }
+    let url = runtime_first_url_literal(text)?;
+    let required_capability = RequiredCapability {
+        capability_id: "browser.interact".to_string(),
+        reason: Some(
+            "explicit browser session request must use governed browser tools".to_string(),
+        ),
+    };
+    Some(RuntimeRouteFrame {
+        intent_id: "browser.interact".to_string(),
+        route_family: "browser".to_string(),
+        output_intent: "tool_execution".to_string(),
+        direct_answer_allowed: false,
+        target: url.clone(),
+        target_kind: Some("browser_action".to_string()),
+        host_mutation: false,
+        required_capabilities: vec![
+            "conversation.reply".to_string(),
+            "browser.interact".to_string(),
+            "browser.inspect".to_string(),
+            "ui.interact".to_string(),
+        ],
+        typed_evidence: vec![
+            RuntimeIntentEvidence {
+                evidence_kind: "browser_url".to_string(),
+                value: url.clone(),
+                source: "runtime_bridge_prompt_intent".to_string(),
+                confidence: Some(94),
+            },
+            RuntimeIntentEvidence {
+                evidence_kind: "normalized_request".to_string(),
+                value: "browser_action".to_string(),
+                source: "runtime_bridge_prompt_intent".to_string(),
+                confidence: Some(90),
+            },
+        ],
+        typed_required_capabilities: vec![required_capability.clone()],
+        host_mutation_scope: None,
+        runtime_action: Some(RuntimeActionFrame {
+            intent_class: "browser.interact".to_string(),
+            action_family: "browser".to_string(),
+            target_text: url.clone(),
+            target_kind: "browser_action".to_string(),
+            host_mutation: false,
+            required_capabilities: vec![required_capability],
+            browser_plan: Some(BrowserActionPlanRef {
+                plan_ref: format!("browser.navigate:runtime-bridge-inline:{}", url.len()),
+                action: "navigate".to_string(),
+                url,
+                observation_required: true,
+                observation_ref: None,
+                coordinate_space_id: None,
+                semantic_id: None,
+            }),
+            command_plan: None,
+            file_plan: None,
+            provenance: Some("runtime_bridge_prompt_intent".to_string()),
+        }),
+        install_request: None,
+        provenance: Some("runtime_bridge_prompt_intent".to_string()),
+    })
+}
+
+fn prompt_requests_runtime_browser_action(lower: &str) -> bool {
+    let mentions_browser_surface = [
+        " browser",
+        " sandbox browser",
+        " page",
+        " webpage",
+        " website",
+        " fixture page",
+        " tab",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle));
+    let requests_observation_or_navigation = [
+        " open ",
+        " navigate ",
+        " inspect ",
+        " browse ",
+        " visit ",
+        " summarize what changed",
+        " summarize the page",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle));
+    mentions_browser_surface
+        && requests_observation_or_navigation
+        && (lower.contains("http://") || lower.contains("https://"))
+}
+
+fn runtime_first_url_literal(text: &str) -> Option<String> {
+    let start = text.find("http://").or_else(|| text.find("https://"))?;
+    let raw = text[start..]
+        .split_whitespace()
+        .next()
+        .unwrap_or_default()
+        .trim_matches(|ch: char| {
+            matches!(
+                ch,
+                '"' | '\'' | '`' | '<' | '>' | ')' | ']' | '}' | ',' | ';'
+            )
+        })
+        .trim_end_matches(|ch| matches!(ch, '.' | ':' | '!' | '?'));
+    (!raw.is_empty()).then(|| raw.to_string())
+}
+
+fn runtime_source_backed_artifact_or_retrieval_frame_for_prompt(
+    prompt: &str,
+) -> Option<RuntimeRouteFrame> {
+    let text = prompt.trim();
+    if text.is_empty() {
+        return None;
+    }
+    let lower = text.to_ascii_lowercase();
+    let artifact = prompt_requests_runtime_artifact(&lower);
+    let source_required = prompt_requires_runtime_sources(&lower)
+        || (artifact && prompt_artifact_benefits_from_runtime_sources(&lower));
+    if !source_required {
+        return None;
+    }
+    let query = runtime_research_query_for_prompt(text);
+    let target_kind = if artifact {
+        "source_backed_artifact"
+    } else {
+        "source_grounding"
+    };
+    let mut required_capabilities = vec![
+        "conversation.reply".to_string(),
+        "web.retrieve".to_string(),
+        "sys.time.read".to_string(),
+    ];
+    if artifact {
+        required_capabilities.extend([
+            "filesystem.read".to_string(),
+            "filesystem.write".to_string(),
+        ]);
+    }
+    Some(RuntimeRouteFrame {
+        intent_id: "retrieval.answer".to_string(),
+        route_family: "web_research".to_string(),
+        output_intent: "tool_execution".to_string(),
+        direct_answer_allowed: false,
+        target: query.clone(),
+        target_kind: Some(target_kind.to_string()),
+        host_mutation: artifact,
+        required_capabilities,
+        typed_evidence: vec![
+            RuntimeIntentEvidence {
+                evidence_kind: "retrieval_query".to_string(),
+                value: query,
+                source: "runtime_bridge_prompt_intent".to_string(),
+                confidence: Some(88),
+            },
+            RuntimeIntentEvidence {
+                evidence_kind: "normalized_request".to_string(),
+                value: target_kind.to_string(),
+                source: "runtime_bridge_prompt_intent".to_string(),
+                confidence: Some(88),
+            },
+        ],
+        typed_required_capabilities: Vec::new(),
+        host_mutation_scope: None,
+        runtime_action: None,
+        install_request: None,
+        provenance: Some("runtime_bridge_prompt_intent".to_string()),
+    })
+}
+
+fn prompt_requires_runtime_sources(lower: &str) -> bool {
+    [
+        " source",
+        " sources",
+        "with source",
+        "with sources",
+        "use source",
+        "use sources",
+        "using source",
+        "using sources",
+        "cite",
+        "citation",
+        "citations",
+        "reference",
+        "references",
+        "web search",
+        "web read",
+        "search the web",
+        "search online",
+        "research",
+        "latest",
+        "current",
+        "right now",
+        "price",
+        "market cap",
+        "investment",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle))
+}
+
+fn prompt_requests_runtime_artifact(lower: &str) -> bool {
+    let has_action = [
+        "create",
+        "build",
+        "make",
+        "generate",
+        "draft",
+        "design",
+        "prototype",
+        "output",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle));
+    has_action
+        && [
+            "website",
+            "web site",
+            "webpage",
+            "web page",
+            "landing page",
+            "microsite",
+            "static site",
+            "html file",
+            "html page",
+            "html document",
+            "html website",
+            "artifact",
+        ]
+        .iter()
+        .any(|needle| lower.contains(needle))
+}
+
+fn prompt_artifact_benefits_from_runtime_sources(lower: &str) -> bool {
+    [
+        "explain",
+        "explains",
+        "explaining",
+        "about",
+        "guide",
+        "educational",
+        "overview",
+        "report",
+        "compare",
+        "versus",
+        " vs ",
+        "what is",
+        "how does",
+        "history",
+        "timeline",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle))
+}
+
+fn runtime_research_query_for_prompt(prompt: &str) -> String {
+    let normalized = prompt.replace(['\r', '\n'], " ");
+    let lower = normalized.to_ascii_lowercase();
+    if let Some(value) = runtime_query_after_label(&normalized, &lower, "research topic:") {
+        return runtime_clean_research_query(&value);
+    }
+    for marker in [
+        " about ",
+        " explains ",
+        " explain ",
+        " on ",
+        " for ",
+        " comparing ",
+        " compares ",
+        " versus ",
+        " vs ",
+    ] {
+        if let Some(index) = lower.find(marker) {
+            let start = index + marker.len();
+            if start < normalized.len() {
+                let candidate = normalized[start..].to_string();
+                let cleaned = runtime_clean_research_query(&candidate);
+                if !cleaned.is_empty() {
+                    return cleaned;
+                }
+            }
+        }
+    }
+    runtime_clean_research_query(&normalized)
+}
+
+fn runtime_query_after_label(normalized: &str, lower: &str, label: &str) -> Option<String> {
+    let index = lower.find(label)?;
+    let start = index + label.len();
+    if start >= normalized.len() {
+        return None;
+    }
+    Some(normalized[start..].to_string())
+}
+
+fn runtime_clean_research_query(value: &str) -> String {
+    let mut cleaned = value.trim().to_string();
+    for marker in [
+        " and use sources",
+        " with sources",
+        " using sources",
+        " and cite sources",
+        " with citations",
+        " as an artifact",
+        " as a website",
+        " use the governed",
+        " call web__",
+        " then call",
+    ] {
+        if let Some(index) = cleaned.to_ascii_lowercase().find(marker) {
+            cleaned.truncate(index);
+        }
+    }
+    cleaned = cleaned
+        .trim_matches(|ch: char| ch.is_ascii_punctuation() || ch.is_whitespace())
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    if cleaned.len() > 180 {
+        cleaned.truncate(180);
+        cleaned = cleaned.trim().to_string();
+    }
+    cleaned
 }
 
 fn runtime_route_frame_for_prompt_or_bridge_input(
@@ -1011,7 +1350,6 @@ impl BridgeRuntime {
         emit_runtime_bridge_event(&events[0]);
 
         let state_before_steps = self.agent_state(session_id)?;
-        let mut latest_state = state_before_steps.clone();
         let mut last_progress_at = Instant::now();
         let turn_idle_timeout = runtime_bridge_turn_idle_timeout();
         let step_timeout_limit = runtime_bridge_step_timeout();
@@ -1020,6 +1358,16 @@ impl BridgeRuntime {
             &input.options,
             &state_before_steps,
         );
+        let mut latest_state = state_before_steps.clone();
+        if apply_submit_turn_step_budget(&mut latest_state, max_steps) {
+            let key = get_state_key(&session_id);
+            let encoded = codec::to_bytes_canonical(&latest_state)
+                .map_err(|error| anyhow!("failed to encode updated agent step budget: {error}"))?;
+            self.state
+                .insert(&key, &encoded)
+                .context("failed to persist submit_turn step budget")?;
+            self.commit()?;
+        }
         let mut step_count = 0;
         let mut step_result = Ok(());
         let mut completed_after_chat_reply = false;
@@ -1134,6 +1482,10 @@ impl BridgeRuntime {
             step_count,
             max_steps,
         );
+        let emitted_successful_chat_reply = completed_after_chat_reply
+            || kernel_events
+                .iter()
+                .any(kernel_event_is_successful_chat_reply);
         let (status, stop_reason, event_kind, event_status, summary) =
             match (&state.status, step_result) {
                 (AgentStatus::Failed(reason), _) => (
@@ -1160,6 +1512,20 @@ impl BridgeRuntime {
                     "blocked",
                     reason.clone(),
                 ),
+                (AgentStatus::Completed(None), _)
+                    if runtime_bridge_completed_without_final_reply(
+                        &state.status,
+                        emitted_successful_chat_reply,
+                    ) =>
+                {
+                    (
+                    "failed",
+                    "runtime_bridge_missing_chat_reply",
+                    "turn.failed",
+                    "failed",
+                    "Runtime Agent turn completed before producing a final chat reply.".to_string(),
+                    )
+                }
                 (AgentStatus::Completed(summary), _) => (
                     "completed",
                     "runtime_bridge_completed",
@@ -1525,6 +1891,18 @@ fn compact_streamed_turn_result_events(events: &[Value]) -> Vec<Value> {
     {
         result.push(started);
     }
+    for event in events {
+        if !runtime_bridge_event_is_observable_work_lane(event) {
+            continue;
+        }
+        let duplicate = result.iter().any(|existing| {
+            bridge_string_field(existing, &["idempotency_key"])
+                == bridge_string_field(event, &["idempotency_key"])
+        });
+        if !duplicate {
+            result.push(event.clone());
+        }
+    }
     if let Some(last) = events.last().cloned() {
         let duplicate = result.iter().any(|event| {
             bridge_string_field(event, &["idempotency_key"])
@@ -1539,6 +1917,23 @@ fn compact_streamed_turn_result_events(events: &[Value]) -> Vec<Value> {
     } else {
         result
     }
+}
+
+fn runtime_bridge_event_is_observable_work_lane(event: &Value) -> bool {
+    let kind = bridge_string_field(event, &["event_kind"])
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    if kind == "turn.started" || kind == "turn.completed" || kind == "turn.failed" {
+        return false;
+    }
+    kind.starts_with("tool.")
+        || kind.ends_with(".route_decision")
+        || kind.starts_with("approval.")
+        || kind.starts_with("policy.")
+        || kind.starts_with("receipt.")
+        || kind.starts_with("browser.")
+        || kind.starts_with("computer.")
+        || kind.starts_with("artifact.")
 }
 
 fn read_bridge_request() -> Result<BridgeRequest> {
@@ -1727,6 +2122,13 @@ fn bridge_agent_can_complete_after_chat_reply(state: &AgentState) -> bool {
         && state.execution_queue.is_empty()
         && state.pending_approval.is_none()
         && state.pending_tool_call.is_none()
+}
+
+fn runtime_bridge_completed_without_final_reply(
+    status: &AgentStatus,
+    emitted_successful_chat_reply: bool,
+) -> bool {
+    matches!(status, AgentStatus::Completed(None)) && !emitted_successful_chat_reply
 }
 
 fn bridge_agent_step_made_progress(
@@ -2352,6 +2754,14 @@ fn runtime_bridge_submit_turn_max_steps(
     })
 }
 
+fn apply_submit_turn_step_budget(state: &mut AgentState, max_steps: u32) -> bool {
+    if max_steps == 0 || state.max_steps == max_steps {
+        return false;
+    }
+    state.max_steps = max_steps;
+    true
+}
+
 fn session_hex_short(session_hex: &str) -> &str {
     session_hex.get(..16).unwrap_or(session_hex)
 }
@@ -2444,6 +2854,15 @@ mod tests {
     }
 
     #[test]
+    fn submit_turn_step_budget_updates_reused_agent_state() {
+        let mut state = test_agent_state();
+        state.max_steps = 8;
+        assert!(apply_submit_turn_step_budget(&mut state, 16));
+        assert_eq!(state.max_steps, 16);
+        assert!(!apply_submit_turn_step_budget(&mut state, 16));
+    }
+
+    #[test]
     fn tti_event_preserves_runtime_service_source() {
         let event = tti_event(TtiEventInput {
             thread_id: "thread_a",
@@ -2467,11 +2886,24 @@ mod tests {
     }
 
     #[test]
-    fn compact_streamed_turn_result_events_keeps_start_and_terminal_only() {
+    fn compact_streamed_turn_result_events_keeps_observable_work_lane_events() {
         let started = json!({
             "event_kind": "turn.started",
             "idempotency_key": "started",
             "payload": { "prompt": "long prompt" }
+        });
+        let search = json!({
+            "event_kind": "tool.completed",
+            "idempotency_key": "tool-search",
+            "payload": {
+                "tool_name": "web__search",
+                "output": "{\"sources\":[{\"title\":\"Photonic quantum computing\",\"url\":\"https://example.test/photonic\"}]}"
+            }
+        });
+        let route = json!({
+            "event_kind": "tool.route_decision",
+            "idempotency_key": "route-search",
+            "payload": { "tool_name": "web__search" }
         });
         let streamed_delta = json!({
             "event_kind": "answer.delta",
@@ -2486,11 +2918,13 @@ mod tests {
 
         let compacted = compact_streamed_turn_result_events(&[
             started.clone(),
+            route.clone(),
+            search.clone(),
             streamed_delta,
             terminal.clone(),
         ]);
 
-        assert_eq!(compacted, vec![started, terminal]);
+        assert_eq!(compacted, vec![started, route, search, terminal]);
     }
 
     fn test_agent_state() -> AgentState {
@@ -2589,6 +3023,22 @@ mod tests {
             &AgentStatus::Running,
             7,
             8,
+        ));
+    }
+
+    #[test]
+    fn runtime_bridge_completed_none_still_requires_chat_reply() {
+        assert!(runtime_bridge_completed_without_final_reply(
+            &AgentStatus::Completed(None),
+            false,
+        ));
+        assert!(!runtime_bridge_completed_without_final_reply(
+            &AgentStatus::Completed(None),
+            true,
+        ));
+        assert!(!runtime_bridge_completed_without_final_reply(
+            &AgentStatus::Completed(Some("done".to_string())),
+            false,
         ));
     }
 
@@ -2941,6 +3391,114 @@ mod tests {
         assert_eq!(frame.route_family, "command_execution");
         assert!(!frame.direct_answer_allowed);
         assert!(frame.runtime_action.is_some());
+    }
+
+    #[test]
+    fn bridge_browser_prompt_projects_governed_browser_route_frame() {
+        let request = json!({
+            "prompt": "Open a sandbox browser, inspect this fixture page, and summarize what changed. Use http://127.0.0.1:40291/ as the disposable page.",
+            "intentFrame": {
+                "schemaVersion": "ioi.studio.intent-frame.v1",
+                "intentId": "conversation.reply",
+                "routeDirective": "agent",
+                "executionMode": "agent",
+                "artifact": { "required": false },
+                "retrieval": { "required": false },
+                "workspace": { "required": false },
+                "requiredCapabilities": ["prim:conversation.reply"]
+            }
+        });
+        let prompt = request
+            .get("prompt")
+            .and_then(Value::as_str)
+            .expect("prompt");
+        let frame = runtime_route_frame_for_prompt_or_bridge_input(&request, None, prompt)
+            .expect("explicit browser prompt should override generic intent frame");
+
+        assert_eq!(frame.intent_id, "browser.interact");
+        assert_eq!(frame.route_family, "browser");
+        assert_eq!(frame.output_intent, "tool_execution");
+        assert!(!frame.direct_answer_allowed);
+        assert_eq!(frame.target, "http://127.0.0.1:40291/");
+        assert!(frame
+            .required_capabilities
+            .iter()
+            .any(|capability| capability == "browser.inspect"));
+        let action = frame.runtime_action.expect("runtime action");
+        assert_eq!(action.action_family, "browser");
+        let browser_plan = action.browser_plan.expect("browser plan");
+        assert_eq!(browser_plan.action, "navigate");
+        assert_eq!(browser_plan.url, "http://127.0.0.1:40291/");
+        assert!(browser_plan.observation_required);
+    }
+
+    #[test]
+    fn bridge_source_backed_html_prompt_beats_generic_studio_intent_frame() {
+        let request = json!({
+            "prompt": "Create an HTML file about photonic quantum computing and use sources.",
+            "intentFrame": {
+                "schemaVersion": "ioi.studio.intent-frame.v1",
+                "intentId": "conversation.reply",
+                "routeDirective": "agent",
+                "executionMode": "agent",
+                "artifact": { "required": false },
+                "retrieval": { "required": false },
+                "workspace": { "required": false },
+                "requiredCapabilities": ["prim:conversation.reply"]
+            }
+        });
+        let prompt = request
+            .get("prompt")
+            .and_then(Value::as_str)
+            .expect("prompt");
+        let frame = runtime_route_frame_for_prompt_or_bridge_input(&request, None, prompt)
+            .expect("source-backed artifact prompt should override generic intent frame");
+
+        assert_eq!(frame.intent_id, "retrieval.answer");
+        assert_eq!(frame.route_family, "web_research");
+        assert_eq!(frame.output_intent, "tool_execution");
+        assert!(!frame.direct_answer_allowed);
+        assert_eq!(frame.target, "photonic quantum computing");
+        assert_eq!(frame.target_kind.as_deref(), Some("source_backed_artifact"));
+        assert!(frame
+            .required_capabilities
+            .iter()
+            .any(|capability| capability == "web.retrieve"));
+        assert!(frame
+            .required_capabilities
+            .iter()
+            .any(|capability| capability == "filesystem.write"));
+    }
+
+    #[test]
+    fn bridge_internal_source_backed_artifact_prompt_uses_research_topic() {
+        let prompt = concat!(
+            "Create one complete self-contained HTML document for this request: Create an HTML file about photonic quantum computing and use sources.\n",
+            "Research topic: photonic quantum computing\n\n",
+            "Use the governed tool loop before writing the page.\n",
+            "Call web__search with exactly the research topic above as the query.\n",
+            "Then call chat__reply; the chat__reply message must contain the final HTML document only."
+        );
+        let request = json!({
+            "prompt": prompt,
+            "intentFrame": {
+                "schemaVersion": "ioi.studio.intent-frame.v1",
+                "intentId": "conversation.reply",
+                "routeDirective": "agent",
+                "executionMode": "agent",
+                "artifact": { "required": false },
+                "retrieval": { "required": false },
+                "workspace": { "required": false },
+                "requiredCapabilities": ["prim:conversation.reply"]
+            }
+        });
+        let frame = runtime_route_frame_for_prompt_or_bridge_input(&request, None, prompt)
+            .expect("internal source-backed artifact prompt should synthesize retrieval frame");
+
+        assert_eq!(frame.intent_id, "retrieval.answer");
+        assert_eq!(frame.route_family, "web_research");
+        assert_eq!(frame.target, "photonic quantum computing");
+        assert_eq!(frame.target_kind.as_deref(), Some("source_backed_artifact"));
     }
 
     #[test]

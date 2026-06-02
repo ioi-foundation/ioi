@@ -453,7 +453,7 @@ fn query_requests_browser_work(query: &str) -> bool {
     browser_action && browser_context
 }
 
-fn query_requests_artifact_work(query: &str) -> bool {
+pub(super) fn query_requests_artifact_work(query: &str) -> bool {
     let normalized = normalized_query_text(query);
     let artifact_action = query_contains_any(
         &normalized,
@@ -485,7 +485,46 @@ fn query_requests_artifact_work(query: &str) -> bool {
     artifact_action && artifact_context
 }
 
-fn query_requests_research_backed_artifact_work(query: &str) -> bool {
+pub(super) fn query_requests_public_source_work(query: &str) -> bool {
+    let normalized = normalized_query_text(query);
+    let references_source_code = query_contains_any(
+        &normalized,
+        &[
+            " source code ",
+            " source file ",
+            " source files ",
+            " source tree ",
+            " source map ",
+        ],
+    );
+    if references_source_code {
+        return false;
+    }
+
+    query_requests_research_work(query)
+        || query_contains_any(
+            &normalized,
+            &[
+                " use sources ",
+                " with sources ",
+                " cite ",
+                " cites ",
+                " cited ",
+                " citation ",
+                " citations ",
+                " references ",
+                " bibliography ",
+                " web search ",
+                " search the web ",
+                " search online ",
+                " gather sources ",
+                " source-backed ",
+                " sourced ",
+            ],
+        )
+}
+
+pub(super) fn query_requests_research_backed_artifact_work(query: &str) -> bool {
     if !query_requests_artifact_work(query) {
         return false;
     }
@@ -540,7 +579,8 @@ fn query_requests_research_backed_artifact_work(query: &str) -> bool {
         ],
     );
 
-    query_requests_deep_research_work(query)
+    query_requests_public_source_work(query)
+        || query_requests_deep_research_work(query)
         || currentness_or_sources
         || (explainer_shape && !likely_private_branding)
 }

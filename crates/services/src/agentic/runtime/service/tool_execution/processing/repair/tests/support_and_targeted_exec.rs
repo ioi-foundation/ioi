@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn invalid_tool_repair_support_stays_on_coding_scopes() {
+fn invalid_tool_repair_support_covers_code_command_and_ui_scopes() {
     let mut agent_state = build_worker_state([0x11; 32]);
     assert!(invalid_tool_repair_supported(
         &agent_state,
@@ -9,6 +9,9 @@ fn invalid_tool_repair_support_stays_on_coding_scopes() {
     ));
 
     agent_state.resolved_intent = Some(resolved(IntentScopeProfile::CommandExecution));
+    assert!(invalid_tool_repair_supported(&agent_state, None));
+
+    agent_state.resolved_intent = Some(resolved(IntentScopeProfile::UiInteraction));
     assert!(invalid_tool_repair_supported(&agent_state, None));
 
     agent_state.resolved_intent = Some(resolved(IntentScopeProfile::WebResearch));

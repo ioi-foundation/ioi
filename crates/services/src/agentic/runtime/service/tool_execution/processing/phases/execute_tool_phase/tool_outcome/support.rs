@@ -26,6 +26,24 @@ async fn record_terminal_chat_success_without_model_crystallization(
 
 fn goal_requires_fresh_retrieval_before_chat_reply(goal: &str) -> bool {
     let lower = goal.to_ascii_lowercase();
+    let explicitly_requests_public_sources = [
+        "use sources",
+        "with sources",
+        "cite",
+        "citation",
+        "citations",
+        "research",
+        "web search",
+        "web read",
+        "search the web",
+        "search online",
+    ]
+    .iter()
+    .any(|hint| lower.contains(hint))
+        || (lower.contains("sources") && !lower.contains("source code"));
+    if explicitly_requests_public_sources {
+        return true;
+    }
     let has_temporal_hint = [
         "right now",
         "today",
@@ -125,6 +143,13 @@ fn chat_reply_looks_like_source_candidate_list(message: &str) -> bool {
 }
 
 fn source_candidate_chat_reply_blocker(message: &str) -> Option<String> {
+    if chat_reply_looks_like_tool_plan(message) {
+        return Some(concat!(
+            "ERROR_CLASS=NoEffectAfterAction Planning notes are intermediate work, ",
+            "not a final answer. Continue the model -> tool -> result loop, then call ",
+            "chat__reply with the completed answer."
+        ).to_string());
+    }
     if !chat_reply_looks_like_source_candidate_list(message) {
         return None;
     }
@@ -133,6 +158,30 @@ fn source_candidate_chat_reply_blocker(message: &str) -> Option<String> {
         "not a final answer. Read the most relevant sources, then call chat__reply with a ",
         "concise model-authored answer grounded in the gathered evidence."
     ).to_string())
+}
+
+fn chat_reply_looks_like_tool_plan(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    let names_tool = lower.contains("web__search")
+        || lower.contains("web__read")
+        || lower.contains("file__")
+        || lower.contains("shell__")
+        || lower.contains("chat__reply");
+    if !names_tool {
+        return false;
+    }
+    [
+        "i need to",
+        "let me start",
+        "i will",
+        "i should",
+        "next i",
+        "then call",
+        "need to call",
+        "call web__",
+    ]
+    .iter()
+    .any(|hint| lower.contains(hint))
 }
 
 fn pending_web_evidence_ready_for_model_answer(

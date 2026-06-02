@@ -31,6 +31,7 @@ function nestedPayloadValue(value, keys = []) {
 }
 
 function studioRuntimeEventToolName(event = {}) {
+  const parsedKernelAction = parsedStudioKernelAction(event);
   return (
     event.tool_name ||
     event.toolName ||
@@ -53,6 +54,12 @@ function studioRuntimeEventToolName(event = {}) {
     event.data?.kernel_event?.RoutingReceipt?.tool_name ||
     event.data?.kernel_event?.ToolCall?.tool_name ||
     event.data?.kernel_event?.ToolResult?.tool_name ||
+    parsedKernelAction.name ||
+    parsedKernelAction.tool ||
+    parsedKernelAction.tool_name ||
+    parsedKernelAction.toolName ||
+    parsedKernelAction.tool_id ||
+    parsedKernelAction.toolId ||
     nestedPayloadValue(event, ["raw", "payload", "tool_name"]) ||
     nestedPayloadValue(event, ["raw", "payload", "toolName"]) ||
     ""
@@ -128,10 +135,35 @@ function parseStudioMaybeJsonObject(value) {
   }
 }
 
+function parsedStudioKernelEvent(event = {}) {
+  return parseStudioMaybeJsonObject(
+    event.kernel_event ||
+      event.kernelEvent ||
+      event.payload?.kernel_event ||
+      event.payload?.kernelEvent ||
+      event.payload_summary?.kernel_event ||
+      event.payload_summary?.kernelEvent ||
+      event.data?.kernel_event ||
+      event.data?.kernelEvent,
+  );
+}
+
+function parsedStudioKernelAction(event = {}) {
+  const kernel = parsedStudioKernelEvent(event) || {};
+  const receipt = kernel.RoutingReceipt || {};
+  const agentStep = kernel.AgentStep || {};
+  const actionResult = kernel.AgentActionResult || {};
+  const actionJson = parseStudioMaybeJsonObject(receipt.action_json || receipt.actionJson);
+  const rawOutput = parseStudioMaybeJsonObject(agentStep.raw_output || event.payload?.raw_output || event.payload?.rawOutput);
+  const preview = parseStudioMaybeJsonObject(actionResult.output?.preview);
+  return actionJson || rawOutput || preview || {};
+}
+
 function studioRuntimeToolEventDetail(event = {}, toolName = "", summary = "") {
   const payload = event.payload_summary || event.payloadSummary || event.payload || event.data || {};
   const parsedSummary = parseStudioMaybeJsonObject(summary);
-  const source = parsedSummary || payload;
+  const parsedKernelAction = parsedStudioKernelAction(event);
+  const source = parsedSummary || parsedKernelAction || payload;
   const args = source.arguments || source.args || payload.arguments || payload.args || {};
   const query = stringValue(source.query || args.query || payload.query || payload.input_query);
   if (query) {

@@ -1,4 +1,8 @@
 use crate::agentic::rules::ActionRules;
+use crate::agentic::runtime::service::decision_loop::cognition::{
+    final_reply_product_handoff_reason, sanitize_direct_chat_reply_output,
+    sanitize_product_handoff_internal_markers,
+};
 use crate::agentic::runtime::service::decision_loop::helpers::should_auto_complete_open_app_goal;
 use crate::agentic::runtime::service::decision_loop::intent_resolver::tool_has_capability;
 use crate::agentic::runtime::service::tool_execution::command_contract::{
@@ -81,6 +85,39 @@ fn completion_gate_blocks(
     agent_state.status = AgentStatus::Running;
     verification_checks.push("execution_contract_gate_blocked=true".to_string());
     verification_checks.push(format!("execution_contract_missing_keys={}", missing));
+    true
+}
+
+fn product_handoff_violation_error(reason: &str) -> String {
+    format!(
+        "ERROR_CLASS=UnexpectedState Final reply was not product-safe ({reason}). Return a fresh concise user-facing Markdown answer through the available terminal reply tool. Do not include raw temp paths, fixture/probe markers, raw logs, stdout/stderr dumps, receipt ids, trace ids, JSON payloads, or daemon scaffolding. Summarize the observed work and verification result instead."
+    )
+}
+
+fn product_handoff_blocks(
+    agent_state: &mut AgentState,
+    success: &mut bool,
+    out: &mut Option<String>,
+    err: &mut Option<String>,
+    verification_checks: &mut Vec<String>,
+    candidate: &str,
+    event_label: &'static str,
+) -> bool {
+    let Some(reason) = final_reply_product_handoff_reason(candidate, &agent_state.goal) else {
+        return false;
+    };
+
+    let blocked_error = product_handoff_violation_error(reason);
+    *success = false;
+    *out = Some(blocked_error.clone());
+    *err = Some(blocked_error);
+    agent_state.status = AgentStatus::Running;
+    verification_checks.push(format!(
+        "terminal_product_handoff_blocked_reason={}",
+        reason
+    ));
+    verification_checks.push("terminal_chat_reply_ready=false".to_string());
+    verification_checks.push(format!("{}_product_handoff_blocked=true", event_label));
     true
 }
 
@@ -208,8 +245,21 @@ pub(super) fn maybe_complete_chat_reply(
         return;
     }
 
-    let message = enrich_command_scope_summary(message, agent_state);
+    let message = sanitize_product_handoff_internal_markers(&sanitize_direct_chat_reply_output(
+        &enrich_command_scope_summary(message, agent_state),
+    ));
     let composed = compose_terminal_chat_reply(&message);
+    if product_handoff_blocks(
+        agent_state,
+        success,
+        out,
+        err,
+        verification_checks,
+        &composed.output,
+        "queued_chat_reply",
+    ) {
+        return;
+    }
     complete_with_summary(
         agent_state,
         composed.output.clone(),
@@ -524,9 +574,24 @@ pub(super) fn maybe_complete_agent_complete(
         return;
     }
 
+    let result = sanitize_product_handoff_internal_markers(&sanitize_direct_chat_reply_output(
+        &enrich_command_scope_summary(result, agent_state),
+    ));
+    if product_handoff_blocks(
+        agent_state,
+        success,
+        out,
+        err,
+        verification_checks,
+        &result,
+        "queued_agent_complete",
+    ) {
+        return;
+    }
+
     complete_with_summary(
         agent_state,
-        result.clone(),
+        result,
         success,
         out,
         err,

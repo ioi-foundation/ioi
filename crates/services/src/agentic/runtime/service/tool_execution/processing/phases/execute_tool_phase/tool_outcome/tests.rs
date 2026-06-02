@@ -3,7 +3,8 @@ use super::{
     blocked_terminalization_summary_from_history_and_snapshot,
     blocked_terminalization_summary_from_history_and_snapshot_for_goal,
     browser_observation_receipt_from_navigation_output,
-    chat_reply_looks_like_source_candidate_list, completion_gate_needs_pending_browser_check,
+    chat_reply_looks_like_source_candidate_list, chat_reply_looks_like_tool_plan,
+    completion_gate_needs_pending_browser_check, goal_requires_fresh_retrieval_before_chat_reply,
     is_toolcat_single_tool_probe, source_candidate_chat_reply_blocker,
     toolcat_single_tool_pause_reply, toolcat_single_tool_success_reply, toolcat_single_tool_target,
     toolcat_single_tool_target_completed, workspace_chat_reply_looks_terminal,
@@ -33,6 +34,19 @@ fn workspace_chat_reply_terminality_rejects_planning_status() {
 }
 
 #[test]
+fn explicit_source_requests_force_fresh_retrieval_before_chat_reply() {
+    assert!(goal_requires_fresh_retrieval_before_chat_reply(
+        "Create an HTML file about photonic quantum computing and use sources."
+    ));
+    assert!(goal_requires_fresh_retrieval_before_chat_reply(
+        "Research post-quantum computers, then cite the sources."
+    ));
+    assert!(!goal_requires_fresh_retrieval_before_chat_reply(
+        "Explain how this source code module works."
+    ));
+}
+
+#[test]
 fn source_candidate_chat_reply_is_not_terminal_product_output() {
     let candidate_list = concat!(
         "Current source candidates for today's top local AI model runtime issue:\n",
@@ -51,6 +65,25 @@ fn source_candidate_chat_reply_is_not_terminal_product_output() {
     assert!(!chat_reply_looks_like_source_candidate_list(
         "Based on the sources, the main runtime issue is template handling in local Qwen routes."
     ));
+}
+
+#[test]
+fn chat_reply_tool_plan_is_not_terminal_product_output() {
+    let plan = concat!(
+        "I need to:\n",
+        "1. Call web__search with the query \"photonic quantum computing\"\n",
+        "2. Call web__read on one relevant result\n",
+        "3. Then call chat__reply with the final HTML document\n",
+        "Let me start with web__search."
+    );
+
+    assert!(chat_reply_looks_like_tool_plan(plan));
+    let blocker = source_candidate_chat_reply_blocker(plan)
+        .expect("tool plans should be intermediate work, not terminal replies");
+    assert!(
+        blocker.contains("Planning notes are intermediate work"),
+        "{blocker}"
+    );
 }
 
 #[test]

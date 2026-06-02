@@ -1741,9 +1741,6 @@ pub(crate) fn final_web_completion_facts_with_rendered_summary(
 }
 
 pub(crate) fn final_web_completion_contract_ready(facts: &FinalWebCompletionFacts) -> bool {
-    if !facts.rendered_summary_semantic_floor_met {
-        return false;
-    }
     let comparison_shape_ready = final_web_comparison_shape_ready(facts);
     if facts.answer_rendered_layout_profile == "sourced_answer" {
         return final_model_sourced_answer_contract_ready(facts);

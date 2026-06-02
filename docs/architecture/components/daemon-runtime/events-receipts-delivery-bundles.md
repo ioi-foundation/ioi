@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for runtime events, receipts, delivery bundles, trace bundles, and quality records.
 Supersedes: overlapping event/receipt examples in plans/specs when event, trace, or receipt fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-25.
+Last alignment pass: 2026-06-01.
 
 ## Purpose
 
@@ -183,6 +183,13 @@ RoutingDecisionReceipt
 RuntimeAttestationReceipt
 RuntimeBridgeReceipt
 RuntimeUsageReceipt
+NodeMeasurementReceipt
+ModelMountReceipt
+PrivateInferenceReceipt
+DeclassificationReceipt
+CapabilityExitReceipt
+DeterrenceDetectionReceipt
+CanaryTripReceipt
 ContextBudgetReceipt
 MemoryMutationReceipt
 McpInvocationReceipt
@@ -192,6 +199,107 @@ WorkspaceSnapshotReceipt
 WorkspaceRestoreReceipt
 DiagnosticsRepairReceipt
 JobReceipt
+```
+
+## Private Workspace cTEE Receipts
+
+Private Workspace cTEE nodes and private-strategy flows use ordinary receipt
+semantics with stricter privacy fields. These receipts prove what was measured,
+mounted, computed, revealed, denied, detected, or signed without making the
+protected workspace payload public. Candidate-Lattice Private Decoding is the default
+protected-agency execution strategy: receipts bind the candidate lattice,
+private-head decision, leakage profile, and declassification/action outcome.
+
+`ModelMountReceipt` is emitted before private workspace model invocation. It
+binds the plaintext-free model mount view: public/redacted context hashes,
+encrypted refs, private handles, forbidden plaintext classes, and the
+deterrence/detection profile.
+
+```json
+{
+  "receipt_id": "receipt_model_mount_123",
+  "receipt_type": "model_mount",
+  "mount_id": "model_mount://123",
+  "view_id": "model_mount_view://123",
+  "run_id": "run_123",
+  "node_id": "runtime_node_3090",
+  "model_route_ref": "model_route://...",
+  "visible_context_hash": "sha256:...",
+  "redacted_projection_refs": ["projection://..."],
+  "encrypted_ref_commitments": ["commitment://..."],
+  "private_handle_refs": ["alpha_seal://...", "capability_exit://..."],
+  "forbidden_plaintext_classes": ["pii", "strategy_source", "broker_credentials"],
+  "plaintext_sensitive_classes_on_node": ["none"],
+  "deterrence_detection_profile_ref": "deterrence://...",
+  "policy_hash": "sha256:...",
+  "status": "accepted | rejected"
+}
+```
+
+```json
+{
+  "receipt_id": "receipt_private_inference_123",
+  "receipt_type": "private_inference",
+  "run_id": "run_123",
+  "node_id": "runtime_node_3090",
+  "capsule_id": "shielded_capsule://123",
+  "alpha_seal_ref": "alpha_seal://123",
+  "input_commitment": "sha256:...",
+  "output_commitment": "sha256:...",
+  "leakage_profile_ref": "leakage://...",
+  "operator_hash": "sha256:...",
+  "execution_strategy": "candidate_lattice_private_decoding",
+  "candidate_lattice_commitment": "commitment://...",
+  "selection_policy": "selected_one | top_m | denial_only | masked_score",
+  "selection_bits_bound": 0,
+  "timing_bucket_bits_bound": 0,
+  "size_bucket_bits_bound": 0,
+  "cumulative_leakage_budget_after": 0,
+  "mitigation_refs": ["padding_policy://...", "decoy_policy://..."],
+  "plaintext_sensitive_classes_on_node": ["none"],
+  "model_mount_receipt_ref": "receipt_model_mount_123",
+  "artifact_refs": ["artifact://protected-output"],
+  "status": "success | failure | blocked | invalid"
+}
+```
+
+```json
+{
+  "receipt_id": "receipt_declassification_123",
+  "receipt_type": "declassification",
+  "protected_output_ref": "artifact://protected-output",
+  "authority_grant_id": "grant_123",
+  "guardian_ref": "guardian://...",
+  "policy_hash": "sha256:...",
+  "decision": "reveal_to_user | reveal_to_third_party | execute_capability | deny | escalate",
+  "disclosed_classes": ["redacted | pii | strategy_summary | order_intent | none"],
+  "capability_exit_ref": "capability_exit://...",
+  "status": "success | denied | escalated"
+}
+```
+
+`NodeMeasurementReceipt` is integrity/accounting evidence. It is not, by
+itself, a consumer-GPU plaintext privacy guarantee.
+
+`DeterrenceDetectionReceipt` and `CanaryTripReceipt` are attribution and
+dispute evidence. They do not make plaintext safe and must not justify unsafe
+mounting.
+
+```json
+{
+  "receipt_id": "receipt_deterrence_123",
+  "receipt_type": "deterrence_detection",
+  "workspace_id": "workspace://123",
+  "node_id": "runtime_node_3090",
+  "profile_ref": "deterrence://...",
+  "event_type": "canary_planted | watermark_bound | honeytoken_bound | canary_checked | canary_tripped | suspicious_replay_detected | leak_scan_completed",
+  "bound_refs": ["model_mount://123", "shielded_capsule://123"],
+  "public_evidence_refs": ["artifact://evidence-capture"],
+  "private_evidence_commitments": ["commitment://..."],
+  "action": "none | warn_user | revoke_node | rotate_keys | open_dispute | slash_provider | quarantine_workspace",
+  "policy_hash": "sha256:...",
+  "status": "recorded | escalated | disputed"
+}
 ```
 
 ## ToolExecutionReceipt
@@ -502,3 +610,5 @@ archival checkpoint files.
 5. Private traces must support redacted export.
 6. TUI, SDK, ADK, agent-ide, and Autopilot controls must leave the same event
    and receipt trail when they mutate runtime state.
+7. Shielded compute receipts must never reveal protected plaintext merely to
+   prove that private work occurred.

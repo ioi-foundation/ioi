@@ -77,7 +77,7 @@ function createStudioOperationalSurface(deps) {
         data-policy-lease-dialog-observed="${studioRuntimeProjection.runtimeCockpit?.policyLeaseDialogObserved ? "true" : "false"}"
         data-managed-live-viewport-observed="${studioRuntimeProjection.runtimeCockpit?.managedLiveViewportObserved ? "true" : "false"}"
         data-managed-session-labels-observed="${studioRuntimeProjection.runtimeCockpit?.managedSessionLabelsObserved ? "true" : "false"}"
-        data-managed-session-count="${escapeHtml(String(studioRuntimeProjection.computerUseSessions.length || 0))}"
+        data-managed-session-count="${escapeHtml(String(studioRuntimeProjection.runtimeCockpit?.managedSessionCount || studioRuntimeProjection.computerUseSessions.length || 0))}"
         data-immediate-submit-seen="${studioRuntimeProjection.immediateSubmitSeen ? "true" : "false"}"
         data-pending-state-seen="${studioRuntimeProjection.pendingSeen ? "true" : "false"}"
         data-pending-started-at-ms="${escapeHtml(String(studioRuntimeProjection.pendingStartedAtMs || ""))}"

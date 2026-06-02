@@ -19,7 +19,7 @@ function createStudioPanelHtml({
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; img-src data:; style-src 'nonce-${pageNonce}' 'unsafe-inline'; script-src 'nonce-${pageNonce}';"
+      content="default-src 'none'; img-src data: https:; style-src 'nonce-${pageNonce}' 'unsafe-inline'; script-src 'nonce-${pageNonce}';"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Agent Studio</title>
@@ -53,6 +53,89 @@ function createStudioPanelHtml({
         } catch {
           return "";
         }
+      }
+      function compactPublicText(value) {
+        return String(value || "").replace(/\\s+/g, " ").trim();
+      }
+      function firstProjectedArray(value) {
+        return Array.isArray(value) ? value : [];
+      }
+      function projectedRecordValue(value) {
+        return value && typeof value === "object" ? value : {};
+      }
+      function sourceDomainFromUrl(url) {
+        try {
+          return new URL(String(url || "")).hostname.replace(/^www\\./i, "");
+        } catch {
+          return "";
+        }
+      }
+      function normalizeSourceChips(value) {
+        const entries = Array.isArray(value) ? value : [];
+        const seen = new Set();
+        const chips = [];
+        for (const raw of entries) {
+          if (!raw || typeof raw !== "object") continue;
+          const url = compactPublicText(raw.url || raw.href || raw.link);
+          const domain = compactPublicText(raw.domain || raw.hostname || sourceDomainFromUrl(url)).replace(/^www\\./i, "");
+          const title = compactPublicText(raw.title || raw.name || raw.label || domain || url).slice(0, 96);
+          const excerpt = compactPublicText(raw.excerpt || raw.snippet || raw.summary || "").slice(0, 220);
+          const state = compactPublicText(raw.state || raw.status || raw.sourceState || "used").slice(0, 32);
+          if (!title && !domain && !url) continue;
+          const key = (url || domain || title).toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          chips.push({ url, domain, title, excerpt, state });
+          if (chips.length >= 6) break;
+        }
+        return chips;
+      }
+      function studioSourceChipIconDataUri(source) {
+        const domain = compactPublicText(source?.domain || "");
+        const title = compactPublicText(source?.title || domain || "source");
+        const seed = domain || title || "source";
+        const glyph = escapeMarkdownHtml(seed.replace(/^www\\./i, "").slice(0, 1).toUpperCase() || "S");
+        const hue = Array.from(seed).reduce((sum, char) => sum + char.charCodeAt(0), 0) % 360;
+        const svg =
+          '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">' +
+          '<rect width="16" height="16" rx="4" fill="hsl(' + hue + ' 45% 30%)"/>' +
+          '<text x="8" y="11" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" font-weight="700" fill="white">' +
+          glyph +
+          "</text></svg>";
+        return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+      }
+      function studioSourceChipFaviconUrl(source) {
+        const explicit = sanitizeMarkdownUrl(source?.faviconUrl || source?.favicon_url || source?.iconUrl || source?.icon_url || "");
+        if (/^(?:https?:\\/\\/|data:image\\/)/i.test(explicit)) return explicit;
+        const rawUrl = sanitizeMarkdownUrl(source?.url || source?.href || source?.link || "");
+        let domain = compactPublicText(source?.domain || source?.hostname || "").replace(/^www\\./i, "");
+        if (!domain && rawUrl) {
+          try {
+            domain = new URL(rawUrl).hostname.replace(/^www\\./i, "");
+          } catch {
+            domain = "";
+          }
+        }
+        if (!domain && !rawUrl) return "";
+        const domainUrl = rawUrl || "https://" + domain;
+        return "https://www.google.com/s2/favicons?sz=32&domain_url=" + encodeURIComponent(domainUrl);
+      }
+      function studioProjectedSourceChipRows(sourceRefs, limit = 6) {
+        return normalizeSourceChips(sourceRefs).slice(0, limit).map((source) => {
+          const url = sanitizeMarkdownUrl(source.url);
+          const label = source.title || source.domain || source.url;
+          const title = [label, source.domain, source.excerpt].filter(Boolean).join(" - ");
+          const iconUrl = studioSourceChipFaviconUrl(source) || studioSourceChipIconDataUri(source);
+          const body =
+            '<img src="' + escapeMarkdownHtml(iconUrl) + '" alt="" aria-hidden="true">' +
+            '<span>' + escapeMarkdownHtml(String(label || "").slice(0, 96)) + "</span>" +
+            (source.domain && source.domain !== label ? "<small>" + escapeMarkdownHtml(source.domain) + "</small>" : "") +
+            (source.state ? "<em>" + escapeMarkdownHtml(source.state) + "</em>" : "");
+          if (url && /^https?:\\/\\//i.test(url)) {
+            return '<a class="studio-source-chip" href="' + escapeMarkdownHtml(url) + '" target="_blank" rel="noreferrer noopener" title="' + escapeMarkdownHtml(title) + '">' + body + "</a>";
+          }
+          return '<span class="studio-source-chip" title="' + escapeMarkdownHtml(title) + '">' + body + "</span>";
+        }).join("");
       }
       function markdownPlaceholder(placeholders, html) {
         const key = "\\u0000studio-md-" + placeholders.length + "\\u0000";
@@ -220,21 +303,27 @@ function createStudioPanelHtml({
         node.innerHTML = renderMarkdownBlocks(source);
       }
       function studioProjectedSourceRows(sourceRefs) {
-        const refs = Array.isArray(sourceRefs) ? sourceRefs.filter(Boolean).slice(0, 6) : [];
+        const refs = normalizeSourceChips(sourceRefs);
         if (!refs.length) return "";
         return '<div class="studio-answer-sources" data-testid="studio-answer-sources" aria-label="Sources">' +
           '<span>Sources</span>' +
-          refs.map((source) => {
-            const url = sanitizeMarkdownUrl(source && source.url);
-            if (!url) return "";
-            const title = String((source && (source.title || source.domain || source.url)) || url).replace(/\\s+/g, " ").trim();
-            const domain = String((source && source.domain) || "").replace(/^www\\./i, "").replace(/\\s+/g, " ").trim();
-            const label = title || domain || url;
-            return '<a href="' + escapeMarkdownHtml(url) + '" target="_blank" rel="noreferrer noopener">' +
-              escapeMarkdownHtml(label.slice(0, 96)) +
-              '</a>';
-          }).join("") +
+          '<div class="studio-source-chip-list">' + studioProjectedSourceChipRows(refs) + "</div>" +
           '</div>';
+      }
+      function syncProjectedSourceRows(turn, sourceRefs) {
+        const body = turn?.querySelector?.("[data-testid='studio-assistant-answer-card']") || turn?.querySelector?.(".studio-chat-turn__body");
+        if (!body) return;
+        const existing = body.querySelector("[data-testid='studio-answer-sources']");
+        const sourceRows = studioProjectedSourceRows(sourceRefs);
+        if (sourceRows) {
+          if (existing) {
+            existing.outerHTML = sourceRows;
+          } else {
+            body.insertAdjacentHTML("beforeend", sourceRows);
+          }
+        } else if (existing) {
+          existing.remove();
+        }
       }
       function appendMarkdownDelta(node, delta) {
         if (!node) return;
@@ -397,9 +486,330 @@ function createStudioPanelHtml({
         const runBar = turn?.querySelector("[data-testid='studio-run-status-bar']");
         if (!runBar) return;
         const strong = runBar.querySelector("strong");
-        const statusNode = runBar.querySelector("span:last-child");
-        if (strong) strong.textContent = label || (status === "completed" ? "Worked" : "Working...");
+        const statusNode = runBar.querySelector("[data-studio-run-status-label]");
+        if (strong) {
+          const current = String(strong.textContent || "");
+          if (!(label === "Worked" && current.startsWith("Worked for "))) {
+            strong.textContent = label || (status === "completed" ? "Worked" : "Working...");
+          }
+        }
         if (statusNode) statusNode.textContent = status || "streaming";
+      }
+      function formatProjectedWorkDuration(durationMs) {
+        const seconds = Math.max(0, Math.round(Number(durationMs || 0) / 1000));
+        if (seconds <= 0) return "<1s";
+        if (seconds < 60) return String(seconds) + "s";
+        const minutes = Math.floor(seconds / 60);
+        const remaining = seconds % 60;
+        return remaining ? String(minutes) + "m " + String(remaining) + "s" : String(minutes) + "m";
+      }
+      function normalizeProjectedWorkRows(workRecord) {
+        const record = workRecord && typeof workRecord === "object" ? workRecord : {};
+        const rows = Array.isArray(record.workRows) && record.workRows.length
+          ? record.workRows
+          : (Array.isArray(record.lines) ? record.lines.map((line) => ({ headline: line, status: "completed" })) : []);
+        return rows.map((row) => {
+          const source = row && typeof row === "object" ? row : { headline: row };
+          const headline = compactPublicText(source.headline || source.label || "");
+          if (!headline) return null;
+          return {
+            kind: compactPublicText(source.kind || "tool").slice(0, 48),
+            status: compactPublicText(source.status || "completed").slice(0, 32),
+            headline: headline.slice(0, 160),
+            summary: compactPublicText(source.summary || source.detail || "").slice(0, 220),
+            excerptPreview: compactPublicText(source.excerptPreview || source.excerpt_preview || "").slice(0, 280),
+            sourceChips: Array.isArray(source.sourceChips || source.source_chips) ? (source.sourceChips || source.source_chips) : [],
+          };
+        }).filter(Boolean).slice(0, 12);
+      }
+      function projectedWorkRowsHtml(workRecord) {
+        return normalizeProjectedWorkRows(workRecord).map((row) =>
+          '<li class="studio-work-row" data-status="' + escapeMarkdownHtml(row.status) + '" data-kind="' + escapeMarkdownHtml(row.kind) + '">' +
+            '<div class="studio-work-row__main">' +
+              '<strong>' + escapeMarkdownHtml(row.headline) + "</strong>" +
+              (row.summary ? "<span>" + escapeMarkdownHtml(row.summary) + "</span>" : "") +
+            "</div>" +
+            (normalizeSourceChips(row.sourceChips).length
+              ? '<div class="studio-source-chip-list">' + studioProjectedSourceChipRows(row.sourceChips, 6) + "</div>"
+              : "") +
+            (row.excerptPreview ? '<p class="studio-work-row__excerpt">' + escapeMarkdownHtml(row.excerptPreview) + "</p>" : "") +
+          "</li>"
+        ).join("");
+      }
+      function normalizeProjectedSessionCards(workRecord) {
+        const cards = Array.isArray(workRecord?.sessionCards) ? workRecord.sessionCards : [];
+        return cards.map((session) => {
+          const source = session && typeof session === "object" ? session : {};
+          const surfaceLabel = compactPublicText(source.surfaceLabel || source.surface_label || "Sandbox browser").slice(0, 80);
+          const statusLabel = compactPublicText(source.statusLabel || source.status_label || "Complete").slice(0, 80);
+          const title = compactPublicText(source.title || "Browser session").slice(0, 120);
+          const detail = compactPublicText(source.detail || source.summary || "Managed browser session").slice(0, 240);
+          return {
+            id: compactPublicText(source.id || source.sessionId || title || "managed-session").slice(0, 120),
+            kind: compactPublicText(source.kind || "sandbox_browser").slice(0, 48),
+            surfaceLabel,
+            statusLabel,
+            title,
+            detail,
+            pageTitle: compactPublicText(source.pageTitle || source.page_title || "").slice(0, 120),
+            target: compactPublicText(source.target || source.url || "").slice(0, 160),
+            lastTool: compactPublicText(source.lastTool || source.last_tool || "browser").slice(0, 80),
+            waitingForUser: Boolean(source.waitingForUser || source.waiting_for_user),
+          };
+        }).filter((session) => session.id || session.title || session.detail).slice(-3);
+      }
+      function projectedManagedSessionRowsHtml(workRecord) {
+        const sessions = normalizeProjectedSessionCards(workRecord);
+        if (!sessions.length) return "";
+        return '<section class="studio-managed-sessions" data-testid="studio-managed-sessions" aria-label="Browser and computer sessions">' +
+          sessions.map((session) => {
+            const labels = [
+              ["sandbox_browser", "Sandbox browser"],
+              ["local_browser", "Local browser"],
+              ["desktop", "Desktop"]
+            ].map(([kind, label]) =>
+              '<span data-testid="studio-managed-session-mode-label" data-session-mode-label="' + escapeMarkdownHtml(kind) + '" class="' + (kind === session.kind ? "is-active" : "") + '">' + escapeMarkdownHtml(label) + "</span>"
+            ).join("");
+            return '<section class="studio-managed-session-card studio-managed-session-card--' + escapeMarkdownHtml(session.kind) + '" data-testid="studio-managed-session-card" data-session-id="' + escapeMarkdownHtml(session.id) + '" data-session-kind="' + escapeMarkdownHtml(session.kind) + '" data-session-label="' + escapeMarkdownHtml(session.surfaceLabel) + '" data-session-status="' + escapeMarkdownHtml(session.statusLabel) + '" data-control-state="observe">' +
+              '<header class="studio-managed-session-card__header">' +
+                "<div><strong>" + escapeMarkdownHtml(session.surfaceLabel) + "</strong><span>" + escapeMarkdownHtml(session.statusLabel) + "</span></div>" +
+                '<button type="button" data-testid="studio-managed-session-expand" data-studio-managed-session-expand aria-expanded="false">Expand</button>' +
+              "</header>" +
+              '<div class="studio-managed-session-preview" data-testid="studio-managed-session-compact-preview">' +
+                '<div class="studio-managed-session-preview__chrome" aria-hidden="true"><span></span><span></span><span></span></div>' +
+                '<div class="studio-managed-session-preview__body">' +
+                  "<strong>" + escapeMarkdownHtml(session.pageTitle || session.title) + "</strong>" +
+                  "<span>" + escapeMarkdownHtml(session.detail || session.target || "Managed browser session") + "</span>" +
+                  (session.waitingForUser ? '<mark data-testid="studio-managed-session-waiting">Waiting for user</mark>' : "") +
+                "</div>" +
+              "</div>" +
+              '<div class="studio-managed-session-expanded" data-testid="studio-managed-session-expanded-view">' +
+                '<div class="studio-managed-session-mode-labels" data-testid="studio-managed-session-mode-labels">' + labels + "</div>" +
+                "<p>" + escapeMarkdownHtml(session.detail || "Agent-controlled sandbox session ready for observation.") + "</p>" +
+                '<div class="studio-managed-session-controls" data-testid="studio-managed-session-controls">' +
+                  '<button type="button" data-testid="studio-managed-session-observe" data-studio-managed-session-control="observe" aria-pressed="true" class="is-active">Observe</button>' +
+                  '<button type="button" data-testid="studio-managed-session-take-over" data-studio-managed-session-control="take_over">Take over</button>' +
+                  '<button type="button" data-testid="studio-managed-session-return" data-studio-managed-session-control="return_agent">Return control to Agent</button>' +
+                "</div>" +
+              "</div>" +
+            "</section>";
+          }).join("") +
+        "</section>";
+      }
+      function projectedArtifactClassLabel(artifact = {}) {
+        const value = compactPublicText(artifact.artifactClass || artifact.artifact_class || artifact.class || "artifact");
+        if (value === "static_html_js") return /website|web\\s*site|webpage|landing\\s+page/i.test(
+          String(artifact.outputModality || artifact.output_modality || artifact.title || artifact.summary || "")
+        ) ? "Website" : "HTML report";
+        if (value === "react_vite_app") return "App preview";
+        if (value === "imported_document") return "Document";
+        if (value === "pdf_preview") return "PDF";
+        if (value === "diff_patch") return "Patch";
+        if (value === "dataset_chart") return "Dataset";
+        if (value === "browser_observation") return "Browser capture";
+        return value.replace(/[_-]+/g, " ").replace(/\\s+/g, " ").trim().replace(/\\b[a-z]/g, (char) => char.toUpperCase());
+      }
+      function projectedArtifactPreviewLabel(artifact = {}) {
+        const previewRefs = firstProjectedArray(artifact.previewRefs || artifact.preview_refs);
+        if (!previewRefs.length) return "Preview pending";
+        const mediaType = compactPublicText(previewRefs[0]?.mediaType || previewRefs[0]?.media_type || "preview");
+        if (/html/i.test(mediaType)) return /website|web\\s*site|webpage|landing\\s+page/i.test(String(artifact.title || artifact.summary || "")) ? "Website preview" : "HTML preview";
+        if (/pdf/i.test(mediaType)) return "PDF preview";
+        if (/csv|json/i.test(mediaType)) return "Data preview";
+        return "Preview ready";
+      }
+      function projectedArtifactInlinePreviewHtml(artifact = {}) {
+        const inline = projectedRecordValue(artifact.previewInline || artifact.preview_inline);
+        const text = String(inline.text || "");
+        if (!text) return "";
+        const mediaType = compactPublicText(inline.mediaType || inline.media_type || "");
+        if (/html/i.test(mediaType)) {
+          return '<iframe class="studio-conversation-artifact-frame" data-testid="studio-conversation-artifact-preview-frame" sandbox="allow-scripts" title="' +
+            escapeMarkdownHtml(artifact.title || "Artifact preview") + '" srcdoc="' + escapeMarkdownHtml(text) + '"></iframe>';
+        }
+        return '<pre class="studio-conversation-artifact-source-preview" data-testid="studio-conversation-artifact-source-preview">' +
+          escapeMarkdownHtml(text.slice(0, 6000)) + "</pre>";
+      }
+      function projectedArtifactPreviewShell(artifact = {}, expanded = false) {
+        const inlinePreview = projectedArtifactInlinePreviewHtml(artifact);
+        if (inlinePreview) {
+          return '<div class="studio-conversation-artifact-preview studio-conversation-artifact-preview--' + (expanded ? "expanded" : "compact") + '" data-testid="studio-conversation-artifact-preview">' +
+            inlinePreview +
+          "</div>";
+        }
+        const stateLabel = compactPublicText(artifact.stateLabel || artifact.state_label || artifact.status || "Preview ready");
+        return '<div class="studio-conversation-artifact-preview studio-conversation-artifact-preview--placeholder" data-testid="studio-conversation-artifact-preview">' +
+          "<strong>" + escapeMarkdownHtml(projectedArtifactPreviewLabel(artifact)) + "</strong>" +
+          "<span>" + escapeMarkdownHtml(stateLabel) + "</span>" +
+        "</div>";
+      }
+      function normalizeProjectedArtifactCards(workRecord, extraArtifacts) {
+        const cards = [
+          ...firstProjectedArray(workRecord?.artifactCards),
+          ...firstProjectedArray(extraArtifacts),
+        ];
+        const seen = new Set();
+        return cards.map((artifact) => artifact && typeof artifact === "object" ? artifact : null)
+          .filter(Boolean)
+          .filter((artifact) => {
+            const id = compactPublicText(artifact.id || artifact.artifactId || artifact.artifact_id || artifact.title || "");
+            const key = id || JSON.stringify({ title: artifact.title, class: artifact.artifactClass || artifact.artifact_class }).slice(0, 120);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .slice(-6);
+      }
+      function projectedConversationArtifactRowsHtml(workRecord, extraArtifacts) {
+        const artifacts = normalizeProjectedArtifactCards(workRecord, extraArtifacts);
+        if (!artifacts.length) return "";
+        return '<section class="studio-conversation-artifacts" data-testid="studio-conversation-artifacts" aria-label="Conversation artifacts">' +
+          artifacts.map((artifact) => {
+            const artifactId = compactPublicText(artifact.id || artifact.artifactId || artifact.artifact_id || "artifact").slice(0, 160);
+            const stateLabel = compactPublicText(artifact.stateLabel || artifact.state_label || artifact.status || "Preview ready");
+            const actions = firstProjectedArray(artifact.actions).slice(0, 6);
+            const revisionCount = firstProjectedArray(artifact.revisions).length || 1;
+            const artifactClass = compactPublicText(artifact.artifactClass || artifact.artifact_class || "");
+            return '<article class="studio-conversation-artifact-card" data-testid="studio-conversation-artifact-card" data-artifact-id="' + escapeMarkdownHtml(artifactId) + '" data-artifact-class="' + escapeMarkdownHtml(artifactClass) + '" data-artifact-status="' + escapeMarkdownHtml(artifact.status || "") + '" data-artifact-expanded="false">' +
+              '<header class="studio-conversation-artifact-card__header">' +
+                '<div><span data-testid="studio-conversation-artifact-type">' + escapeMarkdownHtml(projectedArtifactClassLabel(artifact)) + '</span>' +
+                '<strong data-testid="studio-conversation-artifact-title">' + escapeMarkdownHtml(artifact.title || "Conversation artifact") + "</strong></div>" +
+                '<button type="button" data-testid="studio-conversation-artifact-expand" data-studio-artifact-expand aria-expanded="false">Open</button>' +
+              "</header>" +
+              '<div class="studio-conversation-artifact-compact" data-testid="studio-conversation-artifact-compact">' +
+                '<div class="studio-conversation-artifact-compact__status"><strong>' + escapeMarkdownHtml(stateLabel) + '</strong><span>' +
+                  escapeMarkdownHtml(projectedArtifactPreviewLabel(artifact)) + " · " + escapeMarkdownHtml(String(revisionCount)) + " revision" + (revisionCount === 1 ? "" : "s") +
+                "</span></div>" +
+                projectedArtifactPreviewShell(artifact, false) +
+              "</div>" +
+              '<div class="studio-conversation-artifact-expanded" data-testid="studio-conversation-artifact-expanded-view">' +
+                '<div class="studio-conversation-artifact-meta studio-visually-hidden" data-testid="studio-conversation-artifact-renderer-meta">' +
+                  '<span>Renderer: ' + escapeMarkdownHtml(artifact.renderer?.label || artifact.renderer?.kind || "sandboxed preview") + '</span>' +
+                  '<span>Sandbox: network denied · no ambient filesystem</span>' +
+                "</div>" +
+                projectedArtifactPreviewShell(artifact, true) +
+                (/compare|document|diff|patch/i.test(String((artifact.status || "") + " " + artifactClass)) ?
+                  '<div class="studio-conversation-artifact-compare" data-testid="studio-conversation-artifact-compare-state"><strong>Compare ready</strong><span>Original, projection, and latest revision are preserved by the daemon.</span></div>' :
+                  "") +
+                '<div class="studio-conversation-artifact-actions" data-testid="studio-conversation-artifact-actions">' +
+                  actions.map((action) => '<button type="button" data-testid="studio-conversation-artifact-action" data-studio-artifact-action="' + escapeMarkdownHtml(action) + '" data-artifact-id="' + escapeMarkdownHtml(artifactId) + '">' + escapeMarkdownHtml(String(action).replace(/[_-]+/g, " ")) + "</button>").join("") +
+                "</div>" +
+              "</div>" +
+            "</article>";
+          }).join("") +
+        "</section>";
+      }
+      function bindConversationArtifactControls(root) {
+        const scope = root || document;
+        scope.querySelectorAll("[data-studio-artifact-expand]").forEach((button) => {
+          if (button.dataset.studioArtifactExpandBound === "true") return;
+          button.dataset.studioArtifactExpandBound = "true";
+          button.addEventListener("click", () => {
+            const card = button.closest("[data-testid='studio-conversation-artifact-card']");
+            const expanded = !card?.classList.contains("is-expanded");
+            card?.classList.toggle("is-expanded", expanded);
+            card?.setAttribute("data-artifact-expanded", String(expanded));
+            button.setAttribute("aria-expanded", String(expanded));
+            button.textContent = expanded ? "Collapse" : "Open";
+          });
+        });
+        scope.querySelectorAll("[data-studio-artifact-action]").forEach((button) => {
+          if (button.dataset.studioArtifactActionBound === "true") return;
+          button.dataset.studioArtifactActionBound = "true";
+          button.addEventListener("click", () => {
+            vscode.postMessage({
+              type: "studioArtifactAction",
+              payload: {
+                artifactId: button.dataset.artifactId || "",
+                action: button.dataset.studioArtifactAction || "ask",
+                runtimeAuthority: "daemon-owned",
+                projectionOwner: "ioi-workbench-agent-studio"
+              }
+            });
+          });
+        });
+      }
+      function ensureProjectedConversationArtifacts(turn, workRecord, artifacts) {
+        if (!turn) return;
+        const artifactRowsHtml = projectedConversationArtifactRowsHtml(workRecord, artifacts);
+        turn.querySelectorAll("[data-testid='studio-conversation-artifacts']").forEach((node) => node.remove());
+        if (!artifactRowsHtml) return;
+        const anchor =
+          Array.from(turn.querySelectorAll("[data-testid='studio-managed-sessions']")).pop() ||
+          turn.querySelector("[data-testid='studio-run-status-bar']") ||
+          turn.querySelector("[data-testid='studio-assistant-answer-card']") ||
+          turn;
+        anchor.insertAdjacentHTML("afterend", artifactRowsHtml);
+        bindConversationArtifactControls(turn);
+        const root = document.querySelector("[data-testid='agent-studio-operational-chat']");
+        root?.setAttribute("data-conversation-artifact-observed", "true");
+      }
+      function bindManagedSessionControls(root) {
+        const scope = root || document;
+        scope.querySelectorAll("[data-studio-managed-session-expand]").forEach((button) => {
+          if (button.dataset.studioManagedSessionBound === "true") return;
+          button.dataset.studioManagedSessionBound = "true";
+          button.addEventListener("click", () => {
+            const card = button.closest("[data-testid='studio-managed-session-card']");
+            const expanded = !card?.classList.contains("is-expanded");
+            card?.classList.toggle("is-expanded", expanded);
+            card?.setAttribute("data-session-expanded", String(expanded));
+            button.setAttribute("aria-expanded", String(expanded));
+            button.textContent = expanded ? "Collapse" : "Expand";
+          });
+        });
+        scope.querySelectorAll("[data-studio-managed-session-control]").forEach((button) => {
+          if (button.dataset.studioManagedSessionControlBound === "true") return;
+          button.dataset.studioManagedSessionControlBound = "true";
+          button.addEventListener("click", () => {
+            const card = button.closest("[data-testid='studio-managed-session-card']");
+            const control = button.dataset.studioManagedSessionControl || "observe";
+            card?.setAttribute("data-control-state", control);
+            card?.querySelectorAll("[data-studio-managed-session-control]").forEach((candidate) => {
+              const active = candidate === button;
+              candidate.classList.toggle("is-active", active);
+              candidate.setAttribute("aria-pressed", String(active));
+            });
+          });
+        });
+      }
+      function ensureProjectedWorkRunBar(turn, workRecord, status) {
+        const rowsHtml = projectedWorkRowsHtml(workRecord);
+        const sessionCards = normalizeProjectedSessionCards(workRecord);
+        const sessionsHtml = projectedManagedSessionRowsHtml(workRecord);
+        if (!turn || (!rowsHtml && !sessionsHtml)) return;
+        turn.dataset.documentedWork = "true";
+        turn.setAttribute("data-documented-work", "true");
+        const headline = status === "blocked"
+          ? "Stopped by operator"
+          : "Worked for " + formatProjectedWorkDuration(workRecord?.durationMs);
+        const runBarHtml =
+          '<details class="studio-run-status-bar" data-testid="studio-run-status-bar">' +
+            "<summary>" +
+              '<span class="studio-run-status-bar__check" aria-hidden="true">✓</span>' +
+              "<strong>" + escapeMarkdownHtml(headline) + "</strong>" +
+            "</summary>" +
+            '<ul class="studio-run-status-bar__details studio-work-record" data-testid="studio-work-summary-lines">' +
+              rowsHtml +
+            "</ul>" +
+          "</details>";
+        const existing = turn.querySelector("[data-testid='studio-run-status-bar']");
+        if (existing) {
+          existing.outerHTML = runBarHtml;
+        } else {
+          turn.insertAdjacentHTML("afterbegin", runBarHtml);
+        }
+        turn.querySelectorAll("[data-testid='studio-managed-sessions']").forEach((node) => node.remove());
+        if (sessionsHtml) {
+          const runBar = turn.querySelector("[data-testid='studio-run-status-bar']");
+          runBar?.insertAdjacentHTML("afterend", sessionsHtml);
+          const root = document.querySelector("[data-testid='agent-studio-operational-chat']");
+          root?.setAttribute("data-managed-live-viewport-observed", "true");
+          root?.setAttribute("data-managed-session-labels-observed", "true");
+          root?.setAttribute("data-managed-session-count", String(Math.max(sessionCards.length, Number(root?.getAttribute("data-managed-session-count") || 0) || 0)));
+          bindManagedSessionControls(turn);
+        }
+        ensureProjectedConversationArtifacts(turn, workRecord, []);
       }
       function ensureStreamingAssistantTurn(streamId) {
         const transcript =
@@ -503,6 +913,10 @@ function createStudioPanelHtml({
       function handleStudioRuntimeMessage(message) {
         const payload = message.payload || {};
         if (message.type === "agentWorkStep") {
+          const rootStatus = document.querySelector("[data-testid='agent-studio-operational-chat']")?.getAttribute("data-studio-status") || "";
+          if (["completed", "blocked"].includes(rootStatus) && !document.querySelector("[data-testid='studio-pending-state']")) {
+            return;
+          }
           appendPendingWorkStep(payload);
           return;
         }
@@ -588,6 +1002,15 @@ function createStudioPanelHtml({
           if (target?.text && payload.text) {
             renderMarkdownInto(target.text, payload.text);
           }
+          if (target?.turn && Array.isArray(payload.sourceRefs)) {
+            syncProjectedSourceRows(target.turn, payload.sourceRefs);
+          }
+          if (target?.turn && payload.workRecord) {
+            ensureProjectedWorkRunBar(target.turn, payload.workRecord, "completed");
+          }
+          if (target?.turn && (payload.workRecord || Array.isArray(payload.artifacts))) {
+            ensureProjectedConversationArtifacts(target.turn, payload.workRecord, payload.artifacts);
+          }
           updateStreamRunBar(target?.turn, "completed", "Worked");
           scrollStudioTranscriptToLatest(target?.turn);
           const root = document.querySelector("[data-testid='agent-studio-operational-chat']");
@@ -625,6 +1048,8 @@ function createStudioPanelHtml({
           sourceRefs: Array.isArray(payload?.sourceRefs) ? payload.sourceRefs : [],
         });
         if (turn) {
+          ensureProjectedWorkRunBar(turn, payload?.workRecord, status);
+          ensureProjectedConversationArtifacts(turn, payload?.workRecord, payload?.artifacts);
           updateStreamRunBar(turn, status === "blocked" ? "blocked" : "completed", status === "blocked" ? "Blocked" : "Worked");
           turn.dataset.studioAgentTurnId = String(payload?.turnId || "");
           turn.dataset.studioRuntimeEventCount = String(payload?.eventCount || 0);
@@ -912,6 +1337,7 @@ function createStudioPanelHtml({
               text.setAttribute("data-testid", "studio-assistant-answer-text");
               renderMarkdownInto(text, humanizeProjectedTurnText(role, content));
             }
+            syncProjectedSourceRows(anchor.duplicate, options.sourceRefs);
           }
           scrollStudioTranscriptToLatest(anchor.duplicate);
           return anchor.duplicate;
@@ -954,13 +1380,10 @@ function createStudioPanelHtml({
         }
         meta.append(name, time);
         body.append(meta, paragraph);
-        if (role === "assistant") {
-          const sourceRows = studioProjectedSourceRows(options.sourceRefs);
-          if (sourceRows) {
-            body.insertAdjacentHTML("beforeend", sourceRows);
-          }
-        }
         turn.append(body);
+        if (role === "assistant") {
+          syncProjectedSourceRows(turn, options.sourceRefs);
+        }
         if (anchor?.after?.nextSibling) {
           transcript.insertBefore(turn, anchor.after.nextSibling);
         } else {
@@ -996,6 +1419,10 @@ function createStudioPanelHtml({
           document.querySelector("[data-testid='studio-transcript']");
         if (!transcript) return null;
         let pending = transcript.querySelector("[data-testid='studio-pending-state']");
+        if (pending?.getAttribute("data-artifact-source-retained") === "true") {
+          pending.remove();
+          pending = null;
+        }
         if (!pending) {
           pending = document.createElement("article");
           pending.className = "studio-chat-turn studio-chat-turn--assistant studio-pending";
@@ -1085,12 +1512,20 @@ function createStudioPanelHtml({
         );
         if (item) {
           item.dataset.status = String(payload?.status || "running");
-          const text = item.querySelector("p");
-          const meta = item.querySelector("span");
+          const text = item.querySelector(".studio-pending-step__headline");
+          let meta = item.querySelector(".studio-pending-step__summary");
           if (text) text.textContent = label;
           if (detail) {
-            if (meta) meta.textContent = detail;
+            if (!meta) {
+              meta = document.createElement("span");
+              meta.className = "studio-pending-step__summary";
+              item.append(meta);
+            }
+            meta.textContent = detail;
+          } else if (meta) {
+            meta.remove();
           }
+          renderPendingWorkStepDecorations(item, payload);
           return;
         }
         item = document.createElement("li");
@@ -1098,15 +1533,45 @@ function createStudioPanelHtml({
         item.dataset.toolName = toolName;
         item.dataset.status = String(payload?.status || "running");
         const text = document.createElement("p");
+        text.className = "studio-pending-step__headline";
         text.textContent = label;
         item.append(text);
         if (detail) {
           const meta = document.createElement("span");
+          meta.className = "studio-pending-step__summary";
           meta.textContent = detail;
           item.append(meta);
         }
+        renderPendingWorkStepDecorations(item, payload);
         list.append(item);
         scrollStudioTranscriptToLatest(item);
+      }
+      function renderPendingWorkStepDecorations(item, payload = {}) {
+        if (!item) return;
+        const sourceChips = normalizeSourceChips(payload.sourceChips || payload.source_chips || payload.sources);
+        let chipsNode = item.querySelector(".studio-source-chip-list");
+        if (sourceChips.length) {
+          if (!chipsNode) {
+            chipsNode = document.createElement("div");
+            chipsNode.className = "studio-source-chip-list";
+            item.append(chipsNode);
+          }
+          chipsNode.innerHTML = studioProjectedSourceChipRows(sourceChips);
+        } else if (chipsNode) {
+          chipsNode.remove();
+        }
+        const excerpt = compactPublicText(payload.excerptPreview || payload.excerpt_preview || sourceChips[0]?.excerpt || "").slice(0, 260);
+        let excerptNode = item.querySelector(".studio-pending-step__excerpt");
+        if (excerpt) {
+          if (!excerptNode) {
+            excerptNode = document.createElement("p");
+            excerptNode.className = "studio-pending-step__excerpt";
+            item.append(excerptNode);
+          }
+          excerptNode.textContent = excerpt;
+        } else if (excerptNode) {
+          excerptNode.remove();
+        }
       }
       function hydratePendingWorkStepsFromRoot() {
         for (const step of pendingWorkStepsFromRoot()) {
@@ -1116,6 +1581,8 @@ function createStudioPanelHtml({
       function showPendingProjection() {
         const root = document.querySelector("[data-testid='agent-studio-operational-chat']");
         root?.setAttribute("data-studio-status", "pending");
+        root?.removeAttribute("data-agent-final-handoff-stream-complete");
+        root?.removeAttribute("data-artifact-handoff-stream-complete");
         root?.setAttribute("data-immediate-submit-seen", "true");
         root?.setAttribute("data-pending-state-seen", "true");
         if (root && !root.getAttribute("data-pending-started-at-ms")) {
@@ -1131,7 +1598,8 @@ function createStudioPanelHtml({
         const elapsed = startedAt > 0 ? performance.now() - startedAt : 0;
         const hide = () => {
           const artifactSource = pending?.querySelector("[data-testid='studio-artifact-source-output']");
-          if (artifactSource && artifactSource.textContent.trim()) {
+          const rootStatus = root?.getAttribute("data-studio-status") || "";
+          if (artifactSource && artifactSource.textContent.trim() && !["completed", "blocked"].includes(rootStatus)) {
             pending?.setAttribute("data-artifact-source-retained", "true");
             pending?.querySelector(".studio-pending__line")?.remove();
             pending?.querySelector("[data-testid='studio-pending-worklog']")?.remove();
@@ -1269,51 +1737,8 @@ function createStudioPanelHtml({
       document.querySelectorAll("[data-studio-drawer-open]").forEach((button) => {
         button.addEventListener("click", () => setUtilityDrawerExpanded(true));
       });
-      document.querySelectorAll("[data-studio-managed-session-expand]").forEach((button) => {
-        button.addEventListener("click", () => {
-          const card = button.closest("[data-testid='studio-managed-session-card']");
-          const expanded = !card?.classList.contains("is-expanded");
-          card?.classList.toggle("is-expanded", expanded);
-          card?.setAttribute("data-session-expanded", String(expanded));
-          button.setAttribute("aria-expanded", String(expanded));
-          button.textContent = expanded ? "Collapse" : "Expand";
-        });
-      });
-      document.querySelectorAll("[data-studio-managed-session-control]").forEach((button) => {
-        button.addEventListener("click", () => {
-          const card = button.closest("[data-testid='studio-managed-session-card']");
-          const control = button.dataset.studioManagedSessionControl || "observe";
-          card?.setAttribute("data-control-state", control);
-          card?.querySelectorAll("[data-studio-managed-session-control]").forEach((candidate) => {
-            const active = candidate === button;
-            candidate.classList.toggle("is-active", active);
-            candidate.setAttribute("aria-pressed", String(active));
-          });
-        });
-      });
-      document.querySelectorAll("[data-studio-artifact-expand]").forEach((button) => {
-        button.addEventListener("click", () => {
-          const card = button.closest("[data-testid='studio-conversation-artifact-card']");
-          const expanded = !card?.classList.contains("is-expanded");
-          card?.classList.toggle("is-expanded", expanded);
-          card?.setAttribute("data-artifact-expanded", String(expanded));
-          button.setAttribute("aria-expanded", String(expanded));
-          button.textContent = expanded ? "Collapse" : "Open";
-        });
-      });
-      document.querySelectorAll("[data-studio-artifact-action]").forEach((button) => {
-        button.addEventListener("click", () => {
-          vscode.postMessage({
-            type: "studioArtifactAction",
-            payload: {
-              artifactId: button.dataset.artifactId || "",
-              action: button.dataset.studioArtifactAction || "ask",
-              runtimeAuthority: "daemon-owned",
-              projectionOwner: "ioi-workbench-agent-studio"
-            }
-          });
-        });
-      });
+      bindManagedSessionControls(document);
+      bindConversationArtifactControls(document);
       document.querySelectorAll("[data-studio-copy-answer]").forEach((button) => {
         button.addEventListener("click", async () => {
           const card = button.closest("[data-testid='studio-assistant-answer-card']");

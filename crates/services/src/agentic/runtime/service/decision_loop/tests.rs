@@ -8,7 +8,9 @@ use super::{
 };
 use crate::agentic::runtime::keys::{get_parent_playbook_run_key, get_state_key};
 use crate::agentic::runtime::service::decision_loop::intent_resolver::is_tool_allowed_for_resolution;
-use crate::agentic::runtime::service::tool_execution::record_execution_evidence_with_value;
+use crate::agentic::runtime::service::tool_execution::{
+    execution_evidence_value, record_execution_evidence_with_value,
+};
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::{
     AgentMode, AgentState, AgentStatus, ExecutionTier, ParentPlaybookRun, ParentPlaybookStatus,
@@ -375,6 +377,54 @@ fn typed_runtime_studio_context_frames_seed_tool_scoped_intents() {
 }
 
 #[test]
+fn typed_runtime_source_backed_artifact_frame_preserves_web_and_file_caps() {
+    let resolved = typed_runtime_route_resolved_intent(&RuntimeRouteFrame {
+        intent_id: "retrieval.answer".to_string(),
+        route_family: "web_research".to_string(),
+        output_intent: "tool_execution".to_string(),
+        direct_answer_allowed: false,
+        target: "photonic quantum computing".to_string(),
+        target_kind: Some("source_backed_artifact".to_string()),
+        host_mutation: true,
+        required_capabilities: vec![
+            "conversation.reply".to_string(),
+            "web.retrieve".to_string(),
+            "sys.time.read".to_string(),
+            "filesystem.read".to_string(),
+            "filesystem.write".to_string(),
+        ],
+        typed_evidence: vec![RuntimeIntentEvidence {
+            evidence_kind: "retrieval_query".to_string(),
+            value: "photonic quantum computing".to_string(),
+            source: "test".to_string(),
+            confidence: Some(92),
+        }],
+        typed_required_capabilities: Vec::new(),
+        host_mutation_scope: None,
+        runtime_action: None,
+        install_request: None,
+        provenance: Some("test".to_string()),
+    })
+    .expect("source-backed artifact frame should seed a tool-scoped intent");
+
+    assert_eq!(resolved.intent_id, "retrieval.answer");
+    assert_eq!(resolved.scope, IntentScopeProfile::WebResearch);
+    assert!(is_tool_allowed_for_resolution(
+        Some(&resolved),
+        "web__search"
+    ));
+    assert!(is_tool_allowed_for_resolution(Some(&resolved), "web__read"));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&resolved),
+        "file__write"
+    ));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&resolved),
+        "file__read"
+    ));
+}
+
+#[test]
 fn typed_runtime_web_research_frame_dispatches_web_search_before_cognition() {
     let mut state = test_agent_state();
     state.runtime_route_frame = Some(typed_web_research_frame(
@@ -462,6 +512,30 @@ fn typed_runtime_browser_frame_dispatches_explicit_url_navigation() {
         .recent_actions
         .iter()
         .any(|action| { action.starts_with("runtime_route_frame_dispatch:browser__navigate") }));
+    assert_eq!(
+        execution_evidence_value(
+            &state.tool_execution_log,
+            "runtime_route_frame_dispatch.browser_navigate_url"
+        ),
+        Some("https://example.com")
+    );
+
+    assert!(maybe_typed_runtime_browser_navigate_tool_call(&mut state).is_none());
+}
+
+#[test]
+fn typed_runtime_browser_frame_does_not_replay_after_recent_actions_clear() {
+    let mut state = test_agent_state();
+    state.runtime_route_frame = Some(typed_runtime_action_frame(
+        "browser.interact",
+        "browser_action",
+    ));
+
+    let tool_call = maybe_typed_runtime_browser_navigate_tool_call(&mut state)
+        .expect("browser route frame should dispatch the first navigation");
+    assert!(tool_call.contains("\"name\":\"browser__navigate\""));
+
+    state.recent_actions.clear();
 
     assert!(maybe_typed_runtime_browser_navigate_tool_call(&mut state).is_none());
 }

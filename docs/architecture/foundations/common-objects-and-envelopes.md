@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for shared envelope names, ID namespaces, primitive capability tiers, authority grants, and receipt/run/event envelope fields.
 Supersedes: older flattened capability-tier examples in plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-05-30.
+Last alignment pass: 2026-06-01.
 
 ## Purpose
 
@@ -40,6 +40,13 @@ WorkerInstanceEnvelope
 RuntimeSubscriptionEnvelope
 RuntimeAssignmentEnvelope
 ComputeSessionEnvelope
+PrivateWorkspaceNodeEnvelope
+PrivateWorkspaceCapsuleEnvelope
+PlaintextFreeModelMountEnvelope
+ModelMountViewEnvelope
+AlphaSealEnvelope
+AutonomyLeaseEnvelope
+DeterrenceDetectionProfileEnvelope
 RuntimeEventEnvelope
 ReceiptEnvelope
 ArtifactEnvelope
@@ -120,6 +127,16 @@ wiki://...              Agent Wiki or durable semantic-memory surface identity
 memory://...            context-memory record or local memory-plane identity
 cid://...               content-addressed payload ref, commonly Filecoin/CAS/IPFS
 wallet://...            wallet.network account or authority ref
+shielded_capsule://...  private workspace capsule identity; legacy name kept for compatibility
+model_mount://...       plaintext-free model mount identity
+model_mount_view://...  per-inference plaintext-free model mount view identity
+alpha_seal://...        sealed private strategy capsule identity
+autonomy_lease://...    wallet-bounded offline autonomy lease identity
+guardian://...          cTEE guardian or threshold authority participant
+leakage://...           declared leakage profile for Private Workspace/private work
+deterrence://...        cTEE deterrence/detection profile identity
+commitment://...        private output, state, or witness commitment
+capability_exit://...   bounded external action exit from protected work
 prim:*                  primitive execution capability ref
 scope:*                 wallet.network authority scope ref
 grant://...             authority grant or lease ref

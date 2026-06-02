@@ -27,7 +27,7 @@ function createStudioAgentFinalHandoffStreamer({
     return chunks;
   }
 
-  async function streamStudioAgentFinalHandoff(text = "", { prompt = "", turnId = "" } = {}) {
+  async function streamStudioAgentFinalHandoff(text = "", { prompt = "", turnId = "", sourceRefs = [], workRecord = null } = {}) {
     const content = (stringValue?.(text) || String(text || "")).trim();
     if (!content) {
       return null;
@@ -39,6 +39,8 @@ function createStudioAgentFinalHandoffStreamer({
       streamId,
       prompt,
       presentation: "agent_final_handoff",
+      ...(Array.isArray(sourceRefs) && sourceRefs.length ? { sourceRefs } : {}),
+      ...(workRecord && typeof workRecord === "object" ? { workRecord } : {}),
       runtimeAuthority: "daemon-owned",
     };
     studioPostRuntimeMessage("assistantStreamStart", basePayload);

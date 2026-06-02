@@ -4,7 +4,7 @@ Status: canonical implementation profile.
 Canonical owner: this file for the default daemon-executed harness profile, loop-native orchestration, context topology, output ownership, and implementation-stage object boundaries.
 Supersedes: standalone "Default Harness Runtime" wording when that wording implies a peer runtime beside the IOI daemon.
 Superseded by: none.
-Last alignment pass: 2026-05-30.
+Last alignment pass: 2026-06-01.
 
 ## Canonical Definition
 
@@ -43,6 +43,11 @@ IOI daemon
 
 Default Harness Profile
   loop-native orchestration profile executed by the daemon
+
+Private Workspace backed by cTEE
+  optional daemon workspace/execution profile for persistent rented GPU nodes
+  where protected plaintext must not enter provider-rooted memory; CLPD is the
+  default protected-agency strategy
 
 Runtime services and guest workloads
   workers, service engines, models, tools, connectors, browsers, shells
@@ -98,6 +103,12 @@ DefaultHarnessProfile:
   state_substrate: Agentgres
   artifact_ref_owner: Agentgres
   storage_backend_policy: policy_selected
+  sensitive_compute_profiles:
+    - local_only
+    - redacted_remote
+    - private_workspace_ctee
+    - tee
+    - customer_vpc
   l1_settlement: trigger_based
   conformance_refs:
     - CIRC
@@ -212,6 +223,9 @@ needs justify object heads.
 | `NormalizedObservation` | typed event or projection payload | observations are reused by verifiers or downstream tasks |
 | `OutputOwnershipPass` | completion/output receipt plus terminal event | delivery claims need replay, dispute, or marketplace settlement |
 | `ArtifactRef` / `PayloadRef` | Agentgres object/ref | always when payload bytes matter |
+| `PrivateWorkspaceCapsule` | daemon profile payload plus Agentgres artifact/receipt refs | rented or provider GPU work touches protected classes |
+| `AutonomyLease` | wallet.network grant plus receipt | remote persistent work continues while the user is offline |
+| `DeclassificationReceipt` | wallet.network + Agentgres receipt | protected output becomes visible, exportable, or actionable |
 | `Blocker` | event plus task state | user/operator action or long-lived wait is needed |
 
 ## Core Schemas
@@ -237,7 +251,7 @@ IntentContract:
   privacy_profile:
     local_only | redacted_remote | confidential_remote | managed
   execution_profile:
-    local | workstation | hosted | tee | vpc | depin | hybrid
+    local | workstation | hosted | tee | vpc | depin | private_workspace_ctee | hybrid
   budget:
     compute: string | null
     money: string | null
@@ -740,6 +754,7 @@ a CAS/Filecoin blob runtime
 a marketplace router that silently prefers itself
 a way to bypass wallet.network authority
 a place to canonicalize every private thought or scratch update
+a place to send protected plaintext to a rented GPU node by default
 ```
 
 Correct model:
@@ -752,6 +767,9 @@ Agentgres admits serious truth
 artifact refs bind payload meaning
 storage backends hold bytes
 receipts prove accountable transitions
+Private Workspace backed by cTEE keeps protected plaintext off untrusted persistent nodes
+Plaintext-Free Runtime Mounting keeps tool/model context to public/redacted refs and private handles
+Candidate-Lattice Private Decoding lets rented GPUs generate candidates while private heads select
 L1 settlement happens only by trigger
 ```
 
@@ -853,6 +871,9 @@ optional L1 settlement hooks
 - [`api.md`](./api.md): public runtime API and action mediation.
 - [`events-receipts-delivery-bundles.md`](./events-receipts-delivery-bundles.md):
   event, receipt, trace, and delivery bundle shapes.
+- [`private-workspace-ctee.md`](./private-workspace-ctee.md): Private Workspace
+  backed by cTEE, persistent private Autopilot nodes, `AlphaSeal`,
+  `AutonomyLease`, and declassification receipts.
 - [`../agentgres/api-object-model.md`](../agentgres/api-object-model.md):
   Agentgres runtime objects, operations, artifact refs, and archives.
 - [`../../foundations/aiip.md`](../../foundations/aiip.md): interop profile for

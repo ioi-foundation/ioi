@@ -429,6 +429,28 @@ pub async fn resolve_step_intent_with_state(
         )
     }
 
+    fn expand_query_contract_capabilities(
+        query: &str,
+        required_capabilities: Vec<CapabilityId>,
+    ) -> Vec<CapabilityId> {
+        let mut extra = Vec::new();
+        if query_requests_public_source_work(query)
+            || query_requests_research_backed_artifact_work(query)
+        {
+            extra.push(CapabilityId::from("web.retrieve"));
+            extra.push(CapabilityId::from("sys.time.read"));
+        }
+        if query_requests_artifact_work(query) {
+            extra.push(CapabilityId::from("filesystem.read"));
+            extra.push(CapabilityId::from("filesystem.write"));
+        }
+        if extra.is_empty() {
+            required_capabilities
+        } else {
+            merge_capabilities(required_capabilities, extra)
+        }
+    }
+
     let (
         scope,
         preferred_tier,
@@ -531,6 +553,7 @@ pub async fn resolve_step_intent_with_state(
         &required_capabilities,
         instruction_contract.as_ref(),
     );
+    let required_capabilities = expand_query_contract_capabilities(&query, required_capabilities);
     let mut resolved = ResolvedIntentState {
         intent_id: winner.intent_id,
         scope,

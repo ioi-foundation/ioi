@@ -200,6 +200,7 @@ const STUDIO_DIRECT_MODEL_RUNTIME_PROFILE = "chat_only";
 const STUDIO_AGENT_MIN_TURN_STEPS = 8;
 const STUDIO_AGENT_TURN_POST_TIMEOUT_MS = 130000;
 const STUDIO_AGENT_TURN_RECOVERY_POLL_MS = 1000;
+const STUDIO_AGENT_TURN_EVENT_FLUSH_TIMEOUT_MS = 15000;
 const STUDIO_AGENT_TURN_RECOVERY_ATTEMPTS = 4;
 const STUDIO_MODEL_COMPLETION_TIMEOUT_MS = Number.isFinite(Number(process.env.IOI_STUDIO_MODEL_COMPLETION_TIMEOUT_MS))
   ? Math.max(30_000, Math.floor(Number(process.env.IOI_STUDIO_MODEL_COMPLETION_TIMEOUT_MS)))
@@ -2195,6 +2196,12 @@ function normalizeStudioPendingWorkStep(payload = {}) {
     status: stringValue(payload.status, "running"),
     at: stringValue(payload.at) || new Date().toISOString(),
     toolName: studioPendingWorkToolName(payload),
+    kind: stringValue(payload.kind || payload.eventKind || payload.event_kind),
+    sourceChips: firstArray(payload.sourceChips || payload.source_chips || payload.sources)
+      .map((source) => studioSourceRefFromRecord(source))
+      .filter(Boolean)
+      .slice(0, 6),
+    excerptPreview: compactStudioWhitespace(payload.excerptPreview || payload.excerpt_preview).slice(0, 280),
   };
 }
 
@@ -2301,6 +2308,8 @@ function studioPendingStepFromRuntimeEvent(event = {}, { kind = "", toolName = "
   }
   const completed = /completed|result|succeeded|failed|error/.test(`${normalizedKind} ${status}`.toLowerCase());
   const detail = studioRuntimeToolEventDetail(event, normalizedTool, summary);
+  const sourceChips = studioSourceRefsFromRuntimeEvent(event, summary);
+  const excerptPreview = studioFirstSourceExcerptFromEvent(event, summary);
   return normalizeStudioPendingWorkStep({
     id: normalizedTool,
     label: studioPendingWorkLabelForTool(normalizedTool, detail),
@@ -2309,6 +2318,8 @@ function studioPendingStepFromRuntimeEvent(event = {}, { kind = "", toolName = "
     at: event.created_at || event.createdAt || new Date().toISOString(),
     kind: normalizedKind,
     toolName: normalizedTool,
+    sourceChips,
+    excerptPreview,
   });
 }
 
@@ -2328,6 +2339,20 @@ function studioRuntimeEventsIncludeCompletedTool(events = [], pattern) {
 
 function studioRuntimeToolEventCount(events = [], pattern) {
   return firstArray(events).filter((event) => pattern.test(String(studioRuntimeEventToolName(event)).toLowerCase())).length;
+}
+
+function studioRuntimeEventTurnId(event = {}) {
+  return stringValue(event.turn_id || event.turnId || event.payload?.turn_id || event.payload?.turnId);
+}
+
+function studioRuntimeEventsForTurn(events = [], turnId = "") {
+  const normalizedTurnId = stringValue(turnId);
+  const allEvents = firstArray(events);
+  if (!normalizedTurnId) {
+    return allEvents;
+  }
+  const matched = allEvents.filter((event) => studioRuntimeEventTurnId(event) === normalizedTurnId);
+  return matched.length ? matched : allEvents;
 }
 
 function resetStudioDaemonThreadProjection() {
@@ -2371,16 +2396,7 @@ function studioRetrievalFailClosedText({ prompt = "", events = [], blockedReason
   if (!(hasSearch || hasRead)) {
     return "";
   }
-  const searchCount = studioRuntimeToolEventCount(events, /web(::|__)search|search_web|web_search/);
-  const readCount = studioRuntimeToolEventCount(events, /web(::|__)read|read_web|web_read/);
-  const promptText = stringValue(prompt).replace(/\s+/g, " ").trim();
-  const promptClause = promptText ? ` for "${promptText.slice(0, 160)}"` : "";
-  const reasonClause = blockedReason ? ` Runtime stop reason: ${blockedReason}` : "";
-  return [
-    `Fresh retrieval ran through Agent Mode${promptClause} (${searchCount} search event${searchCount === 1 ? "" : "s"}, ${readCount} read event${readCount === 1 ? "" : "s"}), but the runtime did not emit a clean final answer.`,
-    "I need fresh sources before answering this.",
-    reasonClause,
-  ].filter(Boolean).join(" ");
+  return "I couldn't finish a clean answer from the sources I gathered. Details are in Tracing.";
 }
 
 function studioResultTextLooksRetrievalGrounded(text = "") {
@@ -2760,6 +2776,72 @@ function studioDocumentedWorkSummary(record = {}) {
   return studioWorkSummary.studioDocumentedWorkSummary(record, studioRuntimeProjection.status);
 }
 
+function studioPublicWorkRecordForWebview(record = {}) {
+  if (!record || typeof record !== "object" || Array.isArray(record)) {
+    return null;
+  }
+  const lines = firstArray(record.lines)
+    .map((line) => compactStudioWhitespace(line).slice(0, 160))
+    .filter(Boolean)
+    .slice(0, 12);
+  const workRows = firstArray(record.workRows)
+    .map((row) => {
+      if (!row || typeof row !== "object" || Array.isArray(row)) return null;
+      const headline = compactStudioWhitespace(row.headline || row.label || "").slice(0, 160);
+      if (!headline) return null;
+      return {
+        id: compactStudioWhitespace(row.id || row.stepId || headline).slice(0, 96),
+        kind: compactStudioWhitespace(row.kind || row.publicKind || "tool").slice(0, 48),
+        status: compactStudioWhitespace(row.status || "completed").slice(0, 32),
+        headline,
+        summary: compactStudioWhitespace(row.summary || row.detail || "").slice(0, 220),
+        excerptPreview: compactStudioWhitespace(row.excerptPreview || row.excerpt_preview || "").slice(0, 280),
+        sourceChips: firstArray(row.sourceChips || row.source_chips)
+          .map((source) => studioSourceRefFromRecord(source))
+          .filter(Boolean)
+          .slice(0, 6),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 12);
+  const sessionCards = firstArray(record.sessionCards)
+    .map((session) => {
+      if (!session || typeof session !== "object" || Array.isArray(session)) return null;
+      const id = compactStudioWhitespace(session.id || session.sessionId || session.title || "managed-session").slice(0, 120);
+      return {
+        id,
+        kind: compactStudioWhitespace(session.kind || "sandbox_browser").slice(0, 48),
+        surfaceLabel: compactStudioWhitespace(session.surfaceLabel || session.surface_label || "Sandbox browser").slice(0, 80),
+        status: compactStudioWhitespace(session.status || "complete").slice(0, 48),
+        statusLabel: compactStudioWhitespace(session.statusLabel || session.status_label || "Complete").slice(0, 80),
+        title: compactStudioWhitespace(session.title || "Browser session").slice(0, 120),
+        detail: compactStudioWhitespace(session.detail || session.summary || "Managed browser session").slice(0, 240),
+        url: compactStudioWhitespace(session.url || "").slice(0, 240),
+        pageTitle: compactStudioWhitespace(session.pageTitle || session.page_title || "").slice(0, 120),
+        target: compactStudioWhitespace(session.target || "").slice(0, 160),
+        lane: compactStudioWhitespace(session.lane || "").slice(0, 80),
+        sessionMode: compactStudioWhitespace(session.sessionMode || session.session_mode || "").slice(0, 80),
+        lastTool: compactStudioWhitespace(session.lastTool || session.last_tool || "computer-use").slice(0, 80),
+        actionCount: Math.max(1, Number(session.actionCount || session.action_count || 1) || 1),
+        waitingForUser: Boolean(session.waitingForUser || session.waiting_for_user),
+        updatedAt: compactStudioWhitespace(session.updatedAt || session.updated_at || "").slice(0, 80),
+      };
+    })
+    .filter(Boolean)
+    .slice(-3);
+  if (!lines.length && !workRows.length && !sessionCards.length) {
+    return null;
+  }
+  return {
+    status: compactStudioWhitespace(record.status || "completed").slice(0, 32),
+    durationMs: Math.max(0, Number(record.durationMs || 0) || 0),
+    lines,
+    workRows,
+    sessionCards,
+    stepCount: Number(record.stepCount || lines.length || workRows.length || 0) || lines.length || workRows.length,
+  };
+}
+
 function studioJsonObjectFromText(value = "") {
   const text = String(value || "").trim();
   if (!text || !/^[{\[]/.test(text)) {
@@ -2785,6 +2867,60 @@ function studioJsonValueFromText(value = "") {
   }
 }
 
+function studioUnescapeJsonStringFragment(value = "") {
+  const text = String(value || "");
+  try {
+    return JSON.parse(`"${text.replace(/\r/g, "\\r").replace(/\n/g, "\\n")}"`);
+  } catch {
+    return text.replace(/\\"/g, '"').replace(/\\n/g, " ").replace(/\\\\/g, "\\");
+  }
+}
+
+function studioPartialJsonFieldValue(objectText = "", keys = []) {
+  for (const key of firstArray(keys)) {
+    const pattern = new RegExp(`"${key}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "i");
+    const match = pattern.exec(objectText);
+    if (match?.[1]) {
+      return studioUnescapeJsonStringFragment(match[1]);
+    }
+  }
+  return "";
+}
+
+function collectStudioSourceRefsFromPartialJsonText(value = "", refs = []) {
+  if (refs.length >= 8) {
+    return;
+  }
+  const text = String(value || "");
+  if (!/"(?:url|href|link|sourceUrl|source_url|canonicalUrl|canonical_url)"\s*:\s*"https?:\/\//i.test(text)) {
+    return;
+  }
+  const urlPattern = /"(?:url|href|link|sourceUrl|source_url|canonicalUrl|canonical_url)"\s*:\s*"((?:\\.|[^"\\])*)"/gi;
+  let match;
+  while ((match = urlPattern.exec(text)) && refs.length < 8) {
+    const url = studioUnescapeJsonStringFragment(match[1]);
+    if (!/^https?:\/\//i.test(url)) {
+      continue;
+    }
+    const objectStart = Math.max(0, text.lastIndexOf("{", match.index));
+    let objectEnd = text.indexOf("\n    }", match.index);
+    if (objectEnd === -1) objectEnd = text.indexOf("\n  }", match.index);
+    if (objectEnd === -1) objectEnd = text.indexOf("}", match.index);
+    if (objectEnd === -1) objectEnd = Math.min(text.length, match.index + 1800);
+    const objectText = text.slice(objectStart, Math.min(text.length, objectEnd + 1));
+    const recovered = studioSourceRefFromRecord({
+      url,
+      title: studioPartialJsonFieldValue(objectText, ["title", "name", "label"]),
+      snippet: studioPartialJsonFieldValue(objectText, ["snippet", "excerpt", "summary"]),
+      domain: studioPartialJsonFieldValue(objectText, ["domain", "hostname"]),
+      state: studioPartialJsonFieldValue(objectText, ["state", "status", "sourceHealth"]),
+    });
+    if (recovered) {
+      refs.push(recovered);
+    }
+  }
+}
+
 function studioRecordValue(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
@@ -2793,7 +2929,15 @@ function studioSourceRefFromRecord(record = {}) {
   if (!record || typeof record !== "object" || Array.isArray(record)) {
     return null;
   }
-  const url = stringValue(record.url || record.href || record.link);
+  const url = stringValue(
+    record.url ||
+      record.href ||
+      record.link ||
+      record.sourceUrl ||
+      record.source_url ||
+      record.canonicalUrl ||
+      record.canonical_url,
+  );
   if (!/^https?:\/\//i.test(url)) {
     return null;
   }
@@ -2814,15 +2958,20 @@ function studioSourceRefFromRecord(record = {}) {
     title: title || domain || url,
     url,
     domain: compactStudioWhitespace(domain).replace(/^www\./i, ""),
+    excerpt: compactStudioWhitespace(record.excerpt || record.snippet || record.summary || "").slice(0, 260),
+    state: compactStudioWhitespace(record.state || record.status || record.sourceHealth || "used").slice(0, 40) || "used",
   };
 }
 
 function collectStudioSourceRefs(value, refs, depth = 0) {
-  if (depth > 5 || refs.length >= 8 || value == null) {
+  if (depth > 10 || refs.length >= 8 || value == null) {
     return;
   }
   const parsed = typeof value === "string" ? studioJsonValueFromText(value) : value;
   if (!parsed) {
+    if (typeof value === "string") {
+      collectStudioSourceRefsFromPartialJsonText(value, refs);
+    }
     return;
   }
   if (Array.isArray(parsed)) {
@@ -2842,8 +2991,16 @@ function collectStudioSourceRefs(value, refs, depth = 0) {
   for (const key of [
     "sources",
     "source",
+    "sourceRefs",
+    "source_refs",
+    "sourceObservations",
+    "source_observations",
     "documents",
     "document",
+    "items",
+    "results",
+    "citations",
+    "references",
     "payload",
     "payload_summary",
     "payloadSummary",
@@ -2883,6 +3040,75 @@ function studioSourceRefsFromRuntimeEvents(events = []) {
     seen.add(key);
     return true;
   }).slice(0, 6);
+}
+
+function studioSourceRefsFromRuntimeEvent(event = {}, summary = "") {
+  const refs = [];
+  collectStudioSourceRefs(event?.payload, refs);
+  collectStudioSourceRefs(event?.payload_summary, refs);
+  collectStudioSourceRefs(event?.payloadSummary, refs);
+  collectStudioSourceRefs(event?.data, refs);
+  collectStudioSourceRefs(summary, refs);
+  const seen = new Set();
+  return refs.filter((ref) => {
+    const key = `${ref.url} ${ref.title}`.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 6);
+}
+
+function studioFirstSourceExcerptFromEvent(event = {}, summary = "") {
+  const candidates = [];
+  function visit(value, depth = 0) {
+    if (depth > 10 || candidates.length >= 6 || value == null) return;
+    const parsed = typeof value === "string" ? studioJsonValueFromText(value) : value;
+    if (!parsed) return;
+    if (Array.isArray(parsed)) {
+      for (const item of parsed) visit(item, depth + 1);
+      return;
+    }
+    if (typeof parsed !== "object") return;
+    for (const key of ["snippet", "excerpt", "summary", "text", "content"]) {
+      const text = compactStudioWhitespace(parsed[key]);
+      if (text && !/^\{/.test(text)) candidates.push(text.slice(0, 280));
+    }
+    for (const key of [
+      "sources",
+      "source",
+      "sourceRefs",
+      "source_refs",
+      "sourceObservations",
+      "source_observations",
+      "documents",
+      "document",
+      "items",
+      "results",
+      "citations",
+      "references",
+      "payload",
+      "payload_summary",
+      "payloadSummary",
+      "kernel_event",
+      "kernelEvent",
+      "AgentActionResult",
+      "WorkloadReceipt",
+      "WebRetrieve",
+      "receipt",
+      "result",
+      "output",
+      "preview",
+      "data",
+    ]) {
+      visit(parsed[key], depth + 1);
+    }
+  }
+  visit(event?.payload);
+  visit(event?.payload_summary);
+  visit(event?.payloadSummary);
+  visit(event?.data);
+  visit(summary);
+  return candidates[0] || "";
 }
 
 function studioComputerUseSurfaceKind({ lane = "", sessionMode = "", toolName = "" } = {}) {
@@ -4248,12 +4474,18 @@ function studioChatCodeExecutionRows(turn = {}, turnIndex = 0) {
 }
 
 function studioPendingWorklogRows() {
-  return firstArray(studioRuntimeProjection.pendingWorklog).map((step) => `
+  return firstArray(studioRuntimeProjection.pendingWorklog).map((step) => {
+    const sourceChips = firstArray(step.sourceChips || step.source_chips || step.sources);
+    const excerpt = compactStudioWhitespace(step.excerptPreview || step.excerpt_preview || sourceChips[0]?.excerpt || "").slice(0, 260);
+    return `
     <li data-status="${escapeHtml(step.status || "running")}">
-      <p>${escapeHtml(step.label || "")}</p>
-      ${step.detail ? `<span>${escapeHtml(step.detail)}</span>` : ""}
+      <p class="studio-pending-step__headline">${escapeHtml(step.label || "")}</p>
+      ${step.detail ? `<span class="studio-pending-step__summary">${escapeHtml(step.detail)}</span>` : ""}
+      ${sourceChips.length ? `<div class="studio-source-chip-list">${studioSourceChipRows(sourceChips, { limit: 6 })}</div>` : ""}
+      ${excerpt ? `<p class="studio-pending-step__excerpt">${escapeHtml(excerpt)}</p>` : ""}
     </li>
-  `).join("");
+  `;
+  }).join("");
 }
 
 function studioPendingProjectionRows() {
@@ -4282,22 +4514,118 @@ function studioPendingProjectionRows() {
 }
 
 function studioTurnSourceRows(turn = {}) {
-  const sourceRefs = firstArray(turn.sourceRefs || turn.source_refs)
+  const directSourceRefs = firstArray(turn.sourceRefs || turn.source_refs);
+  const artifactSourceRefs = firstArray(turn.artifacts).flatMap((artifact) =>
+    firstArray(artifact?.sourceRefs || artifact?.source_refs)
+  );
+  const seen = new Set();
+  const sourceRefs = [...directSourceRefs, ...artifactSourceRefs]
     .map((source) => studioRecordValue(source))
-    .filter((source) => /^https?:\/\//i.test(stringValue(source.url)));
+    .filter((source) => /^https?:\/\//i.test(stringValue(source.url)))
+    .filter((source) => {
+      const key = `${stringValue(source.url)} ${stringValue(source.title || source.name || source.label)}`.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   if (!sourceRefs.length) {
     return "";
   }
   return `
     <footer class="studio-answer-sources" data-testid="studio-answer-sources">
       <span>Sources</span>
-      ${sourceRefs.slice(0, 6).map((source) => `
-        <a href="${escapeHtml(source.url)}" title="${escapeHtml(source.title || source.domain || source.url)}" rel="noreferrer noopener">
-          ${escapeHtml(source.title || source.domain || source.url)}
-        </a>
-      `).join("")}
+      <div class="studio-source-chip-list">
+        ${studioSourceChipRows(sourceRefs, { limit: 6 })}
+      </div>
     </footer>
   `;
+}
+
+function studioSourceChipIconDataUri(source = {}) {
+  const domain = compactStudioWhitespace(source.domain || source.hostname || "");
+  const title = compactStudioWhitespace(source.title || domain || "source");
+  const glyph = escapeHtml((domain || title || "source").replace(/^www\./i, "").slice(0, 1).toUpperCase() || "•");
+  const hue = Math.abs(Array.from(domain || title).reduce((sum, char) => sum + char.charCodeAt(0), 0)) % 360;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect width="16" height="16" rx="4" fill="hsl(${hue} 45% 30%)"/><text x="8" y="11" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" font-weight="700" fill="white">${glyph}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+function sanitizeStudioSourceUrl(value = "") {
+  const raw = stringValue(value).trim();
+  if (!raw || /[\u0000-\u001f\u007f]/.test(raw)) {
+    return "";
+  }
+  if (/^(?:https?:\/\/|data:image\/)/i.test(raw)) {
+    return raw;
+  }
+  return "";
+}
+
+function studioSourceChipFaviconUrl(source = {}) {
+  const explicit = sanitizeStudioSourceUrl(source.faviconUrl || source.favicon_url || source.iconUrl || source.icon_url || "");
+  if (/^(?:https?:\/\/|data:image\/)/i.test(explicit)) {
+    return explicit;
+  }
+  const rawUrl = sanitizeStudioSourceUrl(source.url || source.href || source.link || "");
+  let domain = compactStudioWhitespace(source.domain || source.hostname || "").replace(/^www\./i, "");
+  if (!domain && rawUrl) {
+    try {
+      domain = new URL(rawUrl).hostname.replace(/^www\./i, "");
+    } catch {
+      domain = "";
+    }
+  }
+  if (!domain && !rawUrl) {
+    return "";
+  }
+  const domainUrl = rawUrl || `https://${domain}`;
+  return `https://www.google.com/s2/favicons?sz=32&domain_url=${encodeURIComponent(domainUrl)}`;
+}
+
+function studioSourceChipRows(sourceRefs = [], { limit = 6 } = {}) {
+  return firstArray(sourceRefs).slice(0, limit).map((source) => {
+    const record = studioRecordValue(source);
+    const url = stringValue(record.url || record.href || record.link);
+    const title = compactStudioWhitespace(record.title || record.name || record.label || record.domain || url).slice(0, 96);
+    const domain = compactStudioWhitespace(record.domain || record.hostname || (() => {
+      try { return new URL(url).hostname.replace(/^www\./i, ""); } catch { return ""; }
+    })()).replace(/^www\./i, "");
+    const excerpt = compactStudioWhitespace(record.excerpt || record.snippet || record.summary || "").slice(0, 180);
+    const state = compactStudioWhitespace(record.state || record.status || "used").slice(0, 32);
+    if (!title && !domain && !url) return "";
+    const label = title || domain || url;
+    const titleAttr = [label, domain, excerpt].filter(Boolean).join(" - ");
+    const iconUrl = studioSourceChipFaviconUrl({ ...record, url, domain, title }) || studioSourceChipIconDataUri({ ...record, domain, title });
+    const chipBody = `
+      <img src="${escapeHtml(iconUrl)}" alt="" aria-hidden="true">
+      <span>${escapeHtml(label)}</span>
+      ${domain && domain !== label ? `<small>${escapeHtml(domain)}</small>` : ""}
+      ${state ? `<em>${escapeHtml(state)}</em>` : ""}
+    `;
+    if (/^https?:\/\//i.test(url)) {
+      return `<a class="studio-source-chip" href="${escapeHtml(url)}" title="${escapeHtml(titleAttr)}" rel="noreferrer noopener">${chipBody}</a>`;
+    }
+    return `<span class="studio-source-chip" title="${escapeHtml(titleAttr)}">${chipBody}</span>`;
+  }).join("");
+}
+
+function studioWorkSummaryRows(workRecord = {}) {
+  const rows = firstArray(workRecord.workRows).length
+    ? firstArray(workRecord.workRows)
+    : firstArray(workRecord.activityLines || workRecord.lines).map((line) => ({ headline: line, status: "completed" }));
+  return rows.slice(0, 12).map((row) => {
+    const sourceChips = firstArray(row.sourceChips || row.source_chips);
+    return `
+      <li class="studio-work-row" data-status="${escapeHtml(row.status || "completed")}" data-kind="${escapeHtml(row.kind || "tool")}">
+        <div class="studio-work-row__main">
+          <strong>${escapeHtml(row.headline || row.label || "Observed work")}</strong>
+          ${row.summary ? `<span>${escapeHtml(row.summary)}</span>` : ""}
+        </div>
+        ${sourceChips.length ? `<div class="studio-source-chip-list">${studioSourceChipRows(sourceChips, { limit: 6 })}</div>` : ""}
+        ${row.excerptPreview ? `<p class="studio-work-row__excerpt">${escapeHtml(row.excerptPreview)}</p>` : ""}
+      </li>
+    `;
+  }).join("");
 }
 
 function studioTurnRows() {
@@ -4312,10 +4640,9 @@ function studioTurnRows() {
           <summary>
             <span class="studio-run-status-bar__check" aria-hidden="true">✓</span>
             <strong>${studioRuntimeProjection.status === "interrupted" ? "Stopped by operator" : `Worked for ${formatStudioWorkDuration(workRecord.durationMs)}`}</strong>
-            <span>${escapeHtml(studioDocumentedWorkSummary(workRecord))}</span>
           </summary>
           <ul class="studio-run-status-bar__details" data-testid="studio-work-summary-lines">
-            ${firstArray(workRecord.activityLines || workRecord.lines).slice(0, 8).map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
+            ${studioWorkSummaryRows(workRecord)}
           </ul>
         </details>
         ${studioManagedSessionRows(workRecord.sessionCards)}
@@ -8496,13 +8823,20 @@ async function projectStudioAgentTurnToWebview({ assistantTurn, status = "comple
   if (!studioPanel) {
     return false;
   }
+  const sourceRefs = [
+    ...firstArray(assistantTurn?.sourceRefs),
+    ...firstArray(assistantTurn?.artifacts).flatMap((artifact) =>
+      firstArray(artifact?.sourceRefs || artifact?.source_refs)
+    ),
+  ];
   const payload = {
     text: assistantTurn?.content || "",
     createdAt: assistantTurn?.createdAt || new Date().toISOString(),
     turnId: assistantTurn?.agentTurn?.turnId || studioRuntimeProjection.turnId || "",
     eventCount: assistantTurn?.agentTurn?.eventCount || 0,
     receiptRefs: firstArray(assistantTurn?.agentTurn?.receiptRefs),
-    sourceRefs: firstArray(assistantTurn?.sourceRefs),
+    sourceRefs,
+    workRecord: studioPublicWorkRecordForWebview(assistantTurn?.workRecord),
     prompt: prompt || assistantTurn?.agentTurn?.prompt || "",
     status,
     error,
@@ -8989,7 +9323,7 @@ function shouldProjectStudioRuntimeCockpit(prompt) {
 
 function studioPromptRequestsGeneratedWebArtifact(prompt = "") {
   const value = String(prompt || "");
-  return /\b(create|build|make|generate|draft|design|prototype)\b[\s\S]{0,100}\b(website|web\s*site|webpage|web\s*page|landing\s+page|microsite|static\s+site)\b/i.test(value);
+  return /\b(create|build|make|generate|draft|design|prototype|output)\b[\s\S]{0,120}\b(website|web\s*site|webpage|web\s*page|landing\s+page|microsite|static\s+site|html\s+(?:file|page|document|website))\b/i.test(value);
 }
 
 function shouldProjectConversationArtifactCanvas(prompt) {
@@ -9425,11 +9759,18 @@ async function projectStudioConversationArtifactCanvas(prompt, output, intentFra
     };
   }
   const artifact = await createStudioConversationArtifact(threadId, prompt, output, intentFrame, { generatedFiles });
-  studioRuntimeProjection.conversationArtifacts.push(artifact);
+  const generatedRuntimeEvents = firstArray(generatedFiles?.runtimeEvents);
+  const generatedSourceRefs = firstArray(generatedFiles?.sourceRefs).length
+    ? firstArray(generatedFiles?.sourceRefs)
+    : studioSourceRefsFromRuntimeEvents(generatedRuntimeEvents);
+  const artifactForTurn = generatedSourceRefs.length
+    ? { ...artifact, sourceRefs: generatedSourceRefs }
+    : artifact;
+  studioRuntimeProjection.conversationArtifacts.push(artifactForTurn);
   studioRuntimeProjection.runtimeCockpit.conversationArtifactObserved = true;
-  if ((artifact.artifactClass || artifact.artifact_class) === "browser_observation") {
+  if ((artifactForTurn.artifactClass || artifactForTurn.artifact_class) === "browser_observation") {
     upsertStudioManagedSession({
-      id: `artifact-session:${artifact.id}`,
+      id: `artifact-session:${artifactForTurn.id}`,
       kind: "sandbox_browser",
       surfaceLabel: "Sandbox browser",
       status: "complete",
@@ -9443,13 +9784,13 @@ async function projectStudioConversationArtifactCanvas(prompt, output, intentFra
       updatedAt: new Date().toISOString(),
     });
   }
-  appendStudioTimeline("Conversation artifact ready", artifact.title || artifact.id, "completed", {
-    artifactId: artifact.id,
+  appendStudioTimeline("Conversation artifact ready", artifactForTurn.title || artifactForTurn.id, "completed", {
+    artifactId: artifactForTurn.id,
   });
   let handoffText = "";
   let handoffMetrics = null;
   if (artifactClass === "static_html_js" && generatedFiles) {
-    const artifactTitle = stringValue(artifact.title || generatedFiles.title || studioIntentFrameArtifactTitle(intentFrame, artifactClass, prompt), "website");
+    const artifactTitle = stringValue(artifactForTurn.title || generatedFiles.title || studioIntentFrameArtifactTitle(intentFrame, artifactClass, prompt), "website");
     const artifactLabel = /\bwebsite\b/i.test(artifactTitle) ? artifactTitle : `${artifactTitle} website`;
     handoffText = `Created the ${artifactLabel} artifact. The preview is below.`;
   } else {
@@ -9460,7 +9801,7 @@ async function projectStudioConversationArtifactCanvas(prompt, output, intentFra
         selectedModelId: studioRuntimeProjection.selectedModel || "auto",
         reasoningEffort: studioRuntimeProjection.reasoningEffort || "none",
         workspacePath: workspaceSummary().path,
-        handoffContext: `Artifact title: ${artifact.title || artifact.id}\nArtifact class: ${artifact.artifactClass || artifact.artifact_class || artifactClass}\nArtifact created: yes.\nPreview is attached in Agent Studio as a sandboxed conversation artifact.\nAvailable actions: open preview, revise, export, promote, or roll back when supported.`,
+        handoffContext: `Artifact title: ${artifactForTurn.title || artifactForTurn.id}\nArtifact class: ${artifactForTurn.artifactClass || artifactForTurn.artifact_class || artifactClass}\nArtifact created: yes.\nPreview is attached in Agent Studio as a sandboxed conversation artifact.\nAvailable actions: open preview, revise, export, promote, or roll back when supported.`,
       }, output);
       handoffText = handoff.text;
       handoffMetrics = handoff.metrics || null;
@@ -9470,10 +9811,11 @@ async function projectStudioConversationArtifactCanvas(prompt, output, intentFra
   }
   return {
     status: "completed",
-    events: [],
-    receiptRefs: normalizeReceiptRefs(artifact),
+    events: generatedRuntimeEvents,
+    sourceRefs: generatedSourceRefs,
+    receiptRefs: normalizeReceiptRefs(artifactForTurn),
     text: handoffText,
-    artifacts: [artifact],
+    artifacts: [artifactForTurn],
     modelMetrics: handoffMetrics || generatedFiles?.generator?.metrics || null,
   };
 }
@@ -9840,7 +10182,7 @@ async function generateStudioStaticWebsiteDraftThroughAgentTurn({
     presentation: "artifact_generation",
     fileName: "index.html",
   });
-  return studioModelCompletion.studioStaticWebsiteDraftFromRuntimeText({
+  const draft = studioModelCompletion.studioStaticWebsiteDraftFromRuntimeText({
     prompt,
     title,
     text: artifactSourceText,
@@ -9850,6 +10192,11 @@ async function generateStudioStaticWebsiteDraftThroughAgentTurn({
     receiptRefs: agentTurn.receiptRefs || [],
     streamId: sourceStream?.streamId || "",
   });
+  return {
+    ...draft,
+    sourceRefs: firstArray(agentTurn.sourceRefs),
+    runtimeEvents: firstArray(agentTurn.events),
+  };
 }
 function collectStudioAgentEventsFromResponse(turn = {}) {
   return [
@@ -10313,7 +10660,10 @@ async function submitStudioAgentTurn({
   });
   const submittedAtMs = Date.now();
   const permissionMapping = studioPermissionDaemonMapping(studioRuntimeProjection.approvalMode);
-  const requestedMaxSteps = Number.isFinite(Number(maxStepsOverride))
+  const hasMaxStepsOverride = maxStepsOverride !== null &&
+    maxStepsOverride !== undefined &&
+    String(maxStepsOverride).trim() !== "";
+  const requestedMaxSteps = hasMaxStepsOverride && Number.isFinite(Number(maxStepsOverride))
     ? Math.floor(Number(maxStepsOverride))
     : studioAgentMaxStepsForIntent(intentFrame, prompt);
   const maxSteps = Math.max(STUDIO_AGENT_MIN_TURN_STEPS, requestedMaxSteps);
@@ -10426,13 +10776,17 @@ async function submitStudioAgentTurn({
           output?.appendLine?.(`[ioi-studio] live daemon event projection ended early: ${error?.message || String(error)}`);
           return [];
         }),
-        new Promise((resolve) => setTimeout(() => resolve([]), 1000)),
+        new Promise((resolve) => setTimeout(() => resolve([]), STUDIO_AGENT_TURN_EVENT_FLUSH_TIMEOUT_MS)),
       ]);
     } else if (firstCompletion.kind === "turn_projection") {
       turn = firstCompletion.turn;
-      liveEventsPromise.catch((error) => {
-        output?.appendLine?.(`[ioi-studio] live daemon event projection ended after turn projection recovery: ${error?.message || String(error)}`);
-      });
+      liveObservedEvents = await Promise.race([
+        liveEventsPromise.catch((error) => {
+          output?.appendLine?.(`[ioi-studio] live daemon event projection ended after turn projection recovery: ${error?.message || String(error)}`);
+          return [];
+        }),
+        new Promise((resolve) => setTimeout(() => resolve([]), STUDIO_AGENT_TURN_EVENT_FLUSH_TIMEOUT_MS)),
+      ]);
       turnRequest.catch((error) => {
         output?.appendLine?.(`[ioi-studio] Agent turn POST settled after turn projection recovery: ${error?.message || String(error)}`);
       });
@@ -10509,7 +10863,13 @@ async function submitStudioAgentTurn({
   const streamedEvents = studioAssistantTextFromRuntimeToolEvents([...responseEvents, ...refreshEvents])
     ? []
     : await fetchStudioThreadEvents(turn.thread_id || turn.threadId || threadId, output, { timeoutMs: 5000 });
-  const events = uniqueStudioRuntimeEvents([...responseEvents, ...refreshEvents, ...streamedEvents]);
+  const allEvents = uniqueStudioRuntimeEvents([
+    ...responseEvents,
+    ...refreshEvents,
+    ...liveObservedEvents,
+    ...streamedEvents,
+  ]);
+  const events = studioRuntimeEventsForTurn(allEvents, turn.turn_id || turn.turnId);
   applyStudioAgentTurnEvents(events, {
     projectAnswerStream,
     answerStreamPresentation,
@@ -10841,12 +11201,30 @@ async function submitStudioPrompt(payload = {}, output) {
       }
       const agentTurnStatus = agentTurn.status === "blocked" ? "blocked" : "completed";
       const workRecord = studioDocumentedWorkRecord(workCursor);
+      const managedSessionCount = firstArray(workRecord?.sessionCards).length;
+      if (managedSessionCount) {
+        studioRuntimeProjection.runtimeCockpit.managedLiveViewportObserved = true;
+        studioRuntimeProjection.runtimeCockpit.managedSessionLabelsObserved = true;
+        studioRuntimeProjection.runtimeCockpit.managedSessionCount = Math.max(
+          managedSessionCount,
+          Number(studioRuntimeProjection.runtimeCockpit.managedSessionCount || 0) || 0,
+        );
+      }
       const blockedThreadId = agentTurnStatus === "blocked" ? studioRuntimeProjection.threadId : null;
       const daemonAnswerStream = agentTurnStatus === "completed" && studioAgentAnswerStreamProjector.hasObservedStream()
-        ? studioAgentAnswerStreamProjector.complete(agentTurn.text, { allowFallbackStart: false })
+        ? studioAgentAnswerStreamProjector.complete(agentTurn.text, {
+            allowFallbackStart: false,
+            sourceRefs: firstArray(agentTurn.sourceRefs),
+            workRecord: studioPublicWorkRecordForWebview(workRecord),
+          })
         : null;
       const finalHandoffStream = agentTurnStatus === "completed" && !daemonAnswerStream
-        ? await studioAgentFinalHandoffStreamer.streamStudioAgentFinalHandoff(agentTurn.text, { prompt, turnId: studioRuntimeProjection.turnId })
+        ? await studioAgentFinalHandoffStreamer.streamStudioAgentFinalHandoff(agentTurn.text, {
+            prompt,
+            turnId: studioRuntimeProjection.turnId,
+            sourceRefs: firstArray(agentTurn.sourceRefs),
+            workRecord: studioPublicWorkRecordForWebview(workRecord),
+          })
         : null;
       const modelStream = daemonAnswerStream || (finalHandoffStream
         ? { streamId: finalHandoffStream.streamId, chunkCount: finalHandoffStream.chunkCount, agentFinalHandoff: true, runtimeAuthority: "daemon-owned", completed: true }

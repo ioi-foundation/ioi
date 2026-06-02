@@ -115,6 +115,8 @@ function createStudioAgentAnswerStreamProjector({
     const text = fallbackText || stringValue(state.daemonAnswerStreamText);
     const presentation = stringValue(options.presentation, "agent_final_handoff");
     const fileName = stringValue(options.fileName);
+    const sourceRefs = Array.isArray(options.sourceRefs) ? options.sourceRefs : [];
+    const workRecord = options.workRecord && typeof options.workRecord === "object" ? options.workRecord : null;
     const allowFallbackStart = options.allowFallbackStart !== false;
     if (!state.daemonAnswerStreamObserved && (!text || !allowFallbackStart)) return null;
     if (!state.daemonAnswerStreamObserved) {
@@ -131,6 +133,8 @@ function createStudioAgentAnswerStreamProjector({
       text,
       presentation,
       ...(fileName ? { fileName } : {}),
+      ...(sourceRefs.length ? { sourceRefs } : {}),
+      ...(workRecord ? { workRecord } : {}),
       runtimeAuthority: "daemon-owned",
     });
     state.daemonAnswerStreamCompleted = true;

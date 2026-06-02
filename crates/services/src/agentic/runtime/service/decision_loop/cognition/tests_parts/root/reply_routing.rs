@@ -611,6 +611,80 @@ fn web_research_ready_context_forces_reply_only_surface() {
 }
 
 #[test]
+fn browser_read_only_observation_forces_reply_only_surface() {
+    let mut resolved = resolved_intent("browser.inspect", IntentScopeProfile::UiInteraction);
+    resolved.instruction_contract = Some(InstructionContract {
+        operation: "inspect page".to_string(),
+        side_effect_mode: InstructionSideEffectMode::ReadOnly,
+        slot_bindings: vec![],
+        negative_constraints: vec![],
+        success_criteria: vec![],
+    });
+    let filtered = filter_cognition_tools_with_recovery(
+        &[
+            tool("chat__reply"),
+            tool("agent__complete"),
+            tool("browser__navigate"),
+            tool("browser__inspect"),
+            tool("browser__wait"),
+        ],
+        Some(&resolved),
+        true,
+        "Open a sandbox browser, inspect this fixture page, and summarize what changed.",
+        "RECENT BROWSER OBSERVATION:\n<root> IMPORTANT TARGETS: heading_tool_catalogue_fixture tag=heading name=Tool Catalogue Fixture | inp_scenario_select tag=combobox name=Scenario select selector=[id=\"toolcat-select\"] </root>\nUse this semantic browser evidence directly when selecting the next browser action.\n",
+        "",
+        CognitionToolRecovery {
+            workspace_context_ready_for_reply: false,
+            web_context_ready_for_reply: false,
+        },
+    );
+    let names = filtered
+        .iter()
+        .map(|tool| tool.name.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(names, vec!["chat__reply"]);
+}
+
+#[test]
+fn mutating_browser_observation_keeps_browser_action_surface() {
+    let mut resolved = resolved_intent("browser.interact", IntentScopeProfile::UiInteraction);
+    resolved.required_capabilities = vec![CapabilityId::from("browser.interact")];
+    resolved.instruction_contract = Some(InstructionContract {
+        operation: "select option".to_string(),
+        side_effect_mode: InstructionSideEffectMode::Update,
+        slot_bindings: vec![],
+        negative_constraints: vec![],
+        success_criteria: vec!["scenario.changed_to_beta".to_string()],
+    });
+    let filtered = filter_cognition_tools_with_recovery(
+        &[
+            tool("chat__reply"),
+            tool("agent__complete"),
+            tool("browser__navigate"),
+            tool("browser__inspect"),
+            tool("browser__select_option"),
+            tool("browser__wait"),
+        ],
+        Some(&resolved),
+        true,
+        "Change the scenario select option to beta.",
+        "RECENT BROWSER OBSERVATION:\n<root> IMPORTANT TARGETS: inp_scenario_select tag=combobox name=Scenario select selector=[id=\"toolcat-select\"] </root>\nUse this semantic browser evidence directly when selecting the next browser action.\n",
+        "",
+        CognitionToolRecovery {
+            workspace_context_ready_for_reply: false,
+            web_context_ready_for_reply: false,
+        },
+    );
+    let names = filtered
+        .iter()
+        .map(|tool| tool.name.as_str())
+        .collect::<Vec<_>>();
+    assert!(names.contains(&"browser__inspect"), "{names:?}");
+    assert!(names.contains(&"browser__select_option"), "{names:?}");
+    assert!(!matches!(names.as_slice(), ["chat__reply"]));
+}
+
+#[test]
 fn ready_web_context_forces_reply_only_surface_even_before_scope_resolution() {
     let resolved = resolved_intent("unknown", IntentScopeProfile::Unknown);
     let filtered = filter_cognition_tools_with_recovery(

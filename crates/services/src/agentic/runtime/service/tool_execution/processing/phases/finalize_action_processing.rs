@@ -1,4 +1,7 @@
 use super::*;
+use crate::agentic::runtime::service::decision_loop::cognition::{
+    final_reply_product_handoff_reason, sanitize_product_handoff_internal_markers,
+};
 use crate::agentic::runtime::service::output::terminal_reply_shape::{
     observe_terminal_chat_reply_shape, terminal_chat_reply_layout_profile,
 };
@@ -20,6 +23,12 @@ fn active_web_pipeline_chat_reply_duplicate_noop(verification_checks: &[String])
         check == "terminal_chat_reply_deferred_for_active_web_pipeline=true"
             || check == "web_model_chat_reply_duplicate_suppressed=true"
     })
+}
+
+fn terminal_product_handoff_violation_error(reason: &str) -> String {
+    format!(
+        "ERROR_CLASS=UnexpectedState Final reply was not product-safe ({reason}). Return a fresh concise user-facing Markdown answer through the available terminal reply tool. Do not include raw temp paths, fixture/probe markers, raw logs, stdout/stderr dumps, receipt ids, trace ids, JSON payloads, or daemon scaffolding. Summarize the observed work and verification result instead."
+    )
 }
 
 fn read_only_workspace_context_duplicate_noop(
@@ -999,6 +1008,43 @@ pub(crate) async fn finalize_action_processing(
     ));
     if let Some(class) = failure_class {
         verification_checks.push(format!("failure_class={}", class.as_str()));
+    }
+
+    if success
+        && !is_gated
+        && !awaiting_sudo_password
+        && !awaiting_clarification
+        && terminal_chat_reply_output.is_some()
+    {
+        if let Some(reply) = terminal_chat_reply_output.as_mut() {
+            *reply = sanitize_product_handoff_internal_markers(reply);
+        }
+        let reply = terminal_chat_reply_output.as_deref().unwrap_or_default();
+        if let Some(reason) = final_reply_product_handoff_reason(reply, &agent_state.goal) {
+            let blocked_error = terminal_product_handoff_violation_error(reason);
+            success = false;
+            error_msg = Some(blocked_error.clone());
+            history_entry = Some(blocked_error.clone());
+            action_output = Some(blocked_error);
+            terminal_chat_reply_output = None;
+            agent_state.status = AgentStatus::Running;
+            stop_condition_hit = false;
+            is_lifecycle_action = false;
+            verification_checks.push(format!(
+                "terminal_product_handoff_blocked_at_finalize_reason={}",
+                reason
+            ));
+            verification_checks.push("terminal_chat_reply_ready=false".to_string());
+            let intent_id = resolved_intent_id(agent_state);
+            emit_completion_gate_status_event(
+                service,
+                session_id,
+                pre_state_summary.step_index,
+                intent_id.as_str(),
+                false,
+                "finalize_terminal_chat_reply_product_handoff_blocked",
+            );
+        }
     }
 
     goto_trace_log(

@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for Agentgres-governed artifact refs, payload refs, evidence bundles, delivery bundles, sealed state archive refs, content-addressed commitments, artifact lifecycle, policy/authority/receipt linkage, replay/import metadata, restore validity, and relationship to storage backends.
 Supersedes: `components/filecoin-cas/*` when those files appear to own artifact meaning, authority, lifecycle, or restore validity.
 Superseded by: none.
-Last alignment pass: 2026-05-30.
+Last alignment pass: 2026-06-01.
 
 ## Canonical Definition
 
@@ -17,6 +17,14 @@ it, which receipts prove it, which state root or object heads it binds, and how
 it can be verified, replayed, imported, restored, redacted, archived, or revoked.
 
 Storage backends hold bytes. Agentgres defines what those bytes mean.
+
+This applies to private user/app state as well as private agent state. Profile
+metadata, app preferences, service intake state, workspace snapshots, private
+documents, non-public service outputs, managed-instance metadata, and local app
+state checkpoints may live as encrypted payload bytes in storage backends.
+Agentgres records their refs, state roots, policy, authority context, receipts,
+and restore/import validity; wallet.network controls who can decrypt, view,
+mutate, export, or declassify them.
 
 ```text
 Agentgres operation
@@ -36,6 +44,12 @@ The Agentgres artifact-ref plane owns:
 - `DeliveryBundle` artifact identity and acceptance linkage;
 - `AgentStateArchive` refs, state roots, object heads, restore/import metadata,
   lifecycle status, and validity;
+- private user/app state refs, including encrypted profile metadata,
+  preferences, service intake payloads, workspace snapshots, private outputs,
+  managed-instance metadata, and local app state checkpoints;
+- Private Workspace capsule refs, `AlphaSeal` payload refs, protected-output
+  commitments, model-mount evidence refs, deterrence/detection evidence refs,
+  and private-inference evidence refs;
 - content-addressed commitments such as CID, SHA-256, manifest root, bundle
   root, and payload hash;
 - artifact lifecycle: `proposed`, `active`, `verified`, `redacted`, `archived`,
@@ -84,7 +98,10 @@ ArtifactRef:
   role:
     large_payload | evidence | trace | checkpoint | sealed_state_archive |
     delivery_bundle | package | screenshot | dataset | tool_result |
-    model_trace | ontology_pack | data_recipe | projection_checkpoint
+    model_trace | ontology_pack | data_recipe | projection_checkpoint |
+    private_profile | app_preferences | service_intake |
+    workspace_snapshot | private_output | managed_instance_state |
+    shielded_capsule | alpha_seal | protected_output
   content:
     cid: bafy... | null
     sha256: sha256:...
@@ -296,6 +313,11 @@ DeliveryBundleProposed
 DeliveryBundleAccepted
 DeliveryBundleDisputed
 AgentStateArchiveCreated
+PrivateWorkspaceCapsuleRecorded
+AlphaSealRecorded
+ProtectedOutputCommitted
+ModelMountRecorded
+DeterrenceDetectionEvidenceRecorded
 AgentStateRestoreRequested
 ArchiveFetched
 ArchiveHashVerified
@@ -354,6 +376,8 @@ Do not:
   operations;
 - use a CDN URL as a trust root;
 - store raw secrets in artifact payloads without wallet-controlled encryption;
+- store unsealed `AlphaSeal` payloads, private strategy source, broker keys, or
+  live portfolio state in provider-visible artifact bytes;
 - let package, dataset, trace, or checkpoint bytes become authoritative because
   they are content-addressed;
 - collapse Agent Wiki / `ioi-memory` into random Agentgres blob rows;

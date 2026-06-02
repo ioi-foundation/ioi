@@ -68,6 +68,10 @@ fn compact_single_line(input: &str, max_chars: usize) -> String {
 pub(super) fn inference_error_system_fail_reason(raw_error: &str) -> String {
     let lower = raw_error.to_ascii_lowercase();
 
+    if inference_error_is_retryable_no_content(raw_error) {
+        return "ERROR_CLASS=RuntimeRetryable Cognition inference stream ended without content. Retry the same model loop once before escalating.".to_string();
+    }
+
     if lower.contains("insufficient_quota")
         || (lower.contains("429") && lower.contains("too many requests"))
     {
@@ -90,6 +94,13 @@ pub(super) fn inference_error_system_fail_reason(raw_error: &str) -> String {
         "ERROR_CLASS=UserInterventionNeeded Cognition inference failed before tool planning. detail={}",
         detail
     )
+}
+
+pub(super) fn inference_error_is_retryable_no_content(raw_error: &str) -> bool {
+    let lower = raw_error.to_ascii_lowercase();
+    lower.contains("streaming response ended without content")
+        || lower.contains("native chat ended without content")
+        || lower.contains("inference returned empty output")
 }
 
 #[cfg(test)]

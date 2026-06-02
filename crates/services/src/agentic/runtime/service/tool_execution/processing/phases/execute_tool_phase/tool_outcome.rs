@@ -8,7 +8,8 @@ use super::*;
 use crate::agentic::runtime::service::decision_loop::cognition::{
     build_browser_snapshot_pending_state_context_with_history,
     build_recent_pending_browser_state_context_with_snapshot, current_browser_observation_snapshot,
-    sanitize_direct_chat_reply_output,
+    final_reply_product_handoff_reason, sanitize_direct_chat_reply_output,
+    sanitize_product_handoff_internal_markers,
 };
 use crate::agentic::runtime::service::queue::handle_web_search_result;
 use crate::agentic::runtime::service::tool_execution::command_contract::{
@@ -42,6 +43,12 @@ pub(super) struct ToolOutcomeContext<'a, 's> {
 }
 
 include!("tool_outcome/support.rs");
+
+fn product_handoff_violation_error(reason: &str) -> String {
+    format!(
+        "ERROR_CLASS=UnexpectedState Final reply was not product-safe ({reason}). Return a fresh concise user-facing Markdown answer through the available terminal reply tool. Do not include raw temp paths, fixture/probe markers, raw logs, stdout/stderr dumps, receipt ids, trace ids, JSON payloads, or daemon scaffolding. Summarize the observed work and verification result instead."
+    )
+}
 
 pub(super) async fn apply_tool_outcome_and_followups(
     ctx: ToolOutcomeContext<'_, '_>,
@@ -145,9 +152,34 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     } else {
                         result.clone()
                     };
-                let completed_result = sanitize_direct_chat_reply_output(
-                    &enrich_command_scope_summary(&completed_result, agent_state),
-                );
+                let completed_result =
+                    sanitize_product_handoff_internal_markers(&sanitize_direct_chat_reply_output(
+                        &enrich_command_scope_summary(&completed_result, agent_state),
+                    ));
+                if let Some(reason) =
+                    final_reply_product_handoff_reason(&completed_result, &agent_state.goal)
+                {
+                    let blocked_error = product_handoff_violation_error(reason);
+                    *success = false;
+                    *error_msg = Some(blocked_error.clone());
+                    *history_entry = Some(blocked_error.clone());
+                    *action_output = Some(blocked_error);
+                    agent_state.status = AgentStatus::Running;
+                    verification_checks.push(format!(
+                        "terminal_product_handoff_blocked_reason={}",
+                        reason
+                    ));
+                    verification_checks.push("terminal_chat_reply_ready=false".to_string());
+                    emit_completion_gate_status_event(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        false,
+                        "agent_complete_product_handoff_blocked",
+                    );
+                    return Ok(());
+                }
                 agent_state.status = AgentStatus::Completed(Some(completed_result.clone()));
                 agent_state
                     .execution_ledger
@@ -264,8 +296,10 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     let model_authored_candidate =
                         crate::agentic::runtime::service::queue::web_pipeline::FinalWebSummaryCandidate {
                             provider: "model_chat_reply",
-                            summary: sanitize_direct_chat_reply_output(
-                                &enrich_command_scope_summary(message, agent_state),
+                            summary: sanitize_product_handoff_internal_markers(
+                                &sanitize_direct_chat_reply_output(
+                                    &enrich_command_scope_summary(message, agent_state),
+                                ),
                             ),
                         };
                     if let Some(selection) =
@@ -517,10 +551,34 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     &missing,
                 );
             } else {
-                let message = sanitize_direct_chat_reply_output(&enrich_command_scope_summary(
-                    message,
-                    agent_state,
-                ));
+                let message =
+                    sanitize_product_handoff_internal_markers(&sanitize_direct_chat_reply_output(
+                        &enrich_command_scope_summary(message, agent_state),
+                    ));
+                if let Some(reason) =
+                    final_reply_product_handoff_reason(&message, &agent_state.goal)
+                {
+                    let blocked_error = product_handoff_violation_error(reason);
+                    *success = false;
+                    *error_msg = Some(blocked_error.clone());
+                    *history_entry = Some(blocked_error.clone());
+                    *action_output = Some(blocked_error);
+                    agent_state.status = AgentStatus::Running;
+                    verification_checks.push(format!(
+                        "terminal_product_handoff_blocked_reason={}",
+                        reason
+                    ));
+                    verification_checks.push("terminal_chat_reply_ready=false".to_string());
+                    emit_completion_gate_status_event(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        false,
+                        "chat_reply_product_handoff_blocked",
+                    );
+                    return Ok(());
+                }
                 agent_state.status = AgentStatus::Completed(Some(message.clone()));
                 agent_state
                     .execution_ledger

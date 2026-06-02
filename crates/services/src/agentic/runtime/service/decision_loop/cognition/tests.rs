@@ -23,8 +23,8 @@ use crate::agentic::runtime::types::{
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use image::{ImageBuffer, ImageFormat, Rgba};
 use ioi_types::app::agentic::{
-    CapabilityId, ChatMessage, IntentConfidenceBand, IntentScopeProfile, LlmToolDefinition,
-    ResolvedIntentState,
+    CapabilityId, ChatMessage, InstructionContract, InstructionSideEffectMode,
+    IntentConfidenceBand, IntentScopeProfile, LlmToolDefinition, ResolvedIntentState,
 };
 use std::collections::VecDeque;
 use std::io::Cursor;

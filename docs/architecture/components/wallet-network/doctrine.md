@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for wallet.network authority doctrine; low-level scope APIs live in [`wallet-network-api-and-authority-scopes.md`](./api-authority-scopes.md).
 Supersedes: older generic capability-grant wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-05-30.
+Last alignment pass: 2026-06-01.
 
 ## Canonical Definition
 
@@ -29,7 +29,10 @@ Put more sharply:
 ## Boundary Statement
 
 wallet.network does not execute work, store app-domain operational truth, or
-serve as the marketplace database.
+serve as the marketplace database. It may authenticate the user and release
+bounded viewing/decryption authority for private user/app state, but the
+state's canonical meaning remains in Agentgres refs and the encrypted bytes
+remain in storage backends.
 
 - IOI daemon executes work as the autonomous-execution hypervisor/control plane.
 - Autopilot Workbench and Desktop request, approve, and inspect work as operator
@@ -61,10 +64,12 @@ wallet.network owns:
 - connector credentials;
 - BYOK model provider keys;
 - sealed archive decryption authority;
+- cTEE guardian identity, key-share, and declassification authority;
 - restore key leases;
 - training-data access approvals;
 - training artifact decryption leases;
 - model-provider and GPU spend authority for training/evaluation jobs;
+- Private Workspace node `AutonomyLease` grants;
 - authority scope leases;
 - approval tokens;
 - session grants;
@@ -72,6 +77,7 @@ wallet.network owns:
 - revocation epochs;
 - payment authorization;
 - panic/emergency controls;
+- capability-exit signing and revocation for protected remote work;
 - audit lineage.
 
 ## What wallet.network Does Not Own
@@ -272,6 +278,22 @@ settlement, dispute, and sparse public commitments. wallet.network stores
 authority state locally or in a secure authority deployment profile, and
 Agentgres stores operational receipts and projections.
 
+Private user/app metadata should follow the same boundary:
+
+```text
+wallet.network
+  authenticates the user and grants viewing/decryption/mutation authority
+
+Agentgres
+  stores canonical refs, policy, receipts, state roots, and restore/import truth
+
+storage backends
+  store encrypted profile, preference, app-state, workspace, and service bytes
+
+IOI L1
+  stores selected public/economic commitments only
+```
+
 ## Relationship to Agentgres
 
 wallet.network emits authority artifacts:
@@ -303,24 +325,81 @@ The daemon requests authority scopes and receives bounded grants, approval
 tokens, or operation-scoped secret execution. It does not become a key
 custodian.
 
-## Runtime Privacy Modes
+## Runtime Privacy Profiles
 
-wallet.network should support authority-release policy by runtime privacy mode.
+wallet.network should support authority-release policy by runtime privacy
+profile.
 
-### Mutual Blind Mode
+### Mutual Blind Profile
 
 - no raw secrets;
 - no final effects solely from untrusted execution;
 - opaque, narrow, operation-scoped authority only;
 - receipts must prove what was requested, released, used, and revoked.
 
-### Enterprise Secure Mode
+### Private Workspace cTEE Profile
+
+- rented hosted/provider/DePIN GPU nodes may stay online and run the daemon,
+  Autopilot node shell, public inference, encrypted persistence, and redacted
+  workspace work;
+- Plaintext-Free Runtime Mounting exposes public/redacted context and private
+  handles to the node for tools and models, while wallet-controlled authority
+  decides key release, declassification, and capability exits;
+- Candidate-Lattice Private Decoding is the default protected-agency path:
+  rented nodes generate candidate lattices while wallet-controlled guardian,
+  AlphaSeal, or private operators select, deny, declassify, or sign;
+- protected classes such as PII, strategy source, broker keys, live portfolio
+  state, private memory, and final action logic are not released as plaintext to
+  the provider-rooted node by default;
+- `AutonomyLease` grants define what the node may do while the user is offline;
+- the cTEE authority view, implemented by wallet.network, authenticated
+  browser/device session, local Autopilot, CLI signer, customer authority
+  service, mobile approval path, or threshold committee, participates in key
+  release, private-head selection, declassification, and capability exits;
+- `ModelMountReceipt`, `PrivateInferenceReceipt`, `DeclassificationReceipt`,
+  capability-exit receipts, and deterrence/detection receipts prove what was
+  mounted, computed, revealed, denied, signed, watermarked, or canary-checked.
+
+### Enterprise Secure Profile
 
 - TEE or equivalent attestation required before sealed secret or authority
   release;
 - authority release binds to code identity, request hash, policy hash, expiry,
   and revocation epoch;
 - Agentgres records the resulting authority and execution receipts.
+
+## Private Workspace Authority
+
+For Private Workspace backed by cTEE, wallet.network owns the authority
+membrane that keeps a persistent rented GPU useful without making it the
+plaintext custody workspace.
+
+wallet.network controls:
+
+- authority-view identity and quorum policy;
+- key shares, masks, decryption leases, viewing keys, and revoke/panic state;
+- `AutonomyLease` creation, renewal, narrowing, and revocation;
+- declassification policy for protected outputs;
+- action limits for broker, API, payment, message, deploy, or connector exits;
+- step-up rules for widening risk, disclosing private material, or exporting
+  protected memory.
+
+The default flow is:
+
+```text
+Private Workspace node produces protected output commitment
+  -> Agentgres records refs and private-inference receipt
+  -> wallet.network checks AutonomyLease, policy hash, risk, and revocation
+  -> authority view decrypts, reconstructs, selects, or denies if allowed
+  -> declassification gate approves, denies, or escalates
+  -> capability exit signs only bounded actions
+  -> DeclassificationReceipt and capability-exit receipt are recorded
+```
+
+wallet.network must not release durable raw broker keys, unrestricted OAuth
+tokens, strategy source, live portfolio plaintext, full private memory, or root
+secrets to a root-controlled rented node. The node may receive opaque,
+operation-scoped capability exits and encrypted or masked state under policy.
 
 ## Cryptography Positioning
 
@@ -346,6 +425,8 @@ the worker marketplace
 the Agentgres state store
 the L1 settlement chain
 a place where agents receive raw root secrets
+a place that releases plaintext alpha or PII to a rented GPU because the node
+passed a boot measurement
 a generic login provider with no autonomous-work semantics
 a blanket claim that legacy systems become post-quantum safe
 ```
@@ -366,6 +447,9 @@ IOI L1 settles public/economic commitments
   shapes.
 - [`../daemon-runtime/default-harness-profile.md`](../daemon-runtime/default-harness-profile.md):
   daemon-executed action proposal, gate, and execution path.
+- [`../daemon-runtime/private-workspace-ctee.md`](../daemon-runtime/private-workspace-ctee.md):
+  Private Workspace backed by cTEE, persistent private nodes, `AutonomyLease`,
+  declassification gates, and private strategy execution.
 - [`../daemon-runtime/api.md`](../daemon-runtime/api.md): action mediation and
   approval API.
 - [`../agentgres/doctrine.md`](../agentgres/doctrine.md): where authority
