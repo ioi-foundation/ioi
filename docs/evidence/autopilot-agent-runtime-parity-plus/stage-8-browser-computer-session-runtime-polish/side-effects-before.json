@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.side-effects.v1",
+  "stage": 8,
+  "before": {
+    "repoTrackedFilesDirtyBeforeStage": [
+      "crates/node/src/bin/ioi-runtime-bridge.rs",
+      "crates/services/src/agentic/runtime/keys.rs",
+      "crates/services/src/agentic/runtime/mod.rs",
+      "crates/services/src/agentic/runtime/managed_session_snapshot.rs"
+    ],
+    "spawnedProcesses": [],
+    "fixtureDirectories": []
+  }
+}

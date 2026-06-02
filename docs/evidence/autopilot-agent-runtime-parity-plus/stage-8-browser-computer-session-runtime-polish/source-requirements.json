@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.source-requirements.v1",
+  "stage": 8,
+  "source": ".internal/plans/autopilot-agent-runtime-parity-plus-master-guide.md#stage-8-browser-and-computer-session-runtime-polish",
+  "requirements": [
+    {
+      "id": "ARP-STAGE8-REQ-001",
+      "requirement": "Sandbox browser, local browser, and desktop session kinds are typed.",
+      "status": "headless_proven",
+      "evidence": "RuntimeManagedSessionCard.kind emits sandbox_browser, local_browser, or desktop."
+    },
+    {
+      "id": "ARP-STAGE8-REQ-002",
+      "requirement": "Observe/take-over/return control are runtime state transitions.",
+      "status": "headless_proven",
+      "evidence": "control_thread persists managed_session_control records and inspect_thread replays the new control state."
+    },
+    {
+      "id": "ARP-STAGE8-REQ-003",
+      "requirement": "Waiting-for-user state exists for login, CAPTCHA, payment, file picker, or other manual-only action.",
+      "status": "headless_proven",
+      "evidence": "Managed session snapshot maps manual wait reasons to captcha/login/payment/file_picker/manual_action."
+    },
+    {
+      "id": "ARP-STAGE8-REQ-004",
+      "requirement": "Screenshot quarantine/redaction is enforced before persistence.",
+      "status": "headless_proven",
+      "evidence": "Raw captures are marked runs_tracing, product previews require sanitized_screenshot_ref or preview_ref."
+    },
+    {
+      "id": "ARP-STAGE8-REQ-005",
+      "requirement": "Session state survives replay/reconnect.",
+      "status": "headless_proven_live_pending",
+      "evidence": "inspect_thread derives replayable managed sessions from persisted parent playbook state and persisted control records; live GUI reload proof remains open."
+    }
+  ]
+}

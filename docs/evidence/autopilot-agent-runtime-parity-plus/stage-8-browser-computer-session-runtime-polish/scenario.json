@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.scenario.v1",
+  "stage": 8,
+  "name": "Browser and computer session runtime polish",
+  "objective": "Prove daemon-owned managed browser/computer session state, replay projection, screenshot quarantine, and observe/take-over/return control transitions through the headless runtime bridge.",
+  "scenarioType": "headless_runtime_contract",
+  "liveGuiProof": false,
+  "disposableFixtures": [
+    {
+      "kind": "temp_workspace",
+      "pathPattern": "/tmp/ioi-managed-session-*/workspace"
+    },
+    {
+      "kind": "temp_data_dir",
+      "pathPattern": "/tmp/ioi-managed-session-*/data"
+    }
+  ],
+  "operatorPromptEquivalent": "Open a sandbox browser, hit a login-gated fixture, wait for user input, allow operator take-over, and preserve replayable managed session state.",
+  "proofCommands": [
+    "cargo test -p ioi-services managed_session_snapshot --lib -- --nocapture",
+    "cargo test -p ioi-node --features local-mode --bin ioi-runtime-bridge managed_browser_session -- --nocapture",
+    "cargo build -p ioi-node --features local-mode --bin ioi-runtime-bridge"
+  ],
+  "remainingLiveProof": [
+    "Launch real Agent Studio GUI and render the managed sandbox browser card from persisted daemon state.",
+    "Use GUI controls to observe, take over, and return control to the agent.",
+    "Exercise a waiting-for-user browser fixture and capture the Waiting for user state.",
+    "Reload/reconnect the GUI and prove the managed session card replays from daemon state."
+  ],
+  "generatedAtUtc": "2026-06-02T03:18:00.000Z"
+}

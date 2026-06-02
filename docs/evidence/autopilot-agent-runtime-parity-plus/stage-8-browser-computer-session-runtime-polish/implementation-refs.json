@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.implementation-refs.v1",
+  "stage": 8,
+  "refs": [
+    {
+      "path": "crates/services/src/agentic/runtime/managed_session_snapshot.rs",
+      "lines": "15-178",
+      "summary": "Adds RuntimeManagedSessionSnapshot, session cards, replay summary, product-lane entries, screenshot persistence metadata, and durable managed-session control records."
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/managed_session_snapshot.rs",
+      "lines": "180-323",
+      "summary": "Projects managed sessions from persisted computer-use parent playbook runs and standalone browser tool state."
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/managed_session_snapshot.rs",
+      "lines": "325-613",
+      "summary": "Normalizes observe/take-over/return state, browser/local/desktop kinds, waiting-for-user reasons, screenshot quarantine, replay readiness, and product-safe lane entries."
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/keys.rs",
+      "lines": "31-32",
+      "summary": "Adds the managed-session control state key namespace."
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/mod.rs",
+      "lines": "7-12",
+      "summary": "Exports the managed-session runtime contract."
+    },
+    {
+      "path": "crates/node/src/bin/ioi-runtime-bridge.rs",
+      "lines": "27-29",
+      "summary": "Imports managed-session snapshot and control-state projection into the bridge."
+    },
+    {
+      "path": "crates/node/src/bin/ioi-runtime-bridge.rs",
+      "lines": "1800-1828",
+      "summary": "Includes managed_sessions in inspect_thread output beside trajectory, policy leases, stop hooks, delegation, brain, and substrate state."
+    },
+    {
+      "path": "crates/node/src/bin/ioi-runtime-bridge.rs",
+      "lines": "1890-1921",
+      "summary": "Adds observe_session, take_over_session, and return_agent managed-session control actions that persist daemon-owned runtime state."
+    },
+    {
+      "path": "crates/node/src/bin/ioi-runtime-bridge.rs",
+      "lines": "3275-3401",
+      "summary": "Adds bridge proof that a login-gated browser child session projects as waiting_for_user, quarantines screenshots, and survives take-over control transition."
+    }
+  ]
+}

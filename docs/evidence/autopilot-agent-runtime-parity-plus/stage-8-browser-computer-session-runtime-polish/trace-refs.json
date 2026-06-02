@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.trace-refs.v1",
+  "stage": 8,
+  "traceRefs": [
+    {
+      "kind": "test-log",
+      "path": "/tmp/ioi-stage8-services-test.log",
+      "summary": "Focused ioi-services managed_session_snapshot tests: 3 passed."
+    },
+    {
+      "kind": "test-log",
+      "path": "/tmp/ioi-stage8-bridge-test.log",
+      "summary": "Focused ioi-runtime-bridge managed_browser_session test: 1 passed."
+    },
+    {
+      "kind": "build-log",
+      "path": "/tmp/ioi-stage8-bridge-build.log",
+      "summary": "Runtime bridge build passed."
+    }
+  ],
+  "productVisibility": "Runs/Tracing only"
+}

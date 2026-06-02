@@ -9,6 +9,7 @@ pub mod execution; // Points to execution/mod.rs now
 pub mod harness;
 pub mod kernel;
 pub mod keys;
+pub mod managed_session_snapshot;
 pub mod middleware;
 pub mod policy_lease;
 pub(crate) mod resolver;

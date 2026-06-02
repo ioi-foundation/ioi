@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.cleanup-proof.v1",
+  "stage": 8,
+  "cleanup": {
+    "fixtureDirectoriesRemovedByTest": true,
+    "processScanCommand": "pgrep -af 'target/debug/ioi-runtime-bridge|/ioi-runtime-bridge$|RuntimeAgentService|autopilot.*runtime|preview server|playwright.*ioi|model-worker' || true",
+    "leftoversFromStage": [],
+    "unrelatedUserProcessesObserved": [
+      "Existing Chrome/IDE/browser processes were observed in a broader scan and intentionally not killed."
+    ]
+  }
+}

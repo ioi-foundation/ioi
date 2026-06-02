@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.stage-verdict.v1",
+  "stage": 8,
+  "name": "Browser and computer session runtime polish",
+  "classification": "headless_pass",
+  "verdict": "managed_session_runtime_contract_headless_proven_live_gui_pending",
+  "achieved": false,
+  "p0Rows": [
+    {
+      "id": "ARP-P0-011",
+      "classification": "headless_pass",
+      "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-8-browser-computer-session-runtime-polish/headless-managed-session-verdict.json",
+      "remaining": "Live Agent Studio sandbox browser fixture inspect, take-over/return controls, waiting-for-user fixture, and replay after reload."
+    }
+  ],
+  "evidence": [
+    "docs/evidence/autopilot-agent-runtime-parity-plus/stage-8-browser-computer-session-runtime-polish/scenario.json",
+    "docs/evidence/autopilot-agent-runtime-parity-plus/stage-8-browser-computer-session-runtime-polish/source-requirements.json",
+    "docs/evidence/autopilot-agent-runtime-parity-plus/stage-8-browser-computer-session-runtime-polish/implementation-refs.json",
+    "docs/evidence/autopilot-agent-runtime-parity-plus/stage-8-browser-computer-session-runtime-polish/runtime-events.json",
+    "docs/evidence/autopilot-agent-runtime-parity-plus/stage-8-browser-computer-session-runtime-polish/receipts.jsonl",
+    "docs/evidence/autopilot-agent-runtime-parity-plus/stage-8-browser-computer-session-runtime-polish/headless-managed-session-verdict.json",
+    "docs/evidence/autopilot-agent-runtime-parity-plus/stage-8-browser-computer-session-runtime-polish/cleanup-proof.json"
+  ],
+  "leakAudit": {
+    "rawPayloadLeak": false,
+    "traceLeak": false,
+    "fixtureLeak": false,
+    "hiddenCotLeak": false
+  },
+  "remaining": [
+    "Live GUI sandbox browser fixture inspect.",
+    "Live GUI observe/take-over/return-control proof.",
+    "Live GUI waiting-for-user fixture action.",
+    "Live GUI replay managed session card after reload/reconnect."
+  ],
+  "generatedAtUtc": "2026-06-02T03:18:00.000Z"
+}

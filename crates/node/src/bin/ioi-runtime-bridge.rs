@@ -24,6 +24,9 @@ use ioi_services::agentic::runtime::keys::{
     get_agent_brain_key, get_agent_run_brain_artifact_index_key, get_agent_trajectory_step_key,
     get_runtime_substrate_key, get_state_key, AGENT_POLICY_PREFIX,
 };
+use ioi_services::agentic::runtime::managed_session_snapshot::{
+    managed_session_snapshot_for_state, set_managed_session_control_state,
+};
 use ioi_services::agentic::runtime::policy_lease::policy_lease_snapshot_for_state;
 use ioi_services::agentic::runtime::service::decision_loop::helpers::default_safe_policy;
 use ioi_services::agentic::runtime::stop_hook::stop_hook_snapshot_for_state;
@@ -158,6 +161,8 @@ struct ControlThreadInput {
     reason: String,
     #[serde(rename = "requestHash", alias = "request_hash")]
     request_hash: Option<String>,
+    #[serde(rename = "managedSessionId", alias = "managed_session_id")]
+    managed_session_id: Option<String>,
     #[serde(rename = "createdAt", alias = "created_at")]
     created_at: Option<String>,
 }
@@ -1794,6 +1799,8 @@ impl BridgeRuntime {
         let stop_hooks = stop_hook_snapshot_for_state(session_id, &state);
         let delegation = delegation_snapshot_for_state(&self.state, &state)
             .map_err(|error| anyhow!("failed to derive runtime delegation snapshot: {error}"))?;
+        let managed_sessions = managed_session_snapshot_for_state(&self.state, &state)
+            .map_err(|error| anyhow!("failed to derive managed session snapshot: {error}"))?;
 
         Ok(json!({
             "bridge_id": bridge_id,
@@ -1818,6 +1825,7 @@ impl BridgeRuntime {
             "policy_leases": policy_leases,
             "stop_hooks": stop_hooks,
             "delegation": delegation,
+            "managed_sessions": managed_sessions,
             "brain": brain,
             "run_brain_artifact_index": run_brain_artifact_index,
             "runtime_substrate": runtime_substrate,
@@ -1879,9 +1887,42 @@ impl BridgeRuntime {
                 )
                 .await?;
             }
+            "observe_session"
+            | "managed_session_observe"
+            | "take_over_session"
+            | "managed_session_take_over"
+            | "return_agent"
+            | "return_agent_session"
+            | "managed_session_return_agent" => {
+                let managed_session_id = input
+                    .managed_session_id
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .ok_or_else(|| {
+                        anyhow!(
+                            "managed session control action '{}' requires managed_session_id",
+                            action
+                        )
+                    })?;
+                let control_state = match action.as_str() {
+                    "observe_session" | "managed_session_observe" => "observe",
+                    "take_over_session" | "managed_session_take_over" => "take_over",
+                    _ => "return_agent",
+                };
+                set_managed_session_control_state(
+                    &mut self.state,
+                    session_id,
+                    managed_session_id,
+                    control_state,
+                    (!input.reason.trim().is_empty()).then(|| input.reason.clone()),
+                    unix_millis(),
+                )
+                .map_err(|error| anyhow!("failed to persist managed session control: {error}"))?;
+            }
             other => {
                 return Err(anyhow!(
-                    "unsupported control_thread action '{}'; expected pause, cancel, resume, or deny",
+                    "unsupported control_thread action '{}'; expected pause, cancel, resume, deny, observe_session, take_over_session, or return_agent",
                     other
                 ));
             }
@@ -3229,6 +3270,134 @@ mod tests {
         ]);
 
         assert_eq!(compacted, vec![started, route, search, terminal]);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn inspect_thread_projects_managed_browser_session_and_control_transition() {
+        let unique = format!(
+            "ioi-managed-session-{}-{}",
+            std::process::id(),
+            unix_millis()
+        );
+        let workspace = std::env::temp_dir().join(&unique).join("workspace");
+        let data_dir = std::env::temp_dir().join(&unique).join("data");
+        fs::create_dir_all(&workspace).expect("workspace creates");
+        let mut runtime =
+            BridgeRuntime::open(Some(&data_dir), &workspace).expect("bridge runtime opens");
+        let mut parent = test_agent_state();
+        parent.session_id = [0x38; 32];
+        parent.status = AgentStatus::Running;
+        let child_session_id = [0x44; 32];
+        let run = ioi_services::agentic::runtime::types::ParentPlaybookRun {
+            parent_session_id: parent.session_id,
+            playbook_id: "browser_postcondition_gate".to_string(),
+            playbook_label: "Browser Postcondition Gate".to_string(),
+            topic: "login fixture".to_string(),
+            status: ioi_services::agentic::runtime::types::ParentPlaybookStatus::Blocked,
+            current_step_index: 1,
+            active_child_session_id: Some(child_session_id),
+            started_at_ms: 1,
+            updated_at_ms: 2,
+            completed_at_ms: None,
+            steps: vec![
+                ioi_services::agentic::runtime::types::ParentPlaybookStepRun {
+                    step_id: "execute".to_string(),
+                    label: "Execute in browser".to_string(),
+                    summary: "Use grounded browser tools".to_string(),
+                    status:
+                        ioi_services::agentic::runtime::types::ParentPlaybookStepStatus::Blocked,
+                    child_session_id: Some(child_session_id),
+                    template_id: Some("browser_operator".to_string()),
+                    workflow_id: Some("browser_postcondition_pass".to_string()),
+                    computer_use_perception: Some(ioi_types::app::ComputerUsePerceptionSummary {
+                        surface_status: "clear".to_string(),
+                        ui_state: "Login page is visible".to_string(),
+                        target: Some("login form".to_string()),
+                        approval_risk: "manual login required".to_string(),
+                        next_action: Some("wait for user".to_string()),
+                        notes: Some("login is user-only".to_string()),
+                    }),
+                    computer_use_verification: Some(
+                        ioi_types::app::ComputerUseVerificationScorecard {
+                            verdict: "blocked".to_string(),
+                            postcondition_status: "not_met".to_string(),
+                            approval_state: "waiting for user".to_string(),
+                            recovery_status: "manual login required".to_string(),
+                            observed_postcondition: Some("Login gate visible".to_string()),
+                            notes: None,
+                        },
+                    ),
+                    output_preview: Some("raw screenshot retained in tracing".to_string()),
+                    ..Default::default()
+                },
+            ],
+        };
+        let parent_bytes = codec::to_bytes_canonical(&parent).expect("parent encodes");
+        runtime
+            .state
+            .insert(&get_state_key(&parent.session_id), &parent_bytes)
+            .expect("parent state persists");
+        let run_bytes = codec::to_bytes_canonical(&run).expect("playbook encodes");
+        runtime
+            .state
+            .insert(
+                &ioi_services::agentic::runtime::keys::get_parent_playbook_run_key(
+                    &parent.session_id,
+                    &run.playbook_id,
+                ),
+                &run_bytes,
+            )
+            .expect("playbook persists");
+        runtime.commit().expect("seed commit");
+
+        let session_hex = hex::encode(parent.session_id);
+        let inspection = runtime
+            .inspect_thread(
+                "bridge-test",
+                InspectThreadInput {
+                    session_id: session_hex.clone(),
+                    thread_id: Some("thread-managed-session".to_string()),
+                    workspace_root: Some(workspace.to_string_lossy().to_string()),
+                },
+            )
+            .expect("inspect succeeds");
+        let managed = &inspection["managed_sessions"];
+        assert_eq!(managed["schema_version"], "ioi.runtime.managed-session.v1");
+        assert_eq!(managed["session_count"], 1);
+        let managed_id = managed["sessions"][0]["id"]
+            .as_str()
+            .expect("managed session id")
+            .to_string();
+        assert_eq!(managed["sessions"][0]["status"], "waiting_for_user");
+        assert_eq!(managed["sessions"][0]["control_state"], "observe");
+        assert_eq!(
+            managed["sessions"][0]["screenshot_persistence"]["raw_capture_visibility"],
+            "runs_tracing"
+        );
+
+        let controlled = runtime
+            .control_thread(
+                "bridge-test",
+                ControlThreadInput {
+                    session_id: session_hex,
+                    thread_id: Some("thread-managed-session".to_string()),
+                    workspace_root: Some(workspace.to_string_lossy().to_string()),
+                    action: "take_over_session".to_string(),
+                    reason: "operator inspect".to_string(),
+                    request_hash: None,
+                    managed_session_id: Some(managed_id),
+                    created_at: Some("2026-06-01T00:00:00Z".to_string()),
+                },
+            )
+            .await
+            .expect("control succeeds");
+        assert_eq!(
+            controlled["inspection"]["managed_sessions"]["sessions"][0]["control_state"],
+            "take_over"
+        );
+
+        drop(runtime);
+        let _ = fs::remove_dir_all(std::env::temp_dir().join(unique));
     }
 
     fn test_agent_state() -> AgentState {

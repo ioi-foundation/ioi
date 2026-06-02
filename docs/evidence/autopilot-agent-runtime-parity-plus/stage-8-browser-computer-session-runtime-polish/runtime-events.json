@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.runtime-events.v1",
+  "stage": 8,
+  "events": [
+    {
+      "sequence": 1,
+      "source": "runtime_state_seed",
+      "event": "parent_playbook_run_persisted",
+      "playbookId": "browser_postcondition_gate",
+      "childSession": "4444444444444444444444444444444444444444444444444444444444444444",
+      "status": "blocked",
+      "computerUseSignal": {
+        "surfaceStatus": "clear",
+        "uiState": "Login page is visible",
+        "target": "login form",
+        "approvalRisk": "manual login required",
+        "nextAction": "wait for user"
+      }
+    },
+    {
+      "sequence": 2,
+      "source": "ioi-runtime-bridge.inspect_thread",
+      "event": "managed_session_snapshot_projected",
+      "schemaVersion": "ioi.runtime.managed-session.v1",
+      "sessionCount": 1,
+      "session": {
+        "kind": "sandbox_browser",
+        "surfaceLabel": "Sandbox browser",
+        "status": "waiting_for_user",
+        "statusLabel": "Waiting for user",
+        "controlState": "observe",
+        "waitingReason": "login",
+        "rawCaptureVisibility": "runs_tracing",
+        "redactionRequiredBeforeProduct": true,
+        "replayReady": true
+      }
+    },
+    {
+      "sequence": 3,
+      "source": "ioi-runtime-bridge.control_thread",
+      "event": "managed_session_control_persisted",
+      "action": "take_over_session",
+      "resultingControlState": "take_over"
+    },
+    {
+      "sequence": 4,
+      "source": "ioi-runtime-bridge.inspect_thread",
+      "event": "managed_session_snapshot_replayed",
+      "controlState": "take_over",
+      "replayReady": true
+    }
+  ]
+}

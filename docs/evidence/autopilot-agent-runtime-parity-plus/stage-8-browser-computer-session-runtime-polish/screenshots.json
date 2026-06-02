@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.screenshots.v1",
+  "stage": 8,
+  "screenshots": [],
+  "classification": "headless_pass",
+  "remainingLiveScreenshots": [
+    "gui-before.png",
+    "gui-active-waiting-for-user.png",
+    "gui-expanded-managed-session-card.png",
+    "gui-take-over.png",
+    "gui-return-agent.png",
+    "gui-after-reconnect-replay.png"
+  ]
+}

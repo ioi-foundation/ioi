@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.fixes-applied.v1",
+  "stage": 8,
+  "fixes": [
+    {
+      "summary": "Added daemon-owned managed session snapshot contract with typed session kind, status, control state, replay summary, product lane entry, and screenshot persistence metadata.",
+      "files": [
+        "crates/services/src/agentic/runtime/managed_session_snapshot.rs",
+        "crates/services/src/agentic/runtime/mod.rs"
+      ]
+    },
+    {
+      "summary": "Added persisted managed-session control state keyed by parent session and managed session id.",
+      "files": [
+        "crates/services/src/agentic/runtime/keys.rs",
+        "crates/services/src/agentic/runtime/managed_session_snapshot.rs"
+      ]
+    },
+    {
+      "summary": "Projected managed_sessions through inspect_thread and added bridge control actions for observe, take over, and return agent.",
+      "files": [
+        "crates/node/src/bin/ioi-runtime-bridge.rs"
+      ]
+    }
+  ]
+}

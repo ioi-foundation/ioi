@@ -3,7 +3,7 @@
   "campaign": "autopilot-agent-runtime-parity-plus",
   "target": "agent_runtime_parity_plus_proven",
   "status": "in_progress",
-  "generatedAtUtc": "2026-06-02T02:34:02.909Z",
+  "generatedAtUtc": "2026-06-02T03:18:00.000Z",
   "stageRows": [
     {
       "stage": 0,
@@ -60,6 +60,13 @@
       "classification": "headless_pass",
       "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-7-delegation-subagent-lanes/stage-verdict.json",
       "remainingProof": "Live GUI delegated repo verification, failed-child recovery, browser subagent, and restart/recover proof before P0 live_pass closure."
+    },
+    {
+      "stage": 8,
+      "name": "Browser and computer session runtime polish",
+      "classification": "headless_pass",
+      "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-8-browser-computer-session-runtime-polish/stage-verdict.json",
+      "remainingProof": "Live GUI sandbox browser fixture inspect, observe/take-over/return-control interaction, waiting-for-user fixture, and replay after reload/reconnect before ARP-P0-011 live_pass closure."
     }
   ],
   "p0Rows": [
@@ -115,8 +122,8 @@
     },
     {
       "id": "ARP-P0-011",
-      "classification": "partial_unproven",
-      "remaining": "managed browser/computer replay proof"
+      "classification": "headless_pass",
+      "remaining": "live GUI managed browser/computer replay proof with observe/take-over/return controls and waiting-for-user state"
     },
     {
       "id": "ARP-P0-012",
@@ -148,5 +155,5 @@
       "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-5-stop-cancel-recover-stop-hook/failure-analysis.md"
     }
   ],
-  "nextStage": "Stage 8 browser and computer session runtime polish."
+  "nextStage": "Stage 8 live GUI managed session proof, then Stage 9 evidence, replay, and product boundary."
 }
