@@ -1,0 +1,6 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.latency.v1",
+  "headlessProbeWallClockMsApprox": 422,
+  "focusedStopHookTestCompileAndRun": "cargo test -p ioi-services stop_hook --lib completed in 17.44s including compile",
+  "bridgeControlTestCompileAndRun": "cargo test -p ioi-node --features local-mode --bin ioi-runtime-bridge control completed in 13.82s including compile"
+}

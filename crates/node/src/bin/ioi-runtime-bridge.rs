@@ -25,13 +25,14 @@ use ioi_services::agentic::runtime::keys::{
 };
 use ioi_services::agentic::runtime::policy_lease::policy_lease_snapshot_for_state;
 use ioi_services::agentic::runtime::service::decision_loop::helpers::default_safe_policy;
+use ioi_services::agentic::runtime::stop_hook::stop_hook_snapshot_for_state;
 use ioi_services::agentic::runtime::trajectory::{
     AgentBrainRecord, AgentRunBrainArtifactIndexRecord, AgentTrajectoryStepRecord,
 };
 use ioi_services::agentic::runtime::workspace_change::hunk_proposal_review_state;
 use ioi_services::agentic::runtime::{
-    AgentMode, AgentState, AgentStatus, PostMessageParams, RuntimeAgentService, StartAgentParams,
-    StepAgentParams,
+    AgentMode, AgentState, AgentStatus, CancelAgentParams, DenyAgentParams, PauseAgentParams,
+    PostMessageParams, ResumeAgentParams, RuntimeAgentService, StartAgentParams, StepAgentParams,
 };
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::flat::RedbFlatStore;
@@ -143,6 +144,23 @@ struct InspectThreadInput {
     workspace_root: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct ControlThreadInput {
+    #[serde(rename = "sessionId", alias = "session_id")]
+    session_id: String,
+    #[serde(rename = "threadId", alias = "thread_id")]
+    thread_id: Option<String>,
+    #[serde(rename = "workspaceRoot", alias = "workspace_root")]
+    workspace_root: Option<String>,
+    action: String,
+    #[serde(default)]
+    reason: String,
+    #[serde(rename = "requestHash", alias = "request_hash")]
+    request_hash: Option<String>,
+    #[serde(rename = "createdAt", alias = "created_at")]
+    created_at: Option<String>,
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     let opts = BridgeOpts::parse();
@@ -204,6 +222,14 @@ async fn async_main(opts: BridgeOpts) -> Result<Value> {
                 workspace_root(opts.workspace.as_deref(), input.workspace_root.as_deref())?;
             let runtime = BridgeRuntime::open(opts.data_dir.as_deref(), &workspace)?;
             runtime.inspect_thread(&request.bridge_id, input)
+        }
+        "control_thread" => {
+            let input: ControlThreadInput = serde_json::from_value(request.input)
+                .context("failed to decode control_thread input")?;
+            let workspace =
+                workspace_root(opts.workspace.as_deref(), input.workspace_root.as_deref())?;
+            let mut runtime = BridgeRuntime::open(opts.data_dir.as_deref(), &workspace)?;
+            runtime.control_thread(&request.bridge_id, input).await
         }
         other => Err(anyhow!("unsupported bridge operation '{other}'")),
     }
@@ -1764,6 +1790,7 @@ impl BridgeRuntime {
             unix_millis(),
         )
         .map_err(|error| anyhow!("failed to derive runtime policy lease snapshot: {error}"))?;
+        let stop_hooks = stop_hook_snapshot_for_state(session_id, &state);
 
         Ok(json!({
             "bridge_id": bridge_id,
@@ -1786,10 +1813,93 @@ impl BridgeRuntime {
             "latest_trajectory": trajectory,
             "workspace_change_reviews": workspace_change_reviews,
             "policy_leases": policy_leases,
+            "stop_hooks": stop_hooks,
             "brain": brain,
             "run_brain_artifact_index": run_brain_artifact_index,
             "runtime_substrate": runtime_substrate,
             "inspected_at": now_rfc3339(),
+        }))
+    }
+
+    async fn control_thread(
+        &mut self,
+        bridge_id: &str,
+        input: ControlThreadInput,
+    ) -> Result<Value> {
+        let session_id = parse_session_id(&input.session_id)?;
+        let action = normalize_runtime_control_value(&input.action);
+        match action.as_str() {
+            "pause" | "stop" => {
+                self.call_service(
+                    "pause@v1",
+                    &PauseAgentParams {
+                        session_id,
+                        reason: input.reason.clone(),
+                    },
+                )
+                .await?;
+            }
+            "cancel" | "terminate" => {
+                self.call_service(
+                    "cancel@v1",
+                    &CancelAgentParams {
+                        session_id,
+                        reason: input.reason.clone(),
+                    },
+                )
+                .await?;
+            }
+            "resume" | "recover" => {
+                self.call_service(
+                    "resume@v1",
+                    &ResumeAgentParams {
+                        session_id,
+                        approval_grant: None,
+                    },
+                )
+                .await?;
+            }
+            "deny" => {
+                let request_hash = input
+                    .request_hash
+                    .as_deref()
+                    .map(|raw| parse_32_byte_hex(raw, "request hash"))
+                    .transpose()?;
+                self.call_service(
+                    "deny@v1",
+                    &DenyAgentParams {
+                        session_id,
+                        request_hash,
+                        reason: input.reason.clone(),
+                    },
+                )
+                .await?;
+            }
+            other => {
+                return Err(anyhow!(
+                    "unsupported control_thread action '{}'; expected pause, cancel, resume, or deny",
+                    other
+                ));
+            }
+        }
+        self.commit()?;
+        let inspection = self.inspect_thread(
+            bridge_id,
+            InspectThreadInput {
+                session_id: input.session_id.clone(),
+                thread_id: input.thread_id.clone(),
+                workspace_root: input.workspace_root.clone(),
+            },
+        )?;
+        let controlled_at = input.created_at.unwrap_or_else(now_rfc3339);
+        Ok(json!({
+            "bridge_id": bridge_id,
+            "source": "runtime_service",
+            "session_id": hex::encode(session_id),
+            "action": action,
+            "status": inspection.get("status").cloned().unwrap_or(Value::Null),
+            "controlled_at": controlled_at,
+            "inspection": inspection,
         }))
     }
 
@@ -2128,10 +2238,14 @@ fn start_session_id(request: &Value) -> Result<[u8; 32]> {
 }
 
 fn parse_session_id(input: &str) -> Result<[u8; 32]> {
+    parse_32_byte_hex(input, "session id")
+}
+
+fn parse_32_byte_hex(input: &str, label: &str) -> Result<[u8; 32]> {
     let bytes = hex::decode(input.trim().trim_start_matches("0x"))
-        .with_context(|| format!("invalid session id hex '{input}'"))?;
+        .with_context(|| format!("invalid {label} hex '{input}'"))?;
     if bytes.len() != 32 {
-        return Err(anyhow!("session id must be 32 bytes, got {}", bytes.len()));
+        return Err(anyhow!("{label} must be 32 bytes, got {}", bytes.len()));
     }
     let mut out = [0u8; 32];
     out.copy_from_slice(&bytes);

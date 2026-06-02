@@ -13,6 +13,7 @@ pub mod policy_lease;
 pub(crate) mod resolver;
 pub mod runtime_secret;
 pub mod service;
+pub mod stop_hook;
 pub mod substrate;
 pub mod tools;
 pub mod trajectory;

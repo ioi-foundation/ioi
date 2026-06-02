@@ -1,0 +1,7 @@
+{
+  "workspace": "/tmp/ioi-stage5-workspace-IfFlld",
+  "runtimeBridgeProcessesBeforeProbe": 0,
+  "daemonProcessesBeforeProbe": 0,
+  "modelWorkersBeforeProbe": 0,
+  "note": "Disposable headless bridge probe used no GUI, browser, shell child, or model worker."
+}

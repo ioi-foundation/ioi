@@ -14,6 +14,7 @@ use crate::agentic::runtime::service::tool_execution::{
     summarize_command_probe_output,
 };
 use crate::agentic::runtime::service::visual_loop::browser_completion::browser_snapshot_completion;
+use crate::agentic::runtime::stop_hook::stop_hook_completion_blocker;
 use crate::agentic::runtime::types::{AgentState, AgentStatus};
 use ioi_types::app::agentic::{AgentTool, ScreenAction};
 
@@ -66,6 +67,23 @@ fn completion_gate_blocks(
     verification_checks: &mut Vec<String>,
     rules: &ActionRules,
 ) -> bool {
+    if let Some(blocked_error) = stop_hook_completion_blocker(agent_state) {
+        let intent_id = terminal_contract_intent_id(agent_state);
+        *success = false;
+        *out = Some(blocked_error.clone());
+        *err = Some(blocked_error);
+        agent_state.status = AgentStatus::Running;
+        verification_checks.push("stop_hook_completion_blocked=true".to_string());
+        verification_checks.push("terminal_chat_reply_ready=false".to_string());
+        agent_state
+            .execution_ledger
+            .record_completion_gate(intent_id, &["stop_hook::validation_failed".to_string()]);
+        if let Some(attempt) = agent_state.execution_ledger.attempts.last_mut() {
+            attempt.error_class = Some("StopHookBlocked".to_string());
+        }
+        return true;
+    }
+
     let intent_id = terminal_contract_intent_id(agent_state);
     let missing_completion_evidence = evaluate_completion_requirements(
         agent_state,

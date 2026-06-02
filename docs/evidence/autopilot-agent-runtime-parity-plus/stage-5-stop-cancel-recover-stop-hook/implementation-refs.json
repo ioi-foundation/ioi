@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.implementation-refs.v1",
+  "refs": [
+    {
+      "path": "crates/services/src/agentic/runtime/stop_hook.rs",
+      "summary": "New daemon-owned stop-hook snapshot and completion blocker. Detects validation-like commands, ignores plain nonzero exploration commands, and emits typed model-loop feedback."
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/mod.rs",
+      "summary": "Exports the stop_hook runtime module."
+    },
+    {
+      "path": "crates/node/src/bin/ioi-runtime-bridge.rs",
+      "summary": "Adds control_thread operation for pause/cancel/resume/deny and exposes stop_hooks in inspect_thread."
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/service/queue/processing/completion.rs",
+      "summary": "Blocks queued terminal completion when stop_hook reports the latest validation command failed."
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs",
+      "summary": "Blocks direct chat__reply and agent__complete terminalization when stop_hook reports failing validation."
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/service/queue/processing/completion/tests.rs",
+      "summary": "Adds regression proof that failing npm test prevents chat__reply completion."
+    }
+  ]
+}

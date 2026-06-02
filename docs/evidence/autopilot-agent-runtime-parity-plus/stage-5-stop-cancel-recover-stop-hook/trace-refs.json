@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.trace-refs.v1",
+  "traceRefs": [
+    {
+      "kind": "headless_bridge_probe",
+      "ref": "runtime-events.jsonl",
+      "notes": "Bridge output was captured as summarized runtime events; raw daemon receipts stay out of product chat."
+    },
+    {
+      "kind": "focused_tests",
+      "ref": "runtime-events.jsonl",
+      "notes": "Focused cargo test commands provide support evidence for stop-hook blocker semantics."
+    }
+  ]
+}

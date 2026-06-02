@@ -3,7 +3,7 @@ use crate::agentic::runtime::service::tool_execution::{
     record_execution_evidence, record_success_condition,
 };
 use crate::agentic::runtime::types::{
-    AgentMode, ExecutionAttemptStatus, ExecutionStage, ExecutionTier,
+    AgentMode, CommandExecution, ExecutionAttemptStatus, ExecutionStage, ExecutionTier,
 };
 use ioi_types::app::agentic::{
     CapabilityId, InstructionContract, InstructionSideEffectMode, IntentConfidenceBand,
@@ -365,6 +365,63 @@ fn completes_explicit_chat_reply_from_queue() {
     assert!(verification_checks
         .iter()
         .any(|check| check == "terminal_chat_reply_ready=true"));
+}
+
+#[test]
+fn stop_hook_blocks_chat_reply_after_failing_validation_command() {
+    let mut agent_state = agent_state_with_mail_reply();
+    agent_state.resolved_intent = None;
+    agent_state.command_history.push_back(CommandExecution {
+        command: "npm test".to_string(),
+        exit_code: 1,
+        stdout: "not ok 1 format.test.mjs".to_string(),
+        stderr: "Assertion failed".to_string(),
+        timestamp_ms: 1_772_304_000_000,
+        step_index: 4,
+    });
+    let session_id = agent_state.session_id;
+    let mut success = true;
+    let mut out = Some("Ready to finish.".to_string());
+    let mut err = None;
+    let mut completion_summary = None;
+    let mut verification_checks = Vec::new();
+    let rules = crate::agentic::runtime::service::decision_loop::helpers::default_safe_policy();
+
+    maybe_complete_chat_reply(
+        &mut agent_state,
+        &AgentTool::ChatReply {
+            message: "The repair is complete.".to_string(),
+        },
+        false,
+        &mut success,
+        &mut out,
+        &mut err,
+        &mut completion_summary,
+        &mut verification_checks,
+        &rules,
+        session_id,
+    );
+
+    assert!(!success);
+    assert!(matches!(agent_state.status, AgentStatus::Running));
+    assert!(completion_summary.is_none());
+    assert!(err
+        .as_deref()
+        .is_some_and(|value| value.contains("ERROR_CLASS=StopHookBlocked")));
+    assert!(verification_checks
+        .iter()
+        .any(|check| check == "stop_hook_completion_blocked=true"));
+    let blocked_attempt = agent_state
+        .execution_ledger
+        .attempts
+        .last()
+        .expect("stop hook gate should record a CEC attempt");
+    assert_eq!(blocked_attempt.stage, ExecutionStage::CompletionGate);
+    assert_eq!(blocked_attempt.status, ExecutionAttemptStatus::Blocked);
+    assert_eq!(
+        blocked_attempt.error_class.as_deref(),
+        Some("StopHookBlocked")
+    );
 }
 
 #[test]

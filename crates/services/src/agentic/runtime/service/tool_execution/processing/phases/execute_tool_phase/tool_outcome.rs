@@ -15,6 +15,7 @@ use crate::agentic::runtime::service::queue::handle_web_search_result;
 use crate::agentic::runtime::service::tool_execution::command_contract::{
     install_operator_completion_summary, WEB_PIPELINE_TERMINAL_EVIDENCE,
 };
+use crate::agentic::runtime::stop_hook::stop_hook_completion_blocker;
 use ioi_types::app::agentic::{BrowserObservationReceipt, ChatMessage};
 
 pub(super) struct ToolOutcomeContext<'a, 's> {
@@ -48,6 +49,47 @@ fn product_handoff_violation_error(reason: &str) -> String {
     format!(
         "ERROR_CLASS=UnexpectedState Final reply was not product-safe ({reason}). Return a fresh concise user-facing Markdown answer through the available terminal reply tool. Do not include raw temp paths, fixture/probe markers, raw logs, stdout/stderr dumps, receipt ids, trace ids, JSON payloads, or daemon scaffolding. Summarize the observed work and verification result instead."
     )
+}
+
+fn stop_hook_blocks_completion(
+    service: &RuntimeAgentService,
+    session_id: [u8; 32],
+    step_index: u32,
+    resolved_intent_id: &str,
+    agent_state: &mut AgentState,
+    success: &mut bool,
+    error_msg: &mut Option<String>,
+    history_entry: &mut Option<String>,
+    action_output: &mut Option<String>,
+    verification_checks: &mut Vec<String>,
+    event_label: &'static str,
+) -> bool {
+    let Some(blocked_error) = stop_hook_completion_blocker(agent_state) else {
+        return false;
+    };
+    *success = false;
+    *error_msg = Some(blocked_error.clone());
+    *history_entry = Some(blocked_error.clone());
+    *action_output = Some(blocked_error);
+    agent_state.status = AgentStatus::Running;
+    verification_checks.push("stop_hook_completion_blocked=true".to_string());
+    verification_checks.push("terminal_chat_reply_ready=false".to_string());
+    agent_state.execution_ledger.record_completion_gate(
+        Some(resolved_intent_id.to_string()),
+        &["stop_hook::validation_failed".to_string()],
+    );
+    if let Some(attempt) = agent_state.execution_ledger.attempts.last_mut() {
+        attempt.error_class = Some("StopHookBlocked".to_string());
+    }
+    emit_completion_gate_status_event(
+        service,
+        session_id,
+        step_index,
+        resolved_intent_id,
+        false,
+        event_label,
+    );
+    true
 }
 
 pub(super) async fn apply_tool_outcome_and_followups(
@@ -119,6 +161,21 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     false,
                     "agent_complete_blocked_on_pending_browser_state",
                 );
+                return Ok(());
+            }
+            if stop_hook_blocks_completion(
+                service,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                agent_state,
+                success,
+                error_msg,
+                history_entry,
+                action_output,
+                verification_checks,
+                "agent_complete_blocked_by_stop_hook",
+            ) {
                 return Ok(());
             }
             let missing_completion_evidence = evaluate_completion_requirements(
@@ -529,6 +586,21 @@ missing, then call the terminal reply tool with a complete model-authored Markdo
                     false,
                     "chat_reply_blocked_on_source_candidate_list",
                 );
+                return Ok(());
+            }
+            if stop_hook_blocks_completion(
+                service,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                agent_state,
+                success,
+                error_msg,
+                history_entry,
+                action_output,
+                verification_checks,
+                "chat_reply_blocked_by_stop_hook",
+            ) {
                 return Ok(());
             }
             let missing_completion_evidence = evaluate_completion_requirements(

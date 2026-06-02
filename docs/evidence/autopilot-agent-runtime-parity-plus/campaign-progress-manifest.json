@@ -3,7 +3,7 @@
   "campaign": "autopilot-agent-runtime-parity-plus",
   "target": "agent_runtime_parity_plus_proven",
   "status": "in_progress",
-  "generatedAtUtc": "2026-06-02T01:39:00Z",
+  "generatedAtUtc": "2026-06-02T02:00:45Z",
   "stageRows": [
     {
       "stage": 0,
@@ -38,6 +38,13 @@
       "classification": "headless_pass",
       "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-4-policy-lease-sandbox/stage-verdict.json",
       "remainingProof": "Live GUI policy lease proof and live sandbox effect probes before P0 closure."
+    },
+    {
+      "stage": 5,
+      "name": "Stop, cancel, recover, and stop hook",
+      "classification": "headless_pass",
+      "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-5-stop-cancel-recover-stop-hook/stage-verdict.json",
+      "remainingProof": "Live GUI stop/cancel/recover, process-tree cleanup, and failing-test repair-loop proof before P0 closure."
     }
   ],
   "p0Rows": [
@@ -46,17 +53,25 @@
     {"id":"ARP-P0-003","classification":"supporting_pass","remaining":"live Agent Studio repair-loop proof for rejected web final answer"},
     {"id":"ARP-P0-004","classification":"supporting_pass","remaining":"editor hunk proposal live proof"},
     {"id":"ARP-P0-005","classification":"supporting_pass","remaining":"accept/reject/rollback/stale live proof"},
-    {"id":"ARP-P0-006","classification":"partial_unproven","remaining":"cancel/recover live and headless proof"},
-    {"id":"ARP-P0-007","classification":"partial_unproven","remaining":"stop-hook failing test repair proof"},
+    {"id":"ARP-P0-006","classification":"headless_pass","remaining":"live GUI stop/cancel/recover across model stream, retained shell, browser session, and process-tree cleanup"},
+    {"id":"ARP-P0-007","classification":"headless_pass","remaining":"live Agent Studio failing-test repair loop with stop-hook feedback and passing rerun"},
     {"id":"ARP-P0-008","classification":"headless_pass","remaining":"live GUI proof for allow-once, deny, revoke, and expiry"},
     {"id":"ARP-P0-009","classification":"supporting_pass","remaining":"live sandbox effect probes for symlink/sibling escape, ignored files, network deny, env redaction, timeout, and output caps"},
     {"id":"ARP-P0-010","classification":"partial_unproven","remaining":"retained shell lifecycle proof"},
     {"id":"ARP-P0-011","classification":"partial_unproven","remaining":"managed browser/computer replay proof"},
     {"id":"ARP-P0-012","classification":"partial_unproven","remaining":"delegation trajectory recovery proof"},
-    {"id":"ARP-P0-013","classification":"partial_unproven","remaining":"replay/reconnect proof"},
+    {"id":"ARP-P0-013","classification":"supporting_pass","remaining":"resume/replay cursor proof after process restart and side-effect replay avoidance"},
     {"id":"ARP-P0-014","classification":"partial_unproven","remaining":"product boundary leak audit"},
     {"id":"ARP-P0-015","classification":"partial_unproven","remaining":"cross-client daemon ownership proof"}
   ],
-  "currentBlockers": [],
-  "nextStage": "Stage 5 stop, cancel, recover, and stop hook."
+  "currentBlockers": [
+    {
+      "id": "ARP-CLEANUP-001",
+      "owner": "runtime-quality cleanup slice",
+      "classification": "blocked_with_owner",
+      "summary": "Broad completion filter still has two failing market-currentness tests tied to legacy deterministic metric floors.",
+      "evidence": "docs/evidence/autopilot-agent-runtime-parity-plus/stage-5-stop-cancel-recover-stop-hook/failure-analysis.md"
+    }
+  ],
+  "nextStage": "Stage 6 typed stream contract and glass-box work lane."
 }

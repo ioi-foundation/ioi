@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.stage-verdict.v1",
+  "stage": 5,
+  "name": "Stop, cancel, recover, and stop hook",
+  "classification": "headless_pass",
+  "targetAchieved": false,
+  "coveredRows": [
+    {
+      "id": "ARP-P0-006",
+      "classification": "headless_pass",
+      "evidence": "control_thread pause/cancel persisted blocked/canceled runtime state"
+    },
+    {
+      "id": "ARP-P0-007",
+      "classification": "headless_pass",
+      "evidence": "stop_hook blocks chat__reply after failing validation command and records StopHookBlocked"
+    },
+    {
+      "id": "ARP-P0-013",
+      "classification": "supporting_pass",
+      "evidence": "separate inspect_thread invocation reads persisted canceled state and stop_hooks"
+    }
+  ],
+  "remainingProof": [
+    "live GUI stop during active model stream",
+    "live process-tree kill for retained shell/browser/computer-use children",
+    "recover/replay from durable cursor without replaying completed side effects",
+    "live failing-test repair loop with hunk workflow and stop-hook feedback"
+  ],
+  "validation": {
+    "passed": [
+      "cargo test -p ioi-services stop_hook --lib",
+      "cargo test -p ioi-services stop_hook_blocks_chat_reply --lib",
+      "cargo test -p ioi-node --features local-mode --bin ioi-runtime-bridge control -- --nocapture",
+      "cargo build -p ioi-node --features local-mode --bin ioi-runtime-bridge"
+    ],
+    "knownUnrelatedFailure": [
+      "cargo test -p ioi-services completion --lib: two market-currentness completion tests failed outside this Stage 5 slice"
+    ]
+  },
+  "verdict": "Stage 5 headless/support slice is proven, but full agent_runtime_parity_plus_proven remains in progress."
+}

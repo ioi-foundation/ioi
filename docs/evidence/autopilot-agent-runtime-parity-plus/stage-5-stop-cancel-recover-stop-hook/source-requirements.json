@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "ioi.agent-runtime-parity-plus.source-requirements.v1",
+  "sourceRequirementRefs": [
+    {
+      "id": "ARP-P0-006",
+      "requirement": "stop, cancel, recover, and durable lifecycle state",
+      "coverage": "headless control_thread pause/cancel persisted state",
+      "remaining": "live GUI stop/cancel/recover across model stream, shell command, browser session, and child process cleanup"
+    },
+    {
+      "id": "ARP-P0-007",
+      "requirement": "stop hooks block completion on failing tests/diagnostics and feed failures back into the model loop",
+      "coverage": "daemon-owned stop_hook module detects failing validation commands and blocks chat__reply completion",
+      "remaining": "live failing-test repair proof through Agent Studio"
+    },
+    {
+      "id": "ARP-P0-010",
+      "requirement": "retained shell lifecycle background, stream, stall, terminate, cleanup",
+      "coverage": "not closed in this slice",
+      "remaining": "dedicated Stage 6/soak proof"
+    },
+    {
+      "id": "ARP-P0-013",
+      "requirement": "replay/reconnect from durable state",
+      "coverage": "inspect_thread exposes canceled state and stop_hooks after a separate bridge invocation",
+      "remaining": "resume/replay cursor proof after process restart and side-effect replay avoidance"
+    }
+  ]
+}

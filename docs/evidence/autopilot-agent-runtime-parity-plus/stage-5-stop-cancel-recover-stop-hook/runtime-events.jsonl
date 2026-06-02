@@ -1,0 +1,8 @@
+{"event":"headless_bridge.start_thread","status":"active","sessionId":"580b7d1437d6ca9e17f59ae7d88b9ad888a80346d4ff38d188574cd0899a528d","threadId":"stage5-thread","workspace":"/tmp/ioi-stage5-workspace-IfFlld"}
+{"event":"headless_bridge.control_thread.pause","status":"blocked","runtimeStatus":"blocked","stopHooks":{"schema_version":"ioi.runtime.stop_hook.v1","status":"not_applicable","completion_blocked":false,"latest_validation":null}}
+{"event":"headless_bridge.control_thread.cancel","status":"canceled","runtimeStatus":"canceled","stopHooks":{"schema_version":"ioi.runtime.stop_hook.v1","status":"not_applicable","completion_blocked":false,"latest_validation":null}}
+{"event":"headless_bridge.inspect_thread","status":"canceled","runtimeStatus":"canceled","policyPermissionMode":"default_permissions","stopHooks":{"schema_version":"ioi.runtime.stop_hook.v1","status":"not_applicable","completion_blocked":false,"latest_validation":null}}
+{"event":"cargo_test.stop_hook","status":"passed","tests":4,"command":"cargo test -p ioi-services stop_hook --lib"}
+{"event":"cargo_test.stop_hook_completion_gate","status":"passed","tests":1,"command":"cargo test -p ioi-services stop_hook_blocks_chat_reply --lib"}
+{"event":"cargo_test.bridge_control","status":"passed","tests":2,"command":"cargo test -p ioi-node --features local-mode --bin ioi-runtime-bridge control -- --nocapture"}
+{"event":"cargo_build.bridge","status":"passed","command":"cargo build -p ioi-node --features local-mode --bin ioi-runtime-bridge"}
