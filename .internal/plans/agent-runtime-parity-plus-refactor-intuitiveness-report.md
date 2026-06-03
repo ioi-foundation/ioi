@@ -131,6 +131,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/runtime-usage-events.mjs`.
 - Moved runtime bridge usage-delta insertion, usage delta payload shaping, context-pressure delta/alert payload shaping, and context pressure rounding/status helpers out of `index.mjs` behind dependency-injected helper exports.
 - Added focused runtime usage event tests for telemetry aliases, context-pressure alert actions, insertion order after `turn.started`, and public event kinds.
+- Added `packages/runtime-daemon/src/runtime-memory-helpers.mjs`.
+- Moved runtime memory policy override aliases, memory write approval/blocking, list filter aliases, memory operation vocabulary, and subagent memory inheritance policy/receipt helpers out of `index.mjs` behind dependency-injected helper exports.
+- Added focused runtime memory helper tests for policy aliases, write blocking, operation/event vocabulary, subagent inheritance evidence, and filter alias normalization.
 - Added `packages/runtime-daemon/src/runtime-identifiers.mjs`.
 - Moved runtime thread/agent/run/turn/session id derivation, runtime-backed agent detection, fixture profile defaults, and lifecycle/thread status normalization out of `index.mjs`.
 - Added focused runtime identifier tests for prefix compatibility, event stream ids, runtime session fallback, fixture profile override/null preservation, runtime profile detection, and lifecycle status aliases.
