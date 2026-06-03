@@ -113,6 +113,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/runtime-coding-tool-approval.mjs`.
 - Moved coding-tool effect approval classification, workflow approval policy projection, approval manifest creation, and approval retry-manifest matching out of `index.mjs`.
 - Added focused coding-tool approval tests for local-read bypass, nested workflow policy controls, manifest schema aliases, ignored UI override detection, omitted no-gate manifests, and snake/camel retry matching.
+- Added `packages/runtime-daemon/src/runtime-invocation-results.mjs`.
+- Moved coding-tool invocation result projection plus computer-use browser discovery, control, and native-browser multi-event result projection out of `index.mjs`.
+- Added focused invocation-result tests for coding-tool replay aliases, browser discovery object normalization, control handoff/cleanup aliases, ordered native-browser event merging, receipt/artifact/rollback de-duping, and projection payload precedence.
 
 Status: `index.mjs` still owns the large state store and public route composition. Safe next extractions are daemon service lifecycle, thread store/control/replay persistence, and route registration glue.
 

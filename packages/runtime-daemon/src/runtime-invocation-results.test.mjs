@@ -1,0 +1,155 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { createRuntimeInvocationResultProjections } from "./runtime-invocation-results.mjs";
+
+function createProjections() {
+  return createRuntimeInvocationResultProjections({
+    CODING_TOOL_PACK_ID: "coding",
+    CODING_TOOL_RESULT_SCHEMA_VERSION: "ioi.runtime.coding-tool-result.v1",
+    objectRecord: (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null,
+    optionalString: (value) => typeof value === "string" ? value.trim() || null : null,
+    safeId: (value) => String(value || "unknown").replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "").toLowerCase() || "unknown",
+    uniqueStrings: (values = []) => [...new Set((Array.isArray(values) ? values : []).map((value) => String(value)).filter(Boolean))],
+  });
+}
+
+test("coding tool invocation result preserves replay and workspace snapshot aliases", () => {
+  const projections = createProjections();
+  const event = {
+    status: "completed",
+    tool_call_id: "event_call",
+    thread_id: "thread_1",
+    turn_id: "turn_1",
+    workspace_root: "/workspace",
+    receipt_refs: ["receipt_1"],
+    artifact_refs: ["artifact_1"],
+    rollback_refs: ["rollback_1"],
+    payload_summary: {
+      tool_name: "file__write",
+      result: { workspace_snapshot: { snapshotId: "snap_1" } },
+    },
+  };
+  const result = projections.codingToolInvocationResultFromEvent(event, {
+    toolId: "fallback_tool",
+    agent: { cwd: "/agent" },
+  });
+
+  assert.equal(result.schema_version, "ioi.runtime.coding-tool-result.v1");
+  assert.equal(result.tool_pack, "coding");
+  assert.equal(result.tool_name, "file__write");
+  assert.equal(result.tool_call_id, "event_call");
+  assert.equal(result.workspace_root, "/agent");
+  assert.equal(result.idempotentReplay, true);
+  assert.deepEqual(result.workspaceSnapshot, { snapshotId: "snap_1" });
+  assert.equal(result.error, null);
+});
+
+test("computer-use browser discovery result normalizes object records", () => {
+  const projections = createProjections();
+  const event = {
+    status: "completed",
+    tool_call_id: "call_1",
+    thread_id: "thread_1",
+    payload_summary: {
+      tool_ref: "computer_use__browser_discovery",
+      browser_discovery_report: { browsers: ["chromium"] },
+    },
+  };
+  const result = projections.computerUseBrowserDiscoveryInvocationResultFromEvent(event);
+
+  assert.equal(result.object, "ioi.runtime_computer_use_browser_discovery_result");
+  assert.equal(result.tool_pack, "computer_use");
+  assert.deepEqual(result.result, { browsers: ["chromium"] });
+  assert.equal(result.shell_fallback_used, false);
+});
+
+test("computer-use control result carries handoff and cleanup aliases", () => {
+  const projections = createProjections();
+  const event = {
+    status: "completed",
+    payload_summary: {
+      toolRef: "computer_use__control",
+      controlReceipt: { control_ref: "control_1" },
+      humanHandoffState: "returned",
+      cleanupReceipt: { cleanup_ref: "cleanup_1" },
+    },
+  };
+  const result = projections.computerUseControlInvocationResultFromEvent(event, {
+    threadId: "thread_1",
+    turnId: "turn_1",
+  });
+
+  assert.equal(result.thread_id, "thread_1");
+  assert.equal(result.turn_id, "turn_1");
+  assert.deepEqual(result.result.controlReceipt, { control_ref: "control_1" });
+  assert.equal(result.result.human_handoff_state, "returned");
+  assert.deepEqual(result.result.cleanup, { cleanup_ref: "cleanup_1" });
+  assert.equal(result.error, null);
+});
+
+test("native browser invocation result sorts events and merges payload/projection records", () => {
+  const projections = createProjections();
+  const result = projections.computerUseNativeBrowserInvocationResultFromEvents([
+    {
+      seq: 3,
+      event_id: "event_3",
+      status: "completed",
+      receipt_refs: ["receipt_b", "receipt_a"],
+      artifact_refs: ["artifact_b"],
+      rollback_refs: ["rollback_1"],
+      payload_summary: {
+        verification_receipt: { verified: true },
+      },
+    },
+    {
+      seq: 1,
+      event_id: "event_1",
+      status: "completed",
+      tool_call_id: "call_1",
+      thread_id: "thread_1",
+      turn_id: "turn_1",
+      workspace_root: "/workspace",
+      receipt_refs: ["receipt_a"],
+      artifact_refs: ["artifact_a"],
+      payload_summary: {
+        computerUseLane: "visual gui",
+        toolRef: "computer_use__visual_gui",
+        workflowGraphId: "graph_1",
+        workflowNodeId: "node_1",
+        environmentSelectionReceipt: { env: "local" },
+        observationBundle: { screen: "seen" },
+      },
+    },
+    {
+      seq: 2,
+      event_id: "event_2",
+      status: "failed",
+      payload_summary: {
+        computer_action: { action: "click" },
+        cleanupReceipt: { cleanup_ref: "cleanup_1" },
+      },
+    },
+  ], {
+    agent: { cwd: "/agent" },
+    projection: {
+      lease: { lease_ref: "lease_1" },
+      targetIndex: { target: "button" },
+    },
+  });
+
+  assert.equal(result.schema_version, "ioi.runtime.computer-use-visual-gui-result.v1");
+  assert.equal(result.object, "ioi.runtime_computer_use_visual_gui_result");
+  assert.equal(result.status, "failed");
+  assert.equal(result.tool_call_id, "call_1");
+  assert.deepEqual(result.event_refs, ["event_1", "event_2", "event_3"]);
+  assert.deepEqual(result.receipt_refs, ["receipt_a", "receipt_b"]);
+  assert.deepEqual(result.artifact_refs, ["artifact_a", "artifact_b"]);
+  assert.deepEqual(result.rollback_refs, ["rollback_1"]);
+  assert.deepEqual(result.result.environmentSelection, { env: "local" });
+  assert.deepEqual(result.result.lease, { lease_ref: "lease_1" });
+  assert.deepEqual(result.result.targetIndex, { target: "button" });
+  assert.deepEqual(result.result.action, { action: "click" });
+  assert.deepEqual(result.result.verification, { verified: true });
+  assert.deepEqual(result.result.cleanup, { cleanup_ref: "cleanup_1" });
+});
