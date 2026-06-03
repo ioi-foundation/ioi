@@ -119,6 +119,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.mjs`.
 - Moved coding-tool budget recovery action normalization, target-node selection, recovery-policy shaping, retry-limit bounding, budget-blocked event detection, and recovery result envelope projection out of `index.mjs`.
 - Added focused coding-tool budget recovery tests for action aliases, invalid action rejection, target-node de-duping, default policy shaping, blocked-event detection, retry-limit bounds, and snake/camel result aliases.
+- Added `packages/runtime-daemon/src/runtime-approval-lease.mjs`.
+- Moved approval lease metadata construction/recovery, approval lease expiry state derivation, approval decision normalization, and approval decision reason mapping out of `index.mjs`.
+- Added focused approval lease tests for TTL expiry calculation, policy hash/default lease ids, nested/top-level payload aliases, decision lease precedence, expired lease detection, approve/reject aliases, and invalid decision errors.
 
 Status: `index.mjs` still owns the large state store and public route composition. Safe next extractions are daemon service lifecycle, thread store/control/replay persistence, and route registration glue.
 
