@@ -110,6 +110,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/runtime-artifacts.mjs`.
 - Moved runtime artifact record construction and run artifact reference resolution out of `index.mjs` while preserving route-handler artifact lookup and runtime-record projection injection.
 - Added focused runtime artifact tests for stable artifact ids/content serialization, string content preservation, id/name/ref lookup, `artifact:` prefixed lookup, and missing artifact tolerance.
+- Added `packages/runtime-daemon/src/runtime-coding-tool-approval.mjs`.
+- Moved coding-tool effect approval classification, workflow approval policy projection, approval manifest creation, and approval retry-manifest matching out of `index.mjs`.
+- Added focused coding-tool approval tests for local-read bypass, nested workflow policy controls, manifest schema aliases, ignored UI override detection, omitted no-gate manifests, and snake/camel retry matching.
 
 Status: `index.mjs` still owns the large state store and public route composition. Safe next extractions are daemon service lifecycle, thread store/control/replay persistence, and route registration glue.
 
