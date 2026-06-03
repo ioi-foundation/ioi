@@ -217,6 +217,8 @@ Status: `model-mounting.mjs` still owns default seeding, state-machine behavior,
 - Moved finalize-action duplicate/no-op guards, read-only workspace duplicate detection, browser-surface release predicate, web-pipeline completion labels, product handoff violation message construction, and file-edit patch-miss receipt evidence shaping out of `finalize_action_processing.rs` while preserving parent-module helper names for tests.
 - Added `crates/services/src/agentic/runtime/service/queue/support/pipeline/facts/market_quote.rs`.
 - Moved market-quote source grading, structured metric coverage counts, comparison-context counts, quote-grounding floors, and pending quote-grounding readiness out of `facts.rs` behind a crate-visible re-export so existing queue/final-reply call sites keep their public path.
+- Added `crates/services/src/agentic/runtime/execution/filesystem/handler/policy.rs`.
+- Moved filesystem handler patch failure classification, workspace read/write boundary wrappers, and safe regular-file read/write target guards out of `handler.rs` while preserving handler-module helper names used by policy tests and filesystem tool handling.
 
 ## Naming And Vocabulary Decisions
 
@@ -256,6 +258,7 @@ Status: `model-mounting.mjs` still owns default seeding, state-machine behavior,
   - `tool_outcome/terminal_reply_classification`
   - `finalize_action_processing/completion_guards`
   - `queue/support/pipeline/facts/market_quote`
+  - `filesystem/handler/policy`
   - `model-mounting/projections`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
