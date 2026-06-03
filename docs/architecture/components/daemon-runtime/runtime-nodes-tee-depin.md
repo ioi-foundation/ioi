@@ -11,8 +11,8 @@ Last alignment pass: 2026-06-03.
 **Runtime nodes are execution venues that run Hypervisor Daemon profiles.**
 
 They may be local, hosted, provider-operated, DePIN, HypervisorOS bare-metal,
-shielded, TEE-verified, or customer-controlled. They are not Web4 applications
-by default.
+Private Workspace cTEE, TEE-verified, or customer-controlled. They are not Web4
+applications by default.
 
 A runtime node may contain a lower-level runtime service bridge or worker SDK
 helpers, but the node's architectural boot target is the Hypervisor Daemon runtime-node
@@ -237,7 +237,7 @@ runtime node produces attestation
 
 1. Untrusted nodes do not get raw long-lived secrets.
 2. Mutual Blind nodes cannot directly execute final effects.
-3. Shielded Persistent nodes do not get protected plaintext by default.
+3. Private Workspace cTEE nodes do not get protected plaintext by default.
 4. Enterprise-private plaintext requires local/customer/TEE execution.
 5. Runtime nodes emit receipts and artifact hashes.
 6. Marketplace payouts depend on delivery/settlement, not node claims alone.
