@@ -122,6 +122,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/runtime-approval-lease.mjs`.
 - Moved approval lease metadata construction/recovery, approval lease expiry state derivation, approval decision normalization, and approval decision reason mapping out of `index.mjs`.
 - Added focused approval lease tests for TTL expiry calculation, policy hash/default lease ids, nested/top-level payload aliases, decision lease precedence, expired lease detection, approve/reject aliases, and invalid decision errors.
+- Added `packages/runtime-daemon/src/runtime-identifiers.mjs`.
+- Moved runtime thread/agent/run/turn/session id derivation, runtime-backed agent detection, fixture profile defaults, and lifecycle/thread status normalization out of `index.mjs`.
+- Added focused runtime identifier tests for prefix compatibility, event stream ids, runtime session fallback, fixture profile override/null preservation, runtime profile detection, and lifecycle status aliases.
 
 Status: `index.mjs` still owns the large state store and public route composition. Safe next extractions are daemon service lifecycle, thread store/control/replay persistence, and route registration glue.
 

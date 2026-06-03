@@ -46,6 +46,19 @@ import {
   isRuntimeServiceProfile,
   runtimeProfileForRequest,
 } from "./runtime-api-bridge.mjs";
+import {
+  agentIdForThread,
+  eventStreamIdForThread,
+  fixtureProfileForAgent,
+  isRuntimeBackedAgent,
+  lifecycleStatusForRun,
+  runIdForTurn,
+  runtimeSessionIdForAgent,
+  runtimeTurnIdForRun,
+  threadIdForAgent,
+  threadStatusForAgent,
+  turnIdForRun,
+} from "./runtime-identifiers.mjs";
 import * as runtimeMcpHelpers from "./runtime-mcp-helpers.mjs";
 import {
   WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES,
@@ -15262,75 +15275,6 @@ function makeEvent(runId, agentId, index, type, summary, data) {
     summary,
     data,
   };
-}
-
-function threadIdForAgent(agentId) {
-  return agentId.startsWith("agent_") ? `thread_${agentId.slice("agent_".length)}` : `thread_${agentId}`;
-}
-
-function agentIdForThread(threadId) {
-  return threadId.startsWith("thread_") ? `agent_${threadId.slice("thread_".length)}` : threadId;
-}
-
-function runtimeSessionIdForAgent(agent) {
-  return agent.runtimeSessionId ?? agent.id;
-}
-
-function isRuntimeBackedAgent(agent) {
-  return isRuntimeServiceProfile(agent.runtimeProfile);
-}
-
-function fixtureProfileForAgent(agent) {
-  return Object.hasOwn(agent, "fixtureProfile") ? agent.fixtureProfile : DAEMON_FIXTURE_PROFILE;
-}
-
-function turnIdForRun(runId) {
-  return runId.startsWith("run_") ? `turn_${runId.slice("run_".length)}` : `turn_${runId}`;
-}
-
-function runtimeTurnIdForRun(run = {}) {
-  const turnId = optionalString(run.runtimeTurnId ?? run.runtime_turn_id);
-  return turnId ?? turnIdForRun(run.id);
-}
-
-function runIdForTurn(turnId) {
-  return turnId.startsWith("turn_") ? `run_${turnId.slice("turn_".length)}` : `run_${turnId}`;
-}
-
-function eventStreamIdForThread(threadId) {
-  return `${threadId}:events`;
-}
-
-function threadStatusForAgent(status) {
-  switch (status) {
-    case "archived":
-    case "closed":
-      return "archived";
-    case "failed":
-    case "error":
-      return "failed";
-    default:
-      return "active";
-  }
-}
-
-function lifecycleStatusForRun(status) {
-  switch (status) {
-    case "queued":
-      return "queued";
-    case "running":
-      return "running";
-    case "canceled":
-      return "canceled";
-    case "failed":
-    case "error":
-      return "failed";
-    case "blocked":
-      return "waiting_for_input";
-    case "completed":
-    default:
-      return "completed";
-  }
 }
 
 function ttiEnvelopeForRunEvent({ event, threadId, turnId, workspaceRoot }) {
