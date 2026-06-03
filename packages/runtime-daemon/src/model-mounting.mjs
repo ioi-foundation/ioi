@@ -132,6 +132,7 @@ import {
   modelInvocationCoalesceKey,
   supportsResponseState,
 } from "./model-mounting/provider-driver-helpers.mjs";
+import * as serverControl from "./model-mounting/server-control.mjs";
 import {
   expiresAt,
   hasExplicitTtlOption,
@@ -903,192 +904,47 @@ export class ModelMountingState {
   }
 
   serverStatus(baseUrl) {
-    this.evictExpiredInstances();
-    this.coalesceLoadedInstances();
-    const runningInstances = [...this.instances.values()].filter((instance) => instance.status === "loaded");
-    const degradedProviders = [...this.providers.values()].filter((provider) =>
-      ["blocked", "absent", "stopped"].includes(provider.status),
-    );
-    const backends = this.listBackends();
-    const controlState = this.serverControlState();
-    return {
-      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      status: runningInstances.length > 0 ? "running" : "stopped",
-      gatewayStatus: "running",
-      controlStatus: controlState.status,
-      lastServerOperation: controlState.operation,
-      lastServerOperationAt: controlState.updatedAt,
-      lastServerReceiptId: controlState.receiptId,
-      nativeBaseUrl: baseUrl ? `${baseUrl}/api/v1` : "/api/v1",
-      openAiCompatibleBaseUrl: baseUrl ? `${baseUrl}/v1` : "/v1",
-      loadedInstances: runningInstances.length,
-      mountedEndpoints: this.endpoints.size,
-      providerStates: {
-        available: [...this.providers.values()].filter((provider) =>
-          ["available", "configured", "running"].includes(provider.status),
-        ).length,
-        degraded: degradedProviders.length,
-      },
-      backendStates: {
-        available: backends.filter((backend) => ["available", "configured", "running"].includes(backend.status)).length,
-        degraded: backends.filter((backend) => ["blocked", "absent", "stopped", "degraded"].includes(backend.status)).length,
-      },
-      idleTtlSeconds: 900,
-      autoEvict: true,
-      checkedAt: this.nowIso(),
-    };
+    return serverControl.serverStatus(this, baseUrl, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
   }
 
   serverControlState() {
-    const statePath = path.join(this.stateDir, "server-state.json");
-    if (fs.existsSync(statePath)) {
-      return readJson(statePath);
-    }
-    return {
-      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      status: "running",
-      gatewayStatus: "running",
-      operation: "server_status",
-      updatedAt: null,
-      receiptId: null,
-      evidenceRefs: ["ioi_daemon_public_runtime_api"],
-    };
+    return serverControl.serverControlState(this, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
   }
 
   writeServerControlState(state) {
-    writeJson(path.join(this.stateDir, "server-state.json"), state);
-    return state;
+    return serverControl.writeServerControlState(this, state);
   }
 
   serverStart(baseUrl) {
-    return this.recordServerOperation("server_start", "running", baseUrl, {
-      requestedAction: "start",
-      compatibilitySurface: "lms server start",
-    });
+    return serverControl.serverStart(this, baseUrl, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
   }
 
   serverStop(baseUrl) {
-    return this.recordServerOperation("server_stop", "stopped", baseUrl, {
-      requestedAction: "stop",
-      compatibilitySurface: "lms server stop",
-      note: "The daemon process remains reachable so governed clients can restart the model gateway.",
-    });
+    return serverControl.serverStop(this, baseUrl, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
   }
 
   serverRestart(baseUrl) {
-    const previousState = this.serverControlState();
-    return this.recordServerOperation("server_restart", "running", baseUrl, {
-      requestedAction: "restart",
-      compatibilitySurface: "lms server start|stop",
-      previousControlStatus: previousState.status,
-      previousReceiptId: previousState.receiptId,
-    });
+    return serverControl.serverRestart(this, baseUrl, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
   }
 
   recordServerOperation(operation, status, baseUrl, details = {}) {
-    const occurredAt = this.nowIso();
-    const receipt = this.lifecycleReceipt(operation, {
-      modelId: "ioi-local-server",
-      state: status,
-      gatewayStatus: "running",
-      nativeBaseUrl: baseUrl ? `${baseUrl}/api/v1` : "/api/v1",
-      openAiCompatibleBaseUrl: baseUrl ? `${baseUrl}/v1` : "/v1",
-      evidenceRefs: ["ioi_daemon_public_runtime_api", "server_log_ring_buffer", operation],
-      ...details,
-    });
-    const state = this.writeServerControlState({
-      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      status,
-      gatewayStatus: "running",
-      operation,
-      updatedAt: occurredAt,
-      receiptId: receipt.id,
-      evidenceRefs: ["ioi_daemon_public_runtime_api", "server_log_ring_buffer", operation],
-    });
-    const log = this.writeServerLog({
-      event: operation,
-      status,
-      gatewayStatus: "running",
-      receiptId: receipt.id,
-      details,
-    });
-    return {
-      ...this.serverStatus(baseUrl),
-      controlStatus: state.status,
-      lastServerOperation: operation,
-      lastServerOperationAt: occurredAt,
-      lastServerReceiptId: receipt.id,
-      receiptId: receipt.id,
-      logId: log.id,
-    };
+    return serverControl.recordServerOperation(this, operation, status, baseUrl, details, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
   }
 
   serverLogs(query = {}) {
-    const limit = normalizeLimit(query.limit, 80, 200);
-    const receipt = this.lifecycleReceipt("server_logs_read", {
-      modelId: "ioi-local-server",
-      state: "read",
-      limit,
-      evidenceRefs: ["ioi_daemon_public_runtime_api", "server_log_ring_buffer", "redacted_log_access"],
-    });
-    this.writeServerLog({
-      event: "server_logs_read",
-      status: "read",
-      receiptId: receipt.id,
-      limit,
-    });
-    return {
-      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      kind: "server_logs",
-      redaction: "redacted",
-      receiptId: receipt.id,
-      records: this.serverLogRecords({ limit }),
-    };
+    return serverControl.serverLogs(this, query, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
   }
 
   serverEvents(query = {}) {
-    const limit = normalizeLimit(query.limit, 80, 200);
-    const receipt = this.lifecycleReceipt("server_events_read", {
-      modelId: "ioi-local-server",
-      state: "read",
-      limit,
-      evidenceRefs: ["ioi_daemon_public_runtime_api", "server_log_ring_buffer", "event_tail"],
-    });
-    this.writeServerLog({
-      event: "server_events_read",
-      status: "read",
-      receiptId: receipt.id,
-      limit,
-    });
-    return {
-      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      kind: "server_events",
-      redaction: "redacted",
-      receiptId: receipt.id,
-      events: this.serverLogRecords({ limit }),
-    };
+    return serverControl.serverEvents(this, query, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
   }
 
   serverLogRecords({ limit = 80 } = {}) {
-    const filePath = path.join(this.stateDir, "server-logs", "server.jsonl");
-    return readLines(filePath)
-      .map((line) => parseJsonMaybe(line))
-      .filter(Boolean)
-      .sort((left, right) => String(left.createdAt ?? "").localeCompare(String(right.createdAt ?? "")))
-      .slice(-normalizeLimit(limit, 80, 200));
+    return serverControl.serverLogRecords(this, { limit });
   }
 
   writeServerLog(event) {
-    const record = {
-      id: `server_log_${crypto.randomUUID()}`,
-      createdAt: this.nowIso(),
-      source: "ioi-local-server",
-      ...redact(event),
-    };
-    const filePath = path.join(this.stateDir, "server-logs", "server.jsonl");
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.appendFileSync(filePath, `${JSON.stringify(record)}\n`);
-    return record;
+    return serverControl.writeServerLog(this, event);
   }
 
   legacyModelList() {
