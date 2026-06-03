@@ -55,8 +55,10 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Moved provider request body shaping, provider output extraction, usage normalization, public trace summarization, deterministic fixture text/token helpers, and safe truncation helpers out of `model-mounting.mjs`.
 - Added `packages/runtime-daemon/src/model-mounting/local-system-probes.mjs`.
 - Moved public command execution wrappers, LM Studio CLI parsers/projections, local artifact inspection and metadata parsing, hardware snapshots, file readers, executable discovery, and native-local resource estimates out of `model-mounting.mjs`.
+- Added `packages/runtime-daemon/src/model-mounting/provider-driver-helpers.mjs`.
+- Moved provider-kind driver mapping, default backend mapping, response-state protocol checks, and deterministic low-variance invocation coalescing helpers out of `model-mounting.mjs`.
 
-Status: `model-mounting.mjs` still owns provider drivers, wallet/vault ports, state machine behavior, routes, validation, and some product projection glue. Safe next extractions are provider registry/drivers, validation, routes, and state-machine slices.
+Status: `model-mounting.mjs` still owns provider driver classes, wallet/vault ports, state machine behavior, routes, validation, and some product projection glue. Safe next extractions are provider driver class groups, validation, routes, and state-machine slices.
 
 ### Rust Runtime Hot Spot
 
@@ -78,6 +80,7 @@ Status: `model-mounting.mjs` still owns provider drivers, wallet/vault ports, st
   - `model-mounting/protocol-responses`
   - `model-mounting/provider-protocol`
   - `model-mounting/local-system-probes`
+  - `model-mounting/provider-driver-helpers`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.
