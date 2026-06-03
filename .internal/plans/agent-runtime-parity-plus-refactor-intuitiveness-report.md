@@ -47,8 +47,10 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Moved OAuth vault-ref construction, PKCE challenge generation, authorization URL redaction, token expiry/refresh predicates, public OAuth session/state projection, OAuth boundary projection, and token response validation out of `model-mounting.mjs`.
 - Added `packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs`.
 - Moved configurable catalog provider checks, catalog provider config updates, source material vault binding, catalog auth scheme normalization, catalog auth header resolution, and request-time catalog auth header construction out of `model-mounting.mjs`.
+- Added `packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs`.
+- Moved fixture, local manifest, Ollama, Hugging Face, and custom HTTP catalog provider port construction plus catalog provider health helpers out of `model-mounting.mjs`.
 
-Status: `model-mounting.mjs` still owns provider drivers, wallet/vault ports, catalog provider ports, state machine behavior, routes, validation, and some product projection glue. Safe next extractions are provider registry/drivers, catalog provider ports, validation, routes, and state-machine slices.
+Status: `model-mounting.mjs` still owns provider drivers, wallet/vault ports, state machine behavior, routes, validation, and some product projection glue. Safe next extractions are provider registry/drivers, validation, routes, and state-machine slices.
 
 ### Rust Runtime Hot Spot
 
@@ -66,6 +68,7 @@ Status: `model-mounting.mjs` still owns provider drivers, wallet/vault ports, ca
   - `model-mounting/provider-auth`
   - `model-mounting/oauth-boundary`
   - `model-mounting/catalog-provider-config`
+  - `model-mounting/catalog-provider-ports`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.
@@ -78,7 +81,7 @@ CLI/TUI surfaces were not hardened in this leg because the active parity-plus pr
 
 - Reduce `extension.js` further by moving Studio projection events, managed-session controls, panel lifecycle, and feature command groups.
 - Reduce `packages/runtime-daemon/src/index.mjs` by extracting service lifecycle, route registration, thread store/control, replay, and managed-session state.
-- Reduce `model-mounting.mjs` further by moving provider registry/drivers, wallet/vault ports, catalog provider ports, state machine, validation, and routes.
+- Reduce `model-mounting.mjs` further by moving provider registry/drivers, wallet/vault ports, state machine, validation, and routes.
 - Continue Rust hot-spot splits around final reply contract, tool outcome classification, finalize action processing, queue facts, filesystem handler, and substrate lifecycle.
 - Run longer integrated sessions to watch for retry-limit regressions and replay/reconnect durability under real use.
 - Keep watching the product UI for raw trace/tool/path leakage after every projection or panel lifecycle extraction.
