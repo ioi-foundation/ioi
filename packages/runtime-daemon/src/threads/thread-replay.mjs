@@ -34,6 +34,74 @@ export function appendRuntimeEvent(store, event, deps = {}) {
   return record;
 }
 
+export function ensureThreadStartedEvent(store, agent, deps = {}) {
+  const {
+    DAEMON_FIXTURE_PROFILE,
+    RUNTIME_THREAD_SCHEMA_VERSION,
+    eventStreamIdForThread,
+    threadIdForAgent,
+    threadStatusForAgent,
+  } = deps;
+  const threadId = threadIdForAgent(agent.id);
+  return store.appendRuntimeEvent({
+    event_stream_id: eventStreamIdForThread(threadId),
+    thread_id: threadId,
+    turn_id: "",
+    item_id: `${threadId}:item:thread-started`,
+    idempotency_key: `agent:${agent.id}:thread.started`,
+    source: "daemon_bridge",
+    source_event_kind: "agent.create",
+    event_kind: "thread.started",
+    status: threadStatusForAgent(agent.status),
+    actor: "runtime",
+    created_at: agent.createdAt,
+    workspace_root: agent.cwd,
+    component_kind: "runtime_thread",
+    workflow_node_id: "runtime.runtime-thread",
+    payload_schema_version: RUNTIME_THREAD_SCHEMA_VERSION,
+    payload: {
+      event_kind: "ThreadStarted",
+      agent_id: agent.id,
+      thread_id: threadId,
+      status: threadStatusForAgent(agent.status),
+    },
+    artifact_refs: [],
+    receipt_refs: [agent.modelRouteReceiptId].filter(Boolean),
+    fixture_profile: DAEMON_FIXTURE_PROFILE,
+  });
+}
+
+export function projectThreadEvents(store, agent, deps = {}) {
+  const { isRuntimeBackedAgent } = deps;
+  if (isRuntimeBackedAgent(agent)) return;
+  store.ensureThreadStartedEvent(agent);
+  for (const run of store.listRuns(agent.id)) {
+    store.projectRunEvents(run, agent);
+  }
+}
+
+export function projectRunEvents(store, run, agent, deps = {}) {
+  const {
+    isRuntimeBackedAgent,
+    threadIdForAgent,
+    ttiEnvelopeForRunEvent,
+    turnIdForRun,
+  } = deps;
+  if (isRuntimeBackedAgent(agent)) return;
+  const threadId = threadIdForAgent(agent.id);
+  const turnId = turnIdForRun(run.id);
+  for (const event of run.events) {
+    store.appendRuntimeEvent(
+      ttiEnvelopeForRunEvent({
+        event,
+        threadId,
+        turnId,
+        workspaceRoot: agent.cwd,
+      }),
+    );
+  }
+}
+
 export function runtimeEventsForStream(store, eventStreamId, cursor = {}) {
   const stream = store.runtimeEventStream(eventStreamId);
   const cursorSeq = store.runtimeCursorSeq(stream, cursor);

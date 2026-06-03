@@ -139,7 +139,10 @@ import {
 import {
   appendRuntimeEvent as appendRuntimeEventState,
   assertRuntimeCursorSeq as assertRuntimeCursorSeqState,
+  ensureThreadStartedEvent as ensureThreadStartedEventState,
   latestRuntimeEventSeq as latestRuntimeEventSeqState,
+  projectRunEvents as projectRunEventsState,
+  projectThreadEvents as projectThreadEventsState,
   registerRuntimeEvent as registerRuntimeEventState,
   runtimeCursorSeq as runtimeCursorSeqState,
   runtimeEventsForStream as runtimeEventsForStreamState,
@@ -3394,57 +3397,28 @@ export class AgentgresRuntimeStateStore {
   }
 
   ensureThreadStartedEvent(agent) {
-    const threadId = threadIdForAgent(agent.id);
-    return this.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: "",
-      item_id: `${threadId}:item:thread-started`,
-      idempotency_key: `agent:${agent.id}:thread.started`,
-      source: "daemon_bridge",
-      source_event_kind: "agent.create",
-      event_kind: "thread.started",
-      status: threadStatusForAgent(agent.status),
-      actor: "runtime",
-      created_at: agent.createdAt,
-      workspace_root: agent.cwd,
-      component_kind: "runtime_thread",
-      workflow_node_id: "runtime.runtime-thread",
-      payload_schema_version: RUNTIME_THREAD_SCHEMA_VERSION,
-      payload: {
-        event_kind: "ThreadStarted",
-        agent_id: agent.id,
-        thread_id: threadId,
-        status: threadStatusForAgent(agent.status),
-      },
-      artifact_refs: [],
-      receipt_refs: [agent.modelRouteReceiptId].filter(Boolean),
-      fixture_profile: DAEMON_FIXTURE_PROFILE,
+    return ensureThreadStartedEventState(this, agent, {
+      DAEMON_FIXTURE_PROFILE,
+      RUNTIME_THREAD_SCHEMA_VERSION,
+      eventStreamIdForThread,
+      threadIdForAgent,
+      threadStatusForAgent,
     });
   }
 
   projectThreadEvents(agent) {
-    if (isRuntimeBackedAgent(agent)) return;
-    this.ensureThreadStartedEvent(agent);
-    for (const run of this.listRuns(agent.id)) {
-      this.projectRunEvents(run, agent);
-    }
+    return projectThreadEventsState(this, agent, {
+      isRuntimeBackedAgent,
+    });
   }
 
   projectRunEvents(run, agent = this.getAgent(run.agentId)) {
-    if (isRuntimeBackedAgent(agent)) return;
-    const threadId = threadIdForAgent(agent.id);
-    const turnId = turnIdForRun(run.id);
-    for (const event of run.events) {
-      this.appendRuntimeEvent(
-        ttiEnvelopeForRunEvent({
-          event,
-          threadId,
-          turnId,
-          workspaceRoot: agent.cwd,
-        }),
-      );
-    }
+    return projectRunEventsState(this, run, agent, {
+      isRuntimeBackedAgent,
+      threadIdForAgent,
+      ttiEnvelopeForRunEvent,
+      turnIdForRun,
+    });
   }
 
   appendRuntimeEvent(event) {
