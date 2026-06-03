@@ -39,6 +39,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Moved thread mode/approval normalization, initial and normalized runtime controls, request control injection, model-control update shaping, model policy/workflow context projection, reasoning-effort normalization, and model route receipt binding out of `index.mjs`.
 - Added `packages/runtime-daemon/src/threads/context-budget-policy.mjs`.
 - Moved context-budget telemetry selection, threshold normalization, context-budget evaluation, coding-tool budget policy shaping, and compaction-policy decisions out of `index.mjs`.
+- Added `packages/runtime-daemon/src/repository-context.mjs`.
+- Moved read-only repository context projection, branch policy projection, GitHub remote context projection, workspace-trust warning projection, git porcelain counting, and remote credential redaction helpers out of `index.mjs`.
+- Added focused repository-context tests for porcelain counting, GitHub remote redaction/metadata, read-only branch/GitHub policy projection, and UI trust override ignoring.
 
 Status: `index.mjs` still owns the large state store and public route composition. Safe next extractions are daemon service lifecycle, thread store/control/replay persistence, managed-session state, and route registration glue.
 
@@ -88,6 +91,7 @@ Status: `model-mounting.mjs` still owns provider driver classes, wallet/vault po
   - `runtime-request-metadata`
   - `threads/thread-runtime-controls`
   - `threads/context-budget-policy`
+  - `repository-context`
   - `model-mounting/environment`
   - `model-mounting/provider-auth`
   - `model-mounting/oauth-boundary`
