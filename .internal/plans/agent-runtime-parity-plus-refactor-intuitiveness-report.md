@@ -30,8 +30,10 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/runtime-request-metadata.mjs`.
 - Moved request base URL, runtime event cursor parsing, usage request metadata projection, and usage metadata application out of `index.mjs`.
 - Passed `RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION` into the helper explicitly so the module stays decoupled from the daemon constants bundle.
+- Added `packages/runtime-daemon/src/threads/thread-runtime-controls.mjs`.
+- Moved thread mode/approval normalization, initial and normalized runtime controls, request control injection, model-control update shaping, model policy/workflow context projection, reasoning-effort normalization, and model route receipt binding out of `index.mjs`.
 
-Status: `index.mjs` still owns the large state store and public route composition. Safe next extractions are daemon service lifecycle, thread store/control/replay, managed-session state, and route registration glue.
+Status: `index.mjs` still owns the large state store and public route composition. Safe next extractions are daemon service lifecycle, thread store/control/replay persistence, managed-session state, and route registration glue.
 
 ### Model Mounting
 
@@ -74,6 +76,7 @@ Status: `model-mounting.mjs` still owns provider driver classes, wallet/vault po
   - `public-text-sanitizer`
   - `studio/projection-managed-sessions`
   - `runtime-request-metadata`
+  - `threads/thread-runtime-controls`
   - `model-mounting/environment`
   - `model-mounting/provider-auth`
   - `model-mounting/oauth-boundary`
