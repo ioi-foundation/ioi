@@ -37,6 +37,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/artifact-preview.js`.
 - Moved Studio conversation artifact class labels, output modality detection, preview label/srcdoc shaping, inline preview rendering, and artifact row HTML out of `extension.js` behind compatibility wrappers.
 - Added focused artifact-preview tests for website/generic labels, media-type preview labels, CSP nonce injection, source preview escaping, and stable artifact row data-testids.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/managed-session-view.js`.
+- Moved managed browser/computer session work-record attachment and card row rendering out of `extension.js` behind compatibility wrappers.
+- Added focused managed-session view tests for bounded session-card attachment, waiting-for-user handoff rendering, control-state data-testids, HTML escaping, and default sandbox browser state.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.
