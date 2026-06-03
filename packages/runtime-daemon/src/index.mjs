@@ -151,6 +151,17 @@ import {
   runtimeEventStreamPath as runtimeEventStreamPathState,
 } from "./threads/thread-replay.mjs";
 import {
+  agentForThread as agentForThreadState,
+  deleteAgent as deleteAgentState,
+  getAgent as getAgentState,
+  inFlightRuntimeTurnKey as inFlightRuntimeTurnKeyState,
+  listAgents as listAgentsState,
+  registerInFlightRuntimeTurn as registerInFlightRuntimeTurnState,
+  resolveRunForThreadTurn as resolveRunForThreadTurnState,
+  unregisterInFlightRuntimeTurn as unregisterInFlightRuntimeTurnState,
+  updateAgent as updateAgentState,
+} from "./threads/thread-store.mjs";
+import {
   controlManagedSessionForThread as controlManagedSessionForThreadState,
   inspectManagedSessionsForThread as inspectManagedSessionsForThreadState,
 } from "./threads/managed-session-state.mjs";
@@ -434,39 +445,24 @@ export class AgentgresRuntimeStateStore {
   }
 
   listAgents() {
-    return [...this.agents.values()].sort((left, right) =>
-      left.createdAt.localeCompare(right.createdAt),
-    );
+    return listAgentsState(this);
   }
 
   getAgent(agentId) {
-    const agent = this.agents.get(agentId);
-    if (!agent) {
-      throw notFound(`Agent not found: ${agentId}`, { agentId });
-    }
-    return agent;
+    return getAgentState(this, agentId, {
+      notFound,
+    });
   }
 
   updateAgent(agentId, status, operationKind) {
-    const agent = this.getAgent(agentId);
-    const updated = { ...agent, status, updatedAt: new Date().toISOString() };
-    this.agents.set(agentId, updated);
-    this.writeAgent(updated, operationKind);
-    return updated;
+    return updateAgentState(this, agentId, status, operationKind);
   }
 
   deleteAgent(agentId) {
-    const agent = this.getAgent(agentId);
-    const runCount = this.listRuns(agentId).length;
-    if (runCount > 0) {
-      throw policyError(
-        "Permanent agent deletion requires retention review when canonical runs exist; archive instead.",
-        { agentId, runCount },
-      );
-    }
-    this.agents.delete(agentId);
-    this.appendOperation("agent.delete", { agentId, priorStatus: agent.status });
-    this.removeQuiet(path.join(this.stateDir, "agents", `${agentId}.json`));
+    return deleteAgentState(this, agentId, {
+      path,
+      policyError,
+    });
   }
 
   createRun(agentId, request = {}) {
@@ -6768,63 +6764,32 @@ export class AgentgresRuntimeStateStore {
   }
 
   agentForThread(threadId) {
-    return this.getAgent(agentIdForThread(threadId));
+    return agentForThreadState(this, threadId, {
+      agentIdForThread,
+    });
   }
 
   inFlightRuntimeTurnKey(threadId, turnId) {
-    return `${threadId}:${turnId}`;
+    return inFlightRuntimeTurnKeyState(threadId, turnId);
   }
 
   registerInFlightRuntimeTurn({ agent, threadId, turnId, runId = null, request = {} }) {
-    const now = new Date().toISOString();
-    const key = this.inFlightRuntimeTurnKey(threadId, turnId);
-    const existing = this.inFlightRuntimeTurns.get(key) ?? {};
-    this.inFlightRuntimeTurns.set(key, {
-      ...existing,
-      agentId: agent.id,
-      threadId,
-      turnId,
-      runId: runId ?? runIdForTurn(turnId),
-      prompt: request.prompt ?? request.message ?? request.input ?? existing.prompt ?? "",
-      createdAt: existing.createdAt ?? now,
-      updatedAt: now,
+    return registerInFlightRuntimeTurnState(this, { agent, threadId, turnId, runId, request }, {
+      runIdForTurn,
     });
   }
 
   unregisterInFlightRuntimeTurn(threadId, turnId) {
-    this.inFlightRuntimeTurns.delete(this.inFlightRuntimeTurnKey(threadId, turnId));
+    return unregisterInFlightRuntimeTurnState(this, threadId, turnId);
   }
 
   resolveRunForThreadTurn(agent, threadId, turnId) {
-    const runId = runIdForTurn(turnId);
-    const directRun = this.runs.get(runId);
-    if (directRun) {
-      if (directRun.agentId !== agent.id) {
-        throw notFound(`Turn not found: ${turnId}`, { threadId, turnId, runId });
-      }
-      return { run: directRun, runId: directRun.id, turnId: runtimeTurnIdForRun(directRun), inFlight: null };
-    }
-    const runtimeTurnRun = this.listRuns(agent.id).find((candidate) =>
-      runtimeTurnIdForRun(candidate) === turnId || turnIdForRun(candidate.id) === turnId,
-    );
-    if (runtimeTurnRun) {
-      return {
-        run: runtimeTurnRun,
-        runId: runtimeTurnRun.id,
-        turnId: runtimeTurnIdForRun(runtimeTurnRun),
-        inFlight: null,
-      };
-    }
-    const inFlight = this.inFlightRuntimeTurns.get(this.inFlightRuntimeTurnKey(threadId, turnId));
-    if (inFlight?.agentId === agent.id) {
-      return {
-        run: null,
-        runId: inFlight.runId,
-        turnId: inFlight.turnId,
-        inFlight,
-      };
-    }
-    throw notFound(`Turn not found: ${turnId}`, { threadId, turnId, runId });
+    return resolveRunForThreadTurnState(this, agent, threadId, turnId, {
+      notFound,
+      runIdForTurn,
+      runtimeTurnIdForRun,
+      turnIdForRun,
+    });
   }
 
   getRun(runId) {

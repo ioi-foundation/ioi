@@ -1,0 +1,105 @@
+export function listAgents(store) {
+  return [...store.agents.values()].sort((left, right) =>
+    left.createdAt.localeCompare(right.createdAt),
+  );
+}
+
+export function getAgent(store, agentId, deps = {}) {
+  const { notFound } = deps;
+  const agent = store.agents.get(agentId);
+  if (!agent) {
+    throw notFound(`Agent not found: ${agentId}`, { agentId });
+  }
+  return agent;
+}
+
+export function updateAgent(store, agentId, status, operationKind) {
+  const agent = store.getAgent(agentId);
+  const updated = { ...agent, status, updatedAt: new Date().toISOString() };
+  store.agents.set(agentId, updated);
+  store.writeAgent(updated, operationKind);
+  return updated;
+}
+
+export function deleteAgent(store, agentId, deps = {}) {
+  const { path, policyError } = deps;
+  const agent = store.getAgent(agentId);
+  const runCount = store.listRuns(agentId).length;
+  if (runCount > 0) {
+    throw policyError(
+      "Permanent agent deletion requires retention review when canonical runs exist; archive instead.",
+      { agentId, runCount },
+    );
+  }
+  store.agents.delete(agentId);
+  store.appendOperation("agent.delete", { agentId, priorStatus: agent.status });
+  store.removeQuiet(path.join(store.stateDir, "agents", `${agentId}.json`));
+}
+
+export function agentForThread(store, threadId, deps = {}) {
+  const { agentIdForThread } = deps;
+  return store.getAgent(agentIdForThread(threadId));
+}
+
+export function inFlightRuntimeTurnKey(threadId, turnId) {
+  return `${threadId}:${turnId}`;
+}
+
+export function registerInFlightRuntimeTurn(store, { agent, threadId, turnId, runId = null, request = {} }, deps = {}) {
+  const { runIdForTurn } = deps;
+  const now = new Date().toISOString();
+  const key = store.inFlightRuntimeTurnKey(threadId, turnId);
+  const existing = store.inFlightRuntimeTurns.get(key) ?? {};
+  store.inFlightRuntimeTurns.set(key, {
+    ...existing,
+    agentId: agent.id,
+    threadId,
+    turnId,
+    runId: runId ?? runIdForTurn(turnId),
+    prompt: request.prompt ?? request.message ?? request.input ?? existing.prompt ?? "",
+    createdAt: existing.createdAt ?? now,
+    updatedAt: now,
+  });
+}
+
+export function unregisterInFlightRuntimeTurn(store, threadId, turnId) {
+  store.inFlightRuntimeTurns.delete(store.inFlightRuntimeTurnKey(threadId, turnId));
+}
+
+export function resolveRunForThreadTurn(store, agent, threadId, turnId, deps = {}) {
+  const {
+    notFound,
+    runIdForTurn,
+    runtimeTurnIdForRun,
+    turnIdForRun,
+  } = deps;
+  const runId = runIdForTurn(turnId);
+  const directRun = store.runs.get(runId);
+  if (directRun) {
+    if (directRun.agentId !== agent.id) {
+      throw notFound(`Turn not found: ${turnId}`, { threadId, turnId, runId });
+    }
+    return { run: directRun, runId: directRun.id, turnId: runtimeTurnIdForRun(directRun), inFlight: null };
+  }
+  const runtimeTurnRun = store.listRuns(agent.id).find((candidate) =>
+    runtimeTurnIdForRun(candidate) === turnId || turnIdForRun(candidate.id) === turnId,
+  );
+  if (runtimeTurnRun) {
+    return {
+      run: runtimeTurnRun,
+      runId: runtimeTurnRun.id,
+      turnId: runtimeTurnIdForRun(runtimeTurnRun),
+      inFlight: null,
+    };
+  }
+  const inFlight = store.inFlightRuntimeTurns.get(store.inFlightRuntimeTurnKey(threadId, turnId));
+  if (inFlight?.agentId === agent.id) {
+    return {
+      run: null,
+      runId: inFlight.runId,
+      turnId: inFlight.turnId,
+      inFlight,
+    };
+  }
+  throw notFound(`Turn not found: ${turnId}`, { threadId, turnId, runId });
+}
