@@ -17,11 +17,12 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/bridge/client.js` for daemon endpoint/token/base-url and JSON request helpers.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/public-text-sanitizer.js` for product-facing assistant/tool text sanitization.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-state.js` for the initial Agent Studio runtime projection shape.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/migration.js` for migration-assistant command registration.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/quick-input.js` for fork-native QuickInput handoff commands.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
-Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection state/events, managed-session test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.
+Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, managed-session test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.
 
 ### Runtime Daemon
 
@@ -35,8 +36,13 @@ Status: `index.mjs` still owns the large state store and public route compositio
 
 - Added `packages/runtime-daemon/src/model-mounting/environment.mjs`.
 - Moved LM Studio discovery gates, internal fixture exposure gates, live catalog/download gates, and catalog/download timeout parsing out of `model-mounting.mjs`.
+- Added `packages/runtime-daemon/src/model-mounting/catalog-registry.mjs`.
+- Moved catalog provider port ordering and provider status projection out of `model-mounting.mjs`.
+- Added `packages/runtime-daemon/src/model-mounting/catalog-entries.mjs`.
+- Moved fixture catalog records, local manifest payload normalization, Hugging Face catalog entry shaping, Ollama artifact catalog entry shaping, variant projection, and catalog entry enrichment out of `model-mounting.mjs`.
+- Moved model quantization parsing into `catalog-helpers.mjs` so catalog entries and local artifact metadata share one parser.
 
-Status: `model-mounting.mjs` still owns provider drivers, vault/auth ports, catalog provider ports, state machine behavior, and projection helpers. Safe next extractions are provider registry/drivers, vault-auth ports, catalog providers, validation, and product projections.
+Status: `model-mounting.mjs` still owns provider drivers, vault/auth ports, catalog provider configuration, state machine behavior, routes, validation, and some product projection glue. Safe next extractions are provider registry/drivers, vault-auth ports, catalog provider config/auth, validation, routes, and state-machine slices.
 
 ### Rust Runtime Hot Spot
 
@@ -61,9 +67,9 @@ CLI/TUI surfaces were not hardened in this leg because the active parity-plus pr
 
 ## Remaining Follow-Ups
 
-- Reduce `extension.js` further by moving Studio projection state/events, managed-session controls, panel lifecycle, and feature command groups.
+- Reduce `extension.js` further by moving Studio projection events, managed-session controls, panel lifecycle, and feature command groups.
 - Reduce `packages/runtime-daemon/src/index.mjs` by extracting service lifecycle, route registration, thread store/control, replay, and managed-session state.
-- Split `model-mounting.mjs` into provider registry/drivers, vault/auth ports, catalog provider ports, state machine, validation, routes, and projections.
+- Reduce `model-mounting.mjs` further by moving provider registry/drivers, vault/auth ports, catalog provider config/auth, state machine, validation, and routes.
 - Continue Rust hot-spot splits around final reply contract, tool outcome classification, finalize action processing, queue facts, filesystem handler, and substrate lifecycle.
 - Run longer integrated sessions to watch for retry-limit regressions and replay/reconnect durability under real use.
 - Keep watching the product UI for raw trace/tool/path leakage after every projection or panel lifecycle extraction.

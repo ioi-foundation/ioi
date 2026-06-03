@@ -232,6 +232,10 @@ export function inferParameterCount(value) {
   return `${match[1]}${match[2].toUpperCase()}`;
 }
 
+export function parseModelQuantization(value) {
+  return String(value ?? "").match(/\b(Q[0-9]_[A-Za-z0-9_]+|Q[0-9]+|F16|BF16|IQ[0-9]_[A-Za-z0-9_]+)\b/i)?.[1] ?? null;
+}
+
 export function modelIdFromSourceUrl(sourceUrl) {
   return safeId(String(sourceUrl).split(/[/?#]/).filter(Boolean).at(-1) ?? "catalog-model").replaceAll(".", "-");
 }
