@@ -46,6 +46,8 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/commands/chat.js",
   modelCommands:
     "apps/autopilot/openvscode-extension/ioi-workbench/commands/models.js",
+  runtimeSurfaceCommands:
+    "apps/autopilot/openvscode-extension/ioi-workbench/commands/runtime-surfaces.js",
   productErrors:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/product-error-message.js",
   projectionState:
@@ -104,6 +106,7 @@ async function readStudioComposite() {
       paths.codeExecution,
       paths.chatCommands,
       paths.modelCommands,
+      paths.runtimeSurfaceCommands,
       paths.productErrors,
       paths.projectionState,
       paths.projectionReplay,

@@ -15,6 +15,7 @@ const { registerChatCommands } = require("./commands/chat");
 const { registerMigrationCommands } = require("./commands/migration");
 const { registerModelCommands } = require("./commands/models");
 const { registerQuickInputCommands } = require("./commands/quick-input");
+const { registerRuntimeSurfaceCommands } = require("./commands/runtime-surfaces");
 const { registerStudioQuickInputCommands } = require("./commands/studio-quick-input");
 const { registerStudioTestHookCommands } = require("./commands/studio-test-hooks");
 const { registerWorkflowCommands } = require("./commands/workflow");
@@ -12839,133 +12840,23 @@ function registerNativeCommands(context, output) {
       runDaemonModelCatalogProviderConfig,
       runDaemonModelCatalogDownload,
     }),
-    vscode.commands.registerCommand("ioi.runs.refresh", async (payload = {}) => {
-      const actionContext = buildWorkspaceActionContext("workbench-view");
-      if (payload?.traceTarget && typeof payload.traceTarget === "object") {
-        activeTraceTarget = {
-          ...payload.traceTarget,
-          openedAt: new Date().toISOString(),
-        };
-      }
-      await writeBridgeRequest("runs.open", {
-        workspaceRoot: workspaceSummary().path,
-        traceTarget: activeTraceTarget,
-      }, actionContext).catch((error) => {
-        output.appendLine(
-          `[ioi-runs] bridge request unavailable: ${error?.message || String(error)}`,
-        );
-      });
-      await enterAutopilotMode("runs", output);
-      await openGenericModePanel(context, output, "runs");
-      closePrimarySidebarAfterActivityLaunch();
-      status(activeTraceTarget ? "Queued IOI tracing surface." : "Queued IOI runs surface.");
-    }),
-    vscode.commands.registerCommand("ioi.runs.review", async (payload) => {
-      const context = {
-        ...buildWorkspaceActionContext("workbench-view"),
-        runId: pickString(payload, "runId"),
-        artifactId: pickString(payload, "artifactId"),
-        evidenceThreadId: pickString(payload, "evidenceThreadId"),
-      };
-      await writeBridgeRequest(
-        "chat.reviewRun",
-        {
-          runId: context.runId,
-          artifactId: context.artifactId,
-          evidenceThreadId: context.evidenceThreadId,
-        },
-        context,
-      );
-      status("Queued IOI Chat run review.");
-    }),
-    vscode.commands.registerCommand("ioi.policy.open", async () => {
-      const actionContext = buildWorkspaceActionContext("workbench-view");
-      await enterAutopilotMode("policy", output);
-      await openGenericModePanel(context, output, "policy");
-      await writeBridgeRequest("policy.open", {
-        workspaceRoot: workspaceSummary().path,
-      }, actionContext);
-      closePrimarySidebarAfterActivityLaunch();
-      status("Queued IOI policy surface.");
-    }),
-    vscode.commands.registerCommand("ioi.artifacts.openEvidence", async (payload) => {
-      const sessionId = pickString(payload, "sessionId");
-      if (!sessionId) {
-        vscode.window.showWarningMessage("No evidence session is available for this artifact.");
-        return;
-      }
-      const context = {
-        ...buildWorkspaceActionContext("workbench-view"),
-        evidenceThreadId: sessionId,
-      };
-      await writeBridgeRequest("evidence.open", {
-        sessionId,
-      }, context);
-      status("Queued IOI evidence session.");
-    }),
-    vscode.commands.registerCommand("ioi.artifacts.openPolicy", async (payload) => {
-      const connectorId = pickString(payload, "connectorId");
-      const context = {
-        ...buildWorkspaceActionContext("workbench-view"),
-        connectorId,
-      };
-      await writeBridgeRequest("policy.open", {
-        workspaceRoot: workspaceSummary().path,
-        connectorId,
-      }, context);
-      status("Queued artifact policy context.");
-    }),
-    vscode.commands.registerCommand("ioi.chatSession.openArtifact", async (payload) => {
-      const artifactId = pickString(payload, "artifactId");
-      if (!artifactId) {
-        vscode.window.showWarningMessage("No artifact target is available for Chat Session.");
-        return;
-      }
-      const context = {
-        ...buildWorkspaceActionContext("workbench-view"),
-        artifactId,
-      };
-      await writeBridgeRequest("chatSession.openArtifact", {
-        artifactId,
-      }, context);
-      status("Queued Chat Session artifact drill-in.");
-    }),
-    vscode.commands.registerCommand("ioi.connections.inspect", async () => {
-      const actionContext = buildWorkspaceActionContext("workbench-view");
-      await enterAutopilotMode("connectors", output);
-      await openGenericModePanel(context, output, "connectors");
-      await writeBridgeRequest("connections.open", {
-        workspaceRoot: workspaceSummary().path,
-      }, actionContext);
-      closePrimarySidebarAfterActivityLaunch();
-      status("Queued IOI connections surface.");
-    }),
-    vscode.commands.registerCommand("ioi.connections.openConnector", async (payload) => {
-      const connectorId = pickString(payload, "connectorId");
-      if (!connectorId) {
-        vscode.window.showWarningMessage("No connector target is available for this workspace item.");
-        return;
-      }
-      await enterAutopilotMode("connectors", output);
-      await openGenericModePanel(context, output, "connectors");
-      const actionContext = {
-        ...buildWorkspaceActionContext("workbench-view"),
-        connectorId,
-      };
-      await writeBridgeRequest("connections.open", {
-        workspaceRoot: workspaceSummary().path,
-        connectorId,
-      }, actionContext);
-      status("Queued IOI connector overview.");
-    }),
-    vscode.commands.registerCommand("ioi.automation.browser", async (uri) => {
-      const context = buildWorkspaceActionContext(uri ? "explorer" : "editor", uri);
-      await writeBridgeRequest("automation.browser", {
-        workspaceRoot: workspaceSummary().path,
-        filePath: context.filePath,
-        selectedText: context.selection?.selectedText ?? null,
-      }, context);
-      status("Queued governed browser/computer-use.");
+    ...registerRuntimeSurfaceCommands({
+      vscode,
+      output,
+      status,
+      buildWorkspaceActionContext,
+      writeBridgeRequest,
+      workspaceSummary,
+      pickString,
+      getActiveTraceTarget: () => activeTraceTarget,
+      setActiveTraceTarget: (traceTarget) => {
+        activeTraceTarget = traceTarget;
+      },
+      enterRuns: () => enterAutopilotMode("runs", output),
+      enterPolicy: () => enterAutopilotMode("policy", output),
+      enterConnectors: () => enterAutopilotMode("connectors", output),
+      openGenericModePanel: (modeId) => openGenericModePanel(context, output, modeId),
+      closePrimarySidebarAfterActivityLaunch,
     }),
   );
 
