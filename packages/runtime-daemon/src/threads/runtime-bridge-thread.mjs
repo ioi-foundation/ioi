@@ -47,6 +47,158 @@ export async function createRuntimeBridgeThread(store, { request, options, runti
   return store.threadForAgent(updated);
 }
 
+export async function createRuntimeBridgeTurn(store, { agent, threadId, request, diagnosticsFeedback = null }, deps = {}) {
+  const {
+    RuntimeApiBridgeUnavailableError,
+    RUNTIME_BRIDGE_AGENT_TURN_MIN_STEPS,
+    insertRuntimeBridgeComputerUseDerivedEvents,
+    insertRuntimeBridgeDiagnosticsInjectionEvent,
+    insertRuntimeBridgeUsageDeltaEvents,
+    normalizeRuntimeBridgeLiveEvent: liveEventNormalizer = normalizeRuntimeBridgeLiveEvent,
+    normalizeRuntimeBridgeTurnSubmit: turnSubmitNormalizer = normalizeRuntimeBridgeTurnSubmit,
+    optionalPositiveInteger,
+    optionalString,
+    runtimeBridgeRunRecord,
+    runtimeSessionIdForAgent,
+  } = deps;
+  store.assertRuntimeBridgeAvailable({ runtimeProfile: agent.runtimeProfile, operation: "submit_turn" });
+  const submitOptions = request?.options && typeof request.options === "object"
+    ? request.options
+    : {};
+  const requestMaxSteps = optionalPositiveInteger(request?.max_steps ?? request?.maxSteps);
+  const optionsMaxSteps = optionalPositiveInteger(submitOptions.max_steps ?? submitOptions.maxSteps);
+  const explicitStepBudgets = [requestMaxSteps, optionsMaxSteps].filter((value) => Number.isFinite(value));
+  const requestedMaxSteps = explicitStepBudgets.length ? Math.max(...explicitStepBudgets) : null;
+  const normalizedMaxSteps = requestedMaxSteps
+    ? Math.max(RUNTIME_BRIDGE_AGENT_TURN_MIN_STEPS, requestedMaxSteps)
+    : null;
+  const bridgeRequest = normalizedMaxSteps
+    ? {
+        ...request,
+        max_steps: normalizedMaxSteps,
+        maxSteps: normalizedMaxSteps,
+      }
+    : request;
+  const bridgeOptions = normalizedMaxSteps
+    ? {
+        ...submitOptions,
+        max_steps: normalizedMaxSteps,
+        maxSteps: normalizedMaxSteps,
+      }
+    : submitOptions;
+  const input = {
+    request: bridgeRequest,
+    options: bridgeOptions,
+    agentId: agent.id,
+    threadId,
+    sessionId: runtimeSessionIdForAgent(agent),
+    workspaceRoot: agent.cwd,
+    createdAt: new Date().toISOString(),
+    streamedEventsOnly: true,
+  };
+  const inFlightTurnIds = new Set();
+  let bridgeResult;
+  try {
+    bridgeResult = await store.runtimeBridge.submitTurn(input, {
+      onRuntimeEvent: (event) => {
+        const normalized = liveEventNormalizer({ event, agent, threadId }, deps);
+        const liveTurnId = optionalString(normalized.turn_id ?? normalized.turnId);
+        if (liveTurnId) {
+          inFlightTurnIds.add(liveTurnId);
+          store.registerInFlightRuntimeTurn({
+            agent,
+            threadId,
+            turnId: liveTurnId,
+            runId: optionalString(event?.run_id ?? event?.runId ?? normalized.payload?.run_id),
+            request,
+          });
+        }
+        store.appendRuntimeEvent(normalized);
+      },
+    });
+  } catch (error) {
+    for (const turnId of inFlightTurnIds) {
+      store.unregisterInFlightRuntimeTurn(threadId, turnId);
+    }
+    store.appendOperation("turn.runtime_bridge.submit_error", {
+      objectId: agent.id,
+      agentId: agent.id,
+      threadId,
+      runtimeProfile: agent.runtimeProfile,
+      operation: "submit_turn",
+      errorName: error?.name ?? null,
+      errorCode: error?.code ?? error?.details?.adapterErrorCode ?? null,
+      errorMessage: String(error?.message ?? error),
+      errorStatus: error?.status ?? null,
+      bridgeId: store.runtimeBridge.bridgeId,
+      requestIntentId: request?.intentFrame?.intentId ?? request?.intentFrame?.intent_id ?? null,
+      requestRouteDirective: request?.intentFrame?.routeDirective ?? request?.intentFrame?.route_directive ?? null,
+      requestRequiredCapabilities: Array.isArray(request?.intentFrame?.requiredCapabilities)
+        ? request.intentFrame.requiredCapabilities
+        : [],
+      details: error?.details
+        ? {
+            operation: error.details.operation ?? null,
+            bridgeId: error.details.bridgeId ?? null,
+            adapterErrorCode: error.details.adapterErrorCode ?? null,
+            exitCode: error.details.exitCode ?? null,
+            signal: error.details.signal ?? null,
+            stderr: error.details.stderr ?? null,
+            error: error.details.error ?? null,
+          }
+        : null,
+    });
+    if (RuntimeApiBridgeUnavailableError && error instanceof RuntimeApiBridgeUnavailableError) {
+      throw store.runtimeBridgeUnavailable({
+        runtimeProfile: agent.runtimeProfile,
+        operation: "submit_turn",
+        details: error.details,
+      });
+    }
+    throw error;
+  }
+  const projection = turnSubmitNormalizer({ bridgeResult, agent, threadId, request }, deps);
+  if (diagnosticsFeedback) {
+    projection.events = insertRuntimeBridgeDiagnosticsInjectionEvent({
+      projection,
+      agent,
+      threadId,
+      diagnosticsFeedback,
+    });
+  }
+  projection.events = insertRuntimeBridgeComputerUseDerivedEvents({
+    projection,
+    agent,
+    threadId,
+  });
+  projection.events = insertRuntimeBridgeUsageDeltaEvents({
+    projection,
+    agent,
+    threadId,
+  });
+  for (const event of projection.events) store.appendRuntimeEvent(event);
+  const run = runtimeBridgeRunRecord({ agent, request, projection });
+  store.runs.set(run.id, run);
+  store.writeRun(run, "turn.runtime_bridge.submit");
+  for (const turnId of inFlightTurnIds) {
+    store.unregisterInFlightRuntimeTurn(threadId, turnId);
+  }
+  store.appendOperation("turn.runtime_bridge.submit_budget", {
+    objectId: run.id,
+    runId: run.id,
+    agentId: agent.id,
+    threadId,
+    runtimeProfile: agent.runtimeProfile,
+    requestedMaxSteps,
+    normalizedMaxSteps,
+    clampedMaxSteps: requestedMaxSteps !== null && normalizedMaxSteps !== requestedMaxSteps,
+    requestMaxSteps,
+    optionsMaxSteps,
+    bridgeId: store.runtimeBridge.bridgeId,
+  });
+  return store.turnForRun(run);
+}
+
 export function normalizeRuntimeBridgeThreadStart({ bridgeResult, agent, threadId, runtimeProfile }, deps = {}) {
   const {
     bridgeId,

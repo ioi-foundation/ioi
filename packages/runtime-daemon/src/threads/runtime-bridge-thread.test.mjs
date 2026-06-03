@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   createRuntimeBridgeThread,
+  createRuntimeBridgeTurn,
   normalizeRuntimeBridgeLiveEvent,
   normalizeRuntimeBridgeThreadStart,
   normalizeRuntimeBridgeTurnSubmit,
@@ -19,6 +20,10 @@ function deps() {
   return {
     eventStreamIdForThread: (threadId) => `stream_${threadId}`,
     normalizeArray: (value) => Array.isArray(value) ? value : [],
+    optionalPositiveInteger: (value) => {
+      const number = Number(value);
+      return Number.isInteger(number) && number > 0 ? number : null;
+    },
     optionalString: (value) => typeof value === "string" && value.trim() ? value.trim() : null,
     runIdForTurn: (turnId) => `run_${turnId}`,
     RuntimeApiBridgeUnavailableError: BridgeUnavailableError,
@@ -88,6 +93,77 @@ function fakeStore({ bridgeResult, bridgeError } = {}) {
   };
 }
 
+function fakeTurnStore({ bridgeResult, bridgeError, liveEvent } = {}) {
+  const calls = [];
+  const runs = new Map();
+  return {
+    calls,
+    runs,
+    runtimeBridge: {
+      bridgeId: "bridge_default",
+      async submitTurn(input, handlers = {}) {
+        calls.push({ operation: "submit_turn", input });
+        if (liveEvent) handlers.onRuntimeEvent?.(liveEvent);
+        if (bridgeError) throw bridgeError;
+        return bridgeResult ?? {
+          turn_id: "turn_runtime",
+          run_id: "run_runtime",
+          status: "completed",
+          result: "done",
+          events: [{ event_kind: "turn.started" }],
+        };
+      },
+    },
+    assertRuntimeBridgeAvailable(input) {
+      calls.push({ operation: "assert_bridge", input });
+    },
+    appendRuntimeEvent(event) {
+      calls.push({ operation: "append_event", event });
+    },
+    registerInFlightRuntimeTurn(input) {
+      calls.push({ operation: "register_in_flight", input });
+    },
+    unregisterInFlightRuntimeTurn(threadId, turnId) {
+      calls.push({ operation: "unregister_in_flight", threadId, turnId });
+    },
+    appendOperation(operationKind, payload) {
+      calls.push({ operation: "append_operation", operationKind, payload });
+    },
+    writeRun(run, operationKind) {
+      calls.push({ operation: "write_run", run, operationKind });
+    },
+    turnForRun(run) {
+      calls.push({ operation: "turn_for_run", run });
+      return { turn_id: run.turnId, run_id: run.id };
+    },
+    runtimeBridgeUnavailable(input) {
+      const error = new Error("runtime bridge unavailable");
+      error.input = input;
+      return error;
+    },
+  };
+}
+
+function turnDeps() {
+  return {
+    ...deps(),
+    RUNTIME_BRIDGE_AGENT_TURN_MIN_STEPS: 8,
+    insertRuntimeBridgeComputerUseDerivedEvents: ({ projection }) => projection.events,
+    insertRuntimeBridgeDiagnosticsInjectionEvent: ({ projection }) => [
+      { event_kind: "lsp.diagnostics.injected" },
+      ...projection.events,
+    ],
+    insertRuntimeBridgeUsageDeltaEvents: ({ projection }) => projection.events,
+    runtimeBridgeRunRecord: ({ agent, request, projection }) => ({
+      id: projection.runId,
+      agentId: agent.id,
+      turnId: projection.turnId,
+      request,
+      projection,
+    }),
+  };
+}
+
 test("runtime bridge thread creation starts bridge and persists updated agent", async () => {
   const store = fakeStore();
 
@@ -127,6 +203,82 @@ test("runtime bridge thread creation maps bridge unavailable errors", async () =
       return true;
     },
   );
+});
+
+test("runtime bridge turn creation submits clamped bridge request and persists run", async () => {
+  const store = fakeTurnStore({
+    liveEvent: { event_kind: "turn.delta", turn_id: "turn_live", run_id: "run_live" },
+  });
+  const agent = {
+    id: "agent_runtime",
+    cwd: "/workspace",
+    runtimeProfile: "runtime_service",
+    runtimeSessionId: "session_runtime",
+  };
+
+  const turn = await createRuntimeBridgeTurn(store, {
+    agent,
+    threadId: "thread_agent_runtime",
+    request: { prompt: "hello", max_steps: 2, options: { max_steps: 4 } },
+    diagnosticsFeedback: { injectionId: "diag_1" },
+  }, turnDeps());
+
+  const submit = store.calls.find((call) => call.operation === "submit_turn");
+  assert.equal(submit.input.request.max_steps, 8);
+  assert.equal(submit.input.options.maxSteps, 8);
+  assert.equal(submit.input.sessionId, "session_runtime");
+  assert.equal(submit.input.streamedEventsOnly, true);
+
+  assert.equal(store.calls.some((call) => call.operation === "register_in_flight"), true);
+  assert.equal(store.calls.filter((call) => call.operation === "append_event").length, 3);
+
+  const write = store.calls.find((call) => call.operation === "write_run");
+  assert.equal(write.operationKind, "turn.runtime_bridge.submit");
+  assert.equal(write.run.id, "run_runtime");
+  assert.equal(write.run.projection.events[0].event_kind, "lsp.diagnostics.injected");
+
+  const budget = store.calls.find((call) =>
+    call.operation === "append_operation" &&
+    call.operationKind === "turn.runtime_bridge.submit_budget"
+  );
+  assert.equal(budget.payload.requestedMaxSteps, 4);
+  assert.equal(budget.payload.normalizedMaxSteps, 8);
+  assert.equal(budget.payload.clampedMaxSteps, true);
+  assert.deepEqual(turn, { turn_id: "turn_runtime", run_id: "run_runtime" });
+});
+
+test("runtime bridge turn creation maps bridge unavailable errors and cleans in-flight turn", async () => {
+  const store = fakeTurnStore({
+    liveEvent: { event_kind: "turn.delta", turn_id: "turn_live", run_id: "run_live" },
+    bridgeError: new BridgeUnavailableError({ reason: "not configured" }),
+  });
+  const agent = {
+    id: "agent_runtime",
+    cwd: "/workspace",
+    runtimeProfile: "runtime_service",
+    runtimeSessionId: "session_runtime",
+  };
+
+  await assert.rejects(
+    createRuntimeBridgeTurn(store, {
+      agent,
+      threadId: "thread_agent_runtime",
+      request: { prompt: "hello" },
+    }, turnDeps()),
+    (error) => {
+      assert.equal(error.input.operation, "submit_turn");
+      assert.equal(error.input.details.reason, "not configured");
+      return true;
+    },
+  );
+
+  assert.equal(store.calls.some((call) => call.operation === "unregister_in_flight"), true);
+  const errorOperation = store.calls.find((call) =>
+    call.operation === "append_operation" &&
+    call.operationKind === "turn.runtime_bridge.submit_error"
+  );
+  assert.equal(errorOperation.payload.errorName, "Error");
+  assert.equal(errorOperation.payload.details.operation, null);
 });
 
 test("runtime bridge thread start normalization fills event defaults", () => {

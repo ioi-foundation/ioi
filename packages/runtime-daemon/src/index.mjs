@@ -142,6 +142,7 @@ import {
 } from "./threads/workspace-change-state.mjs";
 import {
   createRuntimeBridgeThread as createRuntimeBridgeThreadState,
+  createRuntimeBridgeTurn as createRuntimeBridgeTurnState,
   normalizeRuntimeBridgeLiveEvent as normalizeRuntimeBridgeLiveEventState,
   normalizeRuntimeBridgeThreadStart as normalizeRuntimeBridgeThreadStartState,
   normalizeRuntimeBridgeTurnSubmit as normalizeRuntimeBridgeTurnSubmitState,
@@ -3354,142 +3355,23 @@ export class AgentgresRuntimeStateStore {
   }
 
   async createRuntimeBridgeTurn({ agent, threadId, request, diagnosticsFeedback = null }) {
-    this.assertRuntimeBridgeAvailable({ runtimeProfile: agent.runtimeProfile, operation: "submit_turn" });
-    const submitOptions = request?.options && typeof request.options === "object"
-      ? request.options
-      : {};
-    const requestMaxSteps = optionalPositiveInteger(request?.max_steps ?? request?.maxSteps);
-    const optionsMaxSteps = optionalPositiveInteger(submitOptions.max_steps ?? submitOptions.maxSteps);
-    const explicitStepBudgets = [requestMaxSteps, optionsMaxSteps].filter((value) => Number.isFinite(value));
-    const requestedMaxSteps = explicitStepBudgets.length ? Math.max(...explicitStepBudgets) : null;
-    const normalizedMaxSteps = requestedMaxSteps
-      ? Math.max(RUNTIME_BRIDGE_AGENT_TURN_MIN_STEPS, requestedMaxSteps)
-      : null;
-    const bridgeRequest = normalizedMaxSteps
-      ? {
-          ...request,
-          max_steps: normalizedMaxSteps,
-          maxSteps: normalizedMaxSteps,
-        }
-      : request;
-    const bridgeOptions = normalizedMaxSteps
-      ? {
-          ...submitOptions,
-          max_steps: normalizedMaxSteps,
-          maxSteps: normalizedMaxSteps,
-        }
-      : submitOptions;
-    const input = {
-      request: bridgeRequest,
-      options: bridgeOptions,
-      agentId: agent.id,
-      threadId,
-      sessionId: runtimeSessionIdForAgent(agent),
-      workspaceRoot: agent.cwd,
-      createdAt: new Date().toISOString(),
-      streamedEventsOnly: true,
-    };
-    const inFlightTurnIds = new Set();
-    let bridgeResult;
-    try {
-      bridgeResult = await this.runtimeBridge.submitTurn(input, {
-        onRuntimeEvent: (event) => {
-          const normalized = this.normalizeRuntimeBridgeLiveEvent({ event, agent, threadId });
-          const liveTurnId = optionalString(normalized.turn_id ?? normalized.turnId);
-          if (liveTurnId) {
-            inFlightTurnIds.add(liveTurnId);
-            this.registerInFlightRuntimeTurn({
-              agent,
-              threadId,
-              turnId: liveTurnId,
-              runId: optionalString(event?.run_id ?? event?.runId ?? normalized.payload?.run_id),
-              request,
-            });
-          }
-          this.appendRuntimeEvent(normalized);
-        },
-      });
-    } catch (error) {
-      for (const turnId of inFlightTurnIds) {
-        this.unregisterInFlightRuntimeTurn(threadId, turnId);
-      }
-      this.appendOperation("turn.runtime_bridge.submit_error", {
-        objectId: agent.id,
-        agentId: agent.id,
-        threadId,
-        runtimeProfile: agent.runtimeProfile,
-        operation: "submit_turn",
-        errorName: error?.name ?? null,
-        errorCode: error?.code ?? error?.details?.adapterErrorCode ?? null,
-        errorMessage: String(error?.message ?? error),
-        errorStatus: error?.status ?? null,
-        bridgeId: this.runtimeBridge.bridgeId,
-        requestIntentId: request?.intentFrame?.intentId ?? request?.intentFrame?.intent_id ?? null,
-        requestRouteDirective: request?.intentFrame?.routeDirective ?? request?.intentFrame?.route_directive ?? null,
-        requestRequiredCapabilities: Array.isArray(request?.intentFrame?.requiredCapabilities)
-          ? request.intentFrame.requiredCapabilities
-          : [],
-        details: error?.details
-          ? {
-              operation: error.details.operation ?? null,
-              bridgeId: error.details.bridgeId ?? null,
-              adapterErrorCode: error.details.adapterErrorCode ?? null,
-              exitCode: error.details.exitCode ?? null,
-              signal: error.details.signal ?? null,
-              stderr: error.details.stderr ?? null,
-              error: error.details.error ?? null,
-            }
-          : null,
-      });
-      if (error instanceof RuntimeApiBridgeUnavailableError) {
-        throw this.runtimeBridgeUnavailable({
-          runtimeProfile: agent.runtimeProfile,
-          operation: "submit_turn",
-          details: error.details,
-        });
-      }
-      throw error;
-    }
-    const projection = this.normalizeRuntimeBridgeTurnSubmit({ bridgeResult, agent, threadId, request });
-    if (diagnosticsFeedback) {
-      projection.events = insertRuntimeBridgeDiagnosticsInjectionEvent({
-        projection,
-        agent,
-        threadId,
-        diagnosticsFeedback,
-      });
-    }
-    projection.events = insertRuntimeBridgeComputerUseDerivedEvents({
-      projection,
-      agent,
-      threadId,
+    return createRuntimeBridgeTurnState(this, { agent, threadId, request, diagnosticsFeedback }, {
+      RuntimeApiBridgeUnavailableError,
+      RUNTIME_BRIDGE_AGENT_TURN_MIN_STEPS,
+      eventStreamIdForThread,
+      insertRuntimeBridgeComputerUseDerivedEvents,
+      insertRuntimeBridgeDiagnosticsInjectionEvent,
+      insertRuntimeBridgeUsageDeltaEvents,
+      normalizeArray,
+      normalizeRuntimeBridgeLiveEvent: (input) => this.normalizeRuntimeBridgeLiveEvent(input),
+      normalizeRuntimeBridgeTurnSubmit: (input) => this.normalizeRuntimeBridgeTurnSubmit(input),
+      optionalPositiveInteger,
+      optionalString,
+      runIdForTurn,
+      runtimeBridgeRunRecord,
+      runtimeError,
+      runtimeSessionIdForAgent,
     });
-    projection.events = insertRuntimeBridgeUsageDeltaEvents({
-      projection,
-      agent,
-      threadId,
-    });
-    for (const event of projection.events) this.appendRuntimeEvent(event);
-    const run = runtimeBridgeRunRecord({ agent, request, projection });
-    this.runs.set(run.id, run);
-    this.writeRun(run, "turn.runtime_bridge.submit");
-    for (const turnId of inFlightTurnIds) {
-      this.unregisterInFlightRuntimeTurn(threadId, turnId);
-    }
-    this.appendOperation("turn.runtime_bridge.submit_budget", {
-      objectId: run.id,
-      runId: run.id,
-      agentId: agent.id,
-      threadId,
-      runtimeProfile: agent.runtimeProfile,
-      requestedMaxSteps,
-      normalizedMaxSteps,
-      clampedMaxSteps: requestedMaxSteps !== null && normalizedMaxSteps !== requestedMaxSteps,
-      requestMaxSteps,
-      optionsMaxSteps,
-      bridgeId: this.runtimeBridge.bridgeId,
-    });
-    return this.turnForRun(run);
   }
 
   listTurns(threadId) {

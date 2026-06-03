@@ -53,8 +53,8 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Moved runtime-backed workspace-change review inspection/control bridge behavior out of `index.mjs` behind compatibility-preserving `AgentgresRuntimeStateStore` delegator methods.
 - Added focused workspace-change thread-state tests for fixture fallback snapshots, runtime bridge inspection normalization, control command construction, and missing change-id validation.
 - Added `packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs`.
-- Moved runtime-service thread start orchestration, start-result normalization, submit-turn normalization, and live-event normalization out of `index.mjs` behind existing `createRuntimeBridgeThread`, `normalizeRuntimeBridgeThreadStart`, `normalizeRuntimeBridgeTurnSubmit`, and `normalizeRuntimeBridgeLiveEvent` compatibility methods.
-- Added focused runtime bridge thread tests for bridge input shaping, updated-agent persistence, event append behavior, bridge-unavailable error mapping, event default projection, start-contract failures, submit-turn projection defaults, submit-turn contract failures, and live-event envelope normalization.
+- Moved runtime-service thread start orchestration, runtime-service turn submit orchestration, start-result normalization, submit-turn normalization, and live-event normalization out of `index.mjs` behind existing `createRuntimeBridgeThread`, `createRuntimeBridgeTurn`, `normalizeRuntimeBridgeThreadStart`, `normalizeRuntimeBridgeTurnSubmit`, and `normalizeRuntimeBridgeLiveEvent` compatibility methods.
+- Added focused runtime bridge thread tests for bridge input shaping, updated-agent persistence, event append behavior, bridge-unavailable error mapping, turn submit max-step clamping, in-flight cleanup, run persistence, event default projection, start-contract failures, submit-turn projection defaults, submit-turn contract failures, and live-event envelope normalization.
 
 Status: `index.mjs` still owns the large state store and public route composition. Safe next extractions are daemon service lifecycle, thread store/control/replay persistence, and route registration glue.
 
