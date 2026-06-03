@@ -281,7 +281,7 @@ all private files remain encrypted, redacted, sealed, guardian-mediated, or expl
 all tools run under declared capability scope
 all network egress is policy-bound and receipted
 all external actions go through capability exits
-all state mutations commit to Agentgres or equivalent non-IOI StateLog binding
+all state mutations commit to Agentgres
 all long-running autonomy uses AutonomyLease
 all node measurements produce NodeMeasurementReceipt
 all protected runs emit required cTEE receipts
@@ -297,7 +297,7 @@ HypervisorOSNode:
   daemon_ref: runtime://...
   boot_profile_ref: boot_profile://...
   measurement_policy_ref: measurement_policy://...
-  ctee_policy_ref: ctee_policy://...
+  ctee_policy_ref: policy://...
   agentgres_domain_ref: agentgres://domain/...
   supported_worker_substrates:
     - microvm
@@ -524,6 +524,9 @@ IOI L1 or compatible app-chain settlement receives only selected roots,
 receipt commitments, dispute commitments, registry state, staking claims,
 slashing evidence, or economic settlement state. It must not receive private
 workspace payloads.
+
+Non-IOI adopters may bind the same concept to an equivalent StateLog, but the
+IOI canon uses Agentgres for admitted operational truth.
 
 ## Events and Receipts
 

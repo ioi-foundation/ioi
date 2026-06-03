@@ -4,7 +4,7 @@ Status: canonical navigation and source-of-authority index.
 Canonical owner: this file for architecture navigation; see [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) for subject ownership.
 Supersedes: ad hoc architecture navigation in plans/specs when links or ownership disagree.
 Superseded by: none.
-Last alignment pass: 2026-06-01.
+Last alignment pass: 2026-06-03.
 
 ## Purpose
 

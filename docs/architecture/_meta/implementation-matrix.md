@@ -4,7 +4,7 @@ Status: canonical implementation index.
 Canonical owner: this file for mapping major architecture concepts to canonical owner docs, current durable forms, object/projection status, code anchors, and conformance hooks.
 Supersedes: ad hoc implementation-status tables in plans/specs when concept ownership or durable-form status conflicts.
 Superseded by: none.
-Last alignment pass: 2026-06-01.
+Last alignment pass: 2026-06-03.
 
 ## Purpose
 

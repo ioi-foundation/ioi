@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for runtime events, receipts, delivery bundles, trace bundles, and quality records.
 Supersedes: overlapping event/receipt examples in plans/specs when event, trace, or receipt fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-06-01.
+Last alignment pass: 2026-06-03.
 
 ## Purpose
 

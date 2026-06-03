@@ -4,7 +4,7 @@ Status: canonical vocabulary reference.
 Canonical owner: this file for runtime, audit, substrate, projection, and legacy naming vocabulary.
 Supersedes: overlapping runtime vocabulary in plans/specs when names conflict.
 Superseded by: none.
-Last alignment pass: 2026-06-01.
+Last alignment pass: 2026-06-03.
 
 The agent harness uses behavior-first names in runtime code and reserves
 compliance acronyms for hidden audit material.

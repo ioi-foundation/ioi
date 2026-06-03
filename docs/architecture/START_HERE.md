@@ -4,7 +4,7 @@ Status: canonical reader entry point.
 Canonical owner: this file for first-read architecture orientation and role-based reading paths.
 Supersedes: ad hoc onboarding paths across architecture docs.
 Superseded by: none.
-Last alignment pass: 2026-06-01.
+Last alignment pass: 2026-06-03.
 
 ## Five-Minute Mental Model
 
