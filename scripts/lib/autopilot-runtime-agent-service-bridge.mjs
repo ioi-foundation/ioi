@@ -16,6 +16,10 @@ export const DEFAULT_RUNTIME_ROUTE_ID = "route.local-first";
 export const DEFAULT_RUNTIME_PROVIDER_ID = "provider.autopilot.local";
 export const DEFAULT_RUNTIME_BACKEND_ID = "backend.autopilot.native-local.fixture";
 
+function truthyEnv(value) {
+  return /^(1|true|yes|on)$/i.test(String(value || "").trim());
+}
+
 export function defaultRuntimeBridgeBinary(repoRoot) {
   return resolve(
     repoRoot,
@@ -204,10 +208,15 @@ export async function bootstrapNativeRuntimeModelRoute({
   providerId = DEFAULT_RUNTIME_PROVIDER_ID,
   backendId = DEFAULT_RUNTIME_BACKEND_ID,
 } = {}) {
-  configureNativeLlamaCppEnvDefaults({ env: process.env });
-  const configuredLlamaCppModelPath = firstNonEmptyEnv(process.env, [
-    "IOI_LLAMA_CPP_MODEL_PATH",
-  ]);
+  const forceNativeFixture = truthyEnv(process.env.IOI_FORCE_NATIVE_FIXTURE_MODEL_ROUTE);
+  if (!forceNativeFixture) {
+    configureNativeLlamaCppEnvDefaults({ env: process.env });
+  }
+  const configuredLlamaCppModelPath = forceNativeFixture
+    ? null
+    : firstNonEmptyEnv(process.env, [
+      "IOI_LLAMA_CPP_MODEL_PATH",
+    ]);
   if (configuredLlamaCppModelPath) {
     if (!existsSync(configuredLlamaCppModelPath)) {
       throw new Error(`Configured llama.cpp model path does not exist: ${configuredLlamaCppModelPath}`);

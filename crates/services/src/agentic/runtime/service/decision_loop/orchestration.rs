@@ -208,7 +208,9 @@ pub(super) fn maybe_fail_step_resource_limits(
     agent_state: &mut AgentState,
     key: &[u8],
 ) -> Result<bool, TransactionError> {
-    if agent_state.budget != 0 && agent_state.consecutive_failures < 5 {
+    // A zero budget is used by existing playbook/runtime paths as an unset budget,
+    // so only the explicit consecutive-failure retry ceiling terminalizes here.
+    if agent_state.consecutive_failures < 5 {
         return Ok(false);
     }
 

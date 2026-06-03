@@ -43,6 +43,39 @@ async function fetchSseEvents(url) {
     });
 }
 
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function seedDaemonThread(store, cwd) {
+  const now = new Date().toISOString();
+  const agent = {
+    id: `agent_policy_lease_panel_${process.pid}`,
+    status: "active",
+    runtime: "agent",
+    cwd,
+    modelId: "autopilot:native-fixture",
+    requestedModelId: "auto",
+    modelRouteId: "route.native-local",
+    modelRouteEndpointId: null,
+    modelRouteProviderId: null,
+    modelRouteReceiptId: null,
+    modelRouteDecision: null,
+    runtimeControls: {
+      mode: "yolo",
+      approvalMode: "never_prompt",
+      model: { id: "auto", routeId: "route.native-local" },
+    },
+    mcpRegistry: null,
+    createdAt: now,
+    updatedAt: now,
+    options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
+  };
+  store.agents.set(agent.id, agent);
+  store.writeAgent(agent, "agent.create.policy-lease-panel-proof");
+  return store.threadForAgent(agent);
+}
+
 const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-stage13-workspace-"));
 const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-stage13-state-"));
 const targetPath = path.join(cwd, "lease.txt");
@@ -57,26 +90,11 @@ try {
   const expectedReceiptRef = "receipt_policy_lease_expected";
   const policyHash = "policy_hash_policy_lease_revoke_proof";
   const ttlMs = 60_000;
-  const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
-    method: "POST",
-    body: JSON.stringify({
-      source: "react_flow",
-      goal: "Prove approval policy leases surface in Agent Studio and revoke blocks later execution.",
-      options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
-    }),
-  });
-  const mode = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/mode`, {
-    method: "POST",
-    body: JSON.stringify({
-      source: "react_flow",
-      workflowGraphId,
-      workflowNodeId: "runtime.thread-mode.yolo.policy-lease",
-      mode: "yolo",
-      approvalMode: "never_prompt",
-    }),
-  });
-  assert.equal(mode.mode, "yolo");
-  assert.equal(mode.approval_mode, "never_prompt");
+  const expiryToolCallId = "coding_tool_policy_lease_expiry_probe";
+  const expiryExpectedReceiptRef = "receipt_policy_lease_expiry_expected";
+  const expiryPolicyHash = "policy_hash_policy_lease_expiry_proof";
+  const expiryTtlMs = 1_600;
+  const thread = seedDaemonThread(daemon.store, cwd);
 
   const baseBody = {
     source: "react_flow",
@@ -104,6 +122,13 @@ try {
       newText: "lease after",
       dryRun: true,
     },
+  };
+  const expiryBody = {
+    ...baseBody,
+    toolCallId: expiryToolCallId,
+    ttlMs: expiryTtlMs,
+    policyHash: expiryPolicyHash,
+    expectedReceiptRefs: [expiryExpectedReceiptRef],
   };
   const toolEndpoint = `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/file.apply_patch/invoke`;
   const blocked = await fetchJson(toolEndpoint, {
@@ -239,8 +264,88 @@ try {
   assert.equal(finalPanel.revokedCount, 1);
   assert.equal(finalPanel.activeCount, 0);
 
+  const expiryBlocked = await fetchJson(toolEndpoint, {
+    method: "POST",
+    body: JSON.stringify({
+      ...expiryBody,
+      idempotencyKey: "policy-lease-proof-expiry-blocked-attempt",
+    }),
+  });
+  assert.equal(expiryBlocked.status, "blocked");
+  assert.equal(expiryBlocked.approval_required, true);
+
+  const expiryApproved = await fetchJson(
+    `${daemon.endpoint}/v1/threads/${thread.thread_id}/approvals/${expiryBlocked.approval_id}/approve`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        source: "react_flow",
+        workflowGraphId,
+        workflowNodeId,
+        reason: "Approve short-lived policy lease proof execution.",
+      }),
+    },
+  );
+  assert.equal(expiryApproved.decision, "approve");
+  assert.equal(expiryApproved.lease_status, "active");
+
+  const expiryExecutedBefore = await fetchJson(toolEndpoint, {
+    method: "POST",
+    body: JSON.stringify({
+      ...expiryBody,
+      idempotencyKey: "policy-lease-proof-expiry-before-execution",
+      approvalId: expiryBlocked.approval_id,
+    }),
+  });
+  assert.equal(expiryExecutedBefore.status, "completed");
+  assert.equal(expiryExecutedBefore.event.payload_summary.approval_satisfied, true);
+
+  const expiryActiveEvents = await fetchSseEvents(
+    `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+  );
+  const expiryActivePanel = buildWorkflowRuntimePolicyLeasePanel(expiryActiveEvents, {
+    threadId: thread.thread_id,
+    workflowGraphId,
+  });
+  const expiryActiveRow = expiryActivePanel.rows.find((row) => row.approvalId === expiryBlocked.approval_id);
+  assert.ok(expiryActiveRow);
+  assert.equal(expiryActiveRow.status, "active");
+  assert.equal(expiryActiveRow.executable, true);
+  assert.equal(expiryActiveRow.policyHash, expiryPolicyHash);
+  assert.equal(expiryActiveRow.ttlMs, expiryTtlMs);
+  assert.deepEqual(expiryActiveRow.expectedReceiptRefs, [expiryExpectedReceiptRef]);
+
+  const expiryExpiresAtMs = Date.parse(expiryApproved.approval_lease.expires_at);
+  assert.ok(Number.isFinite(expiryExpiresAtMs));
+  await wait(Math.max(0, expiryExpiresAtMs - Date.now()) + 80);
+
+  const expiryExpiredEvents = await fetchSseEvents(
+    `${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`,
+  );
+  const expiryExpiredPanel = buildWorkflowRuntimePolicyLeasePanel(expiryExpiredEvents, {
+    threadId: thread.thread_id,
+    workflowGraphId,
+  });
+  const expiryExpiredRow = expiryExpiredPanel.rows.find((row) => row.approvalId === expiryBlocked.approval_id);
+  assert.ok(expiryExpiredRow);
+  assert.equal(expiryExpiredRow.status, "expired");
+  assert.equal(expiryExpiredRow.revokable, false);
+  assert.equal(expiryExpiredRow.executable, false);
+  assert.equal(expiryExpiredPanel.expiredCount, 1);
+
+  const expiryBlockedAfterExpiry = await fetchJson(toolEndpoint, {
+    method: "POST",
+    body: JSON.stringify({
+      ...expiryBody,
+      idempotencyKey: "policy-lease-proof-after-expiry",
+      approvalId: expiryBlocked.approval_id,
+    }),
+  });
+  assert.equal(expiryBlockedAfterExpiry.status, "blocked");
+  assert.equal(expiryBlockedAfterExpiry.error?.code, "coding_tool_approval_required");
+
   const proof = {
-    schemaVersion: "ioi.autopilot.stage13.policy-lease-panel-revoke-proof.v1",
+    schemaVersion: "ioi.autopilot.stage13.policy-lease-panel-revoke-proof.v2",
     passed: true,
     cwd,
     stateDir,
@@ -256,21 +361,30 @@ try {
       approvalApprovedEventId: approved.event_id,
       toolExecutedEventId: executed.event.event_id,
       approvalRevokedEventId: revoked.event_id,
+      expiryApprovalRequiredEventId: expiryBlocked.approval_event_id,
+      expiryApprovalApprovedEventId: expiryApproved.event_id,
+      expiryToolExecutedBeforeExpiryEventId: expiryExecutedBefore.event.event_id,
     },
     checks: {
       pendingPanelVisible: pendingRow.status === "pending",
       activePanelVisible: activeRow.status === "active",
       revokeEndpointVisible: Boolean(finalRow.revokeEndpoint),
       revokeInvalidatesExecution: blockedAfterRevoke.status === "blocked",
+      expiryPanelVisible: expiryExpiredRow.status === "expired",
+      expiryInvalidatesExecution: expiryBlockedAfterExpiry.status === "blocked",
       dryRunDidNotMutateFile: fs.readFileSync(targetPath, "utf8") === "lease before\n",
       policyHashPreserved: finalRow.policyHash === policyHash,
       ttlPreserved: finalRow.ttlMs === ttlMs,
       expectedReceiptRefsPreserved: finalRow.expectedReceiptRefs.includes(expectedReceiptRef),
+      shortTtlPreserved: expiryExpiredRow.ttlMs === expiryTtlMs,
+      shortTtlReceiptRefsPreserved: expiryExpiredRow.expectedReceiptRefs.includes(expiryExpectedReceiptRef),
     },
     panels: {
       pending: pendingPanel,
       active: activePanel,
       final: finalPanel,
+      expiryActive: expiryActivePanel,
+      expiryExpired: expiryExpiredPanel,
     },
   };
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });

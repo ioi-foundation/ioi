@@ -77,12 +77,28 @@ export function assertPromptForbiddenTermsAbsent(text, promptCase) {
   const forbiddenTerms = Array.isArray(promptCase.mustNotMentionAny)
     ? promptCase.mustNotMentionAny.map((term) => String(term || "").trim()).filter(Boolean)
     : [];
-  if (forbiddenTerms.length === 0) return;
-  const lowerText = String(text || "").toLowerCase();
+  const forbiddenPatterns = Array.isArray(promptCase.mustNotMentionPatterns)
+    ? promptCase.mustNotMentionPatterns.map((pattern) => String(pattern || "").trim()).filter(Boolean)
+    : [];
+  if (forbiddenTerms.length === 0 && forbiddenPatterns.length === 0) return;
+  const responseText = String(text || "");
+  const lowerText = responseText.toLowerCase();
   const matched = forbiddenTerms.find((term) => lowerText.includes(term.toLowerCase()));
   if (matched) {
     throw new Error(
       `Assistant response for "${String(promptCase.prompt || promptCase.kind).slice(0, 40)}" included forbidden direct-tool text: ${matched}`,
+    );
+  }
+  const matchedPattern = forbiddenPatterns.find((pattern) => {
+    try {
+      return new RegExp(pattern, "i").test(responseText);
+    } catch {
+      return responseText.toLowerCase().includes(pattern.toLowerCase());
+    }
+  });
+  if (matchedPattern) {
+    throw new Error(
+      `Assistant response for "${String(promptCase.prompt || promptCase.kind).slice(0, 40)}" matched forbidden product pattern: ${matchedPattern}`,
     );
   }
 }

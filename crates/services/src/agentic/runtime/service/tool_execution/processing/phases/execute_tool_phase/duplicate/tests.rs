@@ -4,7 +4,8 @@ use super::{
     is_active_web_pipeline_chat_reply_duplicate, is_duplicate_non_command_noop_allowed,
     is_mail_read_latest_tool, is_mail_reply_tool, is_non_command_duplicate_noop_tool,
     is_read_only_filesystem_tool, maybe_terminalize_duplicate_worker_noop,
-    queue_browser_snapshot_verification, worker_duplicate_noop_summary,
+    queue_browser_snapshot_verification, stop_hook_chat_reply_duplicate_blocker,
+    stop_hook_duplicate_chat_reply_outcome, worker_duplicate_noop_summary,
     worker_duplicate_requires_recovery_error, workspace_duplicate_noop_summary,
 };
 use crate::agentic::runtime::service::decision_loop::helpers::default_safe_policy;
@@ -159,6 +160,41 @@ fn active_web_pipeline_chat_reply_duplicates_are_noop_safe() {
         "file__read",
         &agent_state
     ));
+}
+
+#[test]
+fn duplicate_chat_reply_is_blocked_by_uncleared_stop_hook() {
+    let mut agent_state = test_agent_state();
+    agent_state.command_history.push_back(CommandExecution {
+        command: "node --test tests/*.test.mjs".to_string(),
+        exit_code: 1,
+        stdout: "not ok 1 - formats order totals as dollars\nexpected '$12.99'\nactual '12.99'"
+            .to_string(),
+        stderr: String::new(),
+        timestamp_ms: 1_772_304_000_000,
+        step_index: 4,
+    });
+
+    let blocker = stop_hook_chat_reply_duplicate_blocker("chat__reply", &agent_state)
+        .expect("chat__reply duplicate should be blocked until validation clears");
+
+    assert!(blocker.contains("ERROR_CLASS=StopHookBlocked"));
+    assert!(blocker.contains("not ok 1"));
+    assert!(blocker.contains("Do not call the terminal reply tool again"));
+    assert!(stop_hook_chat_reply_duplicate_blocker("file__read", &agent_state).is_none());
+}
+
+#[test]
+fn duplicate_stop_hook_chat_reply_returns_loop_feedback_not_retry_failure() {
+    let blocker = "ERROR_CLASS=StopHookBlocked validation failed; repair and rerun".to_string();
+    let outcome = stop_hook_duplicate_chat_reply_outcome(blocker.clone());
+
+    assert!(outcome.success);
+    assert_eq!(outcome.error_msg.as_deref(), Some(blocker.as_str()));
+    assert_eq!(outcome.history_entry.as_deref(), Some(blocker.as_str()));
+    assert_eq!(outcome.action_output.as_deref(), Some(blocker.as_str()));
+    assert!(outcome.terminal_chat_reply_output.is_none());
+    assert!(!outcome.is_lifecycle_action);
 }
 
 #[test]

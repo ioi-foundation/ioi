@@ -159,6 +159,60 @@ function parsedStudioKernelAction(event = {}) {
   return actionJson || rawOutput || preview || {};
 }
 
+function sanitizeStudioPublicToolText(value = "") {
+  return compactStudioWhitespace(value)
+    .replace(/\bshell__start:[a-f0-9]{12,}\b/gi, "<command>")
+    .replace(/\b(?:receipt|trace|request|turn|thread)_[a-z0-9:_-]{8,}\b/gi, "<ref>")
+    .replace(/ioi-session-stdin-[^\s"']+/gi, "<stdin-bridge>")
+    .replace(/\/tmp\/[^\s"']+/gi, "<tmp>")
+    .replace(/"command_id"\s*:\s*"[^"]+"/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parsedStudioToolOutputSummary(event = {}, summary = "") {
+  const payload = event.payload_summary || event.payloadSummary || event.payload || event.data || {};
+  for (const candidate of [
+    payload.output,
+    payload.summary,
+    event.payload?.output,
+    event.payload?.summary,
+    event.data?.output,
+    event.data?.summary,
+    summary,
+  ]) {
+    const parsed = parseStudioMaybeJsonObject(candidate);
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
+function studioShellCommandLabel(source = {}) {
+  const command = stringValue(source.command).trim();
+  if (!command) return "";
+  const args = Array.isArray(source.args) ? source.args.map((arg) => stringValue(arg)).filter(Boolean) : [];
+  if (args.includes("-e")) {
+    return `${command} -e <inline script>`;
+  }
+  const visibleArgs = args
+    .filter((arg) => !/shell__start:|ioi-session-stdin|command_id/i.test(arg))
+    .slice(0, 4)
+    .map((arg) => (/^\/tmp\//.test(arg) || arg.length > 80 ? "<arg>" : arg));
+  return sanitizeStudioPublicToolText([command, ...visibleArgs].join(" "));
+}
+
+function studioShellOutputExcerpt(source = {}) {
+  const outputTail = stringValue(source.output_tail || source.outputTail);
+  if (!outputTail) return "";
+  const lines = outputTail
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !/shell__start:|command_id|ioi-session-stdin|__IOI|ioi_rc=|^<ell__start:/i.test(line))
+    .slice(0, 4);
+  return sanitizeStudioPublicToolText(lines.join("\n")).slice(0, 260);
+}
+
 function studioRuntimeToolEventDetail(event = {}, toolName = "", summary = "") {
   const payload = event.payload_summary || event.payloadSummary || event.payload || event.data || {};
   const parsedSummary = parseStudioMaybeJsonObject(summary);
@@ -187,12 +241,35 @@ function studioRuntimeToolEventDetail(event = {}, toolName = "", summary = "") {
     return compactStudioWhitespace(title).slice(0, 140);
   }
   if (/shell|command|terminal/.test(toolName)) {
+    const projectedLabel = stringValue(payload.command_label || payload.commandLabel);
+    if (projectedLabel) {
+      return sanitizeStudioPublicToolText(projectedLabel).slice(0, 140);
+    }
+    const toolOutput = parsedStudioToolOutputSummary(event, summary);
+    const outputCommand = studioShellCommandLabel(toolOutput || {});
+    if (outputCommand) {
+      return outputCommand.slice(0, 140);
+    }
     const command = stringValue(source.command || args.command || payload.command);
     if (command) {
-      return compactStudioWhitespace(command).slice(0, 140);
+      return sanitizeStudioPublicToolText(command).slice(0, 140);
     }
   }
   return "";
+}
+
+function studioRuntimeToolEventExcerpt(event = {}, summary = "") {
+  const payload = event.payload_summary || event.payloadSummary || event.payload || event.data || {};
+  const projectedExcerpt = stringValue(payload.excerpt_preview || payload.excerptPreview);
+  if (projectedExcerpt) {
+    return sanitizeStudioPublicToolText(projectedExcerpt).slice(0, 260);
+  }
+  const streamChunk = stringValue(payload.chunk || payload.text);
+  if (streamChunk) {
+    return sanitizeStudioPublicToolText(streamChunk).slice(0, 260);
+  }
+  const toolOutput = parsedStudioToolOutputSummary(event, summary);
+  return studioShellOutputExcerpt(toolOutput || {});
 }
 
 module.exports = {
@@ -202,4 +279,6 @@ module.exports = {
   studioRuntimeEventIsRunningStepCompletion,
   studioRuntimeEventIdentity,
   studioRuntimeToolEventDetail,
+  studioRuntimeToolEventExcerpt,
+  sanitizeStudioPublicToolText,
 };

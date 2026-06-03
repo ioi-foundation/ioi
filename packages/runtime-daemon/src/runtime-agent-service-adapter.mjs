@@ -65,6 +65,14 @@ export class RuntimeAgentServiceCommandAdapter {
     return this.callBridge("submit_turn", input, options);
   }
 
+  async inspectThread(input) {
+    return this.callBridge("inspect_thread", input);
+  }
+
+  async controlThread(input) {
+    return this.callBridge("control_thread", input);
+  }
+
   async callBridge(operation, input, options = {}) {
     const request = {
       schema_version: COMMAND_SCHEMA_VERSION,

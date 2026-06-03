@@ -1,9 +1,12 @@
+use crate::agentic::runtime::types::CommandExecution;
 use ioi_types::app::agentic::{
     MediaFrameEvidence, MediaMultimodalBundle, MediaTimelineOutlineBundle, MediaTranscriptBundle,
     MediaVisualEvidenceBundle,
 };
 use std::collections::HashSet;
 
+const COMMAND_HISTORY_PREFIX: &str = "COMMAND_HISTORY:";
+const SHELL_CHAT_HISTORY_SMALL_STREAM_LIMIT: usize = 1_000;
 pub(super) const TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT: usize = 3_200;
 pub(super) const TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT: usize = 1_800;
 pub(super) const TOOL_CHAT_HISTORY_BROWSER_CLICK_CHAR_LIMIT: usize = 520;
@@ -34,6 +37,70 @@ fn truncate_chars_for_chat_context(text: &str, max_chars: usize) -> String {
 
     let truncated = compact.chars().take(kept).collect::<String>();
     format!("{}...", truncated.trim_end())
+}
+
+fn parse_command_history_for_chat_context(text: &str) -> Option<CommandExecution> {
+    let marker_idx = text.rfind(COMMAND_HISTORY_PREFIX)?;
+    let suffix = &text[marker_idx + COMMAND_HISTORY_PREFIX.len()..];
+    let payload = suffix.lines().next().unwrap_or_default().trim();
+    if payload.is_empty() {
+        return None;
+    }
+    serde_json::from_str::<CommandExecution>(payload).ok()
+}
+
+fn stream_line_count(text: &str) -> usize {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        0
+    } else {
+        trimmed.lines().count()
+    }
+}
+
+fn stream_char_count(text: &str) -> usize {
+    text.trim().chars().count()
+}
+
+fn compact_command_stream_for_chat(label: &str, stream: &str) -> Option<String> {
+    let trimmed = stream.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let char_count = stream_char_count(trimmed);
+    let line_count = stream_line_count(trimmed);
+    if char_count > SHELL_CHAT_HISTORY_SMALL_STREAM_LIMIT || line_count > 40 {
+        return Some(format!(
+            "{label}_lines={line_count};{label}_chars={char_count};{label}_content=omitted_large_stream"
+        ));
+    }
+
+    Some(format!(
+        "{label}_preview={}",
+        truncate_chars_for_chat_context(trimmed, SHELL_CHAT_HISTORY_SMALL_STREAM_LIMIT)
+    ))
+}
+
+fn compact_shell_history_entry_for_chat(history_entry: &str) -> String {
+    let Some(entry) = parse_command_history_for_chat_context(history_entry) else {
+        return truncate_chars_for_chat_context(history_entry, TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT);
+    };
+
+    let mut parts = vec![format!("command_exit_code={}", entry.exit_code)];
+    if let Some(stdout) = compact_command_stream_for_chat("stdout", &entry.stdout) {
+        parts.push(stdout);
+    } else {
+        parts.push("stdout_empty=true".to_string());
+    }
+    if let Some(stderr) = compact_command_stream_for_chat("stderr", &entry.stderr) {
+        parts.push(stderr);
+    } else {
+        parts.push("stderr_empty=true".to_string());
+    }
+    parts.push("raw_streams=work_lane_and_tracing_only".to_string());
+
+    format!("Command execution observation: {}.", parts.join(";"))
 }
 
 fn truncate_file_read_for_chat_context(text: &str, max_chars: usize) -> String {
@@ -1207,6 +1274,8 @@ pub(super) fn compact_tool_history_entry_for_chat(
         }
         "browser__click" => compact_browser_click_history_entry(trimmed),
         "browser__click_at" => compact_browser_synthetic_click_history_entry(trimmed),
+        "shell__run" | "shell__start" | "shell__status" | "shell__input" | "shell__terminate"
+        | "shell__reset" | "shell__cd" => compact_shell_history_entry_for_chat(trimmed),
         "file__read" => {
             truncate_file_read_for_chat_context(trimmed, TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT)
         }

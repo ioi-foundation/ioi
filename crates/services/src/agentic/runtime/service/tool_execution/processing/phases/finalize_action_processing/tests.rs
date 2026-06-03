@@ -5,10 +5,12 @@ use super::{
     install_resolution_terminal_block_reason, latest_browser_tab_id, latest_child_session_id_hex,
     latest_retained_shell_command_id, maybe_enqueue_workspace_package_manifest_recovery,
     maybe_terminalize_workspace_package_manifest_read, observe_terminal_chat_reply_shape,
-    read_only_workspace_context_duplicate_noop, select_manifest_script_recovery_candidate,
-    should_release_browser_after_terminal_reply, terminal_chat_reply_layout_profile,
-    tool_to_action_request, toolcat_single_tool_agent_await_followup,
-    toolcat_single_tool_browser_setup_followup, toolcat_single_tool_chat_reply_recovery_followup,
+    read_only_workspace_context_duplicate_noop, retained_shell_input_duplicate_noop,
+    retained_shell_lifecycle_followup, retained_shell_obsolete_input_after_stop,
+    select_manifest_script_recovery_candidate, should_release_browser_after_terminal_reply,
+    terminal_chat_reply_layout_profile, tool_to_action_request,
+    toolcat_single_tool_agent_await_followup, toolcat_single_tool_browser_setup_followup,
+    toolcat_single_tool_chat_reply_recovery_followup,
     toolcat_single_tool_duplicate_after_success_reply, toolcat_single_tool_failure_reply,
     toolcat_single_tool_reply_tool_name, toolcat_single_tool_retained_shell_followup,
     toolcat_single_tool_success_followup, workspace_goal_prefers_package_manifest_recovery,
@@ -651,6 +653,203 @@ fn toolcat_retained_shell_setup_queues_input_with_disposable_stdin() {
 }
 
 #[test]
+fn retained_shell_lifecycle_queues_status_after_start() {
+    let command_id =
+        "shell__start:abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd";
+    let goal = "Start a disposable retained Node.js helper that waits for stdin and echoes a status line. Check the helper status, send the input `compile-once`, terminate the helper, reset retained shell state, and then answer in one clean sentence.";
+    let followup = retained_shell_lifecycle_followup(
+        goal,
+        "shell__start",
+        None,
+        Some(&format!(r#"{{"command_id":"{}"}}"#, command_id)),
+    )
+    .expect("retained shell start should queue status check");
+
+    match followup {
+        AgentTool::SysExecStatus { command_id: actual } => assert_eq!(actual, command_id),
+        other => panic!("expected shell__status follow-up, got {:?}", other),
+    }
+}
+
+#[test]
+fn retained_shell_lifecycle_queues_stdin_after_status() {
+    let command_id =
+        "shell__start:abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd";
+    let goal = "Start a disposable retained Node.js helper that waits for stdin and echoes a status line. Check the helper status, send the input `compile-once`, terminate the helper, reset retained shell state, and then answer in one clean sentence.";
+    let executed = AgentTool::SysExecStatus {
+        command_id: command_id.to_string(),
+    };
+    let followup = retained_shell_lifecycle_followup(goal, "shell__status", Some(&executed), None)
+        .expect("retained shell status should queue stdin");
+
+    match followup {
+        AgentTool::SysExecInput {
+            command_id: actual,
+            stdin,
+        } => {
+            assert_eq!(actual, command_id);
+            assert_eq!(stdin, "compile-once\n");
+        }
+        other => panic!("expected shell__input follow-up, got {:?}", other),
+    }
+}
+
+#[test]
+fn retained_shell_lifecycle_status_completed_still_queues_terminate_first() {
+    let command_id =
+        "shell__start:abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd";
+    let goal = "Start a disposable retained Node.js helper that waits for stdin and echoes a status line. Check the helper status, send the input `compile-once`, terminate the helper, reset retained shell state, and then answer in one clean sentence.";
+    let executed = AgentTool::SysExecStatus {
+        command_id: command_id.to_string(),
+    };
+    let followup = retained_shell_lifecycle_followup(
+        goal,
+        "shell__status",
+        Some(&executed),
+        Some(r#"{"status":"completed"}"#),
+    )
+    .expect("completed retained shell status should still queue terminate first");
+
+    match followup {
+        AgentTool::SysExecTerminate { command_id: actual } => assert_eq!(actual, command_id),
+        other => panic!("expected shell__terminate follow-up, got {:?}", other),
+    }
+}
+
+#[test]
+fn retained_shell_lifecycle_queues_terminate_after_input() {
+    let command_id =
+        "shell__start:abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd";
+    let goal = "Start a disposable retained Node.js helper that waits for stdin and echoes a status line. Check the helper status, send the input `compile-once`, terminate the helper, reset retained shell state, and then answer in one clean sentence.";
+    let executed = AgentTool::SysExecInput {
+        command_id: command_id.to_string(),
+        stdin: "compile-once\n".to_string(),
+    };
+    let followup = retained_shell_lifecycle_followup(goal, "shell__input", Some(&executed), None)
+        .expect("retained shell input should queue terminate");
+
+    match followup {
+        AgentTool::SysExecTerminate { command_id: actual } => assert_eq!(actual, command_id),
+        other => panic!("expected shell__terminate follow-up, got {:?}", other),
+    }
+}
+
+#[test]
+fn retained_shell_lifecycle_completed_input_still_queues_terminate_first() {
+    let command_id =
+        "shell__start:abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd";
+    let goal = "Start a disposable retained Node.js helper that waits for stdin and echoes a status line. Check the helper status, send the input `compile-once`, terminate the helper, reset retained shell state, and then answer in one clean sentence.";
+    let executed = AgentTool::SysExecInput {
+        command_id: command_id.to_string(),
+        stdin: "compile-once\n".to_string(),
+    };
+    let followup = retained_shell_lifecycle_followup(
+        goal,
+        "shell__input",
+        Some(&executed),
+        Some(r#"{"status":"completed"}"#),
+    )
+    .expect("completed retained shell input should still queue terminate first");
+
+    match followup {
+        AgentTool::SysExecTerminate { command_id: actual } => assert_eq!(actual, command_id),
+        other => panic!("expected shell__terminate follow-up, got {:?}", other),
+    }
+}
+
+#[test]
+fn retained_shell_lifecycle_duplicate_stdin_still_queues_terminate_first() {
+    let command_id =
+        "shell__start:abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd";
+    let goal = "Start a disposable retained Node.js helper that waits for stdin and echoes a status line. Check the helper status, send the input `compile-once`, terminate the helper, reset retained shell state, and then answer in one clean sentence.";
+    let executed = AgentTool::SysExecInput {
+        command_id: command_id.to_string(),
+        stdin: "compile-once\n".to_string(),
+    };
+    let followup = retained_shell_lifecycle_followup(
+        goal,
+        "shell__input",
+        Some(&executed),
+        Some("Input was already sent; continuing with status/cleanup."),
+    )
+    .expect("duplicate retained shell input should still queue terminate first");
+
+    match followup {
+        AgentTool::SysExecTerminate { command_id: actual } => assert_eq!(actual, command_id),
+        other => panic!("expected shell__terminate follow-up, got {:?}", other),
+    }
+}
+
+#[test]
+fn retained_shell_lifecycle_obsolete_stdin_after_stop_still_queues_terminate_first() {
+    let command_id =
+        "shell__start:abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd";
+    let goal = "Start a disposable retained Node.js helper that waits for stdin and echoes a status line. Check the helper status, send the input `compile-once`, terminate the helper, reset retained shell state, and then answer in one clean sentence.";
+    let executed = AgentTool::SysExecInput {
+        command_id: command_id.to_string(),
+        stdin: "compile-once\n".to_string(),
+    };
+    let followup = retained_shell_lifecycle_followup(
+        goal,
+        "shell__input",
+        Some(&executed),
+        Some("Retained command was already stopped; continuing with retained shell cleanup."),
+    )
+    .expect("obsolete retained shell input should still queue terminate first");
+
+    match followup {
+        AgentTool::SysExecTerminate { command_id: actual } => assert_eq!(actual, command_id),
+        other => panic!("expected shell__terminate follow-up, got {:?}", other),
+    }
+}
+
+#[test]
+fn retained_shell_obsolete_input_after_stop_is_benign_cleanup() {
+    let goal = "Start a disposable retained Node.js helper that waits for stdin and echoes a status line. Check the helper status, send the input `compile-once`, terminate the helper, reset retained shell state, and then answer in one clean sentence.";
+    assert!(retained_shell_obsolete_input_after_stop(
+        goal,
+        Some("Command 'shell__start:abc' is no longer running.")
+    ));
+    assert!(!retained_shell_obsolete_input_after_stop(
+        "Run a quick shell command.",
+        Some("Command 'shell__start:abc' is no longer running.")
+    ));
+}
+
+#[test]
+fn retained_shell_lifecycle_queues_reset_after_terminate() {
+    let command_id =
+        "shell__start:abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd";
+    let goal = "Start a disposable retained Node.js helper that waits for stdin and echoes a status line. Check the helper status, send the input `compile-once`, terminate the helper, reset retained shell state, and then answer in one clean sentence.";
+    let executed = AgentTool::SysExecTerminate {
+        command_id: command_id.to_string(),
+    };
+    let followup =
+        retained_shell_lifecycle_followup(goal, "shell__terminate", Some(&executed), None)
+            .expect("retained shell terminate should queue reset");
+
+    match followup {
+        AgentTool::SysExecSessionReset {} => {}
+        other => panic!("expected shell__reset follow-up, got {:?}", other),
+    }
+}
+
+#[test]
+fn retained_shell_lifecycle_queues_clean_reply_after_reset() {
+    let goal = "Start a disposable retained Node.js helper that waits for stdin and echoes a status line. Check the helper status, send the input `compile-once`, terminate the helper, reset retained shell state, and then answer in one clean sentence.";
+    let followup = retained_shell_lifecycle_followup(goal, "shell__reset", None, None)
+        .expect("retained shell reset should queue terminal reply");
+
+    match followup {
+        AgentTool::ChatReply { message } => assert_eq!(
+            message,
+            "Retained shell helper checked, received `compile-once`, terminated, and reset."
+        ),
+        other => panic!("expected chat__reply follow-up, got {:?}", other),
+    }
+}
+
+#[test]
 fn toolcat_agent_await_setup_queues_requested_await_row_from_delegate_output() {
     let child_id = "abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd";
     let followup = toolcat_single_tool_agent_await_followup(
@@ -866,6 +1065,26 @@ fn active_web_pipeline_chat_reply_duplicate_noop_stays_in_model_loop() {
     assert!(!active_web_pipeline_chat_reply_duplicate_noop(&[
         "duplicate_action_fingerprint_prior_success_noop=true".to_string(),
     ]));
+}
+
+#[test]
+fn retained_shell_input_duplicate_noop_stays_in_model_loop() {
+    assert!(retained_shell_input_duplicate_noop(
+        &[
+            "duplicate_action_fingerprint_non_command_noop=true".to_string(),
+            "duplicate_action_fingerprint_prior_success_noop=true".to_string(),
+            "retained_shell_input_duplicate_noop=true".to_string(),
+        ],
+        "shell__input",
+    ));
+    assert!(!retained_shell_input_duplicate_noop(
+        &["retained_shell_input_duplicate_noop=true".to_string()],
+        "shell__status",
+    ));
+    assert!(!retained_shell_input_duplicate_noop(
+        &["duplicate_action_fingerprint_prior_success_noop=true".to_string()],
+        "shell__input",
+    ));
 }
 
 #[test]

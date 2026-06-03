@@ -120,6 +120,20 @@ test("routes explicit inline command prompts to local runtime action", () => {
   assert.equal(frame.effectContract.effectLevel, "command_execution");
 });
 
+test("does not collapse retained shell stdin lifecycle prompts into one-shot command plans", () => {
+  const frame = resolveStudioIntentFrame({
+    prompt: [
+      "Start a disposable retained Node.js helper that waits for stdin and echoes a status line.",
+      "Check the helper status, send the input `compile-once`, terminate the helper, reset retained shell state, and then answer.",
+    ].join(" "),
+    executionMode: "agent",
+  });
+
+  assert.notEqual(frame.intentId, "command.exec");
+  assert.notEqual(frame.routeDirective, "runtime_action");
+  assert.equal(frame.runtimeAction, null);
+});
+
 test("does not treat inline code symbols as local runtime actions", () => {
   const frame = resolveStudioIntentFrame({
     prompt: "Explain how `formatOrderTotal` is used in this repo.",
@@ -138,6 +152,30 @@ test("routes runtime inspection prompts to the runtime cockpit projection", () =
   assert.equal(frame.intentId, "runtime.inspect");
   assert.equal(frame.routeDirective, "runtime_cockpit");
   assert.ok(frame.requiredCapabilities.includes("prim:runtime.trace.read"));
+});
+
+test("keeps browser automation prompts in the governed agent route", () => {
+  const frame = resolveStudioIntentFrame({
+    prompt:
+      "Open the local browser fixture at http://127.0.0.1:45235/. Inspect the page, click the blue canvas target, and report whether the browser session stayed observable.",
+    executionMode: "agent",
+  });
+
+  assert.equal(frame.routeDirective, "agent");
+  assert.equal(frame.artifact.required, false);
+  assert.notEqual(frame.artifact.class, "browser_observation");
+});
+
+test("routes explicit browser capture prompts to browser observation artifacts", () => {
+  const frame = resolveStudioIntentFrame({
+    prompt: "Capture this browser session result as an artifact and let me ask a follow-up question.",
+    executionMode: "agent",
+  });
+
+  assert.equal(frame.intentId, "artifact.create");
+  assert.equal(frame.routeDirective, "artifact");
+  assert.equal(frame.artifact.required, true);
+  assert.equal(frame.artifact.class, "browser_observation");
 });
 
 test("keeps simple conversational turns cheap and direct", () => {

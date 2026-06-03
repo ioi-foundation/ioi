@@ -93,6 +93,71 @@ fn workspace_contextual_answer_candidate(agent_state: &AgentState, message: &str
     workspace_chat_reply_looks_terminal(message)
 }
 
+fn file_mutation_policy_action_report_candidate(agent_state: &AgentState, message: &str) -> bool {
+    if !agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|resolved| {
+            resolved.scope == IntentScopeProfile::WorkspaceOps
+                && resolved.intent_id.eq_ignore_ascii_case("workspace.mutate")
+        })
+        .unwrap_or(false)
+    {
+        return false;
+    }
+    if !file_mutation_policy_result_available(agent_state) {
+        return false;
+    }
+    if !workspace_chat_reply_looks_terminal(message) {
+        return false;
+    }
+    let lower = message.to_ascii_lowercase();
+    [
+        "blocked",
+        "denied",
+        "refused",
+        "prevented",
+        "rejected",
+        "not allowed",
+        "outside workspace",
+        "workspace boundary",
+        "policy",
+    ]
+    .iter()
+    .any(|marker| lower.contains(marker))
+}
+
+fn file_mutation_policy_result_available(agent_state: &AgentState) -> bool {
+    let file_write_dispatched = agent_state
+        .recent_actions
+        .iter()
+        .any(|action| action.starts_with("runtime_route_frame_dispatch:file__write"));
+    let failed_write = agent_state
+        .tool_execution_log
+        .iter()
+        .any(|(key, status)| {
+            key.contains("file__write")
+                && matches!(status, ToolCallStatus::Failed(reason) if policy_block_reason(reason))
+        });
+    let policy_failure_after_dispatch = file_write_dispatched
+        && agent_state
+            .tool_execution_log
+            .values()
+            .any(|status| matches!(status, ToolCallStatus::Failed(reason) if policy_block_reason(reason)));
+    failed_write || policy_failure_after_dispatch
+}
+
+fn policy_block_reason(reason: &str) -> bool {
+    let lower = reason.to_ascii_lowercase();
+    lower.contains("policyblocked")
+        || lower.contains("policy blocked")
+        || lower.contains("policy block")
+        || lower.contains("intent_scope_block")
+        || lower.contains("outside workspace")
+        || lower.contains("workspace boundary")
+        || lower.contains("outside the workspace")
+}
+
 fn workspace_chat_reply_looks_terminal(message: &str) -> bool {
     let compact = message.split_whitespace().collect::<Vec<_>>().join(" ");
     if compact.split_whitespace().count() < 8 {

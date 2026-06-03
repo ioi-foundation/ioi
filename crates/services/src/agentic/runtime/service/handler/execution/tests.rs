@@ -520,11 +520,11 @@ async fn filesystem_read_outside_workspace_is_denied_not_prompted_for_approval()
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn workspace_change_rollback_binds_policy_path_from_change_record() {
+async fn workspace_change_rollback_binds_policy_path_from_change_record_under_auto_review() {
     let runtime = Arc::new(RecordingInferenceRuntime::default());
     let service = build_test_service(runtime, None);
     let rules = ActionRules {
-        policy_id: "interactive-dev-policy".to_string(),
+        policy_id: "auto-review-dev-policy".to_string(),
         defaults: DefaultPolicy::RequireApproval,
         ..ActionRules::default()
     };

@@ -316,6 +316,9 @@ AgentStateArchiveCreated
 PrivateWorkspaceCapsuleRecorded
 AlphaSealRecorded
 ProtectedOutputCommitted
+CounterfactualLatticeCommitted
+PrivateOperatorInputCommitted
+PrivateOperatorOutputCommitted
 ModelMountRecorded
 DeterrenceDetectionEvidenceRecorded
 AgentStateRestoreRequested
@@ -329,6 +332,14 @@ RestoreReceiptRecorded
 
 Receipt metadata should include actor, authority chain, policy hash, payload
 hash/CID, artifact refs, operation refs, resource usage, and result state.
+Private operator inputs, ciphertexts, shares, commitments, ORAM handles,
+garbled payloads, and protected outputs are payload bytes or commitments behind
+Agentgres-governed refs; Agentgres records their meaning, policy, state-root
+linkage, and `PrivateOperatorReceipt`.
+Counterfactual candidate lattices are likewise Agentgres-governed commitments:
+the storage backend may hold lattice bytes, but Agentgres records the lattice
+meaning, policy, width/depth/token budget, state-root linkage, and
+`CounterfactualLatticeReceipt`.
 
 ## Relationship To Storage Backends
 

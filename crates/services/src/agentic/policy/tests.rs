@@ -246,7 +246,7 @@ fn allow_paths_blocks_relative_escape_against_working_directory() {
 }
 
 #[test]
-fn workspace_filesystem_policy_adds_repo_scoped_read_and_write_rules() {
+fn workspace_filesystem_policy_adds_repo_scoped_read_only_for_default_permissions() {
     let rules = ActionRules {
         policy_id: "policy".to_string(),
         defaults: DefaultPolicy::RequireApproval,
@@ -268,11 +268,29 @@ fn workspace_filesystem_policy_adds_repo_scoped_read_and_write_rules() {
         Some(&vec!["/workspace/repo".to_string()])
     );
 
+    assert!(effective
+        .rules
+        .iter()
+        .all(|rule| rule.rule_id.as_deref() != Some("allow-workspace-fs-write")));
+}
+
+#[test]
+fn workspace_filesystem_policy_adds_repo_scoped_write_for_auto_review() {
+    let rules = ActionRules {
+        policy_id: "runtime-bridge-auto-review".to_string(),
+        defaults: DefaultPolicy::RequireApproval,
+        ontology_policy: Default::default(),
+        pii_controls: PiiControls::default(),
+        rules: vec![],
+    };
+
+    let effective = augment_workspace_filesystem_policy(&rules, Some("/workspace/repo"));
+
     let write_rule = effective
         .rules
         .iter()
         .find(|rule| rule.rule_id.as_deref() == Some("allow-workspace-fs-write"))
-        .expect("workspace write rule should be present");
+        .expect("auto-review workspace write rule should be present");
     assert_eq!(write_rule.target, "fs::write");
     assert_eq!(
         write_rule.conditions.allow_paths.as_ref(),

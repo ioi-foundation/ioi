@@ -6,6 +6,38 @@ function uniqueStrings(values) {
   return [...new Set(firstArray(values).map((value) => String(value)).filter(Boolean))];
 }
 
+function publicToolText(value = "") {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .replace(/\bshell__start:[a-f0-9]{12,}\b/gi, "<command>")
+    .replace(/\b(?:receipt|trace|request|turn|thread)_[a-z0-9:_-]{8,}\b/gi, "<ref>")
+    .replace(/ioi-session-stdin-[^\s"']+/gi, "<stdin-bridge>")
+    .replace(/\/tmp\/[^\s"']+/gi, "<tmp>")
+    .replace(/"command_id"\s*:\s*"[^"]+"/gi, "")
+    .trim();
+}
+
+function publicOutputBlock(value = "", max = 6000) {
+  return String(value || "")
+    .replace(/\bshell__start:[a-f0-9]{12,}\b/gi, "<command>")
+    .replace(/\b(?:receipt|trace|request|turn|thread)_[a-z0-9:_-]{8,}\b/gi, "<ref>")
+    .replace(/ioi-session-stdin-[^\s"']+/gi, "<stdin-bridge>")
+    .replace(/\/tmp\/[^\s"']+/gi, "<tmp>")
+    .replace(/"command_id"\s*:\s*"[^"]+"/gi, "")
+    .slice(0, max)
+    .trim();
+}
+
+function publicRefText(value = "") {
+  return String(value || "")
+    .replace(/\bshell__start:[a-f0-9]{12,}\b/gi, "<command>")
+    .replace(/\b(?:receipt|trace|request|turn|thread)_[a-z0-9:_-]{8,}\b/gi, "<ref>")
+    .replace(/ioi-session-stdin-[^\s"']+/gi, "<stdin-bridge>")
+    .replace(/"command_id"\s*:\s*"[^"]+"/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function normalizeReceiptRefs(...sources) {
   const refs = [];
   for (const source of sources) {
@@ -82,6 +114,26 @@ function artifactLabel(artifact = {}) {
   return `Created artifact: ${title}`;
 }
 
+function publicCommandVerb(command = {}, toolId = "", status = "") {
+  const statusText = publicToolText(status || command.status || "").toLowerCase();
+  if (/failed|error/.test(statusText)) return "Failed";
+  if (/running|started|pending/.test(statusText)) return "Running";
+  if (toolId === "shell__start") return "Started";
+  return "Ran";
+}
+
+function publicCommandKindLabel(value = "") {
+  const text = publicToolText(value);
+  if (!text || /^(?:shell|command|running command|ran command|started command)$/i.test(text)) return "";
+  const head = text.split(/\s+/)[0].split(/[\\/]/).pop().toLowerCase();
+  if (!head) return "";
+  if (head === "node" || head === "nodejs") return "Node.js";
+  if (head === "python" || head === "python3") return "Python";
+  if (["npm", "pnpm", "yarn", "bun", "cargo", "deno", "go", "rustc", "make"].includes(head)) return head;
+  if (head === "bash" || head === "sh" || head === "zsh") return "shell";
+  return "";
+}
+
 function normalizeSourceChips(value) {
   return firstArray(value)
     .map((source) => {
@@ -106,14 +158,11 @@ function normalizeSourceChips(value) {
 function workRowsFromPendingWorklog(pendingWorklog = []) {
   return firstArray(pendingWorklog)
     .map((step) => {
-      const label = String(step?.label || step?.title || "").replace(/\s+/g, " ").trim();
+      const label = publicToolText(step?.label || step?.title || "");
       if (!label) return null;
-      const detail = String(step?.detail || step?.summary || "").replace(/\s+/g, " ").trim();
+      const detail = publicToolText(step?.detail || step?.summary || "");
       const sourceChips = normalizeSourceChips(step?.sourceChips || step?.source_chips || step?.sources);
-      const excerptPreview = String(step?.excerptPreview || step?.excerpt_preview || sourceChips[0]?.excerpt || "")
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, 280);
+      const excerptPreview = publicToolText(step?.excerptPreview || step?.excerpt_preview || sourceChips[0]?.excerpt || "").slice(0, 280);
       return {
         id: String(step?.id || step?.stepId || step?.toolName || label).trim(),
         kind: String(step?.publicKind || step?.kind || step?.toolName || "tool").trim(),
@@ -127,44 +176,171 @@ function workRowsFromPendingWorklog(pendingWorklog = []) {
     .filter(Boolean);
 }
 
-function synthesizeManagedSessionCards({ computerUseSessions = [], browserCards = [], workRows = [], actionToolNames = [], cursor = {} } = {}) {
+function runtimeManagedSessionCards({ computerUseSessions = [] } = {}) {
   if (firstArray(computerUseSessions).length) {
     return firstArray(computerUseSessions);
   }
-  const browserRows = firstArray(workRows).filter((row) =>
-    /\bbrowser\b|^browser__/.test(String(`${row?.kind || ""} ${row?.headline || ""} ${row?.summary || ""}`).toLowerCase())
+  return [];
+}
+
+function commandOutputText(command = {}) {
+  const text = publicOutputBlock(
+    command.stdout ||
+    command.output ||
+    command.chunk ||
+    command.text ||
+    command.excerptPreview ||
+    command.excerpt_preview ||
+    ""
   );
-  const browserToolName = firstArray(actionToolNames).find((name) => /^browser__/.test(String(name || "")));
-  if (!browserRows.length && !firstArray(browserCards).length && !browserToolName) {
-    return [];
-  }
-  const primaryRow = browserRows[browserRows.length - 1] || {};
-  const primaryCard = firstArray(browserCards)[firstArray(browserCards).length - 1] || {};
-  const detail = String(
-    primaryRow.excerptPreview ||
-      primaryRow.summary ||
-      primaryCard.excerptPreview ||
-      primaryCard.summary ||
-      primaryCard.detail ||
-      "Managed sandbox browser session.",
-  )
-    .replace(/\s+/g, " ")
-    .trim();
-  return [
-    {
-      id: `sandbox-browser:${String(primaryRow.id || primaryCard.id || browserToolName || cursor.startedAtMs || Date.now()).slice(0, 96)}`,
-      kind: "sandbox_browser",
-      surfaceLabel: "Sandbox browser",
-      status: "complete",
-      statusLabel: "Complete",
-      title: "Browser session",
-      detail: detail.slice(0, 220) || "Managed sandbox browser session.",
-      lastTool: browserToolName || primaryRow.kind || primaryCard.toolId || "browser",
-      actionCount: Math.max(1, browserRows.length || firstArray(browserCards).length || 1),
-      waitingForUser: false,
-      updatedAt: new Date().toISOString(),
-    },
-  ];
+  if (!text) return "";
+  const commandLabel = publicToolText(command.command || command.commandLabel || command.command_label || "");
+  const rowLabel = publicToolText(command.label || "");
+  if (commandLabel && text === commandLabel) return "";
+  if (rowLabel && text === rowLabel) return "";
+  if (/^[a-z0-9_.-]+\s+-lc\s+<arg>$/i.test(text)) return "";
+  if (/^[a-z0-9_.-]+\s+-e\s+<inline script>$/i.test(text)) return "";
+  if (commandLabel && text === `${commandLabel} · running`) return "";
+  return text;
+}
+
+function commandMergeKey(command = {}, index = 0) {
+  const toolId = publicToolText(command.toolId || command.tool_id || "shell").slice(0, 96);
+  const commandLabel = publicToolText(command.command || command.commandLabel || command.command_label || "");
+  if (commandLabel) return `${toolId}:${commandLabel}`;
+  if (/^shell__|^terminal__/.test(toolId)) return `${toolId}:active-command`;
+  return publicToolText(command.id || command.commandId || command.command_id || `${toolId}.${index}`).slice(0, 160);
+}
+
+function appendUniqueBlock(existing = "", next = "") {
+  const lhs = publicOutputBlock(existing);
+  const rhs = publicOutputBlock(next);
+  if (!rhs) return lhs;
+  if (!lhs) return rhs;
+  const lines = new Set(lhs.split(/\r?\n/).map((line) => line.trim()).filter(Boolean));
+  const additions = rhs.split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !lines.has(line));
+  if (!additions.length) return lhs;
+  return publicOutputBlock([lhs, ...additions].join("\n"));
+}
+
+function mergedCommandOutputs(commandOutputs = []) {
+  const merged = new Map();
+  firstArray(commandOutputs).forEach((command, index) => {
+    if (!command || typeof command !== "object" || Array.isArray(command)) return;
+    const key = commandMergeKey(command, index);
+    const existing = merged.get(key) || {
+      ...command,
+      stdout: "",
+      stderr: "",
+    };
+    const nextOutput = commandOutputText(command);
+    existing.stdout = appendUniqueBlock(existing.stdout, nextOutput);
+    existing.stderr = appendUniqueBlock(existing.stderr, command.stderr || "");
+    existing.status = command.status || existing.status;
+    existing.exitCode = command.exitCode ?? command.exit_code ?? existing.exitCode ?? existing.exit_code ?? null;
+    existing.durationMs = command.durationMs ?? command.duration_ms ?? existing.durationMs ?? existing.duration_ms ?? null;
+    existing.command = existing.command || command.command || command.commandLabel || command.command_label || "";
+    existing.commandLabel = existing.commandLabel || command.commandLabel || command.command_label || command.command || "";
+    if (command.label && /^(?:ran|running|started|failed)\b/i.test(String(command.label))) {
+      existing.label = command.label;
+    } else {
+      existing.label = existing.label || command.label;
+    }
+    existing.toolId = existing.toolId || command.toolId || command.tool_id || "shell";
+    merged.set(key, existing);
+  });
+  const rows = [...merged.values()];
+  const detailedTools = new Set(rows
+    .filter((command) => publicToolText(command.command || command.commandLabel || command.command_label || ""))
+    .map((command) => publicToolText(command.toolId || command.tool_id || "shell")));
+  return rows.filter((command) => {
+    const toolId = publicToolText(command.toolId || command.tool_id || "shell");
+    if (!detailedTools.has(toolId)) return true;
+    if (publicToolText(command.command || command.commandLabel || command.command_label || "")) return true;
+    return Boolean(publicOutputBlock(command.stdout || command.stderr || ""));
+  });
+}
+
+function normalizedCommandOutputs(commandOutputs = []) {
+  return mergedCommandOutputs(commandOutputs)
+    .map((command, index) => {
+      if (!command || typeof command !== "object" || Array.isArray(command)) return null;
+      const toolId = publicToolText(command.toolId || command.tool_id || "shell").slice(0, 96);
+      const rawLabel = publicToolText(command.label || command.command || toolId || "Command");
+      const rawLabelIsGeneric =
+        /^[a-z][a-z0-9_]*__[a-z0-9_]+$/i.test(rawLabel) ||
+        rawLabel === toolId ||
+        /^(?:shell|command|running command|ran command|started command)$/i.test(rawLabel);
+      const commandKind = publicCommandKindLabel(command.command || command.commandLabel || command.command_label || "");
+      const status = publicToolText(command.status || "completed").slice(0, 32);
+      const label = rawLabelIsGeneric && commandKind
+        ? `${publicCommandVerb(command, toolId, status)} ${commandKind} command`
+        : rawLabel;
+      return {
+        id: publicToolText(command.id || command.commandId || command.command_id || `command.${index}`).slice(0, 96),
+        toolId,
+        label: label || "Command",
+        status,
+        stdout: publicOutputBlock(command.stdout || ""),
+        stderr: publicOutputBlock(command.stderr || ""),
+        exitCode: command.exitCode ?? command.exit_code ?? null,
+        durationMs: command.durationMs ?? command.duration_ms ?? null,
+      };
+    })
+    .filter(Boolean)
+    .slice(-4);
+}
+
+function isGenericCommandWorkRow(row = {}) {
+  const headline = publicToolText(row.headline || row.label || "");
+  const kind = publicToolText(row.kind || row.toolId || row.tool_id || "");
+  if (/^(?:ran|running|started|failed) command$/i.test(headline)) return true;
+  return /^shell__|^terminal__|^command(?:\.|$)/i.test(kind);
+}
+
+function isCommandLabelOnlyExcerpt(value = "") {
+  const text = publicToolText(value);
+  if (!text) return true;
+  if (/^[a-z0-9_.-]+\s+-lc\s+<arg>$/i.test(text)) return true;
+  if (/^[a-z0-9_.-]+\s+-e\s+<inline script>$/i.test(text)) return true;
+  return false;
+}
+
+function filterDuplicateCommandWorkRows(workRows = [], commandOutputRows = []) {
+  const hasDetailedCommandOutput = firstArray(commandOutputRows).some((command) => {
+    const label = publicToolText(command?.label || "");
+    const hasOutput = Boolean(publicOutputBlock(command?.stdout || command?.stderr || ""));
+    return hasOutput || !/^(?:ran|running|started|failed)?\s*command$/i.test(label);
+  });
+  if (!hasDetailedCommandOutput) return workRows;
+  return firstArray(workRows).filter((row) => {
+    if (!isGenericCommandWorkRow(row)) return true;
+    return false;
+  });
+}
+
+function normalizedDiffHunks(diffHunks = []) {
+  return firstArray(diffHunks)
+    .map((hunk, index) => {
+      if (!hunk || typeof hunk !== "object" || Array.isArray(hunk)) return null;
+      return {
+        title: publicToolText(hunk.title || `Hunk ${index + 1}`).slice(0, 120),
+        file: publicRefText(hunk.file || hunk.path || "workspace").slice(0, 220),
+        status: publicToolText(hunk.status || "pending").slice(0, 32),
+        before: publicOutputBlock(hunk.before || hunk.search || ""),
+        after: publicOutputBlock(hunk.after || hunk.replace || ""),
+        stale: Boolean(hunk.stale),
+        staleReason: publicToolText(hunk.staleReason || hunk.stale_reason || "").slice(0, 160),
+        acceptAvailable: hunk.acceptAvailable ?? hunk.accept_available ?? true,
+        rejectAvailable: hunk.rejectAvailable ?? hunk.reject_available ?? true,
+        rollbackAvailable: hunk.rollbackAvailable ?? hunk.rollback_available ?? false,
+        approvalId: publicToolText(hunk.approvalId || hunk.approval_id || "").slice(0, 160),
+        changeId: publicToolText(hunk.changeId || hunk.change_id || "").slice(0, 160),
+        hunkIndex: Number.isFinite(Number(hunk.hunkIndex ?? hunk.hunk_index)) ? Number(hunk.hunkIndex ?? hunk.hunk_index) : index,
+      };
+    })
+    .filter(Boolean)
+    .slice(-6);
 }
 
 function studioDocumentedWorkRecord(projection = {}, cursor = {}) {
@@ -186,13 +362,11 @@ function studioDocumentedWorkRecord(projection = {}, cursor = {}) {
   const commandToolNames = studioCanonicalRuntimeNames(commandOutputs);
   const pendingLabels = uniqueStrings(pendingWorklog.map((step) => step?.label || step?.title || ""));
   const pendingRenderCount = pendingLabels.filter((label) => /\b(preview|render|artifact)\b/i.test(label)).length;
-  const workRows = workRowsFromPendingWorklog(pendingWorklog);
-  const managedSessionCards = synthesizeManagedSessionCards({
+  const commandOutputRows = normalizedCommandOutputs(commandOutputs);
+  const workRows = filterDuplicateCommandWorkRows(workRowsFromPendingWorklog(pendingWorklog), commandOutputRows);
+  const reviewableDiffHunks = normalizedDiffHunks(diffHunks);
+  const managedSessionCards = runtimeManagedSessionCards({
     computerUseSessions,
-    browserCards,
-    workRows,
-    actionToolNames,
-    cursor,
   });
   const retainedShellLifecycle = ["shell__start", "shell__status", "shell__input", "shell__terminate", "shell__reset"]
     .every((toolName) => commandToolNames.includes(toolName));
@@ -213,7 +387,7 @@ function studioDocumentedWorkRecord(projection = {}, cursor = {}) {
       lines.push(`Ran ${commandCount} sandboxed command${commandCount === 1 ? "" : "s"}`);
       summaryParts.push(`ran ${commandCount} command${commandCount === 1 ? "" : "s"}`);
       for (const command of commandOutputs.slice(0, 4)) {
-        activityLines.push(`Ran ${command.label || command.toolId || "sandboxed command"}.`);
+        activityLines.push(`Ran ${publicToolText(command.label || command.toolId || "sandboxed command")}.`);
       }
     }
   }
@@ -284,6 +458,8 @@ function studioDocumentedWorkRecord(projection = {}, cursor = {}) {
     workRows,
     receiptRefs,
     stepCount: lines.length,
+    commandOutputs: commandOutputRows,
+    diffHunks: reviewableDiffHunks,
     sessionCards: managedSessionCards.slice(-3),
     artifactCards: conversationArtifacts.slice(-6),
   };
@@ -291,7 +467,16 @@ function studioDocumentedWorkRecord(projection = {}, cursor = {}) {
 
 function studioTurnHasDocumentedWork(turn = {}) {
   const record = turn.workRecord || null;
-  return Boolean(record && firstArray(record.lines).length);
+  return Boolean(
+    record && (
+      firstArray(record.lines).length ||
+      firstArray(record.workRows).length ||
+      firstArray(record.commandOutputs).length ||
+      firstArray(record.diffHunks).length ||
+      firstArray(record.sessionCards).length ||
+      firstArray(record.artifactCards).length
+    )
+  );
 }
 
 function studioDocumentedWorkSummary(record = {}, fallbackStatus = "completed") {

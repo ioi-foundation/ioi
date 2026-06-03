@@ -29,6 +29,7 @@ pub const HARNESS_WORKER_SESSION_RECORD_PREFIX: &[u8] = b"agent::harness_worker_
 pub const HARNESS_WORKER_LAUNCH_ENVELOPE_PREFIX: &[u8] = b"agent::harness_worker_launch_envelope::";
 pub const HARNESS_WORKER_HANDOFF_RECEIPT_PREFIX: &[u8] = b"agent::harness_worker_handoff_receipt::";
 pub const PARENT_PLAYBOOK_RUN_PREFIX: &[u8] = b"agent::parent_playbook_run::";
+pub const MANAGED_SESSION_RECORD_PREFIX: &[u8] = b"agent::managed_session_record::";
 pub const MANAGED_SESSION_CONTROL_PREFIX: &[u8] = b"agent::managed_session_control::";
 
 // [NEW] Prefix for storing results of completed child sessions
@@ -144,6 +145,20 @@ pub fn get_parent_playbook_run_key(session_id: &[u8; 32], playbook_id: &str) -> 
         session_id.as_slice(),
         b"::",
         playbook_id.as_bytes(),
+    ]
+    .concat()
+}
+
+pub fn get_managed_session_record_prefix(session_id: &[u8; 32]) -> Vec<u8> {
+    [MANAGED_SESSION_RECORD_PREFIX, session_id.as_slice(), b"::"].concat()
+}
+
+pub fn get_managed_session_record_key(session_id: &[u8; 32], managed_session_id: &str) -> Vec<u8> {
+    [
+        MANAGED_SESSION_RECORD_PREFIX,
+        session_id.as_slice(),
+        b"::",
+        managed_session_id.as_bytes(),
     ]
     .concat()
 }

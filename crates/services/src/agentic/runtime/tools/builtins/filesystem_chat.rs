@@ -169,6 +169,24 @@
         parameters: workspace_change_status_params.to_string(),
     });
 
+    let workspace_change_accept_params = json!({
+        "type": "object",
+        "properties": {
+            "change_id": {
+                "type": "string",
+                "description": "Daemon-owned change_id from the workspace change handles context."
+            }
+        },
+        "required": ["change_id"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "workspace_change__accept".to_string(),
+        description:
+            "Accept and apply a proposed or approval-waiting workspace change by change_id. Do not pass full change JSON."
+                .to_string(),
+        parameters: workspace_change_accept_params.to_string(),
+    });
+
     let workspace_change_reject_params = json!({
         "type": "object",
         "properties": {

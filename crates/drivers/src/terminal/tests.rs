@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use super::stream::combine_success_output;
+use super::stream::{combine_failure_output, combine_success_output};
 use super::{CommandExecutionOptions, CommandLaunchResult, TerminalDriver};
 
 #[cfg(unix)]
@@ -63,6 +63,20 @@ fn combine_success_output_labels_mixed_streams() {
     assert_eq!(output, "Stdout:\nready\nStderr:\nwarning: cache miss");
 }
 
+#[test]
+fn combine_failure_output_preserves_stdout_for_test_failures() {
+    let output = combine_failure_output(
+        "exit status: 1",
+        "TAP version 13\nnot ok 1 - formats order totals as dollars\n# fail 1\n",
+        "",
+    );
+
+    assert!(output.starts_with("Command failed: exit status: 1"));
+    assert!(output.contains("Stdout:\nTAP version 13"));
+    assert!(output.contains("not ok 1 - formats order totals as dollars"));
+    assert!(!output.contains("Stderr:"));
+}
+
 #[cfg(unix)]
 #[tokio::test]
 async fn execute_timeout_kills_command_without_hanging() {
@@ -89,6 +103,76 @@ async fn execute_timeout_kills_command_without_hanging() {
         elapsed < Duration::from_secs(5),
         "timeout handling hung too long: {:?}",
         elapsed
+    );
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn execute_caps_large_foreground_output() {
+    let driver = TerminalDriver::new();
+    let out = driver
+        .execute_in_dir_with_options(
+            "sh",
+            &[
+                "-c".to_string(),
+                "yes glassbox-output-cap | head -c 400000".to_string(),
+            ],
+            false,
+            None,
+            CommandExecutionOptions::default().with_timeout(Duration::from_secs(5)),
+        )
+        .await
+        .expect("large output command should complete");
+
+    assert!(
+        out.len() < 300_000,
+        "captured output should be bounded, got {} bytes",
+        out.len()
+    );
+    assert!(
+        out.contains("[output truncated: command output exceeded capture limit]"),
+        "bounded output should include truncation notice"
+    );
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn execute_denies_foreground_network_by_default_when_bwrap_available() {
+    if std::process::Command::new("sh")
+        .arg("-c")
+        .arg("command -v bwrap >/dev/null && (command -v curl >/dev/null || command -v wget >/dev/null)")
+        .status()
+        .map(|status| !status.success())
+        .unwrap_or(true)
+    {
+        return;
+    }
+
+    let driver = TerminalDriver::new();
+    let out = driver
+        .execute_in_dir_with_options(
+            "sh",
+            &[
+                "-c".to_string(),
+                "if command -v curl >/dev/null; then curl -fsS --max-time 2 https://example.com >/dev/null && echo leak || echo blocked; else wget -qO- --timeout=2 https://example.com >/dev/null && echo leak || echo blocked; fi"
+                    .to_string(),
+            ],
+            false,
+            None,
+            CommandExecutionOptions::default().with_timeout(Duration::from_secs(8)),
+        )
+        .await
+        .expect("network probe command should run to a blocked verdict");
+
+    assert!(
+        out.contains("blocked"),
+        "network sandbox should make outbound probe fail, got: {}",
+        out
+    );
+    assert!(
+        !out.contains("leak"),
+        "network probe unexpectedly succeeded: {}",
+        out
     );
 }
 
@@ -273,6 +357,11 @@ async fn retained_process_command_accepts_input_and_completes() {
         .await
         .expect("stdin should be forwarded");
     assert_eq!(after_input.command_id, snapshot.command_id);
+    assert!(
+        after_input.output_tail.contains("echo:hello"),
+        "input response should be visible in the immediate retained snapshot: {:?}",
+        after_input.output_tail
+    );
 
     let completed = wait_for_retained_completion(&driver, &snapshot.command_id).await;
     assert!(!completed.running);
@@ -322,12 +411,78 @@ async fn retained_session_command_tracks_terminal_id_and_accepts_input() {
         .await
         .expect("session stdin should be forwarded");
     assert_eq!(after_input.terminal_id.as_deref(), Some(key));
+    assert!(
+        after_input.output_tail.contains("session-echo:workspace"),
+        "session input response should be visible in the immediate retained snapshot: {:?}",
+        after_input.output_tail
+    );
+    assert!(!after_input.output_tail.contains("__IOI_RC:"));
+    assert!(!after_input.output_tail.contains("ioi_rc=0"));
 
     let completed = wait_for_retained_completion(&driver, &snapshot.command_id).await;
     assert!(!completed.running);
     assert_eq!(completed.exit_code, Some(0));
     assert!(completed.output_tail.contains("session-ready"));
     assert!(completed.output_tail.contains("session-echo:workspace"));
+
+    let _ = driver.reset_session(key).await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn retained_session_running_command_streams_incremental_input_output() {
+    let driver = TerminalDriver::new();
+    let key = "test-retained-session-running-input";
+    let launch = driver
+        .execute_session_in_dir_with_async_boundary(
+            None,
+            key,
+            "bash",
+            &[
+                "-lc".to_string(),
+                "printf 'session-ready\\n'; while IFS= read -r line; do printf 'session-echo:%s\\n' \"$line\"; done"
+                    .to_string(),
+            ],
+            None,
+            CommandExecutionOptions::default()
+                .with_timeout(Duration::from_secs(30))
+                .with_wait_before_async(Some(Duration::from_millis(50))),
+        )
+        .await
+        .expect("retained running session command should launch");
+
+    let snapshot = match launch {
+        CommandLaunchResult::Retained(snapshot) => snapshot,
+        CommandLaunchResult::Completed(output) => {
+            panic!(
+                "expected retained running session handle, got completed output: {}",
+                output
+            )
+        }
+    };
+
+    assert!(snapshot.running);
+    let snapshot = wait_for_retained_output(&driver, &snapshot.command_id, "session-ready").await;
+    assert!(snapshot.running);
+
+    let after_input = driver
+        .retained_command_input(&snapshot.command_id, b"workspace\n")
+        .await
+        .expect("session stdin should be forwarded");
+    assert!(after_input.running);
+    assert!(
+        after_input.output_tail.contains("session-echo:workspace"),
+        "running session output should be visible after stdin: {:?}",
+        after_input.output_tail
+    );
+    assert!(!after_input.output_tail.contains("__IOI_RC:"));
+    assert!(!after_input.output_tail.contains("ioi_rc=0"));
+
+    let terminated = driver
+        .retained_command_terminate(&snapshot.command_id)
+        .await
+        .expect("retained running command should terminate");
+    assert!(!terminated.running);
 
     let _ = driver.reset_session(key).await;
 }

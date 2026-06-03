@@ -48,6 +48,15 @@ Private Workspace backed by cTEE
   Autopilot nodes without exposing protected plaintext to the node by default;
   Plaintext-Free Runtime Mounting is the daemon boundary for tools and models,
   Candidate-Lattice Private Decoding is the default protected-agency strategy, and
+  Counterfactual Lattice Execution can spend extra public token volume to reduce
+  online private-choice leakage; cTEE preserves ordinary GPU kernels for public
+  work but does not promise same-token-budget arbitrary private inference;
+  Candidate Coverage Profile estimates when redundancy makes this trade cheap
+  and when exponential redundancy decay should route the work away from CLPD/CLE;
+  the Cryptographic Operator Plane routes protected scoring/retrieval/policy
+  checks to FHE/MPC/local/threshold paths behind the same user-facing workspace;
+  third-party model APIs over sensitive plaintext are provider-trust, while
+  public/redacted/declassified API calls can remain cTEE-compatible;
   deterrence/detection receipts support canaries, watermarks, and disputes
 
 AIIP

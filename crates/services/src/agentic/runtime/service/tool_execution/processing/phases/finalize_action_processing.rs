@@ -6,6 +6,10 @@ use crate::agentic::runtime::service::output::terminal_reply_shape::{
     observe_terminal_chat_reply_shape, terminal_chat_reply_layout_profile,
 };
 use crate::agentic::runtime::service::queue::web_pipeline::WebPipelineCompletionReason;
+use crate::agentic::runtime::service::tool_execution::{
+    retained_shell_lifecycle_followup, retained_shell_lifecycle_tool_name,
+    retained_shell_obsolete_input_after_stop,
+};
 
 #[path = "finalize_action_processing/toolcat.rs"]
 mod toolcat;
@@ -25,10 +29,30 @@ fn active_web_pipeline_chat_reply_duplicate_noop(verification_checks: &[String])
     })
 }
 
+fn retained_shell_input_duplicate_noop(
+    verification_checks: &[String],
+    current_tool_name: &str,
+) -> bool {
+    current_tool_name == "shell__input"
+        && verification_checks
+            .iter()
+            .any(|check| check == "retained_shell_input_duplicate_noop=true")
+}
+
 fn terminal_product_handoff_violation_error(reason: &str) -> String {
     format!(
         "ERROR_CLASS=UnexpectedState Final reply was not product-safe ({reason}). Return a fresh concise user-facing Markdown answer through the available terminal reply tool. Do not include raw temp paths, fixture/probe markers, raw logs, stdout/stderr dumps, receipt ids, trace ids, JSON payloads, or daemon scaffolding. Summarize the observed work and verification result instead."
     )
+}
+
+fn recoverable_action_completion_contract_error(error: Option<&str>) -> bool {
+    let Some(error) = error else {
+        return false;
+    };
+    let normalized = error.to_ascii_lowercase();
+    normalized.contains("error_class=executioncontractviolation")
+        && normalized.contains("missing_keys=tool::")
+        && normalized.contains("::executed")
 }
 
 fn read_only_workspace_context_duplicate_noop(
@@ -413,12 +437,50 @@ pub(crate) async fn finalize_action_processing(
         active_web_pipeline_chat_reply_duplicate_noop(&verification_checks);
     let benign_workspace_context_duplicate =
         read_only_workspace_context_duplicate_noop(agent_state, &current_tool_name);
+    let retained_shell_input_duplicate_noop =
+        retained_shell_input_duplicate_noop(&verification_checks, &current_tool_name);
+    let governed_shell_failure_terminal_reply_ready = verification_checks
+        .iter()
+        .any(|check| check == "governed_shell_failure_terminal_reply_ready=true");
+    let governed_file_policy_failure_terminal_reply_ready = verification_checks
+        .iter()
+        .any(|check| check == "governed_file_policy_failure_terminal_reply_ready=true");
+    let retained_shell_obsolete_input_after_stop = current_tool_name == "shell__input"
+        && retained_shell_obsolete_input_after_stop(&agent_state.goal, error_msg.as_deref());
     if benign_workspace_context_duplicate {
         verification_checks.push("benign_workspace_context_duplicate_noop=true".to_string());
+    }
+    if retained_shell_input_duplicate_noop {
+        success = true;
+        error_msg = None;
+        failure_class = None;
+        history_entry = history_entry.or_else(|| {
+            Some("Input was already sent; continuing with retained shell cleanup.".to_string())
+        });
+        action_output = action_output.or_else(|| {
+            Some("Input was already sent; continuing with retained shell cleanup.".to_string())
+        });
+        agent_state.status = AgentStatus::Running;
+        verification_checks.push("retained_shell_input_duplicate_noop_success=true".to_string());
+    }
+    if retained_shell_obsolete_input_after_stop {
+        success = true;
+        error_msg = None;
+        failure_class = None;
+        history_entry = Some(
+            "Retained command was already stopped; continuing with retained shell cleanup."
+                .to_string(),
+        );
+        action_output = history_entry.clone();
+        agent_state.status = AgentStatus::Running;
+        verification_checks
+            .push("retained_shell_obsolete_input_after_stop_success=true".to_string());
     }
     if duplicate_prior_success_noop
         && !active_web_pipeline_chat_reply_duplicate_noop
         && !benign_workspace_context_duplicate
+        && !retained_shell_input_duplicate_noop
+        && !retained_shell_obsolete_input_after_stop
         && failure_class.is_none()
     {
         success = false;
@@ -483,41 +545,76 @@ pub(crate) async fn finalize_action_processing(
             verification_checks.push("terminal_chat_reply_ready=true".to_string());
         }
     } else if !success && !awaiting_sudo_password && !awaiting_clarification {
-        let failure_intent_id = resolved_intent_id(agent_state);
-        if let Some(terminal_reason) = install_resolution_terminal_block_reason(
-            &verification_checks,
-            error_msg.as_deref(),
-            history_entry.as_deref(),
-            action_output.as_deref(),
-        ) {
+        let governed_policy_failure_terminal_reply = (governed_shell_failure_terminal_reply_ready
+            || governed_file_policy_failure_terminal_reply_ready)
+            .then(|| {
+                terminal_chat_reply_output
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|reply| !reply.is_empty())
+                    .map(str::to_string)
+            })
+            .flatten();
+        if let Some(summary) = governed_policy_failure_terminal_reply {
             stop_condition_hit = true;
-            escalation_path = Some("software_install_resolution_blocked".to_string());
-            is_lifecycle_action = true;
-            remediation_queued = false;
-            failure_class = Some(FailureClass::UserInterventionNeeded);
-            agent_state.execution_queue.clear();
-            agent_state.status = AgentStatus::Failed(terminal_reason);
-            verification_checks.push("software_install_terminal_block=true".to_string());
-        } else if is_completion_contract_error(error_msg.as_deref()) {
-            stop_condition_hit = true;
-            escalation_path = Some("execution_contract_terminal".to_string());
-            is_lifecycle_action = true;
-            remediation_queued = false;
-            agent_state.execution_queue.clear();
-            let terminal_reason = error_msg
-                .clone()
-                .unwrap_or_else(|| "ERROR_CLASS=ExecutionContractViolation".to_string());
-            agent_state.status = AgentStatus::Failed(terminal_reason);
-            verification_checks.push("cec_terminal_error=true".to_string());
-        } else {
-            agent_state.execution_ledger.record_execution_failure(
-                Some(failure_intent_id),
-                ExecutionStage::Execution,
-                "ExecutionFailed",
+            escalation_path = Some(
+                if governed_file_policy_failure_terminal_reply_ready {
+                    "governed_file_policy_failure_terminal_reply"
+                } else {
+                    "governed_shell_failure_terminal_reply"
+                }
+                .to_string(),
             );
+            is_lifecycle_action = true;
+            remediation_queued = false;
             failure_class = classify_failure(error_msg.as_deref(), &policy_decision);
-            if let Some(class) = failure_class {
-                let target_id = crate::agentic::runtime::service::recovery::anti_loop::specialized_attempt_target_id(
+            agent_state.execution_queue.clear();
+            agent_state.status = AgentStatus::Completed(Some(summary));
+            if governed_file_policy_failure_terminal_reply_ready {
+                verification_checks
+                    .push("governed_file_policy_failure_terminalized=true".to_string());
+            } else {
+                verification_checks.push("governed_shell_failure_terminalized=true".to_string());
+            }
+            verification_checks.push("terminal_chat_reply_ready=true".to_string());
+        } else {
+            let failure_intent_id = resolved_intent_id(agent_state);
+            if let Some(terminal_reason) = install_resolution_terminal_block_reason(
+                &verification_checks,
+                error_msg.as_deref(),
+                history_entry.as_deref(),
+                action_output.as_deref(),
+            ) {
+                stop_condition_hit = true;
+                escalation_path = Some("software_install_resolution_blocked".to_string());
+                is_lifecycle_action = true;
+                remediation_queued = false;
+                failure_class = Some(FailureClass::UserInterventionNeeded);
+                agent_state.execution_queue.clear();
+                agent_state.status = AgentStatus::Failed(terminal_reason);
+                verification_checks.push("software_install_terminal_block=true".to_string());
+            } else if is_completion_contract_error(error_msg.as_deref())
+                && !recoverable_action_completion_contract_error(error_msg.as_deref())
+            {
+                stop_condition_hit = true;
+                escalation_path = Some("execution_contract_terminal".to_string());
+                is_lifecycle_action = true;
+                remediation_queued = false;
+                agent_state.execution_queue.clear();
+                let terminal_reason = error_msg
+                    .clone()
+                    .unwrap_or_else(|| "ERROR_CLASS=ExecutionContractViolation".to_string());
+                agent_state.status = AgentStatus::Failed(terminal_reason);
+                verification_checks.push("cec_terminal_error=true".to_string());
+            } else {
+                agent_state.execution_ledger.record_execution_failure(
+                    Some(failure_intent_id),
+                    ExecutionStage::Execution,
+                    "ExecutionFailed",
+                );
+                failure_class = classify_failure(error_msg.as_deref(), &policy_decision);
+                if let Some(class) = failure_class {
+                    let target_id = crate::agentic::runtime::service::recovery::anti_loop::specialized_attempt_target_id(
                     state,
                     service.memory_runtime.as_ref(),
                     &current_tool_name,
@@ -538,291 +635,231 @@ pub(crate) async fn finalize_action_processing(
                             .map(str::to_string)
                     })
                 });
-                let command_scope = agent_state
-                    .resolved_intent
-                    .as_ref()
-                    .map(|resolved| {
-                        resolved.scope
-                            == ioi_types::app::agentic::IntentScopeProfile::CommandExecution
-                    })
-                    .unwrap_or(false);
-                let raw_window_fingerprint = if trace_visual_hash == [0u8; 32] {
-                    None
-                } else {
-                    Some(hex::encode(trace_visual_hash))
-                };
-                let window_fingerprint = crate::agentic::runtime::service::recovery::anti_loop::canonical_attempt_window_fingerprint(
+                    let command_scope = agent_state
+                        .resolved_intent
+                        .as_ref()
+                        .map(|resolved| {
+                            resolved.scope
+                                == ioi_types::app::agentic::IntentScopeProfile::CommandExecution
+                        })
+                        .unwrap_or(false);
+                    let raw_window_fingerprint = if trace_visual_hash == [0u8; 32] {
+                        None
+                    } else {
+                        Some(hex::encode(trace_visual_hash))
+                    };
+                    let window_fingerprint = crate::agentic::runtime::service::recovery::anti_loop::canonical_attempt_window_fingerprint(
                     class,
                     command_scope,
                     raw_window_fingerprint.as_deref(),
                 );
-                let retry_hash = retry_intent_hash.as_deref().unwrap_or(intent_hash.as_str());
-                let attempt_key = build_attempt_key(
-                    retry_hash,
-                    routing_decision.tier,
-                    &current_tool_name,
-                    target_id.as_deref(),
-                    window_fingerprint.as_deref(),
-                );
-                let (repeat_count, attempt_key_hash) =
-                    register_failure_attempt(agent_state, class, &attempt_key);
-                let budget_remaining = retry_budget_remaining(repeat_count);
-                let blocked_without_change = should_block_retry_without_change(class, repeat_count);
-                verification_checks.push(format!("attempt_repeat_count={}", repeat_count));
-                verification_checks.push(format!("attempt_key_hash={}", attempt_key_hash));
-                verification_checks.push(format!(
-                    "attempt_retry_budget_remaining={}",
-                    budget_remaining
-                ));
-                verification_checks.push(format!(
-                    "attempt_retry_blocked_without_change={}",
-                    blocked_without_change
-                ));
-                if is_toolcat_single_tool_probe(&agent_state.goal) {
-                    let reply_tool_name =
-                        toolcat_single_tool_reply_tool_name(&agent_state.goal, &current_tool_name);
-                    let duplicate_after_prior_success =
-                        duplicate_after_prior_success(&verification_checks)
-                            && matches!(class, FailureClass::NoEffectAfterAction);
-                    let summary = if duplicate_after_prior_success {
-                        toolcat_single_tool_duplicate_after_success_reply(&reply_tool_name)
-                    } else {
-                        toolcat_single_tool_failure_reply(&reply_tool_name)
-                    };
-                    stop_condition_hit = true;
-                    escalation_path = Some(
-                        if duplicate_after_prior_success {
-                            "toolcat_single_tool_duplicate_after_success"
-                        } else {
-                            "toolcat_single_tool_failure"
-                        }
-                        .to_string(),
+                    let retry_hash = retry_intent_hash.as_deref().unwrap_or(intent_hash.as_str());
+                    let attempt_key = build_attempt_key(
+                        retry_hash,
+                        routing_decision.tier,
+                        &current_tool_name,
+                        target_id.as_deref(),
+                        window_fingerprint.as_deref(),
                     );
-                    is_lifecycle_action = true;
-                    remediation_queued = false;
-                    action_output = error_msg.clone().or_else(|| Some(summary.clone()));
-                    terminal_chat_reply_output = Some(summary.clone());
-                    agent_state.execution_queue.clear();
-                    agent_state.status = AgentStatus::Completed(Some(summary));
-                    verification_checks.push(
-                        if duplicate_after_prior_success {
-                            "toolcat_single_tool_duplicate_after_success_terminalized=true"
+                    let (repeat_count, attempt_key_hash) =
+                        register_failure_attempt(agent_state, class, &attempt_key);
+                    let budget_remaining = retry_budget_remaining(repeat_count);
+                    let blocked_without_change =
+                        should_block_retry_without_change(class, repeat_count);
+                    verification_checks.push(format!("attempt_repeat_count={}", repeat_count));
+                    verification_checks.push(format!("attempt_key_hash={}", attempt_key_hash));
+                    verification_checks.push(format!(
+                        "attempt_retry_budget_remaining={}",
+                        budget_remaining
+                    ));
+                    verification_checks.push(format!(
+                        "attempt_retry_blocked_without_change={}",
+                        blocked_without_change
+                    ));
+                    if is_toolcat_single_tool_probe(&agent_state.goal) {
+                        let reply_tool_name = toolcat_single_tool_reply_tool_name(
+                            &agent_state.goal,
+                            &current_tool_name,
+                        );
+                        let duplicate_after_prior_success =
+                            duplicate_after_prior_success(&verification_checks)
+                                && matches!(class, FailureClass::NoEffectAfterAction);
+                        let summary = if duplicate_after_prior_success {
+                            toolcat_single_tool_duplicate_after_success_reply(&reply_tool_name)
                         } else {
-                            "toolcat_single_tool_failure_terminalized=true"
-                        }
-                        .to_string(),
-                    );
-                    verification_checks.push("terminal_chat_reply_ready=true".to_string());
-                } else if should_fail_fast_web_timeout(
-                    agent_state.resolved_intent.as_ref(),
-                    &current_tool_name,
-                    class,
-                    agent_state.pending_search_completion.is_some(),
-                ) {
-                    let summary = format!(
+                            toolcat_single_tool_failure_reply(&reply_tool_name)
+                        };
+                        stop_condition_hit = true;
+                        escalation_path = Some(
+                            if duplicate_after_prior_success {
+                                "toolcat_single_tool_duplicate_after_success"
+                            } else {
+                                "toolcat_single_tool_failure"
+                            }
+                            .to_string(),
+                        );
+                        is_lifecycle_action = true;
+                        remediation_queued = false;
+                        action_output = error_msg.clone().or_else(|| Some(summary.clone()));
+                        terminal_chat_reply_output = Some(summary.clone());
+                        agent_state.execution_queue.clear();
+                        agent_state.status = AgentStatus::Completed(Some(summary));
+                        verification_checks.push(
+                            if duplicate_after_prior_success {
+                                "toolcat_single_tool_duplicate_after_success_terminalized=true"
+                            } else {
+                                "toolcat_single_tool_failure_terminalized=true"
+                            }
+                            .to_string(),
+                        );
+                        verification_checks.push("terminal_chat_reply_ready=true".to_string());
+                    } else if should_fail_fast_web_timeout(
+                        agent_state.resolved_intent.as_ref(),
+                        &current_tool_name,
+                        class,
+                        agent_state.pending_search_completion.is_some(),
+                    ) {
+                        let summary = format!(
                         "Web retrieval timed out while executing '{}'. Retry later or narrow the query/sources.",
                         current_tool_name
                     );
-                    stop_condition_hit = true;
-                    escalation_path = Some("web_timeout_fail_fast".to_string());
-                    is_lifecycle_action = true;
-                    remediation_queued = false;
-                    action_output = Some(summary.clone());
-                    agent_state.execution_queue.clear();
-                    agent_state.pending_search_completion = None;
-                    agent_state.status = AgentStatus::Completed(Some(summary));
-                    verification_checks.push("web_timeout_fail_fast=true".to_string());
-                } else if let Some(recovery_tool) =
-                    attempt_patch_build_verify_runtime_patch_miss_repair(
-                        state,
-                        agent_state,
-                        session_id,
-                        &current_tool_name,
-                        error_msg.as_deref(),
-                        &tool_call_result,
-                        &mut verification_checks,
-                    )
-                {
-                    if let Some(evidence) = patch_build_verify_patch_miss_receipt_evidence(
-                        &current_tool_name,
-                        error_msg.as_deref(),
-                        executed_tool_jcs.as_deref(),
-                        &tool_call_result,
-                        pre_state_summary.step_index,
-                    ) {
-                        crate::agentic::runtime::service::tool_execution::support::record_execution_evidence_with_value(
-                            &mut agent_state.tool_execution_log,
-                            "workspace_patch_miss_observed",
-                            evidence,
-                        );
-                        verification_checks.push("runtime_patch_miss_observed=true".to_string());
-                    }
-                    let nonce = agent_state.step_count as u64
-                        + agent_state.execution_queue.len() as u64
-                        + 1;
-                    let request = tool_to_action_request(&recovery_tool, session_id, nonce)?;
-                    agent_state.execution_queue.insert(0, request);
-                    stop_condition_hit = false;
-                    escalation_path = None;
-                    is_lifecycle_action = true;
-                    remediation_queued = true;
-                    success = true;
-                    error_msg = None;
-                    history_entry =
-                        Some("Queued deterministic patch-miss recovery action.".to_string());
-                    action_output = history_entry.clone();
-                    agent_state.status = AgentStatus::Running;
-                    agent_state.recent_actions.clear();
-                    verification_checks.push("runtime_patch_miss_recovery_queued=true".to_string());
-                } else {
-                    if let Some(evidence) = patch_build_verify_patch_miss_receipt_evidence(
-                        &current_tool_name,
-                        error_msg.as_deref(),
-                        executed_tool_jcs.as_deref(),
-                        &tool_call_result,
-                        pre_state_summary.step_index,
-                    ) {
-                        crate::agentic::runtime::service::tool_execution::support::record_execution_evidence_with_value(
-                            &mut agent_state.tool_execution_log,
-                            "workspace_patch_miss_observed",
-                            evidence,
-                        );
-                        verification_checks.push("runtime_patch_miss_observed=true".to_string());
-                    }
-                    let incident_state = load_incident_state(state, &session_id)?;
-                    if should_enter_incident_recovery(
-                        Some(class),
-                        &policy_decision,
-                        stop_condition_hit,
-                        incident_state.as_ref(),
-                    ) {
-                        if let Some(root_tool_jcs) = executed_tool_jcs.as_deref() {
-                            let (resolved_retry_hash, recovery_tool_name, recovery_tool_jcs): (
-                                String,
-                                String,
-                                Vec<u8>,
-                            ) = if let Some(existing) = incident_state.as_ref().filter(|i| i.active)
-                            {
-                                (
-                                    existing.root_retry_hash.clone(),
-                                    existing.root_tool_name.clone(),
-                                    existing.root_tool_jcs.clone(),
-                                )
-                            } else {
-                                (
-                                    retry_intent_hash
-                                        .as_deref()
-                                        .unwrap_or(intent_hash.as_str())
-                                        .to_string(),
-                                    current_tool_name.clone(),
-                                    root_tool_jcs.to_vec(),
-                                )
-                            };
-                            remediation_queued = matches!(
-                                start_or_continue_incident_recovery(
-                                    service,
-                                    state,
-                                    agent_state,
-                                    session_id,
-                                    block_height,
-                                    &rules,
-                                    &resolved_retry_hash,
-                                    &recovery_tool_name,
-                                    &recovery_tool_jcs,
-                                    class,
-                                    error_msg.as_deref(),
-                                    &mut verification_checks,
-                                )
-                                .await?,
-                                IncidentDirective::QueueActions
-                            );
-                        }
-                    }
-
-                    let install_lookup_failure = error_msg
-                        .as_deref()
-                        .map(|msg| requires_wait_for_clarification(&current_tool_name, msg))
-                        .unwrap_or(false);
-
-                    let workspace_manifest_recovery_queued = if !remediation_queued {
-                        maybe_enqueue_workspace_package_manifest_recovery(
+                        stop_condition_hit = true;
+                        escalation_path = Some("web_timeout_fail_fast".to_string());
+                        is_lifecycle_action = true;
+                        remediation_queued = false;
+                        action_output = Some(summary.clone());
+                        agent_state.execution_queue.clear();
+                        agent_state.pending_search_completion = None;
+                        agent_state.status = AgentStatus::Completed(Some(summary));
+                        verification_checks.push("web_timeout_fail_fast=true".to_string());
+                    } else if let Some(recovery_tool) =
+                        attempt_patch_build_verify_runtime_patch_miss_repair(
+                            state,
                             agent_state,
                             session_id,
-                            class,
                             &current_tool_name,
-                        )?
-                    } else {
-                        false
-                    };
-
-                    if workspace_manifest_recovery_queued {
+                            error_msg.as_deref(),
+                            &tool_call_result,
+                            &mut verification_checks,
+                        )
+                    {
+                        if let Some(evidence) = patch_build_verify_patch_miss_receipt_evidence(
+                            &current_tool_name,
+                            error_msg.as_deref(),
+                            executed_tool_jcs.as_deref(),
+                            &tool_call_result,
+                            pre_state_summary.step_index,
+                        ) {
+                            crate::agentic::runtime::service::tool_execution::support::record_execution_evidence_with_value(
+                            &mut agent_state.tool_execution_log,
+                            "workspace_patch_miss_observed",
+                            evidence,
+                        );
+                            verification_checks
+                                .push("runtime_patch_miss_observed=true".to_string());
+                        }
+                        let nonce = agent_state.step_count as u64
+                            + agent_state.execution_queue.len() as u64
+                            + 1;
+                        let request = tool_to_action_request(&recovery_tool, session_id, nonce)?;
+                        agent_state.execution_queue.insert(0, request);
                         stop_condition_hit = false;
                         escalation_path = None;
                         is_lifecycle_action = true;
                         remediation_queued = true;
                         success = true;
                         error_msg = None;
-                        history_entry = Some(
-                            "Queued deterministic package-manifest recovery actions.".to_string(),
-                        );
+                        history_entry =
+                            Some("Queued deterministic patch-miss recovery action.".to_string());
                         action_output = history_entry.clone();
                         agent_state.status = AgentStatus::Running;
                         agent_state.recent_actions.clear();
                         verification_checks
-                            .push("workspace_package_manifest_recovery_queued=true".to_string());
-                    } else if remediation_queued {
-                        stop_condition_hit = false;
-                        escalation_path = None;
-                        is_lifecycle_action = true;
-                        agent_state.status = AgentStatus::Running;
-                    } else if install_lookup_failure {
-                        stop_condition_hit = true;
-                        escalation_path = Some("wait_for_clarification".to_string());
-                        is_lifecycle_action = true;
-                        awaiting_clarification = true;
-                        mark_incident_wait_for_user(
-                            state,
-                            session_id,
-                            "wait_for_clarification",
-                            FailureClass::UserInterventionNeeded,
-                            error_msg.as_deref(),
-                        )?;
-                        agent_state.execution_queue.clear();
-                        agent_state.status = AgentStatus::Paused(
-                            "Waiting for clarification on target identity.".to_string(),
-                        );
-                    } else if matches!(class, FailureClass::UserInterventionNeeded) {
-                        stop_condition_hit = true;
-                        escalation_path = Some(escalation_path_for_failure(class).to_string());
-                        is_lifecycle_action = true;
-                        agent_state.status = AgentStatus::Paused(
-                            "Waiting for user intervention: complete the required human verification in your browser/app, then resume.".to_string(),
-                        );
-                    } else if should_use_web_research_path(agent_state)
-                        && matches!(class, FailureClass::UnexpectedState)
-                    {
-                        // Keep web research autonomous under transient tool/schema instability.
-                        stop_condition_hit = false;
-                        escalation_path = None;
-                        is_lifecycle_action = true;
-                        success = true;
-                        error_msg = None;
-                        let note = format!(
-                            "Transient unexpected state while executing '{}'; continuing web research.",
-                            current_tool_name
-                        );
-                        history_entry = Some(note.clone());
-                        action_output = Some(note);
-                        agent_state.status = AgentStatus::Running;
-                        agent_state.recent_actions.clear();
-                        verification_checks.push("web_unexpected_retry_bypass=true".to_string());
-                    } else if blocked_without_change {
-                        if maybe_enqueue_lowercase_rename_recovery(
-                            agent_state,
-                            session_id,
-                            class,
+                            .push("runtime_patch_miss_recovery_queued=true".to_string());
+                    } else {
+                        if let Some(evidence) = patch_build_verify_patch_miss_receipt_evidence(
                             &current_tool_name,
-                        )? {
+                            error_msg.as_deref(),
+                            executed_tool_jcs.as_deref(),
+                            &tool_call_result,
+                            pre_state_summary.step_index,
+                        ) {
+                            crate::agentic::runtime::service::tool_execution::support::record_execution_evidence_with_value(
+                            &mut agent_state.tool_execution_log,
+                            "workspace_patch_miss_observed",
+                            evidence,
+                        );
+                            verification_checks
+                                .push("runtime_patch_miss_observed=true".to_string());
+                        }
+                        let incident_state = load_incident_state(state, &session_id)?;
+                        if should_enter_incident_recovery(
+                            Some(class),
+                            &policy_decision,
+                            stop_condition_hit,
+                            incident_state.as_ref(),
+                        ) {
+                            if let Some(root_tool_jcs) = executed_tool_jcs.as_deref() {
+                                let (resolved_retry_hash, recovery_tool_name, recovery_tool_jcs): (
+                                    String,
+                                    String,
+                                    Vec<u8>,
+                                ) = if let Some(existing) =
+                                    incident_state.as_ref().filter(|i| i.active)
+                                {
+                                    (
+                                        existing.root_retry_hash.clone(),
+                                        existing.root_tool_name.clone(),
+                                        existing.root_tool_jcs.clone(),
+                                    )
+                                } else {
+                                    (
+                                        retry_intent_hash
+                                            .as_deref()
+                                            .unwrap_or(intent_hash.as_str())
+                                            .to_string(),
+                                        current_tool_name.clone(),
+                                        root_tool_jcs.to_vec(),
+                                    )
+                                };
+                                remediation_queued = matches!(
+                                    start_or_continue_incident_recovery(
+                                        service,
+                                        state,
+                                        agent_state,
+                                        session_id,
+                                        block_height,
+                                        &rules,
+                                        &resolved_retry_hash,
+                                        &recovery_tool_name,
+                                        &recovery_tool_jcs,
+                                        class,
+                                        error_msg.as_deref(),
+                                        &mut verification_checks,
+                                    )
+                                    .await?,
+                                    IncidentDirective::QueueActions
+                                );
+                            }
+                        }
+
+                        let install_lookup_failure = error_msg
+                            .as_deref()
+                            .map(|msg| requires_wait_for_clarification(&current_tool_name, msg))
+                            .unwrap_or(false);
+
+                        let workspace_manifest_recovery_queued = if !remediation_queued {
+                            maybe_enqueue_workspace_package_manifest_recovery(
+                                agent_state,
+                                session_id,
+                                class,
+                                &current_tool_name,
+                            )?
+                        } else {
+                            false
+                        };
+
+                        if workspace_manifest_recovery_queued {
                             stop_condition_hit = false;
                             escalation_path = None;
                             is_lifecycle_action = true;
@@ -830,21 +867,118 @@ pub(crate) async fn finalize_action_processing(
                             success = true;
                             error_msg = None;
                             history_entry = Some(
-                                "Queued deterministic lowercase-rename recovery actions."
+                                "Queued deterministic package-manifest recovery actions."
                                     .to_string(),
                             );
                             action_output = history_entry.clone();
                             agent_state.status = AgentStatus::Running;
                             agent_state.recent_actions.clear();
                             verification_checks.push(
-                                "workspace_lowercase_rename_recovery_queued=true".to_string(),
+                                "workspace_package_manifest_recovery_queued=true".to_string(),
                             );
-                        } else {
+                        } else if remediation_queued {
+                            stop_condition_hit = false;
+                            escalation_path = None;
+                            is_lifecycle_action = true;
+                            agent_state.status = AgentStatus::Running;
+                        } else if install_lookup_failure {
+                            stop_condition_hit = true;
+                            escalation_path = Some("wait_for_clarification".to_string());
+                            is_lifecycle_action = true;
+                            awaiting_clarification = true;
+                            mark_incident_wait_for_user(
+                                state,
+                                session_id,
+                                "wait_for_clarification",
+                                FailureClass::UserInterventionNeeded,
+                                error_msg.as_deref(),
+                            )?;
+                            agent_state.execution_queue.clear();
+                            agent_state.status = AgentStatus::Paused(
+                                "Waiting for clarification on target identity.".to_string(),
+                            );
+                        } else if matches!(class, FailureClass::UserInterventionNeeded) {
+                            stop_condition_hit = true;
+                            escalation_path = Some(escalation_path_for_failure(class).to_string());
+                            is_lifecycle_action = true;
+                            agent_state.status = AgentStatus::Paused(
+                            "Waiting for user intervention: complete the required human verification in your browser/app, then resume.".to_string(),
+                        );
+                        } else if should_use_web_research_path(agent_state)
+                            && matches!(class, FailureClass::UnexpectedState)
+                        {
+                            // Keep web research autonomous under transient tool/schema instability.
+                            stop_condition_hit = false;
+                            escalation_path = None;
+                            is_lifecycle_action = true;
+                            success = true;
+                            error_msg = None;
+                            let note = format!(
+                            "Transient unexpected state while executing '{}'; continuing web research.",
+                            current_tool_name
+                        );
+                            history_entry = Some(note.clone());
+                            action_output = Some(note);
+                            agent_state.status = AgentStatus::Running;
+                            agent_state.recent_actions.clear();
+                            verification_checks
+                                .push("web_unexpected_retry_bypass=true".to_string());
+                        } else if blocked_without_change {
+                            if maybe_enqueue_lowercase_rename_recovery(
+                                agent_state,
+                                session_id,
+                                class,
+                                &current_tool_name,
+                            )? {
+                                stop_condition_hit = false;
+                                escalation_path = None;
+                                is_lifecycle_action = true;
+                                remediation_queued = true;
+                                success = true;
+                                error_msg = None;
+                                history_entry = Some(
+                                    "Queued deterministic lowercase-rename recovery actions."
+                                        .to_string(),
+                                );
+                                action_output = history_entry.clone();
+                                agent_state.status = AgentStatus::Running;
+                                agent_state.recent_actions.clear();
+                                verification_checks.push(
+                                    "workspace_lowercase_rename_recovery_queued=true".to_string(),
+                                );
+                            } else {
+                                stop_condition_hit = true;
+                                escalation_path =
+                                    Some(escalation_path_for_failure(class).to_string());
+                                is_lifecycle_action = true;
+                                agent_state.status = AgentStatus::Paused(format!(
+                                    "Retry blocked: unchanged AttemptKey for {}",
+                                    class.as_str()
+                                ));
+                                if matches!(
+                                    class,
+                                    FailureClass::FocusMismatch
+                                        | FailureClass::TargetNotFound
+                                        | FailureClass::VisionTargetNotFound
+                                        | FailureClass::NoEffectAfterAction
+                                        | FailureClass::TierViolation
+                                        | FailureClass::MissingDependency
+                                        | FailureClass::ContextDrift
+                                        | FailureClass::ToolUnavailable
+                                        | FailureClass::NonDeterministicUI
+                                        | FailureClass::TimeoutOrHang
+                                        | FailureClass::UnexpectedState
+                                ) {
+                                    agent_state.consecutive_failures =
+                                        agent_state.consecutive_failures.max(3);
+                                }
+                            }
+                        } else if should_trip_retry_guard(class, repeat_count) {
                             stop_condition_hit = true;
                             escalation_path = Some(escalation_path_for_failure(class).to_string());
                             is_lifecycle_action = true;
                             agent_state.status = AgentStatus::Paused(format!(
-                                "Retry blocked: unchanged AttemptKey for {}",
+                                "Retry guard tripped after repeated {} failures",
                                 class.as_str()
                             ));
                             if matches!(
@@ -864,31 +998,6 @@ pub(crate) async fn finalize_action_processing(
                                 agent_state.consecutive_failures =
                                     agent_state.consecutive_failures.max(3);
                             }
-                        }
-                    } else if should_trip_retry_guard(class, repeat_count) {
-                        stop_condition_hit = true;
-                        escalation_path = Some(escalation_path_for_failure(class).to_string());
-                        is_lifecycle_action = true;
-                        agent_state.status = AgentStatus::Paused(format!(
-                            "Retry guard tripped after repeated {} failures",
-                            class.as_str()
-                        ));
-                        if matches!(
-                            class,
-                            FailureClass::FocusMismatch
-                                | FailureClass::TargetNotFound
-                                | FailureClass::VisionTargetNotFound
-                                | FailureClass::NoEffectAfterAction
-                                | FailureClass::TierViolation
-                                | FailureClass::MissingDependency
-                                | FailureClass::ContextDrift
-                                | FailureClass::ToolUnavailable
-                                | FailureClass::NonDeterministicUI
-                                | FailureClass::TimeoutOrHang
-                                | FailureClass::UnexpectedState
-                        ) {
-                            agent_state.consecutive_failures =
-                                agent_state.consecutive_failures.max(3);
                         }
                     }
                 }
@@ -915,53 +1024,79 @@ pub(crate) async fn finalize_action_processing(
     verification_checks.push(format!("awaiting_sudo_password={}", awaiting_sudo_password));
     verification_checks.push(format!("awaiting_clarification={}", awaiting_clarification));
 
-    if success
-        && !is_gated
-        && !awaiting_sudo_password
-        && !awaiting_clarification
-        && matches!(agent_state.status, AgentStatus::Running)
-    {
+    if success && !is_gated && !awaiting_sudo_password && !awaiting_clarification {
         let retained_output = action_output
             .as_deref()
             .or(history_entry.as_deref())
             .or(Some(tool_call_result.as_str()));
-        if let Some(followup_tool) = toolcat_single_tool_retained_shell_followup(
+        let executed_tool = executed_tool_jcs
+            .as_deref()
+            .and_then(|raw| serde_json::from_slice::<AgentTool>(raw).ok());
+        let retained_lifecycle_followup = retained_shell_lifecycle_followup(
             &agent_state.goal,
             &current_tool_name,
+            executed_tool.as_ref(),
             retained_output,
-        )
-        .or_else(|| {
-            toolcat_single_tool_agent_await_followup(
-                &agent_state.goal,
-                &current_tool_name,
-                retained_output,
-            )
-        })
-        .or_else(|| {
-            toolcat_single_tool_chat_reply_recovery_followup(&agent_state.goal, &current_tool_name)
-        })
-        .or_else(|| {
-            toolcat_single_tool_browser_setup_followup(
-                &agent_state.goal,
-                &current_tool_name,
-                retained_output,
-            )
-        })
-        .or_else(|| toolcat_single_tool_success_followup(&agent_state.goal, &current_tool_name))
-        {
+        );
+        let status_allows_followup = matches!(agent_state.status, AgentStatus::Running);
+        let followup_tool = if status_allows_followup || retained_lifecycle_followup.is_some() {
+            retained_lifecycle_followup
+                .or_else(|| {
+                    toolcat_single_tool_retained_shell_followup(
+                        &agent_state.goal,
+                        &current_tool_name,
+                        retained_output,
+                    )
+                })
+                .or_else(|| {
+                    toolcat_single_tool_agent_await_followup(
+                        &agent_state.goal,
+                        &current_tool_name,
+                        retained_output,
+                    )
+                })
+                .or_else(|| {
+                    toolcat_single_tool_chat_reply_recovery_followup(
+                        &agent_state.goal,
+                        &current_tool_name,
+                    )
+                })
+                .or_else(|| {
+                    toolcat_single_tool_browser_setup_followup(
+                        &agent_state.goal,
+                        &current_tool_name,
+                        retained_output,
+                    )
+                })
+                .or_else(|| {
+                    toolcat_single_tool_success_followup(&agent_state.goal, &current_tool_name)
+                })
+        } else {
+            None
+        };
+        if let Some(followup_tool) = followup_tool {
             let followup_name = queue_tool_name(&followup_tool);
             let nonce =
                 agent_state.step_count as u64 + agent_state.execution_queue.len() as u64 + 1;
             let request = tool_to_action_request(&followup_tool, session_id, nonce)?;
+            if matches!(followup_tool, AgentTool::ChatReply { .. })
+                || retained_shell_lifecycle_tool_name(&followup_tool).is_some()
+            {
+                agent_state.execution_queue.clear();
+            }
             agent_state.execution_queue.insert(0, request);
             agent_state.recent_actions.clear();
             stop_condition_hit = false;
             escalation_path = None;
             is_lifecycle_action = true;
             terminal_chat_reply_output = None;
+            agent_state.status = AgentStatus::Running;
             if matches!(followup_tool, AgentTool::ChatReply { .. }) {
+                verification_checks
+                    .push(format!("terminal_lifecycle_reply_queued={}", followup_name));
+            } else if retained_shell_lifecycle_tool_name(&followup_tool).is_some() {
                 verification_checks.push(format!(
-                    "toolcat_single_tool_reply_queued={}",
+                    "retained_shell_lifecycle_followup_queued={}",
                     followup_name
                 ));
             } else {
@@ -1020,7 +1155,37 @@ pub(crate) async fn finalize_action_processing(
             *reply = sanitize_product_handoff_internal_markers(reply);
         }
         let reply = terminal_chat_reply_output.as_deref().unwrap_or_default();
-        if let Some(reason) = final_reply_product_handoff_reason(reply, &agent_state.goal) {
+        let action_missing = missing_runtime_action_completion_evidence(agent_state);
+        if !action_missing.is_empty() {
+            for missing in &action_missing {
+                verification_checks.push(format!("action_completion_missing={}", missing));
+            }
+            let missing = action_missing.join(",");
+            let blocked_error = execution_contract_violation_error(&missing);
+            success = false;
+            error_msg = Some(blocked_error.clone());
+            history_entry = Some(blocked_error.clone());
+            action_output = Some(blocked_error);
+            terminal_chat_reply_output = None;
+            agent_state.status = AgentStatus::Running;
+            stop_condition_hit = false;
+            is_lifecycle_action = false;
+            verification_checks.push("execution_contract_gate_blocked=true".to_string());
+            verification_checks.push(format!("execution_contract_missing_keys={}", missing));
+            verification_checks.push("terminal_chat_reply_ready=false".to_string());
+            let intent_id = resolved_intent_id(agent_state);
+            agent_state
+                .execution_ledger
+                .record_completion_gate(Some(intent_id.clone()), &action_missing);
+            emit_completion_gate_status_event(
+                service,
+                session_id,
+                pre_state_summary.step_index,
+                intent_id.as_str(),
+                false,
+                "finalize_terminal_chat_reply_action_completion_blocked",
+            );
+        } else if let Some(reason) = final_reply_product_handoff_reason(reply, &agent_state.goal) {
             let blocked_error = terminal_product_handoff_violation_error(reason);
             success = false;
             error_msg = Some(blocked_error.clone());

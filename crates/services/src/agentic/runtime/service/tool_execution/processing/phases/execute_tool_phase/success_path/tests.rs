@@ -144,6 +144,41 @@ fn non_browser_tool_history_is_prefixed_for_next_model_turn() {
 }
 
 #[test]
+fn shell_history_omits_large_raw_streams_from_chat_context() {
+    let history_entry = format!(
+        "COMMAND_HISTORY:{}\n{}",
+        serde_json::to_string(&CommandExecution {
+            command: "node -e <inline script>".to_string(),
+            exit_code: 0,
+            stdout: (0..40_000)
+                .map(|idx| format!("cap-line-{idx}\n"))
+                .collect::<String>(),
+            stderr: String::new(),
+            timestamp_ms: 1_780_000_000_000,
+            step_index: 0,
+        })
+        .expect("command history serializes"),
+        "cap-line-0\ncap-line-1\n"
+    );
+
+    let compact = compact_tool_history_entry_for_chat("shell__run", &history_entry);
+
+    assert!(compact.contains("command_exit_code=0"), "{compact}");
+    assert!(compact.contains("stdout_lines=40000"), "{compact}");
+    assert!(
+        compact.contains("stdout_content=omitted_large_stream"),
+        "{compact}"
+    );
+    assert!(
+        compact.contains("raw_streams=work_lane_and_tracing_only"),
+        "{compact}"
+    );
+    assert!(!compact.contains("cap-line-0"), "{compact}");
+    assert!(!compact.contains("cap-line-39999"), "{compact}");
+    assert!(!compact.contains("node -e"), "{compact}");
+}
+
+#[test]
 fn command_exit_failure_is_a_tool_observation_for_model_repair() {
     let tool = AgentTool::SysExec {
         command: "node".to_string(),
@@ -170,18 +205,28 @@ fn command_exit_failure_is_a_tool_observation_for_model_repair() {
         &tool,
         false,
         &history_entry,
+        false,
     ));
     assert!(!should_treat_command_failure_as_tool_observation(
         false,
         &tool,
         false,
         &history_entry,
+        false,
     ));
     assert!(!should_treat_command_failure_as_tool_observation(
         true,
         &tool,
         true,
         &history_entry,
+        false,
+    ));
+    assert!(!should_treat_command_failure_as_tool_observation(
+        true,
+        &tool,
+        false,
+        &history_entry,
+        true,
     ));
 }
 

@@ -14,6 +14,15 @@ import {
   isComputerUseRunEventType,
 } from "./computer-use-projection.mjs";
 import {
+  emptyManagedSessionSnapshot,
+  managedSessionControlAction,
+  normalizeManagedSessionInspection,
+} from "./managed-session-inspection.mjs";
+import {
+  emptyWorkspaceChangeReviewSnapshot,
+  normalizeWorkspaceChangeReviewInspection,
+} from "./workspace-change-inspection.mjs";
+import {
   discoverComputerUseBrowsers,
   discoverComputerUseBrowsersSync,
 } from "./browser-discovery.mjs";
@@ -253,6 +262,12 @@ const {
 
 const RUNTIME_BRIDGE_AGENT_TURN_MIN_STEPS = 8;
 
+const WORKSPACE_CHANGE_CONTROL_TOOL_IDS = new Set([
+  "workspace_change__accept",
+  "workspace_change__reject",
+  "workspace_change__rollback",
+]);
+
 export async function startRuntimeDaemonService(options = {}) {
   const stateDir = path.resolve(options.stateDir ?? path.join(process.cwd(), ".ioi", "agentgres"));
   const host = options.host ?? "127.0.0.1";
@@ -304,6 +319,7 @@ export class AgentgresRuntimeStateStore {
     this.agents = new Map();
     this.runs = new Map();
     this.subagents = new Map();
+    this.inFlightRuntimeTurns = new Map();
     this.runtimeEventStreams = new Map();
     this.codingArtifacts = new Map();
     this.conversationArtifacts = new ConversationArtifactStore(this.stateDir);
@@ -1198,10 +1214,306 @@ export class AgentgresRuntimeStateStore {
     return this.threadForAgent(this.agentForThread(threadId));
   }
 
-  resumeThread(threadId) {
+  async inspectManagedSessionsForThread(threadId, request = {}) {
     const agent = this.agentForThread(threadId);
+    const sessionId = runtimeSessionIdForAgent(agent);
+    if (!isRuntimeBackedAgent(agent)) {
+      return {
+        schema_version: "ioi.runtime.managed-session.daemon.v1",
+        thread_id: threadId,
+        threadId,
+        session_id: sessionId,
+        sessionId,
+        runtime_profile: agent.runtimeProfile ?? "fixture",
+        source: "daemon",
+        status: "not_runtime_backed",
+        managed_sessions: emptyManagedSessionSnapshot(threadId),
+        managedSessions: emptyManagedSessionSnapshot(threadId),
+      };
+    }
+    this.assertRuntimeBridgeAvailable({
+      runtimeProfile: agent.runtimeProfile,
+      operation: "inspect_thread",
+    });
+    try {
+      const bridgeResult = await this.runtimeBridge.inspectThread({
+        sessionId,
+        threadId,
+        workspaceRoot: agent.cwd,
+        projection: "managed_sessions",
+        managedSessionsOnly: true,
+        requestedAt: new Date().toISOString(),
+      });
+      return normalizeManagedSessionInspection({
+        bridgeResult,
+        agent,
+        threadId,
+        sessionId,
+      });
+    } catch (error) {
+      if (error instanceof RuntimeApiBridgeUnavailableError) {
+        throw this.runtimeBridgeUnavailable({
+          runtimeProfile: agent.runtimeProfile,
+          operation: "inspect_thread",
+          details: error.details,
+        });
+      }
+      throw error;
+    }
+  }
+
+  async inspectWorkspaceChangeReviewsForThread(threadId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    const sessionId = runtimeSessionIdForAgent(agent);
+    if (!isRuntimeBackedAgent(agent)) {
+      return {
+        ...emptyWorkspaceChangeReviewSnapshot(threadId, sessionId),
+        runtime_profile: agent.runtimeProfile ?? "fixture",
+        runtimeProfile: agent.runtimeProfile ?? "fixture",
+        status: "not_runtime_backed",
+      };
+    }
+    this.assertRuntimeBridgeAvailable({
+      runtimeProfile: agent.runtimeProfile,
+      operation: "inspect_thread",
+    });
+    try {
+      const bridgeResult = await this.runtimeBridge.inspectThread({
+        sessionId,
+        threadId,
+        workspaceRoot: agent.cwd,
+        projection: "workspace_change_reviews",
+        requestedAt: new Date().toISOString(),
+        ...request,
+      });
+      return normalizeWorkspaceChangeReviewInspection({
+        bridgeResult,
+        agent,
+        threadId,
+        sessionId,
+      });
+    } catch (error) {
+      if (error instanceof RuntimeApiBridgeUnavailableError) {
+        throw this.runtimeBridgeUnavailable({
+          runtimeProfile: agent.runtimeProfile,
+          operation: "inspect_thread",
+          details: error.details,
+        });
+      }
+      throw error;
+    }
+  }
+
+  async controlWorkspaceChangeForThread(threadId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    if (!isRuntimeBackedAgent(agent)) {
+      throw this.runtimeBridgeUnavailable({
+        runtimeProfile: agent.runtimeProfile,
+        operation: "control_thread",
+        details: { reason: "workspace_change_control_requires_runtime_service" },
+      });
+    }
+    const toolId = optionalString(request.toolId ?? request.tool_id);
+    const input = request.input && typeof request.input === "object" ? request.input : request;
+    const changeId = optionalString(
+      input.changeId ?? input.change_id ?? input.workspaceChangeId ?? input.workspace_change_id,
+    );
+    if (!changeId) {
+      throw runtimeError({
+        status: 400,
+        code: "workspace_change_control_contract",
+        message: "Workspace change control requires changeId.",
+        details: { threadId, operation: "control_thread", toolId },
+      });
+    }
+    const action = toolId === "workspace_change__reject"
+      ? "workspace_change_reject"
+      : toolId === "workspace_change__rollback"
+        ? "workspace_change_rollback"
+        : "workspace_change_accept";
+    this.assertRuntimeBridgeAvailable({
+      runtimeProfile: agent.runtimeProfile,
+      operation: "control_thread",
+    });
+    const createdAt = optionalString(request.createdAt ?? request.created_at) ?? new Date().toISOString();
+    try {
+      const bridgeResult = await this.runtimeBridge.controlThread({
+        sessionId: runtimeSessionIdForAgent(agent),
+        threadId,
+        workspaceRoot: agent.cwd,
+        action,
+        reason:
+          optionalString(input.reason ?? request.reason ?? request.message) ??
+          `operator requested ${action.replace(/_/g, " ")}`,
+        requestHash:
+          optionalString(request.requestHash ?? request.request_hash) ??
+          doctorHash(`${threadId}:${changeId}:${action}:${createdAt}`).slice(0, 16),
+        changeId,
+        createdAt,
+      });
+      const inspection = normalizeWorkspaceChangeReviewInspection({
+        bridgeResult: bridgeResult?.inspection ?? bridgeResult,
+        agent,
+        threadId,
+        sessionId: runtimeSessionIdForAgent(agent),
+      });
+      const status = action === "workspace_change_reject"
+        ? "rejected"
+        : action === "workspace_change_rollback"
+          ? "rolled_back"
+          : "completed";
+      const receiptRef = `receipt_workspace_change_${safeId(action)}_${doctorHash(`${threadId}:${changeId}:${createdAt}`).slice(0, 12)}`;
+      return {
+        schema_version: "ioi.runtime.workspace-change-control.daemon.v1",
+        schemaVersion: "ioi.runtime.workspace-change-control.daemon.v1",
+        thread_id: threadId,
+        threadId,
+        session_id: runtimeSessionIdForAgent(agent),
+        sessionId: runtimeSessionIdForAgent(agent),
+        tool_id: toolId,
+        toolId,
+        action,
+        change_id: changeId,
+        changeId,
+        source: "daemon",
+        status,
+        receipt_refs: [receiptRef],
+        receiptRefs: [receiptRef],
+        bridge_result: bridgeResult,
+        bridgeResult,
+        inspection,
+        result: {
+          action,
+          changeId,
+          status,
+          inspection,
+          receiptRefs: [receiptRef],
+          receipt_refs: [receiptRef],
+        },
+      };
+    } catch (error) {
+      if (error instanceof RuntimeApiBridgeUnavailableError) {
+        throw this.runtimeBridgeUnavailable({
+          runtimeProfile: agent.runtimeProfile,
+          operation: "control_thread",
+          details: error.details,
+        });
+      }
+      throw error;
+    }
+  }
+
+  async controlManagedSessionForThread(threadId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    if (!isRuntimeBackedAgent(agent)) {
+      throw this.runtimeBridgeUnavailable({
+        runtimeProfile: agent.runtimeProfile,
+        operation: "control_thread",
+        details: { reason: "managed_session_control_requires_runtime_service" },
+      });
+    }
+    const action = managedSessionControlAction(request.action ?? request.control ?? request.state);
+    const managedSessionId = optionalString(
+      request.managedSessionId ?? request.managed_session_id ?? request.sessionCardId ?? request.session_card_id,
+    );
+    if (!managedSessionId) {
+      throw runtimeError({
+        status: 400,
+        code: "managed_session_control_contract",
+        message: "Managed session control requires managedSessionId.",
+        details: { threadId, operation: "control_thread" },
+      });
+    }
+    this.assertRuntimeBridgeAvailable({
+      runtimeProfile: agent.runtimeProfile,
+      operation: "control_thread",
+    });
+    const createdAt = optionalString(request.createdAt ?? request.created_at) ?? new Date().toISOString();
+    try {
+      const bridgeResult = await this.runtimeBridge.controlThread({
+        sessionId: runtimeSessionIdForAgent(agent),
+        threadId,
+        workspaceRoot: agent.cwd,
+        action,
+        reason:
+          optionalString(request.reason ?? request.message) ??
+          `operator requested ${action.replace(/_/g, " ")}`,
+        requestHash:
+          optionalString(request.requestHash ?? request.request_hash) ??
+          doctorHash(`${threadId}:${managedSessionId}:${action}:${createdAt}`).slice(0, 16),
+        managedSessionId,
+        createdAt,
+      });
+      return {
+        schema_version: "ioi.runtime.managed-session-control.daemon.v1",
+        thread_id: threadId,
+        threadId,
+        session_id: runtimeSessionIdForAgent(agent),
+        sessionId: runtimeSessionIdForAgent(agent),
+        action,
+        managed_session_id: managedSessionId,
+        managedSessionId,
+        source: "daemon",
+        bridge_result: bridgeResult,
+        bridgeResult,
+        inspection: normalizeManagedSessionInspection({
+          bridgeResult: bridgeResult?.inspection ?? bridgeResult,
+          agent,
+          threadId,
+          sessionId: runtimeSessionIdForAgent(agent),
+        }),
+      };
+    } catch (error) {
+      if (error instanceof RuntimeApiBridgeUnavailableError) {
+        throw this.runtimeBridgeUnavailable({
+          runtimeProfile: agent.runtimeProfile,
+          operation: "control_thread",
+          details: error.details,
+        });
+      }
+      throw error;
+    }
+  }
+
+  async resumeThread(threadId, request = {}) {
+    const agent = this.agentForThread(threadId);
+    let runtimeControl = null;
+    if (isRuntimeBackedAgent(agent)) {
+      this.assertRuntimeBridgeAvailable({
+        runtimeProfile: agent.runtimeProfile,
+        operation: "control_thread",
+      });
+      try {
+        runtimeControl = await this.runtimeBridge.controlThread({
+          sessionId: runtimeSessionIdForAgent(agent),
+          threadId,
+          workspaceRoot: agent.cwd,
+          action: "resume",
+          reason:
+            optionalString(request.reason ?? request.message ?? request.input) ??
+            "operator requested resume",
+          createdAt: new Date().toISOString(),
+        });
+      } catch (error) {
+        if (error instanceof RuntimeApiBridgeUnavailableError) {
+          throw this.runtimeBridgeUnavailable({
+            runtimeProfile: agent.runtimeProfile,
+            operation: "control_thread",
+            details: error.details,
+          });
+        }
+        throw error;
+      }
+    }
     const updated = this.updateAgent(agent.id, "active", "thread.resume");
-    return this.threadForAgent(updated);
+    const thread = this.threadForAgent(updated);
+    return runtimeControl
+      ? {
+          ...thread,
+          runtime_control: runtimeControl,
+          runtimeControl,
+        }
+      : thread;
   }
 
   updateThreadMode(threadId, request = {}) {
@@ -2914,6 +3226,8 @@ export class AgentgresRuntimeStateStore {
   assertRuntimeBridgeAvailable({ runtimeProfile, operation }) {
     if (operation === "start_thread" && this.runtimeBridge.canStartThread) return;
     if (operation === "submit_turn" && this.runtimeBridge.canSubmitTurn) return;
+    if (operation === "inspect_thread" && this.runtimeBridge.canInspectThread) return;
+    if (operation === "control_thread" && this.runtimeBridge.canControlThread) return;
     throw this.runtimeBridgeUnavailable({ runtimeProfile, operation });
   }
 
@@ -3032,7 +3346,7 @@ export class AgentgresRuntimeStateStore {
 
   normalizeRuntimeBridgeLiveEvent({ event, agent, threadId }) {
     const turnId = optionalString(event?.turn_id ?? event?.turnId) ?? "";
-    const runId = turnId ? runIdForTurn(turnId) : null;
+    const runId = optionalString(event?.run_id ?? event?.runId) ?? (turnId ? runIdForTurn(turnId) : null);
     return {
       ...event,
       event_stream_id: event?.event_stream_id ?? eventStreamIdForThread(threadId),
@@ -3395,16 +3709,30 @@ export class AgentgresRuntimeStateStore {
       createdAt: new Date().toISOString(),
       streamedEventsOnly: true,
     };
+    const inFlightTurnIds = new Set();
     let bridgeResult;
     try {
       bridgeResult = await this.runtimeBridge.submitTurn(input, {
         onRuntimeEvent: (event) => {
-          this.appendRuntimeEvent(
-            this.normalizeRuntimeBridgeLiveEvent({ event, agent, threadId }),
-          );
+          const normalized = this.normalizeRuntimeBridgeLiveEvent({ event, agent, threadId });
+          const liveTurnId = optionalString(normalized.turn_id ?? normalized.turnId);
+          if (liveTurnId) {
+            inFlightTurnIds.add(liveTurnId);
+            this.registerInFlightRuntimeTurn({
+              agent,
+              threadId,
+              turnId: liveTurnId,
+              runId: optionalString(event?.run_id ?? event?.runId ?? normalized.payload?.run_id),
+              request,
+            });
+          }
+          this.appendRuntimeEvent(normalized);
         },
       });
     } catch (error) {
+      for (const turnId of inFlightTurnIds) {
+        this.unregisterInFlightRuntimeTurn(threadId, turnId);
+      }
       this.appendOperation("turn.runtime_bridge.submit_error", {
         objectId: agent.id,
         agentId: agent.id,
@@ -3465,6 +3793,9 @@ export class AgentgresRuntimeStateStore {
     const run = runtimeBridgeRunRecord({ agent, request, projection });
     this.runs.set(run.id, run);
     this.writeRun(run, "turn.runtime_bridge.submit");
+    for (const turnId of inFlightTurnIds) {
+      this.unregisterInFlightRuntimeTurn(threadId, turnId);
+    }
     this.appendOperation("turn.runtime_bridge.submit_budget", {
       objectId: run.id,
       runId: run.id,
@@ -3830,25 +4161,63 @@ export class AgentgresRuntimeStateStore {
     };
   }
 
-  interruptTurn(threadId, turnId, request = {}) {
+  async interruptTurn(threadId, turnId, request = {}) {
     const agent = this.agentForThread(threadId);
-    const runId = runIdForTurn(turnId);
-    const run = this.getRun(runId);
-    if (run.agentId !== agent.id) {
-      throw notFound(`Turn not found: ${turnId}`, { threadId, turnId, runId });
+    const resolved = this.resolveRunForThreadTurn(agent, threadId, turnId);
+    const runId = resolved.runId;
+    const resolvedTurnId = resolved.turnId || turnId;
+    const run = resolved.run;
+    let runtimeControl = null;
+    if (isRuntimeBackedAgent(agent)) {
+      this.assertRuntimeBridgeAvailable({
+        runtimeProfile: agent.runtimeProfile,
+        operation: "control_thread",
+      });
+      const requestedAction = optionalString(
+        request.runtime_control_action ??
+          request.runtimeControlAction ??
+          request.control_action ??
+          request.controlAction,
+      );
+      const controlAction = /^(cancel|terminate)$/i.test(requestedAction ?? "")
+        ? "cancel"
+        : "stop";
+      try {
+        runtimeControl = await this.runtimeBridge.controlThread({
+          sessionId: runtimeSessionIdForAgent(agent),
+          threadId,
+          workspaceRoot: agent.cwd,
+          action: controlAction,
+          reason:
+            optionalString(request.reason ?? request.message ?? request.input) ??
+            "operator requested interrupt",
+          createdAt: new Date().toISOString(),
+        });
+      } catch (error) {
+        if (error instanceof RuntimeApiBridgeUnavailableError) {
+          throw this.runtimeBridgeUnavailable({
+            runtimeProfile: agent.runtimeProfile,
+            operation: "control_thread",
+            details: error.details,
+          });
+        }
+        throw error;
+      }
     }
     const source = operatorControlSource(request.source);
     const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
     const reason =
       optionalString(request.reason ?? request.message ?? request.input) ?? "operator requested interrupt";
     const now = new Date().toISOString();
-    const previousStatus = run.turnStatus ?? lifecycleStatusForRun(run.status);
+    const previousStatus = run
+      ? run.turnStatus ?? lifecycleStatusForRun(run.status)
+      : "running";
     const event = this.appendRuntimeEvent({
       event_stream_id: eventStreamIdForThread(threadId),
       thread_id: threadId,
-      turn_id: turnId,
-      item_id: `${turnId}:item:operator-interrupt`,
-      idempotency_key: `turn:${turnId}:operator.interrupt`,
+      turn_id: resolvedTurnId,
+      item_id: `${resolvedTurnId}:item:operator-interrupt`,
+      idempotency_key: `turn:${resolvedTurnId}:operator.interrupt`,
       source,
       source_event_kind: "OperatorControl.Interrupt",
       event_kind: "turn.interrupted",
@@ -3868,12 +4237,12 @@ export class AgentgresRuntimeStateStore {
         previous_status: previousStatus,
         agent_id: agent.id,
         thread_id: threadId,
-        turn_id: turnId,
-        run_id: run.id,
+        turn_id: resolvedTurnId,
+        run_id: runId,
         session_id: runtimeSessionIdForAgent(agent),
       },
-      receipt_refs: [`receipt_${run.id}_operator_interrupt`],
-      policy_decision_refs: [`policy_${run.id}_operator_interrupt_allow`],
+      receipt_refs: [`receipt_${runId}_operator_interrupt`],
+      policy_decision_refs: [`policy_${runId}_operator_interrupt_allow`],
       artifact_refs: [],
       rollback_refs: [],
       redaction_profile: "internal",
@@ -3892,6 +4261,37 @@ export class AgentgresRuntimeStateStore {
       evidenceSufficient: true,
       rationale: `Operator interrupt accepted from ${source}: ${reason}`,
     };
+    if (!run) {
+      const turnEvents = this.runtimeEventsForTurn(resolvedTurnId);
+      const interruptedTurn = {
+        schema_version: RUNTIME_TURN_SCHEMA_VERSION,
+        turn_id: resolvedTurnId,
+        thread_id: threadId,
+        parent_turn_id: null,
+        request_id: runId,
+        status: "interrupted",
+        input_item_ids: turnEvents
+          .filter((candidate) => candidate.event_kind === "turn.started")
+          .map((candidate) => candidate.item_id),
+        output_item_ids: turnEvents
+          .filter((candidate) => candidate.event_kind !== "turn.started")
+          .map((candidate) => candidate.item_id),
+        events: turnEvents,
+        seq_start: turnEvents.at(0)?.seq ?? null,
+        seq_end: turnEvents.at(-1)?.seq ?? null,
+        started_at: resolved.inFlight?.createdAt ?? event.created_at,
+        completed_at: null,
+        mode: request.mode ?? "send",
+        approval_mode: agent.runtimeControls?.approvalMode ?? "suggest",
+      };
+      return runtimeControl
+        ? {
+            ...interruptedTurn,
+            runtime_control: runtimeControl,
+            runtimeControl,
+          }
+        : interruptedTurn;
+    }
     const updated = {
       ...run,
       status: ["queued", "running", "blocked"].includes(run.status) ? "canceled" : run.status,
@@ -3917,7 +4317,14 @@ export class AgentgresRuntimeStateStore {
     };
     this.runs.set(run.id, updated);
     this.writeRun(updated, "turn.interrupt");
-    return this.turnForRun(updated);
+    const turn = this.turnForRun(updated);
+    return runtimeControl
+      ? {
+          ...turn,
+          runtime_control: runtimeControl,
+          runtimeControl,
+        }
+      : turn;
   }
 
   steerTurn(threadId, turnId, request = {}) {
@@ -6930,6 +7337,62 @@ export class AgentgresRuntimeStateStore {
     return this.getAgent(agentIdForThread(threadId));
   }
 
+  inFlightRuntimeTurnKey(threadId, turnId) {
+    return `${threadId}:${turnId}`;
+  }
+
+  registerInFlightRuntimeTurn({ agent, threadId, turnId, runId = null, request = {} }) {
+    const now = new Date().toISOString();
+    const key = this.inFlightRuntimeTurnKey(threadId, turnId);
+    const existing = this.inFlightRuntimeTurns.get(key) ?? {};
+    this.inFlightRuntimeTurns.set(key, {
+      ...existing,
+      agentId: agent.id,
+      threadId,
+      turnId,
+      runId: runId ?? runIdForTurn(turnId),
+      prompt: request.prompt ?? request.message ?? request.input ?? existing.prompt ?? "",
+      createdAt: existing.createdAt ?? now,
+      updatedAt: now,
+    });
+  }
+
+  unregisterInFlightRuntimeTurn(threadId, turnId) {
+    this.inFlightRuntimeTurns.delete(this.inFlightRuntimeTurnKey(threadId, turnId));
+  }
+
+  resolveRunForThreadTurn(agent, threadId, turnId) {
+    const runId = runIdForTurn(turnId);
+    const directRun = this.runs.get(runId);
+    if (directRun) {
+      if (directRun.agentId !== agent.id) {
+        throw notFound(`Turn not found: ${turnId}`, { threadId, turnId, runId });
+      }
+      return { run: directRun, runId: directRun.id, turnId: runtimeTurnIdForRun(directRun), inFlight: null };
+    }
+    const runtimeTurnRun = this.listRuns(agent.id).find((candidate) =>
+      runtimeTurnIdForRun(candidate) === turnId || turnIdForRun(candidate.id) === turnId,
+    );
+    if (runtimeTurnRun) {
+      return {
+        run: runtimeTurnRun,
+        runId: runtimeTurnRun.id,
+        turnId: runtimeTurnIdForRun(runtimeTurnRun),
+        inFlight: null,
+      };
+    }
+    const inFlight = this.inFlightRuntimeTurns.get(this.inFlightRuntimeTurnKey(threadId, turnId));
+    if (inFlight?.agentId === agent.id) {
+      return {
+        run: null,
+        runId: inFlight.runId,
+        turnId: inFlight.turnId,
+        inFlight,
+      };
+    }
+    throw notFound(`Turn not found: ${turnId}`, { threadId, turnId, runId });
+  }
+
   getRun(runId) {
     const run = this.runs.get(runId);
     if (!run) {
@@ -8742,6 +9205,12 @@ export class AgentgresRuntimeStateStore {
 
   async invokeThreadToolAsync(threadId, toolId, request = {}) {
     const normalizedToolId = optionalString(toolId);
+    if (WORKSPACE_CHANGE_CONTROL_TOOL_IDS.has(normalizedToolId)) {
+      return await this.controlWorkspaceChangeForThread(threadId, {
+        ...request,
+        toolId: normalizedToolId,
+      });
+    }
     if (COMPUTER_USE_CONTROL_TOOL_IDS.has(normalizedToolId)) {
       return this.invokeComputerUseControlTool(threadId, normalizedToolId, request);
     }
@@ -9247,12 +9716,40 @@ export class AgentgresRuntimeStateStore {
       )
       .at(-1);
     if (!latestDecision) return { satisfied: false, approvalId, reason: "approval_decision_missing" };
+    if (latestDecision.event_kind !== "approval.approved") {
+      return {
+        satisfied: false,
+        approvalId,
+        decisionEventId: latestDecision.event_id,
+        decisionSeq: latestDecision.seq,
+        reason: approvalReasonForDecisionEvent(latestDecision),
+      };
+    }
+    const leaseState = approvalLeaseStateForDecision({
+      threadId,
+      approvalId,
+      approvalRequestEvent,
+      latestDecision,
+    });
+    if (leaseState.expired) {
+      return {
+        satisfied: false,
+        approvalId,
+        decisionEventId: latestDecision.event_id,
+        decisionSeq: latestDecision.seq,
+        reason: "approval_lease_expired",
+        leaseId: leaseState.leaseId,
+        expiresAt: leaseState.expiresAt,
+      };
+    }
     return {
-      satisfied: latestDecision.event_kind === "approval.approved",
+      satisfied: true,
       approvalId,
       decisionEventId: latestDecision.event_id,
       decisionSeq: latestDecision.seq,
       reason: approvalReasonForDecisionEvent(latestDecision),
+      leaseId: leaseState.leaseId,
+      expiresAt: leaseState.expiresAt,
     };
   }
 
@@ -16807,42 +17304,47 @@ function visualGuiObservationMetadataForInput(input = {}) {
     ["redactionReportRef", "redaction_report_ref"],
   ];
   for (const [camelKey, snakeKey] of stringFields) {
-    const value = optionalString(input[camelKey] ?? input[snakeKey] ?? visualObservation[camelKey] ?? visualObservation[snakeKey]);
+    const value = optionalString(
+      input[camelKey] ??
+        input[snakeKey] ??
+        visualObservation?.[camelKey] ??
+        visualObservation?.[snakeKey],
+    );
     if (value) metadata[camelKey] = value;
   }
   const width = visualGuiFiniteNumber(
     input.viewportWidth ??
       input.viewport_width ??
-      visualObservation.viewportWidth ??
-      visualObservation.viewport_width,
+      visualObservation?.viewportWidth ??
+      visualObservation?.viewport_width,
   );
   const height = visualGuiFiniteNumber(
     input.viewportHeight ??
       input.viewport_height ??
-      visualObservation.viewportHeight ??
-      visualObservation.viewport_height,
+      visualObservation?.viewportHeight ??
+      visualObservation?.viewport_height,
   );
   if (width !== null) metadata.viewportWidth = width;
   if (height !== null) metadata.viewportHeight = height;
   const visualTargets = normalizeArray(
     input.visualTargets ??
       input.visual_targets ??
-      visualObservation.visualTargets ??
-      visualObservation.visual_targets ??
-      visualObservation.targets,
+      visualObservation?.visualTargets ??
+      visualObservation?.visual_targets ??
+      visualObservation?.targets,
   );
   const visualAffordances = normalizeArray(
     input.visualAffordances ??
       input.visual_affordances ??
-      visualObservation.visualAffordances ??
-      visualObservation.visual_affordances ??
-      visualObservation.affordances,
+      visualObservation?.visualAffordances ??
+      visualObservation?.visual_affordances ??
+      visualObservation?.affordances,
   );
   const detectedPatterns = normalizeArray(
     input.detectedPatterns ??
       input.detected_patterns ??
-      visualObservation.detectedPatterns ??
-      visualObservation.detected_patterns,
+      visualObservation?.detectedPatterns ??
+      visualObservation?.detected_patterns,
   );
   if (visualTargets.length > 0) metadata.visualTargets = visualTargets;
   if (visualAffordances.length > 0) metadata.visualAffordances = visualAffordances;
@@ -16964,6 +17466,10 @@ function nativeBrowserActionKindIsReadOnly(actionKind) {
 
 function normalizeArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
+}
+
+function objectRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
 
 function uniqueStrings(values) {
@@ -19541,6 +20047,32 @@ function approvalLeaseMetadataFromPayload(payload = {}, approvalId, threadId) {
   };
 }
 
+function approvalLeaseStateForDecision({
+  threadId,
+  approvalId,
+  approvalRequestEvent,
+  latestDecision,
+}) {
+  const decisionPayload = latestDecision?.payload_summary ?? latestDecision?.payload ?? {};
+  const requestPayload = approvalRequestEvent?.payload_summary ?? approvalRequestEvent?.payload ?? {};
+  const decisionLease = approvalLeaseMetadataFromPayload(decisionPayload, approvalId, threadId);
+  const requestLease = approvalLeaseMetadataFromPayload(requestPayload, approvalId, threadId);
+  const leaseId =
+    optionalString(decisionLease.lease_id ?? decisionLease.leaseId) ??
+    optionalString(requestLease.lease_id ?? requestLease.leaseId) ??
+    null;
+  const expiresAt =
+    optionalString(decisionLease.expires_at ?? decisionLease.expiresAt) ??
+    optionalString(requestLease.expires_at ?? requestLease.expiresAt) ??
+    null;
+  const expiresMs = expiresAt ? Date.parse(expiresAt) : Number.NaN;
+  return {
+    leaseId,
+    expiresAt,
+    expired: Number.isFinite(expiresMs) && expiresMs <= Date.now(),
+  };
+}
+
 function approvalReasonForDecisionEvent(event) {
   if (event?.event_kind === "approval.approved") return "approval_approved";
   if (event?.event_kind === "approval.revoked") return "approval_revoked";
@@ -21421,18 +21953,18 @@ function artifactRefsForRunEvent(event) {
 
 function computerUseArtifactRefsForRunEvent(event) {
   const data = objectRecord(event.data);
-  const observation = objectRecord(data.observation_bundle ?? data.observationBundle);
-  const cleanup = objectRecord(data.cleanup_receipt ?? data.cleanupReceipt);
+  const observation = objectRecord(data?.observation_bundle ?? data?.observationBundle);
+  const cleanup = objectRecord(data?.cleanup_receipt ?? data?.cleanupReceipt);
   return uniqueStrings([
     "computer-use-trace.json",
-    observation.screenshot_ref,
-    observation.screenshotRef,
-    observation.som_ref,
-    observation.somRef,
-    observation.ax_ref,
-    observation.axRef,
-    ...normalizeArray(cleanup.retained_artifact_refs ?? cleanup.retainedArtifactRefs),
-    ...normalizeArray(data.computerUseVisualArtifactRefs ?? data.computer_use_visual_artifact_refs),
+    observation?.screenshot_ref,
+    observation?.screenshotRef,
+    observation?.som_ref,
+    observation?.somRef,
+    observation?.ax_ref,
+    observation?.axRef,
+    ...normalizeArray(cleanup?.retained_artifact_refs ?? cleanup?.retainedArtifactRefs),
+    ...normalizeArray(data?.computerUseVisualArtifactRefs ?? data?.computer_use_visual_artifact_refs),
   ]);
 }
 

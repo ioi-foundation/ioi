@@ -194,9 +194,11 @@ masked, secret-shared, guardian-mediated, or locally evaluated.
 
 \section{Contributions}
 
-This yellow paper defines \ctee{}s as a systems architecture rather than as a
-new primitive. Its technical contribution is the envelope and composition
-model:
+This yellow paper defines \ctee{}s as a systems primitive, not a new
+cryptographic primitive. Its technical contribution is a custody discipline for
+private agency: a way to transform many secret-bearing agent tasks into public
+candidate expansion, private choice, receipted declassification, and
+capability-bounded action.
 
 \begin{enumerate}[leftmargin=1.5em]
 \item \textbf{No-Plaintext-Custody Security.} We formalize the property that an
@@ -209,6 +211,34 @@ receipts, and capability exits.
 \item \textbf{Split-State Agent Automaton.} We model agent execution as a state
 machine whose state is partitioned into public, redacted, sealed, guardian, and
 action-authority components.
+\item \textbf{Custody Type System.} We define a small type discipline for
+plaintext custody. Values are typed as public, redacted, sealed, guardian-only,
+cryptographic-operator, capability-only, or never-remote-plaintext, and runtime
+mounts must type-check before node exposure.
+\item \textbf{Proof-Carrying Workspace.} We define a verifiable custody proof
+that binds sensitivity labels, mount graph, operator routing, receipts, leakage
+budget, and state roots. A result can carry evidence that protected values did
+not enter node plaintext custody.
+\item \textbf{Private Agency Transform.} We formalize the reduction from
+private inference to public proposal plus private selection for
+candidate-selection-reducible tasks. This is the theorem-shaped reason cTEEs
+can preserve node-side token speed for useful private agency without claiming
+arbitrary private LLM inference.
+\item \textbf{Candidate Coverage Frontier.} We show that zero online
+private-selection leakage can be purchased with public overgeneration in
+proportion to candidate redundancy mass. When acceptable complete traces retain
+non-negligible public probability mass, the trace budget is depth-independent;
+when that mass decays exponentially, cTEE must route away from CLPD/CLE.
+\item \textbf{Counterfactual Lattice Execution.} We introduce a high-assurance
+CLPD schedule in which the node expands a committed lattice of plausible
+futures before learning any private selection. The private path is hidden inside
+counterfactual public work, replacing step-by-step selection leakage with final
+declassification leakage at the cost of extra public token volume.
+\item \textbf{External Model API Boundary.} We distinguish cTEE
+no-plaintext-custody from provider trust. A third-party model API that receives
+sensitive plaintext is outside the base cTEE custody claim unless the payload is
+public, redacted, declassified, or protected by a separately verifiable
+private-compute interface.
 \item \textbf{AlphaSeal.} We define a reusable sealed-private-head pattern for
 quant strategies and other high-value decision logic.
 \item \textbf{Candidate-Lattice Private Decoding.} We introduce the default
@@ -221,6 +251,10 @@ servers, and model calls as public trunks, redacted projections, encrypted
 refs, private-function handles, declassification requests, and capability exits
 rather than plaintext private files or prompts. \code{PlaintextFreeModelMount}
 is the model-facing specialization.
+\item \textbf{Cryptographic Operator Plane.} We define the internal operator
+plane that routes protected subcomputations to FHE, MPC, garbled circuits,
+ORAM, local guardian, or threshold guardian paths. The default second logical
+party is the user's existing authority surface, not a new managed committee.
 \item \textbf{Deterrence and Detection.} We specify synthetic canaries,
 provider-bound watermarks, honeytokens, leak scans, replay checks, and receipts
 as attribution and dispute evidence. These mechanisms do not make plaintext
@@ -244,9 +278,46 @@ and receipts. Restore/import is state-root and policy checked. \\
 \ctee{} does not claim arbitrary full-speed private LLM inference by software
 wrapping alone. It does not eliminate all metadata, timing, size, schedule, or
 selection leakage. It does not protect a workspace that the user explicitly
-mounts on the rented node as ordinary plaintext. \\
+mounts on the rented node as ordinary plaintext. It does not turn a
+third-party model API that receives sensitive plaintext into a
+no-plaintext-custody system. \\
 \bottomrule
 \end{tabularx}
+
+\subsection{External Model API Boundary}
+
+The cTEE privacy claim is a custody claim. It is strongest when the user,
+service, or organization controls the compute substrate: local GPU, rented GPU,
+customer VPC node, DePIN node, or another venue where protected state can stay
+outside provider-readable plaintext custody.
+
+If sensitive plaintext is sent to a third-party model API, the run leaves the
+base cTEE no-plaintext-custody model for that data and enters a provider-trust
+model. Contractual no-training terms, retention controls, enterprise privacy
+policies, and legal commitments may be useful, but they are not the same claim
+as never giving the provider sensitive plaintext.
+
+\begin{itemize}[leftmargin=1.5em]
+\item \textbf{Private-native.} Sensitive plaintext does not leave cTEE custody.
+Models run locally, on rented/self-hosted compute, in customer-controlled
+venues, or through private operators.
+\item \textbf{Redacted-API.} A third-party API receives only public data,
+redacted projections, synthetic/counterfactual candidates, or explicitly
+declassified payloads.
+\item \textbf{Provider-trust.} A third-party API may receive sensitive plaintext
+under contract, policy, retention promises, attestation, or other trust claims.
+This is outside base cTEE no-plaintext-custody unless the API exposes a
+separately verifiable private-compute interface.
+\item \textbf{Unsafe.} Private data enters untrusted plaintext custody without
+explicit declassification or accepted provider-trust policy.
+\end{itemize}
+
+This distinction is economic as well as cryptographic. If a user rents a GPU
+node, extra candidate or counterfactual generation consumes leased GPU time and
+wall-clock latency. If the same strategy is implemented through third-party API
+tokens, extra private-preserving branches may burn API budget and may also
+expose plaintext unless the API path is public, redacted, declassified, or
+separately protected.
 
 \section{System Model}
 
@@ -317,13 +388,13 @@ authority is the private view and signing membrane.}
   every node/.style={font=\small}
 ]
 \node[box] (userbox) at (0,0)
-  {User Client / Agent Harness\\
+  {User Client /\\Agent Harness\\
    \footnotesize private view, local edits, decrypted workspace};
 \node[box] (guardbox) at (0,-2.25)
-  {Guardian / Authority Plane\\
+  {Guardian /\\Authority Plane\\
    \footnotesize keys, policy, exits};
 \node[box] (nodebox) at (5.05,0)
-  {Untrusted Compute Node\\
+  {Untrusted\\Compute Node\\
    \footnotesize public trunk, redacted views, sealed refs};
 \node[box] (agbox) at (5.05,-2.25)
   {StateLog\\
@@ -548,6 +619,11 @@ capability exit, such as broker order signing, API write, email send, or
 deployment.
 \item[\(\mathsf{Commit}(R)\).] Records refs, receipts, commitments, and state
 roots in \ag.
+\item[\(\mathsf{ProveCustody}(trace, P)\).] Produces a
+\code{CustodyProof} from the sensitivity manifest, custody derivation, mount
+graph, receipts, leakage budget, and state roots.
+\item[\(\mathsf{VerifyCustody}(\pi, P)\).] Verifies that a custody proof
+\(\pi\) is consistent with policy, receipts, and state roots.
 \item[\(\mathsf{Restore}(archive, P)\).] Rehydrates workspace state after
 authority checks, hash verification, decryption, and state-root validation.
 \end{description}
@@ -593,6 +669,38 @@ The label of a derived expression is at least the join of its dependencies:
 \ell(e_1 \circ e_2) \sqsupseteq \ell(e_1) \sqcup \ell(e_2).
 \]
 
+\subsection{Custody Kinds}
+
+Sensitivity labels say what a value is. Custody kinds say where its plaintext
+may ever be materialized:
+
+\[
+\Gamma \vdash e : \tau^{\ell}@\kappa.
+\]
+
+\noindent The base custody kinds are:
+
+\begin{description}[leftmargin=2.4em]
+\item[\(\mathsf{Public}\).] Plaintext may be materialized on the node.
+\item[\(\mathsf{Redacted}\).] A policy-approved projection may be materialized
+on the node, but the source value may not.
+\item[\(\mathsf{Sealed}\).] The node may hold ciphertexts, commitments,
+shares, or opaque refs only.
+\item[\(\mathsf{GuardianOnly}\).] Plaintext may be materialized only inside the
+authority view, local client, browser, mobile guardian, or threshold path.
+\item[\(\mathsf{CryptoOperator}\).] The value may participate in an approved
+FHE, MPC, garbled-circuit, ORAM, local-guardian, or threshold operator.
+\item[\(\mathsf{CapabilityOnly}\).] The value is authority, not data. The node
+may request an action, but cannot read the credential or grant material.
+\item[\(\mathsf{NeverRemotePlaintext}\).] The value has no valid node-plaintext
+projection under the current policy.
+\end{description}
+
+A remote plan type-checks only when every edge into the node has a custody kind
+that admits the planned node-visible representation. This makes plaintext
+custody a property of the compiled graph, not a convention remembered by tool
+authors.
+
 \subsection{Remote Admissibility}
 
 An operator \(op\) may be scheduled on \node only if the compiler can derive:
@@ -637,6 +745,8 @@ Remote execution returns values with receipt obligations:
 
 \begin{itemize}[leftmargin=1.5em]
 \item \code{PrivateInferenceReceipt};
+\item \code{PrivateOperatorReceipt};
+\item \code{CounterfactualLatticeReceipt};
 \item \code{ArtifactRecordedReceipt};
 \item \code{DeclassificationReceipt};
 \item \code{CapabilityExitReceipt}.
@@ -653,6 +763,50 @@ If the \ctee{} compiler accepts a remote plan for \node, then every
 in that plan is either absent from the node view, represented by an approved
 cryptographic carrier, or exercised through an approved capability exit.
 \end{invariant}
+
+\subsection{Proof-Carrying Workspace}
+
+A \ctee{} run can carry a custody proof: a compact verifier-facing object that
+binds the type derivation, runtime mount, private operators, receipts, leakage
+budget, and resulting state root.
+
+\begin{Verbatim}[fontsize=\small]
+CustodyProof:
+  proof_id: custody_proof://...
+  workspace_id: workspace://...
+  task_id: task://...
+  policy_hash: sha256:...
+  sensitivity_manifest_hash: sha256:...
+  custody_type_derivation_hash: sha256:...
+  mount_graph_hash: sha256:...
+  remote_admissibility_derivation_hash: sha256:...
+  candidate_lattice_commitments:
+    - commitment://...
+  private_operator_receipts:
+    - receipt://...
+  declassification_receipts:
+    - receipt://...
+  capability_exit_receipts:
+    - receipt://...
+  leakage_receipts:
+    - receipt://...
+  state_root_before: sha256:...
+  state_root_after: sha256:...
+  verifier_result:
+    no_plaintext_custody | rejected | inconclusive
+\end{Verbatim}
+
+\begin{definition}[Proof-Carrying Workspace]
+A workspace result is proof-carrying when an independent verifier can check, from
+the custody proof and referenced receipts, that every protected dependency in
+the accepted run satisfied a remote admissibility rule or was explicitly
+declassified by policy.
+\end{definition}
+
+The proof does not reveal protected plaintext. It proves the custody route:
+which values were public, which were redacted, which remained sealed, which
+entered private operators, which were declassified, and which authority exits
+were exercised.
 
 \section{Core Objects}
 
@@ -916,6 +1070,152 @@ allowed to see, and must ask private handles for anything else.
 against the workspace. The node must not become the plaintext custody domain
 for protected workspace state.}
 
+\section{Cryptographic Operator Plane}
+
+Plaintext-Free Runtime Mounting prevents accidental plaintext custody. The
+Cryptographic Operator Plane handles the cases where the node must participate
+in a protected subcomputation without learning the protected inputs, private
+policy, or final authority.
+
+The default routing rule is:
+
+\begin{Verbatim}[fontsize=\small]
+public/generic work      -> untrusted rented GPU
+private file view        -> guardian/client
+private head/scoring     -> FHE/MPC/local/threshold operator
+private retrieval        -> ORAM/local/private index
+external action          -> capability exit
+state truth              -> StateLog
+\end{Verbatim}
+
+This does not change the token speed of the main public/generic LLM path. The
+GPU still performs ordinary inference over public trunks, redacted
+projections, public data, public tools, candidate lattices, and generic
+simulation. Overhead appears only at protected boundaries: private scoring,
+private selection, private retrieval, declassification, and action
+authorization. When the compiler chooses counterfactual lattice expansion, the
+per-token kernels remain ordinary plaintext GPU kernels, but the run may spend
+more public tokens to reduce private-choice leakage.
+
+\doctrinebox{\textbf{Operator-plane doctrine.} \ctee{} does not make hostile
+hardware safe for plaintext. It replaces the need for hardware secrecy when
+protected work can be routed through no-plaintext-custody flows, guardian
+evaluation, or cryptographic operators.}
+
+\subsection{Default Two-Party Topology}
+
+MPC and threshold operators require more than one logical party. In a default
+\ctee{} deployment, the additional logical party is the user's existing
+authority surface:
+
+\begin{Verbatim}[fontsize=\small]
+Party A:
+  untrusted DePIN / rented GPU node
+
+Party B:
+  authenticated browser
+  local desktop harness when available
+  mobile guardian
+  CLI signer
+  authority-plane policy/key path
+  enterprise key service when org-managed
+\end{Verbatim}
+
+The user should not need to rent or manage additional GPU nodes for the default
+privacy path. Managed non-colluding committees remain optional escalation
+paths for higher-assurance, unattended, or enterprise workflows. FHE-only
+operators may run on a single untrusted node when the node receives only
+ciphertexts and evaluation keys, never decryption keys.
+
+\doctrinebox{\textbf{Second-party doctrine.} The second logical party is the
+authenticated authority surface by default. Managed committees are optional
+escalation paths, not the ordinary user mental model.}
+
+\subsection{Policy Object}
+
+\begin{Verbatim}[fontsize=\small]
+CryptographicOperatorPolicy:
+  policy_id: crypto_op_policy://...
+  workspace_id: workspace://...
+  protected_classes:
+    - pii
+    - strategy_source
+    - private_memory
+    - broker_secret
+    - live_portfolio
+  allowed_operator_families:
+    - fhe_linear
+    - fhe_approx
+    - mpc_nonlinear
+    - garbled_boolean
+    - oram_lookup
+    - local_guardian
+    - threshold_guardian
+  default_second_party:
+    authority_surface
+  second_party_refs:
+    - browser_session://...
+    - mobile_guardian://...
+    - cli_signer://...
+    - authority_plane://...
+  fallback_order:
+    - local_guardian
+    - threshold_guardian
+    - fhe_linear
+    - mpc_nonlinear
+    - deny_or_escalate
+  max_latency_budget_ms: ...
+  leakage_budget_ref: leakage://...
+  receipts_required:
+    - PrivateOperatorReceipt
+    - LeakageReceipt
+\end{Verbatim}
+
+\subsection{Private Operator Receipt}
+
+\begin{Verbatim}[fontsize=\small]
+PrivateOperatorReceipt:
+  receipt_id: receipt://...
+  policy_ref: crypto_op_policy://...
+  run_id: run://...
+  capsule_id: private_workspace_capsule://...
+  operator_family:
+    fhe_linear | fhe_approx | mpc_nonlinear |
+    garbled_boolean | oram_lookup |
+    local_guardian | threshold_guardian
+  node_ref: runtime://...
+  second_party_ref:
+    browser_session://... | mobile_guardian://... |
+    cli_signer://... | authority_plane://... |
+    threshold_guardian://...
+  protected_input_commitments:
+    - commitment://...
+  public_input_refs:
+    - artifact://...
+  output_commitment: commitment://...
+  leakage_profile_ref: leakage://...
+  policy_hash: sha256:...
+  plaintext_sensitive_classes_on_node:
+    - none
+  status:
+    success | failure | denied | escalated
+\end{Verbatim}
+
+\subsection{Confidential-Compute Replacement Boundary}
+
+\begin{proposition}[Hardwareless Confidential-Compute Replacement Boundary]
+A \ctee{} deployment replaces hardware confidential computing for a workload
+when every protected dependency in that workload is either absent from the
+node view, represented by an approved cryptographic carrier, evaluated by the
+guardian or threshold path, or exercised through a capability exit, and all
+transitions are bound by receipts and leakage policy.
+\end{proposition}
+
+This is a workload-level claim, not a universal machine-level claim. It is
+stronger than trusting a rented host with plaintext, but narrower than saying
+arbitrary private plaintext computation runs at normal speed on hostile
+hardware.
+
 \section{Deterrence and Detection}
 
 Deterrence and detection are not privacy primitives. They are attribution,
@@ -1125,6 +1425,35 @@ redacted projections, ciphertext lengths, commitments, receipts, and leakage
 \(\leak\).
 \end{proof}
 
+\begin{theorem}[Custody Type Soundness]
+If a remote plan type-checks under the custody-kind rules, all required
+receipts verify, and the runtime enforces the checked mount graph, then no value
+typed \(\mathsf{GuardianOnly}\), \(\mathsf{CapabilityOnly}\), or
+\(\mathsf{NeverRemotePlaintext}\) is materialized as node-observable plaintext.
+Values typed \(\mathsf{Sealed}\) or \(\mathsf{CryptoOperator}\) appear in the
+node view only through their admitted ciphertext, share, commitment, handle, or
+operator transcript representations.
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+Proceed by induction over the accepted remote execution derivation. Source
+values enter the node only through mount edges. The plain remote rule admits
+only public or approved redacted projections. The cryptographic remote rule
+admits only carrier representations whose security is delegated to the
+underlying primitive. The guardian-mediated rule admits only the approved
+response class and receipt. The capability-exit rule admits an action request
+but not the authority value. Since every derived edge must satisfy one of these
+rules and the runtime enforces the checked mount graph, no forbidden custody
+kind has a derivation into node plaintext.
+\end{proof}
+
+\begin{corollary}[Proof-Carrying NPC]
+If a \code{CustodyProof} verifies for a run, and its referenced receipt and
+state-root commitments are binding, then the accepted result carries checkable
+evidence that protected workspace values did not enter node plaintext custody
+except through explicit declassification receipts.
+\end{corollary}
+
 \begin{theorem}[Authority Safety of Capability Exits]
 If signature unforgeability holds and the authority verifier accepts only
 unexpired grants satisfying policy predicates, then a node adversary cannot
@@ -1160,13 +1489,367 @@ nonzero overhead. Thus a pure software wrapper cannot honestly claim arbitrary
 private LLM inference at normal plaintext speed on the adversarial node.
 \end{proof}
 
+\section{Private Agency Transform}
+
+The negative result above rules out magic software wrapping for arbitrary
+private LLM inference. The positive result is that many useful agent tasks do
+not need arbitrary private inference. They need private agency: choosing,
+ranking, rejecting, authorizing, or declassifying among candidate traces.
+
+\subsection{Candidate-Selection Reducibility}
+
+\begin{definition}[Candidate-Selection-Reducible Task]
+A private agent task \(T\) with public projection \(x_{\mathsf{pub}}\), private
+state \(s\), action space \(\mathcal{A}\), and private utility
+\(U_s:\mathcal{A}\rightarrow\mathbb{R}\) is
+\((K,\epsilon,\rho)\)-candidate-selection-reducible if there exists a public
+generator \(G\) such that:
+\[
+C_K \leftarrow G(x_{\mathsf{pub}})
+\]
+produces \(K\) candidates and, with probability at least \(\rho\), contains an
+action \(a \in C_K\) whose private utility is within \(\epsilon\) of the best
+available action:
+\[
+U_s(a) \geq \max_{a' \in \mathcal{A}} U_s(a') - \epsilon.
+\]
+\end{definition}
+
+For such tasks, the expensive language-model work is public proposal
+generation. The private work is selection, validation, reranking,
+declassification, or authorization over the candidate set.
+
+\subsection{Transform}
+
+The Private Agency Transform rewrites a secret-bearing agent step:
+
+\[
+\mathsf{LLM}(x_{\mathsf{pub}}, s) \rightarrow a
+\]
+
+\noindent into:
+
+\[
+G_{\node}(x_{\mathsf{pub}}) \rightarrow C_K,
+\qquad
+H_{\guard}(C_K,s,P) \rightarrow a, R, \leak.
+\]
+
+\noindent \(G_{\node}\) runs at ordinary node-side inference speed over public
+or redacted context. \(H_{\guard}\) is a private selector implemented by the
+authority view, a local head, FHE, MPC, garbled circuits, ORAM-backed lookup, or
+threshold policy. The result is committed through receipts and leakage
+accounting.
+
+\begin{protocol}{Private Agency Transform}
+\begin{enumerate}[leftmargin=1.5em]
+\item Compile protected context into custody-typed refs, redacted projections,
+sealed heads, and private-operator handles.
+\item Ask \node to generate a candidate trace lattice under public or redacted
+context only.
+\item Commit the candidate lattice before private selection.
+\item Evaluate private utility, constraints, policy, or authority over the
+candidate lattice inside the authority surface or cryptographic operator plane.
+\item Return only an admitted response class: selected branch, top-\(m\) set,
+masked score, denial, redacted critique, or declassification request.
+\item Emit custody, private-operator, leakage, and capability receipts.
+\end{enumerate}
+\end{protocol}
+
+\subsection{Private Agency Theorem}
+
+\begin{theorem}[Public-Kernel-Speed Private Agency for Reducible Tasks]
+Let \(T\) be a \((K,\epsilon,\rho)\)-candidate-selection-reducible task. Suppose
+the public generator \(G\) runs on \node without protected plaintext, the
+private selector \(H\) satisfies the custody-kind rules, and the accepted run
+emits verifying custody and leakage receipts. Then \ctee{} can execute \(T\)
+with:
+\begin{enumerate}[leftmargin=1.5em]
+\item node-side token throughput equal to the public inference throughput of
+\(G(x_{\mathsf{pub}})\), while total token volume scales with the chosen
+candidate width, depth, and counterfactual schedule;
+\item private computation cost proportional to \(K \cdot cost(H)\), not to the
+full transformer token path;
+\item an \(\epsilon\)-optimal action with probability at least \(\rho\), modulo
+verifier error and declassification policy; and
+\item no-plaintext-custody for protected state, with node leakage bounded by
+public projection, candidate lattice, timing/size/schedule observables, and
+declared selection leakage.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+Candidate-selection reducibility gives the coverage claim: with probability
+\(\rho\), \(G\) proposes a candidate within \(\epsilon\) of the private optimum.
+The node computes only \(G(x_{\mathsf{pub}})\), so its token path is the public
+inference path. The selector \(H\) evaluates private utility only over the
+finite candidate set and therefore pays per-candidate private cost rather than
+per-token transformer cost. Custody type soundness and proof-carrying NPC give
+the no-plaintext-custody claim. The remaining node view consists of the public
+projection, candidate lattice, commitments, receipts, and declared leakage.
+\end{proof}
+
+\subsection{Candidate Coverage Frontier}
+
+The previous theorem hides the most important parameter inside \(\rho\). A more
+useful formulation exposes candidate redundancy.
+
+\begin{definition}[Private-Good Set]
+For private state \(s\), policy \(P\), tolerance \(\epsilon\), and public action
+space \(\mathcal{A}\), define the private-good set:
+\[
+\mathcal{A}_{\epsilon}(s,P)=
+\{a\in\mathcal{A}:
+U_s(a)\geq \max_{a'\in\mathcal{A}}U_s(a')-\epsilon
+\;\wedge\; allowed(P,a)\}.
+\]
+\end{definition}
+
+\begin{definition}[Candidate Redundancy Mass]
+Let \(D_G(x_{\mathsf{pub}})\) be the distribution over complete candidate traces
+emitted by a public generator \(G\). The \(\epsilon\)-redundancy mass of a task
+instance is:
+\[
+r_{\epsilon}(x_{\mathsf{pub}},s,P)
+=
+\Pr_{a\sim D_G(x_{\mathsf{pub}})}
+[a\in \mathcal{A}_{\epsilon}(s,P)].
+\]
+A task family is \((\epsilon,r)\)-proposal-redundant when
+\(r_{\epsilon}(x_{\mathsf{pub}},s,P)\geq r\) for all states and policies in the
+family.
+\end{definition}
+
+Redundancy mass is the amount of useful private choice already present in the
+public generator's distribution. A high-redundancy task has many public
+candidates that the private head could safely accept. A low-redundancy task
+requires private generation, stronger private operators, or a different public
+abstraction.
+
+\begin{theorem}[Coverage-Cost-Leakage Frontier]
+For an \((\epsilon,r)\)-proposal-redundant task family, sample \(m\) complete
+candidate traces independently from \(G(x_{\mathsf{pub}})\), commit the trace
+set before private selection, and select privately inside the authority view or
+cryptographic operator plane. Then:
+\[
+\Pr[\exists a_i\in\mathcal{A}_{\epsilon}(s,P)]
+\geq
+1-(1-r)^m.
+\]
+Therefore, to reach coverage probability \(\rho\), it suffices to choose:
+\[
+m \geq
+\left\lceil
+\frac{\ln(1-\rho)}{\ln(1-r)}
+\right\rceil
+\leq
+\left\lceil
+\frac{1}{r}\ln\frac{1}{1-\rho}
+\right\rceil.
+\]
+Before declassification, online selection leakage is zero when the node receives
+no private feedback before the trace-set commitment. Public cost scales with
+\(m\) public traces; private cost scales with \(m\) private scores; neither cost
+scales with a full private transformer execution over the protected state.
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+Each complete trace independently lands in the private-good set with probability
+at least \(r\). The probability that no trace lands in the set is at most
+\((1-r)^m\). Taking the complement gives the coverage bound. Solving
+\(1-(1-r)^m\geq \rho\) gives the exact expression for \(m\). The upper bound
+uses \(\ln(1-r)\leq -r\). Zero online selection leakage follows because the
+node's transcript up to commitment is generated before private selection
+feedback exists.
+\end{proof}
+
+\begin{corollary}[Counterfactual Path Privacy Without Tree Explosion]
+For a depth-\(D\) agent episode, hiding every private branch by naively expanding
+a \(K\)-ary tree may cost \(K^D\) public continuations. If complete public traces
+have redundancy mass \(r_D\), counterfactual trace sampling reaches coverage
+\(\rho\) with:
+\[
+m =
+O\!\left(\frac{1}{r_D}\log\frac{1}{1-\rho}\right)
+\]
+complete traces. Thus path privacy depends on the probability mass of acceptable
+complete traces, not on the syntactic size of the full branch tree. When
+\(r_D\) is non-negligible, zero online selection leakage is achievable without
+tree explosion.
+\end{corollary}
+
+\begin{corollary}[Redundancy Phase Transition]
+For a sequence of depth-\(D\) tasks with coverage target \(\rho\):
+\begin{enumerate}
+\item If \(r_D \geq c > 0\), then the number of complete public traces required
+for zero online selection leakage is
+\[
+m = O\!\left(\log\frac{1}{1-\rho}\right),
+\]
+independent of \(D\) and independent of the syntactic branch factor \(K\).
+\item If \(r_D = e^{-\alpha D}\) for \(\alpha>0\), then
+\[
+m = \Theta\!\left(e^{\alpha D}\log\frac{1}{1-\rho}\right).
+\]
+In this regime, CLPD/CLE no longer gives practical private agency at public
+kernel speed; the runtime should route to private generation, cryptographic
+operators, trusted/private compute, or explicit provider trust.
+\end{enumerate}
+\end{corollary}
+
+\begin{proof}[Proof sketch]
+Substitute the lower bound on \(r_D\) into the coverage frontier. Constant
+redundancy mass gives a trace budget depending only on the desired failure
+probability. Exponentially decaying redundancy mass makes the inverse-mass term
+exponential in depth.
+\end{proof}
+
+\doctrinebox{\textbf{Coverage-frontier doctrine.} cTEE's surprising trade is
+not ``more tokens means more privacy.'' It is that public overgeneration buys
+private-choice privacy in proportion to proposal redundancy. The phase
+transition is sharp: if acceptable complete traces retain non-negligible
+probability mass, private-choice privacy costs only bounded public
+overgeneration; if that mass decays exponentially with task depth, cTEE must
+stop using CLPD/CLE as the privacy story and route to a stronger private path.}
+
+\doctrinebox{\textbf{Private-agency doctrine.} The surprising positive result
+is not free private inference. It is that a broad class of agent work can be
+compiled into normal-kernel public proposal plus small private choice. Online
+CLPD optimizes for cost; counterfactual CLE spends additional public tokens to
+buy lower private-choice leakage.}
+
+\section{Counterfactual Lattice Execution}
+
+The Private Agency Transform still has a leakage problem if the private selector
+feeds choices back to the node at every step. A selected branch among \(K\)
+candidates leaks at most \(\log_2 K\) explicit choice bits before side
+information. Over long agent runs, this can accumulate.
+
+Counterfactual Lattice Execution (CLE) is the high-assurance schedule for CLPD.
+Instead of telling the node which branch the private head likes and asking it to
+continue that branch, the node expands many plausible branches. The private
+path is selected later, inside the authority view or cryptographic operator
+plane. The node computes counterfactual futures that may never be used.
+
+CLE realizes the coverage-cost-leakage frontier by choosing a public trace
+budget from the estimated redundancy mass, coverage target, leakage budget, and
+latency budget.
+
+\subsection{Counterfactual Lattice}
+
+A counterfactual lattice is a committed directed acyclic graph:
+
+\[
+\mathcal{G}_{K,D}=(V,E)
+\]
+
+\noindent generated by a public model from public or redacted context, with
+branching budget \(K\), depth budget \(D\), model hash, policy hash, and nonce.
+Every node \(v\in V\) is a candidate prefix, action, plan fragment, tool
+proposal, report fragment, trade narrative, patch sketch, or other public
+candidate artifact. The untrusted node commits to the lattice before private
+selection:
+
+\[
+C_{\mathcal{G}}=\hash(\mathcal{G}_{K,D}\parallel modelHash\parallel
+policyHash\parallel nonce).
+\]
+
+\subsection{Protocol}
+
+\begin{protocol}{Counterfactual Lattice Execution}
+\begin{enumerate}[leftmargin=1.5em]
+\item The compiler chooses a lattice policy: width, depth, stopping rule,
+deduplication rule, padding rule, and maximum public-token budget.
+\item \node expands the public lattice without private feedback.
+\item \node commits to the lattice and emits a
+\code{CounterfactualLatticeReceipt}.
+\item \guard or the cryptographic operator plane evaluates private utility over
+the committed lattice.
+\item The selected path, top-\(m\) set, masked score, denial, or final
+declassification result is emitted according to policy.
+\item The state log records the lattice commitment, custody proof, leakage
+receipt, private-operator receipts, and any declassification receipts.
+\end{enumerate}
+\end{protocol}
+
+\begin{Verbatim}[fontsize=\small]
+CounterfactualLatticeReceipt:
+  receipt_id: receipt://...
+  capsule_id: private_workspace_capsule://...
+  lattice_commitment: commitment://...
+  model_hash: sha256:...
+  policy_hash: sha256:...
+  width_budget_k: integer
+  depth_budget_d: integer
+  public_token_budget: integer
+  generation_rule_hash: sha256:...
+  dedupe_rule_hash: sha256:...
+  padding_rule_hash: sha256:...
+  node_ref: runtime://...
+  state_root: sha256:...
+\end{Verbatim}
+
+\subsection{Zero Online Selection Leakage}
+
+\begin{theorem}[Zero Online Selection Leakage]
+In a non-adaptive CLE round, if the lattice generation algorithm receives only
+public or policy-redacted inputs and the private selector sends no branch choice
+or private score back to the node before lattice commitment, then the node's
+pre-declassification view is independent of the selected private path, except
+for public lattice parameters, timing, size, schedule, and other declared
+metadata leakage.
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+The node's pre-declassification transcript consists of the public projection,
+generation policy, model/runtime metadata, generated lattice, commitments,
+receipts, timing, and resource usage. None of these depend on the private
+selector's chosen path, because generation completed before private selection
+feedback. Therefore two private states that choose different paths through the
+same public lattice induce the same node transcript until an explicit
+declassification event.
+\end{proof}
+
+\begin{corollary}[Selection Leakage Compression]
+For an online CLPD run with \(T\) private branch decisions over \(K\)-way
+choices, explicit selection leakage can scale as \(O(T\log K)\). For a
+non-adaptive CLE round over the same candidate space, explicit online selection
+leakage is compressed to zero before declassification; remaining leakage is the
+public lattice itself, side channels, and whatever final output policy reveals.
+\end{corollary}
+
+CLE does not make compute free. It trades extra public token volume for lower
+private-choice leakage. This is the core cTEE performance bargain:
+
+\[
+\text{privacy by counterfactual public overgeneration, not plaintext trust}.
+\]
+
+\doctrinebox{\textbf{Counterfactual-agency doctrine.} The rented GPU can be
+useful without knowing which future matters. It expands a space of plausible
+futures; private agency chooses a hidden path through that space.}
+
 \section{Candidate-Lattice Private Decoding}
 
-The preceding proposition is negative but not fatal. Many private agent tasks
-do not require the untrusted node to see private context. They require the node
-to produce useful public reasoning candidates, while private state selects,
-filters, reranks, or authorizes them. Candidate-Lattice Private Decoding
-(CLPD) is therefore the default \ctee{} protected-agency strategy.
+Candidate-Lattice Private Decoding (CLPD) is the default implementation of the
+Private Agency Transform for language-model-heavy work. The node produces useful
+public reasoning candidates, while private state selects, filters, reranks, or
+authorizes them.
+
+CLPD has two internal schedules:
+
+\begin{enumerate}[leftmargin=1.5em]
+\item \textbf{Online CLPD.} The private selector returns bounded feedback after
+each candidate expansion. This is cheaper but leaks branch-selection
+observables.
+\item \textbf{Counterfactual CLPD.} The node expands a committed lattice before
+private selection. This costs more public tokens but hides the selected path
+until declassification.
+\end{enumerate}
+
+The user should not choose between these schedules. The compiler selects the
+schedule from sensitivity, leakage budget, latency budget, and task risk.
 
 \subsection{Construction}
 
@@ -1190,8 +1873,8 @@ C_t = \hash(\mathcal{Y}_t \parallel modelHash \parallel policyHash
 s_i = h_{\mathsf{priv}}(y_{t:t+B}^{(i)}, S_{\mathsf{priv}}, P).
 \]
 \item \guard returns either an encrypted selection, a masked reranking, a
-redacted critique, or a bounded next prefix. The node receives no private
-state.
+redacted critique, a bounded next prefix, or no online feedback when the run
+uses the counterfactual schedule. The node receives no private state.
 \item Receipts bind \(C_t\), the selected branch commitment, leakage profile,
 and declassification decision.
 \end{enumerate}
@@ -1219,10 +1902,12 @@ useful class of private agency:
 \subsection{Security}
 
 If the candidate lattice is generated from public or redacted context and the
-private head reveals only the selected branch under a leakage profile, then the
-node learns at most the public candidates, timing, output length, and the
-declared selection leakage. Padding, delayed reveal, top-\(m\) selection,
-batching, and decoy selections can reduce selection leakage.
+private head reveals only an admitted response class under a leakage profile,
+then the node learns at most the public candidates, timing, output length, and
+the declared selection leakage. Online CLPD uses padding, delayed reveal,
+top-\(m\) selection, batching, and decoy selections to reduce selection leakage.
+Counterfactual CLPD eliminates online branch feedback for the lattice round and
+charges the remaining disclosure to the final declassification policy.
 
 \subsection{Selection Leakage Accounting}
 
@@ -1312,10 +1997,13 @@ sensitivity, with CLPD as the default protected-agency path:
 \midrule
 Model mount & Public/redacted view and private handles & ModelMountReceipt \\
 Public LLM inference & Plaintext public prompt & None required \\
+Model API call & Public/redacted/declassified input & Posture disclosure \\
 Redacted summary & Redacted projection & Redaction receipt \\
 Private file edit & Encrypted patch only & Browser/device/guardian view \\
 Private retrieval & Encrypted refs or redacted snippets & Local/guardian/ORAM path \\
 Protected agency & Candidate lattice on node & AlphaSeal/guardian selection \\
+CF lattice & Committed public lattice & Counterfactual lattice receipt \\
+Private operator & Ciphertext, share, commitment, or handle & PrivateOperatorReceipt \\
 Private scoring & Masked, FHE, MPC, GC, or committed witness & Guardian/private head \\
 External action & Proposal only & Capability exit \\
 Restore/import & Encrypted archive fetch & Authority and state-root checks \\
@@ -1478,6 +2166,10 @@ The smallest useful implementation has:
 views;
 \item private workspace capsule compiler;
 \item Candidate-Lattice Private Decoding for protected agency by default;
+\item Counterfactual Lattice Execution for high-sensitivity protected-agency
+rounds where online branch feedback would exceed leakage budget;
+\item Cryptographic Operator Plane with operator policy and private-operator
+receipts;
 \item guardian or client-side declassification;
 \item capability exit for secrets and external actions;
 \item synthetic canaries or provider-bound watermarks for high-value
@@ -1496,6 +2188,15 @@ security mode.
 \item A model prompt containing PII is blocked, redacted, or rerouted.
 \item A private strategy head can be evaluated without revealing source to
 \node.
+\item A high-sensitivity counterfactual lattice is committed before private
+selection feedback reaches \node.
+\item A counterfactual agency result cannot claim zero online selection leakage
+without a matching \code{CounterfactualLatticeReceipt}.
+\item Private operators use the authenticated authority surface as the second
+logical party by default, unless policy explicitly chooses another threshold
+path.
+\item A protected private-operator result cannot be admitted without a
+\code{PrivateOperatorReceipt}.
 \item A broker action cannot be executed without a valid capability exit.
 \item A restore cannot silently mutate local files without state-root and
 authority receipts.
@@ -1504,9 +2205,13 @@ authority receipts.
 
 \section{Relation to Existing Work}
 
-\ctee{}s are not a replacement for FHE, MPC, ORAM, garbled circuits, zero
-knowledge, or hardware confidential computing. They are a composition layer
-that chooses among them while preserving an agent-facing workspace abstraction.
+\ctee{}s are not a replacement for FHE, MPC, ORAM, garbled circuits, or zero
+knowledge. They are a composition layer that chooses among them while
+preserving an agent-facing workspace abstraction. They can replace hardware
+confidential computing for workloads that fit the hardwareless replacement
+boundary: protected dependencies never enter the node as plaintext and are
+handled through no-plaintext-custody routing, cryptographic carriers,
+guardian/threshold evaluation, or capability exits.
 
 FHE provides the strongest single-node cryptographic privacy story for
 functions that can be evaluated efficiently over ciphertext. MPC often provides
@@ -1514,7 +2219,8 @@ more practical performance with a committee trust model. Garbled circuits fit
 boolean private logic and policy checks. ORAM mitigates access-pattern leakage.
 Hardware TEEs may allow plaintext inside an attested boundary, but introduce
 hardware trust and side-channel assumptions. \ctee{}s can use all of these, but
-their base claim is no-plaintext custody, not universal private computation.
+their base claim is no-plaintext custody plus workload-level private operator
+routing, not universal private computation.
 
 \section{Open Problems}
 
@@ -1528,6 +2234,16 @@ budget accounting, and capability signing.
 The immediate path is fixed candidate counts, top-\(m\) or decoy reveal,
 delayed commit-reveal, schedule jitter, size padding, and cumulative leakage
 receipts.
+\item \textbf{Counterfactual lattice efficiency.} CLE can suppress online
+selection leakage, but it spends additional public tokens. The key research
+problem is the coverage frontier: choose lattice width, depth, deduplication,
+and stopping rules that maximize probability of containing a private-optimal
+path per public token spent.
+\item \textbf{Candidate-selection characterization.} Identify which agent tasks
+are candidate-selection-reducible, which require private generation, and which
+can be converted by redaction, public abstractions, or private heads. This is
+where the Private Agency Transform becomes an engineering science rather than a
+heuristic.
 \item \textbf{Private transformer performance.} Reserve FHE/MPC transformer
 work for narrow private operators and small heads first. Use CLPD for default
 high-throughput agency until encrypted attention, sampling, and KV caches
@@ -1560,11 +2276,16 @@ give the node plaintext custody.}}
 The contribution is not that software can magically hide plaintext from root.
 The contribution is a disciplined architecture for avoiding plaintext custody
 while preserving useful remote compute: encrypted workspace objects, public
-trunks, Candidate-Lattice Private Decoding by default for protected agency,
-sealed private heads, private workspace capsules, declassification gates,
-authority-bounded capability exits, receipts, and explicit leakage profiles.
+trunks, custody types, proof-carrying workspaces, the Private Agency Transform,
+Candidate-Lattice Private Decoding by default for protected agency,
+Counterfactual Lattice Execution when leakage budget requires it, sealed private
+heads, private workspace capsules, declassification gates, authority-bounded
+capability exits, receipts, and explicit leakage profiles.
 This is enough to make persistent private agents practical on rented GPU
-infrastructure without pretending that the infrastructure is trusted.
+infrastructure without pretending that the infrastructure is trusted. When a
+workflow instead sends sensitive plaintext to a third-party model API, the
+privacy claim changes: that path is provider trust unless the API receives only
+public, redacted, declassified, or separately protected inputs.
 
 \newpage
 \begin{thebibliography}{99}

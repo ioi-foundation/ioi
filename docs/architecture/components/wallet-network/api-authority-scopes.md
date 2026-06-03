@@ -35,6 +35,95 @@ enterprise_sso
 
 A frictionless login creates a Level 1 wallet.network account. High-risk authority scopes require step-up.
 
+## Access Point Binding API
+
+Low-assurance channels such as SMS, email, chat apps, voice bridges, and
+webhooks are access points. They can notify and initiate, but they are not
+guardian surfaces and they do not carry grants, decryption keys, private
+workspace payloads, credentials, or durable authority.
+
+```http
+POST /v1/access-points
+GET  /v1/access-points
+GET  /v1/access-points/{binding_id}
+POST /v1/access-points/{binding_id}/challenge
+POST /v1/access-points/{binding_id}/disable
+DELETE /v1/access-points/{binding_id}
+```
+
+### Access Point Binding
+
+```json
+{
+  "binding_id": "access_point://sms/user_123/default",
+  "owner_ref": "wallet://user_123",
+  "kind": "sms | email | chat_app | voice | webhook",
+  "channel_hash": "sha256:...",
+  "display_label": "Personal phone",
+  "agent_refs": ["agent://morning-market-agent"],
+  "allowed_intents": [
+    "notify",
+    "status",
+    "pause",
+    "resume",
+    "request_summary",
+    "run_preapproved_workflow",
+    "request_step_up"
+  ],
+  "risk_ceiling": "read | draft | low_local_write",
+  "can_decrypt": false,
+  "can_declassify": false,
+  "can_hold_grant": false,
+  "can_release_secret": false,
+  "step_up_required_for": [
+    "external_message",
+    "commerce",
+    "funds",
+    "deploy",
+    "secret_export",
+    "policy_widening",
+    "private_workspace_view",
+    "private_workspace_declassification"
+  ],
+  "challenge_policy": {
+    "single_use": true,
+    "ttl_seconds": 300,
+    "requires_surface": [
+      "wallet_network_web",
+      "hypervisor_app",
+      "enrolled_guardian_device",
+      "passkey",
+      "enterprise_idp",
+      "local_cli_signer"
+    ]
+  },
+  "expires_at": "2026-05-01T12:00:00Z",
+  "revocation_epoch": 7,
+  "status": "active"
+}
+```
+
+### Step-Up Challenge
+
+```json
+{
+  "challenge_id": "challenge://sms/abc",
+  "binding_id": "access_point://sms/user_123/default",
+  "request_hash": "sha256:...",
+  "risk_class": "external_message | funds | secret_export | private_workspace_view",
+  "action_summary": "Approve one vendor email draft",
+  "challenge_url": "https://wallet.network/step-up/challenge/abc",
+  "single_use": true,
+  "expires_at": "2026-05-01T12:05:00Z"
+}
+```
+
+The challenge URL is a pointer to an authority session, not an authority grant.
+Approval must authenticate on wallet.network, Hypervisor, an enrolled guardian
+device, passkey, enterprise IdP, local app, CLI signer, or another
+high-assurance authority surface. The agent receives only a scoped
+`grant://...` or denial receipt after the step-up flow completes.
+
 ## Authority Scope Request API
 
 ```http
@@ -233,3 +322,6 @@ Emergency stop must revoke active grants, pause pending runs, and notify relevan
 3. Approval grants bind exact request hash, policy hash, scope, and expiry.
 4. Authority grants are revocable and must include revocation epoch.
 5. TEE secret release requires verified attestation matching policy.
+6. SMS, email, chat, voice, and webhook access points may carry step-up
+   challenge pointers, but not grants, decryption keys, private workspace
+   payloads, credentials, or durable authority.

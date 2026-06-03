@@ -74,6 +74,16 @@ fn foreground_sleep_detection_trips_for_long_non_detached_sleep() {
 }
 
 #[test]
+fn foreground_sleep_detection_trips_for_shell_wrapped_sleep() {
+    let duration = foreground_sleep_duration_seconds(
+        "bash",
+        &["-lc".to_string(), "sleep 900".to_string()],
+        false,
+    );
+    assert_eq!(duration, Some(900));
+}
+
+#[test]
 fn foreground_sleep_detection_ignores_short_or_detached_sleep() {
     assert_eq!(
         foreground_sleep_duration_seconds("sleep", &["5".to_string()], false),
@@ -496,6 +506,51 @@ fn parse_terminal_output_splits_stdout_and_stderr() {
     let (stdout, stderr) = parse_terminal_output(output);
     assert_eq!(stdout, "line one\nline two");
     assert_eq!(stderr, "boom on stderr");
+}
+
+#[test]
+fn parse_terminal_output_strips_failure_wrapper_but_keeps_stdout() {
+    let output = concat!(
+        "Command failed: exit status: 1\n",
+        "Stdout:\n",
+        "TAP version 13\n",
+        "not ok 1 - formats order totals as dollars\n",
+        "# fail 1\n",
+    );
+    let (stdout, stderr) = parse_terminal_output(output);
+
+    assert!(stdout.contains("TAP version 13"));
+    assert!(stdout.contains("not ok 1 - formats order totals as dollars"));
+    assert!(!stdout.contains("Command failed"));
+    assert!(stderr.is_empty());
+}
+
+#[test]
+fn append_sys_exec_command_history_keeps_failed_stdout_for_repair() {
+    let mut result = ToolExecutionResult::failure("command output");
+    result.history_entry = Some(
+        concat!(
+            "Command failed: exit status: 1\n",
+            "Stdout:\n",
+            "TAP version 13\n",
+            "not ok 1 - formats order totals as dollars\n",
+            "# fail 1\n",
+        )
+        .to_string(),
+    );
+
+    append_sys_exec_command_history(&mut result, "node --test tests/*.test.mjs", 17, 1);
+
+    let entry = result.history_entry.as_deref().unwrap_or("");
+    let payload = &entry[COMMAND_HISTORY_PREFIX.len()..];
+    let json_payload = payload.lines().next().unwrap_or("").trim();
+    let parsed =
+        serde_json::from_str::<CommandExecution>(json_payload).expect("history json should parse");
+    assert_eq!(parsed.exit_code, 1);
+    assert!(parsed
+        .stdout
+        .contains("not ok 1 - formats order totals as dollars"));
+    assert!(parsed.stderr.is_empty());
 }
 
 #[test]

@@ -1,9 +1,13 @@
+use super::command_failure_reply::governed_shell_failure_terminal_reply;
 use super::contracts::{bootstrap_contract, duplicate_execution_state};
 use super::duplicate::{
     duplicate_refresh_read_allowed, handle_duplicate_command_execution, DuplicateExecutionContext,
 };
+use super::file_policy_observation::{
+    governed_file_policy_failure_observation, record_policy_blocked_workspace_read_observation,
+};
 use super::pending_approval::{handle_pending_approval, PendingApprovalContext};
-use super::precheck::run_execution_prechecks;
+use super::precheck::{run_execution_prechecks, typed_route_shell_command_contract_violation};
 use super::rrsa::{record_rrsa_action_evidence, RrsaContext};
 use super::success_path::{handle_execution_success, ExecutionSuccessContext};
 use super::timeout::execute_tool_with_optional_timeout;
@@ -90,15 +94,23 @@ pub(crate) async fn execute_tool_phase(
             agent_state.consecutive_failures
         ));
     }
+    let route_shell_command_contract_violation =
+        typed_route_shell_command_contract_violation(agent_state, &tool).is_some();
     let (mut duplicate_command_execution, matching_command_history_entry) =
-        duplicate_execution_state(
-            agent_state,
-            &tool,
-            command_scope,
-            pre_state_summary.step_index,
-            &action_fingerprint,
-            &mut verification_checks,
-        );
+        if route_shell_command_contract_violation {
+            verification_checks
+                .push("runtime_route_command_contract_preempted_duplicate=true".to_string());
+            (false, None)
+        } else {
+            duplicate_execution_state(
+                agent_state,
+                &tool,
+                command_scope,
+                pre_state_summary.step_index,
+                &action_fingerprint,
+                &mut verification_checks,
+            )
+        };
     if duplicate_command_execution
         && duplicate_refresh_read_allowed(state, agent_state, session_id, &tool)
     {
@@ -272,10 +284,38 @@ pub(crate) async fn execute_tool_phase(
                     Err(e) => {
                         success = false;
                         let msg = e.to_string();
-                        if msg.to_lowercase().contains("blocked by policy") {
+                        let lower = msg.to_ascii_lowercase();
+                        if lower.contains("blocked by policy")
+                            || lower.contains("error_class=policyblocked")
+                        {
                             policy_decision = "denied".to_string();
+                            record_policy_blocked_workspace_read_observation(
+                                agent_state,
+                                &tool,
+                                pre_state_summary.step_index,
+                                &msg,
+                            );
                         }
                         error_msg = Some(msg.clone());
+                        if let Some(reply) = governed_shell_failure_terminal_reply(&tool, &msg) {
+                            history_entry = Some(reply.clone());
+                            action_output = Some(reply.clone());
+                            terminal_chat_reply_output = Some(reply);
+                            verification_checks.push(
+                                "governed_shell_failure_terminal_reply_ready=true".to_string(),
+                            );
+                            verification_checks.push("terminal_chat_reply_ready=true".to_string());
+                        }
+                        if let Some(reply) = governed_file_policy_failure_observation(&tool, &msg) {
+                            history_entry = Some(reply.clone());
+                            action_output = Some(reply.clone());
+                            terminal_chat_reply_output = Some(reply);
+                            verification_checks.push(
+                                "governed_file_policy_failure_terminal_reply_ready=true"
+                                    .to_string(),
+                            );
+                            verification_checks.push("terminal_chat_reply_ready=true".to_string());
+                        }
                         if !req_hash_hex.is_empty() {
                             agent_state
                                 .tool_execution_log

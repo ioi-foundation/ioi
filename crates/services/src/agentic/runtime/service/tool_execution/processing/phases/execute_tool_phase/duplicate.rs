@@ -5,6 +5,7 @@ use crate::agentic::runtime::service::lifecycle::load_worker_assignment;
 use crate::agentic::runtime::service::recovery::anti_loop::{latest_failure_class, FailureClass};
 use crate::agentic::runtime::service::tool_execution::execution_evidence_value;
 use crate::agentic::runtime::service::tool_execution::support::action_fingerprint_execution_label;
+use crate::agentic::runtime::stop_hook::stop_hook_completion_blocker;
 use ioi_api::state::StateAccess;
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
 use serde_json::json;
@@ -322,6 +323,23 @@ pub(super) fn handle_duplicate_command_execution(
         verification_checks.push("duplicate_action_fingerprint_blocked=true".to_string());
     } else {
         let tool_name = canonical_tool_identity(tool).0;
+        if let Some(blocker) = stop_hook_chat_reply_duplicate_blocker(&tool_name, agent_state) {
+            mark_action_fingerprint_executed_at_step(
+                &mut agent_state.tool_execution_log,
+                action_fingerprint,
+                step_index,
+                "stop_hook_chat_reply_blocked",
+            );
+            agent_state.status = AgentStatus::Running;
+            verification_checks.push("stop_hook_duplicate_chat_reply_blocked=true".to_string());
+            verification_checks.push("terminal_chat_reply_ready=false".to_string());
+            verification_checks.push(format!(
+                "duplicate_action_fingerprint={}",
+                action_fingerprint
+            ));
+            verification_checks.push("duplicate_action_fingerprint_non_terminal=true".to_string());
+            return stop_hook_duplicate_chat_reply_outcome(blocker);
+        }
         let active_web_pipeline_chat_reply =
             is_active_web_pipeline_chat_reply_duplicate(&tool_name, agent_state);
         let prior_successful_duplicate =
@@ -329,19 +347,23 @@ pub(super) fn handle_duplicate_command_execution(
         if prior_successful_duplicate {
             verification_checks.push("duplicate_action_fingerprint_prior_success=true".to_string());
         }
-        let worker_duplicate_requires_recovery_error =
-            worker_duplicate_requires_recovery_error(state, session_id, tool);
+        let retained_stdin_duplicate =
+            prior_successful_duplicate && tool_name.eq_ignore_ascii_case("shell__input");
+        let worker_duplicate_requires_recovery_error = !retained_stdin_duplicate
+            && worker_duplicate_requires_recovery_error(state, session_id, tool);
         let command_workspace_read_requires_action_change =
             command_workspace_read_duplicate_requires_action_change(
                 agent_state,
                 tool,
                 prior_successful_duplicate,
             );
-        let noop_duplicate_allowed = is_duplicate_non_command_noop_allowed(
-            &tool_name,
-            prior_successful_duplicate,
-            active_web_pipeline_chat_reply,
-        ) && !worker_duplicate_requires_recovery_error
+        let noop_duplicate_allowed = (retained_stdin_duplicate
+            || is_duplicate_non_command_noop_allowed(
+                &tool_name,
+                prior_successful_duplicate,
+                active_web_pipeline_chat_reply,
+            ))
+            && !worker_duplicate_requires_recovery_error
             && !command_workspace_read_requires_action_change;
         if command_workspace_read_requires_action_change {
             verification_checks
@@ -357,6 +379,8 @@ pub(super) fn handle_duplicate_command_execution(
             .to_string()
         } else if tool_name.eq_ignore_ascii_case("browser__inspect") {
             browser_snapshot_immediate_replay_summary()
+        } else if retained_stdin_duplicate {
+            "Skipped immediate replay of 'shell__input' because the same stdin payload was already sent to the retained command. Do not resend it. Check `shell__status` for output, then use `shell__terminate` and `shell__reset` when the retained workflow is complete.".to_string()
         } else if prior_successful_duplicate {
             format!(
                 "Skipped immediate replay of '{}' because the identical action already succeeded on the previous step. Do not repeat it. Verify the updated state or choose a different action.",
@@ -395,6 +419,9 @@ pub(super) fn handle_duplicate_command_execution(
         if noop_duplicate_allowed {
             success = true;
             error_msg = None;
+            if retained_stdin_duplicate {
+                verification_checks.push("retained_shell_input_duplicate_noop=true".to_string());
+            }
             if is_mail_reply_tool(&tool_name) {
                 let completion = format!(
                     "Email send request already completed: {} Duplicate resend was skipped to avoid duplicate delivery.",
@@ -941,6 +968,27 @@ fn is_non_command_duplicate_noop_tool(tool_name: &str) -> bool {
 
 fn is_active_web_pipeline_chat_reply_duplicate(tool_name: &str, agent_state: &AgentState) -> bool {
     tool_name == "chat__reply" && agent_state.pending_search_completion.is_some()
+}
+
+fn stop_hook_chat_reply_duplicate_blocker(
+    tool_name: &str,
+    agent_state: &AgentState,
+) -> Option<String> {
+    tool_name
+        .eq_ignore_ascii_case("chat__reply")
+        .then(|| stop_hook_completion_blocker(agent_state))
+        .flatten()
+}
+
+fn stop_hook_duplicate_chat_reply_outcome(blocker: String) -> DuplicateExecutionOutcome {
+    DuplicateExecutionOutcome {
+        success: true,
+        error_msg: Some(blocker.clone()),
+        history_entry: Some(blocker.clone()),
+        action_output: Some(blocker),
+        terminal_chat_reply_output: None,
+        is_lifecycle_action: false,
+    }
 }
 
 fn browser_snapshot_immediate_replay_summary() -> String {

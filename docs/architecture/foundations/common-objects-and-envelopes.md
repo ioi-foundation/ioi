@@ -34,6 +34,8 @@ SettlementIntentEnvelope
 ReputationEventEnvelope
 AuthorityScopeRequestEnvelope
 AuthorityGrantEnvelope
+AccessPointBindingEnvelope
+StepUpChallengeEnvelope
 TaskEnvelope
 RunEnvelope
 WorkerInstanceEnvelope
@@ -127,9 +129,16 @@ wiki://...              Agent Wiki or durable semantic-memory surface identity
 memory://...            context-memory record or local memory-plane identity
 cid://...               content-addressed payload ref, commonly Filecoin/CAS/IPFS
 wallet://...            wallet.network account or authority ref
+access_point://...      low-assurance access-point binding ref
+challenge://...         short-lived wallet.network step-up challenge pointer
 shielded_capsule://...  private workspace capsule identity; legacy name kept for compatibility
 model_mount://...       plaintext-free model mount identity
 model_mount_view://...  per-inference plaintext-free model mount view identity
+custody_proof://...     cTEE proof-carrying workspace custody proof identity
+privacy_posture://...   cTEE execution privacy posture identity
+coverage://...          cTEE candidate coverage / redundancy profile identity
+crypto_op_policy://...  cTEE cryptographic/private operator policy identity
+counterfactual_lattice://... cTEE committed counterfactual candidate lattice identity
 alpha_seal://...        sealed private strategy capsule identity
 autonomy_lease://...    wallet-bounded offline autonomy lease identity
 guardian://...          cTEE guardian or threshold authority participant
@@ -775,6 +784,77 @@ AuthorityGrantEnvelope:
   revocation_epoch: integer
   status: active | expired | revoked
 ```
+
+## AccessPointBindingEnvelope
+
+```yaml
+AccessPointBindingEnvelope:
+  binding_id: access_point://...
+  owner_ref: wallet://...
+  kind: sms | email | chat_app | voice | webhook | browser_session | local_app
+  channel_hash: sha256:...
+  display_label: optional
+  agent_refs:
+    - agent://...
+  allowed_intents:
+    - notify
+    - status
+    - pause
+    - resume
+    - request_summary
+    - run_preapproved_workflow
+    - request_step_up
+  risk_ceiling: read | draft | low_local_write
+  can_decrypt: false
+  can_declassify: false
+  can_hold_grant: false
+  can_release_secret: false
+  step_up_required_for:
+    - external_message
+    - commerce
+    - funds
+    - deploy
+    - secret_export
+    - policy_widening
+    - private_workspace_view
+    - private_workspace_declassification
+  challenge_policy:
+    single_use: true
+    ttl_seconds: 300
+    requires_surface:
+      - wallet_network_web
+      - hypervisor_app
+      - enrolled_guardian_device
+      - passkey
+      - enterprise_idp
+      - local_cli_signer
+  expires_at: optional
+  revocation_epoch: integer
+  status: active | disabled | expired | revoked
+```
+
+## StepUpChallengeEnvelope
+
+```yaml
+StepUpChallengeEnvelope:
+  challenge_id: challenge://...
+  binding_id: access_point://...
+  owner_ref: wallet://...
+  request_hash: sha256:...
+  policy_hash: sha256:...
+  risk_class: read | draft | local_write | external_message | commerce | funds | secret_export
+  action_summary: string
+  challenge_url_ref: optional
+  single_use: true
+  expires_at: timestamp
+  status: issued | approved | denied | expired | consumed
+  resulting_grant_ref: grant://... | null
+  receipt_ref: receipt://... | null
+```
+
+Low-assurance access points can carry a `challenge://...` pointer but must not
+carry a `grant://...`, decryption key, credential, private workspace payload, or
+durable secret.
 
 ## TaskEnvelope
 

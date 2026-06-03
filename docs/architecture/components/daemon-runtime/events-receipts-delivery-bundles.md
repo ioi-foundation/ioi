@@ -186,6 +186,8 @@ RuntimeUsageReceipt
 NodeMeasurementReceipt
 ModelMountReceipt
 PrivateInferenceReceipt
+CounterfactualLatticeReceipt
+PrivateOperatorReceipt
 DeclassificationReceipt
 CapabilityExitReceipt
 DeterrenceDetectionReceipt
@@ -260,6 +262,56 @@ deterrence/detection profile.
   "model_mount_receipt_ref": "receipt_model_mount_123",
   "artifact_refs": ["artifact://protected-output"],
   "status": "success | failure | blocked | invalid"
+}
+```
+
+`PrivateOperatorReceipt` is emitted when a protected subcomputation is routed
+through the cTEE Cryptographic Operator Plane. It binds the operator family,
+protected input commitments, second logical party, leakage profile, and proof
+that no protected plaintext class was materialized on the provider-rooted node.
+
+`CounterfactualLatticeReceipt` is emitted when the node expands a committed
+candidate lattice before private selection feedback. It supports claims that
+online branch-selection leakage was suppressed for that lattice round, while
+still accounting for public token volume, lattice metadata, timing, size, and
+schedule leakage.
+
+```json
+{
+  "receipt_id": "receipt_counterfactual_lattice_123",
+  "receipt_type": "counterfactual_lattice",
+  "capsule_id": "private_workspace_capsule://123",
+  "lattice_commitment": "commitment://...",
+  "model_hash": "sha256:...",
+  "policy_hash": "sha256:...",
+  "width_budget_k": 8,
+  "depth_budget_d": 4,
+  "public_token_budget": 4096,
+  "generation_rule_hash": "sha256:...",
+  "dedupe_rule_hash": "sha256:...",
+  "padding_rule_hash": "sha256:...",
+  "node_ref": "runtime_node_3090",
+  "state_root": "sha256:..."
+}
+```
+
+```json
+{
+  "receipt_id": "receipt_private_operator_123",
+  "receipt_type": "private_operator",
+  "policy_ref": "crypto_op_policy://123",
+  "run_id": "run_123",
+  "capsule_id": "shielded_capsule://123",
+  "operator_family": "fhe_linear | fhe_approx | mpc_nonlinear | garbled_boolean | oram_lookup | local_guardian | threshold_guardian",
+  "node_ref": "runtime_node_3090",
+  "second_party_ref": "browser_session://... | mobile_guardian://... | cli_signer://... | wallet.network://... | threshold_guardian://...",
+  "protected_input_commitments": ["commitment://..."],
+  "public_input_refs": ["artifact://..."],
+  "output_commitment": "commitment://...",
+  "leakage_profile_ref": "leakage://...",
+  "policy_hash": "sha256:...",
+  "plaintext_sensitive_classes_on_node": ["none"],
+  "status": "success | failure | denied | escalated"
 }
 ```
 

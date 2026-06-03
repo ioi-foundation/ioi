@@ -225,6 +225,7 @@ fn command_workspace_capability_surface(tool_name: &str) -> bool {
             | "file__write"
             | "file__multi_edit"
             | "workspace_change__status"
+            | "workspace_change__accept"
             | "workspace_change__reject"
             | "workspace_change__rollback"
             | "shell__run"
@@ -239,9 +240,16 @@ fn command_workspace_capability_surface(tool_name: &str) -> bool {
 
 fn goal_suggests_workspace_change_lifecycle(goal: &str) -> bool {
     let normalized = goal.to_ascii_lowercase();
-    let requests_lifecycle = ["roll back", "rollback", "revert", "reject change"]
-        .iter()
-        .any(|needle| normalized.contains(needle));
+    let requests_lifecycle = [
+        "accept change",
+        "apply change",
+        "roll back",
+        "rollback",
+        "revert",
+        "reject change",
+    ]
+    .iter()
+    .any(|needle| normalized.contains(needle));
     let mentions_workspace_change = [
         "workspace change",
         "change lifecycle",
@@ -268,6 +276,7 @@ fn workspace_change_lifecycle_surface(tool_name: &str) -> bool {
     matches!(
         tool_name.trim().to_ascii_lowercase().as_str(),
         "workspace_change__status"
+            | "workspace_change__accept"
             | "workspace_change__reject"
             | "workspace_change__rollback"
             | "file__read"

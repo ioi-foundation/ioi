@@ -726,7 +726,7 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "POST" && action === "resume") {
-      writeJsonResponse(response, store.resumeThread(threadId));
+      writeJsonResponse(response, await store.resumeThread(threadId, await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "fork") {
@@ -764,6 +764,18 @@ export function createRuntimeRouteHandlers(deps) {
     }
     if (request.method === "POST" && action === "thinking" && !segments[4]) {
       writeJsonResponse(response, store.updateThreadThinking(threadId, await readBody(request)));
+      return;
+    }
+    if (request.method === "GET" && action === "managed-sessions" && !segments[4]) {
+      writeJsonResponse(response, await store.inspectManagedSessionsForThread(threadId, Object.fromEntries(url.searchParams.entries())));
+      return;
+    }
+    if (request.method === "GET" && action === "workspace-change-reviews" && !segments[4]) {
+      writeJsonResponse(response, await store.inspectWorkspaceChangeReviewsForThread(threadId, Object.fromEntries(url.searchParams.entries())));
+      return;
+    }
+    if (request.method === "POST" && action === "managed-sessions" && segments[4] === "control" && !segments[5]) {
+      writeJsonResponse(response, await store.controlManagedSessionForThread(threadId, await readBody(request)));
       return;
     }
     if (request.method === "GET" && action === "subagents" && !segments[4]) {
@@ -930,7 +942,7 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "POST" && action === "turns" && segments[4] && segments[5] === "interrupt" && !segments[6]) {
-      writeJsonResponse(response, store.interruptTurn(threadId, decodeURIComponent(segments[4]), await readBody(request)));
+      writeJsonResponse(response, await store.interruptTurn(threadId, decodeURIComponent(segments[4]), await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "turns" && segments[4] && segments[5] === "steer" && !segments[6]) {

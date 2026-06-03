@@ -383,6 +383,9 @@ pub struct WorkloadActivityEvent {
     pub step_index: u32,
     /// Stable identifier for the running workload within a step.
     pub workload_id: String,
+    /// Product-safe display label for glass-box work lanes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_label: Option<String>,
     /// Milliseconds since UNIX epoch when emitted.
     pub timestamp_ms: u64,
     /// Typed activity kind.

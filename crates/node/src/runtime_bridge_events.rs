@@ -1,4 +1,7 @@
-use ioi_types::app::{KernelEvent, RoutingReceiptEvent, WorkloadReceipt, WorkloadReceiptEvent};
+use ioi_types::app::{
+    KernelEvent, RoutingReceiptEvent, WorkloadActivityEvent, WorkloadActivityKind, WorkloadReceipt,
+    WorkloadReceiptEvent,
+};
 use serde_json::{json, Value};
 
 const EVENT_SCHEMA_VERSION: &str = "ioi.runtime.event.v1";
@@ -123,7 +126,12 @@ pub fn kernel_event_to_tti_event(
             error_class,
             agent_status,
         } => {
-            let failed = error_class.is_some();
+            let failed = error_class.is_some()
+                && !benign_retained_shell_lifecycle_observation(
+                    tool_name,
+                    output,
+                    error_class.as_deref(),
+                );
             Some(runtime_kernel_event(
                 context,
                 "KernelEvent::AgentActionResult",
@@ -154,12 +162,47 @@ pub fn kernel_event_to_tti_event(
             context,
             kernel_payload,
         )),
+        KernelEvent::WorkloadActivity(activity) => Some(workload_activity_to_tti_event(
+            activity,
+            context,
+            kernel_payload,
+        )),
         KernelEvent::RoutingReceipt(receipt) => Some(routing_receipt_to_tti_event(
             receipt,
             context,
             kernel_payload,
         )),
         _ => None,
+    }
+}
+
+fn benign_retained_shell_lifecycle_observation(
+    tool_name: &str,
+    output: &str,
+    error_class: Option<&str>,
+) -> bool {
+    if !tool_name.starts_with("shell__") {
+        return false;
+    }
+    let lower = output.to_ascii_lowercase();
+    match tool_name {
+        "shell__input" => [
+            "already sent",
+            "duplicate input",
+            "duplicate stdin",
+            "continuing with status/cleanup",
+            "already stopped",
+            "already terminated",
+            "continuing with retained shell cleanup",
+        ]
+        .iter()
+        .any(|needle| lower.contains(needle)),
+        "shell__status" => {
+            lower.trim() == "status checked"
+                || lower.contains("same action fingerprint")
+                || lower.contains("already checked")
+        }
+        _ => error_class.is_some() && lower.contains("already"),
     }
 }
 
@@ -351,6 +394,14 @@ pub fn product_projection_for_event(
     payload: &Value,
 ) -> Value {
     let tool_name = string_field(payload, "tool_name").unwrap_or("");
+    let shell_projection = if matches!(
+        event_kind,
+        "tool.started" | "tool.output" | "tool.completed" | "tool.failed"
+    ) {
+        public_shell_tool_projection(event_kind, status, tool_name, payload)
+    } else {
+        None
+    };
     let readable_tool = if tool_name.is_empty() {
         String::new()
     } else {
@@ -359,15 +410,37 @@ pub fn product_projection_for_event(
     let headline = match event_kind {
         "reasoning.delta" => "Thinking".to_string(),
         "answer.delta" => "Streaming final answer".to_string(),
+        "tool.started" => {
+            if let Some(shell) = shell_projection.as_ref() {
+                shell.headline.clone()
+            } else if readable_tool.is_empty() {
+                "Tool started".to_string()
+            } else {
+                format!("Using {}", readable_tool)
+            }
+        }
+        "tool.output" => {
+            if let Some(shell) = shell_projection.as_ref() {
+                shell.headline.clone()
+            } else if readable_tool.is_empty() {
+                "Tool output".to_string()
+            } else {
+                format!("{} output", readable_tool)
+            }
+        }
         "tool.completed" => {
-            if readable_tool.is_empty() {
+            if let Some(shell) = shell_projection.as_ref() {
+                shell.headline.clone()
+            } else if readable_tool.is_empty() {
                 "Tool completed".to_string()
             } else {
                 format!("Used {}", readable_tool)
             }
         }
         "tool.failed" => {
-            if readable_tool.is_empty() {
+            if let Some(shell) = shell_projection.as_ref() {
+                shell.headline.clone()
+            } else if readable_tool.is_empty() {
                 "Tool failed".to_string()
             } else {
                 format!("{} failed", readable_tool)
@@ -380,28 +453,36 @@ pub fn product_projection_for_event(
         "tool.route_decision" => "Tool route selected".to_string(),
         _ => event_kind.replace(['.', '_'], " "),
     };
-    let mut summary = String::new();
-    if let Some(query) = string_field(payload, "query") {
-        summary = format!("query: {}", compact_product_text(query));
-    } else if let Some(url) = string_field(payload, "url") {
-        summary = compact_product_text(url);
-    } else if let Some(output) = string_field(payload, "output") {
-        summary = compact_product_text(output);
-    } else if let Some(result) = string_field(payload, "result") {
-        summary = compact_product_text(result);
-    } else if let Some(message) = string_field(payload, "message") {
-        summary = compact_product_text(message);
-    } else if let Some(existing_summary) = string_field(payload, "summary") {
-        summary = compact_product_text(existing_summary);
-    } else if let Some(prompt) = string_field(payload, "prompt") {
-        summary = compact_product_text(prompt);
-    } else if let Some(error) = string_field(payload, "error_class") {
-        summary = compact_product_text(error);
-    } else if let Some(delta) = string_field(payload, "delta") {
-        summary = compact_product_text(delta);
+    let has_shell_projection = shell_projection.is_some();
+    let mut summary = shell_projection
+        .as_ref()
+        .map(|projection| projection.summary.clone())
+        .unwrap_or_default();
+    if summary.is_empty() && !has_shell_projection {
+        if let Some(query) = string_field(payload, "query") {
+            summary = format!("query: {}", compact_product_text(query));
+        } else if let Some(url) = string_field(payload, "url") {
+            summary = compact_product_text(url);
+        } else if let Some(output) = string_field(payload, "output") {
+            summary = compact_product_text(output);
+        } else if let Some(result) = string_field(payload, "result") {
+            summary = compact_product_text(result);
+        } else if let Some(message) = string_field(payload, "message") {
+            summary = compact_product_text(message);
+        } else if let Some(existing_summary) = string_field(payload, "summary") {
+            summary = compact_product_text(existing_summary);
+        } else if let Some(prompt) = string_field(payload, "prompt") {
+            summary = compact_product_text(prompt);
+        } else if let Some(error) = string_field(payload, "error_class") {
+            summary = compact_product_text(error);
+        } else if let Some(chunk) = string_field(payload, "chunk") {
+            summary = compact_product_text(chunk);
+        } else if let Some(delta) = string_field(payload, "delta") {
+            summary = compact_product_text(delta);
+        }
     }
     let source_refs = source_refs_from_payload(payload);
-    json!({
+    let mut projection = json!({
         "schema_version": PRODUCT_EVENT_PROJECTION_SCHEMA_VERSION,
         "visibility": product_visibility(event_kind, component_kind),
         "event_kind": event_kind,
@@ -413,7 +494,288 @@ pub fn product_projection_for_event(
         "summary": summary,
         "source_refs": source_refs,
         "payload_detail_visibility": "runs_tracing",
+    });
+    if let Some(shell) = shell_projection {
+        if let Some(command_label) = shell.command_label {
+            projection["command_label"] = Value::String(command_label);
+        }
+        if let Some(excerpt_preview) = shell.excerpt_preview {
+            projection["excerpt_preview"] = Value::String(excerpt_preview);
+        }
+    }
+    projection
+}
+
+struct PublicShellToolProjection {
+    headline: String,
+    summary: String,
+    command_label: Option<String>,
+    excerpt_preview: Option<String>,
+}
+
+fn public_shell_tool_projection(
+    event_kind: &str,
+    event_status: &str,
+    tool_name: &str,
+    payload: &Value,
+) -> Option<PublicShellToolProjection> {
+    if !tool_name.starts_with("shell__") {
+        return None;
+    }
+    let output = string_field(payload, "output").unwrap_or("");
+    let parsed = serde_json::from_str::<Value>(output).ok();
+    let command_label = string_field(payload, "display_label")
+        .map(compact_product_text)
+        .or_else(|| parsed.as_ref().and_then(public_shell_command_label))
+        .filter(|label| !label.is_empty());
+    let status = parsed
+        .as_ref()
+        .and_then(|value| string_field(value, "status"))
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase();
+    let running = parsed
+        .as_ref()
+        .and_then(|value| value.get("running"))
+        .and_then(Value::as_bool)
+        .unwrap_or(status == "running");
+    let excerpt_preview = parsed
+        .as_ref()
+        .and_then(|value| string_field(value, "output_tail"))
+        .and_then(public_shell_output_excerpt)
+        .or_else(|| string_field(payload, "chunk").and_then(public_shell_output_excerpt));
+    let failed = event_kind == "tool.failed";
+    let event_running = event_status.eq_ignore_ascii_case("running");
+    let duplicate_input_noop = tool_name == "shell__input"
+        && [
+            "already sent",
+            "duplicate input",
+            "duplicate stdin",
+            "continuing with status/cleanup",
+        ]
+        .iter()
+        .any(|needle| output.to_ascii_lowercase().contains(needle));
+    let obsolete_input_noop = tool_name == "shell__input"
+        && [
+            "already stopped",
+            "already terminated",
+            "continuing with retained shell cleanup",
+        ]
+        .iter()
+        .any(|needle| output.to_ascii_lowercase().contains(needle));
+    let headline = match tool_name {
+        "shell__start" if failed => "Command failed",
+        "shell__start" if running || event_running => "Running command",
+        "shell__start" => "Started command",
+        "shell__run" if failed => "Command failed",
+        "shell__run" if running || event_running => "Running command",
+        "shell__run" => "Ran command",
+        "shell__status" => "Checked command status",
+        "shell__input" if obsolete_input_noop => "Skipped obsolete input",
+        "shell__input" if duplicate_input_noop => "Skipped duplicate input",
+        "shell__input" if failed => "Command input failed",
+        "shell__input" => "Sent input to retained command",
+        "shell__terminate" => "Terminated retained command",
+        "shell__reset" => "Reset retained shell state",
+        _ if failed => "Command step failed",
+        _ => "Command step completed",
+    }
+    .to_string();
+    let summary = match tool_name {
+        "shell__start" | "shell__run" if failed => {
+            let mut parts = Vec::new();
+            if let Some(label) = command_label.as_ref() {
+                parts.push(label.clone());
+            }
+            parts.push("failed".to_string());
+            parts.join(" · ")
+        }
+        "shell__start" | "shell__run" => {
+            let mut parts = Vec::new();
+            if let Some(label) = command_label.as_ref() {
+                parts.push(label.clone());
+            }
+            if !status.is_empty() {
+                parts.push(status.clone());
+            } else if running || event_running {
+                parts.push("running".to_string());
+            }
+            if parts.is_empty() {
+                headline.clone()
+            } else if (running || event_running)
+                && command_label.is_none()
+                && parts
+                    .iter()
+                    .all(|part| part.eq_ignore_ascii_case("running"))
+            {
+                String::new()
+            } else {
+                parts.join(" · ")
+            }
+        }
+        "shell__status" => {
+            if status.is_empty() {
+                "Status checked".to_string()
+            } else {
+                format!("status: {status}")
+            }
+        }
+        "shell__input" if duplicate_input_noop => {
+            "Input was already sent; continuing with status/cleanup.".to_string()
+        }
+        "shell__input" if obsolete_input_noop => {
+            "Retained command was already stopped; continuing with cleanup.".to_string()
+        }
+        "shell__input" if failed => "input failed".to_string(),
+        "shell__input" => "stdin sent".to_string(),
+        "shell__terminate" => "retained command terminated".to_string(),
+        "shell__reset" => "retained shell state reset".to_string(),
+        _ => compact_product_text(output),
+    };
+    Some(PublicShellToolProjection {
+        headline,
+        summary: compact_product_text(&summary),
+        command_label,
+        excerpt_preview,
     })
+}
+
+fn public_shell_command_label(value: &Value) -> Option<String> {
+    let command = string_field(value, "command")?.trim();
+    if command.is_empty() {
+        return None;
+    }
+    let args = value
+        .get("args")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    if args.iter().any(|arg| arg.as_str() == Some("-e")) {
+        return Some(format!("{command} -e <inline script>"));
+    }
+    let mut parts = vec![command.to_string()];
+    for arg in args.iter().filter_map(Value::as_str).take(4) {
+        let arg = arg.trim();
+        if arg.is_empty() || arg.contains("shell__start:") || arg.contains("ioi-session-stdin") {
+            continue;
+        }
+        if arg.starts_with("/tmp/") || arg.len() > 80 {
+            parts.push("<arg>".to_string());
+        } else {
+            parts.push(arg.to_string());
+        }
+    }
+    Some(parts.join(" "))
+}
+
+fn public_shell_output_excerpt(output_tail: &str) -> Option<String> {
+    let mut lines = Vec::new();
+    for raw_line in output_tail.lines() {
+        let line = raw_line.trim().trim_matches('\0').trim();
+        if line.is_empty()
+            || line.contains("shell__start:")
+            || line.contains("command_id")
+            || line.contains("ioi-session-stdin")
+            || line.contains("__IOI")
+            || line.contains("ioi_rc=")
+            || line.starts_with("<ell__start:")
+        {
+            continue;
+        }
+        lines.push(line.to_string());
+        if lines.len() >= 4 {
+            break;
+        }
+    }
+    if lines.is_empty() {
+        None
+    } else {
+        Some(compact_product_text(&lines.join("\n")))
+    }
+}
+
+fn workload_activity_to_tti_event(
+    activity: &WorkloadActivityEvent,
+    context: &RuntimeBridgeEventContext<'_>,
+    kernel_payload: Value,
+) -> Value {
+    let tool_name = workload_tool_name(activity.workload_id.as_str());
+    let display_label = activity.display_label.as_deref();
+    let (event_kind, status, component_kind, workflow_node_id, payload) = match &activity.kind {
+        WorkloadActivityKind::Lifecycle { phase, exit_code } => {
+            let normalized_phase = phase.trim().to_ascii_lowercase();
+            let (event_kind, status) = match normalized_phase.as_str() {
+                "failed" => ("tool.failed", "failed"),
+                "completed" => ("tool.completed", "completed"),
+                "started" | "running" | "detached" => ("tool.started", "running"),
+                _ => ("tool.started", "running"),
+            };
+            (
+                event_kind,
+                status,
+                "tool_lifecycle",
+                "runtime.tool-lifecycle",
+                json!({
+                    "event_kind": "KernelEvent::WorkloadActivity",
+                    "session_id": hex::encode(activity.session_id),
+                    "step_index": activity.step_index,
+                    "workload_id": activity.workload_id,
+                    "display_label": display_label,
+                    "timestamp_ms": activity.timestamp_ms,
+                    "tool_name": tool_name,
+                    "phase": phase,
+                    "exit_code": exit_code,
+                    "kernel_event": kernel_payload,
+                }),
+            )
+        }
+        WorkloadActivityKind::Stdio {
+            stream,
+            chunk,
+            seq,
+            is_final,
+            exit_code,
+        } => (
+            "tool.output",
+            if *is_final { "completed" } else { "running" },
+            "tool_output",
+            "runtime.tool-output",
+            json!({
+                "event_kind": "KernelEvent::WorkloadActivity",
+                "session_id": hex::encode(activity.session_id),
+                "step_index": activity.step_index,
+                "workload_id": activity.workload_id,
+                "display_label": display_label,
+                "timestamp_ms": activity.timestamp_ms,
+                "tool_name": tool_name,
+                "stream": stream,
+                "chunk": compact_text(chunk),
+                "seq": seq,
+                "is_final": is_final,
+                "exit_code": exit_code,
+                "kernel_event": kernel_payload,
+            }),
+        ),
+    };
+    runtime_kernel_event(
+        context,
+        "KernelEvent::WorkloadActivity",
+        event_kind,
+        status,
+        "tool",
+        component_kind,
+        workflow_node_id,
+        format!("workload:{}:{}", activity.workload_id, context.ordinal),
+        payload,
+    )
+}
+
+fn workload_tool_name(workload_id: &str) -> &str {
+    workload_id
+        .split_once(':')
+        .map(|(tool, _)| tool)
+        .filter(|tool| !tool.trim().is_empty())
+        .unwrap_or("tool")
 }
 
 fn workload_receipt_to_tti_event(
@@ -625,7 +987,9 @@ fn workload_receipt_summary(receipt: &WorkloadReceipt) -> WorkloadReceiptSummary
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ioi_types::app::{KernelEvent, WorkloadExecReceipt};
+    use ioi_types::app::{
+        KernelEvent, WorkloadActivityEvent, WorkloadActivityKind, WorkloadExecReceipt,
+    };
 
     fn context<'a>() -> RuntimeBridgeEventContext<'a> {
         RuntimeBridgeEventContext {
@@ -705,7 +1069,7 @@ mod tests {
             "permission_or_approval_required"
         );
         assert_eq!(mapped["payload_summary"]["tool_name"], "shell__run");
-        assert_eq!(mapped["payload_summary"]["headline"], "run failed");
+        assert_eq!(mapped["payload_summary"]["headline"], "Command failed");
     }
 
     #[test]
@@ -731,6 +1095,215 @@ mod tests {
         assert!(!projection_text.contains("kernel_event"));
         assert!(!projection_text.contains("session_id"));
         assert!(!projection_text.contains("receipt_ref"));
+    }
+
+    #[test]
+    fn product_projection_sanitizes_retained_shell_work_lane_summary() {
+        let event = KernelEvent::AgentActionResult {
+            session_id: [4u8; 32],
+            step_index: 7,
+            tool_name: "shell__input".to_string(),
+            output: serde_json::json!({
+                "command": "node",
+                "args": ["-e", "process.stdin.on('data', chunk => console.log(chunk.toString()))"],
+                "command_id": "shell__start:349e4099529e0ffec0ebaac956284beace202a4cc1a887bdd49bbcd2fda65cd9",
+                "status": "running",
+                "running": true,
+                "output_tail": "<ell__start:349e4099529e0ffec0ebaac956284beace202a4cc1a887bdd49bbcd2fda65cd9-1\nHELPER: ready\nioi_rc=0\n"
+            })
+            .to_string(),
+            error_class: None,
+            agent_status: "Running".to_string(),
+        };
+        let mapped = kernel_event_to_tti_event(&event, &context()).expect("mapped event");
+        let projection = &mapped["payload_summary"];
+        assert_eq!(projection["headline"], "Sent input to retained command");
+        assert_eq!(projection["summary"], "stdin sent");
+        assert_eq!(projection["command_label"], "node -e <inline script>");
+        assert_eq!(projection["excerpt_preview"], "HELPER: ready");
+        let projection_text = serde_json::to_string(projection).expect("projection json");
+        assert!(!projection_text.contains("shell__start:"));
+        assert!(!projection_text.contains("command_id"));
+        assert!(!projection_text.contains("ioi_rc="));
+    }
+
+    #[test]
+    fn product_projection_labels_retained_shell_start_failure_as_failure() {
+        let event = KernelEvent::AgentActionResult {
+            session_id: [4u8; 32],
+            step_index: 8,
+            tool_name: "shell__start".to_string(),
+            output: serde_json::json!({
+                "command": "node",
+                "args": ["-e", "process.stdin.resume()"],
+                "status": "failed",
+                "output_tail": "ERROR_CLASS=PermissionDenied shell execution denied\n"
+            })
+            .to_string(),
+            error_class: Some("PermissionDenied".to_string()),
+            agent_status: "Running".to_string(),
+        };
+        let mapped = kernel_event_to_tti_event(&event, &context()).expect("mapped event");
+        let projection = &mapped["payload_summary"];
+        assert_eq!(mapped["event_kind"], "tool.failed");
+        assert_eq!(projection["headline"], "Command failed");
+        assert_eq!(projection["summary"], "node -e <inline script> · failed");
+        assert_ne!(projection["headline"], "Started command");
+    }
+
+    #[test]
+    fn workload_activity_lifecycle_projects_live_shell_start_row() {
+        let event = KernelEvent::WorkloadActivity(WorkloadActivityEvent {
+            session_id: [4u8; 32],
+            step_index: 8,
+            workload_id:
+                "shell__start:349e4099529e0ffec0ebaac956284beace202a4cc1a887bdd49bbcd2fda65cd9"
+                    .to_string(),
+            display_label: Some("node -e <inline script>".to_string()),
+            timestamp_ms: 1_772_000_000_000,
+            kind: WorkloadActivityKind::Lifecycle {
+                phase: "started".to_string(),
+                exit_code: None,
+            },
+        });
+        let mapped = kernel_event_to_tti_event(&event, &context()).expect("mapped event");
+        let projection = &mapped["payload_summary"];
+        assert_eq!(mapped["source_event_kind"], "KernelEvent::WorkloadActivity");
+        assert_eq!(mapped["event_kind"], "tool.started");
+        assert_eq!(mapped["status"], "running");
+        assert_eq!(mapped["payload"]["tool_name"], "shell__start");
+        assert_eq!(projection["headline"], "Running command");
+        assert_eq!(projection["command_label"], "node -e <inline script>");
+        assert_eq!(projection["summary"], "");
+        let projection_text = serde_json::to_string(projection).expect("projection json");
+        assert!(!projection_text.contains("shell__start:"));
+        assert!(!projection_text.contains("command_id"));
+    }
+
+    #[test]
+    fn workload_activity_stdio_projects_sanitized_shell_output_excerpt() {
+        let event = KernelEvent::WorkloadActivity(WorkloadActivityEvent {
+            session_id: [4u8; 32],
+            step_index: 8,
+            workload_id:
+                "shell__start:349e4099529e0ffec0ebaac956284beace202a4cc1a887bdd49bbcd2fda65cd9"
+                    .to_string(),
+            display_label: Some("node -e <inline script>".to_string()),
+            timestamp_ms: 1_772_000_000_001,
+            kind: WorkloadActivityKind::Stdio {
+                stream: "stdout".to_string(),
+                chunk:
+                    "<ell__start:349e4099529e0ffec0ebaac956284beace202a4cc1a887bdd49bbcd2fda65cd9-1\nHELPER: ready\nioi_rc=0\n"
+                        .to_string(),
+                seq: 1,
+                is_final: false,
+                exit_code: None,
+            },
+        });
+        let mapped = kernel_event_to_tti_event(&event, &context()).expect("mapped event");
+        let projection = &mapped["payload_summary"];
+        assert_eq!(mapped["event_kind"], "tool.output");
+        assert_eq!(mapped["status"], "running");
+        assert_eq!(projection["headline"], "Running command");
+        assert_eq!(projection["command_label"], "node -e <inline script>");
+        assert_eq!(projection["excerpt_preview"], "HELPER: ready");
+        let projection_text = serde_json::to_string(projection).expect("projection json");
+        assert!(!projection_text.contains("shell__start:"));
+        assert!(!projection_text.contains("ioi_rc="));
+    }
+
+    #[test]
+    fn retained_shell_duplicate_input_noop_projects_as_completed_work() {
+        let event = KernelEvent::AgentActionResult {
+            session_id: [4u8; 32],
+            step_index: 9,
+            tool_name: "shell__input".to_string(),
+            output: "Input was already sent; continuing with status/cleanup.".to_string(),
+            error_class: Some("NoEffectAfterAction".to_string()),
+            agent_status: "Running".to_string(),
+        };
+        let mapped = kernel_event_to_tti_event(&event, &context()).expect("mapped event");
+        let projection = &mapped["payload_summary"];
+        assert_eq!(mapped["event_kind"], "tool.completed");
+        assert_eq!(mapped["status"], "completed");
+        assert_eq!(projection["headline"], "Skipped duplicate input");
+        assert_eq!(
+            projection["summary"],
+            "Input was already sent; continuing with status/cleanup."
+        );
+    }
+
+    #[test]
+    fn retained_shell_obsolete_input_after_stop_projects_as_completed_work() {
+        let event = KernelEvent::AgentActionResult {
+            session_id: [4u8; 32],
+            step_index: 9,
+            tool_name: "shell__input".to_string(),
+            output: "Retained command was already stopped; continuing with retained shell cleanup."
+                .to_string(),
+            error_class: Some("NoEffectAfterAction".to_string()),
+            agent_status: "Running".to_string(),
+        };
+        let mapped = kernel_event_to_tti_event(&event, &context()).expect("mapped event");
+        let projection = &mapped["payload_summary"];
+        assert_eq!(mapped["event_kind"], "tool.completed");
+        assert_eq!(mapped["status"], "completed");
+        assert_eq!(projection["headline"], "Skipped obsolete input");
+        assert_eq!(
+            projection["summary"],
+            "Retained command was already stopped; continuing with cleanup."
+        );
+    }
+
+    #[test]
+    fn retained_shell_duplicate_status_noop_projects_as_completed_work() {
+        let event = KernelEvent::AgentActionResult {
+            session_id: [4u8; 32],
+            step_index: 10,
+            tool_name: "shell__status".to_string(),
+            output: "Status checked".to_string(),
+            error_class: Some("NoEffectAfterAction".to_string()),
+            agent_status: "Running".to_string(),
+        };
+        let mapped = kernel_event_to_tti_event(&event, &context()).expect("mapped event");
+        let projection = &mapped["payload_summary"];
+        assert_eq!(mapped["event_kind"], "tool.completed");
+        assert_eq!(mapped["status"], "completed");
+        assert_eq!(projection["headline"], "Checked command status");
+        assert_eq!(projection["summary"], "Status checked");
+    }
+
+    #[test]
+    fn retained_shell_status_noop_without_error_class_projects_as_completed_work() {
+        let event = KernelEvent::AgentActionResult {
+            session_id: [4u8; 32],
+            step_index: 10,
+            tool_name: "shell__status".to_string(),
+            output: "Status checked".to_string(),
+            error_class: None,
+            agent_status: "Running".to_string(),
+        };
+        let mapped = kernel_event_to_tti_event(&event, &context()).expect("mapped event");
+        let projection = &mapped["payload_summary"];
+        assert_eq!(mapped["event_kind"], "tool.completed");
+        assert_eq!(mapped["status"], "completed");
+        assert_eq!(projection["headline"], "Checked command status");
+        assert_eq!(projection["summary"], "Status checked");
+    }
+
+    #[test]
+    fn route_decision_does_not_project_shell_execution_as_started() {
+        let projection = product_projection_for_event(
+            "tool.route_decision",
+            "completed",
+            "runtime",
+            "tool_router",
+            &serde_json::json!({
+                "tool_name": "shell__start"
+            }),
+        );
+        assert_eq!(projection["headline"], "Tool route selected");
+        assert_ne!(projection["summary"], "Started command");
     }
 
     #[test]

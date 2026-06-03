@@ -313,6 +313,11 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             capabilities: vec![capability("filesystem.read")],
         },
         ToolCapabilityBinding {
+            tool_name: "workspace_change__accept".to_string(),
+            action_target: ActionTarget::FsWrite,
+            capabilities: vec![capability("filesystem.write")],
+        },
+        ToolCapabilityBinding {
             tool_name: "workspace_change__reject".to_string(),
             action_target: ActionTarget::Custom("workspace_change__reject".to_string()),
             capabilities: vec![capability("filesystem.write")],

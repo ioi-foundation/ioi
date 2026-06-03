@@ -55,6 +55,24 @@ fn emit_workload_activity(
     workload::emit_workload_activity(tx, session_id, step_index, workload_id, kind);
 }
 
+fn emit_labeled_workload_activity(
+    tx: &tokio::sync::broadcast::Sender<KernelEvent>,
+    session_id: [u8; 32],
+    step_index: u32,
+    workload_id: String,
+    display_label: Option<String>,
+    kind: WorkloadActivityKind,
+) {
+    workload::emit_labeled_workload_activity(
+        tx,
+        session_id,
+        step_index,
+        workload_id,
+        display_label,
+        kind,
+    );
+}
+
 fn emit_workload_receipt(
     tx: &tokio::sync::broadcast::Sender<KernelEvent>,
     session_id: [u8; 32],

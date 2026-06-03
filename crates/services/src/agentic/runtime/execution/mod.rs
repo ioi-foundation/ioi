@@ -105,10 +105,22 @@ pub(crate) mod workload {
         workload_id: String,
         kind: WorkloadActivityKind,
     ) {
+        emit_labeled_workload_activity(tx, session_id, step_index, workload_id, None, kind);
+    }
+
+    pub(crate) fn emit_labeled_workload_activity(
+        tx: &tokio::sync::broadcast::Sender<KernelEvent>,
+        session_id: [u8; 32],
+        step_index: u32,
+        workload_id: String,
+        display_label: Option<String>,
+        kind: WorkloadActivityKind,
+    ) {
         let _ = tx.send(KernelEvent::WorkloadActivity(WorkloadActivityEvent {
             session_id,
             step_index,
             workload_id,
+            display_label,
             timestamp_ms: unix_timestamp_ms_now(),
             kind,
         }));
@@ -389,6 +401,7 @@ impl ToolExecutor {
             | AgentTool::FsCopy { .. }
             | AgentTool::FsDelete { .. }
             | AgentTool::WorkspaceChangeStatus { .. }
+            | AgentTool::WorkspaceChangeAccept { .. }
             | AgentTool::WorkspaceChangeReject { .. }
             | AgentTool::WorkspaceChangeRollback { .. } => {
                 filesystem::handle(self, tool, session_id, step_index).await

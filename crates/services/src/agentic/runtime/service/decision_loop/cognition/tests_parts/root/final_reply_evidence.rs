@@ -30,6 +30,20 @@ fn direct_chat_reply_sanitizer_collapses_dense_repeated_model_answer_cycles() {
 }
 
 #[test]
+fn product_handoff_sanitizer_hides_runtime_error_dialect() {
+    let cleaned = super::sanitize_product_handoff_internal_markers(
+        "The tool returned an \"Invalid transaction\" error with the specific policy reason: \"filesystem path is outside workspace authority.\"",
+    );
+
+    assert_eq!(
+        cleaned,
+        "The policy reason was: \"filesystem path is outside workspace authority.\""
+    );
+    assert!(!cleaned.contains("Invalid transaction"));
+    assert!(!cleaned.contains("Blocked by Policy"));
+}
+
+#[test]
 fn final_reply_incomplete_reason_flags_cut_off_markdown() {
     assert_eq!(
         super::final_reply_incomplete_reason(
@@ -135,6 +149,29 @@ fn final_reply_product_handoff_reason_allows_user_requested_raw_output() {
 }
 
 #[test]
+fn final_reply_product_handoff_reason_flags_goal_derived_command_output_tokens() {
+    let goal = "Run `node -e \"for (let i = 0; i < 40000; i++) process.stdout.write('cap-line-' + i + '\\n')\"` and summarize whether the daemon caps the captured command output.";
+    let message =
+        "The command produced output from `cap-line-0` through `cap-line-39999` without capping.";
+
+    assert_eq!(
+        super::final_reply_product_handoff_reason(message, goal),
+        Some("raw_command_output_token")
+    );
+}
+
+#[test]
+fn final_reply_product_handoff_reason_allows_goal_derived_tokens_when_raw_requested() {
+    let goal = "Show the raw output from `node -e \"process.stdout.write('cap-line-' + 0)\"`.";
+    let message = "cap-line-0";
+
+    assert_eq!(
+        super::final_reply_product_handoff_reason(message, goal),
+        None
+    );
+}
+
+#[test]
 fn final_reply_product_handoff_reason_accepts_clean_test_handoff() {
     let message = "Updated `src/format.mjs` so `formatOrderTotal(1299)` now returns `$12.99`. The focused formatter test passed.";
 
@@ -161,6 +198,20 @@ fn final_reply_product_handoff_reason_flags_fixture_markers() {
 }
 
 #[test]
+fn final_reply_product_handoff_reason_flags_raw_coordinates_when_forbidden() {
+    let message =
+        "The target was clicked at (153.0, 490.0), and the browser session stayed observable.";
+
+    assert_eq!(
+        super::final_reply_product_handoff_reason(
+            message,
+            "Click the blue canvas target. Keep raw fixture URLs, coordinates, receipts, and trace details out of the final answer."
+        ),
+        Some("raw_coordinate_pair")
+    );
+}
+
+#[test]
 fn product_handoff_sanitizer_strips_internal_browser_fixture_markers() {
     let cleaned = super::sanitize_product_handoff_internal_markers(
         "Sandbox browser opened and navigated to http://127.0.0.1:40027/ (Tool Catalogue Fixture). Page contains a TOOLCAT_BROWSER_CANARY marker, a toolcat file input, and a ready status.",
@@ -176,6 +227,67 @@ fn product_handoff_sanitizer_strips_internal_browser_fixture_markers() {
             "Open a sandbox browser, inspect this fixture page, and summarize what changed."
         ),
         None
+    );
+}
+
+#[test]
+fn product_handoff_sanitizer_strips_runtime_refs_without_prompt_help() {
+    let cleaned = super::sanitize_product_handoff_internal_markers(
+        r#"Ran the command. {"command_id":"shell__start:abcdef1234567890","status":"ok"} receipt_runtime_command_1234567890 trace_runtime_turn_abcdef1234 thread_61e3a1f8b21c4b7c stayed in tracing."#,
+    );
+
+    assert!(!cleaned.contains("command_id"), "{cleaned}");
+    assert!(!cleaned.contains("shell__start:"), "{cleaned}");
+    assert!(!cleaned.contains("receipt_runtime_command_1234567890"), "{cleaned}");
+    assert!(!cleaned.contains("trace_runtime_turn_abcdef1234"), "{cleaned}");
+    assert!(!cleaned.contains("thread_61e3a1f8b21c4b7c"), "{cleaned}");
+    assert_eq!(
+        super::final_reply_product_handoff_reason(
+            &cleaned,
+            "Start a disposable retained Node.js helper and report the result."
+        ),
+        None
+    );
+}
+
+#[test]
+fn product_handoff_sanitizer_strips_file_policy_runtime_details_without_prompt_help() {
+    let cleaned = super::sanitize_product_handoff_internal_markers(
+        "The attempt to write to `/tmp/autopilot-agent-studio-user-repo-abc-sibling/outside-write.txt` was blocked. The `file__write` tool returned ERROR_CLASS=PolicyBlocked because the path is outside workspace boundary.",
+    );
+
+    assert!(cleaned.contains("blocked"), "{cleaned}");
+    assert!(cleaned.contains("governed file write"), "{cleaned}");
+    assert!(cleaned.contains("requested workspace path"), "{cleaned}");
+    assert!(!cleaned.contains("ERROR_CLASS"), "{cleaned}");
+    assert!(!cleaned.contains("PolicyBlocked"), "{cleaned}");
+    assert!(!cleaned.contains("file__write"), "{cleaned}");
+    assert!(!cleaned.contains("/tmp/autopilot"), "{cleaned}");
+    assert_eq!(
+        super::final_reply_product_handoff_reason(
+            &cleaned,
+            "Try to write a file outside the workspace and report whether the daemon blocks it."
+        ),
+        None
+    );
+
+    let live_phrase = super::sanitize_product_handoff_internal_markers(
+        "The governed file tool returned the following error: Blocked by policy: filesystem path is outside workspace authority.",
+    );
+    assert_eq!(
+        live_phrase,
+        "The policy reason was: filesystem path is outside workspace authority."
+    );
+}
+
+#[test]
+fn product_handoff_guard_flags_runtime_refs_even_when_raw_output_requested() {
+    assert_eq!(
+        super::final_reply_product_handoff_reason(
+            r#"The command id is {"command_id":"shell__start:abcdef1234567890"} and receipt_runtime_command_1234567890 proves it."#,
+            "Show me the raw command output."
+        ),
+        Some("internal_runtime_reference")
     );
 }
 

@@ -456,6 +456,16 @@ function studioPanelStyles() {
         font-size: 12px;
         line-height: 1.45;
       }
+      .studio-pending-step__command-output {
+        max-height: 220px;
+        overflow: auto;
+        padding: 10px;
+        border: 1px solid var(--studio-border);
+        border-radius: 6px;
+        background: #111;
+        color: #d4d4d4 !important;
+        white-space: pre-wrap;
+      }
       .studio-pending__thinking,
       .studio-artifact-source-stream {
         display: grid;
@@ -1462,6 +1472,39 @@ function studioPanelStyles() {
       }
       .studio-diff-hunk {
         margin-top: 10px;
+      }
+      .studio-command-work-row {
+        border: 1px solid var(--studio-border);
+        border-radius: 6px;
+        background: #171717;
+        margin-top: 10px;
+        overflow: hidden;
+      }
+      .studio-command-work-row summary {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        cursor: pointer;
+        padding: 9px 10px;
+      }
+      .studio-command-work-row summary span,
+      .studio-command-work-row summary em {
+        color: var(--studio-muted);
+        font-style: normal;
+      }
+      .studio-command-work-row pre {
+        margin: 0;
+        max-height: 220px;
+        overflow: auto;
+        padding: 10px;
+        border-top: 1px solid var(--studio-border);
+        background: #111;
+        color: #d4d4d4;
+        white-space: pre-wrap;
+      }
+      .studio-command-stderr {
+        color: #ffb1b9 !important;
       }
       .studio-diff-hunk header,
       .studio-diff-hunk footer {

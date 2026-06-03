@@ -309,6 +309,39 @@ fn search_files_excludes_noisy_hidden_build_dirs_from_content_matches() {
 }
 
 #[test]
+fn search_files_excludes_gitignored_workspace_content() {
+    let dir = make_temp_dir("search-gitignored-content");
+    fs::create_dir_all(dir.join("private")).expect("private dir should exist");
+    fs::write(dir.join(".gitignore"), "private/\n").expect("gitignore should be written");
+    fs::write(
+        dir.join("private/token.txt"),
+        "stage4-ignored-file-canary-should-not-leak",
+    )
+    .expect("ignored token should be written");
+    fs::write(dir.join("README.md"), "public needle").expect("readme should be written");
+
+    let canary_output = search_files(&dir, "stage4-ignored-file-canary", None)
+        .expect("search should not fail for ignored content");
+    assert!(
+        !canary_output.contains("stage4-ignored-file-canary")
+            && !canary_output.contains("private/token.txt"),
+        "ignored file content must not be searchable: {canary_output}"
+    );
+
+    let filename_output = search_files(&dir, "token\\.txt", None)
+        .expect("filename search should not fail for ignored content");
+    assert!(
+        !filename_output.contains("private/token.txt"),
+        "ignored file path must not be discoverable by filename: {filename_output}"
+    );
+
+    let public_output = search_files(&dir, "needle", None).expect("public search should succeed");
+    assert!(public_output.contains("README.md:1: public needle"));
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn search_files_ranks_multi_term_source_matches_before_config_noise() {
     let dir = make_temp_dir("search-relevance");
     fs::create_dir_all(dir.join(".github/scripts")).expect("github dir should exist");

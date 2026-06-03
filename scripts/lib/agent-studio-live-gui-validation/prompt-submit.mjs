@@ -1,3 +1,5 @@
+import { readFileSync, writeFileSync } from "node:fs";
+
 export function createSubmitPrompt(deps) {
   const {
     assertNotCannedDaemonProjection,
@@ -81,6 +83,38 @@ export function createSubmitPrompt(deps) {
     }, timeoutMs, 250).catch(async () => captureLatestSourceRowsProof(page));
   }
 
+  async function captureVisiblePendingProof(page) {
+    return withStudioFrame(page, async (frame) => frame.evaluate(() => {
+      const visiblePending = Array.from(document.querySelectorAll('[data-testid="studio-pending-state"]'))
+        .reverse()
+        .find((node) => {
+          if (!node || node.hasAttribute("hidden")) return false;
+          const style = window.getComputedStyle(node);
+          if (style.display === "none" || style.visibility === "hidden") return false;
+          const rect = node.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        }) || null;
+      const root = document.querySelector('[data-testid="agent-studio-operational-chat"]');
+      const text = String(visiblePending?.textContent || "");
+      return {
+        visible: Boolean(visiblePending),
+        rootStatus: root?.getAttribute("data-studio-status") || "",
+        textSample: text.replace(/\s+/g, " ").trim().slice(0, 500),
+        worklogCount: visiblePending
+          ? visiblePending.querySelectorAll('[data-testid="studio-pending-worklog"] li').length
+          : 0,
+      };
+    }));
+  }
+
+  async function waitForNoVisiblePendingAfterCompletion(page, timeoutMs = 1800) {
+    await waitForPredicate(async () => {
+      const proof = await captureVisiblePendingProof(page);
+      return !proof?.visible ? proof : false;
+    }, timeoutMs, 100).catch(() => null);
+    return captureVisiblePendingProof(page);
+  }
+
   async function captureLatestWorkLaneProof(page, options = {}) {
     const preOpen = await withStudioFrame(page, async (frame) => frame.evaluate(() => {
       const bars = Array.from(document.querySelectorAll("[data-testid='studio-run-status-bar']"));
@@ -107,7 +141,10 @@ export function createSubmitPrompt(deps) {
       const bar = bars.nth(count - 1);
       const open = await bar.evaluate((node) => node.hasAttribute("open")).catch(() => false);
       if (!open) {
-        await bar.locator("summary").click();
+        await bar.evaluate((node) => {
+          const summary = node.querySelector(":scope > summary");
+          summary?.click?.();
+        });
       }
     });
     if (options.outputDir && options.screenshots) {
@@ -119,9 +156,13 @@ export function createSubmitPrompt(deps) {
     const expanded = await withStudioFrame(page, async (frame) => frame.evaluate(() => {
       const bars = Array.from(document.querySelectorAll("[data-testid='studio-run-status-bar']"));
       const bar = bars[bars.length - 1] || null;
-      const rows = bar ? Array.from(bar.querySelectorAll(".studio-work-row")) : [];
+      const rows = bar ? Array.from(bar.querySelectorAll(
+        ".studio-work-row, .studio-command-work-row, .studio-diff-hunk, .studio-managed-session-card, .studio-conversation-artifact-card",
+      )) : [];
       const chips = bar ? Array.from(bar.querySelectorAll(".studio-source-chip")) : [];
-      const excerpts = bar ? Array.from(bar.querySelectorAll(".studio-work-row__excerpt, .studio-pending-step__excerpt")) : [];
+      const excerpts = bar ? Array.from(bar.querySelectorAll(
+        ".studio-work-row__excerpt, .studio-pending-step__excerpt, [data-testid='studio-command-stdout'], [data-testid='studio-command-stderr']",
+      )) : [];
       const text = String(bar?.textContent || "");
       const rawLeakPatterns = [
         /\breceipt_[a-z0-9_]+/i,
@@ -137,7 +178,7 @@ export function createSubmitPrompt(deps) {
         rowCount: rows.length,
         sourceChipCount: chips.length,
         excerptCount: excerpts.length,
-        rowLabels: rows.map((row) => String(row.querySelector("strong")?.textContent || "").replace(/\s+/g, " ").trim()).filter(Boolean),
+        rowLabels: rows.map((row) => String(row.querySelector("summary strong, header strong, strong")?.textContent || "").replace(/\s+/g, " ").trim()).filter(Boolean),
         sourceLabels: chips.map((chip) => String(chip.textContent || "").replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 8),
         excerptSamples: excerpts.map((node) => String(node.textContent || "").replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 4),
         rawLeaks: rawLeakPatterns.filter((pattern) => pattern.test(text)).map(String),
@@ -148,6 +189,218 @@ export function createSubmitPrompt(deps) {
       ...expanded,
       collapsedMinimal: /^Worked for \S+/.test(preOpen.collapsedHeadline || "") && Number(preOpen.extraSummarySpanCount || 0) === 0,
       openedForProof: true,
+    };
+  }
+
+  async function captureLatestHunkReviewProof(page, options = {}) {
+    await withStudioFrame(page, async (frame) => frame.evaluate(() => {
+      const bars = Array.from(document.querySelectorAll("[data-testid='studio-run-status-bar']"));
+      for (const bar of bars) {
+        bar.open = true;
+        bar.setAttribute("open", "");
+      }
+      const drawer = document.querySelector("[data-testid='studio-utility-drawer']");
+      if (drawer) {
+        drawer.classList.add("is-expanded");
+        drawer.setAttribute("aria-expanded", "true");
+      }
+    })).catch(() => {});
+    const proof = await withStudioFrame(page, async (frame) => frame.evaluate(() => {
+      const hunks = Array.from(document.querySelectorAll('[data-testid="studio-inline-diff-hunks"]'));
+      const latest = hunks[hunks.length - 1] || null;
+      const text = String(latest?.textContent || "");
+      const buttons = latest ? Array.from(latest.querySelectorAll("[data-studio-hunk-decision]")) : [];
+      const buttonStates = buttons.map((button) => ({
+        action: button.getAttribute("data-studio-hunk-decision") || "",
+        text: String(button.textContent || "").replace(/\s+/g, " ").trim(),
+        disabled: Boolean(button.disabled || button.getAttribute("aria-disabled") === "true"),
+        bound: button.getAttribute("data-studio-hunk-decision-bound") || "",
+        approvalId: button.getAttribute("data-approval-id") || "",
+        changeId: button.getAttribute("data-change-id") || "",
+      })).filter((button) => button.action);
+      const rawLeakPatterns = [
+        /\breceipt_[a-z0-9_]+/i,
+        /\breq_[a-z0-9-]+/i,
+        /\{\\?"(?:payload|event|receipt|trace|tool_name|hunks)\\?"/i,
+        /\/home\/[^<\s]+/i,
+        /\bTOOLCAT_/i,
+      ];
+      return {
+        observed: Boolean(latest),
+        hunkCount: hunks.length,
+        decisionObserved: document.body?.dataset?.studioHunkDecisionObserved === "true",
+        decisionLast: document.body?.dataset?.studioHunkDecisionLast || "",
+        decisionBoundCount: Number(document.body?.dataset?.studioHunkDecisionBoundCount || 0) || 0,
+        status: String(latest?.querySelector("mark")?.textContent || "").replace(/\s+/g, " ").trim(),
+        file: String(latest?.querySelector("code")?.textContent || "").replace(/\s+/g, " ").trim(),
+        buttonActions: buttonStates.map((button) => button.action),
+        buttonStates,
+        approvalId: buttonStates.find((button) => button.approvalId)?.approvalId || "",
+        changeId: buttonStates.find((button) => button.changeId)?.changeId || "",
+        stale: /\bstale\b/i.test(text),
+        acceptAvailable: buttonStates.some((button) => button.action === "approve" && !button.disabled),
+        rejectAvailable: buttonStates.some((button) => button.action === "reject" && !button.disabled),
+        rollbackAvailable: buttonStates.some((button) => button.action === "rollback" && !button.disabled),
+        hasBeforeAfter: Boolean(latest?.querySelector(".studio-diff-remove")?.textContent || latest?.querySelector(".studio-diff-add")?.textContent),
+        rawLeaks: rawLeakPatterns.filter((pattern) => pattern.test(text)).map(String),
+        textSample: text.replace(/\s+/g, " ").trim().slice(0, 600),
+      };
+    }));
+    const probePath = String(options.hunkStateProbePath || "").trim();
+    if (probePath) {
+      proof.probe = {
+        path: probePath,
+        exists: false,
+        bytes: 0,
+        sample: "",
+        error: null,
+      };
+      try {
+        const probeContent = readFileSync(probePath, "utf8");
+        proof.probe.exists = true;
+        proof.probe.bytes = Buffer.byteLength(probeContent);
+        proof.probe.sample = probeContent.slice(0, 1000);
+      } catch (error) {
+        proof.probe.error = error?.message || String(error);
+      }
+    }
+    if (options.outputDir && options.screenshots) {
+      const indexPart = Number.isFinite(Number(options.promptIndex))
+        ? String(Number(options.promptIndex)).padStart(2, "0")
+        : "latest";
+      await screenshot(page, options.outputDir, `hunk-review-${indexPart}.png`, options.screenshots).catch(() => {});
+    }
+    return proof;
+  }
+
+  function applyHunkStaleMutation(options = {}) {
+    const mutation = options.hunkStaleMutation;
+    const path = String(mutation?.path || "").trim();
+    if (!path) return null;
+    const original = readFileSync(path, "utf8");
+    const replacement = mutation.replaceText !== undefined
+      ? String(mutation.replaceText)
+      : [
+          "export function formatOrderTotal(cents) {",
+          "  return `externally-changed-${Number(cents)}`;",
+          "}",
+          "",
+        ].join("\n");
+    let next = replacement;
+    if (mutation.mode === "replaceBoundary") {
+      const search = String(mutation.searchText || "return (Number(cents) / 100).toFixed(2);");
+      next = original.includes(search)
+        ? original.replace(search, String(mutation.replaceText || "return `externally-changed-${Number(cents)}`;"))
+        : `${original}\n// externally changed by hunk stale proof\n`;
+    } else if (mutation.mode === "append") {
+      next = `${original}${String(mutation.appendText || "\n// externally changed by hunk stale proof\n")}`;
+    }
+    writeFileSync(path, next);
+    return {
+      path,
+      mode: mutation.mode || "write",
+      originalBytes: Buffer.byteLength(original),
+      nextBytes: Buffer.byteLength(next),
+      changed: original !== next,
+    };
+  }
+
+  async function refreshLatestHunkReviewProjection(page, options = {}) {
+    await withStudioFrame(page, async (frame) => {
+      const nav = frame.locator("[data-studio-hunk-nav]").first();
+      if (await nav.count()) {
+        await nav.click({ timeout: 3000 }).catch(() => {});
+      }
+    }).catch(() => {});
+    const desired = String(options.expectStatus || "").trim().toLowerCase();
+    if (!desired) {
+      await wait(500);
+      return captureLatestHunkReviewProof(page, options);
+    }
+    return waitForPredicate(async () => {
+      const proof = await captureLatestHunkReviewProof(page, options).catch(() => null);
+      const status = String(proof?.status || "").toLowerCase();
+      const text = String(proof?.textSample || "").toLowerCase();
+      return proof?.observed && (status.includes(desired) || text.includes(desired)) ? proof : false;
+    }, Number(options.hunkRefreshTimeoutMs || 12000), 250).catch(async () =>
+      captureLatestHunkReviewProof(page, options)
+    );
+  }
+
+  async function performLatestHunkDecision(page, action, options = {}) {
+    const normalizedAction = String(action || "").trim().toLowerCase();
+    if (!normalizedAction) return null;
+    const before = await captureLatestHunkReviewProof(page, options);
+    const clickResult = await withStudioFrame(page, async (frame) => {
+      const buttons = frame.locator(`[data-testid="studio-inline-diff-hunks"] [data-studio-hunk-decision="${normalizedAction}"]`);
+      const count = await buttons.count();
+      if (count < 1) {
+        return { clicked: false, reason: `missing-${normalizedAction}-button` };
+      }
+      await buttons.nth(count - 1).click({ timeout: 5000 });
+      return { clicked: true };
+    });
+    let dispatchFallback = null;
+    await wait(250);
+    const observedAfterClick = await captureLatestHunkReviewProof(page, options).catch(() => null);
+    if (clickResult?.clicked && !observedAfterClick?.decisionObserved) {
+      dispatchFallback = await withStudioFrame(page, async (frame) => frame.evaluate((targetAction) => {
+        const buttons = Array.from(document.querySelectorAll(
+          `[data-testid="studio-inline-diff-hunks"] [data-studio-hunk-decision="${targetAction}"]`,
+        ));
+        const button = buttons[buttons.length - 1] || null;
+        if (!button) {
+          return { dispatched: false, reason: `missing-${targetAction}-button` };
+        }
+        button.dispatchEvent(new MouseEvent("click", {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          view: window,
+        }));
+        return {
+          dispatched: true,
+          observed: document.body?.dataset?.studioHunkDecisionObserved === "true",
+          last: document.body?.dataset?.studioHunkDecisionLast || "",
+        };
+      }, normalizedAction)).catch((error) => ({
+        dispatched: false,
+        reason: error?.message || String(error),
+      }));
+    }
+    const afterMatch = await waitForPredicate(async () => {
+      const proof = await captureLatestHunkReviewProof(page, options).catch(() => null);
+      const status = String(proof?.status || "").toLowerCase();
+      const text = String(proof?.textSample || "").toLowerCase();
+      if (!proof?.observed) return false;
+      if (
+        normalizedAction === "approve" &&
+        (
+          status.includes("approved") ||
+          status.includes("accepted") ||
+          status.includes("applied") ||
+          text.includes("approved") ||
+          text.includes("accepted") ||
+          text.includes("applied")
+        )
+      ) return proof;
+      if (normalizedAction === "reject" && (status.includes("rejected") || text.includes("rejected"))) return proof;
+      if (normalizedAction === "rollback" && (status.includes("rolled") || text.includes("rolled"))) return proof;
+      return false;
+    }, Number(options.hunkDecisionTimeoutMs || 12000), 250).catch(() => false);
+    const after = afterMatch || await captureLatestHunkReviewProof(page, options).catch(() => false);
+    if (options.outputDir && options.screenshots) {
+      const indexPart = Number.isFinite(Number(options.promptIndex))
+        ? String(Number(options.promptIndex)).padStart(2, "0")
+        : "latest";
+      await screenshot(page, options.outputDir, `hunk-decision-${normalizedAction}-${indexPart}.png`, options.screenshots).catch(() => {});
+    }
+    return {
+      action: normalizedAction,
+      ...clickResult,
+      dispatchFallback,
+      before,
+      after,
     };
   }
 
@@ -326,72 +579,108 @@ export function createSubmitPrompt(deps) {
   markPromptPhase(timing, "pending-observed", phaseStartedAtMs);
   const expectedExecutionMode = normalizeScenarioExecutionMode(options.expectedExecutionMode || "");
   if (options.capturePendingProjection && options.outputDir && options.screenshots) {
-    await waitForPredicate(async () => {
-      try {
-        return await withStudioFrame(page, async (frame) => {
-          const visible = await frame.locator('[data-testid="studio-pending-state"]:not([hidden])').count();
-          const worklogCount = await frame.locator('[data-testid="studio-pending-worklog"] li').count();
-          const streamOutputCount = await frame.locator('[data-testid="studio-streaming-output"]').count();
-          const artifactSourceCount = await frame.locator('[data-testid="studio-artifact-source-output"]').count();
-          const answerCount = await frame.locator('[data-testid="studio-assistant-answer-card"]').count();
-          if (expectedExecutionMode === "ask") {
-            return visible > 0 ||
-              streamOutputCount > initialStreamOutputCount ||
-              answerCount > initialAssistantCount;
-          }
-          return worklogCount > 0 || artifactSourceCount > initialArtifactSourceCount;
-        }, 3);
-      } catch {
-        return false;
-      }
-    }, Number(options.pendingWorklogTimeoutMs || 12000), 100).catch(() => false);
-    pendingProjectionProof = await withStudioFrame(page, async (frame) => {
-      const pendingNode = frame.locator('[data-testid="studio-pending-state"]').first();
-      const pendingText = await pendingNode.textContent({ timeout: 50 }).catch(() => "");
-      const progressTagCount = await frame.locator('[data-testid="studio-pending-progress"], [data-studio-pending-step]').count();
-      const worklogCount = await frame.locator('[data-testid="studio-pending-worklog"] li').count().catch(() => 0);
-      const streamOutputCount = await frame.locator('[data-testid="studio-streaming-output"]').count().catch(() => 0);
-      const artifactSourceCount = await frame.locator('[data-testid="studio-artifact-source-output"]').count().catch(() => 0);
-      const answerCount = await frame.locator('[data-testid="studio-assistant-answer-card"]').count().catch(() => 0);
-      const rootStatus = await frame.locator('[data-testid="agent-studio-operational-chat"]').first().getAttribute("data-studio-status").catch(() => "");
-      const streamText = streamOutputCount > initialStreamOutputCount
-        ? await frame.locator('[data-testid="studio-streaming-output"]').nth(streamOutputCount - 1).textContent({ timeout: 50 }).catch(() => "")
-        : "";
-      const artifactSourceText = artifactSourceCount > initialArtifactSourceCount
-        ? await frame.locator('[data-testid="studio-artifact-source-output"]').nth(artifactSourceCount - 1).textContent({ timeout: 50 }).catch(() => "")
-        : "";
-      const pendingVisible = await pendingNode.isVisible({ timeout: 50 }).catch(() => false);
-      const observed = pendingVisible ||
-        worklogCount > 0 ||
-        artifactSourceCount > initialArtifactSourceCount ||
+    const captureVisiblePendingProjectionProof = async () => withStudioFrame(page, async (frame) => frame.evaluate((args) => {
+      const visiblePending = Array.from(document.querySelectorAll('[data-testid="studio-pending-state"]'))
+        .reverse()
+        .find((node) => {
+          if (!node || node.hasAttribute("hidden")) return false;
+          const style = window.getComputedStyle(node);
+          if (style.display === "none" || style.visibility === "hidden") return false;
+          const rect = node.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        }) || null;
+      const root = document.querySelector('[data-testid="agent-studio-operational-chat"]');
+      const streamOutputs = Array.from(document.querySelectorAll('[data-testid="studio-streaming-output"]'));
+      const artifactSources = Array.from(document.querySelectorAll('[data-testid="studio-artifact-source-output"]'));
+      const answerCards = Array.from(document.querySelectorAll('[data-testid="studio-assistant-answer-card"]'));
+      const pendingText = String(visiblePending?.textContent || "");
+      const worklogItems = visiblePending
+        ? Array.from(visiblePending.querySelectorAll('[data-testid="studio-pending-worklog"] li'))
+        : [];
+      const progressTagCount = visiblePending
+        ? visiblePending.querySelectorAll('[data-testid="studio-pending-progress"], [data-studio-pending-step]').length
+        : 0;
+      const streamOutputCount = streamOutputs.length;
+      const artifactSourceCount = artifactSources.length;
+      const answerCount = answerCards.length;
+      const latestStream = streamOutputCount > args.initialStreamOutputCount
+        ? streamOutputs[streamOutputCount - 1]
+        : null;
+      const latestArtifactSource = artifactSourceCount > args.initialArtifactSourceCount
+        ? artifactSources[artifactSourceCount - 1]
+        : null;
+      const rootStatus = root?.getAttribute("data-studio-status") || "";
+      const observed = Boolean(visiblePending) ||
+        worklogItems.length > 0 ||
+        artifactSourceCount > args.initialArtifactSourceCount ||
         (
-          expectedExecutionMode === "ask" && (
-            streamOutputCount > initialStreamOutputCount ||
-            answerCount > initialAssistantCount ||
+          args.expectedExecutionMode === "ask" && (
+            streamOutputCount > args.initialStreamOutputCount ||
+            answerCount > args.initialAssistantCount ||
             rootStatus === "streaming" ||
             rootStatus === "completed"
           )
         );
       return {
         observed,
-        textSample: String(pendingText || "").replace(/\s+/g, " ").trim().slice(0, 500),
+        visiblePendingObserved: Boolean(visiblePending),
+        textSample: pendingText.replace(/\s+/g, " ").trim().slice(0, 500),
         progressTagCount,
-        worklogCount,
+        worklogCount: worklogItems.length,
+        worklogTextSample: worklogItems.map((node) => String(node.textContent || "").replace(/\s+/g, " ").trim()).filter(Boolean).join(" | ").slice(0, 500),
         streamOutputCount,
         artifactSourceCount,
         answerCount,
         rootStatus,
-        streamTextSample: String(streamText || "").replace(/\s+/g, " ").trim().slice(0, 500),
-        artifactSourceSample: String(artifactSourceText || "").replace(/\s+/g, " ").trim().slice(0, 500),
-        hasForbiddenTags: /\bUsing tools\b|\bPreparing response\b/.test(String(pendingText || "")) || progressTagCount > 0,
+        streamTextSample: String(latestStream?.textContent || "").replace(/\s+/g, " ").trim().slice(0, 500),
+        artifactSourceSample: String(latestArtifactSource?.textContent || "").replace(/\s+/g, " ").trim().slice(0, 500),
+        hasForbiddenTags: /\bUsing tools\b|\bPreparing response\b/.test(pendingText) || progressTagCount > 0,
       };
-    }).catch(() => null);
+    }, {
+      expectedExecutionMode,
+      initialAssistantCount,
+      initialStreamOutputCount,
+      initialArtifactSourceCount,
+    }));
+    const requiredPendingWorklogTextAny = Array.isArray(options.requirePendingWorklogTextAny)
+      ? options.requirePendingWorklogTextAny.map((value) => String(value || "").trim()).filter(Boolean)
+      : [];
+    const requiredPendingWorklogTextAll = Array.isArray(options.requirePendingWorklogTextAll)
+      ? options.requirePendingWorklogTextAll.map((value) => String(value || "").trim()).filter(Boolean)
+      : [];
+    const pendingWorklogMatchesTextRequirement = (proof) => {
+      if (!requiredPendingWorklogTextAny.length && !requiredPendingWorklogTextAll.length) return true;
+      const haystack = `${proof?.textSample || ""}\n${proof?.worklogTextSample || ""}`.toLowerCase();
+      const anyMatched = !requiredPendingWorklogTextAny.length ||
+        requiredPendingWorklogTextAny.some((needle) => haystack.includes(needle.toLowerCase()));
+      const allMatched = !requiredPendingWorklogTextAll.length ||
+        requiredPendingWorklogTextAll.every((needle) => haystack.includes(needle.toLowerCase()));
+      return anyMatched && allMatched;
+    };
+    await waitForPredicate(async () => {
+      try {
+        const proof = await captureVisiblePendingProjectionProof();
+        if (expectedExecutionMode === "ask") {
+          return proof?.visiblePendingObserved ||
+            proof?.streamOutputCount > initialStreamOutputCount ||
+            proof?.answerCount > initialAssistantCount;
+        }
+        const observedWork = proof?.worklogCount > 0 || proof?.artifactSourceCount > initialArtifactSourceCount;
+        return observedWork && pendingWorklogMatchesTextRequirement(proof);
+      } catch {
+        return false;
+      }
+    }, Number(options.pendingWorklogTimeoutMs || 12000), 100).catch(() => false);
+    pendingProjectionProof = await captureVisiblePendingProjectionProof().catch(() => null);
     await screenshot(page, options.outputDir, "pending-worklog-live.png", options.screenshots).catch(() => {});
     if (pendingProjectionProof?.hasForbiddenTags) {
       throw new Error(`Pending worklog still exposes scaffold tags: ${pendingProjectionProof.textSample}`);
     }
     if (options.requirePendingWorklog && expectedExecutionMode !== "ask" && !pendingProjectionProof?.worklogCount) {
       throw new Error("Pending worklog proof did not capture a concrete live tool row.");
+    }
+    if (options.requirePendingWorklog && expectedExecutionMode !== "ask" && !pendingWorklogMatchesTextRequirement(pendingProjectionProof)) {
+      throw new Error(`Pending worklog proof did not include required live row text: ${[...requiredPendingWorklogTextAll, ...requiredPendingWorklogTextAny].join(" | ")}`);
     }
     if (!pendingProjectionProof?.observed && (options.requirePendingWorklog || expectedExecutionMode === "ask")) {
       throw new Error("Pending worklog proof did not capture the live pending state.");
@@ -689,6 +978,78 @@ export function createSubmitPrompt(deps) {
     if (Array.isArray(workLaneProof.rawLeaks) && workLaneProof.rawLeaks.length > 0) {
       throw new Error(`Work lane leaked raw runtime details: ${workLaneProof.rawLeaks.join(", ")}`);
     }
+    const arrayValue = (value) => Array.isArray(value) ? value : [];
+    const excerptText = [
+      ...arrayValue(workLaneProof.excerptSamples),
+      ...arrayValue(workLaneProof.rowLabels),
+    ].join("\n");
+    for (const requiredText of arrayValue(options.requireWorkLaneExcerptTextAll)) {
+      if (!excerptText.includes(requiredText)) {
+        throw new Error(`Work lane proof did not include required excerpt ${JSON.stringify(requiredText)}: ${JSON.stringify(workLaneProof)}`);
+      }
+    }
+  }
+  const noPendingAfterCompletionProof = (options.requireNoPendingAfterCompletion || options.captureNoPendingAfterCompletion)
+    ? await waitForNoVisiblePendingAfterCompletion(page, Number(options.noPendingAfterCompletionTimeoutMs || 1800))
+    : null;
+  if (options.requireNoPendingAfterCompletion && noPendingAfterCompletionProof?.visible) {
+    throw new Error(`Completed answer still has a visible pending block: ${JSON.stringify(noPendingAfterCompletionProof)}`);
+  }
+  let hunkReviewProof = (options.requireHunkReviewProof || options.captureHunkReviewProof)
+    ? await captureLatestHunkReviewProof(page, options)
+    : null;
+  if (options.requireHunkReviewProof) {
+    if (!hunkReviewProof?.observed) {
+      throw new Error(`Hunk review proof did not observe an inline diff hunk for prompt: ${prompt.slice(0, 40)}`);
+    }
+    if (!hunkReviewProof.hasBeforeAfter) {
+      throw new Error(`Hunk review proof did not include before/after material: ${JSON.stringify(hunkReviewProof)}`);
+    }
+    if (!hunkReviewProof.buttonActions?.length) {
+      throw new Error(`Hunk review proof did not expose any hunk action buttons: ${JSON.stringify(hunkReviewProof)}`);
+    }
+    if (Array.isArray(hunkReviewProof.rawLeaks) && hunkReviewProof.rawLeaks.length > 0) {
+      throw new Error(`Hunk review leaked raw runtime details: ${hunkReviewProof.rawLeaks.join(", ")}`);
+    }
+  }
+  const hunkStaleMutationProof = options.hunkStaleMutation
+    ? applyHunkStaleMutation(options)
+    : null;
+  if (hunkStaleMutationProof) {
+    hunkReviewProof = await refreshLatestHunkReviewProjection(page, {
+      ...options,
+      expectStatus: options.requireHunkStaleProof ? "stale" : "",
+    });
+    if (options.outputDir && options.screenshots) {
+      const indexPart = Number.isFinite(Number(options.promptIndex))
+        ? String(Number(options.promptIndex)).padStart(2, "0")
+        : "latest";
+      await screenshot(page, options.outputDir, `hunk-stale-refresh-${indexPart}.png`, options.screenshots).catch(() => {});
+    }
+    if (options.requireHunkStaleProof && !hunkReviewProof?.stale) {
+      throw new Error(`Hunk stale proof did not render stale review state: ${JSON.stringify(hunkReviewProof)}`);
+    }
+  }
+  const hunkDecisionProof = options.hunkDecisionAction
+    ? await performLatestHunkDecision(page, options.hunkDecisionAction, options)
+    : null;
+  if (options.requireHunkDecisionProof) {
+    if (!hunkDecisionProof?.clicked) {
+      throw new Error(`Hunk decision proof did not click ${options.hunkDecisionAction}: ${JSON.stringify(hunkDecisionProof)}`);
+    }
+    const afterText = `${hunkDecisionProof?.after?.status || ""} ${hunkDecisionProof?.after?.textSample || ""}`.toLowerCase();
+    const expected = String(options.hunkDecisionAction || "").toLowerCase();
+    if (
+      expected === "approve" &&
+      !afterText.includes("approved") &&
+      !afterText.includes("accepted") &&
+      !afterText.includes("applied")
+    ) {
+      throw new Error(`Hunk approve proof did not render an accepted/applied state: ${JSON.stringify(hunkDecisionProof)}`);
+    }
+    if (expected === "reject" && !afterText.includes("rejected")) {
+      throw new Error(`Hunk reject proof did not render rejected state: ${JSON.stringify(hunkDecisionProof)}`);
+    }
   }
   timing.finishedAt = new Date().toISOString();
   timing.durationMs = Date.now() - startedAtMs;
@@ -713,6 +1074,10 @@ export function createSubmitPrompt(deps) {
     markdownRenderProof,
     sourceRowsProof,
     workLaneProof,
+    noPendingAfterCompletionProof,
+    hunkReviewProof,
+    hunkDecisionProof,
+    hunkStaleMutationProof,
     timing,
   };
 }

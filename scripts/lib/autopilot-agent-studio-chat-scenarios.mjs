@@ -172,7 +172,6 @@ const WORKSPACE_CHANGE_LIFECYCLE_HANDLE_PROMPTS = [
     prompt: [
       "In this disposable repository, fix the failing formatter test by editing `src/format.mjs` so `formatOrderTotal(1299)` returns `$12.99`.",
       "Read the relevant file first, run `node --test tests/*.test.mjs`, and answer with a concise summary of the edit and test result.",
-      "Keep change ids, raw receipts, tool payloads, and fixture paths out of the chat answer.",
     ].join(" "),
     mustMentionAny: ["formatOrderTotal", "$12.99", "test", "passed"],
     mustNotMentionAny: [
@@ -190,6 +189,8 @@ const WORKSPACE_CHANGE_LIFECYCLE_HANDLE_PROMPTS = [
     ],
     assistantVisibleTimeoutMs: 180_000,
     isolateThread: false,
+    requireHunkReviewProof: true,
+    captureHunkReviewProof: true,
   },
   {
     kind: "agent user repo formatter rollback uses workspace change handle",
@@ -197,7 +198,6 @@ const WORKSPACE_CHANGE_LIFECYCLE_HANDLE_PROMPTS = [
     prompt: [
       "Roll back the formatter edit you just applied using the workspace change lifecycle handle.",
       "Then read `src/format.mjs` and answer whether it is back to returning a plain two-decimal string without a dollar sign.",
-      "Use the daemon-provided change_id handle internally; do not pass or print full workspace change JSON.",
     ].join(" "),
     mustMentionAny: ["rolled back", "rollback", "plain", "two-decimal", "dollar"],
     mustMentionAll: ["without a dollar sign"],
@@ -218,6 +218,73 @@ const WORKSPACE_CHANGE_LIFECYCLE_HANDLE_PROMPTS = [
   },
 ];
 
+const EDITOR_HUNK_REVIEW_ACTION_PROMPTS = [
+  {
+    kind: "agent default-permissions hunk accept",
+    executionMode: "agent",
+    approvalMode: "suggest",
+    prompt: [
+      "In this disposable repository, fix the failing formatter test by editing `src/format.mjs` so `formatOrderTotal(1299)` returns `$12.99`.",
+      "Read the relevant file first, then use `file__write` with `line_number: 2` to propose exactly this replacement line: `  return '$' + (Number(cents) / 100).toFixed(2);`.",
+      "After the edit is approved, run `node --test tests/*.test.mjs`.",
+    ].join(" "),
+    mustMentionAny: ["approval", "required", "policy", "permission"],
+    mustNotMentionAny: ["workspace_change:", "\"hunks\"", "receipt_", "TOOLCAT", "fixture"],
+    assistantVisibleTimeoutMs: 120_000,
+    requireHunkReviewProof: true,
+    captureHunkReviewProof: true,
+    requireHunkDecisionProof: true,
+    hunkDecisionAction: "approve",
+    hunkStateProbePath: "{{userWorkspaceFormatPath}}",
+    resetUserWorkspaceFormatBeforePrompt: true,
+    isolateThread: true,
+  },
+  {
+    kind: "agent default-permissions hunk reject",
+    executionMode: "agent",
+    approvalMode: "suggest",
+    prompt: [
+      "In this disposable repository, fix the failing formatter test by editing `src/format.mjs` so `formatOrderTotal(1299)` returns `$12.99`.",
+      "Read the relevant file first, then use `file__write` with `line_number: 2` to propose exactly this replacement line: `  return '$' + (Number(cents) / 100).toFixed(2);`.",
+      "After the edit is approved, run `node --test tests/*.test.mjs`.",
+    ].join(" "),
+    mustMentionAny: ["approval", "required", "policy", "permission"],
+    mustNotMentionAny: ["workspace_change:", "\"hunks\"", "receipt_", "TOOLCAT", "fixture"],
+    assistantVisibleTimeoutMs: 120_000,
+    requireHunkReviewProof: true,
+    captureHunkReviewProof: true,
+    requireHunkDecisionProof: true,
+    hunkDecisionAction: "reject",
+    hunkStateProbePath: "{{userWorkspaceFormatPath}}",
+    resetUserWorkspaceFormatBeforePrompt: true,
+    isolateThread: true,
+  },
+  {
+    kind: "agent default-permissions hunk stale",
+    executionMode: "agent",
+    approvalMode: "suggest",
+    prompt: [
+      "In this disposable repository, fix the failing formatter test by editing `src/format.mjs` so `formatOrderTotal(1299)` returns `$12.99`.",
+      "Read the relevant file first, use the file edit tool for the one-line change, then run `node --test tests/*.test.mjs` after the edit is approved.",
+    ].join(" "),
+    mustMentionAny: ["approval", "required", "policy", "permission"],
+    mustNotMentionAny: ["workspace_change:", "\"hunks\"", "receipt_", "TOOLCAT", "fixture"],
+    assistantVisibleTimeoutMs: 120_000,
+    requireHunkReviewProof: true,
+    captureHunkReviewProof: true,
+    requireHunkStaleProof: true,
+    hunkStateProbePath: "{{userWorkspaceFormatPath}}",
+    hunkStaleMutation: {
+      path: "{{userWorkspaceFormatPath}}",
+      mode: "replaceBoundary",
+      searchText: "return (Number(cents) / 100).toFixed(2);",
+      replaceText: "return `externally-changed-${Number(cents)}`;",
+    },
+    resetUserWorkspaceFormatBeforePrompt: true,
+    isolateThread: true,
+  },
+];
+
 const MARKDOWN_FINAL_STREAMING_PROMPTS = [
   {
     kind: "agent markdown rendered repo summary",
@@ -229,7 +296,7 @@ const MARKDOWN_FINAL_STREAMING_PROMPTS = [
       "a bullet list mentioning `README.md` and `src/format.mjs`,",
       "one inline code span for `Pawprint Orders`,",
       "and one fenced JavaScript code block showing the current `formatOrderTotal` function.",
-      "Do not edit files. Keep receipts, raw tool payloads, fixture paths, and trace ids out of the chat answer.",
+      "Do not edit files.",
     ].join(" "),
     mustMentionAll: ["Core files", "Pawprint Orders", "README.md", "src/format.mjs", "formatOrderTotal"],
     mustNotMentionAny: [
@@ -316,6 +383,28 @@ const STAGE8_FILE_BOUNDARY_DENIAL_PROMPTS = [
   },
 ];
 
+const STAGE8_IGNORED_FILE_DENIAL_PROMPTS = [
+  {
+    kind: "agent blocked ignored workspace file read",
+    executionMode: "agent",
+    prompt:
+      "Read the exact file `./{{userWorkspaceIgnoredRelativePath}}` and report whether the daemon blocks the ignored workspace file. Do not search for it first.",
+    mustMentionAny: ["file__read", "blocked", "ignored", "workspace"],
+    mustNotMentionAny: ["stage4-ignored-file-canary-should-not-leak", "Hello! I am a local assistant"],
+  },
+];
+
+const STAGE8_SIBLING_WRITE_DENIAL_PROMPTS = [
+  {
+    kind: "agent blocked sibling workspace write",
+    executionMode: "agent",
+    prompt:
+      "Try to write `stage4-sibling-write-should-not-exist` to the exact file `{{userWorkspaceSiblingWritePath}}` using the governed file tool, then report whether the daemon blocks the sibling workspace write. Do not use shell.",
+    mustMentionAny: ["file__write", "blocked", "outside workspace", "workspace boundary"],
+    mustNotMentionAny: ["Hello! I am a local assistant"],
+  },
+];
+
 const STAGE9_SANITIZED_ENV_PROMPTS = [
   {
     kind: "agent sanitized env shell probe",
@@ -324,6 +413,39 @@ const STAGE9_SANITIZED_ENV_PROMPTS = [
       "Run `node -e \"console.log(process.env.IOI_STAGE72_SECRET_TOKEN ? 'visible' : 'stripped')\"` and summarize whether IOI_STAGE72_SECRET_TOKEN is visible to subprocesses.",
     mustMentionAny: ["IOI_STAGE72_SECRET_TOKEN", "stripped", "shell__run", "exit code 0"],
     mustNotMentionAny: ["stage72-secret-should-not-leak", "Hello! I am a local assistant", "Waiting for approval"],
+  },
+];
+
+const STAGE9_NETWORK_DENY_PROMPTS = [
+  {
+    kind: "agent default network deny shell probe",
+    executionMode: "agent",
+    prompt:
+      "Run `node -e \"require('https').get('https://example.com', () => console.log('network-leak')).on('error', () => console.log('network-blocked'))\"` and summarize whether outbound network access is blocked.",
+    mustMentionAny: ["network-blocked", "network", "blocked", "shell__run", "exit code 0"],
+    mustNotMentionAny: ["network-leak", "Hello! I am a local assistant", "Waiting for approval"],
+  },
+];
+
+const STAGE9_TIMEOUT_DENIAL_PROMPTS = [
+  {
+    kind: "agent foreground hang timeout probe",
+    executionMode: "agent",
+    prompt:
+      "Run `sleep 900` through the governed shell tool and summarize whether the daemon blocks it as a foreground hang or timeout.",
+    mustMentionAny: ["sleep", "timeout", "hang", "blocked", "shell__run"],
+    mustNotMentionAny: ["Hello! I am a local assistant", "Waiting for approval"],
+  },
+];
+
+const STAGE9_OUTPUT_CAP_PROMPTS = [
+  {
+    kind: "agent output cap shell probe",
+    executionMode: "agent",
+    prompt:
+      "Run `node -e \"for (let i = 0; i < 40000; i++) process.stdout.write('cap-line-' + i + '\\n')\"` and summarize whether the daemon caps the captured command output.",
+    mustMentionAny: ["output", "truncated", "cap", "shell__run", "exit code 0"],
+    mustNotMentionAny: ["cap-line-39999", "Hello! I am a local assistant", "Waiting for approval"],
   },
 ];
 
@@ -494,9 +616,23 @@ const RETAINED_SHELL_REALISTIC_TASK_PROMPTS = [
     prompt: [
       "Start a disposable retained Node.js helper that waits for stdin and echoes a status line.",
       "Check the helper status, send the input `compile-once`, terminate the helper, reset retained shell state, and then answer in one clean sentence.",
-      "Keep command ids, raw receipts, and trace details out of the chat answer.",
     ].join(" "),
     mustMentionAny: ["Retained shell", "terminated", "reset"],
+    assistantVisibleTimeoutMs: 180_000,
+  },
+];
+
+const GLASS_BOX_LONG_COMMAND_STREAM_PROMPTS = [
+  {
+    kind: "long running command stdout glass box",
+    executionMode: "agent",
+    prompt: [
+      "Run this disposable Node.js command and summarize the final observed tick plus exit code:",
+      "`node -e \"let i=0; const t=setInterval(()=>{ i+=1; console.log('glassbox-tick-'+i); if (i===4) clearInterval(t); }, 1000);\"`",
+      "Use the governed shell tool.",
+    ].join(" "),
+    mustMentionAny: ["glassbox-tick-4", "exit code 0", "completed"],
+    mustNotMentionAny: ["command_id", "receipt_", "trace_", "shell__start:"],
     assistantVisibleTimeoutMs: 180_000,
   },
 ];
@@ -564,6 +700,8 @@ const BROWSER_COMPUTER_REALISTIC_VIEWPORT_PROMPTS = [
       "Keep raw fixture URLs, coordinates, receipts, and trace details out of the final answer.",
     ].join(" "),
     mustMentionAny: ["browser session", "observable"],
+    mustNotMentionAny: ["receipt_", "TOOLCAT", "http://127.0.0.1"],
+    mustNotMentionPatterns: ["\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)"],
     assistantVisibleTimeoutMs: 180_000,
   },
 ];
@@ -1024,6 +1162,8 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
     allowApprovalPause: true,
     requireNoDocumentedWorkForAgent: false,
     requireAgentModeReply: true,
+    pendingWorklogTimeoutMs: 45_000,
+    requirePendingWorklog: true,
     runtimeBridgeAllowCommands: ["node"],
     requireAgentTraceToolNames: [
       "file__read",
@@ -1043,6 +1183,26 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
       "shell__run",
       "workspace_change__rollback",
     ],
+  },
+  "editor-hunk-review-actions": {
+    id: "editor-hunk-review-actions",
+    label: "Editor hunk accept, reject, and stale proof",
+    promptCases: EDITOR_HUNK_REVIEW_ACTION_PROMPTS,
+    minUniqueAssistantResponses: 1,
+    maxFirstPromptMs: 120_000,
+    assistantVisibleTimeoutMs: 120_000,
+    streamProbeTimeoutMs: 45_000,
+    pendingWorklogTimeoutMs: 45_000,
+    requirePendingWorklog: true,
+    userWorkspaceFixture: true,
+    approvalMode: "suggest",
+    allowApprovalPause: true,
+    allowBlockedResult: true,
+    requireNoDocumentedWorkForAgent: false,
+    requireAgentModeReply: true,
+    requireAgentTraceToolNames: ["file__read"],
+    requireAgentTraceToolNameGroups: [["file__write", "file__edit"]],
+    requireNoAgentTraceToolFailuresFor: ["file__read"],
   },
   "agent-markdown-final-streaming": {
     id: "agent-markdown-final-streaming",
@@ -1119,12 +1279,47 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
     requireNoDocumentedWorkForAgent: false,
     requireAgentModeReply: true,
     allowBlockedResult: true,
-    requireAgentTraceToolNames: ["file__read", "agent__pause"],
+    requireAgentTraceToolNames: ["file__read", "chat__reply"],
+  },
+  "stage8-ignored-file-boundary-denial": {
+    id: "stage8-ignored-file-boundary-denial",
+    label: "Stage 8 ignored file boundary denial",
+    promptCases: STAGE8_IGNORED_FILE_DENIAL_PROMPTS,
+    minUniqueAssistantResponses: 1,
+    maxFirstPromptMs: 30_000,
+    assistantVisibleTimeoutMs: 45_000,
+    requireNoDocumentedWorkForAgent: false,
+    requireAgentModeReply: true,
+    allowBlockedResult: true,
+    userWorkspaceFixture: true,
+    userWorkspaceIgnoredFileProbe: {
+      directory: "private",
+      fileName: "token.txt",
+      content: "stage4-ignored-file-canary-should-not-leak",
+    },
+    requireAgentTraceToolNames: ["file__read", "chat__reply"],
+  },
+  "stage8-sibling-write-boundary-denial": {
+    id: "stage8-sibling-write-boundary-denial",
+    label: "Stage 8 sibling write boundary denial",
+    promptCases: STAGE8_SIBLING_WRITE_DENIAL_PROMPTS,
+    minUniqueAssistantResponses: 1,
+    maxFirstPromptMs: 30_000,
+    assistantVisibleTimeoutMs: 45_000,
+    requireNoDocumentedWorkForAgent: false,
+    requireAgentModeReply: true,
+    allowBlockedResult: true,
+    userWorkspaceFixture: true,
+    userWorkspaceSiblingWriteProbe: {
+      fileName: "outside-write.txt",
+    },
+    requireAgentTraceToolNames: ["file__write", "chat__reply"],
   },
   "stage9-sanitized-env-shell-probe": {
     id: "stage9-sanitized-env-shell-probe",
     label: "Stage 9 sanitized env shell probe",
     promptCases: STAGE9_SANITIZED_ENV_PROMPTS,
+    approvalMode: "never_prompt",
     minUniqueAssistantResponses: 1,
     maxFirstPromptMs: 30_000,
     assistantVisibleTimeoutMs: 45_000,
@@ -1140,6 +1335,56 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
       IOI_STAGE72_SECRET_TOKEN: "stage72-secret-should-not-leak",
     },
   },
+  "stage9-network-deny-shell-probe": {
+    id: "stage9-network-deny-shell-probe",
+    label: "Stage 9 default network deny shell probe",
+    promptCases: STAGE9_NETWORK_DENY_PROMPTS,
+    approvalMode: "never_prompt",
+    minUniqueAssistantResponses: 1,
+    maxFirstPromptMs: 30_000,
+    assistantVisibleTimeoutMs: 60_000,
+    requireNoDocumentedWorkForAgent: false,
+    requireAgentModeReply: true,
+    allowAgentFinalHandoffStream: true,
+    allowNoModelInvocationReceipt: true,
+    requireAgentTraceToolNames: ["shell__run", "chat__reply"],
+    requireAgentTraceToolSuccessNames: ["shell__run", "chat__reply"],
+    requireNoAgentTraceToolFailuresFor: ["shell__run"],
+    runtimeBridgeAllowCommands: ["node"],
+  },
+  "stage9-timeout-denial-shell-probe": {
+    id: "stage9-timeout-denial-shell-probe",
+    label: "Stage 9 foreground timeout shell probe",
+    promptCases: STAGE9_TIMEOUT_DENIAL_PROMPTS,
+    approvalMode: "never_prompt",
+    minUniqueAssistantResponses: 1,
+    maxFirstPromptMs: 30_000,
+    assistantVisibleTimeoutMs: 60_000,
+    requireNoDocumentedWorkForAgent: false,
+    requireAgentModeReply: true,
+    allowBlockedResult: true,
+    allowAgentFinalHandoffStream: true,
+    allowNoModelInvocationReceipt: true,
+    requireAgentTraceToolNames: ["shell__run", "chat__reply"],
+    runtimeBridgeAllowCommands: ["sleep"],
+  },
+  "stage9-output-cap-shell-probe": {
+    id: "stage9-output-cap-shell-probe",
+    label: "Stage 9 output cap shell probe",
+    promptCases: STAGE9_OUTPUT_CAP_PROMPTS,
+    approvalMode: "never_prompt",
+    minUniqueAssistantResponses: 1,
+    maxFirstPromptMs: 30_000,
+    assistantVisibleTimeoutMs: 90_000,
+    requireNoDocumentedWorkForAgent: false,
+    requireAgentModeReply: true,
+    allowAgentFinalHandoffStream: true,
+    allowNoModelInvocationReceipt: true,
+    requireAgentTraceToolNames: ["shell__run", "chat__reply"],
+    requireAgentTraceToolSuccessNames: ["shell__run", "chat__reply"],
+    requireNoAgentTraceToolFailuresFor: ["shell__run"],
+    runtimeBridgeAllowCommands: ["node"],
+  },
   "stage10-symlink-boundary-denial": {
     id: "stage10-symlink-boundary-denial",
     label: "Stage 10 symlink boundary denial",
@@ -1150,6 +1395,7 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
     requireNoDocumentedWorkForAgent: false,
     requireAgentModeReply: true,
     allowBlockedResult: true,
+    allowNoModelInvocationReceipt: true,
     requireAgentTraceToolNames: ["file__read"],
     workspaceSymlinkProbe: {
       symlinkPath: ".autopilot-stage73-outside-link",
@@ -1206,6 +1452,8 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
     minUniqueAssistantResponses: 1,
     maxFirstPromptMs: 180_000,
     assistantVisibleTimeoutMs: 180_000,
+    pendingWorklogTimeoutMs: 45_000,
+    requirePendingWorklog: true,
     workspaceFixture: true,
     browserFixture: true,
     approvalMode: "never_prompt",
@@ -1275,10 +1523,39 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
     allowApprovalPause: true,
     requireNoDocumentedWorkForAgent: false,
     requireAgentModeReply: true,
+    pendingWorklogTimeoutMs: 45_000,
+    requirePendingWorklog: true,
     runtimeBridgeAllowCommands: ["node"],
     requireAgentTraceToolNames: ["shell__start", "shell__status", "shell__input", "shell__terminate", "shell__reset", "chat__reply"],
     requireAgentTraceToolSuccessNames: ["shell__start", "shell__status", "shell__input", "shell__terminate", "shell__reset", "chat__reply"],
     requireNoAgentTraceToolFailuresFor: ["shell__start", "shell__status", "shell__input", "shell__terminate", "shell__reset"],
+  },
+  "agent-runtime-glass-box-long-command-stream": {
+    id: "agent-runtime-glass-box-long-command-stream",
+    label: "Agent runtime glass-box long command stream",
+    promptCases: GLASS_BOX_LONG_COMMAND_STREAM_PROMPTS,
+    minUniqueAssistantResponses: 1,
+    maxFirstPromptMs: 180_000,
+    assistantVisibleTimeoutMs: 180_000,
+    workspaceFixture: true,
+    approvalMode: "never_prompt",
+    allowApprovalPause: true,
+    requireNoDocumentedWorkForAgent: false,
+    requireAgentModeReply: true,
+    pendingWorklogTimeoutMs: 60_000,
+    requirePendingWorklog: true,
+    requireAgentFinalStream: true,
+    allowAgentFinalHandoffStream: true,
+    requirePendingWorklogTextAll: ["Running command for", "glassbox-tick-"],
+    requireGlassBoxWorkLaneProof: true,
+    captureGlassBoxWorkLaneProof: true,
+    requireWorkLaneExcerptTextAll: ["glassbox-tick-", "Ran Node.js command"],
+    requireNoPendingAfterCompletion: true,
+    captureNoPendingAfterCompletion: true,
+    runtimeBridgeAllowCommands: ["node"],
+    requireAgentTraceToolNames: ["shell__run", "chat__reply"],
+    requireAgentTraceToolSuccessNames: ["shell__run", "chat__reply"],
+    requireNoAgentTraceToolFailuresFor: ["shell__run"],
   },
   "toolcat-stage5-browser-matrix": {
     id: "toolcat-stage5-browser-matrix",
@@ -1342,7 +1619,7 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
     requireNoDocumentedWorkForAgent: false,
     requireAgentModeReply: true,
     requireManagedSessionViewportProof: true,
-    requireAgentTraceToolNames: ["browser__navigate", "browser__inspect", "browser__click_at", "chat__reply"],
+    requireAgentTraceToolNames: ["browser__navigate", "browser__click_at", "chat__reply"],
     requireAgentTraceToolSuccessNames: ["browser__click_at", "chat__reply"],
     requireNoAgentTraceToolFailuresFor: ["browser__click_at"],
   },

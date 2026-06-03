@@ -5,12 +5,12 @@
         "properties": {
             "command": {
                 "type": "string",
-                "description": "The command to execute inside the persistent shell session (e.g. 'export', 'source', 'python', 'echo')."
+                "description": "The binary or shell builtin to execute inside the persistent shell session. For retained helpers, provide a complete observable program instead of launching a bare interpreter/REPL."
             },
             "args": {
                 "type": "array",
                 "items": { "type": "string" },
-                "description": "Arguments for the command"
+                "description": "Arguments for the command. For example, a Node stdin helper should use ['-e', 'process.stdin.resume(); process.stdin.on(...)'] rather than starting bare 'node'."
             },
             "stdin": {
                 "type": "string",
@@ -26,7 +26,7 @@
     });
     tools.push(LlmToolDefinition {
         name: "shell__start".to_string(),
-        description: "Execute a command inside a persistent shell session scoped to this agent session. Use this when you need shell continuity across calls (exports, sourcing env, shell vars), and set wait_ms_before_async to retain a running command handle without losing the session.".to_string(),
+        description: "Execute a command inside a persistent shell session scoped to this agent session. Use this when you need shell continuity across calls (exports, sourcing env, shell vars), and set wait_ms_before_async to retain a running command handle without losing the session. For retained/background helpers, start a complete command that will emit observable output for later shell__input/shell__status calls; do not start a bare interpreter unless the user explicitly asks for an interactive REPL.".to_string(),
         parameters: sys_session_params.to_string(),
     });
 

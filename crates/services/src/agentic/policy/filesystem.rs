@@ -192,15 +192,22 @@ pub fn augment_workspace_filesystem_policy(
     };
 
     let mut effective = rules.clone();
-    for (rule_id, target) in [
-        ("allow-workspace-fs-read", "fs::read"),
-        ("allow-workspace-fs-write", "fs::write"),
-    ] {
+    effective.rules.push(Rule {
+        rule_id: Some("allow-workspace-fs-read".to_string()),
+        target: "fs::read".to_string(),
+        conditions: RuleConditions {
+            allow_paths: Some(vec![workspace_root.clone()]),
+            ..Default::default()
+        },
+        action: Verdict::Allow,
+    });
+
+    if workspace_write_augmentation_enabled(rules) {
         effective.rules.push(Rule {
-            rule_id: Some(rule_id.to_string()),
-            target: target.to_string(),
+            rule_id: Some("allow-workspace-fs-write".to_string()),
+            target: "fs::write".to_string(),
             conditions: RuleConditions {
-                allow_paths: Some(vec![workspace_root.clone()]),
+                allow_paths: Some(vec![workspace_root]),
                 ..Default::default()
             },
             action: Verdict::Allow,
@@ -208,6 +215,22 @@ pub fn augment_workspace_filesystem_policy(
     }
 
     effective
+}
+
+fn workspace_write_augmentation_enabled(rules: &ActionRules) -> bool {
+    if matches!(
+        rules.defaults,
+        crate::agentic::rules::DefaultPolicy::AllowAll
+    ) {
+        return true;
+    }
+
+    let normalized_policy_id = rules
+        .policy_id
+        .trim()
+        .to_ascii_lowercase()
+        .replace(['-', ' '], "_");
+    normalized_policy_id.contains("auto_review") || normalized_policy_id.contains("auto_local")
 }
 
 pub fn filesystem_request_stays_within_workspace(

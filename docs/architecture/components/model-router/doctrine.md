@@ -220,6 +220,24 @@ Possible providers:
 - TEE compute;
 - third-party model API.
 
+Privacy posture rule:
+
+```text
+third-party model API over sensitive plaintext
+  -> provider-trust posture
+
+third-party model API over public/redacted/declassified inputs
+  -> redacted-API posture
+
+local/rented/customer-controlled open model with no sensitive plaintext sent to
+third-party APIs
+  -> private-native posture when cTEE custody checks pass
+```
+
+The model router MUST NOT label a route as cTEE no-plaintext-custody when
+sensitive plaintext is sent to a third-party model API without a separately
+verifiable private-compute guarantee.
+
 ## Model Invocation Receipt
 
 Every significant model invocation should optionally emit:

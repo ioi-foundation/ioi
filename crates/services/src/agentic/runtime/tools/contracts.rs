@@ -163,6 +163,13 @@ impl ToolContractProfile {
                 &["change_id"],
                 "session_checkpoint",
             ),
+            "workspace_change__accept" => Self::write(
+                "filesystem",
+                "workspace_change::accept",
+                &["change_id"],
+                &["path_scope", "before_hash", "after_hash", "diff_summary"],
+                "deterministic_mutation",
+            ),
             "workspace_change__reject" => Self::write(
                 "filesystem",
                 "workspace_change::reject",

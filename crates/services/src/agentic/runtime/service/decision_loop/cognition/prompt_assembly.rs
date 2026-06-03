@@ -395,6 +395,7 @@ pub(crate) fn build_tool_routing_contract(
 1. Prefer the most specific typed capability over raw shell when a dedicated tool exists.\n\
 2. Use `app__launch` for GUI app launch, `software_install__resolve` and `software_install__execute_plan` for explicit package or desktop app install requests, `model_registry__*` / `backend__*` for model lifecycle, and `monitor__create` for durable watch or notify workflows.\n\
 3. Use `shell__run` for bounded single-step command execution and `shell__start` for multi-step command workflows that need continuity.\n\
+3a. For retained, persistent, long-running, background, stdin, status, terminate, or reset workflows, use `shell__start` first, then `shell__status`, `shell__input`, `shell__terminate`, and `shell__reset` as requested; do not collapse these into a one-shot `shell__run`.\n\
 4. If the task is really retrieval, filesystem work, or media extraction, route to the corresponding typed tools instead of shell scraping.\n\
 5. Escalate only when no equivalent typed capability or shell path can achieve the action safely."
                 .to_string()
@@ -644,6 +645,7 @@ pub(crate) fn build_operating_rules(
 8c. SOFTWARE INSTALL RULE: Only use `software_install__resolve` / `software_install__execute_plan` when the user explicitly asked to install something. For desktop apps, let the resolver discover host OS, source candidates, approval details, and verification; do not answer with manual prose unless the resolver reports an installer-resolution blocker.\n\
 8d. BROWSER RESILIENCE RULE: If `browser__navigate` fails with CDP/connection errors, retry `browser__navigate` once. If it still fails, switch to visual tools.\n\
 8e. SHELL CONTINUITY RULE: For command workflows with more than one command step (build/test/install sequences, iterative probing), prefer `shell__start` for continuity. Use `shell__reset` only when output indicates the session is wedged.\n\
+8f. RETAINED SHELL CONTROL RULE: When the user asks for a retained/persistent/background helper or process, or asks to check status, send stdin/input, terminate, or reset retained shell state, start the retained process with `shell__start`, inspect it with `shell__status`, write stdin with `shell__input`, stop it with `shell__terminate`, and clear state with `shell__reset`. Start a complete observable helper command; do not launch a bare interpreter or REPL unless the user explicitly asks for one. Never treat a quoted stdin payload as a standalone `shell__run` command.\n\
 9. APP LAUNCH RULE: To open applications, use `app__launch` as the primary launch mechanism whenever it is available in TOOLS.\n\
    - If `app__launch` is unavailable, choose the best equivalent launch-capable tool available in the current scope and continue execution.\n\
    - Treat `agent__escalate` as a last resort only when no available tool can perform app launch in the current scope.\n\

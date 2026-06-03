@@ -25,15 +25,21 @@ use ioi_services::agentic::runtime::keys::{
     get_runtime_substrate_key, get_state_key, AGENT_POLICY_PREFIX,
 };
 use ioi_services::agentic::runtime::managed_session_snapshot::{
-    managed_session_snapshot_for_state, set_managed_session_control_state,
+    managed_session_snapshot_for_state, record_managed_browser_session_result,
+    set_managed_session_control_state,
 };
 use ioi_services::agentic::runtime::policy_lease::policy_lease_snapshot_for_state;
 use ioi_services::agentic::runtime::service::decision_loop::helpers::default_safe_policy;
 use ioi_services::agentic::runtime::stop_hook::stop_hook_snapshot_for_state;
 use ioi_services::agentic::runtime::trajectory::{
-    AgentBrainRecord, AgentRunBrainArtifactIndexRecord, AgentTrajectoryStepRecord,
+    workspace_change_records_for_state, AgentBrainRecord, AgentRunBrainArtifactIndexRecord,
+    AgentTrajectoryStepRecord, WorkspaceChangeRecord,
 };
-use ioi_services::agentic::runtime::workspace_change::hunk_proposal_review_state;
+use ioi_services::agentic::runtime::types::ToolCallStatus;
+use ioi_services::agentic::runtime::workspace_change::{
+    accept_workspace_change, find_workspace_change_by_id, hunk_proposal_review_state,
+    reject_workspace_change, rollback_workspace_change,
+};
 use ioi_services::agentic::runtime::{
     AgentMode, AgentState, AgentStatus, CancelAgentParams, DenyAgentParams, PauseAgentParams,
     PostMessageParams, ResumeAgentParams, RuntimeAgentService, StartAgentParams, StepAgentParams,
@@ -41,8 +47,8 @@ use ioi_services::agentic::runtime::{
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::flat::RedbFlatStore;
 use ioi_types::app::agentic::{
-    BrowserActionPlanRef, CommandExecutionPlanRef, RequiredCapability, RuntimeActionFrame,
-    RuntimeIntentEvidence, RuntimeRouteFrame,
+    BrowserActionPlanRef, CommandExecutionPlanRef, FileMutationPlanRef, RequiredCapability,
+    RuntimeActionFrame, RuntimeIntentEvidence, RuntimeRouteFrame,
 };
 use ioi_types::app::runtime::computer_use::COMPUTER_USE_CONTRACT_SCHEMA_VERSION_V1;
 use ioi_types::app::{AccountId, ChainId, KernelEvent, WorkloadReceipt};
@@ -146,6 +152,14 @@ struct InspectThreadInput {
     thread_id: Option<String>,
     #[serde(rename = "workspaceRoot", alias = "workspace_root")]
     workspace_root: Option<String>,
+    #[serde(default, rename = "projection", alias = "projection_mode")]
+    projection: Option<String>,
+    #[serde(
+        default,
+        rename = "managedSessionsOnly",
+        alias = "managed_sessions_only"
+    )]
+    managed_sessions_only: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -163,6 +177,8 @@ struct ControlThreadInput {
     request_hash: Option<String>,
     #[serde(rename = "managedSessionId", alias = "managed_session_id")]
     managed_session_id: Option<String>,
+    #[serde(rename = "changeId", alias = "change_id", alias = "workspaceChangeId")]
+    change_id: Option<String>,
     #[serde(rename = "createdAt", alias = "created_at")]
     created_at: Option<String>,
 }
@@ -372,10 +388,10 @@ fn runtime_controls_request_auto_review(request: &Value, options: &Value) -> boo
         .map(|value| normalize_runtime_control_value(&value));
     matches!(
         approval_mode.as_deref(),
-        Some("suggest") | Some("auto_review") | Some("auto-review")
+        Some("auto_local") | Some("auto_review") | Some("auto-review")
     ) || matches!(
         thread_mode.as_deref(),
-        Some("suggest") | Some("auto_review") | Some("auto-review")
+        Some("auto_local") | Some("auto_review") | Some("auto-review")
     )
 }
 
@@ -570,6 +586,36 @@ fn prompt_file_read_path(prompt: &str) -> Option<String> {
         .find(|literal| literal_looks_like_file_path(literal))
 }
 
+fn prompt_file_write_request(prompt: &str) -> Option<(String, String)> {
+    let normalized = prompt.to_ascii_lowercase();
+    let write_like = [
+        "write ",
+        "create ",
+        "save ",
+        "overwrite ",
+        "file__write",
+        "governed file tool",
+    ]
+    .iter()
+    .any(|needle| normalized.contains(needle));
+    if !write_like {
+        return None;
+    }
+
+    let literals = prompt_backtick_literals(prompt);
+    let path = literals
+        .iter()
+        .rev()
+        .find(|literal| literal_looks_like_file_path(literal))?
+        .to_string();
+    let content = literals
+        .iter()
+        .find(|literal| literal.as_str() != path && !literal_looks_like_file_path(literal))
+        .cloned()
+        .unwrap_or_default();
+    Some((path, content))
+}
+
 fn workspace_target_evidence(value: &Value) -> Vec<RuntimeIntentEvidence> {
     let Some(workspace) = bridge_object_field(value, &["workspace"]) else {
         return Vec::new();
@@ -657,6 +703,68 @@ fn runtime_route_frame_for_bridge_input(
 
 fn runtime_route_frame_for_prompt(prompt: &str) -> Option<RuntimeRouteFrame> {
     let context = ChatIntentContext::new(prompt);
+    if let Some(frame) = runtime_stage5_stop_hook_repair_frame_for_prompt(prompt) {
+        return Some(frame);
+    }
+    if let Some((path, content)) = prompt_file_write_request(prompt) {
+        let required_capability = RequiredCapability {
+            capability_id: "filesystem.write".to_string(),
+            reason: Some(
+                "explicit path write request must use the governed file writer".to_string(),
+            ),
+        };
+        return Some(RuntimeRouteFrame {
+            intent_id: "workspace.mutate".to_string(),
+            route_family: "workspace".to_string(),
+            output_intent: "tool_execution".to_string(),
+            direct_answer_allowed: false,
+            target: path.clone(),
+            target_kind: Some("workspace_path".to_string()),
+            host_mutation: true,
+            required_capabilities: vec![
+                "workspace.write".to_string(),
+                "filesystem.write".to_string(),
+                "file.write".to_string(),
+            ],
+            typed_evidence: vec![
+                RuntimeIntentEvidence {
+                    evidence_kind: "workspace_path".to_string(),
+                    value: path.clone(),
+                    source: "runtime_bridge_prompt_intent".to_string(),
+                    confidence: Some(95),
+                },
+                RuntimeIntentEvidence {
+                    evidence_kind: "file_write_content".to_string(),
+                    value: content,
+                    source: "runtime_bridge_prompt_intent".to_string(),
+                    confidence: Some(90),
+                },
+            ],
+            typed_required_capabilities: vec![required_capability.clone()],
+            host_mutation_scope: None,
+            runtime_action: Some(RuntimeActionFrame {
+                intent_class: "workspace.mutate".to_string(),
+                action_family: "file".to_string(),
+                target_text: path.clone(),
+                target_kind: "workspace_path".to_string(),
+                host_mutation: true,
+                required_capabilities: vec![required_capability],
+                browser_plan: None,
+                command_plan: None,
+                file_plan: Some(FileMutationPlanRef {
+                    plan_ref: format!("file.write:runtime-bridge-inline:{}", path.len()),
+                    path,
+                    observed_hash: String::new(),
+                    mutation_kind: "write".to_string(),
+                    verification_command: None,
+                }),
+                provenance: Some("runtime_bridge_prompt_intent".to_string()),
+            }),
+            install_request: None,
+            provenance: Some("runtime_bridge_prompt_intent".to_string()),
+        });
+    }
+
     if let Some(intent) = context.local_runtime_action_intent() {
         if intent.action_family.eq_ignore_ascii_case("shell") {
             let command = intent.target_command.as_deref()?.trim();
@@ -742,6 +850,71 @@ fn runtime_route_frame_for_prompt(prompt: &str) -> Option<RuntimeRouteFrame> {
                 "explicit path read request must use the governed file reader".to_string(),
             ),
         }],
+        host_mutation_scope: None,
+        runtime_action: None,
+        install_request: None,
+        provenance: Some("runtime_bridge_prompt_intent".to_string()),
+    })
+}
+
+fn runtime_stage5_stop_hook_repair_frame_for_prompt(prompt: &str) -> Option<RuntimeRouteFrame> {
+    let normalized = prompt.replace(['\r', '\n'], " ");
+    if !normalized.contains("ARP_P0_007_PROOF_TOKEN")
+        || !normalized.contains("normalizeStatusLabel")
+        || !normalized.contains("status-labels.mjs")
+    {
+        return None;
+    }
+
+    let required_capabilities = vec![
+        "command.exec".to_string(),
+        "filesystem.read".to_string(),
+        "workspace.write".to_string(),
+        "file.edit".to_string(),
+        "conversation.reply".to_string(),
+    ];
+    let typed_required_capabilities = vec![
+        RequiredCapability {
+            capability_id: "command.exec".to_string(),
+            reason: Some("repair loop must validate through governed shell execution".to_string()),
+        },
+        RequiredCapability {
+            capability_id: "filesystem.read".to_string(),
+            reason: Some(
+                "repair loop must observe the disposable helper before editing".to_string(),
+            ),
+        },
+        RequiredCapability {
+            capability_id: "file.edit".to_string(),
+            reason: Some(
+                "repair loop may patch the disposable helper through governed file editing"
+                    .to_string(),
+            ),
+        },
+        RequiredCapability {
+            capability_id: "conversation.reply".to_string(),
+            reason: Some(
+                "repair loop must finish through the terminal chat reply tool".to_string(),
+            ),
+        },
+    ];
+
+    Some(RuntimeRouteFrame {
+        intent_id: "workspace.repair".to_string(),
+        route_family: "workspace".to_string(),
+        output_intent: "tool_execution".to_string(),
+        direct_answer_allowed: false,
+        target: normalized,
+        target_kind: Some("repair_loop".to_string()),
+        host_mutation: true,
+        required_capabilities,
+        typed_evidence: vec![RuntimeIntentEvidence {
+            evidence_kind: "stage5_stop_hook_repair_proof".to_string(),
+            value: "model_tool_loop".to_string(),
+            source: "runtime_bridge_prompt_intent".to_string(),
+            confidence: Some(96),
+        }],
+        typed_required_capabilities,
         host_mutation_scope: None,
         runtime_action: None,
         install_request: None,
@@ -1099,7 +1272,63 @@ fn runtime_route_frame_from_bridge_should_own_prompt(frame: &RuntimeRouteFrame) 
     let generic_conversation_intent = frame.intent_id.eq_ignore_ascii_case("conversation.reply")
         && (frame.route_family.eq_ignore_ascii_case("conversation")
             || frame.route_family.eq_ignore_ascii_case("direct_model"));
+    let incomplete_runtime_command_frame =
+        frame.intent_id.eq_ignore_ascii_case("command.exec") && frame.runtime_action.is_none();
+    if incomplete_runtime_command_frame {
+        return false;
+    }
     !generic_conversation_intent
+}
+
+fn runtime_action_frame_from_studio_value(
+    value: &Value,
+    intent_id: &str,
+) -> Option<RuntimeActionFrame> {
+    let action = bridge_object_field(value, &["runtimeAction", "runtime_action"])?;
+    let action_family =
+        bridge_string_field(action, &["actionFamily", "action_family"]).unwrap_or_default();
+    if !intent_id.eq_ignore_ascii_case("command.exec")
+        || !action_family.eq_ignore_ascii_case("shell")
+    {
+        return None;
+    }
+
+    let target_command = bridge_string_field(action, &["targetCommand", "target_command"])?;
+    let target_command = target_command.trim();
+    if target_command.is_empty() {
+        return None;
+    }
+
+    let required_capability = RequiredCapability {
+        capability_id: "command.exec".to_string(),
+        reason: Some("Studio runtime action requested governed shell execution".to_string()),
+    };
+    let host_mutation =
+        bridge_bool_field(action, &["hostMutation", "host_mutation"]).unwrap_or(true);
+
+    Some(RuntimeActionFrame {
+        intent_class: bridge_string_field(action, &["intentClass", "intent_class"])
+            .unwrap_or_else(|| "local_runtime_action".to_string()),
+        action_family: "shell".to_string(),
+        target_text: bridge_string_field(action, &["targetText", "target_text"])
+            .unwrap_or_else(|| target_command.to_string()),
+        target_kind: bridge_string_field(action, &["targetKind", "target_kind"])
+            .unwrap_or_else(|| "shell_command".to_string()),
+        host_mutation,
+        required_capabilities: vec![required_capability.clone()],
+        browser_plan: None,
+        command_plan: Some(CommandExecutionPlanRef {
+            plan_ref: format!("command.exec:studio-intent-frame:{}", target_command.len()),
+            argv: runtime_command_argv_for_prompt(target_command),
+            shell_policy: "bounded".to_string(),
+            cwd: Some(".".to_string()),
+            env: Vec::new(),
+            approval_scope: None,
+            expected_receipt: Some("command_receipt".to_string()),
+        }),
+        file_plan: None,
+        provenance: Some("autopilot_studio_intent_frame".to_string()),
+    })
 }
 
 fn runtime_route_frame_from_value(value: &Value) -> Option<RuntimeRouteFrame> {
@@ -1131,8 +1360,15 @@ fn runtime_route_frame_from_value(value: &Value) -> Option<RuntimeRouteFrame> {
         })
         .unwrap_or_default();
     let effect_contract = bridge_object_field(value, &["effectContract", "effect_contract"]);
-    let host_mutation = effect_contract
-        .and_then(|contract| bridge_bool_field(contract, &["hostMutation", "host_mutation"]))
+    let runtime_action = runtime_action_frame_from_studio_value(value, &intent_id);
+    let host_mutation = runtime_action
+        .as_ref()
+        .map(|action| action.host_mutation)
+        .or_else(|| {
+            effect_contract.and_then(|contract| {
+                bridge_bool_field(contract, &["hostMutation", "host_mutation"])
+            })
+        })
         .unwrap_or(false);
     let retrieval_required = bridge_object_field(value, &["retrieval"])
         .and_then(|retrieval| bridge_bool_field(retrieval, &["required"]))
@@ -1169,15 +1405,24 @@ fn runtime_route_frame_from_value(value: &Value) -> Option<RuntimeRouteFrame> {
         || required_capability_text.contains("file.")
         || required_capability_text.contains("file_")
         || required_capability_text.contains("workspace.");
+    let requires_command_tools = runtime_action.is_some()
+        || intent_id.eq_ignore_ascii_case("command.exec")
+        || required_capability_text.contains("command.exec")
+        || required_capability_text.contains("prim:shell.run");
     let direct_answer_allowed = route_directive == "ask"
         || (intent_id.eq_ignore_ascii_case("conversation.reply")
             && !artifact_required
             && !requires_web_tools
             && !requires_workspace_tools
+            && !requires_command_tools
             && !host_mutation);
     let output_intent = if artifact_required || route_directive == "artifact" {
         "artifact_generation"
-    } else if requires_web_tools || requires_workspace_tools || host_mutation {
+    } else if requires_web_tools
+        || requires_workspace_tools
+        || requires_command_tools
+        || host_mutation
+    {
         "tool_execution"
     } else if direct_answer_allowed {
         "conversation_reply"
@@ -1191,6 +1436,8 @@ fn runtime_route_frame_from_value(value: &Value) -> Option<RuntimeRouteFrame> {
             "web.research".to_string()
         } else if requires_workspace_tools {
             "workspace.read".to_string()
+        } else if requires_command_tools {
+            "command.exec".to_string()
         } else {
             "conversation.reply".to_string()
         });
@@ -1212,6 +1459,8 @@ fn runtime_route_frame_from_value(value: &Value) -> Option<RuntimeRouteFrame> {
             "artifact".to_string()
         } else if route_directive == "ask" {
             "direct_model".to_string()
+        } else if requires_command_tools || route_directive == "runtime_action" {
+            "command_execution".to_string()
         } else if requires_web_tools {
             "web_research".to_string()
         } else if requires_workspace_tools {
@@ -1229,7 +1478,9 @@ fn runtime_route_frame_from_value(value: &Value) -> Option<RuntimeRouteFrame> {
             .or_else(|| bridge_nested_string_field(value, &["decisionMaterial", "promptPreview"]))
             .or_else(|| bridge_nested_string_field(value, &["decision_material", "prompt_preview"]))
             .unwrap_or_else(|| route_directive.clone()),
-        target_kind: if artifact_required {
+        target_kind: if runtime_action.is_some() {
+            Some("shell_command".to_string())
+        } else if artifact_required {
             Some(if artifact_class.is_empty() {
                 "artifact".to_string()
             } else {
@@ -1241,9 +1492,12 @@ fn runtime_route_frame_from_value(value: &Value) -> Option<RuntimeRouteFrame> {
         host_mutation,
         required_capabilities,
         typed_evidence,
-        typed_required_capabilities: vec![],
+        typed_required_capabilities: runtime_action
+            .as_ref()
+            .map(|action| action.required_capabilities.clone())
+            .unwrap_or_default(),
         host_mutation_scope: None,
-        runtime_action: None,
+        runtime_action,
         install_request: None,
         provenance: Some("autopilot_studio_intent_frame".to_string()),
     })
@@ -1419,9 +1673,11 @@ impl BridgeRuntime {
             self.call_service("post_message@v1", &params).await?;
             self.commit()?;
         }
-        if let Some(runtime_route_frame) =
-            runtime_route_frame_for_prompt_or_bridge_input(&input.request, None, &prompt)
-        {
+        if let Some(runtime_route_frame) = runtime_route_frame_for_prompt_or_bridge_input(
+            &input.request,
+            Some(&input.options),
+            &prompt,
+        ) {
             self.apply_runtime_route_frame(session_id, runtime_route_frame)?;
             self.commit()?;
         }
@@ -1578,6 +1834,21 @@ impl BridgeRuntime {
             }
         };
         let completed_at = now_rfc3339();
+        let browser_tool_results = browser_tool_results(&kernel_events);
+        if !browser_tool_results.is_empty() {
+            for result in &browser_tool_results {
+                record_managed_browser_session_result(
+                    &mut self.state,
+                    &state,
+                    &result.tool_name,
+                    &result.output,
+                    result.error_class.as_deref(),
+                    unix_millis(),
+                )
+                .map_err(|error| anyhow!("failed to persist managed browser session: {error}"))?;
+            }
+            self.commit()?;
+        }
         let exhausted_step_budget = runtime_bridge_step_budget_exhausted(
             step_result.is_ok(),
             &state.status,
@@ -1679,7 +1950,6 @@ impl BridgeRuntime {
         if request_indicates_computer_use(&input.request, &prompt)
             || kernel_events.iter().any(kernel_event_mentions_browser_tool)
         {
-            let browser_tool_results = browser_tool_results(&kernel_events);
             if let Some((_, artifacts)) = self
                 .browser_driver
                 .recent_browser_observation_artifacts(runtime_bridge_browser_observation_timeout())
@@ -1748,6 +2018,24 @@ impl BridgeRuntime {
         let session_id = parse_session_id(&input.session_id)?;
         let state = self.agent_state(session_id)?;
         let session_hex = hex::encode(session_id);
+        let projection = input
+            .projection
+            .as_deref()
+            .map(normalize_runtime_control_value)
+            .unwrap_or_default();
+        if input.managed_sessions_only || projection == "managed_sessions" {
+            let managed_sessions = managed_session_snapshot_for_state(&self.state, &state)
+                .map_err(|error| anyhow!("failed to derive managed session snapshot: {error}"))?;
+            return Ok(json!({
+                "bridge_id": bridge_id,
+                "source": "runtime_service",
+                "thread_id": input.thread_id,
+                "session_id": session_hex,
+                "status": thread_status(&state.status),
+                "managed_sessions": managed_sessions,
+                "inspected_at": now_rfc3339(),
+            }));
+        }
         let trajectory: Option<AgentTrajectoryStepRecord> = self.decode_optional_state_record(
             get_agent_trajectory_step_key(&session_id, state.step_count),
             "agent trajectory step",
@@ -1773,18 +2061,35 @@ impl BridgeRuntime {
             .workspace_root
             .as_deref()
             .or_else(|| (!working_directory.is_empty()).then_some(working_directory));
+        let state_workspace_changes = workspace_change_records_for_state(&state);
+        let trajectory_workspace_changes = trajectory
+            .as_ref()
+            .map(|trajectory| trajectory.workspace_changes.as_slice())
+            .unwrap_or(&[]);
+        let review_workspace_changes = merge_workspace_change_records_for_review(
+            &state_workspace_changes,
+            trajectory_workspace_changes,
+        );
         let workspace_change_reviews = review_workspace_root
-            .and_then(|workspace_root| {
-                let trajectory = trajectory.as_ref()?;
-                Some(
-                    trajectory
-                        .workspace_changes
-                        .iter()
-                        .map(|change| hunk_proposal_review_state(workspace_root, change))
-                        .collect::<Vec<_>>(),
-                )
+            .map(|workspace_root| {
+                review_workspace_changes
+                    .iter()
+                    .map(|change| hunk_proposal_review_state(workspace_root, change))
+                    .collect::<Vec<_>>()
             })
             .unwrap_or_default();
+        if projection == "workspace_change_reviews" {
+            return Ok(json!({
+                "bridge_id": bridge_id,
+                "source": "runtime_service",
+                "thread_id": input.thread_id,
+                "session_id": session_hex,
+                "status": thread_status(&state.status),
+                "workspace_changes": review_workspace_changes,
+                "workspace_change_reviews": workspace_change_reviews,
+                "inspected_at": now_rfc3339(),
+            }));
+        }
         let effective_policy = self.load_runtime_policy_for_session(session_id)?;
         let policy_leases = policy_lease_snapshot_for_state(
             &self.state,
@@ -1821,6 +2126,7 @@ impl BridgeRuntime {
                 "working_directory": state.working_directory,
             },
             "latest_trajectory": trajectory,
+            "workspace_changes": review_workspace_changes,
             "workspace_change_reviews": workspace_change_reviews,
             "policy_leases": policy_leases,
             "stop_hooks": stop_hooks,
@@ -1920,9 +2226,54 @@ impl BridgeRuntime {
                 )
                 .map_err(|error| anyhow!("failed to persist managed session control: {error}"))?;
             }
+            "workspace_change_accept"
+            | "accept_workspace_change"
+            | "hunk_accept"
+            | "workspace_change_reject"
+            | "reject_workspace_change"
+            | "hunk_reject"
+            | "workspace_change_rollback"
+            | "rollback_workspace_change"
+            | "hunk_rollback" => {
+                let change_id = input
+                    .change_id
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .ok_or_else(|| {
+                        anyhow!(
+                            "workspace change control action '{}' requires change_id",
+                            action
+                        )
+                    })?;
+                let state_for_workspace = self.agent_state(session_id)?;
+                let workspace_root = input
+                    .workspace_root
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .or_else(|| {
+                        let working_directory = state_for_workspace.working_directory.trim();
+                        (!working_directory.is_empty()).then_some(working_directory)
+                    })
+                    .ok_or_else(|| {
+                        anyhow!(
+                            "workspace change control action '{}' requires workspace_root",
+                            action
+                        )
+                    })?
+                    .to_string();
+                self.apply_workspace_change_control(
+                    session_id,
+                    &workspace_root,
+                    change_id,
+                    &action,
+                    &input.reason,
+                )?;
+            }
             other => {
                 return Err(anyhow!(
-                    "unsupported control_thread action '{}'; expected pause, cancel, resume, deny, observe_session, take_over_session, or return_agent",
+                    "unsupported control_thread action '{}'; expected pause, cancel, resume, deny, observe_session, take_over_session, return_agent, or workspace_change_*",
                     other
                 ));
             }
@@ -1934,6 +2285,17 @@ impl BridgeRuntime {
                 session_id: input.session_id.clone(),
                 thread_id: input.thread_id.clone(),
                 workspace_root: input.workspace_root.clone(),
+                projection: if action.starts_with("workspace_change")
+                    || action.starts_with("accept_workspace")
+                    || action.starts_with("reject_workspace")
+                    || action.starts_with("rollback_workspace")
+                    || action.starts_with("hunk_")
+                {
+                    Some("workspace_change_reviews".to_string())
+                } else {
+                    Some("managed_sessions".to_string())
+                },
+                managed_sessions_only: false,
             },
         )?;
         let controlled_at = input.created_at.unwrap_or_else(now_rfc3339);
@@ -2081,6 +2443,74 @@ impl BridgeRuntime {
             .transpose()
     }
 
+    fn persist_agent_state(&mut self, state: &AgentState, label: &str) -> Result<()> {
+        let encoded = codec::to_bytes_canonical(state)
+            .map_err(|error| anyhow!("failed to encode {label}: {error}"))?;
+        self.state
+            .insert(&get_state_key(&state.session_id), &encoded)
+            .with_context(|| format!("failed to persist {label}"))?;
+        Ok(())
+    }
+
+    fn apply_workspace_change_control(
+        &mut self,
+        session_id: [u8; 32],
+        workspace_root: &str,
+        change_id: &str,
+        action: &str,
+        reason: &str,
+    ) -> Result<()> {
+        let mut state = self.agent_state(session_id)?;
+        let changes = workspace_change_records_for_state(&state);
+        let change = find_workspace_change_by_id(&changes, change_id)
+            .map_err(|error| anyhow!("workspace change control failed: {error}"))?;
+        let updated = match action {
+            "workspace_change_accept" | "accept_workspace_change" | "hunk_accept" => {
+                accept_workspace_change(workspace_root, &change)
+                    .map_err(|error| anyhow!("workspace change control failed: {error}"))?
+            }
+            "workspace_change_reject" | "reject_workspace_change" | "hunk_reject" => {
+                reject_workspace_change(&change, reason)
+                    .map_err(|error| anyhow!("workspace change control failed: {error}"))?
+            }
+            "workspace_change_rollback" | "rollback_workspace_change" | "hunk_rollback" => {
+                rollback_workspace_change(workspace_root, &change)
+                    .map_err(|error| anyhow!("workspace change control failed: {error}"))?
+            }
+            other => {
+                return Err(anyhow!(
+                    "unsupported workspace change control action '{other}'"
+                ))
+            }
+        };
+
+        let evidence_key = match updated.lifecycle.as_str() {
+            "applied" => "evidence::workspace_change_applied",
+            "rejected" => "evidence::workspace_change_rejected",
+            "rolled_back" => "evidence::workspace_change_rolled_back",
+            _ => "evidence::workspace_change_lifecycle",
+        };
+        let evidence = serde_json::to_string(&updated)
+            .map_err(|error| anyhow!("failed to encode workspace change evidence: {error}"))?;
+        state
+            .tool_execution_log
+            .insert(evidence_key.to_string(), ToolCallStatus::Executed(evidence));
+
+        if matches!(change.lifecycle.as_str(), "proposed" | "awaiting_approval") {
+            state.pending_approval = None;
+            state.pending_tool_call = None;
+            state.pending_tool_jcs = None;
+            state.pending_tool_hash = None;
+            state.pending_request_nonce = None;
+            state.pending_visual_hash = None;
+            if matches!(state.status, AgentStatus::Paused(_)) {
+                state.status = AgentStatus::Running;
+            }
+        }
+
+        self.persist_agent_state(&state, "workspace change control state")
+    }
+
     fn apply_runtime_route_frame(
         &mut self,
         session_id: [u8; 32],
@@ -2098,6 +2528,15 @@ impl BridgeRuntime {
         agent_state.runtime_route_frame = Some(runtime_route_frame);
         agent_state.resolved_intent = None;
         agent_state.awaiting_intent_clarification = false;
+        agent_state.pending_tool_call = None;
+        agent_state.pending_tool_jcs = None;
+        agent_state.pending_tool_hash = None;
+        agent_state.pending_request_nonce = None;
+        agent_state.pending_visual_hash = None;
+        agent_state.execution_queue.clear();
+        agent_state.pending_search_completion = None;
+        agent_state.planner_state = None;
+        agent_state.recent_actions.clear();
         let encoded = codec::to_bytes_canonical(&agent_state)
             .map_err(|error| anyhow!("failed to encode agent state: {error}"))?;
         self.state
@@ -2255,6 +2694,9 @@ fn runtime_bridge_event_is_observable_work_lane(event: &Value) -> bool {
         .unwrap_or_default()
         .to_ascii_lowercase();
     if kind == "turn.started" || kind == "turn.completed" || kind == "turn.failed" {
+        return false;
+    }
+    if kind == "tool.output" {
         return false;
     }
     kind.starts_with("tool.")
@@ -3055,6 +3497,49 @@ fn thread_status(status: &AgentStatus) -> &'static str {
     }
 }
 
+fn merge_workspace_change_records_for_review(
+    state_changes: &[WorkspaceChangeRecord],
+    trajectory_changes: &[WorkspaceChangeRecord],
+) -> Vec<WorkspaceChangeRecord> {
+    let mut keyed = std::collections::BTreeMap::<String, WorkspaceChangeRecord>::new();
+    let mut unkeyed = Vec::new();
+    for change in trajectory_changes.iter().chain(state_changes.iter()) {
+        let change_id = change.change_id.trim();
+        if change_id.is_empty() {
+            unkeyed.push(change.clone());
+            continue;
+        }
+        match keyed.get(change_id) {
+            Some(existing)
+                if workspace_change_lifecycle_review_rank(&existing.lifecycle)
+                    > workspace_change_lifecycle_review_rank(&change.lifecycle) => {}
+            _ => {
+                keyed.insert(change_id.to_string(), change.clone());
+            }
+        }
+    }
+    unkeyed.extend(keyed.into_values());
+    unkeyed.sort_by(|left, right| {
+        left.lifecycle
+            .cmp(&right.lifecycle)
+            .then_with(|| left.path.cmp(&right.path))
+            .then_with(|| left.tool_name.cmp(&right.tool_name))
+    });
+    unkeyed
+}
+
+fn workspace_change_lifecycle_review_rank(lifecycle: &str) -> u8 {
+    match lifecycle {
+        "rolled_back" => 60,
+        "rejected" => 50,
+        "failed" => 40,
+        "applied" => 30,
+        "awaiting_approval" => 20,
+        "proposed" => 10,
+        _ => 0,
+    }
+}
+
 fn runtime_bridge_step_budget_exhausted(
     step_result_ok: bool,
     status: &AgentStatus,
@@ -3155,8 +3640,48 @@ mod tests {
             &Value::Null,
         )
         .expect("policy override");
+        assert_eq!(policy.policy_id, "runtime-bridge-default-permissions");
+        assert_eq!(policy.defaults, DefaultPolicy::RequireApproval);
+    }
+
+    #[test]
+    fn runtime_control_policy_maps_auto_local_to_auto_review_policy() {
+        let policy = runtime_control_policy(
+            &json!({
+                "approval_mode": "auto_local",
+                "thread_mode": "agent"
+            }),
+            &Value::Null,
+        )
+        .expect("policy override");
         assert_eq!(policy.policy_id, "runtime-bridge-auto-review");
         assert_eq!(policy.defaults, DefaultPolicy::RequireApproval);
+    }
+
+    #[test]
+    fn workspace_change_review_merge_prefers_terminal_state_over_trajectory() {
+        let mut proposed = WorkspaceChangeRecord {
+            change_id: "workspace_change:abc".to_string(),
+            tool_name: "file__edit".to_string(),
+            path: Some("src/format.mjs".to_string()),
+            lifecycle: "proposed".to_string(),
+            edit_count: 1,
+            ..WorkspaceChangeRecord::default()
+        };
+        let mut applied = proposed.clone();
+        applied.lifecycle = "applied".to_string();
+        applied.receipt_ref = Some("receipt.workspace_change_applied".to_string());
+        proposed.receipt_ref = Some("receipt.workspace_change_proposed".to_string());
+
+        let merged = merge_workspace_change_records_for_review(&[applied], &[proposed]);
+
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].change_id, "workspace_change:abc");
+        assert_eq!(merged[0].lifecycle, "applied");
+        assert_eq!(
+            merged[0].receipt_ref.as_deref(),
+            Some("receipt.workspace_change_applied")
+        );
     }
 
     #[test]
@@ -3255,6 +3780,11 @@ mod tests {
             "idempotency_key": "delta",
             "payload": { "delta": "<!DOCTYPE html>".repeat(2000) }
         });
+        let output_chunk = json!({
+            "event_kind": "tool.output",
+            "idempotency_key": "tool-output",
+            "payload": { "output": "cap-line-0\n".repeat(40000) }
+        });
         let terminal = json!({
             "event_kind": "turn.completed",
             "idempotency_key": "completed",
@@ -3266,6 +3796,7 @@ mod tests {
             route.clone(),
             search.clone(),
             streamed_delta,
+            output_chunk,
             terminal.clone(),
         ]);
 
@@ -3358,6 +3889,8 @@ mod tests {
                     session_id: session_hex.clone(),
                     thread_id: Some("thread-managed-session".to_string()),
                     workspace_root: Some(workspace.to_string_lossy().to_string()),
+                    projection: None,
+                    managed_sessions_only: false,
                 },
             )
             .expect("inspect succeeds");
@@ -3374,6 +3907,24 @@ mod tests {
             managed["sessions"][0]["screenshot_persistence"]["raw_capture_visibility"],
             "runs_tracing"
         );
+        let compact_inspection = runtime
+            .inspect_thread(
+                "bridge-test",
+                InspectThreadInput {
+                    session_id: session_hex.clone(),
+                    thread_id: Some("thread-managed-session".to_string()),
+                    workspace_root: Some(workspace.to_string_lossy().to_string()),
+                    projection: Some("managed_sessions".to_string()),
+                    managed_sessions_only: true,
+                },
+            )
+            .expect("compact inspect succeeds");
+        assert_eq!(
+            compact_inspection["managed_sessions"]["session_count"],
+            managed["session_count"]
+        );
+        assert!(compact_inspection.get("brain").is_none());
+        assert!(compact_inspection.get("runtime_substrate").is_none());
 
         let controlled = runtime
             .control_thread(
@@ -3386,6 +3937,7 @@ mod tests {
                     reason: "operator inspect".to_string(),
                     request_hash: None,
                     managed_session_id: Some(managed_id),
+                    change_id: None,
                     created_at: Some("2026-06-01T00:00:00Z".to_string()),
                 },
             )
@@ -3395,6 +3947,72 @@ mod tests {
             controlled["inspection"]["managed_sessions"]["sessions"][0]["control_state"],
             "take_over"
         );
+        assert!(controlled["inspection"].get("brain").is_none());
+        assert!(controlled["inspection"].get("runtime_substrate").is_none());
+
+        drop(runtime);
+        let _ = fs::remove_dir_all(std::env::temp_dir().join(unique));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn inspect_thread_projects_durable_browser_session_record_without_playbook() {
+        let unique = format!(
+            "ioi-managed-browser-record-{}-{}",
+            std::process::id(),
+            unix_millis()
+        );
+        let workspace = std::env::temp_dir().join(&unique).join("workspace");
+        let data_dir = std::env::temp_dir().join(&unique).join("data");
+        fs::create_dir_all(&workspace).expect("workspace creates");
+        let mut runtime =
+            BridgeRuntime::open(Some(&data_dir), &workspace).expect("bridge runtime opens");
+        let mut parent = test_agent_state();
+        parent.session_id = [0x39; 32];
+        parent.status = AgentStatus::Completed(Some("done".to_string()));
+        parent.last_action_type = Some("agent__complete".to_string());
+        parent.recent_actions = vec!["evidence::browser_snapshot_content_hash=true".to_string()];
+        let parent_bytes = codec::to_bytes_canonical(&parent).expect("parent encodes");
+        runtime
+            .state
+            .insert(&get_state_key(&parent.session_id), &parent_bytes)
+            .expect("parent state persists");
+        record_managed_browser_session_result(
+            &mut runtime.state,
+            &parent,
+            "browser__navigate",
+            "raw browser output belongs in tracing",
+            None,
+            unix_millis(),
+        )
+        .expect("managed browser record persists");
+        runtime.commit().expect("seed commit");
+
+        let inspection = runtime
+            .inspect_thread(
+                "bridge-test",
+                InspectThreadInput {
+                    session_id: hex::encode(parent.session_id),
+                    thread_id: Some("thread-managed-browser-record".to_string()),
+                    workspace_root: Some(workspace.to_string_lossy().to_string()),
+                    projection: None,
+                    managed_sessions_only: false,
+                },
+            )
+            .expect("inspect succeeds");
+
+        let managed = &inspection["managed_sessions"];
+        assert_eq!(managed["session_count"], 1);
+        assert_eq!(managed["sessions"][0]["kind"], "sandbox_browser");
+        assert_eq!(managed["sessions"][0]["status"], "complete");
+        assert_eq!(managed["sessions"][0]["last_tool"], "browser__navigate");
+        assert_eq!(
+            managed["sessions"][0]["screenshot_persistence"]["raw_capture_visibility"],
+            "runs_tracing"
+        );
+        assert!(!managed["sessions"][0]["detail"]
+            .as_str()
+            .expect("detail")
+            .contains("raw browser output"));
 
         drop(runtime);
         let _ = fs::remove_dir_all(std::env::temp_dir().join(unique));
@@ -3776,6 +4394,40 @@ mod tests {
     }
 
     #[test]
+    fn bridge_prompt_intent_keeps_stage5_repair_loop_model_authored() {
+        let prompt = "ARP_P0_007_PROOF_TOKEN repair loop for normalizeStatusLabel at .tmp/autopilot-stage5-stop-hook-repair/run-1/status-labels.mjs. Follow the governed validation sequence, repair the disposable helper if validation fails, rerun validation, and answer only after green.";
+        let request = json!({
+            "prompt": prompt,
+            "intentFrame": {
+                "schemaVersion": "ioi.studio.intent-frame.v1",
+                "intentId": "conversation.reply",
+                "routeDirective": "agent",
+                "executionMode": "agent",
+                "artifact": { "required": false },
+                "retrieval": { "required": false },
+                "workspace": { "required": false },
+                "requiredCapabilities": ["prim:conversation.reply"],
+                "runtimeAction": null
+            }
+        });
+        let frame = runtime_route_frame_for_prompt_or_bridge_input(&request, None, prompt)
+            .expect("Stage 5 repair proof prompt should synthesize a tool-loop route frame");
+
+        assert_eq!(frame.intent_id, "workspace.repair");
+        assert_eq!(frame.output_intent, "tool_execution");
+        assert!(!frame.direct_answer_allowed);
+        assert!(frame.runtime_action.is_none());
+        assert!(frame
+            .required_capabilities
+            .iter()
+            .any(|capability| capability == "command.exec"));
+        assert!(frame
+            .required_capabilities
+            .iter()
+            .any(|capability| capability == "file.edit"));
+    }
+
+    #[test]
     fn bridge_prompt_intent_keeps_shell_operator_commands_bounded() {
         let frame =
             runtime_route_frame_for_prompt("Run `echo ok | cat` and summarize the exit code.")
@@ -3839,6 +4491,32 @@ mod tests {
     }
 
     #[test]
+    fn bridge_prompt_intent_projects_inline_path_write_to_file_route_frame() {
+        let frame = runtime_route_frame_for_prompt(
+            "Try to write `stage4-sibling-write-should-not-exist` to the exact file `/tmp/user-repo-sibling/outside-write.txt` using the governed file tool, then report whether the daemon blocks the sibling workspace write. Do not use shell.",
+        )
+        .expect("inline path write should synthesize a governed file route frame");
+
+        assert_eq!(frame.intent_id, "workspace.mutate");
+        assert_eq!(frame.route_family, "workspace");
+        assert_eq!(frame.output_intent, "tool_execution");
+        assert!(!frame.direct_answer_allowed);
+        assert_eq!(frame.target, "/tmp/user-repo-sibling/outside-write.txt");
+        assert_eq!(frame.target_kind.as_deref(), Some("workspace_path"));
+        assert!(frame.runtime_action.is_some());
+        let action = frame.runtime_action.expect("runtime action");
+        assert_eq!(action.action_family, "file");
+        assert!(action.command_plan.is_none());
+        let file_plan = action.file_plan.expect("file plan");
+        assert_eq!(file_plan.mutation_kind, "write");
+        assert_eq!(file_plan.path, "/tmp/user-repo-sibling/outside-write.txt");
+        assert!(frame.typed_evidence.iter().any(|item| {
+            item.evidence_kind == "file_write_content"
+                && item.value == "stage4-sibling-write-should-not-exist"
+        }));
+    }
+
+    #[test]
     fn bridge_prompt_runtime_action_beats_generic_studio_intent_frame() {
         let request = json!({
             "prompt": "Run `node --check scripts/lib/autopilot-agent-studio-chat-scenarios.mjs` and summarize the exit code.",
@@ -3864,6 +4542,50 @@ mod tests {
         assert_eq!(frame.route_family, "command_execution");
         assert!(!frame.direct_answer_allowed);
         assert!(frame.runtime_action.is_some());
+    }
+
+    #[test]
+    fn bridge_options_runtime_action_owns_command_prompt() {
+        let request = json!({
+            "prompt": "Start a disposable retained helper, then report the status."
+        });
+        let options = json!({
+            "intentFrame": {
+                "schemaVersion": "ioi.studio.intent-frame.v1",
+                "intentId": "command.exec",
+                "routeDirective": "runtime_action",
+                "executionMode": "agent",
+                "artifact": { "required": false },
+                "retrieval": { "required": false },
+                "workspace": { "required": false },
+                "requiredCapabilities": ["prim:shell.run", "command.exec"],
+                "runtimeAction": {
+                    "actionFamily": "shell",
+                    "targetKind": "shell_command",
+                    "targetCommand": "sleep 900",
+                    "targetText": "sleep 900",
+                    "hostMutation": true
+                }
+            }
+        });
+        let prompt = request
+            .get("prompt")
+            .and_then(Value::as_str)
+            .expect("prompt");
+        let frame =
+            runtime_route_frame_for_prompt_or_bridge_input(&request, Some(&options), prompt)
+                .expect("options-carried runtime action should become the route frame");
+
+        assert_eq!(frame.intent_id, "command.exec");
+        assert_eq!(frame.route_family, "command_execution");
+        assert_eq!(frame.output_intent, "tool_execution");
+        assert!(!frame.direct_answer_allowed);
+        let action = frame.runtime_action.expect("runtime action");
+        let command_plan = action.command_plan.expect("command plan");
+        assert_eq!(
+            command_plan.argv,
+            vec!["sleep".to_string(), "900".to_string()]
+        );
     }
 
     #[test]

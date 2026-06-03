@@ -1,7 +1,9 @@
 use super::super::*;
 use crate::agentic::runtime::service::tool_execution::{
-    command_contract::timer_payload_requires_allowlisted_scheduler, execution_evidence_key_for,
-    record_execution_evidence_for, RuntimeEvidence,
+    command_contract::{
+        timer_payload_requires_allowlisted_scheduler, typed_runtime_command_plan_active,
+    },
+    execution_evidence_key_for, record_execution_evidence_for, RuntimeEvidence,
 };
 use ioi_api::vm::drivers::os::OsDriver;
 use std::sync::Arc;
@@ -65,14 +67,20 @@ pub(crate) async fn run_execution_timer_phase(
         AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
     );
     let is_command_provider_tool = is_command_execution_provider_tool(&tool);
-    if command_scope && sys_exec_arms_timer_delay_backend(&tool) {
+    let typed_runtime_command_plan = typed_runtime_command_plan_active(agent_state);
+    if command_scope && !typed_runtime_command_plan && sys_exec_arms_timer_delay_backend(&tool) {
         record_timer_notification_contract_requirement(
             &mut agent_state.tool_execution_log,
             verification_checks,
         );
     }
-    let timer_notification_required =
-        command_scope && requires_timer_notification_contract(agent_state) && is_sys_exec_tool;
+    if typed_runtime_command_plan {
+        verification_checks.push("typed_runtime_command_plan_preserved=true".to_string());
+    }
+    let timer_notification_required = command_scope
+        && !typed_runtime_command_plan
+        && requires_timer_notification_contract(agent_state)
+        && is_sys_exec_tool;
     let mut timer_delay_backend_armed = sys_exec_arms_timer_delay_backend(&tool);
     let mut notification_path_armed = sys_exec_command_preview(&tool)
         .as_deref()

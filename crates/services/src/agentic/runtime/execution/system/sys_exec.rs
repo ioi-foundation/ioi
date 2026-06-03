@@ -1,8 +1,10 @@
+use super::super::workload::WORKLOAD_RECEIPT_REDACTED_PLACEHOLDER;
 use super::evidence::{scrub_workload_args_for_evidence, scrub_workload_text_field_for_evidence};
 use super::paths::resolve_working_directory;
 use super::{
-    compute_workload_id, emit_workload_activity, emit_workload_receipt, extract_error_class,
-    SysExecInvocation, ToolExecutionResult, ToolExecutor,
+    compute_workload_id, emit_labeled_workload_activity, emit_workload_activity,
+    emit_workload_receipt, extract_error_class, SysExecInvocation, ToolExecutionResult,
+    ToolExecutor,
 };
 use crate::agentic::runtime::types::CommandExecution;
 use ioi_drivers::terminal::{
@@ -49,18 +51,26 @@ pub(super) async fn handle_sys_exec(
     let evidence_cwd =
         scrub_workload_text_field_for_evidence(exec, resolved_cwd_string.as_str()).await;
     let receipt_preview = command_preview(&evidence_command, &evidence_args);
+    let display_label = public_shell_display_label(&evidence_command, &evidence_args);
     let workload_id = compute_workload_id(session_id, step_index, "shell__run", &receipt_preview);
     let observer = if detach {
         None
     } else {
-        process_stream_observer(exec, session_id, step_index, workload_id.clone())
+        process_stream_observer(
+            exec,
+            session_id,
+            step_index,
+            workload_id.clone(),
+            display_label.clone(),
+        )
     };
     if let Some(tx) = exec.event_sender.as_ref() {
-        emit_workload_activity(
+        emit_labeled_workload_activity(
             tx,
             session_id,
             step_index,
             workload_id.clone(),
+            display_label.clone(),
             WorkloadActivityKind::Lifecycle {
                 phase: "started".to_string(),
                 exit_code: None,
@@ -78,62 +88,13 @@ pub(super) async fn handle_sys_exec(
     let result = if let Some(sleep_secs) =
         foreground_sleep_duration_seconds(&invocation.command, &invocation.args, detach)
     {
-        if wait_ms_before_async.is_none() {
-            let mut result = ToolExecutionResult::failure(format!(
-                "ERROR_CLASS=TimeoutOrHang Foreground sleep command would block for {} second(s). Re-run with detach=true or use a scheduler command.",
-                sleep_secs
-            ));
-            result.history_entry = Some(result.error.clone().unwrap_or_default());
-            append_sys_exec_command_history(&mut result, &raw_command_preview, step_index, 1);
-            result
-        } else {
-            match exec
-                .terminal
-                .execute_in_dir_with_async_boundary(
-                    Some(workload_id.clone()),
-                    &invocation.command,
-                    &invocation.args,
-                    detach,
-                    Some(&resolved_cwd),
-                    options,
-                )
-                .await
-            {
-                Ok(CommandLaunchResult::Completed(out)) => {
-                    let command_failed = command_output_indicates_failure(&out);
-                    let mut result = if command_failed {
-                        let mut failure = sys_exec_failure_result(command, &out);
-                        failure.history_entry = Some(out);
-                        failure
-                    } else {
-                        ToolExecutionResult::success(out)
-                    };
-                    append_sys_exec_command_history(
-                        &mut result,
-                        &raw_command_preview,
-                        step_index,
-                        if command_failed { 1 } else { 0 },
-                    );
-                    result
-                }
-                Ok(CommandLaunchResult::Retained(snapshot)) => {
-                    retained_snapshot = Some(snapshot.clone());
-                    ToolExecutionResult::success(retained_command_payload(&snapshot).to_string())
-                }
-                Err(e) => {
-                    let error = e.to_string();
-                    let mut result = sys_exec_failure_result(command, &error);
-                    result.history_entry = Some(error);
-                    append_sys_exec_command_history(
-                        &mut result,
-                        &raw_command_preview,
-                        step_index,
-                        1,
-                    );
-                    result
-                }
-            }
-        }
+        let mut result = ToolExecutionResult::failure(format!(
+            "ERROR_CLASS=TimeoutOrHang Foreground sleep command would block for {} second(s). Re-run with detach=true or use a retained shell/session command.",
+            sleep_secs
+        ));
+        result.history_entry = Some(result.error.clone().unwrap_or_default());
+        append_sys_exec_command_history(&mut result, &raw_command_preview, step_index, 1);
+        result
     } else {
         match wait_ms_before_async {
             Some(_) => match exec
@@ -243,11 +204,12 @@ pub(super) async fn handle_sys_exec(
         } else {
             "failed"
         };
-        emit_workload_activity(
+        emit_labeled_workload_activity(
             tx,
             session_id,
             step_index,
             workload_id.clone(),
+            display_label,
             WorkloadActivityKind::Lifecycle {
                 phase: phase.to_string(),
                 exit_code,
@@ -306,8 +268,15 @@ pub(super) async fn handle_sys_exec_session(
     let evidence_cwd =
         scrub_workload_text_field_for_evidence(exec, resolved_cwd_string.as_str()).await;
     let receipt_preview = command_preview(&evidence_command, &evidence_args);
+    let display_label = public_shell_display_label(&evidence_command, &evidence_args);
     let workload_id = compute_workload_id(session_id, step_index, "shell__start", &receipt_preview);
-    let observer = process_stream_observer(exec, session_id, step_index, workload_id.clone());
+    let observer = process_stream_observer(
+        exec,
+        session_id,
+        step_index,
+        workload_id.clone(),
+        display_label.clone(),
+    );
     let options = CommandExecutionOptions::default()
         .with_timeout(timeout)
         .with_stdin_data(normalize_stdin_data(stdin))
@@ -318,11 +287,12 @@ pub(super) async fn handle_sys_exec_session(
     let mut retained_snapshot: Option<RetainedCommandSnapshot> = None;
 
     if let Some(tx) = exec.event_sender.as_ref() {
-        emit_workload_activity(
+        emit_labeled_workload_activity(
             tx,
             session_id,
             step_index,
             workload_id.clone(),
+            display_label.clone(),
             WorkloadActivityKind::Lifecycle {
                 phase: "started".to_string(),
                 exit_code: None,
@@ -423,11 +393,12 @@ pub(super) async fn handle_sys_exec_session(
         } else {
             "failed"
         };
-        emit_workload_activity(
+        emit_labeled_workload_activity(
             tx,
             session_id,
             step_index,
             workload_id.clone(),
+            display_label,
             WorkloadActivityKind::Lifecycle {
                 phase: phase.to_string(),
                 exit_code,
@@ -499,10 +470,23 @@ pub(super) async fn handle_sys_exec_terminate(
         Ok(snapshot) => {
             ToolExecutionResult::success(retained_command_payload(&snapshot).to_string())
         }
-        Err(error) => ToolExecutionResult::failure(format!(
-            "ERROR_CLASS=UnexpectedState Failed to terminate retained command '{}': {}",
-            command_id, error
-        )),
+        Err(error) => {
+            let message = error.to_string();
+            if message.to_ascii_lowercase().contains("no longer running") {
+                return ToolExecutionResult::success(
+                    serde_json::json!({
+                        "command_id": command_id,
+                        "status": "completed",
+                        "summary": "Retained command was already stopped; continuing with cleanup."
+                    })
+                    .to_string(),
+                );
+            }
+            ToolExecutionResult::failure(format!(
+                "ERROR_CLASS=UnexpectedState Failed to terminate retained command '{}': {}",
+                command_id, error
+            ))
+        }
     }
 }
 
@@ -599,6 +583,78 @@ pub(super) fn command_preview(command: &str, args: &[String]) -> String {
     }
 }
 
+fn public_shell_display_label(command: &str, args: &[String]) -> Option<String> {
+    let command = command.trim();
+    if command.is_empty() || command == WORKLOAD_RECEIPT_REDACTED_PLACEHOLDER {
+        return None;
+    }
+    if let Some(inner) = public_shell_wrapped_display_label(command, args) {
+        return Some(inner);
+    }
+    if args.iter().any(|arg| arg.as_str() == "-e") {
+        return Some(format!("{command} -e <inline script>"));
+    }
+    let mut parts = vec![command.to_string()];
+    for arg in args.iter().take(4) {
+        let arg = arg.trim();
+        if arg.is_empty()
+            || arg == WORKLOAD_RECEIPT_REDACTED_PLACEHOLDER
+            || arg.contains("shell__start:")
+            || arg.contains("ioi-session-stdin")
+        {
+            continue;
+        }
+        if arg.starts_with("/tmp/") || arg.len() > 80 {
+            parts.push("<arg>".to_string());
+        } else {
+            parts.push(arg.to_string());
+        }
+    }
+    let label = command_preview(&parts[0], &parts[1..]);
+    if label.trim().is_empty() {
+        None
+    } else {
+        Some(label)
+    }
+}
+
+fn public_shell_wrapped_display_label(command: &str, args: &[String]) -> Option<String> {
+    let command_name = Path::new(command)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(command)
+        .to_ascii_lowercase();
+    if !matches!(command_name.as_str(), "bash" | "sh" | "zsh") {
+        return None;
+    }
+    let mut script: Option<&str> = None;
+    for (index, arg) in args.iter().enumerate() {
+        if matches!(arg.as_str(), "-c" | "-lc") {
+            script = args.get(index + 1).map(|value| value.as_str());
+            break;
+        }
+    }
+    let script = script?.trim();
+    let mut parts = script.split_whitespace();
+    let inner_command = parts.next()?.trim_matches(|c: char| c == '\'' || c == '"');
+    if inner_command.is_empty() || inner_command == WORKLOAD_RECEIPT_REDACTED_PLACEHOLDER {
+        return None;
+    }
+    let inner_name = Path::new(inner_command)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(inner_command)
+        .to_ascii_lowercase();
+    if matches!(inner_name.as_str(), "node" | "nodejs") {
+        let has_inline_eval = parts.any(|part| part == "-e" || part.starts_with("-e"));
+        if has_inline_eval {
+            return Some("node -e <inline script>".to_string());
+        }
+        return Some("node".to_string());
+    }
+    None
+}
+
 fn retained_command_payload(snapshot: &RetainedCommandSnapshot) -> serde_json::Value {
     json!({
         "command_id": snapshot.command_id,
@@ -666,11 +722,28 @@ pub(super) fn extract_exit_code(output: &str) -> Option<i32> {
 }
 
 pub(super) fn parse_terminal_output(output: &str) -> (String, String) {
-    if let Some((stdout, stderr)) = output.split_once("Stderr:") {
-        (stdout.trim().to_string(), stderr.trim().to_string())
-    } else {
-        (output.trim().to_string(), String::new())
+    let stripped = output
+        .lines()
+        .skip_while(|line| line.trim_start().starts_with("Command failed:"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let body = stripped.trim();
+    if let Some((stdout_part, stderr_part)) = body.split_once("\nStderr:") {
+        let stdout = stdout_part
+            .trim()
+            .strip_prefix("Stdout:")
+            .map(str::trim)
+            .unwrap_or_else(|| stdout_part.trim())
+            .to_string();
+        return (stdout, stderr_part.trim().to_string());
     }
+    if let Some(stdout) = body.strip_prefix("Stdout:") {
+        return (stdout.trim().to_string(), String::new());
+    }
+    if let Some(stderr) = body.strip_prefix("Stderr:") {
+        return (String::new(), stderr.trim().to_string());
+    }
+    (body.to_string(), String::new())
 }
 
 pub(super) fn normalize_stdin_data(stdin: Option<String>) -> Option<Vec<u8>> {
@@ -1037,9 +1110,28 @@ pub(super) fn foreground_sleep_duration_seconds(
     if detach {
         return None;
     }
-    if !command.eq_ignore_ascii_case("sleep") {
+
+    let command_name = Path::new(command.trim())
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(command)
+        .to_ascii_lowercase();
+
+    if matches!(command_name.as_str(), "sh" | "bash" | "zsh" | "fish")
+        || matches!(command_name.as_str(), "cmd" | "cmd.exe")
+    {
+        if let Some(script) = shell_wrapper_script(args) {
+            let mut tokens = script.split_whitespace();
+            let nested_command = tokens.next()?.trim_matches(|c| c == '\'' || c == '"');
+            let nested_args = tokens.map(|token| token.to_string()).collect::<Vec<_>>();
+            return foreground_sleep_duration_seconds(nested_command, &nested_args, false);
+        }
+    }
+
+    if command_name != "sleep" {
         return None;
     }
+
     let first = args.first()?.trim();
     if first.is_empty() {
         return None;
@@ -1048,20 +1140,32 @@ pub(super) fn foreground_sleep_duration_seconds(
     (value >= FOREGROUND_SLEEP_BLOCK_THRESHOLD_SECS).then_some(value)
 }
 
+fn shell_wrapper_script(args: &[String]) -> Option<&str> {
+    for (index, arg) in args.iter().enumerate() {
+        let flag = arg.trim().to_ascii_lowercase();
+        if matches!(flag.as_str(), "-c" | "-lc" | "/c") {
+            return args.get(index + 1).map(|value| value.as_str());
+        }
+    }
+    None
+}
+
 pub(super) fn process_stream_observer(
     exec: &ToolExecutor,
     session_id: [u8; 32],
     step_index: u32,
     workload_id: String,
+    display_label: Option<String>,
 ) -> Option<ProcessStreamObserver> {
     let tx = exec.event_sender.clone()?;
 
     Some(Arc::new(move |chunk: ProcessStreamChunk| {
-        emit_workload_activity(
+        emit_labeled_workload_activity(
             &tx,
             session_id,
             step_index,
             workload_id.clone(),
+            display_label.clone(),
             WorkloadActivityKind::Stdio {
                 stream: chunk.channel.as_str().to_string(),
                 chunk: chunk.chunk,

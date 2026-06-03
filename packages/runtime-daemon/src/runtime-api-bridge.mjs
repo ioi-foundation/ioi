@@ -47,6 +47,14 @@ export class RuntimeApiBridge {
     return typeof this.adapter?.submitTurn === "function";
   }
 
+  get canInspectThread() {
+    return typeof this.adapter?.inspectThread === "function";
+  }
+
+  get canControlThread() {
+    return typeof this.adapter?.controlThread === "function";
+  }
+
   async startThread(input) {
     if (!this.canStartThread) {
       throw new RuntimeApiBridgeUnavailableError("RuntimeApiBridge startThread is not configured.", {
@@ -63,6 +71,24 @@ export class RuntimeApiBridge {
       });
     }
     return this.adapter.submitTurn(input, options);
+  }
+
+  async inspectThread(input) {
+    if (!this.canInspectThread) {
+      throw new RuntimeApiBridgeUnavailableError("RuntimeApiBridge inspectThread is not configured.", {
+        operation: "inspect_thread",
+      });
+    }
+    return this.adapter.inspectThread(input);
+  }
+
+  async controlThread(input) {
+    if (!this.canControlThread) {
+      throw new RuntimeApiBridgeUnavailableError("RuntimeApiBridge controlThread is not configured.", {
+        operation: "control_thread",
+      });
+    }
+    return this.adapter.controlThread(input);
   }
 }
 

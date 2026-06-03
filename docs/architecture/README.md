@@ -74,9 +74,16 @@ Read the stack this way:
   logic, credentials, and action authority stay out of provider-readable
   plaintext by default; Candidate-Lattice Private Decoding lets the node
   generate candidates while private heads select or deny outside node custody;
+  Counterfactual Lattice Execution trades extra public token volume for lower
+  online private-choice leakage, with Candidate Coverage Profile estimating
+  when redundancy makes that trade cheap or when exponential decay makes CLPD/CLE
+  the wrong privacy route;
   Plaintext-Free Runtime Mounting keeps tools and models limited to
   public/redacted projections, encrypted refs, private handles, and capability
-  exits;
+  exits; the Cryptographic Operator Plane routes protected scoring, retrieval,
+  and policy checks to FHE/MPC/local/threshold paths without exposing a new
+  user-facing mode; third-party model APIs over sensitive plaintext are
+  provider-trust, not base cTEE no-plaintext-custody;
 - Autopilot nodes coordinate many governed autonomous-system chains, route work
   between them, manage local authority and receipts, and anchor selected roots
   upward when public trust or settlement requires it;
@@ -220,7 +227,7 @@ supporting file.
 | Domain Kernel | Application-domain authority/runtime deployment for Agentgres and routing. |
 | Agentgres | Per-domain canonical operational state, receipts, projections, quality, and contribution accounting. |
 | IOI Daemon / Runtime Node | Hypervisor/control plane for autonomous execution across workflows, workers, tools, models, connectors, computer-use leases, artifacts, policy, receipts, and replay. |
-| Private Workspace backed by cTEE | User-facing private workspace and daemon execution profile for persistent rented GPU nodes that run useful compute without receiving protected plaintext by default; Plaintext-Free Runtime Mounting is the daemon boundary, CLPD is the default protected-agency strategy, and deterrence/detection receipts support canaries, watermarks, and disputes. |
+| Private Workspace backed by cTEE | User-facing private workspace and daemon execution profile for persistent rented GPU nodes that run useful compute without receiving protected plaintext by default; Plaintext-Free Runtime Mounting is the daemon boundary, CLPD is the default protected-agency strategy, Candidate Coverage Profile estimates proposal redundancy, Counterfactual Lattice Execution trades extra public token volume for lower online private-choice leakage, the Cryptographic Operator Plane handles protected private operators internally, External Model API Boundary distinguishes private-native/redacted-API/provider-trust/unsafe paths, and deterrence/detection receipts support canaries, watermarks, and disputes. |
 | IOI CLI/TUI | Human terminal and TUI operator client over daemon/public runtime APIs. |
 | IOI SDK | Low-level protocol/client library over daemon, Agentgres, wallet.network, AIIP, and IOI L1 contracts; never the canonical execution owner. |
 | IOI ADK | Autonomous development kit for building workers, service modules, harnesses, evals, manifests, receipts, deployment profiles, and governed autonomous systems. |

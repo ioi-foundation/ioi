@@ -338,9 +338,9 @@ function browserObservationFiles({ dir, title }) {
     status: "complete",
     url: "http://127.0.0.1/fixture",
     title: "Tool Catalogue Fixture",
-    actions: ["observe", "take_over", "return_agent"],
+    actions: ["observe"],
   });
-  writeText(preview, htmlPage(title, `<h1>${escapeHtml(title)}</h1><section class="panel"><strong>Sandbox browser</strong><p>Observation captured from a managed live session artifact.</p><p>Controls: Observe / Take over / Return control.</p></section>`));
+  writeText(preview, htmlPage(title, `<h1>${escapeHtml(title)}</h1><section class="panel"><strong>Sandbox browser</strong><p>Observation captured from a browser session artifact.</p><p>Controls: Observe captured state.</p></section>`));
   return { sources: [observation], projections: [observation], previews: [preview] };
 }
 
@@ -592,7 +592,7 @@ export class ConversationArtifactStore {
         writeJson(exportFile, {
           sessionKind: "sandbox_browser",
           status: "captured",
-          controls: ["observe", "take_over", "return_agent"],
+          controls: ["observe"],
         });
       } else {
         writeText(exportFile, htmlPage(`${record.title} export`, `<h1>${escapeHtml(record.title)}</h1><p>Exported artifact revision.</p>`));

@@ -3,14 +3,14 @@ use super::command_contract::{
     enrich_command_scope_summary, evaluate_completion_requirements,
     execution_contract_violation_error, extract_error_class_token,
     is_command_execution_provider_tool, is_completion_contract_error,
-    record_provider_selection_evidence, record_timer_notification_contract_requirement,
-    record_verification_evidence, requires_timer_notification_contract,
-    runtime_host_environment_evidence, synthesize_allowlisted_timer_notification_tool,
-    sys_exec_arms_timer_delay_backend, sys_exec_command_preview,
-    sys_exec_foreign_absolute_home_path, sys_exec_satisfies_clock_read_contract,
-    sys_exec_timer_delay_seconds, CLOCK_TIMESTAMP_SUCCESS_CONDITION,
-    PROVIDER_SELECTION_COMMIT_EVIDENCE, TIMER_NOTIFICATION_PATH_SUCCESS_CONDITION,
-    TIMER_SLEEP_BACKEND_SUCCESS_CONDITION, VERIFICATION_COMMIT_EVIDENCE,
+    record_provider_selection_evidence, record_verification_evidence,
+    requires_timer_notification_contract, runtime_host_environment_evidence,
+    synthesize_allowlisted_timer_notification_tool, sys_exec_arms_timer_delay_backend,
+    sys_exec_command_preview, sys_exec_foreign_absolute_home_path,
+    sys_exec_satisfies_clock_read_contract, sys_exec_timer_delay_seconds,
+    CLOCK_TIMESTAMP_SUCCESS_CONDITION, PROVIDER_SELECTION_COMMIT_EVIDENCE,
+    TIMER_NOTIFICATION_PATH_SUCCESS_CONDITION, TIMER_SLEEP_BACKEND_SUCCESS_CONDITION,
+    VERIFICATION_COMMIT_EVIDENCE,
 };
 use super::probe::{
     is_command_probe_intent, is_system_clock_read_intent, summarize_command_probe_output,
@@ -23,9 +23,9 @@ use super::support::{
     canonical_tool_identity, drop_legacy_action_fingerprint_receipt,
     enforce_system_fail_terminal_status, execution_evidence_key, execution_evidence_value,
     get_status_str, has_execution_evidence, mark_action_fingerprint_executed_at_step,
-    mark_system_fail_status, persist_step_evidence, persist_step_evidence_to_ledger,
-    record_execution_evidence, record_execution_evidence_with_value, record_success_condition,
-    success_condition_key,
+    mark_system_fail_status, missing_runtime_action_completion_evidence, persist_step_evidence,
+    persist_step_evidence_to_ledger, record_execution_evidence,
+    record_execution_evidence_with_value, record_success_condition, success_condition_key,
 };
 use crate::agentic::rules::ActionRules;
 use crate::agentic::runtime::execution::system::{

@@ -296,6 +296,30 @@ fn browser_operating_rules_drop_unrelated_command_and_launch_rules() {
 }
 
 #[test]
+fn command_operating_rules_require_complete_retained_helpers() {
+    let rules = build_operating_rules(
+        false,
+        "Start a retained Node.js helper that waits for stdin and echoes a status line.",
+        "",
+        "",
+        "",
+    );
+
+    assert!(
+        rules.contains("Start a complete observable helper command"),
+        "{rules}"
+    );
+    assert!(
+        rules.contains("do not launch a bare interpreter or REPL"),
+        "{rules}"
+    );
+    assert!(
+        rules.contains("Never treat a quoted stdin payload as a standalone `shell__run` command"),
+        "{rules}"
+    );
+}
+
+#[test]
 fn browser_rule_relevant_matches_words_not_unrelated_substrings() {
     assert!(browser_rule_relevant(
         "Reply to the visible post row.",
@@ -463,4 +487,3 @@ fn automation_monitor_requires_automation_tool_not_sys_exec() {
     .expect("missing capability");
     assert_eq!(missing.0, "monitor__create");
 }
-

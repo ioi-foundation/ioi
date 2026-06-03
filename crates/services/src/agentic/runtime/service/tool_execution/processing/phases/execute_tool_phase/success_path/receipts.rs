@@ -155,6 +155,9 @@ pub(crate) fn workspace_change_lifecycle_receipt_details(
         AgentTool::WorkspaceChangeStatus { .. } => {
             ("workspace_change_status", "workspace_change__status")
         }
+        AgentTool::WorkspaceChangeAccept { .. } => {
+            ("workspace_change_accepted", "workspace_change__accept")
+        }
         AgentTool::WorkspaceChangeReject { .. } => {
             ("workspace_change_rejected", "workspace_change__reject")
         }
@@ -169,7 +172,9 @@ pub(crate) fn workspace_change_lifecycle_receipt_details(
     }
     if matches!(
         tool,
-        AgentTool::WorkspaceChangeReject { .. } | AgentTool::WorkspaceChangeRollback { .. }
+        AgentTool::WorkspaceChangeAccept { .. }
+            | AgentTool::WorkspaceChangeReject { .. }
+            | AgentTool::WorkspaceChangeRollback { .. }
     ) && serde_json::from_str::<WorkspaceChangeRecord>(evidence).is_err()
     {
         return None;

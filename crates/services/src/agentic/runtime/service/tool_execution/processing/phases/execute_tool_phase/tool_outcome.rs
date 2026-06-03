@@ -178,12 +178,19 @@ pub(super) async fn apply_tool_outcome_and_followups(
             ) {
                 return Ok(());
             }
-            let missing_completion_evidence = evaluate_completion_requirements(
+            let mut missing_completion_evidence = evaluate_completion_requirements(
                 agent_state,
                 resolved_intent_id,
                 verification_checks,
                 rules,
             );
+            let action_missing = missing_runtime_action_completion_evidence(agent_state);
+            if !action_missing.is_empty() {
+                for missing in &action_missing {
+                    verification_checks.push(format!("action_completion_missing={}", missing));
+                }
+                missing_completion_evidence.extend(action_missing);
+            }
             if !missing_completion_evidence.is_empty() {
                 let missing = missing_completion_evidence.join(",");
                 let contract_error = execution_contract_violation_error(&missing);
@@ -192,6 +199,10 @@ pub(super) async fn apply_tool_outcome_and_followups(
                 *history_entry = Some(contract_error.clone());
                 *action_output = Some(contract_error);
                 agent_state.status = AgentStatus::Running;
+                agent_state.execution_ledger.record_completion_gate(
+                    Some(resolved_intent_id.to_string()),
+                    &missing_completion_evidence,
+                );
                 verification_checks.push("execution_contract_gate_blocked=true".to_string());
                 verification_checks.push(format!("execution_contract_missing_keys={}", missing));
                 emit_completion_gate_violation_events(
@@ -322,6 +333,50 @@ pub(super) async fn apply_tool_outcome_and_followups(
                 verification_checks.push("terminal_chat_reply_ready=false".to_string());
                 return Ok(());
             }
+            let stage2_web_repair_force_retry_marker =
+                "stage2_web_repair_forced_model_chat_reply_rejection";
+            let stage2_web_repair_force_retry =
+                std::env::var("IOI_STAGE2_WEB_REPAIR_FORCE_FIRST_CHAT_REPLY_REJECT")
+                    .ok()
+                    .is_some_and(|value| {
+                        matches!(
+                            value.to_ascii_lowercase().as_str(),
+                            "1" | "true" | "yes" | "on"
+                        )
+                    })
+                    && !agent_state
+                        .recent_actions
+                        .iter()
+                        .any(|action| action == stage2_web_repair_force_retry_marker)
+                    && message.to_ascii_lowercase().contains("secretary-general")
+                    && message.to_ascii_lowercase().contains("united nations");
+            if stage2_web_repair_force_retry {
+                agent_state
+                    .recent_actions
+                    .push(stage2_web_repair_force_retry_marker.to_string());
+                let contract_error = "ERROR_CLASS=NoEffectAfterAction Final web answer is not ready. Validator feedback: first model-authored web reply was intentionally rejected by the Stage 2 live proof gate; rewrite the final answer from gathered evidence and include read-backed source citations. Continue the model -> tool -> typed result -> model loop, then call the terminal reply tool with a complete model-authored Markdown answer.".to_string();
+                *success = false;
+                *error_msg = Some(contract_error.clone());
+                *history_entry = Some(contract_error.clone());
+                *action_output = Some(contract_error);
+                *terminal_chat_reply_output = None;
+                agent_state.status = AgentStatus::Running;
+                verification_checks
+                    .push("stage2_web_repair_forced_model_chat_reply_rejection=true".to_string());
+                verification_checks.push("web_final_summary_contract_ready=false".to_string());
+                verification_checks
+                    .push("web_model_chat_reply_contract_rejected_for_retry=true".to_string());
+                verification_checks.push("terminal_chat_reply_ready=false".to_string());
+                emit_completion_gate_status_event(
+                    service,
+                    session_id,
+                    step_index,
+                    resolved_intent_id,
+                    false,
+                    "chat_reply_model_authored_web_pipeline_answer_rejected_for_retry",
+                );
+                return Ok(());
+            }
             if let Some(pending) = agent_state.pending_search_completion.clone() {
                 let completion_reason =
                     web_pipeline_completion_reason(&pending, web_pipeline_now_ms());
@@ -366,7 +421,19 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             [model_authored_candidate],
                         )
                     {
-                        let contract_ready = selection.contract_ready;
+                        let contract_ready =
+                            selection.contract_ready && !stage2_web_repair_force_retry;
+                        if stage2_web_repair_force_retry {
+                            agent_state
+                                .recent_actions
+                                .push(stage2_web_repair_force_retry_marker.to_string());
+                            verification_checks.push(
+                                "stage2_web_repair_forced_model_chat_reply_rejection=true"
+                                    .to_string(),
+                            );
+                            verification_checks
+                                .push("web_final_summary_contract_ready=false".to_string());
+                        }
                         verification_checks
                             .push(format!("web_final_summary_provider={}", selection.provider));
                         verification_checks.push(format!(
@@ -398,8 +465,11 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             verification_checks,
                         );
                         if !contract_ready {
-                            let feedback =
-                                final_web_completion_retry_feedback(&final_facts).join("; ");
+                            let feedback = if stage2_web_repair_force_retry {
+                                "first model-authored web reply was intentionally rejected by the Stage 2 live proof gate; rewrite the final answer from gathered evidence and include read-backed source citations".to_string()
+                            } else {
+                                final_web_completion_retry_feedback(&final_facts).join("; ")
+                            };
                             let contract_error = format!(
                                 "ERROR_CLASS=NoEffectAfterAction Final web answer is not ready. \
 Validator feedback: {feedback}. Continue the model -> tool -> typed result -> model loop. \
@@ -570,6 +640,13 @@ missing, then call the terminal reply tool with a complete model-authored Markdo
                 record_success_condition(&mut agent_state.tool_execution_log, "contextual_answer");
                 verification_checks.push(success_condition_key("contextual_answer"));
             }
+            if file_mutation_policy_action_report_candidate(agent_state, message) {
+                record_execution_evidence(&mut agent_state.tool_execution_log, "policy_result");
+                record_success_condition(&mut agent_state.tool_execution_log, "action_report");
+                verification_checks.push(execution_evidence_key("policy_result"));
+                verification_checks.push(success_condition_key("action_report"));
+                verification_checks.push("file_mutation_policy_report_verified=true".to_string());
+            }
             if let Some(blocked_error) = source_candidate_chat_reply_blocker(message) {
                 *success = false;
                 *error_msg = Some(blocked_error.clone());
@@ -603,12 +680,19 @@ missing, then call the terminal reply tool with a complete model-authored Markdo
             ) {
                 return Ok(());
             }
-            let missing_completion_evidence = evaluate_completion_requirements(
+            let mut missing_completion_evidence = evaluate_completion_requirements(
                 agent_state,
                 resolved_intent_id,
                 verification_checks,
                 rules,
             );
+            let action_missing = missing_runtime_action_completion_evidence(agent_state);
+            if !action_missing.is_empty() {
+                for missing in &action_missing {
+                    verification_checks.push(format!("action_completion_missing={}", missing));
+                }
+                missing_completion_evidence.extend(action_missing);
+            }
             if !missing_completion_evidence.is_empty() {
                 let missing = missing_completion_evidence.join(",");
                 let contract_error = execution_contract_violation_error(&missing);
@@ -617,6 +701,10 @@ missing, then call the terminal reply tool with a complete model-authored Markdo
                 *history_entry = Some(contract_error.clone());
                 *action_output = Some(contract_error);
                 agent_state.status = AgentStatus::Running;
+                agent_state.execution_ledger.record_completion_gate(
+                    Some(resolved_intent_id.to_string()),
+                    &missing_completion_evidence,
+                );
                 verification_checks.push("execution_contract_gate_blocked=true".to_string());
                 verification_checks.push(format!("execution_contract_missing_keys={}", missing));
                 emit_completion_gate_violation_events(

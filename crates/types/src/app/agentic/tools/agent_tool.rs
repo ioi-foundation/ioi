@@ -547,6 +547,20 @@ pub enum AgentTool {
         changes: Vec<serde_json::Value>,
     },
 
+    /// Accepts and applies a proposed or approval-waiting workspace change.
+    #[serde(rename = "workspace_change__accept")]
+    WorkspaceChangeAccept {
+        /// Daemon-owned workspace change id to transition.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        change_id: Option<String>,
+        /// Compatibility escape hatch for callers that already hold a change record.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        change: Option<serde_json::Value>,
+        /// Compatibility escape hatch for resolving change_id from explicit rows.
+        #[serde(default)]
+        changes: Vec<serde_json::Value>,
+    },
+
     /// Rejects a proposed or approval-waiting workspace change without mutating files.
     #[serde(rename = "workspace_change__reject")]
     WorkspaceChangeReject {
@@ -1352,6 +1366,7 @@ impl AgentTool {
                 | "file__create_dir"
                 | "file__zip"
                 | "workspace_change__status"
+                | "workspace_change__accept"
                 | "workspace_change__reject"
                 | "workspace_change__rollback"
                 | "shell__run"

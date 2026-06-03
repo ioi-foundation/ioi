@@ -10,7 +10,7 @@ use tokio::sync::{Mutex, Notify};
 use tokio::time;
 
 use super::session::ShellSession;
-use super::stream::{combine_success_output, read_stream};
+use super::stream::{combine_failure_output, combine_success_output, read_stream};
 use super::types::{
     CommandExecutionOptions, CommandLaunchResult, ProcessStreamChannel, ProcessStreamChunk,
     ProcessStreamObserver, RetainedCommandSnapshot,
@@ -26,10 +26,16 @@ const RETAINED_SESSION_INTERRUPT_TIMEOUT: std::time::Duration =
     std::time::Duration::from_millis(100);
 const RETAINED_SESSION_TERMINATE_GRACE_TIMEOUT: std::time::Duration =
     std::time::Duration::from_millis(500);
+const RETAINED_INPUT_SETTLE_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(500);
+const RETAINED_INPUT_SETTLE_POLL: std::time::Duration = std::time::Duration::from_millis(15);
+const RETAINED_INPUT_SETTLE_QUIET: std::time::Duration = std::time::Duration::from_millis(60);
 const RETAINED_OUTPUT_TAIL_MAX_BYTES: usize = 64 * 1024;
 
 #[cfg(unix)]
 type SessionStdinBridgeHandle = Arc<StdMutex<Option<std::fs::File>>>;
+
+#[cfg(unix)]
+static NEXT_SESSION_STDIN_BRIDGE: AtomicU64 = AtomicU64::new(1);
 
 async fn join_stream_task_with_drain_timeout(
     mut task: tokio::task::JoinHandle<Result<Vec<u8>>>,
@@ -118,14 +124,86 @@ fn remove_sensitive_inherited_env(cmd: &mut Command) {
     }
 }
 
+fn executable_in_path(name: &str) -> bool {
+    let Some(path_var) = std::env::var_os("PATH") else {
+        return false;
+    };
+    std::env::split_paths(&path_var).any(|dir| dir.join(name).is_file())
+}
+
+fn terminal_network_sandbox_enabled() -> bool {
+    if std::env::var_os("IOI_TERMINAL_DRIVER_DISABLE_NETWORK_SANDBOX").is_some() {
+        return false;
+    }
+    cfg!(target_os = "linux") && executable_in_path("bwrap")
+}
+
+fn command_spawn_spec(
+    command: &str,
+    args: &[String],
+    cwd: Option<&Path>,
+    detach: bool,
+) -> Result<CommandSpawnSpec> {
+    if detach || !terminal_network_sandbox_enabled() {
+        return Ok(CommandSpawnSpec {
+            executable: command.to_string(),
+            args: args.to_vec(),
+        });
+    }
+
+    let resolved_cwd = match cwd {
+        Some(path) => path.to_path_buf(),
+        None => std::env::current_dir()?,
+    };
+    let cwd_label = resolved_cwd.to_string_lossy().to_string();
+    let mut sandbox_args = vec![
+        "--die-with-parent".to_string(),
+        "--ro-bind".to_string(),
+        "/".to_string(),
+        "/".to_string(),
+        "--dev".to_string(),
+        "/dev".to_string(),
+        "--proc".to_string(),
+        "/proc".to_string(),
+        "--tmpfs".to_string(),
+        "/tmp".to_string(),
+        "--unshare-net".to_string(),
+        "--setenv".to_string(),
+        "HOME".to_string(),
+        "/tmp".to_string(),
+        "--setenv".to_string(),
+        "TMPDIR".to_string(),
+        "/tmp".to_string(),
+    ];
+
+    if resolved_cwd != Path::new("/") {
+        sandbox_args.push("--bind".to_string());
+        sandbox_args.push(cwd_label.clone());
+        sandbox_args.push(cwd_label.clone());
+        sandbox_args.push("--chdir".to_string());
+        sandbox_args.push(cwd_label);
+    }
+
+    sandbox_args.push("--".to_string());
+    sandbox_args.push(command.to_string());
+    sandbox_args.extend(args.iter().cloned());
+
+    Ok(CommandSpawnSpec {
+        executable: "bwrap".to_string(),
+        args: sandbox_args,
+    })
+}
+
 #[cfg(unix)]
 fn create_retained_session_stdin_bridge(
     command_id: &str,
 ) -> Result<(PathBuf, SessionStdinBridgeHandle)> {
+    let bridge_id = NEXT_SESSION_STDIN_BRIDGE.fetch_add(1, Ordering::Relaxed);
     let path = std::env::temp_dir().join(format!(
-        "ioi-session-stdin-{}-{}",
+        "ioi-session-stdin-{}-{}-{}",
         std::process::id(),
-        command_id.trim()
+        command_id.trim(),
+        bridge_id
     ));
     let c_path = std::ffi::CString::new(path.as_os_str().as_bytes().to_vec())
         .map_err(|_| anyhow!("Failed to encode stdin bridge path."))?;
@@ -208,6 +286,12 @@ struct RetainedCommandHandle {
     completion: Arc<Notify>,
 }
 
+#[derive(Clone, Debug)]
+struct CommandSpawnSpec {
+    executable: String,
+    args: Vec<String>,
+}
+
 #[derive(Clone)]
 pub struct TerminalDriver {
     sessions: Arc<Mutex<HashMap<String, Arc<ShellSession>>>>,
@@ -258,8 +342,9 @@ impl TerminalDriver {
         options: CommandExecutionOptions,
     ) -> Result<String> {
         assert_raw_driver_allowed("terminal", "execute")?;
-        let mut cmd = Command::new(command);
-        cmd.args(args);
+        let spawn = command_spawn_spec(command, args, cwd, detach)?;
+        let mut cmd = Command::new(&spawn.executable);
+        cmd.args(&spawn.args);
         if let Some(dir) = cwd {
             cmd.current_dir(dir);
         }
@@ -409,10 +494,7 @@ impl TerminalDriver {
         if status.success() {
             Ok(combine_success_output(&stdout_text, &stderr_text))
         } else {
-            Ok(format!(
-                "Command failed: {}\nStderr: {}",
-                status, stderr_text
-            ))
+            Ok(combine_failure_output(status, &stdout_text, &stderr_text))
         }
     }
 
@@ -456,8 +538,9 @@ impl TerminalDriver {
         let state = Arc::new(StdMutex::new(state));
         let completion = Arc::new(Notify::new());
 
-        let mut cmd = Command::new(command);
-        cmd.args(args);
+        let spawn = command_spawn_spec(command, args, cwd, detach)?;
+        let mut cmd = Command::new(&spawn.executable);
+        cmd.args(&spawn.args);
         if let Some(dir) = cwd {
             cmd.current_dir(dir);
         }
@@ -502,6 +585,7 @@ impl TerminalDriver {
             .insert(retained_command_id.clone(), handle);
 
         let observer = build_retained_observer(state.clone(), options.stream_observer.clone());
+
         let command_label = command.to_string();
         tokio::spawn(async move {
             run_retained_process(
@@ -608,6 +692,9 @@ impl TerminalDriver {
             .await
             .insert(retained_command_id.clone(), handle);
 
+        let observer = build_retained_observer(state.clone(), options.stream_observer.clone());
+        options.stream_observer = observer;
+
         let command_label = command.to_string();
         let args_owned = args.to_vec();
         let cwd_owned = cwd.map(|path| path.to_path_buf());
@@ -683,7 +770,13 @@ impl TerminalDriver {
             }
         }
 
-        self.retained_command_status(command_id).await
+        wait_for_retained_snapshot_progress(
+            &handle.state,
+            RETAINED_INPUT_SETTLE_TIMEOUT,
+            RETAINED_INPUT_SETTLE_POLL,
+            RETAINED_INPUT_SETTLE_QUIET,
+        )
+        .await
     }
 
     pub async fn retained_command_terminate(
@@ -851,6 +944,40 @@ fn snapshot_from_state(
         .lock()
         .map(|guard| guard.snapshot.clone())
         .map_err(|_| anyhow!("Retained command state mutex poisoned"))
+}
+
+async fn wait_for_retained_snapshot_progress(
+    state: &Arc<StdMutex<RetainedCommandState>>,
+    timeout: std::time::Duration,
+    poll: std::time::Duration,
+    quiet_after_progress: std::time::Duration,
+) -> Result<RetainedCommandSnapshot> {
+    let initial = snapshot_from_state(state)?;
+    let mut last_tail_len = initial.output_tail.len();
+    if !initial.running || timeout.is_zero() {
+        return Ok(initial);
+    }
+
+    let started = std::time::Instant::now();
+    let mut progressed_at: Option<std::time::Instant> = None;
+    loop {
+        tokio::time::sleep(poll).await;
+        let snapshot = snapshot_from_state(state)?;
+        if !snapshot.running {
+            return Ok(snapshot);
+        }
+        if snapshot.output_tail.len() != last_tail_len {
+            last_tail_len = snapshot.output_tail.len();
+            progressed_at = Some(std::time::Instant::now());
+            continue;
+        }
+        if progressed_at.is_some_and(|instant| instant.elapsed() >= quiet_after_progress) {
+            return Ok(snapshot);
+        }
+        if started.elapsed() >= timeout {
+            return Ok(snapshot);
+        }
+    }
 }
 
 fn build_retained_observer(
@@ -1036,7 +1163,7 @@ async fn run_retained_process(
     let output = if status.success() {
         combine_success_output(&stdout_text, &stderr_text)
     } else {
-        format!("Command failed: {}\nStderr: {}", status, stderr_text)
+        combine_failure_output(status, &stdout_text, &stderr_text)
     };
     finish(Some(output), None, status.code());
 }

@@ -33,8 +33,12 @@ pub use support::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
     execution_evidence_key, execution_evidence_key_for, execution_evidence_value,
     has_execution_evidence, has_success_condition, mark_action_fingerprint_executed_at_step,
-    persist_step_evidence, persist_step_evidence_to_ledger, record_execution_evidence,
-    record_execution_evidence_for, record_execution_evidence_for_value,
-    record_execution_evidence_with_value, record_success_condition, success_condition_key,
-    RuntimeEvidence,
+    missing_runtime_action_completion_evidence, persist_step_evidence,
+    persist_step_evidence_to_ledger, record_execution_evidence, record_execution_evidence_for,
+    record_execution_evidence_for_value, record_execution_evidence_with_value,
+    record_success_condition, success_condition_key, tool_success_evidence_name, RuntimeEvidence,
+};
+pub(crate) use support::{
+    retained_shell_lifecycle_followup, retained_shell_lifecycle_tool_name,
+    retained_shell_obsolete_input_after_stop,
 };

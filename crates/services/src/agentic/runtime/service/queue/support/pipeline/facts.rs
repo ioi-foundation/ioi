@@ -477,8 +477,7 @@ fn final_model_sourced_answer_contract_ready(facts: &FinalWebCompletionFacts) ->
 
 fn final_model_market_quote_grounding_ready(facts: &FinalWebCompletionFacts) -> bool {
     !facts.market_quote_grounding_required
-        || facts.market_quote_grounding_floor_met
-        || facts.rendered_summary_semantic_floor_met
+        || (facts.market_quote_grounding_floor_met && facts.rendered_summary_semantic_floor_met)
 }
 
 fn final_model_natural_answer_contract_ready(facts: &FinalWebCompletionFacts) -> bool {

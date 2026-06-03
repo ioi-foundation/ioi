@@ -57,6 +57,7 @@ wallet.network authority receipt
 wallet.network owns:
 
 - user identity;
+- low-assurance access-point bindings and step-up challenge policy;
 - agent/app/domain authority grants;
 - root secrets;
 - API keys;
@@ -325,6 +326,55 @@ The daemon requests authority scopes and receives bounded grants, approval
 tokens, or operation-scoped secret execution. It does not become a key
 custodian.
 
+## Low-Assurance Access Points
+
+SMS, email, chat apps, webhooks, voice bridges, and other low-assurance
+messaging channels are notification and initiation rails. They are not guardian
+surfaces and they are not wallet.network authority grants by themselves.
+
+Low-assurance access points may:
+
+- notify the user about blockers, status changes, candidate outputs, or pending
+  approvals;
+- wake, pause, resume, or steer an agent inside preconfigured low-risk bounds;
+- start preapproved workflows under an existing `AutonomyLease`;
+- carry a short-lived, single-use step-up challenge pointer.
+
+They must not:
+
+- decrypt private workspace state;
+- declassify protected files, PII, strategy logic, private memory, credentials,
+  or sealed outputs;
+- receive durable keys, OAuth credentials, broker keys, or wallet secrets;
+- approve funds, trades, deploys, secret export, policy widening, private
+  workspace viewing, or other high-risk actions without step-up;
+- be treated as the cTEE guardian or authority view.
+
+The correct escalation path is:
+
+```text
+SMS or low-assurance channel receives blocker/approval notice
+  -> user opens short-lived challenge link
+  -> wallet.network, Hypervisor, enrolled guardian device, passkey,
+     enterprise IdP, local app, or CLI signer authenticates the user
+  -> exact action, risk, data, budget, recipient, and expiry are shown
+  -> wallet.network issues a scoped grant or denial receipt
+  -> daemon/agent continues using only the grant ref and receipt
+```
+
+An SMS reply such as `YES` may acknowledge or request a step-up flow, but it is
+not sufficient authority for sensitive action unless a prior wallet policy
+explicitly bound that exact low-risk command, risk ceiling, budget, expiry, and
+recipient. Even then, it must not release protected plaintext or durable
+secrets.
+
+Canonical invariant:
+
+> **Low-assurance access points can wake, steer, pause, and notify agents. They
+> cannot decrypt, declassify, or authorize high-risk actions without step-up into
+> wallet.network, Hypervisor, an enrolled guardian device, enterprise IdP, local
+> app, CLI signer, or another high-assurance authority surface.**
+
 ## Runtime Privacy Profiles
 
 wallet.network should support authority-release policy by runtime privacy
@@ -348,6 +398,26 @@ profile.
 - Candidate-Lattice Private Decoding is the default protected-agency path:
   rented nodes generate candidate lattices while wallet-controlled guardian,
   AlphaSeal, or private operators select, deny, declassify, or sign;
+- Counterfactual Lattice Execution may spend additional public token volume to
+  reduce online private-choice leakage when the wallet policy or leakage budget
+  requires it;
+- `CustodyProof` binds the custody derivation, mount graph, lattice commitments,
+  receipts, leakage budget, and state roots for verifier-facing
+  no-plaintext-custody claims;
+- model routes that send sensitive plaintext to third-party APIs are
+  provider-trust routes, not base cTEE no-plaintext-custody routes;
+- wallet policy should require an `ExecutionPrivacyPosture` disclosure when a
+  worker, service, or outcome engine may use third-party model APIs over private
+  workspace data;
+- the Cryptographic Operator Plane routes protected scoring, selection,
+  retrieval, and policy checks through FHE/MPC/garbled/ORAM/local/threshold
+  paths when public/redacted execution is insufficient;
+- the authenticated authority surface is the default second logical party for
+  private operators: browser/device session, mobile guardian, CLI signer,
+  wallet.network policy/key path, or enterprise key service;
+- managed non-colluding committees are optional escalation paths for higher
+  assurance or unattended enterprise workflows, not the ordinary user-facing
+  topology;
 - protected classes such as PII, strategy source, broker keys, live portfolio
   state, private memory, and final action logic are not released as plaintext to
   the provider-rooted node by default;
@@ -356,9 +426,11 @@ profile.
   browser/device session, local Autopilot, CLI signer, customer authority
   service, mobile approval path, or threshold committee, participates in key
   release, private-head selection, declassification, and capability exits;
-- `ModelMountReceipt`, `PrivateInferenceReceipt`, `DeclassificationReceipt`,
-  capability-exit receipts, and deterrence/detection receipts prove what was
-  mounted, computed, revealed, denied, signed, watermarked, or canary-checked.
+- `ModelMountReceipt`, `PrivateInferenceReceipt`,
+  `CounterfactualLatticeReceipt`, `PrivateOperatorReceipt`,
+  `DeclassificationReceipt`, capability-exit receipts, and
+  deterrence/detection receipts prove what was mounted, computed, privately
+  operated, revealed, denied, signed, watermarked, or canary-checked.
 
 ### Enterprise Secure Profile
 

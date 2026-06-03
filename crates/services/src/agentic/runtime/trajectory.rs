@@ -361,7 +361,7 @@ fn tool_events_for_state(state: &AgentState) -> Vec<TrajectoryToolEvent> {
     tool_events
 }
 
-pub(crate) fn workspace_change_records_for_state(state: &AgentState) -> Vec<WorkspaceChangeRecord> {
+pub fn workspace_change_records_for_state(state: &AgentState) -> Vec<WorkspaceChangeRecord> {
     workspace_changes_for_state(state)
 }
 

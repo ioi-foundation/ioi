@@ -33,6 +33,7 @@ fn runtime_target_for_tool(tool: &AgentTool) -> RuntimeTarget {
         | AgentTool::FsCopy { .. }
         | AgentTool::FsDelete { .. }
         | AgentTool::WorkspaceChangeStatus { .. }
+        | AgentTool::WorkspaceChangeAccept { .. }
         | AgentTool::WorkspaceChangeReject { .. }
         | AgentTool::WorkspaceChangeRollback { .. } => RuntimeTarget::Filesystem,
         AgentTool::SysExec { .. }

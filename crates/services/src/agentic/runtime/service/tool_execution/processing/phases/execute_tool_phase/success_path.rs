@@ -1,5 +1,9 @@
+use super::command_failure_reply::governed_shell_failure_terminal_reply;
 use super::events::{
     emit_execution_contract_receipt_event, emit_execution_contract_receipt_event_with_observation,
+};
+use super::file_policy_observation::{
+    governed_file_policy_failure_observation, record_policy_blocked_workspace_read_observation,
 };
 use super::tool_outcome::{apply_tool_outcome_and_followups, ToolOutcomeContext};
 use super::*;
@@ -7,6 +11,7 @@ use crate::agentic::runtime::service::decision_loop::cognition::build_browser_sn
 use crate::agentic::runtime::service::lifecycle::{
     browser_subagent_request_from_dynamic, run_browser_subagent,
 };
+use crate::agentic::runtime::service::tool_execution::tool_success_evidence_name;
 use serde_json::json;
 
 mod chat_context;
@@ -67,10 +72,12 @@ fn should_treat_command_failure_as_tool_observation(
     tool: &AgentTool,
     success: bool,
     history_entry: &Option<String>,
+    governed_shell_failure_terminal_reply_ready: bool,
 ) -> bool {
     command_scope
         && is_command_execution_provider_tool(tool)
         && !success
+        && !governed_shell_failure_terminal_reply_ready
         && command_history::extract_command_history(history_entry).is_some()
 }
 
@@ -118,15 +125,57 @@ pub(super) async fn handle_execution_success(
             hex::encode(visual_hash)
         ));
     }
+    let governed_shell_failure_terminal_reply_ready =
+        if command_scope && is_command_execution_provider_tool(tool) && !*success {
+            let failure_text = error_msg.as_deref().or_else(|| history_entry.as_deref());
+            if let Some(reply) = failure_text
+                .and_then(|failure| governed_shell_failure_terminal_reply(tool, failure))
+            {
+                *action_output = Some(reply.clone());
+                *terminal_chat_reply_output = Some(reply);
+                verification_checks
+                    .push("governed_shell_failure_terminal_reply_ready=true".to_string());
+                verification_checks.push("terminal_chat_reply_ready=true".to_string());
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
     if should_treat_command_failure_as_tool_observation(
         command_scope,
         tool,
         *success,
         history_entry,
+        governed_shell_failure_terminal_reply_ready,
     ) {
         verification_checks.push("command_failure_observed_as_tool_result=true".to_string());
         *success = true;
         *error_msg = None;
+    }
+    if !*success {
+        let failure_text = error_msg
+            .as_deref()
+            .or_else(|| history_entry.as_deref())
+            .map(str::to_string);
+        if let Some(failure_text) = failure_text {
+            record_policy_blocked_workspace_read_observation(
+                agent_state,
+                tool,
+                step_index,
+                &failure_text,
+            );
+            if let Some(observation) = governed_file_policy_failure_observation(tool, &failure_text)
+            {
+                *history_entry = Some(observation.clone());
+                *action_output = Some(observation.clone());
+                *terminal_chat_reply_output = Some(observation);
+                verification_checks
+                    .push("governed_file_policy_failure_terminal_reply_ready=true".to_string());
+                verification_checks.push("terminal_chat_reply_ready=true".to_string());
+            }
+        }
     }
     if command_scope && is_command_execution_provider_tool(tool) && !*success {
         let cause = error_msg
@@ -154,6 +203,15 @@ pub(super) async fn handle_execution_success(
             None,
             synthesized_payload_hash.clone(),
         );
+    }
+    if *success && !current_tool_name.trim().is_empty() {
+        let tool_evidence_name = tool_success_evidence_name(current_tool_name);
+        record_execution_evidence_with_value(
+            &mut agent_state.tool_execution_log,
+            &tool_evidence_name,
+            format!("step={};tool={}", step_index, current_tool_name),
+        );
+        verification_checks.push(execution_evidence_key(&tool_evidence_name));
     }
 
     // Orchestration meta-tools require access to chain state; execute them

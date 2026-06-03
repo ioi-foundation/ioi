@@ -93,6 +93,239 @@ pub fn canonical_tool_identity(tool: &AgentTool) -> (String, serde_json::Value) 
     (tool_name, args)
 }
 
+pub(crate) fn latest_retained_shell_command_id(text: &str) -> Option<String> {
+    let value = serde_json::from_str::<serde_json::Value>(text).ok();
+    if let Some(command_id) = value
+        .as_ref()
+        .and_then(|value| value.get("command_id").or_else(|| value.get("commandId")))
+        .and_then(|value| value.as_str())
+        .filter(|value| !value.trim().is_empty())
+    {
+        return Some(command_id.trim().to_string());
+    }
+
+    let re = regex::Regex::new(r#"(?i)\\?"command_?id\\?"\s*:\s*\\?"([^"\\\s]+)\\?""#).ok()?;
+    re.captures_iter(text)
+        .filter_map(|captures| {
+            captures
+                .get(1)
+                .map(|value| value.as_str().trim().to_string())
+        })
+        .filter(|value| !value.is_empty())
+        .last()
+}
+
+pub(crate) fn retained_shell_lifecycle_followup(
+    goal: &str,
+    current_tool_name: &str,
+    executed_tool: Option<&AgentTool>,
+    output: Option<&str>,
+) -> Option<AgentTool> {
+    if !is_retained_shell_lifecycle_goal(goal) {
+        return None;
+    }
+
+    match current_tool_name {
+        "shell__start" => {
+            let command_id = latest_retained_shell_command_id(output?)?;
+            if retained_shell_goal_requests_status(goal) {
+                return Some(AgentTool::SysExecStatus { command_id });
+            }
+            if let Some(stdin) = retained_shell_stdin_payload(goal) {
+                return Some(AgentTool::SysExecInput { command_id, stdin });
+            }
+            if retained_shell_goal_requests_terminate(goal)
+                || retained_shell_goal_requests_reset(goal)
+            {
+                return Some(AgentTool::SysExecTerminate { command_id });
+            }
+            None
+        }
+        "shell__status" => {
+            let command_id = command_id_from_executed_tool(executed_tool)?;
+            if retained_shell_output_indicates_cleanup_ready(output)
+                && retained_shell_goal_requests_terminate(goal)
+            {
+                return Some(AgentTool::SysExecTerminate { command_id });
+            }
+            if retained_shell_output_indicates_cleanup_ready(output)
+                && retained_shell_goal_requests_reset(goal)
+            {
+                return Some(AgentTool::SysExecSessionReset {});
+            }
+            if let Some(stdin) = retained_shell_stdin_payload(goal) {
+                return Some(AgentTool::SysExecInput { command_id, stdin });
+            }
+            retained_shell_goal_requests_reset(goal)
+                .then_some(AgentTool::SysExecTerminate { command_id })
+        }
+        "shell__input" => {
+            let command_id = command_id_from_executed_tool(executed_tool)?;
+            if retained_shell_goal_requests_terminate(goal) {
+                return Some(AgentTool::SysExecTerminate { command_id });
+            }
+            if retained_shell_output_indicates_cleanup_ready(output)
+                && retained_shell_goal_requests_reset(goal)
+            {
+                return Some(AgentTool::SysExecSessionReset {});
+            }
+            retained_shell_goal_requests_reset(goal)
+                .then_some(AgentTool::SysExecTerminate { command_id })
+        }
+        "shell__terminate" => {
+            retained_shell_goal_requests_reset(goal).then_some(AgentTool::SysExecSessionReset {})
+        }
+        "shell__reset" => {
+            retained_shell_goal_requests_clean_reply(goal).then(|| AgentTool::ChatReply {
+                message: retained_shell_completion_reply(goal),
+            })
+        }
+        _ => None,
+    }
+}
+
+pub(crate) fn retained_shell_obsolete_input_after_stop(goal: &str, error: Option<&str>) -> bool {
+    if !is_retained_shell_lifecycle_goal(goal)
+        || !(retained_shell_goal_requests_terminate(goal)
+            || retained_shell_goal_requests_reset(goal))
+    {
+        return false;
+    }
+    let lower = error.unwrap_or_default().to_ascii_lowercase();
+    [
+        "is no longer running",
+        "no longer running",
+        "no longer accepts stdin",
+        "stdin is no longer available",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle))
+}
+
+pub(crate) fn retained_shell_lifecycle_tool_name(tool: &AgentTool) -> Option<&'static str> {
+    match tool {
+        AgentTool::SysExecStatus { .. } => Some("shell__status"),
+        AgentTool::SysExecInput { .. } => Some("shell__input"),
+        AgentTool::SysExecTerminate { .. } => Some("shell__terminate"),
+        AgentTool::SysExecSessionReset {} => Some("shell__reset"),
+        _ => None,
+    }
+}
+
+fn is_retained_shell_lifecycle_goal(goal: &str) -> bool {
+    let lower = goal.to_ascii_lowercase();
+    let retained_shell_context = [
+        "retained",
+        "persistent",
+        "background",
+        "long-running",
+        "helper",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle))
+        && ["shell", "command", "stdin", "helper", "process"]
+            .iter()
+            .any(|needle| lower.contains(needle));
+    let lifecycle_actions = ["status", "input", "stdin", "terminate", "reset", "stop"]
+        .iter()
+        .filter(|needle| lower.contains(**needle))
+        .count();
+    retained_shell_context && lifecycle_actions >= 2
+}
+
+fn retained_shell_goal_requests_status(goal: &str) -> bool {
+    let lower = goal.to_ascii_lowercase();
+    lower.contains("status") || lower.contains("check the helper") || lower.contains("check helper")
+}
+
+fn retained_shell_goal_requests_terminate(goal: &str) -> bool {
+    let lower = goal.to_ascii_lowercase();
+    lower.contains("terminate")
+        || lower.contains("stop the helper")
+        || lower.contains("stop helper")
+        || lower.contains("kill the helper")
+}
+
+fn retained_shell_goal_requests_reset(goal: &str) -> bool {
+    let lower = goal.to_ascii_lowercase();
+    lower.contains("reset")
+        || lower.contains("clear retained")
+        || lower.contains("clear shell state")
+        || lower.contains("clean up")
+}
+
+fn retained_shell_goal_requests_clean_reply(goal: &str) -> bool {
+    let lower = goal.to_ascii_lowercase();
+    lower.contains("answer")
+        || lower.contains("reply")
+        || lower.contains("clean sentence")
+        || lower.contains("summarize")
+        || lower.contains("tell me")
+}
+
+fn command_id_from_executed_tool(tool: Option<&AgentTool>) -> Option<String> {
+    match tool? {
+        AgentTool::SysExecStatus { command_id }
+        | AgentTool::SysExecInput { command_id, .. }
+        | AgentTool::SysExecTerminate { command_id } => Some(command_id.clone()),
+        _ => None,
+    }
+}
+
+fn retained_shell_output_indicates_cleanup_ready(output: Option<&str>) -> bool {
+    let lower = output.unwrap_or_default().to_ascii_lowercase();
+    [
+        "\"status\":\"completed\"",
+        "\"status\": \"completed\"",
+        "status: completed",
+        "retained command terminated",
+        "retained shell state reset",
+        "already sent",
+        "duplicate input",
+        "already stopped",
+        "already terminated",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle))
+}
+
+fn retained_shell_stdin_payload(goal: &str) -> Option<String> {
+    let backtick_value = goal
+        .split('`')
+        .nth(1)
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let quoted_value = || {
+        regex::Regex::new(r#"(?i)(?:send|input|stdin)[^"']*["']([^"']+)["']"#)
+            .ok()
+            .and_then(|re| {
+                re.captures(goal)
+                    .and_then(|captures| captures.get(1))
+                    .map(|m| m.as_str().trim().to_string())
+            })
+            .filter(|value| !value.is_empty())
+    };
+    let value = backtick_value.map(str::to_string).or_else(quoted_value)?;
+    Some(if value.ends_with('\n') {
+        value
+    } else {
+        format!("{value}\n")
+    })
+}
+
+fn retained_shell_completion_reply(goal: &str) -> String {
+    if let Some(stdin) = retained_shell_stdin_payload(goal) {
+        let trimmed = stdin.trim();
+        if !trimmed.is_empty() {
+            return format!(
+                "Retained shell helper checked, received `{}`, terminated, and reset.",
+                trimmed
+            );
+        }
+    }
+    "Retained shell helper checked, input sent, terminated, and reset.".to_string()
+}
+
 pub fn canonical_intent_hash(
     tool_name: &str,
     args: &serde_json::Value,
@@ -233,6 +466,10 @@ pub fn success_condition_key(name: &str) -> String {
     format!("{}{}=true", SUCCESS_CONDITION_PREFIX, name)
 }
 
+pub fn tool_success_evidence_name(tool_name: &str) -> String {
+    format!("tool::{}::executed", tool_name)
+}
+
 pub fn record_execution_evidence(
     tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
     name: &str,
@@ -284,6 +521,30 @@ pub fn has_execution_evidence(
         tool_execution_log.get(&execution_evidence_key(name)),
         Some(ToolCallStatus::Executed(_))
     )
+}
+
+pub fn missing_runtime_action_completion_evidence(agent_state: &AgentState) -> Vec<String> {
+    let mut missing = Vec::new();
+    if goal_requests_browser_coordinate_click(&agent_state.goal) {
+        let evidence_name = tool_success_evidence_name("browser__click_at");
+        if !has_execution_evidence(&agent_state.tool_execution_log, &evidence_name) {
+            missing.push(evidence_name);
+        }
+    }
+    missing
+}
+
+fn goal_requests_browser_coordinate_click(goal: &str) -> bool {
+    let normalized = goal.to_ascii_lowercase();
+    let browser_context =
+        normalized.contains("browser") || normalized.contains("local browser fixture");
+    let click_request = normalized.contains("click");
+    let grounded_coordinate_request = normalized.contains("coordinate")
+        || normalized.contains("click_at")
+        || normalized.contains("canvas")
+        || normalized.contains("target action")
+        || normalized.contains("target");
+    browser_context && click_request && grounded_coordinate_request
 }
 
 pub fn execution_evidence_value<'a>(

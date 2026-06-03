@@ -5,10 +5,11 @@ import path from "node:path";
 
 const outputPath = process.argv[2];
 if (!outputPath) {
-  throw new Error("usage: workflow-crash-recovery-report-card-proof.mjs <output-path>");
+  throw new Error("usage: workflow-crash-recovery-report-card-proof.mjs <output-path> [source-proof-path]");
 }
 
 const sourceProofPath =
+  process.argv[3] ||
   "docs/evidence/autopilot-agent-studio-gui-chat-ux-compositor-harness-parity-plus/2026-05-25T06-06-18-786Z-stage12-crash-restart-resume/workflow-crash-restart-timeline-resume-proof.json";
 
 const { buildWorkflowCrashRecoveryReportCard } = await import(

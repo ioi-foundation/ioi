@@ -86,6 +86,43 @@ pub(crate) fn sanitize_direct_chat_reply_output(raw_output: &str) -> String {
 pub(crate) fn sanitize_product_handoff_internal_markers(raw_output: &str) -> String {
     let mut text = raw_output.to_string();
 
+    text = remove_json_string_field(&text, "command_id");
+    text = remove_json_string_field(&text, "commandId");
+    text = redact_internal_runtime_tokens(&text);
+    text = text.replace(
+        "The tool returned an \"Invalid transaction\" error with the specific policy reason: ",
+        "The policy reason was: ",
+    );
+    text = text.replace(
+        "The tool returned an 'Invalid transaction' error with the specific policy reason: ",
+        "The policy reason was: ",
+    );
+    text = text.replace("\"Invalid transaction\" error", "policy block");
+    text = text.replace("'Invalid transaction' error", "policy block");
+    text = text.replace("an policy block", "a policy block");
+    text = text.replace("An policy block", "A policy block");
+    text = text.replace("Invalid transaction: ", "");
+    text = text.replace("Blocked by Policy:", "Blocked by policy:");
+    text = redact_error_class_markers(&text);
+    text = redact_internal_tool_names(&text);
+    text = redact_disposable_absolute_paths(&text);
+    text = text.replace(
+        "The governed file tool returned the following error: Blocked by policy:",
+        "The policy reason was:",
+    );
+    text = text.replace(
+        "The governed file write returned the following error: Blocked by policy:",
+        "The policy reason was:",
+    );
+    text = text.replace(
+        "The governed file tool returned an error: Blocked by policy:",
+        "The policy reason was:",
+    );
+    text = text.replace(
+        "The governed file write returned an error: Blocked by policy:",
+        "The policy reason was:",
+    );
+
     for marker in [
         "(Tool Catalogue Fixture)",
         "Tool Catalogue Fixture",
@@ -156,6 +193,85 @@ fn replace_local_disposable_urls(input: &str) -> String {
     }
     out.push_str(&input[index..]);
     out
+}
+
+fn redact_error_class_markers(input: &str) -> String {
+    input
+        .lines()
+        .map(|line| {
+            line.split_whitespace()
+                .map(|token| {
+                    if token.to_ascii_lowercase().starts_with("error_class=") {
+                        "policy block"
+                    } else {
+                        token
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        .trim_end()
+        .to_string()
+}
+
+fn redact_internal_tool_names(input: &str) -> String {
+    let mut text = input.to_string();
+    for (raw, replacement) in [
+        ("`file__write`", "the governed file write"),
+        ("file__write", "the governed file write"),
+        ("`file__read`", "the governed file read"),
+        ("file__read", "the governed file read"),
+        ("`shell__run`", "the governed command runner"),
+        ("shell__run", "the governed command runner"),
+        ("`chat__reply`", "the final reply"),
+        ("chat__reply", "the final reply"),
+    ] {
+        text = text.replace(raw, replacement);
+    }
+    text
+}
+
+fn redact_disposable_absolute_paths(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut index = 0usize;
+    while index < input.len() {
+        let Some((start, marker)) = disposable_path_match(input, index) else {
+            break;
+        };
+        out.push_str(&input[index..start]);
+        out.push_str("the requested workspace path");
+        let mut end = start + marker.len();
+        while end < input.len() {
+            let Some(ch) = input[end..].chars().next() else {
+                break;
+            };
+            if ch.is_whitespace() || matches!(ch, ')' | ']' | '}' | '"' | '\'' | '<' | '`') {
+                break;
+            }
+            end += ch.len_utf8();
+        }
+        index = end;
+    }
+    out.push_str(&input[index..]);
+    out
+}
+
+fn disposable_path_match(input: &str, index: usize) -> Option<(usize, &'static str)> {
+    [
+        "/tmp/autopilot-agent-studio-",
+        "/tmp/autopilot-",
+        "/tmp/ioi-",
+        ".tmp/autopilot-",
+    ]
+    .into_iter()
+    .filter_map(|marker| {
+        input[index..]
+            .find(marker)
+            .map(|offset| (index + offset, marker))
+    })
+    .min_by_key(|(start, _)| *start)
 }
 
 fn unwrap_direct_chat_reply_json(text: &str) -> Option<String> {
@@ -484,6 +600,10 @@ pub(crate) fn final_reply_product_handoff_reason(
         return None;
     }
 
+    if final_reply_contains_internal_runtime_reference(trimmed) {
+        return Some("internal_runtime_reference");
+    }
+
     if final_reply_contains_product_forbidden_marker(trimmed) {
         return Some("product_forbidden_marker");
     }
@@ -492,12 +612,22 @@ pub(crate) fn final_reply_product_handoff_reason(
         return None;
     }
 
+    if final_reply_goal_forbids_raw_coordinates(goal)
+        && final_reply_contains_raw_coordinate_pair(trimmed)
+    {
+        return Some("raw_coordinate_pair");
+    }
+
     if lower.contains("tool output (")
         || lower.contains("tool output:")
         || lower.contains("raw_output")
         || (lower.starts_with('{') && lower.contains("\"name\"") && lower.contains("\"arguments\""))
     {
         return Some("raw_tool_payload");
+    }
+
+    if final_reply_contains_goal_derived_command_output_token(trimmed, goal) {
+        return Some("raw_command_output_token");
     }
 
     if lower.contains("tap version")
@@ -516,6 +646,218 @@ pub(crate) fn final_reply_product_handoff_reason(
     }
 
     None
+}
+
+fn final_reply_contains_goal_derived_command_output_token(message: &str, goal: &str) -> bool {
+    let prefixes = goal_command_output_token_prefixes(goal);
+    if prefixes.is_empty() {
+        return false;
+    }
+
+    message
+        .split(|ch: char| !is_command_output_token_char(ch))
+        .any(|token| {
+            prefixes.iter().any(|prefix| {
+                token.strip_prefix(prefix).is_some_and(|suffix| {
+                    !suffix.is_empty() && suffix.chars().all(|ch| ch.is_ascii_digit())
+                })
+            })
+        })
+}
+
+fn goal_command_output_token_prefixes(goal: &str) -> Vec<String> {
+    let mut prefixes = Vec::new();
+    for token in goal.split(|ch: char| !is_command_output_token_char(ch)) {
+        let token = token.trim();
+        if token.len() < 3
+            || token.len() > 80
+            || !(token.ends_with('-') || token.ends_with('_'))
+            || !token.chars().any(|ch| ch.is_ascii_alphabetic())
+        {
+            continue;
+        }
+        if !prefixes.iter().any(|prefix| prefix == token) {
+            prefixes.push(token.to_string());
+        }
+    }
+    prefixes
+}
+
+fn is_command_output_token_char(ch: char) -> bool {
+    ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.')
+}
+
+fn final_reply_contains_internal_runtime_reference(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    if lower.contains("\"command_id\"")
+        || lower.contains("\"commandid\"")
+        || lower.contains("command_id:")
+        || lower.contains("commandid:")
+        || lower.contains("receipt://")
+        || lower.contains("trace://")
+        || lower.contains("workspace_change:")
+    {
+        return true;
+    }
+    contains_internal_runtime_token(message)
+}
+
+fn contains_internal_runtime_token(input: &str) -> bool {
+    let mut token = String::new();
+    for ch in input.chars().chain(std::iter::once(' ')) {
+        if is_runtime_token_char(ch) {
+            token.push(ch);
+            continue;
+        }
+        if internal_runtime_token(&token) {
+            return true;
+        }
+        token.clear();
+    }
+    false
+}
+
+fn redact_internal_runtime_tokens(input: &str) -> String {
+    let mut output = String::with_capacity(input.len());
+    let mut token = String::new();
+    for ch in input.chars().chain(std::iter::once(' ')) {
+        if is_runtime_token_char(ch) {
+            token.push(ch);
+            continue;
+        }
+        if !token.is_empty() {
+            if internal_runtime_token(&token) {
+                output.push_str("Tracing");
+            } else {
+                output.push_str(&token);
+            }
+            token.clear();
+        }
+        if ch != ' ' || input.ends_with(' ') {
+            output.push(ch);
+        } else {
+            output.push(ch);
+        }
+    }
+    output.trim_end().to_string()
+}
+
+fn internal_runtime_token(token: &str) -> bool {
+    let lower = token.to_ascii_lowercase();
+    lower.starts_with("shell__start:")
+        || lower.starts_with("receipt://")
+        || lower.starts_with("trace://")
+        || lower.starts_with("workspace_change:")
+        || internal_runtime_prefixed_id(&lower, "receipt_")
+        || internal_runtime_prefixed_id(&lower, "trace_")
+        || internal_runtime_prefixed_id(&lower, "request_")
+        || internal_runtime_prefixed_id(&lower, "turn_")
+        || internal_runtime_prefixed_id(&lower, "thread_")
+}
+
+fn internal_runtime_prefixed_id(token: &str, prefix: &str) -> bool {
+    token.starts_with(prefix) && token.len() >= prefix.len() + 8
+}
+
+fn is_runtime_token_char(ch: char) -> bool {
+    ch.is_ascii_alphanumeric() || matches!(ch, '_' | ':' | '-' | '/')
+}
+
+fn remove_json_string_field(input: &str, field: &str) -> String {
+    let needle = format!("\"{field}\"");
+    let mut text = input.to_string();
+    while let Some(start) = text.find(&needle) {
+        let Some(colon_offset) = text[start + needle.len()..].find(':') else {
+            break;
+        };
+        let value_start = start + needle.len() + colon_offset + 1;
+        let mut cursor = value_start;
+        while cursor < text.len() && text.as_bytes()[cursor].is_ascii_whitespace() {
+            cursor += 1;
+        }
+        if cursor >= text.len() || text.as_bytes()[cursor] != b'"' {
+            break;
+        }
+        cursor += 1;
+        let mut escaped = false;
+        while cursor < text.len() {
+            let byte = text.as_bytes()[cursor];
+            if escaped {
+                escaped = false;
+            } else if byte == b'\\' {
+                escaped = true;
+            } else if byte == b'"' {
+                cursor += 1;
+                break;
+            }
+            cursor += 1;
+        }
+        while cursor < text.len() && text.as_bytes()[cursor].is_ascii_whitespace() {
+            cursor += 1;
+        }
+        let mut remove_start = start;
+        let mut remove_end = cursor;
+        if cursor < text.len() && text.as_bytes()[cursor] == b',' {
+            remove_end = cursor + 1;
+        } else if start > 0 {
+            let before = text[..start].trim_end();
+            if before.ends_with(',') {
+                remove_start = before.len() - 1;
+            }
+        }
+        text.replace_range(remove_start..remove_end, "");
+    }
+    text
+}
+
+fn final_reply_goal_forbids_raw_coordinates(goal: &str) -> bool {
+    let lower = goal.to_ascii_lowercase();
+    lower.contains("coordinates")
+        && (lower.contains("keep raw")
+            || lower.contains("keep")
+            || lower.contains("out of")
+            || lower.contains("do not")
+            || lower.contains("don't"))
+}
+
+fn final_reply_contains_raw_coordinate_pair(message: &str) -> bool {
+    for segment in message.split('(').skip(1) {
+        let Some(candidate) = segment.split(')').next() else {
+            continue;
+        };
+        let mut parts = candidate.split(',').map(str::trim);
+        let first = parts.next().unwrap_or_default();
+        let second = parts.next().unwrap_or_default();
+        if parts.next().is_none()
+            && final_reply_coordinate_number(first)
+            && final_reply_coordinate_number(second)
+        {
+            return true;
+        }
+    }
+    false
+}
+
+fn final_reply_coordinate_number(value: &str) -> bool {
+    let value = value.trim();
+    if value.is_empty() || value.len() > 12 {
+        return false;
+    }
+    let mut digit_count = 0usize;
+    let mut dot_count = 0usize;
+    for ch in value.chars() {
+        if ch.is_ascii_digit() {
+            digit_count += 1;
+        } else if ch == '.' {
+            dot_count += 1;
+            if dot_count > 1 {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+    digit_count > 0
 }
 
 fn final_reply_contains_product_forbidden_marker(message: &str) -> bool {
@@ -730,7 +1072,7 @@ pub(super) fn final_reply_repair_messages(
     json!([
         {
             "role": "system",
-            "content": "FINAL RESPONSE REPAIR MODE:\nWrite a fresh user-facing answer from the gathered evidence only. Do not call tools. Do not output JSON. Do not expose hidden chain-of-thought, trace ids, receipt ids, raw payloads, raw stdout/stderr, raw test logs, fixture/probe identifiers, or daemon scaffolding.\nFor command, test, and workspace-change tasks, summarize what changed or was inspected and whether verification passed; keep full logs in tracing unless the user explicitly requested raw logs. If you cite the final contents of a changed file or a short command-created source snippet, put it in a fenced code block with a language tag instead of appending it inline to a sentence. When gathered evidence contains repeated observations of the same file or state, use the latest/highest-numbered observation as authoritative for the current state.\nPreserve source anchors and observed measurements that matter. If current market quote observations are present for multiple assets, include the observed price, market cap, 24h trading volume, and 24h price change for each asset. Do not say those fields are missing when they are present in the gathered evidence.\nFor investment comparisons, synthesize a cautious comparison from the observed metrics and the gathered use-case/risk context. Treat per-token price only as a quote, not as an investment advantage by itself. If the evidence is incomplete, say exactly which non-observed dimensions remain uncertain. Do not copy internal evidence labels, fixture labels, probe markers, or scenario identifiers into the final answer."
+            "content": "FINAL RESPONSE REPAIR MODE:\nWrite a fresh user-facing answer from the gathered evidence only. Do not call tools. Do not output JSON. Do not expose hidden chain-of-thought, trace ids, receipt ids, raw payloads, raw stdout/stderr, raw test logs, raw coordinates, fixture/probe identifiers, or daemon scaffolding.\nFor command, test, and workspace-change tasks, summarize what changed or was inspected and whether verification passed; keep full logs in tracing unless the user explicitly requested raw logs. If you cite the final contents of a changed file or a short command-created source snippet, put it in a fenced code block with a language tag instead of appending it inline to a sentence. When gathered evidence contains repeated observations of the same file or state, use the latest/highest-numbered observation as authoritative for the current state.\nPreserve source anchors and observed measurements that matter. If current market quote observations are present for multiple assets, include the observed price, market cap, 24h trading volume, and 24h price change for each asset. Do not say those fields are missing when they are present in the gathered evidence.\nFor investment comparisons, synthesize a cautious comparison from the observed metrics and the gathered use-case/risk context. Treat per-token price only as a quote, not as an investment advantage by itself. If the evidence is incomplete, say exactly which non-observed dimensions remain uncertain. Do not copy internal evidence labels, fixture labels, probe markers, or scenario identifiers into the final answer."
         },
         {
             "role": "user",

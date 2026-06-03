@@ -18,6 +18,7 @@ fn workload_activity_and_receipt_map_to_chain_event_payloads() {
         session_id: [7u8; 32],
         step_index: 42,
         workload_id: "wid".to_string(),
+        display_label: None,
         timestamp_ms: 123,
         kind: WorkloadActivityKind::Lifecycle {
             phase: "started".to_string(),

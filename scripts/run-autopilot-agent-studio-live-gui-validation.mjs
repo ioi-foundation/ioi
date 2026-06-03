@@ -293,6 +293,29 @@ function setupUserWorkspaceFixture(outputDir, scenario) {
     "});",
     "",
   ].join("\n"));
+  let ignoredFilePath = "";
+  let ignoredRelativePath = "";
+  let siblingWritePath = "";
+  let siblingRoot = "";
+  if (scenario.userWorkspaceIgnoredFileProbe) {
+    const probe = scenario.userWorkspaceIgnoredFileProbe;
+    const ignoredDirectory = String(probe.directory || "private").replace(/[^A-Za-z0-9_.-]+/g, "-");
+    const ignoredDir = join(fixtureRoot, ignoredDirectory);
+    const ignoredFileName = String(probe.fileName || "token.txt").replace(/[^A-Za-z0-9_.-]+/g, "-");
+    ensureDir(ignoredDir);
+    ignoredRelativePath = `${ignoredDirectory}/${ignoredFileName}`;
+    ignoredFilePath = join(ignoredDir, ignoredFileName);
+    writeFileSync(join(fixtureRoot, ".gitignore"), `${ignoredDirectory}/\n`);
+    writeFileSync(ignoredFilePath, String(probe.content || "ignored-workspace-canary-should-not-leak"));
+  }
+  if (scenario.userWorkspaceSiblingWriteProbe) {
+    const probe = scenario.userWorkspaceSiblingWriteProbe;
+    siblingRoot = `${fixtureRoot}-sibling`;
+    ensureDir(siblingRoot);
+    const fileName = String(probe.fileName || "outside-write.txt").replace(/[^A-Za-z0-9_.-]+/g, "-");
+    siblingWritePath = join(siblingRoot, fileName);
+    rmSync(siblingWritePath, { recursive: true, force: true });
+  }
   const gitInit = spawnSync("git", ["init"], {
     cwd: fixtureRoot,
     encoding: "utf8",
@@ -304,6 +327,10 @@ function setupUserWorkspaceFixture(outputDir, scenario) {
     apiClientPath: join(fixtureRoot, "src", "apiClient.mjs"),
     formatPath: join(fixtureRoot, "src", "format.mjs"),
     testPath: join(fixtureRoot, "tests", "format.test.mjs"),
+    ignoredFilePath,
+    ignoredRelativePath,
+    siblingRoot,
+    siblingWritePath,
     gitInit: {
       status: gitInit.status,
       stderrTail: String(gitInit.stderr || "").slice(-1000),
@@ -313,14 +340,40 @@ function setupUserWorkspaceFixture(outputDir, scenario) {
   return setup;
 }
 
+function resetUserWorkspaceFormatFixture(outputDir, setup, reason = "prompt-case-reset") {
+  if (!setup?.formatPath) return null;
+  writeFileSync(setup.formatPath, [
+    "export function formatOrderTotal(cents) {",
+    "  return (Number(cents) / 100).toFixed(2);",
+    "}",
+    "",
+  ].join("\n"));
+  const proof = {
+    path: setup.formatPath,
+    reason,
+    timestamp: new Date().toISOString(),
+    exists: existsSync(setup.formatPath),
+  };
+  appendFileSync(
+    join(outputDir, "user-workspace-fixture-resets.jsonl"),
+    `${JSON.stringify(proof)}\n`,
+  );
+  return proof;
+}
+
 function cleanupUserWorkspaceFixture(outputDir, setup) {
   if (!setup) return;
   rmSync(setup.fixtureRoot, { recursive: true, force: true });
+  if (setup.siblingRoot) {
+    rmSync(setup.siblingRoot, { recursive: true, force: true });
+  }
   writeFileSync(
     join(outputDir, "user-workspace-fixture-cleanup.json"),
     `${JSON.stringify({
       fixtureRoot: setup.fixtureRoot,
+      siblingRoot: setup.siblingRoot || "",
       fixtureExistsAfterCleanup: existsSync(setup.fixtureRoot),
+      siblingExistsAfterCleanup: setup.siblingRoot ? existsSync(setup.siblingRoot) : false,
       timestamp: new Date().toISOString(),
     }, null, 2)}\n`,
   );
@@ -429,6 +482,21 @@ function expandScenarioPrompt(prompt, context = {}) {
     const value = context[key];
     return value === undefined || value === null ? match : String(value);
   });
+}
+
+function expandScenarioValue(value, context = {}) {
+  if (typeof value === "string") {
+    return expandScenarioPrompt(value, context);
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => expandScenarioValue(item, context));
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nested]) => [key, expandScenarioValue(nested, context)]),
+    );
+  }
+  return value;
 }
 
 function checkFile(path, label) {
@@ -596,30 +664,49 @@ async function waitForCdp(port, timeoutMs = 45_000) {
   }, timeoutMs, 500);
 }
 
-async function createDaemonModelInvocationToken(endpoint) {
+function daemonModelInvocationTokenPolicyForScenario(scenario = {}) {
+  const allowed = [
+    "model.chat:*",
+    "model.responses:*",
+    "model.embeddings:*",
+    "model.import:*",
+    "model.download:*",
+    "model.mount:*",
+    "model.load:*",
+    "model.unload:*",
+    "model.unmount:*",
+    "model.tokenize:*",
+    "model.context:*",
+    "route.write:*",
+    "route.use:*",
+    "server.logs:*",
+    "backend.control:*",
+  ];
+  const denied = new Set(["connector.*", "filesystem.write", "shell.exec"]);
+  const scenarioId = String(scenario?.id || "");
+  const promptText = String(scenario?.prompt || "");
+  const allowCommands = Array.isArray(scenario?.runtimeBridgeAllowCommands)
+    ? scenario.runtimeBridgeAllowCommands
+    : [];
+  const needsShellScope =
+    allowCommands.length > 0 ||
+    /\b(shell|command|terminal|retained|stdin|helper|process)\b/i.test(`${scenarioId} ${promptText}`);
+  if (needsShellScope) {
+    allowed.push("shell.exec");
+    denied.delete("shell.exec");
+  }
+  return { allowed, denied: [...denied] };
+}
+
+async function createDaemonModelInvocationToken(endpoint, scenario = {}) {
+  const policy = daemonModelInvocationTokenPolicyForScenario(scenario);
   const response = await fetch(`${endpoint}/api/v1/tokens`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       audience: "autopilot-agent-studio-playwright-hardening",
-      allowed: [
-        "model.chat:*",
-        "model.responses:*",
-        "model.embeddings:*",
-        "model.import:*",
-        "model.download:*",
-        "model.mount:*",
-        "model.load:*",
-        "model.unload:*",
-        "model.unmount:*",
-        "model.tokenize:*",
-        "model.context:*",
-        "route.write:*",
-        "route.use:*",
-        "server.logs:*",
-        "backend.control:*",
-      ],
-      denied: ["connector.*", "filesystem.write", "shell.exec"],
+      allowed: policy.allowed,
+      denied: policy.denied,
       source: "agent-studio-live-gui-validation",
     }),
   });
@@ -940,26 +1027,110 @@ async function screenshot(page, outputDir, file, screenshots) {
   return path;
 }
 
-async function captureManagedSessionViewportProof(page, outputDir, screenshots, { required = false } = {}) {
-  return withStudioFrame(page, async (frame) => {
-    const card = frame.locator('[data-testid="studio-managed-session-card"]').last();
-    const cardCount = await frame.locator('[data-testid="studio-managed-session-card"]').count();
-    if (cardCount === 0) {
-      if (required) {
-        throw new Error("Managed browser/computer live session card was not rendered.");
-      }
-      return null;
+async function waitForLocatorAttribute(locator, name, expected, { timeoutMs = 7000 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  let observed = null;
+  while (Date.now() < deadline) {
+    observed = await locator.getAttribute(name).catch(() => null);
+    if (observed === expected) {
+      return observed;
     }
-    await card.waitFor({ state: "visible", timeout: 7000 });
+    await wait(100);
+  }
+  throw new Error(`Expected ${name}="${expected}" but observed "${observed ?? ""}".`);
+}
+
+async function latestManagedSessionCard(frame, { required = false } = {}) {
+  const card = frame.locator('[data-testid="studio-managed-session-card"]').last();
+  const cardCount = await frame.locator('[data-testid="studio-managed-session-card"]').count();
+  if (cardCount === 0) {
+    if (required) {
+      throw new Error("Managed browser/computer live session card was not rendered.");
+    }
+    return { card: null, cardCount: 0 };
+  }
+  await card.waitFor({ state: "visible", timeout: 7000 });
+  return { card, cardCount };
+}
+
+async function ensureManagedSessionExpanded(card) {
+  const expanded = card.locator('[data-testid="studio-managed-session-expanded-view"]').first();
+  if (await expanded.isVisible().catch(() => false)) {
+    return;
+  }
+  await card.locator('[data-testid="studio-managed-session-expand"]').first().click();
+  await expanded.waitFor({ state: "visible", timeout: 7000 });
+}
+
+async function managedSessionCardAttrs(card) {
+  return {
+    sessionId: await card.getAttribute("data-session-id").catch(() => null),
+    sessionKind: await card.getAttribute("data-session-kind").catch(() => null),
+    sessionLabel: await card.getAttribute("data-session-label").catch(() => null),
+    sessionStatus: await card.getAttribute("data-session-status").catch(() => null),
+    controlState: await card.getAttribute("data-control-state").catch(() => null),
+    expanded: await card.getAttribute("data-session-expanded").catch(() => null),
+  };
+}
+
+function writeManagedSessionProofObservations(outputDir, observations) {
+  writeFileSync(
+    join(outputDir, "managed-session-proof-observations.json"),
+    JSON.stringify({ schemaVersion: "ioi.agent-studio.managed-session-proof-observations.v1", observations }, null, 2),
+  );
+}
+
+async function captureManagedSessionViewportProof(page, outputDir, screenshots, { required = false } = {}) {
+  const observations = [];
+  let observedCardCount = 0;
+  await withStudioFrame(page, async (frame) => {
+    const { card, cardCount } = await latestManagedSessionCard(frame, { required });
+    if (!card) {
+      return;
+    }
+    observedCardCount = cardCount;
+    observations.push({ stage: "compact", attrs: await managedSessionCardAttrs(card) });
+    writeManagedSessionProofObservations(outputDir, observations);
     await screenshot(page, outputDir, "managed-session-compact.png", screenshots);
     const expand = card.locator('[data-testid="studio-managed-session-expand"]').first();
     await expand.click();
     const expanded = card.locator('[data-testid="studio-managed-session-expanded-view"]').first();
     await expanded.waitFor({ state: "visible", timeout: 7000 });
+    observations.push({ stage: "expanded_observe", attrs: await managedSessionCardAttrs(card) });
+    writeManagedSessionProofObservations(outputDir, observations);
     await screenshot(page, outputDir, "managed-session-expanded-observe.png", screenshots);
+  });
+  if (observedCardCount === 0) {
+    return null;
+  }
+  await withStudioFrame(page, async (frame) => {
+    const { card } = await latestManagedSessionCard(frame, { required: true });
+    await ensureManagedSessionExpanded(card);
+    observations.push({ stage: "before_take_over_click", attrs: await managedSessionCardAttrs(card) });
+    writeManagedSessionProofObservations(outputDir, observations);
     await card.locator('[data-testid="studio-managed-session-take-over"]').first().click();
+  });
+  await withStudioFrame(page, async (frame) => {
+    const { card } = await latestManagedSessionCard(frame, { required: true });
+    await waitForLocatorAttribute(card, "data-control-state", "take_over");
+    await ensureManagedSessionExpanded(card);
+    observations.push({ stage: "take_over", attrs: await managedSessionCardAttrs(card) });
+    writeManagedSessionProofObservations(outputDir, observations);
     await screenshot(page, outputDir, "managed-session-take-over.png", screenshots);
+  });
+  await withStudioFrame(page, async (frame) => {
+    const { card } = await latestManagedSessionCard(frame, { required: true });
+    await ensureManagedSessionExpanded(card);
+    observations.push({ stage: "before_return_click", attrs: await managedSessionCardAttrs(card) });
+    writeManagedSessionProofObservations(outputDir, observations);
     await card.locator('[data-testid="studio-managed-session-return"]').first().click();
+  });
+  return withStudioFrame(page, async (frame) => {
+    const { card, cardCount } = await latestManagedSessionCard(frame, { required: true });
+    await waitForLocatorAttribute(card, "data-control-state", "return_agent");
+    await ensureManagedSessionExpanded(card);
+    observations.push({ stage: "return_agent", attrs: await managedSessionCardAttrs(card) });
+    writeManagedSessionProofObservations(outputDir, observations);
     await screenshot(page, outputDir, "managed-session-returned-to-agent.png", screenshots);
     const labels = await card
       .locator('[data-testid="studio-managed-session-mode-label"]')
@@ -1691,7 +1862,7 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
   }
   const daemon = await startRuntimeDaemonService({ cwd: repoRoot, stateDir: daemonStateDir });
   daemonEndpointForBridge = daemon.endpoint;
-  const daemonModelToken = await createDaemonModelInvocationToken(daemon.endpoint);
+  const daemonModelToken = await createDaemonModelInvocationToken(daemon.endpoint, scenario);
   const runtimeModelRoute = await bootstrapNativeRuntimeModelRoute({
     repoRoot,
     daemonEndpoint: daemon.endpoint,
@@ -1796,6 +1967,9 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
       userWorkspaceApiClientPath: userWorkspaceFixture?.apiClientPath || "",
       userWorkspaceFormatPath: userWorkspaceFixture?.formatPath || "",
       userWorkspaceTestPath: userWorkspaceFixture?.testPath || "",
+      userWorkspaceIgnoredPath: userWorkspaceFixture?.ignoredFilePath || "",
+      userWorkspaceIgnoredRelativePath: userWorkspaceFixture?.ignoredRelativePath || "",
+      userWorkspaceSiblingWritePath: userWorkspaceFixture?.siblingWritePath || "",
       browserFixtureUrl: browserFixture?.url || "",
       browserFixtureStatusUrl: browserFixture?.statusUrl || "",
       browserFixtureSecondUrl: browserFixture?.secondUrl || "",
@@ -1962,6 +2136,9 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
     const promptTimingLogPath = join(outputDir, "prompt-timings.live.jsonl");
     for (let index = 0; index < promptCases.length; index += 1) {
       const item = promptCases[index];
+      if (item.resetUserWorkspaceFormatBeforePrompt || scenario.resetUserWorkspaceFormatBeforePrompt) {
+        resetUserWorkspaceFormatFixture(outputDir, userWorkspaceFixture, item.kind || `prompt-${index}`);
+      }
       const promptText = expandScenarioPrompt(item.prompt, scenarioRuntimeContext);
       const expectedExecutionMode = normalizeScenarioExecutionMode(item.executionMode || "agent");
       const expectedApprovalMode = normalizeScenarioApprovalMode(item.approvalMode || scenario.approvalMode || "suggest");
@@ -1987,6 +2164,8 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
             streamProbeTimeoutMs: item.streamProbeTimeoutMs || scenario.streamProbeTimeoutMs,
             pendingWorklogTimeoutMs: item.pendingWorklogTimeoutMs || scenario.pendingWorklogTimeoutMs,
             requirePendingWorklog: Boolean(item.requirePendingWorklog || scenario.requirePendingWorklog),
+            requirePendingWorklogTextAny: item.requirePendingWorklogTextAny || scenario.requirePendingWorklogTextAny || [],
+            requirePendingWorklogTextAll: item.requirePendingWorklogTextAll || scenario.requirePendingWorklogTextAll || [],
             requireAgentFinalStream: Boolean(item.requireAgentFinalStream || scenario.requireAgentFinalStream),
             requireAgentArtifactSourceStream: Boolean(item.requireAgentArtifactSourceStream || scenario.requireAgentArtifactSourceStream),
             requireConversationArtifactProof: Boolean(item.requireConversationArtifactProof || scenario.requireConversationArtifactProof),
@@ -1996,6 +2175,17 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
             captureSourceRowsProof: Boolean(item.captureSourceRowsProof || scenario.captureSourceRowsProof),
             requireGlassBoxWorkLaneProof: Boolean(item.requireGlassBoxWorkLaneProof || scenario.requireGlassBoxWorkLaneProof),
             captureGlassBoxWorkLaneProof: Boolean(item.captureGlassBoxWorkLaneProof || scenario.captureGlassBoxWorkLaneProof),
+            requireWorkLaneExcerptTextAll: item.requireWorkLaneExcerptTextAll || scenario.requireWorkLaneExcerptTextAll || [],
+            requireNoPendingAfterCompletion: Boolean(item.requireNoPendingAfterCompletion || scenario.requireNoPendingAfterCompletion),
+            captureNoPendingAfterCompletion: Boolean(item.captureNoPendingAfterCompletion || scenario.captureNoPendingAfterCompletion),
+            noPendingAfterCompletionTimeoutMs: item.noPendingAfterCompletionTimeoutMs || scenario.noPendingAfterCompletionTimeoutMs,
+            requireHunkReviewProof: Boolean(item.requireHunkReviewProof || scenario.requireHunkReviewProof),
+            captureHunkReviewProof: Boolean(item.captureHunkReviewProof || scenario.captureHunkReviewProof),
+            requireHunkDecisionProof: Boolean(item.requireHunkDecisionProof || scenario.requireHunkDecisionProof),
+            hunkDecisionAction: item.hunkDecisionAction || scenario.hunkDecisionAction || "",
+            requireHunkStaleProof: Boolean(item.requireHunkStaleProof || scenario.requireHunkStaleProof),
+            hunkStaleMutation: expandScenarioValue(item.hunkStaleMutation || scenario.hunkStaleMutation || null, scenarioRuntimeContext),
+            hunkStateProbePath: expandScenarioValue(item.hunkStateProbePath || scenario.hunkStateProbePath || "", scenarioRuntimeContext),
             requiredMarkdownElements: item.requiredMarkdownElements || scenario.requiredMarkdownElements || [],
             capturePendingProjection: index === 0,
             expectedExecutionMode,
@@ -2034,8 +2224,11 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
           documentedWorkCount: 0,
           markdownRenderProof: null,
           sourceRowsProof: null,
-          workLaneProof: null,
-          durationMs: Date.now() - promptStartedAtMs,
+        workLaneProof: null,
+        hunkReviewProof: null,
+        hunkDecisionProof: null,
+        hunkStaleMutationProof: null,
+        durationMs: Date.now() - promptStartedAtMs,
           timing: {
             prompt: promptText,
             startedAt: new Date(promptStartedAtMs).toISOString(),
@@ -2075,6 +2268,10 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
         markdownRenderProof: result.markdownRenderProof || null,
         sourceRowsProof: result.sourceRowsProof || null,
         workLaneProof: result.workLaneProof || null,
+        noPendingAfterCompletionProof: result.noPendingAfterCompletionProof || null,
+        hunkReviewProof: result.hunkReviewProof || null,
+        hunkDecisionProof: result.hunkDecisionProof || null,
+        hunkStaleMutationProof: result.hunkStaleMutationProof || null,
         durationMs: result.durationMs,
         timing: result.timing,
         promptFailureError,
@@ -2181,6 +2378,18 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
     if (missingTraceToolNames.length > 0) {
       throw new Error(`Daemon runtime traces did not include required Agent tool names: ${missingTraceToolNames.join(", ")}`);
     }
+    const requiredAgentTraceToolNameGroups = Array.isArray(scenario.requireAgentTraceToolNameGroups)
+      ? scenario.requireAgentTraceToolNameGroups
+      : [];
+    const missingTraceToolNameGroups = requiredAgentTraceToolNameGroups
+      .map((group) => Array.isArray(group) ? group.map((toolName) => String(toolName || "").trim()).filter(Boolean) : [])
+      .filter((group) => group.length > 0)
+      .filter((group) => !group.some((toolName) => daemonRuntimeTraceSummary.observedToolNames.includes(toolName)));
+    if (missingTraceToolNameGroups.length > 0) {
+      throw new Error(
+        `Daemon runtime traces did not include any tool from required Agent tool groups: ${missingTraceToolNameGroups.map((group) => group.join(" or ")).join("; ")}`,
+      );
+    }
     const requiredAgentTraceToolSuccessNames = Array.isArray(scenario.requireAgentTraceToolSuccessNames)
       ? scenario.requireAgentTraceToolSuccessNames
       : [];
@@ -2240,7 +2449,15 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
     }
 
     await withStudioFrame(page, async (frame) => {
-      await frame.locator('[data-testid="studio-utility-toggle"]').click();
+      const timeline = frame.locator('[data-testid="studio-tool-timeline"]');
+      const toggle = frame.locator('[data-testid="studio-utility-toggle"]');
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        if (await timeline.isVisible().catch(() => false)) {
+          break;
+        }
+        await toggle.click();
+        await page.waitForTimeout(250);
+      }
       await frame.locator('[data-testid="studio-tool-timeline"]').waitFor({ state: "visible", timeout: 5000 });
       await frame.locator('[data-testid="studio-receipts-replay"]').waitFor({ state: "visible", timeout: 5000 });
     });

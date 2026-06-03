@@ -58,6 +58,24 @@ const CLOCK_PAYLOAD_NETWORK_TOKENS: [&str; 10] = [
     "curl", "wget", "fetch", "http", "https", "ftp", "nc", "ncat", "netcat", "telnet",
 ];
 
+pub fn typed_runtime_command_plan_active(agent_state: &AgentState) -> bool {
+    let Some(frame) = agent_state.runtime_route_frame.as_ref() else {
+        return false;
+    };
+    if frame.direct_answer_allowed
+        || !frame.output_intent.eq_ignore_ascii_case("tool_execution")
+        || !frame.intent_id.eq_ignore_ascii_case("command.exec")
+    {
+        return false;
+    }
+    frame
+        .runtime_action
+        .as_ref()
+        .and_then(|action| action.command_plan.as_ref())
+        .map(|plan| !plan.argv.is_empty())
+        .unwrap_or(false)
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TerminalReplyComposerOutcome {
     pub output: String,

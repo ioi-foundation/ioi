@@ -1,6 +1,8 @@
 use super::events::{emit_execution_contract_receipt_event, synthesized_payload_hash_for_tool};
 use super::*;
-use crate::agentic::runtime::service::tool_execution::command_contract::timer_payload_requires_allowlisted_scheduler;
+use crate::agentic::runtime::service::tool_execution::command_contract::{
+    timer_payload_requires_allowlisted_scheduler, typed_runtime_command_plan_active,
+};
 
 pub(super) struct TimerContractContext<'a> {
     pub service: &'a RuntimeAgentService,
@@ -57,14 +59,14 @@ pub(super) fn prepare_timer_contract(ctx: TimerContractContext<'_>) -> TimerCont
         AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
     );
 
-    if command_scope && sys_exec_arms_timer_delay_backend(&tool) {
-        record_timer_notification_contract_requirement(
-            &mut agent_state.tool_execution_log,
-            verification_checks,
-        );
+    let typed_runtime_command_plan = typed_runtime_command_plan_active(agent_state);
+    if typed_runtime_command_plan {
+        verification_checks.push("typed_runtime_command_plan_preserved=true".to_string());
     }
-    let timer_notification_required =
-        command_scope && requires_timer_notification_contract(agent_state) && is_sys_exec_tool;
+    let timer_notification_required = command_scope
+        && !typed_runtime_command_plan
+        && requires_timer_notification_contract(agent_state)
+        && is_sys_exec_tool;
     let mut timer_delay_backend_armed = sys_exec_arms_timer_delay_backend(&tool);
     let mut notification_path_armed = sys_exec_command_preview(&tool)
         .as_deref()

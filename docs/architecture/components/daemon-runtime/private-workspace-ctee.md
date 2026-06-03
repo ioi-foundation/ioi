@@ -160,6 +160,8 @@ Do not claim:
   plaintext private from the node provider;
 - full private LLM generation over raw secrets runs at normal token speed on an
   untrusted single GPU by default;
+- that raw private plaintext sent to a third-party model API remains inside
+  cTEE no-plaintext-custody privacy;
 - cTEE proves private model cognition is aligned or truthful;
 - cTEE hides all metadata such as timing, job size, public data source, model
   family, output length, or resource usage.
@@ -173,6 +175,15 @@ Private Workspace backed by cTEE owns:
 - `PrivateWorkspaceCapsule`;
 - `PlaintextFreeModelMount`;
 - `ModelMountView`;
+- `CustodyType`;
+- `CustodyProof`;
+- `PrivateAgencyTransform`;
+- `CandidateCoverageProfile`;
+- `CounterfactualLatticeExecution`;
+- `ExecutionPrivacyPosture`;
+- `ExternalModelApiBoundary`;
+- `CryptographicOperatorPlane`;
+- `CryptographicOperatorPolicy`;
 - `PrivateStrategyExecutionProfile`;
 - `AlphaSeal`;
 - `SensitiveDataClass`;
@@ -181,6 +192,8 @@ Private Workspace backed by cTEE owns:
 - `DeclassificationGate`;
 - `DeclassificationReceipt`;
 - `PrivateInferenceReceipt`;
+- `CounterfactualLatticeReceipt`;
+- `PrivateOperatorReceipt`;
 - `NodeMeasurementReceipt`;
 - `DeterrenceDetectionProfile`;
 - `DeterrenceDetectionReceipt`;
@@ -335,6 +348,131 @@ Decoding (CLPD)** as the default strategy for protected agency:
 5. External actions exit through wallet.network capability gates.
 ```
 
+Internal performance/privacy ladder:
+
+```text
+online CLPD
+  normal public/generic GPU kernels
+  near-normal token volume when candidate width is small
+  bounded branch-selection leakage
+
+Counterfactual Lattice Execution
+  normal public/generic GPU kernels
+  extra public token volume to expand unused futures
+  lower online private-choice leakage
+
+full private transformer inference
+  requires trusted/private compute, hardware confidential computing,
+  or heavier FHE/MPC-style cryptographic evaluation
+```
+
+Rule:
+
+```text
+cTEE preserves ordinary GPU token kernels for public work. It does not promise
+same-token-budget arbitrary private inference on a root-owned consumer GPU.
+```
+
+## External Model API Boundary
+
+cTEE is strongest when the user, service, or enterprise controls the compute
+substrate: local GPU, rented GPU, customer VPC node, DePIN node, or another
+execution venue where protected state can stay outside provider-readable
+plaintext custody.
+
+When the user rents a GPU node rather than buying model API tokens, extra
+candidate or counterfactual generation mainly consumes:
+
+```text
+node wall-clock time
+leased GPU occupancy
+possibly a larger or longer rental
+```
+
+It does not create the same per-token third-party API cost or plaintext custody
+surface.
+
+Rule:
+
+```text
+If protected plaintext is sent to a third-party model API, the run leaves the
+cTEE no-plaintext-custody model for that data and enters a provider-trust model.
+```
+
+Third-party APIs remain compatible with cTEE only when they receive:
+
+```text
+public inputs
+redacted projections
+synthetic/counterfactual candidates
+explicitly declassified payloads
+or a separately verifiable private-compute interface
+```
+
+Enterprise "no training" promises, retention controls, privacy policies, and
+contracts can be valuable. They are still provider trust unless the provider
+receives no sensitive plaintext or supplies a verifiable confidential/private
+compute guarantee accepted by policy.
+
+### ExecutionPrivacyPosture
+
+Private workers, service packages, outcome engines, and agent harnesses should
+declare their privacy posture:
+
+```yaml
+ExecutionPrivacyPosture:
+  posture_id: privacy_posture://...
+  posture:
+    private_native | redacted_api | provider_trust | unsafe
+  model_path:
+    local_open_weight | rented_gpu | customer_vpc |
+    third_party_api | managed_provider | hybrid
+  sensitive_plaintext_to_third_party_api: true | false
+  third_party_api_receives:
+    - public
+    - redacted
+    - synthetic_candidate
+    - declassified
+    - sensitive_plaintext
+  provider_trust_basis:
+    - no_training_contract
+    - retention_policy
+    - enterprise_terms
+    - subpoena_surface_acknowledged
+    - confidential_compute_attestation
+    - cryptographic_private_compute_proof
+  ctee_claim:
+    no_plaintext_custody | redacted_only | provider_trust | unsafe
+  required_user_disclosure: string
+```
+
+Postures:
+
+```text
+Private-native
+  no sensitive plaintext leaves cTEE custody;
+  local/open/self-hosted/rented compute handles private workspace work
+
+Redacted-API
+  third-party APIs see only public, redacted, synthetic, or declassified inputs
+
+Provider-trust
+  third-party API may receive sensitive plaintext under contract, policy,
+  retention terms, or attestation; this is not base cTEE no-plaintext custody
+
+Unsafe
+  private data enters untrusted plaintext custody without explicit
+  declassification or accepted provider-trust policy
+```
+
+Marketplace implication:
+
+```text
+sas.xyz outcomes, aiagent.xyz workers, enterprise packages, and third-party
+agent harnesses should label whether they are private-native, redacted-API,
+provider-trust, or unsafe for private workspace data.
+```
+
 The default rented 3090 view is:
 
 ```text
@@ -363,12 +501,364 @@ agency side private by construction. The node may generate and propose; it does
 not receive the private state needed to know why the protected head selected,
 rejected, or authorized a branch.
 
-Cryptographic private operators are implementation tactics, not product modes.
+## Custody Types And Proof-Carrying Workspace
+
+cTEE should be implemented as a custody discipline, not a convention.
+
+Core custody types:
+
+```text
+Public
+  plaintext may enter the rented node
+
+Redacted
+  approved projection may enter the rented node
+
+Sealed
+  ciphertext, commitment, share, or opaque ref only
+
+GuardianOnly
+  plaintext only inside authenticated browser, client, local Autopilot,
+  mobile guardian, CLI signer, wallet.network path, or threshold path
+
+CryptoOperator
+  FHE, MPC, garbled circuit, ORAM, local guardian, or threshold operator only
+
+CapabilityOnly
+  authority value is not data; node may request an action but cannot read
+  credentials, grants, or raw signing material
+
+NeverRemotePlaintext
+  no valid rented-node plaintext representation under current policy
+```
+
+Every tool, shell, model, file, connector, retrieval, and action edge into the
+rented node should type-check against one of these custody kinds.
+
+`CustodyProof` is the verifier-facing object that binds the run:
+
+```yaml
+CustodyProof:
+  proof_id: custody_proof://...
+  workspace_id: workspace://...
+  policy_hash: sha256:...
+  sensitivity_manifest_hash: sha256:...
+  custody_type_derivation_hash: sha256:...
+  mount_graph_hash: sha256:...
+  remote_admissibility_derivation_hash: sha256:...
+  candidate_lattice_commitments:
+    - commitment://...
+  counterfactual_lattice_receipts:
+    - receipt://...
+  private_operator_receipts:
+    - receipt://...
+  declassification_receipts:
+    - receipt://...
+  capability_exit_receipts:
+    - receipt://...
+  leakage_receipts:
+    - receipt://...
+  state_root_before: sha256:...
+  state_root_after: sha256:...
+  verifier_result:
+    no_plaintext_custody | rejected | inconclusive
+```
+
+Conformance claim:
+
+```text
+If the custody proof verifies, the accepted run carries checkable evidence that
+protected classes did not enter rented-node plaintext custody except through
+explicit declassification.
+```
+
+## Private Agency Transform
+
+The Private Agency Transform rewrites a protected agent step:
+
+```text
+private LLM over public context + secrets
+```
+
+into:
+
+```text
+public proposal generation on the rented GPU
+  + private selection / verification / declassification / authorization
+```
+
+This applies when the task is candidate-selection-reducible: useful candidate
+actions, reports, patches, trades, plans, or tool proposals can be generated
+from public/redacted context, while private state is used to select, reject,
+rerank, or authorize.
+
+The transform is the main reason cTEE can keep the rented GPU useful:
+
+```text
+expensive transformer proposal path -> rented GPU at ordinary kernel speed
+private agency path                 -> small selector / guardian / crypto op
+```
+
+It is not a claim that arbitrary private transformer inference has the same
+token budget or latency as public inference.
+
+## Candidate Coverage Frontier
+
+The scheduler should estimate whether a task has enough proposal redundancy to
+use CLPD or Counterfactual Lattice Execution.
+
+Definitions:
+
+```text
+private-good set
+  candidates that satisfy private utility, policy, and tolerance epsilon
+
+redundancy mass r
+  probability that one public candidate trace lands in the private-good set
+
+coverage target rho
+  probability that the generated candidate set contains at least one acceptable
+  private-good trace
+```
+
+Frontier:
+
+```text
+coverage(m, r) >= 1 - (1 - r)^m
+
+to reach coverage rho:
+  m >= ceil( ln(1 - rho) / ln(1 - r) )
+  m <= ceil( (1 / r) * ln(1 / (1 - rho)) )
+```
+
+Interpretation:
+
+```text
+high redundancy mass
+  small bounded public overgeneration can hide private choice
+
+low redundancy mass
+  CLPD/CLE becomes expensive or unreliable; route to private generation,
+  stronger cryptographic operators, trusted/private compute, or provider-trust
+  after explicit disclosure
+```
+
+Redundancy phase transition:
+
+```text
+if r_D >= c > 0
+  trace budget is O(log(1 / (1 - rho)))
+  independent of task depth D and branch factor K
+
+if r_D = exp(-alpha * D)
+  trace budget is Theta(exp(alpha * D) * log(1 / (1 - rho)))
+  CLPD/CLE should not be presented as the privacy answer
+```
+
+This is the non-obvious cTEE frontier:
+
+```text
+zero online branch-selection leakage can be bought with public overgeneration
+proportional to inverse proposal redundancy, not by privately evaluating the
+entire transformer path.
+```
+
+Path privacy result:
+
+```text
+naive hidden K-way branch path over D steps
+  may look like K^D public continuations
+
+counterfactual complete-trace sampling
+  needs O((1 / r_D) * log(1 / (1 - rho))) traces
+  when complete traces have redundancy mass r_D
+```
+
+### CandidateCoverageProfile
+
+```yaml
+CandidateCoverageProfile:
+  profile_id: coverage://...
+  task_class:
+    quant_strategy | code_patch | legal_review |
+    personal_assistant | research | service_delivery | ...
+  epsilon_tolerance: number
+  coverage_target_rho: number
+  estimated_redundancy_mass_r: number
+  redundancy_phase:
+    constant_mass | inverse_polynomial | exponential_decay | unknown
+  candidate_trace_budget_m: integer
+  public_token_budget: integer
+  schedule:
+    online_clpd | counterfactual_lattice | private_generation |
+    private_operator | provider_trust
+  fallback_if_coverage_low:
+    deny | ask_user | route_private | use_trusted_compute |
+    use_provider_trust_with_disclosure
+  evidence_refs:
+    - benchmark://...
+    - eval://...
+    - receipt://...
+```
+
+## Counterfactual Lattice Execution
+
+Counterfactual Lattice Execution is the high-assurance CLPD schedule.
+
+Instead of telling the rented node which private branch won and asking it to
+continue that branch, the node expands a committed lattice of plausible futures
+before private selection feedback:
+
+```text
+node expands candidate lattice
+node commits lattice
+guardian/private operator selects hidden path
+only policy-approved result is declassified
+```
+
+This reduces online private-choice leakage because the node does not learn which
+branch mattered during generation.
+
+The scheduler should choose the lattice width/depth from
+`CandidateCoverageProfile`: desired coverage, estimated redundancy mass, leakage
+budget, public token budget, and latency budget.
+
+Tradeoff:
+
+```text
+better selection privacy
+  costs more public token volume
+  preserves ordinary GPU kernels
+  does not preserve same token budget
+```
+
+`CounterfactualLatticeReceipt` binds the lattice:
+
+```yaml
+CounterfactualLatticeReceipt:
+  receipt_id: receipt://...
+  capsule_id: private_workspace_capsule://...
+  lattice_commitment: commitment://...
+  model_hash: sha256:...
+  policy_hash: sha256:...
+  width_budget_k: integer
+  depth_budget_d: integer
+  public_token_budget: integer
+  generation_rule_hash: sha256:...
+  dedupe_rule_hash: sha256:...
+  padding_rule_hash: sha256:...
+  node_ref: runtime_node:...
+  state_root: sha256:...
+```
+
+## Cryptographic Operator Plane
+
+Cryptographic private operators are internal implementation tactics, not user
+privacy modes. The user-facing contract remains:
+
+```text
+Open Private Workspace.
+Private Workspace On.
+```
+
+The operator plane is how the daemon handles protected subcomputations when the
+rented node must participate without learning protected inputs, private policy,
+or final authority.
+
+Default routing:
+
+```text
+public/generic work      -> rented GPU node
+private file view        -> authenticated browser / client / guardian
+private head/scoring     -> FHE / MPC / local / threshold operator
+private retrieval        -> ORAM / local / private index
+external action          -> daemon + wallet.network capability exit
+state truth              -> Agentgres
+```
+
+This preserves ordinary GPU kernels for public/generic LLM work. Overhead
+appears only at protected boundaries: private scoring, private selection,
+private retrieval, declassification, and action authorization. If the compiler
+chooses Counterfactual Lattice Execution, the run may spend more public tokens
+to reduce private-choice leakage.
+
+Default topology:
+
+```text
+Party A:
+  DePIN / rented GPU node
+
+Party B:
+  authenticated browser
+  local Autopilot when available
+  mobile guardian
+  CLI signer
+  wallet.network-backed policy/key path
+  enterprise key service when org-managed
+```
+
+Rule:
+
+```text
+The second logical party is the authenticated authority surface by default.
+Managed non-colluding committees are optional escalation paths, not default
+infrastructure users must rent or understand.
+```
+
 When the node must participate in sensitive scoring without seeing the secret,
-the compiler may use secret shares, one-time masks, garbled circuits,
-homomorphic scoring for low-degree formulas, private set membership, committed
-private witnesses, or encrypted retrieval handles. The guardian or client
-completes reconstruction, declassification, or signing.
+the compiler may use FHE ciphertexts, MPC shares, one-time masks, garbled
+circuits, homomorphic scoring for low-degree formulas, private set membership,
+committed private witnesses, or encrypted retrieval handles. The authority
+surface completes reconstruction, declassification, or signing.
+
+### CryptographicOperatorPolicy
+
+```yaml
+CryptographicOperatorPolicy:
+  policy_id: crypto_op_policy://...
+  workspace_id: workspace://...
+  protected_classes:
+    - pii
+    - strategy_source
+    - private_memory
+    - broker_secret
+    - live_portfolio
+  allowed_operator_families:
+    - fhe_linear
+    - fhe_approx
+    - mpc_nonlinear
+    - garbled_boolean
+    - oram_lookup
+    - local_guardian
+    - threshold_guardian
+  default_second_party: authority_surface
+  second_party_refs:
+    - browser_session://...
+    - mobile_guardian://...
+    - cli_signer://...
+    - wallet.network://...
+  fallback_order:
+    - local_guardian
+    - threshold_guardian
+    - fhe_linear
+    - mpc_nonlinear
+    - deny_or_escalate
+  max_latency_budget_ms: ...
+  leakage_budget_ref: leakage://...
+  receipts_required:
+    - PrivateOperatorReceipt
+    - LeakageReceipt
+```
+
+Confidential-compute replacement boundary:
+
+```text
+cTEE can replace hardware confidential computing for a workload when every
+protected dependency is absent from the node view, represented by an approved
+cryptographic carrier, evaluated by the authority surface / guardian /
+threshold path, or exercised through a capability exit, and every transition is
+receipt- and leakage-policy-bound.
+```
 
 ## Plaintext-Free Runtime Mounting
 
@@ -676,6 +1166,7 @@ Open Private Workspace
   persistent rented GPU node
   normal-speed public/generic inference
   Candidate-Lattice Private Decoding by default
+  Counterfactual Lattice Execution when leakage budget requires it
   encrypted Agentgres-backed persistence
   AlphaSeal private strategy head
   wallet.network capability exits
@@ -705,6 +1196,10 @@ Implementation shape:
    filters, reranks, denies, or declassifies through local/client/guardian,
    masked, secret-shared, garbled, or homomorphic operators depending on risk
    and cost.
+
+   For high-sensitivity rounds, the daemon may ask the node to expand
+   counterfactual branches before private selection. This preserves normal GPU
+   kernels but spends additional public tokens to reduce selection leakage.
 
 6. The node receives only protected commitments, masked scores, selected branch
    commitments, redacted summaries, encrypted outputs, or bounded order-intent
@@ -999,11 +1494,28 @@ secret strategy decision
 
 trade/action decision
   -> CapabilityExit through wallet.network
+
+third-party model API over sensitive plaintext
+  -> provider-trust posture; cTEE no-plaintext-custody claim does not apply
+
+third-party model API over public/redacted/synthetic/declassified context
+  -> compatible with cTEE under Redacted-API posture
 ```
 
 The goal is not to make every token cryptographic. The goal is to preserve
 normal token speed for non-sensitive context while preventing sensitive state
 from entering rented-node plaintext.
+
+Performance interpretation:
+
+```text
+normal token speed
+  means public/generic kernels run normally on the rented GPU
+
+same token budget
+  is not guaranteed when the daemon expands candidate lattices,
+  counterfactual branches, padding, or decoy jobs
+```
 
 ## Node Measurement
 
@@ -1045,6 +1557,34 @@ PrivateInferenceReceipt:
     - none
   result:
     success | failure | blocked | invalid
+```
+
+```yaml
+PrivateOperatorReceipt:
+  receipt_id: receipt://...
+  policy_ref: crypto_op_policy://...
+  run_id: run:...
+  capsule_id: shielded_capsule://...
+  operator_family:
+    fhe_linear | fhe_approx | mpc_nonlinear |
+    garbled_boolean | oram_lookup |
+    local_guardian | threshold_guardian
+  node_ref: runtime_node:...
+  second_party_ref:
+    browser_session://... | mobile_guardian://... |
+    cli_signer://... | wallet.network://... |
+    threshold_guardian://...
+  protected_input_commitments:
+    - commitment://...
+  public_input_refs:
+    - artifact://...
+  output_commitment: commitment://...
+  leakage_profile_ref: leakage://...
+  policy_hash: sha256:...
+  plaintext_sensitive_classes_on_node:
+    - none
+  status:
+    success | failure | denied | escalated
 ```
 
 ```yaml
@@ -1133,6 +1673,19 @@ observable bucket with b possible buckets:
   <= log2(b) bits
 ```
 
+Counterfactual Lattice Execution changes the accounting:
+
+```text
+online CLPD
+  selection may be visible each round
+  selection leakage can accumulate across loop depth
+
+counterfactual lattice round
+  node commits candidate lattice before private selection feedback
+  online branch-selection leakage before declassification is zero
+  public token volume and lattice metadata still leak according to policy
+```
+
 Private Workspace runs should record leakage budget fields in
 `PrivateInferenceReceipt` or a linked `LeakageReceipt`:
 
@@ -1170,15 +1723,30 @@ An implementation conforms when:
 8. Private inference or private strategy evaluation emits receipts.
 9. Boot measurement is not used as the sole privacy proof for consumer GPUs.
 10. CLPD selections record candidate commitments and leakage budget fields.
-11. Model invocations over private workspaces emit `ModelMountReceipt` before
+11. CLPD/CLE scheduling that claims coverage, low leakage, or bounded overhead
+    records `CandidateCoverageProfile` or equivalent benchmark/eval evidence.
+12. Counterfactual lattice claims record `CounterfactualLatticeReceipt` before
+    private selection feedback reaches the rented node.
+13. Custody claims that affect acceptance, dispute, restore, or marketplace
+    settlement carry `CustodyProof` or a receipt-equivalent verifier result.
+14. Model invocations over private workspaces emit `ModelMountReceipt` before
     execution.
-12. Plaintext-Free Runtime Mounting exposes only public/redacted entries,
+15. Plaintext-Free Runtime Mounting exposes only public/redacted entries,
     encrypted refs, commitments, private handles, declassification requests,
     or capability handles to provider-rooted nodes.
-13. Deterrence/detection canaries are synthetic, policy-labeled, and excluded
+16. Protected private-operator results are not admitted without
+    `PrivateOperatorReceipt`.
+17. Private operators use the authenticated authority surface as the second
+    logical party by default unless policy explicitly selects another threshold
+    path.
+18. Deterrence/detection canaries are synthetic, policy-labeled, and excluded
     from real decisions, memory admission, training, and settlement truth.
-14. The UI exposes whether a run is `Public`, `Redacted`,
+19. The UI exposes whether a run is `Public`, `Redacted`,
     `Private Workspace`, `TEE`, or `Unsafe`.
+20. Any third-party model API that may receive sensitive plaintext is labeled
+    `provider_trust` and disclosed before execution.
+21. `private_native` posture is not claimed when sensitive plaintext is sent to
+    a third-party model API.
 
 ## Anti-Patterns
 
@@ -1192,6 +1760,19 @@ Do not:
 - let a persistent node self-grant trading authority;
 - make `sas.xyz` or `aiagent.xyz` the owner of cTEE execution semantics;
 - require full private LLM inference for ordinary protected workflows;
+- require users to rent or understand a managed non-colluding committee for the
+  default private-operator path;
+- expose FHE/MPC/local/threshold choices as ordinary user-facing privacy modes
+  instead of internal routing policy;
+- claim cTEE is a universal drop-in hardware-confidential-compute replacement
+  for workloads that still require plaintext on hostile hardware;
+- confuse ordinary public GPU token speed with same-token-budget private
+  inference when the compiler uses candidate width, counterfactual branches,
+  padding, or decoy jobs;
+- market a third-party model API call over private plaintext as cTEE
+  no-plaintext-custody privacy;
+- label a worker or service package as private-native when its default path
+  sends sensitive plaintext to a provider API;
 - hide the leakage profile from users;
 - call Plaintext-Free Runtime Mounting or Plaintext-Free Model Mounting
   "arbitrary encrypted LLM inference";

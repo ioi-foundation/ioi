@@ -1,6 +1,7 @@
 use super::*;
 use crate::agentic::runtime::service::tool_execution::{
-    record_execution_evidence, record_success_condition,
+    record_execution_evidence, record_execution_evidence_with_value, record_success_condition,
+    tool_success_evidence_name,
 };
 use crate::agentic::runtime::types::{
     AgentMode, CommandExecution, ExecutionAttemptStatus, ExecutionStage, ExecutionTier,
@@ -362,6 +363,93 @@ fn completes_explicit_chat_reply_from_queue() {
     assert!(completion_summary
         .as_deref()
         .is_some_and(|summary| summary.contains("`dev:desktop`")));
+    assert!(verification_checks
+        .iter()
+        .any(|check| check == "terminal_chat_reply_ready=true"));
+}
+
+#[test]
+fn browser_coordinate_click_contract_blocks_chat_reply_until_action_executes() {
+    let mut agent_state = agent_state_with_mail_reply();
+    agent_state.resolved_intent = None;
+    agent_state.goal = "Open the local browser fixture. Inspect the page, click the blue canvas target using the browser coordinate/target action, and report whether the browser session stayed observable.".to_string();
+    let session_id = agent_state.session_id;
+    let mut success = true;
+    let mut out = Some("Browser session stayed observable.".to_string());
+    let mut err = None;
+    let mut completion_summary = None;
+    let mut verification_checks = Vec::new();
+    let rules = crate::agentic::runtime::service::decision_loop::helpers::default_safe_policy();
+
+    maybe_complete_chat_reply(
+        &mut agent_state,
+        &AgentTool::ChatReply {
+            message: "The browser session stayed observable.".to_string(),
+        },
+        false,
+        &mut success,
+        &mut out,
+        &mut err,
+        &mut completion_summary,
+        &mut verification_checks,
+        &rules,
+        session_id,
+    );
+
+    assert!(!success);
+    assert!(matches!(agent_state.status, AgentStatus::Running));
+    assert!(completion_summary.is_none());
+    assert!(err
+        .as_deref()
+        .is_some_and(|value| value.contains("ERROR_CLASS=ExecutionContractViolation")));
+    assert!(verification_checks
+        .iter()
+        .any(|check| { check == "action_completion_missing=tool::browser__click_at::executed" }));
+    let blocked_attempt = agent_state
+        .execution_ledger
+        .attempts
+        .last()
+        .expect("action contract should record a CEC attempt");
+    assert_eq!(blocked_attempt.stage, ExecutionStage::CompletionGate);
+    assert_eq!(blocked_attempt.status, ExecutionAttemptStatus::Blocked);
+    assert!(blocked_attempt
+        .completion_gate_missing
+        .iter()
+        .any(|item| item == "tool::browser__click_at::executed"));
+
+    record_execution_evidence_with_value(
+        &mut agent_state.tool_execution_log,
+        &tool_success_evidence_name("browser__click_at"),
+        "step=3;tool=browser__click_at".to_string(),
+    );
+    success = true;
+    out = Some("Browser session stayed observable.".to_string());
+    err = None;
+    completion_summary = None;
+    verification_checks.clear();
+
+    maybe_complete_chat_reply(
+        &mut agent_state,
+        &AgentTool::ChatReply {
+            message: "The browser session stayed observable.".to_string(),
+        },
+        false,
+        &mut success,
+        &mut out,
+        &mut err,
+        &mut completion_summary,
+        &mut verification_checks,
+        &rules,
+        session_id,
+    );
+
+    assert!(success);
+    assert!(matches!(
+        agent_state.status,
+        AgentStatus::Completed(Some(_))
+    ));
+    assert_eq!(out, completion_summary);
+    assert!(err.is_none());
     assert!(verification_checks
         .iter()
         .any(|check| check == "terminal_chat_reply_ready=true"));

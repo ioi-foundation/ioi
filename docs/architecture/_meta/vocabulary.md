@@ -76,6 +76,53 @@ compliance acronyms for hidden audit material.
   projections, encrypted refs, commitments, candidate lattices,
   private-function handles, declassification requests, and capability handles.
   It is the model-facing specialization of Plaintext-Free Runtime Mounting.
+- `CustodyType`: the cTEE type discipline that declares whether a value may be
+  public, redacted, sealed, guardian-only, crypto-operator-only,
+  capability-only, or never-remote-plaintext.
+- `CustodyProof`: a verifier-facing cTEE object that binds sensitivity labels,
+  custody derivation, mount graph, lattice commitments, private-operator
+  receipts, declassification receipts, leakage receipts, and state roots.
+- `PrivateAgencyTransform`: the cTEE compiler strategy that rewrites a
+  protected agent step into public proposal generation plus private selection,
+  verification, declassification, or authorization when the task is
+  candidate-selection-reducible.
+- `CandidateCoverageProfile`: the cTEE scheduler profile that estimates
+  proposal redundancy mass, redundancy phase, coverage target, candidate trace
+  budget, public token budget, schedule, and fallback route for CLPD/CLE. It
+  expresses the coverage frontier: `coverage(m, r) >= 1 - (1-r)^m`. Constant
+  redundancy mass means bounded/depth-independent public overgeneration;
+  exponential redundancy decay means the runtime should route away from CLPD/CLE.
+- `CounterfactualLatticeExecution`: the high-assurance CLPD schedule where a
+  rented node expands a committed public candidate lattice before private
+  selection feedback. It reduces online branch-selection leakage by spending
+  additional public token volume.
+- `CounterfactualLatticeReceipt`: the receipt emitted for Counterfactual
+  Lattice Execution. It binds lattice commitment, width/depth/token budgets,
+  generation rules, padding/dedupe policy, node ref, policy hash, and state
+  root.
+- `ExecutionPrivacyPosture`: the cTEE posture label for a worker, service,
+  outcome engine, or harness path. Values include `private_native`,
+  `redacted_api`, `provider_trust`, and `unsafe`.
+- `ProviderTrustBoundary`: the boundary crossed when sensitive plaintext is sent
+  to a third-party model API or provider service. Contractual no-training,
+  retention, or enterprise privacy controls may be valuable, but they are not
+  base cTEE no-plaintext-custody unless the provider receives no sensitive
+  plaintext or exposes a separately verifiable private-compute interface.
+- `CryptographicOperatorPlane`: the internal cTEE routing plane for protected
+  subcomputations that must not become node plaintext. It routes private
+  scoring, selection, retrieval, and policy checks through FHE, MPC, garbled
+  circuits, ORAM, local guardian, or threshold guardian paths. The default
+  second logical party is the authenticated authority surface, not a managed
+  non-colluding committee.
+- `CryptographicOperatorPolicy`: the policy object that declares allowed
+  private operator families, fallback order, second-party refs, latency and
+  leakage budgets, and receipt requirements for a Private Workspace backed by
+  cTEE.
+- `PrivateOperatorReceipt`: the receipt emitted for a cTEE private operator
+  execution. It binds the operator family, protected input commitments,
+  second-party ref, output commitment, leakage profile, policy hash, and the
+  claim that no protected plaintext class was materialized on the untrusted
+  node.
 - `DeterrenceDetectionProfile`: the cTEE attribution and abuse-detection layer
   for high-value private workspaces. It uses synthetic canaries, honeytokens,
   provider-bound watermarks, leak scans, replay detection, and receipts to make
@@ -97,6 +144,15 @@ compliance acronyms for hidden audit material.
 - `AutonomyLease`: a wallet.network authority lease that allows a persistent
   node to act while the user is away within bounded policy, without receiving
   durable raw secrets or unrestricted authority.
+- `AccessPointBinding`: a wallet.network binding for low-assurance access
+  points such as SMS, email, chat apps, voice bridges, or webhooks. These
+  channels may notify, wake, pause, steer, or initiate preapproved low-risk
+  work, but they are not guardian surfaces and cannot decrypt, declassify, hold
+  grants, release secrets, or authorize high-risk actions without step-up.
+- `StepUpChallenge`: a short-lived, single-use challenge pointer sent through a
+  low-assurance access point. It routes the user into wallet.network,
+  Hypervisor, an enrolled guardian device, passkey, enterprise IdP, local app,
+  CLI signer, or another high-assurance authority surface. It is not a grant.
 - `DeclassificationGate`: the policy and authority boundary where protected
   outputs become visible or actionable. It emits a receipt and routes external
   effects through wallet.network capability exits.

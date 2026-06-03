@@ -21,6 +21,7 @@ use tokio::process::Command;
 use super::scripts::{build_cmd_command_line, build_session_script_windows, resolve_comspec_path};
 #[cfg(unix)]
 use super::scripts::{build_session_script, build_shell_command_line, resolve_shell_path};
+use super::stream::combine_failure_output;
 use super::types::{
     CommandExecutionOptions, ProcessStreamChannel, ProcessStreamChunk, ProcessStreamObserver,
 };
@@ -259,6 +260,10 @@ impl ShellSession {
                 &done_marker,
                 marker_id,
             )?;
+            let stdin_bridge_label = options
+                .stdin_bridge_path
+                .as_ref()
+                .map(|path| path.to_string_lossy().to_string());
 
             let observer = options.stream_observer.clone();
             let seq = Arc::new(AtomicU64::new(0));
@@ -302,17 +307,6 @@ impl ShellSession {
                     }
 
                     let chunk = String::from_utf8_lossy(&buf[..read]).to_string();
-                    if let Some(cb) = observer_worker.as_ref() {
-                        let seq_value = seq_worker.fetch_add(1, Ordering::Relaxed);
-                        (cb)(ProcessStreamChunk {
-                            channel: ProcessStreamChannel::Stdout,
-                            chunk: chunk.clone(),
-                            seq: seq_value,
-                            is_final: false,
-                            exit_code: None,
-                        });
-                    }
-
                     pending.push_str(&chunk);
 
                     // Process complete lines only. This avoids prematurely matching markers inside
@@ -335,6 +329,25 @@ impl ShellSession {
                             continue;
                         }
 
+                        if trimmed == done_marker {
+                            let code =
+                                exit_code.ok_or_else(|| anyhow!("Missing exit code marker."))?;
+                            return Ok((output, code));
+                        }
+
+                        if let Some(rest) = trimmed.strip_prefix(&rc_prefix) {
+                            exit_code = rest.trim().parse::<i32>().ok();
+                            continue;
+                        }
+                        if unix_transport_echo_fragment(
+                            trimmed,
+                            stdin_bridge_label.as_deref(),
+                            &rc_prefix,
+                            &done_marker,
+                        ) {
+                            continue;
+                        }
+
                         // PTY sessions may have input echo enabled; filter out echoed script lines.
                         if sent_lines.contains(trimmed) {
                             continue;
@@ -348,19 +361,18 @@ impl ShellSession {
                             }
                         }
 
-                        if trimmed == done_marker {
-                            let code =
-                                exit_code.ok_or_else(|| anyhow!("Missing exit code marker."))?;
-                            return Ok((output, code));
-                        }
-
-                        if let Some(rest) = trimmed.strip_prefix(&rc_prefix) {
-                            exit_code = rest.trim().parse::<i32>().ok();
-                            continue;
-                        }
-
                         output.push_str(trimmed);
                         output.push('\n');
+                        if let Some(cb) = observer_worker.as_ref() {
+                            let seq_value = seq_worker.fetch_add(1, Ordering::Relaxed);
+                            (cb)(ProcessStreamChunk {
+                                channel: ProcessStreamChannel::Stdout,
+                                chunk: format!("{trimmed}\n"),
+                                seq: seq_value,
+                                is_final: false,
+                                exit_code: None,
+                            });
+                        }
                     }
                 }
             });
@@ -389,9 +401,10 @@ impl ShellSession {
             if exit_code == 0 {
                 Ok(output_text)
             } else {
-                Ok(format!(
-                    "Command failed: exit status: {}\nStderr: {}",
-                    exit_code, output_text
+                Ok(combine_failure_output(
+                    format!("exit status: {}", exit_code),
+                    &output_text,
+                    "",
                 ))
             }
         }
@@ -565,4 +578,17 @@ fn unix_prompt_echo_candidate(line: &str) -> Option<&str> {
         return Some("");
     }
     trimmed.strip_prefix("> ")
+}
+
+#[cfg(unix)]
+fn unix_transport_echo_fragment(
+    line: &str,
+    stdin_bridge_label: Option<&str>,
+    rc_prefix: &str,
+    done_marker: &str,
+) -> bool {
+    if line.contains(done_marker) || line.contains(rc_prefix) || line.contains("ioi_rc=") {
+        return true;
+    }
+    stdin_bridge_label.is_some_and(|path| line.contains(path))
 }

@@ -29,6 +29,7 @@ fn is_expected_egress_tool_exhaustive(tool: &AgentTool) -> bool {
         | AgentTool::FsCreateDirectory { .. }
         | AgentTool::FsCreateZip { .. }
         | AgentTool::WorkspaceChangeStatus { .. }
+        | AgentTool::WorkspaceChangeAccept { .. }
         | AgentTool::WorkspaceChangeReject { .. }
         | AgentTool::WorkspaceChangeRollback { .. }
         | AgentTool::SysExec { .. }
@@ -265,6 +266,13 @@ fn workspace_change_tools_map_to_runtime_scopes() {
         reject.target(),
         crate::app::ActionTarget::Custom("workspace_change__reject".into())
     );
+
+    let accept = AgentTool::WorkspaceChangeAccept {
+        change_id: Some("workspace_change:test".to_string()),
+        change: None,
+        changes: vec![],
+    };
+    assert_eq!(accept.target(), crate::app::ActionTarget::FsWrite);
 
     let rollback = AgentTool::WorkspaceChangeRollback {
         change_id: Some("workspace_change:test".to_string()),
@@ -993,6 +1001,7 @@ fn media_extract_tools_are_reserved_native_names() {
 #[test]
 fn workspace_change_tools_are_reserved_native_names() {
     assert!(AgentTool::is_reserved_tool_name("workspace_change__status"));
+    assert!(AgentTool::is_reserved_tool_name("workspace_change__accept"));
     assert!(AgentTool::is_reserved_tool_name("workspace_change__reject"));
     assert!(AgentTool::is_reserved_tool_name(
         "workspace_change__rollback"

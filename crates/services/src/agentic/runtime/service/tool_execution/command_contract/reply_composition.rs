@@ -33,7 +33,8 @@ pub fn enrich_command_scope_summary(summary: &str, agent_state: &AgentState) -> 
     }
 
     let mut enriched = normalized_summary;
-    let timer_contract_active = requires_timer_notification_contract(agent_state);
+    let timer_contract_active =
+        requires_timer_notification_contract(agent_state) && !typed_runtime_command_plan_active(agent_state);
     if !timer_contract_active {
         return enriched;
     }

@@ -1,3 +1,4 @@
+use super::ignore::is_ignored_workspace_path;
 use regex::Regex;
 use std::fs;
 use std::io::{BufRead, BufReader};
@@ -306,6 +307,9 @@ fn filename_path_matches(root: &Path, literal: &str, file_filter: Option<&str>) 
         }
 
         let path = entry.path();
+        if is_ignored_workspace_path(path, root.to_str()) {
+            continue;
+        }
         if is_generated_search_file(path) {
             continue;
         }
@@ -404,6 +408,9 @@ pub(super) fn search_files(
         }
 
         let path = entry.path();
+        if is_ignored_workspace_path(path, root.to_str()) {
+            continue;
+        }
         if is_generated_search_file(path) {
             continue;
         }

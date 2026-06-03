@@ -47,9 +47,16 @@ pub struct HunkProposalReviewState {
 
 pub fn workspace_change_lifecycle_goal_requested(goal: &str) -> bool {
     let normalized = goal.to_ascii_lowercase();
-    let requests_lifecycle = ["roll back", "rollback", "revert", "reject change"]
-        .iter()
-        .any(|needle| normalized.contains(needle));
+    let requests_lifecycle = [
+        "accept change",
+        "apply change",
+        "roll back",
+        "rollback",
+        "revert",
+        "reject change",
+    ]
+    .iter()
+    .any(|needle| normalized.contains(needle));
     let mentions_workspace_change = [
         "workspace change",
         "change lifecycle",
@@ -78,6 +85,7 @@ pub fn workspace_change_lifecycle_control_tool(tool_name: &str) -> bool {
     matches!(
         tool_name.trim().to_ascii_lowercase().as_str(),
         "workspace_change__status"
+            | "workspace_change__accept"
             | "workspace_change__reject"
             | "workspace_change__rollback"
             | "file__read"
@@ -181,6 +189,68 @@ pub fn reject_workspace_change(
             format!("workspace change in lifecycle '{other}' cannot be rejected"),
         )),
     }
+}
+
+pub fn accept_workspace_change(
+    workspace_root: impl AsRef<Path>,
+    change: &WorkspaceChangeRecord,
+) -> Result<WorkspaceChangeRecord, WorkspaceChangeLifecycleError> {
+    match change.lifecycle.as_str() {
+        LIFECYCLE_PROPOSED | LIFECYCLE_AWAITING_APPROVAL => {}
+        other => {
+            return Err(WorkspaceChangeLifecycleError::new(
+                "invalid_lifecycle",
+                format!("workspace change in lifecycle '{other}' cannot be accepted"),
+            ));
+        }
+    }
+
+    if let Some(reason) = workspace_change_stale_reason(workspace_root.as_ref(), change) {
+        return Err(WorkspaceChangeLifecycleError::new(
+            "stale_change",
+            format!("workspace change cannot be accepted because {reason}"),
+        ));
+    }
+
+    let path = change.path.as_deref().ok_or_else(|| {
+        WorkspaceChangeLifecycleError::new(
+            "missing_path",
+            "workspace change cannot be accepted without a path",
+        )
+    })?;
+    let target = resolve_existing_workspace_path(workspace_root.as_ref(), path)?;
+    let mut content = fs::read_to_string(&target).map_err(|error| {
+        WorkspaceChangeLifecycleError::new(
+            "read_failed",
+            format!(
+                "failed to read accept target '{}': {error}",
+                target.display()
+            ),
+        )
+    })?;
+
+    for hunk in &change.hunks {
+        content = apply_hunk_once(&content, hunk)?;
+    }
+
+    fs::write(&target, content).map_err(|error| {
+        WorkspaceChangeLifecycleError::new(
+            "write_failed",
+            format!(
+                "failed to write accept target '{}': {error}",
+                target.display()
+            ),
+        )
+    })?;
+
+    let mut accepted = change.clone();
+    accepted.lifecycle = LIFECYCLE_APPLIED.to_string();
+    accepted.receipt_ref = Some(format!(
+        "workspace_change_accepted:path={}",
+        change.path.as_deref().unwrap_or_default()
+    ));
+    accepted.evidence_ref = accepted.receipt_ref.clone();
+    Ok(accepted)
 }
 
 pub fn rollback_workspace_change(
@@ -331,13 +401,89 @@ fn workspace_change_stale_reason(
         if expected.is_empty() {
             return Some(format!("hunk_{}_empty_boundary_material", hunk.hunk_index));
         }
-        match content.match_indices(expected).take(2).count() {
-            0 => return Some(format!("hunk_{}_boundary_not_found", hunk.hunk_index)),
-            1 => {}
-            _ => return Some(format!("hunk_{}_boundary_ambiguous", hunk.hunk_index)),
+        match boundary_match_count(&content, expected) {
+            BoundaryMatchCount::None => {
+                return Some(format!("hunk_{}_boundary_not_found", hunk.hunk_index));
+            }
+            BoundaryMatchCount::One => {}
+            BoundaryMatchCount::Many => {
+                return Some(format!("hunk_{}_boundary_ambiguous", hunk.hunk_index));
+            }
         }
     }
     None
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BoundaryMatchCount {
+    None,
+    One,
+    Many,
+}
+
+fn boundary_match_count(content: &str, expected: &str) -> BoundaryMatchCount {
+    match content.match_indices(expected).take(2).count() {
+        0 => whitespace_collapsed_boundary_match_count(content, expected),
+        1 => BoundaryMatchCount::One,
+        _ => BoundaryMatchCount::Many,
+    }
+}
+
+fn whitespace_collapsed_boundary_match_count(content: &str, expected: &str) -> BoundaryMatchCount {
+    let normalized_expected = collapse_ascii_whitespace(expected);
+    if normalized_expected.is_empty() {
+        return BoundaryMatchCount::None;
+    }
+    let line_ranges = source_line_ranges(content);
+    if line_ranges.is_empty() {
+        return BoundaryMatchCount::None;
+    }
+    let expected_line_count = expected.lines().count().max(1);
+    let max_window = line_ranges.len().min(expected_line_count.saturating_add(6));
+    let mut matched = false;
+    for start in 0..line_ranges.len() {
+        for end in start..line_ranges.len().min(start + max_window) {
+            let range = line_ranges[start].start..line_ranges[end].end;
+            if collapse_ascii_whitespace(&content[range]) == normalized_expected {
+                if matched {
+                    return BoundaryMatchCount::Many;
+                }
+                matched = true;
+            }
+        }
+    }
+    if matched {
+        BoundaryMatchCount::One
+    } else {
+        BoundaryMatchCount::None
+    }
+}
+
+fn source_line_ranges(source: &str) -> Vec<std::ops::Range<usize>> {
+    let bytes = source.as_bytes();
+    let mut ranges = Vec::new();
+    let mut line_start = 0;
+
+    for (idx, byte) in bytes.iter().enumerate() {
+        if *byte == b'\n' {
+            let mut line_end = idx;
+            if line_end > line_start && bytes[line_end - 1] == b'\r' {
+                line_end -= 1;
+            }
+            ranges.push(line_start..line_end);
+            line_start = idx + 1;
+        }
+    }
+
+    if line_start < source.len() {
+        ranges.push(line_start..source.len());
+    }
+
+    ranges
+}
+
+fn collapse_ascii_whitespace(value: &str) -> String {
+    value.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 fn reverse_hunk_once(
@@ -357,6 +503,95 @@ fn reverse_hunk_once(
         )
     })?;
     replace_exactly_once(content, replace_text, search_text, hunk.hunk_index)
+}
+
+fn apply_hunk_once(
+    content: &str,
+    hunk: &WorkspaceHunkRecord,
+) -> Result<String, WorkspaceChangeLifecycleError> {
+    match hunk.kind.as_str() {
+        "replace" => {
+            let search_text = hunk.search_text.as_deref().ok_or_else(|| {
+                WorkspaceChangeLifecycleError::new(
+                    "missing_accept_material",
+                    format!("hunk {} has no original text", hunk.hunk_index),
+                )
+            })?;
+            let replace_text = hunk.replace_text.as_deref().ok_or_else(|| {
+                WorkspaceChangeLifecycleError::new(
+                    "missing_accept_material",
+                    format!("hunk {} has no replacement text", hunk.hunk_index),
+                )
+            })?;
+            replace_with_boundary(content, search_text, replace_text, hunk.hunk_index)
+        }
+        "line_write" => {
+            let line_number = hunk.line_start.ok_or_else(|| {
+                WorkspaceChangeLifecycleError::new(
+                    "missing_line_number",
+                    format!("hunk {} has no line number", hunk.hunk_index),
+                )
+            })?;
+            let replace_text = hunk
+                .replace_text
+                .as_deref()
+                .or(hunk.content_text.as_deref())
+                .ok_or_else(|| {
+                    WorkspaceChangeLifecycleError::new(
+                        "missing_accept_material",
+                        format!("hunk {} has no replacement text", hunk.hunk_index),
+                    )
+                })?;
+            replace_line(content, line_number, replace_text)
+        }
+        "write" => hunk
+            .replace_text
+            .as_deref()
+            .or(hunk.content_text.as_deref())
+            .map(ToOwned::to_owned)
+            .ok_or_else(|| {
+                WorkspaceChangeLifecycleError::new(
+                    "missing_accept_material",
+                    format!("hunk {} has no replacement text", hunk.hunk_index),
+                )
+            }),
+        other => Err(WorkspaceChangeLifecycleError::new(
+            "unsupported_accept_hunk",
+            format!("hunk {} kind '{other}' cannot be accepted", hunk.hunk_index),
+        )),
+    }
+}
+
+fn replace_line(
+    content: &str,
+    line_number: u32,
+    replace: &str,
+) -> Result<String, WorkspaceChangeLifecycleError> {
+    if line_number == 0 {
+        return Err(WorkspaceChangeLifecycleError::new(
+            "invalid_line_number",
+            "line number must be >= 1",
+        ));
+    }
+    let mut lines = content.lines().collect::<Vec<_>>();
+    let index = (line_number - 1) as usize;
+    if index >= lines.len() {
+        return Err(WorkspaceChangeLifecycleError::new(
+            "line_number_out_of_range",
+            format!("line {line_number} is outside the target file"),
+        ));
+    }
+    lines[index] = replace;
+    let newline = if content.contains("\r\n") {
+        "\r\n"
+    } else {
+        "\n"
+    };
+    let mut updated = lines.join(newline);
+    if content.ends_with('\n') {
+        updated.push_str(newline);
+    }
+    Ok(updated)
 }
 
 fn replace_exactly_once(
@@ -386,6 +621,70 @@ fn replace_exactly_once(
         ));
     }
     Ok(content.replacen(search, replace, 1))
+}
+
+fn replace_with_boundary(
+    content: &str,
+    search: &str,
+    replace: &str,
+    hunk_index: u32,
+) -> Result<String, WorkspaceChangeLifecycleError> {
+    if search.is_empty() {
+        return Err(WorkspaceChangeLifecycleError::new(
+            "empty_accept_search",
+            format!("hunk {hunk_index} original text is empty"),
+        ));
+    }
+    let mut matches = content.match_indices(search);
+    if let Some((index, _)) = matches.next() {
+        if matches.next().is_some() {
+            return Err(WorkspaceChangeLifecycleError::new(
+                "ambiguous_accept_search",
+                format!("hunk {hunk_index} original text occurs more than once"),
+            ));
+        }
+        let mut updated = String::with_capacity(content.len() + replace.len());
+        updated.push_str(&content[..index]);
+        updated.push_str(replace);
+        updated.push_str(&content[index + search.len()..]);
+        return Ok(updated);
+    }
+    let range = whitespace_collapsed_boundary_range(content, search).map_err(|code| {
+        WorkspaceChangeLifecycleError::new(
+            code,
+            format!("hunk {hunk_index} original text was not uniquely found"),
+        )
+    })?;
+    let mut updated = String::with_capacity(content.len() + replace.len());
+    updated.push_str(&content[..range.start]);
+    updated.push_str(replace);
+    updated.push_str(&content[range.end..]);
+    Ok(updated)
+}
+
+fn whitespace_collapsed_boundary_range(
+    content: &str,
+    expected: &str,
+) -> Result<std::ops::Range<usize>, &'static str> {
+    let normalized_expected = collapse_ascii_whitespace(expected);
+    if normalized_expected.is_empty() {
+        return Err("empty_accept_search");
+    }
+    let line_ranges = source_line_ranges(content);
+    let expected_line_count = expected.lines().count().max(1);
+    let max_window = line_ranges.len().min(expected_line_count.saturating_add(6));
+    let mut found = None;
+    for start in 0..line_ranges.len() {
+        for end in start..line_ranges.len().min(start + max_window) {
+            let range = line_ranges[start].start..line_ranges[end].end;
+            if collapse_ascii_whitespace(&content[range.clone()]) == normalized_expected {
+                if found.replace(range).is_some() {
+                    return Err("ambiguous_accept_search");
+                }
+            }
+        }
+    }
+    found.ok_or("accept_search_not_found")
 }
 
 fn resolve_existing_workspace_path(
@@ -620,6 +919,147 @@ mod tests {
         assert!(rollback.rollback_available);
         assert!(!rollback.stale);
 
+        cleanup_workspace(workspace);
+    }
+
+    #[test]
+    fn hunk_review_state_accepts_exact_multiline_formatter_boundary() {
+        let workspace = temp_workspace("hunk_review_multiline_formatter");
+        let file = workspace.join("src");
+        fs::create_dir_all(&file).expect("create src dir");
+        let file = file.join("format.mjs");
+        fs::write(
+            &file,
+            "export function formatOrderTotal(cents) {\n  return (Number(cents) / 100).toFixed(2);\n}\n",
+        )
+        .expect("write formatter");
+        let proposed = workspace_change_record_from_tool(
+            &AgentTool::FsPatch {
+                path: "src/format.mjs".to_string(),
+                search: "export function formatOrderTotal(cents) {\n  return (Number(cents) / 100).toFixed(2);\n}".to_string(),
+                replace: "export function formatOrderTotal(cents) {\n  return '$' + (Number(cents) / 100).toFixed(2);\n}".to_string(),
+            },
+            "awaiting_approval",
+            None,
+            None,
+        )
+        .expect("proposed formatter hunk");
+
+        let review = hunk_proposal_review_state(&workspace, &proposed);
+
+        assert!(review.accept_available);
+        assert!(review.reject_available);
+        assert!(!review.rollback_available);
+        assert!(!review.stale, "{:?}", review.stale_reason);
+        cleanup_workspace(workspace);
+    }
+
+    #[test]
+    fn hunk_review_state_accepts_unique_whitespace_collapsed_boundary() {
+        let workspace = temp_workspace("hunk_review_whitespace_formatter");
+        let file = workspace.join("src");
+        fs::create_dir_all(&file).expect("create src dir");
+        let file = file.join("format.mjs");
+        fs::write(
+            &file,
+            "export function formatOrderTotal(cents) {\n  return (Number(cents) / 100).toFixed(2);\n}\n",
+        )
+        .expect("write formatter");
+        let proposed = workspace_change_record_from_tool(
+            &AgentTool::FsPatch {
+                path: "src/format.mjs".to_string(),
+                search: "export function formatOrderTotal(cents) { return (Number(cents) / 100).toFixed(2); }".to_string(),
+                replace: "export function formatOrderTotal(cents) { return '$' + (Number(cents) / 100).toFixed(2); }".to_string(),
+            },
+            "awaiting_approval",
+            None,
+            None,
+        )
+        .expect("proposed formatter hunk");
+
+        let review = hunk_proposal_review_state(&workspace, &proposed);
+
+        assert!(review.accept_available);
+        assert!(review.reject_available);
+        assert!(!review.rollback_available);
+        assert!(!review.stale, "{:?}", review.stale_reason);
+        cleanup_workspace(workspace);
+    }
+
+    #[test]
+    fn hunk_review_state_rejects_ambiguous_whitespace_collapsed_boundary() {
+        let workspace = temp_workspace("hunk_review_whitespace_ambiguous");
+        let file = workspace.join("src");
+        fs::create_dir_all(&file).expect("create src dir");
+        let file = file.join("format.mjs");
+        fs::write(
+            &file,
+            [
+                "export function first(cents) {",
+                "  return (Number(cents) / 100).toFixed(2);",
+                "}",
+                "export function first(cents) {",
+                "  return (Number(cents) / 100).toFixed(2);",
+                "}",
+                "",
+            ]
+            .join("\n"),
+        )
+        .expect("write formatter");
+        let proposed = workspace_change_record_from_tool(
+            &AgentTool::FsPatch {
+                path: "src/format.mjs".to_string(),
+                search: "export function first(cents) { return (Number(cents) / 100).toFixed(2); }".to_string(),
+                replace: "export function first(cents) { return '$' + (Number(cents) / 100).toFixed(2); }".to_string(),
+            },
+            "awaiting_approval",
+            None,
+            None,
+        )
+        .expect("proposed formatter hunk");
+
+        let review = hunk_proposal_review_state(&workspace, &proposed);
+
+        assert!(!review.accept_available);
+        assert!(review.reject_available);
+        assert!(review.stale);
+        assert_eq!(
+            review.stale_reason.as_deref(),
+            Some("hunk_0_boundary_ambiguous")
+        );
+        cleanup_workspace(workspace);
+    }
+
+    #[test]
+    fn accept_workspace_change_applies_unique_whitespace_collapsed_patch() {
+        let workspace = temp_workspace("accept_whitespace_patch");
+        let file = workspace.join("src");
+        fs::create_dir_all(&file).expect("create src dir");
+        let file = file.join("format.mjs");
+        fs::write(
+            &file,
+            "export function formatOrderTotal(cents) {\n  return (Number(cents) / 100).toFixed(2);\n}\n",
+        )
+        .expect("write formatter");
+        let proposed = workspace_change_record_from_tool(
+            &AgentTool::FsPatch {
+                path: "src/format.mjs".to_string(),
+                search: "export function formatOrderTotal(cents) { return (Number(cents) / 100).toFixed(2); }".to_string(),
+                replace: "export function formatOrderTotal(cents) { return '$' + (Number(cents) / 100).toFixed(2); }".to_string(),
+            },
+            "awaiting_approval",
+            None,
+            None,
+        )
+        .expect("proposed formatter hunk");
+
+        let accepted = accept_workspace_change(&workspace, &proposed).expect("accept hunk");
+
+        assert_eq!(accepted.lifecycle, "applied");
+        assert_eq!(
+            fs::read_to_string(&file).expect("read accepted file"),
+            "export function formatOrderTotal(cents) { return '$' + (Number(cents) / 100).toFixed(2); }\n"
+        );
         cleanup_workspace(workspace);
     }
 

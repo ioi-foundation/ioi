@@ -68,11 +68,20 @@ pub fn stop_hook_completion_blocker(agent_state: &AgentState) -> Option<String> 
     if latest.exit_code == 0 {
         return None;
     }
-    Some(format!(
-        "ERROR_CLASS=StopHookBlocked Latest validation command failed (exit_code={}): {}. Continue the model -> tool -> typed result -> model loop: inspect the failure, repair the cause, rerun the validation command, then call the terminal reply tool only after validation passes.",
+    let mut feedback = format!(
+        "ERROR_CLASS=StopHookBlocked Latest validation command failed (exit_code={}): {}. Do not call the terminal reply tool again until a later validation command exits 0. Continue the model -> tool -> typed result -> model loop: inspect the failure, repair the cause, and rerun validation.",
         latest.exit_code,
         latest.command.trim()
-    ))
+    );
+    if let Some(stdout) = compact_log_excerpt(&latest.stdout) {
+        feedback.push_str("\nLatest stdout excerpt:\n");
+        feedback.push_str(&stdout);
+    }
+    if let Some(stderr) = compact_log_excerpt(&latest.stderr) {
+        feedback.push_str("\nLatest stderr excerpt:\n");
+        feedback.push_str(&stderr);
+    }
+    Some(feedback)
 }
 
 fn latest_validation_command(agent_state: &AgentState) -> Option<&CommandExecution> {
@@ -149,17 +158,61 @@ fn validation_command_classes(command: &str) -> impl Iterator<Item = String> + '
 }
 
 fn compact_log_excerpt(value: &str) -> Option<String> {
-    let compact = value
+    let lines = value
         .lines()
         .map(str::trim)
         .filter(|line| !line.is_empty())
-        .take(8)
-        .collect::<Vec<_>>()
-        .join("\n");
+        .collect::<Vec<_>>();
+    if lines.is_empty() {
+        return None;
+    }
+
+    let mut excerpt: Vec<&str> = Vec::new();
+    for line in lines.iter().take(6) {
+        push_unique_line(&mut excerpt, line);
+    }
+    for line in lines.iter().filter(|line| diagnostic_log_line(line)) {
+        push_unique_line(&mut excerpt, line);
+    }
+    let tail_start = lines.len().saturating_sub(8);
+    for line in lines.iter().skip(tail_start) {
+        push_unique_line(&mut excerpt, line);
+    }
+
+    let compact = excerpt.into_iter().take(28).collect::<Vec<_>>().join("\n");
     if compact.is_empty() {
         return None;
     }
-    Some(truncate_chars(&compact, 800))
+    Some(truncate_chars(&compact, 1600))
+}
+
+fn push_unique_line<'a>(target: &mut Vec<&'a str>, line: &'a str) {
+    if !target.iter().any(|existing| *existing == line) {
+        target.push(line);
+    }
+}
+
+fn diagnostic_log_line(line: &str) -> bool {
+    let lower = line.to_ascii_lowercase();
+    [
+        "not ok",
+        "fail",
+        "failed",
+        "failure",
+        "error",
+        "assert",
+        "expected",
+        "actual",
+        "operator",
+        "panic",
+        "exception",
+        "diff",
+        "caused by",
+        "stack:",
+        "location:",
+    ]
+    .iter()
+    .any(|marker| lower.contains(marker))
 }
 
 fn truncate_chars(value: &str, max_chars: usize) -> String {
@@ -253,7 +306,11 @@ mod tests {
         );
         assert!(stop_hook_completion_blocker(&state)
             .as_deref()
-            .is_some_and(|error| error.contains("ERROR_CLASS=StopHookBlocked")));
+            .is_some_and(|error| {
+                error.contains("ERROR_CLASS=StopHookBlocked")
+                    && error.contains("Latest stdout excerpt:")
+                    && error.contains("stdout line")
+            }));
     }
 
     #[test]
@@ -266,6 +323,45 @@ mod tests {
         assert_eq!(snapshot.status, "cleared");
         assert!(!snapshot.completion_blocked);
         assert!(stop_hook_completion_blocker(&state).is_none());
+    }
+
+    #[test]
+    fn stop_hook_keeps_diagnostic_assertion_lines_from_long_test_output() {
+        let mut failing = command("node --test tests/*.test.mjs", 1, 2);
+        failing.stdout = [
+            "TAP version 13",
+            "# Subtest: formats order totals as dollars",
+            "not ok 1 - formats order totals as dollars",
+            "---",
+            "duration_ms: 0.920992",
+            "type: 'test'",
+            "location: '/tmp/repo/tests/format.test.mjs:5:1'",
+            "failureType: 'testCodeFailure'",
+            "error: |-",
+            "Expected values to be strictly equal:",
+            "+ actual - expected",
+            "+ '$12.99.toFixed(2)'",
+            "- '$12.99'",
+            "code: 'ERR_ASSERTION'",
+            "name: 'AssertionError'",
+            "expected: '$12.99'",
+            "actual: '$12.99.toFixed(2)'",
+            "operator: 'strictEqual'",
+            "1..1",
+            "# tests 1",
+            "# pass 0",
+            "# fail 1",
+        ]
+        .join("\n");
+        let state = test_state(VecDeque::from(vec![failing]));
+
+        let blocker = stop_hook_completion_blocker(&state).expect("stop hook should block");
+
+        assert!(blocker.contains("Latest stdout excerpt:"));
+        assert!(blocker.contains("Expected values to be strictly equal"));
+        assert!(blocker.contains("actual: '$12.99.toFixed(2)'"));
+        assert!(blocker.contains("expected: '$12.99'"));
+        assert!(blocker.contains("operator: 'strictEqual'"));
     }
 
     #[test]

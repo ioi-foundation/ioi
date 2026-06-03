@@ -17,7 +17,8 @@ use crate::agentic::runtime::service::memory::{
     MemoryPromptSectionDiagnostic,
 };
 use crate::agentic::runtime::service::tool_execution::command_contract::{
-    runtime_desktop_directory, runtime_home_directory, runtime_host_environment_evidence,
+    requires_timer_notification_contract, runtime_desktop_directory, runtime_home_directory,
+    runtime_host_environment_evidence,
 };
 use crate::agentic::runtime::service::tool_execution::has_execution_evidence;
 use crate::agentic::runtime::service::visual_loop::perception::PerceptionContext;
@@ -92,9 +93,12 @@ use serde_json::{json, Value};
 use std::io::Cursor;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+#[cfg(test)]
+use tool_prompting::command_workspace_action_phase_tools;
 use tool_prompting::{
-    command_workspace_action_phase_tools, compact_allowed_tool_list,
-    compact_browser_action_prompt_tools, format_tool_desc, instruction_contract_slot_value,
+    command_execution_action_phase_tools, compact_allowed_tool_list,
+    compact_browser_action_prompt_tools, direct_file_read_action_phase_tools,
+    direct_file_write_action_phase_tools, format_tool_desc, instruction_contract_slot_value,
     render_selected_parent_playbook_instruction, workspace_context_ready_for_reply,
 };
 pub(crate) use tool_prompting::{
@@ -284,6 +288,11 @@ pub async fn think(
             } else {
                 "Recovery hint: repeated web retrieval was blocked before enough evidence was gathered. Switch to a distinct query/source/read path, or escalate if fresh evidence cannot be obtained. Do not finalize without grounded web evidence."
             }
+        } else if matches!(resolved_scope, IntentScopeProfile::UiInteraction)
+            && (failure_reason.contains("Failed to parse tool call")
+                || failure_reason.contains("UnexpectedState"))
+        {
+            "Recovery hint: the previous browser action was malformed or empty. Do not explain, do not repeat inspection, and do not escalate yet. Emit one corrected JSON tool call using the grounded browser action from RECENT BROWSER OBSERVATION or RECENT PENDING BROWSER STATE. If the goal requests a coordinate-style target, use `browser__click_at` with the grounded id."
         } else if failure_reason.contains("TargetNotFound")
             || failure_reason.contains("VisionTargetNotFound")
         {
@@ -402,6 +411,15 @@ pub async fn think(
     }
     let has_prompt_visual_context =
         has_meaningful_visual_context(prompt_screenshot_base64.as_deref());
+    let suppress_browser_recovery_terminal_tools = prefer_browser_semantics
+        && perception.consecutive_failures > 0
+        && perception
+            .last_failure_reason
+            .as_deref()
+            .map(|reason| {
+                reason.contains("Failed to parse tool call") || reason.contains("UnexpectedState")
+            })
+            .unwrap_or(false);
     let cognition_tools = filter_cognition_tools_with_recovery(
         &perception.available_tools,
         agent_state.resolved_intent.as_ref(),
@@ -412,6 +430,7 @@ pub async fn think(
         CognitionToolRecovery {
             workspace_context_ready_for_reply: workspace_reply_ready,
             web_context_ready_for_reply: web_reply_ready,
+            suppress_browser_recovery_terminal_tools,
         },
     );
     let strategy_instruction = build_strategy_instruction(
@@ -435,7 +454,15 @@ pub async fn think(
         cognition_tools
     };
     if let Some(action_phase_tools) =
-        command_workspace_action_phase_tools(agent_state, &cognition_tools)
+        direct_file_write_action_phase_tools(agent_state, &perception.available_tools)
+    {
+        cognition_tools = action_phase_tools;
+    } else if let Some(action_phase_tools) =
+        direct_file_read_action_phase_tools(agent_state, &perception.available_tools)
+    {
+        cognition_tools = action_phase_tools;
+    } else if let Some(action_phase_tools) =
+        command_execution_action_phase_tools(agent_state, &cognition_tools)
     {
         cognition_tools = action_phase_tools;
     }
@@ -758,7 +785,7 @@ Do not claim success for actions you did not verify.";
     let final_reply_system_content = if final_reply_html_document_mode {
         "FINAL RESPONSE MODE:\nUse the gathered tool evidence to satisfy the user's request directly.\nThe user is asking for a source document artifact. Return the complete source document only. Do not call tools. Do not output JSON. Do not expose hidden chain-of-thought, trace ids, receipt ids, raw payloads, or daemon scaffolding.\nFor HTML website/page requests, start exactly with <!DOCTYPE html>, include the full html/head/body structure, and end exactly with </html>. Do not wrap the document in Markdown fences. Do not add explanatory prose before or after the document.\nUse source facts from gathered evidence where helpful, but keep the document concise enough to finish in one pass."
     } else {
-        "FINAL RESPONSE MODE:\nUse the gathered tool evidence to answer the user's request directly in natural Markdown.\nDo not call tools. Do not output JSON. Do not expose hidden chain-of-thought, trace ids, receipt ids, raw payloads, raw stdout/stderr, raw test logs, or daemon scaffolding. Do not copy internal observation labels, run dates, timestamps, confidence labels, fixture markers, or evidence-packet wording into the final answer.\nFor command, test, and workspace-change tasks, give a concise handoff: what changed or was inspected, whether verification passed, and any remaining blocker. Do not paste TAP output, full stdout/stderr, or raw logs unless the user explicitly requested raw logs. If you cite the final contents of a changed file or a short command-created source snippet, put it in a fenced code block with a language tag instead of appending it inline to a sentence. When gathered evidence contains repeated observations of the same file or state, use the latest/highest-numbered observation as authoritative for the current state.\nFor research, current-events, web, source-backed, comparison, recommendation, and investment questions, produce a substantive model-authored synthesis instead of a terse source list. Use tables, bullets, and sections only when they naturally improve clarity; do not follow a fixed template.\nPreserve concrete source anchors that matter to the user's question, including file paths, symbol names, markdown heading labels, source titles, URLs, observed prices, market caps, volumes, percentages, and other measurements from the evidence.\nFor comparison or recommendation questions, synthesize the evidence into a direct answer with tradeoffs. Do not invent project adoption, investors, institutional interest, market leadership, enterprise use, competitive displacement, or performance claims unless those facts are present in the gathered evidence.\nFor finance or investment questions, be cautious and note that it is not financial advice. Treat current market quote observations from tool results as authoritative for current market values. Ignore conflicting current-price, market-cap, volume, or percentage snippets from broader search results. If current market quote observations include price, market cap, 24h trading volume, and 24h price change for compared assets, include those observed dimensions for each compared asset in compact bullets or a comparison table and do not say they are missing. Treat per-token price only as a quoted measurement; do not treat lower or higher nominal token price, entry price, affordability, cheapness, expensiveness, or price point as an investment advantage by itself.\nIf the user asks to find or provide sources, include source titles and URLs that support the answer. For source-backed web answers, include sources at the bottom in a short readable list when useful.\nIf the user asks about progress, stages, a plan, or a guide and the evidence includes a Markdown heading outline, explicitly name the relevant headings or stage labels instead of flattening them into generic prose.\nIf the evidence is incomplete, say what is known and state the limitation plainly."
+        "FINAL RESPONSE MODE:\nUse the gathered tool evidence to answer the user's request directly in natural Markdown.\nDo not call tools. Do not output JSON. Do not expose hidden chain-of-thought, trace ids, receipt ids, raw payloads, raw stdout/stderr, raw test logs, raw coordinates, or daemon scaffolding. Do not copy internal observation labels, run dates, timestamps, confidence labels, fixture markers, or evidence-packet wording into the final answer.\nFor command, test, and workspace-change tasks, give a concise handoff: what changed or was inspected, whether verification passed, and any remaining blocker. Do not paste TAP output, full stdout/stderr, or raw logs unless the user explicitly requested raw logs. If you cite the final contents of a changed file or a short command-created source snippet, put it in a fenced code block with a language tag instead of appending it inline to a sentence. When gathered evidence contains repeated observations of the same file or state, use the latest/highest-numbered observation as authoritative for the current state.\nFor research, current-events, web, source-backed, comparison, recommendation, and investment questions, produce a substantive model-authored synthesis instead of a terse source list. Use tables, bullets, and sections only when they naturally improve clarity; do not follow a fixed template.\nPreserve concrete source anchors that matter to the user's question, including file paths, symbol names, markdown heading labels, source titles, URLs, observed prices, market caps, volumes, percentages, and other measurements from the evidence.\nFor comparison or recommendation questions, synthesize the evidence into a direct answer with tradeoffs. Do not invent project adoption, investors, institutional interest, market leadership, enterprise use, competitive displacement, or performance claims unless those facts are present in the gathered evidence.\nFor finance or investment questions, be cautious and note that it is not financial advice. Treat current market quote observations from tool results as authoritative for current market values. Ignore conflicting current-price, market-cap, volume, or percentage snippets from broader search results. If current market quote observations include price, market cap, 24h trading volume, and 24h price change for compared assets, include those observed dimensions for each compared asset in compact bullets or a comparison table and do not say they are missing. Treat per-token price only as a quoted measurement; do not treat lower or higher nominal token price, entry price, affordability, cheapness, expensiveness, or price point as an investment advantage by itself.\nIf the user asks to find or provide sources, include source titles and URLs that support the answer. For source-backed web answers, include sources at the bottom in a short readable list when useful.\nIf the user asks about progress, stages, a plan, or a guide and the evidence includes a Markdown heading outline, explicitly name the relevant headings or stage labels instead of flattening them into generic prose.\nIf the evidence is incomplete, say what is known and state the limitation plainly."
     };
     let messages = if chat_reply_only_cognition {
         json!([

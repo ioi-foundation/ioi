@@ -20,6 +20,7 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
         AgentTool::WorkspaceChangeStatus { .. } => {
             ActionTarget::Custom("workspace_change__status".into())
         }
+        AgentTool::WorkspaceChangeAccept { .. } => ActionTarget::FsWrite,
         AgentTool::WorkspaceChangeReject { .. } => {
             ActionTarget::Custom("workspace_change__reject".into())
         }

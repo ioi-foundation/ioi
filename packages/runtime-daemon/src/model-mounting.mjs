@@ -23,6 +23,8 @@ import {
   nativeFixtureQueryNeedsWeb,
   nativeFixtureQueryWorkspaceConstrained,
 } from "./model-mounting/native-fixture-intent.mjs";
+import { nativeFixtureStage2WebRepairResponse } from "./model-mounting/native-fixture-stage2-web-repair.mjs";
+import { nativeFixtureStage5StopHookRepairResponse } from "./model-mounting/native-fixture-stage5-stop-hook-repair.mjs";
 import { nativeFixtureStaticWebsiteJson } from "./model-mounting/native-fixture-artifacts.mjs";
 import { nativeFixtureRepoAwareResponse } from "./model-mounting/native-fixture-repo-aware.mjs";
 import {
@@ -8731,6 +8733,44 @@ function nativeLocalOutput({ kind, input, modelId }) {
   const expectsJsonToolCall =
     inputStr.includes("[AVAILABLE TOOLS]") ||
     inputStr.includes("Output EXACTLY ONE valid JSON tool call");
+  const isSemanticScorePrompt =
+    inputStr.includes("\"scores\"") &&
+    inputStr.includes("\"intent_id\"") &&
+    inputStr.includes("Score only semantic fit");
+  const stage5StopHookToolPromptLikely =
+    /\b(ARP_P0_007_PROOF_TOKEN|normalizeStatusLabel|status[-_\s]?labels?\.mjs)\b/i.test(inputStr) &&
+    /\b(shell__run|chat__reply|file__edit|agent__complete|\[AVAILABLE TOOLS\]|available tools|tool calls?|next action|single tool)\b/i.test(inputStr);
+  const hasToolCalled = (toolName) => {
+    const lines = currentTurnText.split("\n");
+    const escapedToolName = toolName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const structuredToolEvent = new RegExp(`\\btool\\.(?:started|completed|failed|result)\\b[\\s\\S]{0,500}\\b${escapedToolName}\\b`, "i");
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (line.startsWith("assistant:") && line.includes(toolName)) {
+        return true;
+      }
+      if (
+        trimmedLine.startsWith("tool:") &&
+        (
+          trimmedLine.startsWith(`tool: ${toolName}`) ||
+          trimmedLine.startsWith(`tool:${toolName}`) ||
+          trimmedLine.includes(`name:${toolName}`) ||
+          trimmedLine.includes(`"name":"${toolName}"`) ||
+          trimmedLine.includes(`"name": "${toolName}"`) ||
+          trimmedLine.includes(`Tool Output (${toolName})`)
+        )
+      ) {
+        return true;
+      }
+    }
+    return (
+      structuredToolEvent.test(currentTurnText) ||
+      new RegExp(`"tool"\\s*:\\s*"${escapedToolName}"`, "i").test(currentTurnText) ||
+      new RegExp(`"tool_name"\\s*:\\s*"${escapedToolName}"`, "i").test(currentTurnText) ||
+      new RegExp(`"toolName"\\s*:\\s*"${escapedToolName}"`, "i").test(currentTurnText)
+    );
+  };
+  const jsonTool = (name, args) => JSON.stringify({ name, arguments: args });
   if (inputStr.includes("Classify the immediate next execution mode")) {
     const preferChat = /\b(humans|hello|hi|chat|conversation)\b/i.test(queryText);
     return JSON.stringify({
@@ -8765,7 +8805,19 @@ function nativeLocalOutput({ kind, input, modelId }) {
     });
   }
 
-  if (inputStr.includes("\"scores\"") && inputStr.includes("\"intent_id\"") && inputStr.includes("Score only semantic fit")) {
+  if (!isSemanticScorePrompt || expectsJsonToolCall || stage5StopHookToolPromptLikely) {
+    const stage5StopHookRepairResponse = nativeFixtureStage5StopHookRepairResponse({
+      expectsJsonToolCall: expectsJsonToolCall || stage5StopHookToolPromptLikely,
+      hasToolCalled,
+      inputText: inputStr,
+      jsonTool,
+      promptContextText,
+      queryText,
+    });
+    if (stage5StopHookRepairResponse) return stage5StopHookRepairResponse;
+  }
+
+  if (isSemanticScorePrompt) {
     const intentIds = [...new Set([...inputStr.matchAll(/"intent_id"\s*:\s*"([^"]+)"/g)].map((match) => match[1]))];
     const workspaceConstrained = nativeFixtureQueryWorkspaceConstrained(querySignalText);
     const preferCommand = nativeFixtureQueryNeedsCommand(querySignalText);
@@ -8787,36 +8839,15 @@ function nativeLocalOutput({ kind, input, modelId }) {
     return JSON.stringify({ scores });
   }
 
-  const hasToolCalled = (toolName) => {
-    const lines = currentTurnText.split("\n");
-    const escapedToolName = toolName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const structuredToolEvent = new RegExp(`\\btool\\.(?:started|completed|failed|result)\\b[\\s\\S]{0,500}\\b${escapedToolName}\\b`, "i");
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-      if (line.startsWith("assistant:") && line.includes(toolName)) {
-        return true;
-      }
-      if (
-        trimmedLine.startsWith("tool:") &&
-        (
-          trimmedLine.startsWith(`tool: ${toolName}`) ||
-          trimmedLine.startsWith(`tool:${toolName}`) ||
-          trimmedLine.includes(`name:${toolName}`) ||
-          trimmedLine.includes(`"name":"${toolName}"`) ||
-          trimmedLine.includes(`"name": "${toolName}"`) ||
-          trimmedLine.includes(`Tool Output (${toolName})`)
-        )
-      ) {
-        return true;
-      }
-    }
-    return (
-      structuredToolEvent.test(currentTurnText) ||
-      new RegExp(`"tool"\\s*:\\s*"${escapedToolName}"`, "i").test(currentTurnText) ||
-      new RegExp(`"tool_name"\\s*:\\s*"${escapedToolName}"`, "i").test(currentTurnText) ||
-      new RegExp(`"toolName"\\s*:\\s*"${escapedToolName}"`, "i").test(currentTurnText)
-    );
-  };
+  const stage2WebRepairResponse = nativeFixtureStage2WebRepairResponse({
+    expectsJsonToolCall,
+    hasToolCalled,
+    inputText: inputStr,
+    jsonTool,
+    promptContextText,
+    queryText,
+  });
+  if (stage2WebRepairResponse) return stage2WebRepairResponse;
 
   const repoAwareResponse = nativeFixtureRepoAwareResponse({
     cwd: process.cwd(),

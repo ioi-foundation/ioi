@@ -30,6 +30,7 @@ use crate::agentic::runtime::service::tool_execution::command_contract::{
 use crate::agentic::runtime::service::tool_execution::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
     mark_action_fingerprint_executed_at_step, persist_step_evidence_to_ledger, resolved_intent_id,
+    retained_shell_lifecycle_followup, retained_shell_lifecycle_tool_name,
 };
 use crate::agentic::runtime::service::{RuntimeAgentService, ServiceCallContext};
 use crate::agentic::runtime::types::{
@@ -1117,18 +1118,41 @@ pub async fn process_queue_item(
         && matches!(agent_state.status, AgentStatus::Running)
     {
         let output_str = out.clone().unwrap_or_default();
-        if let Some(followup_tool) = toolcat_single_tool_queue_followup(
+        let retained_lifecycle_followup = retained_shell_lifecycle_followup(
             &agent_state.goal,
             &tool_name,
+            Some(&tool_wrapper),
             Some(output_str.as_str()),
-        ) {
+        );
+        let retained_lifecycle_followup_queued = retained_lifecycle_followup.is_some();
+        if let Some(followup_tool) = retained_lifecycle_followup.or_else(|| {
+            toolcat_single_tool_queue_followup(
+                &agent_state.goal,
+                &tool_name,
+                Some(output_str.as_str()),
+            )
+        }) {
             let followup_name = queue_tool_name(&followup_tool);
             let nonce =
                 agent_state.step_count as u64 + agent_state.execution_queue.len() as u64 + 1;
             let request = queue_tool_to_action_request(&followup_tool, p.session_id, nonce)?;
+            if retained_lifecycle_followup_queued
+                || matches!(followup_tool, AgentTool::ChatReply { .. })
+                || retained_shell_lifecycle_tool_name(&followup_tool).is_some()
+            {
+                agent_state.execution_queue.clear();
+            }
             agent_state.execution_queue.insert(0, request);
             agent_state.recent_actions.clear();
-            verification_checks.push(format!("toolcat_queue_followup_queued={}", followup_name));
+            if retained_lifecycle_followup_queued {
+                verification_checks.push(format!(
+                    "retained_shell_lifecycle_queue_followup_queued={}",
+                    followup_name
+                ));
+            } else {
+                verification_checks
+                    .push(format!("toolcat_queue_followup_queued={}", followup_name));
+            }
         }
     }
     if success
@@ -1342,6 +1366,26 @@ mod tests {
                 assert_eq!(selector.as_deref(), Some("#toolcat-input"));
             }
             other => panic!("expected browser paste follow-up, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn retained_shell_queue_followup_queues_clean_reply_after_reset() {
+        let goal = "Start a disposable retained Node.js helper that waits for stdin and echoes a status line. Check the helper status, send the input `compile-once`, terminate the helper, reset retained shell state, and then answer in one clean sentence.";
+        let followup = retained_shell_lifecycle_followup(
+            goal,
+            "shell__reset",
+            None,
+            Some("retained shell state reset"),
+        )
+        .expect("reset should queue clean chat reply");
+
+        match followup {
+            AgentTool::ChatReply { message } => assert_eq!(
+                message,
+                "Retained shell helper checked, received `compile-once`, terminated, and reset."
+            ),
+            other => panic!("expected clean chat reply follow-up, got {:?}", other),
         }
     }
 

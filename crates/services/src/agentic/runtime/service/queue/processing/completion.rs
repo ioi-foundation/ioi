@@ -11,7 +11,7 @@ use crate::agentic::runtime::service::tool_execution::command_contract::{
 };
 use crate::agentic::runtime::service::tool_execution::{
     has_success_condition, is_command_probe_intent, is_ui_capture_screenshot_intent,
-    summarize_command_probe_output,
+    missing_runtime_action_completion_evidence, summarize_command_probe_output,
 };
 use crate::agentic::runtime::service::visual_loop::browser_completion::browser_snapshot_completion;
 use crate::agentic::runtime::stop_hook::stop_hook_completion_blocker;
@@ -85,12 +85,22 @@ fn completion_gate_blocks(
     }
 
     let intent_id = terminal_contract_intent_id(agent_state);
-    let missing_completion_evidence = evaluate_completion_requirements(
+    let mut missing_completion_evidence = evaluate_completion_requirements(
         agent_state,
         intent_id.as_deref().unwrap_or_default(),
         verification_checks,
         rules,
     );
+    let action_missing = missing_runtime_action_completion_evidence(agent_state);
+    if !action_missing.is_empty() {
+        for missing in &action_missing {
+            verification_checks.push(format!("action_completion_missing={}", missing));
+        }
+        missing_completion_evidence.extend(action_missing);
+        agent_state
+            .execution_ledger
+            .record_completion_gate(intent_id, &missing_completion_evidence);
+    }
     if missing_completion_evidence.is_empty() {
         return false;
     }

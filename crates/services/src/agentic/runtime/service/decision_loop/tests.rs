@@ -1,6 +1,7 @@
 use super::{
     ensure_agent_running_or_resume_retry_pause, handle_step, maybe_direct_inline_author_tool_call,
-    maybe_run_optimizer_recovery, maybe_typed_runtime_browser_navigate_tool_call,
+    maybe_fail_step_resource_limits, maybe_run_optimizer_recovery,
+    maybe_typed_runtime_browser_navigate_tool_call, maybe_typed_runtime_file_write_tool_call,
     maybe_typed_runtime_install_resolve_tool_call, maybe_typed_runtime_shell_run_tool_call,
     maybe_typed_runtime_web_search_tool_call, maybe_typed_runtime_workspace_context_tool_call,
     queue_parent_playbook_await_request, queue_root_playbook_delegate_request,
@@ -27,10 +28,11 @@ use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
 use ioi_types::app::agentic::{
-    ArgumentOrigin, BrowserActionPlanRef, CapabilityId, CommandExecutionPlanRef, InferenceOptions,
-    InstructionBindingKind, InstructionContract, InstructionSlotBinding, IntentConfidenceBand,
-    IntentScopeProfile, RequiredCapability, ResolvedIntentState, RuntimeActionFrame,
-    RuntimeIntentEvidence, RuntimeRouteFrame, SoftwareInstallRequestFrame,
+    ArgumentOrigin, BrowserActionPlanRef, CapabilityId, CommandExecutionPlanRef,
+    FileMutationPlanRef, InferenceOptions, InstructionBindingKind, InstructionContract,
+    InstructionSlotBinding, IntentConfidenceBand, IntentScopeProfile, RequiredCapability,
+    ResolvedIntentState, RuntimeActionFrame, RuntimeIntentEvidence, RuntimeRouteFrame,
+    SoftwareInstallRequestFrame,
 };
 use ioi_types::app::{
     AccountId, ActionContext, ActionRequest, ActionTarget, ChainId, ContextSlice,
@@ -214,6 +216,61 @@ fn typed_workspace_frame_with_evidence(evidence_kind: &str, value: &str) -> Runt
         typed_required_capabilities: Vec::new(),
         host_mutation_scope: None,
         runtime_action: None,
+        install_request: None,
+        provenance: Some("test".to_string()),
+    }
+}
+
+fn typed_file_write_frame(path: &str, content: &str) -> RuntimeRouteFrame {
+    RuntimeRouteFrame {
+        intent_id: "workspace.mutate".to_string(),
+        route_family: "workspace".to_string(),
+        output_intent: "tool_execution".to_string(),
+        direct_answer_allowed: false,
+        target: path.to_string(),
+        target_kind: Some("workspace_path".to_string()),
+        host_mutation: true,
+        required_capabilities: vec!["filesystem.write".to_string()],
+        typed_evidence: vec![
+            RuntimeIntentEvidence {
+                evidence_kind: "workspace_path".to_string(),
+                value: path.to_string(),
+                source: "test".to_string(),
+                confidence: Some(95),
+            },
+            RuntimeIntentEvidence {
+                evidence_kind: "file_write_content".to_string(),
+                value: content.to_string(),
+                source: "test".to_string(),
+                confidence: Some(90),
+            },
+        ],
+        typed_required_capabilities: vec![RequiredCapability {
+            capability_id: "filesystem.write".to_string(),
+            reason: Some("test".to_string()),
+        }],
+        host_mutation_scope: None,
+        runtime_action: Some(RuntimeActionFrame {
+            intent_class: "workspace.mutate".to_string(),
+            action_family: "file".to_string(),
+            target_text: path.to_string(),
+            target_kind: "workspace_path".to_string(),
+            host_mutation: true,
+            required_capabilities: vec![RequiredCapability {
+                capability_id: "filesystem.write".to_string(),
+                reason: Some("test".to_string()),
+            }],
+            browser_plan: None,
+            command_plan: None,
+            file_plan: Some(FileMutationPlanRef {
+                plan_ref: "file.write:test".to_string(),
+                path: path.to_string(),
+                observed_hash: String::new(),
+                mutation_kind: "write".to_string(),
+                verification_command: None,
+            }),
+            provenance: Some("test".to_string()),
+        }),
         install_request: None,
         provenance: Some("test".to_string()),
     }
@@ -559,6 +616,105 @@ fn typed_runtime_shell_frame_dispatches_explicit_command_plan() {
 }
 
 #[test]
+fn typed_runtime_shell_frame_supersedes_stale_pending_shell_call() {
+    let mut state = test_agent_state();
+    state.runtime_route_frame = Some(typed_runtime_action_frame("command.exec", "shell_command"));
+    state.pending_tool_call = Some(
+        r#"{"name":"shell__run","arguments":{"command":"systemd-run","args":["--user","notify-send","Timer Complete"]}}"#
+            .to_string(),
+    );
+    state.pending_tool_jcs = Some(vec![1, 2, 3]);
+    state.pending_tool_hash = Some([7u8; 32]);
+    state.pending_request_nonce = Some(99);
+    state.pending_visual_hash = Some([8u8; 32]);
+    state
+        .recent_actions
+        .push("runtime_route_frame_dispatch:shell__run:old-command".to_string());
+
+    let tool_call = maybe_typed_runtime_shell_run_tool_call(&mut state)
+        .expect("current typed command should supersede stale pending shell call");
+
+    assert!(tool_call.contains("\"name\":\"shell__run\""));
+    assert!(tool_call.contains("\"command\":\"bash\""));
+    assert!(tool_call.contains("echo typed-shell"));
+    assert!(state.pending_tool_call.is_none());
+    assert!(state.pending_tool_jcs.is_none());
+    assert!(state.pending_tool_hash.is_none());
+    assert!(state.pending_request_nonce.is_none());
+    assert!(state.pending_visual_hash.is_none());
+    assert!(state
+        .recent_actions
+        .iter()
+        .any(|action| action == "runtime_route_frame_dispatch:shell__run:command.exec:test"));
+}
+
+#[test]
+fn typed_runtime_shell_frame_abstains_for_retained_lifecycle_controls() {
+    let mut state = test_agent_state();
+    state.goal = [
+        "Start a disposable retained Node.js helper that waits for stdin and echoes a status line.",
+        "Check the helper status, send the input `compile-once`, terminate the helper, reset retained shell state, and answer.",
+    ]
+    .join(" ");
+    state.runtime_route_frame = Some(typed_runtime_action_frame("command.exec", "shell_command"));
+
+    assert!(maybe_typed_runtime_shell_run_tool_call(&mut state).is_none());
+    assert!(state
+        .recent_actions
+        .iter()
+        .all(|action| !action.starts_with("runtime_route_frame_dispatch:shell__run")));
+}
+
+#[test]
+fn typed_runtime_file_write_frame_dispatches_file_write_before_shell() {
+    let mut state = test_agent_state();
+    state.runtime_route_frame = Some(typed_file_write_frame(
+        "/tmp/user-repo-sibling/outside-write.txt",
+        "stage4-sibling-write-should-not-exist",
+    ));
+
+    let resolved = typed_runtime_route_resolved_intent(
+        state
+            .runtime_route_frame
+            .as_ref()
+            .expect("route frame should be present"),
+    )
+    .expect("file write route frame should seed mutation intent");
+    assert_eq!(resolved.intent_id, "workspace.mutate");
+    assert_eq!(resolved.scope, IntentScopeProfile::WorkspaceOps);
+    assert_eq!(
+        resolved.required_evidence,
+        vec!["policy_result".to_string()]
+    );
+    assert_eq!(
+        resolved.success_conditions,
+        vec!["action_report".to_string()]
+    );
+    assert!(is_tool_allowed_for_resolution(
+        Some(&resolved),
+        "file__write"
+    ));
+    assert!(!is_tool_allowed_for_resolution(
+        Some(&resolved),
+        "file__read"
+    ));
+
+    let tool_call = maybe_typed_runtime_file_write_tool_call(&mut state)
+        .expect("file write route frame should dispatch file__write");
+    assert!(tool_call.contains("\"name\":\"file__write\""));
+    assert!(tool_call.contains("/tmp/user-repo-sibling/outside-write.txt"));
+    assert!(tool_call.contains("stage4-sibling-write-should-not-exist"));
+    assert!(state
+        .recent_actions
+        .iter()
+        .any(|action| action.starts_with("runtime_route_frame_dispatch:file__write")));
+
+    assert!(maybe_typed_runtime_file_write_tool_call(&mut state).is_none());
+    assert!(maybe_typed_runtime_shell_run_tool_call(&mut state).is_none());
+    assert!(maybe_typed_runtime_workspace_context_tool_call(&mut state).is_none());
+}
+
+#[test]
 fn typed_runtime_workspace_frame_dispatches_explicit_path_read() {
     let mut state = test_agent_state();
     state.runtime_route_frame = Some(typed_workspace_frame_with_evidence(
@@ -576,6 +732,43 @@ fn typed_runtime_workspace_frame_dispatches_explicit_path_read() {
         .any(|action| action.starts_with("runtime_route_frame_dispatch:workspace_context")));
 
     assert!(maybe_typed_runtime_workspace_context_tool_call(&mut state).is_none());
+}
+
+#[test]
+fn typed_runtime_workspace_search_with_explicit_path_dispatches_read_not_search() {
+    let mut state = test_agent_state();
+    state.goal =
+        "Try to read `/etc/passwd` through the governed file tool and summarize whether it blocks."
+            .to_string();
+    state.runtime_route_frame = Some(typed_workspace_frame_with_evidence(
+        "workspace_search",
+        "Try to read `/etc/passwd` through the governed file tool",
+    ));
+
+    let tool_call = maybe_typed_runtime_workspace_context_tool_call(&mut state)
+        .expect("explicit path read should dispatch file__read before workspace search fallback");
+    assert!(tool_call.contains("\"name\":\"file__read\""));
+    assert!(tool_call.contains("/etc/passwd"));
+    assert!(!tool_call.contains("\"name\":\"file__search\""));
+}
+
+#[test]
+fn typed_runtime_workspace_search_with_explicit_dotfile_path_dispatches_read_not_search() {
+    let mut state = test_agent_state();
+    state.goal =
+        "Try to read `.autopilot-stage73-outside-link` through the governed file tool and summarize whether the daemon blocks it."
+            .to_string();
+    state.runtime_route_frame = Some(typed_workspace_frame_with_evidence(
+        "workspace_search",
+        "Try to read `.autopilot-stage73-outside-link` through the governed file tool",
+    ));
+
+    let tool_call = maybe_typed_runtime_workspace_context_tool_call(&mut state).expect(
+        "explicit dotfile path read should dispatch file__read before workspace search fallback",
+    );
+    assert!(tool_call.contains("\"name\":\"file__read\""));
+    assert!(tool_call.contains(".autopilot-stage73-outside-link"));
+    assert!(!tool_call.contains("\"name\":\"file__search\""));
 }
 
 #[test]
@@ -656,6 +849,58 @@ fn typed_runtime_workspace_frame_dispatches_bounded_search() {
     assert!(tool_call.contains("local|native|model|providers|registered"));
     assert!(tool_call.contains("\"path\":\".\""));
 
+    assert!(maybe_typed_runtime_workspace_context_tool_call(&mut state).is_none());
+}
+
+#[test]
+fn typed_runtime_stage5_repair_frame_skips_workspace_context_prefetch() {
+    let mut state = test_agent_state();
+    state.runtime_route_frame = Some(RuntimeRouteFrame {
+        intent_id: "workspace.repair".to_string(),
+        route_family: "workspace".to_string(),
+        output_intent: "tool_execution".to_string(),
+        direct_answer_allowed: false,
+        target: "ARP_P0_007_PROOF_TOKEN repair loop for normalizeStatusLabel".to_string(),
+        target_kind: Some("repair_loop".to_string()),
+        host_mutation: true,
+        required_capabilities: vec![
+            "command.exec".to_string(),
+            "filesystem.read".to_string(),
+            "filesystem.write".to_string(),
+            "conversation.reply".to_string(),
+        ],
+        typed_evidence: vec![RuntimeIntentEvidence {
+            evidence_kind: "stage5_stop_hook_repair_proof".to_string(),
+            value: "model_tool_loop".to_string(),
+            source: "test".to_string(),
+            confidence: Some(96),
+        }],
+        typed_required_capabilities: Vec::new(),
+        host_mutation_scope: None,
+        runtime_action: None,
+        install_request: None,
+        provenance: Some("test".to_string()),
+    });
+
+    let resolved = typed_runtime_route_resolved_intent(
+        state
+            .runtime_route_frame
+            .as_ref()
+            .expect("route frame should be present"),
+    )
+    .expect("Stage 5 route frame should still seed a workspace-capable intent");
+    assert_eq!(resolved.intent_id, "workspace.repair");
+    assert_eq!(resolved.scope, IntentScopeProfile::WorkspaceOps);
+    assert!(resolved.required_evidence.is_empty());
+    assert!(resolved.success_conditions.is_empty());
+    assert!(is_tool_allowed_for_resolution(
+        Some(&resolved),
+        "file__read"
+    ));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&resolved),
+        "file__edit"
+    ));
     assert!(maybe_typed_runtime_workspace_context_tool_call(&mut state).is_none());
 }
 
@@ -1553,6 +1798,51 @@ async fn optimizer_recovery_is_skipped_without_optimizer_configuration() {
     assert!(!triggered);
     assert_eq!(agent_state.consecutive_failures, 3);
     assert!(agent_state.active_skill_hash.is_none());
+}
+
+#[test]
+fn zero_budget_does_not_trip_retry_limit_before_failure_ceiling() {
+    let service = build_test_service();
+    let mut state = MockState::default();
+    let mut agent_state = test_agent_state();
+    agent_state.session_id = [0x51; 32];
+    agent_state.budget = 0;
+    agent_state.consecutive_failures = 4;
+    let key = get_state_key(&agent_state.session_id);
+
+    let failed = maybe_fail_step_resource_limits(&service, &mut state, &mut agent_state, &key)
+        .expect("resource limit guard should evaluate");
+
+    assert!(!failed);
+    assert_eq!(agent_state.status, AgentStatus::Running);
+    assert!(state
+        .get(&key)
+        .expect("state lookup should succeed")
+        .is_none());
+}
+
+#[test]
+fn retry_limit_terminalizes_after_failure_ceiling_even_with_zero_budget() {
+    let service = build_test_service();
+    let mut state = MockState::default();
+    let mut agent_state = test_agent_state();
+    agent_state.session_id = [0x52; 32];
+    agent_state.budget = 0;
+    agent_state.consecutive_failures = 5;
+    let key = get_state_key(&agent_state.session_id);
+
+    let failed = maybe_fail_step_resource_limits(&service, &mut state, &mut agent_state, &key)
+        .expect("resource limit guard should evaluate");
+
+    assert!(failed);
+    assert_eq!(
+        agent_state.status,
+        AgentStatus::Failed("Resources/Retry limit exceeded".to_string())
+    );
+    assert!(state
+        .get(&key)
+        .expect("state lookup should succeed")
+        .is_some());
 }
 
 #[test]

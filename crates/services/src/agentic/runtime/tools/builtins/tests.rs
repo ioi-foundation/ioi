@@ -108,6 +108,55 @@ fn workspace_change_lifecycle_tools_surface_handle_only_contracts() {
 }
 
 #[test]
+fn shell_start_surfaces_complete_retained_helper_contract() {
+    let resolved = resolved_ui_intent();
+    let mut tools = Vec::new();
+    push_builtin_tools(
+        &mut tools,
+        ExecutionTier::DomHeadless,
+        false,
+        false,
+        false,
+        false,
+        Some(&resolved),
+    );
+
+    let shell_start = tools
+        .iter()
+        .find(|tool| tool.name == "shell__start")
+        .expect("shell__start should be available");
+    assert!(
+        shell_start.description.contains("complete command"),
+        "{}",
+        shell_start.description
+    );
+    assert!(
+        shell_start.description.contains("observable output"),
+        "{}",
+        shell_start.description
+    );
+    assert!(
+        shell_start
+            .description
+            .contains("do not start a bare interpreter"),
+        "{}",
+        shell_start.description
+    );
+    assert!(
+        shell_start
+            .parameters
+            .contains("complete observable program"),
+        "{}",
+        shell_start.parameters
+    );
+    assert!(
+        shell_start.parameters.contains("starting bare 'node'"),
+        "{}",
+        shell_start.parameters
+    );
+}
+
+#[test]
 fn browser_synthetic_click_surfaces_in_dom_headless_tier() {
     let resolved = resolved_ui_intent();
     let mut tools = Vec::new();

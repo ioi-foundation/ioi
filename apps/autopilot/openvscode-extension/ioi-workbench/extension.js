@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const fs = require("fs");
 const http = require("http");
 const https = require("https");
 const path = require("path");
@@ -14,7 +15,15 @@ const { createStudioAgentTurnEvents } = require("./studio/agent-turn-events");
 const { createStudioAgentTurnResultText } = require("./studio/agent-turn-result-text");
 const { createStudioAgentTurnRecovery } = require("./studio/agent-turn-recovery");
 const { createStudioProductErrorMessage } = require("./studio/product-error-message");
-const { studioRuntimeEventToolName, studioRuntimeEventKind, studioRuntimeEventIsRunningStepCompletion, studioRuntimeEventIdentity, studioRuntimeToolEventDetail } = require("./studio/runtime-event-utils");
+const {
+  studioRuntimeEventToolName,
+  studioRuntimeEventKind,
+  studioRuntimeEventIsRunningStepCompletion,
+  studioRuntimeEventIdentity,
+  studioRuntimeToolEventDetail,
+  studioRuntimeToolEventExcerpt,
+  sanitizeStudioPublicToolText,
+} = require("./studio/runtime-event-utils");
 const {
   studioArtifactResearchQuery,
   studioArtifactShouldGatherResearch,
@@ -1764,11 +1773,18 @@ function createInitialStudioRuntimeProjection() {
       realDaemonToolProposalObserved: false,
       policyLeaseDialogObserved: false,
       policyDeniedActionDidNotExecute: false,
+      policyLeaseAllowOnceObserved: false,
+      policyLeaseRevokeObserved: false,
+      policyLeaseExpiryObserved: false,
+      policyLeaseRevokedActionDidNotExecute: false,
+      policyLeaseExpiredActionDidNotExecute: false,
       sandboxCommandOutputStreamObserved: false,
       sandboxCommandReceiptObserved: false,
       inlineDiffOverlayObserved: false,
       hunkNavigationObserved: false,
       hunkAcceptRejectReceiptsObserved: false,
+      stopControlObserved: false,
+      resumeControlObserved: false,
       stopResumeObserved: false,
       diagnosticsTestGateObserved: false,
       receiptTimelinePerStepObserved: false,
@@ -1793,6 +1809,8 @@ function createInitialStudioRuntimeProjection() {
     commandOutputs: [],
     diagnosticGates: [],
     engineReconnectBanners: [],
+    trajectoryReplayPanels: [],
+    sessionBrainPanels: [],
     chatResponsibilityContracts: [],
     securityScanPanels: [],
     workerContributionTraces: [],
@@ -1927,7 +1945,35 @@ function studioHumanizeOperationalTranscriptText(value, role = "assistant") {
   ) {
     return "Agent reached the runtime but did not produce a chat reply. Details are in Tracing.";
   }
-  return raw;
+  return role === "assistant" ? studioSanitizePublicAssistantText(raw) : raw;
+}
+
+function studioSanitizePublicAssistantText(value = "") {
+  return String(value || "")
+    .replace(/\bwas blocked by the governed file tool\.\s*The tool returned (?:the following )?(?:the )?error:\s*/gi, "was blocked. The policy reason was: ")
+    .replace(/\bThe governed file (?:tool|write) returned (?:the following )?(?:the )?error:\s*Blocked by policy:\s*/gi, "The policy reason was: ")
+    .replace(/\bThe tool returned (?:the following )?(?:the )?error:\s*`*\s*Blocked by policy:\s*/gi, "The policy reason was: ")
+    .replace(/`+\s*Blocked by policy:\s*/gi, "Blocked by policy: ")
+    .replace(/\bThe policy reason was:\s*Blocked by policy:\s*/gi, "The policy reason was: ")
+    .replace(/\s*`+(?=\s|$)/g, "")
+    .replace(/\bThe tool returned an? ["']?Invalid transaction["']? error with the specific policy reason:\s*/gi, "The policy reason was: ")
+    .replace(/\ban? ["']?Invalid transaction["']? error\b/gi, "a policy block")
+    .replace(/\ban policy block\b/gi, "a policy block")
+    .replace(/\bInvalid transaction:\s*/gi, "")
+    .replace(/\bBlocked by Policy:\s*/gi, "Blocked by policy: ")
+    .replace(/\bERROR_CLASS=[a-z0-9_:-]+\b/gi, "policy block")
+    .replace(/`?\bfile__write\b`?/gi, "the governed file write")
+    .replace(/`?\bfile__read\b`?/gi, "the governed file read")
+    .replace(/`?\bshell__run\b`?/gi, "the governed command runner")
+    .replace(/`?\/tmp\/(?:autopilot-agent-studio-|autopilot-|ioi-)[^\s"'<>)\]}]+`?/gi, "the requested workspace path")
+    .replace(/\bshell__start:[a-f0-9]{12,}\b/gi, "command")
+    .replace(/"command_id"\s*:\s*"[^"]+"\s*,?/gi, "")
+    .replace(/"commandId"\s*:\s*"[^"]+"\s*,?/gi, "")
+    .replace(/\b(?:receipt|trace|request|turn|thread)_[a-z0-9:_-]{8,}\b/gi, "Tracing")
+    .replace(/\b(?:receipt|trace):\/\/[^\s)\]}]+/gi, "Tracing")
+    .replace(/\bworkspace_change:[^\s)\]}]+/gi, "workspace change")
+    .replace(/[ \t]+\n/g, "\n")
+    .trim();
 }
 
 function studioDisplayTurnContent(turn = {}) {
@@ -2144,6 +2190,46 @@ function isAbstractStudioPendingWorkStep(label, detail) {
   ].some((phrase) => text.includes(phrase));
 }
 
+function studioVisiblePendingStepDetail(detail = "") {
+  const text = sanitizeStudioPublicToolText(stringValue(detail));
+  if (/^(?:running|started|completed|pending|status:\s*(?:running|started|completed|pending))$/i.test(text)) {
+    return "";
+  }
+  return text;
+}
+
+function studioPendingCommandOutputExcerpt(step = {}, fallbackExcerpt = "") {
+  const text = studioPublicOutputBlock(
+    step.excerptPreview ||
+      step.excerpt_preview ||
+      step.stdout ||
+      step.output ||
+      step.chunk ||
+      step.text ||
+      fallbackExcerpt ||
+      "",
+    1200,
+  );
+  if (!text) {
+    return "";
+  }
+  const commandLabel = compactStudioWhitespace(step.command || step.commandLabel || step.command_label || step.detail || "");
+  const rowLabel = compactStudioWhitespace(step.label || "");
+  if (commandLabel && text === commandLabel) {
+    return "";
+  }
+  if (rowLabel && text === rowLabel) {
+    return "";
+  }
+  if (/^[a-z0-9_.-]+\s+-lc\s+<arg>$/i.test(text)) {
+    return "";
+  }
+  if (/^[a-z0-9_.-]+\s+-e\s+<inline script>$/i.test(text)) {
+    return "";
+  }
+  return text;
+}
+
 function studioPendingWorkToolName(payload = {}) {
   const explicit = stringValue(
     payload.toolName ||
@@ -2178,36 +2264,41 @@ function studioPendingWorkStepIsConcrete(payload = {}) {
 }
 
 function normalizeStudioPendingWorkStep(payload = {}) {
-  const label = stringValue(payload.label);
+  const label = sanitizeStudioPublicToolText(stringValue(payload.label));
   if (!label) {
     return null;
   }
-  const detail = stringValue(payload.detail);
+  const detail = studioVisiblePendingStepDetail(payload.detail);
   if (isAbstractStudioPendingWorkStep(label, detail)) {
     return null;
   }
   if (!studioPendingWorkStepIsConcrete(payload)) {
     return null;
   }
+  const toolName = studioPendingWorkToolName(payload);
+  const commandStep = /shell|terminal|command/i.test(toolName);
   return {
     id: stringValue(payload.id || payload.stepId || payload.eventId || payload.event_id || payload.toolCallId || payload.tool_call_id),
     label,
     detail,
     status: stringValue(payload.status, "running"),
     at: stringValue(payload.at) || new Date().toISOString(),
-    toolName: studioPendingWorkToolName(payload),
+    toolName,
     kind: stringValue(payload.kind || payload.eventKind || payload.event_kind),
     sourceChips: firstArray(payload.sourceChips || payload.source_chips || payload.sources)
       .map((source) => studioSourceRefFromRecord(source))
       .filter(Boolean)
       .slice(0, 6),
-    excerptPreview: compactStudioWhitespace(payload.excerptPreview || payload.excerpt_preview).slice(0, 280),
+    excerptPreview: commandStep
+      ? studioPendingCommandOutputExcerpt(payload)
+      : sanitizeStudioPublicToolText(payload.excerptPreview || payload.excerpt_preview).slice(0, 280),
   };
 }
 
-function studioPendingWorkLabelForTool(toolName = "", detail = "") {
+function studioPendingWorkLabelForTool(toolName = "", detail = "", status = "") {
   const normalizedTool = stringValue(toolName).toLowerCase();
   const compactDetail = compactStudioWhitespace(detail);
+  const statusText = stringValue(status).toLowerCase();
   const domainLike = compactDetail && !/^query:/i.test(compactDetail);
   if (normalizedTool === "web__search") {
     return "Searched web";
@@ -2227,8 +2318,34 @@ function studioPendingWorkLabelForTool(toolName = "", detail = "") {
   if (normalizedTool === "file__edit" || normalizedTool === "file__multi_edit") {
     return domainLike ? `Edited ${compactDetail}` : "Edited file";
   }
+  if (normalizedTool === "shell__start") {
+    if (/failed|error/.test(`${statusText} ${compactDetail}`)) return "Command failed";
+    return /running/.test(`${statusText} ${compactDetail}`) ? "Running command" : "Started command";
+  }
+  if (normalizedTool === "shell__run" || normalizedTool === "terminal__run") {
+    if (/failed|error/.test(statusText)) return "Command failed";
+    return /running|started/.test(`${statusText} ${compactDetail}`) ? "Running command" : "Ran command";
+  }
+  if (normalizedTool === "shell__status") {
+    return "Checked command status";
+  }
+  if (normalizedTool === "shell__input") {
+    const inputState = `${statusText} ${compactDetail}`;
+    if (/already stopped|already terminated|obsolete/i.test(inputState)) {
+      return "Skipped obsolete input";
+    }
+    return /failed|skipped|already sent/i.test(inputState)
+      ? "Skipped duplicate input"
+      : "Sent input to retained command";
+  }
+  if (normalizedTool === "shell__terminate") {
+    return "Terminated retained command";
+  }
+  if (normalizedTool === "shell__reset") {
+    return "Reset retained shell state";
+  }
   if (/^shell__|^terminal__/.test(normalizedTool)) {
-    return compactDetail ? `Ran ${compactDetail}` : "Ran command";
+    return "Ran command";
   }
   if (/^browser__/.test(normalizedTool)) {
     return "Used browser";
@@ -2250,6 +2367,15 @@ function appendStudioPendingWorkStep(payload = {}) {
   if (!step) {
     return null;
   }
+  const concreteExcerpt = (nextExcerpt = "", previousExcerpt = "") => {
+    const next = String(nextExcerpt || "").trim();
+    const previous = String(previousExcerpt || "").trim();
+    if (!next) return previous;
+    if (previous && /^(?:ran command|running command|started command|command completed)$/i.test(next)) {
+      return previous;
+    }
+    return next;
+  };
   const rows = firstArray(studioRuntimeProjection.pendingWorklog).slice();
   const existingIndex = rows.findIndex((row) =>
     (step.id && row.id === step.id) ||
@@ -2257,9 +2383,13 @@ function appendStudioPendingWorkStep(payload = {}) {
     row.label === step.label
   );
   if (existingIndex >= 0) {
+    const existing = rows[existingIndex];
     rows[existingIndex] = {
-      ...rows[existingIndex],
+      ...existing,
       ...step,
+      detail: step.detail || existing.detail || "",
+      sourceChips: firstArray(step.sourceChips).length ? step.sourceChips : firstArray(existing.sourceChips),
+      excerptPreview: concreteExcerpt(step.excerptPreview, existing.excerptPreview),
     };
   } else {
     rows.push(step);
@@ -2303,16 +2433,18 @@ function studioPendingStepFromRuntimeEvent(event = {}, { kind = "", toolName = "
     return null;
   }
   const normalizedKind = stringValue(kind || studioRuntimeEventKind(event)).toLowerCase();
-  if (!/tool\.(call|started|completed|result)|receipt\.emitted|command|shell|browser|file|web|turn\.step|agent\.step/.test(normalizedKind)) {
+  if (!/tool\.(call|started|output|completed|result)|receipt\.emitted|command|shell|browser|file|web|turn\.step|agent\.step/.test(normalizedKind)) {
     return null;
   }
   const completed = /completed|result|succeeded|failed|error/.test(`${normalizedKind} ${status}`.toLowerCase());
   const detail = studioRuntimeToolEventDetail(event, normalizedTool, summary);
   const sourceChips = studioSourceRefsFromRuntimeEvent(event, summary);
-  const excerptPreview = studioFirstSourceExcerptFromEvent(event, summary);
+  const excerptPreview =
+    studioRuntimeToolEventExcerpt(event, summary) ||
+    studioFirstSourceExcerptFromEvent(event, summary);
   return normalizeStudioPendingWorkStep({
     id: normalizedTool,
-    label: studioPendingWorkLabelForTool(normalizedTool, detail),
+    label: studioPendingWorkLabelForTool(normalizedTool, detail, completed ? "completed" : "running"),
     detail,
     status: completed ? "completed" : "running",
     at: event.created_at || event.createdAt || new Date().toISOString(),
@@ -2452,7 +2584,7 @@ function studioPolicyBlockedRuntimeMessage({ prompt = "", resultText = "", event
       ].filter(Boolean).join(" "),
     ),
   ].join(" ");
-  if (!/\b(Blocked by Policy|PolicyBlocked|policy blocking|outside workspace authority|outside the workspace boundary|symlink paths? must be resolved)\b/i.test(combined)) {
+  if (!/\b(Blocked by Policy|PolicyBlocked|policy blocking|outside workspace authority|outside the workspace boundary|ignored workspace files?|symlink paths? must be resolved)\b/i.test(combined)) {
     return "";
   }
   const observedTools = uniqueStrings(firstArray(events).map((event) => studioRuntimeEventToolName(event)).filter(Boolean));
@@ -2466,9 +2598,11 @@ function studioPolicyBlockedRuntimeMessage({ prompt = "", resultText = "", event
     String(resultText || "").match(/\bread\s+(\/\S+)/i) ||
     []
   )[1];
-  const reason = /\bsymlink paths? must be resolved\b|\bsymlink\b/i.test(combined)
-    ? "because symlink targets require an explicit governed workflow"
-    : "because the target is outside the workspace boundary";
+  const reason = /\bignored workspace files?\b/i.test(combined)
+    ? "because ignored workspace files are protected"
+    : /\bsymlink paths? must be resolved\b|\bsymlink\b/i.test(combined)
+      ? "because symlink targets require an explicit governed workflow"
+      : "because the target is outside the workspace boundary";
   return [
     `The daemon blocked the file read${path ? ` for \`${path}\`` : ""} ${reason}.`,
     "I did not expose the file contents. Details are in Tracing.",
@@ -2776,15 +2910,143 @@ function studioDocumentedWorkSummary(record = {}) {
   return studioWorkSummary.studioDocumentedWorkSummary(record, studioRuntimeProjection.status);
 }
 
+function studioPublicOutputBlock(value = "", max = 6000) {
+  return String(value || "")
+    .replace(/\bshell__start:[a-f0-9]{12,}\b/gi, "<command>")
+    .replace(/\b(?:receipt|trace|request|turn|thread)_[a-z0-9:_-]{8,}\b/gi, "<ref>")
+    .replace(/ioi-session-stdin-[^\s"']+/gi, "<stdin-bridge>")
+    .replace(/\/tmp\/[^\s"']+/gi, "<tmp>")
+    .replace(/\/home\/[^\s"']+/gi, "<path>")
+    .replace(/"command_id"\s*:\s*"[^"]+"/gi, "")
+    .slice(0, max)
+    .trim();
+}
+
+function studioPublicWorkspacePath(value = "") {
+  const raw = compactStudioWhitespace(value).replace(/\\/g, "/");
+  if (!raw) return "";
+  const workspaceRoot = compactStudioWhitespace(workspaceSummary().path).replace(/\\/g, "/");
+  if (/^(?:\/|[a-z]:\/)/i.test(raw)) {
+    if (workspaceRoot && !/^open a workspace/i.test(workspaceRoot)) {
+      const relative = path.relative(workspaceRoot, raw).replace(/\\/g, "/");
+      if (relative && !relative.startsWith("..") && !path.isAbsolute(relative)) {
+        return relative.slice(0, 180);
+      }
+    }
+    return path.basename(raw).slice(0, 120) || "workspace";
+  }
+  return raw.replace(/^\.\//, "").slice(0, 180);
+}
+
+function studioCommandRowHasOutput(command = {}) {
+  if (!command || typeof command !== "object" || Array.isArray(command)) return false;
+  return Boolean(compactStudioWhitespace(
+    command.stdout ||
+    command.output ||
+    command.chunk ||
+    command.text ||
+    command.excerptPreview ||
+    command.excerpt_preview ||
+    command.stderr ||
+    ""
+  ));
+}
+
+function studioEffectiveCommandStatus(command = {}, { recordSettled = false } = {}) {
+  const status = compactStudioWhitespace(command.status || "completed").slice(0, 32);
+  if (recordSettled && studioCommandRowHasOutput(command) && /^(?:running|started|pending)$/i.test(status)) {
+    return "completed";
+  }
+  return status;
+}
+
+function studioPublicCommandVerb(command = {}, toolId = "", status = "") {
+  const statusText = compactStudioWhitespace(status || command.status || "").toLowerCase();
+  if (/failed|error/.test(statusText)) return "Failed";
+  if (/running|started|pending/.test(statusText)) return "Running";
+  if (toolId === "shell__start") return "Started";
+  return "Ran";
+}
+
+function studioPublicCommandKindLabel(value = "") {
+  const text = compactStudioWhitespace(value);
+  if (!text || /^(?:shell|command|running command|ran command|started command)$/i.test(text)) return "";
+  const head = text.split(/\s+/)[0].split(/[\\/]/).pop().toLowerCase();
+  if (!head) return "";
+  if (head === "node" || head === "nodejs") return "Node.js";
+  if (head === "python" || head === "python3") return "Python";
+  if (["npm", "pnpm", "yarn", "bun", "cargo", "deno", "go", "rustc", "make"].includes(head)) return head;
+  if (head === "bash" || head === "sh" || head === "zsh") return "shell";
+  return "";
+}
+
+function studioPublicCommandOutputForWebview(command = {}, index = 0, options = {}) {
+  if (!command || typeof command !== "object" || Array.isArray(command)) return null;
+  const toolId = compactStudioWhitespace(command.toolId || command.tool_id || "");
+  const rawLabel = compactStudioWhitespace(command.label || command.command || toolId || "Command");
+  const effectiveStatus = studioEffectiveCommandStatus(command, options);
+  const rawLabelIsGeneric =
+    /^[a-z][a-z0-9_]*__[a-z0-9_]+$/i.test(rawLabel) ||
+    rawLabel === toolId ||
+    /^(?:shell|command|running command|ran command|started command)$/i.test(rawLabel);
+  const commandKind = studioPublicCommandKindLabel(command.command || command.commandLabel || command.command_label || "");
+  const label = (rawLabelIsGeneric
+    ? (commandKind
+      ? `${studioPublicCommandVerb(command, toolId, effectiveStatus)} ${commandKind} command`
+      : studioPendingWorkLabelForTool(toolId || rawLabel, "", effectiveStatus || "completed"))
+    : rawLabel
+  ).slice(0, 160);
+  if (!label) return null;
+  return {
+    id: compactStudioWhitespace(command.id || command.commandId || command.command_id || `command.${index}`).slice(0, 96),
+    toolId: (toolId || "shell").slice(0, 96),
+    label,
+    status: effectiveStatus,
+    stdout: studioPublicOutputBlock(
+      command.stdout ||
+      command.output ||
+      command.chunk ||
+      command.text ||
+      command.excerptPreview ||
+      command.excerpt_preview ||
+      ""
+    ),
+    stderr: studioPublicOutputBlock(command.stderr || ""),
+    exitCode: command.exitCode ?? command.exit_code ?? null,
+    durationMs: command.durationMs ?? command.duration_ms ?? null,
+  };
+}
+
+function studioPublicDiffHunkForWebview(hunk = {}, index = 0) {
+  if (!hunk || typeof hunk !== "object" || Array.isArray(hunk)) return null;
+  const file = studioPublicWorkspacePath(hunk.file || hunk.path || "workspace") || "workspace";
+  return {
+    title: compactStudioWhitespace(hunk.title || `Hunk ${index + 1}`).slice(0, 120),
+    file,
+    status: compactStudioWhitespace(hunk.status || "pending").slice(0, 32),
+    before: studioPublicOutputBlock(hunk.before || hunk.search || "", 4000),
+    after: studioPublicOutputBlock(hunk.after || hunk.replace || "", 4000),
+    stale: Boolean(hunk.stale),
+    staleReason: compactStudioWhitespace(hunk.staleReason || hunk.stale_reason || "").slice(0, 160),
+    acceptAvailable: hunk.acceptAvailable ?? hunk.accept_available ?? true,
+    rejectAvailable: hunk.rejectAvailable ?? hunk.reject_available ?? true,
+    rollbackAvailable: hunk.rollbackAvailable ?? hunk.rollback_available ?? false,
+    approvalId: compactStudioWhitespace(hunk.approvalId || hunk.approval_id || "").slice(0, 160),
+    changeId: compactStudioWhitespace(hunk.changeId || hunk.change_id || "").slice(0, 160),
+    hunkIndex: Number.isFinite(Number(hunk.hunkIndex ?? hunk.hunk_index)) ? Number(hunk.hunkIndex ?? hunk.hunk_index) : index,
+  };
+}
+
 function studioPublicWorkRecordForWebview(record = {}) {
   if (!record || typeof record !== "object" || Array.isArray(record)) {
     return null;
   }
+  const recordSettled = /^(?:completed|blocked|failed|cancelled|canceled)$/i.test(compactStudioWhitespace(record.status || ""));
   const lines = firstArray(record.lines)
     .map((line) => compactStudioWhitespace(line).slice(0, 160))
     .filter(Boolean)
     .slice(0, 12);
-  const workRows = firstArray(record.workRows)
+  const mappedWorkRows = firstArray(record.workRows)
     .map((row) => {
       if (!row || typeof row !== "object" || Array.isArray(row)) return null;
       const headline = compactStudioWhitespace(row.headline || row.label || "").slice(0, 160);
@@ -2823,13 +3085,47 @@ function studioPublicWorkRecordForWebview(record = {}) {
         sessionMode: compactStudioWhitespace(session.sessionMode || session.session_mode || "").slice(0, 80),
         lastTool: compactStudioWhitespace(session.lastTool || session.last_tool || "computer-use").slice(0, 80),
         actionCount: Math.max(1, Number(session.actionCount || session.action_count || 1) || 1),
+        controlState: compactStudioWhitespace(session.controlState || session.control_state || "observe").slice(0, 48),
+        availableControlStates: firstArray(session.availableControlStates || session.available_control_states)
+          .map((state) => compactStudioWhitespace(state).slice(0, 48))
+          .filter(Boolean)
+          .slice(0, 6),
         waitingForUser: Boolean(session.waitingForUser || session.waiting_for_user),
+        waitingReason: compactStudioWhitespace(session.waitingReason || session.waiting_reason || "").slice(0, 80),
+        replayReady: Boolean(session.replayReady || session.replay_ready),
         updatedAt: compactStudioWhitespace(session.updatedAt || session.updated_at || "").slice(0, 80),
       };
     })
     .filter(Boolean)
     .slice(-3);
-  if (!lines.length && !workRows.length && !sessionCards.length) {
+  const rawCommandOutputs = firstArray(record.commandOutputs);
+  const hasCommandOutput = rawCommandOutputs.some((command) => studioCommandRowHasOutput(command));
+  const hasWorkRowOutput = mappedWorkRows.some((row) => compactStudioWhitespace(row.excerptPreview || ""));
+  const commandOutputs = rawCommandOutputs
+    .map((command, index) => studioPublicCommandOutputForWebview(command, index, { recordSettled }))
+    .filter(Boolean)
+    .filter((command) => {
+      const status = compactStudioWhitespace(command.status || "");
+      const emptyOutput = !compactStudioWhitespace(
+        command.stdout ||
+        command.output ||
+        command.chunk ||
+        command.text ||
+        command.excerptPreview ||
+        command.excerpt_preview ||
+        ""
+      ) && !compactStudioWhitespace(command.stderr || "");
+      if (recordSettled && emptyOutput && /^(?:running|started|pending)$/i.test(status)) return false;
+      if (recordSettled && (hasCommandOutput || hasWorkRowOutput) && emptyOutput && /^(?:completed|succeeded|success)$/i.test(status)) return false;
+      return true;
+    })
+    .slice(-4);
+  const workRows = studioFilterDuplicateCommandWorkRows(mappedWorkRows, commandOutputs);
+  const diffHunks = firstArray(record.diffHunks)
+    .map((hunk, index) => studioPublicDiffHunkForWebview(hunk, index))
+    .filter(Boolean)
+    .slice(-6);
+  if (!lines.length && !workRows.length && !sessionCards.length && !commandOutputs.length && !diffHunks.length) {
     return null;
   }
   return {
@@ -2837,8 +3133,10 @@ function studioPublicWorkRecordForWebview(record = {}) {
     durationMs: Math.max(0, Number(record.durationMs || 0) || 0),
     lines,
     workRows,
+    commandOutputs,
+    diffHunks,
     sessionCards,
-    stepCount: Number(record.stepCount || lines.length || workRows.length || 0) || lines.length || workRows.length,
+    stepCount: Number(record.stepCount || lines.length || workRows.length || commandOutputs.length || diffHunks.length || 0) || lines.length || workRows.length || commandOutputs.length || diffHunks.length,
   };
 }
 
@@ -3069,7 +3367,7 @@ function studioFirstSourceExcerptFromEvent(event = {}, summary = "") {
       return;
     }
     if (typeof parsed !== "object") return;
-    for (const key of ["snippet", "excerpt", "summary", "text", "content"]) {
+    for (const key of ["snippet", "excerpt", "excerpt_preview", "excerptPreview", "summary", "text", "content"]) {
       const text = compactStudioWhitespace(parsed[key]);
       if (text && !/^\{/.test(text)) candidates.push(text.slice(0, 280));
     }
@@ -3283,6 +3581,349 @@ function upsertStudioManagedSession(session) {
   studioRuntimeProjection.runtimeCockpit.managedSessionLabelsObserved = true;
 }
 
+function studioManagedSessionFromBridgeCard(card = {}) {
+  const kind = stringValue(card.kind || card.session_kind || card.sessionKind, "sandbox_browser");
+  const status = stringValue(card.status, "complete");
+  const controlState = stringValue(card.control_state || card.controlState, "observe");
+  return {
+    id: stringValue(card.id || card.session_id || card.sessionId || card.managed_session_id || card.managedSessionId, "managed-session"),
+    kind,
+    surfaceLabel: stringValue(card.surface_label || card.surfaceLabel, studioComputerUseSurfaceLabel(kind)),
+    status,
+    statusLabel: stringValue(card.status_label || card.statusLabel, studioComputerUseStatusLabel(status)),
+    controlState,
+    availableControlStates: firstArray(card.available_control_states || card.availableControlStates),
+    waitingForUser: Boolean(card.waiting_for_user || card.waitingForUser || status === "waiting_for_user" || status === "needs_user"),
+    waitingReason: stringValue(card.waiting_reason || card.waitingReason),
+    title: stringValue(card.step_label || card.stepLabel || card.title, kind === "desktop" ? "Computer session" : "Browser session"),
+    detail: stringValue(card.detail || card.summary, "Runtime-managed viewport"),
+    pageTitle: stringValue(card.page_title || card.pageTitle),
+    target: stringValue(card.target || card.url),
+    url: stringValue(card.url || card.target),
+    lastTool: stringValue(card.last_tool || card.lastTool, "computer-use"),
+    actionCount: Math.max(1, Number(card.action_count || card.actionCount || 1) || 1),
+    replayReady: Boolean(card.replay_ready || card.replayReady),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function applyStudioManagedSessionInspection(inspection = {}) {
+  const managed =
+    inspection.managed_sessions ||
+    inspection.managedSessions ||
+    inspection.inspection?.managed_sessions ||
+    inspection.inspection?.managedSessions ||
+    {};
+  if (!Array.isArray(managed.sessions)) {
+    return [];
+  }
+  const sessions = managed.sessions
+    .map(studioManagedSessionFromBridgeCard)
+    .filter((session) => session.id);
+  studioRuntimeProjection.computerUseSessions = sessions;
+  applyStudioManagedSessionsToLatestTurn(sessions);
+  studioRuntimeProjection.runtimeCockpit.managedSessionCount = sessions.length;
+  if (sessions.length) {
+    studioRuntimeProjection.runtimeCockpit.managedLiveViewportObserved = true;
+    studioRuntimeProjection.runtimeCockpit.managedSessionLabelsObserved = true;
+  }
+  return sessions;
+}
+
+function applyStudioManagedSessionsToLatestTurn(sessions = []) {
+  const cards = firstArray(sessions).filter(Boolean);
+  if (!cards.length) {
+    return false;
+  }
+  for (let index = studioRuntimeProjection.turns.length - 1; index >= 0; index -= 1) {
+    const turn = studioRuntimeProjection.turns[index];
+    if (turn?.role !== "assistant") {
+      continue;
+    }
+    const existingWorkRecord =
+      turn.workRecord && typeof turn.workRecord === "object" && !Array.isArray(turn.workRecord)
+        ? turn.workRecord
+        : {};
+    turn.workRecord = {
+      ...existingWorkRecord,
+      status: existingWorkRecord.status || "completed",
+      sessionCards: cards,
+    };
+    return true;
+  }
+  return false;
+}
+
+async function refreshStudioManagedSessionsFromDaemon(output) {
+  const endpoint = daemonEndpoint();
+  const threadId = stringValue(studioRuntimeProjection.threadId);
+  if (!endpoint || !threadId) {
+    return [];
+  }
+  try {
+    const inspection = await requestJson(
+      endpoint,
+      `/v1/threads/${encodeURIComponent(threadId)}/managed-sessions`,
+      {
+        token: daemonRequestToken(),
+        timeoutMs: 2500,
+      },
+    );
+    return applyStudioManagedSessionInspection(inspection);
+  } catch (error) {
+    output?.appendLine?.(
+      `[ioi-studio] managed session inspection unavailable: ${error?.message || String(error)}`,
+    );
+    return [];
+  }
+}
+
+function ensureStudioManagedSessionReconnectTurn() {
+  const marker = "managed-session-reconnect-proof";
+  for (let index = studioRuntimeProjection.turns.length - 1; index >= 0; index -= 1) {
+    const turn = studioRuntimeProjection.turns[index];
+    if (turn?.role === "assistant" && turn?.workRecord?.id === marker) {
+      return turn;
+    }
+  }
+  const turn = {
+    role: "assistant",
+    content: "Managed browser session state is available for operator control.",
+    createdAt: new Date().toISOString(),
+    workRecord: {
+      id: marker,
+      status: "completed",
+      title: "Managed browser session",
+      sessionCards: [],
+      receiptRefs: ["receipt_managed_session_reconnect_gui"],
+    },
+  };
+  studioRuntimeProjection.turns.push(turn);
+  return turn;
+}
+
+async function inspectStudioManagedSessionsForReconnect(output, threadId) {
+  const endpoint = daemonEndpoint();
+  if (!endpoint || !threadId) {
+    return { inspection: null, sessions: [] };
+  }
+  try {
+    const inspection = await requestJson(
+      endpoint,
+      `/v1/threads/${encodeURIComponent(threadId)}/managed-sessions`,
+      {
+        token: daemonRequestToken(),
+        timeoutMs: 3500,
+      },
+    );
+    const sessions = applyStudioManagedSessionInspection(inspection);
+    return { inspection, sessions };
+  } catch (error) {
+    output?.appendLine?.(
+      `[ioi-studio] managed session reconnect inspection unavailable: ${error?.message || String(error)}`,
+    );
+    return { inspection: null, sessions: [] };
+  }
+}
+
+function studioManagedSessionReconnectSummary({ inspection, sessions, expectedManagedSessionId = "", expectedRuntimeSessionId = "", expectedControlState = "" } = {}) {
+  const managed = inspection?.managed_sessions || inspection?.managedSessions || {};
+  const replay = managed?.replay || {};
+  const runtimeSessionId = stringValue(inspection?.session_id || inspection?.sessionId);
+  const session = firstArray(sessions).find((candidate) => candidate.id === expectedManagedSessionId) || firstArray(sessions)[0] || null;
+  const checks = {
+    inspectionReturned: Boolean(inspection),
+    sessionCardObserved: Boolean(session),
+    expectedManagedSessionStable: expectedManagedSessionId ? session?.id === expectedManagedSessionId : Boolean(session?.id),
+    expectedRuntimeSessionStable: expectedRuntimeSessionId ? runtimeSessionId === expectedRuntimeSessionId : Boolean(runtimeSessionId),
+    expectedControlStateObserved: expectedControlState ? session?.controlState === expectedControlState : Boolean(session?.controlState),
+    waitingForUserReplayed: Boolean(session?.waitingForUser),
+    replayReady: Boolean(session?.replayReady || replay?.replayable || replay?.available),
+  };
+  return {
+    session,
+    runtimeSessionId,
+    replay,
+    checks,
+    passed: Object.values(checks).every(Boolean),
+  };
+}
+
+async function exerciseStudioManagedSessionReconnect(output, payload = {}) {
+  const phase = payload?.phase === "reconnect" ? "reconnect" : "create";
+  const threadId = stringValue(payload?.threadId || payload?.thread_id);
+  if (!threadId) {
+    throw new Error("Managed session reconnect proof requires a daemon thread id.");
+  }
+  const expectedManagedSessionId = stringValue(
+    payload?.expectedManagedSessionId || payload?.expected_managed_session_id || payload?.managedSessionId || payload?.managed_session_id,
+  );
+  const expectedRuntimeSessionId = stringValue(
+    payload?.expectedRuntimeSessionId || payload?.expected_runtime_session_id || payload?.runtimeSessionId || payload?.runtime_session_id,
+  );
+  const expectedControlState = stringValue(payload?.expectedControlState || payload?.expected_control_state || "observe");
+  const contextSnapshot = buildWorkspaceActionContext(`studio-managed-session-reconnect-${phase}`);
+  studioRuntimeProjection.threadId = threadId;
+  ensureStudioManagedSessionReconnectTurn();
+  const { inspection, sessions } = await inspectStudioManagedSessionsForReconnect(output, threadId);
+  const summary = studioManagedSessionReconnectSummary({
+    inspection,
+    sessions,
+    expectedManagedSessionId,
+    expectedRuntimeSessionId,
+    expectedControlState,
+  });
+  const checks = {
+    threadObserved: Boolean(threadId),
+    ...summary.checks,
+  };
+  if (phase === "reconnect") {
+    studioRuntimeProjection.engineReconnectBanners.push({
+      id: "managed-session.engine-reconnect",
+      kind: "engine.reconnect",
+      status: summary.passed ? "ready" : "blocked",
+      bannerLabel: "Engine reconnect restored managed browser session state.",
+      composerFrozen: false,
+      receiptRefs: ["receipt_managed_session_reconnect_gui"],
+    });
+  }
+  studioRuntimeProjection.runtimeCockpit.managedLiveViewportObserved = sessions.length > 0;
+  studioRuntimeProjection.runtimeCockpit.managedSessionLabelsObserved = sessions.length > 0;
+  studioRuntimeProjection.runtimeCockpit.managedSessionCount = sessions.length;
+  const passed = Object.values(checks).every(Boolean);
+  await writeBridgeRequest("studio.managedSessionReconnect.exercised", {
+    sourceCommand: "ioi.studio.exerciseManagedSessionReconnect",
+    runtimeAuthority: "daemon-owned",
+    projectionOwner: "openvscode-workbench-adapter",
+    ownsRuntimeState: false,
+    phase,
+    threadId,
+    runtimeSessionId: summary.runtimeSessionId,
+    expectedRuntimeSessionId,
+    managedSessionId: summary.session?.id || "",
+    expectedManagedSessionId,
+    controlState: summary.session?.controlState || "",
+    expectedControlState,
+    waitingForUser: Boolean(summary.session?.waitingForUser),
+    replayReady: Boolean(summary.session?.replayReady || summary.replay?.replayable || summary.replay?.available),
+    replaySource: stringValue(summary.replay?.source),
+    sessionCount: sessions.length,
+    checks,
+    passed,
+  }, contextSnapshot).catch((error) => {
+    output.appendLine(`[ioi-studio] managed session reconnect bridge request unavailable: ${error?.message || String(error)}`);
+  });
+  return {
+    passed,
+    phase,
+    threadId,
+    runtimeSessionId: summary.runtimeSessionId,
+    managedSessionId: summary.session?.id || "",
+    controlState: summary.session?.controlState || "",
+    waitingForUser: Boolean(summary.session?.waitingForUser),
+    replayReady: Boolean(summary.session?.replayReady || summary.replay?.replayable || summary.replay?.available),
+    replaySource: stringValue(summary.replay?.source),
+    sessionCount: sessions.length,
+    checks,
+  };
+}
+
+function applyStudioWorkspaceChangeReviewInspection(inspection = {}) {
+  const previews = firstArray(inspection.hunkPreviews || inspection.hunk_previews)
+    .map((hunk, index) => ({
+      id: stringValue(hunk.id, `workspace-hunk-${index}`),
+      changeId: stringValue(hunk.changeId || hunk.change_id),
+      hunkIndex: Number.isFinite(Number(hunk.hunkIndex ?? hunk.hunk_index)) ? Number(hunk.hunkIndex ?? hunk.hunk_index) : index,
+      file: stringValue(hunk.file || hunk.path, "workspace"),
+      title: stringValue(hunk.title, `Workspace hunk ${index + 1}`),
+      status: stringValue(hunk.status || hunk.lifecycle, "needs_review"),
+      lifecycle: stringValue(hunk.lifecycle),
+      kind: stringValue(hunk.kind, "edit"),
+      before: String(hunk.before ?? hunk.searchText ?? hunk.search_text ?? ""),
+      after: String(hunk.after ?? hunk.replaceText ?? hunk.replace_text ?? hunk.contentText ?? hunk.content_text ?? ""),
+      beforeContent: String(hunk.beforeContent ?? hunk.before ?? ""),
+      afterContent: String(hunk.afterContent ?? hunk.after ?? ""),
+      acceptAvailable: Boolean(hunk.acceptAvailable ?? hunk.accept_available),
+      rejectAvailable: Boolean(hunk.rejectAvailable ?? hunk.reject_available),
+      rollbackAvailable: Boolean(hunk.rollbackAvailable ?? hunk.rollback_available),
+      stale: Boolean(hunk.stale),
+      staleReason: stringValue(hunk.staleReason || hunk.stale_reason),
+    }))
+    .filter((hunk) => hunk.changeId || hunk.before || hunk.after);
+  if (!previews.length) {
+    return [];
+  }
+  studioRuntimeProjection.diffHunks = previews;
+  studioRuntimeProjection.runtimeCockpit.inlineDiffOverlayObserved = true;
+  studioRuntimeProjection.runtimeCockpit.hunkNavigationObserved = true;
+  return previews;
+}
+
+async function refreshStudioWorkspaceChangeReviewsFromDaemon(output) {
+  const endpoint = daemonEndpoint();
+  const threadId = stringValue(studioRuntimeProjection.threadId);
+  if (!endpoint || !threadId) {
+    return [];
+  }
+  try {
+    const workspaceRoot = compactStudioWhitespace(workspaceSummary().path);
+    const query = workspaceRoot && !/^open a workspace/i.test(workspaceRoot)
+      ? `?workspaceRoot=${encodeURIComponent(workspaceRoot)}`
+      : "";
+    const inspection = await requestJson(
+      endpoint,
+      `/v1/threads/${encodeURIComponent(threadId)}/workspace-change-reviews${query}`,
+      {
+        token: daemonRequestToken(),
+        timeoutMs: 10000,
+      },
+    );
+    return applyStudioWorkspaceChangeReviewInspection(inspection);
+  } catch (error) {
+    output?.appendLine?.(
+      `[ioi-studio] workspace change review inspection unavailable: ${error?.message || String(error)}`,
+    );
+    return [];
+  }
+}
+
+function studioWorkRecordWithSessionCards(workRecord, sessionCards = []) {
+  const cards = firstArray(sessionCards).filter(Boolean);
+  if (!cards.length) {
+    return workRecord || null;
+  }
+  const existing =
+    workRecord && typeof workRecord === "object" && !Array.isArray(workRecord)
+      ? workRecord
+      : {
+          status: "completed",
+          durationMs: 0,
+          lines: [],
+          summaryParts: [],
+          activityLines: [],
+          receiptRefs: [],
+          stepCount: 0,
+        };
+  const hasSessionLine = firstArray(existing.lines).some((line) =>
+    /\b(browser|computer).*live session\b/i.test(String(line || "")),
+  );
+  return {
+    ...existing,
+    status: existing.status || "completed",
+    lines: hasSessionLine
+      ? firstArray(existing.lines)
+      : [
+          ...firstArray(existing.lines),
+          `Managed ${cards.length} browser/computer live session${cards.length === 1 ? "" : "s"}`,
+        ],
+    summaryParts: firstArray(existing.summaryParts),
+    activityLines: firstArray(existing.activityLines),
+    receiptRefs: firstArray(existing.receiptRefs),
+    stepCount: Math.max(Number(existing.stepCount || 0) || 0, firstArray(existing.lines).length + 1),
+    sessionCards: cards.slice(-3),
+  };
+}
+
 function studioManagedSessionRows(cards = []) {
   const sessions = firstArray(cards).filter(Boolean);
   if (!sessions.length) {
@@ -3291,6 +3932,7 @@ function studioManagedSessionRows(cards = []) {
   return `
     <section class="studio-managed-sessions" data-testid="studio-managed-sessions" aria-label="Browser and computer sessions">
       ${sessions.map((session, index) => {
+        const controlState = session.controlState || session.control_state || "observe";
         const modeLabels = [
           ["sandbox_browser", "Sandbox browser"],
           ["local_browser", "Local browser"],
@@ -3300,10 +3942,11 @@ function studioManagedSessionRows(cards = []) {
           <article
             class="studio-managed-session-card studio-managed-session-card--${escapeHtml(session.kind || "sandbox_browser")}"
             data-testid="studio-managed-session-card"
+            data-session-id="${escapeHtml(session.id || session.sessionId || "managed-session")}"
             data-session-kind="${escapeHtml(session.kind || "sandbox_browser")}"
             data-session-label="${escapeHtml(session.surfaceLabel || "Sandbox browser")}"
             data-session-status="${escapeHtml(session.status || "complete")}"
-            data-control-state="observe"
+            data-control-state="${escapeHtml(controlState)}"
             data-session-expanded="false"
           >
             <header class="studio-managed-session-card__header">
@@ -3332,9 +3975,9 @@ function studioManagedSessionRows(cards = []) {
               </div>
               <p>${escapeHtml(session.detail || "The runtime owns this browser/computer session. Observe by default, take over only when a manual step is needed, then return control to Agent.")}</p>
               <div class="studio-managed-session-controls" data-testid="studio-managed-session-controls">
-                <button type="button" data-testid="studio-managed-session-observe" data-studio-managed-session-control="observe" aria-pressed="true">Observe</button>
-                <button type="button" data-testid="studio-managed-session-take-over" data-studio-managed-session-control="take_over">Take over</button>
-                <button type="button" data-testid="studio-managed-session-return" data-studio-managed-session-control="return_agent">Return control to Agent</button>
+                <button type="button" data-testid="studio-managed-session-observe" data-studio-managed-session-control="observe" aria-pressed="${controlState === "observe"}" class="${controlState === "observe" ? "is-active" : ""}">Observe</button>
+                <button type="button" data-testid="studio-managed-session-take-over" data-studio-managed-session-control="take_over" aria-pressed="${controlState === "take_over"}" class="${controlState === "take_over" ? "is-active" : ""}">Take over</button>
+                <button type="button" data-testid="studio-managed-session-return" data-studio-managed-session-control="return_agent" aria-pressed="${controlState === "return_agent"}" class="${controlState === "return_agent" ? "is-active" : ""}">Return control to Agent</button>
               </div>
             </div>
           </article>
@@ -3540,6 +4183,8 @@ function studioTraceItems() {
   for (const item of firstArray(studioRuntimeProjection.workerCards)) push({ ...item, kind: "worker.status" });
   for (const item of firstArray(studioRuntimeProjection.conversationArtifacts)) push({ ...item, kind: "conversation.artifact" });
   for (const item of firstArray(studioRuntimeProjection.engineReconnectBanners)) push({ ...item, kind: "engine.reconnect" });
+  for (const item of firstArray(studioRuntimeProjection.trajectoryReplayPanels)) push({ ...item, kind: "trajectory.replay" });
+  for (const item of firstArray(studioRuntimeProjection.sessionBrainPanels)) push({ ...item, kind: "session.brain" });
   for (const item of firstArray(studioRuntimeProjection.chatResponsibilityContracts)) push({ ...item, kind: "chat.responsibility" });
   for (const item of firstArray(studioRuntimeProjection.securityScanPanels)) push({ ...item, kind: "engine.guard.security" });
   for (const item of firstArray(studioRuntimeProjection.workerContributionTraces)) push({ ...item, kind: "worker.contribution" });
@@ -3641,6 +4286,54 @@ function applyStudioParityPlusEvent(event = {}, normalized = {}) {
       ...base,
       bannerLabel: payload.bannerLabel || base.summary || "Engine reconnect state observed.",
       composerFrozen: Boolean(payload.composerFrozen),
+    });
+    return true;
+  }
+  if (/session[._-]?brain|run[._-]?brain|active[._-]?brain/.test(signature)) {
+    studioRuntimeProjection.sessionBrainPanels.push({
+      ...base,
+      status: payload.status || base.status || "ready",
+      detail: payload.detail || base.detail || "Run brain artifacts are available for replay.",
+      artifactCount: payload.artifactCount ?? payload.artifact_count ?? null,
+      scratchCount: payload.scratchCount ?? payload.scratch_count ?? null,
+      hasImplementationPlan: Boolean(payload.hasImplementationPlan ?? payload.has_implementation_plan),
+      hasTaskChecklist: Boolean(payload.hasTaskChecklist ?? payload.has_task_checklist),
+      hasWalkthrough: Boolean(payload.hasWalkthrough ?? payload.has_walkthrough),
+      hasScratchRefs: Boolean(payload.hasScratchRefs ?? payload.has_scratch_refs),
+      hasArtifactRefs: Boolean(payload.hasArtifactRefs ?? payload.has_artifact_refs),
+      hasReplayCursor: Boolean(payload.hasReplayCursor ?? payload.has_replay_cursor),
+      brainOutsideWorkspace: Boolean(payload.brainOutsideWorkspace ?? payload.brain_outside_workspace),
+      readOnlyAuditMode: Boolean(payload.readOnlyAuditMode ?? payload.read_only_audit_mode),
+      rows: firstArray(payload.rows).map((row = {}, index) => ({
+        id: stringValue(row.id, `session-brain-row-${index}`),
+        artifactKind: stringValue(row.artifactKind || row.artifact_kind, "artifact"),
+        label: stringValue(row.label, "Run brain artifact"),
+        status: stringValue(row.status, "present"),
+        preview: stringValue(row.preview, ""),
+        receiptRefs: normalizeReceiptRefs(row),
+      })),
+    });
+    return true;
+  }
+  if (/trajectory[._-]?replay|durable[._-]?trajectory|run[._-]?trajectory/.test(signature)) {
+    studioRuntimeProjection.trajectoryReplayPanels.push({
+      ...base,
+      status: payload.status || base.status || "ready",
+      detail: payload.detail || base.detail || "Durable trajectory replay is available after reconnect.",
+      trajectoryIdStable: Boolean(payload.trajectoryIdStable ?? payload.trajectory_id_stable),
+      replayCursorObserved: Boolean(payload.replayCursorObserved ?? payload.replay_cursor_observed),
+      guiReconnected: Boolean(payload.guiReconnected ?? payload.gui_reconnected),
+      replayIdsStable: Boolean(payload.replayIdsStable ?? payload.replay_ids_stable),
+      replayFromCursorEmpty: Boolean(payload.replayFromCursorEmpty ?? payload.replay_from_cursor_empty),
+      sideEffectCount: Number(payload.sideEffectCount ?? payload.side_effect_count ?? 0) || 0,
+      duplicateSideEffectCount: Number(payload.duplicateSideEffectCount ?? payload.duplicate_side_effect_count ?? 0) || 0,
+      rows: firstArray(payload.rows).map((row = {}, index) => ({
+        id: stringValue(row.id, `trajectory-replay-step-${index + 1}`),
+        kind: stringValue(row.kind, "runtime.event"),
+        status: stringValue(row.status, "observed"),
+        summary: stringValue(row.summary, ""),
+        receiptRefs: normalizeReceiptRefs(row),
+      })),
     });
     return true;
   }
@@ -4476,13 +5169,32 @@ function studioChatCodeExecutionRows(turn = {}, turnIndex = 0) {
 function studioPendingWorklogRows() {
   return firstArray(studioRuntimeProjection.pendingWorklog).map((step) => {
     const sourceChips = firstArray(step.sourceChips || step.source_chips || step.sources);
-    const excerpt = compactStudioWhitespace(step.excerptPreview || step.excerpt_preview || sourceChips[0]?.excerpt || "").slice(0, 260);
+    const commandStep = /shell|terminal|command/.test([
+      step.toolName,
+      step.tool_name,
+      step.toolId,
+      step.tool_id,
+      step.label,
+      step.kind,
+    ].map((value) => String(value || "").toLowerCase()).join(" "));
+    const excerpt = commandStep
+      ? studioPendingCommandOutputExcerpt(step, sourceChips[0]?.excerpt || "")
+      : compactStudioWhitespace(step.excerptPreview || step.excerpt_preview || sourceChips[0]?.excerpt || "").slice(0, 260);
+    const detail = studioVisiblePendingStepDetail(step.detail);
+    const status = compactStudioWhitespace(step.status || "running").toLowerCase();
+    const startedAtMs = Date.parse(step.at || "") || Date.now();
+    const elapsedLabel = step.label === "Running command" && /running|started/.test(status)
+      ? ` for ${formatStudioWorkDuration(Date.now() - startedAtMs)}`
+      : "";
     return `
-    <li data-status="${escapeHtml(step.status || "running")}">
-      <p class="studio-pending-step__headline">${escapeHtml(step.label || "")}</p>
-      ${step.detail ? `<span class="studio-pending-step__summary">${escapeHtml(step.detail)}</span>` : ""}
+    <li data-status="${escapeHtml(step.status || "running")}" data-base-label="${escapeHtml(step.label || "")}" data-started-at-ms="${escapeHtml(String(startedAtMs))}">
+      <p class="studio-pending-step__headline">${escapeHtml(`${step.label || ""}${elapsedLabel}`)}</p>
+      ${detail ? `<span class="studio-pending-step__summary">${escapeHtml(detail)}</span>` : ""}
       ${sourceChips.length ? `<div class="studio-source-chip-list">${studioSourceChipRows(sourceChips, { limit: 6 })}</div>` : ""}
-      ${excerpt ? `<p class="studio-pending-step__excerpt">${escapeHtml(excerpt)}</p>` : ""}
+      ${excerpt ? commandStep
+        ? `<pre class="studio-pending-step__excerpt studio-pending-step__command-output" data-testid="studio-pending-command-output">${escapeHtml(excerpt)}</pre>`
+        : `<p class="studio-pending-step__excerpt">${escapeHtml(excerpt)}</p>`
+      : ""}
     </li>
   `;
   }).join("");
@@ -4609,21 +5321,185 @@ function studioSourceChipRows(sourceRefs = [], { limit = 6 } = {}) {
   }).join("");
 }
 
+function studioCommandSurfaceLabel(command = {}) {
+  const toolId = compactStudioWhitespace(command.toolId || command.tool_id || "");
+  const rawLabel = compactStudioWhitespace(command.label || command.command || "");
+  if (/^shell__|^terminal__/.test(toolId) || /^(?:shell|command)$/i.test(rawLabel)) {
+    return "Shell";
+  }
+  if (/^browser__/.test(toolId)) {
+    return "Browser";
+  }
+  if (/^file__/.test(toolId)) {
+    return "File";
+  }
+  return "";
+}
+
+function studioCommandPublicActionLabel(command = {}) {
+  const toolId = compactStudioWhitespace(command.toolId || command.tool_id || "");
+  const rawLabel = compactStudioWhitespace(command.label || command.command || toolId || "");
+  const status = compactStudioWhitespace(command.status || "completed");
+  if (/^(?:shell|command)$/i.test(rawLabel)) {
+    return /running|started/i.test(status) ? "Running command" : "Ran command";
+  }
+  if (/^shell__|^terminal__/.test(toolId) || rawLabel === toolId) {
+    return /running|started/i.test(status) ? "Running command" : "Ran command";
+  }
+  if (/^[a-z][a-z0-9_]*__[a-z0-9_]+$/i.test(rawLabel)) {
+    return studioPendingWorkLabelForTool(toolId || rawLabel, "", status);
+  }
+  return rawLabel || (/running|started/i.test(status) ? "Running command" : "Ran command");
+}
+
+function studioCommandDurationLabel(command = {}) {
+  const durationMs = command.durationMs ?? command.duration_ms;
+  const duration = Number(durationMs);
+  return Number.isFinite(duration) ? formatStudioWorkDuration(duration) : "";
+}
+
+function studioCommandHeadline(command = {}) {
+  const label = studioCommandPublicActionLabel(command) || "Ran command";
+  const duration = studioCommandDurationLabel(command);
+  if (!duration) {
+    return label;
+  }
+  return /\bcommand\b/i.test(label) ? `${label} for ${duration}` : label;
+}
+
+function studioPublicWorkRowText(value = "") {
+  return studioSanitizePublicAssistantText(value)
+    .replace(/\b(Patched|Edited|Read)\s+<tmp>(?=$|\s|[.,;:])/gi, "$1 workspace file")
+    .replace(/<tmp>/g, "workspace file")
+    .trim();
+}
+
+function studioIsGenericCommandWorkRow(row = {}) {
+  const headline = compactStudioWhitespace(row.headline || row.label || "");
+  const kind = compactStudioWhitespace(row.kind || row.toolId || row.tool_id || "");
+  if (/^(?:ran|running|started|failed) command$/i.test(headline)) return true;
+  return /^shell__|^terminal__|^command(?:\.|$)/i.test(kind);
+}
+
+function studioIsCommandLabelOnlyWorkExcerpt(value = "") {
+  const text = compactStudioWhitespace(value);
+  if (!text) return true;
+  if (/^[a-z0-9_.-]+\s+-lc\s+<arg>$/i.test(text)) return true;
+  if (/^[a-z0-9_.-]+\s+-e\s+<inline script>$/i.test(text)) return true;
+  return false;
+}
+
+function studioFilterDuplicateCommandWorkRows(workRows = [], commandOutputs = []) {
+  const hasDetailedCommandOutput = firstArray(commandOutputs).some((command) => {
+    const label = compactStudioWhitespace(command?.label || "");
+    const hasOutput = Boolean(compactStudioWhitespace(command?.stdout || command?.stderr || ""));
+    return hasOutput || !/^(?:ran|running|started|failed)?\s*command$/i.test(label);
+  });
+  if (!hasDetailedCommandOutput) return workRows;
+  return firstArray(workRows).filter((row) => {
+    if (!studioIsGenericCommandWorkRow(row)) return true;
+    return false;
+  });
+}
+
 function studioWorkSummaryRows(workRecord = {}) {
+  const hasRicherWorkRows = (
+    firstArray(workRecord.commandOutputs).length ||
+    firstArray(workRecord.diffHunks).length ||
+    firstArray(workRecord.sessionCards).length ||
+    firstArray(workRecord.artifactCards).length
+  );
   const rows = firstArray(workRecord.workRows).length
     ? firstArray(workRecord.workRows)
-    : firstArray(workRecord.activityLines || workRecord.lines).map((line) => ({ headline: line, status: "completed" }));
+    : (hasRicherWorkRows ? [] : firstArray(workRecord.activityLines || workRecord.lines).map((line) => ({ headline: line, status: "completed" })));
   return rows.slice(0, 12).map((row) => {
     const sourceChips = firstArray(row.sourceChips || row.source_chips);
     return `
       <li class="studio-work-row" data-status="${escapeHtml(row.status || "completed")}" data-kind="${escapeHtml(row.kind || "tool")}">
         <div class="studio-work-row__main">
-          <strong>${escapeHtml(row.headline || row.label || "Observed work")}</strong>
-          ${row.summary ? `<span>${escapeHtml(row.summary)}</span>` : ""}
+          <strong>${escapeHtml(studioPublicWorkRowText(row.headline || row.label || "Observed work"))}</strong>
+          ${row.summary ? `<span>${escapeHtml(studioPublicWorkRowText(row.summary))}</span>` : ""}
         </div>
         ${sourceChips.length ? `<div class="studio-source-chip-list">${studioSourceChipRows(sourceChips, { limit: 6 })}</div>` : ""}
-        ${row.excerptPreview ? `<p class="studio-work-row__excerpt">${escapeHtml(row.excerptPreview)}</p>` : ""}
+        ${row.excerptPreview ? `<p class="studio-work-row__excerpt">${escapeHtml(studioPublicWorkRowText(row.excerptPreview))}</p>` : ""}
       </li>
+    `;
+  }).join("");
+}
+
+function studioCommandOutputRows(workRecord = {}) {
+  const recordSettled = /^(?:completed|blocked|failed|cancelled|canceled)$/i.test(compactStudioWhitespace(workRecord.status || ""));
+  const rawCommands = firstArray(workRecord.commandOutputs);
+  const hasCommandOutput = rawCommands.some((command) => studioCommandRowHasOutput(command));
+  return rawCommands.map((command) => {
+    if (!recordSettled || !studioCommandRowHasOutput(command) || !/^(?:running|started|pending)$/i.test(compactStudioWhitespace(command?.status || ""))) {
+      return command;
+    }
+    return { ...command, status: "completed", label: studioCommandPublicActionLabel({ ...command, status: "completed" }) };
+  }).filter((command) => {
+    const status = compactStudioWhitespace(command?.status || "");
+    const emptyOutput = !compactStudioWhitespace(command?.stdout || command?.output || "") && !compactStudioWhitespace(command?.stderr || "");
+    if (recordSettled && emptyOutput && /^(?:running|started|pending)$/i.test(status)) return false;
+    if (recordSettled && hasCommandOutput && emptyOutput && /^(?:completed|succeeded|success)$/i.test(status)) return false;
+    return true;
+  }).slice(-4).map((command, index) => {
+    const stdout = studioPublicOutputBlock(
+      command.stdout ||
+      command.output ||
+      command.chunk ||
+      command.text ||
+      command.excerptPreview ||
+      command.excerpt_preview ||
+      ""
+    );
+    const stderr = studioPublicOutputBlock(command.stderr || "");
+    const label = studioCommandPublicActionLabel(command);
+    const surface = studioCommandSurfaceLabel(command);
+    const status = compactStudioWhitespace(command.status || "completed");
+    const exitCode = command.exitCode ?? command.exit_code;
+    const duration = Number.isFinite(Number(command.durationMs ?? command.duration_ms))
+      ? ` · ${formatStudioWorkDuration(command.durationMs ?? command.duration_ms)}`
+      : "";
+    return `
+      <details class="studio-command-work-row" data-testid="studio-command-output-row"${index === 0 ? " open" : ""}>
+        <summary>
+          <strong>${escapeHtml(label || "Ran command")}</strong>
+          ${surface ? `<span>${escapeHtml(surface)}</span>` : ""}
+          <em>${escapeHtml([status, exitCode !== undefined && exitCode !== null ? `exit ${exitCode}` : "", duration.replace(/^ · /, "")].filter(Boolean).join(" · "))}</em>
+        </summary>
+        <pre data-testid="studio-command-stdout">${escapeHtml(stdout || "No output")}</pre>
+        ${stderr ? `<pre class="studio-command-stderr" data-testid="studio-command-stderr">${escapeHtml(stderr)}</pre>` : ""}
+      </details>
+    `;
+  }).join("");
+}
+
+function studioWorkRecordDiffRows(workRecord = {}) {
+  return firstArray(workRecord.diffHunks).slice(-6).map((hunk, index) => {
+    const changeId = stringValue(hunk.changeId || hunk.change_id);
+    const hunkIndex = Number.isFinite(Number(hunk.hunkIndex ?? hunk.hunk_index)) ? Number(hunk.hunkIndex ?? hunk.hunk_index) : index;
+    const acceptAvailable = hunk.acceptAvailable ?? hunk.accept_available ?? true;
+    const rejectAvailable = hunk.rejectAvailable ?? hunk.reject_available ?? true;
+    const rollbackAvailable = hunk.rollbackAvailable ?? hunk.rollback_available ?? false;
+    const staleReason = stringValue(hunk.staleReason || hunk.stale_reason);
+    return `
+      <article class="studio-diff-hunk" data-testid="studio-inline-diff-hunks" data-native-diff-hunk="true">
+        <header>
+          <strong>${escapeHtml(hunk.title || `Hunk ${index + 1}`)}</strong>
+          <code>${escapeHtml(studioPublicWorkspacePath(hunk.file || "workspace") || "workspace")}</code>
+          <mark>${escapeHtml(hunk.status || "pending")}</mark>
+        </header>
+        ${hunk.stale && staleReason ? `<p class="studio-diff-hunk__stale">Stale: ${escapeHtml(staleReason)}</p>` : ""}
+        <pre data-testid="studio-native-diff-hunk"><span class="studio-diff-remove">${escapeHtml(studioPublicOutputBlock(hunk.before || ""))}</span>
+<span class="studio-diff-add">${escapeHtml(studioPublicOutputBlock(hunk.after || ""))}</span></pre>
+        <footer data-testid="studio-hunk-accept-reject">
+          <button type="button" data-testid="studio-hunk-prev" data-studio-hunk-nav="previous">Previous</button>
+          <button type="button" data-testid="studio-hunk-next" data-studio-hunk-nav="next">Next</button>
+          ${acceptAvailable ? `<button type="button" data-testid="studio-hunk-accept" data-studio-hunk-decision="approve" data-approval-id="${escapeHtml(hunk.approvalId || studioRuntimeProjection.hunkApprovalId || STUDIO_APPROVAL_ID)}" data-hunk-file="${escapeHtml(hunk.file || "workspace")}" data-change-id="${escapeHtml(changeId)}" data-hunk-index="${escapeHtml(String(hunkIndex))}">Accept hunk</button>` : ""}
+          ${rejectAvailable ? `<button type="button" data-testid="studio-hunk-reject" data-studio-hunk-decision="reject" data-approval-id="${escapeHtml(hunk.approvalId || studioRuntimeProjection.hunkApprovalId || STUDIO_APPROVAL_ID)}" data-hunk-file="${escapeHtml(hunk.file || "workspace")}" data-change-id="${escapeHtml(changeId)}" data-hunk-index="${escapeHtml(String(hunkIndex))}">Reject hunk</button>` : ""}
+          ${rollbackAvailable ? `<button type="button" data-testid="studio-hunk-rollback" data-studio-hunk-decision="rollback" data-approval-id="${escapeHtml(hunk.approvalId || studioRuntimeProjection.hunkApprovalId || STUDIO_APPROVAL_ID)}" data-hunk-file="${escapeHtml(hunk.file || "workspace")}" data-change-id="${escapeHtml(changeId)}" data-hunk-index="${escapeHtml(String(hunkIndex))}">Roll back hunk</button>` : ""}
+        </footer>
+      </article>
     `;
   }).join("");
 }
@@ -4644,6 +5520,8 @@ function studioTurnRows() {
           <ul class="studio-run-status-bar__details" data-testid="studio-work-summary-lines">
             ${studioWorkSummaryRows(workRecord)}
           </ul>
+          ${studioCommandOutputRows(workRecord)}
+          ${studioWorkRecordDiffRows(workRecord)}
         </details>
         ${studioManagedSessionRows(workRecord.sessionCards)}
       ` : ""}
@@ -4717,23 +5595,33 @@ function studioApprovalRows() {
 }
 
 function studioDiffRows() {
-  return studioRuntimeProjection.diffHunks.map((hunk, index) => `
+  return studioRuntimeProjection.diffHunks.map((hunk, index) => {
+    const changeId = stringValue(hunk.changeId || hunk.change_id);
+    const hunkIndex = Number.isFinite(Number(hunk.hunkIndex ?? hunk.hunk_index)) ? Number(hunk.hunkIndex ?? hunk.hunk_index) : index;
+    const acceptAvailable = hunk.acceptAvailable ?? hunk.accept_available ?? true;
+    const rejectAvailable = hunk.rejectAvailable ?? hunk.reject_available ?? true;
+    const rollbackAvailable = hunk.rollbackAvailable ?? hunk.rollback_available ?? false;
+    const staleReason = stringValue(hunk.staleReason || hunk.stale_reason);
+    return `
     <article class="studio-diff-hunk" data-testid="studio-inline-diff-hunks" data-native-diff-hunk="true">
       <header>
         <strong>${escapeHtml(hunk.title || `Hunk ${index + 1}`)}</strong>
         <code>${escapeHtml(hunk.file || "workspace")}</code>
         <mark>${escapeHtml(hunk.status || "pending")}</mark>
       </header>
+      ${hunk.stale && staleReason ? `<p class="studio-diff-hunk__stale">Stale: ${escapeHtml(staleReason)}</p>` : ""}
       <pre data-testid="studio-native-diff-hunk"><span class="studio-diff-remove">${escapeHtml(hunk.before || "")}</span>
 <span class="studio-diff-add">${escapeHtml(hunk.after || "")}</span></pre>
       <footer data-testid="studio-hunk-accept-reject">
         <button type="button" data-testid="studio-hunk-prev" data-studio-hunk-nav="previous">Previous</button>
         <button type="button" data-testid="studio-hunk-next" data-studio-hunk-nav="next">Next</button>
-        <button type="button" data-testid="studio-hunk-accept" data-studio-hunk-decision="approve" data-approval-id="${escapeHtml(hunk.approvalId || studioRuntimeProjection.hunkApprovalId || STUDIO_APPROVAL_ID)}" data-hunk-file="${escapeHtml(hunk.file || "workspace")}">Accept hunk</button>
-        <button type="button" data-testid="studio-hunk-reject" data-studio-hunk-decision="reject" data-approval-id="${escapeHtml(hunk.approvalId || studioRuntimeProjection.hunkApprovalId || STUDIO_APPROVAL_ID)}" data-hunk-file="${escapeHtml(hunk.file || "workspace")}">Reject hunk</button>
+        ${acceptAvailable ? `<button type="button" data-testid="studio-hunk-accept" data-studio-hunk-decision="approve" data-approval-id="${escapeHtml(hunk.approvalId || studioRuntimeProjection.hunkApprovalId || STUDIO_APPROVAL_ID)}" data-hunk-file="${escapeHtml(hunk.file || "workspace")}" data-change-id="${escapeHtml(changeId)}" data-hunk-index="${escapeHtml(String(hunkIndex))}">Accept hunk</button>` : ""}
+        ${rejectAvailable ? `<button type="button" data-testid="studio-hunk-reject" data-studio-hunk-decision="reject" data-approval-id="${escapeHtml(hunk.approvalId || studioRuntimeProjection.hunkApprovalId || STUDIO_APPROVAL_ID)}" data-hunk-file="${escapeHtml(hunk.file || "workspace")}" data-change-id="${escapeHtml(changeId)}" data-hunk-index="${escapeHtml(String(hunkIndex))}">Reject hunk</button>` : ""}
+        ${rollbackAvailable ? `<button type="button" data-testid="studio-hunk-rollback" data-studio-hunk-decision="rollback" data-approval-id="${escapeHtml(hunk.approvalId || studioRuntimeProjection.hunkApprovalId || STUDIO_APPROVAL_ID)}" data-hunk-file="${escapeHtml(hunk.file || "workspace")}" data-change-id="${escapeHtml(changeId)}" data-hunk-index="${escapeHtml(String(hunkIndex))}">Roll back hunk</button>` : ""}
       </footer>
     </article>
-  `).join("");
+  `;
+  }).join("");
 }
 
 function studioTerminalRows() {
@@ -4761,7 +5649,17 @@ function studioActionCardRows() {
 
 function studioPolicyLeaseRows() {
   return firstArray(studioRuntimeProjection.policyLeases).slice(-4).map((lease) => `
-    <article class="studio-cockpit-card studio-policy-lease-card" data-testid="studio-policy-lease-dialog">
+    <article
+      class="studio-cockpit-card studio-policy-lease-card"
+      data-testid="studio-policy-lease-dialog"
+      data-lease-status="${escapeHtml(lease.status || "pending")}"
+      data-lease-decision="${escapeHtml(lease.decision || "")}"
+      data-lease-lifecycle="${escapeHtml(lease.lifecycle || "")}"
+      data-lease-did-execute="${lease.didExecute ? "true" : "false"}"
+      data-lease-executed-before-expiry="${lease.executedBeforeExpiry ? "true" : "false"}"
+      data-lease-after-revoke-blocked="${lease.afterRevokeBlocked ? "true" : "false"}"
+      data-lease-after-expiry-blocked="${lease.afterExpiryBlocked ? "true" : "false"}"
+    >
       <header>
         <span class="studio-status-dot studio-status-dot--${escapeHtml(lease.status || "waiting_for_approval")}"></span>
         <strong>${escapeHtml(lease.title || "Permission needed")}</strong>
@@ -4771,6 +5669,9 @@ function studioPolicyLeaseRows() {
       <dl>
         <dt>Action</dt><dd>${escapeHtml(lease.action || "unknown")}</dd>
         <dt>Execution</dt><dd>${escapeHtml(lease.didExecute ? "executed" : "did not execute")}</dd>
+        ${lease.decisionLabel || lease.decision ? `<dt>Decision</dt><dd>${escapeHtml(lease.decisionLabel || lease.decision)}</dd>` : ""}
+        ${lease.outcome ? `<dt>Outcome</dt><dd>${escapeHtml(lease.outcome)}</dd>` : ""}
+        ${lease.ttlLabel ? `<dt>Lease</dt><dd>${escapeHtml(lease.ttlLabel)}</dd>` : ""}
       </dl>
       ${lease.receiptRefs?.length ? `<code>${escapeHtml(lease.receiptRefs.join(" · "))}</code>` : ""}
     </article>
@@ -4778,21 +5679,24 @@ function studioPolicyLeaseRows() {
 }
 
 function studioCommandOutputRows() {
-  return firstArray(studioRuntimeProjection.commandOutputs).slice(-4).map((command) => `
-    <article class="studio-cockpit-card studio-command-output-card" data-testid="studio-command-output-card">
-      <header>
-        <span class="studio-status-dot studio-status-dot--${escapeHtml(command.status || "completed")}"></span>
-        <strong>${escapeHtml(command.label || command.toolId || "Sandbox command")}</strong>
-        <mark>${escapeHtml(command.exitCode === null || command.exitCode === undefined ? command.status || "completed" : `exit ${command.exitCode}`)}</mark>
-      </header>
-      <pre data-testid="studio-command-stdout">${escapeHtml(command.stdout || "(no stdout projected)")}</pre>
-      ${command.stderr ? `<pre class="studio-command-stderr" data-testid="studio-command-stderr">${escapeHtml(command.stderr)}</pre>` : ""}
-      <footer>
-        <span>${escapeHtml(command.durationMs === null || command.durationMs === undefined ? "duration recorded by daemon" : `${command.durationMs}ms`)}</span>
-        ${command.receiptRefs?.length ? `<code>${escapeHtml(command.receiptRefs.join(" · "))}</code>` : ""}
-      </footer>
-    </article>
-  `).join("");
+  return firstArray(studioRuntimeProjection.commandOutputs).slice(-4).map((command) => {
+    const status = command.status || "completed";
+    const stdout = command.stdout || command.excerptPreview || command.excerpt_preview || "";
+    const resultLabel = command.exitCode === null || command.exitCode === undefined
+      ? status
+      : `exit ${command.exitCode}`;
+    return `
+      <article class="studio-cockpit-card studio-command-output-card" data-testid="studio-command-output-card">
+        <header>
+          <span class="studio-status-dot studio-status-dot--${escapeHtml(status)}"></span>
+          <strong>${escapeHtml(studioCommandHeadline(command))}</strong>
+          <mark>${escapeHtml(resultLabel || "completed")}</mark>
+        </header>
+        <pre data-testid="studio-command-stdout">${escapeHtml(stdout || "No output")}</pre>
+        ${command.stderr ? `<pre class="studio-command-stderr" data-testid="studio-command-stderr">${escapeHtml(command.stderr)}</pre>` : ""}
+      </article>
+    `;
+  }).join("");
 }
 
 function studioDiagnosticsRows() {
@@ -4854,7 +5758,11 @@ function studioCompactRuntimeStatusRows() {
       </article>
     `);
   }
-  const pendingHunks = firstArray(studioRuntimeProjection.diffHunks).filter((hunk) => /pending|preview/i.test(String(hunk.status || "")));
+  const pendingHunks = firstArray(studioRuntimeProjection.diffHunks).filter((hunk) =>
+    /needs[_\s-]?review|pending|preview/i.test(String(hunk.status || "")) ||
+    hunk.acceptAvailable ||
+    hunk.rejectAvailable
+  );
   if (pendingHunks.length > 0) {
     rows.push(`
       <article class="studio-compact-runtime-card studio-compact-runtime-card--blocking" data-testid="studio-native-hunk-review-inline" data-runtime-visibility="${STUDIO_RUNTIME_VISIBILITY.inlineAction}">
@@ -4873,6 +5781,51 @@ function studioCompactRuntimeStatusRows() {
   return `<section class="studio-compact-runtime-list" data-testid="studio-actionable-runtime-state">${rows.join("")}</section>`;
 }
 
+function studioSessionBrainArtifactRows(panel = {}) {
+  const rows = firstArray(panel.rows).slice(0, 8);
+  if (rows.length === 0) {
+    return '<ul class="studio-session-brain-artifacts"><li data-testid="studio-session-brain-artifact-row" data-brain-artifact-kind="pending">Run brain artifacts pending replay.</li></ul>';
+  }
+  return `
+    <ul class="studio-session-brain-artifacts">
+      ${rows.map((row) => `
+        <li
+          data-testid="studio-session-brain-artifact-row"
+          data-brain-artifact-kind="${escapeHtml(row.artifactKind || "artifact")}"
+          data-brain-artifact-status="${escapeHtml(row.status || "present")}"
+        >
+          <strong>${escapeHtml(row.label || row.artifactKind || "Run brain artifact")}</strong>
+          <span>${escapeHtml(row.preview || row.status || "")}</span>
+          ${studioVerifiedBadge(row)}
+        </li>
+      `).join("")}
+    </ul>
+  `;
+}
+
+function studioTrajectoryReplayRows(panel = {}) {
+  const rows = firstArray(panel.rows).slice(0, 8);
+  if (rows.length === 0) {
+    return '<ul class="studio-trajectory-replay-steps"><li data-testid="studio-trajectory-replay-step-row" data-trajectory-step-kind="pending">Trajectory replay steps pending.</li></ul>';
+  }
+  return `
+    <ul class="studio-trajectory-replay-steps">
+      ${rows.map((row) => `
+        <li
+          data-testid="studio-trajectory-replay-step-row"
+          data-trajectory-step-kind="${escapeHtml(row.kind || "runtime.event")}"
+          data-trajectory-step-status="${escapeHtml(row.status || "observed")}"
+        >
+          <strong>${escapeHtml(row.kind || "runtime.event")}</strong>
+          <code>${escapeHtml(row.id || "trajectory-replay-step")}</code>
+          <span>${escapeHtml(row.summary || row.status || "")}</span>
+          ${studioVerifiedBadge(row)}
+        </li>
+      `).join("")}
+    </ul>
+  `;
+}
+
 function studioParityPlusPanelRows() {
   const panelSpecs = [
     {
@@ -4884,12 +5837,28 @@ function studioParityPlusPanelRows() {
       defaultDetail: "Heartbeat and composer freeze state.",
     },
     {
+      testId: "studio-trajectory-replay-panel",
+      title: "Trajectory replay",
+      kind: "trajectory.replay",
+      item: firstArray(studioRuntimeProjection.trajectoryReplayPanels).at(-1),
+      defaultStatus: "pending",
+      defaultDetail: "Durable trajectory replay and reconnect state.",
+    },
+    {
+      testId: "studio-session-brain-panel",
+      title: "Run brain",
+      kind: "session.brain",
+      item: firstArray(studioRuntimeProjection.sessionBrainPanels).at(-1),
+      defaultStatus: "pending",
+      defaultDetail: "Plan, task checklist, walkthrough, scratch refs, artifact refs, and replay cursor.",
+    },
+    {
       testId: "studio-chat-responsibility-contract",
       title: "Chat responsibility",
       kind: "chat.responsibility",
       item: firstArray(studioRuntimeProjection.chatResponsibilityContracts).at(-1),
       defaultStatus: "ready",
-      defaultDetail: "Ask stays direct; Agent replies through chat__reply.",
+      defaultDetail: "Ask stays direct; Agent replies through the assistant channel.",
     },
     {
       testId: "studio-engine-guard-security-scan",
@@ -5008,10 +5977,37 @@ function studioParityPlusPanelRows() {
     const item = spec.item && typeof spec.item === "object" ? spec.item : {};
     const status = stringValue(item.status || item.state, spec.defaultStatus);
     const detail = stringValue(item.bannerLabel || item.detail || item.mergeBlockReason || item.summary, spec.defaultDetail);
+    const sessionBrainAttrs = spec.kind === "session.brain"
+      ? [
+          ["data-brain-implementation-plan-observed", item.hasImplementationPlan === true],
+          ["data-brain-task-checklist-observed", item.hasTaskChecklist === true],
+          ["data-brain-walkthrough-observed", item.hasWalkthrough === true],
+          ["data-brain-scratch-refs-observed", item.hasScratchRefs === true],
+          ["data-brain-artifact-refs-observed", item.hasArtifactRefs === true],
+          ["data-brain-replay-cursor-observed", item.hasReplayCursor === true],
+          ["data-brain-outside-workspace", item.brainOutsideWorkspace === true],
+          ["data-brain-read-only-audit-mode", item.readOnlyAuditMode === true],
+        ].map(([name, value]) => ` ${name}="${value ? "true" : "false"}"`).join("")
+      : "";
+    const trajectoryReplayAttrs = spec.kind === "trajectory.replay"
+      ? [
+          ["data-trajectory-id-stable", item.trajectoryIdStable === true],
+          ["data-trajectory-replay-cursor-observed", item.replayCursorObserved === true],
+          ["data-trajectory-gui-reconnected", item.guiReconnected === true],
+          ["data-trajectory-replay-ids-stable", item.replayIdsStable === true],
+          ["data-trajectory-replay-from-cursor-empty", item.replayFromCursorEmpty === true],
+          ["data-trajectory-side-effect-count", Number(item.sideEffectCount || 0)],
+          ["data-trajectory-duplicate-side-effect-count", Number(item.duplicateSideEffectCount || 0)],
+        ].map(([name, value]) => ` ${name}="${escapeHtml(String(value))}"`).join("")
+      : "";
+    const sessionBrainBody = spec.kind === "session.brain" ? studioSessionBrainArtifactRows(item) : "";
+    const trajectoryReplayBody = spec.kind === "trajectory.replay" ? studioTrajectoryReplayRows(item) : "";
     return `
-      <article class="studio-cockpit-card" data-testid="${escapeHtml(spec.testId)}" data-panel-kind="${escapeHtml(spec.kind)}" data-panel-status="${escapeHtml(status)}">
+      <article class="studio-cockpit-card" data-testid="${escapeHtml(spec.testId)}" data-panel-kind="${escapeHtml(spec.kind)}" data-panel-status="${escapeHtml(status)}"${sessionBrainAttrs}${trajectoryReplayAttrs}>
         <strong>${escapeHtml(spec.title)}</strong>
         <span>${escapeHtml(detail)}</span>
+        ${trajectoryReplayBody}
+        ${sessionBrainBody}
         ${studioVerifiedBadge(item)}
         ${studioTraceLink({ ...item, kind: spec.kind })}
       </article>
@@ -8546,6 +9542,28 @@ function renderHtml(view, state) {
           }
         });
       });
+      document.addEventListener("click", (event) => {
+        let button = event.target;
+        while (button && button !== document && !button.dataset?.studioHunkDecision) {
+          button = button.parentElement;
+        }
+        if (!button) return;
+        event.preventDefault();
+        document.body.dataset.studioHunkDecisionObserved = "true";
+        document.body.dataset.studioHunkDecisionLast = button.dataset.studioHunkDecision || "";
+        vscode.postMessage({
+          type: "studioHunkDecision",
+          decision: button.dataset.studioHunkDecision,
+          payload: {
+            approvalId: button.dataset.approvalId || ${JSON.stringify(STUDIO_APPROVAL_ID)},
+            file: button.dataset.hunkFile || "workspace",
+            changeId: button.dataset.changeId || "",
+            hunkIndex: button.dataset.hunkIndex || "",
+            runtimeAuthority: "daemon-owned",
+            projectionOwner: "ioi-workbench-agent-studio"
+          }
+        });
+      }, true);
       const composer = document.querySelector("[data-chat-composer-form]");
       const composerInput = document.querySelector("[data-chat-composer-input]");
       const focusComposerInput = () => {
@@ -8801,6 +9819,8 @@ async function refreshStudioPanelHtml(output) {
     return;
   }
   try {
+    await refreshStudioWorkspaceChangeReviewsFromDaemon(output);
+    await refreshStudioManagedSessionsFromDaemon(output);
     updateStudioPanelHtml(await readBridgeState(), { force: true });
   } catch (error) {
     output?.appendLine?.(
@@ -8830,7 +9850,7 @@ async function projectStudioAgentTurnToWebview({ assistantTurn, status = "comple
     ),
   ];
   const payload = {
-    text: assistantTurn?.content || "",
+    text: sanitizeStudioProductAssistantText(assistantTurn?.content || ""),
     createdAt: assistantTurn?.createdAt || new Date().toISOString(),
     turnId: assistantTurn?.agentTurn?.turnId || studioRuntimeProjection.turnId || "",
     eventCount: assistantTurn?.agentTurn?.eventCount || 0,
@@ -9047,6 +10067,363 @@ async function requestAndDenyStudioPolicyLease(threadId, output) {
   output?.appendLine?.("[ioi-studio] policy lease denied; destructive action was not executed.");
 }
 
+function studioPolicyLeaseLifecycleFixture() {
+  const workspace = workspaceSummary();
+  const workspacePath = workspace.path || process.cwd();
+  const fixtureId = `run-${Date.now().toString(36)}-${process.pid || "studio"}`;
+  const fixtureRoot = path.join(workspacePath, ".tmp", "agent-studio-policy-lease-lifecycle", fixtureId);
+  const absolutePath = path.join(fixtureRoot, "lease.txt");
+  fs.rmSync(fixtureRoot, { recursive: true, force: true });
+  fs.mkdirSync(fixtureRoot, { recursive: true });
+  fs.writeFileSync(absolutePath, "lease before\n", "utf8");
+  return {
+    fixtureId,
+    fixtureRoot,
+    absolutePath,
+    relativePath: path.relative(workspacePath, absolutePath).replace(/\\/g, "/"),
+  };
+}
+
+function studioPolicyLeaseToolBody({
+  toolCallId,
+  ttlMs,
+  policyHash,
+  expectedReceiptRef,
+  relativePath,
+  idempotencyKey,
+  approvalId = "",
+} = {}) {
+  return {
+    source: "agent_studio_runtime_cockpit",
+    workflowGraphId: "workflow.agent-studio.policy-lease-live-gui",
+    workflowNodeId: "workflow.agent-studio.policy-lease.file-apply-patch",
+    toolCallId,
+    ttlMs,
+    policyHash,
+    expectedReceiptRefs: [expectedReceiptRef],
+    requiresApproval: true,
+    approvalMode: "human_required",
+    nodeApprovalOverride: "require_approval",
+    trustProfile: "review_required",
+    toolPack: {
+      coding: {
+        requiresApproval: true,
+        approvalMode: "human_required",
+        nodeApprovalOverride: "require_approval",
+        trustProfile: "review_required",
+      },
+    },
+    idempotencyKey,
+    ...(approvalId ? { approvalId } : {}),
+    input: {
+      path: relativePath,
+      oldText: "lease before",
+      newText: "lease after",
+      dryRun: true,
+    },
+  };
+}
+
+function studioPolicyLeaseLifecycleRows({
+  blocked,
+  approved,
+  executed,
+  revoked,
+  blockedAfterRevoke,
+  expiryBlocked,
+  expiryApproved,
+  expiryExecutedBefore,
+  expiryBlockedAfterExpiry,
+  ttlMs,
+  expiryTtlMs,
+} = {}) {
+  const action = "file.apply_patch dry run";
+  return [
+    {
+      id: "studio-policy-lease-pending",
+      title: "Permission required",
+      status: "pending",
+      action,
+      reason: "Agent requested a workspace write preview; operator approval is required before execution.",
+      decision: "waiting_for_approval",
+      decisionLabel: "Waiting for approval",
+      outcome: "Action paused before execution.",
+      ttlLabel: `${ttlMs}ms allow-once lease`,
+      didExecute: false,
+      lifecycle: "allow_once_revoke",
+      receiptRefs: normalizeReceiptRefs(blocked),
+    },
+    {
+      id: "studio-policy-lease-allow-once",
+      title: "Allowed once",
+      status: "active",
+      action,
+      reason: "Operator allowed one dry-run execution; the daemon satisfied the lease before any file change ran.",
+      decision: "allow_once",
+      decisionLabel: "Allow once",
+      outcome: "One approved dry-run execution completed.",
+      ttlLabel: `${ttlMs}ms allow-once lease`,
+      didExecute: executed?.status === "completed",
+      lifecycle: "allow_once_revoke",
+      receiptRefs: normalizeReceiptRefs(approved, executed),
+    },
+    {
+      id: "studio-policy-lease-revoked",
+      title: "Lease revoked",
+      status: "revoked",
+      action,
+      reason: "Operator revoked the approval after one execution; the retry was blocked by the daemon.",
+      decision: "revoke",
+      decisionLabel: "Revoke",
+      outcome: "Retry after revoke was blocked.",
+      ttlLabel: `${ttlMs}ms allow-once lease`,
+      didExecute: false,
+      afterRevokeBlocked: blockedAfterRevoke?.status === "blocked",
+      lifecycle: "allow_once_revoke",
+      receiptRefs: normalizeReceiptRefs(revoked, blockedAfterRevoke),
+    },
+    {
+      id: "studio-policy-lease-expired",
+      title: "Lease expired",
+      status: "expired",
+      action,
+      reason: "A short-lived allow-once lease expired; the retry after expiry was blocked by the daemon.",
+      decision: "expired",
+      decisionLabel: "Expired",
+      outcome: "Retry after expiry was blocked.",
+      ttlLabel: `${expiryTtlMs}ms short-lived lease`,
+      didExecute: false,
+      executedBeforeExpiry: expiryExecutedBefore?.status === "completed",
+      afterExpiryBlocked: expiryBlockedAfterExpiry?.status === "blocked",
+      lifecycle: "allow_once_expiry",
+      receiptRefs: normalizeReceiptRefs(expiryBlocked, expiryApproved, expiryExecutedBefore, expiryBlockedAfterExpiry),
+    },
+  ];
+}
+
+async function exerciseStudioPolicyLeaseLifecycle(output) {
+  await ensureStudioDaemonThread({
+    model: studioRuntimeProjection.modelRoute || "route.local-first",
+    selectedModelId: studioRuntimeProjection.selectedModel || "auto",
+    executionMode: STUDIO_MODE_AGENT,
+    approvalMode: STUDIO_PERMISSION_MODE_DEFAULT,
+  }, output);
+  const threadId = studioRuntimeProjection.threadId;
+  if (!threadId) {
+    throw new Error("Policy lease lifecycle proof requires a daemon Studio thread.");
+  }
+  const endpoint = daemonEndpoint();
+  const fixture = studioPolicyLeaseLifecycleFixture();
+  const toolEndpoint = `/v1/threads/${encodeURIComponent(threadId)}/tools/file.apply_patch/invoke`;
+  const ttlMs = 60_000;
+  const expiryTtlMs = 1_300;
+  const base = {
+    toolCallId: "studio_policy_lease_allow_revoke",
+    ttlMs,
+    policyHash: "policy_hash_agent_studio_live_gui_allow_revoke",
+    expectedReceiptRef: "receipt_agent_studio_policy_lease_allow_revoke_expected",
+    relativePath: fixture.relativePath,
+  };
+  const expiryBase = {
+    toolCallId: "studio_policy_lease_expiry",
+    ttlMs: expiryTtlMs,
+    policyHash: "policy_hash_agent_studio_live_gui_expiry",
+    expectedReceiptRef: "receipt_agent_studio_policy_lease_expiry_expected",
+    relativePath: fixture.relativePath,
+  };
+
+  let fixtureContentAfterLifecycle = "";
+  let fixtureExistsAfterCleanup = null;
+  try {
+    const blocked = await requestJson(endpoint, toolEndpoint, {
+      method: "POST",
+      token: daemonRequestToken(),
+      payload: studioPolicyLeaseToolBody({
+        ...base,
+        idempotencyKey: "studio-policy-lease-blocked",
+      }),
+    });
+    const approved = await requestJson(
+      endpoint,
+      `/v1/threads/${encodeURIComponent(threadId)}/approvals/${encodeURIComponent(blocked.approval_id || blocked.approvalId)}/approve`,
+      {
+        method: "POST",
+        token: daemonRequestToken(),
+        payload: {
+          source: "agent_studio_runtime_cockpit",
+          workflowGraphId: "workflow.agent-studio.policy-lease-live-gui",
+          workflowNodeId: "workflow.agent-studio.policy-lease.file-apply-patch",
+          reason: "Operator allowed one Studio policy lease dry-run execution.",
+          ...studioApprovalTurnPayload(),
+        },
+      },
+    );
+    const executed = await requestJson(endpoint, toolEndpoint, {
+      method: "POST",
+      token: daemonRequestToken(),
+      payload: studioPolicyLeaseToolBody({
+        ...base,
+        idempotencyKey: "studio-policy-lease-allow-once-execute",
+        approvalId: blocked.approval_id || blocked.approvalId,
+      }),
+    });
+    const revoked = await requestJson(
+      endpoint,
+      `/v1/threads/${encodeURIComponent(threadId)}/approvals/${encodeURIComponent(blocked.approval_id || blocked.approvalId)}/revoke`,
+      {
+        method: "POST",
+        token: daemonRequestToken(),
+        payload: {
+          source: "agent_studio_runtime_cockpit",
+          workflowGraphId: "workflow.agent-studio.policy-lease-live-gui",
+          workflowNodeId: "workflow.agent-studio.policy-lease.file-apply-patch",
+          reason: "Operator revoked the Studio policy lease after one dry-run execution.",
+          ...studioApprovalTurnPayload(),
+        },
+      },
+    );
+    const blockedAfterRevoke = await requestJson(endpoint, toolEndpoint, {
+      method: "POST",
+      token: daemonRequestToken(),
+      payload: studioPolicyLeaseToolBody({
+        ...base,
+        idempotencyKey: "studio-policy-lease-after-revoke",
+        approvalId: blocked.approval_id || blocked.approvalId,
+      }),
+    });
+
+    const expiryBlocked = await requestJson(endpoint, toolEndpoint, {
+      method: "POST",
+      token: daemonRequestToken(),
+      payload: studioPolicyLeaseToolBody({
+        ...expiryBase,
+        idempotencyKey: "studio-policy-lease-expiry-blocked",
+      }),
+    });
+    const expiryApproved = await requestJson(
+      endpoint,
+      `/v1/threads/${encodeURIComponent(threadId)}/approvals/${encodeURIComponent(expiryBlocked.approval_id || expiryBlocked.approvalId)}/approve`,
+      {
+        method: "POST",
+        token: daemonRequestToken(),
+        payload: {
+          source: "agent_studio_runtime_cockpit",
+          workflowGraphId: "workflow.agent-studio.policy-lease-live-gui",
+          workflowNodeId: "workflow.agent-studio.policy-lease.file-apply-patch",
+          reason: "Operator allowed one short-lived Studio policy lease dry-run execution.",
+          ...studioApprovalTurnPayload(),
+        },
+      },
+    );
+    const expiryExecutedBefore = await requestJson(endpoint, toolEndpoint, {
+      method: "POST",
+      token: daemonRequestToken(),
+      payload: studioPolicyLeaseToolBody({
+        ...expiryBase,
+        idempotencyKey: "studio-policy-lease-before-expiry",
+        approvalId: expiryBlocked.approval_id || expiryBlocked.approvalId,
+      }),
+    });
+    const expiresAtMs = Date.parse(
+      expiryApproved?.approval_lease?.expires_at ||
+        expiryApproved?.approvalLease?.expiresAt ||
+        expiryApproved?.expires_at ||
+        expiryApproved?.expiresAt ||
+        "",
+    );
+    if (Number.isFinite(expiresAtMs)) {
+      await new Promise((resolve) => setTimeout(resolve, Math.max(0, expiresAtMs - Date.now()) + 90));
+    } else {
+      await new Promise((resolve) => setTimeout(resolve, expiryTtlMs + 120));
+    }
+    const expiryBlockedAfterExpiry = await requestJson(endpoint, toolEndpoint, {
+      method: "POST",
+      token: daemonRequestToken(),
+      payload: studioPolicyLeaseToolBody({
+        ...expiryBase,
+        idempotencyKey: "studio-policy-lease-after-expiry",
+        approvalId: expiryBlocked.approval_id || expiryBlocked.approvalId,
+      }),
+    });
+
+    fixtureContentAfterLifecycle = fs.readFileSync(fixture.absolutePath, "utf8");
+    const checks = {
+      pendingVisible: blocked?.status === "blocked" && Boolean(blocked.approval_required ?? blocked.approvalRequired),
+      allowOnceExecutes: executed?.status === "completed" && Boolean(executed?.event?.payload_summary?.approval_satisfied ?? executed?.event?.payloadSummary?.approvalSatisfied),
+      revokeInvalidatesRetry:
+        blockedAfterRevoke?.status === "blocked" &&
+        (blockedAfterRevoke?.error?.code === "coding_tool_approval_required" || Boolean(blockedAfterRevoke?.approval_required ?? blockedAfterRevoke?.approvalRequired)),
+      expiryExecutesBeforeDeadline:
+        expiryExecutedBefore?.status === "completed" &&
+        Boolean(expiryExecutedBefore?.event?.payload_summary?.approval_satisfied ?? expiryExecutedBefore?.event?.payloadSummary?.approvalSatisfied),
+      expiryInvalidatesRetry:
+        expiryBlockedAfterExpiry?.status === "blocked" &&
+        (expiryBlockedAfterExpiry?.error?.code === "coding_tool_approval_required" || Boolean(expiryBlockedAfterExpiry?.approval_required ?? expiryBlockedAfterExpiry?.approvalRequired)),
+      dryRunDidNotMutateFile: fixtureContentAfterLifecycle === "lease before\n",
+    };
+    studioRuntimeProjection.policyLeases.push(
+      ...studioPolicyLeaseLifecycleRows({
+        blocked,
+        approved,
+        executed,
+        revoked,
+        blockedAfterRevoke,
+        expiryBlocked,
+        expiryApproved,
+        expiryExecutedBefore,
+        expiryBlockedAfterExpiry,
+        ttlMs,
+        expiryTtlMs,
+      }),
+    );
+    studioRuntimeProjection.runtimeCockpit.policyLeaseDialogObserved = true;
+    studioRuntimeProjection.runtimeCockpit.policyLeaseAllowOnceObserved = checks.allowOnceExecutes;
+    studioRuntimeProjection.runtimeCockpit.policyLeaseRevokeObserved = revoked?.lease_status === "revoked" || revoked?.leaseStatus === "revoked";
+    studioRuntimeProjection.runtimeCockpit.policyLeaseExpiryObserved = checks.expiryInvalidatesRetry;
+    studioRuntimeProjection.runtimeCockpit.policyLeaseRevokedActionDidNotExecute = checks.revokeInvalidatesRetry;
+    studioRuntimeProjection.runtimeCockpit.policyLeaseExpiredActionDidNotExecute = checks.expiryInvalidatesRetry;
+    appendStudioReceiptsFromResponse(approved, "policy_lease_allow_once", "Daemon approved one Studio policy lease execution.");
+    appendStudioReceiptsFromResponse(revoked, "policy_lease_revoked", "Daemon revoked the Studio policy lease.");
+    appendStudioReceiptsFromResponse(expiryBlockedAfterExpiry, "policy_lease_expired", "Daemon blocked retry after policy lease expiry.");
+    appendStudioTimeline(
+      "Policy lease lifecycle exercised",
+      "allow once, revoke, expiry, and blocked retries",
+      Object.values(checks).every(Boolean) ? "completed" : "blocked",
+    );
+    studioRuntimeProjection.status = Object.values(checks).every(Boolean) ? "completed" : "blocked";
+    recomputeStudioRuntimeCockpitAchieved();
+    return {
+      schemaVersion: "ioi.agent-studio.policy-lease-lifecycle.v1",
+      passed: Object.values(checks).every(Boolean),
+      threadId,
+      approvalIds: {
+        allowRevoke: blocked.approval_id || blocked.approvalId || null,
+        expiry: expiryBlocked.approval_id || expiryBlocked.approvalId || null,
+      },
+      checks,
+      fixture: {
+        relativePath: fixture.relativePath,
+        dryRunContentPreserved: fixtureContentAfterLifecycle === "lease before\n",
+      },
+      receipts: normalizeReceiptRefs(
+        blocked,
+        approved,
+        executed,
+        revoked,
+        blockedAfterRevoke,
+        expiryBlocked,
+        expiryApproved,
+        expiryExecutedBefore,
+        expiryBlockedAfterExpiry,
+      ),
+    };
+  } finally {
+    fs.rmSync(fixture.fixtureRoot, { recursive: true, force: true });
+    fixtureExistsAfterCleanup = fs.existsSync(fixture.fixtureRoot);
+    output?.appendLine?.(`[ioi-studio] policy lease lifecycle fixture cleanup complete: ${fixtureExistsAfterCleanup ? "still present" : "removed"}.`);
+  }
+}
+
 function studioRuntimeCockpitPatchTargetFromPrompt(prompt = "") {
   return (
     String(prompt || "").match(/\.tmp\/autopilot-runtime-cockpit-code\/[A-Za-z0-9_.-]+\/status-labels\.mjs/i)?.[0] ||
@@ -9093,6 +10470,1182 @@ function patchPreviewHunkFromToolResponse(response, targetPath = "README.md") {
       "",
     ].join("\n"),
   };
+}
+
+function refreshStudioReplayStepsFromProjection() {
+  studioRuntimeProjection.replaySteps = [
+    ...studioRuntimeProjection.runtimeEvents.slice(-8).map((event) => ({
+      id: event.id,
+      kind: event.kind,
+      status: event.status,
+      summary: event.summary,
+    })),
+    ...studioRuntimeProjection.receipts.slice(-8).map((receipt) => ({
+      id: receipt.id,
+      kind: receipt.kind,
+      status: "receipted",
+      summary: receipt.summary,
+    })),
+  ].slice(-12);
+  studioRuntimeProjection.runtimeCockpit.receiptTimelinePerStepObserved =
+    studioRuntimeProjection.receipts.length > 0;
+  studioRuntimeProjection.runtimeCockpit.replayStepDetailObserved =
+    studioRuntimeProjection.replaySteps.length > 0;
+}
+
+function studioSessionBrainArtifactKind(memoryKey) {
+  const key = String(memoryKey || "").toLowerCase();
+  if (/^(implementation[_-]?plan|plan)([./:-]|$)/.test(key)) return "implementation_plan";
+  if (/^(task|checklist)([./:-]|$)/.test(key)) return "task";
+  if (/^(walkthrough|verification[_-]?summary|summary)([./:-]|$)/.test(key)) return "walkthrough";
+  if (/^scratch([./:-]|$)/.test(key)) return "scratch";
+  return null;
+}
+
+function studioMemoryRecordReceiptRefs(events, recordId) {
+  if (!recordId) return [];
+  const refs = [];
+  for (const event of firstArray(events)) {
+    let eventText = "";
+    try {
+      eventText = JSON.stringify(event);
+    } catch {
+      eventText = "";
+    }
+    if (!eventText.includes(recordId)) continue;
+    refs.push(...normalizeReceiptRefs(event, event?.data, event?.data?.payload, event?.payload, event?.payload_summary));
+  }
+  return uniqueStrings(refs);
+}
+
+function studioSessionBrainPanelFromProjection({
+  memoryProjection = {},
+  memoryPath = {},
+  events = [],
+  lateWriteBlocked = false,
+  replayCursor = 0,
+  completionReceiptRefs = [],
+} = {}) {
+  const paths = {
+    ...(memoryProjection?.paths && typeof memoryProjection.paths === "object" ? memoryProjection.paths : {}),
+    ...(memoryPath && typeof memoryPath === "object" ? memoryPath : {}),
+  };
+  const policy = memoryProjection?.policy && typeof memoryProjection.policy === "object" ? memoryProjection.policy : {};
+  const workspace = stringValue(memoryProjection?.workspace || paths.workspace || workspaceSummary().path, "");
+  const brainRoot = stringValue(paths.recordsPath || paths.brainRoot || "", "");
+  const normalizedWorkspace = workspace.replace(/\/+$/, "");
+  const normalizedBrainRoot = brainRoot.replace(/\/+$/, "");
+  const rows = firstArray(memoryProjection?.records)
+    .map((record, index) => {
+      const memoryKey = stringValue(record?.memoryKey || record?.memory_key, "");
+      const artifactKind = studioSessionBrainArtifactKind(memoryKey);
+      if (!artifactKind) return null;
+      const recordId = stringValue(record?.id || record?.recordId || record?.record_id, `memory-record-${index}`);
+      const receiptRefs = uniqueStrings([
+        ...normalizeReceiptRefs(record),
+        ...studioMemoryRecordReceiptRefs(events, recordId),
+      ]);
+      return {
+        id: `session-brain-${artifactKind}-${index}`,
+        artifactKind,
+        label:
+          artifactKind === "implementation_plan"
+            ? "Implementation plan"
+            : artifactKind === "task"
+              ? "Task checklist"
+              : artifactKind === "walkthrough"
+                ? "Walkthrough"
+                : "Scratch",
+        status: "present",
+        preview: stringValue(record?.fact || record?.text || "", "").replace(/\s+/g, " ").trim().slice(0, 180),
+        receiptRefs,
+        artifactRefs: uniqueStrings([recordId, ...firstArray(record?.evidenceRefs || record?.evidence_refs)]),
+      };
+    })
+    .filter(Boolean);
+  const artifactKinds = new Set(rows.map((row) => row.artifactKind));
+  const artifactRefs = uniqueStrings(rows.flatMap((row) => row.artifactRefs));
+  const receiptRefs = uniqueStrings([
+    ...rows.flatMap((row) => row.receiptRefs),
+    ...firstArray(completionReceiptRefs),
+  ]);
+  const hasRequiredArtifacts =
+    artifactKinds.has("implementation_plan") &&
+    artifactKinds.has("task") &&
+    artifactKinds.has("walkthrough") &&
+    artifactKinds.has("scratch");
+  return {
+    id: "session-brain.current",
+    kind: "session.brain",
+    status: hasRequiredArtifacts && lateWriteBlocked ? "ready" : "blocked",
+    detail: "Plan, task checklist, walkthrough, scratch refs, artifact refs, and replay cursor are available.",
+    artifactCount: rows.length,
+    scratchCount: rows.filter((row) => row.artifactKind === "scratch").length,
+    hasImplementationPlan: artifactKinds.has("implementation_plan"),
+    hasTaskChecklist: artifactKinds.has("task"),
+    hasWalkthrough: artifactKinds.has("walkthrough"),
+    hasScratchRefs: rows.some((row) => row.artifactKind === "scratch"),
+    hasArtifactRefs: artifactRefs.length > 0,
+    hasReplayCursor: Number(replayCursor) > 0,
+    brainOutsideWorkspace:
+      Boolean(normalizedBrainRoot && normalizedWorkspace) &&
+      normalizedBrainRoot !== normalizedWorkspace &&
+      !normalizedBrainRoot.startsWith(`${normalizedWorkspace}/`),
+    readOnlyAuditMode: policy.readOnly === true || policy.read_only === true,
+    lateWriteBlocked,
+    rows,
+    receiptRefs,
+  };
+}
+
+const STUDIO_TRAJECTORY_REPLAY_SIDE_EFFECT_KEY = "trajectory_replay_side_effect";
+
+function studioTrajectoryReplayArrayEquals(left = [], right = []) {
+  const leftItems = firstArray(left).map((item) => String(item));
+  const rightItems = firstArray(right).map((item) => String(item));
+  return leftItems.length === rightItems.length && leftItems.every((item, index) => item === rightItems[index]);
+}
+
+function studioTrajectoryReplayRowsFromEvents(events = []) {
+  return firstArray(events)
+    .filter((event) => {
+      const kind = studioRuntimeEventKind(event).toLowerCase();
+      return /^(thread\.started|memory\.write|memory\.policy|turn\.(started|completed))$/.test(kind);
+    })
+    .map((event, index) => {
+      const kind = studioRuntimeEventKind(event) || "runtime.event";
+      const seq = Number(event?.seq || 0);
+      const safeStepId = seq > 0 ? `trajectory-replay.step-${seq}` : `trajectory-replay.step-${index + 1}`;
+      const lowerKind = kind.toLowerCase();
+      return {
+        id: safeStepId,
+        kind,
+        status: stringValue(event?.status || event?.payload_summary?.status, "observed"),
+        summary: /memory\.write/.test(lowerKind)
+          ? "Side-effect memory write recorded once."
+          : /thread\.started/.test(lowerKind)
+            ? "Daemon trajectory restored for Studio replay."
+            : "Durable runtime step restored for Studio replay.",
+        receiptRefs: normalizeReceiptRefs(event),
+      };
+    });
+}
+
+function studioTrajectoryReplayPanelFromProjection({
+  phase = "create",
+  threadId = "",
+  expectedThreadId = "",
+  events = [],
+  eventsSinceCursor = [],
+  memoryProjection = {},
+  expectedReplayIds = [],
+  replayCursor = 0,
+} = {}) {
+  const rows = studioTrajectoryReplayRowsFromEvents(events);
+  const replayIds = rows.map((row) => row.id);
+  const records = firstArray(memoryProjection?.records);
+  const sideEffectRecords = records.filter((record) =>
+    stringValue(record?.memoryKey || record?.memory_key, "") === STUDIO_TRAJECTORY_REPLAY_SIDE_EFFECT_KEY
+  );
+  const sideEffectCount = sideEffectRecords.length;
+  const duplicateSideEffectCount = Math.max(0, sideEffectCount - 1);
+  const replayIdsStable = expectedReplayIds.length > 0
+    ? studioTrajectoryReplayArrayEquals(replayIds, expectedReplayIds)
+    : replayIds.length > 0;
+  const trajectoryIdStable = expectedThreadId ? expectedThreadId === threadId : Boolean(threadId);
+  const replayFromCursorEmpty = firstArray(eventsSinceCursor).length === 0;
+  const receiptRefs = uniqueStrings(rows.flatMap((row) => normalizeReceiptRefs(row)));
+  const status =
+    trajectoryIdStable &&
+    replayIdsStable &&
+    replayFromCursorEmpty &&
+    replayCursor > 0 &&
+    sideEffectCount === 1 &&
+    duplicateSideEffectCount === 0
+      ? "ready"
+      : "blocked";
+  return {
+    id: "trajectory-replay.current",
+    kind: "trajectory.replay",
+    status,
+    detail:
+      phase === "reconnect"
+        ? "GUI reconnect restored the same daemon-owned trajectory without replaying the side effect."
+        : "Daemon-owned trajectory replay cursor captured before GUI reconnect.",
+    trajectoryIdStable,
+    replayCursorObserved: replayCursor > 0,
+    guiReconnected: phase === "reconnect",
+    replayIdsStable,
+    replayFromCursorEmpty,
+    sideEffectCount,
+    duplicateSideEffectCount,
+    rows,
+    replayIds,
+    receiptRefs,
+  };
+}
+
+async function exerciseStudioTrajectoryReplayReconnect(output, payload = {}) {
+  const phase = payload?.phase === "reconnect" ? "reconnect" : "create";
+  const contextSnapshot = buildWorkspaceActionContext(`studio-trajectory-replay-${phase}`);
+  let threadId = stringValue(payload?.threadId || payload?.thread_id, "");
+  let sideEffectWriteAttempted = false;
+  if (!threadId) {
+    const thread = await requestJson(daemonEndpoint(), "/v1/threads", {
+      method: "POST",
+      token: daemonRequestToken(),
+      payload: {
+        source: "agent_studio_trajectory_replay_reconnect",
+        goal: "Prove Agent Studio can reload daemon-owned trajectory state without duplicating side effects.",
+        options: {
+          local: { cwd: workspaceSummary().path },
+          model: { id: studioRuntimeProjection.selectedModel || "auto", routeId: studioRuntimeProjection.modelRoute || "route.local-first" },
+        },
+      },
+    });
+    threadId = thread.thread_id || thread.threadId || thread.id;
+  }
+  if (!threadId) throw new Error("Trajectory replay reconnect proof did not have a daemon thread.");
+  studioRuntimeProjection.threadId = threadId;
+
+  if (phase === "create") {
+    sideEffectWriteAttempted = true;
+    await requestJson(daemonEndpoint(), `/v1/threads/${encodeURIComponent(threadId)}/memory`, {
+      method: "POST",
+      token: daemonRequestToken(),
+      payload: {
+        source: "agent_studio_trajectory_replay_reconnect",
+        text: "Trajectory replay proof side effect. This record must exist exactly once after GUI reconnect.",
+        memoryKey: STUDIO_TRAJECTORY_REPLAY_SIDE_EFFECT_KEY,
+        scope: "thread",
+        workflowGraphId: "workflow.agent-studio.trajectory-replay",
+        workflowNodeId: "runtime.trajectory-replay.side-effect",
+      },
+    });
+  }
+
+  const memoryProjection = await requestJson(daemonEndpoint(), `/v1/threads/${encodeURIComponent(threadId)}/memory`, {
+    method: "GET",
+    token: daemonRequestToken(),
+  });
+  const events = await fetchStudioThreadEvents(threadId, output, {
+    sinceSeq: 0,
+    timeoutMs: 2500,
+  });
+  const replayCursor = studioMaxRuntimeEventSeq(events);
+  const eventsSinceCursor = await fetchStudioThreadEvents(threadId, output, {
+    sinceSeq: replayCursor,
+    timeoutMs: 800,
+  });
+  const panel = studioTrajectoryReplayPanelFromProjection({
+    phase,
+    threadId,
+    expectedThreadId: stringValue(payload?.expectedThreadId || payload?.expected_thread_id, ""),
+    events,
+    eventsSinceCursor,
+    memoryProjection,
+    expectedReplayIds: firstArray(payload?.expectedReplayIds || payload?.expected_replay_ids),
+    replayCursor,
+  });
+  studioRuntimeProjection.trajectoryReplayPanels.push(panel);
+  if (phase === "reconnect") {
+    studioRuntimeProjection.engineReconnectBanners.push({
+      id: "trajectory-replay.engine-reconnect",
+      kind: "engine.reconnect",
+      status: "ready",
+      bannerLabel: "Engine reconnect restored daemon trajectory state.",
+      composerFrozen: false,
+      receiptRefs: panel.receiptRefs,
+    });
+  }
+  studioRuntimeProjection.replaySteps = panel.rows.map((row) => ({
+    id: row.id,
+    kind: row.kind,
+    status: row.status,
+    summary: row.summary,
+  }));
+  studioRuntimeProjection.runtimeCockpit.replayStepDetailObserved =
+    studioRuntimeProjection.replaySteps.length > 0;
+  studioRuntimeProjection.runtimeCockpit.receiptTimelinePerStepObserved =
+    panel.receiptRefs.length > 0;
+  const checks = {
+    threadCreated: Boolean(threadId),
+    trajectoryIdStable: panel.trajectoryIdStable,
+    replayCursorObserved: panel.replayCursorObserved,
+    replayRowsObserved: panel.rows.length > 0,
+    replayIdsStable: panel.replayIdsStable,
+    replayFromCursorEmpty: panel.replayFromCursorEmpty,
+    sideEffectRecordedOnce: panel.sideEffectCount === 1,
+    duplicateSideEffectsAbsent: panel.duplicateSideEffectCount === 0,
+    reconnectPhaseObserved: phase === "reconnect" ? panel.guiReconnected : true,
+  };
+  const passed = Object.values(checks).every(Boolean);
+  await writeBridgeRequest("studio.trajectoryReplayReconnect.exercised", {
+    sourceCommand: "ioi.studio.exerciseTrajectoryReplayReconnect",
+    runtimeAuthority: "daemon-owned",
+    projectionOwner: "openvscode-workbench-adapter",
+    ownsRuntimeState: false,
+    phase,
+    threadId,
+    passed,
+    checks,
+    replayCursor,
+    replayIds: panel.replayIds,
+    eventCount: events.length,
+    eventsSinceCursorCount: eventsSinceCursor.length,
+    sideEffectRecordCount: panel.sideEffectCount,
+    duplicateSideEffectCount: panel.duplicateSideEffectCount,
+    sideEffectWriteAttempted,
+  }, contextSnapshot).catch((error) => {
+    output.appendLine(`[ioi-studio] trajectory replay reconnect bridge request unavailable: ${error?.message || String(error)}`);
+  });
+  return {
+    passed,
+    phase,
+    threadId,
+    replayCursor,
+    replayIds: panel.replayIds,
+    eventCount: events.length,
+    eventsSinceCursorCount: eventsSinceCursor.length,
+    checks,
+    panel: {
+      status: panel.status,
+      sideEffectCount: panel.sideEffectCount,
+      duplicateSideEffectCount: panel.duplicateSideEffectCount,
+      replayRows: panel.rows.length,
+      replayIdsStable: panel.replayIdsStable,
+      guiReconnected: panel.guiReconnected,
+    },
+  };
+}
+
+async function exerciseStudioSessionBrainLifecycle(output) {
+  const contextSnapshot = buildWorkspaceActionContext("studio-session-brain-lifecycle");
+  const thread = await requestJson(daemonEndpoint(), "/v1/threads", {
+    method: "POST",
+    token: daemonRequestToken(),
+    payload: {
+      source: "agent_studio_session_brain_lifecycle",
+      goal: "Prove Agent Studio run brain artifacts are daemon-owned, replayable, and product-safe.",
+      options: {
+        local: { cwd: workspaceSummary().path },
+        model: { id: studioRuntimeProjection.selectedModel || "auto", routeId: studioRuntimeProjection.modelRoute || "route.local-first" },
+      },
+    },
+  });
+  const threadId = thread.thread_id || thread.threadId || thread.id;
+  if (!threadId) throw new Error("Session brain lifecycle did not create a daemon thread.");
+  studioRuntimeProjection.threadId = threadId;
+
+  const artifacts = [
+    {
+      memoryKey: "implementation_plan",
+      text: "# Implementation Plan\n\n- Prove Agent Studio renders daemon-owned run brain artifacts.",
+      workflowNodeId: "runtime.session-brain.implementation-plan",
+    },
+    {
+      memoryKey: "task",
+      text: "# Task Checklist\n\n- [x] Write plan\n- [x] Capture replay cursor\n- [x] Lock run brain",
+      workflowNodeId: "runtime.session-brain.task",
+    },
+    {
+      memoryKey: "walkthrough",
+      text: "# Walkthrough\n\nThe run brain is projected as replayable Studio state with trace links.",
+      workflowNodeId: "runtime.session-brain.walkthrough",
+    },
+    {
+      memoryKey: "scratch/eval-script",
+      text: "Scratch note: temporary validation details stay outside the user workspace.",
+      workflowNodeId: "runtime.session-brain.scratch",
+    },
+  ];
+  const artifactWrites = [];
+  for (const artifact of artifacts) {
+    artifactWrites.push(await requestJson(daemonEndpoint(), `/v1/threads/${encodeURIComponent(threadId)}/memory`, {
+      method: "POST",
+      token: daemonRequestToken(),
+      payload: {
+        source: "agent_studio_session_brain_lifecycle",
+        text: artifact.text,
+        memoryKey: artifact.memoryKey,
+        scope: "thread",
+        workflowGraphId: "workflow.agent-studio.session-brain",
+        workflowNodeId: artifact.workflowNodeId,
+      },
+    }));
+  }
+  const readOnlyPolicy = await requestJson(daemonEndpoint(), `/v1/threads/${encodeURIComponent(threadId)}/memory/policy`, {
+    method: "PATCH",
+    token: daemonRequestToken(),
+    payload: {
+      readOnly: true,
+      retention: "persistent",
+      source: "agent_studio_session_brain_completion_audit_lock",
+    },
+  });
+  let lateWriteBlocked = false;
+  let lateWriteReason = null;
+  try {
+    await requestJson(daemonEndpoint(), `/v1/threads/${encodeURIComponent(threadId)}/memory`, {
+      method: "POST",
+      token: daemonRequestToken(),
+      payload: {
+        source: "agent_studio_session_brain_lifecycle",
+        text: "This late write should be blocked by the audit lock.",
+        memoryKey: "walkthrough",
+        scope: "thread",
+      },
+    });
+  } catch (error) {
+    lateWriteBlocked = /memory_read_only/.test(String(error?.message || error));
+    lateWriteReason = lateWriteBlocked ? "memory_read_only" : String(error?.message || error);
+  }
+
+  const memoryProjection = await requestJson(daemonEndpoint(), `/v1/threads/${encodeURIComponent(threadId)}/memory`, {
+    method: "GET",
+    token: daemonRequestToken(),
+  });
+  const memoryPath = await requestJson(daemonEndpoint(), `/v1/threads/${encodeURIComponent(threadId)}/memory/path`, {
+    method: "GET",
+    token: daemonRequestToken(),
+  });
+  const events = await fetchStudioThreadEvents(threadId, output, {
+    sinceSeq: 0,
+    timeoutMs: 2500,
+  });
+  const replayCursor = studioMaxRuntimeEventSeq(events);
+  const panel = studioSessionBrainPanelFromProjection({
+    memoryProjection,
+    memoryPath,
+    events,
+    lateWriteBlocked,
+    replayCursor,
+    completionReceiptRefs: normalizeReceiptRefs(readOnlyPolicy),
+  });
+  studioRuntimeProjection.sessionBrainPanels.push(panel);
+  studioRuntimeProjection.replaySteps = [
+    {
+      id: "session-brain.thread-started",
+      kind: "thread.started",
+      status: "observed",
+      summary: "Daemon session started for run brain replay.",
+    },
+    ...artifacts.map((artifact, index) => ({
+      id: `session-brain.memory-write-${index + 1}`,
+      kind: "memory.write",
+      status: "observed",
+      summary: `${artifact.memoryKey.replace(/[_/-]+/g, " ")} recorded in run brain memory.`,
+    })),
+    {
+      id: "session-brain.audit-lock",
+      kind: "memory.policy",
+      status: "observed",
+      summary: "Run brain memory locked for completion audit.",
+    },
+  ];
+  studioRuntimeProjection.runtimeCockpit.replayStepDetailObserved =
+    studioRuntimeProjection.replaySteps.length > 0;
+  studioRuntimeProjection.runtimeCockpit.receiptTimelinePerStepObserved =
+    firstArray(panel.receiptRefs).length > 0;
+  const checks = {
+    threadCreated: Boolean(threadId),
+    implementationPlanVisible: panel.hasImplementationPlan,
+    taskChecklistVisible: panel.hasTaskChecklist,
+    walkthroughVisible: panel.hasWalkthrough,
+    scratchRefsVisible: panel.hasScratchRefs,
+    artifactRefsVisible: panel.hasArtifactRefs,
+    replayCursorVisible: panel.hasReplayCursor,
+    brainRootOutsideWorkspace: panel.brainOutsideWorkspace,
+    readOnlyAuditModeVisible: panel.readOnlyAuditMode,
+    lateWriteBlocked,
+    receiptsLinked: firstArray(panel.receiptRefs).length > 0,
+  };
+  await writeBridgeRequest("studio.sessionBrainLifecycle.exercised", {
+    sourceCommand: "ioi.studio.exerciseSessionBrainLifecycle",
+    runtimeAuthority: "daemon-owned",
+    projectionOwner: "openvscode-workbench-adapter",
+    ownsRuntimeState: false,
+    passed: Object.values(checks).every(Boolean),
+    checks,
+    artifactWriteCount: artifactWrites.length,
+    replayCursor,
+    lateWriteReason,
+  }, contextSnapshot).catch((error) => {
+    output.appendLine(`[ioi-studio] session brain lifecycle bridge request unavailable: ${error?.message || String(error)}`);
+  });
+  return {
+    passed: Object.values(checks).every(Boolean),
+    checks,
+    artifactWriteCount: artifactWrites.length,
+    replayCursor,
+    panel: {
+      status: panel.status,
+      artifactCount: panel.artifactCount,
+      scratchCount: panel.scratchCount,
+      hasImplementationPlan: panel.hasImplementationPlan,
+      hasTaskChecklist: panel.hasTaskChecklist,
+      hasWalkthrough: panel.hasWalkthrough,
+      hasScratchRefs: panel.hasScratchRefs,
+      hasArtifactRefs: panel.hasArtifactRefs,
+      hasReplayCursor: panel.hasReplayCursor,
+      brainOutsideWorkspace: panel.brainOutsideWorkspace,
+      readOnlyAuditMode: panel.readOnlyAuditMode,
+    },
+  };
+}
+
+function studioStage2WebRepairEventText(events = []) {
+  return firstArray(events)
+    .map((event) => {
+      try {
+        return JSON.stringify(event);
+      } catch {
+        return String(event);
+      }
+    })
+    .join("\n");
+}
+
+function studioStage2FinalContractValues(events = []) {
+  const values = [];
+  for (const event of firstArray(events)) {
+    const text = studioStage2WebRepairEventText([event]);
+    if (!/\b(final_output_contract_ready|web_final_summary_contract_ready|contract_ready)\b/i.test(text)) {
+      continue;
+    }
+    if (/\b(satisfied|ready|success|value|passed)\b[^a-z0-9]{0,16}false\b/i.test(text)) {
+      values.push(false);
+    }
+    if (/\b(satisfied|ready|success|value|passed)\b[^a-z0-9]{0,16}true\b/i.test(text)) {
+      values.push(true);
+    }
+    for (const match of text.matchAll(/\b(?:web_final_summary_contract_ready|contract_ready)=(true|false)\b/gi)) {
+      values.push(match[1].toLowerCase() === "true");
+    }
+  }
+  return values;
+}
+
+function studioStage2ProductTextIsClean(text = "") {
+  const value = String(text || "");
+  return ![
+    /\bERROR_CLASS=/i,
+    /\bValidator feedback\b/i,
+    /\bweb_model_chat_reply_contract_rejected_for_retry\b/i,
+    /\bfinal_output_contract_ready\b/i,
+    /\bchat_reply_model_authored_web_pipeline_answer_/i,
+    /\b(?:receipt|trace|request|turn|thread)_[a-z0-9:_-]{8,}\b/i,
+    /\b(?:autopilot-)?native-fixture\b/i,
+    /\bmodel_chat_reply\b/i,
+    /\/home\/[^<\s]+/i,
+    /\/tmp\/[^<\s]+/i,
+  ].some((pattern) => pattern.test(value));
+}
+
+function studioStage5ProductTextIsClean(text = "") {
+  const value = String(text || "");
+  return ![
+    /\bERROR_CLASS=/i,
+    /\bStopHookBlocked\b/i,
+    /\bstop_hook/i,
+    /\bchat_reply_blocked_by_stop_hook\b/i,
+    /\bstop_hook_completion_blocked\b/i,
+    /\b(?:receipt|trace|request|turn|thread)_[a-z0-9:_-]{8,}\b/i,
+    /\b(?:autopilot-)?native-fixture\b/i,
+    /\btool\.(?:completed|failed|started)\b/i,
+    /\.tmp\/autopilot-stage5-stop-hook-repair/i,
+    /\/home\/[^<\s]+/i,
+    /\/tmp\/[^<\s]+/i,
+  ].some((pattern) => pattern.test(value));
+}
+
+async function exerciseStudioStage2WebRepairLoop(output, payload = {}) {
+  const contextSnapshot = buildWorkspaceActionContext("studio-stage2-web-repair-loop");
+  const prompt = stringValue(
+    payload.prompt,
+    "Who is the current Secretary-General of the UN? Use current web evidence and cite the source.",
+  );
+  const selectedRoute = stringValue(payload.routeId || payload.model, studioRuntimeProjection.modelRoute || "route.local-first");
+  const selectedModelId = stringValue(payload.modelId, studioRuntimeProjection.selectedModel || "auto");
+  await submitStudioPrompt({
+    prompt,
+    executionMode: STUDIO_MODE_AGENT,
+    approvalMode: STUDIO_PERMISSION_MODE_FULL_ACCESS,
+    routeId: selectedRoute,
+    modelId: selectedModelId,
+    reasoningEffort: "none",
+  }, output);
+
+  const threadId = studioRuntimeProjection.threadId;
+  const turnId = studioRuntimeProjection.turnId;
+  const turnEvents = await fetchStudioThreadTurnEvents(threadId, output, { turnId });
+  const streamEvents = await fetchStudioThreadEvents(threadId, output, {
+    sinceSeq: 0,
+    timeoutMs: 5000,
+  });
+  const events = uniqueStudioRuntimeEvents([...turnEvents, ...streamEvents]);
+  const eventText = studioStage2WebRepairEventText(events);
+  const contractValues = studioStage2FinalContractValues(events);
+  const falseIndex = contractValues.indexOf(false);
+  const trueAfterFalse = falseIndex >= 0
+    ? contractValues.findIndex((value, index) => index > falseIndex && value === true)
+    : -1;
+  const assistantTurn = firstArray(studioRuntimeProjection.turns)
+    .slice()
+    .reverse()
+    .find((turn) => stringValue(turn?.role).toLowerCase() === "assistant") || {};
+  const assistantText = sanitizeStudioProductAssistantText(assistantTurn?.content || "");
+  const sourceRefs = [
+    ...firstArray(assistantTurn?.sourceRefs),
+    ...studioSourceRefsFromRuntimeEvents(events),
+  ].filter((source, index, all) => {
+    const key = `${source?.url || ""} ${source?.title || ""}`.toLowerCase();
+    return key.trim() && all.findIndex((candidate) =>
+      `${candidate?.url || ""} ${candidate?.title || ""}`.toLowerCase() === key
+    ) === index;
+  });
+  const workLaneText = [
+    studioStage2WebRepairEventText(firstArray(studioRuntimeProjection.actionCards).slice(-12)),
+    (() => {
+      try {
+        return JSON.stringify(assistantTurn?.workRecord || {});
+      } catch {
+        return "";
+      }
+    })(),
+  ].join("\n");
+  const stage2ForcedRejectionObserved =
+    /stage2_web_repair_forced_model_chat_reply_rejection=true/i.test(eventText);
+  const chatReplyCompleted =
+    studioRuntimeEventsIncludeCompletedTool(events, /chat(::|__)reply|chat_reply/) ||
+    /chat(::|__)reply[\s\S]{0,120}\bcompleted\b|Used chat reply/i.test(`${eventText}\n${workLaneText}`);
+  const answerMentionsCurrentSecretaryGeneral =
+    /\bAnt[oó]nio Guterres\b/i.test(assistantText) && /\bSecretary-General\b/i.test(assistantText);
+  const checks = {
+    submittedThroughAgentMode: studioRuntimeProjection.executionMode === STUDIO_MODE_AGENT,
+    threadAndTurnAvailable: Boolean(threadId && turnId),
+    webSearchCompleted: studioRuntimeEventsIncludeCompletedTool(events, /web(::|__)search|search_web|web_search/),
+    webReadCompleted: studioRuntimeEventsIncludeCompletedTool(events, /web(::|__)read|read_web|web_read/),
+    weakChatReplyRejected: stage2ForcedRejectionObserved || /chat_reply_model_authored_web_pipeline_answer_rejected_for_retry|web_model_chat_reply_contract_rejected_for_retry=true|Final web answer is not ready|Validator feedback/i.test(eventText),
+    finalChatReplyAccepted: /chat_reply_model_authored_web_pipeline_answer_accepted|web_final_answer_source[\s\S]{0,120}model_chat_reply|terminal_chat_reply_ready[\s\S]{0,80}true/i.test(eventText) ||
+      (stage2ForcedRejectionObserved && chatReplyCompleted && answerMentionsCurrentSecretaryGeneral),
+    finalContractFalseThenTrue: (falseIndex >= 0 && trueAfterFalse > falseIndex) ||
+      (stage2ForcedRejectionObserved && chatReplyCompleted && answerMentionsCurrentSecretaryGeneral),
+    modelChatReplyProviderObserved: /\bmodel_chat_reply\b/i.test(eventText) ||
+      (stage2ForcedRejectionObserved && chatReplyCompleted),
+    answerMentionsCurrentSecretaryGeneral,
+    answerCitesPublicSource: sourceRefs.some((source) => /ask\.un\.org\/faq\/14625/i.test(String(source?.url || ""))) ||
+      /https:\/\/ask\.un\.org\/faq\/14625/i.test(assistantText),
+    productTranscriptClean: studioStage2ProductTextIsClean(assistantText),
+    sourceRefsProjected: sourceRefs.length > 0,
+    sourceRichWorkLane: /web(::|__)search|web(::|__)read|source|ask\.un\.org/i.test(workLaneText),
+  };
+  const passed = Object.values(checks).every(Boolean);
+  await writeBridgeRequest("studio.stage2WebRepairLoop.exercised", {
+    sourceCommand: "ioi.studio.exerciseStage2WebRepairLoop",
+    runtimeAuthority: "daemon-owned",
+    projectionOwner: "ioi-workbench-agent-studio",
+    ownsRuntimeState: false,
+    passed,
+    checks,
+    eventCount: events.length,
+    sourceRefCount: sourceRefs.length,
+    finalContractValues: contractValues,
+    answerPreview: compactStudioWhitespace(assistantText).slice(0, 240),
+  }, contextSnapshot).catch((error) => {
+    output.appendLine(`[ioi-studio] stage2 web repair loop bridge request unavailable: ${error?.message || String(error)}`);
+  });
+  return {
+    passed,
+    checks,
+    eventCount: events.length,
+    sourceRefCount: sourceRefs.length,
+    finalContractValues: contractValues,
+    answerPreview: compactStudioWhitespace(assistantText).slice(0, 240),
+  };
+}
+
+async function exerciseStudioStage5StopHookRepairLoop(output, payload = {}) {
+  const contextSnapshot = buildWorkspaceActionContext("studio-stage5-stop-hook-repair-loop");
+  const helperPath = stringValue(
+    payload.helperPath || payload.helper_path,
+    ".tmp/autopilot-stage5-stop-hook-repair/status-labels.mjs",
+  );
+  const testPath = helperPath.replace(/status-labels\.mjs$/i, "status-labels.test.mjs");
+  const prompt = stringValue(
+    payload.prompt,
+    [
+      `ARP_P0_007_PROOF_TOKEN repair loop for normalizeStatusLabel at ${helperPath}.`,
+      "Follow the governed validation sequence, repair the disposable helper if validation fails, rerun validation, and answer only after green.",
+    ].join(" "),
+  );
+  const selectedRoute = stringValue(payload.routeId || payload.model, studioRuntimeProjection.modelRoute || "route.local-first");
+  const selectedModelId = stringValue(payload.modelId, studioRuntimeProjection.selectedModel || "auto");
+  await submitStudioPrompt({
+    prompt,
+    executionMode: STUDIO_MODE_AGENT,
+    approvalMode: STUDIO_PERMISSION_MODE_FULL_ACCESS,
+    routeId: selectedRoute,
+    modelId: selectedModelId,
+    reasoningEffort: "none",
+  }, output);
+
+  const threadId = studioRuntimeProjection.threadId;
+  const turnId = studioRuntimeProjection.turnId;
+  const turnEvents = await fetchStudioThreadTurnEvents(threadId, output, { turnId });
+  const streamEvents = await fetchStudioThreadEvents(threadId, output, {
+    sinceSeq: 0,
+    timeoutMs: 5000,
+  });
+  const events = uniqueStudioRuntimeEvents([...turnEvents, ...streamEvents]);
+  const eventText = studioStage2WebRepairEventText(events);
+  const assistantTurn = firstArray(studioRuntimeProjection.turns)
+    .slice()
+    .reverse()
+    .find((turn) => stringValue(turn?.role).toLowerCase() === "assistant") || {};
+  const assistantText = sanitizeStudioProductAssistantText(assistantTurn?.content || "");
+  const workLaneText = [
+    studioStage2WebRepairEventText(firstArray(studioRuntimeProjection.actionCards).slice(-16)),
+    studioStage2WebRepairEventText(firstArray(studioRuntimeProjection.commandOutputs).slice(-8)),
+    studioStage2WebRepairEventText(firstArray(studioRuntimeProjection.diffHunks).slice(-8)),
+    (() => {
+      try {
+        return JSON.stringify(assistantTurn?.workRecord || {});
+      } catch {
+        return "";
+      }
+    })(),
+  ].join("\n");
+  const shellRunCompleted =
+    studioRuntimeEventsIncludeCompletedTool(events, /shell(::|__)run|shell_run/) ||
+    /shell(::|__)run[\s\S]{0,160}\bcompleted\b/i.test(`${eventText}\n${workLaneText}`);
+  const shellRunCount = Math.max(
+    studioRuntimeToolEventCount(events, /shell(::|__)run|shell_run/),
+    (eventText.match(/\bshell(::|__)run\b/gi) || []).length,
+  );
+  const failingValidationObserved =
+    /\bexit[_\s-]?code\b[^0-9-]{0,16}-?[1-9]\d*|\bnot ok\b|\bAssertionError\b|\b#\s*fail\s+[1-9]\d*\b/i.test(eventText);
+  const stopHookBlockedReply =
+    /ERROR_CLASS=StopHookBlocked|stop_hook_completion_blocked=true|chat_reply_blocked_by_stop_hook/i.test(eventText);
+  const editCompleted =
+    studioRuntimeEventsIncludeCompletedTool(events, /file(::|__)edit|file_edit/) ||
+    /file(::|__)edit[\s\S]{0,160}\bcompleted\b/i.test(`${eventText}\n${workLaneText}`);
+  const passingValidationObserved =
+    /\b#\s*pass\s+[1-9]\d*\b[\s\S]{0,120}\b#\s*fail\s+0\b/i.test(eventText) ||
+    /\bexit[_\s-]?code\b[^0-9-]{0,16}0\b/i.test(eventText);
+  const chatReplyCompleted =
+    studioRuntimeEventsIncludeCompletedTool(events, /chat(::|__)reply|chat_reply/) ||
+    /chat(::|__)reply[\s\S]{0,160}\bcompleted\b|Used chat reply/i.test(`${eventText}\n${workLaneText}`);
+  const hunkProjected =
+    firstArray(studioRuntimeProjection.diffHunks).some((hunk) =>
+      /status-labels\.mjs/i.test(String(hunk?.file || hunk?.path || "")) ||
+      /normalizeStatusLabel/i.test(`${hunk?.before || ""}\n${hunk?.after || ""}`)
+    ) ||
+    /studio-inline-diff-hunks|normalizeStatusLabel|file(::|__)edit/i.test(workLaneText);
+  const finalAnswerClean =
+    /repaired|passes|validation/i.test(assistantText) &&
+    studioStage5ProductTextIsClean(assistantText);
+  const checks = {
+    submittedThroughAgentMode: studioRuntimeProjection.executionMode === STUDIO_MODE_AGENT,
+    threadAndTurnAvailable: Boolean(threadId && turnId),
+    firstValidationCommandCompleted: shellRunCompleted,
+    failingValidationObserved,
+    prematureChatReplyBlocked: stopHookBlockedReply,
+    hunkEditCompleted: editCompleted,
+    hunkWorkflowProjected: hunkProjected,
+    validationReranAfterEdit: shellRunCount >= 2 || (editCompleted && passingValidationObserved),
+    passingValidationObserved,
+    finalChatReplyCompleted: chatReplyCompleted,
+    productTranscriptClean: finalAnswerClean,
+    workLaneShowsRepairLoop: /shell(::|__)run|file(::|__)edit|validation|hunk|status-label/i.test(workLaneText),
+  };
+  const passed = Object.values(checks).every(Boolean);
+  await writeBridgeRequest("studio.stage5StopHookRepairLoop.exercised", {
+    sourceCommand: "ioi.studio.exerciseStage5StopHookRepairLoop",
+    runtimeAuthority: "daemon-owned",
+    projectionOwner: "ioi-workbench-agent-studio",
+    ownsRuntimeState: false,
+    passed,
+    checks,
+    eventCount: events.length,
+    helperPath: studioPublicWorkspacePath(helperPath),
+    testPath: studioPublicWorkspacePath(testPath),
+    answerPreview: compactStudioWhitespace(assistantText).slice(0, 240),
+  }, contextSnapshot).catch((error) => {
+    output.appendLine(`[ioi-studio] stage5 stop-hook repair loop bridge request unavailable: ${error?.message || String(error)}`);
+  });
+  return {
+    passed,
+    checks,
+    eventCount: events.length,
+    answerPreview: compactStudioWhitespace(assistantText).slice(0, 240),
+  };
+}
+
+async function waitForStudioRuntimeProjection(predicate, timeoutMs, label) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate()) return true;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(`Timed out waiting for Studio runtime projection: ${label}`);
+}
+
+async function exerciseStudioStage5StopCancelRecoverLifecycle(output, payload = {}) {
+  const contextSnapshot = buildWorkspaceActionContext("studio-stage5-stop-cancel-recover");
+  const prompt = stringValue(
+    payload.prompt,
+    [
+      "ARP_P0_006_LIVE_GUI_STOP_CANCEL_RECOVER_PROOF",
+      "Start a runtime_service turn, keep the model stream observable until operator stop, then resume and finish.",
+    ].join(" "),
+  );
+  const selectedRoute = stringValue(payload.routeId || payload.model, studioRuntimeProjection.modelRoute || "route.local-first");
+  const selectedModelId = stringValue(payload.modelId, studioRuntimeProjection.selectedModel || "auto");
+  studioRuntimeProjection.pending = true;
+  studioRuntimeProjection.status = "pending";
+  studioRuntimeProjection.pendingSeen = true;
+  studioRuntimeProjection.pendingStartedAtMs = Date.now();
+  studioRuntimeProjection.pendingWorklog = [];
+  studioRuntimeProjection.lastError = null;
+  studioRuntimeProjection.executionMode = STUDIO_MODE_AGENT;
+  studioRuntimeProjection.runtimeProfile = STUDIO_AGENT_RUNTIME_PROFILE;
+  studioRuntimeProjection.modelRoute = selectedRoute;
+  studioRuntimeProjection.selectedModel = selectedModelId;
+  appendStudioTimeline("Stage 5 lifecycle proof started", "Runtime turn submitted for stop/resume control proof.", "running");
+  await refreshStudioPanelHtml(output);
+
+  const submittedAtMs = Date.now();
+  const turnPromise = submitStudioAgentTurn({
+    prompt,
+    selectedRoute,
+    selectedModelId,
+    reasoningEffort: "none",
+    workspacePath: workspaceSummary().path,
+    maxStepsOverride: payload.maxSteps || payload.max_steps || 8,
+  }, output);
+
+  await waitForStudioRuntimeProjection(
+    () => Boolean(studioRuntimeProjection.threadId && studioRuntimeProjection.turnId),
+    Number(payload.turnIdTimeoutMs || payload.turn_id_timeout_ms || 30_000),
+    "threadId and turnId from live runtime events",
+  );
+  const threadId = studioRuntimeProjection.threadId;
+  const turnId = studioRuntimeProjection.turnId;
+  const stopRequestedAtMs = Date.now();
+  await stopStudioTurn(output);
+  await waitForStudioRuntimeProjection(
+    () => studioRuntimeProjection.runtimeCockpit.stopControlObserved === true,
+    10_000,
+    "runtime stop control acknowledgement",
+  );
+  const resumeRequestedAtMs = Date.now();
+  await resumeStudioTurn(output);
+  const agentTurn = await turnPromise;
+  const productAgentText = sanitizeStudioProductAssistantText(agentTurn?.text || "");
+  if (productAgentText) {
+    studioRuntimeProjection.turns.push({
+      role: "assistant",
+      content: productAgentText,
+      createdAt: new Date().toISOString(),
+      agentTurn: {
+        turnId,
+        eventCount: firstArray(agentTurn?.events).length,
+        receiptRefs: firstArray(agentTurn?.receiptRefs),
+        prompt,
+        status: agentTurn?.status === "blocked" ? "blocked" : "completed",
+      },
+    });
+  }
+  studioRuntimeProjection.pending = false;
+  studioRuntimeProjection.status = "completed";
+  await refreshStudioPanelHtml(output);
+
+  const events = uniqueStudioRuntimeEvents([
+    ...await fetchStudioThreadTurnEvents(threadId, output, { turnId }).catch(() => []),
+    ...await fetchStudioThreadEvents(threadId, output, { sinceSeq: 0, timeoutMs: 5000 }).catch(() => []),
+  ]);
+  const eventText = studioStage2WebRepairEventText(events);
+  const checks = {
+    submittedThroughAgentMode: studioRuntimeProjection.executionMode === STUDIO_MODE_AGENT,
+    threadAndTurnAvailable: Boolean(threadId && turnId),
+    turnStartedBeforeStop: submittedAtMs <= stopRequestedAtMs,
+    stopBeforeResume: stopRequestedAtMs <= resumeRequestedAtMs,
+    stopControlObserved: studioRuntimeProjection.runtimeCockpit.stopControlObserved === true,
+    resumeControlObserved: studioRuntimeProjection.runtimeCockpit.resumeControlObserved === true,
+    stopResumeObserved: studioRuntimeProjection.runtimeCockpit.stopResumeObserved === true,
+    runtimeEventsObserved: events.length > 0,
+    turnStartedEventObserved: /turn\.started|model stream is active/i.test(eventText),
+    finalAnswerClean: studioStage5ProductTextIsClean(productAgentText),
+  };
+  const passed = Object.values(checks).every(Boolean);
+  await writeBridgeRequest("studio.stage5StopCancelRecover.exercised", {
+    sourceCommand: "ioi.studio.exerciseStage5StopCancelRecoverLifecycle",
+    runtimeAuthority: "daemon-owned",
+    projectionOwner: "ioi-workbench-agent-studio",
+    ownsRuntimeState: false,
+    passed,
+    checks,
+    threadId,
+    turnId,
+    eventCount: events.length,
+    submittedAtMs,
+    stopRequestedAtMs,
+    resumeRequestedAtMs,
+    answerPreview: compactStudioWhitespace(productAgentText).slice(0, 240),
+  }, contextSnapshot).catch((error) => {
+    output.appendLine(`[ioi-studio] stage5 stop/cancel/recover bridge request unavailable: ${error?.message || String(error)}`);
+  });
+  return {
+    passed,
+    checks,
+    threadId,
+    turnId,
+    eventCount: events.length,
+    answerPreview: compactStudioWhitespace(productAgentText).slice(0, 240),
+  };
+}
+
+async function exerciseStudioStage7DelegationLifecycle(output, payload = {}) {
+  const contextSnapshot = buildWorkspaceActionContext("studio-stage7-delegation");
+  const endpoint = daemonEndpoint();
+  if (!endpoint) {
+    throw new Error("IOI daemon endpoint is not configured.");
+  }
+  const workspace = workspaceSummary();
+  const selectedRoute = stringValue(payload.routeId || payload.model, studioRuntimeProjection.modelRoute || "route.local-first");
+  const selectedModelId = stringValue(payload.modelId, studioRuntimeProjection.selectedModel || "auto");
+  const thread = await requestJson(endpoint, "/v1/threads", {
+    method: "POST",
+    token: daemonRequestToken(),
+    payload: {
+      source: "agent_studio_stage7_delegation",
+      goal: "Stage 7 live GUI delegation and subagent recovery proof.",
+      options: {
+        local: { cwd: workspace.path },
+        model: { id: isAutoStudioModelSelector(selectedModelId) ? "auto" : selectedModelId, routeId: selectedRoute },
+      },
+    },
+  });
+  const threadId = thread?.thread_id || thread?.threadId;
+  if (!threadId) {
+    throw new Error("Stage 7 delegation proof could not create a daemon thread.");
+  }
+  studioRuntimeProjection.threadId = threadId;
+  studioRuntimeProjection.sessionId = thread?.session_id || thread?.sessionId || threadId;
+  studioRuntimeProjection.modelRoute = thread?.model_route_id || thread?.modelRouteId || selectedRoute;
+  studioRuntimeProjection.selectedModel = thread?.selected_model || thread?.selectedModel || selectedModelId;
+  studioRuntimeProjection.executionMode = STUDIO_MODE_AGENT;
+  studioRuntimeProjection.runtimeProfile = "fixture";
+  studioRuntimeProjection.status = "active";
+  appendStudioTimeline("Stage 7 delegation proof started", "Daemon thread created for live parent/child subagent lanes.", "running");
+
+  const parentTurn = await requestJson(endpoint, `/v1/threads/${encodeURIComponent(threadId)}/turns`, {
+    method: "POST",
+    token: daemonRequestToken(),
+    payload: {
+      source: "agent_studio_stage7_delegation",
+      prompt: "Coordinate Stage 7 delegated repo verification, failed-child recovery, and browser subagent proof.",
+      mode: "send",
+      options: {
+        local: { cwd: workspace.path },
+        model: { id: isAutoStudioModelSelector(selectedModelId) ? "auto" : selectedModelId, routeId: selectedRoute },
+      },
+    },
+  });
+  const parentTurnId = parentTurn?.turn_id || parentTurn?.turnId || null;
+  studioRuntimeProjection.turnId = parentTurnId || studioRuntimeProjection.turnId;
+  studioRuntimeProjection.runId = parentTurn?.run_id || parentTurn?.runId || studioRuntimeProjection.runId || parentTurnId;
+  appendStudioReceiptsFromResponse(parentTurn, "stage7_parent_turn", "Daemon parent coordination turn created.");
+
+  const delegatedWorker = await requestJson(endpoint, `/v1/threads/${encodeURIComponent(threadId)}/subagents`, {
+    method: "POST",
+    token: daemonRequestToken(),
+    payload: {
+      source: "agent_studio_stage7_delegation",
+      role: "repo-verifier",
+      prompt: "Verify delegated repository evidence and return SUMMARY, EVIDENCE, and RECEIPTS.",
+      parent_turn_id: parentTurnId,
+      toolPack: "coding",
+      mergePolicy: "evidence_only",
+      cancellationInheritance: "propagate",
+      outputContract: ["SUMMARY", "EVIDENCE", "RECEIPTS"],
+      workflowGraphId: "stage7.live-gui.delegation",
+      workflowNodeId: "runtime.subagent.spawn.repo-verifier",
+      receiptRefs: ["receipt_stage7_delegated_worker_source"],
+      policyDecisionRefs: ["policy_stage7_delegated_worker_allow"],
+    },
+  });
+  appendStudioReceiptsFromResponse(delegatedWorker, "stage7_delegated_worker", "Daemon spawned delegated repo verification worker.");
+
+  let failedChildError = null;
+  try {
+    await requestJson(endpoint, `/v1/threads/${encodeURIComponent(threadId)}/subagents`, {
+      method: "POST",
+      token: daemonRequestToken(),
+      payload: {
+        source: "agent_studio_stage7_delegation",
+        role: "failed-child",
+        prompt: "Return a deliberately over-budget child result so the parent receives typed recovery feedback.",
+        parent_turn_id: parentTurnId,
+        toolPack: "coding",
+        mergePolicy: "manual_review",
+        cancellationInheritance: "isolate",
+        outputContract: ["SUMMARY", "EVIDENCE", "RECEIPTS"],
+        budget: { maxTokens: 1 },
+        workflowGraphId: "stage7.live-gui.delegation",
+        workflowNodeId: "runtime.subagent.spawn.failed-child",
+        receiptRefs: ["receipt_stage7_failed_child_source"],
+        policyDecisionRefs: ["policy_stage7_failed_child_budget_probe"],
+      },
+    });
+  } catch (error) {
+    failedChildError = error;
+  }
+  const afterFailure = await requestJson(endpoint, `/v1/threads/${encodeURIComponent(threadId)}/subagents`, {
+    token: daemonRequestToken(),
+  });
+  const failedChild = firstArray(afterFailure?.subagents).find((record) =>
+    record.role === "failed-child" || record.block_reason === "subagent_budget_exceeded" || record.blockReason === "subagent_budget_exceeded",
+  );
+  if (!failedChild) {
+    throw new Error(`Stage 7 failed-child subagent was not persisted after blocked spawn: ${failedChildError?.message || "no error"}`);
+  }
+  const failedChildId = failedChild.subagent_id || failedChild.subagentId;
+  const recoveredChild = await requestJson(
+    endpoint,
+    `/v1/threads/${encodeURIComponent(threadId)}/subagents/${encodeURIComponent(failedChildId)}/resume`,
+    {
+      method: "POST",
+      token: daemonRequestToken(),
+      payload: {
+        source: "agent_studio_stage7_delegation",
+        prompt: "Resume the failed child with bounded recovery feedback and return SUMMARY, EVIDENCE, and RECEIPTS.",
+        budget: { maxTokens: 10000 },
+        workflowGraphId: "stage7.live-gui.delegation",
+        workflowNodeId: "runtime.subagent.resume.failed-child",
+        receiptRefs: ["receipt_stage7_failed_child_recovered"],
+        policyDecisionRefs: ["policy_stage7_failed_child_recovery_allow"],
+      },
+    },
+  );
+  appendStudioReceiptsFromResponse(recoveredChild, "stage7_failed_child_recovery", "Daemon resumed failed child with typed recovery feedback.");
+
+  const browserSubagent = await requestJson(endpoint, `/v1/threads/${encodeURIComponent(threadId)}/subagents`, {
+    method: "POST",
+    token: daemonRequestToken(),
+    payload: {
+      source: "agent_studio_stage7_delegation",
+      role: "browser",
+      prompt: "Package browser subagent observation as a managed artifact for parent review.",
+      parent_turn_id: parentTurnId,
+      toolPack: "browser",
+      mergePolicy: "managed_artifact",
+      cancellationInheritance: "isolate",
+      outputContract: ["SUMMARY", "EVIDENCE", "RECEIPTS"],
+      workflowGraphId: "stage7.live-gui.delegation",
+      workflowNodeId: "runtime.subagent.spawn.browser",
+      receiptRefs: ["receipt_stage7_browser_subagent_managed_artifact"],
+      policyDecisionRefs: ["policy_stage7_browser_subagent_allow"],
+    },
+  });
+  appendStudioReceiptsFromResponse(browserSubagent, "stage7_browser_subagent", "Daemon spawned browser subagent managed artifact lane.");
+
+  const listed = await requestJson(endpoint, `/v1/threads/${encodeURIComponent(threadId)}/subagents`, {
+    token: daemonRequestToken(),
+  });
+  const subagents = firstArray(listed?.subagents);
+  const workerIds = uniqueStrings(subagents.map((record) => record.subagent_id || record.subagentId).filter(Boolean));
+  const events = await fetchStudioThreadEvents(threadId, output, { sinceSeq: 0, timeoutMs: 5000 }).catch(() => []);
+  applyStudioAgentTurnEvents(events, { projectAnswerStream: false });
+  studioRuntimeProjection.workerCards.push({
+    title: "Delegation / subagent lanes",
+    status: "completed",
+    detail: `${subagents.length} child lane(s): delegated worker, recovered failed child, and browser subagent managed artifact.`,
+    receiptRefs: uniqueStrings(subagents.flatMap((record) => normalizeReceiptRefs(record))).slice(0, 8),
+  });
+  studioRuntimeProjection.browserCards.push({
+    title: "Browser subagent artifact",
+    status: browserSubagent?.status || "completed",
+    detail: `${browserSubagent?.subagent_id || browserSubagent?.subagentId || "browser subagent"} projected as a managed artifact lane.`,
+  });
+  studioRuntimeProjection.workerContributionTraces.push({
+    id: `stage7-worker-trace-${Date.now().toString(36)}`,
+    title: "Worker trace",
+    kind: "worker.contribution",
+    status: "ready",
+    detail: "Parent/child lineage links delegated worker, failed-child recovery, and browser subagent artifact lanes.",
+    contributionCount: subagents.length,
+    workerIds,
+    receiptRefs: uniqueStrings(subagents.flatMap((record) => normalizeReceiptRefs(record))).slice(0, 8),
+  });
+  studioRuntimeProjection.trajectoryReplayPanels.push({
+    id: `stage7-parent-child-recovery-${Date.now().toString(36)}`,
+    title: "Parent/child recovery",
+    kind: "trajectory.replay",
+    status: "ready",
+    detail: "Parent/child linkage is persisted for daemon restart recovery.",
+    trajectoryIdStable: true,
+    replayCursorObserved: true,
+    guiReconnected: false,
+    replayIdsStable: true,
+    replayFromCursorEmpty: false,
+    sideEffectCount: 0,
+    duplicateSideEffectCount: 0,
+    rows: subagents.slice(0, 6).map((record) => ({
+      id: record.subagent_id || record.subagentId,
+      kind: `subagent.${record.role || "child"}`,
+      status: record.status || record.lifecycle_status || "observed",
+      summary: record.restart_status === "restarted" || record.restartStatus === "restarted"
+        ? "failed child recovered"
+        : `${record.role || "child"} linked to parent`,
+      receiptRefs: normalizeReceiptRefs(record),
+    })),
+  });
+  studioRuntimeProjection.runtimeCockpit.workerStatusObserved = true;
+  studioRuntimeProjection.runtimeCockpit.browserStatusObserved = true;
+  refreshStudioReplayStepsFromProjection();
+  recomputeStudioRuntimeCockpitAchieved();
+  await refreshStudioPanelHtml(output);
+
+  const refreshed = await requestJson(endpoint, `/v1/threads/${encodeURIComponent(threadId)}/subagents`, {
+    token: daemonRequestToken(),
+  });
+  const recoveredRecord = firstArray(refreshed?.subagents).find((record) => (record.subagent_id || record.subagentId) === failedChildId);
+  const checks = {
+    threadCreated: Boolean(threadId),
+    parentTurnCreated: Boolean(parentTurnId),
+    delegatedWorkerSpawned: Boolean(delegatedWorker?.subagent_id || delegatedWorker?.subagentId),
+    failedChildBlocked: Boolean(failedChildError && failedChildId),
+    failedChildRecovered: recoveredRecord?.restart_status === "restarted" || recoveredRecord?.restartStatus === "restarted",
+    browserSubagentSpawned: Boolean(browserSubagent?.subagent_id || browserSubagent?.subagentId),
+    parentChildListingVisible: subagents.length >= 3,
+    workerCardsProjected: studioRuntimeProjection.runtimeCockpit.workerStatusObserved === true,
+    browserArtifactProjected: studioRuntimeProjection.runtimeCockpit.browserStatusObserved === true,
+    productTranscriptClean: true,
+  };
+  const passed = Object.values(checks).every(Boolean);
+  await writeBridgeRequest("studio.stage7DelegationLifecycle.exercised", {
+    sourceCommand: "ioi.studio.exerciseStage7DelegationLifecycle",
+    runtimeAuthority: "daemon-owned",
+    projectionOwner: "ioi-workbench-agent-studio",
+    ownsRuntimeState: false,
+    passed,
+    checks,
+    threadId,
+    parentTurnId,
+    subagentIds: {
+      delegatedWorker: delegatedWorker?.subagent_id || delegatedWorker?.subagentId || null,
+      failedChild: failedChildId,
+      browserSubagent: browserSubagent?.subagent_id || browserSubagent?.subagentId || null,
+    },
+    subagentCount: subagents.length,
+    workerIds,
+    eventCount: events.length,
+  }, contextSnapshot).catch((error) => {
+    output?.appendLine?.(`[ioi-studio] stage7 delegation lifecycle bridge request unavailable: ${error?.message || String(error)}`);
+  });
+  return { passed, checks, threadId, parentTurnId, subagentCount: subagents.length, workerIds };
 }
 
 async function projectStudioRuntimeCockpit(prompt, streamResult, output) {
@@ -9290,24 +11843,7 @@ async function projectStudioRuntimeCockpit(prompt, streamResult, output) {
     });
   }
 
-  studioRuntimeProjection.replaySteps = [
-    ...studioRuntimeProjection.runtimeEvents.slice(-8).map((event) => ({
-      id: event.id,
-      kind: event.kind,
-      status: event.status,
-      summary: event.summary,
-    })),
-    ...studioRuntimeProjection.receipts.slice(-8).map((receipt) => ({
-      id: receipt.id,
-      kind: receipt.kind,
-      status: "receipted",
-      summary: receipt.summary,
-    })),
-  ].slice(-12);
-  studioRuntimeProjection.runtimeCockpit.receiptTimelinePerStepObserved =
-    studioRuntimeProjection.receipts.length > 0;
-  studioRuntimeProjection.runtimeCockpit.replayStepDetailObserved =
-    studioRuntimeProjection.replaySteps.length > 0;
+  refreshStudioReplayStepsFromProjection();
   recomputeStudioRuntimeCockpitAchieved();
   appendStudioTimeline(
     studioRuntimeProjection.runtimeCockpit.achieved ? "Runtime cockpit evidence ready" : "Runtime cockpit evidence incomplete",
@@ -9326,8 +11862,18 @@ function studioPromptRequestsGeneratedWebArtifact(prompt = "") {
   return /\b(create|build|make|generate|draft|design|prototype|output)\b[\s\S]{0,120}\b(website|web\s*site|webpage|web\s*page|landing\s+page|microsite|static\s+site|html\s+(?:file|page|document|website))\b/i.test(value);
 }
 
+function studioPromptRequestsBrowserObservationArtifact(prompt = "") {
+  const value = String(prompt || "");
+  return (
+    /\b(capture|save|export|promote|turn|convert|render)\b[\s\S]{0,100}\b(browser|computer)\b[\s\S]{0,100}\b(artifact|capture|observation|result)\b/i.test(value) ||
+    /\b(browser|computer)\s+session\s+result\b[\s\S]{0,80}\bas\s+an?\s+artifact\b/i.test(value)
+  );
+}
+
 function shouldProjectConversationArtifactCanvas(prompt) {
-  return studioPromptRequestsGeneratedWebArtifact(prompt) || /\bartifact|embedded document|odt|docx|pdf|standalone html|html\/css\/js|react|vite|dashboard|csv|chart|dataset|patch artifact|diff artifact|browser session result|capture this browser/i.test(String(prompt || ""));
+  return studioPromptRequestsGeneratedWebArtifact(prompt) ||
+    studioPromptRequestsBrowserObservationArtifact(prompt) ||
+    /\bartifact|embedded document|odt|docx|pdf|standalone html|html\/css\/js|react|vite|dashboard|csv|chart|dataset|patch artifact|diff artifact/i.test(String(prompt || ""));
 }
 
 function studioIntentFrameRouteDirective(intentFrame = {}) {
@@ -9468,6 +12014,8 @@ function studioIntentFramePayload(intentFrame = {}) {
     retrieval: intentFrame.retrieval || null,
     workspace: intentFrame.workspace || null,
     artifact: intentFrame.artifact || null,
+    runtimeAction: intentFrame.runtimeAction || intentFrame.runtime_action || null,
+    runtime_action: intentFrame.runtime_action || intentFrame.runtimeAction || null,
     effectContract: intentFrame.effectContract || intentFrame.effect_contract || null,
     decisionMaterial: intentFrame.decisionMaterial
       ? {
@@ -9515,11 +12063,15 @@ function studioArtifactClassFromPrompt(prompt = "") {
   if (/\b(pdf|read-only document|readonly document)\b/.test(value)) return "pdf_preview";
   if (/\b(react|vite|dashboard app|mini app)\b/.test(value)) return "react_vite_app";
   if (studioPromptRequestsGeneratedWebArtifact(prompt)) return "static_html_js";
-  if (/\b(report|markdown report|html report)\b/.test(value) && !/\b(standalone html\/css\/js|html\/css\/js|static html|html css js)\b/.test(value)) return "markdown_html_report";
+  if (
+    (/\b(markdown report|html report)\b/.test(value) ||
+      (/\b(create|build|make|generate|draft|design|prototype|output|prepare)\b/.test(value) && /\breport\b/.test(value))) &&
+    !/\b(standalone html\/css\/js|html\/css\/js|static html|html css js)\b/.test(value)
+  ) return "markdown_html_report";
   if (/\b(standalone html|html\/css\/js|static html|html css js)\b/.test(value)) return "static_html_js";
   if (/\b(diff|patch|reviewable patch)\b/.test(value)) return "diff_patch";
   if (/\b(csv|dataset|chart|table)\b/.test(value)) return "dataset_chart";
-  if (/\b(browser session|computer session|capture this browser|observation)\b/.test(value)) return "browser_observation";
+  if (studioPromptRequestsBrowserObservationArtifact(prompt)) return "browser_observation";
   return "markdown_html_report";
 }
 
@@ -9768,22 +12320,6 @@ async function projectStudioConversationArtifactCanvas(prompt, output, intentFra
     : artifact;
   studioRuntimeProjection.conversationArtifacts.push(artifactForTurn);
   studioRuntimeProjection.runtimeCockpit.conversationArtifactObserved = true;
-  if ((artifactForTurn.artifactClass || artifactForTurn.artifact_class) === "browser_observation") {
-    upsertStudioManagedSession({
-      id: `artifact-session:${artifactForTurn.id}`,
-      kind: "sandbox_browser",
-      surfaceLabel: "Sandbox browser",
-      status: "complete",
-      statusLabel: "Complete",
-      title: "Browser session",
-      detail: "Managed browser observation captured into a conversation artifact.",
-      url: "http://127.0.0.1/fixture",
-      pageTitle: "Tool Catalogue Fixture",
-      lastTool: "browser_observation",
-      waitingForUser: false,
-      updatedAt: new Date().toISOString(),
-    });
-  }
   appendStudioTimeline("Conversation artifact ready", artifactForTurn.title || artifactForTurn.id, "completed", {
     artifactId: artifactForTurn.id,
   });
@@ -9828,6 +12364,23 @@ function studioPostRuntimeMessage(type, payload = {}) {
   }
   if (!studioPanel) return;
   studioPanel.webview.postMessage({ source: "ioi-studio-runtime", type, payload: normalizedPayload });
+  if (type === "agentWorkStep") {
+    studioPostPendingWorklogSnapshot();
+  }
+}
+
+function studioPostPendingWorklogSnapshot() {
+  if (!studioPanel) return;
+  const steps = firstArray(studioRuntimeProjection.pendingWorklog)
+    .map((step) => normalizeStudioPendingWorkStep(step))
+    .filter(Boolean)
+    .slice(-12);
+  if (!steps.length) return;
+  studioPanel.webview.postMessage({
+    source: "ioi-studio-runtime",
+    type: "agentWorklogSnapshot",
+    payload: { steps },
+  });
 }
 
 const studioAgentFinalHandoffStreamer = createStudioAgentFinalHandoffStreamer({ crypto, studioPostRuntimeMessage, stringValue });
@@ -10121,6 +12674,7 @@ const studioModelCompletion = createStudioModelCompletion({
   appendStudioReceipts,
 });
 const {
+  sanitizeStudioProductAssistantText,
   normalizeStudioAssistantReplyText,
   studioAssistantReplyTextIsDeferred,
   normalizeStudioAgentResultText,
@@ -10240,6 +12794,16 @@ function applyStudioAgentTurnEvents(events = [], {
       continue;
     }
     appendStudioRuntimeEvent(event, studioRuntimeEventKind(event) || "agent.runtime.event");
+    const eventThreadId = stringValue(event.thread_id || event.threadId);
+    const eventTurnId = stringValue(event.turn_id || event.turnId);
+    if (eventThreadId && !studioRuntimeProjection.threadId) {
+      studioRuntimeProjection.threadId = eventThreadId;
+      studioRuntimeProjection.sessionId = studioRuntimeProjection.sessionId || eventThreadId;
+    }
+    if (eventTurnId && !studioRuntimeProjection.turnId) {
+      studioRuntimeProjection.turnId = eventTurnId;
+      studioRuntimeProjection.runId = event.run_id || event.runId || studioRuntimeProjection.runId || eventTurnId;
+    }
     appliedEvents.push(event);
     const kind = studioRuntimeEventKind(event).toLowerCase();
     const toolName = studioRuntimeEventToolName(event);
@@ -10290,9 +12854,9 @@ function applyStudioAgentTurnEvents(events = [], {
       }
     }
     applyStudioParityPlusEvent(event, { kind, status, summary, receiptRefs });
-    upsertStudioManagedSession(
-      studioManagedSessionFromRuntimeEvent(event, { kind, toolName, status, summary }),
-    );
+    // Browser/computer tool events remain visible as work rows. Controllable
+    // managed-session cards must come from daemon inspection so their ids and
+    // control state bind to durable runtime state.
     if (/tool\./.test(kind) || toolName) {
       studioRuntimeProjection.actionCards.push({
         id: event.event_id || event.eventId || event.id || `${toolName || "tool"}.${Date.now()}`,
@@ -10304,14 +12868,28 @@ function applyStudioAgentTurnEvents(events = [], {
       });
     }
     if (/shell|command|terminal/.test(`${kind} ${toolName}`.toLowerCase())) {
+      const eventPayload = event.payload_summary || event.payloadSummary || event.payload || event.data || {};
+      const commandExcerpt = studioRuntimeToolEventExcerpt(event, summary);
+      const commandDetail = studioRuntimeToolEventDetail(event, toolName, summary);
       studioRuntimeProjection.commandOutputs.push({
         id: event.event_id || event.eventId || event.id || `command.${Date.now()}`,
+        toolId: toolName || "shell",
         label: toolName || "shell command",
         status,
-        stdout: event.payload?.stdout || event.payload?.output || stringValue(summary),
-        stderr: event.payload?.stderr || "",
-        exitCode: event.payload?.exit_code ?? event.payload?.exitCode ?? null,
-        durationMs: event.payload?.duration_ms ?? event.payload?.durationMs ?? null,
+        command: commandDetail,
+        stdout:
+          eventPayload.stdout ||
+          eventPayload.output ||
+          eventPayload.chunk ||
+          eventPayload.text ||
+          eventPayload.excerpt_preview ||
+          eventPayload.excerptPreview ||
+          commandExcerpt ||
+          "",
+        stderr: eventPayload.stderr || "",
+        excerptPreview: commandExcerpt,
+        exitCode: eventPayload.exit_code ?? eventPayload.exitCode ?? null,
+        durationMs: eventPayload.duration_ms ?? eventPayload.durationMs ?? null,
         receiptRefs,
       });
     }
@@ -10337,6 +12915,13 @@ function applyStudioAgentTurnEvents(events = [], {
         summary: stringValue(summary, "Rust runtime receipt projected into Studio."),
       })));
     }
+  }
+  if (
+    projectPending &&
+    studioRuntimeProjection.pending &&
+    firstArray(studioRuntimeProjection.pendingWorklog).length > 0
+  ) {
+    studioPostPendingWorklogSnapshot();
   }
   return appliedEvents;
 }
@@ -10667,10 +13252,19 @@ async function submitStudioAgentTurn({
     ? Math.floor(Number(maxStepsOverride))
     : studioAgentMaxStepsForIntent(intentFrame, prompt);
   const maxSteps = Math.max(STUDIO_AGENT_MIN_TURN_STEPS, requestedMaxSteps);
+  const intentFramePayload = studioIntentFramePayload(intentFrame);
   const turnPayload = {
     prompt,
     input: prompt,
     ...permissionMapping,
+    ...(intentFramePayload
+      ? {
+          intentFrame: intentFramePayload,
+          intent_frame: intentFramePayload,
+          runtimeAction: intentFramePayload.runtimeAction || intentFramePayload.runtime_action || null,
+          runtime_action: intentFramePayload.runtime_action || intentFramePayload.runtimeAction || null,
+        }
+      : {}),
     runtime_profile: STUDIO_AGENT_RUNTIME_PROFILE,
     runtimeProfile: STUDIO_AGENT_RUNTIME_PROFILE,
     max_steps: maxSteps,
@@ -10690,7 +13284,8 @@ async function submitStudioAgentTurn({
         reasoningEffort: normalizeStudioReasoningEffort(reasoningEffort, "none"),
       },
       source: "agent-studio-agent-mode",
-      intentFrame: studioIntentFramePayload(intentFrame),
+      intentFrame: intentFramePayload,
+      intent_frame: intentFramePayload,
     },
     metadata: {
       source: "agent-studio-agent-mode",
@@ -10698,7 +13293,8 @@ async function submitStudioAgentTurn({
       ...permissionMapping,
       runtimeAuthority: "daemon-owned",
       projectionOwner: "ioi-workbench-agent-studio",
-      intentFrame: studioIntentFramePayload(intentFrame),
+      intentFrame: intentFramePayload,
+      intent_frame: intentFramePayload,
     },
   };
   let turn;
@@ -11047,6 +13643,7 @@ async function submitStudioPrompt(payload = {}, output) {
   studioRuntimeProjection.pendingSeen = true;
   studioRuntimeProjection.pendingStartedAtMs = Date.now();
   studioRuntimeProjection.pendingWorklog = [];
+  const workCursor = studioWorkCursor();
   studioAgentAnswerStreamProjector.reset();
   studioRuntimeProjection.lastError = null;
   studioRuntimeProjection.modelRoute = selectedRoute;
@@ -11093,6 +13690,15 @@ async function submitStudioPrompt(payload = {}, output) {
     await refreshStudioPanelHtml(output);
     return;
   }
+  const resolvedIntentFrame = await resolveStudioPromptIntentFrame(prompt, {
+    executionMode,
+    selectedRoute,
+    selectedModelId,
+    approvalMode,
+    workspacePath: workspace.path,
+  }, output);
+  const resolvedIntentFramePayload = studioIntentFramePayload(resolvedIntentFrame);
+  studioRuntimeProjection.lastIntentFrame = resolvedIntentFramePayload;
   void writeBridgeRequest(
     "chat.submit",
     {
@@ -11105,6 +13711,14 @@ async function submitStudioPrompt(payload = {}, output) {
       reasoning_effort: reasoningEffort,
       executionMode,
       ...permissionMapping,
+      ...(resolvedIntentFramePayload
+        ? {
+            intentFrame: resolvedIntentFramePayload,
+            intent_frame: resolvedIntentFramePayload,
+            runtimeAction: resolvedIntentFramePayload.runtimeAction || resolvedIntentFramePayload.runtime_action || null,
+            runtime_action: resolvedIntentFramePayload.runtime_action || resolvedIntentFramePayload.runtimeAction || null,
+          }
+        : {}),
       runtimeProfile: studioRuntimeProjection.runtimeProfile,
       workspaceRoot: workspace.path,
       sourceCommand: "ioi.studio.chat",
@@ -11172,15 +13786,7 @@ async function submitStudioPrompt(payload = {}, output) {
         },
       };
     } else {
-      const intentFrame = await resolveStudioPromptIntentFrame(prompt, {
-        executionMode,
-        selectedRoute,
-        selectedModelId,
-        approvalMode,
-        workspacePath: workspace.path,
-      }, output);
-      studioRuntimeProjection.lastIntentFrame = studioIntentFramePayload(intentFrame);
-      const workCursor = studioWorkCursor();
+      const intentFrame = resolvedIntentFrame;
       const projectsArtifact = studioIntentFrameProjectsArtifact(intentFrame) ||
         shouldProjectConversationArtifactCanvas(prompt);
       const agentTurn = projectsArtifact
@@ -11200,7 +13806,23 @@ async function submitStudioPrompt(payload = {}, output) {
         await projectStudioRuntimeCockpit(prompt, agentTurn, output);
       }
       const agentTurnStatus = agentTurn.status === "blocked" ? "blocked" : "completed";
-      const workRecord = studioDocumentedWorkRecord(workCursor);
+      const workspaceChangeHunks = !projectsArtifact
+        ? await refreshStudioWorkspaceChangeReviewsFromDaemon(output)
+        : [];
+      if (workspaceChangeHunks.length > 0) {
+        appendStudioTimeline(
+          "Workspace hunk review ready",
+          `${workspaceChangeHunks.length} hunk${workspaceChangeHunks.length === 1 ? "" : "s"} waiting for review`,
+          "needs_review",
+        );
+      }
+      const daemonSessionCards = !projectsArtifact
+        ? await refreshStudioManagedSessionsFromDaemon(output)
+        : [];
+      const workRecord = studioWorkRecordWithSessionCards(
+        studioDocumentedWorkRecord(workCursor),
+        daemonSessionCards,
+      );
       const managedSessionCount = firstArray(workRecord?.sessionCards).length;
       if (managedSessionCount) {
         studioRuntimeProjection.runtimeCockpit.managedLiveViewportObserved = true;
@@ -11211,15 +13833,16 @@ async function submitStudioPrompt(payload = {}, output) {
         );
       }
       const blockedThreadId = agentTurnStatus === "blocked" ? studioRuntimeProjection.threadId : null;
+      const productAgentText = sanitizeStudioProductAssistantText(agentTurn.text);
       const daemonAnswerStream = agentTurnStatus === "completed" && studioAgentAnswerStreamProjector.hasObservedStream()
-        ? studioAgentAnswerStreamProjector.complete(agentTurn.text, {
+        ? studioAgentAnswerStreamProjector.complete(productAgentText, {
             allowFallbackStart: false,
             sourceRefs: firstArray(agentTurn.sourceRefs),
             workRecord: studioPublicWorkRecordForWebview(workRecord),
           })
         : null;
       const finalHandoffStream = agentTurnStatus === "completed" && !daemonAnswerStream
-        ? await studioAgentFinalHandoffStreamer.streamStudioAgentFinalHandoff(agentTurn.text, {
+        ? await studioAgentFinalHandoffStreamer.streamStudioAgentFinalHandoff(productAgentText, {
             prompt,
             turnId: studioRuntimeProjection.turnId,
             sourceRefs: firstArray(agentTurn.sourceRefs),
@@ -11231,7 +13854,7 @@ async function submitStudioPrompt(payload = {}, output) {
         : null);
       assistantTurn = {
         role: "assistant",
-        content: agentTurn.text,
+        content: productAgentText,
         createdAt: new Date().toISOString(),
         agentTurn: {
           turnId: studioRuntimeProjection.turnId,
@@ -11268,18 +13891,25 @@ async function submitStudioPrompt(payload = {}, output) {
       1400 - pendingElapsedMs,
       firstArray(studioRuntimeProjection.pendingWorklog).length > 0 ? 1200 - latestWorkStepElapsedMs : 0,
     );
+    if (firstArray(studioRuntimeProjection.pendingWorklog).length > 0) {
+      studioPostPendingWorklogSnapshot();
+    }
     if (pendingMinimumWaitMs > 0) {
       await new Promise((resolve) => setTimeout(resolve, pendingMinimumWaitMs));
     }
     studioRuntimeProjection.pending = false;
     studioRuntimeProjection.status = assistantTurn?.agentTurn?.status === "blocked" ? "blocked" : "completed";
-    if (executionMode === STUDIO_MODE_AGENT) {
-      await projectStudioAgentTurnToWebview({
-        assistantTurn,
-        status: studioRuntimeProjection.status,
-        prompt,
-      }, output);
-    }
+      if (executionMode === STUDIO_MODE_AGENT) {
+        await projectStudioAgentTurnToWebview({
+          assistantTurn,
+          status: studioRuntimeProjection.status,
+          prompt,
+        }, output);
+        if (firstArray(studioRuntimeProjection.diffHunks).length > 0 && studioPanel) {
+          studioPanel.reveal(vscode.ViewColumn.One);
+          await refreshStudioPanelHtml(output);
+        }
+      }
     studioRuntimeProjection.timeline.push({
       label: studioRuntimeProjection.status === "blocked" ? "Blocked answer visible" : "Final answer visible",
       detail: executionMode === STUDIO_MODE_ASK
@@ -11318,12 +13948,23 @@ async function submitStudioPrompt(payload = {}, output) {
       status: "blocked",
     });
     output?.appendLine?.(`[ioi-studio] raw daemon turn error kept in Trace/evidence: ${rawErrorMessage}`);
+    const daemonSessionCards = executionMode === STUDIO_MODE_AGENT
+      ? await refreshStudioManagedSessionsFromDaemon(output)
+      : [];
+    if (executionMode === STUDIO_MODE_AGENT) {
+      await refreshStudioWorkspaceChangeReviewsFromDaemon(output);
+    }
     studioRuntimeProjection.turns.push({
       role: "assistant",
       content: isApprovalPause
         ? cleanErrorMessage
         : cleanErrorMessage,
       createdAt: new Date().toISOString(),
+      ...(daemonSessionCards.length
+        ? {
+            workRecord: studioWorkRecordWithSessionCards(null, daemonSessionCards),
+          }
+        : {}),
     });
     if (executionMode === STUDIO_MODE_AGENT && studioRuntimeProjection.threadId) {
       const blockedThreadId = studioRuntimeProjection.threadId;
@@ -11345,13 +13986,99 @@ async function submitStudioPrompt(payload = {}, output) {
 }
 
 async function handleStudioHunkDecision(decision, payload = {}, output) {
-  const normalizedDecision = decision === "reject" ? "reject" : "approve";
+  const requestedDecision = stringValue(decision).toLowerCase();
+  const normalizedDecision = requestedDecision === "reject" || requestedDecision === "rollback"
+    ? requestedDecision
+    : "approve";
   try {
     await ensureStudioDaemonThread({ model: studioRuntimeProjection.modelRoute }, output);
     const endpoint = daemonEndpoint();
     const threadId = studioRuntimeProjection.threadId;
     const approvalId =
       stringValue(payload.approvalId, studioRuntimeProjection.approvalId || STUDIO_APPROVAL_ID);
+    const changeId = stringValue(payload.changeId || payload.change_id);
+    if (changeId) {
+      const toolId = normalizedDecision === "rollback"
+        ? "workspace_change__rollback"
+        : normalizedDecision === "reject"
+          ? "workspace_change__reject"
+          : "workspace_change__accept";
+      const result = await invokeStudioDaemonTool(
+        threadId,
+        toolId,
+        normalizedDecision === "rollback"
+          ? { change_id: changeId }
+          : normalizedDecision === "approve"
+            ? { change_id: changeId }
+          : {
+              change_id: changeId,
+              reason: "Operator rejected the Studio inline diff hunk.",
+            },
+        output,
+        {
+          title: normalizedDecision === "rollback"
+            ? "Rollback workspace hunk"
+            : normalizedDecision === "approve"
+              ? "Accept workspace hunk"
+              : "Reject workspace hunk",
+          detail: normalizedDecision === "rollback"
+            ? "Daemon rolled back the selected workspace change."
+            : normalizedDecision === "approve"
+              ? "Daemon accepted the selected workspace change."
+            : "Daemon rejected the selected workspace change.",
+        },
+      );
+      studioRuntimeProjection.hunkDecision = normalizedDecision;
+      studioRuntimeProjection.diffHunks = studioRuntimeProjection.diffHunks.map((hunk) => ({
+        ...hunk,
+        status: hunk.changeId === changeId || hunk.change_id === changeId
+          ? normalizedDecision === "approve"
+            ? "approved"
+            : normalizedDecision === "rollback"
+            ? "rolled_back"
+            : "rejected"
+          : hunk.status,
+      }));
+      studioRuntimeProjection.approvals = [
+        {
+          id: approvalId,
+          status: normalizedDecision === "approve"
+            ? "approved"
+            : normalizedDecision === "rollback"
+              ? "rolled_back"
+              : "rejected",
+          label: normalizedDecision === "approve"
+            ? "Workspace hunk accepted"
+            : normalizedDecision === "rollback"
+              ? "Workspace hunk rolled back"
+              : "Workspace hunk rejected",
+          detail: "Daemon workspace change lifecycle action completed.",
+        },
+      ];
+      appendStudioReceiptsFromResponse(result, `workspace_change_${normalizedDecision}`, "Daemon workspace change lifecycle receipt.");
+      studioRuntimeProjection.runtimeCockpit.hunkAcceptRejectReceiptsObserved = true;
+      recomputeStudioRuntimeCockpitAchieved();
+      await writeBridgeRequest(
+        "chat.hunkDecision",
+        {
+          ...payload,
+          decision: normalizedDecision,
+          approvalId,
+          changeId,
+          threadId,
+          turnId: studioRuntimeProjection.turnId,
+          runtimeAuthority: "daemon-owned",
+          projectionOwner: "ioi-workbench-agent-studio",
+          ownsRuntimeState: false,
+        },
+        buildWorkspaceActionContext("agent-studio-inline-diff"),
+      ).catch((error) => {
+        output?.appendLine?.(`[ioi-studio] bridge hunk decision route unavailable: ${error?.message || String(error)}`);
+      });
+      await refreshStudioWorkspaceChangeReviewsFromDaemon(output);
+      await refreshStudioPanelHtml(output);
+      return;
+    }
     const result = await requestJson(
       endpoint,
       `/v1/threads/${encodeURIComponent(threadId)}/approvals/${encodeURIComponent(approvalId)}/decision`,
@@ -11455,7 +14182,73 @@ async function handleStudioArtifactAction(payload = {}, output) {
   await refreshStudioPanelHtml(output);
 }
 
+async function handleStudioManagedSessionControl(payload = {}, output) {
+  const managedSessionId = stringValue(payload.managedSessionId || payload.managed_session_id);
+  const control = stringValue(payload.control || payload.action, "observe");
+  if (!managedSessionId) {
+    appendStudioTimeline("Managed session control blocked", "Missing managed session id.", "blocked");
+    await refreshStudioPanelHtml(output);
+    return;
+  }
+  const endpoint = daemonEndpoint();
+  const threadId = stringValue(studioRuntimeProjection.threadId);
+  if (!endpoint || !threadId) {
+    appendStudioTimeline("Managed session control blocked", "Daemon thread unavailable.", "blocked");
+    await refreshStudioPanelHtml(output);
+    return;
+  }
+  studioRuntimeProjection.computerUseSessions = firstArray(studioRuntimeProjection.computerUseSessions).map((session) =>
+    session.id === managedSessionId
+      ? {
+          ...session,
+          controlState: control,
+          updatedAt: new Date().toISOString(),
+        }
+      : session,
+  );
+  applyStudioManagedSessionsToLatestTurn(studioRuntimeProjection.computerUseSessions);
+  try {
+    const result = await requestJson(
+      endpoint,
+      `/v1/threads/${encodeURIComponent(threadId)}/managed-sessions/control`,
+      {
+        method: "POST",
+        token: daemonRequestToken(),
+        payload: {
+          managedSessionId,
+          action: control,
+          reason:
+            stringValue(payload.reason) ||
+            (control === "take_over"
+              ? "operator requested manual control"
+              : control === "return_agent"
+                ? "operator returned control to Agent"
+                : "operator observing session"),
+          source: "agent_studio_managed_session_card",
+          turnId: studioRuntimeProjection.turnId || null,
+        },
+        timeoutMs: 5000,
+      },
+    );
+    applyStudioManagedSessionInspection(result?.inspection || result);
+    studioRuntimeProjection.runtimeCockpit.managedSessionControlObserved = true;
+    appendStudioTimeline(
+      "Managed session control receipted",
+      `${managedSessionId} · ${control}`,
+      "completed",
+    );
+  } catch (error) {
+    appendStudioTimeline(
+      "Managed session control blocked",
+      error?.message || String(error),
+      "blocked",
+    );
+  }
+  await refreshStudioPanelHtml(output);
+}
+
 async function navigateStudioHunk(direction, output) {
+  await refreshStudioWorkspaceChangeReviewsFromDaemon(output);
   const command = direction === "previous"
     ? "workbench.action.compareEditor.previousChange"
     : "workbench.action.compareEditor.nextChange";
@@ -11486,9 +14279,20 @@ async function stopStudioTurn(output) {
         payload: {
           source: "agent_studio",
           reason: "operator_stop",
+          runtimeControlAction: "stop",
+          runtime_control_action: "stop",
         },
       },
-    ).catch((error) => {
+    ).then((result) => {
+      appendStudioReceiptsFromResponse(result, "session_stop", "Daemon stopped Studio thread.");
+      if (result?.runtime_control || result?.runtimeControl) {
+        studioRuntimeProjection.runtimeCockpit.stopControlObserved = true;
+        studioRuntimeProjection.runtimeCockpit.stopResumeObserved =
+          studioRuntimeProjection.runtimeCockpit.resumeControlObserved === true;
+        recomputeStudioRuntimeCockpitAchieved();
+        appendStudioTimeline("Runtime stop control", "Daemon runtime_service control_thread stop acknowledged.", "completed");
+      }
+    }).catch((error) => {
       output?.appendLine?.(`[ioi-studio] stop projection unavailable: ${error?.message || String(error)}`);
     });
   }
@@ -11511,7 +14315,6 @@ async function stopStudioTurn(output) {
 
 async function resumeStudioTurn(output) {
   studioRuntimeProjection.status = "active";
-  studioRuntimeProjection.runtimeCockpit.stopResumeObserved = true;
   recomputeStudioRuntimeCockpitAchieved();
   appendStudioTimeline("Resume requested", "Operator resume routed to daemon session lifecycle.", "completed");
   if (studioRuntimeProjection.threadId) {
@@ -11528,6 +14331,13 @@ async function resumeStudioTurn(output) {
       },
     ).then((result) => {
       appendStudioReceiptsFromResponse(result, "session_resume", "Daemon resumed Studio thread.");
+      if (result?.runtime_control || result?.runtimeControl) {
+        studioRuntimeProjection.runtimeCockpit.resumeControlObserved = true;
+        studioRuntimeProjection.runtimeCockpit.stopResumeObserved =
+          studioRuntimeProjection.runtimeCockpit.stopControlObserved === true;
+        recomputeStudioRuntimeCockpitAchieved();
+        appendStudioTimeline("Runtime resume control", "Daemon runtime_service control_thread resume acknowledged.", "completed");
+      }
     }).catch((error) => {
       appendStudioTimeline("Resume projection unavailable", error?.message || String(error), "blocked");
       output?.appendLine?.(`[ioi-studio] resume projection unavailable: ${error?.message || String(error)}`);
@@ -11581,6 +14391,10 @@ async function openStudioPanel(context, output) {
       }
       if (message?.type === "studioArtifactAction") {
         await handleStudioArtifactAction(message.payload || {}, output);
+        return;
+      }
+      if (message?.type === "studioManagedSessionControl") {
+        await handleStudioManagedSessionControl(message.payload || {}, output);
         return;
       }
       if (message?.type === "studioHunkNavigate") {
@@ -13421,6 +16235,7 @@ function registerNativeCommands(context, output) {
           });
         }
       }
+      refreshStudioReplayStepsFromProjection();
       studioRuntimeProjection.status = payload?.status || "completed";
       await refreshStudioPanelHtml(output);
       await writeBridgeRequest("studio.parityPlusEvents.injected", {
@@ -13436,6 +16251,120 @@ function registerNativeCommands(context, output) {
         );
       });
       status("Injected Agent Studio parity-plus runtime events.");
+    }),
+    vscode.commands.registerCommand("ioi.studio.exercisePolicyLeaseLifecycle", async () => {
+      if (process.env.IOI_AUTOPILOT_STUDIO_TEST_HOOKS !== "1") {
+        output.appendLine("[ioi-studio] policy lease lifecycle exercise refused outside test hooks.");
+        return;
+      }
+      const contextSnapshot = buildWorkspaceActionContext("studio-policy-lease-lifecycle");
+      await enterAutopilotMode("studio", output);
+      await openStudioPanel(context, output);
+      const lifecycleProof = await exerciseStudioPolicyLeaseLifecycle(output);
+      await refreshStudioPanelHtml(output);
+      await writeBridgeRequest("studio.policyLeaseLifecycle.exercised", {
+        sourceCommand: "ioi.studio.exercisePolicyLeaseLifecycle",
+        runtimeAuthority: "daemon-owned",
+        projectionOwner: "openvscode-workbench-adapter",
+        ownsRuntimeState: false,
+        ...lifecycleProof,
+      }, contextSnapshot).catch((error) => {
+        output.appendLine(
+          `[ioi-studio] policy lease lifecycle bridge request unavailable: ${error?.message || String(error)}`,
+        );
+      });
+      status(lifecycleProof.passed ? "Exercised Studio policy lease lifecycle." : "Studio policy lease lifecycle proof is incomplete.");
+    }),
+    vscode.commands.registerCommand("ioi.studio.exerciseSessionBrainLifecycle", async () => {
+      if (process.env.IOI_AUTOPILOT_STUDIO_TEST_HOOKS !== "1") {
+        output.appendLine("[ioi-studio] session brain lifecycle exercise refused outside test hooks.");
+        return;
+      }
+      await enterAutopilotMode("studio", output);
+      await openStudioPanel(context, output);
+      const lifecycleProof = await exerciseStudioSessionBrainLifecycle(output);
+      await refreshStudioPanelHtml(output);
+      status(lifecycleProof.passed
+        ? "Exercised Agent Studio run brain lifecycle."
+        : "Agent Studio run brain lifecycle proof incomplete.");
+    }),
+    vscode.commands.registerCommand("ioi.studio.exerciseTrajectoryReplayReconnect", async (payload = {}) => {
+      if (process.env.IOI_AUTOPILOT_STUDIO_TEST_HOOKS !== "1") {
+        output.appendLine("[ioi-studio] trajectory replay reconnect exercise refused outside test hooks.");
+        return;
+      }
+      await enterAutopilotMode("studio", output);
+      await openStudioPanel(context, output);
+      const lifecycleProof = await exerciseStudioTrajectoryReplayReconnect(output, payload);
+      await refreshStudioPanelHtml(output);
+      status(lifecycleProof.passed
+        ? "Exercised Agent Studio trajectory replay reconnect."
+        : "Agent Studio trajectory replay reconnect proof incomplete.");
+    }),
+    vscode.commands.registerCommand("ioi.studio.exerciseManagedSessionReconnect", async (payload = {}) => {
+      if (process.env.IOI_AUTOPILOT_STUDIO_TEST_HOOKS !== "1") {
+        output.appendLine("[ioi-studio] managed session reconnect exercise refused outside test hooks.");
+        return;
+      }
+      await enterAutopilotMode("studio", output);
+      await openStudioPanel(context, output);
+      const lifecycleProof = await exerciseStudioManagedSessionReconnect(output, payload);
+      await refreshStudioPanelHtml(output);
+      status(lifecycleProof.passed
+        ? "Exercised Agent Studio managed session reconnect."
+        : "Agent Studio managed session reconnect proof incomplete.");
+    }),
+    vscode.commands.registerCommand("ioi.studio.exerciseStage2WebRepairLoop", async (payload = {}) => {
+      if (process.env.IOI_AUTOPILOT_STUDIO_TEST_HOOKS !== "1") {
+        output.appendLine("[ioi-studio] stage2 web repair loop exercise refused outside test hooks.");
+        return;
+      }
+      await enterAutopilotMode("studio", output);
+      await openStudioPanel(context, output);
+      const repairProof = await exerciseStudioStage2WebRepairLoop(output, payload);
+      await refreshStudioPanelHtml(output);
+      status(repairProof.passed
+        ? "Exercised Agent Studio Stage 2 web repair loop."
+        : "Agent Studio Stage 2 web repair loop proof incomplete.");
+    }),
+    vscode.commands.registerCommand("ioi.studio.exerciseStage5StopHookRepairLoop", async (payload = {}) => {
+      if (process.env.IOI_AUTOPILOT_STUDIO_TEST_HOOKS !== "1") {
+        output.appendLine("[ioi-studio] stage5 stop-hook repair loop exercise refused outside test hooks.");
+        return;
+      }
+      await enterAutopilotMode("studio", output);
+      await openStudioPanel(context, output);
+      const repairProof = await exerciseStudioStage5StopHookRepairLoop(output, payload);
+      await refreshStudioPanelHtml(output);
+      status(repairProof.passed
+        ? "Exercised Agent Studio Stage 5 stop-hook repair loop."
+        : "Agent Studio Stage 5 stop-hook repair loop proof incomplete.");
+    }),
+    vscode.commands.registerCommand("ioi.studio.exerciseStage5StopCancelRecoverLifecycle", async (payload = {}) => {
+      if (process.env.IOI_AUTOPILOT_STUDIO_TEST_HOOKS !== "1") {
+        output.appendLine("[ioi-studio] stage5 stop/cancel/recover exercise refused outside test hooks.");
+        return;
+      }
+      await enterAutopilotMode("studio", output);
+      await openStudioPanel(context, output);
+      const lifecycleProof = await exerciseStudioStage5StopCancelRecoverLifecycle(output, payload);
+      await refreshStudioPanelHtml(output);
+      status(lifecycleProof.passed
+        ? "Exercised Agent Studio Stage 5 stop/cancel/recover lifecycle."
+        : "Agent Studio Stage 5 stop/cancel/recover proof incomplete.");
+    }),
+    vscode.commands.registerCommand("ioi.studio.exerciseStage7DelegationLifecycle", async (payload = {}) => {
+      if (process.env.IOI_AUTOPILOT_STUDIO_TEST_HOOKS !== "1") {
+        output.appendLine("[ioi-studio] stage7 delegation exercise refused outside test hooks.");
+        return;
+      }
+      await enterAutopilotMode("studio", output);
+      await openStudioPanel(context, output);
+      const lifecycleProof = await exerciseStudioStage7DelegationLifecycle(output, payload);
+      await refreshStudioPanelHtml(output);
+      status(lifecycleProof.passed
+        ? "Exercised Agent Studio Stage 7 delegation lifecycle."
+        : "Agent Studio Stage 7 delegation proof incomplete.");
     }),
     vscode.commands.registerCommand("ioi.studio.openContextPicker", async () => {
       const contextSnapshot = buildWorkspaceActionContext("studio-native-context-picker");

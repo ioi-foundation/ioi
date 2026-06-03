@@ -770,8 +770,27 @@ receipts prove accountable transitions
 Private Workspace backed by cTEE keeps protected plaintext off untrusted persistent nodes
 Plaintext-Free Runtime Mounting keeps tool/model context to public/redacted refs and private handles
 Candidate-Lattice Private Decoding lets rented GPUs generate candidates while private heads select
+Counterfactual Lattice Execution may spend additional public token volume to reduce online private-choice leakage
+Cryptographic Operator Plane routes protected scoring/retrieval/policy checks to FHE/MPC/local/threshold paths
+External Model API Boundary labels private-native, redacted-API, provider-trust, and unsafe model paths
 L1 settlement happens only by trigger
 ```
+
+Protected subcomputations MUST route to guardian, local, FHE, MPC, garbled,
+ORAM, or threshold private-operator paths unless the protected state has been
+explicitly declassified. The authenticated authority surface is the default
+second logical party for private operators; managed committees are escalation
+paths, not ordinary user-facing infrastructure.
+
+The profile MUST distinguish ordinary GPU kernel speed from same-token-budget
+private inference. Public/redacted proposal generation can run at normal GPU
+speed; counterfactual lattices, padding, decoys, and private-operator paths may
+increase token volume, latency, or private computation.
+
+The profile MUST NOT treat third-party model APIs over sensitive plaintext as
+base cTEE no-plaintext-custody. Such routes are provider-trust unless the API
+receives only public/redacted/declassified inputs or exposes a separately
+verifiable private-compute guarantee accepted by policy.
 
 ## Conformance Profiles
 

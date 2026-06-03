@@ -1,8 +1,9 @@
 use super::{
     apply_patch, copy_path_deterministic, create_directory_deterministic,
     create_zip_from_directory_deterministic, delete_path_deterministic, edit_line_content,
-    list_directory_entries, move_path_deterministic, resolve_tool_path, search_files,
-    stat_path_deterministic, AgentTool, ToolExecutionResult, ToolExecutor,
+    ensure_not_ignored_workspace_path, ensure_within_workspace_path, list_directory_entries,
+    move_path_deterministic, resolve_tool_path, search_files, stat_path_deterministic, AgentTool,
+    ToolExecutionResult, ToolExecutor,
 };
 use crate::agentic::runtime::execution::workload;
 use crate::agentic::runtime::trajectory::{
@@ -12,8 +13,8 @@ use crate::agentic::runtime::utils::{
     load_agent_state_checkpoint, load_agent_trajectory_latest_checkpoint,
 };
 use crate::agentic::runtime::workspace_change::{
-    find_workspace_change_by_id, reject_workspace_change, rollback_workspace_change,
-    workspace_change_status_from_changes, WorkspaceChangeLifecycleError,
+    accept_workspace_change, find_workspace_change_by_id, reject_workspace_change,
+    rollback_workspace_change, workspace_change_status_from_changes, WorkspaceChangeLifecycleError,
 };
 use crate::agentic::web::sample_local_video_preview;
 use image::ImageFormat;
@@ -148,31 +149,15 @@ fn ensure_read_within_workspace(
     cwd: Option<&str>,
     operation: &str,
 ) -> Result<(), String> {
-    let Some(cwd) = cwd else {
-        return Ok(());
-    };
-    let workspace_root = Path::new(cwd).canonicalize().map_err(|error| {
-        format!(
-            "Failed to inspect workspace boundary before {}: {}",
-            operation, error
-        )
-    })?;
-    let canonical_path = path.canonicalize().map_err(|error| {
-        format!(
-            "Failed to inspect {} before {}: {}",
-            path.display(),
-            operation,
-            error
-        )
-    })?;
-    if !canonical_path.starts_with(&workspace_root) {
-        return Err(format!(
-            "ERROR_CLASS=PolicyBlocked Refusing to {} {}: path is outside the workspace boundary.",
-            operation,
-            path.display()
-        ));
-    }
-    Ok(())
+    ensure_within_workspace_path(path, cwd, operation)
+}
+
+fn ensure_write_within_workspace(
+    path: &Path,
+    cwd: Option<&str>,
+    operation: &str,
+) -> Result<(), String> {
+    ensure_within_workspace_path(path, cwd, operation)
 }
 
 fn ensure_safe_regular_file_write_target(path: &Path, operation: &str) -> Result<(), String> {
@@ -536,6 +521,44 @@ pub async fn handle(
                 Err(error) => workspace_change_tool_failure("Workspace change reject", error),
             }
         }
+        AgentTool::WorkspaceChangeAccept {
+            change_id,
+            change,
+            changes,
+        } => {
+            let change =
+                match resolve_workspace_change_record(exec, session_id, change_id, change, changes)
+                {
+                    Ok(change) => change,
+                    Err(result) => return result,
+                };
+            let workspace_root = cwd.unwrap_or(".");
+            let target_path = change.path.as_deref().unwrap_or("");
+            let accept = accept_workspace_change(workspace_root, &change);
+            let result = match accept {
+                Ok(accepted) => match serde_json::to_string(&accepted) {
+                    Ok(output) => ToolExecutionResult::success(output),
+                    Err(error) => ToolExecutionResult::failure(format!(
+                        "ERROR_CLASS=UnexpectedState failed to encode accepted workspace change: {error}"
+                    )),
+                },
+                Err(error) => workspace_change_tool_failure("Workspace change accept", error),
+            };
+            emit_fs_write_receipt(
+                exec,
+                session_id,
+                step_index,
+                "workspace_change__accept",
+                "accept",
+                target_path,
+                None,
+                None,
+                result.success,
+                result.error.as_deref(),
+            )
+            .await;
+            result
+        }
         AgentTool::WorkspaceChangeRollback {
             change_id,
             change,
@@ -587,6 +610,9 @@ pub async fn handle(
             if let Err(e) = ensure_read_within_workspace(&resolved_path, cwd, "read") {
                 return ToolExecutionResult::failure(e);
             }
+            if let Err(e) = ensure_not_ignored_workspace_path(&resolved_path, cwd, "read") {
+                return ToolExecutionResult::failure(e);
+            }
 
             match fs::read_to_string(&resolved_path) {
                 Ok(content) => ToolExecutionResult::success(content),
@@ -612,6 +638,9 @@ pub async fn handle(
                 return ToolExecutionResult::failure(e);
             }
             if let Err(e) = ensure_read_within_workspace(&resolved_path, cwd, "view") {
+                return ToolExecutionResult::failure(e);
+            }
+            if let Err(e) = ensure_not_ignored_workspace_path(&resolved_path, cwd, "view") {
                 return ToolExecutionResult::failure(e);
             }
 
@@ -739,7 +768,44 @@ pub async fn handle(
             };
 
             if let Some(line_number) = line_number {
+                if let Err(e) = ensure_write_within_workspace(&resolved_path, cwd, "edit line") {
+                    let result = ToolExecutionResult::failure(e);
+                    let target = path_to_string(&resolved_path);
+                    emit_fs_write_receipt(
+                        exec,
+                        session_id,
+                        step_index,
+                        "file__write",
+                        "edit_line",
+                        target.as_str(),
+                        None,
+                        None,
+                        false,
+                        result.error.as_deref(),
+                    )
+                    .await;
+                    return result;
+                }
                 if let Err(e) = ensure_safe_regular_file_write_target(&resolved_path, "edit line") {
+                    let result = ToolExecutionResult::failure(e);
+                    let target = path_to_string(&resolved_path);
+                    emit_fs_write_receipt(
+                        exec,
+                        session_id,
+                        step_index,
+                        "file__write",
+                        "edit_line",
+                        target.as_str(),
+                        None,
+                        None,
+                        false,
+                        result.error.as_deref(),
+                    )
+                    .await;
+                    return result;
+                }
+                if let Err(e) = ensure_not_ignored_workspace_path(&resolved_path, cwd, "edit line")
+                {
                     let result = ToolExecutionResult::failure(e);
                     let target = path_to_string(&resolved_path);
                     emit_fs_write_receipt(
@@ -842,12 +908,48 @@ pub async fn handle(
                 return result;
             }
 
+            if let Err(e) = ensure_write_within_workspace(&resolved_path, cwd, "write") {
+                let result = ToolExecutionResult::failure(e);
+                let target = path_to_string(&resolved_path);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__write",
+                    "write_file",
+                    target.as_str(),
+                    None,
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
             if let Some(parent) = resolved_path.parent() {
                 if !parent.exists() {
                     let _ = fs::create_dir_all(parent);
                 }
             }
             if let Err(e) = ensure_safe_regular_file_write_target(&resolved_path, "write") {
+                let result = ToolExecutionResult::failure(e);
+                let target = path_to_string(&resolved_path);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__write",
+                    "write_file",
+                    target.as_str(),
+                    None,
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
+            if let Err(e) = ensure_not_ignored_workspace_path(&resolved_path, cwd, "write") {
                 let result = ToolExecutionResult::failure(e);
                 let target = path_to_string(&resolved_path);
                 emit_fs_write_receipt(
@@ -918,7 +1020,43 @@ pub async fn handle(
                     return result;
                 }
             };
+            if let Err(e) = ensure_write_within_workspace(&resolved_path, cwd, "patch") {
+                let result = ToolExecutionResult::failure(e);
+                let target = path_to_string(&resolved_path);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__edit",
+                    "patch",
+                    target.as_str(),
+                    None,
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
             if let Err(e) = ensure_safe_regular_file_write_target(&resolved_path, "patch") {
+                let result = ToolExecutionResult::failure(e);
+                let target = path_to_string(&resolved_path);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__edit",
+                    "patch",
+                    target.as_str(),
+                    None,
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
+            if let Err(e) = ensure_not_ignored_workspace_path(&resolved_path, cwd, "patch") {
                 let result = ToolExecutionResult::failure(e);
                 let target = path_to_string(&resolved_path);
                 emit_fs_write_receipt(
@@ -1039,7 +1177,43 @@ pub async fn handle(
                     return result;
                 }
             };
+            if let Err(e) = ensure_write_within_workspace(&resolved_path, cwd, "multi-edit") {
+                let result = ToolExecutionResult::failure(e);
+                let target = path_to_string(&resolved_path);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__multi_edit",
+                    "multi_patch",
+                    target.as_str(),
+                    None,
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
             if let Err(e) = ensure_safe_regular_file_write_target(&resolved_path, "multi-edit") {
+                let result = ToolExecutionResult::failure(e);
+                let target = path_to_string(&resolved_path);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__multi_edit",
+                    "multi_patch",
+                    target.as_str(),
+                    None,
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
+            if let Err(e) = ensure_not_ignored_workspace_path(&resolved_path, cwd, "multi-edit") {
                 let result = ToolExecutionResult::failure(e);
                 let target = path_to_string(&resolved_path);
                 emit_fs_write_receipt(
@@ -1196,6 +1370,12 @@ pub async fn handle(
                     return ToolExecutionResult::failure(format!("Failed to list {}: {}", path, e))
                 }
             };
+            if let Err(e) = ensure_read_within_workspace(&resolved_path, cwd, "list") {
+                return ToolExecutionResult::failure(e);
+            }
+            if let Err(e) = ensure_not_ignored_workspace_path(&resolved_path, cwd, "list") {
+                return ToolExecutionResult::failure(e);
+            }
 
             match list_directory_entries(&resolved_path) {
                 Ok(entries) => {
@@ -1218,6 +1398,12 @@ pub async fn handle(
                 Ok(path) => path,
                 Err(e) => return ToolExecutionResult::failure(format!("Search failed: {}", e)),
             };
+            if let Err(e) = ensure_read_within_workspace(&resolved_path, cwd, "search") {
+                return ToolExecutionResult::failure(e);
+            }
+            if let Err(e) = ensure_not_ignored_workspace_path(&resolved_path, cwd, "search") {
+                return ToolExecutionResult::failure(e);
+            }
 
             let task = tokio::task::spawn_blocking(move || {
                 search_files(&resolved_path, &regex, file_pattern.as_deref())
@@ -1235,6 +1421,12 @@ pub async fn handle(
                 Ok(path) => path,
                 Err(e) => return ToolExecutionResult::failure(format!("Stat failed: {}", e)),
             };
+            if let Err(e) = ensure_read_within_workspace(&resolved_path, cwd, "stat") {
+                return ToolExecutionResult::failure(e);
+            }
+            if let Err(e) = ensure_not_ignored_workspace_path(&resolved_path, cwd, "stat") {
+                return ToolExecutionResult::failure(e);
+            }
 
             match stat_path_deterministic(&resolved_path) {
                 Ok(payload) => ToolExecutionResult::success(payload),
@@ -1265,6 +1457,44 @@ pub async fn handle(
                     return result;
                 }
             };
+            if let Err(e) = ensure_write_within_workspace(&resolved_path, cwd, "create directory") {
+                let result = ToolExecutionResult::failure(e);
+                let target = path_to_string(&resolved_path);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__create_dir",
+                    "create_directory",
+                    target.as_str(),
+                    None,
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
+            if let Err(e) =
+                ensure_not_ignored_workspace_path(&resolved_path, cwd, "create directory")
+            {
+                let result = ToolExecutionResult::failure(e);
+                let target = path_to_string(&resolved_path);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__create_dir",
+                    "create_directory",
+                    target.as_str(),
+                    None,
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
 
             let result = match create_directory_deterministic(&resolved_path, recursive) {
                 Ok(_) => ToolExecutionResult::success(format!(
@@ -1317,6 +1547,42 @@ pub async fn handle(
                     return result;
                 }
             };
+            if let Err(e) = ensure_read_within_workspace(&source, cwd, "create zip source") {
+                let result = ToolExecutionResult::failure(e);
+                let source_text = path_to_string(&source);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__zip",
+                    "create_zip",
+                    source_text.as_str(),
+                    Some(destination_zip_path.as_str()),
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
+            if let Err(e) = ensure_not_ignored_workspace_path(&source, cwd, "create zip source") {
+                let result = ToolExecutionResult::failure(e);
+                let source_text = path_to_string(&source);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__zip",
+                    "create_zip",
+                    source_text.as_str(),
+                    Some(destination_zip_path.as_str()),
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
             let destination = match resolve_tool_path(&destination_zip_path, cwd) {
                 Ok(path) => path,
                 Err(e) => {
@@ -1341,6 +1607,47 @@ pub async fn handle(
                     return result;
                 }
             };
+            if let Err(e) =
+                ensure_write_within_workspace(&destination, cwd, "create zip destination")
+            {
+                let result = ToolExecutionResult::failure(e);
+                let source_text = path_to_string(&source);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__zip",
+                    "create_zip",
+                    source_text.as_str(),
+                    Some(destination_zip_path.as_str()),
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
+            if let Err(e) =
+                ensure_not_ignored_workspace_path(&destination, cwd, "create zip destination")
+            {
+                let result = ToolExecutionResult::failure(e);
+                let source_text = path_to_string(&source);
+                let destination_text = path_to_string(&destination);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__zip",
+                    "create_zip",
+                    source_text.as_str(),
+                    Some(destination_text.as_str()),
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
 
             let result =
                 match create_zip_from_directory_deterministic(&source, &destination, overwrite) {
@@ -1398,6 +1705,42 @@ pub async fn handle(
                     return result;
                 }
             };
+            if let Err(e) = ensure_write_within_workspace(&source, cwd, "move source") {
+                let result = ToolExecutionResult::failure(e);
+                let source_text = path_to_string(&source);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__move",
+                    "move",
+                    source_text.as_str(),
+                    Some(destination_path.as_str()),
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
+            if let Err(e) = ensure_not_ignored_workspace_path(&source, cwd, "move source") {
+                let result = ToolExecutionResult::failure(e);
+                let source_text = path_to_string(&source);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__move",
+                    "move",
+                    source_text.as_str(),
+                    Some(destination_path.as_str()),
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
             let destination = match resolve_tool_path(&destination_path, cwd) {
                 Ok(path) => path,
                 Err(e) => {
@@ -1422,6 +1765,44 @@ pub async fn handle(
                     return result;
                 }
             };
+            if let Err(e) = ensure_write_within_workspace(&destination, cwd, "move destination") {
+                let result = ToolExecutionResult::failure(e);
+                let source_text = path_to_string(&source);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__move",
+                    "move",
+                    source_text.as_str(),
+                    Some(destination_path.as_str()),
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
+            if let Err(e) = ensure_not_ignored_workspace_path(&destination, cwd, "move destination")
+            {
+                let result = ToolExecutionResult::failure(e);
+                let source_text = path_to_string(&source);
+                let destination_text = path_to_string(&destination);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__move",
+                    "move",
+                    source_text.as_str(),
+                    Some(destination_text.as_str()),
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
 
             let result = match move_path_deterministic(&source, &destination, overwrite) {
                 Ok(_) => ToolExecutionResult::success(format!(
@@ -1476,6 +1857,42 @@ pub async fn handle(
                     return result;
                 }
             };
+            if let Err(e) = ensure_read_within_workspace(&source, cwd, "copy source") {
+                let result = ToolExecutionResult::failure(e);
+                let source_text = path_to_string(&source);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__copy",
+                    "copy",
+                    source_text.as_str(),
+                    Some(destination_path.as_str()),
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
+            if let Err(e) = ensure_not_ignored_workspace_path(&source, cwd, "copy source") {
+                let result = ToolExecutionResult::failure(e);
+                let source_text = path_to_string(&source);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__copy",
+                    "copy",
+                    source_text.as_str(),
+                    Some(destination_path.as_str()),
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
             let destination = match resolve_tool_path(&destination_path, cwd) {
                 Ok(path) => path,
                 Err(e) => {
@@ -1500,6 +1917,44 @@ pub async fn handle(
                     return result;
                 }
             };
+            if let Err(e) = ensure_write_within_workspace(&destination, cwd, "copy destination") {
+                let result = ToolExecutionResult::failure(e);
+                let source_text = path_to_string(&source);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__copy",
+                    "copy",
+                    source_text.as_str(),
+                    Some(destination_path.as_str()),
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
+            if let Err(e) = ensure_not_ignored_workspace_path(&destination, cwd, "copy destination")
+            {
+                let result = ToolExecutionResult::failure(e);
+                let source_text = path_to_string(&source);
+                let destination_text = path_to_string(&destination);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__copy",
+                    "copy",
+                    source_text.as_str(),
+                    Some(destination_text.as_str()),
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
 
             let result = match copy_path_deterministic(&source, &destination, overwrite) {
                 Ok(_) => ToolExecutionResult::success(format!(
@@ -1551,6 +2006,42 @@ pub async fn handle(
                     return result;
                 }
             };
+            if let Err(e) = ensure_write_within_workspace(&resolved_path, cwd, "delete") {
+                let result = ToolExecutionResult::failure(e);
+                let target = path_to_string(&resolved_path);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__delete",
+                    "delete",
+                    target.as_str(),
+                    None,
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
+            if let Err(e) = ensure_not_ignored_workspace_path(&resolved_path, cwd, "delete") {
+                let result = ToolExecutionResult::failure(e);
+                let target = path_to_string(&resolved_path);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__delete",
+                    "delete",
+                    target.as_str(),
+                    None,
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
             let existed_before = fs::symlink_metadata(&resolved_path).is_ok();
 
             let result = match delete_path_deterministic(&resolved_path, recursive, ignore_missing)

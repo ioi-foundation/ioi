@@ -1536,12 +1536,39 @@ fn shell_command_literal_looks_executable(command: &str) -> bool {
     let has_shell_operator = ["&&", "||", ";", "|", ">", "<"]
         .iter()
         .any(|operator| trimmed.contains(operator));
-    has_arguments
-        || has_shell_operator
-        || first_token.starts_with("./")
+    let executable_token = matches!(
+        first_token,
+        "bash"
+            | "bun"
+            | "cargo"
+            | "cat"
+            | "curl"
+            | "deno"
+            | "echo"
+            | "git"
+            | "grep"
+            | "ls"
+            | "make"
+            | "mkdir"
+            | "node"
+            | "npm"
+            | "npx"
+            | "pnpm"
+            | "pwd"
+            | "python"
+            | "python3"
+            | "rg"
+            | "sh"
+            | "sleep"
+            | "touch"
+            | "uv"
+            | "whoami"
+            | "yarn"
+    ) || first_token.starts_with("./")
         || first_token.starts_with("/")
         || first_token.starts_with("~/")
-        || first_token.contains('/')
+        || first_token.contains('/');
+    executable_token && (has_arguments || has_shell_operator)
 }
 
 #[cfg(test)]
@@ -1574,5 +1601,23 @@ mod tests {
         let context =
             ChatIntentContext::new("Run `formatOrderTotal` through the architecture summary.");
         assert!(context.local_runtime_action_intent().is_none());
+    }
+
+    #[test]
+    fn unquoted_rerun_validation_instruction_stays_model_loop_instruction() {
+        let context = ChatIntentContext::new(
+            "ARP_P0_007_PROOF_TOKEN repair loop for normalizeStatusLabel. Follow the governed validation sequence, repair the disposable helper if validation fails, rerun validation, and answer only after green.",
+        );
+        assert!(context.local_runtime_action_intent().is_none());
+    }
+
+    #[test]
+    fn unquoted_known_executable_still_maps_to_shell_runtime_action() {
+        let context = ChatIntentContext::new("Run node --version.");
+        let intent = context
+            .local_runtime_action_intent()
+            .expect("known executable command should route to shell");
+        assert_eq!(intent.action_family, "shell");
+        assert_eq!(intent.target_command.as_deref(), Some("node --version"));
     }
 }

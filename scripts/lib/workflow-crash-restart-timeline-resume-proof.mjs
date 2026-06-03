@@ -5,6 +5,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { bootstrapNativeRuntimeModelRoute } from "./autopilot-runtime-agent-service-bridge.mjs";
+
 const outputPath = process.argv[2];
 if (!outputPath) {
   throw new Error("usage: workflow-crash-restart-timeline-resume-proof.mjs <output-path>");
@@ -38,6 +40,40 @@ async function fetchSseEvents(url, options = {}) {
         .join("\n");
       return JSON.parse(data);
     });
+}
+
+async function createDaemonModelInvocationToken(endpoint) {
+  const response = await fetch(`${endpoint}/api/v1/tokens`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      audience: "autopilot-crash-restart-replay-proof",
+      allowed: [
+        "model.chat:*",
+        "model.responses:*",
+        "model.embeddings:*",
+        "model.import:*",
+        "model.download:*",
+        "model.mount:*",
+        "model.load:*",
+        "model.unload:*",
+        "model.unmount:*",
+        "model.tokenize:*",
+        "model.context:*",
+        "route.write:*",
+        "route.use:*",
+        "server.logs:*",
+        "backend.control:*",
+      ],
+      denied: ["connector.*"],
+      source: "crash-restart-replay-proof",
+    }),
+  });
+  const text = await response.text();
+  assert.ok(response.ok, `${response.status} ${response.statusText} token request: ${text}`);
+  const parsed = text ? JSON.parse(text) : {};
+  assert.ok(parsed.token, `token response did not include token: ${text}`);
+  return parsed;
 }
 
 function terminalEvents(events) {
@@ -116,6 +152,13 @@ let secondDaemon = null;
 try {
   firstDaemon = await spawnDaemon({ cwd, stateDir, label: "first" });
   const firstDaemonReady = firstDaemon.ready;
+  const modelToken = await createDaemonModelInvocationToken(firstDaemon.ready.endpoint);
+  const runtimeModelRoute = await bootstrapNativeRuntimeModelRoute({
+    repoRoot,
+    daemonEndpoint: firstDaemon.ready.endpoint,
+    token: modelToken.token,
+    workspaceDir: path.join(cwd, ".ioi", "autopilot-runtime-fixtures"),
+  });
   const workflowGraphId = "workflow.react-flow.crash-restart-resume";
   const thread = await fetchJson(`${firstDaemon.ready.endpoint}/v1/threads`, {
     method: "POST",
@@ -228,6 +271,15 @@ try {
     },
     threadId: thread.thread_id,
     workflowGraphId,
+    runtimeModelRoute: {
+      modelId: runtimeModelRoute.modelId,
+      endpointId: runtimeModelRoute.endpointId,
+      routeId: runtimeModelRoute.routeId,
+      providerId: runtimeModelRoute.providerId,
+      backendId: runtimeModelRoute.backendId,
+      runtimeEngine: runtimeModelRoute.runtimeEngine,
+      fixtureFree: runtimeModelRoute.fixtureFree,
+    },
     firstTurn: {
       turnId: firstTurn.turn_id,
       runId: firstTurn.request_id,
@@ -257,6 +309,7 @@ try {
       "scripts/ioi-local-runtime-daemon.mjs",
       "packages/runtime-daemon/src/index.mjs:RuntimeStore",
       "scripts/lib/workflow-crash-restart-timeline-resume-proof.mjs",
+      "scripts/lib/autopilot-runtime-agent-service-bridge.mjs",
     ],
   };
   fs.writeFileSync(outputPath, `${JSON.stringify(proof, null, 2)}\n`, "utf8");

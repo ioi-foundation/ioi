@@ -13,6 +13,34 @@ function createStudioAgentTurnResultText({
     return text.replace(/^Replied:\s*/i, "").trim();
   }
 
+  function sanitizeStudioProductAssistantText(value) {
+    return stringValue(value)
+      .replace(/\bwas blocked by the governed file tool\.\s*The tool returned (?:the following )?(?:the )?error:\s*/gi, "was blocked. The policy reason was: ")
+      .replace(/\bThe governed file (?:tool|write) returned (?:the following )?(?:the )?error:\s*Blocked by policy:\s*/gi, "The policy reason was: ")
+      .replace(/\bThe tool returned (?:the following )?(?:the )?error:\s*`*\s*Blocked by policy:\s*/gi, "The policy reason was: ")
+      .replace(/`+\s*Blocked by policy:\s*/gi, "Blocked by policy: ")
+      .replace(/\bThe policy reason was:\s*Blocked by policy:\s*/gi, "The policy reason was: ")
+      .replace(/\s*`+(?=\s|$)/g, "")
+      .replace(/\bThe tool returned an? ["']?Invalid transaction["']? error with the specific policy reason:\s*/gi, "The policy reason was: ")
+      .replace(/\ban? ["']?Invalid transaction["']? error\b/gi, "a policy block")
+      .replace(/\ban policy block\b/gi, "a policy block")
+      .replace(/\bInvalid transaction:\s*/gi, "")
+      .replace(/\bBlocked by Policy:\s*/gi, "Blocked by policy: ")
+      .replace(/\bERROR_CLASS=[a-z0-9_:-]+\b/gi, "policy block")
+      .replace(/`?\bfile__write\b`?/gi, "the governed file write")
+      .replace(/`?\bfile__read\b`?/gi, "the governed file read")
+      .replace(/`?\bshell__run\b`?/gi, "the governed command runner")
+      .replace(/`?\/tmp\/(?:autopilot-agent-studio-|autopilot-|ioi-)[^\s"'<>)\]}]+`?/gi, "the requested workspace path")
+      .replace(/\bshell__start:[a-f0-9]{12,}\b/gi, "command")
+      .replace(/"command_id"\s*:\s*"[^"]+"\s*,?/gi, "")
+      .replace(/"commandId"\s*:\s*"[^"]+"\s*,?/gi, "")
+      .replace(/\b(?:receipt|trace|request|turn|thread)_[a-z0-9:_-]{8,}\b/gi, "Tracing")
+      .replace(/\b(?:receipt|trace):\/\/[^\s)\]}]+/gi, "Tracing")
+      .replace(/\bworkspace_change:[^\s)\]}]+/gi, "workspace change")
+      .replace(/[ \t]+\n/g, "\n")
+      .trim();
+  }
+
   function decodeStudioRustOptionalText(value) {
     const text = stringValue(value).trim();
     const match = text.match(/^(?:Completed|Failed|Blocked|Paused)\(Some\("([\s\S]*)"\)\)$/);
@@ -40,7 +68,9 @@ function createStudioAgentTurnResultText({
   }
 
   function normalizeStudioAgentResultText(value) {
-    const text = normalizeStudioAssistantReplyText(decodeStudioRustOptionalText(value) || value);
+    const text = sanitizeStudioProductAssistantText(
+      normalizeStudioAssistantReplyText(decodeStudioRustOptionalText(value) || value),
+    );
     if (
       !text ||
       studioAssistantReplyTextIsDeferred(text) ||
@@ -144,6 +174,7 @@ function createStudioAgentTurnResultText({
   }
 
   return {
+    sanitizeStudioProductAssistantText,
     normalizeStudioAssistantReplyText,
     decodeStudioRustOptionalText,
     studioAssistantReplyTextIsDeferred,

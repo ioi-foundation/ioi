@@ -1,6 +1,7 @@
 use super::{
     ensure_read_within_workspace, ensure_safe_regular_file_read,
-    ensure_safe_regular_file_write_target, patch_apply_failure_message,
+    ensure_safe_regular_file_write_target, ensure_write_within_workspace,
+    patch_apply_failure_message,
 };
 use std::fs;
 #[cfg(unix)]
@@ -93,6 +94,32 @@ fn file_read_policy_rejects_paths_outside_workspace_boundary() {
     if let Some(parent) = outside.parent() {
         let _ = fs::remove_dir_all(parent);
     }
+}
+
+#[test]
+fn file_write_policy_rejects_missing_sibling_targets() {
+    let base = make_temp_dir("write-boundary-base");
+    let workspace = base.join("repo");
+    let sibling = base.join("repo-sibling");
+    fs::create_dir_all(&workspace).expect("workspace should be created");
+    fs::create_dir_all(&sibling).expect("sibling should be created");
+    let outside = sibling.join("new-file.txt");
+
+    let error = ensure_write_within_workspace(&outside, workspace.to_str(), "write")
+        .expect_err("missing sibling write target should be blocked");
+    assert!(error.contains("ERROR_CLASS=PolicyBlocked"));
+    assert!(error.contains("outside the workspace boundary"));
+    let _ = fs::remove_dir_all(&base);
+}
+
+#[test]
+fn file_write_policy_allows_missing_workspace_targets() {
+    let workspace = make_temp_dir("write-boundary-workspace");
+    let target = workspace.join("nested").join("new-file.txt");
+
+    ensure_write_within_workspace(&target, workspace.to_str(), "write")
+        .expect("missing workspace write target should be allowed");
+    let _ = fs::remove_dir_all(&workspace);
 }
 
 #[cfg(unix)]

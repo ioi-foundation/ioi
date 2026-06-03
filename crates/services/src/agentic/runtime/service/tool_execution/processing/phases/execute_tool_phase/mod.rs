@@ -1,10 +1,12 @@
 use super::*;
 
+mod command_failure_reply;
 mod contracts;
 mod duplicate;
 mod events;
 mod execute;
 mod file_observation;
+mod file_policy_observation;
 mod pending_approval;
 mod precheck;
 mod rrsa;

@@ -1,5 +1,8 @@
 use crate::agentic::runtime::agent_playbooks::{builtin_agent_playbooks, playbook_decision_record};
-use crate::agentic::runtime::keys::{get_managed_session_control_key, get_parent_playbook_run_key};
+use crate::agentic::runtime::keys::{
+    get_managed_session_control_key, get_managed_session_record_key,
+    get_managed_session_record_prefix, get_parent_playbook_run_key,
+};
 use crate::agentic::runtime::types::{
     AgentState, AgentStatus, ParentPlaybookRun, ParentPlaybookStepRun, ToolCallStatus,
 };
@@ -89,12 +92,31 @@ pub struct RuntimeManagedSessionControlRecord {
     pub updated_at_ms: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct RuntimeManagedSessionRecord {
+    pub schema_version: String,
+    pub parent_session_id: [u8; 32],
+    pub managed_session_id: String,
+    pub kind: String,
+    pub surface_label: String,
+    pub waiting_reason: Option<String>,
+    pub page_title: Option<String>,
+    pub target: Option<String>,
+    pub detail: String,
+    pub last_tool: Option<String>,
+    pub action_count: u32,
+    pub sanitized_preview_ref: Option<String>,
+    pub replay_ready: bool,
+    pub updated_at_ms: u64,
+}
+
 pub fn managed_session_snapshot_for_state(
     state: &dyn StateAccess,
     parent_state: &AgentState,
 ) -> Result<RuntimeManagedSessionSnapshot, String> {
     let session_id = parent_state.session_id;
     let mut sessions = managed_sessions_from_parent_playbooks(state, parent_state)?;
+    sessions.extend(managed_sessions_from_records(state, parent_state)?);
     sessions.extend(managed_sessions_from_agent_state(state, parent_state)?);
     dedupe_sessions(&mut sessions);
 
@@ -177,6 +199,68 @@ pub fn set_managed_session_control_state(
     Ok(record)
 }
 
+pub fn record_managed_browser_session_result(
+    state: &mut dyn StateAccess,
+    parent_state: &AgentState,
+    tool_name: &str,
+    _output: &str,
+    error_class: Option<&str>,
+    updated_at_ms: u64,
+) -> Result<RuntimeManagedSessionRecord, String> {
+    let normalized_tool = tool_name.trim();
+    if !normalized_tool
+        .to_ascii_lowercase()
+        .starts_with("browser__")
+    {
+        return Err(format!(
+            "managed browser session record requires browser tool, got '{tool_name}'"
+        ));
+    }
+    let managed_session_id = standalone_browser_session_id(parent_state.session_id);
+    let existing = load_optional_state::<RuntimeManagedSessionRecord>(
+        state,
+        &get_managed_session_record_key(&parent_state.session_id, &managed_session_id),
+        "managed session record",
+    )?;
+    let action_count = existing
+        .as_ref()
+        .map(|record| record.action_count.saturating_add(1))
+        .unwrap_or(1)
+        .max(1);
+    let detail = if error_class.is_some() {
+        format!("{} reported an issue.", managed_tool_label(normalized_tool))
+    } else {
+        format!("{} completed.", managed_tool_label(normalized_tool))
+    };
+    let record = RuntimeManagedSessionRecord {
+        schema_version: RUNTIME_MANAGED_SESSION_SCHEMA_VERSION.to_string(),
+        parent_session_id: parent_state.session_id,
+        managed_session_id: managed_session_id.clone(),
+        kind: "sandbox_browser".to_string(),
+        surface_label: "Sandbox browser".to_string(),
+        waiting_reason: None,
+        page_title: existing
+            .as_ref()
+            .and_then(|record| record.page_title.clone()),
+        target: existing.as_ref().and_then(|record| record.target.clone()),
+        detail: compact_text(&detail, PRODUCT_TEXT_MAX_CHARS),
+        last_tool: Some(normalized_tool.to_string()),
+        action_count,
+        sanitized_preview_ref: existing.and_then(|record| record.sanitized_preview_ref),
+        replay_ready: true,
+        updated_at_ms,
+    };
+    let bytes = codec::to_bytes_canonical(&record)
+        .map_err(|error| format!("failed to encode managed session record: {error}"))?;
+    state
+        .insert(
+            &get_managed_session_record_key(&parent_state.session_id, &managed_session_id),
+            &bytes,
+        )
+        .map_err(|error| format!("failed to persist managed session record: {error}"))?;
+    Ok(record)
+}
+
 fn managed_sessions_from_parent_playbooks(
     state: &dyn StateAccess,
     parent_state: &AgentState,
@@ -252,29 +336,89 @@ fn managed_sessions_from_parent_playbooks(
     Ok(sessions)
 }
 
+fn managed_sessions_from_records(
+    state: &dyn StateAccess,
+    parent_state: &AgentState,
+) -> Result<Vec<RuntimeManagedSessionCard>, String> {
+    let mut records = Vec::new();
+    for item in state
+        .prefix_scan(&get_managed_session_record_prefix(&parent_state.session_id))
+        .map_err(|error| format!("Failed to scan managed session records: {error}"))?
+    {
+        let (_key, value) =
+            item.map_err(|error| format!("Failed to read managed session record row: {error}"))?;
+        let record = codec::from_bytes_canonical::<RuntimeManagedSessionRecord>(&value)
+            .map_err(|error| format!("Failed to decode managed session record: {error}"))?;
+        if record.parent_session_id == parent_state.session_id {
+            records.push(record);
+        }
+    }
+    records.sort_by_key(|record| record.updated_at_ms);
+    records
+        .into_iter()
+        .map(|record| managed_session_card_from_record(state, parent_state, record))
+        .collect()
+}
+
+fn managed_session_card_from_record(
+    state: &dyn StateAccess,
+    parent_state: &AgentState,
+    record: RuntimeManagedSessionRecord,
+) -> Result<RuntimeManagedSessionCard, String> {
+    let control_state =
+        load_control_state(state, parent_state.session_id, &record.managed_session_id)?;
+    let waiting_reason = waiting_reason_for_parent_state(parent_state).or(record.waiting_reason);
+    let waiting_for_user = waiting_reason.is_some();
+    let status = status_for_record(parent_state, waiting_for_user);
+    Ok(RuntimeManagedSessionCard {
+        id: record.managed_session_id,
+        kind: record.kind,
+        surface_label: record.surface_label,
+        status: status.to_string(),
+        status_label: status_label(status).to_string(),
+        control_state,
+        available_control_states: available_control_states(),
+        waiting_for_user,
+        waiting_reason,
+        parent_playbook_id: None,
+        parent_playbook_label: None,
+        step_id: None,
+        step_label: None,
+        child_session_id: None,
+        page_title: record
+            .page_title
+            .map(|value| compact_text(&value, PRODUCT_TEXT_MAX_CHARS)),
+        target: record
+            .target
+            .map(|value| compact_text(&value, PRODUCT_TEXT_MAX_CHARS)),
+        detail: compact_text(&record.detail, PRODUCT_TEXT_MAX_CHARS),
+        last_tool: record.last_tool,
+        action_count: record.action_count.max(1),
+        screenshot_persistence: RuntimeScreenshotPersistenceSnapshot {
+            state: if record.sanitized_preview_ref.is_some() {
+                "sanitized_preview_persisted".to_string()
+            } else {
+                "quarantined".to_string()
+            },
+            sanitized_preview_ref: record.sanitized_preview_ref,
+            raw_capture_visibility: RUNS_TRACING_VISIBILITY.to_string(),
+            redaction_required_before_product: true,
+        },
+        replay_ready: record.replay_ready,
+        trace_visibility: RUNS_TRACING_VISIBILITY.to_string(),
+    })
+}
+
 fn managed_sessions_from_agent_state(
     state: &dyn StateAccess,
     parent_state: &AgentState,
 ) -> Result<Vec<RuntimeManagedSessionCard>, String> {
     let mut sessions = Vec::new();
-    let browser_signal = parent_state
-        .last_action_type
-        .as_deref()
-        .filter(|value| value.trim_start().starts_with("browser__"))
-        .or_else(|| {
-            parent_state
-                .pending_tool_call
-                .as_deref()
-                .filter(|value| value.contains("browser__"))
-        });
+    let browser_signal = browser_signal_from_agent_state(parent_state);
     let Some(signal) = browser_signal else {
         return Ok(sessions);
     };
-    let id = format!(
-        "sandbox-browser:{}:{}",
-        hex::encode(parent_state.session_id),
-        parent_state.step_count
-    );
+    let id = standalone_browser_session_id(parent_state.session_id);
     let control_state = load_control_state(state, parent_state.session_id, &id)?;
     let waiting_reason = waiting_reason_for_parent_state(parent_state);
     let waiting_for_user = waiting_reason.is_some();
@@ -308,7 +452,7 @@ fn managed_sessions_from_agent_state(
         page_title: None,
         target: None,
         detail: compact_text(signal, PRODUCT_TEXT_MAX_CHARS),
-        last_tool: parent_state.last_action_type.clone(),
+        last_tool: browser_tool_name_from_signal(signal),
         action_count: browser_action_count(parent_state),
         screenshot_persistence: RuntimeScreenshotPersistenceSnapshot {
             state: "quarantined".to_string(),
@@ -320,6 +464,79 @@ fn managed_sessions_from_agent_state(
         trace_visibility: RUNS_TRACING_VISIBILITY.to_string(),
     });
     Ok(sessions)
+}
+
+fn standalone_browser_session_id(session_id: [u8; 32]) -> String {
+    format!("sandbox-browser:{}", hex::encode(session_id))
+}
+
+fn status_for_record(parent_state: &AgentState, waiting_for_user: bool) -> &'static str {
+    if waiting_for_user {
+        "waiting_for_user"
+    } else if matches!(parent_state.status, AgentStatus::Running) {
+        "browsing"
+    } else if matches!(parent_state.status, AgentStatus::Failed(_)) {
+        "needs_user"
+    } else {
+        "complete"
+    }
+}
+
+fn managed_tool_label(tool_name: &str) -> &'static str {
+    match tool_name.trim().to_ascii_lowercase().as_str() {
+        "browser__navigate" => "Browser navigation",
+        "browser__inspect" => "Browser inspection",
+        "browser__wait" => "Browser wait",
+        "browser__click" | "browser__click_at" => "Browser click",
+        "browser__type" | "browser__type_text" => "Browser typing",
+        "browser__scroll" => "Browser scroll",
+        "browser__select" => "Browser selection",
+        "browser__upload" => "Browser upload",
+        _ => "Browser action",
+    }
+}
+
+fn browser_signal_from_agent_state(parent_state: &AgentState) -> Option<&str> {
+    parent_state
+        .last_action_type
+        .as_deref()
+        .filter(|value| value.trim_start().starts_with("browser__"))
+        .or_else(|| {
+            parent_state
+                .pending_tool_call
+                .as_deref()
+                .filter(|value| value.contains("browser__"))
+        })
+        .or_else(|| {
+            parent_state
+                .recent_actions
+                .iter()
+                .rev()
+                .map(String::as_str)
+                .find(|value| value.contains("browser__"))
+        })
+        .or_else(|| {
+            parent_state
+                .tool_execution_log
+                .iter()
+                .rev()
+                .find_map(|(key, status)| {
+                    if key.contains("browser__") {
+                        Some(key.as_str())
+                    } else if let ToolCallStatus::Executed(value) = status {
+                        value.contains("browser__").then_some(value.as_str())
+                    } else {
+                        None
+                    }
+                })
+        })
+}
+
+fn browser_tool_name_from_signal(signal: &str) -> Option<String> {
+    signal
+        .split(|character: char| !character.is_ascii_alphanumeric() && character != '_')
+        .find(|part| part.starts_with("browser__"))
+        .map(ToString::to_string)
 }
 
 fn load_control_state(
@@ -834,7 +1051,7 @@ mod tests {
     fn standalone_browser_tool_state_projects_managed_session_without_raw_payloads() {
         let mut state = IAVLTree::new(HashCommitmentScheme::new());
         let mut parent = parent_state();
-        parent.last_action_type = Some("browser__inspect".to_string());
+        parent.last_action_type = Some("agent__complete".to_string());
         parent.recent_actions = vec!["browser__inspect completed".to_string()];
 
         let snapshot = managed_session_snapshot_for_state(&state, &parent).expect("snapshot");
@@ -857,6 +1074,51 @@ mod tests {
             .expect("return control persists")
             .control_state,
             "return_agent"
+        );
+    }
+
+    #[test]
+    fn durable_browser_session_record_survives_hashed_agent_state() {
+        let mut state = IAVLTree::new(HashCommitmentScheme::new());
+        let mut parent = parent_state();
+        parent.last_action_type = Some("agent__complete".to_string());
+        parent.recent_actions = vec![
+            "action_fingerprint::browser-interaction-redacted".to_string(),
+            "evidence::browser_snapshot_content_hash=true".to_string(),
+        ];
+        parent.tool_execution_log.insert(
+            "evidence::browser_snapshot_content_hash".to_string(),
+            ToolCallStatus::Executed("true".to_string()),
+        );
+
+        let record = record_managed_browser_session_result(
+            &mut state,
+            &parent,
+            "browser__inspect",
+            "{\"raw\":\"payload should remain in tracing\"}",
+            None,
+            202,
+        )
+        .expect("record persists");
+        assert_eq!(
+            record.managed_session_id,
+            standalone_browser_session_id(parent.session_id)
+        );
+
+        let snapshot = managed_session_snapshot_for_state(&state, &parent).expect("snapshot");
+
+        assert_eq!(snapshot.session_count, 1);
+        let card = &snapshot.sessions[0];
+        assert_eq!(card.id, record.managed_session_id);
+        assert_eq!(card.kind, "sandbox_browser");
+        assert_eq!(card.status, "browsing");
+        assert_eq!(card.last_tool.as_deref(), Some("browser__inspect"));
+        assert_eq!(card.action_count, 1);
+        assert_eq!(card.detail, "Browser inspection completed.");
+        assert!(!card.detail.contains("payload"));
+        assert_eq!(
+            card.screenshot_persistence.raw_capture_visibility,
+            "runs_tracing"
         );
     }
 }

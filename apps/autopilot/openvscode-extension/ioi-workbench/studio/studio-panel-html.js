@@ -30,8 +30,9 @@ function createStudioPanelHtml({
   <body>
 	    ${renderStudioOperationalSurface(state, { standalone: true })}
 	    <script nonce="${pageNonce}">
-	      const vscode = acquireVsCodeApi();
-	      const ioiBridgeUrl = ${JSON.stringify(bridgeUrl() || "")};
+      const vscode = acquireVsCodeApi();
+      const ioiBridgeUrl = ${JSON.stringify(bridgeUrl() || "")};
+      const studioWorkspaceRoot = ${JSON.stringify(workspace.path || workspace.rootPath || "")};
       const STUDIO_MARKDOWN_FENCE = String.fromCharCode(96, 96, 96);
       const STUDIO_MARKDOWN_TICK = String.fromCharCode(96);
       function escapeMarkdownHtml(value) {
@@ -56,6 +57,71 @@ function createStudioPanelHtml({
       }
       function compactPublicText(value) {
         return String(value || "").replace(/\\s+/g, " ").trim();
+      }
+      function sanitizePublicToolText(value) {
+        return compactPublicText(value)
+          .replace(/\\bshell__start:[a-f0-9]{12,}\\b/gi, "<command>")
+          .replace(/\\b(?:receipt|trace|request|turn|thread)_[a-z0-9:_-]{8,}\\b/gi, "<ref>")
+          .replace(/ioi-session-stdin-[^\\s"']+/gi, "<stdin-bridge>")
+          .replace(/\\/tmp\\/[^\\s"']+/gi, "<tmp>")
+          .replace(/"command_id"\\s*:\\s*"[^"]+"/gi, "")
+          .replace(/\\s+/g, " ")
+          .trim();
+      }
+      function sanitizePublicOutputBlock(value, max) {
+        return String(value || "")
+          .replace(/\\bThe tool returned an? ["']?Invalid transaction["']? error with the specific policy reason:\\s*/gi, "The policy reason was: ")
+          .replace(/\\ban? ["']?Invalid transaction["']? error\\b/gi, "a policy block")
+          .replace(/\\ban policy block\\b/gi, "a policy block")
+          .replace(/\\bInvalid transaction:\\s*/gi, "")
+          .replace(/\\bBlocked by Policy:\\s*/gi, "Blocked by policy: ")
+          .replace(/\\bshell__start:[a-f0-9]{12,}\\b/gi, "<command>")
+          .replace(/\\b(?:receipt|trace|request|turn|thread)_[a-z0-9:_-]{8,}\\b/gi, "<ref>")
+          .replace(/ioi-session-stdin-[^\\s"']+/gi, "<stdin-bridge>")
+          .replace(/\\/tmp\\/[^\\s"']+/gi, "<tmp>")
+          .replace(/\\/home\\/[^\\s"']+/gi, "<path>")
+          .replace(/"command_id"\\s*:\\s*"[^"]+"/gi, "")
+          .slice(0, Number(max) || 6000)
+          .trim();
+      }
+      function sanitizePublicAssistantText(value) {
+        return String(value || "")
+          .replace(/\\bwas blocked by the governed file tool\\.\\s*The tool returned (?:the following )?(?:the )?error:\\s*/gi, "was blocked. The policy reason was: ")
+          .replace(/\\bThe governed file (?:tool|write) returned (?:the following )?(?:the )?error:\\s*Blocked by policy:\\s*/gi, "The policy reason was: ")
+          .replace(/\\bThe tool returned (?:the following )?(?:the )?error:\\s*\\x60*\\s*Blocked by policy:\\s*/gi, "The policy reason was: ")
+          .replace(/\\x60+\\s*Blocked by policy:\\s*/gi, "Blocked by policy: ")
+          .replace(/\\bThe policy reason was:\\s*Blocked by policy:\\s*/gi, "The policy reason was: ")
+          .replace(/\\s*\\x60+(?=\\s|$)/g, "")
+          .replace(/\\bThe tool returned an? ["']?Invalid transaction["']? error with the specific policy reason:\\s*/gi, "The policy reason was: ")
+          .replace(/\\ban? ["']?Invalid transaction["']? error\\b/gi, "a policy block")
+          .replace(/\\ban policy block\\b/gi, "a policy block")
+          .replace(/\\bInvalid transaction:\\s*/gi, "")
+          .replace(/\\bBlocked by Policy:\\s*/gi, "Blocked by policy: ")
+          .replace(/\\bERROR_CLASS=[a-z0-9_:-]+\\b/gi, "policy block")
+          .replace(/\\x60?\\bfile__write\\b\\x60?/gi, "the governed file write")
+          .replace(/\\x60?\\bfile__read\\b\\x60?/gi, "the governed file read")
+          .replace(/\\x60?\\bshell__run\\b\\x60?/gi, "the governed command runner")
+          .replace(/\\x60?\\/tmp\\/(?:autopilot-agent-studio-|autopilot-|ioi-)[^\\s"'<>)\\]}]+\\x60?/gi, "the requested workspace path")
+          .replace(/\\bshell__start:[a-f0-9]{12,}\\b/gi, "command")
+          .replace(/"command_id"\\s*:\\s*"[^"]+"\\s*,?/gi, "")
+          .replace(/"commandId"\\s*:\\s*"[^"]+"\\s*,?/gi, "")
+          .replace(/\\b(?:receipt|trace|request|turn|thread)_[a-z0-9:_-]{8,}\\b/gi, "Tracing")
+          .replace(/\\b(?:receipt|trace):\\/\\/[^\\s)\\]}]+/gi, "Tracing")
+          .replace(/\\bworkspace_change:[^\\s)\\]}]+/gi, "workspace change")
+          .replace(/[ \\t]+\\n/g, "\\n")
+          .trim();
+      }
+      function publicWorkspacePath(value) {
+        const raw = String(value || "").replace(/\\\\/g, "/").trim();
+        const root = String(studioWorkspaceRoot || "").replace(/\\\\/g, "/").trim();
+        if (!raw) return "workspace";
+        if (root && raw.startsWith(root + "/")) {
+          return raw.slice(root.length + 1) || "workspace";
+        }
+        if (/^\\/tmp\\//.test(raw)) {
+          return "workspace file";
+        }
+        return sanitizePublicToolText(raw).replace(/^\\.\\//, "") || "workspace";
       }
       function firstProjectedArray(value) {
         return Array.isArray(value) ? value : [];
@@ -327,14 +393,16 @@ function createStudioPanelHtml({
       }
       function appendMarkdownDelta(node, delta) {
         if (!node) return;
-        renderMarkdownInto(node, String(node.dataset.rawMarkdown || "") + String(delta || ""));
+        const nextRaw = String(node.dataset.rawMarkdownRaw || node.dataset.rawMarkdown || "") + String(delta || "");
+        node.dataset.rawMarkdownRaw = nextRaw;
+        renderMarkdownInto(node, sanitizePublicAssistantText(nextRaw));
       }
       function hydrateExistingAssistantMarkdown() {
         document.querySelectorAll("[data-testid='studio-assistant-answer-text'], [data-testid='studio-streaming-output']").forEach((node) => {
           const turn = node.closest("[data-studio-turn-role='assistant']");
           if (!turn || node.dataset.rawMarkdown !== undefined) return;
           node.classList.add("studio-markdown");
-          renderMarkdownInto(node, node.textContent || "");
+          renderMarkdownInto(node, sanitizePublicAssistantText(node.textContent || ""));
         });
       }
       function studioTranscriptNode() {
@@ -505,9 +573,15 @@ function createStudioPanelHtml({
       }
       function normalizeProjectedWorkRows(workRecord) {
         const record = workRecord && typeof workRecord === "object" ? workRecord : {};
+        const hasRicherWorkRows = (
+          (Array.isArray(record.commandOutputs) && record.commandOutputs.length) ||
+          (Array.isArray(record.diffHunks) && record.diffHunks.length) ||
+          (Array.isArray(record.sessionCards) && record.sessionCards.length) ||
+          (Array.isArray(record.artifactCards) && record.artifactCards.length)
+        );
         const rows = Array.isArray(record.workRows) && record.workRows.length
           ? record.workRows
-          : (Array.isArray(record.lines) ? record.lines.map((line) => ({ headline: line, status: "completed" })) : []);
+          : (!hasRicherWorkRows && Array.isArray(record.lines) ? record.lines.map((line) => ({ headline: line, status: "completed" })) : []);
         return rows.map((row) => {
           const source = row && typeof row === "object" ? row : { headline: row };
           const headline = compactPublicText(source.headline || source.label || "");
@@ -522,19 +596,208 @@ function createStudioPanelHtml({
           };
         }).filter(Boolean).slice(0, 12);
       }
+      function publicWorkRowText(value) {
+        return compactPublicText(value || "")
+          .replace(/\\b(Patched|Edited|Read)\\s+<tmp>(?=$|\\s|[.,;:])/gi, "$1 workspace file")
+          .replace(/<tmp>/g, "workspace file")
+          .trim();
+      }
       function projectedWorkRowsHtml(workRecord) {
         return normalizeProjectedWorkRows(workRecord).map((row) =>
           '<li class="studio-work-row" data-status="' + escapeMarkdownHtml(row.status) + '" data-kind="' + escapeMarkdownHtml(row.kind) + '">' +
             '<div class="studio-work-row__main">' +
-              '<strong>' + escapeMarkdownHtml(row.headline) + "</strong>" +
-              (row.summary ? "<span>" + escapeMarkdownHtml(row.summary) + "</span>" : "") +
+              '<strong>' + escapeMarkdownHtml(publicWorkRowText(row.headline)) + "</strong>" +
+              (row.summary ? "<span>" + escapeMarkdownHtml(publicWorkRowText(row.summary)) + "</span>" : "") +
             "</div>" +
             (normalizeSourceChips(row.sourceChips).length
               ? '<div class="studio-source-chip-list">' + studioProjectedSourceChipRows(row.sourceChips, 6) + "</div>"
               : "") +
-            (row.excerptPreview ? '<p class="studio-work-row__excerpt">' + escapeMarkdownHtml(row.excerptPreview) + "</p>" : "") +
+            (row.excerptPreview ? '<p class="studio-work-row__excerpt">' + escapeMarkdownHtml(publicWorkRowText(row.excerptPreview)) + "</p>" : "") +
           "</li>"
         ).join("");
+      }
+      function publicCommandLabel(source) {
+        const toolId = compactPublicText(source.toolId || source.tool_id || "");
+        const rawLabel = compactPublicText(source.label || source.command || toolId || "Command");
+        const commandKind = publicCommandKindLabel(source.command || source.commandLabel || source.command_label || "");
+        const commandVerb = publicCommandVerb(source, toolId);
+        if (/^(?:shell|command)$/i.test(rawLabel)) {
+          return commandKind
+            ? commandVerb + " " + commandKind + " command"
+            : (/running|started/i.test(String(source.status || "")) ? "Running command" : "Ran command");
+        }
+        if (/^[a-z][a-z0-9_]*__[a-z0-9_]+$/i.test(rawLabel) || rawLabel === toolId) {
+          if (toolId === "shell__start") return commandKind ? commandVerb + " " + commandKind + " command" : (/running/i.test(String(source.status || "")) ? "Running command" : "Started command");
+          if (toolId === "shell__run" || toolId === "terminal__run") return commandKind ? commandVerb + " " + commandKind + " command" : (/running|started/i.test(String(source.status || "")) ? "Running command" : "Ran command");
+          if (toolId === "shell__status") return "Checked command status";
+          if (toolId === "shell__input") return "Sent input to retained command";
+          if (toolId === "shell__terminate") return "Terminated retained command";
+          if (toolId === "shell__reset") return "Reset retained shell state";
+          if (/^shell__|^terminal__/.test(toolId)) return "Ran command";
+          return rawLabel.replace(/^browser__/, "browser ").replace(/^file__/, "file ").replace(/^agent__/, "agent ").replace(/__+/g, " ").replace(/[_./-]+/g, " ").replace(/\\s+/g, " ").trim();
+        }
+        return rawLabel;
+      }
+      function publicCommandVerb(source, toolId = "") {
+        const status = String(source.status || "").toLowerCase();
+        if (/failed|error/.test(status)) return "Failed";
+        if (/running|started|pending/.test(status)) return "Running";
+        if (toolId === "shell__start") return "Started";
+        return "Ran";
+      }
+      function publicCommandKindLabel(value) {
+        const text = compactPublicText(value);
+        if (!text || /^(?:shell|command|running command|ran command|started command)$/i.test(text)) return "";
+        const head = text.split(/\s+/)[0].split(/[\\/]/).pop().toLowerCase();
+        if (!head) return "";
+        if (head === "node" || head === "nodejs") return "Node.js";
+        if (head === "python" || head === "python3") return "Python";
+        if (["npm", "pnpm", "yarn", "bun", "cargo", "deno", "go", "rustc", "make"].includes(head)) return head;
+        if (head === "bash" || head === "sh" || head === "zsh") return "shell";
+        return "";
+      }
+      function publicCommandSurfaceLabel(source) {
+        const toolId = compactPublicText(source.toolId || source.tool_id || "");
+        const rawLabel = compactPublicText(source.label || source.command || "");
+        if (/^shell__|^terminal__/.test(toolId) || /^(?:shell|command)$/i.test(rawLabel)) return "Shell";
+        if (/^browser__/.test(toolId)) return "Browser";
+        if (/^file__/.test(toolId)) return "File";
+        return "";
+      }
+      function normalizeProjectedCommandOutputs(workRecord) {
+        const commands = Array.isArray(workRecord?.commandOutputs) ? workRecord.commandOutputs : [];
+        const recordSettled = /^(?:completed|blocked|failed|cancelled|canceled)$/i.test(compactPublicText(workRecord?.status || ""));
+        const hasCommandOutput = commands.some((command) => {
+          const source = command && typeof command === "object" ? command : {};
+          return Boolean(compactPublicText(source.stdout || source.output || source.chunk || source.text || source.excerptPreview || source.excerpt_preview || source.stderr || ""));
+        });
+        const hasWorkRowOutput = Array.isArray(workRecord?.workRows) && workRecord.workRows.some((row) => {
+          const source = row && typeof row === "object" ? row : {};
+          return Boolean(compactPublicText(source.excerptPreview || source.excerpt_preview || ""));
+        });
+        return commands.map((command, index) => {
+          const source = command && typeof command === "object" ? command : {};
+          const rawStatus = compactPublicText(source.status || "completed").slice(0, 32);
+          const hasOutput = Boolean(compactPublicText(source.stdout || source.output || source.chunk || source.text || source.excerptPreview || source.excerpt_preview || source.stderr || ""));
+          const effectiveSource = {
+            ...source,
+            status: recordSettled && hasOutput && /^(?:running|started|pending)$/i.test(rawStatus)
+              ? "completed"
+              : rawStatus,
+          };
+          const label = publicCommandLabel(effectiveSource).slice(0, 160);
+          if (!label) return null;
+          return {
+            id: compactPublicText(effectiveSource.id || effectiveSource.commandId || effectiveSource.command_id || "command." + index).slice(0, 96),
+            toolId: compactPublicText(effectiveSource.toolId || effectiveSource.tool_id || "shell").slice(0, 96),
+            label,
+            surface: publicCommandSurfaceLabel(effectiveSource).slice(0, 48),
+            status: effectiveSource.status,
+            stdout: sanitizePublicOutputBlock(effectiveSource.stdout || effectiveSource.output || effectiveSource.chunk || effectiveSource.text || effectiveSource.excerptPreview || effectiveSource.excerpt_preview || ""),
+            stderr: sanitizePublicOutputBlock(effectiveSource.stderr || ""),
+            excerptPreview: sanitizePublicOutputBlock(effectiveSource.excerptPreview || effectiveSource.excerpt_preview || ""),
+            exitCode: effectiveSource.exitCode ?? effectiveSource.exit_code,
+            durationMs: effectiveSource.durationMs ?? effectiveSource.duration_ms,
+          };
+        }).filter(Boolean).filter((command) => {
+          const status = compactPublicText(command.status || "");
+          const emptyOutput = !compactPublicText(
+            command.stdout ||
+            command.output ||
+            command.chunk ||
+            command.text ||
+            command.excerptPreview ||
+            command.excerpt_preview ||
+            ""
+          ) && !compactPublicText(command.stderr || "");
+          if (recordSettled && emptyOutput && /^(?:running|started|pending)$/i.test(status)) return false;
+          if (recordSettled && (hasCommandOutput || hasWorkRowOutput) && emptyOutput && /^(?:completed|succeeded|success)$/i.test(status)) return false;
+          return true;
+        }).slice(-4);
+      }
+      function projectedCommandOutputRowsHtml(workRecord) {
+        return normalizeProjectedCommandOutputs(workRecord).map((command, index) => {
+          const durationMs = Number(command.durationMs);
+          const duration = Number.isFinite(durationMs) ? formatProjectedWorkDuration(durationMs) : "";
+          const meta = [command.status, command.exitCode !== undefined && command.exitCode !== null ? "exit " + command.exitCode : "", duration].filter(Boolean).join(" · ");
+          return '<details class="studio-command-work-row" data-testid="studio-command-output-row"' + (index === 0 ? " open" : "") + ">" +
+            "<summary><strong>" + escapeMarkdownHtml(command.label || "Ran command") + "</strong>" +
+              (command.surface ? "<span>" + escapeMarkdownHtml(command.surface) + "</span>" : "") +
+              (meta ? "<em>" + escapeMarkdownHtml(meta) + "</em>" : "") +
+            "</summary>" +
+            '<pre data-testid="studio-command-stdout">' + escapeMarkdownHtml(command.stdout || "No output") + "</pre>" +
+            (command.stderr ? '<pre class="studio-command-stderr" data-testid="studio-command-stderr">' + escapeMarkdownHtml(command.stderr) + "</pre>" : "") +
+          "</details>";
+        }).join("");
+      }
+      function normalizeProjectedDiffHunks(workRecord) {
+        const hunks = Array.isArray(workRecord?.diffHunks) ? workRecord.diffHunks : [];
+        return hunks.map((hunk, index) => {
+          const source = hunk && typeof hunk === "object" ? hunk : {};
+          return {
+            title: compactPublicText(source.title || "Hunk " + (index + 1)).slice(0, 120),
+            file: publicWorkspacePath(source.file || source.path || "workspace").slice(0, 180),
+            status: compactPublicText(source.status || "pending").slice(0, 32),
+            before: sanitizePublicOutputBlock(source.before || source.search || "", 4000),
+            after: sanitizePublicOutputBlock(source.after || source.replace || "", 4000),
+            stale: Boolean(source.stale),
+            staleReason: compactPublicText(source.staleReason || source.stale_reason || "").slice(0, 160),
+            acceptAvailable: source.acceptAvailable ?? source.accept_available ?? true,
+            rejectAvailable: source.rejectAvailable ?? source.reject_available ?? true,
+            rollbackAvailable: source.rollbackAvailable ?? source.rollback_available ?? false,
+            approvalId: compactPublicText(source.approvalId || source.approval_id || "").slice(0, 160),
+            changeId: compactPublicText(source.changeId || source.change_id || "").slice(0, 160),
+            hunkIndex: Number.isFinite(Number(source.hunkIndex ?? source.hunk_index)) ? Number(source.hunkIndex ?? source.hunk_index) : index,
+          };
+        }).filter(Boolean).slice(-6);
+      }
+      function projectedDiffHunksHtml(workRecord) {
+        return normalizeProjectedDiffHunks(workRecord).map((hunk) =>
+          '<article class="studio-diff-hunk" data-testid="studio-inline-diff-hunks" data-native-diff-hunk="true">' +
+            "<header><strong>" + escapeMarkdownHtml(hunk.title) + "</strong><code>" + escapeMarkdownHtml(hunk.file || "workspace") + "</code><mark>" + escapeMarkdownHtml(hunk.status) + "</mark></header>" +
+            (hunk.stale && hunk.staleReason ? '<p class="studio-diff-hunk__stale">Stale: ' + escapeMarkdownHtml(hunk.staleReason) + "</p>" : "") +
+            '<pre data-testid="studio-native-diff-hunk"><span class="studio-diff-remove">' + escapeMarkdownHtml(hunk.before || "") + '</span>\\n<span class="studio-diff-add">' + escapeMarkdownHtml(hunk.after || "") + "</span></pre>" +
+            '<footer data-testid="studio-hunk-accept-reject">' +
+              '<button type="button" data-testid="studio-hunk-prev" data-studio-hunk-nav="previous">Previous</button>' +
+              '<button type="button" data-testid="studio-hunk-next" data-studio-hunk-nav="next">Next</button>' +
+              (hunk.acceptAvailable ? '<button type="button" data-testid="studio-hunk-accept" data-studio-hunk-decision="approve" data-approval-id="' + escapeMarkdownHtml(hunk.approvalId || "") + '" data-hunk-file="' + escapeMarkdownHtml(hunk.file || "workspace") + '" data-change-id="' + escapeMarkdownHtml(hunk.changeId || "") + '" data-hunk-index="' + escapeMarkdownHtml(String(hunk.hunkIndex)) + '">Accept hunk</button>' : "") +
+              (hunk.rejectAvailable ? '<button type="button" data-testid="studio-hunk-reject" data-studio-hunk-decision="reject" data-approval-id="' + escapeMarkdownHtml(hunk.approvalId || "") + '" data-hunk-file="' + escapeMarkdownHtml(hunk.file || "workspace") + '" data-change-id="' + escapeMarkdownHtml(hunk.changeId || "") + '" data-hunk-index="' + escapeMarkdownHtml(String(hunk.hunkIndex)) + '">Reject hunk</button>' : "") +
+              (hunk.rollbackAvailable ? '<button type="button" data-testid="studio-hunk-rollback" data-studio-hunk-decision="rollback" data-approval-id="' + escapeMarkdownHtml(hunk.approvalId || "") + '" data-hunk-file="' + escapeMarkdownHtml(hunk.file || "workspace") + '" data-change-id="' + escapeMarkdownHtml(hunk.changeId || "") + '" data-hunk-index="' + escapeMarkdownHtml(String(hunk.hunkIndex)) + '">Roll back hunk</button>' : "") +
+            "</footer>" +
+          "</article>"
+        ).join("");
+      }
+      function postStudioHunkDecision(button) {
+        if (!button) return;
+        document.body.dataset.studioHunkDecisionObserved = "true";
+        document.body.dataset.studioHunkDecisionLast = button.dataset.studioHunkDecision || "";
+        vscode.postMessage({
+          type: "studioHunkDecision",
+          decision: button.dataset.studioHunkDecision,
+          payload: {
+            approvalId: button.dataset.approvalId || ${JSON.stringify(STUDIO_APPROVAL_ID)},
+            file: button.dataset.hunkFile || "workspace",
+            changeId: button.dataset.changeId || "",
+            hunkIndex: button.dataset.hunkIndex || "",
+            runtimeAuthority: "daemon-owned",
+            projectionOwner: "ioi-workbench-agent-studio"
+          }
+        });
+      }
+      function bindStudioHunkControls(root) {
+        const scope = root || document;
+        let boundCount = 0;
+        scope.querySelectorAll("[data-studio-hunk-decision]").forEach((button) => {
+          if (button.dataset.studioHunkDecisionBound !== "true") {
+            button.dataset.studioHunkDecisionBound = "true";
+            button.addEventListener("click", (event) => {
+              event.preventDefault();
+              postStudioHunkDecision(button);
+            });
+          }
+          boundCount += 1;
+        });
+        document.body.dataset.studioHunkDecisionBoundCount = String(boundCount);
       }
       function normalizeProjectedSessionCards(workRecord) {
         const cards = Array.isArray(workRecord?.sessionCards) ? workRecord.sessionCards : [];
@@ -544,17 +807,23 @@ function createStudioPanelHtml({
           const statusLabel = compactPublicText(source.statusLabel || source.status_label || "Complete").slice(0, 80);
           const title = compactPublicText(source.title || "Browser session").slice(0, 120);
           const detail = compactPublicText(source.detail || source.summary || "Managed browser session").slice(0, 240);
+          const status = compactPublicText(source.status || "complete").slice(0, 48);
+          const controlState = compactPublicText(source.controlState || source.control_state || "observe").slice(0, 48);
           return {
-            id: compactPublicText(source.id || source.sessionId || title || "managed-session").slice(0, 120),
+            id: compactPublicText(source.id || source.sessionId || source.session_id || source.managedSessionId || source.managed_session_id || title || "managed-session").slice(0, 120),
             kind: compactPublicText(source.kind || "sandbox_browser").slice(0, 48),
             surfaceLabel,
+            status,
             statusLabel,
+            controlState,
             title,
             detail,
             pageTitle: compactPublicText(source.pageTitle || source.page_title || "").slice(0, 120),
             target: compactPublicText(source.target || source.url || "").slice(0, 160),
             lastTool: compactPublicText(source.lastTool || source.last_tool || "browser").slice(0, 80),
             waitingForUser: Boolean(source.waitingForUser || source.waiting_for_user),
+            waitingReason: compactPublicText(source.waitingReason || source.waiting_reason || "").slice(0, 80),
+            replayReady: Boolean(source.replayReady || source.replay_ready),
           };
         }).filter((session) => session.id || session.title || session.detail).slice(-3);
       }
@@ -570,7 +839,7 @@ function createStudioPanelHtml({
             ].map(([kind, label]) =>
               '<span data-testid="studio-managed-session-mode-label" data-session-mode-label="' + escapeMarkdownHtml(kind) + '" class="' + (kind === session.kind ? "is-active" : "") + '">' + escapeMarkdownHtml(label) + "</span>"
             ).join("");
-            return '<section class="studio-managed-session-card studio-managed-session-card--' + escapeMarkdownHtml(session.kind) + '" data-testid="studio-managed-session-card" data-session-id="' + escapeMarkdownHtml(session.id) + '" data-session-kind="' + escapeMarkdownHtml(session.kind) + '" data-session-label="' + escapeMarkdownHtml(session.surfaceLabel) + '" data-session-status="' + escapeMarkdownHtml(session.statusLabel) + '" data-control-state="observe">' +
+            return '<section class="studio-managed-session-card studio-managed-session-card--' + escapeMarkdownHtml(session.kind) + '" data-testid="studio-managed-session-card" data-session-id="' + escapeMarkdownHtml(session.id) + '" data-session-kind="' + escapeMarkdownHtml(session.kind) + '" data-session-label="' + escapeMarkdownHtml(session.surfaceLabel) + '" data-session-status="' + escapeMarkdownHtml(session.statusLabel) + '" data-control-state="' + escapeMarkdownHtml(session.controlState) + '">' +
               '<header class="studio-managed-session-card__header">' +
                 "<div><strong>" + escapeMarkdownHtml(session.surfaceLabel) + "</strong><span>" + escapeMarkdownHtml(session.statusLabel) + "</span></div>" +
                 '<button type="button" data-testid="studio-managed-session-expand" data-studio-managed-session-expand aria-expanded="false">Expand</button>' +
@@ -580,16 +849,16 @@ function createStudioPanelHtml({
                 '<div class="studio-managed-session-preview__body">' +
                   "<strong>" + escapeMarkdownHtml(session.pageTitle || session.title) + "</strong>" +
                   "<span>" + escapeMarkdownHtml(session.detail || session.target || "Managed browser session") + "</span>" +
-                  (session.waitingForUser ? '<mark data-testid="studio-managed-session-waiting">Waiting for user</mark>' : "") +
+                  (session.waitingForUser ? '<mark data-testid="studio-managed-session-waiting">Waiting for user' + (session.waitingReason ? ": " + escapeMarkdownHtml(session.waitingReason) : "") + "</mark>" : "") +
                 "</div>" +
               "</div>" +
               '<div class="studio-managed-session-expanded" data-testid="studio-managed-session-expanded-view">' +
                 '<div class="studio-managed-session-mode-labels" data-testid="studio-managed-session-mode-labels">' + labels + "</div>" +
                 "<p>" + escapeMarkdownHtml(session.detail || "Agent-controlled sandbox session ready for observation.") + "</p>" +
                 '<div class="studio-managed-session-controls" data-testid="studio-managed-session-controls">' +
-                  '<button type="button" data-testid="studio-managed-session-observe" data-studio-managed-session-control="observe" aria-pressed="true" class="is-active">Observe</button>' +
-                  '<button type="button" data-testid="studio-managed-session-take-over" data-studio-managed-session-control="take_over">Take over</button>' +
-                  '<button type="button" data-testid="studio-managed-session-return" data-studio-managed-session-control="return_agent">Return control to Agent</button>' +
+                  '<button type="button" data-testid="studio-managed-session-observe" data-studio-managed-session-control="observe" aria-pressed="' + String(session.controlState === "observe") + '" class="' + (session.controlState === "observe" ? "is-active" : "") + '">Observe</button>' +
+                  '<button type="button" data-testid="studio-managed-session-take-over" data-studio-managed-session-control="take_over" aria-pressed="' + String(session.controlState === "take_over") + '" class="' + (session.controlState === "take_over" ? "is-active" : "") + '">Take over</button>' +
+                  '<button type="button" data-testid="studio-managed-session-return" data-studio-managed-session-control="return_agent" aria-pressed="' + String(session.controlState === "return_agent") + '" class="' + (session.controlState === "return_agent" ? "is-active" : "") + '">Return control to Agent</button>' +
                 "</div>" +
               "</div>" +
             "</section>";
@@ -758,10 +1027,11 @@ function createStudioPanelHtml({
             button.textContent = expanded ? "Collapse" : "Expand";
           });
         });
-        scope.querySelectorAll("[data-studio-managed-session-control]").forEach((button) => {
-          if (button.dataset.studioManagedSessionControlBound === "true") return;
-          button.dataset.studioManagedSessionControlBound = "true";
-          button.addEventListener("click", () => {
+        if (window.__ioiManagedSessionControlDelegateBound !== true) {
+          window.__ioiManagedSessionControlDelegateBound = true;
+          document.addEventListener("click", (event) => {
+            const button = event.target?.closest?.("[data-studio-managed-session-control]");
+            if (!button) return;
             const card = button.closest("[data-testid='studio-managed-session-card']");
             const control = button.dataset.studioManagedSessionControl || "observe";
             card?.setAttribute("data-control-state", control);
@@ -770,14 +1040,30 @@ function createStudioPanelHtml({
               candidate.classList.toggle("is-active", active);
               candidate.setAttribute("aria-pressed", String(active));
             });
+            vscode.postMessage({
+              source: "ioi-studio-managed-session",
+              type: "studioManagedSessionControl",
+              payload: {
+                managedSessionId: card?.dataset.sessionId || "",
+                control,
+                sessionKind: card?.dataset.sessionKind || "",
+                reason: control === "take_over"
+                  ? "operator requested manual control"
+                  : control === "return_agent"
+                    ? "operator returned control to Agent"
+                    : "operator observing session",
+              },
+            });
           });
-        });
+        }
       }
       function ensureProjectedWorkRunBar(turn, workRecord, status) {
         const rowsHtml = projectedWorkRowsHtml(workRecord);
+        const commandsHtml = projectedCommandOutputRowsHtml(workRecord);
+        const diffHunksHtml = projectedDiffHunksHtml(workRecord);
         const sessionCards = normalizeProjectedSessionCards(workRecord);
         const sessionsHtml = projectedManagedSessionRowsHtml(workRecord);
-        if (!turn || (!rowsHtml && !sessionsHtml)) return;
+        if (!turn || (!rowsHtml && !commandsHtml && !diffHunksHtml && !sessionsHtml)) return;
         turn.dataset.documentedWork = "true";
         turn.setAttribute("data-documented-work", "true");
         const headline = status === "blocked"
@@ -792,6 +1078,8 @@ function createStudioPanelHtml({
             '<ul class="studio-run-status-bar__details studio-work-record" data-testid="studio-work-summary-lines">' +
               rowsHtml +
             "</ul>" +
+            commandsHtml +
+            diffHunksHtml +
           "</details>";
         const existing = turn.querySelector("[data-testid='studio-run-status-bar']");
         if (existing) {
@@ -809,6 +1097,7 @@ function createStudioPanelHtml({
           root?.setAttribute("data-managed-session-count", String(Math.max(sessionCards.length, Number(root?.getAttribute("data-managed-session-count") || 0) || 0)));
           bindManagedSessionControls(turn);
         }
+        bindStudioHunkControls(turn);
         ensureProjectedConversationArtifacts(turn, workRecord, []);
       }
       function ensureStreamingAssistantTurn(streamId) {
@@ -914,10 +1203,29 @@ function createStudioPanelHtml({
         const payload = message.payload || {};
         if (message.type === "agentWorkStep") {
           const rootStatus = document.querySelector("[data-testid='agent-studio-operational-chat']")?.getAttribute("data-studio-status") || "";
-          if (["completed", "blocked"].includes(rootStatus) && !document.querySelector("[data-testid='studio-pending-state']")) {
+          if (["completed", "blocked"].includes(rootStatus)) {
+            hidePendingProjectionAfterMinimum();
             return;
           }
           appendPendingWorkStep(payload);
+          return;
+        }
+        if (message.type === "agentWorklogSnapshot") {
+          const rootStatus = document.querySelector("[data-testid='agent-studio-operational-chat']")?.getAttribute("data-studio-status") || "";
+          if (["completed", "blocked"].includes(rootStatus)) {
+            hidePendingProjectionAfterMinimum();
+            return;
+          }
+          const steps = Array.isArray(payload.steps) ? payload.steps : [];
+          if (!steps.length) return;
+          const pending = ensurePendingProjection();
+          const list = pending?.querySelector("[data-testid='studio-pending-worklog']");
+          if (list) {
+            list.innerHTML = "";
+          }
+          for (const step of steps) {
+            appendPendingWorkStep(step);
+          }
           return;
         }
         if (!payload.streamId) return;
@@ -1000,7 +1308,7 @@ function createStudioPanelHtml({
             if (thinking) thinking.textContent = payload.thinkingText;
           }
           if (target?.text && payload.text) {
-            renderMarkdownInto(target.text, payload.text);
+            renderMarkdownInto(target.text, sanitizePublicAssistantText(payload.text));
           }
           if (target?.turn && Array.isArray(payload.sourceRefs)) {
             syncProjectedSourceRows(target.turn, payload.sourceRefs);
@@ -1278,7 +1586,7 @@ function createStudioPanelHtml({
         if (role === "assistant" && /Daemon agent turn completed but did not emit a final chat__reply|did not emit a final chat__reply|final chat__reply/i.test(compact)) {
           return "Agent reached the runtime but did not produce a chat reply. Details are in Tracing.";
         }
-        return raw;
+        return role === "assistant" ? sanitizePublicAssistantText(raw) : raw;
       }
       function projectedTurnText(turn) {
         return compactProjectedText(
@@ -1399,10 +1707,73 @@ function createStudioPanelHtml({
         const elapsedSeconds = Math.max(0, Math.floor((now - rawStartedAt) / 1000));
         return "Thinking about your request · " + elapsedSeconds + "s";
       }
+      function studioFormatElapsedLabel(totalSeconds) {
+        const seconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+        const minutes = Math.floor(seconds / 60);
+        const remainder = seconds % 60;
+        if (minutes > 0) return minutes + "m " + remainder + "s";
+        return seconds + "s";
+      }
+      function studioPendingWorkStepStartedAtMs(payload, fallback = performance.now()) {
+        const raw = payload?.at || payload?.startedAt || payload?.started_at || "";
+        const parsed = Date.parse(String(raw || ""));
+        if (Number.isFinite(parsed)) return parsed;
+        const numeric = Number(raw);
+        if (Number.isFinite(numeric) && numeric > 0) return numeric;
+        return fallback;
+      }
+      function studioPendingStepVisibleDetail(detail) {
+        const text = sanitizePublicToolText(detail);
+        if (/^(?:running|started|completed|pending|status:\s*(?:running|started|completed|pending))$/i.test(text)) {
+          return "";
+        }
+        return text;
+      }
+      function studioPendingCommandOutputExcerpt(payload = {}, fallbackExcerpt = "") {
+        const text = sanitizePublicOutputBlock(
+          payload.excerptPreview ||
+            payload.excerpt_preview ||
+            payload.stdout ||
+            payload.output ||
+            payload.chunk ||
+            payload.text ||
+            fallbackExcerpt ||
+            "",
+          1200
+        );
+        if (!text) return "";
+        const commandLabel = compactPublicText(payload.command || payload.commandLabel || payload.command_label || payload.detail || "");
+        const rowLabel = compactPublicText(payload.label || "");
+        if (commandLabel && text === commandLabel) return "";
+        if (rowLabel && text === rowLabel) return "";
+        if (/^[a-z0-9_.-]+\s+-lc\s+<arg>$/i.test(text)) return "";
+        if (/^[a-z0-9_.-]+\s+-e\s+<inline script>$/i.test(text)) return "";
+        return text;
+      }
+      function studioPendingStepLabelForDisplay(item, baseLabel) {
+        const label = sanitizePublicToolText(baseLabel || item?.dataset.baseLabel || "");
+        const status = String(item?.dataset.status || "").toLowerCase();
+        if (label === "Running command" && /running|started/.test(status)) {
+          const rawStartedAt = Number(item?.dataset.startedAtMs || performance.now());
+          const now = rawStartedAt > 1000000000000 ? Date.now() : performance.now();
+          const elapsedSeconds = Math.max(0, Math.floor((now - rawStartedAt) / 1000));
+          return label + " for " + studioFormatElapsedLabel(elapsedSeconds);
+        }
+        return label;
+      }
+      function updatePendingWorkStepLabels(pending) {
+        const rows = pending?.querySelectorAll?.("[data-testid='studio-pending-worklog'] li") || [];
+        rows.forEach((item) => {
+          const headline = item.querySelector(".studio-pending-step__headline");
+          if (!headline) return;
+          headline.textContent = studioPendingStepLabelForDisplay(item, item.dataset.baseLabel || headline.textContent);
+        });
+      }
       function updatePendingProjectionLabel(pending) {
         const label = pending?.querySelector("[data-testid='studio-pending-label']");
         if (!label) return;
         label.textContent = studioPendingProjectionLabel(pending.dataset.pendingStartedAtMs);
+        updatePendingWorkStepLabels(pending);
       }
       function pendingWorkStepsFromRoot() {
         const root = document.querySelector("[data-testid='agent-studio-operational-chat']");
@@ -1463,9 +1834,48 @@ function createStudioPanelHtml({
         const pending = ensurePendingProjection();
         const list = pending?.querySelector("[data-testid='studio-pending-worklog']");
         if (!list) return;
-        const label = String(payload?.label || "").trim();
-        const detail = String(payload?.detail || "").trim();
+        const rawLabel = String(payload?.label || "");
+        const toolName = String(
+          payload?.toolName ||
+          payload?.tool_name ||
+          payload?.toolId ||
+          payload?.tool_id ||
+          payload?.name ||
+          payload?.tool ||
+          (rawLabel.match(/\b[a-z][a-z0-9]*__[a-z0-9_]+\b/i)?.[0] || "")
+        ).trim();
+        let label = sanitizePublicToolText(rawLabel);
+        const detail = studioPendingStepVisibleDetail(payload?.detail || "");
         if (!label) return;
+        const normalizedTool = toolName.toLowerCase();
+        if (normalizedTool === "shell__start") {
+          const shellStateText = [detail, payload?.status].join(" ");
+          label = /failed|error/i.test(shellStateText)
+            ? "Command failed"
+            : /running/i.test(shellStateText)
+              ? "Running command"
+              : "Started command";
+        } else if (normalizedTool === "shell__run" || normalizedTool === "terminal__run") {
+          const shellRunStateText = [detail, payload?.status].join(" ");
+          label = /failed|error/i.test(shellRunStateText)
+            ? "Command failed"
+            : /running|started/i.test(shellRunStateText)
+              ? "Running command"
+              : "Ran command";
+        } else if (normalizedTool === "shell__status") {
+          label = "Checked command status";
+        } else if (normalizedTool === "shell__input") {
+          const inputState = [detail, payload?.status].join(" ");
+          label = /already stopped|already terminated|obsolete/i.test(inputState)
+            ? "Skipped obsolete input"
+            : /failed|skipped|already sent/i.test(inputState)
+            ? "Skipped duplicate input"
+            : "Sent input to retained command";
+        } else if (normalizedTool === "shell__terminate") {
+          label = "Terminated retained command";
+        } else if (normalizedTool === "shell__reset") {
+          label = "Reset retained shell state";
+        }
         const abstractPendingText = [label, detail].join(" ").toLowerCase();
         if ([
           "governed agent run",
@@ -1489,15 +1899,6 @@ function createStudioPanelHtml({
         ].some((phrase) => abstractPendingText.includes(phrase))) {
           return;
         }
-        const toolName = String(
-          payload?.toolName ||
-          payload?.tool_name ||
-          payload?.toolId ||
-          payload?.tool_id ||
-          payload?.name ||
-          payload?.tool ||
-          (label.match(/\b[a-z][a-z0-9]*__[a-z0-9_]+\b/i)?.[0] || "")
-        ).trim();
         const kind = String(payload?.kind || payload?.eventKind || payload?.event_kind || "").toLowerCase();
         const concreteTool = toolName &&
           toolName !== "chat__reply" &&
@@ -1512,9 +1913,13 @@ function createStudioPanelHtml({
         );
         if (item) {
           item.dataset.status = String(payload?.status || "running");
+          item.dataset.baseLabel = label;
+          if (!item.dataset.startedAtMs) {
+            item.dataset.startedAtMs = String(studioPendingWorkStepStartedAtMs(payload));
+          }
           const text = item.querySelector(".studio-pending-step__headline");
           let meta = item.querySelector(".studio-pending-step__summary");
-          if (text) text.textContent = label;
+          if (text) text.textContent = studioPendingStepLabelForDisplay(item, label);
           if (detail) {
             if (!meta) {
               meta = document.createElement("span");
@@ -1532,9 +1937,11 @@ function createStudioPanelHtml({
         item.dataset.stepId = id;
         item.dataset.toolName = toolName;
         item.dataset.status = String(payload?.status || "running");
+        item.dataset.baseLabel = label;
+        item.dataset.startedAtMs = String(studioPendingWorkStepStartedAtMs(payload));
         const text = document.createElement("p");
         text.className = "studio-pending-step__headline";
-        text.textContent = label;
+        text.textContent = studioPendingStepLabelForDisplay(item, label);
         item.append(text);
         if (detail) {
           const meta = document.createElement("span");
@@ -1545,6 +1952,19 @@ function createStudioPanelHtml({
         renderPendingWorkStepDecorations(item, payload);
         list.append(item);
         scrollStudioTranscriptToLatest(item);
+      }
+      function isPendingCommandStep(item, payload = {}) {
+        const haystack = [
+          item?.dataset?.toolName,
+          item?.dataset?.baseLabel,
+          payload?.toolName,
+          payload?.tool_name,
+          payload?.toolId,
+          payload?.tool_id,
+          payload?.label,
+          payload?.kind,
+        ].map((value) => String(value || "").toLowerCase()).join(" ");
+        return /shell|terminal|command/.test(haystack);
       }
       function renderPendingWorkStepDecorations(item, payload = {}) {
         if (!item) return;
@@ -1560,16 +1980,33 @@ function createStudioPanelHtml({
         } else if (chipsNode) {
           chipsNode.remove();
         }
-        const excerpt = compactPublicText(payload.excerptPreview || payload.excerpt_preview || sourceChips[0]?.excerpt || "").slice(0, 260);
+        const commandStep = isPendingCommandStep(item, payload);
+        const excerpt = commandStep
+          ? studioPendingCommandOutputExcerpt(payload, sourceChips[0]?.excerpt || "")
+          : sanitizePublicOutputBlock(payload.excerptPreview || payload.excerpt_preview || sourceChips[0]?.excerpt || "", 1200);
         let excerptNode = item.querySelector(".studio-pending-step__excerpt");
+        const genericCommandExcerpt = commandStep && /^(?:ran command|running command|started command|command completed)$/i.test(excerpt);
+        if (genericCommandExcerpt && excerptNode && excerptNode.textContent.trim()) {
+          return;
+        }
         if (excerpt) {
+          const expectedTag = commandStep ? "PRE" : "P";
+          if (excerptNode && excerptNode.tagName !== expectedTag) {
+            excerptNode.remove();
+            excerptNode = null;
+          }
           if (!excerptNode) {
-            excerptNode = document.createElement("p");
-            excerptNode.className = "studio-pending-step__excerpt";
+            excerptNode = document.createElement(commandStep ? "pre" : "p");
+            excerptNode.className = commandStep
+              ? "studio-pending-step__excerpt studio-pending-step__command-output"
+              : "studio-pending-step__excerpt";
+            if (commandStep) {
+              excerptNode.setAttribute("data-testid", "studio-pending-command-output");
+            }
             item.append(excerptNode);
           }
           excerptNode.textContent = excerpt;
-        } else if (excerptNode) {
+        } else if (excerptNode && !commandStep) {
           excerptNode.remove();
         }
       }
@@ -1688,20 +2125,28 @@ function createStudioPanelHtml({
           document.querySelector("[data-studio-prompt-form]")?.requestSubmit();
         }
       });
-      document.querySelectorAll("[data-studio-hunk-decision]").forEach((button) => {
-        button.addEventListener("click", () => {
-          vscode.postMessage({
-            type: "studioHunkDecision",
-            decision: button.dataset.studioHunkDecision,
-            payload: {
-              approvalId: button.dataset.approvalId || ${JSON.stringify(STUDIO_APPROVAL_ID)},
-              file: button.dataset.hunkFile || "docs/evidence/agent-studio-preview.md",
-              runtimeAuthority: "daemon-owned",
-              projectionOwner: "ioi-workbench-agent-studio"
-            }
-          });
+      document.addEventListener("click", (event) => {
+        let button = event.target;
+        while (button && button !== document && !button.dataset?.studioHunkDecision) {
+          button = button.parentElement;
+        }
+        if (!button) return;
+        event.preventDefault();
+        document.body.dataset.studioHunkDecisionObserved = "true";
+        document.body.dataset.studioHunkDecisionLast = button.dataset.studioHunkDecision || "";
+        vscode.postMessage({
+          type: "studioHunkDecision",
+          decision: button.dataset.studioHunkDecision,
+          payload: {
+            approvalId: button.dataset.approvalId || ${JSON.stringify(STUDIO_APPROVAL_ID)},
+            file: button.dataset.hunkFile || "docs/evidence/agent-studio-preview.md",
+            changeId: button.dataset.changeId || "",
+            hunkIndex: button.dataset.hunkIndex || "",
+            runtimeAuthority: "daemon-owned",
+            projectionOwner: "ioi-workbench-agent-studio"
+          }
         });
-      });
+      }, true);
       document.querySelectorAll("[data-studio-hunk-nav]").forEach((button) => {
         button.addEventListener("click", () => {
           vscode.postMessage({
@@ -1739,6 +2184,7 @@ function createStudioPanelHtml({
       });
       bindManagedSessionControls(document);
       bindConversationArtifactControls(document);
+      bindStudioHunkControls(document);
       document.querySelectorAll("[data-studio-copy-answer]").forEach((button) => {
         button.addEventListener("click", async () => {
           const card = button.closest("[data-testid='studio-assistant-answer-card']");

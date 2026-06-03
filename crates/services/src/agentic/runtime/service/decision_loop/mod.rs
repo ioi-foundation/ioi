@@ -58,9 +58,44 @@ const RUNTIME_ROUTE_BROWSER_NAVIGATE_MARKER: &str =
 const RUNTIME_ROUTE_BROWSER_NAVIGATE_EVIDENCE: &str =
     "runtime_route_frame_dispatch.browser_navigate_url";
 const RUNTIME_ROUTE_SHELL_RUN_MARKER: &str = "runtime_route_frame_dispatch:shell__run";
+const RUNTIME_ROUTE_FILE_WRITE_MARKER: &str = "runtime_route_frame_dispatch:file__write";
 const RUNTIME_ROUTE_WEB_SEARCH_MARKER: &str = "runtime_route_frame_dispatch:web__search";
 const RUNTIME_ROUTE_WORKSPACE_CONTEXT_MARKER: &str =
     "runtime_route_frame_dispatch:workspace_context";
+
+fn text_requests_retained_shell_controls(text: &str) -> bool {
+    let normalized = text.to_ascii_lowercase();
+    let mentions_retained_surface = [
+        "retained shell",
+        "retained command",
+        "retained process",
+        "retained helper",
+        "persistent shell",
+        "persistent command",
+        "persistent process",
+        "long-running",
+        "long running",
+        "background command",
+        "background process",
+    ]
+    .iter()
+    .any(|cue| normalized.contains(cue));
+    let mentions_control = [
+        "stdin",
+        "status",
+        "send input",
+        "send the input",
+        "terminate",
+        "reset",
+        "shell__status",
+        "shell__input",
+        "shell__terminate",
+        "shell__reset",
+    ]
+    .iter()
+    .any(|cue| normalized.contains(cue));
+    mentions_retained_surface && mentions_control
+}
 
 fn runtime_route_evidence_value(frame: &RuntimeRouteFrame, evidence_kind: &str) -> Option<String> {
     frame
@@ -138,6 +173,49 @@ fn workspace_search_regex(query: &str) -> String {
     } else {
         terms.join("|")
     }
+}
+
+fn explicit_path_from_text(text: &str) -> Option<String> {
+    text.split_whitespace()
+        .map(|token| {
+            token.trim_matches(|ch: char| {
+                matches!(
+                    ch,
+                    '`' | '"' | '\'' | ',' | ';' | ':' | ')' | '(' | '[' | ']' | '{' | '}'
+                )
+            })
+        })
+        .find(|token| {
+            token.len() > 1
+                && !token.starts_with("http://")
+                && !token.starts_with("https://")
+                && (token.starts_with('/')
+                    || token.starts_with("./")
+                    || token.starts_with("../")
+                    || (token.starts_with('.')
+                        && !token.starts_with("..")
+                        && !token.contains(' ')
+                        && token.chars().skip(1).any(|ch| ch.is_ascii_alphanumeric()))
+                    || (token.starts_with('.') && token.contains('/')))
+        })
+        .map(ToOwned::to_owned)
+}
+
+fn goal_requests_path_read(text: &str) -> bool {
+    let normalized = text.to_ascii_lowercase();
+    let read_like = [
+        "read ",
+        "view ",
+        "open ",
+        "inspect ",
+        "check ",
+        "show ",
+        "summarize ",
+        "file tool",
+    ]
+    .iter()
+    .any(|needle| normalized.contains(needle));
+    read_like && explicit_path_from_text(text).is_some()
 }
 
 fn workspace_overview_query(query: &str) -> bool {
@@ -311,6 +389,15 @@ fn maybe_typed_runtime_workspace_context_tool_call(agent_state: &mut AgentState)
     let frame = agent_state.runtime_route_frame.clone()?;
     if !frame.output_intent.eq_ignore_ascii_case("tool_execution")
         || !runtime_route_frame_requires_workspace_context(&frame)
+        || runtime_route_frame_skips_workspace_context_prefetch(&frame)
+    {
+        return None;
+    }
+    if frame
+        .runtime_action
+        .as_ref()
+        .and_then(|action| action.file_plan.as_ref())
+        .is_some_and(|plan| plan.mutation_kind.eq_ignore_ascii_case("write"))
     {
         return None;
     }
@@ -342,8 +429,36 @@ fn maybe_typed_runtime_workspace_context_tool_call(agent_state: &mut AgentState)
         .ok();
     }
 
-    let query =
-        runtime_route_evidence_value(&frame, "workspace_search").unwrap_or_else(|| frame.target);
+    let query = runtime_route_evidence_value(&frame, "workspace_search")
+        .unwrap_or_else(|| frame.target.clone());
+    if goal_requests_path_read(&agent_state.goal) {
+        if let Some(path) = explicit_path_from_text(&query)
+            .or_else(|| explicit_path_from_text(&frame.target))
+            .or_else(|| explicit_path_from_text(&agent_state.goal))
+        {
+            let marker = workspace_context_marker("file__read", &path);
+            if agent_state
+                .recent_actions
+                .iter()
+                .any(|action| action == &marker)
+            {
+                return None;
+            }
+            log::info!(
+                "TypedRuntimeWorkspaceContext dispatching explicit path read path={} session={}",
+                path,
+                hex::encode(&agent_state.session_id[..4])
+            );
+            agent_state.recent_actions.push(marker);
+            return serde_json::to_string(&json!({
+                "name": "file__read",
+                "arguments": {
+                    "path": path,
+                }
+            }))
+            .ok();
+        }
+    }
     let regex = workspace_search_regex(&query);
     if regex.trim().is_empty() {
         return None;
@@ -465,22 +580,60 @@ fn maybe_typed_runtime_browser_navigate_tool_call(agent_state: &mut AgentState) 
     .ok()
 }
 
-fn maybe_typed_runtime_shell_run_tool_call(agent_state: &mut AgentState) -> Option<String> {
+fn maybe_typed_runtime_file_write_tool_call(agent_state: &mut AgentState) -> Option<String> {
     if agent_state
         .pending_tool_call
         .as_deref()
-        .is_some_and(|raw| raw.contains("shell__run") || raw.contains("shell__start"))
+        .is_some_and(|raw| raw.contains("file__write"))
     {
         return None;
     }
     if agent_state
         .recent_actions
         .iter()
-        .any(|action| action.starts_with(RUNTIME_ROUTE_SHELL_RUN_MARKER))
+        .any(|action| action.starts_with(RUNTIME_ROUTE_FILE_WRITE_MARKER))
     {
         return None;
     }
 
+    let frame = agent_state.runtime_route_frame.clone()?;
+    if frame.direct_answer_allowed
+        || !frame.output_intent.eq_ignore_ascii_case("tool_execution")
+        || !runtime_route_frame_requires_workspace_context(&frame)
+    {
+        return None;
+    }
+    let runtime_action = frame.runtime_action.as_ref()?;
+    let file_plan = runtime_action.file_plan.as_ref()?;
+    if !file_plan.mutation_kind.eq_ignore_ascii_case("write") {
+        return None;
+    }
+    let path = file_plan.path.trim();
+    if path.is_empty() {
+        return None;
+    }
+    let content = runtime_route_evidence_value(&frame, "file_write_content").unwrap_or_default();
+    log::info!(
+        "TypedRuntimeFileWrite dispatching file write plan_ref={} session={}",
+        file_plan.plan_ref,
+        hex::encode(&agent_state.session_id[..4])
+    );
+    agent_state.recent_actions.push(format!(
+        "{RUNTIME_ROUTE_FILE_WRITE_MARKER}:{}",
+        file_plan.plan_ref
+    ));
+
+    serde_json::to_string(&json!({
+        "name": "file__write",
+        "arguments": {
+            "path": path,
+            "content": content,
+        }
+    }))
+    .ok()
+}
+
+fn maybe_typed_runtime_shell_run_tool_call(agent_state: &mut AgentState) -> Option<String> {
     let frame = agent_state.runtime_route_frame.clone()?;
     if frame.direct_answer_allowed
         || !frame.output_intent.eq_ignore_ascii_case("tool_execution")
@@ -489,20 +642,42 @@ fn maybe_typed_runtime_shell_run_tool_call(agent_state: &mut AgentState) -> Opti
         return None;
     }
     let runtime_action = frame.runtime_action.as_ref()?;
+    if text_requests_retained_shell_controls(&agent_state.goal)
+        || text_requests_retained_shell_controls(&frame.target)
+        || text_requests_retained_shell_controls(&runtime_action.target_text)
+    {
+        return None;
+    }
     let command_plan = runtime_action.command_plan.as_ref()?;
     let (command, args) = command_plan.argv.split_first()?;
     if command.trim().is_empty() {
         return None;
+    }
+    let dispatch_marker = format!("{RUNTIME_ROUTE_SHELL_RUN_MARKER}:{}", command_plan.plan_ref);
+    if agent_state
+        .recent_actions
+        .iter()
+        .any(|action| action == &dispatch_marker)
+    {
+        return None;
+    }
+    if agent_state
+        .pending_tool_call
+        .as_deref()
+        .is_some_and(|raw| raw.contains("shell__run") || raw.contains("shell__start"))
+    {
+        agent_state.pending_tool_call = None;
+        agent_state.pending_tool_jcs = None;
+        agent_state.pending_tool_hash = None;
+        agent_state.pending_request_nonce = None;
+        agent_state.pending_visual_hash = None;
     }
     log::info!(
         "TypedRuntimeShellRun dispatching shell command plan_ref={} session={}",
         command_plan.plan_ref,
         hex::encode(&agent_state.session_id[..4])
     );
-    agent_state.recent_actions.push(format!(
-        "{RUNTIME_ROUTE_SHELL_RUN_MARKER}:{}",
-        command_plan.plan_ref
-    ));
+    agent_state.recent_actions.push(dispatch_marker);
 
     serde_json::to_string(&json!({
         "name": "shell__run",
@@ -666,6 +841,10 @@ fn runtime_route_frame_requires_workspace_context(frame: &RuntimeRouteFrame) -> 
         || runtime_route_frame_has_capability(frame, &["file.", "file_", "workspace."])
 }
 
+fn runtime_route_frame_skips_workspace_context_prefetch(frame: &RuntimeRouteFrame) -> bool {
+    runtime_route_evidence_value(frame, "stage5_stop_hook_repair_proof").is_some()
+}
+
 fn typed_runtime_frame_capability_ids(frame: &RuntimeRouteFrame) -> Vec<CapabilityId> {
     let mut ids = Vec::new();
     for raw in &frame.required_capabilities {
@@ -789,9 +968,105 @@ fn typed_runtime_workspace_context_resolved_intent() -> ResolvedIntentState {
     }
 }
 
+fn typed_runtime_file_mutation_resolved_intent(frame: &RuntimeRouteFrame) -> ResolvedIntentState {
+    let mut required_capabilities = vec![
+        CapabilityId::from("agent.lifecycle"),
+        CapabilityId::from("conversation.reply"),
+        CapabilityId::from("filesystem.write"),
+    ];
+    for capability in typed_runtime_frame_capability_ids(frame) {
+        if !required_capabilities.contains(&capability) {
+            required_capabilities.push(capability);
+        }
+    }
+    ResolvedIntentState {
+        intent_id: "workspace.mutate".to_string(),
+        scope: IntentScopeProfile::WorkspaceOps,
+        band: IntentConfidenceBand::High,
+        score: 1.0,
+        top_k: vec![],
+        required_capabilities,
+        required_evidence: vec!["policy_result".to_string()],
+        success_conditions: vec!["action_report".to_string()],
+        risk_class: if frame.host_mutation { "medium" } else { "low" }.to_string(),
+        preferred_tier: "tool_first".to_string(),
+        intent_catalog_version: "typed-runtime-route-frame".to_string(),
+        embedding_model_id: "typed-runtime-route-frame".to_string(),
+        embedding_model_version: "v1".to_string(),
+        similarity_function_id: "typed_runtime_route_frame".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "typed-runtime-route-frame-v1".to_string(),
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: true,
+    }
+}
+
+fn typed_runtime_stage5_stop_hook_repair_resolved_intent(
+    frame: &RuntimeRouteFrame,
+) -> ResolvedIntentState {
+    let mut required_capabilities = vec![
+        CapabilityId::from("agent.lifecycle"),
+        CapabilityId::from("conversation.reply"),
+        CapabilityId::from("command.exec"),
+        CapabilityId::from("filesystem.read"),
+        CapabilityId::from("filesystem.write"),
+        CapabilityId::from("file.read"),
+        CapabilityId::from("file.edit"),
+    ];
+    for capability in typed_runtime_frame_capability_ids(frame) {
+        if !required_capabilities.contains(&capability) {
+            required_capabilities.push(capability);
+        }
+    }
+    ResolvedIntentState {
+        intent_id: "workspace.repair".to_string(),
+        scope: IntentScopeProfile::WorkspaceOps,
+        band: IntentConfidenceBand::High,
+        score: 1.0,
+        top_k: vec![],
+        required_capabilities,
+        required_evidence: vec![],
+        success_conditions: vec![],
+        risk_class: "low".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        intent_catalog_version: "typed-runtime-route-frame".to_string(),
+        embedding_model_id: "typed-runtime-route-frame".to_string(),
+        embedding_model_version: "v1".to_string(),
+        similarity_function_id: "typed_runtime_route_frame".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "typed-runtime-route-frame-v1".to_string(),
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: true,
+    }
+}
+
+fn runtime_route_frame_file_write_plan(frame: &RuntimeRouteFrame) -> bool {
+    frame
+        .runtime_action
+        .as_ref()
+        .and_then(|action| action.file_plan.as_ref())
+        .is_some_and(|plan| plan.mutation_kind.eq_ignore_ascii_case("write"))
+}
+
 fn typed_runtime_route_resolved_intent(frame: &RuntimeRouteFrame) -> Option<ResolvedIntentState> {
     if runtime_route_frame_requires_web_research(frame) {
         return Some(typed_runtime_web_research_resolved_intent(frame));
+    }
+    if runtime_route_frame_skips_workspace_context_prefetch(frame) {
+        return Some(typed_runtime_stage5_stop_hook_repair_resolved_intent(frame));
+    }
+    if runtime_route_frame_file_write_plan(frame) {
+        return Some(typed_runtime_file_mutation_resolved_intent(frame));
     }
     if runtime_route_frame_requires_workspace_context(frame) {
         return Some(typed_runtime_workspace_context_resolved_intent());
@@ -1132,6 +1407,7 @@ async fn maybe_process_runtime_route_frame_dispatch(
 ) -> Result<bool, TransactionError> {
     let Some(tool_call) = maybe_typed_runtime_install_resolve_tool_call(agent_state)
         .or_else(|| maybe_typed_runtime_web_search_tool_call(agent_state))
+        .or_else(|| maybe_typed_runtime_file_write_tool_call(agent_state))
         .or_else(|| maybe_typed_runtime_workspace_context_tool_call(agent_state))
         .or_else(|| maybe_typed_runtime_browser_navigate_tool_call(agent_state))
         .or_else(|| maybe_typed_runtime_shell_run_tool_call(agent_state))

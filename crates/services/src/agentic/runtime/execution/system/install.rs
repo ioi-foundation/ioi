@@ -226,6 +226,7 @@ pub(super) async fn handle_software_install_execute_plan(
             session_id,
             step_index,
             workload_id.clone(),
+            None,
         ));
 
     let result = match exec

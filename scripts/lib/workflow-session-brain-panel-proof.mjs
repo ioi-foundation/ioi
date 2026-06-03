@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { startRuntimeDaemonService } from "../../packages/runtime-daemon/src/index.mjs";
+import { bootstrapNativeRuntimeModelRoute } from "./autopilot-runtime-agent-service-bridge.mjs";
 
 const outputPath = process.argv[2];
 if (!outputPath) {
@@ -52,11 +53,52 @@ async function fetchSseEvents(url) {
     });
 }
 
+async function createDaemonModelInvocationToken(endpoint) {
+  const response = await fetch(`${endpoint}/api/v1/tokens`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      audience: "autopilot-session-brain-proof",
+      allowed: [
+        "model.chat:*",
+        "model.responses:*",
+        "model.embeddings:*",
+        "model.import:*",
+        "model.download:*",
+        "model.mount:*",
+        "model.load:*",
+        "model.unload:*",
+        "model.unmount:*",
+        "model.tokenize:*",
+        "model.context:*",
+        "route.write:*",
+        "route.use:*",
+        "server.logs:*",
+        "backend.control:*",
+      ],
+      denied: ["connector.*"],
+      source: "session-brain-proof",
+    }),
+  });
+  const text = await response.text();
+  assert.ok(response.ok, `${response.status} ${response.statusText} token request: ${text}`);
+  const parsed = text ? JSON.parse(text) : {};
+  assert.ok(parsed.token, `token response did not include token: ${text}`);
+  return parsed;
+}
+
 const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-stage22-workspace-"));
 const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-stage22-state-"));
 const daemon = await startRuntimeDaemonService({ cwd, stateDir });
 
 try {
+  const modelToken = await createDaemonModelInvocationToken(daemon.endpoint);
+  const runtimeModelRoute = await bootstrapNativeRuntimeModelRoute({
+    repoRoot: path.resolve(new URL("../..", import.meta.url).pathname),
+    daemonEndpoint: daemon.endpoint,
+    token: modelToken.token,
+    workspaceDir: path.join(cwd, ".ioi", "autopilot-runtime-fixtures"),
+  });
   const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
     method: "POST",
     body: JSON.stringify({
@@ -64,7 +106,7 @@ try {
       goal: "Prove session brain artifacts are scoped, receipted, and audit locked after completion.",
       options: {
         local: { cwd },
-        model: { id: "auto", routeId: "route.native-local" },
+        model: { id: "auto", routeId: runtimeModelRoute.routeId },
       },
     }),
   });
@@ -166,6 +208,15 @@ try {
     stateDir,
     endpoint: daemon.endpoint,
     threadId: thread.thread_id,
+    runtimeModelRoute: {
+      modelId: runtimeModelRoute.modelId,
+      endpointId: runtimeModelRoute.endpointId,
+      routeId: runtimeModelRoute.routeId,
+      providerId: runtimeModelRoute.providerId,
+      backendId: runtimeModelRoute.backendId,
+      runtimeEngine: runtimeModelRoute.runtimeEngine,
+      fixtureFree: runtimeModelRoute.fixtureFree,
+    },
     artifactWriteReceiptIds: artifactWrites.map((write) => write.receipt?.id).filter(Boolean),
     readOnlyPolicyReceiptId: readOnlyPolicy.receipt?.id ?? null,
     blockedWrite: {

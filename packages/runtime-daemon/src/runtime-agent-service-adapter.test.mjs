@@ -143,3 +143,48 @@ console.log(JSON.stringify({
   assert.equal(result.turn_id, "turn_activity");
   assert.deepEqual(events.map((event) => event.event_kind), ["answer.delta"]);
 });
+
+test("RuntimeAgentService command adapter supports managed session inspect and control operations", async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-adapter-managed-session-"));
+  const bridgeScript = path.join(tempDir, "bridge-managed-session-probe.mjs");
+  fs.writeFileSync(
+    bridgeScript,
+    `
+import fs from "node:fs";
+
+const request = JSON.parse(fs.readFileSync(0, "utf8"));
+console.log(JSON.stringify({
+  ok: true,
+  result: {
+    bridge_id: request.bridge_id,
+    source: "runtime_service",
+    operation: request.operation,
+    input: request.input,
+  },
+}));
+`,
+  );
+
+  const adapter = createRuntimeAgentServiceCommandAdapter({
+    command: process.execPath,
+    args: [bridgeScript],
+    bridgeId: "managed-session-test",
+  });
+
+  const inspection = await adapter.inspectThread({
+    threadId: "thread_managed",
+    sessionId: "session_managed",
+  });
+  assert.equal(inspection.operation, "inspect_thread");
+  assert.equal(inspection.input.threadId, "thread_managed");
+
+  const control = await adapter.controlThread({
+    threadId: "thread_managed",
+    sessionId: "session_managed",
+    managedSessionId: "sandbox_browser:one",
+    action: "take_over_session",
+  });
+  assert.equal(control.operation, "control_thread");
+  assert.equal(control.input.managedSessionId, "sandbox_browser:one");
+  assert.equal(control.input.action, "take_over_session");
+});

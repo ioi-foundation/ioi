@@ -18,6 +18,9 @@ const WEB_DELIVERABLE_RE = /\b(website|web\s*site|webpage|web\s*page|landing\s+p
 const RUNTIME_INSPECTION_RE = /\b(runtime cockpit|tool proposal|policy lease|sandbox(?:ed)? command|inline diff|hunk|diagnostics?|test gate|browser status|worker status|subagent|receipt timeline|replay)\b/i;
 const INTERNAL_PROBE_RE = /\bTOOLCAT_(?:SINGLE_TOOL|STAGE\d+_[A-Z0-9_]+)\b|workspace_fixture_|daemon_endpoint=|computer_use_providers_url=|live IDE Rust\/provider tool row/i;
 const INLINE_COMMAND_REQUEST_RE = /\b(run|execute|start|launch)\b[\s\S]{0,80}`([^`]+)`/i;
+const RETAINED_SHELL_LIFECYCLE_RE =
+  /\b(retained|persistent|long[- ]running|background)\b[\s\S]{0,160}\b(shell|command|process|helper|session)\b/i;
+const RETAINED_SHELL_CONTROL_RE = /\b(stdin|status|send(?:\s+the)?\s+input|terminate|reset)\b/i;
 
 function compactText(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -36,6 +39,11 @@ function shellCommandLiteral(prompt = "") {
   return compactText(match?.[2] || "");
 }
 
+function promptRequestsRetainedShellLifecycle(prompt = "") {
+  const text = String(prompt || "");
+  return RETAINED_SHELL_LIFECYCLE_RE.test(text) && RETAINED_SHELL_CONTROL_RE.test(text);
+}
+
 function shellCommandLiteralLooksExecutable(command = "") {
   const value = compactText(command);
   if (!value) return false;
@@ -47,6 +55,9 @@ function shellCommandLiteralLooksExecutable(command = "") {
 }
 
 function localRuntimeActionForPrompt(prompt = "") {
+  if (promptRequestsRetainedShellLifecycle(prompt)) {
+    return null;
+  }
   const command = shellCommandLiteral(prompt);
   if (!shellCommandLiteralLooksExecutable(command)) {
     return null;
@@ -84,6 +95,9 @@ function promptTopicForWebArtifact(prompt = "") {
 function artifactClassForPrompt(prompt = "") {
   const text = lowerText(prompt);
   const creationLike = has(text, CREATION_VERB_RE);
+  const browserObservationArtifact =
+    /\b(capture|save|export|promote|turn|convert|render)\b[\s\S]{0,100}\b(browser|computer)\b[\s\S]{0,100}\b(artifact|capture|observation|result)\b/.test(text) ||
+    /\b(browser|computer)\s+session\s+result\b[\s\S]{0,80}\bas\s+an?\s+artifact\b/.test(text);
   if (/\b(odt|docx|document artifact|editable projection|word document|open document)\b/.test(text)) {
     return "imported_document";
   }
@@ -105,13 +119,13 @@ function artifactClassForPrompt(prompt = "") {
   if (/\b(csv|dataset|chart|table)\b/.test(text)) {
     return "dataset_chart";
   }
-  if (/\b(browser session|computer session|capture this browser|observation artifact|browser capture)\b/.test(text)) {
+  if (browserObservationArtifact || /\b(observation artifact|browser capture)\b/.test(text)) {
     return "browser_observation";
   }
-  if (/\b(report|markdown report|html report|memo)\b/.test(text)) {
+  if (/\b(markdown report|html report|memo)\b/.test(text) || (creationLike && /\breport\b/.test(text))) {
     return "markdown_html_report";
   }
-  if (/\bartifact|embedded document|document embed|canvas\b/.test(text)) {
+  if (/\bartifact|embedded document|document embed|artifact canvas|document canvas|embedded document canvas\b/.test(text)) {
     return "markdown_html_report";
   }
   return null;

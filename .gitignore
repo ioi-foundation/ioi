@@ -62,6 +62,11 @@ scripts/internal/
 # Internal planning workspace. Keep private planning artifacts out of git via
 # this parent directory instead of per-file ignore rules.
 .internal/
+!.internal/
+.internal/*
+!.internal/plans/
+.internal/plans/*
+!.internal/plans/*parity*.md
 
 # Local daemon/runtime state. This may contain receipts, grants, projected
 # provider state, and local model artifacts from GUI validation.

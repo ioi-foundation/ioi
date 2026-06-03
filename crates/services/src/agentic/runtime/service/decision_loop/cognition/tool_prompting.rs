@@ -1,4 +1,5 @@
 use super::*;
+use crate::agentic::runtime::types::ToolCallStatus;
 
 fn is_browser_step_tool(name: &str) -> bool {
     name.starts_with("browser__")
@@ -67,6 +68,7 @@ fn is_workspace_compact_tool(name: &str) -> bool {
             | "file__edit"
             | "file__write"
             | "workspace_change__status"
+            | "workspace_change__accept"
             | "workspace_change__reject"
             | "workspace_change__rollback"
             | "shell__run"
@@ -91,6 +93,7 @@ fn is_command_workspace_compact_tool(name: &str) -> bool {
             | "file__write"
             | "file__multi_edit"
             | "workspace_change__status"
+            | "workspace_change__accept"
             | "workspace_change__reject"
             | "workspace_change__rollback"
             | "shell__run"
@@ -123,6 +126,205 @@ fn is_command_workspace_lifecycle_phase_tool(name: &str) -> bool {
 
 fn is_command_workspace_post_rollback_read_tool(name: &str) -> bool {
     matches!(name, "file__read")
+}
+
+fn is_direct_file_read_tool(name: &str) -> bool {
+    matches!(name, "file__read")
+}
+
+fn is_direct_file_read_reply_tool(name: &str) -> bool {
+    matches!(name, "chat__reply")
+}
+
+fn is_direct_file_write_tool(name: &str) -> bool {
+    matches!(name, "file__write")
+}
+
+fn is_direct_file_write_reply_tool(name: &str) -> bool {
+    matches!(name, "chat__reply")
+}
+
+fn token_looks_like_explicit_path(token: &str) -> bool {
+    let trimmed = token.trim().trim_matches(|ch: char| {
+        matches!(
+            ch,
+            '`' | '"' | '\'' | ',' | ';' | ':' | ')' | '(' | '[' | ']' | '{' | '}'
+        )
+    });
+    if trimmed.len() <= 1 {
+        return false;
+    }
+    if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
+        return false;
+    }
+    trimmed.starts_with('/')
+        || trimmed.starts_with("./")
+        || trimmed.starts_with("../")
+        || (trimmed.starts_with('.')
+            && !trimmed.starts_with("..")
+            && !trimmed.contains(' ')
+            && trimmed.chars().skip(1).any(|ch| ch.is_ascii_alphanumeric()))
+        || (trimmed.starts_with('.') && trimmed.contains('/'))
+        || (trimmed.contains('/')
+            && !trimmed.contains(' ')
+            && trimmed
+                .chars()
+                .any(|ch| matches!(ch, '/' | '.' | '_' | '-')))
+}
+
+fn goal_mentions_explicit_path(goal: &str) -> bool {
+    goal.split_whitespace().any(token_looks_like_explicit_path)
+}
+
+fn goal_requests_direct_file_read(goal: &str) -> bool {
+    let normalized = goal.to_ascii_lowercase();
+    let read_like = [
+        "read ",
+        "view ",
+        "open ",
+        "inspect ",
+        "check ",
+        "show ",
+        "summarize ",
+        "through the governed file tool",
+        "file tool",
+    ]
+    .iter()
+    .any(|needle| normalized.contains(needle));
+
+    read_like && goal_mentions_explicit_path(goal)
+}
+
+fn goal_requests_direct_file_write(goal: &str) -> bool {
+    let normalized = goal.to_ascii_lowercase();
+    let write_like = [
+        "write ",
+        "create ",
+        "save ",
+        "overwrite ",
+        "put ",
+        "file__write",
+        "using the governed file tool",
+        "through the governed file tool",
+    ]
+    .iter()
+    .any(|needle| normalized.contains(needle));
+    let file_tool_directed = [
+        "governed file tool",
+        "file tool",
+        "file__write",
+        "exact file",
+    ]
+    .iter()
+    .any(|needle| normalized.contains(needle));
+
+    write_like && file_tool_directed && goal_mentions_explicit_path(goal)
+}
+
+fn direct_file_read_observation_available(agent_state: &AgentState) -> bool {
+    if has_execution_evidence(&agent_state.tool_execution_log, "file__read")
+        || has_execution_evidence(&agent_state.tool_execution_log, "file__view")
+        || has_execution_evidence(&agent_state.tool_execution_log, "workspace_read")
+        || has_execution_evidence(&agent_state.tool_execution_log, "workspace_read_observed")
+        || has_execution_evidence(&agent_state.tool_execution_log, "file_context")
+    {
+        return true;
+    }
+
+    matches!(
+        agent_state.last_action_type.as_deref(),
+        Some("file__read" | "file__view")
+    ) && (agent_state.consecutive_failures > 0
+        || agent_state
+            .recent_actions
+            .iter()
+            .rev()
+            .take(3)
+            .any(|entry| {
+                entry.contains("PolicyBlocked")
+                    || entry.contains("outside the workspace boundary")
+                    || entry.contains("symlink")
+                    || entry.contains("Failed to inspect")
+            }))
+}
+
+fn direct_file_write_observation_available(agent_state: &AgentState) -> bool {
+    if has_execution_evidence(&agent_state.tool_execution_log, "file__write")
+        || has_execution_evidence(&agent_state.tool_execution_log, "workspace_edit_applied")
+        || has_execution_evidence(&agent_state.tool_execution_log, "fs_write")
+    {
+        return true;
+    }
+
+    let routed_file_write_dispatched = agent_state
+        .recent_actions
+        .iter()
+        .any(|entry| entry.starts_with("runtime_route_frame_dispatch:file__write"));
+    let recent_policy_result = agent_state
+        .recent_actions
+        .iter()
+        .rev()
+        .take(8)
+        .any(|entry| {
+            entry.contains("PolicyBlocked")
+                || entry.contains("outside the workspace boundary")
+                || entry.contains("outside workspace boundary")
+                || entry.contains("outside workspace authority")
+                || entry.contains("ignored workspace")
+                || entry.contains("symlink")
+                || entry.contains("Failed to inspect")
+        });
+    let failed_policy_result = agent_state
+        .tool_execution_log
+        .values()
+        .any(|status| match status {
+            ToolCallStatus::Failed(reason) => {
+                reason.contains("PolicyBlocked")
+                    || reason.contains("intent_scope_block")
+                    || reason.contains("outside the workspace boundary")
+                    || reason.contains("outside workspace boundary")
+                    || reason.contains("outside workspace authority")
+                    || reason.contains("ignored workspace")
+                    || reason.contains("symlink")
+            }
+            ToolCallStatus::Pending | ToolCallStatus::Approved | ToolCallStatus::Executed(_) => {
+                false
+            }
+        });
+
+    (matches!(agent_state.last_action_type.as_deref(), Some("file__write"))
+        || routed_file_write_dispatched)
+        && (agent_state.consecutive_failures > 0 || recent_policy_result || failed_policy_result)
+}
+
+pub(super) fn direct_file_read_action_phase_tools(
+    agent_state: &AgentState,
+    tools: &[LlmToolDefinition],
+) -> Option<Vec<LlmToolDefinition>> {
+    if !goal_requests_direct_file_read(&agent_state.goal) {
+        return None;
+    }
+
+    if direct_file_read_observation_available(agent_state) {
+        return Some(compact_tool_subset(tools, is_direct_file_read_reply_tool));
+    }
+
+    Some(compact_tool_subset(tools, is_direct_file_read_tool))
+}
+
+pub(super) fn direct_file_write_action_phase_tools(
+    agent_state: &AgentState,
+    tools: &[LlmToolDefinition],
+) -> Option<Vec<LlmToolDefinition>> {
+    if !goal_requests_direct_file_write(&agent_state.goal) {
+        return None;
+    }
+
+    if direct_file_write_observation_available(agent_state) {
+        return Some(compact_tool_subset(tools, is_direct_file_write_reply_tool));
+    }
+
+    Some(compact_tool_subset(tools, is_direct_file_write_tool))
 }
 
 fn goal_suggests_command_workspace_edit(goal: &str) -> bool {
@@ -284,6 +486,74 @@ pub(super) fn command_workspace_action_phase_tools(
     None
 }
 
+fn pure_command_execution_ready_for_reply(agent_state: &AgentState) -> bool {
+    let Some(resolved) = agent_state.resolved_intent.as_ref() else {
+        return false;
+    };
+    if !matches!(resolved.scope, IntentScopeProfile::CommandExecution) {
+        return false;
+    }
+    if command_execution_workspace_surface(Some(resolved), &agent_state.goal) {
+        return false;
+    }
+    let has_terminal_failure = agent_state.command_history.iter().rev().any(|entry| {
+        entry.exit_code != 0
+            && (entry.stderr.contains("ERROR_CLASS=TimeoutOrHang")
+                || entry.stdout.contains("ERROR_CLASS=TimeoutOrHang")
+                || entry
+                    .stderr
+                    .contains("ERROR_CLASS=PermissionOrApprovalRequired")
+                || entry
+                    .stdout
+                    .contains("ERROR_CLASS=PermissionOrApprovalRequired")
+                || entry.stderr.contains("ERROR_CLASS=PolicyBlocked")
+                || entry.stdout.contains("ERROR_CLASS=PolicyBlocked")
+                || entry
+                    .stderr
+                    .contains("ERROR_CLASS=ExecutionContractViolation")
+                || entry
+                    .stdout
+                    .contains("ERROR_CLASS=ExecutionContractViolation"))
+    }) || agent_state.tool_execution_log.values().any(|status| {
+        matches!(
+            status,
+            ToolCallStatus::Failed(reason)
+                if reason.contains("ERROR_CLASS=TimeoutOrHang")
+                    || reason.contains("ERROR_CLASS=PermissionOrApprovalRequired")
+                    || reason.contains("ERROR_CLASS=PolicyBlocked")
+                    || reason.contains("ERROR_CLASS=ExecutionContractViolation")
+                    || reason.contains("ExecutionContractViolation")
+                    || reason.contains("TimeoutOrHang")
+        )
+    });
+    if has_terminal_failure {
+        return true;
+    }
+
+    if requires_timer_notification_contract(agent_state) {
+        return false;
+    }
+
+    agent_state
+        .command_history
+        .iter()
+        .rev()
+        .any(|entry| entry.exit_code == 0)
+}
+
+pub(super) fn command_execution_action_phase_tools(
+    agent_state: &AgentState,
+    tools: &[LlmToolDefinition],
+) -> Option<Vec<LlmToolDefinition>> {
+    if let Some(workspace_phase_tools) = command_workspace_action_phase_tools(agent_state, tools) {
+        return Some(workspace_phase_tools);
+    }
+    if pure_command_execution_ready_for_reply(agent_state) {
+        return Some(compact_tool_subset(tools, |name| name == "chat__reply"));
+    }
+    None
+}
+
 fn truncate_tool_description(description: &str, max_chars: usize) -> String {
     let trimmed = description.trim();
     if trimmed.chars().count() <= max_chars {
@@ -391,6 +661,7 @@ fn browser_context_ready_for_reply(
 pub(crate) struct CognitionToolRecovery {
     pub workspace_context_ready_for_reply: bool,
     pub web_context_ready_for_reply: bool,
+    pub suppress_browser_recovery_terminal_tools: bool,
 }
 
 pub(crate) fn filter_cognition_tools(
@@ -424,6 +695,8 @@ pub(crate) fn filter_cognition_tools_with_recovery(
     let resolved_scope = resolved_intent
         .map(|intent| intent.scope)
         .unwrap_or(IntentScopeProfile::Unknown);
+    let suppress_browser_recovery_terminal_tools =
+        prefer_browser_semantics && recovery.suppress_browser_recovery_terminal_tools;
     if !prefer_browser_semantics && recovery.web_context_ready_for_reply {
         return compact_tool_subset(tools, |name| name == "chat__reply");
     }
@@ -472,6 +745,14 @@ pub(crate) fn filter_cognition_tools_with_recovery(
     tools
         .iter()
         .filter(|tool| {
+            if suppress_browser_recovery_terminal_tools
+                && matches!(
+                    tool.name.as_str(),
+                    "agent__await" | "agent__complete" | "agent__pause" | "agent__escalate"
+                )
+            {
+                return false;
+            }
             is_browser_step_tool(&tool.name)
                 && (!prefer_sustained_hover_surface
                     || matches!(
