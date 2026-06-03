@@ -137,6 +137,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/runtime-run-helpers.mjs`.
 - Moved run result text, mode-to-task-family/strategy mapping, capability sequence construction, and run-event id/cursor construction out of `index.mjs` behind dependency-injected helper exports.
 - Added focused runtime run helper tests for mode vocabulary, memory-specific result text, capability sequence additions, and stable event id/cursor shaping.
+- Added `packages/runtime-daemon/src/runtime-run-event-helpers.mjs`.
+- Moved run-event status mapping, policy decision ref extraction, string payload record conversion, component/workflow-node mapping, receipt/artifact refs, and computer-use artifact ref extraction out of `index.mjs`.
+- Added focused runtime run-event helper tests for status mapping, policy ref de-duping, payload conversion, receipt/artifact refs, workflow nodes, and computer-use artifacts.
 - Added `packages/runtime-daemon/src/runtime-identifiers.mjs`.
 - Moved runtime thread/agent/run/turn/session id derivation, runtime-backed agent detection, fixture profile defaults, and lifecycle/thread status normalization out of `index.mjs`.
 - Added focused runtime identifier tests for prefix compatibility, event stream ids, runtime session fallback, fixture profile override/null preservation, runtime profile detection, and lifecycle status aliases.
