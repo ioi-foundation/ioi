@@ -76,6 +76,9 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/load-policy.mjs`.
 - Moved load-policy normalization, load-option normalization, runtime-engine default load options, TTL detection, LM Studio CLI load-argument shaping, and loaded-instance expiry calculation out of `model-mounting.mjs`.
 - Added focused load-policy tests for string policies, snake/camel aliases, runtime-engine defaults, explicit TTL detection, expiration semantics, and LM Studio public CLI args.
+- Added `packages/runtime-daemon/src/model-mounting/native-local-fixture.mjs`.
+- Moved native-local query extraction, deterministic native fixture output, native-local JSONL stream record shaping, JSONL stream construction, and deterministic stream delay handling out of `model-mounting.mjs`.
+- Added focused native-local fixture tests for query extraction, deterministic embedding/mode output, stream records, stream abort handling, and bounded stream delay overrides.
 
 Status: `model-mounting.mjs` still owns provider driver classes, wallet/vault ports, state machine behavior, routes, validation, and some product projection glue. Safe next extractions are provider driver class groups, validation, routes, and state-machine slices.
 
@@ -109,6 +112,7 @@ Status: `model-mounting.mjs` still owns provider driver classes, wallet/vault po
   - `model-mounting/local-system-probes`
   - `model-mounting/provider-driver-helpers`
   - `model-mounting/load-policy`
+  - `model-mounting/native-local-fixture`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.
