@@ -101,6 +101,9 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/wallet-authority.mjs`.
 - Moved the Agentgres wallet authority capability grant/authorization/revocation adapter out of `model-mounting.mjs`.
 - Added focused wallet authority tests for grant creation, authorization, policy denial, revocation, vault-ref redaction, and remote boundary status.
+- Added `packages/runtime-daemon/src/model-mounting/vault-port.mjs`.
+- Moved the Agentgres local vault port, encrypted keychain vault material adapter, env adapter factory, and vault-ref env alias helper out of `model-mounting.mjs`.
+- Added focused vault port tests for encrypted persistence without plaintext, partial env fail-closed status, env alias resolution, public metadata redaction, audit redaction, bind/list/remove behavior, and non-persistent metadata serialization.
 
 Status: `model-mounting.mjs` still owns provider driver classes, wallet/vault ports, state machine behavior, routes, validation, and some product projection glue. Safe next extractions are provider driver class groups, validation, routes, and state-machine slices.
 
@@ -142,6 +145,7 @@ Status: `model-mounting.mjs` still owns provider driver classes, wallet/vault po
   - `model-mounting/provider-openai-backend-drivers`
   - `model-mounting/provider-lm-studio-driver`
   - `model-mounting/wallet-authority`
+  - `model-mounting/vault-port`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.
