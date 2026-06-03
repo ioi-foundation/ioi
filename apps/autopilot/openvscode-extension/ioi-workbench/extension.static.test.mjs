@@ -32,6 +32,8 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/product-error-message.js",
   projectionState:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-state.js",
+  managedSessions:
+    "apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-managed-sessions.js",
   artifactRouting:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/artifact-research-routing.js",
   packageJson: "apps/autopilot/openvscode-extension/ioi-workbench/package.json",
@@ -61,6 +63,7 @@ async function readStudioComposite() {
       paths.runtimeEvents,
       paths.productErrors,
       paths.projectionState,
+      paths.managedSessions,
       paths.artifactRouting,
     ].map(read),
   );

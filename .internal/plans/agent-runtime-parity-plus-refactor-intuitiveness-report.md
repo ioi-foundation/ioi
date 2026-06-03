@@ -20,9 +20,10 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-state.js` for the initial Agent Studio runtime projection shape.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/migration.js` for migration-assistant command registration.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/quick-input.js` for fork-native QuickInput handoff commands.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-managed-sessions.js` for managed browser/computer session projection, daemon inspection application, and reconnect proof bridge reporting.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
-Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, managed-session test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.
+Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.
 
 ### Runtime Daemon
 
@@ -71,6 +72,7 @@ Status: `model-mounting.mjs` still owns provider driver classes, wallet/vault po
 - Kept public/product names stable: Agent Studio command ids, `ioi.*` command ids, data-testids, daemon routes, and request/response envelopes were not renamed.
 - Introduced private/module-level names that describe ownership boundaries:
   - `public-text-sanitizer`
+  - `studio/projection-managed-sessions`
   - `runtime-request-metadata`
   - `model-mounting/environment`
   - `model-mounting/provider-auth`
