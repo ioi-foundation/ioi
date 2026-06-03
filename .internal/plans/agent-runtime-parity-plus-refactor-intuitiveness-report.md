@@ -134,6 +134,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/runtime-memory-helpers.mjs`.
 - Moved runtime memory policy override aliases, memory write approval/blocking, list filter aliases, memory operation vocabulary, and subagent memory inheritance policy/receipt helpers out of `index.mjs` behind dependency-injected helper exports.
 - Added focused runtime memory helper tests for policy aliases, write blocking, operation/event vocabulary, subagent inheritance evidence, and filter alias normalization.
+- Added `packages/runtime-daemon/src/runtime-run-helpers.mjs`.
+- Moved run result text, mode-to-task-family/strategy mapping, capability sequence construction, and run-event id/cursor construction out of `index.mjs` behind dependency-injected helper exports.
+- Added focused runtime run helper tests for mode vocabulary, memory-specific result text, capability sequence additions, and stable event id/cursor shaping.
 - Added `packages/runtime-daemon/src/runtime-identifiers.mjs`.
 - Moved runtime thread/agent/run/turn/session id derivation, runtime-backed agent detection, fixture profile defaults, and lifecycle/thread status normalization out of `index.mjs`.
 - Added focused runtime identifier tests for prefix compatibility, event stream ids, runtime session fallback, fixture profile override/null preservation, runtime profile detection, and lifecycle status aliases.
