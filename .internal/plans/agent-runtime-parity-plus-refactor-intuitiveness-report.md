@@ -198,8 +198,10 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/server-control.mjs`.
 - Moved model gateway/server status, start/stop/restart control state, lifecycle operation receipts, redacted server log/event projection, and server log ring-buffer writes out of `model-mounting.mjs` behind existing `ModelMountingState` methods.
 - Added focused server-control tests for status projection, lifecycle state/receipt/log writes, restart previous-state capture, redacted log/event reads, and limit bounding.
+- Added `packages/runtime-daemon/src/model-mounting/schema-relations.mjs`.
+- Moved model-mounting relation schema metadata out of `ModelMountingState.writeSchemaRelationSchemas()` and added focused tests for canonical relation names and compatibility-critical fields.
 
-Status: `model-mounting.mjs` still owns provider driver classes, wallet/vault ports, state machine behavior, routes, validation, and some product projection glue. Safe next extractions are provider driver class groups, validation, routes, and state-machine slices.
+Status: `model-mounting.mjs` still owns default seeding, state-machine behavior, routes, validation, and some product projection glue. Safe next extractions are default seed records, validation, routes, and state-machine slices.
 
 ### Rust Runtime Hot Spot
 

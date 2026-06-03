@@ -6,6 +6,7 @@ import path from "node:path";
 import * as routeDecision from "./model-mounting/route-decision.mjs";
 import { modelCapabilities as buildModelCapabilities } from "./model-mounting/model-capability.mjs";
 import { AgentgresModelMountingStore } from "./model-mounting/store.mjs";
+import { modelMountingRelationSchemas } from "./model-mounting/schema-relations.mjs";
 import {
   capabilityForWorkflowNode,
   nativeInvocationResponseShape,
@@ -308,96 +309,7 @@ export class ModelMountingState {
   }
 
   writeSchemaRelationSchemas() {
-    return {
-      modelArtifacts: [
-        "id",
-        "providerId",
-        "modelId",
-        "capabilities",
-        "privacyClass",
-        "contextWindow",
-      ],
-      modelEndpoints: [
-        "id",
-        "providerId",
-        "apiFormat",
-        "baseUrl",
-        "capabilities",
-        "loadPolicy",
-      ],
-      modelInstances: ["id", "endpointId", "modelId", "status", "loadedAt", "expiresAt"],
-      modelRoutes: ["id", "role", "fallback", "privacy", "maxCostUsd"],
-      modelProviders: ["id", "kind", "status", "privacyClass", "baseUrl"],
-      modelBackends: [
-        "id",
-        "kind",
-        "status",
-        "binaryPath",
-        "baseUrl",
-        "capabilities",
-        "supportedFormats",
-        "processStatus",
-        "lastReceiptId",
-      ],
-      modelBackendProcesses: [
-        "id",
-        "backendId",
-        "backendKind",
-        "status",
-        "pidHash",
-        "startedAt",
-        "stoppedAt",
-        "argsHash",
-        "lastReceiptId",
-      ],
-      providerHealth: ["id", "providerId", "status", "checkedAt", "receiptId", "failureCode", "evidenceRefs"],
-      runtimeEngines: ["id", "kind", "label", "status", "selected", "modelFormat", "source"],
-      runtimeEngineProfiles: ["id", "engineId", "disabled", "priority", "defaultLoadOptions", "receiptId"],
-      runtimePreferences: ["id", "selectedEngineId", "selectedAt", "receiptId", "defaultLoadOptions"],
-      modelCatalogEntries: ["id", "providerId", "modelId", "format", "quantization", "sourceUrlHash", "license"],
-      modelDownloads: ["id", "artifactId", "status", "source", "progress", "bytesTotal", "bytesCompleted", "targetPath"],
-      modelCatalogProviders: [
-        "id",
-        "status",
-        "gate",
-        "formats",
-        "enabled",
-        "configHash",
-        "baseUrlHash",
-        "manifestPathHash",
-        "authVaultRefHash",
-        "materialConfigured",
-        "materialPersistence",
-        "runtimeMaterialStatus",
-        "evidenceRefs",
-      ],
-      oauthAuthorizationStates: [
-        "id",
-        "providerId",
-        "status",
-        "stateHash",
-        "pkceRequired",
-        "codeChallengeHash",
-        "expiresAt",
-        "oauthSessionHash",
-      ],
-      permissionTokens: ["id", "audience", "allowed", "denied", "expiresAt", "revokedAt", "grantId", "lastUsedAt"],
-      walletGrants: ["grantId", "revocationEpoch", "allowed", "denied", "expiry", "vaultRefs", "auditReceiptIds"],
-      mcpServers: ["id", "transport", "allowedTools", "secretRefs", "status"],
-      modelConversationStates: [
-        "id",
-        "previousResponseId",
-        "routeId",
-        "endpointId",
-        "selectedModel",
-        "receiptId",
-        "redaction",
-        "inputHash",
-        "outputHash",
-      ],
-      workflowModelBindings: ["node", "modelId", "routeId", "modelPolicy", "capability", "receiptRequired"],
-      modelMountingProjection: ["artifacts", "backends", "endpoints", "instances", "routes", "providers", "receipts", "watermark"],
-    };
+    return modelMountingRelationSchemas();
   }
 
   load() {
