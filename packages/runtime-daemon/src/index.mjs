@@ -80,7 +80,37 @@ import {
   threadStatusForAgent,
   turnIdForRun,
 } from "./runtime-identifiers.mjs";
-import * as runtimeMcpHelpers from "./runtime-mcp-helpers.mjs";
+import {
+  boundedPositiveInteger,
+  mcpCatalogExposureForStatus,
+  mcpCatalogFullRequested,
+  mcpCatalogPreviewLimit,
+  mcpCatalogSummaryForServer,
+  mcpConfigSourceModeForRequest,
+  mcpJsonRpcError,
+  mcpJsonRpcErrorCodeFor,
+  mcpJsonRpcResult,
+  mcpLiveExecutionModeForServer,
+  mcpPromptKey,
+  mcpRegistryWithServers,
+  mcpResourceKey,
+  mcpServeAllowedToolIds,
+  mcpServeToolCallResult,
+  mcpServeToolDescriptor,
+  mcpServeToolIdForName,
+  mcpServerMatchesConfigSourceMode,
+  mcpServerRecordFromAddRequest,
+  mcpServerRecordsFromMutationInput,
+  mcpToolIdentityMatches,
+  mcpToolKey,
+  mcpToolMatchesQuery,
+  mcpToolNamespaces,
+  mcpToolSearchLimit,
+  mcpTransportEvidenceRef,
+  mcpTransportSummary,
+  resolveMcpServerRecord,
+  resolveMcpToolRecord,
+} from "./runtime-mcp-helpers.mjs";
 import {
   WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES,
   WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES,
@@ -12937,122 +12967,6 @@ function objectRecord(value) {
 
 function uniqueStrings(values) {
   return [...new Set(normalizeArray(values).map((value) => String(value)).filter(Boolean))];
-}
-
-function resolveMcpServerRecord(servers = [], requestedId) {
-  return runtimeMcpHelpers.resolveMcpServerRecord(servers, requestedId);
-}
-
-function resolveMcpToolRecord(servers = [], toolId, request = {}) {
-  return runtimeMcpHelpers.resolveMcpToolRecord(servers, toolId, request);
-}
-
-function mcpServeAllowedToolIds(options = {}) {
-  return runtimeMcpHelpers.mcpServeAllowedToolIds(options);
-}
-
-function mcpServeToolDescriptor(tool = {}) {
-  return runtimeMcpHelpers.mcpServeToolDescriptor(tool);
-}
-
-function mcpServeToolIdForName(name, options = {}) {
-  return runtimeMcpHelpers.mcpServeToolIdForName(name, options);
-}
-
-function mcpServeToolCallResult(invocation = {}) {
-  return runtimeMcpHelpers.mcpServeToolCallResult(invocation);
-}
-
-function mcpJsonRpcResult(id, result = {}) {
-  return runtimeMcpHelpers.mcpJsonRpcResult(id, result);
-}
-
-function mcpJsonRpcError(id, code, message, data = {}) {
-  return runtimeMcpHelpers.mcpJsonRpcError(id, code, message, data);
-}
-
-function mcpJsonRpcErrorCodeFor(error) {
-  return runtimeMcpHelpers.mcpJsonRpcErrorCodeFor(error);
-}
-
-function mcpLiveExecutionModeForServer(server, request = {}) {
-  return runtimeMcpHelpers.mcpLiveExecutionModeForServer(server, request);
-}
-
-function mcpTransportEvidenceRef(transportExecution = {}) {
-  return runtimeMcpHelpers.mcpTransportEvidenceRef(transportExecution);
-}
-
-function mcpTransportSummary(transportExecution = {}) {
-  return runtimeMcpHelpers.mcpTransportSummary(transportExecution);
-}
-
-function mcpRegistryWithServers(registry = {}, servers = []) {
-  return runtimeMcpHelpers.mcpRegistryWithServers(registry, servers);
-}
-
-function mcpServerRecordsFromMutationInput(request = {}, workspaceRoot, fallbackSource) {
-  return runtimeMcpHelpers.mcpServerRecordsFromMutationInput(request, workspaceRoot, fallbackSource);
-}
-
-function mcpServerRecordFromAddRequest(request = {}, workspaceRoot) {
-  return runtimeMcpHelpers.mcpServerRecordFromAddRequest(request, workspaceRoot);
-}
-
-function mcpToolKey(tool = {}) {
-  return runtimeMcpHelpers.mcpToolKey(tool);
-}
-
-function mcpToolIdentityMatches(tool = {}, value) {
-  return runtimeMcpHelpers.mcpToolIdentityMatches(tool, value);
-}
-
-function mcpToolMatchesQuery(tool = {}, query) {
-  return runtimeMcpHelpers.mcpToolMatchesQuery(tool, query);
-}
-
-function mcpCatalogPreviewLimit(request = {}) {
-  return runtimeMcpHelpers.mcpCatalogPreviewLimit(request);
-}
-
-function mcpToolSearchLimit(request = {}) {
-  return runtimeMcpHelpers.mcpToolSearchLimit(request);
-}
-
-function mcpConfigSourceModeForRequest(request = {}) {
-  return runtimeMcpHelpers.mcpConfigSourceModeForRequest(request);
-}
-
-function mcpServerMatchesConfigSourceMode(server = {}, sourceMode = "workspace_and_global") {
-  return runtimeMcpHelpers.mcpServerMatchesConfigSourceMode(server, sourceMode);
-}
-
-function boundedPositiveInteger(value, fallback, max) {
-  return runtimeMcpHelpers.boundedPositiveInteger(value, fallback, max);
-}
-
-function mcpCatalogFullRequested(request = {}) {
-  return runtimeMcpHelpers.mcpCatalogFullRequested(request);
-}
-
-function mcpCatalogExposureForStatus(server, catalog = {}, options = {}) {
-  return runtimeMcpHelpers.mcpCatalogExposureForStatus(server, catalog, options);
-}
-
-function mcpCatalogSummaryForServer(server = {}, catalog = {}, options = {}) {
-  return runtimeMcpHelpers.mcpCatalogSummaryForServer(server, catalog, options);
-}
-
-function mcpToolNamespaces(toolNames = []) {
-  return runtimeMcpHelpers.mcpToolNamespaces(toolNames);
-}
-
-function mcpResourceKey(resource = {}) {
-  return runtimeMcpHelpers.mcpResourceKey(resource);
-}
-
-function mcpPromptKey(prompt = {}) {
-  return runtimeMcpHelpers.mcpPromptKey(prompt);
 }
 
 function loadCursorCompatibilityConfig(cwd) {
