@@ -9,7 +9,7 @@ Last alignment pass: 2026-05-20.
 ## Canonical Definition
 
 **Connectors expose external systems as typed, permissioned, receipted guest
-capabilities inside the Hypervisor Daemon/runtime hypervisor.**
+capabilities inside the Hypervisor Daemon runtime hypervisor.**
 
 Tools are not arbitrary function calls. Every effectful tool must have a contract, risk class, primitive capability requirements, authority scope requirements, policy target, and receipt obligation.
 

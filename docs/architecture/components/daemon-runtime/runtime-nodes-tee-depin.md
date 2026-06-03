@@ -14,7 +14,7 @@ They may be local, hosted, provider-operated, DePIN, shielded, TEE-verified,
 or customer-controlled. They are not Web4 applications by default.
 
 A runtime node may contain a lower-level runtime service bridge or worker SDK
-helpers, but the node's architectural boot target is the Hypervisor Daemon/runtime-node
+helpers, but the node's architectural boot target is the Hypervisor Daemon runtime-node
 profile. SDKs submit and control work as clients; they do not own node
 execution.
 

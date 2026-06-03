@@ -498,7 +498,7 @@ receipts and replay make work accountable
 5. No final effect from untrusted DePIN nodes without trusted verification/settlement.
 6. No split runtime path for workflow vs agent vs benchmark vs CLI execution.
 7. No long-running job without deadline, cancellation, and progress events.
-8. No compute-node architecture where the SDK replaces the Hypervisor Daemon/runtime
+8. No compute-node architecture where the SDK replaces the Hypervisor Daemon runtime
    profile as execution owner.
 9. No TUI-only runtime controls; TUI controls must map to daemon/domain APIs.
 

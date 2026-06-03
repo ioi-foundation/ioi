@@ -106,7 +106,7 @@ subscription://...      runtime or managed-instance subscription/entitlement
 service://...           sas.xyz service definition
 run://...               runtime run identity
 task://...              task identity
-runtime://...           Hypervisor Daemon/runtime-node identity
+runtime://...           Hypervisor Daemon runtime-node identity
 compute://...           compute session identity
 artifact://...          Agentgres artifact ref
 receipt://...           receipt identity

@@ -391,7 +391,7 @@ compliance acronyms for hidden audit material.
   Tauri/OpenVSCode embedding is legacy extraction inventory, not the target
   shell.
 - `HypervisorDesktop`: the local/private device automation mode within the
-  Hypervisor product. It may launch, manage, or project a local Hypervisor Daemon/runtime
+  Hypervisor product. It may launch, manage, or project a local Hypervisor Daemon runtime
   profile, but it does not define a separate canonical runtime path.
 - `IOICliTui`: the terminal/TUI operator client over daemon/public runtime APIs.
   It can render plans, controls, traces, approvals, and receipts, but it does
