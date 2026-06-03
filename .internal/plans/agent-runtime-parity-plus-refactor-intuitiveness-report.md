@@ -47,6 +47,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/response-metrics.js`.
 - Moved Studio response token/latency metrics projection, response-metrics rows, reasoning split, thinking rows, answer content rows, and receipt-backed verified badge rendering out of `extension.js`.
 - Added focused response-metrics tests for provider usage aliases, estimated token fallback, escaped metrics HTML, thinking extraction, verified/pending badge rendering, and response usage alias projection.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/source-chip-renderer.js`.
+- Moved Studio answer-source footer rendering, source-chip URL/icon sanitization, favicon fallback selection, chip HTML rendering, and direct/artifact source de-duping out of `extension.js`.
+- Added focused source-chip renderer tests for URL sanitation, explicit and fallback favicon handling, safe anchor/span rendering, escaped labels, duplicate source removal, and fallback icon data URIs.
 - Moved managed browser/computer session work-record attachment and card row rendering out of `extension.js` behind compatibility wrappers.
 - Added focused managed-session view tests for bounded session-card attachment, waiting-for-user handoff rendering, control-state data-testids, HTML escaping, and default sandbox browser state.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
