@@ -1,9 +1,16 @@
 const crypto = require("crypto");
 const fs = require("fs");
 const http = require("http");
-const https = require("https");
 const path = require("path");
 const vscode = require("vscode");
+const {
+  bridgeUrl,
+  daemonEndpoint,
+  daemonToken,
+  normalizeBaseUrl,
+  readDaemonModelSnapshot: readDaemonModelSnapshotFromClient,
+  requestJson,
+} = require("./bridge/client");
 const studioWorkSummary = require("./studio-work-summary");
 const { createStudioPanelHtml } = require("./studio/studio-panel-html");
 const { createStudioModelCompletion } = require("./studio/model-completion");
@@ -15,6 +22,7 @@ const { createStudioAgentTurnEvents } = require("./studio/agent-turn-events");
 const { createStudioAgentTurnResultText } = require("./studio/agent-turn-result-text");
 const { createStudioAgentTurnRecovery } = require("./studio/agent-turn-recovery");
 const { createStudioProductErrorMessage } = require("./studio/product-error-message");
+const { createStudioPublicTextSanitizer } = require("./studio/public-text-sanitizer");
 const {
   studioRuntimeEventToolName,
   studioRuntimeEventKind,
@@ -36,126 +44,6 @@ const {
   AUTOPILOT_MODES,
   VIEW_DEFINITIONS,
 } = require("./workbench-surfaces");
-
-function bridgeUrl() {
-  return process.env.IOI_WORKSPACE_IDE_BRIDGE_URL || null;
-}
-
-function daemonEndpoint() {
-  return process.env.IOI_DAEMON_ENDPOINT || process.env.IOI_MODEL_MOUNTING_API_URL || null;
-}
-
-function daemonToken() {
-  return process.env.IOI_DAEMON_TOKEN || process.env.IOI_MODEL_MOUNTING_TOKEN || null;
-}
-
-function normalizeBaseUrl(value) {
-  if (!value) {
-    return null;
-  }
-  return String(value).replace(/\/+$/, "");
-}
-
-function requestJson(baseUrl, routePath, { method = "GET", payload, token, timeoutMs } = {}) {
-  const base = normalizeBaseUrl(baseUrl);
-  if (!base) {
-    return Promise.reject(new Error("IOI daemon endpoint is not configured."));
-  }
-
-  const target = new URL(routePath, `${base}/`);
-  const client = target.protocol === "https:" ? https : http;
-  const body = payload === undefined ? null : JSON.stringify(payload);
-
-  return new Promise((resolve, reject) => {
-    const request = client.request(
-      target,
-      {
-        method,
-        headers: {
-          accept: "application/json",
-          ...(body
-            ? {
-                "content-type": "application/json",
-                "content-length": Buffer.byteLength(body),
-              }
-            : {}),
-          ...(token ? { authorization: `Bearer ${token}` } : {}),
-        },
-      },
-      (response) => {
-        const chunks = [];
-        response.on("data", (chunk) => chunks.push(chunk));
-        response.on("end", () => {
-          const raw = Buffer.concat(chunks).toString("utf8");
-          let parsed = null;
-          try {
-            parsed = raw ? JSON.parse(raw) : null;
-          } catch (error) {
-            reject(error);
-            return;
-          }
-          if (response.statusCode >= 400) {
-            reject(
-              new Error(
-                `[IOI Workbench] Daemon request failed (${response.statusCode}): ${raw}`,
-              ),
-            );
-            return;
-          }
-          resolve(parsed);
-        });
-      },
-    );
-
-    const boundedTimeoutMs = Number.isFinite(Number(timeoutMs)) && Number(timeoutMs) > 0
-      ? Number(timeoutMs)
-      : 0;
-    if (boundedTimeoutMs > 0) {
-      request.setTimeout(boundedTimeoutMs, () => {
-        request.destroy(new Error(`Daemon request timed out after ${boundedTimeoutMs}ms.`));
-      });
-    }
-    request.on("error", reject);
-    if (body) {
-      request.write(body);
-    }
-    request.end();
-  });
-}
-
-async function readDaemonModelSnapshot() {
-  const endpoint = daemonEndpoint();
-  if (!endpoint) {
-    return {
-      configured: false,
-      endpoint: null,
-      status: "not_configured",
-      error: null,
-      snapshot: null,
-    };
-  }
-
-  try {
-    const snapshot = await requestJson(endpoint, "/api/v1/models", {
-      timeoutMs: STUDIO_MODEL_SNAPSHOT_TIMEOUT_MS,
-    });
-    return {
-      configured: true,
-      endpoint,
-      status: "connected",
-      error: null,
-      snapshot,
-    };
-  } catch (error) {
-    return {
-      configured: true,
-      endpoint,
-      status: "degraded",
-      error: error?.message || String(error),
-      snapshot: null,
-    };
-  }
-}
 
 function workspaceSummary() {
   const folder = vscode.workspace.workspaceFolders?.[0];
@@ -230,6 +118,12 @@ let studioRuntimeProjection = createInitialStudioRuntimeProjection();
 let studioDiffProviderDisposable = null;
 const studioDiffDocuments = new Map();
 let activeTraceTarget = null;
+
+function readDaemonModelSnapshot() {
+  return readDaemonModelSnapshotFromClient({
+    timeoutMs: STUDIO_MODEL_SNAPSHOT_TIMEOUT_MS,
+  });
+}
 
 function rememberRecentTaskLabel(label) {
   const normalized = typeof label === "string" ? label.trim() : "";
@@ -1882,102 +1776,25 @@ function compactStudioWhitespace(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+const studioPublicTextSanitizer = createStudioPublicTextSanitizer({
+  compactStudioWhitespace,
+  studioTextIndicatesApprovalPause,
+});
+
 function humanizeStudioToolName(value = "") {
-  const compact = compactStudioWhitespace(value);
-  if (!compact) {
-    return "";
-  }
-  return compact
-    .replace(/\./g, " ")
-    .replace(/__+/g, " ")
-    .replace(/_+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-}
-
-function studioToolcatToolName(text = "") {
-  const value = String(text || "");
-  return humanizeStudioToolName(
-    value.match(STUDIO_TOOLCAT_TOOL_RE)?.[1] ||
-      value.match(STUDIO_TOOLCAT_SINGLE_TOOL_RE)?.[1] ||
-      "",
-  );
-}
-
-function studioApprovalToolName(text = "") {
-  const value = String(text || "");
-  const match = value.match(/\btools?:\s*([a-z0-9_.]+(?:__[a-z0-9_]+)?)/i);
-  return humanizeStudioToolName(match?.[1] || "");
+  return studioPublicTextSanitizer.humanizeStudioToolName(value);
 }
 
 function studioHumanizeOperationalTranscriptText(value, role = "assistant") {
-  const raw = String(value || "").trim();
-  const compact = compactStudioWhitespace(raw);
-  if (!compact) {
-    return "";
-  }
-  if (STUDIO_TOOLCAT_MARKER_RE.test(compact)) {
-    const toolName = studioToolcatToolName(compact);
-    if (role === "user") {
-      return toolName
-        ? `Run live Rust tool catalogue verification for ${toolName}.`
-        : "Run live Rust tool catalogue verification.";
-    }
-    if (/\bfailed\b|\bfailure\b/i.test(compact)) {
-      return toolName
-        ? `The live Rust tool catalogue probe failed for ${toolName}. Details are in Tracing.`
-        : "The live Rust tool catalogue verification step failed. Details are in Tracing.";
-    }
-    return toolName
-      ? `The live Rust tool catalogue probe completed for ${toolName}.`
-      : "The live Rust tool catalogue verification step completed.";
-  }
-  if (role === "assistant" && studioTextIndicatesApprovalPause(compact)) {
-    const toolName = studioApprovalToolName(compact);
-    return toolName
-      ? `Permission is required before Agent can use ${toolName}.`
-      : "Permission is required before Agent can continue.";
-  }
-  if (
-    role === "assistant" &&
-    /Daemon agent turn completed but did not emit a final chat__reply|did not emit a final chat__reply|final chat__reply/i.test(compact)
-  ) {
-    return "Agent reached the runtime but did not produce a chat reply. Details are in Tracing.";
-  }
-  return role === "assistant" ? studioSanitizePublicAssistantText(raw) : raw;
+  return studioPublicTextSanitizer.studioHumanizeOperationalTranscriptText(value, role);
 }
 
 function studioSanitizePublicAssistantText(value = "") {
-  return String(value || "")
-    .replace(/\bwas blocked by the governed file tool\.\s*The tool returned (?:the following )?(?:the )?error:\s*/gi, "was blocked. The policy reason was: ")
-    .replace(/\bThe governed file (?:tool|write) returned (?:the following )?(?:the )?error:\s*Blocked by policy:\s*/gi, "The policy reason was: ")
-    .replace(/\bThe tool returned (?:the following )?(?:the )?error:\s*`*\s*Blocked by policy:\s*/gi, "The policy reason was: ")
-    .replace(/`+\s*Blocked by policy:\s*/gi, "Blocked by policy: ")
-    .replace(/\bThe policy reason was:\s*Blocked by policy:\s*/gi, "The policy reason was: ")
-    .replace(/\s*`+(?=\s|$)/g, "")
-    .replace(/\bThe tool returned an? ["']?Invalid transaction["']? error with the specific policy reason:\s*/gi, "The policy reason was: ")
-    .replace(/\ban? ["']?Invalid transaction["']? error\b/gi, "a policy block")
-    .replace(/\ban policy block\b/gi, "a policy block")
-    .replace(/\bInvalid transaction:\s*/gi, "")
-    .replace(/\bBlocked by Policy:\s*/gi, "Blocked by policy: ")
-    .replace(/\bERROR_CLASS=[a-z0-9_:-]+\b/gi, "policy block")
-    .replace(/`?\bfile__write\b`?/gi, "the governed file write")
-    .replace(/`?\bfile__read\b`?/gi, "the governed file read")
-    .replace(/`?\bshell__run\b`?/gi, "the governed command runner")
-    .replace(/`?\/tmp\/(?:autopilot-agent-studio-|autopilot-|ioi-)[^\s"'<>)\]}]+`?/gi, "the requested workspace path")
-    .replace(/\bshell__start:[a-f0-9]{12,}\b/gi, "command")
-    .replace(/"command_id"\s*:\s*"[^"]+"\s*,?/gi, "")
-    .replace(/"commandId"\s*:\s*"[^"]+"\s*,?/gi, "")
-    .replace(/\b(?:receipt|trace|request|turn|thread)_[a-z0-9:_-]{8,}\b/gi, "Tracing")
-    .replace(/\b(?:receipt|trace):\/\/[^\s)\]}]+/gi, "Tracing")
-    .replace(/\bworkspace_change:[^\s)\]}]+/gi, "workspace change")
-    .replace(/[ \t]+\n/g, "\n")
-    .trim();
+  return studioPublicTextSanitizer.studioSanitizePublicAssistantText(value);
 }
 
 function studioDisplayTurnContent(turn = {}) {
-  return studioHumanizeOperationalTranscriptText(turn.content || "", turn.role || "assistant");
+  return studioPublicTextSanitizer.studioDisplayTurnContent(turn);
 }
 
 function isAutoStudioModelSelector(value) {
