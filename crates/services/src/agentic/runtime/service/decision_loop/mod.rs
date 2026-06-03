@@ -7,6 +7,7 @@ pub mod intent_resolver;
 pub mod ontology;
 mod orchestration;
 mod pending_resume;
+mod retry_limits;
 pub mod route_projection;
 pub mod signals;
 pub mod worker;

@@ -11,6 +11,8 @@ const {
   readDaemonModelSnapshot: readDaemonModelSnapshotFromClient,
   requestJson,
 } = require("./bridge/client");
+const { registerMigrationCommands } = require("./commands/migration");
+const { registerQuickInputCommands } = require("./commands/quick-input");
 const studioWorkSummary = require("./studio-work-summary");
 const { createStudioPanelHtml } = require("./studio/studio-panel-html");
 const { createStudioModelCompletion } = require("./studio/model-completion");
@@ -15775,28 +15777,6 @@ function pickPayloadString(value, key) {
   return null;
 }
 
-function extensionQuickInputFallbackEnabled() {
-  return ["1", "true", "yes"].includes(
-    String(process.env.IOI_QUICKINPUT_EXTENSION_FALLBACK || "").toLowerCase(),
-  );
-}
-
-async function recordForkQuickInputCommand(command, payload, output) {
-  const contextSnapshot = buildWorkspaceActionContext("fork-native-quickinput-command");
-  await writeBridgeRequest(command.replace(/^ioi\.quickInput\./, "quickInput."), {
-    ...(payload && typeof payload === "object" ? payload : {}),
-    sourceCommand: command,
-    nativeForkContributionExpected: true,
-    extensionQuickPickFallbackUsed: false,
-    runtimeAuthority: "daemon-owned",
-    projectionOwner: "autopilot-workbench-fork-quickinput",
-  }, contextSnapshot).catch((error) => {
-    output.appendLine(
-      `[ioi-quickinput] fork command bridge request unavailable: ${error?.message || String(error)}`,
-    );
-  });
-}
-
 function registerNativeCommands(context, output) {
   ensureStudioDiffProvider(context);
   const status = (message) =>
@@ -15810,98 +15790,26 @@ function registerNativeCommands(context, output) {
     }
     return null;
   };
-  const planMigrationImport = async (command, sourceEditor, importKind, payload = {}) => {
-    const contextSnapshot = buildWorkspaceActionContext("migration-assistant");
-    await writeBridgeRequest("migration.import.plan", {
-      workspaceRoot: workspaceSummary().path,
-      sourceCommand: command,
-      sourceEditor,
-      importKind,
-      applyMode: "plan_only",
-      policyReviewRequired: true,
-      sandboxBoundaryPreserved: true,
-      autoApply: false,
-      runtimeAuthority: "daemon-owned",
-      projectionOwner: "openvscode-workbench-adapter",
-      ownsRuntimeState: false,
-      payload: payload && typeof payload === "object" ? payload : {},
-    }, contextSnapshot).catch((error) => {
-      output.appendLine(
-        `[ioi-migration] bridge request unavailable: ${error?.message || String(error)}`,
-      );
-    });
-    status(`Planned ${sourceEditor} ${importKind} import.`);
-  };
+
+  registerMigrationCommands({
+    context,
+    output,
+    vscode,
+    buildWorkspaceActionContext,
+    writeBridgeRequest,
+    workspaceSummary,
+    status,
+  });
+  registerQuickInputCommands({
+    context,
+    output,
+    vscode,
+    buildWorkspaceActionContext,
+    writeBridgeRequest,
+    status,
+  });
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("ioi.migration.openAssistant", async (payload = {}) => {
-      const contextSnapshot = buildWorkspaceActionContext("migration-assistant");
-      await writeBridgeRequest("migration.assistant.open", {
-        workspaceRoot: workspaceSummary().path,
-        sourceCommand: "ioi.migration.openAssistant",
-        supportedSources: ["vscode", "cursor", "windsurf"],
-        supportedImports: ["settings", "extensions", "keybindings", "exclusions"],
-        applyMode: "plan_only",
-        policyReviewRequired: true,
-        sandboxBoundaryPreserved: true,
-        autoApply: false,
-        runtimeAuthority: "daemon-owned",
-        projectionOwner: "openvscode-workbench-adapter",
-        ownsRuntimeState: false,
-        payload: payload && typeof payload === "object" ? payload : {},
-      }, contextSnapshot).catch((error) => {
-        output.appendLine(
-          `[ioi-migration] bridge request unavailable: ${error?.message || String(error)}`,
-        );
-      });
-      status("Opened Migration Assistant plan.");
-    }),
-    vscode.commands.registerCommand("ioi.migration.importVSCodeSettings", (payload = {}) =>
-      planMigrationImport("ioi.migration.importVSCodeSettings", "vscode", "settings", payload),
-    ),
-    vscode.commands.registerCommand("ioi.migration.importCursorSettings", (payload = {}) =>
-      planMigrationImport("ioi.migration.importCursorSettings", "cursor", "settings", payload),
-    ),
-    vscode.commands.registerCommand("ioi.migration.importWindsurfSettings", (payload = {}) =>
-      planMigrationImport("ioi.migration.importWindsurfSettings", "windsurf", "settings", payload),
-    ),
-    vscode.commands.registerCommand("ioi.migration.importVSCodeExtensions", (payload = {}) =>
-      planMigrationImport("ioi.migration.importVSCodeExtensions", "vscode", "extensions", payload),
-    ),
-    vscode.commands.registerCommand("ioi.migration.importCursorExtensions", (payload = {}) =>
-      planMigrationImport("ioi.migration.importCursorExtensions", "cursor", "extensions", payload),
-    ),
-    vscode.commands.registerCommand("ioi.migration.importWindsurfExtensions", (payload = {}) =>
-      planMigrationImport("ioi.migration.importWindsurfExtensions", "windsurf", "extensions", payload),
-    ),
-    vscode.commands.registerCommand("ioi.quickInput.context.open", async (payload = {}) => {
-      if (extensionQuickInputFallbackEnabled()) {
-        await vscode.commands.executeCommand("ioi.studio.openContextPicker", payload);
-        return;
-      }
-      await recordForkQuickInputCommand("ioi.quickInput.context.open", payload, output);
-      status("Fork-native Add Context QuickInput requested.");
-    }),
-    vscode.commands.registerCommand("ioi.quickInput.tools.configure", async (payload = {}) => {
-      if (extensionQuickInputFallbackEnabled()) {
-        await vscode.commands.executeCommand("ioi.studio.openToolPicker", payload);
-        return;
-      }
-      await recordForkQuickInputCommand("ioi.quickInput.tools.configure", payload, output);
-      status("Fork-native Configure Tools QuickInput requested.");
-    }),
-    vscode.commands.registerCommand("ioi.quickInput.modelRoute.pick", async (payload = {}) => {
-      await recordForkQuickInputCommand("ioi.quickInput.modelRoute.pick", payload, output);
-      status("Fork-native model route picker requested.");
-    }),
-    vscode.commands.registerCommand("ioi.quickInput.workflowTarget.pick", async (payload = {}) => {
-      await recordForkQuickInputCommand("ioi.quickInput.workflowTarget.pick", payload, output);
-      status("Fork-native workflow target picker requested.");
-    }),
-    vscode.commands.registerCommand("ioi.quickInput.agentMode.pick", async (payload = {}) => {
-      await recordForkQuickInputCommand("ioi.quickInput.agentMode.pick", payload, output);
-      status("Fork-native agent mode picker requested.");
-    }),
     vscode.commands.registerCommand("ioi.quickInput.permissionMode.pick", async (payload = {}) => {
       const options = studioPermissionModeOptions(payload.approvalMode || studioRuntimeProjection.approvalMode).map((item) => ({
         label: item.label,

@@ -22,6 +22,7 @@ import {
 import { applyAutopilotWorkbenchShellPatch } from "./autopilot-workbench-shell-patch.mjs";
 import {
   cleanupProofUserDataProcesses,
+  clickLocatorWithDomFallback,
   closeServer,
   ensureDir,
   findFrameWithTestId as harnessFindFrameWithTestId,
@@ -456,7 +457,11 @@ async function runProof(outputDir) {
     }
     await screenshot(page, outputDir, "studio-historic-run-replay.png", screenshots);
 
-    await studioFrame.locator('[data-testid="studio-trajectory-replay-panel"] [data-testid="studio-view-trace-link"]').first().click();
+    await clickLocatorWithDomFallback(
+      studioFrame
+        .locator('[data-testid="studio-trajectory-replay-panel"] [data-testid="studio-view-trace-link"]')
+        .first(),
+    );
     const traceRequest = await requireNewRequest(
       requests,
       (request) =>

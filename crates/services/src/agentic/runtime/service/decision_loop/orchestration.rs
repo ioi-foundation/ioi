@@ -21,6 +21,8 @@ use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use serde_json::json;
 
+use super::retry_limits::{retry_failure_ceiling_reached, retry_limit_exceeded_status};
+
 pub(super) async fn emit_planner_fallback_evidence(
     service: &RuntimeAgentService,
     session_id: [u8; 32],
@@ -210,11 +212,11 @@ pub(super) fn maybe_fail_step_resource_limits(
 ) -> Result<bool, TransactionError> {
     // A zero budget is used by existing playbook/runtime paths as an unset budget,
     // so only the explicit consecutive-failure retry ceiling terminalizes here.
-    if agent_state.consecutive_failures < 5 {
+    if !retry_failure_ceiling_reached(agent_state.consecutive_failures) {
         return Ok(false);
     }
 
-    agent_state.status = AgentStatus::Failed("Resources/Retry limit exceeded".into());
+    agent_state.status = retry_limit_exceeded_status();
     persist_agent_state(state, key, agent_state, service.memory_runtime.as_ref())?;
     Ok(true)
 }

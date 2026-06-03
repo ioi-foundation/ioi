@@ -127,6 +127,12 @@ import {
   nativeInvocationResponse,
 } from "./openai-compat-routes.mjs";
 import {
+  baseUrlForRequest,
+  runtimeEventCursorFromRequest,
+  usageRequestMetadataFromUrl,
+  usageTelemetryWithRequestMetadata,
+} from "./runtime-request-metadata.mjs";
+import {
   readBody,
   writeSse,
   writeJsonResponse,
@@ -12161,7 +12167,9 @@ async function handleRequest({ request, response, store }) {
         response,
         usageTelemetryWithRequestMetadata(
           store.listUsage(Object.fromEntries(url.searchParams.entries())),
-          usageRequestMetadataFromUrl(url),
+          usageRequestMetadataFromUrl(url, {
+            runtimeUsageTelemetrySchemaVersion: RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
+          }),
         ),
       );
       return;
@@ -12455,80 +12463,6 @@ async function handleRequest({ request, response, store }) {
   }
 }
 
-
-function baseUrlForRequest(request) {
-  const host = request.headers.host;
-  return host ? `http://${host}` : null;
-}
-
-function runtimeEventCursorFromRequest({ request, url }) {
-  if (url.searchParams.has("since_seq")) {
-    return { sinceSeq: Number(url.searchParams.get("since_seq") ?? 0) || 0 };
-  }
-  return {
-    lastEventId:
-      url.searchParams.get("lastEventId") ??
-      url.searchParams.get("last_event_id") ??
-      request.headers["last-event-id"] ??
-      "",
-  };
-}
-
-
-
-function usageRequestMetadataFromUrl(url, { defaultScope = "workflow" } = {}) {
-  const params = url?.searchParams;
-  if (!params) return null;
-  const workflowNodeId = stringFromSearchParams(params, "workflow_node_id");
-  const workflowGraphId = stringFromSearchParams(params, "workflow_graph_id");
-  const source = stringFromSearchParams(params, "source");
-  const usageMeterScope =
-    stringFromSearchParams(params, "usage_meter_scope") ??
-    stringFromSearchParams(params, "scope") ??
-    defaultScope;
-  if (!workflowNodeId && !workflowGraphId && !source) return null;
-  const simulationMode = booleanFromSearchParams(params, "simulation_mode", true);
-  return {
-    source: source ?? "react_flow",
-    actor: stringFromSearchParams(params, "actor") ?? "operator",
-    event_kind:
-      stringFromSearchParams(params, "event_kind") ??
-      "RuntimeUsageTelemetry.Read",
-    eventKind:
-      stringFromSearchParams(params, "event_kind") ??
-      "RuntimeUsageTelemetry.Read",
-    component_kind:
-      stringFromSearchParams(params, "component_kind") ?? "usage_telemetry",
-    componentKind:
-      stringFromSearchParams(params, "component_kind") ?? "usage_telemetry",
-    payload_schema_version:
-      stringFromSearchParams(params, "payload_schema_version") ??
-      RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
-    payloadSchemaVersion:
-      stringFromSearchParams(params, "payload_schema_version") ??
-      RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
-    workflow_graph_id: workflowGraphId,
-    workflowGraphId,
-    workflow_node_id: workflowNodeId ?? "runtime.usage-meter",
-    workflowNodeId: workflowNodeId ?? "runtime.usage-meter",
-    usage_meter_scope: usageMeterScope,
-    usageMeterScope,
-    simulation_mode: simulationMode,
-    simulationMode,
-  };
-}
-
-function usageTelemetryWithRequestMetadata(record, metadata) {
-  if (!record || !metadata) return record;
-  if (Array.isArray(record.usage)) {
-    return {
-      ...record,
-      ...metadata,
-      usage: record.usage.map((entry) => ({ ...entry, ...metadata })),
-    };
-  }
-  return { ...record, ...metadata };
-}
 
 function contextBudgetUsageTelemetryFromRequest(request = {}) {
   return contextBudgetFirstObject(

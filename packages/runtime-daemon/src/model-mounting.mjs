@@ -106,24 +106,17 @@ import {
   downloadFailureReason,
   publicDownloadSource,
 } from "./model-mounting/download-helpers.mjs";
+import {
+  internalFixtureModelsEnabled,
+  liveModelCatalogEnabled,
+  liveModelDownloadEnabled,
+  lmStudioPublicCliEnabled,
+  lmStudioRuntimeDiscoveryEnabled,
+  modelCatalogTimeoutMs,
+  modelDownloadTimeoutMs,
+} from "./model-mounting/environment.mjs";
 
 const MODEL_MOUNT_SCHEMA_VERSION = "ioi.model-mounting.runtime.v1", SECRET_REDACTION = "[REDACTED]";
-
-function lmStudioPublicCliEnabled() {
-  return truthy(process.env.IOI_ENABLE_LM_STUDIO_PUBLIC_CLI) || truthy(process.env.IOI_ENABLE_LM_STUDIO_REFERENCE_PROVIDER);
-}
-
-function lmStudioRuntimeDiscoveryEnabled() {
-  return lmStudioPublicCliEnabled() || truthy(process.env.IOI_ENABLE_LM_STUDIO_PUBLIC_RUNTIME_DISCOVERY);
-}
-
-function exposeInternalFixtureModels() {
-  return truthy(process.env.IOI_EXPOSE_INTERNAL_FIXTURE_MODELS);
-}
-
-function internalFixtureModelsEnabled() {
-  return exposeInternalFixtureModels() || truthy(process.env.IOI_ENABLE_INTERNAL_FIXTURE_MODELS);
-}
 
 class AgentgresWalletAuthority {
   constructor({ now, appendOperation }) {
@@ -10155,14 +10148,6 @@ function customHttpCatalogProviderPort(state) {
   };
 }
 
-function liveModelCatalogEnabled() {
-  return process.env.IOI_LIVE_MODEL_CATALOG === "1";
-}
-
-function liveModelDownloadEnabled() {
-  return process.env.IOI_LIVE_MODEL_DOWNLOAD === "1";
-}
-
 function huggingFaceCatalogBaseUrl(state) {
   const fallback = process.env.IOI_MODEL_CATALOG_HF_BASE_URL ?? "https://huggingface.co";
   return state?.catalogProviderConfig?.("catalog.huggingface")?.enabled === false
@@ -10262,16 +10247,6 @@ function catalogRecordsFromPayload(payload) {
   if (Array.isArray(payload?.catalog)) return payload.catalog;
   return [];
 }
-
-function modelCatalogTimeoutMs() {
-  return Number(process.env.IOI_MODEL_CATALOG_TIMEOUT_MS ?? 5000) || 5000;
-}
-
-function modelDownloadTimeoutMs() {
-  return Number(process.env.IOI_MODEL_DOWNLOAD_TIMEOUT_MS ?? 30000) || 30000;
-}
-
-
 
 function huggingFaceCatalogEntries(record, { baseUrl, searchedAt }) {
   const repoId = String(record.modelId ?? record.id ?? record.repo_id ?? record.repoId ?? "").trim();
