@@ -128,6 +128,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/diagnostics-repair-execution.mjs`.
 - Moved diagnostics repair execution result projection, operator override approval shaping, restore-apply approval/conflict/status/policy-ref helpers, and restore-apply summary text out of `index.mjs` behind dependency-injected helper exports.
 - Added focused diagnostics repair execution tests for approval/conflict policy refs and public snake/camel retry and operator-override envelopes.
+- Added `packages/runtime-daemon/src/runtime-usage-events.mjs`.
+- Moved runtime bridge usage-delta insertion, usage delta payload shaping, context-pressure delta/alert payload shaping, and context pressure rounding/status helpers out of `index.mjs` behind dependency-injected helper exports.
+- Added focused runtime usage event tests for telemetry aliases, context-pressure alert actions, insertion order after `turn.started`, and public event kinds.
 - Added `packages/runtime-daemon/src/runtime-identifiers.mjs`.
 - Moved runtime thread/agent/run/turn/session id derivation, runtime-backed agent detection, fixture profile defaults, and lifecycle/thread status normalization out of `index.mjs`.
 - Added focused runtime identifier tests for prefix compatibility, event stream ids, runtime session fallback, fixture profile override/null preservation, runtime profile detection, and lifecycle status aliases.
@@ -231,6 +234,7 @@ Status: `model-mounting.mjs` still owns default seeding, state-machine behavior,
 
 - Kept public/product names stable: Agent Studio command ids, `ioi.*` command ids, data-testids, daemon routes, and request/response envelopes were not renamed.
 - Treat the Stage 8 manual-auth handoff fixture as managed-session/operator-control and reconnect coverage only. It is intentionally not a real login, credential, CAPTCHA, payment, or approval-policy proof; future auth durability should use a separate local HTTP auth fixture with cookie/session behavior.
+- Added `internal-docs/prompts` to `.gitignore` and removed tracked prompt files from the next tree so local prompt material stays out of `master`.
 - Introduced private/module-level names that describe ownership boundaries:
   - `public-text-sanitizer`
   - `studio/projection-managed-sessions`
