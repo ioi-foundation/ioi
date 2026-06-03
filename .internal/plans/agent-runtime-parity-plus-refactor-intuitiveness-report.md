@@ -219,6 +219,8 @@ Status: `model-mounting.mjs` still owns default seeding, state-machine behavior,
 - Moved market-quote source grading, structured metric coverage counts, comparison-context counts, quote-grounding floors, and pending quote-grounding readiness out of `facts.rs` behind a crate-visible re-export so existing queue/final-reply call sites keep their public path.
 - Added `crates/services/src/agentic/runtime/execution/filesystem/handler/policy.rs`.
 - Moved filesystem handler patch failure classification, workspace read/write boundary wrappers, and safe regular-file read/write target guards out of `handler.rs` while preserving handler-module helper names used by policy tests and filesystem tool handling.
+- Added `crates/services/src/agentic/runtime/substrate/semantic_impact.rs`.
+- Moved substrate semantic-impact projection, changed-path classification, mutating-tool detection, and targeted test-selection hints out of `substrate.rs` while preserving the public `RuntimeSubstrateSnapshot` projection API and substrate test behavior.
 
 ## Naming And Vocabulary Decisions
 
@@ -259,6 +261,7 @@ Status: `model-mounting.mjs` still owns default seeding, state-machine behavior,
   - `finalize_action_processing/completion_guards`
   - `queue/support/pipeline/facts/market_quote`
   - `filesystem/handler/policy`
+  - `substrate/semantic_impact`
   - `model-mounting/projections`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
