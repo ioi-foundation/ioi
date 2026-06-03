@@ -30,6 +30,8 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/runtime-event-utils.js",
   productErrors:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/product-error-message.js",
+  projectionState:
+    "apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-state.js",
   artifactRouting:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/artifact-research-routing.js",
   packageJson: "apps/autopilot/openvscode-extension/ioi-workbench/package.json",
@@ -58,6 +60,7 @@ async function readStudioComposite() {
       paths.turnRecovery,
       paths.runtimeEvents,
       paths.productErrors,
+      paths.projectionState,
       paths.artifactRouting,
     ].map(read),
   );

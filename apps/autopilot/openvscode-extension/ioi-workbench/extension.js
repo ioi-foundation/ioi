@@ -30,6 +30,9 @@ const { createStudioAgentTurnEvents } = require("./studio/agent-turn-events");
 const { createStudioAgentTurnResultText } = require("./studio/agent-turn-result-text");
 const { createStudioAgentTurnRecovery } = require("./studio/agent-turn-recovery");
 const { createStudioProductErrorMessage } = require("./studio/product-error-message");
+const {
+  createInitialStudioRuntimeProjection: createInitialStudioRuntimeProjectionFromState,
+} = require("./studio/projection-state");
 const { createStudioPublicTextSanitizer } = require("./studio/public-text-sanitizer");
 const {
   studioRuntimeEventToolName,
@@ -143,6 +146,16 @@ let studioRuntimeProjection = createInitialStudioRuntimeProjection();
 let studioDiffProviderDisposable = null;
 const studioDiffDocuments = new Map();
 let activeTraceTarget = null;
+
+function createInitialStudioRuntimeProjection() {
+  return createInitialStudioRuntimeProjectionFromState({
+    approvalId: STUDIO_APPROVAL_ID,
+    executionMode: STUDIO_MODE_AGENT,
+    permissionMode: STUDIO_PERMISSION_MODE_DEFAULT,
+    policyLeaseId: STUDIO_POLICY_LEASE_ID,
+    runtimeProfile: STUDIO_AGENT_RUNTIME_PROFILE,
+  });
+}
 
 function rememberRecentTaskLabel(label) {
   const normalized = typeof label === "string" ? label.trim() : "";
@@ -1288,132 +1301,6 @@ function renderChatView(state) {
       </div>
     </section>
   `;
-}
-
-function createInitialStudioRuntimeProjection() {
-  return {
-    schemaVersion: "ioi.agent-studio.operational-chat.projection.v1",
-    threadId: null,
-    sessionId: null,
-    runId: null,
-    turnId: null,
-    status: "idle",
-    pending: false,
-    immediateSubmitSeen: false,
-    pendingSeen: false,
-    pendingStartedAtMs: null,
-    pendingWorklog: [],
-    runtimeEventSeenIds: [],
-    lastError: null,
-    lastModelStream: null,
-    lastIntentFrame: null,
-    executionMode: STUDIO_MODE_AGENT,
-    runtimeProfile: STUDIO_AGENT_RUNTIME_PROFILE,
-    modelRoute: "route.local-first",
-    selectedModel: "auto",
-    reasoningEffort: "none",
-    approvalMode: STUDIO_PERMISSION_MODE_DEFAULT,
-    approvalId: STUDIO_APPROVAL_ID,
-    hunkApprovalId: STUDIO_APPROVAL_ID,
-    policyLeaseId: STUDIO_POLICY_LEASE_ID,
-    hunkDecision: null,
-    runtimeCockpit: {
-      achieved: false,
-      modelBackedStreamingObserved: false,
-      realDaemonToolProposalObserved: false,
-      policyLeaseDialogObserved: false,
-      policyDeniedActionDidNotExecute: false,
-      policyLeaseAllowOnceObserved: false,
-      policyLeaseRevokeObserved: false,
-      policyLeaseExpiryObserved: false,
-      policyLeaseRevokedActionDidNotExecute: false,
-      policyLeaseExpiredActionDidNotExecute: false,
-      sandboxCommandOutputStreamObserved: false,
-      sandboxCommandReceiptObserved: false,
-      inlineDiffOverlayObserved: false,
-      hunkNavigationObserved: false,
-      hunkAcceptRejectReceiptsObserved: false,
-      stopControlObserved: false,
-      resumeControlObserved: false,
-      stopResumeObserved: false,
-      diagnosticsTestGateObserved: false,
-      receiptTimelinePerStepObserved: false,
-      replayStepDetailObserved: false,
-      projectionOnlyRuntimeRejected: true,
-      browserStatusObserved: false,
-      workerStatusObserved: false,
-      managedLiveViewportObserved: false,
-      managedSessionLabelsObserved: false,
-      conversationArtifactObserved: false,
-    },
-    runtimeUx: {
-      denoised: true,
-      tracingSeparationAchieved: true,
-      compactStatusesHaveTraceLinks: true,
-      modelProseNotAcceptedAsRuntimeTruth: true,
-      verifiedBadgesRequireReceiptRefs: true,
-    },
-    runtimeEvents: [],
-    actionCards: [],
-    policyLeases: [],
-    commandOutputs: [],
-    diagnosticGates: [],
-    engineReconnectBanners: [],
-    trajectoryReplayPanels: [],
-    sessionBrainPanels: [],
-    chatResponsibilityContracts: [],
-    securityScanPanels: [],
-    workerContributionTraces: [],
-    safeModeToolSuppressionPanels: [],
-    onboardingDiagnosticsPanels: [],
-    gatewayTokenHygienePanels: [],
-    sandboxResourceLimitPanels: [],
-    parentTrajectoryLinkagePanels: [],
-    battleModePermissionImportPanels: [],
-    importedStopHookGatePanels: [],
-    importedBrowserActionEvidencePanels: [],
-    importedExecutorConfigPanels: [],
-    importedPolicyDraftPanels: [],
-    importedGenerationMetadataPanels: [],
-    importedErrorRenderInfoPanels: [],
-    outputRenderers: [],
-    replaySteps: [],
-    browserCards: [],
-    workerCards: [],
-    computerUseSessions: [],
-    conversationArtifacts: [],
-    turns: [
-      {
-        role: "assistant",
-        content:
-          "Agent Studio is ready. Prompts run through daemon-owned sessions; Studio stays calm by default and links proof details into Tracing.",
-        createdAt: new Date().toISOString(),
-      },
-    ],
-    history: [
-      {
-        id: "studio-session-current",
-        title: "Current daemon session",
-        status: "idle",
-      },
-    ],
-    timeline: [
-      {
-        label: "Studio surface opened",
-        detail: "Awaiting prompt",
-        status: "ready",
-      },
-    ],
-    approvals: [],
-    receipts: [],
-    terminal: [
-      {
-        label: "No terminal job running",
-        detail: "Terminal/test output will be projected from daemon-owned execution receipts.",
-      },
-    ],
-    diffHunks: [],
-  };
 }
 
 function stringValue(value, fallback = "") {
