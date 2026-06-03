@@ -1,7 +1,6 @@
 import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 
@@ -120,6 +119,7 @@ import { ConversationArtifactStore } from "./conversation-artifacts.mjs";
 import { resolveStudioIntentFrame } from "./studio-intent-frame.mjs";
 import { createRuntimeRouteHandlers } from "./runtime-route-handlers.mjs";
 import { createRuntimeRecordProjections } from "./runtime-record-projections.mjs";
+import { startRuntimeDaemonServiceWithStore } from "./service/runtime-daemon-service.mjs";
 import {
   handleOpenAiCompatibilityRoute,
   isOpenAiCompatibilityRoute,
@@ -275,46 +275,12 @@ const WORKSPACE_CHANGE_CONTROL_TOOL_IDS = new Set([
 ]);
 
 export async function startRuntimeDaemonService(options = {}) {
-  const stateDir = path.resolve(options.stateDir ?? path.join(process.cwd(), ".ioi", "agentgres"));
-  const host = options.host ?? "127.0.0.1";
-  const port = options.port ?? 0;
-  const store = new AgentgresRuntimeStateStore(stateDir, {
-    cwd: options.cwd ?? process.cwd(),
-    homeDir: options.homeDir,
-    vaultSecrets: options.vaultSecrets,
-    runtimeBridge: options.runtimeBridge,
+  return startRuntimeDaemonServiceWithStore({
+    options,
+    StateStore: AgentgresRuntimeStateStore,
+    handleRequest,
+    writeError,
   });
-  const server = http.createServer((request, response) => {
-    handleRequest({ request, response, store }).catch((error) => {
-      writeError(response, {
-        status: 500,
-        code: "runtime",
-        message: "IOI runtime daemon failed while handling request.",
-        details: { error: String(error?.message ?? error) },
-      });
-    });
-  });
-  await new Promise((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(port, host, () => {
-      server.off("error", reject);
-      resolve();
-    });
-  });
-  const address = server.address();
-  if (!address || typeof address === "string") {
-    throw new Error("Runtime daemon did not bind to a TCP port.");
-  }
-  return {
-    endpoint: `http://${address.address}:${address.port}`,
-    stateDir,
-    store,
-    close: () =>
-      new Promise((resolve, reject) => {
-        store.close();
-        server.close((error) => (error ? reject(error) : resolve()));
-      }),
-  };
 }
 
 export class AgentgresRuntimeStateStore {

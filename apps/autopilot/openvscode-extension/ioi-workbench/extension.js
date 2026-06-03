@@ -13,6 +13,12 @@ const {
 } = require("./bridge/client");
 const { registerMigrationCommands } = require("./commands/migration");
 const { registerQuickInputCommands } = require("./commands/quick-input");
+const {
+  buildWorkspaceActionContext: buildWorkspaceActionContextFromWorkbench,
+} = require("./workbench/action-context");
+const {
+  startWorkbenchContextSnapshotPublisher: startWorkbenchContextSnapshotPublisherFromWorkbench,
+} = require("./workbench/context-publisher");
 const studioWorkSummary = require("./studio-work-summary");
 const { createStudioPanelHtml } = require("./studio/studio-panel-html");
 const { createStudioModelCompletion } = require("./studio/model-completion");
@@ -138,6 +144,10 @@ function rememberRecentTaskLabel(label) {
   }
   recentTaskLabels.unshift(normalized);
   recentTaskLabels.splice(8);
+}
+
+function buildWorkspaceActionContext(source, uri) {
+  return buildWorkspaceActionContextFromWorkbench({ vscode, workspaceSummary }, source, uri);
 }
 
 function refSafe(value) {
@@ -970,31 +980,6 @@ function buildWorkbenchInspectionTargetIndex(reason = "poll") {
   };
 }
 
-function buildWorkspaceActionContext(source, uri) {
-  const editor = vscode.window.activeTextEditor;
-  const selection = editor?.selection;
-  const selectedText =
-    selection && !selection.isEmpty
-      ? editor?.document.getText(selection).trim() || null
-      : null;
-
-  return {
-    workspaceRoot: workspaceSummary().path,
-    filePath: resolveFileContext(uri),
-    selection:
-      selection && !selection.isEmpty
-        ? {
-            startLineNumber: selection.start.line + 1,
-            startColumn: selection.start.character + 1,
-            endLineNumber: selection.end.line + 1,
-            endColumn: selection.end.character + 1,
-            selectedText,
-          }
-        : null,
-    source,
-  };
-}
-
 function defaultBridgeState() {
   return {
     schemaVersion: 1,
@@ -1215,84 +1200,19 @@ async function writeBridgeRequest(requestType, payload = {}, context = null) {
 }
 
 function startWorkbenchContextSnapshotPublisher(context, output) {
-  let lastHash = "";
-  let lastTargetHash = "";
-  let publishing = false;
-
-  const publish = async (reason) => {
-    if (publishing) {
-      return;
-    }
-    publishing = true;
-    try {
-      const snapshot = buildWorkbenchContextSnapshot(reason);
-      const comparableSnapshot = {
-        ...snapshot,
-        snapshotId: "",
-        generatedAtMs: 0,
-        reason: "",
-      };
-      const hash = crypto
-        .createHash("sha256")
-        .update(JSON.stringify(comparableSnapshot))
-        .digest("hex");
-      if (hash !== lastHash) {
-        lastHash = hash;
-        await writeBridgeRequest("workbench.contextSnapshot", snapshot, {
-          source: "ioi-workbench",
-          reason,
-        });
-      }
-
-      const targetIndex = buildWorkbenchInspectionTargetIndex(reason);
-      const comparableTargetIndex = {
-        ...targetIndex,
-        generatedAtMs: 0,
-        reason: "",
-      };
-      const targetHash = crypto
-        .createHash("sha256")
-        .update(JSON.stringify(comparableTargetIndex))
-        .digest("hex");
-      if (targetHash !== lastTargetHash) {
-        lastTargetHash = targetHash;
-        await writeBridgeRequest("workbench.inspectionTargetIndex", targetIndex, {
-          source: "ioi-workbench",
-          reason,
-        });
-      }
-    } catch (error) {
-      output.appendLine(
-        `Workbench context snapshot failed: ${error?.message || String(error)}`,
-      );
-    } finally {
-      publishing = false;
-    }
-  };
-
-  const subscriptions = [
-    vscode.window.onDidChangeActiveTextEditor(() => void publish("activeEditor")),
-    vscode.window.onDidChangeTextEditorSelection(() => void publish("selection")),
-    vscode.languages.onDidChangeDiagnostics(() => void publish("diagnostics")),
-    vscode.window.tabGroups.onDidChangeTabs(() => void publish("tabs")),
-    vscode.window.onDidOpenTerminal(() => void publish("terminal")),
-    vscode.window.onDidCloseTerminal(() => void publish("terminal")),
-    vscode.tasks.onDidStartTask((event) => {
-      rememberRecentTaskLabel(event.execution?.task?.name);
-      void publish("task");
-    }),
-    vscode.tasks.onDidEndTaskProcess((event) => {
-      rememberRecentTaskLabel(event.execution?.task?.name);
-      lastTaskExitCode =
-        typeof event.exitCode === "number" ? event.exitCode : lastTaskExitCode;
-      void publish("task");
-    }),
-  ];
-  subscriptions.forEach((subscription) => context.subscriptions.push(subscription));
-
-  const timer = setInterval(() => void publish("poll"), 3_000);
-  context.subscriptions.push({ dispose: () => clearInterval(timer) });
-  void publish("activation");
+  return startWorkbenchContextSnapshotPublisherFromWorkbench({
+    context,
+    output,
+    vscode,
+    buildWorkbenchContextSnapshot,
+    buildWorkbenchInspectionTargetIndex,
+    writeBridgeRequest,
+    rememberRecentTaskLabel,
+    getLastTaskExitCode: () => lastTaskExitCode,
+    setLastTaskExitCode: (value) => {
+      lastTaskExitCode = value;
+    },
+  });
 }
 
 function escapeHtml(value) {
@@ -15610,22 +15530,6 @@ function watchBridgeState(onChange) {
       clearInterval(handle);
     },
   };
-}
-
-function resolveFileContext(uri) {
-  if (uri?.scheme === "file") {
-    return uri.fsPath;
-  }
-
-  const activeEditorPath = vscode.window.activeTextEditor?.document.uri.fsPath;
-  if (activeEditorPath) {
-    return activeEditorPath;
-  }
-
-  const explorerSelection = vscode.window.tabGroups.all
-    .flatMap((group) => group.tabs)
-    .find((tab) => tab.isActive)?.input?.uri?.fsPath;
-  return explorerSelection || null;
 }
 
 async function runDaemonModelWorkbenchAction(action, payload = {}) {
