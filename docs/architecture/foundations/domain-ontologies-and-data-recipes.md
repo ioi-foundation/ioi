@@ -150,13 +150,13 @@ This layer is not:
    into a plan for Worker Training or worker/package generation.
 
 11. **Train, Benchmark, Publish, and Route**
-    Autopilot Foundry, daemon jobs, or sas.xyz training engagements use the
+    Hypervisor Foundry, daemon jobs, or sas.xyz training engagements use the
     plan to produce a WorkerManifest, policy envelope, lineage refs,
     evaluation receipts, benchmark receipts, and MoW routing metadata.
 
 ## Product and Domain Roles
 
-Autopilot Foundry is the primary local product surface for authoring and
+Hypervisor Foundry is the primary local product surface for authoring and
 inspecting ontologies, data recipes, connector mappings, evaluation datasets,
 and ontology-to-worker plans. It should expose guided views first, then allow
 advanced users to open the same data, training, evaluation, benchmark,

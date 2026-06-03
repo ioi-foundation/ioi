@@ -8,7 +8,7 @@ Last alignment pass: 2026-06-01.
 
 ## Purpose
 
-This file defines the shared low-level objects that every IOI/Web4 component must understand. The goal is to prevent split-brain API design between `@ioi/agent-sdk`, IOI ADK, IOI CLI/TUI, agent-ide, Autopilot, IOI daemon, Agentgres, wallet.network, aiagent.xyz, sas.xyz, workflow compositor, harnesses, benchmarks, hosted/self-hosted workers, and IOI L1 contracts.
+This file defines the shared low-level objects that every IOI/Web4 component must understand. The goal is to prevent split-brain API design between `@ioi/agent-sdk`, IOI ADK, IOI CLI/TUI, agent-ide, Hypervisor, Hypervisor Daemon, Agentgres, wallet.network, aiagent.xyz, sas.xyz, workflow compositor, harnesses, benchmarks, hosted/self-hosted workers, and IOI L1 contracts.
 
 ## Canonical Envelope Types
 
@@ -16,7 +16,7 @@ This file defines the shared low-level objects that every IOI/Web4 component mus
 ManifestEnvelope
 AutonomousSystemManifestEnvelope
 AutonomousSystemChainEnvelope
-AutopilotNodeEnvelope
+HypervisorNodeEnvelope
 BoundedExecutionDomainEnvelope
 ServiceModuleManifestEnvelope
 ModuleInvocationEnvelope
@@ -90,7 +90,7 @@ RoutingDecisionEnvelope
 ai://...                global intelligence/app/worker/service namespace
 system://...            Autonomous System Package namespace
 domain://...            bounded execution domain, application domain, or sovereign domain namespace
-node://...              Autopilot node or runtime node namespace
+node://...              Hypervisor Node or runtime node namespace
 module://...            governed service-module namespace
 invocation://...        module invocation namespace
 proposal://...          upgrade, policy, module, workflow, or settlement proposal namespace
@@ -106,7 +106,7 @@ subscription://...      runtime or managed-instance subscription/entitlement
 service://...           sas.xyz service definition
 run://...               runtime run identity
 task://...              task identity
-runtime://...           IOI daemon/runtime-node identity
+runtime://...           Hypervisor Daemon/runtime-node identity
 compute://...           compute session identity
 artifact://...          Agentgres artifact ref
 receipt://...           receipt identity
@@ -250,7 +250,7 @@ ManifestEnvelope:
 
 ## Autonomous System Package Lifecycle
 
-Autopilot's primary build artifact is an Autonomous System Package.
+Hypervisor's primary build artifact is an Autonomous System Package.
 
 An Autonomous System Package is the developer-facing skeletal unit for
 autonomous-system work. It is not an agent, connector, workflow, daemon
@@ -386,7 +386,7 @@ only selected roots when public trust or economic settlement requires it.
 ```yaml
 AutonomousSystemChainEnvelope:
   chain_id: system://...
-  owning_autopilot_node_id: node://...
+  owning_hypervisor_node_id: node://...
   manifest_ref: ai://...
   worker_instance_refs: []
   workflow_refs: []
@@ -407,10 +407,10 @@ AutonomousSystemChainEnvelope:
 ```
 
 ```yaml
-AutopilotNodeEnvelope:
+HypervisorNodeEnvelope:
   node_id: node://...
   owner_id: wallet://... | org://... | project://...
-  workbench_ref: optional
+  hypervisor_ide_ref: optional
   daemon_runtime_ref: runtime://...
   agentgres_domain_ref: agentgres://domain/...
   wallet_authority_ref: wallet://...
@@ -626,7 +626,7 @@ ModuleInvocationEnvelope:
   module_id: module://...
   module_version: semver_or_hash
   autonomous_system_chain_id: system://...
-  autopilot_node_id: node://...
+  hypervisor_node_id: node://...
   input_hash: hash
   predecessor_state_root: hash
   resulting_state_root: optional_hash
@@ -667,7 +667,7 @@ UpgradeDecisionEnvelope:
 ```yaml
 LocalSettlementEnvelope:
   local_settlement_id: transition://...
-  autopilot_node_id: node://...
+  hypervisor_node_id: node://...
   autonomous_system_chain_id: optional system://...
   settlement_kind: module_invocation | workflow_transition | authority_outcome | task_handoff | upgrade_decision | receipt_root | dispute_escalation
   operation_ref: agentgres://...
@@ -743,7 +743,7 @@ AuthorityScopeRequestEnvelope:
     - scope:repo.write
   resource_scope:
     resources:
-      - agentgres://project/autopilot/*
+      - agentgres://project/hypervisor/*
       - file://workspace/src/**
     constraints:
       max_budget_usd: 10
@@ -772,7 +772,7 @@ AuthorityGrantEnvelope:
     - prim:fs.read
     - prim:fs.write
   resources:
-    - agentgres://project/autopilot/*
+    - agentgres://project/hypervisor/*
     - file://workspace/src/**
   constraints:
     max_budget_usd: 10

@@ -30,17 +30,17 @@ Conflict rule:
    - `prim:*` means primitive execution capability;
    - `scope:*` means wallet/provider authority scope;
    - daemon/public runtime APIs own execution semantics;
-   - IOI daemon/runtime nodes are the hypervisor/control plane for
+   - Hypervisor Daemon runtime nodes are the hypervisor/control plane for
      autonomous execution;
    - the Default Harness Profile is the daemon-executed, wallet-authorized,
      Agentgres-backed, loop-native orchestration profile for bounded
      autonomous work; it is not a peer runtime beside the daemon;
-   - the IOI Runtime Daemon is the deterministic execution substrate for
+   - the Hypervisor Daemon is the deterministic execution substrate for
      portable, verifiable autonomous systems;
-   - Autopilot Workbench is the IDE-grade operator console, not runtime truth;
-   - Autopilot is the flagship product surface for building, deploying, and
+   - Hypervisor IDE is the IDE-grade operator console, not runtime truth;
+   - Hypervisor is the flagship product surface for building, deploying, and
      governing autonomous systems through daemon/runtime contracts;
-   - the Electron/VS Code fork is the canonical Autopilot app shell;
+   - the Electron/VS Code fork is the canonical Hypervisor app shell;
    - IOI Authority Gateway is the daemon sidecar/compatibility profile for
      existing IDE, CLI, browser, hosted-agent, and MCP/tool ecosystems; it is
      not a separate runtime;
@@ -63,7 +63,7 @@ Conflict rule:
    - storage backends such as Filecoin/CAS, S3, local disk, and object stores
      hold payload bytes only;
    - Private Workspace backed by cTEE is the daemon-owned workspace/execution
-     profile for persistent rented GPU Autopilot nodes that must keep protected
+     profile for persistent rented GPU Hypervisor Nodes that must keep protected
      plaintext off provider-controlled nodes by default;
    - Candidate-Lattice Private Decoding is the default protected-agency strategy
      for Private Workspace backed by cTEE: rented nodes generate candidates,
@@ -74,19 +74,19 @@ Conflict rule:
    - AIIP moves delegated autonomous work, authority leases, receipts,
      settlement intents, disputes, reputation queries, and handoffs across
      bounded execution domains;
-   - AIIP uses the same semantic protocol for local Autopilot microharness
+   - AIIP uses the same semantic protocol for local Hypervisor microharness
      routing and external autonomous-system handoffs, while transport and
      settlement mode vary by profile;
    - governed autonomous-system chains are system-local execution chains with
      policy, modules, proposals, receipts, state roots, and governed upgrades;
-   - an Autopilot node is a local settlement, orchestration, authority, state,
+   - a Hypervisor Node is a local settlement, orchestration, authority, state,
      replay, routing, and interop domain for many governed autonomous-system
      chains;
-   - Autopilot Workbench is not the Autopilot node; the Workbench is the
-     operator console, while the node is the local settlement domain composed
-     around daemon, Agentgres, wallet.network authority paths, local registries,
-     receipts, and replay;
-   - Autopilot nodes settle autonomous work locally; IOI L1 settles machine
+   - Hypervisor IDE is not the Hypervisor Node; the IDE is the operator
+     console, while the node is the local settlement domain composed around
+     Hypervisor Daemon, Agentgres, wallet.network authority paths, local
+     registries, receipts, and replay;
+   - Hypervisor Nodes settle autonomous work locally; IOI L1 settles machine
      labor globally;
    - IOI topology is edge-in and fractal;
    - verifiable bounded agency is IOI's execution-boundary alignment thesis:
@@ -106,7 +106,7 @@ Conflict rule:
      points only and must not claim total interception of opaque tools;
    - models and agents may reason or propose; the daemon authorizes anything
      that crosses the deterministic execution boundary;
-   - Autopilot's primary build artifact is an Autonomous System Package;
+   - Hypervisor's primary build artifact is an Autonomous System Package;
    - Autonomous System Package lifecycle is compose -> bind -> simulate ->
      authorize -> run -> verify -> inspect receipts -> package -> deploy ->
      promote -> improve;
@@ -133,22 +133,22 @@ Conflict rule:
 | Canon readability and enterability workplan | [`canon-readability-audit.md`](./canon-readability-audit.md) | [`START_HERE.md`](../START_HERE.md), [`implementation-matrix.md`](./implementation-matrix.md) | cleanup backlog and terminology watchlist |
 | Web4 category and IOI stack | [`web4-and-ioi-stack.md`](../foundations/web4-and-ioi-stack.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | architectural-improvements plans |
 | AIIP, bounded execution domains, work interop, and cross-system handoffs | [`aiip.md`](../foundations/aiip.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) | autonomous-system settlement layer synthesis, IBC comparison notes, marketplace interop docs |
-| Governed autonomous-system chains, Autopilot nodes, and machine-economy stack | [`governed-autonomous-systems.md`](../foundations/governed-autonomous-systems.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`agentgres-state-substrate.md`](../components/agentgres/doctrine.md), [`ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) | Autopilot node, local settlement, interop, and machine-economy strategy docs |
+| Governed autonomous-system chains, Hypervisor Nodes, and machine-economy stack | [`governed-autonomous-systems.md`](../foundations/governed-autonomous-systems.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`agentgres-state-substrate.md`](../components/agentgres/doctrine.md), [`ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) | Hypervisor Node, local settlement, interop, and machine-economy strategy docs |
 | Verifiable bounded agency and execution-boundary alignment | [`verifiable-bounded-agency.md`](../foundations/verifiable-bounded-agency.md) | [`security-privacy-and-policy-invariants.md`](../foundations/security-privacy-policy-invariants.md), [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md) | bounded-agency thesis, conformance contracts, investor/product framing |
 | Mixture of Workers and worker routing | [`mixture-of-workers.md`](../foundations/mixture-of-workers.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`marketplace-neutrality-and-contribution-accounting.md`](../domains/marketplace-neutrality.md) | aiagent/sas routing docs |
-| Worker Training lifecycle and training profiles | [`worker-training-lifecycle.md`](../foundations/worker-training-lifecycle.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`model-router-api-byok-and-mounting.md`](../components/model-router/api-byok-mounting.md) | Autopilot Foundry, aiagent categories, sas worker-training contracts |
-| Domain Ontologies and Data Recipes | [`domain-ontologies-and-data-recipes.md`](../foundations/domain-ontologies-and-data-recipes.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`connector-and-tool-contracts.md`](../components/connectors-tools/contracts.md) | Autopilot Foundry, Worker Training, connector mappings, distilled ontology datasets, ontology-aware projections |
+| Worker Training lifecycle and training profiles | [`worker-training-lifecycle.md`](../foundations/worker-training-lifecycle.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`model-router-api-byok-and-mounting.md`](../components/model-router/api-byok-mounting.md) | Hypervisor Foundry, aiagent categories, sas worker-training contracts |
+| Domain Ontologies and Data Recipes | [`domain-ontologies-and-data-recipes.md`](../foundations/domain-ontologies-and-data-recipes.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`connector-and-tool-contracts.md`](../components/connectors-tools/contracts.md) | Hypervisor Foundry, Worker Training, connector mappings, distilled ontology datasets, ontology-aware projections |
 | IOI L1, L0/L1 boundary, and settlement | [`ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) | [`ioi-l1-smart-contract-interfaces.md`](../foundations/ioi-l1-contract-interfaces.md) | sas/aiagent marketplace docs |
 | Kernel/domain architecture and edge-in topology | [`domain-kernels.md`](../foundations/domain-kernels.md) | [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md) | runtime package boundaries |
-| Autonomous System Package lifecycle | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`connector-and-tool-contracts.md`](../components/connectors-tools/contracts.md) | Autopilot lifecycle clarity master guide, autonomous systems shape audit, workflow compositor docs |
+| Autonomous System Package lifecycle | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`connector-and-tool-contracts.md`](../components/connectors-tools/contracts.md) | Hypervisor lifecycle clarity master guide, autonomous systems shape audit, workflow compositor docs |
 | Agentgres canonical state and Postgres bridge | [`agentgres-state-substrate.md`](../components/agentgres/doctrine.md) | [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`agentgres-postgres-bridge-and-readiness-contract.md`](../components/agentgres/postgres-bridge-and-readiness-contract.md), [`canonical-state-and-projection-system-whitepaper.md`](../components/agentgres/projection-system-reference.md) | detailed Agentgres reference module inside canonical owner, evidence/architectural-improvements-broad |
 | Agentgres artifact refs, payload refs, evidence bundles, delivery bundles, archive refs, and restore/import validity | [`agentgres-artifact-ref-plane.md`](../components/agentgres/artifact-ref-plane.md) | [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | storage backend docs, delivery/evidence docs |
 | Private user/app state refs, encrypted profile metadata, app preferences, service intake state, workspace snapshots, and non-public app payloads | [`agentgres-artifact-ref-plane.md`](../components/agentgres/artifact-ref-plane.md) | [`ioi-ai-control-plane.md`](../domains/ioi-ai/control-plane.md), [`wallet-network-authority-layer.md`](../components/wallet-network/doctrine.md), [`storage-backends-doctrine.md`](../components/storage-backends/doctrine.md) | App surfaces may resolve authorized views; IOI L1 stores only selected public/economic commitments |
-| Agent Wiki, `ioi-memory`, and context-memory admission boundary | [`agentgres-state-substrate.md`](../components/agentgres/doctrine.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`canonical-state-and-projection-system-whitepaper.md`](../components/agentgres/projection-system-reference.md) | ADR 0001, roadmap memory notes, Autopilot product context |
+| Agent Wiki, `ioi-memory`, and context-memory admission boundary | [`agentgres-state-substrate.md`](../components/agentgres/doctrine.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`canonical-state-and-projection-system-whitepaper.md`](../components/agentgres/projection-system-reference.md) | ADR 0001, roadmap memory notes, Hypervisor product context |
 | Default Harness Profile, loop-native orchestration, context topology, and output ownership | [`default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md) | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | CIRC/CEC, runtime harness code, default-harness projection/shadow/gated/live activation |
-| Private Workspace backed by cTEE, Plaintext-Free Runtime Mounting, Plaintext-Free Model Mounting, Custody Types, Custody Proof, Private Agency Transform, Candidate Coverage Profile, Counterfactual Lattice Execution, Cryptographic Operator Plane, Candidate-Lattice Private Decoding, External Model API Boundary, Execution Privacy Posture, persistent rented GPU Autopilot nodes, private files/folders, private strategy execution, deterrence/detection, and autonomy leases | [`private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md) | [`runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md), [`wallet-network-authority-layer.md`](../components/wallet-network/doctrine.md), [`agentgres-artifact-ref-plane.md`](../components/agentgres/artifact-ref-plane.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | private quant strategy profile, DePIN/cloud node privacy, provider-trust boundary, coverage/redundancy profiles, privacy posture labels, custody proofs, runtime/model/lattice/private-operator receipts, canary/watermark receipts, deprecated shielded-compute notes |
-| Autopilot Workbench, Electron/VS Code shell, shared builder substrate, and workflow compositor | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | internal product context, IDE-first Tauri retirement guide, and workflow-compositor specs |
-| IOI Authority Gateway, Autopilot Guard, and compatibility adapters | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`connector-and-tool-contracts.md`](../components/connectors-tools/contracts.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | IDE/CLI/browser adapter specs, MCP gateways, shell wrappers, Git hooks, hosted-agent gateways |
+| Private Workspace backed by cTEE, Plaintext-Free Runtime Mounting, Plaintext-Free Model Mounting, Custody Types, Custody Proof, Private Agency Transform, Candidate Coverage Profile, Counterfactual Lattice Execution, Cryptographic Operator Plane, Candidate-Lattice Private Decoding, External Model API Boundary, Execution Privacy Posture, persistent rented GPU Hypervisor Nodes, private files/folders, private strategy execution, deterrence/detection, and autonomy leases | [`private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md) | [`runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md), [`wallet-network-authority-layer.md`](../components/wallet-network/doctrine.md), [`agentgres-artifact-ref-plane.md`](../components/agentgres/artifact-ref-plane.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | private quant strategy profile, DePIN/cloud node privacy, provider-trust boundary, coverage/redundancy profiles, privacy posture labels, custody proofs, runtime/model/lattice/private-operator receipts, canary/watermark receipts, deprecated shielded-compute notes |
+| Hypervisor IDE, Electron/VS Code shell, shared builder substrate, and workflow compositor | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | internal product context, IDE-first Tauri retirement guide, and workflow-compositor specs |
+| IOI Authority Gateway, Hypervisor Guard, and compatibility adapters | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`connector-and-tool-contracts.md`](../components/connectors-tools/contracts.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | IDE/CLI/browser adapter specs, MCP gateways, shell wrappers, Git hooks, hosted-agent gateways |
 | Daemon and public runtime API | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | Cursor SDK parity guide |
 | CLI/TUI operator surface | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | CLI product context, operator workflows |
 | SDK and ADK boundaries | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | agent-sdk package docs, future ADK docs, internal package-boundary docs |
@@ -176,24 +176,24 @@ Conflict rule:
 - Add new AIIP packet, profile, channel, bounded-execution-domain, handoff,
   relay/router, settlement-intent, or inter-autonomous-system protocol language
   to [`aiip.md`](../foundations/aiip.md) first. Do not create separate bespoke
-  interop protocols for Autopilot, aiagent.xyz, sas.xyz, or external systems
+  interop protocols for Hypervisor, aiagent.xyz, sas.xyz, or external systems
   when AIIP semantics apply.
-- Add new governed-autonomous-system-chain, Autopilot-node, local settlement,
+- Add new governed-autonomous-system-chain, Hypervisor Node, local settlement,
   autonomous-system interop, service-module invocation, or machine-economy stack
   language to
   [`governed-autonomous-systems.md`](../foundations/governed-autonomous-systems.md)
-  first. Do not collapse Autopilot Workbench, Autopilot node, Agentgres domain,
+  first. Do not collapse Hypervisor IDE, Hypervisor Node, Agentgres domain,
   and IOI L1 into one layer.
 - Add new alignment-security, bounded-agency, process-containment,
   self-upgrade, or execution-boundary proof language to
   [`verifiable-bounded-agency.md`](../foundations/verifiable-bounded-agency.md)
   first. Do not canonize claims that IOI proves every model's private cognition
   or goals are safe; route such wording through explicit non-claims or ADRs.
-- Add new Autopilot shell, workbench, extension-host, or GUI authority language
-  to daemon/runtime ownership docs and Autopilot product architecture docs before
-  implementation plans rely on it. Workbench surfaces are operator consoles and
+- Add new Hypervisor shell, IDE, extension-host, or GUI authority language
+  to daemon/runtime ownership docs and Hypervisor product architecture docs before
+  implementation plans rely on it. Hypervisor IDE surfaces are operator consoles and
   projections; they do not own runtime truth.
-- Add new IOI Authority Gateway, Autopilot Guard, IDE/CLI sidecar, shell
+- Add new IOI Authority Gateway, Hypervisor Guard, IDE/CLI sidecar, shell
   wrapper, MCP gateway, API proxy, Git hook, browser adapter, hosted-agent
   gateway, or CI/CD mediation language to daemon/runtime ownership docs and
   daemon API contracts before implementation plans rely on it. These adapters
@@ -202,7 +202,7 @@ Conflict rule:
 - Add new Autonomous System Package, lifecycle verb, package readiness,
   deployment profile slot, promotion slot, or `AutonomousSystemManifest`
   language to [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md)
-  before Phase 5 connectors, Autopilot, workflow compositor, SDK, or CLI
+  before Phase 5 connectors, Hypervisor, workflow compositor, SDK, or CLI
   surfaces depend on it.
 - Add new MoW, worker-routing, Sparse Worker Category, Worker Training, batch
   planning, generation-batch, quality-gate, model-capacity, or training-cost

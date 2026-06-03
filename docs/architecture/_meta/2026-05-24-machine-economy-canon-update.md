@@ -14,7 +14,7 @@ This pass canonicalized the coherent machine-economy stack:
 Governed Autonomous-System Chains
   local agents, workers, workflows, policies, modules, proposals, receipts
 
-Autopilot Node
+Hypervisor Node
   local orchestration, interop, authority, state, replay, routing, and local settlement
 
 AIIP
@@ -26,11 +26,11 @@ IOI L1
 
 The core machine-economy sentence is now:
 
-> Autopilot nodes are local settlement domains for autonomous systems; IOI L1 is the global settlement layer for the machine economy.
+> Hypervisor Nodes are local settlement domains for autonomous systems; IOI L1 is the global settlement layer for the machine economy.
 
 The public shorthand is:
 
-> Autopilot settles autonomous work locally. IOI settles machine labor globally.
+> Hypervisor settles autonomous work locally. IOI settles machine labor globally.
 
 The broader protocol thesis is:
 
@@ -43,7 +43,7 @@ The AIIP thesis is:
 This framing prevents three layers from collapsing:
 
 ```text
-Autopilot UI != Autopilot node != IOI L1
+Hypervisor UI != Hypervisor Node != IOI L1
 ```
 
 It also makes explicit that models are mounted cognition backends supplied by
@@ -56,10 +56,10 @@ The updated canon turns IOI from "agent app plus blockchain plus marketplace"
 into a layered machine-economy stack:
 
 ```text
-Autopilot
+Hypervisor
   local sovereign coordination layer for autonomous systems
 
-IOI daemon
+Hypervisor Daemon
   deterministic execution and authority-enforcement substrate
 
 Agentgres
@@ -95,7 +95,7 @@ the shared chain when needed.
 Added a new canonical foundation document for:
 
 - governed autonomous-system chains;
-- Autopilot nodes;
+- Hypervisor Nodes;
 - local settlement domains;
 - service-module invocation;
 - proposal-mediated upgrades;
@@ -106,13 +106,13 @@ Key doctrine added:
 
 > Autonomous systems are not prompts. They are governed execution objects.
 
-> Each Autopilot node is a local autonomous-system settlement domain. It hosts many governed autonomous-system chains, routes work between them, manages authority through wallet.network, stores state and receipts through Agentgres, and anchors selected commitments to IOI L1 for global registry, dispute, reputation, and economic settlement.
+> Each Hypervisor Node is a local autonomous-system settlement domain. It hosts many governed autonomous-system chains, routes work between them, manages authority through wallet.network, stores state and receipts through Agentgres, and anchors selected commitments to IOI L1 for global registry, dispute, reputation, and economic settlement.
 
-### `docs/decisions/0011-autopilot-nodes-and-governed-autonomous-system-chains.md`
+### `docs/decisions/0011-hypervisor-nodes-and-governed-autonomous-system-chains.md`
 
 Added ADR 0011 to record the durable decision:
 
-- Autopilot node is a local settlement domain, not merely the Workbench UI.
+- Hypervisor Node is a local settlement domain, not merely the Hypervisor IDE UI.
 - Governed autonomous-system chains are local stateful execution objects.
 - IOI L1 remains the shared public chain for registry, rights, disputes,
   reputation, economics, and selected roots.
@@ -130,7 +130,7 @@ Added a new canonical foundation document for:
 - bounded execution domains;
 - AIIP packet classes;
 - AIIP envelopes and profiles;
-- internal Autopilot microharness routing and external autonomous-system
+- internal Hypervisor microharness routing and external autonomous-system
   handoffs using the same semantic protocol;
 - routing receipts;
 - first-party marketplaces as protocol applications rather than the protocol
@@ -167,7 +167,7 @@ Updated `docs/decisions/README.md` to include ADR 0012.
 
 Added the machine-economy canon to the architecture index:
 
-- `Autopilot Node = local autonomous-system settlement and interop domain`.
+- `Hypervisor Node = local autonomous-system settlement and interop domain`.
 - `AIIP = RPC-shaped, receipt-native interop protocol for bounded autonomous
   work`.
 - `Bounded Execution Domain = any local, hosted, enterprise, marketplace,
@@ -176,11 +176,11 @@ Added the machine-economy canon to the architecture index:
 - New high-level spec link for `governed-autonomous-systems.md`.
 - New high-level spec link for `aiip.md`.
 - New one-sentence boundary rows for governed autonomous-system chains and
-  Autopilot nodes, AIIP, and bounded execution domains.
-- Core layering now includes governed autonomous-system chains and Autopilot
+  Hypervisor Nodes, AIIP, and bounded execution domains.
+- Core layering now includes governed autonomous-system chains and Hypervisor
   node/local settlement domain, plus the AIIP work interop layer.
 - Added non-negotiables:
-  - Autopilot Workbench is not the Autopilot node.
+  - Hypervisor IDE is not the Hypervisor Node.
   - Governed autonomous-system chains are local state machines, not necessarily
     standalone public blockchains or IOI L1s.
   - The marketplace is not the protocol.
@@ -192,7 +192,7 @@ Added the machine-economy canon to the architecture index:
 Made `governed-autonomous-systems.md` the edit-first owner for:
 
 - governed-autonomous-system chains;
-- Autopilot nodes;
+- Hypervisor Nodes;
 - local settlement;
 - autonomous-system interop;
 - service-module invocation;
@@ -204,12 +204,12 @@ Added conflict-rule defaults:
 - AIIP moves delegated autonomous work, authority leases, receipts, settlement
   intents, disputes, reputation queries, and handoffs across bounded execution
   domains;
-- AIIP uses the same semantic protocol for local Autopilot microharness routing
+- AIIP uses the same semantic protocol for local Hypervisor microharness routing
   and external autonomous-system handoffs, while transport and settlement mode
   vary by profile;
-- Autopilot nodes settle autonomous work locally.
+- Hypervisor Nodes settle autonomous work locally.
 - IOI L1 settles machine labor globally.
-- Autopilot Workbench is not the Autopilot node.
+- Hypervisor IDE is not the Hypervisor Node.
 - Governed autonomous-system chains are system-local execution chains with
   policy, modules, proposals, receipts, state roots, and governed upgrades.
 
@@ -224,7 +224,7 @@ Added canonical terms:
 - `AIIPChannel`
 - `GovernedAutonomousSystemChain`
 - `IntelligentExecutionNode`
-- `AutopilotNode`
+- `HypervisorNode`
 - `LocalSettlementDomain`
 - `ServiceModule`
 - `ModuleInvocation`
@@ -235,12 +235,12 @@ Refined `Model`:
 - models are cognition backends mounted or invoked by workers;
 - model routing belongs to the runtime/node contract;
 - model weights or provider endpoints are mounted by deployment profile;
-- model weights are not part of the Autopilot node binary by default.
+- model weights are not part of the Hypervisor Node binary by default.
 
-Clarified `AutopilotWorkbench`:
+Clarified `HypervisorIDE`:
 
 - it is the IDE-grade operator console;
-- it is not the full Autopilot node.
+- it is not the full Hypervisor Node.
 
 ### `docs/architecture/foundations/common-objects-and-envelopes.md`
 
@@ -257,7 +257,7 @@ Added shared envelope types:
 - `SettlementIntentEnvelope`
 - `ReputationEventEnvelope`
 - `AutonomousSystemChainEnvelope`
-- `AutopilotNodeEnvelope`
+- `HypervisorNodeEnvelope`
 - `ServiceModuleManifestEnvelope`
 - `ModuleInvocationEnvelope`
 - `UpgradeProposalEnvelope`
@@ -304,11 +304,11 @@ Explicit rule:
 
 ### `docs/architecture/components/daemon-runtime/doctrine.md`
 
-Added `Autopilot Node Boundary`:
+Added `Hypervisor Node Boundary`:
 
-- Autopilot node is local autonomous-system settlement and interop domain.
+- Hypervisor Node is local autonomous-system settlement and interop domain.
 - Daemon is execution and authority-enforcement substrate inside the node.
-- Workbench is operator console.
+- Hypervisor IDE is operator console.
 - Agentgres is local operational truth.
 - wallet.network owns authority.
 - IOI L1 receives selected roots.
@@ -318,7 +318,7 @@ Clarified harness execution:
 - daemon may execute an autonomous-system harness as a modular
   state-transition pipeline;
 - consequential harness steps are typed service-module invocations;
-- daemon writes governed autonomous-system transitions and Autopilot-node local
+- daemon writes governed autonomous-system transitions and Hypervisor Node local
   settlement records through Agentgres-compatible APIs.
 
 Added explicit model boundary:
@@ -333,27 +333,27 @@ Added explicit model boundary:
 Added machine-economy role for Agentgres:
 
 - operational truth substrate for governed autonomous-system chains and
-  Autopilot-node settlement domains;
+  Hypervisor Node settlement domains;
 - records proposals, module invocations, local settlement records, receipt
   roots, upgrade decisions, state roots, and replayable projections.
 
 Added owned state categories:
 
 - governed autonomous-system chain records;
-- Autopilot-node local settlement records;
+- Hypervisor Node local settlement records;
 - service module manifests and registry roots;
 - module invocation records;
 - proposal queues;
 - upgrade decisions.
 
-Clarified that Autopilot-node local settlement truth is recorded through
-Agentgres/domain operations, not Workbench UI state.
+Clarified that Hypervisor Node local settlement truth is recorded through
+Agentgres/domain operations, not Hypervisor IDE UI state.
 
 ### `docs/architecture/components/agentgres/api-object-model.md`
 
 Added Agentgres API/object-model support for:
 
-- `/v1/autopilot-nodes`
+- `/v1/hypervisor-nodes`
 - `/v1/autonomous-system-chains`
 - `/v1/service-modules`
 - `/v1/module-invocations`
@@ -363,7 +363,7 @@ Added Agentgres API/object-model support for:
 
 Added object classes:
 
-- `AutopilotNode`
+- `HypervisorNode`
 - `AutonomousSystemChain`
 - `ServiceModuleManifest`
 - `ModuleInvocation`
@@ -371,7 +371,7 @@ Added object classes:
 - `UpgradeDecision`
 - `LocalSettlementRecord`
 
-Added example shapes for Autopilot node, autonomous-system chain, module
+Added example shapes for Hypervisor Node, autonomous-system chain, module
 invocation, and local settlement records.
 
 ### `docs/architecture/foundations/ioi-l1-mainnet.md`
@@ -382,7 +382,7 @@ Added local/global settlement doctrine:
 Governed Autonomous-System Chain
   accepts local module invocations, proposals, receipts, and state transitions
 
-Autopilot Node
+Hypervisor Node
   coordinates many autonomous-system chains and settles local interop, authority
   outcomes, receipt bundles, replay, and escalation records
 
@@ -393,7 +393,7 @@ IOI L1
 
 Expanded IOI L1 duties to include selected:
 
-- Autopilot-node roots;
+- Hypervisor Node roots;
 - autonomous-system-chain roots;
 - policy roots;
 - module roots;
@@ -403,9 +403,9 @@ Expanded IOI L1 duties to include selected:
 
 Added non-ownership and gas-boundary clarifications:
 
-- IOI L1 does not own Autopilot-node local settlement state.
+- IOI L1 does not own Hypervisor Node local settlement state.
 - IOI L1 does not own every governed autonomous-system-chain transition.
-- IOI gas is not consumed for Autopilot-node local settlement records or
+- IOI gas is not consumed for Hypervisor Node local settlement records or
   autonomous-system-chain module invocations.
 
 Extended 2026-05-25 autonomous-system settlement doctrine:
@@ -490,7 +490,7 @@ across workers, services, domains, runtime nodes, and autonomous systems:
 
 ### `docs/architecture/foundations/web4-and-ioi-stack.md`
 
-Added governed autonomous-system chains and Autopilot nodes to the reference
+Added governed autonomous-system chains and Hypervisor Nodes to the reference
 stack and system boundary.
 
 Added AIIP to the reference stack and Web4 category requirements:
@@ -509,14 +509,14 @@ Added model deployment-profile rule:
 
 ### `docs/architecture/foundations/domain-kernels.md`
 
-Added governed autonomous-system chains and Autopilot nodes to the fractal
+Added governed autonomous-system chains and Hypervisor Nodes to the fractal
 kernel/domain topology.
 
 Clarified:
 
-- Autopilot node is a local domain composition of Workbench, daemon, Agentgres,
-  wallet.network authority paths, local registries, receipts, replay, and
-  runtime profiles.
+- Hypervisor Node is a local domain composition of Hypervisor IDE, Hypervisor
+  Daemon, Agentgres, wallet.network authority paths, local registries, receipts,
+  replay, and runtime profiles.
 - It may host many governed autonomous-system chains.
 - It does not become IOI L1.
 
@@ -526,9 +526,9 @@ Added invariants:
 
 - autonomous-system upgrades are proposal-mediated;
 - only policy-bound governance may commit upgrades;
-- Autopilot-node local settlement records are Agentgres/domain truth until
+- Hypervisor Node local settlement records are Agentgres/domain truth until
   selected roots are anchored to IOI L1;
-- Autopilot nodes settle autonomous work locally; IOI L1 settles machine labor
+- Hypervisor Nodes settle autonomous work locally; IOI L1 settles machine labor
   globally.
 
 ### `docs/architecture/foundations/ioi-l1-contract-interfaces.md`
@@ -579,7 +579,7 @@ Made explicit:
 - model router belongs inside the runtime/node contract;
 - model weights, provider endpoints, local model servers, and hosted cognition
   backends are mounted by deployment profile;
-- they are not part of the Autopilot node binary or architecture default.
+- they are not part of the Hypervisor Node binary or architecture default.
 
 Added node packaging doctrine:
 
@@ -587,7 +587,7 @@ Added node packaging doctrine:
 
 Added invariants:
 
-- Autopilot node binary must not assume embedded model weights.
+- Hypervisor Node binary must not assume embedded model weights.
 - Embedded or bundled weights are allowed only when declared by deployment
   profile.
 - Service modules and workers invoke models through routes, not direct
@@ -616,7 +616,7 @@ The whitepaper should likely be updated if it currently frames IOI as:
 - an agent app plus blockchain;
 - a monolithic chain-centered architecture;
 - every agent writing directly to IOI L1;
-- Autopilot as primarily a UI/app rather than a local coordination node;
+- Hypervisor as primarily a UI/app rather than a local coordination node;
 - models as embedded node binaries or the central economic actor;
 - marketplaces as separate from local autonomous-system settlement.
 
@@ -630,7 +630,7 @@ This should affect any whitepaper sections on:
 - core thesis;
 - system architecture;
 - AIIP and interop;
-- Autopilot;
+- Hypervisor;
 - IOI L1;
 - Agentgres;
 - model routing;
@@ -650,7 +650,7 @@ Execution Layer
 Bounded Execution Domains
   local microharnesses, installed workers, remote workers, outcome providers, AS-L1s
 
-Autopilot Node
+Hypervisor Node
   meta-harness, router, governance surface, local control plane, receipt aggregator
 
 AIIP
@@ -686,7 +686,7 @@ Avoid:
 
 - "each agent is a blockchain" without qualification;
 - "each agent is an L1" in public-facing copy;
-- "Autopilot is the settlement layer" when referring only to the UI;
+- "Hypervisor is the settlement layer" when referring only to the UI;
 - "models are part of the node binary" as a default architecture claim;
 - "IOI L1 stores every agent step";
 - "receipts are blocks" as a literal protocol claim.
@@ -698,7 +698,7 @@ Prefer:
 
 - governed autonomous-system chain;
 - intelligent execution node;
-- Autopilot node;
+- Hypervisor Node;
 - local settlement domain;
 - service-module invocation;
 - proposal-mediated self-improvement;
@@ -720,7 +720,7 @@ Use this as the whitepaper-level thesis:
 Use this as the concise product/protocol split:
 
 ```text
-Autopilot node = local machine-labor operating domain
+Hypervisor Node = local machine-labor operating domain
 AIIP = work interop fabric for bounded autonomous systems
 IOI L1 = global autonomous-system settlement layer
 aiagent.xyz = first-party worker and service-module marketplace

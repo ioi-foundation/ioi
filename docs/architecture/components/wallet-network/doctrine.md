@@ -17,7 +17,7 @@ payments, revocation, and audit lineage. It is not merely a crypto wallet.
 
 ## Core Doctrine
 
-> **The IOI daemon runs autonomous work. Autopilot Workbench lets humans operate
+> **The Hypervisor Daemon runs autonomous work. Hypervisor IDE lets humans operate
 > it. Agentgres remembers and settles what changed. wallet.network decides what
 > power workers are allowed to use.**
 
@@ -34,8 +34,8 @@ bounded viewing/decryption authority for private user/app state, but the
 state's canonical meaning remains in Agentgres refs and the encrypted bytes
 remain in storage backends.
 
-- IOI daemon executes work as the autonomous-execution hypervisor/control plane.
-- Autopilot Workbench and Desktop request, approve, and inspect work as operator
+- Hypervisor Daemon executes work as the autonomous-execution hypervisor/control plane.
+- Hypervisor IDE and Desktop request, approve, and inspect work as operator
   surfaces.
 - Agentgres records operational state, runs, receipts, projections, delivery,
   and contribution accounting.
@@ -128,7 +128,7 @@ hosted, mobile-assisted, enterprise-managed, or wakeable depending on profile.
 
 Examples:
 
-- Autopilot desktop may use a background local wallet authority service.
+- Hypervisor desktop may use a background local wallet authority service.
 - Hosted workers may use delegated wallet authority with narrow standing
   grants.
 - High-risk actions may require mobile/passkey/security-key step-up before
@@ -312,14 +312,14 @@ StepUpReceipt
 
 Agentgres records the effect of these in domain state, but does not own the raw secrets.
 
-## IOI Daemon / Guardian Profile Boundary
+## Hypervisor Daemon / Guardian Profile Boundary
 
-Public architecture names the execution boundary as the IOI daemon. A hardened
+Public architecture names the execution boundary as the Hypervisor Daemon. A hardened
 Guardian profile may exist inside that boundary for policy gates, attestation,
 tool execution, and authority mediation.
 
 ```text
-wallet.network ↔ IOI daemon / Guardian execution profile
+wallet.network ↔ Hypervisor Daemon / Guardian execution profile
 ```
 
 The daemon requests authority scopes and receives bounded grants, approval
@@ -390,7 +390,7 @@ profile.
 ### Private Workspace cTEE Profile
 
 - rented hosted/provider/DePIN GPU nodes may stay online and run the daemon,
-  Autopilot node shell, public inference, encrypted persistence, and redacted
+  Hypervisor Node shell, public inference, encrypted persistence, and redacted
   workspace work;
 - Plaintext-Free Runtime Mounting exposes public/redacted context and private
   handles to the node for tools and models, while wallet-controlled authority
@@ -423,7 +423,7 @@ profile.
   the provider-rooted node by default;
 - `AutonomyLease` grants define what the node may do while the user is offline;
 - the cTEE authority view, implemented by wallet.network, authenticated
-  browser/device session, local Autopilot, CLI signer, customer authority
+  browser/device session, local Hypervisor, CLI signer, customer authority
   service, mobile approval path, or threshold committee, participates in key
   release, private-head selection, declassification, and capability exits;
 - `ModelMountReceipt`, `PrivateInferenceReceipt`,
@@ -550,7 +550,7 @@ IOI L1 settles public/economic commitments
 
 The following module carries detailed wallet.network v3.2 product-spec context
 from the former `docs/specs/wallet_network.md`. It is supporting context, not a
-parallel architecture variant. Where deployment availability, IOI daemon /
+parallel architecture variant. Where deployment availability, Hypervisor Daemon /
 Guardian-profile naming, Agentgres receipt sinks, IOI L1 commitments, runtime
 privacy modes, marketplace settlement, or hybrid-cryptography claims differ,
 update this module to follow the canonical doctrine above.
@@ -648,10 +648,10 @@ A local, encrypted database that stores what EOAs cannot:
 *   **Sessions & Grants:** Ephemeral keys/tokens granted to specific agents for specific scopes and durations.
 *   **Audit Lineage:** Cryptographically linked log of approvals, grants, interceptions, and authority-scope executions.
 
-### 2.5 Integration with IOI Kernel (IOI Daemon / Guardian Profile Link)
+### 2.5 Integration with IOI Kernel (Hypervisor Daemon / Guardian Profile Link)
 
-The Vault communicates directly with the local **IOI daemon / Guardian execution profile** over **mTLS**.
-*   **Handshake (App-Layer):** While transport is mTLS, `wallet-core` and IOI daemon / Guardian profile performs an additional **application-layer hybrid KEM handshake** (X25519 + ML-KEM-768) to derive session secrets. This prevents "harvest-now, decrypt-later" attacks even if the TLS layer is compromised or recorded.
+The Vault communicates directly with the local **Hypervisor Daemon / Guardian execution profile** over **mTLS**.
+*   **Handshake (App-Layer):** While transport is mTLS, `wallet-core` and Hypervisor Daemon / Guardian profile performs an additional **application-layer hybrid KEM handshake** (X25519 + ML-KEM-768) to derive session secrets. This prevents "harvest-now, decrypt-later" attacks even if the TLS layer is compromised or recorded.
 *   **Inbound:** Receives `FirewallInterception` events when an agent hits a policy gate or step-up trigger.
 *   **Outbound:** Issues:
     *   `ApprovalTokens` (action-bound, scoped, replay-resistant)
@@ -693,11 +693,11 @@ Step-up requirements are explicit, not ad-hoc. Examples:
 *   Any **policy envelope widening**.
 
 When triggered:
-1.  IOI daemon / Guardian profile blocks the action.
+1.  Hypervisor Daemon / Guardian profile blocks the action.
 2.  `wallet.network` notifies Desktop/Mobile.
 3.  User approves with their configured authentication threshold (e.g., passkey/biometric/security key).
 4.  Vault issues an action-bound `ApprovalToken`.
-5.  IOI daemon / Guardian profile resumes and records the receipt.
+5.  Hypervisor Daemon / Guardian profile resumes and records the receipt.
 
 ### 3.4 Core Data Models (Schema Definition)
 
@@ -760,7 +760,7 @@ To ensure interoperability and security, the following fields are mandatory for 
     *   Policy engine and envelope commitments.
     *   Session issuance and delegation verification.
     *   Approvals, step-up gating, revocation.
-    *   Attestation verification (IOI daemon / Guardian profile + sensitive executors).
+    *   Attestation verification (Hypervisor Daemon / Guardian profile + sensitive executors).
     *   Audit log: immutable, hash-linked lineage.
 
 ### 5.2 `wallet-connector-*` (Provider Adapters)
@@ -809,7 +809,7 @@ We utilize the `dcrypt` library to implement a "Hybrid" model.
     *   **Note:** We expressly do **not** use PQC (ML-KEM/ML-DSA) for database encryption, as they are asymmetric primitives unsuited for bulk storage.
 *   **Control Plane Signaling (Hybrid KEM):**
     *   **Algorithm:** **X25519 + ML-KEM-768**.
-    *   **Usage:** Application-layer handshake to establish session keys between Vault, IOI daemon / Guardian profile, and agents.
+    *   **Usage:** Application-layer handshake to establish session keys between Vault, Hypervisor Daemon / Guardian profile, and agents.
     *   **Benefit:** "Harvest now, decrypt later" protection.
 *   **Identity & Policy (Hybrid Signatures):**
     *   **Algorithm:** **Ed25519 + ML-DSA-44**.
@@ -843,7 +843,7 @@ To resist grinding and rollback:
 
 An `ApprovalToken` is signed using the **Hybrid Signature** scheme and must contain:
 *   **action:** (approve tx / widen policy / release authority)
-*   **audience:** (IOI daemon / Guardian profile instance ID / specific executor)
+*   **audience:** (Hypervisor Daemon / Guardian profile instance ID / specific executor)
 *   **target:** (connector/provider/app/agent identity)
 *   **mode:** (`one_shot` vs `lease` with TTL)
 *   **grant_linkage:** (`parent_grant_id` for audit lineage)
@@ -852,12 +852,12 @@ An `ApprovalToken` is signed using the **Hybrid Signature** scheme and must cont
 
 ### 6.7 Secret Injection Protocol (Refined to “Authority-Scope Execution”)
 
-1.  **Request:** Agent asks the IOI daemon / Guardian profile for an authority scope (e.g., `scope:model.openai.chat`), not a raw secret.
-2.  **Challenge:** IOI daemon / Guardian profile proves it is running valid, attested code (remote attestation).
+1.  **Request:** Agent asks the Hypervisor Daemon / Guardian profile for an authority scope (e.g., `scope:model.openai.chat`), not a raw secret.
+2.  **Challenge:** Hypervisor Daemon / Guardian profile proves it is running valid, attested code (remote attestation).
 3.  **Policy Check:** Vault evaluates the authority scope against current envelope.
 4.  **Release / Execute:**
-    *   *Preferred:* Vault/IOI daemon / Guardian profile executes operation using secret internally (no raw secret to agent).
-    *   *Otherwise:* Vault encrypts ephemeral secret material to the IOI daemon / Guardian profile ephemeral key (Hybrid KEM) with strict TTL.
+    *   *Preferred:* Vault/Hypervisor Daemon / Guardian profile executes operation using secret internally (no raw secret to agent).
+    *   *Otherwise:* Vault encrypts ephemeral secret material to the Hypervisor Daemon / Guardian profile ephemeral key (Hybrid KEM) with strict TTL.
 
 ### 6.8 Connector Token Brokerage (Minimize Long-Lived Exposure)
 
@@ -897,7 +897,7 @@ Receipts are hash-linked for tamper-evidence and can be anchored into IOI’s br
 *   Local key management (Hybrid PQ + EC) via `dcrypt` + Dual-Entropy Mnemonic.
 *   Vault DB encryption (XChaCha20) + envelope keys (Argon2id).
 *   Basic policy engine (Allow/Block) + audit log.
-*   IOI Daemon / Guardian Profile Link + basic step-up flow.
+*   Hypervisor Daemon / Guardian Profile Link + basic step-up flow.
 
 ### Phase 2: The Web Bridge & Extensibility (Q4 2025)
 *   Browser extension bridge (WASM for channel crypto only).
@@ -965,17 +965,17 @@ Receipts are hash-linked for tamper-evidence and can be anchored into IOI’s br
 
 #### A.3.1 Policy Envelope (The Law)
 *   **Definition:** Defined off-chain in the Vault. `PolicyCommitment` defines the `allowlist` (chains, contracts, selectors), `spend_caps`, `approval_limits`, and `step_up_triggers`.
-*   **Enforcement:** Verified by the IOI daemon / Guardian profile before signing any intent.
+*   **Enforcement:** Verified by the Hypervisor Daemon / Guardian profile before signing any intent.
 
 #### A.3.2 Session Signers (The Keys)
 *   **Type:** Ephemeral ECDSA/Ed25519 keys.
-*   **Storage Invariant:** Private keys reside **solely** in IOI daemon / Guardian profile/executor memory (or TEE). They are **NEVER** persisted unencrypted and **NEVER** exposed to client apps/agents.
+*   **Storage Invariant:** Private keys reside **solely** in Hypervisor Daemon / Guardian profile/executor memory (or TEE). They are **NEVER** persisted unencrypted and **NEVER** exposed to client apps/agents.
 *   **Lifecycle:** Generated per-session, bounded by TTL, revocable via Epoch.
 
 #### A.3.3 Smart Account Modules (The Enforcer)
 *   **Type:** On-chain contracts (Validators/Guards).
 *   **Role:** Enforce constraints (Spend Limits, Allowlisted Call Targets) at the blockchain level.
-*   **Benefit:** Prevents a compromised IOI daemon / Guardian profile from draining the wallet beyond the limits.
+*   **Benefit:** Prevents a compromised Hypervisor Daemon / Guardian profile from draining the wallet beyond the limits.
 
 ---
 
@@ -986,13 +986,13 @@ Actions are classified by risk; enforcement strictness scales accordingly.
 #### A.4.1 Low Risk (Autonomous)
 *   *Examples:* Read-only calls, claiming rewards, swaps on allowlisted routers under strict slippage caps.
 *   **Requirement:** Valid Grant + Valid Session Lease.
-*   **Enforcement:** Off-chain IOI daemon / Guardian profile checks are sufficient. Receipts required.
+*   **Enforcement:** Off-chain Hypervisor Daemon / Guardian profile checks are sufficient. Receipts required.
 
 #### A.4.2 Medium Risk (Restricted Autonomy)
 *   *Examples:* Transfers under daily spend cap, interacting with curated contracts.
 *   **Requirement:**
     *   **SHOULD** use On-Chain Module enforcement (Spend Limit).
-    *   If On-Chain enforcement is unavailable, IOI daemon / Guardian profile **MUST** perform strict transaction simulation and rate-limiting.
+    *   If On-Chain enforcement is unavailable, Hypervisor Daemon / Guardian profile **MUST** perform strict transaction simulation and rate-limiting.
     *   **MUST** block unknown token approvals.
 
 #### A.4.3 High Risk (Step-Up Required)
@@ -1000,7 +1000,7 @@ Actions are classified by risk; enforcement strictness scales accordingly.
 *   **Requirement:**
     *   **MUST** be enforced via On-Chain Module (e.g., Multisig/Guard requiring User signature) **OR** require a direct Master Custodian Signature.
     *   **MUST** trigger Out-of-Band Step-Up (Phone/Passkey).
-    *   Pure off-chain IOI daemon / Guardian profile checks are **insufficient**.
+    *   Pure off-chain Hypervisor Daemon / Guardian profile checks are **insufficient**.
 
 ---
 
@@ -1050,13 +1050,13 @@ struct TxIntent {
 ### A.7 Step-Up & Approval Tokens
 
 When a High-Risk action triggers a Step-Up:
-1.  IOI daemon / Guardian profile pauses execution.
+1.  Hypervisor Daemon / Guardian profile pauses execution.
 2.  User receives notification on Mobile/Desktop.
 3.  User signs an `ApprovalToken` binding to `Hash(TxIntent)`.
 
 **ApprovalToken Fields:**
 *   `intent_hash` (The specific Tx)
-*   `audience` (specific executor / IOI daemon / Guardian profile)
+*   `audience` (specific executor / Hypervisor Daemon / Guardian profile)
 *   `mode` (`one_shot` default)
 *   `expiry`
 *   `sig_hybrid_user`
@@ -1067,7 +1067,7 @@ When a High-Risk action triggers a Step-Up:
 
 #### A.8.1 Off-Chain (Immediate)
 *   **Action:** Bump `revocation_epoch`.
-*   **Effect:** IOI daemon / Guardian profile rejects all `TxIntents` with old epochs. Immediate cessation of new signing.
+*   **Effect:** Hypervisor Daemon / Guardian profile rejects all `TxIntents` with old epochs. Immediate cessation of new signing.
 
 #### A.8.2 On-Chain (Durable)
 *   **Action:** Call `disableModule` or `rotateKey` on the Smart Account.
@@ -1081,9 +1081,9 @@ When a High-Risk action triggers a Step-Up:
 
 #### Phase A: The Guarded EOA (Fastest)
 *   **Setup:** Master Custodian (or Tier-1 linked wallet) funds a standard EOA (Agent Account).
-*   **Control:** Private Key in IOI daemon / Guardian profile memory (TEE/Secure Enclave).
+*   **Control:** Private Key in Hypervisor Daemon / Guardian profile memory (TEE/Secure Enclave).
 *   **Enforcement:** Strict Off-Chain Policy checking + Simulation.
-*   **Risk:** Relies on IOI daemon / Guardian profile integrity.
+*   **Risk:** Relies on Hypervisor Daemon / Guardian profile integrity.
 
 #### Phase B: The Smart Agent (Secure-by-Design)
 *   **Setup:** Master Custodian deploys ERC-4337/Safe Account.

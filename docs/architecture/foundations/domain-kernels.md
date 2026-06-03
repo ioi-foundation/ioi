@@ -37,13 +37,13 @@ IOI L1 / root coordination layer
   registry, contracts, public settlement, governance
 
 Application-domain kernel deployments
-  aiagent.xyz, sas.xyz, ioi.ai, Autopilot local domains, enterprise domains
+  aiagent.xyz, sas.xyz, ioi.ai, Hypervisor local domains, enterprise domains
   each with its own Agentgres state substrate
 
 Governed autonomous-system chains
   local state machines with modules, proposals, receipts, upgrade paths
 
-Autopilot nodes
+Hypervisor Nodes
   local settlement and interop domains coordinating many governed chains
 
 Semantic data plane
@@ -51,10 +51,10 @@ Semantic data plane
 
 Execution worker nodes
   local, hosted, DePIN, TEE, customer VPC
-  run IOI daemon/runtime-node profiles and execute work
+  run Hypervisor Daemon runtime-node profiles and execute work
 
 Client surfaces
-  Autopilot Desktop, IOI CLI/TUI, @ioi/agent-sdk, IOI ADK, agent-ide, browser apps
+  Hypervisor IDE, IOI CLI/TUI, @ioi/agent-sdk, IOI ADK, agent-ide, browser apps
   submit, inspect, scaffold, and control work through stable domain/runtime contracts
 ```
 
@@ -71,15 +71,15 @@ local edge / runtime work
      or governance trust is required
 ```
 
-The same kernel pattern recurs at multiple grains: local Autopilot domains,
+The same kernel pattern recurs at multiple grains: local Hypervisor domains,
 hosted first-party domains, enterprise domains, sovereign third-party domains,
 and public L1 commitments. The responsibilities differ by layer, but the
 operation-log, policy, receipt, replay, and projection doctrine stays coherent.
 
-An Autopilot node is one such local domain composition: Workbench, daemon,
-Agentgres, wallet.network authority paths, local registries, receipts, replay,
-and runtime profiles. It may host many governed autonomous-system chains, but it
-does not become IOI L1.
+A Hypervisor Node is one such local domain composition: Hypervisor IDE,
+Hypervisor Daemon, Agentgres, wallet.network authority paths, local registries,
+receipts, replay, and runtime profiles. It may host many governed
+autonomous-system chains, but it does not become IOI L1.
 
 ## Root vs Domain
 
@@ -123,7 +123,7 @@ Examples:
 aiagent.xyz domain kernel
 sas.xyz domain kernel
 ioi.ai control-plane kernel
-Autopilot local/domain kernel
+Hypervisor local/domain kernel
 enterprise customer kernel
 third-party sovereign app kernel
 ```
@@ -145,7 +145,7 @@ A domain kernel owns:
 - artifact indexing;
 - wallet authority integration;
 - IOI L1 contract synchronization.
-- Autopilot-node local settlement records when the domain hosts local
+- Hypervisor Node local settlement records when the domain hosts local
   autonomous-system chains.
 
 ## Why Agentgres Requires a Domain Kernel
@@ -240,7 +240,7 @@ Domain kernel:
   maintains marketplace/application state and routing
 
 Execution node:
-  runs an IOI daemon/runtime-node profile for a worker/workflow/model/tool job
+  runs a Hypervisor Daemon runtime-node profile for a worker/workflow/model/tool job
 
 Storage plane:
   stores packages and artifacts
@@ -251,8 +251,8 @@ L1:
 
 For run-per-launch work, the domain kernel may route to:
 
-- user-local IOI daemon managed through Autopilot Desktop;
-- hosted IOI daemon;
+- user-local Hypervisor Daemon managed through Hypervisor IDE;
+- hosted Hypervisor Daemon;
 - provider runtime;
 - DePIN node;
 - TEE-verified node;
@@ -291,7 +291,7 @@ It synchronizes with IOI L1 only for:
 3. Execution nodes are interchangeable venues, not domain state owners by default.
 4. Domain kernels must not create split-brain state separate from Agentgres.
 5. All surfaces must use stable runtime/substrate envelopes.
-6. Client surfaces such as CLI/TUI, SDK, ADK, agent-ide, and Autopilot Desktop
+6. Client surfaces such as CLI/TUI, SDK, ADK, agent-ide, and Hypervisor IDE
    must not bypass domain kernels or daemon runtime contracts for canonical
    work.
 

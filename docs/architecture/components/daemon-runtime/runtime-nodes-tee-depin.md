@@ -8,13 +8,13 @@ Last alignment pass: 2026-06-01.
 
 ## Canonical Definition
 
-**Runtime nodes are execution venues that run IOI daemon profiles.**
+**Runtime nodes are execution venues that run Hypervisor Daemon profiles.**
 
 They may be local, hosted, provider-operated, DePIN, shielded, TEE-verified,
 or customer-controlled. They are not Web4 applications by default.
 
 A runtime node may contain a lower-level runtime service bridge or worker SDK
-helpers, but the node's architectural boot target is the IOI daemon/runtime-node
+helpers, but the node's architectural boot target is the Hypervisor Daemon/runtime-node
 profile. SDKs submit and control work as clients; they do not own node
 execution.
 
@@ -28,7 +28,7 @@ Web4 Worker:
   executable agent/workflow/service unit that performs work
 
 Runtime Node:
-  machine or environment running an IOI daemon/runtime-node profile to execute workers
+  machine or environment running a Hypervisor Daemon runtime-node profile to execute workers
 
 Managed Worker Instance:
   user-, org-, or project-bound worker initialization that may expose chat,
@@ -49,7 +49,7 @@ profile boundary as worker execution.
 
 ## Execution Venues
 
-1. **Local IOI daemon under Autopilot Desktop** — user machine/private runtime.
+1. **Local Hypervisor Daemon under Hypervisor IDE** — user machine/private runtime.
 2. **Hosted IOI Runtime** — first-party managed runtime.
 3. **Provider Runtime** — worker/service seller runtime.
 4. **DePIN Runtime** — Akash-like decentralized compute node.
@@ -91,7 +91,7 @@ No hardware TEE required for the baseline claim.
 
 Properties:
 
-- persistent rented/provider/DePIN GPU node may run the IOI daemon, Autopilot
+- persistent rented/provider/DePIN GPU node may run the Hypervisor Daemon, Hypervisor
   node shell, and Private Workspace public/redacted projections;
 - public or redacted model inference can run at normal node speed;
 - Plaintext-Free Runtime Mounting limits tool/model context to public/redacted
@@ -248,7 +248,7 @@ runtime node produces attestation
 ## Related Canon
 
 - [`private-workspace-ctee.md`](./private-workspace-ctee.md): Private Workspace
-  backed by cTEE, persistent rented GPU Autopilot nodes, private strategy
+  backed by cTEE, persistent rented GPU Hypervisor Nodes, private strategy
   execution, autonomy leases, and declassification gates.
 - [`default-harness-profile.md`](./default-harness-profile.md): daemon-executed
   orchestration profile.

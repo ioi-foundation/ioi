@@ -51,7 +51,7 @@ provenance.
 
 ## Training Profile Flexibility
 
-IOI does not canonize one model architecture. Autopilot, daemon/runtime nodes,
+IOI does not canonize one model architecture. Hypervisor, daemon/runtime nodes,
 and compatible training services should support any worker architecture that can
 be trained or configured, bounded by policy, evaluated, published, routed
 through MoW, rolled back, and made receipt-accountable.
@@ -85,10 +85,10 @@ affect routing eligibility, reputation, payout, or trust.
 
 ## Product Home And Builder Substrate
 
-The primary local product surface is **Autopilot Foundry / Worker Training
-Workbench**.
+The primary local product surface is **Hypervisor Foundry / Worker Training
+Studio**.
 
-Autopilot exposes Worker Training as:
+Hypervisor exposes Worker Training as:
 
 ```text
 Define Task
@@ -106,7 +106,7 @@ Define Task
 ```
 
 The same lifecycle can be operated through CLI/TUI, daemon APIs, hosted
-runtime-node jobs, or sas.xyz service engagements. Autopilot owns the local
+runtime-node jobs, or sas.xyz service engagements. Hypervisor owns the local
 product experience, not the underlying state, authority, or execution substrate.
 
 Foundry is a product lens over the shared IOI builder substrate, not a
@@ -120,9 +120,9 @@ The default product should be a guided Foundry experience. Advanced users may
 open the same recipe in the standard workflow compositor for inspection,
 customization, reuse, or composition.
 
-## Autopilot Foundry Product Doctrine
+## Hypervisor Foundry Product Doctrine
 
-Autopilot Foundry is a worker creation and improvement studio.
+Hypervisor Foundry is a worker creation and improvement studio.
 
 The first product promise is not "upload data and fine-tune." It is:
 
@@ -149,7 +149,7 @@ Receipts, lineage, and policy make this process accountable, but they should
 mostly stay behind the glass. The user-facing product should help builders make
 better workers faster.
 
-Autopilot Foundry should expose these product primitives:
+Hypervisor Foundry should expose these product primitives:
 
 - **Training Orchestrator**: owns the training goal, case specs, batch plans,
   prompt set, executor mix, gate policy, rejects, reports, and worklog. It may
@@ -198,7 +198,7 @@ Autopilot Foundry should expose these product primitives:
   publication, inspect tool use, authority prompts, fallback behavior, and
   output contracts.
 - **Worker Card Builder**: turns the result into an installable/publishable
-  worker profile for Autopilot, aiagent.xyz, or a sas.xyz service package.
+  worker profile for Hypervisor, aiagent.xyz, or a sas.xyz service package.
 - **Human Review Queue**: makes expert review fast: compare candidates,
   accept/reject/edit examples, mark gold cases, approve edge cases, and record
   rejection reasons.
@@ -281,7 +281,7 @@ preserving the same training semantics.
    requirements are bound into a signed WorkerManifest.
 
 9. **Publish or Deploy**
-   The worker can be installed locally in Autopilot, published to aiagent.xyz,
+   The worker can be installed locally in Hypervisor, published to aiagent.xyz,
    submitted to a Sparse Worker Category, wrapped into a sas.xyz outcome, or
    deployed into enterprise/private runtimes.
 

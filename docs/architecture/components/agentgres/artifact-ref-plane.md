@@ -82,7 +82,7 @@ The Agentgres artifact-ref plane does not own:
 - daemon execution semantics.
 
 Those belong to storage backends, wallet.network, IOI L1, model backends, and
-the IOI daemon respectively.
+the Hypervisor Daemon respectively.
 
 ## Minimal Implementation Objects
 

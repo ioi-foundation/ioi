@@ -2,7 +2,7 @@
 
 Status: canonical implementation profile.
 Canonical owner: this file for the default daemon-executed harness profile, loop-native orchestration, context topology, output ownership, and implementation-stage object boundaries.
-Supersedes: standalone "Default Harness Runtime" wording when that wording implies a peer runtime beside the IOI daemon.
+Supersedes: standalone "Default Harness Runtime" wording when that wording implies a peer runtime beside the Hypervisor Daemon.
 Superseded by: none.
 Last alignment pass: 2026-06-01.
 
@@ -11,7 +11,7 @@ Last alignment pass: 2026-06-01.
 The **Default Harness Profile** is the standard daemon-executed orchestration
 profile for bounded autonomous work.
 
-It is not a separate runtime beside the daemon. The IOI daemon owns execution
+It is not a separate runtime beside the daemon. The Hypervisor Daemon owns execution
 semantics; the Default Harness Profile configures how intent becomes
 loop-native work under authority, receipts, Agentgres state, artifact refs, and
 verification.
@@ -36,9 +36,9 @@ The default stack relation is:
 
 ```text
 Operator surfaces
-  Autopilot Workbench, CLI/TUI, SDK, ADK, Authority Gateway adapters
+  Hypervisor IDE, CLI/TUI, SDK, ADK, Authority Gateway adapters
 
-IOI daemon
+Hypervisor Daemon
   execution owner and policy/authority/effect boundary
 
 Default Harness Profile
@@ -240,7 +240,7 @@ projection.
 IntentContract:
   intent_id: intent:...
   origin:
-    type: user | autopilot | cli | sdk | service | worker | schedule | webhook | aiip
+    type: user | hypervisor | cli | sdk | service | worker | schedule | webhook | aiip
     ref: string
   goal: string
   constraints: [string]
@@ -705,7 +705,7 @@ The profile may fulfill an intent through:
 ```text
 one worker
 a worker graph
-an Autopilot workflow
+a Hypervisor workflow
 a configured service engine
 a service package
 a marketplace worker
@@ -746,7 +746,7 @@ explicit public commitment
 Do not model the Default Harness Profile as:
 
 ```text
-a peer runtime beside the IOI daemon
+a peer runtime beside the Hypervisor Daemon
 a chatbot loop with receipts added afterward
 a fixed swarm topology
 a deterministic workflow that calls a model only at the end
@@ -891,7 +891,7 @@ optional L1 settlement hooks
 - [`events-receipts-delivery-bundles.md`](./events-receipts-delivery-bundles.md):
   event, receipt, trace, and delivery bundle shapes.
 - [`private-workspace-ctee.md`](./private-workspace-ctee.md): Private Workspace
-  backed by cTEE, persistent private Autopilot nodes, `AlphaSeal`,
+  backed by cTEE, persistent private Hypervisor Nodes, `AlphaSeal`,
   `AutonomyLease`, and declassification receipts.
 - [`../agentgres/api-object-model.md`](../agentgres/api-object-model.md):
   Agentgres runtime objects, operations, artifact refs, and archives.
@@ -902,7 +902,7 @@ optional L1 settlement hooks
 
 ## Non-Negotiables
 
-1. The IOI daemon owns execution semantics.
+1. The Hypervisor Daemon owns execution semantics.
 2. The Default Harness Profile is daemon-executed; it is not a peer runtime.
 3. The profile is loop-native by default.
 4. Tool calls, worker calls, service calls, file changes, browser actions,

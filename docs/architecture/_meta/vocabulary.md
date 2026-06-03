@@ -43,7 +43,7 @@ compliance acronyms for hidden audit material.
   as completion receipts and terminal events, and promote to an Agentgres object
   when delivery, dispute, replay, or settlement needs require it.
 - `PrivateWorkspaceCtee`: IOI's daemon-owned binding of the generic cTEE
-  systems pattern for persistent rented GPU Autopilot nodes and other
+  systems pattern for persistent rented GPU Hypervisor Nodes and other
   untrusted remote compute where protected files, folders, PII, credentials,
   strategy logic, and action authority must not be present on the
   provider-controlled node as plaintext by default. Candidate-Lattice Private
@@ -129,9 +129,9 @@ compliance acronyms for hidden audit material.
   theft or leakage more attributable. It is not a privacy primitive and does
   not justify mounting protected plaintext on a node.
 - `PrivateWorkspaceNode`: a rented or hosted runtime node that runs an IOI
-  daemon and Autopilot node shell persistently while protected workspace state
+  daemon and Hypervisor Node shell persistently while protected workspace state
   is stored and processed only through private workspace representations unless
-  explicitly declassified. `PersistentShieldedAutopilotNode` is a deprecated
+  explicitly declassified. `PersistentShieldedHypervisorNode` is a deprecated
   compatibility alias.
 - `PrivateWorkspaceCapsule`: the task/workspace capsule sent to an untrusted
   rented node. It carries visible public/redacted context, encrypted refs,
@@ -190,11 +190,11 @@ compliance acronyms for hidden audit material.
   inside a governed autonomous-system chain. It may reason, plan, diagnose,
   route work, and propose upgrades, but consequential transitions must pass the
   deterministic authority boundary.
-- `AutopilotNode`: the local autonomous-system settlement domain for a user,
-  organization, project, or deployment. It composes Autopilot Workbench,
-  IOI daemon, Agentgres, wallet.network authority paths, local registries,
-  receipts, replay, and runtime profiles. It is not the Workbench UI by itself.
-- `LocalSettlementDomain`: an Autopilot-node domain that locally accepts work,
+- `HypervisorNode`: the local autonomous-system settlement domain for a user,
+  organization, project, or deployment. It composes Hypervisor IDE,
+  Hypervisor Daemon, Agentgres, wallet.network authority paths, local registries,
+  receipts, replay, and runtime profiles. It is not the Hypervisor IDE UI by itself.
+- `LocalSettlementDomain`: a Hypervisor Node domain that locally accepts work,
   proposals, authority outcomes, receipts, interop messages, and state
   transitions for many governed autonomous-system chains. Public economic
   finality still belongs to IOI L1 when required.
@@ -224,7 +224,7 @@ compliance acronyms for hidden audit material.
 - `DeterminismBoundary`: the trust boundary where a model, worker, agent,
   adapter, or operator proposal becomes a daemon-authorized effect. Models and
   agents may reason or propose; the daemon decides what crosses this boundary.
-- `IOIAuthorityGateway`: the IOI daemon sidecar/compatibility profile for
+- `IOIAuthorityGateway`: the Hypervisor Daemon sidecar/compatibility profile for
   existing IDEs, CLI agents, hosted agents, browser tools, MCP ecosystems,
   shell wrappers, Git hooks, API proxies, credential brokers, and CI/CD gates.
   It routes proposed actions through daemon policy, authority scopes,
@@ -250,7 +250,7 @@ compliance acronyms for hidden audit material.
   action at the effect boundary. It is not a claim that IOI proves every model's
   private cognition, latent goals, or future reasoning are safe.
 - `RuntimeNode`: a machine, container, TEE, DePIN node, local process, or
-  customer environment running an IOI daemon profile. Runtime nodes execute
+  customer environment running a Hypervisor Daemon profile. Runtime nodes execute
   workers and task capsules; they are not application domains by default.
 - `ComputeSession`: a bounded runtime allocation selected by a router for one
   run, order, task, or service outcome. It may be backed by a VM, container,
@@ -296,7 +296,7 @@ compliance acronyms for hidden audit material.
 - `Model`: a cognition backend mounted or invoked by a worker. Models are not
   the economic actor by themselves. Model routing belongs to the runtime/node
   contract; model weights or provider endpoints are mounted by deployment
-  profile and are not part of the Autopilot node binary by default.
+  profile and are not part of the Hypervisor Node binary by default.
 - `ModelDeploymentProfile`: the deployment-specific choice for how a model is
   supplied to a node or runtime: bundled weights, local file, local server,
   BYOK external API, hosted pool, TEE session, DePIN session, or customer VPC.
@@ -362,9 +362,9 @@ compliance acronyms for hidden audit material.
   Worker Training spec.
 - `SharedBuilderSubstrate`: the shared graph model, typed node contracts,
   schemas, recipe model, daemon execution path, and Agentgres receipt model
-  used by Autopilot builder lenses. It is a UI/workflow substrate, not
+  used by Hypervisor builder lenses. It is a UI/workflow substrate, not
   canonical runtime truth by itself.
-- `AutopilotFoundry`: the Autopilot product lens for creating, training,
+- `HypervisorFoundry`: the Hypervisor product lens for creating, training,
   configuring, evaluating, packaging, deploying, and improving workers through
   the Worker Training lifecycle. It can project recipes into the standard
   workflow compositor, but it is not a separate canvas environment.
@@ -375,22 +375,23 @@ compliance acronyms for hidden audit material.
 - `TaskCapsule`: a minimized, policy-bound execution packet given to a runtime
   node. It carries visible context, hidden context classes, allowed/forbidden
   actions, output contract, TTL, and authority bindings.
-- `AutopilotWorkbench`: the IDE-grade operator console for autonomous systems. It
+- `HypervisorIDE`: the IDE-grade operator console for autonomous systems. It
   observes, requests, approves, interrupts, debugs, explains, and replays
   daemon-governed work. It is not an execution authority and it must not become a
   second runtime inside the VS Code extension host. It is also not the full
-  Autopilot node; the node includes daemon, Agentgres, wallet.network authority
+  Hypervisor Node; the node includes daemon, Agentgres, wallet.network authority
   paths, local registries, receipts, replay, and runtime profiles.
-- `AutopilotGuard`: developer-facing packaging for IOI Authority Gateway
+- `HypervisorGuard`: developer-facing packaging for IOI Authority Gateway
   adapters. It can describe "bring IOI alignment security to Cursor, VS Code,
   Codex, Claude Code, JetBrains, OpenHands, hosted agents, and similar tools,"
-  but canonical runtime authority still belongs to the IOI daemon.
-- `AutopilotAppShell`: the Electron/VS Code fork that hosts Autopilot Workbench
-  and Desktop modes. It owns shell affordances such as windows, deep links, tray,
-  shortcuts, updater, auth handoff, and daemon supervision. Tauri/OpenVSCode
-  embedding is legacy extraction inventory, not the target shell.
-- `AutopilotDesktop`: the local/private device automation mode within the
-  Autopilot product. It may launch, manage, or project a local IOI daemon/runtime
+  but canonical runtime authority still belongs to the Hypervisor Daemon.
+- `HypervisorAppShell`: the Electron/VS Code fork that hosts Hypervisor IDE and
+  local runtime surfaces. It owns shell affordances such as windows, deep links,
+  tray, shortcuts, updater, auth handoff, and daemon supervision.
+  Tauri/OpenVSCode embedding is legacy extraction inventory, not the target
+  shell.
+- `HypervisorDesktop`: the local/private device automation mode within the
+  Hypervisor product. It may launch, manage, or project a local Hypervisor Daemon/runtime
   profile, but it does not define a separate canonical runtime path.
 - `IOICliTui`: the terminal/TUI operator client over daemon/public runtime APIs.
   It can render plans, controls, traces, approvals, and receipts, but it does
@@ -404,7 +405,7 @@ compliance acronyms for hidden audit material.
   systems, workers, service modules, harnesses, evals, manifests, receipts, and
   deployment profiles. It may be built on top of SDK clients, but it is a
   builder framework, not an operator shell and not the daemon/runtime owner.
-- `AgentIde`: the GUI/workbench/workflow-composer projection over shared
+- `AgentIde`: the GUI/workflow-composer projection over shared
   contracts. It authors and inspects workflows, but canonical run/session/task
   truth remains in daemon/Agentgres state.
 - `CompatibilityAdapter`: an IDE extension, CLI wrapper, MCP gateway, shell
@@ -414,7 +415,7 @@ compliance acronyms for hidden audit material.
   secrets, receipts, replay, or durable runtime state.
 - `GuestWorkload` or `GuestCapability`: a worker, model, tool, connector,
   browser, shell, computer-use provider, or external execution venue supervised
-  by the IOI daemon under policy and authority. Guest workloads/capabilities do
+  by the Hypervisor Daemon under policy and authority. Guest workloads/capabilities do
   not own policy, secrets, receipts, replay, or durable run truth.
 - `TrustAuditSubstrate`: the shared policy, authority, approval, receipt, replay,
   verification, and settlement evidence layer that makes autonomous execution

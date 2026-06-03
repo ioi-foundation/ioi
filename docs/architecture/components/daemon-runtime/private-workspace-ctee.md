@@ -1,15 +1,15 @@
 # Private Workspace Backed by cTEE
 
 Status: canonical architecture authority.
-Canonical owner: this file for Private Workspace backed by cTEE, persistent private Autopilot workspaces on rented GPU nodes, untrusted-node workspace privacy, private strategy execution, private workspace capsules, autonomy leases, and sensitive-compute routing under the IOI daemon.
+Canonical owner: this file for Private Workspace backed by cTEE, persistent private Hypervisor workspaces on rented GPU nodes, untrusted-node workspace privacy, private strategy execution, private workspace capsules, autonomy leases, and sensitive-compute routing under the Hypervisor Daemon.
 Supersedes: `shielded-compute-profile.md` as the primary name, plus hosted/DePIN privacy wording that implies a rented GPU node can safely receive plaintext secrets merely because it runs a daemon, container, VM, benchmarked image, or boot-measured image.
 Superseded by: none.
 Last alignment pass: 2026-06-01.
 
 ## Canonical Definition
 
-**Private Workspace backed by cTEE is the IOI daemon workspace and execution
-profile for persistent rented GPU Autopilot nodes that must remain useful while
+**Private Workspace backed by cTEE is the Hypervisor Daemon workspace and execution
+profile for persistent rented GPU Hypervisor Nodes that must remain useful while
 the user is away without exposing private files, folders, context, PII,
 strategy source, broker keys, live portfolio state, or final action authority
 to a root-level node provider.**
@@ -68,7 +68,7 @@ Core invariant:
 ```text
 The rented GPU node may be persistent.
 The rented GPU node may have root controlled by the provider.
-The rented GPU node may run the IOI daemon and Autopilot node shell.
+The rented GPU node may run the Hypervisor Daemon and Hypervisor Node shell.
 The rented GPU node may run normal-speed public/generic model inference.
 The user may see and edit a normal private workspace view.
 
@@ -101,9 +101,9 @@ This document owns the IOI binding:
 
 | Generic cTEE role | IOI binding |
 | --- | --- |
-| Guardian / authority view | authenticated browser, local Autopilot, CLI signer, wallet.network-backed authority |
+| Guardian / authority view | authenticated browser, local Hypervisor, CLI signer, wallet.network-backed authority |
 | Authority plane | wallet.network |
-| Execution boundary | IOI daemon |
+| Execution boundary | Hypervisor Daemon |
 | Plaintext-Free Runtime Mount | Default Harness Profile cTEE mount inside the daemon |
 | StateLog | Agentgres |
 | Artifact / blob store | Agentgres Artifact Plane plus storage backends |
@@ -203,7 +203,7 @@ Private Workspace backed by cTEE owns:
 Compatibility aliases:
 
 ```text
-PersistentShieldedAutopilotNode -> PrivateWorkspaceNode
+PersistentShieldedHypervisorNode -> PrivateWorkspaceNode
 ShieldedTaskCapsule             -> PrivateWorkspaceCapsule
 shielded_persistent             -> private_workspace_ctee
 ```
@@ -223,8 +223,8 @@ wallet.network
   trade/action signing, revoke/panic controls
 
 Persistent rented GPU node
-  IOI daemon profile
-  Autopilot node shell
+  Hypervisor Daemon profile
+  Hypervisor Node shell
   public/generic LLM inference
   public market-data transforms
   public training/backtest/simulation kernels
@@ -234,7 +234,7 @@ Persistent rented GPU node
   no plaintext private files, alpha, PII, or secrets by default
 
 cTEE authority view / guardian
-  authenticated browser, wallet.network path, local Autopilot, CLI signer,
+  authenticated browser, wallet.network path, local Hypervisor, CLI signer,
   mobile approval, enterprise key service, HSM, or threshold service
   participates in key release, private-head selection, masked/secret-shared
   strategy evaluation, declassification, and capability exits
@@ -253,7 +253,7 @@ IOI L1
 The cTEE guardian is not a second runtime and should not feel like an extra
 node for the user to operate. It is the **authority view** already needed to
 decrypt, display, approve, or sign private work. A browser session, local
-Autopilot desktop, CLI signer, passkey-backed wallet agent, customer VPC
+Hypervisor desktop, CLI signer, passkey-backed wallet agent, customer VPC
 service, enterprise HSM, mobile approval flow, or threshold committee may
 implement it.
 
@@ -268,7 +268,7 @@ for that same node to both:
 If the user has no always-on local laptop or desktop, the architecture needs a
 small trusted or threshold authority path outside the rented GPU node. In
 product terms this is usually wallet.network, an authenticated browser/device
-session, a mobile approval path, local Autopilot/CLI while online, or a cheap
+session, a mobile approval path, local Hypervisor IDE/CLI while online, or a cheap
 policy/key service. It does not need to run the model. It needs to guard keys,
 policy, declassification, private-head selection, leakage budgets, and small
 sensitive computations.
@@ -518,7 +518,7 @@ Sealed
   ciphertext, commitment, share, or opaque ref only
 
 GuardianOnly
-  plaintext only inside authenticated browser, client, local Autopilot,
+  plaintext only inside authenticated browser, client, local Hypervisor,
   mobile guardian, CLI signer, wallet.network path, or threshold path
 
 CryptoOperator
@@ -790,7 +790,7 @@ Party A:
 
 Party B:
   authenticated browser
-  local Autopilot when available
+  local Hypervisor when available
   mobile guardian
   CLI signer
   wallet.network-backed policy/key path
@@ -1325,7 +1325,7 @@ PrivateStrategyExecutionProfile:
       receipt: DeclassificationReceipt
 ```
 
-## PersistentShieldedAutopilotNode
+## PersistentShieldedHypervisorNode
 
 Deprecated name. Prefer `PrivateWorkspaceNode`.
 

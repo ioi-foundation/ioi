@@ -64,14 +64,14 @@ user signs in
 → wallet.network verifies restore authority and grants key leases
 → runtime router selects local, hosted, provider, DePIN, Private Workspace cTEE,
   TEE, or customer runtime
-→ IOI daemon/runtime node rehydrates or resumes work
+→ Hypervisor Daemon runtime node rehydrates or resumes work
 → restored/imported state records receipts back into Agentgres
 ```
 
 The product promise can be:
 
 ```text
-Log in to back up, restore, sync, publish, and recover your Autopilot/IOI runtime state.
+Log in to back up, restore, sync, publish, and recover your Hypervisor/IOI runtime state.
 ```
 
 The architecture promise is narrower:
@@ -154,7 +154,7 @@ Storage backends:
 wallet.network:
   key leases, secrets, restore authority, training-data approvals, decryption leases, revocation
 
-IOI daemon/runtime node:
+Hypervisor Daemon runtime node:
   active execution and rehydrated runtime process
 
 Private Workspace backed by cTEE:
@@ -171,7 +171,7 @@ When ioi.ai starts or resumes work on remote compute, it coordinates a runtime a
 ioi.ai control plane
 → domain kernel/runtime router
 → ComputeSession
-→ IOI daemon/runtime-node profile, including Private Workspace cTEE when selected
+→ Hypervisor Daemon runtime-node profile, including Private Workspace cTEE when selected
 → optional RuntimeAgentService bridge
 → worker package or task capsule
 ```
@@ -184,7 +184,7 @@ Worker Training and benchmark jobs follow the same boundary:
 ioi.ai entitlement / publishing metadata
 → domain kernel/runtime router
 → ComputeSession
-→ IOI daemon/runtime-node profile
+→ Hypervisor Daemon runtime-node profile
 → training, evaluation, or benchmark job
 → Agentgres receipts and refs
 ```
@@ -200,7 +200,7 @@ aiagent.xyz install / instance record
 → ioi.ai account entitlement or restore pointer, when needed
 → domain kernel/runtime router
 → ComputeSession
-→ IOI daemon/runtime-node profile
+→ Hypervisor Daemon runtime-node profile
 → browser console, API, or workflow client over daemon APIs
 → Agentgres receipts, usage, memory refs, and archive refs
 ```
@@ -214,7 +214,7 @@ not the marketplace or routing authority. The user may start from ioi.ai, but
 the worker listing, install, managed-instance record, MoW routing eligibility,
 invocation summary, usage, quality, and contribution records belong to the
 aiagent.xyz domain and its Agentgres state. The run itself belongs to the
-selected IOI daemon/runtime-node profile.
+selected Hypervisor Daemon runtime-node profile.
 
 ## Relationship To Other Domains
 
@@ -222,8 +222,8 @@ selected IOI daemon/runtime-node profile.
   records, invocation surfaces, MoW routing eligibility, quality, and
   marketplace records.
 - sas.xyz owns service orders, outcome workspaces, deliveries, approvals, disputes, and settlement mirrors.
-- local Autopilot owns the desktop/workbench experience and local projections.
-- Autopilot Foundry owns the local Worker Training product experience.
+- local Hypervisor owns the Hypervisor IDE experience and local projections.
+- Hypervisor Foundry owns the local Worker Training product experience.
 - wallet.network owns authority, secrets, key leases, payment approvals, and revocation.
 - Agentgres owns operational truth and archive refs.
 - Private Workspace backed by cTEE owns cTEE semantics for persistent rented GPU
@@ -236,7 +236,7 @@ selected IOI daemon/runtime-node profile.
 2. Restore must require wallet.network authority verification and Agentgres restore receipts.
 3. ioi.ai stores archive refs, private-state refs, and coordination metadata,
    not raw sealed-state bytes or private user/app plaintext by default.
-4. ioi.ai does not replace aiagent.xyz, sas.xyz, wallet.network, Agentgres, storage backends, or IOI daemon runtime nodes.
+4. ioi.ai does not replace aiagent.xyz, sas.xyz, wallet.network, Agentgres, storage backends, or Hypervisor Daemon runtime nodes.
 5. Remote compute entitlement must resolve to explicit runtime assignments, not ambient execution authority.
 6. Shielded node status in ioi.ai is coordination metadata, not proof that the
    control plane owns private execution or keys.

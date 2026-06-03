@@ -102,7 +102,7 @@ worker/service produces delivery payload
   -> daemon hashes/encrypts payload
   -> stores bytes through Filecoin/CAS/IPFS if policy chooses it
   -> Agentgres records ArtifactRef, DeliveryBundle linkage, and receipt
-  -> sas.xyz, aiagent.xyz, Autopilot, or another surface displays delivery state
+  -> sas.xyz, aiagent.xyz, Hypervisor, or another surface displays delivery state
   -> user/verifier fetches and verifies payload through Agentgres refs
 ```
 

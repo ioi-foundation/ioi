@@ -26,13 +26,13 @@ The protocol thesis is:
 
 > **Autonomous systems can execute anywhere. IOI settles what matters.**
 
-The Autopilot/autonomous-execution canon is:
+The Hypervisor/autonomous-execution canon is:
 
 ```text
-IOI daemon = hypervisor/control plane for autonomous execution
+Hypervisor Daemon = hypervisor/control plane for autonomous execution
 Default Harness Profile = daemon-executed loop-native orchestration profile
-Autopilot Node = local autonomous-system settlement and interop domain
-Autopilot Workbench = IDE-grade operator console
+Hypervisor Node = local autonomous-system settlement and interop domain
+Hypervisor IDE = IDE-grade operator console
 Electron/VS Code fork = canonical app shell
 IOI Authority Gateway = compatibility adapter profile for existing IDEs/agents
 Private Workspace backed by cTEE = user-facing private workspace for persistent untrusted GPU nodes; Plaintext-Free Runtime Mounting is the daemon boundary; CLPD is the default protected-agency strategy
@@ -42,13 +42,13 @@ Policy/receipts/replay = trust and audit substrate
 
 Product taxonomy:
 
-> **The IOI Runtime Daemon is the deterministic execution substrate for portable,
-> verifiable autonomous systems. Autopilot is the flagship product surface for
+> **The Hypervisor Daemon is the deterministic execution substrate for portable,
+> verifiable autonomous systems. Hypervisor is the flagship product surface for
 > building, deploying, and governing those systems.**
 
 Machine-economy canon:
 
-> **Autopilot nodes are local settlement domains for autonomous systems; IOI L1
+> **Hypervisor Nodes are local settlement domains for autonomous systems; IOI L1
 > is the global settlement layer for the machine economy.**
 
 Interop canon:
@@ -66,11 +66,11 @@ Read the stack this way:
   policy, modules, proposals, receipts, and upgrade paths;
 - Domain Ontologies and Data Recipes bind raw sources into trainable,
   queryable, receipted, and distillable domain truth;
-- IOI daemon/runtime nodes act as the autonomous-execution hypervisor/control
+- Hypervisor Daemon runtime nodes act as the autonomous-execution hypervisor/control
   plane, supervising workers, workflows, tools, models, connectors, computer-use
   leases, artifacts, policy, receipts, and replay;
 - Private Workspace backed by cTEE lets remote/persistent rented GPU nodes
-  provide Autopilot compute and persistence while private files, PII, strategy
+  provide Hypervisor compute and persistence while private files, PII, strategy
   logic, credentials, and action authority stay out of provider-readable
   plaintext by default; Candidate-Lattice Private Decoding lets the node
   generate candidates while private heads select or deny outside node custody;
@@ -84,7 +84,7 @@ Read the stack this way:
   and policy checks to FHE/MPC/local/threshold paths without exposing a new
   user-facing mode; third-party model APIs over sensitive plaintext are
   provider-trust, not base cTEE no-plaintext-custody;
-- Autopilot nodes coordinate many governed autonomous-system chains, route work
+- Hypervisor Nodes coordinate many governed autonomous-system chains, route work
   between them, manage local authority and receipts, and anchor selected roots
   upward when public trust or settlement requires it;
 - AIIP is the RPC-shaped, receipt-native interop protocol for bounded
@@ -99,14 +99,14 @@ Read the stack this way:
   provider/customer blob stores hold payload bytes;
 - MoW routes bounded workers by policy, benchmarks, receipts, cost, trust, and
   contribution quality;
-- Autopilot Workbench is the IDE-grade operator console for autonomous systems,
+- Hypervisor IDE is the IDE-grade operator console for autonomous systems,
   exposed through the Electron/VS Code fork as the canonical app shell and backed
   by local or remote daemon profiles;
 - IOI Authority Gateway is the daemon sidecar/adapter profile for existing IDE,
   CLI, browser, hosted-agent, and MCP/tool ecosystems: keep your IDE, keep your
   model, and put consequential execution behind IOI;
 - agent-ide and the workflow compositor render typed recipes over the shared
-  builder substrate; CLI/TUI, SDK, ADK, harnesses, benchmarks, and workbench
+  builder substrate; CLI/TUI, SDK, ADK, harnesses, benchmarks, and IDE
   extensions are clients, builder frameworks, or projections rather than
   runtime owners;
 - aiagent.xyz is a first-party protocol application that publishes,
@@ -157,10 +157,10 @@ distilled back into this architecture pack or into an accepted decision record.
 
 - [`web4-and-ioi-stack.md`](./foundations/web4-and-ioi-stack.md) — category definition and stack map.
 - [`aiip.md`](./foundations/aiip.md) — AIIP work interop protocol, bounded execution domains, profiles, packets, and handoff semantics.
-- [`governed-autonomous-systems.md`](./foundations/governed-autonomous-systems.md) — governed autonomous-system chains, Autopilot nodes, local settlement domains, and the coherent machine-economy stack.
+- [`governed-autonomous-systems.md`](./foundations/governed-autonomous-systems.md) — governed autonomous-system chains, Hypervisor Nodes, local settlement domains, and the coherent machine-economy stack.
 - [`verifiable-bounded-agency.md`](./foundations/verifiable-bounded-agency.md) — alignment-security thesis, bounded agency, and execution-boundary alignment.
 - [`mixture-of-workers.md`](./foundations/mixture-of-workers.md) — MoW labor-routing doctrine, sparse worker categories, routing receipts, and router neutrality.
-- [`worker-training-lifecycle.md`](./foundations/worker-training-lifecycle.md) — Worker Training lifecycle, Autopilot Foundry product home, training receipts, and training-vs-mutation doctrine.
+- [`worker-training-lifecycle.md`](./foundations/worker-training-lifecycle.md) — Worker Training lifecycle, Hypervisor Foundry product home, training receipts, and training-vs-mutation doctrine.
 - [`domain-ontologies-and-data-recipes.md`](./foundations/domain-ontologies-and-data-recipes.md) — semantic data plane for domain ontologies, data recipes, connector mappings, evaluation datasets, and ontology-aware projections.
 - [`ioi-l1-mainnet.md`](./foundations/ioi-l1-mainnet.md) — IOI L1 duties, L0/L1 boundary, smart contracts, gas boundaries.
 - [`domain-kernels.md`](./foundations/domain-kernels.md) — L0 substrate, fractal/edge-in topology, application-domain kernels, and Agentgres hosting.
@@ -168,7 +168,7 @@ distilled back into this architecture pack or into an accepted decision record.
 - [`agentgres/artifact-ref-plane.md`](./components/agentgres/artifact-ref-plane.md) — ArtifactRef, PayloadRef, EvidenceBundle, DeliveryBundle, AgentStateArchive refs, lifecycle, authority, receipts, and restore validity.
 - [`agentgres/postgres-bridge-and-readiness-contract.md`](./components/agentgres/postgres-bridge-and-readiness-contract.md) — Postgres bridge posture, consistency levels, durability/readiness contract.
 - [`daemon-runtime/doctrine.md`](./components/daemon-runtime/doctrine.md) — universal execution endpoint for local, hosted, and DePIN nodes.
-- [`daemon-runtime/private-workspace-ctee.md`](./components/daemon-runtime/private-workspace-ctee.md) — Private Workspace backed by cTEE for persistent rented GPU Autopilot nodes, Candidate-Lattice Private Decoding, private files/folders, private strategy execution, autonomy leases, declassification gates, and no-plaintext protected classes.
+- [`daemon-runtime/private-workspace-ctee.md`](./components/daemon-runtime/private-workspace-ctee.md) — Private Workspace backed by cTEE for persistent rented GPU Hypervisor Nodes, Candidate-Lattice Private Decoding, private files/folders, private strategy execution, autonomy leases, declassification gates, and no-plaintext protected classes.
 - [`daemon-runtime/runtime-nodes-tee-depin.md`](./components/daemon-runtime/runtime-nodes-tee-depin.md) — local/hosted/DePIN/TEE execution modes.
 - [`wallet-network/doctrine.md`](./components/wallet-network/doctrine.md) — identity, secrets, authority scopes, approvals, payments.
 - [`domains/aiagent/worker-marketplace.md`](./domains/aiagent/worker-marketplace.md) — worker marketplace, managed instances, and routing application domain.
@@ -219,24 +219,23 @@ supporting file.
 | AIIP | RPC-shaped, receipt-native interop protocol for bounded autonomous work, authority leases, receipts, settlement intents, disputes, and handoffs. |
 | Bounded Execution Domain | Any local, hosted, enterprise, marketplace, robot, worker, service, microharness, or AS-L1 domain that performs scoped autonomous work under policy and receipts. |
 | Governed Autonomous-System Chain | Local stateful execution object with policy, modules, proposals, receipts, state roots, and governed upgrades. |
-| Autopilot Node | Local settlement, orchestration, authority, state, replay, routing, and interop domain for many governed autonomous-system chains. |
+| Hypervisor Node | Local settlement, orchestration, authority, state, replay, routing, and interop domain for many governed autonomous-system chains. |
 | Verifiable Bounded Agency | Alignment-security thesis: probabilistic workers may propose, but only bounded, authorized, receipted effects may cross the deterministic execution boundary. |
 | Mixture of Workers | Labor-routing architecture that selects bounded workers by policy, benchmark evidence, cost, trust, and contribution quality. |
 | Worker Training | Supply-creation lifecycle for turning workflows, examples, corrections, data, gates, and training profiles into deployable benchmarked workers. |
 | Domain Ontologies and Data Recipes | Semantic data plane that turns sources, connector payloads, traces, schemas, and policies into ontology-bound, optionally distilled training, evaluation, runtime, and projection truth. |
 | Domain Kernel | Application-domain authority/runtime deployment for Agentgres and routing. |
 | Agentgres | Per-domain canonical operational state, receipts, projections, quality, and contribution accounting. |
-| IOI Daemon / Runtime Node | Hypervisor/control plane for autonomous execution across workflows, workers, tools, models, connectors, computer-use leases, artifacts, policy, receipts, and replay. |
+| Hypervisor Daemon / Runtime Node | Hypervisor/control plane for autonomous execution across workflows, workers, tools, models, connectors, computer-use leases, artifacts, policy, receipts, and replay. |
 | Private Workspace backed by cTEE | User-facing private workspace and daemon execution profile for persistent rented GPU nodes that run useful compute without receiving protected plaintext by default; Plaintext-Free Runtime Mounting is the daemon boundary, CLPD is the default protected-agency strategy, Candidate Coverage Profile estimates proposal redundancy, Counterfactual Lattice Execution trades extra public token volume for lower online private-choice leakage, the Cryptographic Operator Plane handles protected private operators internally, External Model API Boundary distinguishes private-native/redacted-API/provider-trust/unsafe paths, and deterrence/detection receipts support canaries, watermarks, and disputes. |
 | IOI CLI/TUI | Human terminal and TUI operator client over daemon/public runtime APIs. |
 | IOI SDK | Low-level protocol/client library over daemon, Agentgres, wallet.network, AIIP, and IOI L1 contracts; never the canonical execution owner. |
 | IOI ADK | Autonomous development kit for building workers, service modules, harnesses, evals, manifests, receipts, deployment profiles, and governed autonomous systems. |
-| Shared Builder Substrate | Shared graph model, typed node contracts, schemas, recipes, daemon execution path, and receipt model used by Autopilot builder lenses. |
-| agent-ide / Workflow Compositor | GUI/workbench projection that renders typed recipes and workflows over the shared builder substrate. |
-| Autopilot Workbench | IDE-grade operator console for autonomous systems; observes, requests, approves, interrupts, debugs, and explains daemon-governed work without owning runtime truth. |
-| Electron/VS Code Fork | Canonical Autopilot app shell for Workbench and Desktop modes. |
-| Autopilot Desktop | Local user mode for private/device automation that trains, runs, inspects, and governs workers through a local IOI daemon/runtime profile. |
-| IOI Authority Gateway / Autopilot Guard | Compatibility sidecar/adapters for existing IDEs, CLI agents, hosted agents, browser tools, and MCP ecosystems; routes proposed actions through daemon policy, authority, receipts, and replay without becoming a second runtime. |
+| Shared Builder Substrate | Shared graph model, typed node contracts, schemas, recipes, daemon execution path, and receipt model used by Hypervisor builder lenses. |
+| agent-ide / Workflow Compositor | GUI/workflow projection that renders typed recipes and workflows over the shared builder substrate. |
+| Hypervisor IDE | IDE-grade operator console for autonomous systems; observes, requests, approves, interrupts, debugs, and explains daemon-governed work without owning runtime truth. |
+| Electron/VS Code Fork | Canonical Hypervisor app shell for IDE and local runtime surfaces. |
+| IOI Authority Gateway / Hypervisor Guard | Compatibility sidecar/adapters for existing IDEs, CLI agents, hosted agents, browser tools, and MCP ecosystems; routes proposed actions through daemon policy, authority, receipts, and replay without becoming a second runtime. |
 | wallet.network | Sovereign authority layer for identity, secrets, keys, authority scopes, approvals, payments, and revocation. |
 | aiagent.xyz | Canonical Web4 marketplace for portable digital workers, benchmark profiles, Sparse Worker Categories, installs, and routing eligibility. |
 | sas.xyz | Canonical Web4 marketplace for autonomous service outcomes, including Worker Training as Service-as-Software. |
@@ -244,7 +243,7 @@ supporting file.
 | ai:// | Naming and manifest resolution protocol for intelligence, workers, services, apps, and domains. |
 | Agentgres Artifact-Ref Plane | Artifact identity, payload refs, evidence/delivery/archive refs, lifecycle, policy, authority, receipts, replay/import metadata, restore validity, and state-root validity. |
 | Storage Backends | Payload byte stores such as local disk, S3/object stores, Filecoin, CAS/IPFS, provider blob stores, and customer VPC blob stores. |
-| DePIN/TEE Nodes | Execution venues that run IOI daemon profiles, not the Web4 apps themselves. |
+| DePIN/TEE Nodes | Execution venues that run Hypervisor Daemon profiles, not the Web4 apps themselves. |
 
 ## Core Layering
 
@@ -253,7 +252,7 @@ IOI L1
   registry, rights, settlement, governance, bonds, disputes, roots
 
 Application Domains
-  aiagent.xyz, sas.xyz, ioi.ai, Autopilot local domains, enterprise domains
+  aiagent.xyz, sas.xyz, ioi.ai, Hypervisor local domains, enterprise domains
   each runs kernel/runtime deployment + Agentgres domain
 
 Governed Autonomous-System Chains
@@ -269,13 +268,14 @@ MoW Routing Layer
   sparse worker categories, routing decisions, contribution policies, benchmark eligibility
 
 Execution Hypervisor / Runtime Nodes
-  local IOI daemon under an Autopilot node, hosted IOI daemon, provider daemon, DePIN node, TEE node, customer VPC
+  local Hypervisor Daemon under a Hypervisor Node, hosted Hypervisor Daemon, provider daemon, DePIN node, TEE node, customer VPC
 
-Autopilot Node / Local Settlement Domain
-  Workbench, daemon, Agentgres, wallet.network authority path, local registries, receipts, replay, interop, and local settlement
+Hypervisor Node / Local Settlement Domain
+  Hypervisor IDE, Hypervisor Daemon, Agentgres, wallet.network authority path,
+  local registries, receipts, replay, interop, and local settlement
 
 Client Surfaces
-  Autopilot Workbench, Autopilot Desktop, agent-ide, IOI Authority Gateway adapters, IOI CLI/TUI, @ioi/agent-sdk, IOI ADK, browser apps, harnesses, benchmarks
+  Hypervisor IDE, agent-ide, IOI Authority Gateway adapters, IOI CLI/TUI, @ioi/agent-sdk, IOI ADK, browser apps, harnesses, benchmarks
 
 Storage Plane
   local disk, S3/object stores, Filecoin, CAS/IPFS, provider/customer blob stores for payload bytes
@@ -295,17 +295,17 @@ Authority Plane
 7. DePIN nodes are execution venues; Web4 apps define state, rights, UX, contracts, and outcomes.
 8. Storage backends store payloads; trust comes from Agentgres refs, manifests, hashes, signatures, receipts, policy, authority, and settlement roots when applicable.
 9. Agentgres state MUST NOT be reduced to opaque Filecoin blobs. Agentgres owns canonical operations, object heads, indexes, constraints, projections, subscriptions, delivery state, receipt metadata, artifact refs, archive refs, replay/import metadata, and restore validity.
-10. Compute nodes initialize IOI daemon/runtime-node profiles, optionally bridging into runtime services; the SDK is a client over that substrate, not the substrate itself.
+10. Compute nodes initialize Hypervisor Daemon runtime-node profiles, optionally bridging into runtime services; the SDK is a client over that substrate, not the substrate itself.
 11. CLI/TUI, SDK, and ADK are separate surfaces: CLI/TUI is the operator interface, SDK is the low-level client library, and ADK is the autonomous-system builder framework.
-12. CLI/TUI, agent-ide, SDK, ADK, Autopilot Desktop, harnesses, and benchmarks must share daemon/domain contracts rather than creating private runtime truth paths.
+12. CLI/TUI, agent-ide, SDK, ADK, Hypervisor IDE, harnesses, and benchmarks must share daemon/domain contracts rather than creating private runtime truth paths.
 13. Worker is the protocol actor; model is a cognition backend; agent is product-facing or colloquial language.
 14. MoW is labor routing across bounded workers, not a fifth Web primitive and not model-provider routing.
 15. Worker Training creates or improves capability but does not grant authority; wallet.network or equivalent authority grants power.
 16. Workers train on ontology-bound, policy-bound, and when useful distilled data, not raw blobs or ambient connector payloads.
-17. Models and agents may reason or propose; IOI daemon authority decides what crosses the deterministic execution boundary.
-18. IOI Authority Gateway, Autopilot Guard, IDE extensions, CLI wrappers, MCP gateways, Git hooks, API proxies, browser adapters, and CI gates are mediation surfaces only. They must route consequential actions through daemon policy, authority, receipts, and replay, and they must not claim total interception of opaque third-party runtimes.
+17. Models and agents may reason or propose; Hypervisor Daemon authority decides what crosses the deterministic execution boundary.
+18. IOI Authority Gateway, Hypervisor Guard, IDE extensions, CLI wrappers, MCP gateways, Git hooks, API proxies, browser adapters, and CI gates are mediation surfaces only. They must route consequential actions through daemon policy, authority, receipts, and replay, and they must not claim total interception of opaque third-party runtimes.
 19. IOI's alignment-security claim is execution-boundary alignment: it constrains consequential effects through bounded authority, policy, receipts, and verification; it must not be framed as proving every model's private cognition or goals are safe.
-20. Autopilot Workbench is not the Autopilot node. The workbench is an operator console; the Autopilot node is the local settlement and interop domain composed around daemon, Agentgres, wallet.network authority paths, registries, receipts, and replay.
+20. Hypervisor IDE is not the Hypervisor Node. The IDE is an operator console; the Hypervisor Node is the local settlement and interop domain composed around Hypervisor Daemon, Agentgres, wallet.network authority paths, registries, receipts, and replay.
 21. Governed autonomous-system chains are system-local state machines, not necessarily standalone public blockchains or IOI L1s. IOI L1 anchors selected roots and settles global machine-economy rights, disputes, reputation, and economics.
 22. The marketplace is not the protocol. aiagent.xyz and sas.xyz are first-party applications of AIIP and IOI settlement, while IOI mainnet remains the generic settlement layer for autonomous systems.
 23. AIIP is the shared interop semantics for local microharness routing and external autonomous-system handoffs. Transports and settlement depth may vary; protocol grammar should not fragment.

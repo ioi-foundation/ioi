@@ -14,13 +14,13 @@ It records what happened, what changed, why it changed, who authorized it, what
 evidence supports it, how it can be queried, and how future workers or agents
 can reuse it.
 
-In the Autopilot/daemon canon, the IOI daemon is the hypervisor/control plane
+In the Hypervisor/daemon canon, the Hypervisor Daemon is the hypervisor/control plane
 for autonomous execution and Agentgres is the operational truth substrate behind
-that control plane. Autopilot Workbench may render Agentgres-backed projections,
+that control plane. Hypervisor IDE may render Agentgres-backed projections,
 but it must not become the canonical state store.
 
 In the machine-economy canon, Agentgres is the local/domain operational truth
-substrate for governed autonomous-system chains and Autopilot-node settlement
+substrate for governed autonomous-system chains and Hypervisor Node settlement
 domains. It records proposals, module invocations, local settlement records,
 receipt roots, upgrade decisions, state roots, and replayable projections before
 selected commitments are anchored to IOI L1.
@@ -73,7 +73,7 @@ Agentgres owns per-domain operational truth:
 - worker installs;
 - managed worker/agent instances;
 - governed autonomous-system chain records;
-- Autopilot-node local settlement records;
+- Hypervisor Node local settlement records;
 - service module manifests and registry roots;
 - module invocation records;
 - proposal queues;
@@ -131,12 +131,12 @@ Agentgres does not own:
 - draft, fuzzy, local, or speculative memory that has not crossed an admission boundary;
 - retrieval candidates, embeddings, full-text indexes, or wiki projections as canonical truth.
 
-wallet.network owns authority. IOI daemon/runtime nodes own execution.
-Autopilot Desktop owns local UX/projections. AIIP owns autonomous-work interop
+wallet.network owns authority. Hypervisor Daemon runtime nodes own execution.
+Hypervisor IDE owns local UX/projections. AIIP owns autonomous-work interop
 semantics. Storage backends own payload byte availability. IOI L1 owns public
-settlement and rights. Autopilot nodes coordinate local settlement and interop,
+settlement and rights. Hypervisor Nodes coordinate local settlement and interop,
 but their operational truth is still recorded through Agentgres/domain
-operations rather than Workbench UI state.
+operations rather than Hypervisor IDE UI state.
 
 ## Memory And Agent Wiki Boundary
 
@@ -2199,7 +2199,7 @@ Example:
 
 ```ts
 const agentgres = await openAgentgres({
-  app: "ai://autopilot",
+  app: "ai://hypervisor",
   persistence: "indexeddb",
   sync: "wakeable",
 });
@@ -2331,7 +2331,7 @@ receipt metadata hot.
 
 ## 12.4 Sealed Archive Flow
 
-For Autopilot and long-running agents:
+For Hypervisor and long-running agents:
 
 ```text
 run hot
@@ -3210,7 +3210,7 @@ That preserves compatibility with:
 - existing branch workflows
 - existing uncommitted local changes
 
-It also lets Autopilot add agent-native behavior without corrupting the
+It also lets Hypervisor add agent-native behavior without corrupting the
 expectations of a normal repository.
 
 ## 27.1 Layer Split
@@ -3250,7 +3250,7 @@ Changing underlying Git behavior risks breaking the thing users trust most:
 a repository opened in VS Code, terminal Git, another IDE, or CI should show the
 same working tree and the same Git state.
 
-If Autopilot changes Git semantics too early, it creates dangerous edge cases:
+If Hypervisor changes Git semantics too early, it creates dangerous edge cases:
 
 - VS Code shows one set of changes while Agentgres thinks another state is canonical.
 - Another IDE edits the same files while Agentgres has a lease.
@@ -3453,7 +3453,7 @@ advisory
   warn on conflict, do not block external tools
 
 managed
-  Autopilot agents respect leases internally
+  Hypervisor agents respect leases internally
 
 non_exclusive_draft
   allow concurrent patch branches and detect conflict at merge
@@ -3482,7 +3482,7 @@ public API contracts
 
 ### Open Repo Normally
 
-The user opens a normal Git repo in Autopilot/VS Code OSS.
+The user opens a normal Git repo in Hypervisor IDE/VS Code OSS.
 
 VS Code Git integration works as usual.
 
@@ -3731,7 +3731,7 @@ Use VS Code OSS as the familiar workbench:
 
 Under the hood, the VS Code Git extension remains untouched by default.
 
-Autopilot adds a parallel Agentgres view, not a replacement for Git SCM.
+Hypervisor adds a parallel Agentgres view, not a replacement for Git SCM.
 
 Recommended architecture:
 

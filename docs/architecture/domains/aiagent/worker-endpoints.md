@@ -19,7 +19,7 @@ worker supports, and a user chooses whether to run once, route through MoW,
 initialize a managed instance, install locally, call by API, or compose into a
 workflow. ioi.ai may coordinate account entitlement, restore, and runtime
 discovery for those choices, but aiagent.xyz owns the marketplace endpoint
-records and the selected IOI daemon/runtime node executes the work.
+records and the selected Hypervisor Daemon runtime node executes the work.
 
 ## Worker Endpoint Classes
 
@@ -35,10 +35,10 @@ Artifacts and receipts
 Admin/observability
 ```
 
-A worker may implement these directly, or a compatible IOI daemon may expose them on the worker's behalf.
+A worker may implement these directly, or a compatible Hypervisor Daemon may expose them on the worker's behalf.
 
 When a worker runs on hosted, provider, DePIN, TEE, customer, or local compute,
-the execution venue should be modeled as an IOI daemon/runtime node. SDK helpers
+the execution venue should be modeled as a Hypervisor Daemon runtime node. SDK helpers
 may wrap the endpoint contract, but they do not replace daemon ownership of
 runtime execution.
 
@@ -155,7 +155,7 @@ POST /v1/agent/tasks/{task_id}/deny
 ```json
 {
   "objective": "Audit the Git overlay adapter for stale write risks.",
-  "context_refs": ["agentgres://project/autopilot", "git://repo/ioi"],
+  "context_refs": ["agentgres://project/hypervisor", "git://repo/ioi"],
   "constraints": {
     "deadline": "2026-05-01T12:00:00Z",
     "max_budget_usd": 10,
@@ -245,7 +245,7 @@ POST /v1/worker/threads
   "title": "Weekly runtime hardening audit",
   "cadence": "weekly",
   "scope": {
-    "project": "agentgres://project/autopilot",
+    "project": "agentgres://project/hypervisor",
     "repos": ["git://repo/ioi"]
   },
   "instructions": "Review recent runtime failures and propose hardening tasks.",
@@ -293,7 +293,7 @@ POST /v1/interagent/status-request
   "type": "handoff",
   "from": "agent://planner",
   "to": "agent://runtime-auditor",
-  "project_ref": "agentgres://project/autopilot",
+  "project_ref": "agentgres://project/hypervisor",
   "reason": "Need targeted audit of Agentgres write-path invariants.",
   "context_refs": ["agentgres://decision/agentgres-storage-profile"],
   "expected_output": {
@@ -342,7 +342,7 @@ Install response:
   "manifest_root": "sha256:...",
   "primitive_capabilities_required": ["prim:fs.read", "prim:model.invoke"],
   "authority_scopes_required": ["scope:repo.read"],
-  "target_runtime_options": ["local_autopilot", "hosted_ioi", "provider", "depin_mutual_blind", "tee_enterprise"],
+  "target_runtime_options": ["local_hypervisor", "hosted_ioi", "provider", "depin_mutual_blind", "tee_enterprise"],
   "interaction_surfaces": ["chat", "task", "api", "workflow_node"],
   "persistence_profiles": ["ephemeral", "zero_to_idle", "persistent"]
 }

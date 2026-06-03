@@ -9,11 +9,11 @@ Last alignment pass: 2026-05-20.
 ## Purpose
 
 Connectors expose typed, permissioned, receipted guest capabilities into
-workflows, workers, and Autopilot. Tools are not ambient authority; every tool
+workflows, workers, and Hypervisor. Tools are not ambient authority; every tool
 has a contract, risk class, primitive capability requirements, authority scope
 requirements, and receipt obligations. Effectful connector calls execute through
-the IOI daemon hypervisor/control plane, not from the workbench or extension
-host.
+the Hypervisor Daemon hypervisor/control plane, not from Hypervisor IDE or the
+extension host.
 
 ## RuntimeToolContract
 

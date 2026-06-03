@@ -1,15 +1,15 @@
-# IOI CLI / Daemon Runtime Specification
+# Hypervisor Daemon and IOI CLI Runtime Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for daemon/CLI ownership boundaries and IOI CLI operator-surface positioning; low-level daemon endpoints live in [`ioi-daemon-runtime-api.md`](./api.md).
+Canonical owner: this file for Hypervisor Daemon, CLI ownership boundaries, and IOI CLI operator-surface positioning; low-level daemon endpoints live in [`api.md`](./api.md).
 Supersedes: older CLI/daemon wording that implies the CLI owns runtime semantics or is primarily a chain/domain generator.
 Superseded by: none.
 Last alignment pass: 2026-05-30.
 
 ## Canonical Definition
 
-**The IOI daemon is the universal execution endpoint and hypervisor/control plane
-for canonical Web4 autonomous work.**
+**The Hypervisor Daemon is the universal execution endpoint and
+hypervisor/control plane for canonical Web4 autonomous work.**
 
 The daemon is a hypervisor by analogy: it does not make workers, models, tools,
 connectors, browsers, shells, or computer-use providers trustworthy by existing.
@@ -33,9 +33,9 @@ connectors, worker-training jobs, benchmark jobs, evaluation jobs, MoW routing
 decisions, and artifact-producing jobs across local, hosted, provider, DePIN,
 TEE, and enterprise environments.
 
-Autopilot Workbench is the IDE-grade operator console over this substrate. The
-Electron/VS Code fork is the canonical Autopilot app shell. The workbench,
-CLI/TUI, SDK, ADK, harnesses, benchmarks, and extension host are clients,
+Hypervisor IDE is the IDE-grade operator console over this substrate. The
+Electron/VS Code fork is the canonical Hypervisor app shell. Hypervisor IDE,
+CLI/TUI, SDK, ADK, harnesses, benchmarks, and the extension host are clients,
 builder frameworks, or projections; they do not become private runtimes.
 
 The CLI/TUI, SDK, and ADK are distinct:
@@ -56,10 +56,11 @@ CLI agents, hosted-agent tools, browser automation, MCP ecosystems, shell
 wrappers, Git hooks, API proxies, credential brokers, and CI/CD gates. It exists
 to let users keep their IDE and keep their model while putting consequential
 execution behind IOI. It is a daemon deployment/adoption profile, not a second
-runtime and not a replacement for Autopilot Workbench as the native operator
+runtime and not a replacement for Hypervisor IDE as the native operator
 console.
 
-> **Models reason. IOI authorizes action.**
+> **Models reason. Hypervisor Daemon gates action. IOI settles what needs public
+> trust.**
 
 Adapters may observe, request, preview, deny, transform, or submit proposed
 actions through the daemon. They must not claim total interception over opaque
@@ -69,7 +70,7 @@ secret leases, browser actions, deploy/API calls, webhooks, and CI/CD gates.
 
 Compute-node rule:
 
-> **Runtime and compute nodes initialize IOI daemon/runtime-node profiles. The
+> **Runtime and compute nodes initialize Hypervisor Daemon runtime-node profiles. The
 > SDK is a client over that substrate, not the substrate booted on the node.**
 
 Default harness rule:
@@ -83,14 +84,14 @@ loop-native lifecycle, context topology, action proposal and gate path,
 Agentgres admission rules, artifact/ref boundary, output ownership pass, and
 conformance phases used by the Default Harness Profile.
 
-## Autopilot Node Boundary
+## Hypervisor Node Boundary
 
-An Autopilot node is the local autonomous-system settlement and interop domain
-composed around Autopilot Workbench, the IOI daemon, Agentgres, wallet.network
+A Hypervisor Node is the local autonomous-system settlement and interop domain
+composed around Hypervisor IDE, the Hypervisor Daemon, Agentgres, wallet.network
 authority paths, local registries, receipt/replay stores, and runtime profiles.
 
 The daemon is the execution and authority-enforcement substrate inside that
-node. The Workbench is the operator console. Agentgres is the local operational
+node. Hypervisor IDE is the operator console. Agentgres is the local operational
 truth substrate. AIIP is the semantic interop protocol for local microharness
 routing and external autonomous-system handoffs. wallet.network owns authority.
 IOI L1 receives selected roots when public trust, economic settlement,
@@ -103,14 +104,14 @@ service-module invocations: they read state, apply policy, invoke workers,
 tools, models, or connectors, emit receipts, and propose or commit bounded
 state transitions through Agentgres-compatible operations.
 
-The daemon owns model routing and invocation boundaries, not implicit model
+The Hypervisor Daemon owns model routing and invocation boundaries, not implicit model
 possession. Model weights, local model files, model servers, BYOK provider
 access, hosted pools, TEE sessions, DePIN sessions, and customer VPC endpoints
 are deployment-profile resources. Bundled model weights are allowed only when a
 node/runtime profile explicitly declares them.
 
-Do not describe the Autopilot Workbench UI as the settlement layer. Do not
-describe the daemon as IOI L1. Local Autopilot-node settlement means local
+Do not describe the Hypervisor IDE UI as the settlement layer. Do not
+describe the daemon as IOI L1. Local Hypervisor Node settlement means local
 canonical acceptance of work, state transitions, proposals, receipts, authority
 outcomes, and AIIP interop messages; IOI L1 settlement means public registry,
 rights, dispute, reputation, handoff finality, and economic finality.
@@ -218,17 +219,17 @@ The CLI should surface local/BYOK/managed/TEE/DePIN routing, model/key/provider
 availability, privacy, cost, latency, and authority implications before it
 crosses trust boundaries.
 
-### Autopilot Bridge
+### Hypervisor Bridge
 
-Autopilot may emit typed artifacts, manifests, receipts, evidence plans, and
+Hypervisor may emit typed artifacts, manifests, receipts, evidence plans, and
 CLI-compatible workflow/domain packages. The CLI may inspect, validate,
 materialize, promote, publish, route, or verify them through daemon and
-Agentgres APIs. The CLI does not become the Autopilot runtime.
+Agentgres APIs. The CLI does not become the Hypervisor runtime.
 
-Autopilot Desktop may manage a local IOI daemon and render local runtime
+Hypervisor IDE may manage a local Hypervisor Daemon and render local runtime
 projections. Remote, hosted, provider, DePIN, TEE, and customer runtime nodes
-should still be described as IOI daemon/runtime-node profiles, even when they
-run Autopilot-compatible workflow packages.
+should still be described as Hypervisor Daemon runtime-node profiles, even when they
+run Hypervisor-compatible workflow packages.
 
 ### Authority Gateway / Sidecar Profile
 
@@ -239,7 +240,7 @@ hosted agent products. The product message is:
 > **Keep your IDE. Keep your model. Put consequential execution behind IOI.**
 
 The sidecar routes proposed actions into the same daemon policy, authority,
-approval, receipt, replay, and settlement path used by Autopilot Workbench.
+approval, receipt, replay, and settlement path used by Hypervisor IDE.
 Different tools expose different control points. VS Code-family tools can use
 extensions, terminals, workspace watchers, and MCP gateways. CLI agents can run
 as guest workloads behind shell wrappers and tool proxies. Hosted agent systems
@@ -249,7 +250,7 @@ receipt ingestion.
 This profile strengthens the marketplace/protocol thesis instead of competing
 with it: developers can first govern existing models and agents, then discover
 better workers, install marketplace workers, delegate authority through
-wallet.network, and graduate to the full Autopilot Workbench when they need the
+wallet.network, and graduate to the full Hypervisor IDE when they need the
 native control room.
 
 ## Runtime Role
@@ -274,8 +275,8 @@ It is responsible for:
 
 ## Deployment Targets
 
-1. **Local IOI daemon under Autopilot Desktop** — desktop/private execution.
-2. **Hosted IOI daemon** — always-on hosted workers/services.
+1. **Local Hypervisor Daemon under Hypervisor IDE** — desktop/private execution.
+2. **Hosted Hypervisor Daemon** — always-on hosted workers/services.
 3. **Provider daemon** — service provider infrastructure.
 4. **DePIN daemon** — Akash-like public compute.
 5. **TEE-verified daemon** — enterprise secure mode.
@@ -305,7 +306,7 @@ GET  /v1/deliveries/{id}
 ```
 
 Interactive clients and builder frameworks such as the TUI, SDK, ADK,
-agent-ide, and Autopilot Desktop also use the thread/turn control substrate:
+agent-ide, and Hypervisor IDE also use the thread/turn control substrate:
 
 ```http
 POST /v1/threads
@@ -384,7 +385,7 @@ These envelopes must be stable across local, hosted, marketplace, CLI, UI, workf
 The implementation may bridge the daemon API into a lower-level
 `RuntimeAgentService` or other runtime service loop. That bridge is behind the
 daemon/runtime-node profile. It does not change client ownership: SDK, ADK,
-CLI/TUI, agent-ide, Autopilot Desktop, harnesses, and benchmarks remain
+CLI/TUI, agent-ide, Hypervisor IDE, harnesses, and benchmarks remain
 clients, builder frameworks, or projections.
 
 ## Event Model
@@ -424,7 +425,7 @@ The daemon writes/updates domain state through Agentgres-compatible APIs:
 - worker invocations;
 - contribution receipts;
 - governed autonomous-system chain transitions;
-- Autopilot-node local settlement records.
+- Hypervisor Node local settlement records.
 
 The daemon must not maintain a separate canonical state store for application truth.
 
@@ -445,7 +446,7 @@ Sensitive actions require:
 
 ## Runtime Privacy Profiles
 
-1. **Local/private** — local Autopilot, customer machine.
+1. **Local/private** — local Hypervisor, customer machine.
 2. **Mutual Blind** — no TEE; redacted/minimized capsules, no final authority.
 3. **Enterprise Secure** — TEE-attested node; sealed secret release.
 4. **Hosted trusted** — IOI/provider-managed runtime under contractual trust.
@@ -457,7 +458,7 @@ Do not model the daemon/runtime layer as:
 ```text
 SDK = runtime substrate
 CLI/TUI = private execution loop
-Autopilot Workbench = runtime truth
+Hypervisor IDE = runtime truth
 Default Harness Profile = peer daemon
 Authority Gateway adapter = total control over opaque third-party agents
 runtime node = application-domain truth store
@@ -497,13 +498,13 @@ receipts and replay make work accountable
 5. No final effect from untrusted DePIN nodes without trusted verification/settlement.
 6. No split runtime path for workflow vs agent vs benchmark vs CLI execution.
 7. No long-running job without deadline, cancellation, and progress events.
-8. No compute-node architecture where the SDK replaces the IOI daemon/runtime
+8. No compute-node architecture where the SDK replaces the Hypervisor Daemon/runtime
    profile as execution owner.
 9. No TUI-only runtime controls; TUI controls must map to daemon/domain APIs.
 
 ## One-Line Doctrine
 
-> **The IOI daemon is where Web4 work executes; Agentgres remembers it, wallet.network authorizes it, and IOI L1 settles what matters.**
+> **The Hypervisor Daemon is where Web4 work executes; Agentgres remembers it, wallet.network authorizes it, and IOI L1 settles what matters.**
 
 ## CLI Product Context Module
 
@@ -608,7 +609,7 @@ Use `IOI CLI` as the primary name, and use `forge` inside it.
 This naming is stronger because it is:
 
 * blunt and clear about the interface
-* architecturally consistent with `Autopilot` and `sas.xyz`
+* architecturally consistent with `Hypervisor` and `sas.xyz`
 * extensible as the command surface grows
 * less ambiguous than spending the top-level product name on a single metaphor
 
@@ -667,7 +668,7 @@ Later, it may grow richer IDE or visual surfaces, but the canonical first interf
 
 The ecosystem becomes cleaner when the fifth distinct surface is named `IOI CLI`, with `forge` treated as a command namespace inside it.
 
-## 5.1 `Autopilot`
+## 5.1 `Hypervisor`
 
 **Operate and stabilize**
 
@@ -706,7 +707,7 @@ to hosted execution, but it is not the hosted runtime itself.
 
 ## 5.6 Boundary rules
 
-* `Autopilot` is where worker systems are built, operated, supervised, and stabilized privately.
+* `Hypervisor` is where worker systems are built, operated, supervised, and stabilized privately.
 * `IOI CLI` is where sovereign domains and intelligent blockchains are formally instantiated as execution economies.
 * `forge` is a major namespace within `IOI CLI`, not the name of a separate top-level surface.
 * `sas.xyz` is where services, including intelligent-blockchain-backed services, are packaged, deployed, served, and commercialized.
@@ -714,7 +715,7 @@ to hosted execution, but it is not the hosted runtime itself.
 * Not every stabilized worker system should become an intelligent blockchain.
 * Not every intelligent blockchain should be commercialized through `sas.xyz`.
 
-**Doctrine:** `IOI CLI` creates the sovereign execution object. `Autopilot` refines the worker system. `sas.xyz` serves and commercializes it when it becomes a provider product.
+**Doctrine:** `IOI CLI` creates the sovereign execution object. `Hypervisor` refines the worker system. `sas.xyz` serves and commercializes it when it becomes a provider product.
 
 ---
 
@@ -759,9 +760,9 @@ In practice, the ladder is not a strict one-way chain. A stable worker system ma
 
 ## 7.3 Promotion doctrine
 
-`Autopilot` workflows may absolutely compile toward `IOI CLI`-compatible artifacts.
+`Hypervisor` workflows may absolutely compile toward `IOI CLI`-compatible artifacts.
 
-That does **not** mean `Autopilot` should be the primary product for creating intelligent blockchains. `IOI CLI` is the heavier L0/kernel-adjacent surface for that act.
+That does **not** mean `Hypervisor` should be the primary product for creating intelligent blockchains. `IOI CLI` is the heavier L0/kernel-adjacent surface for that act.
 
 ---
 
@@ -1274,9 +1275,9 @@ This is heavier than normal serviceization and should feel heavier.
 
 ---
 
-## 14. Relationship to `Autopilot`
+## 14. Relationship to `Hypervisor`
 
-`Autopilot` is the private/local shell where worker systems are:
+`Hypervisor` is the private/local shell where worker systems are:
 
 * built
 * stabilized
@@ -1286,7 +1287,7 @@ This is heavier than normal serviceization and should feel heavier.
 
 `IOI CLI` is where those stabilized systems may be turned into sovereign execution domains when the weight of a real intelligent blockchain is warranted.
 
-`Autopilot` can therefore be:
+`Hypervisor` can therefore be:
 
 * a source surface
 * a feeder
@@ -1296,7 +1297,7 @@ But it should not be the sole home of intelligent blockchain creation.
 
 One important bridge is a typed artifact contract:
 
-* `Autopilot` and Studio may emit typed artifact manifests, verified replies, receipts, and evidence plans
+* `Hypervisor` and Studio may emit typed artifact manifests, verified replies, receipts, and evidence plans
 * `IOI CLI` should be able to inspect, validate, materialize, and promote those artifacts
 * `IOI CLI` should also be able to query/route artifact outcomes and compose the verified reply that Studio would show
 * repo or workspace generation is one artifact materialization mode, not the identity of every artifact
@@ -1346,7 +1347,7 @@ Only the latter need `sas.xyz` as the provider-serving and commercial surface.
 8. instantiate the domain as a kernel-native execution object,
 9. publish, inspect, replay, and upgrade that domain through canonical IOI semantics,
 10. inspect receipts, traces, evidence bundles, and settlement-linked outcomes locally,
-11. import or promote stabilized worker logic from `Autopilot` when relevant,
+11. import or promote stabilized worker logic from `Hypervisor` when relevant,
 12. use `forge` and adjacent command families without needing a separate product identity,
 13. and hand the resulting domain off to `sas.xyz` when it needs to become a deployable, billable, distributable provider service.
 

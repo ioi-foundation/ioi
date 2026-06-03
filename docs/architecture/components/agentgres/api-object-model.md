@@ -17,7 +17,7 @@ Agentgres state. Storage backends such as Filecoin/CAS store immutable payload
 bytes, sealed archive bytes, and large evidence objects that Agentgres
 references through Agentgres-governed artifact refs.
 
-For governed autonomous-system chains and Autopilot nodes, Agentgres records
+For governed autonomous-system chains and Hypervisor Nodes, Agentgres records
 the local/domain operational truth: proposals, service-module invocations,
 local settlement records, state roots, receipt roots, upgrade decisions, and
 replayable projections.
@@ -59,7 +59,7 @@ POST /v1/distilled-ontology-datasets
 POST /v1/evaluation-datasets
 POST /v1/ontology-projections
 POST /v1/ontology-to-worker-plans
-POST /v1/autopilot-nodes
+POST /v1/hypervisor-nodes
 POST /v1/autonomous-system-chains
 POST /v1/service-modules
 POST /v1/module-invocations
@@ -156,7 +156,7 @@ Role
 Policy
 PolicyDecision
 AuthorityGrantRef
-AutopilotNode
+HypervisorNode
 AutonomousSystemChain
 ServiceModuleManifest
 ModuleInvocation
@@ -271,15 +271,15 @@ SettlementMirror
 }
 ```
 
-## Autopilot Node and Autonomous-System Chain Shapes
+## Hypervisor Node and Autonomous-System Chain Shapes
 
 ```json
 {
-  "object_class": "AutopilotNode",
-  "autopilot_node_id": "node://local-workbench",
+  "object_class": "HypervisorNode",
+  "hypervisor_node_id": "node://local-hypervisor",
   "owner_id": "wallet://user_123",
   "daemon_runtime_ref": "runtime://local",
-  "agentgres_domain_ref": "agentgres://domain/autopilot/local",
+  "agentgres_domain_ref": "agentgres://domain/hypervisor/local",
   "wallet_authority_ref": "wallet://user_123",
   "autonomous_system_chain_refs": ["system://customer-ops"],
   "local_registry_refs": ["agentgres://registry/modules"],
@@ -293,7 +293,7 @@ SettlementMirror
 {
   "object_class": "AutonomousSystemChain",
   "autonomous_system_chain_id": "system://customer-ops",
-  "autopilot_node_id": "node://local-workbench",
+  "hypervisor_node_id": "node://local-hypervisor",
   "manifest_ref": "ai://systems/customer-ops",
   "policy_root": "sha256:...",
   "module_registry_root": "sha256:...",
@@ -312,7 +312,7 @@ SettlementMirror
   "module_invocation_id": "invocation://123",
   "module_id": "module://policy.evaluate.spend_limit.v3",
   "autonomous_system_chain_id": "system://customer-ops",
-  "autopilot_node_id": "node://local-workbench",
+  "hypervisor_node_id": "node://local-hypervisor",
   "input_hash": "sha256:...",
   "predecessor_state_root": "sha256:...",
   "resulting_state_root": "sha256:...",
@@ -327,7 +327,7 @@ SettlementMirror
 {
   "object_class": "LocalSettlementRecord",
   "local_settlement_id": "transition://123",
-  "autopilot_node_id": "node://local-workbench",
+  "hypervisor_node_id": "node://local-hypervisor",
   "autonomous_system_chain_id": "system://customer-ops",
   "settlement_kind": "module_invocation | workflow_transition | authority_outcome | task_handoff | upgrade_decision | receipt_root | dispute_escalation",
   "operation_ref": "agentgres://operation/op_123",
@@ -496,7 +496,7 @@ runtime owner.
 
 aiagent.xyz may initialize a worker as an ephemeral invocation, zero-to-idle
 agent, or warm persistent instance. Agentgres records the instance lifecycle;
-the IOI daemon/runtime node executes it.
+the Hypervisor Daemon runtime node executes it.
 
 ```json
 {

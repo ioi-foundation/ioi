@@ -82,35 +82,35 @@ The IOI stack is edge-in. Work starts near the user, device, data, and runtime
 boundary, then projects only the commitments that need public trust into
 settlement.
 
-- The **IOI daemon** is the hypervisor and deterministic runtime boundary for
-  workflows, tools, models, workers, connectors, and artifacts. It is consumed
-  by separate product and adoption surfaces:
-  - **Autopilot Workbench:** the native operator console and cockpit in the
+- The **Hypervisor Daemon** is the deterministic runtime boundary for workflows,
+  tools, models, workers, connectors, and artifacts. It is consumed by separate
+  product and adoption surfaces:
+  - **Hypervisor IDE:** the native operator console and cockpit in the
     Electron / VS Code fork.
-  - **IOI Authority Gateway, packaged as Autopilot Guard:** compatibility
+  - **IOI Authority Gateway, packaged as Hypervisor Guard:** compatibility
     sidecar/adapters for third-party developer interfaces such as Cursor, VS
     Code, Claude Code, and CLI agents. It routes proposed actions through daemon
     policy, authority, receipts, and replay where integration points allow.
-  The daemon is the trust substrate; Autopilot is the user-facing autonomous
-  workbench.
+  The daemon is the trust substrate; Hypervisor is the user-facing runtime suite
+  for autonomous work.
 - **wallet.network** authorizes identity, secrets, authority scopes, approvals,
   payments, data use, and decryption.
 - **Agentgres** records canonical operational truth: accepted operations,
   object heads, projections, receipts, quality, lineage, and replay state.
-- **Filecoin/CAS** stores payload bytes, packages, artifacts, sealed archives,
-  traces, checkpoints, and evidence bundles by hash/CID.
+- **Storage backends** such as local disk, S3/object stores, Filecoin, and
+  CAS/IPFS hold encrypted payload bytes behind Agentgres-governed artifact refs.
 - **IOI L1** settles public rights, registries, roots, bonds, disputes,
   governance, and economic commitments.
-- **Clients** compose and inspect work: Autopilot, CLI/TUI, SDK, agent-ide,
+- **Clients** compose and inspect work: Hypervisor, CLI/TUI, SDK, agent-ide,
   harnesses, benchmarks, and workflow canvases.
 
 The doctrine is simple:
 
 ```text
-The daemon executes.
+Hypervisor Daemon executes.
 wallet.network authorizes.
 Agentgres remembers.
-Filecoin/CAS preserves.
+Storage backends preserve bytes.
 MoW routes.
 IOI L1 settles.
 Clients compose.
@@ -146,7 +146,7 @@ The first commercial leg of MoW is not "buy an agent marketplace." It is:
 
 > **Train a specialist worker for a defined outcome.**
 
-Autopilot Foundry turns workflows, traces, documents, examples, corrections,
+Hypervisor Foundry turns workflows, traces, documents, examples, corrections,
 data recipes, domain ontologies, quality gates, evaluations, and benchmark runs
 into deployable workers.
 
@@ -159,7 +159,7 @@ fine-tuning. Training improves capability; authority grants power.
 
 | Surface | Role |
 |---|---|
-| **Autopilot** | Local desktop workbench, operator shell, workflow composer, and Worker Training environment. |
+| **Hypervisor** | Runtime suite for private workspaces, operator control, workflow composition, and Worker Training. |
 | **ioi.ai** | Lightweight control plane for accounts, devices, restore, publishing, sync metadata, and remote-runtime access. |
 | **aiagent.xyz** | Worker marketplace for manifests, benchmark profiles, Sparse Worker Categories, managed instances, installs, and routing. |
 | **sas.xyz** | Outcome marketplace for Service-as-Software contracts, including Worker Training contracts and worker-composed services. |
@@ -200,9 +200,9 @@ Stop renting tools. Hire workers.
 | [`crates/`](crates) | Rust runtime, consensus, execution, state, storage, services, drivers, CLI, and IPC. |
 | [`packages/agent-sdk`](packages/agent-sdk) | Developer SDK over the public runtime substrate. |
 | [`packages/runtime-daemon`](packages/runtime-daemon) | TypeScript daemon-facing runtime API surface and validation harnesses. |
-| [`packages/agent-ide`](packages/agent-ide) | Workbench and workflow-composition client over shared contracts. |
-| [`packages/workspace-substrate`](packages/workspace-substrate) | Shared workspace substrate for app and workbench surfaces. |
-| [`apps/autopilot`](apps/autopilot) | Local desktop operator shell (Electron-first / VS Code fork) for chat, workflows, artifacts, approvals, and runtime UX. |
+| [`packages/agent-ide`](packages/agent-ide) | Hypervisor IDE and workflow-composition client over shared contracts. |
+| [`packages/workspace-substrate`](packages/workspace-substrate) | Shared workspace substrate for app and IDE surfaces. |
+| Hypervisor app shell | Local desktop operator shell (Electron-first / VS Code fork) for chat, workflows, artifacts, approvals, and runtime UX. |
 | [`apps/aiagent-xyz`](apps/aiagent-xyz) | Marketplace for bounded workers, manifests, benchmark profiles, managed instances, and autonomous capabilities. |
 | [`apps/sas-xyz`](apps/sas-xyz) | Marketplace for verified autonomous service outcomes and Worker Training contracts. |
 | [`apps/developers-ioi-ai`](apps/developers-ioi-ai) | Developer-facing documentation and onboarding surface. |
@@ -240,7 +240,7 @@ Desktop builds require the usual Electron system dependencies for your platform.
 - [`docs/architecture/foundations/web4-and-ioi-stack.md`](docs/architecture/foundations/web4-and-ioi-stack.md) - the canonical Web4 definition.
 - [`docs/architecture/foundations/verifiable-bounded-agency.md`](docs/architecture/foundations/verifiable-bounded-agency.md) - bounded agency and execution-boundary alignment.
 - [`docs/architecture/foundations/mixture-of-workers.md`](docs/architecture/foundations/mixture-of-workers.md) - MoW labor-routing doctrine.
-- [`docs/architecture/foundations/worker-training-lifecycle.md`](docs/architecture/foundations/worker-training-lifecycle.md) - Worker Training lifecycle and Autopilot Foundry doctrine.
+- [`docs/architecture/foundations/worker-training-lifecycle.md`](docs/architecture/foundations/worker-training-lifecycle.md) - Worker Training lifecycle and Hypervisor Foundry doctrine.
 - [`docs/architecture/foundations/domain-ontologies-and-data-recipes.md`](docs/architecture/foundations/domain-ontologies-and-data-recipes.md) - semantic data plane.
 - [`docs/architecture/components/daemon-runtime/doctrine.md`](docs/architecture/components/daemon-runtime/doctrine.md) - daemon, CLI/TUI, and operator-surface boundaries.
 - [`docs/architecture/components/agentgres/doctrine.md`](docs/architecture/components/agentgres/doctrine.md) - Agentgres and canonical operational truth.
@@ -256,7 +256,9 @@ IOI is active alpha research and engineering. Some surfaces are
 production-shaped; others are research prototypes or environment-dependent.
 The architecture is intentionally strict:
 
-> **The daemon executes. wallet.network authorizes. Agentgres remembers. Filecoin/CAS preserves. MoW routes. IOI L1 settles. Clients compose. Evidence proves.**
+> **Hypervisor Daemon executes. wallet.network authorizes. Agentgres remembers.
+> Storage backends preserve bytes. MoW routes. IOI L1 settles. Clients compose.
+> Evidence proves.**
 
 ## License
 

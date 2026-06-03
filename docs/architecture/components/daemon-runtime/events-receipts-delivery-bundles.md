@@ -10,11 +10,11 @@ Last alignment pass: 2026-06-01.
 
 Events enable observation; receipts enable proof; replay enables inspection;
 delivery bundles enable marketplace settlement. These objects must be consistent
-across Autopilot Workbench, IOI daemon, Agentgres, aiagent.xyz, sas.xyz, and
+across Hypervisor IDE, Hypervisor Daemon, Agentgres, aiagent.xyz, sas.xyz, and
 wallet.network.
 
-The IOI daemon emits these objects as the autonomous-execution
-hypervisor/control plane. Autopilot Workbench, CLI/TUI, SDK, ADK, harnesses,
+The Hypervisor Daemon emits these objects as the autonomous-execution
+hypervisor/control plane. Hypervisor IDE, CLI/TUI, SDK, ADK, harnesses,
 benchmarks, and extension-host code may project or inspect them, but they must
 not mint private runtime truth for consequential work.
 
@@ -499,7 +499,7 @@ them.
   "module_id": "module://policy.evaluate.spend_limit.v3",
   "invocation_id": "invocation://123",
   "autonomous_system_chain_id": "system://customer-ops",
-  "autopilot_node_id": "node://local-workbench",
+  "hypervisor_node_id": "node://local-hypervisor",
   "input_hash": "sha256:...",
   "predecessor_state_root": "sha256:...",
   "resulting_state_root": "sha256:...",
@@ -531,7 +531,7 @@ them.
 {
   "receipt_id": "receipt_local_settlement_123",
   "receipt_type": "local_settlement",
-  "autopilot_node_id": "node://...",
+  "hypervisor_node_id": "node://...",
   "autonomous_system_chain_id": "system://...",
   "settlement_kind": "module_invocation | workflow_transition | authority_outcome | task_handoff | upgrade_decision | receipt_root | dispute_escalation",
   "operation_ref": "agentgres://operation/...",
@@ -660,7 +660,7 @@ archival checkpoint files.
 3. Delivery requires outputs plus evidence, not just files.
 4. Quality/reputation roots should be aggregated before L1 commitment.
 5. Private traces must support redacted export.
-6. TUI, SDK, ADK, agent-ide, and Autopilot controls must leave the same event
+6. TUI, SDK, ADK, agent-ide, and Hypervisor controls must leave the same event
    and receipt trail when they mutate runtime state.
 7. Shielded compute receipts must never reveal protected plaintext merely to
    prove that private work occurred.

@@ -2,7 +2,7 @@
 
 Status: canonical architecture authority.
 Canonical owner: this file for AIIP, bounded-execution-domain interop, work packets, AIIP profiles, and cross-system handoff semantics.
-Supersedes: product prose that treats Autopilot, aiagent.xyz, sas.xyz, or third-party autonomous systems as separate bespoke interop protocols.
+Supersedes: product prose that treats Hypervisor, aiagent.xyz, sas.xyz, or third-party autonomous systems as separate bespoke interop protocols.
 Superseded by: none.
 Last alignment pass: 2026-05-30.
 
@@ -72,7 +72,7 @@ records settle.
 
 ## Same Semantic Protocol, Different Modes
 
-Autopilot internal routing and external autonomous-system handoffs should use
+Hypervisor internal routing and external autonomous-system handoffs should use
 the same exposed AIIP semantics. The difference is transport, trust boundary,
 privacy posture, and settlement depth.
 
@@ -210,24 +210,24 @@ Enterprise Profile
 Profiles preserve one semantic protocol while allowing local, marketplace,
 enterprise, and inter-system variants.
 
-## Autopilot As Meta-Harness
+## Hypervisor As Meta-Harness
 
-Autopilot is the reference meta-harness, router, governance surface, local
+Hypervisor is the reference meta-harness, router, governance surface, local
 control plane, and receipt aggregator for AIIP-powered autonomous work.
 
 Canonical formulation:
 
 ```text
-Autopilot routes.
+Hypervisor routes.
 Microharnesses execute.
 AIIP hands off.
 Receipts prove.
 IOI settles.
 ```
 
-Autopilot should use AIIP internally for local microharness routing and
-externally for worker, service, and peer autonomous-system handoffs. The
-Workbench remains an operator console; it is not the protocol and not IOI L1.
+Hypervisor should use AIIP internally for local microharness routing and
+externally for worker, service, and peer autonomous-system handoffs. Hypervisor
+IDE remains an operator console; it is not the protocol and not IOI L1.
 
 ## Routing Receipts
 
@@ -292,8 +292,8 @@ aiagent.xyz
 sas.xyz
   first-party marketplace for outcomes, services, acceptance, escrow, and disputes
 
-Autopilot
-  first-party local workbench, meta-harness, router, and governance surface
+Hypervisor
+  first-party local Hypervisor IDE, meta-harness, router, and governance surface
 
 Third-party systems
   any custom autonomous system that wants to settle receipts, authority, payments,
@@ -387,7 +387,7 @@ settlement intents promote only what needs public trust
 1. Do not require every autonomous action to settle on mainnet.
 2. Do not turn IOI into an execution chain for model inference or workflow
    execution.
-3. Do not create separate bespoke interop APIs for Autopilot, aiagent.xyz,
+3. Do not create separate bespoke interop APIs for Hypervisor, aiagent.xyz,
    sas.xyz, and third-party autonomous systems when AIIP semantics apply.
 4. Do not let every appchain create isolated authority, reputation, and receipt
    standards.

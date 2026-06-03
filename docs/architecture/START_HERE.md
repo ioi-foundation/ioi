@@ -18,9 +18,9 @@ Read the stack like this:
 ```text
 Operator surfaces
   request, inspect, steer, and approve work
-  Autopilot Workbench, CLI/TUI, SDK, ADK, Authority Gateway adapters
+  Hypervisor IDE, CLI/TUI, SDK, ADK, Authority Gateway adapters
 
-IOI daemon
+Hypervisor Daemon
   executes work and owns effect semantics
 
 Default Harness Profile
@@ -45,7 +45,7 @@ Storage backends
 
 Private Workspace backed by cTEE
   lets users open a normal private workspace on persistent rented GPU
-  Autopilot nodes without exposing protected plaintext to the node by default;
+  Hypervisor Nodes without exposing protected plaintext to the node by default;
   Plaintext-Free Runtime Mounting is the daemon boundary for tools and models,
   Candidate-Lattice Private Decoding is the default protected-agency strategy, and
   Counterfactual Lattice Execution can spend extra public token volume to reduce
@@ -106,7 +106,7 @@ L1 settles selected public/economic commitments.
 ```text
 Intent
   -> operator surface
-  -> IOI daemon
+  -> Hypervisor Daemon
   -> Default Harness Profile
   -> model/tool/result/model loop
   -> receipts + normalized observations
@@ -115,9 +115,9 @@ Intent
   -> optional AIIP handoff or L1 settlement by trigger
 ```
 
-Do not add another runtime beside the daemon. Runtime profiles, harnesses,
-adapters, SDK clients, and workbench controls are clients, projections, or
-daemon-executed profiles.
+Do not add another runtime beside the Hypervisor Daemon. Runtime profiles,
+harnesses, adapters, SDK clients, and Hypervisor IDE controls are clients,
+projections, or daemon-executed profiles.
 
 ## Reader Paths
 
@@ -138,7 +138,7 @@ Build for: intent resolution, action proposals, policy/authority gates,
 execution, normalized observations, receipts, context topology, output
 ownership, and terminal-state conformance.
 
-For persistent cloud Autopilot on rented GPUs, build for Open Private
+For persistent cloud Hypervisor on rented GPUs, build for Open Private
 Workspace, private workspace capsules, encrypted patches/blobs, no-plaintext
 protected classes, autonomy leases, cTEE guardians, declassification receipts,
 capability exits, and Candidate-Lattice Private Decoding as the default
@@ -216,7 +216,8 @@ Start here:
 
 Build for: operator controls, approval cards, run graphs, context topology
 views, receipt timelines, artifact viewers, package install/publish flows, and
-clear distinction between Workbench, Autopilot node, daemon, Agentgres, and L1.
+clear distinction between Hypervisor IDE, Hypervisor Node, Hypervisor Daemon,
+Agentgres, and L1.
 
 ### Implementing Interop
 
@@ -250,7 +251,7 @@ Avoid these models:
 
 ```text
 Default Harness Profile = a peer runtime beside the daemon
-Autopilot Workbench = runtime truth
+Hypervisor IDE = runtime truth
 Persistent rented GPU node = trusted private machine
 Agentgres = all memory or all payload bytes
 Agent Wiki / ioi-memory = canonical admitted truth

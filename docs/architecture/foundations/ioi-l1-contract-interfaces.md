@@ -11,7 +11,7 @@ Last alignment pass: 2026-05-25.
 IOI L1 is the canonical Web4 registry, rights, autonomous-system settlement,
 sparse-commitment, and governance layer. It does not run the L0/kernel
 substrate, Agentgres, or rich application state. aiagent.xyz, sas.xyz,
-Autopilot nodes, and third-party autonomous systems interact with IOI L1
+Hypervisor Nodes, and third-party autonomous systems interact with IOI L1
 through smart contracts for economically meaningful commitments.
 
 ## Contract Set

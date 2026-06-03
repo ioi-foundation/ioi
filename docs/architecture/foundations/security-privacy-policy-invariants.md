@@ -44,12 +44,12 @@ This document defines the non-negotiable authority, security, privacy, and execu
 4. Untrusted DePIN nodes cannot execute final effects directly.
 5. Enterprise-private plaintext requires local, customer VPC, trusted hosted, or TEE execution.
 6. Long-running operations require deadline, cancellation, and progress.
-7. Compute/runtime nodes run IOI daemon-compatible profiles; SDKs, ADKs, GUIs,
+7. Compute/runtime nodes run Hypervisor Daemon-compatible profiles; SDKs, ADKs, GUIs,
    and TUI clients do not replace the execution substrate.
 8. TUI, GUI, SDK, ADK, and harness controls must resolve to daemon/domain APIs
    for consequential work.
 9. Training, evaluation, benchmark, routing, and delivery jobs run through
-   IOI daemon-compatible runtime paths; product surfaces may initiate or
+   Hypervisor Daemon-compatible runtime paths; product surfaces may initiate or
    inspect them but must not create private execution semantics.
 
 ## State Invariants
@@ -62,7 +62,7 @@ This document defines the non-negotiable authority, security, privacy, and execu
 6. Receipts are bundled; only sparse roots may reach IOI L1.
 7. Sealed state archives are cold encrypted payloads; Agentgres owns archive
    refs and restore receipts, while wallet.network owns restore authority.
-8. Autopilot-node local settlement records are Agentgres/domain truth until a
+8. Hypervisor Node local settlement records are Agentgres/domain truth until a
    selected root is anchored to IOI L1 for public trust, dispute, reputation, or
    economic settlement.
 
@@ -150,7 +150,7 @@ This document defines the non-negotiable authority, security, privacy, and execu
 2. L2s/rollups are scaling contingencies, not default first-party architecture.
 3. Independent L1s register for discovery; they need not settle into IOI.
 4. Mainnet is the notary, not the notebook.
-5. Autopilot nodes settle autonomous work locally; IOI L1 settles machine labor
+5. Hypervisor Nodes settle autonomous work locally; IOI L1 settles machine labor
    globally.
 
 ## Privacy Doctrine

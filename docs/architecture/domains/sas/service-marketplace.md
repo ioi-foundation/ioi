@@ -74,7 +74,7 @@ sas.xyz does not own:
 - user raw secrets;
 - all runtime compute;
 - Private Workspace cTEE execution semantics;
-- local Autopilot execution;
+- local Hypervisor execution;
 - IOI L1 itself;
 - storage backend payload bytes;
 - aiagent.xyz worker marketplace state except through refs/integrations;
@@ -88,7 +88,7 @@ User orders service
 → OutcomeWorkspace is initialized for task/run/delivery state
 → IOI L1 contract locks escrow / records order commitment
 → runtime router creates RuntimeAssignment and ComputeSession
-→ isolated runtime node boots an IOI daemon profile
+→ isolated runtime node boots a Hypervisor Daemon profile
 → worker/workflow executes through the daemon using task capsules and authority leases
 → artifacts and receipts are produced
 → delivery bundle recorded in sas.xyz Agentgres
@@ -172,7 +172,7 @@ sas.xyz Agentgres tracks:
 - support/dispute evidence;
 - operational billing projections.
 
-## User Without Autopilot
+## User Without Hypervisor
 
 Users can interact directly with sas.xyz in a browser:
 
@@ -183,7 +183,7 @@ browser order
 → wallet.network handles approvals/payment
 ```
 
-Autopilot is optional for users who want local/private execution, local
+Hypervisor is optional for users who want local/private execution, local
 workflow editing, or local connector/model control. Sensitive managed outcomes
 may also request Private Workspace backed by cTEE when a persistent rented GPU
 should do public or redacted work without receiving protected plaintext. In
@@ -197,7 +197,7 @@ sas.xyz may support two modes:
 
 ### Local Install/Run
 
-The service workflow is installed into Autopilot and run locally.
+The service workflow is installed into Hypervisor and run locally.
 
 ### Managed Outcome
 
@@ -286,7 +286,7 @@ Last alignment pass: 2026-05-13.
 
 It is the provider-side surface where a team takes:
 
-* a private Autopilot workflow,
+* a private Hypervisor workflow,
 * a reusable worker,
 * a recurring internal operating pattern,
 * an OSS model pipeline,
@@ -316,7 +316,7 @@ That package can then be:
 
 * listed on `aiagent.xyz`,
 * invoked from `ioi.ai`,
-* installed into `Autopilot`,
+* installed into `Hypervisor`,
 * embedded into a provider API or website,
 * or deployed into a customer boundary such as VPC, on-prem, or local runtime.
 
@@ -375,7 +375,7 @@ It is where service candidates become real provider products.
 It is not:
 
 * the end-user intent ingress,
-* the private local workbench/runtime-control shell,
+* the private local Hypervisor IDE/runtime-control shell,
 * the L0 domain instantiation surface,
 * the demand-side marketplace,
 * the freelance procurement board,
@@ -384,7 +384,7 @@ It is not:
 Those roles belong to:
 
 * `ioi.ai` for account, device, restore, publishing, and remote-runtime entitlement coordination,
-* `Autopilot` for private/local operator execution,
+* `Hypervisor` for private/local operator execution,
 * `IOI CLI` for sovereign domain and intelligent blockchain instantiation,
 * `aiagent.xyz` for discovery, managed worker instances, install, and procurement.
 
@@ -394,12 +394,12 @@ Those roles belong to:
 
 The ecosystem works only if each surface has a crisp job.
 
-## 3.1 `Autopilot`
+## 3.1 `Hypervisor`
 
 **Operate workers**
 
-Autopilot is the private/local operator shell and workbench over a local IOI
-daemon/runtime profile, software-first today and capable of extending to broader
+Hypervisor is the private/local operator shell and IDE over a local Hypervisor
+Daemon runtime profile, software-first today and capable of extending to broader
 bounded autonomous action over time. It is where people:
 
 * run workers inside their own trust boundary,
@@ -409,7 +409,7 @@ bounded autonomous action over time. It is where people:
 * evolve one-off work into stable workflows worth promoting,
 * and preview service-candidate characteristics before provider packaging.
 
-Autopilot is the source surface for many future services and overlaps with `sas.xyz` in the shared authoring layer, but it is not the primary provider monetization, tenant-ops, or deployment source-of-truth surface.
+Hypervisor is the source surface for many future services and overlaps with `sas.xyz` in the shared authoring layer, but it is not the primary provider monetization, tenant-ops, or deployment source-of-truth surface.
 
 ## 3.2 `IOI CLI`
 
@@ -424,7 +424,7 @@ Autopilot is the source surface for many future services and overlaps with `sas.
 * define publication and upgrade semantics,
 * and publish or inspect kernel-native domain objects.
 
-`IOI CLI` owns sovereign domain instantiation and lifecycle. It does not replace `Autopilot` as the private shell or `sas.xyz` as the provider-serving surface.
+`IOI CLI` owns sovereign domain instantiation and lifecycle. It does not replace `Hypervisor` as the private shell or `sas.xyz` as the provider-serving surface.
 
 ## 3.3 `sas.xyz`
 
@@ -479,7 +479,7 @@ It is the user-facing demand ingress, not the provider operating surface.
 
 ## 3.6 Boundary rules
 
-* `Autopilot` is for private/local operation and promotion source material.
+* `Hypervisor` is for private/local operation and promotion source material.
 * `IOI CLI` is for sovereign domain and intelligent blockchain instantiation.
 * `sas.xyz` is for provider-side productization and service operations.
 * `aiagent.xyz` is for discovery, comparison, and procurement.
@@ -487,19 +487,19 @@ It is the user-facing demand ingress, not the provider operating surface.
 
 More concretely:
 
-* `Autopilot` owns local/operator policy: local worker authority, local capability leases, local approvals, local egress rules, and trust boundary controls.
+* `Hypervisor` owns local/operator policy: local worker authority, local capability leases, local approvals, local egress rules, and trust boundary controls.
 * `IOI CLI` owns domain-instantiation concerns: policy roots, delegation model, publication semantics, domain continuity, and upgrade lifecycle.
 * `sas.xyz` owns provider/service policy: service operating envelope, tenant-facing approvals, hosted execution restrictions, deployment-specific profiles, exposure limits, and billing-related enforcement.
-* `Autopilot` may preview or suggest deployment characteristics during promotion.
+* `Hypervisor` may preview or suggest deployment characteristics during promotion.
 * `sas.xyz` is the source of truth for actual deployment presets, readiness posture, hosted configuration, tenancy, billing, and publication when a system is exposed as a provider service.
 * Not every IOI CLI-instantiated domain needs `sas.xyz`, but `sas.xyz` is the right surface when such a domain becomes a provider-grade service product.
 
 If those jobs blur, the ecosystem becomes confusing.
 
-**Doctrine:** `Autopilot` stabilizes work; `sas.xyz` productizes it.
+**Doctrine:** `Hypervisor` stabilizes work; `sas.xyz` productizes it.
 **Doctrine:** `IOI CLI` instantiates sovereign domains.
-**Doctrine:** `sas.xyz` does not replace `Autopilot` as the private operating shell; it extends stabilized worker systems into provider-grade products, deployment presets, and distribution surfaces.
-**Doctrine:** `IOI CLI` creates the sovereign execution object. `Autopilot` refines the worker system. `sas.xyz` serves and commercializes it when it becomes a provider product.
+**Doctrine:** `sas.xyz` does not replace `Hypervisor` as the private operating shell; it extends stabilized worker systems into provider-grade products, deployment presets, and distribution surfaces.
+**Doctrine:** `IOI CLI` creates the sovereign execution object. `Hypervisor` refines the worker system. `sas.xyz` serves and commercializes it when it becomes a provider product.
 
 ---
 
@@ -531,7 +531,7 @@ The core website story should move in this order:
 2. **What it is**
    Stabilize, contractize, serviceize, monetize, operate.
 3. **Promotion path**
-   `Autopilot` workflow or worker -> `sas.xyz` service -> `aiagent.xyz` / API / installs.
+   `Hypervisor` workflow or worker -> `sas.xyz` service -> `aiagent.xyz` / API / installs.
 4. **Examples**
    Real worker services, not abstract infrastructure claims.
 5. **Delivery across targets**
@@ -666,7 +666,7 @@ It is a productized worker system plus operating envelope with:
 
 ## 5.3 Local is first-class
 
-Local Autopilot execution and local GPU are first-class targets.
+Local Hypervisor execution and local GPU are first-class targets.
 
 ## 5.4 Published truth must be portable
 
@@ -774,7 +774,7 @@ It supports:
 
 This one engine is rendered through multiple lenses.
 
-## 6.2 Lens A — Autopilot lens
+## 6.2 Lens A — Hypervisor lens
 
 Optimized for:
 
@@ -895,7 +895,7 @@ The canonical productization flow is:
 6. Attach monetization and onboarding
 7. Distribute it through marketplace, install surfaces, or Service API
 
-**Autopilot private workflow or worker**
+**Hypervisor private workflow or worker**
 → stabilized graph
 → extracted into reusable worker logic
 → contractized into Service format
@@ -904,7 +904,7 @@ The canonical productization flow is:
 → published to marketplace, install surfaces, or Service API
 
 This is the intended path from power user to service provider.
-`Autopilot` may preview or suggest deployment characteristics during promotion, but `sas.xyz` is the source of truth for actual deployment presets, readiness posture, hosted configuration, tenant setup, billing, and publication.
+`Hypervisor` may preview or suggest deployment characteristics during promotion, but `sas.xyz` is the source of truth for actual deployment presets, readiness posture, hosted configuration, tenant setup, billing, and publication.
 
 Heavier L0 branch:
 when a stabilized system needs durable sovereign state, policy roots, participant or delegation logic, or protocolized continuity, export it through `IOI CLI` to instantiate a sovereign domain or intelligent blockchain. If that domain later needs provider exposure, `sas.xyz` becomes the serving and commercialization surface for it.
@@ -1069,7 +1069,7 @@ This is the real operational model.
 
 ## 9.1 Axis 1 — Where it runs
 
-* Local Autopilot
+* Local Hypervisor
 * Customer boundary (VPC/on-prem)
 * Provider-hosted
 
@@ -1129,7 +1129,7 @@ An overlay requiring stronger receipts/proofs.
 
 Each service declares supported targets.
 
-## 10.1 Local Autopilot
+## 10.1 Local Hypervisor
 
 Use when:
 
@@ -1200,7 +1200,7 @@ evidence.
 
 ## P2 — Boundary-private
 
-Data remains within local Autopilot, customer VPC, or on-prem boundary.
+Data remains within local Hypervisor, customer VPC, or on-prem boundary.
 
 These must be shown accurately per execution preset.
 
@@ -1278,7 +1278,7 @@ Handles:
 Horizontally scalable with queues and idempotent scheduling.
 Workers are provisioned dynamically based on the service's Readiness Posture
 (ephemeral cold-starts vs. pre-warmed resident workers). The architectural unit
-is a `ComputeSession` running an IOI daemon/runtime-node profile; a VM,
+is a `ComputeSession` running a Hypervisor Daemon runtime-node profile; a VM,
 container, browser sandbox, GPU job, DePIN node, TEE, or customer process is
 only the underlying substrate.
 
@@ -1310,7 +1310,7 @@ The **Coordinator** is the always-on runtime control role. It holds:
 
 It is the **execution control role**, not the SaaS UI. In canonical terms it is
 a domain-kernel/runtime-router responsibility that writes operational truth to
-Agentgres and assigns work to IOI daemon/runtime nodes. It is not the SDK and it
+Agentgres and assigns work to Hypervisor Daemon runtime nodes. It is not the SDK and it
 is not a TUI/client loop.
 
 ## 13.3 Coordinator ownership modes
@@ -1325,7 +1325,7 @@ Runs inside customer VPC/on-prem boundary.
 
 ### Local Coordinator
 
-Embedded inside Autopilot.
+Embedded inside Hypervisor.
 
 ## 13.4 Customer VPC rule
 
@@ -1372,7 +1372,7 @@ The record resolves to:
 
 ### Published services
 
-Autopilot should:
+Hypervisor should:
 
 1. receive token
 2. resolve AIIP version
@@ -1431,7 +1431,7 @@ Three modes are supported.
 
 Used by:
 
-* Autopilot
+* Hypervisor
 * boundary/private deployments
 * local GPU/private assistants
 
@@ -1537,7 +1537,7 @@ This separates:
 Must originate from:
 
 * wallet.network
-* Autopilot local vault
+* Hypervisor local vault
 * customer boundary vault
 
 ### Provider-owned secrets
@@ -1613,7 +1613,7 @@ The examples section should include concrete worker services such as:
 
 The deployments section should explain:
 
-* Local Autopilot
+* Local Hypervisor
 * Provider-hosted
 * BYOK
 * Confidential hosted
@@ -1699,7 +1699,7 @@ Workflow-first, worker-centric, and productization-aware. Browser, desktop, and 
 * event
 * manual/test
 * marketplace install/run trigger
-* Autopilot trigger
+* Hypervisor trigger
 
 ### Control
 
@@ -1745,7 +1745,7 @@ Workflow-first, worker-centric, and productization-aware. Browser, desktop, and 
 
 ## 20.3 Lens-specific palettes
 
-### Autopilot
+### Hypervisor
 
 Emphasizes:
 
@@ -1851,7 +1851,7 @@ Each service manifest must include:
 
 * marketplace publishable?
 * discoverable via `ioi.ai`?
-* installable into Autopilot?
+* installable into Hypervisor?
 * white-label API enabled?
 * provider-managed / private-only?
 * tenant setup template
@@ -1867,7 +1867,7 @@ Each example should be legible enough to turn into a website card. It should sho
 ## 22.1 Cabin Plans AI
 
 * **Does:** generate, revise, and explain cabin plans.
-* **Runs:** provider-hosted, BYOK, and local Autopilot review/install flows.
+* **Runs:** provider-hosted, BYOK, and local Hypervisor review/install flows.
 * **Trust posture:** Fast for ideation, Private or Verified for final deliverables.
 * **Monetization:** subscription plus per-plan credits and white-label API.
 
@@ -1881,7 +1881,7 @@ Each example should be legible enough to turn into a website card. It should sho
 ## 22.3 Gmail executive assistant worker
 
 * **Does:** triage inbox, draft replies, prep meetings, and keep an operating queue current.
-* **Runs:** local Autopilot, BYOK, managed hosted, or customer boundary.
+* **Runs:** local Hypervisor, BYOK, managed hosted, or customer boundary.
 * **Trust posture:** Private by default, with stronger customer-boundary options for sensitive orgs.
 * **Monetization:** subscription with optional premium execution tiers.
 
@@ -1895,7 +1895,7 @@ Each example should be legible enough to turn into a website card. It should sho
 ## 22.5 Coding / repo worker
 
 * **Does:** inspect repos, propose patches, answer architecture questions, and operate in CI or boundary environments.
-* **Runs:** local Autopilot, team automation, CI, VPC, or on-prem.
+* **Runs:** local Hypervisor, team automation, CI, VPC, or on-prem.
 * **Trust posture:** Private for sensitive repos, Verified for auditable delivery flows.
 * **Monetization:** seat, credits, or team deployment tiers.
 
@@ -2011,7 +2011,7 @@ Must support:
 ## 26.1 Product narrative
 
 * lead with turning repeatable worker delivery into productized worker services
-* keep the promotion path central: `Autopilot` -> `sas.xyz` -> `aiagent.xyz` / API / installs
+* keep the promotion path central: `Hypervisor` -> `sas.xyz` -> `aiagent.xyz` / API / installs
 * move deep infrastructure material into docs, appendix, and security pages
 
 ## 26.2 Publication
@@ -2021,7 +2021,7 @@ Must support:
 
 ## 26.3 Secrets
 
-* customer secrets from wallet.network / Autopilot / customer vault
+* customer secrets from wallet.network / Hypervisor / customer vault
 * provider secrets from provider vault
 * no raw secrets in publish layer
 
@@ -2052,12 +2052,12 @@ Must support:
 `sas.xyz` v1.4 is complete when a provider can:
 
 1. author a workflow or worker once in the shared Builder engine,
-2. switch between `Autopilot` and `sas.xyz` lenses without changing runtime semantics,
+2. switch between `Hypervisor` and `sas.xyz` lenses without changing runtime semantics,
 3. turn a repeated internal worker flow into a productized worker service with contract, capability requirements, policy envelope, evidence profile, and repeatable onboarding,
 4. declare execution targets, inference sources, trust postures, readiness postures, and derived presets,
 5. deploy it in managed, local, confidential, or customer-boundary environments,
 6. publish immutable versions into the canonical publication layer,
-7. expose the service through marketplace, `ioi.ai`, `Autopilot` install, and/or white-label API,
+7. expose the service through marketplace, `ioi.ai`, `Hypervisor` install, and/or white-label API,
 8. manage tenants, secrets, billing, receipts, evidence, and onboarding in one provider OS,
 9. operate the service with bounded approvals, bounded escalations, and governed human exception handling instead of indefinite manual babysitting,
 10. and do all of that while keeping privacy claims accurate to the actual execution target and trust posture.

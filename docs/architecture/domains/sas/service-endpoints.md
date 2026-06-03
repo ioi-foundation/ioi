@@ -84,7 +84,7 @@ POST /v1/orders/{order_id}/open-dispute
   "service_id": "service://sas/runtime-audit-weekly",
   "customer_id": "wallet://user_123",
   "objective": "Audit this week's runtime regressions and propose hardening tasks.",
-  "context_refs": ["agentgres://project/autopilot", "git://repo/ioi"],
+  "context_refs": ["agentgres://project/hypervisor", "git://repo/ioi"],
   "privacy_class": "internal",
   "execution_profile": "hosted | depin_mutual_blind | tee_enterprise | customer_vpc",
   "payment": {
@@ -118,7 +118,7 @@ Worker Training orders may additionally include:
     "training_methods_allowed": ["workflow_trace", "retrieval_curation", "model_finetune"],
     "evaluation_rubric_ref": "rubric://...",
     "benchmark_profile_ref": "benchmark://...",
-    "deployment_target": "autopilot_local | aiagent_listing | sas_outcome",
+    "deployment_target": "hypervisor_local | aiagent_listing | sas_outcome",
     "acceptance_criteria": ["evaluation_receipts_present", "benchmark_min_score_met"]
   }
 }
@@ -144,7 +144,7 @@ Response:
 }
 ```
 
-The compute session boots an IOI daemon/runtime-node profile. SDK clients may
+The compute session boots a Hypervisor Daemon runtime-node profile. SDK clients may
 observe or control the order through APIs, but they are not the execution
 substrate.
 
@@ -249,7 +249,7 @@ POST /v1/disputes/{dispute_id}/accept-resolution
 2. Every service order must have an explicit output contract and acceptance criteria.
 3. Escrow/payout lives on IOI L1 contracts; operational order state lives in sas.xyz Agentgres.
 4. Delivery must include artifacts, evidence, receipts, and settlement state.
-5. Managed services may run without user-local Autopilot, through hosted/provider/DePIN/TEE IOI daemon nodes.
+5. Managed services may run without user-local Hypervisor, through hosted/provider/DePIN/TEE Hypervisor Daemon nodes.
 6. A service order that spawns remote work must bind the order to an
    OutcomeWorkspace, RuntimeAssignment, ComputeSession, daemon profile,
    authority posture, and verification path.

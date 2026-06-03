@@ -14,9 +14,9 @@ It discovers, compares, benchmarks, ranks, installs, invokes, meters, licenses,
 settles, and initializes worker packages. It is an application domain with its
 own kernel + Agentgres backend, AIIP worker/handoff surfaces, and IOI L1
 smart-contract settlement rails. A user may consume a worker as an API/workflow
-primitive, install it into Autopilot, route to it through AIIP, or initialize a
+primitive, install it into Hypervisor, route to it through AIIP, or initialize a
 managed web-accessible instance backed by hosted, provider, DePIN, Private
-Workspace cTEE, TEE, customer, or local IOI daemon/runtime-node profiles.
+Workspace cTEE, TEE, customer, or local Hypervisor Daemon runtime-node profiles.
 
 aiagent.xyz is not the protocol. It is a first-party protocol client, demand
 generator, and proof surface for AIIP and IOI autonomous-system settlement.
@@ -47,7 +47,7 @@ aiagent.xyz is:
   threads, approvals, receipts, usage, pause/resume, and runtime status;
 - a gateway to local, hosted, DePIN, Private Workspace cTEE, and TEE worker
   execution.
-  Execution is carried by IOI daemon/runtime-node profiles, not by the
+  Execution is carried by Hypervisor Daemon runtime-node profiles, not by the
   marketplace or SDK itself.
 
 It is not a separate chain by default and it is not the whole IOI protocol.
@@ -86,8 +86,8 @@ aiagent.xyz does not own:
 - all worker execution;
 - IOI L1 itself;
 - storage backend payload bytes;
-- local Autopilot state;
-- the IOI daemon/runtime nodes that execute managed instances;
+- local Hypervisor state;
+- the Hypervisor Daemon runtime nodes that execute managed instances;
 - Private Workspace cTEE execution semantics;
 - raw long-running instance memory outside Agentgres refs and policy;
 - every service outcome delivery;
@@ -145,7 +145,7 @@ user-facing instance an "agent," but canonical state should model it as a
 
 This distinction lets the same marketplace listing support both primitive MoW
 invocation and direct user-facing operation. A code-review worker may be used as
-a workflow node by Autopilot, called through an API by another worker, or
+a workflow node by Hypervisor, called through an API by another worker, or
 initialized as a persistent cloud agent with a browser chat console.
 
 ## Marketplace Contracts on IOI L1
@@ -190,15 +190,15 @@ aiagent.xyz Agentgres tracks:
 When a user invokes or initializes a worker:
 
 1. **Ephemeral invocation** — one task/run, no durable agent instance.
-2. **Local Autopilot install** — package is downloaded and run through a local IOI daemon managed by Autopilot Desktop.
-3. **Managed hosted/provider instance** — aiagent.xyz initializes a worker instance on a hosted or provider IOI daemon and mounts a web console over daemon thread/run APIs.
+2. **Local Hypervisor install** — package is downloaded and run through a local Hypervisor Daemon managed by Hypervisor IDE.
+3. **Managed hosted/provider instance** — aiagent.xyz initializes a worker instance on a hosted or provider Hypervisor Daemon and mounts a web console over daemon thread/run APIs.
 4. **DePIN zero-to-idle or persistent instance** — minimized or encrypted state runs on decentralized compute, then checkpoints and rehydrates through Agentgres, storage backend payloads, and wallet.network.
 5. **Private Workspace cTEE instance** — a rented/provider/DePIN GPU node runs the daemon shell, public inference, encrypted state, public trunk files, redacted workspace projections, Plaintext-Free Runtime Mounting, and Candidate-Lattice Private Decoding while protected classes stay sealed, masked, client-held, guardian-mediated, or declassified through wallet.network.
-6. **Enterprise secure instance** — TEE, customer VPC, or local IOI daemon runtime required by policy.
+6. **Enterprise secure instance** — TEE, customer VPC, or local Hypervisor Daemon runtime required by policy.
 7. **API/inter-agent call** — external app, worker, or workflow invokes a governed worker endpoint.
 
 The SDK may be used by clients or workers to call these surfaces. The runtime
-node itself is still an IOI daemon-compatible execution venue.
+node itself is still a Hypervisor Daemon-compatible execution venue.
 
 ## Opt-In Invocation Modes
 
@@ -209,7 +209,7 @@ combination of:
 - MoW routing eligibility;
 - managed web-accessible worker instance;
 - API or workflow-node invocation;
-- local Autopilot install;
+- local Hypervisor install;
 - persistent, warm, zero-to-idle, or scheduled runtime;
 - enterprise, TEE, DePIN, Private Workspace cTEE, or customer runtime placement.
 
@@ -226,7 +226,7 @@ Opt-in does not grant authority by itself. Effectful invocation still requires
 policy admission, wallet.network authority, approval where required, runtime
 assignment, receipts, and Agentgres state updates.
 
-## User Without Autopilot
+## User Without Hypervisor
 
 A user can still use aiagent.xyz directly:
 
@@ -234,7 +234,7 @@ A user can still use aiagent.xyz directly:
 browser UI
 → marketplace install or initialize request
 → aiagent.xyz domain kernel records install/instance intent
-→ runtime router selects hosted/provider/DePIN/Private-Workspace-cTEE/TEE/customer/local IOI daemon node
+→ runtime router selects hosted/provider/DePIN/Private-Workspace-cTEE/TEE/customer/local Hypervisor Daemon node
 → wallet.network grants scoped authority and payment/subscription approvals
 → runtime node initializes worker package as ephemeral, zero-to-idle, or persistent instance
 → browser console mounts chat/thread/form/API controls over daemon APIs
@@ -242,10 +242,10 @@ browser UI
 → storage backends such as Filecoin/CAS store large artifacts, traces, checkpoints, and sealed archive bytes
 ```
 
-Autopilot is optional local execution, not required for all marketplace use.
+Hypervisor is optional local execution, not required for all marketplace use.
 The web console is a client surface, not a private runtime. It can expose chat,
 forms, approvals, receipts, spend controls, pause/resume/archive, API keys, and
-webhooks over the same daemon/domain contracts used by Autopilot, CLI/TUI, SDK,
+webhooks over the same daemon/domain contracts used by Hypervisor, CLI/TUI, SDK,
 ADK, and agent-ide.
 
 ## Sparse Worker Categories
@@ -278,7 +278,7 @@ claim universal intelligence, permanent superiority, or global optimality.
 
 ## Worker Training Supply Loop
 
-aiagent.xyz receives supply from Autopilot Foundry, sas.xyz Worker Training
+aiagent.xyz receives supply from Hypervisor Foundry, sas.xyz Worker Training
 contracts, enterprise builders, and independent publishers.
 
 The canonical supply path is:
@@ -415,9 +415,9 @@ daemon/domain APIs, not a separate hosted runtime.
 That means:
 
 * providers package and operate outcome services in `sas.xyz`
-* operators run workers privately in `Autopilot`
+* operators run workers privately in `Hypervisor`
 * users can initialize managed worker instances directly from `aiagent.xyz`
-  when they want browser-native access without local Autopilot
+  when they want browser-native access without local Hypervisor
 * domain authors instantiate sovereign domains through `IOI CLI`
 * `ioi.ai` coordinates account, restore, publishing, and runtime entitlement
 * buyers discover or procure in `aiagent.xyz`
@@ -449,7 +449,7 @@ and procuring bespoke worker delivery.
 
 `aiagent.xyz` is the demand-facing market on IOI where buyers compare published
 workers, inspect trust and pricing signals, initialize a managed instance when
-they want browser-native use, route the worker into Autopilot/workflows/APIs,
+they want browser-native use, route the worker into Hypervisor/workflows/APIs,
 and procure providers for custom work when no packaged worker fits. It should
 make packaged workers, managed instances, and bespoke engagements easy to
 evaluate without collapsing those objects into one confusing marketplace type.
@@ -480,11 +480,11 @@ rather than a vague “agent” abstraction everywhere.
 
 The ecosystem is coherent only if each surface has a crisp role.
 
-## 3.1 `Autopilot`
+## 3.1 `Hypervisor`
 
 **Operate workers**
 
-Private/local operator shell over a local IOI daemon/runtime profile.
+Private/local operator shell over a local Hypervisor Daemon runtime profile.
 
 ## 3.2 `sas.xyz`
 
@@ -517,7 +517,7 @@ publishing flows, and remote-runtime entitlement.
 * `aiagent.xyz` should not become the private/local runtime.
 * `aiagent.xyz` should not become the L0 domain instantiation surface.
 * `aiagent.xyz` may mount managed-instance web consoles, but execution still
-  belongs to IOI daemon/runtime-node profiles.
+  belongs to Hypervisor Daemon runtime-node profiles.
 * `aiagent.xyz` should route demand, not absorb every downstream responsibility.
 
 ---
@@ -548,14 +548,14 @@ Browse -> compare -> inspect trust and pricing -> choose route -> buy, install, 
 
 * run through a managed web instance with ioi.ai entitlement/restore support
 * initialize a managed web instance on hosted/provider/DePIN/TEE runtime
-* install into `Autopilot`
+* install into `Hypervisor`
 * call provider API
 * contact provider for enterprise deployment
 
 ## 4.2 Managed instance loop
 
 This loop is for a user who wants to use a worker directly from the browser
-without local Autopilot.
+without local Hypervisor.
 
 ### Core objects
 
@@ -615,7 +615,7 @@ Recommended message stack:
 * **Headline:** Discover, install, and run workers
 * **One-liner:** Compare published workers, inspect trust and pricing, and route into web instance, local install, API, workflow, or bespoke delivery.
 * **Primary CTAs:** Browse workers, Post a request
-* **Secondary CTA:** Compare surfaces: `Autopilot` vs `sas.xyz` vs `aiagent.xyz`
+* **Secondary CTA:** Compare surfaces: `Hypervisor` vs `sas.xyz` vs `aiagent.xyz`
 
 ## 5.2 Narrative sequence
 
@@ -625,7 +625,7 @@ The homepage should generally move in this order:
 2. Productized services vs bespoke procurement
 3. Featured categories and concrete examples
 4. Trust, receipts, pricing, and execution options
-5. Route targets: managed web instance, `Autopilot`, API/workflow, enterprise contact
+5. Route targets: managed web instance, `Hypervisor`, API/workflow, enterprise contact
 6. Provider discovery and procurement tools
 7. Ecosystem map
 
@@ -709,7 +709,7 @@ Each listing should include:
 ## 7.3 Execution options
 
 * available run routes
-* installability into `Autopilot`
+* installability into `Hypervisor`
 * API availability
 * enterprise deployment availability
 
@@ -812,7 +812,7 @@ Repeated bespoke demand should have a first-class path toward becoming a product
 1. discover relevant published worker services quickly,
 2. distinguish productized services from bespoke procurement clearly,
 3. compare trust, pricing, and route options without leaving the marketplace confused,
-4. route into `ioi.ai`, `Autopilot`, provider API, or enterprise contact as appropriate,
+4. route into `ioi.ai`, `Hypervisor`, provider API, or enterprise contact as appropriate,
 5. post a structured procurement request when no packaged service fits,
 6. compare providers and proposals with enough trust context to choose confidently,
 7. and do all of that without the marketplace turning into the provider operating system or the runtime itself.

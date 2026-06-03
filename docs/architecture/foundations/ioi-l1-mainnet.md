@@ -27,7 +27,7 @@ IOI L1 owns:
 5. Reputation, quality, contribution, ontology, benchmark, routing,
    training-lineage, and receipt-root commitments where public or economic
    trust requires them.
-6. Autopilot-node, autonomous-system-chain, policy, module, upgrade, local
+6. Hypervisor Node, autonomous-system-chain, policy, module, upgrade, local
    settlement, and receipt roots when public trust, dispute, reputation, or
    economic settlement requires them.
 7. Authority lease commitments, settlement claims, routing roots, worker
@@ -36,7 +36,7 @@ IOI L1 owns:
 8. AIIP channel, profile, schema, endpoint, relay/router policy, and capability
    registry commitments when global interoperability requires them.
 9. Protocol governance and HHAI-governed upgrades for canonical specs, contracts, and reference implementations.
-10. Public coordination for first-party Web4 applications and domains such as aiagent.xyz, sas.xyz, Autopilot, wallet.network, and ioi.ai.
+10. Public coordination for first-party Web4 applications and domains such as aiagent.xyz, sas.xyz, Hypervisor, wallet.network, and ioi.ai.
 
 Identity note:
 
@@ -72,7 +72,7 @@ manager of the monorepo, private deployments, or application-domain state.
 
 IOI L1 does not own:
 
-- Autopilot-node local settlement state;
+- Hypervisor Node local settlement state;
 - every governed autonomous-system-chain transition;
 - Agentgres operational state;
 - every worker run;
@@ -102,7 +102,7 @@ settlement.
 Governed Autonomous-System Chain
   accepts local module invocations, proposals, receipts, and state transitions
 
-Autopilot Node
+Hypervisor Node
   coordinates many autonomous-system chains and settles local interop, authority
   outcomes, receipt bundles, replay, and escalation records
 
@@ -111,9 +111,9 @@ IOI L1
   registry commitments, AIIP handoff finality, and economics
 ```
 
-Autopilot nodes are local settlement domains. IOI L1 is the global settlement
+Hypervisor Nodes are local settlement domains. IOI L1 is the global settlement
 layer for autonomous systems. IOI L1 should receive sparse commitments from
-Autopilot nodes, application domains, and independent AS-L1s only when public
+Hypervisor Nodes, application domains, and independent AS-L1s only when public
 trust, economic finality, dispute resolution, reputation portability,
 cross-system handoff finality, or marketplace rights require it.
 
@@ -198,7 +198,7 @@ open dispute
 resolve dispute
 commit reputation/contribution root
 commit benchmark/category/routing/training-lineage root
-commit Autopilot-node receipt/local-settlement root for dispute or settlement
+commit Hypervisor Node receipt/local-settlement root for dispute or settlement
 commit autonomous-system-chain policy/module/upgrade root for public trust
 commit AIIP channel/schema/profile root
 commit authority lease commitment
@@ -213,7 +213,7 @@ model thoughts
 tool calls
 workflow nodes
 Agentgres domain writes
-Autopilot-node local settlement records
+Hypervisor Node local settlement records
 autonomous-system-chain module invocations
 AIIP local-profile packets
 private receipt bodies
@@ -242,7 +242,7 @@ aiagent.xyz domain
 sas.xyz domain
   service orders, delivery bundles, provider state, disputes, projections
 
-Autopilot node/domain
+Hypervisor Node/domain
   local autonomous-system chains, module invocations, proposals, receipts,
   authority outcomes, state roots, replay, local settlement records
 ```
@@ -311,7 +311,7 @@ the Agentgres database
 the default execution runtime
 the default trace store
 the artifact byte store
-the Autopilot node
+the Hypervisor Node
 the worker marketplace itself
 the service marketplace itself
 the place where every local run must settle
@@ -336,7 +336,7 @@ reputation, governance, and cross-domain commitments
 4. IOI L1 should store commitments and economic state, not operational payloads.
 5. IOI L1 governance may approve canonical L0/kernel releases; it does not
    operate the L0 substrate or own day-to-day repository management.
-6. IOI L1 should not be described as the Autopilot node. Autopilot nodes settle
+6. IOI L1 should not be described as the Hypervisor Node. Hypervisor Nodes settle
    autonomous work locally; IOI L1 settles machine labor globally.
 7. IOI L1 smart contracts are the correct starting point; L2s/rollups are only scaling contingencies.
 8. IOI L1 should not be described as the agent marketplace or outcome

@@ -8,12 +8,12 @@ Last alignment pass: 2026-05-13.
 
 ## Purpose
 
-Runtime nodes are execution venues. They may be a local IOI daemon managed by
-Autopilot Desktop, hosted IOI daemon, provider node, DePIN node, TEE-verified
+Runtime nodes are execution venues. They may be a local Hypervisor Daemon managed by
+Hypervisor IDE, hosted Hypervisor Daemon, provider node, DePIN node, TEE-verified
 node, or customer VPC node. They execute task capsules and return events,
 artifacts, and receipts.
 
-Runtime nodes run IOI daemon-compatible profiles. A worker package may import
+Runtime nodes run Hypervisor Daemon-compatible profiles. A worker package may import
 SDK helpers, and an operator may use the SDK to control the run, but the SDK is
 not the compute-node execution substrate.
 

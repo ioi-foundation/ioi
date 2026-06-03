@@ -1,8 +1,8 @@
-# Governed Autonomous Systems and Autopilot Nodes
+# Governed Autonomous Systems and Hypervisor Nodes
 
 Status: canonical architecture authority.
-Canonical owner: this file for governed autonomous-system chains, Autopilot node settlement domains, and the coherent machine-economy stack.
-Supersedes: product prose that collapses Autopilot UI, Autopilot node, autonomous-system state machines, and IOI L1 into one layer.
+Canonical owner: this file for governed autonomous-system chains, Hypervisor Node settlement domains, and the coherent machine-economy stack.
+Supersedes: product prose that collapses Hypervisor UI, Hypervisor Node, autonomous-system state machines, and IOI L1 into one layer.
 Superseded by: none.
 Last alignment pass: 2026-05-25.
 
@@ -36,7 +36,7 @@ consensus, or an IOI L1 replacement.
 These layers must not collapse into one another:
 
 ```text
-Autopilot UI != Autopilot node != IOI L1
+Hypervisor UI != Hypervisor Node != IOI L1
 ```
 
 The canonical stack is:
@@ -45,7 +45,7 @@ The canonical stack is:
 Governed Autonomous-System Chains
   local agents, workers, workflows, policies, modules, proposals, receipts
 
-Autopilot Node
+Hypervisor Node
   local orchestration, interop, authority, state, replay, routing, and local settlement
 
 AIIP
@@ -55,16 +55,16 @@ IOI L1
   global identity, registry, rights, receipt roots, disputes, reputation, and economic settlement
 ```
 
-## Autopilot Node
+## Hypervisor Node
 
-An **Autopilot node** is the local autonomous-system settlement domain for a
+An **Hypervisor Node** is the local autonomous-system settlement domain for a
 user, organization, project, or deployment.
 
-It is not merely the Autopilot Workbench UI. It is the node-shaped composition
+It is not merely the Hypervisor IDE UI. It is the node-shaped composition
 of:
 
-- Autopilot Workbench as the operator console;
-- IOI daemon as the deterministic execution and authority-enforcement
+- Hypervisor IDE as the operator console;
+- Hypervisor Daemon as the deterministic execution and authority-enforcement
   substrate;
 - Agentgres as the local canonical operational state and projection substrate;
 - wallet.network authority paths for grants, secrets, leases, approvals, and
@@ -73,7 +73,7 @@ of:
 - receipt, replay, trace, and evidence stores;
 - optional hosted, DePIN, TEE, customer VPC, or provider runtime profiles.
 
-The Autopilot node owns model routing and invocation boundaries. It does not
+The Hypervisor Node owns model routing and invocation boundaries. It does not
 require model weights to be embedded in the node binary. Models are mounted
 cognition backends supplied by deployment profile: local file, local server,
 BYOK provider, hosted pool, TEE/DePIN/customer runtime, or explicitly bundled
@@ -81,12 +81,12 @@ offline weights.
 
 One-line doctrine:
 
-> **Autopilot nodes are local settlement domains for autonomous systems; IOI L1
+> **Hypervisor Nodes are local settlement domains for autonomous systems; IOI L1
 > is the global settlement layer for the machine economy.**
 
 More compactly:
 
-> **Autopilot settles autonomous work locally. IOI settles machine labor globally.**
+> **Hypervisor settles autonomous work locally. IOI settles machine labor globally.**
 
 ## Settlement Meaning
 
@@ -106,9 +106,9 @@ autonomous system:
 - local upgrade decisions;
 - active tasks and leases.
 
-### Autopilot Node Settlement
+### Hypervisor Node Settlement
 
-The Autopilot node coordinates many governed autonomous-system chains. It
+The Hypervisor Node coordinates many governed autonomous-system chains. It
 settles local interop between them:
 
 - task offers;
@@ -139,7 +139,7 @@ IOI L1 is not every agent's operational history.
 ## Harness and Service Modules
 
 An autonomous-system harness is the modular state-transition pipeline running
-under the IOI daemon. Each consequential harness step should be represented as a
+under the Hypervisor Daemon. Each consequential harness step should be represented as a
 typed service-module invocation.
 
 ```text
@@ -161,7 +161,7 @@ The distinction is:
 ServiceModule = reusable capability, code, contract, workflow component, or service definition
 ModuleInvocation = one execution of that module
 Receipt = evidence that the invocation occurred under a specific policy, input, module version, and state root
-StateTransition = canonical effect accepted by the governed autonomous-system chain or Autopilot node
+StateTransition = canonical effect accepted by the governed autonomous-system chain or Hypervisor Node
 ```
 
 Examples:
@@ -226,8 +226,8 @@ the commitment boundary.
 
 ## Interop Fabric
 
-Autopilot is the reference local interop and settlement fabric for autonomous
-systems. AIIP is the shared semantic protocol that lets Autopilot route local
+Hypervisor is the reference local interop and settlement fabric for autonomous
+systems. AIIP is the shared semantic protocol that lets Hypervisor route local
 microharness work and hand off external work to workers, services, enterprises,
 third-party autonomous systems, and independent AS-L1s.
 
@@ -239,7 +239,7 @@ AIIP plays an agent-native interop role comparable to interchain communication,
 but for delegated work, authority, receipts, settlement claims, reputation, and
 handoffs rather than token-ledger messaging.
 
-Autopilot-node interop messages may include:
+Hypervisor Node interop messages may include:
 
 - task offers;
 - task acceptance or rejection;
@@ -270,8 +270,8 @@ The coherent product and protocol roles are:
 
 | Surface | Canonical Role |
 | --- | --- |
-| Autopilot | Local sovereign coordination layer for autonomous systems. |
-| IOI daemon | Deterministic execution and authority-enforcement substrate. |
+| Hypervisor | Local sovereign coordination layer for autonomous systems. |
+| Hypervisor Daemon | Deterministic execution and authority-enforcement substrate. |
 | Agentgres | Local/domain canonical operational truth, projections, proposals, receipts, and state roots. |
 | wallet.network | Authority, secrets, leases, grants, approvals, payment authority, and revocation. |
 | Model Router | Policy-bound cognition routing; model weights/endpoints are deployment-profile resources. |
@@ -282,16 +282,16 @@ The coherent product and protocol roles are:
 
 ## Non-Negotiables
 
-1. Do not call the Autopilot Workbench UI the settlement layer.
+1. Do not call the Hypervisor IDE UI the settlement layer.
 2. Do not imply every governed autonomous system is a standalone blockchain L1.
 3. Do not use IOI L1 for every module invocation, workflow node, tool call,
    memory update, or local receipt.
 4. Do not let an agent self-grant authority through self-improvement.
 5. Do not let service modules mutate canonical state without typed operations,
    policy, authority, receipts, and replay.
-6. Do not let local Autopilot-node settlement masquerade as public economic
+6. Do not let local Hypervisor Node settlement masquerade as public economic
    finality when IOI L1 anchoring or dispute windows are required.
-7. Do not assume model weights are part of an Autopilot node binary. Bundled
+7. Do not assume model weights are part of a Hypervisor Node binary. Bundled
    weights are a deployment profile, not the architecture default.
 8. Do not create separate bespoke interop protocols for local microharnesses,
    aiagent.xyz, sas.xyz, and third-party autonomous systems when AIIP semantics
@@ -299,7 +299,7 @@ The coherent product and protocol roles are:
 
 ## One-Line Doctrine
 
-> **Each Autopilot node is a local autonomous-system settlement domain. It hosts
+> **Each Hypervisor Node is a local autonomous-system settlement domain. It hosts
 > many governed autonomous-system chains, routes work between them, manages
 > authority through wallet.network, stores state and receipts through Agentgres,
 > and anchors selected commitments to IOI L1 for global registry, dispute,

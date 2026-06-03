@@ -14,7 +14,7 @@ It should support foundational model APIs, local model mounting, BYOK, open-mode
 
 The model router belongs inside the runtime/node contract. Model weights,
 provider endpoints, local model servers, and hosted cognition backends are
-mounted by deployment profile. They are not part of the Autopilot node binary
+mounted by deployment profile. They are not part of the Hypervisor Node binary
 or architecture default.
 
 Model routing is not Worker routing. Model routing selects a cognition backend:
@@ -26,13 +26,13 @@ routing. Mixture of Workers is labor routing.
 
 Model serving compute follows the same runtime-node rule as worker execution:
 remote, hosted, DePIN, TEE, and customer-boundary model jobs should be
-represented as compute sessions behind IOI daemon/runtime-node profiles or
+represented as compute sessions behind Hypervisor Daemon runtime-node profiles or
 explicit model-provider endpoints. The SDK may call the router; it does not own
 model execution.
 
 ## Core Doctrine
 
-> **Autopilot should not care whether a model is OpenAI, local LM Studio, tenant BYOK, vLLM on a sleeping GPU, or a decentralized cloud worker. It should call a model route through policy.**
+> **Hypervisor should not care whether a model is OpenAI, local LM Studio, tenant BYOK, vLLM on a sleeping GPU, or a decentralized cloud worker. It should call a model route through policy.**
 
 Node packaging doctrine:
 
@@ -263,7 +263,7 @@ ModelInvocationReceipt:
 4. Provider fallback must be policy-aware.
 5. Runtime nodes should emit model routing explanations for audits.
 6. Run-to-idle serving must not break workflow determinism or receipt generation.
-7. The Autopilot node binary must not assume embedded model weights. Embedded or
+7. The Hypervisor Node binary must not assume embedded model weights. Embedded or
    bundled weights are allowed only when declared by a deployment profile.
 8. Service modules and workers invoke models through routes, not direct
    assumptions about local files, provider names, or bundled binaries.

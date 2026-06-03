@@ -1,4 +1,4 @@
-# IOI Daemon Runtime API
+# Hypervisor Daemon Runtime API
 
 Status: canonical low-level reference.
 Canonical owner: this file for public daemon/runtime API endpoints, event streaming, run lifecycle, structured errors, and client-vs-runtime ownership.
@@ -8,13 +8,13 @@ Last alignment pass: 2026-05-30.
 
 ## Purpose
 
-The IOI daemon is the universal execution endpoint and hypervisor/control plane
+The Hypervisor Daemon is the universal execution endpoint and hypervisor/control plane
 for canonical Web4 autonomous work. The IOI CLI/TUI, `@ioi/agent-sdk`, future
-IOI ADK, agent-ide, Autopilot Workbench, Autopilot Desktop, workflow
+IOI ADK, agent-ide, Hypervisor IDE, workflow
 compositor, harnesses, benchmarks, VS Code extension-host code, and IOI
 Authority Gateway adapters are clients, builder frameworks, or projections over
 this public runtime API. They must not own separate execution semantics. Local
-Autopilot-managed daemons, hosted providers, DePIN nodes, TEE nodes, and
+Hypervisor-managed daemons, hosted providers, DePIN nodes, TEE nodes, and
 customer VPC nodes run daemon-compatible runtime nodes to execute workers,
 workflows, model calls, tools, connectors, computer-use leases, worker-training
 jobs, evaluation jobs, benchmark jobs, MoW routing decisions, and artifact
@@ -55,7 +55,7 @@ GET /v1/runtime/nodes
 ```json
 {
   "runtime_id": "runtime://node_abc",
-  "runtime_type": "local_autopilot | hosted_ioi | provider | depin | tee | customer_vpc",
+  "runtime_type": "local_hypervisor | hosted_ioi | provider | depin | tee | customer_vpc",
   "daemon_version": "0.8.0",
   "default_harness_profile": "2026.05.default-harness-profile.v1",
   "agentgres_version": "0.2.0",
@@ -178,7 +178,7 @@ Response:
 ## Data Recipe, Worker Training, Benchmark, and MoW Routing API
 
 Data recipe, transformation, training, evaluation, benchmark, and routing
-endpoints are daemon execution surfaces. Autopilot, CLI/TUI, SDK, ADK, harnesses,
+endpoints are daemon execution surfaces. Hypervisor, CLI/TUI, SDK, ADK, harnesses,
 and benchmarks can call them as clients; they must not implement a separate
 semantic-data or training runtime.
 
@@ -238,7 +238,7 @@ POST /v1/threads/{thread_id}/turns/{turn_id}/interrupt
 POST /v1/threads/{thread_id}/turns/{turn_id}/steer
 ```
 
-TUI, SDK, ADK, agent-ide, workflow-composer, and Autopilot Desktop clients may
+TUI, SDK, ADK, agent-ide, workflow-composer, and Hypervisor IDE clients may
 render these controls differently, but they must converge on these daemon
 contracts rather than maintaining private session loops.
 
@@ -400,7 +400,7 @@ POST /v1/connectors/{connector_id}/subscriptions
 ## MCP Manager API
 
 MCP manager endpoints expose tool/resource/prompt discovery and governed MCP
-tool invocation to TUI, SDK, ADK, agent-ide, and Autopilot Desktop surfaces. Global
+tool invocation to TUI, SDK, ADK, agent-ide, and Hypervisor IDE surfaces. Global
 endpoints describe runtime-wide MCP state; thread endpoints bind MCP activity
 to a specific operator/runtime session.
 

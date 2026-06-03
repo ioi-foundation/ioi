@@ -254,7 +254,7 @@ Restore authority grants should bind:
   "restore_authority_id": "restore_auth_123",
   "archive_cid": "cid://bafy...",
   "archive_sha256": "sha256:...",
-  "agentgres_domain": "agentgres://domain/local-autopilot-user",
+  "agentgres_domain": "agentgres://domain/local-hypervisor-user",
   "state_root": "sha256:...",
   "requesting_runtime": "runtime://node_abc",
   "allowed_environment": "local | tee_enterprise | customer_vpc",
