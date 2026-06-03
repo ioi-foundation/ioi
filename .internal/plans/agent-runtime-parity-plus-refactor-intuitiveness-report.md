@@ -94,6 +94,9 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs`.
 - Moved the vLLM and llama.cpp provider driver wrappers out of `model-mounting.mjs` while preserving the shared OpenAI-compatible driver composition.
 - Added focused backend-driver tests for backend URL promotion, supervised load/unload evidence, and loaded instance projection.
+- Added `packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs`.
+- Moved the LM Studio public CLI provider driver out of `model-mounting.mjs` while preserving OpenAI-compatible invoke/stream composition.
+- Added focused LM Studio driver tests for absent CLI fail-closed behavior and public CLI health/start/stop/load/unload lifecycle commands.
 
 Status: `model-mounting.mjs` still owns provider driver classes, wallet/vault ports, state machine behavior, routes, validation, and some product projection glue. Safe next extractions are provider driver class groups, validation, routes, and state-machine slices.
 
@@ -133,6 +136,7 @@ Status: `model-mounting.mjs` still owns provider driver classes, wallet/vault po
   - `model-mounting/provider-openai-compatible-driver`
   - `model-mounting/provider-ollama-driver`
   - `model-mounting/provider-openai-backend-drivers`
+  - `model-mounting/provider-lm-studio-driver`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.
