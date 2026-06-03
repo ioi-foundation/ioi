@@ -15,7 +15,28 @@ import {
   discoverComputerUseBrowsersSync,
 } from "./browser-discovery.mjs";
 import { computerUseProviderRegistryReport } from "./computer-use-provider-registry.mjs";
-import * as computerUseInputs from "./computer-use-inputs.mjs";
+import {
+  computerUseControlActionForInput,
+  firstOptionalString,
+  nativeBrowserActionKindForInput,
+  nativeBrowserActionKindFromText,
+  nativeBrowserActionKindIsReadOnly,
+  nativeBrowserActionKindValue,
+  nativeBrowserActionKinds,
+  nativeBrowserActionShouldUseCdpExecutor,
+  nativeBrowserApprovalRefForInput,
+  nativeBrowserCdpTimeoutMs,
+  nativeBrowserControlledRelaunchApprovalRefForInput,
+  nativeBrowserExecutionUnavailableFromControlledRelaunchLaunch as nativeBrowserExecutionUnavailableFromControlledRelaunchLaunchImpl,
+  nativeBrowserHasExplicitCdpEndpoint,
+  nativeBrowserSessionModeForInput,
+  sandboxedHostedSessionModeForInput,
+  snakeCaseKey,
+  visualGuiFiniteNumber,
+  visualGuiMediaTypeForPath,
+  visualGuiObservationMetadataForInput,
+  visualGuiSessionModeForInput,
+} from "./computer-use-inputs.mjs";
 import {
   captureLocalVisualGuiObservation,
   visualGuiLocalCaptureRequested,
@@ -13343,93 +13364,17 @@ function summarizeAgentOptions(cwd, options = {}) {
   };
 }
 
-function nativeBrowserActionKindForInput(input = {}, prompt = "") {
-  return computerUseInputs.nativeBrowserActionKindForInput(input, prompt);
-}
-
-function nativeBrowserApprovalRefForInput(input = {}) {
-  return computerUseInputs.nativeBrowserApprovalRefForInput(input);
-}
-
-function nativeBrowserControlledRelaunchApprovalRefForInput(input = {}) {
-  return computerUseInputs.nativeBrowserControlledRelaunchApprovalRefForInput(input);
-}
-
 function nativeBrowserExecutionUnavailableFromControlledRelaunchLaunch({
   launchReceipt,
   actionKind,
   approvalRef,
 } = {}) {
-  return computerUseInputs.nativeBrowserExecutionUnavailableFromControlledRelaunchLaunch({
+  return nativeBrowserExecutionUnavailableFromControlledRelaunchLaunchImpl({
     launchReceipt,
     actionKind,
     approvalRef,
     uniqueStrings,
   });
-}
-
-function nativeBrowserCdpTimeoutMs(input = {}) {
-  return computerUseInputs.nativeBrowserCdpTimeoutMs(input);
-}
-
-function nativeBrowserSessionModeForInput(input = {}) {
-  return computerUseInputs.nativeBrowserSessionModeForInput(input);
-}
-
-function visualGuiSessionModeForInput(input = {}) {
-  return computerUseInputs.visualGuiSessionModeForInput(input);
-}
-
-function sandboxedHostedSessionModeForInput(input = {}) {
-  return computerUseInputs.sandboxedHostedSessionModeForInput(input);
-}
-
-function visualGuiObservationMetadataForInput(input = {}) {
-  return computerUseInputs.visualGuiObservationMetadataForInput(input);
-}
-
-function visualGuiFiniteNumber(value) {
-  return computerUseInputs.visualGuiFiniteNumber(value);
-}
-
-function visualGuiMediaTypeForPath(filePath) {
-  return computerUseInputs.visualGuiMediaTypeForPath(filePath);
-}
-
-function firstOptionalString(values) {
-  return computerUseInputs.firstOptionalString(values);
-}
-
-function snakeCaseKey(value) {
-  return computerUseInputs.snakeCaseKey(value);
-}
-
-function nativeBrowserActionShouldUseCdpExecutor(actionKind, approvalRef, input = {}) {
-  return computerUseInputs.nativeBrowserActionShouldUseCdpExecutor(actionKind, approvalRef, input);
-}
-
-function computerUseControlActionForInput(input = {}) {
-  return computerUseInputs.computerUseControlActionForInput(input);
-}
-
-function nativeBrowserHasExplicitCdpEndpoint(input = {}) {
-  return computerUseInputs.nativeBrowserHasExplicitCdpEndpoint(input);
-}
-
-function nativeBrowserActionKindValue(value) {
-  return computerUseInputs.nativeBrowserActionKindValue(value);
-}
-
-function nativeBrowserActionKindFromText(value) {
-  return computerUseInputs.nativeBrowserActionKindFromText(value);
-}
-
-function nativeBrowserActionKinds() {
-  return computerUseInputs.nativeBrowserActionKinds();
-}
-
-function nativeBrowserActionKindIsReadOnly(actionKind) {
-  return computerUseInputs.nativeBrowserActionKindIsReadOnly(actionKind);
 }
 
 function normalizeArray(value) {
