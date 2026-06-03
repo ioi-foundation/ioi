@@ -1,4 +1,11 @@
-export { queueCommand, readRequestBody, requireNewRequest, sendJson } from "./bridge.mjs";
+export {
+  createWorkbenchBridgeServer,
+  createWorkbenchBridgeState,
+  queueCommand,
+  readRequestBody,
+  requireNewRequest,
+  sendJson,
+} from "./bridge.mjs";
 export { cleanupProofUserDataProcesses } from "./cleanup.mjs";
 export { ensureDir } from "./files.mjs";
 export { closeServer, getFreePort, listen } from "./network.mjs";

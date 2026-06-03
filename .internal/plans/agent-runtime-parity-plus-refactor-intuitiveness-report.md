@@ -10,6 +10,7 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 
 - Added `scripts/lib/live-gui-proof-harness/` with shared process, network, bridge, file, Playwright, screenshot, and cleanup helpers.
 - Migrated Stage 8 managed-session reconnect proof and Stage 9 historic replay proof to the shared harness.
+- Moved Stage 8/Stage 9 workbench bridge `/state`, `/commands`, and `/requests` server boilerplate into shared harness bridge helpers while preserving the public bridge envelopes.
 - Added checked-in Stage 9 replay fixtures so the live replay proof can run from a clean checkout without relying on ignored `docs/evidence` artifacts.
 - Hardened the Stage 8 managed-session control click path to reacquire the Studio webview frame/card across VS Code webview swaps.
 - Renamed the Stage 8 synthetic browser card from a spoof-like login-gate label to a manual authentication handoff fixture so the proof reads as operator-control state, not a fake approval surface.

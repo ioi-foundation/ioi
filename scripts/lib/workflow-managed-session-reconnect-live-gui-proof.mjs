@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
-import { createServer } from "node:http";
 import {
   appendFileSync,
   mkdtempSync,
@@ -22,15 +21,14 @@ import {
   cleanupProofUserDataProcesses,
   clickLocatorWithDomFallback,
   closeServer,
+  createWorkbenchBridgeServer,
   ensureDir,
   findFrameWithTestId as harnessFindFrameWithTestId,
   getFreePort,
   listen,
   queueCommand,
-  readRequestBody,
   requireNewRequest,
   screenshot,
-  sendJson,
   timestamp,
   wait,
   waitForCdp as harnessWaitForCdp,
@@ -45,81 +43,6 @@ const evidenceRoot =
 
 async function waitForCdp(port, timeoutMs = 45_000) {
   return harnessWaitForCdp(port, waitForPredicate, timeoutMs);
-}
-
-function bridgeState(daemonEndpoint) {
-  return {
-    schemaVersion: "ioi.workbench-bridge-state.v1",
-    generatedAtMs: Date.now(),
-    workspace: {
-      name: "ioi",
-      path: repoRoot,
-      rootPath: repoRoot,
-    },
-    summary: {
-      activeRunCount: 0,
-      policyIssueCount: 0,
-      connectorCount: 0,
-    },
-    modelMountingStatus: {
-      status: "connected",
-      endpoint: daemonEndpoint,
-    },
-    modelMounting: {
-      routes: [
-        {
-          id: "route.local-first",
-          routeId: "route.local-first",
-          status: "ready",
-          modelId: "runtime-control-test-model",
-          endpointId: "endpoint.runtime-control-test",
-          capabilities: ["chat"],
-        },
-      ],
-      server: {
-        status: "running",
-        endpoint: daemonEndpoint,
-      },
-    },
-    workflows: [],
-    runs: [],
-    policy: {
-      activeIssueCount: 0,
-      issues: [],
-    },
-    connections: [],
-  };
-}
-
-function createBridge({ daemonEndpoint, requests, commands, deliveredCommands }) {
-  return createServer(async (request, response) => {
-    try {
-      if (request.method === "OPTIONS") {
-        sendJson(response, 204, {});
-        return;
-      }
-      const url = new URL(request.url ?? "/", "http://127.0.0.1");
-      if (request.method === "GET" && url.pathname === "/state") {
-        sendJson(response, 200, bridgeState(daemonEndpoint));
-        return;
-      }
-      if (request.method === "GET" && url.pathname === "/commands") {
-        const next = commands.splice(0);
-        deliveredCommands.push(...next);
-        sendJson(response, 200, next);
-        return;
-      }
-      if (request.method === "POST" && url.pathname === "/requests") {
-        const body = await readRequestBody(request);
-        requests.push(body);
-        sendJson(response, 200, { ok: true });
-        return;
-      }
-      sendJson(response, 404, { error: "not_found" });
-    } catch (error) {
-      sendJson(response, 500, { error: String(error?.message ?? error) });
-    }
-  });
 }
 
 async function findFrameWithTestId(page, testId, timeoutMs = 45_000) {
@@ -393,11 +316,22 @@ async function runProof(outputDir) {
   let extensionsDir;
 
   try {
-    server = createBridge({
+    server = createWorkbenchBridgeServer({
       daemonEndpoint: daemon.endpoint,
+      repoRoot,
       requests,
       commands,
       deliveredCommands,
+      modelMountingRoutes: [
+        {
+          id: "route.local-first",
+          routeId: "route.local-first",
+          status: "ready",
+          modelId: "runtime-control-test-model",
+          endpointId: "endpoint.runtime-control-test",
+          capabilities: ["chat"],
+        },
+      ],
     });
     const bridgeAddress = await listen(server);
     const bridgeUrl = `http://127.0.0.1:${bridgeAddress.port}`;
