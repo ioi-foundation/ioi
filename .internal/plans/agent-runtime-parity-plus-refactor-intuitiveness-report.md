@@ -25,6 +25,8 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Replaced pure Studio work-summary and model-completion pass-through wrappers in `extension.js` with direct named helper imports/destructuring while leaving projection-aware composition local.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-state.js` for the initial Agent Studio runtime projection shape.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/migration.js` for migration-assistant command registration.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/models.js`.
+- Moved Models command registration out of `extension.js` while preserving public `ioi.models.*` command ids, daemon model-workbench action envelopes, catalog source/download envelopes, and model-to-workflow binding behavior.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/quick-input.js` for fork-native QuickInput handoff commands.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/chat.js`.
 - Moved IOI Chat command registration and artifact-review chat handoff registration out of `extension.js` while preserving public `ioi.chat.*` and `ioi.artifacts.review` command ids and bridge request envelopes.
