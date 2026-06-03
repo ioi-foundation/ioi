@@ -30,6 +30,8 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Moved IOI Chat command registration and artifact-review chat handoff registration out of `extension.js` while preserving public `ioi.chat.*` and `ioi.artifacts.review` command ids and bridge request envelopes.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/studio-quick-input.js`.
 - Moved Agent Studio native context/tool QuickPick command registration out of `extension.js` while preserving `ioi.studio.openContextPicker` and `ioi.studio.openToolPicker` command ids and bridge request envelopes.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/workflow.js`.
+- Moved Workflow Composer command registration out of `extension.js` while preserving public `ioi.workflow.*` command ids, workflow compositor bridge envelopes, and proposal-first code-generation request shape.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-managed-sessions.js` for managed browser/computer session projection, daemon inspection application, and reconnect proof bridge reporting.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-replay.js` for replay-step projection from runtime events and receipts.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/studio-test-hooks.js` for parity-plus/test-hook command registration while preserving public command ids.

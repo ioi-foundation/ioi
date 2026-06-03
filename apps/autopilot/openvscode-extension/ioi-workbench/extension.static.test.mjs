@@ -66,6 +66,8 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/commands/studio-quick-input.js",
   studioTestHooks:
     "apps/autopilot/openvscode-extension/ioi-workbench/commands/studio-test-hooks.js",
+  workflowCommands:
+    "apps/autopilot/openvscode-extension/ioi-workbench/commands/workflow.js",
   packageJson: "apps/autopilot/openvscode-extension/ioi-workbench/package.json",
   launcher: "scripts/launch-autopilot-ide-fork.mjs",
   shellPatch: "scripts/lib/autopilot-workbench-shell-patch.mjs",
@@ -110,6 +112,7 @@ async function readStudioComposite() {
       paths.managedSessionView,
       paths.studioQuickInput,
       paths.studioTestHooks,
+      paths.workflowCommands,
     ].map(read),
   );
   return parts.join("\n");
