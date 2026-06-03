@@ -38,6 +38,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Moved Studio conversation artifact class labels, output modality detection, preview label/srcdoc shaping, inline preview rendering, and artifact row HTML out of `extension.js` behind compatibility wrappers.
 - Added focused artifact-preview tests for website/generic labels, media-type preview labels, CSP nonce injection, source preview escaping, and stable artifact row data-testids.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/managed-session-view.js`.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/pending-work.js`.
+- Moved Studio pending-work filtering, concrete tool row normalization, command-output excerpt projection, pending worklog upsert/de-dupe behavior, runtime-event pending-step projection, runtime-event seen-id tracking, and tool-label mapping out of `extension.js`.
+- Added focused pending-work tests for abstract row filtering, command-output redaction/preservation, row update behavior, runtime-event projection, source chips, and seen-id de-duping.
 - Moved managed browser/computer session work-record attachment and card row rendering out of `extension.js` behind compatibility wrappers.
 - Added focused managed-session view tests for bounded session-card attachment, waiting-for-user handoff rendering, control-state data-testids, HTML escaping, and default sandbox browser state.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
