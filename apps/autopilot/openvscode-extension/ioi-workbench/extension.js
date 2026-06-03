@@ -1,6 +1,5 @@
 const crypto = require("crypto");
 const fs = require("fs");
-const http = require("http");
 const path = require("path");
 const vscode = require("vscode");
 const {
@@ -11,6 +10,7 @@ const {
   readDaemonModelSnapshot: readDaemonModelSnapshotFromClient,
   requestJson,
 } = require("./bridge/client");
+const { createWorkspaceBridge } = require("./bridge/workspace-bridge");
 const { registerMigrationCommands } = require("./commands/migration");
 const { registerQuickInputCommands } = require("./commands/quick-input");
 const {
@@ -122,16 +122,27 @@ const STUDIO_ARTIFACT_REQUEST_TIMEOUT_MS = Number.isFinite(Number(process.env.IO
 const STUDIO_DEFAULT_MAX_OUTPUT_TOKENS = 4096;
 const STUDIO_DEFAULT_ARTIFACT_MAX_OUTPUT_TOKENS = 4096;
 const STUDIO_PRODUCT_MODEL_UNAVAILABLE = "__product_model_unavailable__";
+const workspaceBridge = createWorkspaceBridge({
+  bridgeUrl,
+  readDaemonModelSnapshot: readDaemonModelSnapshotFromClient,
+  workspaceSummary,
+  vscode,
+  modelSnapshotTimeoutMs: STUDIO_MODEL_SNAPSHOT_TIMEOUT_MS,
+  refreshStateTimeoutMs: STUDIO_REFRESH_STATE_TIMEOUT_MS,
+});
+const {
+  buildRuntimeRefs,
+  buildWorkbenchCommandRouteReceipt,
+  readBridgeState,
+  requestBridge,
+  startBridgeCommandPolling,
+  writeBridgeRequest,
+  writeWorkbenchCommandRouteReceipt,
+} = workspaceBridge;
 let studioRuntimeProjection = createInitialStudioRuntimeProjection();
 let studioDiffProviderDisposable = null;
 const studioDiffDocuments = new Map();
 let activeTraceTarget = null;
-
-function readDaemonModelSnapshot() {
-  return readDaemonModelSnapshotFromClient({
-    timeoutMs: STUDIO_MODEL_SNAPSHOT_TIMEOUT_MS,
-  });
-}
 
 function rememberRecentTaskLabel(label) {
   const normalized = typeof label === "string" ? label.trim() : "";
@@ -183,66 +194,8 @@ function uriToRef(uri) {
   };
 }
 
-function buildRuntimeRefs() {
-  return {
-    receiptRefs: [],
-    artifactRefs: [],
-    authorityRefs: [],
-    manifestRefs: [],
-    capabilityRefs: [],
-  };
-}
-
 function nonce() {
   return crypto.randomBytes(16).toString("base64");
-}
-
-function hashRef(prefix, value) {
-  const stableValue = typeof value === "string" ? value : JSON.stringify(value || {});
-  return `${prefix}:${crypto.createHash("sha256").update(stableValue).digest("hex").slice(0, 16)}`;
-}
-
-function isRuntimeActionRequestType(requestType) {
-  return /^(chat|workflow|runs|policy|evidence|connections|automation|settings)\./.test(
-    requestType,
-  );
-}
-
-function buildWorkbenchCommandRouteReceipt({
-  commandId,
-  route,
-  status = "routed",
-  context = null,
-  reason = null,
-  actionProposalRef = null,
-}) {
-  return {
-    schemaVersion: "ioi.workbench-integration.v1",
-    receiptId: `workbench-command-route:${crypto.randomUUID()}`,
-    runtimeTruthSource: "daemon-runtime",
-    projectionOwner: "openvscode-workbench-adapter",
-    ownsRuntimeState: false,
-    commandId,
-    routedAtMs: Date.now(),
-    route,
-    contextRef: context ? hashRef("workbench-context", context) : null,
-    actionProposalRef,
-    status,
-    reason,
-    runtimeRefs: buildRuntimeRefs(),
-  };
-}
-
-async function writeWorkbenchCommandRouteReceipt(receipt, context = null) {
-  const request = {
-    requestId: crypto.randomUUID(),
-    requestType: "workbench.commandRouteReceipt",
-    context,
-    payload: receipt,
-    timestampMs: Date.now(),
-  };
-  await requestBridge("POST", "requests", request);
-  return request;
 }
 
 function diagnosticSeverityLabel(severity) {
@@ -978,225 +931,6 @@ function buildWorkbenchInspectionTargetIndex(reason = "poll") {
       ...activeTaskTargets,
     ],
   };
-}
-
-function defaultBridgeState() {
-  return {
-    schemaVersion: 1,
-    generatedAtMs: Date.now(),
-    authoritativeRuntime: true,
-    workspace: workspaceSummary(),
-    chat: {
-      runtime: "ioi-runtime",
-      authority: "bounded",
-      helperText:
-        "IOI runtime remains authoritative for policy, approvals, evidence, and settlement.",
-    },
-    appearance: {
-      themeId: "dark-modern",
-      themeLabel: "Dark Modern",
-      density: "default",
-      openVsCodeColorTheme: "Default Dark Modern",
-      source: "default",
-      updatedAtMs: 0,
-    },
-    workflows: [],
-    runs: [],
-    artifacts: [],
-    policy: null,
-    connections: [],
-  };
-}
-
-function requestBridge(method, bridgePath, payload, { timeoutMs } = {}) {
-  const base = bridgeUrl();
-  if (!base) {
-    return Promise.reject(new Error("IOI workspace bridge URL is not configured."));
-  }
-
-  const target = new URL(bridgePath, `${base}/`);
-  const client = target.protocol === "https:" ? https : http;
-  const body = payload ? JSON.stringify(payload) : null;
-
-  return new Promise((resolve, reject) => {
-    const request = client.request(
-      target,
-      {
-        method,
-        headers: body
-          ? {
-              "content-type": "application/json",
-              "content-length": Buffer.byteLength(body),
-            }
-          : undefined,
-      },
-      (response) => {
-        const chunks = [];
-        response.on("data", (chunk) => chunks.push(chunk));
-        response.on("end", () => {
-          const raw = Buffer.concat(chunks).toString("utf8");
-          if (response.statusCode >= 400) {
-            reject(
-              new Error(
-                `[IOI Workbench] Bridge request failed (${response.statusCode}): ${raw}`,
-              ),
-            );
-            return;
-          }
-          resolve(raw);
-        });
-      },
-    );
-
-    if (timeoutMs && Number.isFinite(Number(timeoutMs))) {
-      const boundedTimeoutMs = Math.max(500, Math.floor(Number(timeoutMs)));
-      request.setTimeout(boundedTimeoutMs, () => {
-        request.destroy(new Error(`Bridge request timed out after ${boundedTimeoutMs}ms.`));
-      });
-    }
-    request.on("error", reject);
-    if (body) {
-      request.write(body);
-    }
-    request.end();
-  });
-}
-
-async function readBridgeState() {
-  const daemonModelMounting = await readDaemonModelSnapshot();
-  try {
-    const raw = await requestBridge("GET", "state", undefined, {
-      timeoutMs: STUDIO_REFRESH_STATE_TIMEOUT_MS,
-    });
-    return {
-      ...defaultBridgeState(),
-      ...JSON.parse(raw || "{}"),
-      modelMounting: daemonModelMounting.snapshot ?? JSON.parse(raw || "{}").modelMounting ?? null,
-      modelMountingStatus: daemonModelMounting,
-    };
-  } catch (error) {
-    console.error("[IOI Workbench] Failed to read bridge state:", error);
-    return {
-      ...defaultBridgeState(),
-      modelMounting: daemonModelMounting.snapshot,
-      modelMountingStatus: daemonModelMounting,
-    };
-  }
-}
-
-async function readBridgeCommands() {
-  try {
-    const raw = await requestBridge("GET", "commands");
-    const commands = JSON.parse(raw || "[]");
-    return Array.isArray(commands) ? commands : [];
-  } catch (error) {
-    console.error("[IOI Workbench] Failed to read bridge commands:", error);
-    return [];
-  }
-}
-
-function startBridgeCommandPolling(context, output) {
-  let running = false;
-  const poll = async () => {
-    if (running) {
-      return;
-    }
-    running = true;
-    try {
-      const commands = await readBridgeCommands();
-      for (const bridgeCommand of commands) {
-        if (!bridgeCommand || typeof bridgeCommand.command !== "string") {
-          continue;
-        }
-        const args = Array.isArray(bridgeCommand.args) ? bridgeCommand.args : [];
-        output.appendLine(
-          `Executing bridge command ${bridgeCommand.command} (${bridgeCommand.commandId || "no-id"}).`,
-        );
-        try {
-          await vscode.commands.executeCommand(bridgeCommand.command, ...args);
-          await writeWorkbenchCommandRouteReceipt(
-            buildWorkbenchCommandRouteReceipt({
-              commandId: bridgeCommand.command,
-              route: bridgeCommand.command.startsWith("ioi.")
-                ? "ioi-runtime-action"
-                : "editor-local",
-              status: "routed",
-              context: bridgeCommand,
-            }),
-            {
-              source: "ioi-workbench-command-poll",
-              commandId: bridgeCommand.commandId || bridgeCommand.command,
-            },
-          ).catch((error) => {
-            output.appendLine(
-              `Bridge command route receipt failed: ${error?.message || String(error)}`,
-            );
-          });
-        } catch (error) {
-          await writeWorkbenchCommandRouteReceipt(
-            buildWorkbenchCommandRouteReceipt({
-              commandId: bridgeCommand.command,
-              route: "blocked",
-              status: "failed",
-              context: bridgeCommand,
-              reason: error?.message || String(error),
-            }),
-            {
-              source: "ioi-workbench-command-poll",
-              commandId: bridgeCommand.commandId || bridgeCommand.command,
-            },
-          ).catch(() => undefined);
-          throw error;
-        }
-      }
-    } catch (error) {
-      console.error("[IOI Workbench] Failed to execute bridge command:", error);
-      output.appendLine(`Bridge command failed: ${error?.message || String(error)}`);
-    } finally {
-      running = false;
-    }
-  };
-  const timer = setInterval(poll, 750);
-  context.subscriptions.push({ dispose: () => clearInterval(timer) });
-  void poll();
-}
-
-async function writeBridgeRequest(requestType, payload = {}, context = null) {
-  const request = {
-    requestId: crypto.randomUUID(),
-    requestType,
-    context,
-    payload,
-    timestampMs: Date.now(),
-  };
-  await requestBridge("POST", "requests", request);
-  if (isRuntimeActionRequestType(requestType)) {
-    const commandId =
-      context?.sourceCommand ||
-      payload?.sourceCommand ||
-      payload?.commandId ||
-      requestType;
-    await writeWorkbenchCommandRouteReceipt(
-      buildWorkbenchCommandRouteReceipt({
-        commandId,
-        route: "ioi-runtime-action",
-        status: "routed",
-        context: {
-          requestId: request.requestId,
-          requestType,
-          ...(context || {}),
-        },
-      }),
-      {
-        source: "ioi-workbench",
-        originalRequestId: request.requestId,
-        requestType,
-      },
-    ).catch((error) => {
-      console.error("[IOI Workbench] Failed to write command route receipt:", error);
-    });
-  }
-  return request;
 }
 
 function startWorkbenchContextSnapshotPublisher(context, output) {
