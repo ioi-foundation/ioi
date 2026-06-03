@@ -61,6 +61,8 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added focused runtime bridge thread tests for bridge input shaping, updated-agent persistence, event append behavior, bridge-unavailable error mapping, turn submit max-step clamping, in-flight cleanup, run persistence, control-thread input/error handling, event default projection, start-contract failures, submit-turn projection defaults, submit-turn contract failures, and live-event envelope normalization.
 - Added `packages/runtime-daemon/src/bridges/runtime-agent-bridge.mjs`.
 - Moved runtime bridge capability checks and runtime-service external-blocker shaping out of `index.mjs` behind existing `assertRuntimeBridgeAvailable` and `runtimeBridgeUnavailable` compatibility methods.
+- Added `packages/runtime-daemon/src/computer-use-inputs.mjs`.
+- Moved computer-use action kind normalization, approval/control input parsing, browser session-mode selection, CDP timeout/endpoint checks, visual GUI observation metadata projection, media-type inference, and controlled-relaunch unavailable execution shaping out of `index.mjs` behind compatibility wrappers.
 - Added `packages/runtime-daemon/src/threads/thread-replay.mjs`.
 - Moved runtime event append/idempotency, thread-start/run-event projection, cursor bounds, stream lookup, replay-by-stream/turn, persisted event registration, and stream-path helpers out of `index.mjs` behind existing replay compatibility methods.
 - Added `packages/runtime-daemon/src/threads/thread-store.mjs`.
