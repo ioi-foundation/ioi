@@ -169,13 +169,10 @@ test("Agent Studio keeps Ask/Agent, permissions, and model route selection expli
   const source = await readStudioComposite();
 
   assertHas(source, [
-    /const STUDIO_MODE_ASK = "ask"/,
-    /function normalizeStudioExecutionMode/,
-    /STUDIO_MODE_ASK \? "Ask" : "Agent"/,
-    /const STUDIO_PERMISSION_MODE_DEFAULT = "suggest"/,
-    /const STUDIO_PERMISSION_MODE_AUTO_REVIEW = "auto_local"/,
-    /const STUDIO_PERMISSION_MODE_FULL_ACCESS = "never_prompt"/,
-    /function studioPermissionDaemonMapping/,
+    /STUDIO_MODE_ASK,\s*\n\s*STUDIO_PERMISSION_MODE_DEFAULT,/,
+    /normalizeStudioExecutionMode,\s*\n\s*normalizeStudioPermissionMode,/,
+    /studioExecutionModeLabel,\s*\n\s*studioPermissionDaemonMapping,/,
+    /require\("\.\/studio\/modes"\)/,
     /function studioModelIdForRouteInvocation/,
     /const STUDIO_PRODUCT_MODEL_UNAVAILABLE = "__product_model_unavailable__"/,
     /function isProductStudioModelSelection/,

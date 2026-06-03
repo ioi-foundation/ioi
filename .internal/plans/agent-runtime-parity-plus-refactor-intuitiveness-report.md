@@ -30,6 +30,7 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/context-snapshot.js` for workbench context snapshots, SCM/task state, diagnostics, and inspection-target index projection.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/modes.js`.
 - Moved Agent Studio Ask/Agent execution-mode and permission-mode normalization, labels, option rows, thread-mode mapping, and daemon mapping out of `extension.js` behind compatibility wrappers.
+- Replaced the remaining Studio mode pass-through wrappers and duplicated mode constants in `extension.js` with direct named imports from `studio/modes.js`.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/source-refs.js`.
 - Moved Studio runtime-event JSON parsing, partial JSON source recovery, source-chip normalization, source-reference traversal, and excerpt selection out of `extension.js` behind compatibility wrappers.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/artifact-intent.js`.

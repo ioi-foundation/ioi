@@ -67,7 +67,19 @@ const {
 const { createStudioResponseMetrics } = require("./studio/response-metrics");
 const { createStudioSourceChipRenderer } = require("./studio/source-chip-renderer");
 const { createStudioCodeExecution } = require("./studio/code-execution");
-const studioModeControls = require("./studio/modes");
+const {
+  STUDIO_MODE_AGENT,
+  STUDIO_MODE_ASK,
+  STUDIO_PERMISSION_MODE_DEFAULT,
+  STUDIO_PERMISSION_MODE_AUTO_REVIEW,
+  STUDIO_PERMISSION_MODE_FULL_ACCESS,
+  normalizeStudioExecutionMode,
+  normalizeStudioPermissionMode,
+  studioExecutionModeLabel,
+  studioPermissionDaemonMapping,
+  studioPermissionModeLabel,
+  studioPermissionModeOptions,
+} = require("./studio/modes");
 const studioSourceRefs = require("./studio/source-refs");
 const {
   AUTOPILOT_MODE_BY_ID,
@@ -117,11 +129,6 @@ const MODE_VISIBILITY_REQUEST_TYPES = {
 };
 const STUDIO_APPROVAL_ID = "approval_agent_studio_inline_diff_preview";
 const STUDIO_POLICY_LEASE_ID = "approval_agent_studio_policy_lease_destructive_action";
-const STUDIO_MODE_AGENT = "agent";
-const STUDIO_MODE_ASK = "ask";
-const STUDIO_PERMISSION_MODE_DEFAULT = "suggest";
-const STUDIO_PERMISSION_MODE_AUTO_REVIEW = "auto_local";
-const STUDIO_PERMISSION_MODE_FULL_ACCESS = "never_prompt";
 const STUDIO_AGENT_RUNTIME_PROFILE = "runtime_service";
 const STUDIO_DIRECT_MODEL_RUNTIME_PROFILE = "chat_only";
 const STUDIO_AGENT_MIN_TURN_STEPS = 8;
@@ -601,34 +608,6 @@ function studioDisplayTurnContent(turn = {}) {
 function isAutoStudioModelSelector(value) {
   const normalized = stringValue(value, "auto").toLowerCase();
   return normalized === "auto" || normalized === "local:auto" || normalized === "default";
-}
-
-function normalizeStudioExecutionMode(value) {
-  return studioModeControls.normalizeStudioExecutionMode(value);
-}
-
-function studioExecutionModeLabel(value) {
-  return normalizeStudioExecutionMode(value) === STUDIO_MODE_ASK ? "Ask" : "Agent";
-}
-
-function normalizeStudioPermissionMode(value) {
-  return studioModeControls.normalizeStudioPermissionMode(value);
-}
-
-function studioPermissionModeLabel(value) {
-  return studioModeControls.studioPermissionModeLabel(value);
-}
-
-function studioPermissionThreadMode(value) {
-  return studioModeControls.studioPermissionThreadMode(value);
-}
-
-function studioPermissionModeOptions(selected = studioRuntimeProjection.approvalMode) {
-  return studioModeControls.studioPermissionModeOptions(selected);
-}
-
-function studioPermissionDaemonMapping(value) {
-  return studioModeControls.studioPermissionDaemonMapping(value);
 }
 
 function promptTargetsLocalWorkspace(prompt = "") {
