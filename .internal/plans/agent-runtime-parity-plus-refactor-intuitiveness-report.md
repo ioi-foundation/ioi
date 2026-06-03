@@ -223,8 +223,11 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/validation.mjs`.
 - Moved continuation route/endpoint/model safety checks and workflow Receipt Gate validation out of `model-mounting.mjs` behind compatibility-preserving `ModelMountingState` wrappers.
 - Added focused validation tests for continuation modes, unsafe route mismatch blocking, Receipt Gate pass receipts, and Receipt Gate mismatch/tool-link failures.
+- Added `packages/runtime-daemon/src/model-mounting/routes.mjs`.
+- Moved route record normalization, explicit model endpoint ordering/mount fallback, route policy selection, and model route-selection receipt shaping out of `model-mounting.mjs` behind compatibility-preserving `ModelMountingState` wrappers.
+- Added focused route helper tests for route aliases, fallback endpoint ordering, explicit-model auto-mount, policy rejection reasons, route blocker details, and route-decision receipt metadata.
 
-Status: `model-mounting.mjs` still owns seeding orchestration, state-machine behavior, routes, and some product projection glue. Safe next extractions are routes and state-machine slices.
+Status: `model-mounting.mjs` still owns seeding orchestration, state-machine behavior, route persistence wrappers, and some product projection glue. Safe next extractions are state-machine slices and remaining route HTTP glue.
 
 ### Rust Runtime Hot Spot
 

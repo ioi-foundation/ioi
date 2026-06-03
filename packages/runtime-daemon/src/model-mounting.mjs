@@ -250,6 +250,12 @@ import {
   validateContinuationSafety as validateContinuationSafetyRule,
   validateReceiptGate as validateReceiptGateRule,
 } from "./model-mounting/validation.mjs";
+import {
+  endpointIdsForExplicitModel as endpointIdsForExplicitModelRule,
+  routeSelectionReceipt as routeSelectionReceiptRule,
+  selectRoute as selectRouteRule,
+  upsertRouteRecord,
+} from "./model-mounting/routes.mjs";
 
 const MODEL_MOUNT_SCHEMA_VERSION = "ioi.model-mounting.runtime.v1", SECRET_REDACTION = "[REDACTED]";
 
@@ -2607,65 +2613,23 @@ export class ModelMountingState {
   }
 
   upsertRoute(body = {}) {
-    const id = body.id ?? `route.${safeId(body.role ?? "custom")}`;
-    const route = {
-      id,
-      role: body.role ?? "custom",
-      description: body.description ?? "Operator-defined model route.",
-      privacy: body.privacy ?? "local_or_enterprise",
-      quality: body.quality ?? "adaptive",
-      maxCostUsd: Number(body.max_cost_usd ?? body.maxCostUsd ?? 0.25),
-      maxLatencyMs: Number(body.max_latency_ms ?? body.maxLatencyMs ?? 30000),
-      providerEligibility: normalizeScopes(body.provider_eligibility ?? body.providerEligibility, []),
-      fallback: normalizeScopes(body.fallback, []),
-      deniedProviders: normalizeScopes(body.denied_providers ?? body.deniedProviders, []),
-      status: body.status ?? "active",
-      lastSelectedModel: body.last_selected_model ?? body.lastSelectedModel ?? null,
-      lastReceiptId: body.last_receipt_id ?? body.lastReceiptId ?? null,
-    };
+    const route = upsertRouteRecord(body, { normalizeScopes, safeId });
     this.routes.set(route.id, route);
     this.writeMap("model-routes", this.routes);
     return route;
   }
 
   routeSelectionReceipt(selection, { body = {}, capability = "chat", responseId = null, previousResponseId = null, evidenceRefs = [] } = {}) {
-    const policy = body.model_policy ?? body.modelPolicy ?? {};
-    const requestedModel = body.model ?? body.model_id ?? body.modelId ?? null;
-    const workflow = routeDecision.workflowContextFromRouteRequest(body);
-    const policyHash = stableHash(policy);
-    const modelRouteDecision = routeDecision.createModelRouteDecision({
-      route: selection.route,
-      endpoint: selection.endpoint,
-      provider: selection.provider,
+    return routeSelectionReceiptRule({
+      body,
       capability,
-      policy,
-      requestedModel,
-      request: body,
-      policyHash,
-      workflow,
-      responseId,
+      evidenceRefs,
       previousResponseId,
-      evaluatedCandidates: selection.evaluatedCandidates ?? [],
-    });
-    return this.receipt("model_route_selection", {
-      summary: `Route ${selection.route.id} selected ${selection.endpoint.modelId}.`,
-      redaction: "none",
-      evidenceRefs: ["model_router", selection.route.id, selection.endpoint.id, ...evidenceRefs],
-      details: {
-        routeId: selection.route.id,
-        selectedModel: selection.endpoint.modelId,
-        endpointId: selection.endpoint.id,
-        providerId: selection.endpoint.providerId,
-        capability,
-        policyHash,
-        responseId,
-        previousResponseId,
-        modelRouteDecisionSchemaVersion: routeDecision.MODEL_ROUTE_DECISION_SCHEMA_VERSION,
-        modelRouteDecisionEventKind: routeDecision.MODEL_ROUTE_DECISION_EVENT_KIND,
-        modelRouteDecisionId: modelRouteDecision.decisionId,
-        modelRouteDecision,
-        ...workflow,
-      },
+      receipt: (kind, payload) => this.receipt(kind, payload),
+      responseId,
+      routeDecision,
+      selection,
+      stableHash,
     });
   }
 
@@ -3601,89 +3565,30 @@ export class ModelMountingState {
   }
 
   endpointIdsForExplicitModel(route, modelId) {
-    const matchingEndpoints = [...this.endpoints.values()].filter(
-      (candidate) => candidate.status !== "unmounted" && candidate.modelId === modelId,
-    );
-    const routeFallbackMatches = normalizeScopes(route.fallback, []).filter((endpointId) =>
-      matchingEndpoints.some((endpoint) => endpoint.id === endpointId),
-    );
-    const ordered = [...routeFallbackMatches];
-    for (const endpoint of matchingEndpoints) {
-      if (!ordered.includes(endpoint.id)) ordered.push(endpoint.id);
-    }
-    if (ordered.length > 0) return ordered;
-    return [this.mountEndpoint({ model_id: modelId }).id];
+    return endpointIdsForExplicitModelRule({
+      endpoints: this.endpoints,
+      modelId,
+      mountEndpoint: (body) => this.mountEndpoint(body),
+      normalizeScopes,
+      route,
+    });
   }
 
   selectRoute({ modelId, routeId, capability, policy }) {
-    const route = this.routes.get(routeId ?? "route.local-first") ?? this.route("route.local-first");
-    const explicitModelId = routeDecision.isAutoModelSelector(modelId) ? null : modelId;
-    const fallback = explicitModelId
-      ? this.endpointIdsForExplicitModel(route, explicitModelId)
-      : route.fallback.length > 0
-        ? route.fallback
-        : [];
-    const evaluatedCandidates = [];
-    for (const endpointId of fallback) {
-      const endpoint = this.endpoint(endpointId);
-      const provider = this.provider(endpoint.providerId);
-      const candidate = {
-        endpointId,
-        providerId: provider.id,
-        providerKind: provider.kind,
-        modelId: endpoint.modelId,
-        status: "rejected",
-        reason: null,
-      };
-      if (route.deniedProviders.includes(provider.kind)) {
-        candidate.reason = "provider_denied_by_route";
-        evaluatedCandidates.push(candidate);
-        continue;
-      }
-      if (route.providerEligibility.length > 0 && !route.providerEligibility.includes(provider.kind)) {
-        candidate.reason = "provider_not_eligible_for_route";
-        evaluatedCandidates.push(candidate);
-        continue;
-      }
-      if (truthy(policy?.deny_fixture_models ?? policy?.denyFixtureModels) && isFixtureEndpointCandidate(endpoint, provider)) {
-        candidate.reason = "fixture_model_denied_by_product_policy";
-        evaluatedCandidates.push(candidate);
-        continue;
-      }
-      if (policy?.privacy === "local_only" && provider.privacyClass !== "local_private") {
-        candidate.reason = "policy_requires_local_only";
-        evaluatedCandidates.push(candidate);
-        continue;
-      }
-      if (
-        provider.privacyClass === "hosted" &&
-        route.privacy === "local_or_enterprise" &&
-        !truthy(policy?.allow_hosted_fallback ?? policy?.allowHostedFallback)
-      ) {
-        candidate.reason = "hosted_fallback_not_allowed";
-        evaluatedCandidates.push(candidate);
-        continue;
-      }
-      const costCeiling = Number(policy?.max_cost_usd ?? policy?.maxCostUsd ?? route.maxCostUsd ?? Infinity);
-      const estimatedCost = Number(endpoint.estimatedCostUsd ?? provider.estimatedCostUsd ?? (provider.privacyClass === "hosted" ? 0.01 : 0));
-      if (Number.isFinite(costCeiling) && estimatedCost > costCeiling) {
-        candidate.reason = "estimated_cost_exceeds_policy";
-        evaluatedCandidates.push(candidate);
-        continue;
-      }
-      if (!endpoint.capabilities.includes(capability) && capability !== "chat") {
-        candidate.reason = "capability_unavailable";
-        evaluatedCandidates.push(candidate);
-        continue;
-      }
-      evaluatedCandidates.push({ ...candidate, status: "selected", reason: "policy_allowed" });
-      return { route, endpoint, provider, evaluatedCandidates };
-    }
-    throw runtimeError({
-      status: 424,
-      code: "external_blocker",
-      message: "No model endpoint satisfied the route policy.",
-      details: { routeId: route.id, capability, policy, evaluatedCandidates },
+    return selectRouteRule({
+      capability,
+      endpoint: (endpointId) => this.endpoint(endpointId),
+      endpointIdsForExplicitModel: (route, explicitModelId) => this.endpointIdsForExplicitModel(route, explicitModelId),
+      isAutoModelSelector: routeDecision.isAutoModelSelector,
+      isFixtureEndpointCandidate,
+      modelId,
+      policy,
+      provider: (providerId) => this.provider(providerId),
+      route: (id) => this.route(id),
+      routeId,
+      routes: this.routes,
+      runtimeError,
+      truthy,
     });
   }
 
