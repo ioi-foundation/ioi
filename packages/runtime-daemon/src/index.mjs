@@ -151,6 +151,10 @@ import {
   runtimeEventStreamPath as runtimeEventStreamPathState,
 } from "./threads/thread-replay.mjs";
 import {
+  writeAgentRecord,
+  writeRunRecord,
+} from "./threads/thread-persistence.mjs";
+import {
   agentForThread as agentForThreadState,
   deleteAgent as deleteAgentState,
   getAgent as getAgentState,
@@ -11325,71 +11329,18 @@ export class AgentgresRuntimeStateStore {
   }
 
   writeAgent(agent, operationKind) {
-    writeJson(this.pathFor("agents", `${agent.id}.json`), agent);
-    this.appendOperation(operationKind, { objectId: agent.id, agent });
+    return writeAgentRecord(this, agent, operationKind, {
+      writeJson,
+    });
   }
 
   writeRun(run, operationKind) {
-    const runtimeTask = runtimeTaskRecordForRun(run);
-    const runtimeJob = runtimeJobRecordForRun(run);
-    const runtimeChecklist = runtimeChecklistRecordForRun(run);
-    writeJson(this.pathFor("runs", `${run.id}.json`), run);
-    writeJson(this.pathFor("tasks", `${run.id}.json`), {
-      runId: run.id,
-      agentId: run.agentId,
-      runtimeTask,
-      runtimeChecklist,
-      taskState: run.trace.taskState,
-      postconditions: run.trace.postconditions,
-      semanticImpact: run.trace.semanticImpact,
-      projectionWatermark: this.operationCount() + 1,
-    });
-    writeJson(this.pathFor("jobs", `${runtimeJob.jobId}.json`), runtimeJob);
-    writeJson(this.pathFor("checklists", `${runtimeChecklist.checklistId}.json`), runtimeChecklist);
-    for (const receipt of run.receipts) {
-      writeJson(this.pathFor("receipts", `${receipt.id}.json`), { runId: run.id, ...receipt });
-    }
-    for (const artifact of run.artifacts) {
-      writeJson(this.pathFor("artifacts", `${artifact.id}.json`), artifact);
-    }
-    writeJson(this.pathFor("policy-decisions", `${run.id}.json`), {
-      runId: run.id,
-      decision: "allowed",
-      rationale: "Local daemon run stayed inside bounded local/private runtime contract.",
-      primitiveCapabilities: ["prim:model.invoke"],
-      authorityScopes: [],
-      receiptId: run.receipts.find((receipt) => receipt.kind === "policy_decision")?.id,
-    });
-    writeJson(this.pathFor("authority-decisions", `${run.id}.json`), {
-      runId: run.id,
-      decision: "allowed",
-      authorityScopes: [],
-      walletLayer: "wallet.network",
-      receiptId: run.receipts.find((receipt) => receipt.kind === "authority_decision")?.id,
-    });
-    writeJson(this.pathFor("stop-conditions", `${run.id}.json`), run.trace.stopCondition);
-    writeJson(this.pathFor("scorecards", `${run.id}.json`), run.trace.scorecard);
-    writeJson(this.pathFor("ledgers", `${run.id}.json`), run.trace.qualityLedger);
-    writeJson(this.pathFor("quality", `${run.id}.json`), {
-      runId: run.id,
-      scorecard: run.trace.scorecard,
-      qualityLedger: run.trace.qualityLedger,
-      stopCondition: run.trace.stopCondition,
-      verifierIndependencePolicy: {
-        sameModelAllowed: false,
-        evidenceOnlyMode: true,
-        humanReviewThreshold: "high_risk",
-      },
-    });
-    writeJson(this.pathFor("projections", `${run.id}.json`), this.canonicalProjection(run.id));
-    this.appendOperation(operationKind, {
-      objectId: run.id,
-      runId: run.id,
-      agentId: run.agentId,
-      status: run.status,
-      eventCount: run.events.length,
-      terminalEventCount: terminalCount(run.events),
-      traceBundleId: run.trace.traceBundleId,
+    return writeRunRecord(this, run, operationKind, {
+      runtimeChecklistRecordForRun,
+      runtimeJobRecordForRun,
+      runtimeTaskRecordForRun,
+      terminalEventTypes: TERMINAL_EVENT_TYPES,
+      writeJson,
     });
   }
 

@@ -62,6 +62,8 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/threads/thread-store.mjs`.
 - Moved agent list/get/update/delete, thread-to-agent lookup, in-flight runtime turn registration, and thread-turn resolution helpers out of `index.mjs` behind existing store compatibility methods.
 - Extended `thread-store.mjs` to own run list/get and run/thread usage projection helpers while preserving existing `AgentgresRuntimeStateStore` method names.
+- Added `packages/runtime-daemon/src/threads/thread-persistence.mjs`.
+- Moved agent/run record persistence, run projection writes, and persisted run operation terminal-event summarization out of `index.mjs` behind existing `writeAgent` and `writeRun` compatibility methods.
 
 Status: `index.mjs` still owns the large state store and public route composition. Safe next extractions are daemon service lifecycle, thread store/control/replay persistence, and route registration glue.
 
