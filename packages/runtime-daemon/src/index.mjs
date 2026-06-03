@@ -110,6 +110,10 @@ import { createRuntimeRouteHandlers } from "./runtime-route-handlers.mjs";
 import { createRuntimeRecordProjections } from "./runtime-record-projections.mjs";
 import { startRuntimeDaemonServiceWithStore } from "./service/runtime-daemon-service.mjs";
 import {
+  assertRuntimeBridgeAvailable as assertRuntimeBridgeAvailableState,
+  runtimeBridgeUnavailable as runtimeBridgeUnavailableState,
+} from "./bridges/runtime-agent-bridge.mjs";
+import {
   branchPolicyForRepositoryContext,
   emptyToNull,
   githubContextForRepository,
@@ -3000,21 +3004,14 @@ export class AgentgresRuntimeStateStore {
   }
 
   assertRuntimeBridgeAvailable({ runtimeProfile, operation }) {
-    if (operation === "start_thread" && this.runtimeBridge.canStartThread) return;
-    if (operation === "submit_turn" && this.runtimeBridge.canSubmitTurn) return;
-    if (operation === "inspect_thread" && this.runtimeBridge.canInspectThread) return;
-    if (operation === "control_thread" && this.runtimeBridge.canControlThread) return;
-    throw this.runtimeBridgeUnavailable({ runtimeProfile, operation });
+    return assertRuntimeBridgeAvailableState(this.runtimeBridge, { runtimeProfile, operation }, {
+      externalBlocker,
+    });
   }
 
   runtimeBridgeUnavailable({ runtimeProfile, operation, details = {} }) {
-    return externalBlocker("RuntimeAgentService bridge is required for runtime_service profile.", {
-      runtimeProfile,
-      operation,
-      requiredBridge: "RuntimeApiBridge",
-      fixtureProfile: "fixture",
-      syntheticFallbackAllowed: false,
-      ...details,
+    return runtimeBridgeUnavailableState({ runtimeProfile, operation, details }, {
+      externalBlocker,
     });
   }
 
