@@ -125,6 +125,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/runtime-approval-lease.mjs`.
 - Moved approval lease metadata construction/recovery, approval lease expiry state derivation, approval decision normalization, and approval decision reason mapping out of `index.mjs`.
 - Added focused approval lease tests for TTL expiry calculation, policy hash/default lease ids, nested/top-level payload aliases, decision lease precedence, expired lease detection, approve/reject aliases, and invalid decision errors.
+- Added `packages/runtime-daemon/src/diagnostics-repair-execution.mjs`.
+- Moved diagnostics repair execution result projection, operator override approval shaping, restore-apply approval/conflict/status/policy-ref helpers, and restore-apply summary text out of `index.mjs` behind dependency-injected helper exports.
+- Added focused diagnostics repair execution tests for approval/conflict policy refs and public snake/camel retry and operator-override envelopes.
 - Added `packages/runtime-daemon/src/runtime-identifiers.mjs`.
 - Moved runtime thread/agent/run/turn/session id derivation, runtime-backed agent detection, fixture profile defaults, and lifecycle/thread status normalization out of `index.mjs`.
 - Added focused runtime identifier tests for prefix compatibility, event stream ids, runtime session fallback, fixture profile override/null preservation, runtime profile detection, and lifecycle status aliases.
@@ -227,6 +230,7 @@ Status: `model-mounting.mjs` still owns default seeding, state-machine behavior,
 ## Naming And Vocabulary Decisions
 
 - Kept public/product names stable: Agent Studio command ids, `ioi.*` command ids, data-testids, daemon routes, and request/response envelopes were not renamed.
+- Treat the Stage 8 manual-auth handoff fixture as managed-session/operator-control and reconnect coverage only. It is intentionally not a real login, credential, CAPTCHA, payment, or approval-policy proof; future auth durability should use a separate local HTTP auth fixture with cookie/session behavior.
 - Introduced private/module-level names that describe ownership boundaries:
   - `public-text-sanitizer`
   - `studio/projection-managed-sessions`
