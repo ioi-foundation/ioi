@@ -52,6 +52,12 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-managed-sessions.js",
   artifactRouting:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/artifact-research-routing.js",
+  artifactIntent:
+    "apps/autopilot/openvscode-extension/ioi-workbench/studio/artifact-intent.js",
+  artifactPreview:
+    "apps/autopilot/openvscode-extension/ioi-workbench/studio/artifact-preview.js",
+  managedSessionView:
+    "apps/autopilot/openvscode-extension/ioi-workbench/studio/managed-session-view.js",
   studioTestHooks:
     "apps/autopilot/openvscode-extension/ioi-workbench/commands/studio-test-hooks.js",
   packageJson: "apps/autopilot/openvscode-extension/ioi-workbench/package.json",
@@ -91,6 +97,9 @@ async function readStudioComposite() {
       paths.projectionReplay,
       paths.managedSessions,
       paths.artifactRouting,
+      paths.artifactIntent,
+      paths.artifactPreview,
+      paths.managedSessionView,
       paths.studioTestHooks,
     ].map(read),
   );

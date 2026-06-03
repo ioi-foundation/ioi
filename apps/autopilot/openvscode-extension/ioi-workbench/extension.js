@@ -704,7 +704,25 @@ function firstArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
-const studioArtifactIntent = createStudioArtifactIntent({
+const {
+  shouldProjectStudioRuntimeCockpit,
+  studioPromptRequestsGeneratedWebArtifact,
+  studioPromptRequestsBrowserObservationArtifact,
+  shouldProjectConversationArtifactCanvas,
+  studioIntentFrameRouteDirective,
+  studioIntentFrameProjectsArtifact,
+  studioIntentFrameProjectsRuntimeCockpit,
+  studioIntentFrameRequiresRetrieval,
+  studioIntentFrameArtifactClass,
+  studioIntentFrameArtifactTitle,
+  studioIntentFrameArtifactSummary,
+  fallbackStudioPromptIntentFrame,
+  studioIntentFramePayload,
+  studioArtifactClassFromPrompt,
+  studioTopicFromGeneratedWebPrompt,
+  studioTitleCaseArtifactTopic,
+  studioArtifactTitleFromClass,
+} = createStudioArtifactIntent({
   stringValue,
   firstArray,
   promptRequiresRetrieval,
@@ -716,7 +734,16 @@ const studioArtifactIntent = createStudioArtifactIntent({
   modeAsk: STUDIO_MODE_ASK,
 });
 
-const studioArtifactPreview = createStudioArtifactPreview({
+const {
+  studioArtifactClassLabel,
+  studioArtifactOutputModality,
+  studioArtifactIsWebsite,
+  studioArtifactPreviewLabel,
+  studioArtifactPreviewSrcdoc,
+  studioArtifactInlinePreview,
+  studioArtifactPreviewShell,
+  studioConversationArtifactRows,
+} = createStudioArtifactPreview({
   escapeHtml,
   stringValue,
   firstArray,
@@ -724,7 +751,10 @@ const studioArtifactPreview = createStudioArtifactPreview({
   getPageNonce: () => studioPanelPageNonce || "",
 });
 
-const studioManagedSessionView = createStudioManagedSessionView({
+const {
+  studioWorkRecordWithSessionCards,
+  studioManagedSessionRows,
+} = createStudioManagedSessionView({
   escapeHtml,
   firstArray,
 });
@@ -1205,46 +1235,6 @@ async function refreshStudioWorkspaceChangeReviewsFromDaemon(output) {
     );
     return [];
   }
-}
-
-function studioWorkRecordWithSessionCards(workRecord, sessionCards = []) {
-  return studioManagedSessionView.studioWorkRecordWithSessionCards(workRecord, sessionCards);
-}
-
-function studioManagedSessionRows(cards = []) {
-  return studioManagedSessionView.studioManagedSessionRows(cards);
-}
-
-function studioArtifactClassLabel(artifact = {}) {
-  return studioArtifactPreview.studioArtifactClassLabel(artifact);
-}
-
-function studioArtifactOutputModality(artifact = {}) {
-  return studioArtifactPreview.studioArtifactOutputModality(artifact);
-}
-
-function studioArtifactIsWebsite(artifact = {}) {
-  return studioArtifactPreview.studioArtifactIsWebsite(artifact);
-}
-
-function studioArtifactPreviewLabel(artifact = {}) {
-  return studioArtifactPreview.studioArtifactPreviewLabel(artifact);
-}
-
-function studioArtifactPreviewSrcdoc(text, pageNonce = "") {
-  return studioArtifactPreview.studioArtifactPreviewSrcdoc(text, pageNonce);
-}
-
-function studioArtifactInlinePreview(artifact = {}) {
-  return studioArtifactPreview.studioArtifactInlinePreview(artifact);
-}
-
-function studioArtifactPreviewShell(artifact = {}, { expanded = false } = {}) {
-  return studioArtifactPreview.studioArtifactPreviewShell(artifact, { expanded });
-}
-
-function studioConversationArtifactRows(cards = []) {
-  return studioArtifactPreview.studioConversationArtifactRows(cards);
 }
 
 function studioTraceItems() {
@@ -8729,58 +8719,6 @@ async function projectStudioRuntimeCockpit(prompt, streamResult, output) {
   );
 }
 
-function shouldProjectStudioRuntimeCockpit(prompt) {
-  return studioArtifactIntent.shouldProjectStudioRuntimeCockpit(prompt);
-}
-
-function studioPromptRequestsGeneratedWebArtifact(prompt = "") {
-  return studioArtifactIntent.studioPromptRequestsGeneratedWebArtifact(prompt);
-}
-
-function studioPromptRequestsBrowserObservationArtifact(prompt = "") {
-  return studioArtifactIntent.studioPromptRequestsBrowserObservationArtifact(prompt);
-}
-
-function shouldProjectConversationArtifactCanvas(prompt) {
-  return studioArtifactIntent.shouldProjectConversationArtifactCanvas(prompt);
-}
-
-function studioIntentFrameRouteDirective(intentFrame = {}) {
-  return studioArtifactIntent.studioIntentFrameRouteDirective(intentFrame);
-}
-
-function studioIntentFrameProjectsArtifact(intentFrame = {}) {
-  return studioArtifactIntent.studioIntentFrameProjectsArtifact(intentFrame);
-}
-
-function studioIntentFrameProjectsRuntimeCockpit(intentFrame = {}) {
-  return studioArtifactIntent.studioIntentFrameProjectsRuntimeCockpit(intentFrame);
-}
-
-function studioIntentFrameRequiresRetrieval(intentFrame = {}, prompt = "") {
-  return studioArtifactIntent.studioIntentFrameRequiresRetrieval(intentFrame, prompt);
-}
-
-function studioIntentFrameArtifactClass(intentFrame = {}, prompt = "") {
-  return studioArtifactIntent.studioIntentFrameArtifactClass(intentFrame, prompt);
-}
-
-function studioIntentFrameArtifactTitle(intentFrame = {}, artifactClass, prompt = "") {
-  return studioArtifactIntent.studioIntentFrameArtifactTitle(intentFrame, artifactClass, prompt);
-}
-
-function studioIntentFrameArtifactSummary(intentFrame = {}, prompt = "") {
-  return studioArtifactIntent.studioIntentFrameArtifactSummary(intentFrame, prompt);
-}
-
-function fallbackStudioPromptIntentFrame(prompt = "", options = {}) {
-  return studioArtifactIntent.fallbackStudioPromptIntentFrame(prompt, options);
-}
-
-function studioIntentFramePayload(intentFrame = {}) {
-  return studioArtifactIntent.studioIntentFramePayload(intentFrame);
-}
-
 async function resolveStudioPromptIntentFrame(prompt = "", options = {}, output) {
   const endpoint = daemonEndpoint();
   if (!endpoint) {
@@ -8808,22 +8746,6 @@ async function resolveStudioPromptIntentFrame(prompt = "", options = {}, output)
     output?.appendLine?.(`[ioi-studio] intent frame route unavailable; using local fallback: ${error?.message || String(error)}`);
   }
   return fallbackStudioPromptIntentFrame(prompt, options);
-}
-
-function studioArtifactClassFromPrompt(prompt = "") {
-  return studioArtifactIntent.studioArtifactClassFromPrompt(prompt);
-}
-
-function studioTopicFromGeneratedWebPrompt(prompt = "") {
-  return studioArtifactIntent.studioTopicFromGeneratedWebPrompt(prompt);
-}
-
-function studioTitleCaseArtifactTopic(value = "") {
-  return studioArtifactIntent.studioTitleCaseArtifactTopic(value);
-}
-
-function studioArtifactTitleFromClass(classId, prompt = "") {
-  return studioArtifactIntent.studioArtifactTitleFromClass(classId, prompt);
 }
 
 async function recoverStudioConversationArtifactAfterTimeout(threadId, { title, artifactClass, startedAtMs } = {}, output) {

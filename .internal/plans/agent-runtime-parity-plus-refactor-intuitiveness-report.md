@@ -36,11 +36,14 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Replaced the remaining Studio source-reference pass-through wrappers and stale local compatibility-key constant in `extension.js` with direct named imports from `studio/source-refs.js`.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/artifact-intent.js`.
 - Moved Studio artifact/canvas prompt classification, local intent-frame fallback routing, artifact class/title/summary derivation, and intent-frame payload projection out of `extension.js` behind compatibility wrappers.
+- Replaced the remaining Studio artifact-intent pass-through wrappers in `extension.js` with direct destructured helpers from the artifact-intent factory.
 - Added focused artifact-intent tests for generated website artifacts, browser observation captures, Ask-mode routing, runtime-cockpit routing, injected retrieval/workspace predicates, and snake/camel payload normalization.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/artifact-preview.js`.
 - Moved Studio conversation artifact class labels, output modality detection, preview label/srcdoc shaping, inline preview rendering, and artifact row HTML out of `extension.js` behind compatibility wrappers.
+- Replaced the remaining Studio artifact-preview pass-through wrappers in `extension.js` with direct destructured helpers from the artifact-preview factory.
 - Added focused artifact-preview tests for website/generic labels, media-type preview labels, CSP nonce injection, source preview escaping, and stable artifact row data-testids.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/managed-session-view.js`.
+- Replaced the remaining Studio managed-session-view pass-through wrappers in `extension.js` with direct destructured helpers from the managed-session-view factory.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/pending-work.js`.
 - Moved Studio pending-work filtering, concrete tool row normalization, command-output excerpt projection, pending worklog upsert/de-dupe behavior, runtime-event pending-step projection, runtime-event seen-id tracking, and tool-label mapping out of `extension.js`.
 - Added focused pending-work tests for abstract row filtering, command-output redaction/preservation, row update behavior, runtime-event projection, source chips, and seen-id de-duping.
