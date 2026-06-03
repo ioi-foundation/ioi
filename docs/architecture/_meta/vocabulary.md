@@ -11,14 +11,13 @@ compliance acronyms for hidden audit material.
 
 ## Runtime Terms
 
-- `IOIDaemon`: the hypervisor/control plane for autonomous execution. It exposes
-  the public runtime API, hosts daemon-local execution services, schedules and
-  supervises workflows/workers/tools/models/connectors/computer-use leases,
-  writes through Agentgres-compatible envelopes, emits receipts/replay records,
-  and requests wallet.network authority.
-- `HypervisorDaemon`: product/canon name for the daemon execution boundary. It
-  owns effect semantics for autonomous work; IOI remains the protocol,
-  settlement, routing, and public-trust layer around that runtime.
+- `HypervisorDaemon`: the hypervisor/control plane for autonomous execution. It
+  exposes the public runtime API, hosts daemon-local execution services,
+  schedules and supervises workflows/workers/tools/models/connectors/computer-use
+  leases, writes through Agentgres-compatible envelopes, emits receipts/replay
+  records, requests wallet.network authority, and owns effect semantics for
+  autonomous work. IOI remains the protocol, settlement, routing, and
+  public-trust layer around that runtime.
 - `HypervisorOS`: the bare-metal Hypervisor node profile where the Hypervisor
   Daemon is the node root. It owns measured node boot posture, daemon-rooted
   workload launch, node integrity receipts, denied-by-default egress, and
