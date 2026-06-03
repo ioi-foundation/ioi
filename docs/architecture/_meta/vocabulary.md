@@ -16,6 +16,29 @@ compliance acronyms for hidden audit material.
   supervises workflows/workers/tools/models/connectors/computer-use leases,
   writes through Agentgres-compatible envelopes, emits receipts/replay records,
   and requests wallet.network authority.
+- `HypervisorDaemon`: product/canon name for the daemon execution boundary. It
+  owns effect semantics for autonomous work; IOI remains the protocol,
+  settlement, routing, and public-trust layer around that runtime.
+- `HypervisorOS`: the bare-metal Hypervisor node profile where the Hypervisor
+  Daemon is the node root. It owns measured node boot posture, daemon-rooted
+  workload launch, node integrity receipts, denied-by-default egress, and
+  bare-metal conformance. It improves integrity/control/measurement; it does
+  not make consumer GPUs confidential compute and does not replace cTEE
+  no-plaintext-custody.
+- `HypervisorOSNode`: a runtime node running the HypervisorOS bare-metal
+  profile. It may expose microVM, container, WASM, model-server, and tool-runner
+  substrates, but all autonomous workloads remain subordinate to Hypervisor
+  Daemon policy, receipts, and capability exits.
+- `HypervisorOSBootProfile`: a measured boot profile binding image, kernel,
+  initrd, daemon binary, package manifest, driver manifest, GPU class, secure
+  boot/TPM posture, and update/rollback policy for a HypervisorOS node.
+- `HypervisorOSBootReceipt`: the integrity receipt emitted for HypervisorOS boot
+  state. It can support accounting, reproducibility, disputes, and provider
+  reputation, but it is not by itself a plaintext privacy guarantee.
+- `NodeMeasurementReceipt`: a receipt for measured node state, runtime
+  compatibility, or attestation posture. It proves what was supposed to run; it
+  does not prove protected plaintext was safe unless paired with cTEE, TEE, or
+  another approved confidential profile.
 - `DefaultHarnessProfile`: the standard daemon-executed, wallet-authorized,
   Agentgres-backed, loop-native orchestration profile for bounded autonomous
   work. It is not a peer runtime beside the daemon; it configures how daemon
@@ -128,8 +151,8 @@ compliance acronyms for hidden audit material.
   provider-bound watermarks, leak scans, replay detection, and receipts to make
   theft or leakage more attributable. It is not a privacy primitive and does
   not justify mounting protected plaintext on a node.
-- `PrivateWorkspaceNode`: a rented or hosted runtime node that runs an IOI
-  daemon and Hypervisor Node shell persistently while protected workspace state
+- `PrivateWorkspaceNode`: a rented or hosted runtime node that runs a
+  Hypervisor Daemon and Hypervisor Node shell persistently while protected workspace state
   is stored and processed only through private workspace representations unless
   explicitly declassified. `PersistentShieldedHypervisorNode` is a deprecated
   compatibility alias.

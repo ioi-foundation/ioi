@@ -42,6 +42,9 @@ WorkerInstanceEnvelope
 RuntimeSubscriptionEnvelope
 RuntimeAssignmentEnvelope
 ComputeSessionEnvelope
+HypervisorOSNodeEnvelope
+HypervisorOSBootProfileEnvelope
+NodeMeasurementReceiptEnvelope
 PrivateWorkspaceNodeEnvelope
 PrivateWorkspaceCapsuleEnvelope
 PlaintextFreeModelMountEnvelope
@@ -108,6 +111,8 @@ run://...               runtime run identity
 task://...              task identity
 runtime://...           Hypervisor Daemon runtime-node identity
 compute://...           compute session identity
+boot_profile://...      HypervisorOS boot profile identity
+measurement_policy://... HypervisorOS node measurement policy identity
 artifact://...          Agentgres artifact ref
 receipt://...           receipt identity
 benchmark://...         benchmark profile or benchmark run identity
@@ -424,6 +429,34 @@ HypervisorNodeEnvelope:
   replay_store_ref: agentgres://...
   l1_anchor_policy_ref: optional
   status: local | hosted | hybrid | enterprise | archived
+```
+
+```yaml
+HypervisorOSNodeEnvelope:
+  node_id: runtime://...
+  profile: hypervisoros_bare_metal
+  owner_ref: wallet://... | provider://...
+  daemon_ref: runtime://...
+  boot_profile_ref: boot_profile://...
+  measurement_policy_ref: measurement_policy://...
+  ctee_policy_ref: policy://...
+  agentgres_domain_ref: agentgres://domain/...
+  supported_worker_substrates:
+    - microvm
+    - container
+    - wasm
+    - model_server
+  forbidden_bypasses:
+    - direct_plaintext_private_mount
+    - unreceipted_tool_execution
+    - raw_secret_env_injection
+    - daemonless_model_server
+    - unscoped_network_egress
+  receipts_required:
+    - HypervisorOSBootReceipt
+    - NodeMeasurementReceipt
+    - ModelMountReceipt
+    - CapabilityExitReceipt
 ```
 
 ## AIIP and Bounded Execution Domain Envelopes

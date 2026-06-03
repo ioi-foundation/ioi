@@ -10,8 +10,9 @@ Last alignment pass: 2026-06-01.
 
 **Runtime nodes are execution venues that run Hypervisor Daemon profiles.**
 
-They may be local, hosted, provider-operated, DePIN, shielded, TEE-verified,
-or customer-controlled. They are not Web4 applications by default.
+They may be local, hosted, provider-operated, DePIN, HypervisorOS bare-metal,
+shielded, TEE-verified, or customer-controlled. They are not Web4 applications
+by default.
 
 A runtime node may contain a lower-level runtime service bridge or worker SDK
 helpers, but the node's architectural boot target is the Hypervisor Daemon runtime-node
@@ -53,11 +54,14 @@ profile boundary as worker execution.
 2. **Hosted IOI Runtime** — first-party managed runtime.
 3. **Provider Runtime** — worker/service seller runtime.
 4. **DePIN Runtime** — Akash-like decentralized compute node.
-5. **Private Workspace cTEE Runtime** — rented or hosted node profile where
+5. **HypervisorOS Bare-Metal Runtime** — measured node image where the
+   Hypervisor Daemon is the node root and autonomous workloads cannot bypass
+   daemon policy.
+6. **Private Workspace cTEE Runtime** — rented or hosted node profile where
    users open a private workspace while protected plaintext is forbidden from
    provider-rooted memory by default.
-6. **TEE Runtime** — attested confidential compute node.
-7. **Customer VPC Runtime** — enterprise-owned environment.
+7. **TEE Runtime** — attested confidential compute node.
+8. **Customer VPC Runtime** — enterprise-owned environment.
 
 ## Placement Privacy Profiles
 
@@ -238,18 +242,25 @@ runtime node produces attestation
 5. Runtime nodes emit receipts and artifact hashes.
 6. Marketplace payouts depend on delivery/settlement, not node claims alone.
 7. TEE attestation is a policy requirement for enterprise secure placement.
-8. Runtime nodes run daemon-compatible profiles; SDK presence inside a worker or
+8. HypervisorOS nodes treat the Hypervisor Daemon as the node root; measured
+   boot is an integrity receipt, not a consumer-GPU plaintext privacy guarantee.
+9. Runtime nodes run daemon-compatible profiles; SDK presence inside a worker or
    client does not make the SDK the runtime substrate.
 
 ## One-Line Doctrine
 
-> **Mutual Blind minimizes what the node can know or do. Private Workspace cTEE keeps protected plaintext off rented nodes by default. Enterprise Secure verifies where plaintext is allowed to exist.**
+> **Mutual Blind minimizes what the node can know or do. HypervisorOS roots
+> serious nodes under daemon policy and measurement. Private Workspace cTEE keeps
+> protected plaintext off rented nodes by default. Enterprise Secure verifies
+> where plaintext is allowed to exist.**
 
 ## Related Canon
 
 - [`private-workspace-ctee.md`](./private-workspace-ctee.md): Private Workspace
   backed by cTEE, persistent rented GPU Hypervisor Nodes, private strategy
   execution, autonomy leases, and declassification gates.
+- [`hypervisoros.md`](./hypervisoros.md): bare-metal Hypervisor node profile,
+  measured boot, daemon-rooted workload launch, and node integrity receipts.
 - [`default-harness-profile.md`](./default-harness-profile.md): daemon-executed
   orchestration profile.
 - [`../wallet-network/doctrine.md`](../wallet-network/doctrine.md):

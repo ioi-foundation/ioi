@@ -55,11 +55,11 @@ GET /v1/runtime/nodes
 ```json
 {
   "runtime_id": "runtime://node_abc",
-  "runtime_type": "local_hypervisor | hosted_ioi | provider | depin | tee | customer_vpc",
+  "runtime_type": "local_hypervisor | hosted_ioi | provider | depin | hypervisoros | tee | customer_vpc",
   "daemon_version": "0.8.0",
   "default_harness_profile": "2026.05.default-harness-profile.v1",
   "agentgres_version": "0.2.0",
-  "supported_execution_profiles": ["local", "hosted", "provider", "depin_mutual_blind", "tee_enterprise", "customer_vpc"],
+  "supported_execution_profiles": ["local", "hosted", "provider", "depin_mutual_blind", "hypervisoros_bare_metal", "tee_enterprise", "customer_vpc"],
   "supported_interfaces": ["agents", "managed_instances", "threads", "runs", "workers", "training", "benchmarks", "routing", "tools", "models", "connectors", "authority_gateway", "action_requests", "artifacts", "receipts", "trace", "replay", "scorecards"],
   "primitive_capabilities": ["prim:fs.read", "prim:fs.write", "prim:sys.exec", "prim:net.request", "prim:model.invoke"],
   "attestation": {
@@ -146,7 +146,7 @@ GET  /v1/account
   "worker_manifest_ref": "ai://workers.runtime-auditor.ioi@1.0.0",
   "install_id": "install_123",
   "owner_id": "wallet://user_123",
-  "execution_profile": "local | hosted | provider | depin_mutual_blind | tee_enterprise | customer_vpc",
+  "execution_profile": "local | hosted | provider | depin_mutual_blind | hypervisoros_bare_metal | tee_enterprise | customer_vpc",
   "persistence_profile": "ephemeral | session | zero_to_idle | persistent",
   "interaction_surfaces": ["chat", "task", "api", "scheduler"],
   "subscription_profile": "per_invocation | warm_runtime | managed_monthly",
@@ -253,7 +253,7 @@ contracts rather than maintaining private session loops.
   },
   "worker_id": "optional",
   "workflow_ref": "optional",
-  "execution_profile": "local | hosted | depin_mutual_blind | tee_enterprise",
+  "execution_profile": "local | hosted | depin_mutual_blind | hypervisoros_bare_metal | tee_enterprise",
   "input_refs": ["artifact://..."],
   "authority_grants": ["grant_..."],
   "primitive_capabilities_required": ["prim:model.invoke"],

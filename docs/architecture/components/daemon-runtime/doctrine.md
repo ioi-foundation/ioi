@@ -38,6 +38,11 @@ Electron/VS Code fork is the canonical Hypervisor app shell. Hypervisor IDE,
 CLI/TUI, SDK, ADK, harnesses, benchmarks, and the extension host are clients,
 builder frameworks, or projections; they do not become private runtimes.
 
+HypervisorOS is the bare-metal node profile for this same daemon substrate. It
+does not create a peer runtime. It makes the Hypervisor Daemon the node root for
+serious local, provider, marketplace, enterprise, or DePIN nodes so autonomous
+workloads run under daemon policy, measurement, receipts, and capability exits.
+
 The CLI/TUI, SDK, and ADK are distinct:
 
 ```text
@@ -279,9 +284,11 @@ It is responsible for:
 2. **Hosted Hypervisor Daemon** — always-on hosted workers/services.
 3. **Provider daemon** — service provider infrastructure.
 4. **DePIN daemon** — Akash-like public compute.
-5. **TEE-verified daemon** — enterprise secure mode.
-6. **Customer VPC daemon** — enterprise private runtime.
-7. **IOI Authority Gateway sidecar** — local/private or controlled-cloud
+5. **HypervisorOS daemon** — bare-metal node image where the daemon is the root
+   control plane for autonomous workloads.
+6. **TEE-verified daemon** — enterprise secure mode.
+7. **Customer VPC daemon** — enterprise private runtime.
+8. **IOI Authority Gateway sidecar** — local/private or controlled-cloud
    mediation profile for existing IDEs, CLI agents, hosted agents, MCP tools,
    shell/Git surfaces, browser actions, API gateways, and CI/CD gates.
 

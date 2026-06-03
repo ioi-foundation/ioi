@@ -23,6 +23,9 @@ Operator surfaces
 Hypervisor Daemon
   executes work and owns effect semantics
 
+HypervisorOS
+  bare-metal node profile where the daemon is the node root
+
 Default Harness Profile
   orchestrates loop-native autonomous work inside the daemon
 
@@ -89,6 +92,7 @@ The short version:
 ```text
 Surfaces request.
 Daemon executes.
+HypervisorOS roots serious nodes.
 Default Harness Profile orchestrates.
 wallet.network authorizes.
 Agentgres admits truth.
@@ -128,11 +132,12 @@ Start here:
 1. [`components/daemon-runtime/default-harness-profile.md`](./components/daemon-runtime/default-harness-profile.md)
 2. [`components/daemon-runtime/private-workspace-ctee.md`](./components/daemon-runtime/private-workspace-ctee.md)
 3. [`components/daemon-runtime/runtime-nodes-tee-depin.md`](./components/daemon-runtime/runtime-nodes-tee-depin.md)
-4. [`components/daemon-runtime/doctrine.md`](./components/daemon-runtime/doctrine.md)
-5. [`components/daemon-runtime/api.md`](./components/daemon-runtime/api.md)
-6. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](./components/daemon-runtime/events-receipts-delivery-bundles.md)
-7. [`../conformance/agentic-runtime/CIRC.md`](../conformance/agentic-runtime/CIRC.md)
-8. [`../conformance/agentic-runtime/CEC.md`](../conformance/agentic-runtime/CEC.md)
+4. [`components/daemon-runtime/hypervisoros.md`](./components/daemon-runtime/hypervisoros.md)
+5. [`components/daemon-runtime/doctrine.md`](./components/daemon-runtime/doctrine.md)
+6. [`components/daemon-runtime/api.md`](./components/daemon-runtime/api.md)
+7. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](./components/daemon-runtime/events-receipts-delivery-bundles.md)
+8. [`../conformance/agentic-runtime/CIRC.md`](../conformance/agentic-runtime/CIRC.md)
+9. [`../conformance/agentic-runtime/CEC.md`](../conformance/agentic-runtime/CEC.md)
 
 Build for: intent resolution, action proposals, policy/authority gates,
 execution, normalized observations, receipts, context topology, output
@@ -143,6 +148,11 @@ Workspace, private workspace capsules, encrypted patches/blobs, no-plaintext
 protected classes, autonomy leases, cTEE guardians, declassification receipts,
 capability exits, and Candidate-Lattice Private Decoding as the default
 protected-agency path.
+
+For bare-metal or serious provider nodes, build for HypervisorOS: measured boot
+profiles, daemon-rooted workload launch, node integrity receipts,
+denied-by-default egress, cTEE compatibility, and no unmanaged model/tool/workspace
+bypass around the Hypervisor Daemon.
 
 ### Implementing Agentgres
 

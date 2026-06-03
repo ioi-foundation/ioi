@@ -121,6 +121,13 @@ benchmark.started
 benchmark.completed
 routing.candidate_set_committed
 routing.decision_recorded
+hypervisoros.boot.started
+hypervisoros.boot.measured
+hypervisoros.boot.failed
+hypervisoros.node.ready
+hypervisoros.node.quarantined
+hypervisoros.workload.blocked
+hypervisoros.egress.blocked
 receipt.emitted
 run.completed
 run.failed
@@ -183,6 +190,7 @@ RoutingDecisionReceipt
 RuntimeAttestationReceipt
 RuntimeBridgeReceipt
 RuntimeUsageReceipt
+HypervisorOSBootReceipt
 NodeMeasurementReceipt
 ModelMountReceipt
 PrivateInferenceReceipt
@@ -332,6 +340,11 @@ schedule leakage.
 
 `NodeMeasurementReceipt` is integrity/accounting evidence. It is not, by
 itself, a consumer-GPU plaintext privacy guarantee.
+
+`HypervisorOSBootReceipt` binds boot epoch, boot profile, image hash, daemon
+binary hash, package/driver manifest hashes, measurement method, and declared
+privacy claim. It proves node integrity posture, not protected plaintext
+privacy by itself.
 
 `DeterrenceDetectionReceipt` and `CanaryTripReceipt` are attribution and
 dispute evidence. They do not make plaintext safe and must not justify unsafe
