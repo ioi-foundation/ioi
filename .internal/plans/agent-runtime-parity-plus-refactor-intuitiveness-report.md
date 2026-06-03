@@ -220,8 +220,11 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/default-records.mjs`.
 - Moved default provider, fixture artifact, fixture endpoint, route, LM Studio detected artifact, and backend registry record construction out of `model-mounting.mjs` while keeping stateful discovery/pruning/persistence on `ModelMountingState`.
 - Added focused default-record tests for compatibility ids, hosted/local boundary status, route denials, provider-derived LM Studio artifact state, and backend process status projection.
+- Added `packages/runtime-daemon/src/model-mounting/validation.mjs`.
+- Moved continuation route/endpoint/model safety checks and workflow Receipt Gate validation out of `model-mounting.mjs` behind compatibility-preserving `ModelMountingState` wrappers.
+- Added focused validation tests for continuation modes, unsafe route mismatch blocking, Receipt Gate pass receipts, and Receipt Gate mismatch/tool-link failures.
 
-Status: `model-mounting.mjs` still owns seeding orchestration, state-machine behavior, routes, validation, and some product projection glue. Safe next extractions are validation, routes, and state-machine slices.
+Status: `model-mounting.mjs` still owns seeding orchestration, state-machine behavior, routes, and some product projection glue. Safe next extractions are routes and state-machine slices.
 
 ### Rust Runtime Hot Spot
 
