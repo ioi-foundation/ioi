@@ -126,6 +126,7 @@ import { createRuntimeRouteHandlers } from "./runtime-route-handlers.mjs";
 import { createRuntimeRecordProjections } from "./runtime-record-projections.mjs";
 import { artifact, createRunArtifactResolver } from "./runtime-artifacts.mjs";
 import { createCodingToolApprovalPolicy } from "./runtime-coding-tool-approval.mjs";
+import { createCodingToolBudgetRecovery } from "./runtime-coding-tool-budget-recovery.mjs";
 import { createRuntimeInvocationResultProjections } from "./runtime-invocation-results.mjs";
 import { startRuntimeDaemonServiceWithStore } from "./service/runtime-daemon-service.mjs";
 import {
@@ -337,6 +338,22 @@ const {
   normalizeThreadInteractionMode,
   normalizedAgentRuntimeControls,
   optionalString,
+  uniqueStrings,
+});
+const {
+  codingToolBudgetRecoveryAction,
+  codingToolBudgetRecoveryPolicyFromInputs,
+  codingToolBudgetRecoveryResult,
+  codingToolBudgetRecoveryTargetNodeIds,
+  isCodingToolBudgetBlockedRuntimeEvent,
+  recoveryPolicyRetryLimit,
+} = createCodingToolBudgetRecovery({
+  WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION,
+  WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
+  WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON,
+  normalizeArray,
+  optionalString,
+  runtimeError,
   uniqueStrings,
 });
 const {
@@ -15082,28 +15099,6 @@ function approvalDecisionForRequest(value) {
   });
 }
 
-function codingToolBudgetRecoveryAction(value) {
-  const action = optionalString(value)?.toLowerCase().replace(/-/g, "_") ?? "request_approval";
-  if (["request", "request_approval", "approval_request"].includes(action)) {
-    return "request_approval";
-  }
-  if (["approve", "approved", "approve_override", "allow", "allowed"].includes(action)) {
-    return "approve_override";
-  }
-  if (["reject", "rejected", "reject_override", "deny", "denied"].includes(action)) {
-    return "reject_override";
-  }
-  if (["retry", "retry_approved", "approved_retry"].includes(action)) {
-    return "retry_approved";
-  }
-  throw runtimeError({
-    status: 400,
-    code: "coding_tool_budget_recovery_action_invalid",
-    message: "Coding-tool budget recovery accepts request_approval, approve_override, reject_override, or retry_approved.",
-    details: { action: value ?? null },
-  });
-}
-
 function appendOperatorControl(controls, control) {
   const existing = normalizeArray(controls);
   if (existing.some((candidate) => candidate?.eventId === control.eventId)) return existing;
@@ -15112,169 +15107,6 @@ function appendOperatorControl(controls, control) {
 
 function safeId(value) {
   return String(value ?? "runtime").replace(/[^a-zA-Z0-9_.-]+/g, "_");
-}
-
-function codingToolBudgetRecoveryTargetNodeIds({ request = {}, blockedEvent = null, blockedPayload = {} }) {
-  return uniqueStrings([
-    ...normalizeArray(request.target_node_ids ?? request.targetNodeIds),
-    ...normalizeArray(blockedPayload.target_node_ids ?? blockedPayload.targetNodeIds),
-    optionalString(request.workflow_node_id ?? request.workflowNodeId),
-    optionalString(blockedEvent?.workflow_node_id),
-    optionalString(blockedPayload.workflow_node_id ?? blockedPayload.workflowNodeId),
-  ]);
-}
-
-function codingToolBudgetRecoveryPolicyFromInputs({
-  request = {},
-  blockedPayload = {},
-  targetNodeIds = [],
-  source = "sdk_client",
-}) {
-  const manifest =
-    blockedPayload.approval_manifest ??
-    blockedPayload.approvalManifest ??
-    {};
-  const rawPolicy =
-    request.recovery_policy ??
-    request.recoveryPolicy ??
-    blockedPayload.recovery_policy ??
-    blockedPayload.recoveryPolicy ??
-    manifest.recovery_policy ??
-    manifest.recoveryPolicy ??
-    {};
-  const policy = rawPolicy && typeof rawPolicy === "object" ? rawPolicy : {};
-  const retryLimit = Number(policy.retry_limit ?? policy.retryLimit ?? request.retry_limit ?? request.retryLimit ?? 1);
-  const normalizedTargetNodeIds = uniqueStrings([
-    ...normalizeArray(policy.target_node_ids ?? policy.targetNodeIds),
-    ...targetNodeIds,
-  ]);
-  return {
-    ...policy,
-    schema_version:
-      policy.schema_version ??
-      policy.schemaVersion ??
-      WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION,
-    schemaVersion:
-      policy.schemaVersion ??
-      policy.schema_version ??
-      WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION,
-    requires_approval: policy.requires_approval ?? policy.requiresApproval ?? true,
-    requiresApproval: policy.requiresApproval ?? policy.requires_approval ?? true,
-    allow_override: policy.allow_override ?? policy.allowOverride ?? true,
-    allowOverride: policy.allowOverride ?? policy.allow_override ?? true,
-    retry_limit: Number.isFinite(retryLimit) && retryLimit > 0 ? Math.floor(retryLimit) : 1,
-    retryLimit: Number.isFinite(retryLimit) && retryLimit > 0 ? Math.floor(retryLimit) : 1,
-    approval_scope: policy.approval_scope ?? policy.approvalScope ?? "target_nodes",
-    approvalScope: policy.approvalScope ?? policy.approval_scope ?? "target_nodes",
-    operator_role: policy.operator_role ?? policy.operatorRole ?? "budget_operator",
-    operatorRole: policy.operatorRole ?? policy.operator_role ?? "budget_operator",
-    target_node_ids: normalizedTargetNodeIds,
-    targetNodeIds: normalizedTargetNodeIds,
-    source: policy.source ?? source,
-  };
-}
-
-function recoveryPolicyRetryLimit(policy = {}) {
-  const retryLimit = Number(policy.retry_limit ?? policy.retryLimit ?? 1);
-  return Number.isFinite(retryLimit) && retryLimit > 0 ? Math.floor(retryLimit) : 1;
-}
-
-function isCodingToolBudgetBlockedRuntimeEvent(event) {
-  const payload = event?.payload_summary ?? event?.payload ?? {};
-  const haystack = [
-    event?.component_kind,
-    event?.event_kind,
-    event?.source_event_kind,
-    event?.status,
-    payload.event_kind,
-    payload.eventKind,
-    payload.reason,
-    payload.block_reason,
-    payload.blockReason,
-    payload.budget_status,
-    payload.budgetStatus,
-    payload.context_budget_status,
-    payload.contextBudgetStatus,
-    payload.result_summary?.reason,
-    payload.resultSummary?.reason,
-    payload.error?.code,
-    payload.error?.details?.reason,
-  ]
-    .map((value) => optionalString(value)?.toLowerCase())
-    .filter(Boolean)
-    .join(" ");
-  return (
-    haystack.includes("coding_tool") &&
-    (haystack.includes("workflowruncodingtoolbudgetpreflightblocked") ||
-      haystack.includes(WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON) ||
-      haystack.includes("coding_tool_budget_exceeded") ||
-      haystack.includes("exceeded") ||
-      haystack.includes("blocked"))
-  );
-}
-
-function codingToolBudgetRecoveryResult({
-  action,
-  status,
-  reason = null,
-  run,
-  threadId,
-  turnId,
-  approvalId,
-  sourceEventId,
-  targetNodeIds,
-  workflowGraphId,
-  workflowNodeId,
-  recoveryPolicy,
-  event = null,
-  approvalEvent = null,
-  decisionEvent = null,
-  receiptRefs = [],
-  policyDecisionRefs = [],
-}) {
-  return {
-    schema_version: WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
-    schemaVersion: WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
-    status,
-    action,
-    recovery_action: action,
-    recoveryAction: action,
-    reason,
-    run_id: run.id,
-    runId: run.id,
-    thread_id: threadId,
-    threadId,
-    turn_id: turnId,
-    turnId,
-    approval_id: approvalId,
-    approvalId,
-    source_event_id: sourceEventId,
-    sourceEventId,
-    target_node_ids: targetNodeIds,
-    targetNodeIds,
-    workflow_graph_id: workflowGraphId,
-    workflowGraphId,
-    workflow_node_id: workflowNodeId,
-    workflowNodeId,
-    recovery_policy: recoveryPolicy,
-    recoveryPolicy,
-    event_id: event?.event_id ?? null,
-    eventId: event?.event_id ?? null,
-    seq: event?.seq ?? null,
-    approval_event_id: approvalEvent?.event_id ?? null,
-    approvalEventId: approvalEvent?.event_id ?? null,
-    approval_decision_event_id: decisionEvent?.event_id ?? null,
-    approvalDecisionEventId: decisionEvent?.event_id ?? null,
-    receipt_refs: receiptRefs,
-    receiptRefs,
-    policy_decision_refs: policyDecisionRefs,
-    policyDecisionRefs,
-    event,
-    approval_event: approvalEvent,
-    approvalEvent,
-    decision_event: decisionEvent,
-    decisionEvent,
-  };
 }
 
 function memoryPolicyOverrides(options = {}) {

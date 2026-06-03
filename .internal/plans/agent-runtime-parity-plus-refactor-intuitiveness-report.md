@@ -116,6 +116,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/runtime-invocation-results.mjs`.
 - Moved coding-tool invocation result projection plus computer-use browser discovery, control, and native-browser multi-event result projection out of `index.mjs`.
 - Added focused invocation-result tests for coding-tool replay aliases, browser discovery object normalization, control handoff/cleanup aliases, ordered native-browser event merging, receipt/artifact/rollback de-duping, and projection payload precedence.
+- Added `packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.mjs`.
+- Moved coding-tool budget recovery action normalization, target-node selection, recovery-policy shaping, retry-limit bounding, budget-blocked event detection, and recovery result envelope projection out of `index.mjs`.
+- Added focused coding-tool budget recovery tests for action aliases, invalid action rejection, target-node de-duping, default policy shaping, blocked-event detection, retry-limit bounds, and snake/camel result aliases.
 
 Status: `index.mjs` still owns the large state store and public route composition. Safe next extractions are daemon service lifecycle, thread store/control/replay persistence, and route registration glue.
 
