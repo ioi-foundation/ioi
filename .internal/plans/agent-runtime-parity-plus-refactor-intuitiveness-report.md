@@ -138,6 +138,8 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added focused projection tests for category bucketing, operation watermarking, authority summaries, adapter boundaries, receipt replay links, and route-decision derivation.
 - Added `packages/runtime-daemon/src/model-mounting/read-model.mjs`.
 - Moved read-only model-mounting list accessors, product/OpenAI model list projections, provider health listing, and snapshot category assembly out of `model-mounting.mjs` behind existing `ModelMountingState` methods.
+- Added `packages/runtime-daemon/src/model-mounting/provider-registry.mjs`.
+- Moved hosted provider shaping, public provider redaction/vault-boundary projection, and route string validation helpers out of `model-mounting.mjs` behind compatibility wrappers.
 
 Status: `model-mounting.mjs` still owns provider driver classes, wallet/vault ports, state machine behavior, routes, validation, and some product projection glue. Safe next extractions are provider driver class groups, validation, routes, and state-machine slices.
 

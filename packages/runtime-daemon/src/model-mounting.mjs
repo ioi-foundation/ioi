@@ -59,6 +59,12 @@ import {
   providerHealthFailureStatus,
 } from "./model-mounting/provider-transport-policy.mjs";
 import {
+  hostedProvider as hostedProviderFromRegistry,
+  optionalString as optionalStringFromProviderRegistry,
+  publicProvider as publicProviderFromRegistry,
+  requiredString as requiredStringFromProviderRegistry,
+} from "./model-mounting/provider-registry.mjs";
+import {
   assertNoPlaintextProviderSecret,
   assertProviderVaultBoundary,
   normalizeProviderAuthHeaderName,
@@ -5354,63 +5360,21 @@ export class ModelMountingState {
 }
 
 function hostedProvider(id, label, apiFormat, secret) {
-  return {
-    id,
-    kind: apiFormat,
-    label,
-    apiFormat,
-    driver: "openai_compatible",
-    baseUrl: null,
-    status: secret ? "configured" : "blocked",
-    privacyClass: "hosted",
-    capabilities: ["chat", "responses", "embeddings"],
-    discovery: {
-      checkedAt: new Date().toISOString(),
-      evidenceRefs: [`${label.toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_API_KEY`],
-    },
-    secretRef: secret ? `vault://${id}/api-key` : null,
-    estimatedCostUsd: 0.01,
-  };
+  return hostedProviderFromRegistry(id, label, apiFormat, secret);
 }
 
 function publicProvider(provider, vaultMetadata = null) {
-  const hasVaultRef = providerHasVaultRef(provider);
-  const requiresVault = providerRequiresVaultSecret(provider);
-  const runtimeBound = Boolean(vaultMetadata?.resolvedMaterial);
-  const configured = hasVaultRef || Boolean(vaultMetadata?.configured);
-  return {
-    ...provider,
-    status: requiresVault && !hasVaultRef ? "blocked" : provider.status,
-    secretRef: hasVaultRef ? { redacted: true, hash: stableHash(provider.secretRef) } : provider.secretRef ? SECRET_REDACTION : null,
-    secretConfigured: configured,
-    authScheme: provider.authScheme ?? "bearer",
-    authHeaderName: provider.authHeaderName ?? "authorization",
-    vaultBoundary: {
-      required: requiresVault,
-      failClosed: requiresVault && !hasVaultRef,
-      configured,
-      resolvedMaterial: runtimeBound,
-      runtimeBound,
-      requiresRuntimeBinding: configured && !runtimeBound,
-      vaultRefHash: hasVaultRef ? stableHash(provider.secretRef) : vaultMetadata?.vaultRefHash ?? null,
-    },
-  };
+  return publicProviderFromRegistry(provider, vaultMetadata, {
+    providerHasVaultRef,
+    providerRequiresVaultSecret,
+    stableHash,
+  });
 }
 
 function requiredString(value, field) {
-  if (typeof value !== "string" || value.trim() === "") {
-    throw runtimeError({
-      status: 400,
-      code: "runtime",
-      message: `${field} is required.`,
-      details: { field },
-    });
-  }
-  return value;
+  return requiredStringFromProviderRegistry(value, field, { runtimeError });
 }
 
 function optionalString(value) {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed ? trimmed : null;
+  return optionalStringFromProviderRegistry(value);
 }
