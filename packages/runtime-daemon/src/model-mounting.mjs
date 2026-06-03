@@ -16,6 +16,22 @@ import {
   workflowMemoryWriteBlockReason,
 } from "./model-mounting/workflow-memory.mjs";
 import {
+  artifactList,
+  downloadList,
+  endpointList,
+  instanceList,
+  legacyModelList as legacyModelListProjection,
+  modelCapabilityList,
+  modelMountingSnapshot,
+  oauthSessionList,
+  oauthStateList,
+  openAiModelList as openAiModelListProjection,
+  productArtifactList,
+  providerHealthList,
+  providerList,
+  routeList,
+} from "./model-mounting/read-model.mjs";
+import {
   isFixtureEndpointCandidate,
   isFixtureModelRecord,
 } from "./model-mounting/fixture-policy.mjs";
@@ -1070,123 +1086,77 @@ export class ModelMountingState {
   }
 
   legacyModelList() {
-    return this.listProductArtifacts()
-      .sort((left, right) => left.modelId.localeCompare(right.modelId))
-      .map((artifact) => ({
-      id: artifact.modelId,
-      provider: artifact.providerId === "provider.local.folder" ? "ioi-daemon-local" : artifact.providerId,
-      cost: artifact.privacyClass === "local_private" ? "local" : "metered",
-      quality: artifact.family === "fixture" ? "adaptive" : "provider",
-      capabilities: artifact.capabilities,
-      privacyClass: artifact.privacyClass,
-      route: "route.local-first",
-    }));
+    return legacyModelListProjection(this);
   }
 
   openAiModelList() {
-    return {
-      object: "list",
-      data: this.listProductArtifacts().map((artifact) => ({
-        id: artifact.modelId,
-        object: "model",
-        created: Math.floor(Date.parse(artifact.discoveredAt ?? this.nowIso()) / 1000),
-        owned_by: artifact.providerId,
-        permission: [],
-        root: artifact.modelId,
-        parent: null,
-      })),
-    };
+    return openAiModelListProjection(this);
   }
 
   listArtifacts() {
-    return [...this.artifacts.values()].sort((left, right) => left.id.localeCompare(right.id));
+    return artifactList(this);
   }
 
   listProductArtifacts() {
-    const artifacts = this.listArtifacts();
-    if (internalFixtureModelsEnabled()) {
-      return artifacts;
-    }
-    return artifacts.filter((artifact) => !isFixtureModelRecord(artifact));
+    return productArtifactList(this, {
+      internalFixtureModelsEnabled,
+      isFixtureModelRecord,
+    });
   }
 
   listProviders() {
-    return [...this.providers.values()]
-      .map((provider) => publicProvider(provider, providerHasVaultRef(provider) ? this.vault.vaultRefMetadata(provider.secretRef) : null))
-      .sort((left, right) => left.id.localeCompare(right.id));
+    return providerList(this, {
+      providerHasVaultRef,
+      publicProvider,
+    });
   }
 
   listEndpoints() {
-    return [...this.endpoints.values()].sort((left, right) => left.id.localeCompare(right.id));
+    return endpointList(this);
   }
 
   listInstances() {
-    this.evictExpiredInstances();
-    this.coalesceLoadedInstances();
-    return [...this.instances.values()].sort((left, right) => left.loadedAt.localeCompare(right.loadedAt));
+    return instanceList(this);
   }
 
   listRoutes() {
-    return [...this.routes.values()].sort((left, right) => left.id.localeCompare(right.id));
+    return routeList(this);
   }
 
   listModelCapabilities() {
-    return buildModelCapabilities({ routes: this.listRoutes(), endpoints: this.listEndpoints(), providers: this.listProviders(), artifacts: this.listArtifacts(), instances: this.listInstances() });
+    return modelCapabilityList(this, {
+      buildModelCapabilities,
+    });
   }
 
   listDownloads() {
-    return [...this.downloads.values()].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    return downloadList(this);
   }
 
   listOAuthSessions() {
-    return [...this.oauthSessions.values()]
-      .map(publicOAuthSession)
-      .sort((left, right) => left.id.localeCompare(right.id));
+    return oauthSessionList(this, {
+      publicOAuthSession,
+    });
   }
 
   listOAuthStates() {
-    return [...this.oauthStates.values()]
-      .map(publicOAuthState)
-      .sort((left, right) => String(left.createdAt ?? "").localeCompare(String(right.createdAt ?? "")));
+    return oauthStateList(this, {
+      publicOAuthState,
+    });
   }
 
   listProviderHealth() {
-    return listJson(path.join(this.stateDir, "provider-health"))
-      .map((filePath) => readJson(filePath))
-      .sort((left, right) => String(left.checkedAt ?? "").localeCompare(String(right.checkedAt ?? "")));
+    return providerHealthList(this, {
+      listJson,
+      path,
+      readJson,
+    });
   }
 
   snapshot(baseUrl) {
-    return {
+    return modelMountingSnapshot(this, baseUrl, {
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      server: this.serverStatus(baseUrl),
-      catalog: this.catalogStatus(),
-      catalogProviderConfigs: this.listCatalogProviderConfigs(),
-      oauthSessions: this.listOAuthSessions(),
-      oauthStates: this.listOAuthStates(),
-      artifacts: this.listArtifacts(),
-      backends: this.listBackends(),
-      backendProcesses: this.listBackendProcesses(),
-      endpoints: this.listEndpoints(),
-      instances: this.listInstances(),
-      providers: this.listProviders(),
-      routes: this.listRoutes(),
-      modelCapabilities: this.listModelCapabilities(),
-      downloads: this.listDownloads(),
-      providerHealth: this.listProviderHealth(),
-      runtimeEngines: this.listRuntimeEngines(),
-      runtimeEngineProfiles: this.listRuntimeEngineProfiles(),
-      runtimePreference: this.runtimePreference(),
-      runtimeSurvey: this.latestRuntimeSurvey(),
-      tokens: this.listTokens(),
-      vaultRefs: this.listVaultRefs(),
-      mcpServers: this.listMcpServers(),
-      conversationStates: this.listConversations(),
-      workflowNodes: this.workflowNodeBindings(),
-      receipts: this.listReceipts().slice(-25),
-      projection: this.projectionSummary(),
-      adapterBoundaries: this.adapterBoundaries(),
-    };
+    });
   }
 
   authoritySnapshot(baseUrl) {
