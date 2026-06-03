@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for shared envelope names, ID namespaces, primitive capability tiers, authority grants, and receipt/run/event envelope fields.
 Supersedes: older flattened capability-tier examples in plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-06-01.
+Last alignment pass: 2026-06-03.
 
 ## Purpose
 
@@ -44,6 +44,7 @@ RuntimeAssignmentEnvelope
 ComputeSessionEnvelope
 HypervisorOSNodeEnvelope
 HypervisorOSBootProfileEnvelope
+HypervisorOSBootReceiptEnvelope
 NodeMeasurementReceiptEnvelope
 PrivateWorkspaceNodeEnvelope
 PrivateWorkspaceCapsuleEnvelope
