@@ -142,6 +142,7 @@ import {
 } from "./threads/workspace-change-state.mjs";
 import {
   createRuntimeBridgeThread as createRuntimeBridgeThreadState,
+  normalizeRuntimeBridgeLiveEvent as normalizeRuntimeBridgeLiveEventState,
   normalizeRuntimeBridgeThreadStart as normalizeRuntimeBridgeThreadStartState,
   normalizeRuntimeBridgeTurnSubmit as normalizeRuntimeBridgeTurnSubmitState,
 } from "./threads/runtime-bridge-thread.mjs";
@@ -3036,24 +3037,12 @@ export class AgentgresRuntimeStateStore {
   }
 
   normalizeRuntimeBridgeLiveEvent({ event, agent, threadId }) {
-    const turnId = optionalString(event?.turn_id ?? event?.turnId) ?? "";
-    const runId = optionalString(event?.run_id ?? event?.runId) ?? (turnId ? runIdForTurn(turnId) : null);
-    return {
-      ...event,
-      event_stream_id: event?.event_stream_id ?? eventStreamIdForThread(threadId),
-      thread_id: event?.thread_id ?? threadId,
-      turn_id: turnId || (event?.turn_id ?? event?.turnId ?? ""),
-      workspace_root: event?.workspace_root ?? agent.cwd,
-      source: event?.source ?? "runtime_service",
-      source_event_kind: event?.source_event_kind ?? "RuntimeAgentService",
-      fixture_profile: Object.hasOwn(event ?? {}, "fixture_profile") ? event.fixture_profile : null,
-      payload: {
-        agent_id: agent.id,
-        ...(runId ? { run_id: runId } : {}),
-        session_id: runtimeSessionIdForAgent(agent),
-        ...(event?.payload ?? event?.payload_summary ?? {}),
-      },
-    };
+    return normalizeRuntimeBridgeLiveEventState({ event, agent, threadId }, {
+      eventStreamIdForThread,
+      optionalString,
+      runIdForTurn,
+      runtimeSessionIdForAgent,
+    });
   }
 
   doctorReport({ baseUrl = null } = {}) {

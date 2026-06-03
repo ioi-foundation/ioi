@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   createRuntimeBridgeThread,
+  normalizeRuntimeBridgeLiveEvent,
   normalizeRuntimeBridgeThreadStart,
   normalizeRuntimeBridgeTurnSubmit,
 } from "./runtime-bridge-thread.mjs";
@@ -18,6 +19,7 @@ function deps() {
   return {
     eventStreamIdForThread: (threadId) => `stream_${threadId}`,
     normalizeArray: (value) => Array.isArray(value) ? value : [],
+    optionalString: (value) => typeof value === "string" && value.trim() ? value.trim() : null,
     runIdForTurn: (turnId) => `run_${turnId}`,
     RuntimeApiBridgeUnavailableError: BridgeUnavailableError,
     runtimeError: (input) => {
@@ -256,4 +258,66 @@ test("runtime bridge turn submit normalization rejects missing turn started even
       return true;
     },
   );
+});
+
+test("runtime bridge live event normalization fills defaults from thread and agent", () => {
+  const normalized = normalizeRuntimeBridgeLiveEvent({
+    event: { event_kind: "turn.delta", turnId: "turn_runtime", payload_summary: { text: "chunk" } },
+    agent: {
+      id: "agent_runtime",
+      cwd: "/workspace",
+      runtimeSessionId: "session_runtime",
+    },
+    threadId: "thread_agent_runtime",
+  }, deps());
+
+  assert.equal(normalized.event_stream_id, "stream_thread_agent_runtime");
+  assert.equal(normalized.thread_id, "thread_agent_runtime");
+  assert.equal(normalized.turn_id, "turn_runtime");
+  assert.equal(normalized.workspace_root, "/workspace");
+  assert.equal(normalized.source, "runtime_service");
+  assert.equal(normalized.source_event_kind, "RuntimeAgentService");
+  assert.equal(normalized.fixture_profile, null);
+  assert.deepEqual(normalized.payload, {
+    agent_id: "agent_runtime",
+    run_id: "run_turn_runtime",
+    session_id: "session_runtime",
+    text: "chunk",
+  });
+});
+
+test("runtime bridge live event normalization preserves explicit envelope fields", () => {
+  const normalized = normalizeRuntimeBridgeLiveEvent({
+    event: {
+      event_stream_id: "stream_existing",
+      thread_id: "thread_existing",
+      turn_id: "turn_existing",
+      run_id: "run_existing",
+      workspace_root: "/other-workspace",
+      source: "bridge",
+      source_event_kind: "custom",
+      fixture_profile: "fixture",
+      payload: { existing: true },
+    },
+    agent: {
+      id: "agent_runtime",
+      cwd: "/workspace",
+      runtimeSessionId: "session_runtime",
+    },
+    threadId: "thread_agent_runtime",
+  }, deps());
+
+  assert.equal(normalized.event_stream_id, "stream_existing");
+  assert.equal(normalized.thread_id, "thread_existing");
+  assert.equal(normalized.turn_id, "turn_existing");
+  assert.equal(normalized.workspace_root, "/other-workspace");
+  assert.equal(normalized.source, "bridge");
+  assert.equal(normalized.source_event_kind, "custom");
+  assert.equal(normalized.fixture_profile, "fixture");
+  assert.deepEqual(normalized.payload, {
+    agent_id: "agent_runtime",
+    run_id: "run_existing",
+    session_id: "session_runtime",
+    existing: true,
+  });
 });
