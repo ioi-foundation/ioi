@@ -91,7 +91,7 @@ The short version:
 
 ```text
 Surfaces request.
-Daemon executes.
+Hypervisor Daemon executes.
 HypervisorOS roots serious nodes.
 Default Harness Profile orchestrates.
 wallet.network authorizes.

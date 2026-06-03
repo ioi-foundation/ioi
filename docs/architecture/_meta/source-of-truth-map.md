@@ -178,6 +178,11 @@ Conflict rule:
 - Add new runtime/client/package ownership language to the public daemon,
   event, and common-object contracts first. Internal package-boundary plans may
   track implementation sequencing, but they do not own canonical doctrine.
+- Add new bare-metal node, measured boot, node-root, node integrity receipt,
+  HypervisorOS image, or firmware/TPM profile language to
+  [`hypervisoros.md`](../components/daemon-runtime/hypervisoros.md) first. Do
+  not let measured boot replace cTEE no-plaintext-custody or wallet.network
+  authority.
 - Add new AIIP packet, profile, channel, bounded-execution-domain, handoff,
   relay/router, settlement-intent, or inter-autonomous-system protocol language
   to [`aiip.md`](../foundations/aiip.md) first. Do not create separate bespoke

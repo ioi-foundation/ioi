@@ -28,6 +28,7 @@ local
 hosted
 customer_vpc
 depin_mutual_blind
+hypervisoros_bare_metal
 tee_enterprise
 ```
 
@@ -42,6 +43,21 @@ Security claim:
 Not claimed:
 
 > The host cannot inspect RAM.
+
+## HypervisorOS Bare-Metal Mode
+
+Measured daemon-rooted node profile. The node must boot a HypervisorOS image,
+emit boot/measurement receipts, and route all autonomous workloads through the
+Hypervisor Daemon.
+
+Security claim:
+
+> The node ran under declared daemon-rooted control, measurement, egress policy,
+> and receipt obligations.
+
+Not claimed:
+
+> Boot measurement alone makes consumer GPU plaintext private.
 
 ## Enterprise Secure Mode
 
@@ -58,10 +74,10 @@ Security claim:
   "assignment_id": "assign_123",
   "run_id": "run_123",
   "compute_session_id": "compute_session_123",
-  "daemon_profile": "hosted_ioi | provider | depin | tee | customer_vpc | local",
+  "daemon_profile": "hosted_ioi | provider | depin | hypervisoros | tee | customer_vpc | local",
   "runtime_bridge_profile": "fixture | runtime_service",
   "node_requirements": {
-    "privacy_mode": "depin_mutual_blind | tee_enterprise",
+    "privacy_mode": "depin_mutual_blind | hypervisoros_bare_metal | tee_enterprise",
     "resources": {"cpu": 8, "memory_gb": 32, "gpu": false},
     "max_latency_ms": 2000
   },
@@ -87,8 +103,8 @@ Security claim:
 {
   "compute_session_id": "compute_session_123",
   "assignment_id": "assign_123",
-  "venue": "local | hosted | provider | depin | tee | customer_vpc",
-  "substrate": "process | container | vm | browser_sandbox | gpu_job | tee_enclave",
+  "venue": "local | hosted | provider | depin | hypervisoros | tee | customer_vpc",
+  "substrate": "process | container | vm | microvm | wasm | browser_sandbox | gpu_job | tee_enclave",
   "daemon_profile": "hosted_ioi",
   "runtime_node_id": "runtime://node_abc",
   "lifecycle": "cold | warming | ready | running | draining | idle | suspended | destroyed",
