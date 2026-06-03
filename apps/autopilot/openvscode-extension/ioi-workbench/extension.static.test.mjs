@@ -42,6 +42,8 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/source-refs.js",
   codeExecution:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/code-execution.js",
+  chatCommands:
+    "apps/autopilot/openvscode-extension/ioi-workbench/commands/chat.js",
   productErrors:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/product-error-message.js",
   projectionState:
@@ -96,6 +98,7 @@ async function readStudioComposite() {
       paths.sourceChipRenderer,
       paths.sourceRefs,
       paths.codeExecution,
+      paths.chatCommands,
       paths.productErrors,
       paths.projectionState,
       paths.projectionReplay,
