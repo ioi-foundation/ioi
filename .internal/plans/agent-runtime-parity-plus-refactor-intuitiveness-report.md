@@ -49,6 +49,8 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Moved configurable catalog provider checks, catalog provider config updates, source material vault binding, catalog auth scheme normalization, catalog auth header resolution, and request-time catalog auth header construction out of `model-mounting.mjs`.
 - Added `packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs`.
 - Moved fixture, local manifest, Ollama, Hugging Face, and custom HTTP catalog provider port construction plus catalog provider health helpers out of `model-mounting.mjs`.
+- Added `packages/runtime-daemon/src/model-mounting/protocol-responses.mjs`.
+- Moved OpenAI chat/completions/responses/embeddings and Anthropic message response shaping plus deterministic embedding vector generation out of `model-mounting.mjs`, while preserving compatibility re-exports from `model-mounting.mjs`.
 
 Status: `model-mounting.mjs` still owns provider drivers, wallet/vault ports, state machine behavior, routes, validation, and some product projection glue. Safe next extractions are provider registry/drivers, validation, routes, and state-machine slices.
 
@@ -69,6 +71,7 @@ Status: `model-mounting.mjs` still owns provider drivers, wallet/vault ports, st
   - `model-mounting/oauth-boundary`
   - `model-mounting/catalog-provider-config`
   - `model-mounting/catalog-provider-ports`
+  - `model-mounting/protocol-responses`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.
