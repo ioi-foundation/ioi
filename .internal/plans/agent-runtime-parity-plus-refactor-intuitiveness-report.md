@@ -75,6 +75,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/runtime-mcp-helpers.mjs`.
 - Moved MCP server/tool resolution, MCP serve tool descriptor/result shaping, JSON-RPC envelopes, live transport mode metadata, registry enrichment, catalog summary/exposure shaping, mutation-input normalization, config-source filtering, and catalog/tool search limit helpers out of `index.mjs` behind compatibility wrappers.
 - Added focused runtime MCP helper tests for server/tool identity resolution, MCP serve descriptor/result metadata, JSON-RPC error mapping, live transport inference, deferred catalog exposure, mutation input normalization, and registry projection counts.
+- Added `packages/runtime-daemon/src/skill-hook-catalog.mjs`.
+- Moved skill/hook source discovery, SKILL.md metadata parsing, hook definition normalization, redacted command hashing, validation issue projection, and active catalog hashing out of `index.mjs`.
+- Added focused skill-hook catalog tests for workspace/global compatibility sources, filesystem discovery, command redaction, validation degradation, metadata parsing, and compatibility alias normalization.
 - Added `packages/runtime-daemon/src/threads/thread-replay.mjs`.
 - Moved runtime event append/idempotency, thread-start/run-event projection, cursor bounds, stream lookup, replay-by-stream/turn, persisted event registration, and stream-path helpers out of `index.mjs` behind existing replay compatibility methods.
 - Added `packages/runtime-daemon/src/threads/thread-store.mjs`.
