@@ -1,11 +1,9 @@
 #!/usr/bin/env node
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { createServer } from "node:http";
-import { createServer as createNetServer } from "node:net";
 import {
   appendFileSync,
   existsSync,
-  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -22,6 +20,23 @@ import {
   syncWorkbenchExtensionTargets,
 } from "./autopilot-electron-app-paths.mjs";
 import { applyAutopilotWorkbenchShellPatch } from "./autopilot-workbench-shell-patch.mjs";
+import {
+  cleanupProofUserDataProcesses,
+  closeServer,
+  ensureDir,
+  findFrameWithTestId as harnessFindFrameWithTestId,
+  getFreePort,
+  listen,
+  queueCommand,
+  readRequestBody,
+  requireNewRequest,
+  screenshot,
+  sendJson,
+  timestamp,
+  waitForCdp as harnessWaitForCdp,
+  waitForChildExit,
+  waitForPredicate,
+} from "./live-gui-proof-harness/index.mjs";
 
 const repoRoot = AUTOPILOT_ELECTRON.repoRoot;
 const evidenceRoot =
@@ -29,110 +44,10 @@ const evidenceRoot =
   "docs/evidence/autopilot-agent-runtime-parity-plus/stage-9-evidence-replay-product-boundary/historic-run-gui-replay";
 const traceRefsPath =
   "docs/evidence/autopilot-agent-runtime-parity-plus/stage-9-evidence-replay-product-boundary/trace-refs.json";
-
-function timestamp() {
-  return new Date().toISOString().replace(/[:.]/g, "-");
-}
-
-function ensureDir(path) {
-  mkdirSync(path, { recursive: true });
-}
-
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function waitForChildExit(child, timeoutMs = 5000) {
-  if (!child || child.exitCode !== null || child.signalCode !== null) return Promise.resolve(true);
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      child.off("exit", onExit);
-      resolve(false);
-    }, timeoutMs);
-    function onExit() {
-      clearTimeout(timer);
-      resolve(true);
-    }
-    child.once("exit", onExit);
-  });
-}
-
-async function waitForPredicate(predicate, timeoutMs, intervalMs = 250) {
-  const deadline = Date.now() + timeoutMs;
-  let latest;
-  while (Date.now() < deadline) {
-    latest = await predicate();
-    if (latest) return latest;
-    await wait(intervalMs);
-  }
-  return latest;
-}
-
-function listen(server) {
-  return new Promise((resolveListen, rejectListen) => {
-    server.once("error", rejectListen);
-    server.listen(0, "127.0.0.1", () => {
-      server.off("error", rejectListen);
-      resolveListen(server.address());
-    });
-  });
-}
-
-function closeServer(server) {
-  return new Promise((resolveClose) => {
-    if (!server) {
-      resolveClose();
-      return;
-    }
-    server.close(() => resolveClose());
-  });
-}
-
-async function getFreePort() {
-  const server = createNetServer();
-  await listen(server);
-  const { port } = server.address();
-  await closeServer(server);
-  return port;
-}
+const fallbackTraceRefsPath = "scripts/lib/fixtures/stage9-historic-replay-trace-refs.json";
 
 async function waitForCdp(port, timeoutMs = 45_000) {
-  return waitForPredicate(async () => {
-    try {
-      const response = await fetch(`http://127.0.0.1:${port}/json/version`);
-      return response.ok ? response.json() : null;
-    } catch {
-      return null;
-    }
-  }, timeoutMs, 500);
-}
-
-function sendJson(response, statusCode, payload) {
-  const body = JSON.stringify(payload);
-  response.writeHead(statusCode, {
-    "content-type": "application/json",
-    "content-length": Buffer.byteLength(body),
-    "access-control-allow-origin": "*",
-    "access-control-allow-methods": "GET,POST,OPTIONS",
-    "access-control-allow-headers": "content-type",
-  });
-  response.end(body);
-}
-
-function readRequestBody(request) {
-  return new Promise((resolveBody, rejectBody) => {
-    const chunks = [];
-    request.on("data", (chunk) => chunks.push(chunk));
-    request.on("error", rejectBody);
-    request.on("end", () => {
-      const raw = Buffer.concat(chunks).toString("utf8");
-      try {
-        resolveBody(raw ? JSON.parse(raw) : {});
-      } catch (error) {
-        rejectBody(error);
-      }
-    });
-  });
+  return harnessWaitForCdp(port, waitForPredicate, timeoutMs);
 }
 
 function bridgeState(daemonEndpoint) {
@@ -201,61 +116,8 @@ function createBridge({ daemonEndpoint, requests, commands, deliveredCommands })
   });
 }
 
-function queueCommand(commands, command, payload = {}) {
-  const commandId = `${command}:${Date.now()}:${commands.length}`;
-  commands.push({ commandId, command, args: [payload] });
-  return commandId;
-}
-
-async function cleanupProofUserDataProcesses(userDataDir) {
-  if (!userDataDir) return;
-  for (const signal of ["TERM", "KILL"]) {
-    const pgrep = spawnSync("pgrep", ["-f", userDataDir], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-    const pids = String(pgrep.stdout || "")
-      .split(/\s+/)
-      .map((value) => Number(value))
-      .filter((pid) => Number.isInteger(pid) && pid > 1 && pid !== process.pid);
-    if (pids.length > 0) {
-      spawnSync("kill", [`-${signal}`, ...pids.map(String)], { stdio: "ignore" });
-      await wait(signal === "TERM" ? 900 : 250);
-    }
-  }
-}
-
-async function requireNewRequest(requests, predicate, label, startIndex = requests.length, timeoutMs = 45_000) {
-  const request = await waitForPredicate(
-    () => requests.slice(startIndex).find((candidate) => predicate(candidate)),
-    timeoutMs,
-    300,
-  );
-  if (!request) throw new Error(`Timed out waiting for bridge request: ${label}`);
-  return request;
-}
-
 async function findFrameWithTestId(page, testId, timeoutMs = 45_000) {
-  const selector = `[data-testid="${testId}"]`;
-  const frame = await waitForPredicate(async () => {
-    for (const candidate of page.frames()) {
-      try {
-        if ((await candidate.locator(selector).count()) > 0) return candidate;
-      } catch {
-        // VS Code swaps webview frames during startup.
-      }
-    }
-    return null;
-  }, timeoutMs, 300);
-  if (!frame) throw new Error(`Could not find frame with ${selector}`);
-  return frame;
-}
-
-async function screenshot(page, outputDir, file, screenshots) {
-  const path = join(outputDir, file);
-  await page.screenshot({ path, fullPage: true });
-  screenshots.push({ file, path, exists: existsSync(path) });
-  return path;
+  return harnessFindFrameWithTestId(page, testId, waitForPredicate, timeoutMs);
 }
 
 function loadJson(path) {
@@ -303,7 +165,8 @@ function publicReplayRows(traceSummary) {
 }
 
 function buildHistoricReplayBundle(outputDir) {
-  const traceRefs = loadJson(traceRefsPath);
+  const resolvedTraceRefsPath = existsSync(traceRefsPath) ? traceRefsPath : fallbackTraceRefsPath;
+  const traceRefs = loadJson(resolvedTraceRefsPath);
   const summaryRef = traceRefs.refs.find((ref) => ref.kind === "daemon_trace_summary");
   const liveProofRef = traceRefs.refs.find((ref) => ref.kind === "live_gui_proof");
   if (!summaryRef?.path || !liveProofRef?.path) {
@@ -313,7 +176,8 @@ function buildHistoricReplayBundle(outputDir) {
   const liveProof = loadJson(liveProofRef.path);
   const rows = publicReplayRows(traceSummary);
   const sourceInventory = {
-    traceRefsPath,
+    traceRefsPath: resolvedTraceRefsPath,
+    fallbackTraceRefsUsed: resolvedTraceRefsPath === fallbackTraceRefsPath,
     liveProofPath: liveProofRef.path,
     daemonTraceSummaryPath: summaryRef.path,
     observedToolNames: traceSummary.observedToolNames || [],

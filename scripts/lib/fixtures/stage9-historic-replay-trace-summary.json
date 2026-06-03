@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "ioi.autopilot.stage9.trace-summary.fixture.v1",
+  "traceCount": 11,
+  "observedToolNames": [
+    "agent__complete",
+    "browser__click",
+    "browser__click_at",
+    "browser__inspect",
+    "browser__navigate",
+    "browser__wait",
+    "chat__reply"
+  ],
+  "observedEventKinds": [
+    "thread.started",
+    "turn.started",
+    "turn.step",
+    "tool.route_decision",
+    "tool.completed",
+    "turn.completed",
+    "usage.delta"
+  ]
+}

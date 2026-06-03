@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "ioi.autopilot.stage9.trace-refs.fixture.v1",
+  "refs": [
+    {
+      "kind": "daemon_trace_summary",
+      "path": "scripts/lib/fixtures/stage9-historic-replay-trace-summary.json"
+    },
+    {
+      "kind": "live_gui_proof",
+      "path": "scripts/lib/fixtures/stage9-historic-replay-live-proof.json"
+    }
+  ]
+}
