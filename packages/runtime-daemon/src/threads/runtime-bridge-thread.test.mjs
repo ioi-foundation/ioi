@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { createRuntimeBridgeThread } from "./runtime-bridge-thread.mjs";
+import {
+  createRuntimeBridgeThread,
+  normalizeRuntimeBridgeThreadStart,
+} from "./runtime-bridge-thread.mjs";
 
 class BridgeUnavailableError extends Error {
   constructor(details = {}) {
@@ -12,7 +15,14 @@ class BridgeUnavailableError extends Error {
 
 function deps() {
   return {
+    eventStreamIdForThread: (threadId) => `stream_${threadId}`,
+    normalizeArray: (value) => Array.isArray(value) ? value : [],
     RuntimeApiBridgeUnavailableError: BridgeUnavailableError,
+    runtimeError: (input) => {
+      const error = new Error(input.message);
+      Object.assign(error, input);
+      return error;
+    },
     threadIdForAgent: (agentId) => `thread_${agentId}`,
   };
 }
@@ -24,6 +34,7 @@ function fakeStore({ bridgeResult, bridgeError } = {}) {
     calls,
     agents,
     runtimeBridge: {
+      bridgeId: "bridge_default",
       async startThread(input) {
         calls.push({ operation: "start_thread", input });
         if (bridgeError) throw bridgeError;
@@ -49,17 +60,6 @@ function fakeStore({ bridgeResult, bridgeError } = {}) {
       };
       agents.set(agent.id, agent);
       return agent;
-    },
-    normalizeRuntimeBridgeThreadStart({ bridgeResult, agent, threadId, runtimeProfile }) {
-      calls.push({ operation: "normalize_start", bridgeResult, agent, threadId, runtimeProfile });
-      return {
-        sessionId: bridgeResult.session_id,
-        bridgeId: bridgeResult.bridge_id,
-        status: bridgeResult.status,
-        source: bridgeResult.source,
-        updatedAt: "2026-06-03T00:00:01.000Z",
-        events: [{ event_id: "evt_thread_started", event_kind: "thread.started" }],
-      };
     },
     writeAgent(agent, operationKind) {
       calls.push({ operation: "write_agent", agent, operationKind });
@@ -119,6 +119,68 @@ test("runtime bridge thread creation maps bridge unavailable errors", async () =
     (error) => {
       assert.equal(error.input.operation, "start_thread");
       assert.equal(error.input.details.reason, "not configured");
+      return true;
+    },
+  );
+});
+
+test("runtime bridge thread start normalization fills event defaults", () => {
+  const projection = normalizeRuntimeBridgeThreadStart({
+    bridgeResult: {
+      session_id: "session_runtime",
+      events: [{ event_kind: "thread.started", payload_summary: { goal: "start" } }],
+    },
+    agent: { id: "agent_runtime", cwd: "/workspace" },
+    threadId: "thread_agent_runtime",
+    runtimeProfile: "runtime_service",
+  }, {
+    bridgeId: "bridge_default",
+    eventStreamIdForThread: (threadId) => `stream_${threadId}`,
+    normalizeArray: (value) => Array.isArray(value) ? value : [],
+    runtimeError: deps().runtimeError,
+  });
+
+  assert.equal(projection.sessionId, "session_runtime");
+  assert.equal(projection.bridgeId, "bridge_default");
+  assert.equal(projection.status, "active");
+  assert.equal(projection.events[0].event_stream_id, "stream_thread_agent_runtime");
+  assert.equal(projection.events[0].thread_id, "thread_agent_runtime");
+  assert.equal(projection.events[0].workspace_root, "/workspace");
+  assert.equal(projection.events[0].fixture_profile, null);
+  assert.deepEqual(projection.events[0].payload, {
+    agent_id: "agent_runtime",
+    session_id: "session_runtime",
+    goal: "start",
+  });
+});
+
+test("runtime bridge thread start normalization rejects missing session id", () => {
+  assert.throws(
+    () => normalizeRuntimeBridgeThreadStart({
+      bridgeResult: { events: [{ event_kind: "thread.started" }] },
+      agent: { id: "agent_runtime", cwd: "/workspace" },
+      threadId: "thread_agent_runtime",
+      runtimeProfile: "runtime_service",
+    }, deps()),
+    (error) => {
+      assert.equal(error.code, "runtime_bridge_contract");
+      assert.equal(error.details.operation, "start_thread");
+      return true;
+    },
+  );
+});
+
+test("runtime bridge thread start normalization rejects missing thread started event", () => {
+  assert.throws(
+    () => normalizeRuntimeBridgeThreadStart({
+      bridgeResult: { session_id: "session_runtime", events: [{ event_kind: "turn.started" }] },
+      agent: { id: "agent_runtime", cwd: "/workspace" },
+      threadId: "thread_agent_runtime",
+      runtimeProfile: "runtime_service",
+    }, deps()),
+    (error) => {
+      assert.equal(error.code, "runtime_bridge_contract");
+      assert.equal(error.details.sessionId, "session_runtime");
       return true;
     },
   );

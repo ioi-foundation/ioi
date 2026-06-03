@@ -25,7 +25,12 @@ export async function createRuntimeBridgeThread(store, { request, options, runti
     }
     throw error;
   }
-  const projection = store.normalizeRuntimeBridgeThreadStart({ bridgeResult, agent, threadId, runtimeProfile });
+  const projection = normalizeRuntimeBridgeThreadStart({ bridgeResult, agent, threadId, runtimeProfile }, {
+    bridgeId: store.runtimeBridge?.bridgeId,
+    eventStreamIdForThread: deps.eventStreamIdForThread,
+    normalizeArray: deps.normalizeArray,
+    runtimeError: deps.runtimeError,
+  });
   const updated = {
     ...agent,
     runtimeProfile,
@@ -40,4 +45,54 @@ export async function createRuntimeBridgeThread(store, { request, options, runti
   store.writeAgent(updated, "thread.runtime_bridge.start");
   for (const event of projection.events) store.appendRuntimeEvent(event);
   return store.threadForAgent(updated);
+}
+
+export function normalizeRuntimeBridgeThreadStart({ bridgeResult, agent, threadId, runtimeProfile }, deps = {}) {
+  const {
+    bridgeId,
+    eventStreamIdForThread,
+    normalizeArray,
+    runtimeError,
+  } = deps;
+  const sessionId = String(bridgeResult?.session_id ?? bridgeResult?.sessionId ?? "").trim();
+  if (!sessionId) {
+    throw runtimeError({
+      status: 502,
+      code: "runtime_bridge_contract",
+      message: "RuntimeApiBridge startThread result must include session_id.",
+      details: { runtimeProfile, operation: "start_thread" },
+    });
+  }
+  const events = normalizeArray(bridgeResult?.events);
+  const hasThreadStarted = events.some((event) => event?.event_kind === "thread.started");
+  if (!hasThreadStarted) {
+    throw runtimeError({
+      status: 502,
+      code: "runtime_bridge_contract",
+      message: "RuntimeApiBridge startThread result must include a thread.started event.",
+      details: { runtimeProfile, sessionId, operation: "start_thread" },
+    });
+  }
+  const now = new Date().toISOString();
+  return {
+    sessionId,
+    bridgeId: bridgeResult?.bridge_id ?? bridgeResult?.bridgeId ?? bridgeId,
+    status: bridgeResult?.status ?? "active",
+    source: bridgeResult?.source ?? "runtime_service",
+    updatedAt: bridgeResult?.updated_at ?? bridgeResult?.updatedAt ?? now,
+    events: events.map((event) => ({
+      ...event,
+      event_stream_id: event.event_stream_id ?? eventStreamIdForThread(threadId),
+      thread_id: event.thread_id ?? threadId,
+      workspace_root: event.workspace_root ?? agent.cwd,
+      source: event.source ?? "runtime_service",
+      source_event_kind: event.source_event_kind ?? "RuntimeAgentService",
+      fixture_profile: Object.hasOwn(event, "fixture_profile") ? event.fixture_profile : null,
+      payload: {
+        agent_id: agent.id,
+        session_id: sessionId,
+        ...(event.payload ?? event.payload_summary ?? {}),
+      },
+    })),
+  };
 }
