@@ -57,6 +57,7 @@ const {
   studioResearchIntentFrameForArtifact,
 } = require("./studio/artifact-research-routing");
 const studioModeControls = require("./studio/modes");
+const studioSourceRefs = require("./studio/source-refs");
 const {
   AUTOPILOT_MODE_BY_ID,
   AUTOPILOT_MODE_BY_PANEL_VIEW_ID,
@@ -1683,272 +1684,52 @@ function studioPublicWorkRecordForWebview(record = {}) {
 }
 
 function studioJsonObjectFromText(value = "") {
-  const text = String(value || "").trim();
-  if (!text || !/^[{\[]/.test(text)) {
-    return {};
-  }
-  try {
-    const parsed = JSON.parse(text);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
-  } catch {
-    return {};
-  }
+  return studioSourceRefs.studioJsonObjectFromText(value);
 }
 
 function studioJsonValueFromText(value = "") {
-  const text = String(value || "").trim();
-  if (!text || !/^[{\[]/.test(text)) {
-    return null;
-  }
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
+  return studioSourceRefs.studioJsonValueFromText(value);
 }
 
+const STUDIO_SOURCE_REF_COMPAT_KEYS = [
+  "source_url",
+  "source_observations",
+];
+
 function studioUnescapeJsonStringFragment(value = "") {
-  const text = String(value || "");
-  try {
-    return JSON.parse(`"${text.replace(/\r/g, "\\r").replace(/\n/g, "\\n")}"`);
-  } catch {
-    return text.replace(/\\"/g, '"').replace(/\\n/g, " ").replace(/\\\\/g, "\\");
-  }
+  return studioSourceRefs.studioUnescapeJsonStringFragment(value);
 }
 
 function studioPartialJsonFieldValue(objectText = "", keys = []) {
-  for (const key of firstArray(keys)) {
-    const pattern = new RegExp(`"${key}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "i");
-    const match = pattern.exec(objectText);
-    if (match?.[1]) {
-      return studioUnescapeJsonStringFragment(match[1]);
-    }
-  }
-  return "";
+  return studioSourceRefs.studioPartialJsonFieldValue(objectText, keys);
 }
 
 function collectStudioSourceRefsFromPartialJsonText(value = "", refs = []) {
-  if (refs.length >= 8) {
-    return;
-  }
-  const text = String(value || "");
-  if (!/"(?:url|href|link|sourceUrl|source_url|canonicalUrl|canonical_url)"\s*:\s*"https?:\/\//i.test(text)) {
-    return;
-  }
-  const urlPattern = /"(?:url|href|link|sourceUrl|source_url|canonicalUrl|canonical_url)"\s*:\s*"((?:\\.|[^"\\])*)"/gi;
-  let match;
-  while ((match = urlPattern.exec(text)) && refs.length < 8) {
-    const url = studioUnescapeJsonStringFragment(match[1]);
-    if (!/^https?:\/\//i.test(url)) {
-      continue;
-    }
-    const objectStart = Math.max(0, text.lastIndexOf("{", match.index));
-    let objectEnd = text.indexOf("\n    }", match.index);
-    if (objectEnd === -1) objectEnd = text.indexOf("\n  }", match.index);
-    if (objectEnd === -1) objectEnd = text.indexOf("}", match.index);
-    if (objectEnd === -1) objectEnd = Math.min(text.length, match.index + 1800);
-    const objectText = text.slice(objectStart, Math.min(text.length, objectEnd + 1));
-    const recovered = studioSourceRefFromRecord({
-      url,
-      title: studioPartialJsonFieldValue(objectText, ["title", "name", "label"]),
-      snippet: studioPartialJsonFieldValue(objectText, ["snippet", "excerpt", "summary"]),
-      domain: studioPartialJsonFieldValue(objectText, ["domain", "hostname"]),
-      state: studioPartialJsonFieldValue(objectText, ["state", "status", "sourceHealth"]),
-    });
-    if (recovered) {
-      refs.push(recovered);
-    }
-  }
+  return studioSourceRefs.collectStudioSourceRefsFromPartialJsonText(value, refs);
 }
 
 function studioRecordValue(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return studioSourceRefs.studioRecordValue(value);
 }
 
 function studioSourceRefFromRecord(record = {}) {
-  if (!record || typeof record !== "object" || Array.isArray(record)) {
-    return null;
-  }
-  const url = stringValue(
-    record.url ||
-      record.href ||
-      record.link ||
-      record.sourceUrl ||
-      record.source_url ||
-      record.canonicalUrl ||
-      record.canonical_url,
-  );
-  if (!/^https?:\/\//i.test(url)) {
-    return null;
-  }
-  let domain = stringValue(record.domain || record.hostname);
-  try {
-    domain ||= new URL(url).hostname;
-  } catch {
-    domain ||= url;
-  }
-  const title = compactStudioWhitespace(
-    record.title ||
-      record.name ||
-      record.label ||
-      domain ||
-      url,
-  ).slice(0, 96);
-  return {
-    title: title || domain || url,
-    url,
-    domain: compactStudioWhitespace(domain).replace(/^www\./i, ""),
-    excerpt: compactStudioWhitespace(record.excerpt || record.snippet || record.summary || "").slice(0, 260),
-    state: compactStudioWhitespace(record.state || record.status || record.sourceHealth || "used").slice(0, 40) || "used",
-  };
+  return studioSourceRefs.studioSourceRefFromRecord(record);
 }
 
 function collectStudioSourceRefs(value, refs, depth = 0) {
-  if (depth > 10 || refs.length >= 8 || value == null) {
-    return;
-  }
-  const parsed = typeof value === "string" ? studioJsonValueFromText(value) : value;
-  if (!parsed) {
-    if (typeof value === "string") {
-      collectStudioSourceRefsFromPartialJsonText(value, refs);
-    }
-    return;
-  }
-  if (Array.isArray(parsed)) {
-    for (const item of parsed) {
-      collectStudioSourceRefs(item, refs, depth + 1);
-      if (refs.length >= 8) break;
-    }
-    return;
-  }
-  if (typeof parsed !== "object") {
-    return;
-  }
-  const sourceRef = studioSourceRefFromRecord(parsed);
-  if (sourceRef) {
-    refs.push(sourceRef);
-  }
-  for (const key of [
-    "sources",
-    "source",
-    "sourceRefs",
-    "source_refs",
-    "sourceObservations",
-    "source_observations",
-    "documents",
-    "document",
-    "items",
-    "results",
-    "citations",
-    "references",
-    "payload",
-    "payload_summary",
-    "payloadSummary",
-    "kernel_event",
-    "kernelEvent",
-    "AgentActionResult",
-    "WorkloadReceipt",
-    "WebRetrieve",
-    "receipt",
-    "data",
-    "result",
-    "output",
-    "preview",
-    "raw_output",
-    "rawOutput",
-  ]) {
-    if (parsed[key] !== undefined) {
-      collectStudioSourceRefs(parsed[key], refs, depth + 1);
-    }
-    if (refs.length >= 8) break;
-  }
+  return studioSourceRefs.collectStudioSourceRefs(value, refs, depth);
 }
 
 function studioSourceRefsFromRuntimeEvents(events = []) {
-  const refs = [];
-  for (const event of firstArray(events)) {
-    collectStudioSourceRefs(event?.payload, refs);
-    collectStudioSourceRefs(event?.payload_summary, refs);
-    collectStudioSourceRefs(event?.payloadSummary, refs);
-    collectStudioSourceRefs(event?.data, refs);
-    if (refs.length >= 8) break;
-  }
-  const seen = new Set();
-  return refs.filter((ref) => {
-    const key = `${ref.url} ${ref.title}`.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }).slice(0, 6);
+  return studioSourceRefs.studioSourceRefsFromRuntimeEvents(events);
 }
 
 function studioSourceRefsFromRuntimeEvent(event = {}, summary = "") {
-  const refs = [];
-  collectStudioSourceRefs(event?.payload, refs);
-  collectStudioSourceRefs(event?.payload_summary, refs);
-  collectStudioSourceRefs(event?.payloadSummary, refs);
-  collectStudioSourceRefs(event?.data, refs);
-  collectStudioSourceRefs(summary, refs);
-  const seen = new Set();
-  return refs.filter((ref) => {
-    const key = `${ref.url} ${ref.title}`.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }).slice(0, 6);
+  return studioSourceRefs.studioSourceRefsFromRuntimeEvent(event, summary);
 }
 
 function studioFirstSourceExcerptFromEvent(event = {}, summary = "") {
-  const candidates = [];
-  function visit(value, depth = 0) {
-    if (depth > 10 || candidates.length >= 6 || value == null) return;
-    const parsed = typeof value === "string" ? studioJsonValueFromText(value) : value;
-    if (!parsed) return;
-    if (Array.isArray(parsed)) {
-      for (const item of parsed) visit(item, depth + 1);
-      return;
-    }
-    if (typeof parsed !== "object") return;
-    for (const key of ["snippet", "excerpt", "excerpt_preview", "excerptPreview", "summary", "text", "content"]) {
-      const text = compactStudioWhitespace(parsed[key]);
-      if (text && !/^\{/.test(text)) candidates.push(text.slice(0, 280));
-    }
-    for (const key of [
-      "sources",
-      "source",
-      "sourceRefs",
-      "source_refs",
-      "sourceObservations",
-      "source_observations",
-      "documents",
-      "document",
-      "items",
-      "results",
-      "citations",
-      "references",
-      "payload",
-      "payload_summary",
-      "payloadSummary",
-      "kernel_event",
-      "kernelEvent",
-      "AgentActionResult",
-      "WorkloadReceipt",
-      "WebRetrieve",
-      "receipt",
-      "result",
-      "output",
-      "preview",
-      "data",
-    ]) {
-      visit(parsed[key], depth + 1);
-    }
-  }
-  visit(event?.payload);
-  visit(event?.payload_summary);
-  visit(event?.payloadSummary);
-  visit(event?.data);
-  visit(summary);
-  return candidates[0] || "";
+  return studioSourceRefs.studioFirstSourceExcerptFromEvent(event, summary);
 }
 
 const {
