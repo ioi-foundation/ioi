@@ -43,6 +43,8 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Moved model quantization parsing into `catalog-helpers.mjs` so catalog entries and local artifact metadata share one parser.
 - Added `packages/runtime-daemon/src/model-mounting/provider-auth.mjs`.
 - Moved provider secret input detection, vault ref sanitization, hosted-provider fail-closed checks, provider auth header normalization, and vault-backed provider header resolution out of `model-mounting.mjs`.
+- Added `packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs`.
+- Moved OAuth vault-ref construction, PKCE challenge generation, authorization URL redaction, token expiry/refresh predicates, public OAuth session/state projection, OAuth boundary projection, and token response validation out of `model-mounting.mjs`.
 
 Status: `model-mounting.mjs` still owns provider drivers, wallet/vault ports, catalog provider configuration, state machine behavior, routes, validation, and some product projection glue. Safe next extractions are provider registry/drivers, catalog provider config/auth, validation, routes, and state-machine slices.
 
@@ -60,6 +62,7 @@ Status: `model-mounting.mjs` still owns provider drivers, wallet/vault ports, ca
   - `runtime-request-metadata`
   - `model-mounting/environment`
   - `model-mounting/provider-auth`
+  - `model-mounting/oauth-boundary`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.
