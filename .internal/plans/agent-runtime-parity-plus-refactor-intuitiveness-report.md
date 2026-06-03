@@ -26,6 +26,8 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-state.js` for the initial Agent Studio runtime projection shape.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/migration.js` for migration-assistant command registration.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/quick-input.js` for fork-native QuickInput handoff commands.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/studio-quick-input.js`.
+- Moved Agent Studio native context/tool QuickPick command registration out of `extension.js` while preserving `ioi.studio.openContextPicker` and `ioi.studio.openToolPicker` command ids and bridge request envelopes.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-managed-sessions.js` for managed browser/computer session projection, daemon inspection application, and reconnect proof bridge reporting.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-replay.js` for replay-step projection from runtime events and receipts.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/studio-test-hooks.js` for parity-plus/test-hook command registration while preserving public command ids.
