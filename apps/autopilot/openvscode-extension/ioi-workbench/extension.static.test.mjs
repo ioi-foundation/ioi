@@ -32,10 +32,14 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/product-error-message.js",
   projectionState:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-state.js",
+  projectionReplay:
+    "apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-replay.js",
   managedSessions:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-managed-sessions.js",
   artifactRouting:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/artifact-research-routing.js",
+  studioTestHooks:
+    "apps/autopilot/openvscode-extension/ioi-workbench/commands/studio-test-hooks.js",
   packageJson: "apps/autopilot/openvscode-extension/ioi-workbench/package.json",
   launcher: "scripts/launch-autopilot-ide-fork.mjs",
   shellPatch: "scripts/lib/autopilot-workbench-shell-patch.mjs",
@@ -63,8 +67,10 @@ async function readStudioComposite() {
       paths.runtimeEvents,
       paths.productErrors,
       paths.projectionState,
+      paths.projectionReplay,
       paths.managedSessions,
       paths.artifactRouting,
+      paths.studioTestHooks,
     ].map(read),
   );
   return parts.join("\n");
@@ -187,8 +193,9 @@ test("Agent Studio injected runtime events refresh replay rows", async () => {
 
   assertHas(source, [
     /function refreshStudioReplayStepsFromProjection/,
-    /studioRuntimeProjection\.runtimeEvents\.slice\(-8\)\.map/,
-    /studioRuntimeProjection\.receipts\.slice\(-8\)\.map/,
+    /refreshStudioReplayStepsFromProjectionState\(studioRuntimeProjection\)/,
+    /firstArray\(studioRuntimeProjection\.runtimeEvents\)\.slice\(-8\)\.map/,
+    /firstArray\(studioRuntimeProjection\.receipts\)\.slice\(-8\)\.map/,
     /refreshStudioReplayStepsFromProjection\(\);\s*\n\s*studioRuntimeProjection\.status = payload\?\.status \|\| "completed"/,
     /data-testid="studio-replay-step-detail"/,
   ]);

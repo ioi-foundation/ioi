@@ -318,11 +318,29 @@ async function ensureManagedSessionExpanded(frame) {
 }
 
 async function clickManagedSessionControl(page, testId, expectedControlState) {
-  const frame = await findFrameWithTestId(page, "agent-studio-operational-chat");
-  const card = await ensureManagedSessionExpanded(frame);
-  await clickLocatorWithDomFallback(card.locator(`[data-testid="${testId}"]`).first());
+  let lastError = null;
+  let clicked = false;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const frame = await findFrameWithTestId(page, "agent-studio-operational-chat");
+      const card = await ensureManagedSessionExpanded(frame);
+      await clickLocatorWithDomFallback(card.locator(`[data-testid="${testId}"]`).first());
+      clicked = true;
+      break;
+    } catch (error) {
+      lastError = error;
+      if (!/Frame was detached|Execution context was destroyed|Target closed/i.test(String(error?.message || error))) {
+        throw error;
+      }
+      await wait(350);
+    }
+  }
+  if (!clicked && lastError) throw lastError;
   const observed = await waitForPredicate(
     async () => {
+      const frame = await findFrameWithTestId(page, "agent-studio-operational-chat", 1000).catch(() => null);
+      if (!frame) return null;
+      const card = frame.locator('[data-testid="studio-managed-session-card"]').last();
       const state = await card.getAttribute("data-control-state").catch(() => null);
       return state === expectedControlState ? state : null;
     },
