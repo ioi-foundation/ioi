@@ -11,10 +11,6 @@ import {
   isComputerUseRunEventType,
 } from "./computer-use-projection.mjs";
 import {
-  emptyWorkspaceChangeReviewSnapshot,
-  normalizeWorkspaceChangeReviewInspection,
-} from "./workspace-change-inspection.mjs";
-import {
   discoverComputerUseBrowsers,
   discoverComputerUseBrowsersSync,
 } from "./browser-discovery.mjs";
@@ -140,6 +136,10 @@ import {
   controlManagedSessionForThread as controlManagedSessionForThreadState,
   inspectManagedSessionsForThread as inspectManagedSessionsForThreadState,
 } from "./threads/managed-session-state.mjs";
+import {
+  controlWorkspaceChangeForThread as controlWorkspaceChangeForThreadState,
+  inspectWorkspaceChangeReviewsForThread as inspectWorkspaceChangeReviewsForThreadState,
+} from "./threads/workspace-change-state.mjs";
 import {
   codingToolBudgetPolicyForRequest,
   contextBudgetNumber,
@@ -1246,144 +1246,22 @@ export class AgentgresRuntimeStateStore {
   }
 
   async inspectWorkspaceChangeReviewsForThread(threadId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    const sessionId = runtimeSessionIdForAgent(agent);
-    if (!isRuntimeBackedAgent(agent)) {
-      return {
-        ...emptyWorkspaceChangeReviewSnapshot(threadId, sessionId),
-        runtime_profile: agent.runtimeProfile ?? "fixture",
-        runtimeProfile: agent.runtimeProfile ?? "fixture",
-        status: "not_runtime_backed",
-      };
-    }
-    this.assertRuntimeBridgeAvailable({
-      runtimeProfile: agent.runtimeProfile,
-      operation: "inspect_thread",
+    return inspectWorkspaceChangeReviewsForThreadState(this, threadId, request, {
+      RuntimeApiBridgeUnavailableError,
+      isRuntimeBackedAgent,
+      runtimeSessionIdForAgent,
     });
-    try {
-      const bridgeResult = await this.runtimeBridge.inspectThread({
-        sessionId,
-        threadId,
-        workspaceRoot: agent.cwd,
-        projection: "workspace_change_reviews",
-        requestedAt: new Date().toISOString(),
-        ...request,
-      });
-      return normalizeWorkspaceChangeReviewInspection({
-        bridgeResult,
-        agent,
-        threadId,
-        sessionId,
-      });
-    } catch (error) {
-      if (error instanceof RuntimeApiBridgeUnavailableError) {
-        throw this.runtimeBridgeUnavailable({
-          runtimeProfile: agent.runtimeProfile,
-          operation: "inspect_thread",
-          details: error.details,
-        });
-      }
-      throw error;
-    }
   }
 
   async controlWorkspaceChangeForThread(threadId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    if (!isRuntimeBackedAgent(agent)) {
-      throw this.runtimeBridgeUnavailable({
-        runtimeProfile: agent.runtimeProfile,
-        operation: "control_thread",
-        details: { reason: "workspace_change_control_requires_runtime_service" },
-      });
-    }
-    const toolId = optionalString(request.toolId ?? request.tool_id);
-    const input = request.input && typeof request.input === "object" ? request.input : request;
-    const changeId = optionalString(
-      input.changeId ?? input.change_id ?? input.workspaceChangeId ?? input.workspace_change_id,
-    );
-    if (!changeId) {
-      throw runtimeError({
-        status: 400,
-        code: "workspace_change_control_contract",
-        message: "Workspace change control requires changeId.",
-        details: { threadId, operation: "control_thread", toolId },
-      });
-    }
-    const action = toolId === "workspace_change__reject"
-      ? "workspace_change_reject"
-      : toolId === "workspace_change__rollback"
-        ? "workspace_change_rollback"
-        : "workspace_change_accept";
-    this.assertRuntimeBridgeAvailable({
-      runtimeProfile: agent.runtimeProfile,
-      operation: "control_thread",
+    return controlWorkspaceChangeForThreadState(this, threadId, request, {
+      RuntimeApiBridgeUnavailableError,
+      doctorHash,
+      isRuntimeBackedAgent,
+      optionalString,
+      runtimeSessionIdForAgent,
+      safeId,
     });
-    const createdAt = optionalString(request.createdAt ?? request.created_at) ?? new Date().toISOString();
-    try {
-      const bridgeResult = await this.runtimeBridge.controlThread({
-        sessionId: runtimeSessionIdForAgent(agent),
-        threadId,
-        workspaceRoot: agent.cwd,
-        action,
-        reason:
-          optionalString(input.reason ?? request.reason ?? request.message) ??
-          `operator requested ${action.replace(/_/g, " ")}`,
-        requestHash:
-          optionalString(request.requestHash ?? request.request_hash) ??
-          doctorHash(`${threadId}:${changeId}:${action}:${createdAt}`).slice(0, 16),
-        changeId,
-        createdAt,
-      });
-      const inspection = normalizeWorkspaceChangeReviewInspection({
-        bridgeResult: bridgeResult?.inspection ?? bridgeResult,
-        agent,
-        threadId,
-        sessionId: runtimeSessionIdForAgent(agent),
-      });
-      const status = action === "workspace_change_reject"
-        ? "rejected"
-        : action === "workspace_change_rollback"
-          ? "rolled_back"
-          : "completed";
-      const receiptRef = `receipt_workspace_change_${safeId(action)}_${doctorHash(`${threadId}:${changeId}:${createdAt}`).slice(0, 12)}`;
-      return {
-        schema_version: "ioi.runtime.workspace-change-control.daemon.v1",
-        schemaVersion: "ioi.runtime.workspace-change-control.daemon.v1",
-        thread_id: threadId,
-        threadId,
-        session_id: runtimeSessionIdForAgent(agent),
-        sessionId: runtimeSessionIdForAgent(agent),
-        tool_id: toolId,
-        toolId,
-        action,
-        change_id: changeId,
-        changeId,
-        source: "daemon",
-        status,
-        receipt_refs: [receiptRef],
-        receiptRefs: [receiptRef],
-        bridge_result: bridgeResult,
-        bridgeResult,
-        inspection,
-        result: {
-          action,
-          changeId,
-          status,
-          inspection,
-          receiptRefs: [receiptRef],
-          receipt_refs: [receiptRef],
-        },
-      };
-    } catch (error) {
-      if (error instanceof RuntimeApiBridgeUnavailableError) {
-        throw this.runtimeBridgeUnavailable({
-          runtimeProfile: agent.runtimeProfile,
-          operation: "control_thread",
-          details: error.details,
-        });
-      }
-      throw error;
-    }
   }
 
   async controlManagedSessionForThread(threadId, request = {}) {

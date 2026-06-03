@@ -49,8 +49,11 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/threads/managed-session-state.mjs`.
 - Moved runtime-backed managed-session inspection/control bridge behavior out of `index.mjs` behind compatibility-preserving `AgentgresRuntimeStateStore` delegator methods.
 - Added focused managed-session thread-state tests for fixture fallback snapshots, runtime bridge inspection normalization, control command construction, and missing session-id validation.
+- Added `packages/runtime-daemon/src/threads/workspace-change-state.mjs`.
+- Moved runtime-backed workspace-change review inspection/control bridge behavior out of `index.mjs` behind compatibility-preserving `AgentgresRuntimeStateStore` delegator methods.
+- Added focused workspace-change thread-state tests for fixture fallback snapshots, runtime bridge inspection normalization, control command construction, and missing change-id validation.
 
-Status: `index.mjs` still owns the large state store and public route composition. Safe next extractions are daemon service lifecycle, thread store/control/replay persistence, workspace-change control state, and route registration glue.
+Status: `index.mjs` still owns the large state store and public route composition. Safe next extractions are daemon service lifecycle, thread store/control/replay persistence, and route registration glue.
 
 ### Model Mounting
 
