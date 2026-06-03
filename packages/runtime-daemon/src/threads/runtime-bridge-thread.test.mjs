@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  controlRuntimeBridgeThread,
   createRuntimeBridgeThread,
   createRuntimeBridgeTurn,
   normalizeRuntimeBridgeLiveEvent,
@@ -135,6 +136,28 @@ function fakeTurnStore({ bridgeResult, bridgeError, liveEvent } = {}) {
     turnForRun(run) {
       calls.push({ operation: "turn_for_run", run });
       return { turn_id: run.turnId, run_id: run.id };
+    },
+    runtimeBridgeUnavailable(input) {
+      const error = new Error("runtime bridge unavailable");
+      error.input = input;
+      return error;
+    },
+  };
+}
+
+function fakeControlStore({ bridgeResult, bridgeError } = {}) {
+  const calls = [];
+  return {
+    calls,
+    runtimeBridge: {
+      async controlThread(input) {
+        calls.push({ operation: "control_thread", input });
+        if (bridgeError) throw bridgeError;
+        return bridgeResult ?? { status: "accepted", action: input.action };
+      },
+    },
+    assertRuntimeBridgeAvailable(input) {
+      calls.push({ operation: "assert_bridge", input });
     },
     runtimeBridgeUnavailable(input) {
       const error = new Error("runtime bridge unavailable");
@@ -279,6 +302,55 @@ test("runtime bridge turn creation maps bridge unavailable errors and cleans in-
   );
   assert.equal(errorOperation.payload.errorName, "Error");
   assert.equal(errorOperation.payload.details.operation, null);
+});
+
+test("runtime bridge thread control sends action to bridge", async () => {
+  const store = fakeControlStore();
+  const agent = {
+    id: "agent_runtime",
+    cwd: "/workspace",
+    runtimeProfile: "runtime_service",
+    runtimeSessionId: "session_runtime",
+  };
+
+  const result = await controlRuntimeBridgeThread(store, {
+    agent,
+    threadId: "thread_agent_runtime",
+    action: "resume",
+    reason: "operator requested resume",
+  }, deps());
+
+  const control = store.calls.find((call) => call.operation === "control_thread");
+  assert.equal(control.input.sessionId, "session_runtime");
+  assert.equal(control.input.threadId, "thread_agent_runtime");
+  assert.equal(control.input.workspaceRoot, "/workspace");
+  assert.equal(control.input.action, "resume");
+  assert.equal(control.input.reason, "operator requested resume");
+  assert.equal(result.status, "accepted");
+});
+
+test("runtime bridge thread control maps bridge unavailable errors", async () => {
+  const store = fakeControlStore({ bridgeError: new BridgeUnavailableError({ reason: "not configured" }) });
+  const agent = {
+    id: "agent_runtime",
+    cwd: "/workspace",
+    runtimeProfile: "runtime_service",
+    runtimeSessionId: "session_runtime",
+  };
+
+  await assert.rejects(
+    controlRuntimeBridgeThread(store, {
+      agent,
+      threadId: "thread_agent_runtime",
+      action: "stop",
+      reason: "operator requested interrupt",
+    }, deps()),
+    (error) => {
+      assert.equal(error.input.operation, "control_thread");
+      assert.equal(error.input.details.reason, "not configured");
+      return true;
+    },
+  );
 });
 
 test("runtime bridge thread start normalization fills event defaults", () => {

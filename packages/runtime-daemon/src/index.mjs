@@ -145,6 +145,7 @@ import {
   inspectWorkspaceChangeReviewsForThread as inspectWorkspaceChangeReviewsForThreadState,
 } from "./threads/workspace-change-state.mjs";
 import {
+  controlRuntimeBridgeThread as controlRuntimeBridgeThreadState,
   createRuntimeBridgeThread as createRuntimeBridgeThreadState,
   createRuntimeBridgeTurn as createRuntimeBridgeTurnState,
   normalizeRuntimeBridgeLiveEvent as normalizeRuntimeBridgeLiveEventState,
@@ -1259,31 +1260,17 @@ export class AgentgresRuntimeStateStore {
     const agent = this.agentForThread(threadId);
     let runtimeControl = null;
     if (isRuntimeBackedAgent(agent)) {
-      this.assertRuntimeBridgeAvailable({
-        runtimeProfile: agent.runtimeProfile,
-        operation: "control_thread",
+      runtimeControl = await controlRuntimeBridgeThreadState(this, {
+        agent,
+        threadId,
+        action: "resume",
+        reason:
+          optionalString(request.reason ?? request.message ?? request.input) ??
+          "operator requested resume",
+      }, {
+        RuntimeApiBridgeUnavailableError,
+        runtimeSessionIdForAgent,
       });
-      try {
-        runtimeControl = await this.runtimeBridge.controlThread({
-          sessionId: runtimeSessionIdForAgent(agent),
-          threadId,
-          workspaceRoot: agent.cwd,
-          action: "resume",
-          reason:
-            optionalString(request.reason ?? request.message ?? request.input) ??
-            "operator requested resume",
-          createdAt: new Date().toISOString(),
-        });
-      } catch (error) {
-        if (error instanceof RuntimeApiBridgeUnavailableError) {
-          throw this.runtimeBridgeUnavailable({
-            runtimeProfile: agent.runtimeProfile,
-            operation: "control_thread",
-            details: error.details,
-          });
-        }
-        throw error;
-      }
     }
     const updated = this.updateAgent(agent.id, "active", "thread.resume");
     const thread = this.threadForAgent(updated);
@@ -3728,10 +3715,6 @@ export class AgentgresRuntimeStateStore {
     const run = resolved.run;
     let runtimeControl = null;
     if (isRuntimeBackedAgent(agent)) {
-      this.assertRuntimeBridgeAvailable({
-        runtimeProfile: agent.runtimeProfile,
-        operation: "control_thread",
-      });
       const requestedAction = optionalString(
         request.runtime_control_action ??
           request.runtimeControlAction ??
@@ -3741,27 +3724,17 @@ export class AgentgresRuntimeStateStore {
       const controlAction = /^(cancel|terminate)$/i.test(requestedAction ?? "")
         ? "cancel"
         : "stop";
-      try {
-        runtimeControl = await this.runtimeBridge.controlThread({
-          sessionId: runtimeSessionIdForAgent(agent),
-          threadId,
-          workspaceRoot: agent.cwd,
-          action: controlAction,
-          reason:
-            optionalString(request.reason ?? request.message ?? request.input) ??
-            "operator requested interrupt",
-          createdAt: new Date().toISOString(),
-        });
-      } catch (error) {
-        if (error instanceof RuntimeApiBridgeUnavailableError) {
-          throw this.runtimeBridgeUnavailable({
-            runtimeProfile: agent.runtimeProfile,
-            operation: "control_thread",
-            details: error.details,
-          });
-        }
-        throw error;
-      }
+      runtimeControl = await controlRuntimeBridgeThreadState(this, {
+        agent,
+        threadId,
+        action: controlAction,
+        reason:
+          optionalString(request.reason ?? request.message ?? request.input) ??
+          "operator requested interrupt",
+      }, {
+        RuntimeApiBridgeUnavailableError,
+        runtimeSessionIdForAgent,
+      });
     }
     const source = operatorControlSource(request.source);
     const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";

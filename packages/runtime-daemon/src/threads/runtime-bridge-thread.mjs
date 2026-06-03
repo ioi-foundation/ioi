@@ -199,6 +199,36 @@ export async function createRuntimeBridgeTurn(store, { agent, threadId, request,
   return store.turnForRun(run);
 }
 
+export async function controlRuntimeBridgeThread(store, { agent, threadId, action, reason }, deps = {}) {
+  const {
+    RuntimeApiBridgeUnavailableError,
+    runtimeSessionIdForAgent,
+  } = deps;
+  store.assertRuntimeBridgeAvailable({
+    runtimeProfile: agent.runtimeProfile,
+    operation: "control_thread",
+  });
+  try {
+    return await store.runtimeBridge.controlThread({
+      sessionId: runtimeSessionIdForAgent(agent),
+      threadId,
+      workspaceRoot: agent.cwd,
+      action,
+      reason,
+      createdAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    if (RuntimeApiBridgeUnavailableError && error instanceof RuntimeApiBridgeUnavailableError) {
+      throw store.runtimeBridgeUnavailable({
+        runtimeProfile: agent.runtimeProfile,
+        operation: "control_thread",
+        details: error.details,
+      });
+    }
+    throw error;
+  }
+}
+
 export function normalizeRuntimeBridgeThreadStart({ bridgeResult, agent, threadId, runtimeProfile }, deps = {}) {
   const {
     bridgeId,
