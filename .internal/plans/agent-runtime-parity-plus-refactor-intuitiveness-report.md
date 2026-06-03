@@ -213,6 +213,8 @@ Status: `model-mounting.mjs` still owns default seeding, state-machine behavior,
 - Preserved the existing `cognition` module re-exports so final-reply tests and call sites keep using the same internal function names while the implementation now lives behind a focused module.
 - Added `crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome/terminal_reply_classification.rs`.
 - Moved terminal chat reply/source-candidate/tool-plan classification, workspace contextual-answer detection, and file-mutation policy-report detection out of the `tool_outcome` support include while preserving the parent-module helper names used by tests and outcome handling.
+- Added `crates/services/src/agentic/runtime/service/tool_execution/processing/phases/finalize_action_processing/completion_guards.rs`.
+- Moved finalize-action duplicate/no-op guards, read-only workspace duplicate detection, browser-surface release predicate, web-pipeline completion labels, product handoff violation message construction, and file-edit patch-miss receipt evidence shaping out of `finalize_action_processing.rs` while preserving parent-module helper names for tests.
 
 ## Naming And Vocabulary Decisions
 
@@ -250,6 +252,7 @@ Status: `model-mounting.mjs` still owns default seeding, state-machine behavior,
   - `model-mounting/oauth-credential-provider`
   - `cognition/final_reply_product_handoff`
   - `tool_outcome/terminal_reply_classification`
+  - `finalize_action_processing/completion_guards`
   - `model-mounting/projections`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
