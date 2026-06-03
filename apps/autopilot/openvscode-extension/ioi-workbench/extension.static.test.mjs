@@ -38,6 +38,8 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/response-metrics.js",
   sourceChipRenderer:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/source-chip-renderer.js",
+  codeExecution:
+    "apps/autopilot/openvscode-extension/ioi-workbench/studio/code-execution.js",
   productErrors:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/product-error-message.js",
   projectionState:
@@ -80,6 +82,7 @@ async function readStudioComposite() {
       paths.workRecordProjection,
       paths.responseMetrics,
       paths.sourceChipRenderer,
+      paths.codeExecution,
       paths.productErrors,
       paths.projectionState,
       paths.projectionReplay,

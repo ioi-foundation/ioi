@@ -50,6 +50,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/source-chip-renderer.js`.
 - Moved Studio answer-source footer rendering, source-chip URL/icon sanitization, favicon fallback selection, chip HTML rendering, and direct/artifact source de-duping out of `extension.js`.
 - Added focused source-chip renderer tests for URL sanitation, explicit and fallback favicon handling, safe anchor/span rendering, escaped labels, duplicate source removal, and fallback icon data URIs.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/code-execution.js`.
+- Moved Studio fenced-code extraction, plan-only code execution policy classification, and chat code-execution card rendering out of `extension.js`.
+- Added focused code-execution tests for executable fence language aliases, network/host-write blocking, plan-only payload projection, disabled blocked actions, and empty non-executable turns.
 - Moved managed browser/computer session work-record attachment and card row rendering out of `extension.js` behind compatibility wrappers.
 - Added focused managed-session view tests for bounded session-card attachment, waiting-for-user handoff rendering, control-state data-testids, HTML escaping, and default sandbox browser state.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
