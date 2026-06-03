@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   createRuntimeBridgeThread,
   normalizeRuntimeBridgeThreadStart,
+  normalizeRuntimeBridgeTurnSubmit,
 } from "./runtime-bridge-thread.mjs";
 
 class BridgeUnavailableError extends Error {
@@ -17,12 +18,14 @@ function deps() {
   return {
     eventStreamIdForThread: (threadId) => `stream_${threadId}`,
     normalizeArray: (value) => Array.isArray(value) ? value : [],
+    runIdForTurn: (turnId) => `run_${turnId}`,
     RuntimeApiBridgeUnavailableError: BridgeUnavailableError,
     runtimeError: (input) => {
       const error = new Error(input.message);
       Object.assign(error, input);
       return error;
     },
+    runtimeSessionIdForAgent: (agent) => agent.runtimeSessionId ?? "session_runtime",
     threadIdForAgent: (agentId) => `thread_${agentId}`,
   };
 }
@@ -181,6 +184,75 @@ test("runtime bridge thread start normalization rejects missing thread started e
     (error) => {
       assert.equal(error.code, "runtime_bridge_contract");
       assert.equal(error.details.sessionId, "session_runtime");
+      return true;
+    },
+  );
+});
+
+test("runtime bridge turn submit normalization fills run and event defaults", () => {
+  const projection = normalizeRuntimeBridgeTurnSubmit({
+    bridgeResult: {
+      turn_id: "turn_runtime",
+      result: "done",
+      events: [{ event_kind: "turn.started", payload_summary: { step: "submit" } }],
+    },
+    agent: {
+      id: "agent_runtime",
+      cwd: "/workspace",
+      runtimeProfile: "runtime_service",
+      runtimeSessionId: "session_runtime",
+    },
+    threadId: "thread_agent_runtime",
+    request: { mode: "send", prompt: "hello" },
+  }, deps());
+
+  assert.equal(projection.turnId, "turn_runtime");
+  assert.equal(projection.runId, "run_turn_runtime");
+  assert.equal(projection.status, "completed");
+  assert.equal(projection.result, "done");
+  assert.equal(projection.mode, "send");
+  assert.equal(projection.prompt, "hello");
+  assert.equal(projection.stopReason, "runtime_bridge_completed");
+  assert.equal(projection.events[0].event_stream_id, "stream_thread_agent_runtime");
+  assert.equal(projection.events[0].thread_id, "thread_agent_runtime");
+  assert.equal(projection.events[0].turn_id, "turn_runtime");
+  assert.equal(projection.events[0].workspace_root, "/workspace");
+  assert.equal(projection.events[0].fixture_profile, null);
+  assert.deepEqual(projection.events[0].payload, {
+    agent_id: "agent_runtime",
+    run_id: "run_turn_runtime",
+    session_id: "session_runtime",
+    step: "submit",
+  });
+});
+
+test("runtime bridge turn submit normalization rejects missing turn id", () => {
+  assert.throws(
+    () => normalizeRuntimeBridgeTurnSubmit({
+      bridgeResult: { events: [{ event_kind: "turn.started" }] },
+      agent: { id: "agent_runtime", cwd: "/workspace", runtimeProfile: "runtime_service" },
+      threadId: "thread_agent_runtime",
+      request: {},
+    }, deps()),
+    (error) => {
+      assert.equal(error.code, "runtime_bridge_contract");
+      assert.equal(error.details.operation, "submit_turn");
+      return true;
+    },
+  );
+});
+
+test("runtime bridge turn submit normalization rejects missing turn started event", () => {
+  assert.throws(
+    () => normalizeRuntimeBridgeTurnSubmit({
+      bridgeResult: { turn_id: "turn_runtime", events: [{ event_kind: "turn.completed" }] },
+      agent: { id: "agent_runtime", cwd: "/workspace", runtimeProfile: "runtime_service" },
+      threadId: "thread_agent_runtime",
+      request: {},
+    }, deps()),
+    (error) => {
+      assert.equal(error.code, "runtime_bridge_contract");
+      assert.equal(error.details.turnId, "turn_runtime");
       return true;
     },
   );

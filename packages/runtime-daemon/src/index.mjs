@@ -143,6 +143,7 @@ import {
 import {
   createRuntimeBridgeThread as createRuntimeBridgeThreadState,
   normalizeRuntimeBridgeThreadStart as normalizeRuntimeBridgeThreadStartState,
+  normalizeRuntimeBridgeTurnSubmit as normalizeRuntimeBridgeTurnSubmitState,
 } from "./threads/runtime-bridge-thread.mjs";
 import {
   codingToolBudgetPolicyForRequest,
@@ -3025,61 +3026,13 @@ export class AgentgresRuntimeStateStore {
   }
 
   normalizeRuntimeBridgeTurnSubmit({ bridgeResult, agent, threadId, request }) {
-    const turnId = String(bridgeResult?.turn_id ?? bridgeResult?.turnId ?? "").trim();
-    if (!turnId || !turnId.startsWith("turn_")) {
-      throw runtimeError({
-        status: 502,
-        code: "runtime_bridge_contract",
-        message: "RuntimeApiBridge submitTurn result must include turn_id.",
-        details: { runtimeProfile: agent.runtimeProfile, operation: "submit_turn" },
-      });
-    }
-    const runId = String(bridgeResult?.run_id ?? bridgeResult?.runId ?? runIdForTurn(turnId)).trim();
-    const events = normalizeArray(bridgeResult?.events);
-    const hasTurnStarted = events.some((event) => event?.event_kind === "turn.started");
-    if (!hasTurnStarted) {
-      throw runtimeError({
-        status: 502,
-        code: "runtime_bridge_contract",
-        message: "RuntimeApiBridge submitTurn result must include a turn.started event.",
-        details: { runtimeProfile: agent.runtimeProfile, operation: "submit_turn", turnId },
-      });
-    }
-    const now = new Date().toISOString();
-    return {
-      runId,
-      turnId,
-      status: bridgeResult?.status ?? "completed",
-      result: bridgeResult?.result ?? "",
-      createdAt: bridgeResult?.created_at ?? bridgeResult?.createdAt ?? now,
-      updatedAt: bridgeResult?.updated_at ?? bridgeResult?.updatedAt ?? now,
-      mode: request.mode ?? "send",
-      prompt: request.prompt ?? request.message ?? request.input ?? "",
-      stopReason: bridgeResult?.stop_reason ?? bridgeResult?.stopReason ?? "runtime_bridge_completed",
-      usage:
-        bridgeResult?.usage_telemetry ??
-        bridgeResult?.usageTelemetry ??
-        bridgeResult?.runtime_usage ??
-        bridgeResult?.runtimeUsage ??
-        bridgeResult?.usage ??
-        null,
-      events: events.map((event) => ({
-        ...event,
-        event_stream_id: event.event_stream_id ?? eventStreamIdForThread(threadId),
-        thread_id: event.thread_id ?? threadId,
-        turn_id: event.turn_id ?? turnId,
-        workspace_root: event.workspace_root ?? agent.cwd,
-        source: event.source ?? "runtime_service",
-        source_event_kind: event.source_event_kind ?? "RuntimeAgentService",
-        fixture_profile: Object.hasOwn(event, "fixture_profile") ? event.fixture_profile : null,
-        payload: {
-          agent_id: agent.id,
-          run_id: runId,
-          session_id: runtimeSessionIdForAgent(agent),
-          ...(event.payload ?? event.payload_summary ?? {}),
-        },
-      })),
-    };
+    return normalizeRuntimeBridgeTurnSubmitState({ bridgeResult, agent, threadId, request }, {
+      eventStreamIdForThread,
+      normalizeArray,
+      runIdForTurn,
+      runtimeError,
+      runtimeSessionIdForAgent,
+    });
   }
 
   normalizeRuntimeBridgeLiveEvent({ event, agent, threadId }) {
