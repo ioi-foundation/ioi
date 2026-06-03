@@ -187,7 +187,7 @@ test("managed browser session inspect and control survive daemon store reconnect
   const calls = [];
   const managedState = {
     runtimeSessionId: "session_managed_reconnect",
-    managedSessionId: "sandbox_browser:login_gate",
+    managedSessionId: "sandbox_browser:manual_auth_handoff",
     controlState: "observe",
   };
   let store = new AgentgresRuntimeStateStore(stateDir, {
@@ -214,7 +214,7 @@ test("managed browser session inspect and control survive daemon store reconnect
     const takeover = await store.controlManagedSessionForThread(thread.thread_id, {
       managedSessionId: managedState.managedSessionId,
       action: "take_over",
-      reason: "operator takes over login-gated fixture",
+      reason: "operator takes over manual authentication handoff fixture",
     });
     assert.equal(takeover.action, "take_over_session");
     assert.equal(takeover.inspection.managed_sessions.sessions[0].control_state, "take_over");
@@ -259,7 +259,7 @@ test("managed browser session HTTP routes survive daemon service reconnect", asy
   const calls = [];
   const managedState = {
     runtimeSessionId: "session_managed_http_reconnect",
-    managedSessionId: "sandbox_browser:http_login_gate",
+    managedSessionId: "sandbox_browser:http_manual_auth_handoff",
     controlState: "observe",
   };
   let daemon;
@@ -291,7 +291,7 @@ test("managed browser session HTTP routes survive daemon service reconnect", asy
       body: JSON.stringify({
         managedSessionId: managedState.managedSessionId,
         action: "take_over",
-        reason: "operator takes over login-gated fixture through HTTP route",
+        reason: "operator takes over manual authentication handoff fixture through HTTP route",
       }),
     });
     assert.equal(takeover.action, "take_over_session");

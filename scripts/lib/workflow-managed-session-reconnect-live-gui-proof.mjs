@@ -363,7 +363,7 @@ async function runProof(outputDir) {
   const calls = [];
   const managedState = {
     runtimeSessionId: "session_managed_live_gui_reconnect",
-    managedSessionId: "sandbox_browser:live_gui_login_gate",
+    managedSessionId: "sandbox_browser:live_gui_manual_auth_handoff",
     controlState: "observe",
   };
   const daemon = await startRuntimeDaemonService({

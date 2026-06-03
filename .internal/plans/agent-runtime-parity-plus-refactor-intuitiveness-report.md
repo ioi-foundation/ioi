@@ -13,6 +13,7 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added checked-in Stage 9 replay fixtures so the live replay proof can run from a clean checkout without relying on ignored `docs/evidence` artifacts.
 - Hardened the Stage 8 managed-session control click path to reacquire the Studio webview frame/card across VS Code webview swaps.
 - Renamed the Stage 8 synthetic browser card from a spoof-like login-gate label to a manual authentication handoff fixture so the proof reads as operator-control state, not a fake approval surface.
+- Renamed lingering private test/proof fixture ids and reasons from `login_gate` to `manual_auth_handoff`; public data-testids and response envelopes are unchanged.
 - Kept generated proof outputs ignored under `docs/evidence/`.
 
 ### Agent Studio Workbench Extension
@@ -97,6 +98,9 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs`.
 - Moved the LM Studio public CLI provider driver out of `model-mounting.mjs` while preserving OpenAI-compatible invoke/stream composition.
 - Added focused LM Studio driver tests for absent CLI fail-closed behavior and public CLI health/start/stop/load/unload lifecycle commands.
+- Added `packages/runtime-daemon/src/model-mounting/wallet-authority.mjs`.
+- Moved the Agentgres wallet authority capability grant/authorization/revocation adapter out of `model-mounting.mjs`.
+- Added focused wallet authority tests for grant creation, authorization, policy denial, revocation, vault-ref redaction, and remote boundary status.
 
 Status: `model-mounting.mjs` still owns provider driver classes, wallet/vault ports, state machine behavior, routes, validation, and some product projection glue. Safe next extractions are provider driver class groups, validation, routes, and state-machine slices.
 
@@ -137,6 +141,7 @@ Status: `model-mounting.mjs` still owns provider driver classes, wallet/vault po
   - `model-mounting/provider-ollama-driver`
   - `model-mounting/provider-openai-backend-drivers`
   - `model-mounting/provider-lm-studio-driver`
+  - `model-mounting/wallet-authority`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.
