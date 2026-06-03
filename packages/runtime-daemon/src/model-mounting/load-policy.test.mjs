@@ -1,0 +1,117 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  expiresAt,
+  hasExplicitTtlOption,
+  lmStudioLoadOptionArgs,
+  normalizeLoadOptions,
+  normalizeLoadPolicy,
+  normalizeRuntimeEngineDefaultLoadOptions,
+} from "./load-policy.mjs";
+
+test("load policy normalization preserves string idle eviction semantics", () => {
+  assert.deepEqual(normalizeLoadPolicy("idle_evict"), {
+    mode: "idle_evict",
+    idleTtlSeconds: 900,
+    autoEvict: true,
+  });
+  assert.deepEqual(normalizeLoadPolicy("always_loaded"), {
+    mode: "always_loaded",
+    idleTtlSeconds: 900,
+    autoEvict: false,
+  });
+});
+
+test("load policy normalization accepts snake and camel ttl aliases", () => {
+  assert.deepEqual(normalizeLoadPolicy({
+    mode: "on_demand",
+    idle_ttl_seconds: "45",
+    auto_evict: false,
+    memoryPressureEvict: false,
+  }), {
+    mode: "on_demand",
+    idleTtlSeconds: 45,
+    autoEvict: false,
+    memoryPressureEvict: false,
+  });
+});
+
+test("load option normalization keeps public route aliases stable", () => {
+  assert.deepEqual(normalizeLoadOptions({
+    estimate_only: "1",
+    gpu_offload: "auto",
+    context_length: "8192",
+    parallelism: "2",
+    ttlSeconds: "30",
+    instance_identifier: "chat-a",
+    model_path: "/models/qwen.gguf",
+    dtype: "q4",
+    tensor_parallel_size: "1",
+    gpuMemoryUtilization: "0.7",
+    max_model_len: "4096",
+  }), {
+    estimateOnly: true,
+    gpu: "auto",
+    contextLength: 8192,
+    parallel: 2,
+    ttlSeconds: 30,
+    identifier: "chat-a",
+    modelPath: "/models/qwen.gguf",
+    model: null,
+    dtype: "q4",
+    tensorParallelSize: 1,
+    gpuMemoryUtilization: 0.7,
+    maxModelLen: 4096,
+  });
+});
+
+test("runtime engine defaults include only explicit normalized values", () => {
+  assert.deepEqual(normalizeRuntimeEngineDefaultLoadOptions({
+    gpu: "auto",
+    contextLength: "4096",
+    parallel: "",
+    ttl: "120",
+    identifier: "engine-default",
+  }), {
+    gpu: "auto",
+    contextLength: 4096,
+    ttlSeconds: 120,
+    identifier: "engine-default",
+  });
+});
+
+test("ttl helpers detect explicit ttl and calculate evict time", () => {
+  assert.equal(hasExplicitTtlOption({ ttl_seconds: 60 }), true);
+  assert.equal(hasExplicitTtlOption({ idleTtlSeconds: 60 }), true);
+  assert.equal(hasExplicitTtlOption({ gpu: "auto" }), false);
+  assert.equal(
+    expiresAt("2026-06-03T00:00:00.000Z", { mode: "on_demand", autoEvict: true, idleTtlSeconds: 60 }),
+    "2026-06-03T00:01:00.000Z",
+  );
+  assert.equal(
+    expiresAt("2026-06-03T00:00:00.000Z", { mode: "always_loaded", autoEvict: false, idleTtlSeconds: 60 }),
+    null,
+  );
+});
+
+test("LM Studio load options produce stable public CLI args", () => {
+  assert.deepEqual(lmStudioLoadOptionArgs({
+    gpu: "auto",
+    contextLength: 8192,
+    parallel: 2,
+    ttlSeconds: 300,
+    identifier: "local-chat",
+  }), [
+    "--gpu",
+    "auto",
+    "--context-length",
+    "8192",
+    "--parallel",
+    "2",
+    "--ttl",
+    "300",
+    "--identifier",
+    "local-chat",
+  ]);
+});
