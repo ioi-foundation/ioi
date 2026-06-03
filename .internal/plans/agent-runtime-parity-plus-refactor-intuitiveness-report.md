@@ -42,6 +42,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/repository-context.mjs`.
 - Moved read-only repository context projection, branch policy projection, GitHub remote context projection, workspace-trust warning projection, git porcelain counting, and remote credential redaction helpers out of `index.mjs`.
 - Added focused repository-context tests for porcelain counting, GitHub remote redaction/metadata, read-only branch/GitHub policy projection, and UI trust override ignoring.
+- Added `packages/runtime-daemon/src/http/public-runtime-routes.mjs`.
+- Moved the public daemon HTTP request dispatcher, CORS preflight handling, top-level route table, delegated thread/agent/run route dispatch, MCP serve thread requirement, and public route error boundary out of `index.mjs`.
+- Added focused public-runtime route tests for preflight, top-level daemon projection dispatch, delegated thread subroutes, and MCP serve validation.
 
 Status: `index.mjs` still owns the large state store and public route composition. Safe next extractions are daemon service lifecycle, thread store/control/replay persistence, managed-session state, and route registration glue.
 
@@ -92,6 +95,7 @@ Status: `model-mounting.mjs` still owns provider driver classes, wallet/vault po
   - `threads/thread-runtime-controls`
   - `threads/context-budget-policy`
   - `repository-context`
+  - `http/public-runtime-routes`
   - `model-mounting/environment`
   - `model-mounting/provider-auth`
   - `model-mounting/oauth-boundary`
