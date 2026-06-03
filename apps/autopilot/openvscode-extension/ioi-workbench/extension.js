@@ -23,7 +23,12 @@ const {
 const {
   createWorkbenchContextSnapshot,
 } = require("./workbench/context-snapshot");
-const studioWorkSummary = require("./studio-work-summary");
+const {
+  formatStudioWorkDuration,
+  studioDocumentedWorkRecord: studioDocumentedWorkRecordFromSummary,
+  studioDocumentedWorkSummary: studioDocumentedWorkSummaryFromSummary,
+  studioTurnHasDocumentedWork,
+} = require("./studio-work-summary");
 const { createStudioPanelHtml } = require("./studio/studio-panel-html");
 const { createStudioModelCompletion } = require("./studio/model-completion");
 const { createStudioOperationalSurface } = require("./studio/operational-surface");
@@ -596,26 +601,15 @@ function compactStudioWhitespace(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
-const studioPublicTextSanitizer = createStudioPublicTextSanitizer({
+const {
+  humanizeStudioToolName,
+  studioDisplayTurnContent,
+  studioHumanizeOperationalTranscriptText,
+  studioSanitizePublicAssistantText,
+} = createStudioPublicTextSanitizer({
   compactStudioWhitespace,
   studioTextIndicatesApprovalPause,
 });
-
-function humanizeStudioToolName(value = "") {
-  return studioPublicTextSanitizer.humanizeStudioToolName(value);
-}
-
-function studioHumanizeOperationalTranscriptText(value, role = "assistant") {
-  return studioPublicTextSanitizer.studioHumanizeOperationalTranscriptText(value, role);
-}
-
-function studioSanitizePublicAssistantText(value = "") {
-  return studioPublicTextSanitizer.studioSanitizePublicAssistantText(value);
-}
-
-function studioDisplayTurnContent(turn = {}) {
-  return studioPublicTextSanitizer.studioDisplayTurnContent(turn);
-}
 
 function isAutoStudioModelSelector(value) {
   const normalized = stringValue(value, "auto").toLowerCase();
@@ -1050,10 +1044,6 @@ function studioTraceLink(payload = {}, label = "View trace") {
   return `<button type="button" class="studio-view-trace-link" data-testid="studio-view-trace-link" data-command="ioi.runs.refresh"${studioTraceCommandAttr(payload)}>${escapeHtml(label)}</button>`;
 }
 
-function formatStudioWorkDuration(durationMs) {
-  return studioWorkSummary.formatStudioWorkDuration(durationMs);
-}
-
 function studioWorkCursor() {
   return {
     startedAtMs: Date.now(),
@@ -1072,15 +1062,11 @@ function studioWorkCursor() {
 }
 
 function studioDocumentedWorkRecord(cursor = {}) {
-  return studioWorkSummary.studioDocumentedWorkRecord(studioRuntimeProjection, cursor);
-}
-
-function studioTurnHasDocumentedWork(turn = {}) {
-  return studioWorkSummary.studioTurnHasDocumentedWork(turn);
+  return studioDocumentedWorkRecordFromSummary(studioRuntimeProjection, cursor);
 }
 
 function studioDocumentedWorkSummary(record = {}) {
-  return studioWorkSummary.studioDocumentedWorkSummary(record, studioRuntimeProjection.status);
+  return studioDocumentedWorkSummaryFromSummary(record, studioRuntimeProjection.status);
 }
 
 const {
@@ -8921,7 +8907,7 @@ async function projectStudioConversationArtifactCanvas(prompt, output, intentFra
     let blockedText = /No product model is mounted/i.test(cleanDetail) ? cleanDetail : "";
     if (!blockedText) {
       try {
-        const handoff = await studioModelCompletion.streamStudioArtifactBlockedHandoff({
+        const handoff = await streamStudioArtifactBlockedHandoff({
           prompt,
           selectedRoute: studioRuntimeProjection.modelRoute || "route.local-first",
           selectedModelId: studioRuntimeProjection.selectedModel || "auto",
@@ -8963,7 +8949,7 @@ async function projectStudioConversationArtifactCanvas(prompt, output, intentFra
     handoffText = `Created the ${artifactLabel} artifact. The preview is below.`;
   } else {
     try {
-      const handoff = await studioModelCompletion.streamStudioArtifactHandoffText({
+      const handoff = await streamStudioArtifactHandoffText({
         prompt,
         selectedRoute: studioRuntimeProjection.modelRoute || "route.local-first",
         selectedModelId: studioRuntimeProjection.selectedModel || "auto",
@@ -9280,7 +9266,14 @@ function requestSseJson(baseUrl, routePath, { method = "POST", payload, token, o
   });
 }
 
-const studioModelCompletion = createStudioModelCompletion({
+const {
+  extractStudioHtmlDocument,
+  generateStudioStaticWebsiteDraft,
+  streamStudioArtifactBlockedHandoff,
+  streamStudioArtifactHandoffText,
+  streamStudioModelCompletion,
+  studioStaticWebsiteDraftFromRuntimeText,
+} = createStudioModelCompletion({
   crypto,
   STUDIO_MODEL_COMPLETION_TIMEOUT_MS,
   requestSseJson,
@@ -9318,16 +9311,8 @@ const {
   firstArray,
   studioRuntimeEventKind,
   studioRuntimeEventToolName,
-  extractHtmlDocument: studioModelCompletion.extractStudioHtmlDocument,
+  extractHtmlDocument: extractStudioHtmlDocument,
 });
-
-async function streamStudioModelCompletion(args, output) {
-  return studioModelCompletion.streamStudioModelCompletion(args, output);
-}
-
-async function generateStudioStaticWebsiteDraft(args, output) {
-  return studioModelCompletion.generateStudioStaticWebsiteDraft(args, output);
-}
 
 async function generateStudioStaticWebsiteDraftThroughAgentTurn({
   prompt,
@@ -9368,7 +9353,7 @@ async function generateStudioStaticWebsiteDraftThroughAgentTurn({
     presentation: "artifact_generation",
     fileName: "index.html",
   });
-  const draft = studioModelCompletion.studioStaticWebsiteDraftFromRuntimeText({
+  const draft = studioStaticWebsiteDraftFromRuntimeText({
     prompt,
     title,
     text: artifactSourceText,
