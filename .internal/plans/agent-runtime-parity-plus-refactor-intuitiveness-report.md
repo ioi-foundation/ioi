@@ -72,6 +72,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Moved runtime bridge capability checks and runtime-service external-blocker shaping out of `index.mjs` behind existing `assertRuntimeBridgeAvailable` and `runtimeBridgeUnavailable` compatibility methods.
 - Added `packages/runtime-daemon/src/computer-use-inputs.mjs`.
 - Moved computer-use action kind normalization, approval/control input parsing, browser session-mode selection, CDP timeout/endpoint checks, visual GUI observation metadata projection, media-type inference, and controlled-relaunch unavailable execution shaping out of `index.mjs` behind compatibility wrappers.
+- Added `packages/runtime-daemon/src/runtime-mcp-helpers.mjs`.
+- Moved MCP server/tool resolution, MCP serve tool descriptor/result shaping, JSON-RPC envelopes, live transport mode metadata, registry enrichment, catalog summary/exposure shaping, mutation-input normalization, config-source filtering, and catalog/tool search limit helpers out of `index.mjs` behind compatibility wrappers.
+- Added focused runtime MCP helper tests for server/tool identity resolution, MCP serve descriptor/result metadata, JSON-RPC error mapping, live transport inference, deferred catalog exposure, mutation input normalization, and registry projection counts.
 - Added `packages/runtime-daemon/src/threads/thread-replay.mjs`.
 - Moved runtime event append/idempotency, thread-start/run-event projection, cursor bounds, stream lookup, replay-by-stream/turn, persisted event registration, and stream-path helpers out of `index.mjs` behind existing replay compatibility methods.
 - Added `packages/runtime-daemon/src/threads/thread-store.mjs`.
