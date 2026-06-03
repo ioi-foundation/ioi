@@ -150,14 +150,14 @@ function managedSessionReconnectBridge(calls, managedState) {
       status_label: "Waiting for user",
       control_state: managedState.controlState,
       waiting_for_user: true,
-      waiting_reason: "login",
+      waiting_reason: "manual authentication handoff fixture",
       replay_ready: true,
       session_id: managedState.managedSessionId,
       thread_id: input.threadId,
       runtime_session_id: input.sessionId,
-      page_title: "Login gate fixture",
-      target: "fixture://login-gate",
-      detail: "Runtime-managed browser session waiting for operator input.",
+      page_title: "Manual authentication handoff fixture",
+      target: "fixture://manual-auth-handoff",
+      detail: "Synthetic runtime-managed browser session waiting for operator control.",
     };
   }
 

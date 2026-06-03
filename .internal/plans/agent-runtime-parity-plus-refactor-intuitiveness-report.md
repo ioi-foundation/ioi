@@ -12,6 +12,7 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Migrated Stage 8 managed-session reconnect proof and Stage 9 historic replay proof to the shared harness.
 - Added checked-in Stage 9 replay fixtures so the live replay proof can run from a clean checkout without relying on ignored `docs/evidence` artifacts.
 - Hardened the Stage 8 managed-session control click path to reacquire the Studio webview frame/card across VS Code webview swaps.
+- Renamed the Stage 8 synthetic browser card from a spoof-like login-gate label to a manual authentication handoff fixture so the proof reads as operator-control state, not a fake approval surface.
 - Kept generated proof outputs ignored under `docs/evidence/`.
 
 ### Agent Studio Workbench Extension
@@ -24,6 +25,7 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-managed-sessions.js` for managed browser/computer session projection, daemon inspection application, and reconnect proof bridge reporting.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-replay.js` for replay-step projection from runtime events and receipts.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/studio-test-hooks.js` for parity-plus/test-hook command registration while preserving public command ids.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/context-snapshot.js` for workbench context snapshots, SCM/task state, diagnostics, and inspection-target index projection.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.
@@ -82,6 +84,7 @@ Status: `model-mounting.mjs` still owns provider driver classes, wallet/vault po
   - `studio/projection-managed-sessions`
   - `studio/projection-replay`
   - `commands/studio-test-hooks`
+  - `workbench/context-snapshot`
   - `runtime-request-metadata`
   - `threads/thread-runtime-controls`
   - `threads/context-budget-policy`

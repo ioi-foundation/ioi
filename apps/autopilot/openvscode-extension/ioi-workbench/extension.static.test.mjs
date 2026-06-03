@@ -9,6 +9,8 @@ const paths = {
   extension: "apps/autopilot/openvscode-extension/ioi-workbench/extension.js",
   workbenchSurfaces:
     "apps/autopilot/openvscode-extension/ioi-workbench/workbench-surfaces.js",
+  workbenchContextSnapshot:
+    "apps/autopilot/openvscode-extension/ioi-workbench/workbench/context-snapshot.js",
   panel: "apps/autopilot/openvscode-extension/ioi-workbench/studio/studio-panel-html.js",
   styles: "apps/autopilot/openvscode-extension/ioi-workbench/studio/studio-panel-styles.js",
   modelSurface: "apps/autopilot/openvscode-extension/ioi-workbench/studio/model-surface.js",
@@ -54,6 +56,7 @@ async function readStudioComposite() {
     [
       paths.extension,
       paths.workbenchSurfaces,
+      paths.workbenchContextSnapshot,
       paths.panel,
       paths.styles,
       paths.modelSurface,
