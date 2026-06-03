@@ -1,6 +1,7 @@
 mod browser_context;
 mod capability;
 mod final_reply;
+mod final_reply_product_handoff;
 mod history;
 mod inference;
 mod router;
@@ -59,7 +60,7 @@ use final_reply::{
     final_reply_evidence_contradiction_reason, final_reply_market_quote_context_from_pending,
     final_reply_pending_market_quote_ready,
 };
-pub(crate) use final_reply::{
+pub(crate) use final_reply_product_handoff::{
     final_reply_product_handoff_reason, sanitize_direct_chat_reply_output,
     sanitize_product_handoff_internal_markers,
 };

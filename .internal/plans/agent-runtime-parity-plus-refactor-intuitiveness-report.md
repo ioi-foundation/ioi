@@ -208,6 +208,9 @@ Status: `model-mounting.mjs` still owns default seeding, state-machine behavior,
 - Added `crates/services/src/agentic/runtime/service/decision_loop/retry_limits.rs`.
 - Moved the explicit retry failure ceiling and terminal retry-limit status into a named helper module.
 - Preserved the important contract: zero budget remains an unset budget and does not trip retry-limit failure before the consecutive-failure ceiling.
+- Added `crates/services/src/agentic/runtime/service/decision_loop/cognition/final_reply_product_handoff.rs`.
+- Moved final-reply product handoff sanitization, direct-chat reply unwrapping/cycle collapse, internal runtime marker redaction, disposable path/URL cleanup, and product-facing raw-output rejection reasons out of `final_reply.rs`.
+- Preserved the existing `cognition` module re-exports so final-reply tests and call sites keep using the same internal function names while the implementation now lives behind a focused module.
 
 ## Naming And Vocabulary Decisions
 
@@ -243,6 +246,7 @@ Status: `model-mounting.mjs` still owns default seeding, state-machine behavior,
   - `model-mounting/wallet-authority`
   - `model-mounting/vault-port`
   - `model-mounting/oauth-credential-provider`
+  - `cognition/final_reply_product_handoff`
   - `model-mounting/projections`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
