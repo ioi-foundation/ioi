@@ -133,6 +133,14 @@ import {
   AgentgresVaultPort,
   configuredVaultMaterialAdapter,
 } from "./model-mounting/vault-port.mjs";
+import {
+  buildAdapterBoundaries,
+  buildAuthoritySnapshot,
+  buildModelMountingProjection,
+  buildModelRouteDecisions,
+  buildProjectionSummary,
+  buildReceiptReplay,
+} from "./model-mounting/projections.mjs";
 export {
   anthropicMessage,
   openAiChatCompletion,
@@ -1182,119 +1190,19 @@ export class ModelMountingState {
   }
 
   authoritySnapshot(baseUrl) {
-    const grants = this.listTokens();
-    const vaultRefs = this.listVaultRefs();
-    const wallet = this.walletAuthority.adapterStatus();
-    const authorityReceipts = this.listReceipts()
-      .filter((receipt) =>
-        [
-          "permission_token",
-          "permission_token_revocation",
-          "vault_ref_binding",
-          "vault_ref_removal",
-          "vault_adapter_health",
-        ].includes(receipt.kind),
-      )
-      .slice(-25);
-    return {
-      schemaVersion: "ioi.wallet-core-lite.authority.v1",
-      source: "agentgres_wallet_authority_projection",
-      generatedAt: this.nowIso(),
-      server: this.serverStatus(baseUrl),
-      wallet,
-      vault: this.vaultStatus(),
-      grants,
-      vaultRefs,
-      approvals: [],
-      approvalQueue: {
-        status: "not_configured",
-        pendingCount: 0,
-        evidenceRefs: ["wallet.network.approval_queue.pending_runtime_adapter"],
-      },
-      receipts: authorityReceipts,
-      summary: {
-        activeGrants: grants.filter((grant) => !grant.revokedAt).length,
-        revokedGrants: grants.filter((grant) => Boolean(grant.revokedAt)).length,
-        vaultRefs: vaultRefs.length,
-        pendingApprovals: 0,
-        receiptCount: authorityReceipts.length,
-        remoteWalletConfigured: Boolean(wallet.remoteAdapter?.configured),
-      },
-    };
+    return buildAuthoritySnapshot(this, baseUrl, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
   }
 
   projectionSummary() {
-    const projection = this.projection();
-    return {
-      schemaVersion: projection.schemaVersion,
-      source: projection.source,
-      watermark: projection.watermark,
-      receiptCount: projection.receipts.length,
-      generatedAt: projection.generatedAt,
-    };
+    return buildProjectionSummary(this.projection());
   }
 
   projection() {
-    return {
-      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      source: "agentgres_model_mounting_projection",
-      generatedAt: this.nowIso(),
-      watermark: operationCount(this.stateDir),
-      artifacts: this.listArtifacts(),
-      endpoints: this.listEndpoints(),
-      instances: this.listInstances(),
-      routes: this.listRoutes(),
-      modelCapabilities: this.listModelCapabilities(),
-      backends: this.listBackends(),
-      backendProcesses: this.listBackendProcesses(),
-      providers: this.listProviders(),
-      catalog: this.catalogStatus(),
-      catalogProviderConfigs: this.listCatalogProviderConfigs(),
-      oauthSessions: this.listOAuthSessions(),
-      oauthStates: this.listOAuthStates(),
-      downloads: this.listDownloads(),
-      providerHealth: this.listProviderHealth(),
-      runtimeEngines: this.listRuntimeEngines(),
-      runtimeEngineProfiles: this.listRuntimeEngineProfiles(),
-      runtimePreference: this.runtimePreference(),
-      runtimeSurvey: this.latestRuntimeSurvey(),
-      grants: this.listTokens(),
-      vaultRefs: this.listVaultRefs(),
-      mcpServers: this.listMcpServers(),
-      conversationStates: this.listConversations(),
-      workflowBindings: this.workflowNodeBindings(),
-      adapterBoundaries: this.adapterBoundaries(),
-      lifecycleEvents: this.listReceipts().filter((receipt) => receipt.kind === "model_lifecycle"),
-      routeReceipts: this.listReceipts().filter((receipt) => receipt.kind === "model_route_selection"),
-      routeDecisions: this.modelRouteDecisions(),
-      providerHealthReceipts: this.listReceipts().filter((receipt) => receipt.kind === "provider_health"),
-      runtimeSurveyReceipts: this.listReceipts().filter((receipt) => receipt.kind === "runtime_survey"),
-      invocationReceipts: this.listReceipts().filter((receipt) => receipt.kind === "model_invocation"),
-      toolReceipts: this.listReceipts().filter((receipt) => receipt.kind === "mcp_tool_invocation"),
-      receipts: this.listReceipts(),
-    };
+    return buildModelMountingProjection(this, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
   }
 
   adapterBoundaries() {
-    return {
-      wallet: this.walletAuthority.adapterStatus(),
-      vault: this.vault.adapterStatus(),
-      oauth: {
-        port: "OAuthCredentialProvider",
-        implementation: "agentgres_vault_oauth_session",
-        methods: [
-          "startAuthorization",
-          "completeAuthorization",
-          "exchangeAuthorizationCode",
-          "refreshAccessToken",
-          "revokeSession",
-          "resolveAccessHeader",
-        ],
-        plaintextPersistence: false,
-        evidenceRefs: ["OAuthCredentialProvider", "VaultOAuthAuthorizationState", "VaultOAuthSession", "oauth_tokens_not_persisted"],
-      },
-      agentgres: this.store.adapterStatus(),
-    };
+    return buildAdapterBoundaries(this);
   }
 
   writeProjection() {
@@ -1308,33 +1216,11 @@ export class ModelMountingState {
   }
 
   receiptReplay(receiptId) {
-    const receipt = this.getReceipt(receiptId);
-    const projection = this.projection();
-    return {
-      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      source: "agentgres_model_mounting_projection_replay",
-      receipt,
-      modelRouteDecision: receipt.details?.modelRouteDecision ?? null,
-      route: receipt.details?.routeId ? projection.routes.find((route) => route.id === receipt.details.routeId) ?? null : null,
-      endpoint: receipt.details?.endpointId
-        ? projection.endpoints.find((endpoint) => endpoint.id === receipt.details.endpointId) ?? null
-        : null,
-      instance: receipt.details?.instanceId
-        ? projection.instances.find((instance) => instance.id === receipt.details.instanceId) ?? null
-        : null,
-      provider: receipt.details?.providerId
-        ? projection.providers.find((provider) => provider.id === receipt.details.providerId) ?? null
-        : null,
-      toolReceipts: normalizeScopes(receipt.details?.toolReceiptIds, []).map((toolReceiptId) => this.getReceipt(toolReceiptId)),
-      projectionWatermark: projection.watermark,
-    };
+    return buildReceiptReplay(this, receiptId, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
   }
 
   modelRouteDecisions() {
-    return this.listReceipts()
-      .filter((receipt) => receipt.kind === "model_route_selection")
-      .map(routeDecision.routeDecisionProjectionFromReceipt)
-      .filter(Boolean);
+    return buildModelRouteDecisions(this);
   }
 
   latestProviderHealth(providerId) {

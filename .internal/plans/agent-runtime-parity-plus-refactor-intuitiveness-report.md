@@ -107,6 +107,9 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/oauth-credential-provider.mjs`.
 - Moved OAuth authorization, token exchange, refresh, revoke, and access-header orchestration out of `model-mounting.mjs` while reusing the existing OAuth boundary helpers.
 - Added focused OAuth credential provider tests for vault-bound authorization state, redacted authorization URLs, callback fail-closed behavior, client-secret vault policy, and revoke cleanup.
+- Added `packages/runtime-daemon/src/model-mounting/projections.mjs`.
+- Moved model-mounting product projection assembly, authority snapshot assembly, adapter-boundary projection, receipt replay linkage, and route-decision projection derivation out of `model-mounting.mjs`.
+- Added focused projection tests for category bucketing, operation watermarking, authority summaries, adapter boundaries, receipt replay links, and route-decision derivation.
 
 Status: `model-mounting.mjs` still owns provider driver classes, wallet/vault ports, state machine behavior, routes, validation, and some product projection glue. Safe next extractions are provider driver class groups, validation, routes, and state-machine slices.
 
@@ -150,6 +153,7 @@ Status: `model-mounting.mjs` still owns provider driver classes, wallet/vault po
   - `model-mounting/wallet-authority`
   - `model-mounting/vault-port`
   - `model-mounting/oauth-credential-provider`
+  - `model-mounting/projections`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.
