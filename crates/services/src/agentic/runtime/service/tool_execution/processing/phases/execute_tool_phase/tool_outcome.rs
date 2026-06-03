@@ -18,6 +18,14 @@ use crate::agentic::runtime::service::tool_execution::command_contract::{
 use crate::agentic::runtime::stop_hook::stop_hook_completion_blocker;
 use ioi_types::app::agentic::{BrowserObservationReceipt, ChatMessage};
 
+mod terminal_reply_classification;
+use terminal_reply_classification::{
+    chat_reply_looks_like_source_candidate_list, chat_reply_looks_like_tool_plan,
+    file_mutation_policy_action_report_candidate, goal_requires_fresh_retrieval_before_chat_reply,
+    source_candidate_chat_reply_blocker, workspace_chat_reply_looks_terminal,
+    workspace_contextual_answer_candidate,
+};
+
 pub(super) struct ToolOutcomeContext<'a, 's> {
     pub service: &'a RuntimeAgentService,
     pub state: &'s mut dyn StateAccess,
