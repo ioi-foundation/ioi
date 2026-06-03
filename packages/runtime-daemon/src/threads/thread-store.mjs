@@ -36,6 +36,50 @@ export function deleteAgent(store, agentId, deps = {}) {
   store.removeQuiet(path.join(store.stateDir, "agents", `${agentId}.json`));
 }
 
+export function getRun(store, runId, deps = {}) {
+  const { notFound } = deps;
+  const run = store.runs.get(runId);
+  if (!run) {
+    throw notFound(`Run not found: ${runId}`, { runId });
+  }
+  return run;
+}
+
+export function listRuns(store, agentId = null) {
+  return [...store.runs.values()]
+    .filter((run) => !agentId || run.agentId === agentId)
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+}
+
+export function usageForRun(store, runId, deps = {}) {
+  const {
+    runtimeUsageTelemetryForRun,
+    threadIdForAgent,
+  } = deps;
+  const run = store.getRun(runId);
+  return runtimeUsageTelemetryForRun({
+    run,
+    agent: store.getAgent(run.agentId),
+    threadId: threadIdForAgent(run.agentId),
+  });
+}
+
+export function usageForThread(store, threadId, deps = {}) {
+  const {
+    runtimeUsageTelemetryForThread,
+  } = deps;
+  const agent = store.agentForThread(threadId);
+  const subagents = [...store.subagents.values()].filter(
+    (record) => (record.parent_thread_id ?? record.parentThreadId) === threadId,
+  );
+  return runtimeUsageTelemetryForThread({
+    threadId,
+    agent,
+    runs: store.listRuns(agent.id),
+    subagents,
+  });
+}
+
 export function agentForThread(store, threadId, deps = {}) {
   const { agentIdForThread } = deps;
   return store.getAgent(agentIdForThread(threadId));

@@ -5,12 +5,16 @@ import {
   agentForThread,
   deleteAgent,
   getAgent,
+  getRun,
   inFlightRuntimeTurnKey,
   listAgents,
+  listRuns,
   registerInFlightRuntimeTurn,
   resolveRunForThreadTurn,
   unregisterInFlightRuntimeTurn,
   updateAgent,
+  usageForRun,
+  usageForThread,
 } from "./thread-store.mjs";
 
 function deps(calls = []) {
@@ -53,17 +57,24 @@ function fakeStore() {
     inFlightRuntimeTurns: new Map(),
     runs: new Map(),
     stateDir: "/state",
+    subagents: new Map(),
     appendOperation(operationKind, payload) {
       this.calls.push({ operation: "append_operation", operationKind, payload });
     },
+    agentForThread(threadId) {
+      return agentForThread(this, threadId, deps(this.calls));
+    },
     getAgent(agentId) {
       return getAgent(this, agentId, deps(this.calls));
+    },
+    getRun(runId) {
+      return getRun(this, runId, deps(this.calls));
     },
     inFlightRuntimeTurnKey(threadId, turnId) {
       return inFlightRuntimeTurnKey(threadId, turnId);
     },
     listRuns(agentId) {
-      return [...this.runs.values()].filter((run) => !agentId || run.agentId === agentId);
+      return listRuns(this, agentId);
     },
     removeQuiet(file) {
       this.calls.push({ operation: "remove_quiet", file });
@@ -89,6 +100,66 @@ test("thread store lists and resolves agents", () => {
       return true;
     },
   );
+});
+
+test("thread store lists and resolves runs", () => {
+  const store = fakeStore();
+  store.runs.set("run_late", { id: "run_late", agentId: "agent_1", createdAt: "2026-06-03T00:00:02.000Z" });
+  store.runs.set("run_other", { id: "run_other", agentId: "agent_2", createdAt: "2026-06-03T00:00:00.000Z" });
+  store.runs.set("run_early", { id: "run_early", agentId: "agent_1", createdAt: "2026-06-03T00:00:01.000Z" });
+
+  assert.deepEqual(listRuns(store, "agent_1").map((run) => run.id), ["run_early", "run_late"]);
+  assert.deepEqual(listRuns(store).map((run) => run.id), ["run_other", "run_early", "run_late"]);
+  assert.equal(getRun(store, "run_late", deps()).id, "run_late");
+  assert.throws(
+    () => getRun(store, "run_missing", deps()),
+    (error) => {
+      assert.equal(error.details.runId, "run_missing");
+      return true;
+    },
+  );
+});
+
+test("thread store projects usage for run and thread", () => {
+  const store = fakeStore();
+  store.agents.set("agent_1", { id: "agent_1", createdAt: "2026-06-03T00:00:00.000Z" });
+  store.runs.set("run_1", { id: "run_1", agentId: "agent_1", createdAt: "2026-06-03T00:00:01.000Z" });
+  store.runs.set("run_2", { id: "run_2", agentId: "agent_1", createdAt: "2026-06-03T00:00:02.000Z" });
+  store.subagents.set("subagent_1", { id: "subagent_1", parent_thread_id: "thread_1" });
+  store.subagents.set("subagent_2", { id: "subagent_2", parentThreadId: "thread_1" });
+  store.subagents.set("subagent_other", { id: "subagent_other", parent_thread_id: "thread_other" });
+
+  const usageDeps = {
+    runtimeUsageTelemetryForRun({ run, agent, threadId }) {
+      return { scope: "run", runId: run.id, agentId: agent.id, threadId };
+    },
+    runtimeUsageTelemetryForThread({ threadId, agent, runs, subagents }) {
+      return {
+        scope: "thread",
+        threadId,
+        agentId: agent.id,
+        runIds: runs.map((run) => run.id),
+        subagentIds: subagents.map((subagent) => subagent.id),
+      };
+    },
+    threadIdForAgent(agentId) {
+      return agentId.replace(/^agent_/, "thread_");
+    },
+  };
+
+  assert.deepEqual(usageForRun(store, "run_1", usageDeps), {
+    scope: "run",
+    runId: "run_1",
+    agentId: "agent_1",
+    threadId: "thread_1",
+  });
+  assert.deepEqual(usageForThread(store, "thread_1", usageDeps), {
+    scope: "thread",
+    threadId: "thread_1",
+    agentId: "agent_1",
+    runIds: ["run_1", "run_2"],
+    subagentIds: ["subagent_1", "subagent_2"],
+  });
 });
 
 test("thread store updates and deletes agents without canonical runs", () => {

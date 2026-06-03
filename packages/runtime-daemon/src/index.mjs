@@ -154,12 +154,16 @@ import {
   agentForThread as agentForThreadState,
   deleteAgent as deleteAgentState,
   getAgent as getAgentState,
+  getRun as getRunState,
   inFlightRuntimeTurnKey as inFlightRuntimeTurnKeyState,
   listAgents as listAgentsState,
+  listRuns as listRunsState,
   registerInFlightRuntimeTurn as registerInFlightRuntimeTurnState,
   resolveRunForThreadTurn as resolveRunForThreadTurnState,
   unregisterInFlightRuntimeTurn as unregisterInFlightRuntimeTurnState,
   updateAgent as updateAgentState,
+  usageForRun as usageForRunState,
+  usageForThread as usageForThreadState,
 } from "./threads/thread-store.mjs";
 import {
   controlManagedSessionForThread as controlManagedSessionForThreadState,
@@ -6793,38 +6797,25 @@ export class AgentgresRuntimeStateStore {
   }
 
   getRun(runId) {
-    const run = this.runs.get(runId);
-    if (!run) {
-      throw notFound(`Run not found: ${runId}`, { runId });
-    }
-    return run;
+    return getRunState(this, runId, {
+      notFound,
+    });
   }
 
   listRuns(agentId) {
-    return [...this.runs.values()]
-      .filter((run) => !agentId || run.agentId === agentId)
-      .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    return listRunsState(this, agentId);
   }
 
   usageForRun(runId) {
-    const run = this.getRun(runId);
-    return runtimeUsageTelemetryForRun({
-      run,
-      agent: this.getAgent(run.agentId),
-      threadId: threadIdForAgent(run.agentId),
+    return usageForRunState(this, runId, {
+      runtimeUsageTelemetryForRun,
+      threadIdForAgent,
     });
   }
 
   usageForThread(threadId) {
-    const agent = this.agentForThread(threadId);
-    const subagents = [...this.subagents.values()].filter(
-      (record) => (record.parent_thread_id ?? record.parentThreadId) === threadId,
-    );
-    return runtimeUsageTelemetryForThread({
-      threadId,
-      agent,
-      runs: this.listRuns(agent.id),
-      subagents,
+    return usageForThreadState(this, threadId, {
+      runtimeUsageTelemetryForThread,
     });
   }
 
