@@ -108,6 +108,8 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Moved runtime account/node/tool catalog projections, tool governance metadata normalization, and doctor-safe runtime node redaction out of `index.mjs` while preserving existing public methods and MCP serve descriptor behavior.
 - Added `packages/runtime-daemon/src/repository-projections.mjs`.
 - Moved public repository/GitHub projection wrapper orchestration for repository lists, repository context, branch policy, GitHub context, PR attempts, issue context, review gates, and GitHub PR create plans out of `index.mjs` behind existing store methods.
+- Added `packages/runtime-daemon/src/repository-workflow-projections.mjs`.
+- Moved concrete GitHub issue-context, PR-attempt, review-gate, PR branch/diff artifact, and GitHub PR create-plan builders out of `index.mjs` behind dependency-injected workflow projection helpers while preserving existing store method behavior.
 - Added `packages/runtime-daemon/src/runtime-artifacts.mjs`.
 - Moved runtime artifact record construction and run artifact reference resolution out of `index.mjs` while preserving route-handler artifact lookup and runtime-record projection injection.
 - Added focused runtime artifact tests for stable artifact ids/content serialization, string content preservation, id/name/ref lookup, `artifact:` prefixed lookup, and missing artifact tolerance.
@@ -239,6 +241,7 @@ Status: `model-mounting.mjs` still owns default seeding, state-machine behavior,
   - `model-mounting/environment`
   - `model-mounting/provider-auth`
   - `model-mounting/oauth-boundary`
+  - `repository-workflow-projections`
   - `model-mounting/catalog-provider-config`
   - `model-mounting/catalog-provider-ports`
   - `model-mounting/protocol-responses`
