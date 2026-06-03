@@ -64,6 +64,7 @@ const {
   createStudioWorkRecordProjection,
   studioPublicOutputBlock,
 } = require("./studio/work-record-projection");
+const { createStudioResponseMetrics } = require("./studio/response-metrics");
 const studioModeControls = require("./studio/modes");
 const studioSourceRefs = require("./studio/source-refs");
 const {
@@ -920,6 +921,25 @@ function normalizeReceiptRefs(...sources) {
   return uniqueStrings(refs);
 }
 
+const {
+  studioEstimatedTokenCount,
+  studioFormatMetricNumber,
+  studioNumberOrNull,
+  studioPositiveNumberOrNull,
+  studioResponseMetricsFromResponse,
+  studioResponseMetricsFromUsage,
+  studioResponseMetricsRows,
+  studioSplitReasoningFromText,
+  studioThinkingRows,
+  studioTurnContentRows,
+  studioVerifiedBadge,
+} = createStudioResponseMetrics({
+  escapeHtml,
+  stringValue,
+  normalizeStudioReasoningEffort,
+  normalizeReceiptRefs,
+});
+
 function studioFixtureModelUsageAllowed() {
   return /^(1|true|yes|on)$/i.test(String(process.env.IOI_STUDIO_ALLOW_FIXTURE_MODELS || process.env.IOI_STUDIO_FIXTURE_MODE || ""));
 }
@@ -1009,156 +1029,6 @@ function studioTraceLink(payload = {}, label = "View trace") {
 
 function formatStudioWorkDuration(durationMs) {
   return studioWorkSummary.formatStudioWorkDuration(durationMs);
-}
-
-function studioNumberOrNull(value) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function studioFormatMetricNumber(value, digits = 0) {
-  const number = studioNumberOrNull(value);
-  if (number === null) return "";
-  return number.toLocaleString(undefined, {
-    maximumFractionDigits: digits,
-    minimumFractionDigits: 0,
-  });
-}
-
-function studioEstimatedTokenCount(text = "") {
-  const value = stringValue(text).trim();
-  if (!value) return null;
-  return Math.max(1, Math.ceil(value.length / 4));
-}
-
-function studioPositiveNumberOrNull(value) {
-  const number = studioNumberOrNull(value);
-  return number !== null && number > 0 ? number : null;
-}
-
-function studioResponseMetricsFromUsage({
-  usage = {},
-  routeId = "",
-  model = "",
-  provider = "",
-  reasoningEffort = "",
-  elapsedMs = null,
-  timeToFirstTokenMs = null,
-  stopReason = "",
-  requestedModel = "",
-  promptText = "",
-  generatedText = "",
-} = {}) {
-  const usagePromptTokens = studioPositiveNumberOrNull(usage.prompt_tokens ?? usage.input_tokens);
-  const usageGeneratedTokens = studioPositiveNumberOrNull(usage.completion_tokens ?? usage.output_tokens);
-  const promptTokens = usagePromptTokens ?? studioEstimatedTokenCount(promptText);
-  const generatedTokens = usageGeneratedTokens ?? studioEstimatedTokenCount(generatedText);
-  const totalTokens = studioPositiveNumberOrNull(usage.total_tokens) ?? (
-    promptTokens !== null && generatedTokens !== null ? promptTokens + generatedTokens : null
-  );
-  const elapsedSeconds = studioNumberOrNull(elapsedMs) !== null ? Math.max(0.001, Number(elapsedMs) / 1000) : null;
-  const tokensPerSecond =
-    elapsedSeconds && generatedTokens !== null ? generatedTokens / elapsedSeconds : studioNumberOrNull(usage.tokens_per_second ?? usage.tokensPerSecond);
-  return {
-    model: stringValue(model || usage.model || requestedModel),
-    requestedModel: stringValue(requestedModel),
-    provider: stringValue(provider || usage.provider || ""),
-    routeId: stringValue(routeId),
-    reasoningEffort: normalizeStudioReasoningEffort(reasoningEffort, "none"),
-    promptTokens,
-    generatedTokens,
-    totalTokens,
-    elapsedMs: studioNumberOrNull(elapsedMs),
-    timeToFirstTokenMs: studioNumberOrNull(timeToFirstTokenMs),
-    tokensPerSecond,
-    stopReason: stringValue(stopReason || usage.stop_reason || usage.stopReason || ""),
-    estimatedTokens: !usagePromptTokens || !usageGeneratedTokens,
-  };
-}
-
-function studioResponseMetricsFromResponse(response = {}, options = {}) {
-  return studioResponseMetricsFromUsage({
-    usage: response.usage || response.tokenCount || response.token_count || {},
-    routeId: response.route_id || response.routeId || options.routeId,
-    model: response.model || options.model,
-    provider: response.provider || response.providerId || options.provider,
-    reasoningEffort: options.reasoningEffort,
-    elapsedMs: options.elapsedMs,
-    timeToFirstTokenMs: options.timeToFirstTokenMs,
-    stopReason: response.choices?.[0]?.finish_reason || response.stop_reason || response.stopReason || options.stopReason,
-    requestedModel: response.request_model || response.requestModel || options.requestedModel,
-  });
-}
-
-function studioResponseMetricsRows(turn = {}) {
-  const metrics = turn.modelMetrics || turn.modelStream?.metrics || turn.generator?.metrics || null;
-  if (!metrics || typeof metrics !== "object") {
-    return "";
-  }
-  const rows = [
-    ["Model", metrics.model],
-    ["Provider", metrics.provider],
-    ["Route", metrics.routeId],
-    ["Reasoning", metrics.reasoningEffort && metrics.reasoningEffort !== "none" ? metrics.reasoningEffort : "off"],
-    ["Prompt", metrics.promptTokens !== null && metrics.promptTokens !== undefined ? `${metrics.estimatedTokens ? "~" : ""}${studioFormatMetricNumber(metrics.promptTokens)}` : ""],
-    ["Generated", metrics.generatedTokens !== null && metrics.generatedTokens !== undefined ? `${metrics.estimatedTokens ? "~" : ""}${studioFormatMetricNumber(metrics.generatedTokens)}` : ""],
-    ["Total", metrics.totalTokens !== null && metrics.totalTokens !== undefined ? `${metrics.estimatedTokens ? "~" : ""}${studioFormatMetricNumber(metrics.totalTokens)}` : ""],
-    ["Elapsed", metrics.elapsedMs !== null && metrics.elapsedMs !== undefined ? `${studioFormatMetricNumber(Number(metrics.elapsedMs) / 1000, 1)}s` : ""],
-    ["Tok/s", studioFormatMetricNumber(metrics.tokensPerSecond, 1)],
-    ["TTFT", metrics.timeToFirstTokenMs !== null && metrics.timeToFirstTokenMs !== undefined ? `${studioFormatMetricNumber(Number(metrics.timeToFirstTokenMs), 0)}ms` : ""],
-    ["Stop", metrics.stopReason],
-  ].filter(([, value]) => stringValue(value));
-  if (!rows.length) {
-    return "";
-  }
-  return `
-    <footer class="studio-response-metrics" data-testid="studio-response-metrics">
-      ${rows.map(([label, value]) => `
-        <span><strong>${escapeHtml(label)}</strong>${escapeHtml(value)}</span>
-      `).join("")}
-    </footer>
-  `;
-}
-
-function studioSplitReasoningFromText(text = "") {
-  const raw = stringValue(text);
-  const match = raw.match(/<think>\s*([\s\S]*?)\s*<\/think>\s*/i);
-  if (!match) {
-    return { thinkingText: "", answerText: raw };
-  }
-  return {
-    thinkingText: match[1].trim(),
-    answerText: raw.replace(match[0], "").trim(),
-  };
-}
-
-function studioThinkingRows(turn = {}) {
-  const thinkingText = stringValue(turn.thinkingText || turn.modelStream?.thinkingText);
-  if (!thinkingText) {
-    return "";
-  }
-  return `
-    <details class="studio-thinking-block" data-testid="studio-thinking-block">
-      <summary>Thinking</summary>
-      <p>${escapeHtml(thinkingText)}</p>
-    </details>
-  `;
-}
-
-function studioTurnContentRows(turn = {}, displayContent = "") { return turn.role === "assistant" ? `<div class="studio-markdown" data-testid="${turn.modelStream?.streamId && !turn.modelStream?.completed ? "studio-streaming-output" : "studio-assistant-answer-text"}">${escapeHtml(displayContent)}</div>` : `<p>${escapeHtml(displayContent)}</p>`; }
-function studioVerifiedBadge(payload = {}, label = "Verified") {
-  const receiptRefs = normalizeReceiptRefs(payload);
-  const hasReceipt = receiptRefs.length > 0;
-  return `
-    <span
-      class="studio-verified-badge${hasReceipt ? "" : " studio-verified-badge--unverified"}"
-      data-testid="studio-verified-badge"
-      data-receipt-backed="${hasReceipt ? "true" : "false"}"
-      title="${escapeHtml(hasReceipt ? "Backed by daemon receipt refs" : "Waiting for daemon receipt refs")}"
-    >
-      ${escapeHtml(hasReceipt ? label : "Trace pending")}
-    </span>
-  `;
 }
 
 function studioWorkCursor() {

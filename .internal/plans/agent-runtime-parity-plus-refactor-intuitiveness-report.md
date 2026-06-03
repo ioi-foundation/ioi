@@ -44,6 +44,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/work-record-projection.js`.
 - Moved sanitized command-output projection, workspace-path bounding, command label/status shaping, diff-hunk projection, command/work-row duplicate filtering, and public work-record webview projection out of `extension.js`.
 - Added focused work-record projection tests for command trace/path redaction, workspace-relative hunk paths, generic command-row filtering, richer command output preservation, managed-session passthrough, and public output redaction.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/response-metrics.js`.
+- Moved Studio response token/latency metrics projection, response-metrics rows, reasoning split, thinking rows, answer content rows, and receipt-backed verified badge rendering out of `extension.js`.
+- Added focused response-metrics tests for provider usage aliases, estimated token fallback, escaped metrics HTML, thinking extraction, verified/pending badge rendering, and response usage alias projection.
 - Moved managed browser/computer session work-record attachment and card row rendering out of `extension.js` behind compatibility wrappers.
 - Added focused managed-session view tests for bounded session-card attachment, waiting-for-user handoff rendering, control-state data-testids, HTML escaping, and default sandbox browser state.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
