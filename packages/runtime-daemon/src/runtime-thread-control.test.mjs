@@ -87,7 +87,7 @@ function managedSessionReconnectBridge(calls, managedState) {
       status_label: "Waiting for user",
       control_state: managedState.controlState,
       waiting_for_user: true,
-      waiting_reason: "login",
+      waiting_reason: "manual_auth_handoff",
       replay_ready: true,
       session_id: managedState.managedSessionId,
       thread_id: input.threadId,

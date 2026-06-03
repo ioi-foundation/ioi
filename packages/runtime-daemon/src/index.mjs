@@ -141,6 +141,9 @@ import {
   inspectWorkspaceChangeReviewsForThread as inspectWorkspaceChangeReviewsForThreadState,
 } from "./threads/workspace-change-state.mjs";
 import {
+  createRuntimeBridgeThread as createRuntimeBridgeThreadState,
+} from "./threads/runtime-bridge-thread.mjs";
+import {
   codingToolBudgetPolicyForRequest,
   contextBudgetNumber,
   contextBudgetUsageTelemetryFromRequest,
@@ -1190,43 +1193,10 @@ export class AgentgresRuntimeStateStore {
   }
 
   async createRuntimeBridgeThread({ request, options, runtimeProfile }) {
-    this.assertRuntimeBridgeAvailable({ runtimeProfile, operation: "start_thread" });
-    const agent = this.createAgent(options);
-    const threadId = threadIdForAgent(agent.id);
-    const input = {
-      request,
-      options,
-      runtimeProfile,
-      agentId: agent.id,
-      threadId,
-      workspaceRoot: agent.cwd,
-      modelRouteDecision: agent.modelRouteDecision ?? null,
-      createdAt: agent.createdAt,
-    };
-    let bridgeResult;
-    try {
-      bridgeResult = await this.runtimeBridge.startThread(input);
-    } catch (error) {
-      if (error instanceof RuntimeApiBridgeUnavailableError) {
-        throw this.runtimeBridgeUnavailable({ runtimeProfile, operation: "start_thread", details: error.details });
-      }
-      throw error;
-    }
-    const projection = this.normalizeRuntimeBridgeThreadStart({ bridgeResult, agent, threadId, runtimeProfile });
-    const updated = {
-      ...agent,
-      runtimeProfile,
-      runtimeSessionId: projection.sessionId,
-      runtimeBridgeId: projection.bridgeId,
-      runtimeBridgeStatus: projection.status,
-      runtimeBridgeSource: projection.source,
-      fixtureProfile: null,
-      updatedAt: projection.updatedAt,
-    };
-    this.agents.set(agent.id, updated);
-    this.writeAgent(updated, "thread.runtime_bridge.start");
-    for (const event of projection.events) this.appendRuntimeEvent(event);
-    return this.threadForAgent(updated);
+    return createRuntimeBridgeThreadState(this, { request, options, runtimeProfile }, {
+      RuntimeApiBridgeUnavailableError,
+      threadIdForAgent,
+    });
   }
 
   listThreads() {
