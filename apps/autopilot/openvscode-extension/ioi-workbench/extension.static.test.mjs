@@ -32,6 +32,8 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/runtime-event-utils.js",
   pendingWork:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/pending-work.js",
+  workRecordProjection:
+    "apps/autopilot/openvscode-extension/ioi-workbench/studio/work-record-projection.js",
   productErrors:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/product-error-message.js",
   projectionState:
@@ -71,6 +73,7 @@ async function readStudioComposite() {
       paths.turnRecovery,
       paths.runtimeEvents,
       paths.pendingWork,
+      paths.workRecordProjection,
       paths.productErrors,
       paths.projectionState,
       paths.projectionReplay,
