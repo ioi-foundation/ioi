@@ -80,7 +80,19 @@ const {
   studioPermissionModeLabel,
   studioPermissionModeOptions,
 } = require("./studio/modes");
-const studioSourceRefs = require("./studio/source-refs");
+const {
+  collectStudioSourceRefs,
+  collectStudioSourceRefsFromPartialJsonText,
+  studioFirstSourceExcerptFromEvent,
+  studioJsonObjectFromText,
+  studioJsonValueFromText,
+  studioPartialJsonFieldValue,
+  studioRecordValue,
+  studioSourceRefFromRecord,
+  studioSourceRefsFromRuntimeEvent,
+  studioSourceRefsFromRuntimeEvents,
+  studioUnescapeJsonStringFragment,
+} = require("./studio/source-refs");
 const {
   AUTOPILOT_MODE_BY_ID,
   AUTOPILOT_MODE_BY_PANEL_VIEW_ID,
@@ -1041,35 +1053,6 @@ function studioDocumentedWorkSummary(record = {}) {
   return studioWorkSummary.studioDocumentedWorkSummary(record, studioRuntimeProjection.status);
 }
 
-function studioJsonObjectFromText(value = "") {
-  return studioSourceRefs.studioJsonObjectFromText(value);
-}
-
-function studioJsonValueFromText(value = "") {
-  return studioSourceRefs.studioJsonValueFromText(value);
-}
-
-const STUDIO_SOURCE_REF_COMPAT_KEYS = [
-  "source_url",
-  "source_observations",
-];
-
-function studioUnescapeJsonStringFragment(value = "") {
-  return studioSourceRefs.studioUnescapeJsonStringFragment(value);
-}
-
-function studioPartialJsonFieldValue(objectText = "", keys = []) {
-  return studioSourceRefs.studioPartialJsonFieldValue(objectText, keys);
-}
-
-function collectStudioSourceRefsFromPartialJsonText(value = "", refs = []) {
-  return studioSourceRefs.collectStudioSourceRefsFromPartialJsonText(value, refs);
-}
-
-function studioRecordValue(value) {
-  return studioSourceRefs.studioRecordValue(value);
-}
-
 const {
   sanitizeStudioSourceUrl,
   studioSourceChipFaviconUrl,
@@ -1091,26 +1074,6 @@ const {
   commandPayloadAttr,
   escapeHtml,
 });
-
-function studioSourceRefFromRecord(record = {}) {
-  return studioSourceRefs.studioSourceRefFromRecord(record);
-}
-
-function collectStudioSourceRefs(value, refs, depth = 0) {
-  return studioSourceRefs.collectStudioSourceRefs(value, refs, depth);
-}
-
-function studioSourceRefsFromRuntimeEvents(events = []) {
-  return studioSourceRefs.studioSourceRefsFromRuntimeEvents(events);
-}
-
-function studioSourceRefsFromRuntimeEvent(event = {}, summary = "") {
-  return studioSourceRefs.studioSourceRefsFromRuntimeEvent(event, summary);
-}
-
-function studioFirstSourceExcerptFromEvent(event = {}, summary = "") {
-  return studioSourceRefs.studioFirstSourceExcerptFromEvent(event, summary);
-}
 
 const {
   appendStudioPendingWorkStep,

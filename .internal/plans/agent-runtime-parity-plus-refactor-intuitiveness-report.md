@@ -33,6 +33,7 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Replaced the remaining Studio mode pass-through wrappers and duplicated mode constants in `extension.js` with direct named imports from `studio/modes.js`.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/source-refs.js`.
 - Moved Studio runtime-event JSON parsing, partial JSON source recovery, source-chip normalization, source-reference traversal, and excerpt selection out of `extension.js` behind compatibility wrappers.
+- Replaced the remaining Studio source-reference pass-through wrappers and stale local compatibility-key constant in `extension.js` with direct named imports from `studio/source-refs.js`.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/artifact-intent.js`.
 - Moved Studio artifact/canvas prompt classification, local intent-frame fallback routing, artifact class/title/summary derivation, and intent-frame payload projection out of `extension.js` behind compatibility wrappers.
 - Added focused artifact-intent tests for generated website artifacts, browser observation captures, Ask-mode routing, runtime-cockpit routing, injected retrieval/workspace predicates, and snake/camel payload normalization.

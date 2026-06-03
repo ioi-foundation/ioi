@@ -38,6 +38,8 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/response-metrics.js",
   sourceChipRenderer:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/source-chip-renderer.js",
+  sourceRefs:
+    "apps/autopilot/openvscode-extension/ioi-workbench/studio/source-refs.js",
   codeExecution:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/code-execution.js",
   productErrors:
@@ -82,6 +84,7 @@ async function readStudioComposite() {
       paths.workRecordProjection,
       paths.responseMetrics,
       paths.sourceChipRenderer,
+      paths.sourceRefs,
       paths.codeExecution,
       paths.productErrors,
       paths.projectionState,
@@ -299,9 +302,10 @@ test("Agent Studio keeps the work lane glass-boxed without cluttering the collap
   const source = await readStudioComposite();
 
   assertHas(source, [
-    /function studioSourceRefsFromRuntimeEvent/,
-    /function collectStudioSourceRefsFromPartialJsonText/,
+    /studioSourceRefsFromRuntimeEvent,\s*\n\s*studioSourceRefsFromRuntimeEvents,/,
+    /collectStudioSourceRefsFromPartialJsonText,/,
     /studioUnescapeJsonStringFragment/,
+    /require\("\.\/studio\/source-refs"\)/,
     /function studioSourceChipRows/,
     /function sanitizeStudioSourceUrl/,
     /function studioSourceChipFaviconUrl/,

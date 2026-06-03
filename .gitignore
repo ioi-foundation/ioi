@@ -86,4 +86,4 @@ __pycache__/
 *.tsbuildinfo
 
 internal-docs/reverse-engineering
-internal-docs/prompts
+/internal-docs/prompts/
