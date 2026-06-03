@@ -675,5 +675,5 @@ archival checkpoint files.
 5. Private traces must support redacted export.
 6. TUI, SDK, ADK, agent-ide, and Hypervisor controls must leave the same event
    and receipt trail when they mutate runtime state.
-7. Shielded compute receipts must never reveal protected plaintext merely to
-   prove that private work occurred.
+7. Private Workspace cTEE receipts must never reveal protected plaintext merely
+   to prove that private work occurred.
