@@ -124,6 +124,7 @@ import {
 } from "./skill-hook-manifest.mjs";
 import { createRuntimeRouteHandlers } from "./runtime-route-handlers.mjs";
 import { createRuntimeRecordProjections } from "./runtime-record-projections.mjs";
+import { artifact, createRunArtifactResolver } from "./runtime-artifacts.mjs";
 import { startRuntimeDaemonServiceWithStore } from "./service/runtime-daemon-service.mjs";
 import {
   assertRuntimeBridgeAvailable as assertRuntimeBridgeAvailableState,
@@ -313,6 +314,13 @@ import {
   COMPUTER_USE_VISUAL_GUI_OBSERVE_TOOL_IDS,
   COMPUTER_USE_CONTROL_TOOL_IDS,
 } from "./runtime-contract-constants.mjs";
+
+const {
+  resolveRunArtifact,
+} = createRunArtifactResolver({
+  normalizeArray,
+  optionalString,
+});
 
 const {
   handleAgentRoute,
@@ -13237,40 +13245,6 @@ function githubPrCreatePlanSummary({ status, repoFullName, blockers }) {
     return `GitHub PR create dry-run plan is ready for ${target}; mutation remains disabled pending authority approval.`;
   }
   return `GitHub PR create dry-run plan is blocked for ${target}: ${normalizeArray(blockers).join(", ")}.`;
-}
-
-function artifact(runId, name, mediaType, receiptId, value, redaction) {
-  return {
-    id: `artifact_${runId}_${name.replace(/[^a-z0-9]+/gi, "_").replace(/_$/, "")}`,
-    runId,
-    name,
-    mediaType,
-    redaction,
-    receiptId,
-    content: typeof value === "string" ? value : JSON.stringify(value, null, 2),
-  };
-}
-
-function resolveRunArtifact(run = {}, artifactRef) {
-  const ref = optionalString(artifactRef);
-  if (!ref) return null;
-  const artifacts = normalizeArray(run.artifacts);
-  const normalizedRef = ref.replace(/^artifact:/, "");
-  const lastSegment = normalizedRef.split(":").filter(Boolean).at(-1) ?? normalizedRef;
-  const slugRef = normalizedRef.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "");
-  const candidates = new Set([
-    ref,
-    normalizedRef,
-    lastSegment,
-    slugRef,
-    `artifact_${slugRef}`,
-  ]);
-  return artifacts.find((item) =>
-    candidates.has(item?.id) ||
-    candidates.has(item?.name) ||
-    candidates.has(item?.artifactRef) ||
-    candidates.has(item?.artifact_ref),
-  ) ?? null;
 }
 
 function summarizeAgentOptions(cwd, options = {}) {

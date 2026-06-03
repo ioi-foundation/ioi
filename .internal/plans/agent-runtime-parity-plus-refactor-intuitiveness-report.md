@@ -107,6 +107,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Moved runtime account/node/tool catalog projections, tool governance metadata normalization, and doctor-safe runtime node redaction out of `index.mjs` while preserving existing public methods and MCP serve descriptor behavior.
 - Added `packages/runtime-daemon/src/repository-projections.mjs`.
 - Moved public repository/GitHub projection wrapper orchestration for repository lists, repository context, branch policy, GitHub context, PR attempts, issue context, review gates, and GitHub PR create plans out of `index.mjs` behind existing store methods.
+- Added `packages/runtime-daemon/src/runtime-artifacts.mjs`.
+- Moved runtime artifact record construction and run artifact reference resolution out of `index.mjs` while preserving route-handler artifact lookup and runtime-record projection injection.
+- Added focused runtime artifact tests for stable artifact ids/content serialization, string content preservation, id/name/ref lookup, `artifact:` prefixed lookup, and missing artifact tolerance.
 
 Status: `index.mjs` still owns the large state store and public route composition. Safe next extractions are daemon service lifecycle, thread store/control/replay persistence, and route registration glue.
 
