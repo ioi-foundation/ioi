@@ -235,6 +235,17 @@ import {
   modelCatalogTimeoutMs,
   modelDownloadTimeoutMs,
 } from "./model-mounting/environment.mjs";
+import {
+  backendRegistryRecords,
+  defaultRouteRecords,
+  lmStudioDetectedArtifactRecord,
+  localFixtureArtifactRecords,
+  localFixtureEndpointRecord,
+  localFolderProviderRecord,
+  nativeFixtureEndpointRecord,
+  nativeLocalProviderRecord,
+  runtimeProviderRecords,
+} from "./model-mounting/default-records.mjs";
 
 const MODEL_MOUNT_SCHEMA_VERSION = "ioi.model-mounting.runtime.v1", SECRET_REDACTION = "[REDACTED]";
 
@@ -343,38 +354,10 @@ export class ModelMountingState {
 
   seedDefaults() {
     const checkedAt = this.nowIso();
-    const localProvider = {
-      id: "provider.local.folder",
-      kind: "local_folder",
-      label: "Local model folder",
-      apiFormat: "fixture",
-      driver: "fixture",
-      baseUrl: "local://models",
-      status: "available",
-      privacyClass: "local_private",
-      capabilities: ["chat", "embeddings", "structured_output", "rerank"],
-      discovery: {
-        checkedAt,
-        evidenceRefs: ["agentgres_model_registry_fixture"],
-      },
-    };
+    const localProvider = localFolderProviderRecord(checkedAt);
     this.upsertDefault(this.providers, localProvider);
 
-    const nativeLocalProvider = {
-      id: "provider.autopilot.local",
-      kind: "ioi_native_local",
-      label: "Autopilot native local",
-      apiFormat: "ioi_native",
-      driver: "native_local",
-      baseUrl: "local://ioi-native/model-server",
-      status: "available",
-      privacyClass: "local_private",
-      capabilities: ["chat", "responses", "embeddings", "structured_output", "rerank"],
-      discovery: {
-        checkedAt,
-        evidenceRefs: ["autopilot_native_local_backend_registry", "deterministic_native_local_fixture"],
-      },
-    };
+    const nativeLocalProvider = nativeLocalProviderRecord(checkedAt);
     this.upsertDefault(this.providers, nativeLocalProvider);
 
     const lmStudioProvider = this.discoverLmStudioProvider(checkedAt);
@@ -392,91 +375,13 @@ export class ModelMountingState {
 
     const llamaBinary = process.env.IOI_LLAMA_CPP_SERVER_PATH ?? discoverAutopilotLlamaServer(this.homeDir) ?? findExecutable("llama-server");
     const vllmBinary = process.env.IOI_VLLM_BINARY ?? findExecutable("vllm");
-    for (const provider of [
-      {
-        id: "provider.ollama",
-        kind: "ollama",
-        label: "Ollama",
-        apiFormat: "ollama",
-        driver: "ollama",
-        baseUrl: process.env.OLLAMA_HOST ?? "http://127.0.0.1:11434",
-        status: process.env.OLLAMA_HOST ? "configured" : "blocked",
-        privacyClass: "local_private",
-        capabilities: ["chat", "responses", "embeddings"],
-        discovery: { checkedAt, evidenceRefs: ["OLLAMA_HOST"] },
-      },
-      {
-        id: "provider.llama-cpp",
-        kind: "llama_cpp",
-        label: "llama.cpp",
-        apiFormat: "openai_compatible",
-        driver: "llama_cpp",
-        baseUrl: process.env.IOI_LLAMA_CPP_BASE_URL ?? "http://127.0.0.1:8080/v1",
-        status: process.env.IOI_LLAMA_CPP_BASE_URL || llamaBinary ? "configured" : "blocked",
-        privacyClass: "local_private",
-        capabilities: ["chat", "responses", "embeddings"],
-        discovery: {
-          checkedAt,
-          evidenceRefs: [
-            "IOI_LLAMA_CPP_BASE_URL",
-            "IOI_LLAMA_CPP_SERVER_PATH",
-            ...(llamaBinary ? ["autopilot_llama_cpp_runtime_engine_detected"] : []),
-          ],
-          binaryPathHash: llamaBinary ? stableHash(llamaBinary) : null,
-        },
-      },
-      {
-        id: "provider.vllm",
-        kind: "vllm",
-        label: "vLLM",
-        apiFormat: "openai_compatible",
-        driver: "vllm",
-        baseUrl: process.env.VLLM_BASE_URL ?? "http://127.0.0.1:8000/v1",
-        status: process.env.VLLM_BASE_URL || vllmBinary ? "configured" : "blocked",
-        privacyClass: "workspace",
-        capabilities: ["chat", "responses", "embeddings"],
-        discovery: { checkedAt, evidenceRefs: ["VLLM_BASE_URL", vllmBinary ? "vllm_binary_detected" : "IOI_VLLM_BINARY"] },
-      },
-      {
-        id: "provider.openai-compatible",
-        kind: "openai_compatible",
-        label: "OpenAI-compatible endpoint",
-        apiFormat: "openai_compatible",
-        driver: "openai_compatible",
-        baseUrl: process.env.OPENAI_COMPATIBLE_BASE_URL ?? "http://127.0.0.1:1234/v1",
-        status: process.env.OPENAI_COMPATIBLE_BASE_URL ? "configured" : "blocked",
-        privacyClass: "workspace",
-        capabilities: ["chat", "responses", "embeddings"],
-        discovery: { checkedAt, evidenceRefs: ["OPENAI_COMPATIBLE_BASE_URL"] },
-      },
-      hostedProvider("provider.openai", "OpenAI", "openai", process.env.OPENAI_API_KEY),
-      hostedProvider("provider.anthropic", "Anthropic", "anthropic", process.env.ANTHROPIC_API_KEY),
-      hostedProvider("provider.gemini", "Gemini", "gemini", process.env.GEMINI_API_KEY),
-      {
-        id: "provider.custom-http",
-        kind: "custom_http",
-        label: "Custom HTTP endpoint",
-        apiFormat: "custom",
-        driver: "openai_compatible",
-        baseUrl: process.env.IOI_CUSTOM_MODEL_ENDPOINT ?? null,
-        status: process.env.IOI_CUSTOM_MODEL_ENDPOINT ? "configured" : "blocked",
-        privacyClass: "workspace",
-        capabilities: ["chat"],
-        discovery: { checkedAt, evidenceRefs: ["IOI_CUSTOM_MODEL_ENDPOINT"] },
-      },
-      {
-        id: "provider.depin-tee",
-        kind: "depin_tee",
-        label: "DePIN / TEE runtime",
-        apiFormat: "runtime_contract",
-        driver: "fixture",
-        baseUrl: null,
-        status: "future",
-        privacyClass: "remote_confidential",
-        capabilities: ["chat", "code", "receipts"],
-        discovery: { checkedAt, evidenceRefs: ["future_runtime_profile"] },
-      },
-    ]) {
+    for (const provider of runtimeProviderRecords({
+      checkedAt,
+      hostedProvider,
+      llamaBinary,
+      stableHash,
+      vllmBinary,
+    })) {
       this.upsertDefault(this.providers, provider);
     }
 
@@ -484,36 +389,9 @@ export class ModelMountingState {
 
     let nativeFixtureArtifact = null;
     if (internalFixtureModelsEnabled()) {
-      this.upsertDefault(this.artifacts, {
-        id: "local.auto",
-        providerId: localProvider.id,
-        modelId: "local:auto",
-        displayName: "IOI local fixture model",
-        family: "fixture",
-        quantization: "fixture",
-        sizeBytes: 0,
-        contextWindow: 8192,
-        capabilities: ["chat", "responses", "embeddings", "structured_output", "rerank"],
-        privacyClass: "local_private",
-        source: "deterministic_fixture",
-        state: "installed",
-        discoveredAt: checkedAt,
-      });
-      this.upsertDefault(this.artifacts, {
-        id: "local.embedding.fixture",
-        providerId: localProvider.id,
-        modelId: "local:embedding-fixture",
-        displayName: "IOI local embedding fixture",
-        family: "fixture",
-        quantization: "fixture",
-        sizeBytes: 0,
-        contextWindow: 2048,
-        capabilities: ["embeddings"],
-        privacyClass: "local_private",
-        source: "deterministic_fixture",
-        state: "installed",
-        discoveredAt: checkedAt,
-      });
+      for (const artifact of localFixtureArtifactRecords(checkedAt)) {
+        this.upsertDefault(this.artifacts, artifact);
+      }
       nativeFixtureArtifact = this.ensureNativeLocalFixtureArtifact(checkedAt);
       this.upsertDefault(this.artifacts, nativeFixtureArtifact);
     }
@@ -523,90 +401,20 @@ export class ModelMountingState {
         this.upsertDefault(this.artifacts, artifact);
       }
     } else if (lmStudioProvider.status !== "absent") {
-      this.upsertDefault(this.artifacts, {
-        id: "lmstudio.detected",
-        providerId: lmStudioProvider.id,
-        modelId: "lmstudio:detected",
-        displayName: "LM Studio detected model slot",
-        family: "lm-studio",
-        quantization: "unknown",
-        sizeBytes: null,
-        contextWindow: null,
-        capabilities: ["chat", "responses", "embeddings"],
-        privacyClass: "local_private",
-        source: "lm_studio_public_discovery",
-        state: lmStudioProvider.status === "running" ? "available" : "provider_stopped",
-        discoveredAt: checkedAt,
-      });
+      this.upsertDefault(this.artifacts, lmStudioDetectedArtifactRecord(lmStudioProvider, checkedAt));
     }
     if (internalFixtureModelsEnabled()) {
-      this.upsertDefault(this.endpoints, {
-        id: "endpoint.local.auto",
-        providerId: localProvider.id,
-        modelId: "local:auto",
-        apiFormat: "ioi_fixture",
-        driver: "fixture",
-        baseUrl: "local://ioi-daemon/model-fixture",
-        capabilities: ["chat", "responses", "embeddings", "structured_output", "rerank"],
-        privacyClass: "local_private",
-        loadPolicy: {
-          mode: "on_demand",
-          idleTtlSeconds: 900,
-          autoEvict: true,
-        },
-        status: "mounted",
-        mountedAt: checkedAt,
-      });
-      this.upsertDefault(this.endpoints, {
-        id: "endpoint.autopilot.native-fixture",
-        providerId: nativeLocalProvider.id,
-        modelId: nativeFixtureArtifact.modelId,
-        apiFormat: "ioi_native",
-        driver: "native_local",
-        baseUrl: "local://ioi-native/model-server",
-        capabilities: ["chat", "responses", "embeddings", "structured_output", "rerank"],
-        privacyClass: "local_private",
-        loadPolicy: {
-          mode: "on_demand",
-          idleTtlSeconds: 900,
-          autoEvict: true,
-        },
-        status: "mounted",
-        mountedAt: checkedAt,
+      this.upsertDefault(this.endpoints, localFixtureEndpointRecord(checkedAt));
+      this.upsertDefault(this.endpoints, nativeFixtureEndpointRecord({
+        artifact: nativeFixtureArtifact,
         backendRegistry: this.backendRegistry(),
-      });
+        checkedAt,
+      }));
     }
 
-    this.upsertDefault(this.routes, {
-      id: "route.local-first",
-      role: "default",
-      description: "Local/private first route with hosted fallback blocked unless policy allows it.",
-      privacy: "local_or_enterprise",
-      quality: "adaptive",
-      maxCostUsd: 0.25,
-      maxLatencyMs: 30000,
-      providerEligibility: ["local_folder", "lm_studio", "ollama", "vllm", "openai_compatible"],
-      fallback: [],
-      deniedProviders: ["openai", "anthropic", "gemini"],
-      status: "active",
-      lastSelectedModel: null,
-      lastReceiptId: null,
-    });
-    this.upsertDefault(this.routes, {
-      id: "route.native-local",
-      role: "default",
-      description: "Autopilot-native local route that does not require LM Studio.",
-      privacy: "local_only",
-      quality: "native_local",
-      maxCostUsd: 0,
-      maxLatencyMs: 30000,
-      providerEligibility: ["ioi_native_local"],
-      fallback: [],
-      deniedProviders: ["openai", "anthropic", "gemini", "lm_studio"],
-      status: "active",
-      lastSelectedModel: null,
-      lastReceiptId: null,
-    });
+    for (const route of defaultRouteRecords()) {
+      this.upsertDefault(this.routes, route);
+    }
   }
 
   ensureNativeLocalFixtureArtifact(checkedAt) {
@@ -4123,108 +3931,14 @@ export class ModelMountingState {
     const llamaBinary = process.env.IOI_LLAMA_CPP_SERVER_PATH ?? discoverAutopilotLlamaServer(this.homeDir) ?? findExecutable("llama-server");
     const ollamaBinary = process.env.IOI_OLLAMA_BINARY ?? findExecutable("ollama");
     const vllmBinary = process.env.IOI_VLLM_BINARY ?? findExecutable("vllm");
-    return [
-      {
-        id: "backend.fixture",
-        kind: "fixture",
-        label: "Deterministic fixture backend",
-        status: "available",
-        processStatus: "stateless",
-        binaryPath: null,
-        baseUrl: "local://ioi-daemon/model-fixture",
-        capabilities: ["chat", "responses", "embeddings", "rerank"],
-        supportedFormats: ["fixture"],
-        hardware,
-        checkedAt,
-        evidenceRefs: ["deterministic_fixture"],
-      },
-      {
-        id: "backend.autopilot.native-local.fixture",
-        kind: "native_local",
-        label: "Autopilot native-local fixture",
-        status: "available",
-        processStatus: "supervised_fixture",
-        binaryPath: null,
-        baseUrl: "local://ioi-native/model-server",
-        capabilities: ["chat", "responses", "embeddings", "rerank"],
-        supportedFormats: ["gguf", "fixture"],
-        processLifecycle: ["estimate", "load", "unload", "health", "logs", "invoke"],
-        hardware,
-        checkedAt,
-        evidenceRefs: ["autopilot_native_local_backend_registry", "deterministic_native_local_fixture"],
-      },
-      {
-        id: "backend.llama-cpp",
-        kind: "llama_cpp",
-        label: "llama.cpp native GGUF server",
-        status: llamaBinary || process.env.IOI_LLAMA_CPP_BASE_URL ? "configured" : "blocked",
-        processStatus: llamaBinary ? "binary_configured" : "binary_absent",
-        binaryPath: llamaBinary,
-        baseUrl: process.env.IOI_LLAMA_CPP_BASE_URL ?? "http://127.0.0.1:8080/v1",
-        capabilities: ["chat", "responses", "embeddings"],
-        supportedFormats: ["gguf"],
-        processLifecycle: ["estimate", "start", "stop", "health", "logs", "invoke"],
-        hardware,
-        checkedAt,
-        evidenceRefs: ["IOI_LLAMA_CPP_SERVER_PATH", "llama_cpp_openai_compatible_server"],
-      },
-      {
-        id: "backend.lmstudio",
-        kind: "lm_studio",
-        label: "LM Studio public provider",
-        status: this.providers.get("provider.lmstudio")?.status ?? "unknown",
-        processStatus: "external_provider",
-        binaryPath: this.providers.get("provider.lmstudio")?.discovery?.publicCli?.path ?? null,
-        baseUrl: this.providers.get("provider.lmstudio")?.baseUrl ?? "http://127.0.0.1:1234/v1",
-        capabilities: ["chat", "responses", "embeddings"],
-        supportedFormats: ["lm_studio_catalog"],
-        hardware,
-        checkedAt,
-        evidenceRefs: ["lm_studio_public_cli_or_server_probe"],
-      },
-      {
-        id: "backend.openai-compatible",
-        kind: "openai_compatible",
-        label: "Generic OpenAI-compatible HTTP backend",
-        status: this.providers.get("provider.openai-compatible")?.status ?? "configured_if_provider_available",
-        processStatus: "stateless_http",
-        binaryPath: null,
-        baseUrl: this.providers.get("provider.openai-compatible")?.baseUrl ?? null,
-        capabilities: ["chat", "responses", "embeddings"],
-        supportedFormats: ["http_endpoint"],
-        hardware,
-        checkedAt,
-        evidenceRefs: ["openai_compatible_provider_profile"],
-      },
-      {
-        id: "backend.ollama",
-        kind: "ollama",
-        label: "Ollama local backend",
-        status: this.providers.get("provider.ollama")?.status ?? "blocked",
-        processStatus: ollamaBinary ? "binary_configured" : "external_or_absent",
-        binaryPath: ollamaBinary,
-        baseUrl: this.providers.get("provider.ollama")?.baseUrl ?? "http://127.0.0.1:11434",
-        capabilities: ["chat", "embeddings"],
-        supportedFormats: ["ollama_manifest"],
-        hardware,
-        checkedAt,
-        evidenceRefs: ["OLLAMA_HOST"],
-      },
-      {
-        id: "backend.vllm",
-        kind: "vllm",
-        label: "vLLM OpenAI-compatible backend",
-        status: this.providers.get("provider.vllm")?.status ?? "blocked",
-        processStatus: vllmBinary ? "binary_configured" : "external_or_absent",
-        binaryPath: vllmBinary,
-        baseUrl: this.providers.get("provider.vllm")?.baseUrl ?? "http://127.0.0.1:8000/v1",
-        capabilities: ["chat", "responses", "embeddings"],
-        supportedFormats: ["safetensors", "hf_repository"],
-        hardware,
-        checkedAt,
-        evidenceRefs: ["VLLM_BASE_URL"],
-      },
-    ];
+    return backendRegistryRecords({
+      checkedAt,
+      hardware,
+      llamaBinary,
+      ollamaBinary,
+      providers: this.providers,
+      vllmBinary,
+    });
   }
 
   listBackends() {
