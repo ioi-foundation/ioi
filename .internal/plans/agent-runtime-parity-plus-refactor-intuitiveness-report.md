@@ -46,8 +46,11 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/http/public-runtime-routes.mjs`.
 - Moved the public daemon HTTP request dispatcher, CORS preflight handling, top-level route table, delegated thread/agent/run route dispatch, MCP serve thread requirement, and public route error boundary out of `index.mjs`.
 - Added focused public-runtime route tests for preflight, top-level daemon projection dispatch, delegated thread subroutes, and MCP serve validation.
+- Added `packages/runtime-daemon/src/threads/managed-session-state.mjs`.
+- Moved runtime-backed managed-session inspection/control bridge behavior out of `index.mjs` behind compatibility-preserving `AgentgresRuntimeStateStore` delegator methods.
+- Added focused managed-session thread-state tests for fixture fallback snapshots, runtime bridge inspection normalization, control command construction, and missing session-id validation.
 
-Status: `index.mjs` still owns the large state store and public route composition. Safe next extractions are daemon service lifecycle, thread store/control/replay persistence, managed-session state, and route registration glue.
+Status: `index.mjs` still owns the large state store and public route composition. Safe next extractions are daemon service lifecycle, thread store/control/replay persistence, workspace-change control state, and route registration glue.
 
 ### Model Mounting
 

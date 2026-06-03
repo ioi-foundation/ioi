@@ -11,11 +11,6 @@ import {
   isComputerUseRunEventType,
 } from "./computer-use-projection.mjs";
 import {
-  emptyManagedSessionSnapshot,
-  managedSessionControlAction,
-  normalizeManagedSessionInspection,
-} from "./managed-session-inspection.mjs";
-import {
   emptyWorkspaceChangeReviewSnapshot,
   normalizeWorkspaceChangeReviewInspection,
 } from "./workspace-change-inspection.mjs";
@@ -141,6 +136,10 @@ import {
   threadRuntimeControlKind,
   threadRuntimeControlModelInput,
 } from "./threads/thread-runtime-controls.mjs";
+import {
+  controlManagedSessionForThread as controlManagedSessionForThreadState,
+  inspectManagedSessionsForThread as inspectManagedSessionsForThreadState,
+} from "./threads/managed-session-state.mjs";
 import {
   codingToolBudgetPolicyForRequest,
   contextBudgetNumber,
@@ -1239,51 +1238,11 @@ export class AgentgresRuntimeStateStore {
   }
 
   async inspectManagedSessionsForThread(threadId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    const sessionId = runtimeSessionIdForAgent(agent);
-    if (!isRuntimeBackedAgent(agent)) {
-      return {
-        schema_version: "ioi.runtime.managed-session.daemon.v1",
-        thread_id: threadId,
-        threadId,
-        session_id: sessionId,
-        sessionId,
-        runtime_profile: agent.runtimeProfile ?? "fixture",
-        source: "daemon",
-        status: "not_runtime_backed",
-        managed_sessions: emptyManagedSessionSnapshot(threadId),
-        managedSessions: emptyManagedSessionSnapshot(threadId),
-      };
-    }
-    this.assertRuntimeBridgeAvailable({
-      runtimeProfile: agent.runtimeProfile,
-      operation: "inspect_thread",
+    return inspectManagedSessionsForThreadState(this, threadId, request, {
+      RuntimeApiBridgeUnavailableError,
+      isRuntimeBackedAgent,
+      runtimeSessionIdForAgent,
     });
-    try {
-      const bridgeResult = await this.runtimeBridge.inspectThread({
-        sessionId,
-        threadId,
-        workspaceRoot: agent.cwd,
-        projection: "managed_sessions",
-        managedSessionsOnly: true,
-        requestedAt: new Date().toISOString(),
-      });
-      return normalizeManagedSessionInspection({
-        bridgeResult,
-        agent,
-        threadId,
-        sessionId,
-      });
-    } catch (error) {
-      if (error instanceof RuntimeApiBridgeUnavailableError) {
-        throw this.runtimeBridgeUnavailable({
-          runtimeProfile: agent.runtimeProfile,
-          operation: "inspect_thread",
-          details: error.details,
-        });
-      }
-      throw error;
-    }
   }
 
   async inspectWorkspaceChangeReviewsForThread(threadId, request = {}) {
@@ -1428,75 +1387,13 @@ export class AgentgresRuntimeStateStore {
   }
 
   async controlManagedSessionForThread(threadId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    if (!isRuntimeBackedAgent(agent)) {
-      throw this.runtimeBridgeUnavailable({
-        runtimeProfile: agent.runtimeProfile,
-        operation: "control_thread",
-        details: { reason: "managed_session_control_requires_runtime_service" },
-      });
-    }
-    const action = managedSessionControlAction(request.action ?? request.control ?? request.state);
-    const managedSessionId = optionalString(
-      request.managedSessionId ?? request.managed_session_id ?? request.sessionCardId ?? request.session_card_id,
-    );
-    if (!managedSessionId) {
-      throw runtimeError({
-        status: 400,
-        code: "managed_session_control_contract",
-        message: "Managed session control requires managedSessionId.",
-        details: { threadId, operation: "control_thread" },
-      });
-    }
-    this.assertRuntimeBridgeAvailable({
-      runtimeProfile: agent.runtimeProfile,
-      operation: "control_thread",
+    return controlManagedSessionForThreadState(this, threadId, request, {
+      RuntimeApiBridgeUnavailableError,
+      doctorHash,
+      isRuntimeBackedAgent,
+      optionalString,
+      runtimeSessionIdForAgent,
     });
-    const createdAt = optionalString(request.createdAt ?? request.created_at) ?? new Date().toISOString();
-    try {
-      const bridgeResult = await this.runtimeBridge.controlThread({
-        sessionId: runtimeSessionIdForAgent(agent),
-        threadId,
-        workspaceRoot: agent.cwd,
-        action,
-        reason:
-          optionalString(request.reason ?? request.message) ??
-          `operator requested ${action.replace(/_/g, " ")}`,
-        requestHash:
-          optionalString(request.requestHash ?? request.request_hash) ??
-          doctorHash(`${threadId}:${managedSessionId}:${action}:${createdAt}`).slice(0, 16),
-        managedSessionId,
-        createdAt,
-      });
-      return {
-        schema_version: "ioi.runtime.managed-session-control.daemon.v1",
-        thread_id: threadId,
-        threadId,
-        session_id: runtimeSessionIdForAgent(agent),
-        sessionId: runtimeSessionIdForAgent(agent),
-        action,
-        managed_session_id: managedSessionId,
-        managedSessionId,
-        source: "daemon",
-        bridge_result: bridgeResult,
-        bridgeResult,
-        inspection: normalizeManagedSessionInspection({
-          bridgeResult: bridgeResult?.inspection ?? bridgeResult,
-          agent,
-          threadId,
-          sessionId: runtimeSessionIdForAgent(agent),
-        }),
-      };
-    } catch (error) {
-      if (error instanceof RuntimeApiBridgeUnavailableError) {
-        throw this.runtimeBridgeUnavailable({
-          runtimeProfile: agent.runtimeProfile,
-          operation: "control_thread",
-          details: error.details,
-        });
-      }
-      throw error;
-    }
   }
 
   async resumeThread(threadId, request = {}) {
