@@ -129,6 +129,16 @@ import {
   workspaceTrustWarningRecordForMode,
 } from "./repository-context.mjs";
 import {
+  branchPolicyProjection,
+  githubContextProjection,
+  githubPrCreatePlanProjection,
+  issueContextProjection,
+  prAttemptsProjection,
+  repositoryContextProjection,
+  repositoryListProjection,
+  reviewGateProjection,
+} from "./repository-projections.mjs";
+import {
   approvalModeForThreadMode,
   initialThreadRuntimeControls,
   modelPolicyForOptions,
@@ -7267,176 +7277,79 @@ export class AgentgresRuntimeStateStore {
   }
 
   listRepositories() {
-    const context = repositoryContextForWorkspace({
-      cwd: this.defaultCwd,
-      contextId: `repoctx_${doctorHash(this.defaultCwd).slice(0, 12)}`,
+    return repositoryListProjection({ cwd: this.defaultCwd }, {
+      doctorHash,
+      repositoryContextForWorkspace,
     });
-    return [
-      {
-        url: this.defaultCwd,
-        source: context.isGitRepository ? "local_git" : "local_workspace",
-        status: context.isGitRepository ? "available" : "not_a_git_repository",
-        contextId: context.contextId,
-        repoRoot: context.repoRoot,
-        branch: context.branch,
-        headSha: context.headSha,
-        upstream: context.upstream,
-        remoteCount: context.remoteCount,
-        remotes: context.remotes,
-        isDirty: context.status.isDirty,
-        dirtyCounts: context.status.counts,
-        redaction: context.redaction,
-      },
-    ];
   }
 
   repositoryContext() {
-    return repositoryContextForWorkspace({
-      cwd: this.defaultCwd,
-      contextId: `repoctx_${doctorHash(this.defaultCwd).slice(0, 12)}`,
+    return repositoryContextProjection({ cwd: this.defaultCwd }, {
+      doctorHash,
+      repositoryContextForWorkspace,
     });
   }
 
   branchPolicy() {
-    const repositoryContext = this.repositoryContext();
-    return branchPolicyForRepositoryContext({
-      repositoryContext,
-      policyId: `branch_policy_${doctorHash(this.defaultCwd).slice(0, 12)}`,
+    return branchPolicyProjection({ cwd: this.defaultCwd }, {
+      branchPolicyForRepositoryContext,
+      doctorHash,
+      repositoryContextForWorkspace,
     });
   }
 
   githubContext() {
-    const repositoryContext = this.repositoryContext();
-    const branchPolicy = branchPolicyForRepositoryContext({
-      repositoryContext,
-      policyId: `branch_policy_${doctorHash(this.defaultCwd).slice(0, 12)}`,
-    });
-    return githubContextForRepository({
-      repositoryContext,
-      branchPolicy,
-      contextId: `github_context_${doctorHash(this.defaultCwd).slice(0, 12)}`,
+    return githubContextProjection({ cwd: this.defaultCwd }, {
+      branchPolicyForRepositoryContext,
+      doctorHash,
+      githubContextForRepository,
+      repositoryContextForWorkspace,
     });
   }
 
   prAttempts() {
-    const repositoryContext = this.repositoryContext();
-    const branchPolicy = branchPolicyForRepositoryContext({
-      repositoryContext,
-      policyId: `branch_policy_${doctorHash(this.defaultCwd).slice(0, 12)}`,
+    return prAttemptsProjection({ cwd: this.defaultCwd }, {
+      branchPolicyForRepositoryContext,
+      doctorHash,
+      githubContextForRepository,
+      prAttemptForRepository,
+      repositoryContextForWorkspace,
     });
-    const githubContext = githubContextForRepository({
-      repositoryContext,
-      branchPolicy,
-      contextId: `github_context_${doctorHash(this.defaultCwd).slice(0, 12)}`,
-    });
-    return [
-      prAttemptForRepository({
-        repositoryContext,
-        branchPolicy,
-        githubContext,
-        attemptId: `pr_attempt_${doctorHash(this.defaultCwd).slice(0, 12)}`,
-      }),
-    ];
   }
 
   issueContext() {
-    const repositoryContext = this.repositoryContext();
-    const branchPolicy = branchPolicyForRepositoryContext({
-      repositoryContext,
-      policyId: `branch_policy_${doctorHash(this.defaultCwd).slice(0, 12)}`,
-    });
-    const githubContext = githubContextForRepository({
-      repositoryContext,
-      branchPolicy,
-      contextId: `github_context_${doctorHash(this.defaultCwd).slice(0, 12)}`,
-    });
-    const prAttempt = prAttemptForRepository({
-      repositoryContext,
-      branchPolicy,
-      githubContext,
-      attemptId: `pr_attempt_${doctorHash(this.defaultCwd).slice(0, 12)}`,
-    });
-    const reviewGate = reviewGateForPrAttempt({
-      repositoryContext,
-      branchPolicy,
-      githubContext,
-      prAttempt,
-      gateId: `review_gate_${doctorHash(this.defaultCwd).slice(0, 12)}`,
-    });
-    return issueContextForGithub({
-      repositoryContext,
-      githubContext,
-      prAttempt,
-      reviewGate,
-      contextId: `issue_context_${doctorHash(this.defaultCwd).slice(0, 12)}`,
+    return issueContextProjection({ cwd: this.defaultCwd }, {
+      branchPolicyForRepositoryContext,
+      doctorHash,
+      githubContextForRepository,
+      issueContextForGithub,
+      prAttemptForRepository,
+      repositoryContextForWorkspace,
+      reviewGateForPrAttempt,
     });
   }
 
   reviewGate() {
-    const repositoryContext = this.repositoryContext();
-    const branchPolicy = branchPolicyForRepositoryContext({
-      repositoryContext,
-      policyId: `branch_policy_${doctorHash(this.defaultCwd).slice(0, 12)}`,
-    });
-    const githubContext = githubContextForRepository({
-      repositoryContext,
-      branchPolicy,
-      contextId: `github_context_${doctorHash(this.defaultCwd).slice(0, 12)}`,
-    });
-    const prAttempt = prAttemptForRepository({
-      repositoryContext,
-      branchPolicy,
-      githubContext,
-      attemptId: `pr_attempt_${doctorHash(this.defaultCwd).slice(0, 12)}`,
-    });
-    return reviewGateForPrAttempt({
-      repositoryContext,
-      branchPolicy,
-      githubContext,
-      prAttempt,
-      gateId: `review_gate_${doctorHash(this.defaultCwd).slice(0, 12)}`,
+    return reviewGateProjection({ cwd: this.defaultCwd }, {
+      branchPolicyForRepositoryContext,
+      doctorHash,
+      githubContextForRepository,
+      prAttemptForRepository,
+      repositoryContextForWorkspace,
+      reviewGateForPrAttempt,
     });
   }
 
   githubPrCreatePlan() {
-    const repositoryContext = this.repositoryContext();
-    const branchPolicy = branchPolicyForRepositoryContext({
-      repositoryContext,
-      policyId: `branch_policy_${doctorHash(this.defaultCwd).slice(0, 12)}`,
-    });
-    const githubContext = githubContextForRepository({
-      repositoryContext,
-      branchPolicy,
-      contextId: `github_context_${doctorHash(this.defaultCwd).slice(0, 12)}`,
-    });
-    const prAttempt = prAttemptForRepository({
-      repositoryContext,
-      branchPolicy,
-      githubContext,
-      attemptId: `pr_attempt_${doctorHash(this.defaultCwd).slice(0, 12)}`,
-    });
-    const reviewGate = reviewGateForPrAttempt({
-      repositoryContext,
-      branchPolicy,
-      githubContext,
-      prAttempt,
-      gateId: `review_gate_${doctorHash(this.defaultCwd).slice(0, 12)}`,
-    });
-    const issueContext = issueContextForGithub({
-      repositoryContext,
-      githubContext,
-      prAttempt,
-      reviewGate,
-      contextId: `issue_context_${doctorHash(this.defaultCwd).slice(0, 12)}`,
-    });
-    return githubPrCreatePlanForReviewGate({
-      repositoryContext,
-      branchPolicy,
-      githubContext,
-      issueContext,
-      prAttempt,
-      reviewGate,
-      planId: `github_pr_create_plan_${doctorHash(this.defaultCwd).slice(0, 12)}`,
+    return githubPrCreatePlanProjection({ cwd: this.defaultCwd }, {
+      branchPolicyForRepositoryContext,
+      doctorHash,
+      githubContextForRepository,
+      githubPrCreatePlanForReviewGate,
+      issueContextForGithub,
+      prAttemptForRepository,
+      repositoryContextForWorkspace,
+      reviewGateForPrAttempt,
     });
   }
 
