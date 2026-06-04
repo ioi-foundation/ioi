@@ -209,3 +209,68 @@ test("stage2 web repair orchestration preserves proof envelope and product check
   assert.equal(bridgeRequests[0][1].sourceRefCount, 1);
   assert.equal(bridgeRequests[0][2].source, "studio-stage2-web-repair-loop");
 });
+
+test("stage5 stop-hook repair orchestration preserves repair proof envelope", async () => {
+  const submissions = [];
+  const bridgeRequests = [];
+  const projection = {
+    executionMode: "agent",
+    modelRoute: "route.local-first",
+    selectedModel: "auto",
+    threadId: "thread-one",
+    turnId: "turn-one",
+    turns: [{
+      role: "assistant",
+      content: "The helper was repaired and validation passes.",
+      workRecord: { summary: "shell__run failed; file__edit; shell__run pass validation" },
+    }],
+    actionCards: [{ toolId: "shell__run", status: "completed" }],
+    commandOutputs: [{ output: "# pass 1\n# fail 0" }],
+    diffHunks: [{ file: ".tmp/autopilot-stage5-stop-hook-repair/status-labels.mjs", after: "normalizeStatusLabel" }],
+  };
+  const runtimeEvents = [
+    { kind: "tool.completed", tool: "shell__run", output: "not ok\n# fail 1\nexit_code: 1" },
+    "ERROR_CLASS=StopHookBlocked stop_hook_completion_blocked=true",
+    { kind: "tool.completed", tool: "file__edit", path: ".tmp/autopilot-stage5-stop-hook-repair/status-labels.mjs" },
+    { kind: "validation.result", status: "exit code 0", summary: "passing validation" },
+    { kind: "tool.completed", tool: "chat_reply" },
+  ];
+  const studio = createStudioParityPlusPanels({
+    buildWorkspaceActionContext: (source) => ({ source }),
+    compactStudioWhitespace: (value) => String(value || "").replace(/\s+/g, " ").trim(),
+    escapeHtml,
+    fetchStudioThreadEvents: async () => runtimeEvents.slice(2),
+    fetchStudioThreadTurnEvents: async () => runtimeEvents.slice(0, 2),
+    firstArray,
+    getStudioRuntimeProjection: () => projection,
+    sanitizeStudioProductAssistantText: (value) => String(value || ""),
+    STUDIO_MODE_AGENT: "agent",
+    STUDIO_PERMISSION_MODE_FULL_ACCESS: "full_access",
+    stringValue: (value, fallback = "") => (typeof value === "string" ? value : value === null || value === undefined ? fallback : String(value)),
+    studioRuntimeEventsIncludeCompletedTool: (events, pattern) => events.some((event) => pattern.test(JSON.stringify(event))),
+    studioRuntimeToolEventCount: (events, pattern) => events.filter((event) => pattern.test(JSON.stringify(event))).length,
+    studioSourceRefsFromRuntimeEvents: () => [],
+    studioPublicWorkspacePath: (value) => String(value || "").replace(/^\/workspace\//, ""),
+    studioTraceLink: () => "",
+    studioVerifiedBadge: () => "",
+    submitStudioPrompt: async (payload) => submissions.push(payload),
+    uniqueStudioRuntimeEvents: (events) => events,
+    writeBridgeRequest: async (...args) => bridgeRequests.push(args),
+  });
+
+  const proof = await studio.exerciseStudioStage5StopHookRepairLoop({ appendLine() {} });
+
+  assert.match(submissions[0].prompt, /normalizeStatusLabel/);
+  assert.equal(submissions[0].executionMode, "agent");
+  assert.equal(submissions[0].approvalMode, "full_access");
+  assert.equal(proof.passed, true);
+  assert.equal(proof.checks.failingValidationObserved, true);
+  assert.equal(proof.checks.prematureChatReplyBlocked, true);
+  assert.equal(proof.checks.hunkEditCompleted, true);
+  assert.equal(proof.checks.validationReranAfterEdit, true);
+  assert.equal(proof.checks.productTranscriptClean, true);
+  assert.equal(bridgeRequests[0][0], "studio.stage5StopHookRepairLoop.exercised");
+  assert.equal(bridgeRequests[0][1].passed, true);
+  assert.match(bridgeRequests[0][1].helperPath, /status-labels\.mjs/);
+  assert.equal(bridgeRequests[0][2].source, "studio-stage5-stop-hook-repair-loop");
+});

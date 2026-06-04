@@ -779,6 +779,7 @@ const {
 });
 const {
   exerciseStudioStage2WebRepairLoop: exerciseStudioStage2WebRepairLoopFromModule,
+  exerciseStudioStage5StopHookRepairLoop: exerciseStudioStage5StopHookRepairLoopFromModule,
   studioParityPlusPanelRows: studioParityPlusPanelRowsFromRenderer,
   studioStage2FinalContractValues,
   studioStage2ProductTextIsClean,
@@ -797,7 +798,9 @@ const {
   STUDIO_PERMISSION_MODE_FULL_ACCESS,
   stringValue,
   studioRuntimeEventsIncludeCompletedTool,
+  studioRuntimeToolEventCount,
   studioSourceRefsFromRuntimeEvents,
+  studioPublicWorkspacePath,
   studioTraceLink,
   studioVerifiedBadge,
   submitStudioPrompt,
@@ -3674,120 +3677,7 @@ async function exerciseStudioStage2WebRepairLoop(output, payload = {}) {
 }
 
 async function exerciseStudioStage5StopHookRepairLoop(output, payload = {}) {
-  const contextSnapshot = buildWorkspaceActionContext("studio-stage5-stop-hook-repair-loop");
-  const helperPath = stringValue(
-    payload.helperPath || payload.helper_path,
-    ".tmp/autopilot-stage5-stop-hook-repair/status-labels.mjs",
-  );
-  const testPath = helperPath.replace(/status-labels\.mjs$/i, "status-labels.test.mjs");
-  const prompt = stringValue(
-    payload.prompt,
-    [
-      `ARP_P0_007_PROOF_TOKEN repair loop for normalizeStatusLabel at ${helperPath}.`,
-      "Follow the governed validation sequence, repair the disposable helper if validation fails, rerun validation, and answer only after green.",
-    ].join(" "),
-  );
-  const selectedRoute = stringValue(payload.routeId || payload.model, studioRuntimeProjection.modelRoute || "route.local-first");
-  const selectedModelId = stringValue(payload.modelId, studioRuntimeProjection.selectedModel || "auto");
-  await submitStudioPrompt({
-    prompt,
-    executionMode: STUDIO_MODE_AGENT,
-    approvalMode: STUDIO_PERMISSION_MODE_FULL_ACCESS,
-    routeId: selectedRoute,
-    modelId: selectedModelId,
-    reasoningEffort: "none",
-  }, output);
-
-  const threadId = studioRuntimeProjection.threadId;
-  const turnId = studioRuntimeProjection.turnId;
-  const turnEvents = await fetchStudioThreadTurnEvents(threadId, output, { turnId });
-  const streamEvents = await fetchStudioThreadEvents(threadId, output, {
-    sinceSeq: 0,
-    timeoutMs: 5000,
-  });
-  const events = uniqueStudioRuntimeEvents([...turnEvents, ...streamEvents]);
-  const eventText = studioStage2WebRepairEventText(events);
-  const assistantTurn = firstArray(studioRuntimeProjection.turns)
-    .slice()
-    .reverse()
-    .find((turn) => stringValue(turn?.role).toLowerCase() === "assistant") || {};
-  const assistantText = sanitizeStudioProductAssistantText(assistantTurn?.content || "");
-  const workLaneText = [
-    studioStage2WebRepairEventText(firstArray(studioRuntimeProjection.actionCards).slice(-16)),
-    studioStage2WebRepairEventText(firstArray(studioRuntimeProjection.commandOutputs).slice(-8)),
-    studioStage2WebRepairEventText(firstArray(studioRuntimeProjection.diffHunks).slice(-8)),
-    (() => {
-      try {
-        return JSON.stringify(assistantTurn?.workRecord || {});
-      } catch {
-        return "";
-      }
-    })(),
-  ].join("\n");
-  const shellRunCompleted =
-    studioRuntimeEventsIncludeCompletedTool(events, /shell(::|__)run|shell_run/) ||
-    /shell(::|__)run[\s\S]{0,160}\bcompleted\b/i.test(`${eventText}\n${workLaneText}`);
-  const shellRunCount = Math.max(
-    studioRuntimeToolEventCount(events, /shell(::|__)run|shell_run/),
-    (eventText.match(/\bshell(::|__)run\b/gi) || []).length,
-  );
-  const failingValidationObserved =
-    /\bexit[_\s-]?code\b[^0-9-]{0,16}-?[1-9]\d*|\bnot ok\b|\bAssertionError\b|\b#\s*fail\s+[1-9]\d*\b/i.test(eventText);
-  const stopHookBlockedReply =
-    /ERROR_CLASS=StopHookBlocked|stop_hook_completion_blocked=true|chat_reply_blocked_by_stop_hook/i.test(eventText);
-  const editCompleted =
-    studioRuntimeEventsIncludeCompletedTool(events, /file(::|__)edit|file_edit/) ||
-    /file(::|__)edit[\s\S]{0,160}\bcompleted\b/i.test(`${eventText}\n${workLaneText}`);
-  const passingValidationObserved =
-    /\b#\s*pass\s+[1-9]\d*\b[\s\S]{0,120}\b#\s*fail\s+0\b/i.test(eventText) ||
-    /\bexit[_\s-]?code\b[^0-9-]{0,16}0\b/i.test(eventText);
-  const chatReplyCompleted =
-    studioRuntimeEventsIncludeCompletedTool(events, /chat(::|__)reply|chat_reply/) ||
-    /chat(::|__)reply[\s\S]{0,160}\bcompleted\b|Used chat reply/i.test(`${eventText}\n${workLaneText}`);
-  const hunkProjected =
-    firstArray(studioRuntimeProjection.diffHunks).some((hunk) =>
-      /status-labels\.mjs/i.test(String(hunk?.file || hunk?.path || "")) ||
-      /normalizeStatusLabel/i.test(`${hunk?.before || ""}\n${hunk?.after || ""}`)
-    ) ||
-    /studio-inline-diff-hunks|normalizeStatusLabel|file(::|__)edit/i.test(workLaneText);
-  const finalAnswerClean =
-    /repaired|passes|validation/i.test(assistantText) &&
-    studioStage5ProductTextIsClean(assistantText);
-  const checks = {
-    submittedThroughAgentMode: studioRuntimeProjection.executionMode === STUDIO_MODE_AGENT,
-    threadAndTurnAvailable: Boolean(threadId && turnId),
-    firstValidationCommandCompleted: shellRunCompleted,
-    failingValidationObserved,
-    prematureChatReplyBlocked: stopHookBlockedReply,
-    hunkEditCompleted: editCompleted,
-    hunkWorkflowProjected: hunkProjected,
-    validationReranAfterEdit: shellRunCount >= 2 || (editCompleted && passingValidationObserved),
-    passingValidationObserved,
-    finalChatReplyCompleted: chatReplyCompleted,
-    productTranscriptClean: finalAnswerClean,
-    workLaneShowsRepairLoop: /shell(::|__)run|file(::|__)edit|validation|hunk|status-label/i.test(workLaneText),
-  };
-  const passed = Object.values(checks).every(Boolean);
-  await writeBridgeRequest("studio.stage5StopHookRepairLoop.exercised", {
-    sourceCommand: "ioi.studio.exerciseStage5StopHookRepairLoop",
-    runtimeAuthority: "daemon-owned",
-    projectionOwner: "ioi-workbench-agent-studio",
-    ownsRuntimeState: false,
-    passed,
-    checks,
-    eventCount: events.length,
-    helperPath: studioPublicWorkspacePath(helperPath),
-    testPath: studioPublicWorkspacePath(testPath),
-    answerPreview: compactStudioWhitespace(assistantText).slice(0, 240),
-  }, contextSnapshot).catch((error) => {
-    output.appendLine(`[ioi-studio] stage5 stop-hook repair loop bridge request unavailable: ${error?.message || String(error)}`);
-  });
-  return {
-    passed,
-    checks,
-    eventCount: events.length,
-    answerPreview: compactStudioWhitespace(assistantText).slice(0, 240),
-  };
+  return exerciseStudioStage5StopHookRepairLoopFromModule(output, payload);
 }
 
 async function waitForStudioRuntimeProjection(predicate, timeoutMs, label) {
