@@ -392,6 +392,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/runtime-task-job-surface.mjs`.
 - Moved public task/job list, create, get, and cancel methods out of `index.mjs` behind `AgentgresRuntimeStateStore` compatibility delegates while preserving task/job projection helpers, run cancellation mapping, status filtering, existing-agent lookup, and synthesized-agent defaults.
 - Added focused runtime-task-job-surface tests for sorted/filtered task and job projection, create-task payload shaping, existing/synthesized agent flows, get-by-public-id/run-id behavior, cancel delegation, and not-found errors.
+- Added `packages/runtime-daemon/src/runtime-run-read-surface.mjs`.
+- Moved run lookup/listing, run/thread/list usage projection, authority evidence summary, legacy event replay, canonical replay, trace projection, and canonical state path projection out of `index.mjs` behind compatibility delegates while leaving state-mutating context-budget and compaction policy evaluators local for a later policy slice.
+- Added focused runtime-run-read-surface tests for get/list delegation, run/thread/list usage shaping, authority evidence side effects, legacy replay cursor behavior, trace projection, canonical replay, and canonical path projection.
 - Added `packages/runtime-daemon/src/runtime-identifiers.mjs`.
 - Moved runtime thread/agent/run/turn/session id derivation, runtime-backed agent detection, fixture profile defaults, and lifecycle/thread status normalization out of `index.mjs`.
 - Added focused runtime identifier tests for prefix compatibility, event stream ids, runtime session fallback, fixture profile override/null preservation, runtime profile detection, and lifecycle status aliases.

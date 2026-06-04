@@ -201,6 +201,7 @@ import { createRuntimeEventEnvelopeHelpers } from "./runtime-event-envelopes.mjs
 import { createRuntimeEventPayloadHelpers } from "./runtime-event-payloads.mjs";
 import { createRuntimeCodingToolResultHelpers } from "./runtime-coding-tool-results.mjs";
 import { createRuntimeDoctorReport } from "./runtime-doctor-report.mjs";
+import { createRuntimeRunReadSurface } from "./runtime-run-read-surface.mjs";
 import { createRuntimeSkillHookSurface } from "./runtime-skill-hook-surface.mjs";
 import { createRuntimeTaskJobSurface } from "./runtime-task-job-surface.mjs";
 import { createRuntimeToolSurface } from "./runtime-tool-surface.mjs";
@@ -280,16 +281,12 @@ import {
   agentForThread as agentForThreadState,
   deleteAgent as deleteAgentState,
   getAgent as getAgentState,
-  getRun as getRunState,
   inFlightRuntimeTurnKey as inFlightRuntimeTurnKeyState,
   listAgents as listAgentsState,
-  listRuns as listRunsState,
   registerInFlightRuntimeTurn as registerInFlightRuntimeTurnState,
   resolveRunForThreadTurn as resolveRunForThreadTurnState,
   unregisterInFlightRuntimeTurn as unregisterInFlightRuntimeTurnState,
   updateAgent as updateAgentState,
-  usageForRun as usageForRunState,
-  usageForThread as usageForThreadState,
 } from "./threads/thread-store.mjs";
 import {
   controlManagedSessionForThread as controlManagedSessionForThreadState,
@@ -879,6 +876,16 @@ export class AgentgresRuntimeStateStore {
       redactRuntimeNodeForDoctor,
     });
     this.repositorySurface = createRuntimeRepositorySurface();
+    this.runReadSurface = createRuntimeRunReadSurface({
+      authorityEvidenceSummaryForEvents,
+      notFound,
+      runtimeChecklistRecordForRun,
+      runtimeJobRecordForRun,
+      runtimeUsageTelemetryForRun,
+      runtimeUsageTelemetryForThread,
+      runtimeUsageTelemetryList,
+      threadIdForAgent,
+    });
     this.skillHookSurface = createRuntimeSkillHookSurface({
       defaultCwd: this.defaultCwd,
       homeDir: this.homeDir,
@@ -6027,50 +6034,27 @@ export class AgentgresRuntimeStateStore {
   }
 
   getRun(runId) {
-    return getRunState(this, runId, {
-      notFound,
-    });
+    return this.runReadSurface.getRun(this, runId);
   }
 
   listRuns(agentId) {
-    return listRunsState(this, agentId);
+    return this.runReadSurface.listRuns(this, agentId);
   }
 
   usageForRun(runId) {
-    return usageForRunState(this, runId, {
-      runtimeUsageTelemetryForRun,
-      threadIdForAgent,
-    });
+    return this.runReadSurface.usageForRun(this, runId);
   }
 
   usageForThread(threadId) {
-    return usageForThreadState(this, threadId, {
-      runtimeUsageTelemetryForThread,
-    });
+    return this.runReadSurface.usageForThread(this, threadId);
   }
 
   listUsage(options = {}) {
-    const groupBy = options.group_by ?? options.groupBy ?? "run";
-    const agentId = options.agentId ?? options.agent_id;
-    const parentThreadId = agentId ? threadIdForAgent(agentId) : null;
-    return runtimeUsageTelemetryList({
-      runs: this.listRuns(agentId),
-      subagents: [...this.subagents.values()].filter(
-        (record) =>
-          !parentThreadId || (record.parent_thread_id ?? record.parentThreadId) === parentThreadId,
-      ),
-      groupBy,
-    });
+    return this.runReadSurface.listUsage(this, options);
   }
 
   authorityEvidenceSummary(options = {}) {
-    for (const agent of this.agents.values()) {
-      this.projectThreadEvents(agent);
-    }
-    return authorityEvidenceSummaryForEvents(
-      [...this.runtimeEventStreams.values()].flatMap((stream) => stream.events),
-      options,
-    );
+    return this.runReadSurface.authorityEvidenceSummary(this, options);
   }
 
   evaluateContextBudget({ threadId = null, runId = null, request = {} } = {}) {
@@ -6268,45 +6252,19 @@ export class AgentgresRuntimeStateStore {
   }
 
   legacyEventsForRun(runId, lastEventId) {
-    const events = this.getRun(runId).events;
-    if (!lastEventId) return events;
-    const index = events.findIndex((event) => event.id === lastEventId);
-    return events.slice(index >= 0 ? index + 1 : 0);
+    return this.runReadSurface.legacyEventsForRun(this, runId, lastEventId);
   }
 
   replayFromCanonicalState(runId, cursor) {
-    return this.eventsForRun(runId, cursor);
+    return this.runReadSurface.replayFromCanonicalState(this, runId, cursor);
   }
 
   traceFromCanonicalState(runId) {
-    return this.getRun(runId).trace;
+    return this.runReadSurface.traceFromCanonicalState(this, runId);
   }
 
   canonicalProjection(runId) {
-    const run = this.getRun(runId);
-    const watermark = this.operationCount();
-    return {
-      schemaVersion: this.schemaVersion,
-      runId,
-      source: "agentgres_canonical_operation_log",
-      watermark,
-      freshness: {
-        source: "local-agentgres-v0",
-        operationCount: watermark,
-        generatedAt: new Date().toISOString(),
-      },
-      paths: {
-        run: relative(this.stateDir, this.pathFor("runs", `${run.id}.json`)),
-        task: relative(this.stateDir, this.pathFor("tasks", `${run.id}.json`)),
-        job: relative(this.stateDir, this.pathFor("jobs", `${runtimeJobRecordForRun(run).jobId}.json`)),
-        checklist: relative(this.stateDir, this.pathFor("checklists", `${runtimeChecklistRecordForRun(run).checklistId}.json`)),
-        quality: relative(this.stateDir, this.pathFor("quality", `${run.id}.json`)),
-        operationLog: "operation-log.jsonl",
-      },
-      terminalState: run.status,
-      stopCondition: run.trace.stopCondition,
-      scorecard: run.trace.scorecard,
-    };
+    return this.runReadSurface.canonicalProjection(this, runId);
   }
 
   listModels() {
