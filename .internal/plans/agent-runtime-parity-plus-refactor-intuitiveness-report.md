@@ -250,6 +250,9 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Moved public command execution wrappers, LM Studio CLI parsers/projections, local artifact inspection and metadata parsing, hardware snapshots, file readers, executable discovery, and native-local resource estimates out of `model-mounting.mjs`.
 - Added `packages/runtime-daemon/src/model-mounting/provider-driver-helpers.mjs`.
 - Moved provider-kind driver mapping, default backend mapping, response-state protocol checks, and deterministic low-variance invocation coalescing helpers out of `model-mounting.mjs`.
+- Added `packages/runtime-daemon/src/model-mounting/provider-driver-factory.mjs`.
+- Moved concrete provider driver construction out of `model-mounting.mjs` behind the existing `ModelMountingState.driverForProvider()` compatibility method.
+- Added focused provider-driver factory tests for concrete driver routing, stateful driver state injection, and explicit driver override behavior.
 - Added `packages/runtime-daemon/src/model-mounting/load-policy.mjs`.
 - Moved load-policy normalization, load-option normalization, runtime-engine default load options, TTL detection, LM Studio CLI load-argument shaping, and loaded-instance expiry calculation out of `model-mounting.mjs`.
 - Added focused load-policy tests for string policies, snake/camel aliases, runtime-engine defaults, explicit TTL detection, expiration semantics, and LM Studio public CLI args.
@@ -411,6 +414,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
   - `model-mounting/provider-protocol`
   - `model-mounting/local-system-probes`
   - `model-mounting/provider-driver-helpers`
+  - `model-mounting/provider-driver-factory`
   - `model-mounting/load-policy`
   - `model-mounting/native-local-fixture`
   - `model-mounting/provider-transport`

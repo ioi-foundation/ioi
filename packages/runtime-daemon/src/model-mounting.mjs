@@ -209,6 +209,9 @@ import {
   modelInvocationCoalesceKey,
   supportsResponseState,
 } from "./model-mounting/provider-driver-helpers.mjs";
+import {
+  driverForProvider as driverForProviderState,
+} from "./model-mounting/provider-driver-factory.mjs";
 import * as serverControl from "./model-mounting/server-control.mjs";
 import {
   expiresAt,
@@ -260,17 +263,6 @@ import {
   stopBackendProcess as stopBackendProcessState,
   touchBackendProcess as touchBackendProcessState,
 } from "./model-mounting/backend-lifecycle.mjs";
-import {
-  FixtureModelProviderDriver,
-  NativeLocalModelProviderDriver,
-} from "./model-mounting/provider-local-drivers.mjs";
-import { OpenAICompatibleModelProviderDriver } from "./model-mounting/provider-openai-compatible-driver.mjs";
-import { OllamaModelProviderDriver } from "./model-mounting/provider-ollama-driver.mjs";
-import {
-  LlamaCppModelProviderDriver,
-  VllmModelProviderDriver,
-} from "./model-mounting/provider-openai-backend-drivers.mjs";
-import { LmStudioModelProviderDriver } from "./model-mounting/provider-lm-studio-driver.mjs";
 import { AgentgresWalletAuthority } from "./model-mounting/wallet-authority.mjs";
 import {
   AgentgresVaultPort,
@@ -2504,14 +2496,7 @@ export class ModelMountingState {
   }
 
   driverForProvider(provider) {
-    const driver = driverNameForProvider(provider);
-    if (driver === "native_local") return new NativeLocalModelProviderDriver();
-    if (driver === "lm_studio") return new LmStudioModelProviderDriver({ state: this });
-    if (driver === "llama_cpp") return new LlamaCppModelProviderDriver({ state: this });
-    if (driver === "ollama") return new OllamaModelProviderDriver();
-    if (driver === "vllm") return new VllmModelProviderDriver({ state: this });
-    if (driver === "openai_compatible") return new OpenAICompatibleModelProviderDriver({ label: provider.kind });
-    return new FixtureModelProviderDriver();
+    return driverForProviderState(this, provider);
   }
 }
 
