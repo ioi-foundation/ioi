@@ -870,6 +870,9 @@ function runReceipts() {
   const openAiCompatRoutes = exists("packages/runtime-daemon/src/openai-compat-routes.mjs")
     ? read("packages/runtime-daemon/src/openai-compat-routes.mjs")
     : "";
+  const memoryStore = exists("packages/runtime-daemon/src/memory-store.mjs")
+    ? read("packages/runtime-daemon/src/memory-store.mjs")
+    : "";
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
@@ -1427,6 +1430,21 @@ function runReceipts() {
       !/\bappendOperation\b/.test(modelMountingConstructorArgs),
     ["packages/runtime-daemon/src/index.mjs"],
     "Phase 5/11 is pending: the runtime store must not inject daemon-local appendOperation into the model-mounting state facade after receipt/Agentgres admission owns model-mounting truth",
+  );
+  assertCheck(
+    result,
+    "agent-memory-operation-append-retired",
+    !/\bappendOperation\b/.test(memoryStore) &&
+      /this\.memory = new AgentMemoryStore\(this\.stateDir\);/.test(runtimeDaemonIndex) &&
+      /agent memory store writes records, edits, deletes, and policies without local operation append/.test(
+        read("packages/runtime-daemon/src/memory-store.test.mjs"),
+      ),
+    [
+      "packages/runtime-daemon/src/memory-store.mjs",
+      "packages/runtime-daemon/src/memory-store.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 5/11 is pending: memory record and policy updates must not mirror daemon-local operation-log records outside admitted receipt/Agentgres paths",
   );
   assertCheck(
     result,

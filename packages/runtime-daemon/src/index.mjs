@@ -864,9 +864,7 @@ export class AgentgresRuntimeStateStore {
       ttiEnvelopeForRunEvent,
       turnIdForRun,
     });
-    this.memory = new AgentMemoryStore(this.stateDir, {
-      appendOperation: (kind, payload) => this.appendOperation(kind, payload),
-    });
+    this.memory = new AgentMemoryStore(this.stateDir);
     this.writeSchema();
     this.load();
   }

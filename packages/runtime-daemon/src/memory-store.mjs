@@ -17,11 +17,10 @@ const MEMORY_POLICY_FIELDS = [
 ];
 
 export class AgentMemoryStore {
-  constructor(stateDir, { appendOperation } = {}) {
+  constructor(stateDir) {
     this.stateDir = path.resolve(stateDir);
     this.records = new Map();
     this.policies = new Map();
-    this.appendOperation = appendOperation;
     fs.mkdirSync(this.memoryDir, { recursive: true });
     fs.mkdirSync(this.policyDir, { recursive: true });
     this.load();
@@ -83,14 +82,6 @@ export class AgentMemoryStore {
     };
     this.records.set(id, record);
     this.write(record);
-    this.appendOperation?.("memory.remember", {
-      objectId: id,
-      agentId: agent?.id ?? null,
-      threadId: threadId ?? null,
-      scope,
-      receiptId: receipt.id,
-      factHash: stableHash(fact),
-    });
     return { record, receipt };
   }
 
@@ -117,11 +108,6 @@ export class AgentMemoryStore {
     });
     this.records.set(updated.id, updated);
     this.write(updated);
-    this.appendOperation?.("memory.edit", {
-      objectId: updated.id,
-      receiptId: receipt.id,
-      factHash: stableHash(updated.fact),
-    });
     return { record: updated, receipt, operation: "edit" };
   }
 
@@ -147,10 +133,6 @@ export class AgentMemoryStore {
     });
     this.records.delete(record.id);
     this.removeQuiet(path.join(this.memoryDir, `${record.id}.json`));
-    this.appendOperation?.("memory.delete", {
-      objectId: record.id,
-      receiptId: receipt.id,
-    });
     return { record: deleted, receipt, operation: "delete" };
   }
 
@@ -274,15 +256,6 @@ export class AgentMemoryStore {
       evidenceRefs: ["agent_memory_store", "memory.policy", id],
       memoryPolicyId: id,
     };
-    this.appendOperation?.("memory.policy", {
-      objectId: id,
-      targetType,
-      targetId: resolvedTargetId,
-      receiptId: receipt.id,
-      disabled: Boolean(policy.disabled),
-      readOnly: Boolean(policy.readOnly),
-      writeRequiresApproval: Boolean(policy.writeRequiresApproval),
-    });
     return { policy, receipt, operation: "policy_update" };
   }
 
