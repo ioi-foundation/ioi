@@ -246,6 +246,7 @@ import {
   nativeLocalProviderRecord,
   runtimeProviderRecords,
 } from "./model-mounting/default-records.mjs";
+import { seedModelMountingDefaults } from "./model-mounting/state-seeding.mjs";
 import {
   validateContinuationSafety as validateContinuationSafetyRule,
   validateReceiptGate as validateReceiptGateRule,
@@ -363,68 +364,22 @@ export class ModelMountingState {
   }
 
   seedDefaults() {
-    const checkedAt = this.nowIso();
-    const localProvider = localFolderProviderRecord(checkedAt);
-    this.upsertDefault(this.providers, localProvider);
-
-    const nativeLocalProvider = nativeLocalProviderRecord(checkedAt);
-    this.upsertDefault(this.providers, nativeLocalProvider);
-
-    const lmStudioProvider = this.discoverLmStudioProvider(checkedAt);
-    if (lmStudioProvider.discovery?.disabledByDefault) {
-      this.pruneLmStudioPublicProjectionRecords();
-    }
-    if (!internalFixtureModelsEnabled()) {
-      this.pruneInternalFixtureProjectionRecords();
-    }
-    this.providers.set(lmStudioProvider.id, {
-      ...this.providers.get(lmStudioProvider.id),
-      ...lmStudioProvider,
-      discovery: lmStudioProvider.discovery,
-    });
-
-    const llamaBinary = process.env.IOI_LLAMA_CPP_SERVER_PATH ?? discoverAutopilotLlamaServer(this.homeDir) ?? findExecutable("llama-server");
-    const vllmBinary = process.env.IOI_VLLM_BINARY ?? findExecutable("vllm");
-    for (const provider of runtimeProviderRecords({
-      checkedAt,
+    return seedModelMountingDefaults(this, {
+      defaultRouteRecords,
+      discoverAutopilotLlamaServer,
+      env: process.env,
+      findExecutable,
       hostedProvider,
-      llamaBinary,
+      internalFixtureModelsEnabled,
+      lmStudioDetectedArtifactRecord,
+      localFixtureArtifactRecords,
+      localFixtureEndpointRecord,
+      localFolderProviderRecord,
+      nativeFixtureEndpointRecord,
+      nativeLocalProviderRecord,
+      runtimeProviderRecords,
       stableHash,
-      vllmBinary,
-    })) {
-      this.upsertDefault(this.providers, provider);
-    }
-
-    this.seedBackends(checkedAt);
-
-    let nativeFixtureArtifact = null;
-    if (internalFixtureModelsEnabled()) {
-      for (const artifact of localFixtureArtifactRecords(checkedAt)) {
-        this.upsertDefault(this.artifacts, artifact);
-      }
-      nativeFixtureArtifact = this.ensureNativeLocalFixtureArtifact(checkedAt);
-      this.upsertDefault(this.artifacts, nativeFixtureArtifact);
-    }
-    const lmStudioArtifacts = this.discoverLmStudioArtifacts(lmStudioProvider, checkedAt);
-    if (lmStudioArtifacts.length > 0) {
-      for (const artifact of lmStudioArtifacts) {
-        this.upsertDefault(this.artifacts, artifact);
-      }
-    } else if (lmStudioProvider.status !== "absent") {
-      this.upsertDefault(this.artifacts, lmStudioDetectedArtifactRecord(lmStudioProvider, checkedAt));
-    }
-    if (internalFixtureModelsEnabled()) {
-      this.upsertDefault(this.endpoints, localFixtureEndpointRecord(checkedAt));
-      this.upsertDefault(this.endpoints, nativeFixtureEndpointRecord({
-        artifact: nativeFixtureArtifact,
-        backendRegistry: this.backendRegistry(),
-        checkedAt,
-      }));
-    }
-
-    for (const route of defaultRouteRecords()) {
-      this.upsertDefault(this.routes, route);
-    }
+    });
   }
 
   ensureNativeLocalFixtureArtifact(checkedAt) {
