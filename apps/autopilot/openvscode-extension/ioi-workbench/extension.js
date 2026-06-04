@@ -83,6 +83,7 @@ const { createNativeChatViewRenderer } = require("./studio/native-chat-view");
 const { createStudioToolPalette } = require("./studio/tool-palette");
 const { createStudioModelSelection } = require("./studio/model-selection");
 const { createStudioOverviewView } = require("./studio/overview-view");
+const { createStudioTraceView } = require("./studio/trace-view");
 const {
   STUDIO_MODE_AGENT,
   STUDIO_MODE_ASK,
@@ -809,65 +810,24 @@ function studioTextContainsProductFixtureMarker(text = "") {
   );
 }
 
-const STUDIO_RUNTIME_VISIBILITY = Object.freeze({
-  inlineAction: "inline-action",
-  inlineProgress: "inline-progress",
-  inlineSummary: "inline-summary",
-  traceOnly: "trace-only",
-  debugOnly: "debug-only",
+const {
+  STUDIO_RUNTIME_VISIBILITY,
+  classifyStudioRuntimeEvent,
+  studioFocusedTraceTarget,
+  studioTraceCommandAttr,
+  studioTraceItems,
+  studioTraceLink,
+  studioTraceStepId,
+  studioTraceTarget,
+} = createStudioTraceView({
+  commandPayloadAttr,
+  crypto,
+  escapeHtml,
+  firstArray,
+  getActiveTraceTarget: () => activeTraceTarget,
+  getStudioRuntimeProjection: () => studioRuntimeProjection,
+  normalizeReceiptRefs,
 });
-
-function studioTraceStepId(kind, id) {
-  return String(`${kind || "runtime"}.${id || crypto.randomUUID?.() || Date.now()}`)
-    .replace(/[^a-z0-9_.:-]+/gi, "-")
-    .slice(0, 120);
-}
-
-function classifyStudioRuntimeEvent(event = {}) {
-  const kind = String(event.kind || event.event_kind || event.eventKind || "").toLowerCase();
-  const status = String(event.status || event.payload_summary?.status || "").toLowerCase();
-  if (/approval|policy|lease|firewall/.test(kind) || /waiting_for_approval|requires_approval|blocked/.test(status)) {
-    return STUDIO_RUNTIME_VISIBILITY.inlineAction;
-  }
-  if (/patch|hunk|diff/.test(kind)) {
-    return STUDIO_RUNTIME_VISIBILITY.inlineAction;
-  }
-  if (/stream|progress|pending|running/.test(kind) || /pending|running|streaming/.test(status)) {
-    return STUDIO_RUNTIME_VISIBILITY.inlineProgress;
-  }
-  if (/receipt|replay|metadata|model_invocation|browser|worker|subagent/.test(kind)) {
-    return STUDIO_RUNTIME_VISIBILITY.traceOnly;
-  }
-  if (/debug|raw/.test(kind)) {
-    return STUDIO_RUNTIME_VISIBILITY.debugOnly;
-  }
-  return STUDIO_RUNTIME_VISIBILITY.inlineSummary;
-}
-
-function studioTraceTarget(payload = {}) {
-  const receiptRefs = normalizeReceiptRefs(payload, ...firstArray(payload.receiptRefs));
-  const stepId = payload.stepId || studioTraceStepId(payload.kind || "runtime", payload.id || receiptRefs[0]);
-  return {
-    sessionId: studioRuntimeProjection.sessionId || studioRuntimeProjection.threadId || "studio-session-current",
-    threadId: studioRuntimeProjection.threadId || null,
-    runId: studioRuntimeProjection.runId || null,
-    turnId: studioRuntimeProjection.turnId || null,
-    stepId,
-    kind: payload.kind || "runtime.event",
-    receiptRefs,
-  };
-}
-
-function studioTraceCommandAttr(payload = {}) {
-  return commandPayloadAttr({
-    traceTarget: studioTraceTarget(payload),
-    source: "agent-studio",
-  });
-}
-
-function studioTraceLink(payload = {}, label = "View trace") {
-  return `<button type="button" class="studio-view-trace-link" data-testid="studio-view-trace-link" data-command="ioi.runs.refresh"${studioTraceCommandAttr(payload)}>${escapeHtml(label)}</button>`;
-}
 
 function studioWorkCursor() {
   return {
@@ -1046,68 +1006,6 @@ async function refreshStudioWorkspaceChangeReviewsFromDaemon(output) {
     );
     return [];
   }
-}
-
-function studioTraceItems() {
-  const items = [];
-  const push = (item = {}) => {
-    const kind = item.kind || "runtime.event";
-    const receiptRefs = normalizeReceiptRefs(item);
-    const stepId = item.stepId || studioTraceStepId(kind, item.id || item.label || receiptRefs[0]);
-    items.push({
-      stepId,
-      id: item.id || stepId,
-      kind,
-      title: item.title || item.label || kind,
-      summary: item.summary || item.detail || item.reason || item.stdout || item.status || "",
-      status: item.status || "observed",
-      receiptRefs,
-      visibility: item.visibility || classifyStudioRuntimeEvent(item),
-      payload: item,
-    });
-  };
-  for (const event of firstArray(studioRuntimeProjection.runtimeEvents)) push(event);
-  for (const item of firstArray(studioRuntimeProjection.timeline)) push({ ...item, kind: "timeline.step" });
-  for (const item of firstArray(studioRuntimeProjection.actionCards)) push({ ...item, kind: "tool.proposal" });
-  for (const item of firstArray(studioRuntimeProjection.policyLeases)) push({ ...item, kind: "policy.lease" });
-  for (const item of firstArray(studioRuntimeProjection.commandOutputs)) push({ ...item, kind: "command.output", summary: item.stdout || item.stderr || item.label });
-  for (const item of firstArray(studioRuntimeProjection.diagnosticGates)) push({ ...item, kind: "diagnostics.gate" });
-  for (const item of firstArray(studioRuntimeProjection.diffHunks)) push({ ...item, kind: "patch.hunk", summary: `${item.file || "workspace"} · ${item.status || "pending"}` });
-  for (const item of firstArray(studioRuntimeProjection.browserCards)) push({ ...item, kind: "browser.status" });
-  for (const item of firstArray(studioRuntimeProjection.workerCards)) push({ ...item, kind: "worker.status" });
-  for (const item of firstArray(studioRuntimeProjection.conversationArtifacts)) push({ ...item, kind: "conversation.artifact" });
-  for (const item of firstArray(studioRuntimeProjection.engineReconnectBanners)) push({ ...item, kind: "engine.reconnect" });
-  for (const item of firstArray(studioRuntimeProjection.trajectoryReplayPanels)) push({ ...item, kind: "trajectory.replay" });
-  for (const item of firstArray(studioRuntimeProjection.sessionBrainPanels)) push({ ...item, kind: "session.brain" });
-  for (const item of firstArray(studioRuntimeProjection.chatResponsibilityContracts)) push({ ...item, kind: "chat.responsibility" });
-  for (const item of firstArray(studioRuntimeProjection.securityScanPanels)) push({ ...item, kind: "engine.guard.security" });
-  for (const item of firstArray(studioRuntimeProjection.workerContributionTraces)) push({ ...item, kind: "worker.contribution" });
-  for (const item of firstArray(studioRuntimeProjection.safeModeToolSuppressionPanels)) push({ ...item, kind: "safe_mode.tool_suppression" });
-  for (const item of firstArray(studioRuntimeProjection.onboardingDiagnosticsPanels)) push({ ...item, kind: "onboarding.diagnostics" });
-  for (const item of firstArray(studioRuntimeProjection.gatewayTokenHygienePanels)) push({ ...item, kind: "gateway.token_hygiene" });
-  for (const item of firstArray(studioRuntimeProjection.sandboxResourceLimitPanels)) push({ ...item, kind: "sandbox.resource_limits" });
-  for (const item of firstArray(studioRuntimeProjection.parentTrajectoryLinkagePanels)) push({ ...item, kind: "imported.parent_trajectory_linkage" });
-  for (const item of firstArray(studioRuntimeProjection.battleModePermissionImportPanels)) push({ ...item, kind: "imported.battle_mode_permission" });
-  for (const item of firstArray(studioRuntimeProjection.importedStopHookGatePanels)) push({ ...item, kind: "imported.stop_hook_gates" });
-  for (const item of firstArray(studioRuntimeProjection.importedBrowserActionEvidencePanels)) push({ ...item, kind: "imported.browser_action_evidence" });
-  for (const item of firstArray(studioRuntimeProjection.importedExecutorConfigPanels)) push({ ...item, kind: "imported.executor_config" });
-  for (const item of firstArray(studioRuntimeProjection.importedPolicyDraftPanels)) push({ ...item, kind: "imported.policy_draft" });
-  for (const item of firstArray(studioRuntimeProjection.importedGenerationMetadataPanels)) push({ ...item, kind: "imported.generation_metadata" });
-  for (const item of firstArray(studioRuntimeProjection.importedErrorRenderInfoPanels)) push({ ...item, kind: "imported.error_render_info" });
-  for (const item of firstArray(studioRuntimeProjection.replaySteps)) push({ ...item, kind: item.kind || "replay.step" });
-  for (const item of firstArray(studioRuntimeProjection.receipts)) push({ ...item, kind: item.kind || "receipt" });
-  return items;
-}
-
-function studioFocusedTraceTarget() {
-  const target = activeTraceTarget || studioTraceTarget({ kind: "session.summary", id: "current" });
-  const items = studioTraceItems();
-  const focused =
-    items.find((item) => item.stepId === target.stepId) ||
-    items.find((item) => normalizeReceiptRefs(item).some((id) => target.receiptRefs?.includes(id))) ||
-    items[items.length - 1] ||
-    null;
-  return { target, focused, items };
 }
 
 function appendStudioTimeline(label, detail, status = "ready", extra = {}) {

@@ -88,6 +88,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/overview-view.js`.
 - Moved Autopilot Overview tone mapping, status pill rendering, action button rendering, and overview row rendering out of `extension.js`.
 - Added focused overview-view tests for tone classes, escaping, and command payload affordances.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/trace-view.js`.
+- Moved Studio trace visibility classification, trace target/link construction, trace item flattening, and focused trace selection out of `extension.js`.
+- Added focused trace-view tests for visibility classes, daemon trace payload affordances, projection flattening, and receipt-based focus fallback.
 - Moved managed browser/computer session work-record attachment and card row rendering out of `extension.js` behind compatibility wrappers.
 - Added focused managed-session view tests for bounded session-card attachment, waiting-for-user handoff rendering, control-state data-testids, HTML escaping, and default sandbox browser state.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
