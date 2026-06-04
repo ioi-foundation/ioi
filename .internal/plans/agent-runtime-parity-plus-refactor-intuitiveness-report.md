@@ -254,6 +254,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/threads/model-route-selection.mjs`.
 - Moved daemon model route resolution, run route reuse, and local-first fallback selection out of `index.mjs` behind compatibility wrappers while preserving model policy/workflow context shaping, route-selection receipts, fallback evidence refs, and candidate evidence merging.
 - Added focused model-route-selection tests for explicit workflow route selection, fallback route/evidence merging, and persisted run route reuse.
+- Added `packages/runtime-daemon/src/threads/run-memory-resolution.mjs`.
+- Moved run memory injection/write policy orchestration and subagent memory inheritance projection out of `index.mjs` behind compatibility wrappers while preserving chat memory commands, API remember writes, policy block reasons, inherited record filters, effective subagent policy projection, and evidence refs.
+- Added focused run-memory-resolution tests for record injection, remember writes, disabled-memory blocking, and subagent inheritance projection.
 - Added `packages/runtime-daemon/src/threads/context-budget-policy.mjs`.
 - Moved context-budget telemetry selection, threshold normalization, context-budget evaluation, coding-tool budget policy shaping, and compaction-policy decisions out of `index.mjs`.
 - Added `packages/runtime-daemon/src/repository-context.mjs`.
@@ -601,6 +604,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
   - `model-mounting/backend-registry-state`
   - `runtime-run-cancellation`
   - `threads/model-route-selection`
+  - `threads/run-memory-resolution`
   - `studio/durability-panels`
   - `studio/policy-lease-lifecycle`
   - `studio/chat-output-renderers`
