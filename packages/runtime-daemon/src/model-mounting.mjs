@@ -142,6 +142,12 @@ import {
   normalizeRuntimeEngineDefaultLoadOptions,
 } from "./model-mounting/load-policy.mjs";
 import {
+  coalesceLoadedInstances as coalesceLoadedInstancesState,
+  evictExpiredInstances as evictExpiredInstancesState,
+  loadedInstanceForEndpoint as loadedInstanceForEndpointState,
+  supersedeLoadedInstances as supersedeLoadedInstancesState,
+} from "./model-mounting/loaded-instances.mjs";
+import {
   FixtureModelProviderDriver,
   NativeLocalModelProviderDriver,
 } from "./model-mounting/provider-local-drivers.mjs";
@@ -3532,84 +3538,19 @@ export class ModelMountingState {
   }
 
   loadedInstanceForEndpoint(endpointId, failIfMissing = true) {
-    const instance = [...this.instances.values()].find(
-      (candidate) => candidate.endpointId === endpointId && candidate.status === "loaded",
-    );
-    if (!instance && failIfMissing) {
-      throw notFound(`No loaded model instance for endpoint: ${endpointId}`, { endpointId });
-    }
-    return instance ?? null;
+    return loadedInstanceForEndpointState(this, endpointId, failIfMissing, { notFound });
   }
 
   evictExpiredInstances() {
-    const nowMs = this.now().getTime();
-    let changed = false;
-    for (const instance of this.instances.values()) {
-      if (instance.status !== "loaded" || !instance.expiresAt || Date.parse(instance.expiresAt) > nowMs) {
-        continue;
-      }
-      const evicted = {
-        ...instance,
-        status: "evicted",
-        evictedAt: this.nowIso(),
-        evictionReason: "idle_ttl",
-      };
-      this.instances.set(instance.id, evicted);
-      changed = true;
-      this.lifecycleReceipt("model_idle_evict", {
-        instanceId: instance.id,
-        endpointId: instance.endpointId,
-        modelId: instance.modelId,
-        providerId: instance.providerId,
-      });
-    }
-    if (changed) {
-      this.writeMap("model-instances", this.instances);
-    }
+    return evictExpiredInstancesState(this);
   }
 
   coalesceLoadedInstances() {
-    const loadedByEndpoint = new Map();
-    for (const instance of this.instances.values()) {
-      if (instance.status !== "loaded" || !instance.endpointId) continue;
-      const current = loadedByEndpoint.get(instance.endpointId);
-      if (!current || String(instance.loadedAt ?? "") > String(current.loadedAt ?? "")) {
-        loadedByEndpoint.set(instance.endpointId, instance);
-      }
-    }
-    let changed = false;
-    for (const instance of this.instances.values()) {
-      if (instance.status !== "loaded" || !instance.endpointId) continue;
-      const keeper = loadedByEndpoint.get(instance.endpointId);
-      if (!keeper || keeper.id === instance.id) continue;
-      this.instances.set(instance.id, {
-        ...instance,
-        status: "superseded",
-        supersededAt: this.nowIso(),
-        supersededBy: keeper.id,
-        supersededReason: "endpoint_reload",
-      });
-      changed = true;
-    }
-    if (changed) {
-      this.writeMap("model-instances", this.instances);
-    }
+    return coalesceLoadedInstancesState(this);
   }
 
   supersedeLoadedInstances(endpointId, keepInstanceId) {
-    let changed = false;
-    for (const instance of this.instances.values()) {
-      if (instance.id === keepInstanceId || instance.endpointId !== endpointId || instance.status !== "loaded") continue;
-      this.instances.set(instance.id, {
-        ...instance,
-        status: "superseded",
-        supersededAt: this.nowIso(),
-        supersededBy: keepInstanceId,
-        supersededReason: "endpoint_reload",
-      });
-      changed = true;
-    }
-    return changed;
+    return supersedeLoadedInstancesState(this, endpointId, keepInstanceId);
   }
 
   nowIso() {

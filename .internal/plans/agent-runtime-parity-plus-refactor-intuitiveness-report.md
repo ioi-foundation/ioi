@@ -295,8 +295,11 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/state-persistence.mjs`.
 - Moved the model-mounting directory-to-map persistence table, map loading, whole-state write ordering, write-map delegation, and vault-ref metadata refresh out of `model-mounting.mjs` behind existing `ModelMountingState.load()`, `loadMap()`, `writeAll()`, `writeMap()`, and `writeVaultRefs()` compatibility methods.
 - Added focused state-persistence tests for load filtering, canonical map coverage, whole-state write ordering, vault-ref refresh, and store delegation.
+- Added `packages/runtime-daemon/src/model-mounting/loaded-instances.mjs`.
+- Moved loaded model instance lookup, idle TTL eviction, loaded-instance coalescing, and endpoint reload supersession out of `model-mounting.mjs` behind existing `ModelMountingState.loadedInstanceForEndpoint()`, `evictExpiredInstances()`, `coalesceLoadedInstances()`, and `supersedeLoadedInstances()` compatibility methods.
+- Added focused loaded-instance tests for nullable/error lookup modes, idle eviction receipts/write behavior, no-op eviction skips, newest-instance coalescing, and explicit supersession return values.
 
-Status: `model-mounting.mjs` still owns state-machine behavior, route persistence wrappers, backend process lifecycle, and some product projection glue. Safe next extractions are state-machine slices and remaining route HTTP glue.
+Status: `model-mounting.mjs` still owns route persistence wrappers, backend process lifecycle, runtime-engine preference controls, and some product projection glue. Safe next extractions are backend lifecycle slices, runtime-engine control slices, and remaining route HTTP glue.
 
 ### Rust Runtime Hot Spot
 
