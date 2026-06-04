@@ -3,8 +3,12 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 pub const AGENTGRES_ADMISSION_SCHEMA_VERSION: &str = "ioi.agentgres_admission.v1";
+pub const STORAGE_BACKEND_WRITE_ADMISSION_SCHEMA_VERSION: &str =
+    "ioi.storage_backend_write_admission.v1";
 pub const AGENTGRES_OPERATION_EXPECTED_HEADS_NEGATIVE_CONFORMANCE: &str =
     "Agentgres operation append without expected heads/state-root binding fails";
+pub const STORAGE_BACKEND_WRITE_AGENTGRES_REF_NEGATIVE_CONFORMANCE: &str =
+    "storage backend write without Agentgres ArtifactRef/PayloadRef fails";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AgentgresAdmissionError {
@@ -25,6 +29,8 @@ pub enum AgentgresAdmissionError {
     ReceiptBindingReceiptRefsMismatch,
     ReceiptBindingArtifactRefsMismatch,
     ReceiptBindingPayloadRefsMismatch,
+    StorageBackendWriteMissingAgentgresRef,
+    StorageBackendWriteMissingReceipt,
     HashFailed(String),
 }
 
@@ -68,6 +74,32 @@ pub struct AgentgresAdmissionRecord {
     pub admission_hash: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StorageBackendWriteProposal {
+    pub schema_version: String,
+    pub storage_backend_ref: String,
+    pub object_ref: String,
+    pub content_hash: String,
+    #[serde(default)]
+    pub artifact_refs: Vec<String>,
+    #[serde(default)]
+    pub payload_refs: Vec<String>,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StorageBackendWriteAdmissionRecord {
+    pub schema_version: String,
+    pub storage_backend_ref: String,
+    pub object_ref: String,
+    pub content_hash: String,
+    pub artifact_refs: Vec<String>,
+    pub payload_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
+    pub admission_hash: String,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct AgentgresAdmissionCore;
 
@@ -107,6 +139,26 @@ impl AgentgresAdmissionCore {
         record.admission_hash = admission_hash(&record)?;
         Ok(record)
     }
+
+    pub fn admit_storage_backend_write(
+        &self,
+        proposal: &StorageBackendWriteProposal,
+    ) -> Result<StorageBackendWriteAdmissionRecord, AgentgresAdmissionError> {
+        proposal.validate()?;
+
+        let mut record = StorageBackendWriteAdmissionRecord {
+            schema_version: STORAGE_BACKEND_WRITE_ADMISSION_SCHEMA_VERSION.to_string(),
+            storage_backend_ref: proposal.storage_backend_ref.clone(),
+            object_ref: proposal.object_ref.clone(),
+            content_hash: proposal.content_hash.clone(),
+            artifact_refs: proposal.artifact_refs.clone(),
+            payload_refs: proposal.payload_refs.clone(),
+            receipt_refs: proposal.receipt_refs.clone(),
+            admission_hash: String::new(),
+        };
+        record.admission_hash = storage_write_admission_hash(&record)?;
+        Ok(record)
+    }
 }
 
 impl AgentgresOperationProposal {
@@ -132,6 +184,27 @@ impl AgentgresOperationProposal {
             .map_err(|_| AgentgresAdmissionError::MissingStateRootAfter)?;
         require_present("resulting_head", &self.resulting_head)
             .map_err(|_| AgentgresAdmissionError::MissingResultingHead)?;
+        Ok(())
+    }
+}
+
+impl StorageBackendWriteProposal {
+    pub fn validate(&self) -> Result<(), AgentgresAdmissionError> {
+        if self.schema_version != STORAGE_BACKEND_WRITE_ADMISSION_SCHEMA_VERSION {
+            return Err(AgentgresAdmissionError::InvalidSchemaVersion {
+                expected: STORAGE_BACKEND_WRITE_ADMISSION_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        require_non_empty("storage_backend_ref", &self.storage_backend_ref)?;
+        require_non_empty("object_ref", &self.object_ref)?;
+        require_non_empty("content_hash", &self.content_hash)?;
+        if self.artifact_refs.is_empty() && self.payload_refs.is_empty() {
+            return Err(AgentgresAdmissionError::StorageBackendWriteMissingAgentgresRef);
+        }
+        if self.receipt_refs.is_empty() {
+            return Err(AgentgresAdmissionError::StorageBackendWriteMissingReceipt);
+        }
         Ok(())
     }
 }
@@ -190,6 +263,16 @@ fn admission_hash(record: &AgentgresAdmissionRecord) -> Result<String, Agentgres
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
 }
 
+fn storage_write_admission_hash(
+    record: &StorageBackendWriteAdmissionRecord,
+) -> Result<String, AgentgresAdmissionError> {
+    let mut canonical = record.clone();
+    canonical.admission_hash.clear();
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| AgentgresAdmissionError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -224,6 +307,18 @@ mod tests {
             state_root_before: Some("sha256:state-before".to_string()),
             state_root_after: Some("sha256:state-after".to_string()),
             resulting_head: Some("sha256:head-after".to_string()),
+        }
+    }
+
+    fn storage_write() -> StorageBackendWriteProposal {
+        StorageBackendWriteProposal {
+            schema_version: STORAGE_BACKEND_WRITE_ADMISSION_SCHEMA_VERSION.to_string(),
+            storage_backend_ref: "storage://local-cas/default".to_string(),
+            object_ref: "cas://sha256/storage-test".to_string(),
+            content_hash: "sha256:storage-test".to_string(),
+            artifact_refs: vec!["artifact://agentgres/storage-test".to_string()],
+            payload_refs: vec![],
+            receipt_refs: vec!["receipt://storage/write".to_string()],
         }
     }
 
@@ -305,6 +400,58 @@ mod tests {
         assert_eq!(
             error,
             AgentgresAdmissionError::ReceiptBindingStateRootMismatch
+        );
+    }
+
+    #[test]
+    fn admits_storage_backend_write_with_agentgres_refs() {
+        let record = AgentgresAdmissionCore
+            .admit_storage_backend_write(&storage_write())
+            .expect("storage write admission");
+
+        assert_eq!(
+            record.schema_version,
+            STORAGE_BACKEND_WRITE_ADMISSION_SCHEMA_VERSION
+        );
+        assert_eq!(
+            record.artifact_refs,
+            vec!["artifact://agentgres/storage-test"]
+        );
+        assert!(record.payload_refs.is_empty());
+        assert!(record.admission_hash.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn storage_backend_write_without_agentgres_artifactref_payloadref_fails() {
+        assert_eq!(
+            STORAGE_BACKEND_WRITE_AGENTGRES_REF_NEGATIVE_CONFORMANCE,
+            "storage backend write without Agentgres ArtifactRef/PayloadRef fails"
+        );
+
+        let mut proposal = storage_write();
+        proposal.artifact_refs.clear();
+        proposal.payload_refs.clear();
+        let error = AgentgresAdmissionCore
+            .admit_storage_backend_write(&proposal)
+            .expect_err("Agentgres ArtifactRef or PayloadRef is required");
+
+        assert_eq!(
+            error,
+            AgentgresAdmissionError::StorageBackendWriteMissingAgentgresRef
+        );
+    }
+
+    #[test]
+    fn storage_backend_write_requires_receipt() {
+        let mut proposal = storage_write();
+        proposal.receipt_refs.clear();
+        let error = AgentgresAdmissionCore
+            .admit_storage_backend_write(&proposal)
+            .expect_err("receipt binding is required");
+
+        assert_eq!(
+            error,
+            AgentgresAdmissionError::StorageBackendWriteMissingReceipt
         );
     }
 }

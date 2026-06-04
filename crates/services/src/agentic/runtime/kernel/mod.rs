@@ -26,7 +26,7 @@ pub mod trace;
 
 use agentgres_admission::{
     AgentgresAdmissionCore, AgentgresAdmissionError, AgentgresAdmissionRecord,
-    AgentgresOperationProposal,
+    AgentgresOperationProposal, StorageBackendWriteAdmissionRecord, StorageBackendWriteProposal,
 };
 use approval::{ApprovalScopeContext, AuthorityScopeMatcher, ScopeMatchDecision};
 use capability::CapabilityLeaseDecision;
@@ -139,6 +139,13 @@ impl RuntimeKernelService {
         binding: &StepModuleReceiptBinding,
     ) -> Result<AgentgresAdmissionRecord, AgentgresAdmissionError> {
         AgentgresAdmissionCore.admit(proposal, binding)
+    }
+
+    pub fn admit_storage_backend_write(
+        &self,
+        proposal: &StorageBackendWriteProposal,
+    ) -> Result<StorageBackendWriteAdmissionRecord, AgentgresAdmissionError> {
+        AgentgresAdmissionCore.admit_storage_backend_write(proposal)
     }
 
     pub fn validate_private_workspace_ctee_invocation(
