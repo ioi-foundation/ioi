@@ -8,6 +8,7 @@ pub const MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION: &str =
     "ioi.model_mount.provider_execution.v1";
 pub const MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION: &str =
     "ioi.model_mount.provider_invocation.v1";
+pub const MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION: &str = "ioi.model_mount.provider_result.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ModelMountError {
@@ -23,6 +24,8 @@ pub enum ModelMountError {
     MissingProviderExecutionAdmission,
     ProviderExecutionHashMismatch,
     ProviderExecutionRefMismatch,
+    ProviderResultOutputHashMismatch,
+    UnsupportedProviderResultBackend,
     UnsupportedProviderInvocationBackend,
     StreamProviderInvocationUnsupported,
     UnresolvedAutoModel,
@@ -327,6 +330,75 @@ pub struct ModelMountProviderInvocationResult {
     pub invocation_hash: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModelMountProviderResultAdmissionRequest {
+    pub schema_version: String,
+    pub provider_execution_ref: String,
+    pub provider_execution_hash: String,
+    pub route_decision_ref: String,
+    pub route_receipt_ref: String,
+    pub route_ref: String,
+    pub provider_ref: String,
+    pub provider_kind: String,
+    pub endpoint_ref: String,
+    pub model_ref: String,
+    pub capability: String,
+    pub invocation_kind: String,
+    pub request_hash: String,
+    pub output_text: String,
+    pub output_hash: String,
+    pub token_count: ModelMountTokenCount,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_response_kind: Option<String>,
+    pub execution_backend: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backend_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stream_status: Option<String>,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub provider_auth_evidence_refs: Vec<String>,
+    #[serde(default)]
+    pub backend_evidence_refs: Vec<String>,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub admitted_provider_execution: Option<ModelMountProviderExecutionRecord>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModelMountProviderResultAdmissionRecord {
+    pub schema_version: String,
+    pub provider_result_ref: String,
+    pub provider_execution_ref: String,
+    pub provider_execution_hash: String,
+    pub route_decision_ref: String,
+    pub route_receipt_ref: String,
+    pub route_ref: String,
+    pub provider_ref: String,
+    pub provider_kind: String,
+    pub endpoint_ref: String,
+    pub model_ref: String,
+    pub capability: String,
+    pub invocation_kind: String,
+    pub request_hash: String,
+    pub output_hash: String,
+    pub token_count: ModelMountTokenCount,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_response_kind: Option<String>,
+    pub execution_backend: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backend_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stream_status: Option<String>,
+    pub receipt_refs: Vec<String>,
+    pub provider_auth_evidence_refs: Vec<String>,
+    pub backend_evidence_refs: Vec<String>,
+    pub evidence_refs: Vec<String>,
+    pub provider_result_hash: String,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct ModelMountCore;
 
@@ -520,6 +592,51 @@ impl ModelMountCore {
         };
         result.invocation_hash = provider_invocation_hash(&result)?;
         Ok(result)
+    }
+
+    pub fn admit_provider_result(
+        &self,
+        request: &ModelMountProviderResultAdmissionRequest,
+    ) -> Result<ModelMountProviderResultAdmissionRecord, ModelMountError> {
+        request.validate()?;
+        let mut record = ModelMountProviderResultAdmissionRecord {
+            schema_version: MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION.to_string(),
+            provider_result_ref: String::new(),
+            provider_execution_ref: request.provider_execution_ref.clone(),
+            provider_execution_hash: request.provider_execution_hash.clone(),
+            route_decision_ref: request.route_decision_ref.clone(),
+            route_receipt_ref: request.route_receipt_ref.clone(),
+            route_ref: request.route_ref.clone(),
+            provider_ref: request.provider_ref.clone(),
+            provider_kind: request.provider_kind.clone(),
+            endpoint_ref: request.endpoint_ref.clone(),
+            model_ref: request.model_ref.clone(),
+            capability: request.capability.clone(),
+            invocation_kind: request.invocation_kind.clone(),
+            request_hash: request.request_hash.clone(),
+            output_hash: request.output_hash.clone(),
+            token_count: request.token_count.clone(),
+            provider_response_kind: request.provider_response_kind.clone(),
+            execution_backend: request.execution_backend.clone(),
+            backend_ref: request.backend_ref.clone(),
+            stream_status: request.stream_status.clone(),
+            receipt_refs: request.receipt_refs.clone(),
+            provider_auth_evidence_refs: request.provider_auth_evidence_refs.clone(),
+            backend_evidence_refs: request.backend_evidence_refs.clone(),
+            evidence_refs: provider_result_evidence_refs(request),
+            provider_result_hash: String::new(),
+        };
+        record.provider_result_hash = provider_result_hash(&record)?;
+        record.provider_result_ref = format!(
+            "model_mount://provider_result/{}",
+            record
+                .provider_result_hash
+                .trim_start_matches("sha256:")
+                .chars()
+                .take(24)
+                .collect::<String>()
+        );
+        Ok(record)
     }
 }
 
@@ -720,6 +837,64 @@ impl ModelMountProviderInvocationRequest {
     }
 }
 
+impl ModelMountProviderResultAdmissionRequest {
+    pub fn validate(&self) -> Result<(), ModelMountError> {
+        if self.schema_version != MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION {
+            return Err(ModelMountError::InvalidSchemaVersion {
+                expected: MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        require_non_empty("provider_execution_ref", &self.provider_execution_ref)?;
+        require_non_empty("provider_execution_hash", &self.provider_execution_hash)?;
+        require_non_empty("route_decision_ref", &self.route_decision_ref)?;
+        require_non_empty("route_receipt_ref", &self.route_receipt_ref)?;
+        require_non_empty("route_ref", &self.route_ref)?;
+        require_non_empty("provider_ref", &self.provider_ref)?;
+        require_non_empty("provider_kind", &self.provider_kind)?;
+        require_non_empty("endpoint_ref", &self.endpoint_ref)?;
+        require_non_empty("model_ref", &self.model_ref)?;
+        require_non_empty("capability", &self.capability)?;
+        require_non_empty("invocation_kind", &self.invocation_kind)?;
+        require_non_empty("request_hash", &self.request_hash)?;
+        require_non_empty("output_hash", &self.output_hash)?;
+        require_non_empty("execution_backend", &self.execution_backend)?;
+        validate_receipt_refs(&self.receipt_refs)?;
+        if !self.receipt_refs.contains(&self.route_receipt_ref) {
+            return Err(ModelMountError::MissingProviderExecutionRouteReceiptRef);
+        }
+        if self.execution_backend.trim() != "js_provider_driver_observation" {
+            return Err(ModelMountError::UnsupportedProviderResultBackend);
+        }
+        let actual_output_hash = format!("sha256:{}", sha256_hex(self.output_text.as_bytes())?);
+        if actual_output_hash != self.output_hash {
+            return Err(ModelMountError::ProviderResultOutputHashMismatch);
+        }
+        let Some(admission) = self.admitted_provider_execution.as_ref() else {
+            return Err(ModelMountError::MissingProviderExecutionAdmission);
+        };
+        if admission.provider_execution_ref != self.provider_execution_ref {
+            return Err(ModelMountError::ProviderExecutionRefMismatch);
+        }
+        if admission.provider_execution_hash != self.provider_execution_hash {
+            return Err(ModelMountError::ProviderExecutionHashMismatch);
+        }
+        if admission.route_decision_ref != self.route_decision_ref
+            || admission.route_receipt_ref != self.route_receipt_ref
+            || admission.provider_ref != self.provider_ref
+            || admission.endpoint_ref != self.endpoint_ref
+            || admission.model_ref != self.model_ref
+            || admission.capability != self.capability
+            || admission.invocation_kind != self.invocation_kind
+            || admission.request_hash != self.request_hash
+            || admission.stream_status != self.stream_status
+        {
+            return Err(ModelMountError::ProviderExecutionRefMismatch);
+        }
+        Ok(())
+    }
+}
+
 fn is_private_workspace_profile(value: Option<&str>) -> bool {
     matches!(
         value.map(str::trim),
@@ -785,6 +960,27 @@ fn fixture_invocation_evidence_refs(request: &ModelMountProviderInvocationReques
     refs
 }
 
+fn provider_result_evidence_refs(
+    request: &ModelMountProviderResultAdmissionRequest,
+) -> Vec<String> {
+    let mut refs = vec![
+        "rust_model_mount_provider_result_admission".to_string(),
+        "js_provider_driver_observation_bound".to_string(),
+        request.provider_execution_ref.clone(),
+    ];
+    for evidence_ref in request
+        .evidence_refs
+        .iter()
+        .chain(request.provider_auth_evidence_refs.iter())
+        .chain(request.backend_evidence_refs.iter())
+    {
+        if !evidence_ref.trim().is_empty() && !refs.contains(evidence_ref) {
+            refs.push(evidence_ref.clone());
+        }
+    }
+    refs
+}
+
 fn validate_receipt_refs(receipt_refs: &[String]) -> Result<(), ModelMountError> {
     if receipt_refs.iter().all(|value| value.trim().is_empty()) {
         return Err(ModelMountError::MissingReceiptRef);
@@ -843,6 +1039,17 @@ fn provider_invocation_hash(
 ) -> Result<String, ModelMountError> {
     let mut canonical = result.clone();
     canonical.invocation_hash.clear();
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| ModelMountError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn provider_result_hash(
+    record: &ModelMountProviderResultAdmissionRecord,
+) -> Result<String, ModelMountError> {
+    let mut canonical = record.clone();
+    canonical.provider_result_ref.clear();
+    canonical.provider_result_hash.clear();
     let bytes = serde_json::to_vec(&canonical)
         .map_err(|error| ModelMountError::HashFailed(error.to_string()))?;
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
@@ -968,6 +1175,48 @@ mod tests {
             backend_ref: Some("backend.fixture".to_string()),
             stream_status: None,
             receipt_refs: admission.receipt_refs.clone(),
+            evidence_refs: vec![admission.provider_execution_ref.clone()],
+            admitted_provider_execution: Some(admission),
+        }
+    }
+
+    fn provider_result_admission_request() -> ModelMountProviderResultAdmissionRequest {
+        let admission = ModelMountCore
+            .admit_provider_execution(&provider_execution_request())
+            .expect("provider execution admitted");
+        let output_text = "hosted provider answer".to_string();
+        let output_hash = format!(
+            "sha256:{}",
+            sha256_hex(output_text.as_bytes()).expect("output hash")
+        );
+        ModelMountProviderResultAdmissionRequest {
+            schema_version: MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION.to_string(),
+            provider_execution_ref: admission.provider_execution_ref.clone(),
+            provider_execution_hash: admission.provider_execution_hash.clone(),
+            route_decision_ref: admission.route_decision_ref.clone(),
+            route_receipt_ref: admission.route_receipt_ref.clone(),
+            route_ref: admission.route_ref.clone(),
+            provider_ref: admission.provider_ref.clone(),
+            provider_kind: "openai".to_string(),
+            endpoint_ref: admission.endpoint_ref.clone(),
+            model_ref: admission.model_ref.clone(),
+            capability: admission.capability.clone(),
+            invocation_kind: admission.invocation_kind.clone(),
+            request_hash: admission.request_hash.clone(),
+            output_text,
+            output_hash,
+            token_count: ModelMountTokenCount {
+                prompt_tokens: 1,
+                completion_tokens: 2,
+                total_tokens: 3,
+            },
+            provider_response_kind: Some("openai.chat".to_string()),
+            execution_backend: "js_provider_driver_observation".to_string(),
+            backend_ref: Some("backend.openai-compatible".to_string()),
+            stream_status: admission.stream_status.clone(),
+            receipt_refs: admission.receipt_refs.clone(),
+            provider_auth_evidence_refs: vec!["provider.auth".to_string()],
+            backend_evidence_refs: vec!["backend.openai-compatible".to_string()],
             evidence_refs: vec![admission.provider_execution_ref.clone()],
             admitted_provider_execution: Some(admission),
         }
@@ -1284,5 +1533,69 @@ mod tests {
             .expect_err("streaming provider execution remains a later slice");
 
         assert_eq!(error, ModelMountError::StreamProviderInvocationUnsupported);
+    }
+
+    #[test]
+    fn admits_unmigrated_provider_result_observation_bound_to_execution() {
+        let record = ModelMountCore
+            .admit_provider_result(&provider_result_admission_request())
+            .expect("provider result observation admitted");
+
+        assert_eq!(
+            record.schema_version,
+            MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.execution_backend, "js_provider_driver_observation");
+        assert_eq!(
+            record.provider_response_kind.as_deref(),
+            Some("openai.chat")
+        );
+        assert_eq!(record.output_hash.len(), "sha256:".len() + 64);
+        assert!(record
+            .provider_result_ref
+            .starts_with("model_mount://provider_result/"));
+        assert!(record.provider_result_hash.starts_with("sha256:"));
+        assert!(record
+            .evidence_refs
+            .contains(&"rust_model_mount_provider_result_admission".to_string()));
+    }
+
+    #[test]
+    fn provider_result_admission_requires_bound_provider_execution() {
+        let mut request = provider_result_admission_request();
+        request.admitted_provider_execution = None;
+
+        let error = ModelMountCore
+            .admit_provider_result(&request)
+            .expect_err("provider result requires the full admission record");
+
+        assert_eq!(error, ModelMountError::MissingProviderExecutionAdmission);
+
+        request = provider_result_admission_request();
+        request.provider_execution_ref = "model_mount://provider_execution/drifted".to_string();
+        let error = ModelMountCore
+            .admit_provider_result(&request)
+            .expect_err("provider result ref must match admission");
+
+        assert_eq!(error, ModelMountError::ProviderExecutionRefMismatch);
+    }
+
+    #[test]
+    fn provider_result_admission_rejects_hash_drift_or_wrong_backend() {
+        let mut request = provider_result_admission_request();
+        request.output_hash = "sha256:drifted".to_string();
+        let error = ModelMountCore
+            .admit_provider_result(&request)
+            .expect_err("output hash must bind output text");
+
+        assert_eq!(error, ModelMountError::ProviderResultOutputHashMismatch);
+
+        let mut request = provider_result_admission_request();
+        request.execution_backend = "rust_model_mount_fixture".to_string();
+        let error = ModelMountCore
+            .admit_provider_result(&request)
+            .expect_err("fixture execution uses the provider invocation path");
+
+        assert_eq!(error, ModelMountError::UnsupportedProviderResultBackend);
     }
 }

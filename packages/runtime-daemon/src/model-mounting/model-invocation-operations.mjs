@@ -173,6 +173,8 @@ export async function invokeModel(state, { authorization, requiredScope, kind, b
       token.grantId,
       ...ephemeralMcp.evidenceRefs,
       ...(providerResult.providerAuthEvidenceRefs ?? []),
+      providerResult.modelMountProviderResultAdmissionRef,
+      ...(providerResult.modelMountProviderResultAdmissionEvidenceRefs ?? []),
       "rust_model_mount_core",
       modelMountProviderExecutionAdmission.provider_execution_ref,
       ...(modelMountProviderExecutionAdmission.evidence_refs ?? []),
@@ -656,6 +658,57 @@ export function modelMountProviderInvocationRequestForExecution({
   };
 }
 
+export function modelMountProviderResultAdmissionRequestForExecution({
+  input,
+  instance = {},
+  kind,
+  modelMountProviderExecutionAdmission = {},
+  providerResult = {},
+  selection,
+} = {}) {
+  const record = modelMountProviderExecutionAdmission.record ?? {};
+  const provider = selection?.provider ?? {};
+  const endpoint = selection?.endpoint ?? {};
+  const outputText = String(providerResult.outputText ?? "");
+  const tokenCount = providerResult.tokenCount ?? estimateTokens(input, outputText);
+  return {
+    schema_version: "ioi.model_mount.provider_result.v1",
+    provider_execution_ref: requiredStringRef(
+      "modelMountProviderExecutionAdmission.provider_execution_ref",
+      modelMountProviderExecutionAdmission.provider_execution_ref ?? record.provider_execution_ref,
+    ),
+    provider_execution_hash: requiredStringRef(
+      "modelMountProviderExecutionAdmission.provider_execution_hash",
+      modelMountProviderExecutionAdmission.provider_execution_hash ?? record.provider_execution_hash,
+    ),
+    route_decision_ref: requiredStringRef("providerExecution.route_decision_ref", record.route_decision_ref),
+    route_receipt_ref: requiredStringRef("providerExecution.route_receipt_ref", record.route_receipt_ref),
+    route_ref: requiredStringRef("providerExecution.route_ref", record.route_ref),
+    provider_ref: requiredStringRef("providerExecution.provider_ref", record.provider_ref),
+    provider_kind: requiredStringRef("provider.kind", provider.kind),
+    endpoint_ref: requiredStringRef("providerExecution.endpoint_ref", record.endpoint_ref),
+    model_ref: requiredStringRef("providerExecution.model_ref", record.model_ref),
+    capability: requiredStringRef("providerExecution.capability", record.capability),
+    invocation_kind: requiredStringRef("providerExecution.invocation_kind", record.invocation_kind ?? kind),
+    request_hash: requiredStringRef("providerExecution.request_hash", record.request_hash),
+    output_text: outputText,
+    output_hash: hashRef(stableHash(outputText), "output_hash"),
+    token_count: tokenCount,
+    provider_response_kind: optionalRef(providerResult.providerResponseKind),
+    execution_backend: "js_provider_driver_observation",
+    backend_ref: optionalRef(providerResult.backendId ?? instance.backendId ?? endpoint.backendId),
+    stream_status: optionalRef(record.stream_status),
+    receipt_refs: modelMountProviderExecutionAdmission.receipt_refs ?? record.receipt_refs ?? [],
+    provider_auth_evidence_refs: uniqueRefs(providerResult.providerAuthEvidenceRefs ?? []),
+    backend_evidence_refs: uniqueRefs(providerResult.backendEvidenceRefs ?? []),
+    evidence_refs: uniqueRefs([
+      modelMountProviderExecutionAdmission.provider_execution_ref ?? record.provider_execution_ref,
+      ...(modelMountProviderExecutionAdmission.evidence_refs ?? []),
+    ]),
+    admitted_provider_execution: record,
+  };
+}
+
 export function modelMountInvocationReceiptBindingRequestForReceipt({
   admission,
   admissionRequest,
@@ -814,6 +867,16 @@ function admitModelMountProviderExecution(state, request) {
   return state.admitModelMountProviderExecution(request);
 }
 
+function admitModelMountProviderResult(state, request) {
+  if (typeof state.admitModelMountProviderResult !== "function") {
+    const error = new Error("Model provider result requires Rust model_mount provider result admission.");
+    error.status = 500;
+    error.code = "model_mount_provider_result_admission_required";
+    throw error;
+  }
+  return state.admitModelMountProviderResult(request);
+}
+
 async function executeModelProviderInvocation({
   input,
   instance,
@@ -836,7 +899,13 @@ async function executeModelProviderInvocation({
       }),
     );
   }
-  return state.driverForProvider(selection.provider).invoke({
+  if (typeof state.admitModelMountProviderResult !== "function") {
+    const error = new Error("Model provider result requires Rust model_mount provider result admission.");
+    error.status = 500;
+    error.code = "model_mount_provider_result_admission_required";
+    throw error;
+  }
+  const providerResult = await state.driverForProvider(selection.provider).invoke({
     state,
     provider: selection.provider,
     endpoint: selection.endpoint,
@@ -846,6 +915,18 @@ async function executeModelProviderInvocation({
     input,
     token,
   });
+  const modelMountProviderResultAdmission = admitModelMountProviderResult(
+    state,
+    modelMountProviderResultAdmissionRequestForExecution({
+      input,
+      instance,
+      kind,
+      modelMountProviderExecutionAdmission,
+      providerResult,
+      selection,
+    }),
+  );
+  return withModelMountProviderResultAdmission(providerResult, modelMountProviderResultAdmission);
 }
 
 export function modelMountProviderInvocationRequiresRust(selection = {}) {
@@ -863,6 +944,25 @@ function executeModelMountProviderInvocation(state, request) {
     throw error;
   }
   return state.executeModelMountProviderInvocation(request);
+}
+
+function withModelMountProviderResultAdmission(providerResult, admission) {
+  return {
+    ...providerResult,
+    modelMountProviderResultAdmissionSchemaVersion: "ioi.model_mount.provider_result.v1",
+    modelMountProviderResultAdmissionRef: admission.provider_result_ref,
+    modelMountProviderResultAdmissionHash: admission.provider_result_hash,
+    modelMountProviderResultAdmissionSource: admission.source,
+    modelMountProviderResultAdmissionBackend: admission.backend,
+    modelMountProviderResultAdmissionReceiptRefs: admission.receipt_refs ?? [],
+    modelMountProviderResultAdmissionEvidenceRefs: admission.evidence_refs ?? [],
+    modelMountProviderResultAdmission: admission.record,
+    backendEvidenceRefs: uniqueRefs([
+      ...(providerResult.backendEvidenceRefs ?? []),
+      admission.provider_result_ref,
+      ...(admission.evidence_refs ?? []),
+    ]),
+  };
 }
 
 function bindModelMountInvocationReceipt(state, request) {
@@ -994,6 +1094,15 @@ function invocationReceiptDetails({
     authVaultRefHash: providerResult.authVaultRefHash ?? null,
     providerAuthEvidenceRefs: providerResult.providerAuthEvidenceRefs ?? [],
     providerAuthHeaderNames: providerResult.providerAuthHeaderNames ?? [],
+    modelMountProviderResultAdmissionSchemaVersion: providerResult.modelMountProviderResultAdmissionSchemaVersion ?? null,
+    modelMountProviderResultAdmissionRef: providerResult.modelMountProviderResultAdmissionRef ?? null,
+    modelMountProviderResultAdmissionHash: providerResult.modelMountProviderResultAdmissionHash ?? null,
+    modelMountProviderResultAdmissionSource: providerResult.modelMountProviderResultAdmissionSource ?? null,
+    modelMountProviderResultAdmissionBackend: providerResult.modelMountProviderResultAdmissionBackend ?? null,
+    modelMountProviderResultAdmissionReceiptRefs: providerResult.modelMountProviderResultAdmissionReceiptRefs ?? [],
+    modelMountProviderResultAdmissionEvidenceRefs:
+      providerResult.modelMountProviderResultAdmissionEvidenceRefs ?? [],
+    modelMountProviderResultAdmission: providerResult.modelMountProviderResultAdmission ?? null,
     toolReceiptIds: ephemeralMcp.toolReceiptIds,
     ephemeralMcpServerIds: ephemeralMcp.serverIds,
     responseId,

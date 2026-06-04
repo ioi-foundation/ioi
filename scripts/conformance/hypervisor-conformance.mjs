@@ -514,6 +514,27 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-provider-result-admission-live-bridge",
+    /admit_model_mount_provider_result/.test(bridgeModule) &&
+      /ModelMountProviderResultAdmissionRequest/.test(bridgeModule) &&
+      /bridge_admits_model_mount_provider_result_through_rust_core/.test(bridgeModule) &&
+      /admitProviderResult/.test(modelMountAdmissionRunner) &&
+      /rust_model_mount_provider_result_command/.test(modelMountAdmissionRunner) &&
+      /admitModelMountProviderResult/.test(modelMountingState) &&
+      /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
+      /model_mount_provider_result_admission_required/.test(modelInvocationOps) &&
+      /js_provider_driver_observation/.test(modelInvocationOps) &&
+      /modelMountProviderResultAdmissionRef/.test(modelInvocationOps),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+    ],
+    "Phase 9/10 is pending: non-migrated provider driver results must be Rust-admitted before accepted model invocation receipts",
+  );
+  assertCheck(
+    result,
     "model-mount-invocation-receipt-binding-live-bridge",
     /bind_model_mount_invocation_receipt/.test(bridgeModule) &&
       /ModelMountInvocationReceiptBindingBridgeRequest/.test(bridgeModule) &&
@@ -659,6 +680,33 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],
     "Phase 9/10 is pending: Rust model_mount core must own migrated fixture provider invocation execution",
+  );
+  assertCheck(
+    result,
+    "model-mount-provider-result-admission-core",
+    exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
+      /MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /ModelMountProviderResultAdmissionRequest/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /ProviderResultOutputHashMismatch/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /UnsupportedProviderResultBackend/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /admit_model_mount_provider_result/.test(
+        read("crates/services/src/agentic/runtime/kernel/mod.rs"),
+      ) &&
+      /model_mount_provider_result_admission_required/.test(modelInvocationOps),
+    [
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+    ],
+    "Phase 9/10 is pending: non-migrated provider results must be Rust-admitted observations bound to provider execution",
   );
   assertCheck(
     result,

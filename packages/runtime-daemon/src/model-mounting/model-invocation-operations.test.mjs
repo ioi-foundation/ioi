@@ -9,6 +9,7 @@ import {
   modelMountProviderExecutionRequestForInvocation,
   modelMountProviderInvocationRequestForExecution,
   modelMountProviderInvocationRequiresRust,
+  modelMountProviderResultAdmissionRequestForExecution,
   modelMountInvocationReceiptBindingRequestForReceipt,
   startModelStream,
 } from "./model-invocation-operations.mjs";
@@ -24,6 +25,7 @@ function fakeState(overrides = {}) {
     receiptBindingRequests: [],
     providerExecutionRequests: [],
     providerInvocationRequests: [],
+    providerResultRequests: [],
     recordedConversations: [],
     routes: new Map([["route.local-first", { id: "route.local-first" }]]),
     writes: [],
@@ -107,6 +109,25 @@ function fakeState(overrides = {}) {
         evidence_refs: [
           "rust_model_mount_core",
           `model_mount://provider_execution/${this.providerExecutionRequests.length}`,
+        ],
+      };
+    },
+    admitModelMountProviderResult(request) {
+      this.providerResultRequests.push(request);
+      return {
+        source: "rust_model_mount_provider_result_command",
+        backend: "rust_model_mount_live",
+        record: {
+          ...request,
+          provider_result_ref: `model_mount://provider_result/${this.providerResultRequests.length}`,
+          provider_result_hash: `sha256:provider-result-${this.providerResultRequests.length}`,
+        },
+        provider_result_ref: `model_mount://provider_result/${this.providerResultRequests.length}`,
+        provider_result_hash: `sha256:provider-result-${this.providerResultRequests.length}`,
+        receipt_refs: request.receipt_refs,
+        evidence_refs: [
+          "rust_model_mount_provider_result_admission",
+          `model_mount://provider_result/${this.providerResultRequests.length}`,
         ],
       };
     },
@@ -681,6 +702,71 @@ test("modelMountProviderInvocationRequestForExecution binds fixture execution to
   assert.equal(modelMountProviderInvocationRequiresRust({ provider: { kind: "openai" }, endpoint: {} }), false);
 });
 
+test("modelMountProviderResultAdmissionRequestForExecution binds JS provider observation to provider admission", () => {
+  const admission = {
+    source: "rust_model_mount_provider_execution_command",
+    backend: "rust_model_mount_live",
+    record: {
+      schema_version: "ioi.model_mount.provider_execution.v1",
+      provider_execution_ref: "model_mount://provider_execution/test",
+      provider_execution_hash: "sha256:provider-execution-test",
+      route_decision_ref: "model_mount://route_decision/test",
+      route_receipt_ref: "receipt://route",
+      route_ref: "route.hosted",
+      provider_ref: "provider.openai",
+      endpoint_ref: "endpoint.openai",
+      model_ref: "model.openai",
+      capability: "chat",
+      invocation_kind: "chat.completions",
+      request_hash: "sha256:request",
+      receipt_refs: ["receipt://route"],
+    },
+    provider_execution_ref: "model_mount://provider_execution/test",
+    provider_execution_hash: "sha256:provider-execution-test",
+    receipt_refs: ["receipt://route"],
+    evidence_refs: ["rust_model_mount_core"],
+  };
+
+  const request = modelMountProviderResultAdmissionRequestForExecution({
+    input: "user: hello",
+    instance: { backendId: "backend.instance" },
+    kind: "chat.completions",
+    modelMountProviderExecutionAdmission: admission,
+    providerResult: {
+      outputText: "hosted provider answer",
+      providerResponseKind: "openai.chat",
+      tokenCount: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
+      providerAuthEvidenceRefs: ["provider.auth"],
+      backendEvidenceRefs: ["backend.openai-compatible"],
+    },
+    selection: selection({
+      endpoint: {
+        apiFormat: "openai",
+        providerId: "provider.openai",
+        backendId: "backend.openai-compatible",
+      },
+      provider: {
+        id: "provider.openai",
+        kind: "openai",
+        driver: "openai_compatible",
+      },
+    }),
+  });
+
+  assert.equal(request.schema_version, "ioi.model_mount.provider_result.v1");
+  assert.equal(request.provider_execution_ref, "model_mount://provider_execution/test");
+  assert.equal(request.provider_execution_hash, "sha256:provider-execution-test");
+  assert.equal(request.provider_kind, "openai");
+  assert.equal(request.execution_backend, "js_provider_driver_observation");
+  assert.equal(request.provider_response_kind, "openai.chat");
+  assert.equal(request.output_text, "hosted provider answer");
+  assert.equal(request.output_hash.startsWith("sha256:"), true);
+  assert.deepEqual(request.token_count, { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 });
+  assert.deepEqual(request.provider_auth_evidence_refs, ["provider.auth"]);
+  assert.deepEqual(request.backend_evidence_refs, ["backend.openai-compatible"]);
+  assert.equal(request.admitted_provider_execution.provider_execution_hash, "sha256:provider-execution-test");
+});
+
 test("modelMountInvocationReceiptBindingRequestForReceipt builds model_mount StepModule binding", () => {
   const admissionRequest = modelMountInvocationAdmissionRequestForReceipt({
     body: {},
@@ -875,8 +961,64 @@ test("invokeModel keeps unmigrated provider drivers behind provider execution ad
 
   assert.equal(providerCalls, 1);
   assert.equal(state.providerInvocationRequests.length, 0);
+  assert.equal(state.providerResultRequests.length, 1);
+  assert.equal(state.providerResultRequests[0].provider_execution_ref, "model_mount://provider_execution/1");
+  assert.equal(state.providerResultRequests[0].execution_backend, "js_provider_driver_observation");
   assert.equal(result.outputText, "hosted provider answer");
   assert.equal(result.receipt.details.modelMountProviderExecutionRef, "model_mount://provider_execution/1");
+  assert.equal(result.receipt.details.modelMountProviderResultAdmissionRef, "model_mount://provider_result/1");
+  assert.equal(result.receipt.details.modelMountProviderResultAdmissionHash, "sha256:provider-result-1");
+  assert.equal(
+    result.receipt.details.modelMountProviderResultAdmission.execution_backend,
+    "js_provider_driver_observation",
+  );
+  assert.ok(result.receipt.evidenceRefs.includes("model_mount://provider_result/1"));
+});
+
+test("invokeModel fails closed for unmigrated provider drivers without Rust provider result admission", async () => {
+  let providerCalls = 0;
+  const state = fakeState({
+    admitModelMountProviderResult: undefined,
+    executeModelMountProviderInvocation: undefined,
+    driver: {
+      async invoke() {
+        providerCalls += 1;
+        return { outputText: "should not run" };
+      },
+    },
+    selectRoute(payload) {
+      this.selectRoutePayload = payload;
+      return selection({
+        endpoint: {
+          apiFormat: "openai",
+          providerId: "provider.openai",
+          backendId: "backend.openai-compatible",
+        },
+        provider: {
+          id: "provider.openai",
+          kind: "openai",
+          driver: "openai_compatible",
+        },
+      });
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      invokeModel(
+        state,
+        {
+          authorization: "Bearer token",
+          requiredScope: "model.chat:*",
+          kind: "responses",
+          body: { model: "model.local" },
+        },
+        deps(),
+      ),
+    (error) => error.code === "model_mount_provider_result_admission_required",
+  );
+  assert.equal(providerCalls, 0);
+  assert.equal(state.providerResultRequests.length, 0);
 });
 
 test("invokeModel fails closed without Rust receipt binding support", async () => {

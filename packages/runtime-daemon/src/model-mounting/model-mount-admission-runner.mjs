@@ -63,6 +63,16 @@ export class RustModelMountAdmissionRunner {
     return normalizeProviderInvocationBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
+  admitProviderResult(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "admit_model_mount_provider_result",
+      backend: RUST_MODEL_MOUNT_ADMISSION_BACKEND,
+      request,
+    };
+    return normalizeProviderResultBridgeResult(this.invokeBridge(bridgeRequest));
+  }
+
   bindInvocationReceipt({ invocation, result, expectedHeads = [], receiptRef = null } = {}) {
     const bridgeRequest = {
       schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
@@ -209,6 +219,22 @@ function normalizeProviderInvocationBridgeResult(value = {}) {
     invocation_hash: result.invocation_hash ?? record.invocation_hash ?? null,
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
     backendEvidenceRefs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
+  };
+}
+
+function normalizeProviderResultBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const record = result.record && typeof result.record === "object" ? result.record : {};
+  return {
+    source: result.source ?? "rust_model_mount_provider_result_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_ADMISSION_BACKEND,
+    record,
+    provider_result_ref:
+      result.provider_result_ref ?? result.providerResultRef ?? record.provider_result_ref ?? null,
+    provider_result_hash:
+      result.provider_result_hash ?? result.providerResultHash ?? record.provider_result_hash ?? null,
+    receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : record.receipt_refs ?? [],
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
   };
 }
 

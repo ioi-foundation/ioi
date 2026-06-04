@@ -112,6 +112,39 @@ function providerInvocationRequest() {
   };
 }
 
+function providerResultRequest() {
+  return {
+    schema_version: "ioi.model_mount.provider_result.v1",
+    provider_execution_ref: "model_mount://provider_execution/test",
+    provider_execution_hash: "sha256:provider-execution-test",
+    route_decision_ref: "model_mount://route_decision/test",
+    route_receipt_ref: "receipt://route",
+    route_ref: "route.local-first",
+    provider_ref: "provider.openai",
+    provider_kind: "openai",
+    endpoint_ref: "endpoint.openai",
+    model_ref: "model.openai",
+    capability: "chat",
+    invocation_kind: "responses",
+    request_hash: "sha256:request",
+    output_text: "hosted provider answer",
+    output_hash: "sha256:output",
+    token_count: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
+    provider_response_kind: "openai.chat",
+    execution_backend: "js_provider_driver_observation",
+    backend_ref: "backend.openai-compatible",
+    receipt_refs: ["receipt://route"],
+    provider_auth_evidence_refs: ["provider.auth"],
+    backend_evidence_refs: ["backend.openai-compatible"],
+    evidence_refs: ["model_mount://provider_execution/test"],
+    admitted_provider_execution: {
+      ...providerExecutionRequest(),
+      provider_execution_ref: "model_mount://provider_execution/test",
+      provider_execution_hash: "sha256:provider-execution-test",
+    },
+  };
+}
+
 test("Rust model_mount admission runner sends route-decision bridge request", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
@@ -286,6 +319,48 @@ test("Rust model_mount admission runner sends fixture provider invocation bridge
   assert.equal(result.executionBackend, "rust_model_mount_fixture");
   assert.equal(result.backendId, "backend.fixture");
   assert.equal(result.invocation_hash, "sha256:invocation");
+});
+
+test("Rust model_mount admission runner sends provider result admission bridge request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    command: "mock-model-mount-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_model_mount_provider_result_command",
+            backend: "rust_model_mount_live",
+            record: {
+              ...request.request,
+              provider_result_ref: "model_mount://provider_result/test",
+              provider_result_hash: "sha256:provider-result-test",
+            },
+            provider_result_ref: "model_mount://provider_result/test",
+            provider_result_hash: "sha256:provider-result-test",
+            receipt_refs: request.request.receipt_refs,
+            evidence_refs: ["rust_model_mount_provider_result_admission"],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.admitProviderResult(providerResultRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "admit_model_mount_provider_result");
+  assert.equal(calls[0].request.backend, "rust_model_mount_live");
+  assert.equal(calls[0].request.request.execution_backend, "js_provider_driver_observation");
+  assert.equal(result.provider_result_ref, "model_mount://provider_result/test");
+  assert.equal(result.provider_result_hash, "sha256:provider-result-test");
+  assert.deepEqual(result.evidence_refs, ["rust_model_mount_provider_result_admission"]);
 });
 
 test("Rust model_mount admission runner sends invocation receipt binding request", () => {

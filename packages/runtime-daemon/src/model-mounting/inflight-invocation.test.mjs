@@ -95,6 +95,21 @@ function mockModelMountAdmissionRunner() {
         backendEvidenceRefs: ["rust_model_mount_provider_invocation", request.provider_execution_ref],
       };
     },
+    admitProviderResult(request) {
+      return {
+        source: "rust_model_mount_provider_result_command",
+        backend: "rust_model_mount_live",
+        record: {
+          ...request,
+          provider_result_ref: "model_mount://provider_result/test",
+          provider_result_hash: "sha256:provider-result-test",
+        },
+        provider_result_ref: "model_mount://provider_result/test",
+        provider_result_hash: "sha256:provider-result-test",
+        receipt_refs: request.receipt_refs,
+        evidence_refs: ["rust_model_mount_provider_result_admission", "model_mount://provider_result/test"],
+      };
+    },
     bindInvocationReceipt(request) {
       return {
         source: "rust_model_mount_receipt_binding_command",

@@ -1055,6 +1055,10 @@ export class ModelMountingState {
     return this.modelMountAdmissionRunner.executeProviderInvocation(request);
   }
 
+  admitModelMountProviderResult(request) {
+    return this.modelMountAdmissionRunner.admitProviderResult(request);
+  }
+
   bindModelMountInvocationReceipt(request) {
     return this.modelMountAdmissionRunner.bindInvocationReceipt(request);
   }

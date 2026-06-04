@@ -48,7 +48,8 @@ use model_mount::{
     ModelMountCore, ModelMountError, ModelMountInvocationAdmissionRecord,
     ModelMountInvocationAdmissionRequest, ModelMountProviderExecutionRecord,
     ModelMountProviderExecutionRequest, ModelMountProviderInvocationRequest,
-    ModelMountProviderInvocationResult, ModelMountRouteDecisionRecord,
+    ModelMountProviderInvocationResult, ModelMountProviderResultAdmissionRecord,
+    ModelMountProviderResultAdmissionRequest, ModelMountRouteDecisionRecord,
     ModelMountRouteDecisionRequest,
 };
 use plan::{validate_plan, ExecutablePlan, PlanValidationError};
@@ -138,6 +139,13 @@ impl RuntimeKernelService {
         request: &ModelMountProviderInvocationRequest,
     ) -> Result<ModelMountProviderInvocationResult, ModelMountError> {
         ModelMountCore.invoke_fixture_provider(request)
+    }
+
+    pub fn admit_model_mount_provider_result(
+        &self,
+        request: &ModelMountProviderResultAdmissionRequest,
+    ) -> Result<ModelMountProviderResultAdmissionRecord, ModelMountError> {
+        ModelMountCore.admit_provider_result(request)
     }
 
     pub fn validate_tool_invocation(

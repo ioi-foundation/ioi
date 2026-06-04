@@ -3,7 +3,8 @@ use ioi_services::agentic::runtime::kernel::agentgres_admission::{
 };
 use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountCore, ModelMountInvocationAdmissionRequest, ModelMountProviderExecutionRequest,
-    ModelMountProviderInvocationRequest, ModelMountRouteDecisionRequest,
+    ModelMountProviderInvocationRequest, ModelMountProviderResultAdmissionRequest,
+    ModelMountRouteDecisionRequest,
 };
 use ioi_services::agentic::runtime::kernel::projection::RustProjectionCore;
 use ioi_services::agentic::runtime::kernel::receipt_binder::{
@@ -110,6 +111,16 @@ struct ModelMountProviderInvocationBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct ModelMountProviderResultAdmissionBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: ModelMountProviderResultAdmissionRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct ModelMountInvocationReceiptBindingBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -184,6 +195,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             execute_model_mount_fixture_provider_invocation(request)
+        }
+        "admit_model_mount_provider_result" => {
+            let request: ModelMountProviderResultAdmissionBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            admit_model_mount_provider_result(request)
         }
         "bind_model_mount_invocation_receipt" => {
             let request: ModelMountInvocationReceiptBindingBridgeRequest =
@@ -403,6 +420,46 @@ fn execute_model_mount_fixture_provider_invocation(
         "provider_execution_ref": provider_execution_ref,
         "provider_execution_hash": provider_execution_hash,
         "invocation_hash": invocation_hash,
+        "evidence_refs": evidence_refs,
+    }))
+}
+
+fn admit_model_mount_provider_result(
+    request: ModelMountProviderResultAdmissionBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "admit_model_mount_provider_result" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = ModelMountCore
+        .admit_provider_result(&request.request)
+        .map_err(|error| {
+            BridgeError::new("model_mount_provider_result_rejected", format!("{error:?}"))
+        })?;
+    let provider_result_ref = record.provider_result_ref.clone();
+    let provider_result_hash = record.provider_result_hash.clone();
+    let receipt_refs = record.receipt_refs.clone();
+    let evidence_refs = record.evidence_refs.clone();
+    Ok(json!({
+        "source": "rust_model_mount_provider_result_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_live".to_string()),
+        "record": record,
+        "provider_result_ref": provider_result_ref.clone(),
+        "providerResultRef": provider_result_ref,
+        "provider_result_hash": provider_result_hash.clone(),
+        "providerResultHash": provider_result_hash,
+        "receipt_refs": receipt_refs,
         "evidence_refs": evidence_refs,
     }))
 }
@@ -3141,6 +3198,110 @@ mod tests {
         assert!(response["invocation_hash"]
             .as_str()
             .expect("invocation hash")
+            .starts_with("sha256:"));
+    }
+
+    #[test]
+    fn bridge_admits_model_mount_provider_result_through_rust_core() {
+        let provider_execution_request: ModelMountProviderExecutionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": COMMAND_SCHEMA_VERSION,
+                "operation": "admit_model_mount_provider_execution",
+                "backend": "rust_model_mount_live",
+                "request": {
+                    "schema_version": "ioi.model_mount.provider_execution.v1",
+                    "invocation_ref": "model-provider-execution://response/test",
+                    "route_decision_ref": "model_mount://route_decision/test",
+                    "route_receipt_ref": "receipt://route/test",
+                    "route_ref": "route.local-first",
+                    "provider_ref": "provider.openai",
+                    "endpoint_ref": "endpoint.openai",
+                    "model_ref": "model.openai",
+                    "capability": "chat",
+                    "invocation_kind": "chat.completions",
+                    "policy_hash": "sha256:policy",
+                    "input_hash": "sha256:input",
+                    "request_hash": "sha256:request",
+                    "idempotency_key": "model_provider_execution:test",
+                    "receipt_refs": ["receipt://route/test"],
+                    "authority_grant_refs": ["grant://wallet/model-chat"],
+                    "authority_receipt_refs": ["receipt://wallet/model-chat"],
+                    "provider_auth_evidence_refs": [],
+                    "backend_evidence_refs": ["backend.openai-compatible"],
+                    "tool_receipt_refs": [],
+                    "privacy_profile": "local_private",
+                    "node_plaintext_allowed": false
+                }
+            }))
+            .expect("provider execution request");
+        let admission_response =
+            admit_model_mount_provider_execution(provider_execution_request).expect("admitted");
+        let admission = admission_response["record"].clone();
+        let provider_execution_ref = admission["provider_execution_ref"]
+            .as_str()
+            .expect("provider execution ref");
+        let provider_execution_hash = admission["provider_execution_hash"]
+            .as_str()
+            .expect("provider execution hash");
+        let output_text = "hosted provider answer";
+        let output_hash = format!(
+            "sha256:{}",
+            sha256_hex(output_text.as_bytes()).expect("output hash")
+        );
+
+        let request: ModelMountProviderResultAdmissionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": COMMAND_SCHEMA_VERSION,
+                "operation": "admit_model_mount_provider_result",
+                "backend": "rust_model_mount_live",
+                "request": {
+                    "schema_version": "ioi.model_mount.provider_result.v1",
+                    "provider_execution_ref": provider_execution_ref,
+                    "provider_execution_hash": provider_execution_hash,
+                    "route_decision_ref": "model_mount://route_decision/test",
+                    "route_receipt_ref": "receipt://route/test",
+                    "route_ref": "route.local-first",
+                    "provider_ref": "provider.openai",
+                    "provider_kind": "openai",
+                    "endpoint_ref": "endpoint.openai",
+                    "model_ref": "model.openai",
+                    "capability": "chat",
+                    "invocation_kind": "chat.completions",
+                    "request_hash": "sha256:request",
+                    "output_text": output_text,
+                    "output_hash": output_hash,
+                    "token_count": { "prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3 },
+                    "provider_response_kind": "openai.chat",
+                    "execution_backend": "js_provider_driver_observation",
+                    "backend_ref": "backend.openai-compatible",
+                    "receipt_refs": ["receipt://route/test"],
+                    "provider_auth_evidence_refs": ["provider.auth"],
+                    "backend_evidence_refs": ["backend.openai-compatible"],
+                    "evidence_refs": [provider_execution_ref],
+                    "admitted_provider_execution": admission.clone()
+                }
+            }))
+            .expect("provider result bridge request");
+
+        let response = admit_model_mount_provider_result(request).expect("result admitted");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_provider_result_command"
+        );
+        assert_eq!(response["backend"], "rust_model_mount_live");
+        assert_eq!(
+            response["record"]["execution_backend"],
+            "js_provider_driver_observation"
+        );
+        assert_eq!(response["record"]["output_hash"], output_hash);
+        assert!(response["provider_result_ref"]
+            .as_str()
+            .expect("provider result ref")
+            .starts_with("model_mount://provider_result/"));
+        assert!(response["provider_result_hash"]
+            .as_str()
+            .expect("provider result hash")
             .starts_with("sha256:"));
     }
 
