@@ -121,6 +121,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/mode-controller.js`.
 - Moved Autopilot mode id lookup, current/previous mode tracking, VS Code context updates, and menu-bar chrome updates out of `extension.js` behind the existing `enterAutopilotMode()` compatibility wrapper.
 - Added focused mode-controller tests for view-id mapping, code-mode return target tracking, VS Code context/menu updates, and failed menu-update reporting.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/code-mode-panel.js`.
+- Moved the Code mode repository-gate projection, repository row rendering, SVG affordances, CSP nonce wiring, and full Code mode panel HTML out of `extension.js` while preserving existing command ids and product data-testids.
+- Added focused code-mode panel tests for current-workspace projection, escaping, command affordances, data-testids, CSP nonce handling, and empty repository fallbacks.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.
