@@ -521,6 +521,9 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/conversation-operations.mjs`.
 - Moved response id allocation, previous-response lookup, redacted conversation-state persistence, streamed-response completion receipts, and conversation listing out of `model-mounting.mjs` behind existing compatibility methods.
 - Added focused conversation-operation tests for continuation collisions/missing responses, replay-safe redacted records, stream completion finalization, and created-at sorting.
+- Added `packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs`.
+- Moved model invocation and native stream-start orchestration out of `model-mounting.mjs` behind compatibility-preserving `ModelMountingState.invokeModel()` and `ModelMountingState.startModelStream()` delegates, while preserving route selection, continuation safety, in-flight coalescing, provider request shaping, receipt details, stream fallback behavior, MCP receipt linkage, and route last-selection persistence.
+- Added focused model-invocation tests for capability mapping, provider invocation receipts, response-state finalization, in-flight coalescing receipts, native stream receipts without invoke-only envelope drift, stream request-shape tracing, and non-stream fallback.
 - Added `packages/runtime-daemon/src/model-mounting/state-accessors.mjs`.
 - Moved provider/endpoint/instance/route lookup, endpoint resolution, and ensure-loaded refresh/load behavior out of `model-mounting.mjs` behind existing compatibility methods.
 - Added focused state-accessor tests for lookup errors, endpoint mount fallback, unavailable endpoint errors, loaded-instance refresh, and load fallback.
@@ -528,7 +531,7 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Moved backend registry seeding/derivation, stored/derived backend projection merging, backend-process reconciliation, backend-process lookup, and backend log writes out of `model-mounting.mjs` behind existing compatibility methods.
 - Added focused backend-registry-state tests for environment/discovery derivation, stored-record merging, process projection, stale boot reconciliation, newest-process lookup, and redacted backend log mirroring.
 
-Status: `model-mounting.mjs` still owns route persistence wrappers, catalog import/download operation glue, model invocation/stream utilities, and some product projection glue. Safe next extractions are catalog import/download materialization, invocation/stream utility slices, and remaining route HTTP glue.
+Status: `model-mounting.mjs` is now primarily a compatibility facade plus route/state/storage/server/backend wrappers. Safe next extractions are remaining route HTTP glue, provider/vault mutating wrappers, and any residual product projection glue that is still easier to reason about from the root than from its owning module.
 
 ### Rust Runtime Hot Spot
 

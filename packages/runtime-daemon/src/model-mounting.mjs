@@ -70,6 +70,10 @@ import {
   recordModelStreamCompleted as recordModelStreamCompletedState,
 } from "./model-mounting/conversation-operations.mjs";
 import {
+  invokeModel as invokeModelState,
+  startModelStream as startModelStreamState,
+} from "./model-mounting/model-invocation-operations.mjs";
+import {
   endpoint as endpointState,
   ensureLoaded as ensureLoadedState,
   instance as instanceState,
@@ -163,7 +167,6 @@ import {
   normalizeLimit,
   normalizeUsage,
   parseJsonMaybe,
-  summarizeProviderRequestBodyForTrace,
   truncate,
   truncateToEstimatedTokens,
 } from "./model-mounting/provider-protocol.mjs";
@@ -186,8 +189,6 @@ import {
   defaultBackendForProvider,
   driverForProviderKind,
   driverNameForProvider,
-  modelInvocationCoalesceKey,
-  supportsResponseState,
 } from "./model-mounting/provider-driver-helpers.mjs";
 import {
   driverForProvider as driverForProviderState,
@@ -1322,168 +1323,7 @@ export class ModelMountingState {
   }
 
   async invokeModel({ authorization, requiredScope, kind, body = {} }) {
-    const token = this.authorize(authorization, requiredScope);
-    const started = this.now().getTime();
-    const input = inputText(body);
-    const statefulInvocation = supportsResponseState(kind);
-    const previousResponseId = statefulInvocation ? optionalString(body.previous_response_id ?? body.previousResponseId) : null;
-    const previousState = previousResponseId ? this.conversationState(previousResponseId) : null;
-    const responseId = statefulInvocation ? this.nextResponseId(body.response_id ?? body.responseId) : null;
-    const capability =
-      kind === "embeddings"
-        ? "embeddings"
-        : kind === "rerank"
-          ? "rerank"
-          : kind === "responses"
-            ? "responses"
-            : "chat";
-    const selection = this.selectRoute({
-      modelId: body.model,
-      routeId: body.route_id ?? body.routeId,
-      capability,
-      policy: body.model_policy ?? body.modelPolicy ?? {},
-    });
-    const continuationSafety = this.validateContinuationSafety({ previousState, selection, body });
-    const routeReceipt = this.routeSelectionReceipt(selection, { body, capability, responseId, previousResponseId });
-    const providerBody = routeDecision.providerRequestBodyForRoute(body, selection.endpoint);
-    const coalesceKey = modelInvocationCoalesceKey({
-      kind,
-      body,
-      providerBody,
-      input,
-      token,
-      selection,
-      previousResponseId,
-    });
-    let providerExecution = coalesceKey ? this.inflightModelInvocations.get(coalesceKey) : null;
-    const coalesced = Boolean(providerExecution);
-    if (!providerExecution) {
-      providerExecution = (async () => {
-        const instance = await this.ensureLoaded(selection.endpoint);
-        const ephemeralMcp = this.compileEphemeralMcpIntegrations({ authorization, body, input });
-        const providerResult = await this.driverForProvider(selection.provider).invoke({
-          state: this,
-          provider: selection.provider,
-          endpoint: selection.endpoint,
-          instance,
-          kind,
-          body: providerBody,
-          input,
-          token,
-        });
-        return { instance, ephemeralMcp, providerResult };
-      })();
-      if (coalesceKey) {
-        this.inflightModelInvocations.set(coalesceKey, providerExecution);
-      }
-    }
-    let execution;
-    try {
-      execution = await providerExecution;
-    } finally {
-      if (coalesceKey && !coalesced) {
-        this.inflightModelInvocations.delete(coalesceKey);
-      }
-    }
-    const { instance, ephemeralMcp, providerResult } = execution;
-    const outputText = providerResult.outputText;
-    const latencyMs = Math.max(1, this.now().getTime() - started);
-    const tokenCount = providerResult.tokenCount ?? estimateTokens(input, outputText);
-    const receiptKind = coalesced ? "model_invocation_coalesced" : "model_invocation";
-    const receipt = this.receipt(receiptKind, {
-      summary: coalesced
-        ? `${kind} invocation reused an identical in-flight request for ${selection.endpoint.modelId}.`
-        : `${kind} invocation routed through ${selection.route.id} to ${selection.endpoint.modelId}.`,
-      redaction: "redacted",
-      evidenceRefs: [
-        "model_router",
-        ...(coalesced ? ["model_invocation_inflight_coalesced"] : []),
-        routeReceipt.id,
-        selection.route.id,
-        selection.endpoint.id,
-        instance.id,
-        token.grantId,
-        ...ephemeralMcp.evidenceRefs,
-        ...(providerResult.providerAuthEvidenceRefs ?? []),
-      ],
-      details: {
-        routeId: selection.route.id,
-        routeReceiptId: routeReceipt.id,
-        selectedModel: selection.endpoint.modelId,
-        endpointId: selection.endpoint.id,
-        providerId: selection.endpoint.providerId,
-        instanceId: instance.id,
-        backend: providerResult.backend ?? selection.endpoint.apiFormat,
-        backendId: providerResult.backendId ?? instance.backendId ?? selection.endpoint.backendId ?? null,
-        selectedBackend: providerResult.backendId ?? instance.backendId ?? selection.endpoint.backendId ?? null,
-        policyHash: stableHash(body.model_policy ?? body.modelPolicy ?? {}),
-        grantId: token.grantId,
-        tokenCount,
-        latencyMs,
-        inputHash: stableHash(input),
-        outputHash: stableHash(outputText),
-        compatTranslation: providerResult.compatTranslation ?? null,
-        providerResponseKind: providerResult.providerResponseKind ?? null,
-        backendProcess: providerResult.backendProcess ?? instance.backendProcess ?? null,
-        backendProcessId: providerResult.backendProcess?.id ?? instance.backendProcessId ?? null,
-        backendProcessPidHash: providerResult.backendProcess?.pidHash ?? instance.backendProcessPidHash ?? null,
-        backendEvidenceRefs: providerResult.backendEvidenceRefs ?? [],
-        authVaultRefHash: providerResult.authVaultRefHash ?? null,
-        providerAuthEvidenceRefs: providerResult.providerAuthEvidenceRefs ?? [],
-        providerAuthHeaderNames: providerResult.providerAuthHeaderNames ?? [],
-        toolReceiptIds: ephemeralMcp.toolReceiptIds,
-        ephemeralMcpServerIds: ephemeralMcp.serverIds,
-        sendOptions: body.send_options ?? body.sendOptions ?? null,
-        memory: body.memory ?? body.send_options?.memory ?? body.sendOptions?.memory ?? null,
-        responseId,
-        previousResponseId,
-        continuation: continuationSafety,
-        coalesced,
-        coalesceKeyHash: coalesceKey ? stableHash(coalesceKey) : null,
-      },
-    });
-    const conversationState = statefulInvocation
-      ? this.recordConversationState({
-          responseId,
-          previousState,
-          kind,
-          input,
-          outputText: providerResult.outputText ?? "",
-          selection,
-          instance,
-          receipt,
-          routeReceipt,
-          tokenCount,
-          streamReceiptId: null,
-          status: "completed",
-          continuationSafety,
-        })
-      : null;
-    const route = {
-      ...selection.route,
-      lastSelectedModel: selection.endpoint.modelId,
-      lastReceiptId: receipt.id,
-    };
-    this.routes.set(route.id, route);
-    this.writeMap("model-routes", this.routes);
-    return {
-      kind,
-      outputText,
-      model: selection.endpoint.modelId,
-      route,
-      endpoint: selection.endpoint,
-      instance,
-      receipt,
-      routeReceipt,
-      tokenCount,
-      providerResponse: providerResult.providerResponse ?? null,
-      providerResponseKind: providerResult.providerResponseKind ?? null,
-      compatTranslation: providerResult.compatTranslation ?? null,
-      toolReceiptIds: ephemeralMcp.toolReceiptIds,
-      responseId,
-      previousResponseId,
-      conversationState,
-    };
+    return invokeModelState(this, { authorization, requiredScope, kind, body });
   }
 
   modelTokenizerUtility({ authorization, requiredScope, body = {}, operation }) {
@@ -1573,149 +1413,7 @@ export class ModelMountingState {
   }
 
   async startModelStream({ authorization, requiredScope, kind, body = {} }) {
-    const token = this.authorize(authorization, requiredScope);
-    const started = this.now().getTime();
-    const input = inputText(body);
-    const statefulInvocation = supportsResponseState(kind);
-    const previousResponseId = statefulInvocation ? optionalString(body.previous_response_id ?? body.previousResponseId) : null;
-    const previousState = previousResponseId ? this.conversationState(previousResponseId) : null;
-    const responseId = statefulInvocation ? this.nextResponseId(body.response_id ?? body.responseId) : null;
-    const capability =
-      kind === "embeddings"
-        ? "embeddings"
-        : kind === "rerank"
-          ? "rerank"
-          : kind === "responses"
-            ? "responses"
-            : "chat";
-    const selection = this.selectRoute({
-      modelId: body.model,
-      routeId: body.route_id ?? body.routeId,
-      capability,
-      policy: body.model_policy ?? body.modelPolicy ?? {},
-    });
-    const continuationSafety = this.validateContinuationSafety({ previousState, selection, body });
-    const driver = this.driverForProvider(selection.provider);
-    if (typeof driver.streamInvoke !== "function" || (typeof driver.supportsStream === "function" && !driver.supportsStream(kind))) {
-      return {
-        native: false,
-        invocation: await this.invokeModel({ authorization, requiredScope, kind, body: { ...body, stream: false } }),
-      };
-    }
-    const routeReceipt = this.routeSelectionReceipt(selection, { body, capability, responseId, previousResponseId });
-    const instance = await this.ensureLoaded(selection.endpoint);
-    const ephemeralMcp = this.compileEphemeralMcpIntegrations({ authorization, body, input });
-    const providerBody = routeDecision.providerRequestBodyForRoute(body, selection.endpoint);
-    this.appendOperation?.("model.provider_stream_request_shape", {
-      providerId: selection.provider.id,
-      providerKind: selection.provider.kind,
-      endpointId: selection.endpoint.id,
-      routeId: selection.route.id,
-      capability,
-      requestShape: summarizeProviderRequestBodyForTrace(providerBody),
-      evidenceRefs: ["model_provider_stream_request_shape"],
-    });
-    const providerResult = await driver.streamInvoke({
-      state: this,
-      provider: selection.provider,
-      endpoint: selection.endpoint,
-      instance,
-      kind,
-      body: providerBody,
-      input,
-      token,
-    });
-    if (!providerResult?.stream) {
-      return {
-        native: false,
-        invocation: await this.invokeModel({ authorization, requiredScope, kind, body: { ...body, stream: false } }),
-      };
-    }
-    const outputText = "";
-    const latencyMs = Math.max(1, this.now().getTime() - started);
-    const tokenCount = providerResult.tokenCount ?? estimateTokens(input, outputText);
-    const receipt = this.receipt("model_invocation", {
-      summary: `${kind} invocation stream started through ${selection.route.id} to ${selection.endpoint.modelId}.`,
-      redaction: "redacted",
-      evidenceRefs: [
-        "model_router",
-        "provider_native_stream",
-        routeReceipt.id,
-        selection.route.id,
-        selection.endpoint.id,
-        instance.id,
-        token.grantId,
-        ...ephemeralMcp.evidenceRefs,
-        ...(providerResult.providerAuthEvidenceRefs ?? []),
-      ],
-      details: {
-        routeId: selection.route.id,
-        routeReceiptId: routeReceipt.id,
-        selectedModel: selection.endpoint.modelId,
-        endpointId: selection.endpoint.id,
-        providerId: selection.endpoint.providerId,
-        instanceId: instance.id,
-        backend: providerResult.backend ?? selection.endpoint.apiFormat,
-        backendId: providerResult.backendId ?? instance.backendId ?? selection.endpoint.backendId ?? null,
-        selectedBackend: providerResult.backendId ?? instance.backendId ?? selection.endpoint.backendId ?? null,
-        policyHash: stableHash(body.model_policy ?? body.modelPolicy ?? {}),
-        grantId: token.grantId,
-        tokenCount,
-        latencyMs,
-        inputHash: stableHash(input),
-        outputHash: stableHash(outputText),
-        compatTranslation: providerResult.compatTranslation ?? null,
-        providerResponseKind: providerResult.providerResponseKind ?? null,
-        streamStatus: "started",
-        streamSource: "provider_native",
-        backendProcess: providerResult.backendProcess ?? instance.backendProcess ?? null,
-        backendProcessId: providerResult.backendProcess?.id ?? instance.backendProcessId ?? null,
-        backendProcessPidHash: providerResult.backendProcess?.pidHash ?? instance.backendProcessPidHash ?? null,
-        backendEvidenceRefs: providerResult.backendEvidenceRefs ?? [],
-        authVaultRefHash: providerResult.authVaultRefHash ?? null,
-        providerAuthEvidenceRefs: providerResult.providerAuthEvidenceRefs ?? [],
-        providerAuthHeaderNames: providerResult.providerAuthHeaderNames ?? [],
-        toolReceiptIds: ephemeralMcp.toolReceiptIds,
-        ephemeralMcpServerIds: ephemeralMcp.serverIds,
-        responseId,
-        previousResponseId,
-        continuation: continuationSafety,
-      },
-    });
-    const route = {
-      ...selection.route,
-      lastSelectedModel: selection.endpoint.modelId,
-      lastReceiptId: receipt.id,
-    };
-    this.routes.set(route.id, route);
-    this.writeMap("model-routes", this.routes);
-    const invocation = {
-      kind,
-      input,
-      outputText,
-      model: selection.endpoint.modelId,
-      route,
-      endpoint: selection.endpoint,
-      instance,
-      receipt,
-      routeReceipt,
-      tokenCount,
-      providerResponse: null,
-      providerResponseKind: providerResult.providerResponseKind ?? null,
-      compatTranslation: providerResult.compatTranslation ?? null,
-      toolReceiptIds: ephemeralMcp.toolReceiptIds,
-      responseId,
-      previousResponseId,
-      previousConversationState: previousState,
-      continuationSafety,
-    };
-    return {
-      native: true,
-      invocation,
-      providerStream: providerResult.stream,
-      abort: providerResult.abort,
-      providerResult,
-    };
+    return startModelStreamState(this, { authorization, requiredScope, kind, body });
   }
 
   recordModelStreamCompleted({ invocation, streamKind, outputText = "", providerUsage = null, chunksForwarded = 0, finishReason = null, providerResult = {} }) {
