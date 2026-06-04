@@ -6,8 +6,10 @@ const require = createRequire(import.meta.url);
 const { createStudioReceiptRefs } = require("./receipt-refs.js");
 
 function createRefs() {
+  const projection = { receipts: [] };
   return createStudioReceiptRefs({
     firstArray: (value) => Array.isArray(value) ? value : [],
+    getStudioRuntimeProjection: () => projection,
     uniqueStrings: (values) => [...new Set(values.map((value) => String(value)).filter(Boolean))],
   });
 }
@@ -54,4 +56,44 @@ test("receipt refs de-duplicate and ignore missing records", () => {
     normalizeReceiptRefs(null, undefined, { receiptRefs: ["r1", "r1", ""] }, "r2", "r1"),
     ["r1", "r2"],
   );
+});
+
+test("receipt projection shapes receipt timeline rows with fallback copy", () => {
+  const { studioReceiptProjection } = createRefs();
+
+  assert.deepEqual(studioReceiptProjection({
+    receipt_id: "receipt-1",
+    type: "tool.file",
+    description: "File read receipt.",
+  }), {
+    id: "receipt-1",
+    kind: "tool.file",
+    summary: "File read receipt.",
+  });
+  assert.deepEqual(studioReceiptProjection("receipt-2", "runtime_event"), {
+    id: "receipt-2",
+    kind: "runtime_event",
+    summary: "Daemon receipt projected into Agent Studio.",
+  });
+  assert.equal(studioReceiptProjection({}), null);
+});
+
+test("receipt append updates projection receipts without duplicates", () => {
+  const projection = { receipts: [{ id: "receipt-1", kind: "existing", summary: "Existing." }] };
+  const { appendStudioReceipts } = createStudioReceiptRefs({
+    firstArray: (value) => Array.isArray(value) ? value : [],
+    getStudioRuntimeProjection: () => projection,
+    uniqueStrings: (values) => [...new Set(values.map((value) => String(value)).filter(Boolean))],
+  });
+
+  appendStudioReceipts([
+    { id: "receipt-1", kind: "duplicate" },
+    { receiptId: "receipt-2", message: "Second receipt." },
+    {},
+  ], "daemon_tool");
+
+  assert.deepEqual(projection.receipts, [
+    { id: "receipt-1", kind: "existing", summary: "Existing." },
+    { id: "receipt-2", kind: "daemon_tool", summary: "Second receipt." },
+  ]);
 });

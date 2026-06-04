@@ -141,7 +141,8 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added focused turn-policy tests for retrieval/workspace max-step selection, source-retrieval copy, approval-pause copy/error metadata, and policy-blocked file-read redaction.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/receipt-refs.js`.
 - Moved Studio receipt-reference normalization out of `extension.js` while preserving snake/camel aliases, nested event/result/payload summary aliases, object receipt ids, and de-duplication semantics.
-- Added focused receipt-ref tests for alias coverage, nested receipt extraction, de-duplication, and missing-record tolerance.
+- Moved Studio receipt timeline projection and append/de-duplication into the same receipt module while preserving fallback kind/summary copy and injected projection state mutation.
+- Added focused receipt-ref tests for alias coverage, nested receipt extraction, de-duplication, missing-record tolerance, receipt projection, and timeline append behavior.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-workspace-changes.js`.
 - Moved Studio workspace-change review inspection projection and daemon refresh routing out of `extension.js` while preserving hunk alias normalization, route/query envelope, cockpit markers, and fail-closed logging.
 - Added focused workspace-change projection tests for hunk normalization, daemon route/query shape, and daemon-refresh failure tolerance.

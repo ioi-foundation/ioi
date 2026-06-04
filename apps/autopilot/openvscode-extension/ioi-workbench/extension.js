@@ -568,8 +568,13 @@ const {
   studioTextContainsProductFixtureMarker,
 });
 
-const { normalizeReceiptRefs } = createStudioReceiptRefs({
+const {
+  appendStudioReceipts,
+  normalizeReceiptRefs,
+  studioReceiptProjection,
+} = createStudioReceiptRefs({
   firstArray,
+  getStudioRuntimeProjection: () => studioRuntimeProjection,
   uniqueStrings: (values) => [...new Set(firstArray(values).map((value) => String(value)).filter(Boolean))],
 });
 
@@ -4175,39 +4180,6 @@ function updateStudioPanelHtml(state) {
 
 function daemonRequestToken() {
   return daemonToken() || undefined;
-}
-
-function studioReceiptProjection(receiptLike, fallbackKind = "daemon_receipt") {
-  const id =
-    receiptLike?.id ||
-    receiptLike?.receipt_id ||
-    receiptLike?.receiptId ||
-    (typeof receiptLike === "string" ? receiptLike : null);
-  if (!id) {
-    return null;
-  }
-  return {
-    id,
-    kind: receiptLike?.kind || receiptLike?.type || fallbackKind,
-    summary:
-      receiptLike?.summary ||
-      receiptLike?.description ||
-      receiptLike?.message ||
-      "Daemon receipt projected into Agent Studio.",
-  };
-}
-
-function appendStudioReceipts(values, fallbackKind = "daemon_receipt") {
-  const projected = firstArray(values)
-    .map((value) => studioReceiptProjection(value, fallbackKind))
-    .filter(Boolean);
-  const existing = new Set(studioRuntimeProjection.receipts.map((receipt) => receipt.id));
-  for (const receipt of projected) {
-    if (!existing.has(receipt.id)) {
-      studioRuntimeProjection.receipts.push(receipt);
-      existing.add(receipt.id);
-    }
-  }
 }
 
 function ensureStudioDiffProvider(context) {
