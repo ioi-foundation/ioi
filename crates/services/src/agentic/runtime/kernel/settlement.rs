@@ -2,6 +2,10 @@ use ioi_crypto::algorithms::hash::sha256;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+pub const L1_SETTLEMENT_ADMISSION_SCHEMA_VERSION: &str = "ioi.l1_settlement_admission.v1";
+pub const L1_SETTLEMENT_WITHOUT_TRIGGER_NEGATIVE_CONFORMANCE: &str =
+    "L1 settlement attempt without trigger fails";
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SettlementReceiptBundleV2 {
     pub settlement_hash: [u8; 32],
@@ -102,6 +106,91 @@ pub struct SettlementReceiptBundleV2Input {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct L1SettlementAttempt {
+    pub schema_version: String,
+    pub settlement_ref: String,
+    pub domain_ref: String,
+    pub state_root_ref: String,
+    #[serde(default)]
+    pub trigger_refs: Vec<String>,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct L1SettlementAdmissionRecord {
+    pub schema_version: String,
+    pub settlement_ref: String,
+    pub domain_ref: String,
+    pub state_root_ref: String,
+    pub trigger_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
+    pub admission_hash: [u8; 32],
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct L1SettlementTriggerGuard;
+
+impl L1SettlementTriggerGuard {
+    pub fn admit(
+        &self,
+        attempt: &L1SettlementAttempt,
+    ) -> Result<L1SettlementAdmissionRecord, L1SettlementAdmissionError> {
+        attempt.validate()?;
+
+        let mut record = L1SettlementAdmissionRecord {
+            schema_version: L1_SETTLEMENT_ADMISSION_SCHEMA_VERSION.to_string(),
+            settlement_ref: attempt.settlement_ref.clone(),
+            domain_ref: attempt.domain_ref.clone(),
+            state_root_ref: attempt.state_root_ref.clone(),
+            trigger_refs: attempt.trigger_refs.clone(),
+            receipt_refs: attempt.receipt_refs.clone(),
+            admission_hash: [0u8; 32],
+        };
+        record.admission_hash = canonical_hash(&record)?;
+        Ok(record)
+    }
+}
+
+impl L1SettlementAttempt {
+    pub fn validate(&self) -> Result<(), L1SettlementAdmissionError> {
+        if self.schema_version != L1_SETTLEMENT_ADMISSION_SCHEMA_VERSION {
+            return Err(L1SettlementAdmissionError::InvalidSchemaVersion {
+                expected: L1_SETTLEMENT_ADMISSION_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        require_non_empty("settlement_ref", &self.settlement_ref)?;
+        require_non_empty("domain_ref", &self.domain_ref)?;
+        require_non_empty("state_root_ref", &self.state_root_ref)?;
+        if self.trigger_refs.is_empty() {
+            return Err(L1SettlementAdmissionError::MissingSettlementTrigger);
+        }
+        if self.receipt_refs.is_empty() {
+            return Err(L1SettlementAdmissionError::MissingSettlementReceipt);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
+pub enum L1SettlementAdmissionError {
+    #[error("invalid L1 settlement schema version: expected {expected}, got {actual}")]
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    #[error("L1 settlement attempt missing field: {0}")]
+    MissingField(&'static str),
+    #[error("L1 settlement attempt missing trigger")]
+    MissingSettlementTrigger,
+    #[error("L1 settlement attempt missing settlement receipt")]
+    MissingSettlementReceipt,
+    #[error("L1 settlement admission hash failed: {0}")]
+    HashFailed(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArtifactPromotionReceipt {
     pub artifact_id: String,
     #[serde(default)]
@@ -162,10 +251,84 @@ pub enum PromotionValidationError {
     MissingPromotionDecision,
 }
 
+fn require_non_empty(field: &'static str, value: &str) -> Result<(), L1SettlementAdmissionError> {
+    if value.trim().is_empty() {
+        Err(L1SettlementAdmissionError::MissingField(field))
+    } else {
+        Ok(())
+    }
+}
+
 fn canonical_hash<T>(value: &T) -> Result<[u8; 32], String>
 where
     T: Serialize,
 {
     let canonical = serde_jcs::to_vec(value).map_err(|error| error.to_string())?;
     sha256(&canonical).map_err(|error| error.to_string())
+}
+
+impl From<String> for L1SettlementAdmissionError {
+    fn from(error: String) -> Self {
+        Self::HashFailed(error)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn attempt() -> L1SettlementAttempt {
+        L1SettlementAttempt {
+            schema_version: L1_SETTLEMENT_ADMISSION_SCHEMA_VERSION.to_string(),
+            settlement_ref: "l1://settlement/marketplace-transaction".to_string(),
+            domain_ref: "agentgres://domain/service-marketplace".to_string(),
+            state_root_ref: "sha256:domain-state-root".to_string(),
+            trigger_refs: vec!["l1-trigger://service-contract/payment".to_string()],
+            receipt_refs: vec!["receipt://local-settlement/payment".to_string()],
+        }
+    }
+
+    #[test]
+    fn admits_l1_settlement_attempt_with_trigger() {
+        let record = L1SettlementTriggerGuard
+            .admit(&attempt())
+            .expect("L1 trigger admission");
+
+        assert_eq!(
+            record.schema_version,
+            L1_SETTLEMENT_ADMISSION_SCHEMA_VERSION
+        );
+        assert_eq!(
+            record.trigger_refs,
+            vec!["l1-trigger://service-contract/payment"]
+        );
+        assert_ne!(record.admission_hash, [0u8; 32]);
+    }
+
+    #[test]
+    fn l1_settlement_attempt_without_trigger_fails() {
+        assert_eq!(
+            L1_SETTLEMENT_WITHOUT_TRIGGER_NEGATIVE_CONFORMANCE,
+            "L1 settlement attempt without trigger fails"
+        );
+
+        let mut attempt = attempt();
+        attempt.trigger_refs.clear();
+        let error = L1SettlementTriggerGuard
+            .admit(&attempt)
+            .expect_err("trigger is required");
+
+        assert_eq!(error, L1SettlementAdmissionError::MissingSettlementTrigger);
+    }
+
+    #[test]
+    fn l1_settlement_attempt_requires_receipt() {
+        let mut attempt = attempt();
+        attempt.receipt_refs.clear();
+        let error = L1SettlementTriggerGuard
+            .admit(&attempt)
+            .expect_err("settlement receipt is required");
+
+        assert_eq!(error, L1SettlementAdmissionError::MissingSettlementReceipt);
+    }
 }

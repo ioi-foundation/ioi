@@ -49,7 +49,11 @@ use receipt_binder::{
     AcceptedReceiptAppendRecord, AcceptedReceiptAppendRequest, ReceiptBinder, ReceiptBindingError,
     StepModuleReceiptBinding,
 };
-use settlement::{ArtifactPromotionReceipt, PromotionValidationError, SettlementReceiptBundleV2};
+use settlement::{
+    ArtifactPromotionReceipt, L1SettlementAdmissionError, L1SettlementAdmissionRecord,
+    L1SettlementAttempt, L1SettlementTriggerGuard, PromotionValidationError,
+    SettlementReceiptBundleV2,
+};
 use step_module::{StepModuleInvocation, StepModuleResult, StepModuleValidationError};
 
 use ioi_types::app::ApprovalAuthority;
@@ -203,6 +207,13 @@ impl RuntimeKernelService {
 
     pub fn settlement_hash(&self, bundle: &SettlementReceiptBundleV2) -> Result<[u8; 32], String> {
         bundle.compute_settlement_hash()
+    }
+
+    pub fn admit_l1_settlement_attempt(
+        &self,
+        attempt: &L1SettlementAttempt,
+    ) -> Result<L1SettlementAdmissionRecord, L1SettlementAdmissionError> {
+        L1SettlementTriggerGuard.admit(attempt)
     }
 
     pub fn validate_runtime_profile(

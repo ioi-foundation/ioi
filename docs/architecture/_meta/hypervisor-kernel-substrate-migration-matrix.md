@@ -564,6 +564,57 @@ ImplementationSlice:
     push: required after verification
 ```
 
+## Implementation Slice 11
+
+```yaml
+ImplementationSlice:
+  objective: add a Rust L1 settlement trigger guard so IOI L1/app-chain
+    commitments cannot be attempted as default runtime settlement
+  owner_boundary:
+    route_or_surface: L1 settlement admission primitive
+    authority_gate: upstream wallet.network/operator/contract authority remains
+      required by the trigger source; this slice proves trigger absence fails
+      closed
+    execution_backend: no execution backend change in this slice
+    truth_path: local Agentgres/domain truth remains canonical; L1 admission is
+      a sparse public/economic/cross-domain commitment by trigger only
+    projection_path: unchanged; L1 admission records are later projection inputs,
+      not live operational truth
+  touched_files:
+    docs:
+      - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+    daemon: []
+    rust_core:
+      - crates/services/src/agentic/runtime/kernel/settlement.rs
+      - crates/services/src/agentic/runtime/kernel/mod.rs
+    ide: []
+    tests:
+      - Rust unit tests in crates/services/src/agentic/runtime/kernel/settlement.rs
+      - scripts/conformance/hypervisor-conformance.mjs
+  conformance_checks:
+    - no bypass of daemon execution ownership
+    - no default L1 runtime settlement
+    - no accepted transition without receipt/ref/state-root binding
+    - no storage backend authority-layer regression
+    - no cTEE plaintext-custody regression
+  verification:
+    commands:
+      - cargo test -p ioi-services settlement
+      - npm run hypervisor-conformance:negative (expected fail closed overall,
+        with the L1 settlement trigger case passing)
+      - git diff --check
+    replay_or_shadow_comparison: not_applicable
+  cleanup:
+    legacy_paths_removed: false
+    compatibility_shims_remaining:
+      - concrete settlement surfaces still need to call this Rust trigger guard
+        and bind the resulting record into receipts/Agentgres admission
+  closeout:
+    git_diff_check: required
+    commit: required
+    push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
@@ -578,6 +629,7 @@ ImplementationSlice:
 | `workload-client-wasm` | `crates/client/src/workload_client/mod.rs`, `crates/vm/wasm/src/lib.rs`, `crates/validator/src/standard/workload/*` | Rust workload/kernel substrate exists below daemon | Rust core `workload_client` plus WASM/service backend | StepModuleResult with workload receipt and state-root binding | `bridge`, `receipts` | substrate exists, not default daemon backend | daemon routes admitted work through StepModuleRunner into Rust/WASM or workload backend. |
 | `workflow-compositor` | `packages/agent-ide/src/runtime/*`, `packages/runtime-daemon/src/runtime-event-envelopes.mjs`, `crates/services/src/agentic/runtime/kernel/projection.rs` | IDE/daemon projection shaping plus Rust projection record primitive | Rust core `projection` consumed by IDE/CLI/SDK | projection checkpoints rebuilt from Agentgres admitted truth | `compositor`, `negative` | Rust projection record and accepted-truth guard implemented; IDE/SDK consumption still pending | compositor cannot create accepted truth directly and only renders/replays canonical projections. |
 | `worker-service-packages` | `docs/architecture/foundations/common-objects-and-envelopes.md`, `docs/architecture/domains/aiagent/worker-endpoints.md`, `docs/architecture/domains/sas/service-endpoints.md` | target canon plus service/module concepts | Rust core `step_router` plus workload/WASM/AIIP backends | package invocation receipt, authority grant, artifacts, projection | `bridge`, `receipts`, `compositor` | target only | service and worker package invocation uses the shared Step/Module ABI. |
+| `l1-settlement` | `docs/architecture/foundations/ioi-l1-mainnet.md`, `crates/services/src/agentic/runtime/kernel/settlement.rs` | canon plus Rust trigger guard | Rust settlement/admission core under daemon-owned execution | sparse public/economic/cross-domain commitment by trigger only | `negative` | Rust trigger guard implemented; product settlement surfaces still pending | L1 settlement attempts without marketplace/public/economic/cross-domain/operator trigger fail closed. |
 | `meta-improvement` | `crates/services/src/agentic/runtime/kernel/*`, workflow/evaluation docs | partial Rust/IDE signals | Rust core authority plus proposal/eval/approval path | proposal object, eval receipts, approval grant, committed mutation | `receipts`, `negative` | target only | agents cannot self-modify directly; all improvements are proposal-mediated. |
 | `rust-daemon-core` | target layout in master guide plus `crates/services/src/agentic/runtime/kernel/*` | partial Rust primitives for authority, cTEE, receipts, Agentgres admission, projection, and Step/Module ABI | Rust modules: `authority`, `step_router`, `workload_client`, `model_mount`, `ctee`, `receipt_binder`, `agentgres_admission`, `projection`, `conformance` | one Rust owner for hot-path semantics | all tiers | partial primitives, not extracted as one authoritative core | hot-path execution, authority, receipt/state-root binding, cTEE, replay, and conformance are owned by Rust core. |
 | `js-facade-retirement` | `packages/runtime-daemon/src/*` | JS is current live daemon implementation | non-authoritative product/API/client facade only where useful | stable protocol APIs into Rust core | `negative`, terminal `hypervisor-conformance` | not retired | every migrated route family removes or demotes old JS authoritative paths and compatibility shims. |
@@ -596,6 +648,7 @@ must be retired as the corresponding route family reaches verified parity:
 | Compatibility adapters that can mutate state or emit accepted receipts | Alpha has no need to preserve old route behavior after migration. | Stable protocol APIs exist and migrated route families pass negative conformance. |
 | Workflow compositor accepted-truth shortcuts | The IDE should compose and inspect, not admit truth. | compositor projections rebuild from Agentgres operations and Rust projection watermarks. |
 | cTEE language without runtime plaintext-failure tests | cTEE is no-plaintext-custody private workspace execution, not encryption-at-rest. | private workspace module path and leakage/declassification tests pass. |
+| Default or silent L1 settlement attempts | IOI L1 is for sparse public/economic/cross-domain commitments, not default runtime settlement. | L1 settlement attempts route through Rust trigger admission and fail without trigger refs. |
 
 ## Command State
 
@@ -612,7 +665,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 10:
+Current expected behavior after Slice 11:
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
@@ -622,5 +675,5 @@ Current expected behavior after Slice 10:
 | `hypervisor-conformance:receipts` | pass | Rust StepModule receipt binder exists and the Rust shadow bridge emits a receipt binding. |
 | `hypervisor-conformance:ctee` | pass | Rust cTEE Private Workspace module validation exists and untrusted plaintext custody fails closed. |
 | `hypervisor-conformance:compositor` | pass | Rust projection records exist, the shadow bridge emits them, and compositor accepted-truth attempts fail closed. |
-| `hypervisor-conformance:negative` | fail closed | direct accepted receipt append, Agentgres expected-head/state-root, storage ArtifactRef/PayloadRef, cTEE plaintext, external capability exit authority, and compositor accepted-truth negatives pass; the remaining forbidden-path fixtures are not yet implemented. |
+| `hypervisor-conformance:negative` | fail closed | all negative cases pass except direct JS authoritative mutation, which still needs the JS facade retirement guard. |
 | `hypervisor-conformance` | fail closed | terminal migration is not complete. |
