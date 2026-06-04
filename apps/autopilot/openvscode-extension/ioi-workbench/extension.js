@@ -125,6 +125,7 @@ const { createNativeChatViewRenderer } = require("./studio/native-chat-view");
 const { createStudioToolPalette } = require("./studio/tool-palette");
 const { createStudioModelSelection } = require("./studio/model-selection");
 const { createStudioModelFixturePolicy } = require("./studio/model-fixture-policy");
+const { createStudioNativeDiffPreview } = require("./studio/native-diff-preview");
 const { createStudioOverviewView } = require("./studio/overview-view");
 const { createStudioTraceView } = require("./studio/trace-view");
 const { createStudioViewHelpers } = require("./studio/view-helpers");
@@ -264,8 +265,6 @@ let studioRuntimeProjection = createInitialStudioRuntimeProjectionFromState({
   policyLeaseId: STUDIO_POLICY_LEASE_ID,
   runtimeProfile: STUDIO_AGENT_RUNTIME_PROFILE,
 });
-let studioDiffProviderDisposable = null;
-const studioDiffDocuments = new Map();
 let activeTraceTarget = null;
 
 function buildWorkspaceActionContext(source, uri) {
@@ -3339,41 +3338,12 @@ function daemonRequestToken() {
   return daemonToken() || undefined;
 }
 
-function ensureStudioDiffProvider(context) {
-  if (studioDiffProviderDisposable || !context) {
-    return;
-  }
-  studioDiffProviderDisposable = vscode.workspace.registerTextDocumentContentProvider("ioi-studio-diff", {
-    provideTextDocumentContent(uri) {
-      return studioDiffDocuments.get(uri.toString()) || "";
-    },
-  });
-  context.subscriptions.push(studioDiffProviderDisposable);
-}
-
-async function openStudioNativeDiffPreview(hunk, output) {
-  try {
-    const suffix = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`;
-    const fileName = String(hunk?.file || "agent-studio-preview.md").replace(/[^a-z0-9_.-]+/gi, "-");
-    const beforeUri = vscode.Uri.parse(`ioi-studio-diff:/${fileName}.${suffix}.before.md`);
-    const afterUri = vscode.Uri.parse(`ioi-studio-diff:/${fileName}.${suffix}.after.md`);
-    const beforeText = String(hunk?.beforeContent || hunk?.before || "Studio runtime cockpit preview before\n");
-    const afterText = String(hunk?.afterContent || hunk?.after || "Studio runtime cockpit preview after\n");
-    studioDiffDocuments.set(beforeUri.toString(), beforeText);
-    studioDiffDocuments.set(afterUri.toString(), afterText);
-    await vscode.commands.executeCommand("vscode.diff", beforeUri, afterUri, `Autopilot Studio Patch Preview: ${fileName}`, {
-      preview: true,
-      preserveFocus: true,
-    });
-    studioRuntimeProjection.runtimeCockpit.inlineDiffOverlayObserved = true;
-    appendStudioTimeline("Native diff overlay opened", fileName, "completed");
-    return true;
-  } catch (error) {
-    appendStudioTimeline("Native diff overlay blocked", error?.message || String(error), "blocked");
-    output?.appendLine?.(`[ioi-studio] native diff overlay unavailable: ${error?.message || String(error)}`);
-    return false;
-  }
-}
+const { ensureStudioDiffProvider, openStudioNativeDiffPreview } = createStudioNativeDiffPreview({
+  appendStudioTimeline,
+  crypto,
+  getStudioRuntimeProjection: () => studioRuntimeProjection,
+  vscode,
+});
 
 async function invokeStudioDaemonTool(threadId, toolId, input, output, options = {}) {
   const toolCallId =
