@@ -81,6 +81,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/tool-palette.js`.
 - Moved Agent Studio tool/context QuickPick item shaping, tool palette sections, built-in tool rows, and live/runtime catalog fallbacks out of `extension.js`.
 - Added focused tool-palette tests for row alias normalization, stable fallback sections, separator/icon projection, and context bridge request affordances.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/model-selection.js`.
+- Moved Agent Studio product model selection filtering, fixture/external provider gates, reasoning-effort controls, output-token bounds, preferred model selection, Studio model snapshot projection, and mounted-model QuickPick rows out of `extension.js`.
+- Added focused model-selection tests for fixture/external/embedding-only rejection, injected environment gates, reasoning/token controls, active route preference, and mounted model QuickPick projection.
 - Moved managed browser/computer session work-record attachment and card row rendering out of `extension.js` behind compatibility wrappers.
 - Added focused managed-session view tests for bounded session-card attachment, waiting-for-user handoff rendering, control-state data-testids, HTML escaping, and default sandbox browser state.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
