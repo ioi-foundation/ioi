@@ -858,6 +858,9 @@ function runReceipts() {
   const modelMountStore = exists("packages/runtime-daemon/src/model-mounting/store.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/store.mjs")
     : "";
+  const modelMountReceiptWriteGuards = exists("packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs")
+    : "";
   assertCheck(
     result,
     "receipt-binder-core",
@@ -1147,11 +1150,12 @@ function runReceipts() {
         read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs"),
       ) &&
       /model_supersede/.test(read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs")) &&
+      /assertModelMountingReceiptWriteBound/.test(modelMountStore) &&
       /assertModelInstanceLifecycleReceiptBound/.test(
-        read("packages/runtime-daemon/src/model-mounting/store.mjs"),
+        modelMountReceiptWriteGuards,
       ) &&
       /model_mount_instance_lifecycle_receipt_direct_append_forbidden/.test(
-        read("packages/runtime-daemon/src/model-mounting/store.mjs"),
+        modelMountReceiptWriteGuards,
       ) &&
       /providerKind/.test(read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs")) &&
       /providerKind/.test(read("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs")) &&
@@ -1163,6 +1167,7 @@ function runReceipts() {
       ),
     [
       "packages/runtime-daemon/src/model-mounting/store.mjs",
+      "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
       "packages/runtime-daemon/src/model-mounting/store.test.mjs",
       "packages/runtime-daemon/src/model-mounting/receipt-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs",
@@ -1180,11 +1185,12 @@ function runReceipts() {
       /providerInventoryReceiptFields/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
       ) &&
+      /assertModelMountingReceiptWriteBound/.test(modelMountStore) &&
       /assertProviderInventoryReceiptBound/.test(
-        read("packages/runtime-daemon/src/model-mounting/store.mjs"),
+        modelMountReceiptWriteGuards,
       ) &&
       /model_mount_provider_inventory_receipt_direct_append_forbidden/.test(
-        read("packages/runtime-daemon/src/model-mounting/store.mjs"),
+        modelMountReceiptWriteGuards,
       ) &&
       /local provider model and loaded list receipts carry Rust inventory bindings/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
@@ -1197,6 +1203,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/provider-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/store.mjs",
+      "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
       "packages/runtime-daemon/src/model-mounting/store.test.mjs",
     ],
     "Phase 9/10 is pending: direct JS provider inventory lifecycle receipt persistence for migrated local providers must fail closed without provider kind and Rust model_mount inventory binding",
@@ -1210,11 +1217,12 @@ function runReceipts() {
       /providerLifecycleReceiptFields/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
       ) &&
+      /assertModelMountingReceiptWriteBound/.test(modelMountStore) &&
       /assertProviderHealthReceiptBound/.test(
-        read("packages/runtime-daemon/src/model-mounting/store.mjs"),
+        modelMountReceiptWriteGuards,
       ) &&
       /model_mount_provider_health_receipt_direct_append_forbidden/.test(
-        read("packages/runtime-daemon/src/model-mounting/store.mjs"),
+        modelMountReceiptWriteGuards,
       ) &&
       /local provider health receipts carry Rust lifecycle bindings/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
@@ -1227,6 +1235,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/provider-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/store.mjs",
+      "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
       "packages/runtime-daemon/src/model-mounting/store.test.mjs",
     ],
     "Phase 9/10 is pending: direct JS provider health receipt persistence for migrated local providers must fail closed without provider kind and Rust model_mount lifecycle binding",
@@ -1234,14 +1243,15 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-provider-control-receipt-direct-write-guard",
-    /model_mount_provider_control_lifecycle_planning_required/.test(
-      read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
-    ) &&
+      /model_mount_provider_control_lifecycle_planning_required/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
+      ) &&
+      /assertModelMountingReceiptWriteBound/.test(modelMountStore) &&
       /assertProviderControlReceiptBound/.test(
-        read("packages/runtime-daemon/src/model-mounting/store.mjs"),
+        modelMountReceiptWriteGuards,
       ) &&
       /model_mount_provider_control_receipt_direct_append_forbidden/.test(
-        read("packages/runtime-daemon/src/model-mounting/store.mjs"),
+        modelMountReceiptWriteGuards,
       ) &&
       /local provider start and stop fail closed without Rust lifecycle bindings/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
@@ -1253,6 +1263,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/provider-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/store.mjs",
+      "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
       "packages/runtime-daemon/src/model-mounting/store.test.mjs",
     ],
     "Phase 9/10 is pending: migrated local provider start/stop control must fail closed unless backed by Rust model_mount lifecycle binding",
@@ -1362,14 +1373,18 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-invocation-direct-store-append-guard",
-    /assertAcceptedModelInvocationReceiptBound/.test(modelMountStore) &&
-      /model_mount_invocation_receipt_direct_append_forbidden/.test(modelMountStore) &&
-      /model_invocation_stream_completed/.test(modelMountStore) &&
-      /modelMountReceiptBindingRef/.test(modelMountStore) &&
-      /modelMountAcceptedReceiptAppendHash/.test(modelMountStore) &&
-      /modelMountAgentgresOperationRef/.test(modelMountStore) &&
-      /modelMountAgentgresAdmissionHash/.test(modelMountStore),
-    ["packages/runtime-daemon/src/model-mounting/store.mjs"],
+    /assertModelMountingReceiptWriteBound/.test(modelMountStore) &&
+      /assertAcceptedModelInvocationReceiptBound/.test(modelMountReceiptWriteGuards) &&
+      /model_mount_invocation_receipt_direct_append_forbidden/.test(modelMountReceiptWriteGuards) &&
+      /model_invocation_stream_completed/.test(modelMountReceiptWriteGuards) &&
+      /modelMountReceiptBindingRef/.test(modelMountReceiptWriteGuards) &&
+      /modelMountAcceptedReceiptAppendHash/.test(modelMountReceiptWriteGuards) &&
+      /modelMountAgentgresOperationRef/.test(modelMountReceiptWriteGuards) &&
+      /modelMountAgentgresAdmissionHash/.test(modelMountReceiptWriteGuards),
+    [
+      "packages/runtime-daemon/src/model-mounting/store.mjs",
+      "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
+    ],
     "Phase 4/11 is pending: JS model-mounting store must reject direct model invocation receipt appends without Rust receipt_binder and Agentgres admission",
   );
   assertCheck(
