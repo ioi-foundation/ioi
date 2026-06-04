@@ -326,6 +326,8 @@ test("invokeModel routes provider calls, records receipts, updates route state, 
   assert.equal(result.receipt.details.modelMountAgentgresAdmission.operation_ref, "agentgres://model-mounting/operation-log/op_00000001_model_invocation");
   assert.equal(result.receipt.details.modelMountStepModuleInvocation.module_ref.kind, "model_mount");
   assert.equal(result.receipt.details.modelMountStepModuleResult.workflow_projection.status, "live");
+  assert.equal(Object.hasOwn(result, "compatTranslation"), false);
+  assert.equal(Object.hasOwn(result.receipt.details, "compatTranslation"), false);
   assert.equal(state.receiptBindingRequests[0].receiptRef, "receipt://receipt.1.model_invocation");
   assert.equal(state.providerExecutionRequests[0].route_decision_ref, "model_mount://route_decision/test");
   assert.equal(state.providerExecutionRequests[0].route_receipt_ref, "receipt://receipt.route");
@@ -706,6 +708,57 @@ test("startModelStream fails closed without Rust provider result admission befor
   assert.equal(streamCalls, 0);
   assert.equal(state.providerExecutionRequests.length, 1);
   assert.deepEqual(state.appendOperations, []);
+});
+
+test("startModelStream rejects provider compatibility translations before admission", async () => {
+  let streamCalls = 0;
+  const state = fakeState({
+    selectRoute(payload) {
+      this.selectRoutePayload = payload;
+      return selection({
+        endpoint: {
+          apiFormat: "ioi_native",
+          driver: "native_local",
+          providerId: "provider.autopilot.local",
+          backendId: "backend.autopilot.native-local.fixture",
+        },
+        provider: {
+          id: "provider.autopilot.local",
+          kind: "ioi_native_local",
+          driver: "native_local",
+        },
+      });
+    },
+    driver: {
+      supportsStream: () => true,
+      async streamInvoke() {
+        streamCalls += 1;
+        return {
+          stream: { [Symbol.asyncIterator]: async function* noop() {} },
+          compatTranslation: "chat_completions",
+        };
+      },
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      startModelStream(
+        state,
+        {
+          authorization: "Bearer token",
+          requiredScope: "model.responses:*",
+          kind: "responses",
+          body: { model: "model.local", response_id: "resp.stream", stream: true },
+        },
+        deps(),
+      ),
+    (error) => error.code === "model_mount_provider_compat_translation_forbidden",
+  );
+  assert.equal(streamCalls, 1);
+  assert.equal(state.providerExecutionRequests.length, 1);
+  assert.equal(state.providerResultRequests.length, 0);
+  assert.equal(state.receipts.length, 0);
 });
 
 test("modelMountInvocationAdmissionRequestForReceipt binds route decision and invocation receipts", () => {
@@ -1140,6 +1193,58 @@ test("invokeModel keeps unmigrated provider drivers behind provider execution ad
     "js_provider_driver_observation",
   );
   assert.ok(result.receipt.evidenceRefs.includes("model_mount://provider_result/1"));
+});
+
+test("invokeModel rejects provider compatibility translations before result admission", async () => {
+  let providerCalls = 0;
+  const state = fakeState({
+    executeModelMountProviderInvocation: undefined,
+    driver: {
+      async invoke() {
+        providerCalls += 1;
+        return {
+          outputText: "translated provider answer",
+          providerResponseKind: "openai.chat",
+          compatTranslation: "chat_completions",
+          tokenCount: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
+        };
+      },
+    },
+    selectRoute(payload) {
+      this.selectRoutePayload = payload;
+      return selection({
+        endpoint: {
+          apiFormat: "openai",
+          providerId: "provider.openai",
+          backendId: "backend.openai-compatible",
+        },
+        provider: {
+          id: "provider.openai",
+          kind: "openai",
+          driver: "openai_compatible",
+        },
+      });
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      invokeModel(
+        state,
+        {
+          authorization: "Bearer token",
+          requiredScope: "model.chat:*",
+          kind: "responses",
+          body: { model: "model.local" },
+        },
+        deps(),
+      ),
+    (error) => error.code === "model_mount_provider_compat_translation_forbidden",
+  );
+  assert.equal(providerCalls, 1);
+  assert.equal(state.providerExecutionRequests.length, 1);
+  assert.equal(state.providerResultRequests.length, 0);
+  assert.equal(state.receipts.length, 0);
 });
 
 test("invokeModel fails closed for unmigrated provider drivers without Rust provider result admission", async () => {

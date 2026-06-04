@@ -1502,7 +1502,6 @@ export function nativeInvocationResponse(invocation) {
     route_decision: invocation.routeReceipt?.details?.modelRouteDecision ?? null,
     response_id: invocation.responseId ?? null,
     previous_response_id: invocation.previousResponseId ?? null,
-    compat_translation: invocation.compatTranslation ?? null,
     tool_receipt_ids: invocation.toolReceiptIds ?? [],
     output_text: invocation.outputText,
     usage: invocation.tokenCount,

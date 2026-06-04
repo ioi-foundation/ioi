@@ -563,6 +563,25 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-provider-compat-translation-receipt-retired",
+    /model_mount_provider_compat_translation_forbidden/.test(modelInvocationOps) &&
+      !/compatTranslation:\s*providerResult\.compatTranslation/.test(modelInvocationOps) &&
+      !/compat_translation:\s*invocation\.compatTranslation/.test(openAiCompatRoutes) &&
+      /rejects provider compatibility translations before result admission/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+      ) &&
+      /rejects provider compatibility translations before admission/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
+      "packages/runtime-daemon/src/openai-compat-routes.mjs",
+    ],
+    "Phase 9/11 is pending: provider compatibility translation markers must fail closed instead of entering accepted receipts or native protocol responses",
+  );
+  assertCheck(
+    result,
     "model-mount-protocol-response-facade-reexport-retired",
     /from "\.\/model-mounting\/protocol-responses\.mjs"/.test(openAiCompatRoutes) &&
       !/protocol-responses\.mjs/.test(modelMountingState) &&

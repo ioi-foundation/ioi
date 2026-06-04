@@ -219,7 +219,6 @@ export async function invokeModel(state, { authorization, requiredScope, kind, b
     tokenCount,
     providerResponse: providerResult.providerResponse ?? null,
     providerResponseKind: providerResult.providerResponseKind ?? null,
-    compatTranslation: providerResult.compatTranslation ?? null,
     toolReceiptIds: ephemeralMcp.toolReceiptIds,
     responseId,
     previousResponseId,
@@ -298,6 +297,7 @@ export async function startModelStream(state, { authorization, requiredScope, ki
     input,
     token,
   });
+  rejectProviderCompatTranslation(providerResult);
   if (!providerResult?.stream) {
     const error = new Error("Native provider stream invocation did not return a stream after Rust stream-start admission.");
     error.status = 502;
@@ -418,7 +418,6 @@ export async function startModelStream(state, { authorization, requiredScope, ki
     tokenCount,
     providerResponse: null,
     providerResponseKind: providerResult.providerResponseKind ?? null,
-    compatTranslation: providerResult.compatTranslation ?? null,
     toolReceiptIds: ephemeralMcp.toolReceiptIds,
     responseId,
     previousResponseId,
@@ -893,7 +892,7 @@ async function executeModelProviderInvocation({
   token,
 }) {
   if (modelMountProviderInvocationRequiresRust(selection)) {
-    return executeModelMountProviderInvocation(
+    const providerResult = executeModelMountProviderInvocation(
       state,
       modelMountProviderInvocationRequestForExecution({
         input,
@@ -903,6 +902,8 @@ async function executeModelProviderInvocation({
         selection,
       }),
     );
+    rejectProviderCompatTranslation(providerResult);
+    return providerResult;
   }
   requireModelMountProviderResultAdmission(state);
   const providerResult = await state.driverForProvider(selection.provider).invoke({
@@ -915,6 +916,7 @@ async function executeModelProviderInvocation({
     input,
     token,
   });
+  rejectProviderCompatTranslation(providerResult);
   const modelMountProviderResultAdmission = admitModelMountProviderResult(
     state,
     modelMountProviderResultAdmissionRequestForExecution({
@@ -934,6 +936,16 @@ export function modelMountProviderInvocationRequiresRust(selection = {}) {
   const endpoint = selection.endpoint ?? {};
   const driver = endpoint.driver ?? provider.driver ?? driverNameForProvider(provider);
   return provider.kind === "local_folder" || driver === "fixture" || endpoint.apiFormat === "ioi_fixture";
+}
+
+function rejectProviderCompatTranslation(providerResult = {}) {
+  const compatTranslation = optionalRef(providerResult.compatTranslation ?? providerResult.compat_translation);
+  if (!compatTranslation) return;
+  const error = new Error("Model provider compatibility translations are retired; provider results must match the admitted invocation kind.");
+  error.status = 500;
+  error.code = "model_mount_provider_compat_translation_forbidden";
+  error.details = { compatTranslation };
+  throw error;
 }
 
 function executeModelMountProviderInvocation(state, request) {
@@ -1085,7 +1097,6 @@ function invocationReceiptDetails({
     latencyMs,
     inputHash: hash(input),
     outputHash: hash(outputText),
-    compatTranslation: providerResult.compatTranslation ?? null,
     providerResponseKind: providerResult.providerResponseKind ?? null,
     backendProcess: providerResult.backendProcess ?? instance.backendProcess ?? null,
     backendProcessId: providerResult.backendProcess?.id ?? instance.backendProcessId ?? null,
