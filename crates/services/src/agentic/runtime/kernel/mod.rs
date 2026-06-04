@@ -15,6 +15,7 @@ pub mod intent;
 pub mod intervention;
 pub mod invocation;
 pub mod marketplace;
+pub mod model_mount;
 pub mod plan;
 pub mod policy;
 pub mod profile;
@@ -43,6 +44,9 @@ use ctee::{
 use evidence::ReceiptManifestKind;
 use invocation::ToolInvocationEnvelope;
 use marketplace::{MarketplaceAdmissionError, MarketplaceServiceContract};
+use model_mount::{
+    ModelMountCore, ModelMountError, ModelMountRouteDecisionRecord, ModelMountRouteDecisionRequest,
+};
 use plan::{validate_plan, ExecutablePlan, PlanValidationError};
 use profile::{RuntimeProfileConfig, RuntimeProfileValidator, RuntimeProfileViolation};
 use projection::{ProjectionError, RustProjectionCore, StepModuleProjectionRecord};
@@ -102,6 +106,13 @@ impl RuntimeKernelService {
         request: &ExternalCapabilityExitRequest,
     ) -> Result<ExternalCapabilityExitAuthorityRecord, WalletAuthorityError> {
         WalletAuthorityCore.authorize_external_capability_exit(request)
+    }
+
+    pub fn admit_model_mount_route_decision(
+        &self,
+        request: &ModelMountRouteDecisionRequest,
+    ) -> Result<ModelMountRouteDecisionRecord, ModelMountError> {
+        ModelMountCore.admit_route_decision(request)
     }
 
     pub fn validate_tool_invocation(

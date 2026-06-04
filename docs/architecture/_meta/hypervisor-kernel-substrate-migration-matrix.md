@@ -1429,6 +1429,66 @@ ImplementationSlice:
     push: required after verification
 ```
 
+## Implementation Slice 26
+
+```yaml
+ImplementationSlice:
+  objective: introduce the Rust model_mount route-decision core so model route
+    selection has a Rust-owned admission boundary before JS facade integration
+  owner_boundary:
+    route_or_surface: model-mounting route decision and provider/model endpoint
+      selection
+    authority_gate: Rust validates resolved model/provider/endpoint refs,
+      receipt refs, policy hash, idempotency, and private workspace cTEE custody
+      constraints before a route decision can be admitted
+    execution_backend: no provider invocation changes in this slice; this
+      creates the Rust core boundary that daemon JS model-mounting routes must
+      call before facade retirement
+    truth_path: route decisions are Rust hash-bound records with receipt refs
+      and custody metadata; unresolved `auto` model selectors are rejected
+      before provider invocation
+    projection_path: unchanged in product daemon for this slice; conformance
+      now verifies the Rust model_mount owner exists and rejects plaintext cTEE
+      routes
+  touched_files:
+    docs:
+      - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+    daemon: []
+    rust_core:
+      - crates/services/src/agentic/runtime/kernel/model_mount.rs
+      - crates/services/src/agentic/runtime/kernel/mod.rs
+    ide: []
+    tests:
+      - Rust unit tests in crates/services/src/agentic/runtime/kernel/model_mount.rs
+      - scripts/conformance/hypervisor-conformance.mjs
+  conformance_checks:
+    - Rust model_mount core admits resolved route decisions with receipt refs
+    - unresolved `auto` model selectors fail before provider invocation
+    - route decisions without receipts fail closed
+    - private_workspace_ctee routes require custody refs and cannot allow node
+      plaintext
+    - conformance detects the Rust model_mount owner boundary
+  verification:
+    commands:
+      - cargo test -p ioi-services model_mount
+      - npm run hypervisor-conformance:receipts
+      - npm run hypervisor-conformance
+      - git diff --check
+    replay_or_shadow_comparison: not_applicable
+  cleanup:
+    legacy_paths_removed: false
+    compatibility_shims_remaining:
+      - JS model-mounting route-decision/store surfaces still need to call
+        ModelMountCore and bind records into receipts/Agentgres admission before
+        JS facade retirement
+      - provider invocation drivers remain JS-owned until model invocation
+        envelopes and provider receipts are promoted to Rust core ownership
+  closeout:
+    git_diff_check: required
+    commit: required
+    push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
@@ -1436,7 +1496,7 @@ ImplementationSlice:
 | `coding-tools` | `packages/runtime-daemon/src/coding-tools.mjs`, `packages/runtime-daemon/src/step-module-abi.mjs`, `packages/runtime-daemon/src/step-module-runner.mjs`, `crates/node/src/bin/ioi-step-module-bridge.rs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `crates/services/src/agentic/runtime/kernel/step_router.rs` | JS daemon tool dispatch with Step/Module projection wrappers plus live Rust paths for every current coding tool: workspace.status, git.diff, file.inspect, file.apply_patch, test.run, lsp.diagnostics, artifact.read, tool.retrieve_result, and computer_use.request_lease | Rust core `step_router` plus workload/WASM backend | Agentgres admitted operation with receipt, refs, heads, and state roots | `abi`, `bridge`, `receipts`, `negative` | every current coding-tool ID returns a Rust live payload without daemon_js in rust_workload_live mode; JS fallback helpers remain only for non-live compatibility until facade retirement | Rust path passes shadow, gated, and live parity for each migrated tool; JS can no longer append authoritative effects. |
 | `approvals-gates` | `packages/runtime-daemon/src/runtime-route-handlers.mjs`, `crates/services/src/agentic/runtime/kernel/authority.rs` | JS daemon routes plus Rust external-exit authority guard | Rust core `authority` with wallet.network handoff | authority grant and approval receipt before effect boundary | `bridge`, `negative` | Rust wallet.network guard implemented for external exits; live JS approval surface remains | JS can only request/render approvals; grants and gate decisions are issued by Rust authority core and wallet.network. |
 | `runtime-events-replay-trace` | `packages/runtime-daemon/src/runtime-event-envelopes.mjs` | JS daemon envelope/projection code | Rust core `projection` plus Agentgres projection watermarks | replayable projection over admitted operations and receipts | `receipts`, `compositor` | JS projection source | Rust emits canonical projection records consumed by IDE/CLI/SDK. |
-| `model-mounting` | `packages/runtime-daemon/src/model-mounting/*` | JS daemon model-mounting store and route policy | Rust core `model_mount` | model invocation receipts, route/custody refs, Agentgres operation | `bridge`, `receipts`, `ctee` | live product daemon state | Rust records route decisions and receipts; JS surfaces are non-authoritative clients. |
+| `model-mounting` | `packages/runtime-daemon/src/model-mounting/*`, `crates/services/src/agentic/runtime/kernel/model_mount.rs` | JS daemon model-mounting store and route policy plus Rust route-decision admission primitive | Rust core `model_mount` | model invocation receipts, route/custody refs, Agentgres operation | `bridge`, `receipts`, `ctee` | Rust model_mount route-decision core exists and rejects unresolved auto models, missing receipts, and plaintext cTEE routes; live product daemon still needs to call it | Rust records route decisions and receipts; JS surfaces are non-authoritative clients. |
 | `agentgres-admission` | `packages/runtime-daemon/src/service/runtime-daemon-service.mjs`, `.ioi/agentgres` local state, `crates/services/src/agentic/runtime/kernel/agentgres_admission.rs`, `docs/architecture/components/agentgres/*` | daemon-local operation-like records plus Rust admission/storage guards | Rust core `agentgres_admission` | expected heads, state-root validation, accepted operation admission | `receipts`, `negative` | Rust operation admission and storage-write guards implemented; live JS append/write surfaces still need routing/demotion | no JS path can append accepted operations directly or mutate durable truth without expected heads/state-root binding. |
 | `receipt-binding` | `packages/runtime-daemon/src/runtime-event-envelopes.mjs`, `crates/ipc/proto/public/v1/public.proto`, `crates/services/src/agentic/runtime/kernel/receipt_binder.rs` | JS receipts plus Rust receipt binder and append guard | Rust core `receipt_binder` | one binder for invocation, result, artifact refs, payload refs, and state roots | `receipts`, `negative` | binder primitive and direct-append guard implemented; JS receipts still live | every meaningful route family emits receipts through one Rust binder. |
 | `ctee-private-workspace` | `docs/architecture/components/daemon-runtime/private-workspace-ctee.md`, `crates/services/src/agentic/runtime/kernel/ctee.rs` | canon plus Rust StepModule validation boundary | Rust core `ctee` | custody proof, leakage profile, declassification receipt, plaintext-free mount failure | `ctee`, `negative` | Rust validation path implemented; full execution/admission/projection still pending | untrusted node plaintext mount fails closed; declassification and private operator paths are receipt-bound. |

@@ -424,6 +424,25 @@ function runReceipts() {
   );
   assertCheck(
     result,
+    "model-mount-route-decision-core",
+    exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
+      /MODEL_MOUNT_ROUTE_DECISION_SCHEMA_VERSION/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /ModelMountCore/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /UnresolvedAutoModel/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /PrivateWorkspacePlaintextNotAllowed/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /admit_model_mount_route_decision/.test(read("crates/services/src/agentic/runtime/kernel/mod.rs")),
+    [
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+    ],
+    "Phase 9 is pending: Rust model_mount core must own resolved route decisions, receipts, and cTEE custody metadata",
+  );
+  assertCheck(
+    result,
     "agentgres-expected-heads",
     codeCorpusContains(/expected_heads|projection_watermark|resulting_head/),
     ["crates/services/src/agentic/runtime", "packages/runtime-daemon/src"],
