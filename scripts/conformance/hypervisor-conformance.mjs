@@ -376,6 +376,8 @@ function runBridge() {
       /artifact\.read/.test(bridgeModule) &&
       /tool\.retrieve_result/.test(bridgeModule) &&
       /normalize_prefetched_artifact_result/.test(bridgeModule) &&
+      /computer_use\.request_lease/.test(bridgeModule) &&
+      /build_computer_use_lease_request/.test(bridgeModule) &&
       /ioi\.step_module\.command_bridge\.v1/.test(bridgeModule) &&
       /StepModuleRouterCore/.test(bridgeModule) &&
       /router_admission/.test(bridgeModule) &&
@@ -388,6 +390,7 @@ function runBridge() {
       /lsp\.diagnostics/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
       /artifact\.read/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
       /tool\.retrieve_result/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
+      /computer_use\.request_lease/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
       /rustWorkloadDataPlane/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
       /rust_workload_live/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")),
     [

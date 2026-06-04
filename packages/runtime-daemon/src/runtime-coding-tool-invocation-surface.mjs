@@ -40,6 +40,7 @@ const RUST_WORKLOAD_LIVE_TOOL_IDS = new Set([
   "lsp.diagnostics",
   "artifact.read",
   "tool.retrieve_result",
+  "computer_use.request_lease",
 ]);
 
 export function createRuntimeCodingToolInvocationSurface(deps = {}) {

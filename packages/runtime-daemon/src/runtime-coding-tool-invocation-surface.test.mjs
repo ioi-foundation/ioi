@@ -1031,6 +1031,145 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
 });
 
+test("coding tool invocation surface runs computer_use.request_lease through rust workload live path", () => {
+  const runnerCalls = [];
+  const liveRunner = {
+    backend: "rust_workload_live",
+    blocksDaemonJsExecution: true,
+    runCodingTool(input) {
+      runnerCalls.push(input);
+      return {
+        backend: "rust_workload_live",
+        mode: "live",
+        blocking: true,
+        source: "rust_workload_command",
+        invocation: {
+          schema_version: "ioi.step_module_invocation.v1",
+          invocation_id: "invocation://rust-live/computer_use.request_lease",
+        },
+        result: {
+          schema_version: "ioi.step_module_result.v1",
+          invocation_id: "invocation://rust-live/computer_use.request_lease",
+          status: "success",
+          execution_result_ref: "result://rust-live/computer_use.request_lease",
+          normalized_observation_ref: "observation://rust-live/computer_use.request_lease",
+          receipt_refs: [
+            "receipt://rust-live/computer_use.request_lease",
+            "receipt_computer_use_lease_request_alpha",
+          ],
+          artifact_refs: [],
+          payload_refs: [],
+          agentgres_operation_refs: [],
+          state_root_after: null,
+          resulting_head: null,
+          workflow_projection: {
+            workflow_graph_id: "graph_alpha",
+            workflow_node_id: "node_computer_use",
+            component_kind: "ComputerUseLeaseRequestNode",
+            status: "live",
+            attempt_id: "attempt://rust-live/computer_use.request_lease",
+            evidence_refs: ["evidence://rust-live/computer_use.request_lease"],
+            receipt_refs: ["receipt://rust-live/computer_use.request_lease"],
+          },
+          next: {
+            model_reentry_required: false,
+            verifier_required: false,
+          },
+        },
+        bridge_result: {
+          router_admission: {
+            schema_version: "ioi.step_module_router_admission.v1",
+            backend: "workload_grpc",
+          },
+          shadow_observation: {
+            tool: "computer_use.request_lease",
+            result: {
+              schemaVersion: "ioi.runtime.coding-tool-result.v1",
+              object: "ioi.coding_agent_computer_use_lease_request",
+              requestRef: "computer_use_lease_request_alpha",
+              workspaceRoot: "/tmp/workspace",
+              leaseRequest: {
+                prompt: "Open the browser and click sign in.",
+                lane: "native_browser",
+                sessionMode: "controlled_relaunch",
+                actionKind: "click",
+                authorityScope: "computer_use.native_browser.act",
+                repoAuthorityScope: "workspace.read",
+                sharedClipboardPolicy: "disabled_until_explicit_approval",
+                artifactPolicy: "redacted_trace_artifacts_only",
+                approvalRef: null,
+                failClosedWhenUnavailable: true,
+                providerId: "ioi.computer_use.native_browser.task_scoped_profile",
+                providerKind: "task_scoped_browser_profile",
+                walletNetworkAuthorityRequiredBeforeExecution: true,
+              },
+              threadTool: {
+                toolPack: "computer_use",
+                toolName: "ioi.computer_use.native_browser",
+                unavailableReason: null,
+                input: {
+                  prompt: "Open the browser and click sign in.",
+                  actionKind: "click",
+                  sessionMode: "controlled_relaunch",
+                },
+              },
+              approvalRequiredBeforeExecution: true,
+              walletNetworkAuthorityBoundary: {
+                authorityLayer: "wallet.network",
+                requiredBeforeExecution: true,
+                grantRefs: [],
+                receiptRefs: [],
+              },
+              evidenceRefs: [
+                "computer_use_lease_request_alpha",
+                "ioi.computer_use.native_browser.task_scoped_profile",
+                "computer_use_lease_request_receipt",
+                "coding_tool_receipt",
+                "wallet.network.authority_boundary",
+              ],
+              receiptRefs: ["receipt_computer_use_lease_request_alpha"],
+              shellFallbackUsed: false,
+            },
+          },
+        },
+      };
+    },
+  };
+  const surface = createSurface({
+    stepModuleRunner: liveRunner,
+    executeCodingTool() {
+      throw new Error("daemon JS execution must not run");
+    },
+  });
+  const store = createStore();
+
+  const result = surface.invokeThreadTool(store, "thread_alpha", "computer_use.request_lease", {
+    toolCallId: "tool_computer_use",
+    workflowGraphId: "graph_alpha",
+    workflowNodeId: "node_computer_use",
+    input: {
+      prompt: "Open the browser and click sign in.",
+      lane: "native_browser",
+      sessionMode: "controlled_relaunch",
+      actionKind: "click",
+    },
+  });
+
+  assert.equal(result.status, "completed");
+  assert.equal(runnerCalls.length, 1);
+  assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
+  assert.equal(runnerCalls[0].input.actionKind, "click");
+  assert.equal(result.result.rustWorkload, true);
+  assert.equal(result.result.requestRef, "computer_use_lease_request_alpha");
+  assert.equal(result.result.approvalRequiredBeforeExecution, true);
+  assert.equal(result.result.walletNetworkAuthorityBoundary.authorityLayer, "wallet.network");
+  assert.equal(result.result.leaseRequest.authorityScope, "computer_use.native_browser.act");
+  assert.equal(result.step_module.backend, "rust_workload_live");
+  assert.ok(result.receipt_refs.includes("receipt://rust-live/computer_use.request_lease"));
+  assert.ok(result.receipt_refs.includes("receipt_computer_use_lease_request_alpha"));
+  assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
+});
+
 test("coding tool invocation surface fails closed for budget blocks", () => {
   const surface = createSurface({
     codingToolBudgetPolicyForRequest: () => ({

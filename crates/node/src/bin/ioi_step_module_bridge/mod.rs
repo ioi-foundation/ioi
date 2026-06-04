@@ -18,6 +18,8 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
+mod computer_use;
+
 const COMMAND_SCHEMA_VERSION: &str = "ioi.step_module.command_bridge.v1";
 const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
 const DEFAULT_PREVIEW_BYTES: u64 = 16 * 1024;
@@ -101,6 +103,7 @@ fn run_bridge() -> Result<Value, BridgeError> {
         "lsp.diagnostics" => lsp_diagnostics_response(request),
         "artifact.read" => artifact_read_response(request),
         "tool.retrieve_result" => tool_retrieve_result_response(request),
+        "computer_use.request_lease" => computer_use_request_lease_response(request),
         other => Err(BridgeError::new(
             "tool_unsupported",
             format!("unsupported StepModule tool {}", other),
@@ -326,6 +329,49 @@ fn tool_retrieve_result_response(request: StepModuleBridgeRequest) -> Result<Val
         json!({
             "tool": "tool.retrieve_result",
             "result": retrieve_result,
+        }),
+    ))
+}
+
+fn computer_use_request_lease_response(
+    request: StepModuleBridgeRequest,
+) -> Result<Value, BridgeError> {
+    let workspace_root = request.workspace_root.clone().ok_or_else(|| {
+        BridgeError::new(
+            "workspace_root_required",
+            "workspace_root is required".to_string(),
+        )
+    })?;
+    let lease_request =
+        computer_use::build_computer_use_lease_request(&workspace_root, &request.input)
+            .map_err(|error| BridgeError::new("computer_use_lease_request_failed", error))?;
+    let mut result = successful_step_module_result(
+        &request,
+        "computer_use.request_lease",
+        "ComputerUseLeaseRequestNode",
+    );
+    result.receipt_refs = unique_string_refs(
+        result
+            .receipt_refs
+            .into_iter()
+            .chain(json_string_refs(
+                &lease_request,
+                &["receiptRefs", "receipt_refs"],
+            ))
+            .collect(),
+    );
+    result.workflow_projection.evidence_refs.push(format!(
+        "evidence://rust-workload/computer_use.request_lease/{}",
+        optional_json_string(&lease_request, &["requestRef", "request_ref"])
+            .map(|value| safe_ref_path(&value))
+            .unwrap_or_else(|| "unknown".to_string())
+    ));
+    Ok(step_module_response(
+        request,
+        result,
+        json!({
+            "tool": "computer_use.request_lease",
+            "result": lease_request,
         }),
     ))
 }
@@ -2936,6 +2982,99 @@ mod tests {
         let error = artifact_read_response(request).expect_err("missing payload should fail");
 
         assert_eq!(error.code, "data_plane_payload_required");
+    }
+
+    #[test]
+    fn computer_use_request_lease_records_wallet_gated_act_request() {
+        let request = bridge_request(
+            "computer_use.request_lease",
+            "/tmp/workspace",
+            json!({
+                "prompt": "Open the browser and click the sign in button.",
+                "lane": "native_browser",
+                "sessionMode": "controlled_relaunch",
+                "actionKind": "click",
+                "url": "https://example.test"
+            }),
+        );
+
+        let response =
+            computer_use_request_lease_response(request).expect("lease request response");
+
+        assert_eq!(
+            response["shadow_observation"]["result"]["leaseRequest"]["lane"],
+            "native_browser"
+        );
+        assert_eq!(
+            response["shadow_observation"]["result"]["leaseRequest"]["authorityScope"],
+            "computer_use.native_browser.act"
+        );
+        assert_eq!(
+            response["shadow_observation"]["result"]["approvalRequiredBeforeExecution"],
+            true
+        );
+        assert_eq!(
+            response["shadow_observation"]["result"]["walletNetworkAuthorityBoundary"]
+                ["authorityLayer"],
+            "wallet.network"
+        );
+        assert_eq!(
+            response["shadow_observation"]["result"]["threadTool"]["toolName"],
+            "ioi.computer_use.native_browser"
+        );
+        assert!(response["shadow_observation"]["result"]["requestRef"]
+            .as_str()
+            .expect("request ref")
+            .starts_with("computer_use_lease_request_"));
+        assert!(response["result"]["receipt_refs"]
+            .as_array()
+            .expect("receipt refs")
+            .iter()
+            .any(|value| {
+                value
+                    .as_str()
+                    .unwrap_or_default()
+                    .starts_with("receipt_computer_use_lease_request_")
+            }));
+        assert_eq!(response["agentgres_admission"], Value::Null);
+    }
+
+    #[test]
+    fn computer_use_request_lease_records_unavailable_provider_fail_closed() {
+        let request = bridge_request(
+            "computer_use.request_lease",
+            "/tmp/workspace",
+            json!({
+                "prompt": "Open a hosted sandbox.",
+                "lane": "sandboxed_hosted",
+                "sessionMode": "hosted_sandbox",
+                "sandboxProvider": "local_container",
+                "actionKind": "inspect"
+            }),
+        );
+
+        let response =
+            computer_use_request_lease_response(request).expect("lease request response");
+
+        assert_eq!(
+            response["shadow_observation"]["result"]["leaseRequest"]["providerId"],
+            "ioi.computer_use.sandboxed_hosted.local_container"
+        );
+        assert_eq!(
+            response["shadow_observation"]["result"]["threadTool"]["toolName"],
+            Value::Null
+        );
+        assert!(
+            response["shadow_observation"]["result"]["threadTool"]["unavailableReason"]
+                .as_str()
+                .expect("unavailable reason")
+                .contains("no container runtime adapter")
+        );
+        assert_eq!(
+            response["shadow_observation"]["result"]["approvalRequiredBeforeExecution"],
+            false
+        );
+        assert_eq!(response["agentgres_admission"], Value::Null);
     }
 
     #[test]
