@@ -230,6 +230,8 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Moved agent/run record persistence, run projection writes, and persisted run operation terminal-event summarization out of `index.mjs` behind existing `writeAgent` and `writeRun` compatibility methods.
 - Extended `packages/runtime-daemon/src/threads/thread-persistence.mjs`.
 - Moved subagent record persistence, operation-log append/count behavior, state path construction, and quiet projection deletion out of `index.mjs` behind existing store method names.
+- Extended `packages/runtime-daemon/src/threads/thread-persistence.mjs`.
+- Moved runtime state directory bootstrap, schema projection, and persisted state loading out of `index.mjs` behind existing `ensureDirs`, `writeSchema`, and `load` store methods.
 - Added `packages/runtime-daemon/src/runtime-tool-catalog.mjs`.
 - Moved runtime account/node/tool catalog projections, tool governance metadata normalization, and doctor-safe runtime node redaction out of `index.mjs` while preserving existing public methods and MCP serve descriptor behavior.
 - Added `packages/runtime-daemon/src/repository-projections.mjs`.

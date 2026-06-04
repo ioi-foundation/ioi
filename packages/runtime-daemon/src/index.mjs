@@ -274,9 +274,12 @@ import {
 } from "./threads/thread-replay.mjs";
 import {
   appendOperationRecord,
+  ensureStateDirs,
+  loadStateRecords,
   operationCountRecord,
   removeQuietFile,
   statePathFor,
+  writeStateSchema,
   writeAgentRecord,
   writeRunRecord,
   writeSubagentRecord,
@@ -11303,98 +11306,23 @@ export class AgentgresRuntimeStateStore {
   }
 
   ensureDirs() {
-    for (const dir of [
-      "agents",
-      "runs",
-      "tasks",
-      "jobs",
-      "checklists",
-      "artifacts",
-      "conversation-artifacts",
-      "receipts",
-      "quality",
-      "policy-decisions",
-      "authority-decisions",
-      "stop-conditions",
-      "scorecards",
-      "ledgers",
-      "projections",
-      "model-artifacts",
-      "model-endpoints",
-      "model-instances",
-      "model-routes",
-      "model-providers",
-      "model-downloads",
-      "tokens",
-      "mcp-servers",
-      "memory-records",
-      "memory-policies",
-      "subagents",
-      "events",
-    ]) {
-      fs.mkdirSync(path.join(this.stateDir, dir), { recursive: true });
-    }
+    return ensureStateDirs(this);
   }
 
   writeSchema() {
-    writeJson(this.pathFor("schema.json"), {
-      schemaVersion: this.schemaVersion,
-      relationSchemas: {
-        runs: ["id", "agentId", "status", "objective", "mode", "createdAt", "updatedAt"],
-        tasks: ["runId", "currentObjective", "facts", "constraints", "evidenceRefs"],
-        jobs: ["jobId", "taskId", "runId", "agentId", "status", "createdAt", "updatedAt"],
-        checklists: ["checklistId", "taskId", "jobId", "runId", "status", "itemCount", "completedItemCount"],
-        artifacts: ["id", "runId", "name", "mediaType", "redaction", "receiptId"],
-        conversationArtifacts: ["id", "threadId", "artifactClass", "status", "latestRevisionId"],
-        receipts: ["id", "runId", "kind", "summary", "redaction", "evidenceRefs"],
-        memoryRecords: ["id", "scope", "threadId", "agentId", "workspace", "createdAt"],
-        memoryPolicies: ["id", "targetType", "targetId", "disabled", "readOnly", "writeRequiresApproval", "updatedAt"],
-        subagents: ["subagentId", "parentThreadId", "agentId", "role", "status", "runId", "updatedAt"],
-        runtimeEvents: [
-          "event_stream_id",
-          "seq",
-          "idempotency_key",
-          "thread_id",
-          "turn_id",
-          "item_id",
-          "event_kind",
-          "created_at",
-        ],
-        quality: ["runId", "scorecard", "qualityLedger", "stopCondition"],
-        operationLog: ["sequence", "operationId", "kind", "objectId", "createdAt", "digest"],
-        ...this.modelMounting.writeSchemaRelationSchemas(),
-      },
-      canonicalOwner: "Agentgres",
-      sdkCheckpointAuthority: "cache_only",
+    return writeStateSchema(this, {
+      writeJson,
     });
   }
 
   load() {
-    for (const file of listJson(this.pathFor("agents"))) {
-      const agent = readJson(file);
-      this.agents.set(agent.id, agent);
-    }
-    for (const file of listJson(this.pathFor("runs"))) {
-      const run = readJson(file);
-      this.runs.set(run.id, run);
-    }
-    for (const file of listJson(this.pathFor("subagents"))) {
-      const subagent = readJson(file);
-      const subagentId = subagent.subagent_id ?? subagent.subagentId ?? subagent.agent_id ?? subagent.agentId;
-      if (subagentId) this.subagents.set(String(subagentId), subagent);
-    }
-    for (const file of listJson(this.pathFor("artifacts"))) {
-      const artifactRecord = readJson(file);
-      const schemaVersion = artifactRecord.schema_version ?? artifactRecord.schemaVersion;
-      if (schemaVersion === CODING_TOOL_ARTIFACT_SCHEMA_VERSION && artifactRecord.id) {
-        this.codingArtifacts.set(artifactRecord.id, artifactRecord);
-      }
-    }
-    for (const file of listJsonl(this.pathFor("events"))) {
-      for (const record of readJsonl(file)) {
-        this.registerRuntimeEvent(record);
-      }
-    }
+    return loadStateRecords(this, {
+      codingToolArtifactSchemaVersion: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
+      listJson,
+      listJsonl,
+      readJson,
+      readJsonl,
+    });
   }
 
   writeAgent(agent, operationKind) {

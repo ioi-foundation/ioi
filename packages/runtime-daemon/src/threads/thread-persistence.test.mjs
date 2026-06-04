@@ -6,12 +6,16 @@ import { test } from "node:test";
 
 import {
   appendOperationRecord,
+  ensureStateDirs,
+  loadStateRecords,
   operationCountRecord,
   removeQuietFile,
+  RUNTIME_STATE_DIRS,
   statePathFor,
   terminalEventCount,
   writeAgentRecord,
   writeRunRecord,
+  writeStateSchema,
   writeSubagentRecord,
 } from "./thread-persistence.mjs";
 
@@ -19,6 +23,16 @@ function fakeStore() {
   return {
     operations: [],
     stateDir: "/runtime-state",
+    agents: new Map(),
+    codingArtifacts: new Map(),
+    modelMounting: {
+      writeSchemaRelationSchemas() {
+        return { modelRoutes: ["id", "providerId"] };
+      },
+    },
+    registeredEvents: [],
+    runs: new Map(),
+    schemaVersion: "ioi.agentgres.runtime.v0",
     subagents: new Map(),
     writes: [],
     appendOperation(kind, payload) {
@@ -32,6 +46,9 @@ function fakeStore() {
     },
     pathFor(...segments) {
       return segments.join("/");
+    },
+    registerRuntimeEvent(record) {
+      this.registeredEvents.push(record);
     },
   };
 }
@@ -140,6 +157,76 @@ test("thread persistence owns operation log paths, counts, digest records, and q
   assert.equal(fs.existsSync(temporaryFile), false);
 
   fs.rmSync(stateDir, { recursive: true, force: true });
+});
+
+test("thread persistence ensures canonical state directories", () => {
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-thread-dirs-"));
+  const store = { stateDir };
+
+  ensureStateDirs(store);
+
+  assert.equal(RUNTIME_STATE_DIRS.includes("agents"), true);
+  assert.equal(RUNTIME_STATE_DIRS.includes("events"), true);
+  assert.equal(fs.existsSync(path.join(stateDir, "agents")), true);
+  assert.equal(fs.existsSync(path.join(stateDir, "events")), true);
+
+  fs.rmSync(stateDir, { recursive: true, force: true });
+});
+
+test("thread persistence writes the canonical state schema with model-mounting relations", () => {
+  const store = fakeStore();
+
+  writeStateSchema(store, deps(store));
+
+  const schemaWrite = store.writes.find((write) => write.filePath === "schema.json");
+  assert.equal(schemaWrite.value.schemaVersion, "ioi.agentgres.runtime.v0");
+  assert.equal(schemaWrite.value.canonicalOwner, "Agentgres");
+  assert.equal(schemaWrite.value.sdkCheckpointAuthority, "cache_only");
+  assert.deepEqual(schemaWrite.value.relationSchemas.runs, ["id", "agentId", "status", "objective", "mode", "createdAt", "updatedAt"]);
+  assert.deepEqual(schemaWrite.value.relationSchemas.modelRoutes, ["id", "providerId"]);
+});
+
+test("thread persistence loads agents, runs, subagents, coding artifacts, and replay events", () => {
+  const store = fakeStore();
+  const records = {
+    "agents/a.json": { id: "agent_1" },
+    "runs/r.json": { id: "run_1" },
+    "subagents/s.json": { subagent_id: "subagent_1" },
+    "subagents/ignored.json": { role: "anonymous" },
+    "artifacts/coding.json": { id: "artifact_1", schemaVersion: "ioi.coding-tool.artifact.v1" },
+    "artifacts/other.json": { id: "artifact_2", schemaVersion: "other" },
+  };
+  const jsonFiles = {
+    agents: ["agents/a.json"],
+    runs: ["runs/r.json"],
+    subagents: ["subagents/s.json", "subagents/ignored.json"],
+    artifacts: ["artifacts/coding.json", "artifacts/other.json"],
+  };
+
+  loadStateRecords(store, {
+    codingToolArtifactSchemaVersion: "ioi.coding-tool.artifact.v1",
+    listJson(dir) {
+      return jsonFiles[dir] ?? [];
+    },
+    listJsonl(dir) {
+      return dir === "events" ? ["events/thread.jsonl"] : [];
+    },
+    readJson(file) {
+      return records[file];
+    },
+    readJsonl(file) {
+      assert.equal(file, "events/thread.jsonl");
+      return [{ seq: 1 }, { seq: 2 }];
+    },
+  });
+
+  assert.deepEqual(store.agents.get("agent_1"), { id: "agent_1" });
+  assert.deepEqual(store.runs.get("run_1"), { id: "run_1" });
+  assert.deepEqual(store.subagents.get("subagent_1"), { subagent_id: "subagent_1" });
+  assert.equal(store.subagents.has("anonymous"), false);
+  assert.deepEqual(store.codingArtifacts.get("artifact_1"), { id: "artifact_1", schemaVersion: "ioi.coding-tool.artifact.v1" });
+  assert.equal(store.codingArtifacts.has("artifact_2"), false);
+  assert.deepEqual(store.registeredEvents, [{ seq: 1 }, { seq: 2 }]);
 });
 
 test("thread persistence writes run projections and summarized operation entry", () => {

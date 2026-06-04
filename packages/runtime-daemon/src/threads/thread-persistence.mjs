@@ -6,8 +6,113 @@ export function terminalEventCount(events = [], terminalEventTypes = new Set()) 
   return events.filter((event) => terminalEventTypes.has(event.type)).length;
 }
 
+export const RUNTIME_STATE_DIRS = [
+  "agents",
+  "runs",
+  "tasks",
+  "jobs",
+  "checklists",
+  "artifacts",
+  "conversation-artifacts",
+  "receipts",
+  "quality",
+  "policy-decisions",
+  "authority-decisions",
+  "stop-conditions",
+  "scorecards",
+  "ledgers",
+  "projections",
+  "model-artifacts",
+  "model-endpoints",
+  "model-instances",
+  "model-routes",
+  "model-providers",
+  "model-downloads",
+  "tokens",
+  "mcp-servers",
+  "memory-records",
+  "memory-policies",
+  "subagents",
+  "events",
+];
+
 export function statePathFor(store, ...segments) {
   return path.join(store.stateDir, ...segments);
+}
+
+export function ensureStateDirs(store, dirs = RUNTIME_STATE_DIRS) {
+  for (const dir of dirs) {
+    fs.mkdirSync(statePathFor(store, dir), { recursive: true });
+  }
+}
+
+export function writeStateSchema(store, deps = {}) {
+  const { writeJson } = deps;
+  writeJson(store.pathFor("schema.json"), {
+    schemaVersion: store.schemaVersion,
+    relationSchemas: {
+      runs: ["id", "agentId", "status", "objective", "mode", "createdAt", "updatedAt"],
+      tasks: ["runId", "currentObjective", "facts", "constraints", "evidenceRefs"],
+      jobs: ["jobId", "taskId", "runId", "agentId", "status", "createdAt", "updatedAt"],
+      checklists: ["checklistId", "taskId", "jobId", "runId", "status", "itemCount", "completedItemCount"],
+      artifacts: ["id", "runId", "name", "mediaType", "redaction", "receiptId"],
+      conversationArtifacts: ["id", "threadId", "artifactClass", "status", "latestRevisionId"],
+      receipts: ["id", "runId", "kind", "summary", "redaction", "evidenceRefs"],
+      memoryRecords: ["id", "scope", "threadId", "agentId", "workspace", "createdAt"],
+      memoryPolicies: ["id", "targetType", "targetId", "disabled", "readOnly", "writeRequiresApproval", "updatedAt"],
+      subagents: ["subagentId", "parentThreadId", "agentId", "role", "status", "runId", "updatedAt"],
+      runtimeEvents: [
+        "event_stream_id",
+        "seq",
+        "idempotency_key",
+        "thread_id",
+        "turn_id",
+        "item_id",
+        "event_kind",
+        "created_at",
+      ],
+      quality: ["runId", "scorecard", "qualityLedger", "stopCondition"],
+      operationLog: ["sequence", "operationId", "kind", "objectId", "createdAt", "digest"],
+      ...store.modelMounting.writeSchemaRelationSchemas(),
+    },
+    canonicalOwner: "Agentgres",
+    sdkCheckpointAuthority: "cache_only",
+  });
+}
+
+export function loadStateRecords(store, deps = {}) {
+  const {
+    codingToolArtifactSchemaVersion,
+    listJson,
+    listJsonl,
+    readJson,
+    readJsonl,
+  } = deps;
+  for (const file of listJson(store.pathFor("agents"))) {
+    const agent = readJson(file);
+    store.agents.set(agent.id, agent);
+  }
+  for (const file of listJson(store.pathFor("runs"))) {
+    const run = readJson(file);
+    store.runs.set(run.id, run);
+  }
+  for (const file of listJson(store.pathFor("subagents"))) {
+    const subagent = readJson(file);
+    const subagentId = subagent.subagent_id ?? subagent.subagentId ?? subagent.agent_id ?? subagent.agentId;
+    if (subagentId) store.subagents.set(String(subagentId), subagent);
+  }
+  for (const file of listJson(store.pathFor("artifacts"))) {
+    const artifactRecord = readJson(file);
+    const schemaVersion = artifactRecord.schema_version ?? artifactRecord.schemaVersion;
+    if (schemaVersion === codingToolArtifactSchemaVersion && artifactRecord.id) {
+      store.codingArtifacts.set(artifactRecord.id, artifactRecord);
+    }
+  }
+  for (const file of listJsonl(store.pathFor("events"))) {
+    for (const record of readJsonl(file)) {
+      store.registerRuntimeEvent(record);
+    }
+  }
 }
 
 export function operationCountRecord(store) {
