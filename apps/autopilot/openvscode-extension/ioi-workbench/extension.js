@@ -11,17 +11,7 @@ const {
   requestJson,
 } = require("./bridge/client");
 const { createWorkspaceBridge } = require("./bridge/workspace-bridge");
-const { registerChatCommands } = require("./commands/chat");
-const { registerMigrationCommands } = require("./commands/migration");
-const { createModelDaemonActions } = require("./commands/model-daemon-actions");
-const { registerModelCommands } = require("./commands/models");
-const { registerNavigationCommands } = require("./commands/navigation");
-const { registerQuickInputCommands } = require("./commands/quick-input");
-const { registerRuntimeSurfaceCommands } = require("./commands/runtime-surfaces");
-const { registerStudioModeControlCommands } = require("./commands/studio-mode-controls");
-const { registerStudioQuickInputCommands } = require("./commands/studio-quick-input");
-const { registerStudioTestHookCommands } = require("./commands/studio-test-hooks");
-const { registerWorkflowCommands } = require("./commands/workflow");
+const { createNativeCommandRegistrar } = require("./commands/native");
 const {
   buildWorkspaceActionContext: buildWorkspaceActionContextFromWorkbench,
 } = require("./workbench/action-context");
@@ -5484,187 +5474,7 @@ function updateOverviewPanelHtml(state) {
   overviewPanel.webview.html = html;
 }
 
-const {
-  pickPayloadString,
-  runDaemonModelCatalogDownload,
-  runDaemonModelCatalogProviderConfig,
-  runDaemonModelCatalogSearch,
-  runDaemonModelWorkbenchAction,
-} = createModelDaemonActions({
-  daemonEndpoint,
-  daemonToken,
-  requestJson,
-});
-
-function registerNativeCommands(context, output) {
-  ensureStudioDiffProvider(context);
-  const status = (message) =>
-    vscode.window.setStatusBarMessage(`$(symbol-keyword) ${message}`, 3000);
-  const pickString = (value, key) => {
-    if (typeof value === "string") {
-      return value;
-    }
-    if (value && typeof value === "object" && typeof value[key] === "string") {
-      return value[key];
-    }
-    return null;
-  };
-
-  registerMigrationCommands({
-    context,
-    output,
-    vscode,
-    buildWorkspaceActionContext,
-    writeBridgeRequest,
-    workspaceSummary,
-    status,
-  });
-  registerQuickInputCommands({
-    context,
-    output,
-    vscode,
-    buildWorkspaceActionContext,
-    writeBridgeRequest,
-    status,
-  });
-
-  context.subscriptions.push(
-    ...registerStudioModeControlCommands({
-      vscode,
-      output,
-      status,
-      buildWorkspaceActionContext,
-      writeBridgeRequest,
-      studioRuntimeProjection,
-      studioPermissionModeOptions,
-      studioExecutionModeLabel,
-      studioPermissionModeLabel,
-      applyStudioAgentModeSelection,
-      applyStudioPermissionModeSelection,
-      refreshStudioPanelHtml: () => refreshStudioPanelHtml(output),
-      focusStudioPanelComposer,
-    }),
-    ...registerNavigationCommands({
-      vscode,
-      output,
-      status,
-      buildWorkspaceActionContext,
-      writeBridgeRequest,
-      workspaceSummary,
-      pickString,
-      autopilotModeById: AUTOPILOT_MODE_BY_ID,
-      getLastAutopilotModeBeforeCode: () => autopilotModeController.lastModeBeforeCode(),
-      getStudioPanel: () => studioPanel,
-      enterHome: () => enterAutopilotMode("home", output),
-      enterStudio: () => enterAutopilotMode("studio", output),
-      enterCode: () => enterAutopilotMode("code", output),
-      enterMode: (modeId) => enterAutopilotMode(modeId, output),
-      openOverviewPanel: () => openOverviewPanel(context, output),
-      openStudioPanel: () => openStudioPanel(context, output),
-      openGenericModePanel: (modeId) => openGenericModePanel(context, output, modeId),
-      closePrimarySidebarAfterActivityLaunch,
-    }),
-    ...registerStudioTestHookCommands({
-      vscode,
-      output,
-      status,
-      enterStudio: () => enterAutopilotMode("studio", output),
-      openStudioPanel: () => openStudioPanel(context, output),
-      refreshStudioPanelHtml: () => refreshStudioPanelHtml(output),
-      buildWorkspaceActionContext,
-      writeBridgeRequest,
-      applyStudioAgentTurnEvents,
-      firstArray,
-      stringValue,
-      normalizeReceiptRefs,
-      studioRuntimeProjection,
-      refreshStudioReplayStepsFromProjection,
-      exerciseStudioPolicyLeaseLifecycle,
-      exerciseStudioSessionBrainLifecycle,
-      exerciseStudioTrajectoryReplayReconnect,
-      exerciseStudioManagedSessionReconnect,
-      exerciseStudioStage2WebRepairLoop,
-      exerciseStudioStage5StopHookRepairLoop,
-      exerciseStudioStage5StopCancelRecoverLifecycle,
-      exerciseStudioStage7DelegationLifecycle,
-    }),
-    ...registerStudioQuickInputCommands({
-      vscode,
-      output,
-      status,
-      buildWorkspaceActionContext,
-      writeBridgeRequest,
-      readBridgeState,
-      studioContextQuickPickItems,
-      studioToolQuickPickItems,
-    }),
-    ...registerChatCommands({
-      vscode,
-      output,
-      status,
-      buildWorkspaceActionContext,
-      writeBridgeRequest,
-      workspaceSummary,
-      pickString,
-      getStudioPanel: () => studioPanel,
-      startNewStudioSession,
-      refreshStudioPanelHtml: () => refreshStudioPanelHtml(output),
-      focusStudioPanelComposer,
-    }),
-    ...registerWorkflowCommands({
-      crypto,
-      vscode,
-      status,
-      buildWorkspaceActionContext,
-      writeBridgeRequest,
-      workspaceSummary,
-      pickString,
-      enterWorkflows: () => enterAutopilotMode("workflows", output),
-      openWorkflowComposerPanel: (options = {}) => openWorkflowComposerPanel(context, output, options),
-      closePrimarySidebarAfterActivityLaunch,
-      buildRuntimeRefs,
-    }),
-    ...registerModelCommands({
-      vscode,
-      status,
-      buildWorkspaceActionContext,
-      writeBridgeRequest,
-      workspaceSummary,
-      pickString,
-      pickPayloadString,
-      daemonEndpoint,
-      enterModels: () => enterAutopilotMode("models", output),
-      enterWorkflows: () => enterAutopilotMode("workflows", output),
-      openModelsPanel: (options = {}) => openModelsPanel(context, output, options),
-      openWorkflowComposerPanel: (options = {}) => openWorkflowComposerPanel(context, output, options),
-      closePrimarySidebarAfterActivityLaunch,
-      runDaemonModelWorkbenchAction,
-      runDaemonModelCatalogSearch,
-      runDaemonModelCatalogProviderConfig,
-      runDaemonModelCatalogDownload,
-    }),
-    ...registerRuntimeSurfaceCommands({
-      vscode,
-      output,
-      status,
-      buildWorkspaceActionContext,
-      writeBridgeRequest,
-      workspaceSummary,
-      pickString,
-      getActiveTraceTarget: () => activeTraceTarget,
-      setActiveTraceTarget: (traceTarget) => {
-        activeTraceTarget = traceTarget;
-      },
-      enterRuns: () => enterAutopilotMode("runs", output),
-      enterPolicy: () => enterAutopilotMode("policy", output),
-      enterConnectors: () => enterAutopilotMode("connectors", output),
-      openGenericModePanel: (modeId) => openGenericModePanel(context, output, modeId),
-      closePrimarySidebarAfterActivityLaunch,
-    }),
-  );
-
-  output.appendLine("Registered IOI runtime bridge commands.");
-}
+const registerNativeCommands = createNativeCommandRegistrar();
 
 function activate(context) {
   const output = vscode.window.createOutputChannel("IOI Workbench");
@@ -5719,7 +5529,58 @@ function activate(context) {
     }),
   );
 
-  registerNativeCommands(context, output);
+  registerNativeCommands({
+    context,
+    output,
+    vscode,
+    daemonEndpoint,
+    daemonToken,
+    requestJson,
+    ensureStudioDiffProvider,
+    buildWorkspaceActionContext,
+    writeBridgeRequest,
+    workspaceSummary,
+    studioRuntimeProjection,
+    studioPermissionModeOptions,
+    studioExecutionModeLabel,
+    studioPermissionModeLabel,
+    applyStudioAgentModeSelection,
+    applyStudioPermissionModeSelection,
+    refreshStudioPanelHtml: () => refreshStudioPanelHtml(output),
+    focusStudioPanelComposer,
+    autopilotModeById: AUTOPILOT_MODE_BY_ID,
+    getLastAutopilotModeBeforeCode: () => autopilotModeController.lastModeBeforeCode(),
+    getStudioPanel: () => studioPanel,
+    enterAutopilotMode,
+    openOverviewPanel: () => openOverviewPanel(context, output),
+    openStudioPanel: () => openStudioPanel(context, output),
+    openGenericModePanel: (modeId) => openGenericModePanel(context, output, modeId),
+    closePrimarySidebarAfterActivityLaunch,
+    applyStudioAgentTurnEvents,
+    firstArray,
+    stringValue,
+    normalizeReceiptRefs,
+    refreshStudioReplayStepsFromProjection,
+    exerciseStudioPolicyLeaseLifecycle,
+    exerciseStudioSessionBrainLifecycle,
+    exerciseStudioTrajectoryReplayReconnect,
+    exerciseStudioManagedSessionReconnect,
+    exerciseStudioStage2WebRepairLoop,
+    exerciseStudioStage5StopHookRepairLoop,
+    exerciseStudioStage5StopCancelRecoverLifecycle,
+    exerciseStudioStage7DelegationLifecycle,
+    readBridgeState,
+    studioContextQuickPickItems,
+    studioToolQuickPickItems,
+    startNewStudioSession,
+    openWorkflowComposerPanel: (options = {}) => openWorkflowComposerPanel(context, output, options),
+    buildRuntimeRefs,
+    openModelsPanel: (options = {}) => openModelsPanel(context, output, options),
+    getActiveTraceTarget: () => activeTraceTarget,
+    setActiveTraceTarget: (traceTarget) => {
+      activeTraceTarget = traceTarget;
+    },
+  });
   if (process.env.AUTOPILOT_SKIP_OVERVIEW !== "1") {
     setTimeout(() => {
       void vscode.commands.executeCommand("ioi.overview.open", {

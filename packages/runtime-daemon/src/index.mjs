@@ -123,10 +123,7 @@ import {
 } from "./workspace-restore.mjs";
 import {
   redactRuntimeNodeForDoctor,
-  runtimeAccount,
-  runtimeNodes,
   runtimeToolRegistryGovernanceMetadata,
-  runtimeTools,
 } from "./runtime-tool-catalog.mjs";
 import {
   RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION,
@@ -205,6 +202,7 @@ import { createRuntimeEventEnvelopeHelpers } from "./runtime-event-envelopes.mjs
 import { createRuntimeEventPayloadHelpers } from "./runtime-event-payloads.mjs";
 import { createRuntimeCodingToolResultHelpers } from "./runtime-coding-tool-results.mjs";
 import { createRuntimeDoctorReport } from "./runtime-doctor-report.mjs";
+import { createRuntimeToolSurface } from "./runtime-tool-surface.mjs";
 import {
   appendOperatorControl,
   booleanValue,
@@ -880,6 +878,7 @@ export class AgentgresRuntimeStateStore {
       redactRuntimeNodeForDoctor,
     });
     this.repositorySurface = createRuntimeRepositorySurface();
+    this.toolSurface = createRuntimeToolSurface();
     this.threadTurnProjection = createThreadTurnProjection({
       eventStreamIdForThread,
       fixtureProfileForAgent,
@@ -6402,17 +6401,15 @@ export class AgentgresRuntimeStateStore {
   }
 
   getAccount() {
-    return runtimeAccount(process.env);
+    return this.toolSurface.getAccount();
   }
 
   listRuntimeNodes() {
-    return runtimeNodes(process.env);
+    return this.toolSurface.listRuntimeNodes();
   }
 
   listTools(options = {}) {
-    return runtimeTools(options, {
-      codingToolContracts,
-    });
+    return this.toolSurface.listTools(options);
   }
 
   invokeComputerUseBrowserDiscoveryTool(threadId, toolId, request = {}) {

@@ -167,6 +167,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Moved Agent Studio webview panel creation/reuse/disposal and webview message routing out of `extension.js` while preserving existing local Studio projection state and public bridge request envelopes.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/overview-panel-lifecycle.js`.
 - Moved Autopilot Overview panel creation/reuse/disposal and webview bridge/command message routing out of `extension.js`; reordered panel lifecycle composition so shared workbench visibility helpers are initialized before panel managers, and promoted the local `uniqueStrings` helper to avoid composition-time dependency cycles.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/native.js`.
+- Moved native command registration composition out of `extension.js` while preserving public command ids, bridge envelopes, mode navigation callbacks, test-hook registration, model daemon action wiring, and the final runtime bridge registration notice.
+- Added focused native command registrar tests for command-group ordering, shared dependency wiring, status callbacks, mode navigation, model daemon actions, and `pickString` compatibility behavior.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/prompt-policy.js`.
 - Moved Studio prompt/model policy helpers for whitespace compaction, auto-model selector detection, local-workspace prompt detection, harness-probe exclusion, retrieval routing, and workspace-context routing out of `extension.js`.
 - Added focused prompt-policy tests for whitespace/model selector normalization, workspace-vs-external retrieval decisions, Ask/Agent workspace context gating, and internal harness probe suppression.
@@ -378,6 +381,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/runtime-repository-surface.mjs`.
 - Moved public repository, branch-policy, GitHub context, PR attempt, issue context, review gate, and PR-create-plan surface methods out of `index.mjs` behind `AgentgresRuntimeStateStore` compatibility delegates while preserving read-only projection dependencies and workspace-root scoping.
 - Added focused repository-surface tests for projection delegation, workflow projection factory wiring, dependency injection, and store cwd propagation.
+- Added `packages/runtime-daemon/src/runtime-tool-surface.mjs`.
+- Moved public account, runtime-node, and governed tool-catalog surface methods out of `index.mjs` behind `AgentgresRuntimeStateStore` compatibility delegates while preserving env-backed account/node projection and coding-tool catalog injection.
+- Added focused runtime-tool-surface tests for env propagation, node/account delegation, tool options, and coding-contract handoff.
 - Added `packages/runtime-daemon/src/runtime-identifiers.mjs`.
 - Moved runtime thread/agent/run/turn/session id derivation, runtime-backed agent detection, fixture profile defaults, and lifecycle/thread status normalization out of `index.mjs`.
 - Added focused runtime identifier tests for prefix compatibility, event stream ids, runtime session fallback, fixture profile override/null preservation, runtime profile detection, and lifecycle status aliases.
