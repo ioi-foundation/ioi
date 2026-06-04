@@ -81,6 +81,7 @@ const { createStudioResponseMetrics } = require("./studio/response-metrics");
 const { createStudioSourceChipRenderer } = require("./studio/source-chip-renderer");
 const { createStudioCodeExecution } = require("./studio/code-execution");
 const { createStudioChatOutputRenderers } = require("./studio/chat-output-renderers");
+const { createStudioParityPlusPanels } = require("./studio/parity-plus-panels");
 const {
   STUDIO_TRAJECTORY_REPLAY_SIDE_EFFECT_KEY,
   createStudioDurabilityPanels,
@@ -1284,6 +1285,15 @@ const {
   normalizeReceiptRefs,
   studioVerifiedBadge,
 });
+const {
+  studioParityPlusPanelRows: studioParityPlusPanelRowsFromRenderer,
+} = createStudioParityPlusPanels({
+  escapeHtml,
+  firstArray,
+  stringValue,
+  studioTraceLink,
+  studioVerifiedBadge,
+});
 
 function studioIcon(name) {
   const icons = {
@@ -1798,239 +1808,8 @@ function studioCompactRuntimeStatusRows() {
   return `<section class="studio-compact-runtime-list" data-testid="studio-actionable-runtime-state">${rows.join("")}</section>`;
 }
 
-function studioSessionBrainArtifactRows(panel = {}) {
-  const rows = firstArray(panel.rows).slice(0, 8);
-  if (rows.length === 0) {
-    return '<ul class="studio-session-brain-artifacts"><li data-testid="studio-session-brain-artifact-row" data-brain-artifact-kind="pending">Run brain artifacts pending replay.</li></ul>';
-  }
-  return `
-    <ul class="studio-session-brain-artifacts">
-      ${rows.map((row) => `
-        <li
-          data-testid="studio-session-brain-artifact-row"
-          data-brain-artifact-kind="${escapeHtml(row.artifactKind || "artifact")}"
-          data-brain-artifact-status="${escapeHtml(row.status || "present")}"
-        >
-          <strong>${escapeHtml(row.label || row.artifactKind || "Run brain artifact")}</strong>
-          <span>${escapeHtml(row.preview || row.status || "")}</span>
-          ${studioVerifiedBadge(row)}
-        </li>
-      `).join("")}
-    </ul>
-  `;
-}
-
-function studioTrajectoryReplayRows(panel = {}) {
-  const rows = firstArray(panel.rows).slice(0, 8);
-  if (rows.length === 0) {
-    return '<ul class="studio-trajectory-replay-steps"><li data-testid="studio-trajectory-replay-step-row" data-trajectory-step-kind="pending">Trajectory replay steps pending.</li></ul>';
-  }
-  return `
-    <ul class="studio-trajectory-replay-steps">
-      ${rows.map((row) => `
-        <li
-          data-testid="studio-trajectory-replay-step-row"
-          data-trajectory-step-kind="${escapeHtml(row.kind || "runtime.event")}"
-          data-trajectory-step-status="${escapeHtml(row.status || "observed")}"
-        >
-          <strong>${escapeHtml(row.kind || "runtime.event")}</strong>
-          <code>${escapeHtml(row.id || "trajectory-replay-step")}</code>
-          <span>${escapeHtml(row.summary || row.status || "")}</span>
-          ${studioVerifiedBadge(row)}
-        </li>
-      `).join("")}
-    </ul>
-  `;
-}
-
 function studioParityPlusPanelRows() {
-  const panelSpecs = [
-    {
-      testId: "studio-engine-reconnect-banner",
-      title: "Engine reconnect",
-      kind: "engine.reconnect",
-      item: firstArray(studioRuntimeProjection.engineReconnectBanners).at(-1),
-      defaultStatus: "idle",
-      defaultDetail: "Heartbeat and composer freeze state.",
-    },
-    {
-      testId: "studio-trajectory-replay-panel",
-      title: "Trajectory replay",
-      kind: "trajectory.replay",
-      item: firstArray(studioRuntimeProjection.trajectoryReplayPanels).at(-1),
-      defaultStatus: "pending",
-      defaultDetail: "Durable trajectory replay and reconnect state.",
-    },
-    {
-      testId: "studio-session-brain-panel",
-      title: "Run brain",
-      kind: "session.brain",
-      item: firstArray(studioRuntimeProjection.sessionBrainPanels).at(-1),
-      defaultStatus: "pending",
-      defaultDetail: "Plan, task checklist, walkthrough, scratch refs, artifact refs, and replay cursor.",
-    },
-    {
-      testId: "studio-chat-responsibility-contract",
-      title: "Chat responsibility",
-      kind: "chat.responsibility",
-      item: firstArray(studioRuntimeProjection.chatResponsibilityContracts).at(-1),
-      defaultStatus: "ready",
-      defaultDetail: "Ask stays direct; Agent replies through the assistant channel.",
-    },
-    {
-      testId: "studio-engine-guard-security-scan",
-      title: "Engine Guard",
-      kind: "engine.guard.security",
-      item: firstArray(studioRuntimeProjection.securityScanPanels).at(-1),
-      defaultStatus: "pending",
-      defaultDetail: "Security findings block merge until clean.",
-    },
-    {
-      testId: "studio-worker-contribution-trace",
-      title: "Worker trace",
-      kind: "worker.contribution",
-      item: firstArray(studioRuntimeProjection.workerContributionTraces).at(-1),
-      defaultStatus: "pending",
-      defaultDetail: "Worker output is linked to file hunks.",
-    },
-    {
-      testId: "studio-safe-mode-tool-suppression",
-      title: "Safe Mode",
-      kind: "safe_mode.tool_suppression",
-      item: firstArray(studioRuntimeProjection.safeModeToolSuppressionPanels).at(-1),
-      defaultStatus: "safe_mode",
-      defaultDetail: "Ask stays available while Agent tools are suppressed.",
-    },
-    {
-      testId: "studio-onboarding-diagnostics-checklist",
-      title: "Onboarding diagnostics",
-      kind: "onboarding.diagnostics",
-      item: firstArray(studioRuntimeProjection.onboardingDiagnosticsPanels).at(-1),
-      defaultStatus: "needs_setup",
-      defaultDetail: "Local prerequisite checklist.",
-    },
-    {
-      testId: "studio-gateway-token-hygiene",
-      title: "Gateway token hygiene",
-      kind: "gateway.token_hygiene",
-      item: firstArray(studioRuntimeProjection.gatewayTokenHygienePanels).at(-1),
-      defaultStatus: "ready",
-      defaultDetail: "Gateway calls are redacted dry-run plans.",
-    },
-    {
-      testId: "studio-sandbox-resource-limits",
-      title: "Sandbox resources",
-      kind: "sandbox.resource_limits",
-      item: firstArray(studioRuntimeProjection.sandboxResourceLimitPanels).at(-1),
-      defaultStatus: "blocked",
-      defaultDetail: "Command resource limits are enforced before execution.",
-    },
-    {
-      testId: "studio-imported-parent-trajectory-linkage",
-      title: "Imported parent links",
-      kind: "imported.parent_trajectory_linkage",
-      item: firstArray(studioRuntimeProjection.parentTrajectoryLinkagePanels).at(-1),
-      defaultStatus: "needs_review",
-      defaultDetail: "Parent/child trajectory links are audit-only.",
-    },
-    {
-      testId: "studio-imported-battle-mode-permission",
-      title: "Imported permissions",
-      kind: "imported.battle_mode_permission",
-      item: firstArray(studioRuntimeProjection.battleModePermissionImportPanels).at(-1),
-      defaultStatus: "blocked",
-      defaultDetail: "Historical permission rows do not grant IOI authority.",
-    },
-    {
-      testId: "studio-imported-stop-hook-gates",
-      title: "Imported stop hooks",
-      kind: "imported.stop_hook_gates",
-      item: firstArray(studioRuntimeProjection.importedStopHookGatePanels).at(-1),
-      defaultStatus: "needs_review",
-      defaultDetail: "Historical stop-hook rows require live verification.",
-    },
-    {
-      testId: "studio-imported-browser-action-evidence",
-      title: "Imported browser evidence",
-      kind: "imported.browser_action_evidence",
-      item: firstArray(studioRuntimeProjection.importedBrowserActionEvidencePanels).at(-1),
-      defaultStatus: "needs_review",
-      defaultDetail: "Historical browser actions require fresh observation.",
-    },
-    {
-      testId: "studio-imported-executor-config",
-      title: "Imported executor config",
-      kind: "imported.executor_config",
-      item: firstArray(studioRuntimeProjection.importedExecutorConfigPanels).at(-1),
-      defaultStatus: "needs_review",
-      defaultDetail: "Executor metadata is advisory-only.",
-    },
-    {
-      testId: "studio-imported-policy-draft",
-      title: "Imported policy draft",
-      kind: "imported.policy_draft",
-      item: firstArray(studioRuntimeProjection.importedPolicyDraftPanels).at(-1),
-      defaultStatus: "needs_review",
-      defaultDetail: "Executor hints become draft-only policy.",
-    },
-    {
-      testId: "studio-imported-generation-metadata",
-      title: "Imported generation metadata",
-      kind: "imported.generation_metadata",
-      item: firstArray(studioRuntimeProjection.importedGenerationMetadataPanels).at(-1),
-      defaultStatus: "blocked",
-      defaultDetail: "Prompts and reasoning are retained only as redacted summaries.",
-    },
-    {
-      testId: "studio-imported-error-render-info",
-      title: "Imported error/render info",
-      kind: "imported.error_render_info",
-      item: firstArray(studioRuntimeProjection.importedErrorRenderInfoPanels).at(-1),
-      defaultStatus: "blocked",
-      defaultDetail: "Stacks and render payloads stay out of replay UI.",
-    },
-  ];
-  const rows = panelSpecs.map((spec) => {
-    const item = spec.item && typeof spec.item === "object" ? spec.item : {};
-    const status = stringValue(item.status || item.state, spec.defaultStatus);
-    const detail = stringValue(item.bannerLabel || item.detail || item.mergeBlockReason || item.summary, spec.defaultDetail);
-    const sessionBrainAttrs = spec.kind === "session.brain"
-      ? [
-          ["data-brain-implementation-plan-observed", item.hasImplementationPlan === true],
-          ["data-brain-task-checklist-observed", item.hasTaskChecklist === true],
-          ["data-brain-walkthrough-observed", item.hasWalkthrough === true],
-          ["data-brain-scratch-refs-observed", item.hasScratchRefs === true],
-          ["data-brain-artifact-refs-observed", item.hasArtifactRefs === true],
-          ["data-brain-replay-cursor-observed", item.hasReplayCursor === true],
-          ["data-brain-outside-workspace", item.brainOutsideWorkspace === true],
-          ["data-brain-read-only-audit-mode", item.readOnlyAuditMode === true],
-        ].map(([name, value]) => ` ${name}="${value ? "true" : "false"}"`).join("")
-      : "";
-    const trajectoryReplayAttrs = spec.kind === "trajectory.replay"
-      ? [
-          ["data-trajectory-id-stable", item.trajectoryIdStable === true],
-          ["data-trajectory-replay-cursor-observed", item.replayCursorObserved === true],
-          ["data-trajectory-gui-reconnected", item.guiReconnected === true],
-          ["data-trajectory-replay-ids-stable", item.replayIdsStable === true],
-          ["data-trajectory-replay-from-cursor-empty", item.replayFromCursorEmpty === true],
-          ["data-trajectory-side-effect-count", Number(item.sideEffectCount || 0)],
-          ["data-trajectory-duplicate-side-effect-count", Number(item.duplicateSideEffectCount || 0)],
-        ].map(([name, value]) => ` ${name}="${escapeHtml(String(value))}"`).join("")
-      : "";
-    const sessionBrainBody = spec.kind === "session.brain" ? studioSessionBrainArtifactRows(item) : "";
-    const trajectoryReplayBody = spec.kind === "trajectory.replay" ? studioTrajectoryReplayRows(item) : "";
-    return `
-      <article class="studio-cockpit-card" data-testid="${escapeHtml(spec.testId)}" data-panel-kind="${escapeHtml(spec.kind)}" data-panel-status="${escapeHtml(status)}"${sessionBrainAttrs}${trajectoryReplayAttrs}>
-        <strong>${escapeHtml(spec.title)}</strong>
-        <span>${escapeHtml(detail)}</span>
-        ${trajectoryReplayBody}
-        ${sessionBrainBody}
-        ${studioVerifiedBadge(item)}
-        ${studioTraceLink({ ...item, kind: spec.kind })}
-      </article>
-    `;
-  });
-  return rows.join("");
+  return studioParityPlusPanelRowsFromRenderer(studioRuntimeProjection);
 }
 
 const {
