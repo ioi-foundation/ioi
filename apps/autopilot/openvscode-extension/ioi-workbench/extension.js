@@ -751,12 +751,8 @@ function studioTextContainsProductFixtureMarker(text = "") {
 const {
   STUDIO_RUNTIME_VISIBILITY,
   classifyStudioRuntimeEvent,
-  studioFocusedTraceTarget,
-  studioTraceCommandAttr,
-  studioTraceItems,
+  renderRunsView,
   studioTraceLink,
-  studioTraceStepId,
-  studioTraceTarget,
 } = createStudioTraceView({
   commandPayloadAttr,
   crypto,
@@ -2416,100 +2412,6 @@ function renderModelsView(state) {
   return `
     <section data-inspection-target="ioi-models-view">
       ${renderModelsPanelBody(state, { compact: true })}
-    </section>
-  `;
-}
-
-function renderRunsView(state) {
-  const { target, focused, items } = studioFocusedTraceTarget();
-  const runs = firstArray(state.runs);
-  const timelineItems = [
-    ...runs.map((run) => ({
-      stepId: studioTraceStepId("run", run.runId || run.id),
-      title: run.label || run.runId || "Runtime run",
-      summary: run.summary || run.currentStepLabel || "Runtime run projected by IOI daemon.",
-      status: run.status || "observed",
-      kind: "run",
-      receiptRefs: normalizeReceiptRefs(run),
-    })),
-    ...items.filter((item) => item.visibility !== STUDIO_RUNTIME_VISIBILITY.debugOnly),
-  ];
-  const receiptItems = items.filter((item) => item.receiptRefs.length > 0 || /receipt/i.test(item.kind));
-  const replayItems = items.filter((item) => /replay|timeline|turn|stream/i.test(item.kind));
-  const policyItems = items.filter((item) => /policy|approval|lease/.test(item.kind));
-  const commandItems = items.filter((item) => /command|diagnostic|test|tool/.test(item.kind));
-  const traceRow = (item, testId = "tracing-timeline-step") => `
-    <li data-testid="${escapeHtml(testId)}" data-trace-step-id="${escapeHtml(item.stepId)}"${item.stepId === target.stepId ? ' class="is-focused"' : ""}>
-      <span class="status-pill">${escapeHtml(item.status || "observed")}</span>
-      <strong>${escapeHtml(item.title || item.kind || "Trace step")}</strong>
-      <span>${escapeHtml(item.summary || "")}</span>
-      <code>${escapeHtml(item.receiptRefs?.join(" · ") || item.id || item.stepId)}</code>
-    </li>
-  `;
-  const fallback = (label) => `<li class="tracing-empty"><span>${escapeHtml(label)}</span></li>`;
-  return `
-    <section
-      class="tracing-surface"
-      data-testid="tracing-surface"
-      data-runtime-authority="daemon-owned"
-      data-focused-trace-step="${escapeHtml(target.stepId || "")}"
-      data-tracing-separation-achieved="true"
-    >
-      <header class="tracing-header">
-        <div>
-          <p class="eyebrow">Runs / Tracing</p>
-          <h2>Runtime evidence console</h2>
-          <p>Receipts, replay, policy internals, command logs, model metadata, worker/browser status, and proof export live here instead of crowding Agent Studio.</p>
-        </div>
-        <div class="tracing-header__actions">
-          ${renderCommandButton({ label: "Back to Studio", command: "ioi.studio.open", payload: { source: "tracing" } })}
-          ${renderCommandButton({ label: "Refresh tracing", command: "ioi.runs.refresh" })}
-        </div>
-      </header>
-      <section class="tracing-focused-step" data-testid="tracing-focused-step">
-        <p class="eyebrow">Focused trace step</p>
-        <h3>${escapeHtml(focused?.title || target.kind || "Current Studio session")}</h3>
-        <p>${escapeHtml(focused?.summary || "Opened from Agent Studio View Trace affordance.")}</p>
-        <dl>
-          <div><dt>Session</dt><dd>${escapeHtml(target.sessionId || "studio-session-current")}</dd></div>
-          <div><dt>Step</dt><dd>${escapeHtml(target.stepId || "current")}</dd></div>
-          <div><dt>Kind</dt><dd>${escapeHtml(focused?.kind || target.kind || "session.summary")}</dd></div>
-          <div><dt>Receipts</dt><dd><code>${escapeHtml((focused?.receiptRefs?.length ? focused.receiptRefs : target.receiptRefs || []).join(" · ") || "pending daemon receipt")}</code></dd></div>
-        </dl>
-      </section>
-      <div class="tracing-grid">
-        <section class="tracing-panel tracing-panel--wide" data-testid="tracing-timeline">
-          <h3>Timeline</h3>
-          <ol>${timelineItems.length ? timelineItems.slice(-18).map((item) => traceRow(item)).join("") : fallback("No runtime timeline is projected yet.")}</ol>
-        </section>
-        <section class="tracing-panel" data-testid="tracing-receipt-detail">
-          <h3>Receipts</h3>
-          <ol>${receiptItems.length ? receiptItems.slice(-12).map((item) => traceRow(item, "tracing-receipt-step")).join("") : fallback("No daemon receipts projected yet.")}</ol>
-        </section>
-        <section class="tracing-panel" data-testid="tracing-replay-step">
-          <h3>Replay</h3>
-          <ol>${replayItems.length ? replayItems.slice(-12).map((item) => traceRow(item, "tracing-replay-row")).join("") : fallback("Replay steps appear when daemon events are observed.")}</ol>
-        </section>
-        <section class="tracing-panel" data-testid="tracing-policy-detail">
-          <h3>Policy</h3>
-          <ol>${policyItems.length ? policyItems.slice(-10).map((item) => traceRow(item, "tracing-policy-row")).join("") : fallback("No blocking policy lease is active.")}</ol>
-        </section>
-        <section class="tracing-panel" data-testid="tracing-command-log-detail">
-          <h3>Commands / Tests / Tools</h3>
-          <ol>${commandItems.length ? commandItems.slice(-10).map((item) => traceRow(item, "tracing-command-row")).join("") : fallback("No daemon command or test log is projected yet.")}</ol>
-        </section>
-        <section class="tracing-panel tracing-panel--wide" data-testid="tracing-proof-export">
-          <h3>Proof bundle posture</h3>
-          <p>Model prose is never accepted as runtime proof. Verified badges require daemon receipt refs; full proof export is assembled from this trace surface.</p>
-          <code>${escapeHtml(JSON.stringify({
-            modelProseNotAcceptedAsRuntimeTruth: true,
-            verifiedBadgesRequireReceiptRefs: true,
-            projectionOwner: "ioi-workbench",
-            runtimeAuthority: "daemon-owned",
-            externalConnectorAction: false,
-          }, null, 2))}</code>
-        </section>
-      </div>
     </section>
   `;
 }

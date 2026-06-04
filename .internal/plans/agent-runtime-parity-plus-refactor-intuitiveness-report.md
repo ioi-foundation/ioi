@@ -90,7 +90,8 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added focused overview-view tests for tone classes, escaping, and command payload affordances.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/trace-view.js`.
 - Moved Studio trace visibility classification, trace target/link construction, trace item flattening, and focused trace selection out of `extension.js`.
-- Added focused trace-view tests for visibility classes, daemon trace payload affordances, projection flattening, and receipt-based focus fallback.
+- Moved Runs/Tracing evidence-console rendering, focused trace panels, proof-export posture, and trace row bucketing out of `extension.js`.
+- Added focused trace-view tests for visibility classes, daemon trace payload affordances, projection flattening, receipt-based focus fallback, and rendered tracing-surface separation.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/view-helpers.js`.
 - Moved shared view helpers for relative time labels, command payload attributes, command buttons, item stacks, runtime summary strips, and bridge diagnostics out of `extension.js`.
 - Added focused view-helper tests for compact time labels, payload escaping, command affordances, item stacks, runtime summary rows, and diagnostics escaping.

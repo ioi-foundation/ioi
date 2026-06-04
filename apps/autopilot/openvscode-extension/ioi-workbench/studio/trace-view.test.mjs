@@ -130,3 +130,50 @@ test("trace items flatten projection rows and focus by receipt fallback", () => 
   assert.equal(focused.focused.id, "cmd-1");
   assert.equal(focused.target.receiptRefs[0], "receipt-cmd");
 });
+
+test("runs trace view renders focused evidence console and proof posture", () => {
+  const trace = createTraceView({
+    activeTraceTarget: {
+      sessionId: "session-1",
+      stepId: "receipt.receipt-1",
+      kind: "receipt",
+      receiptRefs: ["receipt-1"],
+    },
+    projection: {
+      receipts: [{
+        id: "receipt-1",
+        kind: "receipt",
+        title: "Receipt <one>",
+        summary: "Verified & replayable",
+        status: "ready",
+        receiptRefs: ["receipt-1"],
+      }],
+      replaySteps: [{
+        id: "replay-1",
+        kind: "replay.step",
+        title: "Replay",
+        summary: "Turn replayed",
+        status: "ready",
+      }],
+      runtimeEvents: [{
+        id: "debug-1",
+        kind: "raw.debug",
+        title: "Debug only",
+      }],
+    },
+  });
+
+  const html = trace.renderRunsView({
+    runs: [{ runId: "run-1", label: "Run <one>", status: "running", receiptRefs: ["run-receipt"] }],
+  });
+
+  assert.match(html, /data-testid="tracing-surface"/);
+  assert.match(html, /data-tracing-separation-achieved="true"/);
+  assert.match(html, /data-command="ioi\.studio\.open"/);
+  assert.match(html, /data-command="ioi\.runs\.refresh"/);
+  assert.match(html, /Receipt &lt;one&gt;/);
+  assert.match(html, /Verified &amp; replayable/);
+  assert.match(html, /Run &lt;one&gt;/);
+  assert.match(html, /tracing-proof-export/);
+  assert.doesNotMatch(html, /Debug only/);
+});
