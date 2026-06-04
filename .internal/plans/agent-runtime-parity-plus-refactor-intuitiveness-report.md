@@ -127,6 +127,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/overview-panel.js`.
 - Moved Autopilot Overview panel HTML, overview status projection, command affordance layout, CSP nonce usage, and daemon-owned console copy out of `extension.js`; `extension.js` retains only nonce lifecycle and panel wiring.
 - Added focused overview-panel tests for nonce wiring, daemon-owned attributes, command/data-payload affordances, workspace/item escaping, disconnected daemon fallback, connector readiness, receipt posture, and policy issue projection.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/workflow-composer-panel.js`.
+- Moved Workflow Composer webview HTML, workflow asset URI construction, composer CSP, daemon initial-state serialization, and shell-header embedding out of `extension.js`; `extension.js` retains only panel lifecycle and message handling.
+- Added focused workflow-composer panel tests for asset URI construction, nonce/CSP handling, daemon connect-source escaping, shell-header preservation, daemon-owned initial state, and `<` escaping inside serialized bootstrap state.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.

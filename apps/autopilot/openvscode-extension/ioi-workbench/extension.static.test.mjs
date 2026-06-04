@@ -15,6 +15,8 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/workbench/code-mode-panel.js",
   overviewPanel:
     "apps/autopilot/openvscode-extension/ioi-workbench/workbench/overview-panel.js",
+  workflowComposerPanel:
+    "apps/autopilot/openvscode-extension/ioi-workbench/workbench/workflow-composer-panel.js",
   panel: "apps/autopilot/openvscode-extension/ioi-workbench/studio/studio-panel-html.js",
   styles: "apps/autopilot/openvscode-extension/ioi-workbench/studio/studio-panel-styles.js",
   modelSurface: "apps/autopilot/openvscode-extension/ioi-workbench/studio/model-surface.js",
@@ -115,6 +117,7 @@ async function readStudioComposite() {
       paths.workbenchContextSnapshot,
       paths.codeModePanel,
       paths.overviewPanel,
+      paths.workflowComposerPanel,
       paths.panel,
       paths.styles,
       paths.modelSurface,
