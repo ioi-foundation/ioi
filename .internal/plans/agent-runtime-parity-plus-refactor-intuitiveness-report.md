@@ -249,6 +249,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/runtime-request-metadata.mjs`.
 - Moved request base URL, runtime event cursor parsing, usage request metadata projection, and usage metadata application out of `index.mjs`.
 - Passed `RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION` into the helper explicitly so the module stays decoupled from the daemon constants bundle.
+- Added `packages/runtime-daemon/src/runtime-doctor-report.mjs`.
+- Moved runtime doctor/readiness report projection out of `index.mjs` behind the existing `doctorReport()` compatibility method while preserving required and optional check semantics, doctor-safe endpoint redaction, provider-key reporting, model/MCP/memory projections, and workflow readiness fields.
+- Added focused runtime-doctor-report tests for ready/degraded redacted reports and blocked required path failures.
 - Added `packages/runtime-daemon/src/threads/thread-runtime-controls.mjs`.
 - Moved thread mode/approval normalization, initial and normalized runtime controls, request control injection, model-control update shaping, model policy/workflow context projection, reasoning-effort normalization, and model route receipt binding out of `index.mjs`.
 - Added `packages/runtime-daemon/src/threads/model-route-selection.mjs`.
@@ -602,6 +605,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
   - `model-mounting/conversation-operations`
   - `model-mounting/state-accessors`
   - `model-mounting/backend-registry-state`
+  - `runtime-doctor-report`
   - `runtime-run-cancellation`
   - `threads/model-route-selection`
   - `threads/run-memory-resolution`
