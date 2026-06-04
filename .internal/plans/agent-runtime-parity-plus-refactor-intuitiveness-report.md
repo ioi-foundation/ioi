@@ -221,6 +221,8 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Extended `apps/autopilot/openvscode-extension/ioi-workbench/studio/policy-lease-lifecycle.js`.
 - Moved the simple request-and-deny policy lease helper behind the policy lease lifecycle module while preserving the existing `extension.js` compatibility wrapper, daemon approval/decision envelopes, projection flags, receipt projection, timeline copy, and output copy.
 - Added focused policy-lease lifecycle tests for request-and-deny route shaping, token usage, approval turn payload propagation, projection mutation, receipt projection, timeline output, and deny copy.
+- Moved the allow/revoke/expiry live policy-lease exercise behind the same policy lease lifecycle module while preserving the `extension.js` compatibility wrapper, daemon tool/approval/revoke envelopes, dry-run mutation guard, cockpit projection flags, receipt projection, and fixture cleanup.
+- Extended focused policy-lease lifecycle tests for the full allow/revoke/expiry exercise request sequence, cockpit projection mutation, receipts, and cleanup behavior.
 - Extended `apps/autopilot/openvscode-extension/ioi-workbench/studio/durability-panels.js`.
 - Moved Studio session-brain lifecycle orchestration out of `extension.js` behind the existing compatibility wrapper while preserving daemon thread/memory/policy envelopes, replay-step projection, runtime-cockpit flags, bridge proof envelope, and product-safe run-brain artifact checks.
 - Added focused durability-panel tests for session-brain lifecycle daemon envelope shaping, memory write/policy routing, read-only late-write handling, replay-step projection, runtime-cockpit flags, and bridge proof emission.
@@ -384,6 +386,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/runtime-tool-surface.mjs`.
 - Moved public account, runtime-node, and governed tool-catalog surface methods out of `index.mjs` behind `AgentgresRuntimeStateStore` compatibility delegates while preserving env-backed account/node projection and coding-tool catalog injection.
 - Added focused runtime-tool-surface tests for env propagation, node/account delegation, tool options, and coding-contract handoff.
+- Added `packages/runtime-daemon/src/runtime-skill-hook-surface.mjs`.
+- Moved public skill/hook catalog, skill registry projection, and hook registry projection methods out of `index.mjs` behind `AgentgresRuntimeStateStore` compatibility delegates while preserving workspace/home discovery scoping, redaction, evidence refs, and skill-vs-hook source filtering.
+- Added focused runtime-skill-hook-surface tests for catalog delegation, default/explicit cwd handling, skill projection shaping, hook projection shaping, and source filtering.
 - Added `packages/runtime-daemon/src/runtime-identifiers.mjs`.
 - Moved runtime thread/agent/run/turn/session id derivation, runtime-backed agent detection, fixture profile defaults, and lifecycle/thread status normalization out of `index.mjs`.
 - Added focused runtime identifier tests for prefix compatibility, event stream ids, runtime session fallback, fixture profile override/null preservation, runtime profile detection, and lifecycle status aliases.

@@ -176,7 +176,6 @@ import {
 import { authorityEvidenceSummaryForEvents } from "./authority-evidence-summary.mjs";
 import { ConversationArtifactStore } from "./conversation-artifacts.mjs";
 import { resolveStudioIntentFrame } from "./studio-intent-frame.mjs";
-import { discoverSkillHookCatalog } from "./skill-hook-catalog.mjs";
 import {
   activeSkillHookManifestForRun,
   hookDryRunPlanForManifest,
@@ -202,6 +201,7 @@ import { createRuntimeEventEnvelopeHelpers } from "./runtime-event-envelopes.mjs
 import { createRuntimeEventPayloadHelpers } from "./runtime-event-payloads.mjs";
 import { createRuntimeCodingToolResultHelpers } from "./runtime-coding-tool-results.mjs";
 import { createRuntimeDoctorReport } from "./runtime-doctor-report.mjs";
+import { createRuntimeSkillHookSurface } from "./runtime-skill-hook-surface.mjs";
 import { createRuntimeToolSurface } from "./runtime-tool-surface.mjs";
 import {
   appendOperatorControl,
@@ -878,6 +878,10 @@ export class AgentgresRuntimeStateStore {
       redactRuntimeNodeForDoctor,
     });
     this.repositorySurface = createRuntimeRepositorySurface();
+    this.skillHookSurface = createRuntimeSkillHookSurface({
+      defaultCwd: this.defaultCwd,
+      homeDir: this.homeDir,
+    });
     this.toolSurface = createRuntimeToolSurface();
     this.threadTurnProjection = createThreadTurnProjection({
       eventStreamIdForThread,
@@ -2671,41 +2675,15 @@ export class AgentgresRuntimeStateStore {
   }
 
   skillHookCatalog({ cwd = this.defaultCwd } = {}) {
-    return discoverSkillHookCatalog({ cwd, homeDir: this.homeDir });
+    return this.skillHookSurface.skillHookCatalog({ cwd });
   }
 
   listSkills({ cwd = this.defaultCwd } = {}) {
-    const catalog = this.skillHookCatalog({ cwd });
-    return {
-      schemaVersion: "ioi.agent-runtime.skills.v1",
-      object: "ioi.agent_skill_registry_projection",
-      generatedAt: catalog.generatedAt,
-      workspace: catalog.workspace,
-      status: catalog.skillStatus,
-      skillCount: catalog.skillCount,
-      activeSkillSetHash: catalog.activeSkillSetHash,
-      sources: catalog.sources.filter((source) => source.kind === "skill_dir"),
-      skills: catalog.skills,
-      redaction: catalog.redaction,
-      evidenceRefs: ["runtime_skill_discovery", "SkillNode", "SkillPackNode"],
-    };
+    return this.skillHookSurface.listSkills({ cwd });
   }
 
   listHooks({ cwd = this.defaultCwd } = {}) {
-    const catalog = this.skillHookCatalog({ cwd });
-    return {
-      schemaVersion: "ioi.agent-runtime.hooks.v1",
-      object: "ioi.agent_hook_registry_projection",
-      generatedAt: catalog.generatedAt,
-      workspace: catalog.workspace,
-      status: catalog.hookStatus,
-      hookCount: catalog.hookCount,
-      activeHookSetHash: catalog.activeHookSetHash,
-      sources: catalog.sources.filter((source) => source.kind === "hook_file" || source.kind === "hook_dir"),
-      hooks: catalog.hooks,
-      redaction: catalog.redaction,
-      evidenceRefs: ["runtime_hook_discovery", "HookNode", "HookPolicyNode"],
-    };
+    return this.skillHookSurface.listHooks({ cwd });
   }
 
   async createTurn(threadId, request = {}) {

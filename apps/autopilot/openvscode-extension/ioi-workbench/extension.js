@@ -1,5 +1,4 @@
 const crypto = require("crypto");
-const fs = require("fs");
 const path = require("path");
 const vscode = require("vscode");
 const {
@@ -730,20 +729,23 @@ const {
 });
 
 const {
+  exerciseStudioPolicyLeaseLifecycle: exerciseStudioPolicyLeaseLifecycleFromModule,
   requestAndDenyStudioPolicyLease: requestAndDenyStudioPolicyLeaseFromModule,
-  studioPolicyLeaseLifecycleFixture,
-  studioPolicyLeaseLifecycleRows,
-  studioPolicyLeaseToolBody,
 } = createStudioPolicyLeaseLifecycle({
   STUDIO_POLICY_LEASE_ID,
+  STUDIO_MODE_AGENT,
+  STUDIO_PERMISSION_MODE_DEFAULT,
   appendStudioReceiptsFromResponse,
   appendStudioTimeline,
   daemonEndpoint,
   daemonRequestToken,
+  ensureStudioDaemonThread,
   getStudioRuntimeProjection: () => studioRuntimeProjection,
   normalizeReceiptRefs,
+  recomputeStudioRuntimeCockpitAchieved,
   requestJson,
   studioApprovalTurnPayload,
+  workspaceSummary,
 });
 
 const {
@@ -3544,226 +3546,7 @@ async function requestAndDenyStudioPolicyLease(threadId, output) {
 }
 
 async function exerciseStudioPolicyLeaseLifecycle(output) {
-  await ensureStudioDaemonThread({
-    model: studioRuntimeProjection.modelRoute || "route.local-first",
-    selectedModelId: studioRuntimeProjection.selectedModel || "auto",
-    executionMode: STUDIO_MODE_AGENT,
-    approvalMode: STUDIO_PERMISSION_MODE_DEFAULT,
-  }, output);
-  const threadId = studioRuntimeProjection.threadId;
-  if (!threadId) {
-    throw new Error("Policy lease lifecycle proof requires a daemon Studio thread.");
-  }
-  const endpoint = daemonEndpoint();
-  const fixture = studioPolicyLeaseLifecycleFixture(workspaceSummary());
-  const toolEndpoint = `/v1/threads/${encodeURIComponent(threadId)}/tools/file.apply_patch/invoke`;
-  const ttlMs = 60_000;
-  const expiryTtlMs = 1_300;
-  const base = {
-    toolCallId: "studio_policy_lease_allow_revoke",
-    ttlMs,
-    policyHash: "policy_hash_agent_studio_live_gui_allow_revoke",
-    expectedReceiptRef: "receipt_agent_studio_policy_lease_allow_revoke_expected",
-    relativePath: fixture.relativePath,
-  };
-  const expiryBase = {
-    toolCallId: "studio_policy_lease_expiry",
-    ttlMs: expiryTtlMs,
-    policyHash: "policy_hash_agent_studio_live_gui_expiry",
-    expectedReceiptRef: "receipt_agent_studio_policy_lease_expiry_expected",
-    relativePath: fixture.relativePath,
-  };
-
-  let fixtureContentAfterLifecycle = "";
-  let fixtureExistsAfterCleanup = null;
-  try {
-    const blocked = await requestJson(endpoint, toolEndpoint, {
-      method: "POST",
-      token: daemonRequestToken(),
-      payload: studioPolicyLeaseToolBody({
-        ...base,
-        idempotencyKey: "studio-policy-lease-blocked",
-      }),
-    });
-    const approved = await requestJson(
-      endpoint,
-      `/v1/threads/${encodeURIComponent(threadId)}/approvals/${encodeURIComponent(blocked.approval_id || blocked.approvalId)}/approve`,
-      {
-        method: "POST",
-        token: daemonRequestToken(),
-        payload: {
-          source: "agent_studio_runtime_cockpit",
-          workflowGraphId: "workflow.agent-studio.policy-lease-live-gui",
-          workflowNodeId: "workflow.agent-studio.policy-lease.file-apply-patch",
-          reason: "Operator allowed one Studio policy lease dry-run execution.",
-          ...studioApprovalTurnPayload(),
-        },
-      },
-    );
-    const executed = await requestJson(endpoint, toolEndpoint, {
-      method: "POST",
-      token: daemonRequestToken(),
-      payload: studioPolicyLeaseToolBody({
-        ...base,
-        idempotencyKey: "studio-policy-lease-allow-once-execute",
-        approvalId: blocked.approval_id || blocked.approvalId,
-      }),
-    });
-    const revoked = await requestJson(
-      endpoint,
-      `/v1/threads/${encodeURIComponent(threadId)}/approvals/${encodeURIComponent(blocked.approval_id || blocked.approvalId)}/revoke`,
-      {
-        method: "POST",
-        token: daemonRequestToken(),
-        payload: {
-          source: "agent_studio_runtime_cockpit",
-          workflowGraphId: "workflow.agent-studio.policy-lease-live-gui",
-          workflowNodeId: "workflow.agent-studio.policy-lease.file-apply-patch",
-          reason: "Operator revoked the Studio policy lease after one dry-run execution.",
-          ...studioApprovalTurnPayload(),
-        },
-      },
-    );
-    const blockedAfterRevoke = await requestJson(endpoint, toolEndpoint, {
-      method: "POST",
-      token: daemonRequestToken(),
-      payload: studioPolicyLeaseToolBody({
-        ...base,
-        idempotencyKey: "studio-policy-lease-after-revoke",
-        approvalId: blocked.approval_id || blocked.approvalId,
-      }),
-    });
-
-    const expiryBlocked = await requestJson(endpoint, toolEndpoint, {
-      method: "POST",
-      token: daemonRequestToken(),
-      payload: studioPolicyLeaseToolBody({
-        ...expiryBase,
-        idempotencyKey: "studio-policy-lease-expiry-blocked",
-      }),
-    });
-    const expiryApproved = await requestJson(
-      endpoint,
-      `/v1/threads/${encodeURIComponent(threadId)}/approvals/${encodeURIComponent(expiryBlocked.approval_id || expiryBlocked.approvalId)}/approve`,
-      {
-        method: "POST",
-        token: daemonRequestToken(),
-        payload: {
-          source: "agent_studio_runtime_cockpit",
-          workflowGraphId: "workflow.agent-studio.policy-lease-live-gui",
-          workflowNodeId: "workflow.agent-studio.policy-lease.file-apply-patch",
-          reason: "Operator allowed one short-lived Studio policy lease dry-run execution.",
-          ...studioApprovalTurnPayload(),
-        },
-      },
-    );
-    const expiryExecutedBefore = await requestJson(endpoint, toolEndpoint, {
-      method: "POST",
-      token: daemonRequestToken(),
-      payload: studioPolicyLeaseToolBody({
-        ...expiryBase,
-        idempotencyKey: "studio-policy-lease-before-expiry",
-        approvalId: expiryBlocked.approval_id || expiryBlocked.approvalId,
-      }),
-    });
-    const expiresAtMs = Date.parse(
-      expiryApproved?.approval_lease?.expires_at ||
-        expiryApproved?.approvalLease?.expiresAt ||
-        expiryApproved?.expires_at ||
-        expiryApproved?.expiresAt ||
-        "",
-    );
-    if (Number.isFinite(expiresAtMs)) {
-      await new Promise((resolve) => setTimeout(resolve, Math.max(0, expiresAtMs - Date.now()) + 90));
-    } else {
-      await new Promise((resolve) => setTimeout(resolve, expiryTtlMs + 120));
-    }
-    const expiryBlockedAfterExpiry = await requestJson(endpoint, toolEndpoint, {
-      method: "POST",
-      token: daemonRequestToken(),
-      payload: studioPolicyLeaseToolBody({
-        ...expiryBase,
-        idempotencyKey: "studio-policy-lease-after-expiry",
-        approvalId: expiryBlocked.approval_id || expiryBlocked.approvalId,
-      }),
-    });
-
-    fixtureContentAfterLifecycle = fs.readFileSync(fixture.absolutePath, "utf8");
-    const checks = {
-      pendingVisible: blocked?.status === "blocked" && Boolean(blocked.approval_required ?? blocked.approvalRequired),
-      allowOnceExecutes: executed?.status === "completed" && Boolean(executed?.event?.payload_summary?.approval_satisfied ?? executed?.event?.payloadSummary?.approvalSatisfied),
-      revokeInvalidatesRetry:
-        blockedAfterRevoke?.status === "blocked" &&
-        (blockedAfterRevoke?.error?.code === "coding_tool_approval_required" || Boolean(blockedAfterRevoke?.approval_required ?? blockedAfterRevoke?.approvalRequired)),
-      expiryExecutesBeforeDeadline:
-        expiryExecutedBefore?.status === "completed" &&
-        Boolean(expiryExecutedBefore?.event?.payload_summary?.approval_satisfied ?? expiryExecutedBefore?.event?.payloadSummary?.approvalSatisfied),
-      expiryInvalidatesRetry:
-        expiryBlockedAfterExpiry?.status === "blocked" &&
-        (expiryBlockedAfterExpiry?.error?.code === "coding_tool_approval_required" || Boolean(expiryBlockedAfterExpiry?.approval_required ?? expiryBlockedAfterExpiry?.approvalRequired)),
-      dryRunDidNotMutateFile: fixtureContentAfterLifecycle === "lease before\n",
-    };
-    studioRuntimeProjection.policyLeases.push(
-      ...studioPolicyLeaseLifecycleRows({
-        blocked,
-        approved,
-        executed,
-        revoked,
-        blockedAfterRevoke,
-        expiryBlocked,
-        expiryApproved,
-        expiryExecutedBefore,
-        expiryBlockedAfterExpiry,
-        ttlMs,
-        expiryTtlMs,
-      }),
-    );
-    studioRuntimeProjection.runtimeCockpit.policyLeaseDialogObserved = true;
-    studioRuntimeProjection.runtimeCockpit.policyLeaseAllowOnceObserved = checks.allowOnceExecutes;
-    studioRuntimeProjection.runtimeCockpit.policyLeaseRevokeObserved = revoked?.lease_status === "revoked" || revoked?.leaseStatus === "revoked";
-    studioRuntimeProjection.runtimeCockpit.policyLeaseExpiryObserved = checks.expiryInvalidatesRetry;
-    studioRuntimeProjection.runtimeCockpit.policyLeaseRevokedActionDidNotExecute = checks.revokeInvalidatesRetry;
-    studioRuntimeProjection.runtimeCockpit.policyLeaseExpiredActionDidNotExecute = checks.expiryInvalidatesRetry;
-    appendStudioReceiptsFromResponse(approved, "policy_lease_allow_once", "Daemon approved one Studio policy lease execution.");
-    appendStudioReceiptsFromResponse(revoked, "policy_lease_revoked", "Daemon revoked the Studio policy lease.");
-    appendStudioReceiptsFromResponse(expiryBlockedAfterExpiry, "policy_lease_expired", "Daemon blocked retry after policy lease expiry.");
-    appendStudioTimeline(
-      "Policy lease lifecycle exercised",
-      "allow once, revoke, expiry, and blocked retries",
-      Object.values(checks).every(Boolean) ? "completed" : "blocked",
-    );
-    studioRuntimeProjection.status = Object.values(checks).every(Boolean) ? "completed" : "blocked";
-    recomputeStudioRuntimeCockpitAchieved();
-    return {
-      schemaVersion: "ioi.agent-studio.policy-lease-lifecycle.v1",
-      passed: Object.values(checks).every(Boolean),
-      threadId,
-      approvalIds: {
-        allowRevoke: blocked.approval_id || blocked.approvalId || null,
-        expiry: expiryBlocked.approval_id || expiryBlocked.approvalId || null,
-      },
-      checks,
-      fixture: {
-        relativePath: fixture.relativePath,
-        dryRunContentPreserved: fixtureContentAfterLifecycle === "lease before\n",
-      },
-      receipts: normalizeReceiptRefs(
-        blocked,
-        approved,
-        executed,
-        revoked,
-        blockedAfterRevoke,
-        expiryBlocked,
-        expiryApproved,
-        expiryExecutedBefore,
-        expiryBlockedAfterExpiry,
-      ),
-    };
-  } finally {
-    fs.rmSync(fixture.fixtureRoot, { recursive: true, force: true });
-    fixtureExistsAfterCleanup = fs.existsSync(fixture.fixtureRoot);
-    output?.appendLine?.(`[ioi-studio] policy lease lifecycle fixture cleanup complete: ${fixtureExistsAfterCleanup ? "still present" : "removed"}.`);
-  }
+  return exerciseStudioPolicyLeaseLifecycleFromModule(output);
 }
 
 function refreshStudioReplayStepsFromProjection() {

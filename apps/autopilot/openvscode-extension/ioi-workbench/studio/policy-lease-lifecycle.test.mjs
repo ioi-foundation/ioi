@@ -162,3 +162,130 @@ test("request and deny policy lease preserves daemon envelopes and projection fl
   assert.deepEqual(timeline[0], ["Policy lease denied", "approval-policy-one", "blocked"]);
   assert.match(output.lines[0], /policy lease denied/);
 });
+
+test("exercise policy lease lifecycle runs allow revoke expiry proof and cleans fixture", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "policy-lease-exercise-"));
+  try {
+    const requests = [];
+    const receipts = [];
+    const timeline = [];
+    let recomputed = false;
+    const projection = {
+      modelRoute: "route.local-first",
+      selectedModel: "auto",
+      threadId: "",
+      policyLeases: [],
+      runtimeCockpit: {},
+    };
+    const nowMs = Date.now();
+    const responses = [
+      {
+        status: "blocked",
+        approval_id: "approval-allow",
+        approval_required: true,
+        receiptRefs: ["receipt-blocked"],
+      },
+      { approval_lease: { status: "active" }, receiptRefs: ["receipt-approved"] },
+      {
+        status: "completed",
+        event: { payload_summary: { approval_satisfied: true } },
+        receiptRefs: ["receipt-executed"],
+      },
+      { lease_status: "revoked", receiptRefs: ["receipt-revoked"] },
+      {
+        status: "blocked",
+        error: { code: "coding_tool_approval_required" },
+        receiptRefs: ["receipt-after-revoke"],
+      },
+      {
+        status: "blocked",
+        approvalId: "approval-expiry",
+        approvalRequired: true,
+        receiptRefs: ["receipt-expiry-blocked"],
+      },
+      {
+        approvalLease: { expiresAt: new Date(nowMs - 5).toISOString() },
+        receiptRefs: ["receipt-expiry-approved"],
+      },
+      {
+        status: "completed",
+        event: { payloadSummary: { approvalSatisfied: true } },
+        receiptRefs: ["receipt-expiry-executed"],
+      },
+      {
+        status: "blocked",
+        approvalRequired: true,
+        receiptRefs: ["receipt-after-expiry"],
+      },
+    ];
+    const lifecycle = createStudioPolicyLeaseLifecycle({
+      appendStudioReceiptsFromResponse: (...args) => receipts.push(args),
+      appendStudioTimeline: (...args) => timeline.push(args),
+      daemonEndpoint: () => "http://daemon.local",
+      daemonRequestToken: () => "token-one",
+      ensureStudioDaemonThread: async (payload) => {
+        requests.push({ route: "ensure-thread", payload });
+        projection.threadId = "thread-one";
+      },
+      getStudioRuntimeProjection: () => projection,
+      normalizeReceiptRefs,
+      recomputeStudioRuntimeCockpitAchieved: () => {
+        recomputed = true;
+      },
+      requestJson: async (endpoint, route, options) => {
+        requests.push({ endpoint, route, options });
+        const response = responses.shift();
+        assert.ok(response, `unexpected request ${route}`);
+        return response;
+      },
+      studioApprovalTurnPayload: () => ({ turn_id: "turn-one" }),
+      workspaceSummary: () => ({ path: root }),
+      now: () => nowMs,
+      processId: "test",
+      cwd: () => root,
+    });
+    const output = { lines: [], appendLine(line) { this.lines.push(line); } };
+
+    const proof = await lifecycle.exerciseStudioPolicyLeaseLifecycle(output);
+
+    assert.equal(proof.passed, true);
+    assert.equal(proof.threadId, "thread-one");
+    assert.deepEqual(proof.approvalIds, {
+      allowRevoke: "approval-allow",
+      expiry: "approval-expiry",
+    });
+    assert.equal(proof.fixture.dryRunContentPreserved, true);
+    assert.equal(fs.existsSync(path.join(root, ".tmp", "agent-studio-policy-lease-lifecycle")), true);
+    assert.match(output.lines.at(-1), /fixture cleanup complete: removed/);
+    assert.equal(projection.status, "completed");
+    assert.equal(projection.policyLeases.length, 4);
+    assert.equal(projection.runtimeCockpit.policyLeaseAllowOnceObserved, true);
+    assert.equal(projection.runtimeCockpit.policyLeaseRevokeObserved, true);
+    assert.equal(projection.runtimeCockpit.policyLeaseExpiryObserved, true);
+    assert.equal(projection.runtimeCockpit.policyLeaseRevokedActionDidNotExecute, true);
+    assert.equal(projection.runtimeCockpit.policyLeaseExpiredActionDidNotExecute, true);
+    assert.equal(recomputed, true);
+    assert.equal(receipts.length, 3);
+    assert.deepEqual(timeline.at(-1), [
+      "Policy lease lifecycle exercised",
+      "allow once, revoke, expiry, and blocked retries",
+      "completed",
+    ]);
+    assert.equal(requests.filter((request) => request.route?.endsWith("/tools/file.apply_patch/invoke")).length, 6);
+    assert.equal(requests[1].options.payload.input.dryRun, true);
+    assert.equal(requests[2].options.payload.turn_id, "turn-one");
+    assert.deepEqual(proof.receipts, [
+      "receipt-blocked",
+      "receipt-approved",
+      "receipt-executed",
+      "receipt-revoked",
+      "receipt-after-revoke",
+      "receipt-expiry-blocked",
+      "receipt-expiry-approved",
+      "receipt-expiry-executed",
+      "receipt-after-expiry",
+    ]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
