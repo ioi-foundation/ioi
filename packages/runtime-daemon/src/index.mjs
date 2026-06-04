@@ -199,6 +199,19 @@ import { createRuntimeMemoryHelpers } from "./runtime-memory-helpers.mjs";
 import { createRuntimeRunHelpers } from "./runtime-run-helpers.mjs";
 import { createRuntimeRunEventHelpers } from "./runtime-run-event-helpers.mjs";
 import { createRuntimeCodingToolResultHelpers } from "./runtime-coding-tool-results.mjs";
+import {
+  appendOperatorControl,
+  booleanValue,
+  doctorCheck,
+  doctorHash,
+  normalizeArray,
+  objectRecord,
+  operatorControlSource,
+  optionalString,
+  relativePathForWorkspace,
+  safeId,
+  uniqueStrings,
+} from "./runtime-value-helpers.mjs";
 import { startRuntimeDaemonServiceWithStore } from "./service/runtime-daemon-service.mjs";
 import {
   assertRuntimeBridgeAvailable as assertRuntimeBridgeAvailableState,
@@ -12976,18 +12989,6 @@ function nativeBrowserExecutionUnavailableFromControlledRelaunchLaunch({
   });
 }
 
-function normalizeArray(value) {
-  return Array.isArray(value) ? value.filter(Boolean) : [];
-}
-
-function objectRecord(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-}
-
-function uniqueStrings(values) {
-  return [...new Set(normalizeArray(values).map((value) => String(value)).filter(Boolean))];
-}
-
 function loadCursorCompatibilityConfig(cwd) {
   const cursorDir = path.join(cwd, ".cursor");
   const mcpPath = path.join(cursorDir, "mcp.json");
@@ -13036,16 +13037,6 @@ function memoryOptionsForRequest(request = {}) {
   };
 }
 
-function doctorCheck(id, status, required, summary, evidenceRefs = []) {
-  return {
-    id,
-    status,
-    required,
-    summary,
-    evidenceRefs: normalizeArray(evidenceRefs),
-  };
-}
-
 function doctorProviderKeyReport() {
   return [
     "OPENAI_API_KEY",
@@ -13061,15 +13052,6 @@ function doctorProviderKeyReport() {
     valueRedacted: true,
     valueHash: process.env[name] ? doctorHash(process.env[name]) : null,
   }));
-}
-
-function doctorHash(value) {
-  return crypto.createHash("sha256").update(String(value)).digest("hex");
-}
-
-function relativePathForWorkspace(filePath, workspaceRoot) {
-  const relative = path.relative(workspaceRoot, filePath);
-  return relative && !relative.startsWith("..") && !path.isAbsolute(relative) ? relative : null;
 }
 
 function subagentReceiverForRequest(request = {}) {
@@ -13998,36 +13980,6 @@ function runtimeBridgeDerivedComputerUseEvent({
     redaction_profile: "internal",
     fixture_profile: null,
   };
-}
-
-function optionalString(value) {
-  if (value === undefined || value === null) return undefined;
-  const text = String(value).trim();
-  return text ? text : undefined;
-}
-
-function booleanValue(value) {
-  if (typeof value === "boolean") return value;
-  if (typeof value === "string") {
-    if (value.toLowerCase() === "true") return true;
-    if (value.toLowerCase() === "false") return false;
-  }
-  return null;
-}
-
-function operatorControlSource(value) {
-  const source = optionalString(value);
-  return ["cli_tui", "react_flow", "sdk_client", "runtime_auto", "mcp_serve"].includes(source) ? source : "sdk_client";
-}
-
-function appendOperatorControl(controls, control) {
-  const existing = normalizeArray(controls);
-  if (existing.some((candidate) => candidate?.eventId === control.eventId)) return existing;
-  return [...existing, control];
-}
-
-function safeId(value) {
-  return String(value ?? "runtime").replace(/[^a-zA-Z0-9_.-]+/g, "_");
 }
 
 function ttiEnvelopeForRunEvent({ event, threadId, turnId, workspaceRoot }) {
