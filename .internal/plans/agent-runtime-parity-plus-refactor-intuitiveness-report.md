@@ -23,6 +23,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/public-text-sanitizer.js` for product-facing assistant/tool text sanitization.
 - Replaced remaining Studio public-text sanitizer pass-through wrappers in `extension.js` with direct destructured helpers from the sanitizer factory.
 - Replaced pure Studio work-summary and model-completion pass-through wrappers in `extension.js` with direct named helper imports/destructuring while leaving projection-aware composition local.
+- Extended `apps/autopilot/openvscode-extension/ioi-workbench/studio/model-completion.js` to own SSE payload parsing, Studio stream metadata projection, provider timing usage shaping, and daemon SSE request construction.
+- Added focused model-completion tests for SSE frame parsing, text/reasoning delta aliases, receipt de-duping, provider timing usage projection, and stop-reason propagation.
+- Hardened Studio stream receipt collection to drop absent receipt aliases before de-duping, avoiding bogus `"undefined"` receipt rows in product projection.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-state.js` for the initial Agent Studio runtime projection shape.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/migration.js` for migration-assistant command registration.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/models.js`.

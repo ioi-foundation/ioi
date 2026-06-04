@@ -1,3 +1,233 @@
+const http = require("http");
+const https = require("https");
+
+function ssePayloadsFromBlock(block) {
+  return String(block || "")
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("data:"))
+    .map((line) => line.slice("data:".length).trim())
+    .filter(Boolean);
+}
+
+function studioDeltaFromSsePayload(payload) {
+  if (!payload || typeof payload !== "object") {
+    return "";
+  }
+  const choice = payload.choices?.[0] || {};
+  if (typeof choice.delta?.content === "string") {
+    return choice.delta.content;
+  }
+  if (payload.type === "response.output_text.delta" && typeof payload.delta === "string") {
+    return payload.delta;
+  }
+  if (typeof payload.message?.content === "string") {
+    return payload.message.content;
+  }
+  if (typeof payload.response?.output_text === "string") {
+    return payload.response.output_text;
+  }
+  return "";
+}
+
+function createStudioModelStreamHelpers({
+  firstArray = (value) => (Array.isArray(value) ? value : []),
+  studioNumberOrNull = (value) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : null;
+  },
+  uniqueStrings = (values = []) => [...new Set(firstArray(values).map((value) => String(value)).filter(Boolean))],
+} = {}) {
+  function studioReasoningDeltaFromSsePayload(payload) {
+    if (!payload || typeof payload !== "object") {
+      return "";
+    }
+    const choice = payload.choices?.[0] || {};
+    const value =
+      choice.delta?.reasoning_content ||
+      choice.delta?.reasoningContent ||
+      payload.delta?.reasoning_content ||
+      payload.reasoning_delta;
+    return typeof value === "string" ? value.trim() : "";
+  }
+
+  function studioUsageFromProviderTimings(timings = {}, previousUsage = null) {
+    if (!timings || typeof timings !== "object") return previousUsage;
+    const promptTokens = studioNumberOrNull(timings.prompt_n ?? previousUsage?.prompt_tokens ?? previousUsage?.input_tokens) ?? 0;
+    const completionTokens =
+      studioNumberOrNull(timings.predicted_n ?? previousUsage?.completion_tokens ?? previousUsage?.output_tokens) ?? 0;
+    const usage = {
+      ...(previousUsage && typeof previousUsage === "object" ? previousUsage : {}),
+      prompt_tokens: promptTokens,
+      completion_tokens: completionTokens,
+      total_tokens: studioNumberOrNull(previousUsage?.total_tokens) ?? promptTokens + completionTokens,
+    };
+    const tokensPerSecond = studioNumberOrNull(timings.predicted_per_second);
+    const promptMs = studioNumberOrNull(timings.prompt_ms);
+    const completionMs = studioNumberOrNull(timings.predicted_ms);
+    if (tokensPerSecond !== null) usage.tokens_per_second = tokensPerSecond;
+    if (promptMs !== null) usage.prompt_ms = promptMs;
+    if (completionMs !== null) usage.completion_ms = completionMs;
+    if (promptMs !== null || completionMs !== null) usage.elapsed_ms = (promptMs || 0) + (completionMs || 0);
+    return usage;
+  }
+
+  function collectStudioStreamMetadata(target, payload) {
+    if (!payload || typeof payload !== "object") {
+      return;
+    }
+    const receiptCandidates = [
+      payload.receipt_id,
+      payload.receiptId,
+      payload.stream_receipt_id,
+      payload.streamReceiptId,
+      ...firstArray(payload.tool_receipt_ids),
+      ...firstArray(payload.toolReceiptIds),
+    ].filter((value) => value !== undefined && value !== null && String(value).trim());
+    for (const id of uniqueStrings(receiptCandidates)) {
+      target.receiptIds.add(id);
+    }
+    target.routeId = payload.route_id || payload.routeId || target.routeId;
+    target.model = payload.model || target.model;
+    target.providerStream = payload.provider_stream || payload.providerStream || target.providerStream;
+    target.usage = payload.usage || payload.tokenCount || payload.token_count || target.usage;
+    if (payload.timings) {
+      target.usage = studioUsageFromProviderTimings(payload.timings, target.usage);
+    }
+    target.provider = payload.provider_id || payload.providerId || payload.provider || target.provider;
+    const finishReason = payload.choices?.[0]?.finish_reason || payload.finish_reason || payload.stop_reason || payload.stopReason;
+    target.stopReason = finishReason || target.stopReason;
+  }
+
+  return {
+    collectStudioStreamMetadata,
+    studioReasoningDeltaFromSsePayload,
+    studioUsageFromProviderTimings,
+  };
+}
+
+function createStudioSseJsonRequester({
+  normalizeBaseUrl,
+  httpClient = http,
+  httpsClient = https,
+} = {}) {
+  return function requestSseJson(baseUrl, routePath, { method = "POST", payload, token, onPayload, timeoutMs = 90_000 } = {}) {
+    const base = normalizeBaseUrl(baseUrl);
+    if (!base) {
+      return Promise.reject(new Error("IOI daemon endpoint is not configured."));
+    }
+
+    const target = new URL(routePath, `${base}/`);
+    const client = target.protocol === "https:" ? httpsClient : httpClient;
+    const body = payload === undefined ? null : JSON.stringify(payload);
+
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      let request = null;
+      const wallClockTimeout = setTimeout(() => {
+        request?.destroy(new Error("Daemon stream timed out."));
+      }, timeoutMs);
+      const finishResolve = (value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(wallClockTimeout);
+        resolve(value);
+      };
+      const finishReject = (error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(wallClockTimeout);
+        reject(error);
+      };
+      request = client.request(
+        target,
+        {
+          method,
+          headers: {
+            accept: "text/event-stream",
+            ...(body
+              ? {
+                  "content-type": "application/json",
+                  "content-length": Buffer.byteLength(body),
+                }
+              : {}),
+            ...(token ? { authorization: `Bearer ${token}` } : {}),
+          },
+        },
+        (response) => {
+          let raw = "";
+          let buffer = "";
+          const statusCode = response.statusCode || 0;
+          response.on("data", (chunk) => {
+            const text = chunk.toString("utf8");
+            raw += text;
+            if (statusCode >= 400) {
+              return;
+            }
+            buffer += text;
+            const frames = buffer.split(/\r?\n\r?\n/);
+            buffer = frames.pop() || "";
+            for (const frame of frames) {
+              for (const data of ssePayloadsFromBlock(frame)) {
+                if (data === "[DONE]") {
+                  finishResolve({ statusCode, raw });
+                  request.destroy();
+                  return;
+                }
+                try {
+                  const shouldContinue = onPayload?.(JSON.parse(data), data);
+                  if (shouldContinue === false) {
+                    finishResolve({ statusCode, raw, stoppedByClient: true });
+                    request.destroy();
+                    return;
+                  }
+                } catch (error) {
+                  finishReject(error);
+                  request.destroy();
+                  return;
+                }
+              }
+            }
+          });
+          response.on("end", () => {
+            if (statusCode >= 400) {
+              finishReject(new Error(`[IOI Workbench] Daemon stream failed (${statusCode}): ${raw}`));
+              return;
+            }
+            if (buffer.trim()) {
+              try {
+                for (const data of ssePayloadsFromBlock(`${buffer}\n\n`)) {
+                  if (data !== "[DONE]") {
+                    const shouldContinue = onPayload?.(JSON.parse(data), data);
+                    if (shouldContinue === false) {
+                      finishResolve({ statusCode, raw, stoppedByClient: true });
+                      return;
+                    }
+                  } else {
+                    finishResolve({ statusCode, raw });
+                    return;
+                  }
+                }
+              } catch (error) {
+                finishReject(error);
+                return;
+              }
+            }
+            finishResolve({ statusCode, raw });
+          });
+        },
+      );
+      request.setTimeout(timeoutMs, () => {
+        request.destroy(new Error("Daemon model stream timed out."));
+      });
+      request.on("error", finishReject);
+      if (body) {
+        request.write(body);
+      }
+      request.end();
+    });
+  };
+}
+
 function createStudioModelCompletion(deps) {
   const {
     crypto,
@@ -935,4 +1165,8 @@ async function streamStudioArtifactBlockedHandoff(args, output) {
 
 module.exports = {
   createStudioModelCompletion,
+  createStudioModelStreamHelpers,
+  createStudioSseJsonRequester,
+  ssePayloadsFromBlock,
+  studioDeltaFromSsePayload,
 };
