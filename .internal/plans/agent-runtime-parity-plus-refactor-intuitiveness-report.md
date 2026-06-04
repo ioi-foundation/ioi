@@ -108,6 +108,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/parity-plus-panels.js`.
 - Moved Studio parity-plus panel shell rendering, session-brain artifact rows, trajectory replay rows, proof-critical panel attributes, trace links, and verified badge integration out of `extension.js`.
 - Added focused parity-plus panel tests for run-brain artifact fallback/rows, trajectory replay fallback/rows, proof panel data-testids, brain/replay status attributes, side-effect counts, trace links, and badge propagation.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/shell-header.js`.
+- Moved Autopilot workbench shell-header styles, posture tone mapping, native-shell gating, runtime posture chips, and mode switch action rendering out of `extension.js` while preserving existing call-site names and data-testids.
+- Added focused shell-header tests for tone mapping, native shell gating, sanitized posture rendering, command affordances, and product shell selectors.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.
@@ -456,6 +459,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
   - `studio/policy-lease-lifecycle`
   - `studio/chat-output-renderers`
   - `studio/parity-plus-panels`
+  - `workbench/shell-header`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.
