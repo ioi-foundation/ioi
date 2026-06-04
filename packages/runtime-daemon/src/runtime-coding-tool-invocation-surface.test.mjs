@@ -345,6 +345,98 @@ test("coding tool invocation surface runs file.inspect through rust workload liv
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
 });
 
+test("coding tool invocation surface runs git.diff through rust workload live path", () => {
+  const runnerCalls = [];
+  const liveRunner = {
+    backend: "rust_workload_live",
+    blocksDaemonJsExecution: true,
+    runCodingTool(input) {
+      runnerCalls.push(input);
+      return {
+        backend: "rust_workload_live",
+        mode: "live",
+        blocking: true,
+        source: "rust_workload_command",
+        invocation: {
+          schema_version: "ioi.step_module_invocation.v1",
+          invocation_id: "invocation://rust-live/git.diff",
+        },
+        result: {
+          schema_version: "ioi.step_module_result.v1",
+          invocation_id: "invocation://rust-live/git.diff",
+          status: "success",
+          execution_result_ref: "result://rust-live/git.diff",
+          normalized_observation_ref: "observation://rust-live/git.diff",
+          receipt_refs: ["receipt://rust-live/git.diff"],
+          artifact_refs: [],
+          payload_refs: [],
+          agentgres_operation_refs: [],
+          state_root_after: null,
+          resulting_head: null,
+          workflow_projection: {
+            workflow_graph_id: "graph_alpha",
+            workflow_node_id: "node_diff",
+            component_kind: "GitToolNode",
+            status: "live",
+            attempt_id: "attempt://rust-live/git.diff",
+            evidence_refs: [],
+            receipt_refs: ["receipt://rust-live/git.diff"],
+          },
+          next: {
+            model_reentry_required: false,
+            verifier_required: false,
+          },
+        },
+        bridge_result: {
+          router_admission: {
+            schema_version: "ioi.step_module_router_admission.v1",
+            backend: "workload_grpc",
+          },
+          shadow_observation: {
+            tool: "git.diff",
+            result: {
+              schemaVersion: "ioi.runtime.coding-tool-result.v1",
+              workspaceRoot: "/tmp/workspace",
+              paths: ["README.md"],
+              git: { available: true },
+              diff: "diff --git a/README.md b/README.md",
+              diffBytes: 128,
+              diffHash: "abc123",
+              truncated: false,
+              stat: " README.md | 1 +",
+              shellFallbackUsed: false,
+            },
+          },
+        },
+      };
+    },
+  };
+  const surface = createSurface({
+    stepModuleRunner: liveRunner,
+    executeCodingTool() {
+      throw new Error("daemon JS execution must not run");
+    },
+  });
+  const store = createStore();
+
+  const result = surface.invokeThreadTool(store, "thread_alpha", "git.diff", {
+    toolCallId: "tool_diff",
+    workflowGraphId: "graph_alpha",
+    workflowNodeId: "node_diff",
+    input: { path: "README.md" },
+  });
+
+  assert.equal(result.status, "completed");
+  assert.equal(runnerCalls.length, 1);
+  assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
+  assert.equal(result.result.rustWorkload, true);
+  assert.deepEqual(result.result.paths, ["README.md"]);
+  assert.equal(result.result.diffHash, "abc123");
+  assert.equal(result.step_module.backend, "rust_workload_live");
+  assert.ok(result.receipt_refs.includes("receipt://rust-live/git.diff"));
+  assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
+});
+
 test("coding tool invocation surface keeps non-migrated tools blocked in rust workload live mode", () => {
   const surface = createSurface({
     stepModuleRunner: {

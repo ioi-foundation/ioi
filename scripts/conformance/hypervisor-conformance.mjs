@@ -348,12 +348,14 @@ function runBridge() {
     exists("crates/node/src/bin/ioi-step-module-bridge.rs") &&
       exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs") &&
       /workspace\.status/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
+      /git\.diff/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
       /file\.inspect/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
       /ioi\.step_module\.command_bridge\.v1/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
       /StepModuleRouterCore/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
       /router_admission/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
       /RUST_WORKLOAD_LIVE_TOOL_IDS/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
       /workspace\.status/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
+      /git\.diff/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
       /file\.inspect/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
       /rust_workload_live/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")),
     [

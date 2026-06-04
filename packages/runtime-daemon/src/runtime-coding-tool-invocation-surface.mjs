@@ -30,7 +30,7 @@ import {
 } from "./coding-tools.mjs";
 import { createStepModuleRunnerFromEnv } from "./step-module-runner.mjs";
 
-const RUST_WORKLOAD_LIVE_TOOL_IDS = new Set(["workspace.status", "file.inspect"]);
+const RUST_WORKLOAD_LIVE_TOOL_IDS = new Set(["workspace.status", "git.diff", "file.inspect"]);
 
 export function createRuntimeCodingToolInvocationSurface(deps = {}) {
   const {

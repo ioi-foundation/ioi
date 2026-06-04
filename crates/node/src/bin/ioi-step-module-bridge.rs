@@ -11,12 +11,14 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::fs;
 use std::io::{self, Read};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
+use std::process::Command;
 
 const COMMAND_SCHEMA_VERSION: &str = "ioi.step_module.command_bridge.v1";
 const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
 const DEFAULT_PREVIEW_BYTES: u64 = 16 * 1024;
 const MAX_PREVIEW_BYTES: u64 = 64 * 1024;
+const MAX_DIFF_BYTES: u64 = 64 * 1024;
 const DEFAULT_PREVIEW_LINES: usize = 200;
 const MAX_PREVIEW_LINES: usize = 500;
 
@@ -76,6 +78,7 @@ fn run_bridge() -> Result<Value, BridgeError> {
 
     match request.invocation.module_ref.id.as_str() {
         "workspace.status" => Ok(workspace_status_shadow_response(request)),
+        "git.diff" => git_diff_response(request),
         "file.inspect" => file_inspect_response(request),
         other => Err(BridgeError::new(
             "tool_unsupported",
@@ -196,6 +199,25 @@ fn workspace_status_shadow_response(request: StepModuleBridgeRequest) -> Value {
     })
 }
 
+fn git_diff_response(request: StepModuleBridgeRequest) -> Result<Value, BridgeError> {
+    let workspace_root = request.workspace_root.clone().ok_or_else(|| {
+        BridgeError::new(
+            "workspace_root_required",
+            "workspace_root is required".to_string(),
+        )
+    })?;
+    let diff_result = inspect_git_diff(&workspace_root, &request.input)?;
+    let result = successful_step_module_result(&request, "git.diff", "GitToolNode");
+    Ok(step_module_response(
+        request,
+        result,
+        json!({
+            "tool": "git.diff",
+            "result": diff_result,
+        }),
+    ))
+}
+
 fn file_inspect_response(request: StepModuleBridgeRequest) -> Result<Value, BridgeError> {
     let workspace_root = request.workspace_root.clone().ok_or_else(|| {
         BridgeError::new(
@@ -216,15 +238,31 @@ fn file_inspect_response(request: StepModuleBridgeRequest) -> Result<Value, Brid
             )
         })?;
     let inspected = inspect_workspace_path(&workspace_root, selected_path, &request.input)?;
+    let result = successful_step_module_result(&request, "file.inspect", "FilesystemToolNode");
+    Ok(step_module_response(
+        request,
+        result,
+        json!({
+            "tool": "file.inspect",
+            "result": inspected,
+        }),
+    ))
+}
+
+fn successful_step_module_result(
+    request: &StepModuleBridgeRequest,
+    tool_id: &str,
+    component_kind: &str,
+) -> StepModuleResult {
     let invocation_id = request.invocation.invocation_id.clone();
     let suffix = short_suffix(&invocation_id);
-    let receipt_ref = format!("receipt://rust-workload/file.inspect/{suffix}");
-    let result = StepModuleResult {
+    let receipt_ref = format!("receipt://rust-workload/{tool_id}/{suffix}");
+    StepModuleResult {
         schema_version: STEP_MODULE_RESULT_SCHEMA_VERSION.to_string(),
         invocation_id,
         status: StepModuleStatus::Success,
-        execution_result_ref: format!("result://rust-workload/file.inspect/{suffix}"),
-        normalized_observation_ref: format!("observation://rust-workload/file.inspect/{suffix}"),
+        execution_result_ref: format!("result://rust-workload/{tool_id}/{suffix}"),
+        normalized_observation_ref: format!("observation://rust-workload/{tool_id}/{suffix}"),
         receipt_refs: vec![receipt_ref.clone()],
         artifact_refs: vec![],
         payload_refs: vec![],
@@ -241,26 +279,18 @@ fn file_inspect_response(request: StepModuleBridgeRequest) -> Result<Value, Brid
                 .invocation
                 .workflow_node_id
                 .clone()
-                .unwrap_or_else(|| "node:coding-tool:file.inspect".to_string()),
-            component_kind: "FilesystemToolNode".to_string(),
+                .unwrap_or_else(|| format!("node:coding-tool:{tool_id}")),
+            component_kind: component_kind.to_string(),
             status: projection_status_for_backend(&request.backend),
-            attempt_id: format!("attempt://rust-workload/file.inspect/{suffix}"),
-            evidence_refs: vec!["evidence://rust-workload/file.inspect".to_string()],
+            attempt_id: format!("attempt://rust-workload/{tool_id}/{suffix}"),
+            evidence_refs: vec![format!("evidence://rust-workload/{tool_id}")],
             receipt_refs: vec![receipt_ref],
         },
         next: StepModuleNext {
             model_reentry_required: false,
             verifier_required: false,
         },
-    };
-    Ok(step_module_response(
-        request,
-        result,
-        json!({
-            "tool": "file.inspect",
-            "result": inspected,
-        }),
-    ))
+    }
 }
 
 fn step_module_response(
@@ -329,6 +359,49 @@ fn step_module_response(
         "projection_record": projection_record,
         "shadow_observation": shadow_observation,
     })
+}
+
+fn inspect_git_diff(workspace_root: &str, input: &Value) -> Result<Value, BridgeError> {
+    let root = fs::canonicalize(workspace_root)
+        .map_err(|error| BridgeError::new("workspace_root_invalid", error.to_string()))?;
+    let paths = workspace_diff_paths(&root, input)?;
+    let max_bytes = bounded_u64(
+        input
+            .get("maxBytes")
+            .or_else(|| input.get("max_bytes"))
+            .and_then(Value::as_u64),
+        MAX_DIFF_BYTES,
+        1,
+        MAX_DIFF_BYTES,
+    ) as usize;
+    let mut diff_args = vec!["diff".to_string(), "--".to_string()];
+    diff_args.extend(paths.iter().cloned());
+    let diff_output = run_git_read_only(&root, &diff_args)?;
+    if !diff_output.ok {
+        return Err(BridgeError::new(
+            "git_diff_failed",
+            nonempty_command_error(&diff_output, "git diff failed"),
+        ));
+    }
+    let mut stat_args = vec!["diff".to_string(), "--stat".to_string(), "--".to_string()];
+    stat_args.extend(paths.iter().cloned());
+    let stat_output = run_git_read_only(&root, &stat_args)?;
+    let (diff_preview, truncated) = utf8_preview(&diff_output.stdout, max_bytes);
+    let diff_hash = ioi_crypto::algorithms::hash::sha256(diff_output.stdout.as_bytes())
+        .map(|hash| hex::encode(hash))
+        .map_err(|error| BridgeError::new("git_diff_hash_failed", error.to_string()))?;
+    Ok(json!({
+        "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
+        "workspaceRoot": workspace_root,
+        "paths": paths,
+        "git": { "available": true },
+        "diff": diff_preview,
+        "diffBytes": diff_output.stdout.len(),
+        "diffHash": diff_hash,
+        "truncated": truncated,
+        "stat": if stat_output.ok { stat_output.stdout } else { String::new() },
+        "shellFallbackUsed": false,
+    }))
 }
 
 fn inspect_workspace_path(
@@ -445,6 +518,81 @@ fn inspect_workspace_path(
     }))
 }
 
+fn workspace_diff_paths(root: &Path, input: &Value) -> Result<Vec<String>, BridgeError> {
+    let selected_paths = selected_workspace_paths(input);
+    selected_paths
+        .iter()
+        .map(|selected_path| workspace_relative_path_allow_missing(root, selected_path))
+        .collect()
+}
+
+fn selected_workspace_paths(input: &Value) -> Vec<String> {
+    let mut paths = Vec::new();
+    if let Some(values) = input.get("paths").and_then(Value::as_array) {
+        paths.extend(
+            values
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned),
+        );
+    }
+    if let Some(path) = input
+        .get("path")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        paths.push(path.to_string());
+    }
+    paths
+}
+
+fn workspace_relative_path_allow_missing(
+    root: &Path,
+    selected_path: &str,
+) -> Result<String, BridgeError> {
+    let candidate = if Path::new(selected_path).is_absolute() {
+        PathBuf::from(selected_path)
+    } else {
+        root.join(selected_path)
+    };
+    let normalized_root = normalize_path_lexically(root);
+    let normalized_candidate = normalize_path_lexically(&candidate);
+    if !normalized_candidate.starts_with(&normalized_root) {
+        return Err(BridgeError::new(
+            "path_outside_workspace",
+            "git.diff path must stay inside workspace".to_string(),
+        ));
+    }
+    if let Some(boundary) = nearest_existing_path(&normalized_candidate) {
+        let real_boundary = fs::canonicalize(&boundary)
+            .map_err(|error| BridgeError::new("path_boundary_invalid", error.to_string()))?;
+        if !real_boundary.starts_with(root) {
+            return Err(BridgeError::new(
+                "path_outside_workspace",
+                "git.diff path must stay inside workspace".to_string(),
+            ));
+        }
+    }
+    let relative = normalized_candidate
+        .strip_prefix(&normalized_root)
+        .map_err(|_| {
+            BridgeError::new(
+                "path_outside_workspace",
+                "git.diff path must stay inside workspace".to_string(),
+            )
+        })?
+        .to_string_lossy()
+        .replace('\\', "/");
+    Ok(if relative.is_empty() {
+        ".".to_string()
+    } else {
+        relative
+    })
+}
+
 fn workspace_target(root: &Path, selected_path: &str) -> Result<PathBuf, BridgeError> {
     let candidate = root.join(selected_path);
     let canonical = fs::canonicalize(&candidate)
@@ -456,6 +604,75 @@ fn workspace_target(root: &Path, selected_path: &str) -> Result<PathBuf, BridgeE
         ));
     }
     Ok(canonical)
+}
+
+fn nearest_existing_path(path: &Path) -> Option<PathBuf> {
+    let mut current = path.to_path_buf();
+    while !current.exists() {
+        if !current.pop() {
+            return None;
+        }
+    }
+    Some(current)
+}
+
+fn normalize_path_lexically(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::Prefix(prefix) => normalized.push(prefix.as_os_str()),
+            Component::RootDir => normalized.push(Path::new("/")),
+            Component::CurDir => {}
+            Component::ParentDir => {
+                normalized.pop();
+            }
+            Component::Normal(value) => normalized.push(value),
+        }
+    }
+    normalized
+}
+
+struct CommandOutput {
+    ok: bool,
+    stdout: String,
+    stderr: String,
+}
+
+fn run_git_read_only(root: &Path, args: &[String]) -> Result<CommandOutput, BridgeError> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(args)
+        .output()
+        .map_err(|error| BridgeError::new("git_spawn_failed", error.to_string()))?;
+    Ok(CommandOutput {
+        ok: output.status.success(),
+        stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+        stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+    })
+}
+
+fn nonempty_command_error(output: &CommandOutput, fallback: &str) -> String {
+    let stderr = output.stderr.trim();
+    if !stderr.is_empty() {
+        return stderr.to_string();
+    }
+    let stdout = output.stdout.trim();
+    if !stdout.is_empty() {
+        return stdout.to_string();
+    }
+    fallback.to_string()
+}
+
+fn utf8_preview(text: &str, max_bytes: usize) -> (String, bool) {
+    if text.len() <= max_bytes {
+        return (text.to_string(), false);
+    }
+    let mut end = max_bytes;
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    (text[..end].to_string(), true)
 }
 
 fn bounded_u64(value: Option<u64>, default: u64, min: u64, max: u64) -> u64 {
@@ -503,6 +720,55 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    fn git_diff_reads_bounded_workspace_diff() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir(&workspace).expect("workspace dir");
+        run_test_git(&workspace, &["init"]);
+        run_test_git(&workspace, &["config", "user.email", "test@example.com"]);
+        run_test_git(&workspace, &["config", "user.name", "IOI Test"]);
+        fs::write(workspace.join("README.md"), "before\n").expect("fixture file");
+        run_test_git(&workspace, &["add", "README.md"]);
+        run_test_git(&workspace, &["commit", "-m", "initial"]);
+        fs::write(workspace.join("README.md"), "before\nafter\n").expect("updated file");
+
+        let result = inspect_git_diff(
+            workspace.to_str().expect("utf8 path"),
+            &json!({
+                "path": "README.md",
+                "maxBytes": 4096
+            }),
+        )
+        .expect("diff result");
+
+        assert_eq!(result["schemaVersion"], CODING_TOOL_RESULT_SCHEMA_VERSION);
+        assert_eq!(result["paths"], json!(["README.md"]));
+        assert_eq!(result["git"]["available"], true);
+        assert!(result["diff"].as_str().expect("diff").contains("+after"));
+        assert!(result["stat"].as_str().expect("stat").contains("README.md"));
+        assert_eq!(result["diffHash"].as_str().expect("hash").len(), 64);
+        assert_eq!(result["truncated"], false);
+        assert_eq!(result["shellFallbackUsed"], false);
+    }
+
+    #[test]
+    fn git_diff_rejects_paths_outside_workspace() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir(&workspace).expect("workspace dir");
+
+        let error = inspect_git_diff(
+            workspace.to_str().expect("utf8 path"),
+            &json!({
+                "path": "../outside.txt"
+            }),
+        )
+        .expect_err("outside path should fail");
+
+        assert_eq!(error.code, "path_outside_workspace");
+    }
+
+    #[test]
     fn file_inspect_reads_workspace_file_preview() {
         let temp = tempfile::tempdir().expect("tempdir");
         let workspace = temp.path().join("workspace");
@@ -542,5 +808,21 @@ mod tests {
         .expect_err("outside path should fail");
 
         assert_eq!(error.code, "path_outside_workspace");
+    }
+
+    fn run_test_git(workspace: &Path, args: &[&str]) {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(workspace)
+            .args(args)
+            .output()
+            .expect("git command");
+        assert!(
+            output.status.success(),
+            "git {:?} failed: {}{}",
+            args,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
+        );
     }
 }
