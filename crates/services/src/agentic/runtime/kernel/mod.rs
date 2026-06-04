@@ -5,6 +5,7 @@
 
 pub mod agentgres_admission;
 pub mod approval;
+pub mod authority;
 pub mod capability;
 pub mod ctee;
 pub mod deadline;
@@ -29,6 +30,10 @@ use agentgres_admission::{
     AgentgresOperationProposal, StorageBackendWriteAdmissionRecord, StorageBackendWriteProposal,
 };
 use approval::{ApprovalScopeContext, AuthorityScopeMatcher, ScopeMatchDecision};
+use authority::{
+    ExternalCapabilityExitAuthorityRecord, ExternalCapabilityExitRequest, WalletAuthorityCore,
+    WalletAuthorityError,
+};
 use capability::CapabilityLeaseDecision;
 use ctee::{
     CteeNodeTrust, CteePrivateWorkspaceError, CteePrivateWorkspaceReceipt,
@@ -82,6 +87,13 @@ impl RuntimeKernelService {
             scope: scope.into(),
             reason,
         }
+    }
+
+    pub fn authorize_external_capability_exit(
+        &self,
+        request: &ExternalCapabilityExitRequest,
+    ) -> Result<ExternalCapabilityExitAuthorityRecord, WalletAuthorityError> {
+        WalletAuthorityCore.authorize_external_capability_exit(request)
     }
 
     pub fn validate_tool_invocation(
