@@ -283,9 +283,11 @@ function runAbi() {
   assertCheck(
     result,
     "step-module-invocation-schema-implemented",
-    codeCorpusContains(/ioi\.step_module_invocation\.v1|StepModuleInvocation/),
+    codeCorpusContains(/ioi\.step_module_invocation\.v1/) &&
+      codeCorpusContains(/StepModuleInvocation/) &&
+      exists("crates/services/src/agentic/runtime/kernel/step_module.rs"),
     [
-      "crates/services/src/agentic/runtime",
+      "crates/services/src/agentic/runtime/kernel/step_module.rs",
       "packages/runtime-daemon/src",
       "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
     ],
@@ -294,13 +296,32 @@ function runAbi() {
   assertCheck(
     result,
     "step-module-result-schema-implemented",
-    codeCorpusContains(/ioi\.step_module_result\.v1|StepModuleResult/),
+    codeCorpusContains(/ioi\.step_module_result\.v1/) &&
+      codeCorpusContains(/StepModuleResult/) &&
+      exists("crates/services/src/agentic/runtime/kernel/step_module.rs"),
     [
-      "crates/services/src/agentic/runtime",
+      "crates/services/src/agentic/runtime/kernel/step_module.rs",
       "packages/runtime-daemon/src",
       "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
     ],
     "Phase 1 is pending: implement StepModuleResult schema outside docs and bind observations, receipts, refs, and projections",
+  );
+  assertCheck(
+    result,
+    "js-coding-tool-abi-projection-wrapper",
+    exists("packages/runtime-daemon/src/step-module-abi.mjs") &&
+      /createCodingToolStepModuleProjection/.test(read("packages/runtime-daemon/src/step-module-abi.mjs")) &&
+      /codingToolStepModuleProjection/.test(read("packages/runtime-daemon/src/coding-tools.mjs")),
+    ["packages/runtime-daemon/src/step-module-abi.mjs", "packages/runtime-daemon/src/coding-tools.mjs"],
+    "Phase 1 is pending: JS coding tool contracts must emit Step/Module wrappers in projection mode",
+  );
+  assertCheck(
+    result,
+    "js-coding-tool-abi-coverage-test",
+    exists("packages/runtime-daemon/src/step-module-abi.test.mjs") &&
+      /every coding tool contract/.test(read("packages/runtime-daemon/src/step-module-abi.test.mjs")),
+    ["packages/runtime-daemon/src/step-module-abi.test.mjs"],
+    "Phase 1 is pending: add JS coverage proving every coding tool contract projects into the ABI",
   );
   return result;
 }
@@ -329,7 +350,7 @@ function runReceipts() {
   assertCheck(
     result,
     "receipt-binder-core",
-    codeCorpusContains(/ReceiptBinder|receipt_binder|state_root_before|state_root_after/),
+    codeCorpusContains(/ReceiptBinder|receipt_binder/),
     ["crates/services/src/agentic/runtime", "packages/runtime-daemon/src/runtime-event-envelopes.mjs"],
     "Phase 4 is pending: one Rust receipt/state-root binder must own accepted result binding",
   );
@@ -348,14 +369,14 @@ function runCtee() {
   assertCheck(
     result,
     "ctee-core-module",
-    codeCorpusContains(/private_workspace_ctee_action|PlaintextFreeRuntimeMount|ctee::|custody_proof_ref/),
+    codeCorpusContains(/CteePrivateWorkspaceRunner|PrivateWorkspaceCteeModule|ctee_private_workspace_module_path/),
     ["crates/services/src/agentic/runtime", "packages/runtime-daemon/src", "docs/architecture/components/daemon-runtime/private-workspace-ctee.md"],
     "Phase 6 is pending: cTEE private workspace action must route through the shared ABI",
   );
   assertCheck(
     result,
     "ctee-plaintext-negative-test",
-    codeCorpusContains(/plaintext mount.*untrusted|untrusted node.*plaintext|node_plaintext_allowed/),
+    codeCorpusContains(/ctee private workspace plaintext mount on an untrusted node fails|untrusted node plaintext mount fails/),
     ["crates/services/src/agentic/runtime", "packages/runtime-daemon/src", "scripts/lib"],
     "Phase 6/11 is pending: untrusted-node plaintext mount must fail closed in executable tests",
   );
@@ -367,7 +388,7 @@ function runCompositor() {
   assertCheck(
     result,
     "rust-projection-core",
-    codeCorpusContains(/StepModuleResult[\s\S]*workflow_projection|projection_watermark|ProjectionCheckpoint/),
+    codeCorpusContains(/RustProjectionCore|StepModuleProjectionRecord|workflow_projection_watermark_from_agentgres/),
     ["crates/services/src/agentic/runtime", "packages/runtime-daemon/src/runtime-event-envelopes.mjs"],
     "Phase 5 is pending: compositor projections must come from Rust projection records and Agentgres watermarks",
   );

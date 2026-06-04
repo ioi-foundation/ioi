@@ -18,6 +18,7 @@ pub mod profile;
 pub mod projection;
 pub mod scope;
 pub mod settlement;
+pub mod step_module;
 pub mod trace;
 
 use approval::{ApprovalScopeContext, AuthorityScopeMatcher, ScopeMatchDecision};
@@ -28,6 +29,7 @@ use marketplace::{MarketplaceAdmissionError, MarketplaceServiceContract};
 use plan::{validate_plan, ExecutablePlan, PlanValidationError};
 use profile::{RuntimeProfileConfig, RuntimeProfileValidator, RuntimeProfileViolation};
 use settlement::{ArtifactPromotionReceipt, PromotionValidationError, SettlementReceiptBundleV2};
+use step_module::{StepModuleInvocation, StepModuleResult, StepModuleValidationError};
 
 use ioi_types::app::ApprovalAuthority;
 
@@ -82,6 +84,20 @@ impl RuntimeKernelService {
             return Err("tool_invocation_missing_idempotency_key".to_string());
         }
         Ok(())
+    }
+
+    pub fn validate_step_module_invocation(
+        &self,
+        invocation: &StepModuleInvocation,
+    ) -> Result<(), Vec<StepModuleValidationError>> {
+        invocation.validate()
+    }
+
+    pub fn validate_step_module_result(
+        &self,
+        result: &StepModuleResult,
+    ) -> Result<(), Vec<StepModuleValidationError>> {
+        result.validate()
     }
 
     pub fn validate_receipt_manifest(

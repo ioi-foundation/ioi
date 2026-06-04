@@ -9,6 +9,7 @@ import {
   computerUseProviderRegistryReport,
   computerUseThreadToolNameForProvider,
 } from "./computer-use-provider-registry.mjs";
+import { createCodingToolStepModuleProjection } from "./step-module-abi.mjs";
 
 export const CODING_TOOL_PACK_SCHEMA_VERSION = "ioi.runtime.coding-tool-pack.v1";
 export const CODING_TOOL_RESULT_SCHEMA_VERSION = "ioi.runtime.coding-tool-result.v1";
@@ -572,6 +573,52 @@ export function codingToolInputForRequest(request = {}) {
   const input = Object.hasOwn(request, "input") ? request.input : request;
   if (!input || typeof input !== "object" || Array.isArray(input)) return {};
   return input;
+}
+
+export function codingToolStepModuleProjection(toolId, input = {}, result = {}, context = {}) {
+  const contract = codingToolContracts().find((candidate) => candidate.stableToolId === toolId);
+  if (!contract) {
+    throw codingToolError(404, "not_found", `Coding tool not found: ${toolId}`, {
+      toolId,
+      pack: CODING_TOOL_PACK_ID,
+    });
+  }
+  return createCodingToolStepModuleProjection({
+    contract,
+    toolId,
+    input,
+    result,
+    runId: context.runId ?? context.run_id,
+    taskId: context.taskId ?? context.task_id,
+    threadId: context.threadId ?? context.thread_id ?? null,
+    workflowGraphId: context.workflowGraphId ?? context.workflow_graph_id,
+    workflowNodeId: context.workflowNodeId ?? context.workflow_node_id,
+    contextChamberRef: context.contextChamberRef ?? context.context_chamber_ref ?? null,
+    actionProposalRef: context.actionProposalRef ?? context.action_proposal_ref,
+    gateResultRef: context.gateResultRef ?? context.gate_result_ref,
+    actorId: context.actorId ?? context.actor_id,
+    runtimeNodeRef: context.runtimeNodeRef ?? context.runtime_node_ref,
+    policyHash: context.policyHash ?? context.policy_hash,
+    authorityGrantRefs: context.authorityGrantRefs ?? context.authority_grant_refs ?? [],
+    approvalRef: context.approvalRef ?? context.approval_ref ?? null,
+    stateRootBefore: context.stateRootBefore ?? context.state_root_before ?? null,
+    projectionWatermark: context.projectionWatermark ?? context.projection_watermark ?? null,
+    idempotencyKey: context.idempotencyKey ?? context.idempotency_key,
+    deadlineMs: context.deadlineMs ?? context.deadline_ms,
+    status: context.status ?? "success",
+    workflowProjectionStatus: context.workflowProjectionStatus ?? context.workflow_projection_status ?? "projected",
+    executionResultRef: context.executionResultRef ?? context.execution_result_ref ?? null,
+    normalizedObservationRef: context.normalizedObservationRef ?? context.normalized_observation_ref ?? null,
+    receiptRefs: context.receiptRefs ?? context.receipt_refs ?? null,
+    artifactRefs: context.artifactRefs ?? context.artifact_refs ?? [],
+    payloadRefs: context.payloadRefs ?? context.payload_refs ?? [],
+    agentgresOperationRefs: context.agentgresOperationRefs ?? context.agentgres_operation_refs ?? [],
+    stateRootAfter: context.stateRootAfter ?? context.state_root_after ?? null,
+    resultingHead: context.resultingHead ?? context.resulting_head ?? null,
+    evidenceRefs: context.evidenceRefs ?? context.evidence_refs ?? [],
+    modelReentryRequired: context.modelReentryRequired ?? context.model_reentry_required ?? false,
+    verifierRequired: context.verifierRequired ?? context.verifier_required ?? false,
+  });
 }
 
 export function executeCodingTool(toolId, workspaceRoot, input = {}, context = {}) {
