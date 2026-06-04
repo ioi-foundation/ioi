@@ -195,6 +195,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/native-diff-preview.js`.
 - Moved Studio native diff provider registration, preview document storage, and VS Code diff opening out of `extension.js` while preserving sanitized preview URIs, inline-diff observation projection, and blocked-diff timeline/output behavior.
 - Added focused native-diff preview tests for provider content lookup, sanitized URI construction, command invocation, projection mutation, and failure reporting.
+- Extended `apps/autopilot/openvscode-extension/ioi-workbench/studio/policy-lease-lifecycle.js`.
+- Moved the simple request-and-deny policy lease helper behind the policy lease lifecycle module while preserving the existing `extension.js` compatibility wrapper, daemon approval/decision envelopes, projection flags, receipt projection, timeline copy, and output copy.
+- Added focused policy-lease lifecycle tests for request-and-deny route shaping, token usage, approval turn payload propagation, projection mutation, receipt projection, timeline output, and deny copy.
 - Extended `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-state.js`.
 - Moved Studio projection lifecycle helpers for daemon-thread reset, new-session projection, work cursor capture, and documented-work summary delegation out of `extension.js` while preserving existing call-site names and session preference carry-forward semantics.
 - Added focused projection-state lifecycle tests for daemon-thread field reset, answer-stream reset delegation, model/mode/approval preference preservation across new sessions, and work-cursor count projection.

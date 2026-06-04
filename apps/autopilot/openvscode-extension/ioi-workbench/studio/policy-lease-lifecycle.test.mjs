@@ -107,3 +107,58 @@ test("policy lease lifecycle rows cover allow once, revoke, and expiry outcomes"
     "receipt-after-expiry",
   ]);
 });
+
+test("request and deny policy lease preserves daemon envelopes and projection flags", async () => {
+  const requests = [];
+  const receipts = [];
+  const timeline = [];
+  const projection = {
+    policyLeases: [],
+    runtimeCockpit: {},
+  };
+  const lifecycle = createStudioPolicyLeaseLifecycle({
+    STUDIO_POLICY_LEASE_ID: "approval-policy-one",
+    appendStudioReceiptsFromResponse: (...args) => receipts.push(args),
+    appendStudioTimeline: (...args) => timeline.push(args),
+    daemonEndpoint: () => "http://daemon.local",
+    daemonRequestToken: () => "token-one",
+    getStudioRuntimeProjection: () => projection,
+    normalizeReceiptRefs,
+    requestJson: async (endpoint, route, options) => {
+      requests.push({ endpoint, route, options });
+      return route.endsWith("/decision")
+        ? { receiptRefs: ["receipt-decision"] }
+        : { receiptRefs: ["receipt-approval"] };
+    },
+    studioApprovalTurnPayload: () => ({
+      turn_id: "turn-one",
+      workflowGraphId: "graph-one",
+    }),
+  });
+  const output = { lines: [], appendLine(line) { this.lines.push(line); } };
+
+  await lifecycle.requestAndDenyStudioPolicyLease("thread-one", output);
+
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].endpoint, "http://daemon.local");
+  assert.equal(requests[0].route, "/v1/threads/thread-one/approvals");
+  assert.equal(requests[0].options.token, "token-one");
+  assert.equal(requests[0].options.payload.approval_id, "approval-policy-one");
+  assert.equal(requests[0].options.payload.turn_id, "turn-one");
+  assert.equal(requests[1].route, "/v1/threads/thread-one/approvals/approval-policy-one/decision");
+  assert.equal(requests[1].options.payload.decision, "reject");
+  assert.deepEqual(projection.policyLeases[0], {
+    id: "approval-policy-one",
+    title: "Permission denied",
+    status: "denied",
+    action: "shell.exec.destructive",
+    reason: "Agent asked to run an elevated action; permission was denied and the action did not run.",
+    didExecute: false,
+    receiptRefs: ["receipt-approval", "receipt-decision"],
+  });
+  assert.equal(projection.runtimeCockpit.policyLeaseDialogObserved, true);
+  assert.equal(projection.runtimeCockpit.policyDeniedActionDidNotExecute, true);
+  assert.equal(receipts.length, 2);
+  assert.deepEqual(timeline[0], ["Policy lease denied", "approval-policy-one", "blocked"]);
+  assert.match(output.lines[0], /policy lease denied/);
+});

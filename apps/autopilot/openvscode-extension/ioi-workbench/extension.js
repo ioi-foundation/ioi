@@ -672,14 +672,6 @@ const {
   studioSourceRefFromRecord,
 });
 const {
-  studioPolicyLeaseLifecycleFixture,
-  studioPolicyLeaseLifecycleRows,
-  studioPolicyLeaseToolBody,
-} = createStudioPolicyLeaseLifecycle({
-  normalizeReceiptRefs,
-});
-
-const {
   applyStudioManagedSessionInspection,
   applyStudioManagedSessionsToLatestTurn,
   exerciseStudioManagedSessionReconnect,
@@ -729,6 +721,23 @@ const {
   classifyStudioRuntimeEvent,
   getStudioRuntimeProjection: () => studioRuntimeProjection,
   normalizeReceiptRefs,
+});
+
+const {
+  requestAndDenyStudioPolicyLease: requestAndDenyStudioPolicyLeaseFromModule,
+  studioPolicyLeaseLifecycleFixture,
+  studioPolicyLeaseLifecycleRows,
+  studioPolicyLeaseToolBody,
+} = createStudioPolicyLeaseLifecycle({
+  STUDIO_POLICY_LEASE_ID,
+  appendStudioReceiptsFromResponse,
+  appendStudioTimeline,
+  daemonEndpoint,
+  daemonRequestToken,
+  getStudioRuntimeProjection: () => studioRuntimeProjection,
+  normalizeReceiptRefs,
+  requestJson,
+  studioApprovalTurnPayload,
 });
 
 const {
@@ -3398,50 +3407,7 @@ async function invokeStudioDaemonTool(threadId, toolId, input, output, options =
 }
 
 async function requestAndDenyStudioPolicyLease(threadId, output) {
-  const approval = await requestJson(daemonEndpoint(), `/v1/threads/${encodeURIComponent(threadId)}/approvals`, {
-    method: "POST",
-    token: daemonRequestToken(),
-    payload: {
-      approval_id: STUDIO_POLICY_LEASE_ID,
-      reason: "Runtime cockpit validation: destructive shell/file action must receive a policy lease before execution.",
-      action: "shell.exec.destructive",
-      tool_id: "execute",
-      effect_class: "destructive",
-      risk_domain: "workspace",
-      source: "agent_studio_runtime_cockpit",
-      ...studioApprovalTurnPayload(),
-    },
-  });
-  const decision = await requestJson(
-    daemonEndpoint(),
-    `/v1/threads/${encodeURIComponent(threadId)}/approvals/${encodeURIComponent(STUDIO_POLICY_LEASE_ID)}/decision`,
-    {
-      method: "POST",
-      token: daemonRequestToken(),
-      payload: {
-        decision: "reject",
-        source: "agent_studio_runtime_cockpit",
-        reason: "Validation denied the destructive action; execution must not occur.",
-        ...studioApprovalTurnPayload(),
-      },
-    },
-  );
-  const refs = normalizeReceiptRefs(approval, decision);
-  studioRuntimeProjection.policyLeases.push({
-    id: STUDIO_POLICY_LEASE_ID,
-    title: "Permission denied",
-    status: "denied",
-    action: "shell.exec.destructive",
-    reason: "Agent asked to run an elevated action; permission was denied and the action did not run.",
-    didExecute: false,
-    receiptRefs: refs,
-  });
-  studioRuntimeProjection.runtimeCockpit.policyLeaseDialogObserved = true;
-  studioRuntimeProjection.runtimeCockpit.policyDeniedActionDidNotExecute = true;
-  appendStudioReceiptsFromResponse(approval, "policy_lease_required", "Daemon requested policy lease for elevated action.");
-  appendStudioReceiptsFromResponse(decision, "policy_lease_denied", "Daemon denied policy lease; action did not execute.");
-  appendStudioTimeline("Policy lease denied", STUDIO_POLICY_LEASE_ID, "blocked");
-  output?.appendLine?.("[ioi-studio] policy lease denied; destructive action was not executed.");
+  return requestAndDenyStudioPolicyLeaseFromModule(threadId, output);
 }
 
 async function exerciseStudioPolicyLeaseLifecycle(output) {
