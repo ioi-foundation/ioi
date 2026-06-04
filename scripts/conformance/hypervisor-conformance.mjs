@@ -508,6 +508,9 @@ function runReceipts() {
   const modelInvocationOps = exists("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     : "";
+  const conversationOps = exists("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs")
+    : "";
   const modelMountStore = exists("packages/runtime-daemon/src/model-mounting/store.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/store.mjs")
     : "";
@@ -609,12 +612,26 @@ function runReceipts() {
     "model-mount-invocation-direct-store-append-guard",
     /assertAcceptedModelInvocationReceiptBound/.test(modelMountStore) &&
       /model_mount_invocation_receipt_direct_append_forbidden/.test(modelMountStore) &&
+      /model_invocation_stream_completed/.test(modelMountStore) &&
       /modelMountReceiptBindingRef/.test(modelMountStore) &&
       /modelMountAcceptedReceiptAppendHash/.test(modelMountStore) &&
       /modelMountAgentgresOperationRef/.test(modelMountStore) &&
       /modelMountAgentgresAdmissionHash/.test(modelMountStore),
     ["packages/runtime-daemon/src/model-mounting/store.mjs"],
     "Phase 4/11 is pending: JS model-mounting store must reject direct model invocation receipt appends without Rust receipt_binder and Agentgres admission",
+  );
+  assertCheck(
+    result,
+    "model-mount-stream-completion-receipt-binder-core",
+    /recordModelStreamCompleted/.test(conversationOps) &&
+      /model_invocation_stream_completed/.test(conversationOps) &&
+      /modelMountInvocationAdmissionRequestForReceipt/.test(conversationOps) &&
+      /modelMountInvocationAgentgresTransitionForReceipt/.test(conversationOps) &&
+      /modelMountInvocationReceiptBindingRequestForReceipt/.test(conversationOps) &&
+      /model_mount_stream_completion_receipt_binding_required/.test(conversationOps) &&
+      /withModelMountInvocationReceiptBinding/.test(conversationOps),
+    ["packages/runtime-daemon/src/model-mounting/conversation-operations.mjs"],
+    "Phase 4/9 is pending: model stream completion receipts must be Rust-bound and Agentgres-admitted before persistence",
   );
   assertCheck(
     result,

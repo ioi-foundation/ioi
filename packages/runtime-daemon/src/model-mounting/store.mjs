@@ -195,6 +195,7 @@ export class AgentgresModelMountingStore {
 const ACCEPTED_MODEL_INVOCATION_RECEIPT_KINDS = new Set([
   "model_invocation",
   "model_invocation_coalesced",
+  "model_invocation_stream_completed",
 ]);
 
 function assertAcceptedModelInvocationReceiptBound(receipt) {

@@ -557,7 +557,7 @@ export function modelMountInvocationAgentgresTransitionForReceipt(
   };
 }
 
-function withModelMountInvocationAdmission(details, admission) {
+export function withModelMountInvocationAdmission(details, admission) {
   return {
     ...details,
     modelMountInvocationAdmissionSchemaVersion: "ioi.model_mount.invocation_admission.v1",
@@ -570,7 +570,7 @@ function withModelMountInvocationAdmission(details, admission) {
   };
 }
 
-function withModelMountInvocationReceiptBinding(details, binding) {
+export function withModelMountInvocationReceiptBinding(details, binding) {
   return {
     ...details,
     modelMountReceiptBindingSource: binding.source,

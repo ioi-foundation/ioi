@@ -72,6 +72,26 @@ test("model invocation receipt writes fail closed without Rust receipt and Agent
   assert.deepEqual(appended, []);
 });
 
+test("stream completion receipt writes fail closed without Rust receipt and Agentgres admission", () => {
+  const { appended, stateDir, store } = testStore();
+
+  assert.throws(
+    () =>
+      store.writeReceipt({
+        id: "receipt.stream-direct",
+        kind: "model_invocation_stream_completed",
+        redaction: "redacted",
+        evidenceRefs: ["daemon_js_direct_write"],
+        details: {},
+      }),
+    (error) =>
+      error.code === "model_mount_invocation_receipt_direct_append_forbidden" &&
+      error.details.missing.includes("modelMountAgentgresOperationRef"),
+  );
+  assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.stream-direct.json")), false);
+  assert.deepEqual(appended, []);
+});
+
 test("model invocation receipt writes reject mismatched Agentgres operation refs", () => {
   const { appended, stateDir, store } = testStore();
   const receipt = boundModelInvocationReceipt({
