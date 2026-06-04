@@ -78,6 +78,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/native-chat-view.js`.
 - Moved native OpenVSCode chat pane icon rendering, turn normalization, conversation rendering, and chat-view rendering out of `extension.js`.
 - Added focused native chat view tests for default actions, inspection targets, escaped turns/status, configured labels, and icon fallbacks.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/tool-palette.js`.
+- Moved Agent Studio tool/context QuickPick item shaping, tool palette sections, built-in tool rows, and live/runtime catalog fallbacks out of `extension.js`.
+- Added focused tool-palette tests for row alias normalization, stable fallback sections, separator/icon projection, and context bridge request affordances.
 - Moved managed browser/computer session work-record attachment and card row rendering out of `extension.js` behind compatibility wrappers.
 - Added focused managed-session view tests for bounded session-card attachment, waiting-for-user handoff rendering, control-state data-testids, HTML escaping, and default sandbox browser state.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
