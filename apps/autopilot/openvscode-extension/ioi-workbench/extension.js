@@ -115,6 +115,7 @@ const {
 const { createNativeChatViewRenderer } = require("./studio/native-chat-view");
 const { createStudioToolPalette } = require("./studio/tool-palette");
 const { createStudioModelSelection } = require("./studio/model-selection");
+const { createStudioModelFixturePolicy } = require("./studio/model-fixture-policy");
 const { createStudioOverviewView } = require("./studio/overview-view");
 const { createStudioTraceView } = require("./studio/trace-view");
 const { createStudioViewHelpers } = require("./studio/view-helpers");
@@ -459,6 +460,15 @@ const {
 });
 
 const {
+  studioDenyFixtureModelPolicy,
+  studioFixtureModelUsageAllowed,
+  studioTextContainsProductFixtureMarker,
+} = createStudioModelFixturePolicy({
+  getEnv: (name) => process.env[name],
+  stringValue,
+});
+
+const {
   assertStudioProductModelSelector,
   isExternalStudioModelRecord,
   isFixtureStudioModelRecord,
@@ -528,33 +538,6 @@ const {
   normalizeStudioReasoningEffort,
   normalizeReceiptRefs,
 });
-
-function studioFixtureModelUsageAllowed() {
-  return /^(1|true|yes|on)$/i.test(String(process.env.IOI_STUDIO_ALLOW_FIXTURE_MODELS || process.env.IOI_STUDIO_FIXTURE_MODE || ""));
-}
-
-function studioDenyFixtureModelPolicy() {
-  return studioFixtureModelUsageAllowed()
-    ? {}
-    : {
-        deny_fixture_models: true,
-        denyFixtureModels: true,
-      };
-}
-
-function studioTextContainsProductFixtureMarker(text = "") {
-  const haystack = stringValue(text).toLowerCase();
-  return (
-    haystack.includes("ioi model router fixture response") ||
-    haystack.includes("input_hash=") ||
-    haystack.includes("autopilot:native-fixture") ||
-    haystack.includes("local:auto") ||
-    haystack.includes("stories260k") ||
-    haystack.includes("deterministic native-local model fixture") ||
-    haystack.includes("native_local.fixture") ||
-    haystack.includes("backend.fixture")
-  );
-}
 
 const {
   STUDIO_RUNTIME_VISIBILITY,

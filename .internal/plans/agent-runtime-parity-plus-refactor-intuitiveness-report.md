@@ -85,6 +85,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Moved Agent Studio product model selection filtering, fixture/external provider gates, reasoning-effort controls, output-token bounds, preferred model selection, Studio model snapshot projection, and mounted-model QuickPick rows out of `extension.js`.
 - Moved product model selection list and loaded product model instance projection out of `extension.js` so overview counts share the same model-selection policy module.
 - Added focused model-selection tests for fixture/external/embedding-only rejection, injected environment gates, reasoning/token controls, active route preference, mounted model QuickPick projection, selection de-duping, and loaded-instance filtering.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/model-fixture-policy.js`.
+- Moved Studio fixture-model environment gating, deny-fixture policy envelope shaping, and fixture-marker detection out of `extension.js` while preserving model-selection injection and artifact generation policy behavior.
+- Added focused model-fixture-policy tests for fixture env aliases, deny-policy shape, and fixture marker vocabulary.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/overview-view.js`.
 - Moved Autopilot Overview tone mapping, status pill rendering, action button rendering, and overview row rendering out of `extension.js`.
 - Added focused overview-view tests for tone classes, escaping, and command payload affordances.
