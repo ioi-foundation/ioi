@@ -75,6 +75,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/code-execution.js`.
 - Moved Studio fenced-code extraction, plan-only code execution policy classification, and chat code-execution card rendering out of `extension.js`.
 - Added focused code-execution tests for executable fence language aliases, network/host-write blocking, plan-only payload projection, disabled blocked actions, and empty non-executable turns.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/native-chat-view.js`.
+- Moved native OpenVSCode chat pane icon rendering, turn normalization, conversation rendering, and chat-view rendering out of `extension.js`.
+- Added focused native chat view tests for default actions, inspection targets, escaped turns/status, configured labels, and icon fallbacks.
 - Moved managed browser/computer session work-record attachment and card row rendering out of `extension.js` behind compatibility wrappers.
 - Added focused managed-session view tests for bounded session-card attachment, waiting-for-user handoff rendering, control-state data-testids, HTML escaping, and default sandbox browser state.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
