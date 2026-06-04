@@ -91,6 +91,7 @@ const {
 } = require("./studio/runtime-event-utils");
 const { createStudioRuntimeEventSelectors } = require("./studio/runtime-event-selectors");
 const { createStudioThreadEvents } = require("./studio/thread-events");
+const { createStudioThreadLifecycle } = require("./studio/thread-lifecycle");
 const {
   studioArtifactResearchQuery,
   studioArtifactShouldGatherResearch,
@@ -782,6 +783,7 @@ const {
 });
 
 let studioThreadEvents;
+let studioThreadLifecycle;
 
 function collectStudioAgentEventsFromResponse(turn = {}) {
   return studioThreadEvents.collectStudioAgentEventsFromResponse(turn);
@@ -805,6 +807,22 @@ async function fetchStudioThreadTurns(threadId, output, options = {}) {
 
 async function fetchStudioThreadTurnEvents(threadId, output, options = {}) {
   return studioThreadEvents.fetchStudioThreadTurnEvents(threadId, output, options);
+}
+
+function applyStudioAgentModeSelection(payload = {}) {
+  return studioThreadLifecycle.applyStudioAgentModeSelection(payload);
+}
+
+function studioRunResultText(payload = {}) {
+  return studioThreadLifecycle.studioRunResultText(payload);
+}
+
+async function ensureStudioDaemonThread(payload = {}, output) {
+  return studioThreadLifecycle.ensureStudioDaemonThread(payload, output);
+}
+
+async function applyStudioPermissionModeSelection(payload = {}, output) {
+  return studioThreadLifecycle.applyStudioPermissionModeSelection(payload, output);
 }
 
 const {
@@ -4388,6 +4406,28 @@ studioThreadEvents = createStudioThreadEvents({
   studioRuntimeEventKind,
 });
 
+studioThreadLifecycle = createStudioThreadLifecycle({
+  appendStudioReceipts,
+  daemonEndpoint,
+  daemonRequestToken,
+  firstArray,
+  getStudioRuntimeProjection: () => studioRuntimeProjection,
+  isAutoStudioModelSelector,
+  normalizeStudioExecutionMode,
+  normalizeStudioPermissionMode,
+  normalizeStudioReasoningEffort,
+  requestJson,
+  resetStudioDaemonThreadProjection,
+  STUDIO_AGENT_RUNTIME_PROFILE,
+  STUDIO_DIRECT_MODEL_RUNTIME_PROFILE,
+  STUDIO_MODE_AGENT,
+  studioIntentFramePayload,
+  studioPermissionDaemonMapping,
+  stringValue,
+  uniqueStrings,
+  workspaceSummary,
+});
+
 const studioAgentTurnEvents = createStudioAgentTurnEvents({ fetchStudioThreadEvents, applyStudioAgentTurnEvents, studioMaxRuntimeEventSeq, studioAssistantTextFromRuntimeToolEvents, studioAgentTurnResultText, studioRuntimeEventKind, firstArray });
 
 const {
@@ -4417,138 +4457,6 @@ const studioAgentTurnRecovery = createStudioAgentTurnRecovery({
 function studioApprovalTurnPayload() {
   const turnId = stringValue(studioRuntimeProjection.turnId);
   return turnId.startsWith("turn_") ? { turn_id: turnId } : {};
-}
-
-function applyStudioAgentModeSelection(payload = {}) {
-  const previousMode = normalizeStudioExecutionMode(studioRuntimeProjection.executionMode);
-  const previousRuntimeProfile = studioRuntimeProjection.runtimeProfile;
-  const executionMode = normalizeStudioExecutionMode(
-    payload.executionMode || payload.selectionId || payload.mode || payload.label,
-  );
-  const runtimeProfile =
-    executionMode === STUDIO_MODE_AGENT
-      ? STUDIO_AGENT_RUNTIME_PROFILE
-      : STUDIO_DIRECT_MODEL_RUNTIME_PROFILE;
-  studioRuntimeProjection.executionMode = executionMode;
-  studioRuntimeProjection.runtimeProfile = runtimeProfile;
-  if (
-    studioRuntimeProjection.threadId &&
-    (previousMode !== executionMode || previousRuntimeProfile !== runtimeProfile)
-  ) {
-    resetStudioDaemonThreadProjection();
-  }
-  return { executionMode, runtimeProfile };
-}
-
-function studioRunResultText({ prompt, run, conversation }) {
-  const assistantTurn = firstArray(conversation)
-    .slice()
-    .reverse()
-    .find((item) => String(item?.role || item?.type || "").toLowerCase() === "assistant");
-  const content =
-    assistantTurn?.content ||
-    assistantTurn?.text ||
-    assistantTurn?.message ||
-    run?.result ||
-    run?.output ||
-    null;
-  if (content) {
-    return String(content);
-  }
-  return `Daemon turn completed for: ${prompt}`;
-}
-
-async function ensureStudioDaemonThread({ model = "route.local-first", selectedModelId = "auto", executionMode = studioRuntimeProjection.executionMode, reasoningEffort = studioRuntimeProjection.reasoningEffort || "none", approvalMode = studioRuntimeProjection.approvalMode, intentFrame = null } = {}, output) {
-  const endpoint = daemonEndpoint();
-  if (!endpoint) {
-    throw new Error("IOI daemon endpoint is not configured.");
-  }
-  const normalizedMode = normalizeStudioExecutionMode(executionMode);
-  const permissionMapping = studioPermissionDaemonMapping(approvalMode);
-  const runtimeProfile = normalizedMode === STUDIO_MODE_AGENT
-    ? STUDIO_AGENT_RUNTIME_PROFILE
-    : STUDIO_DIRECT_MODEL_RUNTIME_PROFILE;
-  if (
-    studioRuntimeProjection.threadId &&
-    studioRuntimeProjection.executionMode &&
-    normalizeStudioExecutionMode(studioRuntimeProjection.executionMode) !== normalizedMode
-  ) {
-    resetStudioDaemonThreadProjection();
-  }
-  if (
-    studioRuntimeProjection.threadId &&
-    studioRuntimeProjection.runtimeProfile &&
-    studioRuntimeProjection.runtimeProfile !== runtimeProfile
-  ) {
-    resetStudioDaemonThreadProjection();
-  }
-  if (studioRuntimeProjection.threadId) {
-    return studioRuntimeProjection;
-  }
-  const workspace = workspaceSummary();
-  const thread = await requestJson(endpoint, "/v1/threads", {
-    method: "POST",
-    token: daemonRequestToken(),
-      payload: {
-        mode: normalizedMode === STUDIO_MODE_AGENT ? permissionMapping.threadMode : STUDIO_MODE_AGENT,
-        threadMode: normalizedMode === STUDIO_MODE_AGENT ? permissionMapping.threadMode : STUDIO_MODE_AGENT,
-        thread_mode: normalizedMode === STUDIO_MODE_AGENT ? permissionMapping.threadMode : STUDIO_MODE_AGENT,
-        approvalMode: permissionMapping.approvalMode,
-        approval_mode: permissionMapping.approvalMode,
-        runtime_profile: normalizedMode === STUDIO_MODE_AGENT ? STUDIO_AGENT_RUNTIME_PROFILE : "fixture",
-        runtimeProfile: normalizedMode === STUDIO_MODE_AGENT ? STUDIO_AGENT_RUNTIME_PROFILE : "fixture",
-        options: {
-          mode: normalizedMode === STUDIO_MODE_AGENT ? permissionMapping.threadMode : STUDIO_MODE_AGENT,
-          threadMode: normalizedMode === STUDIO_MODE_AGENT ? permissionMapping.threadMode : STUDIO_MODE_AGENT,
-          thread_mode: normalizedMode === STUDIO_MODE_AGENT ? permissionMapping.threadMode : STUDIO_MODE_AGENT,
-          approvalMode: permissionMapping.approvalMode,
-          approval_mode: permissionMapping.approvalMode,
-          runtime_profile: normalizedMode === STUDIO_MODE_AGENT ? STUDIO_AGENT_RUNTIME_PROFILE : "fixture",
-          runtimeProfile: normalizedMode === STUDIO_MODE_AGENT ? STUDIO_AGENT_RUNTIME_PROFILE : "fixture",
-          local: {
-            cwd: workspace.path,
-          },
-          model: {
-            id: isAutoStudioModelSelector(selectedModelId) ? "auto" : selectedModelId,
-            routeId: model || "route.local-first",
-            reasoningEffort: normalizeStudioReasoningEffort(reasoningEffort, "none"),
-          },
-          ...(intentFrame ? { intentFrame: studioIntentFramePayload(intentFrame) } : {}),
-          source: normalizedMode === STUDIO_MODE_AGENT ? "agent-studio-agent-mode" : "agent-studio-ask-mode",
-        },
-      },
-    });
-  studioRuntimeProjection.threadId = thread?.thread_id || thread?.threadId || null;
-  studioRuntimeProjection.sessionId =
-    thread?.session_id || thread?.sessionId || studioRuntimeProjection.threadId || null;
-  studioRuntimeProjection.modelRoute = thread?.model_route_id || thread?.modelRouteId || model;
-  studioRuntimeProjection.selectedModel = thread?.selected_model || thread?.selectedModel || "auto";
-  studioRuntimeProjection.reasoningEffort = normalizeStudioReasoningEffort(reasoningEffort, "none");
-  studioRuntimeProjection.approvalMode = permissionMapping.approvalMode;
-  studioRuntimeProjection.executionMode = normalizedMode;
-  studioRuntimeProjection.runtimeProfile = runtimeProfile;
-  studioRuntimeProjection.status = "active";
-  studioRuntimeProjection.history = [
-    {
-      id: studioRuntimeProjection.threadId || "studio-thread",
-      title: "Daemon Studio session",
-      status: thread?.status || "active",
-    },
-  ];
-  studioRuntimeProjection.timeline.push({
-    label: "Daemon session created",
-    detail: studioRuntimeProjection.threadId || "thread pending",
-    status: "completed",
-  });
-  appendStudioReceipts(
-    uniqueStrings([thread?.model_route_receipt_id, thread?.modelRouteReceiptId]).map((id) => ({
-      id,
-      kind: "model_route",
-      summary: "Daemon selected the Studio model route.",
-    })),
-  );
-  output?.appendLine?.(`[ioi-studio] daemon session ready: ${studioRuntimeProjection.threadId}`);
-  return studioRuntimeProjection;
 }
 
 async function submitStudioAgentTurn({
@@ -4918,36 +4826,6 @@ async function submitStudioAgentTurn({
     status: finalStatus,
     approvalPause: false,
   };
-}
-
-async function applyStudioPermissionModeSelection(payload = {}, output) {
-  const approvalMode = normalizeStudioPermissionMode(
-    payload.approvalMode || payload.approval_mode || payload.selectionId || payload.mode || payload.label,
-  );
-  const mapping = studioPermissionDaemonMapping(approvalMode);
-  studioRuntimeProjection.approvalMode = approvalMode;
-  if (!studioRuntimeProjection.threadId) {
-    return mapping;
-  }
-  try {
-    await requestJson(
-      daemonEndpoint(),
-      `/v1/threads/${encodeURIComponent(studioRuntimeProjection.threadId)}/mode`,
-      {
-        method: "POST",
-        token: daemonRequestToken(),
-        payload: {
-          ...mapping,
-          mode: mapping.threadMode,
-          value: mapping.threadMode,
-          source: "agent-studio-permissions-menu",
-        },
-      },
-    );
-  } catch (error) {
-    output?.appendLine?.(`[ioi-studio] permission mode update unavailable: ${error?.message || String(error)}`);
-  }
-  return mapping;
 }
 
 async function submitStudioPrompt(payload = {}, output) {

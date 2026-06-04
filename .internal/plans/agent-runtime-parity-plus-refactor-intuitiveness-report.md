@@ -131,6 +131,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/thread-events.js`.
 - Moved Studio daemon thread event collection, runtime-event de-duping, max-seq calculation, SSE event fetch, turn fetch, and turn-scoped event expansion out of `extension.js` behind compatibility wrappers.
 - Added focused thread-event tests for response alias collection, event identity de-duping, terminal SSE stop behavior, turn-scoped expansion, and product-safe fetch failure handling.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/thread-lifecycle.js`.
+- Moved Studio daemon thread lifecycle helpers out of `extension.js` behind compatibility wrappers: Agent/Ask mode profile switching, run-result fallback text, daemon thread creation/projection, and permission-mode updates.
+- Added focused thread-lifecycle tests for incompatible-thread reset behavior, thread creation request envelope/projection, route receipt propagation, permission-mode update payload/error reporting, and assistant-result fallback text.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/shell-header.js`.
 - Moved Autopilot workbench shell-header styles, posture tone mapping, native-shell gating, runtime posture chips, and mode switch action rendering out of `extension.js` while preserving existing call-site names and data-testids.
 - Added focused shell-header tests for tone mapping, native shell gating, sanitized posture rendering, command affordances, and product shell selectors.
@@ -596,6 +599,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
   - `studio/stage7-delegation-lifecycle`
   - `studio/runtime-cockpit-lifecycle`
   - `studio/thread-events`
+  - `studio/thread-lifecycle`
   - `workbench/shell-header`
   - `workbench/mode-body-renderers`
   - `workbench/model-snapshot`

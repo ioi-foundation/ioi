@@ -46,6 +46,8 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/runtime-event-selectors.js",
   threadEvents:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/thread-events.js",
+  threadLifecycle:
+    "apps/autopilot/openvscode-extension/ioi-workbench/studio/thread-lifecycle.js",
   pendingWork:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/pending-work.js",
   turnPolicy:
@@ -172,6 +174,7 @@ async function readStudioComposite() {
       paths.runtimeEvents,
       paths.runtimeEventSelectors,
       paths.threadEvents,
+      paths.threadLifecycle,
       paths.pendingWork,
       paths.turnPolicy,
       paths.policyLeaseLifecycle,
