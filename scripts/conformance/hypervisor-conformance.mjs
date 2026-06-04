@@ -342,6 +342,15 @@ function runBridge() {
     ["packages/runtime-daemon/src", "crates/client/src/workload_client/mod.rs"],
     "Phase 2 is pending: add Rust workload bridge configuration and fail-closed runner",
   );
+  assertCheck(
+    result,
+    "workspace-status-rust-command-bridge",
+    exists("crates/node/src/bin/ioi-step-module-bridge.rs") &&
+      /workspace\.status/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
+      /ioi\.step_module\.command_bridge\.v1/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")),
+    ["crates/node/src/bin/ioi-step-module-bridge.rs"],
+    "Phase 3 is pending: add a Rust command bridge for the first shadowed daemon tool",
+  );
   return result;
 }
 
