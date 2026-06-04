@@ -74,7 +74,7 @@ fn run_bridge() -> Result<Value, BridgeError> {
         .map_err(|errors| BridgeError::new("invocation_invalid", format!("{errors:?}")))?;
 
     match request.invocation.module_ref.id.as_str() {
-        "workspace.status" => Ok(workspace_status_shadow_response(request)),
+        "workspace.status" => workspace_status_response(request),
         "git.diff" => git_diff_response(request),
         "file.inspect" => file_inspect_response(request),
         other => Err(BridgeError::new(
@@ -84,116 +84,23 @@ fn run_bridge() -> Result<Value, BridgeError> {
     }
 }
 
-fn workspace_status_shadow_response(request: StepModuleBridgeRequest) -> Value {
-    let invocation_id = request.invocation.invocation_id.clone();
-    let suffix = short_suffix(&invocation_id);
-    let receipt_ref = format!("receipt://rust-workload-shadow/workspace.status/{suffix}");
-    let input_hash = request.invocation.input.input_hash.clone();
-    let authority_scopes = request.invocation.authority.authority_scopes.clone();
-    let primitive_capabilities = request.invocation.authority.primitive_capabilities.clone();
-    let result = StepModuleResult {
-        schema_version: STEP_MODULE_RESULT_SCHEMA_VERSION.to_string(),
-        invocation_id,
-        status: StepModuleStatus::Success,
-        execution_result_ref: format!("result://rust-workload-shadow/workspace.status/{suffix}"),
-        normalized_observation_ref: format!(
-            "observation://rust-workload-shadow/workspace.status/{suffix}"
-        ),
-        receipt_refs: vec![receipt_ref.clone()],
-        artifact_refs: vec![],
-        payload_refs: vec![],
-        agentgres_operation_refs: vec![],
-        state_root_after: None,
-        resulting_head: None,
-        workflow_projection: StepModuleWorkflowProjection {
-            workflow_graph_id: request
-                .invocation
-                .workflow_graph_id
-                .clone()
-                .unwrap_or_else(|| "workflow:projection".to_string()),
-            workflow_node_id: request
-                .invocation
-                .workflow_node_id
-                .clone()
-                .unwrap_or_else(|| "node:coding-tool:workspace.status".to_string()),
-            component_kind: "CodingToolNode".to_string(),
-            status: projection_status_for_backend(&request.backend),
-            attempt_id: format!("attempt://rust-workload-shadow/workspace.status/{suffix}"),
-            evidence_refs: vec!["evidence://rust-workload-shadow/workspace.status".to_string()],
-            receipt_refs: vec![receipt_ref],
-        },
-        next: StepModuleNext {
-            model_reentry_required: false,
-            verifier_required: false,
-        },
-    };
-    if let Err(errors) = result.validate() {
-        return json!({
-            "source": "rust_workload_command",
-            "error": {
-                "code": "result_invalid",
-                "message": format!("{errors:?}"),
-            }
-        });
-    }
-    let router_admission = match StepModuleRouterCore.admit_execution(&request.invocation, &result)
-    {
-        Ok(record) => record,
-        Err(error) => {
-            return json!({
-                "source": "rust_workload_command",
-                "error": {
-                    "code": "router_admission_invalid",
-                    "message": format!("{error:?}"),
-                }
-            });
-        }
-    };
-    let receipt_binding =
-        match ReceiptBinder.bind_step_module_result(&request.invocation, &result, vec![]) {
-            Ok(binding) => binding,
-            Err(error) => {
-                return json!({
-                    "source": "rust_workload_command",
-                    "error": {
-                        "code": "receipt_binding_invalid",
-                        "message": format!("{error:?}"),
-                    }
-                });
-            }
-        };
-    let projection_record = match RustProjectionCore.project_step_module_result(
-        &request.invocation,
-        &result,
-        &receipt_binding,
-    ) {
-        Ok(record) => record,
-        Err(error) => {
-            return json!({
-                "source": "rust_workload_command",
-                "error": {
-                    "code": "projection_record_invalid",
-                    "message": format!("{error:?}"),
-                }
-            });
-        }
-    };
-    json!({
-        "source": "rust_workload_command",
-        "backend": request.backend,
-        "invocation": request.invocation,
-        "result": result,
-        "router_admission": router_admission,
-        "receipt_binding": receipt_binding,
-        "projection_record": projection_record,
-        "shadow_observation": {
+fn workspace_status_response(request: StepModuleBridgeRequest) -> Result<Value, BridgeError> {
+    let workspace_root = request.workspace_root.clone().ok_or_else(|| {
+        BridgeError::new(
+            "workspace_root_required",
+            "workspace_root is required".to_string(),
+        )
+    })?;
+    let status_result = inspect_workspace_status(&workspace_root, &request.input)?;
+    let result = successful_step_module_result(&request, "workspace.status", "CodingToolNode");
+    Ok(step_module_response(
+        request,
+        result,
+        json!({
             "tool": "workspace.status",
-            "input_hash": input_hash,
-            "include_ignored": request.input.get("includeIgnored").and_then(Value::as_bool).unwrap_or(false),
-            "authority_scopes": authority_scopes,
-            "primitive_capabilities": primitive_capabilities,
-        }
-    })
+            "result": status_result,
+        }),
+    ))
 }
 
 fn git_diff_response(request: StepModuleBridgeRequest) -> Result<Value, BridgeError> {
@@ -356,6 +263,101 @@ fn step_module_response(
         "projection_record": projection_record,
         "shadow_observation": shadow_observation,
     })
+}
+
+fn inspect_workspace_status(workspace_root: &str, input: &Value) -> Result<Value, BridgeError> {
+    let root = fs::canonicalize(workspace_root)
+        .map_err(|error| BridgeError::new("workspace_root_invalid", error.to_string()))?;
+    let include_ignored = input
+        .get("includeIgnored")
+        .or_else(|| input.get("include_ignored"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let mut args = vec![
+        "status".to_string(),
+        "--short".to_string(),
+        "--branch".to_string(),
+        "--untracked-files=all".to_string(),
+    ];
+    if include_ignored {
+        args.push("--ignored".to_string());
+    }
+    let status = run_git_read_only(&root, &args)?;
+    if !status.ok {
+        return Ok(json!({
+            "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
+            "workspaceRoot": workspace_root,
+            "git": {
+                "available": false,
+                "status": "not_git_repository",
+                "error": nonempty_command_error(&status, "git status failed"),
+            },
+            "changedFiles": [],
+            "counts": {
+                "changed": 0,
+                "untracked": 0,
+                "ignored": 0,
+            },
+            "shellFallbackUsed": false,
+        }));
+    }
+
+    let lines = status
+        .stdout
+        .lines()
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>();
+    let branch = lines
+        .iter()
+        .find_map(|line| line.strip_prefix("##").map(str::trim))
+        .filter(|line| !line.is_empty())
+        .map(ToOwned::to_owned);
+    let mut changed_files = Vec::new();
+    let mut changed = 0u64;
+    let mut untracked = 0u64;
+    let mut ignored = 0u64;
+    for line in lines.iter().filter(|line| !line.starts_with("##")) {
+        let path = line.get(3..).unwrap_or("").trim();
+        if path.is_empty() {
+            continue;
+        }
+        let status_code = line.get(0..2).unwrap_or("").trim();
+        let status_code = if status_code.is_empty() {
+            "modified"
+        } else {
+            status_code
+        };
+        changed += 1;
+        if status_code.contains('?') {
+            untracked += 1;
+        }
+        if status_code.contains('!') {
+            ignored += 1;
+        }
+        changed_files.push(json!({
+            "status": status_code,
+            "path": path,
+        }));
+    }
+    let porcelain_hash = ioi_crypto::algorithms::hash::sha256(status.stdout.as_bytes())
+        .map(|hash| hex::encode(hash))
+        .map_err(|error| BridgeError::new("workspace_status_hash_failed", error.to_string()))?;
+    Ok(json!({
+        "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
+        "workspaceRoot": workspace_root,
+        "git": {
+            "available": true,
+            "branch": branch,
+            "porcelainHash": porcelain_hash,
+        },
+        "changedFiles": changed_files,
+        "counts": {
+            "changed": changed,
+            "untracked": untracked,
+            "ignored": ignored,
+        },
+        "shellFallbackUsed": false,
+    }))
 }
 
 fn inspect_git_diff(workspace_root: &str, input: &Value) -> Result<Value, BridgeError> {
@@ -715,6 +717,76 @@ impl BridgeError {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn workspace_status_reads_git_porcelain_status() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir(&workspace).expect("workspace dir");
+        run_test_git(&workspace, &["init"]);
+        run_test_git(&workspace, &["config", "user.email", "test@example.com"]);
+        run_test_git(&workspace, &["config", "user.name", "IOI Test"]);
+        fs::write(workspace.join("README.md"), "before\n").expect("fixture file");
+        run_test_git(&workspace, &["add", "README.md"]);
+        run_test_git(&workspace, &["commit", "-m", "initial"]);
+        fs::write(workspace.join("README.md"), "after\n").expect("updated file");
+        fs::write(workspace.join("new.txt"), "new\n").expect("new file");
+
+        let result = inspect_workspace_status(
+            workspace.to_str().expect("utf8 path"),
+            &json!({
+                "includeIgnored": true
+            }),
+        )
+        .expect("status result");
+
+        assert_eq!(result["schemaVersion"], CODING_TOOL_RESULT_SCHEMA_VERSION);
+        assert_eq!(result["git"]["available"], true);
+        assert!(
+            result["git"]["branch"]
+                .as_str()
+                .expect("branch")
+                .contains("main")
+                || result["git"]["branch"]
+                    .as_str()
+                    .expect("branch")
+                    .contains("master")
+        );
+        assert!(result["changedFiles"]
+            .as_array()
+            .expect("changed files")
+            .iter()
+            .any(|entry| entry["path"] == "README.md"));
+        assert!(result["changedFiles"]
+            .as_array()
+            .expect("changed files")
+            .iter()
+            .any(|entry| entry["path"] == "new.txt" && entry["status"] == "??"));
+        assert_eq!(result["counts"]["changed"], 2);
+        assert_eq!(result["counts"]["untracked"], 1);
+        assert_eq!(
+            result["git"]["porcelainHash"].as_str().expect("hash").len(),
+            64
+        );
+        assert_eq!(result["shellFallbackUsed"], false);
+    }
+
+    #[test]
+    fn workspace_status_reports_not_git_repository_without_failing_step() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir(&workspace).expect("workspace dir");
+
+        let result = inspect_workspace_status(workspace.to_str().expect("utf8 path"), &json!({}))
+            .expect("status result");
+
+        assert_eq!(result["schemaVersion"], CODING_TOOL_RESULT_SCHEMA_VERSION);
+        assert_eq!(result["git"]["available"], false);
+        assert_eq!(result["git"]["status"], "not_git_repository");
+        assert_eq!(result["changedFiles"], json!([]));
+        assert_eq!(result["counts"]["changed"], 0);
+        assert_eq!(result["shellFallbackUsed"], false);
+    }
 
     #[test]
     fn git_diff_reads_bounded_workspace_diff() {

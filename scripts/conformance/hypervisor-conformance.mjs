@@ -356,6 +356,8 @@ function runBridge() {
       exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs") &&
       /run_bridge_response_from_stdin/.test(bridgeBin) &&
       /workspace\.status/.test(bridgeModule) &&
+      /inspect_workspace_status/.test(bridgeModule) &&
+      !/workspace_status_shadow_response/.test(bridgeModule) &&
       /git\.diff/.test(bridgeModule) &&
       /file\.inspect/.test(bridgeModule) &&
       /ioi\.step_module\.command_bridge\.v1/.test(bridgeModule) &&

@@ -218,7 +218,18 @@ test("coding tool invocation surface runs workspace.status through rust workload
           },
           shadow_observation: {
             tool: "workspace.status",
-            include_ignored: true,
+            result: {
+              schemaVersion: "ioi.runtime.coding-tool-result.v1",
+              workspaceRoot: "/tmp/workspace",
+              git: {
+                available: true,
+                branch: "main",
+                porcelainHash: "abc123",
+              },
+              changedFiles: [{ status: "M", path: "README.md" }],
+              counts: { changed: 1, untracked: 0, ignored: 0 },
+              shellFallbackUsed: false,
+            },
           },
         },
       };
@@ -243,6 +254,10 @@ test("coding tool invocation surface runs workspace.status through rust workload
   assert.equal(runnerCalls.length, 1);
   assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
   assert.equal(result.result.rustWorkload, true);
+  assert.equal(result.result.git.available, true);
+  assert.equal(result.result.git.branch, "main");
+  assert.deepEqual(result.result.changedFiles, [{ status: "M", path: "README.md" }]);
+  assert.equal(result.result.counts.changed, 1);
   assert.equal(result.result.executionResultRef, "result://rust-live/workspace.status");
   assert.equal(result.result.routerAdmission.schema_version, "ioi.step_module_router_admission.v1");
   assert.equal(result.step_module.backend, "rust_workload_live");
