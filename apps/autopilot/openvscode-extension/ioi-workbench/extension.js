@@ -14,6 +14,7 @@ const { createWorkspaceBridge } = require("./bridge/workspace-bridge");
 const { registerChatCommands } = require("./commands/chat");
 const { registerMigrationCommands } = require("./commands/migration");
 const { registerModelCommands } = require("./commands/models");
+const { registerNavigationCommands } = require("./commands/navigation");
 const { registerQuickInputCommands } = require("./commands/quick-input");
 const { registerRuntimeSurfaceCommands } = require("./commands/runtime-surfaces");
 const { registerStudioQuickInputCommands } = require("./commands/studio-quick-input");
@@ -12632,94 +12633,25 @@ function registerNativeCommands(context, output) {
       await focusStudioPanelComposer();
       status(`Agent permissions set to ${picked.label}.`);
     }),
-    vscode.commands.registerCommand("ioi.overview.open", async (payload = {}) => {
-      const contextSnapshot = buildWorkspaceActionContext("overview");
-      await enterAutopilotMode("home", output);
-      await openOverviewPanel(context, output);
-      await writeBridgeRequest("overview.open", {
-        workspaceRoot: workspaceSummary().path,
-        sourceCommand: "ioi.overview.open",
-        phase: pickString(payload, "phase") || "home",
-        runtimeAuthority: "daemon-owned",
-        projectionOwner: "openvscode-workbench-adapter",
-        ownsRuntimeState: false,
-      }, contextSnapshot).catch((error) => {
-        output.appendLine(
-          `[ioi-overview] bridge request unavailable: ${error?.message || String(error)}`,
-        );
-      });
-      closePrimarySidebarAfterActivityLaunch();
-      status("Opened Autopilot Overview.");
-    }),
-    vscode.commands.registerCommand("ioi.commandCenter.open", async (options = {}) => {
-      const initialQuery =
-        options && typeof options.initialQuery === "string"
-          ? options.initialQuery
-          : "";
-      const mode =
-        options && typeof options.mode === "string" && options.mode === "tools"
-          ? "tools"
-          : undefined;
-      const context = buildWorkspaceActionContext("command-center.autopilot-header");
-      await writeBridgeRequest("commandCenter.open", {
-        workspaceRoot: workspaceSummary().path,
-        sourceCommand: "ioi.commandCenter.open",
-        initialQuery,
-        ...(mode ? { mode } : {}),
-      }, context);
-      status("Opening Autopilot command center.");
-    }),
-    vscode.commands.registerCommand("ioi.code.open", async () => {
-      const contextSnapshot = buildWorkspaceActionContext("code-mode");
-      await enterAutopilotMode("code", output);
-      await openGenericModePanel(context, output, "code");
-      await writeBridgeRequest("code.open", {
-        workspaceRoot: workspaceSummary().path,
-        sourceCommand: "ioi.code.open",
-        runtimeAuthority: "daemon-owned",
-        projectionOwner: "openvscode-workbench-adapter",
-        ownsRuntimeState: false,
-        vscodeSubstrateVisible: true,
-      }, contextSnapshot).catch((error) => {
-        output.appendLine(
-          `[ioi-code] bridge request unavailable: ${error?.message || String(error)}`,
-        );
-      });
-      await vscode.commands.executeCommand("workbench.view.explorer").catch(() => undefined);
-      status("Opened Code mode.");
-    }),
-    vscode.commands.registerCommand("ioi.autopilot.back", async () => {
-      const targetMode =
-        lastAutopilotModeBeforeCode && lastAutopilotModeBeforeCode !== "code"
-          ? lastAutopilotModeBeforeCode
-          : "home";
-      const target = AUTOPILOT_MODE_BY_ID[targetMode] || AUTOPILOT_MODE_BY_ID.home;
-      await enterAutopilotMode(target.id, output);
-      await vscode.commands.executeCommand(target.command, {
-        source: "code-back",
-        phase: target.phase,
-      });
-      closePrimarySidebarAfterActivityLaunch();
-      status(`Returned to Autopilot ${target.title}.`);
-    }),
-    vscode.commands.registerCommand("ioi.studio.open", async (payload = {}) => {
-      const contextSnapshot = buildWorkspaceActionContext("studio");
-      await enterAutopilotMode("studio", output);
-      await openStudioPanel(context, output);
-      await writeBridgeRequest("studio.open", {
-        workspaceRoot: workspaceSummary().path,
-        sourceCommand: "ioi.studio.open",
-        phase: pickString(payload, "phase") || "chat",
-        runtimeAuthority: "daemon-owned",
-        projectionOwner: "openvscode-workbench-adapter",
-        ownsRuntimeState: false,
-      }, contextSnapshot).catch((error) => {
-        output.appendLine(
-          `[ioi-studio] bridge request unavailable: ${error?.message || String(error)}`,
-        );
-      });
-      closePrimarySidebarAfterActivityLaunch();
-      status("Opened Agent Studio.");
+    ...registerNavigationCommands({
+      vscode,
+      output,
+      status,
+      buildWorkspaceActionContext,
+      writeBridgeRequest,
+      workspaceSummary,
+      pickString,
+      autopilotModeById: AUTOPILOT_MODE_BY_ID,
+      getLastAutopilotModeBeforeCode: () => lastAutopilotModeBeforeCode,
+      getStudioPanel: () => studioPanel,
+      enterHome: () => enterAutopilotMode("home", output),
+      enterStudio: () => enterAutopilotMode("studio", output),
+      enterCode: () => enterAutopilotMode("code", output),
+      enterMode: (modeId) => enterAutopilotMode(modeId, output),
+      openOverviewPanel: () => openOverviewPanel(context, output),
+      openStudioPanel: () => openStudioPanel(context, output),
+      openGenericModePanel: (modeId) => openGenericModePanel(context, output, modeId),
+      closePrimarySidebarAfterActivityLaunch,
     }),
     ...registerStudioTestHookCommands({
       vscode,
@@ -12755,24 +12687,6 @@ function registerNativeCommands(context, output) {
       studioContextQuickPickItems,
       studioToolQuickPickItems,
     }),
-    vscode.commands.registerCommand("ioi.studio.agentBuilder", async () => {
-      const contextSnapshot = buildWorkspaceActionContext("agent-builder");
-      await enterAutopilotMode("studio", output);
-      await openStudioPanel(context, output);
-      await writeBridgeRequest("studio.agentBuilder.open", {
-        workspaceRoot: workspaceSummary().path,
-        sourceCommand: "ioi.studio.agentBuilder",
-        preview: true,
-        runtimeAuthority: "daemon-owned",
-        projectionOwner: "openvscode-workbench-adapter",
-        ownsRuntimeState: false,
-      }, contextSnapshot).catch((error) => {
-        output.appendLine(
-          `[ioi-studio] agent builder bridge request unavailable: ${error?.message || String(error)}`,
-        );
-      });
-      status("Opened Agent Builder preview.");
-    }),
     ...registerChatCommands({
       vscode,
       output,
@@ -12785,16 +12699,6 @@ function registerNativeCommands(context, output) {
       startNewStudioSession,
       refreshStudioPanelHtml: () => refreshStudioPanelHtml(output),
       focusStudioPanelComposer,
-    }),
-    vscode.commands.registerCommand("ioi.studio.focusComposer", async () => {
-      if (studioPanel) {
-        studioPanel.reveal(vscode.ViewColumn.One);
-        await studioPanel.webview.postMessage({
-          source: "ioi-studio-control",
-          type: "focusComposer",
-        });
-      }
-      status("Focused Agent Studio composer.");
     }),
     vscode.commands.registerCommand("ioi.studio.applyAgentMode", async (payload = {}) => {
       const applied = applyStudioAgentModeSelection(payload);

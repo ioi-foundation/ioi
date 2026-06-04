@@ -27,6 +27,8 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/migration.js` for migration-assistant command registration.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/models.js`.
 - Moved Models command registration out of `extension.js` while preserving public `ioi.models.*` command ids, daemon model-workbench action envelopes, catalog source/download envelopes, and model-to-workflow binding behavior.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/navigation.js`.
+- Moved Autopilot overview, command center, code-mode, back-navigation, Agent Studio open, Agent Builder, and Studio composer-focus command registration out of `extension.js` while preserving public `ioi.overview.open`, `ioi.commandCenter.open`, `ioi.code.open`, `ioi.autopilot.back`, `ioi.studio.open`, `ioi.studio.agentBuilder`, and `ioi.studio.focusComposer` command ids and bridge request envelopes.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/runtime-surfaces.js`.
 - Moved runs, policy, artifact drill-in, connector, and governed browser/computer-use command registration out of `extension.js` while preserving public `ioi.runs.*`, `ioi.policy.open`, `ioi.artifacts.openEvidence`, `ioi.artifacts.openPolicy`, `ioi.chatSession.openArtifact`, `ioi.connections.*`, and `ioi.automation.browser` command ids and bridge request envelopes.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/quick-input.js` for fork-native QuickInput handoff commands.
